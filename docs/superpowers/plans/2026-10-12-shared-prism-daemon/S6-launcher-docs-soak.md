@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Validation status (2026-10-16).** Every task of this plan was built before the plan was written, on the local scratch branch `scratch/s6-validate` (worktree `~/code/prism-s6-validate`) from `main` `61c2a9e5`, and every mutant named in a task was applied there, each alone: 30 of 30 were killed. The source was then cut into this plan's tasks on `scratch/s6-tasks`, the plan's directives were generated from that branch's per-task commits, and the plan was replayed by a script onto `61c2a9e5` (`scratch/s6-replay`), each anchor matching once, to a tree byte-identical with `scratch/s6-tasks` and with the validated code; each task's red and green steps below were run on partial replays. The launcher's tests and the soak tools' tests (the live fan-out run against a container-built binary included) were run on Linux (aarch64, the bridge's `a2a-toolchain` image, as root), 10 times each (V11). The mutation gate was not run (it selects no MCP code and no Python; lane README). **The soak itself is not code and was not run**: it is the lane's acceptance, specified under "The soak" for the controller, after the owner has answered the questions below.
+> **Validation status (2026-10-16; review round 1 folded the same day).** Every task of this plan was built before the plan was written, on the local scratch branch `scratch/s6-validate` (worktree `~/code/prism-s6-validate`) from `main` `61c2a9e5`, merged up to `main` `4a9e6476` (lane docs only in between), test first; review round 1's fold (Opus 5.5 FIX, gpt-6.1-sol FIX: the launcher and docs correct, the soak specification and its instruments not) was folded the same way, its tests committed red before the code (see "Review round 1" at the end). Every mutant named in a task was applied there, each alone: 59 of 59 were killed. The source was then cut into this plan's tasks on `scratch/s6-tasks`, the plan's directives were generated from that branch's per-task commits, and the plan was replayed by a script onto `4a9e6476` (`scratch/s6-replay`), each anchor matching once, to a tree byte-identical with `scratch/s6-tasks` and with the validated code, executable modes included; each task's red and green steps below were run on partial replays. The launcher's tests and the soak tools' tests (the live fan-out run against a container-built binary included) were run on Linux (aarch64, the bridge's `a2a-toolchain` image, as root), 10 times each (V11). The mutation gate was not run (it selects no MCP code and no Python; lane README). **The soak itself is not code and was not run**: it is the lane's acceptance, specified under "The soak" for the controller, after the owner has answered the questions below.
 
 ## Validate before dispatch
 
@@ -10,17 +10,17 @@ What each check must show, and what it showed. Every cargo command ran alone, as
 
 | # | Command | Must show | Observed |
 |---|---|---|---|
-| V1 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` on the untouched base | The base total; later totals are "base + N". | `52 passed`, the goldens' test `ok`, at `61c2a9e5`. |
-| V2 | Each task's red step, on a partial replay of this plan | What the step says. | Task 1: `test result: FAILED. 3 passed; 3 failed`, the three named. Task 2: `ModuleNotFoundError: No module named 'soak'`, `FAILED (errors=1)`. Task 3: `No module named 'fanout'` twice, `FAILED (errors=2)`. |
-| V3 | Each task's green step, on the replay | The count the step states, no warning. | Task 1: `6 passed` (52 filtered out), no `warning`. Task 2: `Ran 16 tests`, `OK`. Task 3: `Ran 33 tests`, `OK (skipped=1)`; with `PRISM_SOAK_BIN`, `Ran 33 tests`, `OK`. |
-| V4 | `cargo test --features mcp` (the whole suite) and `cargo test --doc --features mcp` | `0 failed`. | 31 `test result` lines, **6,232 passed, 0 failed, 1 ignored**; doc tests `2 passed`. Run at `c9be7b01`, whose `src/`, `tests/`, `Cargo.toml`, `Cargo.lock` and `build.rs` equal the head's (`git diff --stat c9be7b01 9e82b670 -- src tests Cargo.toml Cargo.lock build.rs` is empty; later commits touch only `scripts/soak/`). The base's total, not run, is 6,232 − 6 = 6,226 by the same count. |
-| V5 | The soak tools' tests, with and without `PRISM_SOAK_BIN`, and memreport's | All `OK`. | `Ran 33 tests`, `OK (skipped=1)`; with the debug binary `Ran 33 tests`, `OK`; `scripts/memreport` (which `fanout.py` imports) `Ran 349 tests`, `OK`. |
+| V1 | `env -u PRISM_MCP_BLESS_GOLDEN cargo test --features mcp --test mcp` on the untouched base | The base total; later totals are "base + N". | `52 passed`, the goldens' test `ok`, at `61c2a9e5` (`4a9e6476` differs from it only in two lane documents). |
+| V2 | Each task's red step, on a partial replay of this plan | What the step says. | Task 1: `test result: FAILED. 3 passed; 4 failed`, the four named. Task 2: `No module named 'soak'` twice, `FAILED (errors=2)`. Task 3: `No module named 'fanout'` three times, `FAILED (errors=3)`. Review round 1's tests were also committed red against the unfolded code (`Ran 59 tests`, `FAILED (failures=4, errors=35)`; "Review round 1"). |
+| V3 | Each task's green step, on the replay | The count the step states, no warning. | Task 1: `7 passed` (52 filtered out), no `warning`. Task 2: `Ran 32 tests`, `OK`. Task 3: `Ran 59 tests`, `OK (skipped=1)`; with `PRISM_SOAK_BIN`, `Ran 59 tests`, `OK`. |
+| V4 | `cargo test --features mcp` (the whole suite) and `cargo test --doc --features mcp` | `0 failed`. | At the head (`f76f8e33`): 31 `test result` lines, **6,233 passed, 0 failed, 1 ignored**; doc tests `2 passed`. The base's total by the same count is 6,233 − 7 = 6,226 (the round-0 head had 6,232, one launcher test fewer). |
+| V5 | The soak tools' tests, with and without `PRISM_SOAK_BIN`, and memreport's | All `OK`. | `Ran 59 tests`, `OK (skipped=1)`; with the debug binary `Ran 59 tests`, `OK`; `scripts/memreport` (which `fanout.py` imports) `Ran 349 tests`, `OK` (round 0; memreport untouched since). |
 | V6 | `cargo check`, `cargo check --features mcp`, `cargo fmt --check` | `Finished`; no warning; fmt silent. | Both `Finished`, 0 warnings; fmt silent at the head and at every task commit of the cut. |
 | V7 | `cargo clippy --all-targets --features mcp -- -W clippy::all`, filtered to the touched files | No line in a touched file. | 313 `warning` lines, none naming `tests/mcp/launcher_test.rs` or `tests/mcp/main.rs` (the only Rust files touched). |
-| V8 | Every "prove the tests bite" step | The named tests fail under the named mutant. | L1–L5, S1–S13, F1–F12: **30 of 30 killed**, each alone, at the head (`9e82b670`; L1–L5 at `f97a04ed`, whose launcher and its tests are the head's). S7 is killed only where the local time zone is not UTC (this host: MDT). |
-| V9 | Repeats on macOS | All `ok`; no daemon left. | At the head (`9e82b670`): `10 test result: ok. 6 passed` (`--test mcp launcher`) and `10 Ran 33 tests` / `10 OK` (the soak tools with the debug binary, the live test included); `pgrep -fl 'prism-mcp daemon'` empty afterwards. |
-| V10 | The zero-diff and replay checks | Nothing in `src/`, `.claude-plugin/` or the goldens; the replay byte-identical. | `git diff --stat 61c2a9e5 9e82b670 -- src .claude-plugin tests/fixtures/mcp/golden` is empty. The replay `scratch/s6-replay` (`525b7659`, 20 directives, every anchor matching once) has tree `c6aeb376`, the tree of `scratch/s6-tasks` (`bf7d3c23`) and of the validated head (`9e82b670`), executable modes included. |
-| V11 | Linux: the bridge's `a2a-toolchain` image (Debian, aarch64, rustc 1.94, Python 3.12, uid 0, no `ps`/`pgrep`), Task 4 Step 4's script, at the head; the disk checked (111 GiB free) in a command of its own first | All `ok`. | `failed Linux runs: 0`: `10 test result: ok. 6 passed` (`--test mcp launcher`, the process test included), `10 Ran 33 tests` / `10 OK` (the soak tools, the live fan-out test against the container-built binary included); no `left:` line; volumes removed by the `trap`. x86_64 Linux: CI only (the launcher's tests; CI runs no Python here, D117). |
+| V8 | Every "prove the tests bite" step | The named tests fail under the named mutant. | L1–L6, S1–S13, S7b, U1–U17, F1–F22: **59 of 59 killed**, each alone. Four first survived review round 1's fold (U11, F9, F15, F16): each got a test that fails under it (Validation record, corrections 7–10), and was killed. S7 and S7b are killed in every zone (the test sets its own). |
+| V9 | Repeats on macOS | All `ok`; no daemon left. | At the head (`f76f8e33`): `10 test result: ok. 7 passed` (`--test mcp launcher`) and `10 Ran 59 tests` / `10 OK` (the soak tools with the debug binary, the live test included); `pgrep -fl 'prism-mcp daemon'` empty afterwards. |
+| V10 | The zero-diff and replay checks | Nothing in `src/`, `.claude-plugin/` or the goldens; the replay byte-identical. | `git diff --stat 4a9e6476 f76f8e33 -- src .claude-plugin tests/fixtures/mcp/golden` is empty. The replay `scratch/s6-replay` (`1e487b34`, 24 directives, every anchor matching once) has tree `84c42714`, the tree of `scratch/s6-tasks` (`99b0c2af`) and of the validated head (`f76f8e33`), executable modes included. |
+| V11 | Linux: the bridge's `a2a-toolchain` image (Debian, aarch64, rustc 1.94, Python 3.12, uid 0, no `ps`/`pgrep`), Task 4 Step 4's script, at the head; the disk checked (118 GiB free) in a command of its own first | All `ok`. | `failed Linux runs: 0`: `10 test result: ok. 7 passed` (`--test mcp launcher`, the process test included), `10 Ran 59 tests` / `10 OK` (the soak tools, the live fan-out test against the container-built binary included); no `left:` line; volumes removed by the `trap`. x86_64 Linux: CI only. |
 
 ## Owner questions (to answer before dispatch)
 
@@ -29,11 +29,11 @@ Each is a behavior or a value the spec leaves to the owner, or an action outside
 1. **How a Claude Code plugin user opts in (D110).** The plugin's MCP arguments live in its installed manifest (`.claude-plugin/plugin.json`, copied into `~/.claude/plugins/cache/…`), which a user does not edit. **Recommended: (A) an environment variable, `PRISM_MCP_SHARED=1`, read by the launcher** (built and tested here): opt-in per user and per shell, nothing changes for anyone else, and the default flip later is one line in the launcher. (B) `--shared` in `plugin.json` for every plugin user: makes shared mode the default for the plugin before the soak, against spec §8 step 1 and §11 item 2. (C) Documentation only: a plugin user cannot opt in without editing the cache.
 2. **The runtime directory on this host (SI-42, D115).** Every launcher that should share a daemon must resolve one directory. Claude Code passes `$TMPDIR` (measured); whether a host-run Codex does was not measured. **Recommended: set `PRISM_MCP_RUNTIME_DIR=/tmp` explicitly everywhere** — in `.codex/config.toml` (Task 4), in the bridge's `[[agents.mcp.env]]`, and in the shell profile Claude Code and the operator start from — giving `/tmp/prism-mcpd`: one literal for every configuration file, short (37-byte socket paths), the spec's own Linux fallback, cleared at reboot. Cost: `/tmp/prism-mcpd` is one name per host, so on a host with a second user that user must set another value (this Mac has one). Alternatives: (B) leave it unset and rely on `$TMPDIR` reaching every launcher (a split costs a second index, silently, until the soak's `one_index_per_key` rule shows it); (C) a directory under the home, for example `~/.local/state/prism-mcp` (also valid; each configuration file then carries the home path).
 3. **One cache directory for the bridge and for interactive sessions.** The host-run bridge configurations pass `--cache-dir ~/.local/share/a2a/prism-cache-host`; interactive sessions and the project's `.codex/config.toml` use the default cache. The cache base is in the identity key (spec §4.3), so the same checkout gets two daemons and two indexes during a bridge round. **Recommended: drop `--cache-dir` from the host-run bridge entries for the soak**, so bridge agents and interactive sessions share one daemon per checkout (the default cache of `~/code/slicing` is already warm from interactive use). Alternative: keep it (two daemons per checkout; the soak report shows them as `max_daemons_per_repo` 2, information, not a failure). Containerized configurations are not affected (their agents have daemons of their own inside their containers).
-4. **When `.codex/config.toml` changes.** A checkout with the new configuration runs `prism-mcp --shared` from `~/code/slicing/target/release/prism-mcp`; the binary deployed there today (`9d5a67bc`, before S5a) rejects `--shared`, and Codex then has no prism server in that checkout. **Recommended: keep the change in this pull request and merge it only after the soak's Phase 0 has installed a binary of this slice's merge at that path.** Alternative: drop the file from Task 4 and apply it at Phase 0.
-5. **The soak's deployment, outside this repository** (Phase 0 below): replace the two deployed binaries (`~/code/slicing/target/release/prism-mcp`, `~/.claude/plugins/cache/prism-dev/prism/3.1.2/target/release/prism-mcp`) and the plugin cache's launcher by rename (`.pre-s6` kept), export the two variables in the shell profile, and edit the bridge configurations the soak uses. **Recommended: yes, as listed, with the rollback stated there.** No step of this plan does any of it; the controller does it after this approval.
+4. **When `.codex/config.toml` changes** (revised after review round 1, Opus W5, sol 1). A checkout with the new configuration runs `prism-mcp --shared` from `~/code/slicing/target/release/prism-mcp`; the binary deployed there today (`9d5a67bc`, before S5a) rejects `--shared`, and Codex then has no prism server in that checkout. **Recommended: keep the change in this pull request, build the soak's binary from the PR head (its `src/` is `main`'s, so the binary is the merge's in all but its commit), install it in Phase 0, check every launcher with `soak.py probe`, and only then merge.** The earlier text said "a binary of this slice's merge", which cannot exist before the merge it gates. Alternative: drop the file from Task 4 and apply it at Phase 0 (rollback then reverts it with the bridge's configurations).
+5. **The soak's deployment, outside this repository** (Phase 0 below, revised after review round 1, sol 1, Opus W4, W6, S2): copy every file it replaces into `$E/deploy/originals/` with its sha256 first, then replace the two deployed binaries (`~/code/slicing/target/release/prism-mcp`, `~/.claude/plugins/cache/prism-dev/prism/3.1.2/target/release/prism-mcp`) and the plugin cache's launcher, each step guarded so that a second run never overwrites a kept original; point the bridge's entries (and, for the soak, nothing else) at the pinned `$E/bin/prism-mcp`; snapshot the bridge's and Codex's configurations before editing them; export the two variables in the shell profile. **Rollback** reverses it in an order that never leaves a configuration passing `--shared` to a binary that rejects it: configurations first (bridge and Codex from their snapshots, `--shared` removed), then the daemons stopped with the S6 binary `$E/bin/prism-mcp` (kept until rollback ends), then the old binaries restored, then every launcher probed. **Recommended: yes, as listed.** No step of this plan does any of it; the controller does it after this approval.
 6. **The plugin's version.** **Recommended: no bump in S6** (the opt-in is additive and this host's plugin is updated by Phase 0's file replacement); bump at the default flip, noting that an updated plugin's new cache directory has no built binary, so the launcher falls back to `PATH` (and fails with its "build it" message when there is none).
-7. **The soak's pass thresholds** (each phase below). **Recommended:** fan-out: on excalidraw, eight shims against eight standalone servers, three interleaved pairs, every run admissible, the shared median p95 at most 1.10× and median p99 at most 1.25× the standalone medians (`P95_MAX_RATIO`, `P99_MAX_RATIO`); bridge round: all five report rules pass (`one_index_per_key`, `no_standalone_index`, `no_fail_closed`, `no_abort`, `no_critical_pressure`); week: `one_index_per_key`, `no_fail_closed` and `no_abort` pass, with no restart-bound refusal, and the other two reported. Alternatives: a looser latency bound (1.25×/1.5×) if the host cannot be made quiet; a footprint ceiling per key (for example the corpus's C1 refresh peak) in place of `no_critical_pressure` for the round.
-8. **The week's scope and floor (SI-41).** **Recommended:** Claude Code sessions through the plugin, bridge rounds, and Codex sessions in the slicing checkout count; the week counts when at least 5 of its 7 days have a sample with at least one shim; fail-closed lines are counted from Claude Code's logs and the wrapper's logs, and the project's Codex sessions are pointed at the wrapper for the week (a local, uncommitted change to that checkout's `.codex/config.toml`) or are left uncounted, disclosed. A week below the floor is extended, not passed.
+7. **The soak's pass thresholds** (revised after review round 1, Opus W1, S1, sol 3, sol 4). **Recommended:** fan-out: first an A/A calibration (three standalone runs against three standalone runs on excalidraw, the same `compare`): if its own ratios exceed 1.10 (p95) or 1.25 (p99), the bound is unreachable on this host and goes to the owner before any gate run; then the gate, eight shims against eight standalone servers, three pairs in ABBA order, every run admissible (exactly one successful `refresh_index`, no critical or unreadable pressure reading, every call answered, one daemon), shared median p95 ≤ 1.10× and median p99 ≤ 1.25× the standalone medians. The refresh's stall (the calls of other clients overlapping the refresh, and the longest of them) is reported for both arms and **not gated**: with one refresh in 1,600 calls no percentile can see it (Opus W1), so S3b's SI-11 is reported here, not measured against a bound. Option: gate it too, for example the shared arm's longest overlapping call at most twice the standalone arm's `refresh_ms`. Bridge round: every rule `PASS` (none `UNKNOWN`) and use seen (shims, a daemon reached, an index built); week: the five gated rules `PASS` and the usage floor (question 8). Alternatives: a looser bound if the calibration shows the host's own spread needs it; a footprint ceiling per key in place of `no_critical_pressure` for the round.
+8. **The week's scope and floor (SI-41; revised after review round 1, Opus S3).** **Recommended:** Claude Code sessions through the plugin, bridge rounds, and Codex sessions in the slicing checkout count; a day counts when some sample that day shows use, a daemon with a built index (footprint ≥ 100 MiB) or two shims of one configuration at once (an idle open session does not count); the week counts when at least 5 of its 7 days do; fail-closed lines and startup errors are counted from Claude Code's logs and the wrapper's logs, and the project's Codex sessions are pointed at the wrapper for the week (a local, uncommitted change to that checkout's `.codex/config.toml`, snapshotted and restored at the end) or are left uncounted, disclosed. A week below the floor is extended, not passed.
 9. **The latency baseline for larger repositories (SI-39).** Eight standalone servers of slicing need about 8 × 2 GiB on this 24 GB host (C1 readout), which is the incident itself. **Recommended: gate on excalidraw (8 × about 0.7 GiB) and report slicing as information**: eight shims against one standalone client running the same workload, three runs each.
 10. **The bridge's reaper** (`daemon-shutdown --pid --start-time`, S5b). **Recommended: not built for the soak**: after a round the idle TTL (15 min) frees the index; build it in the bridge only if the round's report shows the residency after rounds matters.
 
@@ -49,19 +49,19 @@ Each is a behavior or a value the spec leaves to the owner, or an action outside
 
 **Interfaces this plan settles** (from the "S6 owes" lists of S3a, S3b, S4, S5a and S5b, each checked under "Self-review record"): the readiness vocabulary, what a client sees on a crash or a drain, the daemon's command line, exit statuses and log lines, the runtime-directory rule, the fail-closed line and every reason, D85's silently ignored flags, D77's minute and its clock, SI-27's rebuilt binary, the `sudo -E` trap, the operator's commands and exit statuses, SI-35's old daemons and `kill -TERM` (all in `docs/MCP.md`); `--shared` in `.codex/config.toml` and the plugin launcher (Tasks 1, 4); the bridge's entry and `PRISM_MCP_RUNTIME_DIR` (documented; applied at the soak with the owner's approval, SI-37); the soak's instruments (Tasks 2, 3) and the soak (specified, "The soak").
 
-**Ships as one pull request** (D114): 15 files, 1,773 insertions and 1 deletion. **Production** (what runs outside a test): 833 lines — `scripts/soak/soak.py` 407, `scripts/soak/fanout.py` 381, `scripts/prism-mcp-launch.sh` +22, `scripts/soak/prism-mcp-logged.sh` 21, `.codex/config.toml` +2/−1; **tests** 748 lines (`scripts/soak/test_soak.py` 213, `test_fanout.py` 204, `tests/mcp/launcher_test.rs` 189, `test_fanout_live.py` 80, `fake_prism_mcp.py` 55, the stand-in 6, one `mod` line); **docs** 192 lines (`docs/MCP.md` +176, `CLAUDE.md` +12, the skill +4). Under the lane's threshold of about 1,000 production lines for a split, and the pieces share one reviewer question (can the soak start, and will it judge the flip correctly?), so one pull request (D114). Nothing in `src/`.
+**Ships as two pull requests** (D114): 19 paths in all, 2,487 insertions and 1 deletion; nothing in `src/`. **S6-1 = Tasks 1–2:** production 670 lines (`scripts/soak/soak_judge.py` 317, `scripts/soak/soak.py` 309, `scripts/prism-mcp-launch.sh` +23, `scripts/soak/prism-mcp-logged.sh` 21), tests 712 (`tests/mcp/launcher_test.rs` 215, `scripts/soak/test_soak.py` 226, `test_soak_coverage.py` 192, `fake_prism_mcp.py` 72, the stand-in 6, one `mod` line). **S6-2 = Tasks 3–4:** production 487 (`scripts/soak/fanout.py` 480, `.github/workflows/ci.yml` +5, `.codex/config.toml` +2/−1), tests 419 (`test_fanout.py` 214, `test_fanout_gate.py` 124, `test_fanout_live.py` 81), docs 199 (`docs/MCP.md` +180, `CLAUDE.md` +15, the skill +4). Split after review round 1 took production from 833 to 1,157 lines, past the lane's threshold of about 1,000 (D114).
 
 ## Global Constraints
 
 - **Nothing under `src/` changes**, and nothing in `.claude-plugin/`. Standalone behavior, the shim, the daemon and the operator's commands are unchanged; the golden transcripts under `tests/fixtures/mcp/golden/` are not touched (never set `PRISM_MCP_BLESS_GOLDEN`). Task 4 checks it.
 - **Opt-in stays opt-in.** No launcher in the repository adds `--shared` for a user who has not asked for it: the plugin's launcher only on `PRISM_MCP_SHARED=1`; `.codex/config.toml` is this repository's own configuration (owner question 4).
 - **The launcher runs under bash 3.2** (macOS's `/bin/bash`): no arrays expanded under `set -u`, no `${var,,}`; the tests run it with `/bin/bash`. A value of `PRISM_MCP_SHARED` the launcher does not accept stops it with exit 2 and one line naming the variable, before anything else runs.
-- **The soak tools are Python 3.9, standard library only** (this host's `python3` is 3.9.6; the image's is 3.12), and never connect to a daemon unless `--status-bin` is given (`sample`) or the run is a shared fan-out arm, whose daemon is its own. They are measurement instruments: they run on the controller's request, never from CI. Their unit tests are hermetic (a fake server, temporary directories); the live test runs only with `PRISM_SOAK_BIN`.
+- **The soak tools are Python 3.9, standard library only** (this host's `python3` is 3.9.6; the image's and CI's are 3.12), and never connect to a daemon unless `--status-bin` is given (`sample`) or the run is a shared fan-out arm, whose daemon is its own. They are measurement instruments run on the controller's request; **CI runs their hermetic tests** (a fake server, temporary directories; D117). The live test runs only with `PRISM_SOAK_BIN`.
 - **One measurement process at a time** (lane rule): `fanout.py` and `soak.py sample` record the host's state with every run so that an overlap is visible; the soak's runbook (below) never overlaps two measured runs.
 - **Tests do not depend on the host's speed.** No test asserts an upper bound on a duration; the process tests wait for a condition up to their hang limit (60 s); the one subprocess test of the fan-out driver bounds only a hang (60 s).
 - **No test writes a file it then executes**: the launcher's stand-in is a committed executable fixture reached through a symbolic link (on Linux a freshly written executable can fail with `ETXTBSY` while another test thread forks); the fake server and the wrapper's stand-in are a committed script and `sys.executable`.
-- **Every process a test starts is ended on every path** (`Launched`'s and S5a's `Daemons`' `Drop`; the fan-out run's own `daemon-shutdown` and its 60 s `SIGTERM` fallback; the client watchdog). After every run of the suite: `pgrep -fl 'prism-mcp daemon'` prints nothing.
-- File size (CLAUDE.md decision 7): every file this slice creates is under 600 weighted lines (`scripts/file_size.py`, which weighs Rust; the Python files are counted by plain lines: `soak.py` 407, `fanout.py` 381, `test_soak.py` 213, `test_fanout.py` 204, `test_fanout_live.py` 80, `fake_prism_mcp.py` 55; `tests/mcp/launcher_test.rs` weighs 168.0).
+- **Every process a test starts is ended on every path** (`Launched`'s and S5a's `Daemons`' `Drop`; the fan-out run's own `daemon-shutdown` and its 60 s `SIGTERM` fallback; the client watchdog and the pressure observer's stop; the run's barrier bounded by its timeout; `probe`'s kill of a silent server). After every run of the suite: `pgrep -fl 'prism-mcp daemon'` prints nothing.
+- File size (CLAUDE.md decision 7): every file this slice creates is under 600 weighted lines (`scripts/file_size.py`, which weighs Rust; the Python files are counted by plain lines: `soak.py` 309, `soak_judge.py` 317, `fanout.py` 480, `test_soak.py` 226, `test_soak_coverage.py` 192, `test_fanout.py` 214, `test_fanout_gate.py` 124, `test_fanout_live.py` 81, `fake_prism_mcp.py` 72; `tests/mcp/launcher_test.rs` weighs 191.5).
 - No new clippy warning in a file this slice adds or edits (one Rust file, `tests/mcp/launcher_test.rs`, and one line of `tests/mcp/main.rs`).
 - **Commit before any experiment.** The "prove the tests bite" steps edit a file and restore it with `git checkout -- <file>`; they come after the task's commit.
 - **Run the launcher's tests and the soak tools' tests on Linux before the pull request** (Task 4), in the bridge's `a2a-toolchain` image with the worktree mounted read-only and named volumes for the target and the registry, removed by a `trap`.
@@ -73,13 +73,18 @@ Each is a behavior or a value the spec leaves to the owner, or an action outside
 - **A runtime directory that differs between two launchers is not an error**: it gives a second daemon, a second index, and no failure anywhere. The docs tell users to set `PRISM_MCP_RUNTIME_DIR` to one value; the soak's `one_index_per_key` rule catches it after the fact (two daemons of one key at once can only be in two runtime directories, since one directory's owner lock admits one).
 - **Different cache directories, refresh policies or builds give different daemons by design** (spec §4.3); the soak report lists repositories with more than one daemon at once (`max_daemons_per_repo`), as information for owner question 3, never as a failure.
 - **An index holder is recognized, not measured exactly**: every daemon, and a standalone server whose footprint is at least 100 MiB (one that has built nothing is a few MiB; D118). A standalone server in the middle of its first load is counted from the sample in which it passes 100 MiB.
-- **A command line is split on spaces.** A repository path with a space in it is cut short in the report's labels; roles do not depend on paths.
-- **The sampler is blind between samples.** A daemon that lives and dies inside one interval (an abort at its first build) is missing from the samples; it is counted by its crash report and by the shims' lines instead.
-- **Fail-closed lines are counted only where they are kept**: Claude Code's MCP logs (measured to hold the server's standard error) and the files `prism-mcp-logged.sh` writes. A Codex session launched by the project's `.codex/config.toml` keeps none unless the owner points it at the wrapper for the soak (owner question 8).
+- **A command line is split on spaces.** A repository path with a space in it is cut short in the report's labels; roles do not depend on paths. A binary path with a space in it is recognized when the prefix ending in `/prism-mcp` is an executable file (review round 1, Opus S5).
+- **What was not observed is UNKNOWN, never PASS** (D124): a sample without a process table, a live standalone server without a footprint, a sample without a pressure reading, a named log source or the crash-report directory missing. A process that ended between the listing and its footprint is `gone`, not a failure. A rule still FAILs on a breach it did see.
+- **The sampler is blind between samples, and to other machines.** A daemon that lives and dies inside one interval (an abort at its first build) is missing from the samples; it is counted by its crash report and by the shims' lines instead. Agents in containers run in the OrbStack VM, outside the host's process table: the bridge round must use a host-run configuration, and its report is INADMISSIBLE without shims, a reached daemon and a built index (D125).
+- **Fail-closed lines and startup errors are counted only where they are kept**: Claude Code's MCP logs (measured to hold the server's standard error) and the files `prism-mcp-logged.sh` writes. A Codex session launched by the project's `.codex/config.toml` keeps none unless the owner points it at the wrapper for the soak (owner question 8). A named source that is missing makes the rules UNKNOWN; a source that exists but that a client never wrote to cannot be told from a quiet one.
+- **Standalone servers that predate a phase are listed, not counted** (D125): one first seen after the phase's first sample is counted. A server restarted with a new pid during the phase counts as new.
 - **Crash reports name the process**: `prism-mcp-<date>.ips`. Test binaries (`prism-<hash>`) are not counted. A crash report outside the window or deleted before the report is missed.
-- **`fanout.py` times a call from its write to its response at the client**, one call outstanding per client, as an agent makes them. It measures the whole path (pipe, shim, socket, daemon, query, writes back), not the query alone. A run's refresh stalls every shared client's calls for the length of the refresh under S3b's write lock (SI-11), and only client 0's in a standalone run; the p95/p99 rule reads that as it is.
+- **`fanout.py` times a call from its write to its response at the client**, one call outstanding per client, as an agent makes them. It measures the whole path (pipe, shim, socket, daemon, query, writes back), not the query alone.
+- **A run's one refresh stalls few calls, which no percentile shows** (SI-43): under S3b's write lock the other clients' outstanding calls wait for it in a shared run, only client 0's in a standalone one. The run reports the overlapping calls and the longest of them; the rule does not gate it (owner question 7).
+- **The pressure observer is in the measuring process** (D126): a reading at the start, every second, and at the end. A critical episode shorter than a second between two readings can be missed; one that is read stops the run's clients.
 - **`fanout.py` does not stop another prism-mcp process** and does not refuse to run beside one: the runbook makes the host quiet first and the run records the host's state before and after.
-- **The pinned rule compares medians across runs**; one bad run in three does not decide it. All runs must be admissible (every call answered, none retryable after warm-up, one daemon instance for a shared arm).
+- **The pinned rule compares medians across runs**; one bad run in three does not decide it. All runs must be admissible and gating (every call answered, none retryable after warm-up, one daemon instance for a shared arm, exactly one successful refresh, no critical or unreadable pressure reading). Whether the bound can be met at all on this host is what the A/A calibration answers before the gate (D123).
+- **`soak.py probe` proves a launcher starts and answers `initialize`**, not that it serves a tool call: a configuration whose server starts and then fails its first call is caught by the logs (`no_fail_closed`), not by the probe.
 
 ## Decisions this plan makes
 
@@ -88,19 +93,24 @@ Each is something the spec leaves open or states ambiguously, or an earlier slic
 | # | Decision | Reason | Cost if wrong |
 |---|---|---|---|
 | D110 | **A Claude Code plugin user opts in with `PRISM_MCP_SHARED=1`, read by `scripts/prism-mcp-launch.sh`; `plugin.json` is unchanged.** | Spec §8 step 1 names "the Claude plugin launcher"; its arguments are in the installed manifest, which a user does not edit, and an unconditional `--shared` there would flip the plugin's default before the soak (spec §8 step 1 "the default stays in-process", §11 item 2). Claude Code hands plugin servers its whole environment (SI-42), so an `export` reaches the launcher. Owner question 1. | Owner question 1's other answers: one line of `plugin.json`, or nothing. |
-| D111 | **Only `1` opts in; unset, empty and `0` do not; any other value stops the launcher with exit 2 and one line naming the variable, before the binary is looked for.** | A typo (`yes`, `true`, ` 1`) must decide nothing silently in either direction: silently standalone is the incident under fan-out, silently shared is an opt-in nobody gave. Exit 2 is the shell's usage error; 127 stays "no binary". | Accepting more spellings: one `case` arm. |
-| D112 | **An explicit `--shared` or `--standalone` among the passed-through arguments wins over the variable** (nothing is added). | `--shared` twice is a clap error, and `--shared --standalone` a conflict: the launcher must not turn a user's explicit choice into a startup failure. | None. |
+| D111 | **Only `1` opts in; unset, empty and `0` do not; any other value stops the launcher with exit 2 and one line naming the variable, before the binary is looked for and before the arguments are read, so an explicit `--shared` or `--standalone` does not rescue it** (precedence stated after review round 1, sol S7; every combination tested). | A typo (`yes`, `true`, ` 1`) must decide nothing silently in either direction: silently standalone is the incident under fan-out, silently shared is an opt-in nobody gave; and a configuration with a bad value should be fixed, not hidden by a flag. Exit 2 is the shell's usage error; 127 stays "no binary". | Letting an explicit flag skip the check: moving the loop above the `case`. |
+| D112 | **An explicit `--shared` or `--standalone` among the passed-through arguments wins over a valid value** (nothing is added). | `--shared` twice is a clap error, and `--shared --standalone` a conflict: the launcher must not turn a user's explicit choice into a startup failure. | None. |
 | D113 | **`--shared` goes right after `--repo <path>`**, before the passed-through arguments. | Clap accepts any order; a fixed place gives one argument vector to test (mutant L5 pins it), and `set -- --shared "$@"` is bash 3.2 safe, where an empty array expanded under `set -u` is not. | None. |
-| D114 | **One pull request.** | 829 production lines, under the lane's about 1,000 for a split; the launcher, the docs and the soak's instruments answer one reviewer question (can the soak start, and will it judge the flip correctly?). | A split along the tasks (1 and 4, then 2 and 3). |
+| D114 | **Two pull requests** (after review round 1): **S6-1 = Tasks 1–2** (the launcher's opt-in; the sampler, the report and the probe), **S6-2 = Tasks 3–4** (the fan-out driver; the docs, `.codex/config.toml`, the CI step). | Review round 1's fold took production from 833 to 1,157 lines (about 1,000 without comments and blank lines), past the lane's threshold for a split; the task boundary is where the reviewer's question changes (can users opt in and can the soak judge what it sees; then can the latency gate be trusted, and is everything documented). S6-2 builds on S6-1 (`fanout.py` imports `soak.py`); `.codex/config.toml` lands with S6-2, the last merge, after Phase 0 (owner question 4). | One PR again: merging the two branches. |
 | D115 | **The repository's `.codex/config.toml` adds `--shared` and `env = { PRISM_MCP_RUNTIME_DIR = "/tmp" }`.** | Spec §8 step 1 names the file; it is this repository's own configuration (absolute paths of this host), not a user default. The runtime directory is owner question 2; when the change lands, owner question 4. | One file. |
 | D116 | **Users' documentation of shared mode is one section of `docs/MCP.md`** (with two flag rows and two environment rows), plus one bullet of the navigation skill and a paragraph of `CLAUDE.md`. | Spec §4.3: "`docs/MCP.md` says so"; every "S6 owes" list points there; a separate page would split the flags from the server's other flags. The skill learns the retryable answers (S3a's note: neither the docs nor the skills named `warming` or `build_failed`). | Moving the section to its own page. |
-| D117 | **The soak's instruments are Python 3.9 standard library in `scripts/soak/`, tested by `unittest` and not by CI**, like `scripts/memreport/`. `fanout.py` imports memreport's workload binding and host state. | They are run by the controller on this host (Python 3.9.6), never by users or CI; CI's Python job runs only `eval/`. The live test needs a built binary and runs only with `PRISM_SOAK_BIN`. Disclosed in the PR. | A CI step `python3 -m unittest discover -s scripts/soak` (and memreport), a few lines of `ci.yml`. |
-| D118 | **An index holder is every daemon, and a standalone server whose footprint is at least 100 MiB.** | A lazy standalone server that has built nothing is about 2–4 MiB (measured: 1.8 MiB for this session's plugin server); a built index is hundreds of MiB to GiB (C1). A shim never holds one. | A constant. |
-| D119 | **`fanout.py` times each call at the client, from its write to its response, one call outstanding per client**; clients warm up first (the first workload call, retried while it is answered retryable), then start together at a barrier, each from its own share of the way through the workload; client 0 calls `refresh_index` once, half way through; percentiles are nearest-rank; refresh calls are reported apart. The workload is memreport's pinned one for the corpus, bound to the corpus's commit. | It measures what an agent waits for, under the interleaving fan-out produces, with the refresh the spec's §6.2 gate names, and the C1 workloads are already pinned and checked. Lockstep clients would measure one seed eight times; a warming answer counted as a timed call would measure the build. | Re-running with other parameters: flags. |
-| D120 | **Fail-closed lines and daemon losses are read from the clients' standard error: Claude Code's MCP logs (`~/Library/Caches/claude-cli-nodejs/<project>/mcp-logs-<server containing prism>/*.jsonl`, entries `"error": "Server stderr: …"`, measured) and `prism-mcp-logged.sh` logs for clients that keep none; aborts from macOS crash reports `prism-mcp[-_]*.ips`.** | A fail-closed shim reaches no daemon, so no daemon file records it; the shim's own line (S5a's D87) is the only record. Daemon logs carry no time stamps and are truncated at a start over 1 MiB; crash reports are time-stamped and name the process (test binaries are `prism-<hash>` and are not counted). | A product-side event log (a shim appending to `<runtime>/prism-mcpd/`), which would touch S5a's code. |
-| D121 | **The sampler reads the process table (`ps -A -ww -o pid=,ppid=,rss=,command=`) and `footprint`; it never connects to a daemon** unless `--status-bin` is given, in which case each sample stores `daemon-status` text. | Sampling must not change what it samples: a daemon of a build before S5b restarts its idle time at every `STATUS` probe (SI-35). | — |
+| D117 | **The soak's instruments are Python 3.9 standard library in `scripts/soak/`; CI runs their hermetic tests** (one step of the build-checks job, a few seconds; added after review round 1, sol and Opus S7, which both recommended it). `fanout.py` imports memreport's workload binding and host state, so a memreport change that breaks them fails CI. The live test needs a built binary and runs only with `PRISM_SOAK_BIN` (Task 3, Task 4, Linux). memreport's own tests stay manual. | The instruments are the lane's acceptance; a regression in them should fail where everyone sees it. | Removing one step of `ci.yml`. |
+| D118 | **An index holder is every daemon, and a standalone server whose measured footprint is at least 100 MiB; a daemon whose measured footprint is at least 100 MiB has built its index.** A process whose footprint could not be measured while it still ran is recorded `failed`, one that had ended `gone` (review round 1, sol 2). | A lazy standalone server that has built nothing is about 2–4 MiB (measured: 1.8 MiB for this session's plugin server); a built index is hundreds of MiB to GiB (C1). A shim never holds one. | A constant. |
+| D119 | **`fanout.py` times each call at the client, from its write to its response, one call outstanding per client**; clients warm up first (the first workload call, retried while it is answered retryable, then one call of every other tool of the workload, review round 1, Opus S6), then start together at a barrier, each from its own share of the way through the workload; client 0 calls `refresh_index` once, half way through; percentiles are nearest-rank; refresh calls are reported apart. A gating run needs exactly that one refresh answered `ok`; `--no-refresh` makes a diagnostic run, which `compare` refuses (review round 1, sol 3). The workload is memreport's pinned one for the corpus, bound to the corpus's commit. | It measures what an agent waits for, under the interleaving fan-out produces, with the refresh the spec's §6.2 gate names. A refresh that failed or never ran would leave a run that measured only reads. | Re-running with other parameters: flags. |
+| D120 | **Fail-closed lines, startup errors (clap's `error: …`, the launcher's refusals) and daemon losses are read from the clients' standard error: Claude Code's MCP logs and `prism-mcp-logged.sh` logs; aborts from macOS crash reports `prism-mcp[-_]*.ips`. A named log source or crash-report directory that is missing makes its rules UNKNOWN; no source at all counts as missing** (review round 1, sol 2, Opus S2). | A fail-closed shim reaches no daemon, so no daemon file records it; a binary that rejects `--shared` never becomes a shim at all. Daemon logs carry no time stamps and are truncated at a start over 1 MiB; crash reports are time-stamped and name the process. | A product-side event log, which would touch S5a's code. |
+| D121 | **The sampler reads the process table (`ps -A -ww -o pid=,ppid=,rss=,command=`) and `footprint`; it never connects to a daemon** unless `--status-bin` is given, and the soak's runbook does not give it (reconciled after review round 1, Opus S4). | Sampling must not change what it samples: a daemon of a build before S5b restarts its idle time at every `STATUS` probe (SI-35). `--status-bin` stays for a person's diagnosis. | — |
 | D122 | **A shared fan-out run uses a runtime directory of its own under `/tmp`, stops its daemon with `daemon-shutdown` (expecting exit 0, then waits up to 60 s for the pid to go, then `SIGTERM`) and removes the directory; every client starts with `PRISM_MCP_STRUCTURED_CONTENT`, `PRISM_MCP_CONCISE_SHAPE`, `PRISM_MCP_MAX_RESULT_CHARS`, `PRISM_MCP_SHARED`, `PRISM_MCP_RUNTIME_DIR` and `PRISM_MCP_MEM_REPORT` removed from its environment.** | A run must not reach, or leave, a daemon anyone else uses, and both arms must answer with the same output settings whatever the controller's shell holds. | None. |
-| D123 | **`fanout.py compare` judges the medians across runs: candidate p95 ≤ `P95_MAX_RATIO` × baseline p95 and candidate p99 ≤ `P99_MAX_RATIO` × baseline p99 (1.10 and 1.25), all runs admissible and of one corpus commit and workload.** | Spec §6.2 "no regression on … fan-out latency (8 shims, p95/p99 …)" and §8 step 2 "fan-out latency p95 vs. standalone" need a pinned rule before a run; timings on this host vary run to run (M2: ±20 % on a loaded host), so one run decides nothing and a median of three is the least that does. The constants are owner question 7. | Two constants. |
+| D123 | **`fanout.py compare` judges the medians across runs: candidate p95 ≤ `P95_MAX_RATIO` × baseline p95 and candidate p99 ≤ `P99_MAX_RATIO` × baseline p99 (1.10 and 1.25); every run admissible, a gating run, of one corpus commit, workload, refresh point and client count, on a clean corpus. A run without percentiles fails the comparison instead of raising** (review round 1, Opus W8). The refresh's overlap with other clients' calls is reported per run, not gated (Opus W1). The runbook calibrates the bound with an A/A comparison and runs the pairs in ABBA order (Opus S1). | Spec §6.2 and §8 step 2 need a pinned rule before a run; timings on this host vary run to run, so one run decides nothing and a median of three is the least that does; an A/A comparison shows whether the bound can be met at all on this host. The constants are owner question 7. | Two constants. |
+| D124 | **A soak rule is PASS, FAIL or UNKNOWN, and a phase PASS, FAIL or INADMISSIBLE** (review round 1, sol 2, Opus W2). A rule FAILs on a breach that was seen, whatever else is missing; it is UNKNOWN when the evidence it needs was not collected (the process table could not be read, a live standalone server's footprint could not be measured, the pressure level was unreadable, a named log source or the crash-report directory was missing); a phase is INADMISSIBLE when a gated rule is UNKNOWN or its use was not seen. | A rule that passes on what it could not see is the failure Review Focus 6 named; the reviewers reproduced five PASS verdicts from a fixture with the observations removed. | — |
+| D125 | **The bridge round needs observed use**: at least `--min-shims` (2) shims at once, a daemon instance reached in the clients' logs, and a daemon with a built index; and it counts only standalone index holders first seen after its first sample (review round 1, Opus W2, W3). | A round whose agents ran in containers (invisible to the host's process table) or whose wrapper path was wrong would otherwise pass on nothing; a session started before the export, or a launcher the soak does not edit, would otherwise fail a healthy round. Those already running are listed, not counted. | — |
+| D126 | **`fanout.py` reads the memory pressure level at the start, every second, and at the end of a run, keeps every reading, stops the run's clients at the first critical reading, and makes the run inadmissible on a critical reading or, when required (the default on macOS), on an unreadable one** (review round 1, sol 4). | The Phase 1 stop condition had no observer: a critical episode that ended before the run did left an admissible run. A reading a second from the same process keeps one measured process. | A constant. |
+| D127 | **`soak.py probe` starts a launcher's exact command line, sends `initialize`, and passes only when an answer comes back; the runbook probes every soaked launcher after deployment and after rollback, and the soak's binary is a pinned copy (`$E/bin/prism-mcp`, its sha256 recorded) for the bridge** (review round 1, sol 1, Opus W4, W5, S2). | A configuration that passes `--shared` to a binary that rejects it leaves a client without its server and writes no fail-closed line; the probe makes that a visible failure at the two moments it can be introduced, and `no_startup_error` catches it in the logs afterwards. A rebuild of the owner's working checkout must not change the soak's binary mid-phase. | — |
+| D128 | **A usage day is a UTC day with a sample showing a built index or two shims of one configuration at once** (review round 1, Opus S3). | An idle Claude Code window holds a shim all week and exercises nothing. | The day rule, one function. |
 
 ## Spec items implemented, and spec issues found
 
@@ -110,13 +120,14 @@ Spec §12 row S6, item by item: "opt-in launcher/config changes (`.codex/config.
 - **SI-37 (§8 step 1 "the bridge's `[[agents.mcp]]` entry add[s] `--shared`. The bridge also sets `PRISM_MCP_RUNTIME_DIR`").** The bridge's configurations live outside this repository (`~/.config/a2a-bridge/*.toml`, and the bridge's own `examples/`), which this slice does not edit. S6 documents the entry (`docs/MCP.md`, with a TOML snippet parsed in validation) and the soak's Phase 0 applies it with the owner's approval (owner question 5).
 - **SI-38 (§8 step 2 "aggregate footprint (the 10-03 incident's own probe commands)").** Those commands are recorded nowhere found: not in the spec, the lane's plans or handoff, the controller handoffs of 2026-10-03 to 2026-10-09, the project memory, or `~/prism-evidence`. The soak measures what the incident reported: per-process `phys_footprint` (`footprint`), resident size (`ps`), and the host's swap (`sysctl vm.swapusage`), memory pressure level (`kern.memorystatus_vm_pressure_level`) and compressor (`vm_stat`, "Pages occupied by compressor"), which is the incident's "34 GiB compressed".
 - **SI-39 (§8 step 2 "fan-out latency p95 vs. standalone").** Eight standalone servers of a mid-size repository are the memory incident itself (slicing: 8 × about 2 GiB of footprint on a 24 GB host). Read as: a like-for-like comparison of eight shims against eight standalone servers on the smallest pinned corpus (excalidraw, about 0.7 GiB each), and eight shims against one standalone client on slicing as information (owner question 9).
-- **SI-40 (§8 step 2 "daemon restarts").** A daemon that starts again after an idle retirement is the design (TTL 15 minutes), not a failure. Read as: daemon instances are reported (from the samples and from the shims' `shared daemon pid` lines); what fails the soak is an abort (a crash report) or a restart-bound refusal (`died during its index build`).
-- **SI-41 (§8 step 2 "one week of interactive use").** A week in which few sessions opted in shows nothing. Read as: the week counts only with soaked launchers in use, at least 5 of 7 days with a sample holding a shim (owner question 8); a shorter one is extended.
+- **SI-40 (§8 step 2 "daemon restarts").** A daemon that starts again after an idle retirement is the design (TTL 15 minutes), not a failure. Read as: daemon instances are reported (from the samples and from the shims' `shared daemon pid` lines); what fails the soak is an abort (a crash report), a restart-bound refusal (`died during its index build`), or a server that never started (`no_startup_error`, D127).
+- **SI-41 (§8 step 2 "one week of interactive use").** A week in which few sessions opted in, or sessions sat idle, shows nothing. Read as: the week counts only on days of observed use (a built index, or two shims of one configuration at once: D128), at least 5 of 7 (owner question 8); a shorter one is extended.
 - **SI-42 (§4.3 "Every launcher that should share a daemon must resolve the same directory; `docs/MCP.md` says so").** Measured: a plugin `prism-mcp` started by Claude Code on this host has the user's whole shell environment (its `ps eww` shows `TMPDIR`, `HOME`, `PATH`, and the user's own variables such as `GOROOT`), so its shims resolve `$TMPDIR/prism-mcpd`. Inherited, not measured here: the bridge's investigation of a containerized Codex (`~/code/a2a-bridge/docs/containerized-mcp-env-trap.md`) found its MCP servers started with `HOME`, a `PATH` of Codex's own and the configured `env` only. Whether a host-run Codex passes `TMPDIR` was not measured. A server whose directory differs from its peers' starts a second daemon silently. Read as: set `PRISM_MCP_RUNTIME_DIR` explicitly in every launcher (owner question 2); the soak's `one_index_per_key` rule detects a split.
+- **SI-43 (S3b's SI-11, "a refresh holds the write lock for a whole rebuild; measure at the §6.2 fan-out gate").** One refresh among 1,600 calls stalls at most the 7 calls other clients have outstanding (and the next few that build the call-edge index again), which neither p95 nor p99 can show (review round 1, Opus W1). Read as: the gate reports the stall (`refresh_overlap`: the overlapping calls and the longest of them, both arms) and does not gate it; whether to bound it is in owner question 7. The earlier statement that Phase 1 "measures" SI-11 is withdrawn.
 
 ## Review Focus
 
-Ten ways this work is most likely to be wrong in use that a straightforward test list would not exercise. Each has a test in the task that owns the code, or is a question for the owner.
+Thirteen ways this work is most likely to be wrong in use that a straightforward test list would not exercise. Each has a test in the task that owns the code, or is a question for the owner.
 
 1. **A launcher change that opts in users who did not ask**, or opts out users who did. → Task 1, `without_the_variable_the_arguments_pass_through_unchanged`, `zero_or_empty_changes_nothing`, `prism_mcp_shared_1_adds_shared_after_the_repository`, `with_the_variable_set_the_plugin_s_server_is_a_shim_of_the_shared_daemon` (a real shim reaches a real daemon through the launcher).
 2. **A typo that silently decides** which mode a session gets (`PRISM_MCP_SHARED=yes`, `true`, ` 1`). → Task 1, `any_other_value_is_refused_before_anything_runs` (the binary never runs).
@@ -127,7 +138,10 @@ Ten ways this work is most likely to be wrong in use that a straightforward test
 7. **A latency comparison that is not like for like**: a client that inherits `PRISM_MCP_CONCISE_SHAPE=legacy` from the controller's shell, a warm-up answered `warming` counted as a timed call, clients in lockstep on the same seed. → Task 3, `test_clients_start_from_the_default_output_settings`, `test_every_client_makes_every_call_and_client_0_refreshes_once` (two warming answers first), `test_each_client_starts_its_own_share_of_the_way_through`.
 8. **A fan-out run that hangs or leaves a daemon behind** when a client dies. → Task 3, `test_clients_that_die_while_warming_up_end_the_run`, `test_a_client_that_dies_makes_the_run_inadmissible_without_hanging_it`, `test_a_shared_run_names_its_one_daemon_and_asks_it_to_shut_down`; the live test asserts the daemon is gone.
 9. **A docs claim that does not match the code** (a reason's wording, an exit status, a default). → The docs quote the code's own strings; the reviewer is asked to check each row of the fail-closed table and the operator's exit statuses against `src/mcp/shim/{arbitrate,connect,diagnostic,run,pump,status,shutdown}.rs` and `src/mcp/shared/{runtime_dir,paths}.rs`.
-10. **A soak that cannot fail, or cannot pass.** → "The soak": each rule names what would fail it; the pass thresholds are owner question 7; a gate shown unreachable by its own measurements goes to the owner at once (lane rule).
+10. **A soak that cannot fail, or cannot pass.** → "The soak": each rule names what would fail it; the A/A calibration shows whether the latency bound can be met on this host before any gate run; the pass thresholds are owner question 7; a gate shown unreachable by its own measurements goes to the owner at once (lane rule).
+11. **A rule that passes on what it could not see** (review round 1, sol 2, Opus W2): a failed `ps`, a footprint not measured, no pressure reading, a missing log root, containers outside the process table, a round with no use. → Task 2, `test_soak_coverage.py` (`Unobserved`, `Use`, `test_a_round_report_without_its_log_sources_is_inadmissible`).
+12. **A latency gate that passes without its refresh or under memory pressure** (review round 1, sol 3, sol 4). → Task 3, `test_a_gating_run_needs_exactly_one_successful_refresh`, `test_a_refresh_answered_with_a_tool_error_makes_the_run_inadmissible`, `test_a_critical_pressure_reading_stops_and_invalidates_the_run`, `test_an_unavailable_pressure_reading_invalidates_a_run_that_requires_it`.
+13. **A deployment or a rollback that leaves a client without its server** (review round 1, sol 1, Opus W4): a configuration that passes `--shared` to a binary that rejects it. → Task 2, `test_a_binary_that_rejects_shared_fails_and_says_why` (`soak.py probe`), `test_a_startup_error_and_a_restart_bound_refusal_fail_their_rules` (`no_startup_error`); "The soak", Phase 0's order and probes.
 
 ## Claims and the tests that hold them
 
@@ -139,17 +153,25 @@ Every "never", "always", "exactly" and "only" this plan's code or docs state abo
 | `PRISM_MCP_SHARED=1` adds exactly one `--shared`, right after `--repo <path>`. | T1 `prism_mcp_shared_1_adds_shared_after_the_repository` | the variable ignored (L1); the flag last (L5) |
 | The opt-in reaches a real shared daemon through the launcher run by its own `#!`. | T1 `with_the_variable_set_the_plugin_s_server_is_a_shim_of_the_shared_daemon` | the variable ignored (L1) |
 | An explicit `--shared` or `--standalone` always wins over the variable. | T1 `an_explicit_shared_or_standalone_argument_wins_over_the_variable` | no override (L2) |
-| Any other value stops the launcher with exit 2 before the binary runs. | T1 `any_other_value_is_refused_before_anything_runs` | any value opts in (L3) |
+| Any other value stops the launcher with exit 2 before the binary runs, an explicit `--shared` or `--standalone` included. | T1 `any_other_value_is_refused_before_anything_runs`, `the_variable_and_an_explicit_argument_in_every_combination` | any value opts in (L3); an explicit argument rescues it (L6) |
 | A process is a shim only with `--shared`, a daemon only as `prism-mcp daemon`, an operator only as `daemon-status`/`daemon-shutdown`; a program whose binary is not named `prism-mcp` is never listed. | T2 `test_roles_come_from_the_command_line` | `--shared` not looked at (S1) |
 | A standalone server is an index holder exactly from 100 MiB of footprint; a shim never is. | T2 `test_an_index_holder_is_a_daemon_or_a_standalone_server_past_100_mib` | `>` for `>=` (S2) |
 | Two daemons of one key count as duplicates only when they are in the same sample. | T2 `test_two_daemons_of_one_key_at_once_are_found`, `test_daemons_of_different_keys_and_one_after_another_are_not_duplicates` | holders accumulated across samples (S3) |
-| Only days with a shim in a sample count toward the week's floor. | T2 `test_only_days_with_a_shim_count_toward_the_week` | every sampled day (S13) |
+| A usage day needs a built index or two shims of one configuration at once; an idle shim is not use. | T2 `test_a_usage_day_needs_a_built_index_or_two_shims_of_one_configuration` | any shim (S13) |
 | Only daemons count toward a repository's daemons. | T2 `test_daemons_of_different_keys_and_one_after_another_are_not_duplicates` | every role counted (S12) |
 | A daemon instance a client reached is counted once however many lines name it. | T2 `test_client_lines_are_counted` | a list for the set (S4) |
 | Only the logs of servers whose name contains `prism`, and only entries in the window, are read. | T2 `test_claude_code_logs_are_read_for_prism_servers_in_the_window` | every server's logs (S5); no window (S6) |
-| Times are read as UTC. | T2 `test_iso_times_are_utc` | local time (S7; killed where the zone is not UTC) |
+| Times are read as UTC, in any local zone, winter and summer. | T2 `test_iso_times_are_utc_in_any_local_zone_winter_and_summer` | local time (S7); local time less the standard offset (S7b) |
 | Only prism-mcp's crash reports, and only in the window, count as aborts. | T2 `test_crash_reports_of_prism_mcp_in_the_window_are_counted` | any program's (S8) |
 | Each rule fails on its own breach and on no other. | T2 `test_the_rules_pass_on_a_clean_soak_and_each_fails_on_its_own_breach` | critical taken as normal (S9) |
+| A rule is never PASS on evidence that was not collected: no process table, a live standalone server's footprint not measured, no pressure reading, a named log source or the crash-report directory missing (UNKNOWN); a breach that was seen still FAILs. | T2 `test_a_failed_process_table_makes_the_process_rules_unknown`, `test_a_failed_footprint_of_a_standalone_server_is_unknown_and_a_vanished_one_is_not`, `test_a_missing_pressure_reading_is_unknown_and_a_critical_one_still_fails`, `test_unread_logs_or_crash_reports_are_unknown_and_what_was_read_still_fails`, `test_log_sources_are_complete_only_when_every_named_one_exists` | U1–U5, U8 |
+| A process that ended is `gone`; one that still runs without a reading `failed`; a failed `ps` is recorded as such. | T2 `test_a_vanished_pid_is_gone_and_a_live_one_without_a_reading_failed`, `test_a_sample_whose_process_table_could_not_be_read_says_so` | U6, U7 |
+| A round passes only with use seen (shims, a reached daemon, a built index) and every gated rule PASS; otherwise INADMISSIBLE, or FAIL on a breach. | T2 `test_a_round_needs_shims_a_reached_daemon_and_a_built_index`, `test_a_round_report_without_its_log_sources_is_inadmissible` | U9, U10, U11 |
+| Standalone holders already running at a phase's first sample are never counted against it. | T2 `test_standalone_holders_already_running_at_the_start_do_not_fail_a_phase` | U12 |
+| A server that never started (clap's `error: …`, the launcher's refusal) and a restart-bound refusal each fail their rule. | T2 `test_a_startup_error_and_a_restart_bound_refusal_fail_their_rules` | U13, U14 |
+| A binary path with a space in it is still recognized; another program naming a `prism-mcp` path is not. | T2 `test_a_binary_path_with_a_space_is_still_prism_mcp` | U15 |
+| A sample line cut short is skipped and counted, never fatal. | T2 `test_a_truncated_last_line_is_skipped_and_counted` | U16 |
+| `probe` passes only a server that answers `initialize`; a binary that rejects `--shared` and a silent one fail, with the error shown. | T2 `test_a_server_that_answers_initialize_passes`, `test_a_binary_that_rejects_shared_fails_and_says_why`, `test_a_server_that_never_answers_fails_at_the_timeout` | U17 |
 | The wrapper changes nothing a client sees (standard input, output, error, exit status) and logs every standard-error line, the last one without a newline included, with the prism-mcp process's pid. | T2 `test_standard_error_is_logged_with_time_and_pid_and_nothing_else_changes` | a last line lost (S10); standard error swallowed (S11) |
 | Percentiles are nearest-rank. | T3 `test_percentile_is_nearest_rank` | an off-by-one rank (F1) |
 | A retryable answer is never taken for a result; a tool's own error is an answer. | T3 `test_outcome_tells_the_four_answers_apart`, `test_a_tool_error_is_an_answer_not_a_failure` | retryable not recognized (F2) |
@@ -161,8 +183,13 @@ Every "never", "always", "exactly" and "only" this plan's code or docs state abo
 | A shared run always asks its daemon to shut down. | T3 `test_a_shared_run_names_its_one_daemon_and_asks_it_to_shut_down`; the live test (the daemon gone) | no shutdown (F11) |
 | Every client starts from the default output settings whatever the controller's shell holds. | T3 `test_clients_start_from_the_default_output_settings` | the environment passed whole (F12) |
 | A used run directory is never overwritten. | T3 `test_a_used_run_directory_is_refused` | — |
+| A gating run is admissible only with exactly one refresh answered `ok`; a run without one is diagnostic and never compared. | T3 `test_a_gating_run_needs_exactly_one_successful_refresh`, `test_a_refresh_answered_with_a_tool_error_makes_the_run_inadmissible`, `test_a_run_without_a_refresh_is_diagnostic_and_never_compared` | F13, F14 |
+| The refresh's overlap counts only other clients' calls whose time overlaps it. | T3 `test_the_calls_that_overlap_the_refresh_are_counted_and_their_longest_reported` | F15 |
+| A critical pressure reading always stops the run's clients and invalidates the run; an unreadable one invalidates a run that requires readings. | T3 `test_a_critical_pressure_reading_stops_and_invalidates_the_run`, `test_an_unavailable_pressure_reading_invalidates_a_run_that_requires_it` | F16, F17 |
+| `compare` never raises on a run without calls, and never compares runs of different client counts (unless told it is information) or refresh points. | T3 `test_a_run_with_no_calls_fails_the_comparison_instead_of_crashing_it`, `test_runs_of_other_client_counts_or_refresh_points_are_not_compared` | F18, F19, F20 |
+| A shared run keeps its daemon's logs; every tool of the workload is warmed before the barrier. | T3 `test_a_shared_run_keeps_its_daemon_logs`, `test_every_tool_of_the_workload_is_warmed_before_the_barrier` | F21, F22 |
 
-**Not held by a test:** the docs' prose about the shim, the daemon and the operator's commands (held by S4–S5b's tests of that code; checked by review against the code, Review Focus 9); the `.codex/config.toml` change (a configuration the owner reads; its TOML was parsed with Python 3.14's `tomllib` in validation); `footprints` on macOS against a real daemon, and `host_memory` (exercised by the live sample test and the live fan-out test, values not asserted); `stop_daemon`'s `SIGTERM` fallback (a daemon that ignores `daemon-shutdown` for 60 s; not constructed).
+**Not held by a test:** `stop_daemon`'s handling of a `daemon-shutdown` that does not return within its own timeout plus 30 s (caught and recorded; not constructed); the runbook (a procedure, checked by review and by `soak.py probe` when it runs); the docs' prose about the shim, the daemon and the operator's commands (held by S4–S5b's tests of that code; checked by review against the code, Review Focus 9); the `.codex/config.toml` change (a configuration the owner reads; its TOML was parsed with Python 3.14's `tomllib` in validation); `footprints` on macOS against a real daemon, and `host_memory` (exercised by the live sample test and the live fan-out test, values not asserted); `stop_daemon`'s `SIGTERM` fallback (a daemon that ignores `daemon-shutdown` for 60 s; not constructed).
 
 ## File Structure
 
@@ -171,14 +198,16 @@ Every "never", "always", "exactly" and "only" this plan's code or docs state abo
 | `scripts/prism-mcp-launch.sh` | `PRISM_MCP_SHARED` read, refused or turned into `--shared` | Modify | 1 |
 | `tests/fixtures/mcp/launcher/argv-stub.sh` | A stand-in binary that prints its arguments (executable) | Create | 1 |
 | `tests/mcp/launcher_test.rs`, `tests/mcp/main.rs` | The launcher's argument tests and its process test | Create, modify | 1 |
-| `scripts/soak/soak.py`, `scripts/soak/test_soak.py` | The sampler and the soak report | Create | 2 |
+| `scripts/soak/soak.py`, `scripts/soak/soak_judge.py` | The sampler and the probe; the soak report's judging | Create | 2 |
+| `scripts/soak/test_soak.py`, `scripts/soak/test_soak_coverage.py` | Their tests; what is not observed, and the use a phase needs | Create | 2 |
 | `scripts/soak/prism-mcp-logged.sh` | A client's prism-mcp standard error logged with time and pid (executable) | Create | 2 |
-| `scripts/soak/fanout.py`, `scripts/soak/test_fanout.py`, `scripts/soak/test_fanout_live.py` | The fan-out latency driver and its tests | Create | 3 |
-| `scripts/soak/fake_prism_mcp.py` | A stand-in server for the driver's tests (executable) | Create | 3 |
+| `scripts/soak/fake_prism_mcp.py` | A stand-in server for the probe's and the driver's tests (executable) | Create | 2 |
+| `scripts/soak/fanout.py`, `scripts/soak/test_fanout.py`, `scripts/soak/test_fanout_gate.py`, `scripts/soak/test_fanout_live.py` | The fan-out latency driver and its tests | Create | 3 |
 | `docs/MCP.md` | "Shared daemon" section; two flags; two environment variables | Modify | 4 |
 | `skills/prism-code-navigation/SKILL.md` | Retryable answers; shared refresh | Modify | 4 |
 | `CLAUDE.md` | The launcher's opt-in and the soak tools | Modify | 4 |
 | `.codex/config.toml` | `--shared` and `PRISM_MCP_RUNTIME_DIR` for this repository's Codex sessions | Modify | 4 |
+| `.github/workflows/ci.yml` | One step: the soak tools' hermetic tests | Modify | 4 |
 
 ---
 
@@ -329,6 +358,32 @@ fn any_other_value_is_refused_before_anything_runs() {
     }
 }
 
+/// Every combination of the variable and an explicit mode argument (review round 1, sol S7): an
+/// explicit `--shared` or `--standalone` wins over a valid value, and a value the launcher does
+/// not accept is refused even then, because the variable is checked first.
+#[test]
+fn the_variable_and_an_explicit_argument_in_every_combination() {
+    for value in [None, Some(""), Some("0"), Some("1"), Some("yes")] {
+        for explicit in [None, Some("--shared"), Some("--standalone")] {
+            let args: Vec<&str> = explicit.into_iter().collect();
+            let output = launch(value, &args);
+            let what = format!("PRISM_MCP_SHARED={value:?} with {explicit:?}");
+            if value == Some("yes") {
+                assert_eq!(output.status.code(), Some(2), "{what}");
+                assert!(output.stdout.is_empty(), "{what}: the binary ran");
+                continue;
+            }
+            let mut expected = vec!["--repo", "/some/repo"];
+            match explicit {
+                Some(flag) => expected.push(flag),
+                None if value == Some("1") => expected.push("--shared"),
+                None => {}
+            }
+            assert_eq!(argv(&output), expected, "{what}");
+        }
+    }
+}
+
 /// A launcher process, killed and reaped when the test ends however it ends.
 struct Launched(std::process::Child);
 
@@ -428,7 +483,7 @@ nice -n 19 env CARGO_BUILD_JOBS=4 env -u PRISM_MCP_BLESS_GOLDEN cargo test --fea
 grep -E '^test |^test result' "$LOG_DIR/t1-red.log"
 ```
 
-Expected: `test result: FAILED. 3 passed; 3 failed` (52 filtered out), the three failures `any_other_value_is_refused_before_anything_runs` (`PRISM_MCP_SHARED="yes"`, `left: Some(0)`, `right: Some(2)`: the old launcher runs the binary whatever the value), `prism_mcp_shared_1_adds_shared_after_the_repository` (`left: ["--repo", "/some/repo", "--cache-dir", "/a dir"]`) and `with_the_variable_set_the_plugin_s_server_is_a_shim_of_the_shared_daemon` (`no response: Err(Disconnected)`; the binary refuses `--daemon-start-timeout` without `--shared`: `error: the following required arguments were not provided: --shared`). The three that pass describe today's pass-through, which the opt-in must keep.
+Expected: `test result: FAILED. 3 passed; 4 failed` (52 filtered out), the four failures `any_other_value_is_refused_before_anything_runs` (`PRISM_MCP_SHARED="yes"`, `left: Some(0)`, `right: Some(2)`: the old launcher runs the binary whatever the value), `prism_mcp_shared_1_adds_shared_after_the_repository` (`left: ["--repo", "/some/repo", "--cache-dir", "/a dir"]`), `the_variable_and_an_explicit_argument_in_every_combination` (`PRISM_MCP_SHARED=Some("1") with None`: no `--shared` added) and `with_the_variable_set_the_plugin_s_server_is_a_shim_of_the_shared_daemon` (`no response: Err(Disconnected)`; the binary refuses `--daemon-start-timeout` without `--shared`: `error: the following required arguments were not provided: --shared`). The three that pass describe today's pass-through, which the opt-in must keep.
 
 - [ ] **Step 3: Implement the opt-in**
 
@@ -456,8 +511,9 @@ with this:
 #
 # PRISM_MCP_SHARED=1 in the environment opts in to the shared per-repository daemon: the launcher
 # adds --shared after --repo, unless the arguments already say --shared or --standalone.
-# Unset, empty or 0 changes nothing. Any other value is refused before anything runs, so a typo
-# never decides silently which way a client goes.
+# Unset, empty or 0 changes nothing. Any other value is refused before anything runs, an explicit
+# --shared or --standalone included (the variable is checked first), so a typo never decides
+# silently which way a client goes.
 #
 # Usage: prism-mcp-launch.sh <repo-path> [extra prism-mcp args...]
 set -euo pipefail
@@ -494,7 +550,7 @@ grep -E '^test result|^warning' "$LOG_DIR/t1-green.log"
 pgrep -fl 'prism-mcp daemon'
 ```
 
-Expected: `rc=0`, `test result: ok. 6 passed; 0 failed` (52 filtered out), no `warning` line; `pgrep` prints nothing.
+Expected: `rc=0`, `test result: ok. 7 passed; 0 failed` (52 filtered out), no `warning` line; `pgrep` prints nothing.
 
 - [ ] **Step 5: Commit**
 
@@ -511,21 +567,101 @@ Apply each mutant alone to `scripts/prism-mcp-launch.sh`, run Step 4's command, 
 
 | Mutant | Edit | Expected failing tests (observed) |
 |---|---|---|
-| L1 | `  1) shared=1 ;;` → `  1) shared=0 ;;` (the variable ignored) | `prism_mcp_shared_1_adds_shared_after_the_repository`, `with_the_variable_set_the_plugin_s_server_is_a_shim_of_the_shared_daemon` |
-| L2 | `    --shared \| --standalone) shared=0 ;;` → `    --never-matches) shared=0 ;;` (no explicit argument wins) | `an_explicit_shared_or_standalone_argument_wins_over_the_variable` |
-| L3 | a `*) shared=1 ;;` arm before the refusal (any value opts in) | `any_other_value_is_refused_before_anything_runs` |
-| L4 | `"" \| 0) shared=0 ;;` / `1) shared=1 ;;` → `"") shared=0 ;;` / `0 \| 1) shared=1 ;;` (`0` opts in) | `zero_or_empty_changes_nothing` |
+| L1 | `  1) shared=1 ;;` → `  1) shared=0 ;;` (the variable ignored) | `prism_mcp_shared_1_adds_shared_after_the_repository`, `the_variable_and_an_explicit_argument_in_every_combination`, `with_the_variable_set_the_plugin_s_server_is_a_shim_of_the_shared_daemon` |
+| L2 | `    --shared \| --standalone) shared=0 ;;` → `    --never-matches) shared=0 ;;` (no explicit argument wins) | `an_explicit_shared_or_standalone_argument_wins_over_the_variable`, `the_variable_and_an_explicit_argument_in_every_combination` |
+| L3 | a `*) shared=1 ;;` arm before the refusal (any value opts in) | `any_other_value_is_refused_before_anything_runs`, `the_variable_and_an_explicit_argument_in_every_combination` |
+| L4 | `"" \| 0) shared=0 ;;` / `1) shared=1 ;;` → `"") shared=0 ;;` / `0 \| 1) shared=1 ;;` (`0` opts in) | `zero_or_empty_changes_nothing`, `the_variable_and_an_explicit_argument_in_every_combination` |
 | L5 | `set -- --shared "$@"` → `set -- "$@" --shared` (the flag last) | `prism_mcp_shared_1_adds_shared_after_the_repository` |
+| L6 | `exit 2` → `[ "$#" -gt 0 ] \|\| exit 2` then `shared=0` (an explicit argument rescues a bad value; review round 1, sol S7) | `the_variable_and_an_explicit_argument_in_every_combination` |
 
 ---
 
 ### Task 2: The soak's sampler, report and client log wrapper
 
-**Files:** Create `scripts/soak/soak.py`, `scripts/soak/test_soak.py`, `scripts/soak/prism-mcp-logged.sh` (executable).
+**Files:** Create `scripts/soak/soak.py`, `scripts/soak/soak_judge.py`, `scripts/soak/test_soak.py`, `scripts/soak/test_soak_coverage.py`, `scripts/soak/fake_prism_mcp.py` (executable), `scripts/soak/prism-mcp-logged.sh` (executable).
 
-**Interfaces** (Task 3 and the soak use them): `soak.footprints(pids) -> {pid: bytes}`; `soak.py sample --out FILE.jsonl [--interval S] [--count N | --duration S] [--status-bin BIN --runtime-dir BASE]`, one JSON object per line (`t`, `host`: `swap_mib` {`total`,`used`,`free`}, `pressure`, `compressed_bytes`; `processes`: `pid`, `ppid`, `role`, `repo`, `key`, `cache_dir`, `rss_bytes`, `footprint_bytes`, `holder`, `command`; `daemon_status` text when asked); `soak.py report --samples FILE --out FILE.md [--json FILE] [--since EPOCH] [--until EPOCH] [--claude-logs DIR] [--client-log FILE ...] [--crash-reports DIR]`, verdicts for `RULES` (`one_index_per_key`, `no_standalone_index`, `no_fail_closed`, `no_abort`, `no_critical_pressure`); `prism-mcp-logged.sh LOGFILE BIN [args...]`, lines `<UTC time> <pid> <line>`.
+**Interfaces** (Task 3 and the soak use them): `soak.footprints(pids) -> {pid: bytes}`, `soak.measure_footprints(pids) -> (sizes, {pid: 'ok'|'gone'|'failed'})`, `soak.read_pressure() -> int | None`, `soak.alive(pid)`; `soak.py sample --out FILE.jsonl [--interval S] [--count N | --duration S] [--status-bin BIN --runtime-dir BASE]`, one JSON object per line (`t`, `ps_ok`, `host`: `swap_mib` {`total`,`used`,`free`}, `pressure` (or null), `compressed_bytes`; `processes`: `pid`, `ppid`, `role`, `repo`, `key`, `cache_dir`, `rss_bytes`, `footprint_bytes`, `footprint_status`, `holder`, `command`; `daemon_status` text when asked); `soak.py report --phase round|week --samples FILE --out FILE.md [--json FILE] [--since EPOCH] [--until EPOCH] [--claude-logs DIR] [--client-log FILE ...] [--crash-reports DIR] [--min-shims N] [--min-days N]`, each of `RULES` (`one_index_per_key`, `no_new_standalone_index`, `no_fail_closed`, `no_startup_error`, `no_restart_bound`, `no_abort`, `no_critical_pressure`) `PASS`, `FAIL` or `UNKNOWN`, the use seen, and `**Verdict: PASS|FAIL|INADMISSIBLE**`; `soak.py probe [--timeout S] -- COMMAND …`, exit 0 (`PASS`) or 1 (`FAIL` with the server's standard error); `prism-mcp-logged.sh LOGFILE BIN [args...]`, lines `<UTC time> <pid> <line>`.
 
 - [ ] **Step 1: Write the failing tests**
+
+Create `scripts/soak/fake_prism_mcp.py`:
+
+````python
+#!/usr/bin/env python3
+"""A stand-in for prism-mcp in the fan-out driver's tests (test_fanout.py). It speaks just enough
+MCP: `initialize`, notifications, `tools/call` (refresh_index included). Environment:
+FAKE_WARMING=N answers the first N tool calls retryable (as an index that is warming);
+FAKE_DIE_AFTER=N exits after N tool calls; FAKE_DELAY_MS=N waits before each answer;
+FAKE_DAEMON_PID=P makes a `--shared` process report daemon pid P on standard error;
+`daemon-shutdown` as the first argument prints a line and exits FAKE_SHUTDOWN_EXIT (default 0).
+It writes the PRISM_MCP_CONCISE_SHAPE it was given to standard error, and at the end of its input
+`fake: N tool calls`. FAKE_REFRESH=retryable|rpc_error|tool_error answers refresh_index so. A
+`--shared` process appends a line to `fake.log` in $PRISM_MCP_RUNTIME_DIR/prism-mcpd, as a daemon
+would to its log."""
+import json
+import os
+import sys
+import time
+
+
+def answer(ident, result):
+    sys.stdout.write(json.dumps({'jsonrpc': '2.0', 'id': ident, 'result': result}) + '\n')
+    sys.stdout.flush()
+
+
+def main():
+    if sys.argv[1:2] == ['daemon-shutdown']:
+        print('fake: nothing to shut down')
+        sys.exit(int(os.environ.get('FAKE_SHUTDOWN_EXIT', '0')))
+    sys.stderr.write('fake: PRISM_MCP_CONCISE_SHAPE=%s\n' % os.environ.get('PRISM_MCP_CONCISE_SHAPE', '<unset>'))
+    if '--shared' in sys.argv and os.environ.get('PRISM_MCP_RUNTIME_DIR'):
+        logs = os.path.join(os.environ['PRISM_MCP_RUNTIME_DIR'], 'prism-mcpd')
+        os.makedirs(logs, exist_ok=True)
+        with open(os.path.join(logs, 'fake.log'), 'a') as log:
+            log.write('fake daemon log\n')
+    if '--shared' in sys.argv:
+        sys.stderr.write('prism-mcp: shared daemon pid %s (started 7, generation 1) at /fake.sock\n'
+                         % os.environ.get('FAKE_DAEMON_PID', '1'))
+        sys.stderr.flush()
+    warming = int(os.environ.get('FAKE_WARMING', '0'))
+    die_after = int(os.environ.get('FAKE_DIE_AFTER', '0'))
+    delay = int(os.environ.get('FAKE_DELAY_MS', '0')) / 1000.0
+    calls = 0
+    for line in sys.stdin:
+        message = json.loads(line)
+        if 'id' not in message:
+            continue
+        if message['method'] == 'initialize':
+            answer(message['id'], {'serverInfo': {'name': 'prism-mcp', 'version': 'fake'}, 'capabilities': {}})
+            continue
+        calls += 1
+        if die_after and calls > die_after:
+            sys.exit(1)
+        time.sleep(delay)
+        if calls <= warming:
+            answer(message['id'], {'isError': True, 'content': [{'type': 'text', 'text': 'warming'}],
+                                   '_meta': {'prism/retryable': True, 'prism/index_state': 'warming'}})
+        elif message['params']['name'] == 'refresh_index':
+            refresh = os.environ.get('FAKE_REFRESH', 'ok')
+            if refresh == 'rpc_error':
+                sys.stdout.write(json.dumps({'jsonrpc': '2.0', 'id': message['id'],
+                                             'error': {'code': -32603, 'message': 'fake'}}) + '\n')
+                sys.stdout.flush()
+            elif refresh == 'retryable':
+                answer(message['id'], {'isError': True, 'content': [], '_meta': {'prism/retryable': True}})
+            else:
+                answer(message['id'], {'isError': refresh == 'tool_error', 'content': [{'type': 'text', 'text': '{}'}],
+                                       '_meta': {'prism/refresh_status': 'unchanged'}})
+        else:
+            answer(message['id'], {'isError': False, 'content': [{'type': 'text', 'text': '{}'}]})
+    sys.stderr.write('fake: %d tool calls\n' % calls)
+
+
+if __name__ == '__main__':
+    main()
+````
+
+Make `scripts/soak/fake_prism_mcp.py` executable.
 
 Create `scripts/soak/test_soak.py`:
 
@@ -534,6 +670,7 @@ Create `scripts/soak/test_soak.py`:
 
 Run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
 """
+import calendar
 import io
 import json
 import os
@@ -561,14 +698,18 @@ PS = """  101     1   4096 /x/target/release/prism-mcp daemon --repo /r --cache-
 """ % KEY
 
 
-def proc(role, pid, footprint=0, key=KEY, repo='/r'):
-    return {'role': role, 'pid': pid, 'key': key if role == 'daemon' else None, 'repo': repo,
-            'footprint_bytes': footprint, 'holder': soak.is_holder({'role': role, 'footprint_bytes': footprint})}
+def proc(role, pid, footprint=0, key=KEY, repo='/r', status='ok', cache='/c'):
+    return {'role': role, 'pid': pid, 'key': key if role == 'daemon' else None, 'repo': repo, 'cache_dir': cache,
+            'footprint_bytes': footprint if status == 'ok' else None, 'footprint_status': status,
+            'holder': soak.is_holder({'role': role, 'footprint_bytes': footprint if status == 'ok' else None})}
 
 
-def sample(t, processes, swap_used=0.0, pressure=1, compressed=0):
-    return {'t': t, 'processes': processes,
+def sample(t, processes, swap_used=0.0, pressure=1, compressed=0, ps_ok=True):
+    return {'t': t, 'processes': processes, 'ps_ok': ps_ok,
             'host': {'swap_mib': {'used': swap_used}, 'pressure': pressure, 'compressed_bytes': compressed}}
+
+
+ALL_READ = {'logs': True, 'crash_reports': True}
 
 
 class Processes(unittest.TestCase):
@@ -627,14 +768,12 @@ class Samples(unittest.TestCase):
             sample(1, [proc('standalone', 7, 200 * MIB, repo='/a'), proc('standalone', 8, MIB, repo='/b')],
                    swap_used=10.0, pressure=2, compressed=5),
             sample(2, [proc('shim', 9, MIB)], swap_used=4.0, pressure=1, compressed=9)])
-        self.assertEqual(summary['standalone_holders'], {'/a': [7]})
+        self.assertEqual(summary['new_standalone_holders'], {})
+        self.assertEqual(summary['preexisting_standalone_holders'], {'/a': [7]})
         self.assertEqual(summary['peaks'], {'holders': 1, 'shims': 1, 'prism_footprint_bytes': 201 * MIB,
-                                            'swap_used_mib': 10.0, 'pressure': 2, 'compressed_bytes': 9})
+                                            'swap_used_mib': 10.0, 'pressure': 2, 'compressed_bytes': 9,
+                                            'built_daemons': 0})
 
-    def test_only_days_with_a_shim_count_toward_the_week(self):
-        summary = soak.summarize_samples([sample(1, [proc('daemon', 1)]), sample(2 * 86400, [proc('shim', 2)]),
-                                          sample(2 * 86400 + 60, [proc('shim', 2)])])
-        self.assertEqual(summary['days_with_shims'], ['1970-01-03'])
 
 
 FAILED = ('prism-mcp: --shared failed closed, no index was built: no daemon answered READY before the deadline; '
@@ -669,8 +808,17 @@ class Events(unittest.TestCase):
             self.assertEqual(list(soak.claude_log_lines(root, since, until)), [FAILED])
             self.assertEqual(len(list(soak.claude_log_lines(root))), 2)
 
-    def test_iso_times_are_utc(self):
-        self.assertEqual(soak.iso_epoch('1970-01-01T00:01:40Z'), 100)
+    def test_iso_times_are_utc_in_any_local_zone_winter_and_summer(self):
+        # Review round 1 (sol S7, Opus S7): run under explicit zones, so that local time read as UTC
+        # fails everywhere, and in July, where `mktime(...) - time.timezone` is an hour out.
+        stamps = {'2026-01-15T12:00:00Z': calendar.timegm((2026, 1, 15, 12, 0, 0)),
+                  '2026-07-15T12:00:00Z': calendar.timegm((2026, 7, 15, 12, 0, 0))}
+        code = 'import sys, soak; print(soak.iso_epoch(sys.argv[1]))'
+        for zone in ('UTC0', 'MST7MDT,M3.2.0,M11.1.0'):
+            for stamp, expected in stamps.items():
+                done = subprocess.run([sys.executable, '-c', code, stamp], cwd=str(HERE), capture_output=True,
+                                      text=True, env=dict(os.environ, TZ=zone))
+                self.assertEqual(done.stdout.strip(), str(expected), (zone, stamp, done.stderr))
 
     def test_crash_reports_of_prism_mcp_in_the_window_are_counted(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -681,26 +829,25 @@ class Events(unittest.TestCase):
             old.write_text('x')
             os.utime(old, (100, 100))
             self.assertEqual(soak.crash_reports(directory, since=1000),
-                             ['prism-mcp-2026-10-16-101010.ips', 'prism-mcp_2026-10-16-101011_host.crash'])
-            self.assertEqual(soak.crash_reports(str(Path(directory) / 'missing')), [])
+                             (['prism-mcp-2026-10-16-101010.ips', 'prism-mcp_2026-10-16-101011_host.crash'], True))
+            self.assertEqual(soak.crash_reports(str(Path(directory) / 'missing')), ([], False))
 
 
 class Report(unittest.TestCase):
     def test_the_rules_pass_on_a_clean_soak_and_each_fails_on_its_own_breach(self):
+        def failing(summary, events, crashes=()):
+            return [r for r, v in soak.judge(summary, events, list(crashes), ALL_READ).items() if v != 'PASS']
         clean = soak.summarize_samples([sample(1, [proc('daemon', 1), proc('shim', 2)])])
         quiet = soak.scan_lines([REACHED])
-        self.assertTrue(all(soak.judge(clean, quiet, []).values()))
+        self.assertEqual(failing(clean, quiet), [])
         two = soak.summarize_samples([sample(1, [proc('daemon', 1), proc('daemon', 2)])])
-        self.assertEqual([r for r, ok in soak.judge(two, quiet, []).items() if not ok], ['one_index_per_key'])
-        alone = soak.summarize_samples([sample(1, [proc('standalone', 3, 500 * MIB)])])
-        self.assertEqual([r for r, ok in soak.judge(alone, quiet, []).items() if not ok], ['no_standalone_index'])
-        failed = soak.scan_lines([FAILED])
-        self.assertEqual([r for r, ok in soak.judge(clean, failed, []).items() if not ok], ['no_fail_closed'])
-        self.assertEqual([r for r, ok in soak.judge(clean, quiet, ['prism-mcp-x.ips']).items() if not ok],
-                         ['no_abort'])
+        self.assertEqual(failing(two, quiet), ['one_index_per_key'])
+        alone = soak.summarize_samples([sample(1, []), sample(2, [proc('standalone', 3, 500 * MIB)])])
+        self.assertEqual(failing(alone, quiet), ['no_new_standalone_index'])
+        self.assertEqual(failing(clean, soak.scan_lines([FAILED])), ['no_fail_closed'])
+        self.assertEqual(failing(clean, quiet, ['prism-mcp-x.ips']), ['no_abort'])
         critical = soak.summarize_samples([sample(1, [], pressure=4)])
-        self.assertEqual([r for r, ok in soak.judge(critical, quiet, []).items() if not ok],
-                         ['no_critical_pressure'])
+        self.assertEqual(failing(critical, quiet), ['no_critical_pressure'])
 
     def test_report_writes_the_table_and_the_verdicts(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -710,10 +857,11 @@ class Report(unittest.TestCase):
             client.write_text('%s 77 %s\n' % (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), FAILED))
             out, data = Path(directory) / 'r.md', Path(directory) / 'r.json'
             with redirect_stdout(io.StringIO()):
-                soak.main(['report', '--samples', str(samples), '--client-log', str(client), '--out', str(out),
-                           '--json', str(data), '--crash-reports', directory])
+                soak.main(['report', '--phase', 'week', '--samples', str(samples), '--client-log', str(client),
+                           '--out', str(out), '--json', str(data), '--crash-reports', directory])
             self.assertIn('| no_fail_closed | FAIL |', out.read_text())
-            self.assertEqual(json.loads(data.read_text())['verdicts']['one_index_per_key'], True)
+            self.assertIn('**Verdict: FAIL**', out.read_text())
+            self.assertEqual(json.loads(data.read_text())['verdicts']['one_index_per_key'], 'PASS')
 
     def test_sample_appends_one_line_per_sample(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -721,7 +869,8 @@ class Report(unittest.TestCase):
             with redirect_stdout(io.StringIO()):
                 soak.main(['sample', '--out', str(out), '--count', '2', '--interval', '0'])
                 soak.main(['sample', '--out', str(out), '--count', '1', '--interval', '0'])
-            self.assertEqual(len(soak.load_samples(out)), 3)
+            self.assertEqual(soak.load_samples(out), (soak.load_samples(out)[0], 0))
+            self.assertEqual(len(soak.load_samples(out)[0]), 3)
 
 
 class Wrapper(unittest.TestCase):
@@ -745,14 +894,211 @@ if __name__ == '__main__':
     unittest.main()
 ````
 
+Create `scripts/soak/test_soak_coverage.py`:
+
+````python
+"""Tests of what soak.py does when it could not observe something, and of the use a phase needs
+(review round 1: sol 2, Opus W2, W3, S2, S3, S5). A rule that could not be judged is UNKNOWN, never
+PASS; a phase that saw no use is INADMISSIBLE.
+
+Run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
+"""
+import io
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import soak  # noqa: E402
+from test_soak import ALL_READ, FAILED, MIB, REACHED, proc, sample  # noqa: E402
+
+CLAP = "error: unexpected argument '--shared' found"
+CRASHED = 'prism-mcp: --shared failed closed, no index was built: the last daemon for this key died during its index build'
+
+
+def dead_pid():
+    child = subprocess.Popen(['true'])
+    child.wait()
+    return child.pid
+
+
+def verdicts(samples, lines=(), crashes=(), coverage=None):
+    summary = soak.summarize_samples(samples)
+    return soak.judge(summary, soak.scan_lines(list(lines)), list(crashes), coverage or ALL_READ)
+
+
+class Unobserved(unittest.TestCase):
+    def test_a_failed_process_table_makes_the_process_rules_unknown(self):
+        found = verdicts([sample(1, [], ps_ok=False)], [REACHED])
+        self.assertEqual((found['one_index_per_key'], found['no_new_standalone_index']), ('UNKNOWN', 'UNKNOWN'))
+
+    def test_a_failed_footprint_of_a_standalone_server_is_unknown_and_a_vanished_one_is_not(self):
+        failed = verdicts([sample(1, []), sample(2, [proc('standalone', 7, status='failed')])], [REACHED])
+        self.assertEqual(failed['no_new_standalone_index'], 'UNKNOWN')
+        gone = verdicts([sample(1, []), sample(2, [proc('standalone', 7, status='gone')])], [REACHED])
+        self.assertEqual(gone['no_new_standalone_index'], 'PASS')
+
+    def test_a_missing_pressure_reading_is_unknown_and_a_critical_one_still_fails(self):
+        self.assertEqual(verdicts([sample(1, [], pressure=None)], [REACHED])['no_critical_pressure'], 'UNKNOWN')
+        both = verdicts([sample(1, [], pressure=None), sample(2, [], pressure=4)], [REACHED])
+        self.assertEqual(both['no_critical_pressure'], 'FAIL')
+
+    def test_unread_logs_or_crash_reports_are_unknown_and_what_was_read_still_fails(self):
+        unread = verdicts([sample(1, [])], [], coverage={'logs': False, 'crash_reports': False})
+        for rule in ('no_fail_closed', 'no_startup_error', 'no_restart_bound', 'no_abort'):
+            self.assertEqual(unread[rule], 'UNKNOWN', rule)
+        partial = verdicts([sample(1, [])], [FAILED], ['prism-mcp-1.ips'], {'logs': False, 'crash_reports': False})
+        self.assertEqual((partial['no_fail_closed'], partial['no_abort']), ('FAIL', 'FAIL'))
+
+    def test_a_vanished_pid_is_gone_and_a_live_one_without_a_reading_failed(self):
+        saved = (soak.FOOTPRINT_COMMAND, soak.PROC)
+        soak.FOOTPRINT_COMMAND, soak.PROC = 'no-such-footprint-command', Path('/no/such/proc')
+        try:
+            sizes, statuses = soak.measure_footprints([os.getpid(), dead_pid()])
+        finally:
+            soak.FOOTPRINT_COMMAND, soak.PROC = saved
+        self.assertEqual(sizes, {})
+        self.assertEqual(sorted(statuses.values()), ['failed', 'gone'])
+        self.assertEqual(statuses[os.getpid()], 'failed')
+
+    def test_a_sample_whose_process_table_could_not_be_read_says_so(self):
+        saved = soak.PS_COMMAND
+        soak.PS_COMMAND = ['no-such-ps-command']
+        try:
+            taken = soak.sample_once()
+        finally:
+            soak.PS_COMMAND = saved
+        self.assertEqual((taken['ps_ok'], taken['processes']), (False, []))
+
+    def test_log_sources_are_complete_only_when_every_named_one_exists(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / 'bridge.log'
+            log.write_text('')
+            self.assertTrue(soak.logs_readable(directory, [str(log)]))
+            self.assertFalse(soak.logs_readable(str(Path(directory) / 'missing'), [str(log)]))
+            self.assertFalse(soak.logs_readable(directory, [str(Path(directory) / 'missing.log')]))
+            self.assertFalse(soak.logs_readable(None, []))
+
+
+class Use(unittest.TestCase):
+    def built(self, t):
+        return sample(t, [proc('daemon', 1, 300 * MIB), proc('shim', 2), proc('shim', 3)])
+
+    def test_a_round_needs_shims_a_reached_daemon_and_a_built_index(self):
+        def phase(samples, lines):
+            summary = soak.summarize_samples(samples)
+            events = soak.scan_lines(lines)
+            use = soak.usage('round', summary, events, min_shims=2, min_days=5)
+            return soak.overall('round', soak.judge(summary, events, [], ALL_READ), use)
+        self.assertEqual(phase([self.built(1)], [REACHED]), 'PASS')
+        self.assertEqual(phase([self.built(1), sample(2, [], ps_ok=False)], [REACHED]), 'INADMISSIBLE')
+        self.assertEqual(phase([sample(1, [])], []), 'INADMISSIBLE')
+        self.assertEqual(phase([self.built(1)], []), 'INADMISSIBLE')
+        idle = sample(1, [proc('daemon', 1, 3 * MIB), proc('shim', 2), proc('shim', 3)])
+        self.assertEqual(phase([idle], [REACHED]), 'INADMISSIBLE')
+        self.assertEqual(phase([self.built(1), sample(2, [proc('daemon', 1), proc('daemon', 5)])], [REACHED]),
+                         'FAIL')
+
+    def test_standalone_holders_already_running_at_the_start_do_not_fail_a_phase(self):
+        before = proc('standalone', 7, 500 * MIB, repo='/old')
+        summary = soak.summarize_samples([sample(1, [before]), sample(2, [before, proc('standalone', 8, 500 * MIB)])])
+        self.assertEqual(summary['preexisting_standalone_holders'], {'/old': [7]})
+        self.assertEqual(summary['new_standalone_holders'], {'/r': [8]})
+
+    def test_a_usage_day_needs_a_built_index_or_two_shims_of_one_configuration(self):
+        day = 86400
+        summary = soak.summarize_samples([
+            sample(0 * day, [proc('shim', 2)]),
+            sample(1 * day, [proc('shim', 2), proc('daemon', 1, 3 * MIB)]),
+            sample(2 * day, [proc('daemon', 1, 300 * MIB)]),
+            sample(3 * day, [proc('shim', 2), proc('shim', 3)]),
+            sample(4 * day, [proc('shim', 2), proc('shim', 3, repo='/s')]),
+            sample(5 * day, [proc('daemon', 1, status='failed')])])
+        self.assertEqual(summary['usage_days'], ['1970-01-03', '1970-01-04'])
+
+    def test_a_startup_error_and_a_restart_bound_refusal_fail_their_rules(self):
+        found = verdicts([sample(1, [])], [CLAP, CRASHED])
+        self.assertEqual((found['no_startup_error'], found['no_restart_bound']), ('FAIL', 'FAIL'))
+        launcher = verdicts([sample(1, [])], ["prism-mcp-launch.sh: PRISM_MCP_SHARED must be 1 (…), not 'yes'"])
+        self.assertEqual(launcher['no_startup_error'], 'FAIL')
+
+
+class Edges(unittest.TestCase):
+    def test_a_binary_path_with_a_space_is_still_prism_mcp(self):
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / 'a b' / 'prism-mcp'
+            binary.parent.mkdir()
+            binary.write_text('#!/bin/sh\n')
+            binary.chmod(0o755)
+            found = soak.classify('%s --repo /r --shared' % binary)
+            self.assertEqual((found['role'], found['repo']), ('shim', '/r'))
+            self.assertIsNone(soak.classify('/usr/bin/vim %s' % binary))
+        self.assertIsNone(soak.classify('/usr/bin/vim /r/prism-mcp'))
+
+    def test_a_truncated_last_line_is_skipped_and_counted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 's.jsonl'
+            path.write_text(json.dumps(sample(1, [])) + '\n' + '{"t": 2, "proc')
+            samples, skipped = soak.load_samples(path)
+            self.assertEqual((len(samples), skipped), (1, 1))
+
+    def test_a_round_report_without_its_log_sources_is_inadmissible(self):
+        with tempfile.TemporaryDirectory() as directory:
+            samples = Path(directory) / 's.jsonl'
+            built = sample(time.time(), [proc('daemon', 1, 300 * MIB), proc('shim', 2), proc('shim', 3)])
+            samples.write_text(json.dumps(built) + '\n')
+            out = Path(directory) / 'r.md'
+            with redirect_stdout(io.StringIO()):
+                soak.main(['report', '--phase', 'round', '--samples', str(samples), '--claude-logs',
+                           str(Path(directory) / 'no-such-root'), '--crash-reports', directory, '--out', str(out)])
+            self.assertIn('**Verdict: INADMISSIBLE**', out.read_text())
+            self.assertIn('| no_fail_closed | UNKNOWN |', out.read_text())
+
+
+class Probe(unittest.TestCase):
+    def probe(self, command, timeout='20'):
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = soak.main(['probe', '--timeout', timeout, '--'] + command)
+        return code, out.getvalue()
+
+    def test_a_server_that_answers_initialize_passes(self):
+        code, text = self.probe([str(HERE / 'fake_prism_mcp.py'), '--repo', '/r', '--shared'])
+        self.assertEqual(code, 0, text)
+        self.assertIn('PASS', text)
+
+    def test_a_binary_that_rejects_shared_fails_and_says_why(self):
+        script = 'import sys; sys.stderr.write("%s\\n"); sys.exit(2)' % CLAP
+        code, text = self.probe([sys.executable, '-c', script])
+        self.assertEqual(code, 1)
+        self.assertIn('FAIL', text)
+        self.assertIn(CLAP, text)
+
+    def test_a_server_that_never_answers_fails_at_the_timeout(self):
+        code, text = self.probe([sys.executable, '-c', 'import time; time.sleep(60)'], timeout='1')
+        self.assertEqual(code, 1)
+        self.assertIn('no answer to initialize within 1', text)
+
+
+if __name__ == '__main__':
+    unittest.main()
+````
+
 - [ ] **Step 2: Run them and watch them fail**
 
 ```bash
-python3 -m unittest discover -s scripts/soak -p 'test_soak.py' > "$LOG_DIR/t2-red.log" 2>&1; echo "rc=$?"
+python3 -m unittest discover -s scripts/soak -p 'test_soak*.py' > "$LOG_DIR/t2-red.log" 2>&1; echo "rc=$?"
 tail -5 "$LOG_DIR/t2-red.log"
 ```
 
-Expected: `ImportError: Failed to import test module: test_soak`, `ModuleNotFoundError: No module named 'soak'`, `Ran 1 test`, `FAILED (errors=1)`.
+Expected: `ModuleNotFoundError: No module named 'soak'` for `test_soak` and `test_soak_coverage`, `Ran 2 tests`, `FAILED (errors=2)`.
 
 - [ ] **Step 3: Implement the sampler, the report and the wrapper**
 
@@ -792,44 +1138,51 @@ Create `scripts/soak/soak.py`:
 
     soak.py sample --out FILE.jsonl [--interval 60] [--count N | --duration SECS]
                    [--status-bin BIN --runtime-dir BASE]
-    soak.py report --samples FILE.jsonl --out FILE.md [--json FILE.json] [--since EPOCH] [--until EPOCH]
-                   [--claude-logs DIR] [--client-log FILE ...] [--crash-reports DIR]
+    soak.py report --phase round|week --samples FILE.jsonl --out FILE.md [--json FILE.json]
+                   [--since EPOCH] [--until EPOCH] [--claude-logs DIR] [--client-log FILE ...]
+                   [--crash-reports DIR] [--min-shims 2] [--min-days 5]
+    soak.py probe [--timeout 30] -- COMMAND [ARGS...]
 
 `sample` appends one JSON line per interval: every prism-mcp process (its role, repository, key,
-resident size and footprint) and the host's swap, memory pressure and compressor. It reads the
-process table and never connects to a daemon unless --status-bin is given, in which case it also
-stores the text of `daemon-status`. Appending makes it resumable: run it again on the same file.
+resident size, and footprint with whether it was measured, had gone, or could not be measured),
+whether the process table could be read, and the host's swap, memory pressure and compressor. It
+reads the process table and never connects to a daemon unless --status-bin is given, in which case
+it also stores the text of `daemon-status` (a daemon built before S5b restarts its idle time at
+each such probe: SI-35). Appending makes it resumable: run it again on the same file.
 
-`report` reads the samples and the clients' standard error (Claude Code's MCP logs, the files
-prism-mcp-logged.sh writes) and macOS crash reports, and judges the soak's pinned rules (RULES).
+`report` (soak_judge.py) reads the samples, the clients' standard error (Claude Code's MCP logs,
+the files prism-mcp-logged.sh writes) and macOS crash reports, and judges the soak's rules; a rule
+whose evidence was not collected is UNKNOWN, and a phase that saw no use is INADMISSIBLE.
+
+`probe` starts a launcher's exact command line, sends `initialize`, and passes only when an answer
+comes back: the check, at deployment and at rollback, that a configuration starts a server with
+the binary it names (a binary that rejects --shared fails it, with its error shown).
 
 Python 3.9, standard library only. Unit tests:
     python3 -m unittest discover -s scripts/soak -p 'test_*.py'
 """
 import argparse
-import calendar
 import json
 import os
+import queue
 import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
-MIB = 1024 * 1024
-# A standalone prism-mcp that has not built an index is a few MiB; one that has holds hundreds.
-HOLDER_MIN_BYTES = 100 * MIB
-# kern.memorystatus_vm_pressure_level: 1 normal, 2 warning, 4 critical.
-PRESSURE_CRITICAL = 4
-FAIL_CLOSED = 'prism-mcp: --shared failed closed'
-REACHED = re.compile(r'prism-mcp: shared daemon pid (\d+) \(started (\d+),')
-LOST = re.compile(r'prism-mcp: (the shared daemon closed the connection|the shared daemon\'s connection '
-                  r'failed)')
-BUILD_CRASH = 'died during its index build'
-CLIENT_LINE = re.compile(r'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ) (\d+) (.*)')
-CRASH_REPORT = re.compile(r'prism-mcp[-_].*\.(ips|crash)$')
-RULES = ('one_index_per_key', 'no_standalone_index', 'no_fail_closed', 'no_abort', 'no_critical_pressure')
+from soak_judge import (BUILD_CRASH, CLIENT_LINE, CRASH_REPORT, FAIL_CLOSED, GATED, HOLDER_MIN_BYTES,  # noqa: F401
+                        LOST, MIB, PRESSURE_CRITICAL, REACHED, RULES, STARTUP_ERROR, built, claude_log_lines,
+                        client_log_lines, cmd_report, crash_reports, holder_identity, in_window, is_holder,
+                        iso_epoch, judge, load_samples, logs_readable, overall, render, scan_lines,
+                        summarize_samples, usage, usage_day)
+
+PS_COMMAND = ['ps', '-A', '-ww', '-o', 'pid=,ppid=,rss=,command=']
+FOOTPRINT_COMMAND = 'footprint'
+PROC = Path('/proc')
+BINARY = re.compile(r'^(.*?(?:^|/)prism-mcp)(?: (.*))?$')
 
 
 def capture(command, timeout=30):
@@ -849,14 +1202,28 @@ def option(tokens, name):
     return None
 
 
+def split_command(command):
+    """(binary, the other words) when the command runs a binary named prism-mcp, else None. The
+    binary is the first word, or, when its path has a space in it (review round 1, Opus S5), the
+    shortest prefix ending in `/prism-mcp` that is an executable file."""
+    words = command.split()
+    if words and os.path.basename(words[0]) == 'prism-mcp':
+        return words[0], words[1:]
+    found = BINARY.match(command)
+    if found and ' ' in found.group(1) and os.path.isfile(found.group(1)) and os.access(found.group(1), os.X_OK):
+        return found.group(1), (found.group(2) or '').split()
+    return None
+
+
 def classify(command):
     """Role and configuration of one process from its command line, or None for a process that is
-    not prism-mcp. Roles: daemon, shim, standalone, operator. Words are split on spaces, so a path
-    with a space in it is cut short; the role does not depend on paths."""
-    tokens = command.split()
-    if not tokens or os.path.basename(tokens[0]) != 'prism-mcp':
+    not prism-mcp. Roles: daemon, shim, standalone, operator. Arguments are split on spaces, so a
+    repository path with a space in it is cut short in the labels; roles do not depend on it."""
+    split = split_command(command)
+    if split is None:
         return None
-    verb = tokens[1] if len(tokens) > 1 else ''
+    tokens = split[1]
+    verb = tokens[0] if tokens else ''
     if verb == 'daemon':
         role = 'daemon'
     elif verb in ('daemon-status', 'daemon-shutdown'):
@@ -884,30 +1251,46 @@ def parse_ps(text):
     return processes
 
 
-def footprints(pids):
-    """phys_footprint in bytes by pid (macOS `footprint`), or resident plus swapped (Linux /proc);
-    a process that has gone is missing."""
-    if not pids:
-        return {}
-    if sys.platform == 'darwin':
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def measure_footprints(pids):
+    """({pid: bytes}, {pid: 'ok' | 'gone' | 'failed'}): phys_footprint (macOS `footprint`), or
+    resident plus swapped (Linux /proc). A pid without a reading is 'gone' when the process has
+    ended and 'failed' while it still runs (review round 1, sol 2)."""
+    sizes = {}
+    if pids and sys.platform == 'darwin':
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / 'footprint.json'
-            capture(['footprint', '-f', 'bytes', '--noCategories', '-j', str(report)] + [str(p) for p in pids])
+            capture([FOOTPRINT_COMMAND, '-f', 'bytes', '--noCategories', '-j', str(report)] + [str(p) for p in pids])
             try:
                 data = json.loads(report.read_text())
             except (OSError, ValueError):
-                return {}
-        return {entry['pid']: entry['auxiliary']['phys_footprint'] for entry in data.get('processes', [])
-                if 'auxiliary' in entry and 'phys_footprint' in entry['auxiliary']}
-    sizes = {}
-    for pid in pids:
-        try:
-            status = Path('/proc/%d/status' % pid).read_text()
-        except OSError:
-            continue
-        kib = [int(line.split()[1]) for line in status.splitlines() if line.startswith(('VmRSS:', 'VmSwap:'))]
-        sizes[pid] = sum(kib) * 1024
-    return sizes
+                data = {}
+        sizes = {entry['pid']: entry['auxiliary']['phys_footprint'] for entry in data.get('processes', [])
+                 if entry.get('pid') in pids and 'phys_footprint' in entry.get('auxiliary', {})}
+    elif pids:
+        for pid in pids:
+            try:
+                status = (PROC / str(pid) / 'status').read_text()
+            except OSError:
+                continue
+            kib = [int(line.split()[1]) for line in status.splitlines() if line.startswith(('VmRSS:', 'VmSwap:'))]
+            sizes[pid] = sum(kib) * 1024
+    statuses = {pid: 'ok' if pid in sizes else 'failed' if alive(pid) else 'gone' for pid in pids}
+    return sizes, statuses
+
+
+def footprints(pids):
+    """phys_footprint in bytes by pid, for the pids that could be measured."""
+    return measure_footprints(pids)[0]
 
 
 def parse_swapusage(text):
@@ -923,39 +1306,39 @@ def parse_compressed(vm_stat):
     return int(size.group(1)) * int(pages.group(1)) if size and pages else None
 
 
+def read_pressure():
+    """kern.memorystatus_vm_pressure_level (1 normal, 2 warning, 4 critical), or None when it
+    cannot be read (not macOS, or the sysctl failed)."""
+    if sys.platform != 'darwin':
+        return None
+    level = capture(['sysctl', '-n', 'kern.memorystatus_vm_pressure_level'])
+    return int(level) if level and level.strip().isdigit() else None
+
+
 def host_memory():
+    """Swap, pressure and compressor; a figure that could not be read is None (or {} for swap)."""
     if sys.platform == 'darwin':
-        level = capture(['sysctl', '-n', 'kern.memorystatus_vm_pressure_level'])
         return {'swap_mib': parse_swapusage(capture(['sysctl', '-n', 'vm.swapusage'])),
-                'pressure': int(level) if level and level.strip().isdigit() else None,
-                'compressed_bytes': parse_compressed(capture(['vm_stat']))}
+                'pressure': read_pressure(), 'compressed_bytes': parse_compressed(capture(['vm_stat']))}
     try:
         info = dict(line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines() if ':' in line)
     except OSError:
-        return {}
+        info = {}
     kib = {name: int(info[name].split()[0]) for name in ('SwapTotal', 'SwapFree') if name in info}
-    if len(kib) < 2:
-        return {}
-    return {'swap_mib': {'total': kib['SwapTotal'] / 1024, 'free': kib['SwapFree'] / 1024,
-                         'used': (kib['SwapTotal'] - kib['SwapFree']) / 1024},
-            'pressure': None, 'compressed_bytes': None}
-
-
-def is_holder(process):
-    """Whether a process holds an index: every daemon, and a standalone server past the size of one
-    that has not built one. A shim never does."""
-    if process['role'] == 'daemon':
-        return True
-    return process['role'] == 'standalone' and (process.get('footprint_bytes') or 0) >= HOLDER_MIN_BYTES
+    swap = ({'total': kib['SwapTotal'] / 1024, 'free': kib['SwapFree'] / 1024,
+             'used': (kib['SwapTotal'] - kib['SwapFree']) / 1024} if len(kib) == 2 else {})
+    return {'swap_mib': swap, 'pressure': None, 'compressed_bytes': None}
 
 
 def sample_once(status_bin=None, runtime_dir=None):
-    processes = parse_ps(capture(['ps', '-A', '-ww', '-o', 'pid=,ppid=,rss=,command=']) or '')
-    sizes = footprints([process['pid'] for process in processes])
+    listing = capture(PS_COMMAND)
+    processes = parse_ps(listing or '')
+    sizes, statuses = measure_footprints([process['pid'] for process in processes])
     for process in processes:
         process['footprint_bytes'] = sizes.get(process['pid'])
+        process['footprint_status'] = statuses[process['pid']]
         process['holder'] = is_holder(process)
-    sample = {'t': time.time(), 'host': host_memory(), 'processes': processes}
+    sample = {'t': time.time(), 'ps_ok': listing is not None, 'host': host_memory(), 'processes': processes}
     if status_bin:
         command = [status_bin, 'daemon-status'] + (['--runtime-dir', runtime_dir] if runtime_dir else [])
         sample['daemon_status'] = capture(command, timeout=120)
@@ -974,17 +1357,161 @@ def cmd_sample(args):
             break
         time.sleep(args.interval)
     print('%d samples appended to %s' % (taken, args.out))
+    return 0
+
+
+def cmd_probe(args):
+    """Start the command, send `initialize`, wait for an answer; PASS (0) or FAIL (1) with why."""
+    command = args.command[1:] if args.command[:1] == ['--'] else args.command
+    with tempfile.TemporaryFile() as stderr:
+        try:
+            child = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr)
+        except OSError as error:
+            print('FAIL: cannot start %s: %s' % (command[0], error))
+            return 1
+        answers = queue.Queue()
+        threading.Thread(target=lambda: answers.put(child.stdout.readline()), daemon=True).start()
+        hello = {'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {
+            'protocolVersion': '2025-11-25', 'capabilities': {}, 'clientInfo': {'name': 'probe', 'version': '1'}}}
+        try:
+            child.stdin.write((json.dumps(hello) + '\n').encode())
+            child.stdin.flush()
+        except OSError:
+            pass
+        try:
+            line = answers.get(timeout=args.timeout)
+        except queue.Empty:
+            line = None
+        if line is None:
+            child.kill()
+        try:
+            child.stdin.close()
+        except OSError:
+            pass
+        try:
+            status = child.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            status = child.wait()
+        child.stdout.close()
+        stderr.seek(0)
+        err = stderr.read().decode('utf-8', 'replace').strip()
+    try:
+        answered = line is not None and 'result' in json.loads(line)
+    except ValueError:
+        answered = False
+    if answered:
+        print('PASS: %s answered initialize' % command[0])
+        return 0
+    why = 'no answer to initialize within %ss' % args.timeout if line is None else 'it ended (exit %s)' % status
+    print('FAIL: %s: %s; standard error: %s' % (command[0], why, err[-2000:] or '(empty)'))
+    return 1
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = parser.add_subparsers(dest='command', required=True)
+    sample = commands.add_parser('sample')
+    sample.add_argument('--out', required=True)
+    sample.add_argument('--interval', type=float, default=60.0)
+    sample.add_argument('--count', type=int)
+    sample.add_argument('--duration', type=float, help='seconds; with neither this nor --count, forever')
+    sample.add_argument('--status-bin', help='a prism-mcp binary whose daemon-status text each sample stores')
+    sample.add_argument('--runtime-dir', help='the runtime base daemon-status is given')
+    sample.set_defaults(handler=cmd_sample)
+    report = commands.add_parser('report')
+    report.add_argument('--phase', required=True, choices=sorted(GATED))
+    report.add_argument('--samples', required=True)
+    report.add_argument('--out', required=True)
+    report.add_argument('--json')
+    report.add_argument('--since', type=float)
+    report.add_argument('--until', type=float)
+    report.add_argument('--claude-logs', help='Claude Code MCP log root (~/Library/Caches/claude-cli-nodejs)')
+    report.add_argument('--client-log', action='append', help='a file prism-mcp-logged.sh wrote')
+    report.add_argument('--crash-reports', default=str(Path.home() / 'Library/Logs/DiagnosticReports'))
+    report.add_argument('--min-shims', type=int, default=2, help='round: shims at once that show use')
+    report.add_argument('--min-days', type=int, default=5, help='week: usage days that show use')
+    report.set_defaults(handler=cmd_report)
+    probe = commands.add_parser('probe')
+    probe.add_argument('--timeout', type=float, default=30.0)
+    probe.add_argument('command', nargs=argparse.REMAINDER)
+    probe.set_defaults(handler=cmd_probe)
+    args = parser.parse_args(argv)
+    return args.handler(args)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
+````
+
+Create `scripts/soak/soak_judge.py`:
+
+````python
+"""The soak report's reading and judging (soak.py report; spec section 8 step 2).
+
+A rule is PASS, FAIL or UNKNOWN. UNKNOWN means the evidence the rule needs was not collected (the
+process table could not be read, a live process's footprint could not be measured, the pressure
+level was unavailable, a named log source or the crash-report directory was missing): a rule never
+passes on what it could not see (review round 1, sol 2). A phase also needs evidence of use; a
+phase whose rules all pass but that saw no use is INADMISSIBLE (Opus W2, S3).
+"""
+import calendar
+import json
+import os
+import re
+import time
+from pathlib import Path
+
+MIB = 1024 * 1024
+# A standalone prism-mcp that has not built an index is a few MiB; one that has holds hundreds.
+HOLDER_MIN_BYTES = 100 * MIB
+# kern.memorystatus_vm_pressure_level: 1 normal, 2 warning, 4 critical.
+PRESSURE_CRITICAL = 4
+FAIL_CLOSED = 'prism-mcp: --shared failed closed'
+REACHED = re.compile(r'prism-mcp: shared daemon pid (\d+) \(started (\d+),')
+LOST = re.compile(r'prism-mcp: (the shared daemon closed the connection|the shared daemon\'s connection '
+                  r'failed)')
+BUILD_CRASH = 'died during its index build'
+# A server that never started: clap's refusal (an old binary given --shared), the launcher's own
+# refusals (review round 1, Opus S2).
+STARTUP_ERROR = re.compile(r'^(error: |prism-mcp-launch\.sh: |prism-mcp not found)')
+CLIENT_LINE = re.compile(r'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ) (\d+) (.*)')
+CRASH_REPORT = re.compile(r'prism-mcp[-_].*\.(ips|crash)$')
+RULES = ('one_index_per_key', 'no_new_standalone_index', 'no_fail_closed', 'no_startup_error', 'no_restart_bound',
+         'no_abort', 'no_critical_pressure')
+# The rules each phase gates on; the others are reported.
+GATED = {'round': RULES,
+         'week': ('one_index_per_key', 'no_fail_closed', 'no_startup_error', 'no_restart_bound', 'no_abort')}
+
+
+def is_holder(process):
+    """Whether a process holds an index: every daemon, and a standalone server whose measured
+    footprint is past the size of one that has not built one. A shim never does."""
+    if process['role'] == 'daemon':
+        return True
+    return process['role'] == 'standalone' and (process.get('footprint_bytes') or 0) >= HOLDER_MIN_BYTES
+
+
+def built(process):
+    """A daemon whose measured footprint shows an index was built."""
+    return process['role'] == 'daemon' and (process.get('footprint_bytes') or 0) >= HOLDER_MIN_BYTES
 
 
 def load_samples(path, since=None, until=None):
-    samples = []
+    """(samples in the window, lines that could not be read: a sampler killed mid-write)."""
+    samples, skipped = [], 0
     with open(path) as source:
         for line in source:
-            if line.strip():
+            if not line.strip():
+                continue
+            try:
                 sample = json.loads(line)
-                if (since is None or sample['t'] >= since) and (until is None or sample['t'] <= until):
-                    samples.append(sample)
-    return samples
+            except ValueError:
+                skipped += 1
+                continue
+            if (since is None or sample['t'] >= since) and (until is None or sample['t'] <= until):
+                samples.append(sample)
+    return samples, skipped
 
 
 def holder_identity(process):
@@ -994,18 +1521,30 @@ def holder_identity(process):
     return 'standalone ' + (process.get('repo') or '?')
 
 
+def usage_day(processes):
+    """Whether a sample shows use: a built index, or two shims of one configuration at once."""
+    shims = [(p.get('repo'), p.get('cache_dir')) for p in processes if p['role'] == 'shim']
+    return any(built(p) for p in processes) or len(shims) != len(set(shims))
+
+
 def summarize_samples(samples):
-    worst_per_key, worst_per_repo, standalone, daemons = {}, {}, {}, {}
-    shim_days = set()
+    worst_per_key, worst_per_repo, new_standalone, old_standalone, daemons = {}, {}, {}, {}, {}
+    days, missing = set(), {'ps': 0, 'pressure': 0, 'standalone_footprint': 0, 'footprint': 0}
+    first_pids = {p['pid'] for p in samples[0]['processes']} if samples else set()
     peaks = {'holders': 0, 'shims': 0, 'prism_footprint_bytes': 0, 'swap_used_mib': 0.0, 'pressure': 0,
-             'compressed_bytes': 0}
+             'compressed_bytes': 0, 'built_daemons': 0}
     for sample in samples:
+        missing['ps'] += not sample.get('ps_ok', True)
         holders = {}
         for process in sample['processes']:
+            if process.get('footprint_status') == 'failed':
+                missing['footprint'] += 1
+                missing['standalone_footprint'] += process['role'] == 'standalone'
             if process.get('holder'):
                 holders.setdefault(holder_identity(process), []).append(process['pid'])
             if process['role'] == 'standalone' and process.get('holder'):
-                standalone.setdefault(process.get('repo') or '?', set()).add(process['pid'])
+                found = old_standalone if process['pid'] in first_pids else new_standalone
+                found.setdefault(process.get('repo') or '?', set()).add(process['pid'])
             if process['role'] == 'daemon':
                 daemons.setdefault((process['pid'], process.get('key')), [sample['t'], sample['t']])[1] = sample['t']
         for identity, pids in holders.items():
@@ -1018,36 +1557,41 @@ def summarize_samples(samples):
         for repo, pids in repos.items():
             if len(pids) > len(worst_per_repo.get(repo, [])):
                 worst_per_repo[repo] = pids
-        if any(p['role'] == 'shim' for p in sample['processes']):
-            shim_days.add(time.strftime('%Y-%m-%d', time.gmtime(sample['t'])))
+        if usage_day(sample['processes']):
+            days.add(time.strftime('%Y-%m-%d', time.gmtime(sample['t'])))
         host = sample.get('host') or {}
+        missing['pressure'] += host.get('pressure') is None
         peaks['holders'] = max(peaks['holders'], sum(len(p) for p in holders.values()))
         peaks['shims'] = max(peaks['shims'], sum(1 for p in sample['processes'] if p['role'] == 'shim'))
+        peaks['built_daemons'] = max(peaks['built_daemons'], sum(1 for p in sample['processes'] if built(p)))
         peaks['prism_footprint_bytes'] = max(peaks['prism_footprint_bytes'], sum(
             p.get('footprint_bytes') or 0 for p in sample['processes']))
         peaks['swap_used_mib'] = max(peaks['swap_used_mib'], (host.get('swap_mib') or {}).get('used', 0.0))
         peaks['pressure'] = max(peaks['pressure'], host.get('pressure') or 0)
         peaks['compressed_bytes'] = max(peaks['compressed_bytes'], host.get('compressed_bytes') or 0)
     return {'samples': len(samples), 'first': samples[0]['t'] if samples else None,
-            'last': samples[-1]['t'] if samples else None, 'peaks': peaks,
+            'last': samples[-1]['t'] if samples else None, 'peaks': peaks, 'missing': missing,
             'max_daemons_per_key': max([len(p) for p in worst_per_key.values()] or [0]),
             'duplicated_keys': {k: v for k, v in worst_per_key.items() if len(v) > 1},
             'max_daemons_per_repo': max([len(p) for p in worst_per_repo.values()] or [0]),
-            'days_with_shims': sorted(shim_days),
+            'usage_days': sorted(days),
             'repos_with_several_daemons': {k: v for k, v in worst_per_repo.items() if len(v) > 1},
-            'standalone_holders': {repo: sorted(pids) for repo, pids in standalone.items()},
+            'new_standalone_holders': {repo: sorted(pids) for repo, pids in new_standalone.items()},
+            'preexisting_standalone_holders': {repo: sorted(pids) for repo, pids in old_standalone.items()},
             'daemon_instances': [{'pid': pid, 'key': key, 'first_seen': span[0], 'last_seen': span[1]}
                                  for (pid, key), span in sorted(daemons.items(), key=lambda item: item[1][0])]}
 
 
 def scan_lines(lines):
     """Client events in shim standard-error lines."""
-    events = {'fail_closed': [], 'reached': set(), 'lost': 0, 'build_crash_refusals': 0}
+    events = {'fail_closed': [], 'reached': set(), 'lost': 0, 'build_crash_refusals': 0, 'startup_errors': []}
     for line in lines:
         if FAIL_CLOSED in line:
             events['fail_closed'].append(line.strip())
             if BUILD_CRASH in line:
                 events['build_crash_refusals'] += 1
+        if STARTUP_ERROR.match(line):
+            events['startup_errors'].append(line.strip())
         found = REACHED.search(line)
         if found:
             events['reached'].add((int(found.group(1)), int(found.group(2))))
@@ -1063,6 +1607,16 @@ def iso_epoch(text):
 
 def in_window(epoch, since, until):
     return (since is None or epoch >= since) and (until is None or epoch <= until)
+
+
+def logs_readable(claude_root, client_logs):
+    """Whether every named log source exists: the Claude Code root a directory, every client log a
+    file. No source at all is not coverage."""
+    if not claude_root and not client_logs:
+        return False
+    if claude_root and not Path(claude_root).is_dir():
+        return False
+    return all(Path(path).is_file() for path in client_logs)
 
 
 def claude_log_lines(root, since=None, until=None):
@@ -1094,121 +1648,137 @@ def client_log_lines(path, since=None, until=None):
 
 
 def crash_reports(directory, since=None, until=None):
-    """macOS crash reports of prism-mcp in `directory` whose modification time is in the window."""
-    found = []
-    for path in sorted(Path(directory).glob('*')) if directory and Path(directory).is_dir() else []:
-        if CRASH_REPORT.match(path.name) and in_window(path.stat().st_mtime, since, until):
-            found.append(path.name)
-    return found
+    """(prism-mcp crash reports in `directory` modified in the window, whether it could be read)."""
+    try:
+        paths = sorted(Path(directory).iterdir()) if directory else None
+    except OSError:
+        paths = None
+    if paths is None:
+        return [], False
+    return [p.name for p in paths if CRASH_REPORT.match(p.name) and in_window(p.stat().st_mtime, since, until)], True
 
 
-def judge(summary, events, crashes):
-    """Each pinned rule's verdict: True passes."""
-    return {'one_index_per_key': summary['max_daemons_per_key'] <= 1,
-            'no_standalone_index': not summary['standalone_holders'],
-            'no_fail_closed': not events['fail_closed'],
-            'no_abort': not crashes,
-            'no_critical_pressure': summary['peaks']['pressure'] < PRESSURE_CRITICAL}
+def judge(summary, events, crashes, coverage):
+    """Each rule's verdict: FAIL on a breach that was seen; else UNKNOWN when the evidence it
+    needs was not collected; else PASS. `coverage`: {'logs': bool, 'crash_reports': bool}."""
+    missing = summary['missing']
+
+    def verdict(breach, unseen):
+        return 'FAIL' if breach else 'UNKNOWN' if unseen else 'PASS'
+    logs = not coverage['logs']
+    return {'one_index_per_key': verdict(summary['max_daemons_per_key'] > 1, missing['ps']),
+            'no_new_standalone_index': verdict(summary['new_standalone_holders'],
+                                               missing['ps'] or missing['standalone_footprint']),
+            'no_fail_closed': verdict(events['fail_closed'], logs),
+            'no_startup_error': verdict(events['startup_errors'], logs),
+            'no_restart_bound': verdict(events['build_crash_refusals'], logs),
+            'no_abort': verdict(crashes, not coverage['crash_reports']),
+            'no_critical_pressure': verdict(summary['peaks']['pressure'] >= PRESSURE_CRITICAL, missing['pressure'])}
 
 
-def render(summary, events, crashes, verdicts):
+def usage(phase, summary, events, min_shims, min_days):
+    """The use a phase must have seen, check by check (True when seen)."""
+    if phase == 'round':
+        return {'shims_at_once_at_least_%d' % min_shims: summary['peaks']['shims'] >= min_shims,
+                'a_daemon_reached_in_the_logs': bool(events['reached']),
+                'an_index_built': summary['peaks']['built_daemons'] >= 1}
+    return {'usage_days_at_least_%d' % min_days: len(summary['usage_days']) >= min_days}
+
+
+def overall(phase, verdicts, use):
+    """FAIL on any gated rule's FAIL; INADMISSIBLE when a gated rule is UNKNOWN or the use was not
+    seen; else PASS."""
+    gated = [verdicts[rule] for rule in GATED[phase]]
+    if 'FAIL' in gated:
+        return 'FAIL'
+    return 'INADMISSIBLE' if 'UNKNOWN' in gated or not all(use.values()) else 'PASS'
+
+
+def render(phase, summary, events, crashes, verdicts, use, result, skipped):
     peaks = summary['peaks']
-    lines = ['# prism-mcp soak report', '',
-             'Samples: %d, from %s to %s (epoch seconds).' % (summary['samples'], summary['first'], summary['last']),
-             '', '| Rule | Verdict |', '|---|---|']
-    lines += ['| %s | %s |' % (rule, 'PASS' if verdicts[rule] else 'FAIL') for rule in RULES]
+    lines = ['# prism-mcp soak report (%s)' % phase, '',
+             'Samples: %d, from %s to %s (epoch seconds); unreadable sample lines skipped: %d.'
+             % (summary['samples'], summary['first'], summary['last'], skipped),
+             '', '**Verdict: %s**' % result, '', '| Rule | Verdict | Gated |', '|---|---|---|']
+    lines += ['| %s | %s | %s |' % (rule, verdicts[rule], 'yes' if rule in GATED[phase] else 'no') for rule in RULES]
+    lines += ['', '| Use | Seen |', '|---|---|'] + ['| %s | %s |' % (k, 'yes' if v else 'NO') for k, v in use.items()]
     lines += ['', '| Measure | Value |', '|---|---|',
               '| Most index holders at once | %d |' % peaks['holders'],
               '| Most daemons for one key at once | %d |' % summary['max_daemons_per_key'],
               '| Most daemons for one repository at once (any configuration or build) | %d |'
               % summary['max_daemons_per_repo'],
               '| Most shims at once | %d |' % peaks['shims'],
-              '| Days (UTC) with a shim in a sample | %d |' % len(summary['days_with_shims']),
+              '| Most daemons with a built index at once | %d |' % peaks['built_daemons'],
+              '| Usage days (UTC; a built index, or two shims of one configuration) | %d |' % len(summary['usage_days']),
               '| Peak footprint of all prism-mcp processes (MiB) | %.1f |' % (peaks['prism_footprint_bytes'] / MIB),
               '| Peak swap used (MiB) | %.1f |' % peaks['swap_used_mib'],
               '| Peak compressor (MiB) | %.1f |' % (peaks['compressed_bytes'] / MIB),
               '| Highest memory pressure level | %d |' % peaks['pressure'],
+              '| Samples without a process table / without pressure | %d / %d |'
+              % (summary['missing']['ps'], summary['missing']['pressure']),
+              '| Live processes whose footprint could not be measured | %d |' % summary['missing']['footprint'],
               '| Daemon instances seen in samples | %d |' % len(summary['daemon_instances']),
               '| Daemon instances clients reached | %d |' % len(events['reached']),
               '| Fail-closed lines | %d |' % len(events['fail_closed']),
               '| Of which a build that died (restart bound) | %d |' % events['build_crash_refusals'],
+              '| Startup errors (a server that never started) | %d |' % len(events['startup_errors']),
               '| Sessions ended by their daemon | %d |' % events['lost'],
               '| prism-mcp crash reports | %d |' % len(crashes)]
-    if summary['duplicated_keys']:
-        lines += ['', 'Keys with more than one daemon at once: %s' % json.dumps(summary['duplicated_keys'])]
-    if summary['repos_with_several_daemons']:
-        lines += ['', 'Repositories with several daemons at once (other cache directories, refresh policies or '
-                  'builds): %s' % json.dumps(summary['repos_with_several_daemons'])]
-    if summary['standalone_holders']:
-        lines += ['', 'Standalone index holders: %s' % json.dumps(summary['standalone_holders'])]
+    for title, key in (('Keys with more than one daemon at once', 'duplicated_keys'),
+                       ('Repositories with several daemons at once (other cache directories, refresh policies or '
+                        'builds)', 'repos_with_several_daemons'),
+                       ('Standalone index holders first seen after the start', 'new_standalone_holders'),
+                       ('Standalone index holders already running at the start (not counted)',
+                        'preexisting_standalone_holders')):
+        if summary[key]:
+            lines += ['', '%s: %s' % (title, json.dumps(summary[key]))]
     lines += ['', 'Fail-closed lines:'] + ['- `%s`' % line for line in events['fail_closed'][:50]]
+    lines += ['', 'Startup errors:'] + ['- `%s`' % line for line in events['startup_errors'][:50]]
     lines += ['', 'Crash reports:'] + ['- `%s`' % name for name in crashes]
     return '\n'.join(lines) + '\n'
 
 
 def cmd_report(args):
-    samples = load_samples(args.samples, args.since, args.until)
+    samples, skipped = load_samples(args.samples, args.since, args.until)
     if not samples:
         raise SystemExit('no samples in %s for the window' % args.samples)
+    client_logs = args.client_log or []
     lines = []
-    if args.claude_logs:
+    if args.claude_logs and Path(args.claude_logs).is_dir():
         lines += list(claude_log_lines(args.claude_logs, args.since, args.until))
-    for path in args.client_log or []:
-        lines += list(client_log_lines(path, args.since, args.until))
+    for path in client_logs:
+        if os.path.isfile(path):
+            lines += list(client_log_lines(path, args.since, args.until))
     summary = summarize_samples(samples)
     events = scan_lines(lines)
-    crashes = crash_reports(args.crash_reports, args.since, args.until)
-    verdicts = judge(summary, events, crashes)
-    Path(args.out).write_text(render(summary, events, crashes, verdicts))
+    crashes, crash_ok = crash_reports(args.crash_reports, args.since, args.until)
+    coverage = {'logs': logs_readable(args.claude_logs, client_logs), 'crash_reports': crash_ok}
+    verdicts = judge(summary, events, crashes, coverage)
+    use = usage(args.phase, summary, events, args.min_shims, args.min_days)
+    result = overall(args.phase, verdicts, use)
+    Path(args.out).write_text(render(args.phase, summary, events, crashes, verdicts, use, result, skipped))
     if args.json:
         Path(args.json).write_text(json.dumps(
-            {'summary': summary, 'events': dict(events, reached=sorted(events['reached'])), 'crash_reports': crashes,
-             'verdicts': verdicts}, indent=1, sort_keys=True))
-    print('wrote %s: %s' % (args.out, ', '.join('%s %s' % (r, 'PASS' if verdicts[r] else 'FAIL') for r in RULES)))
-
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    commands = parser.add_subparsers(dest='command', required=True)
-    sample = commands.add_parser('sample')
-    sample.add_argument('--out', required=True)
-    sample.add_argument('--interval', type=float, default=60.0)
-    sample.add_argument('--count', type=int)
-    sample.add_argument('--duration', type=float, help='seconds; with neither this nor --count, forever')
-    sample.add_argument('--status-bin', help='a prism-mcp binary whose daemon-status text each sample stores')
-    sample.add_argument('--runtime-dir', help='the runtime base daemon-status is given')
-    sample.set_defaults(handler=cmd_sample)
-    report = commands.add_parser('report')
-    report.add_argument('--samples', required=True)
-    report.add_argument('--out', required=True)
-    report.add_argument('--json')
-    report.add_argument('--since', type=float)
-    report.add_argument('--until', type=float)
-    report.add_argument('--claude-logs', help='Claude Code MCP log root (~/Library/Caches/claude-cli-nodejs)')
-    report.add_argument('--client-log', action='append', help='a file prism-mcp-logged.sh wrote')
-    report.add_argument('--crash-reports', default=str(Path.home() / 'Library/Logs/DiagnosticReports'))
-    report.set_defaults(handler=cmd_report)
-    args = parser.parse_args(argv)
-    args.handler(args)
-
-
-if __name__ == '__main__':
-    main()
+            {'phase': args.phase, 'verdict': result, 'summary': summary, 'coverage': coverage, 'use': use,
+             'events': dict(events, reached=sorted(events['reached'])), 'crash_reports': crashes,
+             'verdicts': verdicts, 'skipped_lines': skipped}, indent=1, sort_keys=True))
+    print('wrote %s: %s' % (args.out, result))
+    return 0
 ````
 
 - [ ] **Step 4: Run them and watch them pass**
 
 ```bash
-python3 -m unittest discover -s scripts/soak -p 'test_soak.py' > "$LOG_DIR/t2-green.log" 2>&1; echo "rc=$?"
+python3 -m unittest discover -s scripts/soak -p 'test_soak*.py' > "$LOG_DIR/t2-green.log" 2>&1; echo "rc=$?"
 tail -3 "$LOG_DIR/t2-green.log"
 ```
 
-Expected: `rc=0`, `Ran 16 tests`, `OK`.
+Expected: `rc=0`, `Ran 32 tests`, `OK`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/soak/soak.py scripts/soak/test_soak.py scripts/soak/prism-mcp-logged.sh
+git add scripts/soak/soak.py scripts/soak/soak_judge.py scripts/soak/test_soak.py scripts/soak/test_soak_coverage.py scripts/soak/fake_prism_mcp.py scripts/soak/prism-mcp-logged.sh
 git commit -m "feat(soak): S6 — prism-mcp process sampler, soak report and client log wrapper"
 ```
 
@@ -1218,91 +1788,51 @@ Apply each mutant alone, run Step 4's command, then `git checkout -- <file>`.
 
 | Mutant | File | Edit | Expected failing tests (observed) |
 |---|---|---|---|
-| S1 | `soak.py` | `elif '--shared' in tokens:` → `elif '--never' in tokens:` (a shim taken for a standalone server) | `test_roles_come_from_the_command_line` |
-| S2 | `soak.py` | `>= HOLDER_MIN_BYTES` → `> HOLDER_MIN_BYTES` | `test_an_index_holder_is_a_daemon_or_a_standalone_server_past_100_mib` |
-| S3 | `soak.py` | `holders = {}` moved before the loop over samples (daemons of different samples counted as at once) | `test_two_daemons_of_one_key_at_once_are_found`, `test_daemons_of_different_keys_and_one_after_another_are_not_duplicates` |
-| S4 | `soak.py` | `'reached': set()` → `'reached': []` (a daemon counted once per line) | `test_client_lines_are_counted`, `test_the_rules_pass_on_a_clean_soak_and_each_fails_on_its_own_breach` |
-| S5 | `soak.py` | `'*/mcp-logs-*prism*/*.jsonl'` → `'*/mcp-logs-*/*.jsonl'` (every server's log read) | `test_claude_code_logs_are_read_for_prism_servers_in_the_window` |
-| S6 | `soak.py` | the window check of a Claude Code entry → `if True:` | `test_claude_code_logs_are_read_for_prism_servers_in_the_window` |
-| S7 | `soak.py` | `calendar.timegm(…)` → `time.mktime(…)` (UTC read as local time; killed only where the local zone is not UTC) | `test_iso_times_are_utc` |
-| S8 | `soak.py` | `CRASH_REPORT` → `r'.*\.(ips\|crash)$'` (every program's crash report) | `test_crash_reports_of_prism_mcp_in_the_window_are_counted` |
-| S9 | `soak.py` | `pressure < PRESSURE_CRITICAL` → `<=` | `test_the_rules_pass_on_a_clean_soak_and_each_fails_on_its_own_breach` |
-| S10 | `prism-mcp-logged.sh` | `while IFS= read -r line \|\| [ -n "$line" ]; do` → `while IFS= read -r line; do` (a last line without a newline lost) | `test_standard_error_is_logged_with_time_and_pid_and_nothing_else_changes` |
-| S11 | `prism-mcp-logged.sh` | the `printf '%s\n' "$line" >&2` line removed (standard error swallowed) | `test_standard_error_is_logged_with_time_and_pid_and_nothing_else_changes` |
-| S12 | `soak.py` | the `if process['role'] == 'daemon':` of the per-repository count → `if True:` | `test_daemons_of_different_keys_and_one_after_another_are_not_duplicates` |
-| S13 | `soak.py` | the shim check of the day count → `if True:` (every sampled day counted) | `test_only_days_with_a_shim_count_toward_the_week` |
+| S1 | `soak.py` | `elif '--shared' in tokens:` → `elif '--never' in tokens:` (a shim taken for a standalone server) | `test_roles_come_from_the_command_line`, `test_a_binary_path_with_a_space_is_still_prism_mcp` |
+| S2 | `soak_judge.py` | `is_holder`: `>= HOLDER_MIN_BYTES` → `>` | `test_an_index_holder_is_a_daemon_or_a_standalone_server_past_100_mib` |
+| S3 | `soak_judge.py` | `holders = {}` moved before the loop over samples | `test_two_daemons_of_one_key_at_once_are_found`, `test_daemons_of_different_keys_and_one_after_another_are_not_duplicates` |
+| S4 | `soak_judge.py` | `'reached': set()` → `'reached': []` | `test_client_lines_are_counted`, `test_the_rules_pass_on_a_clean_soak_and_each_fails_on_its_own_breach` and four of `test_soak_coverage.py` |
+| S5 | `soak_judge.py` | `'*/mcp-logs-*prism*/*.jsonl'` → `'*/mcp-logs-*/*.jsonl'` | `test_claude_code_logs_are_read_for_prism_servers_in_the_window` |
+| S6 | `soak_judge.py` | the window check of a Claude Code entry → `if True:` | `test_claude_code_logs_are_read_for_prism_servers_in_the_window` |
+| S7 | `soak_judge.py` | `calendar.timegm(…)` → `time.mktime(…)` | `test_iso_times_are_utc_in_any_local_zone_winter_and_summer` (now in every zone: the test sets its own) |
+| S7b | `soak_judge.py` | `calendar.timegm(…)` → `time.mktime(…) - time.timezone` (the earlier draft's bug; review round 1, sol S7) | `test_iso_times_are_utc_in_any_local_zone_winter_and_summer` (July, MST7MDT) |
+| S8 | `soak_judge.py` | `CRASH_REPORT` → `r'.*\.(ips\|crash)$'` | `test_crash_reports_of_prism_mcp_in_the_window_are_counted` |
+| S9 | `soak_judge.py` | `pressure >= PRESSURE_CRITICAL` → `>` | `test_the_rules_pass_on_a_clean_soak_and_each_fails_on_its_own_breach`, `test_a_missing_pressure_reading_is_unknown_and_a_critical_one_still_fails` |
+| S10 | `prism-mcp-logged.sh` | `while IFS= read -r line \|\| [ -n "$line" ]; do` → `while IFS= read -r line; do` | `test_standard_error_is_logged_with_time_and_pid_and_nothing_else_changes` |
+| S11 | `prism-mcp-logged.sh` | the `printf '%s\n' "$line" >&2` line removed | `test_standard_error_is_logged_with_time_and_pid_and_nothing_else_changes` |
+| S12 | `soak_judge.py` | the `if process['role'] == 'daemon':` of the per-repository count → `if True:` | `test_daemons_of_different_keys_and_one_after_another_are_not_duplicates` |
+| S13 | `soak_judge.py` | `usage_day`: `or len(shims) != len(set(shims))` → `or len(shims) >= 1` (an idle shim is use) | `test_a_usage_day_needs_a_built_index_or_two_shims_of_one_configuration` |
+| U1 | `soak_judge.py` | a sample without a process table not counted | `test_a_failed_process_table_makes_the_process_rules_unknown` |
+| U2 | `soak_judge.py` | a standalone server's failed footprint not counted | `test_a_failed_footprint_of_a_standalone_server_is_unknown_and_a_vanished_one_is_not` |
+| U3 | `soak_judge.py` | a missing pressure reading not counted | `test_a_missing_pressure_reading_is_unknown_and_a_critical_one_still_fails` |
+| U4 | `soak_judge.py` | `logs = not coverage['logs']` → `logs = False` | `test_unread_logs_or_crash_reports_are_unknown_and_what_was_read_still_fails`, `test_a_round_report_without_its_log_sources_is_inadmissible` |
+| U5 | `soak_judge.py` | the crash-report coverage ignored | `test_unread_logs_or_crash_reports_are_unknown_and_what_was_read_still_fails` |
+| U6 | `soak.py` | a live pid without a reading → `'gone'` | `test_a_vanished_pid_is_gone_and_a_live_one_without_a_reading_failed` |
+| U7 | `soak.py` | `'ps_ok': listing is not None` → `True` | `test_a_sample_whose_process_table_could_not_be_read_says_so` |
+| U8 | `soak_judge.py` | `logs_readable` with no source → `True` | `test_log_sources_are_complete_only_when_every_named_one_exists` |
+| U9 | `soak_judge.py` | the round's `an_index_built` → `True` | `test_a_round_needs_shims_a_reached_daemon_and_a_built_index` |
+| U10 | `soak_judge.py` | the round's `a_daemon_reached_in_the_logs` → `True` | `test_a_round_needs_shims_a_reached_daemon_and_a_built_index` |
+| U11 | `soak_judge.py` | `overall`: a gated UNKNOWN no longer makes the phase INADMISSIBLE | `test_a_round_needs_shims_a_reached_daemon_and_a_built_index` (its failed-`ps` case, added after the mutant first survived) |
+| U12 | `soak_judge.py` | every standalone holder counted as new | `test_standalone_holders_already_running_at_the_start_do_not_fail_a_phase`, `test_standalone_holders_and_peaks_are_reported` |
+| U13 | `soak_judge.py` | startup errors not scanned | `test_a_startup_error_and_a_restart_bound_refusal_fail_their_rules` |
+| U14 | `soak_judge.py` | `no_restart_bound` judged on 0 | `test_a_startup_error_and_a_restart_bound_refusal_fail_their_rules` |
+| U15 | `soak.py` | the binary path with a space not looked for | `test_a_binary_path_with_a_space_is_still_prism_mcp` |
+| U16 | `soak_judge.py` | `load_samples` without its `try` | `test_a_truncated_last_line_is_skipped_and_counted` |
+| U17 | `soak.py` | `probe`: `answered = True` | `test_a_binary_that_rejects_shared_fails_and_says_why`, `test_a_server_that_never_answers_fails_at_the_timeout` |
+
+- [ ] **Step 7: Verify S6-1 and open its pull request**
+
+S6-1 is Tasks 1–2. Run Task 4 Step 3's commands at this head (the soak tests are `test_soak*.py` here: `Ran 32 tests`), then open the pull request with the body of Task 4 Step 5, its decisions narrowed to D110–D113, D118, D120, D121, D124, D125, D127, D128 and its claims to the rows of Tasks 1–2. The CI step for the soak tools arrives with S6-2 (Task 4); run them by hand here. The Linux run is at the S6-2 head (its code contains this head's).
 
 ---
 
 ### Task 3: The fan-out latency driver
 
-**Files:** Create `scripts/soak/fanout.py`, `scripts/soak/test_fanout.py`, `scripts/soak/test_fanout_live.py`, `scripts/soak/fake_prism_mcp.py` (executable).
+**Files:** Create `scripts/soak/fanout.py`, `scripts/soak/test_fanout.py`, `scripts/soak/test_fanout_gate.py`, `scripts/soak/test_fanout_live.py`.
 
-**Interfaces** (the soak and C2-M1's fan-out gate use them): `fanout.py run --bin BIN --corpus NAME=PATH --cache-dir DIR --mode shared|standalone --out DIR [--clients N] [--workloads DIR] [--refresh-at F | --no-refresh] [--timeout S]` writes `run.json`, `calls.jsonl`, `summary.json` (`p50_ms`, `p95_ms`, `p99_ms`, `max_ms`, `mean_ms`, `refresh_ms`, `outcomes`, `admissible`, `problems`) and `clients/<i>.stderr`; it refuses a directory that already has results and a corpus whose commit is not its workload's (memreport's `bind_workload`). `fanout.py compare --baseline DIR … --candidate DIR … --out FILE.md [--json FILE]` (`P95_MAX_RATIO`, `P99_MAX_RATIO`).
+**Interfaces** (the soak and C2-M1's fan-out gate use them): `fanout.py run --bin BIN --corpus NAME=PATH --cache-dir DIR --mode shared|standalone --out DIR [--clients N] [--workloads DIR] [--refresh-at F | --no-refresh] [--timeout S] [--pressure required|off]` writes `run.json` (with `profile` `gate`/`diagnostic` and `pressure`: every reading), `calls.jsonl`, `summary.json` (`p50_ms`, `p95_ms`, `p99_ms`, `max_ms`, `mean_ms`, `refresh_ms`, `refresh_outcome`, `refresh_overlap` {`calls`, `max_ms`, `refresh_ms`}, `profile`, `outcomes`, `admissible`, `problems`), `clients/<i>.stderr` and, for a shared run, `daemon-logs/`; it refuses a directory that already has results and a corpus whose commit is not its workload's (memreport's `bind_workload`). `fanout.py compare --baseline DIR … --candidate DIR … --out FILE.md [--json FILE] [--allow-client-mismatch]` (`P95_MAX_RATIO`, `P99_MAX_RATIO`).
 
 - [ ] **Step 1: Write the failing tests**
-
-Create `scripts/soak/fake_prism_mcp.py`:
-
-````python
-#!/usr/bin/env python3
-"""A stand-in for prism-mcp in the fan-out driver's tests (test_fanout.py). It speaks just enough
-MCP: `initialize`, notifications, `tools/call` (refresh_index included). Environment:
-FAKE_WARMING=N answers the first N tool calls retryable (as an index that is warming);
-FAKE_DIE_AFTER=N exits after N tool calls; FAKE_DELAY_MS=N waits before each answer;
-FAKE_DAEMON_PID=P makes a `--shared` process report daemon pid P on standard error;
-`daemon-shutdown` as the first argument prints a line and exits FAKE_SHUTDOWN_EXIT (default 0).
-It writes the PRISM_MCP_CONCISE_SHAPE it was given to standard error."""
-import json
-import os
-import sys
-import time
-
-
-def answer(ident, result):
-    sys.stdout.write(json.dumps({'jsonrpc': '2.0', 'id': ident, 'result': result}) + '\n')
-    sys.stdout.flush()
-
-
-def main():
-    if sys.argv[1:2] == ['daemon-shutdown']:
-        print('fake: nothing to shut down')
-        sys.exit(int(os.environ.get('FAKE_SHUTDOWN_EXIT', '0')))
-    sys.stderr.write('fake: PRISM_MCP_CONCISE_SHAPE=%s\n' % os.environ.get('PRISM_MCP_CONCISE_SHAPE', '<unset>'))
-    if '--shared' in sys.argv:
-        sys.stderr.write('prism-mcp: shared daemon pid %s (started 7, generation 1) at /fake.sock\n'
-                         % os.environ.get('FAKE_DAEMON_PID', '1'))
-        sys.stderr.flush()
-    warming = int(os.environ.get('FAKE_WARMING', '0'))
-    die_after = int(os.environ.get('FAKE_DIE_AFTER', '0'))
-    delay = int(os.environ.get('FAKE_DELAY_MS', '0')) / 1000.0
-    calls = 0
-    for line in sys.stdin:
-        message = json.loads(line)
-        if 'id' not in message:
-            continue
-        if message['method'] == 'initialize':
-            answer(message['id'], {'serverInfo': {'name': 'prism-mcp', 'version': 'fake'}, 'capabilities': {}})
-            continue
-        calls += 1
-        if die_after and calls > die_after:
-            sys.exit(1)
-        time.sleep(delay)
-        if calls <= warming:
-            answer(message['id'], {'isError': True, 'content': [{'type': 'text', 'text': 'warming'}],
-                                   '_meta': {'prism/retryable': True, 'prism/index_state': 'warming'}})
-        elif message['params']['name'] == 'refresh_index':
-            answer(message['id'], {'isError': False, 'content': [{'type': 'text', 'text': '{}'}],
-                                   '_meta': {'prism/refresh_status': 'unchanged'}})
-        else:
-            answer(message['id'], {'isError': False, 'content': [{'type': 'text', 'text': '{}'}]})
-
-
-if __name__ == '__main__':
-    main()
-````
-
-Make `scripts/soak/fake_prism_mcp.py` executable.
 
 Create `scripts/soak/test_fanout.py`:
 
@@ -1347,8 +1877,8 @@ def corpus_and_workload(root, requests=6):
     subprocess.run(git + ['commit', '-qm', 'c'], check=True)
     commit = subprocess.run(git[:3] + ['rev-parse', 'HEAD'], check=True, capture_output=True, text=True).stdout.strip()
     lines = ''.join(json.dumps({'id': n, 'jsonrpc': '2.0', 'method': 'tools/call', 'params': {
-        'name': 'nav_callers', 'arguments': {'seed': {'kind': 'symbol', 'name': 'f%d' % n}}}}) + '\n'
-        for n in range(1, requests + 1)).encode()
+        'name': ('nav_callers', 'nav_callees')[n % 2 == 0], 'arguments': {
+            'seed': {'kind': 'symbol', 'name': 'f%d' % n}}}}) + '\n' for n in range(1, requests + 1)).encode()
     workloads = Path(root) / 'workloads'
     workloads.mkdir()
     (workloads / 'tiny.jsonl').write_bytes(lines)
@@ -1386,10 +1916,10 @@ def record(ms, outcome='ok', refresh=False):
     return {'client': 0, 'seq': 0, 'tool': 't', 'refresh': refresh, 'start': 0.0, 'ms': ms, 'outcome': outcome}
 
 
-def run_info(mode='standalone', clients=1, requests=2, instances=None, failures=None):
+def run_info(mode='standalone', clients=1, requests=2, instances=None, failures=None, refresh_at=None):
     return {'mode': mode, 'clients': clients, 'workload': {'requests': requests, 'sha256': 'w'},
             'daemon_instances': instances if instances is not None else [], 'failures': failures or [],
-            'corpus': {'commit': 'c'}}
+            'corpus': {'commit': 'c', 'dirty': 0}, 'refresh_at': refresh_at, 'pressure': {'problems': []}}
 
 
 class Summaries(unittest.TestCase):
@@ -1412,7 +1942,7 @@ class Summaries(unittest.TestCase):
 
 
 def arm(p95, p99, admissible=True, sha='w'):
-    run = run_info()
+    run = run_info(refresh_at=0.5)
     run['workload']['sha256'] = sha
     return {'dir': 'd', 'run': run, 'summary': {'p50_ms': 1.0, 'p95_ms': p95, 'p99_ms': p99,
                                                  'admissible': admissible, 'problems': [] if admissible else ['x']}}
@@ -1436,7 +1966,9 @@ class Verdicts(unittest.TestCase):
         self.assertFalse(fanout.judge([arm(10.0, 20.0)], [arm(1.0, 1.0, sha='other')])['pass'])
 
 
-class Runs(unittest.TestCase):
+class RunCase(unittest.TestCase):
+    """Whole runs of fanout.py against fake_prism_mcp.py, in a directory of the test's own."""
+
     def setUp(self):
         self.root = tempfile.TemporaryDirectory()
         self.addCleanup(self.root.cleanup)
@@ -1446,6 +1978,9 @@ class Runs(unittest.TestCase):
         self.saved_retry = fanout.WARMUP_RETRY_SECS
         fanout.WARMUP_RETRY_SECS = 0.01
         self.addCleanup(lambda: setattr(fanout, 'WARMUP_RETRY_SECS', self.saved_retry))
+        self.saved_pressure = fanout.read_pressure
+        fanout.read_pressure = lambda: 1
+        self.addCleanup(lambda: setattr(fanout, 'read_pressure', self.saved_pressure))
 
     def run_fanout(self, name, mode, clients=3, extra=()):
         out = Path(self.root.name) / name
@@ -1456,8 +1991,13 @@ class Runs(unittest.TestCase):
         calls = [json.loads(line) for line in (out / 'calls.jsonl').read_text().splitlines()]
         return out, calls, json.loads((out / 'summary.json').read_text()), json.loads((out / 'run.json').read_text())
 
+
+class Runs(RunCase):
+
     def test_every_client_makes_every_call_and_client_0_refreshes_once(self):
-        os.environ['FAKE_WARMING'] = '2'
+        # Three warming answers: with the extra warm-up call of the second tool, a warm-up that did not
+        # retry would leave the first timed call answered retryable.
+        os.environ['FAKE_WARMING'] = '3'
         _, calls, summary, run = self.run_fanout('standalone', 'standalone')
         self.assertTrue(summary['admissible'], summary['problems'])
         self.assertEqual(len([c for c in calls if not c['refresh']]), 18)
@@ -1507,6 +2047,135 @@ class Runs(unittest.TestCase):
         self.run_fanout('used', 'standalone', clients=1)
         with self.assertRaises(SystemExit):
             self.run_fanout('used', 'standalone', clients=1)
+
+
+if __name__ == '__main__':
+    unittest.main()
+````
+
+Create `scripts/soak/test_fanout_gate.py`:
+
+````python
+"""Tests of the fan-out gate's admissibility (review round 1: sol 3, sol 4, Opus W1, W8, S6): a
+gating run needs exactly one successful refresh, a critical or unreadable pressure reading
+invalidates a run, the refresh's overlap with other clients' calls is measured, and a comparison
+never crashes on a run without calls.
+
+Run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
+"""
+import io
+import json
+import os
+import sys
+import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import fanout  # noqa: E402
+from test_fanout import RunCase, arm, dead_pid, run_info  # noqa: E402
+
+
+def call(client, start, ms, outcome='ok', refresh=False, seq=0):
+    return {'client': client, 'seq': seq, 'tool': 'refresh_index' if refresh else 't', 'refresh': refresh,
+            'start': start, 'ms': ms, 'outcome': outcome}
+
+
+class Refresh(unittest.TestCase):
+    def gate(self, records):
+        return fanout.summarize(records, run_info(clients=1, requests=2, refresh_at=0.5))
+
+    def test_a_gating_run_needs_exactly_one_successful_refresh(self):
+        calls = [call(0, 0.0, 1.0), call(0, 0.1, 1.0, seq=1)]
+        self.assertTrue(self.gate(calls + [call(0, 0.05, 5.0, refresh=True)])['admissible'])
+        self.assertFalse(self.gate(calls)['admissible'])
+        for outcome in ('retryable', 'rpc_error', 'tool_error'):
+            summary = self.gate(calls + [call(0, 0.05, 5.0, outcome, refresh=True)])
+            self.assertFalse(summary['admissible'], outcome)
+            self.assertIn('refresh', ' '.join(summary['problems']))
+        two = calls + [call(0, 0.05, 5.0, refresh=True), call(0, 0.07, 5.0, refresh=True)]
+        self.assertFalse(self.gate(two)['admissible'])
+
+    def test_a_run_without_a_refresh_is_diagnostic_and_never_compared(self):
+        diagnostic = fanout.summarize([call(0, 0.0, 1.0), call(0, 0.1, 1.0, seq=1)], run_info(clients=1))
+        self.assertTrue(diagnostic['admissible'])
+        self.assertEqual(diagnostic['profile'], 'diagnostic')
+        quiet = arm(10.0, 20.0)
+        quiet['run']['refresh_at'] = None
+        verdict = fanout.judge([arm(10.0, 20.0)], [quiet])
+        self.assertFalse(verdict['pass'])
+        self.assertIn('diagnostic', ' '.join(verdict['problems']))
+
+    def test_the_calls_that_overlap_the_refresh_are_counted_and_their_longest_reported(self):
+        records = [call(0, 1.0, 500.0, refresh=True),
+                   call(1, 0.9, 400.0), call(2, 1.2, 50.0), call(3, 1.6, 9.0), call(1, 0.1, 99.0, seq=1),
+                   call(0, 0.5, 300.0, seq=1), call(0, 1.1, 50.0, seq=2)]
+        overlap = fanout.refresh_overlap(records)
+        self.assertEqual(overlap, {'calls': 2, 'max_ms': 400.0, 'refresh_ms': 500.0})
+        self.assertEqual(fanout.refresh_overlap([call(1, 0.0, 1.0)]), {'calls': 0, 'max_ms': None,
+                                                                         'refresh_ms': None})
+
+
+class Compare(unittest.TestCase):
+    def test_a_run_with_no_calls_fails_the_comparison_instead_of_crashing_it(self):
+        empty = arm(None, None, admissible=False)
+        verdict = fanout.judge([arm(10.0, 20.0)], [empty])
+        self.assertFalse(verdict['pass'])
+        self.assertIn('**Verdict: FAIL**', fanout.render([arm(10.0, 20.0)], [empty], verdict))
+        three = fanout.judge([arm(10.0, 20.0)] * 3, [arm(10.0, 20.0), empty, empty])
+        self.assertFalse(three['pass'])
+
+    def test_runs_of_other_client_counts_or_refresh_points_are_not_compared(self):
+        other = arm(10.0, 20.0)
+        other['run']['clients'] = 4
+        self.assertIn('clients', ' '.join(fanout.judge([arm(10.0, 20.0)], [other])['problems']))
+        allowed = fanout.judge([arm(10.0, 20.0)], [other], allow_client_mismatch=True)
+        self.assertTrue(allowed['pass'], allowed['problems'])
+        later = arm(10.0, 20.0)
+        later['run']['refresh_at'] = 0.9
+        self.assertFalse(fanout.judge([arm(10.0, 20.0)], [later])['pass'])
+
+
+class GateRuns(RunCase):
+    def test_a_refresh_answered_with_a_tool_error_makes_the_run_inadmissible(self):
+        os.environ['FAKE_REFRESH'] = 'tool_error'
+        _, _, summary, _ = self.run_fanout('refresh-error', 'standalone', clients=2)
+        self.assertFalse(summary['admissible'])
+
+    def test_a_critical_pressure_reading_stops_and_invalidates_the_run(self):
+        readings = iter([1, 1, 4])
+        fanout.read_pressure = lambda: next(readings, 4)
+        saved = fanout.PRESSURE_INTERVAL
+        fanout.PRESSURE_INTERVAL = 0.01
+        self.addCleanup(lambda: setattr(fanout, 'PRESSURE_INTERVAL', saved))
+        os.environ['FAKE_DELAY_MS'] = '20'
+        _, _, summary, run = self.run_fanout('critical', 'standalone', clients=2, extra=['--pressure', 'off'])
+        self.assertFalse(summary['admissible'])
+        self.assertIn('critical memory pressure', ' '.join(summary['problems']))
+        self.assertEqual(run['pressure']['max'], 4)
+        self.assertTrue(run['failures'], 'the clients were not stopped')
+        self.assertLess(summary['calls'], 12)
+
+    def test_an_unavailable_pressure_reading_invalidates_a_run_that_requires_it(self):
+        fanout.read_pressure = lambda: None
+        _, _, required, _ = self.run_fanout('unread', 'standalone', clients=1, extra=['--pressure', 'required'])
+        self.assertFalse(required['admissible'])
+        self.assertIn('pressure', ' '.join(required['problems']))
+        _, _, off, _ = self.run_fanout('unread-off', 'standalone', clients=1, extra=['--pressure', 'off'])
+        self.assertTrue(off['admissible'], off['problems'])
+
+    def test_a_shared_run_keeps_its_daemon_logs(self):
+        os.environ['FAKE_DAEMON_PID'] = str(dead_pid())
+        out, _, _, _ = self.run_fanout('logs', 'shared', clients=2)
+        self.assertEqual((out / 'daemon-logs' / 'fake.log').read_text().count('fake daemon log'), 2)
+
+    def test_every_tool_of_the_workload_is_warmed_before_the_barrier(self):
+        out, calls, summary, _ = self.run_fanout('warm', 'standalone', clients=2)
+        self.assertTrue(summary['admissible'], summary['problems'])
+        tools = len({c['tool'] for c in calls if not c['refresh']})
+        timed = len([c for c in calls if c['client'] == 1])
+        self.assertIn('fake: %d tool calls' % (tools + timed), (out / 'clients' / '1.stderr').read_text())
 
 
 if __name__ == '__main__':
@@ -1578,7 +2247,8 @@ class Live(unittest.TestCase):
             shared_run, shared = runs['shared']
             self.assertTrue(shared['admissible'], shared['problems'])
             self.assertEqual(shared['outcomes'], {'ok': 12})
-            self.assertEqual(shared['refresh_outcome'], 'ok')
+            self.assertEqual((shared['profile'], shared['refresh_outcome']), ('gate', 'ok'))
+            self.assertEqual(shared['refresh_overlap']['refresh_ms'], shared['refresh_ms'])
             self.assertEqual(len(shared_run['daemon_instances']), 1)
             self.assertEqual((shared_run['shutdown']['exit'], shared_run['shutdown']['terminated']), (0, []))
             self.assertEqual(shared_run['exits'], [0, 0, 0])
@@ -1605,7 +2275,7 @@ python3 -m unittest discover -s scripts/soak -p 'test_fanout*.py' > "$LOG_DIR/t3
 tail -5 "$LOG_DIR/t3-red.log"
 ```
 
-Expected: `ModuleNotFoundError: No module named 'fanout'` for `test_fanout` and `test_fanout_live`, `Ran 2 tests`, `FAILED (errors=2)`.
+Expected: `ModuleNotFoundError: No module named 'fanout'` for `test_fanout`, `test_fanout_gate` and `test_fanout_live`, `Ran 3 tests`, `FAILED (errors=3)`.
 
 - [ ] **Step 3: Implement the driver**
 
@@ -1655,13 +2325,15 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'memreport'))
 from memreport import WORKLOADS, bind_workload, corpus_provenance, host_state, parse_corpora  # noqa: E402
-from soak import footprints  # noqa: E402
+from soak import PRESSURE_CRITICAL, alive, footprints, read_pressure  # noqa: E402
 
 PROTOCOL = '2025-11-25'
 # Settings a client would otherwise inherit from this shell; each run starts from the defaults.
 CLEARED_ENV = ('PRISM_MCP_STRUCTURED_CONTENT', 'PRISM_MCP_CONCISE_SHAPE', 'PRISM_MCP_MAX_RESULT_CHARS',
                'PRISM_MCP_SHARED', 'PRISM_MCP_RUNTIME_DIR', 'PRISM_MCP_MEM_REPORT')
 WARMUP_RETRY_SECS = 1.0
+# How often the run reads the host's memory pressure level (review round 1, sol 4).
+PRESSURE_INTERVAL = 1.0
 REACHED = re.compile(r'prism-mcp: shared daemon pid (\d+) \(started (\d+),')
 # The pinned rule (owner question 7 of the S6 plan): the candidate's median p95 and p99 over its
 # runs may exceed the baseline's by at most these factors.
@@ -1756,6 +2428,13 @@ def drive(client, workload, clients, refresh_at, deadline, barrier, clock, recor
         if time.monotonic() > deadline:
             raise ClientGone('client %d: the index was not ready before the timeout' % client.index)
         time.sleep(WARMUP_RETRY_SECS)
+    # Every other tool of the workload once, so that no tool's lazily built state is built inside
+    # the timed window by each standalone server (review round 1, Opus S6).
+    seen = {workload[0]['params'].get('name')}
+    for request in workload:
+        if request['params'].get('name') not in seen:
+            seen.add(request['params'].get('name'))
+            client.call('tools/call', request['params'])
     barrier.wait()
     barrier.wait()
     refresh_seq = int(len(workload) * refresh_at) if client.index == 0 and refresh_at is not None else None
@@ -1777,6 +2456,62 @@ def memory(pids):
     return {'pids': sorted(pids), 'footprint_bytes': sizes, 'total_bytes': sum(sizes.values())}
 
 
+class PressureWatch:
+    """Reads the memory pressure level at start, every PRESSURE_INTERVAL seconds until stop, and
+    at stop, keeping every reading; calls `on_critical` once at the first critical reading."""
+
+    def __init__(self, on_critical):
+        self.readings, self.fired, self.on_critical = [], False, on_critical
+        self.stopped = threading.Event()
+        self.thread = threading.Thread(target=self.loop, daemon=True)
+
+    def read(self):
+        level = read_pressure()
+        self.readings.append([round(time.time(), 3), level])
+        if level is not None and level >= PRESSURE_CRITICAL and not self.fired:
+            self.fired = True
+            self.on_critical()
+
+    def loop(self):
+        while not self.stopped.wait(PRESSURE_INTERVAL):
+            self.read()
+
+    def start(self):
+        self.read()
+        self.thread.start()
+
+    def stop(self):
+        self.stopped.set()
+        self.thread.join()
+        self.read()
+
+    def report(self, required):
+        levels = [level for _, level in self.readings]
+        known = [level for level in levels if level is not None]
+        problems = []
+        if any(level >= PRESSURE_CRITICAL for level in known):
+            problems.append('critical memory pressure (level %d) during the run; its clients were stopped' % max(known))
+        if required and len(known) != len(levels):
+            problems.append('the memory pressure level could not be read %d of %d times'
+                            % (len(levels) - len(known), len(levels)))
+        return {'required': required, 'readings': self.readings, 'max': max(known) if known else None,
+                'unavailable': len(levels) - len(known), 'problems': problems}
+
+
+def refresh_overlap(records):
+    """The timed calls of other clients whose time overlaps the refresh's: how many, and the
+    longest (review round 1, Opus W1: a refresh's stall reaches at most a few calls, which no
+    percentile of the whole run shows)."""
+    refresh = [r for r in records if r['refresh']]
+    if not refresh:
+        return {'calls': 0, 'max_ms': None, 'refresh_ms': None}
+    first = refresh[0]
+    begin, end = first['start'], first['start'] + first['ms'] / 1000.0
+    over = [r['ms'] for r in records if not r['refresh'] and r['client'] != first['client']
+            and r['start'] < end and r['start'] + r['ms'] / 1000.0 > begin]
+    return {'calls': len(over), 'max_ms': max(over) if over else None, 'refresh_ms': first['ms']}
+
+
 def summarize(records, run):
     timed = [r for r in records if not r['refresh']]
     counts = {}
@@ -1791,7 +2526,12 @@ def summarize(records, run):
         problems.append('%d of %d timed calls were made' % (len(timed), run['clients'] * run['workload']['requests']))
     if run['mode'] == 'shared' and len(run.get('daemon_instances', [])) != 1:
         problems.append('the shims reached %d daemon instances, not 1' % len(run.get('daemon_instances', [])))
-    return {'calls': len(timed), 'outcomes': counts, 'p50_ms': percentile(ms, 0.50), 'p95_ms': percentile(ms, 0.95),
+    profile = 'gate' if run.get('refresh_at') is not None else 'diagnostic'
+    if profile == 'gate' and [r['outcome'] for r in refresh] != ['ok']:
+        problems.append('a gating run needs exactly one successful refresh_index; it had %s'
+                        % ([r['outcome'] for r in refresh] or 'none'))
+    problems += (run.get('pressure') or {}).get('problems', [])
+    return {'calls': len(timed), 'outcomes': counts, 'profile': profile, 'refresh_overlap': refresh_overlap(records), 'p50_ms': percentile(ms, 0.50), 'p95_ms': percentile(ms, 0.95),
             'p99_ms': percentile(ms, 0.99), 'max_ms': max(ms) if ms else None,
             'mean_ms': round(statistics.mean(ms), 3) if ms else None,
             'refresh_ms': refresh[0]['ms'] if refresh else None,
@@ -1801,9 +2541,13 @@ def summarize(records, run):
 
 def stop_daemon(binary, repo, cache_dir, runtime_base, instances, timeout=60):
     """Ask the run's daemon to drain (it has no client left) and wait until its process is gone."""
-    done = subprocess.run([str(binary), 'daemon-shutdown', '--repo', str(repo), '--cache-dir', str(cache_dir),
-                           '--runtime-dir', str(runtime_base), '--timeout', str(timeout)],
-                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout + 30)
+    try:
+        done = subprocess.run([str(binary), 'daemon-shutdown', '--repo', str(repo), '--cache-dir', str(cache_dir),
+                               '--runtime-dir', str(runtime_base), '--timeout', str(timeout)],
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout + 30)
+        code, output = done.returncode, done.stdout.decode('utf-8', 'replace')[-2000:]
+    except (OSError, subprocess.TimeoutExpired) as error:
+        code, output = None, str(error)
     left = []
     for pid, _ in instances:
         give_up = time.monotonic() + timeout
@@ -1812,18 +2556,7 @@ def stop_daemon(binary, repo, cache_dir, runtime_base, instances, timeout=60):
         if alive(pid):
             os.kill(pid, signal.SIGTERM)
             left.append(pid)
-    return {'exit': done.returncode, 'output': done.stdout.decode('utf-8', 'replace')[-2000:],
-            'terminated': left}
-
-
-def alive(pid):
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+    return {'exit': code, 'output': output, 'terminated': left}
 
 
 def cmd_run(args):
@@ -1845,8 +2578,11 @@ def cmd_run(args):
            'workload': digest, 'refresh_at': refresh_at, 'bin': str(args.bin),
            'bin_sha256': hashlib.sha256(Path(args.bin).read_bytes()).hexdigest(),
            'argv': client_argv(args.bin, repo, args.cache_dir, args.mode), 'host_before': host_state(),
-           'started_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'failures': []}
+           'started_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'failures': [],
+           'profile': 'gate' if refresh_at is not None else 'diagnostic'}
     clients = [Client(i, run['argv'], env, out / 'clients' / ('%d.stderr' % i)) for i in range(args.clients)]
+    watch = PressureWatch(lambda: [c.process.kill() for c in clients])
+    watch.start()
     deadline = time.monotonic() + args.timeout
     watchdog = threading.Timer(args.timeout, lambda: [c.process.kill() for c in clients])
     watchdog.start()
@@ -1865,15 +2601,18 @@ def cmd_run(args):
     for thread in threads:
         thread.start()
     try:
-        barrier.wait()
+        # Bounded, so that no failure a client did not report can hold the run past its timeout.
+        barrier.wait(timeout=max(1.0, deadline - time.monotonic()))
         instances = sorted({(int(m.group(1)), int(m.group(2))) for c in clients for m in REACHED.finditer(c.stderr())})
         run['memory_after_warmup'] = memory([c.process.pid for c in clients] + [pid for pid, _ in instances])
         clock[0] = time.monotonic()
-        barrier.wait()
+        barrier.wait(timeout=max(1.0, deadline - time.monotonic()))
     except threading.BrokenBarrierError:
         pass
     for thread in threads:
         thread.join()
+    watch.stop()
+    run['pressure'] = watch.report(args.pressure == 'required')
     instances = sorted({(int(m.group(1)), int(m.group(2))) for c in clients for m in REACHED.finditer(c.stderr())})
     run['daemon_instances'] = instances
     run['memory_after_workload'] = memory([c.process.pid for c in clients] + [pid for pid, _ in instances])
@@ -1895,6 +2634,12 @@ def cmd_run(args):
     watchdog.cancel()
     if runtime_base:
         run['shutdown'] = stop_daemon(args.bin, repo, args.cache_dir, runtime_base, instances)
+        # The daemon's own log is the evidence for an inadmissible shared run (review round 1, Opus S6).
+        logs = sorted((runtime_base / 'prism-mcpd').glob('*.log'))
+        if logs:
+            (out / 'daemon-logs').mkdir(exist_ok=True)
+            for log in logs:
+                shutil.copyfile(log, out / 'daemon-logs' / log.name)
         shutil.rmtree(runtime_base, ignore_errors=True)
     run['host_after'] = host_state()
     run['finished_utc'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
@@ -1919,37 +2664,56 @@ def load_arm(directories):
     return arm
 
 
-def judge(baseline, candidate):
-    """The pinned rule's verdict and the figures it rests on."""
+def judge(baseline, candidate, allow_client_mismatch=False):
+    """The pinned rule's verdict and the figures it rests on. Never raises on a run without
+    percentiles (review round 1, Opus W8): it fails the comparison."""
+    entries = baseline + candidate
     problems = ['%s is not admissible: %s' % (entry['dir'], '; '.join(entry['summary']['problems']))
-                for entry in baseline + candidate if not entry['summary']['admissible']]
-    keys = {(e['run']['corpus'].get('commit'), e['run']['workload']['sha256']) for e in baseline + candidate}
+                for entry in entries if not entry['summary']['admissible']]
+    problems += ['%s is a diagnostic run (no refresh_index); only gating runs are compared' % entry['dir']
+                 for entry in entries if entry['run'].get('refresh_at') is None]
+    keys = {(e['run']['corpus'].get('commit'), e['run']['workload']['sha256']) for e in entries}
     if len(keys) != 1:
         problems.append('the runs are not of one corpus commit and workload: %s' % sorted(keys))
+    if len({e['run'].get('refresh_at') for e in entries}) > 1:
+        problems.append('the runs refresh at different points: %s' % sorted({str(e['run'].get('refresh_at'))
+                                                                             for e in entries}))
+    if not allow_client_mismatch and len({e['run']['clients'] for e in entries}) > 1:
+        problems.append('the runs have different numbers of clients: %s' % sorted({e['run']['clients'] for e in entries}))
+    problems += ['%s ran on a corpus with uncommitted changes' % e['dir'] for e in entries if e['run']['corpus'].get('dirty')]
     figures = {}
     for name, arm in (('baseline', baseline), ('candidate', candidate)):
-        figures[name] = {stat: statistics.median([e['summary'][stat] for e in arm])
-                         for stat in ('p50_ms', 'p95_ms', 'p99_ms')}
-    p95 = figures['candidate']['p95_ms'] / figures['baseline']['p95_ms']
-    p99 = figures['candidate']['p99_ms'] / figures['baseline']['p99_ms']
+        figures[name] = {}
+        for stat in ('p50_ms', 'p95_ms', 'p99_ms'):
+            values = [e['summary'].get(stat) for e in arm]
+            known = all(isinstance(value, (int, float)) for value in values) and values
+            figures[name][stat] = statistics.median(values) if known else None
+    if None in figures['baseline'].values() or None in figures['candidate'].values():
+        problems.append('a run has no percentiles (no timed call was made)')
+        p95 = p99 = None
+    else:
+        p95 = round(figures['candidate']['p95_ms'] / figures['baseline']['p95_ms'], 4)
+        p99 = round(figures['candidate']['p99_ms'] / figures['baseline']['p99_ms'], 4)
     passed = not problems and p95 <= P95_MAX_RATIO and p99 <= P99_MAX_RATIO
-    return {'pass': passed, 'problems': problems, 'figures': figures, 'p95_ratio': round(p95, 4),
-            'p99_ratio': round(p99, 4), 'rule': {'p95_max_ratio': P95_MAX_RATIO, 'p99_max_ratio': P99_MAX_RATIO}}
+    return {'pass': passed, 'problems': problems, 'figures': figures, 'p95_ratio': p95, 'p99_ratio': p99,
+            'rule': {'p95_max_ratio': P95_MAX_RATIO, 'p99_max_ratio': P99_MAX_RATIO}}
 
 
 def render(baseline, candidate, verdict):
     lines = ['# prism-mcp fan-out latency', '', '| Arm | Run | Mode | Clients | p50 ms | p95 ms | p99 ms | max ms | '
-             'refresh ms | admissible |', '|---|---|---|---|---|---|---|---|---|---|']
+             'refresh ms | calls overlapping the refresh | longest of them, ms | admissible |',
+             '|---|---|---|---|---|---|---|---|---|---|---|---|']
     for name, arm in (('baseline', baseline), ('candidate', candidate)):
         for entry in arm:
             s, r = entry['summary'], entry['run']
-            lines.append('| %s | %s | %s | %d | %s | %s | %s | %s | %s | %s |' % (
-                name, entry['dir'], r['mode'], r['clients'], s['p50_ms'], s['p95_ms'], s['p99_ms'], s['max_ms'],
-                s['refresh_ms'], 'yes' if s['admissible'] else 'no'))
+            overlap = s.get('refresh_overlap') or {}
+            lines.append('| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
+                name, entry['dir'], r['mode'], r['clients'], s['p50_ms'], s['p95_ms'], s['p99_ms'], s.get('max_ms'),
+                s.get('refresh_ms'), overlap.get('calls'), overlap.get('max_ms'), 'yes' if s['admissible'] else 'no'))
     lines += ['', 'Medians across runs: baseline %s; candidate %s.' % (verdict['figures']['baseline'],
                                                                       verdict['figures']['candidate']),
-              'Ratios: p95 %.4f (at most %.2f), p99 %.4f (at most %.2f).' % (
-                  verdict['p95_ratio'], P95_MAX_RATIO, verdict['p99_ratio'], P99_MAX_RATIO),
+              'Ratios: p95 %s (at most %.2f), p99 %s (at most %.2f). The refresh overlap is reported, not gated.'
+              % (verdict['p95_ratio'], P95_MAX_RATIO, verdict['p99_ratio'], P99_MAX_RATIO),
               '', '**Verdict: %s**' % ('PASS' if verdict['pass'] else 'FAIL')]
     lines += ['- %s' % problem for problem in verdict['problems']]
     return '\n'.join(lines) + '\n'
@@ -1957,7 +2721,7 @@ def render(baseline, candidate, verdict):
 
 def cmd_compare(args):
     baseline, candidate = load_arm(args.baseline), load_arm(args.candidate)
-    verdict = judge(baseline, candidate)
+    verdict = judge(baseline, candidate, args.allow_client_mismatch)
     Path(args.out).write_text(render(baseline, candidate, verdict))
     if args.json:
         Path(args.json).write_text(json.dumps(verdict, indent=1, sort_keys=True))
@@ -1978,12 +2742,17 @@ def main(argv=None):
     run.add_argument('--refresh-at', type=float, default=0.5)
     run.add_argument('--no-refresh', action='store_true')
     run.add_argument('--timeout', type=float, default=1800)
+    run.add_argument('--pressure', choices=('required', 'off'), default='required' if sys.platform == 'darwin' else 'off',
+                     help='whether an unreadable memory pressure level makes the run inadmissible (a critical '
+                          'reading always stops it); default: required on macOS')
     run.set_defaults(handler=cmd_run)
     compare = commands.add_parser('compare')
     compare.add_argument('--baseline', action='append', required=True)
     compare.add_argument('--candidate', action='append', required=True)
     compare.add_argument('--out', required=True)
     compare.add_argument('--json')
+    compare.add_argument('--allow-client-mismatch', action='store_true',
+                         help='compare arms of different client counts (information only, never a gate)')
     compare.set_defaults(handler=cmd_compare)
     args = parser.parse_args(argv)
     if args.command == 'run' and not (args.clients >= 1 and 0.0 <= args.refresh_at < 1.0):
@@ -2006,12 +2775,12 @@ tail -3 "$LOG_DIR/t3-live.log"
 pgrep -fl 'prism-mcp daemon'
 ```
 
-Expected: `rc=0`, `Ran 33 tests`, `OK (skipped=1)` (the live test skipped); `build rc=0`; with the binary `Ran 33 tests`, `OK` (the live test ran: three shims of one daemon and three standalone servers on a three-file repository, every call `ok`, the daemon drained by `daemon-shutdown` and gone); `pgrep` prints nothing.
+Expected: `rc=0`, `Ran 59 tests`, `OK (skipped=1)` (the live test skipped); `build rc=0`; with the binary `Ran 59 tests`, `OK` (the live test ran: three shims of one daemon and three standalone servers on a three-file repository, every call `ok`, one successful refresh each, the daemon drained by `daemon-shutdown` and gone); `pgrep` prints nothing.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/soak/fanout.py scripts/soak/test_fanout.py scripts/soak/test_fanout_live.py scripts/soak/fake_prism_mcp.py
+git add scripts/soak/fanout.py scripts/soak/test_fanout.py scripts/soak/test_fanout_gate.py scripts/soak/test_fanout_live.py
 git commit -m "feat(soak): S6 — fan-out latency driver, shared against standalone"
 ```
 
@@ -2023,22 +2792,32 @@ Apply each mutant alone to `scripts/soak/fanout.py`, run Step 4's first command,
 |---|---|---|
 | F1 | `percentile`: `ordered[max(1, math.ceil(fraction * len(ordered))) - 1]` → `ordered[min(len(ordered) - 1, int(fraction * len(ordered)))]` | `test_percentile_is_nearest_rank` |
 | F2 | `outcome`: the `prism/retryable` check → `if False:` | `test_outcome_tells_the_four_answers_apart` |
-| F3 | `rotated`: `start = (client * len(items)) // clients` → `start = 0` (clients in lockstep) | `test_each_client_starts_its_own_share_of_the_way_through` |
+| F3 | `rotated`: `start = 0` (clients in lockstep) | `test_each_client_starts_its_own_share_of_the_way_through` |
 | F4 | `summarize`: the call-count check → `if False:` | `test_a_retryable_or_failed_call_a_missing_call_or_two_daemons_is_not_admissible` |
 | F5 | `summarize`: the one-daemon check → `if False:` | `test_a_retryable_or_failed_call_a_missing_call_or_two_daemons_is_not_admissible` |
 | F6 | `judge`: `<=` → `<` on both ratios | `test_the_rule_passes_at_its_bounds_and_fails_past_them` |
 | F7 | `judge`: `statistics.median` → `statistics.mean` | `test_medians_across_runs_are_compared` |
-| F8 | `drive`: `refresh_at is not None` → `refresh_at is None` (no refresh) | `test_every_client_makes_every_call_and_client_0_refreshes_once` |
-| F9 | `drive`: the warm-up loop breaks on the first answer, retryable or not | `test_every_client_makes_every_call_and_client_0_refreshes_once` |
-| F10 | `cmd_run`: `barrier.abort()` removed from a failing client (the main thread waits for ever) | `test_clients_that_die_while_warming_up_end_the_run` (its 60 s bound) |
-| F11 | `cmd_run`: the `stop_daemon` call removed | `test_a_shared_run_names_its_one_daemon_and_asks_it_to_shut_down` |
-| F12 | `cmd_run`: `CLEARED_ENV` not applied (`env = dict(os.environ)`) | `test_clients_start_from_the_default_output_settings` |
+| F8 | `drive`: `refresh_at is not None` → `refresh_at is None` (no refresh) | `test_every_client_makes_every_call_and_client_0_refreshes_once` and three more |
+| F9 | `drive`: the warm-up loop breaks on the first answer, retryable or not | `test_every_client_makes_every_call_and_client_0_refreshes_once` (three warming answers since round 1: with the extra warm-up call two were no longer enough, and the mutant first survived) |
+| F10 | `cmd_run`: `barrier.abort()` removed from a failing client | `test_clients_that_die_while_warming_up_end_the_run` (its 60 s bound) |
+| F11 | `cmd_run`: `stop_daemon` not called | `test_a_shared_run_names_its_one_daemon_and_asks_it_to_shut_down` |
+| F12 | `cmd_run`: `CLEARED_ENV` not applied | `test_clients_start_from_the_default_output_settings` |
+| F13 | `summarize`: the one-successful-refresh check → `if False:` | `test_a_gating_run_needs_exactly_one_successful_refresh`, `test_a_refresh_answered_with_a_tool_error_makes_the_run_inadmissible` |
+| F14 | `judge`: diagnostic runs not refused | `test_a_run_without_a_refresh_is_diagnostic_and_never_compared` |
+| F15 | `refresh_overlap`: client 0's own calls counted | `test_the_calls_that_overlap_the_refresh_are_counted_and_their_longest_reported` (a synthetic client-0 call added after the mutant first survived) |
+| F16 | `PressureWatch.read`: `on_critical` not called | `test_a_critical_pressure_reading_stops_and_invalidates_the_run` (asserting the clients were stopped, added after the mutant first survived) |
+| F17 | `PressureWatch.report`: an unreadable level never a problem | `test_an_unavailable_pressure_reading_invalidates_a_run_that_requires_it` |
+| F18 | `judge`: percentiles not checked before the median | `test_a_run_with_no_calls_fails_the_comparison_instead_of_crashing_it` |
+| F19 | `judge`: client counts not compared | `test_runs_of_other_client_counts_or_refresh_points_are_not_compared` |
+| F20 | `judge`: refresh points not compared | `test_runs_of_other_client_counts_or_refresh_points_are_not_compared` |
+| F21 | `cmd_run`: the daemon's logs not copied | `test_a_shared_run_keeps_its_daemon_logs` |
+| F22 | `drive`: the other tools not warmed | `test_every_tool_of_the_workload_is_warmed_before_the_barrier` |
 
 ---
 
 ### Task 4: Shared-mode docs, the project's Codex configuration, CLAUDE.md; verification and the pull request
 
-**Files:** Modify `docs/MCP.md`, `skills/prism-code-navigation/SKILL.md`, `CLAUDE.md`, `.codex/config.toml`.
+**Files:** Modify `docs/MCP.md`, `skills/prism-code-navigation/SKILL.md`, `CLAUDE.md`, `.codex/config.toml`, `.github/workflows/ci.yml`.
 
 **Before this task:** owner question 2 decides the runtime directory written in `.codex/config.toml` and in the docs' examples (`/tmp` below); owner question 4 decides whether `.codex/config.toml` is in this pull request at all (if not, skip its directive, and apply it at the soak's Phase 0).
 
@@ -2063,6 +2842,33 @@ startup_timeout_sec = 60
 env = { PRISM_MCP_RUNTIME_DIR = "/tmp" }
 ````
 
+In `.github/workflows/ci.yml`, replace this:
+
+````
+      - name: Run doctests
+        run: cargo test --doc --features mcp
+
+  clippy:
+    name: Clippy Lint
+    needs: changes
+````
+
+with this:
+
+````
+      - name: Run doctests
+        run: cargo test --doc --features mcp
+
+      # The soak instrumentation's hermetic tests (Python standard library, a few seconds; the live
+      # fan-out test skips itself without PRISM_SOAK_BIN). scripts/soak/ imports scripts/memreport/.
+      - name: Soak tool tests (Python)
+        run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
+
+  clippy:
+    name: Clippy Lint
+    needs: changes
+````
+
 In `CLAUDE.md`, replace this:
 
 ````markdown
@@ -2084,13 +2890,16 @@ Opting in and the soak: user documentation of shared mode is `docs/MCP.md` ("Sha
 plugin's launcher (`scripts/prism-mcp-launch.sh`) adds `--shared` when `PRISM_MCP_SHARED=1` (unset,
 empty or `0`: nothing; any other value: exit 2; an explicit `--shared`/`--standalone` wins); its tests
 are `tests/mcp/launcher_test.rs`. The soak instrumentation is `scripts/soak/` (Python 3.9, standard
-library, not run by CI): `fanout.py` (N clients of one corpus in shared or standalone mode, per-call
-latency, `compare` under the pinned rule; also the spec §6.2 fan-out gate), `soak.py` (`sample`
-appends the prism-mcp processes and the host's swap, pressure and compressor; `report` judges the
-soak's rules from the samples, the clients' standard error and crash reports) and
-`prism-mcp-logged.sh` (logs a client's prism-mcp standard error with time and pid). Run their tests
-with `python3 -m unittest discover -s scripts/soak -p 'test_*.py'`; `PRISM_SOAK_BIN=<prism-mcp>` adds
-a live run against the binary.
+library; CI runs its hermetic tests in the build-checks job): `fanout.py` (N clients of one corpus
+in shared or standalone mode, per-call latency, a pressure observer that stops the run at a
+critical level, one required `refresh_index` and its overlap with other clients' calls, `compare`
+under the pinned rule; also the spec §6.2 fan-out gate), `soak.py` (`sample` appends the prism-mcp
+processes, whether each footprint was measured, and the host's swap, pressure and compressor;
+`probe` checks that a launcher's command line starts a server), `soak_judge.py` (`soak.py report
+--phase round|week`: each rule PASS, FAIL or UNKNOWN when its evidence was not collected, a phase
+INADMISSIBLE without observed use) and `prism-mcp-logged.sh` (logs a client's prism-mcp standard
+error with time and pid). Run their tests with `python3 -m unittest discover -s scripts/soak -p
+'test_*.py'`; `PRISM_SOAK_BIN=<prism-mcp>` adds a live run against the binary.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
@@ -2182,7 +2991,8 @@ shown it holds under real fan-out.
   shell profile). The plugin's launcher then adds `--shared`. Unset, empty or `0` changes nothing; any
   other value makes the launcher refuse to start the server, naming the variable, so that a typo never
   decides silently which mode a session gets. An explicit `--shared` or `--standalone` in the
-  arguments wins over the variable.
+  arguments wins over a valid value; a value the launcher does not accept is refused even then
+  (the variable is checked first).
 - **Manual Claude Code, Codex, Kiro:** add `"--shared"` to the server's arguments, for example in Codex:
 
   ```toml
@@ -2191,6 +3001,9 @@ shown it holds under real fan-out.
   args = ["--repo", "/abs/path/to/your/repo", "--shared"]
   env = { PRISM_MCP_RUNTIME_DIR = "/tmp" }
   ```
+
+  (`/tmp` suits a host with one user. On a shared host give each user a directory of their own,
+  for example `$XDG_RUNTIME_DIR` or one under the home directory, in this example and the next.)
 - **a2a-bridge:** add `"--shared"` to the `[[agents.mcp]]` arguments and set the runtime directory
   explicitly, so that every agent and your own shell agree on it:
 
@@ -2393,7 +3206,7 @@ grep -h '^OK\|^FAILED' "$LOG_DIR"/s6-rep-soak-*.log | sort | uniq -c
 pgrep -fl 'prism-mcp daemon'
 ```
 
-Expected: `fmt rc=0` and nothing printed; `check rc=0`, `check mcp rc=0`, no `warning`; `clippy rc=0` and `0` lines naming `launcher_test`; `full suite rc=0`, `31` result lines, `6232 passed, 0 failed, 1 ignored` (V4); `doc tests rc=0`; `soak tests rc=0` (`Ran 33 tests`, `OK`); `memreport tests rc=0` (`Ran 349 tests`); the repeats `10 test result: ok. 6 passed` and `10 OK`; `pgrep` prints nothing.
+Expected: `fmt rc=0` and nothing printed; `check rc=0`, `check mcp rc=0`, no `warning`; `clippy rc=0` and `0` lines naming `launcher_test`; `full suite rc=0`, `31` result lines, `6233 passed, 0 failed, 1 ignored` (V4); `doc tests rc=0`; `soak tests rc=0` (`Ran 59 tests`, `OK`); `memreport tests rc=0` (`Ran 349 tests`); the repeats `10 test result: ok. 7 passed` and `10 OK`; `pgrep` prints nothing.
 
 - [ ] **Step 4: Run the launcher's and the soak tools' tests on Linux**
 
@@ -2424,16 +3237,16 @@ grep -h '^test result' "$LOG_DIR"/linux/launcher-*.log | sed 's/finished.*//' | 
 grep -h '^Ran\|^OK\|^FAILED' "$LOG_DIR"/linux/soak-*.log | sed 's/ in [0-9.]*s//' | sort | uniq -c
 ```
 
-Expected: `failed Linux runs: 0`, no `left:` line in `s6-linux.out`; `10 test result: ok. 6 passed; 0 failed` (52 filtered out); `10 Ran 33 tests` and `10 OK` (the live test runs: the image has no `ps` or `pgrep`, which the soak tools do not need for it).
+Expected: `failed Linux runs: 0`, no `left:` line in `s6-linux.out`; `10 test result: ok. 7 passed; 0 failed` (52 filtered out); `10 Ran 59 tests` and `10 OK` (the live test runs; `--pressure` defaults to `off` off macOS, and the image has no `ps` or `pgrep`, which these tests do not need).
 
 - [ ] **Step 5: Commit and open the pull request**
 
 ```bash
-git add docs/MCP.md skills/prism-code-navigation/SKILL.md CLAUDE.md .codex/config.toml
+git add docs/MCP.md skills/prism-code-navigation/SKILL.md CLAUDE.md .codex/config.toml .github/workflows/ci.yml
 git commit -m "docs(mcp): S6 — shared-daemon docs, the project's Codex opt-in, soak tools in CLAUDE.md"
 ```
 
-The PR body states, in this order: (1) **Goal:** the lane goal; S6 is the opt-in from every launcher, the docs the earlier slices left to it, and the soak's instruments; the soak is specified in the plan and is the controller's. (2) **Invariants:** nothing under `src/` or `.claude-plugin/` changes; opt-in stays opt-in (Global Constraints). (3) **Decisions:** D110–D123; SI-36–SI-42; the owner's answers to the questions (or "pending" for each that is). D110 (an environment variable for the plugin) and D118 (what counts as an index holder) are the ones a reviewer is most likely to want to change. (4) **Claims:** the table, with what no test holds. (5) **Totals:** Step 3 next to the base, Step 4, and the mutants as observed. (6) **Not verified:** x86_64 Linux before CI; CI does not run the Python tests (D117); the soak (the controller's, after merge); a Codex session's environment (SI-42). (7) **Tier-A:** not run (no file it watches is touched). (8) **Reviews of the plan:** what each round folded.
+The S6-2 PR body states, in this order (S6-1's, Task 2 Step 7, the same shape): (1) **Goal:** the lane goal; S6 is the opt-in from every launcher, the docs the earlier slices left to it, and the soak's instruments; the soak is specified in the plan and is the controller's. (2) **Invariants:** nothing under `src/` or `.claude-plugin/` changes; opt-in stays opt-in (Global Constraints). (3) **Decisions:** D110–D128; SI-36–SI-43; the owner's answers to the questions (or "pending" for each that is). D110 (an environment variable for the plugin) and D118 (what counts as an index holder) are the ones a reviewer is most likely to want to change. (4) **Claims:** the table, with what no test holds. (5) **Totals:** Step 3 next to the base, Step 4, and the mutants as observed. (6) **Not verified:** x86_64 Linux before CI (CI runs the launcher's tests and, since review round 1, the soak tools' hermetic tests, D117); the soak (the controller's, after merge); a Codex session's environment (SI-42). (7) **Tier-A:** not run (no file it watches is touched). (8) **Reviews of the plan:** what each round folded.
 
 Review brief and cap as in the lane README (two rounds; Opus 5.5 and gpt-6.1-sol; the goal above; WRONG/SMELL and MATERIAL/IMMATERIAL; a fix and alternatives per finding and when it would not apply). Ask each reviewer to check the docs' fail-closed table and the operator's exit statuses line by line against the code (Review Focus 9).
 
@@ -2445,125 +3258,186 @@ The soak is the gate for the default flip (spec §8 step 2, §11 item 2, §12 ro
 
 ### What it shows, and what would fail it
 
-| Spec §8 step 2 asks for | Instrument | Phase | Pass (owner question 7, recommended) | What would fail it |
+| Spec §8 step 2 asks for | Instrument | Phase | Pass (owner question 7, recommended) | What would fail it, or leave it unjudged |
 |---|---|---|---|---|
-| Resident `prism-mcp` count | `soak.py sample` (index holders per key, per repository, in total; shims) | 2, 3 | `one_index_per_key` at every sample; in Phase 2 also `no_standalone_index` | Two daemons of one key at once (a split runtime directory); a launcher still standalone in the round |
-| Aggregate footprint | the same samples (`phys_footprint` of every prism-mcp process; the host's swap, pressure level, compressor) | 2, 3 | Phase 2: `no_critical_pressure`; peaks reported against the incident's (29 processes, 34 GiB compressed) | Memory pressure at its critical level during the round |
-| Shim fail-closed count, target 0 | `soak.py report` over Claude Code's MCP logs and `prism-mcp-logged.sh` logs | 2, 3 | `no_fail_closed` | Any `prism-mcp: --shared failed closed` line in the window |
-| Daemon restarts | daemon instances in the samples and in the shims' `shared daemon pid` lines; crash reports; restart-bound refusals | 2, 3 | `no_abort`; no `died during its index build` refusal; starts reported (SI-40) | A `prism-mcp-*.ips` in the window; a restart-bound refusal |
-| Fan-out latency p95 vs. standalone | `fanout.py run` and `compare` | 1 | excalidraw, 8 shims against 8 standalone, 3 interleaved pairs, all admissible, median p95 ≤ 1.10×, median p99 ≤ 1.25× | A ratio over its bound; an inadmissible run (a retryable answer after warm-up, a lost client, two daemons) |
+| Resident `prism-mcp` count | `soak.py sample` (index holders per key, per repository, in total; shims; built daemons) | 2, 3 | `one_index_per_key` at every sample; in Phase 2 also `no_new_standalone_index` | FAIL: two daemons of one key at once (a split runtime directory); a standalone index holder that appeared during the round. UNKNOWN: a sample without a process table; a live standalone server whose footprint could not be measured |
+| Aggregate footprint | the same samples (`phys_footprint` of every prism-mcp process; the host's swap, pressure level, compressor) | 2, 3 | Phase 2: `no_critical_pressure`; peaks reported against the incident's (29 processes, 34 GiB compressed) | FAIL: pressure at its critical level. UNKNOWN: a sample without a pressure reading |
+| Shim fail-closed count, target 0 | `soak.py report` over Claude Code's MCP logs and `prism-mcp-logged.sh` logs | 2, 3 | `no_fail_closed`, `no_startup_error` | FAIL: a `prism-mcp: --shared failed closed` line, or a server that never started (`error: …`, the launcher's refusal). UNKNOWN: a named log source missing, or none named |
+| Daemon restarts | daemon instances in the samples and in the shims' `shared daemon pid` lines; crash reports; restart-bound refusals | 2, 3 | `no_abort`, `no_restart_bound`; starts reported (SI-40) | FAIL: a `prism-mcp-*.ips` in the window; a `died during its index build` refusal. UNKNOWN: the crash-report directory unreadable |
+| Fan-out latency p95 vs. standalone | `fanout.py run` and `compare` | 1 | A/A calibration within the bound; then excalidraw, 8 shims vs 8 standalone, 3 pairs in ABBA order, all admissible, median p95 ≤ 1.10×, median p99 ≤ 1.25×; the refresh's stall reported (SI-43) | FAIL: a ratio over its bound. Inadmissible run: no successful refresh, a critical or unreadable pressure reading, a lost client, a retryable answer after warm-up, two daemons |
+| (use, so that a pass means something) | `soak.py report` | 2, 3 | Phase 2: ≥ 2 shims at once, a daemon reached in the logs, an index built; Phase 3: ≥ 5 usage days (D128) | INADMISSIBLE when not seen |
 
-The default flip (row B) is the owner's decision with the three phase reports in hand; "the flip does not wait for any memory reduction" (§8 step 2).
+A phase's report says `**Verdict: PASS**`, `FAIL` or `INADMISSIBLE`. Only PASS counts. INADMISSIBLE is never read as a pass: the phase is repaired (the missing source named, the use made) and run again. The default flip (row B) is the owner's decision with the three phase reports in hand; "the flip does not wait for any memory reduction" (§8 step 2).
 
 ### Fixed inputs
 
-- **Build:** one release `prism-mcp` of this slice's merge commit, built in a worktree of its own that stays for the whole soak (`$S` below), copied to `$E/bin/prism-mcp`, its sha256 recorded. The tools are run from `$S/scripts/soak/` (they find memreport's workloads beside them).
-- **Corpora** (lane README "Facts"; clean, at these commits; checked before each phase with `git -C <corpus> rev-parse HEAD` and `git status --porcelain`): excalidraw `~/code/bench-repos/excalidraw` at `0642e72cfa2d`; slicing `~/code/prism-c1-corpus` at `7db8f1951166`. Workloads: `scripts/memreport/workloads/{excalidraw,slicing}.jsonl`, 200 requests each, bound to those commits by `MANIFEST.json`. Prometheus and ruff are not used (8 standalone servers of either do not fit this host; their shared runs add nothing the gate needs).
-- **Host:** this Mac (24 GB, macOS 26). Every run records swap, compressor, pressure and load before and after.
-- **Runtime directory:** `/tmp` as the base (owner question 2), so `/tmp/prism-mcpd`; the fan-out runs use directories of their own under `/tmp`.
+- **Build:** one release `prism-mcp` built from **this pull request's head** (owner question 4: its `src/` is `main`'s, `61c2a9e5`'s and the merge's, since nothing under `src/` changes; the binary is the merge's in all but the commit it names), in a worktree of its own that stays for the whole soak (`$S`), copied to `$E/bin/prism-mcp` with its sha256. The bridge's entries name `$E/bin/prism-mcp`, never a working checkout's `target/` (owner question 5). The tools run from `$S/scripts/soak/`.
+- **Corpora** (lane README "Facts"; clean, at these commits; checked before each phase with `git -C <corpus> rev-parse HEAD` and `git status --porcelain`): excalidraw `~/code/bench-repos/excalidraw` at `0642e72cfa2d`; slicing `~/code/prism-c1-corpus` at `7db8f1951166`. Workloads: `scripts/memreport/workloads/{excalidraw,slicing}.jsonl`, 200 requests each, bound to those commits by `MANIFEST.json`.
+- **Host:** this Mac (24 GB, macOS 26). Every fan-out run records swap, compressor and load before and after, and the pressure level every second (D126).
+- **Runtime directory:** `/tmp` as the base (owner question 2), so `/tmp/prism-mcpd`; the fan-out runs use directories of their own under `/tmp` and keep their daemon's log.
 - **Evidence:** `E=~/prism-evidence/mcp-memory/s6-soak`, one directory per phase; `SHA256SUMS` written at each phase's end; never a second run into a directory that has results (the tools refuse).
+- **The controller's shell does not keep state between commands**: every runbook step that needs a time or a process id writes it to a file under `$E` and reads it back (review round 1, Opus W7).
 
 ### Phase 0: deployment (outside the repository; owner question 5)
 
+Variables, used by every phase. The controller's shell keeps nothing between commands, so every command block below starts with these lines (and, in Phase 1, with the `C=`, `run()` and `X=` lines too):
+
 ```bash
-E=~/prism-evidence/mcp-memory/s6-soak; B="$E/bin/prism-mcp"; mkdir -p "$E"/{bin,deploy,fanout,round,week,client-logs}
-S=~/code/prism-s6-soak; git -C ~/code/slicing worktree add --detach "$S" <the S6 merge commit>
+E=~/prism-evidence/mcp-memory/s6-soak; B="$E/bin/prism-mcp"; S=~/code/prism-s6-soak
+P=~/.claude/plugins/cache/prism-dev/prism/3.1.2
 ```
 
-In a command of its own: `df -h /System/Volumes/Data` (at least 50 GiB). Then:
+1. **Build** (a command of its own first: `df -h /System/Volumes/Data`, at least 50 GiB):
 
 ```bash
+mkdir -p "$E"/{bin,deploy/originals,deploy/snapshots,fanout,round,week,client-logs}
+git -C ~/code/slicing fetch -q origin && git -C ~/code/slicing worktree add --detach "$S" <the S6 pull request's head commit>
+git -C "$S" rev-parse HEAD > "$E/deploy/COMMIT"; git -C "$S" diff --stat origin/main -- src | tail -1 > "$E/deploy/SRC-DIFF"   # must be empty
 cd "$S" && nice -n 19 env CARGO_BUILD_JOBS=4 cargo build --release --features mcp --bin prism-mcp > "$E/deploy/build.log" 2>&1; echo "build rc=$?"
-cp "$S/target/release/prism-mcp" "$E/bin/prism-mcp"
-cp "$S/scripts/soak/prism-mcp-logged.sh" "$E/bin/"
-shasum -a 256 "$E/bin/prism-mcp" "$E/bin/prism-mcp-logged.sh" > "$E/deploy/SHA256SUMS"
-for d in ~/code/slicing/target/release ~/.claude/plugins/cache/prism-dev/prism/3.1.2/target/release; do
-  mv "$d/prism-mcp" "$d/prism-mcp.pre-s6" && cp "$E/bin/prism-mcp" "$d/prism-mcp"
-done
-P=~/.claude/plugins/cache/prism-dev/prism/3.1.2/scripts
-mv "$P/prism-mcp-launch.sh" "$P/prism-mcp-launch.sh.pre-s6" && cp "$S/scripts/prism-mcp-launch.sh" "$P/"
+cp "$S/target/release/prism-mcp" "$B"; cp "$S/scripts/soak/prism-mcp-logged.sh" "$E/bin/"
 ```
 
-Then, by the owner or with the owner's approval: `export PRISM_MCP_SHARED=1` and `export PRISM_MCP_RUNTIME_DIR=/tmp` in the shell profile Claude Code starts from (sessions started before keep their standalone servers until restarted); and in each bridge configuration the soak uses, every host-run `[[agents.mcp]]` prism entry becomes (owner question 3 drops `--cache-dir`):
+`SRC-DIFF` empty is the condition for calling this binary the merge's.
+
+2. **Keep the originals, once** (a second run of Phase 0 must never overwrite them, review round 1, Opus W6):
+
+```bash
+[ -e "$E/deploy/originals/SHA256SUMS" ] || {
+  cp -p ~/code/slicing/target/release/prism-mcp "$E/deploy/originals/slicing-prism-mcp"
+  cp -p "$P/target/release/prism-mcp" "$E/deploy/originals/plugin-prism-mcp"
+  cp -p "$P/scripts/prism-mcp-launch.sh" "$E/deploy/originals/prism-mcp-launch.sh"
+  cp -p ~/code/slicing/.codex/config.toml "$E/deploy/snapshots/slicing-codex-config.toml"
+  for f in <each bridge configuration the soak will edit>; do cp -p "$f" "$E/deploy/snapshots/$(basename "$f")"; done
+  (cd "$E/deploy/originals" && shasum -a 256 * > SHA256SUMS); (cd "$E/deploy/snapshots" && shasum -a 256 * > SHA256SUMS)
+}
+shasum -a 256 "$B" "$E/bin/prism-mcp-logged.sh" > "$E/deploy/SHA256SUMS"
+```
+
+3. **Install** (each copy replaces the file; the originals are in `$E/deploy/originals`):
+
+```bash
+cp "$B" ~/code/slicing/target/release/prism-mcp.s6-new && mv ~/code/slicing/target/release/prism-mcp.s6-new ~/code/slicing/target/release/prism-mcp
+cp "$B" "$P/target/release/prism-mcp.s6-new" && mv "$P/target/release/prism-mcp.s6-new" "$P/target/release/prism-mcp"
+cp "$S/scripts/prism-mcp-launch.sh" "$P/scripts/prism-mcp-launch.sh"
+```
+
+(A rename over the old file leaves running processes on their old inode.) Then, by the owner or with the owner's approval: `export PRISM_MCP_SHARED=1` and `export PRISM_MCP_RUNTIME_DIR=/tmp` in the shell profile Claude Code starts from (sessions started before keep their standalone servers until restarted); and in each bridge configuration the soak uses, every **host-run** `[[agents.mcp]]` prism entry becomes (owner question 3 drops `--cache-dir`):
 
 ```toml
 [[agents.mcp]]
 name = "prism"
 command = "/Users/wesleyjinks/prism-evidence/mcp-memory/s6-soak/bin/prism-mcp-logged.sh"
-args = ["/Users/wesleyjinks/prism-evidence/mcp-memory/s6-soak/client-logs/bridge.log", "/Users/wesleyjinks/code/slicing/target/release/prism-mcp", "--repo", "{cwd}", "--shared"]
+args = ["/Users/wesleyjinks/prism-evidence/mcp-memory/s6-soak/client-logs/bridge.log", "/Users/wesleyjinks/prism-evidence/mcp-memory/s6-soak/bin/prism-mcp", "--repo", "{cwd}", "--shared"]
 [[agents.mcp.env]]
 name = "PRISM_MCP_RUNTIME_DIR"
 value = "/tmp"
 ```
 
-Record in `$E/deploy/NOTES.md`: the merge commit, the sha256s, which configurations were edited, the time. **Rollback** (any time): unset the two variables; `mv` each `.pre-s6` back; restore the bridge configurations; `prism-mcp daemon-shutdown` (or `kill -TERM <pid>`) for each daemon `prism-mcp daemon-status --runtime-dir /tmp` lists.
+4. **Probe every soaked launcher** before anything uses it (D127); each must print `PASS`:
 
-### Phase 1: fan-out latency (a quiet hour; about 30 minutes)
+```bash
+cd "$S"
+env PRISM_MCP_SHARED=1 PRISM_MCP_RUNTIME_DIR=/tmp CLAUDE_PLUGIN_ROOT="$P" python3 scripts/soak/soak.py probe -- "$P/scripts/prism-mcp-launch.sh" ~/code/slicing
+env PRISM_MCP_RUNTIME_DIR=/tmp python3 scripts/soak/soak.py probe -- ~/code/slicing/target/release/prism-mcp --repo ~/code/slicing --shared
+env PRISM_MCP_RUNTIME_DIR=/tmp python3 scripts/soak/soak.py probe -- "$E/bin/prism-mcp-logged.sh" "$E/client-logs/probe.log" "$B" --repo ~/code/slicing --shared
+```
+
+(The second is the project's `.codex/config.toml` command; the third the bridge entry's, with `{cwd}` filled in.) A `FAIL` names the binary's error: fix it before going on. The probes start lazy daemons of `~/code/slicing` (no index is built), which retire after the idle TTL. **Then merge the pull request** (owner question 4).
+
+Record in `$E/deploy/NOTES.md`: the commit, the sha256s, which configurations were edited, the time.
+
+**Rollback** (any time), in this order, so that no configuration ever passes `--shared` to a binary that rejects it (review round 1, sol 1, Opus W4):
+
+1. Configurations: restore each bridge configuration from `$E/deploy/snapshots/`; in `~/code/slicing/.codex/config.toml` (and any other checkout that has the merged file), remove `"--shared"` from the prism `args` (or restore the snapshot); unset `PRISM_MCP_SHARED` and `PRISM_MCP_RUNTIME_DIR` in the profile.
+2. Daemons: with the S6 binary, which stays until this step is done: `"$B" daemon-status --runtime-dir /tmp`, then `"$B" daemon-shutdown --repo <root> --runtime-dir /tmp` for each daemon it lists (or `kill -TERM <pid>`); check `pgrep -fl 'prism-mcp daemon'` prints nothing.
+3. Binaries: copy `$E/deploy/originals/{slicing-prism-mcp,plugin-prism-mcp,prism-mcp-launch.sh}` back to their places (check them against `$E/deploy/originals/SHA256SUMS` first).
+4. Probe each restored launcher **without** `--shared` (the commands of step 4 above without `--shared` and without `PRISM_MCP_SHARED`); each must print `PASS`. A `FAIL` there means a configuration still asks for what the restored binary lacks.
+
+### Phase 1: fan-out latency (a quiet hour; about 45 minutes)
 
 Preconditions, checked and saved: no bridge run, build or other measurement on the host (lane rule: one measured process at a time); `python3 "$S/scripts/soak/soak.py" sample --count 1 --interval 0 --out "$E/fanout/host-before.jsonl"` shows no index holder; both corpora at their commits and clean. Prime one cache per corpus (discarded runs):
 
 ```bash
-B="$E/bin/prism-mcp"; C="$E/fanout/cache"
+C="$E/fanout/cache"
 "$B" --repo ~/code/bench-repos/excalidraw --cache-dir "$C/excalidraw" --eager < /dev/null > "$E/fanout/prime-excalidraw.log" 2>&1; echo "rc=$?"
 "$B" --repo ~/code/prism-c1-corpus --cache-dir "$C/slicing" --eager < /dev/null > "$E/fanout/prime-slicing.log" 2>&1; echo "rc=$?"
 ```
 
-The gate (excalidraw), each run alone, in this order (interleaved so that drift in the host hits both arms):
+Every run below is alone, and keeps its default `--refresh-at 0.5` (a gating run) and `--pressure required` (the default on macOS). Define once per command:
 
 ```bash
-for rep in 1 2 3; do
-  for mode in standalone shared; do
-    python3 "$S/scripts/soak/fanout.py" run --bin "$B" --corpus excalidraw="$HOME/code/bench-repos/excalidraw" --cache-dir "$C/excalidraw" --mode "$mode" --clients 8 --out "$E/fanout/excalidraw-$mode-$rep"
-  done
-done
-python3 "$S/scripts/soak/fanout.py" compare --baseline "$E/fanout/excalidraw-standalone-1" --baseline "$E/fanout/excalidraw-standalone-2" --baseline "$E/fanout/excalidraw-standalone-3" --candidate "$E/fanout/excalidraw-shared-1" --candidate "$E/fanout/excalidraw-shared-2" --candidate "$E/fanout/excalidraw-shared-3" --out "$E/fanout/excalidraw-compare.md" --json "$E/fanout/excalidraw-compare.json"
+run() { python3 "$S/scripts/soak/fanout.py" run --bin "$B" --corpus "$1" --cache-dir "$C/${1%%=*}" --mode "$2" --clients "$3" --out "$E/fanout/$4"; }
+X=excalidraw="$HOME/code/bench-repos/excalidraw"
 ```
 
-Information (slicing; owner question 9): the same loop with `--corpus slicing="$HOME/code/prism-c1-corpus" --cache-dir "$C/slicing"`, the shared arm with `--clients 8` and the standalone arm with `--clients 1`, out directories `slicing-shared-$rep` and `slicing-standalone1-$rep`, and a `compare` written to `slicing-compare.md`, whose verdict is reported and not gated.
+**Calibration (A/A; review round 1, Opus S1).** Six standalone runs of eight clients, alternating groups a and b, then the same `compare`:
 
-Read and keep for the readout: each run's `summary.json` (p50/p95/p99/max, the refresh's time), each `run.json`'s `memory_after_workload.total_bytes` (eight standalone footprints against one daemon and eight shims: the memory side of the same experiment) and `daemon_instances` (exactly one per shared run), and both `compare` files. **Pass:** `excalidraw-compare.md` says `**Verdict: PASS**`.
+```bash
+for rep in 1 2 3; do run "$X" standalone 8 "aa-a-$rep"; run "$X" standalone 8 "aa-b-$rep"; done
+python3 "$S/scripts/soak/fanout.py" compare --baseline "$E/fanout/aa-a-1" --baseline "$E/fanout/aa-a-2" --baseline "$E/fanout/aa-a-3" --candidate "$E/fanout/aa-b-1" --candidate "$E/fanout/aa-b-2" --candidate "$E/fanout/aa-b-3" --out "$E/fanout/aa-compare.md" --json "$E/fanout/aa-compare.json"
+```
+
+If `aa-compare.md` does not say `**Verdict: PASS**` (the host's own spread between two identical arms exceeds the bound, or a run was inadmissible), the gate cannot be judged on this host as pinned: stop and take the A/A figures to the owner (owner question 7) before any gate run; never collect more runs toward it.
+
+**The gate** (excalidraw), pairs in ABBA order so that drift in the host does not always fall on one arm:
+
+```bash
+run "$X" standalone 8 standalone-1; run "$X" shared 8 shared-1
+run "$X" shared 8 shared-2;         run "$X" standalone 8 standalone-2
+run "$X" standalone 8 standalone-3; run "$X" shared 8 shared-3
+python3 "$S/scripts/soak/fanout.py" compare --baseline "$E/fanout/standalone-1" --baseline "$E/fanout/standalone-2" --baseline "$E/fanout/standalone-3" --candidate "$E/fanout/shared-1" --candidate "$E/fanout/shared-2" --candidate "$E/fanout/shared-3" --out "$E/fanout/excalidraw-compare.md" --json "$E/fanout/excalidraw-compare.json"
+```
+
+Information (slicing; owner question 9): `run slicing="$HOME/code/prism-c1-corpus" shared 8 slicing-shared-$rep` and `run slicing="$HOME/code/prism-c1-corpus" standalone 1 slicing-standalone1-$rep` for rep 1–3 in ABBA order, and a `compare … --allow-client-mismatch` written to `slicing-compare.md`; its verdict is reported, never gated.
+
+Read and keep for the readout: each run's `summary.json` (p50/p95/p99/max, the refresh's time and outcome, `refresh_overlap`: the calls of other clients that overlapped the refresh and the longest of them, SI-43), each `run.json`'s `pressure` (every reading), `memory_after_workload.total_bytes` (eight standalone footprints against one daemon and eight shims) and `daemon_instances`, each shared run's `daemon-logs/`, and the compare files. **Pass:** the calibration passed and `excalidraw-compare.md` says `**Verdict: PASS**`.
 
 ### Phase 2: one bridge review round (fan-out under real load)
 
-The round: the next real review round of any lane run through the bridge with a soaked configuration, or else one `a2a-bridge run-workflow plan-review` (five nodes, codex and claude) on a checkout of `main` at or after the merge, `--session-cwd` that checkout. Owner sessions may go on as usual; they are part of the load.
+The round: the next real review round of any lane run through the bridge with a soaked **host-run** configuration (agents in containers run in the OrbStack VM, outside the host's process table, so the sampler cannot see them), or else one `a2a-bridge run-workflow plan-review` (five nodes, codex and claude) on a checkout of `main` at or after the merge, `--session-cwd` that checkout. Preconditions: Phase 0's probes passed; the Claude Code sessions the owner will use were started after the profile export; `soak.py sample --count 1` lists the standalone index holders already running (they are listed in the report and not counted, D125).
 
 ```bash
-python3 "$S/scripts/soak/soak.py" sample --out "$E/round/samples.jsonl" --interval 5 --status-bin "$B" --runtime-dir /tmp > "$E/round/sampler.log" 2>&1 &
-T0=$(date +%s)
-# … the round …
-# then wait 20 minutes after its last agent ends (the idle TTL, 15 minutes, and a margin) …
-T1=$(date +%s); kill %1
-python3 "$S/scripts/soak/soak.py" report --samples "$E/round/samples.jsonl" --since "$T0" --until "$T1" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/round/report.md" --json "$E/round/report.json"
+nohup python3 "$S/scripts/soak/soak.py" sample --out "$E/round/samples.jsonl" --interval 5 > "$E/round/sampler.log" 2>&1 &
+echo $! > "$E/round/sampler.pid"; date +%s > "$E/round/T0"
 ```
 
-**Pass:** all five rules `PASS`, no restart-bound refusal (`events.build_crash_refusals` 0 in `report.json`). Reported with it: the most index holders at once against the number of checkouts the round used, the peak footprint of all prism-mcp processes, the peak swap and compressor, and whether the round's daemon had retired by `T1` (the last sample).
+Run the round. Twenty minutes after its last agent ends (the idle TTL, 15 minutes, and a margin):
+
+```bash
+date +%s > "$E/round/T1"; kill "$(cat "$E/round/sampler.pid")"; pgrep -fl 'soak.py sample'   # prints nothing
+python3 "$S/scripts/soak/soak.py" report --phase round --samples "$E/round/samples.jsonl" --since "$(cat "$E/round/T0")" --until "$(cat "$E/round/T1")" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/round/report.md" --json "$E/round/report.json"
+```
+
+**Pass:** `report.md` says `**Verdict: PASS**`: every rule `PASS` (none `UNKNOWN`), and the use seen: at least two shims at once, a daemon reached in the logs, an index built. Reported with it: the most index holders at once against the number of checkouts the round used, the peak footprint of all prism-mcp processes, the peak swap and compressor, the standalone servers already running at the start, and whether the round's daemon had retired by `T1` (the last sample).
 
 ### Phase 3: one week of interactive use
 
 ```bash
-nohup python3 "$S/scripts/soak/soak.py" sample --out "$E/week/samples.jsonl" --interval 60 --duration 604800 --status-bin "$B" --runtime-dir /tmp > "$E/week/sampler.log" 2>&1 &
-echo "$(date +%s)" > "$E/week/T0"
+nohup python3 "$S/scripts/soak/soak.py" sample --out "$E/week/samples.jsonl" --interval 60 --duration 604800 > "$E/week/sampler.log" 2>&1 &
+echo $! > "$E/week/sampler.pid"; date +%s > "$E/week/T0"
 ```
 
-Check daily that the last line of `samples.jsonl` is recent; a restart of the host or of the session kills the sampler, and running the same command again appends (owner's lesson: restarts kill workers). Write in `$E/week/NOTES.md` anything that changes the deployed binaries (a rebuild of `~/code/slicing/target/release/prism-mcp` by other work gives new keys; the old daemons retire on their own). At the end:
+Check daily that the last line of `samples.jsonl` is recent (`tail -1 … | python3 -c 'import json,sys,time; print(time.time() - json.loads(sys.stdin.read())["t"])'`); a restart of the host or of the session kills the sampler, and running the same command again appends (a line cut short by the kill is skipped and counted by the report). Write in `$E/week/NOTES.md` anything that changes the deployed binaries. At the end:
 
 ```bash
-python3 "$S/scripts/soak/soak.py" report --samples "$E/week/samples.jsonl" --since "$(cat "$E/week/T0")" --until "$(date +%s)" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/week/report.md" --json "$E/week/report.json"
+kill "$(cat "$E/week/sampler.pid")" 2>/dev/null; date +%s > "$E/week/T1"
+python3 "$S/scripts/soak/soak.py" report --phase week --samples "$E/week/samples.jsonl" --since "$(cat "$E/week/T0")" --until "$(cat "$E/week/T1")" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/week/report.md" --json "$E/week/report.json"
 ```
 
-(add a `--client-log` for each other wrapper log the week used). **Pass:** `one_index_per_key`, `no_fail_closed` and `no_abort` `PASS`, no restart-bound refusal, and at least 5 days with a shim (`summary.days_with_shims` in `report.json`; SI-41); `no_standalone_index` and `no_critical_pressure` are reported, not gated (other work on the host runs standalone servers and uses memory).
+(add a `--client-log` for each other wrapper log the week used). **Pass:** `**Verdict: PASS**`: `one_index_per_key`, `no_fail_closed`, `no_startup_error`, `no_restart_bound` and `no_abort` `PASS`, and at least 5 usage days (D128); `no_new_standalone_index` and `no_critical_pressure` are reported, not gated (other work on the host runs standalone servers and uses memory).
 
 ### Stop conditions (any phase)
 
 - **An abort or a restart-bound refusal:** stop the phase; keep the crash report (`~/Library/Logs/DiagnosticReports/prism-mcp-*.ips`) and the daemon's log (`/tmp/prism-mcpd/<key16>.log`); escalate to the owner.
-- **A fail-closed line:** read its reason. A configuration cause (a runtime directory, a cache directory, a stale binary in a configuration) is fixed and the phase starts again from zero, disclosed; any other cause is escalated.
-- **Memory pressure at its critical level during Phase 1 or 2:** stop the run (the clients, or the bridge), keep the samples, escalate.
-- **A gate shown unreachable by its own measurements** (for example a latency ratio that cannot pass on this host however quiet): escalate to the owner at once; never collect more runs toward it.
+- **A fail-closed line or a startup error:** read it. A configuration cause (a runtime directory, a cache directory, a binary a configuration names) is fixed, probed (Phase 0 step 4), and the phase starts again from zero, disclosed; any other cause is escalated.
+- **Memory pressure at its critical level** stops a fan-out run by itself (D126); during Phase 2 stop the bridge, keep the samples, escalate.
+- **A gate shown unreachable by its own measurements** (the A/A calibration, or a latency ratio that cannot pass however quiet the host): escalate to the owner at once; never collect more runs toward it.
 - **Two measured processes at once:** the overlapping run is inadmissible; re-run it alone.
+- **An INADMISSIBLE report:** name what was missing (a source, a sample, the use) and run the phase again; never read it as a pass.
 
-### The readout
+### After the soak
 
-`docs/analysis/2026-10-shared-daemon-soak-readout.md` (a docs pull request after the week): the three reports' verdicts and figures next to the incident's, the fan-out tables, the deployment notes, what was not measured, and the owner's flip question. Evidence stays under `$E` with its `SHA256SUMS`, and is offloaded to `prism-evidence` when the lane closes.
+The readout `docs/analysis/2026-10-shared-daemon-soak-readout.md` (a docs pull request after the week): the three reports' verdicts and figures next to the incident's, the fan-out tables with the A/A calibration and the refresh stall, the deployment notes, what was not measured, and the owner's flip question. Evidence stays under `$E` with its `SHA256SUMS`, and is offloaded to `prism-evidence` when the lane closes. Remove `$S`'s `target/` (several GiB; disk hygiene) once nothing needs `$B`'s build again, and the worktree with it.
 
 ## Interfaces for the next slices
 
@@ -2579,19 +3453,20 @@ python3 "$S/scripts/soak/soak.py" report --samples "$E/week/samples.jsonl" --sin
 - **What S3a left to S6** (its "S6 (docs) owes"): the readiness vocabulary — `warming`, `build_failed`, the daemon's `indexing` with `retry_after_secs`, the `prism/index_state` values — in `docs/MCP.md` ("What changes for a client") and the skill's new bullet (the `S3a-2` review's note that neither documented `warming` or `build_failed`).
 - **What S3b left:** what a client sees when a shared daemon panics (its session ends; the next start makes a new daemon) and the macOS crash report for each abort → "A crash ends every attached session".
 - **What S4 left:** the daemon's command line and its exit statuses, what a client sees for each drain reason, the runtime directory the same for every launcher → "The daemon" paragraph and the runtime-directory section.
-- **What S5a left, one by one:** `--shared` in `.codex/config.toml` (Task 4), the plugin launcher (Task 1), the bridge's `[[agents.mcp]]` with `PRISM_MCP_RUNTIME_DIR` (docs, Phase 0); the fail-closed line and what to do about each reason (the docs' table, each reason in the code's words); `--idle-ttl`/`--max-clients` configure only a daemon the shim starts, silently ignored otherwise (D85; the flags table); the restart bound and its minute, and the wall clock (D77, owner decision 12, option A; "A crash ends …"); a rebuilt binary's old shims cannot start a daemon (SI-27; the table's spawn row); the `sudo -E` root-owned directory (the lane README's S5a note; the runtime-directory traps). The soak reads, as S5a specified: fail-closed lines starting `prism-mcp: --shared failed closed` (D87), daemon starts from `prism-mcp: shared daemon pid … (started …` (D88), `RecentBuildCrash` (D77), `pgrep`-style counts (here the sampler's process table) and the 10-03 probes (SI-38), and the fan-out with eight shims and one concurrent refresh (S3b's SI-11 noted under "What each mechanism covers").
+- **What S5a left, one by one:** `--shared` in `.codex/config.toml` (Task 4), the plugin launcher (Task 1), the bridge's `[[agents.mcp]]` with `PRISM_MCP_RUNTIME_DIR` (docs, Phase 0); the fail-closed line and what to do about each reason (the docs' table, each reason in the code's words); `--idle-ttl`/`--max-clients` configure only a daemon the shim starts, silently ignored otherwise (D85; the flags table); the restart bound and its minute, and the wall clock (D77, owner decision 12, option A; "A crash ends …"); a rebuilt binary's old shims cannot start a daemon (SI-27; the table's spawn row); the `sudo -E` root-owned directory (the lane README's S5a note; the runtime-directory traps). The soak reads, as S5a specified: fail-closed lines starting `prism-mcp: --shared failed closed` (D87), daemon starts from `prism-mcp: shared daemon pid … (started …` (D88), `RecentBuildCrash` (D77), `pgrep`-style counts (here the sampler's process table) and the 10-03 probes (SI-38), and the fan-out with eight shims and one concurrent refresh (S3b's SI-11 reported, SI-43).
 - **What S5b left, one by one:** the bridge's reaper interface (`daemon-shutdown --pid --start-time` from the shim's line) is documented, and building the reaper is owner question 10; the soak's resident count through `daemon-status` (`sample --status-bin`); pre-S5b daemons stopped with `kill -TERM` and their idle restart at each probe (SI-35) in the docs; the two commands, their exit statuses, `--runtime-dir` as the base, other builds listed and stopped with `kill -TERM`, exit 1's meanings, "never disconnects a client and keeps admitting until it drains" (owner decision 15), "a probe does not keep a daemon of this build up" — all in "Operating daemons". The sampler connects to no daemon by default (D121), so it cannot keep a pre-S5b daemon alive.
-- **The lane README's notes.** "S6: the launcher … passes extra arguments through, so `--shared` is a config change, not a script change": true for every launcher but the plugin's, whose arguments are not user configuration (SI-36). S2a "the docs should say" (the root-owned directory): done. S2a `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY`: the daemon paragraph says the shim does not pass it (S5a's D84). Owner decision 14 (keys left by rebuilds, counted, nothing removed): the "Files" paragraph. The HANDOFF's open items not S6's: EMFILE back-off (item 15), the call-edge sidecar's temp files (item 11), SI-10 and SI-11 (measured by Phase 1's refresh).
-- **The lane's review lessons.** (1) Every stated property has a test and a mutant, or is listed as not held: "Claims". (2) What each mechanism does not cover: its section. (3) Interleavings are played, not hoped for: a client that dies before the barrier (the barrier is aborted), a client that dies after it, warming answers before the barrier. (4) No test asserts an upper bound on a duration; the one subprocess bound is a hang limit. (5) No test writes a file it then executes. (6) Measurement first: the claim that Claude Code passes its environment and that its logs keep the server's standard error was measured on this host before the design relied on it (SI-42, D120); the claim about Codex's environment is marked inherited.
+- **The lane README's notes.** "S6: the launcher … passes extra arguments through, so `--shared` is a config change, not a script change": true for every launcher but the plugin's, whose arguments are not user configuration (SI-36). S2a "the docs should say" (the root-owned directory): done. S2a `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY`: the daemon paragraph says the shim does not pass it (S5a's D84). Owner decision 14 (keys left by rebuilds, counted, nothing removed): the "Files" paragraph. The HANDOFF's open items not S6's: EMFILE back-off (item 15), the call-edge sidecar's temp files (item 11), SI-10; SI-11 is reported by Phase 1 (the refresh's overlap), not measured against a bound (SI-43; the earlier "measured by Phase 1" withdrawn after review round 1, Opus W1).
+- **The lane's review lessons.** (1) Every stated property has a test and a mutant, or is listed as not held: "Claims". (2) What each mechanism does not cover: its section. (3) Interleavings are played, not hoped for: a client that dies before the barrier (the barrier is aborted), a client that dies after it, warming answers before the barrier, a critical pressure reading in the middle of a run. (4) No test asserts an upper bound on a duration; the one subprocess bound is a hang limit. (5) No test writes a file it then executes. (6) Measurement first: the claim that Claude Code passes its environment and that its logs keep the server's standard error was measured on this host before the design relied on it (SI-42, D120); the claim about Codex's environment is marked inherited.
 - **Proportionality.** Every piece serves the soak, which is the gate for the default flip, which is the lane's goal: the launcher (an opt-in for the clients that hold most sessions on this host), the docs (users of the opt-in, and the earlier slices' debts), the sampler (the resident count and footprint the incident was measured by), the fan-out driver (the latency half of the goal, and C2-M1's gate). Not built: a product-side event log (D120), a pruning flag (owner decision 14), the bridge's reaper (owner question 10), a CI job for the Python tests (D117).
+- **Review round 1's lesson, applied.** Every instrument answers three ways, not two: what it saw breach, what it saw clean, and what it could not see. A rule built on absence (no fail-closed line, no crash report, no second daemon) needs proof the absence was observed; the report now says UNKNOWN or INADMISSIBLE where it was not.
 
 ## Validation record
 
-Built on 2026-10-16 on macOS (arm64), in `~/code/prism-s6-validate`, from `main` `61c2a9e5`. Every cargo command ran alone, as `nice -n 19 env CARGO_BUILD_JOBS=4 cargo …`, with its output in a file under the session's scratch directory, read from the file. Nothing was pushed. Local branches:
+Built on 2026-10-16 on macOS (arm64), in `~/code/prism-s6-validate`, from `main` `61c2a9e5`, merged up to `main` `4a9e6476` for review round 1 (lane docs only in between). Every cargo command ran alone, as `nice -n 19 env CARGO_BUILD_JOBS=4 cargo …`, with its output in a file under the session's scratch directory, read from the file. Nothing was pushed. Local branches:
 
-- `scratch/s6-validate`, where the code was first written: `5838de63` (the launcher and its tests), `8b3dc0fb` (the soak tools), `f81cf81a` (docs and configuration), `c9be7b01` (two fan-out tests the mutant table asked for), `f97a04ed` (the live test without `pgrep`; daemons per repository), `9e82b670` (days with a shim; the head). The full suite ran at `c9be7b01` (V4); the mutants at `f97a04ed` (L1–L5) and `9e82b670` (S1–S13, F1–F12), each alone, the file restored after each.
-- `scratch/s6-tasks`, the same source cut into this plan's tasks, one commit per task, every file taken from `9e82b670`: `56454f19` (Task 1), `628dcdae` (2), `71ff99d5` (3), `bf7d3c23` (4). `cargo fmt --check` passed at every commit; its tree is `c6aeb376`, the head's. An earlier cut at `f97a04ed` is kept as `scratch/s6-tasks-r0`, and its replay as `scratch/s6-replay-r0`.
-- `scratch/s6-replay`: this plan's directives replayed by a script onto `61c2a9e5`, every anchor matching exactly once (20 directives, three of them "Make … executable."): `525b7659`, tree `c6aeb376`, the tree of `bf7d3c23` and of `9e82b670`. The red and green steps of Tasks 1–3 were run on partial replays in the validate worktree (detached at `61c2a9e5`, the plan replayed up to the task's Step 2, then up to its Step 4; V2, V3).
+- `scratch/s6-validate`, where the code was first written: `5838de63` (the launcher and its tests), `8b3dc0fb` (the soak tools), `f81cf81a` (docs and configuration), `c9be7b01` (two fan-out tests the mutant table asked for), `f97a04ed` (the live test without `pgrep`; daemons per repository), `9e82b670` (days with a shim; the round-0 head), `d251849e` (merge of `main` `4a9e6476`), then review round 1: `0bd92f49` (its tests, red), `67d2d407` (the fold), `f2239814` (`CLAUDE.md`), `f76f8e33` (four tests for mutants that first survived; the barrier bounded; the head). The full suite ran at the head (V4); the mutants at `67d2d407`/`f2239814` (L1–L6, S1–S13, S7b, U1–U17) and at the head (F1–F22, and U11, F9, F10, F15, F16 again after their tests), each alone, the file restored after each.
+- `scratch/s6-tasks`, the same source cut into this plan's tasks, one commit per task on `4a9e6476`, every file taken from `f76f8e33`: `ee16ecba` (Task 1), `123f5144` (2, the S6-1 head), `7e9484ac` (3), `99b0c2af` (4, the S6-2 head). `cargo fmt --check` passed at every commit; its tree is `84c42714`, the head's. Earlier cuts are kept as `scratch/s6-tasks-r0` and `scratch/s6-tasks-r1base` (round 0), with their replays `scratch/s6-replay-r0` and `scratch/s6-replay-r1base`.
+- `scratch/s6-replay`: this plan's directives replayed by a script onto `4a9e6476`, every anchor matching exactly once (24 directives, three of them "Make … executable."): `1e487b34`, tree `84c42714`, the tree of `99b0c2af` and of `f76f8e33`. The red and green steps of Tasks 1–3 were run on partial replays in the validate worktree (detached at `4a9e6476`, the plan replayed up to the task's Step 2, then up to its Step 4; V2, V3).
 
 The tools (the generator of the directives from the per-task commits, the replay, the cut, the mutant runner, the assembly of this file) are S5b's, with three changes: a created file whose mode is `100755` gets a "Make `path` executable." directive, which the replay applies with `chmod 755` (the tree comparison includes modes); Python and bash fences; and the test files of this slice (`tests/…`, `scripts/soak/test_*.py`, `fake_prism_mcp.py`) are told from production files by name.
 
@@ -2609,3 +3484,40 @@ The tools (the generator of the directives from the per-task commits, the replay
 | 4 | Task 2, `soak.py` | `time.mktime(…) - time.timezone` for a UTC time stamp | wrong by an hour under daylight saving time | `calendar.timegm`; `test_iso_times_are_utc`; mutant S7 |
 | 5 | Task 2, `soak.py` | no count of daemons per repository, no count of days with a shim | owner question 3 needs to see two daemons of one checkout (other cache directories), and SI-41's floor needs the days | `max_daemons_per_repo`, `repos_with_several_daemons`, `days_with_shims`, with tests and mutants S12, S13 |
 | 6 | Task 4, `.codex/config.toml` | — | Python 3.9 has no `tomllib`: the file could not be parsed with the host's `python3` | parsed with Python 3.14's `tomllib` (uv's), as was the docs' bridge snippet |
+| 7 | Task 3, `test_fanout.py` | two warming answers before the first ready one | with review round 1's extra warm-up call of the second tool, a warm-up that did not retry no longer reached a timed call: mutant F9 survived | three warming answers |
+| 8 | Task 3, `test_fanout_gate.py` | the overlap test without a call of client 0 inside the refresh's window | counting client 0's own calls (mutant F15) changed nothing it asserted | a client-0 call inside the window |
+| 9 | Task 3, `test_fanout_gate.py` | the critical-pressure test asserted the problem and the reading | a watch that recorded the reading and never stopped the clients (mutant F16) passed | asserts the clients were stopped and the calls cut short |
+| 10 | Task 2, `test_soak_coverage.py` | the round's phase test without a gated UNKNOWN under seen use | an `overall` that ignored UNKNOWN (mutant U11) passed | a failed `ps` in a used round must be INADMISSIBLE |
+| 11 | Task 3, `fanout.py` | the main thread's barrier waits without a bound | under mutant F10 a client killed during warm-up (the pressure test) held the whole suite past its 900 s limit | the barrier waits at most until the run's own deadline |
+
+## Review round 1
+
+PR #422 at `e27aee5e` (plan `1436eb96`, code `c6aeb376`). **gpt-6.1-sol: FIX** (four WRONG/MATERIAL; three SMELL/IMMATERIAL). **Opus 5.5: FIX** (seven WRONG, six MATERIAL, one IMMATERIAL; eight SMELLs). Both: the launcher and the docs are correct and match the code; the plan's code is the replay byte for byte; the defects are in the soak's specification and its instruments. The controller's ruling: fold all on the existing plan, test first; keep the owner questions open with the agreed corrections to questions 4, 5, 7 and 8. The owner has not yet answered them.
+
+Folded on `scratch/s6-validate` (merged up to `main` `4a9e6476` first, lane docs only): `0bd92f49` (every new test, committed red: `Ran 59 tests`, `FAILED (failures=4, errors=35)`), `67d2d407` (the fold: `OK`), `f2239814` (`CLAUDE.md`), `f76f8e33` (four tests for mutants that first survived; the run's barrier bounded by its timeout). Re-cut, regenerated and replayed (Validation record).
+
+| Finding | Ruling | What changed | Test, RED before the change → GREEN after |
+|---|---|---|---|
+| sol 1 / Opus W4, WRONG/MATERIAL: rollback restores a binary that rejects the `--shared` Codex's configuration still passes | folded | Rollback order: configurations first (bridge and Codex from snapshots, `--shared` removed), daemons stopped with the kept S6 binary, binaries restored, every launcher probed without `--shared`; `soak.py probe` (D127) | `test_a_binary_that_rejects_shared_fails_and_says_why`: RED (no `probe` command: `SystemExit: 2`) → GREEN; the check an executable that rejects `--shared` must fail. Mutant U17 |
+| Opus W5, WRONG/MATERIAL (low): question 4's order is circular | folded | The soak binary is built from the PR head (its `src/` is `main`'s); merge after Phase 0's probes (owner question 4, revised) | — (a procedure) |
+| sol 2, WRONG/MATERIAL: unavailable observations become PASS | folded | Rules PASS/FAIL/UNKNOWN, phases PASS/FAIL/INADMISSIBLE (D124); `ps_ok`, `footprint_status` (`gone` vs `failed`), missing pressure, `logs_readable`, crash directory readability | `test_soak_coverage.py` `Unobserved` (seven tests): RED (`judge() takes 3 positional arguments`, no `PS_COMMAND`, no `FOOTPRINT_COMMAND`, no `logs_readable`) → GREEN. Mutants U1–U8 |
+| Opus W2, WRONG/MATERIAL: the bridge round can pass seeing nothing | folded | `--phase round` needs ≥ 2 shims at once, a reached daemon, a built index (D125); host-run configuration required; containers named as invisible | `test_a_round_needs_shims_a_reached_daemon_and_a_built_index`, `test_a_round_report_without_its_log_sources_is_inadmissible`: RED (no `usage`; `--phase` unknown) → GREEN. Mutants U9–U11 |
+| Opus W3, WRONG/MATERIAL: a standalone server that predates the round fails it | folded | Only standalone holders first seen after the first sample count; the others are listed (D125) | `test_standalone_holders_already_running_at_the_start_do_not_fail_a_phase`: RED (`KeyError: 'preexisting_standalone_holders'`) → GREEN. Mutant U12 |
+| sol 3, WRONG/MATERIAL: the latency gate accepts a missing or failed refresh | folded | A gating run needs exactly one refresh answered `ok`; `--no-refresh` is diagnostic and never compared (D119, D123) | `test_a_gating_run_needs_exactly_one_successful_refresh`: RED (`True is not false`: a run without its refresh was admissible) → GREEN; `test_a_refresh_answered_with_a_tool_error_makes_the_run_inadmissible`, `test_a_run_without_a_refresh_is_diagnostic_and_never_compared`. Mutants F13, F14 |
+| Opus W1, WRONG/MATERIAL: the rule cannot see SI-11 | folded (reported, not gated) | `refresh_overlap` per run and in `compare`; SI-43 withdraws "measured by Phase 1"; gating it is an option in owner question 7 | `test_the_calls_that_overlap_the_refresh_are_counted_and_their_longest_reported`: RED (no `refresh_overlap`) → GREEN. Mutant F15 |
+| sol 4, WRONG/MATERIAL: Phase 1's pressure stop has no observer | folded | `PressureWatch` in `fanout.py`: a reading at the start, every second, at the end; a critical one stops the clients and invalidates the run; an unreadable one invalidates a run that requires readings (D126) | `test_a_critical_pressure_reading_stops_and_invalidates_the_run`, `test_an_unavailable_pressure_reading_invalidates_a_run_that_requires_it`: RED (no `read_pressure` to inject) → GREEN. Mutants F16, F17 |
+| Opus W6, WRONG/MATERIAL: Phase 0 not idempotent | folded | Originals kept once in `$E/deploy/originals` with sha256s; installs copy and rename; rollback restores from there | — (a procedure) |
+| Opus W7, WRONG/MATERIAL: Phase 2 loses its sampler and `T0` between commands | folded | pid and time files, `kill "$(cat …)"`, a `pgrep` check; every block restates its variables | — (a procedure) |
+| Opus W8, WRONG/IMMATERIAL: `compare` raises on a run without calls | folded | Medians only over percentiles that exist; otherwise FAIL with the reason | `test_a_run_with_no_calls_fails_the_comparison_instead_of_crashing_it`: RED (`TypeError: unsupported operand type(s) for /: 'NoneType' and 'float'`, the reviewer's reproduction) → GREEN. Mutant F18 |
+| Opus S1, SMELL/MATERIAL: no calibration, order biased | folded | A/A calibration before the gate (escalate if it fails); ABBA order | — (a procedure) |
+| Opus S2, SMELL/MATERIAL: the binary not pinned; a clap rejection invisible | folded | The bridge names `$E/bin/prism-mcp`; `no_startup_error` rule; `probe` | `test_a_startup_error_and_a_restart_bound_refusal_fail_their_rules`: RED → GREEN. Mutants U13, U14 |
+| Opus S3, SMELL/MATERIAL: an idle session counts as a usage day | folded | A usage day needs a built index or two shims of one configuration (D128) | `test_a_usage_day_needs_a_built_index_or_two_shims_of_one_configuration`: RED (`KeyError: 'usage_days'`) → GREEN. Mutant S13 (rewritten) |
+| Opus S4, SMELL: D121 contradicted by `--status-bin` in the runbook | folded | The runbook no longer passes `--status-bin` (D121 restated) | — |
+| Opus S5, SMELL: a binary path with a space; a truncated sample line | folded | `split_command`; `load_samples` skips and counts | `test_a_binary_path_with_a_space_is_still_prism_mcp` (RED `TypeError: 'NoneType' object is not subscriptable`), `test_a_truncated_last_line_is_skipped_and_counted` (RED `JSONDecodeError`) → GREEN. Mutants U15, U16. Not folded: excluding test daemons under temporary directories, and a per-reason histogram of fail-closed lines (the stop conditions read reasons by hand) |
+| Opus S6, SMELL: fan-out edges | folded | `stop_daemon` catches its timeout; daemon logs kept; client counts, refresh points and a dirty corpus refused by `compare` (`--allow-client-mismatch` for information); every tool warmed | `test_a_shared_run_keeps_its_daemon_logs`, `test_runs_of_other_client_counts_or_refresh_points_are_not_compared` (RED `'clients' not found in ''`), `test_every_tool_of_the_workload_is_warmed_before_the_barrier` → GREEN. Mutants F19–F22 |
+| sol S7 / Opus S7, SMELL: the time-zone test depends on the host's zone and misses the July bug | folded | Subprocesses under `UTC0` and `MST7MDT,M3.2.0,M11.1.0`, January and July | `test_iso_times_are_utc_in_any_local_zone_winter_and_summer`: a pin (the code was already right); kills S7 and S7b (the earlier draft's `mktime - timezone`) in every zone |
+| sol S7 / Opus S7, SMELL: Python tests not in CI | folded | One step of CI's build-checks job (D117) | — |
+| sol S7, SMELL: precedence of an explicit flag over a bad value | folded | Documented (D111, the launcher's comment, `docs/MCP.md`); every combination tested | `the_variable_and_an_explicit_argument_in_every_combination`: a pin; kills L6 |
+| Opus S8, SMELL: docs examples for one user; 829 vs 833; no cleanup of `$S` | folded | A note beside the examples; the counts restated (now two PRs, D114); cleanup after the soak | — |
+
+The production growth from the fold (833 → 1,157 lines) passed the lane's threshold, so the slice now ships as two pull requests (D114). Not folded, recorded: test daemons under temporary directories in `max_daemons_per_repo` (a millisecond overlap in a test is improbable in a 5 s sample; it would show as a FAIL the stop conditions read); `footprint`'s effect on a large process (not measured).
