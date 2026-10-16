@@ -2,6 +2,9 @@ use super::*;
 use crate::anon_owner::{identity, is_anonymous_owner_name, owner_key};
 use crate::languages::Language;
 
+#[path = "source_index_tests.rs"]
+mod source_index_tests;
+
 #[test]
 fn injected_identity_drives_step1_bytes_and_step6_contains() {
     let source = "function outer(){ sink((p) => p + 1, (q) => q + 2, (x,x) => x); }";

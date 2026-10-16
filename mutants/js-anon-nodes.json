@@ -31,9 +31,9 @@
       "call_graph::anon_prep_tests::compatibility_uses_exact_named_claims_and_strict_scope"
     ],
     "ANON-PREP-06-bytes-by-name": [
-      "src/anon_owner.rs",
-      "node_for_id(parsed, id).map(|n| (n.start_byte(), n.end_byte()))",
-      "None",
+      "src/anon_owner/source_index.rs",
+      "self.anonymous_spans()\n            .get(&(id.name.clone(), id.start_line, id.end_line))\n            .copied()",
+      "self.parsed.functions().iter().find(|f| f.name.as_deref() == Some(id.name.as_str())).map(|f| (f.start_byte, f.end_byte))",
       "cpg::build::anon_prep_tests::injected_identity_drives_step1_bytes_and_step6_contains"
     ],
     "ANON-PREP-07-indirect-refusal-off": [
@@ -211,9 +211,9 @@
       "anon_owner::node_tests::enable_tests::anonymous_cold_full_and_partial_cache_hits_are_byte_identical"
     ],
     "ANON-ENABLE-36-bytes-by-name": [
-      "src/anon_owner.rs",
-      "node_for_id(parsed, id).map(|n| (n.start_byte(), n.end_byte()))",
-      "parsed.functions().iter().find(|f| f.name.as_deref() == Some(id.name.as_str())).map(|f| (f.start_byte, f.end_byte))",
+      "src/anon_owner/source_index.rs",
+      "self.anonymous_spans()\n            .get(&(id.name.clone(), id.start_line, id.end_line))\n            .copied()",
+      "self.parsed.functions().iter().find(|f| f.name.as_deref() == Some(id.name.as_str())).map(|f| (f.start_byte, f.end_byte))",
       "anon_owner::node_tests::anonymous_bytes_and_dfg_contains_are_exact"
     ],
     "ANON-ENABLE-37-d12-registration-off": [
@@ -337,13 +337,38 @@
       "candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)",
       "candidate.kind() == owner.kind()",
       "ast::call_membership_tests::foreign_owner_of_a_listed_kind_needs_its_own_byte_range"
+    ],
+    "ANON-S4B-01-identity-key": [
+      "src/anon_owner/source_index.rs",
+      ".get(&(id.name.clone(), id.start_line, id.end_line))",
+      ".get(&(id.name.clone(), id.start_line, id.start_line))",
+      "anon_owner::source_index::tests::exact_identity_aliases_missing_generators_and_nested_callbacks"
+    ],
+    "ANON-S4B-02-duplicate-overwrite": [
+      "src/anon_owner/source_index.rs",
+      ".or_insert((node.start_byte(), node.end_byte()));",
+      ".and_modify(|span| *span = (node.start_byte(), node.end_byte())).or_insert((node.start_byte(), node.end_byte()));",
+      "anon_owner::source_index::tests::duplicate_identity_retains_first_candidate_and_named_lookup_stays_legacy"
+    ],
+    "ANON-S4B-03-missing-fallback": [
+      "src/anon_owner/source_index.rs",
+      "self.anonymous_spans()\n            .get(&(id.name.clone(), id.start_line, id.end_line))\n            .copied()",
+      "self.anonymous_spans()\n            .get(&(id.name.clone(), id.start_line, id.end_line))\n            .or_else(|| self.anonymous_spans().values().next())\n            .copied()",
+      "anon_owner::source_index::tests::exact_identity_aliases_missing_generators_and_nested_callbacks"
+    ],
+    "ANON-S4B-04-stale-index": [
+      "src/anon_owner/source_index.rs",
+      ".entry(file.as_str())",
+      ".entry(\"\")",
+      "cpg::build::anon_prep_tests::source_index_tests::step1_enumerates_once_per_file_with_exact_bytes_and_missing_ids"
     ]
   },
   "lib_test_prefixes": [
     "call_graph::anon_prep_tests::",
     "cpg::build::anon_prep_tests::",
     "anon_owner::node_tests::",
-    "ast::call_membership_tests::"
+    "ast::call_membership_tests::",
+    "anon_owner::source_index::tests::"
   ],
   "extra": {
     "ANON-BARRIER-16-B0-off": [
@@ -365,6 +390,8 @@
     "ANON-PREP-04-builder-helper-divergence": "S2a-enable retires emission-off expectation; mutant now suppresses emitted owners in this builder.",
     "ANON-PREP-10-full-phase2": "S2a-enable retires emission-off expectation; mutant now suppresses emitted owners in this builder.",
     "ANON-PREP-11-subset-phase2": "S2a-enable retires emission-off expectation; mutant now suppresses emitted owners in this builder.",
-    "ANON-PREP-09-generator-candidate-off": "Generators enter eager query inventory; disabling that query must lose generator DFG enumeration."
+    "ANON-PREP-09-generator-candidate-off": "Generators enter eager query inventory; disabling that query must lose generator DFG enumeration.",
+    "ANON-PREP-06-bytes-by-name": "S4b moves the CPG Step-1 lookup to the borrowed index; mutate that exercised path to eager name-only bytes.",
+    "ANON-ENABLE-36-bytes-by-name": "S4b Step 1 now uses SourceIndex; preserve the original CPG byte-identity obligation by mutating the exercised indexed lookup instead of the unused legacy anonymous helper."
   }
 }
