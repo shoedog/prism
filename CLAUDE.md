@@ -472,6 +472,23 @@ still delivered (exit 0); a daemon that closes first ends the session (exit 1) a
 reconnects. `run.rs` is `run_shim`; on `READY` it writes `prism-mcp: shared daemon pid N (started
 T, generation G) at <socket>` to stderr.
 
+The operator's commands (`src/mcp/shim/`, clients of the same sockets and files; spec §4.7):
+`prism-mcp daemon-status [--repo X [--cache-dir D] [--refresh-policy P]] [--runtime-dir BASE]
+[--timeout S]` (`status.rs`) lists every key in the runtime directory: a daemon that answers the
+control exchange (`control.rs`) with its status; one that does not (its connect error or why it
+gave no reply), through its locks (the owner lock only under the start lock, each for a moment,
+`under_locks`); what a dead daemon left, with its build marker's restart time (the marker is read
+without waiting, a regular file only, 256 bytes at most: `KeyDir::read_build_marker`, which the
+shim uses too); keys with nothing but lock files and logs in one count line; a key that cannot be
+looked at on a line of its own. It never removes anything. `prism-mcp daemon-shutdown --repo X [--cache-dir D] [--refresh-policy P]
+[--runtime-dir BASE] [--pid N --start-time T] [--timeout S]` (`shutdown.rs`) asks the instance a
+status exchange has just shown (or the one named) to drain, and when it had no client waits for
+its pid file to go; a socket that refuses connections is no daemon only when nobody holds the
+owner lock; exit 0 when that instance no longer serves the key, or has accepted and drains after
+its clients; exit 1 when it could not ask, the reply to its request was lost (the request may
+have been recorded), or it did not see the drain. `--runtime-dir` is the
+base, as `PRISM_MCP_RUNTIME_DIR` gives it.
+
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
 2. **Graph-based** (require the CPG; source of truth `SlicingAlgorithm::needs_cpg()`, src/slice.rs:210): `left_flow`, `full_flow`, `relevant_slice`, `conditioned_slice`, `barrier_slice`, `chop`, `taint`, `delta_slice`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `gradient_slice`, `provenance_slice`, `membrane_slice`, `echo_slice`
