@@ -9,6 +9,8 @@ use crate::ast::ParsedFile;
 use crate::cpg::{FlowConfidence, RdFileStats};
 use std::collections::{BTreeMap, BTreeSet};
 mod build;
+#[cfg(any(test, feature = "dfg-oracle"))]
+mod compact;
 mod legacy_storage;
 mod queries;
 mod types;

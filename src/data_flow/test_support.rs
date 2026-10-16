@@ -246,6 +246,7 @@ pub(crate) fn assert_pair(
     files: &BTreeMap<String, ParsedFile>,
 ) {
     assert_eq!(old_storage(old), current_storage(new), "ordered storage");
+    compact::assert_conversion(old, files);
     let (locations, mut lines) = domain(old);
     let mut all_lines: BTreeSet<_> = lines.drain(..).collect();
     for (file, parsed) in files {
@@ -262,10 +263,13 @@ pub fn assert_storage_assembly(files: &BTreeMap<String, ParsedFile>) {
     let old = LegacyDataFlowGraph::build(files);
     let new = DataFlowGraph::build(files);
     assert_eq!(old_storage(&old), current_storage(&new));
+    let compact = compact::build(files);
+    assert_eq!(old_storage(&old), compact::storage(&compact));
 }
 /// Run the complete finite-domain oracle on one fixture or generator.
 #[cfg(feature = "dfg-oracle")]
 pub fn assert_corpus(files: &BTreeMap<String, ParsedFile>) {
+    compact::assert_built(files);
     let old = LegacyDataFlowGraph::build(files);
     let new = DataFlowGraph::build(files);
     assert_pair(&old, &new, files);
@@ -279,6 +283,13 @@ pub fn assert_corpus(files: &BTreeMap<String, ParsedFile>) {
     let mut subsets = vec![BTreeSet::new(), all, BTreeSet::from(["absent.py".into()])];
     subsets.extend(files.keys().map(|f| BTreeSet::from([f.clone()])));
     for subset in subsets {
+        compact::assert_built(
+            &files
+                .iter()
+                .filter(|(f, _)| subset.contains(*f))
+                .map(|(f, p)| (f.clone(), p.clone()))
+                .collect(),
+        );
         assert_pair(
             &LegacyDataFlowGraph::build_subset(files, &subset),
             &DataFlowGraph::build_subset(files, &subset),
@@ -356,3 +367,5 @@ pub(crate) fn exact_label_snapshot(
 ) -> BTreeMap<super::ExactFlowEdge, crate::cpg::FlowConfidence> {
     g.exact_labels().collect()
 }
+
+pub(crate) mod compact;
