@@ -5,7 +5,7 @@ hash checks. CI runs `-- --skip pins::` so intended output changes in other lane
 can pass parity before the controller re-pins on main. `capture::capture_manifests`
 is feature-gated by the test target and ignored by default; it writes both sorted
 SHA-256 manifests under the explicit `DFG_PIN_DIR`, never into the source tree.
-The capture visitor must equal the named parity population (the manifest rows; 132 cases at b994f11e).
+The capture visitor must equal the named parity population (the manifest rows; 132 cases at b994f11e). The census tests (`pins::census_*`) check that every fixture is registered and captured; they run with the stored hashes, not in CI's parity job.
 
 `src/cpg_cache/dfg_observation.rs` is a read-only adapter, with no oracle dependency.
 It observes ordered node/edge payload, a field-wise **legacy DFG tuple**, telemetry,
@@ -28,7 +28,7 @@ feature declaration and test entry are overlaid. `tests/common` and all fixtures
 remain those from main. Record the full main SHA and adapter diff with the receipt.
 
 From the compaction checkout, set `capture_root` to an absolute scratch path and
-`capture_sha` to the clean main SHA (this rebind: `cc20841b11e68ef758697bf9108a3555fb38e38e`):
+`capture_sha` to the clean main SHA (first capture: `cc20841b11e68ef758697bf9108a3555fb38e38e`; latest rebind: `b994f11ea088c7f548e673e5b48c3423c1157927`, see the manifest headers):
 
 ```bash
 mkdir -p "$capture_root/main"

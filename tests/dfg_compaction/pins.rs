@@ -118,3 +118,53 @@ fn all_payload_and_lookup_pins() {
         assert_eq!(seen, indexes.keys().map(|s| s.to_string()).collect());
     });
 }
+
+// Census: in `pins::` because a fixture added on main changes the population, which the
+// controller rebinds with the hashes; CI's parity job skips `pins::` (review round 2, Opus S2).
+#[test]
+fn census_every_fixture_is_registered() {
+    let mut paths = Vec::new();
+    super::corpus::fixture_paths(Path::new("tests/fixtures"), &mut paths);
+    let registered: BTreeSet<_> = super::corpus::REGISTERED
+        .iter()
+        .map(std::path::PathBuf::from)
+        .collect();
+    assert_eq!(
+        paths.into_iter().collect::<BTreeSet<_>>(),
+        registered,
+        "register every fixture as a named case"
+    );
+}
+
+#[test]
+fn census_registered_cases_match_capture_population() {
+    prism::build_pool::install(|| {
+        let mut expected: BTreeSet<_> = super::corpus::REGISTERED
+            .iter()
+            .map(|path| format!("fixture-{}", path.replace('/', "__")))
+            .collect();
+        expected.extend(
+            super::corpus::GENERATOR_NAMES
+                .iter()
+                .map(|name| name.to_string()),
+        );
+        expected.extend(
+            [
+                "fixture-tree",
+                "generator-lua",
+                "generator-rust",
+                "generator-helper-python",
+                "generator-helper-rust",
+            ]
+            .map(str::to_string),
+        );
+        let mut actual = BTreeSet::new();
+        super::cases::visit(|name, _| {
+            actual.insert(name);
+        });
+        assert_eq!(
+            expected, actual,
+            "capture population must cover every parity case"
+        );
+    });
+}

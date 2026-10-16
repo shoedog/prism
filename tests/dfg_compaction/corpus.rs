@@ -64,7 +64,7 @@ macro_rules! fixtures {
                 check(&format!("fixture-{}",$path.replace('/',"__")), &BTreeMap::from([($path.into(),parsed($path))]));
             });
         })*
-        const REGISTERED: &[&str] = &[$($path,)*];
+        pub(super) const REGISTERED: &[&str] = &[$($path,)*];
     };
 }
 fixtures! {
@@ -179,17 +179,14 @@ fixtures! {
     fixture_js_alias_matrix_generator_variants_returns_cjs => "tests/fixtures/js_alias_matrix/generator/variants-returns.cjs",
     fixture_js_alias_matrix_generator_variants_cjs => "tests/fixtures/js_alias_matrix/generator/variants.cjs",
 }
+/// The whole fixture tree as one multi-file case. The census (every fixture registered) is in
+/// `pins::`, with the stored hashes, so a fixture added on main fails the controller gate, not
+/// the CI parity job of an unrelated PR (review round 2, Opus S2).
 #[test]
-fn fixture_census_and_multifile_storage() {
+fn fixture_tree_multifile_storage() {
     prism::build_pool::install(|| {
         let mut paths = Vec::new();
         fixture_paths(Path::new("tests/fixtures"), &mut paths);
-        let registered: BTreeSet<_> = REGISTERED.iter().map(PathBuf::from).collect();
-        assert_eq!(
-            paths.iter().cloned().collect::<BTreeSet<_>>(),
-            registered,
-            "register every fixture as a named case"
-        );
         let mut counts = BTreeMap::new();
         let mut files = BTreeMap::new();
         for p in paths {
@@ -214,7 +211,7 @@ macro_rules! generator {
                 let _ = diff;
             });
         })*
-        const GENERATOR_NAMES: &[&str] = &[$(concat!("generator-", $name),)*];
+        pub(super) const GENERATOR_NAMES: &[&str] = &[$(concat!("generator-", $name),)*];
     };
 }
 generator! {
@@ -237,34 +234,6 @@ generator! {
     generator_deep_switch, "deep-switch", make_deep_switch_test;
 }
 
-#[test]
-fn registered_cases_match_capture_population() {
-    prism::build_pool::install(|| {
-        let mut expected: BTreeSet<_> = REGISTERED
-            .iter()
-            .map(|path| format!("fixture-{}", path.replace('/', "__")))
-            .collect();
-        expected.extend(GENERATOR_NAMES.iter().map(|name| name.to_string()));
-        expected.extend(
-            [
-                "fixture-tree",
-                "generator-lua",
-                "generator-rust",
-                "generator-helper-python",
-                "generator-helper-rust",
-            ]
-            .map(str::to_string),
-        );
-        let mut actual = BTreeSet::new();
-        super::cases::visit(|name, _| {
-            actual.insert(name);
-        });
-        assert_eq!(
-            expected, actual,
-            "capture population must cover every parity case"
-        );
-    });
-}
 pub fn explicit(path: &str, src: &str, lang: Language) -> BTreeMap<String, ParsedFile> {
     BTreeMap::from([(path.into(), ParsedFile::parse(path, src, lang).unwrap())])
 }

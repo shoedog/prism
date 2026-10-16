@@ -88,7 +88,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Compare oracle and production (pins are a controller gate)
-        run: 'cargo test --features mcp,dfg-oracle --test dfg_compaction -- --skip pins::'
+        run: 'cargo test --features mcp,dfg-oracle --test dfg_compaction -- --skip pins:: --nocapture'
 
   test:
     name: Test Suite + Coverage (${{ matrix.shard }}/4)
