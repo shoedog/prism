@@ -300,7 +300,8 @@ cargo run --bin prism-mcp --features mcp -- --repo /path/to/repo
 Startup modes: by default the repository index is built on the first valid `tools/call`
 (`initialize`, `ping`, and `tools/list` never start it, so a client that only handshakes costs
 a few MB); `--warm-at-startup` starts the background build at process start; `--eager` builds
-before answering `initialize`. See `docs/MCP.md`.
+before answering `initialize`. See `docs/MCP.md`. `--shared` (opt-in, Unix) serves through the
+shared per-repository daemon instead of an index of the process's own (the shim, below).
 
 The server exposes nine tools: seven read-only navigation tools (the six graph/evidence
 queries return Prism `Evidence` JSON; `nav_symbol_spans` returns a dedicated coordinate
@@ -353,7 +354,7 @@ wait above 600 s. A change to what goes into the key or to the preamble's wire t
 
 Shared daemon (`src/mcp/daemon/`, Unix only; `prism-mcp daemon --repo X [--cache-dir D]
 [--refresh-policy P] [--warm-at-startup] [--idle-ttl S] [--max-clients N] [--key HEX]`, internal,
-started by the shim of a later slice): `coordinator.rs` holds `DaemonState`, which is a control plane
+started by `prism-mcp --shared`): `coordinator.rs` holds `DaemonState`, which is a control plane
 (`Mutex<ControlState>` and one `Condvar`: the build phase `Idle | Building | Ready | Failed`, the
 attempt count, the parked calls, the generation of the provider in the slot) and a provider slot
 (`RwLock<Option<SessionProvider>>`). `ensure_ready` picks its build attempt once and waits for
@@ -427,7 +428,9 @@ around the builder by `run.rs::marked`, removed at release); a daemon that dies 
 leaves it. The marker shares a fence with `DaemonFiles`: release (or drop) sets it under its lock
 before the owner lock is released, so a released daemon's late `set` or `clear` does nothing.
 
-Shim (`src/mcp/shim/`, Unix only; no production caller yet): `connect.rs` makes one attempt to
+Shim (`src/mcp/shim/`, Unix only; `prism-mcp --repo X --shared [--daemon-start-timeout S]
+[--idle-ttl S] [--max-clients N]`; `--shared` with `--no-cache`, `--eager` or `--owner-*` is a CLI
+error, and `--standalone`, the default, changes nothing): `connect.rs` makes one attempt to
 reach a daemon: connect without blocking (`socket.rs`; a full listen backlog fails at once), check
 the peer's uid (`daemon::peer`; a peer of another uid is refused before anything is sent), send
 `HELLO`, and read the one reply line with every byte's read bounded by the time left to the shim's
@@ -443,7 +446,17 @@ before `READY` lost the key (look again), one that ends otherwise fails the star
 a build marker is a daemon that died during its build: the first shim to see it records the
 sighting in the marker, and the key is not restarted for 60 s from that sighting (the restart bound
 for a build that keeps dying, however long it runs). `key_files.rs` opens the key's files through
-the runtime directory's descriptor with `daemon::files`' functions.
+the runtime directory's descriptor with `daemon::files`' functions. `spawn.rs` starts `prism-mcp daemon` from the
+same executable with the shim's canonical root, cache base, refresh policy and full key (and
+`--warm-at-startup`, `--idle-ttl`, `--max-clients` when the shim has them), in a session of its own
+(`setsid`), from `/`, standard input null, output appended (`O_APPEND`) to `<key16>.log`, without
+`PRISM_NAV_EDGE_CACHE_LOAD_DIRTY`. `diagnostic.rs` writes the one fail-closed line (reason, key,
+runtime dir, socket, pid file contents, log, and the `--standalone` invocation, named for failures
+before the key is known too; control characters escaped); exit 1. `pump.rs` carries the session
+byte for byte: the client's end of input half-closes the socket and the daemon's last responses are
+still delivered (exit 0); a daemon that closes first ends the session (exit 1) and the shim never
+reconnects. `run.rs` is `run_shim`; on `READY` it writes `prism-mcp: shared daemon pid N (started
+T, generation G) at <socket>` to stderr.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
