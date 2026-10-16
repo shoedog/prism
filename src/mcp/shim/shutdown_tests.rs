@@ -214,7 +214,9 @@ fn a_daemon_that_does_not_drain_by_the_timeout_is_reported() {
     let setup = setup();
     setup.write_pid_file();
     let _fake = setup.fake(setup.status(0, false), setup.status(0, true), || {});
-    let said = run(&setup.options(None, Duration::from_millis(500))).expect_err("not drained");
+    // Both exchanges must finish inside the deadline for the wait to be reached, so it is not
+    // short (PR #418 review round 1, Opus S1); only its outcome is asserted.
+    let said = run(&setup.options(None, Duration::from_secs(2))).expect_err("not drained");
     assert!(said.contains("still held key"), "{said}");
 }
 
@@ -232,15 +234,22 @@ fn draining_busy_silent_and_refusing_daemons_are_told_apart() {
         .expect("draining")
         .contains("already draining"));
     retiring.retire();
-    let replies: [(FakeReply, &str); 3] = [
+    // Only the silent daemon's deadline is meant to expire, so only it is short; the others must
+    // finish their exchange inside theirs (PR #418 review round 1, Opus S1).
+    let replies: [(FakeReply, &str, Duration); 3] = [
         (
             FakeReply::Line(Reply::Busy { max_clients: 3 }.encode()),
             "bound of 3",
+            HANG,
         ),
-        (FakeReply::Silent, "does not answer"),
-        (FakeReply::Close, "does not answer"),
+        (
+            FakeReply::Silent,
+            "does not answer",
+            Duration::from_millis(300),
+        ),
+        (FakeReply::Close, "does not answer", HANG),
     ];
-    for (reply, says) in replies {
+    for (reply, says, timeout) in replies {
         let reply = Arc::new(std::sync::Mutex::new(Some(reply)));
         let fake = ControlFake::start(
             &setup.paths,
@@ -253,7 +262,7 @@ fn draining_busy_silent_and_refusing_daemons_are_told_apart() {
                     .unwrap_or(FakeReply::Close)
             }),
         );
-        let said = run(&setup.options(None, Duration::from_millis(300))).expect_err(says);
+        let said = run(&setup.options(None, timeout)).expect_err(says);
         assert!(said.contains(says), "{said}");
         fake.retire();
     }
