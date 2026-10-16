@@ -136,7 +136,7 @@ impl fmt::Display for Refusal {
 
 /// The time left before `deadline`, or `None` once it has passed. Never zero, which a socket
 /// timeout does not accept.
-fn left(deadline: Instant) -> Option<Duration> {
+pub(super) fn left(deadline: Instant) -> Option<Duration> {
     deadline
         .checked_duration_since(Instant::now())
         .filter(|left| !left.is_zero())
@@ -210,8 +210,9 @@ impl Read for Deadlined<'_> {
 }
 
 /// Read the reply line before the deadline: every read is bounded by the time left, and a line
-/// whose last byte arrives at the deadline is not accepted.
-fn read_reply(
+/// whose last byte arrives at the deadline is not accepted. The control exchange of
+/// `daemon-status` and `daemon-shutdown` reads its reply with it too (S5b).
+pub(super) fn read_reply(
     stream: &mut UnixStream,
     deadline: Instant,
     hook: Option<&Hook>,

@@ -458,3 +458,39 @@ pub(super) fn full_backlog(path: &std::path::Path) -> (OwnedFd, Vec<OwnedFd>) {
     }
     (listener, clients)
 }
+
+/// Whether these tests run as root, who searches any directory whatever its mode: a test that
+/// needs `EACCES` from a directory it made unsearchable skips there (the Linux container runs as
+/// root).
+pub(super) fn as_root() -> bool {
+    current_uid() == 0
+}
+
+/// `dir` made unsearchable (mode 0) until the guard is dropped, which gives it 0700 back, so a
+/// temporary directory under it can still be removed however the test ends.
+pub(super) struct Unsearchable(PathBuf);
+
+impl Unsearchable {
+    pub(super) fn new(dir: &std::path::Path) -> Self {
+        deny_search(dir);
+        Self(dir.to_path_buf())
+    }
+
+    /// The guard alone, for a directory a stand-in daemon makes unsearchable later.
+    pub(super) fn restored_on_drop(dir: &std::path::Path) -> Self {
+        Self(dir.to_path_buf())
+    }
+}
+
+/// Make `dir` unsearchable (mode 0); pair it with an [`Unsearchable`] guard.
+pub(super) fn deny_search(dir: &std::path::Path) {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o000)).expect("chmod 0");
+}
+
+impl Drop for Unsearchable {
+    fn drop(&mut self) {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&self.0, std::fs::Permissions::from_mode(0o700));
+    }
+}

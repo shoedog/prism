@@ -137,3 +137,16 @@ fn the_error_states_the_length_the_limit_and_the_way_out() {
     assert!(text.contains("PRISM_MCP_RUNTIME_DIR"), "{text}");
     assert!(!text.contains('\n'), "one line: {text}");
 }
+
+/// `daemon-status` knows a key only by the 16 digits of its file names (S5b): the paths of a
+/// locator are the paths of every key that starts with it, the socket path limit included.
+#[test]
+fn a_locator_names_the_same_files_as_its_key() {
+    let dir = Path::new("/run/user/501/prism-mcpd");
+    assert_eq!(
+        DaemonPaths::from_locator(dir, "0123456789abcdef").unwrap(),
+        DaemonPaths::new(dir, &key(KEY)).unwrap()
+    );
+    let long = dir_of_len(MAX_SOCKET_PATH_BYTES - SOCKET_NAME_BYTES + 1);
+    assert!(DaemonPaths::from_locator(&long, "0123456789abcdef").is_err());
+}

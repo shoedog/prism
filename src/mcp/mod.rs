@@ -33,7 +33,10 @@ pub use session::{
     FIRST_CALL_WAIT_MAX,
 };
 #[cfg(unix)]
-pub use shim::{run_shim, ShimOptions, DEFAULT_DAEMON_START_TIMEOUT_SECS};
+pub use shim::{
+    run_daemon_shutdown, run_daemon_status, run_shim, ShimOptions, ShutdownOptions, StatusOptions,
+    DEFAULT_CONTROL_TIMEOUT_SECS, DEFAULT_DAEMON_START_TIMEOUT_SECS,
+};
 
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
     let r = registry::ToolRegistry::all_v1();

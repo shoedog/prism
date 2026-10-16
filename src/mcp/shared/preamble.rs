@@ -163,7 +163,8 @@ pub enum BuildState {
 }
 
 impl BuildState {
-    pub(super) fn word(self) -> &'static str {
+    /// The word `READY` and the operator's status reply use for this state.
+    pub fn word(self) -> &'static str {
         match self {
             Self::Idle => "idle",
             Self::Building => "building",
