@@ -65,7 +65,7 @@ fn check(source: &str, expected: bool, language: Language) {
     }
 }
 
-fn check_unindexed_nested_absent(source: &str, language: Language) {
+fn check_anonymous_nested_refuses_props_exact(source: &str, language: Language) {
     let files = BTreeMap::from([(
         "app.tsx".into(),
         ParsedFile::parse("app.tsx", source, language).unwrap(),
@@ -83,7 +83,14 @@ fn check_unindexed_nested_absent(source: &str, language: Language) {
             .flatten()
             .filter(|site| site.callee_name == "m")
             .collect();
-        assert!(sites.is_empty(), "{mode}/{source}: {sites:?}");
+        assert_eq!(sites.len(), 1, "{mode}/{source}: {sites:?}");
+        assert!(prism::anon_owner::is_anonymous_owner_name(
+            &sites[0].caller.name
+        ));
+        assert!(graph
+            .resolve_call_site(sites[0])
+            .iter()
+            .all(|r| r.confidence != ResolutionConfidence::Exact));
     }
 }
 
@@ -146,7 +153,7 @@ fn contextual_prop_receiver_shape_barriers() {
         );
         let result = std::panic::catch_unwind(|| {
             if unindexed_nested {
-                check_unindexed_nested_absent(source, Language::Tsx);
+                check_anonymous_nested_refuses_props_exact(source, Language::Tsx);
             } else {
                 check(source, false, Language::Tsx);
             }

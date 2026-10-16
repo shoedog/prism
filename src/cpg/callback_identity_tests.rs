@@ -718,29 +718,28 @@ fn synthetic_alias_twin_only_on_the_alias_line() {
 }
 
 #[test]
-fn anonymous_callables_are_never_interprocedural_endpoints() {
-    // E5 isolation: no Step-5b argument or return edge enters or leaves a
-    // synthetic owner (it is never a callee and never a resolved caller).
+fn anonymous_callables_are_not_invoked_targets() {
     let src = "function f(p) {\n  return p;\n}\nfunction g(cb) {\n  return cb(1);\n}\ng(function (v) {\n  return f(v);\n});\nlist.map(x => f(x));\n";
     for language in JS_TS {
         let cpg = build(language, src);
+        for site in cpg.call_graph.calls.values().flatten() {
+            let outcome = cpg.call_graph.resolve_call_site_full(site);
+            assert!(outcome
+                .resolved
+                .iter()
+                .all(|r| !is_synthetic_owner(&r.target.name)));
+        }
+        // New callers may send arguments to f, but no invokes edge enters them (S3).
         for e in cpg.graph.edge_indices() {
             let (a, b) = cpg.graph.edge_endpoints(e).unwrap();
-            let owner = |n| match cpg.node(n) {
-                CpgNode::Variable { function, .. } => Some(function.clone()),
-                _ => None,
-            };
-            if let (Some(x), Some(y)) = (owner(a), owner(b)) {
-                if is_synthetic_owner(&x) || is_synthetic_owner(&y) {
-                    assert_eq!(x, y, "{language:?}: cross-owner edge {:?}", cpg.graph[e]);
+            if let (CpgNode::Variable { function: x, .. }, CpgNode::Variable { function: y, .. }) =
+                (cpg.node(a), cpg.node(b))
+            {
+                if x != y && is_synthetic_owner(y) {
+                    assert_eq!(x, "f");
                 }
             }
         }
-        assert!(cpg
-            .call_graph
-            .functions
-            .keys()
-            .all(|name| !is_synthetic_owner(name)));
     }
 }
 
@@ -798,12 +797,12 @@ mod navigation {
         )
         .unwrap_err();
         assert!(format!("{err:?}").contains("SymbolNotFound"), "{err:?}");
-        // The real callee gains no caller from the anonymous registration site.
+        // Anonymous callers now appear, while symbol seeds above still refuse them.
         let callers = queries::callers(&s, Some("exec"), None, None, 1).unwrap();
         assert!(serde_json::to_string(&callers)
             .unwrap()
             .find("<anon@")
-            .is_none());
+            .is_some());
     }
 
     #[test]
@@ -1923,7 +1922,7 @@ fn r9_duplicate_formals_follow_function_kind_and_strictness() {
                     let parsed = ParsedFile::parse(file_name(language), &source, language).unwrap();
                     assert_eq!(
                         parsed.dfg_owner_name(&parsed.all_functions()[0]).is_some(),
-                        simple && !strict,
+                        simple && !strict && !head.contains('*'),
                         "{language:?}: {source}"
                     );
                 }

@@ -24,6 +24,7 @@ mod js_binding_walk;
 mod js_binding_writes;
 mod js_cjs_export_barriers;
 mod js_cjs_terminal;
+mod js_generator;
 mod js_module_forwarding;
 mod js_return_facts;
 mod js_wrapped_export;
@@ -1506,8 +1507,7 @@ impl ParsedFile {
     /// Manual recursive function collection (pre-query fallback).
     /// `pub(crate)` for dual-path consistency testing in `queries::tests`.
     pub(crate) fn collect_functions_manual<'a>(&self, node: Node<'a>, out: &mut Vec<Node<'a>>) {
-        let types = self.language.function_node_types();
-        if types.contains(&node.kind()) {
+        if self.is_inventoried_function(&node) {
             out.push(node);
         }
         let mut cursor = node.walk();

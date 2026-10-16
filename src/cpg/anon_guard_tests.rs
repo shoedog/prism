@@ -103,16 +103,15 @@ fn function_at_skips_anonymous_nodes_by_default() {
 
 #[test]
 fn function_at_including_anonymous_finds_the_anonymous_node() {
-    let mut cpg = build();
-    add_anonymous_function(&mut cpg, "<anon@2:21>", 2);
-    assert_eq!(id_name(&cpg, FILE, 2, true).as_deref(), Some("<anon@2:21>"));
+    let cpg = build();
+    assert_eq!(id_name(&cpg, FILE, 2, true).as_deref(), Some("<anon@2:18>"));
     // Outside the anonymous node's range the opt-in variant still answers with the named fn.
     assert_eq!(id_name(&cpg, FILE, 3, true).as_deref(), Some("outer"));
 }
 
 #[test]
 fn function_at_named_control_is_unchanged_without_anonymous_nodes() {
-    let cpg = build();
+    let cpg = CodePropertyGraph::build(&parse_files("function outer(a) {\n  return a;\n}\n"));
     for line in 1..=3 {
         assert_eq!(id_name(&cpg, FILE, line, false).as_deref(), Some("outer"));
         assert_eq!(id_name(&cpg, FILE, line, true).as_deref(), Some("outer"));

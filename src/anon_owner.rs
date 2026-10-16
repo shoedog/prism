@@ -18,8 +18,8 @@ pub const ANON_OWNER_PREFIX: &str = "<anon@";
 /// Prefix [`anonymous_owner_name`] emits.
 const MINT_OWNER_PREFIX: &str = ANON_OWNER_PREFIX;
 
-// S2a-prep: the only emission switch. S2a-enable changes this after its gates.
-pub(crate) const EMIT_ANONYMOUS_OWNERS: bool = false;
+// S2a-enable: one emission policy shared by every CG and CPG builder.
+pub(crate) const EMIT_ANONYMOUS_OWNERS: bool = true;
 
 use crate::ast::ParsedFile;
 use crate::call_graph::FunctionId;

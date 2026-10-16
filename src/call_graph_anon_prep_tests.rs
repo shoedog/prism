@@ -63,7 +63,7 @@ fn inject(
 }
 
 #[test]
-fn identity_and_disabled_builders_agree() {
+fn identity_and_enabled_builders_agree() {
     for lang in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
         let source = "function outer(){ sink(() => hidden(), function(){}, function*(){}, (x,x) => x); } const named = () => 2;";
         let parsed = ParsedFile::parse("a.ts", source, lang).unwrap();
@@ -81,15 +81,12 @@ fn identity_and_disabled_builders_agree() {
         for id in anon {
             let n = node_for_id(p, id).unwrap();
             assert_eq!(source_bytes(p, id), Some((n.start_byte(), n.end_byte())));
-            assert!(emitted_identity(p, &n, "a.ts").is_none());
+            assert_eq!(emitted_identity(p, &n, "a.ts").as_ref(), Some(id));
             let mut wrong = id.clone();
             wrong.name.push('x');
             assert!(node_for_id(p, &wrong).is_none());
         }
-        let expected: BTreeSet<_> = ids
-            .into_iter()
-            .filter(|id| !is_anonymous_owner_name(&id.name))
-            .collect();
+        let expected = ids;
         for graph in [
             CallGraph::build(&fs),
             CallGraph::build_skeleton(&fs),
@@ -108,7 +105,7 @@ fn identity_and_disabled_builders_agree() {
                 .calls
                 .values()
                 .flatten()
-                .all(|s| !is_anonymous_owner_name(&s.caller.name)));
+                .any(|s| is_anonymous_owner_name(&s.caller.name)));
         }
         assert!(CallGraph::build_direct_subset(&fs, &BTreeSet::new())
             .functions
@@ -153,6 +150,7 @@ fn compatibility_uses_exact_named_claims_and_strict_scope() {
             .calls
             .values()
             .flatten()
+            .filter(|s| !is_anonymous_owner_name(&s.caller.name))
             .map(|s| (s.start_byte, s.end_byte))
             .collect();
         assert_eq!(claims, recorded, "{source}");

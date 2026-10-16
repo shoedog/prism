@@ -7,6 +7,13 @@ use crate::js_anonymous::{Environment, ImportEvidence};
 use tree_sitter::Node;
 
 impl ParsedFile {
+    /// Eager/manual callable inventory adds anonymous generators without changing
+    /// the legacy kind list used by default enclosing-function seeds.
+    pub(super) fn is_inventoried_function(&self, node: &Node<'_>) -> bool {
+        self.language.function_node_types().contains(&node.kind())
+            || self.js_ts_synthetic_callable_name(node).is_some()
+    }
+
     pub(crate) fn anonymous_file_environment(&self) -> Environment {
         let mut result = Environment::default();
         let mut stack = vec![self.tree.root_node()];
