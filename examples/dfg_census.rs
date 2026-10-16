@@ -369,25 +369,31 @@ fn run(root: &Path, label: &str, out_dir: &Path) -> anyhow::Result<()> {
 
     // ---- 3. Fold the DFG into per-function counts.
     let mut counts: BTreeMap<FnKey, Counts> = BTreeMap::new();
-    for ((file, func, start, _path), locs) in &dfg.defs {
+    for ((file, func, start, _path), locs) in dfg.defs() {
         let e = counts
             .entry((file.clone(), func.clone(), *start))
             .or_default();
-        e.defs_raw += locs.len();
         // All locs under this key share (file, function, start, path, Def), so
         // distinct VarLocation identity within the Vec == distinct `line`.
-        let distinct: BTreeSet<usize> = locs.iter().map(|l| l.line).collect();
+        let distinct: BTreeSet<usize> = locs
+            .iter()
+            .inspect(|_| e.defs_raw += 1)
+            .map(|l| l.line)
+            .collect();
         e.defs += distinct.len();
     }
-    for ((file, func, start, _path), locs) in &dfg.uses {
+    for ((file, func, start, _path), locs) in dfg.uses() {
         let e = counts
             .entry((file.clone(), func.clone(), *start))
             .or_default();
-        e.uses_raw += locs.len();
-        let distinct: BTreeSet<usize> = locs.iter().map(|l| l.line).collect();
+        let distinct: BTreeSet<usize> = locs
+            .iter()
+            .inspect(|_| e.uses_raw += 1)
+            .map(|l| l.line)
+            .collect();
         e.uses += distinct.len();
     }
-    for edge in &dfg.edges {
+    for edge in dfg.edges().iter() {
         debug_assert_eq!(edge.from.kind, VarAccessKind::Def);
         let e = counts
             .entry((
@@ -518,7 +524,7 @@ fn run(root: &Path, label: &str, out_dir: &Path) -> anyhow::Result<()> {
             "functions_named": n_functions,
             "functions_unnamed_skipped_by_dfg": n_functions_unnamed,
             "dfg_function_keys_without_ast_row": unjoined,
-            "dfg_edges_total": dfg.edges.len(),
+            "dfg_edges_total": dfg.edges().len(),
             "cpg_nodes": cpg.map(|c| c.1),
             "cpg_edges": cpg.map(|c| c.2),
             "parse_load_secs": parse_secs,
@@ -579,7 +585,7 @@ mod tests {
         files.insert(path.to_string(), parsed.clone());
         let dfg = DataFlowGraph::build(&files);
         let edges: Vec<EdgeEndpoints> = dfg
-            .edges
+            .edges()
             .iter()
             .filter(|edge| {
                 edge.from.file == path

@@ -78,7 +78,7 @@ pub(crate) fn evidence_obs(paths: &[Option<EvidencePath>]) -> Vec<u8> {
 pub fn observe_evidence(paths: &[Option<EvidencePath>]) -> Vec<u8> {
     evidence_obs(paths)
 }
-fn old_storage(g: &LegacyDataFlowGraph) -> Vec<u8> {
+pub(crate) fn old_storage(g: &LegacyDataFlowGraph) -> Vec<u8> {
     bytes(&(
         &g.edges,
         g.defs.iter().collect::<Vec<_>>(),
@@ -90,7 +90,7 @@ fn old_storage(g: &LegacyDataFlowGraph) -> Vec<u8> {
         &g.rd_function_stats,
     ))
 }
-fn current_storage(g: &DataFlowGraph) -> Vec<u8> {
+pub(crate) fn current_storage(g: &DataFlowGraph) -> Vec<u8> {
     crate::cpg::dfg_observation::dfg_storage(g)
 }
 macro_rules! compare_queries {
@@ -285,4 +285,68 @@ pub fn assert_corpus(files: &BTreeMap<String, ParsedFile>) {
             files,
         );
     }
+}
+
+pub fn from_legacy(old: LegacyDataFlowGraph) -> DataFlowGraph {
+    DataFlowGraph {
+        edges: old.edges,
+        defs: old.defs,
+        uses: old.uses,
+        forward: old.forward,
+        backward: old.backward,
+        labels: old.labels,
+        exact_labels: old.exact_labels,
+        rd_function_stats: old.rd_function_stats,
+    }
+}
+/// Refresh the frozen backend before adapting its completed state for current assembly.
+pub fn legacy_refreshed_dfg(
+    cached: DataFlowGraph,
+    files: &BTreeMap<String, ParsedFile>,
+) -> DataFlowGraph {
+    let mut old = LegacyDataFlowGraph {
+        edges: cached.edges,
+        defs: cached.defs,
+        uses: cached.uses,
+        forward: cached.forward,
+        backward: cached.backward,
+        labels: cached.labels,
+        exact_labels: cached.exact_labels,
+        rd_function_stats: cached.rd_function_stats,
+    };
+    let all = files.keys().cloned().collect();
+    old.remove_files(&all);
+    old.merge(LegacyDataFlowGraph::build(files));
+    from_legacy(old)
+}
+
+/// Mutable legacy fields for deliberately inconsistent, small crate-unit fixtures.
+#[cfg(test)]
+pub(crate) struct LegacyFields<'a> {
+    pub labels: &'a mut BTreeMap<(VarLocation, VarLocation), crate::cpg::FlowConfidence>,
+    pub exact_labels: &'a mut BTreeMap<super::ExactFlowEdge, crate::cpg::FlowConfidence>,
+}
+#[cfg(test)]
+pub(crate) fn edit_legacy_parts(g: &mut DataFlowGraph, edit: impl FnOnce(&mut LegacyFields<'_>)) {
+    edit(&mut LegacyFields {
+        labels: &mut g.labels,
+        exact_labels: &mut g.exact_labels,
+    });
+}
+
+/// Owned label snapshot for existing map assertions; includes retained key spans.
+#[cfg(test)]
+pub(crate) fn label_snapshot(
+    g: &DataFlowGraph,
+) -> BTreeMap<(VarLocation, VarLocation), crate::cpg::FlowConfidence> {
+    g.labels()
+        .map(|(e, c)| ((e.from.clone(), e.to.clone()), c))
+        .collect()
+}
+
+#[cfg(test)]
+pub(crate) fn exact_label_snapshot(
+    g: &DataFlowGraph,
+) -> BTreeMap<super::ExactFlowEdge, crate::cpg::FlowConfidence> {
+    g.exact_labels().collect()
 }

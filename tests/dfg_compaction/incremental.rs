@@ -9,8 +9,8 @@ fn transitions(mut files: BTreeMap<String, ParsedFile>) {
     let paths: Vec<_> = files.keys().cloned().collect();
     let mut old_dfg = LegacyDataFlowGraph::build(&files);
     let mut current = CodePropertyGraph::build(&files);
-    // Edit one file with a new function, retain all companions, then delete a
-    // different file. Unchanged source hashes must remain available in both steps.
+    // Shift existing spans/lines near the top and add a function, retain all
+    // companions, then delete a different file. Append-only edits miss stale spans.
     for (path, delete) in [(&paths[0], false), (&paths[1], true)] {
         let cache = TempDir::new().unwrap();
         let sources = files
@@ -40,7 +40,18 @@ fn transitions(mut files: BTreeMap<String, ParsedFile>) {
                 Language::Terraform => "\nlocals { compaction_added = 7 }\n",
                 Language::Bash => "\ncompaction_added() { local y=$1; echo \"$y\"; }\n",
             };
-            let source = format!("{}{suffix}", parsed.source);
+            let prefix = match parsed.language {
+                Language::Python | Language::Terraform | Language::Bash => "# shifted spans\n",
+                Language::Lua => "-- shifted spans\n",
+                _ => "// shifted spans\n",
+            };
+            // Keep an interpreter directive as the first line when present.
+            let source = if parsed.source.starts_with("#!") {
+                let (first, rest) = parsed.source.split_once('\n').unwrap();
+                format!("{first}\n{prefix}{rest}{suffix}")
+            } else {
+                format!("{prefix}{}{suffix}", parsed.source)
+            };
             files.insert(
                 path.clone(),
                 ParsedFile::parse(path, &source, parsed.language).unwrap(),

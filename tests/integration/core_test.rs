@@ -46,8 +46,8 @@ fn same_path_in_same_named_functions_does_not_collide() {
 
     let v_def_function_starts: std::collections::BTreeSet<_> = cpg
         .dfg
-        .defs
-        .keys()
+        .defs()
+        .map(|(k, _)| k)
         .filter_map(|(file, function, function_start_line, path)| {
             (file == "test.rs" && function == "run" && path.base == "v")
                 .then_some(*function_start_line)

@@ -235,7 +235,7 @@ fn named_owner_projection_use_sits_at_the_exact_admitted_span() {
         let g = graph(language, &src);
         let want = src.find("p.x").unwrap();
         let to: Vec<_> = g
-            .edges
+            .edges()
             .iter()
             .filter(|e| e.from.path.to_string() == "p" && e.to.path.to_string() == "p.x")
             .map(|e| (e.to.start_byte, e.to.end_byte, e.to.line))
@@ -581,8 +581,8 @@ fn projection_only_def_predicate_separates_member_only_bare_and_local_defs() {
         let cpg = CodePropertyGraph::build(&files);
         let verdicts: BTreeMap<String, bool> = cpg
             .dfg
-            .defs
-            .values()
+            .defs()
+            .map(|(_, v)| v)
             .flatten()
             .filter(|d| !d.path.has_fields())
             .map(|d| (d.path.base.clone(), cpg.dfg_is_projection_only_def(d)))

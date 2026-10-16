@@ -136,6 +136,13 @@ pub(crate) struct ExactFlowEdge {
 }
 
 impl ExactFlowEdge {
+    pub(crate) fn from_refs(from: &VarLocation, to: &VarLocation) -> Self {
+        Self {
+            from: ExactVarLocation::from_legacy(from),
+            to: ExactVarLocation::from_legacy(to),
+        }
+    }
+
     pub(crate) fn from_legacy(edge: &FlowEdge) -> Self {
         Self {
             from: ExactVarLocation::from_legacy(&edge.from),

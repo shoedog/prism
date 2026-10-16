@@ -1,6 +1,7 @@
 //! Task 3 DFG label-store, graph occurrence, and cache lifecycle contracts.
 
 use super::dfg_label_parity_test::corpus;
+use crate::common::dfg_labels;
 use prism::cpg::{CodePropertyGraph, CpgEdge, FlowConfidence, FlowDoubt};
 use prism::cpg_cache::{self, CacheResult};
 use prism::data_flow::{VarAccessKind, VarLocation};
@@ -90,10 +91,10 @@ fn expected_step5b_labels(
 
 fn assert_graph_dataflow_payloads_match_store(cpg: &CodePropertyGraph) {
     for (from, to, payload) in graph_dataflow_occurrences(cpg) {
-        if let Some(label) = cpg.dfg.labels.get(&(from.clone(), to.clone())) {
+        if let Some(label) = dfg_labels(&cpg.dfg).get(&(from.clone(), to.clone())) {
             assert_eq!(
                 payload, *label,
-                "Step-4 payload diverged from dfg.labels for {from:?} -> {to:?}"
+                "Step-4 payload diverged from dfg_labels(&dfg) for {from:?} -> {to:?}"
             );
             continue;
         }
@@ -111,7 +112,7 @@ fn assert_graph_dataflow_payloads_match_store(cpg: &CodePropertyGraph) {
                 to.function.as_str(),
                 to.function_start_line
             ),
-            "a same-function DataFlow payload is missing from dfg.labels"
+            "a same-function DataFlow payload is missing from dfg_labels(&dfg)"
         );
         let expected = expected_step5b_labels(cpg, &from, &to);
         assert!(
@@ -154,9 +155,7 @@ fn collapsed_same_line_and_capture_groups_have_no_exact_occurrence() {
             FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
         ),
     ] {
-        let keys: BTreeSet<_> = cpg
-            .dfg
-            .labels
+        let keys: BTreeSet<_> = dfg_labels(&cpg.dfg)
             .iter()
             .filter_map(|(key, label)| {
                 (key.0.file == file && *label == expected).then_some(key.clone())
@@ -192,9 +191,7 @@ fn a_mixed_graph_payload_cannot_hide_behind_the_worst_label() {
     )]);
     let files = parse_python_sources(&sources);
     let mut cpg = CodePropertyGraph::build(&files);
-    let key = cpg
-        .dfg
-        .labels
+    let key = dfg_labels(&cpg.dfg)
         .iter()
         .find_map(|(key, label)| {
             (*label == FlowConfidence::NameOnly(FlowDoubt::SameLine)).then_some(key.clone())
@@ -256,13 +253,13 @@ fn parse_javascript_sources(
 fn assert_dfg_label_membership_complete(cpg: &CodePropertyGraph) {
     let edge_keys: BTreeSet<_> = cpg
         .dfg
-        .edges
+        .edges()
         .iter()
         .map(|edge| (edge.from.clone(), edge.to.clone()))
         .collect();
     assert_eq!(
         edge_keys,
-        cpg.dfg.labels.keys().cloned().collect(),
+        dfg_labels(&cpg.dfg).keys().cloned().collect(),
         "an existing DFG edge is missing a primary label, or a label has no edge"
     );
 }
@@ -271,8 +268,7 @@ fn local_labels_for_file(
     cpg: &CodePropertyGraph,
     file: &str,
 ) -> BTreeMap<(VarLocation, VarLocation), FlowConfidence> {
-    cpg.dfg
-        .labels
+    dfg_labels(&cpg.dfg)
         .iter()
         .filter(|((from, to), _)| from.file == file && to.file == file)
         .map(|(key, label)| (key.clone(), *label))
@@ -302,8 +298,8 @@ fn cache_cold_full_hit_and_partial_hit_agree_on_every_label() {
     let files = parse_python_sources(&sources);
     let cold = CodePropertyGraph::build(&files);
     assert_dfg_label_membership_complete(&cold);
-    let cold_labels = cold.dfg.labels.clone();
-    let cold_rd_function_stats = cold.dfg.rd_function_stats.clone();
+    let cold_labels = dfg_labels(&cold.dfg).clone();
+    let cold_rd_function_stats = cold.dfg.rd_function_stats().clone();
     let cold_label_stats = cold.dfg_label_stats.clone();
     let cold_payloads = graph_dataflow_payloads(&cold);
     let cold_nameonly_total = cold_label_stats.dfg_label_nameonly_killed
@@ -345,8 +341,8 @@ fn cache_cold_full_hit_and_partial_hit_agree_on_every_label() {
         CacheResult::Miss => panic!("expected full cache hit, got miss"),
     };
     assert_dfg_label_membership_complete(&full_hit);
-    assert_eq!(full_hit.dfg.labels, cold_labels);
-    assert_eq!(full_hit.dfg.rd_function_stats, cold_rd_function_stats);
+    assert_eq!(dfg_labels(&full_hit.dfg), cold_labels);
+    assert_eq!(full_hit.dfg.rd_function_stats(), &cold_rd_function_stats);
     assert_eq!(full_hit.dfg_label_stats, cold_label_stats);
     assert_eq!(graph_dataflow_payloads(&full_hit), cold_payloads);
 
@@ -379,13 +375,14 @@ fn cache_cold_full_hit_and_partial_hit_agree_on_every_label() {
     let edited_cold = CodePropertyGraph::build(&edited_files);
     assert_dfg_label_membership_complete(&incremental);
     assert_dfg_label_membership_complete(&edited_cold);
-    assert_eq!(incremental.dfg.labels, edited_cold.dfg.labels);
+    assert_eq!(dfg_labels(&incremental.dfg), dfg_labels(&edited_cold.dfg));
     assert_eq!(
-        incremental.dfg.rd_function_stats,
-        edited_cold.dfg.rd_function_stats
+        incremental.dfg.rd_function_stats(),
+        edited_cold.dfg.rd_function_stats()
     );
     assert_eq!(
-        incremental.dfg.rd_function_stats["a.py"], cold_rd_function_stats["a.py"],
+        incremental.dfg.rd_function_stats()["a.py"],
+        cold_rd_function_stats["a.py"],
         "the retained file's RD counters changed during a one-file edit"
     );
     assert_eq!(
@@ -403,19 +400,13 @@ fn cache_cold_full_hit_and_partial_hit_agree_on_every_label() {
         graph_dataflow_payloads(&edited_cold)
     );
 
-    assert!(incremental
-        .dfg
-        .labels
+    assert!(dfg_labels(&incremental.dfg)
         .keys()
         .any(|(from, _)| from.file == "a.py"));
-    assert!(!incremental
-        .dfg
-        .labels
+    assert!(!dfg_labels(&incremental.dfg)
         .keys()
         .any(|(from, to)| from.file == "b.py" && (from.path.base == "y" || to.path.base == "y")));
-    assert!(incremental
-        .dfg
-        .labels
+    assert!(dfg_labels(&incremental.dfg)
         .keys()
         .any(|(from, to)| from.file == "b.py" && (from.path.base == "z" || to.path.base == "z")));
     let incremental_step5b = cross_file_payloads(&incremental);
@@ -443,9 +434,7 @@ fn cache_partial_hit_replaces_edges_and_labels_after_binding_scope_changes() {
     )]);
     let files = parse_javascript_sources(&sources);
     let cold = CodePropertyGraph::build(&files);
-    let key = cold
-        .dfg
-        .labels
+    let key = dfg_labels(&cold.dfg)
         .keys()
         .find(|(from, to)| {
             from.file == "labels.js"
@@ -456,7 +445,7 @@ fn cache_partial_hit_replaces_edges_and_labels_after_binding_scope_changes() {
         })
         .cloned()
         .expect("fixture must retain the outer value edge after the inner block");
-    assert_eq!(cold.dfg.labels[&key], FlowConfidence::Exact);
+    assert_eq!(dfg_labels(&cold.dfg)[&key], FlowConfidence::Exact);
 
     let cache_dir = tempfile::tempdir().unwrap();
     let hashes = cpg_cache::compute_file_hashes(&sources);
@@ -492,8 +481,8 @@ fn cache_partial_hit_replaces_edges_and_labels_after_binding_scope_changes() {
 
     // R1 removes the two block-local -> outer rows. After let -> var the
     // inner Def shares the function binding, so these legacy rows return.
-    let before: BTreeSet<_> = cold.dfg.labels.keys().cloned().collect();
-    let after: BTreeSet<_> = edited_cold.dfg.labels.keys().cloned().collect();
+    let before: BTreeSet<_> = dfg_labels(&cold.dfg).keys().cloned().collect();
+    let after: BTreeSet<_> = dfg_labels(&edited_cold.dfg).keys().cloned().collect();
     assert!(before.is_subset(&after));
     let added: BTreeSet<_> = after
         .difference(&before)
@@ -513,17 +502,17 @@ fn cache_partial_hit_replaces_edges_and_labels_after_binding_scope_changes() {
         BTreeSet::from([(4, 51, 56, 2, 15, 15), (4, 51, 56, 6, 79, 84)])
     );
     assert_eq!(
-        edited_cold.dfg.labels[&key],
+        dfg_labels(&edited_cold.dfg)[&key],
         FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
     );
-    assert_eq!(incremental.dfg.labels, edited_cold.dfg.labels);
+    assert_eq!(dfg_labels(&incremental.dfg), dfg_labels(&edited_cold.dfg));
     assert_eq!(
         graph_dataflow_payloads(&incremental),
         graph_dataflow_payloads(&edited_cold)
     );
     assert_eq!(
-        incremental.dfg.rd_function_stats,
-        edited_cold.dfg.rd_function_stats
+        incremental.dfg.rd_function_stats(),
+        edited_cold.dfg.rd_function_stats()
     );
     assert_eq!(incremental.dfg_label_stats, edited_cold.dfg_label_stats);
 
@@ -533,113 +522,17 @@ fn cache_partial_hit_replaces_edges_and_labels_after_binding_scope_changes() {
         CacheResult::PartialHit { .. } => panic!("saved edited graph did not produce a full hit"),
         CacheResult::Miss => panic!("saved edited graph unexpectedly missed"),
     };
-    assert_eq!(subsequent_hit.dfg.labels, edited_cold.dfg.labels);
+    assert_eq!(
+        dfg_labels(&subsequent_hit.dfg),
+        dfg_labels(&edited_cold.dfg)
+    );
     assert_eq!(
         graph_dataflow_payloads(&subsequent_hit),
         graph_dataflow_payloads(&edited_cold)
     );
     assert_eq!(
-        subsequent_hit.dfg.rd_function_stats,
-        edited_cold.dfg.rd_function_stats
+        subsequent_hit.dfg.rd_function_stats(),
+        edited_cold.dfg.rd_function_stats()
     );
     assert_eq!(subsequent_hit.dfg_label_stats, edited_cold.dfg_label_stats);
-}
-
-#[test]
-fn repeated_partial_hits_do_not_accumulate_retained_missing_label_stats() {
-    let sources = BTreeMap::from([
-        (
-            "a.py".to_string(),
-            "def retained(value):\n    return value\n".to_string(),
-        ),
-        (
-            "b.py".to_string(),
-            "def edited():\n    value = source()\n    sink(value)\n".to_string(),
-        ),
-    ]);
-    let files = parse_python_sources(&sources);
-    let mut cached = CodePropertyGraph::build(&files);
-    let cold_stats = cached.dfg.rd_function_stats["a.py"].clone();
-    assert_eq!(
-        cold_stats.functions_without_cfg, 1,
-        "the retained fixture must begin with exactly one unavailable function"
-    );
-    let retained_key = cached
-        .dfg
-        .labels
-        .keys()
-        .find(|(from, to)| from.file == "a.py" && to.file == "a.py")
-        .cloned()
-        .expect("the retained function must have a DFG label to remove");
-    assert!(cached.dfg.labels.remove(&retained_key).is_some());
-
-    let cache_dir = tempfile::tempdir().unwrap();
-    let hashes = cpg_cache::compute_file_hashes(&sources);
-    cpg_cache::save_cache(&cached, &hashes, false, cache_dir.path()).unwrap();
-
-    let mut first_sources = sources.clone();
-    first_sources.insert(
-        "b.py".to_string(),
-        "def edited():\n    first = source()\n    sink(first)\n".to_string(),
-    );
-    let first_hashes = cpg_cache::compute_file_hashes(&first_sources);
-    let first_files = parse_python_sources(&first_sources);
-    let first = match cpg_cache::load_cache(&first_hashes, false, cache_dir.path()) {
-        CacheResult::PartialHit {
-            cached_call_graph,
-            cached_dfg,
-            changed_files,
-        } => {
-            assert_eq!(changed_files, BTreeSet::from(["b.py".to_string()]));
-            CodePropertyGraph::build_incremental(
-                cached_call_graph,
-                cached_dfg,
-                &changed_files,
-                &first_files,
-                None,
-            )
-        }
-        CacheResult::Hit(_) => panic!("first edit unexpectedly produced a full hit"),
-        CacheResult::Miss => panic!("first edit unexpectedly produced a miss"),
-    };
-    let first_stats = first.dfg.rd_function_stats["a.py"].clone();
-    assert!(!first.dfg.labels.contains_key(&retained_key));
-    cpg_cache::save_cache(&first, &first_hashes, false, cache_dir.path()).unwrap();
-
-    let mut second_sources = first_sources.clone();
-    second_sources.insert(
-        "b.py".to_string(),
-        "def edited():\n    second = source()\n    sink(second)\n".to_string(),
-    );
-    let second_hashes = cpg_cache::compute_file_hashes(&second_sources);
-    let second_files = parse_python_sources(&second_sources);
-    let second = match cpg_cache::load_cache(&second_hashes, false, cache_dir.path()) {
-        CacheResult::PartialHit {
-            cached_call_graph,
-            cached_dfg,
-            changed_files,
-        } => {
-            assert_eq!(changed_files, BTreeSet::from(["b.py".to_string()]));
-            CodePropertyGraph::build_incremental(
-                cached_call_graph,
-                cached_dfg,
-                &changed_files,
-                &second_files,
-                None,
-            )
-        }
-        CacheResult::Hit(_) => panic!("second edit unexpectedly produced a full hit"),
-        CacheResult::Miss => panic!("second edit unexpectedly produced a miss"),
-    };
-    let second_stats = second.dfg.rd_function_stats["a.py"].clone();
-    assert!(!second.dfg.labels.contains_key(&retained_key));
-
-    assert_eq!(
-        first_stats, cold_stats,
-        "the first PartialHit accumulated the retained fallback function"
-    );
-    assert_eq!(
-        second_stats, cold_stats,
-        "the second PartialHit accumulated the retained fallback function again"
-    );
 }

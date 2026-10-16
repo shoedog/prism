@@ -20,7 +20,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, config: &SliceConfig) -> Result
     let mut result = SliceResult::new(SlicingAlgorithm::FullFlow);
     let mut block_id = 0;
 
-    let has_dfg = !ctx.cpg.dfg.edges.is_empty();
+    let has_dfg = !ctx.cpg.dfg.edges().is_empty();
 
     for diff_info in &diff.files {
         let parsed = match ctx.files.get(&diff_info.file_path) {

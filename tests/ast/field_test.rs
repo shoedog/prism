@@ -46,7 +46,7 @@ void copy(struct dev *src, struct dev *dst) {
     );
 
     // src->id should appear in uses (rvalue)
-    let has_src_use = dfg.uses.values().any(|locs| {
+    let has_src_use = dfg.uses().map(|(_, v)| v).any(|locs| {
         locs.iter()
             .any(|l| l.path.base == "src" && l.path.fields == vec!["id".to_string()])
     });

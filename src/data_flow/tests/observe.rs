@@ -139,7 +139,7 @@ fn ordered_storage_observation_includes_legacy_equal_byte_spans() {
         from: a,
         to: loc(30, VarAccessKind::Use),
     });
-    let before = bytes(&g);
+    let before = current_storage(&g);
     g.edges[0].from = b;
-    assert_ne!(before, bytes(&g));
+    assert_ne!(before, current_storage(&g));
 }

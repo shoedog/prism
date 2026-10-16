@@ -31,8 +31,8 @@ fn test_data_flow_graph_construction() {
     let (files, _, _) = make_python_test();
     let dfg = DataFlowGraph::build(&files);
 
-    assert!(!dfg.edges.is_empty(), "Should have data flow edges");
-    assert!(!dfg.defs.is_empty(), "Should have definitions");
+    assert!(!dfg.edges().is_empty(), "Should have data flow edges");
+    assert!(!dfg.defs().next().is_none(), "Should have definitions");
 }
 
 #[test]
@@ -118,13 +118,13 @@ fn test_data_flow_graph_c() {
 
     // Should have def-use edges for variables in C functions
     assert!(
-        !dfg.edges.is_empty(),
+        !dfg.edges().is_empty(),
         "Data flow graph should have edges for C code"
     );
 
     // Check that variable defs are found
     assert!(
-        !dfg.defs.is_empty(),
+        !dfg.defs().next().is_none(),
         "Data flow graph should find variable definitions in C code"
     );
 }

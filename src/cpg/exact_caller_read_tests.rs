@@ -1,6 +1,9 @@
 //! Public fail-first and preservation oracles for byte-distinct caller producers.
+use crate::data_flow::test_support::edit_legacy_parts;
 
 use super::*;
+use crate::data_flow::test_support::exact_label_snapshot;
+use crate::data_flow::test_support::label_snapshot;
 use crate::data_flow::{DataFlowGraph, ExactFlowEdge, VarAccessKind, VarLocation};
 use crate::languages::Language;
 use std::hash::{Hash, Hasher};
@@ -114,14 +117,14 @@ fn complete_rows(cpg: &CodePropertyGraph) -> Vec<String> {
 
 fn legacy_rows(dfg: &DataFlowGraph) -> Vec<String> {
     let mut rows: Vec<_> = dfg
-        .edges
+        .edges()
         .iter()
         .map(|edge| {
             format!(
                 "{:?}|{:?}|{:?}",
                 edge.from,
                 edge.to,
-                dfg.labels.get(&(edge.from.clone(), edge.to.clone()))
+                label_snapshot(&dfg).get(&(edge.from.clone(), edge.to.clone()))
             )
         })
         .collect();
@@ -377,7 +380,7 @@ fn exact_caller_reads_preserve_member_and_non_js_routes() {
         ParsedFile::parse("app.js", member, Language::JavaScript).unwrap(),
     )]);
     let member_dfg = DataFlowGraph::build(&member_files);
-    assert!(member_dfg.exact_labels.is_empty());
+    assert!(exact_label_snapshot(&member_dfg).is_empty());
 
     let mixed = "function outer(value,other){value.x=1;sink(value.x);sink(value);sink(other);return sink(other);}";
     let mixed_files = BTreeMap::from([(
@@ -385,9 +388,8 @@ fn exact_caller_reads_preserve_member_and_non_js_routes() {
         ParsedFile::parse("mixed.js", mixed, Language::JavaScript).unwrap(),
     )]);
     let mixed_dfg = DataFlowGraph::build(&mixed_files);
-    assert_eq!(mixed_dfg.exact_labels.len(), 1);
-    assert!(mixed_dfg
-        .exact_labels
+    assert_eq!(exact_label_snapshot(&mixed_dfg).len(), 1);
+    assert!(exact_label_snapshot(&mixed_dfg)
         .keys()
         .all(|edge| edge.from.path == AccessPath::simple("other")
             && edge.to.path == AccessPath::simple("other")));
@@ -397,7 +399,10 @@ fn exact_caller_reads_preserve_member_and_non_js_routes() {
         "with.js".to_string(),
         ParsedFile::parse("with.js", with_source, Language::JavaScript).unwrap(),
     )]);
-    assert!(DataFlowGraph::build(&with_files).exact_labels.is_empty());
+    assert!(DataFlowGraph::build(&with_files)
+        .exact_labels()
+        .next()
+        .is_none());
 
     let recovered = "function outer(value){sink(value);return sink(value)";
     let recovered_file =
@@ -405,8 +410,9 @@ fn exact_caller_reads_preserve_member_and_non_js_routes() {
     assert!(recovered_file.tree.root_node().has_error());
     let recovered_files = BTreeMap::from([("recovered.js".to_string(), recovered_file)]);
     assert!(DataFlowGraph::build(&recovered_files)
-        .exact_labels
-        .is_empty());
+        .exact_labels()
+        .next()
+        .is_none());
 
     let python = "def outer(value):\n    sink(value); return sink(value)\n";
     let python_files = BTreeMap::from([(
@@ -414,9 +420,9 @@ fn exact_caller_reads_preserve_member_and_non_js_routes() {
         ParsedFile::parse("app.py", python, Language::Python).unwrap(),
     )]);
     let python_dfg = DataFlowGraph::build(&python_files);
-    assert!(python_dfg.exact_labels.is_empty());
+    assert!(exact_label_snapshot(&python_dfg).is_empty());
     let rows: Vec<_> = python_dfg
-        .edges
+        .edges()
         .iter()
         .filter(|edge| {
             edge.from.function == "outer"
@@ -451,8 +457,8 @@ fn exact_caller_reads_closed_grammar_positive_controls() {
     for (language, ext) in [(Language::TypeScript, "ts"), (Language::Tsx, "tsx")] {
         for source in typed {
             let dfg = DataFlowGraph::build(&fixture(language, ext, source));
-            assert_eq!(dfg.exact_labels.len(), 1, "{ext}: {source}");
-            assert!(dfg.exact_labels.keys().all(|edge| {
+            assert_eq!(exact_label_snapshot(&dfg).len(), 1, "{ext}: {source}");
+            assert!(exact_label_snapshot(&dfg).keys().all(|edge| {
                 edge.from.path == AccessPath::simple("value")
                     && edge.to.path == AccessPath::simple("value")
             }));
@@ -465,7 +471,11 @@ fn exact_caller_reads_closed_grammar_positive_controls() {
     ] {
         let source = "function outer(π){sink(π);return sink(π);}";
         let dfg = DataFlowGraph::build(&fixture(language, ext, source));
-        assert_eq!(dfg.exact_labels.len(), 1, "{ext}: ordinary Unicode");
+        assert_eq!(
+            exact_label_snapshot(&dfg).len(),
+            1,
+            "{ext}: ordinary Unicode"
+        );
     }
 }
 
@@ -501,7 +511,7 @@ fn exact_caller_reads_same_name_owners_remain_separate() {
     });
     assert_eq!(starts.keys().copied().collect::<Vec<_>>(), [1, 2]);
     assert!(starts.values().all(|rows| rows.len() == 2));
-    assert_eq!(cpg.dfg.exact_labels.len(), 2);
+    assert_eq!(exact_label_snapshot(&cpg.dfg).len(), 2);
 }
 
 #[test]
@@ -510,15 +520,16 @@ fn exact_caller_reads_persist_only_supplemental_and_keep_legacy_identity() {
         "import {item} from './origin';\nfunction outer(value){sink(value);return item(value);}";
     let files = fixture(Language::JavaScript, "js", app);
     let cpg = CodePropertyGraph::build(&files);
-    assert_eq!(cpg.dfg.exact_labels.len(), 1);
-    let (edge, label) = cpg.dfg.exact_labels.iter().next().unwrap();
+    assert_eq!(exact_label_snapshot(&cpg.dfg).len(), 1);
+    let exact_labels = exact_label_snapshot(&cpg.dfg);
+    let (edge, label) = exact_labels.iter().next().unwrap();
     assert_eq!((edge.from.start_byte, edge.from.end_byte), (46, 51));
     assert_eq!((edge.to.start_byte, edge.to.end_byte), (77, 82));
     assert_eq!(*label, FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
 
     let legacy: Vec<_> = cpg
         .dfg
-        .edges
+        .edges()
         .iter()
         .filter(|edge| {
             edge.from.file == "app.js"
@@ -532,10 +543,7 @@ fn exact_caller_reads_persist_only_supplemental_and_keep_legacy_identity() {
                 edge.from.end_byte,
                 edge.to.start_byte,
                 edge.to.end_byte,
-                cpg.dfg
-                    .labels
-                    .get(&(edge.from.clone(), edge.to.clone()))
-                    .copied(),
+                cpg.dfg.label(&edge.from, &edge.to),
             )
         })
         .collect();
@@ -551,7 +559,7 @@ fn exact_caller_reads_persist_only_supplemental_and_keep_legacy_identity() {
     );
     let legacy_edge = cpg
         .dfg
-        .edges
+        .edges()
         .iter()
         .find(|edge| {
             edge.from.file == "app.js"
@@ -561,12 +569,12 @@ fn exact_caller_reads_persist_only_supplemental_and_keep_legacy_identity() {
         })
         .unwrap();
     assert_eq!(
-        cpg.dfg.forward.get(&legacy_edge.from),
-        Some(&vec![legacy_edge.to.clone()])
+        cpg.dfg.successors(&legacy_edge.from).map(|v| v.to_vec()),
+        Some(vec![legacy_edge.to.clone()])
     );
     assert_eq!(
-        cpg.dfg.backward.get(&legacy_edge.to),
-        Some(&vec![legacy_edge.from.clone()])
+        cpg.dfg.predecessors(&legacy_edge.to).map(|v| v.to_vec()),
+        Some(vec![legacy_edge.from.clone()])
     );
 
     let first = VarLocation {
@@ -614,7 +622,7 @@ fn exact_caller_reads_subset_merge_and_direct_removal_are_complete() {
         .collect();
     let full_cpg = CodePropertyGraph::build(&files);
     let full = full_cpg.dfg.clone();
-    assert_eq!(full.exact_labels.len(), 2);
+    assert_eq!(exact_label_snapshot(&full).len(), 2);
 
     let mut merged = DataFlowGraph::empty();
     for file in ["drop.js", "keep.js"] {
@@ -623,9 +631,9 @@ fn exact_caller_reads_subset_merge_and_direct_removal_are_complete() {
             &BTreeSet::from([file.to_string()]),
         ));
     }
-    assert_eq!(merged.exact_labels, full.exact_labels);
+    assert_eq!(exact_label_snapshot(&merged), exact_label_snapshot(&full));
     assert_eq!(legacy_rows(&merged), legacy_rows(&full));
-    assert_eq!(merged.labels, full.labels);
+    assert_eq!(label_snapshot(&merged), label_snapshot(&full));
     let merged_cpg = CodePropertyGraph::assemble_graph(
         full_cpg.call_graph.clone(),
         merged.clone(),
@@ -635,15 +643,14 @@ fn exact_caller_reads_subset_merge_and_direct_removal_are_complete() {
     assert_eq!(complete_rows(&merged_cpg), complete_rows(&full_cpg));
 
     merged.remove_files(&BTreeSet::from(["drop.js".to_string()]));
-    assert_eq!(merged.exact_labels.len(), 1);
-    assert!(merged
-        .exact_labels
+    assert_eq!(exact_label_snapshot(&merged).len(), 1);
+    assert!(exact_label_snapshot(&merged)
         .keys()
         .all(|edge| edge.from.file == "keep.js" && edge.to.file == "keep.js"));
     let keep = DataFlowGraph::build_subset(&files, &BTreeSet::from(["keep.js".to_string()]));
-    assert_eq!(merged.exact_labels, keep.exact_labels);
+    assert_eq!(exact_label_snapshot(&merged), exact_label_snapshot(&keep));
     assert_eq!(legacy_rows(&merged), legacy_rows(&keep));
-    assert_eq!(merged.labels, keep.labels);
+    assert_eq!(label_snapshot(&merged), label_snapshot(&keep));
     let keep_files = BTreeMap::from([("keep.js".to_string(), files["keep.js"].clone())]);
     let keep_cpg = CodePropertyGraph::build(&keep_files);
     let removed_cpg = CodePropertyGraph::assemble_graph(
@@ -658,7 +665,7 @@ fn exact_caller_reads_subset_merge_and_direct_removal_are_complete() {
         &files,
         &BTreeSet::from(["drop.js".to_string()]),
     ));
-    assert_eq!(merged.exact_labels, full.exact_labels);
+    assert_eq!(exact_label_snapshot(&merged), exact_label_snapshot(&full));
     assert_eq!(legacy_rows(&merged), legacy_rows(&full));
     let rebuilt =
         CodePropertyGraph::assemble_graph(full_cpg.call_graph.clone(), merged, &files, None);
@@ -670,7 +677,7 @@ fn exact_caller_reads_missing_wrong_and_conflicting_facts_fail_closed() {
     let app = "import {item} from './origin';\nfunction outer(value,other){sink(value);item(value);sink(other);return item(other);}";
     let files = fixture(Language::JavaScript, "js", app);
     let built = CodePropertyGraph::build(&files);
-    assert_eq!(built.dfg.exact_labels.len(), 2);
+    assert_eq!(exact_label_snapshot(&built.dfg).len(), 2);
 
     let value_later = value_spans(app)[2];
     let other_spans: Vec<_> = app
@@ -680,9 +687,11 @@ fn exact_caller_reads_missing_wrong_and_conflicting_facts_fail_closed() {
     let other_later = other_spans[2];
 
     let mut missing = built.dfg.clone();
-    missing
-        .exact_labels
-        .retain(|edge, _| edge.from.path != AccessPath::simple("value"));
+    edit_legacy_parts(&mut missing, |parts| {
+        parts
+            .exact_labels
+            .retain(|edge, _| edge.from.path != AccessPath::simple("value"));
+    });
     let missing_cpg =
         CodePropertyGraph::assemble_graph(built.call_graph.clone(), missing, &files, None);
     let missing_rows = complete_rows(&missing_cpg);
@@ -710,9 +719,7 @@ fn exact_caller_reads_missing_wrong_and_conflicting_facts_fail_closed() {
         )
     }));
 
-    let value_fact = built
-        .dfg
-        .exact_labels
+    let value_fact = exact_label_snapshot(&built.dfg)
         .iter()
         .find(|(edge, _)| edge.from.path == AccessPath::simple("value"))
         .map(|(edge, label)| (edge.clone(), *label))
@@ -793,8 +800,10 @@ fn exact_caller_reads_missing_wrong_and_conflicting_facts_fail_closed() {
     ];
     for edge in forged {
         let mut wrong = built.dfg.clone();
-        wrong.exact_labels.remove(&value_fact.0);
-        wrong.exact_labels.insert(edge, value_fact.1);
+        edit_legacy_parts(&mut wrong, |parts| {
+            parts.exact_labels.remove(&value_fact.0);
+            parts.exact_labels.insert(edge, value_fact.1);
+        });
         let wrong_cpg =
             CodePropertyGraph::assemble_graph(built.call_graph.clone(), wrong, &files, None);
         assert_eq!(complete_rows(&wrong_cpg), missing_rows);
@@ -802,33 +811,35 @@ fn exact_caller_reads_missing_wrong_and_conflicting_facts_fail_closed() {
 
     let mut conflicting = built.dfg.clone();
     let legacy_value = conflicting
-        .edges
+        .edges()
         .iter()
         .find(|edge| {
             edge.from.function == "outer"
                 && edge.from.path == AccessPath::simple("value")
                 && edge.to.path == AccessPath::simple("value")
         })
-        .cloned()
+        .map(|e| e.to_owned())
         .unwrap();
-    conflicting.exact_labels.insert(
-        ExactFlowEdge::from_legacy(&legacy_value),
-        FlowConfidence::Exact,
-    );
+    edit_legacy_parts(&mut conflicting, |parts| {
+        parts.exact_labels.insert(
+            ExactFlowEdge::from_legacy(&legacy_value),
+            FlowConfidence::Exact,
+        );
+    });
     let conflict_cpg =
         CodePropertyGraph::assemble_graph(built.call_graph.clone(), conflicting, &files, None);
     assert_eq!(complete_rows(&conflict_cpg), missing_rows);
 
     let legacy_label = built
         .dfg
-        .labels
-        .get(&(legacy_value.from.clone(), legacy_value.to.clone()))
-        .copied()
+        .label(&legacy_value.from, &legacy_value.to)
         .unwrap();
     let mut duplicate = built.dfg.clone();
-    duplicate
-        .exact_labels
-        .insert(ExactFlowEdge::from_legacy(&legacy_value), legacy_label);
+    edit_legacy_parts(&mut duplicate, |parts| {
+        parts
+            .exact_labels
+            .insert(ExactFlowEdge::from_legacy(&legacy_value), legacy_label);
+    });
     let duplicate_cpg =
         CodePropertyGraph::assemble_graph(built.call_graph.clone(), duplicate, &files, None);
     assert_eq!(complete_rows(&duplicate_cpg), complete_rows(&built));

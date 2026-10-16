@@ -41,12 +41,11 @@ struct Case {
 
 fn flatten(graph: DataFlowGraph) -> Value {
     let labels = graph
-        .labels
-        .iter()
-        .map(|((from, to), confidence)| json!({"from":from,"to":to,"confidence":confidence}))
+        .labels()
+        .map(|(edge, confidence)| json!({"from":edge.from,"to":edge.to,"confidence":confidence}))
         .collect::<Vec<_>>();
-    json!({"defs":graph.defs.values().flatten().collect::<Vec<_>>(),
-        "uses":graph.uses.values().flatten().collect::<Vec<_>>(), "edges":graph.edges,"labels":labels})
+    json!({"defs":graph.defs().map(|(_, v)| v).flatten().collect::<Vec<_>>(),
+        "uses":graph.uses().map(|(_, v)| v).flatten().collect::<Vec<_>>(), "edges":graph.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>(),"labels":labels})
 }
 
 fn observe(case: Case) -> Result<Value> {

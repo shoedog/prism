@@ -188,8 +188,8 @@ fn observe(
     );
     let true_uses: Vec<_> = cpg
         .dfg
-        .uses
-        .values()
+        .uses()
+        .map(|(_, v)| v)
         .flatten()
         .filter(|l| {
             l.file == app
@@ -405,8 +405,8 @@ fn namespace_flow_parameter_tokens_are_not_caller_dfg_uses() {
                 .collect();
             let bad: Vec<_> = cpg
                 .dfg
-                .uses
-                .values()
+                .uses()
+                .map(|(_, v)| v)
                 .flatten()
                 .filter(|loc| {
                     loc.file == app

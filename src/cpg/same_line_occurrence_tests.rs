@@ -1,5 +1,6 @@
 //! Exact same-line occurrence identity and interprocedural binding.
 use super::*;
+use crate::data_flow::test_support::exact_label_snapshot;
 use crate::data_flow::VarAccessKind;
 use crate::languages::Language;
 
@@ -156,8 +157,8 @@ fn cpg_value_uses(cpg: &CodePropertyGraph, file: &str) -> Vec<(usize, usize)> {
 fn dfg_value_uses(cpg: &CodePropertyGraph, file: &str) -> Vec<(usize, usize)> {
     let mut rows: Vec<_> = cpg
         .dfg
-        .uses
-        .values()
+        .uses()
+        .map(|(_, v)| v)
         .flatten()
         .filter(|loc| {
             loc.file == file
@@ -296,7 +297,7 @@ fn same_line_occurrence_o01_recovers_later_argument_and_boundary() {
         }
         let raw_caller_edges: Vec<_> = cpg
             .dfg
-            .edges
+            .edges()
             .iter()
             .filter(|edge| {
                 edge.from.file == file
@@ -312,10 +313,7 @@ fn same_line_occurrence_o01_recovers_later_argument_and_boundary() {
                     edge.from.end_byte,
                     edge.to.start_byte,
                     edge.to.end_byte,
-                    cpg.dfg
-                        .labels
-                        .get(&(edge.from.clone(), edge.to.clone()))
-                        .copied(),
+                    cpg.dfg.label(&edge.from, &edge.to),
                 )
             })
             .collect();
@@ -577,8 +575,8 @@ fn same_line_occurrence_o05_distinct_defs_keep_actual_step4_endpoints() {
         let cpg = CodePropertyGraph::build(&BTreeMap::from([(file.clone(), parsed)]));
         let mut dfg_defs: Vec<_> = cpg
             .dfg
-            .defs
-            .values()
+            .defs()
+            .map(|(_, v)| v)
             .flatten()
             .filter(|loc| loc.file == file && loc.path == AccessPath::simple("x"))
             .map(|loc| (loc.start_byte, loc.end_byte))
@@ -586,8 +584,8 @@ fn same_line_occurrence_o05_distinct_defs_keep_actual_step4_endpoints() {
         dfg_defs.sort();
         let mut dfg_uses: Vec<_> = cpg
             .dfg
-            .uses
-            .values()
+            .uses()
+            .map(|(_, v)| v)
             .flatten()
             .filter(|loc| loc.file == file && loc.path == AccessPath::simple("x"))
             .map(|loc| (loc.start_byte, loc.end_byte))
@@ -595,7 +593,7 @@ fn same_line_occurrence_o05_distinct_defs_keep_actual_step4_endpoints() {
         dfg_uses.sort();
         let mut dfg_edges: Vec<_> = cpg
             .dfg
-            .edges
+            .edges()
             .iter()
             .filter(|edge| {
                 edge.from.file == file
@@ -604,11 +602,7 @@ fn same_line_occurrence_o05_distinct_defs_keep_actual_step4_endpoints() {
                     && edge.to.path == AccessPath::simple("x")
             })
             .map(|edge| {
-                let label = cpg
-                    .dfg
-                    .labels
-                    .get(&(edge.from.clone(), edge.to.clone()))
-                    .copied();
+                let label = cpg.dfg.label(&edge.from, &edge.to);
                 format!(
                     "{}-{}->{}-{}:{label:?}",
                     edge.from.start_byte, edge.from.end_byte, edge.to.start_byte, edge.to.end_byte
@@ -959,7 +953,7 @@ fn same_line_occurrence_o09_existing_exact_step4_label_is_preserved() {
     let cpg = CodePropertyGraph::build(&files);
     let edge = cpg
         .dfg
-        .edges
+        .edges()
         .iter()
         .find(|edge| {
             edge.from.file == file
@@ -970,11 +964,7 @@ fn same_line_occurrence_o09_existing_exact_step4_label_is_preserved() {
                 && edge.to.line == 6
         })
         .expect("authenticated existing-Exact producer edge");
-    let label = cpg
-        .dfg
-        .labels
-        .get(&(edge.from.clone(), edge.to.clone()))
-        .copied();
+    let label = cpg.dfg.label(&edge.from, &edge.to);
     assert_eq!(label, Some(FlowConfidence::Exact));
     let exact = CodePropertyGraph::exact_var_index_from_graph(&cpg.graph);
     let from = CodePropertyGraph::dfg_endpoint_node(
@@ -1276,11 +1266,13 @@ fn same_line_occurrence_o13_full_parallel_incremental_and_warm_cache_match() {
     };
     assert_eq!(complete_graph_rows(&warm), expected, "O13 warm/full");
     assert_eq!(
-        incremental.dfg.exact_labels, full.dfg.exact_labels,
+        exact_label_snapshot(&incremental.dfg),
+        exact_label_snapshot(&full.dfg),
         "O13 incremental/full exact producer facts"
     );
     assert_eq!(
-        warm.dfg.exact_labels, full.dfg.exact_labels,
+        exact_label_snapshot(&warm.dfg),
+        exact_label_snapshot(&full.dfg),
         "O13 warm/full exact producer facts"
     );
 
@@ -1368,7 +1360,8 @@ fn same_line_occurrence_o14_caller_source_epochs_match_fresh_builds() {
             "O14 epoch {epoch}: incremental/fresh"
         );
         assert_eq!(
-            incremental.dfg.exact_labels, fresh.dfg.exact_labels,
+            exact_label_snapshot(&incremental.dfg),
+            exact_label_snapshot(&fresh.dfg),
             "O14 epoch {epoch}: incremental/fresh exact producer facts"
         );
         let (_caller, parsed, arg) = call_argument_context(&incremental, &files, "app.js", "item");
@@ -1380,8 +1373,8 @@ fn same_line_occurrence_o14_caller_source_epochs_match_fresh_builds() {
         );
         let mut expected_uses: Vec<_> = incremental
             .dfg
-            .uses
-            .values()
+            .uses()
+            .map(|(_, v)| v)
             .flatten()
             .filter(|loc| {
                 loc.file == "app.js"
@@ -1645,8 +1638,8 @@ fn same_line_occurrence_o13_step5c_return_input_and_legacy_queries_match_warm() 
             }
             let later = cpg
                 .dfg
-                .uses
-                .values()
+                .uses()
+                .map(|(_, v)| v)
                 .flatten()
                 .find(|loc| {
                     loc.file == origin_file

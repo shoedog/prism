@@ -1,6 +1,7 @@
 use super::*;
 use crate::algorithms::full_flow;
 use crate::cpg::CpgContext;
+use crate::data_flow::test_support::label_snapshot;
 use crate::data_flow::DataFlowGraph;
 use crate::diff::{DiffInfo, DiffInput, ModifyType};
 use crate::languages::Language;
@@ -30,8 +31,8 @@ fn parsed_files(app: &str) -> BTreeMap<String, ParsedFile> {
 fn use_rows(cpg: &CodePropertyGraph, file: &str) -> Vec<GraphObservation> {
     let mut rows: Vec<_> = cpg
         .dfg
-        .uses
-        .values()
+        .uses()
+        .map(|(_, v)| v)
         .flatten()
         .filter(|loc| loc.file == file)
         .map(|loc| GraphObservation {
@@ -62,15 +63,11 @@ fn semantic_dfg_rows(cpg: &CodePropertyGraph, file: &str) -> Vec<String> {
         .collect();
     rows.extend(
         cpg.dfg
-            .edges
+            .edges()
             .iter()
             .filter(|edge| edge.from.file == file)
             .map(|edge| {
-                let label = cpg
-                    .dfg
-                    .labels
-                    .get(&(edge.from.clone(), edge.to.clone()))
-                    .copied();
+                let label = cpg.dfg.label(&edge.from, &edge.to);
                 format!(
                     "E|{}:{}:{}:{}:{}-{}|{}:{}:{}:{}:{}-{}|{label:?}",
                     edge.from.function,
@@ -311,9 +308,7 @@ fn nested_execution_owner_graph_classification() {
         ]
     );
     let nested_seed_anchor = source.find("    return seed;").unwrap();
-    let capture_labels: Vec<_> = cpg
-        .dfg
-        .labels
+    let capture_labels: Vec<_> = label_snapshot(&cpg.dfg)
         .iter()
         .filter(|((from, to), _)| {
             from.file == "app.js"

@@ -92,12 +92,12 @@ impl DfgLabelStats {
 
     fn record_rd_stats(&mut self, dfg: &DataFlowGraph) {
         self.dfg_rd_functions_over_cap = dfg
-            .rd_function_stats
+            .rd_function_stats()
             .values()
             .map(|stats| stats.functions_over_cap)
             .sum();
         self.dfg_rd_functions_without_cfg = dfg
-            .rd_function_stats
+            .rd_function_stats()
             .values()
             .map(|stats| stats.functions_without_cfg)
             .sum();
@@ -1007,7 +1007,7 @@ impl CodePropertyGraph {
         }
 
         // --- Steps 2-3: Variable nodes from DFG ---
-        for locs in dfg.defs.values() {
+        for locs in dfg.defs().map(|(_, v)| v) {
             for loc in locs {
                 Self::materialize_var_location(
                     loc,
@@ -1020,7 +1020,7 @@ impl CodePropertyGraph {
                 );
             }
         }
-        for locs in dfg.uses.values() {
+        for locs in dfg.uses().map(|(_, v)| v) {
             for loc in locs {
                 Self::materialize_var_location(
                     loc,
@@ -1040,27 +1040,24 @@ impl CodePropertyGraph {
         let mut materialized_dfg_edges = BTreeSet::new();
         let mut legacy_materialized_labels = BTreeMap::new();
         let legacy_exact_labels: BTreeMap<_, _> = dfg
-            .edges
+            .edges()
             .iter()
             .map(|edge| {
                 let confidence = dfg
-                    .labels
-                    .get(&(edge.from.clone(), edge.to.clone()))
-                    .copied()
+                    .label(edge.from, edge.to)
                     .unwrap_or(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
                 (
-                    crate::data_flow::ExactFlowEdge::from_legacy(edge),
+                    crate::data_flow::ExactFlowEdge::from_refs(edge.from, edge.to),
                     confidence,
                 )
             })
             .collect();
         let conflicting_exact_bindings: BTreeSet<_> = dfg
-            .exact_labels
-            .iter()
+            .exact_labels()
             .filter_map(|(edge, label)| {
                 legacy_exact_labels
-                    .get(edge)
-                    .is_some_and(|legacy| legacy != label)
+                    .get(&edge)
+                    .is_some_and(|legacy| *legacy != label)
                     .then(|| edge.binding_key())
             })
             .collect();
@@ -1070,7 +1067,7 @@ impl CodePropertyGraph {
                 conflicting_exact_bindings.len()
             );
         }
-        for edge in &dfg.edges {
+        for edge in dfg.edges().iter() {
             let from_access = match edge.from.kind {
                 VarAccessKind::Def => VarAccess::Def,
                 VarAccessKind::Use => VarAccess::Use,
@@ -1097,18 +1094,14 @@ impl CodePropertyGraph {
                     &graph,
                 ),
             ) {
-                let confidence = dfg
-                    .labels
-                    .get(&(edge.from.clone(), edge.to.clone()))
-                    .copied()
-                    .unwrap_or_else(|| {
-                        dfg_rd_functions_without_cfg.insert((
-                            edge.from.file.clone(),
-                            edge.from.function.clone(),
-                            edge.from.function_start_line,
-                        ));
-                        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
-                    });
+                let confidence = dfg.label(edge.from, edge.to).unwrap_or_else(|| {
+                    dfg_rd_functions_without_cfg.insert((
+                        edge.from.file.clone(),
+                        edge.from.function.clone(),
+                        edge.from.function_start_line,
+                    ));
+                    FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                });
                 if materialized_dfg_edges.insert((from_idx, to_idx, confidence)) {
                     legacy_materialized_labels
                         .entry((from_idx, to_idx))
@@ -1124,7 +1117,7 @@ impl CodePropertyGraph {
                 }
             }
         }
-        for (exact_edge, &confidence) in &dfg.exact_labels {
+        for (exact_edge, confidence) in dfg.exact_labels() {
             if conflicting_exact_bindings.contains(&exact_edge.binding_key()) {
                 continue;
             }
@@ -1164,7 +1157,7 @@ impl CodePropertyGraph {
             // The identity set persists through PartialHit. Inserting the same
             // retained fallback again is idempotent, while a missing label in a
             // newly affected function grows the exact per-file union.
-            dfg.rd_function_stats
+            dfg.rd_function_stats_mut()
                 .entry(file)
                 .or_default()
                 .record_without_cfg(function, start_line);
@@ -2443,8 +2436,10 @@ mod dfg_label_stats_tests {
         second.record_without_cfg("generated".to_string(), 8);
 
         let mut dfg = DataFlowGraph::empty();
-        dfg.rd_function_stats.insert("a.py".to_string(), first);
-        dfg.rd_function_stats.insert("b.py".to_string(), second);
+        dfg.rd_function_stats_mut()
+            .insert("a.py".to_string(), first);
+        dfg.rd_function_stats_mut()
+            .insert("b.py".to_string(), second);
 
         let mut stats = DfgLabelStats::default();
         stats.record_rd_stats(&dfg);

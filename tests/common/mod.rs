@@ -6,6 +6,9 @@
 // bearing for another, so the warning is suppressed rather than the import removed.
 #![allow(unused_imports)]
 
+mod dfg_views;
+pub use dfg_views::dfg_labels;
+
 pub use prism::access_path::AccessPath;
 pub use prism::algorithms;
 pub use prism::ast::ParsedFile;
@@ -1153,11 +1156,12 @@ pub fn assert_name_based_fallback_records_unlabeled_evidence() {
     )]);
     let ctx = CpgContext::build(&files, None);
     assert!(
-        ctx.cpg.dfg.edges.is_empty(),
+        ctx.cpg.dfg.edges().is_empty(),
         "fixture must leave the DFG unavailable"
     );
     assert_eq!(
-        ctx.cpg.dfg.rd_function_stats["fallback.py"].functions_without_cfg, 1,
+        ctx.cpg.dfg.rd_function_stats()["fallback.py"].functions_without_cfg,
+        1,
         "fixture must exercise the RD Unavailable path"
     );
     let parsed = &files["fallback.py"];

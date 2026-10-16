@@ -63,7 +63,7 @@ pub fn left_flow_core(
     }
 
     // Check whether the CPG has DFG edges we can use.
-    let has_dfg = !ctx.cpg.dfg.edges.is_empty();
+    let has_dfg = !ctx.cpg.dfg.edges().is_empty();
 
     // Phase 1: Trace L-values (assignment targets)
     //

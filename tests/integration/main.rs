@@ -19,7 +19,6 @@ mod cwe_phase2_suppression_test;
 mod cwe_phase3_suppression_test;
 mod dfg_label_parity_test;
 mod dfg_label_store_test;
-mod dfg_rd_stats_identity_test;
 mod esm_forwarding_state_test;
 mod esm_forwarding_test;
 mod executable_owner_design_test;

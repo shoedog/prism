@@ -174,10 +174,11 @@ fn javascript_exact_labels_survive_partial_edit_retain_delete() {
         for (path, replacement) in [
             (
                 "a.js",
-                Some("function outer(value){sink(value);return sink(value + 1);}\n"),
+                Some("// shifted spans\nfunction outer(value){sink(value);return sink(value + 1);}\n"),
             ),
             ("b.js", None),
         ] {
+            eprintln!("DFG_UNIT_REFRESH {path} edit={}", replacement.is_some());
             match replacement {
                 Some(src) => {
                     files.insert(
@@ -198,4 +199,46 @@ fn javascript_exact_labels_survive_partial_edit_retain_delete() {
             assert_pair(&old, &new, &files);
         }
     });
+}
+
+#[test]
+fn labels_merge_duplicate_keys_with_the_worst_confidence() {
+    use crate::access_path::AccessPath;
+    use crate::cpg::{FlowConfidence, FlowDoubt};
+    use crate::data_flow::{FlowEdge, VarAccessKind};
+
+    let from = VarLocation {
+        file: "a.py".into(),
+        function: "f".into(),
+        function_start_line: 1,
+        line: 2,
+        path: AccessPath::simple("x"),
+        start_byte: 10,
+        end_byte: 11,
+        kind: VarAccessKind::Def,
+    };
+    let to = VarLocation {
+        line: 3,
+        start_byte: 20,
+        end_byte: 21,
+        kind: VarAccessKind::Use,
+        ..from.clone()
+    };
+    let key = (from.clone(), to.clone());
+    let edge = FlowEdge { from, to };
+    let mut retained = DataFlowGraph::empty();
+    retained.edges.push(edge.clone());
+    retained.labels.insert(key.clone(), FlowConfidence::Exact);
+    let mut fresh = DataFlowGraph::empty();
+    fresh.edges.push(edge);
+    fresh.labels.insert(
+        key.clone(),
+        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+    );
+
+    retained.merge(fresh);
+    assert_eq!(
+        retained.labels[&key],
+        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+    );
 }

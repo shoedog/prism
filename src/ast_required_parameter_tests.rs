@@ -1,4 +1,5 @@
 use super::*;
+use crate::data_flow::test_support::label_snapshot;
 use crate::data_flow::DataFlowGraph;
 use std::collections::BTreeMap;
 use std::process::Command;
@@ -110,21 +111,36 @@ fn required_parameter_dfg_definitions_keep_signature_bytes_and_subset_parity() {
         let files = BTreeMap::from([("params.ts".to_string(), parsed)]);
         let full = DataFlowGraph::build(&files);
         let subset = DataFlowGraph::build_subset(&files, &BTreeSet::from(["params.ts".into()]));
-        let defs = full.defs.values().flatten().collect::<Vec<_>>();
+        let defs = full.defs().map(|(_, v)| v).flatten().collect::<Vec<_>>();
         assert_eq!(defs.len(), 2, "{language:?}: {defs:?}");
         for def in defs {
             assert_eq!(def.line, 1);
             assert_eq!(&source[def.start_byte..def.end_byte], def.path.to_string());
         }
         assert_eq!(
-            serde_json::to_value(full.defs.values().collect::<Vec<_>>()).unwrap(),
-            serde_json::to_value(subset.defs.values().collect::<Vec<_>>()).unwrap()
+            serde_json::to_value(full.defs().map(|(_, v)| v.to_vec()).collect::<Vec<_>>()).unwrap(),
+            serde_json::to_value(subset.defs().map(|(_, v)| v.to_vec()).collect::<Vec<_>>())
+                .unwrap()
         );
         assert_eq!(
-            serde_json::to_value(&full.edges).unwrap(),
-            serde_json::to_value(&subset.edges).unwrap()
+            serde_json::to_value(
+                &full
+                    .edges()
+                    .iter()
+                    .map(|e| e.to_owned())
+                    .collect::<Vec<_>>()
+            )
+            .unwrap(),
+            serde_json::to_value(
+                &subset
+                    .edges()
+                    .iter()
+                    .map(|e| e.to_owned())
+                    .collect::<Vec<_>>()
+            )
+            .unwrap()
         );
-        assert_eq!(full.labels, subset.labels);
+        assert_eq!(label_snapshot(&full), label_snapshot(&subset));
     }
 }
 
@@ -143,8 +159,7 @@ fn required_parameter_write_shadow_and_field_isolation_match_javascript() {
         };
         let control = build(Language::JavaScript, "a");
         let labels = |graph: &DataFlowGraph| {
-            graph
-                .labels
+            label_snapshot(&graph)
                 .iter()
                 .map(|((from, to), confidence)| {
                     (
@@ -162,8 +177,8 @@ fn required_parameter_write_shadow_and_field_isolation_match_javascript() {
             assert_eq!(labels(&candidate), labels(&control), "{language:?}: {body}");
             let defs = |graph: &DataFlowGraph| {
                 graph
-                    .defs
-                    .values()
+                    .defs()
+                    .map(|(_, v)| v)
                     .flatten()
                     .map(|def| (def.path.to_string(), def.line))
                     .collect::<Vec<_>>()
