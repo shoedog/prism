@@ -144,19 +144,28 @@ pub(super) fn shutdown(options: &ShutdownOptions, peer_uid: PeerUid) -> Result<S
     // file just before it releases the key.
     let key_dir = KeyDir::open(&paths).map_err(|error| error.to_string())?;
     let written = format!("{}\n{}\n", found.pid, found.start_time);
+    // Only a pid file that is gone, or that names another instance, is a drain: one that cannot
+    // be read (any error but its absence) is looked at again, and reported at the timeout
+    // (PR #418 review round 1, Opus S2).
     loop {
-        if !key_dir
-            .pid_text()
-            .is_some_and(|text| text.starts_with(&written))
-        {
-            return Ok(format!("{} drained", named(&found)));
-        }
+        let unreadable = match key_dir.pid_text() {
+            Ok(Some(text)) if text.starts_with(&written) => None,
+            Ok(_) => return Ok(format!("{} drained", named(&found))),
+            Err(error) => Some(error),
+        };
         if Instant::now() >= deadline {
-            return Err(format!(
-                "{} accepted the request and still held key {locator} at the timeout; a client \
-                 that arrived meanwhile keeps it up until it leaves (see daemon-status)",
-                named(&found)
-            ));
+            return Err(match unreadable {
+                None => format!(
+                    "{} accepted the request and still held key {locator} at the timeout; a \
+                     client that arrived meanwhile keeps it up until it leaves (see daemon-status)",
+                    named(&found)
+                ),
+                Some(error) => format!(
+                    "{} accepted the request, and at the timeout its pid file could not be read \
+                     ({error}), so its drain was not seen (see daemon-status)",
+                    named(&found)
+                ),
+            });
         }
         std::thread::sleep(POLL);
     }

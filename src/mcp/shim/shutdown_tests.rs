@@ -363,3 +363,25 @@ fn a_runtime_directory_that_cannot_be_looked_at_is_not_taken_for_none() {
         "{said}"
     );
 }
+
+/// PR #418 review round 1 (Opus S2): during the wait for the drain, a pid file that cannot be
+/// read for any reason but its absence (here a symlink in its place, which is never followed:
+/// `ELOOP`) is not "drained". The command keeps looking and, at the timeout, fails (exit 1)
+/// with the error. Rules out taking every open or read error for a removed pid file. Works as
+/// root too.
+#[test]
+fn a_pid_file_that_cannot_be_read_during_the_wait_is_not_taken_for_a_drain() {
+    let setup = setup();
+    setup.write_pid_file();
+    let pid_path = setup.paths.pid_file().to_path_buf();
+    let elsewhere = setup.base.path().join("pid-elsewhere");
+    let _fake = setup.fake(setup.status(0, false), setup.status(0, true), move || {
+        let text = std::fs::read(&pid_path).expect("the pid file");
+        std::fs::write(&elsewhere, text).expect("a copy");
+        std::fs::remove_file(&pid_path).expect("remove the pid file");
+        std::os::unix::fs::symlink(&elsewhere, &pid_path).expect("a symlink in its place");
+    });
+    let said = run(&setup.options(None, Duration::from_secs(2))).expect_err("not drained");
+    assert!(said.contains("its pid file could not be read"), "{said}");
+    assert!(said.contains("symbolic links"), "{said}");
+}

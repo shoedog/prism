@@ -109,21 +109,34 @@ impl<'a> KeyDir<'a> {
         }
     }
 
-    /// The pid file's text, at most [`PID_TEXT_BYTES`] of it, when there is one: read through the
-    /// directory's descriptor, never through a symlink, without waiting for a writer, and only
-    /// from a regular file of this user. The daemon rewrites it in place, so it can be empty or
-    /// partial (S4's interface for S5a).
-    pub(super) fn pid_text(&self) -> Option<String> {
-        let file = open_private(
+    /// The pid file's text, at most [`PID_TEXT_BYTES`] of it, or `None` when there is none: read
+    /// through the directory's descriptor, never through a symlink, without waiting for a writer,
+    /// and only from a regular file of this user. The daemon rewrites it in place, so it can be
+    /// empty or partial (S4's interface for S5a). Only its absence (`NotFound`) is `None`; any
+    /// other error is returned, so that a caller never takes a pid file it cannot read for one
+    /// that was removed (PR #418 review round 1, Opus S2).
+    pub(super) fn pid_text(&self) -> Result<Option<String>, FilesError> {
+        let path = self.paths.pid_file();
+        let file = match open_private(
             &self.dir,
-            self.paths.pid_file(),
+            path,
             libc::O_RDONLY | libc::O_NONBLOCK,
             Create::No,
-        )
-        .ok()?;
+        ) {
+            Err(FilesError::Io { source, .. }) if source.kind() == io::ErrorKind::NotFound => {
+                return Ok(None)
+            }
+            opened => opened?,
+        };
         let mut text = String::new();
-        file.take(PID_TEXT_BYTES).read_to_string(&mut text).ok()?;
-        Some(text)
+        file.take(PID_TEXT_BYTES)
+            .read_to_string(&mut text)
+            .map_err(|source| FilesError::Io {
+                op: "read",
+                path: path.to_path_buf(),
+                source,
+            })?;
+        Ok(Some(text))
     }
 
     /// Record in the build marker that a shim first saw its daemon dead at `now` (seconds since
