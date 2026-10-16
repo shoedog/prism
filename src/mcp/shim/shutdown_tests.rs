@@ -3,7 +3,9 @@
 use super::super::control_support::{
     fake_instance, fake_status, ControlFake, FakeReply, FAKE_PID, FAKE_START,
 };
-use super::super::shim_support::{as_root, full_backlog, open_lock, this_user, Unsearchable, HANG};
+use super::super::shim_support::{
+    as_root, deny_search, full_backlog, open_lock, this_user, Unsearchable, HANG,
+};
 use super::*;
 use crate::mcp::shared::control::DaemonStatus;
 use crate::mcp::shared::identity::IdentityKey;
@@ -393,4 +395,50 @@ fn a_pid_file_that_cannot_be_read_during_the_wait_is_not_taken_for_a_drain() {
     let said = run(&setup.options(None, Duration::from_secs(2))).expect_err("not drained");
     assert!(said.contains("its pid file could not be read"), "{said}");
     assert!(said.contains("symbolic links"), "{said}");
+}
+
+/// PR #418 review round 2 (sol 1, Opus S1): the daemon answers the status, and before the
+/// `SHUTDOWN` connects the runtime directory's parent loses its search permission, so the connect
+/// fails and the key's files cannot be looked at. With its owner lock held, that is not "gone"
+/// (exit 0): the command fails (exit 1), saying why. The control runs first, and as root too: the
+/// same fixture with the permission kept and the lock free is "gone". The permission part needs a
+/// user other than root; skipped under root.
+#[test]
+fn a_key_that_cannot_be_looked_at_after_the_status_is_not_taken_for_gone() {
+    let setup = setup();
+    setup.write_pid_file();
+    let armed: Arc<std::sync::Mutex<Option<PathBuf>>> = Arc::default();
+    let fake = |armed: &Arc<std::sync::Mutex<Option<PathBuf>>>| {
+        let (armed, status) = (Arc::clone(armed), setup.status(0, false));
+        let socket = setup.paths.socket().to_path_buf();
+        ControlFake::start(
+            &setup.paths,
+            false,
+            Arc::new(move |_| {
+                match armed.lock().expect("armed").take() {
+                    Some(parent) => deny_search(&parent),
+                    None => {
+                        let _ = std::fs::remove_file(&socket);
+                    }
+                }
+                FakeReply::Line(status.encode())
+            }),
+        )
+    };
+    let control = fake(&armed);
+    let said = run(&setup.options(None, HANG)).expect("gone");
+    assert!(said.contains("is gone"), "{said}");
+    drop(control);
+    if as_root() {
+        eprintln!("skipped: root searches a directory of mode 0");
+        return;
+    }
+    let owner = open_lock(setup.paths.owner_lock());
+    owner.try_lock().expect("the owner lock");
+    *armed.lock().expect("armed") = Some(setup.base.path().to_path_buf());
+    let _fake = fake(&armed);
+    let _restore = Unsearchable::restored_on_drop(setup.base.path());
+    let said = run(&setup.options(None, HANG)).expect_err("not gone");
+    assert!(said.contains("Permission denied"), "{said}");
+    assert!(!said.contains("is gone"), "{said}");
 }

@@ -5,7 +5,8 @@ use super::super::control_support::{
     always_line, fake_status, mkfifo, within_hang, ControlFake, FakeReply,
 };
 use super::super::shim_support::{
-    as_root, full_backlog, key, open_lock, runtime, this_user, unix_now, Unsearchable, HANG,
+    as_root, deny_search, full_backlog, key, open_lock, runtime, this_user, unix_now, Unsearchable,
+    HANG,
 };
 use super::*;
 use crate::mcp::shared::preamble::Reply;
@@ -447,4 +448,54 @@ fn a_live_daemon_that_does_not_accept_is_named_with_why() {
         )),
         "{said}"
     );
+}
+
+/// PR #418 review round 2 (sol 1, Opus S1): after the runtime directory has been validated and
+/// listed, a key's files that cannot be looked at (here its parent loses its search permission
+/// while a stand-in daemon on an earlier key answers) are not taken for absent: the key, whose
+/// owner lock is held, gets its "cannot be looked at" line instead of being counted among the
+/// keys with nothing but lock files. The control runs first, and as root too: the same fixture
+/// with the permission kept shows the key alive and a key of lock files only counted. The
+/// permission part needs a user other than root; skipped under root.
+#[test]
+fn a_key_that_cannot_be_looked_at_after_the_listing_is_not_counted_as_empty() {
+    let (base, paths) = runtime();
+    write_pid_file(&paths);
+    let owner = open_lock(paths.owner_lock());
+    owner.try_lock().expect("the owner lock");
+    let dir = paths.runtime_dir();
+    std::fs::write(dir.join("1111111111111111.start"), "").expect("a lock file");
+    let first = DaemonPaths::from_locator(dir, "0000000000000000").expect("paths");
+    let armed: Arc<std::sync::Mutex<Option<PathBuf>>> = Arc::default();
+    let reply = fake_status(0, false).encode();
+    let _first = ControlFake::start(&first, true, {
+        let armed = Arc::clone(&armed);
+        Arc::new(move |_| {
+            if let Some(parent) = armed.lock().expect("armed").take() {
+                deny_search(&parent);
+            }
+            FakeReply::Line(reply.clone())
+        })
+    });
+    let _restore = Unsearchable::restored_on_drop(base.path());
+    let said = report(base.path());
+    assert!(
+        said.contains(&format!("\n{LOCATOR} alive but not answering")),
+        "{said}"
+    );
+    assert!(
+        said.ends_with("1 keys have nothing but lock files and logs (0 bytes of logs)\n"),
+        "{said}"
+    );
+    if as_root() {
+        eprintln!("skipped: root searches a directory of mode 0");
+        return;
+    }
+    *armed.lock().expect("armed") = Some(base.path().to_path_buf());
+    let said = report(base.path());
+    assert!(
+        said.contains(&format!("\n{LOCATOR} cannot be looked at: ")),
+        "{said}"
+    );
+    assert!(said.contains("Permission denied"), "{said}");
 }

@@ -472,10 +472,20 @@ pub(super) struct Unsearchable(PathBuf);
 
 impl Unsearchable {
     pub(super) fn new(dir: &std::path::Path) -> Self {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o000)).expect("chmod 0");
+        deny_search(dir);
         Self(dir.to_path_buf())
     }
+
+    /// The guard alone, for a directory a stand-in daemon makes unsearchable later.
+    pub(super) fn restored_on_drop(dir: &std::path::Path) -> Self {
+        Self(dir.to_path_buf())
+    }
+}
+
+/// Make `dir` unsearchable (mode 0); pair it with an [`Unsearchable`] guard.
+pub(super) fn deny_search(dir: &std::path::Path) {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o000)).expect("chmod 0");
 }
 
 impl Drop for Unsearchable {

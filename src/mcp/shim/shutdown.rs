@@ -198,7 +198,10 @@ fn not_listening(
     error: &std::io::Error,
     none: String,
 ) -> Result<String, String> {
-    if !has_daemon_files(paths) {
+    let there = has_daemon_files(paths).map_err(|error| {
+        format!("the daemon of key {locator} could not be looked at ({error}); it was not asked")
+    })?;
+    if !there {
         return Ok(none);
     }
     match under_locks(paths, |_| ())? {

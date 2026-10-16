@@ -143,14 +143,21 @@ pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Resul
     Ok(report)
 }
 
-/// Whether the runtime directory `dir` is there. Only its absence (`NotFound`) is "no daemon":
-/// any other error, such as a parent this user cannot search, says nothing about the daemons in
-/// it and is returned (PR #418 review round 1, sol 1 and Opus S2).
+/// Whether the runtime directory `dir` is there (see [`present`]).
 pub(super) fn runtime_dir_exists(dir: &Path) -> Result<bool, String> {
-    match std::fs::symlink_metadata(dir) {
+    present(dir)
+}
+
+/// Whether anything is at `path`, not following a symlink. Only its absence (`NotFound`) is
+/// "not there": any other error, such as a parent this user cannot search, says nothing about
+/// what is there and is returned. Every look at the runtime directory and at a key's files goes
+/// through it, so that no lookup error is taken for a missing daemon (PR #418 review round 1,
+/// sol 1 and Opus S2, for the directory; round 2, sol 1 and Opus S1, for a key's files).
+pub(super) fn present(path: &Path) -> Result<bool, String> {
+    match std::fs::symlink_metadata(path) {
         Ok(_) => Ok(true),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(format!("cannot look at {}: {error}", dir.display())),
+        Err(error) => Err(format!("cannot look at {}: {error}", path.display())),
     }
 }
 
@@ -183,9 +190,8 @@ fn look(
     timeout: Duration,
     peer_uid: PeerUid,
 ) -> Result<Option<String>, String> {
-    let exists = |path: &Path| std::fs::symlink_metadata(path).is_ok();
     let mut no_answer = None;
-    if exists(paths.socket()) {
+    if present(paths.socket())? {
         let deadline = Instant::now() + timeout;
         match exchange(
             paths.socket(),
@@ -208,7 +214,7 @@ fn look(
             Exchanged::NoReply(reason) => no_answer = Some(reason.to_string()),
             Exchanged::Refused(reason) => no_answer = Some(reason.to_string()),
         }
-    } else if !has_daemon_files(paths) {
+    } else if !has_daemon_files(paths)? {
         return Ok(None);
     }
     let line = match under_locks(paths, |dir| dead(paths, locator, dir))? {
@@ -221,16 +227,16 @@ fn look(
             no_answer.unwrap_or_else(|| "it has no socket: starting or draining".to_string()),
             pid_file(paths, true)
         ),
-        Holder::Free(line) => line,
+        Holder::Free(line) => line?,
     };
     Ok(Some(one_line(&line) + "\n"))
 }
 
 /// Whether anything of a daemon's is at a key's paths: a socket, a pid file or a build marker.
-/// A key with none of them has nothing but lock files and a log, and is not looked at.
-pub(super) fn has_daemon_files(paths: &DaemonPaths) -> bool {
-    let exists = |path: &Path| std::fs::symlink_metadata(path).is_ok();
-    exists(paths.socket()) || exists(paths.pid_file()) || exists(paths.build_marker())
+/// A key with none of them has nothing but lock files and a log, and is not looked at. A path
+/// that cannot be looked at is an error, never "none of them" ([`present`]).
+pub(super) fn has_daemon_files(paths: &DaemonPaths) -> Result<bool, String> {
+    Ok(present(paths.socket())? || present(paths.pid_file())? || present(paths.build_marker())?)
 }
 
 /// Who holds a key, as `daemon-status` and `daemon-shutdown` look (D102).
@@ -266,12 +272,12 @@ pub(super) fn under_locks<T>(
 
 /// A key no daemon owns: what a dead daemon left, and the restart bound if it died during its
 /// build. Nothing is removed (the next shim of the key removes the socket and the pid file, D77).
-fn dead(paths: &DaemonPaths, locator: &str, dir: &KeyDir<'_>) -> String {
+fn dead(paths: &DaemonPaths, locator: &str, dir: &KeyDir<'_>) -> Result<String, String> {
     let mut left = Vec::new();
-    if std::fs::symlink_metadata(paths.socket()).is_ok() {
+    if present(paths.socket())? {
         left.push("its socket".to_string());
     }
-    if std::fs::symlink_metadata(paths.pid_file()).is_ok() {
+    if present(paths.pid_file())? {
         left.push(format!("its pid file ({})", pid_file(paths, true)));
     }
     let mut line = format!("{locator} no daemon");
@@ -290,7 +296,7 @@ fn dead(paths: &DaemonPaths, locator: &str, dir: &KeyDir<'_>) -> String {
             );
         }
     }
-    line
+    Ok(line)
 }
 
 /// What a build marker of a dead daemon says (S5a's D77): who died during its build, and when a
