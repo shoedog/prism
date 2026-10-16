@@ -46,8 +46,8 @@ struct Cli {
     max_clients: Option<u32>,
 }
 
-/// `prism-mcp daemon ...`: the shared per-repository daemon (spec §3.1, §4.2). Internal: the
-/// shim of a later slice starts it; it serves only through its Unix socket.
+/// `prism-mcp daemon ...`: the shared per-repository daemon (spec §3.1, §4.2). Internal:
+/// `prism-mcp --shared` (the shim) starts it; it serves only through its Unix socket.
 #[derive(clap::Parser)]
 #[command(name = "prism-mcp daemon")]
 struct DaemonCli {

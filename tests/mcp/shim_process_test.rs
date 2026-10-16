@@ -486,7 +486,8 @@ fn the_next_shim_restarts_a_daemon_that_died() {
 
 /// S3b's SI-10: a key whose last daemon died during its index build moments ago (its build
 /// marker left) is not restarted: the shim fails closed naming the log and leaves the files. A
-/// minute after that build began, the next shim starts a daemon again and the marker is gone.
+/// minute after a shim first saw that build dead (the sighting it records), the next shim starts
+/// a daemon again and the marker is gone.
 #[test]
 fn a_daemon_that_died_during_its_build_is_not_restarted_for_a_minute() {
     let setup = setup();

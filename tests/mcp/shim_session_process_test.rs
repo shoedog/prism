@@ -11,7 +11,9 @@ use std::process::Command;
 
 /// Spec §9 tests 8 and 15, the shim's halves: eight shims start at once while a daemon started on
 /// its own (as a dead starter's child would be) starts too. All eight are admitted by one daemon
-/// and each is served; every other daemon process ends having served nothing.
+/// and each is served; every other daemon process ends having served nothing: the orphan, if it
+/// lost, left silently, and the key's log, where every daemon a shim started writes, has one
+/// `serves` line at most, the winner's (review round 1, Opus F5).
 #[test]
 fn shims_started_together_with_an_orphan_daemon_share_one_daemon() {
     let setup = setup();
@@ -32,6 +34,17 @@ fn shims_started_together_with_an_orphan_daemon_share_one_daemon() {
         let (status, stderr) = orphan.ended();
         assert!(status.success(), "{status:?} {stderr}");
         assert_eq!(stderr, "", "the orphan lost the key and left silently");
+    }
+    let log = std::fs::read_to_string(setup.paths.log_file()).unwrap_or_default();
+    let serves: Vec<&str> = log.lines().filter(|l| l.contains(" serves ")).collect();
+    let expected: Vec<String> = if orphan.pid() == pids[0] {
+        Vec::new()
+    } else {
+        vec![format!("pid {} serves", pids[0])]
+    };
+    assert_eq!(serves.len(), expected.len(), "{log}");
+    for (line, start) in serves.iter().zip(&expected) {
+        assert!(line.contains(start.as_str()), "{line} in {log}");
     }
     drop(shims);
     end_daemons(&setup.paths);
