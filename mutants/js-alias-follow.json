@@ -281,8 +281,8 @@
   ],
   "AF-40-unproven-alias-route-drops": [
    "src/resolution.rs",
-   "if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {\n                    outcome.via_alias_route = true;\n                    return outcome;\n                }",
-   "if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {\n                    outcome.via_alias_route = true;\n                    return outcome;\n                }\n                if matches!(site.local_binding, JsLocalBinding::AliasImport { .. } | JsLocalBinding::AliasNamespaceMember { .. }) {\n                    return ResolutionOutcome::dropped(DropReason::UnknownName);\n                }",
+   "if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {\n                    outcome.via_alias_route = true;\n                    return self.certify_anonymous_site(site, outcome);\n                }",
+   "if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {\n                    outcome.via_alias_route = true;\n                    return self.certify_anonymous_site(site, outcome);\n                }\n                if matches!(site.local_binding, JsLocalBinding::AliasImport { .. } | JsLocalBinding::AliasNamespaceMember { .. }) {\n                    return ResolutionOutcome::dropped(DropReason::UnknownName);\n                }",
    [
     "js_alias_follow_fallback_test::an_alias_of_an_import_whose_export_is_an_unproven_alias_equals_main"
    ]
