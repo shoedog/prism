@@ -26,6 +26,8 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// The mode lock files and the pid file are created with.
 const PRIVATE_FILE_MODE: libc::c_uint = 0o600;
@@ -106,10 +108,32 @@ impl FileId {
 pub(super) struct DaemonFiles {
     paths: DaemonPaths,
     dir: OwnedFd,
-    owner: File,
+    /// Held, never read: its descriptor holds the owner lock until it closes, after `Drop`.
+    _owner: File,
     owner_id: FileId,
     socket_id: Option<FileId>,
     pid_contents: Option<String>,
+    fence: Fence,
+}
+
+/// Shared by a key's `DaemonFiles` and its build markers: `true` once this daemon no longer owns
+/// the key. A marker changes the file only while it holds the lock and finds `false`; releasing
+/// the files (or dropping them) sets it, under the same lock, before the owner lock is released.
+/// So a drain during a build cannot leave a marker behind, and the build's late `clear` cannot
+/// remove the marker of the daemon that took the key next (review round 1, sol 2 and Opus S3).
+type Fence = Arc<Mutex<bool>>;
+
+/// The fence's flag, whatever a panic elsewhere did to the lock: a marker only ever reads it.
+fn fence_flag(fence: &Fence) -> MutexGuard<'_, bool> {
+    fence.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+impl Drop for DaemonFiles {
+    /// Disable this daemon's markers. The owner lock's descriptor is a field, so it closes (and
+    /// the lock is released) only after this has run.
+    fn drop(&mut self) {
+        *fence_flag(&self.fence) = true;
+    }
 }
 
 impl DaemonFiles {
@@ -138,10 +162,11 @@ impl DaemonFiles {
         Ok(Claim::Owned(Box::new(Self {
             paths,
             dir,
-            owner,
+            _owner: owner,
             owner_id,
             socket_id: None,
             pid_contents: None,
+            fence: Arc::new(Mutex::new(false)),
         })))
     }
 
@@ -231,9 +256,34 @@ impl DaemonFiles {
         }
     }
 
-    /// Remove the pid file if it still holds what this daemon wrote, then release the owner
-    /// lock (spec §3.1: "the pid file is removed, the owner lock released, exit 0").
+    /// The marker this daemon's build sets while it runs (`<key16>.build`). It has a descriptor
+    /// of the runtime directory of its own, so the build thread can use it while the accept
+    /// loop holds this value.
+    pub(super) fn build_marker(&self) -> Result<BuildMarker, FilesError> {
+        let dir = self.dir.try_clone().map_err(|source| FilesError::Io {
+            op: "duplicate the descriptor of",
+            path: self.paths.runtime_dir().to_path_buf(),
+            source,
+        })?;
+        Ok(BuildMarker {
+            dir,
+            path: self.paths.build_marker().to_path_buf(),
+            pid: std::process::id(),
+            fence: Arc::clone(&self.fence),
+            #[cfg(test)]
+            pause: None,
+        })
+    }
+
+    /// Remove the pid file if it still holds what this daemon wrote, and the build marker, then
+    /// release the owner lock (spec §3.1: "the pid file is removed, the owner lock released,
+    /// exit 0"). A drain can end a daemon while its build runs; that is not a build that died.
     pub(super) fn release(self) {
+        // Taken first: a marker change in progress finishes, and every later one finds the key
+        // released and does nothing.
+        let mut released = fence_flag(&self.fence);
+        *released = true;
+        let _ = unlink_at(&self.dir, self.paths.build_marker());
         if let Some(written) = &self.pid_contents {
             let pid_file = self.paths.pid_file();
             let mut found = String::new();
@@ -251,8 +301,72 @@ impl DaemonFiles {
                 let _ = unlink_at(&self.dir, pid_file);
             }
         }
-        // Closing the only descriptor of the lock file releases the lock.
-        drop(self.owner);
+        drop(released);
+        // `self` drops here: the markers stay disabled, then the only descriptor of the lock
+        // file closes, which releases the lock.
+    }
+}
+
+/// What a daemon leaves in the runtime directory while its index build runs: `<key16>.build`,
+/// holding `pid\nstarted\n` (`started` in seconds since the Unix epoch). The build removes it
+/// when the builder returns, with an index or an error, and a drain removes it; a daemon that
+/// dies during its build (a panic on the build thread aborts it, spec §3.1; or a kill) leaves
+/// it. The next shim that finds the key free reads it and does not restart a daemon whose build
+/// died moments ago (S5a; S3b's SI-10).
+pub(super) struct BuildMarker {
+    dir: OwnedFd,
+    path: PathBuf,
+    pid: u32,
+    fence: Fence,
+    /// A test seam: called with the fence held and found open, before the file is changed.
+    #[cfg(test)]
+    pause: Option<Arc<dyn Fn() + Send + Sync>>,
+}
+
+impl BuildMarker {
+    /// Record that a build is running. Best effort: a marker that cannot be written costs the
+    /// restart bound, never the build.
+    pub(super) fn set(&self) {
+        self.while_owned(|| {
+            let started = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |since| since.as_secs());
+            if let Ok(mut file) = open_private(
+                &self.dir,
+                &self.path,
+                libc::O_WRONLY | libc::O_TRUNC,
+                Create::Yes,
+            ) {
+                let _ = file.write_all(format!("{}\n{started}\n", self.pid).as_bytes());
+            }
+        });
+    }
+
+    /// The build returned: remove the marker.
+    pub(super) fn clear(&self) {
+        self.while_owned(|| {
+            let _ = unlink_at(&self.dir, &self.path);
+        });
+    }
+
+    /// Run `change` with the fence held, unless this daemon has released the key.
+    fn while_owned(&self, change: impl FnOnce()) {
+        let released = fence_flag(&self.fence);
+        if *released {
+            return;
+        }
+        #[cfg(test)]
+        if let Some(pause) = &self.pause {
+            pause();
+        }
+        change();
+    }
+
+    /// This marker, calling `pause` with the fence held before each change. Tests only.
+    #[cfg(test)]
+    pub(super) fn pausing(mut self, pause: Arc<dyn Fn() + Send + Sync>) -> Self {
+        self.pause = Some(pause);
+        self
     }
 }
 
