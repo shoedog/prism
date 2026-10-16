@@ -302,12 +302,42 @@
       "\"await_expression\" => anonymous_first_expression(node),\n                \"assignment_expression\" => node.child_by_field_name(\"right\"),",
       "\"await_expression\" | \"assignment_expression\" => None,",
       "anon_owner::node_tests::eval_tests::computed_await_assignment_host_receivers_lose_exact"
+    ],
+    "ANON-S4A-01-membership-bypass": [
+      "src/ast/call_membership.rs",
+      "!*self.listed.get_or_init(|| {\n                file.all_functions().iter().any(|candidate| {\n                    candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)\n                })\n            })",
+      "false",
+      "ast::call_membership_tests::identity_matches_main_complete_sites_and_edges"
+    ],
+    "ANON-S4A-02-fallback-loss": [
+      "src/ast/call_membership.rs",
+      "file.all_functions().iter().any(|candidate| {\n                    candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)\n                })",
+      "file.functions().iter().filter_map(|info| file.reconstruct_function_node(info)).any(|candidate| {\n                    candidate.kind() == owner.kind() && byte_range_eq(&candidate, owner)\n                })",
+      "ast::call_membership_tests::identity_matches_main_complete_sites_and_edges"
+    ],
+    "ANON-S4A-03-reuse-off": [
+      "src/ast/call_membership.rs",
+      "!*self.listed.get_or_init(|| {",
+      "!*OnceCell::new().get_or_init(|| {",
+      [
+        "ast::call_membership_tests::cost_names",
+        "ast::call_membership_tests::cost_qualifiers",
+        "ast::call_membership_tests::cost_spans",
+        "ast::call_membership_tests::cost_qualifiers_and_spans"
+      ]
+    ],
+    "ANON-S4A-04-kind-off": [
+      "src/ast/call_membership.rs",
+      "candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)",
+      "byte_range_eq(candidate, owner)",
+      "ast::call_membership_tests::foreign_kind_and_same_span_ancestors"
     ]
   },
   "lib_test_prefixes": [
     "call_graph::anon_prep_tests::",
     "cpg::build::anon_prep_tests::",
-    "anon_owner::node_tests::"
+    "anon_owner::node_tests::",
+    "ast::call_membership_tests::"
   ],
   "extra": {
     "ANON-BARRIER-16-B0-off": [

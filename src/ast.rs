@@ -4,6 +4,11 @@ use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
+#[cfg(test)]
+mod call_membership_tests;
+
+mod call_membership;
+
 mod js_binding;
 mod js_binding_alias;
 pub(crate) use js_binding::{JsBinding, JsBindingCache};
@@ -665,6 +670,8 @@ impl ParsedFile {
     }
 
     pub(crate) fn all_functions_inner(&self) -> (Vec<Node<'_>>, bool) {
+        #[cfg(test)]
+        call_membership_tests::record_inventory();
         let mut out = Vec::with_capacity(self.functions.len());
         for info in &self.functions {
             match self.reconstruct_function_node(info) {
@@ -10103,95 +10110,6 @@ impl ParsedFile {
         }
     }
 
-    fn call_capture_owner(&self, owner: &Node<'_>, call: Node<'_>) -> CallOwnerDecision {
-        if !matches!(
-            self.language,
-            Language::JavaScript | Language::TypeScript | Language::Tsx
-        ) || owner.parent().is_none()
-        {
-            return CallOwnerDecision::LegacyInventory;
-        }
-        if !self
-            .language
-            .callable_boundary_node_types()
-            .contains(&owner.kind())
-            || !self.all_functions().iter().any(|candidate| {
-                candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)
-            })
-        {
-            return CallOwnerDecision::Unsupported;
-        }
-        if call.start_byte() < owner.start_byte() || owner.end_byte() < call.end_byte() {
-            return CallOwnerDecision::Outside;
-        }
-
-        let mut owner_is_in_class = false;
-        let mut ancestor = owner.parent();
-        while let Some(node) = ancestor {
-            if Self::is_rvalue_class_node(node.kind()) {
-                owner_is_in_class = true;
-                break;
-            }
-            ancestor = node.parent();
-        }
-        if owner_is_in_class
-            || self.rvalue_has_class_ancestor_before_owner(
-                call,
-                owner.start_byte(),
-                owner.end_byte(),
-            )
-        {
-            return CallOwnerDecision::LegacyInventory;
-        }
-
-        let mut current = Some(call);
-        while let Some(node) = current {
-            if self
-                .language
-                .callable_boundary_node_types()
-                .contains(&node.kind())
-            {
-                let is_owner = byte_range_eq(&node, owner);
-                let in_execution_region = ["body", "parameters"].into_iter().any(|field| {
-                    node.child_by_field_name(field).is_some_and(|region| {
-                        region.start_byte() <= call.start_byte()
-                            && call.end_byte() <= region.end_byte()
-                    })
-                });
-                if in_execution_region {
-                    return if is_owner {
-                        CallOwnerDecision::Owned
-                    } else {
-                        CallOwnerDecision::Nested
-                    };
-                }
-
-                let in_computed_method_name = node.kind() == "method_definition"
-                    && node.child_by_field_name("name").is_some_and(|name| {
-                        name.start_byte() <= call.start_byte() && call.end_byte() <= name.end_byte()
-                    });
-                if in_computed_method_name {
-                    if is_owner {
-                        return CallOwnerDecision::Outside;
-                    }
-                } else if is_owner {
-                    return CallOwnerDecision::Owned;
-                } else {
-                    return CallOwnerDecision::Unsupported;
-                }
-            }
-            current = node.parent();
-        }
-        CallOwnerDecision::Outside
-    }
-
-    fn call_capture_is_owned(&self, owner: &Node<'_>, call: Node<'_>) -> bool {
-        matches!(
-            self.call_capture_owner(owner, call),
-            CallOwnerDecision::Owned | CallOwnerDecision::LegacyInventory
-        )
-    }
-
     /// Find function calls on the given lines and return the called function names.
     pub fn function_calls_on_lines(
         &self,
@@ -10202,6 +10120,7 @@ impl ParsedFile {
         use tree_sitter::StreamingIterator;
 
         if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let membership = call_membership::CallMembership::new(self, *func_node);
             let call_idx = query
                 .capture_index_for_name("call")
                 .expect("Calls query must have @call capture");
@@ -10211,9 +10130,7 @@ impl ParsedFile {
             let mut calls = Vec::new();
             while let Some(m) = matches.next() {
                 for capture in m.captures {
-                    if capture.index == call_idx
-                        && self.call_capture_is_owned(func_node, capture.node)
-                    {
+                    if capture.index == call_idx && membership.is_owned(capture.node) {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line) {
                             if let Some(name_node) = self.language.call_function_name(&capture.node)
@@ -10253,6 +10170,7 @@ impl ParsedFile {
         use tree_sitter::StreamingIterator;
 
         if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let membership = call_membership::CallMembership::new(self, *func_node);
             let call_idx = query
                 .capture_index_for_name("call")
                 .expect("Calls query must have @call capture");
@@ -10265,7 +10183,7 @@ impl ParsedFile {
                     if capture.index != call_idx {
                         continue;
                     }
-                    if !self.call_capture_is_owned(func_node, capture.node) {
+                    if !membership.is_owned(capture.node) {
                         continue;
                     }
                     let line = capture.node.start_position().row + 1;
@@ -10316,6 +10234,7 @@ impl ParsedFile {
         use tree_sitter::StreamingIterator;
 
         if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let membership = call_membership::CallMembership::new(self, *func_node);
             let call_idx = query
                 .capture_index_for_name("call")
                 .expect("Calls query must have @call capture");
@@ -10325,9 +10244,7 @@ impl ParsedFile {
             let mut calls = Vec::new();
             while let Some(m) = matches.next() {
                 for capture in m.captures {
-                    if capture.index == call_idx
-                        && self.call_capture_is_owned(func_node, capture.node)
-                    {
+                    if capture.index == call_idx && membership.is_owned(capture.node) {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line) {
                             if let Some(name_node) = self.language.call_function_name(&capture.node)
@@ -10379,6 +10296,7 @@ impl ParsedFile {
         let mut facts = crate::rust_macro_args::MacroArgFacts::default();
 
         if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let membership = call_membership::CallMembership::new(self, *func_node);
             let call_idx = query
                 .capture_index_for_name("call")
                 .expect("Calls query must have @call capture");
@@ -10391,7 +10309,7 @@ impl ParsedFile {
                     if capture.index != call_idx {
                         continue;
                     }
-                    if !self.call_capture_is_owned(func_node, capture.node) {
+                    if !membership.is_owned(capture.node) {
                         continue;
                     }
                     let line = capture.node.start_position().row + 1;
