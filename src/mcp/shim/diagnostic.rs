@@ -1,12 +1,15 @@
 //! The line a shim prints when it fails closed (spec §4.1 step 7): why, the key, the runtime
 //! directory, the socket, the pid file's contents, the log, and the exact `--standalone`
 //! invocation that runs without the shared daemon. One line, whatever the paths hold: control
-//! characters are escaped (lane README, notes for S5a).
+//! characters are escaped (lane README, notes for S5a), and the invocation is quoted for the
+//! shell so that it still names the very paths.
 use crate::mcp::daemon::files::{open_private, open_runtime_dir, Create, FilesError};
 use crate::mcp::shared::identity::{refresh_policy_name, IdentityKey};
 use crate::mcp::shared::paths::DaemonPaths;
 use crate::mcp::{CacheMode, RefreshPolicy, ServerConfig, StartupMode};
+use std::ffi::OsString;
 use std::io::Read;
+use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::time::Duration;
 
@@ -63,8 +66,13 @@ pub(super) fn fail_closed_line(reason: &str, at: &Where<'_>, standalone: &str) -
             paths.log_file().display()
         ));
     }
-    line.push_str(&format!("; to run without the shared daemon: {standalone}"));
-    one_line(&line)
+    // The invocation is not escaped again: `standalone_invocation` quotes it for the shell
+    // already, with no control character left, and escaping inside its quotes would change the
+    // paths it names (review round 1, sol 2).
+    let mut line = one_line(&line);
+    line.push_str("; to run without the shared daemon: ");
+    line.push_str(standalone);
+    line
 }
 
 /// What the pid file says (spec §4.1 step 6: a wedged daemon is named by "the pid and start
@@ -119,15 +127,17 @@ fn pid_file(paths: &DaemonPaths, dir_validated: bool) -> String {
 }
 
 /// The invocation that serves the same configuration in process: this executable, the same
-/// repository, cache, refresh policy, first-call wait and warm start, and `--standalone`.
+/// repository, cache, refresh policy, first-call wait and warm start, and `--standalone`. It is
+/// one line of shell a user can run as printed: every word is quoted for the shell from its
+/// bytes, so it holds no control character whatever the paths hold (review round 1, sol 2).
 pub(super) fn standalone_invocation(exe: &Path, cfg: &ServerConfig) -> String {
-    let mut words = vec![
-        exe.display().to_string(),
+    let mut words: Vec<OsString> = vec![
+        exe.as_os_str().to_owned(),
         "--repo".into(),
-        cfg.repo_root.display().to_string(),
+        cfg.repo_root.as_os_str().to_owned(),
     ];
     if let CacheMode::Dir(base) = &cfg.cache {
-        words.extend(["--cache-dir".into(), base.display().to_string()]);
+        words.extend(["--cache-dir".into(), base.as_os_str().to_owned()]);
     }
     if cfg.refresh_policy != RefreshPolicy::WarnOnly {
         words.extend([
@@ -138,7 +148,7 @@ pub(super) fn standalone_invocation(exe: &Path, cfg: &ServerConfig) -> String {
     if cfg.first_call_wait != DEFAULT_FIRST_CALL_WAIT {
         words.extend([
             "--first-call-wait".into(),
-            cfg.first_call_wait.as_secs().to_string(),
+            cfg.first_call_wait.as_secs().to_string().into(),
         ]);
     }
     if cfg.startup == StartupMode::Background {
@@ -147,22 +157,56 @@ pub(super) fn standalone_invocation(exe: &Path, cfg: &ServerConfig) -> String {
     words.push("--standalone".into());
     words
         .iter()
-        .map(|word| shell_word(word))
+        .map(|word| shell_word(word.as_bytes()))
         .collect::<Vec<_>>()
         .join(" ")
 }
 
-/// `word` as a POSIX shell reads it back: bare when it is plain, else single-quoted.
-fn shell_word(word: &str) -> String {
-    let plain = !word.is_empty()
-        && word
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || "_./=:,+@%-".contains(c));
-    if plain {
-        word.to_string()
-    } else {
-        format!("'{}'", word.replace('\'', "'\\''"))
+/// `word` as a shell reads it back: bare when it is plain; single-quoted when it is UTF-8 text
+/// with no control character; otherwise ANSI-C quoted (`$'...'`, which bash, zsh and ksh read),
+/// with `\n`, `\t` and `\xHH` for every control character and every byte that is not UTF-8, so
+/// that the quoted word is one line and names the very bytes.
+fn shell_word(word: &[u8]) -> String {
+    match std::str::from_utf8(word) {
+        Ok(text) if !text.contains(char::is_control) => {
+            let plain = !text.is_empty()
+                && text
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "_./=:,+@%-".contains(c));
+            if plain {
+                text.to_string()
+            } else {
+                format!("'{}'", text.replace('\'', "'\\''"))
+            }
+        }
+        _ => ansi_c_quoted(word),
     }
+}
+
+/// `word` as `$'...'`. Each `\xHH` has two digits, so a hex digit after it is never read as
+/// part of it.
+fn ansi_c_quoted(word: &[u8]) -> String {
+    let mut quoted = String::from("$'");
+    let hex = |quoted: &mut String, bytes: &[u8]| {
+        for byte in bytes {
+            quoted.push_str(&format!("\\x{byte:02x}"));
+        }
+    };
+    for chunk in word.utf8_chunks() {
+        for c in chunk.valid().chars() {
+            match c {
+                '\n' => quoted.push_str("\\n"),
+                '\t' => quoted.push_str("\\t"),
+                '\\' => quoted.push_str("\\\\"),
+                '\'' => quoted.push_str("\\'"),
+                c if c.is_control() => hex(&mut quoted, c.encode_utf8(&mut [0; 4]).as_bytes()),
+                c => quoted.push(c),
+            }
+        }
+        hex(&mut quoted, chunk.invalid());
+    }
+    quoted.push('\'');
+    quoted
 }
 
 #[cfg(test)]

@@ -150,3 +150,54 @@ fn a_pid_file_that_is_a_symlink_is_not_followed() {
     assert!(!line.contains("pid 4242"), "{line}");
     assert!(line.contains("unreadable"), "{line}");
 }
+
+/// The words `bash` reads from `invocation`, as bytes.
+fn words_bash_reads(invocation: &str) -> Vec<Vec<u8>> {
+    let output = std::process::Command::new("bash")
+        .arg("-c")
+        .arg(format!("printf '%s\\0' {invocation}"))
+        .output()
+        .expect("bash");
+    assert!(output.status.success(), "{output:?}");
+    let mut words: Vec<Vec<u8>> = output
+        .stdout
+        .split(|b| *b == 0)
+        .map(<[u8]>::to_vec)
+        .collect();
+    assert_eq!(words.pop(), Some(Vec::new()), "NUL-terminated words");
+    words
+}
+
+/// Review round 1, sol 2: the printed invocation is the exact command for any path, a newline,
+/// a tab, a C1 control, a quote, a backslash or a byte that is not UTF-8 in it included: a shell
+/// reads back the very paths, and the line stays one line.
+#[test]
+fn the_printed_invocation_names_the_very_paths_whatever_bytes_they_hold() {
+    use std::os::unix::ffi::OsStrExt;
+    let repo = PathBuf::from(std::ffi::OsStr::from_bytes(
+        b"/tmp/a\nb\tc'd \\e\xff\x1b[2J\xc2\x85f",
+    ));
+    let exe = Path::new("/opt/it's\nprism-mcp");
+    let invocation = standalone_invocation(exe, &ServerConfig::new(repo.clone()));
+    let at = Where {
+        key: None,
+        runtime_dir: None,
+        paths: None,
+        dir_validated: false,
+    };
+    let line = fail_closed_line("r", &at, &invocation);
+    assert!(!line.contains(|c: char| c.is_control()), "{line:?}");
+    let printed = line
+        .split_once("; to run without the shared daemon: ")
+        .expect("the invocation")
+        .1;
+    assert_eq!(
+        words_bash_reads(printed),
+        [
+            exe.as_os_str().as_bytes(),
+            b"--repo",
+            repo.as_os_str().as_bytes(),
+            b"--standalone",
+        ]
+    );
+}
