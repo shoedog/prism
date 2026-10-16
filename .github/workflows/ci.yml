@@ -166,6 +166,11 @@ jobs:
       - name: Run doctests
         run: cargo test --doc --features mcp
 
+      # The soak instrumentation's hermetic tests (Python standard library, a few seconds; the live
+      # fan-out test skips itself without PRISM_SOAK_BIN). scripts/soak/ imports scripts/memreport/.
+      - name: Soak tool tests (Python)
+        run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
+
   clippy:
     name: Clippy Lint
     needs: changes
