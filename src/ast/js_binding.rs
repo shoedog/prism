@@ -66,6 +66,7 @@ pub(super) type NamespaceImports<'a> = BTreeMap<String, Vec<(Node<'a>, Option<St
 /// answers (SPEC §3.8 (2)(3), C-19, C-37).
 #[derive(Default)]
 pub(crate) struct JsBindingCache<'a> {
+    pub(crate) proof_trace: Option<Vec<Node<'a>>>,
     pub(super) decls: BTreeMap<usize, (Index<'a>, BTreeSet<String>)>,
     pub(super) clean: BTreeMap<usize, Result<(), &'static str>>,
     pub(super) braces: Option<bool>,

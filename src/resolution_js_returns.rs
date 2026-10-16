@@ -22,6 +22,9 @@ impl CallGraph {
         // `H` is a function, never a wrapped component, so it is looked up as a non-JSX use.
         let hook_fn = self.js_ts_terminal_function(&site.caller, hook, site, false)?;
         let value = self.js_ts_return_facts.get(hook_fn)?.get(path)?;
+        if !self.anonymous_return_supported(site, hook_fn, value) {
+            return None;
+        }
         let outcome = self.js_ts_terminal_outcome(hook_fn, value, site, site.jsx_element)?;
         Some(outcome)
     }

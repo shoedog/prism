@@ -128,7 +128,7 @@ pub(crate) const E_TABLE: &[(&str, &str, Pos)] = &[
     ("decorator", "children", Pos::Decorator),
 ];
 
-fn e_rule(kind: &str, field: &str) -> Option<Pos> {
+pub(super) fn e_rule(kind: &str, field: &str) -> Option<Pos> {
     let mut known = false;
     for (k, f, p) in E_TABLE {
         if *k == kind {
@@ -142,7 +142,7 @@ fn e_rule(kind: &str, field: &str) -> Option<Pos> {
 }
 
 /// The field through which `child` hangs off `parent` ("children" when unfielded).
-fn field_of(parent: Node<'_>, child: Node<'_>) -> &'static str {
+pub(super) fn field_of(parent: Node<'_>, child: Node<'_>) -> &'static str {
     let mut cursor = parent.walk();
     if cursor.goto_first_child() {
         loop {
@@ -165,6 +165,9 @@ impl ParsedFile {
         name: &str,
         cache: &mut JsBindingCache<'a>,
     ) -> Walk<'a> {
+        if let Some(trace) = &mut cache.proof_trace {
+            trace.push(site);
+        }
         let mut child = site;
         let mut current = site.parent();
         while let Some(node) = current {

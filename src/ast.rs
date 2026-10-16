@@ -8,11 +8,9 @@ mod js_binding;
 mod js_binding_alias;
 pub(crate) use js_binding::{JsBinding, JsBindingCache};
 pub use js_binding_alias::JsFollow;
-// S3 fold note (owner review, 2026-09-30): narrowing this to `pub(crate)` compiles but warns
-// `private_interfaces` at `JsLocalBinding::Callable`'s field in src/call_graph.rs (`JsTerminal`
-// is less visible than the `pub` enum variant that carries it); kept `pub` to stay clean under
-// `cargo clippy -W clippy::all`, which the acceptance gate treats as a no-new-warnings bar.
+// Public because the public JsLocalBinding variants carry JsTerminal (private_interfaces).
 pub use js_binding::JsTerminal;
+mod js_anonymous;
 mod js_binding_checks;
 mod js_binding_decls;
 #[cfg(test)]
