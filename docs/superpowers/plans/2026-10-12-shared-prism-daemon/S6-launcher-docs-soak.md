@@ -22,7 +22,9 @@ What each check must show, and what it showed. Every cargo command ran alone, as
 | V10 | The zero-diff and replay checks | Nothing in `src/`, `.claude-plugin/` or the goldens; the replay byte-identical. | `git diff --stat 4a9e6476 cbc32ee3 -- src .claude-plugin tests/fixtures/mcp/golden` is empty. The replay `scratch/s6-replay` (`0daffe4f`, 25 directives, every anchor matching once) has tree `4b940d6e`, the tree of `scratch/s6-tasks` (`678fd702`) and of the validated head (`cbc32ee3`), executable modes included. |
 | V11 | Linux: the bridge's `a2a-toolchain` image (Debian, aarch64, rustc 1.94, Python 3.12, uid 0, no `ps`/`pgrep`), Task 4 Step 4's script, at the head (`cbc32ee3`); the disk checked (118 GiB free) in a command of its own first | All `ok`. | `failed Linux runs: 0`: `10 test result: ok. 7 passed` (`--test mcp launcher`, the process test included), `10 Ran 66 tests` / `10 OK` (the soak tools, the live fan-out test against the container-built binary included); no `left:` line; volumes removed by the `trap`. x86_64 Linux: CI only. |
 
-## Owner questions (to answer before dispatch)
+## Owner decisions (2026-10-16)
+
+**Decided by the owner on 2026-10-16: "accept all".** Every question below is answered with its recommended answer, as revised in review rounds 1 and 2 (questions 4, 5, 7 and 8). The text is kept as asked, so each decision's reasons stay with it.
 
 Each is a behavior or a value the spec leaves to the owner, or an action outside this repository that needs the owner's approval. The plan is built on the recommended answer; a different answer changes the named place only.
 
