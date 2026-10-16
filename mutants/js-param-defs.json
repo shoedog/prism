@@ -259,25 +259,25 @@
    ]
   ],
   "PD-31-own-scope-lvalue-filter-off": [
-   "src/data_flow.rs",
-   "                    if synthetic {\n                        lvalue_spans.retain(",
-   "                    if false {\n                        lvalue_spans.retain(",
+   "src/data_flow/build/file.rs",
+   "            if synthetic {\n                lvalue_spans.retain(",
+   "            if false {\n                lvalue_spans.retain(",
    [
     "cpg::callback_identity_tests::synthetic_pass_owns_only_its_own_scope"
    ]
   ],
   "PD-32-own-scope-alias-filter-off": [
-   "src/data_flow.rs",
-   "                    let (alias_map, raw_aliases) = if synthetic {",
-   "                    let (alias_map, raw_aliases) = if false {",
+   "src/data_flow/build/file.rs",
+   "            let (alias_map, raw_aliases) = if synthetic {",
+   "            let (alias_map, raw_aliases) = if false {",
    [
     "cpg::callback_identity_tests::synthetic_alias_twin_only_on_the_alias_line"
    ]
   ],
   "PD-33-non-reference-filter-off": [
-   "src/data_flow.rs",
-   "                    if synthetic {\n                        // PR-B D9",
-   "                    if false {\n                        // PR-B D9",
+   "src/data_flow/build/file.rs",
+   "            if synthetic {\n                // PR-B D9",
+   "            if false {\n                // PR-B D9",
    [
     "cpg::callback_identity_tests::synthetic_pass_never_counts_non_reference_positions"
    ]
@@ -291,7 +291,7 @@
    ]
   ],
   "PD-35-alias-twin-line-restriction-off": [
-   "src/data_flow.rs",
+   "src/data_flow/build/aliases.rs",
    "let target = alias_targets_by_byte.get(&start_byte)?;",
    "let target = alias_targets_by_byte.values().next()?;",
    [
@@ -419,9 +419,9 @@
    ]
   ],
   "PD-51-rvalue-read-filter-off": [
-   "src/data_flow.rs",
-   "                                && !parsed.js_ts_span_is_not_a_read(span.start_byte, span.end_byte)",
-   "                                && !(false && parsed.js_ts_span_is_not_a_read(span.start_byte, span.end_byte))",
+   "src/data_flow/build/file.rs",
+   "                        && !parsed.js_ts_span_is_not_a_read(span.start_byte, span.end_byte)",
+   "                        && !(false && parsed.js_ts_span_is_not_a_read(span.start_byte, span.end_byte))",
    [
     "cpg::callback_identity_tests::synthetic_preferred_use_is_the_read_occurrence"
    ]
@@ -451,7 +451,7 @@
    ]
   ],
   "PD-55-r1-nested-write-kill-off": [
-   "src/data_flow.rs",
+   "src/data_flow/build/file.rs",
    "for span in &nested_write_spans {",
    "for span in nested_write_spans.iter().take(0) {",
    [
@@ -491,7 +491,7 @@
    ]
   ],
   "PD-60-r1-alias-byte-identity-off": [
-   "src/data_flow.rs",
+   "src/data_flow/build/aliases.rs",
    "let target = alias_targets_by_byte.get(&start_byte)?;",
    "let target = alias_targets_by_byte.values().next()?;",
    [
@@ -499,7 +499,7 @@
    ]
   ],
   "PD-61-r1-endpoint-byte-identity-off": [
-   "src/data_flow.rs",
+   "src/data_flow/build/file.rs",
    "let occurrence_byte = |byte| if synthetic { byte } else { 0 };",
    "let occurrence_byte = |_byte| 0;",
    [
@@ -588,9 +588,9 @@
    "cpg::callback_identity_tests::r5_seam_body_vars_keep_assignments_and_refuse_default_reads"
   ],
   "PD-72-r2-use-occurrence-off": [
-   "src/data_flow.rs",
-   "if synthetic {\n                                if refused_occurrence",
-   "if false && synthetic {\n                                if refused_occurrence",
+   "src/data_flow/build/file.rs",
+   "if synthetic {\n                        if refused_occurrence",
+   "if false && synthetic {\n                        if refused_occurrence",
    "cpg::callback_identity_tests::r2_use_endpoints_keep_binding_valid_occurrence_bytes"
   ],
   "PD-73-r2-with-body-refusal-off": [
@@ -606,13 +606,13 @@
    "cpg::callback_identity_tests::r2_parameter_expressions_separate_body_vars_and_functions"
   ],
   "PD-75-r2-with-def-admission-off": [
-   "src/data_flow.rs",
+   "src/data_flow/build/file.rs",
    "if parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)",
    "if false && parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)",
    "cpg::callback_identity_tests::r2_with_body_defs_cannot_reach_outside_reads"
   ],
   "PD-76-r2-with-use-admission-off": [
-   "src/data_flow.rs",
+   "src/data_flow/build/file.rs",
    "&& !parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)",
    "&& true",
    "cpg::callback_identity_tests::r2_synthetic_with_body_is_refused_but_expression_and_outside_reads_remain"
@@ -660,7 +660,7 @@
    "cpg::callback_identity_tests::r5_eval_and_mapped_arguments_refuse_all_formals_with_negative_controls"
   ],
   "PD-90-r5-formal-occurrence-refusal-off": [
-   "src/data_flow.rs",
+   "src/data_flow/build/file.rs",
    "&& parsed.js_ts_occurrence_binds_formal(&func_node, &path.base, byte)",
    "&& false",
    "cpg::callback_identity_tests::r5_seam_body_vars_keep_assignments_and_refuse_default_reads"
@@ -672,7 +672,7 @@
    "cpg::callback_identity_tests::r5_named_seam_rows_equal_frozen_main_goldens"
   ],
   "PD-92-r5-uninitialised-seam-var-off": [
-   "src/data_flow.rs",
+   "src/data_flow/build/file.rs",
    "if parsed.js_ts_seam_binding(&func_node, &span.path.base)",
    "if false && parsed.js_ts_seam_binding(&func_node, &span.path.base)",
    "cpg::callback_identity_tests::r5_seam_body_vars_keep_assignments_and_refuse_default_reads"
@@ -744,7 +744,7 @@
    ]
   ],
   "PD-101-r9-receiver-def-and-kill-fence-off": [
-   "src/data_flow.rs",
+   "src/data_flow/build/file.rs",
    "|| span.path.base == \"this\"",
    "|| false && span.path.base == \"this\"",
    [

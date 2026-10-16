@@ -1,0 +1,26 @@
+{
+  "lane": "DFG compaction PR A frozen legacy oracle",
+  "source": "docs/superpowers/plans/2026-10-14-dfg-compaction.md",
+  "lib_test_prefixes": [
+    "data_flow::tests::",
+    "cpg_cache::dfg_codec_tests::"
+  ],
+  "mutations": {
+    "DFG-A-forward-seed-retained": [
+      "src/data_flow.rs",
+      "        visited.remove(from);\n        visited",
+      "        // mutant: retain query seed\n        visited",
+      [
+        "data_flow::tests::queries::frozen_queries_cover_cycles_spans_absence_and_same_line_propagation"
+      ]
+    ],
+    "DFG-A-delta-candidate-edges-removed": [
+      "src/algorithms/delta_slice.rs",
+      "    let added: BTreeSet<_> = new_edges.difference(&old_edges).collect();",
+      "    let added: BTreeSet<_> = new_edges.difference(&old_edges).filter(|_| false).collect();",
+      [
+        "data_flow::tests::outputs::delta_candidate_edges_contribute"
+      ]
+    ]
+  }
+}

@@ -10,10 +10,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Documentation-only changes run a reduced gate set: this job and the Language Coverage Matrix.
+  # Documentation-only changes run this job, Language Coverage Matrix and oracle compilation.
   # A change confined to the Python eval harness (eval/, except eval/fixtures, which Rust tests
-  # read) skips the Rust jobs; the Python job runs instead. The path rules and their tests are in
-  # scripts/ci/. Every Rust job runs unless this job positively reports `code=false`, and the
+  # read) skips the existing Rust jobs; Python and oracle compilation run. The path rules are in
+  # scripts/ci/. Existing Rust jobs run unless this job positively reports `code=false`, and the
   # Python job runs unless it positively reports `eval=false`, so a classifier failure falls back
   # to the full set.
   changes:
@@ -22,6 +22,7 @@ jobs:
     outputs:
       code: ${{ steps.classify.outputs.code }}
       eval: ${{ steps.classify.outputs.eval }}
+      oracle: ${{ steps.classify.outputs.oracle }}
     steps:
       # Depth 2: a pull_request checkout is the merge of the PR into its base, so HEAD^1 is the base.
       - uses: actions/checkout@v4
@@ -29,7 +30,9 @@ jobs:
           fetch-depth: 2
 
       - name: Test the classifier
-        run: bash scripts/ci/classify-changes.test.sh
+        run: |
+          bash scripts/ci/classify-changes.test.sh
+          bash scripts/ci/dfg-oracle-paths.test.sh
 
       - name: Classify changed paths
         id: classify
@@ -38,6 +41,7 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           result=$'code=true\neval=true'
+          oracle='oracle=true'
           if [ "$EVENT_NAME" = pull_request ]; then
             if git rev-parse --quiet --verify "HEAD^2" >/dev/null; then base="HEAD^1"; else base=""; fi
           else
@@ -48,10 +52,12 @@ jobs:
           if [ -n "$base" ] && paths="$(git diff --name-only --no-renames "$base" HEAD 2>/dev/null)"; then
             echo "base=$base changed_paths=$(printf '%s\n' "$paths" | grep -c .)"
             result="$(printf '%s\n' "$paths" | bash scripts/ci/classify-changes.sh)"
+            oracle="$(printf '%s\n' "$paths" | bash scripts/ci/dfg-oracle-paths.sh)"
           else
             echo "change list unavailable (base='$base'): falling back to the full gate set"
           fi
           echo "$result" | tee -a "$GITHUB_OUTPUT"
+          echo "$oracle" >> "$GITHUB_OUTPUT"
           case "$(printf '%s' "$result" | tr '\n' ' ')" in
             "code=false eval=false")
               echo "Documentation-only change: the Rust test, build, clippy and format jobs and the Python eval-harness job are skipped." >> "$GITHUB_STEP_SUMMARY" ;;
@@ -60,6 +66,29 @@ jobs:
             *)
               echo "Code change (or the change list could not be determined): full gate set." >> "$GITHUB_STEP_SUMMARY" ;;
           esac
+
+  # Compile on every PR, including docs/eval-only changes; existing required jobs
+  # keep their classifier behavior. This does not execute the oracle umbrella.
+  oracle-compile:
+    name: DFG oracle compile check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --all-targets --features mcp,dfg-oracle
+
+  oracle-parity:
+    name: DFG oracle parity
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.oracle != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compare oracle and production (pins are a controller gate)
+        run: 'cargo test --features mcp,dfg-oracle --test dfg_compaction -- --skip pins:: --nocapture'
 
   test:
     name: Test Suite + Coverage (${{ matrix.shard }}/4)

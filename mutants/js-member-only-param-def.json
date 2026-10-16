@@ -58,7 +58,7 @@
    ]
   ],
   "MO-14-unused-formal-registers": [
-   "src/data_flow.rs",
+   "src/data_flow/build/file.rs",
    "if use_kind == crate::ast::ParameterUse::Unused {",
    "if false && use_kind == crate::ast::ParameterUse::Unused {",
    [
@@ -66,7 +66,7 @@
    ]
   ],
   "MO-15-member-only-flag-off": [
-   "src/data_flow.rs",
+   "src/data_flow/build/file.rs",
    "let member_only = use_kind == crate::ast::ParameterUse::MemberOnly;",
    "let member_only = false;",
    [
@@ -74,9 +74,9 @@
    ]
   ],
   "MO-16-base-not-registered-for-projection": [
-   "src/data_flow.rs",
-   "if member_only {\n                            member_only_params.push((path.clone(), loc.clone()));",
-   "if false && member_only {\n                            member_only_params.push((path.clone(), loc.clone()));",
+   "src/data_flow/build/file.rs",
+   "if member_only {\n                    member_only_params.push((path.clone(), loc.clone()));",
+   "if false && member_only {\n                    member_only_params.push((path.clone(), loc.clone()));",
    [
     "cpg::member_only_param_tests::plain_member_only_formal_gets_a_base_def_and_projection_edges"
    ]
@@ -269,18 +269,18 @@
    ]
   ],
   "MO-43-kill-skip-off": [
-   "src/data_flow.rs",
-   "                            if facts.is_killed(field_path) {\n                                continue;",
-   "                            if false && facts.is_killed(field_path) {\n                                continue;",
+   "src/data_flow/build/file.rs",
+   "                    if facts.is_killed(field_path) {\n                        continue;",
+   "                    if false && facts.is_killed(field_path) {\n                        continue;",
    [
     "cpg::member_only_param_tests::write_to_the_parameter_itself_projects_nothing",
     "cpg::member_only_param_r1_tests::every_member_write_form_suppresses_its_path_but_not_a_sibling"
    ]
   ],
   "MO-44-use-at-line-anchor": [
-   "src/data_flow.rs",
-   "                                    start_byte: *start_byte,\n                                    end_byte: *end_byte,",
-   "                                    start_byte: parsed.line_start_byte(*ref_line),\n                                    end_byte: parsed.line_start_byte(*ref_line),",
+   "src/data_flow/build/file.rs",
+   "                            start_byte: *start_byte,\n                            end_byte: *end_byte,",
+   "                            start_byte: parsed.line_start_byte(*ref_line),\n                            end_byte: parsed.line_start_byte(*ref_line),",
    [
     "cpg::member_only_param_r1_tests::named_owner_projection_use_sits_at_the_exact_admitted_span"
    ]

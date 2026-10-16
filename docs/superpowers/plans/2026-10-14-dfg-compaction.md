@@ -31,6 +31,28 @@
 - Controller runs real-corpus measurements, sequentially, one `prism-mcp` at a time. Implementer prepares binaries and receipts. Do not run Prometheus/slicing during implementation or this planning task.
 - At stable points snapshot work and refresh the lane handoff using `/Users/wesleyjinks/.claude/handoff-template.md` (canonical steering source `bootstrap/handoff-template.md`). Do not alter memory without an explicit owner request. Leave commit/push to controller.
 
+## Oracle maintenance
+
+At the start of **each** compaction PR, recapture both manifests on clean main
+using the committed ignored `capture::capture_manifests` test and the read-only
+adapter procedure in `tests/dfg_compaction/README.md`. Unchanged cases must
+reproduce their existing hashes as the control. Put changed hashes in a separate
+first commit, **`re-pin on main <sha>`**, listing the changed cases and main commits
+since the last capture that touched DFG/CPG output. The compaction implementation
+then keeps every hash, including the ordered lookup-index manifest.
+
+CI compiles all targets with `mcp,dfg-oracle` on every PR. The additive filter in
+the existing Classify change job selects oracle parity for `src/data_flow/**`
+except `src/data_flow/build/**`, `src/cpg_cache/**`, `src/cpg_cache.rs`,
+`src/cpg/dfg_compaction_support.rs`, `src/data_flow.rs`, and
+`tests/dfg_compaction/**`. Classifier failure runs parity conservatively; existing
+code/eval outputs and required-check behavior stay intact. The parity job runs
+`--test dfg_compaction -- --skip pins::`; stored hashes remain controller-gated
+because unrelated lanes may intentionally change output.
+
+Deferred to PR B (Opus S5): make the span distinction test exercise
+`test_support::current_storage` directly when introducing ordered accessors.
+
 ## Decisions
 
 | ID | Decision | Reason and cost if wrong |

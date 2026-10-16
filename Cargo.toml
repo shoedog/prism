@@ -7,6 +7,8 @@ license = "Apache-2.0"
 
 [features]
 mcp = ["dep:libc"]
+# Temporary independent DFG migration oracle; never enabled in production.
+dfg-oracle = []
 # Explicit real-compiler tests only; no production consumer or compiler dependency.
 detached-owner-audit = []
 
@@ -186,3 +188,8 @@ path = "tests/name_resolution/main.rs"
 
 [profile.dev]
 debug = "line-tables-only"
+
+[[test]]
+name = "dfg_compaction"
+path = "tests/dfg_compaction/main.rs"
+required-features = ["dfg-oracle"]
