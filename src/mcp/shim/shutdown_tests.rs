@@ -3,7 +3,7 @@
 use super::super::control_support::{
     fake_instance, fake_status, ControlFake, FakeReply, FAKE_PID, FAKE_START,
 };
-use super::super::shim_support::{full_backlog, open_lock, this_user, HANG};
+use super::super::shim_support::{as_root, full_backlog, open_lock, this_user, Unsearchable, HANG};
 use super::*;
 use crate::mcp::shared::control::DaemonStatus;
 use crate::mcp::shared::identity::IdentityKey;
@@ -335,4 +335,31 @@ fn a_refused_second_exchange_is_judged_by_the_owner_lock_too() {
         assert_eq!(said.is_err(), held, "{said:?}");
         drop(owner);
     }
+}
+
+/// PR #418 review round 1 (sol 1, Opus S2): a runtime directory whose parent this user cannot
+/// search (`EACCES` from `lstat`) is not "nothing to shut down": a daemon may be serving there
+/// (here, its owner lock held and its pid file written). The command fails (exit 1), saying why.
+/// Rules out taking every lookup error for absence. Needs a user other than root, who searches
+/// any directory; skipped under root.
+#[test]
+fn a_runtime_directory_that_cannot_be_looked_at_is_not_taken_for_none() {
+    if as_root() {
+        eprintln!("skipped: root searches a directory of mode 0");
+        return;
+    }
+    let setup = setup();
+    setup.write_pid_file();
+    let owner = open_lock(setup.paths.owner_lock());
+    owner.try_lock().expect("the owner lock");
+    let unsearchable = Unsearchable::new(setup.base.path());
+    let said = run(&setup.options(None, HANG)).expect_err("not \"nothing to shut down\"");
+    assert!(said.contains("Permission denied"), "{said}");
+    assert!(!said.contains("nothing to shut down"), "{said}");
+    drop(unsearchable);
+    let said = run(&setup.options(None, HANG)).expect_err("alive");
+    assert!(
+        said.contains("alive but not accepting connections"),
+        "{said}"
+    );
 }

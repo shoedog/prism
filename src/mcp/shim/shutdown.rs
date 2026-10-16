@@ -16,7 +16,9 @@ use super::connect::PeerUid;
 use super::control::{exchange, Exchanged};
 use super::diagnostic::{one_line, pid_file};
 use super::key_files::KeyDir;
-use super::status::{has_daemon_files, key_of, operator_runtime_dir, under_locks, Holder};
+use super::status::{
+    has_daemon_files, key_of, operator_runtime_dir, runtime_dir_exists, under_locks, Holder,
+};
 use crate::mcp::daemon::peer::peer_uid;
 use crate::mcp::shared::control::{ControlRequest, Instance};
 use crate::mcp::shared::paths::DaemonPaths;
@@ -68,7 +70,7 @@ pub(super) fn shutdown(options: &ShutdownOptions, peer_uid: PeerUid) -> Result<S
         )
     };
     let dir = operator_runtime_dir(options.runtime_base.as_deref())?;
-    if std::fs::symlink_metadata(&dir).is_err() {
+    if !runtime_dir_exists(&dir)? {
         return Ok(nothing());
     }
     validate_runtime_dir(&dir).map_err(|error| error.to_string())?;

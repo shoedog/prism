@@ -5,7 +5,7 @@ use super::super::control_support::{
     always_line, fake_status, mkfifo, within_hang, ControlFake, FakeReply,
 };
 use super::super::shim_support::{
-    full_backlog, key, open_lock, runtime, this_user, unix_now, HANG,
+    as_root, full_backlog, key, open_lock, runtime, this_user, unix_now, Unsearchable, HANG,
 };
 use super::*;
 use crate::mcp::shared::preamble::Reply;
@@ -273,6 +273,34 @@ fn a_missing_or_invalid_runtime_directory() {
     std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).expect("chmod");
     let error = status_report(&options(base.path(), HANG), this_user).expect_err("invalid");
     assert!(error.contains("prism-mcpd"), "{error}");
+}
+
+/// PR #418 review round 1 (sol 1, Opus S2): only a runtime directory that is not there is "no
+/// daemon". One whose parent this user cannot search (`EACCES` from `lstat`) may hold a live
+/// daemon (here, its owner lock held and its pid file written): the report fails, saying why,
+/// and does not say "no daemon". Rules out taking every lookup error for absence. Needs a user
+/// other than root, who searches any directory; skipped under root.
+#[test]
+fn a_runtime_directory_that_cannot_be_looked_at_is_not_taken_for_none() {
+    if as_root() {
+        eprintln!("skipped: root searches a directory of mode 0");
+        return;
+    }
+    let (base, paths) = runtime();
+    write_pid_file(&paths);
+    let owner = open_lock(paths.owner_lock());
+    owner.try_lock().expect("the owner lock");
+    let unsearchable = Unsearchable::new(base.path());
+    let error = status_report(&options(base.path(), HANG), this_user)
+        .expect_err("a directory that cannot be looked at is not \"no daemon\"");
+    assert!(error.contains("Permission denied"), "{error}");
+    assert!(error.contains("prism-mcpd"), "{error}");
+    drop(unsearchable);
+    let said = about_the_key(base.path(), &paths);
+    assert!(
+        said.starts_with(&format!("{LOCATOR} alive but not answering")),
+        "{said}"
+    );
 }
 
 /// An empty runtime directory has no daemon.

@@ -100,7 +100,7 @@ pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Resul
         "{}",
         one_line(&format!("runtime dir {}", dir.display()))
     );
-    if std::fs::symlink_metadata(&dir).is_err() {
+    if !runtime_dir_exists(&dir)? {
         report.push_str("no daemon (the runtime directory does not exist)\n");
         return Ok(report);
     }
@@ -141,6 +141,17 @@ pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Resul
         );
     }
     Ok(report)
+}
+
+/// Whether the runtime directory `dir` is there. Only its absence (`NotFound`) is "no daemon":
+/// any other error, such as a parent this user cannot search, says nothing about the daemons in
+/// it and is returned (PR #418 review round 1, sol 1 and Opus S2).
+pub(super) fn runtime_dir_exists(dir: &Path) -> Result<bool, String> {
+    match std::fs::symlink_metadata(dir) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(format!("cannot look at {}: {error}", dir.display())),
+    }
 }
 
 /// The locators of every key that has a file in `dir`: names of 16 lowercase hexadecimal digits
