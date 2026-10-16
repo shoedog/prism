@@ -261,7 +261,8 @@ mod stream;
 /// - v118: PR-C: member-only JS/TS formals (no bare read, at least one static `p.<field>`
 ///   read) get a base Def and Def(p) -> Use(p.<path>) projection edges.
 /// - v119: lane A2 S0 renames persisted anonymous-callable DFG owners to `<anon@L:C>`.
-const CACHE_VERSION: u32 = 119;
+/// - v120: lane A2 S2a emits anonymous call owners and persists their proof evidence.
+const CACHE_VERSION: u32 = 120;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -810,7 +811,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 119);
+        assert_eq!(super::CACHE_VERSION, 120);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

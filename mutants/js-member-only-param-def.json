@@ -91,8 +91,8 @@
   ],
   "MO-18-cache-version-unbumped": [
    "src/cpg_cache.rs",
+   "const CACHE_VERSION: u32 = 120;",
    "const CACHE_VERSION: u32 = 119;",
-   "const CACHE_VERSION: u32 = 118;",
    [
     "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
    ]

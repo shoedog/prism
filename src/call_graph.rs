@@ -960,8 +960,8 @@ pub struct CallGraph {
     /// JS/TS R4c: caller function -> conservative parameter/local binding names.
     #[serde(default)]
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
-    /// Returned callable values; anonymous proof evidence is transient and fails closed on load.
-    #[serde(skip)]
+    /// Source-backed anonymous proof evidence; partial builds refresh it from all current files.
+    #[serde(default)]
     pub(crate) js_anonymous: crate::js_anonymous::ProofIndex,
     #[serde(default)]
     pub js_ts_return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,

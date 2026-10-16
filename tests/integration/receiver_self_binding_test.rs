@@ -85,15 +85,15 @@ fn check(id: &str, body: &str, supported: bool, graph: bool) {
                 .flatten()
                 .filter(|s| s.caller.file == format!("app.{ext}") && s.callee_name == "item")
                 .collect();
-            let expected_sites = if matches!(
+            assert_eq!(sites.len(), 1, "{id}/{ext}/{mode}");
+            if matches!(
                 id,
                 "receiver_self_nested_callback" | "receiver_self_named_nested_callback"
             ) {
-                0
-            } else {
-                1
-            };
-            assert_eq!(sites.len(), expected_sites, "{id}/{ext}/{mode}");
+                assert!(prism::anon_owner::is_anonymous_owner_name(
+                    &sites[0].caller.name
+                ));
+            }
             if let Some((name, start_line, end_line, start_byte, end_byte, rejected)) =
                 retained_owner_expectation(id)
             {

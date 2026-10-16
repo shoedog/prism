@@ -1,22 +1,22 @@
-//! js-param-defs PR-B ("callback identity"): DFG-only owner identity for
+//! Anonymous callable identity shared by DFG and call-graph owners for
 //! anonymous JS/TS/TSX callables, own-scope containment for their passes, and
 //! the byte-precise binder fence (E3) shared by every JS/TS DFG reference walk.
 //! SPEC: docs/superpowers/plans/2026-10-06-js-param-defs/SPEC-prB.md.
 //!
-//! The synthetic identity lives ONLY in `VarLocation.function` of DFG rows.
-//! `FunctionInfo.name`, `Language::function_name`, the call graph, resolution,
-//! seeds and navigation symbols never see it, so it cannot become a callee, a
-//! caller, an owner-index key, a `free_single` target or a symbol seed.
+//! The synthetic identity also owns call-graph records. FunctionInfo.name and
+//! Language::function_name remain unnamed; default seeds skip synthetic owners.
 
 use super::*;
 
 impl ParsedFile {
     /// Owner name of a callable's DFG pass: the inferred/declared name when
     /// one exists (name inference always wins), else the synthetic
-    /// `<anon@LINE:COL>` identity for an anonymous JS/TS/TSX arrow or function
+    /// `<anon@LINE:COL>` identity for an anonymous JS/TS/TSX arrow or function/generator
     /// expression, else `None` (the callable keeps getting no pass).
     pub fn dfg_owner_name(&self, func_node: &Node<'_>) -> Option<String> {
-        if self.js_ts_parameter_early_error(func_node) {
+        if self.js_ts_parameter_early_error(func_node)
+            || self.js_ts_generator_formals_refused(func_node)
+        {
             return None;
         }
         if let Some(name) = self.language.function_name(func_node) {
@@ -28,34 +28,43 @@ impl ParsedFile {
     /// BoundNames of a binding pattern, excluding keys, types and initializer
     /// expressions. Keep duplicates so early-error checks can detect them.
     fn js_ts_pattern_bound_names(&self, node: Node<'_>, names: &mut Vec<String>) {
+        self.js_ts_pattern_bound_names_with_decoder(node, names, Self::js_ts_decoded_identifier);
+    }
+
+    pub(super) fn js_ts_pattern_bound_names_with_decoder(
+        &self,
+        node: Node<'_>,
+        names: &mut Vec<String>,
+        decode: fn(&str) -> Option<String>,
+    ) {
         match node.kind() {
             "identifier"
             | "undefined"
             | "type_identifier"
             | "shorthand_property_identifier_pattern" => {
-                if let Some(name) = Self::js_ts_decoded_identifier(self.node_text(&node)) {
+                if let Some(name) = decode(self.node_text(&node)) {
                     names.push(name);
                 }
             }
             "pair_pattern" => {
                 if let Some(value) = node.child_by_field_name("value") {
-                    self.js_ts_pattern_bound_names(value, names);
+                    self.js_ts_pattern_bound_names_with_decoder(value, names, decode);
                 }
             }
             "assignment_pattern" | "object_assignment_pattern" => {
                 if let Some(left) = node.child_by_field_name("left") {
-                    self.js_ts_pattern_bound_names(left, names);
+                    self.js_ts_pattern_bound_names_with_decoder(left, names, decode);
                 }
             }
             "required_parameter" | "optional_parameter" => {
                 if let Some(pattern) = node.child_by_field_name("pattern") {
-                    self.js_ts_pattern_bound_names(pattern, names);
+                    self.js_ts_pattern_bound_names_with_decoder(pattern, names, decode);
                 }
             }
             "formal_parameters" | "object_pattern" | "array_pattern" | "rest_pattern" => {
                 let mut cursor = node.walk();
                 for child in node.named_children(&mut cursor) {
-                    self.js_ts_pattern_bound_names(child, names);
+                    self.js_ts_pattern_bound_names_with_decoder(child, names, decode);
                 }
             }
             _ => {}
@@ -163,13 +172,7 @@ impl ParsedFile {
         let strict = self.js_ts_callable_is_strict(owner);
         let permits_duplicates = simple
             && !strict
-            && matches!(
-                owner.kind(),
-                "function_declaration"
-                    | "function_expression"
-                    | "generator_function_declaration"
-                    | "generator_function"
-            );
+            && matches!(owner.kind(), "function_declaration" | "function_expression");
         if !permits_duplicates {
             let mut names = std::collections::BTreeSet::new();
             if parameter_names.iter().any(|name| !names.insert(name)) {
@@ -184,13 +187,15 @@ impl ParsedFile {
 
     /// `<anon@LINE:COL>` (1-based line, 1-based byte column of the callable's
     /// first byte) for an unnamed JS/TS/TSX `arrow_function` or
-    /// `function_expression`. Two distinct callables never share a first byte.
+    /// `function_expression` / `generator_function`. Two distinct callables never share a first byte.
     pub fn js_ts_synthetic_callable_name(&self, func_node: &Node<'_>) -> Option<String> {
         if !matches!(
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
-        ) || !matches!(func_node.kind(), "arrow_function" | "function_expression")
-            || self.language.function_name(func_node).is_some()
+        ) || !matches!(
+            func_node.kind(),
+            "arrow_function" | "function_expression" | "generator_function"
+        ) || self.language.function_name(func_node).is_some()
         {
             return None;
         }
@@ -955,7 +960,7 @@ impl ParsedFile {
         }
     }
 
-    fn js_ts_decoded_identifier(text: &str) -> Option<String> {
+    pub(super) fn js_ts_decode_identifier_text(text: &str) -> Option<String> {
         let mut chars = text.chars();
         let mut decoded = String::new();
         while let Some(c) = chars.next() {
@@ -989,6 +994,11 @@ impl ParsedFile {
             }
             decoded.push(char::from_u32(u32::from_str_radix(&hex, 16).ok()?)?);
         }
+        Some(decoded)
+    }
+
+    fn js_ts_decoded_identifier(text: &str) -> Option<String> {
+        let decoded = Self::js_ts_decode_identifier_text(text)?;
         // Validate the decoded token with the same ECMAScript grammar: numeric,
         // punctuation, malformed escapes and surrogate values cannot bind a name.
         let mut parser = Parser::new();

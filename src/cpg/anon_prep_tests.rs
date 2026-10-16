@@ -10,7 +10,7 @@ fn injected_identity_drives_step1_bytes_and_step6_contains() {
         ParsedFile::parse("a.js", source, Language::JavaScript).unwrap(),
     )]);
     let parsed = &files["a.js"];
-    let mut cg = CallGraph::build(&files);
+    let cg = CallGraph::build(&files);
     let mut expected = BTreeMap::new();
     for node in parsed.all_functions() {
         let Some(id) = identity(parsed, &node, "a.js") else {
@@ -27,7 +27,6 @@ fn injected_identity_drives_step1_bytes_and_step6_contains() {
                 parsed.dfg_owner_name(&node).is_some(),
             ),
         );
-        cg.functions.entry(id.name.clone()).or_default().push(id);
     }
     assert_eq!(expected.len(), 3);
     let cpg = CodePropertyGraph::assemble_graph(cg, DataFlowGraph::build(&files), &files, None);

@@ -9,7 +9,7 @@ use crate::navigation::types::{QueryError, SymbolRef};
 use crate::reasoning::seeds::{self, SeedRole, SeedSpec};
 use std::sync::Arc;
 
-const ANON: &str = "<anon@2:21>";
+const ANON: &str = "<anon@2:18>";
 
 fn session_with(
     inject: impl FnOnce(&mut CodePropertyGraph),
@@ -73,7 +73,7 @@ fn enclosing_function_named_control_is_unchanged() {
                 .enclosing_function_including_anonymous(FILE, line)
                 .unwrap()
                 .1,
-            "outer"
+            if line == 2 { ANON } else { "outer" }
         );
     }
     assert!(s.index.enclosing_function(FILE, 9).is_none());

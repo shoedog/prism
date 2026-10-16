@@ -11,6 +11,25 @@ Each entry says:
 
 The variant matrix in `tests/fixtures/js_alias_matrix/` is the executable form of many entries. It holds one row per binding shape, each with an authored truth and today's verdict. Its `WRONG`, `OVERCLAIM` and `MISSING` rows are known gaps of this kind, and its README explains the verdicts.
 
+## Anonymous callers (lane A2 S2a)
+
+Calls inside unnamed arrows, function expressions and generators now have positional
+`<anon@LINE:COL>` owners. Calls already claimed by a named owner at the same byte
+span retain that owner, including class callbacks. Default enclosing-function seeds
+still select named owners. A callable with a recognized parameter early error keeps
+its call-graph node and has no DFG rows. Explicitly named generator expressions
+retain their earlier inventory behavior; generator declarations keep their existing
+owners. The new anonymous generator inventory does not change default enclosing
+seeds.
+
+Anonymous Exacts require source-backed binding and environment proof. Unsupported
+receiver/class, CommonJS, import-equals and script-global authority routes lose
+Exact; the named-owner resolution behavior described below is unchanged. Arrow `this`
+inheritance is S2b; anonymous invocation edges (including IIFEs), metadata and display
+labels are S3. The S1 duplicate named-claim extractor and S5 block-blind inherited
+locals remain unchanged; the latter can lose recall. Receiver/class recall costs
+and the build-time/RSS gate still require controller measurements.
+
 ## 1. What a called name is bound to
 
 prism resolves a bare call `f()` or element `<F />` by asking what the nearest binding of the name is (`src/ast/js_binding*.rs`).

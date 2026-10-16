@@ -492,7 +492,7 @@ fn nested_execution_owner_eager_and_own_callable_controls() {
     ] {
         assert!(kinds.contains(required), "missing {required}: {kinds:?}");
     }
-    assert!(!kinds.contains("generator_function"));
+    assert!(kinds.contains("generator_function"));
     fn tree_has_kind(node: Node<'_>, kind: &str) -> bool {
         if node.kind() == kind {
             return true;
@@ -619,30 +619,25 @@ fn nested_execution_owner_unindexed_and_recovery_refuse() {
         "function outer(){const hidden=function*(p=initDefault()){sinkNested(p);};use(hidden);}";
     let parsed = ParsedFile::parse("unindexed.js", source, Language::JavaScript).unwrap();
     let generator = first_kind(parsed.tree.root_node(), "generator_function").unwrap();
-    assert!(!parsed
+    assert!(parsed
         .all_functions()
         .iter()
-        .any(|node| byte_range_eq(node, &generator)));
+        .any(|n| byte_range_eq(n, &generator)));
     let lines = BTreeSet::from([1]);
-    assert!(parsed
-        .rvalue_identifiers_on_lines(&generator, &lines)
-        .is_empty());
-    assert!(parsed
-        .rvalue_identifier_paths_on_lines(&generator, &lines)
-        .is_empty());
-    assert!(parsed
-        .rvalue_identifier_spans_on_lines(&generator, &lines)
-        .is_empty());
+    let mut spans = parsed.rvalue_identifier_spans_on_lines(&generator, &lines);
+    assert!(spans.iter().any(|s| s.path.to_string() == "sinkNested"));
+    assert!(!spans.iter().any(|s| s.path.to_string() == "initDefault"));
     let mut manual_names = Vec::new();
     let mut manual_paths = Vec::new();
     let mut manual_spans = Vec::new();
     parsed.collect_rvalues_manual(generator, &lines, &mut manual_names);
     parsed.collect_rvalue_paths_manual(generator, &lines, &mut manual_paths);
     parsed.collect_rvalue_spans_manual(generator, &lines, &mut manual_spans);
-    assert_eq!(
-        (manual_names, manual_paths, manual_spans),
-        Default::default()
-    );
+    assert!(!manual_names.is_empty());
+    assert!(!manual_paths.is_empty());
+    manual_spans.sort_by_key(|s| s.start_byte);
+    spans.sort_by_key(|s| s.start_byte);
+    assert_eq!(manual_spans, spans);
 
     let root_spans = parsed.rvalue_identifier_spans_on_lines(&parsed.tree.root_node(), &lines);
     for retained in ["initDefault", "sinkNested"] {

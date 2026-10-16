@@ -127,7 +127,7 @@ Kiro names the tools **bare** (`nav_repo_map`), not `mcp__prism__*`.
 
 ## Tools
 
-Anonymous JS/TS callable DFG owners may appear as `<anon@LINE:COL>` in `taint_reaches` Variable.function and MCP Evidence variable descriptions. This is a DFG identity, not a callable symbol; use a file/line location for reasoning seeds and do not pass it to symbol callers/callees.
+Anonymous JS/TS callable owners may appear as `<anon@LINE:COL>` in callers/callees results, `taint_reaches` Variable.function and MCP Evidence variable descriptions. The identity uses a 1-based UTF-8 byte column. Symbol seeds reject it; file/line seeds select the enclosing named function. Anonymous invocation edges and contextual display labels remain follow-on work.
 The earlier spelling was `<cb@LINE:COL>`.
 
 The seven navigation tools plus `taint_reaches` are read-only. Six graph/evidence queries and

@@ -95,8 +95,8 @@
   ],
   "PD-11-cache-version-not-bumped": [
    "src/cpg_cache.rs",
+   "const CACHE_VERSION: u32 = 120;",
    "const CACHE_VERSION: u32 = 119;",
-   "const CACHE_VERSION: u32 = 118;",
    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
   ],
   "PD-12-rest-not-last-admitted": [
@@ -694,8 +694,8 @@
   ],
   "PD-95-r7-undefined-bound-name-off": [
    "src/ast_callback_identity.rs",
-   "fn js_ts_pattern_bound_names(&self, node: Node<'_>, names: &mut Vec<String>) {\n        match node.kind() {\n            \"identifier\"\n            | \"undefined\"",
-   "fn js_ts_pattern_bound_names(&self, node: Node<'_>, names: &mut Vec<String>) {\n        match node.kind() {\n            \"identifier\"",
+   "pub(super) fn js_ts_pattern_bound_names_with_decoder(\n        &self,\n        node: Node<'_>,\n        names: &mut Vec<String>,\n        decode: fn(&str) -> Option<String>,\n    ) {\n        match node.kind() {\n            \"identifier\"\n            | \"undefined\"",
+   "pub(super) fn js_ts_pattern_bound_names_with_decoder(\n        &self,\n        node: Node<'_>,\n        names: &mut Vec<String>,\n        decode: fn(&str) -> Option<String>,\n    ) {\n        match node.kind() {\n            \"identifier\"",
    [
     "cpg::callback_identity_tests::r7_undefined_bound_names_reject_only_real_early_errors",
     "cpg::callback_identity_tests::r7_undefined_seam_and_erased_simple_arguments_are_classified"
@@ -785,7 +785,7 @@
   ],
   "PD-106-r9-duplicate-function-kinds-off": [
    "src/ast_callback_identity.rs",
-   "        let permits_duplicates = simple\n            && !strict\n            && matches!(\n                owner.kind(),\n                \"function_declaration\"\n                    | \"function_expression\"\n                    | \"generator_function_declaration\"\n                    | \"generator_function\"\n            );\n",
+   "        let permits_duplicates = simple\n            && !strict\n            && matches!(owner.kind(), \"function_declaration\" | \"function_expression\");\n",
    "        let permits_duplicates = simple && !strict && owner.kind() == \"function_declaration\" && !self.node_text(owner).starts_with(\"async\");\n",
    [
     "cpg::callback_identity_tests::r9_duplicate_formals_follow_function_kind_and_strictness"

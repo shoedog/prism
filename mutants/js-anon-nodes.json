@@ -21,8 +21,8 @@
     "ANON-PREP-04-builder-helper-divergence": [
       "src/call_graph.rs",
       "        // Phase 1: Collect all function definitions\n        for (file_path, parsed) in files {\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                if let Some(func_id) =\n                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)\n                {\n",
-      "        // Phase 1: Collect all function definitions\n        for (file_path, parsed) in files {\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                if let Some(func_id) =\n                    crate::anon_owner::identity(parsed, &func_node, file_path)\n                {\n",
-      "call_graph::anon_prep_tests::identity_and_disabled_builders_agree"
+      "        // Phase 1: Collect all function definitions\n        for (file_path, parsed) in files {\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                if let Some(func_id) =\n                    crate::anon_owner::identity(parsed, &func_node, file_path).filter(|id| !crate::anon_owner::is_anonymous_owner_name(&id.name))\n                {\n",
+      "anon_owner::node_tests::builders_agree_including_same_line_and_parameter_early_errors"
     ],
     "ANON-PREP-05-strict-scope-off": [
       "src/anon_owner.rs",
@@ -49,22 +49,22 @@
       "cpg::build::anon_prep_tests::d12_refuses_registered_anonymous_sources_only"
     ],
     "ANON-PREP-09-generator-candidate-off": [
-      "src/anon_owner.rs",
-      "if include_generators\n",
-      "if false && include_generators\n",
-      "call_graph::anon_prep_tests::identity_and_disabled_builders_agree"
+      "src/queries.rs",
+      "                (generator_function !name) @func\n",
+      "",
+      "anon_owner::node_tests::generator_dfg_owns_formals_but_refuses_early_errors"
     ],
     "ANON-PREP-10-full-phase2": [
       "src/call_graph.rs",
       "                for func_node in crate::anon_owner::owner_nodes(parsed) {\n                    let Some(caller_id) =\n                        crate::anon_owner::emitted_identity(parsed, &func_node, file_path)\n",
-      "                for func_node in crate::anon_owner::owner_nodes(parsed) {\n                    let Some(caller_id) =\n                        crate::anon_owner::identity(parsed, &func_node, file_path)\n",
-      "call_graph::anon_prep_tests::identity_and_disabled_builders_agree"
+      "                for func_node in crate::anon_owner::owner_nodes(parsed) {\n                    let Some(caller_id) =\n                        crate::anon_owner::identity(parsed, &func_node, file_path).filter(|id| !crate::anon_owner::is_anonymous_owner_name(&id.name))\n",
+      "anon_owner::node_tests::builders_agree_including_same_line_and_parameter_early_errors"
     ],
     "ANON-PREP-11-subset-phase2": [
       "src/call_graph.rs",
       "        // Phase 2: Find call sites from subset.\n        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =\n            BTreeMap::new();\n        for (file_path, parsed) in files {\n            if !only_files.contains(file_path) {\n                continue;\n            }\n            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();\n            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);\n            let named_claims =\n                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);\n            let mut binding_cache = crate::ast::JsBindingCache::for_sites();\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                let Some(caller_id) =\n                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)\n",
-      "        // Phase 2: Find call sites from subset.\n        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =\n            BTreeMap::new();\n        for (file_path, parsed) in files {\n            if !only_files.contains(file_path) {\n                continue;\n            }\n            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();\n            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);\n            let named_claims =\n                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);\n            let mut binding_cache = crate::ast::JsBindingCache::for_sites();\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                let Some(caller_id) =\n                    crate::anon_owner::identity(parsed, &func_node, file_path)\n",
-      "call_graph::anon_prep_tests::identity_and_disabled_builders_agree"
+      "        // Phase 2: Find call sites from subset.\n        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =\n            BTreeMap::new();\n        for (file_path, parsed) in files {\n            if !only_files.contains(file_path) {\n                continue;\n            }\n            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();\n            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);\n            let named_claims =\n                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);\n            let mut binding_cache = crate::ast::JsBindingCache::for_sites();\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                let Some(caller_id) =\n                    crate::anon_owner::identity(parsed, &func_node, file_path).filter(|id| !crate::anon_owner::is_anonymous_owner_name(&id.name))\n",
+      "anon_owner::node_tests::builders_agree_including_same_line_and_parameter_early_errors"
     ],
     "ANON-PREP-12-named-shadow-return-off": [
       "src/anon_owner.rs",
@@ -182,14 +182,105 @@
     ],
     "ANON-BARRIER-31-computed-eval-name-off": [
       "src/ast/js_anonymous.rs",
-      "self.anonymous_eval_index(i)",
+      "self.anonymous_eval_index(n, i, &mut cache)",
       "i.kind() == \"string\" && self.js_ts_module_export_name(i).as_deref() == Some(\"eval\")",
       "call_graph::anon_prep_tests::barrier_tests::static_eval_member_spellings_are_all_vetoed"
+    ],
+    "ANON-ENABLE-32-emission-off": [
+      "src/anon_owner.rs",
+      "EMIT_ANONYMOUS_OWNERS: bool = true",
+      "EMIT_ANONYMOUS_OWNERS: bool = false",
+      "anon_owner::node_tests::enable_tests::enabled_callers_include_anonymous_but_shadowed_sibling_drops"
+    ],
+    "ANON-ENABLE-33-fallback-A-bypass": [
+      "src/anon_owner.rs",
+      "!claims.contains(&(start, end)) && parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "anon_owner::node_tests::nested_field_callbacks_are_strict_but_class_methods_keep_a1"
+    ],
+    "ANON-ENABLE-34-generator-dfg-off": [
+      "src/ast_callback_identity.rs",
+      "\"arrow_function\" | \"function_expression\" | \"generator_function\"",
+      "\"arrow_function\" | \"function_expression\"",
+      "anon_owner::node_tests::generator_dfg_owns_formals_but_refuses_early_errors"
+    ],
+    "ANON-ENABLE-35-cache-load-proof-off": [
+      "src/call_graph.rs",
+      "/// Source-backed anonymous proof evidence; partial builds refresh it from all current files.\n    #[serde(default)]",
+      "/// Source-backed anonymous proof evidence; partial builds refresh it from all current files.\n    #[serde(skip)]",
+      "anon_owner::node_tests::enable_tests::anonymous_cold_full_and_partial_cache_hits_are_byte_identical"
+    ],
+    "ANON-ENABLE-36-bytes-by-name": [
+      "src/anon_owner.rs",
+      "node_for_id(parsed, id).map(|n| (n.start_byte(), n.end_byte()))",
+      "parsed.functions().iter().find(|f| f.name.as_deref() == Some(id.name.as_str())).map(|f| (f.start_byte, f.end_byte))",
+      "anon_owner::node_tests::anonymous_bytes_and_dfg_contains_are_exact"
+    ],
+    "ANON-ENABLE-37-d12-registration-off": [
+      "src/cpg/build.rs",
+      "&& !registered.contains_key(&owner)",
+      "&& true",
+      "anon_owner::node_tests::enable_tests::d12_registered_bare_and_rest_lose_cfg_incomplete_edges_with_parenthesized_control"
+    ],
+    "ANON-ENABLE-38-manual-generator-off": [
+      "src/ast/js_anonymous.rs",
+      "|| self.js_ts_synthetic_callable_name(node).is_some()",
+      "|| false",
+      "anon_owner::node_tests::enable_tests::generator_inventory_preserves_named_claims_and_legacy_enclosing_seeds"
+    ],
+    "ANON-ENABLE-39-generator-default-seed-change": [
+      "src/languages/mod.rs",
+      "                \"generator_function_declaration\",\n",
+      "                \"generator_function_declaration\",\n                \"generator_function\",\n",
+      "anon_owner::node_tests::enable_tests::generator_inventory_preserves_named_claims_and_legacy_enclosing_seeds"
+    ],
+    "ANON-ENABLE-40-generator-formal-refusal-off": [
+      "src/ast_callback_identity.rs",
+      "            || self.js_ts_generator_formals_refused(func_node)\n",
+      "",
+      "anon_owner::node_tests::enable_tests::generator_formals_refuse_suspension_and_reserved_names_but_keep_nested_values"
+    ],
+    "ANON-ENABLE-41-generator-nested-default-veto": [
+      "src/ast/js_generator.rs",
+      "if node.id() != params.id() && boundaries.contains(&node.kind()) {",
+      "if false && node.id() != params.id() && boundaries.contains(&node.kind()) {",
+      "anon_owner::node_tests::enable_tests::generator_formals_refuse_suspension_and_reserved_names_but_keep_nested_values"
+    ],
+    "ANON-ENABLE-42-generator-async-await-name-off": [
+      "src/ast/js_generator.rs",
+      "name == \"yield\" || (async_ && name == \"await\")",
+      "name == \"yield\"",
+      "anon_owner::node_tests::enable_tests::generator_formals_refuse_suspension_and_reserved_names_but_keep_nested_values"
+    ],
+    "ANON-ENABLE-43-unknown-computed-safe": [
+      "src/ast/js_anonymous.rs",
+      "None => member\n                .child_by_field_name(\"object\")\n                .is_some_and(|object| self.anonymous_global_receiver(object, cache))",
+      "None => false",
+      "anon_owner::node_tests::eval_tests::computed_eval_unknown_name_loses_exact"
+    ],
+    "ANON-ENABLE-44-subset-proof-build-off": [
+      "src/call_graph.rs",
+      "            js_anonymous: crate::js_anonymous::ProofIndex::build(files),\n            js_ts_return_facts,\n            // P5: whole-program Go func-value state \u2014 left empty here, exactly",
+      "            js_anonymous: crate::js_anonymous::ProofIndex::default(),\n            js_ts_return_facts,\n            // P5: whole-program Go func-value state \u2014 left empty here, exactly",
+      "anon_owner::node_tests::enable_tests::anonymous_cold_full_and_partial_cache_hits_are_byte_identical"
+    ],
+    "ANON-ENABLE-45-program-host-var-shadowed": [
+      "src/ast/js_anonymous.rs",
+      "if scope.kind() != \"program\" {\n            return true;\n        }",
+      "if true {\n            return true;\n        }",
+      "anon_owner::node_tests::eval_tests::computed_host_program_var_and_ambient_declarations_are_not_shadows"
+    ],
+    "ANON-ENABLE-46-ambient-host-shadowed": [
+      "src/ast/js_anonymous.rs",
+      "if node.kind() == \"ambient_declaration\" {",
+      "if false && node.kind() == \"ambient_declaration\" {",
+      "anon_owner::node_tests::eval_tests::computed_host_program_var_and_ambient_declarations_are_not_shadows"
     ]
   },
   "lib_test_prefixes": [
     "call_graph::anon_prep_tests::",
-    "cpg::build::anon_prep_tests::"
+    "cpg::build::anon_prep_tests::",
+    "anon_owner::node_tests::"
   ],
   "extra": {
     "ANON-BARRIER-16-B0-off": [
@@ -206,5 +297,11 @@
         "Some(Pos::Inside) if false => return false,"
       ]
     ]
+  },
+  "intent_revisions": {
+    "ANON-PREP-04-builder-helper-divergence": "S2a-enable retires emission-off expectation; mutant now suppresses emitted owners in this builder.",
+    "ANON-PREP-10-full-phase2": "S2a-enable retires emission-off expectation; mutant now suppresses emitted owners in this builder.",
+    "ANON-PREP-11-subset-phase2": "S2a-enable retires emission-off expectation; mutant now suppresses emitted owners in this builder.",
+    "ANON-PREP-09-generator-candidate-off": "Generators enter eager query inventory; disabling that query must lose generator DFG enumeration."
   }
 }

@@ -324,7 +324,7 @@ fn import_and_namespace_export_dependencies_require_clean_source_spans() {
         .all(|r| r.confidence != Exact));
 }
 #[test]
-fn uncertified_multiple_candidates_drop_and_cache_load_fails_closed() {
+fn uncertified_multiple_candidates_drop_and_cache_load_preserves_proof() {
     let (graph, site) = fixture("import {f} from './lib'; sink(()=>{/*T*/f();});", LIB);
     let candidate = || ResolvedCallee {
         target: &graph.functions["f"][0],
@@ -339,7 +339,12 @@ fn uncertified_multiple_candidates_drop_and_cache_load_fails_closed() {
     assert!(out.drop.is_some());
     let bytes = bincode::serialize(&graph).unwrap();
     let loaded: CallGraph = bincode::deserialize(&bytes).unwrap();
-    assert!(loaded
+    let resolved = loaded.resolve_call_site_full(&site);
+    assert_eq!(resolved.resolved.len(), 1);
+    assert_eq!(resolved.resolved[0].confidence, Exact);
+    let mut missing = loaded.clone();
+    missing.js_anonymous = Default::default();
+    assert!(missing
         .resolve_call_site_full(&site)
         .resolved
         .iter()

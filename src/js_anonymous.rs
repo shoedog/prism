@@ -1,8 +1,9 @@
 //! S2a-prep: the single fail-closed Exact admission boundary for anonymous JS owners.
-//! Evidence is build-local, source-backed, and deliberately absent from persisted payloads.
+//! Source-backed proof facts persist with the content-validated graph; certificates are issued per resolution.
 use crate::ast::{JsBindingCache, ParsedFile};
 use crate::call_graph::{CallGraph, CallSite, FunctionId, ImportBinding, JsLocalBinding};
 use crate::resolution::{ResolutionConfidence, ResolutionOutcome};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 type Span = (usize, usize);
@@ -20,7 +21,7 @@ impl Environment {
         !self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct ImportEvidence {
     pub declaration: Span,
     pub binding: ImportBinding,
@@ -34,20 +35,20 @@ impl ImportEvidence {
             && self.binding.kind == binding.kind
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct BindingEvidence {
     binding: JsLocalBinding,
     dependencies_supported: bool,
     imports: Vec<ImportEvidence>,
 }
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct FileProofs {
     program_supported: bool,
     owners: BTreeMap<FunctionId, bool>,
     sites: BTreeMap<Span, BindingEvidence>,
     returns: BTreeMap<FunctionId, (bool, Vec<ImportEvidence>)>,
 }
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct ProofIndex(BTreeMap<String, FileProofs>);
 
 impl ProofIndex {

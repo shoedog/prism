@@ -25,11 +25,10 @@ fn anonymous(cg: &CallGraph) -> BTreeSet<FunctionId> {
 }
 
 #[test]
-#[ignore = "S2a-enable"]
 fn builders_agree_including_same_line_and_parameter_early_errors() {
     for ext in ["js", "ts", "tsx"] {
         let files = files(
-            "function outer() { sink(() => 1, function() {}, function* () {}); sink((x,x) => x); }",
+            "function outer() { sink(() => hit(), function() { hit(); }, function* () { hit(); }); sink((x,x) => hit()); }",
             ext,
         );
         let full = CallGraph::build(&files);
@@ -42,6 +41,30 @@ fn builders_agree_including_same_line_and_parameter_early_errors() {
                 &files.keys().cloned().collect()
             )),
             expected
+        );
+        let records = |g: &CallGraph| -> BTreeSet<_> {
+            g.calls
+                .values()
+                .flatten()
+                .map(|s| {
+                    (
+                        s.caller.clone(),
+                        s.callee_name.clone(),
+                        s.line,
+                        s.start_byte,
+                        s.end_byte,
+                    )
+                })
+                .collect()
+        };
+        let want = records(&full);
+        assert_eq!(records(&CallGraph::build_skeleton(&files)), want);
+        assert_eq!(
+            records(&CallGraph::build_direct_subset(
+                &files,
+                &files.keys().cloned().collect()
+            )),
+            want
         );
         assert!(anonymous(&CallGraph::build_direct_subset(&files, &BTreeSet::new())).is_empty());
         let cpg = CodePropertyGraph::build(&files);
@@ -74,7 +97,6 @@ fn builders_agree_including_same_line_and_parameter_early_errors() {
 }
 
 #[test]
-#[ignore = "S2a-enable"]
 fn nested_field_callbacks_are_strict_but_class_methods_keep_a1() {
     let src = "function f() {}\nclass C {\n run() { sink(() => { f(); sink(() => f()); }); }\n field = wrap(() => { f(); sink(() => f()); });\n}\nfunction outer() { sink(() => f()); }\n";
     let files = files(src, "js");
@@ -113,7 +135,6 @@ fn nested_field_callbacks_are_strict_but_class_methods_keep_a1() {
 }
 
 #[test]
-#[ignore = "S2a-enable"]
 fn lexical_chain_shadows_imports_and_decoys_without_poisoning_siblings() {
     let source = "import { f } from './lib';\nfunction outer(decoy) { sink(() => { sink((f) => f()); sink(() => decoy()); }); }\nfunction clean() { sink(() => f()); }\n";
     let mut files = files(source, "ts");
@@ -147,7 +168,6 @@ fn lexical_chain_shadows_imports_and_decoys_without_poisoning_siblings() {
 }
 
 #[test]
-#[ignore = "S2a-enable"]
 fn anonymous_bytes_and_dfg_contains_are_exact() {
     let source = "function outer() { sink((x) => x + 1, function* (p) { yield p; }); }";
     let files = files(source, "js");
@@ -188,7 +208,6 @@ fn anonymous_bytes_and_dfg_contains_are_exact() {
 }
 
 #[test]
-#[ignore = "S2a-enable"]
 fn generator_dfg_owns_formals_but_refuses_early_errors() {
     for ext in ["js", "ts", "tsx"] {
         let files = files("sink(function* (p) { yield p; sink(() => p); });\nsink(function* (p,p) { 'use strict'; yield p; });", ext);
@@ -218,7 +237,6 @@ fn generator_dfg_owns_formals_but_refuses_early_errors() {
 }
 
 #[test]
-#[ignore = "S2a-enable"]
 fn arrow_this_stays_dropped_without_lexical_method_inheritance() {
     let cg = CallGraph::build(&files(
         "class C { m() {} field = wrap(() => this.m()); }",
@@ -277,3 +295,9 @@ fn base_legacy_inventory_also_claims_field_callbacks() {
     }
     assert_eq!(overlaps, 2);
 }
+
+#[path = "anon_enable_tests.rs"]
+mod enable_tests;
+
+#[path = "anon_eval_tests.rs"]
+mod eval_tests;

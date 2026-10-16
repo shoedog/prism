@@ -107,7 +107,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 //      redundant path segments (CPG v115).
 // v64: slice L follows JS/TS `const` aliases (CPG v116).
 // v65: slice V follows a value another in-repo function returned (CPG v117).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 65;
+// v66: lane A2 S2a anonymous call-owner nodes and certified call edges (CPG v120).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 66;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 pub(crate) const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -732,7 +733,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 65);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 66);
     }
 
     #[test]
