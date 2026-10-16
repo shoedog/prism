@@ -77,6 +77,7 @@ pub fn run_daemon(options: DaemonOptions) -> anyhow::Result<()> {
         root_fs: identity.root_fs(),
         pid,
         start_time,
+        build_identity: identity.build().cache_build_identity.clone(),
     };
     let options = ServeOptions {
         max_clients: options.max_clients,

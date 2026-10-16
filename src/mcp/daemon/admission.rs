@@ -35,9 +35,31 @@ pub(super) enum Admit {
     Retiring,
 }
 
-/// The connection counts, for tests and the status probe.
+/// What a control request is answered (spec §4.7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))] // read by tests until S5b's status probe
+pub(super) enum Control {
+    /// The daemon's state, read in the critical section in which the request left the counts.
+    Status(ControlSnapshot),
+    /// The daemon drains: answer `RETIRING`. Nothing was recorded.
+    Retiring,
+}
+
+/// The control plane's half of a status reply.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct ControlSnapshot {
+    pub(super) build: BuildStatus,
+    /// Admitted and pending connections, the request itself not counted.
+    pub(super) admitted: u32,
+    pub(super) pending: u32,
+    /// How long nothing has been admitted or pending; `None` while something is.
+    pub(super) idle_for: Option<Duration>,
+    /// Whether a shutdown has been requested, by this request or an earlier one.
+    pub(super) shutdown: bool,
+}
+
+/// The connection counts, for tests.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))] // read by tests only
 pub(super) struct AdmissionStatus {
     pub(super) pending: u32,
     pub(super) admitted: u32,
@@ -75,9 +97,7 @@ impl DaemonState {
         let now = self.now();
         let admission = &mut control.admission;
         admission.pending = admission.pending.saturating_sub(1);
-        if admission.pending == 0 && admission.admitted == 0 {
-            admission.idle_since = Some(now);
-        }
+        admission.left(now);
         Ok(())
     }
 
@@ -94,9 +114,7 @@ impl DaemonState {
         let admission = &mut control.admission;
         admission.pending = admission.pending.saturating_sub(1);
         if admission.draining.is_some() {
-            if admission.pending == 0 && admission.admitted == 0 {
-                admission.idle_since = Some(now);
-            }
+            admission.left(now);
             return Ok(Admit::Retiring);
         }
         admission.admitted = admission.admitted.saturating_add(1);
@@ -113,16 +131,16 @@ impl DaemonState {
         let now = self.now();
         let admission = &mut control.admission;
         admission.admitted = admission.admitted.saturating_sub(1);
-        if admission.pending == 0 && admission.admitted == 0 {
-            admission.idle_since = Some(now);
-        }
+        admission.left(now);
         Ok(())
     }
 
     /// The retirement decision (spec §4.2): if nothing has been admitted or pending for
     /// `idle_ttl` and no build is running, the daemon drains from now on, and `unlink` (the
-    /// socket's removal) runs inside the same critical section. Returns why the daemon drains,
-    /// if it does, whether it started now or earlier.
+    /// socket's removal) runs inside the same critical section. An operator's shutdown request
+    /// drains it as soon as nothing is admitted or pending, whatever the TTL and a running build
+    /// (spec §4.7, D100). Returns why the daemon drains, if it does, whether it started now or
+    /// earlier.
     pub(super) fn retire_if_idle(
         &self,
         idle_ttl: Duration,
@@ -139,7 +157,13 @@ impl DaemonState {
         if admission.pending != 0 || admission.admitted != 0 {
             return Ok(None);
         }
+        if admission.shutdown {
+            admission.draining = Some(StopReason::Shutdown);
+            unlink();
+            return Ok(Some(StopReason::Shutdown));
+        }
         let since = *admission.idle_since.get_or_insert(now);
+        admission.quiet_since.get_or_insert(since);
         if now.saturating_duration_since(since) < idle_ttl
             || matches!(control.build, BuildPhase::Building { .. })
         {
@@ -178,7 +202,40 @@ impl DaemonState {
             .and_then(|since| since.checked_add(idle_ttl)))
     }
 
-    #[cfg_attr(not(test), allow(dead_code))] // read by tests until S5b's status probe
+    /// A pending connection whose line was a control request leaves the handshake stage as if it
+    /// had never been counted: if nothing is left pending or admitted, the idle time is the one
+    /// it found (`quiet_since`), so an operator's probe does not keep an idle daemon up (S4's
+    /// interface for S5b). With `shutdown`, the daemon drains once nothing is admitted or pending
+    /// (D100). Unless the daemon drains already, the answer is its state, read in the same
+    /// critical section, after the request has left the counts.
+    pub(super) fn control_exchange(&self, shutdown: bool) -> Result<Control, Poisoned> {
+        let mut control = self.control_plane()?;
+        // Read inside the critical section, as every admission function does (review round 1).
+        let now = self.now();
+        let build = control.build_status();
+        let admission = &mut control.admission;
+        admission.pending = admission.pending.saturating_sub(1);
+        let idle = admission.pending == 0 && admission.admitted == 0;
+        if idle {
+            admission.idle_since = admission.quiet_since;
+        }
+        if admission.draining.is_some() {
+            return Ok(Control::Retiring);
+        }
+        admission.shutdown |= shutdown;
+        Ok(Control::Status(ControlSnapshot {
+            build,
+            admitted: admission.admitted,
+            pending: admission.pending,
+            idle_for: admission
+                .idle_since
+                .filter(|_| idle)
+                .map(|since| now.saturating_duration_since(since)),
+            shutdown: admission.shutdown,
+        }))
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))] // read by tests only
     pub(super) fn admission_status(&self) -> Result<AdmissionStatus, Poisoned> {
         let control = self.control_plane()?;
         Ok(AdmissionStatus {
@@ -218,3 +275,7 @@ impl DaemonState {
 #[cfg(test)]
 #[path = "admission_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "admission_control_tests.rs"]
+mod control_tests;
