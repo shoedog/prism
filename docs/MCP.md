@@ -67,6 +67,8 @@ prism-mcp --repo /abs/path/to/repo --eager < /dev/null               # build syn
 | `--eager` | no | Build the repository index before answering `initialize`, preserving the historical synchronous startup. Use for explicit pre-warming; normally leave it off. |
 | `--warm-at-startup` | no | Start the background index build when the process starts instead of on the first valid `tools/call`. Trades memory for a warm first call; every process that uses it holds the full index whether or not a tool is ever called. Conflicts with `--eager`. |
 | `--first-call-wait <SECS>` | no | Maximum wait for the first valid `tools/call` while the background build finishes (default `20`, range `0`–`600`). `0` returns a warming result immediately. Accepted but ignored with `--eager`. |
+| `--shared` | no | Serve through the shared per-repository daemon (a shim of a few MB) instead of an index of this process's own; opt-in. See [Shared daemon](#shared-daemon---shared-opt-in-macos-and-linux). |
+| `--standalone` | no | An index of this process's own (the default). |
 
 > **The first index build warms a cache.** A cold whole-repo CPG build can take ~30 s on a large repo;
 > later builds on an unchanged tree are near-instant (the cache is keyed by the canonical repo path + a
@@ -197,6 +199,8 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span` 
 | `PRISM_MCP_MAX_RESULT_CHARS` | `80000` | Wire byte cap per tool result (floor `12000`). |
 | `PRISM_MCP_STRUCTURED_CONTENT` | `omit-default-path` | `omit-default-path` (the default) drops `structuredContent` from the wire on the default (`canonical_json`) path — `content[0].text` already carries the identical JSON, so nothing is lost, only a redundant second copy (~31% of the result). Agent views (`format: agent_markdown` / `agent_json`) always keep `structuredContent`; it is their only canonical-Evidence carrier once `content_text` has been rewritten into prose. `always` opts back into repeating canonical Evidence in both `content[0].text` and `structuredContent` (the pre-2026-07-03 shape) for clients that read only `structuredContent`. |
 | `PRISM_MCP_CONCISE_SHAPE` | `slim` | Shape of items in `Verbosity::Concise` results (Concise is the MCP default when a tool call omits `verbosity`). `slim` (the default) drops each item's `symbol` byte-offset/`ordinal` fields, drops the separate `location` field when it duplicates the symbol's file/line span, and omits `snippet` when null (instead of serializing `"snippet": null`). `Verbosity::Detailed` and agent views are never affected. `legacy` opts back into the pre-2026-07-03 item shape, byte-identical to historical output. |
+| `PRISM_MCP_RUNTIME_DIR` | the user runtime or temporary directory | Base of the shared daemon's runtime directory (`<base>/prism-mcpd`). Every launcher that should share a daemon must resolve the same one. |
+| `PRISM_MCP_SHARED` | unset | Read by the plugin's launcher (`scripts/prism-mcp-launch.sh`), not by `prism-mcp`: `1` adds `--shared`; unset, empty or `0` adds nothing; any other value stops the launcher. |
 
 The `slim` transform only touches `items`; it never reaches graph-carried results —
 `nav_ego_graph` / `nav_repo_map` payloads live under `graph`, untouched by design.
@@ -211,6 +215,182 @@ call with both flips combined (correct answer). Set the `always`/`legacy` values
 the pre-flip wire shapes. The `initialize` response's `instructions` field states the
 snapshot-freshness and agent-view notices once for the whole session; each tool description keeps
 only a one-line pointer to it.
+
+## Shared daemon (`--shared`, opt-in; macOS and Linux)
+
+Every MCP client process starts its own `prism-mcp`, and every one that answers a tool call holds the
+whole index (1–3 GiB on a mid-size repository). Codex starts one per thread and the a2a-bridge fans out
+reviewers, so a busy host can hold dozens of copies of one index. With `--shared` the process is
+instead a **shim** of a few MB: it connects to one **daemon** per repository checkout (more exactly, per
+checkout, prism build, cache directory and refresh policy), starting it if none is running, and passes
+the MCP session through byte for byte. The daemon builds the index on the first tool call from any
+client, serves every client from it, and exits 15 minutes after its last client has gone.
+
+The default is still today's in-process server (`--standalone`). `--shared` is opt-in until a soak has
+shown it holds under real fan-out.
+
+### Opting in
+
+- **Claude Code plugin:** set `PRISM_MCP_SHARED=1` in the environment Claude Code starts from (your
+  shell profile). The plugin's launcher then adds `--shared`. Unset, empty or `0` changes nothing; any
+  other value makes the launcher refuse to start the server, naming the variable, so that a typo never
+  decides silently which mode a session gets. An explicit `--shared` or `--standalone` in the
+  arguments wins over a valid value; a value the launcher does not accept is refused even then
+  (the variable is checked first).
+- **Manual Claude Code, Codex, Kiro:** add `"--shared"` to the server's arguments, for example in Codex:
+
+  ```toml
+  [mcp_servers.prism]
+  command = "/abs/path/to/prism/target/release/prism-mcp"
+  args = ["--repo", "/abs/path/to/your/repo", "--shared"]
+  env = { PRISM_MCP_RUNTIME_DIR = "/tmp" }
+  ```
+
+  (`/tmp` suits a host with one user. On a shared host give each user a directory of their own,
+  for example `$XDG_RUNTIME_DIR` or one under the home directory, in this example and the next.)
+- **a2a-bridge:** add `"--shared"` to the `[[agents.mcp]]` arguments and set the runtime directory
+  explicitly, so that every agent and your own shell agree on it:
+
+  ```toml
+  [[agents.mcp]]
+  name = "prism"
+  command = "/abs/path/to/prism/target/release/prism-mcp"
+  args = ["--repo", "{cwd}", "--shared"]
+  [[agents.mcp.env]]
+  name = "PRISM_MCP_RUNTIME_DIR"
+  value = "/tmp"
+  ```
+
+  Agents share a daemon only when their `--repo` resolves to the same checkout: each clone or worktree
+  an implementer works in has a daemon of its own. A containerized agent has a daemon of its own
+  inside its container; `--shared` saves nothing for a container that runs one agent.
+
+`--shared` needs the nav cache and a lazy start: with `--no-cache`, `--eager` or `--owner-*` it is a
+command-line error, never a quiet fallback.
+
+### Every launcher must agree on the runtime directory, cache directory and refresh policy
+
+The daemon's socket, locks, pid file and log live in `<runtime>/prism-mcpd/`, where `<runtime>` is
+`$PRISM_MCP_RUNTIME_DIR` if set, else `$XDG_RUNTIME_DIR` (Linux), else the temporary directory
+(`$TMPDIR` on macOS, `/tmp` on Linux). Two clients share a daemon only when they resolve the same
+directory **and** pass the same `--cache-dir` (or none) and `--refresh-policy`, with the same prism
+build. Claude Code passes its whole environment to the server, so its sessions use `$TMPDIR`; other
+clients may start servers with a reduced environment. To be sure, set `PRISM_MCP_RUNTIME_DIR` to one
+value in every launcher (and in the shell you run `daemon-status` from). A client that resolves
+another directory does not fail: it starts a second daemon, with a second copy of the index.
+
+The directory must be yours and private: owned by you, mode 0700, no access control list, and nothing
+on its path that another user could replace. Two traps:
+
+- `/tmp/prism-mcpd` is one name for every user of a Linux host without `$XDG_RUNTIME_DIR`; the second
+  user's shims fail closed with a message naming `PRISM_MCP_RUNTIME_DIR`. Set it per user there.
+- A `sudo -E prism-mcp --shared …` keeps your `PRISM_MCP_RUNTIME_DIR` or `$TMPDIR` and creates
+  `prism-mcpd` owned by root; your own shims then fail closed ("owned by uid 0"). Remove that
+  directory with `sudo rm -r`.
+
+The socket path must fit in 103 bytes; a long `PRISM_MCP_RUNTIME_DIR` fails closed saying so.
+
+### Flags
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--shared` / `--standalone` | `--standalone` | Shim of the shared daemon / an index of this process's own. |
+| `--daemon-start-timeout <SECS>` | `10` (1–600) | The one deadline for reaching a ready daemon, starting it included. |
+| `--idle-ttl <SECS>` | `900` (1–86400) | Idle time before a daemon retires. **Only for a daemon this shim starts**; a shim that reaches a running daemon ignores it, silently. |
+| `--max-clients <N>` | `64` (1–4096) | Connections a daemon admits at once. Same rule as `--idle-ttl`. |
+| `--warm-at-startup` | off | Passed to a daemon this shim starts (it builds at once); otherwise ignored. |
+| `--first-call-wait`, `PRISM_MCP_STRUCTURED_CONTENT`, `PRISM_MCP_CONCISE_SHAPE`, `PRISM_MCP_MAX_RESULT_CHARS` | as standalone | Per connection: each shim's own values apply to its own session. |
+
+### What changes for a client
+
+- **One index for everyone.** A `refresh_index` from one client changes what every client sees next,
+  generation included; stale-index warnings and their evidence are the daemon's, not the session's.
+- **One build.** The first tool call from any client starts the build, and every client waits on that
+  build. While it runs a call is answered with a retryable result, as standalone: `status` `warming`,
+  `_meta` `prism/retryable: true` and `prism/index_state: "warming"`; a failed build is
+  `status: "build_failed"` with its `cause` and `prism/index_state: "failed"`, and the next call
+  retries it. The daemon adds one answer of its own: `status: "indexing"` with `retry_after_secs: 5`,
+  for a call whose own build attempt failed while a later attempt is already building; retry after
+  that many seconds, or ignore it if a retry already succeeded.
+- **The shim says which daemon it reached**, on its standard error:
+  `prism-mcp: shared daemon pid <pid> (started <epoch seconds>, generation <g>) at <socket>`.
+- **A session ends with its daemon.** If the daemon stops while a client is attached (a termination
+  signal, its repository root removed or replaced, its runtime files replaced, or a crash), the shim
+  exits 1 with `prism-mcp: the shared daemon closed the connection (shared daemon pid <pid>); this
+  session cannot continue, …`; it never reconnects once MCP bytes have flowed. Restart the client's
+  MCP server (in Claude Code, `/mcp`); the next shim starts a fresh daemon.
+- **A crash ends every attached session.** A panic in a query, a refresh, the build or the daemon's
+  control plane aborts the daemon (macOS writes a crash report,
+  `~/Library/Logs/DiagnosticReports/prism-mcp-<date>.ips`, for each). If the daemon died during its
+  index build, shims of that configuration fail closed for 60 s from when the first of them noticed,
+  rather than start a daemon per shim that would die the same way; the minute is counted on the system
+  clock, so a clock set back after the sighting lengthens it.
+
+### When a shim fails closed
+
+A shim that cannot reach a ready daemon by its deadline never builds a private index (under fan-out,
+that is the memory incident this mode exists to prevent). It prints one line and exits 1:
+
+`prism-mcp: --shared failed closed, no index was built: <reason>; key <64 hex>; runtime dir <dir>; socket <path>; pid file <contents>; log <path>; to run without the shared daemon: <the --standalone command>`
+
+| Reason begins | What to do |
+|---|---|
+| `runtime directory … is owned by uid …`, `has mode …`, `could be replaced by another user`, `has an access control list` | Fix the directory as the message says, or set `PRISM_MCP_RUNTIME_DIR` to a directory of your own. |
+| `daemon socket path … is … bytes` | A shorter `PRISM_MCP_RUNTIME_DIR` (the path can be at most 103 bytes). |
+| `the daemon answered BUSY` | More clients than `--max-clients`. Stop the daemon (`daemon-shutdown` or `kill -TERM`) and let a shim with a higher `--max-clients` start the next. |
+| `the daemon answered MISMATCH`, `READY for another identity` | A daemon of another build or configuration answers at this key's socket; see `daemon-status`. |
+| `the socket's peer is uid …` | Another user's process holds the socket. Nothing was sent to it. |
+| `no daemon answered READY before the deadline`, `another shim held the start lock` | The daemon is slow to start or wedged: read its log (the line names it); raise `--daemon-start-timeout`; a wedged daemon is named by its pid file, stop it with `kill -TERM <pid>`. |
+| `the daemon this shim started, pid …, ended before READY`, `cannot start the daemon` | Read the log. After a rebuild of prism, a shim started from the old binary cannot start a daemon (on macOS the new binary computes another key and refuses; on Linux the old file is gone): restart the client. |
+| `the last daemon for this key … died during its index build` | Wait out the minute and read the log for the build's failure. |
+
+### Operating daemons: `daemon-status`, `daemon-shutdown`
+
+```bash
+prism-mcp daemon-status [--repo R [--cache-dir D] [--refresh-policy P]] [--runtime-dir BASE] [--timeout S]
+prism-mcp daemon-shutdown --repo R [--cache-dir D] [--refresh-policy P] [--runtime-dir BASE] [--pid N --start-time T] [--timeout S]
+```
+
+`--runtime-dir` is the base, as `PRISM_MCP_RUNTIME_DIR` gives it (the files are in its `prism-mcpd`);
+without it both commands resolve the directory as a shim does. `--repo` with `--cache-dir` and
+`--refresh-policy` names this build's daemon of that configuration.
+
+- **`daemon-status`** prints the runtime directory, then for each daemon its key, repository,
+  build, pid, start time, admitted and pending clients, build state, generation and idle time; a
+  daemon that does not answer, through its locks ("alive but not answering", "being started"); what a
+  dead daemon left; and in one line the keys that hold nothing but lock files and logs. It reads and
+  removes nothing, and asking does not keep a daemon of this build alive. It exits 1 when some key
+  could not be looked at.
+- **`daemon-shutdown`** asks one daemon to drain once it has no client left. It never disconnects a
+  client, and the daemon keeps admitting new clients until its count reaches 0. Exit 0: that
+  instance no longer serves the key, or it has accepted and will drain after its clients (the
+  message says how many), or it drained. Exit 1: it could not ask (alive but not accepting
+  connections, at its client limit, silent), the reply to the request was lost (it may have been
+  recorded, and cannot be withdrawn: see `daemon-status`), or the drain was not seen within
+  `--timeout`. With `--pid` and `--start-time` (from the shim's `shared daemon pid …` line) it asks
+  only that instance, and leaves a newer one alone.
+- **Daemons of another build** (the key covers the build, so every rebuild of prism starts new
+  daemons) are listed by `daemon-status` and retire on their own after their clients and their idle
+  time. To stop one now, `kill -TERM <pid>`: it drains at once, ending its attached sessions. A daemon
+  built before `daemon-status` existed restarts its idle time at every `daemon-status` that looks at
+  it, so polling keeps it alive; stop it with `kill -TERM <pid>`.
+
+**Files.** In `<runtime>/prism-mcpd/`, per key (its first 16 hex digits): `.sock`, `.start` and
+`.owner` (locks, never removed while anything may use them), `.pid` (`pid`, start time, build), `.log`
+(the daemon's lines: truncated at start when over 1 MiB, capped at 8 MiB) and, while a build runs,
+`.build`. Each rebuild of prism leaves the lock files and log of the old key behind; `daemon-status`
+counts them. With no `prism-mcp` process running the whole `prism-mcpd` directory can be removed.
+
+**The daemon** is started by shims as `prism-mcp daemon --repo <root> --cache-dir <base>
+--refresh-policy <p> --key <64 hex> [--warm-at-startup] [--idle-ttl S] [--max-clients N]`, in a
+session of its own, from `/`, with the shim's environment (but not `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY`).
+It exits 0 when it has drained, or at once and silently when another daemon already owns the key; it
+exits non-zero with one `Error:` line in its log when it cannot start. Its log says
+`prism-mcp daemon: pid N serves <key16> for <root> at <socket>` and, when it drains,
+`pid N stopped: <reason>`, the reason one of: idle for the idle TTL with no client and no build (no
+session was attached); an operator's daemon-shutdown, with no client left (none attached); a
+termination signal, the repository root was lost or replaced, or its socket or owner lock file was
+replaced (attached sessions end, as above). A crash leaves no `stopped` line.
 
 ## Skills (the judgment layer)
 

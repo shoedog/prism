@@ -91,4 +91,8 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config â
   `unavailable`. It never returns body text or edits source.
 - **Graphs truncate (50 items by default, raise with `max_results` up to 1000; 80 KB byte cap)** and the
   **first call can take ~30 s** (building the CPG); instant after.
+- **A retryable answer is not a result.** `_meta` `prism/retryable: true` with `status` `warming` or
+  `indexing` means the index is still building: retry the same call (after `retry_after_secs`, when
+  given). `build_failed` reports why; the next call retries the build. Under a shared server
+  (`--shared`) another agent's `refresh_index` changes what you see too.
 - **Read-only.** These tools never edit or run code. Make changes with your normal file tools.
