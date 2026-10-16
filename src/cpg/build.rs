@@ -971,12 +971,10 @@ impl CodePropertyGraph {
         let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
 
         // --- Step 1: Function nodes ---
+        let mut source_indexes = crate::anon_owner::source_index::Step1Sources::new(files);
         for func_ids in cg.functions.values() {
             for fid in func_ids {
-                let (start_byte, end_byte) = files
-                    .get(&fid.file)
-                    .and_then(|p| crate::anon_owner::source_bytes(p, fid))
-                    .unwrap_or((0, 0));
+                let (start_byte, end_byte) = source_indexes.source_bytes(fid).unwrap_or((0, 0));
                 let idx = graph.add_node(CpgNode::Function {
                     name: fid.name.clone(),
                     file: fid.file.clone(),
@@ -999,6 +997,7 @@ impl CodePropertyGraph {
                     .push(idx);
             }
         }
+        drop(source_indexes);
         for nodes in name_index.values_mut() {
             nodes.sort_by_key(|&n| match &graph[n] {
                 CpgNode::Function { start_line, .. } => *start_line,
