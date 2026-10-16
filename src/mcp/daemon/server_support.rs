@@ -125,6 +125,7 @@ pub(super) fn start_with(
         root_fs: FsIdentity::of(&repo).expect("the root's identity"),
         pid: std::process::id(),
         start_time: 1234,
+        build_identity: "build".to_string(),
     };
     let mut server = Server::new(
         Arc::clone(&state),

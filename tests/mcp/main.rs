@@ -1,3 +1,4 @@
+mod daemon_control_process_test;
 mod daemon_process_test;
 mod golden_transcript_test;
 mod mem_report_test;

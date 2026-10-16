@@ -83,7 +83,7 @@ pub(super) fn fail_closed_line(reason: &str, at: &Where<'_>, standalone: &str) -
 /// files are: through the directory's descriptor, never through a symlink, without waiting for
 /// a writer (`O_NONBLOCK`), and only when it is a regular file of this user. So nothing at its
 /// path can keep the line from being printed (review round 1, Opus F1, sol 1).
-fn pid_file(paths: &DaemonPaths, dir_validated: bool) -> String {
+pub(super) fn pid_file(paths: &DaemonPaths, dir_validated: bool) -> String {
     let path = paths.pid_file();
     if !dir_validated {
         return format!(

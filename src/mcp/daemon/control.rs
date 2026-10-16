@@ -107,6 +107,8 @@ pub(super) enum StopReason {
     FilesReplaced,
     /// SIGTERM or SIGINT.
     Signal,
+    /// An operator's `daemon-shutdown`, once nothing was admitted or pending (spec §4.7).
+    Shutdown,
 }
 
 impl StopReason {
@@ -117,6 +119,7 @@ impl StopReason {
             Self::RootChanged => "the repository root was lost or replaced",
             Self::FilesReplaced => "its socket or owner lock file was replaced",
             Self::Signal => "a termination signal",
+            Self::Shutdown => "an operator's daemon-shutdown, with no client left",
         }
     }
 }
@@ -133,6 +136,15 @@ pub(super) struct Admission {
     /// retirement decision have seen; `None` while either is not, and before the first
     /// decision (which starts the count for a daemon nobody has reached yet).
     pub(super) idle_since: Option<Instant>,
+    /// When a connection that was not a control exchange last left the counts (or the first
+    /// retirement decision). Unlike `idle_since`, accepting a connection does not clear it, so a
+    /// control exchange, which is counted as pending until its line is read, can leave the idle
+    /// time as it found it (S4's interface for S5b: an operator's probe must not keep an idle
+    /// daemon up).
+    pub(super) quiet_since: Option<Instant>,
+    /// Whether an operator asked this daemon to drain once nothing is admitted or pending
+    /// (spec §4.7, D100). Set once and never cleared.
+    pub(super) shutdown: bool,
     /// Set once, by the critical section that decides the daemon drains, and never cleared:
     /// from then on no connection is admitted.
     pub(super) draining: Option<StopReason>,
@@ -146,7 +158,18 @@ impl Admission {
             pending: 0,
             admitted: 0,
             idle_since: None,
+            quiet_since: None,
+            shutdown: false,
             draining: None,
+        }
+    }
+
+    /// A connection that was not a control exchange left the counts at `now`: the idle time
+    /// starts now if nothing is left.
+    pub(super) fn left(&mut self, now: Instant) {
+        self.quiet_since = Some(now);
+        if self.pending == 0 && self.admitted == 0 {
+            self.idle_since = Some(now);
         }
     }
 }

@@ -372,12 +372,17 @@ fn every_admission_and_retirement_decision_reads_the_clock_under_the_control_loc
     assert!(matches!(state.admit(), Ok(Admit::Ready(_))));
     state.release().expect("release");
     assert_eq!(state.retire_if_idle(TTL, || {}), Ok(None));
+    assert_eq!(state.enter_handshake(64), Ok(Entry::Pending));
+    assert!(matches!(
+        state.control_exchange(false),
+        Ok(Control::Status(_))
+    ));
 
     let seen = clock.seen.lock().expect("seen").clone();
     assert_eq!(
         seen.len(),
-        4,
-        "one read each by leave, admit, release and retire"
+        5,
+        "one read each by leave, admit, release, retire and the control exchange"
     );
     assert!(seen.iter().all(|held| *held), "{seen:?}");
 }

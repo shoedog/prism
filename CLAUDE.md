@@ -427,6 +427,20 @@ While its builder runs the daemon leaves `<key16>.build` (`files.rs::BuildMarker
 around the builder by `run.rs::marked`, removed at release); a daemon that dies during its build
 leaves it. The marker shares a fence with `DaemonFiles`: release (or drop) sets it under its lock
 before the owner lock is released, so a released daemon's late `set` or `clear` does nothing.
+An operator's control line (`shared/control.rs`; spec §4.7) is answered in place of a `HELLO`:
+`STATUS {"control":1}`, or `SHUTDOWN` naming one instance by identity, pid and start time (the
+exchange has a version of its own, not in the identity key, so an operator tool can ask a daemon
+of another build). The daemon answers one `STATUS` line (instance, root, build identity, clients,
+build state, idle time, whether a shutdown is requested), or `RETIRING`/`BUSY`, and closes; the
+connection is never admitted, and `admission.rs::control_exchange` takes it out of the pending
+count without restarting the idle time (`quiet_since`), so a probe does not keep an idle daemon
+up; a control line whose read completes across its handshake deadline is dropped the same way, unanswered
+and with nothing recorded. A connection that ends before its line is whole, or whose line is
+neither a control line nor a `HELLO` (which is what a daemon built before this exchange makes of a
+`STATUS`), is treated as a client's and restarts the idle time. A `SHUTDOWN` for this very
+instance makes the daemon drain once nothing is admitted or pending, whatever the idle TTL or a
+running build (`StopReason::Shutdown`); until then it goes on admitting new clients, and it never
+disconnects one.
 
 Shim (`src/mcp/shim/`, Unix only; `prism-mcp --repo X --shared [--daemon-start-timeout S]
 [--idle-ttl S] [--max-clients N]`; `--shared` with `--no-cache`, `--eager` or `--owner-*` is a CLI
@@ -457,6 +471,23 @@ byte for byte: the client's end of input half-closes the socket and the daemon's
 still delivered (exit 0); a daemon that closes first ends the session (exit 1) and the shim never
 reconnects. `run.rs` is `run_shim`; on `READY` it writes `prism-mcp: shared daemon pid N (started
 T, generation G) at <socket>` to stderr.
+
+The operator's commands (`src/mcp/shim/`, clients of the same sockets and files; spec §4.7):
+`prism-mcp daemon-status [--repo X [--cache-dir D] [--refresh-policy P]] [--runtime-dir BASE]
+[--timeout S]` (`status.rs`) lists every key in the runtime directory: a daemon that answers the
+control exchange (`control.rs`) with its status; one that does not (its connect error or why it
+gave no reply), through its locks (the owner lock only under the start lock, each for a moment,
+`under_locks`); what a dead daemon left, with its build marker's restart time (the marker is read
+without waiting, a regular file only, 256 bytes at most: `KeyDir::read_build_marker`, which the
+shim uses too); keys with nothing but lock files and logs in one count line; a key that cannot be
+looked at on a line of its own, with exit 1 (only a missing file is absent: `present`). It never removes anything. `prism-mcp daemon-shutdown --repo X [--cache-dir D] [--refresh-policy P]
+[--runtime-dir BASE] [--pid N --start-time T] [--timeout S]` (`shutdown.rs`) asks the instance a
+status exchange has just shown (or the one named) to drain, and when it had no client waits for
+its pid file to go; a socket that refuses connections is no daemon only when nobody holds the
+owner lock; exit 0 when that instance no longer serves the key, or has accepted and drains after
+its clients; exit 1 when it could not ask, the reply to its request was lost (the request may
+have been recorded), or it did not see the drain. `--runtime-dir` is the
+base, as `PRISM_MCP_RUNTIME_DIR` gives it.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`

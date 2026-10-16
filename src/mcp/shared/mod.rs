@@ -7,6 +7,7 @@
 
 mod acl;
 pub mod cache_base;
+pub mod control;
 pub mod dir_chain;
 pub mod identity;
 pub mod paths;

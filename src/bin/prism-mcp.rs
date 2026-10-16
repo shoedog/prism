@@ -73,6 +73,52 @@ struct DaemonCli {
     key: Option<String>,
 }
 
+/// `prism-mcp daemon-status`: what the shared daemons in the runtime directory are doing (spec
+/// §4.7). It reads and never removes anything.
+#[derive(clap::Parser)]
+#[command(name = "prism-mcp daemon-status")]
+struct StatusCli {
+    /// Show only the daemon of this repository (with the cache directory and refresh policy
+    /// given, for this build of prism).
+    #[arg(long)]
+    repo: Option<std::path::PathBuf>,
+    #[arg(long, requires = "repo")]
+    cache_dir: Option<std::path::PathBuf>,
+    #[arg(long, requires = "repo", value_parser = ["warn-only", "auto-full", "auto-incremental"])]
+    refresh_policy: Option<String>,
+    /// The runtime base, as PRISM_MCP_RUNTIME_DIR gives it: the daemons' files are in its
+    /// prism-mcpd directory.
+    #[arg(long)]
+    runtime_dir: Option<std::path::PathBuf>,
+    /// Seconds each daemon has to answer.
+    #[arg(long, default_value_t = prism::mcp::DEFAULT_CONTROL_TIMEOUT_SECS, value_parser = clap::value_parser!(u64).range(1..=600))]
+    timeout: u64,
+}
+
+/// `prism-mcp daemon-shutdown`: ask the shared daemon of a repository to drain once it has no
+/// client (spec §4.7). It never disconnects a client.
+#[derive(clap::Parser)]
+#[command(name = "prism-mcp daemon-shutdown")]
+struct ShutdownCli {
+    #[arg(long)]
+    repo: std::path::PathBuf,
+    #[arg(long)]
+    cache_dir: Option<std::path::PathBuf>,
+    #[arg(long, default_value = "warn-only", value_parser = ["warn-only", "auto-full", "auto-incremental"])]
+    refresh_policy: String,
+    /// The runtime base, as PRISM_MCP_RUNTIME_DIR gives it.
+    #[arg(long)]
+    runtime_dir: Option<std::path::PathBuf>,
+    /// Ask only the daemon with this pid and start time (as `prism-mcp --shared` reports them).
+    #[arg(long, requires = "start_time")]
+    pid: Option<u32>,
+    #[arg(long, requires = "pid")]
+    start_time: Option<u64>,
+    /// Seconds for the whole command, the wait for the drain included.
+    #[arg(long, default_value_t = prism::mcp::DEFAULT_CONTROL_TIMEOUT_SECS, value_parser = clap::value_parser!(u64).range(1..=600))]
+    timeout: u64,
+}
+
 fn refresh_policy_from(name: &str) -> prism::mcp::RefreshPolicy {
     match name {
         "warn-only" => prism::mcp::RefreshPolicy::WarnOnly,
@@ -111,12 +157,57 @@ fn daemon_main() -> anyhow::Result<()> {
     })
 }
 
+/// The configuration whose daemon an operator command is about.
+fn operator_config(
+    repo: std::path::PathBuf,
+    cache_dir: Option<std::path::PathBuf>,
+    refresh_policy: &str,
+) -> prism::mcp::ServerConfig {
+    let mut config = prism::mcp::ServerConfig::new(repo);
+    config.cache = cache_mode(false, cache_dir);
+    config.refresh_policy = refresh_policy_from(refresh_policy);
+    config
+}
+
+fn status_main() -> i32 {
+    // The first argument is the word `daemon-status`; clap reads it as the program name.
+    let c = <StatusCli as clap::Parser>::parse_from(std::env::args_os().skip(1));
+    prism::mcp::run_daemon_status(&prism::mcp::StatusOptions {
+        config: c.repo.map(|repo| {
+            operator_config(
+                repo,
+                c.cache_dir,
+                c.refresh_policy.as_deref().unwrap_or("warn-only"),
+            )
+        }),
+        runtime_base: c.runtime_dir,
+        timeout: std::time::Duration::from_secs(c.timeout),
+    })
+}
+
+fn shutdown_main() -> i32 {
+    let c = <ShutdownCli as clap::Parser>::parse_from(std::env::args_os().skip(1));
+    prism::mcp::run_daemon_shutdown(&prism::mcp::ShutdownOptions {
+        config: operator_config(c.repo, c.cache_dir, &c.refresh_policy),
+        runtime_base: c.runtime_dir,
+        instance: c.pid.zip(c.start_time),
+        timeout: std::time::Duration::from_secs(c.timeout),
+    })
+}
+
 fn main() -> anyhow::Result<()> {
-    if std::env::args_os()
-        .nth(1)
-        .is_some_and(|first| first == "daemon")
-    {
+    let first = std::env::args_os().nth(1);
+    if first.as_ref().is_some_and(|first| first == "daemon") {
         return daemon_main();
+    }
+    if first.as_ref().is_some_and(|first| first == "daemon-status") {
+        std::process::exit(status_main());
+    }
+    if first
+        .as_ref()
+        .is_some_and(|first| first == "daemon-shutdown")
+    {
+        std::process::exit(shutdown_main());
     }
     let c = <Cli as clap::Parser>::parse();
     let cache = cache_mode(c.no_cache, c.cache_dir);
