@@ -27,8 +27,25 @@ receiver/class, CommonJS, import-equals and script-global authority routes lose
 Exact; the named-owner resolution behavior described below is unchanged. Arrow `this`
 inheritance is S2b; anonymous invocation edges (including IIFEs), metadata and display
 labels are S3. The S1 duplicate named-claim extractor and S5 block-blind inherited
-locals remain unchanged; the latter can lose recall. Receiver/class recall costs
-and the build-time/RSS gate still require controller measurements.
+locals remain unchanged; the latter can lose recall.
+
+Receiver/class certificates are deferred (owner decision, 2026-10-16). The census
+(`~/prism-evidence/js-anon/census-recv-certs/`) measured how many sites would become
+Exact if the barrier admitted these routes on B0 alone:
+- typed parameters, including local destructured Props: X 17 product sites; T 1 test site;
+- constructor locals: X 18 test sites; T 629 test sites, all calls to four methods of one
+  test class (`TestSession`);
+- class qualifiers, `this` and typed fields: none on either corpus.
+
+The class-qualifier route would also re-admit known-wrong fixture Exacts: static vs instance
+slots, and class-expression self-shadowing. These sites stay NameOnly, or are dropped when
+there are several candidates.
+
+Build cost (S4, #419 and #420): on a quiet-ish host, a cold `call-stats` build on X is
+about 10–14% slower than before anonymous owners existed, and T is at or below its old
+time. Peak RSS is unchanged by S4. The remaining known per-owner cost is that call-graph
+uses of `node_for_id` re-scan the file's candidates (`source_before`, receiver refresh).
+This is a recorded follow-up, not scheduled.
 
 The B0 eval veto folds whole computed names in subscripts and destructuring keys:
 a proven `eval` name vetoes on any receiver; an unknown name vetoes on a host or
