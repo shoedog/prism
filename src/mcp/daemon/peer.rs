@@ -3,7 +3,8 @@
 //!
 //! This check, not the runtime directory's, is the isolation guarantee between users: the
 //! directory checks are hardening by path, and two review rounds of S2a each found another way
-//! around them. It is not a defense against a process of the same user (spec §2) or root.
+//! around them. It is not a defense against a process of the same user (spec §2) or root. The
+//! shim makes the same check on the daemon it connects to (S5a), through this function.
 use std::io;
 use std::os::fd::AsRawFd;
 use std::os::unix::net::UnixStream;
@@ -11,7 +12,7 @@ use std::os::unix::net::UnixStream;
 /// The effective uid of the process that connected `stream`, as the kernel recorded it when it
 /// connected.
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub(super) fn peer_uid(stream: &UnixStream) -> io::Result<u32> {
+pub(in crate::mcp) fn peer_uid(stream: &UnixStream) -> io::Result<u32> {
     let mut credentials = libc::ucred {
         pid: 0,
         uid: 0,
@@ -45,7 +46,7 @@ pub(super) fn peer_uid(stream: &UnixStream) -> io::Result<u32> {
     target_os = "netbsd",
     target_os = "dragonfly"
 ))]
-pub(super) fn peer_uid(stream: &UnixStream) -> io::Result<u32> {
+pub(in crate::mcp) fn peer_uid(stream: &UnixStream) -> io::Result<u32> {
     let mut uid: libc::uid_t = 0;
     let mut gid: libc::gid_t = 0;
     // SAFETY: the descriptor is an open socket, and `uid` and `gid` are valid for writes for
@@ -69,7 +70,7 @@ pub(super) fn peer_uid(stream: &UnixStream) -> io::Result<u32> {
     target_os = "netbsd",
     target_os = "dragonfly"
 )))]
-pub(super) fn peer_uid(_stream: &UnixStream) -> io::Result<u32> {
+pub(in crate::mcp) fn peer_uid(_stream: &UnixStream) -> io::Result<u32> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
         "no peer credential check on this platform",

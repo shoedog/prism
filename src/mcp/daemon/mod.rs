@@ -14,7 +14,7 @@ mod coordinator;
 mod fatal;
 mod files;
 mod log;
-mod peer;
+pub(super) mod peer;
 mod run;
 mod server;
 #[cfg(test)]
