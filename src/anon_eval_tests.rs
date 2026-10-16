@@ -1,6 +1,120 @@
 //! W1: whole computed names, never individual string leaves. Static fixtures only.
 use super::*;
 
+fn pattern_cases(cases: &[&str], expected: bool) {
+    let mut failures = Vec::new();
+    for ext in ["js", "ts", "tsx"] {
+        for suffix in cases {
+            let source = script(suffix);
+            let fs = files(&source, ext);
+            let environment = fs.values().next().unwrap().anonymous_file_environment();
+            assert!(!environment.uncertain, "{ext}: {suffix}");
+            let actual = exact(&source, ext);
+            if actual != expected {
+                failures.push(format!(
+                    "{ext}: {suffix}: Exact={actual}, eval={}",
+                    environment.eval
+                ));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn computed_pattern_proven_eval_loses_exact() {
+    pattern_cases(
+        &[
+            "const {['ev'+'al']: e} = globalThis; e('f=evil');",
+            "const {['ev'+'al']: e} = obj; e('f=evil');",
+            "const {[`e${'v'}al`]: e} = obj;",
+            "const {['ev'+'al']: e = fallback} = obj;",
+        ],
+        false,
+    );
+}
+
+#[test]
+fn computed_pattern_unknown_host_loses_exact() {
+    pattern_cases(
+        &[
+            "const {[k]: e} = globalThis;",
+            "const a=window; const b=(a); const {[k]: e} = b;",
+            "const {[k]: e = fallback} = self;",
+            "const {[k]: e} = global;",
+            "const {[k]: e} = this;",
+        ],
+        false,
+    );
+}
+
+#[test]
+fn computed_pattern_assignment_loses_exact() {
+    pattern_cases(
+        &[
+            "let e; ({['ev'+'al']: e} = globalThis); e('f=evil');",
+            "let e; ({[k]: e = fallback} = globalThis);",
+            "const a=globalThis; let e; ({[k]: e} = a);",
+        ],
+        false,
+    );
+}
+
+#[test]
+fn computed_pattern_nested_loses_exact() {
+    pattern_cases(
+        &[
+            "const {outer: {['ev'+'al']: e}} = obj;",
+            "const [{['ev'+'al']: e = fallback}] = obj;",
+            "const {outer: {['ev'+'al']: e} = fallback} = obj;",
+            "let e; ({outer: {['ev'+'al']: e}} = obj);",
+        ],
+        false,
+    );
+}
+
+#[test]
+fn computed_pattern_parameters_and_loop_heads_lose_exact() {
+    pattern_cases(
+        &[
+            "function read({['ev'+'al']: e}) {}",
+            "const read=({['ev'+'al']: e = fallback}) => e;",
+            "function read({['ev'+'al']: e} = obj) {}",
+            "for (const {['ev'+'al']: e} of values) {}",
+            "let e; for ({['ev'+'al']: e} of values) {}",
+            "for (const {['ev'+'al']: e} in values) {}",
+        ],
+        false,
+    );
+}
+
+#[test]
+fn computed_pattern_safe_controls_keep_exact() {
+    pattern_cases(
+        &[
+            "const {[k]: v} = obj;",
+            "const {['evaluate']: v} = globalThis;",
+            "const {[0]: v, [false]: w, [null]: x} = globalThis;",
+            "const {outer: {[k]: v}} = globalThis;",
+            "const [{[k]: v}] = globalThis;",
+            "const globalThis={}; const {[k]: v} = globalThis;",
+            "const a=globalThis; function read(a) { const {[k]: v} = a; }",
+            "let v; ({[k]: v} = obj);",
+            "function read({[k]: v} = globalThis) {}",
+            "for (const {[k]: v} of globalThis) {}",
+            "for (const {[k]: v} in globalThis) {}",
+            "const obj={ [k]: value };",
+        ],
+        true,
+    );
+}
+
+#[test]
+fn plain_eval_pattern_keys_already_lose_exact() {
+    // The existing identifier-spelling veto includes plain and shorthand keys.
+    pattern_cases(&["const {eval: e} = obj;", "const {eval} = obj;"], false);
+}
+
 fn exact(source: &str, ext: &str) -> bool {
     let fs = files(source, ext);
     assert!(

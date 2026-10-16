@@ -27,6 +27,11 @@ impl ParsedFile {
             result.eval |= k == "subscript_expression"
                 && n.child_by_field_name("index")
                     .is_some_and(|i| self.anonymous_eval_index(n, i, &mut cache));
+            result.eval |= k == "pair_pattern"
+                && n.child_by_field_name("key")
+                    .filter(|key| key.kind() == "computed_property_name")
+                    .and_then(|key| key.named_child(0))
+                    .is_some_and(|i| self.anonymous_eval_index(n, i, &mut cache));
             result.nested_import |= matches!(k, "import_statement" | "import_alias")
                 && n.parent().is_none_or(|p| p.kind() != "program");
             result.uncertain |= n.is_error() || n.is_missing() || (n.is_named() && !classified(k));
@@ -56,6 +61,17 @@ impl ParsedFile {
             Some(name) => name == "eval",
             None => member
                 .child_by_field_name("object")
+                .or_else(|| {
+                    let pattern = member.parent().filter(|p| p.kind() == "object_pattern")?;
+                    let owner = pattern.parent()?;
+                    // Nested property values, parameters (even with defaults)
+                    // and loop elements/keys are not the outer receiver.
+                    match owner.kind() {
+                        "variable_declarator" => owner.child_by_field_name("value"),
+                        "assignment_expression" => owner.child_by_field_name("right"),
+                        _ => None,
+                    }
+                })
                 .is_some_and(|object| self.anonymous_global_receiver(object, cache)),
         }
     }

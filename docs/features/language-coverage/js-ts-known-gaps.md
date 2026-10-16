@@ -1,6 +1,6 @@
 # JS/TS, React and Node: known gaps and edge cases
 
-**Status:** living list, last updated 2026-10-13 (state of `main` after #372, const alias following).
+**Status:** living list, last updated 2026-10-16 (A2 B0 computed-pattern eval veto).
 
 Each entry says:
 - what prism does today, with a small example;
@@ -29,6 +29,13 @@ inheritance is S2b; anonymous invocation edges (including IIFEs), metadata and d
 labels are S3. The S1 duplicate named-claim extractor and S5 block-blind inherited
 locals remain unchanged; the latter can lose recall. Receiver/class recall costs
 and the build-time/RSS gate still require controller measurements.
+
+The B0 eval veto folds whole computed names in subscripts and destructuring keys:
+a proven `eval` name vetoes on any receiver; an unknown name vetoes on a host or
+proven const host alias. A pattern's direct initializer or assignment RHS supplies
+its receiver; nested property values, parameters and loop heads have unknown
+receivers. Plain `{eval: e}` and shorthand `{eval}` already trigger the existing
+identifier-spelling veto.
 
 ## 1. What a called name is bound to
 
