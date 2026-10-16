@@ -31,14 +31,20 @@ pub fn payload(cpg: &CodePropertyGraph) -> Vec<u8> {
 /// Legacy field sequence, independent of DataFlowGraph's Serialize implementation.
 pub(crate) fn dfg_storage(g: &DataFlowGraph) -> Vec<u8> {
     bincode::serialize(&(
-        &g.edges,
-        g.defs.iter().collect::<Vec<_>>(),
-        g.uses.iter().collect::<Vec<_>>(),
-        g.forward.iter().collect::<Vec<_>>(),
-        g.backward.iter().collect::<Vec<_>>(),
-        g.labels.iter().collect::<Vec<_>>(),
-        g.exact_labels.iter().collect::<Vec<_>>(),
-        &g.rd_function_stats,
+        g.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>(),
+        g.defs().map(|(k, v)| (k, v.to_vec())).collect::<Vec<_>>(),
+        g.uses().map(|(k, v)| (k, v.to_vec())).collect::<Vec<_>>(),
+        g.forward()
+            .map(|(k, v)| (k, v.to_vec()))
+            .collect::<Vec<_>>(),
+        g.backward()
+            .map(|(k, v)| (k, v.to_vec()))
+            .collect::<Vec<_>>(),
+        g.labels()
+            .map(|(e, c)| ((e.from, e.to), c))
+            .collect::<Vec<_>>(),
+        g.exact_labels().collect::<Vec<_>>(),
+        g.rd_function_stats(),
     ))
     .unwrap()
 }

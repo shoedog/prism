@@ -201,15 +201,23 @@ fn full_and_subset_dfg_do_not_materialize_erased_option_uses() {
         let subset = DataFlowGraph::build_subset(&files, &BTreeSet::from(["values.ts".into()]));
         for graph in [&full, &subset] {
             let uses: Vec<_> = graph
-                .uses
-                .values()
+                .uses()
+                .map(|(_, v)| v)
                 .flatten()
                 .filter(|usage| usage.path.base == "with")
                 .collect();
             assert!(!uses.is_empty(), "real runtime option control disappeared");
             assert!(uses.iter().all(|usage| usage.line == 3), "{uses:?}");
         }
-        assert_eq!(full.uses, subset.uses);
+        assert_eq!(
+            full.uses()
+                .map(|(k, v)| (k, v.to_vec()))
+                .collect::<Vec<_>>(),
+            subset
+                .uses()
+                .map(|(k, v)| (k, v.to_vec()))
+                .collect::<Vec<_>>()
+        );
     }
 }
 

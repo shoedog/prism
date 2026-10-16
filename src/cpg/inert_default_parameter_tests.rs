@@ -9,6 +9,7 @@
 use super::build::CodePropertyGraph;
 use super::{CpgEdge, CpgNode, VarAccess};
 use crate::ast::ParsedFile;
+use crate::data_flow::test_support::label_snapshot;
 use crate::data_flow::DataFlowGraph;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
@@ -288,7 +289,7 @@ fn inert_default_parameter_never_falls_back_to_later_overwrite_var_redeclaration
         let parsed = ParsedFile::parse("field.src", &source, language).unwrap();
         let dfg = DataFlowGraph::build(&BTreeMap::from([("field.src".to_string(), parsed)]));
         let field_edges: Vec<_> = dfg
-            .edges
+            .edges()
             .iter()
             .filter(|e| e.to.path.base == "value" && e.to.path.has_fields())
             .map(|e| (e.from.path.to_string(), e.from.line, e.to.path.to_string()))
@@ -328,8 +329,7 @@ fn inert_default_label_on_a_nontrivial_branching_body_matches_required_control()
             ParsedFile::parse("required", &required_source, language).unwrap(),
         )]));
         let labels_for = |graph: &DataFlowGraph, file: &str| {
-            graph
-                .labels
+            label_snapshot(&graph)
                 .iter()
                 .filter(|((from, _), _)| {
                     from.path.to_string() == "value" && from.line == 1 && from.file == file
@@ -393,21 +393,36 @@ fn inert_default_full_and_subset_dfg_parity() {
         let files = BTreeMap::from([("default.ts".to_string(), parsed)]);
         let full = DataFlowGraph::build(&files);
         let subset = DataFlowGraph::build_subset(&files, &BTreeSet::from(["default.ts".into()]));
-        let defs = full.defs.values().flatten().collect::<Vec<_>>();
+        let defs = full.defs().map(|(_, v)| v).flatten().collect::<Vec<_>>();
         assert_eq!(defs.len(), 2, "{language:?}: {defs:?}");
         for def in &defs {
             assert_eq!(def.line, 1);
             assert_eq!(&source[def.start_byte..def.end_byte], def.path.to_string());
         }
         assert_eq!(
-            serde_json::to_value(full.defs.values().collect::<Vec<_>>()).unwrap(),
-            serde_json::to_value(subset.defs.values().collect::<Vec<_>>()).unwrap()
+            serde_json::to_value(full.defs().map(|(_, v)| v.to_vec()).collect::<Vec<_>>()).unwrap(),
+            serde_json::to_value(subset.defs().map(|(_, v)| v.to_vec()).collect::<Vec<_>>())
+                .unwrap()
         );
         assert_eq!(
-            serde_json::to_value(&full.edges).unwrap(),
-            serde_json::to_value(&subset.edges).unwrap()
+            serde_json::to_value(
+                &full
+                    .edges()
+                    .iter()
+                    .map(|e| e.to_owned())
+                    .collect::<Vec<_>>()
+            )
+            .unwrap(),
+            serde_json::to_value(
+                &subset
+                    .edges()
+                    .iter()
+                    .map(|e| e.to_owned())
+                    .collect::<Vec<_>>()
+            )
+            .unwrap()
         );
-        assert_eq!(full.labels, subset.labels);
+        assert_eq!(label_snapshot(&full), label_snapshot(&subset));
     }
 }
 

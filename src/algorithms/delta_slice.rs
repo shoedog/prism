@@ -40,7 +40,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, old_repo: &Path) -> Result<Slic
     // Find edges that differ between versions
     let old_edges: BTreeSet<(String, usize, String, usize)> = old_cpg
         .dfg
-        .edges
+        .edges()
         .iter()
         .map(|e| {
             (
@@ -55,7 +55,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput, old_repo: &Path) -> Result<Slic
     let new_edges: BTreeSet<(String, usize, String, usize)> = ctx
         .cpg
         .dfg
-        .edges
+        .edges()
         .iter()
         .map(|e| {
             (

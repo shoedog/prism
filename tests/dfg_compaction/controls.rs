@@ -145,7 +145,7 @@ fn paired_left_full_disconnected_and_empty_dfg_controls_inner() {
         ),
     ] {
         let files = super::corpus::explicit("a.py", source, Language::Python);
-        assert_eq!(DataFlowGraph::build(&files).edges.is_empty(), empty);
+        assert_eq!(DataFlowGraph::build(&files).edges().is_empty(), empty);
         local_modes(
             &files,
             &diff_at("a.py", &[2]),

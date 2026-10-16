@@ -84,7 +84,7 @@ fn nested_augmented_base_peels_to_leftmost() {
     files.insert("src/lib.rs".to_string(), parsed);
 
     let dfg = DataFlowGraph::build(&files);
-    let has_leftmost_o_use = dfg.uses.values().any(|locs| {
+    let has_leftmost_o_use = dfg.uses().map(|(_, v)| v).any(|locs| {
         locs.iter().any(|loc| {
             loc.path == AccessPath::simple("o") && loc.kind == prism::data_flow::VarAccessKind::Use
         })
@@ -106,8 +106,8 @@ fn line_collapsed_reference_start_eq_end() {
     let dfg = DataFlowGraph::build(&files);
     let parsed = files.get("src/lib.rs").unwrap();
     let collapsed_refs: Vec<_> = dfg
-        .uses
-        .values()
+        .uses()
+        .map(|(_, v)| v)
         .flat_map(|locs| locs.iter())
         .filter(|loc| loc.start_byte == parsed.line_start_byte(loc.line))
         .collect();
@@ -249,7 +249,7 @@ void copy_field(struct device *dev) {
     assert!(has_name_def, "Should have dev->name def on line 3");
 
     // Verify field-qualified use exists for RHS
-    let has_id_use = dfg.uses.values().any(|locs| {
+    let has_id_use = dfg.uses().map(|(_, v)| v).any(|locs| {
         locs.iter()
             .any(|l| l.path.base == "dev" && l.path.fields == vec!["id".to_string()] && l.line == 3)
     });

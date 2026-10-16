@@ -72,14 +72,15 @@ function process(obj) {
     );
     // Field isolation: every edge into or out of a field path stays on that path or starts at
     // the base Def; `obj.secret` never reaches `obj.display`.
-    for edge in dfg.edges.iter().filter(|e| e.to.path.base == "obj") {
+    for edge in dfg.edges().iter().filter(|e| e.to.path.base == "obj") {
         assert!(
             edge.from.path == edge.to.path || edge.from.line == 2,
-            "Phase 2 JS: cross-field edge {edge:?}"
+            "Phase 2 JS: cross-field edge {:?}",
+            edge.to_owned()
         );
     }
     assert!(
-        !dfg.edges
+        !dfg.edges()
             .iter()
             .any(|e| e.from.path.to_string() == "obj.secret"
                 && e.to.path.to_string() == "obj.display"),
@@ -115,14 +116,15 @@ function process(obj: Config) {
     );
     // Field isolation: every edge into or out of a field path stays on that path or starts at
     // the base Def; `obj.secret` never reaches `obj.label`.
-    for edge in dfg.edges.iter().filter(|e| e.to.path.base == "obj") {
+    for edge in dfg.edges().iter().filter(|e| e.to.path.base == "obj") {
         assert!(
             edge.from.path == edge.to.path || edge.from.line == 2,
-            "Phase 2 TypeScript: cross-field edge {edge:?}"
+            "Phase 2 TypeScript: cross-field edge {:?}",
+            edge.to_owned()
         );
     }
     assert!(
-        !dfg.edges.iter().any(
+        !dfg.edges().iter().any(
             |e| e.from.path.to_string() == "obj.secret" && e.to.path.to_string() == "obj.label"
         ),
         "Phase 2 TypeScript: obj.secret must not reach obj.label"

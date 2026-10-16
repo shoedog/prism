@@ -25,36 +25,5 @@ pub fn assemble_with_dfg(
 pub fn legacy_dfg(files: &BTreeMap<String, ParsedFile>) -> DataFlowGraph {
     from_legacy(LegacyDataFlowGraph::build(files))
 }
-pub fn from_legacy(old: LegacyDataFlowGraph) -> DataFlowGraph {
-    DataFlowGraph {
-        edges: old.edges,
-        defs: old.defs,
-        uses: old.uses,
-        forward: old.forward,
-        backward: old.backward,
-        labels: old.labels,
-        exact_labels: old.exact_labels,
-        rd_function_stats: old.rd_function_stats,
-    }
-}
-/// Refresh the frozen backend before adapting its completed state for current assembly.
-pub fn legacy_refreshed_dfg(
-    cached: DataFlowGraph,
-    files: &BTreeMap<String, ParsedFile>,
-) -> DataFlowGraph {
-    let mut old = LegacyDataFlowGraph {
-        edges: cached.edges,
-        defs: cached.defs,
-        uses: cached.uses,
-        forward: cached.forward,
-        backward: cached.backward,
-        labels: cached.labels,
-        exact_labels: cached.exact_labels,
-        rd_function_stats: cached.rd_function_stats,
-    };
-    let all = files.keys().cloned().collect();
-    old.remove_files(&all);
-    old.merge(LegacyDataFlowGraph::build(files));
-    from_legacy(old)
-}
 pub use super::dfg_observation::{fieldwise_payload, lookup_indexes, payload};
+pub use crate::data_flow::test_support::{from_legacy, legacy_refreshed_dfg};

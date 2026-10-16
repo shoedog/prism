@@ -14,7 +14,7 @@
 
 ## Global Constraints
 
-- Preserve observable output **byte for byte** (cross-build SARIF provenance is checked separately as specified below): navigation, review, SARIF, targets, MCP Evidence; preserve node/edge insertion order, first-wins representatives, stable sorting, ties, confidence and telemetry. Do not bless new goldens. Cache bytes intentionally change only when its version changes.
+- Preserve observable output **byte for byte** (cross-build SARIF and targets provenance is checked separately as specified below): navigation, review, SARIF, targets, MCP Evidence; preserve node/edge insertion order, first-wins representatives, stable sorting, ties, confidence and telemetry. Do not bless new goldens. Cache bytes intentionally change only when its version changes.
 - Use `BTreeMap`/`BTreeSet` and explicitly ordered iteration. Numeric occurrence IDs are **not legacy sort keys**. Never substitute a HashMap or unstable sort in a behavior-bearing path.
 - Keep `VarLocation::{Eq,Ord,Hash}`, `ExactVarLocation`, `AccessPath`, `FlowConfidence::worst`, RD classification, CPG endpoint selection and query algorithms semantically unchanged.
 - **Owner file-size rule (2026-10-14; supersedes the round-1 no-cap ruling):** measure **weighted lines**: code 1, comment-only 0.5, blank 0, using `python3 scripts/file_size.py FILE...` (merged in #399; `--over N` lists files above N). New files aim for **≤600**. Above **1,000**, split along a real responsibility boundary; every PR leaving a file above 1,000 explains why. **2,000 is a hard ceiling: no PR may take a file past it.** Files already above 2,000 **must not grow in a feature PR**; small edits are fine, new code goes in new modules. Any required split of such a file is a separately reviewed **move-only PR, with no behavior change, before the feature work**, never inside it. The ledger below binds every planned file/PR. The controller owns the corresponding `CLAUDE.md` Key Design Decision 7 update; this task changes only the plan.
@@ -44,8 +44,11 @@ then keeps every hash, including the ordered lookup-index manifest.
 CI compiles all targets with `mcp,dfg-oracle` on every PR. The additive filter in
 the existing Classify change job selects oracle parity for `src/data_flow/**`
 except `src/data_flow/build/**`, `src/cpg_cache/**`, `src/cpg_cache.rs`,
-`src/cpg/dfg_compaction_support.rs`, `src/data_flow.rs`, and
-`tests/dfg_compaction/**`. Classifier failure runs parity conservatively; existing
+`src/cpg/dfg_compaction_support.rs`, `src/cpg/build.rs`, `src/cpg.rs`,
+`src/data_flow.rs`, and `tests/dfg_compaction/**`. **Owner decision (2026-10-16):**
+include both incremental-construction production paths (`build_incremental` and
+the CPG facade); other `src/cpg/` files do not independently select parity.
+Classifier failure runs parity conservatively; existing
 code/eval outputs and required-check behavior stay intact. The parity job runs
 `--test dfg_compaction -- --skip pins::`; stored hashes remain controller-gated
 because unrelated lanes may intentionally change output.
@@ -1508,7 +1511,7 @@ Run the explicit downstream slice (in addition to GATE):
 nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --test output --test reasoning --test navigation --test cli --test mcp > .review/dfg-compaction/logs/t6-outputs.log 2>&1
 cat .review/dfg-compaction/logs/t6-outputs.log
 ```
-Expected: all selected targets run, no changed output goldens, zero failures; totals recorded. Before replacing production on the implementation branch, controller retains baseline `prism`/`prism-mcp` binaries. Replay the existing CLI/MCP transcript fixtures against base and candidate in the **same temporary fixture checkout/path**, sequentially, with separate cache directories and identical request IDs/settings. Compare response payload bytes after the established transport fixture's existing envelope handling; the only cross-build exception is the three separately validated SARIF provenance fields specified below. This independent executable control covers changes shared by both in-process oracle assembly paths. Corpus real-repo measurement is still controller-only.
+Expected: all selected targets run, no changed output goldens, zero failures; totals recorded. Before replacing production on the implementation branch, controller retains baseline `prism`/`prism-mcp` binaries. Replay the existing CLI/MCP transcript fixtures against base and candidate in the **same temporary fixture checkout/path**, sequentially, with separate cache directories and identical request IDs/settings. Compare response payload bytes after the established transport fixture's existing envelope handling; **owner decision (2026-10-16):** the only cross-build exceptions are the three separately validated SARIF provenance fields and targets `/producer/build_identity` specified below. Retain raw outputs, validate each field against its binary's recorded provenance, replace exactly those fields with common sentinels in comparison copies, and compare every remaining byte. Within one binary compare every byte; missing/unexpected provenance fields fail. This independent executable control covers changes shared by both in-process oracle assembly paths. Corpus real-repo measurement is still controller-only.
 
 - [ ] **GREEN — Fold production cleanup into activation.** Remove `legacy_storage.rs`, dead expanded serde adapters and any temporary activation switch now. Add a default/MCP architecture check that production cannot reach the oracle or a legacy storage route; retain only test-only Parts conversion needed by existing synthetic tests. A legacy side-field/native-decode mutant must fail. These deletions are part of the production candidate measured in Task 7, not a later PR.
 
@@ -1517,6 +1520,8 @@ Expected: all selected targets run, no changed output goldens, zero failures; to
 ### Task 7 (PR E acceptance): Prepare probe binaries and controller measurement
 
 **Files:** scratch instrumented checkouts/binaries and `.review/dfg-compaction/acceptance/`; `scripts/dfg_compaction/compare_acceptance.py`; acceptance readout and handoff. Instrumentation is not merged into production.
+
+- [ ] **PR B round-1 S1 / PR C query timing follow-up:** measure parent/candidate query wall time on Prometheus for `--algorithm chop,taint,provenance`. The boxed `Locations` iterator allocates once per `defs()`/`uses()` row before caller key filters, including the scans in `forward_reachable` and `all_locations_at`. Report the cost alongside memory/load acceptance. If material, consider a separately bounded PR C key-range or lazily boxed row accessor; no query implementation change is folded into PR B.
 
 **Pre-registration — written before any run:** these thresholds/classifications apply to the activation candidate, including all production cleanup. Post-acceptance test-only deletion is bound to this receipt as described in Task 8, not automatically remeasured. **At most two complete base/candidate sets**: the initial set and one follow-up if invalid/noisy. Do not keep rerunning until a pass.
 
@@ -1683,7 +1688,7 @@ Expected-error tests are a separate suite/ledger: missing Chop endpoints, malfor
 
 Controller executable replay uses the same temporary fixture checkout/path, separate cache state and frozen settings. For each common-generator diff run both binaries sequentially with `prism --algorithm all --format json`, `--format review`, `--format sarif`, plus the existing targets command. Supply the matrix's valid `--chop-source`, `--chop-sink`, `--condition`, `--old-repo` and history/seed options, and the existing CLI diff/repo flags; require the emitted success ledger to contain all 30 algorithms with no dispatch errors. Keep the existing CLI/MCP transcripts as additional controls, never as a substitute for this matrix. At A/B compare that PR's parent and candidate binaries and also byte-compare `prism nav dfg-stats --repo <fixture-tree> --edges` with fresh separate caches; at E compare the activation parent/candidate. Task 7 additionally byte-compares `nav dfg-stats --edges` on both real corpora.
 
-**Cross-build SARIF scope:** within one binary compare every byte, including build metadata. Between different binaries retain raw outputs and separately assert `/runs/0/properties/{prism_build_identity,prism_git_sha,binary_input_dirty}` against each binary's recorded provenance. Replace exactly those three validated fields with common sentinels in the comparison copy, then serialize and compare every remaining byte; no other normalization, sorting, span removal or golden rebaseline. Different raw build identities are expected provenance differences, not DFG parity failures. A missing/unexpected provenance field is a failure. All other output payloads use unchanged existing transport handling and byte comparison.
+**Cross-build SARIF scope (extended to targets by owner decision, 2026-10-16):** within one binary compare every byte, including build metadata. Between different binaries retain raw outputs and separately assert SARIF `/runs/0/properties/{prism_build_identity,prism_git_sha,binary_input_dirty}` against each binary's recorded provenance. For targets separately assert `/producer/build_identity` against `prism_build_identity` in the same binary receipt. Replace exactly the three validated SARIF fields or the single validated targets field with common sentinels in the respective comparison copy, then compare every remaining byte; no other normalization, sorting, span removal or golden rebaseline. Different raw build identities are expected provenance differences, not DFG parity failures. A missing/unexpected provenance field is a failure. All other output payloads use unchanged existing transport handling and byte comparison.
 
 ## Paired output assertion seam for Task 6
 

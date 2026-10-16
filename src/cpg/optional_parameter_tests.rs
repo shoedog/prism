@@ -9,6 +9,7 @@
 use super::build::{compute_param_names, CodePropertyGraph};
 use super::{CpgEdge, CpgNode, FlowConfidence, VarAccess};
 use crate::ast::ParsedFile;
+use crate::data_flow::test_support::{edge_snapshot, label_snapshot};
 use crate::data_flow::DataFlowGraph;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
@@ -268,8 +269,7 @@ fn optional_parameter_write_shadow_and_field_isolation_match_javascript() {
         };
         let control = build_dfg(Language::JavaScript, "a");
         let labels = |graph: &DataFlowGraph| {
-            graph
-                .labels
+            label_snapshot(&graph)
                 .iter()
                 .map(|((from, to), confidence)| {
                     (
@@ -284,8 +284,8 @@ fn optional_parameter_write_shadow_and_field_isolation_match_javascript() {
         };
         let defs = |graph: &DataFlowGraph| {
             graph
-                .defs
-                .values()
+                .defs()
+                .map(|(_, v)| v)
                 .flatten()
                 .map(|def| (def.path.to_string(), def.line))
                 .collect::<Vec<_>>()
@@ -323,21 +323,22 @@ fn optional_full_and_subset_dfg_parity() {
         let files = BTreeMap::from([("optional.ts".to_string(), parsed)]);
         let full = DataFlowGraph::build(&files);
         let subset = DataFlowGraph::build_subset(&files, &BTreeSet::from(["optional.ts".into()]));
-        let defs = full.defs.values().flatten().collect::<Vec<_>>();
+        let defs = full.defs().map(|(_, v)| v).flatten().collect::<Vec<_>>();
         assert_eq!(defs.len(), 2, "{language:?}: {defs:?}");
         for def in defs {
             assert_eq!(def.line, 1);
             assert_eq!(&source[def.start_byte..def.end_byte], def.path.to_string());
         }
         assert_eq!(
-            serde_json::to_value(full.defs.values().collect::<Vec<_>>()).unwrap(),
-            serde_json::to_value(subset.defs.values().collect::<Vec<_>>()).unwrap()
+            serde_json::to_value(full.defs().map(|(_, v)| v.to_vec()).collect::<Vec<_>>()).unwrap(),
+            serde_json::to_value(subset.defs().map(|(_, v)| v.to_vec()).collect::<Vec<_>>())
+                .unwrap()
         );
         assert_eq!(
-            serde_json::to_value(&full.edges).unwrap(),
-            serde_json::to_value(&subset.edges).unwrap()
+            serde_json::to_value(edge_snapshot(&full)).unwrap(),
+            serde_json::to_value(edge_snapshot(&subset)).unwrap()
         );
-        assert_eq!(full.labels, subset.labels);
+        assert_eq!(label_snapshot(&full), label_snapshot(&subset));
     }
 }
 
@@ -591,8 +592,8 @@ fn optional_inert_signature_full_and_subset_dfg_parity() {
         let full = DataFlowGraph::build(&files);
         let subset = DataFlowGraph::build_subset(&files, &BTreeSet::from([file.into()]));
         let parameter_defs = full
-            .defs
-            .values()
+            .defs()
+            .map(|(_, v)| v)
             .flatten()
             .filter(|definition| definition.function == "take")
             .map(|definition| definition.path.to_string())
@@ -603,17 +604,19 @@ fn optional_inert_signature_full_and_subset_dfg_parity() {
             "{language:?}: a defaulted sibling is not an entry Def"
         );
         assert_eq!(
-            serde_json::to_value(full.defs.values().collect::<Vec<_>>()).unwrap(),
-            serde_json::to_value(subset.defs.values().collect::<Vec<_>>()).unwrap(),
+            serde_json::to_value(full.defs().map(|(_, v)| v.to_vec()).collect::<Vec<_>>()).unwrap(),
+            serde_json::to_value(subset.defs().map(|(_, v)| v.to_vec()).collect::<Vec<_>>())
+                .unwrap(),
             "{language:?}: full/subset definitions"
         );
         assert_eq!(
-            serde_json::to_value(&full.edges).unwrap(),
-            serde_json::to_value(&subset.edges).unwrap(),
+            serde_json::to_value(edge_snapshot(&full)).unwrap(),
+            serde_json::to_value(edge_snapshot(&subset)).unwrap(),
             "{language:?}: full/subset edges"
         );
         assert_eq!(
-            full.labels, subset.labels,
+            label_snapshot(&full),
+            label_snapshot(&subset),
             "{language:?}: full/subset labels"
         );
     }
@@ -1040,7 +1043,7 @@ fn optional_inert_rd_labels_match_required_and_preserve_shadow_controls() {
                 DataFlowGraph::build(&BTreeMap::from([("p".into(), parsed)]))
             };
             let rows = |dfg: &DataFlowGraph| {
-                dfg.labels
+                label_snapshot(&dfg)
                     .iter()
                     .filter(|((from, _), _)| from.path.to_string() == "value")
                     .map(|((from, to), label)| (format!("{from:?}"), format!("{to:?}"), *label))
@@ -1054,8 +1057,7 @@ fn optional_inert_rd_labels_match_required_and_preserve_shadow_controls() {
                 rows(&control),
                 "{language:?}/{case}: full endpoint/label vectors"
             );
-            let labels = candidate
-                .labels
+            let labels = label_snapshot(&candidate)
                 .iter()
                 .filter(|((from, _), _)| from.path.to_string() == "value")
                 .map(|((from, to), label)| (from.line, to.line, *label))

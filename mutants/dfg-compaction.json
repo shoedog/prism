@@ -1,13 +1,14 @@
 {
-  "lane": "DFG compaction PR A frozen legacy oracle",
+  "lane": "DFG compaction ordered accessor boundary",
   "source": "docs/superpowers/plans/2026-10-14-dfg-compaction.md",
   "lib_test_prefixes": [
     "data_flow::tests::",
-    "cpg_cache::dfg_codec_tests::"
+    "cpg_cache::dfg_codec_tests::",
+    "cpg::dfg_missing_label_tests::"
   ],
   "mutations": {
     "DFG-A-forward-seed-retained": [
-      "src/data_flow.rs",
+      "src/data_flow/queries.rs",
       "        visited.remove(from);\n        visited",
       "        // mutant: retain query seed\n        visited",
       [
@@ -20,6 +21,63 @@
       "    let added: BTreeSet<_> = new_edges.difference(&old_edges).filter(|_| false).collect();",
       [
         "data_flow::tests::outputs::delta_candidate_edges_contribute"
+      ]
+    ],
+    "DFG-B-edges-reversed": [
+      "src/data_flow/views.rs",
+      "iter: Box::new(self.edges.iter().map(|e| FlowEdgeRef {",
+      "iter: Box::new(self.edges.iter().rev().map(|e| FlowEdgeRef {",
+      [
+        "data_flow::tests::queries::views_include_spans_and_preserve_native_order"
+      ]
+    ],
+    "DFG-B-predecessors-last-equal-first": [
+      "src/data_flow/views.rs",
+      "self.backward.get(at).map(|v| Locations {\n            iter: Box::new(v.iter()),",
+      "self.backward.get(at).map(|v| Locations {\n            iter: Box::new(v.iter().rev()),",
+      [
+        "data_flow::tests::queries::views_preserve_independent_representatives_duplicates_empty_rows_and_absence"
+      ]
+    ],
+    "DFG-B-storage-observation-omits-edge-spans": [
+      "src/cpg_cache/dfg_observation.rs",
+      "g.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>(),",
+      "Vec::<crate::data_flow::FlowEdge>::new(),",
+      [
+        "data_flow::tests::observe::ordered_storage_observation_includes_legacy_equal_byte_spans"
+      ]
+    ],
+    "DFG-B-storage-observation-omits-labels": [
+      "src/cpg_cache/dfg_observation.rs",
+      "g.labels()\n            .map(|(e, c)| ((e.from, e.to), c))",
+      "g.labels()\n            .filter(|_| false)\n            .map(|(e, c)| ((e.from, e.to), c))",
+      [
+        "data_flow::tests::outputs::decoded_corruption_is_rejected_against_cold_reference"
+      ]
+    ],
+    "DFG-B-refresh-keeps-stale-label-representatives": [
+      "src/data_flow/legacy_storage.rs",
+      "self.labels\n            .retain(|(from, to), _| !exclude.contains(&from.file) && !exclude.contains(&to.file));",
+      "self.labels.retain(|_, _| true);",
+      [
+        "data_flow::tests::updates::javascript_exact_labels_survive_partial_edit_retain_delete"
+      ]
+    ],
+    "DFG-B-missing-label-loses-function-identity": [
+      "src/cpg/build.rs",
+      ".record_without_cfg(function, start_line);",
+      ".record_without_cfg(\"__mutant\".into(), start_line);",
+      [
+        "cpg::dfg_missing_label_tests::partial_hit_fallback_unions_persisted_and_new_function_identities",
+        "cpg::dfg_missing_label_tests::repeated_partial_hits_do_not_accumulate_retained_missing_label_stats"
+      ]
+    ],
+    "DFG-B-merge-keeps-exact": [
+      "src/data_flow/legacy_storage.rs",
+      "labels\n            .entry(key)\n            .and_modify(|stored| *stored = stored.worst(label))",
+      "labels\n            .entry(key)\n            .and_modify(|stored| *stored = FlowConfidence::Exact)",
+      [
+        "data_flow::tests::updates::labels_merge_duplicate_keys_with_the_worst_confidence"
       ]
     ]
   }

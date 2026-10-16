@@ -3,6 +3,7 @@
 //! Edges start only at the base Def; a field never reaches a sibling field.
 
 use crate::ast::{ParameterUse, ParsedFile};
+use crate::data_flow::test_support::label_snapshot;
 use crate::data_flow::DataFlowGraph;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
@@ -41,8 +42,8 @@ pub(super) fn graph(language: Language, source: &str) -> DataFlowGraph {
 
 /// (function, path, line) of every Def whose path base is `base` and which has no fields.
 pub(super) fn base_defs(g: &DataFlowGraph, base: &str) -> BTreeSet<(String, usize)> {
-    g.defs
-        .values()
+    g.defs()
+        .map(|(_, v)| v)
         .flatten()
         .filter(|d| d.path.base == base && !d.path.has_fields())
         .map(|d| (d.function.clone(), d.line))
@@ -54,7 +55,7 @@ pub(super) fn field_edges(
     g: &DataFlowGraph,
     base: &str,
 ) -> BTreeSet<(String, usize, String, usize)> {
-    g.edges
+    g.edges()
         .iter()
         .filter(|e| e.to.path.base == base && e.to.path.has_fields())
         .map(|e| {
@@ -279,7 +280,7 @@ fn nested_shadow_of_the_formal_never_receives_projection_edges() {
                 "{language:?}: outer Def must not project into the shadowing callable: {edges:?}"
             );
             assert!(
-                g.edges
+                g.edges()
                     .iter()
                     .all(|e| !(e.from.function == "h" && e.from.path.base == "p")),
                 "{language:?}: no edge at all leaves the outer formal"
@@ -291,11 +292,11 @@ fn nested_shadow_of_the_formal_never_receives_projection_edges() {
         "function h({P}) {\n  {\n    let p = other();\n    a(p.x);\n  }\n}\n",
         |language, g, _| {
             assert!(
-                !g.edges
+                !g.edges()
                     .iter()
                     .any(|e| e.from.function == "h" && e.from.line == 1 && e.from.path.base == "p"),
                 "{language:?}: {:?}",
-                g.edges
+                g.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>()
             );
         },
     );
@@ -427,11 +428,29 @@ fn full_and_subset_builds_agree_on_member_only_edges() {
         let full = DataFlowGraph::build(&files);
         let subset = DataFlowGraph::build_subset(&files, &BTreeSet::from([name]));
         assert_eq!(
-            serde_json::to_value(&full.edges).unwrap(),
-            serde_json::to_value(&subset.edges).unwrap(),
+            serde_json::to_value(
+                &full
+                    .edges()
+                    .iter()
+                    .map(|e| e.to_owned())
+                    .collect::<Vec<_>>()
+            )
+            .unwrap(),
+            serde_json::to_value(
+                &subset
+                    .edges()
+                    .iter()
+                    .map(|e| e.to_owned())
+                    .collect::<Vec<_>>()
+            )
+            .unwrap(),
             "{language:?}"
         );
-        assert_eq!(full.labels, subset.labels, "{language:?}");
+        assert_eq!(
+            label_snapshot(&full),
+            label_snapshot(&subset),
+            "{language:?}"
+        );
         assert_eq!(field_edges(&full, "p").len(), 2, "{language:?}");
     }
 }
@@ -543,11 +562,11 @@ fn write_only_member_formal_gets_a_def_with_no_outgoing_edges() {
             "{language:?}"
         );
         assert!(
-            !g.edges
+            !g.edges()
                 .iter()
                 .any(|e| e.from.path.base == "p" && e.from.line == 1),
             "{language:?}: {:?}",
-            g.edges
+            g.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>()
         );
     });
 }
