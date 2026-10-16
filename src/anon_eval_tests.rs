@@ -100,10 +100,97 @@ fn computed_pattern_safe_controls_keep_exact() {
             "const globalThis={}; const {[k]: v} = globalThis;",
             "const a=globalThis; function read(a) { const {[k]: v} = a; }",
             "let v; ({[k]: v} = obj);",
-            "function read({[k]: v} = globalThis) {}",
             "for (const {[k]: v} of globalThis) {}",
             "for (const {[k]: v} in globalThis) {}",
             "const obj={ [k]: value };",
+        ],
+        true,
+    );
+}
+
+#[test]
+fn computed_pattern_comments_proven_eval_lose_exact() {
+    pattern_cases(
+        &[
+            "const {[/*c*/ 'ev'+'al']: e} = obj;",
+            "const {[//c\n'ev'+'al']: e} = obj;",
+            "const {[/*a*//*b*/ ('ev'+'al')]: e} = obj;",
+            "const {['ev'+'al' /*c*/]: e} = obj;",
+            "const {[/*c*/ k]: e} = globalThis;",
+            "function read({[/*c*/ 'ev'+'al']: e}) {}",
+            "let e; ({[/*c*/ 'ev'+'al']: e} = obj);",
+            "obj[`e${/*c*/ 'v'}al`];",
+            "obj[/*c*/ 'ev'+'al'];",
+        ],
+        false,
+    );
+}
+
+#[test]
+fn computed_pattern_comments_safe_keys_keep_exact() {
+    pattern_cases(
+        &[
+            "const {[/*c*/ 'log']: v} = globalThis;",
+            "const {[/*c*/ 0]: v} = globalThis;",
+            "const {[//c\n'log']: v} = globalThis;",
+            "const {['log' /*c*/]: v} = globalThis;",
+            "const {[/*c*/ k]: v} = obj;",
+            "globalThis[`lo${/*c*/ 'g'}`];",
+            "globalThis[/*c*/ 'log'];",
+        ],
+        true,
+    );
+}
+
+#[test]
+fn computed_await_assignment_host_receivers_lose_exact() {
+    pattern_cases(
+        &[
+            "async function read(){const {[k]: e} = await globalThis;}",
+            "let a; const {[k]: e} = (a = globalThis);",
+            "const a=globalThis; async function read(){const {[k]: e} = await a;}",
+            "async function read(){(await globalThis)[k];}",
+            "let a; (a = globalThis)[k];",
+            "const a=globalThis; async function read(){(await a)[k];}",
+            "let a,b; async function read(){const {[k]: e} = await (a = (b = globalThis));}",
+            "let a,b; async function read(){(await (a = (b = globalThis)))[k];}",
+            "let a; const b=(a=globalThis); const {[k]: e}=b; b[k];",
+        ],
+        false,
+    );
+}
+
+#[test]
+fn computed_await_assignment_ordinary_or_shadowed_receivers_keep_exact() {
+    pattern_cases(
+        &[
+            "async function read(){const {[k]: e} = await obj;}",
+            "let a; const {[k]: e} = (a = obj);",
+            "async function read(){(await obj)[k];}",
+            "let a; (a = obj)[k];",
+            "const globalThis={}; async function read(){const {[k]: e} = await globalThis; (await globalThis)[k];}",
+            "const globalThis={}; let a; const {[k]: e} = (a=globalThis); (a=globalThis)[k];",
+            "const a=globalThis; async function read(a){const {[k]: e} = await a; (await a)[k];}",
+            "let a; const b=(a=obj); const {[k]: e}=b; b[k];",
+        ],
+        true,
+    );
+}
+
+#[test]
+fn known_gap_default_or_conditional_receivers_keep_exact() {
+    pattern_cases(
+        &[
+            "function read({[k]: v} = globalThis) {}",
+            "function read(o = globalThis) {o[k];}",
+            "function read({outer: {[k]: v} = globalThis}) {}",
+            "function read([{[k]: v} = globalThis]) {}",
+            "const {[k]: v} = choose ? globalThis : obj;",
+            "const {[k]: v} = obj || globalThis;",
+            "const {[k]: v} = (obj, globalThis);",
+            "(choose ? globalThis : obj)[k];",
+            "(obj || globalThis)[k];",
+            "(obj, globalThis)[k];",
         ],
         true,
     );

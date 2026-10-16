@@ -36,6 +36,7 @@ proven const host alias. A pattern's direct initializer or assignment RHS suppli
 its receiver; nested property values, parameters and loop heads have unknown
 receivers. Plain `{eval: e}` and shorthand `{eval}` already trigger the existing
 identifier-spelling veto.
+Receivers given only as a pattern or parameter default are not followed, like conditional receivers.
 
 ## 1. What a called name is bound to
 

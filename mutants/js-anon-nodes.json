@@ -287,6 +287,21 @@
       "if node.kind() == \"ambient_declaration\" {",
       "if false && node.kind() == \"ambient_declaration\" {",
       "anon_owner::node_tests::eval_tests::computed_host_program_var_and_ambient_declarations_are_not_shadows"
+    ],
+    "ANON-ENABLE-47-pattern-comment-skip-off": [
+      "src/ast/js_anonymous.rs",
+      ".and_then(anonymous_first_expression)",
+      ".and_then(|key| key.named_child(0))",
+      [
+        "anon_owner::node_tests::eval_tests::computed_pattern_comments_proven_eval_lose_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_comments_safe_keys_keep_exact"
+      ]
+    ],
+    "ANON-ENABLE-48-receiver-value-peel-off": [
+      "src/ast/js_anonymous.rs",
+      "\"await_expression\" => anonymous_first_expression(node),\n                \"assignment_expression\" => node.child_by_field_name(\"right\"),",
+      "\"await_expression\" | \"assignment_expression\" => None,",
+      "anon_owner::node_tests::eval_tests::computed_await_assignment_host_receivers_lose_exact"
     ]
   },
   "lib_test_prefixes": [
