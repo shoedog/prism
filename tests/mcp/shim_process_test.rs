@@ -588,6 +588,48 @@ fn a_failure_before_the_key_is_known_still_names_the_standalone_invocation() {
     }
 }
 
+/// Review round 1, sol 2: the printed `--standalone` invocation runs as printed, whatever the
+/// repository path holds: a shell reads back the very path, a newline, a tab, a C1 control, a
+/// quote, a backslash and a byte that is not UTF-8 included (the repository need not exist: its
+/// failure, before the key is known, prints the line too).
+#[test]
+fn the_printed_invocation_runs_as_printed_whatever_the_path_holds() {
+    use std::os::unix::ffi::OsStrExt;
+    let setup = setup();
+    let repo = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
+        b"/nonexistent/a\nb\tc'd \\e\xff\x1b[2J\xc2\x85f",
+    ));
+    let mut shim = ShimProcess::start_with(&setup, &repo, setup.cache.path(), &[], &[]);
+    let (status, stderr) = shim.ended();
+    assert!(!status.success(), "{stderr}");
+    assert_eq!(stderr.lines().count(), 1, "{stderr:?}");
+    let invocation = stderr
+        .trim_end_matches('\n')
+        .split_once("; to run without the shared daemon: ")
+        .expect("the invocation")
+        .1;
+    let output = Command::new("bash")
+        .arg("-c")
+        .arg(format!("printf '%s\\0' {invocation}"))
+        .output()
+        .expect("bash");
+    assert!(output.status.success(), "{output:?}");
+    let words: Vec<&[u8]> = output.stdout.split(|b| *b == 0).collect();
+    assert!(words[0].ends_with(b"prism-mcp"), "{words:?}");
+    assert_eq!(
+        words[1..],
+        [
+            b"--repo".as_slice(),
+            repo.as_os_str().as_bytes(),
+            b"--cache-dir",
+            setup.cache.path().as_os_str().as_bytes(),
+            b"--standalone",
+            b"",
+        ],
+        "{invocation}"
+    );
+}
+
 /// Hold the key's owner lock, as a live daemon does.
 pub(crate) fn owner_lock_held(paths: &DaemonPaths) -> File {
     let owner = std::fs::OpenOptions::new()
