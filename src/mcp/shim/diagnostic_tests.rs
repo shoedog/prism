@@ -167,7 +167,7 @@ fn the_printed_invocation_quotes_each_word_from_its_bytes() {
     let invocation = standalone_invocation(exe, &ServerConfig::new(repo));
     assert_eq!(
         invocation,
-        r"$'/opt/it\'s\nprism-mcp' --repo $'/tmp/a\nb\tc\'d \\e\xff\x1b[2J\xc2\x85f' --standalone"
+        r"$'/opt/it\'s\nprism-mcp' --repo $'/tmp/a\nb\tc\'d \\e\377\033[2J\302\205f' --standalone"
     );
     let at = Where {
         key: None,

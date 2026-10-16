@@ -216,8 +216,15 @@ fn daemons_of(paths: &DaemonPaths) -> Vec<u32> {
         .file_stem()
         .and_then(|stem| stem.to_str())
         .expect("the key's locator");
+    // Anchored: the first word of the command line is a `prism-mcp` binary (as the shim spawns
+    // it, from `current_exe`, which may resolve symlinks) and the key's locator starts the
+    // `--key` value, so no other process whose command line merely mentions a daemon (a
+    // reviewer's prompt, a user's own daemon) can match (review round 2, Opus F-B).
     Command::new("pgrep")
-        .args(["-f", &format!("prism-mcp daemon .*--key {locator}")])
+        .args([
+            "-f",
+            &format!("^[^ ]*/?prism-mcp daemon .*--key {locator}[0-9a-f]*( |$)"),
+        ])
         .output()
         .map(|output| {
             String::from_utf8_lossy(&output.stdout)

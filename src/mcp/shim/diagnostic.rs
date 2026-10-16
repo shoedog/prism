@@ -107,7 +107,9 @@ fn pid_file(paths: &DaemonPaths, dir_validated: bool) -> String {
         Err(FilesError::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {
             format!("{} absent", path.display())
         }
-        Err(FilesError::Unusable { why, .. }) => format!("{} not read: it {why}", path.display()),
+        Err(FilesError::Unusable { path: dir, why }) => {
+            format!("{} not read: {} {why}", path.display(), dir.display())
+        }
         Err(error) => format!("{} unreadable ({error})", path.display()),
         Ok(_) => {
             let fields: Vec<&str> = text.split('\n').collect();
@@ -164,8 +166,8 @@ pub(super) fn standalone_invocation(exe: &Path, cfg: &ServerConfig) -> String {
 
 /// `word` as a shell reads it back: bare when it is plain; single-quoted when it is UTF-8 text
 /// with no control character; otherwise ANSI-C quoted (`$'...'`, which bash, zsh and ksh read),
-/// with `\n`, `\t` and `\xHH` for every control character and every byte that is not UTF-8, so
-/// that the quoted word is one line and names the very bytes.
+/// with `\n`, `\t` and a three-digit octal `\NNN` for every control character and every byte that
+/// is not UTF-8, so that the quoted word is one line and names the very bytes.
 fn shell_word(word: &[u8]) -> String {
     match std::str::from_utf8(word) {
         Ok(text) if !text.contains(char::is_control) => {
@@ -183,13 +185,14 @@ fn shell_word(word: &[u8]) -> String {
     }
 }
 
-/// `word` as `$'...'`. Each `\xHH` has two digits, so a hex digit after it is never read as
-/// part of it.
+/// `word` as `$'...'`. Each byte escape is three octal digits, which every one of those shells
+/// reads as exactly three; ksh93 reads `\xHH` greedily, taking a hex digit after it as part of it
+/// (review round 2, Opus F-A).
 fn ansi_c_quoted(word: &[u8]) -> String {
     let mut quoted = String::from("$'");
     let hex = |quoted: &mut String, bytes: &[u8]| {
         for byte in bytes {
-            quoted.push_str(&format!("\\x{byte:02x}"));
+            quoted.push_str(&format!("\\{byte:03o}"));
         }
     };
     for chunk in word.utf8_chunks() {
