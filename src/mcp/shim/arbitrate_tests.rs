@@ -499,3 +499,41 @@ fn a_live_daemon_with_a_full_backlog_fails_the_shim_closed_at_the_deadline() {
     assert!(failed_closed);
     drop(owner);
 }
+
+/// Review of S5a-1, Opus S4: after a spawn the shim stops looking at the owner lock (D82), so
+/// its last look, "free", came before its own daemon started; that daemon may hold the lock
+/// now. The line says only what the shim saw and when, never that no daemon held it at the
+/// deadline. Without a spawn the plain wording stays.
+#[test]
+fn a_free_owner_lock_seen_before_a_spawn_is_reported_as_seen_before_the_spawn() {
+    let after_spawn = Failure::NoReady {
+        last: Transient::Closed,
+        owner: Owner::Free,
+        started: Some(4242),
+    }
+    .to_string();
+    assert!(
+        after_spawn.contains(
+            "; the owner lock was free when this shim last looked, before it started its daemon"
+        ),
+        "{after_spawn}"
+    );
+    assert!(
+        !after_spawn.contains("no daemon held the owner lock"),
+        "{after_spawn}"
+    );
+    assert!(
+        after_spawn.contains("; the daemon this shim started, pid 4242, did not answer"),
+        "{after_spawn}"
+    );
+    let without_spawn = Failure::NoReady {
+        last: Transient::Closed,
+        owner: Owner::Free,
+        started: None,
+    }
+    .to_string();
+    assert!(
+        without_spawn.contains("; no daemon held the owner lock)"),
+        "{without_spawn}"
+    );
+}
