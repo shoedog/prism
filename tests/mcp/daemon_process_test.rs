@@ -1,5 +1,5 @@
 //! `prism-mcp daemon` as a process (spec §3.1, §4.2–§4.4; the daemon's halves of §9 tests 2, 3,
-//! 4, 8 and 15, which the shim of slice S5a completes). Each test runs the real binary with a
+//! 4, 8 and 15, which the shim's process tests complete; they share this file's helpers). Each test runs the real binary with a
 //! runtime directory of its own and speaks the preamble to it as a shim will.
 #![cfg(feature = "mcp")]
 
@@ -20,12 +20,12 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-const HANG: Duration = Duration::from_secs(60);
-const INIT: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}"#;
-const INITED: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
-const CALLEES: &str = r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"run","file":"main.py"}}}}"#;
+pub(crate) const HANG: Duration = Duration::from_secs(60);
+pub(crate) const INIT: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}"#;
+pub(crate) const INITED: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
+pub(crate) const CALLEES: &str = r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"run","file":"main.py"}}}}"#;
 
-fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
+pub(crate) fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
     let give_up = Instant::now() + HANG;
     while !condition() {
         assert!(Instant::now() < give_up, "gave up waiting for: {what}");
@@ -35,15 +35,15 @@ fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
 
 /// A repository, a cache base and a runtime base of the test's own, and the key and paths a
 /// daemon for them has.
-struct Setup {
-    repo: tempfile::TempDir,
-    cache: tempfile::TempDir,
-    base: tempfile::TempDir,
-    key: IdentityKey,
-    paths: DaemonPaths,
+pub(crate) struct Setup {
+    pub(crate) repo: tempfile::TempDir,
+    pub(crate) cache: tempfile::TempDir,
+    pub(crate) base: tempfile::TempDir,
+    pub(crate) key: IdentityKey,
+    pub(crate) paths: DaemonPaths,
 }
 
-fn setup() -> Setup {
+pub(crate) fn setup() -> Setup {
     let repo = tempfile::tempdir().expect("a repository");
     std::fs::write(repo.path().join("util.py"), "def helper():\n    return 1\n")
         .expect("write util.py");
@@ -71,7 +71,7 @@ fn setup() -> Setup {
 }
 
 /// A daemon process, killed and reaped when the test ends however it ends.
-struct Daemon {
+pub(crate) struct Daemon {
     child: Child,
     stderr: Option<JoinHandle<String>>,
 }
@@ -85,7 +85,7 @@ impl Drop for Daemon {
 
 impl Daemon {
     /// Start a daemon whose standard error the test reads.
-    fn start(setup: &Setup, extra: &[&str]) -> Self {
+    pub(crate) fn start(setup: &Setup, extra: &[&str]) -> Self {
         let mut daemon = Self::spawn(setup, extra, Stdio::piped());
         let mut stderr = daemon
             .child
@@ -128,16 +128,16 @@ impl Daemon {
         }
     }
 
-    fn pid(&self) -> u32 {
+    pub(crate) fn pid(&self) -> u32 {
         self.child.id()
     }
 
-    fn exited(&mut self) -> Option<ExitStatus> {
+    pub(crate) fn exited(&mut self) -> Option<ExitStatus> {
         self.child.try_wait().expect("the daemon's status")
     }
 
     /// Wait for the process to end; return how it ended and its standard error.
-    fn ended(&mut self) -> (ExitStatus, String) {
+    pub(crate) fn ended(&mut self) -> (ExitStatus, String) {
         let mut status = None;
         wait_until("the daemon process to end", || {
             status = self.exited();
@@ -254,7 +254,7 @@ fn ready_pid(reply: &str) -> u32 {
     }
 }
 
-fn gone(path: &Path) -> bool {
+pub(crate) fn gone(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_err()
 }
 

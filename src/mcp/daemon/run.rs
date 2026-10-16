@@ -1,7 +1,7 @@
 //! The daemon process, `prism-mcp daemon ...` (spec §3.1 "Starting", §4.2, §8 step 4): resolve
 //! the identity, own the key or leave silently, bind, write the pid file, serve, drain.
 use super::coordinator::DaemonState;
-use super::files::{Claim, DaemonFiles};
+use super::files::{BuildMarker, Claim, DaemonFiles};
 use super::log;
 use super::server::{ServeOptions, Served, Server, Waker, HANDSHAKE_TIMEOUT};
 use crate::mcp::lazy::SessionBuilder;
@@ -65,7 +65,10 @@ pub fn run_daemon(options: DaemonOptions) -> anyhow::Result<()> {
 
     let builder: SessionBuilder = {
         let cfg = cfg.clone();
-        Arc::new(move || SessionProvider::bootstrap(&cfg))
+        marked(
+            Arc::new(move || SessionProvider::bootstrap(&cfg)),
+            files.build_marker()?,
+        )
     };
     let state = DaemonState::new(builder, cfg.startup)?;
     let served = Served {
@@ -100,6 +103,18 @@ pub fn run_daemon(options: DaemonOptions) -> anyhow::Result<()> {
     let reason = server.run()?;
     log::line(&format!("pid {pid} stopped: {}", reason.describe()));
     Ok(())
+}
+
+/// `builder` with the build marker set while it runs and removed when it returns, with an index
+/// or an error. A builder that panics does not return: the abort that follows (spec §3.1) leaves
+/// the marker for the next shim to find (S5a, S3b's SI-10).
+fn marked(builder: SessionBuilder, marker: BuildMarker) -> SessionBuilder {
+    Arc::new(move || {
+        marker.set();
+        let built = builder();
+        marker.clear();
+        built
+    })
 }
 
 /// The descriptor the signal handler writes to; -1 until one is installed.
@@ -139,3 +154,7 @@ fn install_signal_handlers(waker: &Waker) -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "run_tests.rs"]
+mod tests;

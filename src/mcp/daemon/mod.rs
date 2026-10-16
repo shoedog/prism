@@ -12,9 +12,9 @@ mod connection;
 mod control;
 mod coordinator;
 mod fatal;
-mod files;
+pub(super) mod files;
 mod log;
-mod peer;
+pub(super) mod peer;
 mod run;
 mod server;
 #[cfg(test)]

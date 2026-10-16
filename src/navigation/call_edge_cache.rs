@@ -111,7 +111,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 const NAV_CALL_EDGE_CACHE_VERSION: u32 = 66;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
-const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
+pub(crate) const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
 
 static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
