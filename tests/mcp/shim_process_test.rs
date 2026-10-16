@@ -207,8 +207,34 @@ pub(crate) fn kill(pid: u32, signal: libc::c_int) {
     unsafe { libc::kill(pid, signal) };
 }
 
-/// Kill the daemon that owns the key, if one does, and wait until the key is free.
+/// The pids of the `prism-mcp daemon` processes of this key, found by their command line (it
+/// names the key), whether or not one has taken the owner lock or written its pid file yet.
+/// Best effort: none when `pgrep` cannot be run.
+fn daemons_of(paths: &DaemonPaths) -> Vec<u32> {
+    let locator = paths
+        .pid_file()
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .expect("the key's locator");
+    Command::new("pgrep")
+        .args(["-f", &format!("prism-mcp daemon .*--key {locator}")])
+        .output()
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .filter_map(|line| line.trim().parse().ok())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Kill every daemon of the key: those its command line names, which covers a daemon a shim
+/// started that has not taken the owner lock yet when a test fails (review round 1, Opus F4),
+/// and the one that owns the key; then wait until the key is free.
 pub(crate) fn end_daemons(paths: &DaemonPaths) {
+    for pid in daemons_of(paths) {
+        kill(pid, libc::SIGKILL);
+    }
     if !paths.runtime_dir().exists() {
         return;
     }
@@ -355,20 +381,34 @@ fn a_daemon_that_answers_mismatch_fails_the_shim_closed() {
         .expect("socket")
         .ino();
     let expected = "f".repeat(64);
+    // The fixture answers the first connection, or stops when told to (or when a failing test
+    // drops its sender); it never blocks in `accept`, so joining it cannot hang (review round 1,
+    // Opus F4).
+    let (stop_tx, stop_rx) = mpsc::channel::<()>();
+    listener.set_nonblocking(true).expect("nonblocking");
     let fixture = {
         let expected = expected.clone();
         std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().expect("accept");
-            let _ = read_line(&stream);
-            let reply = Reply::Mismatch {
-                expected: prism::mcp::shared::identity::IdentityKey::from_hex(&expected)
-                    .expect("a key"),
-            };
-            let _ = stream.write_all(reply.encode().as_bytes());
+            while let Err(mpsc::TryRecvError::Empty) = stop_rx.try_recv() {
+                if let Ok((mut stream, _)) = listener.accept() {
+                    // An accepted socket can inherit the listener's O_NONBLOCK (macOS).
+                    stream.set_nonblocking(false).expect("blocking");
+                    stream.set_read_timeout(Some(HANG)).expect("a read timeout");
+                    let _ = read_line(&stream);
+                    let reply = Reply::Mismatch {
+                        expected: prism::mcp::shared::identity::IdentityKey::from_hex(&expected)
+                            .expect("a key"),
+                    };
+                    let _ = stream.write_all(reply.encode().as_bytes());
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
         })
     };
     let mut shim = ShimProcess::start(&setup, &[], &[]);
     let (status, stderr) = shim.ended();
+    let _ = stop_tx.send(());
     assert!(!status.success());
     assert!(stderr.contains("MISMATCH"), "{stderr}");
     assert!(stderr.contains(&expected), "{stderr}");
