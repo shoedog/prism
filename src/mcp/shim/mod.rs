@@ -9,7 +9,10 @@
 
 mod arbitrate;
 mod connect;
+mod diagnostic;
 mod key_files;
+mod pump;
 #[cfg(test)]
 mod shim_support;
 mod socket;
+mod spawn;
