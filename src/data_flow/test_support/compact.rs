@@ -53,32 +53,25 @@ pub(in crate::data_flow) fn assert_all(
 // Test-only construction path consumes a fresh shared producer invocation,
 // without building or consulting the legacy graph being compared.
 pub(in crate::data_flow) fn build(files: &BTreeMap<String, ParsedFile>) -> CompactDfg {
-    let mut p = parts(LegacyDataFlowGraph::empty());
-    p.adjacency = None;
-    for (file, parsed) in files {
-        let r = crate::data_flow::build::file_refs(file, parsed);
-        p.edges.extend(r.edges);
-        for (k, v) in r.defs {
-            p.defs.entry(k).or_default().extend(v);
-        }
-        for (k, v) in r.uses {
-            p.uses.entry(k).or_default().extend(v);
-        }
-        for (k, c) in r.labels {
-            p.labels
-                .entry(k)
-                .and_modify(|s| *s = s.worst(c))
-                .or_insert(c);
-        }
-        for (k, c) in r.exact_labels {
-            p.exact_labels
-                .entry(k)
-                .and_modify(|s| *s = s.worst(c))
-                .or_insert(c);
-        }
-        p.rd_function_stats.insert(r.file_path, r.rd_function_stats);
-    }
-    CompactDfg::from_parts(p).expect("fixture capacity")
+    use rayon::prelude::*;
+    let ordered: Vec<_> = files.iter().collect();
+    let compact_parts = ordered
+        .par_iter()
+        .map(|(file, parsed)| {
+            let r = crate::data_flow::build::file_refs(file, parsed);
+            CompactDfg::from_parts(Parts {
+                edges: r.edges,
+                defs: r.defs,
+                uses: r.uses,
+                labels: r.labels,
+                exact_labels: r.exact_labels,
+                rd_function_stats: BTreeMap::from([(r.file_path, r.rd_function_stats)]),
+                adjacency: None,
+            })
+            .expect("fixture capacity")
+        })
+        .collect();
+    crate::data_flow::compact::combine(compact_parts).expect("fixture capacity")
 }
 
 pub(in crate::data_flow) fn assert_conversion(
@@ -111,4 +104,37 @@ pub(in crate::data_flow) fn pair(p: Parts) -> (LegacyDataFlowGraph, CompactDfg) 
         rd_function_stats: q.rd_function_stats,
     };
     (old, CompactDfg::from_parts(p).unwrap())
+}
+
+#[cfg(feature = "dfg-oracle")]
+pub(super) fn assert_updates(files: &BTreeMap<String, ParsedFile>) {
+    let baseline = LegacyDataFlowGraph::build(files);
+    let compact = build(files);
+    let held = compact.clone();
+    let held_bytes = storage(&held);
+    let mut exclusions = vec![
+        BTreeSet::new(),
+        files.keys().cloned().collect(),
+        BTreeSet::from(["absent.py".into()]),
+    ];
+    exclusions.extend(files.keys().map(|f| BTreeSet::from([f.clone()])));
+    for excluded in exclusions {
+        let mut old = baseline.clone();
+        let mut new = compact.clone();
+        old.remove_files(&excluded);
+        new.remove_files(&excluded);
+        assert_all(&old, &new, files);
+        let subset = files
+            .iter()
+            .filter(|(f, _)| excluded.contains(*f))
+            .map(|(f, p)| (f.clone(), p.clone()))
+            .collect();
+        old.merge(LegacyDataFlowGraph::build(&subset));
+        new.merge(build(&subset));
+        assert_all(&old, &new, files);
+        old.merge(baseline.clone());
+        new.merge(compact.clone());
+        assert_all(&old, &new, files);
+        assert_eq!(storage(&held), held_bytes);
+    }
 }

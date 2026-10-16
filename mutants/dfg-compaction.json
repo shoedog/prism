@@ -103,6 +103,30 @@
       [
         "data_flow::tests::representatives::map_representatives_are_independent"
       ]
+    ],
+    "DFG-D-removal-ignores-edge-target": [
+      "src/data_flow/compact/update.rs",
+      "g.edges\n        .retain(|&(f, t)| !excluded.contains(&a.get(f).file) && !excluded.contains(&a.get(t).file));",
+      "g.edges\n        .retain(|&(f, _t)| !excluded.contains(&a.get(f).file));",
+      [
+        "data_flow::tests::updates::removal_uses_map_key_file_and_either_edge_endpoint"
+      ]
+    ],
+    "DFG-D-overlapping-bindings-overwritten": [
+      "src/data_flow/compact/update.rs",
+      "defs.entry(k).or_default().extend(ids.into_iter().map(map));",
+      "defs.insert(k, ids.into_iter().map(map).collect());",
+      [
+        "data_flow::tests::updates::overlap_merge_and_remove_match_legacy_bytes"
+      ]
+    ],
+    "DFG-D-dead-locations-retained": [
+      "src/data_flow/compact/update.rs",
+      "let mut live = vec![false; p.arena.rows.len()];",
+      "let mut live = vec![true; p.arena.rows.len()];",
+      [
+        "data_flow::tests::updates::twenty_refreshes_reclaim_dead_locations_and_leave_clone_unchanged"
+      ]
     ]
   }
 }

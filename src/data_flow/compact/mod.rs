@@ -66,3 +66,6 @@ pub(super) struct Parts {
         BTreeMap<VarLocation, Vec<VarLocation>>,
     )>,
 }
+
+mod update;
+pub(super) use update::combine;

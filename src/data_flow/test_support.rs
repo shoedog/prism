@@ -270,6 +270,7 @@ pub fn assert_storage_assembly(files: &BTreeMap<String, ParsedFile>) {
 #[cfg(feature = "dfg-oracle")]
 pub fn assert_corpus(files: &BTreeMap<String, ParsedFile>) {
     compact::assert_built(files);
+    compact::assert_updates(files);
     let old = LegacyDataFlowGraph::build(files);
     let new = DataFlowGraph::build(files);
     assert_pair(&old, &new, files);
@@ -369,3 +370,6 @@ pub(crate) fn exact_label_snapshot(
 }
 
 pub(crate) mod compact;
+
+#[cfg(feature = "dfg-oracle")]
+pub mod accounting;
