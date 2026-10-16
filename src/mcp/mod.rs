@@ -18,6 +18,8 @@ pub mod session;
 pub mod settings;
 #[cfg(unix)]
 pub mod shared;
+#[cfg(unix)]
+mod shim;
 pub mod tools;
 pub mod tools_reasoning;
 pub mod tools_refresh;

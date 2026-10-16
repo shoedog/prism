@@ -33,6 +33,14 @@ fn the_five_files_are_named_by_the_first_16_hex_digits_inside_the_runtime_dir() 
     assert_eq!(paths.log_file(), dir.join("0123456789abcdef.log"));
 }
 
+/// The build marker a daemon leaves while its build runs (S5a) is named like the other files.
+#[test]
+fn the_build_marker_is_named_by_the_first_16_hex_digits_too() {
+    let dir = Path::new("/run/user/501/prism-mcpd");
+    let paths = DaemonPaths::new(dir, &key(KEY)).unwrap();
+    assert_eq!(paths.build_marker(), dir.join("0123456789abcdef.build"));
+}
+
 /// The file names are a locator, not the identity: two keys that agree in their first 16
 /// digits name the same files, which is why the preamble compares the full key (spec §4.4).
 #[test]
