@@ -480,7 +480,7 @@ gave no reply), through its locks (the owner lock only under the start lock, eac
 `under_locks`); what a dead daemon left, with its build marker's restart time (the marker is read
 without waiting, a regular file only, 256 bytes at most: `KeyDir::read_build_marker`, which the
 shim uses too); keys with nothing but lock files and logs in one count line; a key that cannot be
-looked at on a line of its own. It never removes anything. `prism-mcp daemon-shutdown --repo X [--cache-dir D] [--refresh-policy P]
+looked at on a line of its own, with exit 1 (only a missing file is absent: `present`). It never removes anything. `prism-mcp daemon-shutdown --repo X [--cache-dir D] [--refresh-policy P]
 [--runtime-dir BASE] [--pid N --start-time T] [--timeout S]` (`shutdown.rs`) asks the instance a
 status exchange has just shown (or the one named) to drain, and when it had no client waits for
 its pid file to go; a socket that refuses connections is no daemon only when nobody holds the

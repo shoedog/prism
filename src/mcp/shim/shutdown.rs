@@ -15,10 +15,10 @@
 //! An instance that accepts the request with no client admitted but one mid-handshake
 //! (`pending > 0`) is waited for like an idle one: that client is then admitted, so the daemon
 //! stays up, the wait runs to `--timeout` and the command exits 1; a retry sees the client
-//! admitted and exits 0 (PR #418 review round 1, Opus S3). Only a runtime directory or a pid
-//! file that is not there is absence: one that cannot be looked at for another reason (a parent
-//! this user cannot search, say) is reported, exit 1, never taken for no daemon or a drain
-//! (sol 1, Opus S2).
+//! admitted and exits 0 (PR #418 review round 1, Opus S3). Only a runtime directory, a key's
+//! file or a pid file that is not there is absence: one that cannot be looked at for another
+//! reason (a parent this user cannot search, say) is reported, exit 1, never taken for no daemon
+//! or a drain (review round 1, sol 1, Opus S2; round 2, sol 1).
 use super::arbitrate::POLL;
 use super::connect::PeerUid;
 use super::control::{exchange, Exchanged};
