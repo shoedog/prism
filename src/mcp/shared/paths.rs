@@ -52,7 +52,14 @@ impl DaemonPaths {
     /// than [`MAX_SOCKET_PATH_BYTES`]. `runtime_dir` is used as given; validating it is the
     /// caller's separate step (`validate_runtime_dir`).
     pub fn new(runtime_dir: &Path, key: &IdentityKey) -> Result<Self, SocketPathTooLong> {
-        let locator = key.locator();
+        Self::from_locator(runtime_dir, &key.locator())
+    }
+
+    /// The paths of the daemon whose key starts with `locator`, for `daemon-status`, which lists a
+    /// runtime directory by its file names and so knows only the first 16 hex digits of each key
+    /// (S5b). `locator` is used as given: the caller takes it from a file name it has checked is
+    /// 16 lowercase hexadecimal digits.
+    pub fn from_locator(runtime_dir: &Path, locator: &str) -> Result<Self, SocketPathTooLong> {
         let file = |extension: &str| runtime_dir.join(format!("{locator}.{extension}"));
         let socket = file("sock");
         let len = socket.as_os_str().as_bytes().len();

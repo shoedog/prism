@@ -548,3 +548,28 @@ fn a_free_owner_lock_seen_before_a_spawn_is_reported_as_seen_before_the_spawn() 
         "{without_spawn}"
     );
 }
+
+/// S5b review round 1 (sol 2, Opus S6): a build marker that is not a regular file (a FIFO here)
+/// is not a daemon's. Reading it does not wait for a writer, it does not hold the key, and the
+/// shim removes it with the other stale files and starts a daemon. Watched by an independent
+/// thread, because a blocking open of the FIFO waited for a writer for ever.
+#[test]
+fn a_build_marker_that_is_not_a_regular_file_neither_hangs_nor_holds_the_key() {
+    let (base, paths) = runtime();
+    super::super::control_support::mkfifo(paths.build_marker());
+    let marker = paths.build_marker().to_path_buf();
+    // The runtime directory comes back from the worker and lives through the last assertion, so
+    // that it shows the shim's removal, not the fixture's cleanup (review round 2, sol).
+    let (pid, _base) =
+        super::super::control_support::within_hang("a shim over a FIFO marker", move || {
+            let hello = hello_line(key());
+            let mut starter = FakeStarter::claiming(&paths, always(Answer::Ready), children());
+            let pid = pid_of(arbiter(&paths, &hello, LONG).arbitrate(&mut starter));
+            (pid, base)
+        });
+    assert_eq!(pid, 1000);
+    assert!(
+        std::fs::symlink_metadata(&marker).is_err(),
+        "the FIFO was removed"
+    );
+}
