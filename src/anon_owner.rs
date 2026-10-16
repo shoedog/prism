@@ -27,6 +27,13 @@ use crate::languages::Language;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
+pub(crate) mod source_index;
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static S4_CANDIDATES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// Identity independent of emission and DFG parameter admissibility.
 pub(crate) fn identity(parsed: &ParsedFile, node: &Node<'_>, file: &str) -> Option<FunctionId> {
     let name = if let Some(name) = parsed.language.function_name(node) {
@@ -68,6 +75,8 @@ pub(crate) fn owner_nodes(parsed: &ParsedFile) -> Vec<Node<'_>> {
 }
 
 pub(crate) fn candidate_nodes(parsed: &ParsedFile, include_generators: bool) -> Vec<Node<'_>> {
+    #[cfg(test)]
+    S4_CANDIDATES.with(|c| c.set(c.get() + 1));
     let mut nodes = parsed.all_functions();
     if include_generators
         && matches!(
