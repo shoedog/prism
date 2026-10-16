@@ -499,3 +499,17 @@ fn a_key_that_cannot_be_looked_at_after_the_listing_is_not_counted_as_empty() {
     );
     assert!(said.contains("Permission denied"), "{said}");
 }
+
+/// PR #418 review round 2 (sol 1): the exit status reflects a key that cannot be looked at. The
+/// report is still printed whole (one key does not hide the others), and the command exits 1;
+/// with every key looked at, it exits 0. Rules out an exit 0 over a report with an inspection
+/// error in it.
+#[test]
+fn a_report_with_a_key_that_cannot_be_looked_at_exits_1() {
+    let (base, paths) = runtime();
+    assert_eq!(run_daemon_status(&options(base.path(), HANG)), 0);
+    let dir = paths.runtime_dir();
+    std::fs::write(dir.join("1111111111111111.pid"), "1\n2\nb\n").expect("a pid file");
+    std::os::unix::fs::symlink("/dev/null", dir.join("1111111111111111.start")).expect("symlink");
+    assert_eq!(run_daemon_status(&options(base.path(), HANG)), 1);
+}

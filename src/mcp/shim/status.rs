@@ -49,12 +49,19 @@ pub struct StatusOptions {
     pub timeout: Duration,
 }
 
-/// Print the report on standard output and return 0, or one line on standard error and 1.
+/// Print the report on standard output and return 0; or, when a key could not be looked at,
+/// print the report, then one line on standard error, and return 1 (PR #418 review round 2,
+/// sol 1); or, with no report, one line on standard error and 1.
 pub fn run_daemon_status(options: &StatusOptions) -> i32 {
-    match status_report(options, peer_uid) {
-        Ok(report) => {
+    match status_lines(options, peer_uid) {
+        Ok((report, 0)) => {
             print!("{report}");
             0
+        }
+        Ok((report, unlooked)) => {
+            print!("{report}");
+            eprintln!("prism-mcp daemon-status: {unlooked} keys could not be looked at");
+            1
         }
         Err(error) => {
             eprintln!("prism-mcp daemon-status: {}", one_line(&error));
@@ -92,6 +99,11 @@ pub(super) fn unix_now() -> u64 {
 
 /// The report, or why there is none.
 pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Result<String, String> {
+    status_lines(options, peer_uid).map(|(report, _)| report)
+}
+
+/// The report and how many keys in it could not be looked at, or why there is none.
+fn status_lines(options: &StatusOptions, peer_uid: PeerUid) -> Result<(String, u64), String> {
     let dir = operator_runtime_dir(options.runtime_base.as_deref())?;
     let wanted = options.config.as_ref().map(key_of).transpose()?;
     let mut report = String::new();
@@ -102,14 +114,14 @@ pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Resul
     );
     if !runtime_dir_exists(&dir)? {
         report.push_str("no daemon (the runtime directory does not exist)\n");
-        return Ok(report);
+        return Ok((report, 0));
     }
     validate_runtime_dir(&dir).map_err(|error| error.to_string())?;
     let locators = match wanted {
         Some(key) => BTreeSet::from([key.locator()]),
         None => locators_in(&dir)?,
     };
-    let (mut quiet, mut log_bytes) = (0u64, 0u64);
+    let (mut quiet, mut log_bytes, mut unlooked) = (0u64, 0u64, 0u64);
     for locator in &locators {
         let paths = DaemonPaths::from_locator(&dir, locator).map_err(|error| error.to_string())?;
         match look(&paths, locator, wanted, options.timeout, peer_uid) {
@@ -123,6 +135,7 @@ pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Resul
             }
             // One key that cannot be looked at does not hide the others (review round 1, Opus S7).
             Err(error) => {
+                unlooked += 1;
                 let _ = writeln!(
                     report,
                     "{}",
@@ -140,7 +153,7 @@ pub(super) fn status_report(options: &StatusOptions, peer_uid: PeerUid) -> Resul
             "{quiet} keys have nothing but lock files and logs ({log_bytes} bytes of logs)"
         );
     }
-    Ok(report)
+    Ok((report, unlooked))
 }
 
 /// Whether the runtime directory `dir` is there (see [`present`]).
