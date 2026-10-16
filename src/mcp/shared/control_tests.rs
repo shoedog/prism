@@ -91,11 +91,17 @@ fn a_request_spelled_otherwise_is_refused() {
 fn another_control_version_is_refused_as_unsupported() {
     assert_eq!(
         ControlRequest::decode(b"STATUS {\"control\":2}"),
-        Err(PreambleError::UnsupportedProtocol { got: 2 })
+        Err(PreambleError::UnsupportedControl { got: 2 })
     );
     assert_eq!(
         ControlRequest::decode(b"SHUTDOWN {\"control\":2,\"anything\":true}"),
-        Err(PreambleError::UnsupportedProtocol { got: 2 })
+        Err(PreambleError::UnsupportedControl { got: 2 })
+    );
+    // The daemon logs this error: it names the control exchange's version, not the preamble's
+    // protocol version (review of #416, Opus S1).
+    assert_eq!(
+        PreambleError::UnsupportedControl { got: 2 }.to_string(),
+        format!("control exchange version 2 is not {CONTROL_VERSION}")
     );
 }
 

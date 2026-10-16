@@ -51,6 +51,11 @@ pub enum PreambleError {
     UnsupportedProtocol {
         got: u64,
     },
+    /// A control line (`STATUS`/`SHUTDOWN`) of another control-exchange version (D97). Kept apart
+    /// from `UnsupportedProtocol` so a daemon's log names the right version.
+    UnsupportedControl {
+        got: u64,
+    },
     /// Settings a server must not run with (result cap below the floor, wait above the
     /// maximum).
     Settings(SettingsError),
@@ -75,6 +80,11 @@ impl fmt::Display for PreambleError {
             Self::UnsupportedProtocol { got } => write!(
                 f,
                 "preamble protocol version {got} is not {SHARED_PROTOCOL_VERSION}"
+            ),
+            Self::UnsupportedControl { got } => write!(
+                f,
+                "control exchange version {got} is not {}",
+                super::control::CONTROL_VERSION
             ),
             Self::Settings(error) => write!(f, "preamble settings refused: {error}"),
             Self::Invalid { detail } => write!(f, "invalid preamble: {detail}"),

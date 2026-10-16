@@ -74,7 +74,7 @@ fn check_control(payload: &str) -> Result<(), PreambleError> {
     }
     let Versioned { control } = parse_object(payload)?;
     if control != u64::from(CONTROL_VERSION) {
-        return Err(PreambleError::UnsupportedProtocol { got: control });
+        return Err(PreambleError::UnsupportedControl { got: control });
     }
     Ok(())
 }

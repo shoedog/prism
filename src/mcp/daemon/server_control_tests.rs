@@ -11,7 +11,10 @@ use super::super::wire_support::PING;
 use crate::mcp::shared::control::{ControlRequest, DaemonStatus, Instance};
 use crate::mcp::shared::identity::IdentityKey;
 use crate::mcp::shared::preamble::{BuildState, Reply};
+use std::io::Write as _;
+use std::os::unix::net::UnixStream;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 fn this_instance() -> Instance {
     Instance {
@@ -23,8 +26,14 @@ fn this_instance() -> Instance {
 
 /// Send `request` on a fresh connection and return everything the daemon sends until it closes.
 fn exchange(running: &Running, line: &str) -> String {
-    let stream = running.connect();
-    send_line(&stream, line);
+    exchange_on(running.connect(), line)
+}
+
+/// Send `line` on `stream` and return everything the daemon sends until it closes. A failed
+/// write is not an error: a daemon at its bound answers `BUSY` and closes without reading, and
+/// that reply is still there to read (as `Running::refusal` does).
+fn exchange_on(stream: UnixStream, line: &str) -> String {
+    let _ = (&stream).write_all(line.as_bytes());
     read_all(stream)
 }
 
@@ -176,8 +185,13 @@ fn a_shutdown_lets_every_client_finish_and_drains_when_the_last_leaves() {
 fn a_control_request_at_the_client_bound_is_answered_busy() {
     let running = start(options(1), |_| {});
     let _client = running.admitted();
+    // The daemon answers `BUSY` and closes without reading, so it can do so before the request
+    // is written; wait long enough that it has (review of #416, Opus W1 / sol): the write then
+    // fails, and the reply must still be read.
+    let stream = running.connect();
+    std::thread::sleep(Duration::from_millis(300));
     assert_eq!(
-        exchange(&running, &ControlRequest::Status.encode()),
+        exchange_on(stream, &ControlRequest::Status.encode()),
         Reply::Busy { max_clients: 1 }.encode()
     );
 }
