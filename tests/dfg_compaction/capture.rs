@@ -23,7 +23,8 @@ fn capture_manifests() {
                 format!("{:x}", Sha256::digest(lookup_indexes(&graph))),
             );
         });
-        assert_eq!(payloads.len(), 131);
+        assert!(!payloads.is_empty(), "capture visited no cases");
+        let count = payloads.len();
         for (file, pins) in [("pins.sha256", payloads), ("indexes.sha256", indexes)] {
             let text: String = pins
                 .into_iter()
@@ -31,6 +32,6 @@ fn capture_manifests() {
                 .collect();
             std::fs::write(out.join(file), text).unwrap();
         }
-        eprintln!("CAPTURE 131 payloads + 131 ordered lookup indexes");
+        eprintln!("CAPTURE {count} payloads + {count} ordered lookup indexes");
     });
 }

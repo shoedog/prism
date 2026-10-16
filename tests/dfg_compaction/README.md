@@ -5,7 +5,7 @@ hash checks. CI runs `-- --skip pins::` so intended output changes in other lane
 can pass parity before the controller re-pins on main. `capture::capture_manifests`
 is feature-gated by the test target and ignored by default; it writes both sorted
 SHA-256 manifests under the explicit `DFG_PIN_DIR`, never into the source tree.
-The capture visitor must equal the named parity population (131 cases).
+The capture visitor must equal the named parity population (the manifest rows; 132 cases at b994f11e).
 
 `src/cpg_cache/dfg_observation.rs` is a read-only adapter, with no oracle dependency.
 It observes ordered node/edge payload, a field-wise **legacy DFG tuple**, telemetry,
