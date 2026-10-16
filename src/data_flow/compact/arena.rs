@@ -124,6 +124,8 @@ impl Arena {
                 return Err("DFG legacy rank identity");
             }
         }
+        // Defensive: strict representative order plus the identity checks above
+        // already imply this group equality; do not register an equivalent mutant.
         for (g, rep) in legacy_reps.iter().enumerate() {
             if legacy_by_occ[rep.0 as usize] != LegacyId(g as u32) {
                 return Err("DFG rank representative group");

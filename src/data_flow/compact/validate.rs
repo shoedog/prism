@@ -6,8 +6,8 @@ fn ordered<K: Ord, V>(rows: &[(K, V)]) -> bool {
 }
 impl TryFrom<WireDfg> for CompactDfg {
     type Error = &'static str;
-    fn try_from(w: WireDfg) -> Result<Self, Self::Error> {
-        let arena = Arena::from_wire(w.arena, w.legacy_reps, w.legacy_by_occ)?;
+    fn try_from(mut w: WireDfg) -> Result<Self, Self::Error> {
+        let mut arena = Arena::from_wire(w.arena, w.legacy_reps, w.legacy_by_occ)?;
         let valid = |id: OccId| (id.0 as usize) < arena.rows.len();
         if !ordered(&w.defs)
             || !ordered(&w.uses)
@@ -50,8 +50,30 @@ impl TryFrom<WireDfg> for CompactDfg {
         {
             return Err("DFG exact label ID");
         }
-        if w.rd_function_stats.values().any(|s| !s.counts_match_keys()) {
+        if !ordered(&w.rd_function_stats) {
+            return Err("DFG RD map order/duplicate");
+        }
+        if w.rd_function_stats
+            .iter()
+            .any(|(_, s)| !s.counts_match_keys())
+        {
             return Err("DFG RD stats counts");
+        }
+        // Serde caps initial reservations then grows geometrically. Discard
+        // spare capacity only after validation, including retained nested Vecs.
+        arena.rows.shrink_to_fit();
+        arena.legacy_reps.shrink_to_fit();
+        arena.legacy_by_occ.shrink_to_fit();
+        for row in &mut arena.rows {
+            row.path.fields.shrink_to_fit();
+        }
+        w.edges.shrink_to_fit();
+        for (key, ids) in w.defs.iter_mut().chain(&mut w.uses) {
+            key.3.fields.shrink_to_fit();
+            ids.shrink_to_fit();
+        }
+        for (_, row) in w.forward.iter_mut().chain(&mut w.backward) {
+            row.neighbors.shrink_to_fit();
         }
         Ok(Self {
             arena,
@@ -62,7 +84,7 @@ impl TryFrom<WireDfg> for CompactDfg {
             backward: w.backward.into_iter().collect(),
             labels: w.labels.into_iter().collect(),
             exact_labels: w.exact_labels.into_iter().collect(),
-            rd_function_stats: w.rd_function_stats,
+            rd_function_stats: w.rd_function_stats.into_iter().collect(),
         })
     }
 }

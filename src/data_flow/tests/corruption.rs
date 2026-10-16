@@ -16,6 +16,24 @@ fn rejected(w: WireDfg) {
         "decode accepted corruption"
     );
 }
+fn rejected_as(w: WireDfg, expected: &str) {
+    let bytes = bincode::serialize(&w).unwrap();
+    assert_eq!(CompactDfg::try_from(w).unwrap_err(), expected);
+    let error = bincode::deserialize::<CompactDfg>(&bytes).unwrap_err();
+    assert!(error.to_string().contains(expected), "{error}");
+}
+#[test]
+fn edge_one_past_end() {
+    let mut w = valid();
+    w.edges[0].0 = OccId(w.arena.len() as u32);
+    rejected_as(w, "DFG edge ID");
+}
+#[test]
+fn rank_representative_one_past_end() {
+    let mut w = valid();
+    w.legacy_reps[0] = OccId(w.arena.len() as u32);
+    rejected_as(w, "DFG rank representative ID");
+}
 macro_rules! corrupt {
     ($name:ident, $w:ident, $mutation:block) => { #[test] fn $name() { let mut $w = valid(); $mutation rejected($w); } };
 }
@@ -84,19 +102,27 @@ corrupt!(label_wrong_to_group, w, {
     w.labels.truncate(1);
     w.labels[0].0 .1 = LegacyId((w.labels[0].0 .1 .0 + 1) % w.legacy_reps.len() as u32);
 });
-corrupt!(label_group_bounds, w, {
+#[test]
+fn label_group_bounds() {
+    let mut w = valid();
+    w.labels.truncate(1);
     w.labels[0].0 .0 = LegacyId(u32::MAX);
-});
+    rejected_as(w, "DFG label group");
+}
 corrupt!(rd_over_cap_count, w, {
     w.rd_function_stats
-        .get_mut("a.py")
+        .iter_mut()
+        .find(|(file, _)| file == "a.py")
         .unwrap()
+        .1
         .functions_over_cap = 5;
 });
 corrupt!(rd_without_cfg_count, w, {
     w.rd_function_stats
-        .get_mut("a.py")
+        .iter_mut()
+        .find(|(file, _)| file == "a.py")
         .unwrap()
+        .1
         .functions_without_cfg = 5;
 });
 corrupt!(forward_representative_bounds, w, {

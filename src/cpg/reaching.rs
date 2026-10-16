@@ -12,6 +12,8 @@ use tree_sitter::Node;
 use super::{FlowConfidence, FlowDoubt};
 
 mod capture;
+#[cfg(any(test, feature = "dfg-oracle"))]
+mod compact_wire;
 mod graph;
 mod scope;
 

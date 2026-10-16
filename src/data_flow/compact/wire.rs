@@ -13,7 +13,8 @@ pub(in crate::data_flow) struct WireDfg {
     pub(in crate::data_flow) backward: Vec<(LegacyId, Adj)>,
     pub(in crate::data_flow) labels: Vec<((LegacyId, LegacyId), Label)>,
     pub(in crate::data_flow) exact_labels: Vec<((OccId, OccId), FlowConfidence)>,
-    pub(in crate::data_flow) rd_function_stats: BTreeMap<String, crate::cpg::RdFileStats>,
+    #[serde(deserialize_with = "crate::cpg::RdFileStats::deserialize_compact_rows")]
+    pub(in crate::data_flow) rd_function_stats: Vec<(String, crate::cpg::RdFileStats)>,
 }
 
 use serde::ser::SerializeSeq;
@@ -39,7 +40,7 @@ pub(in crate::data_flow) struct WireDfgRef<'a> {
     pub(in crate::data_flow) backward: MapSeq<'a, LegacyId, Adj>,
     pub(in crate::data_flow) labels: MapSeq<'a, (LegacyId, LegacyId), Label>,
     pub(in crate::data_flow) exact_labels: MapSeq<'a, (OccId, OccId), FlowConfidence>,
-    pub(in crate::data_flow) rd_function_stats: &'a BTreeMap<String, crate::cpg::RdFileStats>,
+    pub(in crate::data_flow) rd_function_stats: MapSeq<'a, String, crate::cpg::RdFileStats>,
 }
 impl<'a> From<&'a CompactDfg> for WireDfgRef<'a> {
     fn from(g: &'a CompactDfg) -> Self {
@@ -54,7 +55,7 @@ impl<'a> From<&'a CompactDfg> for WireDfgRef<'a> {
             backward: MapSeq(&g.backward),
             labels: MapSeq(&g.labels),
             exact_labels: MapSeq(&g.exact_labels),
-            rd_function_stats: &g.rd_function_stats,
+            rd_function_stats: MapSeq(&g.rd_function_stats),
         }
     }
 }
@@ -71,7 +72,7 @@ impl From<CompactDfg> for WireDfg {
             backward: g.backward.into_iter().collect(),
             labels: g.labels.into_iter().collect(),
             exact_labels: g.exact_labels.into_iter().collect(),
-            rd_function_stats: g.rd_function_stats,
+            rd_function_stats: g.rd_function_stats.into_iter().collect(),
         }
     }
 }

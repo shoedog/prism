@@ -1,3 +1,4 @@
+mod codec_review;
 pub(super) mod corruption;
 mod identity;
 mod observe;
