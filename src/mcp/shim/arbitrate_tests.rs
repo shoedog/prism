@@ -14,6 +14,10 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
 const LONG: Duration = Duration::from_secs(60);
+/// A deadline a test means to expire while it asserts `Owner::Held`: the shim must still reach
+/// the owner lock (first reach, key directory, start lock, second reach) before it, so a ½ s
+/// stall of the test thread must not cost the look (S5a-1 review, Opus S2).
+const HELD_DEADLINE: Duration = Duration::from_secs(2);
 
 fn arbiter<'a>(paths: &'a DaemonPaths, hello: &'a str, within: Duration) -> Arbiter<'a> {
     Arbiter {
@@ -143,7 +147,14 @@ fn a_live_but_wedged_owner_is_reported_and_its_files_are_left_alone() {
         let socket = inode(paths.socket());
         let hello = hello_line(key());
         let mut starter = must_not_start();
-        let result = arbiter(&paths, &hello, Duration::from_millis(500)).arbitrate(&mut starter);
+        // Close asserts `Owner::Held`, which the shim reports only if it reaches the owner lock
+        // before the deadline; 2 s keeps a stalled test thread from failing a correct shim
+        // (S5a-1 review, Opus S2). Silent asserts only `NoReply`, which any stall still gives.
+        let within = match answer {
+            Answer::Close => HELD_DEADLINE,
+            _ => Duration::from_millis(500),
+        };
+        let result = arbiter(&paths, &hello, within).arbitrate(&mut starter);
         match (answer, result) {
             (
                 Answer::Silent,
@@ -483,8 +494,8 @@ fn a_live_daemon_with_a_full_backlog_fails_the_shim_closed_at_the_deadline() {
     std::thread::spawn(move || {
         let hello = hello_line(key());
         let mut starter = must_not_start();
-        let result =
-            arbiter(&shim_paths, &hello, Duration::from_millis(500)).arbitrate(&mut starter);
+        // `Owner::Held` needs the owner lock reached before the deadline (see HELD_DEADLINE).
+        let result = arbiter(&shim_paths, &hello, HELD_DEADLINE).arbitrate(&mut starter);
         let _ = tx.send(matches!(
             result,
             Err(Failure::NoReady {
