@@ -262,7 +262,7 @@ impl DaemonState {
     }
 
     /// The control plane's view of the build.
-    #[cfg_attr(not(test), allow(dead_code))] // read by tests until S5b's status probe
+    #[cfg_attr(not(test), allow(dead_code))] // read by tests only
     pub(super) fn status(&self) -> Result<BuildStatus, Poisoned> {
         Ok(self.control_plane()?.build_status())
     }
