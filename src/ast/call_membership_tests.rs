@@ -258,3 +258,31 @@ fn foreign_kind_and_same_span_ancestors() {
         assert_eq!(extract(&p, arrow, mode), json!([]));
     }
 }
+
+#[test]
+fn foreign_owner_of_a_listed_kind_needs_its_own_byte_range() {
+    // `g` lists an arrow elsewhere in the file, so only the byte range keeps
+    // a foreign arrow spanning `f` from counting as a listed owner.
+    let p = ParsedFile::parse(
+        "local.js",
+        "function f(){ target(); }\nconst g = () => 1;",
+        Language::JavaScript,
+    )
+    .unwrap();
+    let f = p.all_functions()[0];
+    assert_eq!(f.kind(), "function_declaration");
+    let arrow_source = format!(
+        "() => {{ target();{} }}",
+        " ".repeat(f.byte_range().len() - "() => { target(); }".len())
+    );
+    let foreign = ParsedFile::parse("foreign.ts", &arrow_source, Language::TypeScript).unwrap();
+    let arrow = foreign.all_functions()[0];
+    assert_eq!(f.byte_range(), arrow.byte_range());
+    assert!(p
+        .all_functions()
+        .iter()
+        .any(|n| n.kind() == arrow.kind() && n.byte_range() != arrow.byte_range()));
+    for mode in 0..4 {
+        assert_eq!(extract(&p, arrow, mode), json!([]));
+    }
+}

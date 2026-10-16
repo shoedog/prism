@@ -331,6 +331,12 @@
       "candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)",
       "byte_range_eq(candidate, owner)",
       "ast::call_membership_tests::foreign_kind_and_same_span_ancestors"
+    ],
+    "ANON-S4A-05-range-off": [
+      "src/ast/call_membership.rs",
+      "candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)",
+      "candidate.kind() == owner.kind()",
+      "ast::call_membership_tests::foreign_owner_of_a_listed_kind_needs_its_own_byte_range"
     ]
   },
   "lib_test_prefixes": [
