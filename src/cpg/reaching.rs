@@ -86,6 +86,13 @@ pub struct RdFileStats {
 }
 
 impl RdFileStats {
+    // Test-only compact decoder guard until codec activation (PR E).
+    #[cfg(any(test, feature = "dfg-oracle"))]
+    pub(crate) fn counts_match_keys(&self) -> bool {
+        self.functions_over_cap == self.over_cap_function_keys.len()
+            && self.functions_without_cfg == self.without_cfg_function_keys.len()
+    }
+
     pub(crate) fn record_over_cap(&mut self, function: String, start_line: usize) {
         self.over_cap_function_keys.insert((function, start_line));
         self.refresh_counts();

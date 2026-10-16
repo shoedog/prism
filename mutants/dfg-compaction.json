@@ -47,14 +47,6 @@
         "data_flow::tests::observe::ordered_storage_observation_includes_legacy_equal_byte_spans"
       ]
     ],
-    "DFG-B-storage-observation-omits-labels": [
-      "src/cpg_cache/dfg_observation.rs",
-      "g.labels()\n            .map(|(e, c)| ((e.from, e.to), c))",
-      "g.labels()\n            .filter(|_| false)\n            .map(|(e, c)| ((e.from, e.to), c))",
-      [
-        "data_flow::tests::outputs::decoded_corruption_is_rejected_against_cold_reference"
-      ]
-    ],
     "DFG-B-refresh-keeps-stale-label-representatives": [
       "src/data_flow/legacy_storage.rs",
       "self.labels\n            .retain(|(from, to), _| !exclude.contains(&from.file) && !exclude.contains(&to.file));",
@@ -126,6 +118,14 @@
       "let mut live = vec![true; p.arena.rows.len()];",
       [
         "data_flow::tests::updates::twenty_refreshes_reclaim_dead_locations_and_leave_clone_unchanged"
+      ]
+    ],
+    "DFG-E-codec-wrong-group-accepted": [
+      "src/data_flow/compact/validate.rs",
+      "if *key != arena.group(row.representative) {",
+      "if false && *key != arena.group(row.representative) {",
+      [
+        "cpg_cache::dfg_codec_tests::compact_codec_rejects_bad_bounds_groups_and_order"
       ]
     ]
   }
