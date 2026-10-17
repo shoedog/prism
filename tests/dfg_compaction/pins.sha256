@@ -1,3 +1,6 @@
+# Capture: clean main 0a269d5e78cf00231f4b876c5c109f1174b02e3a; committed capture::capture_manifests; 133 cases.
+# Re-pin: #424 adds tests/fixtures/mcp/launcher/argv-stub.sh; fixture-tree changes; 131 existing hashes unchanged; one named case added.
+# Same-environment bracket: clean e5a45634 reproduces all 132 prior hashes; clean 0a269d5e supplies these maps.
 # Revalidated: clean main e5a45634d34b9a543986a0b59e107634df486485; committed capture::capture_manifests; all 132 hashes unchanged.
 # Capture: clean main 14a9932d644f723991efa8200aacc84fd8f92846; 132 cases.
 # Re-pin: b199f79b (#409) persists js_anonymous ProofIndex and emits anonymous owners; all payloads and 18 indexes change; 114 indexes unchanged.
@@ -51,6 +54,7 @@ d476d2fc315daa831bb3ed3251f9366cb0e30b766b361ce0ea672735937c741a  fixture-tests_
 134c41d06b675ac1215e53c8d2aedb57b94f54db7df67e14b9afa61584d07518  fixture-tests__fixtures__js_alias_matrix__generator__variants-params.cjs
 888276cc3c889e7f6f8594e8c08801c4549090b90b736473c97c5c2087af475b  fixture-tests__fixtures__js_alias_matrix__generator__variants-returns.cjs
 eea8b0add2da7c4f9be8de4ea67f878dad304943ad2498d2ac66c4c2650d7c67  fixture-tests__fixtures__js_alias_matrix__generator__variants.cjs
+94263a92fc92080ce01b39b601386f30e088d49b1ef5bb3ede0d4ff6d2c55661  fixture-tests__fixtures__mcp__launcher__argv-stub.sh
 ec302ef96a6cf619e1b94d54e67d30ce9b015ba33901c14b6c68844557e321e6  fixture-tests__fixtures__nav_callgraph__main.py
 f1d32a9bc5d459eeaa8b06cbdc94718374739ca36a8e588e4428caf6699ec71c  fixture-tests__fixtures__nav_callgraph__util.py
 e339ad17b8663e09652be41025c5e31a563393817c0427f31aab96faf542ff3b  fixture-tests__fixtures__nav_compat__a.py
@@ -118,7 +122,7 @@ df253a17eee5860e0ef5dd24ea2f480c766dc67a6115ea15c5518ca44c75d942  fixture-tests_
 427b3ef43c712540e9a080dc855bc7aa2089e84bec386221136de1ed95accec7  fixture-tests__fixtures__targets_hint__requests.py
 2c8c2690a273d86a03acaf23a89a4683919f58aab7ee7ddb50f3489dbca47387  fixture-tests__fixtures__targets_hint__svc.py
 e334f3ee07f6f0dfc309b46028208b607c1584f57e9f4648ed46eb9e0d4ac819  fixture-tests__fixtures__terraform__main.tf
-1b48d62009b6d75ec1bc2338f4e7669260c21a8453fa23d4ae9dbc2a5e4f0b5c  fixture-tree
+e9c49150b57d807a2402c3becb743281d66daf9b93e5938405af82f2f8596779  fixture-tree
 37e30d2913d3ae218fefcb99493220605a74a36cd61e785dbbf86a664b10b8e1  generator-bash
 6a03500270ecc6b350d9e688291faa3aa628b6cd7f316535ad6e95816cb261a3  generator-c-multifile
 d1e67f75d14e543cadd9ddef8a408c1e727be3ad1003e51abc88e4b9892e6f43  generator-c

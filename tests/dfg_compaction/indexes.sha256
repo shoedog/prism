@@ -1,3 +1,6 @@
+# Capture: clean main 0a269d5e78cf00231f4b876c5c109f1174b02e3a; committed capture::capture_manifests; 133 cases.
+# Re-pin: #424 adds tests/fixtures/mcp/launcher/argv-stub.sh; all 132 existing hashes unchanged; one named case added.
+# Same-environment bracket: clean e5a45634 reproduces all 132 prior hashes; clean 0a269d5e supplies these maps.
 # Revalidated: clean main e5a45634d34b9a543986a0b59e107634df486485; committed capture::capture_manifests; all 132 hashes unchanged.
 # Capture: clean main 14a9932d644f723991efa8200aacc84fd8f92846; 132 cases.
 # Re-pin: b199f79b (#409) persists js_anonymous ProofIndex and emits anonymous owners; all payloads and 18 indexes change; 114 indexes unchanged.
@@ -50,6 +53,7 @@ d034df0f93876b17de2e0e57195f8a893a518ab7452f0f80e9af9dfcccbbd72a  fixture-tests_
 11f4e9ac7650a68448493ef338c5b495dab4b12bd736bc12e9eeff8955c5a44e  fixture-tests__fixtures__js_alias_matrix__generator__variants-params.cjs
 544372245b423ba3d6139a7a824ffdf26280583b4194fb91f3911d59e4126dce  fixture-tests__fixtures__js_alias_matrix__generator__variants-returns.cjs
 28f32c46e1e6f3593ca9a108802d0202dbb4b1751bc3b372e52d43eb8feee874  fixture-tests__fixtures__js_alias_matrix__generator__variants.cjs
+66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925  fixture-tests__fixtures__mcp__launcher__argv-stub.sh
 db64062c775eb065a3242b126ab3dfcd8504064b00db83c37c207ec196a26830  fixture-tests__fixtures__nav_callgraph__main.py
 023661f3ad487d5a4ca5927fb3779c776d2cadc5523839e51b32efce1d917a06  fixture-tests__fixtures__nav_callgraph__util.py
 d15850b4ac0d71af58fda45a844612a7fdcb9b3635e518676b98ed9dac9d0b57  fixture-tests__fixtures__nav_compat__a.py
