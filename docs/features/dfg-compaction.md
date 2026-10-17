@@ -21,6 +21,10 @@ hooks are not public API.
 
 This is a source migration for direct-field library consumers. To serialize a
 view as the old edge sequence, collect `edges().iter().map(|e| e.to_owned())` into a
-`Vec<_>`. The graph still uses its original eight serialized fields: this change
-has no cache-layout/version change and no claimed resident-memory saving. Compact
-storage and a native codec follow in separately gated work.
+`Vec<_>`. Production now retains a compact arena of complete exact locations, ordered IDs
+and legacy rank indexes. Views resolve borrowed locations without per-row boxes,
+including `forward_reachable` and `all_locations_at` scans. Cache v121 encodes this
+layout directly and rejects incompatible versions before payload decoding; the
+navigation sidecar version is unchanged. One cold rebuild is expected after upgrade.
+No old-cache importer or expanded production side copy remains. Query and output
+behavior is unchanged; corpus memory/load/peak acceptance awaits controller measurement.

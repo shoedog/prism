@@ -9,16 +9,16 @@ use crate::ast::ParsedFile;
 use crate::cpg::{FlowConfidence, RdFileStats};
 use std::collections::{BTreeMap, BTreeSet};
 mod build;
-#[cfg(any(test, feature = "dfg-oracle"))]
 mod compact;
-mod legacy_storage;
 mod queries;
+mod storage;
 mod types;
 mod views;
-pub use legacy_storage::DataFlowGraph;
+pub use compact::views::{IdIter, Locations};
+pub use storage::DataFlowGraph;
 pub(crate) use types::{ExactFlowEdge, ExactVarLocation};
 pub use types::{FlowEdge, FlowPath, VarAccessKind, VarLocation};
-pub use views::{BindingKey, Edges, FlowEdgeRef, Locations};
+pub use views::{BindingKey, Edges, FlowEdgeRef};
 #[cfg(any(test, feature = "dfg-oracle"))]
 pub mod oracle;
 #[cfg(any(test, feature = "dfg-oracle"))]

@@ -706,3 +706,36 @@ impl Producer {
         }
     }
 }
+
+// Consuming boundary: expanded scratch dies on this worker before parallel collection.
+impl Producer {
+    pub(super) fn compact_file_refs(
+        file: &String,
+        parsed: &ParsedFile,
+    ) -> crate::data_flow::compact::CompactDfg {
+        let parts = Self::file_refs(file, parsed).into_parts();
+        #[cfg(test)]
+        let legacy_adjacency_rows = parts
+            .adjacency
+            .as_ref()
+            .map_or(0, |(f, b)| f.len() + b.len());
+        let graph = crate::data_flow::compact::CompactDfg::from_parts(parts)
+            .expect("DFG exceeds u32 location capacity");
+        #[cfg(test)]
+        if let Some(records) = FILE_RESULTS.lock().unwrap().as_mut() {
+            if let Some(record) = records.get_mut(file) {
+                *record = (
+                    graph.arena.rows().len(),
+                    graph.edges().len(),
+                    legacy_adjacency_rows,
+                    crate::data_flow::test_support::compact::storage(&graph),
+                );
+            }
+        }
+        graph
+    }
+}
+#[cfg(test)]
+pub(in crate::data_flow) static FILE_RESULTS: std::sync::Mutex<
+    Option<BTreeMap<String, (usize, usize, usize, Vec<u8>)>>,
+> = std::sync::Mutex::new(None);

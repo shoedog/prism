@@ -71,20 +71,20 @@ fn colliding_label_merge_allows_unreferenced_rows_until_update() {
     let (rhs, incoming) = pair(label(20));
     old.merge(rhs);
     c.merge(incoming);
-    assert_eq!(c.arena.rows.len(), 4);
+    assert_eq!(c.arena.rows().len(), 4);
     let live: BTreeSet<_> = c.labels.values().flat_map(|l| [l.from, l.to]).collect();
     assert_eq!(live.len(), 2);
     assert_eq!(
-        c.arena.rows.len() - live.len(),
+        c.arena.rows().len() - live.len(),
         2,
         "losing label endpoints remain until update"
     );
     let mut decoded: CompactDfg = bincode::deserialize(&bincode::serialize(&c).unwrap()).unwrap();
-    assert_eq!(decoded.arena.rows.len(), 4);
+    assert_eq!(decoded.arena.rows().len(), 4);
     assert_all(&old, &decoded, &BTreeMap::new());
     old.remove_files(&BTreeSet::new());
     decoded.remove_files(&BTreeSet::new());
-    assert_eq!(decoded.arena.rows.len(), 2);
+    assert_eq!(decoded.arena.rows().len(), 2);
     assert_all(&old, &decoded, &BTreeMap::new());
 }
 

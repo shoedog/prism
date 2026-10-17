@@ -92,6 +92,19 @@ pub(in crate::data_flow) fn assert_built(files: &BTreeMap<String, ParsedFile>) {
     assert_all(&old, &decoded, files);
     assert_eq!(encoded, bincode::serialize(&decoded).unwrap());
     assert_conversion(&old, files);
+    let production = DataFlowGraph::build(files);
+    super::assert_pair(&old, &production, files);
+    let encoded = bincode::serialize(&production).unwrap();
+    let mut hit: DataFlowGraph = bincode::deserialize(&encoded).unwrap();
+    super::assert_pair(&old, &hit, files);
+    let mut updated = old.clone();
+    let excluded = files.keys().cloned().collect();
+    updated.remove_files(&excluded);
+    hit.remove_files(&excluded);
+    super::assert_pair(&updated, &hit, files);
+    updated.merge(LegacyDataFlowGraph::build(files));
+    hit.merge(DataFlowGraph::build(files));
+    super::assert_pair(&updated, &hit, files);
 }
 
 #[cfg(test)]

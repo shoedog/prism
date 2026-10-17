@@ -8,7 +8,7 @@ impl TryFrom<WireDfg> for CompactDfg {
     type Error = &'static str;
     fn try_from(mut w: WireDfg) -> Result<Self, Self::Error> {
         let mut arena = Arena::from_wire(w.arena, w.legacy_reps, w.legacy_by_occ)?;
-        let valid = |id: OccId| (id.0 as usize) < arena.rows.len();
+        let valid = |id: OccId| (id.0 as usize) < arena.rows().len();
         if !ordered(&w.defs)
             || !ordered(&w.uses)
             || !ordered(&w.forward)
@@ -61,12 +61,7 @@ impl TryFrom<WireDfg> for CompactDfg {
         }
         // Serde caps initial reservations then grows geometrically. Discard
         // spare capacity only after validation, including retained nested Vecs.
-        arena.rows.shrink_to_fit();
-        arena.legacy_reps.shrink_to_fit();
-        arena.legacy_by_occ.shrink_to_fit();
-        for row in &mut arena.rows {
-            row.path.fields.shrink_to_fit();
-        }
+        arena.shrink_to_fit();
         w.edges.shrink_to_fit();
         for (key, ids) in w.defs.iter_mut().chain(&mut w.uses) {
             key.3.fields.shrink_to_fit();

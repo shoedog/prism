@@ -1,7 +1,7 @@
 //! Ordered borrowed compact views; no per-row iterator boxes.
 use super::*;
 /// Stack-resident ID walk: creating a row view does not allocate.
-pub(in crate::data_flow) struct IdIter<'a> {
+pub struct IdIter<'a> {
     arena: &'a Arena,
     ids: std::slice::Iter<'a, OccId>,
 }
@@ -15,14 +15,14 @@ impl<'a> Iterator for IdIter<'a> {
     }
 }
 impl ExactSizeIterator for IdIter<'_> {}
-pub(in crate::data_flow) struct Locations<'a> {
+pub struct Locations<'a> {
     iter: IdIter<'a>,
 }
 impl<'a> Locations<'a> {
-    pub(in crate::data_flow) fn iter(self) -> IdIter<'a> {
+    pub fn iter(self) -> IdIter<'a> {
         self.iter
     }
-    pub(in crate::data_flow) fn to_vec(self) -> Vec<VarLocation> {
+    pub fn to_vec(self) -> Vec<VarLocation> {
         self.iter.cloned().collect()
     }
 }

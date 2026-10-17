@@ -7,7 +7,7 @@ use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 mod aliases;
 mod exact_reads;
-mod file;
+pub(super) mod file;
 
 pub(super) struct Producer;
 pub(super) struct FileRefs {
@@ -19,6 +19,7 @@ pub(super) struct FileRefs {
     pub(super) exact_labels: BTreeMap<ExactFlowEdge, FlowConfidence>,
     pub(super) rd_function_stats: RdFileStats,
 }
+#[cfg(any(test, feature = "dfg-oracle"))]
 pub(super) fn file_refs(file_path: &String, parsed: &ParsedFile) -> FileRefs {
     Producer::file_refs(file_path, parsed)
 }
@@ -63,83 +64,46 @@ impl DataFlowGraph {
 
     /// Build a DFG from file references (shared implementation for build and build_subset).
     fn build_from_refs(files: &BTreeMap<String, &ParsedFile>) -> Self {
-        let mut defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
-            BTreeMap::new();
-        let mut uses: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
-            BTreeMap::new();
-        let mut edges = Vec::new();
-        let mut labels = BTreeMap::new();
-        let mut exact_labels = BTreeMap::new();
-        let mut rd_function_stats = BTreeMap::new();
-
         let ordered_files: Vec<(&String, &ParsedFile)> =
             files.iter().map(|(path, parsed)| (path, *parsed)).collect();
-        let per_file_refs: Vec<FileRefs> = ordered_files
+        let per_file_refs: Vec<super::compact::CompactDfg> = ordered_files
             .par_iter()
             .map(|entry| {
                 let (file_path, parsed) = *entry;
-                file_refs(file_path, parsed)
+                Producer::compact_file_refs(file_path, parsed)
             })
             .collect();
 
-        for file_refs in per_file_refs {
-            // Invariant: per-file passes only register keys for their own file —
-            // cross-file registration would break merge disjointness (S1 review MAJOR 2).
-            debug_assert!(file_refs
-                .defs
-                .keys()
-                .chain(file_refs.uses.keys())
-                .all(|key| key.0.as_str() == file_refs.file_path.as_str()));
-            debug_assert!(file_refs.labels.keys().all(|(from, to)| {
-                from.file.as_str() == file_refs.file_path.as_str()
-                    && to.file.as_str() == file_refs.file_path.as_str()
-            }));
-            debug_assert!(file_refs.exact_labels.keys().all(|edge| {
-                edge.from.file.as_str() == file_refs.file_path.as_str()
-                    && edge.to.file.as_str() == file_refs.file_path.as_str()
-            }));
-            for (key, locs) in file_refs.defs {
-                defs.entry(key).or_default().extend(locs);
-            }
-            for (key, locs) in file_refs.uses {
-                uses.entry(key).or_default().extend(locs);
-            }
-            edges.extend(file_refs.edges);
-            for (key, label) in file_refs.labels {
-                Self::insert_label(&mut labels, key, label);
-            }
-            for (edge, label) in file_refs.exact_labels {
-                exact_labels
-                    .entry(edge)
-                    .and_modify(|stored: &mut FlowConfidence| *stored = stored.worst(label))
-                    .or_insert(label);
-            }
-            rd_function_stats.insert(file_refs.file_path, file_refs.rd_function_stats);
-        }
-
-        // Build adjacency maps
-        let mut forward: BTreeMap<VarLocation, Vec<VarLocation>> = BTreeMap::new();
-        let mut backward: BTreeMap<VarLocation, Vec<VarLocation>> = BTreeMap::new();
-        for edge in &edges {
-            forward
-                .entry(edge.from.clone())
-                .or_default()
-                .push(edge.to.clone());
-            backward
-                .entry(edge.to.clone())
-                .or_default()
-                .push(edge.from.clone());
-        }
-
         DataFlowGraph {
-            edges,
-            defs,
-            uses,
-            forward,
-            backward,
-            labels,
-            exact_labels,
-            rd_function_stats,
+            storage: super::compact::combine(per_file_refs)
+                .expect("DFG exceeds u32 location capacity"),
+        }
+    }
+}
+
+impl FileRefs {
+    fn into_parts(self) -> super::compact::Parts {
+        debug_assert!(self
+            .defs
+            .keys()
+            .chain(self.uses.keys())
+            .all(|key| key.0 == self.file_path));
+        debug_assert!(self
+            .labels
+            .keys()
+            .all(|(f, t)| f.file == self.file_path && t.file == self.file_path));
+        debug_assert!(self
+            .exact_labels
+            .keys()
+            .all(|e| e.from.file == self.file_path && e.to.file == self.file_path));
+        super::compact::Parts {
+            edges: self.edges,
+            defs: self.defs,
+            uses: self.uses,
+            labels: self.labels,
+            exact_labels: self.exact_labels,
+            rd_function_stats: BTreeMap::from([(self.file_path, self.rd_function_stats)]),
+            adjacency: None,
         }
     }
 }

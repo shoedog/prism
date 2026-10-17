@@ -26,7 +26,7 @@ pub(in crate::data_flow) fn combine(parts: Vec<CompactDfg>) -> Result<CompactDfg
     let mut exact = Vec::new();
     let mut stats: BTreeMap<String, crate::cpg::RdFileStats> = BTreeMap::new();
     for p in parts {
-        let mut live = vec![false; p.arena.rows.len()];
+        let mut live = vec![false; p.arena.rows().len()];
         let mut mark = |id: OccId| live[id.0 as usize] = true;
         for &(f, t) in &p.edges {
             mark(f);
@@ -46,7 +46,7 @@ pub(in crate::data_flow) fn combine(parts: Vec<CompactDfg>) -> Result<CompactDfg
             mark(t);
         }
         let mut r = vec![None; live.len()];
-        for (old, row) in p.arena.rows.into_iter().enumerate() {
+        for (old, row) in p.arena.into_wire_parts().0.into_iter().enumerate() {
             if live[old] {
                 r[old] = Some(i.put(row)?);
             }

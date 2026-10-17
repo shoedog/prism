@@ -72,9 +72,9 @@ fn report(old: &LegacyDataFlowGraph, new: &CompactDfg) -> Value {
         "exact_labels": map(&old.exact_labels,|e|exact_heap(&e.from)+exact_heap(&e.to),|_|0),
         "rd": map(&old.rd_function_stats,String::capacity,|_|0)
     });
-    let rank_bytes = slots(&new.arena.legacy_reps) + slots(&new.arena.legacy_by_occ);
+    let rank_bytes = slots(&new.arena.legacy_reps()) + slots(&new.arena.legacy_by_occ());
     let new_fields = json!({
-        "arena": slots(&new.arena.rows)+new.arena.rows.iter().map(loc_heap).sum::<usize>(),
+        "arena": slots(&new.arena.rows())+new.arena.rows().iter().map(loc_heap).sum::<usize>(),
         "ranks":rank_bytes,
         "edges":slots(&new.edges),
         "defs": map(&new.defs,key_heap,slots),"uses":map(&new.uses,key_heap,slots),
@@ -103,10 +103,10 @@ fn report(old: &LegacyDataFlowGraph, new: &CompactDfg) -> Value {
     };
     json!({"legacy_accounted_bytes":total(&old_fields),"compact_accounted_bytes":total(&new_fields),
         "legacy_fields":old_fields,"compact_fields":new_fields,
-        "arena_rows":new.arena.rows.len(),"core_exact_u":core.len(),
-        "arena_rows_per_core_u":if core.is_empty(){None}else{Some(new.arena.rows.len() as f64/core.len() as f64)},
-        "rank_bytes":rank_bytes,"rank_lengths":[new.arena.legacy_reps.len(),new.arena.legacy_by_occ.len()],
-        "rank_capacities":[new.arena.legacy_reps.capacity(),new.arena.legacy_by_occ.capacity()],
+        "arena_rows":new.arena.rows().len(),"core_exact_u":core.len(),
+        "arena_rows_per_core_u":if core.is_empty(){None}else{Some(new.arena.rows().len() as f64/core.len() as f64)},
+        "rank_bytes":rank_bytes,"rank_lengths":[new.arena.legacy_reps().len(),new.arena.legacy_by_occ().len()],
+        "rank_capacities":[new.arena.legacy_reps().capacity(),new.arena.legacy_by_occ().capacity()],
         "semantic_counts":legacy_counts(old),
         "inline_sizes":{"location":size_of::<VarLocation>(),"edge":size_of::<FlowEdge>(),"occ_id":size_of::<OccId>(),
             "legacy_id":size_of::<LegacyId>(),"adj":size_of::<Adj>(),"label":size_of::<Label>(),"exact_edge":size_of::<ExactFlowEdge>()}})

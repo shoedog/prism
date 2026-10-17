@@ -35,7 +35,7 @@ fn legacy_identity_excludes_bytes_exact_identity_does_not() {
     );
     let frozen = CompactDfg::from_parts(p).unwrap();
     assert_eq!(
-        frozen.arena.rows.len(),
+        frozen.arena.rows().len(),
         2,
         "consuming interner must also distinguish bytes"
     );

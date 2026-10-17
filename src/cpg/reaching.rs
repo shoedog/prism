@@ -12,7 +12,6 @@ use tree_sitter::Node;
 use super::{FlowConfidence, FlowDoubt};
 
 mod capture;
-#[cfg(any(test, feature = "dfg-oracle"))]
 mod compact_wire;
 mod graph;
 mod scope;
@@ -88,8 +87,7 @@ pub struct RdFileStats {
 }
 
 impl RdFileStats {
-    // Test-only compact decoder guard until codec activation (PR E).
-    #[cfg(any(test, feature = "dfg-oracle"))]
+    // Native compact decoder consistency guard.
     pub(crate) fn counts_match_keys(&self) -> bool {
         self.functions_over_cap == self.over_cap_function_keys.len()
             && self.functions_without_cfg == self.without_cfg_function_keys.len()

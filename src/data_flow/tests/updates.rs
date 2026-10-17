@@ -57,21 +57,9 @@ fn edge(from: &str, to: &str) -> FlowEdge {
 }
 // Synthetic state has no producer: explicitly feed the same primary inputs to
 // both engines. Query/update behavior, not construction, is under test here.
-fn frozen(g: &DataFlowGraph) -> oracle::LegacyDataFlowGraph {
-    oracle::LegacyDataFlowGraph {
-        edges: g.edges.clone(),
-        defs: g.defs.clone(),
-        uses: g.uses.clone(),
-        forward: g.forward.clone(),
-        backward: g.backward.clone(),
-        labels: g.labels.clone(),
-        exact_labels: g.exact_labels.clone(),
-        rd_function_stats: g.rd_function_stats.clone(),
-    }
-}
 #[test]
 fn removal_filters_exact_labels_at_either_endpoint_and_keeps_unrelated() {
-    let mut new = DataFlowGraph::empty();
+    let mut new = oracle::LegacyDataFlowGraph::empty();
     for e in [
         edge("a.py", "b.py"),
         edge("b.py", "a.py"),
@@ -80,48 +68,50 @@ fn removal_filters_exact_labels_at_either_endpoint_and_keeps_unrelated() {
         new.exact_labels
             .insert(ExactFlowEdge::from_legacy(&e), FlowConfidence::Exact);
     }
-    let mut old = frozen(&new);
+    let mut old = new.clone();
+    let mut new = from_legacy(new);
     for excluded in ["absent.py", "b.py"] {
         let exclude = BTreeSet::from([excluded.into()]);
         old.remove_files(&exclude);
         new.remove_files(&exclude);
         assert_pair(&old, &new, &BTreeMap::new());
     }
-    assert_eq!(new.exact_labels.len(), 1);
-    assert_eq!(new.exact_labels.keys().next().unwrap().to.file, "a.py");
+    assert_eq!(new.exact_labels().count(), 1);
+    assert_eq!(new.exact_labels().next().unwrap().0.to.file, "a.py");
 }
 #[test]
 fn removal_filters_cross_file_edges_and_rebuilds_retained_adjacency() {
-    let mut new = DataFlowGraph::empty();
+    let mut new = oracle::LegacyDataFlowGraph::empty();
     new.edges = vec![
         edge("a.py", "b.py"),
         edge("b.py", "a.py"),
         edge("a.py", "a.py"),
     ];
-    new.rebuild_adjacency();
-    let mut old = frozen(&new);
+    new.remove_files(&BTreeSet::new());
+    let mut old = new.clone();
+    let mut new = from_legacy(new);
     let unrelated = BTreeSet::from(["c.py".into()]);
     old.remove_files(&unrelated);
     new.remove_files(&unrelated);
     assert_pair(&old, &new, &BTreeMap::new());
     assert!(
-        new.edges.contains(&edge("a.py", "b.py")),
+        edge_snapshot(&new).contains(&edge("a.py", "b.py")),
         "unrelated removal must retain cross-file edges"
     );
     let exclude = BTreeSet::from(["b.py".into()]);
     old.remove_files(&exclude);
     new.remove_files(&exclude);
     assert_pair(&old, &new, &BTreeMap::new());
-    assert_eq!(new.edges, vec![edge("a.py", "a.py")]);
-    assert_eq!(new.forward.values().next().unwrap().len(), 1);
-    assert_eq!(new.backward.values().next().unwrap().len(), 1);
+    assert_eq!(edge_snapshot(&new), vec![edge("a.py", "a.py")]);
+    assert_eq!(new.forward().next().unwrap().1.iter().count(), 1);
+    assert_eq!(new.backward().next().unwrap().1.iter().count(), 1);
 }
 #[test]
 fn overlapping_merge_keeps_killed_three_and_first_spans() {
     use crate::cpg::FlowDoubt;
     for reverse in [false, true] {
-        let mut new = DataFlowGraph::empty();
-        let mut incoming = DataFlowGraph::empty();
+        let mut new = oracle::LegacyDataFlowGraph::empty();
+        let mut incoming = oracle::LegacyDataFlowGraph::empty();
         let first = edge("a.py", "a.py");
         let mut later = first.clone();
         later.from.start_byte += 100;
@@ -142,16 +132,19 @@ fn overlapping_merge_keeps_killed_three_and_first_spans() {
         incoming
             .exact_labels
             .insert(exact.clone(), killed(if reverse { 3 } else { 7 }));
-        let mut old = frozen(&new);
-        old.merge(frozen(&incoming));
+        let mut old = new.clone();
+        let mut new = from_legacy(new);
+        old.merge(incoming.clone());
+        let incoming = from_legacy(incoming);
         new.merge(incoming);
         assert_pair(&old, &new, &BTreeMap::new());
-        let ((from, to), label) = new.labels.first_key_value().unwrap();
+        let (row, label) = new.labels().next().unwrap();
+        let (from, to) = (row.from, row.to);
+        assert_eq!((label, from.start_byte, to.start_byte), (killed(3), 10, 20));
         assert_eq!(
-            (*label, from.start_byte, to.start_byte),
-            (killed(3), 10, 20)
+            new.exact_labels().find(|(e, _)| e == &exact).unwrap().1,
+            killed(3)
         );
-        assert_eq!(new.exact_labels[&exact], killed(3));
     }
 }
 #[test]
@@ -168,7 +161,7 @@ fn javascript_exact_labels_survive_partial_edit_retain_delete() {
         let mut old = oracle::LegacyDataFlowGraph::build(&files);
         let mut new = DataFlowGraph::build(&files);
         assert!(
-            !new.exact_labels.is_empty(),
+            new.exact_labels().next().is_some(),
             "fixture must exercise supplemental exact labels"
         );
         for (path, replacement) in [
@@ -225,19 +218,20 @@ fn labels_merge_duplicate_keys_with_the_worst_confidence() {
     };
     let key = (from.clone(), to.clone());
     let edge = FlowEdge { from, to };
-    let mut retained = DataFlowGraph::empty();
+    let mut retained = oracle::LegacyDataFlowGraph::empty();
     retained.edges.push(edge.clone());
     retained.labels.insert(key.clone(), FlowConfidence::Exact);
-    let mut fresh = DataFlowGraph::empty();
+    let mut fresh = oracle::LegacyDataFlowGraph::empty();
     fresh.edges.push(edge);
     fresh.labels.insert(
         key.clone(),
         FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
     );
 
-    retained.merge(fresh);
+    let mut retained = from_legacy(retained);
+    retained.merge(from_legacy(fresh));
     assert_eq!(
-        retained.labels[&key],
+        retained.label(&key.0, &key.1).unwrap(),
         FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
     );
 }
@@ -267,7 +261,7 @@ fn overlap_merge_and_remove_match_legacy_bytes() {
         new.remove_files(&excluded);
         assert_all(&old, &new, &BTreeMap::new());
     }
-    assert!(new.arena.rows.is_empty());
+    assert!(new.arena.rows().is_empty());
 }
 
 #[test]
@@ -282,7 +276,7 @@ fn removal_uses_map_key_file_and_either_edge_endpoint() {
     assert!(new.defs().all(|(k, _)| k.0 == "a.py"));
     assert_eq!(new.labels().count(), 1);
     assert_eq!(new.exact_labels().count(), 0);
-    assert!(new.arena.rows.iter().all(|v| v.file == "a.py"));
+    assert!(new.arena.rows().iter().all(|v| v.file == "a.py"));
     // The inverse orientation must also be removed.
     let mut p = adversarial_parts();
     let mut e = p.edges.last().unwrap().clone();
@@ -314,7 +308,7 @@ fn twenty_refreshes_reclaim_dead_locations_and_leave_clone_unchanged() {
     let mut new = build(&files);
     let held = new.clone();
     let held_bytes = storage(&held);
-    let initial = new.arena.rows.len();
+    let initial = new.arena.rows().len();
     for generation in 0..20 {
         let file = format!("changed_{generation}.py");
         let files = parse(&file);
@@ -325,11 +319,11 @@ fn twenty_refreshes_reclaim_dead_locations_and_leave_clone_unchanged() {
         old.remove_files(&excluded);
         new.remove_files(&excluded);
         assert_all(&old, &new, &files);
-        assert_eq!(new.arena.rows.len(), initial);
+        assert_eq!(new.arena.rows().len(), initial);
         assert_eq!(storage(&held), held_bytes);
         assert!(new
             .arena
-            .rows
+            .rows()
             .iter()
             .all(|v| !v.file.starts_with("changed_")));
     }
@@ -374,13 +368,13 @@ fn empty_and_unknown_removal_rebuild_independent_rows() {
     use test_support::compact::{assert_all, pair};
     for excluded in [BTreeSet::new(), BTreeSet::from(["absent.py".into()])] {
         let (mut old, mut new) = pair(adversarial_parts());
-        let initial = new.arena.rows.len();
+        let initial = new.arena.rows().len();
         old.remove_files(&excluded);
         new.remove_files(&excluded);
         assert_all(&old, &new, &BTreeMap::new());
         assert_eq!(new.forward().next().unwrap().0.start_byte, 20);
         assert!(
-            new.arena.rows.len() < initial,
+            new.arena.rows().len() < initial,
             "adjacency-only rows must be reclaimed"
         );
     }
