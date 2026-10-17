@@ -84,7 +84,7 @@ fn step1_bytes_and_contains_identity_across_languages() {
             let contained: Vec<_> = cpg.graph.edges(idx).filter(|e| *e.weight() == CpgEdge::Contains).collect();
             assert!(contained.iter().all(|e| matches!(&cpg.graph[e.target()], CpgNode::Variable {file, function, function_start_line, ..}
                 if (file, function, *function_start_line) == (&id.file, &id.name, id.start_line))));
-            if crate::anon_owner::is_anonymous_owner_name(&id.name) { assert!(!contained.is_empty(), "{id:?}"); }
+            if crate::anon_owner::is_anonymous_owner_name(&id.name) && !crate::anon_owner::is_module_owner_name(&id.name) { assert!(!contained.is_empty(), "{id:?}"); }
         }
     }
 }

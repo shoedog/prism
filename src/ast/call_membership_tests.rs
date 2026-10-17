@@ -161,13 +161,35 @@ fn identity_receipt(p: &ParsedFile) -> Value {
         .collect();
     let files = BTreeMap::from([("identity.ts".to_string(), p.clone())]);
     let cg = crate::call_graph::CallGraph::build(&files);
-    let calls: Vec<_> = cg.calls.values().flatten().collect();
+    let calls: Vec<_> = cg
+        .calls
+        .values()
+        .flatten()
+        .filter(|s| !crate::anon_owner::is_module_owner_name(&s.caller.name))
+        .collect();
     let cpg = crate::cpg::CodePropertyGraph::build(&files);
+    // Preserve the unchanged-main receipt, projecting away only the new module
+    // nodes/edges and renumbering the surviving nodes in their original order.
+    let retained: BTreeMap<_, _> = cpg.node_indices().filter(|&i| !matches!(cpg.node(i), crate::cpg::CpgNode::Function {name, ..} if crate::anon_owner::is_module_owner_name(name))).enumerate().map(|(i, n)| (n, i)).collect();
     let nodes: Vec<_> = cpg
         .node_indices()
+        .filter(|i| retained.contains_key(i))
         .map(|i| format!("{:?}", cpg.node(i)))
         .collect();
-    json!({"extracted": extracted, "calls": calls, "nodes": nodes, "edges": cpg.edge_dump()})
+    use petgraph::visit::EdgeRef;
+    let edges: Vec<_> = cpg
+        .graph
+        .edge_references()
+        .filter_map(|e| {
+            Some(format!(
+                "{:?}->{:?}:{:?}",
+                retained.get(&e.source())?,
+                retained.get(&e.target())?,
+                e.weight()
+            ))
+        })
+        .collect();
+    json!({"extracted": extracted, "calls": calls, "nodes": nodes, "edges": edges})
 }
 
 #[test]

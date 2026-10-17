@@ -19,7 +19,7 @@ fn anonymous(cg: &CallGraph) -> BTreeSet<FunctionId> {
     cg.functions
         .values()
         .flatten()
-        .filter(|f| is_anonymous_owner_name(&f.name))
+        .filter(|f| is_anonymous_owner_name(&f.name) && !is_module_owner_name(&f.name))
         .cloned()
         .collect()
 }
@@ -77,12 +77,14 @@ fn builders_agree_including_same_line_and_parameter_early_errors() {
                     start_line,
                     end_line,
                     ..
-                } if is_anonymous_owner_name(name) => Some(FunctionId {
-                    file: file.clone(),
-                    name: name.clone(),
-                    start_line: *start_line,
-                    end_line: *end_line,
-                }),
+                } if is_anonymous_owner_name(name) && !is_module_owner_name(name) => {
+                    Some(FunctionId {
+                        file: file.clone(),
+                        name: name.clone(),
+                        start_line: *start_line,
+                        end_line: *end_line,
+                    })
+                }
                 _ => None,
             })
             .collect();
@@ -184,7 +186,7 @@ fn anonymous_bytes_and_dfg_contains_are_exact() {
         else {
             continue;
         };
-        if !is_anonymous_owner_name(name) {
+        if !is_anonymous_owner_name(name) || is_module_owner_name(name) {
             continue;
         }
         count += 1;

@@ -1,90 +1,76 @@
-# Handoff — DFG compaction PR E activation and controller measurement preparation
+# Handoff — DFG PR E merge of main b2cd10a1
 
-**Written:** 2026-10-16T23:46:52.041536+00:00 · **By:** Codex · **Provider:** codex
-**Workspace:** /private/tmp/claude-501/-Users-wesleyjinks-code-slicing/fd583811-fdc5-4426-9c4a-55872d2ecc1c/scratchpad/impl-dfgE · perf/dfg-activate · **Measured state:** `[MEASURED]` HEAD e5a45634d34b9a543986a0b59e107634df486485 · Tree DIRTY · Probe git status/rev-parse and final gate receipts · Output /private/tmp/claude-501/-Users-wesleyjinks-code-slicing/fd583811-fdc5-4426-9c4a-55872d2ecc1c/scratchpad/dfgE-scratch
-**Predecessor:** `[INHERITED]` PR D handoff preserved as ../dfgE-scratch/before-handoff.md; user dispatch authorizes Tasks 6/7 preparation only.
+**Written:** 2026-10-17T16:37:26.430954+00:00 · **By:** Codex root · **Provider:** codex
+**Workspace:** /private/tmp/claude-501/-Users-wesleyjinks-code-slicing/fd583811-fdc5-4426-9c4a-55872d2ecc1c/scratchpad/impl-dfgE · perf/dfg-activate · **Measured state:** `[MEASURED]` HEAD 330db2e8d176c042d537ee4f7fa6ee52604eafa9 · Tree DIRTY; merge index unresolved · Probe git status/rev-parse · Output ../dfgE-merge-b2cd10a1/source-identity.json
+**Predecessor:** controller dispatch; previous worker handoff retained in ../dfgE-merge-b2cd10a1/before-handoff.md.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. Conflicts stay OPEN.
-**Provenance:** written live by worker; `[MEASURED]` claims were probed here; `[INHERITED]` names supplied authority. No memory update requested or performed.
+**Provenance:** written live by worker. `[MEASURED]` rerun here; `[INHERITED]` supplied, not rerun.
 
 ## 0. Gating facts — settle these before starting anything below
-
-**(a) Lane ownership** — `[INHERITED]` worker owns implementation/preparation, controller owns review/commits/measurement — RESOLVED by user dispatch; no other worker was dispatched here.
-**(b) Custody exposure** — `[MEASURED]` source/evidence snapshots and SHA256 manifest preserve work in scratch; controller durable-copy/commit still OPEN before ephemeral cleanup. Never delete the working tree or scratch before preserving those artifacts.
-**(c) In flight / irreversible** — `[MEASURED]` all worker tool sessions completed; no worker Cargo/probe/measurement process remains — RESOLVED by returned process statuses and worker-gates-complete.json.
-**(d) Authorization granted but not exercised** — “The controller commits your work ... leave changes in the working tree”; “You do not run the corpus measurement.” No worker source Git writes, push, merge or real-corpus memory measurement.
+**(a) Lane ownership** — `[INHERITED]` owner assigned this worker; no delegation — RESOLVED.
+**(b) Custody exposure** — `[MEASURED]` final-source.tar.gz, merge-working.patch, raw logs and receipts in ../dfgE-merge-b2cd10a1; controller must commit merge and preserve evidence outside ephemeral scratch — OPEN for controller.
+**(c) In flight / irreversible** — `[MEASURED]` all worker Cargo/probe sessions completed; no Git writes; merge still in progress — RESOLVED for worker activity, OPEN for controller merge completion.
+**(d) Authorization granted but not exercised** — "You cannot run git commands that write .git; edit files only; the controller commits the merge."
 
 ## 1. Resume order
-
-1. Read root VERIFICATION.md and ../dfgE-scratch/SUMMARY.md / VERIFICATION.md; verify custody-final.sha256, copy archives/binaries/raw receipts to durable controller evidence before cleanup.
-2. Inspect commit-paths.json / commit-boundaries.md and task6-working.patch. Commit three provenance files as `re-pin on main e5a45634`, then the single atomic activation as `perf: activate compact DFG storage and cache v121`, both plan trailers. Task 7 preparation is a separate documentation/tool boundary.
-3. Bind that exact reviewed Task 6 SHA and its exact first parent; rebuild/re-receipt the preserved isolated probe ports on those SHAs, or commit clean probe ports as the plan prefers. Repeat tiny preflight after rebuild/mode change. Never measure a later receipt commit or the lane-start baseline in place of that pair.
-4. Refresh scoped main gate in a host checkout with main ref, reserve full 505-mutant gate budget and run all 108 exact socket exclusions on the host. Use docs/eval/dfg-compaction/acceptance.md for quiet-host measurements, fixed order, thresholds and retry cap.
-
-**STOP conditions:** unexpected output/provenance drift; missing custody or source binding; failed preflight; busy measurement host; any admissible heap/load/peak FAIL; two-round PR review cap. No oracle retirement before Task 7 PASS and E merge.
+1. Read VERIFICATION.md and ../dfgE-merge-b2cd10a1/gate-totals.json; verify custody.sha256.json and preserve final-source.tar.gz, merge-working.patch and raw receipts in durable controller storage.
+2. Stage existing merge changes and the resolution paths in ../dfgE-merge-b2cd10a1/resolution-paths.txt. The new re-pin receipt is untracked; VERIFICATION.md is ignored and needs force-add if committed. Commit the merge; no worker .git write was attempted.
+3. Run the 109 named exclusions in ../dfgE-merge-b2cd10a1/mcp-exclusions.txt on a capable host and obtain CI. Keep Task 7 acceptance bound to activation 3739ab38; PR F remains a separate task after E merge.
+**STOP conditions:** unexplained output drift; missing custody; any requested gate failure. Two validation/fix rounds were allowed; one candidate passed without production fixes.
 
 ## 2. State ledger
-
 | Item | State | Evidence / correction |
 |---|---|---|
-| Re-pin | done | `[MEASURED]` 132+132 unchanged on clean main and branch; repin-result.json, branch-pin-control.json |
-| Task 6 production | done | `[MEASURED]` per-worker compact construction, private arena, stack row views, native codec/version121, prefix rejection; no legacy_storage.rs |
-| Full suites | done | `[MEASURED]` default 5607/0/1 ignored; MCP 6190/0/1 ignored/108 filtered; exact exclusions and same-base bind control in VERIFICATION.md |
-| Focused / oracle | done | `[MEASURED]` DFG93, cache75, downstream440; oracle166/0/1 ignored incl pins; all-target feature compile36 executables |
-| RED / mutation | done | `[MEASURED]` pre-change codec RED; registered15/15 + one-off7/7 isolated text kills; Python8 tests +10 assertions +10 mutant kills; new-test-red-map.json |
-| Executable replay | done | `[MEASURED]` 21 generators/168 observations + same-binary repeats, exact provenance replacements only; fixture edge bytes identical; MCP5x25 responses identical |
-| Tier-A | done | `[MEASURED]` fresh release, 178 matrix, 3 VALID quick, 0 regressions; target-c-method flip and two missing pinned outcomes retained, no rebaseline |
-| Task 7 binary prep | done | `[MEASURED]` both probe pairs, 18-path instrumentation audit, source archives/receipts; matched dirty override, no dfg-oracle |
-| Tiny preflight / census | done | `[MEASURED]` both primes miss + two warm CPG/sidecar/meta hits each, census absent; separate tiny physical census valid; preflight-complete.json |
-| Controller acceptance | pending | `[INHERITED]` real Prometheus/slicing measurements explicitly controller-only; readout status NOT MEASURED |
-| Scoped / full catalog | pending | `[MEASURED]` main ref missing; literal scoped command inadmissible. Full plan505/no missing anchors; execution not run, forecast53.2min exceeds30min planning cap |
-| Durable commit/copy | pending | `[INHERITED]` controller owns commits/publication and custody outside ephemeral scratch |
+| Five conflict files | done | `[MEASURED]` no markers; README uses main procedure; manifests use main hashes plus current provenance; index still UU until controller stages |
+| Cache/mutants | done | `[MEASURED]` CPG122, nav67; cache-mutant-anchors.json lists all four unique 122->121 anchors |
+| Main retention | done | `[MEASURED]` main-merge-retention.json: all 31 main-only paths exact plus two authorized cache-version replacements |
+| Accounting/census | done | `[MEASURED]` auto-merge-check.json: all four files equal both parents, one argv-stub registration |
+| Captures | done | `[MEASURED]` repin-result.json: main and branch 133+133 equal; 30 accepted #442 changes, 103 unchanged per map |
+| MCP suite | done | `[MEASURED]` logs/full-mcp.log: environment-limited, 6249 passed, 0 failed, 3 ignored, 109 excluded |
+| Oracle umbrella | done | `[MEASURED]` logs/oracle-umbrella.log: 168 passed, 0 failed, 1 ignored, including all pins |
+| CI parity | done | `[MEASURED]` logs/ci-parity.log: 161 passed, 0 failed, 1 ignored, 7 pins tests filtered |
+| Cache unit/fmt | done | `[MEASURED]` logs/cpg-cache-final.log: 76 passed, 0 failed; logs/fmt-final.log PASS |
+| Pre-bump control | done | `[MEASURED]` isolated exact 122->121 source mutation: 72 passed, four expected version assertion failures; candidate then 76/0 |
+| Task 7 acceptance | done | `[INHERITED]` user and committed docs/eval/dfg-compaction/acceptance.md: PASS bound to 3739ab38, not this merge |
 
 ## 3. Corrections to standing documents and memory
-
 | Location | Stale or false assertion | Correction |
 |---|---|---|
-| Prior handoff | PR D codec-only live state | Superseded here; original retained in before-handoff.md |
-| Plan cache/sidecar reservations | Historical118 / sidecar65 | `[MEASURED]` activation120->121; actual main sidecar66 remains66; new receipt/docs reflect it |
-| Three other mutation lanes | Current/previous120/119 anchors | `[MEASURED]` rebound121/120; same-environment base plan valid; final505 plan has no missing anchor |
-| Acceptance reader | Flat cache path / module import printed before JSON | `[MEASURED]` fail-first fixes; nested unique inventory via memreport helper, one-JSON CLI; retained old RED artifacts |
-| Memory | None | No update requested; no memory write |
+| Cache docs/mutants | CPG121 | `[MEASURED]` CLAUDE.md, current feature docs and four mutants updated to122; historical measured versions remain unchanged |
+| Previous lane handoff | Task 7 pending, old base/pins | `[INHERITED]` acceptance PASS at330db2e8; `[MEASURED]` current merge captured on b2cd10a1, 133 cases |
+| Feature documentation | Acceptance pending | `[INHERITED]` now links controller's committed PASS; no new measurement claim |
+| Memory | None | No memory update requested or performed |
 
 ## 4. Open work
-
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Durable custody and commits | pending | Preserve archives, stage exact reviewed groups, commit with both trailers | Controller Git/custody authority | commit-paths.json, custody-final.sha256 |
-| 2 | Source SHA binding / probe rebuild | pending | Bind atomic activation SHA + parent, rebuild ports, refresh receipts and tiny preflight | Activation commit/review | probe-binary-receipts.json, probe-*-source.tar.gz |
-| 3 | Host / global gates | pending | Run108 listener exclusions, scoped main gate and full505 authoritative gate jobs1 | Host facilities/main ref/budget | mcp-exclusions.txt, mutation-forecast.json |
-| 4 | Corpus acceptance | pending | Quiet host set1 fixed order; >=300/75 MiB, no cold-prime peak increase, D10 load; query timing/census separate | Controller scheduling/source binding | docs/eval/dfg-compaction/acceptance.md |
-| 5 | Task8 retirement | parked | Only after Task7 PASS + E merge, separate reviewed PR F | Acceptance prerequisite | plan Task8 |
+| 1 | Merge commit/custody | pending | Stage resolved paths, commit merge, preserve receipts | controller .git authority | resolution-paths.txt, final-source.tar.gz |
+| 2 | Socket/host checks | blocked | Run exact named exclusions on capable host | sandbox listener/host facilities | mcp-exclusions.txt:109 names |
+| 3 | CI | pending | Run controller publication/CI process | controller | PR439 |
 
 ## 5. Invariants and traps — do not do these
-
-- Keep 132+132 field-wise legacy pins; native cache bytes intentionally differ only at version121.
-- Oracle remains test/feature-only; default/MCP runtime has one compact owner. Producer and query bodies have byte controls.
-- Nice denied once: owner-authorized env jobs4 fallback; one worker Cargo at a time, offline, logs read separately.
-- Version prefix must reject incompatible payloads before either reader decodes; don't reintroduce legacy decode/conversion.
-- Probe acceptance needs NO_CENSUS=1 and matched clean/dirty mode; prepared ports need LOAD_DIRTY=1 on both.
-- Cache files are nested under prism/nav/hash; use the unique inventory helper, not flat-path assumptions.
-- Numeric/kernel module imports must not print into JSON artifacts; standalone kernel still prints its ten-assertion completion.
-- No corpus measurements, no relaxed thresholds, no acceptance from tiny samples/accounted bytes, no rerun to erase FAIL.
-- Scoped missing-main and zero selection are not mutation coverage; full lane receipts do not replace full505 pre-merge gate.
+- No worker .git writes, installs, network or corpus measurements occurred.
+- nice setpriority denied but Cargo continued; subsequent commands used env CARGO_BUILD_JOBS=4 fallback, offline dependencies and RUST_MIN_STACK=16777216.
+- Initial formatter briefly overlapped branch-capture launch; no two build/test Cargo jobs overlapped. All subsequent Cargo commands were serial.
+- Both manifests observe field-wise legacy payload and ordered indexes; native cache format is122. Do not replace these observations with native codec bytes.
+- Known 108 socket tests plus one launcher case are exclusions, not fresh passes; all109 names are preserved.
+- Source/control copies and test receipts are ephemeral until controller custody. Do not delete scratch first.
+- Source cache module remains above1000 weighted lines because only metadata/assertions changed; no responsibility was added and no over2000 file grew.
 
 ## 6. Identifiers
-
 | Item | Verbatim |
 |---|---|
-| Base | e5a45634d34b9a543986a0b59e107634df486485 |
-| Scratch | /private/tmp/claude-501/-Users-wesleyjinks-code-slicing/fd583811-fdc5-4426-9c4a-55872d2ecc1c/scratchpad/dfgE-scratch |
-| Probe reference | c3162f9419f371fa4333ef0f038b48845691e310 |
-| Cache versions | CPG120->121; sidecar66 unchanged |
-| Controller evidence | ~/prism-evidence/mcp-memory/dfg-compaction-2026-10-14 |
-| Commit titles | re-pin on main e5a45634; perf: activate compact DFG storage and cache v121; separate Task7 prep/actual acceptance receipt |
-| Trailers | Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>; Claude-Session: https://claude.ai/code/session_01JhYB2xRuHRHxDFM7eDt8Fh |
+| HEAD | 330db2e8d176c042d537ee4f7fa6ee52604eafa9 |
+| MERGE_HEAD/main | b2cd10a157bb7d7e75283be6519b6fe2ce485e0f |
+| Measured activation | 3739ab383a6e333e3c172bcb1eaf26fcf3d26b92 |
+| Evidence | ../dfgE-merge-b2cd10a1 |
+| Versions | CPG122; nav67 |
+| Exact regression control | src/cpg_cache.rs: const CACHE_VERSION: u32 = 122; ->121; isolated copy only |
 
 ## 7. Refutation verdict and owner questions
+**§2c verdict:** SURVIVED · claim: "merge preserves all clean-main pinned output and enforces cache122" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: repin-result.json, gate-totals.json, cache-control-result.json, probe-log.md
+**Questions the owner owes an answer to:** None.
 
-**§2c verdict:** SURVIVED · claim: "Atomic compact production activation preserves fixture/query/output behavior and native validation" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: ../dfgE-scratch/VERIFICATION.md, mutation-verdicts.json, replay-audit.json, gate-results.json. Real-corpus acceptance remains untested/controller-only.
-
-**Questions the owner owes an answer to:** None for worker preparation. Controller source binding, host/global gates and measurements are explicit pending actions; no merge-ready claim.
+Verification-hook addendum: root VERIFICATION.md now embeds all exact commands
+and all 109 excluded names under explicit environment-limited / Excluded: wording.
+No Rust source or test receipts changed; no test rerun was needed.

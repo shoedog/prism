@@ -23,8 +23,11 @@ This is a source migration for direct-field library consumers. To serialize a
 view as the old edge sequence, collect `edges().iter().map(|e| e.to_owned())` into a
 `Vec<_>`. Production now retains a compact arena of complete exact locations, ordered IDs
 and legacy rank indexes. Views resolve borrowed locations without per-row boxes,
-including `forward_reachable` and `all_locations_at` scans. Cache v121 encodes this
+including `forward_reachable` and `all_locations_at` scans. Cache v122 encodes this
 layout directly and rejects incompatible versions before payload decoding; the
-navigation sidecar version is unchanged. One cold rebuild is expected after upgrade.
+navigation sidecar remains at main's v67. One cold rebuild is expected after upgrade.
 No old-cache importer or expanded production side copy remains. Query and output
-behavior is unchanged; corpus memory/load/peak acceptance awaits controller measurement.
+behavior is unchanged. Controller memory/load/peak acceptance passed on activation
+`3739ab38`; see [the measured readout](../eval/dfg-compaction/acceptance.md).
+The merge of main retains that activation and incorporates main's module-owner
+format change; the combined CPG cache version is 122.
