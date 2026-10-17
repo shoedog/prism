@@ -31,8 +31,16 @@ fn graphs(source: &str, ext: &str) -> Vec<CallGraph> {
 type Case<'a> = (&'a str, String, Option<(&'a str, usize)>);
 // Collect every failing shape before failing, so the fail-first receipt is exhaustive.
 fn check(cases: &[Case<'_>]) {
+    check_named(cases, "resolveName");
+}
+
+fn check_named(cases: &[Case<'_>], name: &str) {
+    check_languages(cases, name, &["js", "ts", "tsx"]);
+}
+
+fn check_languages(cases: &[Case<'_>], name: &str, languages: &[&str]) {
     let mut failures = Vec::new();
-    for ext in ["js", "ts", "tsx"] {
+    for ext in languages {
         for (label, source, expected) in cases {
             for (builder, graph) in graphs(source, ext).into_iter().enumerate() {
                 // Skeletons deliberately omit returned-value/export proof passes.
@@ -45,7 +53,7 @@ fn check(cases: &[Case<'_>]) {
                     .flatten()
                     .filter(|s| {
                         s.origin == CallSiteOrigin::Source
-                            && s.callee_name == "resolveName"
+                            && s.callee_name == name
                             && s.qualifier.is_none()
                     })
                     .collect();
@@ -236,4 +244,206 @@ fn property_exclusion_survives_cache_hits_and_unrelated_partial_rebuilds() {
             }
         }
     }
+}
+
+fn property_shapes() -> Vec<String> {
+    let mut shapes = Vec::new();
+    for value in ["() => resolveName()", "function() { resolveName(); }"] {
+        for object in ["obj", "exports", "this", "Foo.prototype", "module.exports"] {
+            shapes.push(format!("{object}.resolveName = {value};"));
+        }
+        for class in ["const C = class", "export default class", "class Named"] {
+            for modifier in ["", "static "] {
+                shapes.push(format!("{class} {{ {modifier}resolveName = {value}; }};"));
+            }
+        }
+    }
+    shapes
+}
+
+#[test]
+fn inferred_members_and_fields_are_not_lexical_bindings() {
+    let shapes = property_shapes();
+    let mut cases = Vec::new();
+    for shape in &shapes {
+        cases.push((shape.as_str(), format!("function make() {{ function actual() {{}} return actual; }}\nvar resolveName = make();\n{shape}"), None));
+        cases.push((shape.as_str(), shape.clone(), None));
+    }
+    cases.push((
+        "different-declarator",
+        "var different = (host.resolveName = () => resolveName());".into(),
+        None,
+    ));
+    cases.push((
+        "wrapped-call-not-value",
+        "var resolveName = wrap(host.resolveName = () => resolveName());".into(),
+        None,
+    ));
+    cases.push((
+        "sequence-not-value",
+        "var resolveName = (host.resolveName = () => resolveName(), other);".into(),
+        None,
+    ));
+    check(&cases);
+    check_named(
+        &[(
+            "readFile-wrapper",
+            "const readFile = host.readFile; host.readFile = (n) => readFile(n);".into(),
+            None,
+        )],
+        "readFile",
+    );
+}
+
+#[test]
+fn property_shapes_keep_proven_outer_bindings() {
+    let shapes = property_shapes();
+    let mut cases = Vec::new();
+    for shape in &shapes {
+        for (binding, expected) in [
+            ("function resolveName() {}", "resolveName"),
+            ("function actual() {} const resolveName = actual;", "actual"),
+            ("import { resolveName } from './dep';", "resolveName"),
+        ] {
+            cases.push((
+                shape.as_str(),
+                format!("{binding}\n{shape}"),
+                Some((expected, 1)),
+            ));
+        }
+    }
+    check(&cases);
+}
+
+#[test]
+fn member_assignment_value_of_same_named_declarator_keeps_exact() {
+    let mut cases = Vec::new();
+    for binding in ["var", "let", "const"] {
+        for object in ["obj", "exports", "this", "Foo.prototype", "module.exports"] {
+            for value in ["() => 0", "function() {}"] {
+                for (open, close) in [("", ""), ("(", ")"), ("((", "))")] {
+                    cases.push(("same-named-value", format!("{binding} resolveName = {open}{object}.resolveName = {value}{close};\nfunction run() {{ resolveName(); }}"), Some(("resolveName", 1))));
+                }
+            }
+        }
+    }
+    cases.push((
+        "identifier-assignment",
+        "var resolveName; resolveName = () => 0;\nfunction run() { resolveName(); }".into(),
+        Some(("resolveName", 1)),
+    ));
+    cases.push((
+        "explicit-member-name",
+        "obj.other = function resolveName() { resolveName(); };".into(),
+        Some(("resolveName", 1)),
+    ));
+    cases.push((
+        "explicit-field-name",
+        "const C = class { other = function resolveName() { resolveName(); }; };".into(),
+        Some(("resolveName", 1)),
+    ));
+    check(&cases);
+    check_named(
+        &[(
+            "woff2-exemption",
+            "var _free = (Module._free = function() {});\nfunction run() { _free(); }".into(),
+            Some(("_free", 1)),
+        )],
+        "_free",
+    );
+}
+
+#[test]
+fn singleton_r5_rejects_property_names_across_files() {
+    use prism::resolution::DropReason;
+    let mut failures = Vec::new();
+    for ext in ["js", "ts", "tsx"] {
+        let mut shapes = property_shapes();
+        shapes.push("const o = { resolveName() {} };".into());
+        shapes.push("const o = { resolveName: () => 0 };".into());
+        if ext != "js" {
+            shapes.push("abstract class C { resolveName = () => 0; }".into());
+            shapes.push("abstract class C { static resolveName = function() {}; }".into());
+        }
+        for shape in shapes {
+            let target = shape.replace("resolveName", "helper");
+            // Bodies are irrelevant here; avoid introducing extra helper() sites.
+            let target = target
+                .replace("=> helper()", "=> 0")
+                .replace("{ helper(); }", "{}");
+            let files = BTreeMap::from([
+                (
+                    format!("a.{ext}"),
+                    ParsedFile::parse(
+                        &format!("a.{ext}"),
+                        &target,
+                        Language::from_extension(ext).unwrap(),
+                    )
+                    .unwrap(),
+                ),
+                (
+                    format!("b.{ext}"),
+                    ParsedFile::parse(
+                        &format!("b.{ext}"),
+                        "function g() { helper(); }",
+                        Language::from_extension(ext).unwrap(),
+                    )
+                    .unwrap(),
+                ),
+            ]);
+            assert!(files.values().all(|p| !p.tree.root_node().has_error()));
+            for graph in [
+                CallGraph::build(&files),
+                CallGraph::build_skeleton(&files),
+                CallGraph::build_direct_subset(&files, &files.keys().cloned().collect()),
+            ] {
+                let site = graph
+                    .calls
+                    .values()
+                    .flatten()
+                    .find(|s| s.callee_name == "helper")
+                    .unwrap();
+                let out = graph.resolve_call_site_full(site);
+                if !out.resolved.is_empty()
+                    || !matches!(
+                        out.drop,
+                        Some(DropReason::LocalBindingUnproven | DropReason::UnknownName)
+                    )
+                {
+                    failures.push(format!("{ext}: {target}: {out:?}"));
+                }
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} failures:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn abstract_class_fields_share_property_exclusion() {
+    let shapes: Vec<_> = ["", "static "]
+        .into_iter()
+        .flat_map(|modifier| {
+            ["() => resolveName()", "function() { resolveName(); }"]
+                .map(|value| format!("abstract class C {{ {modifier}resolveName = {value}; }}"))
+        })
+        .collect();
+    let mut cases = Vec::new();
+    for shape in &shapes {
+        cases.push((
+            shape.as_str(),
+            format!("var resolveName = unknown();\n{shape}"),
+            None,
+        ));
+        cases.push((
+            shape.as_str(),
+            format!("function resolveName() {{}}\n{shape}"),
+            Some(("resolveName", 1)),
+        ));
+    }
+    check_languages(&cases, "resolveName", &["ts", "tsx"]);
 }

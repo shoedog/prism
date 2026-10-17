@@ -1,4 +1,5 @@
 use tree_sitter::Node;
+pub(crate) mod js_inferred_name;
 
 /// Supported programming languages for slicing analysis.
 #[derive(
@@ -1151,57 +1152,8 @@ impl Language {
             return None;
         }
 
-        // Arrow functions and anonymous function expressions inherit their name
-        // from the parent assignment context (ECMAScript name inference §13.15.1).
-        // Only applies to JS/TS/TSX where these node types exist.
-        if (node.kind() == "arrow_function" || node.kind() == "function_expression")
-            && node.child_by_field_name("name").is_none()
-        {
-            if let Some(parent) = node.parent() {
-                // Pattern 1: const X = () => {}
-                if parent.kind() == "variable_declarator" {
-                    return parent.child_by_field_name("name");
-                }
-
-                // Pattern 2: { key: () => {} }
-                if parent.kind() == "pair" {
-                    return parent.child_by_field_name("key");
-                }
-
-                // Pattern 3: const X = React.memo(() => {})
-                // Parent chain: arguments → call_expression → variable_declarator
-                if parent.kind() == "arguments" {
-                    if let Some(call) = parent.parent() {
-                        if call.kind() == "call_expression" {
-                            if let Some(grandparent) = call.parent() {
-                                if grandparent.kind() == "variable_declarator" {
-                                    return grandparent.child_by_field_name("name");
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Pattern 4: class Foo { handler = () => {} }
-                if parent.kind() == "public_field_definition" || parent.kind() == "field_definition"
-                {
-                    return parent
-                        .child_by_field_name("property")
-                        .or_else(|| parent.child_by_field_name("name"));
-                }
-
-                // Pattern 5: exports.handler = () => {}
-                if parent.kind() == "assignment_expression" {
-                    if let Some(left) = parent.child_by_field_name("left") {
-                        if left.kind() == "member_expression" {
-                            return left.child_by_field_name("property");
-                        }
-                        if left.kind() == "identifier" {
-                            return Some(left);
-                        }
-                    }
-                }
-            }
+        if let Some(inferred) = js_inferred_name::js_inferred_name_source(*node) {
+            return Some(inferred.name);
         }
 
         node.child_by_field_name("name")

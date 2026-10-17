@@ -655,7 +655,8 @@ fn r2_target_reached(language: Language, input: &str, target: &str, callee: &str
 }
 
 fn r2_w2m(language: Language) {
-    let target = "const obj = { Array(s) {\n sink(s);\n} };";
+    // Declarator syntax still reaches Exact FreeSingle, keeping this DFG guard live.
+    let target = "const Array = (s) => {\n sink(s);\n};";
     for input in [
         "const entry = input =>\n Array(input);",
         "const entry = input => {\n const local = input;\n Array(local);\n};",

@@ -81,8 +81,8 @@ impl ProofIndex {
                 // Inferred property names identify owners, never lexical declarations.
                 // A named function expression still binds its own explicit name.
                 if owner.kind() == "method_definition"
-                    || (owner.child_by_field_name("name").is_none()
-                        && owner.parent().is_some_and(|p| p.kind() == "pair"))
+                    || crate::languages::js_inferred_name::js_inferred_name_source(owner)
+                        .is_some_and(|inferred| inferred.is_property(&parsed.source))
                 {
                     proof.property_methods.insert(id.clone());
                 }

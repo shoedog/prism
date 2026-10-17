@@ -2,7 +2,8 @@
   "lane": "JS method property names are not lexical bindings (#443)",
   "lib_test_prefixes": [
     "cpg_cache::",
-    "navigation::"
+    "navigation::",
+    "languages::js_inferred_name::"
   ],
   "mutations": {
     "MB-01-allow-property-fallback": [
@@ -21,9 +22,9 @@
       "js_method_name_binding_test::supplied_identity_fixtures"
     ],
     "MB-03-forget-inferred-property": [
-      "src/js_anonymous.rs",
-      "owner.parent().is_some_and(|p| p.kind() == \"pair\")",
-      "false",
+      "src/languages/js_inferred_name.rs",
+      "JsInferredNameSource::Pair | JsInferredNameSource::Field => true,",
+      "JsInferredNameSource::Pair | JsInferredNameSource::Field => false,",
       "js_method_name_binding_test::unresolved_values_never_bind_property_method_names"
     ],
     "MB-05-lose-unrelated-negative-facts": [
@@ -55,6 +56,42 @@
       "id.name == \"super\" || !self.js_anonymous.is_property_method(id)",
       "!self.js_anonymous.is_property_method(id)",
       "js_alias_matrix_test::matrix_matches_pinned_expectations"
+    ],
+    "MB-09-allow-singleton-r5-property": [
+      "src/resolution.rs",
+      "1 => self.bare_name_exact(nonstatic, ResolutionKind::FreeSingle),",
+      "1 => ResolutionOutcome::hit(exact(nonstatic, ResolutionKind::FreeSingle)),",
+      "js_method_name_binding_test::singleton_r5_rejects_property_names_across_files"
+    ],
+    "MB-10-forget-member-assignment": [
+      "src/languages/js_inferred_name.rs",
+      "JsInferredNameSource::MemberAssign => !self.is_declarator_value(source),",
+      "JsInferredNameSource::MemberAssign => false,",
+      "js_method_name_binding_test::inferred_members_and_fields_are_not_lexical_bindings"
+    ],
+    "MB-11-forget-field": [
+      "src/languages/js_inferred_name.rs",
+      "JsInferredNameSource::Pair | JsInferredNameSource::Field => true,",
+      "JsInferredNameSource::Pair => true,\n            JsInferredNameSource::Field => false,",
+      "js_method_name_binding_test::inferred_members_and_fields_are_not_lexical_bindings"
+    ],
+    "MB-12-remove-declarator-exemption": [
+      "src/languages/js_inferred_name.rs",
+      "JsInferredNameSource::MemberAssign => !self.is_declarator_value(source),",
+      "JsInferredNameSource::MemberAssign => true,",
+      [
+        "js_method_name_binding_test::member_assignment_value_of_same_named_declarator_keeps_exact",
+        "languages::js_inferred_name::tests::declarator_value_facts_control_bare_name_admission"
+      ]
+    ],
+    "MB-13-exempt-different-declarator": [
+      "src/languages/js_inferred_name.rs",
+      "source.get(name.byte_range()) == source.get(self.name.byte_range())",
+      "true",
+      [
+        "js_method_name_binding_test::inferred_members_and_fields_are_not_lexical_bindings",
+        "languages::js_inferred_name::tests::declarator_value_facts_control_bare_name_admission"
+      ]
     ]
   }
 }
