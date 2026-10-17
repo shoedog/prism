@@ -1,3 +1,4 @@
+mod anon_metadata_test;
 mod cache_test;
 mod callees_test;
 mod callers_test;

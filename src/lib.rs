@@ -38,6 +38,8 @@
 pub mod access_path;
 pub mod algorithms;
 pub mod anon_owner;
+#[cfg_attr(not(test), allow(dead_code))] // S3a1a: syntax only; S3a1b attaches it.
+pub(crate) mod anonymous;
 pub mod api;
 pub mod ast;
 pub mod build_pool;
