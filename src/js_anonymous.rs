@@ -44,6 +44,8 @@ struct BindingEvidence {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct FileProofs {
     program_supported: bool,
+    // Negative syntax evidence, independent of callable/import proof support.
+    property_methods: BTreeSet<FunctionId>,
     owners: BTreeMap<FunctionId, bool>,
     sites: BTreeMap<Span, BindingEvidence>,
     returns: BTreeMap<FunctionId, (bool, Vec<ImportEvidence>)>,
@@ -76,6 +78,14 @@ impl ProofIndex {
                 let Some(id) = crate::anon_owner::identity(parsed, &owner, file) else {
                     continue;
                 };
+                // Inferred property names identify owners, never lexical declarations.
+                // A named function expression still binds its own explicit name.
+                if owner.kind() == "method_definition"
+                    || (owner.child_by_field_name("name").is_none()
+                        && owner.parent().is_some_and(|p| p.kind() == "pair"))
+                {
+                    proof.property_methods.insert(id.clone());
+                }
                 let supported = file_supported && parsed.anonymous_evaluation_supported(owner);
                 proof.owners.insert(id.clone(), supported);
                 cache.proof_trace = Some(Vec::new());
@@ -133,11 +143,23 @@ impl ProofIndex {
     pub(crate) fn remove_files(&mut self, files: &BTreeSet<String>) {
         // Dependencies may cross file boundaries; invalidate all authority on any removal.
         if !files.is_empty() {
-            self.0.clear();
+            self.0.retain(|file, _| !files.contains(file));
+            for proof in self.0.values_mut() {
+                let property_methods = std::mem::take(&mut proof.property_methods);
+                *proof = FileProofs {
+                    property_methods,
+                    ..Default::default()
+                };
+            }
         }
     }
     pub(crate) fn merge(&mut self, other: Self) {
         self.0.extend(other.0);
+    }
+    pub(crate) fn is_property_method(&self, id: &FunctionId) -> bool {
+        self.0
+            .get(&id.file)
+            .is_some_and(|p| p.property_methods.contains(id))
     }
     fn site(&self, site: &CallSite) -> Option<&BindingEvidence> {
         let file = self.0.get(&site.caller.file)?;
@@ -189,6 +211,29 @@ fn anonymous(site: &CallSite) -> bool {
     crate::anon_owner::is_anonymous_owner_name(&site.caller.name)
 }
 impl CallGraph {
+    /// R4/R5 spelling fallback cannot prove a property name's lexical identity.
+    /// Keep existing NameOnly pools intact; proven binding routes bypass this helper.
+    pub(crate) fn bare_name_exact<'a>(
+        &self,
+        candidates: Vec<&'a FunctionId>,
+        kind: crate::resolution::ResolutionKind,
+    ) -> ResolutionOutcome<'a> {
+        let resolved = candidates
+            .into_iter()
+            // `super()` is a constructor keyword, never a lexical identifier lookup.
+            .filter(|id| id.name == "super" || !self.js_anonymous.is_property_method(id))
+            .map(|target| crate::resolution::ResolvedCallee {
+                target,
+                confidence: ResolutionConfidence::Exact,
+                kind,
+            })
+            .collect::<Vec<_>>();
+        if resolved.is_empty() {
+            ResolutionOutcome::dropped(crate::resolution::DropReason::LocalBindingUnproven)
+        } else {
+            ResolutionOutcome::hit(resolved)
+        }
+    }
     /// The only public full-resolution entry. Future candidate returns also pass this tail.
     pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
         let outcome = self.resolve_call_site_candidates(site);

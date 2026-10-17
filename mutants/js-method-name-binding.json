@@ -1,0 +1,60 @@
+{
+  "lane": "JS method property names are not lexical bindings (#443)",
+  "lib_test_prefixes": [
+    "cpg_cache::",
+    "navigation::"
+  ],
+  "mutations": {
+    "MB-01-allow-property-fallback": [
+      "src/js_anonymous.rs",
+      "!self.js_anonymous.is_property_method(id)",
+      "true",
+      [
+        "js_method_name_binding_test::supplied_identity_fixtures",
+        "js_method_name_binding_test::unresolved_values_never_bind_property_method_names"
+      ]
+    ],
+    "MB-02-forget-method-syntax": [
+      "src/js_anonymous.rs",
+      "owner.kind() == \"method_definition\"",
+      "false",
+      "js_method_name_binding_test::supplied_identity_fixtures"
+    ],
+    "MB-03-forget-inferred-property": [
+      "src/js_anonymous.rs",
+      "owner.parent().is_some_and(|p| p.kind() == \"pair\")",
+      "false",
+      "js_method_name_binding_test::unresolved_values_never_bind_property_method_names"
+    ],
+    "MB-05-lose-unrelated-negative-facts": [
+      "src/js_anonymous.rs",
+      "let property_methods = std::mem::take(&mut proof.property_methods);",
+      "let property_methods = BTreeSet::new();",
+      "js_method_name_binding_test::property_exclusion_survives_cache_hits_and_unrelated_partial_rebuilds"
+    ],
+    "MB-06-cpg-version": [
+      "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 122;",
+      "const CACHE_VERSION: u32 = 121;",
+      "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
+    ],
+    "MB-07-nav-version": [
+      "src/navigation/call_edge_cache.rs",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 68;",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 67;",
+      "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
+    ],
+    "MB-04-skip-proven-alias-route": [
+      "src/resolution.rs",
+      "if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {",
+      "if let Some(mut outcome) = None::<ResolutionOutcome<'_>> {",
+      "js_method_name_binding_test::proven_outer_bindings_and_named_function_expressions_keep_exact"
+    ],
+    "MB-08-super-is-not-an-identifier": [
+      "src/js_anonymous.rs",
+      "id.name == \"super\" || !self.js_anonymous.is_property_method(id)",
+      "!self.js_anonymous.is_property_method(id)",
+      "js_alias_matrix_test::matrix_matches_pinned_expectations"
+    ]
+  }
+}

@@ -602,17 +602,22 @@ fn r2_target_reached(language: Language, input: &str, target: &str, callee: &str
         .find(|s| s.callee_name == callee)
         .unwrap();
     let resolved = cpg.call_graph.resolve_call_site(site);
-    assert_eq!(resolved.len(), 1);
-    assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
-    assert_eq!(
-        resolved[0].kind,
-        if input.starts_with("import ") {
-            ResolutionKind::ImportMember
-        } else {
-            ResolutionKind::FreeSingle
-        }
-    );
-    assert_ne!(resolved[0].target.file, site.caller.file);
+    if target.starts_with("const obj =") {
+        // #443: an unrelated object's property is never a bare-name Exact.
+        assert!(resolved.is_empty());
+    } else {
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].confidence, ResolutionConfidence::Exact);
+        assert_eq!(
+            resolved[0].kind,
+            if input.starts_with("import ") {
+                ResolutionKind::ImportMember
+            } else {
+                ResolutionKind::FreeSingle
+            }
+        );
+        assert_ne!(resolved[0].target.file, site.caller.file);
+    }
     let start = input
         .find("input =>")
         .or_else(|| input.find("...input").map(|n| n + 3))

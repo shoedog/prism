@@ -161,7 +161,8 @@ fn d12_registered_bare_and_rest_lose_cfg_incomplete_edges_with_parenthesized_con
             let mut fs = files(&source, ext);
             for (name, source) in [
                 ("bridge", "export function bridge(s) {\n Array(s);\n}"),
-                ("callee", "const obj = { Array: (s) =>\n sink(s)\n};"),
+                // Keep this parameter-timing control independent of #443's property refusal.
+                ("callee", "function Array(s) {\n sink(s)\n}"),
             ] {
                 let path = format!("{name}.{ext}");
                 fs.insert(
