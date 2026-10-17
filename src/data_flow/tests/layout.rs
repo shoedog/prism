@@ -44,7 +44,6 @@ fn census(g: &DataFlowGraph) -> Value {
 #[test]
 fn repeated_empty_and_distinct_storage_invariants() {
     use super::super::compact::{CompactDfg, Parts};
-    let mut rows = BTreeMap::new();
     let empty = || Parts {
         edges: vec![],
         defs: BTreeMap::new(),
@@ -88,7 +87,6 @@ fn repeated_empty_and_distinct_storage_invariants() {
                 census(&g)["arena_bytes"].as_u64().unwrap() < (1000 * size_of::<FlowEdge>()) as u64
             );
         }
-        rows.insert(mode.to_string(), census(&g));
     }
     crate::build_pool::install(|| {
         for (path, source, language) in [
@@ -107,21 +105,25 @@ fn repeated_empty_and_distinct_storage_invariants() {
                 path.into(),
                 ParsedFile::parse(path, source, language).unwrap(),
             )]);
-            rows.insert(path.into(), census(&DataFlowGraph::build(&files)));
+            let g = DataFlowGraph::build(&files);
+            let rows = g.storage.arena.rows().len();
+            assert!(rows > 0, "{path}: nonempty fixture arena");
+            // Representatives are per legacy identity, not per exact byte span.
+            let legacy_rows = g.storage.arena.rows().iter().collect::<BTreeSet<_>>().len();
+            assert_eq!(g.storage.arena.legacy_reps().len(), legacy_rows, "{path}");
+            assert_eq!(g.storage.arena.legacy_by_occ().len(), rows, "{path}");
+            // These fixtures intern only primary locations; adjacency reuses edge IDs.
+            // Each edge/label supplies two endpoints, each defs/uses member one.
+            let primary_locations = 2 * g.edges().len()
+                + g.defs()
+                    .chain(g.uses())
+                    .map(|(_, v)| v.iter().count())
+                    .sum::<usize>()
+                + 2 * (g.labels().count() + g.exact_labels().count());
+            assert!(
+                rows <= primary_locations,
+                "{path}: {rows} rows exceed {primary_locations} primary locations"
+            );
         }
     });
-    if let Ok(dir) = std::env::var("DFG_CENSUS_DIR") {
-        let dir = std::path::Path::new(&dir);
-        std::fs::create_dir_all(dir).unwrap();
-        std::fs::write(
-            dir.join("physical-storage.json"),
-            serde_json::to_vec_pretty(&rows).unwrap(),
-        )
-        .unwrap();
-        std::fs::write(
-            dir.join("build-identity.txt"),
-            crate::cpg_cache::current_cache_build_identity(),
-        )
-        .unwrap();
-    }
 }

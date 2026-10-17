@@ -24,21 +24,19 @@ fn delta_candidate_edges_contribute() {
         }],
     };
     let new_graph = crate::cpg::CodePropertyGraph::build(&files);
-    for graph in [new_graph] {
-        let ctx = CpgContext::build_with_cached_cpg(&files, graph, None);
-        let run = crate::algorithms::delta_slice::slice(&ctx, &diff, old_repo.path()).unwrap();
-        assert!(
-            run.blocks.iter().any(|b| b
-                .file_line_map
-                .get("a.py")
-                .is_some_and(|lines| lines.contains_key(&4))),
-            "new-flow endpoint at return line 4 must contribute"
-        );
-        std::fs::write(old_repo.path().join("a.py"), &files["a.py"].source).unwrap();
-        let same = crate::algorithms::delta_slice::slice(&ctx, &diff, old_repo.path()).unwrap();
-        assert!(same.blocks.is_empty());
-        std::fs::write(old_repo.path().join("a.py"), "def f():\n    return 1\n").unwrap();
-    }
+    let ctx = CpgContext::build_with_cached_cpg(&files, new_graph, None);
+    let run = crate::algorithms::delta_slice::slice(&ctx, &diff, old_repo.path()).unwrap();
+    assert!(
+        run.blocks.iter().any(|b| b
+            .file_line_map
+            .get("a.py")
+            .is_some_and(|lines| lines.contains_key(&4))),
+        "new-flow endpoint at return line 4 must contribute"
+    );
+    std::fs::write(old_repo.path().join("a.py"), &files["a.py"].source).unwrap();
+    let same = crate::algorithms::delta_slice::slice(&ctx, &diff, old_repo.path()).unwrap();
+    assert!(same.blocks.is_empty());
+    std::fs::write(old_repo.path().join("a.py"), "def f():\n    return 1\n").unwrap();
 }
 
 #[test]

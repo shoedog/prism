@@ -271,7 +271,11 @@ fn dispatch_case(name: &str, files: &BTreeMap<String, ParsedFile>, diff: &DiffIn
             assert_eq!(b.algorithms_run, [algorithm.name()]);
             output_pair(reference, &b, &inputs, repo.path());
             seen.insert(algorithm.name().to_string());
-            eprintln!("DFG_DISPATCH case={name} algorithm={} mode={mode} params={} success=true positive_negative=controls::local_direct_dfg_positive_and_negative_controls,controls::paired_chop_and_conditioned_controls;other-assertions=algorithm-controls-ledger",algorithm.name(), serde_json::json!({"barrier_depth":p.barrier_depth,"barrier_symbols":p.barrier_symbols,"chop_source":p.chop_source,"chop_sink":p.chop_sink,"condition":p.condition,"old_repo":p.old_repo,"taint_sources":p.taint_sources,"taint_return_flow":p.taint_return_flow,"spiral_max_ring":p.spiral_max_ring,"quantum_var":p.quantum_var,"peer_pattern":p.peer_pattern,"layers":p.layers,"concern":p.concern,"temporal_days":p.temporal_days}));
+            eprintln!(
+                "DFG_DISPATCH case={name} algorithm={} mode={mode} params={} success=true",
+                algorithm.name(),
+                serde_json::json!({"barrier_depth":p.barrier_depth,"barrier_symbols":p.barrier_symbols,"chop_source":p.chop_source,"chop_sink":p.chop_sink,"condition":p.condition,"old_repo":p.old_repo,"taint_sources":p.taint_sources,"taint_return_flow":p.taint_return_flow,"spiral_max_ring":p.spiral_max_ring,"quantum_var":p.quantum_var,"peer_pattern":p.peer_pattern,"layers":p.layers,"concern":p.concern,"temporal_days":p.temporal_days})
+            );
         }
         assert_eq!(
             seen,

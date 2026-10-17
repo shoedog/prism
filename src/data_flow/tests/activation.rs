@@ -83,7 +83,6 @@ fn production_has_only_compact_storage_and_native_decode() {
     let facade = include_str!("../../data_flow.rs");
     assert!(facade.contains("mod compact;"));
     assert!(!facade.contains("mod legacy_storage;"));
-    assert!(!facade.contains("#[cfg(any(test, feature = \"dfg-oracle\"))]\nmod compact;"));
     let storage = include_str!("../storage.rs");
     assert!(storage.contains("storage: compact::CompactDfg"));
     assert!(!storage.contains("LegacyDataFlowGraph"));

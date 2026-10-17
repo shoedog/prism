@@ -31,6 +31,11 @@ fn remove_merge_and_subset_preserve_primary_state() {
         new.merge(DataFlowGraph::build_subset(&files, &exclude));
         parts::roundtrip(&new);
     }
+    // Removing and re-merging b.py last restores the cold build's a.py, b.py order.
+    assert_eq!(
+        current_storage(&new),
+        current_storage(&DataFlowGraph::build(&files))
+    );
     let before = edge_snapshot(&new);
     new.merge(held_new.clone());
     assert_eq!(new.edges().len(), before.len() + held_new.edges().len());
@@ -184,7 +189,6 @@ fn javascript_exact_labels_survive_partial_edit_retain_delete() {
             new.merge(DataFlowGraph::build_subset(&files, &changed));
             parts::roundtrip(&new);
             let cold = DataFlowGraph::build(&files);
-            assert_eq!(exact_label_snapshot(&new), exact_label_snapshot(&cold));
             assert_bytes("incremental exact label bytes", &exact_label_snapshot(&new), &exact_label_snapshot(&cold));
             assert!(new.exact_labels().all(|(e, _)| files.contains_key(&e.from.file) && files.contains_key(&e.to.file)));
         }
