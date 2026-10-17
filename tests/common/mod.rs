@@ -6,6 +6,8 @@
 // bearing for another, so the warning is suppressed rather than the import removed.
 #![allow(unused_imports)]
 
+pub mod dfg_cases;
+pub mod dfg_roundtrip;
 mod dfg_views;
 pub use dfg_views::dfg_labels;
 

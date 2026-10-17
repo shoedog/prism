@@ -28,7 +28,7 @@ fn legacy_identity_excludes_bytes_exact_identity_does_not() {
     assert_eq!(a, b);
     assert_eq!(g.legacy(&a), g.legacy(&b));
     assert_ne!(g.exact(&a), g.exact(&b));
-    let mut p = test_support::compact::parts(oracle::LegacyDataFlowGraph::empty());
+    let mut p = test_support::parts::empty();
     p.uses.insert(
         (a.file.clone(), a.function.clone(), 1, a.path.clone()),
         vec![a, b],

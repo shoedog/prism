@@ -32,6 +32,9 @@ kill equivalent location-observing mutants, and cannot certify a pre-merge gate.
 Scopes do not trace dependency effects. Exit 0 means all selected verdicts are
 KILLED under the stated contract. Warm lane-P target: at most 5 minutes at 4 jobs.
 Details (lane format, cleanup, measurements, limits): `scripts/mutgate/README.md`.
+DFG compact regression witnesses run in the ordinary library, navigation and output
+targets under default and MCP features. The accepted migration oracle has been retired;
+`mutants/dfg-compaction.json` retains its normal-target mutation obligations.
 
 ## Accuracy Harness (Tier-A)
 

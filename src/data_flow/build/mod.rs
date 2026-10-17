@@ -19,10 +19,6 @@ pub(super) struct FileRefs {
     pub(super) exact_labels: BTreeMap<ExactFlowEdge, FlowConfidence>,
     pub(super) rd_function_stats: RdFileStats,
 }
-#[cfg(any(test, feature = "dfg-oracle"))]
-pub(super) fn file_refs(file_path: &String, parsed: &ParsedFile) -> FileRefs {
-    Producer::file_refs(file_path, parsed)
-}
 
 impl Producer {
     fn insert_label(

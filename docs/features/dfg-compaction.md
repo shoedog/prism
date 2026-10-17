@@ -31,3 +31,9 @@ behavior is unchanged. Controller memory/load/peak acceptance passed on activati
 `3739ab38`; see [the measured readout](../eval/dfg-compaction/acceptance.md).
 The merge of main retains that activation and incorporates main's module-owner
 format change; the combined CPG cache version is 122.
+
+The temporary migration oracle is retired after acceptance. Ordinary default/MCP
+tests retain explicit representative and ordering checks, native cache roundtrips,
+renderer/dispatch controls and all 15 lane mutation witnesses. This retirement
+changes no production query body, storage layout or cache version.
+Real-fixture payload and query drift is no longer pinned after the oracle's retirement; cache round-trip checks and authored unit expectations remain.

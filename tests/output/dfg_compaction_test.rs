@@ -1,26 +1,14 @@
-use super::common::*;
-use prism::cpg::dfg_compaction_support::{assemble_with_dfg, legacy_dfg};
-
-pub fn cpg_bytes(g: &CodePropertyGraph) -> Vec<u8> {
-    prism::cpg::dfg_compaction_support::fieldwise_payload(g)
-}
-pub fn assert_assembly(name: &str, files: &BTreeMap<String, ParsedFile>) {
-    let old = assemble_with_dfg(files, legacy_dfg(files));
-    let new = CodePropertyGraph::build(files);
-    let bytes = cpg_bytes(&new);
-    assert_eq!(cpg_bytes(&old), bytes, "CPG {name}");
-    assert_eq!(
-        prism::cpg::dfg_compaction_support::lookup_indexes(&old),
-        prism::cpg::dfg_compaction_support::lookup_indexes(&new),
-        "indexes {name}"
-    );
-}
+#[path = "../common/mod.rs"]
+mod common;
+use common::dfg_roundtrip::{cpg_bytes, lookup_indexes, observe_evidence};
+use common::*;
+#[path = "dfg_compaction/controls.rs"]
+mod controls;
 
 use prism::api::{
     load_review_inputs, run_review, AlgorithmParams, ReviewInputs, ReviewOptions, ReviewRun,
 };
 use prism::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult};
-use prism::data_flow::test_support::observe_evidence;
 use std::process::Command;
 
 fn git(repo: &Path, args: &[&str]) -> String {
@@ -62,7 +50,7 @@ fn committed_repo(files: &BTreeMap<String, ParsedFile>) -> TempDir {
     git(repo.path(), &["add", "--", "."]);
     git(
         repo.path(),
-        &["commit", "--quiet", "-m", "DFG oracle fixture"],
+        &["commit", "--quiet", "-m", "DFG cache fixture"],
     );
     let committed: BTreeSet<_> = git(repo.path(), &["ls-files"])
         .lines()
@@ -185,7 +173,7 @@ pub(super) fn roundtrip(g: &CodePropertyGraph, inputs: &ReviewInputs) -> CodePro
     match load_cache(&hashes, false, dir.path()) {
         CacheResult::Hit(decoded) => {
             // Check every decode before refresh can rebuild away a codec defect.
-            // Hit dispatch additionally binds both sides to the cold legacy graph.
+            // Hit dispatch additionally binds both sides to the cold production graph.
             assert_cache_matches(g, &decoded, &decoded);
             decoded
         }
@@ -195,18 +183,9 @@ pub(super) fn roundtrip(g: &CodePropertyGraph, inputs: &ReviewInputs) -> CodePro
 pub(super) fn refresh(
     g: CodePropertyGraph,
     files: &BTreeMap<String, ParsedFile>,
-    legacy: bool,
 ) -> CodePropertyGraph {
-    let dfg = if legacy {
-        prism::cpg::dfg_compaction_support::legacy_refreshed_dfg(g.dfg, files)
-    } else {
-        let mut dfg = g.dfg;
-        let all = files.keys().cloned().collect();
-        dfg.remove_files(&all);
-        dfg.merge(DataFlowGraph::build(files));
-        dfg
-    };
-    assemble_with_dfg(files, dfg)
+    let all = files.keys().cloned().collect();
+    CodePropertyGraph::build_incremental(g.call_graph, g.dfg, &all, files, None)
 }
 fn dispatch_case(name: &str, files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) {
     let repo = committed_repo(files);
@@ -242,33 +221,61 @@ fn dispatch_case(name: &str, files: &BTreeMap<String, ParsedFile>, diff: &DiffIn
     write_sources(old_repo.path(), &old_files);
     assert_eq!(old_files.len(), files.len());
     let p = params(files, old_repo.path());
-    let old = assemble_with_dfg(files, legacy_dfg(files));
-    let new = CodePropertyGraph::build(files);
-    let cached_old = roundtrip(&old, &inputs);
-    let cached_new = roundtrip(&new, &inputs);
-    let refreshed_old = refresh(roundtrip(&old, &inputs), files, true);
-    let refreshed_new = refresh(roundtrip(&new, &inputs), files, false);
-    assert_cache_matches(&old, &cached_old, &cached_new);
-    let cold_ctx = CpgContext::build_with_cached_cpg(files, old, None);
-    for (mode, a, b) in [
-        ("cold", assemble_with_dfg(files, legacy_dfg(files)), new),
-        ("hit", cached_old, cached_new),
-        ("refresh-readd", refreshed_old, refreshed_new),
-    ] {
-        assert_eq!(cpg_bytes(&a), cpg_bytes(&b), "CPG mode {mode}");
-        let old_ctx = CpgContext::build_with_cached_cpg(files, a, None);
-        let new_ctx = CpgContext::build_with_cached_cpg(files, b, None);
-        let mut seen = BTreeSet::new();
-        for algorithm in SlicingAlgorithm::all() {
+    let cold = CodePropertyGraph::build(files);
+    let cached = roundtrip(&cold, &inputs);
+    let refreshed = refresh(roundtrip(&cold, &inputs), files);
+    assert_cache_matches(&cold, &cached, &refreshed);
+    let cold_ctx = CpgContext::build_with_cached_cpg(files, cold, None);
+    // References depend on the case and params, not the candidate cache mode.
+    // output_pair only borrows them, so every mode can share the same runs.
+    let references: Vec<_> = SlicingAlgorithm::all()
+        .into_iter()
+        .map(|algorithm| {
             let config = SliceConfig::default().with_algorithm(algorithm);
-            let a = run_review(&old_ctx, &inputs, &[algorithm], &config, &p, repo.path());
-            let b = run_review(&new_ctx, &inputs, &[algorithm], &config, &p, repo.path());
-            assert_eq!(a.algorithms_run, [algorithm.name()]);
             let reference = run_review(&cold_ctx, &inputs, &[algorithm], &config, &p, repo.path());
-            output_pair(&reference, &a, &inputs, repo.path());
-            output_pair(&reference, &b, &inputs, repo.path());
+            (algorithm, reference)
+        })
+        .collect();
+    let mut control = params(files, identical.path());
+    control.taint_return_flow = true;
+    let control_references: Vec<_> = [
+        SlicingAlgorithm::DeltaSlice,
+        SlicingAlgorithm::ContractSlice,
+        SlicingAlgorithm::Taint,
+    ]
+    .into_iter()
+    .map(|algorithm| {
+        let config = SliceConfig::default().with_algorithm(algorithm);
+        let reference = run_review(
+            &cold_ctx,
+            &inputs,
+            &[algorithm],
+            &config,
+            &control,
+            repo.path(),
+        );
+        (algorithm, reference)
+    })
+    .collect();
+    for (mode, candidate) in [
+        ("cold", CodePropertyGraph::build(files)),
+        ("hit", cached),
+        ("refresh-readd", refreshed),
+    ] {
+        let ctx = CpgContext::build_with_cached_cpg(files, candidate, None);
+        let mut seen = BTreeSet::new();
+        for (algorithm, reference) in &references {
+            let algorithm = *algorithm;
+            let config = SliceConfig::default().with_algorithm(algorithm);
+            let b = run_review(&ctx, &inputs, &[algorithm], &config, &p, repo.path());
+            assert_eq!(b.algorithms_run, [algorithm.name()]);
+            output_pair(reference, &b, &inputs, repo.path());
             seen.insert(algorithm.name().to_string());
-            eprintln!("DFG_DISPATCH case={name} algorithm={} mode={mode} params={} success=true positive_negative=controls::local_direct_dfg_positive_and_negative_controls,controls::paired_chop_and_conditioned_controls;other-assertions=algorithm-controls-ledger",algorithm.name(), serde_json::json!({"barrier_depth":p.barrier_depth,"barrier_symbols":p.barrier_symbols,"chop_source":p.chop_source,"chop_sink":p.chop_sink,"condition":p.condition,"old_repo":p.old_repo,"taint_sources":p.taint_sources,"taint_return_flow":p.taint_return_flow,"spiral_max_ring":p.spiral_max_ring,"quantum_var":p.quantum_var,"peer_pattern":p.peer_pattern,"layers":p.layers,"concern":p.concern,"temporal_days":p.temporal_days}));
+            eprintln!(
+                "DFG_DISPATCH case={name} algorithm={} mode={mode} params={} success=true",
+                algorithm.name(),
+                serde_json::json!({"barrier_depth":p.barrier_depth,"barrier_symbols":p.barrier_symbols,"chop_source":p.chop_source,"chop_sink":p.chop_sink,"condition":p.condition,"old_repo":p.old_repo,"taint_sources":p.taint_sources,"taint_return_flow":p.taint_return_flow,"spiral_max_ring":p.spiral_max_ring,"quantum_var":p.quantum_var,"peer_pattern":p.peer_pattern,"layers":p.layers,"concern":p.concern,"temporal_days":p.temporal_days})
+            );
         }
         assert_eq!(
             seen,
@@ -277,42 +284,13 @@ fn dispatch_case(name: &str, files: &BTreeMap<String, ParsedFile>, diff: &DiffIn
                 .map(|a| a.name().to_string())
                 .collect()
         );
-        let mut control = params(files, identical.path());
-        control.taint_return_flow = true;
-        for algorithm in [
-            SlicingAlgorithm::DeltaSlice,
-            SlicingAlgorithm::ContractSlice,
-            SlicingAlgorithm::Taint,
-        ] {
+        for (algorithm, reference) in &control_references {
+            let algorithm = *algorithm;
             let config = SliceConfig::default().with_algorithm(algorithm);
-            let a = run_review(
-                &old_ctx,
-                &inputs,
-                &[algorithm],
-                &config,
-                &control,
-                repo.path(),
-            );
-            let b = run_review(
-                &new_ctx,
-                &inputs,
-                &[algorithm],
-                &config,
-                &control,
-                repo.path(),
-            );
-            let reference = run_review(
-                &cold_ctx,
-                &inputs,
-                &[algorithm],
-                &config,
-                &control,
-                repo.path(),
-            );
-            output_pair(&reference, &a, &inputs, repo.path());
-            output_pair(&reference, &b, &inputs, repo.path());
+            let b = run_review(&ctx, &inputs, &[algorithm], &config, &control, repo.path());
+            output_pair(reference, &b, &inputs, repo.path());
             if algorithm == SlicingAlgorithm::DeltaSlice {
-                assert!(a.results[0].blocks.is_empty());
+                assert!(b.results[0].blocks.is_empty());
             }
         }
     }
@@ -400,7 +378,7 @@ fn dispatch_rust() {
     });
 }
 fn explicit_dispatch(path: &str, source: &str, language: Language) {
-    let files = super::corpus::explicit(path, source, language);
+    let files = common::dfg_cases::explicit(path, source, language);
     let diff = DiffInput {
         files: vec![DiffInfo {
             file_path: path.into(),
@@ -486,7 +464,7 @@ fn cache_comparator_rejects_identical_decoded_counter_corruption() {
         let (files, _, diff) = make_python_test();
         let repo = committed_repo(&files);
         let inputs = loaded(repo.path(), &files, &diff);
-        let cold = assemble_with_dfg(&files, legacy_dfg(&files));
+        let cold = CodePropertyGraph::build(&files);
         let mut decoded = roundtrip(&cold, &inputs);
         assert_cache_matches(&cold, &decoded, &decoded);
         decoded.dfg_label_stats.dfg_label_exact += 1;
@@ -509,12 +487,12 @@ pub(super) fn assert_cache_matches(
     for decoded in [a, b] {
         assert!(
             expected == cpg_bytes(decoded),
-            "cache payload differs from cold legacy"
+            "cache payload differs from cold production"
         );
         assert_eq!(
-            prism::cpg::dfg_compaction_support::lookup_indexes(cold),
-            prism::cpg::dfg_compaction_support::lookup_indexes(decoded),
-            "cache lookups differ from cold legacy"
+            lookup_indexes(cold),
+            lookup_indexes(decoded),
+            "cache lookups differ from cold production"
         );
     }
 }

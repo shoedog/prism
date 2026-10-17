@@ -219,10 +219,17 @@ receipt hashes and quiet-host evidence, then commits
 Only Task 7 PASS and PR E merge authorize Task 8 oracle retirement. Full catalog
 mutation and excluded socket gates remain controller pre-merge checks.
 
-PR F handoff: `DFG-E-stable-neighbor-tie-sorted-by-byte` currently exercises
-the temporary compact query engine (`compact/queries.rs`), not production
-traversal. PR F retargets this mutant and its span-tie regression to production
-`DataFlowGraph` traversal before retiring the temporary engine.
+PR F handoff (updated 2026-10-17): `DFG-E-stable-neighbor-tie-sorted-by-byte`
+now targets production `src/data_flow/queries.rs`. The normal lib span-tie test
+checks complete visited/hop bytes in both input orders and an unlabeled control.
+Before retirement, the production mutant failed that selector and passed the
+other 93 normal DFG unit tests with it skipped; all 15 lane mutants were killed
+by the authoritative lane gate. The clean `9b2fa09b` final oracle receipt passed
+168 tests and the explicit capture reproduced both 133-case pin maps unchanged.
+Raw receipts and selector ledger: `~/prism-evidence/dfg-compaction/prF-2026-10-17/`.
+The temporary feature, umbrella and duplicate query engine are removed. Final
+gates and equivalence evidence are recorded in the lane handoff; controller
+commit/publication remains separate from the measured activation identity.
 
 
 ## Readout — controller, 2026-10-17

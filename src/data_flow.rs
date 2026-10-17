@@ -19,9 +19,7 @@ pub use storage::DataFlowGraph;
 pub(crate) use types::{ExactFlowEdge, ExactVarLocation};
 pub use types::{FlowEdge, FlowPath, VarAccessKind, VarLocation};
 pub use views::{BindingKey, Edges, FlowEdgeRef};
-#[cfg(any(test, feature = "dfg-oracle"))]
-pub mod oracle;
-#[cfg(any(test, feature = "dfg-oracle"))]
+#[cfg(test)]
 pub mod test_support;
 #[cfg(test)]
 mod tests;

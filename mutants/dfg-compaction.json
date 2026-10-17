@@ -104,7 +104,7 @@
       ]
     ],
     "DFG-E-stable-neighbor-tie-sorted-by-byte": [
-      "src/data_flow/compact/queries.rs",
+      "src/data_flow/queries.rs",
       "prevs.sort();",
       "prevs.sort_by_key(|v| v.start_byte);",
       [
@@ -122,7 +122,7 @@
     "DFG-E-native-decode-expands-legacy": [
       "src/data_flow/compact/wire.rs",
       "Self::try_from(wire).map_err(serde::de::Error::custom)",
-      "{\n            let graph = Self::try_from(wire).map_err(serde::de::Error::custom)?;\n            #[cfg(test)]\n            { return Ok(crate::data_flow::test_support::from_legacy(crate::data_flow::test_support::to_legacy(&DataFlowGraph { storage: graph })).storage); }\n            #[cfg(not(test))]\n            Ok(graph)\n        }",
+      "{\n            let graph = Self::try_from(wire).map_err(serde::de::Error::custom)?;\n            #[cfg(test)]\n            { return Ok(crate::data_flow::test_support::parts::graph(crate::data_flow::test_support::parts::snapshot(&DataFlowGraph { storage: graph })).storage); }\n            #[cfg(not(test))]\n            Ok(graph)\n        }",
       [
         "cpg_cache::dfg_codec_tests::native_production_decode_never_expands_legacy_storage"
       ]

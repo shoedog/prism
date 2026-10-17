@@ -1,9 +1,6 @@
 use super::common::*;
-use super::outputs::{
-    assert_cache_matches, loaded, output_pair, params, refresh, roundtrip, write_sources,
-};
+use super::{assert_cache_matches, loaded, output_pair, params, refresh, roundtrip, write_sources};
 use prism::api::{run_review, AlgorithmParams};
-use prism::cpg::dfg_compaction_support::{assemble_with_dfg, legacy_dfg};
 // These controls exercise direct DFG consumers without history queries or Git writes.
 // They are additional local controls, not rows in the committed-repository matrix.
 fn local_modes(
@@ -25,32 +22,21 @@ fn local_modes(
     let mut p = params(files, prior.path());
     tune(&mut p);
     for mode in ["cold", "hit", "refresh-readd"] {
-        let old = assemble_with_dfg(files, legacy_dfg(files));
-        let new = CodePropertyGraph::build(files);
-        let adapt = |g, legacy| match mode {
-            "hit" => roundtrip(&g, &inputs),
-            "refresh-readd" => refresh(g, files, legacy),
-            _ => g,
+        let graph = CodePropertyGraph::build(files);
+        let graph = match mode {
+            "hit" => roundtrip(&graph, &inputs),
+            "refresh-readd" => refresh(graph, files),
+            _ => graph,
         };
-        let cold = CpgContext::build_with_cached_cpg(
-            files,
-            assemble_with_dfg(files, legacy_dfg(files)),
-            None,
-        );
-        let old = adapt(old, true);
-        let new = adapt(new, false);
-        assert_cache_matches(&cold.cpg, &old, &new);
-        let old = CpgContext::build_with_cached_cpg(files, old, None);
-        let new = CpgContext::build_with_cached_cpg(files, new, None);
+        let cold = CpgContext::build(files, None);
+        assert_cache_matches(&cold.cpg, &graph, &graph);
+        let ctx = CpgContext::build_with_cached_cpg(files, graph, None);
         for &algorithm in algorithms {
             let config = SliceConfig::default().with_algorithm(algorithm);
-            let a = run_review(&old, &inputs, &[algorithm], &config, &p, repo.path());
-            let b = run_review(&new, &inputs, &[algorithm], &config, &p, repo.path());
+            let run = run_review(&ctx, &inputs, &[algorithm], &config, &p, repo.path());
             let reference = run_review(&cold, &inputs, &[algorithm], &config, &p, repo.path());
-            output_pair(&reference, &a, &inputs, repo.path());
-            output_pair(&reference, &b, &inputs, repo.path());
-            check(algorithm, &a);
-            check(algorithm, &b);
+            output_pair(&reference, &run, &inputs, repo.path());
+            check(algorithm, &run);
             eprintln!("DFG_LOCAL_DIRECT {} {mode} success=true", algorithm.name());
         }
     }
@@ -84,7 +70,7 @@ fn local_direct_dfg_positive_and_negative_controls_inner() {
         },
     );
     let source = "def f():\n    x = 1\n    y = x\n    return y\n";
-    let files = super::corpus::explicit("a.py", source, Language::Python);
+    let files = super::common::dfg_cases::explicit("a.py", source, Language::Python);
     let diff = DiffInput {
         files: vec![DiffInfo {
             file_path: "a.py".into(),
@@ -115,7 +101,7 @@ fn local_direct_dfg_positive_and_negative_controls_inner() {
     );
     for (positive,source,line) in [(true,"from flask import request\n\ndef handle_login():\n    username = request.form['username']\n    process(username)\n",5),
         (false,"def transform_data(raw):\n    result = transform(raw)\n    return result\n",2)] {
-        let files=super::corpus::explicit("auth.py",source,Language::Python);
+        let files=super::common::dfg_cases::explicit("auth.py",source,Language::Python);
         let diff=DiffInput{files:vec![DiffInfo{file_path:"auth.py".into(),modify_type:ModifyType::Modified,diff_lines:BTreeSet::from([line])}]};
         local_modes(&files,&diff,None,&[SlicingAlgorithm::ProvenanceSlice],|_|{},|_,r| {
             let descriptions=r.findings.iter().map(|f|f.description.as_str()).collect::<Vec<_>>().join("\n");
@@ -144,7 +130,7 @@ fn paired_left_full_disconnected_and_empty_dfg_controls_inner() {
             "def f(x):\n    y = x\n    return y\n\ndef disconnected(z):\n    return z\n",
         ),
     ] {
-        let files = super::corpus::explicit("a.py", source, Language::Python);
+        let files = super::common::dfg_cases::explicit("a.py", source, Language::Python);
         assert_eq!(DataFlowGraph::build(&files).edges().is_empty(), empty);
         local_modes(
             &files,
@@ -165,7 +151,7 @@ fn paired_left_full_disconnected_and_empty_dfg_controls_inner() {
 }
 fn paired_chop_and_conditioned_controls_inner() {
     // Preserve misc_lang_test::test_chop_python_verifies_path_lines verbatim input/endpoints.
-    let files = super::corpus::explicit(
+    let files = super::common::dfg_cases::explicit(
         "app.py",
         "x = input()\ny = int(x)\nz = y + 1\nresult = z * 2\nprint(result)\n",
         Language::Python,
@@ -189,7 +175,7 @@ fn paired_chop_and_conditioned_controls_inner() {
         },
     );
     let source = "def f(x):\n    y = x\n    z = y\n    return z\n\ndef other():\n    return 0\n";
-    let files = super::corpus::explicit("app.py", source, Language::Python);
+    let files = super::common::dfg_cases::explicit("app.py", source, Language::Python);
     for (sink, connected) in [(3, true), (7, false)] {
         local_modes(
             &files,
@@ -219,7 +205,7 @@ fn paired_chop_and_conditioned_controls_inner() {
     }
     // Preserve misc_lang_test::test_conditioned_slice_prunes_unreachable_python.
     let source="\ndef process(x):\n    if x != 5:\n        result = x * 2\n    else:\n        result = 0\n    return result\n";
-    let files = super::corpus::explicit("cond.py", source, Language::Python);
+    let files = super::common::dfg_cases::explicit("cond.py", source, Language::Python);
     let diff = diff_at("cond.py", &[4, 6]);
     let ctx = CpgContext::build(&files, None);
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::LeftFlow);

@@ -254,7 +254,7 @@ fn every_recorded_field_boundary_truncation_is_rejected() {
 }
 #[test]
 fn invalid_confidence_discriminants_are_rejected() {
-    let mut p = test_support::compact::parts(oracle::LegacyDataFlowGraph::empty());
+    let mut p = test_support::parts::empty();
     let a = super::identity::loc("x", VarAccessKind::Def, 1);
     let b = super::identity::loc("x", VarAccessKind::Use, 2);
     p.exact_labels

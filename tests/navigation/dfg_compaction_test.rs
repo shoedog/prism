@@ -1,6 +1,8 @@
 // Match production stack budgets for case setup, CPG builds and nested Rayon work.
-use super::common::*;
-use prism::data_flow::test_support::assert_corpus;
+#[path = "../common/mod.rs"]
+mod common;
+use common::dfg_roundtrip::assert_cpg_roundtrip;
+use common::*;
 use std::path::PathBuf;
 use std::time::Instant;
 trait Case {
@@ -53,8 +55,7 @@ pub fn parsed(path: &str) -> ParsedFile {
 }
 pub fn check(name: &str, files: &BTreeMap<String, ParsedFile>) {
     let start = Instant::now();
-    assert_corpus(files);
-    super::outputs::assert_assembly(name, files);
+    assert_cpg_roundtrip(name, files);
     eprintln!("DFG_CASE {name} {:?}", start.elapsed());
 }
 macro_rules! fixtures {
@@ -64,7 +65,6 @@ macro_rules! fixtures {
                 check(&format!("fixture-{}",$path.replace('/',"__")), &BTreeMap::from([($path.into(),parsed($path))]));
             });
         })*
-        pub(super) const REGISTERED: &[&str] = &[$($path,)*];
     };
 }
 fixtures! {
@@ -180,9 +180,7 @@ fixtures! {
     fixture_js_alias_matrix_generator_variants_returns_cjs => "tests/fixtures/js_alias_matrix/generator/variants-returns.cjs",
     fixture_js_alias_matrix_generator_variants_cjs => "tests/fixtures/js_alias_matrix/generator/variants.cjs",
 }
-/// The whole fixture tree as one multi-file case. The census (every fixture registered) is in
-/// `pins::`, with the stored hashes, so a fixture added on main fails the controller gate, not
-/// the CI parity job of an unrelated PR (review round 2, Opus S2).
+/// Dynamic discovery includes new fixtures without a registration or pin update.
 #[test]
 fn fixture_tree_multifile_storage() {
     prism::build_pool::install(|| {
@@ -198,8 +196,7 @@ fn fixture_tree_multifile_storage() {
             files.insert(path.into(), parsed(path));
         }
         eprintln!("DFG_FIXTURES {:?}", counts);
-        prism::data_flow::test_support::assert_storage_assembly(&files);
-        super::outputs::assert_assembly("fixture-tree", &files);
+        assert_cpg_roundtrip("fixture-tree", &files);
     });
 }
 macro_rules! generator {
@@ -212,7 +209,6 @@ macro_rules! generator {
                 let _ = diff;
             });
         })*
-        pub(super) const GENERATOR_NAMES: &[&str] = &[$(concat!("generator-", $name),)*];
     };
 }
 generator! {
@@ -277,13 +273,13 @@ fn helper_builders() {
         ] {
             check(&format!("generator-{name}"), &files);
             assert_eq!(
-                super::outputs::cpg_bytes(&graph),
-                super::outputs::cpg_bytes(&CodePropertyGraph::build(&files))
+                common::dfg_roundtrip::cpg_bytes(&graph),
+                common::dfg_roundtrip::cpg_bytes(&CodePropertyGraph::build(&files))
             );
         }
         assert_eq!(
-            super::outputs::cpg_bytes(&build_cpg("test.py", py, Language::Python)),
-            super::outputs::cpg_bytes(&build_python_cpg(py))
+            common::dfg_roundtrip::cpg_bytes(&build_cpg("test.py", py, Language::Python)),
+            common::dfg_roundtrip::cpg_bytes(&build_python_cpg(py))
         );
     });
 }

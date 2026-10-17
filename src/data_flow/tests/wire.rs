@@ -4,11 +4,12 @@ use super::super::compact::{
 };
 use super::super::*;
 use super::representatives::adversarial_parts;
-use test_support::compact::{assert_all, pair, storage};
+use test_support::{compact::storage, parts};
 
 #[test]
 fn compact_stream_and_owned_bytes_match() {
-    let (old, c) = pair(adversarial_parts());
+    let p = adversarial_parts();
+    let c = CompactDfg::from_parts(p.clone()).unwrap();
     let borrowed = bincode::serialize(&WireDfgRef::from(&c)).unwrap();
     let owned = bincode::serialize(&WireDfg::from(c.clone())).unwrap();
     let mut stream = Vec::new();
@@ -16,7 +17,13 @@ fn compact_stream_and_owned_bytes_match() {
     assert_eq!(borrowed, owned);
     assert_eq!(stream, owned);
     let decoded: CompactDfg = bincode::deserialize(&borrowed).unwrap();
-    assert_all(&old, &decoded, &BTreeMap::new());
+    parts::assert_inputs(
+        &p,
+        &DataFlowGraph {
+            storage: decoded.clone(),
+        },
+    );
+    parts::compact_roundtrip(&decoded);
     assert_eq!(storage(&c), storage(&decoded));
 }
 
@@ -45,10 +52,16 @@ fn sparse_primary_states_roundtrip_without_normalization() {
         if selected != 6 {
             p.rd_function_stats.clear();
         }
-        let (old, c) = pair(p);
+        let c = CompactDfg::from_parts(p.clone()).unwrap();
         let bytes = bincode::serialize(&c).unwrap();
         let decoded: CompactDfg = bincode::deserialize(&bytes).unwrap();
-        assert_all(&old, &decoded, &BTreeMap::new());
+        parts::assert_inputs(
+            &p,
+            &DataFlowGraph {
+                storage: decoded.clone(),
+            },
+        );
+        parts::compact_roundtrip(&decoded);
         assert_eq!(bytes, bincode::serialize(&decoded).unwrap());
     }
 }
@@ -57,7 +70,7 @@ fn sparse_primary_states_roundtrip_without_normalization() {
 fn colliding_label_merge_allows_unreferenced_rows_until_update() {
     use super::identity::loc;
     let label = |start| {
-        let mut p = test_support::compact::parts(oracle::LegacyDataFlowGraph::empty());
+        let mut p = test_support::parts::empty();
         p.labels.insert(
             (
                 loc("x", VarAccessKind::Def, start),
@@ -67,9 +80,9 @@ fn colliding_label_merge_allows_unreferenced_rows_until_update() {
         );
         p
     };
-    let (mut old, mut c) = pair(label(10));
-    let (rhs, incoming) = pair(label(20));
-    old.merge(rhs);
+    let p = label(10);
+    let mut c = CompactDfg::from_parts(p.clone()).unwrap();
+    let incoming = CompactDfg::from_parts(label(20)).unwrap();
     c.merge(incoming);
     assert_eq!(c.arena.rows().len(), 4);
     let live: BTreeSet<_> = c.labels.values().flat_map(|l| [l.from, l.to]).collect();
@@ -81,11 +94,22 @@ fn colliding_label_merge_allows_unreferenced_rows_until_update() {
     );
     let mut decoded: CompactDfg = bincode::deserialize(&bincode::serialize(&c).unwrap()).unwrap();
     assert_eq!(decoded.arena.rows().len(), 4);
-    assert_all(&old, &decoded, &BTreeMap::new());
-    old.remove_files(&BTreeSet::new());
+    parts::assert_inputs(
+        &p,
+        &DataFlowGraph {
+            storage: decoded.clone(),
+        },
+    );
+    parts::compact_roundtrip(&decoded);
     decoded.remove_files(&BTreeSet::new());
     assert_eq!(decoded.arena.rows().len(), 2);
-    assert_all(&old, &decoded, &BTreeMap::new());
+    parts::assert_inputs(
+        &p,
+        &DataFlowGraph {
+            storage: decoded.clone(),
+        },
+    );
+    parts::compact_roundtrip(&decoded);
 }
 
 #[test]
