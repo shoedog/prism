@@ -77,33 +77,50 @@ fn labels_keep_first_pair_and_merge_worst() {
 }
 #[test]
 fn equal_legacy_neighbors_stable_sort_keeps_first_span() {
-    let mut vs = vec![
-        loc("x", VarAccessKind::Use, 20),
-        loc("x", VarAccessKind::Use, 10),
-    ];
-    vs.sort();
-    vs.dedup();
-    assert_eq!(vs.len(), 1);
-    assert_eq!(vs[0].start_byte, 20);
-    let d20 = loc("x", VarAccessKind::Def, 20);
-    let d10 = loc("x", VarAccessKind::Def, 10);
-    let sink = loc("y", VarAccessKind::Use, 30);
-    let mut p = test_support::parts::empty();
-    p.edges = [d20.clone(), d10]
-        .into_iter()
-        .map(|from| FlowEdge {
-            from,
-            to: sink.clone(),
-        })
-        .collect();
-    p.labels.insert((d20, sink.clone()), FlowConfidence::Exact);
-    p.adjacency = None;
-    let g = CompactDfg::from_parts(p).unwrap();
-    let (visited, hops) = g.backward_reachable_labeled(&sink);
-    assert_eq!(visited.iter().next().unwrap().start_byte, 20);
-    assert!(
-        matches!(&hops[0], crate::finding_confidence::EvidenceHop::DataFlow { from, .. } if from.start_byte == 20)
-    );
+    use crate::finding_confidence::EvidenceHop;
+    for (first, second) in [(20, 10), (10, 20)] {
+        let first = loc("x", VarAccessKind::Def, first);
+        let second = loc("x", VarAccessKind::Def, second);
+        let sink = loc("y", VarAccessKind::Use, 30);
+        let mut p = test_support::parts::empty();
+        p.edges = vec![
+            FlowEdge {
+                from: first.clone(),
+                to: sink.clone(),
+            },
+            FlowEdge {
+                from: second,
+                to: sink.clone(),
+            },
+        ];
+        p.labels
+            .insert((first.clone(), sink.clone()), FlowConfidence::Exact);
+        let g = test_support::parts::graph(p.clone());
+        let expected = (
+            BTreeSet::from([first.clone()]),
+            vec![EvidenceHop::DataFlow {
+                from: first.clone(),
+                to: sink.clone(),
+                confidence: FlowConfidence::Exact,
+            }],
+        );
+        assert_eq!(
+            test_support::labeled_obs(&g.backward_reachable_labeled(&sink)),
+            test_support::labeled_obs(&expected)
+        );
+        assert_eq!(
+            test_support::bytes(&g.backward_reachable(&sink)),
+            test_support::bytes(&expected.0)
+        );
+        p.labels.clear();
+        let unlabeled = test_support::parts::graph(p);
+        let (visited, hops) = unlabeled.backward_reachable_labeled(&sink);
+        assert_eq!(
+            test_support::bytes(&visited),
+            test_support::bytes(&expected.0)
+        );
+        assert!(hops.is_empty());
+    }
 }
 
 /// Explicit, independently checked primary input; no generated expectations.

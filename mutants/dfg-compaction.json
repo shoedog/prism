@@ -104,7 +104,7 @@
       ]
     ],
     "DFG-E-stable-neighbor-tie-sorted-by-byte": [
-      "src/data_flow/compact/queries.rs",
+      "src/data_flow/queries.rs",
       "prevs.sort();",
       "prevs.sort_by_key(|v| v.start_byte);",
       [
