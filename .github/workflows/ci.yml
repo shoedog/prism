@@ -166,8 +166,7 @@ jobs:
       - name: Run doctests
         run: cargo test --doc --features mcp
 
-      # The soak instrumentation's hermetic tests (Python standard library, a few seconds; the live
-      # fan-out test skips itself without PRISM_SOAK_BIN). scripts/soak/ imports scripts/memreport/.
+      # The soak instrumentation's hermetic tests (Python standard library, a few seconds).
       - name: Soak tool tests (Python)
         run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
 

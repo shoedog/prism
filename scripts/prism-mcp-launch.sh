@@ -13,7 +13,9 @@
 # adds --shared after --repo, unless the arguments already say --shared or --standalone.
 # Unset, empty or 0 changes nothing. Any other value is refused before anything runs, an explicit
 # --shared or --standalone included (the variable is checked first), so a typo never decides
-# silently which way a client goes.
+# silently which way a client goes. With PRISM_MCP_SHARED=1, passing --no-cache, --eager,
+# --owner-compiler or --owner-config through is a startup error (clap: they conflict with --shared);
+# pass --standalone with them.
 #
 # Usage: prism-mcp-launch.sh <repo-path> [extra prism-mcp args...]
 set -euo pipefail
