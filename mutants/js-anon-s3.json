@@ -1,0 +1,21 @@
+{
+  "lib_test_prefixes": ["anonymous::tests::"],
+  "mutations": {
+    "S3A-01-jsx-role": ["src/anonymous/metadata.rs", "if parent.kind() == \"jsx_attribute\" {", "if parent.kind() == \"never_jsx\" {", "anonymous::tests::jsx_prop"],
+    "S3A-02-object-role": ["src/anonymous/metadata.rs", "if parent.kind() == \"pair\" &&", "if parent.kind() == \"never_pair\" &&", "anonymous::tests::object_key"],
+    "S3A-03-field-role": ["src/anonymous/metadata.rs", "if is_field(parent) &&", "if false && is_field(parent) &&", "anonymous::tests::class_field"],
+    "S3A-04-export-role": ["src/anonymous/metadata.rs", "return Some(BoundAs::DefaultExport);", "return Some(BoundAs::Returned);", "anonymous::tests::default_export"],
+    "S3A-05-variable-role": ["src/anonymous/metadata.rs", "value != node && same_field(parent, \"value\", value)", "value == node && same_field(parent, \"value\", value)", "anonymous::tests::variable_parenthesized"],
+    "S3A-06-param-role": ["src/anonymous/metadata.rs", "&& in_parameters(parsed, parent)", "&& !in_parameters(parsed, parent)", "anonymous::tests::default_param"],
+    "S3A-07-returned-role": ["src/anonymous/metadata.rs", "return Some(BoundAs::Returned);", "return Some(BoundAs::Iife);", "anonymous::tests::returned"],
+    "S3A-08-iife-role": ["src/anonymous/metadata.rs", "return Some(BoundAs::Iife);", "return Some(BoundAs::Returned);", "anonymous::tests::iife"],
+    "S3A-09-wrapper-peeling": ["src/anonymous/metadata.rs", "if wrapper_value(parent) != Some(node) {", "if true || wrapper_value(parent) != Some(node) {", "anonymous::tests::wrappers_and_value_changing_barriers"],
+    "S3A-10-argument-comments": ["src/anonymous/metadata.rs", ".filter(|n| n.kind() != \"comment\")\n        .position(|n| n == value)?;", ".position(|n| n == value)?;", "anonymous::tests::argument_index_and_call_spans"],
+    "S3A-11-argument-index": ["src/anonymous/metadata.rs", "            arg_index,", "            arg_index: 0,", "anonymous::tests::argument_index_and_call_spans"],
+    "S3A-12-field-barrier": ["src/anonymous/metadata.rs", "if is_field(n) {", "if false && is_field(n) {", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
+    "S3A-13-label-precedence": ["src/anonymous/label.rs", "if let Some(passed) = &meta.passed_to {", "if let Some(passed) = &None::<PassedTo> {", "anonymous::tests::class_field"],
+    "S3A-14-anchor-ordinals": ["src/anonymous/metadata.rs", "*ordinal += 1;", "*ordinal += 0;", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
+    "S3A-15-parameter-scope": ["src/anonymous/metadata.rs", "&& in_parameters(parsed, parent)", "&& true", "anonymous::tests::destructuring_defaults_are_parameters_only_in_parameter_scope"],
+    "S3A-16-parent-chain": ["src/anonymous/metadata.rs", ".get(&parent_key)", ".get(&usize::MAX)", "anonymous::tests::nested_label_and_parent_chain"]
+  }
+}
