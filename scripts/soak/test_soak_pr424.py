@@ -84,7 +84,7 @@ class UsageInterval(unittest.TestCase):
         gap = [sample(0, [daemon(1.0)]), sample(60, [], ps_ok=False), sample(120, [daemon(1.6)])]
         self.assertEqual(soak.usage_days(gap), [])
         new = [sample(0, []), sample(60, [daemon(0.6, pid=9)])]
-        self.assertEqual(soak.usage_days(new), ['1970-01-01'])
+        self.assertEqual(soak.usage_days(new), [])
         unseen = [sample(0, []), sample(60, [], ps_ok=False), sample(120, [daemon(0.6, pid=9)])]
         self.assertEqual(soak.usage_days(unseen), [])
 

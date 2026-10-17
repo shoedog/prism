@@ -87,32 +87,27 @@ def holder_identity(process):
 # identity tick (0.86 s a day, measured at nanosecond precision), about 80 times below this in a
 # 60 s interval; a tool call on a warm index costs tens of milliseconds or more.
 USAGE_INTERVAL_CPU_SECS = 0.05
+# Owner decision 2026-10-16, PR #424 review round 2: twice the default 60 s cadence.
+USAGE_INTERVAL_MAX_SECS = 120
 
 
 def usage_days(samples):
     """The UTC days of the sample intervals in which one daemon's CPU time grew by at least
-    USAGE_INTERVAL_CPU_SECS: growth from the previous sample, or, for a daemon never seen before
-    and not in the first sample, its whole CPU time (it started in that interval). A pid missing
-    from either end of an interval contributes nothing for it, and a daemon that is resident, or a
-    shim that is attached, is not use. Growth is rounded to microseconds: `ps` prints hundredths,
-    and 0.30 - 0.25 is 0.0499... in floating point."""
-    days, seen = set(), set()
-    previous = None
+    USAGE_INTERVAL_CPU_SECS. CPU readings for that pid are required at both consecutive endpoints,
+    at most USAGE_INTERVAL_MAX_SECS apart (owner decisions 2026-10-16). A missing pid or CPU reading
+    contributes nothing for that interval. A resident daemon or attached shim is not use. Growth
+    is rounded to microseconds: `ps` prints hundredths, and 0.30 - 0.25 is 0.0499... in floating point."""
+    days, previous = set(), {}
     for index, sample in enumerate(samples):
         now = {p['pid']: p.get('cpu_secs') for p in sample['processes'] if p['role'] == 'daemon'}
+        excluded = index == 0 or sample['t'] - samples[index - 1]['t'] > USAGE_INTERVAL_MAX_SECS
         for pid, cpu in now.items():
-            if cpu is None or index == 0:
+            if cpu is None or excluded:
                 continue
-            if previous is not None and pid in previous:
-                before = previous[pid]
-            elif pid not in seen and samples[index - 1].get('ps_ok', True):
-                before = 0.0
-            else:
-                before = None
+            before = previous.get(pid)
             if before is not None and round(cpu - before, 6) >= USAGE_INTERVAL_CPU_SECS:
                 days.add(time.strftime('%Y-%m-%d', time.gmtime(sample['t'])))
-        seen.update(now)
-        previous = {pid: cpu for pid, cpu in now.items() if cpu is not None}
+        previous = now
     return sorted(days)
 
 
@@ -164,6 +159,8 @@ def summarize_samples(samples):
             'duplicated_keys': {k: v for k, v in worst_per_key.items() if len(v) > 1},
             'max_daemons_per_repo': max([len(p) for p in worst_per_repo.values()] or [0]),
             'usage_days': usage_days(samples),
+            'usage_intervals_excluded': sum(b['t'] - a['t'] > USAGE_INTERVAL_MAX_SECS
+                                            for a, b in zip(samples, samples[1:])),
             'largest_gap_secs': max([b['t'] - a['t'] for a, b in zip(samples, samples[1:])] or [0]),
             'covered_secs': samples[-1]['t'] - samples[0]['t'] if samples else 0,
             'repos_with_several_daemons': {k: v for k, v in worst_per_repo.items() if len(v) > 1},
@@ -338,8 +335,11 @@ def render(phase, summary, events, crashes, verdicts, use, result, skipped):
               % summary['max_daemons_per_repo'],
               '| Most shims at once | %d |' % peaks['shims'],
               '| Most daemons with a built index at once | %d |' % peaks['built_daemons'],
-              "| Usage days (UTC; a sample interval with at least %.2f s of one daemon's CPU) | %d |"
-              % (USAGE_INTERVAL_CPU_SECS, len(summary['usage_days'])),
+              "| Usage days (UTC; a sample interval with at least %.2f s of one daemon's CPU; "
+              "both endpoints observed, at most %d s) | %d |"
+              % (USAGE_INTERVAL_CPU_SECS, USAGE_INTERVAL_MAX_SECS, len(summary['usage_days'])),
+              '| Intervals excluded from usage credit (> %d s) | %d |'
+              % (USAGE_INTERVAL_MAX_SECS, summary['usage_intervals_excluded']),
               '| Time covered by the samples / largest gap between two (s) | %d / %d |'
               % (summary['covered_secs'], summary['largest_gap_secs']),
               '| Peak footprint of all prism-mcp processes (MiB) | %.1f |' % (peaks['prism_footprint_bytes'] / MIB),

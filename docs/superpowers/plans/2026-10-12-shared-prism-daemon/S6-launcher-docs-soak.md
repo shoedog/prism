@@ -24,7 +24,7 @@ What each check must show, and what it showed. Every cargo command ran alone, as
 
 ## Owner decisions (2026-10-16)
 
-**Decided by the owner on 2026-10-16: "accept all".** Every question below is answered with its recommended answer, as revised in review rounds 1 and 2 (questions 4, 5, 7 and 8). **Later the same day the owner revised question 8's usage-day rule a third time** (escalated by the controller after PR #424's review round 1, Opus W1): a day counts when some single sample interval shows at least 0.05 s of one daemon's CPU growth (D128); question 8 below carries the new text. The text is otherwise kept as asked, so each decision's reasons stay with it.
+**Decided by the owner on 2026-10-16: "accept all".** Every question below is answered with its recommended answer, as revised in review rounds 1 and 2 (questions 4, 5, 7 and 8). **Later the same day the owner revised question 8's usage-day rule a third time** (escalated by the controller after PR #424's review round 1, Opus W1): a day counts when some single interval of at most 120 s shows at least 0.05 s of one daemon's CPU growth, with CPU readings for that pid at both consecutive endpoints; a pid or CPU reading missing at either end contributes nothing, and intervals longer than 120 s earn no usage credit and are counted in the report (D128); question 8 below carries the new text. **Also decided by the owner on 2026-10-16, after PR #424 review round 2:** cap usage-credit intervals at 120 s (twice the default 60 s cadence), report the excluded count, and retain the requirement for observed CPU readings at both consecutive endpoints. This fold proceeds after the two-round review cap without a third round, disclosed below. The text is otherwise kept as asked, so each decision's reasons stay with it.
 
 Each is a behavior or a value the spec leaves to the owner, or an action outside this repository that needs the owner's approval. The plan is built on the recommended answer; a different answer changes the named place only.
 
@@ -35,7 +35,7 @@ Each is a behavior or a value the spec leaves to the owner, or an action outside
 5. **The soak's deployment, outside this repository** (Phase 0 below, revised after review round 1, sol 1, Opus W4, W6, S2): copy every file it replaces into `$E/deploy/originals/` with its sha256 first, then replace the two deployed binaries (`~/code/slicing/target/release/prism-mcp`, `~/.claude/plugins/cache/prism-dev/prism/3.1.2/target/release/prism-mcp`) and the plugin cache's launcher, each step guarded so that a second run never overwrites a kept original; point the bridge's entries (and, for the soak, nothing else) at the pinned `$E/bin/prism-mcp`; snapshot the bridge's and Codex's configurations before editing them; export the two variables in the shell profile. **Rollback** (revised after review round 2, Opus W-C, S-B) returns interactive sessions to standalone without ever leaving a configuration that passes `--shared` with a binary that rejects it: configurations first (the bridge's from their snapshots; the profile's variables unset), opted-in sessions ended or restarted, the daemons stopped with the S6 binary (`kill -TERM` for one that still has clients), then only the plugin cache's binary and launcher restored (copy and rename). **`~/code/slicing/target/release/prism-mcp` keeps the S6 build**: once S6-2 is on `main`, its `.codex/config.toml` passes `--shared` from every checkout, and the S6 build serves standalone clients exactly as before, so restoring the pre-S5a build there would break Codex in every later checkout. The alternative, a revert pull request of the `.codex` change as part of rollback, was not chosen: it would reach checkouts only as they pull. **Recommended: yes, as listed.** No step of this plan does any of it; the controller does it after this approval.
 6. **The plugin's version.** **Recommended: no bump in S6** (the opt-in is additive and this host's plugin is updated by Phase 0's file replacement); bump at the default flip, noting that an updated plugin's new cache directory has no built binary, so the launcher falls back to `PATH` (and fails with its "build it" message when there is none).
 7. **The soak's pass thresholds** (revised after review round 1, Opus W1, S1, sol 3, sol 4). **Recommended:** fan-out: first an A/A calibration (three standalone runs against three standalone runs on excalidraw, in ABBA order, compared in both directions, `compare --both-directions`; review round 2, Opus W-A): if either direction's ratio exceeds 1.10 (p95) or 1.25 (p99), the bound is unreachable on this host and goes to the owner before any gate run; then the gate, eight shims against eight standalone servers, three pairs in ABBA order, every run admissible (exactly one successful `refresh_index`, no critical or unreadable pressure reading, every call answered, one daemon), shared median p95 ≤ 1.10× and median p99 ≤ 1.25× the standalone medians. The refresh's stall (the calls of other clients overlapping the refresh, and the longest of them) is reported for both arms and **not gated**: with one refresh in 1,600 calls no percentile can see it (Opus W1), so S3b's SI-11 is reported here, not measured against a bound. Option: gate it too, for example the shared arm's longest overlapping call at most twice the standalone arm's `refresh_ms`. Bridge round: every rule `PASS` (none `UNKNOWN`) and use seen (shims, a daemon reached, an index built); week: the five gated rules `PASS` and the usage floor (question 8). Alternatives: a looser bound if the calibration shows the host's own spread needs it; a footprint ceiling per key in place of `no_critical_pressure` for the round.
-8. **The week's scope and floor (SI-41; revised after review round 1, Opus S3).** **Recommended:** Claude Code sessions through the plugin, bridge rounds, and Codex sessions in the slicing checkout count; a day counts when some single sample interval shows at least 0.05 s of one daemon's CPU growth (**owner decision 2026-10-16**, revising the answer accepted earlier that day, "at least 0.5 s of CPU that day": PR #424's review round 1, Opus W1, measured an idle daemon with a session attached at about 0.86 s a day, which met the daily sum every day; review round 2, Opus W-B: a resident daemon or an attached idle session is not use; a light day of a few very quick calls may not count, which extends the week rather than passing it); the week counts when at least 5 of its 7 days do; fail-closed lines and startup errors are counted from Claude Code's logs and the wrapper's logs, and the project's Codex sessions are pointed at the wrapper for the week (a local, uncommitted change to that checkout's `.codex/config.toml`, snapshotted and restored at the end) or are left uncounted, disclosed. A week below the floor is extended, not passed.
+8. **The week's scope and floor (SI-41; revised after review round 1, Opus S3).** **Recommended:** Claude Code sessions through the plugin, bridge rounds, and Codex sessions in the slicing checkout count; a day counts when some single interval of at most 120 s shows at least 0.05 s of one daemon's CPU growth, with CPU readings for that pid at both consecutive endpoints; a pid or CPU reading missing at either end contributes nothing, and intervals longer than 120 s earn no usage credit and are counted in the report (**owner decisions 2026-10-16**: the per-interval threshold and both-endpoint requirement, then the 120 s cap after PR #424 review round 2, revising the answer accepted earlier that day, "at least 0.5 s of CPU that day": PR #424's review round 1, Opus W1, measured an idle daemon with a session attached at about 0.86 s a day, which met the daily sum every day; review round 2, Opus W-B: a resident daemon or an attached idle session is not use; a light day of a few very quick calls may not count, which extends the week rather than passing it); the week counts when at least 5 of its 7 days do; fail-closed lines and startup errors are counted from Claude Code's logs and the wrapper's logs, and the project's Codex sessions are pointed at the wrapper for the week (a local, uncommitted change to that checkout's `.codex/config.toml`, snapshotted and restored at the end) or are left uncounted, disclosed. A week below the floor is extended, not passed.
 9. **The latency baseline for larger repositories (SI-39).** Eight standalone servers of slicing need about 8 × 2 GiB on this 24 GB host (C1 readout), which is the incident itself. **Recommended: gate on excalidraw (8 × about 0.7 GiB) and report slicing as information**: eight shims against one standalone client running the same workload, three runs each.
 10. **The bridge's reaper** (`daemon-shutdown --pid --start-time`, S5b). **Recommended: not built for the soak**: after a round the idle TTL (15 min) frees the index; build it in the bridge only if the round's report shows the residency after rounds matters.
 
@@ -112,9 +112,9 @@ Each is something the spec leaves open or states ambiguously, or an earlier slic
 | D125 | **The bridge round needs observed use**: at least `--min-shims` (2) shims at once, a daemon instance reached in the clients' logs and in every `--client-log` (the bridge's own; review round 2, Opus S-A), and a daemon with a built index; it counts only standalone index holders first seen after its first sample (review round 1, Opus W2, W3) and, of those, only the ones in the round's checkouts, named with the required `--round-repo` (review round 2, Opus W-D; paths resolved). | A round whose agents ran in containers (invisible to the host's process table) or whose wrapper path was wrong would otherwise pass on nothing; a session started before the export, or a launcher the soak does not edit, would otherwise fail a healthy round. Those already running are listed, not counted. | — |
 | D126 | **`fanout.py` reads the memory pressure level at the start, every second, and at the end of a run, keeps every reading, stops the run's clients at the first critical reading, and makes the run inadmissible on a critical reading or, when required (the default on macOS), on an unreadable one** (review round 1, sol 4). | The Phase 1 stop condition had no observer: a critical episode that ended before the run did left an admissible run. A reading a second from the same process keeps one measured process. | A constant. |
 | D127 | **`soak.py probe` starts a launcher's exact command line, sends `initialize`, and passes only when an answer comes back; the runbook probes every soaked launcher after deployment and after rollback, and the soak's binary is a pinned copy (`$E/bin/prism-mcp`, its sha256 recorded) for the bridge** (review round 1, sol 1, Opus W4, W5, S2). | A configuration that passes `--shared` to a binary that rejects it leaves a client without its server and writes no fail-closed line; the probe makes that a visible failure at the two moments it can be introduced, and `no_startup_error` catches it in the logs afterwards. A rebuild of the owner's working checkout must not change the soak's binary mid-phase. | — |
-| D128 | **A usage day is a UTC day in which some single sample interval shows at least `USAGE_INTERVAL_CPU_SECS` (0.05 s) of one daemon's CPU growth**: growth of `ps`'s `time` between two consecutive samples of one pid, or the whole CPU time of a daemon first seen after the first sample; a pid missing from either end of an interval contributes nothing for it (**owner decision 2026-10-16**, the third revision of this rule, after PR #424's review round 1, Opus W1; it replaces "at least 0.5 s summed over the UTC day", review round 2, Opus W-B; round 1's rule, a built index or two shims, counted residency). | An idle Claude Code window keeps a daemon and its built index resident all week and exercises nothing. Measured in PR #424's review round 1 at nanosecond precision (`proc_pid_rusage`, release build): an idle daemon with one session attached spends 0.56–0.88 ms of CPU a minute (about 0.8–0.9 s a day) on its 5 s identity tick, which met the 0.5 s daily sum every day; in a 60 s interval it is about 80 times below 0.05 s. The round-2 measurement (`0:00.17` before and after 120 s) was at `ps`'s 10 ms resolution and could not see it. Limit: a sampler gap of more than about 80 minutes over an idle daemon is one interval whose idle growth can reach 0.05 s; the report's largest gap (D130) shows such a gap. | A constant; the day rule, one function. |
+| D128 | **A usage day is a UTC day in which some single interval of at most `USAGE_INTERVAL_MAX_SECS` (120 s) shows at least `USAGE_INTERVAL_CPU_SECS` (0.05 s) of one daemon's CPU growth**: CPU readings from `ps`'s `time` for the same pid must exist at both consecutive endpoints; a pid or CPU reading missing at either end contributes nothing. Intervals longer than 120 s earn no usage credit, remain in the report, and are counted as `usage_intervals_excluded` (**owner decisions 2026-10-16**: per-interval growth and both endpoints after PR #424 review round 1, Opus W1; 120 s cap after round 2, gpt-6.1-sol and gpt-6-astra; fold after the two-round cap without a third round). | An idle window keeps an index resident all week. PR #424 round 1 measured about 0.8–0.9 s of idle CPU a day, so the former daily 0.5 s sum counted residency; the former `ps` measurement before and after 120 s could not see this at 10 ms resolution. The 0.05 s threshold now applies to one measured interval, rounded to microseconds. The 120 s cap is twice the default 60 s cadence and prevents long sampler gaps from accumulating idle CPU into usage credit. The interval's ending sample determines its UTC day. | Two constants; the day rule, one function. |
 | D129 | **`sample --window-file T0` writes the window's start once; a resumed sampler keeps it and runs to the end of that window, printing a `resumed` line to its log; `report --window-file T0` takes the same start** (review round 2, sol 1, Opus W-E). | A resume that rewrote `T0` dropped a day-2 failure and the earlier usage days from the week's verdict (sol's probe: FAIL became PASS). | — |
-| D130 | **The report gives the time the samples covered and the largest gap between two samples** (review round 2, Opus S-F). Isolated `ps` failures still make the process rules UNKNOWN (not tolerated up to a share): a week with one is re-judged by the owner from the report, rather than a tolerance pinned now. | A sampler dead for days left no mark. | — |
+| D130 | **The report gives the time the samples covered, the largest gap between two samples, and the count of intervals longer than 120 s excluded from usage credit** (owner decision 2026-10-16, PR #424 review round 2) (review round 2, Opus S-F). Isolated `ps` failures still make the process rules UNKNOWN (not tolerated up to a share): a week with one is re-judged by the owner from the report, rather than a tolerance pinned now. | A sampler dead for days left no mark. | — |
 
 ## Spec items implemented, and spec issues found
 
@@ -1308,7 +1308,9 @@ to the end of that window, not for a new --duration (review round 2, sol 1, Opus
 
 `report` (soak_judge.py) reads the samples, the clients' standard error (Claude Code's MCP logs,
 the files prism-mcp-logged.sh writes) and macOS crash reports, and judges the soak's rules; a rule
-whose evidence was not collected is UNKNOWN, and a phase that saw no use is INADMISSIBLE.
+whose evidence was not collected is UNKNOWN, and a phase that saw no use is INADMISSIBLE. A usage
+day needs at least 0.05 s of one daemon's CPU growth with CPU readings at both consecutive
+endpoints, at most 120 s apart. Longer intervals earn no usage credit and are counted in the report.
 
 `probe` starts a launcher's exact command line, sends `initialize`, and passes only when an answer
 comes back: the check, at deployment and at rollback, that a configuration starts a server with
@@ -1656,7 +1658,9 @@ A rule is PASS, FAIL or UNKNOWN. UNKNOWN means the evidence the rule needs was n
 process table could not be read, a live process's footprint could not be measured, the pressure
 level was unavailable, a named log source or the crash-report directory was missing): a rule never
 passes on what it could not see (review round 1, sol 2). A phase also needs evidence of use; a
-phase whose rules all pass but that saw no use is INADMISSIBLE (Opus W2, S3).
+phase whose rules all pass but that saw no use is INADMISSIBLE (Opus W2, S3). A usage day needs
+at least 0.05 s of one daemon's CPU growth between observed consecutive endpoints at most 120 s
+apart; intervals over 120 s earn no usage credit and their excluded count is reported.
 """
 import calendar
 import json
@@ -1724,28 +1728,34 @@ def holder_identity(process):
     return 'standalone ' + (process.get('repo') or '?')
 
 
-# CPU seconds a daemon must spend in a UTC day for the day to show use (review round 2, Opus W-B).
-# An idle daemon with a client attached spent no measurable CPU in 120 s on this host (0:00.17
-# before and after); one call on a warm index of a real repository costs well over this.
-USAGE_CPU_SECS = 0.5
+# CPU seconds one daemon must spend between two consecutive samples for that interval's UTC day
+# to show use (owner decision 2026-10-16, PR #424 review round 1, Opus W1; replaces 0.5 s summed
+# over the day). An idle daemon with a session attached spends about 0.0006 s a minute on its 5 s
+# identity tick (0.86 s a day, measured at nanosecond precision), about 80 times below this in a
+# 60 s interval; a tool call on a warm index costs tens of milliseconds or more.
+USAGE_INTERVAL_CPU_SECS = 0.05
+# Owner decision 2026-10-16, PR #424 review round 2: twice the default 60 s cadence.
+USAGE_INTERVAL_MAX_SECS = 120
 
 
 def usage_days(samples):
-    """The UTC days on which daemons spent at least USAGE_CPU_SECS of CPU: growth between two
-    samples of one daemon, or the whole CPU time of a daemon first seen after the first sample.
-    A daemon that is resident, or a shim that is attached, is not use."""
-    spent, last, first = {}, {}, {p['pid'] for p in samples[0]['processes']} if samples else set()
-    for sample in samples:
-        day = time.strftime('%Y-%m-%d', time.gmtime(sample['t']))
-        for process in sample['processes']:
-            cpu = process.get('cpu_secs')
-            if process['role'] != 'daemon' or cpu is None:
+    """The UTC days of the sample intervals in which one daemon's CPU time grew by at least
+    USAGE_INTERVAL_CPU_SECS. CPU readings for that pid are required at both consecutive endpoints,
+    at most USAGE_INTERVAL_MAX_SECS apart (owner decisions 2026-10-16). A missing pid or CPU reading
+    contributes nothing for that interval. A resident daemon or attached shim is not use. Growth
+    is rounded to microseconds: `ps` prints hundredths, and 0.30 - 0.25 is 0.0499... in floating point."""
+    days, previous = set(), {}
+    for index, sample in enumerate(samples):
+        now = {p['pid']: p.get('cpu_secs') for p in sample['processes'] if p['role'] == 'daemon'}
+        excluded = index == 0 or sample['t'] - samples[index - 1]['t'] > USAGE_INTERVAL_MAX_SECS
+        for pid, cpu in now.items():
+            if cpu is None or excluded:
                 continue
-            before = last.get(process['pid'], None if process['pid'] in first else 0.0)
-            if before is not None and cpu > before:
-                spent[day] = spent.get(day, 0.0) + cpu - before
-            last[process['pid']] = cpu
-    return sorted(day for day, seconds in spent.items() if seconds >= USAGE_CPU_SECS)
+            before = previous.get(pid)
+            if before is not None and round(cpu - before, 6) >= USAGE_INTERVAL_CPU_SECS:
+                days.add(time.strftime('%Y-%m-%d', time.gmtime(sample['t'])))
+        previous = now
+    return sorted(days)
 
 
 def summarize_samples(samples):
@@ -1794,6 +1804,8 @@ def summarize_samples(samples):
             'duplicated_keys': {k: v for k, v in worst_per_key.items() if len(v) > 1},
             'max_daemons_per_repo': max([len(p) for p in worst_per_repo.values()] or [0]),
             'usage_days': usage_days(samples),
+            'usage_intervals_excluded': sum(b['t'] - a['t'] > USAGE_INTERVAL_MAX_SECS
+                                            for a, b in zip(samples, samples[1:])),
             'largest_gap_secs': max([b['t'] - a['t'] for a, b in zip(samples, samples[1:])] or [0]),
             'covered_secs': samples[-1]['t'] - samples[0]['t'] if samples else 0,
             'repos_with_several_daemons': {k: v for k, v in worst_per_repo.items() if len(v) > 1},
@@ -1943,7 +1955,11 @@ def render(phase, summary, events, crashes, verdicts, use, result, skipped):
               % summary['max_daemons_per_repo'],
               '| Most shims at once | %d |' % peaks['shims'],
               '| Most daemons with a built index at once | %d |' % peaks['built_daemons'],
-              '| Usage days (UTC; at least %.1f s of daemon CPU) | %d |' % (USAGE_CPU_SECS, len(summary['usage_days'])),
+              "| Usage days (UTC; a sample interval with at least %.2f s of one daemon's CPU; "
+              "both endpoints observed, at most %d s) | %d |"
+              % (USAGE_INTERVAL_CPU_SECS, USAGE_INTERVAL_MAX_SECS, len(summary['usage_days'])),
+              '| Intervals excluded from usage credit (> %d s) | %d |'
+              % (USAGE_INTERVAL_MAX_SECS, summary['usage_intervals_excluded']),
               '| Time covered by the samples / largest gap between two (s) | %d / %d |'
               % (summary['covered_secs'], summary['largest_gap_secs']),
               '| Peak footprint of all prism-mcp processes (MiB) | %.1f |' % (peaks['prism_footprint_bytes'] / MIB),
@@ -3691,7 +3707,7 @@ kill "$(cat "$E/week/sampler.pid")" 2>/dev/null; date +%s > "$E/week/T1"
 python3 "$S/scripts/soak/soak.py" report --phase week --samples "$E/week/samples.jsonl" --window-file "$E/week/T0" --until "$(cat "$E/week/T1")" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/week/report.md" --json "$E/week/report.json"
 ```
 
-(add a `--client-log` for each other wrapper log the week used). **Pass:** `**Verdict: PASS**`: `one_index_per_key`, `no_fail_closed`, `no_startup_error`, `no_restart_bound` and `no_abort` `PASS`, and at least 5 usage days (days with a sample interval of at least 0.05 s of one daemon's CPU, D128); read the largest gap between samples with it (a sampler that was dead for days is visible there); `no_new_standalone_index` and `no_critical_pressure` are reported, not gated (other work on the host runs standalone servers and uses memory).
+(add a `--client-log` for each other wrapper log the week used). **Pass:** `**Verdict: PASS**`: `one_index_per_key`, `no_fail_closed`, `no_startup_error`, `no_restart_bound` and `no_abort` `PASS`, and at least 5 usage days (days with at least 0.05 s of one daemon's CPU growth between observed consecutive endpoints at most 120 s apart, D128); read the largest gap and the count of intervals excluded from usage credit (> 120 s) with it (a sampler that was dead for days is visible there); `no_new_standalone_index` and `no_critical_pressure` are reported, not gated (other work on the host runs standalone servers and uses memory).
 
 ### Stop conditions (any phase)
 
@@ -3830,4 +3846,14 @@ gpt-6.1-sol FIX (two WRONG/MATERIAL), Opus 5.5 FIX (one WRONG/MATERIAL, one WRON
 
 Mutants at the fold's head, each alone, file restored after each: the plan's 45 S6-1 mutants (L1–L6, S1–S12, S7b, U1–U9, U11–U17, C1–C4, W1, R1–R4, G1; C1, C2, C4 and U2 re-expressed against the new functions) and 20 new ones (N1, N1b, N2, N3, N4a, N4b, N5–N8, N9, N9b, N10–N17): 65 of 65 killed, each failing set containing the named tests.
 
-Limits left by this fold, disclosed: a value containing ` --` is cut there; an interval longer than about 80 minutes over an idle daemon (a dead sampler) can reach 0.05 s of idle growth (the report's largest gap shows it); a new daemon reusing the pid of an earlier one is not counted in its first interval (conservative).
+Limits left by the round-1 fold, disclosed: a value containing ` --` is cut there; a new daemon reusing an earlier pid can be missed when its CPU counter resets (conservative). The former long-gap usage-credit limit is closed by round 2's owner-decided 120 s cap below; first-sighting lifetime CPU credit is also removed.
+
+## PR #424 review round 2 (S6-1; folded after the cap, disclosed)
+
+gpt-6.1-sol FIX and gpt-6-astra FIX, the same **WRONG/MATERIAL** finding: an unseen pid's inferred zero CPU baseline could produce five usage days and week PASS without a qualifying measured interval. The owner authorized this bounded fold on the existing artifact **after the two-round review cap, without a third round**, test first. Both owner decisions of 2026-10-16 now apply: at least 0.05 s growth with CPU readings at both consecutive endpoints, and an interval cap of 120 s (twice the default 60 s cadence). Longer intervals remain visible and are counted in JSON (`usage_intervals_excluded`) and Markdown. D128, question 8, the docstrings and usage-rule fragments above carry the final rule; other Task 2 code blocks remain historical as noted in round 1.
+
+`test_soak_pr424_round2.py` adds seven tests, including uninterrupted 60 s sampling over seven days: on five days a fresh daemon appears at 0.06 s, adds 0 or 0.01 s, then disappears; zero usage days and INADMISSIBLE are required. Its control observes 0.00 → 0.06 and still passes with five usage days. A 121 s interval with 0.6 s growth earns nothing and is reported; exactly 120 s with 0.06 s counts. Tests also cover missing CPU readings, empty/single-sample input, counting long intervals without daemons, and retaining the next interval's baseline. Contrary first-sighting assertions are corrected; two older fixtures' 600 s work intervals become 60 s to retain their original purpose under the cap. S6-2 gains these seven tests (its prospective 84 becomes 91).
+
+RED on unchanged production at `8cc607ff`: seven new tests, failures=3 and errors=4 (subtests counted individually): the fresh-daemon week falsely credited five days, the 121 s interval earned credit, and the exclusion count was absent; the observed-endpoint week control passed. Full discovery: 63 tests, failures=7 and errors=4, including two existing wrapper tests denied `/dev/fd/62` by the sandbox before child execution. These denials are inadmissible as wrapper-behavior evidence and predate production edits. The final runnable gates and mutants are recorded in `HANDOFF-S6-1-r2.md`; full host/CI wrapper validation is left to the controller. No Cargo or live soak was run for this Python/docs fold.
+
+GREEN: both discovery patterns (`test_*.py` and `test_soak*.py`), using the evidence runner to skip only those two exact wrapper tests, discovered 63 tests: 61 passed, 2 skipped. The three requested mutants, applied individually in temporary source copies, were all killed by the named new tests: first-sighting credit restored (the week regression, both growth subtests), 120 s cap removed (121 s regression), and eligibility `> 120` changed to `>= 120` (120 s boundary control). Each mutant run selected seven tests and had assertion failures with no test errors; the working-tree judge stayed unchanged. Evidence and reproduction commands: `/private/tmp/s6-1-r2-fold-8cc607ff/`, with the final file snapshot and this fold's handoff. The earlier round-1 mutant totals above are inherited records, not a rerun here.

@@ -43,7 +43,7 @@ class Window(unittest.TestCase):
             lines = []
             for day in range(7):
                 for k, cpu in enumerate((10.0 * day, 10.0 * day + 5.0)):
-                    lines.append(json.dumps(sample(day * DAY + 600 * k, [proc('daemon', 1, 400 * MIB, cpu=cpu)])))
+                    lines.append(json.dumps(sample(day * DAY + 60 * k, [proc('daemon', 1, 400 * MIB, cpu=cpu)])))
             samples.write_text('\n'.join(lines) + '\n')
             client = Path(directory) / 'bridge.log'
             client.write_text('%s 7 %s\n' % (stamp(1 * DAY + 60), FAILED))

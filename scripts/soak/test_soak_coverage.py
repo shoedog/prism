@@ -118,15 +118,15 @@ class Use(unittest.TestCase):
         day = 86400
         resident = [proc('daemon', 1, 400 * MIB, cpu=3.2), proc('shim', 2), proc('shim', 3)]
         samples = [sample(0, [proc('daemon', 1, 3 * MIB, cpu=0.2), proc('shim', 2)]),
-                   sample(600, [proc('daemon', 1, 400 * MIB, cpu=3.2), proc('shim', 2)])]
+                   sample(60, [proc('daemon', 1, 400 * MIB, cpu=3.2), proc('shim', 2)])]
         samples += [sample(d * day + 600 * k, resident) for d in range(1, 7) for k in range(3)]
         self.assertEqual(soak.summarize_samples(samples)['usage_days'], ['1970-01-01'])
         # PR #424 review round 1 (owner decision 2026-10-16): below 0.05 s in one interval is not use.
         quiet = soak.summarize_samples([sample(0, [proc('daemon', 1, 400 * MIB, cpu=50.0), proc('shim', 2)]),
-                                        sample(600, [proc('daemon', 1, 400 * MIB, cpu=50.04), proc('shim', 2)])])
+                                        sample(60, [proc('daemon', 1, 400 * MIB, cpu=50.04), proc('shim', 2)])])
         self.assertEqual(quiet['usage_days'], [])
-        new = soak.summarize_samples([sample(0, []), sample(day, [proc('daemon', 5, 400 * MIB, cpu=4.0)])])
-        self.assertEqual(new['usage_days'], ['1970-01-02'])
+        new = soak.summarize_samples([sample(0, []), sample(60, [proc('daemon', 5, 400 * MIB, cpu=4.0)])])
+        self.assertEqual(new['usage_days'], [])
 
     def test_a_startup_error_and_a_restart_bound_refusal_fail_their_rules(self):
         found = verdicts([sample(1, [])], [CLAP, CRASHED])
