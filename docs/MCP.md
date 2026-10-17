@@ -229,6 +229,32 @@ client, serves every client from it, and exits 15 minutes after its last client 
 The default is still today's in-process server (`--standalone`). `--shared` is opt-in until a soak has
 shown it holds under real fan-out.
 
+### Bridge fan-out across worktrees
+
+The daemon key includes the canonical worktree root, prism build, cache directory and refresh
+policy. N worktrees of one codebase therefore mean N daemons and N indexes; sharing helps clients
+in the same worktree. Options for bridge fan-out (no implementation proposed here):
+
+- **Share one worktree for one task.** Agents using the same configuration share one daemon and
+  index. Coordinate edits and refreshes: every agent sees that worktree's changes, and concurrent
+  writers lose the isolation that separate worktrees provide.
+- **Cap concurrent worktrees or stagger tasks.** This bounds the number of resident indexes while
+  preserving worktree isolation, at the cost of parallelism and possible cold starts. Release MCP
+  clients so idle daemons can retire (default idle TTL: 900 s); use `daemon-shutdown` to reclaim
+  earlier after clients finish. An attached client prevents idle retirement; shutdown drains after
+  clients leave and keeps admitting until their count reaches zero.
+- **Future design: share an index across worktrees at the same commit**, using a content-addressed
+  key. This could remove duplicate indexes while retaining separate worktrees, but commit identity
+  alone is insufficient: dirty and untracked files, generated files, configuration, dependency/type
+  inputs, absolute paths and refresh invalidation can differ. The design would need to prove input
+  equivalence, preserve worktree-specific paths and prevent one worktree's refresh from publishing
+  another's snapshot before such sharing is safe.
+
+Inspect today's fan-out with `prism-mcp daemon-status` (repository, key, build and client counts),
+and the soak report's `max_daemons_per_repo` (the most simultaneous daemons for one canonical
+worktree, across builds/configurations). Separate worktrees have separate repository rows; count
+those rows too when assessing fan-out across one codebase.
+
 ### Opting in
 
 - **Claude Code plugin:** set `PRISM_MCP_SHARED=1` in the environment Claude Code starts from (your

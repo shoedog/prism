@@ -115,6 +115,7 @@ Each is something the spec leaves open or states ambiguously, or an earlier slic
 | D128 | **A usage day is a UTC day in which some single interval of at most `USAGE_INTERVAL_MAX_SECS` (120 s) shows at least `USAGE_INTERVAL_CPU_SECS` (0.05 s) of one daemon's CPU growth**: CPU readings from `ps`'s `time` for the same pid must exist at both consecutive endpoints; a pid or CPU reading missing at either end contributes nothing. Intervals longer than 120 s earn no usage credit, remain in the report, and are counted as `usage_intervals_excluded` (**owner decisions 2026-10-16**: per-interval growth and both endpoints after PR #424 review round 1, Opus W1; 120 s cap after round 2, gpt-6.1-sol and gpt-6-astra; fold after the two-round cap without a third round). | An idle window keeps an index resident all week. PR #424 round 1 measured about 0.8–0.9 s of idle CPU a day, so the former daily 0.5 s sum counted residency; the former `ps` measurement before and after 120 s could not see this at 10 ms resolution. The 0.05 s threshold now applies to one measured interval, rounded to microseconds. The 120 s cap is twice the default 60 s cadence and prevents long sampler gaps from accumulating idle CPU into usage credit. The interval's ending sample determines its UTC day. | Two constants; the day rule, one function. |
 | D129 | **`sample --window-file T0` writes the window's start once; a resumed sampler keeps it and runs to the end of that window, printing a `resumed` line to its log; `report --window-file T0` takes the same start** (review round 2, sol 1, Opus W-E). | A resume that rewrote `T0` dropped a day-2 failure and the earlier usage days from the week's verdict (sol's probe: FAIL became PASS). | — |
 | D130 | **The report gives the time the samples covered, the largest gap between two samples, and the count of intervals longer than 120 s excluded from usage credit** (owner decision 2026-10-16, PR #424 review round 2) (review round 2, Opus S-F). Isolated `ps` failures still make the process rules UNKNOWN (not tolerated up to a share): a week with one is re-judged by the owner from the report, rather than a tolerance pinned now. | A sampler dead for days left no mark. | — |
+| D131 | **`no_footprint_growth` (owner request 2026-10-16): per (pid, key), baseline at the first built-index sample after 10 quiet minutes; a ≥ 5 s CPU burst in an observed interval, or a newly observed daemon rebuild-log line, resets it. FAIL only for growth within a quiet stretch lasting ≥ 1 hour, strictly above max(200 MiB, 25% of that epoch's baseline). Work growth is reported. Missing required footprints/process/CPU evidence is UNKNOWN; an observed breach takes precedence. A measured daemon that never establishes a baseline contributes nothing. All phases report every daemon's baseline, max, last, net growth per observed residency hour and largest quiet-stretch growth; only Phase 3 gates the rule.** | Pressure alone misses a daemon leaking steadily below the pressure line; build/warm-up, refreshes and working caches legitimately grow. | Owner-tunable named constants below; no automatic re-baselining of failures. |
 
 ## Spec items implemented, and spec issues found
 
@@ -590,7 +591,7 @@ Apply each mutant alone to `scripts/prism-mcp-launch.sh`, run Step 4's command, 
 
 **Files:** Create `scripts/soak/soak.py`, `scripts/soak/soak_judge.py`, `scripts/soak/test_soak.py`, `scripts/soak/test_soak_coverage.py`, `scripts/soak/test_soak_round2.py`, `scripts/soak/fake_prism_mcp.py` (executable), `scripts/soak/prism-mcp-logged.sh` (executable); modify `.github/workflows/ci.yml` (one step).
 
-**Interfaces** (Task 3 and the soak use them): `soak.footprints(pids) -> {pid: bytes}`, `soak.measure_footprints(pids) -> (sizes, {pid: 'ok'|'gone'|'failed'})`, `soak.read_pressure() -> int | None`, `soak.alive(pid)`; `soak.py sample --out FILE.jsonl [--interval S] [--count N | --duration S [--window-file T0]] [--status-bin BIN --runtime-dir BASE]`, one JSON object per line (`t`, `ps_ok`, `host`: `swap_mib` {`total`,`used`,`free`}, `pressure` (or null), `compressed_bytes`; `processes`: `pid`, `ppid`, `role`, `repo`, `key`, `cache_dir`, `rss_bytes`, `cpu_secs`, `footprint_bytes`, `footprint_status`, `holder`, `command`; `daemon_status` text when asked); `soak.py report --phase round|week --samples FILE --out FILE.md [--json FILE] [--since EPOCH | --window-file T0] [--until EPOCH] [--claude-logs DIR] [--client-log FILE ...] [--crash-reports DIR] [--round-repo DIR ...] [--min-shims N] [--min-days N]` (`--round-repo` required for a round), each of `RULES` (`one_index_per_key`, `no_new_standalone_index`, `no_fail_closed`, `no_startup_error`, `no_restart_bound`, `no_abort`, `no_critical_pressure`) `PASS`, `FAIL` or `UNKNOWN`, the use seen, and `**Verdict: PASS|FAIL|INADMISSIBLE**`; `soak.py probe [--timeout S] -- COMMAND …`, exit 0 (`PASS`) or 1 (`FAIL` with the server's standard error); `prism-mcp-logged.sh LOGFILE BIN [args...]`, lines `<UTC time> <pid> <line>`.
+**Interfaces** (Task 3 and the soak use them): `soak.footprints(pids) -> {pid: bytes}`, `soak.measure_footprints(pids) -> (sizes, {pid: 'ok'|'gone'|'failed'})`, `soak.read_pressure() -> int | None`, `soak.alive(pid)`; `soak.py sample --out FILE.jsonl [--interval S] [--count N | --duration S [--window-file T0]] [--status-bin BIN --runtime-dir BASE]`, one JSON object per line (`t`, `ps_ok`, `host`: `swap_mib` {`total`,`used`,`free`}, `pressure` (or null), `compressed_bytes`; `processes`: `pid`, `ppid`, `role`, `repo`, `key`, `cache_dir`, `rss_bytes`, `cpu_secs`, `footprint_bytes`, `footprint_status`, `rebuild_observed` (optional passive log event), `holder`, `command`; `daemon_status` text when asked); `soak.py report --phase fanout|round|week --samples FILE --out FILE.md [--json FILE] [--since EPOCH | --window-file T0] [--until EPOCH] [--claude-logs DIR] [--client-log FILE ...] [--crash-reports DIR] [--round-repo DIR ...] [--min-shims N] [--min-days N]` (`--round-repo` required for a round), each of `RULES` (`one_index_per_key`, `no_new_standalone_index`, `no_fail_closed`, `no_startup_error`, `no_restart_bound`, `no_abort`, `no_critical_pressure`, `no_footprint_growth`) `PASS`, `FAIL` or `UNKNOWN`, the use seen, and `**Verdict: PASS|FAIL|INADMISSIBLE**`; `soak.py probe [--timeout S] -- COMMAND …`, exit 0 (`PASS`) or 1 (`FAIL` with the server's standard error); `prism-mcp-logged.sh LOGFILE BIN [args...]`, lines `<UTC time> <pid> <line>`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3531,12 +3532,36 @@ The soak is the gate for the default flip (spec §8 step 2, §11 item 2, §12 ro
 |---|---|---|---|---|
 | Resident `prism-mcp` count | `soak.py sample` (index holders per key, per repository, in total; shims; built daemons) | 2, 3 | `one_index_per_key` at every sample; in Phase 2 also `no_new_standalone_index` | FAIL: two daemons of one key at once (a split runtime directory); a standalone index holder that appeared during the round. UNKNOWN: a sample without a process table; a live standalone server whose footprint could not be measured |
 | Aggregate footprint | the same samples (`phys_footprint` of every prism-mcp process; the host's swap, pressure level, compressor) | 2, 3 | Phase 2: `no_critical_pressure`; peaks reported against the incident's (29 processes, 34 GiB compressed) | FAIL: pressure at its critical level. UNKNOWN: a sample without a pressure reading |
+| Footprint growth (owner request 2026-10-16, D131) | per-daemon trends from `soak.py sample` / `report` | 1, 2 report only; 3 gating | `no_footprint_growth`; baseline/max/last, MiB per residency hour, largest quiet-stretch growth always reported | FAIL: ≥ 1 h quiet stretch grows strictly more than max(200 MiB, 25% baseline); work growth reported only. UNKNOWN: required footprints, process table or CPU continuity missing. No baseline: no contribution |
 | Shim fail-closed count, target 0 | `soak.py report` over Claude Code's MCP logs and `prism-mcp-logged.sh` logs | 2, 3 | `no_fail_closed`, `no_startup_error` | FAIL: a `prism-mcp: --shared failed closed` line, or a server that never started (`error: …`, the launcher's refusal). UNKNOWN: a named log source missing, or none named |
 | Daemon restarts | daemon instances in the samples and in the shims' `shared daemon pid` lines; crash reports; restart-bound refusals | 2, 3 | `no_abort`, `no_restart_bound`; starts reported (SI-40) | FAIL: a `prism-mcp-*.ips` in the window; a `died during its index build` refusal. UNKNOWN: the crash-report directory unreadable |
 | Fan-out latency p95 vs. standalone | `fanout.py run` and `compare` | 1 | A/A calibration within the bound; then excalidraw, 8 shims vs 8 standalone, 3 pairs in ABBA order, all admissible, median p95 ≤ 1.10×, median p99 ≤ 1.25×; the refresh's stall reported (SI-43) | FAIL: a ratio over its bound. Inadmissible run: no successful refresh, a critical or unreadable pressure reading, a lost client, a retryable answer after warm-up, two daemons |
 | (use, so that a pass means something) | `soak.py report` | 2, 3 | Phase 2: ≥ 2 shims at once, a daemon reached in the logs, an index built; Phase 3: ≥ 5 usage days (D128) | INADMISSIBLE when not seen |
 
 A phase's report says `**Verdict: PASS**`, `FAIL` or `INADMISSIBLE`. Only PASS counts. INADMISSIBLE is never read as a pass: the phase is repaired (the missing source named, the use made) and run again. The default flip (row B) is the owner's decision with the three phase reports in hand; "the flip does not wait for any memory reduction" (§8 step 2).
+
+**Owner-tunable footprint defaults (2026-10-16).** `scripts/soak/soak_growth.py` names
+`FOOTPRINT_BASELINE_QUIET_SECS = 600`, `FOOTPRINT_QUIET_STRETCH_SECS = 3600`,
+`FOOTPRINT_REBUILD_CPU_SECS = 5.0`, `FOOTPRINT_GROWTH_MIN_BYTES = 200 * MIB`, and
+`FOOTPRINT_GROWTH_BASELINE_FRACTION = 0.25`. Quiet uses the existing
+`soak_judge.py` constants `USAGE_INTERVAL_CPU_SECS = 0.05` (rounded to microseconds) and
+`USAGE_INTERVAL_MAX_SECS = 120`; built-index detection uses `HOLDER_MIN_BYTES = 100 * MIB`.
+Changing these is an owner decision, not a reason to re-baseline saved evidence silently.
+
+Only consecutive, observed endpoints establish quiet time. Work, missing footprints/CPU, a missing
+pid, CPU rollback or an interval over 120 s breaks a stretch; missing required evidence is UNKNOWN,
+never proof of quiet. A new stretch starts at the work interval's ending footprint, excluding cache
+growth during that work. Baseline acquisition excludes the build and ten-minute warm-up. Rebuilds
+start a new baseline epoch after another ten quiet minutes; earlier observed breaches survive resets.
+The largest quiet-stretch growth includes short stretches for diagnosis, but only stretches at least
+one hour gate. JSON retains baseline epochs; Markdown shows the latest baseline, max, last, endpoint
+net growth per measured residency hour (including work/rebuilds) and largest quiet growth with duration.
+
+The sampler passively reads newly appended `nav cache: …, rebuilding` lines in each daemon's
+key-prefixed `.log` under `--runtime-dir` (or its runtime environment/default). Untimestamped content
+already present at the first sighting, or after sampler restart, is not assigned to a current interval;
+CPU bursts remain the fallback when logs are absent, inaccessible, or in another runtime directory.
+It does not connect to a daemon to read those logs.
 
 ### Fixed inputs
 
@@ -3641,6 +3666,25 @@ C="$E/fanout/cache"
 "$B" --repo ~/code/prism-c1-corpus --cache-dir "$C/slicing" --eager < /dev/null > "$E/fanout/prime-slicing.log" 2>&1; echo "rc=$?"
 ```
 
+Start the passive footprint sampler before the fan-out runs (owner request 2026-10-16):
+
+```bash
+python3 "$S/scripts/soak/soak.py" sample --interval 60 --out "$E/fanout/footprints.jsonl" > "$E/fanout/footprints-sampler.log" 2>&1 &
+echo $! > "$E/fanout/footprints-sampler.pid"
+```
+
+After all Phase 1 runs, stop that sampler and write the diagnostic trend report:
+
+```bash
+kill "$(cat "$E/fanout/footprints-sampler.pid")"
+python3 "$S/scripts/soak/soak.py" report --phase fanout --samples "$E/fanout/footprints.jsonl" --out "$E/fanout/footprints.md" --json "$E/fanout/footprints.json"
+```
+
+`--phase fanout` gates no rules or use checks; its PASS is diagnostic and cannot satisfy the latency
+gate. Read `no_footprint_growth` and every daemon's trend even when no baseline was reached. These
+short runs may never establish one. Fan-out uses temporary runtime directories, so this host sampler
+normally relies on the CPU rebuild detector rather than those daemons' private logs.
+
 Every run below is alone, and keeps its default `--refresh-at 0.5` (a gating run) and `--pressure required` (the default on macOS). Define once per command:
 
 ```bash
@@ -3707,7 +3751,7 @@ kill "$(cat "$E/week/sampler.pid")" 2>/dev/null; date +%s > "$E/week/T1"
 python3 "$S/scripts/soak/soak.py" report --phase week --samples "$E/week/samples.jsonl" --window-file "$E/week/T0" --until "$(cat "$E/week/T1")" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/week/report.md" --json "$E/week/report.json"
 ```
 
-(add a `--client-log` for each other wrapper log the week used). **Pass:** `**Verdict: PASS**`: `one_index_per_key`, `no_fail_closed`, `no_startup_error`, `no_restart_bound` and `no_abort` `PASS`, and at least 5 usage days (days with at least 0.05 s of one daemon's CPU growth between observed consecutive endpoints at most 120 s apart, D128); read the largest gap and the count of intervals excluded from usage credit (> 120 s) with it (a sampler that was dead for days is visible there); `no_new_standalone_index` and `no_critical_pressure` are reported, not gated (other work on the host runs standalone servers and uses memory).
+(add a `--client-log` for each other wrapper log the week used). **Pass:** `**Verdict: PASS**`: `one_index_per_key`, `no_fail_closed`, `no_startup_error`, `no_restart_bound`, `no_abort` and `no_footprint_growth` `PASS`, and at least 5 usage days (days with at least 0.05 s of one daemon's CPU growth between observed consecutive endpoints at most 120 s apart, D128); read the largest gap and the count of intervals excluded from usage credit (> 120 s) with it (a sampler that was dead for days is visible there); `no_new_standalone_index` and `no_critical_pressure` are reported, not gated (other work on the host runs standalone servers and uses memory).
 
 ### Stop conditions (any phase)
 
@@ -3857,3 +3901,30 @@ gpt-6.1-sol FIX and gpt-6-astra FIX, the same **WRONG/MATERIAL** finding: an uns
 RED on unchanged production at `8cc607ff`: seven new tests, failures=3 and errors=4 (subtests counted individually): the fresh-daemon week falsely credited five days, the 121 s interval earned credit, and the exclusion count was absent; the observed-endpoint week control passed. Full discovery: 63 tests, failures=7 and errors=4, including two existing wrapper tests denied `/dev/fd/62` by the sandbox before child execution. These denials are inadmissible as wrapper-behavior evidence and predate production edits. The final runnable gates and mutants are recorded in `HANDOFF-S6-1-r2.md`; full host/CI wrapper validation is left to the controller. No Cargo or live soak was run for this Python/docs fold.
 
 GREEN: both discovery patterns (`test_*.py` and `test_soak*.py`), using the evidence runner to skip only those two exact wrapper tests, discovered 63 tests: 61 passed, 2 skipped. The three requested mutants, applied individually in temporary source copies, were all killed by the named new tests: first-sighting credit restored (the week regression, both growth subtests), 120 s cap removed (121 s regression), and eligibility `> 120` changed to `>= 120` (120 s boundary control). Each mutant run selected seven tests and had assertion failures with no test errors; the working-tree judge stayed unchanged. Evidence and reproduction commands: `/private/tmp/s6-1-r2-fold-8cc607ff/`, with the final file snapshot and this fold's handoff. The earlier round-1 mutant totals above are inherited records, not a rerun here.
+
+## S6-2 owner fold — footprint growth and bridge fan-out (2026-10-16)
+
+Owner request implemented against `feat/s6-2-fanout-docs` at `d52e5717`, without Rust changes.
+`soak_growth.py` owns D131's trends and passive rebuild-log observations; the report adds the rule,
+gates it only in Phase 3, and accepts diagnostic `--phase fanout`. `docs/MCP.md` documents the three
+cross-worktree fan-out options and their tradeoffs; lane `HANDOFF.md` §4 row 22 tracks the follow-up.
+
+Watched RED: initial 19 tests on unchanged production, failures=1/errors=31; the final 23 tests
+against HEAD's unchanged production in an isolated copy give failures=1/errors=36 (subtests included).
+GREEN: all 23 new tests pass; full available soak discovery finds 114, with 111 passing and 3 skipped
+(two wrapper tests denied `/dev/fd/62` in the same-environment pre-change control; the existing live
+fan-out test needs a host binary and daemon/socket facilities). The requested raw gate was attempted;
+the wrapper denials are not behavioral evidence. Broader `cargo test --features mcp --offline` stops
+in library tests: 2,320 passed, 88 failed (86 explicit permission denials, two daemon-listen timeouts);
+integration/doc tests were not reached by that stopped run. The hook follow-up ran all 25 non-MCP
+integration targets separately: 3,812 passed, 0 failed, 1 ignored; binary tests 6/6, doc tests 2/2.
+Aggregate unique Rust totals: 6,140 passed, 88 failed, 1 ignored. Root `VERIFICATION.md` records exact
+commands, the behavior/edge coverage map and environment-limited exclusions. Full host checks remain
+with the controller.
+
+New mutants FG1–FG8: absolute threshold, relative threshold, strict growth boundary, baseline reset,
+quiet-only gating, inclusive one-hour boundary, log reset and warm-up duration. All eight killed in
+isolated copies by named assertion failures, no test errors. Reproduce with
+`python3 scripts/soak/mutate_footprint_growth.py --out /private/tmp/s6-2-footprint-mutants`.
+Evidence, exact exclusions and controller custody: `HANDOFF-S6-2-footprint.md` and
+`/private/tmp/s6-2-footprint-evidence/`. No commit attempted; controller commits the fold.

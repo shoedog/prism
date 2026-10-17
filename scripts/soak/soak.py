@@ -3,7 +3,7 @@
 
     soak.py sample --out FILE.jsonl [--interval 60] [--count N | --duration SECS [--window-file T0]]
                    [--status-bin BIN --runtime-dir BASE]
-    soak.py report --phase round|week --samples FILE.jsonl --out FILE.md [--json FILE.json]
+    soak.py report --phase fanout|round|week --samples FILE.jsonl --out FILE.md [--json FILE.json]
                    [--since EPOCH | --window-file T0] [--until EPOCH] [--claude-logs DIR]
                    [--client-log FILE ...] [--crash-reports DIR] [--round-repo DIR ...]
                    [--min-shims 2] [--min-days 5]
@@ -21,6 +21,8 @@ to the end of that window, not for a new --duration (review round 2, sol 1, Opus
 `report` (soak_judge.py) reads the samples, the clients' standard error (Claude Code's MCP logs,
 the files prism-mcp-logged.sh writes) and macOS crash reports, and judges the soak's rules; a rule
 whose evidence was not collected is UNKNOWN, and a phase that saw no use is INADMISSIBLE.
+The `fanout` phase is a diagnostic report only; its rules and use do not gate latency acceptance.
+Sampling also reads newly appended rebuild-log lines passively, when the runtime directory is visible.
 
 `probe` starts a launcher's exact command line, sends `initialize`, and passes only when an answer
 comes back: the check, at deployment and at rollback, that a configuration starts a server with
@@ -40,6 +42,8 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+
+from soak_growth import RebuildLogs
 
 from soak_judge import (BUILD_CRASH, CLIENT_LINE, CRASH_REPORT, FAIL_CLOSED, GATED, HOLDER_MIN_BYTES,  # noqa: F401
                         LOST, MIB, PRESSURE_CRITICAL, REACHED, RULES, STARTUP_ERROR, built, claude_log_lines,
@@ -282,6 +286,7 @@ def open_window(path, duration, now=None):
 
 
 def cmd_sample(args):
+    rebuild_logs = RebuildLogs(args.runtime_dir)
     end = time.time() + args.duration if args.duration else None
     if args.window_file:
         start, end, resumed = open_window(args.window_file, args.duration)
@@ -291,6 +296,7 @@ def cmd_sample(args):
     taken = 0
     while True:
         sample = sample_once(args.status_bin, args.runtime_dir)
+        rebuild_logs.observe(sample['processes'])
         with open(args.out, 'a') as out:
             out.write(json.dumps(sample, sort_keys=True) + '\n')
         taken += 1
@@ -359,7 +365,7 @@ def main(argv=None):
     sample.add_argument('--duration', type=float, help='seconds; with neither this nor --count, forever')
     sample.add_argument('--window-file', help='keeps the window start: --duration counts from it, across resumes')
     sample.add_argument('--status-bin', help='a prism-mcp binary whose daemon-status text each sample stores')
-    sample.add_argument('--runtime-dir', help='the runtime base daemon-status is given')
+    sample.add_argument('--runtime-dir', help='runtime base for passive rebuild logs and optional daemon-status')
     sample.set_defaults(handler=cmd_sample)
     report = commands.add_parser('report')
     report.add_argument('--phase', required=True, choices=sorted(GATED))

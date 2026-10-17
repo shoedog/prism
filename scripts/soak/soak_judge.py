@@ -13,6 +13,8 @@ import re
 import time
 from pathlib import Path
 
+from soak_growth import footprint_growth
+
 MIB = 1024 * 1024
 # A standalone prism-mcp that has not built an index is a few MiB; one that has holds hundreds.
 HOLDER_MIN_BYTES = 100 * MIB
@@ -29,10 +31,11 @@ STARTUP_ERROR = re.compile(r'^(error: |prism-mcp-launch\.sh: |prism-mcp not foun
 CLIENT_LINE = re.compile(r'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ) (\d+) (.*)')
 CRASH_REPORT = re.compile(r'prism-mcp[-_].*\.(ips|crash)$')
 RULES = ('one_index_per_key', 'no_new_standalone_index', 'no_fail_closed', 'no_startup_error', 'no_restart_bound',
-         'no_abort', 'no_critical_pressure')
+         'no_abort', 'no_critical_pressure', 'no_footprint_growth')
 # The rules each phase gates on; the others are reported.
-GATED = {'round': RULES,
-         'week': ('one_index_per_key', 'no_fail_closed', 'no_startup_error', 'no_restart_bound', 'no_abort')}
+GATED = {'fanout': (), 'round': tuple(rule for rule in RULES if rule != 'no_footprint_growth'),
+         'week': ('one_index_per_key', 'no_fail_closed', 'no_startup_error', 'no_restart_bound', 'no_abort',
+                  'no_footprint_growth')}
 
 
 def is_holder(process):
@@ -112,6 +115,7 @@ def usage_days(samples):
 
 
 def summarize_samples(samples):
+    growth = footprint_growth(samples, HOLDER_MIN_BYTES, USAGE_INTERVAL_CPU_SECS, USAGE_INTERVAL_MAX_SECS)
     worst_per_key, worst_per_repo, new_standalone, old_standalone, daemons = {}, {}, {}, {}, {}
     unmeasured_new = {}
     missing = {'ps': 0, 'pressure': 0, 'footprint': 0}
@@ -153,7 +157,8 @@ def summarize_samples(samples):
         peaks['swap_used_mib'] = max(peaks['swap_used_mib'], (host.get('swap_mib') or {}).get('used', 0.0))
         peaks['pressure'] = max(peaks['pressure'], host.get('pressure') or 0)
         peaks['compressed_bytes'] = max(peaks['compressed_bytes'], host.get('compressed_bytes') or 0)
-    return {'samples': len(samples), 'first': samples[0]['t'] if samples else None,
+    return {'footprint_trends': growth['trends'], 'footprint_growth_verdict': growth['verdict'],
+            'samples': len(samples), 'first': samples[0]['t'] if samples else None,
             'last': samples[-1]['t'] if samples else None, 'peaks': peaks, 'missing': missing,
             'max_daemons_per_key': max([len(p) for p in worst_per_key.values()] or [0]),
             'duplicated_keys': {k: v for k, v in worst_per_key.items() if len(v) > 1},
@@ -297,13 +302,16 @@ def judge(summary, events, crashes, coverage, round_repos=None):
             'no_startup_error': verdict(events['startup_errors'], logs),
             'no_restart_bound': verdict(events['build_crash_refusals'], logs),
             'no_abort': verdict(crashes, not coverage['crash_reports']),
-            'no_critical_pressure': verdict(summary['peaks']['pressure'] >= PRESSURE_CRITICAL, missing['pressure'])}
+            'no_critical_pressure': verdict(summary['peaks']['pressure'] >= PRESSURE_CRITICAL, missing['pressure']),
+            'no_footprint_growth': summary['footprint_growth_verdict']}
 
 
 def usage(phase, summary, events, min_shims, min_days, sources_reached=None):
     """The use a phase must have seen, check by check (True when seen). `sources_reached`: for
     each --client-log, whether it holds a reached daemon in the window (review round 2, Opus S-A:
     the bridge's own log must show the bridge's agents reached one)."""
+    if phase == 'fanout':
+        return {}  # Diagnostic trend report; the fan-out latency gate is judged separately.
     if phase == 'round':
         return {'shims_at_once_at_least_%d' % min_shims: summary['peaks']['shims'] >= min_shims,
                 'a_daemon_reached_in_every_client_log': bool(sources_reached) and all(sources_reached),
@@ -367,6 +375,18 @@ def render(phase, summary, events, crashes, verdicts, use, result, skipped):
                         'unmeasured_new_standalone')):
         if summary[key]:
             lines += ['', '%s: %s' % (title, json.dumps(summary[key]))]
+    lines += ['', 'Daemon footprint trends (MiB; residency includes work and rebuilds; `—` = unavailable):', '',
+              '| PID / key | Baseline (epoch s) | Max | Last | MiB/h | Quiet growth / hours |',
+              '|---|---|---|---|---|---|']
+
+    def mib(value):
+        return '—' if value is None else '%.3f' % (value / MIB)
+
+    for trend in summary['footprint_trends']:
+        lines.append('| %s / %s | %s (%s) | %s | %s | %s | %s / %.3f |' % (
+            trend['pid'], trend['key'], mib(trend['baseline_bytes']), trend['baseline_t'],
+            mib(trend['max_bytes']), mib(trend['last_bytes']), mib(trend['growth_bytes_per_hour']),
+            mib(trend['largest_quiet_growth_bytes']), trend['largest_quiet_secs'] / 3600))
     lines += ['', 'Fail-closed lines:'] + ['- `%s`' % line for line in events['fail_closed'][:50]]
     lines += ['', 'Startup errors:'] + ['- `%s`' % line for line in events['startup_errors'][:50]]
     lines += ['', 'Crash reports:'] + ['- `%s`' % name for name in crashes]
