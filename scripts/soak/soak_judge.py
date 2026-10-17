@@ -118,7 +118,8 @@ def usage_days(samples):
 
 def summarize_samples(samples):
     worst_per_key, worst_per_repo, new_standalone, old_standalone, daemons = {}, {}, {}, {}, {}
-    missing = {'ps': 0, 'pressure': 0, 'standalone_footprint': 0, 'footprint': 0}
+    unmeasured_new = {}
+    missing = {'ps': 0, 'pressure': 0, 'footprint': 0}
     first_pids = {p['pid'] for p in samples[0]['processes']} if samples else set()
     peaks = {'holders': 0, 'shims': 0, 'prism_footprint_bytes': 0, 'swap_used_mib': 0.0, 'pressure': 0,
              'compressed_bytes': 0, 'built_daemons': 0}
@@ -128,7 +129,8 @@ def summarize_samples(samples):
         for process in sample['processes']:
             if process.get('footprint_status') == 'failed':
                 missing['footprint'] += 1
-                missing['standalone_footprint'] += process['role'] == 'standalone'
+                if process['role'] == 'standalone' and process['pid'] not in first_pids:
+                    unmeasured_new.setdefault(repo_label(process), set()).add(process['pid'])
             if process.get('holder'):
                 holders.setdefault(holder_identity(process), []).append(process['pid'])
             if process['role'] == 'standalone' and process.get('holder'):
@@ -166,6 +168,7 @@ def summarize_samples(samples):
             'covered_secs': samples[-1]['t'] - samples[0]['t'] if samples else 0,
             'repos_with_several_daemons': {k: v for k, v in worst_per_repo.items() if len(v) > 1},
             'new_standalone_holders': {repo: sorted(pids) for repo, pids in new_standalone.items()},
+            'unmeasured_new_standalone': {repo: sorted(pids) for repo, pids in unmeasured_new.items()},
             'preexisting_standalone_holders': {repo: sorted(pids) for repo, pids in old_standalone.items()},
             'daemon_instances': [{'pid': pid, 'key': key, 'first_seen': span[0], 'last_seen': span[1]}
                                  for (pid, key), span in sorted(daemons.items(), key=lambda item: item[1][0])]}
@@ -270,16 +273,18 @@ def judge(summary, events, crashes, coverage, round_repos=None):
     needs was not collected; else PASS. `coverage`: {'logs': bool, 'crash_reports': bool}. With
     `round_repos`, a new standalone holder fails the round only in one of those checkouts (review
     round 2, Opus W-D): a launcher the soak does not edit, elsewhere, is reported; one whose repository
-    could not be resolved makes the rule UNKNOWN."""
+    could not be resolved makes the rule UNKNOWN, as does a new standalone server there (or of unknown
+    repository) whose footprint could not be measured (PR #424 review round 1, Opus S2)."""
     missing = summary['missing']
+    new, unmeasured = summary['new_standalone_holders'], summary['unmeasured_new_standalone']
 
     def verdict(breach, unseen):
         return 'FAIL' if breach else 'UNKNOWN' if unseen else 'PASS'
     logs = not coverage['logs']
     return {'one_index_per_key': verdict(summary['max_daemons_per_key'] > 1, missing['ps']),
-            'no_new_standalone_index': verdict(in_round(summary['new_standalone_holders'], round_repos),
-                                               missing['ps'] or missing['standalone_footprint']
-                                               or unresolved(summary['new_standalone_holders'], round_repos)),
+            'no_new_standalone_index': verdict(in_round(new, round_repos),
+                                               missing['ps'] or in_round(unmeasured, round_repos)
+                                               or unresolved(new, round_repos) or unresolved(unmeasured, round_repos)),
             'no_fail_closed': verdict(events['fail_closed'], logs),
             'no_startup_error': verdict(events['startup_errors'], logs),
             'no_restart_bound': verdict(events['build_crash_refusals'], logs),
@@ -346,7 +351,9 @@ def render(phase, summary, events, crashes, verdicts, use, result, skipped):
                        ('Standalone index holders first seen after the start (a round gates only those in its '
                         'checkouts)', 'new_standalone_holders'),
                        ('Standalone index holders already running at the start (not counted)',
-                        'preexisting_standalone_holders')):
+                        'preexisting_standalone_holders'),
+                       ('Standalone servers first seen after the start whose footprint could not be measured',
+                        'unmeasured_new_standalone')):
         if summary[key]:
             lines += ['', '%s: %s' % (title, json.dumps(summary[key]))]
     lines += ['', 'Fail-closed lines:'] + ['- `%s`' % line for line in events['fail_closed'][:50]]
