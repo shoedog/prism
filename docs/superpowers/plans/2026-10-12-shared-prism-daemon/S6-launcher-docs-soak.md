@@ -3748,10 +3748,10 @@ nohup python3 "$S/scripts/soak/soak.py" sample --out "$E/week/samples.jsonl" --i
 echo $! > "$E/week/sampler.pid"
 ```
 
-Check daily that the last line of `samples.jsonl` is recent (`tail -1 … | python3 -c 'import json,sys,time; print(time.time() - json.loads(sys.stdin.read())["t"])'`). A restart of the host or of the session kills the sampler; run the same command again: `--window-file` keeps the window's start (written once, the first time), the sampler runs to the end of that window rather than for another three days, and `sampler.log` gets a `resumed` line with the time left (review round 2, sol 1, Opus W-E). A line cut short by the kill is skipped and counted by the report, and the report gives the largest gap between samples. Write in `$E/week/NOTES.md` anything that changes the deployed binaries. At the end:
+Check daily that the last line of `samples.jsonl` is recent (`tail -1 … | python3 -c 'import json,sys,time; print(time.time() - json.loads(sys.stdin.read())["t"])'`). A restart of the host or of the session kills the sampler; run the same command again: `--window-file` keeps the window's start (written once, the first time) and the original first observation, so a resume completes the original duration rather than starting another three days. The sampler includes the first terminal sample whose timestamp is at least 259200 s after the first observation; fractional startup and acquisition overhead can extend collection past T0 + 259200. `sampler.log` gets a `resumed` line with the time left. A line cut short by the kill is skipped and counted by the report, and the report gives the largest gap between samples. Write in `$E/week/NOTES.md` anything that changes the deployed binaries. Wait for the sampler's completion line before recording T1; keep fractional seconds so the report includes the terminal sample:
 
 ```bash
-kill "$(cat "$E/week/sampler.pid")" 2>/dev/null; date +%s > "$E/week/T1"
+python3 -c 'import time; print(time.time())' > "$E/week/T1"
 python3 "$S/scripts/soak/soak.py" report --phase week --samples "$E/week/samples.jsonl" --window-file "$E/week/T0" --until "$(cat "$E/week/T1")" --claude-logs ~/Library/Caches/claude-cli-nodejs --client-log "$E/client-logs/bridge.log" --out "$E/week/report.md" --json "$E/week/report.json"
 ```
 
@@ -3761,8 +3761,8 @@ python3 "$S/scripts/soak/soak.py" report --phase week --samples "$E/week/samples
 **Repair in place (D132):** keep `$E/week/T0`, append to the existing samples/logs, and pass every
 recorded `--fix-at RULE=EPOCH` when regenerating the report. The historical directory and CLI name
 `week` remain for compatibility. If the 259200 s sampler window ends before the evidence is sufficient,
-resume it with a larger `--duration` (seconds from the original T0, e.g. 345600 for one extra day);
-never rewrite T0. Fewer than two qualifying quiet nights per daemon makes `no_footprint_growth`
+resume it with a larger `--duration` (seconds from the original first observation, e.g. 345600 for one extra day);
+never rewrite T0. Fewer than two quiet nights after each daemon's latest baseline makes `no_footprint_growth`
 UNKNOWN. The repaired rule needs fresh usage days and, for leaks, two quiet nights after the fix;
 other rules retain their evidence. The largest gap is always reported, not silently credited as use.
 

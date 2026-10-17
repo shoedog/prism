@@ -94,6 +94,8 @@ class Trend:
         rebuild = process.get('rebuild_observed', False) or (valid and delta >= FOOTPRINT_REBUILD_CPU_SECS)
         if rebuild:
             r['baseline_bytes'] = r['baseline_t'] = None
+            # Night credit belongs to this baseline epoch; breaches and holes stay sticky.
+            r['quiet_nights'] = []
             self.quiet_t = self.quiet_bytes = None
             self.built_seen = False
         self.built_seen |= fp is not None and fp >= built_min
@@ -148,6 +150,8 @@ def footprint_growth(samples, built_min, usage_cpu, max_interval, min_quiet_nigh
     failed = any(trend.failed for trend in trends.values())
     unknown = any(trend.unknown for trend in trends.values()) or any(not s.get('ps_ok', True) for s in samples)
     if min_quiet_nights:
-        unknown |= not trends or any(len(t.report['quiet_nights']) < min_quiet_nights for t in trends.values())
+        unknown |= not trends or any(t.report['baseline_bytes'] is None
+                                    or len(t.report['quiet_nights']) < min_quiet_nights
+                                    for t in trends.values())
     return {'trends': [trend.report for trend in trends.values()],
             'verdict': 'FAIL' if failed else 'UNKNOWN' if unknown else 'PASS'}

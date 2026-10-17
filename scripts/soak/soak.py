@@ -15,8 +15,9 @@ whether the process table could be read, and the host's swap, memory pressure an
 reads the process table and never connects to a daemon unless --status-bin is given, in which case
 it also stores the text of `daemon-status` (a daemon built before S5b restarts its idle time at
 each such probe: SI-35). Appending makes it resumable: run it again on the same file. With
---window-file the window starts once, when the file is first written, and a resumed sampler runs
-to the end of that window, not for a new --duration (review round 2, sol 1, Opus W-E).
+--window-file the window starts once, when the file is first written. A duration run includes
+the first sample at or beyond --duration seconds after the first observation. A resumed sampler
+uses that original observation within the window, rather than starting a new duration.
 
 `report` (soak_judge.py) reads the samples, the clients' standard error (Claude Code's MCP logs,
 the files prism-mcp-logged.sh writes) and macOS crash reports, and judges the soak's rules; a rule
@@ -288,20 +289,28 @@ def open_window(path, duration, now=None):
 
 def cmd_sample(args):
     rebuild_logs = RebuildLogs(args.runtime_dir)
-    end = time.time() + args.duration if args.duration else None
+    first = end = None
     if args.window_file:
         start, end, resumed = open_window(args.window_file, args.duration)
+        if args.duration and Path(args.out).exists():
+            previous, _ = load_samples(args.out, since=start)
+            first = min((s['t'] for s in previous), default=None)
+            if first is not None:
+                end = first + args.duration
         print('sampler %s at %d: window from %d, %s s left' % (
             'resumed' if resumed else 'started', time.time(), start,
             'unbounded' if end is None else '%d' % max(0, end - time.time())), flush=True)
     taken = 0
     while True:
         sample = sample_once(args.status_bin, args.runtime_dir)
+        if first is None:
+            first = sample['t']
+            end = first + args.duration if args.duration else None
         rebuild_logs.observe(sample['processes'])
         with open(args.out, 'a') as out:
             out.write(json.dumps(sample, sort_keys=True) + '\n')
         taken += 1
-        if (args.count and taken >= args.count) or (end is not None and time.time() + args.interval > end):
+        if (args.count and taken >= args.count) or (end is not None and sample['t'] >= end):
             break
         time.sleep(args.interval)
     print('%d samples appended to %s' % (taken, args.out))
@@ -363,8 +372,9 @@ def main(argv=None):
     sample.add_argument('--out', required=True)
     sample.add_argument('--interval', type=float, default=60.0)
     sample.add_argument('--count', type=int)
-    sample.add_argument('--duration', type=float, help='seconds; with neither this nor --count, forever')
-    sample.add_argument('--window-file', help='keeps the window start: --duration counts from it, across resumes')
+    sample.add_argument('--duration', type=float, help='first-to-last observed seconds; includes a terminal sample; '
+                        'with neither this nor --count, forever')
+    sample.add_argument('--window-file', help='keeps the window start and original observation across resumes')
     sample.add_argument('--status-bin', help='a prism-mcp binary whose daemon-status text each sample stores')
     sample.add_argument('--runtime-dir', help='runtime base for passive rebuild logs and optional daemon-status')
     sample.set_defaults(handler=cmd_sample)

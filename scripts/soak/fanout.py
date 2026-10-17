@@ -396,7 +396,8 @@ def judge(baseline, candidate, allow_client_mismatch=False):
                                                                              for e in entries}))
     if not allow_client_mismatch and len({e['run']['clients'] for e in entries}) > 1:
         problems.append('the runs have different numbers of clients: %s' % sorted({e['run']['clients'] for e in entries}))
-    problems += ['%s ran on a corpus with uncommitted changes' % e['dir'] for e in entries if e['run']['corpus'].get('dirty')]
+    problems += ['%s ran on a corpus with uncommitted changes or unknown cleanliness' % e['dir']
+                 for e in entries if e['run']['corpus'].get('dirty') != 0]
     figures = {}
     for name, arm in (('baseline', baseline), ('candidate', candidate)):
         figures[name] = {}
@@ -408,8 +409,8 @@ def judge(baseline, candidate, allow_client_mismatch=False):
         problems.append('a run has no percentiles (no timed call was made)')
         p95 = p99 = None
     else:
-        p95 = round(figures['candidate']['p95_ms'] / figures['baseline']['p95_ms'], 4)
-        p99 = round(figures['candidate']['p99_ms'] / figures['baseline']['p99_ms'], 4)
+        p95 = figures['candidate']['p95_ms'] / figures['baseline']['p95_ms']
+        p99 = figures['candidate']['p99_ms'] / figures['baseline']['p99_ms']
     passed = not problems and p95 <= P95_MAX_RATIO and p99 <= P99_MAX_RATIO
     return {'pass': passed, 'problems': problems, 'figures': figures, 'p95_ratio': p95, 'p99_ratio': p99,
             'rule': {'p95_max_ratio': P95_MAX_RATIO, 'p99_max_ratio': P99_MAX_RATIO}}
@@ -437,7 +438,8 @@ def render(baseline, candidate, verdict):
     lines += ['', 'Medians across runs: baseline %s; candidate %s.' % (verdict['figures']['baseline'],
                                                                       verdict['figures']['candidate']),
               'Ratios: p95 %s (at most %.2f), p99 %s (at most %.2f). The refresh overlap is reported, not gated.'
-              % (verdict['p95_ratio'], P95_MAX_RATIO, verdict['p99_ratio'], P99_MAX_RATIO),
+              % (None if verdict['p95_ratio'] is None else round(verdict['p95_ratio'], 4), P95_MAX_RATIO,
+                 None if verdict['p99_ratio'] is None else round(verdict['p99_ratio'], 4), P99_MAX_RATIO),
               '', '**Verdict: %s**' % ('PASS' if verdict['pass'] else 'FAIL')]
     lines += ['- %s' % problem for problem in verdict['problems']]
     return '\n'.join(lines) + '\n'
