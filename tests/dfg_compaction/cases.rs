@@ -1,4 +1,29 @@
 use super::common::*;
+
+/// The named parity population, independent of stored hashes and new main fixtures.
+pub fn registered_names() -> BTreeSet<String> {
+    let mut names: BTreeSet<_> = super::corpus::REGISTERED
+        .iter()
+        .map(|path| format!("fixture-{}", path.replace('/', "__")))
+        .collect();
+    names.extend(
+        super::corpus::GENERATOR_NAMES
+            .iter()
+            .map(|name| name.to_string()),
+    );
+    names.extend(
+        [
+            "fixture-tree",
+            "generator-lua",
+            "generator-rust",
+            "generator-helper-python",
+            "generator-helper-rust",
+        ]
+        .map(str::to_string),
+    );
+    names
+}
+
 fn walk(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
     let mut entries: Vec<_> = std::fs::read_dir(dir)
         .unwrap()
