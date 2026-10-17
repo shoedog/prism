@@ -54,11 +54,13 @@ class MeasuredUsage(unittest.TestCase):
                 self.assertEqual(found['summary']['covered_secs'], 7 * DAY)
                 self.assertIn('**Verdict: INADMISSIBLE**', text)
 
-    def test_observed_zero_to_point_zero_six_still_passes_a_week(self):
+    def test_observed_zero_to_point_zero_six_counts_usage_but_short_lived_daemons_need_quiet_nights(self):
         found, text = report(week(0.0, 0.06))
         self.assertEqual(found['summary']['usage_days'], ['1970-01-%02d' % d for d in range(1, 6)])
-        self.assertEqual(found['verdict'], 'PASS')
-        self.assertIn('**Verdict: PASS**', text)
+        self.assertTrue(found['use']['usage_days_at_least_2'])
+        self.assertEqual(found['verdicts']['no_footprint_growth'], 'UNKNOWN')
+        self.assertEqual(found['verdict'], 'INADMISSIBLE')
+        self.assertIn('**Verdict: INADMISSIBLE**', text)
 
     def test_a_121_second_interval_has_no_credit_and_is_reported(self):
         found, text = report([sample(0, [daemon(0.0)]), sample(121, [daemon(0.6)])])

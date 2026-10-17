@@ -8,6 +8,8 @@ from pathlib import Path
 import re
 import tempfile
 
+from soak_window import night_overlaps
+
 MIB = 1024 * 1024
 FOOTPRINT_BASELINE_QUIET_SECS = 10 * 60
 FOOTPRINT_QUIET_STRETCH_SECS = 60 * 60
@@ -63,7 +65,7 @@ class Trend:
         self.report = dict(pid=process['pid'], key=process.get('key'), first_seen=t, last_seen=t,
                            baseline_bytes=None, baseline_t=None, baselines=[], max_bytes=None,
                            last_bytes=None, growth_bytes_per_hour=None, largest_quiet_growth_bytes=0,
-                           largest_quiet_secs=0)
+                           largest_quiet_secs=0, quiet_nights=[])
         self.previous = None
         self.first_reading = None
         self.built_seen = False
@@ -120,11 +122,16 @@ class Trend:
                                 FOOTPRINT_GROWTH_BASELINE_FRACTION * r['baseline_bytes'])
                 if duration >= FOOTPRINT_QUIET_STRETCH_SECS and growth > threshold:
                     self.failed = True
+                if duration >= FOOTPRINT_QUIET_STRETCH_SECS:
+                    nights = {night for night, seconds in night_overlaps(self.quiet_t, t)
+                              if seconds >= FOOTPRINT_QUIET_STRETCH_SECS}
+                    r['quiet_nights'] = sorted(set(r['quiet_nights']) | nights)
         self.previous = (index, t, cpu, fp)
 
 
-def footprint_growth(samples, built_min, usage_cpu, max_interval):
-    """Trends for every daemon, plus FAIL > UNKNOWN > PASS; no baseline means no contribution.
+def footprint_growth(samples, built_min, usage_cpu, max_interval, min_quiet_nights=0):
+    """Trends for every daemon, plus FAIL > UNKNOWN > PASS. With min_quiet_nights, each daemon
+    needs that many quiet nights after baseline; otherwise no baseline contributes nothing.
     A missing process table cannot establish absence. Holes break quiet continuity rather than
     turning an interval without usage credit into evidence that the daemon was idle.
     """
@@ -140,5 +147,7 @@ def footprint_growth(samples, built_min, usage_cpu, max_interval):
                                      built_min, usage_cpu, max_interval)
     failed = any(trend.failed for trend in trends.values())
     unknown = any(trend.unknown for trend in trends.values()) or any(not s.get('ps_ok', True) for s in samples)
+    if min_quiet_nights:
+        unknown |= not trends or any(len(t.report['quiet_nights']) < min_quiet_nights for t in trends.values())
     return {'trends': [trend.report for trend in trends.values()],
             'verdict': 'FAIL' if failed else 'UNKNOWN' if unknown else 'PASS'}

@@ -6,7 +6,7 @@
     soak.py report --phase fanout|round|week --samples FILE.jsonl --out FILE.md [--json FILE.json]
                    [--since EPOCH | --window-file T0] [--until EPOCH] [--claude-logs DIR]
                    [--client-log FILE ...] [--crash-reports DIR] [--round-repo DIR ...]
-                   [--min-shims 2] [--min-days 5]
+                   [--min-shims 2] [--min-days 2] [--fix-at RULE=EPOCH ...]
     soak.py probe [--timeout 30] -- COMMAND [ARGS...]
 
 `sample` appends one JSON line per interval: every prism-mcp process (its role, repository, key,
@@ -44,6 +44,7 @@ import time
 from pathlib import Path
 
 from soak_growth import RebuildLogs
+from soak_window import PHASE3_MIN_USAGE_DAYS, fix_at
 
 from soak_judge import (BUILD_CRASH, CLIENT_LINE, CRASH_REPORT, FAIL_CLOSED, GATED, HOLDER_MIN_BYTES,  # noqa: F401
                         LOST, MIB, PRESSURE_CRITICAL, REACHED, RULES, STARTUP_ERROR, built, claude_log_lines,
@@ -381,7 +382,10 @@ def main(argv=None):
     report.add_argument('--round-repo', action='append',
                         help='round: a checkout the round ran in; standalone servers elsewhere are not gated')
     report.add_argument('--min-shims', type=int, default=2, help='round: shims at once that show use')
-    report.add_argument('--min-days', type=int, default=5, help='week: usage days that show use')
+    report.add_argument('--min-days', type=int, default=PHASE3_MIN_USAGE_DAYS,
+                        help='week: usage days that show use (cannot lower the owner floor)')
+    report.add_argument('--fix-at', type=fix_at, action='append', metavar='RULE=EPOCH',
+                        help='judge only this rule strictly after its repair; repeat per rule (latest wins)')
     report.set_defaults(handler=cmd_report)
     probe = commands.add_parser('probe')
     probe.add_argument('--timeout', type=float, default=30.0)
@@ -391,6 +395,8 @@ def main(argv=None):
     if args.handler is cmd_probe and args.command in ([], ['--']):
         probe.error('probe needs the COMMAND to start, after --')
     if args.command == 'report':
+        if args.phase == 'week' and args.min_days < PHASE3_MIN_USAGE_DAYS:
+            parser.error('--min-days cannot lower the owner usage-day floor')
         if args.phase == 'round' and not args.round_repo:
             parser.error('report --phase round needs --round-repo for each checkout the round ran in')
         if args.window_file:

@@ -8,12 +8,14 @@ phase whose rules all pass but that saw no use is INADMISSIBLE (Opus W2, S3).
 """
 import calendar
 import json
+import math
 import os
 import re
 import time
 from pathlib import Path
 
 from soak_growth import footprint_growth
+from soak_window import PHASE3_MIN_NIGHTS, PHASE3_WINDOW_SECS, observed_nights
 
 MIB = 1024 * 1024
 # A standalone prism-mcp that has not built an index is a few MiB; one that has holds hundreds.
@@ -114,12 +116,14 @@ def usage_days(samples):
     return sorted(days)
 
 
-def summarize_samples(samples):
-    growth = footprint_growth(samples, HOLDER_MIN_BYTES, USAGE_INTERVAL_CPU_SECS, USAGE_INTERVAL_MAX_SECS)
+def summarize_samples(samples, min_quiet_nights=0, first_pids=None):
+    growth = footprint_growth(samples, HOLDER_MIN_BYTES, USAGE_INTERVAL_CPU_SECS,
+                              USAGE_INTERVAL_MAX_SECS, min_quiet_nights)
     worst_per_key, worst_per_repo, new_standalone, old_standalone, daemons = {}, {}, {}, {}, {}
     unmeasured_new = {}
     missing = {'ps': 0, 'pressure': 0, 'footprint': 0}
-    first_pids = {p['pid'] for p in samples[0]['processes']} if samples else set()
+    if first_pids is None:
+        first_pids = {p['pid'] for p in samples[0]['processes']} if samples else set()
     peaks = {'holders': 0, 'shims': 0, 'prism_footprint_bytes': 0, 'swap_used_mib': 0.0, 'pressure': 0,
              'compressed_bytes': 0, 'built_daemons': 0}
     for sample in samples:
@@ -164,6 +168,7 @@ def summarize_samples(samples):
             'duplicated_keys': {k: v for k, v in worst_per_key.items() if len(v) > 1},
             'max_daemons_per_repo': max([len(p) for p in worst_per_repo.values()] or [0]),
             'usage_days': usage_days(samples),
+            'local_nights': observed_nights(samples, USAGE_INTERVAL_MAX_SECS),
             'usage_intervals_excluded': sum(b['t'] - a['t'] > USAGE_INTERVAL_MAX_SECS
                                             for a, b in zip(samples, samples[1:])),
             'largest_gap_secs': max([b['t'] - a['t'] for a, b in zip(samples, samples[1:])] or [0]),
@@ -316,7 +321,9 @@ def usage(phase, summary, events, min_shims, min_days, sources_reached=None):
         return {'shims_at_once_at_least_%d' % min_shims: summary['peaks']['shims'] >= min_shims,
                 'a_daemon_reached_in_every_client_log': bool(sources_reached) and all(sources_reached),
                 'an_index_built': summary['peaks']['built_daemons'] >= 1}
-    return {'usage_days_at_least_%d' % min_days: len(summary['usage_days']) >= min_days}
+    return {'usage_days_at_least_%d' % min_days: len(summary['usage_days']) >= min_days,
+            'window_secs_at_least_%d' % PHASE3_WINDOW_SECS: summary['covered_secs'] >= PHASE3_WINDOW_SECS,
+            'local_nights_at_least_%d' % PHASE3_MIN_NIGHTS: len(summary['local_nights']) >= PHASE3_MIN_NIGHTS}
 
 
 def overall(phase, verdicts, use):
@@ -350,6 +357,8 @@ def render(phase, summary, events, crashes, verdicts, use, result, skipped):
               % (USAGE_INTERVAL_MAX_SECS, summary['usage_intervals_excluded']),
               '| Time covered by the samples / largest gap between two (s) | %d / %d |'
               % (summary['covered_secs'], summary['largest_gap_secs']),
+              '| Local nights (22:00–06:00; ≥ 1 h observed; reporting host timezone %s) | %s |'
+              % (' / '.join(time.tzname), ', '.join(summary['local_nights']) or 'none'),
               '| Peak footprint of all prism-mcp processes (MiB) | %.1f |' % (peaks['prism_footprint_bytes'] / MIB),
               '| Peak swap used (MiB) | %.1f |' % peaks['swap_used_mib'],
               '| Peak compressor (MiB) | %.1f |' % (peaks['compressed_bytes'] / MIB),
@@ -376,47 +385,85 @@ def render(phase, summary, events, crashes, verdicts, use, result, skipped):
         if summary[key]:
             lines += ['', '%s: %s' % (title, json.dumps(summary[key]))]
     lines += ['', 'Daemon footprint trends (MiB; residency includes work and rebuilds; `—` = unavailable):', '',
-              '| PID / key | Baseline (epoch s) | Max | Last | MiB/h | Quiet growth / hours |',
-              '|---|---|---|---|---|---|']
+              '| PID / key | Baseline (epoch s) | Max | Last | MiB/h | Quiet growth / hours | Quiet nights |',
+              '|---|---|---|---|---|---|---|']
 
     def mib(value):
         return '—' if value is None else '%.3f' % (value / MIB)
 
     for trend in summary['footprint_trends']:
-        lines.append('| %s / %s | %s (%s) | %s | %s | %s | %s / %.3f |' % (
+        lines.append('| %s / %s | %s (%s) | %s | %s | %s | %s / %.3f | %s |' % (
             trend['pid'], trend['key'], mib(trend['baseline_bytes']), trend['baseline_t'],
             mib(trend['max_bytes']), mib(trend['last_bytes']), mib(trend['growth_bytes_per_hour']),
-            mib(trend['largest_quiet_growth_bytes']), trend['largest_quiet_secs'] / 3600))
+            mib(trend['largest_quiet_growth_bytes']), trend['largest_quiet_secs'] / 3600,
+            ', '.join(trend['quiet_nights']) or 'none'))
     lines += ['', 'Fail-closed lines:'] + ['- `%s`' % line for line in events['fail_closed'][:50]]
     lines += ['', 'Startup errors:'] + ['- `%s`' % line for line in events['startup_errors'][:50]]
     lines += ['', 'Crash reports:'] + ['- `%s`' % name for name in crashes]
     return '\n'.join(lines) + '\n'
 
 
+def report_evidence(args, samples, since, first_pids=None):
+    """Read every evidence source through the same lower bound, including client reachability."""
+    client_logs = args.client_log or []
+    lines, sources_reached = [], []
+    if args.claude_logs and Path(args.claude_logs).is_dir():
+        lines += list(claude_log_lines(args.claude_logs, since, args.until))
+    for path in client_logs:
+        found = list(client_log_lines(path, since, args.until)) if os.path.isfile(path) else []
+        sources_reached.append(bool(scan_lines(found)['reached']))
+        lines += found
+    summary = summarize_samples(samples, PHASE3_MIN_NIGHTS if args.phase == 'week' else 0, first_pids)
+    events = scan_lines(lines)
+    crashes, crash_ok = crash_reports(args.crash_reports, since, args.until)
+    coverage = {'logs': logs_readable(args.claude_logs, client_logs), 'crash_reports': crash_ok}
+    verdicts = judge(summary, events, crashes, coverage, args.round_repo)
+    use = usage(args.phase, summary, events, args.min_shims, args.min_days, sources_reached)
+    return summary, events, crashes, coverage, verdicts, use
+
+
 def cmd_report(args):
     samples, skipped = load_samples(args.samples, args.since, args.until)
     if not samples:
         raise SystemExit('no samples in %s for the window' % args.samples)
-    client_logs = args.client_log or []
-    lines, sources_reached = [], []
-    if args.claude_logs and Path(args.claude_logs).is_dir():
-        lines += list(claude_log_lines(args.claude_logs, args.since, args.until))
-    for path in client_logs:
-        found = list(client_log_lines(path, args.since, args.until)) if os.path.isfile(path) else []
-        sources_reached.append(bool(scan_lines(found)['reached']))
-        lines += found
-    summary = summarize_samples(samples)
-    events = scan_lines(lines)
-    crashes, crash_ok = crash_reports(args.crash_reports, args.since, args.until)
-    coverage = {'logs': logs_readable(args.claude_logs, client_logs), 'crash_reports': crash_ok}
-    verdicts = judge(summary, events, crashes, coverage, args.round_repo)
-    use = usage(args.phase, summary, events, args.min_shims, args.min_days, sources_reached)
+    summary, events, crashes, coverage, verdicts, use = report_evidence(args, samples, args.since)
+    fixes = {}
+    for rule, stamp in args.fix_at or []:
+        fixes[rule] = max(fixes.get(rule, stamp), stamp)
+    fix_windows = {}
+    first_pids = {p['pid'] for p in samples[0]['processes']}
+    for rule, stamp in sorted(fixes.items()):
+        # Strictly after deployment; never borrow a CPU/footprint endpoint across a repair.
+        since = max(args.since or 0, math.nextafter(stamp, math.inf))
+        rows = [s for s in samples if s['t'] >= since]
+        post, post_events, post_crashes, post_coverage, post_verdicts, post_use = report_evidence(
+            args, rows, since, first_pids)
+        if args.phase == 'week':
+            # Phase duration and sampled nights remain phase-wide. Each repaired rule needs
+            # fresh usage; the leak verdict additionally requires its own two quiet nights.
+            post_use = {'usage_days_at_least_%d' % args.min_days: len(post['usage_days']) >= args.min_days}
+        raw = post_verdicts[rule]
+        verdicts[rule] = 'UNKNOWN' if raw != 'FAIL' and (not rows or not all(post_use.values())) else raw
+        fix_windows[rule] = {'fix_at': stamp, 'summary': post, 'use': post_use,
+                             'coverage': post_coverage, 'evidence_verdict': raw, 'verdict': verdicts[rule],
+                             'events': dict(post_events, reached=sorted(post_events['reached'])),
+                             'crash_reports': post_crashes}
     result = overall(args.phase, verdicts, use)
-    Path(args.out).write_text(render(args.phase, summary, events, crashes, verdicts, use, result, skipped))
+    markdown = render(args.phase, summary, events, crashes, verdicts, use, result, skipped)
+    for rule, window in fix_windows.items():
+        post = window['summary']
+        markdown += ('\nFix window `%s=%s`: %s; %d samples (%s to %s); usage days %s; '
+                     'largest gap %s s. Post-fix use: %s. Quiet nights per daemon: %s.\n' % (
+                         rule, format(window['fix_at'], '.17g'), window['verdict'], post['samples'],
+                         post['first'], post['last'], post['usage_days'], post['largest_gap_secs'],
+                         json.dumps(window['use'], sort_keys=True), json.dumps([
+                             {'pid': t['pid'], 'key': t['key'], 'quiet_nights': t['quiet_nights']}
+                             for t in post['footprint_trends']])))
+    Path(args.out).write_text(markdown)
     if args.json:
         Path(args.json).write_text(json.dumps(
             {'phase': args.phase, 'verdict': result, 'summary': summary, 'coverage': coverage, 'use': use,
              'events': dict(events, reached=sorted(events['reached'])), 'crash_reports': crashes,
-             'verdicts': verdicts, 'skipped_lines': skipped}, indent=1, sort_keys=True))
+             'verdicts': verdicts, 'fix_windows': fix_windows, 'skipped_lines': skipped}, indent=1, sort_keys=True))
     print('wrote %s: %s' % (args.out, result))
     return 0
