@@ -13,9 +13,12 @@ log="${1:?usage: prism-mcp-logged.sh LOGFILE BIN [args...]}"
 bin="${2:?usage: prism-mcp-logged.sh LOGFILE BIN [args...]}"
 shift 2
 pid=$$
+# Each line goes to the client first, then to the log; a failed write never ends the loop (a log
+# that cannot be appended to, ENOSPC), so the client loses no line and prism-mcp's standard error
+# never breaks (PR #424 review round 1, Opus W2).
 exec "$bin" "$@" 2> >(
   while IFS= read -r line || [ -n "$line" ]; do
-    printf '%s %s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$pid" "$line" >>"$log"
-    printf '%s\n' "$line" >&2
+    printf '%s\n' "$line" >&2 || true
+    { printf '%s %s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$pid" "$line" >>"$log"; } 2>/dev/null || true
   done
 )
