@@ -5,8 +5,6 @@ pub(super) use arena::*;
 mod freeze;
 #[cfg(test)]
 pub(super) use freeze::FROM_PARTS_CALLS;
-#[cfg(any(test, feature = "dfg-oracle"))]
-mod queries;
 pub(super) mod views;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(super) struct Adj {

@@ -1,32 +1,7 @@
-//! Read-only capture adapter. May be overlaid on clean main without the oracle.
+//! Read-only observations for ordinary cache and exact-byte unit regressions.
 use crate::cpg::CodePropertyGraph;
 use crate::data_flow::DataFlowGraph;
 use petgraph::visit::EdgeRef;
-
-/// Current codec layout, retained only as a byte compatibility control.
-pub fn payload(cpg: &CodePropertyGraph) -> Vec<u8> {
-    let nodes: Vec<_> = cpg.graph.node_indices().map(|n| &cpg.graph[n]).collect();
-    let edges: Vec<_> = cpg
-        .graph
-        .edge_references()
-        .map(|e| {
-            (
-                e.source().index() as u32,
-                e.target().index() as u32,
-                e.weight(),
-            )
-        })
-        .collect();
-    bincode::serialize(&(
-        nodes,
-        edges,
-        &cpg.call_graph,
-        &cpg.dfg,
-        &cpg.return_flow_stats,
-        &cpg.dfg_label_stats,
-    ))
-    .unwrap()
-}
 
 /// Legacy field sequence, independent of DataFlowGraph's Serialize implementation.
 pub(crate) fn dfg_storage(g: &DataFlowGraph) -> Vec<u8> {
