@@ -72,28 +72,39 @@ def holder_identity(process):
     return 'standalone ' + (process.get('repo') or '?')
 
 
-# CPU seconds a daemon must spend in a UTC day for the day to show use (review round 2, Opus W-B).
-# An idle daemon with a client attached spent no measurable CPU in 120 s on this host (0:00.17
-# before and after); one call on a warm index of a real repository costs well over this.
-USAGE_CPU_SECS = 0.5
+# CPU seconds one daemon must spend between two consecutive samples for that interval's UTC day
+# to show use (owner decision 2026-10-16, PR #424 review round 1, Opus W1; replaces 0.5 s summed
+# over the day). An idle daemon with a session attached spends about 0.0006 s a minute on its 5 s
+# identity tick (0.86 s a day, measured at nanosecond precision), about 80 times below this in a
+# 60 s interval; a tool call on a warm index costs tens of milliseconds or more.
+USAGE_INTERVAL_CPU_SECS = 0.05
 
 
 def usage_days(samples):
-    """The UTC days on which daemons spent at least USAGE_CPU_SECS of CPU: growth between two
-    samples of one daemon, or the whole CPU time of a daemon first seen after the first sample.
-    A daemon that is resident, or a shim that is attached, is not use."""
-    spent, last, first = {}, {}, {p['pid'] for p in samples[0]['processes']} if samples else set()
-    for sample in samples:
-        day = time.strftime('%Y-%m-%d', time.gmtime(sample['t']))
-        for process in sample['processes']:
-            cpu = process.get('cpu_secs')
-            if process['role'] != 'daemon' or cpu is None:
+    """The UTC days of the sample intervals in which one daemon's CPU time grew by at least
+    USAGE_INTERVAL_CPU_SECS: growth from the previous sample, or, for a daemon never seen before
+    and not in the first sample, its whole CPU time (it started in that interval). A pid missing
+    from either end of an interval contributes nothing for it, and a daemon that is resident, or a
+    shim that is attached, is not use. Growth is rounded to microseconds: `ps` prints hundredths,
+    and 0.30 - 0.25 is 0.0499... in floating point."""
+    days, seen = set(), set()
+    previous = None
+    for index, sample in enumerate(samples):
+        now = {p['pid']: p.get('cpu_secs') for p in sample['processes'] if p['role'] == 'daemon'}
+        for pid, cpu in now.items():
+            if cpu is None or index == 0:
                 continue
-            before = last.get(process['pid'], None if process['pid'] in first else 0.0)
-            if before is not None and cpu > before:
-                spent[day] = spent.get(day, 0.0) + cpu - before
-            last[process['pid']] = cpu
-    return sorted(day for day, seconds in spent.items() if seconds >= USAGE_CPU_SECS)
+            if previous is not None and pid in previous:
+                before = previous[pid]
+            elif pid not in seen and samples[index - 1].get('ps_ok', True):
+                before = 0.0
+            else:
+                before = None
+            if before is not None and round(cpu - before, 6) >= USAGE_INTERVAL_CPU_SECS:
+                days.add(time.strftime('%Y-%m-%d', time.gmtime(sample['t'])))
+        seen.update(now)
+        previous = {pid: cpu for pid, cpu in now.items() if cpu is not None}
+    return sorted(days)
 
 
 def summarize_samples(samples):
@@ -291,7 +302,8 @@ def render(phase, summary, events, crashes, verdicts, use, result, skipped):
               % summary['max_daemons_per_repo'],
               '| Most shims at once | %d |' % peaks['shims'],
               '| Most daemons with a built index at once | %d |' % peaks['built_daemons'],
-              '| Usage days (UTC; at least %.1f s of daemon CPU) | %d |' % (USAGE_CPU_SECS, len(summary['usage_days'])),
+              "| Usage days (UTC; a sample interval with at least %.2f s of one daemon's CPU) | %d |"
+              % (USAGE_INTERVAL_CPU_SECS, len(summary['usage_days'])),
               '| Time covered by the samples / largest gap between two (s) | %d / %d |'
               % (summary['covered_secs'], summary['largest_gap_secs']),
               '| Peak footprint of all prism-mcp processes (MiB) | %.1f |' % (peaks['prism_footprint_bytes'] / MIB),
