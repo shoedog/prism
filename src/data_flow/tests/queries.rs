@@ -36,22 +36,23 @@ fn views_preserve_independent_representatives_duplicates_empty_rows_and_absence(
         )
         .unwrap(),
     )]);
-    let mut g = DataFlowGraph::build(&files);
-    let e = g.edges[0].clone();
+    let mut raw = oracle::LegacyDataFlowGraph::build(&files);
+    let e = raw.edges[0].clone();
     let mut shifted = e.from.clone();
     shifted.start_byte += 100;
     shifted.end_byte += 100;
-    g.forward.clear();
-    g.forward
+    raw.forward.clear();
+    raw.forward
         .insert(shifted.clone(), vec![e.to.clone(), e.to.clone()]);
-    g.backward.clear();
-    g.backward
+    raw.backward.clear();
+    raw.backward
         .insert(e.to.clone(), vec![shifted.clone(), e.from.clone()]);
     let empty_key = ("empty.py".into(), "f".into(), 1, AccessPath::simple("z"));
-    g.defs.insert(empty_key.clone(), vec![]);
-    g.uses.insert(empty_key, vec![]);
+    raw.defs.insert(empty_key.clone(), vec![]);
+    raw.uses.insert(empty_key, vec![]);
+    let g = from_legacy(raw.clone());
     assert_eq!(
-        bytes(&g.forward.iter().collect::<Vec<_>>()),
+        bytes(&raw.forward.iter().collect::<Vec<_>>()),
         bytes(
             &g.forward()
                 .map(|(k, v)| (k, v.to_vec()))
@@ -59,7 +60,7 @@ fn views_preserve_independent_representatives_duplicates_empty_rows_and_absence(
         )
     );
     assert_eq!(
-        bytes(&g.backward.iter().collect::<Vec<_>>()),
+        bytes(&raw.backward.iter().collect::<Vec<_>>()),
         bytes(
             &g.backward()
                 .map(|(k, v)| (k, v.to_vec()))
@@ -67,23 +68,26 @@ fn views_preserve_independent_representatives_duplicates_empty_rows_and_absence(
         )
     );
     assert_eq!(
-        bytes(&g.forward[&e.from]),
+        bytes(&raw.forward[&e.from]),
         bytes(&g.successors(&e.from).unwrap().to_vec())
     );
     assert_eq!(
-        bytes(&g.backward[&e.to]),
+        bytes(&raw.backward[&e.to]),
         bytes(&g.predecessors(&e.to).unwrap().to_vec())
     );
     let actual: Vec<_> = g.labels().map(|(e, c)| ((e.from, e.to), c)).collect();
-    assert_eq!(bytes(&g.labels.iter().collect::<Vec<_>>()), bytes(&actual));
-    for ((f, t), c) in &g.labels {
+    assert_eq!(
+        bytes(&raw.labels.iter().collect::<Vec<_>>()),
+        bytes(&actual)
+    );
+    for ((f, t), c) in &raw.labels {
         assert_eq!(g.label(f, t), Some(*c));
     }
     assert_eq!(
-        bytes(&g.exact_labels),
+        bytes(&raw.exact_labels),
         bytes(&g.exact_labels().collect::<Vec<_>>())
     );
-    assert_eq!(bytes(&g.rd_function_stats), bytes(g.rd_function_stats()));
+    assert_eq!(bytes(&raw.rd_function_stats), bytes(g.rd_function_stats()));
     assert_eq!(
         g.defs()
             .find(|(k, _)| k.0 == "empty.py")
@@ -132,12 +136,14 @@ fn frozen_queries_cover_cycles_spans_absence_and_same_line_propagation() {
     let old = oracle::LegacyDataFlowGraph::build(&files);
     let mut new = DataFlowGraph::build(&files);
     assert_pair(&old, &new, &files);
-    let e = new.edges[0].clone();
-    new.edges.push(e.clone());
-    new.forward
+    let mut raw = to_legacy(&new);
+    let e = raw.edges[0].clone();
+    raw.edges.push(e.clone());
+    raw.forward
         .entry(e.to.clone())
         .or_default()
         .push(e.from.clone());
+    new = from_legacy(raw);
     let mut old = old;
     old.edges.push(e.clone());
     old.forward.entry(e.to).or_default().push(e.from);

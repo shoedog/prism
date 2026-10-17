@@ -77,6 +77,7 @@
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
+| 22 | Bridge fan-out across worktrees (owner request 2026-10-16) | follow-up; options documented, no implementation | choose shared task worktree vs capped/staggered worktrees from measurements; any content-addressed cross-worktree index needs a separate correctness design | owner choice / design | `docs/MCP.md` §Bridge fan-out across worktrees; `prism-mcp daemon-status`; soak `max_daemons_per_repo` (per canonical worktree) |
 | 9 | S6 plan | in progress (another agent) | review it when its PR opens (Opus 5.5 + gpt-6.1-sol, cap 2) | its PR | `~/code/prism-s6-plan`, branch `plan/s6-launcher-docs-soak` |
 | 18 | M1 plan | pending | write against spec §6.1 as revised; add an `m1` row set to `memreport compare` | — | `scripts/memreport/README.md` |
 | 14 | Optimization lane: DFG compaction | PR D in review | merge #417 on approval + green CI; then plan PR E (activate the compact layout, bump `CACHE_VERSION` from 120), then PR F (delete the oracle). Re-pin at the start of each PR | #417 | plan `2026-10-14-dfg-compaction.md`; `~/prism-evidence/dfg-compaction/prC-2026-10-16/` |

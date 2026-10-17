@@ -35,8 +35,8 @@
     ],
     "MB-06-cpg-version": [
       "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 123;",
       "const CACHE_VERSION: u32 = 122;",
-      "const CACHE_VERSION: u32 = 121;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "MB-07-nav-version": [

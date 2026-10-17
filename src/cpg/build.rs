@@ -22,6 +22,9 @@ mod same_line_occurrence_tests;
 #[path = "exact_caller_read_tests.rs"]
 mod exact_caller_read_tests;
 
+#[path = "statement_calls.rs"]
+mod statement_calls;
+
 use crate::access_path::AccessPath;
 use crate::call_graph::{CallGraph, CallSite, FunctionId, ScopeGraphBuildInputs};
 use crate::cfg;
@@ -1367,16 +1370,7 @@ impl CodePropertyGraph {
         let per_file: Vec<(&String, Vec<PendingStatement>)> = ordered
             .par_iter()
             .map(|(path, parsed)| {
-                let func_types = parsed.language.function_node_types();
-                let mut seen: std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
-                let mut out: Vec<PendingStatement> = Vec::new();
-                Self::collect_pending(
-                    parsed.tree.root_node(),
-                    &func_types,
-                    parsed,
-                    &mut seen,
-                    &mut out,
-                );
+                let out = statement_calls::collect_file(parsed);
                 (*path, out)
             })
             .collect(); // rayon indexed collect is order-preserving => ordered-files order
@@ -2249,36 +2243,6 @@ impl CodePropertyGraph {
         stmt_index
     }
 
-    /// Read-only per-file collect: the `collect_function_statements` recursion with
-    /// node creation removed. Whole-file `seen` (by line), checked BEFORE classify -
-    /// exactly the current `if stmt_index.contains_key(&(file,line)) { continue }`.
-    fn collect_pending(
-        node: tree_sitter::Node<'_>,
-        func_types: &[&str],
-        parsed: &ParsedFile,
-        seen: &mut std::collections::BTreeSet<usize>,
-        out: &mut Vec<PendingStatement>,
-    ) {
-        if func_types.contains(&node.kind()) {
-            for span in parsed.statement_spans_in_function(&node) {
-                if !seen.insert(span.line) {
-                    continue; // duplicate (file,line) - skip BEFORE classify, as today
-                }
-                let kind = Self::classify_stmt_kind(&span.kind, parsed, span.line);
-                out.push(PendingStatement {
-                    line: span.line,
-                    kind,
-                    start_byte: span.start_byte,
-                    end_byte: span.end_byte,
-                });
-            }
-        }
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            Self::collect_pending(child, func_types, parsed, seen, out);
-        }
-    }
-
     #[cfg(test)]
     fn collect_function_statements(
         node: tree_sitter::Node<'_>,
@@ -2323,6 +2287,8 @@ impl CodePropertyGraph {
         }
     }
 
+    // Frozen pre-batch classifier for identity tests.
+    #[cfg(test)]
     /// Classify a tree-sitter node kind string into a `StmtKind`.
     fn classify_stmt_kind(kind_str: &str, parsed: &ParsedFile, line: usize) -> StmtKind {
         if parsed.language.is_return_node(kind_str) {

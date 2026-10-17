@@ -98,16 +98,16 @@ fn decoded_storage_vecs_have_no_spare_capacity() {
     let n = 262_145;
     let a = arena((0..n).map(|i| loc("x", VarAccessKind::Use, i)).collect());
     let mut w = WireDfg::from(CompactDfg::empty());
-    w.arena = a.rows;
+    w.arena = a.rows().clone();
     // One representative per exact row is invalid for this shared identity;
     // use distinct legacy identities to exercise legacy_reps at the threshold.
     for (i, row) in w.arena.iter_mut().enumerate() {
         row.line = i;
     }
     let a = Arena::from_sorted(w.arena).unwrap();
-    w.arena = a.rows;
-    w.legacy_reps = a.legacy_reps;
-    w.legacy_by_occ = a.legacy_by_occ;
+    w.arena = a.rows().clone();
+    w.legacy_reps = a.legacy_reps().clone();
+    w.legacy_by_occ = a.legacy_by_occ().clone();
     w.edges = vec![(OccId(0), OccId(1)); 131_073];
     let key = ("u.py".into(), "f".into(), 1, w.arena[0].path.clone());
     w.defs.push((key.clone(), vec![OccId(0); n]));
@@ -131,18 +131,18 @@ fn decoded_storage_vecs_have_no_spare_capacity() {
     let capacities = [
         (
             "arena",
-            decoded.arena.rows.len(),
-            decoded.arena.rows.capacity(),
+            decoded.arena.rows().len(),
+            decoded.arena.rows().capacity(),
         ),
         (
             "legacy_reps",
-            decoded.arena.legacy_reps.len(),
-            decoded.arena.legacy_reps.capacity(),
+            decoded.arena.legacy_reps().len(),
+            decoded.arena.legacy_reps().capacity(),
         ),
         (
             "legacy_by_occ",
-            decoded.arena.legacy_by_occ.len(),
-            decoded.arena.legacy_by_occ.capacity(),
+            decoded.arena.legacy_by_occ().len(),
+            decoded.arena.legacy_by_occ().capacity(),
         ),
         ("edges", decoded.edges.len(), decoded.edges.capacity()),
         (
@@ -190,15 +190,15 @@ fn decoded_access_path_vecs_have_no_spare_capacity() {
     row.path.fields = vec![String::new(); 43_691];
     let a = arena(vec![row.clone()]);
     let mut w = WireDfg::from(CompactDfg::empty());
-    w.arena = a.rows;
-    w.legacy_reps = a.legacy_reps;
-    w.legacy_by_occ = a.legacy_by_occ;
+    w.arena = a.rows().clone();
+    w.legacy_reps = a.legacy_reps().clone();
+    w.legacy_by_occ = a.legacy_by_occ().clone();
     let key = (row.file, row.function, 1, row.path);
     w.defs.push((key.clone(), vec![OccId(0)]));
     w.uses.push((key, vec![]));
     let decoded: CompactDfg = bincode::deserialize(&bincode::serialize(&w).unwrap()).unwrap();
     let paths = [
-        &decoded.arena.rows[0].path,
+        &decoded.arena.rows()[0].path,
         &decoded.defs.keys().next().unwrap().3,
         &decoded.uses.keys().next().unwrap().3,
     ];

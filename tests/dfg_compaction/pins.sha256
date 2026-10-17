@@ -1,3 +1,8 @@
+# Capture: clean main b2cd10a157bb7d7e75283be6519b6fe2ce485e0f; 133 cases.
+# Rebind: all hashes reproduce committed main at #442 (9459a668); #445/#441 introduce no drift.
+# PR E merge capture reproduces clean main exactly; no branch-origin hash changes.
+# Procedure: README.md; committed ignored capture::capture_manifests (feature dfg-oracle).
+# Receipt and changed-case list: repin-b2cd10a1.md. Historical provenance follows.
 # Capture: clean main 9459a668f79154ac77b5293442f01f03ba3fe474; 133 cases.
 # Re-pin: #424 (0a269d5e) adds argv-stub.sh to both maps and changes only fixture-tree payload; prior indexes unchanged.
 # Re-pin: #442 (9459a668) changes 30 payloads and the same 30 indexes; 103 cases unchanged from #424.

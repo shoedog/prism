@@ -3,10 +3,10 @@
 
     soak.py sample --out FILE.jsonl [--interval 60] [--count N | --duration SECS [--window-file T0]]
                    [--status-bin BIN --runtime-dir BASE]
-    soak.py report --phase round|week --samples FILE.jsonl --out FILE.md [--json FILE.json]
+    soak.py report --phase fanout|round|week --samples FILE.jsonl --out FILE.md [--json FILE.json]
                    [--since EPOCH | --window-file T0] [--until EPOCH] [--claude-logs DIR]
                    [--client-log FILE ...] [--crash-reports DIR] [--round-repo DIR ...]
-                   [--min-shims 2] [--min-days 5]
+                   [--min-shims 2] [--min-days 2] [--fix-at RULE=EPOCH ...]
     soak.py probe [--timeout 30] -- COMMAND [ARGS...]
 
 `sample` appends one JSON line per interval: every prism-mcp process (its role, repository, key,
@@ -15,12 +15,15 @@ whether the process table could be read, and the host's swap, memory pressure an
 reads the process table and never connects to a daemon unless --status-bin is given, in which case
 it also stores the text of `daemon-status` (a daemon built before S5b restarts its idle time at
 each such probe: SI-35). Appending makes it resumable: run it again on the same file. With
---window-file the window starts once, when the file is first written, and a resumed sampler runs
-to the end of that window, not for a new --duration (review round 2, sol 1, Opus W-E).
+--window-file the window starts once, when the file is first written. A duration run includes
+the first sample at or beyond --duration seconds after the first observation. A resumed sampler
+uses that original observation within the window, rather than starting a new duration.
 
 `report` (soak_judge.py) reads the samples, the clients' standard error (Claude Code's MCP logs,
 the files prism-mcp-logged.sh writes) and macOS crash reports, and judges the soak's rules; a rule
 whose evidence was not collected is UNKNOWN, and a phase that saw no use is INADMISSIBLE.
+The `fanout` phase is a diagnostic report only; its rules and use do not gate latency acceptance.
+Sampling also reads newly appended rebuild-log lines passively, when the runtime directory is visible.
 
 `probe` starts a launcher's exact command line, sends `initialize`, and passes only when an answer
 comes back: the check, at deployment and at rollback, that a configuration starts a server with
@@ -40,6 +43,9 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+
+from soak_growth import RebuildLogs
+from soak_window import PHASE3_MIN_USAGE_DAYS, fix_at
 
 from soak_judge import (BUILD_CRASH, CLIENT_LINE, CRASH_REPORT, FAIL_CLOSED, GATED, HOLDER_MIN_BYTES,  # noqa: F401
                         LOST, MIB, PRESSURE_CRITICAL, REACHED, RULES, STARTUP_ERROR, built, claude_log_lines,
@@ -282,19 +288,29 @@ def open_window(path, duration, now=None):
 
 
 def cmd_sample(args):
-    end = time.time() + args.duration if args.duration else None
+    rebuild_logs = RebuildLogs(args.runtime_dir)
+    first = end = None
     if args.window_file:
         start, end, resumed = open_window(args.window_file, args.duration)
+        if args.duration and Path(args.out).exists():
+            previous, _ = load_samples(args.out, since=start)
+            first = min((s['t'] for s in previous), default=None)
+            if first is not None:
+                end = first + args.duration
         print('sampler %s at %d: window from %d, %s s left' % (
             'resumed' if resumed else 'started', time.time(), start,
             'unbounded' if end is None else '%d' % max(0, end - time.time())), flush=True)
     taken = 0
     while True:
         sample = sample_once(args.status_bin, args.runtime_dir)
+        if first is None:
+            first = sample['t']
+            end = first + args.duration if args.duration else None
+        rebuild_logs.observe(sample['processes'])
         with open(args.out, 'a') as out:
             out.write(json.dumps(sample, sort_keys=True) + '\n')
         taken += 1
-        if (args.count and taken >= args.count) or (end is not None and time.time() + args.interval > end):
+        if (args.count and taken >= args.count) or (end is not None and sample['t'] >= end):
             break
         time.sleep(args.interval)
     print('%d samples appended to %s' % (taken, args.out))
@@ -356,10 +372,11 @@ def main(argv=None):
     sample.add_argument('--out', required=True)
     sample.add_argument('--interval', type=float, default=60.0)
     sample.add_argument('--count', type=int)
-    sample.add_argument('--duration', type=float, help='seconds; with neither this nor --count, forever')
-    sample.add_argument('--window-file', help='keeps the window start: --duration counts from it, across resumes')
+    sample.add_argument('--duration', type=float, help='first-to-last observed seconds; includes a terminal sample; '
+                        'with neither this nor --count, forever')
+    sample.add_argument('--window-file', help='keeps the window start and original observation across resumes')
     sample.add_argument('--status-bin', help='a prism-mcp binary whose daemon-status text each sample stores')
-    sample.add_argument('--runtime-dir', help='the runtime base daemon-status is given')
+    sample.add_argument('--runtime-dir', help='runtime base for passive rebuild logs and optional daemon-status')
     sample.set_defaults(handler=cmd_sample)
     report = commands.add_parser('report')
     report.add_argument('--phase', required=True, choices=sorted(GATED))
@@ -375,7 +392,10 @@ def main(argv=None):
     report.add_argument('--round-repo', action='append',
                         help='round: a checkout the round ran in; standalone servers elsewhere are not gated')
     report.add_argument('--min-shims', type=int, default=2, help='round: shims at once that show use')
-    report.add_argument('--min-days', type=int, default=5, help='week: usage days that show use')
+    report.add_argument('--min-days', type=int, default=PHASE3_MIN_USAGE_DAYS,
+                        help='week: usage days that show use (cannot lower the owner floor)')
+    report.add_argument('--fix-at', type=fix_at, action='append', metavar='RULE=EPOCH',
+                        help='judge only this rule strictly after its repair; repeat per rule (latest wins)')
     report.set_defaults(handler=cmd_report)
     probe = commands.add_parser('probe')
     probe.add_argument('--timeout', type=float, default=30.0)
@@ -385,6 +405,8 @@ def main(argv=None):
     if args.handler is cmd_probe and args.command in ([], ['--']):
         probe.error('probe needs the COMMAND to start, after --')
     if args.command == 'report':
+        if args.phase == 'week' and args.min_days < PHASE3_MIN_USAGE_DAYS:
+            parser.error('--min-days cannot lower the owner usage-day floor')
         if args.phase == 'round' and not args.round_repo:
             parser.error('report --phase round needs --round-repo for each checkout the round ran in')
         if args.window_file:

@@ -264,7 +264,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v122) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v123) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -488,6 +488,23 @@ owner lock; exit 0 when that instance no longer serves the key, or has accepted 
 its clients; exit 1 when it could not ask, the reply to its request was lost (the request may
 have been recorded), or it did not see the drain. `--runtime-dir` is the
 base, as `PRISM_MCP_RUNTIME_DIR` gives it.
+
+Opting in and the soak: user documentation of shared mode is `docs/MCP.md` ("Shared daemon"). The
+plugin's launcher (`scripts/prism-mcp-launch.sh`) adds `--shared` when `PRISM_MCP_SHARED=1` (unset,
+empty or `0`: nothing; any other value: exit 2; an explicit `--shared`/`--standalone` wins); its tests
+are `tests/mcp/launcher_test.rs`. The soak instrumentation is `scripts/soak/` (Python 3.9, standard
+library; CI runs its hermetic tests in the build-checks job): `fanout.py` (N clients of one corpus
+in shared or standalone mode, per-call latency, a pressure observer that stops the run at a
+critical level, one required `refresh_index` and its overlap with other clients' calls, `compare`
+under the pinned rule; also the spec §6.2 fan-out gate), `soak.py` (`sample` appends the prism-mcp
+processes, whether each footprint was measured, and the host's swap, pressure and compressor;
+`probe` checks that a launcher's command line starts a server; `--window-file` keeps a window's
+start across resumes), `soak_judge.py` (`soak.py report --phase round|week`: each rule PASS, FAIL
+or UNKNOWN when its evidence was not collected, a phase INADMISSIBLE without observed use: a usage
+day is a day daemons spent CPU, and a round names its checkouts with `--round-repo` and needs a
+reached daemon in every client log) and `prism-mcp-logged.sh` (logs a client's prism-mcp standard
+error with time and pid). Run their tests with `python3 -m unittest discover -s scripts/soak -p
+'test_*.py'`; `PRISM_SOAK_BIN=<prism-mcp>` adds a live run against the binary.
 
 Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`

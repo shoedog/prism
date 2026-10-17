@@ -263,8 +263,9 @@ mod stream;
 /// - v119: lane A2 S0 renames persisted anonymous-callable DFG owners to `<anon@L:C>`.
 /// - v120: lane A2 S2a emits anonymous call owners and persists their proof evidence.
 /// - v121: file-bound JS/TS module call owners and their A2 proof inventory.
-/// - v122: property-method syntax evidence excludes bare-name call targets (#443).
-const CACHE_VERSION: u32 = 122;
+/// - v122: compact DFG arena, occurrence/rank indexes and validated native codec.
+/// - v123: property-method syntax evidence excludes bare-name call targets (#443).
+const CACHE_VERSION: u32 = 123;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -813,7 +814,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 122);
+        assert_eq!(super::CACHE_VERSION, 123);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
