@@ -1237,7 +1237,7 @@
 {"id":"import.spanless-export-nested-decoy.call.ts","verdict":"MAY-NONE","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.ident-own-name-cjs-import.fn.call.js","verdict":"CORRECT","record":true,"exact":[{"file":"lib.js","name":"helper","line":1,"kind":"import_member"}],"nameonly":[],"drop":"UnknownName","origins":["IndirectResolution","Source"]}
 {"id":"local.ident-own-name-cjs-import.outer.call.js","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
-{"id":"local.cjs-exports-ns-destructure-nested.call.js","verdict":"CORRECT","record":true,"exact":[{"file":"api/cjs.js","name":"legacy","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
+{"id":"local.cjs-exports-ns-destructure-nested.call.js","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"LocalBindingUnproven","origins":["Source"]}
 {"id":"import.super-extends-member-named-super.call.js","verdict":"CORRECT","record":true,"exact":[{"file":"callee.js","name":"super","line":1,"kind":"free_single"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"returned.object-shorthand-local-fn.fn.call.ts","verdict":"CORRECT","record":true,"exact":[{"file":"hooks.ts","name":"doIt","line":2,"kind":"local_def"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"returned.object-shorthand-local-fn.outer.call.ts","verdict":"CORRECT","record":true,"exact":[{"file":"hooks.ts","name":"doIt","line":2,"kind":"local_def"}],"nameonly":[],"drop":null,"origins":["Source"]}

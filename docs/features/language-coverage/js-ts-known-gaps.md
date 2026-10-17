@@ -1,6 +1,6 @@
 # JS/TS, React and Node: known gaps and edge cases
 
-**Status:** living list, last updated 2026-10-16 (A2 B0 computed-pattern eval veto).
+**Status:** living list, last updated 2026-10-17 (#443 property-name fallback).
 
 Each entry says:
 - what prism does today, with a small example;
@@ -10,6 +10,19 @@ Each entry says:
 `Exact` is a static-binding grade, not a runtime claim; see the call-resolution section of `CLAUDE.md`.
 
 The variant matrix in `tests/fixtures/js_alias_matrix/` is the executable form of many entries. It holds one row per binding shape, each with an authored truth and today's verdict. Its `WRONG`, `OVERCLAIM` and `MISSING` rows are known gaps of this kind, and its README explains the verdicts.
+
+Bare calls cannot gain Exact from an object/class method property name (#443),
+including accessors, function-valued properties, member assignments, and class
+fields (also in anonymous/default-exported classes). For example,
+`var f = make(); const o = { f() { return f(); } };` declines the method self-edge.
+The outer value may remain unproven for `var`/`let`; proven `const` returned values,
+imports and outer function declarations retain their binding routes. Existing
+NameOnly candidate pools remain unchanged. Inferred-name origins come from the
+same classifier as `Language::function_name`. A same-named declarator whose value
+is the member assignment, such as `var f = (Module.f = function() {})`, retains
+its lexical target; only parentheses are transparent for this exemption.
+Regression shapes are in
+`tests/integration/js_method_name_binding_test.rs` for JS, TS and TSX.
 
 ## Anonymous callers (lane A2 S2a)
 

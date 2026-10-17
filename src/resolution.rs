@@ -3509,7 +3509,7 @@ impl CallGraph {
                     if matches!(site.local_binding, JsLocalBinding::Unproven(_)) {
                         return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
                     }
-                    return ResolutionOutcome::hit(exact(local, ResolutionKind::LocalDef));
+                    return self.bare_name_exact(local, ResolutionKind::LocalDef);
                 }
 
                 // R4.5: a Go unqualified call resolves within its own package
@@ -3633,7 +3633,7 @@ impl CallGraph {
                 }
                 match nonstatic.len() {
                     0 => ResolutionOutcome::dropped(DropReason::UnknownName),
-                    1 => ResolutionOutcome::hit(exact(nonstatic, ResolutionKind::FreeSingle)),
+                    1 => self.bare_name_exact(nonstatic, ResolutionKind::FreeSingle),
                     _ => ResolutionOutcome::hit(demoted(nonstatic, ResolutionKind::FreeMulti)),
                 }
             }
