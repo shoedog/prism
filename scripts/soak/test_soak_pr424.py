@@ -8,6 +8,7 @@ Run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
 import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -171,6 +172,22 @@ class HashNamedBinaries(unittest.TestCase):
         report = round_report([USED, USED + second % (HASHED, KEY)], ['/r'])
         self.assertEqual(report['verdicts']['one_index_per_key'], 'FAIL')
         self.assertEqual(report['summary']['duplicated_keys'], {'daemon ' + KEY: [101, 110]})
+
+
+class WrapperLog(unittest.TestCase):
+    """Opus W2: a log the wrapper cannot append to never costs the client a line or the server
+    its standard error."""
+
+    def test_an_unwritable_log_passes_every_line_to_the_client_and_keeps_the_server_alive(self):
+        code = ('import sys, time; sys.stderr.write("one\\n"); sys.stderr.flush(); time.sleep(0.5); '
+                'sys.stderr.write("two\\n"); sys.stderr.flush(); sys.stdout.write(sys.stdin.read()); sys.exit(3)')
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / 'no-such-dir' / 'stderr.log'
+            child = subprocess.Popen([str(HERE / 'prism-mcp-logged.sh'), str(log), sys.executable, '-c', code],
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = child.communicate(b'{"jsonrpc":"2.0"}\n', timeout=60)
+            self.assertEqual((child.returncode, out, err), (3, b'{"jsonrpc":"2.0"}\n', b'one\ntwo\n'))
+            self.assertFalse(log.exists())
 
 
 if __name__ == '__main__':
