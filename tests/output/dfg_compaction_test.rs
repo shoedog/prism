@@ -226,6 +226,37 @@ fn dispatch_case(name: &str, files: &BTreeMap<String, ParsedFile>, diff: &DiffIn
     let refreshed = refresh(roundtrip(&cold, &inputs), files);
     assert_cache_matches(&cold, &cached, &refreshed);
     let cold_ctx = CpgContext::build_with_cached_cpg(files, cold, None);
+    // References depend on the case and params, not the candidate cache mode.
+    // output_pair only borrows them, so every mode can share the same runs.
+    let references: Vec<_> = SlicingAlgorithm::all()
+        .into_iter()
+        .map(|algorithm| {
+            let config = SliceConfig::default().with_algorithm(algorithm);
+            let reference = run_review(&cold_ctx, &inputs, &[algorithm], &config, &p, repo.path());
+            (algorithm, reference)
+        })
+        .collect();
+    let mut control = params(files, identical.path());
+    control.taint_return_flow = true;
+    let control_references: Vec<_> = [
+        SlicingAlgorithm::DeltaSlice,
+        SlicingAlgorithm::ContractSlice,
+        SlicingAlgorithm::Taint,
+    ]
+    .into_iter()
+    .map(|algorithm| {
+        let config = SliceConfig::default().with_algorithm(algorithm);
+        let reference = run_review(
+            &cold_ctx,
+            &inputs,
+            &[algorithm],
+            &config,
+            &control,
+            repo.path(),
+        );
+        (algorithm, reference)
+    })
+    .collect();
     for (mode, candidate) in [
         ("cold", CodePropertyGraph::build(files)),
         ("hit", cached),
@@ -233,12 +264,12 @@ fn dispatch_case(name: &str, files: &BTreeMap<String, ParsedFile>, diff: &DiffIn
     ] {
         let ctx = CpgContext::build_with_cached_cpg(files, candidate, None);
         let mut seen = BTreeSet::new();
-        for algorithm in SlicingAlgorithm::all() {
+        for (algorithm, reference) in &references {
+            let algorithm = *algorithm;
             let config = SliceConfig::default().with_algorithm(algorithm);
             let b = run_review(&ctx, &inputs, &[algorithm], &config, &p, repo.path());
             assert_eq!(b.algorithms_run, [algorithm.name()]);
-            let reference = run_review(&cold_ctx, &inputs, &[algorithm], &config, &p, repo.path());
-            output_pair(&reference, &b, &inputs, repo.path());
+            output_pair(reference, &b, &inputs, repo.path());
             seen.insert(algorithm.name().to_string());
             eprintln!("DFG_DISPATCH case={name} algorithm={} mode={mode} params={} success=true positive_negative=controls::local_direct_dfg_positive_and_negative_controls,controls::paired_chop_and_conditioned_controls;other-assertions=algorithm-controls-ledger",algorithm.name(), serde_json::json!({"barrier_depth":p.barrier_depth,"barrier_symbols":p.barrier_symbols,"chop_source":p.chop_source,"chop_sink":p.chop_sink,"condition":p.condition,"old_repo":p.old_repo,"taint_sources":p.taint_sources,"taint_return_flow":p.taint_return_flow,"spiral_max_ring":p.spiral_max_ring,"quantum_var":p.quantum_var,"peer_pattern":p.peer_pattern,"layers":p.layers,"concern":p.concern,"temporal_days":p.temporal_days}));
         }
@@ -249,24 +280,11 @@ fn dispatch_case(name: &str, files: &BTreeMap<String, ParsedFile>, diff: &DiffIn
                 .map(|a| a.name().to_string())
                 .collect()
         );
-        let mut control = params(files, identical.path());
-        control.taint_return_flow = true;
-        for algorithm in [
-            SlicingAlgorithm::DeltaSlice,
-            SlicingAlgorithm::ContractSlice,
-            SlicingAlgorithm::Taint,
-        ] {
+        for (algorithm, reference) in &control_references {
+            let algorithm = *algorithm;
             let config = SliceConfig::default().with_algorithm(algorithm);
             let b = run_review(&ctx, &inputs, &[algorithm], &config, &control, repo.path());
-            let reference = run_review(
-                &cold_ctx,
-                &inputs,
-                &[algorithm],
-                &config,
-                &control,
-                repo.path(),
-            );
-            output_pair(&reference, &b, &inputs, repo.path());
+            output_pair(reference, &b, &inputs, repo.path());
             if algorithm == SlicingAlgorithm::DeltaSlice {
                 assert!(b.results[0].blocks.is_empty());
             }
