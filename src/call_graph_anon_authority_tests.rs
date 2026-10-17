@@ -117,7 +117,7 @@ fn real_binder_blocks_all_reviewed_shadow_shapes() {
                 let mut sites = 0;
                 for node in candidate_nodes(p, true)
                     .into_iter()
-                    .filter(|n| p.language.function_name(n).is_none())
+                    .filter(|n| n.kind() != "program" && p.language.function_name(n).is_none())
                 {
                     let range = p.node_line_range(&node);
                     if !p
@@ -174,7 +174,7 @@ fn unproven_and_unchecked_facts_never_reach_same_name_exact() {
     let p = &fs["a.ts"];
     let nodes: Vec<_> = candidate_nodes(p, true)
         .into_iter()
-        .filter(|n| p.language.function_name(n).is_none())
+        .filter(|n| n.kind() != "program" && p.language.function_name(n).is_none())
         .collect();
     let mut cg = CallGraph::build(&fs);
     let mut site = inject(&mut cg, p, &nodes[0], "f");
@@ -228,7 +228,7 @@ fn import_local_alias_and_sibling_controls_keep_authority() {
         let p = &fs["a.ts"];
         let nodes: Vec<_> = candidate_nodes(p, true)
             .into_iter()
-            .filter(|n| p.language.function_name(n).is_none())
+            .filter(|n| n.kind() != "program" && p.language.function_name(n).is_none())
             .collect();
         let mut cg = CallGraph::build(&fs);
         for (i, node) in nodes.iter().enumerate() {
@@ -280,7 +280,7 @@ fn nonrelative_imports_require_the_same_real_binder_proof() {
         let p = &fs["a.ts"];
         let nodes: Vec<_> = candidate_nodes(p, true)
             .into_iter()
-            .filter(|n| p.language.function_name(n).is_none())
+            .filter(|n| n.kind() != "program" && p.language.function_name(n).is_none())
             .collect();
         let mut cg = CallGraph::build(&fs);
         cg.js_ts_path_modules.insert(

@@ -42,11 +42,32 @@ pub(in crate::data_flow) fn exact_cmp(a: &VarLocation, b: &VarLocation) -> Order
 }
 #[derive(Debug, Clone)]
 pub(in crate::data_flow) struct Arena {
-    pub(in crate::data_flow) rows: Vec<VarLocation>,
-    pub(in crate::data_flow) legacy_reps: Vec<OccId>,
-    pub(in crate::data_flow) legacy_by_occ: Vec<LegacyId>,
+    rows: Vec<VarLocation>,
+    legacy_reps: Vec<OccId>,
+    legacy_by_occ: Vec<LegacyId>,
 }
 impl Arena {
+    pub(in crate::data_flow) fn rows(&self) -> &Vec<VarLocation> {
+        &self.rows
+    }
+    pub(in crate::data_flow) fn legacy_reps(&self) -> &Vec<OccId> {
+        &self.legacy_reps
+    }
+    pub(in crate::data_flow) fn legacy_by_occ(&self) -> &Vec<LegacyId> {
+        &self.legacy_by_occ
+    }
+    pub(super) fn into_wire_parts(self) -> (Vec<VarLocation>, Vec<OccId>, Vec<LegacyId>) {
+        (self.rows, self.legacy_reps, self.legacy_by_occ)
+    }
+    pub(super) fn shrink_to_fit(&mut self) {
+        self.rows.shrink_to_fit();
+        self.legacy_reps.shrink_to_fit();
+        self.legacy_by_occ.shrink_to_fit();
+        for row in &mut self.rows {
+            row.path.fields.shrink_to_fit();
+        }
+    }
+
     pub(in crate::data_flow) fn from_sorted(rows: Vec<VarLocation>) -> Result<Self, &'static str> {
         checked_id(rows.len())?;
         if rows
@@ -76,6 +97,7 @@ impl Arena {
     pub(in crate::data_flow) fn get(&self, id: OccId) -> &VarLocation {
         &self.rows[id.0 as usize]
     }
+    #[cfg(any(test, feature = "dfg-oracle"))]
     pub(in crate::data_flow) fn exact(&self, v: &VarLocation) -> Option<OccId> {
         self.rows
             .binary_search_by(|row| exact_cmp(row, v))

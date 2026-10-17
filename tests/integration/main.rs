@@ -47,6 +47,7 @@ mod js_binding_scope_resolution_test;
 mod js_binding_shorthand_test;
 mod js_export_reexport_test;
 mod js_export_test;
+mod js_module_owner_test;
 mod js_paths_cap_test;
 mod js_paths_common;
 mod js_paths_p2_test;

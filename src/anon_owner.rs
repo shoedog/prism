@@ -27,7 +27,12 @@ use crate::languages::Language;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
+mod module;
 pub(crate) mod source_index;
+pub use module::{is_module_owner_name, MODULE_OWNER_NAME};
+#[cfg(test)]
+#[path = "anon_owner/module_tests.rs"]
+mod module_tests;
 
 #[cfg(test)]
 thread_local! {
@@ -36,7 +41,9 @@ thread_local! {
 
 /// Identity independent of emission and DFG parameter admissibility.
 pub(crate) fn identity(parsed: &ParsedFile, node: &Node<'_>, file: &str) -> Option<FunctionId> {
-    let name = if let Some(name) = parsed.language.function_name(node) {
+    let name = if module::is_module_node(parsed, node) {
+        MODULE_OWNER_NAME.to_string()
+    } else if let Some(name) = parsed.language.function_name(node) {
         parsed.node_text(&name).to_string()
     } else if matches!(
         parsed.language,
@@ -78,6 +85,9 @@ pub(crate) fn candidate_nodes(parsed: &ParsedFile, include_generators: bool) -> 
     #[cfg(test)]
     S4_CANDIDATES.with(|c| c.set(c.get() + 1));
     let mut nodes = parsed.all_functions();
+    if include_generators && module::is_module_node(parsed, &parsed.tree.root_node()) {
+        nodes.push(parsed.tree.root_node());
+    }
     if include_generators
         && matches!(
             parsed.language,
@@ -154,7 +164,9 @@ pub(crate) fn may_mint_call(
     if parsed.language.function_name(owner).is_some() {
         return true;
     }
-    !claims.contains(&(start, end)) && parsed.js_ts_span_in_own_scope(owner, start, end)
+    !claims.contains(&(start, end))
+        && parsed.js_ts_span_in_own_scope(owner, start, end)
+        && (!module::is_module_node(parsed, owner) || module::ordinary_region(parsed, start, end))
 }
 
 pub(crate) fn own_locals(parsed: &ParsedFile, node: &Node<'_>) -> BTreeSet<String> {

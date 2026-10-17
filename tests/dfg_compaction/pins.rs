@@ -139,25 +139,7 @@ fn census_every_fixture_is_registered() {
 #[test]
 fn census_registered_cases_match_capture_population() {
     prism::build_pool::install(|| {
-        let mut expected: BTreeSet<_> = super::corpus::REGISTERED
-            .iter()
-            .map(|path| format!("fixture-{}", path.replace('/', "__")))
-            .collect();
-        expected.extend(
-            super::corpus::GENERATOR_NAMES
-                .iter()
-                .map(|name| name.to_string()),
-        );
-        expected.extend(
-            [
-                "fixture-tree",
-                "generator-lua",
-                "generator-rust",
-                "generator-helper-python",
-                "generator-helper-rust",
-            ]
-            .map(str::to_string),
-        );
+        let expected = super::cases::registered_names();
         let mut actual = BTreeSet::new();
         super::cases::visit(|name, _| {
             actual.insert(name);

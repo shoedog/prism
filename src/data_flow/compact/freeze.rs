@@ -100,6 +100,8 @@ fn remap_adj(rows: Vec<Adj>, a: &Arena, r: &[OccId]) -> BTreeMap<LegacyId, Adj> 
 }
 impl CompactDfg {
     pub(in crate::data_flow) fn from_parts(p: Parts) -> Result<Self, &'static str> {
+        #[cfg(test)]
+        FROM_PARTS_CALLS.with(|n| n.set(n.get() + 1));
         let mut i = Intern::default();
         let mut edges: Vec<IdEdge> = p
             .edges
@@ -182,3 +184,6 @@ impl CompactDfg {
         })
     }
 }
+
+#[cfg(test)]
+thread_local! { pub(in crate::data_flow) static FROM_PARTS_CALLS: std::cell::Cell<u32> = const { std::cell::Cell::new(0) }; }

@@ -8,11 +8,13 @@ use super::js_alias_follow_test::graph_n;
 use super::js_paths_common::{graph, write};
 use prism::call_graph::CallGraph;
 
-/// Every record in `caller_file` (all origins), as `L<line> <callee> <origin>: <targets|drop>`.
+/// Pre-module-owner records in `caller_file` (all origins), retaining the main receipt.
 pub(super) fn records_of(cg: &CallGraph, caller_file: &str) -> Vec<String> {
     let mut out = Vec::new();
     for row in prism::navigation::queries::call_site_dump(cg) {
-        if row["caller"]["file"] != caller_file {
+        if row["caller"]["file"] != caller_file
+            || row["caller"]["name"] == prism::anon_owner::MODULE_OWNER_NAME
+        {
             continue;
         }
         let shown = match row["resolved_targets"].as_array().filter(|t| !t.is_empty()) {

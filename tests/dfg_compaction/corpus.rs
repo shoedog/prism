@@ -102,6 +102,7 @@ fixtures! {
     fixture_item2_selected_evidence_b_py => "tests/fixtures/item2-selected-evidence/b.py",
     fixture_nav_callgraph_main_py => "tests/fixtures/nav_callgraph/main.py",
     fixture_nav_callgraph_util_py => "tests/fixtures/nav_callgraph/util.py",
+    fixture_mcp_launcher_argv_stub_sh => "tests/fixtures/mcp/launcher/argv-stub.sh",
     fixture_nav_compat_a_py => "tests/fixtures/nav_compat/a.py",
     fixture_nav_scoped_rust_src_algo_rs => "tests/fixtures/nav_scoped_rust/src/algo.rs",
     fixture_nav_scoped_rust_src_lib_rs => "tests/fixtures/nav_scoped_rust/src/lib.rs",

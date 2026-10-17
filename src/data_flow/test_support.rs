@@ -301,14 +301,23 @@ pub fn assert_corpus(files: &BTreeMap<String, ParsedFile>) {
 
 pub fn from_legacy(old: LegacyDataFlowGraph) -> DataFlowGraph {
     DataFlowGraph {
-        edges: old.edges,
-        defs: old.defs,
-        uses: old.uses,
-        forward: old.forward,
-        backward: old.backward,
-        labels: old.labels,
-        exact_labels: old.exact_labels,
-        rd_function_stats: old.rd_function_stats,
+        storage: super::compact::CompactDfg::from_parts(compact::parts(old)).unwrap(),
+    }
+}
+/// Test-only expanded snapshot for synthetic mutations; never a construction route.
+pub(crate) fn to_legacy(g: &DataFlowGraph) -> LegacyDataFlowGraph {
+    LegacyDataFlowGraph {
+        edges: g.edges().iter().map(|e| e.to_owned()).collect(),
+        defs: g.defs().map(|(k, v)| (k.clone(), v.to_vec())).collect(),
+        uses: g.uses().map(|(k, v)| (k.clone(), v.to_vec())).collect(),
+        forward: g.forward().map(|(k, v)| (k.clone(), v.to_vec())).collect(),
+        backward: g.backward().map(|(k, v)| (k.clone(), v.to_vec())).collect(),
+        labels: g
+            .labels()
+            .map(|(e, c)| ((e.from.clone(), e.to.clone()), c))
+            .collect(),
+        exact_labels: g.exact_labels().collect(),
+        rd_function_stats: g.rd_function_stats().clone(),
     }
 }
 /// Refresh the frozen backend before adapting its completed state for current assembly.
@@ -316,16 +325,7 @@ pub fn legacy_refreshed_dfg(
     cached: DataFlowGraph,
     files: &BTreeMap<String, ParsedFile>,
 ) -> DataFlowGraph {
-    let mut old = LegacyDataFlowGraph {
-        edges: cached.edges,
-        defs: cached.defs,
-        uses: cached.uses,
-        forward: cached.forward,
-        backward: cached.backward,
-        labels: cached.labels,
-        exact_labels: cached.exact_labels,
-        rd_function_stats: cached.rd_function_stats,
-    };
+    let mut old = to_legacy(&cached);
     let all = files.keys().cloned().collect();
     old.remove_files(&all);
     old.merge(LegacyDataFlowGraph::build(files));
@@ -340,10 +340,12 @@ pub(crate) struct LegacyFields<'a> {
 }
 #[cfg(test)]
 pub(crate) fn edit_legacy_parts(g: &mut DataFlowGraph, edit: impl FnOnce(&mut LegacyFields<'_>)) {
+    let mut old = to_legacy(g);
     edit(&mut LegacyFields {
-        labels: &mut g.labels,
-        exact_labels: &mut g.exact_labels,
+        labels: &mut old.labels,
+        exact_labels: &mut old.exact_labels,
     });
+    *g = from_legacy(old);
 }
 
 /// Owned edge snapshot for existing serialization assertions; preserves order and spans.
@@ -377,4 +379,17 @@ pub mod accounting;
 #[cfg(test)]
 pub(crate) fn assert_codec_validation() {
     super::tests::corruption::codec_validation_matrix();
+}
+
+#[cfg(test)]
+pub(crate) fn corrupt_production_dfg(g: &DataFlowGraph) -> Vec<u8> {
+    let mut wire = super::compact::wire::WireDfg::from(g.storage.clone());
+    assert!(!wire.edges.is_empty());
+    wire.edges[0].0 = super::compact::OccId(u32::MAX);
+    bincode::serialize(&wire).unwrap()
+}
+
+#[cfg(test)]
+pub(crate) fn assert_native_production_decode() {
+    super::tests::activation::production_codec_shares_one_location_per_exact_identity();
 }
