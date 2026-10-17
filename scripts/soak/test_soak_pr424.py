@@ -140,5 +140,38 @@ class Repository(unittest.TestCase):
         self.assertEqual(os.path.realpath(soak.process_cwd(os.getpid())), os.path.realpath(os.getcwd()))
 
 
+HASHED = '/e/bin/prism-mcp-0123456789ab'
+
+
+class HashNamedBinaries(unittest.TestCase):
+    """sol 2: Phase 0 installs `prism-mcp-<sha12>`; such a process is prism-mcp, and each process
+    counts by its pid whatever its binary is called."""
+
+    def test_prism_mcp_and_prism_mcp_dash_twelve_hex_are_recognized_and_nothing_else(self):
+        self.assertEqual(soak.classify('%s --repo /r --shared' % HASHED)['role'], 'shim')
+        self.assertEqual(soak.classify('prism-mcp-0123456789ab daemon --repo /r --key %s' % KEY)['key'], KEY)
+        for other in ('/x/scripts/soak/prism-mcp-logged.sh /l /x/prism-mcp --repo /r',
+                      '/x/prism-mcp-0123456789abc --repo /r', '/x/prism-mcp-0123456789a --repo /r',
+                      '/x/prism-mcp-0123456789AB --repo /r', '/x/deps/prism_mcp-0123456789abcdef --repo /r',
+                      '/x/prism-mcp-launch.sh /r', '/x/prism-mcp.pre-389 --repo /r'):
+            self.assertIsNone(soak.classify(other), other)
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / 'a b' / 'prism-mcp-0123456789ab'
+            binary.parent.mkdir()
+            binary.write_text('#!/bin/sh\n')
+            binary.chmod(0o755)
+            self.assertEqual(soak.classify('%s --repo /r --shared' % binary)['role'], 'shim')
+
+    def test_a_healthy_round_of_hash_named_processes_passes(self):
+        report = round_report([USED.replace(BIN, HASHED)], ['/r'])
+        self.assertEqual(report['verdict'], 'PASS', report['use'])
+
+    def test_two_daemons_of_one_key_under_the_two_names_fail_one_index_per_key(self):
+        second = '  110     1   4096   0:09.00 %s daemon --repo /r --cache-dir /c --refresh-policy warn-only --key %s\n'
+        report = round_report([USED, USED + second % (HASHED, KEY)], ['/r'])
+        self.assertEqual(report['verdicts']['one_index_per_key'], 'FAIL')
+        self.assertEqual(report['summary']['duplicated_keys'], {'daemon ' + KEY: [101, 110]})
+
+
 if __name__ == '__main__':
     unittest.main()
