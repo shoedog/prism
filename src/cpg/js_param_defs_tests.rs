@@ -460,7 +460,9 @@ fn source_reaches_inferred(
         }
     );
     let target = if inferred {
-        "const obj = { Array: (s) =>\n sink(s)\n};"
+        // #443: declarator syntax keeps the call Exact FreeSingle, so the
+        // refusal below is what removes the path (an object Pair would not).
+        "const Array = (s) =>\n sink(s);"
     } else {
         "export function Array(s) {\n sink(s);\n}"
     };
@@ -482,6 +484,19 @@ fn source_reaches_inferred(
         ),
     ]);
     let cpg = CodePropertyGraph::build(&files);
+    let site = cpg
+        .call_graph
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.callee_name == "Array")
+        .unwrap();
+    let resolved = cpg.call_graph.resolve_call_site(site);
+    assert_eq!(resolved.len(), 1, "the call must stay resolved");
+    assert_eq!(
+        resolved[0].confidence,
+        crate::resolution::ResolutionConfidence::Exact
+    );
     let start = input
         .find("input =>")
         .or_else(|| input.find("...input").map(|n| n + 3))
