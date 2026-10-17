@@ -1,6 +1,6 @@
 //! See README.md for the clean-main overlay and rebind procedure.
 use super::common::*;
-use prism::cpg::dfg_compaction_support::{fieldwise_payload, lookup_indexes, payload};
+use prism::cpg::dfg_compaction_support::{fieldwise_payload, lookup_indexes};
 use sha2::{Digest, Sha256};
 
 #[test]
@@ -14,7 +14,6 @@ fn capture_manifests() {
         super::cases::visit(|name, files| {
             let graph = CodePropertyGraph::build(&files);
             let bytes = fieldwise_payload(&graph);
-            assert_eq!(bytes, payload(&graph), "legacy codec control {name}");
             assert!(payloads
                 .insert(name.clone(), format!("{:x}", Sha256::digest(bytes)))
                 .is_none());

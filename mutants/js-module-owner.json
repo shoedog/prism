@@ -61,8 +61,8 @@
     ],
     "M10-cpg-cache": [
       "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 122;",
       "const CACHE_VERSION: u32 = 121;",
-      "const CACHE_VERSION: u32 = 120;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "M11-nav-cache": [

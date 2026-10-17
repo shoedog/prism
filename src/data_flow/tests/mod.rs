@@ -7,3 +7,5 @@ mod queries;
 mod representatives;
 mod updates;
 mod wire;
+
+pub(super) mod activation;

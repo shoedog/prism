@@ -10,11 +10,6 @@ pub fn assert_assembly(name: &str, files: &BTreeMap<String, ParsedFile>) {
     let bytes = cpg_bytes(&new);
     assert_eq!(cpg_bytes(&old), bytes, "CPG {name}");
     assert_eq!(
-        prism::cpg::dfg_compaction_support::payload(&new),
-        bytes,
-        "field-wise codec {name}"
-    );
-    assert_eq!(
         prism::cpg::dfg_compaction_support::lookup_indexes(&old),
         prism::cpg::dfg_compaction_support::lookup_indexes(&new),
         "indexes {name}"

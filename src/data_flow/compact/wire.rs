@@ -45,9 +45,9 @@ pub(in crate::data_flow) struct WireDfgRef<'a> {
 impl<'a> From<&'a CompactDfg> for WireDfgRef<'a> {
     fn from(g: &'a CompactDfg) -> Self {
         Self {
-            arena: &g.arena.rows,
-            legacy_reps: &g.arena.legacy_reps,
-            legacy_by_occ: &g.arena.legacy_by_occ,
+            arena: g.arena.rows(),
+            legacy_reps: g.arena.legacy_reps(),
+            legacy_by_occ: g.arena.legacy_by_occ(),
             edges: &g.edges,
             defs: MapSeq(&g.defs),
             uses: MapSeq(&g.uses),
@@ -61,10 +61,11 @@ impl<'a> From<&'a CompactDfg> for WireDfgRef<'a> {
 }
 impl From<CompactDfg> for WireDfg {
     fn from(g: CompactDfg) -> Self {
+        let (arena, legacy_reps, legacy_by_occ) = g.arena.into_wire_parts();
         Self {
-            arena: g.arena.rows,
-            legacy_reps: g.arena.legacy_reps,
-            legacy_by_occ: g.arena.legacy_by_occ,
+            arena,
+            legacy_reps,
+            legacy_by_occ,
             edges: g.edges,
             defs: g.defs.into_iter().collect(),
             uses: g.uses.into_iter().collect(),

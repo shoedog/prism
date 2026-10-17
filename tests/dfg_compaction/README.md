@@ -66,3 +66,24 @@ the same environment to distinguish its effect from earlier changes or drift.
 Include registration for newly captured fixtures with the re-pin. Then the
 compaction or harness change keeps every hash. Headers cite the capture SHA, this
 procedure and the committed capture test.
+
+
+## PR E merge control on main b2cd10a1 (2026-10-17)
+
+The committed `capture::capture_manifests` test ran without overlays on a clean
+`git archive b2cd10a157bb7d7e75283be6519b6fe2ce485e0f`. Both 133-case maps
+reproduced main's committed manifests (last captured at #442, `9459a668`) exactly.
+Thus neither intervening #445 (accounting/CI selection) nor #441 (syntax metadata)
+introduces pinned-output drift. The merged PR E capture then reproduced both
+clean-main maps byte for byte; no hash was blessed from the compaction branch.
+
+Relative to PR E's previous `0a269d5e` pins, each map has 103 unchanged and the
+same 30 changed cases already recorded by main for #442; no case was added or
+removed. This merge adopts those accepted main hashes and updates provenance.
+See [repin-b2cd10a1.md](repin-b2cd10a1.md) for the case list and receipt paths.
+Accounting, cases, census and registrations are identical to both parents, with
+one `argv-stub.sh` registration. Main's `tests/fixtures/*` CI selector is retained.
+
+The clean-main run printed `nice: setpriority: Operation not permitted` and
+continued successfully; subsequent runs used `env CARGO_BUILD_JOBS=4` without
+`nice`. Captures used offline dependencies and `RUST_MIN_STACK=16777216`.

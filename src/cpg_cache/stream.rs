@@ -389,7 +389,7 @@ pub(super) fn read_cache_file(path: &Path) -> Option<CpgCache> {
         BUFFERED_READS.with(|count| count.set(count.get() + 1));
         let mut data = Vec::new();
         file.read_to_end(&mut data).ok()?;
-        return bincode::deserialize(&data).ok();
+        return decode_current_cache(&data);
     }
     #[cfg(test)]
     MAPPED_READS.with(|count| count.set(count.get() + 1));
@@ -408,7 +408,7 @@ pub(super) fn read_cache_file(path: &Path) -> Option<CpgCache> {
     // hosts, and not a directory shared between a host and a VM. Tests that rewrite the file in
     // place do it in private directories.
     let map = unsafe { memmap2::Mmap::map(&file) }.ok()?;
-    bincode::deserialize(&map[..]).ok()
+    decode_current_cache(&map[..])
 }
 
 #[cfg(test)]
@@ -422,3 +422,24 @@ mod read_tests;
 #[cfg(test)]
 #[path = "stream_legacy_tests.rs"]
 mod legacy_tests;
+
+/// Check the fixed-width prefix before the incompatible payload is decoded.
+fn decode_current_cache(data: &[u8]) -> Option<CpgCache> {
+    let version: u32 = bincode::deserialize(data.get(..4)?).ok()?;
+    if version != super::CACHE_VERSION {
+        eprintln!(
+            "Cache version mismatch (cached: {}, current: {}), rebuilding",
+            version,
+            super::CACHE_VERSION
+        );
+        return None;
+    }
+    #[cfg(test)]
+    PAYLOAD_DECODES.with(|n| n.set(n.get() + 1));
+    bincode::deserialize(data).ok()
+}
+#[cfg(test)]
+thread_local! { pub(super) static PAYLOAD_DECODES: std::cell::Cell<u32> = const { std::cell::Cell::new(0) }; }
+#[cfg(test)]
+#[path = "activation_tests.rs"]
+pub(super) mod activation_tests;

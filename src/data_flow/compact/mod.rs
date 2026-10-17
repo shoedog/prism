@@ -1,10 +1,13 @@
-//! Test-only compact engine; production remains legacy until PR E.
+//! Compact production engine with exact occurrence IDs and ordered legacy ranks.
 use super::*;
 pub(super) mod arena;
 pub(super) use arena::*;
 mod freeze;
+#[cfg(test)]
+pub(super) use freeze::FROM_PARTS_CALLS;
+#[cfg(any(test, feature = "dfg-oracle"))]
 mod queries;
-mod views;
+pub(super) mod views;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(super) struct Adj {
     pub(super) representative: OccId,

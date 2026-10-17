@@ -1,5 +1,5 @@
 {
-  "lane": "DFG compaction oracle, ordered views and test-only compact IDs",
+  "lane": "DFG compact production activation, native codec and ordered semantics",
   "source": "docs/superpowers/plans/2026-10-14-dfg-compaction.md",
   "lib_test_prefixes": [
     "data_flow::tests::",
@@ -7,69 +7,12 @@
     "cpg::dfg_missing_label_tests::"
   ],
   "mutations": {
-    "DFG-A-forward-seed-retained": [
-      "src/data_flow/queries.rs",
-      "        visited.remove(from);\n        visited",
-      "        // mutant: retain query seed\n        visited",
-      [
-        "data_flow::tests::queries::frozen_queries_cover_cycles_spans_absence_and_same_line_propagation"
-      ]
-    ],
     "DFG-A-delta-candidate-edges-removed": [
       "src/algorithms/delta_slice.rs",
       "    let added: BTreeSet<_> = new_edges.difference(&old_edges).collect();",
       "    let added: BTreeSet<_> = new_edges.difference(&old_edges).filter(|_| false).collect();",
       [
         "data_flow::tests::outputs::delta_candidate_edges_contribute"
-      ]
-    ],
-    "DFG-B-edges-reversed": [
-      "src/data_flow/views.rs",
-      "iter: Box::new(self.edges.iter().map(|e| FlowEdgeRef {",
-      "iter: Box::new(self.edges.iter().rev().map(|e| FlowEdgeRef {",
-      [
-        "data_flow::tests::queries::views_include_spans_and_preserve_native_order"
-      ]
-    ],
-    "DFG-B-predecessors-last-equal-first": [
-      "src/data_flow/views.rs",
-      "self.backward.get(at).map(|v| Locations {\n            iter: Box::new(v.iter()),",
-      "self.backward.get(at).map(|v| Locations {\n            iter: Box::new(v.iter().rev()),",
-      [
-        "data_flow::tests::queries::views_preserve_independent_representatives_duplicates_empty_rows_and_absence"
-      ]
-    ],
-    "DFG-B-storage-observation-omits-edge-spans": [
-      "src/cpg_cache/dfg_observation.rs",
-      "g.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>(),",
-      "Vec::<crate::data_flow::FlowEdge>::new(),",
-      [
-        "data_flow::tests::observe::ordered_storage_observation_includes_legacy_equal_byte_spans"
-      ]
-    ],
-    "DFG-B-refresh-keeps-stale-label-representatives": [
-      "src/data_flow/legacy_storage.rs",
-      "self.labels\n            .retain(|(from, to), _| !exclude.contains(&from.file) && !exclude.contains(&to.file));",
-      "self.labels.retain(|_, _| true);",
-      [
-        "data_flow::tests::updates::javascript_exact_labels_survive_partial_edit_retain_delete"
-      ]
-    ],
-    "DFG-B-missing-label-loses-function-identity": [
-      "src/cpg/build.rs",
-      ".record_without_cfg(function, start_line);",
-      ".record_without_cfg(\"__mutant\".into(), start_line);",
-      [
-        "cpg::dfg_missing_label_tests::partial_hit_fallback_unions_persisted_and_new_function_identities",
-        "cpg::dfg_missing_label_tests::repeated_partial_hits_do_not_accumulate_retained_missing_label_stats"
-      ]
-    ],
-    "DFG-B-merge-keeps-exact": [
-      "src/data_flow/legacy_storage.rs",
-      "labels\n            .entry(key)\n            .and_modify(|stored| *stored = stored.worst(label))",
-      "labels\n            .entry(key)\n            .and_modify(|stored| *stored = FlowConfidence::Exact)",
-      [
-        "data_flow::tests::updates::labels_merge_duplicate_keys_with_the_worst_confidence"
       ]
     ],
     "DFG-C-interner-collapses-byte-spans": [
@@ -91,7 +34,7 @@
     "DFG-C-map-key-replaced-by-canonical-representative": [
       "src/data_flow/compact/mod.rs",
       "representative: key,",
-      "representative: a.legacy_reps[a.group(key).0 as usize],",
+      "representative: a.legacy_reps()[a.group(key).0 as usize],",
       [
         "data_flow::tests::representatives::map_representatives_are_independent"
       ]
@@ -114,8 +57,8 @@
     ],
     "DFG-D-dead-locations-retained": [
       "src/data_flow/compact/update.rs",
-      "let mut live = vec![false; p.arena.rows.len()];",
-      "let mut live = vec![true; p.arena.rows.len()];",
+      "let mut live = vec![false; p.arena.rows().len()];",
+      "let mut live = vec![true; p.arena.rows().len()];",
       [
         "data_flow::tests::updates::twenty_refreshes_reclaim_dead_locations_and_leave_clone_unchanged"
       ]
@@ -126,6 +69,62 @@
       "if false && *key != arena.group(row.representative) {",
       [
         "cpg_cache::dfg_codec_tests::compact_codec_rejects_bad_bounds_groups_and_order"
+      ]
+    ],
+    "DFG-E-adjacency-sequence-reversed": [
+      "src/data_flow/compact/views.rs",
+      "iter: Box::new(self.edges.iter().map(|&(f, t)| FlowEdgeRef {",
+      "iter: Box::new(self.edges.iter().rev().map(|&(f, t)| FlowEdgeRef {",
+      [
+        "data_flow::tests::queries::views_include_spans_and_preserve_native_order"
+      ]
+    ],
+    "DFG-E-label-worst-lost": [
+      "src/data_flow/compact/mod.rs",
+      "old.confidence = old.confidence.worst(confidence)",
+      "old.confidence = FlowConfidence::Exact",
+      [
+        "data_flow::tests::representatives::labels_keep_first_pair_and_merge_worst"
+      ]
+    ],
+    "DFG-E-legacy-lookup-requires-exact-span": [
+      "src/data_flow/compact/views.rs",
+      "self.arena.legacy(at)?",
+      "self.arena.legacy(at).filter(|_| self.arena.exact(at).is_some())?",
+      [
+        "data_flow::tests::representatives::imported_rows_preserve_independent_keys_empty_rows_and_non_edge_labels"
+      ]
+    ],
+    "DFG-E-arena-id-validation-skipped": [
+      "src/data_flow/compact/validate.rs",
+      "if w.edges.iter().any(|&(f, t)| !valid(f) || !valid(t)) {",
+      "if false && w.edges.iter().any(|&(f, t)| !valid(f) || !valid(t)) {",
+      [
+        "data_flow::tests::corruption::edge_one_past_end"
+      ]
+    ],
+    "DFG-E-stable-neighbor-tie-sorted-by-byte": [
+      "src/data_flow/compact/queries.rs",
+      "prevs.sort();",
+      "prevs.sort_by_key(|v| v.start_byte);",
+      [
+        "data_flow::tests::representatives::equal_legacy_neighbors_stable_sort_keeps_first_span"
+      ]
+    ],
+    "DFG-E-early-version-rejection-skipped": [
+      "src/cpg_cache/stream.rs",
+      "if version != super::CACHE_VERSION {",
+      "if false && version != super::CACHE_VERSION {",
+      [
+        "cpg_cache::dfg_codec_tests::early_version_rejection_precedes_payload_decode"
+      ]
+    ],
+    "DFG-E-native-decode-expands-legacy": [
+      "src/data_flow/compact/wire.rs",
+      "Self::try_from(wire).map_err(serde::de::Error::custom)",
+      "{\n            let graph = Self::try_from(wire).map_err(serde::de::Error::custom)?;\n            #[cfg(test)]\n            { return Ok(crate::data_flow::test_support::from_legacy(crate::data_flow::test_support::to_legacy(&DataFlowGraph { storage: graph })).storage); }\n            #[cfg(not(test))]\n            Ok(graph)\n        }",
+      [
+        "cpg_cache::dfg_codec_tests::native_production_decode_never_expands_legacy_storage"
       ]
     ]
   }
