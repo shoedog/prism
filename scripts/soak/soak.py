@@ -382,6 +382,8 @@ def main(argv=None):
     probe.add_argument('command', nargs=argparse.REMAINDER)
     probe.set_defaults(handler=cmd_probe)
     args = parser.parse_args(argv)
+    if args.handler is cmd_probe and args.command in ([], ['--']):
+        probe.error('probe needs the COMMAND to start, after --')
     if args.command == 'report':
         if args.phase == 'round' and not args.round_repo:
             parser.error('report --phase round needs --round-repo for each checkout the round ran in')

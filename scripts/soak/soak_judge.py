@@ -240,14 +240,25 @@ def client_log_lines(path, since=None, until=None):
 
 
 def crash_reports(directory, since=None, until=None):
-    """(prism-mcp crash reports in `directory` modified in the window, whether it could be read)."""
+    """(prism-mcp crash reports in `directory` modified in the window, whether it could be read). A
+    report removed between the listing and its reading is skipped (PR #424 review round 1, Opus S5)."""
     try:
         paths = sorted(Path(directory).iterdir()) if directory else None
     except OSError:
         paths = None
     if paths is None:
         return [], False
-    return [p.name for p in paths if CRASH_REPORT.match(p.name) and in_window(p.stat().st_mtime, since, until)], True
+    found = []
+    for path in paths:
+        if not CRASH_REPORT.match(path.name):
+            continue
+        try:
+            modified = path.stat().st_mtime
+        except FileNotFoundError:
+            continue
+        if in_window(modified, since, until):
+            found.append(path.name)
+    return found, True
 
 
 def in_round(holders, round_repos):
