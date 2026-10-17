@@ -1,10 +1,12 @@
 use super::*;
 use crate::{ast::ParsedFile, languages::Language};
 
+mod fold1;
+
 fn rows(src: &str, ext: &str) -> Vec<(FunctionId, AnonMeta)> {
     let file = format!("a.{ext}");
     let parsed = ParsedFile::parse(&file, src, Language::from_path(&file).unwrap()).unwrap();
-    let mut rows: Vec<_> = extract(&parsed).into_iter().collect();
+    let mut rows: Vec<_> = extract(&parsed, &file).into_iter().collect();
     rows.sort_by_key(|(id, m)| (id.start_line, m.col));
     rows
 }

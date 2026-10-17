@@ -5,7 +5,7 @@ use tree_sitter::Node;
 
 /// Reuses the existing inventory and identities, including early-error owners.
 /// No graph or resolution facts are constructed by this syntax-only pass.
-pub(crate) fn extract(parsed: &ParsedFile) -> BTreeMap<FunctionId, AnonMeta> {
+pub(crate) fn extract(parsed: &ParsedFile, file: &str) -> BTreeMap<FunctionId, AnonMeta> {
     let mut out = BTreeMap::new();
     if !matches!(
         parsed.language,
@@ -17,7 +17,7 @@ pub(crate) fn extract(parsed: &ParsedFile) -> BTreeMap<FunctionId, AnonMeta> {
     nodes.sort_by_key(|n| (n.start_byte(), std::cmp::Reverse(n.end_byte())));
     let ids: BTreeMap<_, _> = nodes
         .iter()
-        .filter_map(|n| anon_owner::identity(parsed, n, &parsed.path).map(|id| (n.id(), id)))
+        .filter_map(|n| anon_owner::identity(parsed, n, file).map(|id| (n.id(), id)))
         .collect();
     let mut contexts: BTreeMap<usize, super::label::Context> = BTreeMap::new();
     let mut siblings: BTreeMap<usize, usize> = BTreeMap::new();
@@ -29,12 +29,15 @@ pub(crate) fn extract(parsed: &ParsedFile) -> BTreeMap<FunctionId, AnonMeta> {
             contexts.insert(node.id(), super::label::Context::named(parsed, node, id));
             continue;
         }
+        let mut child = node;
         let mut ancestor = node.parent();
         let mut enclosing = None;
         let mut field = None;
         let mut parent_key = parsed.tree.root_node().id();
         while let Some(n) = ancestor {
-            if is_field(n) {
+            // A computed key executes in the surrounding scope. Only the
+            // initializer value introduces a field scope barrier.
+            if is_field(n) && same_field(n, "value", child) {
                 field = Some(n);
                 parent_key = n.id();
                 break;
@@ -44,8 +47,11 @@ pub(crate) fn extract(parsed: &ParsedFile) -> BTreeMap<FunctionId, AnonMeta> {
                 parent_key = n.id();
                 break;
             }
+            child = n;
             ancestor = n.parent();
         }
+        // Known gap (Opus S4): top-level class static blocks use module
+        // context; dedicated static-block labels are deferred.
         let (scope, display) = field
             .map(|f| {
                 let (class, name) = field_names(parsed, f);
@@ -58,7 +64,7 @@ pub(crate) fn extract(parsed: &ParsedFile) -> BTreeMap<FunctionId, AnonMeta> {
         let mut context = contexts
             .get(&parent_key)
             .cloned()
-            .unwrap_or_else(|| super::label::Context::scope(&parsed.path, &scope, display));
+            .unwrap_or_else(|| super::label::Context::scope(file, &scope, display));
         let ordinal = siblings.entry(parent_key).or_default();
         context.ordinals.push(*ordinal);
         *ordinal += 1;
@@ -174,7 +180,10 @@ fn field_names(parsed: &ParsedFile, field: Node<'_>) -> (String, String) {
     let mut n = field.parent();
     let mut class = "<anonymous>".to_string();
     while let Some(parent) = n {
-        if matches!(parent.kind(), "class" | "class_declaration") {
+        if matches!(
+            parent.kind(),
+            "class" | "class_declaration" | "abstract_class_declaration"
+        ) {
             if let Some(name) = parent.child_by_field_name("name") {
                 class = parsed.node_text(&name).into();
             }
@@ -212,7 +221,10 @@ fn role(
     }
     if matches!(
         parent.kind(),
-        "assignment_pattern" | "required_parameter" | "optional_parameter"
+        "assignment_pattern"
+            | "object_assignment_pattern"
+            | "required_parameter"
+            | "optional_parameter"
     ) && (same_field(parent, "right", value) || same_field(parent, "value", value))
         && in_parameters(parsed, parent)
     {

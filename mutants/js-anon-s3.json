@@ -12,10 +12,20 @@
     "S3A-09-wrapper-peeling": ["src/anonymous/metadata.rs", "if wrapper_value(parent) != Some(node) {", "if true || wrapper_value(parent) != Some(node) {", "anonymous::tests::wrappers_and_value_changing_barriers"],
     "S3A-10-argument-comments": ["src/anonymous/metadata.rs", ".filter(|n| n.kind() != \"comment\")\n        .position(|n| n == value)?;", ".position(|n| n == value)?;", "anonymous::tests::argument_index_and_call_spans"],
     "S3A-11-argument-index": ["src/anonymous/metadata.rs", "            arg_index,", "            arg_index: 0,", "anonymous::tests::argument_index_and_call_spans"],
-    "S3A-12-field-barrier": ["src/anonymous/metadata.rs", "if is_field(n) {", "if false && is_field(n) {", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
+    "S3A-12-field-barrier": ["src/anonymous/metadata.rs", "if is_field(n) && same_field(n, \"value\", child) {", "if false && is_field(n) && same_field(n, \"value\", child) {", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
     "S3A-13-label-precedence": ["src/anonymous/label.rs", "if let Some(passed) = &meta.passed_to {", "if let Some(passed) = &None::<PassedTo> {", "anonymous::tests::class_field"],
     "S3A-14-anchor-ordinals": ["src/anonymous/metadata.rs", "*ordinal += 1;", "*ordinal += 0;", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
     "S3A-15-parameter-scope": ["src/anonymous/metadata.rs", "&& in_parameters(parsed, parent)", "&& true", "anonymous::tests::destructuring_defaults_are_parameters_only_in_parameter_scope"],
-    "S3A-16-parent-chain": ["src/anonymous/metadata.rs", ".get(&parent_key)", ".get(&usize::MAX)", "anonymous::tests::nested_label_and_parent_chain"]
+    "S3A-16-parent-chain": ["src/anonymous/metadata.rs", ".get(&parent_key)", ".get(&usize::MAX)", "anonymous::tests::nested_label_and_parent_chain"],
+    "S3A-17-utf8-column": ["src/anonymous/metadata.rs", "node.start_position().column + 1", "parsed.source[..node.start_byte()].chars().rev().take_while(|c| *c != '\\n').count() + 1", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
+    "S3A-18-async": ["src/anonymous/metadata.rs", "let found = node.children(&mut c).any(|n| n.kind() == \"async\");", "let found = node.children(&mut c).any(|n| n.kind() == \"never_async\");", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
+    "S3A-19-shorthand-default": ["src/anonymous/metadata.rs", "\"object_assignment_pattern\"", "\"never_object_assignment_pattern\"", "anonymous::tests::fold1::shorthand_default"],
+    "S3A-20-computed-key": ["src/anonymous/metadata.rs", "if is_field(n) && same_field(n, \"value\", child) {", "if is_field(n) {", "anonymous::tests::fold1::computed_key_barrier"],
+    "S3A-21-abstract-field": ["src/anonymous/metadata.rs", "\"class\" | \"class_declaration\" | \"abstract_class_declaration\"", "\"class\" | \"class_declaration\"", "anonymous::tests::fold1::abstract_field"],
+    "S3A-22-abstract-method": ["src/anonymous/label.rs", "class.kind() == \"abstract_class_declaration\"", "class.kind() == \"never_abstract_class\"", "anonymous::tests::fold1::abstract_method_label"],
+    "S3A-23-label-whitespace": ["src/anonymous/label.rs", "raw.split_whitespace().collect::<Vec<_>>().join(\" \")", "raw.to_string()", "anonymous::tests::fold1::callee_display_whitespace"],
+    "S3A-24-label-length": ["src/anonymous/label.rs", "if normalized.chars().count() > 48 {", "if false {", "anonymous::tests::fold1::callee_display_bound"],
+    "S3A-25-file-key": ["src/anonymous/metadata.rs", "anon_owner::identity(parsed, n, file)", "anon_owner::identity(parsed, n, &parsed.path)", "anonymous::tests::fold1::builder_file_key"],
+    "S3A-26-scope-file-key": ["src/anonymous/metadata.rs", "Context::scope(file, &scope, display)", "Context::scope(&parsed.path, &scope, display)", "anonymous::tests::fold1::builder_file_key"]
   }
 }

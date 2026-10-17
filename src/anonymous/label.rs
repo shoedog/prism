@@ -15,6 +15,21 @@ impl Context {
         let display = parsed
             .language
             .method_owner(&node)
+            .or_else(|| {
+                // Display-only lookup for abstract classes. Do not broaden
+                // Language::method_owner, which also authorizes resolution.
+                let mut body = node.parent()?;
+                if matches!(body.kind(), "field_definition" | "public_field_definition") {
+                    body = body.parent()?;
+                }
+                if body.kind() != "class_body" {
+                    return None;
+                }
+                let class = body.parent()?;
+                (class.kind() == "abstract_class_declaration")
+                    .then(|| class.child_by_field_name("name"))
+                    .flatten()
+            })
             .map(|owner| format!("{}.{}", parsed.node_text(&owner), id.name))
             .unwrap_or_else(|| id.name.clone());
         Self {
@@ -57,7 +72,7 @@ pub(super) fn segment(meta: &AnonMeta, handoff_display: Option<&str>) -> String 
     }
     if let Some(passed) = &meta.passed_to {
         // Display only: retain the complete source spelling in PassedTo.
-        let short = handoff_display.unwrap_or(&passed.callee_text);
+        let short = display_text(handoff_display.unwrap_or(&passed.callee_text));
         return format!("{short} callback");
     }
     match &meta.bound_as {
@@ -68,5 +83,14 @@ pub(super) fn segment(meta: &AnonMeta, handoff_display: Option<&str>) -> String 
         Some(BoundAs::ObjectKey { key }) => format!("object {key}"),
         Some(BoundAs::ClassField { field, .. }) => format!("field {field}"),
         _ => "anonymous callable".into(),
+    }
+}
+
+fn display_text(raw: &str) -> String {
+    let normalized = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.chars().count() > 48 {
+        format!("{}…", normalized.chars().take(47).collect::<String>())
+    } else {
+        normalized
     }
 }
