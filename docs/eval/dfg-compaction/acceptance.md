@@ -82,7 +82,9 @@ probe JSONL and both saved caches. Successful exit is insufficient. Run, per cor
 python3 scripts/dfg_compaction/read_acceptance.py \
   "$DFG_EVIDENCE/set-1/base-$CORPUS" "$DFG_EVIDENCE/set-1/candidate-$CORPUS" \
   "$DFG_EVIDENCE/set-1/base-$CORPUS.jsonl" "$DFG_EVIDENCE/set-1/candidate-$CORPUS.jsonl" \
-  "$CORPUS" "$MINIMUM_BYTES" > "$DFG_EVIDENCE/set-1/$CORPUS-verdict.json"
+  "$CORPUS" "$MINIMUM_BYTES" \
+  --expect-receipts "$DFG_EVIDENCE/binary-receipts.json" \
+  > "$DFG_EVIDENCE/set-1/$CORPUS-verdict.json"
 cat "$DFG_EVIDENCE/set-1/$CORPUS-verdict.json"
 ```
 
@@ -91,6 +93,80 @@ summarizer on all four JSONLs; retain every raw file and checksum, not just verd
 The reader treats diagnostic census as a different namespace; diagnostic records
 cannot repair acceptance failures. The reader ignores only `PRISM_PROBE_OUT` when
 comparing cross-build environments, because each process writes its own evidence.
+
+Admission precedes metric comparison. `--expect-receipts` consumes the controller's
+existing `binary-receipts.json` (the `base.probe` and `candidate.probe` entries);
+without the flag it defaults to `BASE_DIR/../../binary-receipts.json`, preserving
+the unchanged `night-run.sh` positional invocation. Every prime and warm report
+must carry nonempty build/version fields matching those receipts: source SHA
+(including the recorded dirty suffix), build identity, grammar, allocator, dirty
+mode and CPG version **120 base / 121 candidate**. Receipts also require matched
+release/MCP profile, compiler, Cargo, allocator and dirty mode, no `dfg-oracle`,
+and navigation sidecar version **66**. The reader hashes the retained
+`bin/{base,candidate}/prism-mcp` bytes against their expected SHA256s and binds
+the raw commands and `run.json` to those exact binaries. It reads the adjacent
+`preflight-result.json` to bind package version and the complete reported build
+identity to the controller's tiny preflight. Receipts and their checksum custody
+remain controller evidence, not authentication supplied by the reader.
+
+Corpus commits and clean dirty counts (`0`, never null), absolute paths, positive
+workload request counts and nonempty SHA256s must be present and agree across
+sides. Each report's `config.repo_root` and each process's probe metadata must
+name that corpus. The retained workload bytes and request counts are checked
+against `corpus.json`, the before inventory's workload hashes and its parsed
+MANIFEST entry; the inventory must also carry the MANIFEST file hash. Every
+available after inventory must equal the before inventory. Settings, including
+future config fields and driver options, must match. Only the bound per-side
+cache paths and `PRISM_PROBE_OUT` paths differ; each prime uses the driver's
+intentional `settle=0`, and the two warms use the recorded settle setting.
+
+Each process must have the relevant probe stages listed in
+`scripts/dfg_compaction/evidence.py` (`PRIME_TIMERS` / `WARM_TIMERS`). Every
+timer, including additional language-specific stages, needs a nonempty name and
+finite, nonnegative `wall_ms`; `cpu_ms` must also be finite and nonnegative on
+the supported macOS/Linux MCP hosts. An explicit null CPU counter is allowed
+only on unsupported platforms. Missing or malformed timers make admission INVALID.
+
+The driver retains no successful-prime stderr file. The verdict explicitly says
+`stderr absent` in that case; it never claims that stderr was scanned. Cache-save
+admission uses the prime's status and two miss flags, both unique nonempty cache
+files in the post-prime inventory, the matching post-run inventory, and the raw
+report fields and sibling `<side>-<corpus>.log`. Any retained save-error marker
+in those fields, the run log or an available raw `*.stderr` makes the set INVALID.
+Missing/empty run logs, missing caches or changed cache sizes are INVALID too.
+This cannot recover warning text that the original driver discarded; it relies
+on the retained positive cache evidence and subsequent true hits.
+
+### Re-score tonight's set-1 without rerunning corpora
+
+Use the updated checkout's reader, leaving the runner's copied tools and original
+verdicts/checksums intact. `--rescore` reads the same raw layout and additionally
+requires the final `after-inventory.json`; it performs no writes or measurements.
+Write new verdicts outside the original evidence directory:
+
+```sh
+DFG_EVIDENCE="$HOME/prism-evidence/mcp-memory/dfg-compaction-2026-10-14"
+RESCORE_OUT=$(mktemp -d "$HOME/prism-evidence/mcp-memory/dfg-rescore.XXXXXX")
+for CORPUS in prometheus slicing; do
+  case "$CORPUS" in
+    prometheus) MINIMUM_BYTES=314572800 ;;
+    slicing) MINIMUM_BYTES=78643200 ;;
+  esac
+  python3 scripts/dfg_compaction/read_acceptance.py \
+    "$DFG_EVIDENCE/set-1/base-$CORPUS" "$DFG_EVIDENCE/set-1/candidate-$CORPUS" \
+    "$DFG_EVIDENCE/set-1/base-$CORPUS.jsonl" "$DFG_EVIDENCE/set-1/candidate-$CORPUS.jsonl" \
+    "$CORPUS" "$MINIMUM_BYTES" --rescore \
+    --expect-receipts "$DFG_EVIDENCE/binary-receipts.json" \
+    > "$RESCORE_OUT/$CORPUS-verdict.json"
+  cat "$RESCORE_OUT/$CORPUS-verdict.json"
+done
+```
+
+INVALID means the retained set did not establish admission; missing provenance
+must not be filled in from assumptions or repaired by a diagnostic run. Preserve
+new verdicts with the reader's source revision and receipt hashes. The reader's
+exit code is 1 for INVALID; an admitted numerical FAIL remains in the JSON verdict
+and does not by itself produce a nonzero exit code.
 
 ## Pass rule and additional controls
 
@@ -142,3 +218,8 @@ receipt hashes and quiet-host evidence, then commits
 `docs: record matched DFG compaction acceptance` with both plan trailers.
 Only Task 7 PASS and PR E merge authorize Task 8 oracle retirement. Full catalog
 mutation and excluded socket gates remain controller pre-merge checks.
+
+PR F handoff: `DFG-E-stable-neighbor-tie-sorted-by-byte` currently exercises
+the temporary compact query engine (`compact/queries.rs`), not production
+traversal. PR F retargets this mutant and its span-tie regression to production
+`DataFlowGraph` traversal before retiring the temporary engine.

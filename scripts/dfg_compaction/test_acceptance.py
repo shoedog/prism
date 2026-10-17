@@ -14,7 +14,7 @@ from memreport_fixtures import canned, stage_named
 
 def raw(hit=True):
     r = canned("warm")
-    r["build"].update(package_version="3.2", git_sha="base", grammar_fingerprint="grammar", allocator="system")
+    r["build"].update(package_version="3.2", git_sha="base", grammar_fingerprint="grammar", allocator="system", cpg_cache_version=120)
     r["env"] = {"PRISM_PROBE_NO_CENSUS": "1"}
     r["cache"] = dict.fromkeys(("cpg_hit", "call_edges_loaded"), hit)
     stage_named(r, "after_index")["elapsed_ms"] = 2000
@@ -24,7 +24,7 @@ def raw(hit=True):
 def side(identity="base", ms=2000, peak=2000):
     r = raw()["report"]
     r["build"]["build_identity"] = identity
-    return {"corpus": {"commit": "commit", "path": "/corpus", "dirty": False, "workload": {"sha256": "a", "requests": 1}},
+    return {"corpus": {"commit": "c" * 40, "path": "/corpus", "dirty": 0, "workload": {"sha256": "a" * 64, "requests": 1}},
             "report": r, "readings": [{"heap": 1000, "load_ms": ms, "peak": peak}] * 3}
 
 
@@ -79,17 +79,26 @@ class AcceptanceTests(unittest.TestCase):
     def test_reader_requires_prime_and_probe_population(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d); rd = p / "raw/tiny"; rd.mkdir(parents=True)
-            (rd / "corpus.json").write_text(json.dumps({"path":"/tiny", "cache_files":{"cpg_cache_bytes":5,"call_edge_sidecar_bytes":5}}))
+            (rd / "corpus.json").write_text(json.dumps({"path":"/tiny", "commit":"c"*40, "dirty":0,
+                "workload":{"sha256":"a"*64,"requests":1},
+                "cache_files":{"cpg_cache_bytes":5,"call_edge_sidecar_bytes":5}}))
             cache = p / "cache/tiny"; cache.mkdir(parents=True)
             nested = cache/"prism/nav/repo"; nested.mkdir(parents=True)
             for f in ("cpg-cache-v2.bin", "resolved-call-edge-index.bin"): (nested/f).write_bytes(b"saved")
             records = []
+            probe = p/"probe.jsonl"
+            p.with_suffix('.log').write_text('run complete')
+            self.addCleanup(lambda: p.with_suffix('.log').unlink(missing_ok=True))
             for pid, name, hit in [(1,"prime",False), (2,"warm-1",True), (3,"warm-2",True)]:
                 entry = raw(hit); entry["kind"] = "warm" if hit else "prime"
                 if hit: entry["rep"] = pid-1
+                entry['report']['config'] = {'repo_root':'/tiny', 'cache':'dir:'+str(cache.resolve()),
+                    'refresh_policy':'warn-only', 'workload':None, 'refresh':False, 'settle_secs':0}
+                entry['report']['env']['PRISM_PROBE_OUT'] = str(probe.resolve())
                 (rd/f"{name}.json").write_text(json.dumps(entry))
-                records.extend([{"pid":pid,"kind":"meta","cpg_hit":hit,"repo":"/tiny"}, {"pid":pid,"kind":"stage"}])
-            probe = p/"probe.jsonl"
+                records.append({"pid":pid,"kind":"meta","cpg_hit":hit,"repo":"/tiny"})
+                records.extend({'pid':pid,'kind':'stage','name':s,'wall_ms':1,'cpu_ms':1}
+                    for s in (reader.evidence.WARM_TIMERS if hit else reader.evidence.PRIME_TIMERS))
             def write(): probe.write_text("\n".join(map(json.dumps, records)))
             write(); reader.read_side(p,probe,"tiny")
             (cache/"cpg-cache-v2.bin").write_bytes(b"duplicate")
