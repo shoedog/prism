@@ -1,84 +1,90 @@
-# Handoff — DFG compaction PR D Task 5
+# Handoff — DFG compaction PR E activation and controller measurement preparation
 
-**Written:** 2026-10-16T17:12:15.175743+00:00 · **By:** Codex · **Provider:** codex
-**Workspace:** /private/tmp/claude-501/-Users-wesleyjinks-code-slicing/fd583811-fdc5-4426-9c4a-55872d2ecc1c/scratchpad/impl-dfgD · perf/dfg-codec · **Measured state:** `[MEASURED]` HEAD cf22c8e8517f9eec68751e2ea7739d4c6dead2f6 · Tree DIRTY · Probe git status/rev-parse and gate logs · Output ../dfgD-scratch/
-**Predecessor:** `[INHERITED]` PR C #415 merged; prior operational handoff preserved as ../dfgD-scratch/before-handoff.md.
+**Written:** 2026-10-16T23:46:52.041536+00:00 · **By:** Codex · **Provider:** codex
+**Workspace:** /private/tmp/claude-501/-Users-wesleyjinks-code-slicing/fd583811-fdc5-4426-9c4a-55872d2ecc1c/scratchpad/impl-dfgE · perf/dfg-activate · **Measured state:** `[MEASURED]` HEAD e5a45634d34b9a543986a0b59e107634df486485 · Tree DIRTY · Probe git status/rev-parse and final gate receipts · Output /private/tmp/claude-501/-Users-wesleyjinks-code-slicing/fd583811-fdc5-4426-9c4a-55872d2ecc1c/scratchpad/dfgE-scratch
+**Predecessor:** `[INHERITED]` PR D handoff preserved as ../dfgE-scratch/before-handoff.md; user dispatch authorizes Tasks 6/7 preparation only.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. Conflicts stay OPEN.
-**Provenance:** written live by worker. `[MEASURED]` means captured this run; `[INHERITED]` means controller dispatch/prior receipts; `[ASSUMPTION]` and `[UNKNOWN]` are explicitly marked when applicable.
+**Provenance:** written live by worker; `[MEASURED]` claims were probed here; `[INHERITED]` names supplied authority. No memory update requested or performed.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[INHERITED]` controller owns commits/publication; worker implements Task 5 — RESOLVED by dispatch.
-**(b) Custody exposure** — `[MEASURED]` dirty tracked and new files preserved in source-final.tar.gz, task5.patch, source-paths.json and custody-final.sha256 — RESOLVED for worker checkpoint; OPEN for controller durable custody/commit.
-**(c) In flight / irreversible** — `[MEASURED]` all worker gates completed; no Cargo process or Git index/ref write in flight — RESOLVED by final receipts.
-**(d) Authorization granted but not exercised** — “The controller commits your work ... leave changes in the working tree”; no worker commit/push/merge authority.
+**(a) Lane ownership** — `[INHERITED]` worker owns implementation/preparation, controller owns review/commits/measurement — RESOLVED by user dispatch; no other worker was dispatched here.
+**(b) Custody exposure** — `[MEASURED]` source/evidence snapshots and SHA256 manifest preserve work in scratch; controller durable-copy/commit still OPEN before ephemeral cleanup. Never delete the working tree or scratch before preserving those artifacts.
+**(c) In flight / irreversible** — `[MEASURED]` all worker tool sessions completed; no worker Cargo/probe/measurement process remains — RESOLVED by returned process statuses and worker-gates-complete.json.
+**(d) Authorization granted but not exercised** — “The controller commits your work ... leave changes in the working tree”; “You do not run the corpus measurement.” No worker source Git writes, push, merge or real-corpus memory measurement.
 
 ## 1. Resume order
 
-1. Read root VERIFICATION.md, ../dfgD-scratch/SUMMARY.md, new-test-red-map.json and custody-final.sha256; preserve the two final archives and patch outside ephemeral scratch before cleanup.
-2. Review source-paths.json / task5.patch. Run the 67 exact socket exclusions on a capable host, refresh staged scoped selection and the all-lanes authoritative pre-merge gate (496 catalog entries). Literal main ref was absent here; exact-parent scoped selection was zero, not coverage.
-3. Controller reviews exact Task 5 paths and commits `test: stage validated compact DFG cache codec` with both plan trailers. No re-pin commit: both manifests reproduce unchanged on main cf22c8e8.
+1. Read root VERIFICATION.md and ../dfgE-scratch/SUMMARY.md / VERIFICATION.md; verify custody-final.sha256, copy archives/binaries/raw receipts to durable controller evidence before cleanup.
+2. Inspect commit-paths.json / commit-boundaries.md and task6-working.patch. Commit three provenance files as `re-pin on main e5a45634`, then the single atomic activation as `perf: activate compact DFG storage and cache v121`, both plan trailers. Task 7 preparation is a separate documentation/tool boundary.
+3. Bind that exact reviewed Task 6 SHA and its exact first parent; rebuild/re-receipt the preserved isolated probe ports on those SHAs, or commit clean probe ports as the plan prefers. Repeat tiny preflight after rebuild/mode change. Never measure a later receipt commit or the lane-start baseline in place of that pair.
+4. Refresh scoped main gate in a host checkout with main ref, reserve full 505-mutant gate budget and run all 108 exact socket exclusions on the host. Use docs/eval/dfg-compaction/acceptance.md for quiet-host measurements, fixed order, thresholds and retry cap.
 
-**STOP conditions:** output/hash drift, unexplained base failure, missing custody; two-round review cap. No runtime activation/version bump, old-cache importer or real-corpus measurement in PR D.
+**STOP conditions:** unexpected output/provenance drift; missing custody or source binding; failed preflight; busy measurement host; any admissible heap/load/peak FAIL; two-round PR review cap. No oracle retirement before Task 7 PASS and E merge.
 
 ## 2. State ledger
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| Clean-main re-pin | done | `[MEASURED]` 132 payload + 132 index hashes unchanged; repin-result.json and logs/capture-main.log |
-| Native codec | done | `[MEASURED]` borrowed/owned field order, ordered map sequences, persisted rank arrays, linear rank/reference guards; source-checkpoint.tar.gz |
-| Focused tests | done | `[MEASURED]` 78 DFG + 3 cache-codec pass; scaffold compile RED is only API evidence |
-| Behavioral REDs | done | `[MEASURED]` catalog 15/15, supplementary 15/15 after targeted round 2 (2/2); 50/50 new tests in new-test-red-map.json; initial arena-order survivor resolved by test-input correction, no implementation edit |
-| Full suites | done | `[MEASURED]` final default 5571/0/1 ignored, no filtered; final MCP 6122/0/1 ignored, 67 filtered; logs/full-*-totals.json; rerun after test strengthening |
-| Oracle / branch pins | done | `[MEASURED]` 166/0/1 ignored including pins; branch capture 132+132 equals clean main; branch-pin-control.json |
-| Release / Tier-A | done | `[MEASURED]` fresh release; 178 matrix OK; quick 3 VALID/0 INVALID/0 regressions; one target-c-method flip candidate and two missing pinned outcomes retained in tier-a-verdicts.json and SUMMARY.md |
-| Verification report | done | `[MEASURED]` root VERIFICATION.md records exact commands, totals, behavior/RED map and all 67 environment-limited exclusions; documentation-only addition after final suites |
-| Format / feature compile | done | `[MEASURED]` final fmt clean; mcp,dfg-oracle all-target compile 36 executables |
-| Scoped gate | pending | `[MEASURED]` literal main missing; exact-parent selected 0/496, not coverage; controller refresh after staging; lane text 15/15 and supplementary final 15/15 are the executed mutation evidence |
-| Listener control | done | `[MEASURED]` clean base Unix bind denied; 67 exact exclusions in mcp-exclusions.txt |
-| PR C accounting checkpoint | done | `[INHERITED]` prior receipt copied to pr-c-accounting/ before codec work; no new heap claim |
+| Re-pin | done | `[MEASURED]` 132+132 unchanged on clean main and branch; repin-result.json, branch-pin-control.json |
+| Task 6 production | done | `[MEASURED]` per-worker compact construction, private arena, stack row views, native codec/version121, prefix rejection; no legacy_storage.rs |
+| Full suites | done | `[MEASURED]` default 5607/0/1 ignored; MCP 6190/0/1 ignored/108 filtered; exact exclusions and same-base bind control in VERIFICATION.md |
+| Focused / oracle | done | `[MEASURED]` DFG93, cache75, downstream440; oracle166/0/1 ignored incl pins; all-target feature compile36 executables |
+| RED / mutation | done | `[MEASURED]` pre-change codec RED; registered15/15 + one-off7/7 isolated text kills; Python8 tests +10 assertions +10 mutant kills; new-test-red-map.json |
+| Executable replay | done | `[MEASURED]` 21 generators/168 observations + same-binary repeats, exact provenance replacements only; fixture edge bytes identical; MCP5x25 responses identical |
+| Tier-A | done | `[MEASURED]` fresh release, 178 matrix, 3 VALID quick, 0 regressions; target-c-method flip and two missing pinned outcomes retained, no rebaseline |
+| Task 7 binary prep | done | `[MEASURED]` both probe pairs, 18-path instrumentation audit, source archives/receipts; matched dirty override, no dfg-oracle |
+| Tiny preflight / census | done | `[MEASURED]` both primes miss + two warm CPG/sidecar/meta hits each, census absent; separate tiny physical census valid; preflight-complete.json |
+| Controller acceptance | pending | `[INHERITED]` real Prometheus/slicing measurements explicitly controller-only; readout status NOT MEASURED |
+| Scoped / full catalog | pending | `[MEASURED]` main ref missing; literal scoped command inadmissible. Full plan505/no missing anchors; execution not run, forecast53.2min exceeds30min planning cap |
+| Durable commit/copy | pending | `[INHERITED]` controller owns commits/publication and custody outside ephemeral scratch |
 
 ## 3. Corrections to standing documents and memory
 
 | Location | Stale or false assertion | Correction |
 |---|---|---|
-| Previous handoff | PR C workspace/status | Superseded here; original retained in before-handoff.md |
-| Plan historical cache v117/118 | Current main version | `[MEASURED]` current version 120, unchanged in PR D; PR E must choose current main + 1 |
-| “No dead rows” shorthand | Strict liveness immediately after combine | `[MEASURED]` label collisions can leave unreferenced endpoint rows until the next update; codec accepts them, preserves IDs/bytes; colliding_label_merge_allows_unreferenced_rows_until_update asserts both transient rows and later reclamation |
-| Prior Tier-A shorthand | Previous handoff said no flips | `[MEASURED]` raw pinned results include target-c-method flip; current run preserves it and makes no exact-parent attribution; older raw reports remain historical evidence |
-| Memory | None | No update requested or performed |
+| Prior handoff | PR D codec-only live state | Superseded here; original retained in before-handoff.md |
+| Plan cache/sidecar reservations | Historical118 / sidecar65 | `[MEASURED]` activation120->121; actual main sidecar66 remains66; new receipt/docs reflect it |
+| Three other mutation lanes | Current/previous120/119 anchors | `[MEASURED]` rebound121/120; same-environment base plan valid; final505 plan has no missing anchor |
+| Acceptance reader | Flat cache path / module import printed before JSON | `[MEASURED]` fail-first fixes; nested unique inventory via memreport helper, one-JSON CLI; retained old RED artifacts |
+| Memory | None | No update requested; no memory write |
 
 ## 4. Open work
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Staged scoped gate | pending | Refresh --since main --scope fn after staging/committing | Missing local main ref / untracked codec files | ../dfgD-scratch/logs/mutgate-scoped-*.log |
-| 2 | Durable custody/commit | pending | Preserve scratch artifacts, review exact paths, commit Task 5 | Controller Git authority | perf/dfg-codec |
-| 3 | Socket tests/global mutation gate | pending | Run exact exclusions on capable host; full authoritative all-lanes gate before merge | Sandbox bind restriction / controller merge gate | mcp-exclusions.txt |
-| 4 | PR E arena privacy | parked | Make arena fields private with read-only accessors at activation | F3 is explicitly later scope | Task 6 |
+| 1 | Durable custody and commits | pending | Preserve archives, stage exact reviewed groups, commit with both trailers | Controller Git/custody authority | commit-paths.json, custody-final.sha256 |
+| 2 | Source SHA binding / probe rebuild | pending | Bind atomic activation SHA + parent, rebuild ports, refresh receipts and tiny preflight | Activation commit/review | probe-binary-receipts.json, probe-*-source.tar.gz |
+| 3 | Host / global gates | pending | Run108 listener exclusions, scoped main gate and full505 authoritative gate jobs1 | Host facilities/main ref/budget | mcp-exclusions.txt, mutation-forecast.json |
+| 4 | Corpus acceptance | pending | Quiet host set1 fixed order; >=300/75 MiB, no cold-prime peak increase, D10 load; query timing/census separate | Controller scheduling/source binding | docs/eval/dfg-compaction/acceptance.md |
+| 5 | Task8 retirement | parked | Only after Task7 PASS + E merge, separate reviewed PR F | Acceptance prerequisite | plan Task8 |
 
 ## 5. Invariants and traps — do not do these
 
-- Compact code is cfg(test)/dfg-oracle only; production legacy layout/version 120 stays unchanged.
-- RD decoded counts must match private identity sets (F1); no builder creates mismatches. Reject rather than change combine semantics.
-- Unreferenced arena rows are permitted (F2); reference integrity and rank identity/order are mandatory. The next update reclaims losing label-only endpoints.
-- Each adjacency/label representative and neighbor sequence is primary data; decode never rebuilds or sorts those maps.
-- Nice is denied: owner-authorized env fallback, jobs 4, offline; no installs/network/Git writes.
-- RED compile failures, panics instead of returned errors, zero-selected tests and environment refusal do not prove validation behavior.
-- Registered mutation budget remains 15: new codec group guard replaces redundant projector-label omission; projector-edge omission and the ordinary label regression remain.
+- Keep 132+132 field-wise legacy pins; native cache bytes intentionally differ only at version121.
+- Oracle remains test/feature-only; default/MCP runtime has one compact owner. Producer and query bodies have byte controls.
+- Nice denied once: owner-authorized env jobs4 fallback; one worker Cargo at a time, offline, logs read separately.
+- Version prefix must reject incompatible payloads before either reader decodes; don't reintroduce legacy decode/conversion.
+- Probe acceptance needs NO_CENSUS=1 and matched clean/dirty mode; prepared ports need LOAD_DIRTY=1 on both.
+- Cache files are nested under prism/nav/hash; use the unique inventory helper, not flat-path assumptions.
+- Numeric/kernel module imports must not print into JSON artifacts; standalone kernel still prints its ten-assertion completion.
+- No corpus measurements, no relaxed thresholds, no acceptance from tiny samples/accounted bytes, no rerun to erase FAIL.
+- Scoped missing-main and zero selection are not mutation coverage; full lane receipts do not replace full505 pre-merge gate.
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
-| HEAD | cf22c8e8517f9eec68751e2ea7739d4c6dead2f6 |
-| Branch | perf/dfg-codec |
-| Scratch | /private/tmp/claude-501/-Users-wesleyjinks-code-slicing/fd583811-fdc5-4426-9c4a-55872d2ecc1c/scratchpad/dfgD-scratch |
-| Commit | test: stage validated compact DFG cache codec |
+| Base | e5a45634d34b9a543986a0b59e107634df486485 |
+| Scratch | /private/tmp/claude-501/-Users-wesleyjinks-code-slicing/fd583811-fdc5-4426-9c4a-55872d2ecc1c/scratchpad/dfgE-scratch |
+| Probe reference | c3162f9419f371fa4333ef0f038b48845691e310 |
+| Cache versions | CPG120->121; sidecar66 unchanged |
+| Controller evidence | ~/prism-evidence/mcp-memory/dfg-compaction-2026-10-14 |
+| Commit titles | re-pin on main e5a45634; perf: activate compact DFG storage and cache v121; separate Task7 prep/actual acceptance receipt |
 | Trailers | Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>; Claude-Session: https://claude.ai/code/session_01JhYB2xRuHRHxDFM7eDt8Fh |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: "Native compact decode preserves ordered observations and rejects malformed references before indexing" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: ../dfgD-scratch/new-test-red-map.json, mutation-verdicts.json, gate-results.json, logs/full-*-totals.json, tier-a-verdicts.json
+**§2c verdict:** SURVIVED · claim: "Atomic compact production activation preserves fixture/query/output behavior and native validation" · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: TEST-BACKED · record: ../dfgE-scratch/VERIFICATION.md, mutation-verdicts.json, replay-audit.json, gate-results.json. Real-corpus acceptance remains untested/controller-only.
 
-**Questions the owner owes an answer to:** None. Controller commits and host/global gates remain explicit actions; no zero-flips or merge-ready claim.
+**Questions the owner owes an answer to:** None for worker preparation. Controller source binding, host/global gates and measurements are explicit pending actions; no merge-ready claim.
