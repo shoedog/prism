@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -207,6 +207,24 @@ class UnmeasuredStandalone(unittest.TestCase):
         self.assertEqual(self.rule([sample(1, []), sample(2, [inside])]), 'UNKNOWN')
         unknown = dict(proc('standalone', 8, status='failed', repo=None), repo_arg='checkout')
         self.assertEqual(self.rule([sample(1, []), sample(2, [unknown])]), 'UNKNOWN')
+
+
+class Robustness(unittest.TestCase):
+    """Opus S5: `probe` without a command, and a crash report gone between listing and reading."""
+
+    def test_probe_without_a_command_prints_its_usage_and_exits_2(self):
+        for argv in (['probe'], ['probe', '--']):
+            err = io.StringIO()
+            with redirect_stdout(io.StringIO()), redirect_stderr(err), self.assertRaises(SystemExit) as stop:
+                soak.main(argv)
+            self.assertEqual(stop.exception.code, 2, argv)
+            self.assertIn('usage:', err.getvalue())
+
+    def test_a_crash_report_that_vanished_after_the_listing_is_skipped(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / 'prism-mcp-2026-10-16-101010.ips').write_text('x')
+            os.symlink(os.path.join(directory, 'gone'), os.path.join(directory, 'prism-mcp-2026-10-16-101011.ips'))
+            self.assertEqual(soak.crash_reports(directory), (['prism-mcp-2026-10-16-101010.ips'], True))
 
 
 if __name__ == '__main__':
