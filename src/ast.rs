@@ -8,6 +8,7 @@ use tree_sitter::{Node, Parser, Tree};
 mod call_membership_tests;
 
 mod call_membership;
+pub(crate) mod call_names;
 
 mod js_binding;
 mod js_binding_alias;
@@ -10541,63 +10542,6 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_calls_manual_for_owner(owner, child, lines, out);
-        }
-    }
-
-    /// Collect all function call names on specific lines (1-indexed).
-    /// Returns a map from line number to list of called function names found on that line.
-    /// Only matches actual AST call nodes — ignores calls inside comments or string literals.
-    pub fn call_names_on_lines(&self, lines: &[usize]) -> BTreeMap<usize, Vec<String>> {
-        use crate::queries::{get_query, QueryKind};
-        use tree_sitter::StreamingIterator;
-
-        let line_set: BTreeSet<usize> = lines.iter().copied().collect();
-
-        if let Some(query) = get_query(self.language, QueryKind::Calls) {
-            let call_idx = query
-                .capture_index_for_name("call")
-                .expect("Calls query must have @call capture");
-            let mut cursor = tree_sitter::QueryCursor::new();
-            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
-            let mut result: BTreeMap<usize, Vec<String>> = BTreeMap::new();
-            while let Some(m) = matches.next() {
-                for capture in m.captures {
-                    if capture.index == call_idx {
-                        let line = capture.node.start_position().row + 1;
-                        if line_set.contains(&line) {
-                            if let Some(name_node) = self.language.call_function_name(&capture.node)
-                            {
-                                let name = self.node_text(&name_node).to_string();
-                                result.entry(line).or_default().push(name);
-                            }
-                        }
-                    }
-                }
-            }
-            return result;
-        }
-
-        let mut result: BTreeMap<usize, Vec<String>> = BTreeMap::new();
-        self.collect_call_names_at_lines_manual(self.tree.root_node(), &line_set, &mut result);
-        result
-    }
-
-    fn collect_call_names_at_lines_manual(
-        &self,
-        node: Node<'_>,
-        lines: &BTreeSet<usize>,
-        out: &mut BTreeMap<usize, Vec<String>>,
-    ) {
-        let line = node.start_position().row + 1;
-        if self.language.is_call_node(node.kind()) && lines.contains(&line) {
-            if let Some(name_node) = self.language.call_function_name(&node) {
-                let name = self.node_text(&name_node).to_string();
-                out.entry(line).or_default().push(name);
-            }
-        }
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.collect_call_names_at_lines_manual(child, lines, out);
         }
     }
 
