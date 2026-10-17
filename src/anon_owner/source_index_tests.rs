@@ -11,7 +11,9 @@ fn anonymous(parsed: &ParsedFile) -> Vec<(FunctionId, (usize, usize))> {
         .into_iter()
         .filter_map(|n| {
             let id = identity(parsed, &n, "alias.ts")?;
-            is_anonymous_owner_name(&id.name).then_some((id, (n.start_byte(), n.end_byte())))
+            (is_anonymous_owner_name(&id.name)
+                && !crate::anon_owner::is_module_owner_name(&id.name))
+            .then_some((id, (n.start_byte(), n.end_byte())))
         })
         .collect()
 }

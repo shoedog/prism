@@ -31,10 +31,13 @@ pub(super) fn two_file_graph(a: (&str, &str), b: (&str, &str)) -> CallGraph {
     CallGraph::build(&files)
 }
 
-/// Every call site in the graph, as `L<line> <callee>: <outcome>`.
+/// Pre-module-owner call sites, keeping the historical S1b outcome receipts unchanged.
 pub(super) fn sites(cg: &CallGraph) -> Vec<String> {
     let mut out = Vec::new();
     for site in cg.calls.values().flatten() {
+        if prism::anon_owner::is_module_owner_name(&site.caller.name) {
+            continue;
+        }
         let outcome = cg.resolve_call_site_full(site);
         let shown = match outcome.drop {
             Some(reason) => format!("drop {reason:?}"),

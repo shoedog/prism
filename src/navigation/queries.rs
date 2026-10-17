@@ -2146,30 +2146,22 @@ pub fn callers_with_confidence(
                 }
                 let caller = &edge.caller;
                 let (start_byte, end_byte) = function_bytes(s, caller);
+                let (symbol, location) =
+                    super::module_owner::caller_evidence(caller, edge, (start_byte, end_byte));
                 // One item PER CALL SITE (m7 symmetry with callees); `visited` only gates BFS recursion.
                 items.push(SortableEvidenceItem {
                     item: EvidenceItem {
-                        symbol: Some(SymbolRef::Function {
-                            file: caller.file.clone(),
-                            name: caller.name.clone(),
-                            start_line: caller.start_line,
-                            end_line: caller.end_line,
-                            start_byte,
-                            end_byte,
-                            ordinal: 0,
-                        }),
-                        location: Location {
-                            file: caller.file.clone(),
-                            start_line: caller.start_line,
-                            end_line: caller.end_line,
-                            start_byte,
-                            end_byte,
-                        },
+                        symbol: Some(symbol),
+                        location,
                         score: confidence_score(edge.confidence) / (1.0 + hop as f32),
                         source: Source::PrismCpg,
                         fallback: false,
                         why: vec![Reason::CalledBy {
-                            caller: caller.name.clone(),
+                            caller: if crate::anon_owner::is_module_owner_name(&caller.name) {
+                                "module-level".into()
+                            } else {
+                                caller.name.clone()
+                            },
                             call_site_line: edge.call_site_line,
                         }]
                         .into_iter()
@@ -2395,15 +2387,14 @@ fn node_symbol_loc(s: &NavigationSession, ni: NodeIndex) -> (SymbolRef, Location
             start_byte,
             end_byte,
         } => (
-            SymbolRef::Function {
-                file: file.clone(),
-                name: name.clone(),
-                start_line: *start_line,
-                end_line: *end_line,
-                start_byte: *start_byte,
-                end_byte: *end_byte,
-                ordinal: 0,
-            },
+            super::module_owner::function_symbol(
+                file,
+                name,
+                *start_line,
+                *end_line,
+                *start_byte,
+                *end_byte,
+            ),
             Location {
                 file: file.clone(),
                 start_line: *start_line,

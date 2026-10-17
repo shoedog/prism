@@ -22,6 +22,14 @@ retain their earlier inventory behavior; generator declarations keep their exist
 owners. The new anonymous generator inventory does not change default enclosing
 seeds.
 
+Ordinary module-level calls (#437), including initializers, export assignments
+and top-level control flow, use the file-bound `<anon@module>` identity. The same
+named byte claims, innermost callable ownership and A2 Exact barrier apply.
+Navigation presents module execution as a `module-level` statement; function
+seeds and default visibility still hide it. Class fields, static blocks and
+computed keys await an evaluation-region policy. Constructors, `.mts`/`.cts`
+admission and the source file-size cap remain unchanged.
+
 Anonymous Exacts require source-backed binding and environment proof. Unsupported
 receiver/class, CommonJS, import-equals and script-global authority routes lose
 Exact; the named-owner resolution behavior described below is unchanged. Arrow `this`
