@@ -42,7 +42,9 @@ pub(crate) fn extract(parsed: &ParsedFile, file: &str) -> BTreeMap<FunctionId, A
                 parent_key = n.id();
                 break;
             }
-            if let Some(parent_id) = ids.get(&n.id()) {
+            // Callable names are evaluated outside that callable, just like
+            // field keys. Bodies and parameter defaults still select it.
+            if let Some(parent_id) = ids.get(&n.id()).filter(|_| !same_field(n, "name", child)) {
                 enclosing = Some(parent_id.clone());
                 parent_key = n.id();
                 break;
@@ -57,7 +59,11 @@ pub(crate) fn extract(parsed: &ParsedFile, file: &str) -> BTreeMap<FunctionId, A
                 let (class, name) = field_names(parsed, f);
                 (
                     format!("class {class} field {name}"),
-                    format!("{class}.{name}"),
+                    format!(
+                        "{}.{}",
+                        super::label::display_text(&class),
+                        super::label::display_text(&name)
+                    ),
                 )
             })
             .unwrap_or_else(|| ("module".into(), "module".into()));
@@ -226,7 +232,7 @@ fn role(
             | "required_parameter"
             | "optional_parameter"
     ) && (same_field(parent, "right", value) || same_field(parent, "value", value))
-        && in_parameters(parsed, parent)
+        && in_parameters(parent)
     {
         let param = parent
             .child_by_field_name("left")
@@ -283,14 +289,24 @@ fn role(
     None
 }
 
-fn in_parameters(parsed: &ParsedFile, mut node: Node<'_>) -> bool {
-    let barriers = parsed.language.callable_boundary_node_types();
+/// Membership is a path of binding edges, not containment in a parameter's
+/// source span. In particular, default initializers are expression subtrees.
+fn in_parameters(mut node: Node<'_>) -> bool {
     while let Some(parent) = node.parent() {
         if parent.kind() == "formal_parameters" {
             return true;
         }
-        if barriers.contains(&parent.kind()) {
-            break;
+        let binding_edge = match parent.kind() {
+            "object_pattern" | "array_pattern" | "rest_pattern" => true,
+            "pair_pattern" => same_field(parent, "value", node),
+            "assignment_pattern" | "object_assignment_pattern" => same_field(parent, "left", node),
+            "required_parameter" | "optional_parameter" => {
+                same_field(parent, "pattern", node) || same_field(parent, "name", node)
+            }
+            _ => false,
+        };
+        if !binding_edge {
+            return false;
         }
         node = parent;
     }

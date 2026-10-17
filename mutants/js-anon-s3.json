@@ -6,7 +6,7 @@
     "S3A-03-field-role": ["src/anonymous/metadata.rs", "if is_field(parent) &&", "if false && is_field(parent) &&", "anonymous::tests::class_field"],
     "S3A-04-export-role": ["src/anonymous/metadata.rs", "return Some(BoundAs::DefaultExport);", "return Some(BoundAs::Returned);", "anonymous::tests::default_export"],
     "S3A-05-variable-role": ["src/anonymous/metadata.rs", "value != node && same_field(parent, \"value\", value)", "value == node && same_field(parent, \"value\", value)", "anonymous::tests::variable_parenthesized"],
-    "S3A-06-param-role": ["src/anonymous/metadata.rs", "&& in_parameters(parsed, parent)", "&& !in_parameters(parsed, parent)", "anonymous::tests::default_param"],
+    "S3A-06-param-role": ["src/anonymous/metadata.rs", "&& in_parameters(parent)", "&& !in_parameters(parent)", "anonymous::tests::default_param"],
     "S3A-07-returned-role": ["src/anonymous/metadata.rs", "return Some(BoundAs::Returned);", "return Some(BoundAs::Iife);", "anonymous::tests::returned"],
     "S3A-08-iife-role": ["src/anonymous/metadata.rs", "return Some(BoundAs::Iife);", "return Some(BoundAs::Returned);", "anonymous::tests::iife"],
     "S3A-09-wrapper-peeling": ["src/anonymous/metadata.rs", "if wrapper_value(parent) != Some(node) {", "if true || wrapper_value(parent) != Some(node) {", "anonymous::tests::wrappers_and_value_changing_barriers"],
@@ -15,7 +15,7 @@
     "S3A-12-field-barrier": ["src/anonymous/metadata.rs", "if is_field(n) && same_field(n, \"value\", child) {", "if false && is_field(n) && same_field(n, \"value\", child) {", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
     "S3A-13-label-precedence": ["src/anonymous/label.rs", "if let Some(passed) = &meta.passed_to {", "if let Some(passed) = &None::<PassedTo> {", "anonymous::tests::class_field"],
     "S3A-14-anchor-ordinals": ["src/anonymous/metadata.rs", "*ordinal += 1;", "*ordinal += 0;", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
-    "S3A-15-parameter-scope": ["src/anonymous/metadata.rs", "&& in_parameters(parsed, parent)", "&& true", "anonymous::tests::destructuring_defaults_are_parameters_only_in_parameter_scope"],
+    "S3A-15-parameter-scope": ["src/anonymous/metadata.rs", "&& in_parameters(parent)", "&& true", "anonymous::tests::destructuring_defaults_are_parameters_only_in_parameter_scope"],
     "S3A-16-parent-chain": ["src/anonymous/metadata.rs", ".get(&parent_key)", ".get(&usize::MAX)", "anonymous::tests::nested_label_and_parent_chain"],
     "S3A-17-utf8-column": ["src/anonymous/metadata.rs", "node.start_position().column + 1", "parsed.source[..node.start_byte()].chars().rev().take_while(|c| *c != '\\n').count() + 1", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
     "S3A-18-async": ["src/anonymous/metadata.rs", "let found = node.children(&mut c).any(|n| n.kind() == \"async\");", "let found = node.children(&mut c).any(|n| n.kind() == \"never_async\");", "anonymous::tests::roots_barriers_ordinals_and_early_errors"],
@@ -26,6 +26,9 @@
     "S3A-23-label-whitespace": ["src/anonymous/label.rs", "raw.split_whitespace().collect::<Vec<_>>().join(\" \")", "raw.to_string()", "anonymous::tests::fold1::callee_display_whitespace"],
     "S3A-24-label-length": ["src/anonymous/label.rs", "if normalized.chars().count() > 48 {", "if false {", "anonymous::tests::fold1::callee_display_bound"],
     "S3A-25-file-key": ["src/anonymous/metadata.rs", "anon_owner::identity(parsed, n, file)", "anon_owner::identity(parsed, n, &parsed.path)", "anonymous::tests::fold1::builder_file_key"],
-    "S3A-26-scope-file-key": ["src/anonymous/metadata.rs", "Context::scope(file, &scope, display)", "Context::scope(&parsed.path, &scope, display)", "anonymous::tests::fold1::builder_file_key"]
+    "S3A-26-scope-file-key": ["src/anonymous/metadata.rs", "Context::scope(file, &scope, display)", "Context::scope(&parsed.path, &scope, display)", "anonymous::tests::fold1::builder_file_key"],
+    "S3A-27-binding-edges": ["src/anonymous/metadata.rs", "if !binding_edge {", "if false && !binding_edge {", "anonymous::tests::fold2::parameter_initializer_assignment_is_not_binding"],
+    "S3A-28-label-payloads": ["src/anonymous/label.rs", "display_text(param)", "param.to_string()", "anonymous::tests::fold2::label_param_is_display_text"],
+    "S3A-29-callable-name-edge": ["src/anonymous/metadata.rs", "!same_field(n, \"name\", child)", "true", "anonymous::tests::fold2::computed_keys::computed_method_keys_use_surrounding_scope"]
   }
 }

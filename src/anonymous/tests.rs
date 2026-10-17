@@ -2,6 +2,7 @@ use super::*;
 use crate::{ast::ParsedFile, languages::Language};
 
 mod fold1;
+mod fold2;
 
 fn rows(src: &str, ext: &str) -> Vec<(FunctionId, AnonMeta)> {
     let file = format!("a.{ext}");

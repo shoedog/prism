@@ -30,8 +30,14 @@ impl Context {
                     .then(|| class.child_by_field_name("name"))
                     .flatten()
             })
-            .map(|owner| format!("{}.{}", parsed.node_text(&owner), id.name))
-            .unwrap_or_else(|| id.name.clone());
+            .map(|owner| {
+                format!(
+                    "{}.{}",
+                    display_text(parsed.node_text(&owner)),
+                    display_text(&id.name)
+                )
+            })
+            .unwrap_or_else(|| display_text(&id.name));
         Self {
             root: AnchorRoot::Named {
                 function: id.clone(),
@@ -66,7 +72,7 @@ impl Context {
 pub(super) fn segment(meta: &AnonMeta, handoff_display: Option<&str>) -> String {
     // Explicit precedence: prop, IIFE, handoff, then remaining syntax roles.
     match &meta.bound_as {
-        Some(BoundAs::JsxProp { prop, .. }) => return format!("{prop} handler"),
+        Some(BoundAs::JsxProp { prop, .. }) => return format!("{} handler", display_text(prop)),
         Some(BoundAs::Iife) => return "IIFE".into(),
         _ => {}
     }
@@ -76,17 +82,17 @@ pub(super) fn segment(meta: &AnonMeta, handoff_display: Option<&str>) -> String 
         return format!("{short} callback");
     }
     match &meta.bound_as {
-        Some(BoundAs::DefaultParam { param, .. }) => format!("default {param}"),
+        Some(BoundAs::DefaultParam { param, .. }) => format!("default {}", display_text(param)),
         Some(BoundAs::Returned) => "returned callable".into(),
         Some(BoundAs::DefaultExport) => "default export".into(),
-        Some(BoundAs::VariableParenthesized { name }) => format!("variable {name}"),
-        Some(BoundAs::ObjectKey { key }) => format!("object {key}"),
-        Some(BoundAs::ClassField { field, .. }) => format!("field {field}"),
+        Some(BoundAs::VariableParenthesized { name }) => format!("variable {}", display_text(name)),
+        Some(BoundAs::ObjectKey { key }) => format!("object {}", display_text(key)),
+        Some(BoundAs::ClassField { field, .. }) => format!("field {}", display_text(field)),
         _ => "anonymous callable".into(),
     }
 }
 
-fn display_text(raw: &str) -> String {
+pub(super) fn display_text(raw: &str) -> String {
     let normalized = raw.split_whitespace().collect::<Vec<_>>().join(" ");
     if normalized.chars().count() > 48 {
         format!("{}…", normalized.chars().take(47).collect::<String>())
