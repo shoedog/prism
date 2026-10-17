@@ -342,3 +342,36 @@ fn navigation_sidecar_cache_parity() {
         assert_eq!(partial.stdout, query(false).stdout);
     }
 }
+
+#[test]
+fn class_decorators_and_heritage_are_module_evaluated() {
+    // Owner decision (#442): a top-level class's decorators and `extends`
+    // expression run during module evaluation, so they are module-owned, as a
+    // class inside `outer()` already credits them to `outer`. Member
+    // decorators stay inside the class-body exclusion.
+    for ext in ["ts", "tsx"] {
+        let source = "function dec() { return (x: any) => x; }\nfunction mix(b: any) { return b; }\nclass B {}\n@dec() class A extends mix(B) { @dec() method() {} }\nconst K = class extends mix(B) {};\n";
+        let files = fixture(source, ext);
+        for graph in [
+            CallGraph::build(&files),
+            CallGraph::build_skeleton(&files),
+            CallGraph::build_direct_subset(&files, &files.keys().cloned().collect()),
+        ] {
+            let module = &graph.functions[MODULE][0];
+            let mut owned: Vec<_> = graph.calls[module]
+                .iter()
+                .map(|s| (s.callee_name.as_str(), s.line))
+                .collect();
+            owned.sort();
+            assert_eq!(owned, [("dec", 4), ("mix", 4), ("mix", 5)], "{ext}");
+        }
+        let full = CallGraph::build(&files);
+        let module = &full.functions[MODULE][0];
+        for site in &full.calls[module] {
+            let out = full.resolve_call_site_full(site);
+            assert_eq!(out.resolved.len(), 1, "{ext} {site:?}: {out:?}");
+            assert_eq!(out.resolved[0].confidence, Exact);
+            assert_eq!(out.resolved[0].target.name, site.callee_name);
+        }
+    }
+}

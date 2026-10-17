@@ -26,8 +26,10 @@ Ordinary module-level calls (#437), including initializers, export assignments
 and top-level control flow, use the file-bound `<anon@module>` identity. The same
 named byte claims, innermost callable ownership and A2 Exact barrier apply.
 Navigation presents module execution as a `module-level` statement; function
-seeds and default visibility still hide it. Class fields, static blocks and
-computed keys await an evaluation-region policy. Constructors, `.mts`/`.cts`
+seeds and default visibility still hide it. A top-level class's decorators and
+`extends` expression run during module evaluation and are module-owned, matching
+how a class inside a function credits them to that function. Class fields, static
+blocks, member decorators and computed keys await an evaluation-region policy. Constructors, `.mts`/`.cts`
 admission and the source file-size cap remain unchanged.
 
 Anonymous Exacts require source-backed binding and environment proof. Unsupported
