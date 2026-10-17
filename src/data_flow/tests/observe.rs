@@ -134,12 +134,12 @@ fn ordered_storage_observation_includes_legacy_equal_byte_spans() {
     let b = loc(20, VarAccessKind::Def);
     assert_eq!(a, b);
     assert_ne!(bytes(&a), bytes(&b));
-    let mut g = oracle::LegacyDataFlowGraph::empty();
+    let mut g = parts::empty();
     g.edges.push(FlowEdge {
         from: a,
         to: loc(30, VarAccessKind::Use),
     });
-    let before = current_storage(&from_legacy(g.clone()));
+    let before = current_storage(&parts::graph(g.clone()));
     g.edges[0].from = b;
-    assert_ne!(before, current_storage(&from_legacy(g.clone())));
+    assert_ne!(before, current_storage(&parts::graph(g.clone())));
 }

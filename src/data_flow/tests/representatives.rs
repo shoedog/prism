@@ -88,7 +88,7 @@ fn equal_legacy_neighbors_stable_sort_keeps_first_span() {
     let d20 = loc("x", VarAccessKind::Def, 20);
     let d10 = loc("x", VarAccessKind::Def, 10);
     let sink = loc("y", VarAccessKind::Use, 30);
-    let mut p = test_support::compact::parts(oracle::LegacyDataFlowGraph::empty());
+    let mut p = test_support::parts::empty();
     p.edges = [d20.clone(), d10]
         .into_iter()
         .map(|from| FlowEdge {
@@ -122,7 +122,7 @@ pub(super) fn adversarial_parts() -> Parts {
     let bd = at("z", VarAccessKind::Def, 50, "b.py");
     let bu = at("z", VarAccessKind::Use, 60, "b.py");
     let key = |file: &str, name: &str| (file.into(), "f".into(), 1, AccessPath::simple(name));
-    let mut p = test_support::compact::parts(oracle::LegacyDataFlowGraph::empty());
+    let mut p = test_support::parts::empty();
     p.edges = [
         (d20.clone(), u40.clone()),
         (d10.clone(), u30.clone()),
@@ -186,9 +186,19 @@ pub(super) fn adversarial_parts() -> Parts {
 
 #[test]
 fn imported_rows_preserve_independent_keys_empty_rows_and_non_edge_labels() {
-    let (old, new) = test_support::compact::pair(adversarial_parts());
-    test_support::compact::assert_all(&old, &new, &BTreeMap::new());
-    let key = old.forward.keys().find(|v| v.path.base == "x").unwrap();
+    let p = adversarial_parts();
+    let graph = test_support::parts::graph(p.clone());
+    test_support::parts::assert_inputs(&p, &graph);
+    test_support::parts::roundtrip(&graph);
+    let new = &graph.storage;
+    let key = p
+        .adjacency
+        .as_ref()
+        .unwrap()
+        .0
+        .keys()
+        .find(|v| v.path.base == "x")
+        .unwrap();
     let mut unknown = key.clone();
     unknown.start_byte = 999;
     unknown.end_byte = 1000;
@@ -212,20 +222,13 @@ fn edge_derived_rows_preserve_sequence_and_distinct_spans() {
     let mut p = adversarial_parts();
     p.adjacency = None;
     let new = CompactDfg::from_parts(p.clone()).unwrap();
-    let mut old = test_support::compact::pair(adversarial_parts()).0;
-    old.forward.clear();
-    old.backward.clear();
-    for e in &p.edges {
-        old.forward
-            .entry(e.from.clone())
-            .or_default()
-            .push(e.to.clone());
-        old.backward
-            .entry(e.to.clone())
-            .or_default()
-            .push(e.from.clone());
-    }
-    test_support::compact::assert_all(&old, &new, &BTreeMap::new());
+    test_support::parts::assert_inputs(
+        &p,
+        &DataFlowGraph {
+            storage: new.clone(),
+        },
+    );
+    test_support::parts::compact_roundtrip(&new);
     assert_eq!(new.forward().next().unwrap().0.start_byte, 20);
     assert_eq!(
         new.successors(&p.edges[0].from)

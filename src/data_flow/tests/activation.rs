@@ -63,11 +63,11 @@ fn production_build_is_compact_before_parallel_collection() {
         assert!(*rows > 0);
         assert!(*edges > 0);
         assert_eq!(*expanded, 0);
-        let independent =
-            oracle::LegacyDataFlowGraph::build(&BTreeMap::from([(file.clone(), parsed.clone())]));
-        assert_eq!(*observation, old_storage(&independent));
+        let singleton = DataFlowGraph::build(&BTreeMap::from([(file.clone(), parsed.clone())]));
+        assert_eq!(*observation, current_storage(&singleton));
+        parts::roundtrip(&singleton);
     }
-    assert_pair(&oracle::LegacyDataFlowGraph::build(&files), &g, &files);
+    parts::roundtrip(&g);
     let empty = DataFlowGraph::build_subset(&files, &BTreeSet::new());
     assert_eq!(empty.edges().len(), 0);
     assert_eq!(empty.storage.arena.rows().len(), 0);

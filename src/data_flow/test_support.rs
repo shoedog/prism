@@ -372,6 +372,8 @@ pub(crate) fn exact_label_snapshot(
 }
 
 pub(crate) mod compact;
+#[cfg(test)]
+pub(crate) mod parts;
 
 #[cfg(feature = "dfg-oracle")]
 pub mod accounting;

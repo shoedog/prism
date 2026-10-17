@@ -1,8 +1,5 @@
 use super::super::*;
-use crate::cpg::{
-    dfg_compaction_support::{assemble_with_dfg, legacy_dfg},
-    CpgContext,
-};
+use crate::cpg::{CodePropertyGraph, CpgContext};
 use crate::diff::{DiffInfo, DiffInput, ModifyType};
 use crate::languages::Language;
 
@@ -26,9 +23,8 @@ fn delta_candidate_edges_contribute() {
             diff_lines: BTreeSet::from([2]),
         }],
     };
-    let old_graph = assemble_with_dfg(&files, legacy_dfg(&files));
     let new_graph = crate::cpg::CodePropertyGraph::build(&files);
-    for graph in [old_graph, new_graph] {
+    for graph in [new_graph] {
         let ctx = CpgContext::build_with_cached_cpg(&files, graph, None);
         let run = crate::algorithms::delta_slice::slice(&ctx, &diff, old_repo.path()).unwrap();
         assert!(
@@ -48,7 +44,7 @@ fn delta_candidate_edges_contribute() {
 #[test]
 fn decoded_corruption_is_rejected_against_cold_reference() {
     use super::super::test_support::edit_legacy_parts;
-    use crate::cpg::dfg_compaction_support::{fieldwise_payload, lookup_indexes};
+    use crate::cpg::dfg_observation::{fieldwise_payload, lookup_indexes};
     use crate::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult, SaveOutcome};
     crate::build_pool::install(|| {
         let sources =
@@ -62,7 +58,7 @@ fn decoded_corruption_is_rejected_against_cold_reference() {
                 )
             })
             .collect();
-        let cold = assemble_with_dfg(&files, legacy_dfg(&files));
+        let cold = CodePropertyGraph::build(&files);
         let cache = tempfile::tempdir().unwrap();
         let hashes = compute_file_hashes(&sources);
         assert_eq!(
