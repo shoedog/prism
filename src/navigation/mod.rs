@@ -4,6 +4,7 @@ pub mod call_resolve;
 pub mod code_context;
 pub mod inventory;
 pub mod module_graph;
+mod module_owner;
 pub mod onboarding;
 #[cfg(test)]
 mod owner_cache_tests;
