@@ -75,7 +75,7 @@ fn identity_and_enabled_builders_agree() {
             .collect();
         let anon: Vec<_> = ids
             .iter()
-            .filter(|id| is_anonymous_owner_name(&id.name))
+            .filter(|id| is_anonymous_owner_name(&id.name) && !is_module_owner_name(&id.name))
             .collect();
         assert_eq!(anon.len(), 4);
         for id in anon {

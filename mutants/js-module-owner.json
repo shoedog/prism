@@ -1,0 +1,93 @@
+{
+  "lib_test_prefixes": [
+    "anon_owner::module_tests::",
+    "cpg_cache::",
+    "navigation::call_edge_cache::"
+  ],
+  "mutations": {
+    "M01-owner-mint": [
+      "src/anon_owner.rs",
+      "nodes.push(parsed.tree.root_node());",
+      "// module owner omitted",
+      "js_module_owner_test::shapes_and_builders"
+    ],
+    "M02-reserved-identity": [
+      "src/anon_owner/module.rs",
+      "pub const MODULE_OWNER_NAME: &str = \"<anon@module>\";",
+      "pub const MODULE_OWNER_NAME: &str = \"<module>\";",
+      "anon_owner::module_tests::module_identity_claims_and_sources"
+    ],
+    "M03-file-identity": [
+      "src/anon_owner.rs",
+      "file: file.into(),",
+      "file: \"wrong.js\".into(),",
+      "anon_owner::module_tests::module_identity_claims_and_sources"
+    ],
+    "M04-named-byte-claim": [
+      "src/anon_owner.rs",
+      "!claims.contains(&(start, end))",
+      "true",
+      "anon_owner::module_tests::module_identity_claims_and_sources"
+    ],
+    "M05-innermost-owner": [
+      "src/anon_owner.rs",
+      "&& parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "",
+      "js_module_owner_test::shapes_and_builders"
+    ],
+    "M06-class-region": [
+      "src/anon_owner/module.rs",
+      "\"class_body\" | \"computed_property_name\"",
+      "\"computed_property_name\"",
+      "js_module_owner_test::exclusions_and_named_claim_precedence"
+    ],
+    "M07-computed-key": [
+      "src/anon_owner/module.rs",
+      "\"class_body\" | \"computed_property_name\"",
+      "\"class_body\"",
+      "js_module_owner_test::exclusions_and_named_claim_precedence"
+    ],
+    "M08-exact-boundary": [
+      "src/js_anonymous.rs",
+      "if !anonymous(site) {\n            return outcome;\n        }",
+      "if !anonymous(site) || crate::anon_owner::is_module_owner_name(&site.caller.name) {\n            return outcome;\n        }",
+      "anon_owner::module_tests::module_exact_needs_unchanged_barrier_certificate"
+    ],
+    "M09-source-index": [
+      "src/anon_owner/source_index.rs",
+      "for node in candidate_nodes(self.parsed, true) {",
+      "for node in candidate_nodes(self.parsed, true).into_iter().filter(|n| n.kind() != \"program\") {",
+      "anon_owner::module_tests::module_identity_claims_and_sources"
+    ],
+    "M10-cpg-cache": [
+      "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 121;",
+      "const CACHE_VERSION: u32 = 120;",
+      "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
+    ],
+    "M11-nav-cache": [
+      "src/navigation/call_edge_cache.rs",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 67;",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 66;",
+      "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
+    ],
+    "M12-skeleton-agreement": [
+      "src/call_graph.rs",
+      "let call_sites = parsed.function_calls_with_spans_on_lines(",
+      "if caller_id.name == crate::anon_owner::MODULE_OWNER_NAME { continue; }\n                let call_sites = parsed.function_calls_with_spans_on_lines(",
+      "js_module_owner_test::shapes_and_builders"
+    ],
+    "M13-subset-agreement": [
+      "src/call_graph.rs",
+      "// Phase 1: Collect function definitions from subset.\n        for (file_path, parsed) in files {",
+      "// Phase 1: Collect function definitions from subset.\n        for (file_path, parsed) in files {\n            if matches!(parsed.language, crate::languages::Language::JavaScript | crate::languages::Language::TypeScript | crate::languages::Language::Tsx) { continue; }",
+      "js_module_owner_test::shapes_and_builders"
+    ],
+    "M14-module-display": [
+      "src/navigation/module_owner.rs",
+      "if crate::anon_owner::is_module_owner_name(name) {",
+      "if false {",
+      "js_module_owner_test::navigation_reports_module_level_without_function_symbol"
+    ]
+  }
+}
