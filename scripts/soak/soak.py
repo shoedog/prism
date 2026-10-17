@@ -62,35 +62,37 @@ def capture(command, timeout=30):
     return done.stdout.decode('utf-8', 'replace') if done.returncode == 0 else None
 
 
-def option(tokens, name):
-    """The word after `name` in `tokens`, or None."""
-    for index, token in enumerate(tokens[:-1]):
-        if token == name:
-            return tokens[index + 1]
-    return None
+def option(text, name):
+    """The value of option `name` in the argument text of a command line: `name value` or
+    `name=value`, running to the next ` --` so that a path with spaces in it is kept whole (PR #424
+    review round 1, sol 1); None when absent or empty. A value containing ` --` is cut there."""
+    found = re.search(r'(?:^|\s)%s(?:=(.*?)|\s+(?!--)(.*?))(?=\s+--|\s*$)' % re.escape(name), text)
+    value = found and (found.group(1) if found.group(1) is not None else found.group(2))
+    return value or None
 
 
 def split_command(command):
-    """(binary, the other words) when the command runs a binary named prism-mcp, else None. The
-    binary is the first word, or, when its path has a space in it (review round 1, Opus S5), the
-    shortest prefix ending in `/prism-mcp` that is an executable file."""
-    words = command.split()
+    """(binary, the text of the other arguments) when the command runs a binary named prism-mcp,
+    else None. The binary is the first word, or, when its path has a space in it (review round 1,
+    Opus S5), the shortest prefix ending in `/prism-mcp` that is an executable file."""
+    words = command.split(None, 1)
     if words and os.path.basename(words[0]) == 'prism-mcp':
-        return words[0], words[1:]
+        return words[0], words[1] if len(words) > 1 else ''
     found = BINARY.match(command)
     if found and ' ' in found.group(1) and os.path.isfile(found.group(1)) and os.access(found.group(1), os.X_OK):
-        return found.group(1), (found.group(2) or '').split()
+        return found.group(1), found.group(2) or ''
     return None
 
 
 def classify(command):
     """Role and configuration of one process from its command line, or None for a process that is
-    not prism-mcp. Roles: daemon, shim, standalone, operator. Arguments are split on spaces, so a
-    repository path with a space in it is cut short in the labels; roles do not depend on it."""
+    not prism-mcp. Roles: daemon, shim, standalone, operator. `repo` is as written; the sampler
+    resolves a relative one (resolve_repo)."""
     split = split_command(command)
     if split is None:
         return None
-    tokens = split[1]
+    text = split[1]
+    tokens = text.split()
     verb = tokens[0] if tokens else ''
     if verb == 'daemon':
         role = 'daemon'
@@ -100,8 +102,8 @@ def classify(command):
         role = 'shim'
     else:
         role = 'standalone'
-    return {'role': role, 'repo': option(tokens, '--repo'), 'key': option(tokens, '--key'),
-            'cache_dir': option(tokens, '--cache-dir')}
+    return {'role': role, 'repo': option(text, '--repo'), 'key': option(text, '--key'),
+            'cache_dir': option(text, '--cache-dir')}
 
 
 def parse_cputime(text):
@@ -178,6 +180,43 @@ def footprints(pids):
     return measure_footprints(pids)[0]
 
 
+def process_cwd(pid):
+    """The working directory of a live process (Linux /proc, macOS lsof), or None."""
+    if sys.platform.startswith('linux'):
+        try:
+            return os.readlink(str(PROC / str(pid) / 'cwd'))
+        except OSError:
+            return None
+    listing = capture(['lsof', '-a', '-p', str(pid), '-d', 'cwd', '-Fn']) if sys.platform == 'darwin' else None
+    names = [line[1:] for line in (listing or '').splitlines() if line.startswith('n')]
+    return names[0] if names else None
+
+
+def resolve_repo(process, cwd_of=process_cwd):
+    """Keep `--repo` as written in `repo_arg` and make `repo` absolute: a relative one is joined to
+    the process's working directory (PR #424 review round 1, Opus S3), or None (unresolved) when
+    that cannot be read."""
+    arg = process.get('repo')
+    process['repo_arg'] = arg
+    if arg and not os.path.isabs(arg):
+        cwd = cwd_of(process['pid'])
+        process['repo'] = os.path.join(cwd, arg) if cwd else None
+
+
+def observe(listing, measure=measure_footprints, cwd_of=process_cwd):
+    """The prism-mcp processes of one process table: classified, repository resolved, footprint
+    measured, index holders marked."""
+    processes = parse_ps(listing or '')
+    for process in processes:
+        resolve_repo(process, cwd_of)
+    sizes, statuses = measure([process['pid'] for process in processes])
+    for process in processes:
+        process['footprint_bytes'] = sizes.get(process['pid'])
+        process['footprint_status'] = statuses[process['pid']]
+        process['holder'] = is_holder(process)
+    return processes
+
+
 def parse_swapusage(text):
     """MiB figures of `sysctl -n vm.swapusage`: total, used, free."""
     found = dict(re.findall(r'(total|used|free) = ([0-9.]+)M', text or ''))
@@ -217,12 +256,7 @@ def host_memory():
 
 def sample_once(status_bin=None, runtime_dir=None):
     listing = capture(PS_COMMAND)
-    processes = parse_ps(listing or '')
-    sizes, statuses = measure_footprints([process['pid'] for process in processes])
-    for process in processes:
-        process['footprint_bytes'] = sizes.get(process['pid'])
-        process['footprint_status'] = statuses[process['pid']]
-        process['holder'] = is_holder(process)
+    processes = observe(listing)
     sample = {'t': time.time(), 'ps_ok': listing is not None, 'host': host_memory(), 'processes': processes}
     if status_bin:
         command = [status_bin, 'daemon-status'] + (['--runtime-dir', runtime_dir] if runtime_dir else [])

@@ -65,6 +65,15 @@ def load_samples(path, since=None, until=None):
     return samples, skipped
 
 
+def repo_label(process):
+    """A process's repository as an absolute path, or `(unresolved) <as written>` when the sampler
+    could not make it absolute (PR #424 review round 1, sol 1)."""
+    repo = process.get('repo')
+    if repo and os.path.isabs(repo):
+        return repo
+    return '(unresolved) %s' % (process.get('repo_arg') or repo or 'no --repo')
+
+
 def holder_identity(process):
     """What one index is for: a daemon's key, or a standalone server's repository."""
     if process['role'] == 'daemon':
@@ -124,7 +133,7 @@ def summarize_samples(samples):
                 holders.setdefault(holder_identity(process), []).append(process['pid'])
             if process['role'] == 'standalone' and process.get('holder'):
                 found = old_standalone if process['pid'] in first_pids else new_standalone
-                found.setdefault(process.get('repo') or '?', set()).add(process['pid'])
+                found.setdefault(repo_label(process), set()).add(process['pid'])
             if process['role'] == 'daemon':
                 daemons.setdefault((process['pid'], process.get('key')), [sample['t'], sample['t']])[1] = sample['t']
         for identity, pids in holders.items():
@@ -244,14 +253,24 @@ def in_round(holders, round_repos):
     if round_repos is None:
         return holders
     checkouts = {os.path.realpath(repo) for repo in round_repos}
-    return {repo: pids for repo, pids in holders.items() if os.path.realpath(repo) in checkouts}
+    return {repo: pids for repo, pids in holders.items()
+            if os.path.isabs(repo) and os.path.realpath(repo) in checkouts}
+
+
+def unresolved(holders, round_repos):
+    """With checkouts named, the holders whose repository is not an absolute path: whether they
+    are in the round cannot be told (PR #424 review round 1, sol 1)."""
+    if round_repos is None:
+        return {}
+    return {repo: pids for repo, pids in holders.items() if not os.path.isabs(repo)}
 
 
 def judge(summary, events, crashes, coverage, round_repos=None):
     """Each rule's verdict: FAIL on a breach that was seen; else UNKNOWN when the evidence it
     needs was not collected; else PASS. `coverage`: {'logs': bool, 'crash_reports': bool}. With
     `round_repos`, a new standalone holder fails the round only in one of those checkouts (review
-    round 2, Opus W-D): a launcher the soak does not edit, elsewhere, is reported."""
+    round 2, Opus W-D): a launcher the soak does not edit, elsewhere, is reported; one whose repository
+    could not be resolved makes the rule UNKNOWN."""
     missing = summary['missing']
 
     def verdict(breach, unseen):
@@ -259,7 +278,8 @@ def judge(summary, events, crashes, coverage, round_repos=None):
     logs = not coverage['logs']
     return {'one_index_per_key': verdict(summary['max_daemons_per_key'] > 1, missing['ps']),
             'no_new_standalone_index': verdict(in_round(summary['new_standalone_holders'], round_repos),
-                                               missing['ps'] or missing['standalone_footprint']),
+                                               missing['ps'] or missing['standalone_footprint']
+                                               or unresolved(summary['new_standalone_holders'], round_repos)),
             'no_fail_closed': verdict(events['fail_closed'], logs),
             'no_startup_error': verdict(events['startup_errors'], logs),
             'no_restart_bound': verdict(events['build_crash_refusals'], logs),
