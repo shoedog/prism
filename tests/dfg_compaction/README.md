@@ -58,3 +58,13 @@ must reproduce. Put changed hashes in a separate first commit named
 `re-pin on main <sha>`, listing changed cases and the intervening main commits that
 touched DFG/CPG output. Then the compaction change keeps every hash. Headers cite
 the capture SHA, this procedure and the committed capture test.
+
+## PR E clean-main control (2026-10-16)
+
+The committed capture test on a clean archive of
+`e5a45634d34b9a543986a0b59e107634df486485` reproduced all 132 payload and
+132 ordered-index hashes unchanged from the PR D control at `cf22c8e8`.
+Intervening CPG performance commits #419 (`c1ffc3af`) and #420 (`a1f8b933`)
+changed no observed case. No hashes were replaced; same-environment attribution
+brackets are unnecessary because no output changed. Worker receipt:
+`dfgE-scratch/repin-result.json` and `logs/capture-main.log`.

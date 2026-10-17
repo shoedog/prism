@@ -1,3 +1,4 @@
+# Revalidated: clean main e5a45634d34b9a543986a0b59e107634df486485; committed capture::capture_manifests; all 132 hashes unchanged.
 # Capture: clean main 14a9932d644f723991efa8200aacc84fd8f92846; 132 cases.
 # Re-pin: b199f79b (#409) persists js_anonymous ProofIndex and emits anonymous owners; all payloads and 18 indexes change; 114 indexes unchanged.
 # Same-environment controls: 5a63c7e8 reproduces all prior hashes; b199f79b reproduces all 14a9932d hashes.
