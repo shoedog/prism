@@ -18,7 +18,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import soak  # noqa: E402
-from test_soak import KEY, MIB, REACHED, proc, sample  # noqa: E402
+from test_soak import ALL_READ, KEY, MIB, REACHED, proc, sample  # noqa: E402
 
 DAY = 86400
 BIN = '/x/target/release/prism-mcp'
@@ -188,6 +188,25 @@ class WrapperLog(unittest.TestCase):
             out, err = child.communicate(b'{"jsonrpc":"2.0"}\n', timeout=60)
             self.assertEqual((child.returncode, out, err), (3, b'{"jsonrpc":"2.0"}\n', b'one\ntwo\n'))
             self.assertFalse(log.exists())
+
+
+class UnmeasuredStandalone(unittest.TestCase):
+    """Opus S2: an unreadable footprint makes no_new_standalone_index UNKNOWN only for a server
+    that could fail it: new, and in one of the round's checkouts (or of unknown repository)."""
+
+    def rule(self, samples, round_repos=('/r',)):
+        summary = soak.summarize_samples(samples)
+        return soak.judge(summary, soak.scan_lines([REACHED]), [], ALL_READ, list(round_repos))['no_new_standalone_index']
+
+    def test_only_a_new_unmeasured_standalone_server_in_the_round_is_unknown(self):
+        old = proc('standalone', 7, status='failed')
+        self.assertEqual(self.rule([sample(1, [old]), sample(2, [old])]), 'PASS')
+        elsewhere = proc('standalone', 8, status='failed', repo='/elsewhere')
+        self.assertEqual(self.rule([sample(1, []), sample(2, [elsewhere])]), 'PASS')
+        inside = proc('standalone', 8, status='failed', repo='/r')
+        self.assertEqual(self.rule([sample(1, []), sample(2, [inside])]), 'UNKNOWN')
+        unknown = dict(proc('standalone', 8, status='failed', repo=None), repo_arg='checkout')
+        self.assertEqual(self.rule([sample(1, []), sample(2, [unknown])]), 'UNKNOWN')
 
 
 if __name__ == '__main__':
