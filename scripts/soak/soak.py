@@ -50,7 +50,10 @@ from soak_judge import (BUILD_CRASH, CLIENT_LINE, CRASH_REPORT, FAIL_CLOSED, GAT
 PS_COMMAND = ['ps', '-A', '-ww', '-o', 'pid=,ppid=,rss=,time=,command=']
 FOOTPRINT_COMMAND = 'footprint'
 PROC = Path('/proc')
-BINARY = re.compile(r'^(.*?(?:^|/)prism-mcp)(?: (.*))?$')
+# A prism-mcp binary's file name: `prism-mcp`, or `prism-mcp-<12 hex digits>` as Phase 0 installs a
+# build (PR #424 review round 1, sol 2); not prism-mcp-logged.sh, the launcher, or a test binary.
+BINARY_NAME = re.compile(r'^prism-mcp(?:-[0-9a-f]{12})?$')
+BINARY = re.compile(r'^(.*?(?:^|/)prism-mcp(?:-[0-9a-f]{12})?)(?: (.*))?$')
 
 
 def capture(command, timeout=30):
@@ -72,11 +75,11 @@ def option(text, name):
 
 
 def split_command(command):
-    """(binary, the text of the other arguments) when the command runs a binary named prism-mcp,
-    else None. The binary is the first word, or, when its path has a space in it (review round 1,
-    Opus S5), the shortest prefix ending in `/prism-mcp` that is an executable file."""
+    """(binary, the text of the other arguments) when the command runs a prism-mcp binary
+    (BINARY_NAME), else None. The binary is the first word, or, when its path has a space in it
+    (review round 1, Opus S5), the shortest prefix ending in such a name that is an executable file."""
     words = command.split(None, 1)
-    if words and os.path.basename(words[0]) == 'prism-mcp':
+    if words and BINARY_NAME.match(os.path.basename(words[0])):
         return words[0], words[1] if len(words) > 1 else ''
     found = BINARY.match(command)
     if found and ' ' in found.group(1) and os.path.isfile(found.group(1)) and os.access(found.group(1), os.X_OK):
