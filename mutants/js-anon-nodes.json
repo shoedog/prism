@@ -2,7 +2,7 @@
   "mutations": {
     "ANON-PREP-01-predicate-off": [
       "src/anon_owner.rs",
-      "!claims.contains(&(start, end)) && parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "!claims.contains(&(start, end))\n        && parsed.js_ts_span_in_own_scope(owner, start, end)",
       "parsed.js_ts_span_in_own_scope(owner, start, end)",
       "call_graph::anon_prep_tests::compatibility_uses_exact_named_claims_and_strict_scope"
     ],
@@ -26,7 +26,7 @@
     ],
     "ANON-PREP-05-strict-scope-off": [
       "src/anon_owner.rs",
-      "!claims.contains(&(start, end)) && parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "!claims.contains(&(start, end))\n        && parsed.js_ts_span_in_own_scope(owner, start, end)",
       "!claims.contains(&(start, end))",
       "call_graph::anon_prep_tests::compatibility_uses_exact_named_claims_and_strict_scope"
     ],
@@ -194,7 +194,7 @@
     ],
     "ANON-ENABLE-33-fallback-A-bypass": [
       "src/anon_owner.rs",
-      "!claims.contains(&(start, end)) && parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "!claims.contains(&(start, end))\n        && parsed.js_ts_span_in_own_scope(owner, start, end)",
       "parsed.js_ts_span_in_own_scope(owner, start, end)",
       "anon_owner::node_tests::nested_field_callbacks_are_strict_but_class_methods_keep_a1"
     ],
