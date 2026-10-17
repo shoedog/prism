@@ -1,4 +1,5 @@
 [mcp_servers.prism]
 command = "/Users/wesleyjinks/code/slicing/target/release/prism-mcp"
-args = ["--repo", "/Users/wesleyjinks/code/slicing"]
+args = ["--repo", "/Users/wesleyjinks/code/slicing", "--shared"]
 startup_timeout_sec = 60
+env = { PRISM_MCP_RUNTIME_DIR = "/tmp" }
