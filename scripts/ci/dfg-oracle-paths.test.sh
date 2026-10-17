@@ -24,3 +24,6 @@ check true src/cpg.rs
 check false src/cpg.rs.bak
 check true tests/dfg_compaction/outputs.rs
 check true src/data_flow/build/file.rs src/data_flow/types.rs
+check true tests/fixtures/mcp/launcher/argv-stub.sh
+check true tests/fixtures/new-fixture.py
+check false tests/fixtures-other/example.py
