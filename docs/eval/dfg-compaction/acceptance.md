@@ -1,8 +1,8 @@
 # DFG compaction PR E — preparation and controller acceptance
 
-Status: **NOT MEASURED; activation acceptance pending.** The worker prepares
-Task 6 and Task 7 tooling/binaries. Only the controller runs the real corpora.
-No memory, load, peak or physical-residency PASS is asserted here.
+Status: **MEASURED 2026-10-17 — PASS on both corpora (heap, load, peak); outputs byte-identical.** Readout below
+(controller). Candidate `3739ab383a6e333e3c172bcb1eaf26fcf3d26b92` (Task 6 activation), base its first parent
+`efbe63b702a835748d9eebd19805a4a2ba083f9e`.
 
 The activation base is `e5a45634d34b9a543986a0b59e107634df486485` (A–D plus
 intervening main). Cache 120 becomes 121 exactly once; navigation sidecar 66
@@ -223,3 +223,39 @@ PR F handoff: `DFG-E-stable-neighbor-tie-sorted-by-byte` currently exercises
 the temporary compact query engine (`compact/queries.rs`), not production
 traversal. PR F retargets this mutant and its span-tie regression to production
 `DataFlowGraph` traversal before retiring the temporary engine.
+
+
+## Readout — controller, 2026-10-17
+
+**Run.** `night-run.sh` (prepared by gpt-6.1-sol, quiet check extended by the controller to ignore idle docker client
+processes) started the window at 02:00 MDT, waited for five continuous quiet minutes (no cargo/rustc/codex exec, load
+< 2, swap non-increasing), re-checked before every step, and finished all steps at 04:23. `STATUS` = complete; one
+set (`set-1`); no follow-up set. Evidence: `~/prism-evidence/mcp-memory/dfg-compaction-2026-10-14/` (`SHA256SUMS`
+sha256 prefix `3639b4f5dfa02789`; `binary-receipts.json` `6779e3275a357ea2`). Dirty probe ports on both sides
+(`binary_input_dirty=true`, `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY=1` for both), `PRISM_PROBE_NO_CENSUS=1`, Rayon unset.
+
+**Verdicts.** The runner's reader (pre-review) and the fixed reader (`93088488`, provenance validated against
+`binary-receipts.json`, `--rescore`; output in `rescore-93088488/`, `SHA256SUMS` prefix `9e291b1c8e3f1ecd`) both give
+**heap PASS, load PASS, peak PASS, overall PASS** for prometheus and slicing.
+
+| | prometheus | slicing |
+|---|---|---|
+| `after_index.heap_in_use_bytes`, two true hits per build | base 2,316 / 2,316 MiB → candidate 1,210 / 1,210 MiB | base 1,594 / 1,594 MiB → candidate 1,252 / 1,252 MiB |
+| min(base) − max(candidate) (minimum) | **1,106 MiB** (300 MiB) | **342 MiB** (75 MiB) |
+| load interval (`after_index − after_load_repo`) | base 1,896 / 1,846 ms → candidate 1,464 / 1,450 ms | base 845 / 834 ms → candidate 701 / 684 ms |
+| prime `after_call_edges.peak_bytes` | base 4,028 → candidate 2,349 MiB (−1,679) | base 2,503 → candidate 1,842 MiB (−661) |
+| RSS / physical footprint after index | 2,439 / 2,425 → 1,397 / 1,382 MiB | 1,714 / 1,700 → 1,387–1,394 / 1,372–1,379 MiB |
+| paired `prism nav dfg-stats --edges` | `cmp` identical | `cmp` identical |
+
+Production `--algorithm chop,taint,provenance` on prometheus with a frozen diff: outputs `cmp` identical; wall time
+base 261.7 s, candidate 262.3 s. Diagnostic census (no acceptance vote): prometheus process heap 2,571 → 1,374 MiB,
+DFG accounted ≈ 1,070 → ≈ 200 MiB; slicing 1,823 → 1,340 MiB.
+
+**Harness defects (no effect on the verdict, recorded):** the production-query validation and `controller-query.sh`
+asserted lowercase algorithm names (`chop`, `taint`, `provenance`) where the output carries `Chop`, `Taint`,
+`ProvenanceSlice`; both outputs had three results, no errors, and were byte-identical. The probe's
+`query.forward_reachable` / `query.all_locations_at` timers recorded no records, so per-function query timing is not
+available; total query time above stands in.
+
+**Decision.** Task 7 acceptance PASS. PR E may merge after main is merged in (CPG cache 122, since #442 took 121) and
+CI is green; Task 8 (PR F, oracle retirement) follows.
