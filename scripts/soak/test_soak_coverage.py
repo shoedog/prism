@@ -121,8 +121,9 @@ class Use(unittest.TestCase):
                    sample(600, [proc('daemon', 1, 400 * MIB, cpu=3.2), proc('shim', 2)])]
         samples += [sample(d * day + 600 * k, resident) for d in range(1, 7) for k in range(3)]
         self.assertEqual(soak.summarize_samples(samples)['usage_days'], ['1970-01-01'])
+        # PR #424 review round 1 (owner decision 2026-10-16): below 0.05 s in one interval is not use.
         quiet = soak.summarize_samples([sample(0, [proc('daemon', 1, 400 * MIB, cpu=50.0), proc('shim', 2)]),
-                                        sample(600, [proc('daemon', 1, 400 * MIB, cpu=50.1), proc('shim', 2)])])
+                                        sample(600, [proc('daemon', 1, 400 * MIB, cpu=50.04), proc('shim', 2)])])
         self.assertEqual(quiet['usage_days'], [])
         new = soak.summarize_samples([sample(0, []), sample(day, [proc('daemon', 5, 400 * MIB, cpu=4.0)])])
         self.assertEqual(new['usage_days'], ['1970-01-02'])
