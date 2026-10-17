@@ -18,6 +18,9 @@ pub(crate) fn extract(parsed: &ParsedFile, file: &str) -> BTreeMap<FunctionId, A
     let ids: BTreeMap<_, _> = nodes
         .iter()
         .filter_map(|n| anon_owner::identity(parsed, n, file).map(|id| (n.id(), id)))
+        // The file-bound module owner (#442) is the program, not a callable:
+        // it gets no metadata and roots stay "module".
+        .filter(|(_, id)| !anon_owner::is_module_owner_name(&id.name))
         .collect();
     let mut contexts: BTreeMap<usize, super::label::Context> = BTreeMap::new();
     let mut siblings: BTreeMap<usize, usize> = BTreeMap::new();

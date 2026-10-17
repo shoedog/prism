@@ -29,6 +29,7 @@
     "S3A-26-scope-file-key": ["src/anonymous/metadata.rs", "Context::scope(file, &scope, display)", "Context::scope(&parsed.path, &scope, display)", "anonymous::tests::fold1::builder_file_key"],
     "S3A-27-binding-edges": ["src/anonymous/metadata.rs", "if !binding_edge {", "if false && !binding_edge {", "anonymous::tests::fold2::parameter_initializer_assignment_is_not_binding"],
     "S3A-28-label-payloads": ["src/anonymous/label.rs", "display_text(param)", "param.to_string()", "anonymous::tests::fold2::label_param_is_display_text"],
-    "S3A-29-callable-name-edge": ["src/anonymous/metadata.rs", "!same_field(n, \"name\", child)", "true", "anonymous::tests::fold2::computed_keys::computed_method_keys_use_surrounding_scope"]
+    "S3A-29-callable-name-edge": ["src/anonymous/metadata.rs", "!same_field(n, \"name\", child)", "true", "anonymous::tests::fold2::computed_keys::computed_method_keys_use_surrounding_scope"],
+    "S3A-30-module-owner-filter": ["src/anonymous/metadata.rs", ".filter(|(_, id)| !anon_owner::is_module_owner_name(&id.name))", ".filter(|(_, _id)| true)", "anonymous::tests::object_key"]
   }
 }
