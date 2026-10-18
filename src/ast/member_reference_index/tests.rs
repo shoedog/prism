@@ -69,6 +69,34 @@ fn differential(parsed: &ParsedFile, exhaustive: bool) -> usize {
     let search = MemberReferenceSearch::new(parsed);
     let mut comparisons = 0;
     for owner in parsed.all_functions() {
+        let mut scopes = vec![None];
+        if exhaustive {
+            scopes.push(
+                owner
+                    .child_by_field_name("body")
+                    .map(|n| (n.start_byte(), n.end_byte())),
+            );
+            scopes.push(Some((owner.start_byte(), owner.start_byte() + 1)));
+            let mut pending = vec![owner];
+            let mut member_scope = false;
+            while let Some(node) = pending.pop() {
+                let kind = node.kind();
+                if kind.contains("block")
+                    || kind == "catch_clause"
+                    || kind.contains("function")
+                    || kind.contains("lambda")
+                    || kind == "method_definition"
+                    || (!member_scope && ParsedFile::is_field_access_node(kind))
+                {
+                    member_scope |= ParsedFile::is_field_access_node(kind);
+                    scopes.push(Some((node.start_byte(), node.end_byte())));
+                }
+                let mut cursor = node.walk();
+                pending.extend(node.children(&mut cursor));
+            }
+            scopes.sort();
+            scopes.dedup();
+        }
         for path in &all_paths {
             let def_byte = parsed.source.find(&path.base).unwrap_or(owner.start_byte());
             for def_line in [0, owner.start_position().row + 1]
@@ -85,17 +113,7 @@ fn differential(parsed: &ParsedFile, exhaustive: bool) -> usize {
                     .into_iter()
                     .take(if exhaustive { 2 } else { 1 })
                 {
-                    let within = owner
-                        .child_by_field_name("body")
-                        .map(|n| (n.start_byte(), n.end_byte()));
-                    for scope in [
-                        None,
-                        within,
-                        Some((owner.start_byte(), owner.start_byte() + 1)),
-                    ]
-                    .into_iter()
-                    .take(if exhaustive { 3 } else { 1 })
-                    {
+                    for scope in scopes.iter().copied() {
                         assert_eq!(search.find_path_reference_spans_fenced_in(&owner, path, def_line, def_byte, scope, reads),
                             parsed.legacy_path_reference_spans_fenced_in(&owner, path, def_line, def_byte, scope, reads),
                             "{}: owner={} path={path:?} cutoff={def_line} scope={scope:?} reads={reads}", parsed.path, owner.start_byte());
@@ -341,4 +359,70 @@ fn member_index_alias_twins_and_partial_rebuild_match_oracle() {
         bincode::serialize(&fresh).unwrap()
     );
     assert_eq!(build(&files, false), build(&files, true));
+}
+
+#[test]
+fn member_index_mixed_query_cost() {
+    for distinct in [false, true] {
+        let mut source = member_fixture(128, distinct);
+        source += "function other(obj) {\n const alias = obj;\n alias.p0 = 7;\n { use(obj.p0, obj.p1); }\n}\n";
+        let parsed = ParsedFile::parse("mixed.ts", &source, Language::TypeScript).unwrap();
+        let owners = parsed.all_functions();
+        let giant = owners[0];
+        let other = *owners.last().unwrap();
+        let body = other.child_by_field_name("body").unwrap();
+        let aliases =
+            parsed.collect_alias_assignments(&other, &(1..=source.lines().count()).collect());
+        let (_, target, _) = aliases.iter().find(|(name, _, _)| name == "alias").unwrap();
+        // Resolve the collected simple alias's member path as the producer does.
+        let alias_path = AccessPath::from_expr("alias.p0");
+        let target_path = AccessPath::from_expr(target);
+        let mut fields = target_path.fields;
+        fields.extend(alias_path.fields.clone());
+        let resolved = AccessPath::with_fields(target_path.base, fields);
+        assert_eq!(resolved, AccessPath::from_expr("obj.p0"));
+        let queries = [
+            (giant, AccessPath::from_expr("obj.p0"), None),
+            (giant, AccessPath::from_expr("obj.p1"), None),
+            (giant, AccessPath::from_expr("obj.p127"), None),
+            (giant, AccessPath::from_expr("absent.member"), None),
+            (other, alias_path, None),
+            (other, resolved, Some((body.start_byte(), body.end_byte()))),
+            (other, AccessPath::from_expr("obj.p1"), None),
+        ];
+        let expected: Vec<_> = queries
+            .iter()
+            .map(|(owner, path, scope)| {
+                parsed.legacy_path_reference_spans_fenced_in(
+                    owner,
+                    path,
+                    0,
+                    owner.start_byte(),
+                    *scope,
+                    false,
+                )
+            })
+            .collect();
+        let search = MemberReferenceSearch::new(&parsed);
+        NORMALIZATIONS.with(|n| n.set(0));
+        let member_count = if distinct { 256 } else { 129 } + 3;
+        for ((owner, path, scope), expected) in queries.iter().zip(expected) {
+            assert_eq!(
+                search.find_path_reference_spans_fenced_in(
+                    owner,
+                    path,
+                    0,
+                    owner.start_byte(),
+                    *scope,
+                    false
+                ),
+                expected
+            );
+            assert_eq!(
+                NORMALIZATIONS.with(|n| n.get()),
+                member_count,
+                "normalization stays at the file's member count after each distinct query"
+            );
+        }
+    }
 }

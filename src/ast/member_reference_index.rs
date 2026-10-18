@@ -13,45 +13,75 @@ struct Candidate<'a> {
     subtree_end: usize,
 }
 
-#[derive(Default)]
 struct Index<'a> {
     by_path: HashMap<AccessPath, Vec<Candidate<'a>>>,
+    root: Node<'a>,
 }
 
 impl<'a> Index<'a> {
     fn build(parsed: &'a ParsedFile) -> Self {
-        let mut index = Self::default();
-        index.walk(parsed, parsed.tree.root_node(), &mut 0);
-        index
+        let mut index = Self {
+            by_path: HashMap::new(),
+            root: parsed.tree.root_node(),
+        };
+        let mut cursor = index.root.walk();
+        let mut frames = Vec::new();
+        let mut next = 0;
+        loop {
+            let node = cursor.node();
+            let preorder = next;
+            next += 1;
+            let slot = if ParsedFile::is_field_access_node(node.kind()) {
+                #[cfg(test)]
+                count_normalization();
+                let path = parsed
+                    .bounded_member_path(node)
+                    .map(|member| member.path)
+                    .unwrap_or_else(|| AccessPath::from_expr(parsed.node_text(&node)));
+                let candidates = index.by_path.entry(path.clone()).or_default();
+                let slot = candidates.len();
+                candidates.push(Candidate {
+                    node,
+                    preorder,
+                    subtree_end: 0,
+                });
+                Some((path, slot))
+            } else {
+                None
+            };
+            frames.push(slot);
+            if cursor.goto_first_child() {
+                continue;
+            }
+            loop {
+                if let Some((path, slot)) = frames.pop().unwrap() {
+                    index.by_path.get_mut(&path).unwrap()[slot].subtree_end = next;
+                }
+                if cursor.goto_next_sibling() {
+                    break;
+                }
+                if !cursor.goto_parent() {
+                    return index;
+                }
+            }
+        }
     }
 
-    fn walk(&mut self, parsed: &'a ParsedFile, node: Node<'a>, next: &mut usize) {
-        let preorder = *next;
-        *next += 1;
-        let slot = if ParsedFile::is_field_access_node(node.kind()) {
-            #[cfg(test)]
-            count_normalization();
-            let path = parsed
-                .bounded_member_path(node)
-                .map(|member| member.path)
-                .unwrap_or_else(|| AccessPath::from_expr(parsed.node_text(&node)));
-            let candidates = self.by_path.entry(path.clone()).or_default();
-            let slot = candidates.len();
-            candidates.push(Candidate {
-                node,
-                preorder,
-                subtree_end: 0,
-            });
-            Some((path, slot))
-        } else {
-            None
-        };
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.walk(parsed, child, next);
-        }
-        if let Some((path, slot)) = slot {
-            self.by_path.get_mut(&path).unwrap()[slot].subtree_end = *next;
+    fn exact_descendant(&self, root: Node<'a>, c: &Candidate<'a>) -> bool {
+        #[cfg(test)]
+        EXACT_CHECKS.with(|n| n.set(n.get() + 1));
+        // The build and goto_descendant use the same all-child preorder.
+        // Unlike Node::parent(), the cursor retains its descent context;
+        // ascending it tests exact node identity without restarting at the root.
+        let mut cursor = self.root.walk();
+        cursor.goto_descendant(c.preorder);
+        loop {
+            if cursor.node() == root {
+                return true;
+            }
+            if !cursor.goto_parent() {
+                return false;
+            }
         }
     }
 
@@ -68,6 +98,8 @@ impl<'a> Index<'a> {
             .iter()
             .take_while(move |c| c.node.start_byte() <= root.end_byte())
             .filter(move |c| {
+                #[cfg(test)]
+                EXAMINED.with(|n| n.set(n.get() + 1));
                 let line = c.node.start_position().row + 1;
                 if c.preorder < suppressed_until
                     || c.node.end_byte() > root.end_byte()
@@ -75,15 +107,15 @@ impl<'a> Index<'a> {
                 {
                     return false;
                 }
-                // Exact ancestry matters for equal ranges and zero-width nodes.
-                let mut ancestor = Some(c.node);
-                while let Some(node) = ancestor {
-                    if node == root {
-                        // The walker returns even when a subsequent gate refuses.
-                        suppressed_until = c.subtree_end;
-                        return true;
-                    }
-                    ancestor = node.parent();
+                // Non-empty, contained, unequal ranges imply ancestry because
+                // tree-sitter ranges nest. Equal/empty ranges need node identity.
+                let interior = c.node.start_byte() < c.node.end_byte()
+                    && (c.node.start_byte(), c.node.end_byte())
+                        != (root.start_byte(), root.end_byte());
+                if interior || self.exact_descendant(root, c) {
+                    // The walker returns even when a subsequent gate refuses.
+                    suppressed_until = c.subtree_end;
+                    return true;
                 }
                 false
             })
@@ -230,3 +262,11 @@ mod tests;
 
 #[cfg(test)]
 mod oracle;
+
+#[cfg(test)]
+thread_local! {
+    static EXAMINED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static EXACT_CHECKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+#[cfg(test)]
+mod regressions;
