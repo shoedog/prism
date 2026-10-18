@@ -42,6 +42,12 @@ fn run_error(repo: &Path, profile: Option<&Path>, closed: bool, late: bool) -> O
         }
         cmd.stderr(Stdio::from(unsafe { OwnedFd::from_raw_fd(fds[1]) }));
     }
+    // RLIMIT_FSIZE also truncates a coverage-instrumented child's own .profraw,
+    // which would break the coverage merge; send it to a throwaway directory.
+    let _discard = late.then(|| tempfile::tempdir().unwrap());
+    if let Some(d) = &_discard {
+        cmd.env("LLVM_PROFILE_FILE", d.path().join("discard-%p.profraw"));
+    }
     if late {
         unsafe {
             cmd.pre_exec(|| {
