@@ -1,8 +1,12 @@
 //! Operation counts only: no clocks, resource samples, or profiling session.
+//! The differential compares stored DFG output plus the old parameter lookup,
+//! not complete per-owner RdOutcome/RdResult values or an independent scanner.
+//! Parameter rows on the signature line do not map to CFG statements, so this
+//! differential cannot guard the parameter-region step; scope::reuse_tests does.
 use super::*;
 use crate::ast::call_membership_tests::inventory_count;
 use crate::data_flow::DataFlowGraph;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::path::Path;
 
 #[derive(Default, Debug, Clone, serde::Serialize)]
@@ -11,6 +15,8 @@ pub(super) struct Counts {
     start: usize,
     language: String,
     pub all_functions: usize,
+    // Debug-only invariant inventories are separate from release-path work.
+    pub debug_root_inventories: usize,
     pub parameter_queries: usize,
     pub introductions: usize,
     pub binding_facts: usize,
@@ -23,17 +29,37 @@ pub(super) struct Counts {
 }
 
 thread_local! {
+    static RECORDING: Cell<bool> = const { Cell::new(false) };
     static CURRENT: RefCell<Counts> = RefCell::default();
     static RECORDS: RefCell<Vec<Counts>> = const { RefCell::new(Vec::new()) };
 }
 
 pub(super) fn bump(f: impl FnOnce(&mut Counts)) {
-    CURRENT.with(|counts| f(&mut counts.borrow_mut()));
+    if RECORDING.with(Cell::get) {
+        CURRENT.with(|counts| f(&mut counts.borrow_mut()));
+    }
 }
 
-pub(super) struct Pass(usize);
+struct Recording;
+impl Recording {
+    fn begin() -> Self {
+        RECORDING.with(|enabled| assert!(!enabled.replace(true)));
+        take_records();
+        Self
+    }
+}
+impl Drop for Recording {
+    fn drop(&mut self) {
+        RECORDING.with(|enabled| enabled.set(false));
+    }
+}
+
+pub(super) struct Pass(Option<usize>);
 impl Pass {
     pub(super) fn begin(parsed: &ParsedFile, owner: &Node<'_>) -> Self {
+        if !RECORDING.with(Cell::get) {
+            return Self(None);
+        }
         CURRENT.with(|counts| {
             *counts.borrow_mut() = Counts {
                 owner: parsed.dfg_owner_name(owner).unwrap_or_default(),
@@ -42,12 +68,15 @@ impl Pass {
                 ..Counts::default()
             };
         });
-        Self(inventory_count())
+        Self(Some(inventory_count()))
     }
 }
 impl Drop for Pass {
     fn drop(&mut self) {
-        bump(|counts| counts.all_functions = inventory_count() - self.0);
+        let Some(start) = self.0 else { return };
+        bump(|counts| {
+            counts.all_functions = inventory_count() - start - counts.debug_root_inventories;
+        });
         let counts = CURRENT.with(|counts| counts.borrow().clone());
         RECORDS.with(|records| records.borrow_mut().push(counts));
     }
@@ -66,14 +95,133 @@ fn build(parsed: ParsedFile) -> (DataFlowGraph, Vec<Counts>) {
         .build()
         .unwrap()
         .install(|| {
-            take_records();
+            let _recording = Recording::begin();
             let graph = DataFlowGraph::build(&BTreeMap::from([(parsed.path.clone(), parsed)]));
             (graph, take_records())
         })
 }
 
 #[test]
+fn zero_introductions_do_not_query_parameters() {
+    let parsed = ParsedFile::parse(
+        "zero.ts",
+        "function f() {\n consume(1);\n return 1;\n}",
+        Language::TypeScript,
+    )
+    .unwrap();
+    let func = parsed.all_functions()[0];
+    let cfg = cfg::build_cfg_edges_with_arms(&parsed);
+    let _recording = Recording::begin();
+    let outcome = reaching_definitions_with_exact(&parsed, &func, &[], &[], &[], &cfg);
+    assert!(matches!(outcome, RdOutcome::Available(_)));
+    let counts = take_records().pop().unwrap();
+    assert_eq!(counts.binding_facts, 1, "{counts:?}");
+    assert!(counts.binding_nodes > 0, "{counts:?}");
+    assert_eq!(counts.introductions, 0, "{counts:?}");
+    assert_eq!(counts.all_functions, 0, "{counts:?}");
+    assert_eq!(counts.parameter_queries, 0, "{counts:?}");
+}
+
+#[test]
+fn absent_parameters_are_cached_across_introductions() {
+    let _recording = Recording::begin();
+    for count in [1, 32, 128] {
+        let source = format!(
+            "consume(p => {{\n{}consume(p);\nreturn p;\n}});",
+            (0..count)
+                .map(|i| format!("let x{i} = {i};\n"))
+                .collect::<String>()
+        );
+        let parsed = ParsedFile::parse("absent.ts", &source, Language::TypeScript).unwrap();
+        let owner = parsed.all_functions()[0];
+        assert!(parsed.find_parameters_node(&owner).is_none());
+        let cfg = cfg::build_cfg_edges_with_arms(&parsed);
+        take_records();
+        assert!(matches!(
+            reaching_definitions_with_exact(&parsed, &owner, &[], &[], &[], &cfg),
+            RdOutcome::Available(_)
+        ));
+        let counts = take_records().pop().unwrap();
+        assert!(counts.introductions >= count, "{counts:?}");
+        assert_eq!(counts.all_functions, 0, "{counts:?}");
+        assert_eq!(counts.parameter_queries, 1, "{counts:?}");
+    }
+}
+
+#[test]
+fn early_exits_do_not_discover_parameters() {
+    let _recording = Recording::begin();
+    let short = "def f(p):\n    consume(p)\n    return p\n";
+    let long = format!("def f(p):\n{}", "    consume(p)\n".repeat(RD_MAX_LINES + 1));
+    for (source, def_count, expected) in [
+        (
+            short,
+            RD_MAX_DEFS + 1,
+            RdUnavailable::DefinitionsCapExceeded {
+                actual: RD_MAX_DEFS + 1,
+            },
+        ),
+        (
+            long.as_str(),
+            0,
+            RdUnavailable::StatementLinesCapExceeded {
+                actual: RD_MAX_LINES + 1,
+            },
+        ),
+        (short, 0, RdUnavailable::NoCfgEdges),
+    ] {
+        let parsed = ParsedFile::parse("exit.py", source, Language::Python).unwrap();
+        let owner = parsed.all_functions()[0];
+        let defs: Vec<_> = (0..def_count)
+            .map(|i| DefSite {
+                id: DefId(i as u32),
+                path: AccessPath::simple(format!("v{i}")),
+                line: 1,
+                start_byte: 0,
+                alias_derived: false,
+            })
+            .collect();
+        take_records();
+        assert_eq!(
+            reaching_definitions_with_exact(&parsed, &owner, &defs, &[], &[], &[]),
+            RdOutcome::Unavailable(expected)
+        );
+        let counts = take_records().pop().unwrap();
+        assert_eq!(counts.binding_facts, 0, "{counts:?}");
+        assert_eq!(counts.introductions, 0, "{counts:?}");
+        assert_eq!(counts.parameter_queries, 0, "{counts:?}");
+        assert_eq!(counts.all_functions, 0, "{counts:?}");
+        assert_eq!(counts.debug_root_inventories, 0, "{counts:?}");
+    }
+}
+
+#[test]
+fn ordinary_passes_do_not_record() {
+    let parsed = ParsedFile::parse(
+        "disabled.ts",
+        "function f(p) {\nconsume(p);\nreturn p;\n}",
+        Language::TypeScript,
+    )
+    .unwrap();
+    let owner = parsed.all_functions()[0];
+    let cfg = cfg::build_cfg_edges_with_arms(&parsed);
+    take_records();
+    assert!(!RECORDING.with(Cell::get));
+    let run = || reaching_definitions_with_exact(&parsed, &owner, &[], &[], &[], &cfg);
+    assert!(matches!(run(), RdOutcome::Available(_)));
+    assert!(take_records().is_empty());
+    {
+        let _recording = Recording::begin();
+        assert!(matches!(run(), RdOutcome::Available(_)));
+        assert_eq!(take_records().len(), 1);
+    }
+    assert!(matches!(run(), RdOutcome::Available(_)));
+    assert!(take_records().is_empty());
+}
+
+#[test]
 fn root_inventory_cost_is_constant_per_owner() {
+    let _recording = Recording::begin();
     for count in [0, 1, 32, 128] {
         let source = format!(
             "function f(p) {{\n{}consume(p);\nreturn p;\n}}\nfunction sibling() {{ return 0; }}",
@@ -163,11 +311,15 @@ fn compare(source: &str, path: &str, language: Language) -> Vec<Counts> {
     rayon::ThreadPoolBuilder::new().num_threads(1).stack_size(64 * 1024 * 1024).build().unwrap().install(|| {
         let parsed = ParsedFile::parse(path, source, language).unwrap();
         let files = BTreeMap::from([(path.to_string(), parsed)]);
-        take_records();
+        let _recording = Recording::begin();
         LEGACY.with(|mode| mode.set(true));
         let old = DataFlowGraph::build(&files);
         LEGACY.with(|mode| mode.set(false));
         let old_counts = take_records();
+        if old_counts.iter().any(|counts| counts.introductions > 0) {
+            assert!(old_counts.iter().map(|counts| counts.all_functions).sum::<usize>() > 0,
+                "legacy lookup must execute: {path}");
+        }
         let new = DataFlowGraph::build(&files);
         let new_counts = take_records();
         assert_eq!(old_counts.len(), new_counts.len(), "pass count: {path}");

@@ -16,12 +16,13 @@ fn root_parameters_match_main_inventory_and_classification() {
             assert_eq!(root.function.id(), owner.id());
             let main_owner = parsed.all_functions().into_iter().find(|f| f.id() == owner.id()).unwrap();
             let expected = parsed.find_parameters_node(&main_owner).unwrap();
-            assert_eq!(root.parameters, Some(expected));
+            assert!(root.parameters.get().is_none(), "discovery is demand-driven");
             // A parameter-region introduction is classified before walking its
             // ancestors; a body region must not be mistaken for a parameter.
-            assert!(introduction_is_classified(&parsed, expected, expected, root));
+            assert!(introduction_is_classified(&parsed, expected, expected, &root));
+            assert_eq!(root.parameters.get(), Some(&Some(expected)));
             let body = owner.child_by_field_name("body").unwrap();
-            assert!(!introduction_is_classified(&parsed, body, body, root));
+            assert!(!introduction_is_classified(&parsed, body, body, &root));
         }
     }
 }
@@ -39,12 +40,21 @@ fn bare_arrow_keeps_the_original_absent_parameter_region() {
         let root = RootFunction::new(&parsed, owner);
         assert!(parsed.parameter_binding_region(&owner).is_some());
         assert!(
-            root.parameters.is_none(),
+            root.parameters(&parsed).is_none(),
             "retain find_parameters_node semantics"
         );
         let parameter = owner.child_by_field_name("parameter").unwrap();
         assert!(!introduction_is_classified(
-            &parsed, parameter, parameter, root
+            &parsed, parameter, parameter, &root
         ));
     }
+}
+
+#[test]
+#[cfg(debug_assertions)]
+#[should_panic(expected = "root function must remain indexed")]
+fn unindexed_root_trips_debug_invariant() {
+    let parsed = ParsedFile::parse("root.ts", "function f() {}", Language::TypeScript).unwrap();
+    let owner = parsed.all_functions()[0];
+    RootFunction::new(&parsed, owner.child_by_field_name("body").unwrap());
 }

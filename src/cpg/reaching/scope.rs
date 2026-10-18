@@ -4,6 +4,7 @@ use super::{DefSite, Line};
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use crate::languages::Language;
+use std::cell::OnceCell;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
@@ -115,21 +116,35 @@ pub(super) enum BindingRelation {
     Unresolved,
 }
 
-#[derive(Clone, Copy)]
 struct RootFunction<'a> {
     function: Node<'a>,
-    parameters: Option<Node<'a>>,
+    parameters: OnceCell<Option<Node<'a>>>,
 }
 
 impl<'a> RootFunction<'a> {
     fn new(parsed: &ParsedFile, function: Node<'a>) -> Self {
-        #[cfg(test)]
-        super::work_tests::bump(|counts| counts.parameter_queries += 1);
+        #[cfg(all(test, debug_assertions))]
+        super::work_tests::bump(|counts| counts.debug_root_inventories += 1);
+        debug_assert!(
+            parsed
+                .all_functions()
+                .iter()
+                .any(|f| f.id() == function.id()),
+            "root function must remain indexed"
+        );
         Self {
             function,
-            // Preserve find_parameters_node's semantics, including bare arrows.
-            parameters: parsed.find_parameters_node(&function),
+            parameters: OnceCell::new(),
         }
+    }
+
+    fn parameters(&self, parsed: &ParsedFile) -> Option<Node<'a>> {
+        *self.parameters.get_or_init(|| {
+            #[cfg(test)]
+            super::work_tests::bump(|counts| counts.parameter_queries += 1);
+            // Cache absence too; preserve bare-arrow semantics.
+            parsed.find_parameters_node(&self.function)
+        })
     }
 }
 
@@ -170,7 +185,7 @@ impl BindingFacts {
         collect_unclassified_binding_lines(
             parsed,
             *func_node,
-            RootFunction::new(parsed, *func_node),
+            &RootFunction::new(parsed, *func_node),
             &callable_boundary_kinds,
             grammar_introducing_fields(parsed.language),
             &mut unclassified_binding_lines,
@@ -520,7 +535,7 @@ fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {
 fn collect_unclassified_binding_lines(
     parsed: &ParsedFile,
     node: Node<'_>,
-    root: RootFunction<'_>,
+    root: &RootFunction<'_>,
     callable_boundary_kinds: &[&str],
     introducing_fields: &IntroducingFields,
     lines: &mut BTreeMap<String, BTreeSet<Line>>,
@@ -633,11 +648,11 @@ fn introduction_is_classified(
     parsed: &ParsedFile,
     node: Node<'_>,
     target: Node<'_>,
-    root: RootFunction<'_>,
+    root: &RootFunction<'_>,
 ) -> bool {
     #[cfg(test)]
     super::work_tests::bump(|counts| counts.introductions += 1);
-    let parameters = root.parameters;
+    let parameters = root.parameters(parsed);
     #[cfg(test)]
     let parameters = super::work_tests::parameters(parsed, root.function, parameters);
     if parameters.is_some_and(|parameters| {
