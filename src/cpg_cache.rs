@@ -430,6 +430,7 @@ pub fn save_cache_with_topology(
     has_type_db: bool,
     cache_dir: &Path,
 ) -> io::Result<SaveOutcome> {
+    let _profile = crate::profile::Phase::serial("cache.save");
     if cpg.ephemeral_owner || cpg.call_graph.owner_ephemeral {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -531,6 +532,7 @@ pub fn load_cache_with_topology(
     has_type_db: bool,
     cache_dir: &Path,
 ) -> CacheResult {
+    let _profile = crate::profile::Phase::serial("cache.load");
     let result = read_cache(current_hashes, current_topology_key, has_type_db, cache_dir);
     // After the read, so the result never depends on it: clear a crashed writer's leftover and
     // the idle files of earlier versions.

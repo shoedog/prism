@@ -435,9 +435,9 @@
    ]
   ],
   "PD-53-this-rebinding-fence-off": [
-   "src/ast_callback_identity.rs",
-   "path.base == \"this\" && self.js_ts_this_rebound_between(&node, owner)",
-   "false && path.base == \"this\" && self.js_ts_this_rebound_between(&node, owner)",
+   "src/ast/member_reference_index.rs",
+   "path.base == \"this\" && parsed.js_ts_this_rebound_between(&node, owner)",
+   "false && path.base == \"this\" && parsed.js_ts_this_rebound_between(&node, owner)",
    [
     "cpg::callback_identity_tests::synthetic_this_member_def_stops_at_a_nested_receiver"
    ]
@@ -475,8 +475,8 @@
    ]
   ],
   "PD-58-r1-member-read-role-off": [
-   "src/ast_callback_identity.rs",
-   "|| self.js_ts_identifier_is_not_a_read(node)",
+   "src/ast/member_reference_index.rs",
+   "|| parsed.js_ts_identifier_is_not_a_read(node)",
    "|| false",
    [
     "cpg::callback_identity_tests::r1_member_writes_are_not_value_reads"
@@ -666,8 +666,8 @@
    "cpg::callback_identity_tests::r5_seam_body_vars_keep_assignments_and_refuse_default_reads"
   ],
   "PD-91-r5-named-main-path-off": [
-   "src/ast_callback_identity.rs",
-   "&& self.js_ts_seam_binding(func_node, &path.base)",
+   "src/ast/member_reference_index.rs",
+   "&& parsed.js_ts_seam_binding(owner, &path.base)",
    "&& false",
    "cpg::callback_identity_tests::r5_named_seam_rows_equal_frozen_main_goldens"
   ],

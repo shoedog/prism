@@ -285,7 +285,13 @@ impl ParsedFile {
 
     /// Scope identity and visibility span of a binding at an evaluated byte.
     /// Callable body vars exclude defaults; method keys exclude all formals.
-    fn js_ts_binding_scope_at(&self, byte: usize, name: &str) -> Option<(usize, (usize, usize))> {
+    pub(super) fn js_ts_binding_scope_at_uncached(
+        &self,
+        byte: usize,
+        name: &str,
+    ) -> Option<(usize, (usize, usize))> {
+        #[cfg(test)]
+        binding_verdict_memo::probe::observe("binding_at", byte, 0, name);
         let leaf = self
             .tree
             .root_node()
@@ -308,33 +314,10 @@ impl ParsedFile {
         let mut current = start;
         while let Some(scope) = current {
             // Only kinds that can hold a binding do real work; the rest answer false at once.
-            let cacheable = boundaries.contains(&scope.kind())
-                || matches!(
-                    scope.kind(),
-                    "statement_block"
-                        | "switch_body"
-                        | "enum_body"
-                        | "class"
-                        | "class_declaration"
-                        | "abstract_class_declaration"
-                        | "class_static_block"
-                        | "for_statement"
-                        | "for_in_statement"
-                        | "catch_clause"
-                );
+            let cacheable = binding_verdict_memo::cacheable(scope, &boundaries);
             let binds = match memo {
                 Some(memo) if cacheable => {
-                    let region = if boundaries.contains(&scope.kind()) {
-                        let inside = |n: Option<Node<'_>>| {
-                            n.is_some_and(|n| n.start_byte() <= byte && byte < n.end_byte())
-                        };
-                        u8::from(inside(scope.child_by_field_name("body")))
-                            | u8::from(inside(self.parameter_binding_region(&scope))) << 1
-                            | u8::from(inside(scope.child_by_field_name("name"))) << 2
-                            | u8::from(inside(scope.child_by_field_name("return_type"))) << 3
-                    } else {
-                        0
-                    };
+                    let region = self.binding_verdict_region(scope, &boundaries, byte);
                     let key = (scope.id(), region);
                     let cached = memo.0.borrow().get(&key).copied();
                     match cached {
@@ -572,7 +555,9 @@ impl ParsedFile {
             .collect()
     }
 
-    pub(crate) fn js_ts_seam_binding(&self, owner: &Node<'_>, name: &str) -> bool {
+    pub(super) fn js_ts_seam_binding_uncached(&self, owner: &Node<'_>, name: &str) -> bool {
+        #[cfg(test)]
+        binding_verdict_memo::probe::observe("seam", owner.id(), 0, name);
         let Some(params) = self.parameter_binding_region(owner) else {
             return false;
         };
@@ -705,13 +690,15 @@ impl ParsedFile {
                 .is_some_and(|body| body.start_byte() <= byte && byte < body.end_byte()))
     }
 
-    fn js_ts_scope_binds(
+    pub(super) fn js_ts_scope_binds_uncached(
         &self,
         scope: Node<'_>,
         boundaries: &[&str],
         name: &str,
         byte: usize,
     ) -> bool {
+        #[cfg(test)]
+        binding_verdict_memo::probe::scope(self, scope, boundaries, name, byte);
         if boundaries.contains(&scope.kind()) {
             let body = scope.child_by_field_name("body");
             let params = self.parameter_binding_region(&scope);
@@ -1329,55 +1316,8 @@ impl ParsedFile {
         .collect()
     }
 
-    /// First admitted occurrence per line, after the binding and read-role
-    /// gates. Synthetic edges retain this occurrence instead of substituting
-    /// a different binding's first rvalue on the same line.
-    pub(crate) fn find_path_reference_spans_fenced_in(
-        &self,
-        func_node: &Node<'_>,
-        path: &crate::access_path::AccessPath,
-        def_line: usize,
-        def_byte: usize,
-        within: Option<(usize, usize)>,
-        reads_only: bool,
-    ) -> BTreeMap<usize, (usize, usize)> {
-        if !matches!(
-            self.language,
-            Language::JavaScript | Language::TypeScript | Language::Tsx
-        ) || (!reads_only
-            && self.language.function_name(func_node).is_some()
-            && self.js_ts_seam_binding(func_node, &path.base))
-        {
-            return self
-                .find_path_references_scoped(func_node, path, def_line)
-                .into_iter()
-                .map(|line| {
-                    (
-                        line,
-                        (self.line_start_byte(line), self.line_start_byte(line)),
-                    )
-                })
-                .collect();
-        }
-        let mut lines = BTreeMap::new();
-        let scope_root = within
-            .and_then(|(s, e)| self.tree.root_node().descendant_for_byte_range(s, e))
-            .filter(|n| within == Some((n.start_byte(), n.end_byte())))
-            .unwrap_or(*func_node);
-        if path.is_simple() {
-            self.collect_fenced_simple_refs(
-                scope_root, func_node, &path.base, def_line, def_byte, reads_only, &mut lines,
-            );
-        } else {
-            self.collect_fenced_path_refs(
-                scope_root, func_node, path, def_line, def_byte, reads_only, &mut lines,
-            );
-        }
-        lines
-    }
-
     #[allow(clippy::too_many_arguments)]
-    fn collect_fenced_simple_refs(
+    pub(super) fn collect_fenced_simple_refs<const COUNT: bool>(
         &self,
         node: Node<'_>,
         owner: &Node<'_>,
@@ -1387,11 +1327,12 @@ impl ParsedFile {
         reads_only: bool,
         out: &mut BTreeMap<usize, (usize, usize)>,
     ) {
+        use crate::profile::gates::{fence, scoped_refs, shadow};
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
         let Some(query) = get_query(self.language, QueryKind::Identifiers) else {
             out.extend(
-                self.find_variable_references_scoped(owner, name, def_line)
+                scoped_refs::<COUNT>(self, owner, name, def_line)
                     .into_iter()
                     .map(|line| {
                         (
@@ -1412,8 +1353,8 @@ impl ParsedFile {
             for capture in m.captures {
                 if capture.index == ident_idx
                     && self.node_text(&capture.node) == name
-                    && !self.is_shadowed_at(&capture.node, owner, name, def_line)
-                    && !self.js_ts_reference_fenced(&capture.node, owner, name, def_byte)
+                    && !shadow::<COUNT>(self, &capture.node, owner, name, def_line)
+                    && !fence::<COUNT>(self, &capture.node, owner, name, def_byte)
                     && !(reads_only && self.js_ts_identifier_is_not_a_read(capture.node))
                     && !(reads_only && self.js_ts_reference_in_with_body(capture.node))
                 {
@@ -1421,44 +1362,6 @@ impl ParsedFile {
                         .or_insert((capture.node.start_byte(), capture.node.end_byte()));
                 }
             }
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn collect_fenced_path_refs(
-        &self,
-        node: Node<'_>,
-        owner: &Node<'_>,
-        path: &crate::access_path::AccessPath,
-        def_line: usize,
-        def_byte: usize,
-        reads_only: bool,
-        out: &mut BTreeMap<usize, (usize, usize)>,
-    ) {
-        let line = node.start_position().row + 1;
-        if Self::is_field_access_node(node.kind()) {
-            let node_path = self
-                .bounded_member_path(node)
-                .map(|member| member.path)
-                .unwrap_or_else(|| {
-                    crate::access_path::AccessPath::from_expr(self.node_text(&node))
-                });
-            if node_path == *path && line > def_line {
-                let refused_read = reads_only
-                    && ((path.base == "this" && self.js_ts_this_rebound_between(&node, owner))
-                        || self.js_ts_identifier_is_not_a_read(node)
-                        || self.js_ts_reference_in_with_body(node));
-                if !refused_read && !self.js_ts_reference_fenced(&node, owner, &path.base, def_byte)
-                {
-                    out.entry(line)
-                        .or_insert((node.start_byte(), node.end_byte()));
-                }
-                return;
-            }
-        }
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.collect_fenced_path_refs(child, owner, path, def_line, def_byte, reads_only, out);
         }
     }
 
@@ -1471,7 +1374,7 @@ impl ParsedFile {
             .is_some_and(|node| self.js_ts_reference_in_with_body(node))
     }
 
-    fn js_ts_reference_in_with_body(&self, reference: Node<'_>) -> bool {
+    pub(super) fn js_ts_reference_in_with_body(&self, reference: Node<'_>) -> bool {
         let byte = reference.start_byte();
         let mut current = reference.parent();
         while let Some(node) = current {

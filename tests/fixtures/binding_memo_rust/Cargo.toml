@@ -1,0 +1,4 @@
+[package]
+name = "binding-memo-rust-fixture"
+version = "0.0.0"
+edition = "2021"
