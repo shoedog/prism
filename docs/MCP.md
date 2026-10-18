@@ -70,7 +70,7 @@ prism-mcp --repo /abs/path/to/repo --eager < /dev/null               # build syn
 | `--shared` | no | Serve through the shared per-repository daemon (a shim of a few MB) instead of an index of this process's own; opt-in. See [Shared daemon](#shared-daemon---shared-opt-in-macos-and-linux). |
 | `--standalone` | no | An index of this process's own (the default). |
 
-> **The first index build warms a cache.** A cold whole-repo CPG build can take ~30 s on a large repo;
+> **The first index build warms a cache.** A cold whole-repo CPG build can take seconds to a few minutes on a large repo;
 > later builds on an unchanged tree are near-instant (the cache is keyed by the canonical repo path + a
 > grammar fingerprint, and only re-indexes changed files). By default that build runs on the first valid
 > `tools/call`, not at process start. If you want to pre-warm once, use either
@@ -118,7 +118,7 @@ does that, which gives every worktree and clone its own index:
 command = "/bin/sh"
 args = ["-c", 'root=$(git rev-parse --show-toplevel) || exit 1; exec "$PRISM_MCP_BIN" --repo "$root" --shared']
 startup_timeout_sec = 60
-env = { PRISM_MCP_BIN = "/abs/path/to/prism/target/release/prism-mcp" }
+env = { PRISM_MCP_BIN = "/abs/path/to/prism/target/release/prism-mcp", PRISM_MCP_RUNTIME_DIR = "/tmp" }
 ```
 
 A fixed `--repo` pointing at another checkout answers about that checkout's code, not the one under

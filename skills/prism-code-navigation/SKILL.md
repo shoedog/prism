@@ -2,17 +2,15 @@
 name: prism-code-navigation
 description: >-
   Navigate a codebase STRUCTURALLY with the prism MCP nav tools (nav_repo_map, nav_nodes_at,
-  nav_symbol_spans, nav_callers, nav_callees, nav_ego_graph, nav_module_deps) instead of grepping or reading files
-  blindly. Use when reviewing a change, writing a spec, planning an edit or refactor, or analyzing
+  nav_symbol_spans, nav_callers, nav_callees, nav_ego_graph, nav_module_deps) instead of grepping. Use when reviewing a change, writing a spec, planning an edit or refactor, or analyzing
   impact and you need to know who calls a symbol, what it calls, what breaks if you change it, the
   call/dependency graph around it, or the repo's module layout — "find callers/callees", "impact /
   blast radius of changing X", "what would a change touch", "what depends on Y", "who uses Z",
   "module dependencies", "trace the call graph". Resolves calls/imports across files that grep can't.
-  On a spec / plan / impact-analysis task, orient with these tools FIRST, before reading files.
+  On a spec / plan task, orient with these tools FIRST, before reading files.
   Structural counterpart to lsp-nav (type-resolved go-to-def/references) and the slicing CLI
-  (diff-driven review). Tool names (nav_*, taint_reaches, refresh_index): prefixed
-  mcp__plugin_prism_prism__ from the Claude Code plugin, mcp__prism__ from a server added as "prism"
-  (Claude/Codex), bare for Kiro.
+  (diff-driven review). Tools (nav_*, taint_reaches, refresh_index) are prefixed
+  mcp__plugin_prism_prism__ (Claude Code plugin) or mcp__prism__ (server named "prism"); bare in Kiro.
 metadata:
   project: prism
   surface: mcp
