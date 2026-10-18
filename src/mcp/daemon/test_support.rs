@@ -64,7 +64,7 @@ impl ManualClock {
         })
     }
 
-    fn advance(&self, by: Duration) {
+    pub(super) fn advance(&self, by: Duration) {
         let mut now = self.now.lock().expect("manual clock");
         *now += by;
     }

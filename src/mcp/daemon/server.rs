@@ -55,6 +55,8 @@ pub(super) const IDENTITY_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 /// refilling must not starve them (review round 1, sol F3). A burst of `--max-clients` (64)
 /// shims takes four turns, each of which starts at once while the listener stays readable.
 pub(super) const ACCEPTS_PER_TURN: usize = 16;
+/// Pause only listener admission when the process or system descriptor table is full.
+const ACCEPT_BACKOFF: Duration = Duration::from_millis(100);
 /// Name of each admitted connection's thread. Linux keeps 15 bytes of it.
 const WORKER_THREAD_NAME: &str = "prism-mcp-conn";
 
@@ -129,6 +131,11 @@ pub(super) type PeerUid = Box<dyn Fn(&UnixStream) -> io::Result<u32> + Send>;
 #[cfg(test)]
 pub(super) type TurnHook = Arc<dyn Fn() + Send + Sync>;
 
+#[cfg(test)]
+type AcceptHook = Box<dyn FnMut() -> Option<io::Result<UnixStream>> + Send>;
+#[cfg(test)]
+type AcceptLog = Box<dyn Fn(&str) + Send>;
+
 /// A connection in the handshake stage.
 struct Pending {
     stream: UnixStream,
@@ -148,6 +155,8 @@ pub(super) struct Server {
     peer_uid: PeerUid,
     pending: Vec<Pending>,
     next_identity_check: Instant,
+    /// Kept after expiry until accept makes progress, so repeated exhaustion logs once.
+    accept_retry_at: Option<Instant>,
     /// Whether a termination signal has arrived (`run.rs` installs the handlers).
     signalled: fn() -> bool,
     #[cfg(test)]
@@ -156,6 +165,10 @@ pub(super) struct Server {
     /// deadline is checked again.
     #[cfg(test)]
     line_read: Option<TurnHook>,
+    #[cfg(test)]
+    accept_hook: Option<AcceptHook>,
+    #[cfg(test)]
+    accept_log: Option<AcceptLog>,
 }
 
 impl Server {
@@ -187,11 +200,16 @@ impl Server {
             peer_uid: Box::new(peer_uid),
             pending: Vec::new(),
             next_identity_check,
+            accept_retry_at: None,
             signalled: || false,
             #[cfg(test)]
             turn: None,
             #[cfg(test)]
             line_read: None,
+            #[cfg(test)]
+            accept_hook: None,
+            #[cfg(test)]
+            accept_log: None,
         })
     }
 
@@ -276,7 +294,7 @@ impl Server {
     }
 
     /// How long the next `poll` may sleep: until the first handshake deadline, the idle
-    /// deadline or the next identity check, whichever is first.
+    /// deadline, listener retry or the next identity check, whichever is first.
     fn poll_timeout(&self) -> anyhow::Result<Duration> {
         let now = self.state.now();
         let idle = self
@@ -289,6 +307,7 @@ impl Server {
             .map(|pending| pending.deadline)
             .chain(idle)
             .chain(Some(self.next_identity_check))
+            .chain(self.accept_retry_at.filter(|deadline| *deadline > now))
             .min()
             .unwrap_or(now);
         Ok(first
@@ -299,19 +318,7 @@ impl Server {
     /// Sleep in `poll` until the listener or a pending connection is readable, a wake byte
     /// arrives, or `timeout` passes. Returns whether the listener is readable.
     fn wait(&self, timeout: Duration) -> anyhow::Result<bool> {
-        let mut fds: Vec<libc::pollfd> = [self.listener.as_raw_fd(), self.wakes.as_raw_fd()]
-            .into_iter()
-            .chain(
-                self.pending
-                    .iter()
-                    .map(|pending| pending.stream.as_raw_fd()),
-            )
-            .map(|fd| libc::pollfd {
-                fd,
-                events: libc::POLLIN,
-                revents: 0,
-            })
-            .collect();
+        let mut fds = self.poll_fds();
         // Round up, so that a deadline a fraction of a millisecond away is not polled for 0 ms
         // again and again.
         let millis = timeout.as_micros().div_ceil(1000);
@@ -327,7 +334,31 @@ impl Server {
             }
             return Err(error.into());
         }
-        Ok(fds.first().is_some_and(|listener| listener.revents != 0))
+        Ok(fds
+            .iter()
+            .any(|fd| fd.fd == self.listener.as_raw_fd() && fd.revents != 0))
+    }
+
+    fn poll_fds(&self) -> Vec<libc::pollfd> {
+        std::iter::once(self.listener.as_raw_fd())
+            .filter(|_| !self.accept_paused())
+            .chain(std::iter::once(self.wakes.as_raw_fd()))
+            .chain(
+                self.pending
+                    .iter()
+                    .map(|pending| pending.stream.as_raw_fd()),
+            )
+            .map(|fd| libc::pollfd {
+                fd,
+                events: libc::POLLIN,
+                revents: 0,
+            })
+            .collect()
+    }
+
+    fn accept_paused(&self) -> bool {
+        self.accept_retry_at
+            .is_some_and(|deadline| self.state.now() < deadline)
     }
 
     fn empty_wakes(&self) {
@@ -338,20 +369,54 @@ impl Server {
     /// Accept the connections that are waiting, at most `ACCEPTS_PER_TURN` of them; the rest
     /// wait for the next turn, which starts at once because the listener is still readable.
     fn accept_all(&mut self) -> anyhow::Result<()> {
+        if self.accept_paused() {
+            return Ok(());
+        }
         for _ in 0..ACCEPTS_PER_TURN {
-            match self.listener.accept() {
-                Ok((stream, _address)) => self.enter(stream)?,
-                Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(()),
+            match self.accept() {
+                Ok(stream) => {
+                    self.accept_retry_at = None;
+                    self.enter(stream)?;
+                }
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    self.accept_retry_at = None;
+                    return Ok(());
+                }
                 Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-                // A connection that went away before it was accepted, or a full descriptor
-                // table: try again on the next turn.
+                Err(error) if matches!(error.raw_os_error(), Some(libc::EMFILE | libc::ENFILE)) => {
+                    if self.accept_retry_at.is_none() {
+                        self.log_accept_error(&error);
+                    }
+                    let now = self.state.now();
+                    self.accept_retry_at = Some(now.checked_add(ACCEPT_BACKOFF).unwrap_or(now));
+                    return Ok(());
+                }
+                // A connection that went away before it was accepted: retry next turn.
                 Err(error) => {
-                    log::line(&format!("accepting a connection failed: {error}"));
+                    self.accept_retry_at = None;
+                    self.log_accept_error(&error);
                     return Ok(());
                 }
             }
         }
         Ok(())
+    }
+
+    fn accept(&mut self) -> io::Result<UnixStream> {
+        #[cfg(test)]
+        if let Some(result) = self.accept_hook.as_mut().and_then(|accept| accept()) {
+            return result;
+        }
+        self.listener.accept().map(|(stream, _address)| stream)
+    }
+
+    fn log_accept_error(&self, error: &io::Error) {
+        let message = format!("accepting a connection failed: {error}");
+        #[cfg(test)]
+        if let Some(log) = &self.accept_log {
+            log(&message);
+        }
+        log::line(&message);
     }
 
     /// A connection just accepted: check its peer, then count it as pending or answer it.
@@ -638,3 +703,7 @@ mod drain_tests;
 #[cfg(test)]
 #[path = "server_control_tests.rs"]
 mod control_tests;
+
+#[cfg(test)]
+#[path = "server_accept_tests.rs"]
+mod accept_tests;
