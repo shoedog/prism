@@ -11,7 +11,7 @@ pub(super) fn record_inventory() {
     INVENTORIES.with(|count| count.set(count.get() + 1));
 }
 
-fn inventory_count() -> usize {
+pub(crate) fn inventory_count() -> usize {
     INVENTORIES.with(Cell::get)
 }
 
