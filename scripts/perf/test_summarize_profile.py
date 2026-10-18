@@ -32,6 +32,7 @@ class RendererTest(unittest.TestCase):
              "top_owners": owners, "other_owners": dict.fromkeys(
                  ["count", "total_ns", "p50_ns", "p90_ns", "p99_ns", "max_ns"], 0)},
         ])
+        self.assertEqual(output.count("process peak RSS (high-water mark, sampled after) MiB"), 2)
         self.assertIn("| 15 | 7 |", output)
         self.assertIn("| 30 | 12 |", output)
         self.assertIn("| 30 | 12 | 4.00 |", output)

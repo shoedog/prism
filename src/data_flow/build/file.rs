@@ -446,7 +446,7 @@ impl Producer {
                 // R1: every JS/TS Def, including writes, stays in its
                 // binding environment; body vars cannot reach defaults.
                 let def_scope =
-                    parsed.js_ts_def_scope(&func_node, &path.base, span.start_byte);
+                    crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte);
                 let refs = crate::profile::search_refs(parsed, &member_refs,
                     &func_node,
                     path,
@@ -502,7 +502,7 @@ impl Producer {
                             &resolved,
                             def_line,
                             span.start_byte,
-                            parsed.js_ts_def_scope(
+                            crate::profile::gates::def_scope(parsed,
                                 &func_node,
                                 &resolved.base,
                                 span.start_byte,
@@ -643,6 +643,7 @@ impl Producer {
                 &rvalue_spans,
                 function_edges,
             );
+            let cfg = file_cfg_edges.get_or_init(|| crate::profile::file_cfg(&mut profile_owner, file_path, || crate::cfg::build_cfg_edges_with_arms(parsed)));
             crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());
             match reaching_definitions_with_exact(
                 parsed,
@@ -650,8 +651,7 @@ impl Producer {
                 &rd_defs,
                 function_edges,
                 &exact_candidates,
-                file_cfg_edges
-                    .get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed)),
+                cfg,
             ) {
                 RdOutcome::Available(result) => {
                     Self::store_supplemental_exact(

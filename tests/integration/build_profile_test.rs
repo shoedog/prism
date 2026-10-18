@@ -38,7 +38,6 @@ fn records(path: &Path) -> Vec<Value> {
 fn assert_phases(rows: &[Value]) {
     for name in [
         "load_parse",
-        "scope_graph",
         "call_graph",
         "dfg",
         "cpg_assembly",
@@ -54,7 +53,11 @@ fn assert_phases(rows: &[Value]) {
         .iter()
         .filter(|r| r["record"] == "phase" && r["status"] == "measured")
     {
-        assert!(row["wall_ns"].is_u64());
+        assert!(row
+            .get("wall_ns")
+            .or_else(|| row.get("work_ns"))
+            .unwrap()
+            .is_u64());
         assert!(row["peak_rss_bytes"].is_u64());
         assert!(row["cpu_ns"].is_u64());
         assert!(matches!(
@@ -268,7 +271,7 @@ fn summary_conserves_normal_population_and_member_searches() {
     let file_rd = rows.iter().find(|r| r["name"] == "dfg.file_rd").unwrap();
     assert_eq!(file_rd["aggregation"], "sum_owner_intervals");
     assert_eq!(
-        file_rd["wall_ns"],
+        file_rd["work_ns"],
         owners
             .iter()
             .map(|o| o["reaching_definitions_ns"].as_u64().unwrap())

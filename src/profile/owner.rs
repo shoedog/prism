@@ -10,9 +10,9 @@ pub(crate) struct Counters {
     pub(crate) simple_searches: u64,
     pub(crate) member_searches: u64,
     pub(crate) searched_bytes: u64,
-    pub(crate) binding_fence_calls: Option<u64>,
-    pub(crate) shadow_check_calls: Option<u64>,
-    pub(crate) def_scope_calls: Option<u64>,
+    pub(crate) binding_fence_calls: u64,
+    pub(crate) shadow_check_calls: u64,
+    pub(crate) def_scope_calls: u64,
     #[serde(skip)]
     search_ns: u64,
 }
@@ -32,10 +32,12 @@ pub(crate) struct OwnerRecord {
     assignment_paths: usize,
     pub(super) total_ns: u64,
     flow_edges_ns: u64,
+    file_cfg_init_ns: u64,
     flow_search_ns: u64,
     pub(super) reaching_definitions_ns: u64,
     rd_cpu_ns: Option<u64>,
     peak_rss_bytes: Option<u64>,
+    rss_rise_bytes: Option<u64>,
     time_kind: &'static str,
     counters: Counters,
 }
@@ -45,6 +47,7 @@ pub(crate) struct Owner {
     start: Instant,
     rd: Option<Instant>,
     rd_cpu: Option<u64>,
+    rss: Option<u64>,
 }
 
 impl Owner {
@@ -57,8 +60,9 @@ impl Owner {
         if !enabled() {
             return None;
         }
-        let start = Instant::now();
         let mut ast_nodes = 0;
+        #[cfg(test)]
+        tests::metadata_delay();
         let mut cursor = node.walk();
         loop {
             ast_nodes += 1;
@@ -85,14 +89,17 @@ impl Owner {
                             assignment_paths: 0,
                             total_ns: 0,
                             flow_edges_ns: 0,
+                            file_cfg_init_ns: 0,
                             flow_search_ns: 0,
                             reaching_definitions_ns: 0,
                             rd_cpu_ns: None,
                             peak_rss_bytes: None,
+                            rss_rise_bytes: None,
                             time_kind: "parallel_work",
                             counters: Counters::default(),
                         },
-                        start,
+                        start: Instant::now(),
+                        rss: ru_maxrss_bytes(),
                         rd: None,
                         rd_cpu: None,
                     });
@@ -104,7 +111,7 @@ impl Owner {
         if let Some(owner) = owner {
             owner.row.definitions = definitions;
             owner.row.assignment_paths = assignments;
-            owner.row.flow_edges_ns = ns(owner.start);
+            owner.row.flow_edges_ns = ns(owner.start).saturating_sub(owner.row.file_cfg_init_ns);
             owner.rd = Some(Instant::now());
             owner.rd_cpu = cpu_ns(true);
         }
@@ -112,14 +119,15 @@ impl Owner {
 }
 impl Drop for Owner {
     fn drop(&mut self) {
-        self.row.total_ns = ns(self.start);
+        self.row.total_ns = ns(self.start).saturating_sub(self.row.file_cfg_init_ns);
         self.row.reaching_definitions_ns = self.rd.map(ns).unwrap_or(0);
         self.row.rd_cpu_ns = delta(self.rd_cpu, cpu_ns(true));
         self.row.peak_rss_bytes = ru_maxrss_bytes();
+        self.row.rss_rise_bytes = delta(self.rss, self.row.peak_rss_bytes);
         self.row.counters = COUNTERS.with(|c| c.borrow_mut().take().unwrap_or_default());
         self.row.flow_search_ns = self.row.counters.search_ns;
-        if let Some(profile) = collector() {
-            if let Ok(mut p) = profile.lock() {
+        if let Ok(mut slot) = collector().lock() {
+            if let Some(p) = slot.as_mut() {
                 // Move the record without cloning counters or owner metadata.
                 let row = std::mem::replace(&mut self.row, empty_record());
                 p.owners.push(row);
@@ -142,10 +150,12 @@ fn empty_record() -> OwnerRecord {
         assignment_paths: 0,
         total_ns: 0,
         flow_edges_ns: 0,
+        file_cfg_init_ns: 0,
         flow_search_ns: 0,
         reaching_definitions_ns: 0,
         rd_cpu_ns: None,
         peak_rss_bytes: None,
+        rss_rise_bytes: None,
         time_kind: "parallel_work",
         counters: Counters::default(),
     }
@@ -167,9 +177,11 @@ pub(super) fn file_rd(owners: &[OwnerRecord], phases: &[PhaseRecord]) -> Vec<Pha
                 time_kind: "parallel_work",
                 aggregation: "sum_owner_intervals",
                 status: "not_run",
-                wall_ns: 0,
+                wall_ns: None,
+                work_ns: Some(0),
                 cpu_ns: Some(0),
                 peak_rss_bytes: None,
+                rss_rise_bytes: Some(0),
             },
         );
     }
@@ -181,12 +193,18 @@ pub(super) fn file_rd(owners: &[OwnerRecord], phases: &[PhaseRecord]) -> Vec<Pha
             time_kind: "parallel_work",
             aggregation: "sum_owner_intervals",
             status: "measured",
-            wall_ns: 0,
+            wall_ns: None,
+            work_ns: Some(0),
             cpu_ns: Some(0),
             peak_rss_bytes: None,
+            rss_rise_bytes: Some(0),
         });
         p.status = "measured";
-        p.wall_ns += owner.reaching_definitions_ns;
+        *p.work_ns.as_mut().unwrap() += owner.reaching_definitions_ns;
+        p.rss_rise_bytes = match (p.rss_rise_bytes, owner.rss_rise_bytes) {
+            (Some(a), Some(b)) => Some(a + b),
+            _ => None,
+        };
         p.cpu_ns = match (p.cpu_ns, owner.rd_cpu_ns) {
             (Some(a), Some(b)) => Some(a + b),
             _ => None,
@@ -215,4 +233,72 @@ pub(crate) fn search<T>(simple: bool, bytes: usize, run: impl FnOnce() -> T) -> 
         }
     });
     result
+}
+
+/// Time only the actual lazy initialization; run before opening the RD clock.
+pub(crate) fn file_cfg<T>(owner: &mut Option<Owner>, file: &str, run: impl FnOnce() -> T) -> T {
+    let phase = Phase::file("dfg.file_cfg", file);
+    let result = run();
+    if let (Some(owner), Some(phase)) = (owner.as_mut(), phase.as_ref()) {
+        owner.row.file_cfg_init_ns += ns(phase.started);
+    }
+    drop(phase);
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    thread_local! { static DELAY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+    pub(super) fn metadata_delay() {
+        if DELAY.with(|v| v.get()) {
+            std::thread::sleep(std::time::Duration::from_millis(40));
+        }
+    }
+    #[test]
+    fn owner_clock_excludes_metadata_work() {
+        const CHILD: &str = "PRISM_METADATA_CLOCK_CHILD";
+        if std::env::var_os(CHILD).is_some() {
+            let session = Session::start();
+            let parsed = ParsedFile::parse(
+                "a.js",
+                "function f() { return 0; }",
+                crate::languages::Language::JavaScript,
+            )
+            .unwrap();
+            DELAY.with(|v| v.set(true));
+            let observed = Instant::now();
+            let owner = Owner::begin("a.js", &parsed, parsed.all_functions()[0], "f");
+            assert!(owner.is_some());
+            drop(owner);
+            let elapsed = ns(observed);
+            assert!(elapsed >= 40_000_000, "delay witness did not execute");
+            let slot = collector().lock().unwrap();
+            let row = &slot.as_ref().unwrap().owners[0];
+            assert!(
+                row.total_ns < elapsed / 2,
+                "metadata work charged to owner: {} / {elapsed}",
+                row.total_ns
+            );
+            drop(slot);
+            drop(session);
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "profile::owner::tests::owner_clock_excludes_metadata_work",
+            ])
+            .env(CHILD, "1")
+            .env("PRISM_PROFILE", dir.path().join("profile.jsonl"))
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{} {}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
 }

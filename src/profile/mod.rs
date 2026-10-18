@@ -1,72 +1,102 @@
 //! Opt-in build profiling (`PRISM_PROFILE=/path/profile.jsonl`). No AST walks when disabled.
 mod owner;
 mod summary;
-pub(crate) use owner::Owner;
+pub(crate) use owner::{file_cfg, Owner};
 pub(crate) use search::search_refs;
 mod search;
 use crate::process_usage::{cpu_ns, ru_maxrss_bytes};
 use serde::Serialize;
-use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
-static PROFILE: OnceLock<Option<Mutex<Profile>>> = OnceLock::new();
+static PROFILE: OnceLock<Mutex<Option<Profile>>> = OnceLock::new();
+static ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub(crate) mod gates;
+mod output;
 
 struct Profile {
-    writer: Option<BufWriter<File>>,
+    output: output::Output,
+    started: Instant,
+    cpu: Option<u64>,
     phases: Vec<PhaseRecord>,
     owners: Vec<owner::OwnerRecord>,
 }
-
-fn collector() -> Option<&'static Mutex<Profile>> {
-    PROFILE
-        .get_or_init(|| {
-            let path = std::env::var_os("PRISM_PROFILE")?;
-            match File::create(&path) {
-                Ok(file) => Some(Mutex::new(Profile {
-                    writer: Some(BufWriter::new(file)),
-                    phases: Vec::new(),
-                    owners: Vec::new(),
-                })),
-                Err(error) => {
-                    eprintln!(
-                        "PRISM_PROFILE: cannot create {}: {error}",
-                        std::path::Path::new(&path).display()
-                    );
-                    None
-                }
-            }
-        })
-        .as_ref()
+fn collector() -> &'static Mutex<Option<Profile>> {
+    PROFILE.get_or_init(|| Mutex::new(None))
 }
-
 pub(crate) fn enabled() -> bool {
-    collector().is_some()
+    ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
 }
-
-/// CLI lifetime guard. Finishes even when a command returns an error.
-pub struct Session;
+/// Process-wide command lifetime. Join build workers before dropping the guard.
+/// Calls outside a session never collect, even with PRISM_PROFILE set.
+pub struct Session(bool);
 impl Session {
     pub fn start() -> Self {
-        let _ = collector();
-        Self
+        let Some(path) = std::env::var_os("PRISM_PROFILE") else {
+            return Self(false);
+        };
+        let started = Instant::now();
+        let Ok(mut slot) = collector().lock() else {
+            return Self(false);
+        };
+        if slot.is_some() {
+            return Self(false);
+        }
+        let cpu = cpu_ns(false);
+        match output::Output::create(std::path::Path::new(&path)) {
+            Ok(output) => {
+                *slot = Some(Profile {
+                    output,
+                    started,
+                    cpu,
+                    phases: Vec::new(),
+                    owners: Vec::new(),
+                });
+                ACTIVE.store(true, std::sync::atomic::Ordering::Relaxed);
+                Self(true)
+            }
+            Err(error) => {
+                output::warning(format_args!(
+                    "cannot create {}: {error}",
+                    std::path::Path::new(&path).display()
+                ));
+                Self(false)
+            }
+        }
     }
 }
 impl Drop for Session {
     fn drop(&mut self) {
-        finish();
+        if self.0 {
+            finish();
+        }
     }
+}
+/// Finalize normal nonzero CLI outcomes, which bypass Rust destructors.
+pub fn exit(code: i32) -> ! {
+    finish();
+    std::process::exit(code)
+}
+pub fn clap_exit(error: clap::Error) -> ! {
+    finish();
+    error.exit()
 }
 
 fn finish() {
-    let Some(profile) = collector() else { return };
-    let Ok(mut profile) = profile.lock() else {
+    if !enabled() {
+        return;
+    }
+    ACTIVE.store(false, std::sync::atomic::Ordering::Relaxed);
+    let Ok(mut slot) = collector().lock() else {
         return;
     };
-    let Some(mut writer) = profile.writer.take() else {
+    let Some(mut profile) = slot.take() else {
         return;
     };
+    let command = serde_json::json!({"record":"command", "time_kind":"serial_wall",
+        "wall_ns":ns(profile.started), "cpu_ns":delta(profile.cpu, cpu_ns(false)),
+        "peak_rss_bytes":ru_maxrss_bytes()});
     for name in [
         "load_parse",
         "scope_graph",
@@ -84,9 +114,11 @@ fn finish() {
                 time_kind: "serial_wall",
                 aggregation: "single_interval",
                 status: "not_run",
-                wall_ns: 0,
+                wall_ns: Some(0),
+                work_ns: None,
                 cpu_ns: None,
                 peak_rss_bytes: None,
+                rss_rise_bytes: None,
             });
         }
     }
@@ -97,24 +129,26 @@ fn finish() {
         .owners
         .sort_by(|a, b| (&a.file, a.start_byte, &a.owner).cmp(&(&b.file, b.start_byte, &b.owner)));
     let result = (|| -> std::io::Result<()> {
+        let writer = &mut profile.output.writer;
         line(
-            &mut writer,
-            &serde_json::json!({"record":"header", "schema_version":1, "time_unit":"ns", "memory_unit":"bytes", "peak_rss_scope":"process_lifetime", "top_n":10}),
+            writer,
+            &serde_json::json!({"record":"header", "schema_version":1, "time_unit":"ns", "memory_unit":"bytes", "peak_rss_scope":"process_lifetime", "top_n":10, "prism_version":env!("CARGO_PKG_VERSION"), "commit":env!("GIT_SHA"), "thread_count":rayon::current_num_threads(), "argv":std::env::args_os().map(|s| s.to_string_lossy().into_owned()).collect::<Vec<_>>(), "os":std::env::consts::OS}),
         )?;
+        line(writer, &command)?;
         for phase in &profile.phases {
-            line(&mut writer, phase)?;
+            line(writer, phase)?;
         }
         for phase in owner::file_rd(&profile.owners, &profile.phases) {
-            line(&mut writer, &phase)?;
+            line(writer, &phase)?;
         }
         for owner in &profile.owners {
-            line(&mut writer, owner)?;
+            line(writer, owner)?;
         }
-        line(&mut writer, &summary::summarize(&profile.owners, 10))?;
-        writer.flush()
+        line(writer, &summary::summarize(&profile.owners, 10))?;
+        profile.output.publish()
     })();
     if let Err(error) = result {
-        eprintln!("PRISM_PROFILE: cannot write profile: {error}");
+        output::warning(format_args!("cannot write profile: {error}"));
     }
 }
 
@@ -131,9 +165,13 @@ pub(crate) struct PhaseRecord {
     time_kind: &'static str,
     aggregation: &'static str,
     status: &'static str,
-    wall_ns: u64,
+    #[serde(rename = "wall_ns", skip_serializing_if = "Option::is_none")]
+    wall_ns: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    work_ns: Option<u64>,
     cpu_ns: Option<u64>,
     peak_rss_bytes: Option<u64>,
+    rss_rise_bytes: Option<u64>,
 }
 
 pub(crate) struct Phase {
@@ -142,6 +180,7 @@ pub(crate) struct Phase {
     thread: bool,
     started: Instant,
     cpu: Option<u64>,
+    rss: Option<u64>,
 }
 
 impl Phase {
@@ -161,6 +200,7 @@ impl Phase {
             thread: file.is_some(),
             started: Instant::now(),
             cpu: cpu_ns(file.is_some()),
+            rss: ru_maxrss_bytes(),
         })
     }
 }
@@ -177,12 +217,14 @@ impl Drop for Phase {
             },
             aggregation: "single_interval",
             status: "measured",
-            wall_ns: ns(self.started),
+            wall_ns: Some(ns(self.started)),
+            work_ns: None,
             cpu_ns: delta(self.cpu, cpu_ns(self.thread)),
             peak_rss_bytes: ru_maxrss_bytes(),
+            rss_rise_bytes: delta(self.rss, ru_maxrss_bytes()),
         };
-        if let Some(profile) = collector() {
-            if let Ok(mut p) = profile.lock() {
+        if let Ok(mut slot) = collector().lock() {
+            if let Some(p) = slot.as_mut() {
                 p.phases.push(phase);
             }
         }

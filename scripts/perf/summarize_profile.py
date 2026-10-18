@@ -30,10 +30,13 @@ def render(records):
             owners[(r["file"], r["owner"], r["start_line"], r["start_byte"], r["total_ns"])].append(r)
     summary = next(r for r in records if r["record"] == "summary")
     result = ["Phases (inclusive parents overlap children; parallel work is not build wall time).", table(
-        ["Phase / file", "Kind", "Status", "Wall/work ms", "CPU ms", "Peak RSS MiB"],
+        ["Phase / file", "Kind", "Status", "Wall/work ms", "CPU ms", "process peak RSS (high-water mark, sampled after) MiB"],
         [(r["name"] + (" / " + r["file"] if r.get("file") else ""), r["time_kind"],
-          r["status"], milliseconds(r["wall_ns"]), milliseconds(r["cpu_ns"]),
+          r["status"], milliseconds(r.get("wall_ns", r.get("work_ns"))), milliseconds(r["cpu_ns"]),
           "-" if r["peak_rss_bytes"] is None else f'{r["peak_rss_bytes"] / 2**20:.2f}') for r in phases])]
+    command = next((r for r in records if r["record"] == "command"), None)
+    if command is not None:
+        result.insert(0, f'Command: wall {milliseconds(command["wall_ns"])} ms; CPU {milliseconds(command["cpu_ns"])} ms; process peak RSS (high-water mark, sampled after) {command["peak_rss_bytes"]} bytes.\n')
     top = []
     for r in summary["top_owners"]:
         owner = owners[(r["file"], r["owner"], r["start_line"], r["start_byte"], r["total_ns"])].popleft()
@@ -42,7 +45,7 @@ def render(records):
                     milliseconds(owner["reaching_definitions_ns"]), owner["byte_size"], owner["ast_nodes"],
                     "-" if owner.get("peak_rss_bytes") is None else f'{owner["peak_rss_bytes"] / 2**20:.2f}'))
     result += ["", "Top owners (summed owner work).", table(
-        ["Owner", "Language", "Total ms", "Search ms", "RD ms", "Bytes", "AST nodes", "Peak RSS MiB"], top)]
+        ["Owner", "Language", "Total ms", "Search ms", "RD ms", "Bytes", "AST nodes", "process peak RSS (high-water mark, sampled after) MiB"], top)]
     other = summary["other_owners"]
     result += ["", f'Owners: {summary["owner_count"]}; top-{header["top_n"]} share of owner DFG work: {summary["top_dfg_share"]:.2%}.',
                table(["Other count", "Total ms", "p50 ms", "p90 ms", "p99 ms", "Max ms"],

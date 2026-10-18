@@ -38,5 +38,7 @@ pub(crate) fn search_refs<'a>(
         .unwrap_or(*owner)
         .byte_range()
         .len();
-    super::owner::search(path.is_simple(), bytes, run)
+    super::owner::search(path.is_simple(), bytes, || {
+        member_refs.find_profiled::<true>(owner, path, def_line, def_byte, within, reads_only)
+    })
 }

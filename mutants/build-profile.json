@@ -79,9 +79,85 @@
       "writer.write_all(b\"\\n\")",
       "{ let _ = writer.write_all(b\"\\n\"); Ok(()) }",
       "profile::tests::record_write_errors_cover_json_and_newline"
+    ],
+    "PROFILE-drop-binding_fence_calls": [
+      "src/profile/gates.rs",
+      "c.binding_fence_calls += 1",
+      "c.binding_fence_calls += 0",
+      "build_profile_fold_test::inner_gate_counts_include_refusals_aliases_and_zero_calls"
+    ],
+    "PROFILE-drop-shadow_check_calls": [
+      "src/profile/gates.rs",
+      "c.shadow_check_calls += 1",
+      "c.shadow_check_calls += 0",
+      "build_profile_fold_test::inner_gate_counts_include_refusals_aliases_and_zero_calls"
+    ],
+    "PROFILE-drop-def_scope_calls": [
+      "src/profile/gates.rs",
+      "c.def_scope_calls += 1",
+      "c.def_scope_calls += 0",
+      "build_profile_fold_test::inner_gate_counts_include_refusals_aliases_and_zero_calls"
+    ],
+    "PROFILE-warning-panics": [
+      "src/profile/output.rs",
+      "let _ = writeln!(io::stderr().lock(), \"PRISM_PROFILE: {message}\");",
+      "eprintln!(\"PRISM_PROFILE: {message}\");",
+      "build_profile_fold_test::warning_errors_preserve_status_with_closed_stderr"
+    ],
+    "PROFILE-truncate-at-admission": [
+      "src/profile/output.rs",
+      "let name = path",
+      "let _truncated = File::create(path)?;\n        let name = path",
+      "build_profile_fold_test::overlapping_processes_publish_whole_last_completed_run"
+    ],
+    "PROFILE-omit-command": [
+      "src/profile/mod.rs",
+      "line(writer, &command)?;",
+      "let _ = &command;",
+      "build_profile_fold_test::schema_and_skipped_scope_are_truthful"
+    ],
+    "PROFILE-cfg-charged-to-total": [
+      "src/profile/owner.rs",
+      "self.row.total_ns = ns(self.start).saturating_sub(self.row.file_cfg_init_ns);",
+      "self.row.total_ns = ns(self.start);",
+      "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
+    ],
+    "PROFILE-rd-before-cfg": [
+      "src/data_flow/build/file.rs",
+      "            let cfg = file_cfg_edges.get_or_init(|| crate::profile::file_cfg(&mut profile_owner, file_path, || crate::cfg::build_cfg_edges_with_arms(parsed)));\n            crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());\n",
+      "            crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());\n            let cfg = file_cfg_edges.get_or_init(|| crate::profile::file_cfg(&mut profile_owner, file_path, || crate::cfg::build_cfg_edges_with_arms(parsed)));\n",
+      "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
+    ],
+    "PROFILE-scope-measured-on-skip": [
+      "src/call_graph.rs",
+      "let Some(inputs) = inputs else {",
+      "let _profile = crate::profile::Phase::serial(\"scope_graph\");\n        let Some(inputs) = inputs else {",
+      "build_profile_fold_test::skipped_scope_and_session_only_collection"
+    ],
+    "PROFILE-ast-walk-in-total": [
+      "src/profile/owner.rs",
+      "        let mut ast_nodes = 0;",
+      "        let start = Instant::now();\n        let mut ast_nodes = 0;",
+      "profile::owner::tests::owner_clock_excludes_metadata_work"
     ]
   },
   "lib_test_prefixes": [
     "profile::"
-  ]
+  ],
+  "extra": {
+    "PROFILE-scope-measured-on-skip": [
+      [
+        "src/call_graph.rs",
+        "        let _profile = crate::profile::Phase::serial(\"scope_graph\");\n        Some(populate_rust",
+        "        Some(populate_rust"
+      ]
+    ],
+    "PROFILE-ast-walk-in-total": [
+      [
+        "src/profile/owner.rs",
+        "start: Instant::now(),",
+        "start,"
+      ]
+    ]
+  }
 }

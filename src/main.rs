@@ -27,16 +27,16 @@ fn parse_loc_seeds(
 }
 
 fn main() -> Result<()> {
+    let _profile = prism::profile::Session::start();
     let min_confidence_explicit = std::env::args_os().any(|argument| {
         argument == "--min-confidence"
             || argument
                 .to_str()
                 .is_some_and(|argument| argument.starts_with("--min-confidence="))
     });
-    let cli = Cli::parse();
-    let _profile = prism::profile::Session::start();
+    let cli = Cli::try_parse().unwrap_or_else(|error| prism::profile::clap_exit(error));
     if let Err(error) = cli.validate_min_confidence(min_confidence_explicit) {
-        error.exit();
+        prism::profile::clap_exit(error);
     }
     // Run the whole command on the large-stack pool. prism walks tree-sitter
     // ASTs recursively in parsing, CPG build, and the live-type scan; on deeply
@@ -95,7 +95,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 Err(error) => {
                     let (rendered, code) = prism::output::navigation::render_err(&error, format);
                     println!("{rendered}");
-                    std::process::exit(code);
+                    prism::profile::exit(code);
                 }
             }
         }
@@ -125,7 +125,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 Err(e) => {
                     let (s, code) = prism::output::navigation::render_err(&e, format);
                     println!("{s}");
-                    std::process::exit(code);
+                    prism::profile::exit(code);
                 }
             }
         }
@@ -155,7 +155,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 Err(e) => {
                     let (s, code) = prism::output::navigation::render_err(&e, format);
                     println!("{s}");
-                    std::process::exit(code);
+                    prism::profile::exit(code);
                 }
             }
         }
@@ -185,7 +185,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 Err(e) => {
                     let (s, code) = prism::output::navigation::render_err(&e, format);
                     println!("{s}");
-                    std::process::exit(code);
+                    prism::profile::exit(code);
                 }
             }
         }
@@ -316,7 +316,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 Ok(seeds) => seeds,
                 Err(msg) => {
                     eprintln!("error: {msg}");
-                    std::process::exit(2);
+                    prism::profile::exit(2);
                 }
             };
             let sinks = if sink.is_empty() {
@@ -326,7 +326,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                     Ok(seeds) => Some(seeds),
                     Err(msg) => {
                         eprintln!("error: {msg}");
-                        std::process::exit(2);
+                        prism::profile::exit(2);
                     }
                 }
             };
@@ -342,7 +342,7 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 Err(e) => {
                     let (s, code) = prism::output::navigation::render_err(&e, format);
                     println!("{s}");
-                    std::process::exit(code);
+                    prism::profile::exit(code);
                 }
             }
         }
@@ -468,7 +468,7 @@ fn run_targets(args: &TargetsArgs) -> Result<()> {
 
     let exit_code = targets_exit_code(args.strict, &document.errors);
     if exit_code != 0 {
-        std::process::exit(exit_code);
+        prism::profile::exit(exit_code);
     }
     Ok(())
 }
@@ -722,7 +722,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&all_diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
             "json" => {
@@ -750,7 +750,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&all_diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
             "sarif" => {
@@ -779,7 +779,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&all_diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
             "mermaid" => {
@@ -799,7 +799,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
             _ => {
@@ -820,7 +820,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&all_diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &all_diagram_warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
         }
@@ -859,7 +859,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
             "json" => {
@@ -870,7 +870,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
             "paper" => {
@@ -879,7 +879,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
             "sarif" => {
@@ -905,7 +905,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
             "mermaid" => {
@@ -926,7 +926,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
             _ => {
@@ -940,7 +940,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                 emit_warnings_to_stderr(&result.diagram_warnings);
                 let exit_code = determine_exit_code(cli.strict_diagrams, &result.diagram_warnings);
                 if exit_code != 0 {
-                    std::process::exit(exit_code);
+                    prism::profile::exit(exit_code);
                 }
             }
         }

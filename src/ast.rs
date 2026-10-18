@@ -8777,40 +8777,12 @@ impl ParsedFile {
         var_name: &str,
         def_line: usize,
     ) -> BTreeSet<usize> {
-        use crate::queries::{get_query, QueryKind};
-        use tree_sitter::StreamingIterator;
-
-        if let Some(query) = get_query(self.language, QueryKind::Identifiers) {
-            let ident_idx = query
-                .capture_index_for_name("ident")
-                .expect("Identifiers query must have @ident capture");
-            let mut cursor = tree_sitter::QueryCursor::new();
-            cursor.set_byte_range(func_node.byte_range());
-            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
-            let mut lines = BTreeSet::new();
-            while let Some(m) = matches.next() {
-                for capture in m.captures {
-                    if capture.index == ident_idx && self.node_text(&capture.node) == var_name {
-                        // Bottom-up scope check: walk from the capture node up to the
-                        // function boundary. If any enclosing scope block re-declares
-                        // var_name and doesn't contain def_line, skip this reference.
-                        if !self.is_shadowed_at(&capture.node, func_node, var_name, def_line) {
-                            lines.insert(capture.node.start_position().row + 1);
-                        }
-                    }
-                }
-            }
-            return lines;
-        }
-
-        let mut lines = BTreeSet::new();
-        self.collect_variable_refs_scoped_manual(*func_node, var_name, def_line, &mut lines);
-        lines
+        crate::profile::gates::scoped_refs::<false>(self, func_node, var_name, def_line)
     }
 
     /// Check whether a reference node is shadowed by a re-declaration in an inner scope.
     /// Walks bottom-up from the identifier node to the function boundary.
-    fn is_shadowed_at(
+    pub(crate) fn is_shadowed_at(
         &self,
         node: &Node<'_>,
         func_node: &Node<'_>,
@@ -8837,7 +8809,7 @@ impl ParsedFile {
     }
 
     /// Manual recursive scoped variable ref collection (pre-query fallback).
-    fn collect_variable_refs_scoped_manual(
+    pub(crate) fn collect_variable_refs_scoped_manual(
         &self,
         node: Node<'_>,
         var_name: &str,

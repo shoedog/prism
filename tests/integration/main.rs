@@ -1,5 +1,6 @@
 mod api_test;
 mod arrow_field_receiver_test;
+mod build_profile_fold_test;
 mod build_profile_test;
 mod call_graph_test;
 mod callable_authority_audit_test;

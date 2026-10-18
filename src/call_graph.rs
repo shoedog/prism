@@ -1994,15 +1994,18 @@ impl CallGraph {
             }
         }
 
-        profile.next("call_graph.resolution_facts");
+        profile.next("call_graph.js_ts_facts");
         let (js_ts_exports, js_ts_function_locals, js_ts_return_facts) =
             Self::extract_js_ts_resolution_facts(files);
 
+        profile.next("call_graph.parameter_slots");
+        let param_slots_unknown = Self::parameter_slots_unknown(files);
+        profile.next("call_graph.struct_init");
         let mut cg = CallGraph {
             functions,
             calls,
             callers,
-            param_slots_unknown: Self::parameter_slots_unknown(files),
+            param_slots_unknown,
             level3_indirect_resolved: 0,
             go_level3_b1_telemetry: Default::default(),
             go_callback_parameters: BTreeMap::new(),
@@ -2100,7 +2103,7 @@ impl CallGraph {
             go_package_vars: BTreeMap::new(),
             shared_plain_go_provider: None,
         };
-        profile.next("call_graph.refresh");
+        profile.next("call_graph.rust_receiver_refresh");
         cg.refresh_rust_receiver_state(files);
         // P15a-fix1: interface dispatch runs BEFORE the shared plain provider
         // is constructed. Dispatch and embedding promotion are mutually
@@ -2112,6 +2115,7 @@ impl CallGraph {
         // guarantees at most ONE full `GoTypeData` is alive at any moment
         // (the plain one is built only after the dispatch construction has
         // been dropped).
+        profile.next("call_graph.go_dispatch_embedding");
         cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
         // P15a: extract the plain Go type data ONCE per build and share it
         // between embedding promotion and receiver rematerialization (both use
@@ -2143,16 +2147,20 @@ impl CallGraph {
         // P7: python property-access state — needs the complete method_owners
         // / method_class_span / class_bases indexes already populated above,
         // so it runs last, same rationale as the Go passes.
+        profile.next("call_graph.python_properties");
         cg.apply_python_property_accesses(files);
         // P9: framework-entry state (Flask/FastAPI/Express route
         // registrations) needs the complete `functions`/
         // `js_ts_function_locals` index already populated above (Express
         // identifier-arg resolution reads both) — runs after the Go/Python
         // whole-program passes, same rationale.
+        profile.next("call_graph.framework_entries");
         cg.apply_framework_entries(files);
         // P4: JS/TS export-fact resolution (re-export chains/barrels) is ALSO
         // whole-program derived, same rationale as the Go passes above.
+        profile.next("call_graph.apply_js_paths");
         cg.apply_js_paths(scope_inputs);
+        profile.next("call_graph.apply_js_export_resolution");
         cg.apply_js_export_resolution();
         // Recompute the remaining whole-program indirect passes after all
         // resolution facts are installed, including Go B1 Level-3 callbacks.
@@ -3681,13 +3689,13 @@ impl CallGraph {
         files: &BTreeMap<String, ParsedFile>,
         inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Option<ScopeGraph> {
-        let _profile = crate::profile::Phase::serial("scope_graph");
         let Some(inputs) = inputs else {
             return None;
         };
         if !inputs.complete {
             return None;
         }
+        let _profile = crate::profile::Phase::serial("scope_graph");
         Some(populate_rust(files, &inputs.cfg, None))
     }
 
