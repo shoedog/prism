@@ -4,6 +4,22 @@ from summarize_profile import render
 
 
 class RendererTest(unittest.TestCase):
+    def test_phase_instances_and_command_mib(self):
+        for rss, expected in [(4 * 2**20, "4.00"), (None, "-")]:
+            output = render([
+                {"record": "header", "schema_version": 1, "top_n": 10},
+                {"record": "command", "wall_ns": 0, "cpu_ns": None, "peak_rss_bytes": rss},
+                *[dict(record="phase", name="call_graph", instance=i, file=None,
+                       time_kind="serial_wall", status="measured", wall_ns=1,
+                       cpu_ns=None, peak_rss_bytes=rss) for i in [1, 2]],
+                {"record": "summary", "owner_count": 0, "top_dfg_share": 0,
+                 "top_owners": [], "other_owners": dict.fromkeys(
+                     ["count", "total_ns", "p50_ns", "p90_ns", "p99_ns", "max_ns"], 0)},
+            ])
+            self.assertIn("call_graph #1 |", output)
+            self.assertIn("call_graph #2 |", output)
+            self.assertIn(f"sampled after) {expected} MiB.", output)
+
     def test_empty_owner_population_and_unavailable_measurements(self):
         output = render([
             {"record": "header", "schema_version": 1, "top_n": 10},

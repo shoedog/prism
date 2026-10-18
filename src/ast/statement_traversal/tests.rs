@@ -202,6 +202,63 @@ fn identity_lua() {
     compare(Language::Lua, "function f(x)\n if x > 0 then\n  if x > 1 then x = x + 1 end\n elseif x < 0 then x = x - 1\n else end\n while x > 0 do x = x - 1 end\n for i=1,2 do x=x+i end\n repeat x=x+1 until x > 0\n do do x=x+1 end x=x-1 end\n return x\nend\nfunction empty() end\n");
 }
 
+#[test]
+fn go_visits_are_linear_in_all_modes() {
+    for mode in 0..3 {
+        for (depth, bare_blocks) in [0, 1, 4, 8]
+            .into_iter()
+            .flat_map(|d| [(d, false), (d, true)])
+        {
+            let mut body = leaf(Language::Go).to_owned();
+            for _ in 0..depth {
+                if bare_blocks {
+                    body = wrap(Language::Go, &body, 2);
+                }
+                body = wrap(Language::Go, &body, 0);
+            }
+            let p =
+                ParsedFile::parse("cost.go", &program(Language::Go, &body), Language::Go).unwrap();
+            assert_eq!(p.parse_error_count, 0);
+            WORK.with(|w| w.set([(0, 0); 6]));
+            STATES.with(|s| s.borrow_mut().clear());
+            REPEATS.with(|r| r.set(0));
+            ACTIVE.with(|a| a.set(true));
+            extract(&p, p.all_functions()[0], mode);
+            ACTIVE.with(|a| a.set(false));
+            let work = WORK.with(Cell::get);
+            assert!(work.iter().map(|c| c.0).sum::<usize>() <= 2 * p.parse_node_count);
+            assert!(work.iter().map(|c| c.1).sum::<usize>() <= 2 * p.parse_node_count);
+            assert_eq!(
+                REPEATS.with(Cell::get),
+                0,
+                "mode={mode} depth={depth} bare_blocks={bare_blocks}"
+            );
+        }
+    }
+}
+
+#[test]
+fn identity_terraform_bodyless_blocks() {
+    let p = ParsedFile::parse(
+        "bodyless.tf",
+        "locals { x = 1 }\nresource \"kind\" \"name\" { value = local.x }",
+        Language::Terraform,
+    )
+    .unwrap();
+    assert_eq!(p.parse_error_count, 0);
+    let owners = p.all_functions();
+    assert!(!owners.is_empty());
+    for owner in owners {
+        assert!(p.function_body_node(&owner).is_none());
+        compare_node(&p, owner);
+        assert!(p.statements_in_function(&owner).is_empty());
+        assert!(p.statement_spans_in_function(&owner).is_empty());
+        let arms = p.statement_arms_in_function(&owner);
+        assert!(arms.of_line.is_empty());
+        assert_eq!(arms.subtree_last, vec![0]);
+    }
+}
+
 // Three choices at each level, enumerating all 3^d wrapper sequences at d<=4.
 // Seeded random trees below also cover siblings and binary branches.
 fn wrap(lang: Language, body: &str, choice: usize) -> String {

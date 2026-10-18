@@ -24,7 +24,28 @@ pub(crate) fn observe(kind: &'static str, node: usize, region: u8, name: &str) {
         }
     });
 }
+pub(crate) fn active() -> bool {
+    COUNTS.with(|slot| slot.borrow().is_some())
+}
+pub(crate) fn gate(kind: &'static str, node: usize, name: impl FnOnce() -> String) {
+    if active() {
+        observe(kind, node, 0, &name());
+    }
+}
+
+#[test]
+fn gate_identity_is_lazy_and_active_probe_still_records() {
+    gate("gate", 7, || panic!("inactive probe allocated an identity"));
+    COUNTS.with(|slot| *slot.borrow_mut() = Some(HashMap::new()));
+    gate("gate", 7, || "identity".into());
+    let counts = COUNTS.with(|slot| slot.borrow_mut().take().unwrap());
+    assert_eq!(counts["gate"].total, 1);
+    assert_eq!(counts["gate"].distinct.len(), 1);
+}
 pub(crate) fn scope(p: &ParsedFile, scope: Node<'_>, boundaries: &[&str], name: &str, byte: usize) {
+    if !active() {
+        return;
+    }
     let region = if boundaries.contains(&scope.kind()) {
         let inside =
             |n: Option<Node<'_>>| n.is_some_and(|n| n.start_byte() <= byte && byte < n.end_byte());

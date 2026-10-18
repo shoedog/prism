@@ -84,6 +84,27 @@
       "if interior || self.exact_descendant(root, c) {",
       "if self.exact_descendant(root, c) {",
       "ast::member_reference_index::regressions::member_index_query_bound_and_ambiguous_ranges"
+    ],
+    "MRI-session-per-function": [
+      "src/data_flow/build/file.rs",
+      "        let member_refs = crate::ast::member_reference_index::MemberReferenceSearch::new(parsed);",
+      "",
+      "ast::member_reference_index::deferred_tests::producer_shares_one_member_index_across_functions"
+    ],
+    "MRI-index-preorder-off-by-one": [
+      "src/ast/member_reference_index.rs",
+      "let preorder = next;",
+      "let preorder = next + 1;",
+      "ast::member_reference_index::regressions::member_index_query_bound_and_ambiguous_ranges"
+    ]
+  },
+  "extra": {
+    "MRI-session-per-function": [
+      [
+        "src/data_flow/build/file.rs",
+        "        for func_node in function_nodes {",
+        "        for func_node in function_nodes {\n            let member_refs = crate::ast::member_reference_index::MemberReferenceSearch::new(parsed);"
+      ]
     ]
   }
 }

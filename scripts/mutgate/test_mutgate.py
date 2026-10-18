@@ -28,6 +28,22 @@ def one_mutant(mid, file, a, b, test='t'):
 
 
 class CodeMaskTests(unittest.TestCase):
+    def test_script_mutations_cannot_follow_live_checkout_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / 'repo'
+            tree = Path(tmp) / 'tree'
+            root.joinpath('scripts').mkdir(parents=True)
+            root.joinpath('scripts/renderer.py').write_text('original')
+            tree.mkdir()
+            tree.joinpath('scripts').symlink_to(root / 'scripts')
+            with patch.object(mutgate, 'ROOT', root):
+                mutgate.sync_tree(tree, {'scripts/renderer.py': 'mutant'})
+                self.assertFalse(tree.joinpath('scripts').is_symlink())
+                self.assertEqual(tree.joinpath('scripts/renderer.py').read_text(), 'mutant')
+                self.assertEqual(root.joinpath('scripts/renderer.py').read_text(), 'original')
+                mutgate.sync_tree(tree, {})
+                self.assertEqual(tree.joinpath('scripts/renderer.py').read_text(), 'original')
+
     def test_raw_string_braces_are_masked(self):
         s = 'let x = r#"{ not a brace }"#;'
         mask = mutgate.code_mask(s)
@@ -254,6 +270,20 @@ class GateRegressionTests(unittest.TestCase):
         self.last_output = output.getvalue()
         summary = json.loads((out / 'summary.json').read_text()) if (out / 'summary.json').exists() else {}
         return status, summary
+
+    def test_script_text_mutation_is_isolated_and_restored(self):
+        scripts = self.root / 'scripts'
+        scripts.mkdir()
+        scripts.joinpath('fixture.txt').write_text('original')
+        source = ('#[test]\nfn t() { assert_eq!(std::fs::read_to_string('
+                  'concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/fixture.txt")).unwrap(), "original"); }\n')
+        mutation = {'script': ['scripts/fixture.txt', 'original', 'mutant', 't']}
+        status, summary = self.gate(source, mutation, 'text')
+        self.assertEqual(status, 0)
+        self.assertEqual(summary['results']['script']['verdict'], 'KILLED')
+        self.assertTrue(summary['results']['script']['admissible'])
+        self.assertEqual(scripts.joinpath('fixture.txt').read_text(), 'original')
+        self.assertEqual(self.root.joinpath('target/mutgate/tree/scripts/fixture.txt').read_text(), 'original')
 
     def test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills(self):
         fixtures = Path(__file__).with_name('fixtures')

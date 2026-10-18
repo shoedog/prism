@@ -247,6 +247,8 @@ impl<'a> MemberReferenceSearch<'a> {
 
 impl ParsedFile {
     /// First admitted occurrence per line, preserving the legacy traversal gates.
+    /// One-shot member queries build a whole-file index; production DFG callers
+    /// instead share MemberReferenceSearch for the file. Simple queries are ranged.
     pub(crate) fn find_path_reference_spans_fenced_in(
         &self,
         owner: &Node<'_>,
@@ -256,6 +258,34 @@ impl ParsedFile {
         within: Option<(usize, usize)>,
         reads_only: bool,
     ) -> BTreeMap<usize, (usize, usize)> {
+        if path.is_simple() {
+            let fenced = matches!(
+                self.language,
+                Language::JavaScript | Language::TypeScript | Language::Tsx
+            ) && (reads_only
+                || self.language.function_name(owner).is_none()
+                || !self.js_ts_seam_binding(owner, &path.base));
+            if !fenced {
+                let lines =
+                    crate::profile::gates::scoped_refs::<false>(self, owner, &path.base, def_line);
+                return lines
+                    .into_iter()
+                    .map(|line| {
+                        (
+                            line,
+                            (self.line_start_byte(line), self.line_start_byte(line)),
+                        )
+                    })
+                    .collect();
+            }
+            let root = within
+                .and_then(|(s, e)| self.tree.root_node().descendant_for_byte_range(s, e))
+                .filter(|n| within == Some((n.start_byte(), n.end_byte())))
+                .unwrap_or(*owner);
+            return identifiers::one_shot_fenced(
+                self, root, owner, &path.base, def_line, def_byte, reads_only,
+            );
+        }
         MemberReferenceSearch::new(self).find_path_reference_spans_fenced_in(
             owner, path, def_line, def_byte, within, reads_only,
         )
@@ -263,12 +293,16 @@ impl ParsedFile {
 
     /// Member paths retain the strict after-definition line cutoff. Simple
     /// paths retain the existing variable-reference query without this cutoff.
+    /// One-shot member queries build a whole-file index (no production callers).
     pub fn find_path_references_scoped(
         &self,
         owner: &Node<'_>,
         path: &AccessPath,
         def_line: usize,
     ) -> BTreeSet<usize> {
+        if path.is_simple() {
+            return crate::profile::gates::scoped_refs::<false>(self, owner, &path.base, def_line);
+        }
         MemberReferenceSearch::new(self).scoped::<false>(owner, path, def_line)
     }
 }
@@ -292,5 +326,7 @@ thread_local! {
     static EXAMINED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static EXACT_CHECKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
+#[cfg(test)]
+mod deferred_tests;
 #[cfg(test)]
 mod regressions;
