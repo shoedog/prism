@@ -33,6 +33,8 @@ pub(crate) struct OwnerRecord {
     pub(super) total_ns: u64,
     flow_edges_ns: u64,
     file_cfg_init_ns: u64,
+    file_cfg_rss_rise_bytes: Option<u64>,
+    rd_rss_rise_bytes: Option<u64>,
     flow_search_ns: u64,
     pub(super) reaching_definitions_ns: u64,
     rd_cpu_ns: Option<u64>,
@@ -47,6 +49,7 @@ pub(crate) struct Owner {
     start: Instant,
     rd: Option<Instant>,
     rd_cpu: Option<u64>,
+    rd_rss: Option<u64>,
     rss: Option<u64>,
 }
 
@@ -90,6 +93,8 @@ impl Owner {
                             total_ns: 0,
                             flow_edges_ns: 0,
                             file_cfg_init_ns: 0,
+                            file_cfg_rss_rise_bytes: Some(0),
+                            rd_rss_rise_bytes: None,
                             flow_search_ns: 0,
                             reaching_definitions_ns: 0,
                             rd_cpu_ns: None,
@@ -102,6 +107,7 @@ impl Owner {
                         rss: ru_maxrss_bytes(),
                         rd: None,
                         rd_cpu: None,
+                        rd_rss: None,
                     });
                 }
             }
@@ -114,6 +120,7 @@ impl Owner {
             owner.row.flow_edges_ns = ns(owner.start).saturating_sub(owner.row.file_cfg_init_ns);
             owner.rd = Some(Instant::now());
             owner.rd_cpu = cpu_ns(true);
+            owner.rd_rss = ru_maxrss_bytes();
         }
     }
 }
@@ -123,7 +130,10 @@ impl Drop for Owner {
         self.row.reaching_definitions_ns = self.rd.map(ns).unwrap_or(0);
         self.row.rd_cpu_ns = delta(self.rd_cpu, cpu_ns(true));
         self.row.peak_rss_bytes = ru_maxrss_bytes();
-        self.row.rss_rise_bytes = delta(self.rss, self.row.peak_rss_bytes);
+        self.row.rd_rss_rise_bytes = delta(self.rd_rss, self.row.peak_rss_bytes);
+        self.row.rss_rise_bytes = delta(self.rss, self.row.peak_rss_bytes)
+            .zip(self.row.file_cfg_rss_rise_bytes)
+            .map(|(rise, cfg)| rise.saturating_sub(cfg));
         self.row.counters = COUNTERS.with(|c| c.borrow_mut().take().unwrap_or_default());
         self.row.flow_search_ns = self.row.counters.search_ns;
         if let Ok(mut slot) = collector().lock() {
@@ -151,6 +161,8 @@ fn empty_record() -> OwnerRecord {
         total_ns: 0,
         flow_edges_ns: 0,
         file_cfg_init_ns: 0,
+        file_cfg_rss_rise_bytes: Some(0),
+        rd_rss_rise_bytes: None,
         flow_search_ns: 0,
         reaching_definitions_ns: 0,
         rd_cpu_ns: None,
@@ -201,7 +213,7 @@ pub(super) fn file_rd(owners: &[OwnerRecord], phases: &[PhaseRecord]) -> Vec<Pha
         });
         p.status = "measured";
         *p.work_ns.as_mut().unwrap() += owner.reaching_definitions_ns;
-        p.rss_rise_bytes = match (p.rss_rise_bytes, owner.rss_rise_bytes) {
+        p.rss_rise_bytes = match (p.rss_rise_bytes, owner.rd_rss_rise_bytes) {
             (Some(a), Some(b)) => Some(a + b),
             _ => None,
         };
@@ -237,10 +249,11 @@ pub(crate) fn search<T>(simple: bool, bytes: usize, run: impl FnOnce() -> T) -> 
 
 /// Time only the actual lazy initialization; run before opening the RD clock.
 pub(crate) fn file_cfg<T>(owner: &mut Option<Owner>, file: &str, run: impl FnOnce() -> T) -> T {
-    let phase = Phase::file("dfg.file_cfg", file);
+    let mut phase = Phase::file("dfg.file_cfg", file);
     let result = run();
-    if let (Some(owner), Some(phase)) = (owner.as_mut(), phase.as_ref()) {
+    if let (Some(owner), Some(phase)) = (owner.as_mut(), phase.as_mut()) {
         owner.row.file_cfg_init_ns += ns(phase.started);
+        owner.row.file_cfg_rss_rise_bytes = phase.rss_rise();
     }
     drop(phase);
     result

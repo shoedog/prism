@@ -16,6 +16,8 @@ use std::path::PathBuf;
 #[cfg(test)]
 #[path = "call_graph_anon_prep_tests.rs"]
 mod anon_prep_tests;
+#[path = "call_graph_profile_initializers.rs"]
+mod init_profile;
 
 /// A node in the call graph: a function identified by file path and name.
 #[derive(
@@ -2000,7 +2002,7 @@ impl CallGraph {
 
         profile.next("call_graph.parameter_slots");
         let param_slots_unknown = Self::parameter_slots_unknown(files);
-        profile.next("call_graph.struct_init");
+        let initial = init_profile::collect(files, scope_inputs, &macro_shadow, &mut profile);
         let mut cg = CallGraph {
             functions,
             calls,
@@ -2021,7 +2023,7 @@ impl CallGraph {
             js_ts_unproven_instance_methods,
             class_bases,
             clean_class_spans,
-            js_ts_imported_props: crate::js_ts_props::collect(files),
+            js_ts_imported_props: initial.props,
             executable_owner: None,
             owner_ephemeral: false,
             python_inert_initializers,
@@ -2040,7 +2042,7 @@ impl CallGraph {
             interface_dispatch_computed: false,
             method_arity: BTreeMap::new(),
             method_facts,
-            scope_graph: Self::populate_scope_graph(files, scope_inputs),
+            scope_graph: initial.scope,
             import_bindings,
             module_bindings,
             indexed_files,
@@ -2052,7 +2054,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
-            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
+            js_anonymous: initial.proofs,
             js_ts_return_facts,
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
@@ -2081,9 +2083,7 @@ impl CallGraph {
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
             macro_arg_facts,
-            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
-                &macro_shadow,
-            ),
+            macro_shadow_intersection: initial.macro_shadow,
             // P9: whole-program framework-entry state — left empty here,
             // same reason as the Go/Python whole-program facts below:
             // `apply_framework_entries` populates it after `functions` /

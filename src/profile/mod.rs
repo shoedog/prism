@@ -181,6 +181,7 @@ pub(crate) struct Phase {
     started: Instant,
     cpu: Option<u64>,
     rss: Option<u64>,
+    end_rss: Option<Option<u64>>,
 }
 
 impl Phase {
@@ -201,11 +202,17 @@ impl Phase {
             started: Instant::now(),
             cpu: cpu_ns(file.is_some()),
             rss: ru_maxrss_bytes(),
+            end_rss: None,
         })
+    }
+    // Freeze the same endpoint for the phase and its owner's CFG exclusion.
+    fn rss_rise(&mut self) -> Option<u64> {
+        delta(self.rss, *self.end_rss.get_or_insert_with(ru_maxrss_bytes))
     }
 }
 impl Drop for Phase {
     fn drop(&mut self) {
+        let rss_rise_bytes = self.rss_rise();
         let phase = PhaseRecord {
             record: "phase",
             name: self.name,
@@ -220,8 +227,8 @@ impl Drop for Phase {
             wall_ns: Some(ns(self.started)),
             work_ns: None,
             cpu_ns: delta(self.cpu, cpu_ns(self.thread)),
-            peak_rss_bytes: ru_maxrss_bytes(),
-            rss_rise_bytes: delta(self.rss, ru_maxrss_bytes()),
+            peak_rss_bytes: self.end_rss.flatten(),
+            rss_rise_bytes,
         };
         if let Ok(mut slot) = collector().lock() {
             if let Some(p) = slot.as_mut() {

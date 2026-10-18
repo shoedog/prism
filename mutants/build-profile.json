@@ -139,6 +139,48 @@
       "        let mut ast_nodes = 0;",
       "        let start = Instant::now();\n        let mut ast_nodes = 0;",
       "profile::owner::tests::owner_clock_excludes_metadata_work"
+    ],
+    "PROFILE-drop-admission-fence": [
+      "src/profile/gates.rs",
+      "c.binding_fence_calls += 1); // admission increment",
+      "c.binding_fence_calls += 0); // admission increment",
+      "build_profile_round2_test::captured_write_admission_counts_admitted_and_refused_fences"
+    ],
+    "PROFILE-cfg-charged-to-rss": [
+      "src/profile/owner.rs",
+      "rise.saturating_sub(cfg)",
+      "rise.saturating_sub(0 * cfg)",
+      "build_profile_round2_test::rss_intervals_exclude_cfg_in_both_owner_orders"
+    ],
+    "PROFILE-rd-rss-includes-preparation": [
+      "src/profile/owner.rs",
+      "(p.rss_rise_bytes, owner.rd_rss_rise_bytes)",
+      "(p.rss_rise_bytes, owner.rss_rise_bytes)",
+      "build_profile_round2_test::rss_intervals_exclude_cfg_in_both_owner_orders"
+    ],
+    "PROFILE-hide-js_ts_props": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.js_ts_props\");",
+      "profile.next(\"call_graph.hidden_js_ts_props\");",
+      "build_profile_round2_test::call_graph_initializers_have_individual_rows"
+    ],
+    "PROFILE-hide-populate_scope_graph": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.populate_scope_graph\");",
+      "profile.next(\"call_graph.hidden_populate_scope_graph\");",
+      "build_profile_round2_test::call_graph_initializers_have_individual_rows"
+    ],
+    "PROFILE-hide-js_anonymous_proofs": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.js_anonymous_proofs\");",
+      "profile.next(\"call_graph.hidden_js_anonymous_proofs\");",
+      "build_profile_round2_test::call_graph_initializers_have_individual_rows"
+    ],
+    "PROFILE-hide-rust_macro_shadow_intersection": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.rust_macro_shadow_intersection\");",
+      "profile.next(\"call_graph.hidden_rust_macro_shadow_intersection\");",
+      "build_profile_round2_test::call_graph_initializers_have_individual_rows"
     ]
   },
   "lib_test_prefixes": [

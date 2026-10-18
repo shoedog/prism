@@ -21,6 +21,19 @@ pub(crate) fn fence<const COUNT: bool>(
     }
     p.js_ts_reference_fenced(node, owner, name, byte)
 }
+/// Captured-write admission is outside the const-specialized search walkers.
+pub(crate) fn admission_fence(
+    p: &ParsedFile,
+    node: &Node<'_>,
+    owner: &Node<'_>,
+    name: &str,
+    byte: usize,
+) -> bool {
+    if super::enabled() {
+        count(|c| c.binding_fence_calls += 1); // admission increment
+    }
+    p.js_ts_reference_fenced(node, owner, name, byte)
+}
 pub(crate) fn shadow<const COUNT: bool>(
     p: &ParsedFile,
     node: &Node<'_>,

@@ -604,7 +604,7 @@ impl Producer {
                 };
                 let same_binding = rd_defs.iter().any(|d| {
                     d.path == span.path
-                        && !parsed.js_ts_reference_fenced(
+                        && !crate::profile::gates::admission_fence(parsed,
                             &node,
                             &func_node,
                             &span.path.base,
