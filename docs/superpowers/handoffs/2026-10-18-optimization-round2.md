@@ -1,112 +1,121 @@
 # Handoff — Prism optimization round 2, option B
 
 **Written:** 2026-10-18 · **By:** Codex /root · **Provider:** codex
-**Workspace:** `/Users/wesleyjinks/code/prism-opt2` · `plan/optimization-round2-b` · **Measured state:** `[MEASURED]` HEAD `433b252c08dec870e009e70bd5af6d7603f94629`; starting tree CLEAN; delivery has only plan/handoff edits. Probes: `pwd`, `git status --short --branch`, `git rev-parse HEAD`, `git log -6 --oneline`; output: branch `plan/optimization-round2-b...origin/main`, no initial changes, HEAD `433b252c`, history includes #479/#480. Controller commits; no Git writes attempted.
-**Predecessor:** committed attribution-first plan (#478), stopped A1 inventory, and explicit owner option B decision of 2026-10-18.
+**Workspace:** `/Users/wesleyjinks/code/prism-opt2` · `plan/optimization-round2-b` · **Measured state:** `[MEASURED]` HEAD `ed88c7650feb2f103b5ee98d426383604e469e9e`; starting tree CLEAN; delivery contains only plan/handoff edits. Probes: `pwd`, `git status --short`, `git branch --show-current`, `git rev-parse HEAD`, `git log -2 --oneline`; outputs: workspace above, empty initial status, named branch, ed88c765 option-B docs commit over 433b252c (#480). Controller commits; no Git writes attempted.
+**Predecessor:** committed option-B revision `ed88c765` (PR #481), single review `plan-review/review-b-sonnet.md`, and controller dispositions W1/S1–S7; S8 unchanged.
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0.
-**Provenance:** written live by the worker from the owner decision, current source/history, prior plan and A1 inventory. `[MEASURED]` claims were inspected this turn; `[INHERITED]` claims name prior receipts, not reruns. No performance measurement or test execution occurred. Uses the installed steering `bootstrap/handoff-template.md` structure.
+**Provenance:** written live from the committed documents, supplied review/dispositions and limited current source inspection. `[MEASURED]` claims were inspected this turn; `[INHERITED]` claims name prior receipts, not reruns. No performance measurement or test execution occurred. Uses the installed steering `bootstrap/handoff-template.md` structure.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[INHERITED]` owner authorizes revision of the two named docs; controller owns commits and future dispatch. No subagents dispatched. **RESOLVED for this document revision**; live external worker activity was not inventoried, so confirm it before future implementation/measurement.
+**(a) Lane ownership** — owner authorizes only the two named docs; controller owns commits and future dispatch. No subagents dispatched. **RESOLVED for this final single-round fold**; external worker activity was not inventoried, so confirm it before implementation/measurement.
 
-**(b) Custody exposure** — `[MEASURED]` starting tree was clean at `433b252c`; revised plan and handoff now await controller commit/snapshot. Earlier snapshots and `a1/INVENTORY.md` are historical and do not contain this revision. **OPEN for controller custody**; no extra artifact or commit created by this worker.
+**(b) Custody exposure** — `[MEASURED]` original option-B revision is committed at `ed88c765`; starting tree was clean. Only this final review fold awaits controller commit/snapshot. **OPEN for controller custody of this fold**, not the earlier revision; no extra artifact or commit created by this worker.
 
-**(c) In flight / irreversible** — `[MEASURED]` R0 #479 (`0d3a5feb`) and R0b #480 (`433b252c`) are landed in current history, with early drops inspected in source. `[INHERITED]` S6 soak through October 20 is owner context. `[UNKNOWN]` Phase 2 real-round no-change frequency and completed-soak status have not been supplied/verified here. **OPEN:** R1b dispatch needs ≥20%; D13 needs Phase 2; measurements need completed soak and quiet admission. No implementation or measurement process launched by this worker.
+**(c) In flight / irreversible** — `[INHERITED]` committed plan records landed R0 #479 (`0d3a5feb`) and R0b #480 (`433b252c`). Owner schedules S6 soak end **Tue 2026-10-20 ~12:08 MDT**; completion is not verified here. `[UNKNOWN]` Phase 2 plus Phase 3 refresh counts/log completeness and #9v peak phase remain unverified. **OPEN:** R1b requires ≥20% no-change over ≥10 refreshes; #9v requires the derived P+S screen before V9a; D13 needs Phase 2; estimate/acceptance runs require completed soak and admission. No implementation or measurement process launched.
 
-**(d) Authorization granted but not exercised** — owner: “Read and write only: no cargo, builds, tests or measurements. Never read or print ~/.zshrc or other dotfiles.” Also: “The controller commits.” This revision grants no execution authority for the future estimate or prototypes; those are the next controller dispatches.
+**(d) Authorization granted but not exercised** — owner: “Read/write only; no cargo, builds, tests, measurements; never read or print ~/.zshrc or other dotfiles.” Also: “Controller commits.” Future-work wording grants no execution authority for estimate/prototypes.
 
 ## 1. Resume order
 
-1. Run `git -C /Users/wesleyjinks/code/prism-opt2 status --short --branch` and `git -C /Users/wesleyjinks/code/prism-opt2 rev-parse HEAD` (seconds, read-only). Expect branch `plan/optimization-round2-b`, starting HEAD `433b252c` plus these two edits or the controller's subsequent docs commit. Read the current plan, not the superseded attribution inventory as a dispatch spec.
-2. Controller commits/snapshots the plan and handoff. Resolve the six owner questions below at their respective gates; no fixed measurement date or job exists.
-3. **Next daytime task:** dispatch the bounded one-off #6/#7 estimate script or `#[ignore]`d census test on the pinned C1 corpora, per plan §2. Test-only, run once, record each candidate's net estimate; advance only if M on two corpora. It adds no shipped instrumentation and cannot accept an optimization.
-4. **Wait for S6 Phase 2:** record real-round no-change numerator/denominator/period. Dispatch first prototype **R1b only at ≥20%**; otherwise park it. R1a retry stays deferred pending practical verifier divergence evidence.
-5. Second prototype **#9v: V9a → V9b**, judged on changed-refresh peak (E/P/S rows, ≥2 admissible corpora). Use accepted R1b parent if it lands; a parked R1b does not block #9v. Third **#3: owner tree-lease/API design → T3a → T3b → bounded T3c consumer families → T3d activation**. Each slice has two review rounds; each optimization needs its own matched acceptance batch.
-6. Keep **D13a → D13b** separate and gated on Phase 2 frequency. Its queue/CAS/freshness/failure/retirement and warm/cold old-edge contracts are unchanged in plan §6.
+1. Run `git -C /Users/wesleyjinks/code/prism-opt2 status --short --branch` and `git -C /Users/wesleyjinks/code/prism-opt2 rev-parse HEAD` (seconds, read-only). Expect `plan/optimization-round2-b`, HEAD `ed88c765` plus only these two edits or the controller’s subsequent docs commit. Read the current plan and its “Option-B review fold” table.
+2. Controller commits/snapshots this final fold. Resolve the six owner questions at their gates. This fold has one final round; future implementation slices have two review rounds each. No measurement reservation/job exists.
+3. **Next daytime task is preparation only:** dispatch the bounded #6/#7 test-only estimate script/ignored test and prepare pinned mirrors. **Run only after confirmed S6 soak completion**, expected Tue 2026-10-20 ~12:08 MDT, with ≥50 GiB free on input/cache/output volumes, no other index load and swap non-increasing at admission/between sequential corpus loads. Record separate net M estimates; no activation claim. A qualifying result needs a bounded spec; default placement is after #9v and before #3, moved before V9a only if its same-corpus net estimate exceeds #9v’s estimated benefit (plan §2).
+4. Ship **S0 — changed-refresh seam** regardless of R1b (350–550 weighted lines including Rust/Python tests, feature-gated, behavior-neutral, recorded edit/hash and restore, identical support patch on base/candidate). It precedes R1b and V9b. Extract from real `refresh_index` tool results in Claude Code/Codex session transcripts (soak logs carry no refresh summary; controller-verified 2026-10-18): count `refresh_index` responses with summary `stale_before_refresh == false` over all refreshes; deduplicate log copies and confirm actual log fields/identities with the controller (plan §7 Q5). **R1b only at ≥20%, denominator ≥10, complete classification**; absent/insufficient/below-threshold data parks it for later usage. R1a stays deferred.
+5. Before **V9a → V9b**, derive from existing C1 samples whether the refresh peak occurs in verification or construction and apply the inherited tree-set ceilings. **P+S are decisive**: park #9v if they cannot clear M even at 100% of the ceiling, or if phase evidence is unavailable. Required changed rows are E/P/S plus **ruff changed-refresh spare**; no no-change acceptance proxy. Use accepted R1b parent if it lands; parked R1b does not block S0/#9v. Place any qualifying #6/#7 prototype as in step 3, then **owner tree-lease/API design → T3a → T3b → bounded T3c families → T3d**. T3b owns the fixed-array per-request recorder, report validation and mutant; T3d reuses it for the unchanged AST p95 gate.
+6. Keep **D13a → D13b** separate and gated on Phase 2 frequency. Queue/CAS/freshness/failure/retirement contracts remain; cold-old-edge allowance is the existing report’s `after_call_edges` minus `after_index` stage delta, not a census (plan §6).
 
-**STOP conditions:** current read/write-only authorization; unmet frequency/design gate; active soak or competing work; missing/mismatched source/corpus/workload/cache identity; failed output parity; missing required changed-refresh rows; quiet admission failure or insufficient disk/window budget; open-class findings at the two-round cap. No automatic extra window or extension to rescue an admissible FAIL.
+**STOP conditions:** current read/write-only authorization; unmet frequency/design/feasibility gate; active soak or competing work; missing source/corpus/workload/cache identity; failed output parity; missing required changed rows; admission failure or insufficient disk/window; open-class findings at the two-round implementation cap. No automatic extra window or extension to rescue an admissible FAIL.
 
 ## 2. State ledger
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| Option B plan/handoff revision | done | `[MEASURED]` current two documents replace attribution-first dependencies with ordered prototypes and per-prototype matched batches. |
-| R0 nav PartialHit drop | done | `[MEASURED]` #479, `0d3a5feb`; `src/navigation/cache.rs:77-91`, explicit drop at :82 before rebuild. Tests not rerun here. |
-| R0b CPG fallback drops | done | `[MEASURED]` #480, `433b252c`; `src/cpg/build.rs:628-632,676-681,714-719`, `src/cpg/context.rs:149-153`, `src/navigation/mod.rs:157-166`. Tests not rerun here. |
-| A1/A2/A3a/A3b program | parked | Dropped by owner, not awaiting dispatch. `[INHERITED]` stopped inventory estimates ~1,855 A1 lines; owner estimates six PRs/~3,500 lines before optimization. Plan opening decision and §8 dropped record. |
-| #6/#7 estimate | next | Plan §2: one-off test-only estimate on four C1 corpora; separate net M decisions, no shipped behavior. |
-| R1b first prototype | blocked | `[UNKNOWN]` Phase 2 ≥20% real-round no-change frequency; plan §§4/6/7 Q5. |
-| #9v second prototype | pending | V9a contract then V9b activation; changed-refresh peak M, no no-change proxy. Plan §§3–6. |
-| #3 third prototype | blocked | Owner tree-lease/API design before code, then T3a/T3b and bounded completion slices. Plan §6/Q3. |
-| #2 / #8 | parked | Derivations retained in plan §4. #8 sole ≥100 ms/two-corpus array-loop falsifier only if cheap in another PR; otherwise unmeasured record. |
-| #9a / R1a | parked | `[UNKNOWN]` allocator recoverability / practical retry frequency. No allocator work absent a large prototype-batch residual; retry stays deferred. |
-| D13a/D13b row-13 stall | blocked | `[UNKNOWN]` Phase 2 frequency; existing split/contracts and matched daemon acceptance retained unchanged. |
-| Commit, tests and acceptance | pending | Controller commit; implementation/full verification and matched measurements are future work, not executed by this docs revision. |
+| Original option-B revision | done | `[MEASURED]` committed at ed88c765, PR #481; not awaiting its first commit. |
+| Final single-review fold | done | Current two docs fold W1/S1–S7, leave S8 density as is; plan §8 mapping. Controller custody remains pending. |
+| R0 / R0b | done | `[INHERITED]` committed plan: #479 0d3a5feb / #480 433b252c. `[MEASURED]` macro branch re-read at `src/cpg/build.rs:676-682`: drop :678, return :681; review’s :684 return does not match this checkout. No tests rerun. |
+| A1/A2/A3a/A3b program | parked | Dropped by owner; historical inventory/reviews are not dispatch authority. |
+| #6/#7 estimate | blocked | Preparation can be next; corpus run waits for confirmed soak end and ≥50 GiB/no-other-index-load/non-increasing-swap admission. Plan §2. |
+| S0 changed-refresh seam | next | Independent behavior-neutral Rust/Python/tests predecessor, ships regardless of R1b; plan §§3/6. Requires new implementation dispatch. |
+| R1b | blocked | `[UNKNOWN]` parsed refresh_index results in session transcripts: ≥20%, denominator ≥10 and complete classification; S0 predecessor. Plan §7 Q5. |
+| #9v | blocked | Derived P+S phase/ceiling screen before V9a; V9b uses S0, changed E/P/S plus ruff spare. Plan §§4–6. |
+| Qualifying #6/#7 prototype | pending | Estimate M on two corpora then bounded spec; after #9v/before #3 unless estimate exceeds #9v’s, then before V9a. |
+| #3 | blocked | Q3 design before T3a/T3b; recorder included in T3b’s 450–600-line total, reused in T3d. |
+| #2 / #8 | parked | Plan §4 derivations; sole #8 ≥100 ms/two-corpus array-loop falsifier only if cheap in another PR. |
+| #9a / R1a | parked | Allocator recoverability/practical retry frequency UNKNOWN; no new work authorized. |
+| D13a/D13b | blocked | Phase 2 frequency; separate daemon acceptance, existing report-stage allowance. |
+| Commit, tests and acceptance | pending | Controller commits fold; full implementation verification and measurements are future work. |
 
 ## 3. Corrections to standing documents and memory
 
 | Location | Stale or false assertion | Correction |
 |---|---|---|
-| Plan summary/sequence and this handoff | Attribution PRs and one selection batch precede all optimization. | Corrected to owner B; prototype-local counters only, each prototype judged by matched C1 batch. |
-| Plan §1 / prior handoff R0 state | R0 in flight; source anchors describe pre-fix retention. | Corrected to landed #479 and #480, current early-drop anchors and baseline. Pre-fix magnitude remains unmeasured. |
-| Candidate dispositions | #2/#6/#7/#9a have ready implementation slices after attribution. | #2 parked by derivation; #6/#7 one-off test-only estimate with M gate; #9a unknown, no work absent large residual. #8 sole falsifier retained conditionally. |
-| Owner questions/schedule | Nine questions, fixed attribution date, L2 and allocator decisions. | Exactly six questions; fixed calendar, active L2 and allocator questions fell away. Each ready prototype gets bounded 02:00–07:00 windows. |
-| Historical A1 inventory/review/snapshot evidence | Proposed six-PR instrumentation path. | Superseded by explicit owner B; retained as historical evidence only. No edits outside the two authorized docs. |
-| Memory | No relevant registry match. | No memory-derived facts used; no memory update requested or performed. |
+| Headers / custody / resume | HEAD 433b252c; original revision uncommitted. | ed88c765 is committed; only final fold awaits controller custody. |
+| Plan §§3/5/6; this handoff | p95 without per-request data; changed seam without owner. | T3b recorder (reused by T3d), S0 independent predecessor, sized tests/mutants. |
+| Plan §§4/6/7; this handoff | Undefined Phase 2 frequency and untested #9v feasibility. | Explicit logs/extraction/minimum ≥10; derived P+S peak/ceiling screen, ruff spare. |
+| Plan §§2/5/6; resume order | Estimate during soak; full n for every kind; qualifying #6/#7 unordered. | Post-soak admission; per-slice unaffected-kind sanity pairs; explicit #6/#7 placement. |
+| Plan §6 / D13 handoff | Cold allowance needs a census. | Existing report `after_call_edges` minus `after_index` stage delta. |
+| Plan §1 / R0b anchor | Review alleges return at :684. | Current macro branch :676-682 contains drop :678 and return :681. |
+| Historical attribution inventory/reviews | Proposed instrumentation predecessor program. | Superseded by committed option B; retained as history. No edits outside two authorized docs. |
+| Memory | No relevant registry match. | No memory-derived facts used; no memory update requested/performed. |
 
 ## 4. Open work
 
 | # | Work | State | Exact next action | Blocked by | Identifiers |
 |---:|---|---|---|---|---|
-| 1 | Revision custody | pending | Controller commit/snapshot of the two docs | Controller | `plan/optimization-round2-b` |
-| 2 | #6/#7 estimate | next | Bounded test-only script/ignored test, once on C1 corpora, record net arithmetic and M result | New execution dispatch; corpus mirrors | Plan §2/Q1 |
-| 3 | Frequency gate | blocked | Obtain Phase 2 real-round no-change share with counts/period | S6 Phase 2 | R1b ≥20%; Q5 |
-| 4 | First prototype | blocked | R1b with complete reuse proof, negative tests/mutants and matched peak acceptance | #3 above | Plan §6 R1b |
-| 5 | Second prototype | pending | V9a loader-equivalent contract → V9b, changed-refresh batch | Refresh evidence/priority decision | Q2; E/P/S |
-| 6 | Third prototype | blocked | Owner lease/API design, T3a/T3b then family migrations/activation | Tree boundary decision | Q3 |
-| 7 | Matched batches | pending | Bind base/candidate, AB/BA ≥3 each, complete required kinds, reserve ≤240-minute batch + ≥60-minute margin | Implementation gates, soak, quiet host, disk ≥50 GiB | Plan §§4–5; Q1/Q4/Q6 |
-| 8 | Row-13 stall | blocked | D13a seam under current write lock → D13b off-lock construction | Phase 2 frequency | Plan §6 D13 |
+| 1 | Fold custody | pending | Controller commit/snapshot of two docs | Controller | PR #481, ed88c765 parent |
+| 2 | #6/#7 estimate | blocked | Prepare script; run once post-soak with admission, record net M arithmetic | New dispatch; mirrors; completed soak; disk/load/swap | Plan §2/Q1 |
+| 3 | Changed-refresh seam | next | S0 Rust/Python/tests, edit/hash/restore controls, neutral support patch | New dispatch | Plan §§3/6 |
+| 4 | Frequency / R1b | blocked | Parse refresh_index tool results from session transcripts; implement only if gate passes | ≥20% over ≥10, complete data; S0 | Plan §7 Q5 |
+| 5 | #9v | blocked | Existing C1 P+S phase/ceiling screen, then V9a → V9b | Feasibility evidence/Q2; S0 for V9b | Plan §4; E/P/S + ruff spare |
+| 6 | Qualifying #6/#7 | pending | Bounded spec; place after #9v/before #3 unless larger estimate, then before V9a | Estimate M on two corpora | Plan §2 |
+| 7 | #3 | blocked | Owner design, T3a/T3b recorder, T3c families, T3d activation | Q3 | Plan §§3/5/6 |
+| 8 | Matched batches | pending | AB/BA ≥3 each for affected/scored kinds; one sanity pair only for per-slice unaffected kinds; ≤240-minute budget + ≥60-minute margin | Implementation; completed soak; quiet host; ≥50 GiB | Plan §§4–5; Q1/Q4/Q6 |
+| 9 | Row-13 stall | blocked | D13a → D13b with report-stage cold allowance | Phase 2 frequency | Plan §6 D13 |
 
 ## 5. Invariants and traps — do not do these
 
-- No cargo/build/test/measurement/dotfile reads in this revision; controller commits. Next-step wording is not execution authority.
-- Never revive A1–A3 as a prerequisite. A small necessary counter or deterministic changed-refresh seam belongs in its prototype PR, test-only or feature-gated.
-- R0/R0b are already in the base; do not claim their pre-fix retention as a new prototype saving.
-- R1b dispatch requires real-round no-change ≥20%; synthetic benchmarks alone cannot satisfy that gate. R1a stays deferred.
-- #9v acceptance uses changed-refresh peak, never a no-change proxy. Existing memreport refresh is no-change; its small deterministic changed case must be built/preflighted inside the relevant prototype, with the same neutral seam on both sides.
-- M is ≥200 MiB or ≥15% on two corpora, medians of admitted runs; steady 15% uses live heap. Print both footprint levels; same-level footprint corroboration is required for steady host-relief acceptance. Peak candidates keep their named lifetime-footprint metric. The historical M2 comparator is 100 MiB/5%, not this gate.
-- #6/#7 corpus census is one-off/test-only and supplies estimates, not activation; no double-counted helper slack or shared keys. A fixture zero proves no corpus-wide absence.
-- #8 has only the array-loop ≥100 ms/two-corpus reopen falsifier, implemented only if cheap in another PR. #9a residual is not proof of reclaimable pages.
-- One measurement at a time; ≥50 GiB disk; completed soak; five-minute quiet admission and per-child rechecks. Idle-daemon stopping needs Q6, no connected clients and immediate recheck. Never silently drop required rows to fit 02:00–07:00.
-- D13 allows at most one active build per provider. Explicit requests queue with individual FullOnly publication/summary; automatic waiters join/recheck. D13a keeps current write lock; D13b adds readers/off-lock build. Warm peak gate unchanged; cold first-use allowance is exactly preregistered old-edge census bytes, or UNKNOWN if absent.
-- Preserve rollback, generations, output/cache/summary bytes and immutable old-reader snapshots. No drop-active shortcut, temporary-tree borrowed Nodes or unbounded tree repopulation. Oversized AST/CPG files do not grow in feature PRs; extraction is separate and move-only.
+- No cargo/build/test/measurement/dotfile reads in this fold; controller commits. Next steps are not execution authority.
+- Never revive A1–A3. S0 owns only the necessary behavior-neutral changed-refresh seam and ships even if R1b stays parked; other small counters stay prototype-local.
+- R0/R0b are already in the base; their historical retention is not a new saving.
+- R1b needs ≥20% no-change over ≥10 real refreshes from confirmed complete logs. Missing/below-minimum data parks it for later usage; synthetic M cannot satisfy the gate.
+- #9v needs the derived P+S screen before V9a, then changed-refresh acceptance; ruff is the spare. An end-of-refresh lifetime peak alone cannot locate the phase, and no-change data cannot accept changed-refresh relief.
+- #3 keeps p95 ≤max(10%,10 ms) increase. T3b records each request in a fixed 256-entry u64 array (2 KiB plus state), emits report data and validates it; T3d reuses the identical base/candidate probe. Failed/incomplete/overflow timing invalidates a run.
+- M is ≥200 MiB or ≥15% on two corpora; steady denominator is live heap with same-level footprint corroboration. Named peak candidates keep lifetime-footprint peaks. No subtraction of lifetime maxima to invent phase peaks.
+- #6/#7 estimate is one-off/test-only, after confirmed soak end (expected Tue 2026-10-20 ~12:08 MDT); ≥50 GiB, no other index load, swap non-increasing. Estimate qualification needs a later bounded spec and matched activation; do not double-count overlapping families.
+- One sanity pair only for explicitly unaffected kinds in plan §5; it proves no M/median gate, anomalies expand to full n. All affected/scored rows retain ≥3 runs/side and full non-target gates.
+- #8 sole array-loop falsifier remains conditional; #9a residual does not prove reclaimable pages.
+- Acceptance: one measurement at a time, ≥50 GiB, completed soak, five-minute quiet admission and per-child rechecks. Idle-daemon stopping requires Q6 and immediate client-free recheck; never drop required rows to fit a window.
+- D13: at most one active build/provider; explicit requests queue with individual FullOnly summaries; automatic waiters join/recheck. Cold allowance is preregistered existing-report `after_call_edges` minus `after_index` current-footprint delta, with heap delta alongside, matched identity/report hash; absent/negative delta ⇒ UNKNOWN. Warm gate unchanged; no new census.
+- Preserve rollback/generations/output/cache/summary bytes and immutable old readers. No drop-active shortcut, temporary-tree borrowed Nodes or unbounded retention. Oversized AST/CPG files do not grow; extraction is separate and move-only.
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
-| Starting HEAD / main | `433b252c08dec870e009e70bd5af6d7603f94629` |
-| Workspace / branch | `/Users/wesleyjinks/code/prism-opt2` / `plan/optimization-round2-b` |
+| Starting HEAD (committed option B) | `ed88c7650feb2f103b5ee98d426383604e469e9e` |
+| Base main | `433b252c08dec870e009e70bd5af6d7603f94629` |
+| Workspace / branch / PR | `/Users/wesleyjinks/code/prism-opt2` / `plan/optimization-round2-b` / #481 |
 | Plan | `/Users/wesleyjinks/code/prism-opt2/docs/superpowers/plans/2026-10-18-optimization-round2.md` |
 | Handoff | `/Users/wesleyjinks/code/prism-opt2/docs/superpowers/handoffs/2026-10-18-optimization-round2.md` |
-| Evidence root / stopped inventory | `/Users/wesleyjinks/prism-evidence/mcp-memory/optimization-round2/` / `a1/INVENTORY.md` |
+| Evidence / review | `/Users/wesleyjinks/prism-evidence/mcp-memory/optimization-round2/` / `plan-review/review-b-sonnet.md` |
 | Landed fixes | R0 #479 `0d3a5feb`; R0b #480 `433b252c` |
-| Existing C1 harness / pins | `scripts/memreport/` / `scripts/memreport/workloads/MANIFEST.json` |
-| Future measurement windows | `02:00–07:00 America/Denver`; no calendar reservation made |
+| C1 harness / pins | `scripts/memreport/` / `scripts/memreport/workloads/MANIFEST.json` |
+| Expected soak end | `Tue 2026-10-20 ~12:08 MDT`; verify completion before any corpus estimate/acceptance run |
+| Future acceptance windows | `02:00–07:00 America/Denver`; no reservation made |
 | Handoff template | `/Users/wesleyjinks/code/prompts-skills-steering/bootstrap/handoff-template.md` |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: “The revised plan follows owner option B, with no attribution-program prerequisite and with gated prototypes judged by matched C1 batches.” · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: STATIC-ONLY · record: current plan/handoff and this session's document/diff inspection. No implementation, test or performance acceptance claimed.
+**§2c verdict:** REFUTED — corrected in place · claim: “The option-B plan supplies the evidence and ownership needed to dispatch and accept its ordered prototypes.” · pass: SELF-PASS (NOT INDEPENDENT) for this final fold · evidence tier: STATIC-ONLY · record: supplied single review `plan-review/review-b-sonnet.md` found W1 and S1–S7; controller dispositions folded in plan §8 and this handoff. No second independent review, implementation, test or performance acceptance claimed.
 
 **Questions the owner owes an answer to:**
 
-1. **Corpus mirrors:** recommend exact clean pinned C1 Git mirrors in the evidence root, unchanged workload bytes, fresh path-bound caches.
-2. **Refresh priority / changed evidence:** recommend gated R1b first, then #9v with matched E/P/S changed rows and ≥2 admissible corpora; no no-change proxy. D13 separate; retry deferred.
-3. **Tree-lease/API boundary:** recommend session-local immutable-source leases, eager public compatibility, zero idle retention and bounded concurrency; design before T3 code.
+1. **Corpus mirrors:** exact clean pinned C1 Git mirrors in evidence root, unchanged workload bytes and fresh path-bound caches.
+2. **Refresh priority / changed evidence:** S0 regardless of R1b; gated R1b then #9v only after derived P+S phase/ceiling screen. E/P/S changed rows plus ruff spare; ≥2 admissible corpora. Qualifying #6/#7 goes after #9v/before #3 unless its estimate exceeds #9v’s, then before V9a. D13 separate; retry deferred.
+3. **Tree-lease/API boundary:** session-local immutable-source leases, eager public compatibility, zero idle retention, bounded concurrency; owner design before T3 code. T3b owns latency recorder, T3d reuses it.
 4. **Host target:** define distinct retained checkouts and simultaneous refreshes; recommend intended S6 fan-out and initially serial heavy refreshes with non-Prism headroom.
-5. **R1b frequency:** require Phase 2 ≥20% no-change real-round refreshes, with counts/period; park below threshold even if synthetic M passes.
-6. **Idle daemons:** recommend permission to stop only client-free prism-mcp daemons after soak, rechecked immediately; active clients remain untouched.
+5. **R1b frequency:** source = parsed `refresh_index` tool results in Claude Code/Codex session transcripts (the soak logs carry stderr only; controller-verified 2026-10-18). Numerator = `refresh_index` responses with `stale_before_refresh == false`; denominator = all refreshes, deduplicated across logs, failures retained in denominator. Require ≥20% and ≥10 with complete classification; absent/ambiguous data, fewer than 10 or lower share parks R1b until later usage. Plan §7 Q5 defines extraction; synthetic M is insufficient.
+6. **Idle daemons:** permission to stop only client-free prism-mcp daemons after confirmed soak end, rechecked immediately; active clients remain untouched.
 
-The calendar, L2 and allocator policy questions fell away under B. They are not pending approvals for this revision.
+Calendar, L2 and allocator policy questions fell away under B. No pending approval is needed for this document fold.
