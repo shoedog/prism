@@ -211,3 +211,65 @@ fn negative_sub_results_are_cached() {
         assert!(first[key] > 0);
     }
 }
+
+#[test]
+fn simple_wrappers_reuse_binding_work() {
+    for route in [1, 2, 3, 0] {
+        let mut first = None;
+        for n in [8, 16, 32] {
+            let reads = " use(x);\n".repeat(n);
+            let source = if route == 0 {
+                format!("function owner(x) {{\n {{\n{reads} }}\n}}\n")
+            } else {
+                format!("function owner(x) {{\n{reads}}}\n")
+            };
+            let p = ParsedFile::parse("wrapper.ts", &source, Language::TypeScript).unwrap();
+            assert_eq!(p.parse_error_count, 0);
+            let owner = p.all_functions()[0];
+            let path = AccessPath::simple("x");
+            COUNTS.with(|slot| *slot.borrow_mut() = Some(HashMap::new()));
+            let refs = match route {
+                0 => p.find_path_references_scoped(&owner, &path, 1).len(),
+                1 => p
+                    .find_path_references_fenced(&owner, &path, 1, source.find('x').unwrap())
+                    .len(),
+                _ => p
+                    .find_path_reference_spans_fenced_in(
+                        &owner,
+                        &path,
+                        1,
+                        source.find('x').unwrap(),
+                        None,
+                        route == 3,
+                    )
+                    .len(),
+            };
+            let counts = COUNTS.with(|slot| slot.borrow_mut().take().unwrap());
+            assert_eq!(refs, n + usize::from(route != 3));
+            if route == 0 {
+                let declarations = &counts["declaration"];
+                assert!(declarations.total > 0);
+                assert_eq!(
+                    declarations.total,
+                    declarations.distinct.len(),
+                    "each node in a declaration scan must be visited once per call"
+                );
+                continue;
+            }
+            let work: BTreeMap<_, _> = ["scope", "seam"]
+                .into_iter()
+                .map(|kind| (kind, counts.get(kind).map_or(0, |c| c.total)))
+                .collect();
+            assert!(
+                work.values().sum::<usize>() > 0,
+                "probe must observe binding work"
+            );
+            println!("wrapper route={route} reads={n} refs={refs} expensive={work:?}");
+            assert_eq!(
+                work,
+                *first.get_or_insert_with(|| work.clone()),
+                "route={route}: expensive scope work must be constant as reads grow"
+            );
+        }
+    }
+}

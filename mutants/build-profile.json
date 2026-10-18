@@ -184,14 +184,14 @@
     ],
     "PROFILE-repeated-instance-one": [
       "src/profile/mod.rs",
-      "row[\"instance\"] = (*instance).into();",
-      "row[\"instance\"] = 1.into();",
+      "instance: *instance,",
+      "instance: 1,",
       "profile::deferred_tests::repeated_phase_instances_are_additive_and_distinct"
     ],
     "PROFILE-omit-instance": [
       "src/profile/mod.rs",
-      "row[\"instance\"] = (*instance).into();",
-      "/* instance omitted */",
+      "    instance: u64,",
+      "    #[serde(skip)]\n    instance: u64,",
       "profile::deferred_tests::repeated_phase_instances_are_additive_and_distinct"
     ],
     "PROFILE-late-js_ts_props": [
@@ -235,6 +235,12 @@
       "{mebibytes(command[\"peak_rss_bytes\"])} MiB.",
       "{command[\"peak_rss_bytes\"]} bytes.",
       "profile::deferred_tests::renderer_regressions"
+    ],
+    "PROFILE-phase-map-key-order": [
+      "src/profile/mod.rs",
+      "            line(\n                writer,\n                &PhaseRow {\n                    phase,\n                    instance: *instance,\n                },\n            )?;",
+      "            let mut row = serde_json::to_value(phase)?;\n            row[\"instance\"] = (*instance).into();\n            line(writer, &row)?;",
+      "profile::deferred_tests::repeated_phase_instances_are_additive_and_distinct"
     ]
   },
   "lib_test_prefixes": [

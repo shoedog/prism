@@ -2,7 +2,8 @@
   "lane": "DFG simple identifier candidate index identity and one query per file",
   "lib_test_prefixes": [
     "ast::member_reference_index::identifiers::tests::",
-    "ast::member_reference_index::deferred_tests::"
+    "ast::member_reference_index::deferred_tests::",
+    "ast::binding_verdict_memo::probe::"
   ],
   "mutations": {
     "IRI-query-per-search": [
@@ -136,6 +137,18 @@
       "    cursor.set_byte_range(root.byte_range());",
       "    cursor.set_byte_range(parsed.tree.root_node().byte_range());",
       "ast::member_reference_index::identifiers::tests::identifier_index_no_session_work_is_bounded_by_owner"
+    ],
+    "IRI-drop-fenced-binding-session": [
+      "src/ast/member_reference_index.rs",
+      "            let _bindings = super::binding_verdict_memo::Session::new(self);\n            let fenced = matches!(",
+      "            let fenced = matches!(",
+      "ast::binding_verdict_memo::probe::simple_wrappers_reuse_binding_work"
+    ],
+    "IRI-drop-scoped-binding-session": [
+      "src/ast/member_reference_index.rs",
+      "            let _bindings = super::binding_verdict_memo::Session::new(self);\n            return crate::profile::gates::scoped_refs::<false>(self, owner, &path.base, def_line);",
+      "            return crate::profile::gates::scoped_refs::<false>(self, owner, &path.base, def_line);",
+      "ast::binding_verdict_memo::probe::simple_wrappers_reuse_binding_work"
     ]
   },
   "extra": {

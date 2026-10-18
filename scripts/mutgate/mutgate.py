@@ -324,13 +324,15 @@ def sync_tree(tree, overrides):
         if (tree / item).is_symlink():
             (tree / item).unlink()
         src = ROOT / item
-        files = [src] if src.is_file() else [p for p in src.rglob('*') if p.is_file()]
+        files = [src] if src.is_file() else [p for p in src.rglob('*') if p.is_file()
+                  and not p.is_relative_to(ROOT / 'scripts/mutgate/evidence')]
         for p in files:
             rel = str(p.relative_to(ROOT)); want.add(rel)
             data = overrides[rel].encode() if rel in overrides else p.read_bytes()
             dst = tree / rel
             if not dst.exists() or dst.read_bytes() != data:
                 dst.parent.mkdir(parents=True, exist_ok=True); dst.write_bytes(data)
+            shutil.copymode(p, dst)
     for p in [q for d in ('src', 'vendor', 'scripts') for q in (tree / d).rglob('*')]:
         if p.is_file() and str(p.relative_to(tree)) not in want: p.unlink()
     for entry in ROOT.iterdir():
@@ -460,7 +462,7 @@ def confirmation_reasons(m, observation, sensitive_tests):
 
 # ---------------------------------------------------------------- scoping
 def changed_lines(since):
-    diff = subprocess.run(['git', '-C', str(ROOT), 'diff', '--no-renames', '-U0', since, '--', 'src'], capture_output=True, text=True, check=True).stdout
+    diff = subprocess.run(['git', '-C', str(ROOT), 'diff', '--no-renames', '-U0', since, '--', 'src', 'scripts'], capture_output=True, text=True, check=True).stdout
     out = {}; cur = None
     for l in diff.splitlines():
         if l.startswith('+++ '):
@@ -480,7 +482,7 @@ def select_scoped(muts, src_text, since, scope):
         hit = m['id'] in invalid_anchors({m['id']: m}, src_text)
         for file, a, b in m['edits']:
             if file not in ch: continue
-            if scope == 'file': hit = True; break
+            if scope == 'file' or (scope == 'fn' and not file.endswith('.rs')): hit = True; break
             s = src_text.get(file, '')
             if a not in s: hit = True; break
             for occ in occurrences(s, a):

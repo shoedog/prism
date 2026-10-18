@@ -1,9 +1,13 @@
 import unittest
 
-from summarize_profile import render
+from summarize_profile import mebibytes, render
 
 
 class RendererTest(unittest.TestCase):
+    def test_mebibytes_missing_and_fractional(self):
+        self.assertEqual(mebibytes(None), "-")
+        self.assertEqual(mebibytes(3 * 2**19), "1.50")
+
     def test_phase_instances_and_command_mib(self):
         for rss, expected in [(4 * 2**20, "4.00"), (None, "-")]:
             output = render([

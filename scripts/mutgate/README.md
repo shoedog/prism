@@ -95,7 +95,10 @@ mode also preflights inactive schemas. A zero selection is explicitly reported
 as `selected: 0`; it provides no mutation coverage.
 
 Scopes are local filters: line scope selects overlapping anchors, fn scope
-the enclosing function, and file scope all mutants in changed files. They do
+the enclosing Rust function, and file scope all mutants in changed files.
+Changed-line discovery includes both `src/` and `scripts/`. For non-Rust files,
+fn scope conservatively selects every registered mutant in the changed file;
+the Rust function parser does not define script function boundaries. They do
 not trace callers/dependencies and can omit effects of helper changes. Missing
 registered paths/anchors are selected even outside the diff and fail visibly.
 A green scoped run cannot replace the full pre-merge gate.

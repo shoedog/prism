@@ -259,6 +259,7 @@ impl ParsedFile {
         reads_only: bool,
     ) -> BTreeMap<usize, (usize, usize)> {
         if path.is_simple() {
+            let _bindings = super::binding_verdict_memo::Session::new(self);
             let fenced = matches!(
                 self.language,
                 Language::JavaScript | Language::TypeScript | Language::Tsx
@@ -301,6 +302,7 @@ impl ParsedFile {
         def_line: usize,
     ) -> BTreeSet<usize> {
         if path.is_simple() {
+            let _bindings = super::binding_verdict_memo::Session::new(self);
             return crate::profile::gates::scoped_refs::<false>(self, owner, &path.base, def_line);
         }
         MemberReferenceSearch::new(self).scoped::<false>(owner, path, def_line)

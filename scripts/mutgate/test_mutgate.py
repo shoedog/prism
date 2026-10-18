@@ -11,6 +11,7 @@ import contextlib
 import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -34,6 +35,9 @@ class CodeMaskTests(unittest.TestCase):
             tree = Path(tmp) / 'tree'
             root.joinpath('scripts').mkdir(parents=True)
             root.joinpath('scripts/renderer.py').write_text('original')
+            root.joinpath('scripts/renderer.py').chmod(0o755)
+            root.joinpath('scripts/mutgate/evidence').mkdir(parents=True)
+            root.joinpath('scripts/mutgate/evidence/log').write_text('not a worker input')
             tree.mkdir()
             tree.joinpath('scripts').symlink_to(root / 'scripts')
             with patch.object(mutgate, 'ROOT', root):
@@ -41,8 +45,16 @@ class CodeMaskTests(unittest.TestCase):
                 self.assertFalse(tree.joinpath('scripts').is_symlink())
                 self.assertEqual(tree.joinpath('scripts/renderer.py').read_text(), 'mutant')
                 self.assertEqual(root.joinpath('scripts/renderer.py').read_text(), 'original')
+                self.assertEqual(tree.joinpath('scripts/renderer.py').stat().st_mode & 0o777, 0o755)
+                self.assertFalse(tree.joinpath('scripts/mutgate/evidence/log').exists())
+                mutgate.sync_tree(tree, {})
+                # Byte-identical copies must still pick up source mode changes.
+                root.joinpath('scripts/renderer.py').chmod(0o744)
+                tree.joinpath('scripts/stale.py').write_text('deleted upstream')
                 mutgate.sync_tree(tree, {})
                 self.assertEqual(tree.joinpath('scripts/renderer.py').read_text(), 'original')
+                self.assertEqual(tree.joinpath('scripts/renderer.py').stat().st_mode & 0o777, 0o744)
+                self.assertFalse(tree.joinpath('scripts/stale.py').exists())
 
     def test_raw_string_braces_are_masked(self):
         s = 'let x = r#"{ not a brace }"#;'
@@ -284,6 +296,42 @@ class GateRegressionTests(unittest.TestCase):
         self.assertTrue(summary['results']['script']['admissible'])
         self.assertEqual(scripts.joinpath('fixture.txt').read_text(), 'original')
         self.assertEqual(self.root.joinpath('target/mutgate/tree/scripts/fixture.txt').read_text(), 'original')
+
+    def test_script_only_git_change_runs_killing_test_in_every_scope(self):
+        scripts = self.root / 'scripts'
+        scripts.mkdir()
+        fixture = scripts / 'fixture.py'
+        fixture.write_text('value = "before"\nother = "stable"\n')
+        (self.root / 'src/lib.rs').write_text(
+            '#[test] fn script_killer() { let text = std::fs::read_to_string('
+            'concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/fixture.py")).unwrap(); '
+            'assert!(!text.contains("mutant")); }\n')
+        for args in (['init', '-q'], ['add', 'Cargo.toml', 'src', 'scripts'],
+                     ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+                      '-c', 'commit.gpgsign=false', 'commit', '-qm', 'base']):
+            subprocess.run(['git', '-C', str(self.root), *args], check=True, capture_output=True)
+        fixture.write_text('value = "changed"\nother = "stable"\n')
+        lane = self.root / 'lane.json'
+        lane.write_text(json.dumps({'lib_test_prefixes': [''], 'mutations': {
+            'changed': ['scripts/fixture.py', 'changed', 'mutant', 'script_killer'],
+            'unchanged': ['scripts/fixture.py', 'stable', 'mutant', 'script_killer']}}))
+        for scope in ('line', 'file', 'fn'):
+            with self.subTest(scope=scope):
+                out = self.root / ('report-' + scope)
+                args = ['mutgate', '--lane', str(lane), '--jobs', '2', '--since', 'HEAD',
+                        '--scope', scope, '--authoritative', '--out', str(out)]
+                with patch.object(mutgate, 'ROOT', self.root), patch.object(sys, 'argv', args), \
+                        patch.dict(os.environ, {'CARGO_TARGET_DIR': str(self.root / 'target')}), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(mutgate.main(), 0)
+                summary = json.loads((out / 'summary.json').read_text())
+                expected = {'changed'} if scope == 'line' else {'changed', 'unchanged'}
+                self.assertEqual(set(summary['results']), expected)
+                for result in summary['results'].values():
+                    self.assertEqual(result['verdict'], 'KILLED')
+                    self.assertTrue(result['admissible'])
+                    self.assertIn('script_killer', json.dumps(result))
+                self.assertEqual(fixture.read_text(), 'value = "changed"\nother = "stable"\n')
 
     def test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills(self):
         fixtures = Path(__file__).with_name('fixtures')

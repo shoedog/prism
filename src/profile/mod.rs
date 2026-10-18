@@ -142,9 +142,13 @@ fn finish() {
         for phase in profile.phases.iter().chain(&rd) {
             let instance = instances.entry((phase.name, &phase.file)).or_insert(0u64);
             *instance += 1;
-            let mut row = serde_json::to_value(phase)?;
-            row["instance"] = (*instance).into();
-            line(writer, &row)?;
+            line(
+                writer,
+                &PhaseRow {
+                    phase,
+                    instance: *instance,
+                },
+            )?;
         }
         for owner in &profile.owners {
             line(writer, owner)?;
@@ -160,6 +164,13 @@ fn finish() {
 fn line(writer: &mut impl Write, value: &impl Serialize) -> std::io::Result<()> {
     serde_json::to_writer(&mut *writer, value)?;
     writer.write_all(b"\n")
+}
+
+#[derive(Serialize)]
+struct PhaseRow<'a> {
+    #[serde(flatten)]
+    phase: &'a PhaseRecord,
+    instance: u64,
 }
 
 #[derive(Serialize)]

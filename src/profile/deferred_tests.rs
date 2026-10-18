@@ -25,11 +25,20 @@ fn repeated_phase_instances_are_additive_and_distinct() {
         .output()
         .unwrap();
     assert!(output.status.success(), "{output:?}");
-    let rows: Vec<serde_json::Value> = std::fs::read_to_string(path)
-        .unwrap()
+    let text = std::fs::read_to_string(path).unwrap();
+    let rows: Vec<serde_json::Value> = text
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
+    for (line, row) in text.lines().zip(&rows) {
+        if row["record"] == "phase" {
+            assert!(
+                line.starts_with("{\"record\":\"phase\","),
+                "phase field order: {line}"
+            );
+            assert!(line.ends_with(&format!(",\"instance\":{}}}", row["instance"])));
+        }
+    }
     assert_eq!(rows[0]["schema_version"], 1);
     for (name, file, expected) in [
         ("call_graph", None, vec![1, 2]),
@@ -84,5 +93,18 @@ fn renderer_regressions() {
         .output()
         .unwrap();
     assert!(output.status.success(), "{output:?}");
-    assert!(String::from_utf8_lossy(&output.stderr).contains("Ran 4 tests"));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let count = stderr
+        .lines()
+        .find_map(|line| {
+            let words: Vec<_> = line.split_whitespace().collect();
+            (words.first() == Some(&"Ran") && words.get(2) == Some(&"tests"))
+                .then(|| words.get(1)?.parse::<usize>().ok())
+                .flatten()
+        })
+        .expect("unittest must report its executed test count");
+    assert!(
+        count >= 4,
+        "expected at least four renderer tests: {stderr}"
+    );
 }
