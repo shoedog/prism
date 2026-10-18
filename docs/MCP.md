@@ -95,7 +95,9 @@ claude mcp add --transport stdio prism \
 ```
 
 Verify with `claude mcp list`. The tools appear to the agent as `mcp__prism__nav_*` (the `prism` segment
-is the server name you chose in the `add` command).
+is the server name you chose in the `add` command). The plugin's tools are named
+`mcp__plugin_prism_prism__nav_*` instead. Claude Code may list either as deferred tools, which the agent
+loads with ToolSearch before its first call.
 
 ### Codex
 
@@ -106,6 +108,20 @@ Codex reads MCP servers from `~/.codex/config.toml`:
 command = "/abs/path/to/prism/target/release/prism-mcp"
 args = ["--repo", "/abs/path/to/your/repo"]
 ```
+
+Codex starts MCP servers in the session's working directory (`codex exec -C <dir>`), so a project config
+can index whichever checkout Codex runs in instead of a fixed path. This repo's own `.codex/config.toml`
+does that, which gives every worktree and clone its own index:
+
+```toml
+[mcp_servers.prism]
+command = "/bin/sh"
+args = ["-c", 'root=$(git rev-parse --show-toplevel) || exit 1; exec "$root/scripts/prism-mcp-launch.sh" "$root" --shared']
+env = { PRISM_MCP_BIN = "/abs/path/to/prism/target/release/prism-mcp" }
+```
+
+A fixed `--repo` pointing at another checkout answers about that checkout's code, not the one under
+review. Each shared daemon retires 15 minutes after its last client.
 
 ### Kiro
 

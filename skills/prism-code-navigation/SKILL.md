@@ -10,7 +10,8 @@ description: >-
   "module dependencies", "trace the call graph". Resolves calls/imports across files that grep can't.
   On a spec / plan / impact-analysis task, orient with these tools FIRST, before reading files.
   Structural counterpart to lsp-nav (type-resolved go-to-def/references) and the slicing CLI
-  (diff-driven review). Tools are mcp__prism__nav_* for Claude/Codex, bare nav_* for Kiro.
+  (diff-driven review). Tool names: mcp__plugin_prism_prism__nav_* from the Claude Code plugin,
+  mcp__prism__nav_* from a server added as "prism" (Claude/Codex), bare nav_* for Kiro.
 metadata:
   project: prism
   surface: mcp
@@ -21,6 +22,22 @@ metadata:
 Prism's MCP server answers **structural** questions over a Code Property Graph of one repo. Reach for it
 when the question is "who/what is connected to this symbol," not "where does this text appear." It
 resolves calls and imports across files; grep can't.
+
+## Before your first query
+
+- **Find the tools.** Claude Code may list them as *deferred* tools (names only): load them with
+  ToolSearch (`select:mcp__plugin_prism_prism__nav_callers,...`) before calling. A server named something
+  other than `prism` changes the middle segment.
+- **Check which checkout the server indexes.** One server indexes the one `--repo` it was started with.
+  If you work in a worktree or clone other than that one, its answers describe the other checkout's code:
+  `SymbolNotFound` for a symbol you can see in your diff, or lines that don't match your files, is that
+  tell. Use a server started for your checkout, or the CLI below.
+- **No tools, or the wrong checkout:** the CLI answers the same questions for any checkout:
+  `prism nav callers --repo <checkout> --symbol X --format json` (also `callees`, `ego`, `module-deps`,
+  `repo-map`, `nodes-at`).
+- **Wait out warming.** The first call on a checkout with no index builds it: seconds to a few minutes
+  (about 1.5 min for this repo, cold). Retry the same call every ~10 s for up to ~3 min before giving up;
+  later calls answer in milliseconds.
 
 ## Orient before you read — especially for a spec / plan / impact analysis
 
@@ -36,6 +53,24 @@ way around for callers — that misses cross-file/aliased call sites and burns t
 "List every site a change would update", "what breaks if I change X", "plan splitting this module", "what
 does a new flag touch" are all *callers/dependency* questions — answer them with nav, then read the sites
 it points at. Reading first and grepping for callers gives a slower, incomplete answer.
+
+## In a spec or code review
+
+**Spec and plan review:** an "X is only called from Y" or "sole producer" claim → `nav_callers` on X
+(depth 1–2) and compare with the claim; a `file:line` anchor → `nav_symbol_spans` / `nav_nodes_at`
+confirms it still names that callable; blast radius of a signature or semantic change → `nav_callers`
+depth 2–3, and list consumers outside the spec's scope; layering → `nav_module_deps` / `nav_repo_map`.
+
+**Code review (index the PR head):** each changed public or shared function → `nav_callers` and check
+every caller still holds the changed contract; new code → `nav_callees` for the helpers it relies on; a
+change to a pattern with several sites (fallbacks, guards, rebuilds) → `nav_callees` of the containing
+function or `nav_ego_graph`, which finds sibling sites a text search keyed on one token misses; a new
+input source near shell/SQL/path sinks → `taint_reaches`. Cite the `file:line` prism returned.
+
+**Skip it** for docs-, test- or config-only diffs, and for a few-line diff whose one caller is in the diff.
+**Don't trust it for** runtime mutation or reflection (out of model), Python inheritance, field- or
+return-typed receivers, serde/struct-field data paths (not call edges), or C/C++. **An empty caller set
+is not proof** that code is unreachable: confirm with a targeted read.
 
 ## Pick the tool (vs grep / read / siblings)
 
@@ -90,7 +125,7 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config �
   its raw `body_span` may include braces/delimiters, and null fields explain themselves in
   `unavailable`. It never returns body text or edits source.
 - **Graphs truncate (50 items by default, raise with `max_results` up to 1000; 80 KB byte cap)** and the
-  **first call can take ~30 s** (building the CPG); instant after.
+  **first call on a fresh checkout can take seconds to minutes** (building the CPG); instant after.
 - **A retryable answer is not a result.** `_meta` `prism/retryable: true` with `status` `warming` or
   `indexing` means the index is still building: retry the same call (after `retry_after_secs`, when
   given). `build_failed` reports why; the next call retries the build. Under a shared server
