@@ -1329,55 +1329,8 @@ impl ParsedFile {
         .collect()
     }
 
-    /// First admitted occurrence per line, after the binding and read-role
-    /// gates. Synthetic edges retain this occurrence instead of substituting
-    /// a different binding's first rvalue on the same line.
-    pub(crate) fn find_path_reference_spans_fenced_in(
-        &self,
-        func_node: &Node<'_>,
-        path: &crate::access_path::AccessPath,
-        def_line: usize,
-        def_byte: usize,
-        within: Option<(usize, usize)>,
-        reads_only: bool,
-    ) -> BTreeMap<usize, (usize, usize)> {
-        if !matches!(
-            self.language,
-            Language::JavaScript | Language::TypeScript | Language::Tsx
-        ) || (!reads_only
-            && self.language.function_name(func_node).is_some()
-            && self.js_ts_seam_binding(func_node, &path.base))
-        {
-            return self
-                .find_path_references_scoped(func_node, path, def_line)
-                .into_iter()
-                .map(|line| {
-                    (
-                        line,
-                        (self.line_start_byte(line), self.line_start_byte(line)),
-                    )
-                })
-                .collect();
-        }
-        let mut lines = BTreeMap::new();
-        let scope_root = within
-            .and_then(|(s, e)| self.tree.root_node().descendant_for_byte_range(s, e))
-            .filter(|n| within == Some((n.start_byte(), n.end_byte())))
-            .unwrap_or(*func_node);
-        if path.is_simple() {
-            self.collect_fenced_simple_refs(
-                scope_root, func_node, &path.base, def_line, def_byte, reads_only, &mut lines,
-            );
-        } else {
-            self.collect_fenced_path_refs(
-                scope_root, func_node, path, def_line, def_byte, reads_only, &mut lines,
-            );
-        }
-        lines
-    }
-
     #[allow(clippy::too_many_arguments)]
-    fn collect_fenced_simple_refs(
+    pub(super) fn collect_fenced_simple_refs(
         &self,
         node: Node<'_>,
         owner: &Node<'_>,
@@ -1424,44 +1377,6 @@ impl ParsedFile {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn collect_fenced_path_refs(
-        &self,
-        node: Node<'_>,
-        owner: &Node<'_>,
-        path: &crate::access_path::AccessPath,
-        def_line: usize,
-        def_byte: usize,
-        reads_only: bool,
-        out: &mut BTreeMap<usize, (usize, usize)>,
-    ) {
-        let line = node.start_position().row + 1;
-        if Self::is_field_access_node(node.kind()) {
-            let node_path = self
-                .bounded_member_path(node)
-                .map(|member| member.path)
-                .unwrap_or_else(|| {
-                    crate::access_path::AccessPath::from_expr(self.node_text(&node))
-                });
-            if node_path == *path && line > def_line {
-                let refused_read = reads_only
-                    && ((path.base == "this" && self.js_ts_this_rebound_between(&node, owner))
-                        || self.js_ts_identifier_is_not_a_read(node)
-                        || self.js_ts_reference_in_with_body(node));
-                if !refused_read && !self.js_ts_reference_fenced(&node, owner, &path.base, def_byte)
-                {
-                    out.entry(line)
-                        .or_insert((node.start_byte(), node.end_byte()));
-                }
-                return;
-            }
-        }
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.collect_fenced_path_refs(child, owner, path, def_line, def_byte, reads_only, out);
-        }
-    }
-
     /// Includes captured references in callbacks created inside a with body.
     /// The with expression itself evaluates in the enclosing environment.
     pub(crate) fn js_ts_span_in_with_body(&self, start: usize, end: usize) -> bool {
@@ -1471,7 +1386,7 @@ impl ParsedFile {
             .is_some_and(|node| self.js_ts_reference_in_with_body(node))
     }
 
-    fn js_ts_reference_in_with_body(&self, reference: Node<'_>) -> bool {
+    pub(super) fn js_ts_reference_in_with_body(&self, reference: Node<'_>) -> bool {
         let byte = reference.start_byte();
         let mut current = reference.parent();
         while let Some(node) = current {

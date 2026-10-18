@@ -5,9 +5,10 @@ use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn search_refs(
-    parsed: &ParsedFile,
-    owner: &Node<'_>,
+pub(crate) fn search_refs<'a>(
+    parsed: &'a ParsedFile,
+    member_refs: &crate::ast::member_reference_index::MemberReferenceSearch<'a>,
+    owner: &Node<'a>,
     path: &AccessPath,
     def_line: usize,
     def_byte: usize,
@@ -15,7 +16,7 @@ pub(crate) fn search_refs(
     reads_only: bool,
 ) -> BTreeMap<usize, (usize, usize)> {
     let run = || {
-        parsed.find_path_reference_spans_fenced_in(
+        member_refs.find_path_reference_spans_fenced_in(
             owner, path, def_line, def_byte, within, reads_only,
         )
     };
