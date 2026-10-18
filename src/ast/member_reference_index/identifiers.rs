@@ -14,7 +14,6 @@ use tree_sitter::{Node, Query, QueryCursor, StreamingIterator};
 struct Candidate<'a> {
     node: Node<'a>,
     bytes: Range<usize>,
-    capture_order: usize,
 }
 
 struct Index<'a> {
@@ -33,7 +32,6 @@ impl<'a> Index<'a> {
         };
         let mut cursor = QueryCursor::new();
         let mut matches = cursor.matches(query, parsed.tree.root_node(), parsed.source.as_bytes());
-        let mut order = 0;
         while let Some(m) = matches.next() {
             for capture in m.captures {
                 #[cfg(test)]
@@ -46,10 +44,8 @@ impl<'a> Index<'a> {
                         .push(Candidate {
                             node: capture.node,
                             bytes: capture.node.byte_range(),
-                            capture_order: order,
                         });
                 }
-                order += 1;
             }
         }
         index
@@ -71,14 +67,11 @@ impl<'a> Index<'a> {
             start = 0;
             end = u32::MAX as usize;
         }
-        let mut previous = None;
         self.by_name
             .get(name)
             .into_iter()
             .flatten()
             .filter(move |c| {
-                debug_assert!(previous.is_none_or(|order| order < c.capture_order));
-                previous = Some(c.capture_order);
                 #[cfg(test)]
                 EXAMINED.with(|n| n.set(n.get() + 1));
                 // set_byte_range admits partial overlaps, not just contained nodes.
@@ -190,8 +183,6 @@ fn record_capture() {
     CAPTURES.with(|n| n.set(n.get() + 1));
 }
 #[cfg(test)]
-#[path = "identifier_reference_oracle.rs"]
 pub(crate) mod oracle;
 #[cfg(test)]
-#[path = "identifier_reference_tests.rs"]
 mod tests;

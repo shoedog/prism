@@ -5,82 +5,100 @@
   ],
   "mutations": {
     "IRI-query-per-search": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "        self.index\n            .get_or_init",
       "        let _rebuilt = get_query(self.parsed.language, QueryKind::Identifiers).map(|q| Index::build(self.parsed, q));\n        self.index\n            .get_or_init",
       "ast::member_reference_index::identifiers::tests::identifier_index_cost_is_per_file_not_per_search"
     ],
     "IRI-name-ignored": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       ".get(name)",
       ".get(\"absent\")",
       "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
     ],
     "IRI-range-contained": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "c.bytes.start < end\n                    && (c.bytes.end > start || c.bytes.is_empty() && c.bytes.end == start)",
       "c.bytes.start >= start && c.bytes.end <= end",
       "ast::member_reference_index::identifiers::tests::identifier_index_raw_ranges_order_duplicates_and_spelling"
     ],
     "IRI-range-end-ignored": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "c.bytes.start < end",
       "true",
       "ast::member_reference_index::identifiers::tests::identifier_index_raw_ranges_order_duplicates_and_spelling"
     ],
     "IRI-range-start-ignored": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "c.bytes.end > start",
       "true",
       "ast::member_reference_index::identifiers::tests::identifier_index_raw_ranges_order_duplicates_and_spelling"
     ],
     "IRI-dedup-captures": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "        index\n    }",
       "        for candidates in index.by_name.values_mut() { candidates.dedup_by_key(|c| c.node.id()); }\n        index\n    }",
       "ast::member_reference_index::identifiers::tests::identifier_index_raw_ranges_order_duplicates_and_spelling"
     ],
     "IRI-reverse-order": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "        index\n    }",
-      "        for candidates in index.by_name.values_mut() { candidates.reverse(); for (i,c) in candidates.iter_mut().enumerate() { c.capture_order=i; } }\n        index\n    }",
+      "        for candidates in index.by_name.values_mut() { candidates.reverse(); }\n        index\n    }",
       "ast::member_reference_index::identifiers::tests::identifier_index_raw_ranges_order_duplicates_and_spelling"
     ],
     "IRI-shadow-off": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "if !shadow::<COUNT>(parsed, &node, owner, name, def_line)",
       "if true || !shadow::<COUNT>(parsed, &node, owner, name, def_line)",
       "ast::member_reference_index::identifiers::tests::identifier_index_fallback_lifetime_and_gate_counts"
     ],
     "IRI-fence-off": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "&& !fence::<COUNT>(parsed, &node, owner, name, def_byte)",
       "&& true",
       "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
     ],
     "IRI-reads-off": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "&& !(reads_only && parsed.js_ts_identifier_is_not_a_read(node))",
       "&& true",
       "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
     ],
     "IRI-with-off": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "&& !(reads_only && parsed.js_ts_reference_in_with_body(node))",
       "&& true",
       "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
     ],
     "IRI-first-occurrence-overwritten": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       ".or_insert((node.start_byte(), node.end_byte()));",
       ".and_modify(|span| *span = (node.start_byte(), node.end_byte())).or_insert((node.start_byte(), node.end_byte()));",
       "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
     ],
     "IRI-no-query-fallback-lost": [
-      "src/ast/identifier_reference_index.rs",
+      "src/ast/member_reference_index/identifiers.rs",
       "self.parsed\n                .collect_variable_refs_scoped_manual(*owner, name, def_line, &mut lines);",
       "let _ = (owner, name, def_line);",
       "ast::member_reference_index::identifiers::tests::identifier_index_fallback_lifetime_and_gate_counts"
+    ],
+    "IRI-full-scan": [
+      "src/ast/member_reference_index/identifiers.rs",
+      "        self.by_name\n            .get(name)\n            .into_iter()\n            .flatten()",
+      "        let requested = name.to_owned();\n        self.by_name\n            .iter()\n            .flat_map(|(spelling, candidates)| candidates.iter().map(move |c| (*spelling, c)))\n            .inspect(|_| {\n                #[cfg(test)]\n                EXAMINED.with(|n| n.set(n.get() + 1));\n            })\n            .filter_map(move |(spelling, c)| (spelling == requested).then_some(c))",
+      "ast::member_reference_index::identifiers::tests::identifier_index_cost_is_per_file_not_per_search"
+    ],
+    "IRI-scoped-shadow-off": [
+      "src/ast/member_reference_index/identifiers.rs",
+      "if !shadow::<COUNT>(self.parsed, &node, owner, name, def_line)",
+      "if true || !shadow::<COUNT>(self.parsed, &node, owner, name, def_line)",
+      "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
+    ],
+    "IRI-one-shot-index": [
+      "src/profile/gates.rs",
+      "pub(crate) fn scoped_refs<const COUNT: bool>(\n    parsed: &ParsedFile,\n    func_node: &Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> std::collections::BTreeSet<usize> {\n    use crate::queries::{get_query, QueryKind};\n    use std::collections::BTreeSet;\n    use tree_sitter::StreamingIterator;\n\n    if let Some(query) = get_query(parsed.language, QueryKind::Identifiers) {\n        #[cfg(test)]\n        SCOPED_QUERY_WORK.with(|c| c.set((c.get().0 + 1, c.get().1)));\n        let ident_idx = query\n            .capture_index_for_name(\"ident\")\n            .expect(\"Identifiers query must have @ident capture\");\n        let mut cursor = tree_sitter::QueryCursor::new();\n        cursor.set_byte_range(func_node.byte_range());\n        let mut matches = cursor.matches(query, parsed.tree.root_node(), parsed.source.as_bytes());\n        let mut lines = BTreeSet::new();\n        while let Some(m) = matches.next() {\n            for capture in m.captures {\n                #[cfg(test)]\n                SCOPED_QUERY_WORK.with(|c| c.set((c.get().0, c.get().1 + 1)));\n                if capture.index == ident_idx && parsed.node_text(&capture.node) == var_name {\n                    // Bottom-up scope check: walk from the capture node up to the\n                    // function boundary. If any enclosing scope block re-declares\n                    // var_name and doesn't contain def_line, skip this reference.\n                    if !shadow::<COUNT>(parsed, &capture.node, func_node, var_name, def_line) {\n                        lines.insert(capture.node.start_position().row + 1);\n                    }\n                }\n            }\n        }\n        return lines;\n    }\n\n    let mut lines = BTreeSet::new();\n    parsed.collect_variable_refs_scoped_manual(*func_node, var_name, def_line, &mut lines);\n    lines\n}\n",
+      "pub(crate) fn scoped_refs<const COUNT: bool>(\n    parsed: &ParsedFile,\n    func_node: &Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> std::collections::BTreeSet<usize> {\n    crate::ast::member_reference_index::identifiers::IdentifierReferenceSearch::new(parsed)\n        .scoped::<COUNT>(func_node, var_name, def_line)\n}\n",
+      "ast::member_reference_index::identifiers::tests::identifier_index_no_session_work_is_bounded_by_owner"
     ]
   }
 }

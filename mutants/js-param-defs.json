@@ -395,7 +395,7 @@
    ]
   ],
   "PD-48-reads-only-filter-off": [
-   "src/ast/identifier_reference_index.rs",
+   "src/ast/member_reference_index/identifiers.rs",
    "&& !(reads_only && parsed.js_ts_identifier_is_not_a_read(node))",
    "&& !(false && parsed.js_ts_identifier_is_not_a_read(node))",
    [

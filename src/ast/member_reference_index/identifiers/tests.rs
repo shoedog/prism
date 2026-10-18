@@ -18,32 +18,69 @@ fn counts() -> (usize, usize, usize) {
 
 #[test]
 fn identifier_index_cost_is_per_file_not_per_search() {
-    let mut source = "function giant() {\n".to_string();
-    for i in 0..32 {
-        source += &format!("const x{i} = {i};\nconsume(x{i});\n");
-    }
-    source += "}\n";
-    let parsed = ParsedFile::parse("fixture.ts", &source, Language::TypeScript).unwrap();
-    let owner = parsed.all_functions()[0];
-    let search = MemberReferenceSearch::new(&parsed);
-    reset();
-    for i in 0..32 {
-        let name = format!("x{i}");
-        let result = search.find_path_reference_spans_fenced_in(
-            &owner,
-            &AccessPath::simple(&name),
-            2 * i + 2,
-            source.find(&name).unwrap(),
-            None,
-            false,
+    for n in [2, 32] {
+        let mut source = "function giant() {\n".to_string();
+        for i in 0..n {
+            source += &format!("const x{i} = {i};\nconsume(x{i});\n");
+        }
+        source += "}\n";
+        let parsed = ParsedFile::parse("fixture.ts", &source, Language::TypeScript).unwrap();
+        let owner = parsed.all_functions()[0];
+        let search = MemberReferenceSearch::new(&parsed);
+        reset();
+        for i in 0..n {
+            let name = format!("x{i}");
+            let result = search.find_path_reference_spans_fenced_in(
+                &owner,
+                &AccessPath::simple(&name),
+                2 * i + 2,
+                source.find(&name).unwrap(),
+                None,
+                false,
+            );
+            assert_eq!(result.len(), 2);
+        }
+        assert_eq!(
+            counts(),
+            (1, 3 * n + 1, 2 * n),
+            "one query, all captures once, only selected-name candidates per search"
         );
-        assert_eq!(result.len(), 2);
+        let before = counts();
+        assert!(search
+            .find_path_reference_spans_fenced_in(
+                &owner,
+                &AccessPath::simple("absent"),
+                2,
+                0,
+                None,
+                false,
+            )
+            .is_empty());
+        assert_eq!(counts(), before, "absent names visit no candidates");
     }
-    assert_eq!(
-        counts().0,
-        1,
-        "one identifier query per file, independent of definitions"
-    );
+}
+
+#[test]
+fn identifier_index_no_session_work_is_bounded_by_owner() {
+    for siblings in [32, 0, 128] {
+        let mut source = "function owner(x) {\n  consume(x);\n}\n".to_string();
+        for i in 0..siblings {
+            source += &format!("function sibling{i}(x) {{ consume(x); }}\n");
+        }
+        let parsed = ParsedFile::parse("owners.ts", &source, Language::TypeScript).unwrap();
+        let owner = parsed.all_functions()[0];
+        for (name, expected) in [("x", BTreeSet::from([1, 2])), ("absent", BTreeSet::new())] {
+            reset();
+            crate::profile::gates::SCOPED_QUERY_WORK.with(|c| c.set((0, 0)));
+            assert_eq!(
+                parsed.find_variable_references_scoped(&owner, name, 1),
+                expected
+            );
+            assert_eq!(counts(), (0, 0, 0), "one-shot must not index");
+            let work = crate::profile::gates::SCOPED_QUERY_WORK.with(|c| c.get());
+            assert_eq!(work, (1, 4), "owner captures only");
+        }
+    }
 }
 
 fn fixture(family: &str, n: usize) -> String {
@@ -525,6 +562,24 @@ fn identifier_index_complete_dfg_and_partial_rebuild() {
             .unwrap();
         pool.install(|| bincode::serialize(&DataFlowGraph::build(files)).unwrap())
     }
+    let rust_files = BTreeMap::from([(
+        "fixture.rs".into(),
+        ParsedFile::parse(
+            "fixture.rs",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/tests/fixtures/dfg_ident_index_rust/src/lib.rs"
+            )),
+            Language::Rust,
+        )
+        .unwrap(),
+    )]);
+    let rust_dfg = DataFlowGraph::build(&rust_files);
+    assert!(rust_dfg
+        .edges()
+        .iter()
+        .any(|edge| edge.from.function == "owner" && edge.to.function == "owner"));
+    assert_eq!(build(&rust_files, false), build(&rust_files, true));
     let mut files = BTreeMap::from([
         (
             "edges.ts".into(),

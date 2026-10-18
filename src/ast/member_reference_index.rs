@@ -7,7 +7,6 @@ use super::*;
 use std::cell::OnceCell;
 use std::collections::HashMap;
 
-#[path = "identifier_reference_index.rs"]
 pub(crate) mod identifiers;
 
 struct Candidate<'a> {
