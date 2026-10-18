@@ -1,0 +1,37 @@
+{
+  "mutations": {
+    "RR-01-restore-per-introduction-inventory": [
+      "src/cpg/reaching/scope.rs",
+      "let parameters = root.parameters;",
+      "let parameters = parsed.find_parameters_node(&parsed.all_functions().into_iter().find(|function| function.id() == root.function.id()).expect(\"root function must remain indexed\"));",
+      "cpg::reaching::work_tests::root_inventory_cost_is_constant_per_owner"
+    ],
+    "RR-02-drop-cached-parameter-region": [
+      "src/cpg/reaching/scope.rs",
+      "parameters: parsed.find_parameters_node(&function),",
+      "parameters: None,",
+      "cpg::reaching::scope::reuse_tests::root_parameters_match_main_inventory_and_classification"
+    ],
+    "RR-03-broaden-bare-arrow-parameter-region": [
+      "src/cpg/reaching/scope.rs",
+      "parameters: parsed.find_parameters_node(&function),",
+      "parameters: parsed.parameter_binding_region(&function),",
+      "cpg::reaching::scope::reuse_tests::bare_arrow_keeps_the_original_absent_parameter_region"
+    ],
+    "RR-05-disable-parameter-classification": [
+      "src/cpg/reaching/scope.rs",
+      "if parameters.is_some_and(|parameters| {",
+      "if false && parameters.is_some_and(|parameters| {",
+      "cpg::reaching::scope::reuse_tests::root_parameters_match_main_inventory_and_classification"
+    ],
+    "RR-04-replace-exact-root-with-parent": [
+      "src/cpg/reaching/scope.rs",
+      "Self {\n            function,",
+      "Self {\n            function: function.parent().unwrap_or(function),",
+      "cpg::reaching::scope::reuse_tests::root_parameters_match_main_inventory_and_classification"
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::reaching::"
+  ]
+}
