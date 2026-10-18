@@ -39,7 +39,7 @@
     ],
     "MRI-binding-gate-removed": [
       "src/ast/member_reference_index.rs",
-      "&& !parsed.js_ts_reference_fenced(&node, owner, &path.base, def_byte)",
+      "&& !crate::profile::gates::fence::<COUNT>(\n                        parsed, &node, owner, &path.base, def_byte,\n                    )",
       "&& true",
       "ast::member_reference_index::tests::member_index_differential_edges_and_non_js"
     ],
