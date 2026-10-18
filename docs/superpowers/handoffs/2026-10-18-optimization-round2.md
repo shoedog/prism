@@ -71,7 +71,7 @@
 | 4 | Frequency / R1b | blocked | Parse refresh_index tool results from session transcripts; implement only if gate passes | ≥20% over ≥10, complete data; S0 | Plan §4 frequency gate |
 | 5 | #9v | blocked | Rebound P+Py screen with Py-specific evidence after #3/#10, then V9a → V9b | Feasibility evidence; S0 for V9b | Plan §4; E/P/Py + ruff spare |
 | 6 | Qualifying #6/#7 | pending | Bounded spec after #3/#10, normally #9v; larger estimate before V9a | Estimate M on two corpora | Plan §2 |
-| 7 | #3 | blocked | T3a design immediately after S0, T3b recorder, T3c families, T3d activation | Safe lifetime design; S0 | Plan §§3/5/6 |
+| 7 | #3 | next after S0 | T3a design immediately after S0, T3b recorder, T3c families, T3d activation | Safe lifetime design; S0 | Plan §§3/5/6 |
 | 8 | Matched batches | pending | AB/BA ≥3 each for affected/scored kinds; one sanity pair only for per-slice unaffected kinds; ≤240-minute budget + ≥60-minute margin | Implementation; completed soak; quiet host; ≥50 GiB | Plan §§4–5; C0 pins/host admission |
 | 9 | Row-13 stall | blocked | D13a → D13b with report-stage cold allowance | Phase 2 frequency | Plan §6 D13 |
 | 10 | New candidates | pending | #10 seed spec after first #3 acceptance; #11/#12 mechanism/metric/gate specs; #14 and daemon base design notes | New dispatch; plan §4 M and scoped contracts | Plan §§1/4/6 |
