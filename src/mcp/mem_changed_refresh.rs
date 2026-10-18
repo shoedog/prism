@@ -55,7 +55,7 @@ impl Edit {
         Ok(())
     }
 
-    fn check(&self, root: &Path) -> Result<()> {
+    fn check(&self, root: &Path) -> Result<String> {
         self.clean(root)?;
         ensure!(
             !self.before.is_empty() && !self.after.is_empty() && self.before != self.after,
@@ -78,11 +78,9 @@ impl Edit {
             path.canonicalize()? == path && path.is_file(),
             "edit target must be a regular mirror file, without symlinks"
         );
-        ensure!(
-            hash(std::fs::read(path)?) == self.before_sha256,
-            "wrong starting hash"
-        );
-        Ok(())
+        let observed = hash(std::fs::read(path)?);
+        ensure!(observed == self.before_sha256, "wrong starting hash");
+        Ok(observed)
     }
 
     pub(super) fn run<T>(
@@ -90,21 +88,19 @@ impl Edit {
         root: &Path,
         refresh: impl FnOnce() -> Result<T>,
     ) -> Result<(T, Value)> {
-        self.check(root)?;
+        let before_sha256 = self.check(root)?;
         let path = root.join(&self.path);
-        let result = (|| {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             std::fs::write(&path, &self.after).context("applying changed edit")?;
-            ensure!(
-                hash(std::fs::read(&path)?) == self.after_sha256,
-                "applied hash mismatch"
-            );
+            let after_sha256 = hash(std::fs::read(&path)?);
+            ensure!(after_sha256 == self.after_sha256, "applied hash mismatch");
             let result = refresh()?;
             ensure!(
                 hash(std::fs::read(&path)?) == self.after_sha256,
                 "edit changed during refresh"
             );
-            Ok(result)
-        })();
+            Ok((result, after_sha256))
+        }));
         let restored = (|| -> Result<String> {
             ensure!(
                 std::fs::symlink_metadata(&path)?.is_file(),
@@ -116,13 +112,25 @@ impl Edit {
             self.clean(root)?;
             Ok(restored)
         })();
-        let restored_sha256 = restored.with_context(|| {
-            format!("restore failed; refresh error: {:?}", result.as_ref().err())
+        let restored_sha256 = restored.with_context(|| match &result {
+            Ok(result) => format!("restore failed; refresh error: {:?}", result.as_ref().err()),
+            Err(payload) => format!(
+                "restore failed; refresh panicked: {}",
+                payload
+                    .downcast_ref::<&str>()
+                    .copied()
+                    .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+                    .unwrap_or("non-string panic payload (see panic diagnostics)")
+            ),
         })?;
+        let (result, after_sha256) = match result {
+            Ok(result) => result?,
+            Err(payload) => std::panic::resume_unwind(payload),
+        };
         Ok((
-            result?,
-            json!({"edit": self, "before_sha256": self.before_sha256,
-            "after_sha256": self.after_sha256, "restored_sha256": restored_sha256}),
+            result,
+            json!({"edit": self, "before_sha256": before_sha256,
+            "after_sha256": after_sha256, "restored_sha256": restored_sha256}),
         ))
     }
 }

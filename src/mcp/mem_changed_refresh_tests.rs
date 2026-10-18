@@ -93,3 +93,108 @@ fn failed_restore_is_hard_failure() {
     });
     assert!(result.unwrap_err().to_string().contains("restore failed"));
 }
+
+#[test]
+fn dirty_between_load_and_run_refused_without_edit() {
+    let (dir, edit) = fixture();
+    let manifest = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(manifest.path(), serde_json::to_vec(&edit).unwrap()).unwrap();
+    let loaded = Edit::load(dir.path(), manifest.path()).unwrap();
+    std::fs::write(dir.path().join("untracked.py"), "dirty").unwrap();
+    let result = loaded.run::<()>(dir.path(), || panic!("must refuse before refresh"));
+    assert!(result.unwrap_err().to_string().contains("dirty mirror"));
+    assert_eq!(
+        std::fs::read(dir.path().join("main.py")).unwrap(),
+        edit.before.as_bytes()
+    );
+}
+
+#[test]
+fn third_content_during_refresh_refused_and_restored() {
+    let (dir, edit) = fixture();
+    let result = edit.run(dir.path(), || {
+        std::fs::write(dir.path().join("main.py"), "third content")?;
+        Ok(())
+    });
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("edit changed during refresh"));
+    assert_eq!(
+        hash(std::fs::read(dir.path().join("main.py")).unwrap()),
+        edit.before_sha256
+    );
+    edit.clean(dir.path()).unwrap();
+}
+
+#[test]
+fn untracked_during_refresh_fails_post_restore_clean() {
+    let (dir, edit) = fixture();
+    let result = edit.run(dir.path(), || {
+        std::fs::write(dir.path().join("untracked.py"), "dirty")?;
+        Ok(())
+    });
+    let error = format!("{:#}", result.unwrap_err());
+    assert!(
+        error.contains("restore failed") && error.contains("dirty mirror"),
+        "{error}"
+    );
+    assert_eq!(
+        hash(std::fs::read(dir.path().join("main.py")).unwrap()),
+        edit.before_sha256
+    );
+}
+
+#[test]
+fn panicking_refresh_still_restores() {
+    let (dir, edit) = fixture();
+    let result = std::panic::catch_unwind(|| {
+        edit.run::<()>(dir.path(), || {
+            assert_eq!(
+                hash(std::fs::read(dir.path().join("main.py"))?),
+                edit.after_sha256
+            );
+            panic!("injected refresh panic")
+        })
+    });
+    let panic = result.unwrap_err();
+    assert_eq!(
+        panic.downcast_ref::<&str>(),
+        Some(&"injected refresh panic")
+    );
+    assert_eq!(
+        hash(std::fs::read(dir.path().join("main.py")).unwrap()),
+        edit.before_sha256
+    );
+    edit.clean(dir.path()).unwrap();
+}
+
+#[test]
+fn panic_and_failed_restore_retains_both_diagnostics() {
+    let (dir, edit) = fixture();
+    let result = edit.run::<()>(dir.path(), || {
+        std::fs::remove_file(dir.path().join("main.py"))?;
+        std::fs::create_dir(dir.path().join("main.py"))?;
+        panic!("injected refresh panic")
+    });
+    let error = format!("{:#}", result.unwrap_err());
+    assert!(
+        error.contains("restore failed")
+            && error.contains("restore target replaced")
+            && error.contains("injected refresh panic"),
+        "{error}"
+    );
+}
+
+#[test]
+fn successful_edit_records_observed_hashes() {
+    let (dir, edit) = fixture();
+    let (_, record) = edit.run(dir.path(), || Ok(())).unwrap();
+    assert_eq!(record["before_sha256"], hash(&edit.before));
+    assert_eq!(record["after_sha256"], hash(&edit.after));
+    assert_eq!(
+        record["restored_sha256"],
+        hash(std::fs::read(dir.path().join("main.py")).unwrap())
+    );
+    edit.clean(dir.path()).unwrap();
+}

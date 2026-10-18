@@ -21,7 +21,7 @@ import sys
 import time
 from pathlib import Path
 
-from memreport_changed import edit_reason
+from memreport_changed import edit_reason, verified_original
 
 from memreport_builddir import directory_identity, inside, prepare_repetition, remove_created  # noqa: F401
 from memreport_compare import EXPERIMENTS, cmd_compare
@@ -294,18 +294,58 @@ def run_build(args, path, out, name, rep, snapshot):
     return result
 
 
+def run_changed(args, path, out, name, rep, snapshot, cache_dir, edit_path, edit):
+    """A disposable copy of the prime, with recovery even when the child is interrupted."""
+    original = verified_original(path, edit)
+    target = path / edit['path']
+    root = out / 'cache-changed'
+    changed_cache, owned, refusal = prepare_repetition(root, name, rep)
+    if refusal:
+        return dict(kind='changed-refresh', status='inadmissible', wall_secs=0, reason=refusal)
+    result = None
+    try:
+        shutil.copytree(cache_dir, changed_cache, dirs_exist_ok=True)  # preserve the pinned prime
+        try:
+            command = command_for(args.bin, path, changed_cache, 'changed-refresh', snapshot, args.settle, edit_path)
+            result = run_one(command, 'changed-refresh', args.timeout, edit)
+        finally:
+            # subprocess.run reaps timed-out/interrupted children before unwinding here.
+            try:
+                if target.is_symlink() or target.resolve() != target or not target.is_file():
+                    raise OSError('restore target replaced')
+                if target.read_bytes() != original:
+                    if result is not None:
+                        result.update(status='failed', reason='%s; child did not restore mirror' % result.get('reason', ''))
+                    target.write_bytes(original)
+                    if target.read_bytes() != original:
+                        raise OSError('restored bytes mismatch')
+            except OSError as error:
+                if result is None:
+                    raise RuntimeError('changed-refresh restore failed: %s' % error) from error
+                result.update(status='failed', reason='%s; restore failed: %s' % (result.get('reason', ''), error))
+    finally:
+        removed, note = remove_created(changed_cache, root, owned)
+        if result is not None:
+            result['cache_dir_removed'] = removed
+            if note:
+                result['cache_dir_note'] = note
+    return result
+
+
 def measure_corpus(args, name, path, provenance, snapshot, digest, kinds=KINDS):
     """Run the chosen kinds for one corpus, saving each raw result as it finishes. Returns (corpus, results, prime)."""
     out = Path(args.out)
     raw = out / 'raw' / name
     raw.mkdir(parents=True, exist_ok=True)
     cache_dir = out / 'cache' / name
+    edit_path, edit = args.changed_edits.get(name, (None, None))
+    if 'changed-refresh' in kinds:
+        verified_original(path, edit)  # before priming or any other child
     prime = None
     if set(kinds) & set(CACHED_KINDS):
         # Prime the cache with a discarded run so that "warm" means a cache hit.
         prime = run_one(command_for(args.bin, path, cache_dir, 'warm', snapshot, 0), PRIME, args.timeout)
         (raw / 'prime.json').write_text(json.dumps(prime, indent=1))
-    edit_path, edit = args.changed_edits.get(name, (None, None))
     corpus = dict(provenance, cache_files=cache_file_sizes(cache_dir), workload=digest)
     if edit is not None:
         corpus['changed_edit'] = edit
@@ -317,26 +357,7 @@ def measure_corpus(args, name, path, provenance, snapshot, digest, kinds=KINDS):
             if kind == BUILD:
                 result = run_build(args, path, out, name, rep, snapshot)
             elif kind == 'changed-refresh':
-                changed_cache = out / 'cache-changed' / name / str(rep)
-                shutil.copytree(cache_dir, changed_cache)  # refresh overwrites caches; preserve the pinned prime
-                command = command_for(args.bin, path, changed_cache, kind, snapshot, args.settle, edit_path)
-                result = run_one(command, kind, args.timeout, edit)
-                target = path / edit['path']
-                try:
-                    restored = hashlib.sha256(target.read_bytes()).hexdigest()
-                except OSError:
-                    restored = None
-                if restored != edit['before_sha256']:
-                    result.update(status='failed', reason='%s; child did not restore mirror' % result.get('reason', ''))
-                    # subprocess.run has reaped a timed-out child. Recover, but never admit that run.
-                    try:
-                        if target.is_symlink() or target.resolve() != target:
-                            raise OSError('restore target replaced')
-                        target.write_bytes(edit['before'].encode())
-                        if hashlib.sha256(target.read_bytes()).hexdigest() != edit['before_sha256']:
-                            raise OSError('restored hash mismatch')
-                    except OSError as error:
-                        result['reason'] += '; restore failed: %s' % error
+                result = run_changed(args, path, out, name, rep, snapshot, cache_dir, edit_path, edit)
             else:
                 result = run_one(command_for(args.bin, path, cache_dir, kind, snapshot, args.settle, edit_path),
                                  kind, args.timeout, digest if kind == 'workload' else None)
@@ -372,6 +393,7 @@ def cmd_run(args):
             reason = edit_reason(edit)
             if reason or edit['repo_root'] != str(path) or edit['commit'] != provenance['commit']:
                 raise SystemExit('%s: %s' % (name, reason or 'changed edit identity mismatch'))
+            verified_original(path, edit)
             args.changed_edits[name] = (edit_paths[name], edit)
         bound[name] = (path, provenance) + bind_workload(name, args.workloads, provenance['commit'])
     out.mkdir(parents=True, exist_ok=True)
