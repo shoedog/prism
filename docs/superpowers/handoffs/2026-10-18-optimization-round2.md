@@ -1,93 +1,112 @@
 # Handoff — Prism index optimization round 2 planning
 
-**Written:** 2026-10-17T22:59:58-06:00 · **By:** Codex /root · **Provider:** codex
-**Workspace:** /Users/wesleyjinks/code/prism-opt2 · plan/optimization-round2 · **Measured state:** `[MEASURED]` HEAD 45f155c6f46f3d971a9c9da6cedc3131e648659a · Tree DIRTY (new plan and this handoff only) · Probe `git status --short --branch; git rev-parse HEAD` · Output planning receipt under the evidence root; initial status was clean, final status is recorded there.
-**Predecessor:** none — first in this round-2 planning lane; October 14 analysis is the supplied starting artifact.
-**Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
-**Provenance:** written live by the worker. `[MEASURED]` claims were probed by this writer; `[INHERITED]` claims were not. File reads and document checks are not performance measurements or test receipts.
+**Written:** 2026-10-18, round-1 review fold · **By:** Codex /root · **Provider:** codex
+**Workspace:** /Users/wesleyjinks/code/prism-opt2 · plan/optimization-round2
+**Measured starting state:** `[MEASURED]` committed clean HEAD `ccc5ae8ae70d707b3210de46aebce5a97c958680`, merge of main `9000343e`; branch was ahead of its local remote-tracking ref by 8. Read-only probes: `git status --short --branch`, `git rev-parse HEAD`, `git log -4 --oneline`. The original docs were already committed at review baseline `9640b821`; their old commit-pending state is superseded. **Delivery state:** this fold modifies the existing plan and handoff only; its controller commit remains pending. No `.git` writes attempted.
+**Predecessor:** original planning handoff, then both round-1 reviews under `plan-review/`; folded on the existing artifact, no restart. Round 1 of the two-round cap; round 2 remains outstanding.
+**Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. Conflicts remain OPEN in §0.
+**Provenance:** `[MEASURED]` denotes a live observation by this writer, not necessarily a performance measurement. `[INHERITED]` denotes supplied controller/reviewer/previous-planning receipts. No builds, tests or performance measurements were run in this fold.
 
 ## 0. Gating facts — settle these before starting anything below
 
-**(a) Lane ownership** — `[INHERITED]` owner assigned this planning lane to this worker. No subagents were dispatched. External controller activity was not inventoried. **RESOLVED for document delivery; controller owns subsequent dispatch.**
+**(a) Lane ownership** — owner authorized only the review fold in these two documentation files. No subagents dispatched. Controller owns R0, commits and future implementation dispatch. **RESOLVED for document delivery.**
 
-**(b) Custody exposure** — `[MEASURED]` two new uncommitted documentation files. Snapshot copies and SHA256 receipt are under `~/prism-evidence/mcp-memory/optimization-round2/snapshot-planning/`. **RESOLVED for local snapshot custody; controller commit remains pending.** No `.git` write attempted.
+**(b) Custody exposure** — initial plan/handoff are committed and the starting tree was clean. Only the new fold awaits commit. Snapshot copies and SHA256 receipt are in `~/prism-evidence/mcp-memory/optimization-round2/plan-review/snapshot-r1-fold/`; original `snapshot-planning/` is historical. **RESOLVED for local snapshot custody; OPEN for controller commit/publication.**
 
-**(c) In flight / irreversible** — `[MEASURED]` this worker launched no builds, tests, benchmark, index server, browser, background task or child agent. `[INHERITED]` S6 soak occupies the intervening nights. **RESOLVED for planning exit; OPEN for future measurement admission until controller confirms soak finished and reserves a quiet host.** The dated window is Wednesday October 21; the user's word “Tuesday” conflicts with the calendar.
+**(c) In flight / irreversible** — `[INHERITED]` controller is fixing nav PartialHit retention in **R0**, branch `fix/nav-partialhit-drop` (numeric PR ID not supplied; status **in flight**). R0 must land before A1 and before batch binary preparation. S6 soak occupies intervening nights; D13 waits for Phase 2 refresh frequency, R1b also waits for its no-change/changed split. **OPEN for those dependencies; no worker implementation/process launched.**
 
-**(d) Authorization granted but not exercised** — owner: “Write the plan at docs/superpowers/plans/2026-10-18-optimization-round2.md” and “The controller commits (your sandbox cannot write .git).” The document is written; controller commit is outstanding. Owner: “Read and write only. Run no cargo, no builds, no tests, no memory or timing measurements tonight.” This handoff grants no implementation or measurement authority tonight.
+**(d) Authorization** — current request: fold both reviews and all controller dispositions, read/write only, no cargo/builds/tests/measurements, no dotfile reads; controller commits. Those restrictions were honored. This handoff grants no implementation or measurement authority. Preserve the existing handoff shape; no dotfile template was reread during this fold.
 
 ## 1. Resume order
 
-1. Read `docs/superpowers/plans/2026-10-18-optimization-round2.md` (about 9,200 words; allow 20–30 minutes). Read-only identity check: `git -C /Users/wesleyjinks/code/prism-opt2 status --short --branch` and `git -C /Users/wesleyjinks/code/prism-opt2 rev-parse HEAD`. Expect the named branch/base and only the new plan/handoff until the controller commits.
-2. Controller reviews the seven owner questions, especially the Wednesday date and corpus path mapping, and commits the documentation. No scheduling job was created by this worker.
-3. In an authorized daytime slot, implement PR A's observation-only counters/tests/runner adapters. All new selectors/options/modules in the plan are proposed, not installed. Run full gates and report totals, then execute tiny mechanism checks.
-4. Only after soak completion and quiet-host admission, execute the single sequential October 21 attribution batch. Record every candidate's advance/park/unknown disposition before re-planning any implementation slice.
+1. Read the plan and its §9 finding-to-fold table. Recheck branch/HEAD/status; expect the merge baseline above plus this fold until the controller commits it. Do not mistake the fold's dirty state for the historical uncommitted original plan.
+2. Controller reviews/commits the fold and dispatches round 2 of 2. Confirm plan §7's nine owner questions before their respective gates; no scheduling job was created.
+3. Obtain R0 landing/verification receipt. Then dispatch **A1 → A2 → A3** as separate accepted-parent PRs: scalar core/hooks and neutrality; census; production report modes plus harness/readout. Each has a guessed size envelope and two-round argument in plan §2. Fixture predictions are part of A1/A2 verification, not a separate duplicate phase.
+4. Bind clean post-R0+A1–A3 binary receipts and exact corpus mirrors. Require byte-neutrality, production report-case preflight, finished soak, ≥50 GiB free and quiet admission before the sequential October 21 batch.
+5. Record all seven candidates and #9 sub-arms; #8 starts PARK BELOW RULE (derived), reopen only on its timer falsifier. Re-plan only supported implementation. R1b needs Phase 2/share threshold; D13 remains separate from R1a/R1b and uses matched daemon acceptance.
 
-**STOP conditions:** tonight's read/write-only freeze; 01:15 MDT planning exit deadline; active soak or competing measurement; absent/mismatched corpus or binary/workload identity; failed byte parity; unsupported/missing counters; event overflow; unadmitted probe; broad recurring findings at the two-round cap. No automatic second measurement window, no old C1/DFG receipt substituted for a current baseline.
+**STOP conditions:** current read/write-only freeze; active soak or competing work; missing R0/A1–A3 dependency; absent/mismatched corpus/binary/workload identity; failed parity; missing counters/overflow; failed admission; broad recurring findings at the two-round cap. The original 01:15 planning deadline is historical, not this fold's deadline. No automatic second measurement window or inherited result substituted for a current control.
 
 ## 2. State ledger
 
 | Item | State | Evidence / correction |
 |---|---|---|
-| Baseline identity and initial cleanliness | done | `[MEASURED]` read-only Git commands: branch plan/optimization-round2, HEAD 45f155c6f46f3d971a9c9da6cedc3131e648659a, initially empty short status. |
-| Source rebind and plan | done | `[MEASURED]` plan §1 S1–S14 cites current paths/lines; §§2–6 contain counters, experiments, rules, schedule and provisional slices. |
-| Static document checks | done | `[MEASURED]` 50 explicit path/range references within existing files; no trailing whitespace or unmatched code fences. Plan 212 weighted lines at final content check. See planning-receipt.md. |
-| Prior DFG and Go savings | done | `[INHERITED]` DFG acceptance readout and Go SCORE.txt read, not rerun or checksum-reauthenticated. Clearly labelled inherited in the plan. |
-| Handoff and snapshot | done | `[MEASURED]` this file; snapshot-planning/ copies and SHA256SUMS. |
-| Commit/publication | pending | `[UNKNOWN]` controller action after delivery; no worker Git mutation. |
-| Attribution PR and measurements | next | Plan §§2–5. No counters/binaries/results created in this session. |
-| Candidate implementation | parked | Conditional on measured advance decisions and re-planning; no blanket implementation authorization inferred. |
+| Committed starting identity | done | `[MEASURED]` clean `ccc5ae8a`, includes main `9000343e`; original docs already committed. |
+| Both round-1 reviews | folded | Read in full; sol W1 and Opus W1 corrected as WRONG, remaining findings remain SMELL/recommendations. Plan §9 maps every ID. Round-2 review not yet performed. |
+| Changed source mechanisms | checked | `[MEASURED]` PartialHit arm/owned payload, lazy call edges, daemon write/publication, tree-hook restriction and cfg(test) decode counter read directly. Original other source anchors and historical sizes remain inherited planning context. |
+| R0 retention fix | in flight | `[INHERITED]` controller branch `fix/nav-partialhit-drop`; required landed-before-A1/batch. Pre-fix size unmeasured, derived/guessed; no independent #2 memory arm after it lands. |
+| A1/A2/A3 | proposed | Scalar 800–1,000, census 500–700, harness 700–900 guessed weighted lines across small modules; split before dispatch if inventory exceeds envelope. No implementation performed. |
+| Static document checks | done | Only requested two docs changed; whitespace/fences, finding coverage, schedule arithmetic and final diff inspected. Plan is fewer than 400 physical lines, hence below ~1,000 weighted lines; no code/test/benchmark execution. |
+| Snapshot custody | done | Copies and SHA256SUMS under `plan-review/snapshot-r1-fold/`; includes a short read/write-only receipt. |
+| Fold commit/publication | pending | Controller action; no worker Git mutation or publication. |
+| Batch / optimization acceptance | pending | Future gates only. Prior DFG/Go/C1/S6 receipts are inherited, not rerun or reauthenticated in this fold. |
+| D13 / R1b | deferred | S6 Phase 2 frequency / no-change split respectively; D13 has its own transition/barrier and matched daemon contract in plan §6. |
 
 ## 3. Corrections to standing documents and memory
 
-| Location | Stale or false assertion | Correction |
+| Location | Superseded assertion | Correction |
 |---|---|---|
-| October 14 analysis source anchors | Old CPG v117/sidecar v65 and expanded DFG formulas describe the old source. | `[MEASURED]` current CPG v123/sidecar v68; compact arena/ID storage, early fixed-version rejection and warm DFG shrinking already shipped. Rebound in plan S4/S7/S8. Historical analysis left intact, not rewritten as current. |
-| Old Go latency hypothesis | Historical ~13-second load is no longer a remaining speedup budget. | `[INHERITED]` Go signature-import optimization acceptance and DFG acceptance are already banked. `[MEASURED]` per-file caching source at plan S12. |
-| User window weekday | “Tuesday 2026-10-21” is internally inconsistent. | `[MEASURED]` `date -j -f '%Y-%m-%d' '2026-10-21' '+%Y-%m-%d %A'` returned `2026-10-21 Wednesday`. Plan uses explicit date, flags owner confirmation. |
-| C1 corpus locations | Checked-in C1 manifest points under ~/code, not the requested evidence/cache roots. | `[MEASURED]` exact pins/workload digests retained; plan recommends controller-created pinned mirrors under round-2 evidence. Existing alternate slicing corpus must not be substituted. |
-| Memory | None changed. | `[MEASURED]` lightweight registry search found no relevant optimization memory entry; supplied analysis/current source were used instead. No memory update requested or performed. |
+| Plan §1 S5 | Nav discards PartialHit before rebuild. | It retains decoded CG+DFG through rebuild/save/nav construction at this HEAD; R0 fixes that before the round-2 baseline. |
+| Plan fixture rules | Tiny #6/#7 counts close/park corpus opportunities. | All fixtures validate mechanism/counter correctness only; candidate-wide absence requires population-independent structural proof. |
+| Plan PR A / §3 | One large PR plus duplicate daytime phase. | A1/A2/A3, all seven candidates represented; §3 predictions belong to A verification. |
+| Plan gates | Decision-only L2; full #8 census/decoder slices; ambiguous M footprint level. | L2 ≥5% and ≥1 s of stale-to-ready on two corpora; #8 derived PARK with sole timer; steady 15% M arm fixed to median live heap, print footprint too. |
+| Plan row 13 | Stall fix introduces old+new overlap; standalone is control. | Current refresh already overlaps old+new. D13 adds concurrency; matched current/candidate daemon control, first-use old edges and N refreshes included. |
+| Plan schedule | Changed refresh optional/dropped first, vague boundary quiet waits. | Required P/S changed rows immediately after core; retry drops first, block projection applies drop order, instantaneous child rechecks. |
+| Original handoff | Original plan uncommitted; original deadline still live. | Original docs committed, starting tree clean; only this fold pending. Old deadline historical. |
+| Opus I-5 | Sidecar version comment says #443/CPG v122. | Recorded only at `src/navigation/call_edge_cache.rs:112`; current CPG is v123. No code edit. |
+| Memory | No relevant registry match. | No memory-derived facts used and no memory update requested or performed. |
 
 ## 4. Open work
 
-| # | Work | State | Exact next action | Blocked by | Identifiers |
-|---:|---|---|---|---|---|
-| 1 | Commit plan/handoff | pending | Controller reviews and commits the two documentation files. | Controller's host Git authority | plan/optimization-round2 |
-| 2 | Implement attribution PR | next | Follow plan §2; no optimization in this PR; two review rounds. | End of tonight's freeze and controller dispatch | PR A |
-| 3 | Mechanism checks | pending | Execute proposed named tiny-fixture selectors, log predictions/results. | PR A verified | plan §3 |
-| 4 | Window preparation and reservation | pending | Bind binary receipts and clean exact corpus mirrors; confirm calendar/soak. | Controller scheduling | Wednesday 2026-10-21 02:00 MDT |
-| 5 | Attribution batch/readout | pending | One child at a time; preserve raw output and apply preregistered M/L2/L8. | Quiet-host admission | window-1 |
-| 6 | Re-plan supported implementation | parked | Record all seven candidate dispositions, then revise provisional slices. | Current measurements | plan §6 |
+| # | Work | Exact next action / dependency | Identifier |
+|---:|---|---|---|
+| 1 | Fold commit and round-2 review | Controller commits these docs, dispatches remaining review round; no restart. | PR #478 |
+| 2 | R0 landing | Controller finishes drop-before-rebuild fix and negative/byte verification; record actual commit/PR ID before A1. | fix/nav-partialhit-drop |
+| 3 | Attribution implementation | Separate A1/A2/A3, full gates and predictions per plan; no fixture-based size closure. | Plan §§2–3 |
+| 4 | Window preparation | Confirm date, mirrors, L2, idle-daemon permission; build only in authorized daytime; df ≥50 GiB, finished soak. | 2026-10-21 02:00–07:00 MDT |
+| 5 | Sequential batch | 170 core/admission + 20 stale + 40 census + 10 optional retry + 15 custody = **255 min**, plus **45 min margin**; 94 children maximum. | Plan §5 |
+| 6 | Supported implementation | Review all dispositions; separate accepted-parent slices and matched acceptance. #8 has no D8 dispatch. | Plan §6 |
+| 7 | Frequency-dependent work | R1b waits for split/minimum share; D13 waits for frequency and matched daemon scenario design. | S6 Phase 2; Q8 |
 
 ## 5. Invariants and traps — do not do these
 
-- No cargo/tests/index warming tonight; tool descriptions say the first Prism nav call can launch a build. Static reads were used instead.
-- CPG version rejection already occurs before payload decode; same-version rejection is the remaining #2 mechanism.
-- Compact DFG decoder already shrinks several Vec families; do not count those savings again or revive retired dfg-oracle tooling.
-- No-change refresh builds one new index, in addition to bootstrap's one; “two per refresh” is an imprecise count. Verification builds a repository, not another CPG.
-- Do not drop the active index before successful refresh: rollback, generation and sticky stale behavior are preserved.
-- Footprint minus live heap is not an allocator reclamation guarantee. Census-mode allocations cannot vote on performance acceptance.
-- Existing M2 compare uses 100 MiB/5%; C1 advancement here is 200 MiB/15% on two corpora. New latency rules are separate.
-- Current standard memreport workload omits symbol spans; tree eviction needs the separate frozen AST workload and stale-source tests.
-- Never run two memory measurements simultaneously; no automatic retry after the window or quiet timeout.
-- ast.rs and cpg/build.rs already exceed the file-size ceiling; no feature-PR growth. Any needed extraction is a separate move-only predecessor.
+- No cargo/tests/index warming/measurements or dotfile reads in this fold; no Git writes.
+- R0 is a direct resource bug fix, not a measurement-gated #2 memory experiment. Do not count pre-fix retention in post-R0 #9v or batch baselines.
+- All fixture-local zeros stay local; no size-based close/park of any arm. Structural candidate-wide absence proof must be independent of population size.
+- L2 includes rebuild. Isolated stale lookup only provides decision time; unmatched reason/workload cannot advance #2. No-change proxy cannot advance #9v.
+- #8 has only `reconstruct.arrays`; reopen sizing at ≥100 ms median on two corpora. No staging counters or decoder slice.
+- Corpus cases run from production prism-mcp behind index-attribution. Lib tests are tiny and never install tree allocator hooks.
+- Neutrality includes Rayon 1/4 above the split threshold, fresh-process repeats, corpus byte cmp and ordering/summary mutants. Recorder-keyed files prevent same-process collisions; cfg(test) decode counters cannot serve release.
+- M's steady 15% denominator is live heap, median of admitted runs; print both footprint and heap, classify footprint levels. Residual is not reclaimable bytes; census has no performance vote.
+- D13 single-flight/CAS/freshness/old-reader/failure/panic/retirement/lazy-edge barriers are mandatory. Standalone is reference only; current daemon is control.
+- Preserve rollback, generation, summaries, cache bytes and old readers. No destructive drop-active shortcut. No feature-PR growth in ast.rs/cpg/build.rs; extract separately if necessary.
 
 ## 6. Identifiers
 
 | Item | Verbatim |
 |---|---|
-| Source HEAD | `45f155c6f46f3d971a9c9da6cedc3131e648659a` |
+| Starting source HEAD | `ccc5ae8ae70d707b3210de46aebce5a97c958680` |
+| Merged main / original review | `9000343e` / `9640b821` |
 | Branch/workspace | `plan/optimization-round2` / `/Users/wesleyjinks/code/prism-opt2` |
 | Plan | `/Users/wesleyjinks/code/prism-opt2/docs/superpowers/plans/2026-10-18-optimization-round2.md` |
 | Handoff | `/Users/wesleyjinks/code/prism-opt2/docs/superpowers/handoffs/2026-10-18-optimization-round2.md` |
-| Evidence | `/Users/wesleyjinks/prism-evidence/mcp-memory/optimization-round2/` |
-| Starting analysis | `/Users/wesleyjinks/prism-evidence/mcp-memory/optimization-2026-10-14/astra-optimization-analysis.md` |
-| Installed template used | `/Users/wesleyjinks/.codex/handoff-template.md` |
+| Reviews / snapshot | `/Users/wesleyjinks/prism-evidence/mcp-memory/optimization-round2/plan-review/` / `snapshot-r1-fold/` |
+| R0 | `fix/nav-partialhit-drop` (in flight; controller supplies landing SHA/PR ID) |
 | Future window | `2026-10-21T02:00:00-06:00` through `2026-10-21T07:00:00-06:00` |
-| Final planning deadline | `2026-10-18T01:15:00-06:00` |
+| Template continuity | Existing handoff structure retained; dotfile template not read in this fold. |
 
 ## 7. Refutation verdict and owner questions
 
-**§2c verdict:** SURVIVED · claim: "This is a source-rebound measurement-first plan, not an implementation or performance acceptance result." · pass: SELF-PASS (NOT INDEPENDENT) · evidence tier: STATIC-ONLY · record: `~/prism-evidence/mcp-memory/optimization-round2/planning-receipt.md`
+**Verdict:** targeted fold complete; STATIC-ONLY, SELF-CHECKED, NOT INDEPENDENTLY RE-REVIEWED. Both round-1 W1 findings are addressed in the plan. Round 2 remains outstanding. This is neither implementation nor performance acceptance; R0 status is inherited and still in flight.
 
-**Questions the owner owes an answer to:** plan §7 has recommendations for (1) Wednesday/date confirmation, (2) pinned corpus mirrors, (3) optional latency-priority steering, (4) no-change versus changed-refresh priority, (5) tree API/lease boundary, (6) conditional allocator cadence, and (7) target distinct-checkout/refresh fan-out. The chosen latency thresholds stand unless steered; none of these questions prevents delivery of the completed plan. Future activation gates remain outstanding.
+**Owner questions (plan §7):**
+
+1. Calendar: recommend Wednesday October 21, 02:00–07:00 MDT, after soak.
+2. Corpus paths: recommend exact clean pinned evidence-root mirrors, C1 workload bytes, fresh path-bound caches.
+3. Confirm revised L2: recommend ≥5% and ≥1 s stale-to-ready on two corpora, retain decision timing; prefix parsing likely parks by derivation.
+4. Refresh priority: recommend required changed-refresh evidence, supported #9v next, workload-specific #1 claims; D13 separate.
+5. Tree boundary: recommend public eager compatibility, immutable-source leases, zero idle retention and bounded concurrency.
+6. Conditional allocator cadence: recommend bounded idle/publication diagnostic with no-op control first, no per-query release.
+7. Host target: specify distinct checkouts and simultaneous refreshes; recommend intended fan-out/S6 workload and initially serial heavy refreshes.
+8. R1b frequency: wait for Phase 2 split; recommend recorded no-change share ≥20% before dispatch, otherwise park.
+9. Idle daemons: recommend permission to stop only prism-mcp daemons with no connected client, checked immediately before stopping, after S6 soak ends.
