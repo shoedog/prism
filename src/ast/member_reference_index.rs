@@ -129,6 +129,7 @@ pub(crate) struct MemberReferenceSearch<'a> {
     parsed: &'a ParsedFile,
     index: OnceCell<Index<'a>>,
     simple: identifiers::IdentifierReferenceSearch<'a>,
+    _bindings: super::binding_verdict_memo::Session<'a>,
 }
 
 impl<'a> MemberReferenceSearch<'a> {
@@ -137,6 +138,7 @@ impl<'a> MemberReferenceSearch<'a> {
             parsed,
             index: OnceCell::new(),
             simple: identifiers::IdentifierReferenceSearch::new(parsed),
+            _bindings: super::binding_verdict_memo::Session::new(parsed),
         }
     }
 

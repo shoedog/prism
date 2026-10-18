@@ -285,7 +285,13 @@ impl ParsedFile {
 
     /// Scope identity and visibility span of a binding at an evaluated byte.
     /// Callable body vars exclude defaults; method keys exclude all formals.
-    fn js_ts_binding_scope_at(&self, byte: usize, name: &str) -> Option<(usize, (usize, usize))> {
+    pub(super) fn js_ts_binding_scope_at_uncached(
+        &self,
+        byte: usize,
+        name: &str,
+    ) -> Option<(usize, (usize, usize))> {
+        #[cfg(test)]
+        binding_verdict_memo::probe::observe("binding_at", byte, 0, name);
         let leaf = self
             .tree
             .root_node()
@@ -308,33 +314,10 @@ impl ParsedFile {
         let mut current = start;
         while let Some(scope) = current {
             // Only kinds that can hold a binding do real work; the rest answer false at once.
-            let cacheable = boundaries.contains(&scope.kind())
-                || matches!(
-                    scope.kind(),
-                    "statement_block"
-                        | "switch_body"
-                        | "enum_body"
-                        | "class"
-                        | "class_declaration"
-                        | "abstract_class_declaration"
-                        | "class_static_block"
-                        | "for_statement"
-                        | "for_in_statement"
-                        | "catch_clause"
-                );
+            let cacheable = binding_verdict_memo::cacheable(scope, &boundaries);
             let binds = match memo {
                 Some(memo) if cacheable => {
-                    let region = if boundaries.contains(&scope.kind()) {
-                        let inside = |n: Option<Node<'_>>| {
-                            n.is_some_and(|n| n.start_byte() <= byte && byte < n.end_byte())
-                        };
-                        u8::from(inside(scope.child_by_field_name("body")))
-                            | u8::from(inside(self.parameter_binding_region(&scope))) << 1
-                            | u8::from(inside(scope.child_by_field_name("name"))) << 2
-                            | u8::from(inside(scope.child_by_field_name("return_type"))) << 3
-                    } else {
-                        0
-                    };
+                    let region = self.binding_verdict_region(scope, &boundaries, byte);
                     let key = (scope.id(), region);
                     let cached = memo.0.borrow().get(&key).copied();
                     match cached {
@@ -572,7 +555,9 @@ impl ParsedFile {
             .collect()
     }
 
-    pub(crate) fn js_ts_seam_binding(&self, owner: &Node<'_>, name: &str) -> bool {
+    pub(super) fn js_ts_seam_binding_uncached(&self, owner: &Node<'_>, name: &str) -> bool {
+        #[cfg(test)]
+        binding_verdict_memo::probe::observe("seam", owner.id(), 0, name);
         let Some(params) = self.parameter_binding_region(owner) else {
             return false;
         };
@@ -705,13 +690,15 @@ impl ParsedFile {
                 .is_some_and(|body| body.start_byte() <= byte && byte < body.end_byte()))
     }
 
-    fn js_ts_scope_binds(
+    pub(super) fn js_ts_scope_binds_uncached(
         &self,
         scope: Node<'_>,
         boundaries: &[&str],
         name: &str,
         byte: usize,
     ) -> bool {
+        #[cfg(test)]
+        binding_verdict_memo::probe::scope(self, scope, boundaries, name, byte);
         if boundaries.contains(&scope.kind()) {
             let body = scope.child_by_field_name("body");
             let params = self.parameter_binding_region(&scope);
