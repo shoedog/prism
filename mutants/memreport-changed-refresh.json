@@ -1,0 +1,24 @@
+{
+  "lane": "S0 changed-refresh measurement seam (MCP feature required)",
+  "lib_test_prefixes": ["mcp::mem_report::changed::tests::"],
+  "mutations": {
+    "R2-changed-edit-skipped": [
+      "src/mcp/mem_changed_refresh.rs",
+      "            std::fs::write(&path, &self.after).context(\"applying changed edit\")?;",
+      "            // mutant: skip applying the edit",
+      "mcp::mem_report::changed::tests::failed_refresh_still_restores"
+    ],
+    "R2-changed-restore-skipped": [
+      "src/mcp/mem_changed_refresh.rs",
+      "            std::fs::write(&path, &self.before)?;",
+      "            // mutant: skip restoring the edit",
+      "mcp::mem_report::changed::tests::failed_refresh_still_restores"
+    ],
+    "R2-changed-validator-accepts-wrong-hash": [
+      "scripts/memreport/memreport_changed.py",
+      "        if section.get(observed) != edit[declared]:",
+      "        if False:",
+      "test_memreport_changed.ChangedRefresh.test_validator_rejects_wrong_hash"
+    ]
+  }
+}

@@ -22,6 +22,9 @@ struct Cli {
     /// Measurement only: run one refresh at the end, for the refresh peak.
     #[arg(long, hide = true)]
     mem_refresh: bool,
+    /// Measurement only: edit manifest for a dedicated private mirror (requires feature).
+    #[arg(long, hide = true, conflicts_with_all = ["mem_refresh", "mem_emit_workload"])]
+    mem_changed_refresh: Option<std::path::PathBuf>,
     /// Measurement only: seconds to wait before the steady-state sample.
     #[arg(long, hide = true, default_value_t = 5, value_parser = clap::value_parser!(u64).range(0..=600))]
     mem_settle_secs: u64,
@@ -226,7 +229,10 @@ fn main() -> anyhow::Result<()> {
     let owner = c.owner.options()?;
 
     let report_mode = std::env::var("PRISM_MCP_MEM_REPORT").is_ok_and(|value| value == "1");
-    let mem_flag = c.mem_workload.is_some() || c.mem_refresh || c.mem_emit_workload.is_some();
+    let mem_flag = c.mem_workload.is_some()
+        || c.mem_refresh
+        || c.mem_emit_workload.is_some()
+        || c.mem_changed_refresh.is_some();
     if mem_flag && !report_mode {
         anyhow::bail!(
             "--mem-workload, --mem-refresh and --mem-emit-workload are measurement-only and need PRISM_MCP_MEM_REPORT=1"
@@ -257,6 +263,7 @@ fn main() -> anyhow::Result<()> {
         let options = prism::mcp::mem_report::MemReportOptions {
             workload: c.mem_workload,
             refresh: c.mem_refresh,
+            changed_refresh: c.mem_changed_refresh,
             settle: std::time::Duration::from_secs(c.mem_settle_secs),
         };
         // Do not hold the stderr lock while the report runs. The index is built on pool worker

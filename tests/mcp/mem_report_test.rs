@@ -133,6 +133,7 @@ fn mem_flags_without_the_variable_are_rejected() {
     let workload = workload.to_str().expect("utf-8 path").to_string();
     for flag in [
         vec!["--mem-refresh"],
+        vec!["--mem-changed-refresh", workload.as_str()],
         vec!["--mem-emit-workload", "2"],
         vec!["--mem-workload", workload.as_str()],
     ] {
@@ -380,4 +381,68 @@ fn with_no_cache_there_is_no_cpg_provenance_and_the_edges_are_computed() {
     let (cpg_hit, call_edges_loaded) = cache_evidence(report_command(&repo));
     assert_eq!(cpg_hit, Value::Null);
     assert_eq!(call_edges_loaded, Value::Bool(false));
+}
+
+#[cfg(feature = "memreport-changed-refresh")]
+#[test]
+fn changed_refresh_requires_hits_records_edit_and_restores_repeatably() {
+    let repo = repo();
+    let cache = tempfile::tempdir().unwrap();
+    let git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .current_dir(repo.path())
+            .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    for args in [
+        vec!["init", "-q"],
+        vec!["add", "util.py", "main.py"],
+        vec!["commit", "-qm", "fixture"],
+    ] {
+        assert!(git(&args).status.success());
+    }
+    let commit = git(&["rev-parse", "HEAD"]);
+    let before = std::fs::read_to_string(repo.path().join("util.py")).unwrap();
+    let after = before.replace("return 1", "return 2");
+    let edit = serde_json::json!({"repo_root": repo.path().canonicalize().unwrap(),
+        "commit": String::from_utf8(commit.stdout).unwrap().trim(), "path": "util.py",
+        "before": before, "after": after, "before_sha256": format!("{:x}", Sha256::digest(before.as_bytes())),
+        "after_sha256": format!("{:x}", Sha256::digest(after.as_bytes()))});
+    let manifest = cache.path().join("edit.json");
+    std::fs::write(&manifest, edit.to_string()).unwrap();
+    cached_command(&repo, cache.path())
+        .arg("--mem-changed-refresh")
+        .arg(&manifest)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("requires true-hit"));
+    let mut records = Vec::new();
+    for _ in 0..2 {
+        cache_evidence(cached_command(&repo, cache.path()));
+        let output = cached_command(&repo, cache.path())
+            .arg("--mem-changed-refresh")
+            .arg(&manifest)
+            .assert()
+            .success()
+            .get_output()
+            .clone();
+        let report = report_line(&output.stderr);
+        assert_eq!(report["changed_refresh"]["edit"], edit);
+        assert_eq!(
+            report["refresh"]["stale_index_paths_before_refresh"],
+            serde_json::json!(["util.py"])
+        );
+        assert_eq!(
+            report["changed_refresh"]["restored_sha256"],
+            edit["before_sha256"]
+        );
+        assert_eq!(
+            std::fs::read_to_string(repo.path().join("util.py")).unwrap(),
+            before
+        );
+        records.push(report["changed_refresh"].clone());
+    }
+    assert_eq!(records[0], records[1]);
 }
