@@ -154,6 +154,13 @@ impl NavigationIndex {
         repo: &LoadedRepo,
         changed_files: &BTreeSet<String>,
     ) -> Self {
+        // Ordinary rebuilds cannot reuse opted-in owner authority. Decide before
+        // cloning the previous index's large graphs; its published index stays live.
+        if previous.cpg.call_graph.owner_ephemeral {
+            return Self::build(repo);
+        }
+        #[cfg(test)]
+        crate::cpg::fallback_lifetime_tests::Probe::current().clones();
         let cpg = CodePropertyGraph::build_incremental_with_scope_graph_inputs(
             previous.cpg.call_graph.clone(),
             previous.cpg.dfg.clone(),

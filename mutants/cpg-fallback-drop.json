@@ -1,0 +1,44 @@
+{
+  "lane": "CPG fallback early graph release (R0b)",
+  "lib_test_prefixes": [
+    "cpg::fallback_lifetime_tests::"
+  ],
+  "mutations": {
+    "CPG-OWNER-retain-graphs": [
+      "src/cpg/build.rs",
+      "            drop((cached_cg, cached_dfg)); // Abandoned owner graphs.",
+      "            let _retained = (cached_cg, cached_dfg); // Abandoned owner graphs.",
+      "cpg::fallback_lifetime_tests::incremental_owner_drops_graphs"
+    ],
+    "CPG-MACRO-retain-graphs": [
+      "src/cpg/build.rs",
+      "                drop((cached_cg, cached_dfg)); // Abandoned macro-shadow graphs.",
+      "                let _retained = (cached_cg, cached_dfg); // Abandoned macro-shadow graphs.",
+      "cpg::fallback_lifetime_tests::incremental_macro_drops_graphs"
+    ],
+    "CPG-PYTHON-retain-merged-graphs": [
+      "src/cpg/build.rs",
+      "                drop((cached_cg, cached_dfg)); // Abandoned merged Python graphs.",
+      "                let _retained = (cached_cg, cached_dfg); // Abandoned merged Python graphs.",
+      "cpg::fallback_lifetime_tests::incremental_python_drops_merged_graphs"
+    ],
+    "CONTEXT-OWNER-retain-cpg": [
+      "src/cpg/context.rs",
+      "            drop(cpg);",
+      "            let _retained = cpg;",
+      "cpg::fallback_lifetime_tests::context_owner_drops_cpg"
+    ],
+    "CONTEXT-SCOPE-retain-skeleton": [
+      "src/cpg/context.rs",
+      "        drop(skeleton_cg);",
+      "        let _retained = skeleton_cg;",
+      "cpg::fallback_lifetime_tests::context_scope_drops_skeleton"
+    ],
+    "NAV-OWNER-clone-before-fallback": [
+      "src/navigation/mod.rs",
+      "        if previous.cpg.call_graph.owner_ephemeral {",
+      "        if false && previous.cpg.call_graph.owner_ephemeral {",
+      "cpg::fallback_lifetime_tests::navigation_owner_skips_clones"
+    ]
+  }
+}

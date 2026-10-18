@@ -610,6 +610,7 @@ impl CodePropertyGraph {
         )
     }
 
+    #[cfg_attr(test, allow(unused_mut))] // Test adapters take ownership of the mutable graphs.
     pub fn build_incremental_with_scope_graph_inputs(
         mut cached_cg: CallGraph,
         mut cached_dfg: DataFlowGraph,
@@ -618,8 +619,16 @@ impl CodePropertyGraph {
         type_db: Option<TypeDatabase>,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
+        #[cfg(test)]
+        let lifetime = super::fallback_lifetime_tests::Probe::current();
+        #[cfg(test)]
+        let (mut cached_cg, mut cached_dfg) =
+            (lifetime.track(cached_cg, 1), lifetime.track(cached_dfg, 1));
         // An ordinary incremental entry cannot inherit opted-in authority.
         if cached_cg.owner_ephemeral {
+            drop((cached_cg, cached_dfg)); // Abandoned owner graphs.
+            #[cfg(test)]
+            lifetime.record("incremental_owner");
             return Self::build_impl(files, type_db, scope_inputs);
         }
         // Same large-stack pool as build_impl — the subset CG/DFG builds and the
@@ -666,6 +675,9 @@ impl CodePropertyGraph {
                 );
             if fresh_macro_shadow_intersection != cached_cg.macro_shadow_intersection {
                 drop(p);
+                drop((cached_cg, cached_dfg)); // Abandoned macro-shadow graphs.
+                #[cfg(test)]
+                lifetime.record("incremental_macro");
                 return Self::build_impl_inner(files, type_db, scope_inputs);
             }
 
@@ -701,6 +713,9 @@ impl CodePropertyGraph {
                 );
             if fresh_python_imported_class_proofs != old_python_imported_class_proofs {
                 drop(p);
+                drop((cached_cg, cached_dfg)); // Abandoned merged Python graphs.
+                #[cfg(test)]
+                lifetime.record("incremental_python");
                 return Self::build_impl_inner(files, type_db, scope_inputs);
             }
 
@@ -768,6 +783,8 @@ impl CodePropertyGraph {
             cached_cg.recompute_indirect_calls(files);
 
             p.next("cpg.incremental.assembly");
+            #[cfg(test)]
+            let (cached_cg, cached_dfg) = (cached_cg.into_inner(), cached_dfg.into_inner());
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
         })
     }
