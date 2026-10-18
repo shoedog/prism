@@ -13,7 +13,9 @@ impl ParsedFile {
         def_line: usize,
     ) -> BTreeSet<usize> {
         if path.is_simple() {
-            return self.find_variable_references_scoped(func_node, &path.base, def_line);
+            return super::identifiers::oracle::legacy_scoped_refs::<false>(
+                self, func_node, &path.base, def_line,
+            );
         }
         // For field-qualified paths, find matching field expressions.
         // NOTE: this filters to references AFTER def_line (`line > def_line` in `collect_path_refs`),
@@ -91,7 +93,7 @@ impl ParsedFile {
             .filter(|n| within == Some((n.start_byte(), n.end_byte())))
             .unwrap_or(*func_node);
         if path.is_simple() {
-            self.collect_fenced_simple_refs::<false>(
+            self.legacy_collect_fenced_simple_refs::<false>(
                 scope_root, func_node, &path.base, def_line, def_byte, reads_only, &mut lines,
             );
         } else {

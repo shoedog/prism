@@ -395,9 +395,9 @@
    ]
   ],
   "PD-48-reads-only-filter-off": [
-   "src/ast_callback_identity.rs",
-   "&& !(reads_only && self.js_ts_identifier_is_not_a_read(capture.node))",
-   "&& !(false && self.js_ts_identifier_is_not_a_read(capture.node))",
+   "src/ast/member_reference_index/identifiers.rs",
+   "&& !(reads_only && parsed.js_ts_identifier_is_not_a_read(node))",
+   "&& !(false && parsed.js_ts_identifier_is_not_a_read(node))",
    [
     "cpg::callback_identity_tests::synthetic_pass_counts_reads_only"
    ]

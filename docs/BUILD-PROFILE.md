@@ -101,7 +101,8 @@ calls, not output edges or unique names. Other extraction/projection walks remai
 in `flow_edges_ns`.
 `simple_searches` and `member_searches` distinguish access paths; `searched_bytes`
 is the sum of requested AST-range sizes (a work proxy, not actual bytes read or
-visited nodes). Parameters and alias-resolved paths may add searches beyond the
+visited nodes). For simple searches, it measures requested scope size, not indexed candidate work.
+Parameters and alias-resolved paths may add searches beyond the
 assignment count. Owner lines are never thresholded, so all owners contribute to
 the summary. Normal-owner percentiles use nearest rank; empty populations have
 count/total/percentiles/max zero. The top share denominator is summed owner DFG

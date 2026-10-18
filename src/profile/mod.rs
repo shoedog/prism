@@ -1,5 +1,7 @@
 //! Opt-in build profiling (`PRISM_PROFILE=/path/profile.jsonl`). No AST walks when disabled.
 mod owner;
+#[cfg(test)]
+pub(crate) use owner::COUNTERS as GATE_COUNTERS;
 mod summary;
 pub(crate) use owner::{file_cfg, Owner};
 pub(crate) use search::search_refs;
