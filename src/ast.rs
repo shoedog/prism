@@ -9,6 +9,7 @@ mod call_membership_tests;
 
 mod call_membership;
 pub(crate) mod call_names;
+pub(crate) mod member_reference_index;
 
 mod js_binding;
 mod js_binding_alias;
@@ -9038,59 +9039,6 @@ impl ParsedFile {
             }
         }
         false
-    }
-
-    /// Find all references to an AccessPath within a function scope.
-    ///
-    /// For simple paths (no fields), delegates to `find_variable_references_scoped`.
-    /// For field-qualified paths (`dev->name`), searches for matching field_expression
-    /// nodes as well as bare identifier references to the base.
-    pub fn find_path_references_scoped(
-        &self,
-        func_node: &Node<'_>,
-        path: &AccessPath,
-        def_line: usize,
-    ) -> BTreeSet<usize> {
-        if path.is_simple() {
-            return self.find_variable_references_scoped(func_node, &path.base, def_line);
-        }
-        // For field-qualified paths, find matching field expressions.
-        // NOTE: this filters to references AFTER def_line (`line > def_line` in `collect_path_refs`),
-        // which does NOT match `find_variable_references_scoped` for simple paths — that returns ALL
-        // non-shadowed references, including earlier lines (so a loop-carried `def@N → use@M (M<N)`
-        // edge exists for simple paths but not field paths). `cpg/trace.rs::taint_neighbors` has a
-        // field-path recovery arm that re-supplies these dropped edges for the reasoning layer; this
-        // production DFG path is left as-is for byte-stability (Option C). See planA-followups Round 9.
-        let mut lines = BTreeSet::new();
-        self.collect_path_refs(*func_node, path, def_line, &mut lines);
-        lines
-    }
-
-    fn collect_path_refs(
-        &self,
-        node: Node<'_>,
-        path: &AccessPath,
-        def_line: usize,
-        out: &mut BTreeSet<usize>,
-    ) {
-        let line = node.start_position().row + 1;
-
-        // Check field/member access expressions (all languages)
-        if Self::is_field_access_node(node.kind()) {
-            let node_path = self
-                .bounded_member_path(node)
-                .map(|member| member.path)
-                .unwrap_or_else(|| AccessPath::from_expr(self.node_text(&node)));
-            if node_path == *path && line > def_line {
-                out.insert(line);
-                return; // Don't recurse into matched field expression
-            }
-        }
-
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.collect_path_refs(child, path, def_line, out);
-        }
     }
 
     /// Get the line range (1-indexed, inclusive) of a node.

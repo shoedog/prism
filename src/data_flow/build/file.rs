@@ -22,6 +22,7 @@ impl Producer {
         let mut rd_function_stats = RdFileStats::default();
 
         let function_nodes = parsed.all_functions();
+        let member_refs = crate::ast::member_reference_index::MemberReferenceSearch::new(parsed);
         // PR-B perf: one file-level CFG edge build shared by every pass.
         let file_cfg_edges = std::cell::OnceCell::new();
         let mut owner_counts = BTreeMap::new();
@@ -168,7 +169,7 @@ impl Producer {
                 let refs = if member_only {
                     BTreeMap::new()
                 } else {
-                    parsed.find_path_reference_spans_fenced_in(
+                    member_refs.find_path_reference_spans_fenced_in(
                         &func_node,
                         &path,
                         start,
@@ -444,7 +445,7 @@ impl Producer {
                 // binding environment; body vars cannot reach defaults.
                 let def_scope =
                     parsed.js_ts_def_scope(&func_node, &path.base, span.start_byte);
-                let refs = parsed.find_path_reference_spans_fenced_in(
+                let refs = member_refs.find_path_reference_spans_fenced_in(
                     &func_node,
                     path,
                     def_line,
@@ -494,7 +495,7 @@ impl Producer {
                 };
                 if let Some(resolved) = twin {
                     if resolved != *path {
-                        let resolved_refs = parsed.find_path_reference_spans_fenced_in(
+                        let resolved_refs = member_refs.find_path_reference_spans_fenced_in(
                             &func_node,
                             &resolved,
                             def_line,
