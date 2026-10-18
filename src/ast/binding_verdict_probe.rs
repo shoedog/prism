@@ -1,0 +1,192 @@
+//! Operation-only repetition probe. No clocks or process/resource sampling.
+use super::*;
+use crate::access_path::AccessPath;
+use crate::ast::member_reference_index;
+use crate::languages::Language;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::collections::HashMap;
+
+#[derive(Default)]
+struct Counts {
+    total: usize,
+    distinct: std::collections::HashSet<(usize, u8, String)>,
+}
+thread_local! {
+    static COUNTS: RefCell<Option<HashMap<&'static str, Counts>>> = const { RefCell::new(None) };
+}
+pub(crate) fn observe(kind: &'static str, node: usize, region: u8, name: &str) {
+    COUNTS.with(|slot| {
+        if let Some(counts) = slot.borrow_mut().as_mut() {
+            let c = counts.entry(kind).or_default();
+            c.total += 1;
+            c.distinct.insert((node, region, name.into()));
+        }
+    });
+}
+pub(crate) fn scope(p: &ParsedFile, scope: Node<'_>, boundaries: &[&str], name: &str, byte: usize) {
+    let region = if boundaries.contains(&scope.kind()) {
+        let inside =
+            |n: Option<Node<'_>>| n.is_some_and(|n| n.start_byte() <= byte && byte < n.end_byte());
+        u8::from(inside(scope.child_by_field_name("body")))
+            | u8::from(inside(p.parameter_binding_region(&scope))) << 1
+            | u8::from(inside(scope.child_by_field_name("name"))) << 2
+            | u8::from(inside(scope.child_by_field_name("return_type"))) << 3
+    } else {
+        0
+    };
+    observe("scope_all", scope.id(), region, name);
+    if boundaries.contains(&scope.kind())
+        || matches!(
+            scope.kind(),
+            "statement_block"
+                | "switch_body"
+                | "enum_body"
+                | "class"
+                | "class_declaration"
+                | "abstract_class_declaration"
+                | "class_static_block"
+                | "for_statement"
+                | "for_in_statement"
+                | "catch_clause"
+        )
+    {
+        observe("scope", scope.id(), region, name);
+    }
+}
+
+#[test]
+#[ignore = "explicit operation-count fixture replay; PRISM_BINDING_FIXTURE required"]
+fn repetition_probe() {
+    let path = std::env::var("PRISM_BINDING_FIXTURE").unwrap();
+    let source = std::fs::read_to_string(&path).unwrap();
+    let p = ParsedFile::parse(&path, &source, Language::TypeScript).unwrap();
+    COUNTS.with(|slot| *slot.borrow_mut() = Some(HashMap::new()));
+    let search = member_reference_index::MemberReferenceSearch::new(&p);
+    let limit = std::env::var("PRISM_BINDING_LIMIT")
+        .ok()
+        .map(|s| s.parse::<usize>().unwrap())
+        .unwrap_or(usize::MAX);
+    let mut searches = 0;
+    let mut gates = 0;
+    'owners: for owner in p.all_functions() {
+        if std::env::var("PRISM_BINDING_OWNER")
+            .ok()
+            .is_some_and(|name| p.dfg_owner_name(&owner).as_deref() != Some(&name))
+        {
+            continue;
+        }
+        let (start, end) = p.node_line_range(&owner);
+        let spans = p.assignment_lvalue_spans_on_lines(&owner, &(start..=end).collect());
+        for span in spans {
+            let within =
+                crate::profile::gates::def_scope(&p, &owner, &span.path.base, span.start_byte);
+            let refs = search.find_path_reference_spans_fenced_in(
+                &owner,
+                &span.path,
+                span.line,
+                span.start_byte,
+                within,
+                false,
+            );
+            gates += refs.len();
+            searches += 1;
+            if searches >= limit {
+                break 'owners;
+            }
+        }
+    }
+    let counts = COUNTS.with(|slot| slot.borrow_mut().take().unwrap());
+    let rows: BTreeMap<_, _> = counts
+        .into_iter()
+        .map(|(k, c)| {
+            (
+                k,
+                serde_json::json!({"total":c.total,"distinct":c.distinct.len()}),
+            )
+        })
+        .collect();
+    println!(
+        "{}",
+        serde_json::json!({"fixture":path,"searches":searches,"admitted_lines":gates,"operations":rows})
+    );
+    assert!(searches > 0);
+}
+
+#[test]
+fn binding_work_is_per_scope_not_per_gate() {
+    for n in [32, 128] {
+        let source = format!(
+            "function owner(obj) {{\n obj.x = 1;\n{}\n}}",
+            " consume(obj.x);\n".repeat(n)
+        );
+        let p = ParsedFile::parse("scale.ts", &source, Language::TypeScript).unwrap();
+        let owner = p.all_functions()[0];
+        let search = member_reference_index::MemberReferenceSearch::new(&p);
+        COUNTS.with(|slot| *slot.borrow_mut() = Some(HashMap::new()));
+        for _ in 0..2 {
+            let refs = search.find_path_reference_spans_fenced_in(
+                &owner,
+                &AccessPath::from_expr("obj.x"),
+                2,
+                source.find("obj.x").unwrap(),
+                None,
+                false,
+            );
+            assert_eq!(refs.len(), n);
+        }
+        let counts = COUNTS.with(|slot| slot.borrow_mut().take().unwrap());
+        assert_eq!(counts["fence"].total, 2 * n);
+        assert!(
+            counts["scope"].total <= 2,
+            "{n} reads: {} binder evaluations for {} gate calls",
+            counts["scope"].total,
+            counts["fence"].total
+        );
+        assert!(counts["seam"].total <= 1);
+    }
+}
+
+#[test]
+fn negative_sub_results_are_cached() {
+    let p = ParsedFile::parse(
+        "negative.ts",
+        "function f(x) { let y = x; return y; }",
+        Language::TypeScript,
+    )
+    .unwrap();
+    let owner = p.all_functions()[0];
+    let body = owner.child_by_field_name("body").unwrap();
+    let byte = p.source.rfind('y').unwrap();
+    let boundaries = p.language.callable_boundary_node_types();
+    let _session = Session::new(&p);
+    COUNTS.with(|slot| *slot.borrow_mut() = Some(HashMap::new()));
+    let check = || {
+        assert_eq!(p.js_ts_binding_scope_at(byte, "missing"), None);
+        assert!(!p.js_ts_scope_binds(owner, &boundaries, "missing", byte + 1));
+        assert!(!p.js_ts_scope_binds(body, &boundaries, "missing", byte + 1));
+        assert!(!p.js_ts_seam_binding(&owner, "missing"));
+        assert!(!p.scope_has_declaration(body, "missing"));
+    };
+    check();
+    let first: BTreeMap<_, _> = COUNTS.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|(k, v)| (*k, v.total))
+            .collect()
+    });
+    for _ in 0..16 {
+        check();
+    }
+    let counts = COUNTS.with(|slot| slot.borrow_mut().take().unwrap());
+    let last: BTreeMap<_, _> = counts.iter().map(|(k, v)| (*k, v.total)).collect();
+    assert_eq!(
+        last, first,
+        "negative hits must not evaluate any binder internals"
+    );
+    for key in ["binding_at", "scope", "seam", "declaration"] {
+        assert!(first[key] > 0);
+    }
+}

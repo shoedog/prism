@@ -126,6 +126,7 @@ impl<'a> Index<'a> {
 pub(crate) struct MemberReferenceSearch<'a> {
     parsed: &'a ParsedFile,
     index: OnceCell<Index<'a>>,
+    _bindings: super::binding_verdict_memo::Session<'a>,
 }
 
 impl<'a> MemberReferenceSearch<'a> {
@@ -133,6 +134,7 @@ impl<'a> MemberReferenceSearch<'a> {
         Self {
             parsed,
             index: OnceCell::new(),
+            _bindings: super::binding_verdict_memo::Session::new(parsed),
         }
     }
 
