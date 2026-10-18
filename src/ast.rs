@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
 #[cfg(test)]
-mod call_membership_tests;
+pub(crate) mod call_membership_tests;
 
 pub(crate) mod binding_verdict_memo;
 mod call_membership;

@@ -139,6 +139,8 @@ pub(crate) fn reaching_definitions_with_exact(
     // (`build_cfg_edges_with_arms` is a pure function of `parsed`).
     file_cfg_edges: &[(cfg::CfgEdge, cfg::ArmProvenance)],
 ) -> RdOutcome {
+    #[cfg(test)]
+    let _work = work_tests::Pass::begin(parsed, func_node);
     let defs = deduplicate_definitions(defs);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
@@ -161,6 +163,8 @@ pub(crate) fn reaching_definitions_with_exact(
         .collect();
     let mut cfg_edges = Vec::new();
     for (edge, provenance) in file_cfg_edges.iter().cloned() {
+        #[cfg(test)]
+        work_tests::bump(|counts| counts.cfg_candidates += 1);
         let (Some(&from), Some(&to)) = (
             line_index.get(&edge.from_line),
             line_index.get(&edge.to_line),
@@ -644,6 +648,8 @@ fn is_incomplete_join(
     if !matches!(provenance.origin, EdgeOrigin::Structured) {
         return false;
     }
+    #[cfg(test)]
+    work_tests::bump(|counts| counts.join_map_entries += statements.len());
     let kinds: BTreeMap<Line, &str> = statements
         .iter()
         .map(|(line, kind)| (*line, kind.as_str()))
@@ -666,3 +672,5 @@ fn is_incomplete_join(
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod work_tests;
