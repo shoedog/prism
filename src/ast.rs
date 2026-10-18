@@ -7,6 +7,7 @@ use tree_sitter::{Node, Parser, Tree};
 #[cfg(test)]
 mod call_membership_tests;
 
+pub(crate) mod binding_verdict_memo;
 mod call_membership;
 pub(crate) mod call_names;
 pub(crate) mod member_reference_index;
@@ -8838,25 +8839,20 @@ impl ParsedFile {
 
     /// Check whether a scope block directly declares a variable with the given name.
     /// Does not recurse into nested scope blocks (those have their own scope).
-    fn scope_has_declaration(&self, node: Node<'_>, var_name: &str) -> bool {
+    pub(super) fn scope_has_declaration_uncached(&self, node: Node<'_>, var_name: &str) -> bool {
+        #[cfg(test)]
+        binding_verdict_memo::probe::observe("declaration", node.id(), 0, var_name);
         let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            if self.language.is_declaration_node(child.kind()) {
-                if let Some(name_node) = self.language.declaration_name(&child) {
-                    if self.node_text(&name_node) == var_name {
-                        return true;
-                    }
-                }
-            }
-            // Recurse into non-scope children (e.g., for-loop init, expression statements)
-            // but stop at nested scope blocks to avoid false positives.
-            if !self.language.is_scope_block(child.kind())
-                && self.scope_has_declaration(child, var_name)
-            {
-                return true;
-            }
-        }
-        false
+        let found = node.children(&mut cursor).any(|child| {
+            (self.language.is_declaration_node(child.kind())
+                && self
+                    .language
+                    .declaration_name(&child)
+                    .is_some_and(|name| self.node_text(&name) == var_name))
+                || (!self.language.is_scope_block(child.kind())
+                    && self.scope_has_declaration_uncached(child, var_name))
+        });
+        found
     }
 
     /// PR-C: classify how a formal is used. `MemberOnly`
