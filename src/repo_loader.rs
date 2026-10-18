@@ -62,6 +62,7 @@ struct ParseOutcome {
 }
 
 pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
+    let _profile = crate::profile::Phase::serial("load_parse");
     let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
     // The ambient scan reads only the filesystem. Taking it before the source
     // parse lets the parse reuse the pages its dropped parse trees freed.

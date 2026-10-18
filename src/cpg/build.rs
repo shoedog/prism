@@ -628,6 +628,7 @@ impl CodePropertyGraph {
         // wrapper so test counter generations are inherited by the worker
         // (P15a-fix2).
         crate::build_pool::install(move || {
+            let mut p = crate::profile::Stages::new("cpg.incremental", "cpg.incremental.proofs");
             let old_python_imported_class_proofs =
                 crate::call_graph::python_imported_class_proof_keys(
                     &cached_cg.import_bindings,
@@ -664,18 +665,23 @@ impl CodePropertyGraph {
                     &crate::rust_macro_args::collect_macro_shadow_set(files),
                 );
             if fresh_macro_shadow_intersection != cached_cg.macro_shadow_intersection {
+                drop(p);
                 return Self::build_impl_inner(files, type_db, scope_inputs);
             }
 
+            p.next("cpg.incremental.remove");
             // Step 1: Remove stale data for changed files.
             cached_cg.remove_files(changed_files);
             cached_dfg.remove_files(changed_files);
 
             // Step 2: Build fresh CG/DFG for changed files only. The merged graph
             // recomputes derived whole-program indexes below.
+            p.next("call_graph.incremental_direct");
             let fresh_cg = CallGraph::build_direct_subset(files, changed_files);
+            p.next("dfg.incremental_build");
             let fresh_dfg = DataFlowGraph::build_subset(files, changed_files);
 
+            p.next("cpg.incremental.merge");
             // Step 3: Merge fresh into retained.
             cached_cg.merge(fresh_cg);
             cached_dfg.merge(fresh_dfg);
@@ -685,6 +691,7 @@ impl CodePropertyGraph {
             // changes, call sites retained from unchanged files carry stale
             // receiver state. Re-extract the complete graph rather than maintaining
             // a reverse dependency index solely for this rare transition.
+            p.next("cpg.incremental.proofs_after_merge");
             let fresh_python_imported_class_proofs =
                 crate::call_graph::python_imported_class_proof_keys(
                     &cached_cg.import_bindings,
@@ -693,11 +700,13 @@ impl CodePropertyGraph {
                     &cached_cg.python_inert_initializers,
                 );
             if fresh_python_imported_class_proofs != old_python_imported_class_proofs {
+                drop(p);
                 return Self::build_impl_inner(files, type_db, scope_inputs);
             }
 
             // Rebuild-together: this also refreshes Phase-2a Rust receiver indices
             // and re-materializes CallSite.receiver_outcome before assemble reads it.
+            p.next("call_graph.incremental_refresh");
             cached_cg.rebuild_scope_graph(files, scope_inputs);
             // Phase-IP: Go embedding/interface dispatch are whole-program — recompute
             // after scope/Rust receiver state to mirror full-build derived ordering.
@@ -758,6 +767,7 @@ impl CodePropertyGraph {
             // resolution fact is restored.
             cached_cg.recompute_indirect_calls(files);
 
+            p.next("cpg.incremental.assembly");
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
         })
     }
@@ -962,6 +972,7 @@ impl CodePropertyGraph {
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<TypeDatabase>,
     ) -> Self {
+        let mut profile = crate::profile::Stages::new("cpg_assembly", "cpg.init");
         let ephemeral_owner = cg.owner_ephemeral;
         let mut graph = DiGraph::new();
         let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
@@ -973,6 +984,7 @@ impl CodePropertyGraph {
         let mut exact_var_index = ExactVarIndex::new();
         let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
 
+        profile.next("cpg.step1");
         // --- Step 1: Function nodes ---
         let mut source_indexes = crate::anon_owner::source_index::Step1Sources::new(files);
         for func_ids in cg.functions.values() {
@@ -1008,6 +1020,7 @@ impl CodePropertyGraph {
             });
         }
 
+        profile.next("cpg.steps2_3");
         // --- Steps 2-3: Variable nodes from DFG ---
         for locs in dfg.defs().map(|(_, v)| v) {
             for loc in locs {
@@ -1036,6 +1049,7 @@ impl CodePropertyGraph {
             }
         }
 
+        profile.next("cpg.step4");
         // --- Step 4: DataFlow edges ---
         let mut dfg_label_stats = DfgLabelStats::default();
         let mut dfg_rd_functions_without_cfg = BTreeSet::new();
@@ -1166,11 +1180,13 @@ impl CodePropertyGraph {
         }
         dfg_label_stats.record_rd_stats(&dfg);
 
+        profile.next("cpg.step5");
         // --- Step 5: Call edges ---
         for (from, to, w) in Self::collect_step5_edges(&cg, &func_index) {
             graph.add_edge(from, to, w);
         }
 
+        profile.next("cpg.step5b");
         // --- Step 5b: Interprocedural data flow edges ---
         let mut argument_seeds = Vec::new();
         for flow in
@@ -1186,6 +1202,7 @@ impl CodePropertyGraph {
             graph.add_edge(from, to, w);
         }
 
+        profile.next("cpg.step5c");
         // --- Step 5c: callee-return → exact caller-LHS flow ---
         let return_flow_stats = Self::assemble_step5c_return_flow(
             &cg,
@@ -1208,6 +1225,7 @@ impl CodePropertyGraph {
             &func_index,
         );
 
+        profile.next("cpg.step6");
         // --- Step 6: Contains edges ---
         let variable_nodes: Vec<_> = graph
             .node_indices()
@@ -1232,14 +1250,17 @@ impl CodePropertyGraph {
             }
         }
 
+        profile.next("cpg.step7");
         // --- Step 7: Statement nodes for CFG ---
         let stmt_index = Self::assemble_step7(files, &mut graph, &mut location_index);
 
+        profile.next("cpg.step8");
         // --- Step 8: ControlFlow edges ---
         for (from, to, w) in Self::collect_step8_edges(&stmt_index, files) {
             graph.add_edge(from, to, w);
         }
 
+        profile.next("cpg.step9");
         // --- Step 9: Virtual dispatch enrichment ---
         if let Some(ref tdb) = type_db {
             let mut virtual_edges: Vec<(NodeIndex, NodeIndex)> = Vec::new();

@@ -147,11 +147,19 @@ impl<'a> MemberReferenceSearch<'a> {
             .matching(root, path, def_line)
     }
 
-    fn scoped(&self, root: &Node<'a>, path: &AccessPath, def_line: usize) -> BTreeSet<usize> {
+    fn scoped<const COUNT: bool>(
+        &self,
+        root: &Node<'a>,
+        path: &AccessPath,
+        def_line: usize,
+    ) -> BTreeSet<usize> {
         if path.is_simple() {
-            return self
-                .parsed
-                .find_variable_references_scoped(root, &path.base, def_line);
+            return crate::profile::gates::scoped_refs::<COUNT>(
+                self.parsed,
+                root,
+                &path.base,
+                def_line,
+            );
         }
         self.matching(*root, path, def_line)
             .map(|node| node.start_position().row + 1)
@@ -160,6 +168,19 @@ impl<'a> MemberReferenceSearch<'a> {
 
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn find_path_reference_spans_fenced_in(
+        &self,
+        owner: &Node<'a>,
+        path: &AccessPath,
+        def_line: usize,
+        def_byte: usize,
+        within: Option<(usize, usize)>,
+        reads_only: bool,
+    ) -> BTreeMap<usize, (usize, usize)> {
+        self.find_profiled::<false>(owner, path, def_line, def_byte, within, reads_only)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn find_profiled<const COUNT: bool>(
         &self,
         owner: &Node<'a>,
         path: &AccessPath,
@@ -183,7 +204,7 @@ impl<'a> MemberReferenceSearch<'a> {
             && parsed.js_ts_seam_binding(owner, &path.base))
         {
             return self
-                .scoped(owner, path, def_line)
+                .scoped::<COUNT>(owner, path, def_line)
                 .into_iter()
                 .map(|line| {
                     (
@@ -199,7 +220,7 @@ impl<'a> MemberReferenceSearch<'a> {
             .unwrap_or(*owner);
         let mut lines = BTreeMap::new();
         if path.is_simple() {
-            parsed.collect_fenced_simple_refs(
+            parsed.collect_fenced_simple_refs::<COUNT>(
                 root, owner, &path.base, def_line, def_byte, reads_only, &mut lines,
             );
         } else {
@@ -209,7 +230,9 @@ impl<'a> MemberReferenceSearch<'a> {
                         || parsed.js_ts_identifier_is_not_a_read(node)
                         || parsed.js_ts_reference_in_with_body(node));
                 if !refused_read
-                    && !parsed.js_ts_reference_fenced(&node, owner, &path.base, def_byte)
+                    && !crate::profile::gates::fence::<COUNT>(
+                        parsed, &node, owner, &path.base, def_byte,
+                    )
                 {
                     lines
                         .entry(node.start_position().row + 1)
@@ -245,7 +268,7 @@ impl ParsedFile {
         path: &AccessPath,
         def_line: usize,
     ) -> BTreeSet<usize> {
-        MemberReferenceSearch::new(self).scoped(owner, path, def_line)
+        MemberReferenceSearch::new(self).scoped::<false>(owner, path, def_line)
     }
 }
 

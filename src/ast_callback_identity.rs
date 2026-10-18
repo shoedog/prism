@@ -1330,7 +1330,7 @@ impl ParsedFile {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn collect_fenced_simple_refs(
+    pub(super) fn collect_fenced_simple_refs<const COUNT: bool>(
         &self,
         node: Node<'_>,
         owner: &Node<'_>,
@@ -1340,11 +1340,12 @@ impl ParsedFile {
         reads_only: bool,
         out: &mut BTreeMap<usize, (usize, usize)>,
     ) {
+        use crate::profile::gates::{fence, scoped_refs, shadow};
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
         let Some(query) = get_query(self.language, QueryKind::Identifiers) else {
             out.extend(
-                self.find_variable_references_scoped(owner, name, def_line)
+                scoped_refs::<COUNT>(self, owner, name, def_line)
                     .into_iter()
                     .map(|line| {
                         (
@@ -1365,8 +1366,8 @@ impl ParsedFile {
             for capture in m.captures {
                 if capture.index == ident_idx
                     && self.node_text(&capture.node) == name
-                    && !self.is_shadowed_at(&capture.node, owner, name, def_line)
-                    && !self.js_ts_reference_fenced(&capture.node, owner, name, def_byte)
+                    && !shadow::<COUNT>(self, &capture.node, owner, name, def_line)
+                    && !fence::<COUNT>(self, &capture.node, owner, name, def_byte)
                     && !(reads_only && self.js_ts_identifier_is_not_a_read(capture.node))
                     && !(reads_only && self.js_ts_reference_in_with_body(capture.node))
                 {

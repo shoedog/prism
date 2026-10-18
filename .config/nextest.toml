@@ -14,3 +14,10 @@ slow-timeout = { period = "60s", terminate-after = 5 }
 # Keep 60s progress reports and allow 480s for coverage/runner variability.
 filter = 'binary(=output) & test(=dfg_compaction_test::dispatch_large)'
 slow-timeout = { period = "60s", terminate-after = 8 }
+
+[[profile.ci.overrides]]
+# The member-reference index differential (#472) compares every fixture against
+# the legacy walker: ~100s in debug, ~200-300s under coverage depending on
+# shard neighbours (count partitioning moves it as tests are added).
+filter = 'test(=ast::member_reference_index::tests::member_index_differential_all_fixtures)'
+slow-timeout = { period = "60s", terminate-after = 8 }

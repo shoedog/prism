@@ -104,7 +104,7 @@ fn differential(parsed: &ParsedFile, exhaustive: bool) -> usize {
                 .skip(usize::from(!exhaustive))
             {
                 assert_eq!(
-                    search.scoped(&owner, path, def_line),
+                    search.scoped::<false>(&owner, path, def_line),
                     parsed.legacy_path_references_scoped(&owner, path, def_line),
                     "{}: {path:?}",
                     parsed.path
@@ -260,7 +260,7 @@ fn member_index_lazy_simple_and_reparse_lifetime() {
         );
         assert!(search.index.get().is_none());
         assert_eq!(
-            search.scoped(&owner, &AccessPath::from_expr("obj.x"), 0),
+            search.scoped::<false>(&owner, &AccessPath::from_expr("obj.x"), 0),
             BTreeSet::from([2])
         );
     }
@@ -274,10 +274,10 @@ fn member_index_lazy_simple_and_reparse_lifetime() {
     let search = MemberReferenceSearch::new(&parsed);
     let owner = parsed.all_functions()[0];
     assert!(search
-        .scoped(&owner, &AccessPath::from_expr("obj.x"), 0)
+        .scoped::<false>(&owner, &AccessPath::from_expr("obj.x"), 0)
         .is_empty());
     assert_eq!(
-        search.scoped(&owner, &AccessPath::from_expr("obj.y"), 0),
+        search.scoped::<false>(&owner, &AccessPath::from_expr("obj.y"), 0),
         BTreeSet::from([2])
     );
 }

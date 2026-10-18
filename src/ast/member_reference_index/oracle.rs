@@ -91,7 +91,7 @@ impl ParsedFile {
             .filter(|n| within == Some((n.start_byte(), n.end_byte())))
             .unwrap_or(*func_node);
         if path.is_simple() {
-            self.collect_fenced_simple_refs(
+            self.collect_fenced_simple_refs::<false>(
                 scope_root, func_node, &path.base, def_line, def_byte, reads_only, &mut lines,
             );
         } else {

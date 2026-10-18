@@ -1,0 +1,205 @@
+{
+  "lane": "Opt-in build profiling",
+  "source": "docs/BUILD-PROFILE.md",
+  "mutations": {
+    "PROFILE-disable-output": [
+      "src/main.rs",
+      "let _profile = prism::profile::Session::start();",
+      "let _profile = ();",
+      "build_profile_test::nav_profile_accounts_for_owners_and_searches"
+    ],
+    "PROFILE-drop-simple-counter": [
+      "src/profile/owner.rs",
+      "c.simple_searches += 1;",
+      "c.simple_searches += 0;",
+      "build_profile_test::nav_profile_accounts_for_owners_and_searches"
+    ],
+    "PROFILE-drop-member-counter": [
+      "src/profile/owner.rs",
+      "c.member_searches += 1;",
+      "c.member_searches += 0;",
+      "build_profile_test::summary_conserves_normal_population_and_member_searches"
+    ],
+    "PROFILE-drop-searched-bytes": [
+      "src/profile/owner.rs",
+      "c.searched_bytes += bytes as u64;",
+      "c.searched_bytes += 0 * bytes as u64;",
+      "build_profile_test::nav_profile_accounts_for_owners_and_searches"
+    ],
+    "PROFILE-summary-count": [
+      "src/profile/summary.rs",
+      "\"owner_count\":owners.len()",
+      "\"owner_count\":0",
+      "build_profile_test::nav_profile_accounts_for_owners_and_searches"
+    ],
+    "PROFILE-summary-drop-normal-population": [
+      "src/profile/summary.rs",
+      "let mut other: Vec<_> = ranked[split..].iter().map(|o| o.total_ns).collect();",
+      "let mut other: Vec<_> = ranked[split..].iter().map(|o| o.total_ns).take(0).collect();",
+      "build_profile_test::summary_conserves_normal_population_and_member_searches"
+    ],
+    "PROFILE-omit-step7": [
+      "src/cpg/build.rs",
+      "profile.next(\"cpg.step7\");",
+      "profile.next(\"cpg.missing\");",
+      "build_profile_test::review_profile_has_build_phases"
+    ],
+    "PROFILE-zero-rd": [
+      "src/profile/owner.rs",
+      "self.row.reaching_definitions_ns = self.rd.map(ns).unwrap_or(0);",
+      "self.row.reaching_definitions_ns = 0;",
+      "build_profile_test::nav_profile_accounts_for_owners_and_searches"
+    ],
+    "PROFILE-subset-root-omitted": [
+      "src/call_graph.rs",
+      "Stages::new(\"call_graph\", \"call_graph.direct_subset.prelude\")",
+      "Stages::new(\"call_graph-missing\", \"call_graph.direct_subset.prelude\")",
+      "build_profile_test::alternate_call_graph_paths_are_profiled"
+    ],
+    "PROFILE-skeleton-calls-omitted": [
+      "src/call_graph.rs",
+      "p.next(\"call_graph.skeleton.calls\");",
+      "p.next(\"call_graph.skeleton.missing\");",
+      "build_profile_test::alternate_call_graph_paths_are_profiled"
+    ],
+    "PROFILE-incremental-refresh-omitted": [
+      "src/cpg/build.rs",
+      "p.next(\"call_graph.incremental_refresh\");",
+      "p.next(\"call_graph.incremental_missing\");",
+      "build_profile_test::alternate_call_graph_paths_are_profiled"
+    ],
+    "PROFILE-json-write-error-swallowed": [
+      "src/profile/mod.rs",
+      "serde_json::to_writer(&mut *writer, value)?;",
+      "let _ = serde_json::to_writer(&mut *writer, value);",
+      "profile::tests::record_write_errors_cover_json_and_newline"
+    ],
+    "PROFILE-newline-write-error-swallowed": [
+      "src/profile/mod.rs",
+      "writer.write_all(b\"\\n\")",
+      "{ let _ = writer.write_all(b\"\\n\"); Ok(()) }",
+      "profile::tests::record_write_errors_cover_json_and_newline"
+    ],
+    "PROFILE-drop-binding_fence_calls": [
+      "src/profile/gates.rs",
+      "c.binding_fence_calls += 1",
+      "c.binding_fence_calls += 0",
+      "build_profile_fold_test::inner_gate_counts_include_refusals_aliases_and_zero_calls"
+    ],
+    "PROFILE-drop-shadow_check_calls": [
+      "src/profile/gates.rs",
+      "c.shadow_check_calls += 1",
+      "c.shadow_check_calls += 0",
+      "build_profile_fold_test::inner_gate_counts_include_refusals_aliases_and_zero_calls"
+    ],
+    "PROFILE-drop-def_scope_calls": [
+      "src/profile/gates.rs",
+      "c.def_scope_calls += 1",
+      "c.def_scope_calls += 0",
+      "build_profile_fold_test::inner_gate_counts_include_refusals_aliases_and_zero_calls"
+    ],
+    "PROFILE-warning-panics": [
+      "src/profile/output.rs",
+      "let _ = writeln!(io::stderr().lock(), \"PRISM_PROFILE: {message}\");",
+      "eprintln!(\"PRISM_PROFILE: {message}\");",
+      "build_profile_fold_test::warning_errors_preserve_status_with_closed_stderr"
+    ],
+    "PROFILE-truncate-at-admission": [
+      "src/profile/output.rs",
+      "let name = path",
+      "let _truncated = File::create(path)?;\n        let name = path",
+      "build_profile_fold_test::overlapping_processes_publish_whole_last_completed_run"
+    ],
+    "PROFILE-omit-command": [
+      "src/profile/mod.rs",
+      "line(writer, &command)?;",
+      "let _ = &command;",
+      "build_profile_fold_test::schema_and_skipped_scope_are_truthful"
+    ],
+    "PROFILE-cfg-charged-to-total": [
+      "src/profile/owner.rs",
+      "self.row.total_ns = ns(self.start).saturating_sub(self.row.file_cfg_init_ns);",
+      "self.row.total_ns = ns(self.start);",
+      "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
+    ],
+    "PROFILE-rd-before-cfg": [
+      "src/data_flow/build/file.rs",
+      "            let cfg = file_cfg_edges.get_or_init(|| crate::profile::file_cfg(&mut profile_owner, file_path, || crate::cfg::build_cfg_edges_with_arms(parsed)));\n            crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());\n",
+      "            crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());\n            let cfg = file_cfg_edges.get_or_init(|| crate::profile::file_cfg(&mut profile_owner, file_path, || crate::cfg::build_cfg_edges_with_arms(parsed)));\n",
+      "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
+    ],
+    "PROFILE-scope-measured-on-skip": [
+      "src/call_graph.rs",
+      "let Some(inputs) = inputs else {",
+      "let _profile = crate::profile::Phase::serial(\"scope_graph\");\n        let Some(inputs) = inputs else {",
+      "build_profile_fold_test::skipped_scope_and_session_only_collection"
+    ],
+    "PROFILE-ast-walk-in-total": [
+      "src/profile/owner.rs",
+      "        let mut ast_nodes = 0;",
+      "        let start = Instant::now();\n        let mut ast_nodes = 0;",
+      "profile::owner::tests::owner_clock_excludes_metadata_work"
+    ],
+    "PROFILE-drop-admission-fence": [
+      "src/profile/gates.rs",
+      "c.binding_fence_calls += 1); // admission increment",
+      "c.binding_fence_calls += 0); // admission increment",
+      "build_profile_round2_test::captured_write_admission_counts_admitted_and_refused_fences"
+    ],
+    "PROFILE-cfg-charged-to-rss": [
+      "src/profile/owner.rs",
+      "rise.saturating_sub(cfg)",
+      "rise.saturating_sub(0 * cfg)",
+      "build_profile_round2_test::rss_intervals_exclude_cfg_in_both_owner_orders"
+    ],
+    "PROFILE-rd-rss-includes-preparation": [
+      "src/profile/owner.rs",
+      "(p.rss_rise_bytes, owner.rd_rss_rise_bytes)",
+      "(p.rss_rise_bytes, owner.rss_rise_bytes)",
+      "build_profile_round2_test::rss_intervals_exclude_cfg_in_both_owner_orders"
+    ],
+    "PROFILE-hide-js_ts_props": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.js_ts_props\");",
+      "profile.next(\"call_graph.hidden_js_ts_props\");",
+      "build_profile_round2_test::call_graph_initializers_have_individual_rows"
+    ],
+    "PROFILE-hide-populate_scope_graph": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.populate_scope_graph\");",
+      "profile.next(\"call_graph.hidden_populate_scope_graph\");",
+      "build_profile_round2_test::call_graph_initializers_have_individual_rows"
+    ],
+    "PROFILE-hide-js_anonymous_proofs": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.js_anonymous_proofs\");",
+      "profile.next(\"call_graph.hidden_js_anonymous_proofs\");",
+      "build_profile_round2_test::call_graph_initializers_have_individual_rows"
+    ],
+    "PROFILE-hide-rust_macro_shadow_intersection": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.rust_macro_shadow_intersection\");",
+      "profile.next(\"call_graph.hidden_rust_macro_shadow_intersection\");",
+      "build_profile_round2_test::call_graph_initializers_have_individual_rows"
+    ]
+  },
+  "lib_test_prefixes": [
+    "profile::"
+  ],
+  "extra": {
+    "PROFILE-scope-measured-on-skip": [
+      [
+        "src/call_graph.rs",
+        "        let _profile = crate::profile::Phase::serial(\"scope_graph\");\n        Some(populate_rust",
+        "        Some(populate_rust"
+      ]
+    ],
+    "PROFILE-ast-walk-in-total": [
+      [
+        "src/profile/owner.rs",
+        "start: Instant::now(),",
+        "start,"
+      ]
+    ]
+  }
+}
