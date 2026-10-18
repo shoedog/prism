@@ -7,6 +7,9 @@ use super::*;
 use std::cell::OnceCell;
 use std::collections::HashMap;
 
+#[path = "identifier_reference_index.rs"]
+pub(crate) mod identifiers;
+
 struct Candidate<'a> {
     node: Node<'a>,
     preorder: usize,
@@ -126,6 +129,7 @@ impl<'a> Index<'a> {
 pub(crate) struct MemberReferenceSearch<'a> {
     parsed: &'a ParsedFile,
     index: OnceCell<Index<'a>>,
+    simple: identifiers::IdentifierReferenceSearch<'a>,
 }
 
 impl<'a> MemberReferenceSearch<'a> {
@@ -133,6 +137,7 @@ impl<'a> MemberReferenceSearch<'a> {
         Self {
             parsed,
             index: OnceCell::new(),
+            simple: identifiers::IdentifierReferenceSearch::new(parsed),
         }
     }
 
@@ -154,12 +159,7 @@ impl<'a> MemberReferenceSearch<'a> {
         def_line: usize,
     ) -> BTreeSet<usize> {
         if path.is_simple() {
-            return crate::profile::gates::scoped_refs::<COUNT>(
-                self.parsed,
-                root,
-                &path.base,
-                def_line,
-            );
+            return self.simple.scoped::<COUNT>(root, &path.base, def_line);
         }
         self.matching(*root, path, def_line)
             .map(|node| node.start_position().row + 1)
@@ -220,7 +220,7 @@ impl<'a> MemberReferenceSearch<'a> {
             .unwrap_or(*owner);
         let mut lines = BTreeMap::new();
         if path.is_simple() {
-            parsed.collect_fenced_simple_refs::<COUNT>(
+            self.simple.collect_fenced::<COUNT>(
                 root, owner, &path.base, def_line, def_byte, reads_only, &mut lines,
             );
         } else {

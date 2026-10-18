@@ -1,0 +1,86 @@
+{
+  "lane": "DFG simple identifier candidate index identity and one query per file",
+  "lib_test_prefixes": [
+    "ast::member_reference_index::identifiers::tests::"
+  ],
+  "mutations": {
+    "IRI-query-per-search": [
+      "src/ast/identifier_reference_index.rs",
+      "        self.index\n            .get_or_init",
+      "        let _rebuilt = get_query(self.parsed.language, QueryKind::Identifiers).map(|q| Index::build(self.parsed, q));\n        self.index\n            .get_or_init",
+      "ast::member_reference_index::identifiers::tests::identifier_index_cost_is_per_file_not_per_search"
+    ],
+    "IRI-name-ignored": [
+      "src/ast/identifier_reference_index.rs",
+      ".get(name)",
+      ".get(\"absent\")",
+      "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
+    ],
+    "IRI-range-contained": [
+      "src/ast/identifier_reference_index.rs",
+      "c.bytes.start < end\n                    && (c.bytes.end > start || c.bytes.is_empty() && c.bytes.end == start)",
+      "c.bytes.start >= start && c.bytes.end <= end",
+      "ast::member_reference_index::identifiers::tests::identifier_index_raw_ranges_order_duplicates_and_spelling"
+    ],
+    "IRI-range-end-ignored": [
+      "src/ast/identifier_reference_index.rs",
+      "c.bytes.start < end",
+      "true",
+      "ast::member_reference_index::identifiers::tests::identifier_index_raw_ranges_order_duplicates_and_spelling"
+    ],
+    "IRI-range-start-ignored": [
+      "src/ast/identifier_reference_index.rs",
+      "c.bytes.end > start",
+      "true",
+      "ast::member_reference_index::identifiers::tests::identifier_index_raw_ranges_order_duplicates_and_spelling"
+    ],
+    "IRI-dedup-captures": [
+      "src/ast/identifier_reference_index.rs",
+      "        index\n    }",
+      "        for candidates in index.by_name.values_mut() { candidates.dedup_by_key(|c| c.node.id()); }\n        index\n    }",
+      "ast::member_reference_index::identifiers::tests::identifier_index_raw_ranges_order_duplicates_and_spelling"
+    ],
+    "IRI-reverse-order": [
+      "src/ast/identifier_reference_index.rs",
+      "        index\n    }",
+      "        for candidates in index.by_name.values_mut() { candidates.reverse(); for (i,c) in candidates.iter_mut().enumerate() { c.capture_order=i; } }\n        index\n    }",
+      "ast::member_reference_index::identifiers::tests::identifier_index_raw_ranges_order_duplicates_and_spelling"
+    ],
+    "IRI-shadow-off": [
+      "src/ast/identifier_reference_index.rs",
+      "if !shadow::<COUNT>(parsed, &node, owner, name, def_line)",
+      "if true || !shadow::<COUNT>(parsed, &node, owner, name, def_line)",
+      "ast::member_reference_index::identifiers::tests::identifier_index_fallback_lifetime_and_gate_counts"
+    ],
+    "IRI-fence-off": [
+      "src/ast/identifier_reference_index.rs",
+      "&& !fence::<COUNT>(parsed, &node, owner, name, def_byte)",
+      "&& true",
+      "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
+    ],
+    "IRI-reads-off": [
+      "src/ast/identifier_reference_index.rs",
+      "&& !(reads_only && parsed.js_ts_identifier_is_not_a_read(node))",
+      "&& true",
+      "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
+    ],
+    "IRI-with-off": [
+      "src/ast/identifier_reference_index.rs",
+      "&& !(reads_only && parsed.js_ts_reference_in_with_body(node))",
+      "&& true",
+      "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
+    ],
+    "IRI-first-occurrence-overwritten": [
+      "src/ast/identifier_reference_index.rs",
+      ".or_insert((node.start_byte(), node.end_byte()));",
+      ".and_modify(|span| *span = (node.start_byte(), node.end_byte())).or_insert((node.start_byte(), node.end_byte()));",
+      "ast::member_reference_index::identifiers::tests::identifier_index_gates_edges_and_all_languages"
+    ],
+    "IRI-no-query-fallback-lost": [
+      "src/ast/identifier_reference_index.rs",
+      "self.parsed\n                .collect_variable_refs_scoped_manual(*owner, name, def_line, &mut lines);",
+      "let _ = (owner, name, def_line);",
+      "ast::member_reference_index::identifiers::tests::identifier_index_fallback_lifetime_and_gate_counts"
+    ]
+  }
+}

@@ -1329,55 +1329,6 @@ impl ParsedFile {
         .collect()
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub(super) fn collect_fenced_simple_refs<const COUNT: bool>(
-        &self,
-        node: Node<'_>,
-        owner: &Node<'_>,
-        name: &str,
-        def_line: usize,
-        def_byte: usize,
-        reads_only: bool,
-        out: &mut BTreeMap<usize, (usize, usize)>,
-    ) {
-        use crate::profile::gates::{fence, scoped_refs, shadow};
-        use crate::queries::{get_query, QueryKind};
-        use tree_sitter::StreamingIterator;
-        let Some(query) = get_query(self.language, QueryKind::Identifiers) else {
-            out.extend(
-                scoped_refs::<COUNT>(self, owner, name, def_line)
-                    .into_iter()
-                    .map(|line| {
-                        (
-                            line,
-                            (self.line_start_byte(line), self.line_start_byte(line)),
-                        )
-                    }),
-            );
-            return;
-        };
-        let ident_idx = query
-            .capture_index_for_name("ident")
-            .expect("Identifiers query must have @ident capture");
-        let mut cursor = tree_sitter::QueryCursor::new();
-        cursor.set_byte_range(node.byte_range());
-        let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
-        while let Some(m) = matches.next() {
-            for capture in m.captures {
-                if capture.index == ident_idx
-                    && self.node_text(&capture.node) == name
-                    && !shadow::<COUNT>(self, &capture.node, owner, name, def_line)
-                    && !fence::<COUNT>(self, &capture.node, owner, name, def_byte)
-                    && !(reads_only && self.js_ts_identifier_is_not_a_read(capture.node))
-                    && !(reads_only && self.js_ts_reference_in_with_body(capture.node))
-                {
-                    out.entry(capture.node.start_position().row + 1)
-                        .or_insert((capture.node.start_byte(), capture.node.end_byte()));
-                }
-            }
-        }
-    }
-
     /// Includes captured references in callbacks created inside a with body.
     /// The with expression itself evaluates in the enclosing environment.
     pub(crate) fn js_ts_span_in_with_body(&self, start: usize, end: usize) -> bool {
