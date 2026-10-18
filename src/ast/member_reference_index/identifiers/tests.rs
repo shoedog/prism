@@ -62,25 +62,126 @@ fn identifier_index_cost_is_per_file_not_per_search() {
 
 #[test]
 fn identifier_index_no_session_work_is_bounded_by_owner() {
-    for siblings in [32, 0, 128] {
-        let mut source = "function owner(x) {\n  consume(x);\n}\n".to_string();
-        for i in 0..siblings {
-            source += &format!("function sibling{i}(x) {{ consume(x); }}\n");
-        }
-        let parsed = ParsedFile::parse("owners.ts", &source, Language::TypeScript).unwrap();
-        let owner = parsed.all_functions()[0];
-        for (name, expected) in [("x", BTreeSet::from([1, 2])), ("absent", BTreeSet::new())] {
-            reset();
-            crate::profile::gates::SCOPED_QUERY_WORK.with(|c| c.set((0, 0)));
-            assert_eq!(
-                parsed.find_variable_references_scoped(&owner, name, 1),
-                expected
-            );
-            assert_eq!(counts(), (0, 0, 0), "one-shot must not index");
-            let work = crate::profile::gates::SCOPED_QUERY_WORK.with(|c| c.get());
-            assert_eq!(work, (1, 4), "owner captures only");
+    for (language, seam, owner_source, owner_captures, body_captures) in [
+        (
+            Language::TypeScript,
+            false,
+            "function owner(x) {\n consume(x);\n}\n",
+            4,
+            2,
+        ),
+        (
+            Language::Python,
+            false,
+            "def owner(x):\n consume(x)\n",
+            4,
+            2,
+        ),
+        (
+            Language::TypeScript,
+            true,
+            "function owner(x = 0) {\n var x;\n consume(x);\n}\n",
+            5,
+            3,
+        ),
+    ] {
+        for siblings in [32, 0, 128] {
+            let mut source = owner_source.to_string();
+            for i in 0..siblings {
+                source += &if language == Language::Python {
+                    format!("def sibling{i}(x):\n  consume(x)\n")
+                } else {
+                    format!("function sibling{i}(x) {{ consume(x); }}\n")
+                };
+            }
+            let parsed = ParsedFile::parse("owners", &source, language).unwrap();
+            assert_eq!(parsed.parse_error_count, 0);
+            let owner = parsed.all_functions()[0];
+            if language == Language::TypeScript {
+                assert_eq!(parsed.js_ts_seam_binding(&owner, "x"), seam);
+            }
+            let body = owner.child_by_field_name("body").unwrap();
+            let roots = [
+                None,
+                Some((body.start_byte(), body.end_byte())),
+                Some((owner.start_byte(), owner.start_byte() + 1)),
+            ];
+            for name in ["x", "absent"] {
+                for (route, within) in (0..4).flat_map(|route| roots.map(|root| (route, root))) {
+                    let path = AccessPath::simple(name);
+                    let expected_spans = (route >= 2).then(|| {
+                        parsed.legacy_path_reference_spans_fenced_in(
+                            &owner,
+                            &path,
+                            1,
+                            15,
+                            within,
+                            route == 2,
+                        )
+                    });
+                    let expected = if route < 2 {
+                        oracle::legacy_scoped_refs::<false>(&parsed, &owner, name, 1)
+                    } else {
+                        expected_spans.as_ref().unwrap().keys().copied().collect()
+                    };
+                    reset();
+                    crate::profile::gates::SCOPED_QUERY_WORK.with(|c| c.set((0, 0)));
+                    let actual = match route {
+                        0 => parsed.find_variable_references_scoped(&owner, name, 1),
+                        1 => parsed.find_path_references_scoped(&owner, &path, 1),
+                        _ => {
+                            let spans = parsed.find_path_reference_spans_fenced_in(
+                                &owner,
+                                &path,
+                                1,
+                                15,
+                                within,
+                                route == 2,
+                            );
+                            assert_eq!(Some(&spans), expected_spans.as_ref(), "complete spans");
+                            spans.into_keys().collect()
+                        }
+                    };
+                    assert_eq!(
+                        actual, expected,
+                        "{language:?} seam={seam} route={route} within={within:?}"
+                    );
+                    assert_eq!(counts(), (0, 0, 0), "one-shot must not index");
+                    let work = crate::profile::gates::SCOPED_QUERY_WORK.with(|c| c.get());
+                    let fenced = language == Language::TypeScript
+                        && route >= 2
+                        && !(seam && route == 3 && name == "x");
+                    let captures = if fenced && within == roots[1] {
+                        body_captures
+                    } else {
+                        owner_captures
+                    };
+                    assert_eq!(work, (1, captures), "only requested-root captures");
+                }
+            }
         }
     }
+}
+
+#[test]
+fn identifier_counter_includes_rejected_range_candidates() {
+    let p = ParsedFile::parse(
+        "ranges.js",
+        "function f(x) { use(x); } function g(x) { use(x); }",
+        Language::JavaScript,
+    )
+    .unwrap();
+    let index = Index::build(&p, get_query(p.language, QueryKind::Identifiers).unwrap());
+    reset();
+    assert_eq!(
+        index
+            .matching("x", p.all_functions()[0].byte_range())
+            .count(),
+        2
+    );
+    assert_eq!(counts(), (0, 0, 4));
+    assert_eq!(index.matching("absent", 0..0).count(), 0);
+    assert_eq!(counts(), (0, 0, 4));
 }
 
 fn fixture(family: &str, n: usize) -> String {

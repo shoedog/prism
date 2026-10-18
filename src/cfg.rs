@@ -66,7 +66,7 @@ impl ArmSpan {
 
 /// Lexical provenance for one CFG edge. Internal to the RD pass (item 2 Task 3):
 /// `src/cfg.rs`'s sequential loop consumes the globally sorted, line-deduplicated
-/// `statements_in_function` universe (`src/ast.rs:5778-5791`), so it can join two
+/// `statements_in_function` universe (`ast/statement_traversal.rs`), so it can join two
 /// statements that are in different, mutually exclusive lexical branch arms. RD
 /// must never call such an edge a proof.
 ///

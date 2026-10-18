@@ -604,7 +604,8 @@ impl Producer {
                 };
                 let same_binding = rd_defs.iter().any(|d| {
                     d.path == span.path
-                        && !crate::profile::gates::admission_fence(parsed,
+                        && !crate::profile::gates::admission_fence(
+                            parsed,
                             &node,
                             &func_node,
                             &span.path.base,

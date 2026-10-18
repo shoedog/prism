@@ -41,6 +41,38 @@ function receivers() {
 }
 "#;
 
+#[test]
+#[cfg(debug_assertions)]
+#[should_panic(expected = "assertion `left == right` failed")]
+fn scope_boundaries_must_match_language() {
+    let p = ParsedFile::parse("a.js", "function f(x) { return x; }", Language::JavaScript).unwrap();
+    p.js_ts_scope_binds(p.all_functions()[0], &[], "x", 25);
+}
+
+#[test]
+fn registration_requires_root_identity_even_with_same_address() {
+    let a = ParsedFile::parse("a.js", "function f(x) {}", Language::JavaScript).unwrap();
+    let b = ParsedFile::parse("b.js", "function g(y) {}", Language::JavaScript).unwrap();
+    let session = Session::new(&a);
+    assert!(!boolean(cached(
+        &a,
+        "x",
+        || Key::At(0),
+        || Value::Bool(false)
+    )));
+    // Simulate address reuse independently of tree identity, without unsafe code.
+    ACTIVE
+        .with(|slot| slot.borrow_mut().last_mut().unwrap().file = &b as *const ParsedFile as usize);
+    assert!(boolean(cached(
+        &b,
+        "x",
+        || Key::At(0),
+        || Value::Bool(true)
+    )));
+    drop(session);
+    assert!(ACTIVE.with(|slot| slot.borrow().is_empty()));
+}
+
 fn differential(p: &ParsedFile, exhaustive: bool) -> usize {
     let _session = Session::new(p);
     let mut comparisons = 0;

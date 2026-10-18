@@ -29,6 +29,7 @@ struct Memo {
 }
 struct Registration {
     file: usize,
+    root: usize,
     memo: Weak<RefCell<Memo>>,
 }
 thread_local! {
@@ -47,6 +48,7 @@ impl<'a> Session<'a> {
         ACTIVE.with(|slot| {
             slot.borrow_mut().push(Registration {
                 file: parsed as *const ParsedFile as usize,
+                root: parsed.tree.root_node().id(),
                 memo: Rc::downgrade(&memo),
             })
         });
@@ -80,7 +82,10 @@ fn cached(
         slot.borrow()
             .iter()
             .rev()
-            .find(|entry| entry.file == p as *const ParsedFile as usize)
+            .find(|entry| {
+                entry.file == p as *const ParsedFile as usize
+                    && entry.root == p.tree.root_node().id()
+            })
             .and_then(|entry| entry.memo.upgrade())
     });
     let Some(memo) = memo else {
@@ -131,7 +136,8 @@ pub(super) fn cacheable(scope: Node<'_>, boundaries: &[&str]) -> bool {
 }
 impl ParsedFile {
     /// These are exactly the byte-dependent predicates read by scope_binds.
-    /// Default expressions share the parameter environment; computed keys use 0.
+    /// Defaults share the parameter environment. Computed method keys set the
+    /// generic name bit, which the method binder ignores.
     pub(super) fn binding_verdict_region(
         &self,
         scope: Node<'_>,
@@ -156,6 +162,7 @@ impl ParsedFile {
         name: &str,
         byte: usize,
     ) -> bool {
+        debug_assert_eq!(boundaries, self.language.callable_boundary_node_types());
         if !cacheable(scope, boundaries) {
             return self.js_ts_scope_binds_uncached(scope, boundaries, name, byte);
         }
@@ -207,7 +214,7 @@ impl ParsedFile {
 thread_local! { static BYPASS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
 /// The original binder, including all recursive helper calls, without any memo.
 #[cfg(test)]
-fn direct<R>(run: impl FnOnce() -> R) -> R {
+pub(crate) fn direct<R>(run: impl FnOnce() -> R) -> R {
     struct Restore(bool);
     impl Drop for Restore {
         fn drop(&mut self) {
