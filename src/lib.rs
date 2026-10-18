@@ -77,6 +77,8 @@ mod js_paths_syntax;
 pub mod js_returns;
 pub mod js_ts_props;
 pub mod languages;
+pub mod process_usage;
+pub mod profile;
 
 pub mod live_types;
 mod manifest_snapshot;

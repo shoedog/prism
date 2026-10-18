@@ -12,6 +12,7 @@ impl Producer {
     // Preserve the extracted closure's line breaks for the indentation-only byte control.
     #[rustfmt::skip]
     pub(super) fn file_refs(file_path: &String, parsed: &ParsedFile) -> FileRefs {
+        let _profile_file = crate::profile::Phase::file("dfg.file_extract", file_path);
         let mut defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
             BTreeMap::new();
         let mut uses: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
@@ -43,6 +44,7 @@ impl Producer {
             // keep their line-based coverage byte-identically.
             let synthetic = crate::ast::is_synthetic_owner(&func_name);
             let (start, end) = parsed.node_line_range(&func_node);
+            let mut profile_owner = crate::profile::Owner::begin(file_path, parsed, func_node, &func_name);
             let owner_is_unique = owner_counts
                 .get(&(func_name.clone(), start))
                 .is_some_and(|count| *count == 1);
@@ -168,7 +170,7 @@ impl Producer {
                 let refs = if member_only {
                     BTreeMap::new()
                 } else {
-                    parsed.find_path_reference_spans_fenced_in(
+                    crate::profile::search_refs(parsed,
                         &func_node,
                         &path,
                         start,
@@ -444,7 +446,7 @@ impl Producer {
                 // binding environment; body vars cannot reach defaults.
                 let def_scope =
                     parsed.js_ts_def_scope(&func_node, &path.base, span.start_byte);
-                let refs = parsed.find_path_reference_spans_fenced_in(
+                let refs = crate::profile::search_refs(parsed,
                     &func_node,
                     path,
                     def_line,
@@ -494,7 +496,7 @@ impl Producer {
                 };
                 if let Some(resolved) = twin {
                     if resolved != *path {
-                        let resolved_refs = parsed.find_path_reference_spans_fenced_in(
+                        let resolved_refs = crate::profile::search_refs(parsed,
                             &func_node,
                             &resolved,
                             def_line,
@@ -640,6 +642,7 @@ impl Producer {
                 &rvalue_spans,
                 function_edges,
             );
+            crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());
             match reaching_definitions_with_exact(
                 parsed,
                 &func_node,
@@ -713,6 +716,7 @@ impl Producer {
         file: &String,
         parsed: &ParsedFile,
     ) -> crate::data_flow::compact::CompactDfg {
+        let _profile_file = crate::profile::Phase::file("dfg.file", file);
         let parts = Self::file_refs(file, parsed).into_parts();
         #[cfg(test)]
         let legacy_adjacency_rows = parts

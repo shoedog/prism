@@ -34,6 +34,7 @@ fn main() -> Result<()> {
                 .is_some_and(|argument| argument.starts_with("--min-confidence="))
     });
     let cli = Cli::parse();
+    let _profile = prism::profile::Session::start();
     if let Err(error) = cli.validate_min_confidence(min_confidence_explicit) {
         error.exit();
     }

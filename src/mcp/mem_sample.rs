@@ -74,26 +74,7 @@ fn heap_in_use_bytes() -> Option<u64> {
 }
 
 /// Peak resident set size from `getrusage`, in bytes (macOS reports bytes, Linux kilobytes).
-pub fn ru_maxrss_bytes() -> Option<u64> {
-    #[cfg(unix)]
-    {
-        // SAFETY: `usage` is a writable `rusage`; `getrusage` fills it or returns non-zero.
-        let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
-        if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) } != 0 {
-            return None;
-        }
-        let raw = u64::try_from(usage.ru_maxrss).ok()?;
-        Some(if cfg!(target_os = "macos") {
-            raw
-        } else {
-            raw.saturating_mul(1024)
-        })
-    }
-    #[cfg(not(unix))]
-    {
-        None
-    }
-}
+pub use crate::process_usage::ru_maxrss_bytes;
 
 /// Parse the two fields the report uses out of `/proc/self/status`.
 #[cfg(any(target_os = "linux", test))]

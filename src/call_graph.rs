@@ -1343,6 +1343,7 @@ impl CallGraph {
     /// to quickly identify which files are in the dependency neighborhood of a
     /// diff, before committing to a full CPG build on the scoped subset.
     pub fn build_skeleton(files: &BTreeMap<String, ParsedFile>) -> Self {
+        let mut p = crate::profile::Stages::new("call_graph", "call_graph.skeleton.prelude");
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
         let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
         let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
@@ -1362,6 +1363,7 @@ impl CallGraph {
         let (go_file_profiles, go_build_profile_unparsed) =
             Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
 
+        p.next("call_graph.skeleton.definitions");
         // Phase 1: Collect all function definitions
         for (file_path, parsed) in files {
             for func_node in crate::anon_owner::owner_nodes(parsed) {
@@ -1421,6 +1423,7 @@ impl CallGraph {
             }
         }
 
+        p.next("call_graph.skeleton.calls");
         // Phase 2: Find all call sites within each function
         for (file_path, parsed) in files {
             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
@@ -1513,6 +1516,7 @@ impl CallGraph {
             }
         }
 
+        p.next("call_graph.skeleton.assembly");
         // Skip Phase 3 (indirect call resolution) — skeleton only needs direct calls.
 
         CallGraph {
@@ -1658,6 +1662,7 @@ impl CallGraph {
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
+        let mut profile = crate::profile::Stages::new("call_graph", "call_graph.prelude");
         let classifier = receiver_config.classifier();
         let classifier: &dyn crate::resolution::ReceiverClassifier = classifier.as_ref();
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
@@ -1719,6 +1724,7 @@ impl CallGraph {
             js_ts_unproven_instance_methods: Vec<FunctionId>,
         }
 
+        profile.next("call_graph.definitions");
         // Phase 1: Collect all function definitions per file in parallel, then
         // flatten serially in file order to preserve insertion order.
         let per_file_functions: Vec<FileFunctions> = ordered_files
@@ -1824,6 +1830,7 @@ impl CallGraph {
             macro_arg_facts: crate::rust_macro_args::MacroArgFacts,
         }
 
+        profile.next("call_graph.calls");
         // Phase 2: Find all call sites within each function in parallel, then
         // flatten serially in file order to preserve insertion order.
         let per_file_calls: Vec<FileCallSites> = ordered_files
@@ -1965,6 +1972,7 @@ impl CallGraph {
             })
             .collect();
 
+        profile.next("call_graph.merge");
         let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
             BTreeMap::new();
         for file_calls in &per_file_calls {
@@ -1986,6 +1994,7 @@ impl CallGraph {
             }
         }
 
+        profile.next("call_graph.resolution_facts");
         let (js_ts_exports, js_ts_function_locals, js_ts_return_facts) =
             Self::extract_js_ts_resolution_facts(files);
 
@@ -2091,6 +2100,7 @@ impl CallGraph {
             go_package_vars: BTreeMap::new(),
             shared_plain_go_provider: None,
         };
+        profile.next("call_graph.refresh");
         cg.refresh_rust_receiver_state(files);
         // P15a-fix1: interface dispatch runs BEFORE the shared plain provider
         // is constructed. Dispatch and embedding promotion are mutually
@@ -2146,6 +2156,7 @@ impl CallGraph {
         cg.apply_js_export_resolution();
         // Recompute the remaining whole-program indirect passes after all
         // resolution facts are installed, including Go B1 Level-3 callbacks.
+        profile.next("call_graph.indirect");
         cg.recompute_indirect_calls(files);
         cg
     }
@@ -3670,6 +3681,7 @@ impl CallGraph {
         files: &BTreeMap<String, ParsedFile>,
         inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Option<ScopeGraph> {
+        let _profile = crate::profile::Phase::serial("scope_graph");
         let Some(inputs) = inputs else {
             return None;
         };
@@ -5124,6 +5136,7 @@ impl CallGraph {
         only_files: &BTreeSet<String>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
     ) -> Self {
+        let mut p = crate::profile::Stages::new("call_graph", "call_graph.direct_subset.prelude");
         let classifier = receiver_config.classifier();
         let classifier: &dyn crate::resolution::ReceiverClassifier = classifier.as_ref();
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
@@ -5201,6 +5214,7 @@ impl CallGraph {
             &python_inert_initializers,
         );
 
+        p.next("call_graph.direct_subset.definitions");
         // Phase 1: Collect function definitions from subset.
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
@@ -5263,6 +5277,7 @@ impl CallGraph {
             }
         }
 
+        p.next("call_graph.direct_subset.calls");
         // Phase 2: Find call sites from subset.
         let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
             BTreeMap::new();
@@ -5395,6 +5410,7 @@ impl CallGraph {
             }
         }
 
+        p.next("call_graph.direct_subset.resolution_facts");
         let (js_ts_exports, js_ts_function_locals, js_ts_return_facts) =
             Self::extract_js_ts_resolution_facts_from_iter(
                 subset_files.iter().map(|(fp, parsed)| (fp, *parsed)),

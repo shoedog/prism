@@ -60,6 +60,7 @@ impl DataFlowGraph {
 
     /// Build a DFG from file references (shared implementation for build and build_subset).
     fn build_from_refs(files: &BTreeMap<String, &ParsedFile>) -> Self {
+        let _profile = crate::profile::Phase::serial("dfg");
         let ordered_files: Vec<(&String, &ParsedFile)> =
             files.iter().map(|(path, parsed)| (path, *parsed)).collect();
         let per_file_refs: Vec<super::compact::CompactDfg> = ordered_files
