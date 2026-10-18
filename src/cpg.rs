@@ -31,6 +31,8 @@ mod dfg_missing_label_tests;
 pub(crate) mod dfg_observation;
 #[cfg(test)]
 mod exact_parameter_binding_tests;
+#[cfg(test)]
+pub(crate) mod fallback_lifetime_tests;
 mod flow_confidence;
 #[cfg(test)]
 mod inert_default_parameter_tests;

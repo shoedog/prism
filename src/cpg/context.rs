@@ -134,16 +134,26 @@ impl<'a> CpgContext<'a> {
     /// If `type_db` is provided (via `--compile-commands`), it is injected
     /// into the cached CPG so that algorithms like `delta_slice` that call
     /// `ctx.cpg.type_db` get virtual dispatch enrichment.
+    #[cfg_attr(test, allow(unused_mut))] // Test adapter takes ownership before the guard.
     pub fn build_with_cached_cpg(
         files: &'a BTreeMap<String, ParsedFile>,
         mut cpg: CodePropertyGraph,
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
+        #[cfg(test)]
+        let lifetime = super::fallback_lifetime_tests::Probe::current();
+        #[cfg(test)]
+        let cpg = lifetime.track(cpg, 2);
         // A live opted-in graph is not an ordinary cache artifact. Rebuild all
         // edges without authority rather than adopt a historical proof snapshot.
         if cpg.ephemeral_owner || cpg.call_graph.owner_ephemeral {
+            drop(cpg);
+            #[cfg(test)]
+            lifetime.record("context_owner");
             return Self::build(files, type_db);
         }
+        #[cfg(test)]
+        let mut cpg = cpg.into_inner();
         // P15a-fix4: drop the stash UNCONDITIONALLY. A deserialized CPG has
         // none (serde skips the field), but a caller may pass a FRESHLY BUILT
         // CPG whose stash is a full live Go dataset — combined with the fresh
@@ -230,12 +240,19 @@ impl<'a> CpgContext<'a> {
 
         // Pass 1: skeleton call graph (Phases 1-2 only, no indirect resolution).
         let skeleton_cg = CallGraph::build_skeleton(files);
+        #[cfg(test)]
+        let lifetime = super::fallback_lifetime_tests::Probe::current();
+        #[cfg(test)]
+        let skeleton_cg = lifetime.track(skeleton_cg, 1);
 
         // Compute the scoped file set: Tier 0 (changed) + Tier 1 (callers) + Tier 2 (callees).
         let scoped_files = compute_scope(&skeleton_cg, &changed_files, files);
+        drop(skeleton_cg);
 
         // Short-circuit: if scope covers >50% of files, just build the full CPG.
         if scoped_files.len() > files.len() / 2 {
+            #[cfg(test)]
+            lifetime.record("context_scope");
             return Self::build(files, type_db);
         }
 
