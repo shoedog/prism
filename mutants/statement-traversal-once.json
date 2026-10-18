@@ -1,0 +1,68 @@
+{
+  "lane": "Perf F statement traversal once",
+  "lib_test_prefixes": [
+    "ast::statement_traversal::tests::"
+  ],
+  "mutations": {
+    "F01-statements-revisit": [
+      "src/ast/statement_traversal.rs",
+      "        if !visits.ordinary.insert(node.id()) {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(0, node.id(), node.child_count());",
+      "        if !visits.ordinary.insert(node.id()) && false {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(0, node.id(), node.child_count());",
+      "ast::statement_traversal::tests::statements_visit_linear"
+    ],
+    "F02-nested-statements-revisit": [
+      "src/ast/statement_traversal.rs",
+      "        if !visits.nested.insert(node.id()) {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(1, node.id(), node.child_count());",
+      "        if !visits.nested.insert(node.id()) && false {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(1, node.id(), node.child_count());",
+      "ast::statement_traversal::tests::statements_visit_linear"
+    ],
+    "F03-spans-revisit": [
+      "src/ast/statement_traversal.rs",
+      "        if !visits.ordinary.insert(node.id()) {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(2, node.id(), node.child_count());",
+      "        if !visits.ordinary.insert(node.id()) && false {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(2, node.id(), node.child_count());",
+      "ast::statement_traversal::tests::spans_visit_linear"
+    ],
+    "F04-nested-spans-revisit": [
+      "src/ast/statement_traversal.rs",
+      "        if !visits.nested.insert(node.id()) {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(3, node.id(), node.child_count());",
+      "        if !visits.nested.insert(node.id()) && false {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(3, node.id(), node.child_count());",
+      "ast::statement_traversal::tests::spans_visit_linear"
+    ],
+    "F05-arms-revisit": [
+      "src/ast/statement_traversal.rs",
+      "        if !visits.ordinary.insert(node.id()) {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(4, node.id(), node.child_count());",
+      "        if !visits.ordinary.insert(node.id()) && false {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(4, node.id(), node.child_count());",
+      "ast::statement_traversal::tests::arms_visit_linear"
+    ],
+    "F06-nested-arms-revisit": [
+      "src/ast/statement_traversal.rs",
+      "        if !visits.nested.insert(node.id()) {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(5, node.id(), node.child_count());",
+      "        if !visits.nested.insert(node.id()) && false {\n            return;\n        }\n        #[cfg(test)]\n        tests::record(5, node.id(), node.child_count());",
+      "ast::statement_traversal::tests::arms_visit_linear"
+    ],
+    "F07-merge-modes": [
+      "src/ast/statement_traversal.rs",
+      "if !visits.nested.insert(node.id())",
+      "if !visits.ordinary.insert(node.id())",
+      "ast::statement_traversal::tests::identity_generated_exhaustive_and_random"
+    ],
+    "F08-overwrite-first-arm": [
+      "src/ast/statement_traversal.rs",
+      "arms.of_line.entry(line).or_insert(arm);",
+      "arms.of_line.insert(line, arm);",
+      "ast::statement_traversal::tests::identity_javascript"
+    ],
+    "F09-subtree-finalization-removed": [
+      "src/ast/statement_traversal.rs",
+      "if newly_opened {",
+      "if !newly_opened {",
+      "ast::statement_traversal::tests::identity_154_line_c_fixture"
+    ],
+    "F10-reverse-sameline-span-winner": [
+      "src/ast/statement_traversal.rs",
+      "stmts.sort_by_key(|stmt| stmt.line);",
+      "stmts.sort_by_key(|stmt| (stmt.line, std::cmp::Reverse(stmt.start_byte)));",
+      "ast::statement_traversal::tests::identity_javascript"
+    ]
+  }
+}
