@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 #
 # Launch the prism-mcp navigation server for a repository, resolving the binary in this order:
-#   1. $PRISM_MCP_BIN, when set (it must name an executable file; anything else is refused)
-#   2. a binary built inside the plugin/repo checkout ($CLAUDE_PLUGIN_ROOT/target/release/prism-mcp)
-#   3. a `prism-mcp` on $PATH
-# and exit with a clear "build it" message if none is found.
+#   1. a binary built inside the plugin/repo checkout ($CLAUDE_PLUGIN_ROOT/target/release/prism-mcp)
+#   2. a `prism-mcp` on $PATH
+# and exit with a clear "build it" message if neither is found.
 #
-# Used as the command for the bundled MCP server (see .claude-plugin/plugin.json) and by this
-# repo's Codex config (.codex/config.toml). The repo to navigate is passed as the first argument
-# (the plugin wires it to ${CLAUDE_PROJECT_DIR}; the Codex config to the checkout Codex runs in);
-# any further arguments are passed through to prism-mcp (e.g. --cache-dir, --no-cache).
+# Used as the command for the bundled MCP server (see .claude-plugin/plugin.json). The repo to
+# navigate is passed as the first argument (the plugin wires it to ${CLAUDE_PROJECT_DIR}); any
+# further arguments are passed through to prism-mcp (e.g. --cache-dir, --no-cache).
 #
 # PRISM_MCP_SHARED=1 in the environment opts in to the shared per-repository daemon: the launcher
 # adds --shared after --repo, unless the arguments already say --shared or --standalone.
@@ -43,13 +41,7 @@ if [ "$shared" = 1 ]; then
 fi
 
 root="${CLAUDE_PLUGIN_ROOT:-}"
-if [ -n "${PRISM_MCP_BIN:-}" ]; then
-  if [ ! -f "$PRISM_MCP_BIN" ] || [ ! -x "$PRISM_MCP_BIN" ]; then
-    echo "prism-mcp-launch.sh: PRISM_MCP_BIN is not an executable file: '${PRISM_MCP_BIN}'" >&2
-    exit 127
-  fi
-  bin="$PRISM_MCP_BIN"
-elif [ -n "$root" ] && [ -x "$root/target/release/prism-mcp" ]; then
+if [ -n "$root" ] && [ -x "$root/target/release/prism-mcp" ]; then
   bin="$root/target/release/prism-mcp"
 elif command -v prism-mcp >/dev/null 2>&1; then
   bin="prism-mcp"

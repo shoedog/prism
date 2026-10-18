@@ -15,7 +15,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
 const SHARED_ENV: &str = "PRISM_MCP_SHARED";
-const BIN_ENV: &str = "PRISM_MCP_BIN";
 
 fn launcher() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/prism-mcp-launch.sh")
@@ -44,7 +43,6 @@ fn launch(shared: Option<&str>, args: &[&str]) -> Output {
         .args(args)
         .env("CLAUDE_PLUGIN_ROOT", root.path())
         .env_remove(SHARED_ENV)
-        .env_remove(BIN_ENV)
         .stdin(Stdio::null());
     if let Some(value) = shared {
         command.env(SHARED_ENV, value);
@@ -149,129 +147,6 @@ fn the_variable_and_an_explicit_argument_in_every_combination() {
     }
 }
 
-fn argv_stub() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/mcp/launcher/argv-stub.sh")
-}
-
-/// `PRISM_MCP_BIN` names the binary ahead of the plugin root, whose binary here would fail.
-#[test]
-fn prism_mcp_bin_wins_over_the_plugin_root() {
-    let root = plugin_root(Path::new("/usr/bin/false"));
-    let output = Command::new("/bin/bash")
-        .arg(launcher())
-        .arg("/some/repo")
-        .env("CLAUDE_PLUGIN_ROOT", root.path())
-        .env(BIN_ENV, argv_stub())
-        .env_remove(SHARED_ENV)
-        .stdin(Stdio::null())
-        .output()
-        .expect("run the launcher");
-    assert_eq!(argv(&output), ["--repo", "/some/repo"]);
-}
-
-/// A `PRISM_MCP_BIN` that is missing or not an executable file is refused, never skipped for
-/// another binary.
-#[test]
-fn a_prism_mcp_bin_that_is_not_an_executable_file_is_refused() {
-    let root = plugin_root(&argv_stub());
-    let dir = tempfile::tempdir().expect("a directory");
-    let plain = dir.path().join("plain");
-    std::fs::write(&plain, "not a program").expect("a plain file");
-    let missing = dir.path().join("missing");
-    for bin in [missing.as_path(), dir.path(), plain.as_path()] {
-        let output = Command::new("/bin/bash")
-            .arg(launcher())
-            .arg("/some/repo")
-            .env("CLAUDE_PLUGIN_ROOT", root.path())
-            .env(BIN_ENV, bin)
-            .env_remove(SHARED_ENV)
-            .stdin(Stdio::null())
-            .output()
-            .expect("run the launcher");
-        assert_eq!(output.status.code(), Some(127), "{bin:?}");
-        assert!(output.stdout.is_empty(), "a binary ran for {bin:?}");
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr.contains("PRISM_MCP_BIN is not an executable file"),
-            "{stderr}"
-        );
-    }
-}
-
-fn parent(path: &Path) -> &Path {
-    path.parent().expect("a parent directory")
-}
-
-/// This repo's tracked `.codex/config.toml` server, run as Codex runs it: its command and
-/// arguments, started in the session's working directory. Git looks no higher than `ceiling`, so
-/// a temporary directory inside some other checkout still counts as outside one.
-fn run_codex_config_server(cwd: &Path, ceiling: &Path) -> Output {
-    let text =
-        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join(".codex/config.toml"))
-            .expect("read .codex/config.toml");
-    let config: toml::Table = text.parse().expect("parse .codex/config.toml");
-    let server = &config["mcp_servers"]["prism"];
-    let env = server["env"].as_table().expect("an env table");
-    assert!(
-        env.contains_key(BIN_ENV) && env.contains_key(RUNTIME_DIR_ENV),
-        "{env:?}"
-    );
-    let args: Vec<&str> = server["args"]
-        .as_array()
-        .expect("args")
-        .iter()
-        .map(|arg| arg.as_str().expect("a string argument"))
-        .collect();
-    Command::new(server["command"].as_str().expect("a command"))
-        .args(args)
-        .current_dir(cwd)
-        .env("GIT_CEILING_DIRECTORIES", ceiling)
-        .env(BIN_ENV, argv_stub())
-        .env_remove(SHARED_ENV)
-        .env_remove("CLAUDE_PLUGIN_ROOT")
-        .stdin(Stdio::null())
-        .output()
-        .expect("run the configured server")
-}
-
-/// From a subdirectory of a checkout, the Codex config indexes that checkout's root through the
-/// checkout's own launcher (linked here), in shared mode.
-#[test]
-fn the_codex_config_indexes_the_checkout_it_starts_in() {
-    let checkout = tempfile::tempdir().expect("a checkout");
-    let status = Command::new("git")
-        .args(["init", "-q"])
-        .current_dir(checkout.path())
-        .status()
-        .expect("git init");
-    assert!(status.success());
-    std::fs::create_dir_all(checkout.path().join("scripts")).expect("scripts");
-    std::os::unix::fs::symlink(
-        launcher(),
-        checkout.path().join("scripts/prism-mcp-launch.sh"),
-    )
-    .expect("link the launcher");
-    let nested = checkout.path().join("src/deep");
-    std::fs::create_dir_all(&nested).expect("a subdirectory");
-    let root = checkout.path().canonicalize().expect("canonical checkout");
-    assert_eq!(
-        argv(&run_codex_config_server(&nested, parent(checkout.path()))),
-        ["--repo", root.to_str().expect("UTF-8 path"), "--shared"]
-    );
-}
-
-/// Outside any checkout the Codex config fails before a binary runs.
-#[test]
-fn outside_a_checkout_the_codex_config_fails() {
-    let dir = tempfile::tempdir().expect("a directory");
-    let output = run_codex_config_server(dir.path(), parent(dir.path()));
-    assert!(
-        !output.status.success(),
-        "the server started outside a checkout"
-    );
-    assert!(output.stdout.is_empty(), "a binary ran outside a checkout");
-}
-
 /// A launcher process, killed and reaped when the test ends however it ends.
 struct Launched(std::process::Child);
 
@@ -301,7 +176,6 @@ fn with_the_variable_set_the_plugin_s_server_is_a_shim_of_the_shared_daemon() {
             .args(["--daemon-start-timeout", "60"])
             .env("CLAUDE_PLUGIN_ROOT", root.path())
             .env(SHARED_ENV, "1")
-            .env_remove(BIN_ENV)
             .env(RUNTIME_DIR_ENV, setup.base.path())
             .env_remove("PRISM_MCP_STRUCTURED_CONTENT")
             .env_remove("PRISM_MCP_CONCISE_SHAPE")

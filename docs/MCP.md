@@ -116,12 +116,15 @@ does that, which gives every worktree and clone its own index:
 ```toml
 [mcp_servers.prism]
 command = "/bin/sh"
-args = ["-c", 'root=$(git rev-parse --show-toplevel) || exit 1; exec "$root/scripts/prism-mcp-launch.sh" "$root" --shared']
+args = ["-c", 'root=$(git rev-parse --show-toplevel) || exit 1; exec "$PRISM_MCP_BIN" --repo "$root" --shared']
+startup_timeout_sec = 60
 env = { PRISM_MCP_BIN = "/abs/path/to/prism/target/release/prism-mcp" }
 ```
 
 A fixed `--repo` pointing at another checkout answers about that checkout's code, not the one under
-review. Each shared daemon retires 15 minutes after its last client.
+review. Each checkout gets its own shared daemon (and nav cache); a daemon retires 15 minutes after its
+last client. To override the server per run, override `command` as well as `args`: an args-only override
+would be passed to `/bin/sh`.
 
 ### Kiro
 

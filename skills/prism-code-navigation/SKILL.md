@@ -10,8 +10,9 @@ description: >-
   "module dependencies", "trace the call graph". Resolves calls/imports across files that grep can't.
   On a spec / plan / impact-analysis task, orient with these tools FIRST, before reading files.
   Structural counterpart to lsp-nav (type-resolved go-to-def/references) and the slicing CLI
-  (diff-driven review). Tool names: mcp__plugin_prism_prism__nav_* from the Claude Code plugin,
-  mcp__prism__nav_* from a server added as "prism" (Claude/Codex), bare nav_* for Kiro.
+  (diff-driven review). Tool names (nav_*, taint_reaches, refresh_index): prefixed
+  mcp__plugin_prism_prism__ from the Claude Code plugin, mcp__prism__ from a server added as "prism"
+  (Claude/Codex), bare for Kiro.
 metadata:
   project: prism
   surface: mcp
@@ -26,17 +27,19 @@ resolves calls and imports across files; grep can't.
 ## Before your first query
 
 - **Find the tools.** Claude Code may list them as *deferred* tools (names only): load them with
-  ToolSearch (`select:mcp__plugin_prism_prism__nav_callers,...`) before calling. A server named something
+  ToolSearch (`select:mcp__plugin_prism_prism__nav_callers,mcp__plugin_prism_prism__nav_callees,...`)
+  before calling. A server named something
   other than `prism` changes the middle segment.
 - **Check which checkout the server indexes.** One server indexes the one `--repo` it was started with.
   If you work in a worktree or clone other than that one, its answers describe the other checkout's code:
   `SymbolNotFound` for a symbol you can see in your diff, or lines that don't match your files, is that
   tell. Use a server started for your checkout, or the CLI below.
-- **No tools, or the wrong checkout:** the CLI answers the same questions for any checkout:
+- **No tools, or the wrong checkout:** the `prism` CLI answers the same questions for any checkout:
   `prism nav callers --repo <checkout> --symbol X --format json` (also `callees`, `ego`, `module-deps`,
-  `repo-map`, `nodes-at`).
+  `repo-map`, `nodes-at`, `taint-reaches`). It is built by `cargo build --release` in a prism checkout; if
+  `prism` is not on PATH, call it by full path (`<prism checkout>/target/release/prism`).
 - **Wait out warming.** The first call on a checkout with no index builds it: seconds to a few minutes
-  (about 1.5 min for this repo, cold). Retry the same call every ~10 s for up to ~3 min before giving up;
+  on large repos. Retry the same call every ~10 s for up to ~3 min before giving up;
   later calls answer in milliseconds.
 
 ## Orient before you read — especially for a spec / plan / impact analysis
