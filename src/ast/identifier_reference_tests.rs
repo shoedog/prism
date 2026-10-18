@@ -78,6 +78,7 @@ fn fixture(family: &str, n: usize) -> String {
 }
 
 #[test]
+#[ignore = "operation-count report over the old quadratic path; run with --release -- --ignored"]
 fn identifier_index_scaling_operation_counts() {
     for family in ["locals", "statements", "nested", "locals-nocall"] {
         for n in [512, 1024, 2048] {
