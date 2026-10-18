@@ -1,10 +1,17 @@
 use crate::cpg::CpgContext;
-use crate::cpg_cache::{self, CacheResult};
+use crate::cpg_cache;
+#[cfg(not(test))]
+use crate::cpg_cache as cache_load;
 use crate::navigation::call_edge_cache::NavigationCallEdgeCacheStore;
 use crate::navigation::NavigationIndex;
 use crate::repo_loader::LoadedRepo;
+use cache_load::CacheResult;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+
+#[cfg(test)]
+#[path = "cache_lifetime_tests.rs"]
+mod cache_load;
 
 /// Prism-owned cache subdir for this repo: <base>/prism/nav/<hash(canonical root)>/.
 pub fn nav_cache_subdir(base: &Path, repo: &LoadedRepo) -> PathBuf {
@@ -51,7 +58,7 @@ impl NavigationIndex {
                 type_db.cache_fingerprint(),
             );
         }
-        match cpg_cache::load_cache_with_topology(
+        match cache_load::load_cache_with_topology(
             &repo.file_hashes,
             &topology_key,
             has_type_db,
@@ -67,13 +74,20 @@ impl NavigationIndex {
                     true,
                 )),
             ),
-            CacheResult::PartialHit { .. } => {
+            CacheResult::PartialHit {
+                cached_call_graph,
+                cached_dfg,
+                ..
+            } => {
+                drop((cached_call_graph, cached_dfg));
                 // Nav caching is exact-hit-only in v1 (spec section 9), so partial hits are
                 // intentionally treated as misses instead of reusing an incomplete CPG.
                 eprintln!(
                     "nav cache: partial CPG cache hit in {}, rebuilding",
                     cache_dir.display()
                 );
+                #[cfg(test)]
+                cache_load::record_rebuild_start();
                 let ctx = CpgContext::build_with_scope_graph_inputs(
                     &repo.files,
                     repo.type_db.as_ref(),
