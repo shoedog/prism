@@ -116,6 +116,18 @@
       "let _ = &command;",
       "build_profile_fold_test::schema_and_skipped_scope_are_truthful"
     ],
+    "PROFILE-rd-clock-from-owner-start": [
+      "src/profile/owner.rs",
+      "owner.rd = Some(Instant::now());",
+      "owner.rd = Some(owner.start);",
+      "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
+    ],
+    "PROFILE-cfg-phase-after-run": [
+      "src/profile/owner.rs",
+      "    let mut phase = Phase::file(\"dfg.file_cfg\", file);\n    let result = run();",
+      "    let result = run();\n    let mut phase = Phase::file(\"dfg.file_cfg\", file);",
+      "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
+    ],
     "PROFILE-cfg-charged-to-total": [
       "src/profile/owner.rs",
       "self.row.total_ns = ns(self.start).saturating_sub(self.row.file_cfg_init_ns);",

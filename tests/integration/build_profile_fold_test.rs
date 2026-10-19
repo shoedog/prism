@@ -284,17 +284,17 @@ fn inner_gate_counts_include_refusals_aliases_and_zero_calls() {
 
 #[test]
 fn tiny_owner_rd_excludes_cfg_in_either_order() {
-    // Pin the real producer's nesting/order and accounting expressions without
-    // comparing workload durations. A legal scheduling pause cannot break this.
-    assert!(cfg_accounting_boundaries_hold(
+    // Pin the real producer's nesting/order and clock anchors deterministically.
+    cfg_accounting_boundaries_hold(
         include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/src/data_flow/build/file.rs"
         )),
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/profile/owner.rs")),
-    ));
+    );
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("profile.jsonl");
+    // This extra file pins sorted record layout; it does not prove execution order.
     std::fs::write(dir.path().join("0.js"), "function warm() { return 0; }\n").unwrap();
     let tiny = "function tiny() { return 0; }\n";
     let big = format!(
@@ -318,7 +318,10 @@ fn tiny_owner_rd_excludes_cfg_in_either_order() {
         let rs = rows(&path);
         let owners: Vec<_> = rs.iter().filter(|r| r["record"] == "owner").collect();
         assert_eq!(owners.len(), 3);
-        assert_eq!(owners[0]["owner"], "warm", "warm-up must run first");
+        assert_eq!(
+            owners[0]["owner"], "warm",
+            "0.js sorts first in owner records"
+        );
         assert!(owners[0]["file"].as_str().unwrap().ends_with("0.js"));
         let expected = if first {
             ["tiny", "big"]
@@ -341,6 +344,21 @@ fn tiny_owner_rd_excludes_cfg_in_either_order() {
         assert_eq!(owners[2]["file_cfg_init_ns"], 0);
         // Same interval, sampled before the phase's drop.
         assert!(init <= cfg["wall_ns"].as_u64().unwrap());
+        if first {
+            // One-sided live backstop: tiny's RD and total exclude the whole
+            // file's CFG build. Correct code fails only if tiny stalls longer
+            // than that build; no cross-order timing ratio or warm-up is needed.
+            let tiny_rd = owners[1]["reaching_definitions_ns"].as_u64().unwrap();
+            let tiny_total = owners[1]["total_ns"].as_u64().unwrap();
+            assert!(
+                tiny_rd < init,
+                "tiny RD {tiny_rd} must exclude CFG init {init}"
+            );
+            assert!(
+                tiny_total < init,
+                "tiny total {tiny_total} must exclude CFG init {init}"
+            );
+        }
         let rd = rs
             .iter()
             .find(|r| r["name"] == "dfg.file_rd" && r["file"] == owners[1]["file"])
@@ -357,7 +375,9 @@ fn tiny_owner_rd_excludes_cfg_in_either_order() {
 // Structural guard, deliberately separate from the live profile observations:
 // it checks actual production calls, including their enclosing statement, not
 // a copied model of the initializer. Main's pre-index producer is supported too.
-fn cfg_accounting_boundaries_hold(source: &str, owner: &str) -> bool {
+// Anchor text and Rust grammar are intentional: producer refactors may require
+// updating these assertions even when the accounting behavior stays correct.
+fn cfg_accounting_boundaries_hold(source: &str, owner: &str) {
     fn calls<'a>(
         node: tree_sitter::Node<'a>,
         source: &str,
@@ -376,12 +396,34 @@ fn cfg_accounting_boundaries_hold(source: &str, owner: &str) -> bool {
         }
         found
     }
+    fn function_body<'a>(
+        node: tree_sitter::Node<'a>,
+        source: &str,
+        name: &str,
+    ) -> Option<tree_sitter::Node<'a>> {
+        if node.kind() == "function_item"
+            && node
+                .child_by_field_name("name")
+                .is_some_and(|n| &source[n.byte_range()] == name)
+        {
+            return node.child_by_field_name("body");
+        }
+        for child in node.named_children(&mut node.walk()) {
+            if let Some(body) = function_body(child, source, name) {
+                return Some(body);
+            }
+        }
+        None
+    }
     let mut parser = tree_sitter::Parser::new();
     parser
         .set_language(&tree_sitter_rust::LANGUAGE.into())
         .unwrap();
     let tree = parser.parse(source, None).unwrap();
-    assert!(!tree.root_node().has_error());
+    assert!(
+        !tree.root_node().has_error(),
+        "file producer must parse as Rust"
+    );
     let one_call = |name| {
         let found = calls(tree.root_node(), source, name);
         assert_eq!(found.len(), 1, "unique production call: {name}");
@@ -398,16 +440,58 @@ fn cfg_accounting_boundaries_hold(source: &str, owner: &str) -> bool {
         cfg.start_byte() < node.start_byte() && node.end_byte() < cfg.end_byte()
     };
     let index = calls(tree.root_node(), source, "FileCfgEdgeIndex::new");
-    let compact: String = owner.chars().filter(|c| !c.is_whitespace()).collect();
-    inside_cfg(build)
-        && index.iter().all(|&call| inside_cfg(call))
-        && statement.end_byte() < rd.start_byte()
-        && compact.contains(
-            "owner.row.flow_edges_ns=ns(owner.start).saturating_sub(owner.row.file_cfg_init_ns);",
-        )
-        && compact
-            .contains("self.row.total_ns=ns(self.start).saturating_sub(self.row.file_cfg_init_ns);")
-        && compact.contains("self.row.reaching_definitions_ns=self.rd.map(ns).unwrap_or(0);")
+    assert!(inside_cfg(build), "CFG build must be inside file_cfg");
+    assert!(
+        index.iter().all(|&call| inside_cfg(call)),
+        "edge index build must be inside file_cfg"
+    );
+    assert!(
+        statement.end_byte() < rd.start_byte(),
+        "CFG initialization must finish before reaching"
+    );
+    let compact = |s: &str| s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    let owner_tree = parser.parse(owner, None).unwrap();
+    assert!(
+        !owner_tree.root_node().has_error(),
+        "owner producer must parse as Rust"
+    );
+    let body = |name| {
+        let node = function_body(owner_tree.root_node(), owner, name)
+            .unwrap_or_else(|| panic!("missing owner function: {name}"));
+        compact(&owner[node.byte_range()])
+    };
+    let reaching = body("reaching");
+    let flow =
+        "owner.row.flow_edges_ns=ns(owner.start).saturating_sub(owner.row.file_cfg_init_ns);";
+    let flow_start = reaching
+        .find(flow)
+        .expect("reaching flow time must subtract CFG init");
+    let rd_start = reaching
+        .find("owner.rd=Some(Instant::now());")
+        .expect("reaching must start RD with a fresh Instant");
+    assert!(
+        flow_start + flow.len() <= rd_start,
+        "RD clock must start after flow time is recorded"
+    );
+    let file_cfg = body("file_cfg");
+    let phase_start = file_cfg
+        .find("Phase::file(\"dfg.file_cfg\"")
+        .expect("file_cfg must open its CFG phase");
+    let run_start = file_cfg
+        .find("run()")
+        .expect("file_cfg must run the initializer");
+    assert!(phase_start < run_start, "CFG phase must open before run()");
+    let compact_owner = compact(owner);
+    assert!(
+        compact_owner.contains(
+            "self.row.total_ns=ns(self.start).saturating_sub(self.row.file_cfg_init_ns);"
+        ),
+        "owner total must subtract CFG init"
+    );
+    assert!(
+        compact_owner.contains("self.row.reaching_definitions_ns=self.rd.map(ns).unwrap_or(0);"),
+        "owner RD must use its own clock"
+    );
 }
 
 #[test]
