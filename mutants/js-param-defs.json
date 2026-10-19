@@ -148,7 +148,7 @@
    ]
   ],
   "PD-18-step5b-bare-hole-off": [
-   "src/cpg/build.rs",
+   "src/cpg/callee_params.rs",
    ".filter(|occurrence| Some((occurrence.1, occurrence.2)) != bare_formal)",
    ".filter(|_| true)",
    [
