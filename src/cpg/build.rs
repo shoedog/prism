@@ -5,6 +5,9 @@
 #[path = "callee_params.rs"]
 mod callee_params;
 
+#[path = "callee_returns.rs"]
+mod callee_returns;
+
 #[cfg(test)]
 #[path = "callee_cases.rs"]
 mod callee_cases;
@@ -1764,6 +1767,7 @@ impl CodePropertyGraph {
         location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> ReturnFlowStats {
+        let shared_returns = callee_returns::ReturnCache::new(files);
         let mut stats = ReturnFlowStats::default();
         let mut return_value_index: BTreeMap<
             (String, String, usize, usize, usize, usize),
@@ -1814,18 +1818,10 @@ impl CodePropertyGraph {
                 let Some(callee_parsed) = files.get(&resolved.target.file) else {
                     continue;
                 };
-                let Some(callee_node) = callee_parsed.all_functions().into_iter().find(|node| {
-                    callee_parsed.node_line_range(node).0 == resolved.target.start_line
-                        && callee_parsed
-                            .language
-                            .function_name(node)
-                            .is_some_and(|name| {
-                                callee_parsed.node_text(&name) == resolved.target.name.as_str()
-                            })
-                }) else {
+                let cell = shared_returns.get(resolved.target);
+                let Some(returns) = cell.get().expect("initialized return facts").as_ref() else {
                     continue;
                 };
-                let returns = callee_parsed.return_value_nodes(&callee_node);
 
                 let targets: Vec<NodeIndex> = assignment
                     .lvalues
@@ -1857,7 +1853,7 @@ impl CodePropertyGraph {
 
                 let mut modeled: Vec<(NodeIndex, NodeIndex)> = Vec::new();
                 let mut complete_returns = !returns.is_empty();
-                for ret in &returns {
+                for ret in returns {
                     if ret.values.is_empty() {
                         stats.return_flow_skipped_named_return += 1;
                         complete_returns = false;

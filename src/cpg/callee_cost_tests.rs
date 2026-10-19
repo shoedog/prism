@@ -7,13 +7,17 @@ type Counts = BTreeMap<(String, FunctionId), usize>;
 static COUNTS: Mutex<Counts> = Mutex::new(BTreeMap::new());
 
 pub(super) fn record(kind: &str, callee: &FunctionId) {
+    record_n(kind, callee, 1);
+}
+
+pub(super) fn record_n(kind: &str, callee: &FunctionId, n: usize) {
     // Separate fixture identities isolate tests, including parallel lib tests.
     if callee.file.starts_with("cost-") || std::env::var_os("CALLEE_COUNT_REPLAY").is_some() {
         *COUNTS
             .lock()
             .unwrap()
             .entry((kind.into(), callee.clone()))
-            .or_default() += 1;
+            .or_default() += n;
     }
 }
 
@@ -71,4 +75,9 @@ fn constant(kind: &str) {
 #[test]
 fn parameter_computations_constant_across_callers() {
     constant("parameters");
+}
+
+#[test]
+fn return_computations_constant_across_callers() {
+    constant("returns");
 }

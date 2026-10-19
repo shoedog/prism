@@ -1,0 +1,71 @@
+{
+  "mutations": {
+    "RI-01-assignment-local-cache": [
+      "src/cpg/build.rs",
+      "shared_returns.get(resolved.target)",
+      "callee_returns::ReturnCache::new(files).get(resolved.target)",
+      "cpg::build::callee_cost_tests::return_computations_constant_across_callers"
+    ],
+    "RI-02-owner-file-omitted": [
+      "src/cpg/callee_returns.rs",
+      ".entry(callee.clone())",
+      ".entry(FunctionId { file: String::new(), ..callee.clone() })",
+      "cpg::build::callee_identity_tests::generated_return_owner_identity"
+    ],
+    "RI-03-owner-end-omitted": [
+      "src/cpg/callee_returns.rs",
+      ".entry(callee.clone())",
+      ".entry(FunctionId { end_line: 0, ..callee.clone() })",
+      "cpg::build::callee_returns::tests::first_match_full_identity_and_negative_results"
+    ],
+    "RI-04-empty-inventory-not-reused": [
+      "src/cpg/callee_returns.rs",
+      ".clone();\n        // The map lock",
+      ".clone();\n        if matches!(cell.get(), Some(Some(returns)) if returns.is_empty()) { cell = Arc::default(); }\n        // The map lock",
+      "cpg::build::callee_cost_tests::return_computations_constant_across_callers"
+    ],
+    "RI-05-missing-owner-not-reused": [
+      "src/cpg/callee_returns.rs",
+      ".clone();\n        // The map lock",
+      ".clone();\n        if matches!(cell.get(), Some(None)) { cell = Arc::default(); }\n        // The map lock",
+      "cpg::build::callee_returns::tests::first_match_full_identity_and_negative_results"
+    ],
+    "RI-06-last-function-match": [
+      "src/cpg/callee_returns.rs",
+      "out.entry(key).or_insert(node);",
+      "out.insert(key, node);",
+      "cpg::build::callee_returns::tests::first_match_full_identity_and_negative_results"
+    ],
+    "RI-07-return-order-reversed": [
+      "src/cpg/callee_returns.rs",
+      "Some(parsed.return_value_nodes(node))",
+      "{ let mut returns = parsed.return_value_nodes(node); returns.reverse(); Some(returns) }",
+      "cpg::build::callee_returns::tests::syntax_inventories_match_legacy_all_languages"
+    ],
+    "RI-08-function-start-ignored": [
+      "src/cpg/callee_returns.rs",
+      "functions.get(&(callee.start_line, callee.name.clone()))?",
+      "functions.get(&(1, callee.name.clone()))?",
+      "cpg::build::callee_returns::tests::first_match_full_identity_and_negative_results"
+    ]
+  },
+  "extra": {
+    "RI-04-empty-inventory-not-reused": [
+      [
+        "src/cpg/callee_returns.rs",
+        "let cell = self",
+        "let mut cell = self"
+      ]
+    ],
+    "RI-05-missing-owner-not-reused": [
+      [
+        "src/cpg/callee_returns.rs",
+        "let cell = self",
+        "let mut cell = self"
+      ]
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::"
+  ]
+}

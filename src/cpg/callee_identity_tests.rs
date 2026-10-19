@@ -108,3 +108,28 @@ fn repository_fixtures_complete_cpg_identity() {
         );
     });
 }
+
+#[test]
+fn generated_return_owner_identity() {
+    let sources = [
+        ("a.js", "export function helper(x) { return x; }\nfunction caller(x) { let y = helper(x); return y; }\n"),
+        ("b.js", "export function helper(x) { return x + 123; }\nfunction caller(x) { let y = helper(x); return y; }\n"),
+        ("nested.js", "function helper(x) { if(x) { return x; } const nested = () => { return 99; }; return 0; }\nfunction empty(x) { function nested() { return x; } }\nfunction caller(x) { let a = helper(x); let b = empty(x); return a; }\n"),
+        ("same.js", "function helper(x) { return x; }\nfunction caller(x) { let y = helper(x); return y; }\nfunction owner(x) { function helper(x) { return x + 123; } let y = helper(x); return y; }\n"),
+    ];
+    let files = sources
+        .into_iter()
+        .map(|(path, source)| {
+            (
+                path.into(),
+                ParsedFile::parse(path, source, Language::JavaScript).unwrap(),
+            )
+        })
+        .collect();
+    let graph = CodePropertyGraph::build(&files);
+    assert!(
+        graph.return_flow_stats.return_flow_edges >= 4,
+        "identity fixture must exercise return flow"
+    );
+    compare(&files);
+}
