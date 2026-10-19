@@ -15,6 +15,7 @@ mod capture;
 mod cfg_edge_index;
 mod compact_wire;
 mod graph;
+mod join_kind;
 mod scope;
 
 pub(crate) use cfg_edge_index::FileCfgEdgeIndex;
@@ -156,6 +157,8 @@ pub(crate) fn reaching_definitions_with_exact(
     );
     #[cfg(test)]
     cfg_edge_index::tests::record_outcome(&outcome);
+    #[cfg(test)]
+    join_kind_tests::record_outcome(&outcome);
     outcome
 }
 
@@ -185,6 +188,8 @@ fn reaching_definitions_impl(
         });
     }
 
+    #[cfg(test)]
+    work_tests::bump(|counts| counts.statement_entries = statements.len());
     let lines: Vec<Line> = statements.iter().map(|(line, _)| *line).collect();
     let line_index: BTreeMap<Line, usize> = lines
         .iter()
@@ -192,11 +197,12 @@ fn reaching_definitions_impl(
         .map(|(index, line)| (*line, index + 1))
         .collect();
     let mut cfg_edges = Vec::new();
+    let kinds = join_kind::StatementKinds::new(&statements);
     for (from, to, edge, provenance) in file_cfg_edges.for_owner(&line_index) {
         cfg_edges.push((
             from,
             to,
-            is_incomplete_join(parsed, &statements, &edge, provenance),
+            join_kind::is_incomplete_join(parsed, &kinds, &edge, provenance),
         ));
     }
     if cfg_edges.is_empty() {
@@ -258,6 +264,8 @@ fn reaching_definitions_impl(
                 continue;
             }
             for old_def in 0..defs.len() {
+                #[cfg(test)]
+                work_tests::bump(|counts| counts.definition_pair_comparisons += 1);
                 if !gen[node].contains(old_def)
                     && !defs[old_def].alias_derived
                     && defs[old_def].path == defs[new_def].path
@@ -281,6 +289,8 @@ fn reaching_definitions_impl(
         defs.len(),
     );
 
+    #[cfg(test)]
+    join_kind_tests::record_sets(&in_sets, &flat_in_sets);
     let collapsed = collapsed_groups(&defs);
     let capture_facts = capture::capture_facts(parsed, *func_node);
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
@@ -657,6 +667,11 @@ fn statement_line_spans(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<Statem
 }
 
 fn innermost_statement(line: Line, spans: &[StatementLineSpan]) -> Option<Line> {
+    #[cfg(test)]
+    work_tests::bump(|counts| {
+        counts.statement_lookup_calls += 1;
+        counts.statement_query_lines.insert(line);
+    });
     spans
         .iter()
         .filter(|span| span.start_line <= line && line <= span.end_line)
@@ -670,41 +685,10 @@ fn innermost_statement(line: Line, spans: &[StatementLineSpan]) -> Option<Line> 
         .map(|span| span.start_line)
 }
 
-fn is_incomplete_join(
-    parsed: &ParsedFile,
-    statements: &[(Line, String)],
-    edge: &CfgEdge,
-    provenance: ArmProvenance,
-) -> bool {
-    if provenance.crosses_lexical_arm() {
-        return true;
-    }
-    if !matches!(provenance.origin, EdgeOrigin::Structured) {
-        return false;
-    }
-    #[cfg(test)]
-    work_tests::bump(|counts| counts.join_map_entries += statements.len());
-    let kinds: BTreeMap<Line, &str> = statements
-        .iter()
-        .map(|(line, kind)| (*line, kind.as_str()))
-        .collect();
-    let from_kind = kinds.get(&edge.from_line).copied().unwrap_or("");
-    let to_kind = kinds.get(&edge.to_line).copied().unwrap_or("");
-    let try_join = matches!(
-        parsed.language,
-        Language::Python
-            | Language::JavaScript
-            | Language::TypeScript
-            | Language::Tsx
-            | Language::Java
-    ) && from_kind == "try_statement";
-    let go_defer = parsed.language == Language::Go
-        && parsed.language.is_return_node(from_kind)
-        && to_kind == "defer_statement";
-    try_join || go_defer
-}
-
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod work_tests;
+
+#[cfg(test)]
+mod join_kind_tests;
