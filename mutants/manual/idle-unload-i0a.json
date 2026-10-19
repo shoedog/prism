@@ -1,0 +1,174 @@
+{
+  "manual_only": true,
+  "features": [
+    "mcp"
+  ],
+  "mutants": [
+    {
+      "id": "I0-unload-mid-request",
+      "selector": "mcp::idle_runtime::tests::idle_never_interrupts_request",
+      "description": "Remove both active-lease guards so timer detaches an in-use session.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": " || self.active.get() != 0",
+          "new": ""
+        },
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        if self.active.get() != 0 {\n            return;\n        }\n",
+          "new": ""
+        }
+      ]
+    },
+    {
+      "id": "I0-never-unloads",
+      "selector": "mcp::idle_runtime::tests::idle_releases_whole_session",
+      "description": "Never pass the timer deadline check; the resident provider remains pinned.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        if now < deadline {",
+          "new": "        if now >= deadline || now < deadline {"
+        }
+      ]
+    },
+    {
+      "id": "I0-reload-skips-freshness",
+      "selector": "mcp::idle_runtime::tests::idle_reload_rechecks_freshness",
+      "description": "Fault injection retains the old provider and re-publishes it on demand instead of calling bootstrap. The unchanged cycle still works; an unloaded source edit exposes stale source/freshness.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        self.disposing = true;\n        self.disposal_deadline = None;\n        let tx = self.tx.clone();\n        let log = self.log.clone();\n        let relief = self.policy.pressure_relief;\n        #[cfg(test)]\n        let before_dispose = self.before_dispose.clone();\n        std::thread::spawn(move || {\n            let started = Instant::now();\n            #[cfg(test)]\n            if let Some(hook) = before_dispose {\n                hook();\n            }\n            drop(provider); // whole session, including sticky diagnostics and lazy edge storage\n            let released = pressure_relief(relief);\n            // Log here even if EOF has retired the owner before disposal finishes.\n            log.event(\n                \"unload\",\n                \"idle\",\n                started.elapsed(),\n                Some(last_published),\n                released,\n            );\n            let _ = tx.send(Event::Disposed);\n        });",
+          "new": "        self.provider = Some(provider); // MUTANT: shadow keeps the old snapshot\n"
+        },
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        let builder = self.builder.clone();",
+          "new": "        if let Some(provider) = self.provider.take() {\n            self.phase = Phase::Building { started: (self.clock)(), deadline: None };\n            self.accept(Event::Built { result: Ok(provider), finished_at: (self.clock)() });\n            return;\n        }\n        let builder = self.builder.clone();"
+        }
+      ]
+    },
+    {
+      "id": "I0-uncollected-build-pinned",
+      "selector": "mcp::idle_runtime::tests::idle_releases_uncollected_build",
+      "description": "Collect result but omit the Ready transition, leaving a completed build classified busy.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                        self.phase = Phase::Ready;",
+          "new": "                        // MUTANT: completed build remains classified Building"
+        }
+      ]
+    },
+    {
+      "id": "I0-disposal-on-owner",
+      "selector": "mcp::idle_runtime::tests::idle_disposal_runs_off_loop_and_blocks_reload",
+      "description": "Remove only the short-lived worker wrapper; destruction executes synchronously on owner.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        self.disposing = true;\n        self.disposal_deadline = None;\n        let tx = self.tx.clone();\n        let log = self.log.clone();\n        let relief = self.policy.pressure_relief;\n        #[cfg(test)]\n        let before_dispose = self.before_dispose.clone();\n        std::thread::spawn(move || {\n            let started = Instant::now();\n            #[cfg(test)]\n            if let Some(hook) = before_dispose {\n                hook();\n            }\n            drop(provider); // whole session, including sticky diagnostics and lazy edge storage\n            let released = pressure_relief(relief);\n            // Log here even if EOF has retired the owner before disposal finishes.\n            log.event(\n                \"unload\",\n                \"idle\",\n                started.elapsed(),\n                Some(last_published),\n                released,\n            );\n            let _ = tx.send(Event::Disposed);\n        });",
+          "new": "        self.disposing = true;\n        self.disposal_deadline = None;\n        let tx = self.tx.clone();\n        let log = self.log.clone();\n        let relief = self.policy.pressure_relief;\n        #[cfg(test)]\n        let before_dispose = self.before_dispose.clone();\n        {\n            let started = Instant::now();\n            #[cfg(test)]\n            if let Some(hook) = before_dispose {\n                hook();\n            }\n            drop(provider); // whole session, including sticky diagnostics and lazy edge storage\n            let released = pressure_relief(relief);\n            // Log here even if EOF has retired the owner before disposal finishes.\n            log.event(\n                \"unload\",\n                \"idle\",\n                started.elapsed(),\n                Some(last_published),\n                released,\n            );\n            let _ = tx.send(Event::Disposed);\n        }"
+        }
+      ]
+    },
+    {
+      "id": "I0-autonomous-failure-heard",
+      "selector": "mcp::idle_runtime::tests::idle_unheard_failure",
+      "description": "Mark failure as already heard, causing next call to retry instead of reporting.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                            heard: false,",
+          "new": "                            heard: true,"
+        }
+      ]
+    },
+    {
+      "id": "I0-reset-generation",
+      "selector": "mcp::idle_runtime::tests::idle_reload_rechecks_freshness",
+      "description": "Remove generation continuity on reload.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                            provider.resume_idle_generation(previous);",
+          "new": "                            let _ = previous;"
+        }
+      ]
+    },
+    {
+      "id": "I0-collection-clock",
+      "selector": "mcp::idle_runtime::tests::idle_pending_input_and_finished_at_clock",
+      "description": "Use collection time instead of completion time.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                        self.published_at = Some(finished_at);",
+          "new": "                        self.published_at = Some((self.clock)());"
+        }
+      ]
+    },
+    {
+      "id": "I0-policy-default-off",
+      "selector": "mcp::idle::tests::idle_config_validation_and_precedence",
+      "description": "Remove provisional 600 second ordinary default.",
+      "edits": [
+        {
+          "file": "src/mcp/idle.rs",
+          "old": "                None => Duration::from_secs(600),",
+          "new": "                None => Duration::ZERO,"
+        }
+      ]
+    },
+    {
+      "id": "I0-disposal-ignores-zero-wait",
+      "selector": "mcp::idle_runtime::tests::idle_zero_wait_during_disposal_returns_warming",
+      "description": "Remove the new disposal deadline handling, restoring an unconditional recv.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                let now = (self.clock)();\n                let deadline = *self.disposal_deadline.get_or_insert(now + self.wait);\n                match self\n                    .rx\n                    .recv_timeout(deadline.saturating_duration_since(now))\n                {\n                    Ok(event) => self.accept(event),\n                    // No build has started yet, so its elapsed time is still zero.\n                    Err(_) => {\n                        return Readiness::Warming {\n                            elapsed: Duration::ZERO,\n                        }\n                    }\n                }\n",
+          "new": "                if let Ok(event) = self.rx.recv() {\n                    self.accept(event);\n                }\n"
+        }
+      ]
+    },
+    {
+      "id": "I0-warming-stuck-runtime",
+      "selector": "mcp::idle_runtime::tests::idle_warming_retry_success",
+      "description": "Collect result but omit the Ready transition, leaving a completed build classified busy.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                        self.phase = Phase::Ready;",
+          "new": "                        // MUTANT: completed build remains classified Building"
+        }
+      ]
+    },
+    {
+      "id": "I0-warming-stuck-client",
+      "selector": "mcp::idle_stdio::tests::idle_stdio_warming_retry_success",
+      "description": "Collect result but omit the Ready transition, leaving a completed build classified busy.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                        self.phase = Phase::Ready;",
+          "new": "                        // MUTANT: completed build remains classified Building"
+        }
+      ]
+    },
+    {
+      "id": "I0-late-result-leaked",
+      "selector": "mcp::idle_stdio::tests::idle_stdio_eof_disposes_late_build",
+      "description": "Leak the rejected completion after the EOF owner has retired.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "            let _ = tx.send(Event::Built {\n                result,\n                finished_at,\n            });",
+          "new": "            if let Err(late) = tx.send(Event::Built {\n                result,\n                finished_at,\n            }) {\n                std::mem::forget(late); // MUTANT: pin a late result after EOF\n            }"
+        }
+      ]
+    }
+  ]
+}

@@ -22,6 +22,24 @@ fn unload(rt: &mut IdleRuntime) {
     let now = rt.idle_deadline().unwrap();
     rt.accept(Event::Tick(now));
     assert!(matches!(rt.phase, Phase::Unloaded { .. }));
+    settle_disposal(rt);
+}
+
+fn settle_disposal(rt: &mut IdleRuntime) {
+    while rt.disposing {
+        let event = rt.rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        rt.accept(event);
+    }
+}
+
+fn query_bytes(provider: &SessionProvider) -> Vec<u8> {
+    let registry = crate::mcp::registry::ToolRegistry::all_v1();
+    let tool = registry.get("nav_nodes_at").unwrap();
+    let result = (tool.handler)(
+        &crate::mcp::registry::ToolContext::for_test(provider.session()),
+        &serde_json::json!({"file":"a.py", "line":1}),
+    );
+    serde_json::to_vec(&result.to_call_tool_result_value(Default::default())).unwrap()
 }
 
 #[test]
@@ -128,6 +146,7 @@ fn idle_releases_uncollected_build() {
         let repo = Arc::downgrade(&rt.session().repo);
         assert_eq!(rt.published_at, Some(finished));
         rt.tick(finished + Duration::from_secs(100));
+        settle_disposal(&mut rt);
         assert!(
             repo.upgrade().is_none(),
             "completed build must not stay busy/pinned"
@@ -159,13 +178,19 @@ fn idle_reload_rechecks_freshness() {
             "touch" => {
                 let path = dir.path().join("a.py");
                 let bytes = std::fs::read(&path).unwrap();
-                std::fs::write(path, bytes).unwrap();
+                let file = std::fs::OpenOptions::new().write(true).open(&path).unwrap();
+                let before = file.metadata().unwrap().modified().unwrap();
+                file.set_modified(before + Duration::from_secs(2)).unwrap();
+                assert_ne!(before, file.metadata().unwrap().modified().unwrap());
+                assert_eq!(std::fs::read(path).unwrap(), bytes);
             }
             _ => unreachable!(),
         }
         ready(&mut rt);
         let provider = rt.provider.as_ref().unwrap();
         assert!(!provider.freshness().check().stale);
+        let reference = SessionProvider::bootstrap(&cfg).unwrap();
+        assert_eq!(query_bytes(provider), query_bytes(&reference));
         assert_eq!(
             provider.generation(),
             previous + u64::from(change != "touch")
@@ -254,6 +279,11 @@ fn idle_drops_sticky_diagnostics_and_keeps_generation() {
         .known_stale_after_refresh()
         .is_none());
     assert_eq!(rt.provider.as_ref().unwrap().generation(), generation);
+    let reference = SessionProvider::bootstrap(&cfg).unwrap();
+    assert_eq!(
+        query_bytes(rt.provider.as_ref().unwrap()),
+        query_bytes(&reference)
+    );
 }
 
 #[test]
@@ -362,5 +392,120 @@ fn idle_reload_manifest_and_resolver_changes() {
             reference.idle_publication().fingerprint,
             rt.provider.as_ref().unwrap().idle_publication().fingerprint
         );
+        assert_eq!(
+            query_bytes(&reference),
+            query_bytes(rt.provider.as_ref().unwrap())
+        );
     }
+}
+
+#[test]
+fn idle_disposal_runs_off_loop_and_blocks_reload() {
+    let (_dir, cfg) = fixture();
+    let mut rt = runtime(&cfg);
+    ready(&mut rt);
+    let repo = Arc::downgrade(&rt.session().repo);
+    let owner = std::thread::current().id();
+    let (entered, observed) = mpsc::channel();
+    let (release, released) = mpsc::channel();
+    let released = Mutex::new(released);
+    rt.before_dispose = Some(Arc::new(move || {
+        let off_loop = std::thread::current().id() != owner;
+        entered.send(off_loop).unwrap();
+        // Mutant must fail behaviorally, never deadlock the owner.
+        if off_loop {
+            released
+                .lock()
+                .unwrap()
+                .recv_timeout(Duration::from_secs(10))
+                .unwrap();
+        }
+    }));
+    rt.tick(rt.idle_deadline().unwrap());
+    assert!(
+        observed.recv_timeout(Duration::from_secs(10)).unwrap(),
+        "disposal must run off owner loop"
+    );
+    assert!(rt.disposing);
+    assert!(repo.upgrade().is_some(), "worker still owns the session");
+    // The owner can still accept control input while disposal is held.
+    rt.accept(Event::Input(Input {
+        outcome: Ok(Some(ReadOutcome::Malformed)),
+        next: None,
+    }));
+    assert_eq!(rt.pending.len(), 1);
+    let attempts = rt.attempt;
+    assert!(rt.idle_deadline().is_none());
+    assert_eq!(rt.attempt, attempts);
+    release.send(()).unwrap();
+    ready(&mut rt); // waits for Disposed before demand construction
+    assert!(!rt.disposing);
+    assert_eq!(rt.attempt, attempts + 1);
+    assert!(repo.upgrade().is_none());
+}
+
+#[test]
+fn idle_failure_success_unload_forgets_old_failure() {
+    let (_dir, mut cfg) = fixture();
+    cfg.startup = StartupMode::Background;
+    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let count = calls.clone();
+    let builder_cfg = cfg.clone();
+    let builder: SessionBuilder = Arc::new(move || {
+        if count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+            anyhow::bail!("historical startup failure");
+        }
+        SessionProvider::bootstrap(&builder_cfg)
+    });
+    let mut rt = IdleRuntime::new(
+        &cfg,
+        IdlePolicy::enabled(Duration::from_secs(10)),
+        Some(builder),
+    )
+    .unwrap();
+    rt.accept(rt.rx.recv_timeout(Duration::from_secs(10)).unwrap());
+    assert!(matches!(rt.ensure_ready(), Readiness::Failed { .. }));
+    ready(&mut rt);
+    unload(&mut rt);
+    ready(&mut rt);
+    assert_eq!(rt.attempt, 3);
+    assert!(!rt.freshness().unwrap().check().stale);
+}
+
+#[test]
+fn idle_zero_wait_during_disposal_returns_warming() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let (_dir, cfg) = fixture();
+    let mut rt = runtime(&cfg);
+    ready(&mut rt);
+    rt.wait = Duration::ZERO;
+    let (entered, observed) = mpsc::channel();
+    let (release, released) = mpsc::channel();
+    let released = Mutex::new(released);
+    let held = Arc::new(AtomicBool::new(true));
+    let worker_held = held.clone();
+    rt.before_dispose = Some(Arc::new(move || {
+        entered.send(()).unwrap();
+        // Timeout makes the pre-fix RED bounded, rather than deadlocking readiness.
+        let _ = released
+            .lock()
+            .unwrap()
+            .recv_timeout(Duration::from_secs(1));
+        worker_held.store(false, Ordering::SeqCst);
+    }));
+    rt.tick(rt.idle_deadline().unwrap());
+    observed.recv_timeout(Duration::from_secs(10)).unwrap();
+    let attempts = rt.attempt;
+    assert!(matches!(rt.ensure_ready(), Readiness::Warming { .. }));
+    assert!(
+        held.load(Ordering::SeqCst),
+        "zero wait must return before held disposal completes"
+    );
+    assert_eq!(rt.attempt, attempts, "reload cannot overlap disposal");
+    release.send(()).unwrap();
+    settle_disposal(&mut rt);
+    let _ = rt.ensure_ready();
+    let event = rt.rx.recv_timeout(Duration::from_secs(10)).unwrap();
+    rt.accept(event);
+    ready(&mut rt);
 }

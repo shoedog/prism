@@ -25,7 +25,7 @@ impl Read for Chunks {
     }
 }
 struct Responses {
-    tx: mpsc::Sender<Value>,
+    tx: mpsc::Sender<Vec<u8>>,
     bytes: Vec<u8>,
 }
 impl Write for Responses {
@@ -33,9 +33,7 @@ impl Write for Responses {
         self.bytes.extend_from_slice(bytes);
         while let Some(end) = self.bytes.iter().position(|b| *b == b'\n') {
             let line: Vec<_> = self.bytes.drain(..=end).collect();
-            self.tx
-                .send(serde_json::from_slice(&line).unwrap())
-                .map_err(io::Error::other)?;
+            self.tx.send(line).map_err(io::Error::other)?;
         }
         Ok(bytes.len())
     }
@@ -45,7 +43,7 @@ impl Write for Responses {
 }
 struct Client {
     input: Option<mpsc::Sender<Vec<u8>>>,
-    output: mpsc::Receiver<Value>,
+    output: mpsc::Receiver<Vec<u8>>,
     done: mpsc::Receiver<anyhow::Result<()>>,
 }
 impl Client {
@@ -55,6 +53,9 @@ impl Client {
         self.input.as_ref().unwrap().send(bytes).unwrap();
     }
     fn response(&self) -> Value {
+        serde_json::from_slice(&self.raw_response()).unwrap()
+    }
+    fn raw_response(&self) -> Vec<u8> {
         self.output.recv_timeout(Duration::from_secs(10)).unwrap()
     }
     fn init(&self) {
@@ -289,15 +290,24 @@ fn idle_stdio_same_snapshot_bytes_across_unload() {
     let client = start(cfg, Duration::from_millis(30), Some(builder));
     client.init();
     client.query(2);
-    let first = client.response();
+    let first = client.raw_response();
+    for _ in 0..3 {
+        let repo = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        wait_dropped(&repo);
+        client.query(2);
+        assert_eq!(
+            first,
+            client.raw_response(),
+            "full same-build MCP bytes, including metadata"
+        );
+    }
     let repo = rx.recv_timeout(Duration::from_secs(5)).unwrap();
     wait_dropped(&repo);
-    client.query(2);
-    let second = client.response();
-    assert_eq!(
-        first, second,
-        "full same-build MCP bytes, including metadata"
-    );
+    client.send(json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}));
+    let refresh = client.response();
+    assert_eq!(refresh["result"]["isError"], false);
+    assert_eq!(refresh["result"]["_meta"]["prism/refresh_strategy"], "full");
+    assert_eq!(refresh["result"]["_meta"]["prism/refresh_generation"], 1);
     client.finish();
 }
 
@@ -311,10 +321,13 @@ fn idle_stdio_on_off_transcript_parity() {
         json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}),
         json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}),
     ];
-    let script: Vec<_> = messages.iter().map(Value::to_string).collect();
+    let script: String = messages
+        .iter()
+        .map(|message| format!("{message}\n"))
+        .collect();
     let mut legacy = super::super::lazy::LazySessionProvider::new(&cfg).unwrap();
-    let mut transport =
-        super::super::framing::InMemoryTransport::new(script.iter().map(String::as_str).collect());
+    let mut legacy_bytes = Vec::new();
+    let mut transport = LineTransport::new(BufReader::new(script.as_bytes()), &mut legacy_bytes);
     transport::serve_connection(
         &mut legacy,
         &ToolRegistry::all_v1(),
@@ -322,14 +335,59 @@ fn idle_stdio_on_off_transcript_parity() {
         &ConnectionSettings::from_env(),
     )
     .unwrap();
+    drop(transport);
     let client = start(cfg, Duration::from_secs(10), None);
     for message in messages {
         client.send(message);
     }
-    let enabled: Vec<_> = (0..4).map(|_| client.response()).collect();
+    let enabled_bytes: Vec<_> = (0..4).flat_map(|_| client.raw_response()).collect();
     assert_eq!(
-        serde_json::to_vec(&enabled).unwrap(),
-        serde_json::to_vec(transport.responses()).unwrap()
+        enabled_bytes, legacy_bytes,
+        "literal framed transcript bytes"
     );
     client.finish();
+}
+
+#[test]
+fn idle_stdio_warming_then_silence_releases_build() {
+    let (_dir, mut cfg) = fixture();
+    cfg.first_call_wait = Duration::ZERO;
+    let builder_cfg = cfg.clone();
+    let (release, rx) = mpsc::channel();
+    let rx = Mutex::new(rx);
+    let (built, observed) = mpsc::channel();
+    let builder: SessionBuilder = Arc::new(move || {
+        rx.lock().unwrap().recv().unwrap();
+        let p = SessionProvider::bootstrap(&builder_cfg)?;
+        built.send(Arc::downgrade(&p.session().repo)).unwrap();
+        Ok(p)
+    });
+    let client = start(cfg, Duration::from_millis(30), Some(builder));
+    client.init();
+    client.query(2);
+    assert!(client.response().to_string().contains("warming"));
+    release.send(()).unwrap();
+    let repo = observed.recv_timeout(Duration::from_secs(10)).unwrap();
+    wait_dropped(&repo);
+    assert!(client.output.try_recv().is_err());
+    client.finish();
+}
+
+#[test]
+fn idle_stdio_control_only_stays_unbuilt() {
+    let (_dir, cfg) = fixture();
+    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let count = calls.clone();
+    let builder: SessionBuilder = Arc::new(move || {
+        count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        anyhow::bail!("control messages must not build");
+    });
+    let client = start(cfg, Duration::from_millis(1), Some(builder));
+    client.init();
+    for (id, method) in [(2, "ping"), (3, "tools/list")] {
+        client.send(json!({"jsonrpc":"2.0", "id":id, "method":method}));
+        assert_eq!(client.response()["id"], id);
+    }
+    client.finish();
+    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
 }

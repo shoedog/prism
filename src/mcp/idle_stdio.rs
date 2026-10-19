@@ -11,9 +11,11 @@ use std::io::{BufRead, Write};
 use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::time::Instant;
 
+type TimerState = Arc<(Mutex<(bool, Option<Instant>)>, Condvar)>;
+
 /// One outstanding timer notification. Re-arming never queues a stream of timer ticks.
 struct Timer {
-    state: Arc<(Mutex<(bool, Option<Instant>)>, Condvar)>,
+    state: TimerState,
     worker: Option<std::thread::JoinHandle<()>>,
 }
 impl Timer {

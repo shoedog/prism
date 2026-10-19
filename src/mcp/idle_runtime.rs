@@ -25,6 +25,7 @@ pub(super) enum Event {
         finished_at: Instant,
     },
     Tick(Instant),
+    Disposed,
 }
 
 pub(super) struct IdleRuntime {
@@ -43,7 +44,18 @@ pub(super) struct IdleRuntime {
     active: Rc<Cell<usize>>,
     last_release: Rc<Cell<Instant>>,
     clock: Rc<dyn Fn() -> Instant>,
+    log: LifecycleLog,
+    disposing: bool,
+    disposal_deadline: Option<Instant>,
+    #[cfg(test)]
+    before_dispose: Option<Arc<dyn Fn() + Send + Sync>>,
+}
+
+#[derive(Clone)]
+struct LifecycleLog {
     identity: String,
+    timeout: Duration,
+    attempt: usize,
 }
 
 pub(super) struct Activity {
@@ -106,7 +118,15 @@ impl IdleRuntime {
             active: Rc::new(Cell::new(0)),
             last_release: Rc::new(Cell::new(Instant::now())),
             clock: Rc::new(Instant::now),
-            identity,
+            log: LifecycleLog {
+                identity,
+                timeout: policy.timeout.unwrap(),
+                attempt: 0,
+            },
+            disposing: false,
+            disposal_deadline: None,
+            #[cfg(test)]
+            before_dispose: None,
         };
         if cfg.startup == StartupMode::Background {
             rt.spawn();
@@ -128,11 +148,12 @@ impl IdleRuntime {
             self.previous = Some(last_published);
         }
         self.attempt += 1;
+        self.log.attempt = self.attempt;
         let builder = self.builder.clone();
         let tx = self.tx.clone();
         self.phase = Phase::Building {
             started: (self.clock)(),
-            deadline: None,
+            deadline: self.disposal_deadline.take(),
         };
         std::thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| builder()))
@@ -151,6 +172,7 @@ impl IdleRuntime {
         match event {
             Event::Input(input) => self.pending.push_back(input),
             Event::Tick(now) => self.tick(now),
+            Event::Disposed => self.disposing = false,
             Event::Built {
                 result,
                 finished_at,
@@ -171,7 +193,7 @@ impl IdleRuntime {
                         self.provider = Some(provider);
                         self.phase = Phase::Ready;
                         self.published_at = Some(finished_at);
-                        self.log(
+                        self.log.event(
                             "reload",
                             if changed { "changed_snapshot" } else { "ready" },
                             duration,
@@ -184,7 +206,8 @@ impl IdleRuntime {
                             error: error.to_string(),
                             heard: false,
                         };
-                        self.log("reload", "failed", duration, self.previous, 0);
+                        self.log
+                            .event("reload", "failed", duration, self.previous, 0);
                     }
                 }
             }
@@ -217,24 +240,41 @@ impl IdleRuntime {
         if now < deadline {
             return;
         }
-        let started = (self.clock)();
         let Some(provider) = self.provider.take() else {
             return;
         };
         let last_published = provider.idle_publication();
         self.phase = Phase::Unloaded { last_published };
-        drop(provider); // whole session, including sticky diagnostics and lazy edge storage
-        let released = pressure_relief(self.policy.pressure_relief);
-        self.log(
-            "unload",
-            "idle",
-            (self.clock)().saturating_duration_since(started),
-            Some(last_published),
-            released,
-        );
+        self.disposing = true;
+        self.disposal_deadline = None;
+        let tx = self.tx.clone();
+        let log = self.log.clone();
+        let relief = self.policy.pressure_relief;
+        #[cfg(test)]
+        let before_dispose = self.before_dispose.clone();
+        std::thread::spawn(move || {
+            let started = Instant::now();
+            #[cfg(test)]
+            if let Some(hook) = before_dispose {
+                hook();
+            }
+            drop(provider); // whole session, including sticky diagnostics and lazy edge storage
+            let released = pressure_relief(relief);
+            // Log here even if EOF has retired the owner before disposal finishes.
+            log.event(
+                "unload",
+                "idle",
+                started.elapsed(),
+                Some(last_published),
+                released,
+            );
+            let _ = tx.send(Event::Disposed);
+        });
     }
+}
 
-    fn log(
+impl LifecycleLog {
+    fn event(
         &self,
         event: &str,
         outcome: &str,
@@ -244,20 +284,38 @@ impl IdleRuntime {
     ) {
         eprintln!("prism-mcp: identity={} event={} reason={} idle_minutes={:.3} duration_ms={} attempt={} generation={} outcome={} released_bytes={}",
             self.identity, event, if event == "unload" { "idle" } else { "demand_or_startup" },
-            self.policy.timeout.unwrap_or_default().as_secs_f64() / 60.0, duration.as_millis(),
+            self.timeout.as_secs_f64() / 60.0, duration.as_millis(),
             self.attempt, published.map_or(0, |p| p.generation), outcome, released);
     }
 }
 
 impl SessionRuntime for IdleRuntime {
     fn ensure_ready(&mut self) -> Readiness {
-        if matches!(
-            self.phase,
-            Phase::Idle | Phase::Unloaded { .. } | Phase::Failed { heard: true, .. }
-        ) {
-            self.spawn();
-        }
         loop {
+            // Disposal owns the old session until its completion. Do not overlap a reload.
+            if self.disposing {
+                let now = (self.clock)();
+                let deadline = *self.disposal_deadline.get_or_insert(now + self.wait);
+                match self
+                    .rx
+                    .recv_timeout(deadline.saturating_duration_since(now))
+                {
+                    Ok(event) => self.accept(event),
+                    // No build has started yet, so its elapsed time is still zero.
+                    Err(_) => {
+                        return Readiness::Warming {
+                            elapsed: Duration::ZERO,
+                        }
+                    }
+                }
+                continue;
+            }
+            if matches!(
+                self.phase,
+                Phase::Idle | Phase::Unloaded { .. } | Phase::Failed { heard: true, .. }
+            ) {
+                self.spawn();
+            }
             match &mut self.phase {
                 Phase::Ready => return Readiness::Ready,
                 Phase::Failed { error, heard } => {
@@ -303,7 +361,7 @@ impl SessionRuntime for IdleRuntime {
     fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary> {
         let started = (self.clock)();
         let result = self.provider.as_mut().expect("ready").refresh();
-        self.log(
+        self.log.event(
             "refresh",
             if result.is_ok() { "complete" } else { "failed" },
             (self.clock)().saturating_duration_since(started),
@@ -315,7 +373,7 @@ impl SessionRuntime for IdleRuntime {
     fn auto_refresh_index(&mut self) -> anyhow::Result<AutoRefreshSummary> {
         let started = (self.clock)();
         let result = self.provider.as_mut().expect("ready").auto_refresh();
-        self.log(
+        self.log.event(
             "auto_refresh",
             if result.is_ok() { "complete" } else { "failed" },
             (self.clock)().saturating_duration_since(started),
