@@ -81,7 +81,7 @@ was performed. No real-site recall/receiver coverage gain is claimed.
 ## Next value checkpoint and custody
 
 Rerun the real parameter/argument-site audit on the pinned public corpus and
-the owner-authorized frontend portal. Measure which gaps this repair closes,
+the owner-authorized private corpus. Measure which gaps this repair closes,
 then classify optional/default and other remaining forms before further syntax
 expansion. Keep default-initializer provenance separate from optional bindings.
 

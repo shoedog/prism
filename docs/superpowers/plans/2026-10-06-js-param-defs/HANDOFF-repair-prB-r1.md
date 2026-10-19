@@ -54,7 +54,7 @@
 | 5 | Private F / independent review / commits | not performed | Controller-owned; not worker authorization | Controller | remaining review cap 2 |
 
 ## 5. Invariants and traps — do not do these
-- Never execute corpus packages or open frontend-portal; static source/Prism only.
+- Never execute corpus packages or open private-corpus; static source/Prism only.
 - No git writes, network, or browser launches; commits belong to controller.
 - Do not rebaseline existing tests or silently extend the two-round review cap.
 - Every diagnostic probe needs predicted/falsifying output and a recorded result.

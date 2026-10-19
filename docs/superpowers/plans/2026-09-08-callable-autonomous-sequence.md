@@ -48,7 +48,7 @@ At a cap classify convergence before any extension. Gate failures are controlled
 against exact base in the same environment; setup failures are inadmissible.
 
 Value checkpoints: unchanged fixed public Excalidraw source plus read-only
-frontend-portal evidence within existing acquisition authority. No private source,
+private-corpus evidence within existing acquisition authority. No private source,
 paths, packet details or reports in public Git. No installs in user-owned repos.
 Report explained failures, remaining blockers and potential receiver gains, not
 false positive recall gains from new ledgers alone.

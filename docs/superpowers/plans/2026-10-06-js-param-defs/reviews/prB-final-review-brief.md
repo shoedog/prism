@@ -1,7 +1,7 @@
 # Review: lane js-param-defs PR-B "callback identity" — the certified candidate (PR #351)
 
 ## Your role
-You are a senior/principal engineer reviewing for the project's long-term outcome. Be rigorous about finding real defects, and never invent them. Read-only: no git writes or PR comments; delete `target/` and scratch afterward. Never open any directory named `frontend-portal`. This is static analysis; never execute corpus packages. Node may run small synthetic fixtures.
+You are a senior/principal engineer reviewing for the project's long-term outcome. Be rigorous about finding real defects, and never invent them. Read-only: no git writes or PR comments; delete `target/` and scratch afterward. Never open any directory named `private-corpus`. This is static analysis; never execute corpus packages. Node may run small synthetic fixtures.
 
 ## What PR-B is
 JS/TS/TSX anonymous callables (call arguments, JSX handlers, `.map(x => …)`, top-level `createServer((req, res) => …)`) get their own data-flow pass under an unspellable synthetic owner `<cb@L:C>`, so their formals and locals get Defs and edges. A binder fence stops an enclosing function's pass from minting edges into nested binders.

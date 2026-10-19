@@ -524,7 +524,7 @@ fn identifier_index_differential_all_fixtures_and_generated() {
             let path = entry.path();
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            if name == "frontend-portal"
+            if name == "private-corpus"
                 || name.starts_with("f-")
                 || name.starts_with("F-private")
                 || name.contains("SecBench")

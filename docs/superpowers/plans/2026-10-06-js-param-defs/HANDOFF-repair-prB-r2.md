@@ -49,7 +49,7 @@
 | 3 | Adoption/commits | not authorized | Preserve current source/docs patches and snapshots; controller owns Git writes | STOP | cb996630/2cb7102a |
 
 ## 5. Invariants and traps — do not do these
-- No corpus execution, frontend-portal access, Git writes, network, browser launch, artifact restart or automatic adoption.
+- No corpus execution, private-corpus access, Git writes, network, browser launch, artifact restart or automatic adoption.
 - Preserve owner STOP-1(a), O1 and standalone O2; no new-family mechanism authority.
 - Keep the four primary CORRECT classifications, collapsed spans and E4 flags unchanged. Same-named parameter/body var plus default fn=null intersects the disclosed TS5.9.3 blindspot, but root cause is not settled and no reclassification is chosen.
 - No full 583 proof from 323 admitted pairs. Two timeout pairs and all missing receipts receive no correctness credit.

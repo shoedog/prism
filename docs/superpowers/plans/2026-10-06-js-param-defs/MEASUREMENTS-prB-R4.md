@@ -4,7 +4,7 @@
 
 **STOP, not acceptance.** Six DESIGN-CHANGE cells remain. The final frozen head omits **18 ES-proven main-correct rows** in the named-function invoked-default controls. The required LOST CORRECT=0 guarantee is false in the synthetic diagnostic population; no corpus count is inferred from it. ADDED WRONG=0 has not been established. The packet is ready for Fable; no delivery route is available, so it has not been sent.
 
-Entry branch `plan/js-param-defs-prB`, docs HEAD `a3dda01097ef010f39f60e6e65831f90e0e9af7f`. Entry source/test/mutant census:724/724 exactly equal source base `1af4301f`. Main product reference: `da0604b3`. The supplied frozen main byte dumper was freshly run on these synthetic fixtures in this host; its source provenance is inherited rather than rebuilt in R4. No git writes, corpus execution, installs or frontend-portal access occurred. No independent model-metadata or review claim is made.
+Entry branch `plan/js-param-defs-prB`, docs HEAD `a3dda01097ef010f39f60e6e65831f90e0e9af7f`. Entry source/test/mutant census:724/724 exactly equal source base `1af4301f`. Main product reference: `da0604b3`. The supplied frozen main byte dumper was freshly run on these synthetic fixtures in this host; its source provenance is inherited rather than rebuilt in R4. No git writes, corpus execution, installs or private-corpus access occurred. No independent model-metadata or review claim is made.
 
 ## Matrix and scope
 

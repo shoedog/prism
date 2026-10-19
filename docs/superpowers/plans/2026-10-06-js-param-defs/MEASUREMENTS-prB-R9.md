@@ -14,7 +14,7 @@ The following R9 STOP/F-block statements describe the pre-continuation state, no
 
 ## Binding and custody
 
-Entry docs HEAD3f6e582ed07a6194c717e20828ca1b47256e5ee3 is the controller's final-review correction, one docs commit after the stated b2aa4f21. All727 live src/tests/mutants files, including untracked files, matched source base2431cb104db7828d11ae409dc207c1e339270c93 before edits. Main clippy control binds723 source/build files to origin/main a57c5fcf858a8d977f2656d5814750a32823cd00 with zero differences. Retained main/f8c768b3 byte captures bind identical input hashes and exact binary/output receipts; R9 head captures are fresh. Frozen source-manifest.json, STOP-source-manifest.json, binary-binding.json, entry-binding.json and exact-base patch receipts preserve the bindings. Static only: no corpus package invocation and no frontend-portal access.
+Entry docs HEAD3f6e582ed07a6194c717e20828ca1b47256e5ee3 is the controller's final-review correction, one docs commit after the stated b2aa4f21. All727 live src/tests/mutants files, including untracked files, matched source base2431cb104db7828d11ae409dc207c1e339270c93 before edits. Main clippy control binds723 source/build files to origin/main a57c5fcf858a8d977f2656d5814750a32823cd00 with zero differences. Retained main/f8c768b3 byte captures bind identical input hashes and exact binary/output receipts; R9 head captures are fresh. Frozen source-manifest.json, STOP-source-manifest.json, binary-binding.json, entry-binding.json and exact-base patch receipts preserve the bindings. Static only: no corpus package invocation and no private-corpus access.
 
 ## Part A — completed BEFORE product edits
 
@@ -203,7 +203,7 @@ The controller F command is the concrete command in IMPLEMENTOR-prB.md, requirin
 
 ## Not verified / retained limits
 
-F/frontend-portal; controller Rust quick; human-triggered full multi-corpus Tier-A; post-landing/controller checkout; shipping/adoption; issue creation/merge; shared RD F10 or alias-twin F11; previously excluded DFG producers; arbitrary expression correctness beyond the finite matrices. Historical perf/independent sample/MCP receipts are not represented as freshly rerun R9 gates. The full nextest suite did run, with the one intentional reserved-variant skip reported. UNDECIDED/INADMISSIBLE rows and whole-pair exclusions are not correctness proofs. Any later changed source requires fresh source binding and gates.
+F; controller Rust quick; human-triggered full multi-corpus Tier-A; post-landing/controller checkout; shipping/adoption; issue creation/merge; shared RD F10 or alias-twin F11; previously excluded DFG producers; arbitrary expression correctness beyond the finite matrices. Historical perf/independent sample/MCP receipts are not represented as freshly rerun R9 gates. The full nextest suite did run, with the one intentional reserved-variant skip reported. UNDECIDED/INADMISSIBLE rows and whole-pair exclusions are not correctness proofs. Any later changed source requires fresh source binding and gates.
 
 ## Late controller parity finding — WRONG, unrepaired under STOP
 

@@ -137,6 +137,6 @@
   "not_run": [
     "Tier-A: no triggering src paths changed",
     "human-triggered full multi-corpus evaluation",
-    "frontend-portal remeasurement"
+    "private-corpus remeasurement"
   ]
 }

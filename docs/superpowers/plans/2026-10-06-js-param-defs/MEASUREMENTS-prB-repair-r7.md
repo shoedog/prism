@@ -2,7 +2,7 @@
 
 Certificate COMPLETE and clean against f8c768b3 on every admitted root, but PR-B is STOPPED by the main byte-table gate. All583 SecBench roots plus X, Xi and T are accounted for:579 admitted,7 explicit main-producer exclusions,0 unprocessed. After documented ES overrides, SecBench retains6 LOST CORRECT and82 ADDED WRONG, all in redos/react-native_0.63.0-rc.0. The complete88-row STOP population is preserved; no repair, reclassification, new override or restart followed. Exclusions have no semantic credit.
 
-One final owner-authorized R7 loop completed on2026-10-09/10 UTC; no restart, no Git writes, network, corpus-package execution, frontend-portal access or delegation. Actual transcript modelgpt-6.1-sol. Docs HEAD30c18a7ae210e342f3353d65eac1da6cf7c35788; inherited726 source/test/mutant files exactly127cc2573d70b0f61d4d2243727302bdd218735b, no extras. Certificate comparatorf8c768b3; main da0604b3. Final727-file source manifest, three binary SHAs, full586-root set, every input/output/producer binding and complete table partitions independently replay-audited with zero mismatches: final-invariants.json. Report written2026-10-10T02:30:22.765374+00:00.
+One final owner-authorized R7 loop completed on2026-10-09/10 UTC; no restart, no Git writes, network, corpus-package execution, private-corpus access or delegation. Actual transcript modelgpt-6.1-sol. Docs HEAD30c18a7ae210e342f3353d65eac1da6cf7c35788; inherited726 source/test/mutant files exactly127cc2573d70b0f61d4d2243727302bdd218735b, no extras. Certificate comparatorf8c768b3; main da0604b3. Final727-file source manifest, three binary SHAs, full586-root set, every input/output/producer binding and complete table partitions independently replay-audited with zero mismatches: final-invariants.json. Report written2026-10-10T02:30:22.765374+00:00.
 
 ## Complete Step1 failure population, sealed before product edits
 
@@ -164,6 +164,6 @@ REPORT.md, HANDOFF.md, final-corpus-totals.json, final-invariants.json, patch ma
 
 ## Not verified and STOP
 
-Seven excluded roots' semantics remain unknown; their main producer failures supplied no evidence. Rust quick and full human-triggered multi-corpus Tier-A were not run. Corpus packages were never executed; frontend-portal was never opened. TS erasure is not TypeScript type-check validation. Existing UNDECIDED byte rows and quick pending adjudications remain unresolved. No independent review, merge or deployment was performed.
+Seven excluded roots' semantics remain unknown; their main producer failures supplied no evidence. Rust quick and full human-triggered multi-corpus Tier-A were not run. Corpus packages were never executed; private-corpus was never opened. TS erasure is not TypeScript type-check validation. Existing UNDECIDED byte rows and quick pending adjudications remain unresolved. No independent review, merge or deployment was performed.
 
 STOP: redos/react-native_0.63.0-rc.0;6 LOST CORRECT +82 ADDED WRONG after existing ES overrides. Complete population and all remaining collect-all gates recorded; no repair or restart. This is the owner final loop; PR-B remains parked and the source candidate is not adoption-ready.

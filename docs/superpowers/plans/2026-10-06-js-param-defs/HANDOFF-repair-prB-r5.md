@@ -59,7 +59,7 @@
 ## 5. Invariants and traps — do not do these
 
 - Never restart; current artifact and stopped patches are preserved.
-- No Git writes, network, package execution or frontend-portal.
+- No Git writes, network, package execution or private-corpus.
 - SEAM is per formal binding: expression-bearing body-local names must not bypass E3.
 - Admitted param occurrences are incomplete for non-inert signatures; refusal uses complete BoundNames.
 - Valid callback admission does not imply it has DFG rows after formal refusal.

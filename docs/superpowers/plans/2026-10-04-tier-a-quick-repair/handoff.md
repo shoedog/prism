@@ -10,7 +10,7 @@
 **(a) Lane ownership** — `[INHERITED]` repair-r2-brief assigns this worker; no delegation. `[MEASURED]` transcript model gpt-6.1-sol, model-receipt.json — RESOLVED.
 **(b) Custody exposure** — `[MEASURED]` changed source/tests/docs snapshotted in delivery-source-snapshot/; R2.patch relative to be7f8266, with apply and byte comparison in delivery-receipt.json. Committing is controller-owned — RESOLVED by snapshot and delivery bundle.
 **(c) In flight / irreversible** — `[MEASURED]` quick loop23327 completed; every task-owned session returned a terminal result. Only task-owned terminal-run caches removed (generated-cleanup.json); no Git writes — RESOLVED. No OS-wide process claim.
-**(d) Authorization granted but not exercised** — “No git writes, use the cache env, never open frontend-portal.” Controller owns commits; full human-triggered all-corpus evaluation remains outside this repair.
+**(d) Authorization granted but not exercised** — “No git writes, use the cache env, never open private-corpus.” Controller owns commits; full human-triggered all-corpus evaluation remains outside this repair.
 
 ## 1. Resume order
 1. Read /Users/wesleyjinks/code/prism-tiera/docs/superpowers/plans/2026-10-04-tier-a-quick-repair/r2-readout.md (minutes).

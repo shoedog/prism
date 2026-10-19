@@ -22,7 +22,7 @@
 
 1. Read `/Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r9b/REPORT.md`, aggregate.json, final-binding.json and delivery.json; rebind source 96817370 and docs base 5ddbf1d6. Read-only, minutes.
 2. Controller: inspect exact R9b-docs.patch/apply reconstruction receipt, retain source commit 96817370, commit the corrected docs, and obtain E13 reaffirmation/revision using the per-root §8 extent.
-3. Controller: run IMPLEMENTOR-prB.md's exact private F command and Rust/full Tier-A quick with new evidence directories; preserve per-producer wall times. Never dispatch an implementer to frontend-portal.
+3. Controller: run IMPLEMENTOR-prB.md's exact private F command and Rust/full Tier-A quick with new evidence directories; preserve per-producer wall times. Never dispatch an implementer to private-corpus.
 4. On the controller landing checkout, rebind all inputs and required gates before landing; merge/adoption require separate authority.
 
 **STOP conditions:** any failed F9 proof or unclassified differing row, outside LOST CORRECT/ADDED WRONG, newly measured non-JS/call-site delta, or need for product source change. None occurred in R9b.
@@ -64,7 +64,7 @@
 
 ## 5. Invariants and traps — do not do these
 
-- No src/tests/mutants change, Git writes, provider/network use, corpus execution or frontend-portal access; R9b is bookkeeping/probes/docs only.
+- No src/tests/mutants change, Git writes, provider/network use, corpus execution or private-corpus access; R9b is bookkeeping/probes/docs only.
 - Do not reapply the historical source patch to already committed96817370.
 - Do not classify a decoded escaped literal as a strict directive; compare exact raw source text.
 - Generic Node parsing failures remain INADMISSIBLE; never give them CORRECT/WRONG credit.

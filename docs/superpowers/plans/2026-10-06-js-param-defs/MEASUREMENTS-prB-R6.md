@@ -2,7 +2,7 @@
 
 **Certificate NOT COMPLETE; mandatory STOP fired. No repair was attempted.**
 
-Source frozen at `127cc2573d70b0f61d4d2243727302bdd218735b`; docs base `420167609d2c5cb2a2810ebbfb97ded3c74e5046`; source patch base `b249da9571990f5f0983b4e7310f7490ea856761`; main `da0604b3`; certificate comparison `f8c768b3`. Owner loop 3/3; no extension, product source changes, Git writes, network, package execution, frontend-portal access, delegation, merge or adoption in R6b.
+Source frozen at `127cc2573d70b0f61d4d2243727302bdd218735b`; docs base `420167609d2c5cb2a2810ebbfb97ded3c74e5046`; source patch base `b249da9571990f5f0983b4e7310f7490ea856761`; main `da0604b3`; certificate comparison `f8c768b3`. Owner loop 3/3; no extension, product source changes, Git writes, network, package execution, private-corpus access, delegation, merge or adoption in R6b.
 
 The inherited R6 fix requires formal BoundNames membership before the named SEAM fallback. Synthetic JS/TS/TSX regressions failed all 6 shape/grammar comparisons on R5b and passed 54 focused callback/mechanism tests after the fix; PD93 is killed. All 35 historical outside-class rows are absent. R6b changes only evidence runners and documentation.
 
@@ -94,7 +94,7 @@ Artifacts: `R6-src.patch` relative to b249da95 reproduces127cc257 src/tests/muta
 
 Commit messages: `fix(js-param-defs): restrict named seam fallback to formal bindings` (source, already held in127cc257); `docs(js-param-defs): record R6 certificate denominators and recovery evidence` (documentation).
 
-Not verified: unprocessed roots, excluded roots/stages and tables/identity on the certificate-STOP root; semantic truth of UNDECIDED rows and outside-class differences; F/frontend-portal (explicitly forbidden); controller Rust quick and full multi-corpus Tier-A; independent review/merge/adoption. The incidental eligible sweep remains272/373 on each side and supplies no whole-sweep acceptance claim. The full product suite and other completed gates were not rerun in this continuation. Frozen binaries were authenticated by original build/source manifests and before/after byte hashes; no fresh rebuild was needed or performed in R6b.
+Not verified: unprocessed roots, excluded roots/stages and tables/identity on the certificate-STOP root; semantic truth of UNDECIDED rows and outside-class differences; F (explicitly forbidden); controller Rust quick and full multi-corpus Tier-A; independent review/merge/adoption. The incidental eligible sweep remains272/373 on each side and supplies no whole-sweep acceptance claim. The full product suite and other completed gates were not rerun in this continuation. Frozen binaries were authenticated by original build/source manifests and before/after byte hashes; no fresh rebuild was needed or performed in R6b.
 
 Table coverage audit: 390 admitted roots; rowdiff, changed-row stream, oracle-detail stream and raw verdict partition agree numerically for every class; zero coverage mismatches. This proves coverage, not the semantic truth of UNDECIDED rows.
 

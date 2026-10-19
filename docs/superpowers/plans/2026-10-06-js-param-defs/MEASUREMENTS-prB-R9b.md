@@ -6,7 +6,7 @@ The bookkeeping continuation is complete on frozen source **96817370ffb65dd3de14
 
 ## Binding, scope and admissibility
 
-[MEASURED] Planning branch `plan/js-param-defs-prB`, docs HEAD `5ddbf1d64991b7b9f609b1643b0951bd475b996f`. All 727 src/tests/mutants files, including untracked files, equal the committed 96817370 source; zero extras/missing/mismatches. Frozen R9 binaries match binary-binding.json. Entry and final binding receipts preserve complete Git-blob and SHA256 manifests. No product, test or mutant edit, Git write, corpus execution, frontend-portal access, network/provider call, source patch, restart or new review round was performed.
+[MEASURED] Planning branch `plan/js-param-defs-prB`, docs HEAD `5ddbf1d64991b7b9f609b1643b0951bd475b996f`. All 727 src/tests/mutants files, including untracked files, equal the committed 96817370 source; zero extras/missing/mismatches. Frozen R9 binaries match binary-binding.json. Entry and final binding receipts preserve complete Git-blob and SHA256 manifests. No product, test or mutant edit, Git write, corpus execution, private-corpus access, network/provider call, source patch, restart or new review round was performed.
 
 The controller authorized the TYPE_PREDICATE class and the bounded directive correction in prB-repair-r9b-brief.md. Retained R9 and R7 captures remain exactly source/input/output-bound; collect.py rechecks every root's input hashes and producer/retained output hashes. X/Xi/T certificates were recalculated from full row multisets with per-row independent proofs. All remaining unchanged R9 certificate classes/tables retain their receipts. CEJS is freshly measured and included. The R9-to-R9b accounting is collect-all; exclusions are terminal, not silently skipped.
 
@@ -120,12 +120,12 @@ bash "$PACKET/CONTROLLER-pd.sh" diff "$TS_JS" \
   "$R9/bin/prism-head-r9-bytes"
 ```
 
-The controller supplies the private root and a NEW private evidence directory, retains detailed paths/rows privately, and records wall time per producer. This worker did not run F or open frontend-portal. IMPLEMENTOR-prB.md dispatches source 96817370 and the exact-base docs patch, both mutant registries/cache pins, source-bound gates, F and Tier-A steps; history is in a marked appendix.
+The controller supplies the private root and a NEW private evidence directory, retains detailed paths/rows privately, and records wall time per producer. This worker did not run F or open private-corpus. IMPLEMENTOR-prB.md dispatches source 96817370 and the exact-base docs patch, both mutant registries/cache pins, source-bound gates, F and Tier-A steps; history is in a marked appendix.
 
 ## Delivery, unverified work and STOP
 
 `R9b-docs.patch` is a Git-diff-format patch relative to **5ddbf1d64991b7b9f609b1643b0951bd475b996f**; patch-docs-check.json records clean-base apply checking and exact reconstructed bytes. **No source patch.** Controller owns committing and landing. R9 REPORT/HANDOFF, current repo measurements/handoff, SPEC status/B-D8/§8, STOP/delivery current-state pointers are reconciled; historical reports and raw receipts remain preserved. Snapshot/delivery manifests bind stable artifacts.
 
-Not verified here: private F/frontend-portal, controller Rust/full quick, human-triggered full multi-corpus Tier-A, the seven excluded producers/identity pairs, optional six retries, owner E13 reaffirmation/revision, post-landing checkout, fresh perf/sample/MCP checks, remaining lane-P mutants, F10 shared reaching_edges, F11 alias-twin ordering, merge/adoption, or general correctness beyond bounded matrices. Historical missing wall times were not recreated. No memory write was authorized or made.
+Not verified here: private F, controller Rust/full quick, human-triggered full multi-corpus Tier-A, the seven excluded producers/identity pairs, optional six retries, owner E13 reaffirmation/revision, post-landing checkout, fresh perf/sample/MCP checks, remaining lane-P mutants, F10 shared reaching_edges, F11 alias-twin ordering, merge/adoption, or general correctness beyond bounded matrices. Historical missing wall times were not recreated. No memory write was authorized or made.
 
 **STOP: none.** Certificate clean means no unexplained differing row or failed required equality on admitted captures; it does not grant semantic credit to INADMISSIBLE/UNDECIDED rows or excluded roots, or authorize merging.

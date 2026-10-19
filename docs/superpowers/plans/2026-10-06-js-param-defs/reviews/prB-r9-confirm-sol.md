@@ -4,7 +4,7 @@
 
 Review binding: clean plan clone `/Users/wesleyjinks/code/prism-pd-rev-sol`, HEAD `5ddbf1d64991b7b9f609b1643b0951bd475b996f`. Source delta is `2431cb104db7828d11ae409dc207c1e339270c93..96817370ffb65dd3de14fe574789b6bf31e99ac5`, six files, 472 additions/30 deletions. Source references below bind **96817370**, not the plan checkout's product files. I read my earlier `prB-final-sol.md`, the other review, SPEC §8, and R9 REPORT/HANDOFF. I exported exact head, pre-change and current main (`cb0eeec062053f3b7d29b5d5c5eda8efa30e69da`) with `git archive` and built offline in non-Git scratch copies inside this clone. All **727** source/test/mutant manifest entries match the head archive. The production source was not edited.
 
-Evidence is retained beside this report under `prB-r9-confirm-sol.*`: complete fixture sources and hypothesis/expected/falsifier/alternative logs, full byte rows, parser trees, TS diagnostics/symbol declarations/emit, synthetic Node controls, builds, test logs, partition audit and samples. Corpus source was read statically; no corpus package was executed and no directory named `frontend-portal` was opened.
+Evidence is retained beside this report under `prB-r9-confirm-sol.*`: complete fixture sources and hypothesis/expected/falsifier/alternative logs, full byte rows, parser trees, TS diagnostics/symbol declarations/emit, synthetic Node controls, builds, test logs, partition audit and samples. Corpus source was read statically; no corpus package was executed and no directory named `private-corpus` was opened.
 
 ## R9-W1 — WRONG / MATERIAL: labelled body-function binding becomes a false block boundary
 

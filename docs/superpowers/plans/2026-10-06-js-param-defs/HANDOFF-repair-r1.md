@@ -64,7 +64,7 @@
 
 ## 5. Invariants and traps — do not do these
 
-- No git writes, network, corpus execution, or frontend-portal reads in this repair lane.
+- No git writes, network, corpus execution, or private-corpus reads in this repair lane.
 - Use /Users/wesleyjinks/prism-evidence/js-param-defs/cache for Prism; frozen final bins are authoritative. All build targets were deleted.
 - Host Python3.9 tarfile lacks filter; py_compile ambient cache is blocked; syntax verification used compile(text) without writes.
 - Old line-level CORRECT is refuted. Binding CORRECT is not independent CFG/flow proof; Exact retains D13 semantics.

@@ -18,7 +18,7 @@ in this slice; schema9 / producer0.10.0 remain unchanged.
   with checked bytes. No competing pattern, exact provider or relevant augmentation.
 
 These are occurrences, files and asset paths respectively, not 84 unique assets.
-The evidence is for this fixed public copy, not a new frontend-portal measurement.
+The evidence is for this fixed public copy, not a new private-corpus measurement.
 No installs, source/config/lock changes or runtime analyzer changes were made.
 
 ## Hypothesis / probe / result log

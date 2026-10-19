@@ -69,7 +69,7 @@ LOST CORRECT=0 and ADDED WRONG=0 are **not established**. The additional synthet
 - Nextest, doctests, mutants, clippy235/235, Tier-A matrix and TS/Node quick: **NOT RUN — mandatory STOP**. Rust quick likewise not run; the brief assigns its sandbox-limited rerun to the controller.
 - Non-JS byte identity, call-site identity, nav removal proofs, SecBench/O1, performance and full corpus tables: **NOT RUN — mandatory STOP**.
 - R3 production CLI/byte binaries: **NOT REBUILT — mandatory STOP**. The exact last compiled unit-test executable is frozen at `bin/prism-r3-stopped-unit-tests`, SHA256 `5743afb29824d8e3750e029bbe6e921434f5d33e8fadb6a6c10fa5f7847c07c1`. It is not a shipping binary. `bin/sha256.json`, controls-binding.json and stopped-source-manifest.json bind provenance.
-- No Git writes, network installs, corpus execution, frontend-portal access, review dispatch or denied-command retries.
+- No Git writes, network installs, corpus execution, private-corpus access, review dispatch or denied-command retries.
 
 ## Files and proposed custody commit messages
 

@@ -81,4 +81,4 @@ The first wider-suite launches mistakenly supplied parent cache directories. The
 - Full human-triggered all-corpus evaluation, live Go/Python oracles, model/provider evaluations and mutation campaigns.
 - The 18 broader Node native-membership failures and the reader-thread write-lock stall SMELL remain open; no whole-project-green claim.
 - Statistical power, cluster/design correction and runtime/async truth beyond calibrated static native answers.
-- Commit, push, independent acceptance and publication remain controller-owned. No Git writes, network acquisition or frontend-portal access occurred.
+- Commit, push, independent acceptance and publication remain controller-owned. No Git writes, network acquisition or private-corpus access occurred.

@@ -73,7 +73,7 @@ Both operations timed out at 600s (exit 124); each whole pair is excluded. RAYON
 | command-injection/total.js_3.4.6 | base.bytes 600.039s |
 
 
-Not verified: the remaining SecBench population/full 583 aggregate and F/frontend-portal, unsampled nav, human-triggered full Tier-A multi-corpus run, isolated performance, runtime/package execution, Rust oracle build-script facilities. TS5.9.3 parameter-default scope remains an oracle blindspot, covered syntactically by product regression controls rather than an oracle proof. Opus S-a–S-c and missing wrapped Def collection remain disclosed legacy-parity limits outside this repair. No network, Git writes, commit or adoption.
+Not verified: the remaining SecBench population/full 583 aggregate and F, unsampled nav, human-triggered full Tier-A multi-corpus run, isolated performance, runtime/package execution, Rust oracle build-script facilities. TS5.9.3 parameter-default scope remains an oracle blindspot, covered syntactically by product regression controls rather than an oracle proof. Opus S-a–S-c and missing wrapped Def collection remain disclosed legacy-parity limits outside this repair. No network, Git writes, commit or adoption.
 
 
 ## Commit-ready retained artifacts (STOP, not acceptance)

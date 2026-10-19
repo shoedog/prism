@@ -57,7 +57,7 @@
 
 ## 5. Invariants and traps — do not do these
 
-- No worker Git writes, network/providers, corpus execution or frontend-portal access; authorized work is static only.
+- No worker Git writes, network/providers, corpus execution or private-corpus access; authorized work is static only.
 - Part A used saved details; do not invent new Part A oracle captures.
 - Generic Node failure is an INADMISSIBLE proof, never authority to replace CORRECT.
 - Use bucket1 only for E13; buckets2/3 are gated. Five Pressability losses stay CORRECT.

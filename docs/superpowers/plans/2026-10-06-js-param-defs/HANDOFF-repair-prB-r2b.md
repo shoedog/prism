@@ -52,7 +52,7 @@
 |3|Independent review/adoption/commits|not dispatched|Review exact retained patches and bound evidence; controller handles Git|full gates not all-green; no worker adoption authority|cb996630/2cb7102a|
 
 ## 5. Invariants and traps — do not do these
-- No corpus execution, frontend-portal access, Git writes, network, browser, restart, independent review dispatch or auto-adoption.
+- No corpus execution, private-corpus access, Git writes, network, browser, restart, independent review dispatch or auto-adoption.
 - Same-line legacy WRONG remains WRONG. A same-env control refutes ADDED attribution, not the semantic defect.
 - E12 changes only3 exact source-bound primary TS verdicts; all primary output stays intact. Exact is a static-binding grade.
 - O2 remains standalone; joint checkpoint90 potential is not unmodified-package tracing credit.

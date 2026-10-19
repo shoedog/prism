@@ -52,7 +52,7 @@
 - Never ship/adopt the retained draft: tests fail, cache111 unchanged, old mutant anchors obsolete, production binaries absent.
 - Never choose a single default source by byte order: supplied arguments skip defaults; Node7/5/1 discriminates this.
 - Never transfer R2b corpus/gate credit to R3 or treat test exit alone as behavior.
-- Never execute corpus packages, open frontend-portal, perform Git writes or attempt sandbox-blocked classes.
+- Never execute corpus packages, open private-corpus, perform Git writes or attempt sandbox-blocked classes.
 - Dumper path is structured AccessPath; inspect its schema before selecting rows. First two C1 selectors were inadmissible and corrected without SUT reruns.
 - Missing current production/byte bins are explicit STOP exclusions; frozen unit-test binary is not a shipping executable.
 
