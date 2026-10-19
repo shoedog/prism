@@ -1,0 +1,61 @@
+{
+  "mutations": {
+    "JK01-rebuild-per-edge": [
+      "src/cpg/reaching.rs",
+      "    let kinds = join_kind::StatementKinds::new(&statements);\n    for (from, to, edge, provenance) in file_cfg_edges.for_owner(&line_index) {",
+      "    for (from, to, edge, provenance) in file_cfg_edges.for_owner(&line_index) {\n        let kinds = join_kind::StatementKinds::new(&statements);",
+      "cpg::reaching::join_kind_tests::owner_builds_kind_map_once"
+    ],
+    "JK02-first-duplicate-wins": [
+      "src/cpg/reaching/join_kind.rs",
+      ".iter()\n                .map(|(line, kind)| (*line, kind.as_str()))",
+      ".iter().rev()\n                .map(|(line, kind)| (*line, kind.as_str()))",
+      "cpg::reaching::join_kind_tests::duplicate_missing_lines_and_language_rules"
+    ],
+    "JK03-missing-from-looks-like-try": [
+      "src/cpg/reaching/join_kind.rs",
+      "let from_kind = kinds.get(&edge.from_line).copied().unwrap_or(\"\");",
+      "let from_kind = kinds.get(&edge.from_line).copied().unwrap_or(\"try_statement\");",
+      "cpg::reaching::join_kind_tests::duplicate_missing_lines_and_language_rules"
+    ],
+    "JK04-drop-arm-short-circuit": [
+      "src/cpg/reaching/join_kind.rs",
+      "if provenance.crosses_lexical_arm() {\n        return true;",
+      "if provenance.crosses_lexical_arm() {\n        return false;",
+      "cpg::reaching::join_kind_tests::provenance_short_circuits_without_building"
+    ],
+    "JK05-query-sequential-origins": [
+      "src/cpg/reaching/join_kind.rs",
+      "if !matches!(provenance.origin, EdgeOrigin::Structured) {",
+      "if false && !matches!(provenance.origin, EdgeOrigin::Structured) {",
+      "cpg::reaching::join_kind_tests::duplicate_missing_lines_and_language_rules"
+    ],
+    "JK06-wrong-try-language": [
+      "src/cpg/reaching/join_kind.rs",
+      "        Language::Python\n",
+      "        Language::Rust\n",
+      "cpg::reaching::join_kind_tests::duplicate_missing_lines_and_language_rules"
+    ],
+    "JK07-return-to-any-go-statement": [
+      "src/cpg/reaching/join_kind.rs",
+      "&& to_kind == \"defer_statement\"",
+      "&& to_kind != \"never_a_kind\"",
+      "cpg::reaching::join_kind_tests::duplicate_missing_lines_and_language_rules"
+    ],
+    "JK08-eager-map-before-gates": [
+      "src/cpg/reaching/join_kind.rs",
+      "    if provenance.crosses_lexical_arm() {",
+      "    let _ = kinds.get();\n    if provenance.crosses_lexical_arm() {",
+      "cpg::reaching::join_kind_tests::provenance_short_circuits_without_building"
+    ],
+    "JK09-defer-without-return": [
+      "src/cpg/reaching/join_kind.rs",
+      "&& parsed.language.is_return_node(from_kind)",
+      "&& !from_kind.is_empty()",
+      "cpg::reaching::join_kind_tests::duplicate_missing_lines_and_language_rules"
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::reaching::"
+  ]
+}

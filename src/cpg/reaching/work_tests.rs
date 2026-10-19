@@ -32,6 +32,12 @@ pub(super) struct Counts {
     pub cfg_cross_arm: usize,
     pub cfg_structured: usize,
     pub join_map_entries: usize,
+    pub join_map_builds: usize,
+    pub join_queries: usize,
+    pub statement_entries: usize,
+    pub statement_lookup_calls: usize,
+    pub definition_pair_comparisons: usize,
+    pub statement_query_lines: BTreeSet<Line>,
     pub use_byte_misses: usize,
     pub dominance_calls: usize,
     pub dominance_nodes: usize,
@@ -116,7 +122,7 @@ fn take_records() -> Vec<Counts> {
     RECORDS.with(|records| std::mem::take(&mut *records.borrow_mut()))
 }
 
-fn build(parsed: ParsedFile) -> (DataFlowGraph, Vec<Counts>) {
+pub(super) fn build(parsed: ParsedFile) -> (DataFlowGraph, Vec<Counts>) {
     build_counting(parsed, false)
 }
 
