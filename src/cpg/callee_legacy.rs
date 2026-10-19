@@ -129,3 +129,18 @@ impl CodePropertyGraph {
         out
     }
 }
+
+/// Frozen pre-C2 first-match lookup and syntax walk. No candidate lookup table.
+pub(super) fn returns(
+    parsed: &ParsedFile,
+    callee: &FunctionId,
+) -> Option<Vec<crate::ast::ReturnInfo>> {
+    let node = parsed.all_functions().into_iter().find(|node| {
+        parsed.node_line_range(node).0 == callee.start_line
+            && parsed
+                .language
+                .function_name(node)
+                .is_some_and(|name| parsed.node_text(&name) == callee.name.as_str())
+    })?;
+    Some(parsed.return_value_nodes(&node))
+}

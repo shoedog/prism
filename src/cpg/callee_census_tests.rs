@@ -33,7 +33,7 @@ pub(super) fn synthetic(m: usize) -> BTreeMap<String, ParsedFile> {
 
 // Exactly the recursive collect_return_infos visitation contract (including
 // pruned nested-callable roots and return roots, excluding their children).
-fn visits(p: &ParsedFile, node: tree_sitter::Node<'_>, root: usize) -> usize {
+pub(super) fn visits(p: &ParsedFile, node: tree_sitter::Node<'_>, root: usize) -> usize {
     if matches!(node.kind(), "return_statement" | "return_expression")
         || (node.id() != root
             && p.language
@@ -50,7 +50,9 @@ fn visits(p: &ParsedFile, node: tree_sitter::Node<'_>, root: usize) -> usize {
 }
 
 fn census(files: &BTreeMap<String, ParsedFile>) -> serde_json::Value {
+    eprintln!("census: building call graph");
     let cg = CallGraph::build(files);
+    eprintln!("census: replaying admission prefixes");
     let mut params: BTreeMap<FunctionId, usize> = BTreeMap::new();
     let mut returns: BTreeMap<FunctionId, (usize, usize)> = BTreeMap::new();
     let mut all5b = 0;
@@ -85,8 +87,14 @@ fn census(files: &BTreeMap<String, ParsedFile>) -> serde_json::Value {
                     }) {
                         all5b += 1;
                     }
-                    let _ =
-                        compute_param_def_nodes(cp, r.target, &BTreeMap::new(), &DiGraph::new());
+                    if std::env::var_os("CALLEE_RETURN_ONLY").is_none() {
+                        let _ = compute_param_def_nodes(
+                            cp,
+                            r.target,
+                            &BTreeMap::new(),
+                            &DiGraph::new(),
+                        );
+                    }
                 }
             }
             let Some(a) = p.assignment_for_exact_call(site.start_byte, site.end_byte) else {
@@ -142,7 +150,7 @@ fn callee_operation_census() {
         .unwrap();
         eprintln!("xlike-{m}: {value}");
     }
-    let path = format!("{scratch}/fixtures/checker/checker.ts");
+    let path = format!("{scratch}/fixtures-c1/checker/checker.ts");
     let source = std::fs::read_to_string(&path).unwrap();
     let files = BTreeMap::from([(
         "checker.ts".into(),
@@ -168,7 +176,8 @@ fn shared_parameter_demand_replay() {
     for name in ["xlike-1", "xlike-8", "xlike-32", "checker"] {
         let files = if name == "checker" {
             let source =
-                std::fs::read_to_string(format!("{scratch}/fixtures/checker/checker.ts")).unwrap();
+                std::fs::read_to_string(format!("{scratch}/fixtures-c1/checker/checker.ts"))
+                    .unwrap();
             BTreeMap::from([(
                 "checker.ts".into(),
                 ParsedFile::parse("checker.ts", &source, Language::TypeScript).unwrap(),
