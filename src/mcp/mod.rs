@@ -5,6 +5,9 @@ pub mod error;
 pub mod evidence_view;
 pub mod framing;
 pub mod freshness;
+pub mod idle;
+mod idle_runtime;
+mod idle_stdio;
 pub mod input;
 pub mod lazy;
 pub(crate) mod mem_attribution;
@@ -39,7 +42,19 @@ pub use shim::{
 };
 
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
+    let ambient = std::env::var("PRISM_MCP_INDEX_IDLE_SECS").ok();
+    let resolution = idle::IdlePolicy::resolve(None, ambient.as_deref(), &cfg, false)?;
+    if let Some(note) = resolution.note {
+        eprintln!("{note}");
+    }
+    run_with_idle_policy(cfg, resolution.policy)
+}
+
+pub fn run_with_idle_policy(cfg: ServerConfig, policy: idle::IdlePolicy) -> anyhow::Result<()> {
     let r = registry::ToolRegistry::all_v1();
+    if policy.timeout.is_some() {
+        return idle_stdio::serve(&cfg, policy, &r);
+    }
     match cfg.startup {
         StartupMode::Eager => {
             let mut p = SessionProvider::bootstrap(&cfg)?;

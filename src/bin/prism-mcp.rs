@@ -16,6 +16,12 @@ struct Cli {
     warm_at_startup: bool,
     #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u64).range(0..=600))]
     first_call_wait: u64,
+    /// Unload an ordinary stdio index after this many idle seconds (0 disables).
+    #[arg(long)]
+    index_idle_secs: Option<String>,
+    /// Prototype A+C allocator release, only after whole-session idle disposal.
+    #[arg(long, hide = true)]
+    index_idle_pressure_relief: bool,
     /// Measurement only (needs PRISM_MCP_MEM_REPORT=1): run this tools/call workload after the build.
     #[arg(long, hide = true)]
     mem_workload: Option<std::path::PathBuf>,
@@ -273,6 +279,9 @@ fn main() -> anyhow::Result<()> {
     }
 
     if c.shared {
+        if c.index_idle_secs.is_some() {
+            eprintln!("prism-mcp: --index-idle-secs is unused by the shared shim in I0a");
+        }
         std::process::exit(prism::mcp::run_shim(prism::mcp::ShimOptions {
             config: cfg,
             start_timeout: std::time::Duration::from_secs(
@@ -284,8 +293,21 @@ fn main() -> anyhow::Result<()> {
         }));
     }
 
+    let ambient = std::env::var("PRISM_MCP_INDEX_IDLE_SECS").ok();
+    let idle = prism::mcp::idle::IdlePolicy::resolve(
+        c.index_idle_secs.as_deref(),
+        ambient.as_deref(),
+        &cfg,
+        owner.is_some(),
+    )?;
+    if let Some(note) = idle.note {
+        eprintln!("{note}");
+    }
+    let policy = idle
+        .policy
+        .with_pressure_relief(c.index_idle_pressure_relief);
     match owner {
         Some(owner) => prism::mcp::run_with_owner(cfg, owner),
-        None => prism::mcp::run(cfg),
+        None => prism::mcp::run_with_idle_policy(cfg, policy),
     }
 }

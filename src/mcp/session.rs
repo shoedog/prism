@@ -116,13 +116,16 @@ struct SessionState {
     fallback_reason: Option<&'static str>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 struct SnapshotFingerprint {
     file_hashes: BTreeMap<String, String>,
     manifest_hashes: BTreeMap<String, String>,
     topology_key: BTreeMap<String, String>,
     has_type_db: bool,
 }
+
+#[path = "session_idle.rs"]
+mod idle_support;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RefreshStrategyPolicy {

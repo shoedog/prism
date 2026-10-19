@@ -617,7 +617,7 @@ fn parse_tool_call<'r>(
 
 /// Run one validated call against an in-process runtime: readiness first, then the refresh tool
 /// or a read that may hand over to the automatic-refresh path.
-fn dispatch_tool(
+pub(super) fn dispatch_tool(
     call: &ToolCall<'_>,
     runtime: &mut impl SessionRuntime,
     settings: &ConnectionSettings,
@@ -989,7 +989,7 @@ fn success_response(id: Value, result: Value) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "result": result })
 }
 
-fn error_response(id: Value, code: i64, message: &str) -> Value {
+pub(super) fn error_response(id: Value, code: i64, message: &str) -> Value {
     json!({
         "jsonrpc": "2.0",
         "id": id,
