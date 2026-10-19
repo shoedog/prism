@@ -22,6 +22,13 @@ pub(super) struct Counts {
     pub binding_facts: usize,
     pub binding_nodes: usize,
     pub cfg_candidates: usize,
+    pub cfg_file_edges: usize,
+    pub cfg_index_builds: usize,
+    pub cfg_cloned: usize,
+    pub cfg_admitted: usize,
+    pub cfg_sequential: usize,
+    pub cfg_cross_arm: usize,
+    pub cfg_structured: usize,
     pub join_map_entries: usize,
     pub use_byte_misses: usize,
     pub dominance_calls: usize,
@@ -30,8 +37,20 @@ pub(super) struct Counts {
 
 thread_local! {
     static RECORDING: Cell<bool> = const { Cell::new(false) };
+    static COUNT_ONLY: Cell<bool> = const { Cell::new(false) };
+    static INDEX_BUILDS: Cell<usize> = const { Cell::new(0) };
     static CURRENT: RefCell<Counts> = RefCell::default();
     static RECORDS: RefCell<Vec<Counts>> = const { RefCell::new(Vec::new()) };
+}
+
+pub(super) fn count_only() -> bool {
+    COUNT_ONLY.with(Cell::get)
+}
+
+pub(super) fn index_built() {
+    if RECORDING.with(Cell::get) {
+        INDEX_BUILDS.with(|count| count.set(count.get() + 1));
+    }
 }
 
 pub(super) fn bump(f: impl FnOnce(&mut Counts)) {
@@ -40,10 +59,18 @@ pub(super) fn bump(f: impl FnOnce(&mut Counts)) {
     }
 }
 
+pub(super) fn cfg_selection_counts(select: impl FnOnce()) -> Counts {
+    let _recording = Recording::begin();
+    CURRENT.with(|counts| *counts.borrow_mut() = Counts::default());
+    select();
+    CURRENT.with(|counts| counts.borrow().clone())
+}
+
 struct Recording;
 impl Recording {
     fn begin() -> Self {
         RECORDING.with(|enabled| assert!(!enabled.replace(true)));
+        INDEX_BUILDS.with(|count| count.set(0));
         take_records();
         Self
     }
@@ -65,6 +92,7 @@ impl Pass {
                 owner: parsed.dfg_owner_name(owner).unwrap_or_default(),
                 start: owner.start_position().row + 1,
                 language: format!("{:?}", parsed.language),
+                cfg_index_builds: INDEX_BUILDS.with(Cell::get),
                 ..Counts::default()
             };
         });
@@ -87,6 +115,10 @@ fn take_records() -> Vec<Counts> {
 }
 
 fn build(parsed: ParsedFile) -> (DataFlowGraph, Vec<Counts>) {
+    build_counting(parsed, false)
+}
+
+fn build_counting(parsed: ParsedFile, count_only: bool) -> (DataFlowGraph, Vec<Counts>) {
     // Both the DFG producer and the RD pass run on this worker. Independent
     // test threads/pools cannot contaminate counters or the differential mode.
     rayon::ThreadPoolBuilder::new()
@@ -96,7 +128,9 @@ fn build(parsed: ParsedFile) -> (DataFlowGraph, Vec<Counts>) {
         .unwrap()
         .install(|| {
             let _recording = Recording::begin();
+            COUNT_ONLY.with(|mode| mode.set(count_only));
             let graph = DataFlowGraph::build(&BTreeMap::from([(parsed.path.clone(), parsed)]));
+            COUNT_ONLY.with(|mode| mode.set(false));
             (graph, take_records())
         })
 }
@@ -110,7 +144,8 @@ fn zero_introductions_do_not_query_parameters() {
     )
     .unwrap();
     let func = parsed.all_functions()[0];
-    let cfg = cfg::build_cfg_edges_with_arms(&parsed);
+    let cfg_edges = cfg::build_cfg_edges_with_arms(&parsed);
+    let cfg = FileCfgEdgeIndex::new(&cfg_edges);
     let _recording = Recording::begin();
     let outcome = reaching_definitions_with_exact(&parsed, &func, &[], &[], &[], &cfg);
     assert!(matches!(outcome, RdOutcome::Available(_)));
@@ -135,7 +170,8 @@ fn absent_parameters_are_cached_across_introductions() {
         let parsed = ParsedFile::parse("absent.ts", &source, Language::TypeScript).unwrap();
         let owner = parsed.all_functions()[0];
         assert!(parsed.find_parameters_node(&owner).is_none());
-        let cfg = cfg::build_cfg_edges_with_arms(&parsed);
+        let cfg_edges = cfg::build_cfg_edges_with_arms(&parsed);
+        let cfg = FileCfgEdgeIndex::new(&cfg_edges);
         take_records();
         assert!(matches!(
             reaching_definitions_with_exact(&parsed, &owner, &[], &[], &[], &cfg),
@@ -183,7 +219,14 @@ fn early_exits_do_not_discover_parameters() {
             .collect();
         take_records();
         assert_eq!(
-            reaching_definitions_with_exact(&parsed, &owner, &defs, &[], &[], &[]),
+            reaching_definitions_with_exact(
+                &parsed,
+                &owner,
+                &defs,
+                &[],
+                &[],
+                &FileCfgEdgeIndex::new(&[])
+            ),
             RdOutcome::Unavailable(expected)
         );
         let counts = take_records().pop().unwrap();
@@ -204,7 +247,8 @@ fn ordinary_passes_do_not_record() {
     )
     .unwrap();
     let owner = parsed.all_functions()[0];
-    let cfg = cfg::build_cfg_edges_with_arms(&parsed);
+    let cfg_edges = cfg::build_cfg_edges_with_arms(&parsed);
+    let cfg = FileCfgEdgeIndex::new(&cfg_edges);
     take_records();
     assert!(!RECORDING.with(Cell::get));
     let run = || reaching_definitions_with_exact(&parsed, &owner, &[], &[], &[], &cfg);
@@ -231,7 +275,8 @@ fn root_inventory_cost_is_constant_per_owner() {
         );
         let parsed = ParsedFile::parse("cost.ts", &source, Language::TypeScript).unwrap();
         let func = parsed.all_functions()[0];
-        let cfg = cfg::build_cfg_edges_with_arms(&parsed);
+        let cfg_edges = cfg::build_cfg_edges_with_arms(&parsed);
+        let cfg = FileCfgEdgeIndex::new(&cfg_edges);
         take_records();
         let outcome = reaching_definitions_with_exact(&parsed, &func, &[], &[], &[], &cfg);
         assert!(matches!(outcome, RdOutcome::Available(_)));
@@ -268,7 +313,7 @@ fn scaling_operation_counts() {
             Language::TypeScript,
         )
         .unwrap();
-        let (_, records) = build(parsed);
+        let (_, records) = build_counting(parsed, true);
         eprintln!("counted {}: {} RD passes", path.display(), records.len());
         observations.insert(
             path.file_name().unwrap().to_string_lossy().to_string(),
@@ -280,6 +325,27 @@ fn scaling_operation_counts() {
         serde_json::to_vec_pretty(&observations).unwrap(),
     )
     .unwrap();
+}
+
+#[test]
+fn cfg_edge_cost_is_owner_bounded() {
+    for functions in [1, 16, 128] {
+        let source = (0..functions)
+            .map(|i| format!("function f{i}(p) {{\nlet x=p;\nconsume(x);\nreturn x;\n}}\n"))
+            .collect::<String>();
+        let parsed = ParsedFile::parse("small.ts", &source, Language::TypeScript).unwrap();
+        let (_, records) = build(parsed);
+        assert_eq!(records.len(), functions);
+        for counts in records {
+            assert_eq!(counts.cfg_index_builds, 1, "{counts:?}");
+            assert_eq!(counts.cfg_admitted, 2, "{counts:?}");
+            assert_eq!(
+                counts.cfg_candidates, 2,
+                "{functions} functions: {counts:?}"
+            );
+            assert_eq!(counts.cfg_cloned, counts.cfg_admitted, "{counts:?}");
+        }
+    }
 }
 
 thread_local! {
