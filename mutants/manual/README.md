@@ -1,7 +1,7 @@
 # Manual feature and Python mutations
 
-The shared `scripts/mutgate/mutgate.py` gate reads only `mutants/*.json`, loads `src/**/*.rs`, and
-builds without features. Catalogs here are intentionally outside that glob. Do not pass them to that runner.
+The shared `scripts/mutgate/mutgate.py` gate reads only `mutants/*.json`, builds without features and has
+no Python test runner. Catalogs here are intentionally outside that glob. Do not pass them to that runner.
 The shared runner and its ordinary catalogs remain unchanged.
 
 `memreport-changed-refresh.json` records `[file, exact original text, mutant text, one test selector]`.
@@ -17,8 +17,8 @@ For each entry, on the final candidate:
    selector to GREEN. Stop on any restoration mismatch or survivor; do not continue with a mutant applied.
 6. Save `mutant-<id>-killed.log` and `mutant-<id>-restored.log` plus the restore/hash checklist.
 
-S0 fix-round-1 receipts and the deadline-checked execution script are in
-`~/prism-evidence/mcp-memory/optimization-round2/s0/` (`FIX-R1.md`, `manual-mutants.py`, `mutant-results.json`).
-Check `date` before every Cargo command; start none at/after 2026-10-19 00:45 MDT for this round.
+S0 fix-round-1 receipts are kept in the lane's private evidence (`FIX-R1.md`, `mutant-results.json`); these
+README steps are the authority for re-running the population. An import-time error (`_FailedTest`,
+`SyntaxError`, `ImportError`) is INADMISSIBLE even though unittest reports it as one failed test.
 The authoritative full shared gate is a separate controller gate; these lane receipts certify only this
 manual population. A shared `--plan-only` run confirms catalog exclusion, not mutant kills.
