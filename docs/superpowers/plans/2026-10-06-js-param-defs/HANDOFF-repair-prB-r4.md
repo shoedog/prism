@@ -58,7 +58,7 @@
 
 ## 5. Invariants and traps — do not do these
 
-- No Git writes, installs, corpus execution or frontend-portal access under this brief. Synthetic Node only for semantics.
+- No Git writes, installs, corpus execution or private-corpus access under this brief. Synthetic Node only for semantics.
 - Do not use plain git diff1af for the source patch: two live untracked files exist in the1af tree and would be falsely deleted. Compare baseline blobs against live bytes.
 - VarLocation equality excludes byte spans; source sets must compare actual bytes.
 - Order nested writes by completion; each complete default has one conditional skip arm. Unioning every inner write admits overwritten/unselected sources.

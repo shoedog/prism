@@ -1,7 +1,7 @@
 # FABLE-DESIGN-R4 — PR-B "callback identity": the parameter-environment seam
 
 **Written:** 2026-10-06 · **By:** Fable 5.1 (independent designer, read-only) · **Answers:** `FABLE-ESCALATION.md` (R4 loop 1/3)
-**Read:** REPORT.md, STOP.json, HANDOFF.md, PROBE-LOG.md, default-invocation-losses.json (18 rows), matrix-cell-records.jsonl (763 cells, re-tabulated below), MATRIX-exceptions.md, classify_matrix.py, prB-repair-r4-brief.md; SPEC-prB.md (B-D1…B-D14, §8, R2/R2b folds), MEASUREMENTS-prB-R2b/R3/R4.md, reviews prB-spec-r2-{opus,sol}.md and prB-fold-confirm-opus.md (C1); HANDOFF-controller-2026-10-05.md; my DESIGN-INPUT §3. Source read at `origin/wip/js-param-defs-prB-r3` = `310de8b5` (R4 WIP; `1af4301f` + R4-src.patch) via `git show`; main `da0604b3`. No git writes, no corpus runs, no frontend-portal.
+**Read:** REPORT.md, STOP.json, HANDOFF.md, PROBE-LOG.md, default-invocation-losses.json (18 rows), matrix-cell-records.jsonl (763 cells, re-tabulated below), MATRIX-exceptions.md, classify_matrix.py, prB-repair-r4-brief.md; SPEC-prB.md (B-D1…B-D14, §8, R2/R2b folds), MEASUREMENTS-prB-R2b/R3/R4.md, reviews prB-spec-r2-{opus,sol}.md and prB-fold-confirm-opus.md (C1); HANDOFF-controller-2026-10-05.md; my DESIGN-INPUT §3. Source read at `origin/wip/js-param-defs-prB-r3` = `310de8b5` (R4 WIP; `1af4301f` + R4-src.patch) via `git show`; main `da0604b3`. No git writes, no corpus runs, no private-corpus.
 **Mechanism claims cite file:line in `310de8b5`.** Claims I did not probe are tagged `[STATIC]`.
 
 ---

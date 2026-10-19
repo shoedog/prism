@@ -1,6 +1,6 @@
 # Independent evaluation — three prism lanes in one controller, and the JS/TS parameter-Def gaps lane
 
-**Written:** 2026-10-05 · **By:** Fable 5.1 (independent evaluator, read-only) · **Repo read:** `~/code/prism-secbench` at `2777599b` (= `origin/main`) · **Evidence read:** the three controller handoffs, `survey/synthesis.md`, SecBench `R1.md` + product probes, reviews `r1-{opus,sol}-A.md` / `r2-opus-A.md`, Tier-A `r1`/`r2-readout.md`, `OQ-s2.md`, `pipeline-lessons.md`, the memory files MEMORY.md links, global + repo `CLAUDE.md`. No git writes; `frontend-portal` not opened.
+**Written:** 2026-10-05 · **By:** Fable 5.1 (independent evaluator, read-only) · **Repo read:** `~/code/prism-secbench` at `2777599b` (= `origin/main`) · **Evidence read:** the three controller handoffs, `survey/synthesis.md`, SecBench `R1.md` + product probes, reviews `r1-{opus,sol}-A.md` / `r2-opus-A.md`, Tier-A `r1`/`r2-readout.md`, `OQ-s2.md`, `pipeline-lessons.md`, the memory files MEMORY.md links, global + repo `CLAUDE.md`. No git writes; `private-corpus` not opened.
 
 Every mechanism claim below names the file and symbol I read. Where I did not run a probe, the claim is tagged `[STATIC]`.
 
@@ -25,7 +25,7 @@ Session `0ec85e7b` ran S2, PKG, MEAS-A and MEAS-B between 2026-10-03 and 10-05. 
 Standing pair Opus-5.5 + gpt-6.1-sol, cap 2 (owner 2026-09-30). Per lane: spec review (2 reviewers × ≤2 rounds) + impl review (same) + sol repairs ≈ 8–12 dispatches, each a clone and a handback the controller must read. Three lanes ≈ 30 dispatches in flight across a few days. Two known failure modes compound at that volume: the OpenAI cyber filter killed a sol repair on MEAS-A because the corpus is exploit code (handoff 10-04b UPDATE c), and codex "model at capacity" retries. Lane 3 touches exploit inputs continuously; lane 1 does not.
 
 ### 1.5 The private-corpus F bottleneck
-Only the controller runs F (`~/code/frontend-portal`; handoff 10-03 §5 "Never open the private corpus F in reviewer or planner briefs"). The F script (`CONTROLLER-s2.sh`) needs a pinned base binary, a freshly built head binary, a NEW `PRIVATE_EVIDENCE_ROOT`, and a stable tree for the run's duration (lesson 12: edits during a live run invalidated a full-corpus run). Lane 1 needs F per gap (§3.6), lane 2 needs F for the admission census and collision diff, lane 3 needs F for the React-props/destructuring census (F is the only React corpus). These are serial on one machine and one person-equivalent of attention. This is the hard constraint that makes "all three concurrently" fiction: the lanes would simply queue on F inside one context.
+Only the controller runs F (`<private-corpus-root>`; handoff 10-03 §5 "Never open the private corpus F in reviewer or planner briefs"). The F script (`CONTROLLER-s2.sh`) needs a pinned base binary, a freshly built head binary, a NEW `PRIVATE_EVIDENCE_ROOT`, and a stable tree for the run's duration (lesson 12: edits during a live run invalidated a full-corpus run). Lane 1 needs F per gap (§3.6), lane 2 needs F for the admission census and collision diff, lane 3 needs F for the React-props/destructuring census (F is the only React corpus). These are serial on one machine and one person-equivalent of attention. This is the hard constraint that makes "all three concurrently" fiction: the lanes would simply queue on F inside one context.
 
 ### 1.6 Owner attention
 S2 consumed nine owner decisions (S2-O1…O9) in two days. Lane 1 carries at least three owner-level decisions (§3.7: member-only accepted cost; synthetic identity visibility in nav/MCP; PR split). Lane 2 carries one (admission predicate). Lane 3 produces decisions rather than code. Three lanes in one session means the owner's escalations arrive interleaved from one voice with no lane isolation — the controller handoffs already show that owner questions were buried under in-flight state.
@@ -100,7 +100,7 @@ at the cap. Refresh ~/prism-evidence/HANDOFF-controller-<date>.md at every stabl
 ```
 You are a prism measurement controller for lane "meas3": measure what is still unmeasured so the owner can
 rank JS/TS work on data. Product tree is READ-ONLY for you: edit only eval/**, scripts/**, docs/eval/**,
-docs/superpowers/plans/2026-10-06-meas3/**. Never bump any cache version. Never open ~/code/frontend-portal;
+docs/superpowers/plans/2026-10-06-meas3/**. Never bump any cache version. Never open <private-corpus-root>;
 request F census runs via ~/prism-evidence/f-requests/meas3-<n>.md (see EVALUATION.md §2.2). Clones
 ~/code/prism-m3-{plan,rev-opus,rev-sol} off origin/main; branches meas/*; evidence ~/prism-evidence/meas3/;
 cache --cache-dir ~/prism-evidence/meas3/cache. Read first: ~/prism-evidence/fable-eval/EVALUATION.md §1.3

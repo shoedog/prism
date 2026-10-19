@@ -3,7 +3,7 @@
 Start from committed `bd4c30ffbe0a843391ca5c44e68c69cd8ae3b4d5` plus `repair-r2/R2-src.patch`; R1 is already included in that commit. Docs start at `a0e8504e87e383536f6be7e1a90ee463e93d76c7` plus `repair-r2/R2-docs.patch`. Base remains `c8de720b36c24ae8a7ab274ec10c994f258eb336`. Read SPEC D1–D13 and R1/R2 disclosures before dispatch. Review 2/2 converged; the owner authorized a disclosed one-time targeted cap extension, with no new review round. Exact is a static-binding grade; binding CORRECT does not prove runtime flow.
 
 ## Goal and workspace
-Register Defs for bare `x =>` and identifier rest formals in JS/TS/TSX, preserving existing correct rows and non-JS byte identity. The measured unmodified-package target is six rest traces and one arrow trace; two other arrows retain downstream residuals. Use the controller's implementation clone/branch from the committed bd4c30ff and R2 patch. Use `~/prism-evidence/js-param-defs/cache`. Never open frontend-portal or execute corpus packages. In the repair sandbox no git writes are authorized; the controller commits the patches.
+Register Defs for bare `x =>` and identifier rest formals in JS/TS/TSX, preserving existing correct rows and non-JS byte identity. The measured unmodified-package target is six rest traces and one arrow trace; two other arrows retain downstream residuals. Use the controller's implementation clone/branch from the committed bd4c30ff and R2 patch. Use `~/prism-evidence/js-param-defs/cache`. Never open private-corpus or execute corpus packages. In the repair sandbox no git writes are authorized; the controller commits the patches.
 
 ## Final change table
 | Site | Behavior | Boundary |

@@ -54,7 +54,7 @@ fn complete_dfg_fixture_sweep_against_fully_legacy_path() {
                     let entry = entry.unwrap();
                     let name = entry.file_name();
                     let name = name.to_string_lossy();
-                    if name == "frontend-portal"
+                    if name == "private-corpus"
                         || name.starts_with("f-")
                         || name.starts_with("F-private")
                         || name.contains("SecBench")

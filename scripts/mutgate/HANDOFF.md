@@ -11,7 +11,7 @@
 **(a) Lane ownership** — `[INHERITED]` owner dispatched this repairer; no agents dispatched — **RESOLVED by explicit owner assignment**.
 **(b) Custody exposure** — `[MEASURED]` four modified tracked files, report/handoff and 1.3 MiB evidence; checkpoint and final snapshots saved outside the build tree; git writes forbidden. Controller must commit — **OPEN until controller takes custody; bytes independently snapshotted**.
 **(c) In flight / irreversible** — `[MEASURED]` verification complete; all build directories from this run removed; no running process — **RESOLVED by completed receipts and `cleanup.json`**.
-**(d) Authorization granted but not exercised** — None. All requested repair and verification work completed. Standing limits: "No git writes. List the files and commit messages for the controller." Never open `~/code/frontend-portal`.
+**(d) Authorization granted but not exercised** — None. All requested repair and verification work completed. Standing limits: "No git writes. List the files and commit messages for the controller." Never open `<private-corpus-root>`.
 
 ## 1. Resume order
 

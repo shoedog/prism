@@ -63,7 +63,7 @@ not an independent compiler oracle or a general cache-authority certificate.
 classifications in the [earlier audit](2026-09-07-callable-closure-classification.md)
 are inherited, not newly recaptured here. A digest identifies neither initiating
 request nor phase. Four class candidates remain unproven;30 observations and53
-nested calls remain unchanged. No frontend-portal remeasurement, install or source
+nested calls remain unchanged. No private-corpus remeasurement, install or source
 edit occurred. Asset presence, semantic closure and runtime authority stay separate.
 
 ## Hypothesis / probe / result

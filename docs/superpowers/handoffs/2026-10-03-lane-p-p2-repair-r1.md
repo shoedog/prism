@@ -57,7 +57,7 @@
 
 ## 5. Invariants and traps — do not do these
 
-- Never open F, frontend-portal or acceptance-F directories in repairer lane.
+- Never open F, private-corpus or acceptance-F directories in repairer lane.
 - Keep cache 106/62; source/build identity intentionally changes with source bytes, including cfg(test) bytes.
 - Preserve supported raw relative-forward and inherited ReExport behavior. Trailing-whitespace refusal is explicitly required by controller despite main's inherited trim.
 - Incomplete control archives are inadmissible. Exact main builds need scripts/callable-observations; all-target test checking also needs four docs/eval/receiver-closure JSON assets. Failures and complete populations are saved.

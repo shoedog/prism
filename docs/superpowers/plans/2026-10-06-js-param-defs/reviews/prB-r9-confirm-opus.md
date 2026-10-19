@@ -179,7 +179,7 @@ Unchanged and pre-existing, for the record: `(/* c */ eval)("f = 2")` is still a
 - Inadmissible probes, fixed before any conclusion: `nav dfg-stats --edges --no-cache` (the flag is not accepted there; I used the byte dumper); my first navigation comparison passed each query as one unsplit argument and both binaries printed usage (re-run under bash).
 - Navigation on a fixture repo covering the delta's shapes: `callers`, `callees`, `symbol-spans`, `ego`, `repo-map`, `module-deps`, `functions`, `nodes-at` byte-identical between head and main with no `<cb@`; `call-stats` differs only in its nested `dfg_labels` counters.
 - Gate logs read, not re-run: nextest 5,241 passed / 1 skipped; mutants 103/103 KILLED; clippy 235/235 equal multiset; Tier-A matrix cells `ok`. `final/summary.json` matches every number in the brief (578 admitted).
-- Scratch build, `target/` and fixtures deleted; the clone is clean on `review-r9`. No git writes. No `frontend-portal` access. Node ran only my own snippets and the pinned TypeScript library; no corpus package was executed.
+- Scratch build, `target/` and fixtures deleted; the clone is clean on `review-r9`. No git writes. No `private-corpus` access. Node ran only my own snippets and the pinned TypeScript library; no corpus package was executed.
 
 ## What I did not check
 

@@ -1,7 +1,7 @@
 # Fold-confirmation review: lane js-param-defs PR-B, the R9 fix delta (PR #351)
 
 ## Your role
-You are a senior/principal engineer reviewing for the project's long-term outcome. Be rigorous about finding real defects, and never invent them. Read-only: no git writes or PR comments; delete `target/` and scratch afterward. Never open any directory named `frontend-portal`. This is static analysis; never execute corpus packages. Node may run small synthetic fixtures.
+You are a senior/principal engineer reviewing for the project's long-term outcome. Be rigorous about finding real defects, and never invent them. Read-only: no git writes or PR comments; delete `target/` and scratch afterward. Never open any directory named `private-corpus`. This is static analysis; never execute corpus packages. Node may run small synthetic fixtures.
 
 ## The decision this review serves
 Whether the plan PR #351 merges and source head `96817370` lands on main as PR-B. This is one narrow round on the fix delta only. The design, the owner decisions in SPEC-prB §8 and everything reviewed before `2431cb10` are settled; report against them only if the delta implements one wrongly.

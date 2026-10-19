@@ -1,7 +1,7 @@
 **R6 continuation (2026-10-06):** Owner prB-repair-r6-brief.md authorizes the closed CERT-1 repair on the retained b249da95 candidate, loop3/3. Historical R5b STOP receipts below remain evidence; current state is MEASUREMENTS-prB-R6.md / HANDOFF-repair-prB-r6.md. No completion or adoption is claimed.
 # PR-B R5b continuation — retained candidate, outside-certificate STOP
 
-Written 2026-10-07T01:16:48.440459+00:00. **STOP / PARKED.** The worker continued the existing stopped R5 tree under prB-repair-r5b-brief.md. No restart, Git writes, network, corpus execution, frontend-portal access, independent review, adoption or merge. Review cap1 remains unspent. Runtime model metadata was not independently verified; no model identity claim is made.
+Written 2026-10-07T01:16:48.440459+00:00. **STOP / PARKED.** The worker continued the existing stopped R5 tree under prB-repair-r5b-brief.md. No restart, Git writes, network, corpus execution, private-corpus access, independent review, adoption or merge. Review cap1 remains unspent. Runtime model metadata was not independently verified; no model identity claim is made.
 
 Entry/current branch plan/js-param-defs-prB, HEAD/docs base0fbe6c85ed2277fb1069cb9332b0bb126327a0a3. Source patch base310de8b5; product main da0604b3; last complete candidate f8c768b3. Fresh entry hash check725/725 equals the stopped R5 source manifest. Source and stopped patches were preserved before editing; R5-src-stopped.patch and R5-docs-stopped.patch remain the original stopped files.
 
@@ -77,7 +77,7 @@ No0 LOST CORRECT /0 ADDED WRONG whole-corpus claim. The accepted E12 reversion (
 | Doctests |NOT RUN — STOP |
 | Tier-A matrix / TS+Node quick |NOT RUN — STOP |
 | Non-JS/call-site identity/nav removal proofs/O1/SecBench perf |NOT RUN — STOP; completed certificate non-JS check is only70 roots |
-| F/Rust quick/independent Opus-sol review |NOT RUN; no frontend-portal access, no review dispatch |
+| F/Rust quick/independent Opus-sol review |NOT RUN; no private-corpus access, no review dispatch |
 
 The nextest failure is mcp::transport::tests::lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated: src/mcp/transport_tests.rs427, isError=true where false was expected. It was not fixed or rebaselined. No same-environment pre-change full-suite control was run, so it is **not attributed** to R5b. The original pre-existing SliceElem skip remains unverified here. An isolated current retry would not supply an attribution control; none was run.
 

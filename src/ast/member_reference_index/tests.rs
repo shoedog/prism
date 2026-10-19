@@ -139,7 +139,7 @@ fn member_index_differential_all_fixtures() {
             if entry.file_type().unwrap().is_dir() {
                 let name = entry.file_name();
                 let name = name.to_string_lossy();
-                if name == "frontend-portal"
+                if name == "private-corpus"
                     || name.starts_with("f-")
                     || name.starts_with("F-private")
                     || name.contains("SecBench")

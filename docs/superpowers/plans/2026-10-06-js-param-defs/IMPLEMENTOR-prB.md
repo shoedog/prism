@@ -36,7 +36,7 @@ The full quick includes controller-owned Rust. Use --allow-stale-sut only after 
 
 ## Controller-only F command
 
-Use the corrected helper **and consumer**. Type-annotated JS bucket1 alone has the E13 exception; bucket2 non8xxx diagnostic JS and bucket3 everything else remain gated. Raw and after-override tables are both published. INADMISSIBLE Node proofs leave the oracle verdict unchanged; only the fixture-backed allowlist may override. Raw outside LOST CORRECT without that proof, effective outside LOST CORRECT, or outside ADDED WRONG is STOP. Private rows stay private; worker never opens frontend-portal or executes corpus packages.
+Use the corrected helper **and consumer**. Type-annotated JS bucket1 alone has the E13 exception; bucket2 non8xxx diagnostic JS and bucket3 everything else remain gated. Raw and after-override tables are both published. INADMISSIBLE Node proofs leave the oracle verdict unchanged; only the fixture-backed allowlist may override. Raw outside LOST CORRECT without that proof, effective outside LOST CORRECT, or outside ADDED WRONG is STOP. Private rows stay private; worker never opens private-corpus or executes corpus packages.
 
 ```bash
 PACKET="$HOME/code/prism-pd-plan/docs/superpowers/plans/2026-10-06-js-param-defs"
@@ -69,7 +69,7 @@ The material below is retained for provenance only. Its source bases, cache vers
 
 The bounded worker fold/measurement/custody is complete on admitted evidence. Read MEASUREMENTS-prB-R2b.md/HANDOFF-repair-prB-r2b.md and repair-r2b final-custody-check.json/patch-manifest.json. Rust quick is INVALID after oracle_timeout and known denied corpus-target writes; no denied-class retry, timeout relaxation, all-green claim or auto-adoption. Controller verification remains required before full gate acceptance. Frozen source is cache111; binaries/patches are current R2b, source base cb996630/docs base2cb7102a.
 
-No source edit, restart, extra review round, Git writes, corpus execution or frontend-portal access was authorized beyond the targeted brief. The dispatch below is historical and retained solely for provenance.
+No source edit, restart, extra review round, Git writes, corpus execution or private-corpus access was authorized beyond the targeted brief. The dispatch below is historical and retained solely for provenance.
 
 # Historical IMPLEMENTOR dispatch — js-param-defs PR-B callback identity, R2
 
@@ -77,7 +77,7 @@ No source edit, restart, extra review round, Git writes, corpus execution or fro
 
 Dispatch from committed source `origin/proto/js-param-defs-prB` = `cb99663090966c8b128d19649f3b7fc820907f7a` plus `~/prism-evidence/js-param-defs/prB/repair-r2/R2-src.patch`. Docs/eval base is committed `2cb7102a0b4c186a1a6c09c586dae4620c8e6de8` plus `R2-docs.patch`. The respective R1 patches are already folded into those commits. Product comparison base remains main `da0604b3` (PR-A merged). This is the owner's disclosed one-time cap extension after FIX at review 2/2: targeted repair of closed instances on the retained artifact, with no restart, adoption, merge or further review authority.
 
-Read SPEC-prB B-D1–B-D14 and the exact `prB-repair-r2-brief.md`. Never open frontend-portal, execute corpus packages or perform Git writes. Use `--cache-dir ~/prism-evidence/js-param-defs/cache`. Exact is a static-binding grade. Owner STOP-1(a), O1 and standalone O2 remain in force.
+Read SPEC-prB B-D1–B-D14 and the exact `prB-repair-r2-brief.md`. Never open private-corpus, execute corpus packages or perform Git writes. Use `--cache-dir ~/prism-evidence/js-param-defs/cache`. Exact is a static-binding grade. Owner STOP-1(a), O1 and standalone O2 remain in force.
 
 | Finding | Bounded repair | Required controls |
 |---|---|---|

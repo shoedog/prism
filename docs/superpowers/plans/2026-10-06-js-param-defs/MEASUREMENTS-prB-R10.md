@@ -1,6 +1,6 @@
 # PR-B R10 — COMPLETE and clean on admitted roots
 
-[MEASURED] Written 2026-10-10T07:47:02.841108+00:00. Source patch base **96817370ffb65dd3de14fe574789b6bf31e99ac5**; docs patch base **29a1d2d9139590baf3a281d1f32e233f01337026**. Planning branch plan/js-param-defs-prB stays at docs HEAD29a1d2d9; no Git metadata writes. Entry source727/727 equal including untracked files, no extras. R10 frozen source has728 files with one new control fixture; source-manifest SHA256 `12ece9338d27eb411666fb0e08635e2cc2591f32c5ca7a65df349c3095fa3b61`. Static analysis only; no corpus package execution, network/provider use or frontend-portal access.
+[MEASURED] Written 2026-10-10T07:47:02.841108+00:00. Source patch base **96817370ffb65dd3de14fe574789b6bf31e99ac5**; docs patch base **29a1d2d9139590baf3a281d1f32e233f01337026**. Planning branch plan/js-param-defs-prB stays at docs HEAD29a1d2d9; no Git metadata writes. Entry source727/727 equal including untracked files, no extras. R10 frozen source has728 files with one new control fixture; source-manifest SHA256 `12ece9338d27eb411666fb0e08635e2cc2591f32c5ca7a65df349c3095fa3b61`. Static analysis only; no corpus package execution, network/provider use or private-corpus access.
 
 ## Part A: corrected saved-detail baseline, before product edits
 
@@ -115,7 +115,7 @@ bash "$PACKET/CONTROLLER-pd.sh" diff "$TS_JS" \
   "$R10/bin/prism-head-r10-bytes"
 ```
 
-Controller supplies the private root and a NEW evidence directory. Detailed private rows stay private; preserve per-producer timings. Worker/controller classifier parity22/22 and F aggregate consumer controls8/8 pass; no F run or frontend-portal read occurred.
+Controller supplies the private root and a NEW evidence directory. Detailed private rows stay private; preserve per-producer timings. Worker/controller classifier parity22/22 and F aggregate consumer controls8/8 pass; no F run or private-corpus read occurred.
 
 ## Controller checks on the committed head (2026-10-10)
 

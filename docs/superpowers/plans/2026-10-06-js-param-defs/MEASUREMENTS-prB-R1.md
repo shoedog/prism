@@ -4,7 +4,7 @@
 
 Status: authorized source/eval/doc repair and final evidence collection complete. All measured STOP conditions are clear on the admitted population; exclusions and unresolved rows remain explicit. This document supersedes historical b10 completion claims only where fresh evidence is stated. Review cap remains two rounds. No adoption, commit, push or F result is claimed. Clippy warning parity is not achieved (one new SMELL).
 
-Source anchors: main/base `da0604b3bcaa983436f58921ba68386ddf48bb8a`; prototype `0660b3c5c1bb31a90320a74a53e1cd32cf2b3807`; docs HEAD `41de010c23d21f90a906a3cccd653b07b09a2e1a` (see entry.json for the authoritative full hash). Entry verified all 724 src/tests/mutants files, including untracked prototype files. No corpus package was executed; frontend-portal was never opened; no git writes.
+Source anchors: main/base `da0604b3bcaa983436f58921ba68386ddf48bb8a`; prototype `0660b3c5c1bb31a90320a74a53e1cd32cf2b3807`; docs HEAD `41de010c23d21f90a906a3cccd653b07b09a2e1a` (see entry.json for the authoritative full hash). Entry verified all 724 src/tests/mutants files, including untracked prototype files. No corpus package was executed; private-corpus was never opened; no git writes.
 
 Evidence: `/Users/wesleyjinks/prism-evidence/js-param-defs/prB/repair-r1/`. Frozen current production binary `bin/prism-head-r1-final`, SHA256 `f0f314f51de06166e543cf1df835577a39e1c1068b0cc67a1770c2dc0d696a5d`; bytes binary `bin/prism-head-r1-final-bytes`, SHA256 `95c032a792323bfc5f67435cfb5a00406db14627bf399feb8bbe3c0293281a9f`. Intermediate binaries are preserved as superseded. final-source-manifest.json binds source bytes.
 

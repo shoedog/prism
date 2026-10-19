@@ -186,7 +186,7 @@ fn all_repository_fixtures() {
     fn visit(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
-            if path.file_name().unwrap() == "frontend-portal" {
+            if path.file_name().unwrap() == "private-corpus" {
                 continue;
             }
             if path.is_dir() {

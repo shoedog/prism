@@ -119,7 +119,7 @@ Alternative mechanisms I ruled out: a stale head binary (the worker's 728-file s
 
 ## What I did not check
 
-- **F** — never opened. No `frontend-portal` access.
+- **F** — never opened. No `private-corpus` access.
 - No cargo build and no gate re-run: nextest, the six R10 tests, mutants, clippy, fmt, Tier-A matrix and quick, perf, MCP. I read the worker's receipts for the R10 tests, the suite total and the mutants only.
 - That the frozen head binaries were built from the manifest source: I checked the manifest against the commit and the binaries' behaviour, not the build itself.
 - The corpus certificate (579 admitted roots, empty head-to-head difference set) and the three-bucket Part A tables: read in MEASUREMENTS-prB-R10.md, not regenerated or re-scored this round.

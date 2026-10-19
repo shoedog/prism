@@ -45,7 +45,7 @@
 
 ## 5. Invariants and traps — do not do these
 
-- No Git writes, network, frontend-portal access, or corpus execution; only static analysis and synthetic Node fixtures.
+- No Git writes, network, private-corpus access, or corpus execution; only static analysis and synthetic Node fixtures.
 - Mutant registry key is mutations, not mutants; failed schema insertion was inadmissible and changed no bytes.
 - Patches must include untracked source/fixtures using exact-base comparison; git diff alone omits them.
 

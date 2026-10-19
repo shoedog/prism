@@ -61,7 +61,7 @@ C/W/U/I means CORRECT/WRONG/UNDECIDED/INADMISSIBLE. There are no R8 byte-table v
 - Frozen R8 product binaries: not built. The evidence-only step0-probe SHA256 is `6ffdb001dc51d722c23e71a05a2fc506e8554635512e1dd167e036a8cea6c510`; it is not a SUT candidate.
 - R8-src.patch and R8-docs.patch: not generated; source and repository docs are unchanged.
 - CONTROLLER-pd.sh / F companion: not changed. No F guard-cost or main-vs-R8 command exists because no R8 head exists. Do not run/adopt R8 on F.
-- No Git writes, network access, browser, corpus-package execution, frontend-portal access, or delegation.
+- No Git writes, network access, browser, corpus-package execution, private-corpus access, or delegation.
 
 ## Delivery, custody, and controller action
 

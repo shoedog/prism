@@ -14,12 +14,12 @@
 **(a) Lane ownership** — `[INHERITED]` the controller owns lane 1 and `CACHE_VERSION` (EVALUATION §2.1). This planner has finished. — **RESOLVED** at handback.
 **(b) Custody exposure** — `[MEASURED]` everything is uncommitted: 10 modified tracked files, plus `src/ast_js_param_defs_tests.rs`, `src/cpg/js_param_defs_tests.rs`, `mutants/js-param-defs.json` and the packet docs/probes. The controller commits. Evidence lives outside the repo in `~/prism-evidence/js-param-defs/`. — **OPEN** until the controller commits.
 **(c) In flight / irreversible** — `[MEASURED]` none. No background jobs remain.
-**(d) Authorization granted but not exercised** — "No git commits/pushes (controller commits)." "Never open any directory named frontend-portal."
+**(d) Authorization granted but not exercised** — "No git commits/pushes (controller commits)." "Never open any directory named private-corpus."
 
 ## 1. Resume order
 1. Controller: commit the prototype (src/tests/mutants) and the packet as two commits (messages in the final report).
 2. Controller: F census and F diff:
-   - `CORPUS_F_ROOT=~/code/frontend-portal PRIVATE_EVIDENCE_ROOT=~/prism-evidence/js-param-defs/f-<new> bash docs/superpowers/plans/2026-10-06-js-param-defs/CONTROLLER-pd.sh diff <TS_JS> <BASE_BIN> <HEAD_BIN>`.
+   - `CORPUS_F_ROOT=<private-corpus-root> PRIVATE_EVIDENCE_ROOT=~/prism-evidence/js-param-defs/f-<new> bash docs/superpowers/plans/2026-10-06-js-param-defs/CONTROLLER-pd.sh diff <TS_JS> <BASE_BIN> <HEAD_BIN>`.
    - Use the base binary `prism-base-006573d9`, and a head binary rebuilt from the committed tree.
    - Each run takes about one T-sized build per binary.
 3. Spec review: SPEC-prA.md, Opus ∥ sol, cap 2.

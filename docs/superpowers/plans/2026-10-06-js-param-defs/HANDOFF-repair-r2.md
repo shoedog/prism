@@ -49,7 +49,7 @@
 | 3 | Excluded pairs/full CFG proof/all-lanes mutation/all-corpus Tier-A | parked | Separate explicitly scoped work; no inferred credit from current receipts | Not verified in this repair | MEASUREMENTS-r2.md |
 
 ## 5. Invariants and traps — do not do these
-- Never execute corpus packages or open frontend-portal; source analysis only.
+- Never execute corpus packages or open private-corpus; source analysis only.
 - No repository git writes/network here; controller commits. Do not transfer gates across a changed source manifest.
 - Keep the committed byte adjudicator/rowdiff/producers unchanged; verification-binding-final.json records eight exact probe hashes.
 - Exclude both sides on any failed required producer, including sites-only failure; head-only successful bytes do not supply a base control.
