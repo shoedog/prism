@@ -162,3 +162,17 @@ Sources read in full: evidence-dir `review-r1-sol.md` and `review-r1-opus.md`. T
 This fold uses static source inspection and the supplied round-1 reviews; it does not certify an implemented cap, validator equivalence, measured savings or host capacity. Construction counterexamples remain valid and explicitly deferred. No requested finding is omitted; Q equivalence, compiler census closure and all runtime/performance witnesses are future activation prerequisites.
 
 Only this spec is edited. Controller owns commit/snapshot and reconciliation of external handoff stores; evidence reviews/old census are preserved unchanged as historical records. No `.git` writes, dotfile reads, cargo/tests/builds, index loads or measurements in this turn. Design verification is limited to identity, source anchors, review coverage, scope/contradiction checks, diff hygiene and line count.
+
+## 9. Round-2 post-cap fold (disclosed)
+
+Round 2: sol APPROVE (no findings); Opus APPROVE WITH FIXES, no MATERIAL WRONG (`t3a/review-r2-{sol,opus}.md`). Folded
+here without a further round as obligations on the named slice manifests:
+
+| Finding | Obligation |
+|---|---|
+| Opus S1 (SMELL / MATERIAL) | Q shrinks: in `classify_parameter_use` an escaped identifier already yields `Unused`, so evaluate the escape check before the seam; Q then matches the grammar only on escape-free tokens (a finite reserved/contextual word set). |
+| Opus S2 (SMELL / MATERIAL) | Parse budget is per phase, not per request: seeded `taint_reaches` may parse a seed file at most twice (seed resolution, then scope/sanitizer), or N2/N3 manifests specify whole-file staging at seed time. The counter and mutant use that bound. |
+| Opus S3 (SMELL / MATERIAL) | Freeze all exhaustive public option structs (`ServerConfig`, `DaemonOptions`, `ShimOptions`, `StatusOptions`, `ShutdownOptions`, `MemReportOptions`) with compatibility fixtures; add leased variants of shim, `daemon-status` and `daemon-shutdown` so a leased daemon is findable. |
+| Opus S4 (SMELL / MATERIAL) | T3b-L compile-fail witnesses: expose the lease API `#[doc(hidden)]` behind a feature and pair each `compile_fail` fixture with a compiling positive twin (a privacy error must not pass as a borrow-bound failure). |
+| Opus S5 (SMELL / MATERIAL) | Leases rebuild the temporary file from retained tables instead of recounting nodes/rebuilding the function table; time parse and rebuild separately; if per-file parse p95 exceeds the +10 ms span floor, escalate at once. |
+| Opus S6–S8 (IMMATERIAL) | Executor job type stated and worker panics forwarded to the request thread (a dead worker never shrinks K); T3a.1 widens six private methods to `pub(super)` (not strictly move-only); "no query reads current disk" is scoped to source and tree content (freshness still stats files). |
