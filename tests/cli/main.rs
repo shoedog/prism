@@ -15,6 +15,7 @@ mod review_compact_test;
 mod review_no_diagrams_test;
 mod sarif_shape_test;
 mod sarif_test;
+mod skills_test;
 mod taint_reaches_test;
 mod targets_test;
 mod validation_test;
