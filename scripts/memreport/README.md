@@ -19,7 +19,7 @@ runs all of them. One file alone: `python3 -m unittest scripts/memreport/test_me
 
 ## What a run is
 
-Four kinds per corpus (a fifth, `build`, on request), each repeated (default three times), one process at a
+Four default kinds per corpus (`build` and `changed-refresh` on request), each repeated (default three times), one process at a
 time:
 
 | Kind | Command adds | Measures |
@@ -28,10 +28,11 @@ time:
 | `cold` | `--no-cache` | a full build, no cache written ("Cold peak (no cache write)") |
 | `workload` | the corpus workload snapshot | steady state after queries and a settle ("Steady state (cache-loaded)") |
 | `refresh` | `--mem-refresh` | the peak while two snapshots coexist |
+| `changed-refresh` (only with `--kinds`) | `--mem-changed-refresh <frozen edit.json>` | ordinary full refresh after an exact edit in a pinned clean private mirror; checked restoration |
 | `build` (only with `--kinds`) | `--cache-dir <run>/cache-build/<corpus>/<rep>`, a new empty directory per repetition | a first build that writes the cache, repeated: `build_peak` (peak at `after_call_edges`) and `build_ms` (`after_index` minus `after_load_repo` elapsed) |
 
 `--kinds LIST` (default `warm,cold,workload,refresh`) runs a comma-separated subset of
-`warm,cold,workload,refresh,build`, in that order whatever the order given. An unknown or repeated name, or an
+`warm,cold,workload,refresh,build,changed-refresh`, in that order whatever the order given. An unknown or repeated name, or an
 empty list, is refused before anything runs. `warm` also reports `load_ms` (`after_index` minus
 `after_load_repo` elapsed time; unavailable if either time is). The readout still lists the four kinds only
 and prints `n/a` for those that were not run; `build` figures are read by `compare`.
@@ -46,7 +47,7 @@ the files are the evidence that the cache was written; stderr containing `failed
 the stored sizes (a stored build result without `cache_files` is inadmissible).
 
 Each `build` repetition gets its own cache directory, `<out>/cache-build/<corpus>/<rep>/`, and the driver
-deletes it afterwards. That is the only thing the driver deletes, so it never deletes by path: a path can be
+deletes it afterwards. Changed-refresh copies use the same ownership and cleanup mechanism. The driver never deletes by path: a path can be
 made to name something else between any two looks at it. The directory is created exclusively, relative to an
 open descriptor of its parent, and opened at once (a repetition is refused if the directory already exists, if
 `cache-build` or the corpus directory is a symlink, or if what is found right after the creation is not
@@ -63,11 +64,34 @@ reports is a lifetime peak.
 A corpus NAME (in `--corpus NAME=PATH`, for `run` and `gen-workload`) must be letters, digits, `.`, `_` or `-`,
 starting with a letter or digit: it names directories under `--out`.
 
-The priming run happens only when at least one of `warm`, `workload`, `refresh` is selected. Its statistics are discarded, but its lifetime peak at its last stage is kept as "First-build
+The priming run happens only when at least one of `warm`, `workload`, `refresh`, `changed-refresh` is selected. Its statistics are discarded, but its lifetime peak at its last stage is kept as "First-build
 peak (writes the cache, n=1)": one build that also writes the cache, shown as `n/a` when the priming run is
 absent or was not admitted. Right after it the driver measures the size of `cpg-cache-v2.bin` (and of
 `resolved-call-edge-index.bin`) under `<run>/cache/<corpus>/`; a file that is absent, or not the only one of
 that name, is recorded as unavailable, not as 0.
+
+## Changed refresh (opt-in support seam)
+
+Build with `--features memreport-changed-refresh` and select `--kinds changed-refresh`, supplying
+`--changed-edit NAME=PATH` for each corpus. Use a dedicated private mirror. The manifest contains exactly
+`repo_root` (canonical absolute path), `commit`, `path` (relative regular file without symlinks), `before`,
+`after` (distinct nonempty UTF-8 content), `before_sha256`, and `after_sha256`.
+The driver freezes the manifest and verifies the actual starting bytes before any child, then again before
+each changed repetition. Each repetition copies the pristine prime into its own exclusively created
+`cache-changed/<corpus>/<rep>` directory, and removes that copy after success, failure or interruption.
+Recovery uses only the original bytes verified from the target; a failed run stops subsequent repetitions.
+Rust checks clean pinned identity again before editing and checks restoration even if refresh unwinds.
+Observed before/after/restored hashes are retained in the report. Abort/SIGKILL of the parent cannot run cleanup;
+inspect the mirror before using it again.
+
+Set `PRISM_SUPPORT_PATCH_SHA256=<support patch digest>` **on both baseline and candidate sides**. Reported
+`PRISM_*` environment values bind the common support seam and are checked by comparison. Defaults stay unchanged.
+The FullOnly S0 validator requires strategy `full` and generation 1; later strategy prototypes must update it
+explicitly. Admission here checks primary peaks; complete auxiliary timing/heap/footprint/RSS/tree availability
+must be checked by downstream optimization acceptance gates.
+
+Manual mutant execution is documented in `mutants/manual/README.md`; feature/Python mutants are deliberately
+outside the shared runner's `mutants/*.json` catalog.
 
 ## What is measured and what is estimated
 

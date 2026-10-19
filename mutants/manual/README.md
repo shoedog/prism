@@ -1,0 +1,24 @@
+# Manual feature and Python mutations
+
+The shared `scripts/mutgate/mutgate.py` gate reads only `mutants/*.json`, builds without features and has
+no Python test runner. Catalogs here are intentionally outside that glob. Do not pass them to that runner.
+The shared runner and its ordinary catalogs remain unchanged.
+
+`memreport-changed-refresh.json` records `[file, exact original text, mutant text, one test selector]`.
+For each entry, on the final candidate:
+
+1. Read the file, require exactly one original anchor, save its current bytes and SHA-256 externally.
+2. Replace only that anchor with the mutant text. Never reset source to a parent revision.
+3. For Rust, run `nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features memreport-changed-refresh --lib <selector> -- --exact`.
+   For Python, from `scripts/memreport`, run `python3 -m unittest <selector>`.
+4. Require exactly one executed test and a behavioral failure exposing the intended missing behavior.
+   Compile errors, missing anchors, zero tests and sandbox refusal are INADMISSIBLE, not kills.
+5. In a `finally` block restore the saved current bytes, verify the original SHA-256, and run the same
+   selector to GREEN. Stop on any restoration mismatch or survivor; do not continue with a mutant applied.
+6. Save `mutant-<id>-killed.log` and `mutant-<id>-restored.log` plus the restore/hash checklist.
+
+S0 fix-round-1 receipts are kept in the lane's private evidence (`FIX-R1.md`, `mutant-results.json`); these
+README steps are the authority for re-running the population. An import-time error (`_FailedTest`,
+`SyntaxError`, `ImportError`) is INADMISSIBLE even though unittest reports it as one failed test.
+The authoritative full shared gate is a separate controller gate; these lane receipts certify only this
+manual population. A shared `--plan-only` run confirms catalog exclusion, not mutant kills.

@@ -24,6 +24,7 @@ fn options(workload: Option<PathBuf>, refresh: bool) -> MemReportOptions {
     MemReportOptions {
         workload,
         refresh,
+        changed_refresh: None,
         settle: Duration::ZERO,
     }
 }

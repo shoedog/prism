@@ -15,10 +15,13 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+from memreport_changed import edit_reason, verified_original
 
 from memreport_builddir import directory_identity, inside, prepare_repetition, remove_created  # noqa: F401
 from memreport_compare import EXPERIMENTS, cmd_compare
@@ -60,13 +63,17 @@ def parse_report(stderr_text):
     return json.loads(lines[0])
 
 
-def command_for(binary, repo, cache_dir, kind, workload, settle):
+def command_for(binary, repo, cache_dir, kind, workload, settle, edit=None):
     command = [str(binary), '--repo', str(repo), '--eager', '--mem-settle-secs', str(settle)]
     command += ['--no-cache'] if kind == 'cold' else ['--cache-dir', str(cache_dir)]
     if kind == 'workload':
         command += ['--mem-workload', str(workload)]
     if kind == 'refresh':
         command += ['--mem-refresh']
+    if kind == 'changed-refresh':
+        if edit is None:
+            raise SystemExit('changed-refresh needs --changed-edit NAME=PATH')
+        command += ['--mem-changed-refresh', str(edit)]
     return command
 
 
@@ -82,6 +89,8 @@ def run_one(command, kind, timeout, expected=None):
                 'wall_secs': timeout}
     result = {'kind': kind, 'command': command, 'wall_secs': round(time.time() - started, 1)}
     stderr = done.stderr.decode('utf-8', 'replace')
+    if kind == 'changed-refresh':
+        result['stderr'] = stderr  # retain successful diagnostics and failures for this scenario
     if done.returncode != 0:
         result.update(status='failed', reason='exit %d' % done.returncode, exit=done.returncode,
                       stderr_tail=stderr[-2000:])
@@ -285,18 +294,61 @@ def run_build(args, path, out, name, rep, snapshot):
     return result
 
 
+def run_changed(args, path, out, name, rep, snapshot, cache_dir, edit_path, edit):
+    """A disposable copy of the prime, with recovery even when the child is interrupted."""
+    original = verified_original(path, edit)
+    target = path / edit['path']
+    root = out / 'cache-changed'
+    changed_cache, owned, refusal = prepare_repetition(root, name, rep)
+    if refusal:
+        return dict(kind='changed-refresh', status='inadmissible', wall_secs=0, reason=refusal)
+    result = None
+    try:
+        shutil.copytree(cache_dir, changed_cache, dirs_exist_ok=True)  # preserve the pinned prime
+        try:
+            command = command_for(args.bin, path, changed_cache, 'changed-refresh', snapshot, args.settle, edit_path)
+            result = run_one(command, 'changed-refresh', args.timeout, edit)
+        finally:
+            # subprocess.run reaps timed-out/interrupted children before unwinding here.
+            try:
+                if target.is_symlink() or target.resolve() != target or not target.is_file():
+                    raise OSError('restore target replaced')
+                if target.read_bytes() != original:
+                    if result is not None:
+                        result.update(status='failed', reason='%s; child did not restore mirror' % result.get('reason', ''))
+                    target.write_bytes(original)
+                    if target.read_bytes() != original:
+                        raise OSError('restored bytes mismatch')
+            except OSError as error:
+                if result is None:
+                    raise RuntimeError('changed-refresh restore failed: %s' % error) from error
+                result.update(status='failed', reason='%s; restore failed: %s' % (result.get('reason', ''), error))
+    finally:
+        removed, note = remove_created(changed_cache, root, owned)
+        if result is not None:
+            result['cache_dir_removed'] = removed
+            if note:
+                result['cache_dir_note'] = note
+    return result
+
+
 def measure_corpus(args, name, path, provenance, snapshot, digest, kinds=KINDS):
     """Run the chosen kinds for one corpus, saving each raw result as it finishes. Returns (corpus, results, prime)."""
     out = Path(args.out)
     raw = out / 'raw' / name
     raw.mkdir(parents=True, exist_ok=True)
     cache_dir = out / 'cache' / name
+    edit_path, edit = args.changed_edits.get(name, (None, None))
+    if 'changed-refresh' in kinds:
+        verified_original(path, edit)  # before priming or any other child
     prime = None
     if set(kinds) & set(CACHED_KINDS):
         # Prime the cache with a discarded run so that "warm" means a cache hit.
         prime = run_one(command_for(args.bin, path, cache_dir, 'warm', snapshot, 0), PRIME, args.timeout)
         (raw / 'prime.json').write_text(json.dumps(prime, indent=1))
     corpus = dict(provenance, cache_files=cache_file_sizes(cache_dir), workload=digest)
+    if edit is not None:
+        corpus['changed_edit'] = edit
     (raw / 'corpus.json').write_text(json.dumps(corpus, indent=1, sort_keys=True))
     results = []
     for kind in kinds:
@@ -304,13 +356,17 @@ def measure_corpus(args, name, path, provenance, snapshot, digest, kinds=KINDS):
             before = host_state()
             if kind == BUILD:
                 result = run_build(args, path, out, name, rep, snapshot)
+            elif kind == 'changed-refresh':
+                result = run_changed(args, path, out, name, rep, snapshot, cache_dir, edit_path, edit)
             else:
-                result = run_one(command_for(args.bin, path, cache_dir, kind, snapshot, args.settle),
+                result = run_one(command_for(args.bin, path, cache_dir, kind, snapshot, args.settle, edit_path),
                                  kind, args.timeout, digest if kind == 'workload' else None)
             result.update(rep=rep, host_before=before)
             (raw / ('%s-%d.json' % (kind, rep))).write_text(json.dumps(result, indent=1))
             print('%s %s #%d: %s (%ss)' % (name, kind, rep, result['status'], result['wall_secs']), flush=True)
             results.append(result)
+            if kind == 'changed-refresh' and result['status'] != 'ok':
+                raise SystemExit('changed-refresh stopped; inspect %s before another repetition' % raw)
     return corpus, results, prime
 
 
@@ -324,13 +380,32 @@ def cmd_run(args):
     settings = {'reps': args.reps, 'settle': args.settle, 'timeout': args.timeout, 'bin': args.bin}
     # Bind every corpus to its workload before any run starts: a mismatch must not cost hours first.
     bound = {}
+    args.changed_edits = {}
+    edit_paths = parse_corpora(args.changed_edit) if args.changed_edit else {}
     for name, path in parse_corpora(args.corpus).items():
         provenance = corpus_provenance(path)
+        if 'changed-refresh' in kinds:
+            if provenance['dirty'] != 0 or not provenance['commit']:
+                raise SystemExit('%s: dirty mirror or identity unavailable' % name)
+            if name not in edit_paths:
+                raise SystemExit('%s: changed-refresh needs --changed-edit NAME=PATH' % name)
+            edit = json.loads(edit_paths[name].read_text())
+            reason = edit_reason(edit)
+            if reason or edit['repo_root'] != str(path) or edit['commit'] != provenance['commit']:
+                raise SystemExit('%s: %s' % (name, reason or 'changed edit identity mismatch'))
+            verified_original(path, edit)
+            args.changed_edits[name] = (edit_paths[name], edit)
         bound[name] = (path, provenance) + bind_workload(name, args.workloads, provenance['commit'])
     out.mkdir(parents=True, exist_ok=True)
     (out / 'run.json').write_text(json.dumps(dict(settings, kinds=list(kinds)), indent=1, sort_keys=True))
     entries = {}
     for name, (path, provenance, data, digest) in bound.items():
+        if name in args.changed_edits:
+            _, edit = args.changed_edits[name]
+            edit_path = out / 'edits' / (name + '.json')
+            edit_path.parent.mkdir(parents=True, exist_ok=True)
+            write_json_atomically(edit_path, edit)
+            args.changed_edits[name] = (edit_path, edit)
         snapshot = out / 'workloads' / (name + '.jsonl')
         snapshot.parent.mkdir(parents=True, exist_ok=True)
         snapshot.write_bytes(data)
@@ -371,6 +446,8 @@ def main(argv=None):
     run.add_argument('--kinds', default=','.join(KINDS), metavar='LIST',
                      help='comma-separated subset of %s (default: %%(default)s)' % ','.join(RUN_KINDS))
     run.add_argument('--reps', type=int, default=3)
+    run.add_argument('--changed-edit', action='append', default=[], metavar='NAME=PATH',
+                     help='preregistered edit JSON for a dedicated clean private mirror')
     run.add_argument('--timeout', type=int, default=1800)
     run.add_argument('--settle', type=int, default=5)
     run.set_defaults(handler=cmd_run)
