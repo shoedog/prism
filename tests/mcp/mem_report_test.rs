@@ -131,12 +131,16 @@ fn mem_flags_without_the_variable_are_rejected() {
     let workload = repo.path().join("workload.jsonl");
     std::fs::write(&workload, "{}\n").expect("workload file");
     let workload = workload.to_str().expect("utf-8 path").to_string();
-    for flag in [
+    let mut flags = vec![
         vec!["--mem-refresh"],
-        vec!["--mem-changed-refresh", workload.as_str()],
         vec!["--mem-emit-workload", "2"],
         vec!["--mem-workload", workload.as_str()],
-    ] {
+    ];
+    // Without the feature the flag does not exist (an unknown argument, tested in the CLI tests).
+    if cfg!(feature = "memreport-changed-refresh") {
+        flags.push(vec!["--mem-changed-refresh", workload.as_str()]);
+    }
+    for flag in flags {
         Command::cargo_bin("prism-mcp")
             .expect("prism-mcp binary")
             .arg("--repo")

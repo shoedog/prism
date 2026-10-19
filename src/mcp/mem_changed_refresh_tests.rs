@@ -94,6 +94,8 @@ fn failed_restore_is_hard_failure() {
     assert!(result.unwrap_err().to_string().contains("restore failed"));
 }
 
+// `Edit::load` refuses without the feature; CI's `mcp`-only build compiles this module too.
+#[cfg(feature = "memreport-changed-refresh")]
 #[test]
 fn dirty_between_load_and_run_refused_without_edit() {
     let (dir, edit) = fixture();
