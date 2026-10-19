@@ -3,7 +3,8 @@ use super::{FileRefs, Producer};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cpg::{
-    reaching_definitions_with_exact, FlowConfidence, FlowDoubt, RdFileStats, RdOutcome,
+    reaching_definitions_with_exact, FileCfgEdgeIndex, FlowConfidence, FlowDoubt, RdFileStats,
+    RdOutcome,
 };
 use crate::data_flow::{ExactFlowEdge, FlowEdge, VarAccessKind, VarLocation};
 use std::collections::{BTreeMap, BTreeSet};
@@ -26,6 +27,8 @@ impl Producer {
         let member_refs = crate::ast::member_reference_index::MemberReferenceSearch::new(parsed);
         // PR-B perf: one file-level CFG edge build shared by every pass.
         let file_cfg_edges = std::cell::OnceCell::new();
+        // Borrows only this file's immutable CFG; drops before its backing cell.
+        let file_cfg_edge_index = std::cell::OnceCell::new();
         let mut owner_counts = BTreeMap::new();
         for func_node in &function_nodes {
             // js-param-defs PR-B: anonymous JS/TS/TSX callables own a
@@ -644,7 +647,12 @@ impl Producer {
                 &rvalue_spans,
                 function_edges,
             );
-            let cfg = file_cfg_edges.get_or_init(|| crate::profile::file_cfg(&mut profile_owner, file_path, || crate::cfg::build_cfg_edges_with_arms(parsed)));
+            let cfg_index = file_cfg_edge_index.get_or_init(|| {
+                crate::profile::file_cfg(&mut profile_owner, file_path, || {
+                    let cfg = file_cfg_edges.get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed));
+                    FileCfgEdgeIndex::new(cfg)
+                })
+            });
             crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());
             match reaching_definitions_with_exact(
                 parsed,
@@ -652,7 +660,7 @@ impl Producer {
                 &rd_defs,
                 function_edges,
                 &exact_candidates,
-                cfg,
+                cfg_index,
             ) {
                 RdOutcome::Available(result) => {
                     Self::store_supplemental_exact(

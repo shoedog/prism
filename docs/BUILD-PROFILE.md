@@ -96,7 +96,7 @@ kill-only captured writes; `assignment_paths` counts admitted assignment spans,
 including repeated assignments to the same path. `flow_edges_ns` includes owner
 preparation and candidate construction before RD; `flow_search_ns` is the subset
 spent in wrapped reference-search calls. Lazy file CFG initialization has its own per-file `dfg.file_cfg` parallel-work
-interval, and `file_cfg_init_ns` on the owner that triggered it. It is excluded
+interval, and `file_cfg_init_ns` on the owner that triggered it; both include building the CFG source-line edge index. It is excluded
 from owner RD, total, flow-edge time, RSS rise and ranking. RD begins after CFG initialization
 and includes applying RD labels. The owner clock starts after the profiling-only
 AST node count and metadata walk.

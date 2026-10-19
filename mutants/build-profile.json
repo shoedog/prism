@@ -116,16 +116,34 @@
       "let _ = &command;",
       "build_profile_fold_test::schema_and_skipped_scope_are_truthful"
     ],
+    "PROFILE-rd-clock-from-owner-start": [
+      "src/profile/owner.rs",
+      "owner.rd = Some(Instant::now());",
+      "owner.rd = Some(owner.start);",
+      "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
+    ],
+    "PROFILE-cfg-phase-after-run": [
+      "src/profile/owner.rs",
+      "    let mut phase = Phase::file(\"dfg.file_cfg\", file);\n    let result = run();",
+      "    let result = run();\n    let mut phase = Phase::file(\"dfg.file_cfg\", file);",
+      "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
+    ],
     "PROFILE-cfg-charged-to-total": [
       "src/profile/owner.rs",
       "self.row.total_ns = ns(self.start).saturating_sub(self.row.file_cfg_init_ns);",
       "self.row.total_ns = ns(self.start);",
       "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
     ],
+    "PROFILE-index-outside-cfg": [
+      "src/data_flow/build/file.rs",
+      "            let cfg_index = file_cfg_edge_index.get_or_init(|| {\n                crate::profile::file_cfg(&mut profile_owner, file_path, || {\n                    let cfg = file_cfg_edges.get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed));\n                    FileCfgEdgeIndex::new(cfg)\n                })\n            });\n",
+      "            let cfg_index = file_cfg_edge_index.get_or_init(|| {\n                let cfg = crate::profile::file_cfg(&mut profile_owner, file_path, || {\n                    file_cfg_edges.get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed))\n                });\n                FileCfgEdgeIndex::new(cfg)\n            });\n",
+      "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
+    ],
     "PROFILE-rd-before-cfg": [
       "src/data_flow/build/file.rs",
-      "            let cfg = file_cfg_edges.get_or_init(|| crate::profile::file_cfg(&mut profile_owner, file_path, || crate::cfg::build_cfg_edges_with_arms(parsed)));\n            crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());\n",
-      "            crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());\n            let cfg = file_cfg_edges.get_or_init(|| crate::profile::file_cfg(&mut profile_owner, file_path, || crate::cfg::build_cfg_edges_with_arms(parsed)));\n",
+      "            let cfg_index = file_cfg_edge_index.get_or_init(|| {\n                crate::profile::file_cfg(&mut profile_owner, file_path, || {\n                    let cfg = file_cfg_edges.get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed));\n                    FileCfgEdgeIndex::new(cfg)\n                })\n            });\n            crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());\n",
+      "            crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());\n            let cfg_index = file_cfg_edge_index.get_or_init(|| {\n                crate::profile::file_cfg(&mut profile_owner, file_path, || {\n                    let cfg = file_cfg_edges.get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed));\n                    FileCfgEdgeIndex::new(cfg)\n                })\n            });\n",
       "build_profile_fold_test::tiny_owner_rd_excludes_cfg_in_either_order"
     ],
     "PROFILE-scope-measured-on-skip": [
