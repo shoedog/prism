@@ -181,6 +181,7 @@ impl IdleRuntime {
                     return;
                 };
                 let duration = finished_at.saturating_duration_since(started);
+                let event = self.completion_event();
                 match result {
                     Ok(mut provider) => {
                         if let Some(previous) = self.previous {
@@ -194,7 +195,7 @@ impl IdleRuntime {
                         self.phase = Phase::Ready;
                         self.published_at = Some(finished_at);
                         self.log.event(
-                            "reload",
+                            event,
                             if changed { "changed_snapshot" } else { "ready" },
                             duration,
                             Some(publication),
@@ -206,11 +207,18 @@ impl IdleRuntime {
                             error: error.to_string(),
                             heard: false,
                         };
-                        self.log
-                            .event("reload", "failed", duration, self.previous, 0);
+                        self.log.event(event, "failed", duration, self.previous, 0);
                     }
                 }
             }
+        }
+    }
+
+    fn completion_event(&self) -> &'static str {
+        if self.previous.is_some() {
+            "reload"
+        } else {
+            "build"
         }
     }
 
@@ -282,10 +290,24 @@ impl LifecycleLog {
         published: Option<Published>,
         released: usize,
     ) {
-        eprintln!("prism-mcp: identity={} event={} reason={} idle_minutes={:.3} duration_ms={} attempt={} generation={} outcome={} released_bytes={}",
+        eprintln!(
+            "{}",
+            self.line(event, outcome, duration, published, released)
+        );
+    }
+
+    fn line(
+        &self,
+        event: &str,
+        outcome: &str,
+        duration: Duration,
+        published: Option<Published>,
+        released: usize,
+    ) -> String {
+        format!("prism-mcp: identity={} event={} reason={} configured_idle_secs={:.3} duration_ms={} attempt={} generation={} outcome={} released_bytes={}",
             self.identity, event, if event == "unload" { "idle" } else { "demand_or_startup" },
-            self.timeout.as_secs_f64() / 60.0, duration.as_millis(),
-            self.attempt, published.map_or(0, |p| p.generation), outcome, released);
+            self.timeout.as_secs_f64(), duration.as_millis(),
+            self.attempt, published.map_or(0, |p| p.generation), outcome, released)
     }
 }
 
@@ -303,9 +325,11 @@ impl SessionRuntime for IdleRuntime {
                     Ok(event) => self.accept(event),
                     // No build has started yet, so its elapsed time is still zero.
                     Err(_) => {
+                        // A timed-out call cannot spend a later call's reload budget.
+                        self.disposal_deadline.take();
                         return Readiness::Warming {
                             elapsed: Duration::ZERO,
-                        }
+                        };
                     }
                 }
                 continue;
@@ -327,13 +351,17 @@ impl SessionRuntime for IdleRuntime {
                 Phase::Building { started, deadline } => {
                     let now = (self.clock)();
                     let deadline = *deadline.get_or_insert_with(|| now + self.wait);
-                    let elapsed = now.saturating_duration_since(*started);
+                    let started = *started;
                     match self
                         .rx
                         .recv_timeout(deadline.saturating_duration_since(now))
                     {
                         Ok(event) => self.accept(event), // input/EOF stay queued in their reader order
-                        Err(_) => return Readiness::Warming { elapsed },
+                        Err(_) => {
+                            return Readiness::Warming {
+                                elapsed: (self.clock)().saturating_duration_since(started),
+                            }
+                        }
                     }
                 }
                 _ => unreachable!("idle and heard failures spawn before waiting"),
@@ -387,3 +415,7 @@ impl SessionRuntime for IdleRuntime {
 #[cfg(test)]
 #[path = "idle_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "idle_fix_tests.rs"]
+mod fix_tests;

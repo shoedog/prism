@@ -279,6 +279,11 @@ fn main() -> anyhow::Result<()> {
     }
 
     if c.shared {
+        if let Some(note) = prism::mcp::idle::IdlePolicy::default()
+            .pressure_relief_note(c.index_idle_pressure_relief, true)
+        {
+            eprintln!("{note}");
+        }
         if c.index_idle_secs.is_some() {
             eprintln!("prism-mcp: --index-idle-secs is unused by the shared shim in I0a");
         }
@@ -301,6 +306,12 @@ fn main() -> anyhow::Result<()> {
         owner.is_some(),
     )?;
     if let Some(note) = idle.note {
+        eprintln!("{note}");
+    }
+    if let Some(note) = idle
+        .policy
+        .pressure_relief_note(c.index_idle_pressure_relief, false)
+    {
         eprintln!("{note}");
     }
     let policy = idle

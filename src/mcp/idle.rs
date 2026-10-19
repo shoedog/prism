@@ -1,6 +1,9 @@
 //! Ordinary-session idle policy. Kept outside ServerConfig and the shared identity key.
-use super::{CacheMode, ServerConfig, StartupMode};
+use super::{ServerConfig, StartupMode};
 use std::time::{Duration, Instant};
+
+/// Provisional measurement setting; activation remains an explicit owner decision.
+pub const PROVISIONAL_IDLE_SECS: u64 = 600;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct IdlePolicy {
@@ -24,6 +27,12 @@ impl IdlePolicy {
     pub fn with_pressure_relief(mut self, enabled: bool) -> Self {
         self.pressure_relief = enabled;
         self
+    }
+
+    /// One entry-point warning when the requested measurement arm cannot run.
+    pub fn pressure_relief_note(&self, requested: bool, shared: bool) -> Option<&'static str> {
+        (requested && (shared || self.timeout.is_none() || !cfg!(target_os = "macos")))
+            .then_some("prism-mcp: --index-idle-pressure-relief is unused: requires enabled ordinary stdio I0 on macOS")
     }
 
     /// Resolve once at the entry point. Unsupported modes ignore ambient values, including
@@ -51,8 +60,7 @@ impl IdlePolicy {
             Some(secs) => Duration::from_secs(secs),
             None => match ambient {
                 Some(value) => Duration::from_secs(parse_seconds(value)?),
-                None if matches!(cfg.cache, CacheMode::NoCache) => Duration::ZERO,
-                None => Duration::from_secs(600),
+                None => Duration::ZERO,
             },
         };
         Ok(IdleResolution {
@@ -121,6 +129,7 @@ pub(crate) fn pressure_relief(enabled: bool) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mcp::CacheMode;
     #[test]
     fn idle_config_validation_and_precedence() {
         let mut cfg = ServerConfig::new(".".into());
@@ -128,7 +137,7 @@ mod tests {
             |flag, env, cfg: &ServerConfig, owner| IdlePolicy::resolve(flag, env, cfg, owner);
         assert_eq!(
             resolve(None, None, &cfg, false).unwrap().policy.timeout,
-            Some(Duration::from_secs(600))
+            None
         );
         assert_eq!(
             resolve(Some("0"), Some("bad"), &cfg, false)

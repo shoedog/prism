@@ -16,6 +16,8 @@ impl SessionProvider {
     }
 
     pub(crate) fn resume_idle_generation(&mut self, previous: Published) {
+        // Prior sticky divergence is cleared by bootstrap. With the same fingerprint it
+        // changes the logged transition, but keeps the generation of that snapshot.
         self.generation = previous.generation.saturating_add(u64::from(
             self.idle_publication().fingerprint != previous.fingerprint,
         ));

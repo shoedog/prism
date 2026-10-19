@@ -115,15 +115,19 @@ fn fixture() -> (tempfile::TempDir, ServerConfig) {
     cfg.cache = CacheMode::NoCache;
     (dir, cfg)
 }
-fn wait_dropped<T>(weak: &Weak<T>) {
+fn wait_dropped_with_reason<T>(weak: &Weak<T>, reason: &str) {
     let deadline = Instant::now() + Duration::from_secs(10);
     while weak.strong_count() != 0 {
-        assert!(
-            Instant::now() < deadline,
-            "silent open stdin must unload without another message"
-        );
+        assert!(Instant::now() < deadline, "{reason}");
         std::thread::yield_now();
     }
+}
+
+fn wait_dropped<T>(weak: &Weak<T>) {
+    wait_dropped_with_reason(
+        weak,
+        "silent open stdin must unload without another message",
+    );
 }
 
 #[test]
@@ -246,7 +250,10 @@ fn idle_stdio_eof_disposes_late_build() {
     client.finish();
     release.send(()).unwrap();
     let repo = built_rx.recv_timeout(Duration::from_secs(10)).unwrap();
-    wait_dropped(&repo);
+    wait_dropped_with_reason(
+        &repo,
+        "late build must be disposed after EOF retires the owner",
+    );
 }
 
 #[test]
@@ -390,4 +397,18 @@ fn idle_stdio_control_only_stays_unbuilt() {
     }
     client.finish();
     assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+}
+
+#[test]
+fn idle_stdio_background_instructions_explain_demand_reload() {
+    let (_dir, mut cfg) = fixture();
+    cfg.startup = StartupMode::Background;
+    let client = start(cfg, Duration::from_secs(10), None);
+    client.send(json!({"jsonrpc":"2.0", "id":1, "method":"initialize", "params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"idle-test","version":"1"}}}));
+    let response = client.response();
+    assert!(response["result"]["instructions"]
+        .as_str()
+        .unwrap()
+        .contains("first tool call after an idle unload"));
+    client.finish();
 }
