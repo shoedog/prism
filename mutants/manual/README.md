@@ -22,3 +22,11 @@ README steps are the authority for re-running the population. An import-time err
 `SyntaxError`, `ImportError`) is INADMISSIBLE even though unittest reports it as one failed test.
 The authoritative full shared gate is a separate controller gate; these lane receipts certify only this
 manual population. A shared `--plan-only` run confirms catalog exclusion, not mutant kills.
+
+## `idle-unload-i0a.json` (I0a idle unload, `--features mcp`)
+
+Records are `{old, new}` edit lists with one exact selector each. Follow the same steps with
+`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`, applying every listed
+edit once. The first four records are the plan's required mutants; later records add negative witnesses. These
+are fault injections, not claims that the parent supported the new lifecycle API. I0a receipts are kept in the
+lane's private evidence.
