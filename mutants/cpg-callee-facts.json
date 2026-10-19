@@ -1,0 +1,52 @@
+{
+  "mutations": {
+    "CF-01-caller-local-cache": [
+      "src/cpg/build.rs",
+      "graph,\n                    &shared_params,",
+      "graph,\n                    &ParamCache::new(files),",
+      "cpg::build::callee_cost_tests::parameter_computations_constant_across_callers"
+    ],
+    "CF-02-owner-file-omitted": [
+      "src/cpg/callee_params.rs",
+      ".entry(callee.clone())",
+      ".entry(FunctionId { file: String::new(), ..callee.clone() })",
+      "cpg::build::callee_identity_tests::generated_complete_cpg_identity"
+    ],
+    "CF-03-positional-holes-compressed": [
+      "src/cpg/callee_params.rs",
+      ".map(|node| {",
+      ".filter(|node| node.is_some())\n                    .map(|node| {",
+      "cpg::build::callee_identity_tests::generated_complete_cpg_identity"
+    ],
+    "CF-04-refusal-not-reused": [
+      "src/cpg/callee_params.rs",
+      ".clone();\n        // Do not hold",
+      ".clone();\n        if matches!(cell.get(), Some(None)) { cell = Arc::default(); }\n        // Do not hold",
+      "cpg::build::callee_cost_tests::parameter_computations_constant_across_callers"
+    ],
+    "CF-05-coordinate-ignored": [
+      "src/cpg/callee_params.rs",
+      "let idx = *index.get(&self.key)?;",
+      "let idx = NodeIndex::new(0);",
+      "cpg::build::callee_params::tests::parameter_targets_resolve_coordinates_after_graph_relocation"
+    ],
+    "CF-06-def-bytes-ignored": [
+      "src/cpg/callee_params.rs",
+      "if (*start_byte, *end_byte) == self.bytes",
+      "if true",
+      "cpg::build::callee_params::tests::parameter_targets_resolve_coordinates_after_graph_relocation"
+    ]
+  },
+  "extra": {
+    "CF-04-refusal-not-reused": [
+      [
+        "src/cpg/callee_params.rs",
+        "let cell = self",
+        "let mut cell = self"
+      ]
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::"
+  ]
+}
