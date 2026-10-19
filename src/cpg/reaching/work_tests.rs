@@ -24,6 +24,8 @@ pub(super) struct Counts {
     pub cfg_candidates: usize,
     pub cfg_file_edges: usize,
     pub cfg_index_builds: usize,
+    pub cfg_index_probes: usize,
+    pub cfg_statement_lines: usize,
     pub cfg_cloned: usize,
     pub cfg_admitted: usize,
     pub cfg_sequential: usize,
@@ -338,6 +340,11 @@ fn cfg_edge_cost_is_owner_bounded() {
         assert_eq!(records.len(), functions);
         for counts in records {
             assert_eq!(counts.cfg_index_builds, 1, "{counts:?}");
+            assert_eq!(counts.cfg_statement_lines, 3, "{counts:?}");
+            assert_eq!(
+                counts.cfg_index_probes, counts.cfg_statement_lines,
+                "{counts:?}"
+            );
             assert_eq!(counts.cfg_admitted, 2, "{counts:?}");
             assert_eq!(
                 counts.cfg_candidates, 2,

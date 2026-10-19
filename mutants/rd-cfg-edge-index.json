@@ -42,6 +42,12 @@
       "let cloned = self.edges[ordinal].clone();\n                    #[cfg(test)]\n                    super::work_tests::bump(|counts| counts.cfg_cloned += 1);\n                    let edge = &cloned.0;",
       "cpg::reaching::cfg_edge_index::tests::rejected_destinations_are_examined_but_never_cloned"
     ],
+    "E09-scan-full-index-per-owner": [
+      "src/cpg/reaching/cfg_edge_index.rs",
+      "        for (line, &from) in line_index {\n            #[cfg(test)]\n            super::work_tests::bump(|counts| counts.cfg_index_probes += 1);\n            if let Some(bucket) = self.by_source.get(line) {",
+      "        for (line, bucket) in &self.by_source {\n            #[cfg(test)]\n            super::work_tests::bump(|counts| counts.cfg_index_probes += 1);\n            if let Some(&from) = line_index.get(line) {",
+      "cpg::reaching::work_tests::cfg_edge_cost_is_owner_bounded"
+    ],
     "E08-rebuild-index-per-owner": [
       "src/data_flow/build/file.rs",
       "            let cfg_index = file_cfg_edge_index.get_or_init(|| {\n                crate::profile::file_cfg(&mut profile_owner, file_path, || {\n                    let cfg = file_cfg_edges.get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed));\n                    FileCfgEdgeIndex::new(cfg)\n                })\n            });\n",

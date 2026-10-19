@@ -284,8 +284,18 @@ fn inner_gate_counts_include_refusals_aliases_and_zero_calls() {
 
 #[test]
 fn tiny_owner_rd_excludes_cfg_in_either_order() {
+    // Pin the real producer's nesting/order and accounting expressions without
+    // comparing workload durations. A legal scheduling pause cannot break this.
+    assert!(cfg_accounting_boundaries_hold(
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/data_flow/build/file.rs"
+        )),
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/profile/owner.rs")),
+    ));
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("profile.jsonl");
+    std::fs::write(dir.path().join("0.js"), "function warm() { return 0; }\n").unwrap();
     let tiny = "function tiny() { return 0; }\n";
     let big = format!(
         "function big() {{\n {}\n}}\n",
@@ -293,7 +303,6 @@ fn tiny_owner_rd_excludes_cfg_in_either_order() {
             .map(|n| format!("if (test{n}()) {{ left{n}(); }} else {{ right{n}(); }}\n"))
             .collect::<String>()
     );
-    let mut times = Vec::new();
     for first in [true, false] {
         std::fs::write(
             dir.path().join("a.js"),
@@ -307,36 +316,98 @@ fn tiny_owner_rd_excludes_cfg_in_either_order() {
         let out = command(dir.path(), Some(&path)).output().unwrap();
         assert!(out.status.success());
         let rs = rows(&path);
-        let owner = rs.iter().find(|r| r["owner"] == "tiny").unwrap();
-        let cfg = rs.iter().find(|r| r["name"] == "dfg.file_cfg").unwrap();
-        assert_eq!(cfg["time_kind"], "parallel_work");
-        let rd = owner["reaching_definitions_ns"].as_u64().unwrap();
-        times.push(rd);
-        let init = owner["file_cfg_init_ns"].as_u64().unwrap();
-        if first {
-            assert!(
-                init > rd * 3,
-                "CFG must dominate the tiny RD control: {owner}"
-            );
-            assert!(
-                owner["total_ns"].as_u64().unwrap() < init,
-                "CFG charged to owner total"
-            );
+        let owners: Vec<_> = rs.iter().filter(|r| r["record"] == "owner").collect();
+        assert_eq!(owners.len(), 3);
+        assert_eq!(owners[0]["owner"], "warm", "warm-up must run first");
+        assert!(owners[0]["file"].as_str().unwrap().ends_with("0.js"));
+        let expected = if first {
+            ["tiny", "big"]
         } else {
-            assert_eq!(init, 0);
+            ["big", "tiny"]
+        };
+        for (owner, name) in owners[1..].iter().zip(expected) {
+            assert_eq!(owner["owner"], name);
+            assert!(owner["file"].as_str().unwrap().ends_with("a.js"));
         }
-        let sum: u64 = rs
+        let phases: Vec<_> = rs
             .iter()
-            .filter(|r| r["record"] == "owner")
-            .map(|r| r["file_cfg_init_ns"].as_u64().unwrap())
-            .sum();
+            .filter(|r| r["name"] == "dfg.file_cfg" && r["file"] == owners[1]["file"])
+            .collect();
+        assert_eq!(phases.len(), 1, "initialize once across both owners");
+        let cfg = phases[0];
+        assert_eq!(cfg["time_kind"], "parallel_work");
+        let init = owners[1]["file_cfg_init_ns"].as_u64().unwrap();
+        assert!(init > 0, "first owner must trigger initialization");
+        assert_eq!(owners[2]["file_cfg_init_ns"], 0);
         // Same interval, sampled before the phase's drop.
-        assert!(sum <= cfg["wall_ns"].as_u64().unwrap());
+        assert!(init <= cfg["wall_ns"].as_u64().unwrap());
+        let rd = rs
+            .iter()
+            .find(|r| r["name"] == "dfg.file_rd" && r["file"] == owners[1]["file"])
+            .unwrap();
+        let sum: u64 = owners[1..]
+            .iter()
+            .map(|r| r["reaching_definitions_ns"].as_u64().unwrap())
+            .sum();
+        assert_eq!(rd["work_ns"], sum);
+        assert_eq!(rd["aggregation"], "sum_owner_intervals");
     }
-    assert!(
-        times[0].max(times[1]) <= times[0].min(times[1]) * 5 + 100_000,
-        "RD order changed materially: {times:?}"
-    );
+}
+
+// Structural guard, deliberately separate from the live profile observations:
+// it checks actual production calls, including their enclosing statement, not
+// a copied model of the initializer. Main's pre-index producer is supported too.
+fn cfg_accounting_boundaries_hold(source: &str, owner: &str) -> bool {
+    fn calls<'a>(
+        node: tree_sitter::Node<'a>,
+        source: &str,
+        name: &str,
+    ) -> Vec<tree_sitter::Node<'a>> {
+        let mut found = Vec::new();
+        if node.kind() == "call_expression"
+            && node
+                .child_by_field_name("function")
+                .is_some_and(|f| &source[f.byte_range()] == name)
+        {
+            found.push(node);
+        }
+        for child in node.named_children(&mut node.walk()) {
+            found.extend(calls(child, source, name));
+        }
+        found
+    }
+    let mut parser = tree_sitter::Parser::new();
+    parser
+        .set_language(&tree_sitter_rust::LANGUAGE.into())
+        .unwrap();
+    let tree = parser.parse(source, None).unwrap();
+    assert!(!tree.root_node().has_error());
+    let one_call = |name| {
+        let found = calls(tree.root_node(), source, name);
+        assert_eq!(found.len(), 1, "unique production call: {name}");
+        found[0]
+    };
+    let cfg = one_call("crate::profile::file_cfg");
+    let rd = one_call("crate::profile::Owner::reaching");
+    let build = one_call("crate::cfg::build_cfg_edges_with_arms");
+    let mut statement = cfg;
+    while statement.kind() != "let_declaration" {
+        statement = statement.parent().unwrap();
+    }
+    let inside_cfg = |node: tree_sitter::Node<'_>| {
+        cfg.start_byte() < node.start_byte() && node.end_byte() < cfg.end_byte()
+    };
+    let index = calls(tree.root_node(), source, "FileCfgEdgeIndex::new");
+    let compact: String = owner.chars().filter(|c| !c.is_whitespace()).collect();
+    inside_cfg(build)
+        && index.iter().all(|&call| inside_cfg(call))
+        && statement.end_byte() < rd.start_byte()
+        && compact.contains(
+            "owner.row.flow_edges_ns=ns(owner.start).saturating_sub(owner.row.file_cfg_init_ns);",
+        )
+        && compact
+            .contains("self.row.total_ns=ns(self.start).saturating_sub(self.row.file_cfg_init_ns);")
+        && compact.contains("self.row.reaching_definitions_ns=self.rd.map(ns).unwrap_or(0);")
 }
 
 #[test]

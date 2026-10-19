@@ -27,6 +27,8 @@ impl<'a> FileCfgEdgeIndex<'a> {
 
     pub(super) fn for_owner(&self, line_index: &BTreeMap<Line, usize>) -> Vec<SelectedEdge> {
         #[cfg(test)]
+        super::work_tests::bump(|counts| counts.cfg_statement_lines = line_index.len());
+        #[cfg(test)]
         if tests::legacy_enabled() {
             let selected = self.legacy_for_owner(line_index);
             tests::record_edges(&selected);
@@ -36,6 +38,8 @@ impl<'a> FileCfgEdgeIndex<'a> {
         // Each unique source line visits its bucket once. Do not partition by
         // function identity: a nested owner's lines can admit another's edges.
         for (line, &from) in line_index {
+            #[cfg(test)]
+            super::work_tests::bump(|counts| counts.cfg_index_probes += 1);
             if let Some(bucket) = self.by_source.get(line) {
                 for &ordinal in bucket {
                     #[cfg(test)]
