@@ -16,7 +16,8 @@ struct Cli {
     warm_at_startup: bool,
     #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u64).range(0..=600))]
     first_call_wait: u64,
-    /// Unload an ordinary stdio index after this many idle seconds (0 disables).
+    /// Unload an ordinary stdio index after this many idle seconds (0 disables). Off unless this flag or
+    /// PRISM_MCP_INDEX_IDLE_SECS is set; measurement runs pass 600 explicitly.
     #[arg(long)]
     index_idle_secs: Option<String>,
     /// Prototype A+C allocator release, only after whole-session idle disposal.
