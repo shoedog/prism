@@ -257,7 +257,6 @@ fn fixture_files(root: &Path, files: &mut Vec<std::path::PathBuf>) {
         let name = entry.file_name();
         let name = name.to_string_lossy();
         if name == "private-corpus"
-            || name == "frontend-portal"
             || name.starts_with("f-")
             || name.starts_with("F-private")
             || name.to_lowercase().contains("secbench")
