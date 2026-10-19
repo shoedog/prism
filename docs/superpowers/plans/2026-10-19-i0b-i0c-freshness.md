@@ -206,3 +206,17 @@ MCP mutants live in **`mutants/manual/<slice>.json` and are hand-run with `--fea
 - **SMELL / IMMATERIAL, retained limitation:** metadata freshness is not an atomic filesystem snapshot; old-version operator control requires a matching binary; stdio blocked stdout may stall its owner loop. None is a newly demonstrated incorrect result or a reason to widen these slices.
 
 Round-1 dispositions are folded; round-2 design review remains available. Original plan is committed at `3748fc39` (PR #493); controller commits this fold and handoff line. Implementation, O producer/neutrality evidence, tests and measurements remain pending.
+
+## Round-2 post-cap fold (disclosed)
+
+Round 2: sol APPROVE (no findings); Opus APPROVE WITH FIXES with one MATERIAL WRONG in F (round 1 had two in F, all
+resolved; the loop is converging), folded here without a third round:
+
+| Finding | Obligation |
+|---|---|
+| N1 (WRONG / MATERIAL, F) | `collect_supported_source_paths` returns `None` for the whole repo when any non-skipped subdirectory is unreadable, while the loader's walk tolerates it. F adds a tolerant sibling accessor (~15–25 lines in `repo_loader.rs`, read-only, mirroring the walk's skip/tolerance rules; controller-authorized amendment to the one-accessor rule) and certifies membership from it. Tests: unreadable-subdirectory pair — a file created mid-load reports stale; no edit reports clean. |
+| S1 (MATERIAL, F) | The membership exemption list names every loader skip reason, including non-UTF-8 files (`NotUtf8`), Go testdata, parse-failed and unreadable files; fixture per reason. |
+| S2–S3 (IMMATERIAL, F) | Record the skipped-directory churn interaction with `raced_stale` under auto policies and the duplicated P1 stderr warnings; drop the purposeless pre-load full accessor capture if it does not change a verdict (otherwise state its purpose); bootstrap cost is reported at the readout for the owner's activation decision. |
+| S4 (IMMATERIAL, F) | One re-check before declaring a race on a touch during a file's validation window. |
+| S5 (IMMATERIAL, I0b-2) | Add the `prism-mcp.rs:339` test-registration line to I0b-2's files; the "last release" log event is produced in I0b-1 (`activity.rs`/`connection.rs`) and only formatted in I0b-2. |
+| S6 (IMMATERIAL) | The fold is committed (`9bb307b7`); "controller commits" lines are historical. |
