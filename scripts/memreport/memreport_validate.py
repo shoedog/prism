@@ -4,6 +4,8 @@
 driver can use, so `derive`, `build_entry`, `assemble_summary` and `render` cannot raise on the report
 and no non-finite number reaches a statistic. `validate` adds the rules of each run kind.
 """
+from memreport_changed import validate_changed
+
 REPORT_VERSION = 3
 PRIME = 'prime'  # the discarded run that fills the cache; its report only has to parse
 BUILD = 'build'  # a first build into an empty cache directory: the opposite of the cached kinds
@@ -15,6 +17,9 @@ REQUIRED = {
     'warm': (('after_load_repo', 'peak_bytes'), ('after_index', 'peak_bytes'), ('after_index', FOOTPRINT)),
     'cold': (('after_call_edges', 'peak_bytes'),),
     'refresh': (('after_refresh', 'peak_bytes'),),
+    'changed-refresh': tuple((name, 'peak_bytes') for name in
+                             ('start', 'after_load_repo', 'after_index', 'after_call_edges',
+                              'after_settle', 'after_refresh')),
     BUILD: (('after_call_edges', 'peak_bytes'),),
     'workload': (('after_settle', FOOTPRINT),),
     PRIME: (),
@@ -38,7 +43,7 @@ BUILD_SAVE_MARKERS = (
      'the call-edge sidecar could not be saved, so this was not a build that writes the cache'),
 )
 # A run of these kinds is supposed to load both caches from a primed directory.
-CACHED_KINDS = ('warm', 'workload', 'refresh')
+CACHED_KINDS = ('warm', 'workload', 'refresh', 'changed-refresh')
 
 STAGE_NUMBERS = ('elapsed_ms', 'rss_bytes', 'phys_footprint_bytes', 'compressed_bytes', 'peak_bytes',
                  'heap_in_use_bytes', 'tree_sitter_heap_bytes')
@@ -195,13 +200,15 @@ def validate(kind, report, expected=None):
                 return '%s.phys_footprint_bytes and %s.rss_bytes are unavailable' % (stage_name, stage_name)
         elif not is_number(entry.get(field)):
             return '%s.%s is unavailable' % (stage_name, field)
-    if kind == 'refresh':
+    if kind in ('refresh', 'changed-refresh'):
         refresh = report.get('refresh')
         if not isinstance(refresh, dict):
             return 'report has no refresh section'
         if refresh.get('status') != 'refreshed':
             return 'refresh status is %r, not \'refreshed\' (the tree changed during the refresh)' % (
                 refresh.get('status'),)
+    if kind == 'changed-refresh':
+        return validate_changed(report, expected)
     if kind == 'workload':
         return validate_workload(report, expected)
     return None

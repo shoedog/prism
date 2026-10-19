@@ -12,10 +12,12 @@ use tree_sitter::Node;
 use super::{FlowConfidence, FlowDoubt};
 
 mod capture;
+mod cfg_edge_index;
 mod compact_wire;
 mod graph;
 mod scope;
 
+pub(crate) use cfg_edge_index::FileCfgEdgeIndex;
 use graph::{definition_reaches_unflagged, path_exists, reverse_postorder, BitSet};
 
 /// Hard caps from the authorised measurement pass
@@ -126,7 +128,14 @@ pub(crate) fn reaching_definitions(
     dfg_edges: &[FlowEdge],
 ) -> RdOutcome {
     let cfg_edges = cfg::build_cfg_edges_with_arms(parsed);
-    reaching_definitions_with_exact(parsed, func_node, defs, dfg_edges, &[], &cfg_edges)
+    reaching_definitions_with_exact(
+        parsed,
+        func_node,
+        defs,
+        dfg_edges,
+        &[],
+        &FileCfgEdgeIndex::new(&cfg_edges),
+    )
 }
 
 pub(crate) fn reaching_definitions_with_exact(
@@ -135,12 +144,33 @@ pub(crate) fn reaching_definitions_with_exact(
     defs: &[DefSite],
     dfg_edges: &[FlowEdge],
     exact_edges: &[FlowEdge],
-    // PR-B perf: the file's CFG edges, built once per file by the caller
-    // (`build_cfg_edges_with_arms` is a pure function of `parsed`).
-    file_cfg_edges: &[(cfg::CfgEdge, cfg::ArmProvenance)],
+    file_cfg_edges: &FileCfgEdgeIndex<'_>,
+) -> RdOutcome {
+    let outcome = reaching_definitions_impl(
+        parsed,
+        func_node,
+        defs,
+        dfg_edges,
+        exact_edges,
+        file_cfg_edges,
+    );
+    #[cfg(test)]
+    cfg_edge_index::tests::record_outcome(&outcome);
+    outcome
+}
+
+fn reaching_definitions_impl(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    defs: &[DefSite],
+    dfg_edges: &[FlowEdge],
+    exact_edges: &[FlowEdge],
+    file_cfg_edges: &FileCfgEdgeIndex<'_>,
 ) -> RdOutcome {
     #[cfg(test)]
     let _work = work_tests::Pass::begin(parsed, func_node);
+    #[cfg(test)]
+    work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
     let defs = deduplicate_definitions(defs);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
@@ -162,15 +192,7 @@ pub(crate) fn reaching_definitions_with_exact(
         .map(|(index, line)| (*line, index + 1))
         .collect();
     let mut cfg_edges = Vec::new();
-    for (edge, provenance) in file_cfg_edges.iter().cloned() {
-        #[cfg(test)]
-        work_tests::bump(|counts| counts.cfg_candidates += 1);
-        let (Some(&from), Some(&to)) = (
-            line_index.get(&edge.from_line),
-            line_index.get(&edge.to_line),
-        ) else {
-            continue;
-        };
+    for (from, to, edge, provenance) in file_cfg_edges.for_owner(&line_index) {
         cfg_edges.push((
             from,
             to,
@@ -179,6 +201,18 @@ pub(crate) fn reaching_definitions_with_exact(
     }
     if cfg_edges.is_empty() {
         return RdOutcome::Unavailable(RdUnavailable::NoCfgEdges);
+    }
+
+    // The operation-only census stops after the measured CFG selection. It
+    // retains real producer inputs and caps, but does not measure the solver.
+    #[cfg(test)]
+    if work_tests::count_only() {
+        return RdOutcome::Available(RdResult {
+            labels: BTreeMap::new(),
+            exact_labels: BTreeMap::new(),
+            loop_carried_edges: BTreeSet::new(),
+            reaching_edges: BTreeSet::new(),
+        });
     }
 
     let node_count = lines.len() + 1;

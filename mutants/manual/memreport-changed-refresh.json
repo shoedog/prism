@@ -1,0 +1,77 @@
+{
+  "lane": "S0 changed-refresh manual feature/Python mutations (excluded from shared glob)",
+  "mutations": {
+    "R2-changed-edit-skipped": [
+      "src/mcp/mem_changed_refresh.rs",
+      "            std::fs::write(&path, &self.after).context(\"applying changed edit\")?;",
+      "            // mutant: skip applying the edit",
+      "mcp::mem_report::changed::tests::failed_refresh_still_restores"
+    ],
+    "R2-changed-restore-skipped": [
+      "src/mcp/mem_changed_refresh.rs",
+      "            std::fs::write(&path, &self.before)?;",
+      "            // mutant: skip restoring the edit",
+      "mcp::mem_report::changed::tests::failed_refresh_still_restores"
+    ],
+    "R2-changed-validator-accepts-wrong-hash": [
+      "scripts/memreport/memreport_changed.py",
+      "        if section.get(observed) != edit[declared]:",
+      "        if False:",
+      "test_memreport_changed.ChangedRefresh.test_validator_rejects_wrong_hash"
+    ],
+    "R2-changed-recovery-trusts-manifest": [
+      "scripts/memreport/memreport_changed.py",
+      "    if original != edit['before'].encode():\n        raise SystemExit('changed-refresh wrong starting content')\n    return original",
+      "    return edit['before'].encode()  # mutant: trust declared bytes",
+      "test_memreport_changed_driver.ChangedDriver.test_wrong_starting_manifest_refused_without_child_or_recovery_write"
+    ],
+    "R2-changed-panic-skips-restore": [
+      "src/mcp/mem_changed_refresh.rs",
+      "        let restored = (|| -> Result<String> {",
+      "        if let Err(payload) = result { std::panic::resume_unwind(payload); }\n        let restored = (|| -> Result<String> {",
+      "mcp::mem_report::changed::tests::panicking_refresh_still_restores"
+    ],
+    "R2-changed-pre-edit-check-skipped": [
+      "src/mcp/mem_changed_refresh.rs",
+      "        let before_sha256 = self.check(root)?;",
+      "        let before_sha256 = self.before_sha256.clone();",
+      "mcp::mem_report::changed::tests::dirty_between_load_and_run_refused_without_edit"
+    ],
+    "R2-changed-third-content-unchecked": [
+      "src/mcp/mem_changed_refresh.rs",
+      "            ensure!(\n                hash(std::fs::read(&path)?) == self.after_sha256,\n                \"edit changed during refresh\"\n            );",
+      "            // mutant: no refresh-content check",
+      "mcp::mem_report::changed::tests::third_content_during_refresh_refused_and_restored"
+    ],
+    "R2-changed-post-restore-clean-skipped": [
+      "src/mcp/mem_changed_refresh.rs",
+      "            self.clean(root)?;",
+      "            // mutant: no post-restore cleanliness check",
+      "mcp::mem_report::changed::tests::untracked_during_refresh_fails_post_restore_clean"
+    ],
+    "R2-changed-prime-cache-reused": [
+      "scripts/memreport/memreport.py",
+      "        shutil.copytree(cache_dir, changed_cache, dirs_exist_ok=True)  # preserve the pinned prime",
+      "        changed_cache = cache_dir  # mutant: reuse prime",
+      "test_memreport_changed_driver.ChangedDriver.test_two_successful_repetitions_use_fresh_copies_and_remove_them"
+    ],
+    "R2-changed-interrupt-skips-recovery": [
+      "scripts/memreport/memreport.py",
+      "        finally:\n            # subprocess.run reaps timed-out/interrupted children before unwinding here.",
+      "        finally:\n            if sys.exc_info()[0] is KeyboardInterrupt:\n                raise  # mutant: skip recovery only for KeyboardInterrupt\n            # subprocess.run reaps timed-out/interrupted children before unwinding here.",
+      "test_memreport_changed_driver.ChangedDriver.test_interrupt_and_exception_recover_verified_bytes_and_remove_cache"
+    ],
+    "R2-changed-cache-cleanup-skipped": [
+      "scripts/memreport/memreport.py",
+      "        removed, note = remove_created(changed_cache, root, owned)",
+      "        owned.close()\n        removed, note = False, 'mutant: cleanup skipped'",
+      "test_memreport_changed_driver.ChangedDriver.test_two_successful_repetitions_use_fresh_copies_and_remove_them"
+    ],
+    "R2-changed-target-preflight-skipped": [
+      "scripts/memreport/memreport_changed.py",
+      "def verified_original(root, edit):\n    \"\"\"Refuse before any child or write; only bytes read here may be used for recovery.\"\"\"\n    target = root / edit['path']\n    try:\n        if target.is_symlink() or target.resolve() != target or not target.is_file():\n            raise OSError('target missing, replaced or not a regular mirror file')\n        original = target.read_bytes()\n    except OSError as error:\n        raise SystemExit('changed-refresh target unavailable: %s' % error) from error\n    if original != edit['before'].encode():\n        raise SystemExit('changed-refresh wrong starting content')\n    return original\n",
+      "def verified_original(root, edit):\n    return edit['before'].encode()  # mutant: no actual target verification\n",
+      "test_memreport_changed_driver.ChangedDriver.test_missing_target_refused_without_child_or_write"
+    ]
+  }
+}

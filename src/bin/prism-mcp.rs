@@ -29,6 +29,10 @@ struct Cli {
     /// Measurement only: run one refresh at the end, for the refresh peak.
     #[arg(long, hide = true)]
     mem_refresh: bool,
+    /// Measurement only: edit manifest for a dedicated private mirror (requires feature).
+    #[cfg(feature = "memreport-changed-refresh")]
+    #[arg(long, hide = true, conflicts_with_all = ["mem_refresh", "mem_emit_workload"])]
+    mem_changed_refresh: Option<std::path::PathBuf>,
     /// Measurement only: seconds to wait before the steady-state sample.
     #[arg(long, hide = true, default_value_t = 5, value_parser = clap::value_parser!(u64).range(0..=600))]
     mem_settle_secs: u64,
@@ -233,10 +237,17 @@ fn main() -> anyhow::Result<()> {
     let owner = c.owner.options()?;
 
     let report_mode = std::env::var("PRISM_MCP_MEM_REPORT").is_ok_and(|value| value == "1");
-    let mem_flag = c.mem_workload.is_some() || c.mem_refresh || c.mem_emit_workload.is_some();
+    #[cfg(feature = "memreport-changed-refresh")]
+    let changed_refresh = c.mem_changed_refresh;
+    #[cfg(not(feature = "memreport-changed-refresh"))]
+    let changed_refresh = None;
+    let mem_flag = c.mem_workload.is_some()
+        || c.mem_refresh
+        || c.mem_emit_workload.is_some()
+        || changed_refresh.is_some();
     if mem_flag && !report_mode {
         anyhow::bail!(
-            "--mem-workload, --mem-refresh and --mem-emit-workload are measurement-only and need PRISM_MCP_MEM_REPORT=1"
+            "--mem-workload, --mem-refresh, --mem-emit-workload and --mem-changed-refresh (when compiled) are measurement-only and need PRISM_MCP_MEM_REPORT=1"
         );
     }
     if report_mode {
@@ -264,6 +275,7 @@ fn main() -> anyhow::Result<()> {
         let options = prism::mcp::mem_report::MemReportOptions {
             workload: c.mem_workload,
             refresh: c.mem_refresh,
+            changed_refresh,
             settle: std::time::Duration::from_secs(c.mem_settle_secs),
         };
         // Do not hold the stderr lock while the report runs. The index is built on pool worker
@@ -321,5 +333,32 @@ fn main() -> anyhow::Result<()> {
     match owner {
         Some(owner) => prism::mcp::run_with_owner(cfg, owner),
         None => prism::mcp::run_with_idle_policy(cfg, policy),
+    }
+}
+
+#[cfg(test)]
+mod mem_cli_tests {
+    use super::Cli;
+    use clap::Parser;
+
+    #[test]
+    fn mem_changed_refresh_cli_surface_matches_feature() {
+        let parsed = Cli::try_parse_from([
+            "prism-mcp",
+            "--repo",
+            ".",
+            "--mem-changed-refresh",
+            "edit.json",
+        ]);
+        #[cfg(feature = "memreport-changed-refresh")]
+        assert_eq!(
+            parsed.unwrap().mem_changed_refresh.unwrap(),
+            std::path::PathBuf::from("edit.json")
+        );
+        #[cfg(not(feature = "memreport-changed-refresh"))]
+        assert_eq!(
+            parsed.err().unwrap().kind(),
+            clap::error::ErrorKind::UnknownArgument
+        );
     }
 }

@@ -38,6 +38,8 @@ def derive(kind, report):
         return {'cold_peak': find_stage(report, 'after_call_edges')['peak_bytes']}
     if kind == 'refresh':
         return {'refresh_peak': find_stage(report, 'after_refresh')['peak_bytes']}
+    if kind == 'changed-refresh':
+        return {'changed_refresh_peak': find_stage(report, 'after_refresh')['peak_bytes']}
     if kind == 'workload':
         attribution, settled = report['attribution'], find_stage(report, 'after_settle')
         return {

@@ -166,7 +166,7 @@ class BuildEntryTests(unittest.TestCase):
 
     def test_build_is_not_a_readout_kind(self):
         self.assertEqual(memreport.KINDS, ('warm', 'cold', 'workload', 'refresh'))
-        self.assertEqual(memreport.RUN_KINDS, ('warm', 'cold', 'workload', 'refresh', 'build'))
+        self.assertEqual(memreport.RUN_KINDS, ('warm', 'cold', 'workload', 'refresh', 'build', 'changed-refresh'))
 
     def test_a_warm_series_with_no_elapsed_time_has_no_load_ms_statistic(self):
         warm = canned('warm')

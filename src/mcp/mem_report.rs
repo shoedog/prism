@@ -18,6 +18,9 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+#[path = "mem_changed_refresh.rs"]
+mod changed;
+
 const INIT: &str = r#"{"jsonrpc":"2.0","id":"prism-mem-init","method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"prism-mem-report","version":"0"}}}"#;
 const INITED: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
 
@@ -26,6 +29,8 @@ pub struct MemReportOptions {
     pub workload: Option<PathBuf>,
     /// Run one full refresh at the end, for the refresh peak.
     pub refresh: bool,
+    /// Preregistered private-mirror edit (non-default memreport-changed-refresh feature).
+    pub changed_refresh: Option<PathBuf>,
     /// How long to wait after the workload before the steady-state sample.
     pub settle: Duration,
 }
@@ -234,6 +239,8 @@ struct Report {
     attribution: Attribution,
     workload: Option<WorkloadStats>,
     refresh: Option<RefreshSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    changed_refresh: Option<Value>,
 }
 
 fn build_section() -> BuildSection {
@@ -266,7 +273,7 @@ fn config_section(cfg: &ServerConfig, options: &MemReportOptions) -> ConfigSecti
             .workload
             .as_ref()
             .map(|path| path.display().to_string()),
-        refresh: options.refresh,
+        refresh: options.refresh || options.changed_refresh.is_some(),
         settle_secs: options.settle.as_secs(),
     }
 }
@@ -296,6 +303,15 @@ pub fn run(
 ) -> anyhow::Result<()> {
     // Reject a bad workload before paying for the build.
     let workload_file = options.workload.as_deref().map(load_workload).transpose()?;
+    anyhow::ensure!(
+        options.changed_refresh.is_none() || !options.refresh,
+        "choose one refresh scenario"
+    );
+    let edit = options
+        .changed_refresh
+        .as_deref()
+        .map(|path| changed::Edit::load(&cfg.repo_root, path))
+        .transpose()?;
 
     let mut recorder = Recorder::start();
     let mut provider = SessionProvider::bootstrap_observed(cfg, &mut |stage| {
@@ -327,7 +343,24 @@ pub fn run(
     std::thread::sleep(options.settle);
     recorder.mark("after_settle");
 
-    let refresh = if options.refresh {
+    let mut changed_refresh = None;
+    let refresh = if let Some(edit) = &edit {
+        anyhow::ensure!(
+            cache.cpg_hit == Some(true) && cache.call_edges_loaded == Some(true),
+            "changed-refresh requires true-hit CPG and sidecar bootstrap"
+        );
+        anyhow::ensure!(
+            provider.session().repo.file_hashes.get(&edit.path) == Some(&edit.before_sha256),
+            "edit target not in pinned indexed snapshot"
+        );
+        let (summary, record) = edit.run(&cfg.repo_root, || {
+            let summary = provider.refresh()?;
+            recorder.mark("after_refresh");
+            Ok(summary)
+        })?;
+        changed_refresh = Some(record);
+        Some(summary)
+    } else if options.refresh {
         let summary = provider.refresh()?;
         recorder.mark("after_refresh");
         Some(summary)
@@ -352,6 +385,7 @@ pub fn run(
         attribution: attribute(provider.session()),
         workload,
         refresh,
+        changed_refresh,
     };
     serde_json::to_writer(&mut *out, &report)?;
     out.write_all(b"\n")?;
