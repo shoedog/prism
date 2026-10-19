@@ -71,9 +71,11 @@ impl<'a> Index<'a> {
             .get(name)
             .into_iter()
             .flatten()
-            .filter(move |c| {
+            .inspect(|_| {
                 #[cfg(test)]
                 EXAMINED.with(|n| n.set(n.get() + 1));
+            })
+            .filter(move |c| {
                 // set_byte_range admits partial overlaps, not just contained nodes.
                 // Empty nodes at start are admitted only if their parent overlaps.
                 c.bytes.start < end
@@ -173,6 +175,55 @@ thread_local! {
     static QUERIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static CAPTURES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static EXAMINED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Ranged query for the compatibility wrapper, with the frozen gate ordering.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn one_shot_fenced(
+    parsed: &ParsedFile,
+    root: Node<'_>,
+    owner: &Node<'_>,
+    name: &str,
+    def_line: usize,
+    def_byte: usize,
+    reads_only: bool,
+) -> BTreeMap<usize, (usize, usize)> {
+    let Some(query) = get_query(parsed.language, QueryKind::Identifiers) else {
+        return crate::profile::gates::scoped_refs::<false>(parsed, owner, name, def_line)
+            .into_iter()
+            .map(|line| {
+                (
+                    line,
+                    (parsed.line_start_byte(line), parsed.line_start_byte(line)),
+                )
+            })
+            .collect();
+    };
+    let ident = query.capture_index_for_name("ident").unwrap();
+    let mut cursor = QueryCursor::new();
+    cursor.set_byte_range(root.byte_range());
+    #[cfg(test)]
+    crate::profile::gates::SCOPED_QUERY_WORK.with(|c| c.set((c.get().0 + 1, c.get().1)));
+    let mut matches = cursor.matches(query, parsed.tree.root_node(), parsed.source.as_bytes());
+    let mut out = BTreeMap::new();
+    while let Some(m) = matches.next() {
+        for c in m.captures {
+            #[cfg(test)]
+            crate::profile::gates::SCOPED_QUERY_WORK.with(|n| n.set((n.get().0, n.get().1 + 1)));
+            if c.index == ident
+                && parsed.node_text(&c.node) == name
+                && !shadow::<false>(parsed, &c.node, owner, name, def_line)
+                && !fence::<false>(parsed, &c.node, owner, name, def_byte)
+                && !(reads_only
+                    && (parsed.js_ts_identifier_is_not_a_read(c.node)
+                        || parsed.js_ts_reference_in_with_body(c.node)))
+            {
+                out.entry(c.node.start_position().row + 1)
+                    .or_insert((c.node.start_byte(), c.node.end_byte()));
+            }
+        }
+    }
+    out
 }
 #[cfg(test)]
 pub(crate) fn record_query() {

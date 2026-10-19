@@ -70,7 +70,7 @@ prism-mcp --repo /abs/path/to/repo --eager < /dev/null               # build syn
 | `--shared` | no | Serve through the shared per-repository daemon (a shim of a few MB) instead of an index of this process's own; opt-in. See [Shared daemon](#shared-daemon---shared-opt-in-macos-and-linux). |
 | `--standalone` | no | An index of this process's own (the default). |
 
-> **The first index build warms a cache.** A cold whole-repo CPG build can take ~30 s on a large repo;
+> **The first index build warms a cache.** A cold whole-repo CPG build can take seconds to a few minutes on a large repo;
 > later builds on an unchanged tree are near-instant (the cache is keyed by the canonical repo path + a
 > grammar fingerprint, and only re-indexes changed files). By default that build runs on the first valid
 > `tools/call`, not at process start. If you want to pre-warm once, use either
@@ -95,7 +95,9 @@ claude mcp add --transport stdio prism \
 ```
 
 Verify with `claude mcp list`. The tools appear to the agent as `mcp__prism__nav_*` (the `prism` segment
-is the server name you chose in the `add` command).
+is the server name you chose in the `add` command). The plugin's tools are named
+`mcp__plugin_prism_prism__nav_*` instead. Claude Code may list either as deferred tools, which the agent
+loads with ToolSearch before its first call.
 
 ### Codex
 
@@ -106,6 +108,23 @@ Codex reads MCP servers from `~/.codex/config.toml`:
 command = "/abs/path/to/prism/target/release/prism-mcp"
 args = ["--repo", "/abs/path/to/your/repo"]
 ```
+
+Codex starts MCP servers in the session's working directory (`codex exec -C <dir>`), so a project config
+can index whichever checkout Codex runs in instead of a fixed path. This repo's own `.codex/config.toml`
+does that, which gives every worktree and clone its own index:
+
+```toml
+[mcp_servers.prism]
+command = "/bin/sh"
+args = ["-c", 'root=$(git rev-parse --show-toplevel) || exit 1; exec "$PRISM_MCP_BIN" --repo "$root" --shared']
+startup_timeout_sec = 60
+env = { PRISM_MCP_BIN = "/abs/path/to/prism/target/release/prism-mcp", PRISM_MCP_RUNTIME_DIR = "/tmp" }
+```
+
+A fixed `--repo` pointing at another checkout answers about that checkout's code, not the one under
+review. Each checkout gets its own shared daemon (and nav cache); a daemon retires 15 minutes after its
+last client. To override the server per run, override `command` as well as `args`: an args-only override
+would be passed to `/bin/sh`.
 
 ### Kiro
 

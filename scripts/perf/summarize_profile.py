@@ -10,6 +10,10 @@ def milliseconds(value):
     return "-" if value is None else f"{value / 1_000_000:.3f}"
 
 
+def mebibytes(value):
+    return "-" if value is None else f"{value / 2**20:.2f}"
+
+
 def table(headers, rows):
     rows = [[str(cell).replace("|", "\\|").replace("\n", " ") for cell in row] for row in rows]
     return "\n".join([
@@ -31,19 +35,19 @@ def render(records):
     summary = next(r for r in records if r["record"] == "summary")
     result = ["Phases (inclusive parents overlap children; parallel work is not build wall time).", table(
         ["Phase / file", "Kind", "Status", "Wall/work ms", "CPU ms", "process peak RSS (high-water mark, sampled after) MiB"],
-        [(r["name"] + (" / " + r["file"] if r.get("file") else ""), r["time_kind"],
+        [(r["name"] + (f' #{r["instance"]}' if "instance" in r else "") + (" / " + r["file"] if r.get("file") else ""), r["time_kind"],
           r["status"], milliseconds(r.get("wall_ns", r.get("work_ns"))), milliseconds(r["cpu_ns"]),
-          "-" if r["peak_rss_bytes"] is None else f'{r["peak_rss_bytes"] / 2**20:.2f}') for r in phases])]
+          mebibytes(r["peak_rss_bytes"])) for r in phases])]
     command = next((r for r in records if r["record"] == "command"), None)
     if command is not None:
-        result.insert(0, f'Command: wall {milliseconds(command["wall_ns"])} ms; CPU {milliseconds(command["cpu_ns"])} ms; process peak RSS (high-water mark, sampled after) {command["peak_rss_bytes"]} bytes.\n')
+        result.insert(0, f'Command: wall {milliseconds(command["wall_ns"])} ms; CPU {milliseconds(command["cpu_ns"])} ms; process peak RSS (high-water mark, sampled after) {mebibytes(command["peak_rss_bytes"])} MiB.\n')
     top = []
     for r in summary["top_owners"]:
         owner = owners[(r["file"], r["owner"], r["start_line"], r["start_byte"], r["total_ns"])].popleft()
         top.append((f'{r["file"]}:{r["start_line"]} {r["owner"]}', owner["language"],
                     milliseconds(r["total_ns"]), milliseconds(owner["flow_search_ns"]),
                     milliseconds(owner["reaching_definitions_ns"]), owner["byte_size"], owner["ast_nodes"],
-                    "-" if owner.get("peak_rss_bytes") is None else f'{owner["peak_rss_bytes"] / 2**20:.2f}'))
+                    mebibytes(owner.get("peak_rss_bytes"))))
     result += ["", "Top owners (summed owner work).", table(
         ["Owner", "Language", "Total ms", "Search ms", "RD ms", "Bytes", "AST nodes", "process peak RSS (high-water mark, sampled after) MiB"], top)]
     other = summary["other_owners"]

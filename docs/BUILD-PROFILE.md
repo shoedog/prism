@@ -39,7 +39,7 @@ is bytes. Unknown platform measurements are JSON `null`.
 | --- | --- |
 | `header` | `schema_version`, `time_unit`, `memory_unit`, `peak_rss_scope`, `top_n` (10), `prism_version`, `commit`, `thread_count`, `argv`, `os` |
 | `command` | whole session `wall_ns`, process `cpu_ns`, `peak_rss_bytes`, `time_kind: "serial_wall"`; excludes final profile serialization/publication |
-| `phase` | `name`, optional `file`, `time_kind`, `aggregation`, `status`, `wall_ns` (or `work_ns` for RD sums), `cpu_ns`, `peak_rss_bytes`, `rss_rise_bytes` |
+| `phase` | `name`, `instance` (occurrence ordinal), optional `file`, `time_kind`, `aggregation`, `status`, `wall_ns` (or `work_ns` for RD sums), `cpu_ns`, `peak_rss_bytes`, `rss_rise_bytes` |
 | `owner` | `file`, `owner`, `start_line` (1-based), `start_byte` (0-based), `language`, `byte_size`, `ast_nodes`, `definitions`, `assignment_paths`, `total_ns`, `flow_edges_ns`, `flow_search_ns`, `reaching_definitions_ns`, `rd_cpu_ns`, `rd_rss_rise_bytes`, `file_cfg_init_ns`, `file_cfg_rss_rise_bytes`, `peak_rss_bytes`, `rss_rise_bytes`, `time_kind`, `counters` |
 | `summary` | `time_kind: "summed_owner_work"`, `owner_count`, `total_owner_ns`, `top_owners`, `top_dfg_share`, `other_owners` |
 
@@ -78,7 +78,12 @@ with `call_graph.skeleton.*` and `call_graph.direct_subset.*` subphases.
 direct CG/DFG construction, merge, refresh and assembly. Its separate
 `call_graph.incremental_refresh` interval is outside the direct-subset constructor;
 `call_graph` is a constructor interval, not an aggregate of every CG-labelled row.
-A single command may therefore emit multiple records for a phase name. CPG Step 5c includes the subsequent refusal pass. Step 9 includes
+A single command may therefore emit multiple records for a phase name. Each phase
+has an additive `instance` ordinal (starting at 1 per `(name, file)` in the
+command's record order, which preserves collection order within that pair).
+The renderer shows `name #instance`; older v1 rows without the field still render.
+These ordinals distinguish occurrences, not parent/child relationships or constructor types.
+CPG Step 5c includes the subsequent refusal pass. Step 9 includes
 final index ordering. Cache records cover the CPG cache transport, including miss
 checks and post-load cleanup. They do not include lazy navigation query edge caches.
 
@@ -116,6 +121,8 @@ Binding fences include both reference-search fences and captured-write admission
 fences against matching RD definitions; the latter may admit or refuse a write.
 Short-circuit refusals do not count gates that never execute. Counters are owner-local;
 const-specialized search hooks do no per-node counter work when disabled.
+The manual no-query fallback in `scoped_refs` calls the recursive walker directly;
+its shadow checks are not included in `shadow_check_calls`.
 
 Command totals expose unprofiled work (hashing, registry, queries, algorithms and
 normal output) as the remainder after non-overlapping top-level intervals. Do not

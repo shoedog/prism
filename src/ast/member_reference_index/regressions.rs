@@ -40,6 +40,12 @@ fn member_index_query_bound_and_ambiguous_ranges() {
     )
     .unwrap();
     let index = Index::build(&malformed);
+    assert!(!index.by_path.is_empty());
+    for candidate in index.by_path.values().flatten() {
+        let mut cursor = index.root.walk();
+        cursor.goto_descendant(candidate.preorder);
+        assert_eq!(cursor.node(), candidate.node);
+    }
     let mut nodes = Vec::new();
     let mut cursor = malformed.tree.root_node().walk();
     loop {

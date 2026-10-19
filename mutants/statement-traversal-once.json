@@ -63,6 +63,24 @@
       "stmts.sort_by_key(|stmt| stmt.line);",
       "stmts.sort_by_key(|stmt| (stmt.line, std::cmp::Reverse(stmt.start_byte)));",
       "ast::statement_traversal::tests::identity_javascript"
+    ],
+    "F11-go-ordinary-revisit": [
+      "src/ast/statement_traversal.rs",
+      "if !visits.ordinary.insert(node.id()) {",
+      "if !visits.ordinary.insert(node.id()) && false {",
+      "ast::statement_traversal::tests::go_visits_are_linear_in_all_modes"
+    ],
+    "F11-go-nested-revisit": [
+      "src/ast/statement_traversal.rs",
+      "if !visits.nested.insert(node.id()) {",
+      "if !visits.nested.insert(node.id()) && false {",
+      "ast::statement_traversal::tests::go_visits_are_linear_in_all_modes"
+    ],
+    "F13-bodyless-emits-statement": [
+      "src/ast/statement_traversal.rs",
+      "        let mut stmts = Vec::new();\n        // Find the function body",
+      "        let mut stmts = Vec::new();\n        if self.language == crate::languages::Language::Terraform { stmts.push((1, \"block\".into())); }\n        // Find the function body",
+      "ast::statement_traversal::tests::identity_terraform_bodyless_blocks"
     ]
   }
 }

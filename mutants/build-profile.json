@@ -181,10 +181,71 @@
       "profile.next(\"call_graph.rust_macro_shadow_intersection\");",
       "profile.next(\"call_graph.hidden_rust_macro_shadow_intersection\");",
       "build_profile_round2_test::call_graph_initializers_have_individual_rows"
+    ],
+    "PROFILE-repeated-instance-one": [
+      "src/profile/mod.rs",
+      "instance: *instance,",
+      "instance: 1,",
+      "profile::deferred_tests::repeated_phase_instances_are_additive_and_distinct"
+    ],
+    "PROFILE-omit-instance": [
+      "src/profile/mod.rs",
+      "    instance: u64,",
+      "    #[serde(skip)]\n    instance: u64,",
+      "profile::deferred_tests::repeated_phase_instances_are_additive_and_distinct"
+    ],
+    "PROFILE-late-js_ts_props": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.js_ts_props\");\n    let props = crate::js_ts_props::collect(files);",
+      "let props = crate::js_ts_props::collect(files);\n    profile.next(\"call_graph.js_ts_props\");",
+      "profile::deferred_tests::initializer_stage_boundaries_precede_builders"
+    ],
+    "PROFILE-late-populate_scope_graph": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.populate_scope_graph\");\n    let scope = CallGraph::populate_scope_graph(files, scope_inputs);",
+      "let scope = CallGraph::populate_scope_graph(files, scope_inputs);\n    profile.next(\"call_graph.populate_scope_graph\");",
+      "profile::deferred_tests::initializer_stage_boundaries_precede_builders"
+    ],
+    "PROFILE-late-js_anonymous_proofs": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.js_anonymous_proofs\");\n    let proofs = crate::js_anonymous::ProofIndex::build(files);",
+      "let proofs = crate::js_anonymous::ProofIndex::build(files);\n    profile.next(\"call_graph.js_anonymous_proofs\");",
+      "profile::deferred_tests::initializer_stage_boundaries_precede_builders"
+    ],
+    "PROFILE-late-rust_macro_shadow_intersection": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.rust_macro_shadow_intersection\");\n    let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);",
+      "let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);\n    profile.next(\"call_graph.rust_macro_shadow_intersection\");",
+      "profile::deferred_tests::initializer_stage_boundaries_precede_builders"
+    ],
+    "PROFILE-early-struct-init": [
+      "src/call_graph_profile_initializers.rs",
+      "profile.next(\"call_graph.struct_init\");\n    Initializers {",
+      "Initializers {",
+      "profile::deferred_tests::initializer_stage_boundaries_precede_builders"
+    ],
+    "PROFILE-render-hide-instance": [
+      "scripts/perf/summarize_profile.py",
+      "(f' #{r[\"instance\"]}' if \"instance\" in r else \"\")",
+      "\"\"",
+      "profile::deferred_tests::renderer_regressions"
+    ],
+    "PROFILE-render-command-bytes": [
+      "scripts/perf/summarize_profile.py",
+      "{mebibytes(command[\"peak_rss_bytes\"])} MiB.",
+      "{command[\"peak_rss_bytes\"]} bytes.",
+      "profile::deferred_tests::renderer_regressions"
+    ],
+    "PROFILE-phase-map-key-order": [
+      "src/profile/mod.rs",
+      "            line(\n                writer,\n                &PhaseRow {\n                    phase,\n                    instance: *instance,\n                },\n            )?;",
+      "            let mut row = serde_json::to_value(phase)?;\n            row[\"instance\"] = (*instance).into();\n            line(writer, &row)?;",
+      "profile::deferred_tests::repeated_phase_instances_are_additive_and_distinct"
     ]
   },
   "lib_test_prefixes": [
-    "profile::"
+    "profile::",
+    "profile::deferred_tests::"
   ],
   "extra": {
     "PROFILE-scope-measured-on-skip": [
@@ -199,6 +260,13 @@
         "src/profile/owner.rs",
         "start: Instant::now(),",
         "start,"
+      ]
+    ],
+    "PROFILE-early-struct-init": [
+      [
+        "src/call_graph_profile_initializers.rs",
+        "    let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);",
+        "    profile.next(\"call_graph.struct_init\");\n    let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);"
       ]
     ]
   }

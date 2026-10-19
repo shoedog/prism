@@ -137,11 +137,18 @@ fn finish() {
             &serde_json::json!({"record":"header", "schema_version":1, "time_unit":"ns", "memory_unit":"bytes", "peak_rss_scope":"process_lifetime", "top_n":10, "prism_version":env!("CARGO_PKG_VERSION"), "commit":env!("GIT_SHA"), "thread_count":rayon::current_num_threads(), "argv":std::env::args_os().map(|s| s.to_string_lossy().into_owned()).collect::<Vec<_>>(), "os":std::env::consts::OS}),
         )?;
         line(writer, &command)?;
-        for phase in &profile.phases {
-            line(writer, phase)?;
-        }
-        for phase in owner::file_rd(&profile.owners, &profile.phases) {
-            line(writer, &phase)?;
+        let rd = owner::file_rd(&profile.owners, &profile.phases);
+        let mut instances = std::collections::BTreeMap::new();
+        for phase in profile.phases.iter().chain(&rd) {
+            let instance = instances.entry((phase.name, &phase.file)).or_insert(0u64);
+            *instance += 1;
+            line(
+                writer,
+                &PhaseRow {
+                    phase,
+                    instance: *instance,
+                },
+            )?;
         }
         for owner in &profile.owners {
             line(writer, owner)?;
@@ -157,6 +164,13 @@ fn finish() {
 fn line(writer: &mut impl Write, value: &impl Serialize) -> std::io::Result<()> {
     serde_json::to_writer(&mut *writer, value)?;
     writer.write_all(b"\n")
+}
+
+#[derive(Serialize)]
+struct PhaseRow<'a> {
+    #[serde(flatten)]
+    phase: &'a PhaseRecord,
+    instance: u64,
 }
 
 #[derive(Serialize)]
@@ -309,3 +323,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod deferred_tests;

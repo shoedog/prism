@@ -22,12 +22,9 @@ pub(crate) fn fence<const COUNT: bool>(
     byte: usize,
 ) -> bool {
     #[cfg(test)]
-    crate::ast::binding_verdict_memo::probe::observe(
-        "fence",
-        node.id(),
-        0,
-        &format!("{}:{name}:{byte}", owner.id()),
-    );
+    crate::ast::binding_verdict_memo::probe::gate("fence", node.id(), || {
+        format!("{}:{name}:{byte}", owner.id())
+    });
     if COUNT {
         count(|c| c.binding_fence_calls += 1);
     }
@@ -42,12 +39,9 @@ pub(crate) fn admission_fence(
     byte: usize,
 ) -> bool {
     #[cfg(test)]
-    crate::ast::binding_verdict_memo::probe::observe(
-        "fence",
-        node.id(),
-        0,
-        &format!("{}:{name}:{byte}", owner.id()),
-    );
+    crate::ast::binding_verdict_memo::probe::gate("fence", node.id(), || {
+        format!("{}:{name}:{byte}", owner.id())
+    });
     if super::enabled() {
         count(|c| c.binding_fence_calls += 1); // admission increment
     }
@@ -61,12 +55,9 @@ pub(crate) fn shadow<const COUNT: bool>(
     line: usize,
 ) -> bool {
     #[cfg(test)]
-    crate::ast::binding_verdict_memo::probe::observe(
-        "shadow",
-        node.id(),
-        0,
-        &format!("{}:{name}:{line}", owner.id()),
-    );
+    crate::ast::binding_verdict_memo::probe::gate("shadow", node.id(), || {
+        format!("{}:{name}:{line}", owner.id())
+    });
     if COUNT {
         count(|c| c.shadow_check_calls += 1);
     }
@@ -79,12 +70,9 @@ pub(crate) fn def_scope(
     byte: usize,
 ) -> Option<(usize, usize)> {
     #[cfg(test)]
-    crate::ast::binding_verdict_memo::probe::observe(
-        "def_scope",
-        owner.id(),
-        0,
-        &format!("{name}:{byte}"),
-    );
+    crate::ast::binding_verdict_memo::probe::gate("def_scope", owner.id(), || {
+        format!("{name}:{byte}")
+    });
     if super::enabled() {
         count(|c| c.def_scope_calls += 1);
     }

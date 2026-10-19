@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 LANES_GLOB = 'mutants/*.json'
 LIB_PREFIXES_DEFAULT = ()
-COPIED = ['src', 'vendor', 'Cargo.toml', 'Cargo.lock', 'build.rs']
+COPIED = ['src', 'vendor', 'scripts', 'Cargo.toml', 'Cargo.lock', 'build.rs']
 HELPER = '''
 #[doc(hidden)]
 #[inline(never)]
@@ -314,21 +314,26 @@ def accessor_for(file):
 
 # ---------------------------------------------------------------- tree sync
 def sync_tree(tree, overrides):
-    """Build the scratch tree: real copies of src/ (rendered) and the manifest files, symlinks
+    """Build the scratch tree: real copies of src/, vendor/, scripts/ and manifests, symlinks
     to the live repo for every other top-level entry (tests, fixtures, README, eval, docs...).
     Only files whose bytes differ are written, so mtimes stay stable and cargo stays incremental."""
     tree.mkdir(parents=True, exist_ok=True)
     want = set()
     for item in COPIED:
+        # An older warm tree may still link scripts/ into the live checkout.
+        if (tree / item).is_symlink():
+            (tree / item).unlink()
         src = ROOT / item
-        files = [src] if src.is_file() else [p for p in src.rglob('*') if p.is_file()]
+        files = [src] if src.is_file() else [p for p in src.rglob('*') if p.is_file()
+                  and not p.is_relative_to(ROOT / 'scripts/mutgate/evidence')]
         for p in files:
             rel = str(p.relative_to(ROOT)); want.add(rel)
             data = overrides[rel].encode() if rel in overrides else p.read_bytes()
             dst = tree / rel
             if not dst.exists() or dst.read_bytes() != data:
                 dst.parent.mkdir(parents=True, exist_ok=True); dst.write_bytes(data)
-    for p in [q for d in ('src', 'vendor') for q in (tree / d).rglob('*')]:
+            shutil.copymode(p, dst)
+    for p in [q for d in ('src', 'vendor', 'scripts') for q in (tree / d).rglob('*')]:
         if p.is_file() and str(p.relative_to(tree)) not in want: p.unlink()
     for entry in ROOT.iterdir():
         if entry.name in COPIED or entry.name in ('target', '.git'): continue
@@ -457,7 +462,7 @@ def confirmation_reasons(m, observation, sensitive_tests):
 
 # ---------------------------------------------------------------- scoping
 def changed_lines(since):
-    diff = subprocess.run(['git', '-C', str(ROOT), 'diff', '--no-renames', '-U0', since, '--', 'src'], capture_output=True, text=True, check=True).stdout
+    diff = subprocess.run(['git', '-C', str(ROOT), 'diff', '--no-renames', '-U0', since, '--', 'src', 'scripts'], capture_output=True, text=True, check=True).stdout
     out = {}; cur = None
     for l in diff.splitlines():
         if l.startswith('+++ '):
@@ -477,7 +482,7 @@ def select_scoped(muts, src_text, since, scope):
         hit = m['id'] in invalid_anchors({m['id']: m}, src_text)
         for file, a, b in m['edits']:
             if file not in ch: continue
-            if scope == 'file': hit = True; break
+            if scope == 'file' or (scope == 'fn' and not file.endswith('.rs')): hit = True; break
             s = src_text.get(file, '')
             if a not in s: hit = True; break
             for occ in occurrences(s, a):
@@ -669,6 +674,10 @@ def main():
     lanes = a.lane or sorted(str(p) for p in ROOT.glob(LANES_GLOB))
     muts = load_population(lanes)
     src_text = {str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'src').rglob('*.rs')}
+    for mutant in muts.values():
+        for file, _, _ in mutant['edits']:
+            if file.startswith('scripts/') and (ROOT / file).is_file():
+                src_text[file] = (ROOT / file).read_text()
     ids = list(muts)
     if a.since: ids = select_scoped(muts, src_text, a.since, a.scope)
     if a.only: ids = [i for i in ids if i in set(a.only)]

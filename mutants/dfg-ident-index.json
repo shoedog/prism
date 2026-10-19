@@ -1,7 +1,9 @@
 {
   "lane": "DFG simple identifier candidate index identity and one query per file",
   "lib_test_prefixes": [
-    "ast::member_reference_index::identifiers::tests::"
+    "ast::member_reference_index::identifiers::tests::",
+    "ast::member_reference_index::deferred_tests::",
+    "ast::binding_verdict_memo::probe::"
   ],
   "mutations": {
     "IRI-query-per-search": [
@@ -99,6 +101,63 @@
       "pub(crate) fn scoped_refs<const COUNT: bool>(\n    parsed: &ParsedFile,\n    func_node: &Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> std::collections::BTreeSet<usize> {\n    use crate::queries::{get_query, QueryKind};\n    use std::collections::BTreeSet;\n    use tree_sitter::StreamingIterator;\n\n    if let Some(query) = get_query(parsed.language, QueryKind::Identifiers) {\n        #[cfg(test)]\n        SCOPED_QUERY_WORK.with(|c| c.set((c.get().0 + 1, c.get().1)));\n        let ident_idx = query\n            .capture_index_for_name(\"ident\")\n            .expect(\"Identifiers query must have @ident capture\");\n        let mut cursor = tree_sitter::QueryCursor::new();\n        cursor.set_byte_range(func_node.byte_range());\n        let mut matches = cursor.matches(query, parsed.tree.root_node(), parsed.source.as_bytes());\n        let mut lines = BTreeSet::new();\n        while let Some(m) = matches.next() {\n            for capture in m.captures {\n                #[cfg(test)]\n                SCOPED_QUERY_WORK.with(|c| c.set((c.get().0, c.get().1 + 1)));\n                if capture.index == ident_idx && parsed.node_text(&capture.node) == var_name {\n                    // Bottom-up scope check: walk from the capture node up to the\n                    // function boundary. If any enclosing scope block re-declares\n                    // var_name and doesn't contain def_line, skip this reference.\n                    if !shadow::<COUNT>(parsed, &capture.node, func_node, var_name, def_line) {\n                        lines.insert(capture.node.start_position().row + 1);\n                    }\n                }\n            }\n        }\n        return lines;\n    }\n\n    let mut lines = BTreeSet::new();\n    parsed.collect_variable_refs_scoped_manual(*func_node, var_name, def_line, &mut lines);\n    lines\n}\n",
       "pub(crate) fn scoped_refs<const COUNT: bool>(\n    parsed: &ParsedFile,\n    func_node: &Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> std::collections::BTreeSet<usize> {\n    crate::ast::member_reference_index::identifiers::IdentifierReferenceSearch::new(parsed)\n        .scoped::<COUNT>(func_node, var_name, def_line)\n}\n",
       "ast::member_reference_index::identifiers::tests::identifier_index_no_session_work_is_bounded_by_owner"
+    ],
+    "IRI-path-wrapper-index": [
+      "src/ast/member_reference_index.rs",
+      "            return crate::profile::gates::scoped_refs::<false>(self, owner, &path.base, def_line);",
+      "            return MemberReferenceSearch::new(self).scoped::<false>(owner, path, def_line);",
+      "ast::member_reference_index::identifiers::tests::identifier_index_no_session_work_is_bounded_by_owner"
+    ],
+    "IRI-fenced-wrapper-index": [
+      "src/ast/member_reference_index.rs",
+      "            return identifiers::one_shot_fenced(\n                self, root, owner, &path.base, def_line, def_byte, reads_only,\n            );",
+      "            return MemberReferenceSearch::new(self).find_path_reference_spans_fenced_in(owner, path, def_line, def_byte, within, reads_only);",
+      "ast::member_reference_index::identifiers::tests::identifier_index_no_session_work_is_bounded_by_owner"
+    ],
+    "IRI-count-only-admitted": [
+      "src/ast/member_reference_index/identifiers.rs",
+      "            .inspect(|_| {\n                #[cfg(test)]\n                EXAMINED.with(|n| n.set(n.get() + 1));\n            })",
+      "",
+      "ast::member_reference_index::identifiers::tests::identifier_counter_includes_rejected_range_candidates"
+    ],
+    "IRI-complete-dfg-missing-name": [
+      "src/ast/member_reference_index/identifiers.rs",
+      ".get(name)",
+      ".get(\"absent\")",
+      "ast::member_reference_index::deferred_tests::complete_dfg_fixture_sweep_against_fully_legacy_path"
+    ],
+    "IRI-unfenced-wrapper-index": [
+      "src/ast/member_reference_index.rs",
+      "                let lines =\n                    crate::profile::gates::scoped_refs::<false>(self, owner, &path.base, def_line);",
+      "                let lines = MemberReferenceSearch::new(self).scoped::<false>(owner, path, def_line);",
+      "ast::member_reference_index::identifiers::tests::identifier_index_no_session_work_is_bounded_by_owner"
+    ],
+    "IRI-one-shot-range-ignored": [
+      "src/ast/member_reference_index/identifiers.rs",
+      "    cursor.set_byte_range(root.byte_range());",
+      "    cursor.set_byte_range(parsed.tree.root_node().byte_range());",
+      "ast::member_reference_index::identifiers::tests::identifier_index_no_session_work_is_bounded_by_owner"
+    ],
+    "IRI-drop-fenced-binding-session": [
+      "src/ast/member_reference_index.rs",
+      "            let _bindings = super::binding_verdict_memo::Session::new(self);\n            let fenced = matches!(",
+      "            let fenced = matches!(",
+      "ast::binding_verdict_memo::probe::simple_wrappers_reuse_binding_work"
+    ],
+    "IRI-drop-scoped-binding-session": [
+      "src/ast/member_reference_index.rs",
+      "            let _bindings = super::binding_verdict_memo::Session::new(self);\n            return crate::profile::gates::scoped_refs::<false>(self, owner, &path.base, def_line);",
+      "            return crate::profile::gates::scoped_refs::<false>(self, owner, &path.base, def_line);",
+      "ast::binding_verdict_memo::probe::simple_wrappers_reuse_binding_work"
+    ]
+  },
+  "extra": {
+    "IRI-count-only-admitted": [
+      [
+        "src/ast/member_reference_index/identifiers.rs",
+        ".map(|c| c.node)",
+        ".map(|c| { #[cfg(test)] EXAMINED.with(|n| n.set(n.get() + 1)); c.node })"
+      ]
     ]
   }
 }
