@@ -47,9 +47,22 @@
       "functions.get(&(callee.start_line, callee.name.clone()))?",
       "functions.get(&(1, callee.name.clone()))?",
       "cpg::build::callee_returns::tests::first_match_full_identity_and_negative_results"
+    ],
+    "RI-09": [
+      "src/cpg/callee_returns.rs",
+      "let functions = self.functions[callee.file.as_str()].get_or_init(|| {",
+      "let functions = {",
+      "cpg::build::callee_cost_tests::return_computations_constant_across_callers"
     ]
   },
   "extra": {
+    "RI-09": [
+      [
+        "src/cpg/callee_returns.rs",
+        "            out\n        });",
+        "            out\n        };"
+      ]
+    ],
     "RI-04-empty-inventory-not-reused": [
       [
         "src/cpg/callee_returns.rs",
