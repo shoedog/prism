@@ -2,6 +2,29 @@
 //! building the unified graph from parsed files, assembling nodes/edges, and
 //! statement classification.
 
+#[path = "callee_params.rs"]
+mod callee_params;
+
+#[cfg(test)]
+#[path = "callee_cases.rs"]
+mod callee_cases;
+
+#[cfg(test)]
+#[path = "callee_legacy.rs"]
+mod callee_legacy;
+
+#[cfg(test)]
+#[path = "callee_identity_tests.rs"]
+mod callee_identity_tests;
+
+#[cfg(test)]
+#[path = "callee_census_tests.rs"]
+mod callee_census_tests;
+
+#[cfg(test)]
+#[path = "callee_cost_tests.rs"]
+mod callee_cost_tests;
+
 #[cfg(test)]
 #[path = "anon_prep_tests.rs"]
 mod anon_prep_tests;
@@ -154,100 +177,9 @@ pub(crate) fn compute_param_names(
     Some(final_names)
 }
 
-/// Per-build positional targets. Holes are unsupported slots, not removed args.
-/// The graph and source inputs are immutable for both Step-5b traversals.
-fn compute_param_def_nodes(
-    parsed: &ParsedFile,
-    callee: &FunctionId,
-    var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
-    graph: &DiGraph<CpgNode, CpgEdge>,
-) -> Option<Vec<Option<NodeIndex>>> {
-    if !matches!(
-        parsed.language,
-        crate::languages::Language::JavaScript
-            | crate::languages::Language::TypeScript
-            | crate::languages::Language::Tsx
-    ) {
-        // Preserve other languages' existing normalization and lookup contract.
-        return Some(
-            compute_param_names(parsed, callee)?
-                .into_iter()
-                .map(|name| {
-                    let path = AccessPath::simple(name);
-                    (callee.start_line..=callee.end_line).find_map(|line| {
-                        var_index
-                            .get(&(
-                                callee.file.clone(),
-                                callee.name.clone(),
-                                callee.start_line,
-                                line,
-                                path.clone(),
-                                VarAccess::Def,
-                            ))
-                            .copied()
-                    })
-                })
-                .collect(),
-        );
-    }
-
-    let mut functions = parsed.all_functions().into_iter().filter(|node| {
-        parsed.node_line_range(node) == (callee.start_line, callee.end_line)
-            && parsed
-                .language
-                .function_name(node)
-                .is_some_and(|name| parsed.node_text(&name) == callee.name)
-    });
-    let function = functions.next()?;
-    if functions.next().is_some() {
-        return None;
-    }
-    // Slots and occurrences have distinct contracts. Defaults and refused
-    // optional forms may occupy slots without a supported Def. Never compress
-    // those holes, nor fall back to FunctionInfo names or body definitions.
-    let slots = parsed.function_parameter_slot_occurrences(&function)?;
-    // js-param-defs PR-A (SPEC D12): the bare arrow formal (`x => …`) has a
-    // Def but stays a Step-5b hole. The call ladder admits name-inferred
-    // callables (`{ write: s => … }`, `o.f = x => …`) as `free_single` Exact
-    // targets of unrelated bare calls, so filling this slot minted Exact
-    // argument edges the checker refutes (MEASUREMENTS-prA §3).
-    let bare_formal = parsed
-        .js_ts_bare_arrow_parameter(&function)
-        .map(|param| (param.start_byte(), param.end_byte()));
-    let supported: BTreeSet<_> = parsed
-        .function_parameter_occurrences(&function)
-        .into_iter()
-        .filter(|occurrence| Some((occurrence.1, occurrence.2)) != bare_formal)
-        .collect();
-    Some(
-        slots
-            .into_iter()
-            .map(|slot| {
-                if !supported.contains(&slot) {
-                    return None;
-                }
-                let path = AccessPath::simple(&slot.0);
-                let idx = *var_index.get(&(
-                    callee.file.clone(),
-                    callee.name.clone(),
-                    callee.start_line,
-                    callee.start_line,
-                    path.clone(),
-                    VarAccess::Def,
-                ))?;
-                matches!(graph.node_weight(idx), Some(CpgNode::Variable {
-                    file, function, function_start_line, line, path: actual_path,
-                    access: VarAccess::Def, start_byte, end_byte,
-                }) if file == &callee.file && function == &callee.name
-                    && *function_start_line == callee.start_line
-                    && *line == callee.start_line && actual_path == &path
-                    && (*start_byte, *end_byte) == (slot.1, slot.2)
-                )
-                .then_some(idx)
-            })
-            .collect(),
-    )
-}
+#[cfg(test)]
+use callee_params::compute_param_def_nodes;
+use callee_params::ParamCache;
 
 struct PendingStatement {
     line: usize,
@@ -1551,6 +1483,11 @@ impl CodePropertyGraph {
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingArgumentFlow> {
         use rayon::prelude::*;
+        #[cfg(test)]
+        if callee_legacy::enabled() {
+            return callee_legacy::collect(cg, var_index, exact_var_index, graph, files);
+        }
+        let shared_params = ParamCache::new(files);
 
         files.par_iter().for_each(|(_, p)| {
             let _ = p.call_args_index();
@@ -1566,7 +1503,7 @@ impl CodePropertyGraph {
                     var_index,
                     exact_var_index,
                     graph,
-                    files,
+                    &shared_params,
                 )
             })
             .collect::<Vec<Vec<PendingArgumentFlow>>>()
@@ -1575,10 +1512,8 @@ impl CodePropertyGraph {
             .collect()
     }
 
-    /// Per-caller Step-5b emission, with a caller-local param memo
-    /// (`compute_param_def_nodes` is pure, so emitted edges are identical to the global
-    /// memo). The arg→param binding is field-sensitive (full access path first, base
-    /// fallback) — a deliberate precision change from the original base-only loop.
+    /// Per-caller Step-5b emission with shared immutable parameter coordinates.
+    /// Argument binding keeps the field path and base fallback.
     #[cfg(test)]
     fn step5b_edges_for_caller(
         caller_id: &FunctionId,
@@ -1596,7 +1531,7 @@ impl CodePropertyGraph {
             var_index,
             &exact_var_index,
             graph,
-            files,
+            &ParamCache::new(files),
         )
         .into_iter()
         .map(|flow| flow.edge)
@@ -1610,10 +1545,11 @@ impl CodePropertyGraph {
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
-        files: &BTreeMap<String, ParsedFile>,
+        shared_params: &ParamCache<'_>,
     ) -> Vec<PendingArgumentFlow> {
+        let files = shared_params.files;
         let mut out = Vec::new();
-        let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
+        let mut param_cache: BTreeMap<FunctionId, callee_params::FactCell> = BTreeMap::new();
         for site in sites {
             for resolved in cg.resolve_call_site(site) {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
@@ -1643,13 +1579,13 @@ impl CodePropertyGraph {
                     Some(p) => p,
                     None => continue,
                 };
-                let param_nodes = match param_cache.entry(callee_id.clone()).or_insert_with(|| {
-                    compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
-                }) {
-                    Some(nodes) => nodes.as_slice(),
-                    None => continue,
+                let cell = param_cache.entry(callee_id.clone()).or_insert_with(|| {
+                    shared_params.get(callee_id, callee_parsed, var_index, graph)
+                });
+                let Some(param_nodes) = cell.get().expect("initialized parameter facts") else {
+                    continue;
                 };
-                for (i, &param_idx) in param_nodes.iter().enumerate() {
+                for (i, param_target) in param_nodes.iter().enumerate() {
                     if i >= args.len() {
                         break;
                     }
@@ -1684,7 +1620,10 @@ impl CodePropertyGraph {
                             )
                         })
                         .collect();
-                    if let Some(to) = param_idx {
+                    if let Some(to) = param_target
+                        .as_ref()
+                        .and_then(|t| t.resolve(var_index, graph))
+                    {
                         for from in arg_idxs {
                             out.push(PendingArgumentFlow {
                                 edge: (
