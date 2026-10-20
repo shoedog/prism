@@ -1,6 +1,7 @@
 # Shared prism daemon (S6) soak: readout
 
-**Written:** 2026-10-20, after the Phase 3 window closed (2026-10-17 12:08 to 2026-10-20 12:09 MDT).
+**Written:** 2026-10-20, after the Phase 3 window closed. Samples run from 2026-10-17 12:08 to
+2026-10-20 12:09 MDT (the last sample); the report's `--until` (T1) is 12:20:45 MDT.
 **Plan:** `docs/superpowers/plans/2026-10-12-shared-prism-daemon/S6-launcher-docs-soak.md`, "The soak".
 **Evidence:** `E=~/prism-evidence/mcp-memory/s6-soak` (local only; checksums in `deploy/SHA256SUMS` and
 `week/report/SHA256SUMS`). Deployed build: S6-2 head `0ed288f0` (tree-identical to #440 `9b2fa09b`),
@@ -9,18 +10,19 @@ pinned binary `prism-mcp-50f7a5abcfdf`.
 How each claim was established:
 
 - **[REPORT]**: printed by `soak.py report` or `fanout.py compare`, from the saved samples and logs.
-- **[MEASURED]**: probed for this readout, read-only (samples analysis, `pmset -g log`, `ls`).
+- **[MEASURED]**: derived for this readout, read-only (samples and `calls.jsonl` analysis, `pmset -g log`, `ls`).
 - **[INHERITED]**: taken from the soak's `NOTES.md` files or the lane handoff, and not re-probed.
 
 ## Verdicts
 
 | Phase | Verdict | In one line |
 |---|---|---|
-| 1. Fan-out latency (excalidraw, 8 clients) | **PASS** | Shared is faster than standalone at p95 and p99 and uses 5.4× less memory. The refresh stall (SI-11) is confirmed. |
+| 1. Fan-out latency (excalidraw, 8 clients) | **PASS** | On one checkout with 8 clients, shared beats standalone at p95 and p99 (p50 is 1.11× slower) and uses 5.4× less memory. Percentiles cannot see the refresh stall (SI-11), which is confirmed separately. |
 | 2. One bridge review round | **not run** | No bridge round used a soaked configuration. There is no T1 and no report. |
-| 3. Three days of interactive use | **INADMISSIBLE** | Four of the six gated rules are UNKNOWN, but no breach was seen. The evidence is missing, not failing. |
+| 3. Three days of interactive use | **INADMISSIBLE** | Two gated rules passed. The other four are UNKNOWN: their evidence was not collected, so breaches there are unobserved, not absent. |
 
-Only PASS counts (plan D124), so the soak has not produced what the default flip (decision B) waits for.
+Only PASS counts (owner question 7 in the plan; D124 defines the verdicts), so the soak has not
+produced what the default flip (decision B) waits for.
 
 ### Owner decisions (2026-10-20)
 
@@ -40,13 +42,21 @@ Only PASS counts (plan D124), so the soak has not produced what the default flip
 - **Gate: PASS** [REPORT]. Eight shims were compared with eight standalone servers, in three pairs, ABBA
   order, every run admissible. Median p95 was 13.29 ms shared vs 14.72 ms standalone (ratio 0.903).
   Median p99 was 13.71 vs 18.94 ms (ratio 0.724).
+- **Below and beyond the gated percentiles** [MEASURED, from `calls.jsonl`]. p50 is 10.19 ms shared vs
+  9.18 ms standalone (1.11×). The mean is 24.7 ms shared vs 7.6–8.3 ms standalone, because of the
+  refresh stall below. With 14 overlapping calls out of 1,600, the stall stays under the 1 % that p99
+  can see (plan question 7).
 - **Memory after the workload** [MEASURED, from each `run.json`]. One daemon and eight shims used
-  873 MiB. Eight standalone servers used 4,680 to 4,692 MiB.
-- **Refresh stall, SI-11 / handoff row 13** [REPORT]. In shared mode, the 14 calls that overlapped a
-  refresh each waited for the whole rebuild: up to 4,073–4,090 ms on excalidraw and 1,350–1,388 ms on
-  slicing. Standalone servers keep answering during their own refresh (at most 26–39 ms over about
-  700 overlapping calls). This was reported and not gated. The owner decided on 2026-10-18 to fix it by
-  building off-lock [INHERITED].
+  873 MiB. Eight standalone servers used 4,680 to 4,692 MiB. That 5.4× is for 8 clients of one
+  checkout; it says nothing about fan-out across worktrees (see row 22).
+- **Refresh stall, SI-11 / handoff row 13** [REPORT for the counts; MEASURED for the split, from
+  `calls.jsonl`]. In each shared run, 14 calls of other clients overlapped the refresh. Seven of them,
+  one per non-refreshing client, were blocked for about the whole rebuild: 4.05–4.09 s on excalidraw
+  and 1.32–1.39 s on slicing. The other seven took 1–13 ms. Standalone servers keep answering during
+  their own refresh (at most 26–39 ms over about 700 overlapping calls). This was reported and not
+  gated. The owner's decision of 2026-10-18 on row 13 was conditional: "wait for Phase 2's re-index
+  frequency, then fix" [INHERITED]. Phase 2 never ran and no refresh events were attributed in real use,
+  so that condition is unmet; when to fix is the owner's call.
 - **Slicing runs (information only)** [REPORT]. They FAIL by the same ratios (p95 1.63, p99 1.60), but
   the comparison is not like-for-like: one standalone client against eight shared clients
   (`--allow-client-mismatch`).
@@ -69,8 +79,8 @@ Bridge work did run during the window, but through configurations the soak did n
 
 Phase 0's notes already said that generated `implement.toml` files would not be edited [INHERITED].
 
-The Phase 2 sampler (pid 79694, one sample every 5 s) is **still running**: about 69 MB of samples
-since 10-17 [MEASURED]. It was left running for the controller.
+The Phase 2 sampler (one sample every 5 s, running since 10-17) was stopped on 2026-10-20 (owner
+decisions above).
 
 ## Phase 3: three days of use
 
@@ -91,8 +101,8 @@ is the default (`~/Library/Logs/DiagnosticReports`).
 |---|---|---|
 | one_index_per_key (gated) | PASS | At most 1 daemon per key at any sample. 43 daemon instances were seen. |
 | no_fail_closed (gated) | UNKNOWN | Two named log sources are missing (see below). Zero fail-closed lines in the logs that exist. |
-| no_startup_error (gated) | UNKNOWN | Same missing sources. Zero startup errors. |
-| no_restart_bound (gated) | UNKNOWN | Same missing sources. Zero restart-bound refusals. |
+| no_startup_error (gated) | UNKNOWN | Same missing sources. Zero startup errors in the logs that exist. |
+| no_restart_bound (gated) | UNKNOWN | Same missing sources. Zero restart-bound refusals in the logs that exist. |
 | no_abort (gated) | PASS | No `prism-mcp` crash report in the window. |
 | no_footprint_growth (gated) | UNKNOWN | 17 of 43 daemons reached a baseline. None had a quiet night. |
 | no_new_standalone_index | FAIL (not gated) | These are Phase 1's own standalone arms (8 on excalidraw, 1 on the c1 corpus). |
@@ -100,12 +110,14 @@ is the default (`~/Library/Logs/DiagnosticReports`).
 
 Floors [REPORT]:
 
-- **Window:** 259,240 s, which meets 72 h. However, the samples only cover 156,636 s (43.5 h) at
-  intervals of 120 s or less [MEASURED]. Thirteen intervals over 120 s were excluded. The largest gap
-  was 11,294 s.
+- **Window:** 259,240 s of wall time against the 259,200 s floor, so it is met by 40 s (the margin
+  depends on the T1 passed). Only 156,637 s (43.5 h) were covered by intervals of 120 s or less
+  [MEASURED]; the other 28.5 h had no samples. Thirteen intervals over 120 s were excluded. The
+  largest gap was 11,294 s.
 - **Local nights credited:** 2026-10-17 and 2026-10-18 (MDT). Running the report under the host's
   current timezone credits the same two nights.
-- **Usage days:** 2026-10-18 and 2026-10-19 (UTC). That is exactly the floor of 2.
+- **Usage days:** 2026-10-18 and 2026-10-19 (UTC). That is exactly the floor of 2, and it is met only
+  because of the owner's ruling on worktree daemons (below).
 
 ### Why the three log rules are UNKNOWN [REPORT + MEASURED]
 
@@ -113,35 +125,40 @@ The report's `coverage.logs` is `false` because `bridge.log` and `codex.log` do 
 wrapper was invoked during the window:
 
 - No bridge round went through a soaked configuration.
-- No Codex session was started in the slicing checkout after the wrapper change (shims for
+- No Codex session was started in the slicing checkout after the wrapper change. Shims for
   `~/code/slicing` instead came from `codex exec` in worktrees, which use the tracked
-  `.codex/config.toml` and call the binary directly).
+  `.codex/config.toml` and call the binary directly.
 
 Control: the same report with only the Claude logs named turns all three rules PASS
 (`week/report/diag-claude-only/`). That variant is diagnostic, not a verdict. Claude's logs cover
-only plugin sessions: 6 `shared daemon pid` lines from 2 projects, reaching 4 lazy `a2a-bridge`
-daemons. The 106 shims seen in the samples all ran `~/code/slicing/target/release/prism-mcp` or the
-pinned binary, and their standard error goes to no log. A fail-closed Codex shim would have been
-invisible.
+only plugin sessions: 6 `shared daemon pid` lines. Five reached 3 lazy `a2a-bridge` daemons. One
+reached a home-directory daemon (pid 59912) started at 12:17 MDT on 10-20, after sampling ended.
+
+Of the 106 shims seen in the samples, 16 were Phase 1's harness shims (pinned binary). The other 90
+were interactive shims running `~/code/slicing/target/release/prism-mcp`, Codex's configured
+command. Their standard error goes to no log, so a fail-closed Codex shim would have been invisible.
 
 ### Why no_footprint_growth is UNKNOWN [MEASURED]
 
 The rule needs, for every judged daemon, a quiet hour after its baseline on each of two local nights.
-No daemon came close, for three reasons.
+No daemon got one, for three reasons.
 
-1. **The idle TTL retired every daemon long before a night.** Each daemon with a built index lived
-   0.3–3.0 h and retired about 15 minutes after its last client. An attached client is the only thing
-   that keeps one alive (`docs/MCP.md`). The longest quiet stretch of any daemon was 1.97 h (pid 16299,
-   slicing), in the daytime, with 0.23 MiB of growth.
+1. **The idle TTL retired every daemon with a built index before it gave a quiet night-time hour.**
+   These daemons lived 0.3–3.0 h and retired about 15 minutes after their last client. An attached
+   client is the only thing that keeps one alive (`docs/MCP.md`). Three of them (pids 91776, 91833,
+   70053) did overlap the start of the 10-18 night, staying until 00:21–00:46 MDT on 10-19, but they
+   were working and none had a quiet hour.
 2. **The sessions left open overnight were not opted in.** The plugin sessions that stayed up through
    the whole window (pids 56999 and 8068 on slicing, 60308 on a2a-bridge) were standalone the entire
-   time. They were started before the profile export. One of them, 8068 (this controller's own
-   session), held a 2,030 MiB standalone index for all three days. So the "leak nights" the handoff
-   planned (sessions left open) had no daemon to measure.
-3. **The host slept through the third night.** `pmset -g log` shows sleep starting at 2026-10-19
-   07:04 MDT, exactly where the gaps begin. After that the only full wakes were 17:35–17:41 MDT on
-   10-19 (ended by closing the lid) and 11:40 MDT on 10-20. The sampler only ran during the 116 dark
-   wakes. No daemon existed at all after 10-19 00:46 MDT.
+   time. They were started before the profile export. One of them, 8068 (the controller's own
+   session), was lazy until 10-18 15:22 MDT and then held a standalone index of about 2,030 MiB until
+   the end. So the "leak nights" the handoff planned (sessions left open) had no daemon to measure.
+3. **The host slept from 2026-10-19 07:04 MDT,** losing all of that day as well as the third night.
+   `pmset -g log` shows sleep starting at that minute, exactly where the gaps begin. After that the
+   only full wakes were 17:35–17:41 MDT on 10-19 (ended by closing the lid) and 11:40 MDT on 10-20.
+   The host logged 116 dark wakes on 10-19 and 10-20. The sampler caught 11 of them, one sample each,
+   and also took 7 samples in the 10-19 full wake and 30 after 11:40 on 10-20 (48 samples in all).
+   No daemon existed at all after 10-19 00:46 MDT.
 
 Per-daemon numbers for the slicing checkout's daemons with a built index (MiB) [REPORT]:
 
@@ -153,44 +170,46 @@ Per-daemon numbers for the slicing checkout's daemons with a built index (MiB) [
 
 Reviewer worktree daemons had baselines of 1,608–2,271 MiB and maxima up to 4,013 MiB (pid 74690,
 prism-i0a, during work). The net MiB-per-hour figures include builds and work, so they say nothing
-about leaks. None of these rows judges a leak; they show only that no daemon grew during the quiet
-stretches that were observed.
+about leaks. The only quiet stretch long enough to judge (16299, 1.97 h, daytime) grew 0.23 MiB.
+Shorter stretches are below the rule's one-hour bar and are not judged; they show up to 113 MiB
+(pid 37514, 4 minutes) and 24.9 MiB (pid 61870, 0.92 h), probably the tail of a build.
 
-### The usage floor rests on daemons the soak said to filter out [MEASURED]
+### The usage floor is met only because worktree daemons count [MEASURED]
 
-- UTC 10-18 is credited by slicing daemons (46393, 16299, 61870), plus reviewer worktree daemons.
+- UTC 10-18 is credited by slicing daemons and by reviewer worktree daemons. The slicing credit is
+  thin: 7 one-minute intervals during three index builds (46393 at 01:49–01:51 MDT, before the Phase 1
+  window opened; 16299 at 08:48–08:49; 61870 at 12:06–12:07).
 - UTC 10-19 is credited only by reviewer worktree daemons (prism-i0a, prism-s0, prism-t3a,
   a2a-bridge-prism-skill, prism-perf-c2, prism-perf-a).
 
-The controller's note of 2026-10-18 says these worktree daemons are "NOT soak subjects; filter by
-repo/key" [INHERITED]. The tool has no such filter. Counting only `~/code/slicing`, there is **one**
-usage day. They are real shared-mode use of the deployed build, so whether they count is the owner's
-call. Either way, the floor is met by at most a one-day margin.
+Counting only `~/code/slicing` gives 1 usage day of the 2 required. The controller's note of
+2026-10-18 had said to filter worktree daemons out [INHERITED]; the owner ruled on 2026-10-20 that
+they count. The floor is met only by that ruling.
 
 ### Peaks, compared with the incident (29 prism processes, 34 GiB compressed) [REPORT + MEASURED]
 
 - Most prism processes in one sample: 12. Most index holders at once: 8 (Phase 1's standalone arm).
 - Most daemons with a built index at once: 3.
 - Peak footprint of all prism processes: 8,406 MiB, at 10-19 00:05. That is three worktree daemons
-  plus the 2 GiB standalone controller session.
-- Peak swap: 9,763 MiB. Peak compressor: 12,503 MiB (host-wide, not only prism).
+  (1,917–2,360 MiB each) plus the controller's standalone session (1,872 MiB at that sample).
+- Peak swap used: 9,763 MiB. Peak compressor: 12,503 MiB. Both are host-wide, not only prism.
 
 ## Rows 21, 22 and 24 of the handoff
 
 - **Row 22 (bridge fan-out across worktrees)** [REPORT + MEASURED].
   - `max_daemons_per_repo` was 1 for every repository all week, across 12 repositories with daemons,
-    and `repos_with_several_daemons` is empty. Dropping `--cache-dir` (owner question 3) produced no
-    split, but the soaked bridge entries were never used, so that is shown only for Codex and plugin
-    clients.
+    and `repos_with_several_daemons` is empty.
+  - Not tested: the effect of dropping `--cache-dir` from bridge entries (owner question 3). No soaked
+    bridge entry ran, and the Codex and plugin clients that did run never passed `--cache-dir`.
   - The generated bridge configurations still pass `--cache-dir prism-cache-host`. Once they go
     shared, they would give each checkout a second daemon.
   - Memory cost grows with the number of worktrees, not with clients per repository. Three worktree
-    daemons at once (1.6–2.9 GiB each) set the week's peak.
+    daemons at once (1.9–2.4 GiB each at the peak sample) set the week's peak.
   - Inference: on this 24 GB host, capping or staggering worktrees (about 3 built daemons at once) is
     the lever that bites. One shared task worktree also helps, but only for read-only reviewers.
 - **Row 21 (pruning flag for dead keys)** [MEASURED]. `/tmp/prism-mcpd` holds 56 entries, 80 KiB in
   all, after three days. There is no case for a pruning flag.
-- **Row 24 (the soak)**: this readout. The next actions are the owner's decisions below.
+- **Row 24 (the soak)**: closed on Phase 1 by the owner's decision above.
 
 ## What was not measured
 
@@ -199,54 +218,47 @@ call. Either way, the floor is met by at most a one-day margin.
   have been seen.
 - **Long-lived daemons.** No daemon stayed resident long enough to judge it for leaks. The long-lived
   case (one daemon held across days by an attached session) is the one the flip would make common.
-- **The third night,** lost to host sleep. About 29 of the 72 hours were unobserved.
+- **28.5 of the 72 hours,** lost mostly to host sleep from 10-19 07:04 MDT, including the third night.
 - **Claude Code plugin sessions in shared mode.** Only 6 short sessions; none built an index.
 - **SI-11 under real use.** No refresh events were attributed.
+- **The memory-capacity goal: not established.** The lane's goal is bridge fan-out on this 24 GB host
+  without swap exhaustion. No fan-out round ran under shared mode. The week's peak, with only three
+  worktree daemons and one standalone session, already reached 8,406 MiB of prism footprint, 9,763 MiB
+  of swap used and 12,503 MiB compressed (host-wide). Phase 1's 5.4× saving is for one checkout with
+  8 clients, and it comes with a p50 1.11× slower and a mean 3× higher during a refresh-bearing run.
 
-## Recommendation
+## Recommendation at writing (superseded by the owner decisions)
 
-**Keep the deployment and extend Phase 3 in place.** Do not roll back now. Reasons:
+At writing, this readout recommended keeping the deployment, extending Phase 3 in place, and holding
+decision B. The owner has since closed the soak on Phase 1, kept shared mode for opted-in sessions,
+and done the clean-up (owner decisions above). Two parts of the original reasoning still hold as
+context:
 
-- No rule saw a breach in three days of real use: no fail-closed line, no crash, no restart-bound
-  refusal, never two daemons for one key. Phase 1 passed with a 5.4× memory saving.
-- Rollback (plan decision 5) does not remove shared mode from Codex. `.codex/config.toml` on `main`
-  passes `--shared` in every checkout, and the S6 build stays at `~/code/slicing/target/release`.
-  Rolling back would therefore turn off the plugin and bridge paths, which are the ones still
-  unmeasured, while leaving the path that carried most of the week's use.
+- **What actually passed.** Two gated rules passed (`one_index_per_key`, `no_abort`) over 43.5 h of
+  sampled use. The three log rules and the leak rule are unmeasured, so absence of a breach there is
+  not evidenced.
+- **Why rollback would not have removed shared mode from Codex.** Rollback (plan decision 5) leaves
+  `.codex/config.toml` on `main` passing `--shared` in every checkout, with the S6 build at
+  `~/code/slicing/target/release`.
 
-Tradeoff: keeping means opted-in clients wait 1.3–4.1 s whenever one of their calls overlaps a
-refresh (row 13) until the off-lock fix lands. If the owner chooses rollback, the order is plan
-decision 5: configurations first, then sessions, then daemons, then the plugin binary and launcher,
-then the probe. Either way, restore the local `.codex/config.toml` from
-`deploy/snapshots/slicing-codex-config.toml` and run `git update-index --no-skip-worktree` once
-the soak ends.
+What a future soak would need, to judge the rules this one left UNKNOWN:
 
-To turn INADMISSIBLE into a verdict, resume the week sampler with a longer `--duration` against the
-same `T0` (D132; never rewrite `T0`), and:
+1. **Opted-in long-lived sessions.** Start them after the profile export. Leave at least one attached
+   to a built index on two nights, with the host awake and on power (lid open, or `caffeinate -s`).
+2. **Exercised log sources.** Run Codex in the instrumented checkout and one soaked bridge round (the
+   runbook's `a2a-bridge run-workflow plan-review` fallback also gives Phase 2), or decide in advance
+   which wrapper logs must be named (D120).
+3. **A refresh-frequency measurement from a real round,** which the row-13 decision is waiting on.
 
-1. **Opt in the long-lived sessions.** Restart the Claude Code sessions that predate the export. Leave
-   at least one opted-in session attached to a built slicing index on two nights, with the host awake
-   and on power (lid open, or `caffeinate -s`).
-2. **Exercise the named log sources, or settle them.** Either start a Codex session in the slicing
-   checkout and run one soaked bridge round (the runbook's `a2a-bridge run-workflow plan-review`
-   fallback also completes Phase 2), or have the owner rule which wrapper logs Phase 3 must name.
-   Dropping an unused source is an owner decision under D120; this readout does not drop one.
-3. **Decide the worktree question.** The owner rules whether reviewer worktree daemons count toward
-   usage days.
+For decision B, the tradeoffs at writing were:
 
-**Decision B (default flip): not yet.** The flip's gate (spec §8 step 2) is the three phase reports,
-and only Phase 1 has passed.
-
-- **For flipping now:** it would bring the 5.4× fan-out memory saving to every user, and nothing seen
-  argues against it.
+- **For flipping:** it would bring Phase 1's per-checkout memory saving to every user, and nothing
+  observed argues against it.
 - **Against:**
-  - The paths the flip changes most (bridge rounds, long-lived plugin sessions) are the ones not
-    measured.
-  - A flip ships SI-11's stall to everyone before the off-lock fix.
-  - A flip is costlier to reverse, because it needs a plugin version bump and the new cache directory
-    must have its binary rebuilt.
-
-Recommended order: the SI-11 off-lock fix, then the extended Phase 3 and a Phase 2 round, then B.
+  - The paths the flip changes most (bridge rounds, long-lived plugin sessions) are unmeasured.
+  - The flip would ship the SI-11 stall to every client.
+  - It is costlier to reverse: it needs a plugin version bump, and the new cache directory must have
+    its binary rebuilt.
 
 ## Reproduce
 
