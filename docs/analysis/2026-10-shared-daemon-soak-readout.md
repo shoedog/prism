@@ -22,6 +22,16 @@ How each claim was established:
 
 Only PASS counts (plan D124), so the soak has not produced what the default flip (decision B) waits for.
 
+### Owner decisions (2026-10-20)
+
+- **Close the soak on Phase 1.** Phase 3 is not extended. Shared mode stays deployed for opted-in
+  sessions (no rollback). The leak and log rules remain unmeasured, and decision B waits for a future
+  soak; the recommendation below is kept as written for the record.
+- **Reviewer worktree daemons count toward usage days**, so the usage floor (2 days) is met.
+- Done the same day: the Phase 2 round sampler (running since 10-17) stopped; the local
+  `.codex/config.toml` restored from `deploy/snapshots/slicing-codex-config.toml` with
+  `--no-skip-worktree`; the owner's checkout moved to `main`; `~/code/prism-s6-2/target` removed.
+
 ## Phase 1: fan-out latency (2026-10-18, 02:00 to 08:30 window)
 
 - **A/A calibration: PASS** [REPORT]. Six standalone runs in ABBA order. The p95 ratio is 1.002 forward
