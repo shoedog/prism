@@ -28,7 +28,7 @@ produced what the default flip (decision B) waits for.
 
 - **Close the soak on Phase 1.** Phase 3 is not extended. Shared mode stays deployed for opted-in
   sessions (no rollback). The leak and log rules remain unmeasured, and decision B waits for a future
-  soak; the recommendation below is kept as written for the record.
+  soak. The recommendation section below is retitled as superseded and trimmed to context.
 - **Reviewer worktree daemons count toward usage days**, so the usage floor (2 days) is met.
 - Done the same day: the Phase 2 round sampler (running since 10-17) stopped; the local
   `.codex/config.toml` restored from `deploy/snapshots/slicing-codex-config.toml` with
