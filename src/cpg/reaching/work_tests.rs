@@ -36,6 +36,9 @@ pub(super) struct Counts {
     pub join_queries: usize,
     pub statement_entries: usize,
     pub statement_lookup_calls: usize,
+    pub statement_span_entries: usize,
+    pub statement_span_visits: usize,
+    pub projected_statement_span_visits: usize,
     pub definition_pair_comparisons: usize,
     pub statement_query_lines: BTreeSet<Line>,
     pub use_byte_misses: usize,
@@ -411,7 +414,7 @@ fn compare(source: &str, path: &str, language: Language) -> Vec<Counts> {
     })
 }
 
-fn fixture_files(root: &Path, files: &mut Vec<std::path::PathBuf>) {
+pub(super) fn fixture_files(root: &Path, files: &mut Vec<std::path::PathBuf>) {
     for entry in std::fs::read_dir(root).unwrap() {
         let entry = entry.unwrap();
         let name = entry.file_name();
