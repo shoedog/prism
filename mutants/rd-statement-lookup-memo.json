@@ -1,0 +1,64 @@
+{
+  "mutations": {
+    "SL01-constant-key": [
+      "src/cpg/reaching/statement_lookup.rs",
+      "self.memo.get(&line)",
+      "self.memo.get(&0)",
+      "cpg::reaching::statement_lookup_tests::tied_nested_and_multiline_spans_match_oracle"
+    ],
+    "SL02-no-memo-consult": [
+      "src/cpg/reaching/statement_lookup.rs",
+      "if let Some(result) = self.memo.get(&line) {",
+      "if let Some(result) = self.memo.get(&line).filter(|_| false) {",
+      "cpg::reaching::statement_lookup_tests::repeated_edge_lines_scan_each_span_once"
+    ],
+    "SL03-reverse-byte-tie": [
+      "src/cpg/reaching/statement_lookup.rs",
+      "Reverse(span.start_byte),",
+      "span.start_byte,",
+      "cpg::reaching::statement_lookup_tests::tied_nested_and_multiline_spans_match_oracle"
+    ],
+    "SL04-reverse-line-tie": [
+      "src/cpg/reaching/statement_lookup.rs",
+      "Reverse(span.start_line),",
+      "span.start_line,",
+      "cpg::reaching::statement_lookup_tests::tied_nested_and_multiline_spans_match_oracle"
+    ],
+    "SL05-exclusive-start": [
+      "src/cpg/reaching/statement_lookup.rs",
+      "span.start_line <= line && line <= span.end_line",
+      "span.start_line < line && line <= span.end_line",
+      "cpg::reaching::statement_lookup_tests::tied_nested_and_multiline_spans_match_oracle"
+    ],
+    "SL06-exclusive-end": [
+      "src/cpg/reaching/statement_lookup.rs",
+      "span.start_line <= line && line <= span.end_line",
+      "span.start_line <= line && line < span.end_line",
+      "cpg::reaching::statement_lookup_tests::tied_nested_and_multiline_spans_match_oracle"
+    ],
+    "SL07-do-not-memoize-none": [
+      "src/cpg/reaching/statement_lookup.rs",
+      "self.memo.insert(line, result);",
+      "if result.is_some() { self.memo.insert(line, result); }",
+      "cpg::reaching::statement_lookup_tests::uncovered_lines_are_memoized_too"
+    ],
+    "SL08-largest-span": [
+      "src/cpg/reaching/statement_lookup.rs",
+      ".min_by_key(|span| {",
+      ".max_by_key(|span| {",
+      "cpg::reaching::statement_lookup_tests::tied_nested_and_multiline_spans_match_oracle"
+    ]
+  },
+  "extra": {
+    "SL01-constant-key": [
+      [
+        "src/cpg/reaching/statement_lookup.rs",
+        "self.memo.insert(line, result);",
+        "self.memo.insert(0, result);"
+      ]
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::reaching::"
+  ]
+}
