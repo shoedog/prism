@@ -15,6 +15,7 @@ use super::{FlowConfidence, FlowDoubt};
 mod capture;
 mod cfg_edge_index;
 mod compact_wire;
+mod def_buckets;
 mod graph;
 mod join_kind;
 mod scope;
@@ -163,6 +164,8 @@ pub(crate) fn reaching_definitions_with_exact(
     join_kind_tests::record_outcome(&outcome);
     #[cfg(test)]
     statement_lookup_tests::record_outcome(&outcome);
+    #[cfg(test)]
+    def_bucket_tests::record_outcome(&outcome);
     outcome
 }
 
@@ -263,29 +266,8 @@ fn reaching_definitions_impl(
             gen[*node].insert(index);
         }
     }
-    let mut kill = vec![BitSet::new(defs.len()); node_count];
-    let mut flat_kill = vec![BitSet::new(defs.len()); node_count];
-    for node in 0..node_count {
-        let generated: Vec<usize> = gen[node].members().collect();
-        for &new_def in &generated {
-            if defs[new_def].alias_derived {
-                continue;
-            }
-            for old_def in 0..defs.len() {
-                #[cfg(test)]
-                work_tests::bump(|counts| counts.definition_pair_comparisons += 1);
-                if !gen[node].contains(old_def)
-                    && !defs[old_def].alias_derived
-                    && defs[old_def].path == defs[new_def].path
-                {
-                    flat_kill[node].insert(old_def);
-                    if binding_facts.same_def_binding(new_def, old_def) {
-                        kill[node].insert(old_def);
-                    }
-                }
-            }
-        }
-    }
+    let buckets = def_buckets::DefinitionBuckets::new(&defs);
+    let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts);
 
     let in_sets = solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
     let flat_in_sets = solve_reaching_sets(
@@ -301,6 +283,8 @@ fn reaching_definitions_impl(
     join_kind_tests::record_sets(&in_sets, &flat_in_sets);
     #[cfg(test)]
     statement_lookup_tests::record_sets(&in_sets, &flat_in_sets);
+    #[cfg(test)]
+    def_bucket_tests::record_sets(&in_sets, &flat_in_sets, &kill, &flat_kill);
     let collapsed = collapsed_groups(&defs);
     let capture_facts = capture::capture_facts(parsed, *func_node);
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
@@ -309,11 +293,12 @@ fn reaching_definitions_impl(
     let mut reaching_edges = BTreeSet::new();
     for edge in dfg_edges {
         let key = (edge.from.clone(), edge.to.clone());
+        let candidates = buckets.matching_defs(edge);
         if statements
             .get(edge.to.line)
             .and_then(|line| line_index.get(&line))
             .is_some_and(|node| {
-                matching_defs(edge, &defs)
+                candidates
                     .iter()
                     .any(|index| in_sets[*node].contains(*index))
             })
@@ -324,6 +309,7 @@ fn reaching_definitions_impl(
             edge,
             parsed,
             &defs,
+            &candidates,
             &mapped_defs,
             &line_index,
             &mut statements,
@@ -347,10 +333,12 @@ fn reaching_definitions_impl(
     }
     for edge in exact_edges {
         let key = ExactFlowEdge::from_legacy(edge);
+        let candidates = buckets.matching_defs(edge);
         let label = classify_edge(
             edge,
             parsed,
             &defs,
+            &candidates,
             &mapped_defs,
             &line_index,
             &mut statements,
@@ -438,6 +426,7 @@ fn classify_edge(
     edge: &FlowEdge,
     parsed: &ParsedFile,
     defs: &[DefSite],
+    candidates: &[usize],
     mapped_defs: &[Option<usize>],
     line_index: &BTreeMap<Line, usize>,
     statements: &mut statement_lookup::StatementLookup<'_>,
@@ -477,7 +466,6 @@ fn classify_edge(
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
 
-    let candidates = matching_defs(edge, defs);
     if candidates.is_empty() {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
@@ -519,7 +507,7 @@ fn classify_edge(
         });
     if lookup_uncertain || construct_uncertain {
         return classify_by_reaching_sets(
-            &candidates,
+            candidates,
             use_node,
             mapped_defs,
             flat_in_sets,
@@ -531,7 +519,7 @@ fn classify_edge(
 
     let mut same_binding = Vec::new();
     let mut boundary_kills = Vec::new();
-    for index in candidates {
+    for &index in candidates {
         match binding_facts.relation(parsed, edge, index) {
             scope::BindingRelation::Same => same_binding.push(index),
             scope::BindingRelation::KilledAt(line) => boundary_kills.push(line),
@@ -606,7 +594,14 @@ fn classify_by_reaching_sets(
     })
 }
 
+// Frozen main scanner, independent of bucket construction.
+#[cfg(test)]
 fn matching_defs(edge: &FlowEdge, defs: &[DefSite]) -> Vec<usize> {
+    #[cfg(test)]
+    work_tests::bump(|counts| {
+        counts.matching_defs_calls += 1;
+        counts.matching_defs_items += defs.len();
+    });
     let mut matches: Vec<usize> = defs
         .iter()
         .enumerate()
@@ -618,10 +613,17 @@ fn matching_defs(edge: &FlowEdge, defs: &[DefSite]) -> Vec<usize> {
         })
         .collect();
     if matches.is_empty() {
+        #[cfg(test)]
+        work_tests::bump(|counts| {
+            counts.matching_defs_fallbacks += 1;
+            counts.matching_defs_items += defs.len();
+        });
         matches.extend(defs.iter().enumerate().filter_map(|(index, def)| {
             (def.path == edge.from.path && def.line == edge.from.line).then_some(index)
         }));
     }
+    #[cfg(test)]
+    work_tests::bump(|counts| counts.projected_matching_defs_items += matches.len());
     matches
 }
 
@@ -707,3 +709,6 @@ mod join_kind_tests;
 
 #[cfg(test)]
 mod statement_lookup_tests;
+
+#[cfg(test)]
+mod def_bucket_tests;

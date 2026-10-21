@@ -1,0 +1,83 @@
+{
+  "mutations": {
+    "DB01-drop-byte-key": [
+      "src/cpg/reaching/def_buckets.rs",
+      ".entry((&def.path, def.line, def.start_byte))",
+      ".entry((&def.path, def.line, 0))",
+      "cpg::reaching::def_bucket_tests::exact_fallback_and_index_order"
+    ],
+    "DB02-fallback-with-exact": [
+      "src/cpg/reaching/def_buckets.rs",
+      "exact.filter(|indices| !indices.is_empty())",
+      "exact.filter(|_| false)",
+      "cpg::reaching::def_bucket_tests::exact_fallback_and_index_order"
+    ],
+    "DB03-never-fallback": [
+      "src/cpg/reaching/def_buckets.rs",
+      "self.fallback\n                .get(&(&edge.from.path, edge.from.line))",
+      "self.fallback\n                .get(&(&edge.from.path, edge.from.line)).filter(|_| false)",
+      "cpg::reaching::def_bucket_tests::exact_fallback_and_index_order"
+    ],
+    "DB04-alias-in-kill-bucket": [
+      "src/cpg/reaching/def_buckets.rs",
+      "if !def.alias_derived {",
+      "if true {",
+      "cpg::reaching::def_bucket_tests::kill_alias_gen_binding_and_fields"
+    ],
+    "DB05-drop-gen-exclusion": [
+      "src/cpg/reaching/def_buckets.rs",
+      "if !gen[node].contains(old_def) {",
+      "if true {",
+      "cpg::reaching::def_bucket_tests::kill_alias_gen_binding_and_fields"
+    ],
+    "DB06-descending-indices": [
+      "src/cpg/reaching/def_buckets.rs",
+      "matches.to_vec()",
+      "matches.iter().rev().copied().collect()",
+      "cpg::reaching::def_bucket_tests::exact_fallback_and_index_order"
+    ],
+    "DB07-drop-binding-gate": [
+      "src/cpg/reaching/def_buckets.rs",
+      "if !gen[node].contains(old_def) {\n                        flat_kill[node].insert(old_def);\n                        if binding_facts.same_def_binding(new_def, old_def) {",
+      "if !gen[node].contains(old_def) {\n                        flat_kill[node].insert(old_def);\n                        if true {",
+      "cpg::reaching::def_bucket_tests::kill_alias_gen_binding_and_fields"
+    ],
+    "DB08-generated-alias-kills": [
+      "src/cpg/reaching/def_buckets.rs",
+      "for new_def in gen[node].members() {\n                if defs[new_def].alias_derived {",
+      "for new_def in gen[node].members() {\n                if false {",
+      "cpg::reaching::def_bucket_tests::kill_alias_gen_binding_and_fields"
+    ],
+    "DB09-restore-full-kill-scan": [
+      "src/cpg/reaching/def_buckets.rs",
+      "for &old_def in &self.kill_paths[&defs[new_def].path] {",
+      "for old_def in 0..defs.len() {",
+      "cpg::reaching::def_bucket_tests::distinct_paths_do_no_cross_path_kill_work"
+    ],
+    "DB10-restore-full-matching-scan": [
+      "src/cpg/reaching/def_buckets.rs",
+      "let exact = self\n            .exact",
+      "#[cfg(test)]\n        return super::matching_defs(edge, self.defs);\n        let exact = self\n            .exact",
+      "cpg::reaching::def_bucket_tests::matching_examines_only_bucket_members"
+    ]
+  },
+  "extra": {
+    "DB01-drop-byte-key": [
+      [
+        "src/cpg/reaching/def_buckets.rs",
+        ".get(&(&edge.from.path, edge.from.line, edge.from.start_byte))",
+        ".get(&(&edge.from.path, edge.from.line, 0))"
+      ]
+    ],
+    "DB09-restore-full-kill-scan": [
+      [
+        "src/cpg/reaching/def_buckets.rs",
+        "if !gen[node].contains(old_def) {",
+        "if !gen[node].contains(old_def) && !defs[old_def].alias_derived && defs[old_def].path == defs[new_def].path {"
+      ]
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::reaching::"
+  ]
+}
