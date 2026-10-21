@@ -24,6 +24,7 @@ const AGENT_MARKDOWN_FORMAT: &str = "agent_markdown";
 pub struct FreshnessProbe {
     root: PathBuf,
     tracked: BTreeMap<String, PathStamp>,
+    capture: capture::Evidence,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -47,10 +48,20 @@ enum PathKind {
     Missing,
     Other,
     Unreadable,
+    Logical,
 }
 
 impl FreshnessProbe {
     pub fn from_loaded_repo(repo: &LoadedRepo) -> Self {
+        let mut real_paths = BTreeSet::from([".".to_string()]);
+        for rel in repo
+            .files
+            .keys()
+            .chain(repo.manifest_snapshot.entries().map(|(path, _)| path))
+        {
+            real_paths.insert(rel.clone());
+            add_ancestors(rel, &mut real_paths);
+        }
         let mut paths = BTreeSet::new();
         paths.insert(".".to_string());
 
@@ -59,32 +70,32 @@ impl FreshnessProbe {
             add_ancestors(rel, &mut paths);
         }
 
-        let tracked = paths
+        let mut tracked = paths
             .into_iter()
             .map(|rel| {
-                let stamp = PathStamp::read(&repo.root, &rel);
+                let stamp = if real_paths.contains(&rel) {
+                    PathStamp::read(&repo.root, &rel)
+                } else {
+                    PathStamp {
+                        kind: PathKind::Logical,
+                        len: None,
+                        modified: None,
+                    }
+                };
                 (rel, stamp)
             })
             .collect();
 
+        let capture = capture::validate(repo, &mut tracked);
         Self {
             root: repo.root.clone(),
             tracked,
+            capture,
         }
     }
 
     pub fn check(&self) -> FreshnessReport {
-        let mut changed = Vec::new();
-
-        for (rel, before) in &self.tracked {
-            let after = PathStamp::read(&self.root, rel);
-            if before == &after {
-                continue;
-            }
-            changed.push(rel.clone());
-        }
-
-        FreshnessReport::from_changed_paths(changed)
+        self.check_captured()
     }
 
     pub(crate) fn tracked_len(&self) -> usize {
@@ -513,6 +524,7 @@ mod tests {
         let probe = FreshnessProbe {
             root: dir.path().to_path_buf(),
             tracked,
+            capture: capture::Evidence::default(),
         };
         for idx in 0..10 {
             fs::write(dir.path().join(format!("path-{idx}.py")), "x=1\n").unwrap();
@@ -657,3 +669,10 @@ mod tests {
         }
     }
 }
+
+#[cfg(all(test, unix))]
+#[path = "freshness_capture_tests.rs"]
+pub(crate) mod capture_tests;
+
+#[path = "freshness_capture.rs"]
+mod capture;
