@@ -41,6 +41,60 @@ const CONFIG: &str = r#"{"compilerOptions":{"baseUrl":".","paths":{"@/*":["*"]}}
 const IMPORT: &str = "import {x} from '@/missing'; export const y = x;";
 
 #[test]
+fn freshness_truncate_rewrite_equal_content() {
+    let d = fixture();
+    let repo = load_repo(d.path()).unwrap();
+    let path = d.path().join("a.py");
+    let original = fs::read(&path).unwrap();
+    fs::write(&path, "").unwrap();
+    on("source-stamped", move || fs::write(path, original).unwrap());
+    assert_probe(&repo, false, "length-zero save gets one re-check");
+    // A stable truncated file still differs from the loaded bytes.
+    fs::write(d.path().join("a.py"), "").unwrap();
+    assert_probe(&repo, true, "unchanged truncation remains stale");
+}
+
+#[test]
+fn freshness_directory_mtime_only_during_validation() {
+    let d = fixture();
+    let repo = load_repo(d.path()).unwrap();
+    let root = d.path().to_path_buf();
+    let before = PathStamp::read(&root, ".");
+    on("inputs-between", move || {
+        restamp_directory(&root);
+        let after = PathStamp::read(&root, ".");
+        assert_eq!(after.len, before.len, "membership/length unchanged");
+        assert_ne!(after.modified, before.modified);
+    });
+    assert_probe(&repo, false, "stable retry adopts the directory restamp");
+}
+
+#[test]
+fn freshness_directory_double_instability() {
+    let d = fixture();
+    let repo = load_repo(d.path()).unwrap();
+    let root = d.path().to_path_buf();
+    on("inputs-between", move || {
+        restamp_directory(&root);
+        on("inputs-between", move || {
+            restamp_directory(&root);
+        });
+    });
+    let probe = FreshnessProbe::from_loaded_repo(&repo);
+    let report = probe.check();
+    assert!(report.stale);
+    assert!(report.changed_paths.contains(&"source_membership".into()));
+}
+
+fn restamp_directory(root: &Path) {
+    let modified = fs::metadata(root).unwrap().modified().unwrap();
+    fs::File::open(root)
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(modified + std::time::Duration::from_secs(2)))
+        .unwrap();
+}
+
+#[test]
 fn freshness_before_capture_and_after_capture() {
     let d = fixture();
     let b = "def fresh():\n    return 2\n";

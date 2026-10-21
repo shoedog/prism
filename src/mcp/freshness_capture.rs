@@ -47,8 +47,6 @@ pub(super) fn validate(repo: &LoadedRepo, tracked: &mut BTreeMap<String, PathSta
                 .map(|s| s.path.clone()),
         )
         .collect();
-    let members_before = collect_freshness_source_paths(&repo.root);
-    let before = scope_graph_build_inputs(&repo.root, &repo.files);
     for (rel, loaded_hash) in &repo.file_hashes {
         let (valid, unreadable, current_stamp) =
             validate_file(&repo.root, rel, loaded_hash, repo.files[rel].source.len());
@@ -58,7 +56,6 @@ pub(super) fn validate(repo: &LoadedRepo, tracked: &mut BTreeMap<String, PathSta
         uncertain |= unreadable;
         tracked.insert(rel.clone(), current_stamp);
     }
-    let mut captures = vec![(members_before, before)];
     for attempt in 0..2 {
         let directories: BTreeMap<_, _> = tracked
             .iter()
@@ -67,24 +64,14 @@ pub(super) fn validate(repo: &LoadedRepo, tracked: &mut BTreeMap<String, PathSta
             .collect();
         #[cfg(all(test, unix))]
         super::capture_tests::barrier("inputs-between");
-        let after = scope_graph_build_inputs(&repo.root, &repo.files);
+        let current = scope_graph_build_inputs(&repo.root, &repo.files);
         let members = collect_freshness_source_paths(&repo.root);
         #[cfg(all(test, unix))]
         super::capture_tests::barrier("directories-validated");
         let stable = directories
             .iter()
             .all(|(p, s)| *s == PathStamp::read(&repo.root, p));
-        captures.push((members, after));
-        if stable {
-            tracked.extend(directories);
-            break;
-        }
-        if attempt == 1 {
-            changed.insert("source_membership".into());
-        }
-    }
-    for (members, current) in &captures {
-        if let Some(members) = members {
+        if let Some(members) = &members {
             changed.extend(
                 expected
                     .symmetric_difference(members)
@@ -123,6 +110,13 @@ pub(super) fn validate(repo: &LoadedRepo, tracked: &mut BTreeMap<String, PathSta
                         .is_none_or(Option::is_none);
             }
         }
+        if stable {
+            tracked.extend(directories);
+            break;
+        }
+        if attempt == 1 {
+            changed.insert("source_membership".into());
+        }
     }
     // Stable typed input bytes (including touch-only changes) certify their
     // baseline too. Refusals/absences remain loader-owned replay comparisons.
@@ -155,7 +149,12 @@ fn validate_file(
     // hash is compared to the LOADED hash, never to another current read.
     for attempt in 0..2 {
         let before = PathStamp::read(root, rel);
+        #[cfg(all(test, unix))]
+        super::capture_tests::barrier("source-stamped");
         if before.len.is_some_and(|len| len != loaded_len as u64) {
+            if attempt == 0 {
+                continue;
+            }
             return (false, false, before);
         }
         // A growing file cannot expand validation beyond the loader's bytes.
@@ -184,16 +183,31 @@ fn validate_file(
 
 impl FreshnessProbe {
     pub(super) fn check_captured(&self) -> FreshnessReport {
+        if !self.capture.uncertain {
+            if let Some(report) = &self.capture.report {
+                return report.clone();
+            }
+        }
         let mut changed = BTreeSet::new();
         let mut digest = Sha256::new();
         for (rel, before) in &self.tracked {
-            let after = if before.kind == PathKind::Logical {
-                before.clone()
+            let (after, _metadata) = if before.kind == PathKind::Logical {
+                (before.clone(), None)
             } else {
-                PathStamp::read(&self.root, rel)
+                PathStamp::read_observed(&self.root, rel)
             };
             if self.capture.uncertain {
                 digest.update(format!("{rel:?}{after:?}"));
+                // Permission-only recovery must re-arm auto refresh. Reuse this
+                // stat's access evidence only in suppression, never stamp equality.
+                #[cfg(unix)]
+                if let Some(metadata) = _metadata {
+                    use std::os::unix::fs::MetadataExt;
+                    digest.update(format!(
+                        "{:?}",
+                        (metadata.mode(), metadata.ctime(), metadata.ctime_nsec())
+                    ));
+                }
             }
             if before != &after {
                 changed.insert(rel.clone());

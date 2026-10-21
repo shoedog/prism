@@ -157,6 +157,125 @@ fn freshness_uncertifiable_refresh_once_and_rearm() {
         assert!(p.known_stale_after_refresh().is_none());
     }
 }
+
+fn permission_only_recovery(policy: RefreshPolicy) {
+    let (d, cfg) = fixture(policy);
+    let path = d.path().join("a.py");
+    let bytes = std::fs::read(&path).unwrap();
+    let identity = |path: &std::path::Path| {
+        let metadata = std::fs::metadata(path).unwrap();
+        (metadata.len(), metadata.modified().unwrap())
+    };
+    let file_identity = identity(&path);
+    let root_identity = identity(d.path());
+    let mut p = raced(&cfg, || {
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0)).unwrap();
+    });
+    assert_eq!(
+        std::fs::read(&path).unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied,
+        "requires owner-mode permission denial"
+    );
+    std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o100)).unwrap();
+    assert_eq!(
+        std::fs::read_dir(d.path()).unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
+    assert_eq!(identity(&path), file_identity, "lookup/stat still works");
+    let failed = query(&mut p);
+    // Restore root access before assertions so even a failed fixture cleans up.
+    let still_denied = std::fs::read_dir(d.path()).is_err();
+    let suppressed = query(&mut p);
+    std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(still_denied);
+    assert_eq!(failed["_meta"]["prism/auto_refresh"], "failed");
+    assert!(failed["_meta"]["prism/auto_refresh_error"]
+        .as_str()
+        .unwrap()
+        .contains("failed to read repository root"));
+    assert_eq!(failed["_meta"]["prism/index_freshness"], "stale");
+    assert!(failed.to_string().contains("old"));
+    assert!(
+        suppressed["_meta"].get("prism/auto_refresh").is_none(),
+        "unchanged unavailability allows only one failed attempt"
+    );
+    assert_eq!(suppressed["_meta"]["prism/index_freshness"], "stale");
+    assert_eq!(p.generation(), 0);
+    assert_eq!(p.cfg.refresh_policy, policy);
+    assert_eq!(
+        identity(&path),
+        file_identity,
+        "no file content/mtime change"
+    );
+    assert_eq!(
+        identity(d.path()),
+        root_identity,
+        "no directory membership/mtime change"
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    let recovered = query(&mut p);
+    assert_eq!(
+        recovered["_meta"]["prism/auto_refresh"], "refreshed",
+        "permission-only recovery must re-arm the automatic policy"
+    );
+    assert!(recovered["_meta"].get("prism/index_freshness").is_none());
+    assert!(recovered.to_string().contains("old"));
+    assert_eq!(p.generation(), 1);
+    assert!(p.known_stale_after_refresh().is_none());
+    assert!(!p.idle_publication().diverged);
+    assert!(query(&mut p)["_meta"].get("prism/auto_refresh").is_none());
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400)).unwrap();
+    let mode_only = query(&mut p);
+    assert!(
+        mode_only["_meta"].get("prism/index_freshness").is_none(),
+        "access evidence must not affect ordinary freshness comparisons"
+    );
+    assert_eq!(p.generation(), 1);
+}
+
+#[test]
+fn freshness_permission_recovery_auto_full() {
+    permission_only_recovery(RefreshPolicy::AutoFull);
+}
+
+#[test]
+fn freshness_permission_recovery_auto_incremental() {
+    permission_only_recovery(RefreshPolicy::AutoIncremental);
+}
+
+#[test]
+fn freshness_certain_sticky_does_no_stat_work() {
+    let (d, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let mut p = raced(&cfg, || {
+        std::fs::write(d.path().join("a.py"), "def replacement():\n    pass\n").unwrap();
+    });
+    crate::mcp::freshness::capture_tests::on("path-stat", || {
+        panic!("certain sticky report must do no per-query stat work");
+    });
+    let result = query(&mut p);
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert!(result.to_string().contains("old"));
+    // Exercise the direct check path as well as SessionProvider's sticky accessor.
+    assert!(p.freshness().check().stale);
+    crate::mcp::freshness::capture_tests::on("unused", || {});
+
+    // Verification can diverge after an otherwise clean candidate capture.
+    let (d, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let mut p = SessionProvider::bootstrap(&cfg).unwrap();
+    std::fs::write(d.path().join("a.py"), "def replacement():\n    pass\n").unwrap();
+    let report = FreshnessReport::from_changed_paths(["a.py".into()]);
+    p.force_next_verification_for_tests(RefreshVerification::Diverged(report));
+    assert_eq!(p.refresh().unwrap().status, "raced_stale");
+    assert!(p.freshness().bootstrap_report().is_none());
+    crate::mcp::freshness::capture_tests::on("path-stat", || {
+        panic!("certain verification-only sticky report must do no per-query stat work");
+    });
+    let result = query(&mut p);
+    assert_eq!(result["_meta"]["prism/index_freshness"], "stale");
+    assert!(result.to_string().contains("replacement"));
+    crate::mcp::freshness::capture_tests::on("unused", || {});
+}
 #[test]
 fn freshness_service_recheck_after_validation() {
     let (d, cfg) = fixture(RefreshPolicy::WarnOnly);
@@ -190,6 +309,10 @@ fn freshness_equally_uncertifiable_replacement_and_explicit_refresh() {
         let report = FreshnessReport::from_changed_paths(["a.py".into()]);
         p.force_next_verification_for_tests(RefreshVerification::Diverged(report));
         assert_eq!(query(&mut p)["_meta"]["prism/auto_refresh"], "raced_stale");
+        // The unlock/relock during candidate construction changed access evidence.
+        // It permits one new attempt; unchanged failure must then suppress again.
+        p.force_next_refresh_error_for_tests("changed-access refresh refused");
+        assert_eq!(query(&mut p)["_meta"]["prism/auto_refresh"], "failed");
         assert!(query(&mut p)["_meta"].get("prism/auto_refresh").is_none());
         p.force_next_refresh_error_for_tests("explicit refresh refused");
         let generation = p.generation();

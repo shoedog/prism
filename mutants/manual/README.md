@@ -37,6 +37,7 @@ Apply each record's exact edits to the current candidate and run its single sele
 `nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`.
 Use steps 1–6 above: require one behavioral failure, restore saved bytes in `finally`,
 verify SHA-256, then require one restored GREEN. Compiler errors and zero selections are
-inadmissible. The six mutants cover late stamping, lost divergence, wrong comparison,
-loader input replay, final service recheck and repeated uncertifiable auto refresh.
+inadmissible. The seven mutants cover late stamping, lost divergence, wrong comparison,
+loader input replay, final service recheck, repeated uncertifiable auto refresh and
+permission-only recovery of suppressed auto refresh.
 Save receipts outside the checkout; the full shared-catalog gate remains separate.

@@ -75,6 +75,18 @@
           "new": "        if false && self.auto_attempt.is_some() && self.auto_attempt == self.freshness.uncertifiable_key() {"
         }
       ]
+    },
+    {
+      "id": "F-suppression-ignores-access",
+      "selector": "mcp::session::freshness_policy_tests::freshness_permission_recovery_auto_full",
+      "description": "Ignore mode/ctime when suppressing uncertifiable refresh; permission-only recovery must re-arm auto.",
+      "edits": [
+        {
+          "file": "src/mcp/freshness_capture.rs",
+          "old": "                    digest.update(format!(\n                        \"{:?}\",\n                        (metadata.mode(), metadata.ctime(), metadata.ctime_nsec())\n                    ));",
+          "new": "                    let _ = (metadata.mode(), metadata.ctime(), metadata.ctime_nsec());"
+        }
+      ]
     }
   ]
 }

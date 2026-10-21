@@ -197,6 +197,7 @@ impl SessionProvider {
         &self.freshness
     }
 
+    /// Returns the effective refresh policy, including same-evidence auto suppression.
     pub fn refresh_policy(&self) -> RefreshPolicy {
         if self.auto_attempt.is_some() && self.auto_attempt == self.freshness.uncertifiable_key() {
             RefreshPolicy::WarnOnly
@@ -206,7 +207,8 @@ impl SessionProvider {
     }
 
     pub(crate) fn known_stale_after_refresh(&self) -> Option<&FreshnessReport> {
-        if self.known_stale_after_refresh.is_some() {
+        if self.known_stale_after_refresh.is_some() && self.freshness.uncertifiable_key().is_some()
+        {
             self.freshness.check();
         }
         self.known_stale_after_refresh.as_ref()

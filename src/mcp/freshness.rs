@@ -142,12 +142,19 @@ impl FreshnessReport {
 
 impl PathStamp {
     fn read(root: &Path, rel: &str) -> Self {
+        Self::read_observed(root, rel).0
+    }
+
+    fn read_observed(root: &Path, rel: &str) -> (Self, Option<fs::Metadata>) {
+        #[cfg(all(test, unix))]
+        capture_tests::barrier("path-stat");
         let path = if rel == "." {
             root.to_path_buf()
         } else {
             root.join(rel)
         };
-        match fs::metadata(&path) {
+        let metadata = fs::metadata(&path);
+        let stamp = match &metadata {
             Ok(metadata) => {
                 let file_type = metadata.file_type();
                 let kind = if file_type.is_file() {
@@ -173,7 +180,8 @@ impl PathStamp {
                 len: None,
                 modified: None,
             },
-        }
+        };
+        (stamp, metadata.ok())
     }
 }
 
