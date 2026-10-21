@@ -5,6 +5,7 @@ use crate::ast::ParsedFile;
 use crate::cfg::{self, ArmProvenance, CfgEdge, EdgeOrigin};
 use crate::data_flow::{ExactFlowEdge, FlowEdge, VarLocation};
 use crate::languages::Language;
+#[cfg(test)]
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use tree_sitter::Node;
@@ -17,6 +18,7 @@ mod compact_wire;
 mod graph;
 mod join_kind;
 mod scope;
+mod statement_lookup;
 
 pub(crate) use cfg_edge_index::FileCfgEdgeIndex;
 use graph::{definition_reaches_unflagged, path_exists, reverse_postorder, BitSet};
@@ -159,6 +161,8 @@ pub(crate) fn reaching_definitions_with_exact(
     cfg_edge_index::tests::record_outcome(&outcome);
     #[cfg(test)]
     join_kind_tests::record_outcome(&outcome);
+    #[cfg(test)]
+    statement_lookup_tests::record_outcome(&outcome);
     outcome
 }
 
@@ -235,6 +239,9 @@ fn reaching_definitions_impl(
     }
 
     let spans = statement_line_spans(parsed, func_node);
+    #[cfg(test)]
+    work_tests::bump(|counts| counts.statement_span_entries = spans.len());
+    let mut statements = statement_lookup::StatementLookup::new(&spans);
     let (function_start, _) = parsed.node_line_range(func_node);
     let mapped_defs: Vec<Option<usize>> = defs
         .iter()
@@ -242,7 +249,8 @@ fn reaching_definitions_impl(
             if def.line == function_start && !line_index.contains_key(&def.line) {
                 Some(entry)
             } else {
-                innermost_statement(def.line, &spans)
+                statements
+                    .get(def.line)
                     .and_then(|line| line_index.get(&line).copied())
             }
         })
@@ -291,6 +299,8 @@ fn reaching_definitions_impl(
 
     #[cfg(test)]
     join_kind_tests::record_sets(&in_sets, &flat_in_sets);
+    #[cfg(test)]
+    statement_lookup_tests::record_sets(&in_sets, &flat_in_sets);
     let collapsed = collapsed_groups(&defs);
     let capture_facts = capture::capture_facts(parsed, *func_node);
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
@@ -299,7 +309,8 @@ fn reaching_definitions_impl(
     let mut reaching_edges = BTreeSet::new();
     for edge in dfg_edges {
         let key = (edge.from.clone(), edge.to.clone());
-        if innermost_statement(edge.to.line, &spans)
+        if statements
+            .get(edge.to.line)
             .and_then(|line| line_index.get(&line))
             .is_some_and(|node| {
                 matching_defs(edge, &defs)
@@ -315,7 +326,7 @@ fn reaching_definitions_impl(
             &defs,
             &mapped_defs,
             &line_index,
-            &spans,
+            &mut statements,
             &in_sets,
             &kill,
             &flat_in_sets,
@@ -342,7 +353,7 @@ fn reaching_definitions_impl(
             &defs,
             &mapped_defs,
             &line_index,
-            &spans,
+            &mut statements,
             &in_sets,
             &kill,
             &flat_in_sets,
@@ -429,7 +440,7 @@ fn classify_edge(
     defs: &[DefSite],
     mapped_defs: &[Option<usize>],
     line_index: &BTreeMap<Line, usize>,
-    spans: &[StatementLineSpan],
+    statements: &mut statement_lookup::StatementLookup<'_>,
     in_sets: &[BitSet],
     kill: &[BitSet],
     flat_in_sets: &[BitSet],
@@ -444,12 +455,12 @@ fn classify_edge(
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
 
-    let use_statement = innermost_statement(edge.to.line, spans);
+    let use_statement = statements.get(edge.to.line);
     let def_statement =
         if edge.from.line == function_start && !line_index.contains_key(&function_start) {
             Some(function_start)
         } else {
-            innermost_statement(edge.from.line, spans)
+            statements.get(edge.from.line)
         };
     let (Some(use_line), Some(def_line)) = (use_statement, def_statement) else {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
@@ -496,7 +507,7 @@ fn classify_edge(
     let construct_uncertain = binding_facts
         .unclassified_binding_lines(&edge.to.path.base)
         .into_iter()
-        .filter_map(|line| innermost_statement(line, spans))
+        .filter_map(|line| statements.get(line))
         .filter_map(|line| line_index.get(&line).copied())
         .any(|construct_node| {
             candidates.iter().any(|index| {
@@ -666,15 +677,16 @@ fn statement_line_spans(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<Statem
         .collect()
 }
 
+// Frozen pre-memo scanner: independent differential oracle.
+#[cfg(test)]
 fn innermost_statement(line: Line, spans: &[StatementLineSpan]) -> Option<Line> {
-    #[cfg(test)]
-    work_tests::bump(|counts| {
-        counts.statement_lookup_calls += 1;
-        counts.statement_query_lines.insert(line);
-    });
     spans
         .iter()
-        .filter(|span| span.start_line <= line && line <= span.end_line)
+        .filter(|span| {
+            #[cfg(test)]
+            work_tests::bump(|counts| counts.statement_span_visits += 1);
+            span.start_line <= line && line <= span.end_line
+        })
         .min_by_key(|span| {
             (
                 span.end_byte.saturating_sub(span.start_byte),
@@ -692,3 +704,6 @@ mod work_tests;
 
 #[cfg(test)]
 mod join_kind_tests;
+
+#[cfg(test)]
+mod statement_lookup_tests;
