@@ -100,9 +100,9 @@
    "js_paths_r1_test::js_paths_unrelated_text_keeps_topology"
   ],
   "I07-no-proven-empty-facts": [
-   "src/call_graph.rs",
-   "if !exports.is_empty() || !parsed.tree.root_node().has_error() {",
-   "if !exports.is_empty() {",
+   "src/call_graph/js_ts_facts.rs",
+   "\n    if !exports.is_empty() || !parsed.tree.root_node().has_error() {",
+   "\n    if !exports.is_empty() {",
    "js_paths_r1_test::js_paths_r1_membership_barriers_dot_and_relative"
   ],
   "I08-no-opaque-star-guard": [
