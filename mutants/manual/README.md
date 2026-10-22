@@ -30,3 +30,14 @@ Records are `{old, new}` edit lists with one exact selector each. Follow the sam
 edit once. The first four records are the plan's required mutants; later records add negative witnesses. These
 are fault injections, not claims that the parent supported the new lifecycle API. I0a receipts are kept in the
 lane's private evidence.
+
+## `i0-freshness.json` (F source-bound freshness, `--features mcp`)
+
+Apply each record's exact edits to the current candidate and run its single selector with
+`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`.
+Use steps 1–6 above: require one behavioral failure, restore saved bytes in `finally`,
+verify SHA-256, then require one restored GREEN. Compiler errors and zero selections are
+inadmissible. The seven mutants cover late stamping, lost divergence, wrong comparison,
+loader input replay, final service recheck, repeated uncertifiable auto refresh and
+permission-only recovery of suppressed auto refresh.
+Save receipts outside the checkout; the full shared-catalog gate remains separate.
