@@ -1,0 +1,92 @@
+{
+  "manual_only": true,
+  "features": [
+    "mcp"
+  ],
+  "mutants": [
+    {
+      "id": "F-postread-stamp-clean",
+      "selector": "mcp::session::freshness_policy_tests::freshness_read_a_edit_b_stamp_b",
+      "description": "Restore late, unvalidated stamps after the loader has read A.",
+      "edits": [
+        {
+          "file": "src/mcp/freshness.rs",
+          "old": "        let capture = capture::validate(repo, &mut tracked);",
+          "new": "        let capture = capture::Evidence::default();"
+        }
+      ]
+    },
+    {
+      "id": "F-drop-capture-mismatch",
+      "selector": "mcp::session::freshness_policy_tests::freshness_read_a_edit_b_stamp_b",
+      "description": "Discard bootstrap divergence while retaining the validated stamp baseline.",
+      "edits": [
+        {
+          "file": "src/mcp/freshness_capture.rs",
+          "old": "        report: report.stale.then_some(report),",
+          "new": "        report: None,"
+        }
+      ]
+    },
+    {
+      "id": "F-validate-against-current",
+      "selector": "mcp::freshness::capture_tests::freshness_before_capture_and_after_capture",
+      "description": "Compare stable current bytes with themselves; the equal-length edit must expose it.",
+      "edits": [
+        {
+          "file": "src/mcp/freshness_capture.rs",
+          "old": "format!(\"{:x}\", Sha256::digest(bytes)) == loaded_hash",
+          "new": "format!(\"{:x}\", Sha256::digest(&bytes)) == format!(\"{:x}\", Sha256::digest(&bytes))"
+        }
+      ]
+    },
+    {
+      "id": "F-ignore-manifest-resolver",
+      "selector": "mcp::freshness::capture_tests::freshness_manifest_resolver_inputs",
+      "description": "Ignore typed loader input replay; the first fixture changes only a resolver config.",
+      "edits": [
+        {
+          "file": "src/mcp/freshness_capture.rs",
+          "old": "        if let Some(loaded) = &repo.scope_graph_inputs {",
+          "new": "        if let Some(loaded) = None::<&crate::call_graph::ScopeGraphBuildInputs> {"
+        }
+      ]
+    },
+    {
+      "id": "F-skip-service-recheck",
+      "selector": "mcp::session::freshness_policy_tests::freshness_service_recheck_after_validation",
+      "description": "Ignore final service stamp discrepancies after validation.",
+      "edits": [
+        {
+          "file": "src/mcp/freshness_capture.rs",
+          "old": "            if before != &after {",
+          "new": "            if false && before != &after {"
+        }
+      ]
+    },
+    {
+      "id": "F-repeat-uncertifiable-refresh",
+      "selector": "mcp::session::freshness_policy_tests::freshness_uncertifiable_refresh_once_and_rearm",
+      "description": "Remove same-evidence automatic policy suppression after a failed attempt.",
+      "edits": [
+        {
+          "file": "src/mcp/session.rs",
+          "old": "        if self.auto_attempt.is_some() && self.auto_attempt == self.freshness.uncertifiable_key() {",
+          "new": "        if false && self.auto_attempt.is_some() && self.auto_attempt == self.freshness.uncertifiable_key() {"
+        }
+      ]
+    },
+    {
+      "id": "F-suppression-ignores-access",
+      "selector": "mcp::session::freshness_policy_tests::freshness_permission_recovery_auto_full",
+      "description": "Ignore mode/ctime when suppressing uncertifiable refresh; permission-only recovery must re-arm auto.",
+      "edits": [
+        {
+          "file": "src/mcp/freshness_capture.rs",
+          "old": "                    digest.update(format!(\n                        \"{:?}\",\n                        (metadata.mode(), metadata.ctime(), metadata.ctime_nsec())\n                    ));",
+          "new": "                    let _ = (metadata.mode(), metadata.ctime(), metadata.ctime_nsec());"
+        }
+      ]
+    }
+  ]
+}

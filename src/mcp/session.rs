@@ -104,6 +104,7 @@ pub struct SessionProvider {
     snapshot: SnapshotFingerprint,
     known_stale_after_refresh: Option<FreshnessReport>,
     generation: u64,
+    auto_attempt: Option<[u8; 32]>,
     #[cfg(test)]
     forced_refresh: Option<ForcedRefreshForTests>,
 }
@@ -174,13 +175,15 @@ impl SessionProvider {
     ) -> anyhow::Result<Self> {
         let cfg = canonical_config(cfg)?;
         let state = build_state(&cfg, observe)?;
+        let known_stale = state.freshness.bootstrap_report().cloned();
         Ok(Self {
             cfg,
             session: state.session,
             freshness: state.freshness,
             snapshot: state.snapshot,
-            known_stale_after_refresh: None,
+            known_stale_after_refresh: known_stale,
             generation: 0,
+            auto_attempt: None,
             #[cfg(test)]
             forced_refresh: None,
         })
@@ -194,11 +197,20 @@ impl SessionProvider {
         &self.freshness
     }
 
+    /// Returns the effective refresh policy, including same-evidence auto suppression.
     pub fn refresh_policy(&self) -> RefreshPolicy {
-        self.cfg.refresh_policy
+        if self.auto_attempt.is_some() && self.auto_attempt == self.freshness.uncertifiable_key() {
+            RefreshPolicy::WarnOnly
+        } else {
+            self.cfg.refresh_policy
+        }
     }
 
     pub(crate) fn known_stale_after_refresh(&self) -> Option<&FreshnessReport> {
+        if self.known_stale_after_refresh.is_some() && self.freshness.uncertifiable_key().is_some()
+        {
+            self.freshness.check();
+        }
         self.known_stale_after_refresh.as_ref()
     }
 
@@ -240,6 +252,7 @@ impl SessionProvider {
 
     pub(crate) fn auto_refresh(&mut self) -> anyhow::Result<AutoRefreshSummary> {
         let stale_before_refresh = self.effective_stale_report();
+        self.auto_attempt = self.freshness.uncertifiable_key();
         let policy = match self.cfg.refresh_policy {
             RefreshPolicy::AutoIncremental => RefreshStrategyPolicy::PreferIncremental,
             RefreshPolicy::WarnOnly | RefreshPolicy::AutoFull => RefreshStrategyPolicy::FullOnly,
@@ -257,10 +270,11 @@ impl SessionProvider {
     }
 
     fn effective_stale_report(&self) -> FreshnessReport {
+        let current = self.freshness.check();
         if let Some(report) = &self.known_stale_after_refresh {
             return report.clone();
         }
-        self.freshness.check()
+        current
     }
 
     fn refresh_verified(
@@ -307,6 +321,11 @@ impl SessionProvider {
             verification,
         } = verified;
 
+        let mut state = state;
+        if matches!(verification, RefreshVerification::Clean) {
+            state.freshness.clear_bootstrap_evidence();
+            self.auto_attempt = None;
+        }
         let indexed_files = state.session.repo.files.len();
         let tracked_paths = state.freshness.tracked_len();
         self.generation = self.generation.saturating_add(1);
@@ -935,3 +954,7 @@ mod tests {
 #[cfg(test)]
 #[path = "session_stage_tests.rs"]
 mod stage_tests;
+
+#[cfg(all(test, unix))]
+#[path = "freshness_policy_tests.rs"]
+mod freshness_policy_tests;

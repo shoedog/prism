@@ -449,6 +449,12 @@ fn has_complete_rust_coverage(root: &Path, files: &BTreeMap<String, ParsedFile>)
     actual_rust == expected_rust
 }
 
+#[cfg(feature = "mcp")]
+#[path = "repo_loader_freshness.rs"]
+mod freshness_paths;
+#[cfg(feature = "mcp")]
+pub(crate) use freshness_paths::collect_freshness_source_paths;
+
 fn collect_supported_source_paths(root: &Path) -> Option<BTreeSet<String>> {
     let mut out = BTreeSet::new();
     collect_supported_source_paths_inner(root, root, &mut out).ok()?;
