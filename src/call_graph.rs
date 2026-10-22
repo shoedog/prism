@@ -18,6 +18,7 @@ use std::path::PathBuf;
 mod anon_prep_tests;
 #[path = "call_graph_profile_initializers.rs"]
 mod init_profile;
+mod js_ts_facts;
 
 /// A node in the call graph: a function identified by file path and name.
 #[derive(
@@ -2228,46 +2229,7 @@ impl CallGraph {
     where
         I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
     {
-        let mut export_facts: BTreeMap<String, crate::js_exports::JsExportFacts> = BTreeMap::new();
-        let mut function_locals: BTreeMap<FunctionId, BTreeSet<String>> = BTreeMap::new();
-        let mut return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts> =
-            BTreeMap::new();
-
-        for (file_path, parsed) in files {
-            if !matches!(
-                parsed.language,
-                crate::languages::Language::JavaScript
-                    | crate::languages::Language::TypeScript
-                    | crate::languages::Language::Tsx
-            ) {
-                continue;
-            }
-
-            let exports = parsed.extract_js_ts_export_facts();
-            // A successfully parsed value-empty module is a proven empty star
-            // branch, distinct from a missing/opaque branch in alias provenance.
-            if !exports.is_empty() || !parsed.tree.root_node().has_error() {
-                export_facts.insert(file_path.clone(), exports);
-            }
-
-            let mut binding_cache = crate::ast::JsBindingCache::for_sites();
-            for func_node in crate::anon_owner::owner_nodes(parsed) {
-                let Some(func_id) =
-                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
-                else {
-                    continue;
-                };
-                let locals = crate::anon_owner::shadow_locals(parsed, &func_node);
-                if !locals.is_empty() {
-                    function_locals.insert(func_id.clone(), locals);
-                }
-                if let Some(facts) = parsed.js_ts_return_facts(func_node, &mut binding_cache) {
-                    return_facts.insert(func_id, facts);
-                }
-            }
-        }
-
-        (export_facts, function_locals, return_facts)
+        js_ts_facts::extract(files)
     }
 
     /// P4: whole-program resolution of JS/TS export facts — recomputed from
