@@ -1,0 +1,49 @@
+{
+  "mutations": {
+    "C5C-01-full-graph-scans": [
+      "src/cpg/step5c.rs",
+      "if step5c_reference::enabled() {",
+      "if true {",
+      "cpg::build::step5c::tests::query_work_excludes_unrelated_owners"
+    ],
+    "C5C-02-owner-start": [
+      "src/cpg/step5c_uses.rs",
+      "owner.name.clone(), owner.start_line",
+      "owner.name.clone(), 0",
+      "cpg::build::step5c::tests::owner_partition_keeps_order_duplicates_and_span_boundaries"
+    ],
+    "C5C-03-include-defs": [
+      "src/cpg/step5c_uses.rs",
+      "access: VarAccess::Use,",
+      "access: _,",
+      "cpg::build::step5c::tests::owner_partition_keeps_order_duplicates_and_span_boundaries"
+    ],
+    "C5C-04-lower-bound": [
+      "src/cpg/step5c_uses.rs",
+      "start <= use_start",
+      "true",
+      "cpg::build::step5c::tests::owner_partition_keeps_order_duplicates_and_span_boundaries"
+    ],
+    "C5C-05-upper-bound": [
+      "src/cpg/step5c_uses.rs",
+      "use_end <= end",
+      "true",
+      "cpg::build::step5c::tests::owner_partition_keeps_order_duplicates_and_span_boundaries"
+    ],
+    "C5C-06-callee-label": [
+      "src/cpg/step5c_uses.rs",
+      "parsed.is_semantic_value_use(use_start, use_end)",
+      "true",
+      "cpg::build::step5c::tests::owner_partition_keeps_order_duplicates_and_span_boundaries"
+    ],
+    "C5C-07-return-input-order": [
+      "src/cpg/step5c.rs",
+      "inputs.sort_by_key(|idx| idx.index());",
+      "inputs.sort_by_key(|idx| std::cmp::Reverse(idx.index()));",
+      "cpg::build::step5c::tests::generated_complete_identity"
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::"
+  ]
+}
