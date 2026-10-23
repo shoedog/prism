@@ -5,6 +5,35 @@
   ],
   "mutants": [
     {
+      "id": "I0b-drain-answer-ungated",
+      "selector": "mcp::daemon::idle_connection_tests::daemon_idle_off_drain_serves_resident",
+      "description": "Remove the unload-enabled gate at both readiness refusal sites; idle-off drain must still serve its resident index.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "\n        if self.idle_timeout.is_some()\n            && (control.admission.draining.is_some() || control.idle.disposal_failed)\n        {",
+          "new": "\n        if control.admission.draining.is_some() || control.idle.disposal_failed {"
+        },
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "\n            if self.idle_timeout.is_some()\n                && (control.admission.draining.is_some() || control.idle.disposal_failed)\n            {",
+          "new": "\n            if control.admission.draining.is_some() || control.idle.disposal_failed {"
+        }
+      ]
+    },
+    {
+      "id": "I0b-spawn-failure-fixed-rearm",
+      "selector": "mcp::daemon::idle_server_tests::daemon_idle_spawn_failure_backoff",
+      "description": "Replace exponential spawn-failure retry with fixed 10ms re-arm; the second failure must wait 20ms.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/idle.rs",
+          "old": ".map_or(REARM, |delay| (delay * 2).min(Duration::from_secs(1)));",
+          "new": ".map_or(REARM, |_delay| REARM);"
+        }
+      ]
+    },
+    {
       "id": "I0-unload-mid-request",
       "selector": "mcp::daemon::idle_connection_tests::daemon_idle_never_interrupts_request",
       "description": "Remove serving admission after pending transfers; pending cannot mask the missing serving lease.",

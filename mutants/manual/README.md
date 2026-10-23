@@ -46,8 +46,9 @@ Save receipts outside the checkout; the full shared-catalog gate remains separat
 
 Apply each record to the current candidate using steps 1–6 above and its one exact selector:
 `nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`.
-The 13 distinct selectors cover serving admission, both response boundaries, whole-session and
+The 15 distinct selectors cover serving admission, both response boundaries, whole-session and
 uncollected-outcome release, re-arm, worker destruction, publication time, history, failure
-supersession, fatal disposal/poison and a mutant-only retained-provider reload that skips bootstrap.
+supersession, fatal disposal/poison, a mutant-only retained-provider reload that skips bootstrap,
+idle-off drain answers and exponential spawn-failure backoff.
 Keep before/mutant/restored SHA-256 receipts and behavioral RED/restored GREEN outside the repo.
 Do not count compiler failures, zero selections, aborts without a test verdict, or host refusals as kills.

@@ -8,6 +8,33 @@ use crate::mcp::RefreshPolicy;
 use serde_json::Value;
 use std::sync::{mpsc, Arc};
 
+#[test]
+fn daemon_idle_off_drain_serves_resident() {
+    use super::control::StopReason;
+    use super::test_support::{client_settings, fixture, scripted, state_with, ManualClock};
+    use super::wire_support::{close, connect, CALLEES};
+    use crate::mcp::RefreshPolicy;
+
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, builds) = scripted(&cfg, vec![]);
+    let clock = ManualClock::new();
+    let state = state_with(builder, &clock); // production default: unloading disabled
+    let (mut client, worker) = connect(&state, client_settings(600));
+    client.handshake();
+    let before = client.request(CALLEES);
+    assert!(before.to_string().contains("helper"), "{before}");
+    let generation = state.read(|p| p.generation()).unwrap().unwrap();
+    state.drain(StopReason::Signal, || {}).unwrap();
+    let during = client.request(CALLEES);
+    close(client, worker);
+    assert_eq!(
+        during, before,
+        "idle-off drain must serve the resident index as on base"
+    );
+    assert_eq!(state.read(|p| p.generation()).unwrap(), Some(generation));
+    assert_eq!(builds.load(std::sync::atomic::Ordering::SeqCst), 1);
+}
+
 fn pinned_at(response: bool) {
     let (_dir, cfg) = fixture(if response {
         RefreshPolicy::AutoFull

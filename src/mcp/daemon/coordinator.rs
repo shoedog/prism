@@ -263,9 +263,16 @@ impl DaemonState {
                 .0;
             control.waiting -= 1;
         }
-        if control.admission.draining.is_some() || control.idle.disposal_failed {
+        if self.idle_timeout.is_some()
+            && (control.admission.draining.is_some() || control.idle.disposal_failed)
+        {
             return Ok(Answer::Failed {
-                error: "the daemon is draining or disposal failed".into(),
+                error: if control.admission.draining.is_some() {
+                    "the daemon is draining"
+                } else {
+                    "a previous index disposal failed"
+                }
+                .into(),
             });
         }
         if let Some(error) = budget.unheard_failure_since(control.idle.watermark) {
@@ -294,9 +301,16 @@ impl DaemonState {
             deadline = budget.cap_deadline(limit);
         }
         loop {
-            if control.admission.draining.is_some() || control.idle.disposal_failed {
+            if self.idle_timeout.is_some()
+                && (control.admission.draining.is_some() || control.idle.disposal_failed)
+            {
                 return Ok(Answer::Failed {
-                    error: "the daemon is draining or disposal failed".into(),
+                    error: if control.admission.draining.is_some() {
+                        "the daemon is draining"
+                    } else {
+                        "a previous index disposal failed"
+                    }
+                    .into(),
                 });
             }
             if let Some(ended) = outcome.ended() {

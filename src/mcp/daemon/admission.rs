@@ -191,7 +191,9 @@ impl DaemonState {
         }
         control.admission.draining = Some(reason);
         unlink();
-        self.notify_draining();
+        if self.idle_timeout.is_some() {
+            self.notify_draining();
+        }
         Ok(reason)
     }
 

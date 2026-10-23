@@ -360,7 +360,7 @@ Shared daemon (`src/mcp/daemon/`, Unix only; `prism-mcp daemon --repo X [--cache
 started by `prism-mcp --shared`): `coordinator.rs` holds `DaemonState`, which is a control plane
 (`Mutex<ControlState>` and one `Condvar`: the build phase `Idle | Building | Ready | Failed`, the
 attempt count, the parked calls, the generation of the provider in the slot) and a provider slot
-(`RwLock<Option<SessionProvider>>`). `ensure_ready` picks its build attempt once and waits for
+(`RwLock<Option<SessionProvider>>`). `ensure_serving` (production; `ensure_ready` is test-only) picks its build attempt once and waits for
 that attempt only, up to the connection's `ConnectionBudget` (`budget.rs`: one deadline per
 connection per attempt, and the outcome of the attempt it last joined); it is answered from that
 attempt's own `AttemptOutcome`, written once, whatever the phase has become since. A connection

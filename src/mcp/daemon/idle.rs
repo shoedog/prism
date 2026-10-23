@@ -22,6 +22,7 @@ pub(super) struct IdleState {
     pub(super) disposing: bool,
     pub(super) disposal_failed: bool,
     rearm: Option<Instant>,
+    spawn_retry: Option<Duration>,
 }
 
 pub(super) fn spawn_disposal_thread(job: BuildJob) -> std::io::Result<()> {
@@ -124,9 +125,15 @@ impl DaemonState {
             drop(provider);
         });
         if (self.disposal_spawner)(job).is_err() {
-            control.idle.rearm = now.checked_add(REARM);
+            let retry = control
+                .idle
+                .spawn_retry
+                .map_or(REARM, |delay| (delay * 2).min(Duration::from_secs(1)));
+            control.idle.spawn_retry = Some(retry);
+            control.idle.rearm = now.checked_add(retry);
             return Ok(());
         }
+        control.idle.spawn_retry = None;
         let provider = slot.take().expect("checked resident provider");
         control.build = BuildPhase::Unloaded { last_published };
         control.generation = 0;
