@@ -574,7 +574,7 @@ impl DaemonState {
                     return;
                 }
             };
-            if control.admission.draining.is_some()
+            if (self.idle_timeout.is_some() && control.admission.draining.is_some())
                 || control.idle.disposal_failed
                 || !matches!(control.build, BuildPhase::Building { attempt: a, .. } if a == attempt)
             {
@@ -609,8 +609,8 @@ impl DaemonState {
     /// a test's `on_fatal` the parked calls find it when they wake.
     fn settle(&self, attempt: u64, mut ended: Result<(), String>) {
         // Successful publication is finalized in slot → control order. A drain may have
-        // arrived after storing the provider but before announcing it; retract on this build
-        // thread, never in the draining server loop or underneath either lock.
+        // arrived after storing the provider but before announcing it; with unloading enabled,
+        // retract on this build thread, never in the draining server loop or under either lock.
         let mut slot = if ended.is_ok() {
             match self.provider.write() {
                 Ok(slot) => Some(slot),
@@ -633,7 +633,8 @@ impl DaemonState {
         };
         if let Some(mut control) = control {
             let _fatal = self.guard(Domain::Control);
-            if ended.is_ok() && control.admission.draining.is_some() {
+            if ended.is_ok() && self.idle_timeout.is_some() && control.admission.draining.is_some()
+            {
                 retired = slot.as_mut().and_then(|slot| slot.take());
                 control.generation = 0;
                 ended = Err("the daemon is draining; obsolete publication rejected".into());

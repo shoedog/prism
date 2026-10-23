@@ -65,9 +65,13 @@ fn daemon_idle_drain_parked_build_gate() {
                 "idle-off parked call must retain its original wait budget: {answer:?}"
             );
         }
-        wait_until("late build rejected", || {
-            status(&state).waiting == 0
-                && status(&state).state == crate::mcp::shared::preamble::BuildState::Failed
+        let expected = if idle_on {
+            crate::mcp::shared::preamble::BuildState::Failed
+        } else {
+            crate::mcp::shared::preamble::BuildState::Ready
+        };
+        wait_until("late build follows idle-enabled drain policy", || {
+            status(&state).waiting == 0 && status(&state).state == expected
         });
     }
 }

@@ -5,6 +5,23 @@
   ],
   "mutants": [
     {
+      "id": "I0b-publish-drain-ungated",
+      "selector": "mcp::daemon::idle_off_drain_tests::daemon_idle_off_drain_before_publication_serves_build",
+      "description": "Remove the unload-enabled gate at publication rejection and successful-settlement retraction; idle-off successful builds during drain must still serve.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "            if (self.idle_timeout.is_some() && control.admission.draining.is_some())\n                || control.idle.disposal_failed",
+          "new": "            if control.admission.draining.is_some()\n                || control.idle.disposal_failed"
+        },
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "            if ended.is_ok() && self.idle_timeout.is_some() && control.admission.draining.is_some()\n            {",
+          "new": "            if ended.is_ok() && control.admission.draining.is_some() {"
+        }
+      ]
+    },
+    {
       "id": "I0b-drain-answer-ungated",
       "selector": "mcp::daemon::idle_connection_tests::daemon_idle_off_drain_serves_resident",
       "description": "Remove the unload-enabled gate at both readiness refusal sites; idle-off drain must still serve its resident index.",

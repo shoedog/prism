@@ -18,6 +18,8 @@ mod idle;
 #[cfg(test)]
 mod idle_connection_tests;
 #[cfg(test)]
+mod idle_off_drain_tests;
+#[cfg(test)]
 mod idle_reload_tests;
 #[cfg(test)]
 mod idle_server_tests;
