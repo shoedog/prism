@@ -93,7 +93,7 @@ pub(super) fn serve_admitted(
 /// this connection only, with an error; the caller drops the socket and the client sees its
 /// connection end. Nothing the closure borrowed is used after a panic but `state`, whose shared
 /// state changes only inside its own domains.
-fn serve_bounded(
+pub(super) fn serve_bounded(
     state: &Arc<DaemonState>,
     registry: &ToolRegistry,
     transport: &mut impl Transport,
@@ -138,7 +138,22 @@ fn run_tool_call(
     call: &ToolCall<'_>,
     settings: &ConnectionSettings,
 ) -> anyhow::Result<Value> {
-    let readiness = match state.ensure_ready(budget)? {
+    let mut activity = state.admit_tool()?;
+    let result = dispatch_tool_call(state, budget, call, settings, &mut activity);
+    #[cfg(test)]
+    state.returned_hook();
+    drop(activity); // owned response/error complete; socket write has not begun
+    result
+}
+
+fn dispatch_tool_call(
+    state: &Arc<DaemonState>,
+    budget: &mut ConnectionBudget,
+    call: &ToolCall<'_>,
+    settings: &ConnectionSettings,
+    activity: &mut super::activity::ToolActivity,
+) -> anyhow::Result<Value> {
+    let readiness = match state.ensure_serving(budget, activity)? {
         Answer::Ready => Readiness::Ready,
         Answer::Warming { elapsed } => Readiness::Warming { elapsed },
         Answer::Failed { error } => Readiness::Failed { error },
@@ -154,6 +169,8 @@ fn run_tool_call(
     if let Some(response) = readiness_response(call, readiness, || None, settings) {
         return Ok(response);
     }
+    #[cfg(test)]
+    state.dispatch_hook();
 
     if call.is_refresh() {
         let refreshed = state.write(|provider| dispatch_tool_refresh(call, provider, settings))?;
@@ -174,6 +191,8 @@ fn run_tool_call(
     // not the one found before it. Either way the response comes from the one generation this
     // access saw.
     #[cfg(test)]
+    state.response_hook(); // preliminary dispatch finished; final owned reply is not built
+    #[cfg(test)]
     state.before_exclusive();
     let answered =
         state.write(
@@ -187,7 +206,7 @@ fn run_tool_call(
     published(answered)
 }
 
-/// `Ready` is announced only after publication and is never left, so a ready call always
+/// `Ready` is announced only after publication and carries a serving lease, so a call always
 /// finds a provider. If it does not, that is a defect of the coordinator; the connection ends
 /// with this error instead of a panic.
 fn published<T>(outcome: Option<T>) -> anyhow::Result<T> {

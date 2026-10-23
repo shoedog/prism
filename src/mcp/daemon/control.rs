@@ -24,17 +24,18 @@ pub(super) enum Answer {
 }
 
 /// What a call is told about its own attempt's ending `own`, given the phase now (D26, as the
-/// owner amended it on 2026-10-13). An attempt that published the index is `Ready`. A failed
+/// owner amended it on 2026-10-13). Success is `Ready` only while a provider is resident. A failed
 /// attempt is `Ready` when a later attempt has published the index since (the call is served
 /// at once), `Superseded` when a later attempt is building, and otherwise `Failed` with its
 /// own text. The phase contributes only which of those it is: no other attempt's outcome or
 /// text.
 pub(super) fn answer_for(own: &Result<(), String>, phase: &BuildPhase) -> Answer {
     match own {
-        Ok(()) => Answer::Ready,
+        Ok(()) if matches!(phase, BuildPhase::Ready) => Answer::Ready,
+        Ok(()) => Answer::Superseded,
         Err(error) => match phase {
             BuildPhase::Ready => Answer::Ready,
-            BuildPhase::Building { .. } => Answer::Superseded,
+            BuildPhase::Building { .. } | BuildPhase::Unloaded { .. } => Answer::Superseded,
             BuildPhase::Failed { .. } | BuildPhase::Idle => Answer::Failed {
                 error: error.clone(),
             },
@@ -79,6 +80,10 @@ pub(super) enum BuildPhase {
     /// [`ControlState::generation`], which is kept apart from the phase because the slot is
     /// filled, and can be written to, before this phase is announced.
     Ready,
+    /// Disposed provider identity only; no source or index shares survive.
+    Unloaded {
+        last_published: crate::mcp::idle::Published,
+    },
     /// Attempt `attempt` ended without a provider. The next readiness call starts the retry.
     Failed { attempt: u64, error: String },
 }
@@ -87,7 +92,7 @@ impl BuildPhase {
     /// The word `READY` and the status probe use for this phase.
     pub(super) fn state(&self) -> BuildState {
         match self {
-            Self::Idle => BuildState::Idle,
+            Self::Idle | Self::Unloaded { .. } => BuildState::Idle,
             Self::Building { .. } => BuildState::Building,
             Self::Ready => BuildState::Ready,
             Self::Failed { .. } => BuildState::Failed,
@@ -189,6 +194,7 @@ pub(super) struct ControlState {
     /// announcement of `Ready` as well.
     pub(super) generation: u64,
     pub(super) admission: Admission,
+    pub(super) idle: super::idle::IdleState,
 }
 
 impl ControlState {

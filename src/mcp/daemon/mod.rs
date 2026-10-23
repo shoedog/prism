@@ -5,6 +5,7 @@
 //!
 //! Design: `docs/superpowers/specs/2026-10-09-shared-prism-daemon-design.md` §3.1, §4.2–§4.4, §5.
 
+mod activity;
 mod admission;
 mod budget;
 mod clock;
@@ -13,6 +14,15 @@ mod control;
 mod coordinator;
 mod fatal;
 pub(super) mod files;
+mod idle;
+#[cfg(test)]
+mod idle_connection_tests;
+#[cfg(test)]
+mod idle_reload_tests;
+#[cfg(test)]
+mod idle_server_tests;
+#[cfg(test)]
+mod idle_tests;
 mod log;
 pub(super) mod peer;
 mod run;

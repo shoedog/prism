@@ -1,0 +1,234 @@
+{
+  "manual_only": true,
+  "features": [
+    "mcp"
+  ],
+  "mutants": [
+    {
+      "id": "I0-unload-mid-request",
+      "selector": "mcp::daemon::idle_connection_tests::daemon_idle_never_interrupts_request",
+      "description": "Remove serving admission after pending transfers; pending cannot mask the missing serving lease.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/activity.rs",
+          "old": "        control.idle.leases += 1;",
+          "new": "        // mutant: no serving admission"
+        },
+        {
+          "file": "src/mcp/daemon/activity.rs",
+          "old": "                control.idle.leases -= 1;",
+          "new": "                control.idle.leases = control.idle.leases.saturating_sub(1);"
+        }
+      ]
+    },
+    {
+      "id": "I0b-release-before-response",
+      "selector": "mcp::daemon::idle_connection_tests::daemon_idle_owned_response_lease",
+      "description": "Release the serving counter after the Ready-to-dispatch barrier but before the final owned reply; the earlier barrier still sees its lease and the later auto-refresh gap has no slot lock.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/connection.rs",
+          "old": "    state.dispatch_hook();",
+          "new": "    state.dispatch_hook();\n    { let mut control = state.control_plane()?; control.idle.leases -= 1; }"
+        },
+        {
+          "file": "src/mcp/daemon/activity.rs",
+          "old": "                control.idle.leases -= 1;",
+          "new": "                control.idle.leases = control.idle.leases.saturating_sub(1);"
+        }
+      ]
+    },
+    {
+      "id": "I0b-release-after-write",
+      "selector": "mcp::daemon::idle_connection_tests::daemon_idle_blocked_writer_releases",
+      "description": "Move lease ownership out to the frame-loop closure, spanning the actual transport write.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/connection.rs",
+          "old": "    let startup = state.startup_mode();",
+          "new": "    let startup = state.startup_mode();\n    let mut held_activity = None;"
+        },
+        {
+          "file": "src/mcp/daemon/connection.rs",
+          "old": "    serve_loop(transport, |message, lifecycle| {",
+          "new": "    serve_loop(transport, |message, lifecycle| {\n        drop(held_activity.take());"
+        },
+        {
+          "file": "src/mcp/daemon/connection.rs",
+          "old": "                run_tool_call(state, &mut budget, &call, &settings).map(Some)",
+          "new": "                run_tool_call(state, &mut budget, &call, &settings).map(|(response, activity)| { held_activity = Some(activity); Some(response) })"
+        },
+        {
+          "file": "src/mcp/daemon/connection.rs",
+          "old": "fn run_tool_call(\n    state: &Arc<DaemonState>,\n    budget: &mut ConnectionBudget,\n    call: &ToolCall<'_>,\n    settings: &ConnectionSettings,\n) -> anyhow::Result<Value>",
+          "new": "fn run_tool_call(\n    state: &Arc<DaemonState>,\n    budget: &mut ConnectionBudget,\n    call: &ToolCall<'_>,\n    settings: &ConnectionSettings,\n) -> anyhow::Result<(Value, super::activity::ToolActivity)>"
+        },
+        {
+          "file": "src/mcp/daemon/connection.rs",
+          "old": "    drop(activity); // owned response/error complete; socket write has not begun\n    result",
+          "new": "    result.map(|response| (response, activity))"
+        }
+      ]
+    },
+    {
+      "id": "I0b-never-unloads",
+      "selector": "mcp::daemon::idle_tests::daemon_idle_releases_whole_session",
+      "description": "Disable the real timer transition.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/idle.rs",
+          "old": "    pub(super) fn unload_tick(self: &Arc<Self>) -> Result<(), Poisoned> {",
+          "new": "    pub(super) fn unload_tick(self: &Arc<Self>) -> Result<(), Poisoned> {\n        if self.idle_timeout.is_some() { return Ok(()); }"
+        }
+      ]
+    },
+    {
+      "id": "I0b-uncollected-build-pinned",
+      "selector": "mcp::daemon::idle_tests::daemon_idle_warming_silence_unloads",
+      "description": "Retain the repository in the completed outcome held by a silent warming connection.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/control.rs",
+          "old": "#[derive(Debug, Default)]\npub(super) struct AttemptOutcome {",
+          "new": "#[derive(Default)]\npub(super) struct AttemptOutcome {"
+        },
+        {
+          "file": "src/mcp/daemon/control.rs",
+          "old": "    ended: OnceLock<Result<(), String>>,",
+          "new": "    ended: OnceLock<Result<(), String>>,\n    pub(super) retained: OnceLock<Arc<crate::repo_loader::LoadedRepo>>,"
+        },
+        {
+          "file": "src/mcp/daemon/control.rs",
+          "old": "impl AttemptOutcome {",
+          "new": "impl std::fmt::Debug for AttemptOutcome { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(\"AttemptOutcome\") } }\n\nimpl AttemptOutcome {"
+        },
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "                debug_assert!(slot.is_none());\n                *slot = Some(provider);",
+          "new": "                debug_assert!(slot.is_none());\n                if let BuildPhase::Building { outcome, .. } = &control.build { let _ = outcome.retained.set(provider.session().repo.clone()); }\n                *slot = Some(provider);"
+        }
+      ]
+    },
+    {
+      "id": "I0b-no-rearm",
+      "selector": "mcp::daemon::idle_server_tests::daemon_idle_rearm_and_dispose",
+      "description": "Leave a contended deadline expired instead of scheduling a bounded future tick.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/idle.rs",
+          "old": "                let mut control = self.control_plane()?;\n                control.idle.rearm = self.now().checked_add(REARM);",
+          "new": "                let mut control = self.control_plane()?;\n                control.idle.rearm = None;"
+        }
+      ]
+    },
+    {
+      "id": "I0b-drop-on-loop",
+      "selector": "mcp::daemon::idle_server_tests::daemon_idle_disposal_off_loop",
+      "description": "Destroy the detached provider directly on the timer/server thread.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/idle.rs",
+          "old": "        if let Err(unsent) = send.send(provider) {",
+          "new": "        #[cfg(test)]\n        if let Some(hook) = &self.hooks.dispose { hook(); }\n        drop(provider);\n        drop(send);\n        if let Err(unsent) = Ok::<(), mpsc::SendError<SessionProvider>>(()) {"
+        }
+      ]
+    },
+    {
+      "id": "I0b-clock-ignores-publication",
+      "selector": "mcp::daemon::idle_tests::daemon_idle_publication_clock",
+      "description": "Use construction time rather than completion/publication time for the idle origin.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "    pub(super) idle_timeout: Option<std::time::Duration>,\n    pub(super) idle_waker:",
+          "new": "    pub(super) idle_timeout: Option<std::time::Duration>,\n    mutant_started: Instant,\n    pub(super) idle_waker:"
+        },
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "        let state = Arc::new(Self {",
+          "new": "        let mutant_started = parts.clock.now();\n        let state = Arc::new(Self {\n            mutant_started,"
+        },
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "                        control.idle.published_at = Some(self.now());",
+          "new": "                        control.idle.published_at = Some(self.mutant_started);"
+        }
+      ]
+    },
+    {
+      "id": "I0b-history-ready-empty",
+      "selector": "mcp::daemon::idle_reload_tests::daemon_idle_history_ready_empty",
+      "description": "Restore historical success as unconditional Ready.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/control.rs",
+          "old": "        Ok(()) => Answer::Superseded,",
+          "new": "        Ok(()) => Answer::Ready,"
+        }
+      ]
+    },
+    {
+      "id": "I0b-old-failure-resurfaces",
+      "selector": "mcp::daemon::idle_reload_tests::daemon_idle_old_failure_superseded",
+      "description": "Discard the publication watermark when checking unheard failures.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/budget.rs",
+          "old": "        if self.joined.as_ref().is_some_and(|j| j.attempt < watermark) {",
+          "new": "        if self.joined.as_ref().is_some_and(|j| false && j.attempt < watermark) {"
+        }
+      ]
+    },
+    {
+      "id": "I0b-disposal-panic-strands",
+      "selector": "mcp::daemon::idle_server_tests::daemon_idle_disposal_panic_fatal",
+      "description": "Bypass the disposal completion guard during unwinding; no fatal report or completion wake.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/idle.rs",
+          "old": "        let failed = std::thread::panicking();",
+          "new": "        if std::thread::panicking() { return; }\n        let failed = std::thread::panicking();"
+        }
+      ]
+    },
+    {
+      "id": "I0b-poison-as-contention",
+      "selector": "mcp::daemon::idle_server_tests::daemon_idle_poison_is_fatal",
+      "description": "Treat a poisoned slot as ordinary contention and silently re-arm.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/idle.rs",
+          "old": "            Err(TryLockError::Poisoned(_)) => return Err(self.poisoned(\"provider\")),",
+          "new": "            Err(TryLockError::Poisoned(_)) => { self.control_plane()?.idle.rearm = self.now().checked_add(REARM); return Ok(()); },"
+        }
+      ]
+    },
+    {
+      "id": "I0b-reload-skips-freshness",
+      "selector": "mcp::daemon::idle_reload_tests::daemon_idle_reload_rechecks_freshness",
+      "description": "Keep a mutant-only whole-provider shadow at detach and republish it from run_build instead of bootstrap.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "    pub(super) provider: RwLock<Option<SessionProvider>>,",
+          "new": "    pub(super) provider: RwLock<Option<SessionProvider>>,\n    pub(super) mutant_shadow: Mutex<Option<SessionProvider>>,"
+        },
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "            provider: RwLock::new(None),",
+          "new": "            provider: RwLock::new(None),\n            mutant_shadow: Mutex::new(None),"
+        },
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "        let built = (self.builder)();",
+          "new": "        let built = match self.mutant_shadow.lock().unwrap().take() { Some(provider) => Ok(provider), None => (self.builder)() };"
+        },
+        {
+          "file": "src/mcp/daemon/idle.rs",
+          "old": "        if let Err(unsent) = send.send(provider) {",
+          "new": "        *self.mutant_shadow.lock().unwrap() = Some(provider);\n        drop(send);\n        if let Err(unsent) = Ok::<(), mpsc::SendError<SessionProvider>>(()) {"
+        }
+      ]
+    }
+  ]
+}

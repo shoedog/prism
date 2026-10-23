@@ -26,11 +26,19 @@ fn every_phase() -> Vec<BuildPhase> {
     ]
 }
 
-/// An attempt that published the index is answered `Ready`, whatever the phase says now.
+/// Historical success cannot authorize service when the provider is no longer resident.
 #[test]
-fn an_attempt_that_published_is_answered_ready_in_every_phase() {
+fn an_attempt_that_published_is_ready_only_while_a_provider_is_resident() {
     for phase in every_phase() {
-        assert_eq!(answer_for(&Ok(()), &phase), Answer::Ready, "{phase:?}");
+        assert_eq!(
+            answer_for(&Ok(()), &phase),
+            if matches!(phase, BuildPhase::Ready) {
+                Answer::Ready
+            } else {
+                Answer::Superseded
+            },
+            "{phase:?}"
+        );
     }
 }
 

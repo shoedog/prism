@@ -22,6 +22,8 @@ pub(super) enum Domain {
     Build,
     /// The readiness coordinator, under the control lock.
     Control,
+    /// Destruction of the whole detached provider on its disposal worker.
+    Disposal,
 }
 
 impl fmt::Display for Domain {
@@ -30,6 +32,7 @@ impl fmt::Display for Domain {
             Self::Dispatch => "provider dispatch",
             Self::Build => "the index build",
             Self::Control => "the control plane",
+            Self::Disposal => "provider disposal",
         })
     }
 }
