@@ -1,7 +1,7 @@
 {
   "mutations": {
     "RI-01-assignment-local-cache": [
-      "src/cpg/build.rs",
+      "src/cpg/step5c.rs",
       "shared_returns.get(resolved.target)",
       "callee_returns::ReturnCache::new(files).get(resolved.target)",
       "cpg::build::callee_cost_tests::return_computations_constant_across_callers"
