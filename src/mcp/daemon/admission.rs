@@ -166,6 +166,9 @@ impl DaemonState {
         admission.quiet_since.get_or_insert(since);
         if now.saturating_duration_since(since) < idle_ttl
             || matches!(control.build, BuildPhase::Building { .. })
+            || control.idle.disposing
+            || control.idle.pending != 0
+            || control.idle.leases != 0
         {
             return Ok(None);
         }
@@ -188,6 +191,9 @@ impl DaemonState {
         }
         control.admission.draining = Some(reason);
         unlink();
+        if self.idle_timeout.is_some() {
+            self.notify_draining();
+        }
         Ok(reason)
     }
 

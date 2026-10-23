@@ -11,7 +11,8 @@
 //! owner lock released.
 //!
 //! The loop is outside both of the daemon's domains, like a connection's framing: nothing in it
-//! runs under the provider slot, and what it does under the control lock it does through the
+//! waits on the provider slot. A nonblocking idle tick may detach it, with destruction on a
+//! worker. What the loop does under the control lock it does through the
 //! guarded functions of `admission.rs`. A poisoned control lock ends the daemon there.
 //!
 //! A connection whose line is an operator's `STATUS` or `SHUTDOWN` (spec §4.7) is answered with
@@ -185,6 +186,12 @@ impl Server {
         wakes.set_nonblocking(true)?;
         wake_end.set_nonblocking(true)?;
         let next_identity_check = state.now();
+        let waker = Waker {
+            stream: Arc::new(wake_end),
+            stop: Arc::new(AtomicBool::new(false)),
+        };
+        let idle_waker = waker.clone();
+        state.set_idle_waker(Arc::new(move || idle_waker.wake()));
         Ok(Self {
             state,
             registry,
@@ -193,10 +200,7 @@ impl Server {
             served,
             options,
             wakes,
-            waker: Waker {
-                stream: Arc::new(wake_end),
-                stop: Arc::new(AtomicBool::new(false)),
-            },
+            waker,
             peer_uid: Box::new(peer_uid),
             pending: Vec::new(),
             next_identity_check,
@@ -248,6 +252,7 @@ impl Server {
             if let Some(reason) = self.check()? {
                 return self.drain(reason);
             }
+            self.state.unload_tick()?;
             let timeout = self.poll_timeout()?;
             let accept = self.wait(timeout)?;
             self.empty_wakes();
@@ -306,6 +311,7 @@ impl Server {
             .iter()
             .map(|pending| pending.deadline)
             .chain(idle)
+            .chain(self.state.unload_deadline()?)
             .chain(Some(self.next_identity_check))
             .chain(self.accept_retry_at.filter(|deadline| *deadline > now))
             .min()

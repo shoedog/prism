@@ -16,6 +16,7 @@
 //! [`DaemonState::read`] or [`DaemonState::write`], on the build thread, or in the control plane
 //! ends the daemon through `on_fatal`, and so does a lock found poisoned (`fatal.rs`). Nothing
 //! is read through a poisoned lock.
+use super::activity::ToolActivity;
 use super::budget::ConnectionBudget;
 use super::clock::{Clock, SystemClock};
 use super::control::answer_for;
@@ -23,6 +24,7 @@ pub(super) use super::control::{
     Admission, Answer, AttemptOutcome, BuildPhase, BuildStatus, ControlState,
 };
 use super::fatal::{abort_daemon, Domain, Fatal, FatalOnUnwind, OnFatal};
+use super::idle::{spawn_disposal_thread, IdleState};
 use crate::mcp::lazy::SessionBuilder;
 // The tests in this file's child modules name `BuildState` through `use super::*`.
 #[cfg(test)]
@@ -94,6 +96,10 @@ pub(super) struct TestHooks {
     /// On a connection's thread, after a query found the index stale under an automatic
     /// refresh policy and before the call asks for exclusive access.
     pub(super) exclusive: Option<Arc<dyn Fn() + Send + Sync>>,
+    pub(super) dispatch: Option<Arc<dyn Fn() + Send + Sync>>,
+    pub(super) response: Option<Arc<dyn Fn() + Send + Sync>>,
+    pub(super) returned: Option<Arc<dyn Fn() + Send + Sync>>,
+    pub(super) dispose: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
 /// What a [`DaemonState`] is made of. Production code uses [`Parts::production`]; tests replace
@@ -103,10 +109,13 @@ pub(super) struct Parts {
     pub(super) startup: StartupMode,
     pub(super) clock: Arc<dyn Clock>,
     pub(super) spawner: Spawner,
+    pub(super) disposal_spawner: Spawner,
     /// What ends the daemon. Production: [`abort_daemon`].
     pub(super) on_fatal: OnFatal,
     #[cfg(test)]
     pub(super) hooks: TestHooks,
+    #[cfg(test)]
+    pub(super) idle_timeout: Option<std::time::Duration>,
 }
 
 impl Parts {
@@ -116,25 +125,31 @@ impl Parts {
             startup,
             clock: Arc::new(SystemClock),
             spawner: Box::new(spawn_build_thread),
+            disposal_spawner: Box::new(spawn_disposal_thread),
             on_fatal: Arc::new(abort_daemon),
             #[cfg(test)]
             hooks: TestHooks::default(),
+            #[cfg(test)]
+            idle_timeout: None,
         }
     }
 }
 
 /// One daemon's index build and the index it produced, shared by every connection.
 pub(super) struct DaemonState {
-    control: Mutex<ControlState>,
-    changed: Condvar,
-    provider: RwLock<Option<SessionProvider>>,
+    pub(super) control: Mutex<ControlState>,
+    pub(super) changed: Condvar,
+    pub(super) provider: RwLock<Option<SessionProvider>>,
     builder: SessionBuilder,
     startup: StartupMode,
     clock: Arc<dyn Clock>,
     spawner: Spawner,
-    on_fatal: OnFatal,
+    pub(super) disposal_spawner: Spawner,
+    pub(super) idle_timeout: Option<std::time::Duration>,
+    pub(super) idle_waker: Mutex<Option<super::idle::Wake>>,
+    pub(super) on_fatal: OnFatal,
     #[cfg(test)]
-    hooks: TestHooks,
+    pub(super) hooks: TestHooks,
 }
 
 impl DaemonState {
@@ -158,6 +173,7 @@ impl DaemonState {
                 waiting: 0,
                 generation: 0,
                 admission: Admission::new(),
+                idle: IdleState::default(),
             }),
             changed: Condvar::new(),
             provider: RwLock::new(None),
@@ -165,6 +181,12 @@ impl DaemonState {
             startup: parts.startup,
             clock: parts.clock,
             spawner: parts.spawner,
+            disposal_spawner: parts.disposal_spawner,
+            #[cfg(test)]
+            idle_timeout: parts.idle_timeout.filter(|n| !n.is_zero()),
+            #[cfg(not(test))]
+            idle_timeout: None,
+            idle_waker: Mutex::new(None),
             on_fatal: parts.on_fatal,
             #[cfg(test)]
             hooks: parts.hooks,
@@ -207,57 +229,112 @@ impl DaemonState {
     /// Starting a new attempt and joining a running one happen under one acquisition of the
     /// control lock, so however many calls find the build failed, one of them starts the retry
     /// and the rest join it.
+    #[cfg(test)]
     pub(super) fn ensure_ready(
         self: &Arc<Self>,
         budget: &mut ConnectionBudget,
     ) -> Result<Answer, Poisoned> {
+        let mut activity = self.admit_tool()?;
+        self.ensure_serving(budget, &mut activity)
+    }
+
+    pub(super) fn ensure_serving(
+        self: &Arc<Self>,
+        budget: &mut ConnectionBudget,
+        activity: &mut ToolActivity,
+    ) -> Result<Answer, Poisoned> {
         let mut control = self.lock_control()?;
         let _fatal = self.guard(Domain::Control);
-
-        // A connection's next call first hears its own attempt's unheard failure, before the
-        // shortcut to `Ready` and before a retry is started or joined (D32). It is answered by
-        // the same rule as any other ending.
-        if let Some(error) = budget.unheard_failure() {
-            return Ok(answer_for(&Err(error), &control.build));
+        let mut disposal_deadline = None;
+        while control.idle.disposing && control.admission.draining.is_none() {
+            let now = self.now();
+            let deadline = *disposal_deadline.get_or_insert_with(|| budget.wait_deadline(now));
+            let remaining = deadline.saturating_duration_since(now);
+            if remaining.is_zero() {
+                return Ok(Answer::Warming {
+                    elapsed: std::time::Duration::ZERO,
+                });
+            }
+            control.waiting += 1;
+            control = self
+                .changed
+                .wait_timeout(control, remaining)
+                .map_err(|_| self.poisoned("control"))?
+                .0;
+            control.waiting -= 1;
         }
-
+        if self.idle_timeout.is_some()
+            && (control.admission.draining.is_some() || control.idle.disposal_failed)
+        {
+            return Ok(Answer::Failed {
+                error: if control.admission.draining.is_some() {
+                    "the daemon is draining"
+                } else {
+                    "a previous index disposal failed"
+                }
+                .into(),
+            });
+        }
+        if let Some(error) = budget.unheard_failure_since(control.idle.watermark) {
+            let answer = answer_for(&Err(error), &control.build);
+            if answer == Answer::Ready {
+                activity.serving(&mut control);
+            }
+            return Ok(answer);
+        }
         let building = match &control.build {
-            BuildPhase::Ready => return Ok(Answer::Ready),
+            BuildPhase::Ready => {
+                activity.serving(&mut control);
+                return Ok(Answer::Ready);
+            }
             BuildPhase::Building {
                 attempt,
                 started,
                 outcome,
             } => Some((*attempt, *started, Arc::clone(outcome))),
-            BuildPhase::Idle | BuildPhase::Failed { .. } => None,
+            BuildPhase::Idle | BuildPhase::Unloaded { .. } | BuildPhase::Failed { .. } => None,
         };
         let (attempt, started, outcome) =
             building.unwrap_or_else(|| self.start_attempt(&mut control));
-        let deadline = budget.join(attempt, &outcome, self.clock.now());
-
+        let mut deadline = budget.join(attempt, &outcome, self.now());
+        if let Some(limit) = disposal_deadline {
+            deadline = budget.cap_deadline(limit);
+        }
         loop {
-            // The call's own attempt has ended. If it failed, one look at the phase, under the
-            // lock this call holds, decides whether that failure is still the last word
-            // (`answer_for`). The look takes nothing from the phase but that: no outcome and
-            // no error of another attempt can reach this call through it, which is what
-            // answering from the phase once got wrong. `Building` there is always a later
-            // attempt, because this call's own has ended.
+            if self.idle_timeout.is_some()
+                && (control.admission.draining.is_some() || control.idle.disposal_failed)
+            {
+                return Ok(Answer::Failed {
+                    error: if control.admission.draining.is_some() {
+                        "the daemon is draining"
+                    } else {
+                        "a previous index disposal failed"
+                    }
+                    .into(),
+                });
+            }
             if let Some(ended) = outcome.ended() {
                 budget.told();
-                return Ok(answer_for(ended, &control.build));
+                let answer = answer_for(ended, &control.build);
+                if answer == Answer::Ready {
+                    activity.serving(&mut control);
+                }
+                return Ok(answer);
             }
-            let now = self.clock.now();
+            let now = self.now();
             let remaining = deadline.saturating_duration_since(now);
             if remaining.is_zero() {
                 return Ok(Answer::Warming {
                     elapsed: now.saturating_duration_since(started),
                 });
             }
-            control.waiting = control.waiting.saturating_add(1);
-            control = match self.changed.wait_timeout(control, remaining) {
-                Ok((reacquired, _timed_out)) => reacquired,
-                Err(_) => return Err(self.poisoned("control")),
-            };
-            control.waiting = control.waiting.saturating_sub(1);
+            control.waiting += 1;
+            control = self
+                .changed
+                .wait_timeout(control, remaining)
+                .map_err(|_| self.poisoned("control"))?
+                .0;
+            control.waiting -= 1;
         }
     }
 
@@ -400,14 +477,14 @@ impl DaemonState {
     /// production the process aborts before another thread can take the lock (a refresh
     /// waiting on a reader that panicked, say). Taking the lock cannot panic; a poisoned lock
     /// is reported by `poisoned`.
-    fn guard(&self, domain: Domain) -> FatalOnUnwind<'_> {
+    pub(super) fn guard(&self, domain: Domain) -> FatalOnUnwind<'_> {
         FatalOnUnwind::new(&self.on_fatal, domain)
     }
 
     /// `lock` was found poisoned: end the daemon (spec §4.2, "no lock is ever unwrapped past
     /// poisoning"). The error returned reaches the caller only when a test's `on_fatal`
     /// returns.
-    fn poisoned(&self, lock: &'static str) -> Poisoned {
+    pub(super) fn poisoned(&self, lock: &'static str) -> Poisoned {
         (self.on_fatal)(Fatal::Poisoned { lock });
         Poisoned { lock }
     }
@@ -423,6 +500,9 @@ impl DaemonState {
         self: &Arc<Self>,
         control: &mut ControlState,
     ) -> (u64, Instant, Arc<AttemptOutcome>) {
+        if let BuildPhase::Unloaded { last_published } = control.build {
+            control.idle.previous = Some(last_published);
+        }
         let started = self.clock.now();
         let outcome = Arc::new(AttemptOutcome::default());
         let Some(attempt) = control.attempts.checked_add(1) else {
@@ -471,23 +551,49 @@ impl DaemonState {
     /// order: a call that is told `Ready` goes straight to the slot. The generation is recorded
     /// while the guard that stored the provider is still held, so exclusive access that lands
     /// before the announcement finds it recorded and records its own after it.
-    fn publish(&self, attempt: u64, provider: SessionProvider) {
-        let generation = provider.generation();
-        let published = match self.provider.write() {
-            Ok(mut slot) => {
+    fn publish(&self, attempt: u64, mut provider: SessionProvider) {
+        // Rejected late providers stay on this build thread and are dropped after both locks.
+        let accepted = {
+            let mut slot = match self.provider.write() {
+                Ok(slot) => slot,
+                Err(_) => {
+                    let _ = self.poisoned("provider");
+                    self.settle(attempt, Err(SLOT_POISONED.into()));
+                    return;
+                }
+            };
+            let mut control = match self.control_plane() {
+                Ok(control) => control,
+                Err(_) => {
+                    // Only a returning test fatal sink reaches this: retain the resident
+                    // coordinator's post-fatal publication/settlement observations, without
+                    // ever reading the poisoned control state or authorizing service.
+                    *slot = Some(provider);
+                    drop(slot);
+                    self.settle(attempt, Err("the control lock is poisoned".into()));
+                    return;
+                }
+            };
+            if (self.idle_timeout.is_some() && control.admission.draining.is_some())
+                || control.idle.disposal_failed
+                || !matches!(control.build, BuildPhase::Building { attempt: a, .. } if a == attempt)
+            {
+                false
+            } else {
+                if let Some(previous) = control.idle.previous {
+                    provider.resume_idle_generation(previous);
+                }
+                control.generation = provider.generation();
+                debug_assert!(slot.is_none());
                 *slot = Some(provider);
-                // A poisoned control lock ends the daemon (`lock_control`); under a test's
-                // `on_fatal`, which returns, publication goes on and settles the attempt.
-                let _recorded = self.record_generation(&slot, generation);
                 true
             }
-            Err(_) => {
-                (self.on_fatal)(Fatal::Poisoned { lock: "provider" });
-                false
-            }
         };
-        if !published {
-            self.settle(attempt, Err(SLOT_POISONED.to_string()));
+        if !accepted {
+            self.settle(
+                attempt,
+                Err("the daemon is draining; obsolete publication rejected".into()),
+            );
             return;
         }
         #[cfg(test)]
@@ -501,7 +607,23 @@ impl DaemonState {
     /// call. Nothing is recorded unless the phase is still `Building` that attempt, so an
     /// attempt ends once and `Ready` is not left. A poisoned control lock ends the daemon; under
     /// a test's `on_fatal` the parked calls find it when they wake.
-    fn settle(&self, attempt: u64, ended: Result<(), String>) {
+    fn settle(&self, attempt: u64, mut ended: Result<(), String>) {
+        // Successful publication is finalized in slot → control order. A drain may have
+        // arrived after storing the provider but before announcing it; with unloading enabled,
+        // retract on this build thread, never in the draining server loop or under either lock.
+        let mut slot = if ended.is_ok() {
+            match self.provider.write() {
+                Ok(slot) => Some(slot),
+                Err(_) => {
+                    let _ = self.poisoned("provider");
+                    self.settle(attempt, Err(SLOT_POISONED.into()));
+                    return;
+                }
+            }
+        } else {
+            None
+        };
+        let mut retired = None;
         let control = match self.control.lock() {
             Ok(control) => Some(control),
             Err(_) => {
@@ -510,6 +632,13 @@ impl DaemonState {
             }
         };
         if let Some(mut control) = control {
+            let _fatal = self.guard(Domain::Control);
+            if ended.is_ok() && self.idle_timeout.is_some() && control.admission.draining.is_some()
+            {
+                retired = slot.as_mut().and_then(|slot| slot.take());
+                control.generation = 0;
+                ended = Err("the daemon is draining; obsolete publication rejected".into());
+            }
             let building = match &control.build {
                 BuildPhase::Building {
                     attempt: building,
@@ -520,7 +649,11 @@ impl DaemonState {
             };
             if let Some(outcome) = building {
                 control.build = match &ended {
-                    Ok(()) => BuildPhase::Ready,
+                    Ok(()) => {
+                        control.idle.published_at = Some(self.now());
+                        control.idle.watermark = attempt;
+                        BuildPhase::Ready
+                    }
                     Err(error) => BuildPhase::Failed {
                         attempt,
                         error: error.clone(),
@@ -529,11 +662,14 @@ impl DaemonState {
                 outcome.fill(ended);
             }
         }
+        drop(slot);
+        drop(retired);
         #[cfg(test)]
         if let Some(hook) = &self.hooks.settled {
             hook(attempt);
         }
         self.changed.notify_all();
+        self.wake_idle_loop();
     }
 }
 

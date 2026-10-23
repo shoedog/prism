@@ -41,3 +41,15 @@ inadmissible. The seven mutants cover late stamping, lost divergence, wrong comp
 loader input replay, final service recheck, repeated uncertifiable auto refresh and
 permission-only recovery of suppressed auto refresh.
 Save receipts outside the checkout; the full shared-catalog gate remains separate.
+
+## `i0b-1.json` (daemon idle lifecycle, `--features mcp`)
+
+Apply each record to the current candidate using steps 1–6 above and its one exact selector:
+`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`.
+The 16 distinct selectors cover serving admission, both response boundaries, whole-session and
+uncollected-outcome release, re-arm, worker destruction, publication time, history, failure
+supersession, fatal disposal/poison, a mutant-only retained-provider reload that skips bootstrap,
+idle-off drain answers, successful build publication/settlement during drain, and exponential
+spawn-failure backoff.
+Keep before/mutant/restored SHA-256 receipts and behavioral RED/restored GREEN outside the repo.
+Do not count compiler failures, zero selections, aborts without a test verdict, or host refusals as kills.

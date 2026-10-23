@@ -90,6 +90,27 @@ impl ConnectionBudget {
         deadline
     }
 
+    /// One call's fixed disposal allowance; it also caps any build joined by that call.
+    pub(super) fn wait_deadline(&self, now: Instant) -> Instant {
+        now.checked_add(self.wait).unwrap_or(now)
+    }
+
+    pub(super) fn cap_deadline(&mut self, limit: Instant) -> Instant {
+        let joined = self.joined.as_mut().expect("joined before deadline cap");
+        let deadline = joined.deadline.unwrap_or(limit).min(limit);
+        joined.deadline = Some(deadline);
+        deadline
+    }
+
+    /// A later publication supersedes this connection's old error, even after unload.
+    pub(super) fn unheard_failure_since(&mut self, watermark: u64) -> Option<String> {
+        if self.joined.as_ref().is_some_and(|j| j.attempt < watermark) {
+            self.told();
+            return None;
+        }
+        self.unheard_failure()
+    }
+
     /// Record that a call of this connection has been told how the attempt it joined ended.
     pub(super) fn told(&mut self) {
         if let Some(joined) = &mut self.joined {
