@@ -49,6 +49,8 @@ pub(super) fn fake_status(admitted: u32, shutdown: bool) -> DaemonStatus {
         pending: 0,
         max_clients: 64,
         build: BuildState::Ready,
+        index_idle_timeout_secs: 0,
+        index_idle_pressure_relief: false,
         attempt: 1,
         generation: 2,
         idle_secs: (admitted == 0).then_some(7),

@@ -5,9 +5,9 @@
 //! does not count it (S4's interface for S5b).
 //!
 //! ```text
-//! operator -> daemon:  STATUS {"control":1}
-//!                      SHUTDOWN {"control":1,"identity":"<64 hex>","pid":N,"start_time":N}
-//! daemon -> operator:  STATUS {"control":1,"identity":"<64 hex>","pid":N,"start_time":N,...}
+//! operator -> daemon:  STATUS {"control":2}
+//!                      SHUTDOWN {"control":2,"identity":"<64 hex>","pid":N,"start_time":N}
+//! daemon -> operator:  STATUS {"control":2,"identity":"<64 hex>","pid":N,"start_time":N,...}
 //!                  or  RETIRING {}  |  BUSY {"max_clients":N}  |  nothing, for a line it refuses
 //! ```
 //!
@@ -26,7 +26,7 @@ use serde::Deserialize;
 use std::path::Path;
 
 /// Version of the control exchange. Not part of any identity key.
-pub const CONTROL_VERSION: u32 = 1;
+pub const CONTROL_VERSION: u32 = 2;
 
 /// Most characters of the repository root a status reply carries. A JSON string can take six
 /// bytes per character, and the reply must fit one preamble line (4 KiB) with its other fields.
@@ -156,6 +156,8 @@ pub struct DaemonStatus {
     /// Seconds since the daemon last had a client; `None` while it has one.
     pub idle_secs: Option<u64>,
     pub idle_ttl_secs: u64,
+    pub index_idle_timeout_secs: u64,
+    pub index_idle_pressure_relief: bool,
     /// Whether an operator has asked it to drain once it has no client.
     pub shutdown: bool,
 }
@@ -178,6 +180,8 @@ struct DaemonStatusWire {
     generation: u64,
     idle_secs: Option<u64>,
     idle_ttl_secs: u64,
+    index_idle_timeout_secs: u64,
+    index_idle_pressure_relief: bool,
     shutdown: bool,
 }
 
@@ -193,7 +197,7 @@ impl DaemonStatus {
             .idle_secs
             .map_or_else(|| "null".to_string(), |secs| secs.to_string());
         format!(
-            "STATUS {{\"control\":{CONTROL_VERSION},\"identity\":\"{}\",\"pid\":{},\"start_time\":{},\"build_identity\":{},\"repo_root\":{},\"admitted\":{},\"pending\":{},\"max_clients\":{},\"build\":\"{}\",\"attempt\":{},\"generation\":{},\"idle_secs\":{idle},\"idle_ttl_secs\":{},\"shutdown\":{}}}\n",
+            "STATUS {{\"control\":{CONTROL_VERSION},\"identity\":\"{}\",\"pid\":{},\"start_time\":{},\"build_identity\":{},\"repo_root\":{},\"admitted\":{},\"pending\":{},\"max_clients\":{},\"build\":\"{}\",\"attempt\":{},\"generation\":{},\"idle_secs\":{idle},\"idle_ttl_secs\":{},\"index_idle_timeout_secs\":{},\"index_idle_pressure_relief\":{},\"shutdown\":{}}}\n",
             self.instance.identity,
             self.instance.pid,
             self.instance.start_time,
@@ -206,6 +210,8 @@ impl DaemonStatus {
             self.attempt,
             self.generation,
             self.idle_ttl_secs,
+            self.index_idle_timeout_secs,
+            self.index_idle_pressure_relief,
             self.shutdown,
         )
     }
@@ -231,6 +237,8 @@ impl DaemonStatus {
             generation: wire.generation,
             idle_secs: wire.idle_secs,
             idle_ttl_secs: wire.idle_ttl_secs,
+            index_idle_timeout_secs: wire.index_idle_timeout_secs,
+            index_idle_pressure_relief: wire.index_idle_pressure_relief,
             shutdown: wire.shutdown,
         };
         require_canonical(line, &status.encode())?;

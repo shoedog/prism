@@ -71,6 +71,7 @@ impl DaemonState {
     }
 
     pub(super) fn unload_tick(self: &Arc<Self>) -> Result<(), Poisoned> {
+        self.flush_last_release()?;
         if self
             .unload_deadline()?
             .is_none_or(|deadline| self.now() < deadline)
@@ -88,6 +89,7 @@ impl DaemonState {
             }
             Err(TryLockError::Poisoned(_)) => return Err(self.poisoned("provider")),
         };
+        let locked_started = Instant::now();
         let mut control = self.control_plane()?;
         let now = self.now();
         let idle = &control.idle;
@@ -109,6 +111,14 @@ impl DaemonState {
             return Ok(());
         };
         let last_published = provider.idle_publication();
+        let mut event = self.lifecycle_snapshot(
+            &control,
+            "unload",
+            "idle",
+            Duration::ZERO,
+            "complete".into(),
+        );
+        let mut disposal_event = event.clone();
         // Start the worker before transferring ownership. Failed spawn cannot drop a provider
         // captured by a rejected job, and leaves Ready/slot/history intact.
         let (send, receive) = mpsc::channel::<SessionProvider>();
@@ -118,11 +128,20 @@ impl DaemonState {
             let Ok(provider) = receive.recv() else {
                 return;
             };
+            let started = Instant::now();
+            disposal_event.event = "disposal_start";
+            disposal_event.at = state.now();
+            state.lifecycle_event(disposal_event.clone());
             #[cfg(test)]
             if let Some(hook) = &state.hooks.dispose {
                 hook();
             }
             drop(provider);
+            disposal_event.event = "disposal_end";
+            disposal_event.at = state.now();
+            disposal_event.duration = started.elapsed();
+            state.lifecycle_event(disposal_event.clone());
+            state.relieve(disposal_event);
         });
         if (self.disposal_spawner)(job).is_err() {
             let retry = control
@@ -142,6 +161,8 @@ impl DaemonState {
         control.idle.rearm = None;
         drop(control);
         drop(slot);
+        event.duration = locked_started.elapsed();
+        self.lifecycle_event(event);
         // The worker only receives ownership after both guards are gone.
         // A valid spawner never runs the job inline and starts it exactly once.
         if let Err(unsent) = send.send(provider) {

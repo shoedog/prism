@@ -75,6 +75,11 @@ struct DaemonCli {
     /// Seconds with no client and no build before the daemon retires.
     #[arg(long, default_value_t = prism::mcp::DEFAULT_IDLE_TTL_SECS, value_parser = clap::value_parser!(u64).range(1..=86_400))]
     idle_ttl: u64,
+    /// Unload the daemon index after idle seconds (0 or absent disables); ignores environment.
+    #[arg(long)]
+    index_idle_secs: Option<String>,
+    #[arg(long, hide = true)]
+    index_idle_pressure_relief: bool,
     /// Pending and admitted connections together.
     #[arg(long, default_value_t = prism::mcp::DEFAULT_MAX_CLIENTS, value_parser = clap::value_parser!(u32).range(1..=4096))]
     max_clients: u32,
@@ -152,6 +157,10 @@ fn cache_mode(no_cache: bool, cache_dir: Option<std::path::PathBuf>) -> prism::m
 fn daemon_main() -> anyhow::Result<()> {
     // The first argument is the word `daemon`; clap reads it as the program name.
     let c = <DaemonCli as clap::Parser>::parse_from(std::env::args_os().skip(1));
+    prism::mcp::run_daemon(daemon_options(c)?)
+}
+
+fn daemon_options(c: DaemonCli) -> anyhow::Result<prism::mcp::DaemonOptions> {
     let mut config = prism::mcp::ServerConfig::new(c.repo);
     config.cache = cache_mode(false, c.cache_dir);
     config.refresh_policy = refresh_policy_from(&c.refresh_policy);
@@ -160,7 +169,12 @@ fn daemon_main() -> anyhow::Result<()> {
     } else {
         prism::mcp::StartupMode::Lazy
     };
-    prism::mcp::run_daemon(prism::mcp::DaemonOptions {
+    let idle_policy =
+        prism::mcp::idle::IdlePolicy::resolve(c.index_idle_secs.as_deref(), None, &config, false)?
+            .policy
+            .with_pressure_relief(c.index_idle_pressure_relief);
+    Ok(prism::mcp::DaemonOptions {
+        idle_policy,
         config,
         idle_ttl: std::time::Duration::from_secs(c.idle_ttl),
         max_clients: c.max_clients,
@@ -362,3 +376,7 @@ mod mem_cli_tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "prism-mcp/daemon_idle_tests.rs"]
+mod daemon_idle_tests;

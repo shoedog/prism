@@ -173,7 +173,13 @@ fn dispatch_tool_call(
     state.dispatch_hook();
 
     if call.is_refresh() {
-        let refreshed = state.write(|provider| dispatch_tool_refresh(call, provider, settings))?;
+        let refreshed = state.write(|provider| {
+            dispatch_tool_refresh(
+                call,
+                &mut super::log::LoggedRefresh(state, provider),
+                settings,
+            )
+        })?;
         return published(refreshed);
     }
 
@@ -198,9 +204,12 @@ fn dispatch_tool_call(
         state.write(
             |provider| match dispatch_tool_read(call, &*provider, settings) {
                 ReadDispatch::Response(response) => response,
-                ReadDispatch::NeedsAutoRefresh { initial_report } => {
-                    dispatch_tool_auto_refresh(call, provider, initial_report, settings)
-                }
+                ReadDispatch::NeedsAutoRefresh { initial_report } => dispatch_tool_auto_refresh(
+                    call,
+                    &mut super::log::LoggedRefresh(state, provider),
+                    initial_report,
+                    settings,
+                ),
             },
         )?;
     published(answered)

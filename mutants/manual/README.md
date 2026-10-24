@@ -1,5 +1,7 @@
 # Manual feature and Python mutations
 
+Five manual catalogs contain **61 mutants** (including the five I0b-2 entries).
+
 The shared `scripts/mutgate/mutgate.py` gate reads only `mutants/*.json`, builds without features and has
 no Python test runner. Catalogs here are intentionally outside that glob. Do not pass them to that runner.
 The shared runner and its ordinary catalogs remain unchanged.
@@ -53,3 +55,15 @@ idle-off drain answers, successful build publication/settlement during drain, an
 spawn-failure backoff.
 Keep before/mutant/restored SHA-256 receipts and behavioral RED/restored GREEN outside the repo.
 Do not count compiler failures, zero selections, aborts without a test verdict, or host refusals as kills.
+
+## `i0b-2.json` (daemon options, wire and readout, `--features mcp`)
+
+The five mutants use one exact selector each. Apply all edits in a record using steps 1–6
+above. A record with `target: "prism-mcp"` uses `--bin prism-mcp` in place of `--lib`;
+otherwise run `cargo test --features mcp --lib SELECTOR -- --exact`.
+They cover absent-option activation, unloaded-state misreporting, discarded daemon options,
+relief before provider drop and a missing terminal lifecycle event. Require exactly one
+behaviorally failed test, hash-verified restoration, then exactly one restored GREEN.
+Keep receipts outside the repo. Use `nice -n 19 env CARGO_BUILD_JOBS=4` as above; when
+`nice` is refused, drop only `nice`. This catalog adds **5 mutants**; I0b-1 + I0b-2 total **21**.
+The authoritative ordinary shared-catalog gate remains separate and unchanged.

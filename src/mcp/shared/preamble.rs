@@ -3,8 +3,8 @@
 //! daemon admits it (`READY`) or says why not.
 //!
 //! ```text
-//! shim  -> daemon:  HELLO {"protocol":1,"identity":"<64 hex>","settings":{...}}
-//! daemon -> shim:   READY {"protocol":1,"identity":"<64 hex>","pid":N,"start_time":N,"generation":N,"build":"..."}
+//! shim  -> daemon:  HELLO {"protocol":2,"identity":"<64 hex>","settings":{...}}
+//! daemon -> shim:   READY {"protocol":2,"identity":"<64 hex>","pid":N,"start_time":N,"generation":N,"build":"..."}
 //!              or   RETIRING {}  |  BUSY {"max_clients":N}  |  MISMATCH {"expected":"<64 hex>"}
 //! ```
 //!
@@ -157,6 +157,7 @@ fn concise_shape_from(word: &str) -> Result<ConciseShapeMode, PreambleError> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildState {
     Idle,
+    Unloaded,
     Building,
     Ready,
     Failed,
@@ -167,6 +168,7 @@ impl BuildState {
     pub fn word(self) -> &'static str {
         match self {
             Self::Idle => "idle",
+            Self::Unloaded => "unloaded",
             Self::Building => "building",
             Self::Ready => "ready",
             Self::Failed => "failed",
@@ -176,12 +178,11 @@ impl BuildState {
     pub(super) fn from_word(word: &str) -> Result<Self, PreambleError> {
         match word {
             "idle" => Ok(Self::Idle),
+            "unloaded" => Ok(Self::Unloaded),
             "building" => Ok(Self::Building),
             "ready" => Ok(Self::Ready),
             "failed" => Ok(Self::Failed),
-            _ => Err(invalid(
-                "build is not \"idle\", \"building\", \"ready\" or \"failed\"",
-            )),
+            _ => Err(invalid("build is not a known index state")),
         }
     }
 }
@@ -335,6 +336,8 @@ pub struct Ready {
     /// The index generation at admission.
     pub generation: u64,
     pub build: BuildState,
+    pub index_idle_timeout_secs: u64,
+    pub index_idle_pressure_relief: bool,
 }
 
 /// What a daemon answers to a `HELLO`.
@@ -360,6 +363,8 @@ struct ReadyWire {
     start_time: u64,
     generation: u64,
     build: String,
+    index_idle_timeout_secs: u64,
+    index_idle_pressure_relief: bool,
 }
 
 #[derive(Deserialize)]
@@ -383,12 +388,14 @@ impl Reply {
     pub fn encode(&self) -> String {
         match self {
             Self::Ready(ready) => format!(
-                "READY {{\"protocol\":{SHARED_PROTOCOL_VERSION},\"identity\":\"{}\",\"pid\":{},\"start_time\":{},\"generation\":{},\"build\":\"{}\"}}\n",
+                "READY {{\"protocol\":{SHARED_PROTOCOL_VERSION},\"identity\":\"{}\",\"pid\":{},\"start_time\":{},\"generation\":{},\"build\":\"{}\",\"index_idle_timeout_secs\":{},\"index_idle_pressure_relief\":{}}}\n",
                 ready.identity,
                 ready.pid,
                 ready.start_time,
                 ready.generation,
                 ready.build.word(),
+                ready.index_idle_timeout_secs,
+                ready.index_idle_pressure_relief,
             ),
             Self::Retiring => "RETIRING {}\n".to_string(),
             Self::Busy { max_clients } => format!("BUSY {{\"max_clients\":{max_clients}}}\n"),
@@ -409,6 +416,8 @@ impl Reply {
                     start_time: wire.start_time,
                     generation: wire.generation,
                     build: BuildState::from_word(&wire.build)?,
+                    index_idle_timeout_secs: wire.index_idle_timeout_secs,
+                    index_idle_pressure_relief: wire.index_idle_pressure_relief,
                 })
             }
             "RETIRING" => {

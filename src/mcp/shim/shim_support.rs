@@ -72,6 +72,8 @@ pub(super) fn ready_line(key: IdentityKey, pid: u32) -> String {
         start_time: 1_700_000_000,
         generation: 0,
         build: BuildState::Idle,
+        index_idle_timeout_secs: 0,
+        index_idle_pressure_relief: false,
     })
     .encode()
 }

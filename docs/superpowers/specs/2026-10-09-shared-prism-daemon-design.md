@@ -139,9 +139,12 @@ Two independent synchronization domains. Nothing in the control plane ever waits
 
 - **Control plane** (`Mutex<Control>` + `Condvar`): pending-handshake count, admitted-connection count,
   last-activity instant, retirement decision, and the **readiness coordinator** for the index build
-  (`Idle | Building{attempt, started} | Ready{generation} | Failed{attempt, error}`). The build runs on one thread
+  (`Idle | Building{attempt, started} | Ready{generation} | Unloaded{last_published} | Failed{attempt, error}`). The build runs on one thread
   and publishes the provider into the provider slot **before** announcing `Ready`. Lock ordering: a thread holding
   Control never waits on the provider; a thread holding the provider may briefly take Control to read state.
+- **Optional index unloading (I0b):** `prism-mcp daemon --index-idle-secs S` uses the stdio unsigned-seconds validator; absent or zero means disabled (`None`). The daemon reads no idle-policy environment variables. Timeout and hidden `--index-idle-pressure-relief` intent are first-spawner policy outside the identity key. Connected silence can unload a resident provider at max(publication, last tool release) + S, once pending tool work, serving leases and readiness waiters are zero, with no build, disposal or drain. The nonblocking slot→control transition detaches the whole provider, retaining only compact fingerprint/G/divergence and the publication watermark. Initial `idle` means never built; `unloaded` means previously resident. Reload uses the normal single-build coordinator, freshness validation and cumulative connection budget, waits for disposal, and supersedes historical outcomes rather than serving an empty slot. Equal fingerprints retain G, changed fingerprints increment it. Without a resident provider the wire generation is zero; retained G stays private.
+- **Disposal and A+C:** a worker drops the detached provider after both guards are released, then calls the existing I0a `pressure_relief` (Arm A uses its matched no-op). Relief is effective only if requested, idle unloading is enabled and I0a `IdlePolicy::pressure_relief_note(requested, false)` reports applicability (macOS). It is off by default and never runs on the server loop or under either daemon lock. Disposal panic remains fatal; accounting lasts through completion.
+- **Lifecycle readout:** the existing sanitized, bounded key-log sink records initial publication versus reload, build failures, the I0b-1 last-release event, unload, disposal start/end, relief and explicit/automatic refresh outcomes. Each carries identity/pid, event/reason, observed/configured idle, `timestamp_ms` (epoch-correlated producer time), `duration_ns`, attempt/G/outcome and `released_bytes`. Unload duration is the measured locked section, including the uncached publication fingerprint; it is not a claim about physical memory reclaimed. No MCP tool response fields change.
 - **Readiness semantics (per connection and per build attempt):** a connection's deadline for attempt *n* is set
   when its first readiness-requiring call arrives during attempt *n* and is cumulative for that attempt: every later
   call during the same attempt waits only the remaining budget and then returns `index warming` promptly. A
@@ -205,11 +208,12 @@ Two independent synchronization domains. Nothing in the control plane ever waits
 ### 4.4 Preamble (private, versioned, one line each way, before any MCP byte)
 
 ```
-shim  → daemon:  HELLO {"protocol":1,"identity":"<full hex key>","settings":{"structured_content":"always|omit-default-path","concise_shape":...,"result_cap":N,"first_call_wait_secs":N,"warm_at_startup":bool}}
-daemon → shim:   READY {"protocol":1,"identity":"<full hex key>","pid":N,"start_time":N,"generation":N,"build":"idle|building|ready|failed"}
+shim  → daemon:  HELLO {"protocol":2,"identity":"<full hex key>","settings":{"structured_content":"always|omit-default-path","concise_shape":...,"result_cap":N,"first_call_wait_secs":N,"warm_at_startup":bool}}
+daemon → shim:   READY {"protocol":2,"identity":"<full hex key>","pid":N,"start_time":N,"generation":N,"build":"idle|unloaded|building|ready|failed","index_idle_timeout_secs":N,"index_idle_pressure_relief":bool}
              or  RETIRING {}  |  BUSY {"max_clients":N}  |  MISMATCH {"expected":"<key>"}
 ```
 
+- Private shim–daemon protocol and operator control are both version **2**. READY and STATUS carry `index_idle_timeout_secs` (effective seconds; zero disabled) and `index_idle_pressure_relief` (effective boolean), and distinguish `unloaded` from initial `idle`. A v1 line decodes as typed `UnsupportedProtocol` / `UnsupportedControl`; a daemon still closes unsupported control requests without a reply. Operators report unavailable/incompatible and require a matching binary, with no invented settings, restart or replay. Canonical codecs require the new fields.
 - The daemon admits the connection (increments the count under the control lock) only when it writes `READY`; the
   shim forwards MCP bytes only after `READY`. `connect` succeeding is not readiness evidence; `READY` is.
 - `MISMATCH` cannot happen with a correctly computed key, but the check is what makes the 16-hex filename a locator

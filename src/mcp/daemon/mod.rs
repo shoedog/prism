@@ -47,3 +47,6 @@ const _: fn() = || {
     shared_between_threads::<crate::mcp::registry::ToolRegistry>();
     shared_between_threads::<coordinator::DaemonState>();
 };
+
+#[cfg(test)]
+mod idle_wire_logging_tests;

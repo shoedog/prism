@@ -1,0 +1,75 @@
+{
+  "manual_only": true,
+  "features": [
+    "mcp"
+  ],
+  "mutants": [
+    {
+      "id": "I0b-default-on",
+      "selector": "daemon_idle_tests::daemon_idle_wire_policy_default",
+      "target": "prism-mcp",
+      "description": "Enable the absent daemon flag; READY must still report zero/off.",
+      "edits": [
+        {
+          "file": "src/bin/prism-mcp.rs",
+          "old": "prism::mcp::idle::IdlePolicy::resolve(c.index_idle_secs.as_deref(), None, &config, false)?",
+          "new": "prism::mcp::idle::IdlePolicy::resolve(c.index_idle_secs.as_deref().or(Some(\"600\")), None, &config, false)?"
+        }
+      ]
+    },
+    {
+      "id": "I0b-wire-lies",
+      "selector": "mcp::daemon::idle_wire_logging_tests::daemon_idle_logging_and_relief",
+      "description": "Collapse unloaded into initial idle on the wire; the post-detach state assertion must fail.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/control.rs",
+          "old": "            Self::Unloaded { .. } => BuildState::Unloaded,",
+          "new": "            Self::Unloaded { .. } => BuildState::Idle,"
+        }
+      ]
+    },
+    {
+      "id": "I0b-drop-daemon-option",
+      "selector": "daemon_idle_tests::daemon_idle_wire_policy_nonzero",
+      "target": "prism-mcp",
+      "description": "Drop the parsed nonzero idle policy on the real daemon construction path; effective READY must report one second.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/run.rs",
+          "old": "    parts.idle_timeout = options.idle_policy.timeout;",
+          "new": "    parts.idle_timeout = None;"
+        }
+      ]
+    },
+    {
+      "id": "I0b-relief-before-drop",
+      "selector": "mcp::daemon::idle_wire_logging_tests::daemon_idle_relief_after_drop",
+      "description": "Move the relief call and event before provider destruction; the actual event observer must see the old repository still alive.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/idle.rs",
+          "old": "            drop(provider);",
+          "new": "            state.relieve(disposal_event.clone());\n            drop(provider);"
+        },
+        {
+          "file": "src/mcp/daemon/idle.rs",
+          "old": "            state.relieve(disposal_event);",
+          "new": "            // mutant: relief already ran before drop"
+        }
+      ]
+    },
+    {
+      "id": "I0b-omit-lifecycle-event",
+      "selector": "mcp::daemon::idle_wire_logging_tests::daemon_idle_build_failure_event",
+      "description": "Omit the terminal build event; scripted build failure must leave a log line.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "                self.log_build(&control, &ended);",
+          "new": "                // mutant: terminal build event omitted"
+        }
+      ]
+    }
+  ]
+}

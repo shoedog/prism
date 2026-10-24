@@ -25,6 +25,8 @@ fn status() -> DaemonStatus {
         pending: 1,
         max_clients: 64,
         build: BuildState::Ready,
+        index_idle_timeout_secs: 0,
+        index_idle_pressure_relief: false,
         attempt: 1,
         generation: 3,
         idle_secs: None,
@@ -45,12 +47,12 @@ fn line(encoded: &str) -> Vec<u8> {
 /// The exact text of each request: what a daemon of another build must be able to read.
 #[test]
 fn requests_have_one_spelling_and_round_trip() {
-    assert_eq!(ControlRequest::Status.encode(), "STATUS {\"control\":1}\n");
+    assert_eq!(ControlRequest::Status.encode(), "STATUS {\"control\":2}\n");
     let shutdown = ControlRequest::Shutdown(instance());
     assert_eq!(
         shutdown.encode(),
         format!(
-            "SHUTDOWN {{\"control\":1,\"identity\":\"{}\",\"pid\":4242,\"start_time\":1760600000}}\n",
+            "SHUTDOWN {{\"control\":2,\"identity\":\"{}\",\"pid\":4242,\"start_time\":1760600000}}\n",
             "ab".repeat(32)
         )
     );
@@ -71,10 +73,10 @@ fn a_request_spelled_otherwise_is_refused() {
     let refused = [
         "STATUS {\"control\": 1}".to_string(),
         "STATUS {}".to_string(),
-        "STATUS {\"control\":1,\"extra\":0}".to_string(),
-        format!("SHUTDOWN {{\"control\":1,\"pid\":4242,\"identity\":\"{key}\",\"start_time\":1}}"),
-        format!("SHUTDOWN {{\"control\":1,\"identity\":\"{key}\",\"pid\":4242}}"),
-        "SHUTDOWN {\"control\":1,\"identity\":\"AB\",\"pid\":1,\"start_time\":1}".to_string(),
+        "STATUS {\"control\":2,\"extra\":0}".to_string(),
+        format!("SHUTDOWN {{\"control\":2,\"pid\":4242,\"identity\":\"{key}\",\"start_time\":1}}"),
+        format!("SHUTDOWN {{\"control\":2,\"identity\":\"{key}\",\"pid\":4242}}"),
+        "SHUTDOWN {\"control\":2,\"identity\":\"AB\",\"pid\":1,\"start_time\":1}".to_string(),
         "STATUS [1]".to_string(),
     ];
     for text in refused {
@@ -90,18 +92,18 @@ fn a_request_spelled_otherwise_is_refused() {
 #[test]
 fn another_control_version_is_refused_as_unsupported() {
     assert_eq!(
-        ControlRequest::decode(b"STATUS {\"control\":2}"),
-        Err(PreambleError::UnsupportedControl { got: 2 })
+        ControlRequest::decode(b"STATUS {\"control\":3}"),
+        Err(PreambleError::UnsupportedControl { got: 3 })
     );
     assert_eq!(
-        ControlRequest::decode(b"SHUTDOWN {\"control\":2,\"anything\":true}"),
-        Err(PreambleError::UnsupportedControl { got: 2 })
+        ControlRequest::decode(b"SHUTDOWN {\"control\":3,\"anything\":true}"),
+        Err(PreambleError::UnsupportedControl { got: 3 })
     );
     // The daemon logs this error: it names the control exchange's version, not the preamble's
     // protocol version (review of #416, Opus S1).
     assert_eq!(
-        PreambleError::UnsupportedControl { got: 2 }.to_string(),
-        format!("control exchange version 2 is not {CONTROL_VERSION}")
+        PreambleError::UnsupportedControl { got: 3 }.to_string(),
+        format!("control exchange version 3 is not {CONTROL_VERSION}")
     );
 }
 
@@ -114,10 +116,10 @@ fn the_control_version_is_not_the_preamble_s() {
         .encode()
         .contains(&format!("\"control\":{CONTROL_VERSION}")));
     assert!(!ControlRequest::Status.encode().contains("\"protocol\""));
-    assert_eq!(CONTROL_VERSION, 1);
+    assert_eq!(CONTROL_VERSION, 2);
     assert_eq!(
-        SHARED_PROTOCOL_VERSION, 1,
-        "the preamble's version is unchanged"
+        SHARED_PROTOCOL_VERSION, 2,
+        "the preamble deliberately moved to v2 with control"
     );
 }
 
@@ -126,10 +128,10 @@ fn the_control_version_is_not_the_preamble_s() {
 /// control path, or a verb with a longer name for a control verb.
 #[test]
 fn only_the_two_verbs_are_control_lines() {
-    assert!(is_control_line(b"STATUS {\"control\":1}"));
+    assert!(is_control_line(b"STATUS {\"control\":2}"));
     assert!(is_control_line(b"SHUTDOWN {}"));
     assert!(is_control_line(b"STATUS x"));
-    assert!(!is_control_line(b"HELLO {\"protocol\":1}"));
+    assert!(!is_control_line(b"HELLO {\"protocol\":2}"));
     assert!(!is_control_line(b"STATUSES {}"));
     assert!(!is_control_line(b"STATUS"));
     assert!(!is_control_line(b"status {}"));
@@ -146,11 +148,13 @@ fn a_status_reply_round_trips() {
         idle_secs: Some(12),
         shutdown: true,
         build: BuildState::Building,
+        index_idle_timeout_secs: 0,
+        index_idle_pressure_relief: false,
         ..status()
     };
     for reply in [busy, idle] {
         let encoded = reply.encode();
-        assert!(encoded.starts_with("STATUS {\"control\":1,"), "{encoded}");
+        assert!(encoded.starts_with("STATUS {\"control\":2,"), "{encoded}");
         assert_eq!(DaemonStatus::decode(&line(&encoded)), Ok(reply));
     }
 }
@@ -165,7 +169,7 @@ fn a_status_reply_spelled_otherwise_is_refused() {
     assert!(DaemonStatus::decode(&line(&without_idle)).is_err());
     let spaced = encoded.replace("\"pid\":4242", "\"pid\": 4242");
     assert!(DaemonStatus::decode(&line(&spaced)).is_err());
-    assert!(DaemonStatus::decode(b"STATUS {\"control\":2}").is_err());
+    assert!(DaemonStatus::decode(b"STATUS {\"control\":3}").is_err());
 }
 
 /// A root that holds quotes, backslashes, control characters and non-ASCII text comes back as

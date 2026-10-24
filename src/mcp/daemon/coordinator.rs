@@ -89,6 +89,7 @@ pub(super) type AttemptHook = Arc<dyn Fn(u64) + Send + Sync>;
 #[cfg(test)]
 #[derive(Clone, Default)]
 pub(super) struct TestHooks {
+    pub(super) lifecycle: Option<super::log::EventObserver>,
     /// After the provider is in the slot, before `Ready` is announced.
     pub(super) published: Option<AttemptHook>,
     /// After an attempt's outcome is recorded, before the parked calls are notified.
@@ -114,8 +115,8 @@ pub(super) struct Parts {
     pub(super) on_fatal: OnFatal,
     #[cfg(test)]
     pub(super) hooks: TestHooks,
-    #[cfg(test)]
     pub(super) idle_timeout: Option<std::time::Duration>,
+    pub(super) lifecycle: super::log::LifecycleLog,
 }
 
 impl Parts {
@@ -129,8 +130,8 @@ impl Parts {
             on_fatal: Arc::new(abort_daemon),
             #[cfg(test)]
             hooks: TestHooks::default(),
-            #[cfg(test)]
             idle_timeout: None,
+            lifecycle: super::log::LifecycleLog::default(),
         }
     }
 }
@@ -146,6 +147,7 @@ pub(super) struct DaemonState {
     spawner: Spawner,
     pub(super) disposal_spawner: Spawner,
     pub(super) idle_timeout: Option<std::time::Duration>,
+    pub(super) lifecycle: super::log::LifecycleLog,
     pub(super) idle_waker: Mutex<Option<super::idle::Wake>>,
     pub(super) on_fatal: OnFatal,
     #[cfg(test)]
@@ -155,6 +157,7 @@ pub(super) struct DaemonState {
 impl DaemonState {
     /// A daemon state that builds with `builder`: on the first readiness call for
     /// `StartupMode::Lazy`, at once for `StartupMode::Background`.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn new(builder: SessionBuilder, startup: StartupMode) -> anyhow::Result<Arc<Self>> {
         Self::from_parts(Parts::production(builder, startup))
     }
@@ -182,10 +185,8 @@ impl DaemonState {
             clock: parts.clock,
             spawner: parts.spawner,
             disposal_spawner: parts.disposal_spawner,
-            #[cfg(test)]
             idle_timeout: parts.idle_timeout.filter(|n| !n.is_zero()),
-            #[cfg(not(test))]
-            idle_timeout: None,
+            lifecycle: parts.lifecycle.with_timeout(parts.idle_timeout),
             idle_waker: Mutex::new(None),
             on_fatal: parts.on_fatal,
             #[cfg(test)]
@@ -527,6 +528,7 @@ impl DaemonState {
             // No thread, so nothing will ever end this attempt: end it here. Nobody but the
             // caller can have joined it, because the control lock has been held since it began.
             let error = format!("could not start the index build thread: {error}");
+            self.log_build(control, &Err(error.clone()));
             outcome.fill(Err(error.clone()));
             control.build = BuildPhase::Failed { attempt, error };
         }
@@ -648,6 +650,7 @@ impl DaemonState {
                 _ => None,
             };
             if let Some(outcome) = building {
+                self.log_build(&control, &ended);
                 control.build = match &ended {
                     Ok(()) => {
                         control.idle.published_at = Some(self.now());

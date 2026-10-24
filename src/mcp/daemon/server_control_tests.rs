@@ -66,6 +66,8 @@ fn a_status_request_is_answered_with_the_daemon_s_state_and_closed() {
             pending: 0,
             max_clients: 64,
             build: BuildState::Idle,
+            index_idle_timeout_secs: 0,
+            index_idle_pressure_relief: false,
             attempt: 0,
             generation: 0,
             idle_secs: None,
@@ -106,7 +108,7 @@ fn a_refused_control_line_is_closed_without_a_reply_and_leaves_the_idle_time() {
     let mut running = start(options(64), |_| {});
     running.settle();
     running.advance(TTL_SECS - 1);
-    assert_eq!(exchange(&running, "STATUS {\"control\":2}\n"), "");
+    assert_eq!(exchange(&running, "STATUS {\"control\":3}\n"), "");
     running.advance_and_wake(1);
     assert_eq!(running.stopped(), StopReason::Idle);
 }
