@@ -88,6 +88,7 @@ impl DaemonState {
             }
             Err(TryLockError::Poisoned(_)) => return Err(self.poisoned("provider")),
         };
+        let locked_started = Instant::now();
         let mut control = self.control_plane()?;
         let now = self.now();
         let idle = &control.idle;
@@ -108,7 +109,19 @@ impl DaemonState {
         let Some(provider) = slot.as_ref() else {
             return Ok(());
         };
+        #[cfg(test)]
+        if let Some(hook) = &self.hooks.fingerprint {
+            hook();
+        }
         let last_published = provider.idle_publication();
+        let mut event = self.lifecycle_snapshot(
+            &control,
+            "unload",
+            "idle",
+            Duration::ZERO,
+            "complete".into(),
+        );
+        let mut disposal_event = event.clone();
         // Start the worker before transferring ownership. Failed spawn cannot drop a provider
         // captured by a rejected job, and leaves Ready/slot/history intact.
         let (send, receive) = mpsc::channel::<SessionProvider>();
@@ -118,11 +131,24 @@ impl DaemonState {
             let Ok(provider) = receive.recv() else {
                 return;
             };
+            let started = Instant::now();
+            disposal_event.event = "disposal_start";
+            disposal_event.at = state.now();
+            disposal_event.wall = state.wall_now();
             #[cfg(test)]
             if let Some(hook) = &state.hooks.dispose {
                 hook();
             }
             drop(provider);
+            let mut end = disposal_event.clone();
+            end.event = "disposal_end";
+            end.at = state.now();
+            end.wall = state.wall_now();
+            end.duration = started.elapsed();
+            // Capture both producer times around destruction; neither write can delay it.
+            state.lifecycle_event(disposal_event);
+            state.lifecycle_event(end.clone());
+            state.relieve(end);
         });
         if (self.disposal_spawner)(job).is_err() {
             let retry = control
@@ -134,6 +160,7 @@ impl DaemonState {
             return Ok(());
         }
         control.idle.spawn_retry = None;
+        let release = self.take_last_release(&mut control);
         let provider = slot.take().expect("checked resident provider");
         control.build = BuildPhase::Unloaded { last_published };
         control.generation = 0;
@@ -142,6 +169,7 @@ impl DaemonState {
         control.idle.rearm = None;
         drop(control);
         drop(slot);
+        event.duration = locked_started.elapsed();
         // The worker only receives ownership after both guards are gone.
         // A valid spawner never runs the job inline and starts it exactly once.
         if let Err(unsent) = send.send(provider) {
@@ -157,6 +185,11 @@ impl DaemonState {
             control.build = BuildPhase::Ready;
             control.idle.disposing = false;
             control.idle.rearm = self.now().checked_add(REARM);
+        } else {
+            if let Some(release) = release {
+                self.lifecycle_event(release);
+            }
+            self.lifecycle_event(event);
         }
         Ok(())
     }

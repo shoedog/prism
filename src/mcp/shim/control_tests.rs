@@ -109,7 +109,7 @@ fn a_close_a_silence_and_nothing_listening_are_told_apart() {
 fn an_unreadable_or_unexpected_reply_is_refused() {
     let (_base, paths) = runtime();
     for reply in [
-        "STATUS {\"control\":1}\n".to_string(),
+        "STATUS {\"control\":2}\n".to_string(),
         "garbage\n".to_string(),
         super::super::shim_support::ready_line(super::super::shim_support::key(), 1),
     ] {

@@ -356,8 +356,10 @@ wait above 600 s. A change to what goes into the key or to the preamble's wire t
 `SHARED_PROTOCOL_VERSION`.
 
 Shared daemon (`src/mcp/daemon/`, Unix only; `prism-mcp daemon --repo X [--cache-dir D]
-[--refresh-policy P] [--warm-at-startup] [--idle-ttl S] [--max-clients N] [--key HEX]`, internal,
-started by `prism-mcp --shared`): `coordinator.rs` holds `DaemonState`, which is a control plane
+[--refresh-policy P] [--warm-at-startup] [--idle-ttl S] [--max-clients N] [--key HEX]
+[--index-idle-secs S] [--index-idle-pressure-relief]`, internal,
+started by `prism-mcp --shared`): READY/STATUS expose effective `index_idle_timeout_secs`, `index_idle_pressure_relief` and the distinct `unloaded` build state under protocol/control version 2.
+`coordinator.rs` holds `DaemonState`, which is a control plane
 (`Mutex<ControlState>` and one `Condvar`: the build phase `Idle | Building | Ready | Failed`, the
 attempt count, the parked calls, the generation of the provider in the slot) and a provider slot
 (`RwLock<Option<SessionProvider>>`). `ensure_serving` (production; `ensure_ready` is test-only) picks its build attempt once and waits for

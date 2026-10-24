@@ -5,7 +5,7 @@ use crate::mcp::shared::identity::IdentityKey;
 
 const KEY: &str = "0123456789abcdeffedcba98765432100123456789abcdeffedcba9876543210";
 const NEIGHBOUR: &str = "0123456789abcdef000000000000000000000000000000000000000000000000";
-const READY_LINE: &str = r#"READY {"protocol":1,"identity":"0123456789abcdeffedcba98765432100123456789abcdeffedcba9876543210","pid":4242,"start_time":1791900090,"generation":3,"build":"building"}"#;
+const READY_LINE: &str = r#"READY {"protocol":2,"identity":"0123456789abcdeffedcba98765432100123456789abcdeffedcba9876543210","pid":4242,"start_time":1791900090,"generation":3,"build":"building","index_idle_timeout_secs":0,"index_idle_pressure_relief":false}"#;
 
 fn key(hex: &str) -> IdentityKey {
     IdentityKey::from_hex(hex).unwrap()
@@ -18,6 +18,8 @@ fn ready() -> Ready {
         start_time: 1_791_900_090,
         generation: 3,
         build: BuildState::Building,
+        index_idle_timeout_secs: 0,
+        index_idle_pressure_relief: false,
     }
 }
 
@@ -51,6 +53,7 @@ fn every_reply_survives_encode_then_decode() {
     ];
     for build in [
         BuildState::Idle,
+        BuildState::Unloaded,
         BuildState::Building,
         BuildState::Ready,
         BuildState::Failed,
@@ -63,6 +66,8 @@ fn every_reply_survives_encode_then_decode() {
         start_time: u64::MAX,
         generation: u64::MAX,
         build: BuildState::Ready,
+        index_idle_timeout_secs: 0,
+        index_idle_pressure_relief: false,
     }));
     for reply in replies {
         let line = reply.encode();
@@ -89,10 +94,10 @@ fn build_states_are_spelled_as_the_spec_spells_them() {
 
 #[test]
 fn a_ready_of_another_protocol_version_is_refused_as_such() {
-    let line = READY_LINE.replace(r#""protocol":1,"#, r#""protocol":2,"#);
+    let line = READY_LINE.replace(r#""protocol":2,"#, r#""protocol":3,"#);
     assert_eq!(
         Reply::decode(line.as_bytes()),
-        Err(PreambleError::UnsupportedProtocol { got: 2 })
+        Err(PreambleError::UnsupportedProtocol { got: 3 })
     );
 }
 
@@ -204,7 +209,7 @@ fn a_reply_in_any_spelling_other_than_the_encoder_s_is_refused() {
 #[test]
 fn a_hello_is_not_a_reply() {
     assert_eq!(
-        Reply::decode(b"HELLO {\"protocol\":1}"),
+        Reply::decode(b"HELLO {\"protocol\":2}"),
         Err(PreambleError::UnknownVerb {
             verb: "HELLO".into()
         })
