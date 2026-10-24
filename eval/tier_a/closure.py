@@ -104,13 +104,16 @@ def checkout_corpus_manifest(
     for disk_path in root.rglob("*"):
         if not disk_path.is_file():
             continue
+        lexical_path = disk_path.relative_to(root).as_posix()
         path = canonical_path(root, disk_path)
         if (
-            path in expected_paths
-            or path in _CORPUS_CONTROL_FILES
+            lexical_path in expected_paths
+            or lexical_path in _CORPUS_CONTROL_FILES
             or (
-                path.endswith(extensions)
-                and not any(fnmatch.fnmatch(path, pattern) for pattern in excludes)
+                lexical_path.endswith(extensions)
+                and not any(
+                    fnmatch.fnmatch(lexical_path, pattern) for pattern in excludes
+                )
             )
         ):
             applicable.add(path)

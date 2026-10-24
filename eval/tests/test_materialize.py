@@ -96,6 +96,17 @@ def test_other_language_source_is_outside_rust_checkout_closure(tmp_path):
     assert identity.untracked == []
 
 
+def test_other_language_target_does_not_hide_undeclared_rust_symlink(tmp_path):
+    lock, checkout = _rust_checkout(tmp_path)
+    (checkout / "extra.py").write_text("def extra(): pass\n")
+    (checkout / "src/extra.rs").symlink_to("../extra.py")
+
+    identity = resolve_corpus_identity(lock, checkout)
+
+    assert identity.dirty is True
+    assert identity.untracked == ["extra.py"]
+
+
 def test_undeclared_rust_source_is_inside_rust_checkout_closure(tmp_path):
     lock, checkout = _rust_checkout(tmp_path)
     (checkout / "src/extra.rs").write_text("fn extra() {}\n")
@@ -126,6 +137,19 @@ def test_excluded_same_language_source_is_outside_checkout_closure(tmp_path):
 
     assert identity.dirty is False
     assert identity.untracked == []
+
+
+def test_excluded_target_does_not_hide_undeclared_rust_symlink(tmp_path):
+    lock, checkout = _rust_checkout(tmp_path)
+    excluded = checkout / "tests/fixtures/extra.rs"
+    excluded.parent.mkdir(parents=True)
+    excluded.write_text("fn excluded() {}\n")
+    (checkout / "src/extra.rs").symlink_to("../tests/fixtures/extra.rs")
+
+    identity = resolve_corpus_identity(lock, checkout)
+
+    assert identity.dirty is True
+    assert identity.untracked == ["tests/fixtures/extra.rs"]
 
 
 def test_missing_closure_path_is_dirty_and_reextracted(tmp_path):
