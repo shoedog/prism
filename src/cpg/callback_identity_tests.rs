@@ -119,15 +119,38 @@ fn r5_named_seam_rows_equal_frozen_main_goldens() {
         serde_json::from_str(include_str!("fixtures/js_param_r5_golden.json")).unwrap();
     let mut failures = Vec::new();
     for c in cases.as_array().unwrap() {
-        if c["id"].as_str().unwrap().contains("callback")
-            || c["id"].as_str().unwrap() == "C1-catchvar"
-        {
+        if c["id"].as_str().unwrap().contains("callback") {
             continue;
         }
         for (language, ext) in JS_TS.into_iter().zip(["js", "ts", "tsx"]) {
             let actual =
                 r5_full_binding_rows(&build(language, c["source"].as_str().unwrap()), "h", "f");
             let mut expected = c["main"][ext].as_array().unwrap().clone();
+            if c["id"].as_str().unwrap() == "C1-catchvar" && language == Language::JavaScript {
+                let changes = [
+                    ([1, 11, 12, 5, 49, 49], ("nameonly", "killed", 5)),
+                    ([2, 28, 29, 5, 49, 49], ("nameonly", "killed", 5)),
+                    ([6, 69, 70, 8, 84, 85], ("nameonly", "killed", 7)),
+                ];
+                let mut changed = 0;
+                for row in &mut expected {
+                    let values = row.as_array_mut().unwrap();
+                    let endpoint: Vec<_> = values[..6]
+                        .iter()
+                        .map(|value| value.as_u64().unwrap())
+                        .collect();
+                    if let Some((_, (level, doubt, kill))) = changes
+                        .iter()
+                        .find(|(candidate, _)| candidate == endpoint.as_slice())
+                    {
+                        values[6] = serde_json::json!(level);
+                        values[7] = serde_json::json!(doubt);
+                        values[8] = serde_json::json!(kill);
+                        changed += 1;
+                    }
+                }
+                assert_eq!(changed, changes.len(), "C1-catchvar/js named changes");
+            }
             expected.sort_by_key(ToString::to_string);
             if actual != expected {
                 failures.push(format!(
