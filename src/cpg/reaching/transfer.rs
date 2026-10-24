@@ -3,8 +3,7 @@
 mod route_effects;
 
 pub(super) use route_effects::{
-    apply_explicit_kills, is_route_effect_node, is_route_import_definition,
-    materialize_route_effects, merge_synthetic_nodes,
+    apply_explicit_kills, is_route_effect_node, materialize_route_effects,
 };
 
 use super::binding_table::{select_binding_row, DeclarationKind, Role, Ruling};

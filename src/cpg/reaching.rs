@@ -307,21 +307,13 @@ fn reaching_definitions_impl(
         &mut defs,
         &mut mapped_defs,
     );
-    let route_effects = transfer::materialize_route_effects(
-        parsed,
-        func_node,
-        &line_index,
-        &mut successors,
-        &mut predecessors,
-        &mut defs,
-        &mut mapped_defs,
-    );
+    let route_effects = transfer::materialize_route_effects(parsed, func_node, &line_index);
     let original_successors = successors.clone();
     let cfg_view = CfgView {
         line_index: &line_index,
         successors: &original_successors,
     };
-    let mut applied = transfer::apply(
+    let applied = transfer::apply(
         parsed,
         &binders,
         &line_index,
@@ -330,7 +322,6 @@ fn reaching_definitions_impl(
         &mut defs,
         &mut mapped_defs,
     );
-    transfer::merge_synthetic_nodes(&route_effects, &mut applied.synthetic_nodes);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
             actual: defs.len(),

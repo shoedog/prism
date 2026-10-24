@@ -204,7 +204,10 @@ pub(super) static ROWS: &[BindingRow] = &[
         fields: &["name"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Classified,
+        ruling: Ruling::Uncertain {
+            reason: "import statements have no CFG node; placement unprovable",
+            revisit: "future:python-import-cfg",
+        },
         regression: "py-import-statement-masks",
     },
     BindingRow {
@@ -215,7 +218,10 @@ pub(super) static ROWS: &[BindingRow] = &[
         fields: &["name"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Classified,
+        ruling: Ruling::Uncertain {
+            reason: "import statements have no CFG node; placement unprovable",
+            revisit: "future:python-import-cfg",
+        },
         regression: "py-import-from-statement-masks",
     },
     BindingRow {
@@ -226,7 +232,10 @@ pub(super) static ROWS: &[BindingRow] = &[
         fields: &["alias"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Classified,
+        ruling: Ruling::Uncertain {
+            reason: "import statements have no CFG node; placement unprovable",
+            revisit: "future:python-import-cfg",
+        },
         regression: "py-import-alias-masks",
     },
     BindingRow {

@@ -8,7 +8,6 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
-
 #[derive(serde::Deserialize)]
 struct NodeTypeSchema {
     #[serde(rename = "type")]
@@ -20,40 +19,33 @@ struct NodeTypeSchema {
     #[serde(default)]
     children: Option<NodeTypeMembers>,
 }
-
 #[derive(serde::Deserialize)]
 struct NodeTypeMembers {
     #[serde(default)]
     types: Vec<NodeTypeRef>,
 }
-
 #[derive(serde::Deserialize)]
 struct NodeTypeRef {
     #[serde(rename = "type")]
     kind: String,
 }
-
 pub(super) type IntroducingFields = BTreeMap<String, BTreeSet<String>>;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct ByteSpan {
     pub(super) start: usize,
     pub(super) end: usize,
 }
-
 impl ByteSpan {
     pub(super) fn contains(self, byte: usize) -> bool {
         self.start <= byte && byte < self.end
     }
 }
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum SpanKind {
     Known(Vec<ByteSpan>),
     Empty,
     Unknown,
 }
-
 pub(super) fn visibility_span(parsed: &ParsedFile, binder_node: Node<'_>) -> SpanKind {
     if let Some(row) = guard_span_row(parsed.language, binder_node.kind()) {
         let Some(guard) = ancestor_of_kind(binder_node, row.guard_kind) else {
@@ -132,7 +124,6 @@ pub(super) fn visibility_span(parsed: &ParsedFile, binder_node: Node<'_>) -> Spa
         }])
     }
 }
-
 pub(super) fn uncertain_binding_nodes<'a>(parsed: &'a ParsedFile, name: &str) -> Vec<Node<'a>> {
     fn walk<'a>(parsed: &'a ParsedFile, node: Node<'a>, name: &str, out: &mut Vec<Node<'a>>) {
         let uncertain = select_binding_row(parsed, node)
@@ -145,15 +136,25 @@ pub(super) fn uncertain_binding_nodes<'a>(parsed: &'a ParsedFile, name: &str) ->
             walk(parsed, child, name, out);
         }
     }
-
     let mut nodes = Vec::new();
     walk(parsed, parsed.tree.root_node(), name, &mut nodes);
     nodes
 }
-
 fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
     if parsed.language == Language::Java {
         return java_node_introduces_name(parsed, node, name);
+    }
+    if parsed.language == Language::Python
+        && matches!(
+            node.kind(),
+            "import_statement" | "import_from_statement" | "aliased_import"
+        )
+    {
+        return select_binding_row(parsed, node).is_some_and(|row| {
+            super::transfer::row_introduced_identifiers(parsed, node, row.fields)
+                .into_iter()
+                .any(|identifier| parsed.node_text(&identifier) == name)
+        });
     }
     let special_target = match (parsed.language, node.kind()) {
         (Language::Rust, "tuple_struct_pattern") => Some(node),
@@ -173,7 +174,6 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
             })
         })
 }
-
 fn java_node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
     let Some(root_function) = parsed
         .all_functions()

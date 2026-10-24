@@ -437,13 +437,6 @@ fn declaration_seed(
         .descendant_for_byte_range(def.start_byte, end_byte)?;
     loop {
         let selected_row = select_binding_row(parsed, node);
-        if transfer::is_route_import_definition(parsed, node, def) {
-            return Some((
-                function_scope,
-                DeclarationKind::Reuse,
-                function_scope.start_byte,
-            ));
-        }
         if let Some(row) = selected_row.filter(|row| row.visibility == Visibility::Header) {
             let left = node.child_by_field_name("left");
             if left.is_some_and(|left| {

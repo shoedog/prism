@@ -8,5 +8,5 @@ probe = "dfg"
 from = "a.py:2:x"
 to = "a.py:4:x"
 confidence = "nameonly"
-doubt = "killed"
-kill_line = 3
+doubt = "ownership_uncertain"
+construct_line = 3
