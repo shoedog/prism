@@ -1,6 +1,6 @@
 //! The daemon process, `prism-mcp daemon ...` (spec §3.1 "Starting", §4.2, §8 step 4): resolve
 //! the identity, own the key or leave silently, bind, write the pid file, serve, drain.
-use super::coordinator::DaemonState;
+use super::coordinator::{DaemonState, Parts};
 use super::files::{BuildMarker, Claim, DaemonFiles};
 use super::log;
 use super::server::{ServeOptions, Served, Server, Waker, HANDSHAKE_TIMEOUT};
@@ -26,6 +26,7 @@ pub struct DaemonOptions {
     /// `Background` for `--warm-at-startup` on the daemon's own command line (spec §11 item 7).
     /// `first_call_wait` is not read: each client sends its own.
     pub config: ServerConfig,
+    pub idle_policy: crate::mcp::idle::IdlePolicy,
     pub idle_ttl: Duration,
     pub max_clients: u32,
     /// The full key the starting shim computed (`--key`). The daemon refuses to start when the
@@ -70,7 +71,10 @@ pub fn run_daemon(options: DaemonOptions) -> anyhow::Result<()> {
             files.build_marker()?,
         )
     };
-    let state = DaemonState::new(builder, cfg.startup)?;
+    let mut parts = Parts::production(builder, cfg.startup);
+    parts.idle_timeout = options.idle_policy.timeout;
+    parts.lifecycle = log::LifecycleLog::new(key.to_string(), options.idle_policy);
+    let state = DaemonState::from_parts(parts)?;
     let served = Served {
         key,
         repo_root: identity.repo_root().to_path_buf(),

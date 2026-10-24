@@ -46,6 +46,8 @@ fn a_hello_for_the_served_identity_is_answered_ready_and_mcp_follows() {
             start_time: 1234,
             generation: 0,
             build: BuildState::Idle,
+            index_idle_timeout_secs: 0,
+            index_idle_pressure_relief: false,
         })
     );
     let initialized = client.recv();
@@ -76,8 +78,8 @@ fn another_identity_or_protocol_is_answered_mismatch_and_not_admitted() {
     );
 
     let stream = running.connect();
-    let version_two = hello_line(served_key()).replace("\"protocol\":1", "\"protocol\":2");
-    send_line(&stream, &version_two);
+    let unsupported = hello_line(served_key()).replace("\"protocol\":2", "\"protocol\":3");
+    send_line(&stream, &unsupported);
     assert_eq!(
         read_all(stream),
         Reply::Mismatch {

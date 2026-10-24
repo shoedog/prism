@@ -498,20 +498,24 @@ class GateRegressionTests(unittest.TestCase):
 
     def test_w2_timeout_never_kills(self):
         source = ('fn f() -> u32 { let ignored = 1; '
-                  'if ignored == 2 { std::thread::sleep(std::time::Duration::from_millis(150)); } '
+                  'if ignored == 2 { std::thread::sleep(std::time::Duration::from_secs(10)); } '
                   '1 }\n#[test]\nfn t() { assert_eq!(f(), 1); }\n')
         mutation = {'m': ['src/lib.rs', 'let ignored = 1;', 'let ignored = 2;', 't']}
         for mode in ('text', 'schema'):
             with self.subTest(mode=mode):
-                status, summary = self.gate(source, mutation, mode, timeout=0.05)
+                # The deadline also applies to every unmutated baseline run,
+                # which took up to ~2.1 s on a loaded macOS host (#484). 8 s
+                # leaves ~4x headroom and stays below the 10 s mutant-only stall.
+                status, summary = self.gate(source, mutation, mode, timeout=8)
                 self.assertEqual(status, 1)
                 self.assertEqual(mutgate.verdict(summary['results']['m']), 'TIMEOUT')
                 self.assertFalse(summary['results']['m']['killed'])
                 # The same finite, equivalent mutant completes successfully
                 # with enough time; the short timeout cannot stand in for a kill.
-                status, summary = self.gate(source, mutation, mode, timeout=1)
+                status, summary = self.gate(source, mutation, mode, timeout=30)
                 self.assertEqual(status, 1)
                 self.assertEqual(mutgate.verdict(summary['results']['m']), 'SURVIVED')
+                self.assertFalse(summary['results']['m']['killed'])
 
     def test_w3_red_baseline_is_inadmissible_both_modes(self):
         source = 'fn f() -> u32 { 1 }\n#[test]\nfn t() { assert_eq!(f(), 2); }\n'

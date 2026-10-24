@@ -89,6 +89,9 @@ pub(super) type AttemptHook = Arc<dyn Fn(u64) + Send + Sync>;
 #[cfg(test)]
 #[derive(Clone, Default)]
 pub(super) struct TestHooks {
+    pub(super) lifecycle: Option<super::log::EventObserver>,
+    pub(super) wall_time: Option<Arc<dyn Fn() -> std::time::SystemTime + Send + Sync>>,
+    pub(super) fingerprint: Option<Arc<dyn Fn() + Send + Sync>>,
     /// After the provider is in the slot, before `Ready` is announced.
     pub(super) published: Option<AttemptHook>,
     /// After an attempt's outcome is recorded, before the parked calls are notified.
@@ -114,8 +117,8 @@ pub(super) struct Parts {
     pub(super) on_fatal: OnFatal,
     #[cfg(test)]
     pub(super) hooks: TestHooks,
-    #[cfg(test)]
     pub(super) idle_timeout: Option<std::time::Duration>,
+    pub(super) lifecycle: super::log::LifecycleLog,
 }
 
 impl Parts {
@@ -129,8 +132,8 @@ impl Parts {
             on_fatal: Arc::new(abort_daemon),
             #[cfg(test)]
             hooks: TestHooks::default(),
-            #[cfg(test)]
             idle_timeout: None,
+            lifecycle: super::log::LifecycleLog::default(),
         }
     }
 }
@@ -146,6 +149,7 @@ pub(super) struct DaemonState {
     spawner: Spawner,
     pub(super) disposal_spawner: Spawner,
     pub(super) idle_timeout: Option<std::time::Duration>,
+    pub(super) lifecycle: super::log::LifecycleLog,
     pub(super) idle_waker: Mutex<Option<super::idle::Wake>>,
     pub(super) on_fatal: OnFatal,
     #[cfg(test)]
@@ -155,6 +159,7 @@ pub(super) struct DaemonState {
 impl DaemonState {
     /// A daemon state that builds with `builder`: on the first readiness call for
     /// `StartupMode::Lazy`, at once for `StartupMode::Background`.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn new(builder: SessionBuilder, startup: StartupMode) -> anyhow::Result<Arc<Self>> {
         Self::from_parts(Parts::production(builder, startup))
     }
@@ -182,19 +187,23 @@ impl DaemonState {
             clock: parts.clock,
             spawner: parts.spawner,
             disposal_spawner: parts.disposal_spawner,
-            #[cfg(test)]
             idle_timeout: parts.idle_timeout.filter(|n| !n.is_zero()),
-            #[cfg(not(test))]
-            idle_timeout: None,
+            lifecycle: parts.lifecycle.with_timeout(parts.idle_timeout),
             idle_waker: Mutex::new(None),
             on_fatal: parts.on_fatal,
             #[cfg(test)]
             hooks: parts.hooks,
         });
         if state.startup == StartupMode::Background {
-            let mut control = state.lock_control()?;
-            let _fatal = state.guard(Domain::Control);
-            let _started = state.start_attempt(&mut control);
+            let mut event = None;
+            {
+                let mut control = state.lock_control()?;
+                let _fatal = state.guard(Domain::Control);
+                let _started = state.start_attempt(&mut control, &mut event);
+            }
+            if let Some(event) = event {
+                state.lifecycle_event(event);
+            }
         }
         Ok(state)
     }
@@ -294,11 +303,25 @@ impl DaemonState {
             } => Some((*attempt, *started, Arc::clone(outcome))),
             BuildPhase::Idle | BuildPhase::Unloaded { .. } | BuildPhase::Failed { .. } => None,
         };
+        let mut event = None;
         let (attempt, started, outcome) =
-            building.unwrap_or_else(|| self.start_attempt(&mut control));
+            building.unwrap_or_else(|| self.start_attempt(&mut control, &mut event));
         let mut deadline = budget.join(attempt, &outcome, self.now());
         if let Some(limit) = disposal_deadline {
             deadline = budget.cap_deadline(limit);
+        }
+        if let Some(event) = event {
+            // Spawn failure is already terminal. Freeze this caller's answer before another
+            // client can retry, then release both guards before the potentially blocking sink.
+            budget.told();
+            let answer = answer_for(
+                outcome.ended().expect("spawn failure ended"),
+                &control.build,
+            );
+            drop(_fatal);
+            drop(control);
+            self.lifecycle_event(event);
+            return Ok(answer);
         }
         loop {
             if self.idle_timeout.is_some()
@@ -499,11 +522,13 @@ impl DaemonState {
     fn start_attempt(
         self: &Arc<Self>,
         control: &mut ControlState,
+        event: &mut Option<super::log::Event>,
     ) -> (u64, Instant, Arc<AttemptOutcome>) {
         if let BuildPhase::Unloaded { last_published } = control.build {
             control.idle.previous = Some(last_published);
         }
         let started = self.clock.now();
+        self.lifecycle.start_clock(started);
         let outcome = Arc::new(AttemptOutcome::default());
         let Some(attempt) = control.attempts.checked_add(1) else {
             let attempt = control.attempts;
@@ -527,6 +552,7 @@ impl DaemonState {
             // No thread, so nothing will ever end this attempt: end it here. Nobody but the
             // caller can have joined it, because the control lock has been held since it began.
             let error = format!("could not start the index build thread: {error}");
+            *event = Some(self.log_build(control, &Err(error.clone())));
             outcome.fill(Err(error.clone()));
             control.build = BuildPhase::Failed { attempt, error };
         }
@@ -553,7 +579,7 @@ impl DaemonState {
     /// before the announcement finds it recorded and records its own after it.
     fn publish(&self, attempt: u64, mut provider: SessionProvider) {
         // Rejected late providers stay on this build thread and are dropped after both locks.
-        let accepted = {
+        let rejected = {
             let mut slot = match self.provider.write() {
                 Ok(slot) => slot,
                 Err(_) => {
@@ -578,7 +604,7 @@ impl DaemonState {
                 || control.idle.disposal_failed
                 || !matches!(control.build, BuildPhase::Building { attempt: a, .. } if a == attempt)
             {
-                false
+                Some(provider)
             } else {
                 if let Some(previous) = control.idle.previous {
                     provider.resume_idle_generation(previous);
@@ -586,13 +612,14 @@ impl DaemonState {
                 control.generation = provider.generation();
                 debug_assert!(slot.is_none());
                 *slot = Some(provider);
-                true
+                None
             }
         };
-        if !accepted {
-            self.settle(
+        if let Some(provider) = rejected {
+            self.settle_retiring(
                 attempt,
                 Err("the daemon is draining; obsolete publication rejected".into()),
+                Some(provider),
             );
             return;
         }
@@ -607,7 +634,18 @@ impl DaemonState {
     /// call. Nothing is recorded unless the phase is still `Building` that attempt, so an
     /// attempt ends once and `Ready` is not left. A poisoned control lock ends the daemon; under
     /// a test's `on_fatal` the parked calls find it when they wake.
-    fn settle(&self, attempt: u64, mut ended: Result<(), String>) {
+    fn settle(&self, attempt: u64, ended: Result<(), String>) {
+        self.settle_retiring(attempt, ended, None);
+    }
+
+    /// Keep capture/outcome ordering for rejected and retracted publications alike. Owned
+    /// providers die off-lock on the build thread, before notifications and terminal output.
+    fn settle_retiring(
+        &self,
+        attempt: u64,
+        mut ended: Result<(), String>,
+        mut retired: Option<SessionProvider>,
+    ) {
         // Successful publication is finalized in slot → control order. A drain may have
         // arrived after storing the provider but before announcing it; with unloading enabled,
         // retract on this build thread, never in the draining server loop or under either lock.
@@ -623,7 +661,7 @@ impl DaemonState {
         } else {
             None
         };
-        let mut retired = None;
+        let mut event = None;
         let control = match self.control.lock() {
             Ok(control) => Some(control),
             Err(_) => {
@@ -648,6 +686,7 @@ impl DaemonState {
                 _ => None,
             };
             if let Some(outcome) = building {
+                event = Some(self.log_build(&control, &ended));
                 control.build = match &ended {
                     Ok(()) => {
                         control.idle.published_at = Some(self.now());
@@ -670,6 +709,9 @@ impl DaemonState {
         }
         self.changed.notify_all();
         self.wake_idle_loop();
+        if let Some(event) = event {
+            self.lifecycle_event(event);
+        }
     }
 }
 

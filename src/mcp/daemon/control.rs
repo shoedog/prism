@@ -92,7 +92,8 @@ impl BuildPhase {
     /// The word `READY` and the status probe use for this phase.
     pub(super) fn state(&self) -> BuildState {
         match self {
-            Self::Idle | Self::Unloaded { .. } => BuildState::Idle,
+            Self::Idle => BuildState::Idle,
+            Self::Unloaded { .. } => BuildState::Unloaded,
             Self::Building { .. } => BuildState::Building,
             Self::Ready => BuildState::Ready,
             Self::Failed { .. } => BuildState::Failed,

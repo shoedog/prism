@@ -12,7 +12,7 @@ const KEY: &str = "0123456789abcdeffedcba98765432100123456789abcdeffedcba9876543
 const NEIGHBOUR: &str = "0123456789abcdef000000000000000000000000000000000000000000000000";
 
 /// The `HELLO` line of spec §4.4 for the default settings, without its newline.
-const HELLO_LINE: &str = r#"HELLO {"protocol":1,"identity":"0123456789abcdeffedcba98765432100123456789abcdeffedcba9876543210","settings":{"structured_content":"omit-default-path","concise_shape":"slim","result_cap":80000,"first_call_wait_secs":20,"warm_at_startup":false}}"#;
+const HELLO_LINE: &str = r#"HELLO {"protocol":2,"identity":"0123456789abcdeffedcba98765432100123456789abcdeffedcba9876543210","settings":{"structured_content":"omit-default-path","concise_shape":"slim","result_cap":80000,"first_call_wait_secs":20,"warm_at_startup":false}}"#;
 
 fn key(hex: &str) -> IdentityKey {
     IdentityKey::from_hex(hex).unwrap()
@@ -169,7 +169,7 @@ fn a_line_that_is_not_a_verb_and_a_payload_is_refused() {
 fn a_verb_the_receiver_does_not_expect_is_refused() {
     let jsonrpc = r#"{"jsonrpc":"2.0","id":1,"method": "initialize"}"#;
     for line in [
-        "READY {\"protocol\":1}",
+        "READY {\"protocol\":2}",
         "RETIRING {}",
         "hello {}",
         "HELLO2 {}",
@@ -188,10 +188,10 @@ fn a_verb_the_receiver_does_not_expect_is_refused() {
 fn a_payload_that_is_not_json_is_refused() {
     for payload in [
         "{",
-        "{\"protocol\":1",
+        "{\"protocol\":2",
         "{'protocol':1}",
-        "{\"protocol\":1} {}",
-        "{\"protocol\":1}}",
+        "{\"protocol\":2} {}",
+        "{\"protocol\":2}}",
     ] {
         let line = format!("HELLO {payload}");
         let outcome = Hello::decode(line.as_bytes());
@@ -251,7 +251,7 @@ fn a_hello_with_any_field_missing_is_refused_and_the_field_is_named() {
             "{field}: {detail}"
         );
     }
-    let no_protocol = HELLO_LINE.replace(r#""protocol":1,"#, "");
+    let no_protocol = HELLO_LINE.replace(r#""protocol":2,"#, "");
     let detail = invalid_detail(Hello::decode(no_protocol.as_bytes()));
     assert!(detail.contains("missing field `protocol`"), "{detail}");
 }
@@ -263,14 +263,14 @@ fn a_hello_with_any_field_missing_is_refused_and_the_field_is_named() {
 fn a_hello_of_another_protocol_version_is_refused_as_such() {
     for (got, line) in [
         (
-            2,
-            HELLO_LINE.replace(r#""protocol":1,"#, r#""protocol":2,"#),
+            3,
+            HELLO_LINE.replace(r#""protocol":2,"#, r#""protocol":3,"#),
         ),
         (
             0,
-            HELLO_LINE.replace(r#""protocol":1,"#, r#""protocol":0,"#),
+            HELLO_LINE.replace(r#""protocol":2,"#, r#""protocol":0,"#),
         ),
-        (2, r#"HELLO {"protocol":2}"#.to_string()),
+        (3, r#"HELLO {"protocol":3}"#.to_string()),
         (
             7,
             r#"HELLO {"protocol":7,"id":"k","opts":{"result_cap":1}}"#.to_string(),
@@ -285,9 +285,9 @@ fn a_hello_of_another_protocol_version_is_refused_as_such() {
     for bad in [
         r#""protocol":"1","#,
         r#""protocol":-1,"#,
-        r#""protocol":1.5,"#,
+        r#""protocol":2.5,"#,
     ] {
-        let line = HELLO_LINE.replace(r#""protocol":1,"#, bad);
+        let line = HELLO_LINE.replace(r#""protocol":2,"#, bad);
         let outcome = Hello::decode(line.as_bytes());
         assert!(
             matches!(outcome, Err(PreambleError::Invalid { .. })),
@@ -423,7 +423,7 @@ fn a_hello_with_a_field_this_version_does_not_define_is_refused_by_name() {
     for (field, line) in [
         (
             "extra",
-            HELLO_LINE.replace(r#""protocol":1,"#, r#""protocol":1,"extra":true,"#),
+            HELLO_LINE.replace(r#""protocol":2,"#, r#""protocol":2,"extra":true,"#),
         ),
         (
             "debug",
@@ -447,13 +447,13 @@ fn a_hello_with_a_field_this_version_does_not_define_is_refused_by_name() {
 #[test]
 fn a_hello_in_any_spelling_other_than_the_encoder_s_is_refused() {
     let variants = [
-        HELLO_LINE.replace(r#""protocol":1,"#, r#""protocol":1,"extra":true,"#),
+        HELLO_LINE.replace(r#""protocol":2,"#, r#""protocol":2,"extra":true,"#),
         HELLO_LINE.replace(r#""warm_at_startup":false"#, r#""warm_at_startup":false,"debug":1"#),
         HELLO_LINE.replace(
             r#""result_cap":80000,"#,
             r#""result_cap":80000,"result_cap":90000,"#,
         ),
-        HELLO_LINE.replace(r#""protocol":1,"#, r#""protocol":1,"protocol":1,"#),
+        HELLO_LINE.replace(r#""protocol":2,"#, r#""protocol":2,"protocol":2,"#),
         HELLO_LINE.replace(
             r#"{"structured_content":"omit-default-path","concise_shape":"slim","result_cap":80000,"first_call_wait_secs":20,"warm_at_startup":false}"#,
             r#"["omit-default-path","slim",80000,20,false]"#,
@@ -462,7 +462,7 @@ fn a_hello_in_any_spelling_other_than_the_encoder_s_is_refused() {
             r#""concise_shape":"slim","result_cap":80000,"#,
             r#""result_cap":80000,"concise_shape":"slim","#,
         ),
-        HELLO_LINE.replace(r#"{"protocol":1,"#, r#"{ "protocol":1,"#),
+        HELLO_LINE.replace(r#"{"protocol":2,"#, r#"{ "protocol":2,"#),
         HELLO_LINE.replace(r#""result_cap":80000"#, r#""result_cap":080000"#),
         format!("{HELLO_LINE} "),
         format!("{HELLO_LINE}\r"),
@@ -519,7 +519,7 @@ fn every_error_prints_on_one_bounded_line() {
         Hello::decode(format!("HELLO {}", "[".repeat(3000)).as_bytes()).unwrap_err(),
         Hello::decode(format!("HELLO {{{}", "[".repeat(3000)).as_bytes()).unwrap_err(),
         Hello::decode(b"HELLO {\"protocol\":9}").unwrap_err(),
-        Hello::decode(format!("HELLO {{\"protocol\":1,\"{}\":1}}", "x".repeat(3000)).as_bytes())
+        Hello::decode(format!("HELLO {{\"protocol\":2,\"{}\":1}}", "x".repeat(3000)).as_bytes())
             .unwrap_err(),
         Hello::decode(HELLO_LINE.replace("80000", "1").as_bytes()).unwrap_err(),
     ];
@@ -538,12 +538,12 @@ fn every_error_prints_on_one_bounded_line() {
 fn control_characters_from_the_peer_never_reach_an_errors_text() {
     for (verb_and_rest, decode) in [
         (
-            r#"HELLO {"protocol":1,"a\nFORGED LOG LINE":1}"#,
+            r#"HELLO {"protocol":2,"a\nFORGED LOG LINE":1}"#,
             (|line: &[u8]| Hello::decode(line).map(|_| ()))
                 as fn(&[u8]) -> Result<(), PreambleError>,
         ),
         (
-            r#"HELLO {"protocol":1,"a\u001b[31mRED\r\u0000":1}"#,
+            r#"HELLO {"protocol":2,"a\u001b[31mRED\r\u0000":1}"#,
             |line: &[u8]| Hello::decode(line).map(|_| ()),
         ),
         (r#"BUSY {"a\nFORGED":1}"#, |line: &[u8]| {
@@ -587,7 +587,7 @@ fn text_is_cut_between_characters_wherever_the_limit_falls() {
     // The detail: 200 bytes at most. An unknown field name of 3-byte characters, shifted.
     for pad in 0..3 {
         let name = format!("{}{}", "x".repeat(pad), "€".repeat(120));
-        let line = format!("HELLO {{\"protocol\":1,\"{name}\":1}}");
+        let line = format!("HELLO {{\"protocol\":2,\"{name}\":1}}");
         match Hello::decode(line.as_bytes()).unwrap_err() {
             PreambleError::Invalid { detail } => {
                 assert!(detail.len() <= 200, "{} bytes", detail.len());
@@ -649,21 +649,21 @@ fn lenient_spellings_of_a_valid_hello_are_all_refused() {
         ("a 65-digit key", hello.replace(key, &format!("{key}0"))),
         (
             "a duplicated field",
-            hello.replace("\"protocol\":1,", "\"protocol\":1,\"protocol\":1,"),
+            hello.replace("\"protocol\":2,", "\"protocol\":2,\"protocol\":2,"),
         ),
         (
             "a nested value",
             hello.replace(
-                "\"protocol\":1,",
+                "\"protocol\":2,",
                 &format!("\"protocol\":{}1{},", "[".repeat(1500), "]".repeat(1500)),
             ),
         ),
         (
             "a nested unknown field",
             hello.replace(
-                "\"protocol\":1,",
+                "\"protocol\":2,",
                 &format!(
-                    "\"protocol\":1,\"x\":{}{},",
+                    "\"protocol\":2,\"x\":{}{},",
                     "[".repeat(1500),
                     "]".repeat(1500)
                 ),
@@ -687,7 +687,7 @@ fn lenient_spellings_of_a_valid_hello_are_all_refused() {
     // Large integers that are exactly representable keep their exact value.
     for exact in [9_007_199_254_740_993u64, u64::MAX] {
         let ready = format!(
-            "READY {{\"protocol\":1,\"identity\":\"{key}\",\"pid\":1,\"start_time\":{exact},\"generation\":{exact},\"build\":\"ready\"}}"
+            "READY {{\"protocol\":2,\"identity\":\"{key}\",\"pid\":1,\"start_time\":{exact},\"generation\":{exact},\"build\":\"ready\",\"index_idle_timeout_secs\":0,\"index_idle_pressure_relief\":false}}"
         );
         match Reply::decode(ready.as_bytes()) {
             Ok(Reply::Ready(decoded)) => {

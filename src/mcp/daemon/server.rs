@@ -533,6 +533,8 @@ impl Server {
                     start_time: self.served.start_time,
                     generation: status.generation,
                     build: status.state,
+                    index_idle_timeout_secs: self.state.idle_timeout.map_or(0, |n| n.as_secs()),
+                    index_idle_pressure_relief: self.state.lifecycle.relief,
                 });
                 if (&stream).write_all(ready.encode().as_bytes()).is_err() {
                     return Ok(self.state.release()?);
@@ -585,6 +587,8 @@ impl Server {
             generation: snapshot.build.generation,
             idle_secs: snapshot.idle_for.map(|idle| idle.as_secs()),
             idle_ttl_secs: self.options.idle_ttl.as_secs(),
+            index_idle_timeout_secs: self.state.idle_timeout.map_or(0, |n| n.as_secs()),
+            index_idle_pressure_relief: self.state.lifecycle.relief,
             shutdown: snapshot.shutdown,
         };
         let _ = (&*stream).write_all(status.encode().as_bytes());

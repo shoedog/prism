@@ -186,8 +186,8 @@
       "edits": [
         {
           "file": "src/mcp/daemon/coordinator.rs",
-          "old": "    pub(super) idle_timeout: Option<std::time::Duration>,\n    pub(super) idle_waker:",
-          "new": "    pub(super) idle_timeout: Option<std::time::Duration>,\n    mutant_started: Instant,\n    pub(super) idle_waker:"
+          "old": "    pub(super) provider: RwLock<Option<SessionProvider>>,",
+          "new": "    pub(super) provider: RwLock<Option<SessionProvider>>,\n    mutant_started: Instant,"
         },
         {
           "file": "src/mcp/daemon/coordinator.rs",

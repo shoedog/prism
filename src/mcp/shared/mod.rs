@@ -18,4 +18,7 @@ pub mod runtime_dir;
 /// Version of the private shim–daemon protocol (spec §4.4). It is part of the identity key
 /// (§4.3), so builds that speak different versions never look for each other's socket, and
 /// the preamble repeats it so that a version difference is reported, not misparsed.
-pub const SHARED_PROTOCOL_VERSION: u32 = 1;
+pub const SHARED_PROTOCOL_VERSION: u32 = 2;
+
+#[cfg(test)]
+mod idle_wire_tests;

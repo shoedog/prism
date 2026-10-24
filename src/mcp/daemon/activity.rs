@@ -1,13 +1,13 @@
 //! Tool admission and serving lifetime. Socket and handshake lifetimes are independent.
 use super::coordinator::{ControlState, DaemonState, Poisoned};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 
 /// A bounded latest-event slot for I0b-2's lifecycle formatter; produced at the real release.
 #[derive(Clone, Copy, Debug)]
-#[allow(dead_code)] // consumed by lifecycle formatting in the following slice
 pub(super) struct LastRelease {
     pub(super) at: Instant,
+    pub(super) wall: SystemTime,
     pub(super) attempt: u64,
     pub(super) generation: u64,
 }
@@ -88,6 +88,7 @@ impl Drop for ToolActivity {
             if control.idle.pending == 0 && control.idle.leases == 0 {
                 control.idle.last_release_event = Some(LastRelease {
                     at: now,
+                    wall: self.state.wall_now(),
                     attempt: control.attempts,
                     generation: control.generation,
                 });
