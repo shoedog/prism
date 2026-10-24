@@ -293,6 +293,58 @@ fn freshness_service_recheck_after_validation() {
 }
 
 #[test]
+fn freshness_diverged_commit_preserves_uncertifiable_attempt() {
+    for policy in [RefreshPolicy::AutoFull, RefreshPolicy::AutoIncremental] {
+        let (d, cfg) = fixture(policy);
+        let mut p = SessionProvider::bootstrap(&cfg).unwrap();
+        let path = d.path().join("a.py");
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o0)).unwrap();
+        let first = FreshnessProbe::from_loaded_repo(&p.session.repo);
+        let replacement = FreshnessProbe::from_loaded_repo(&p.session.repo);
+        let first_report = first.check();
+        let replacement_report = replacement.check();
+        let key = first.uncertifiable_key();
+        let replacement_key = replacement.uncertifiable_key();
+        // Restore access before assertions and candidate loading; no unlock/relock
+        // occurs between the two captures of identical uncertain evidence.
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(first_report.stale);
+        assert_eq!(first_report, replacement_report);
+        assert!(key.is_some(), "fixture must be uncertifiable");
+        assert_eq!(
+            key, replacement_key,
+            "equal evidence must suppress replacement"
+        );
+
+        // Isolate the commit invariant from loader access/ctime changes. The
+        // automatic attempt records this key before committing a candidate.
+        p.auto_attempt = key;
+        p.force_next_verification_for_tests(RefreshVerification::Diverged(first_report.clone()));
+        let committed = p.refresh_verified(RefreshStrategyPolicy::FullOnly).unwrap();
+        assert_eq!(
+            committed.verification,
+            RefreshVerification::Diverged(first_report)
+        );
+        assert_eq!(p.generation(), 1, "a replacement was committed");
+        assert_eq!(
+            p.auto_attempt, key,
+            "Diverged commit must preserve auto_attempt"
+        );
+        // With equally uncertain replacement evidence, the preserved attempt
+        // suppresses the next query without changing the configured policy.
+        p.freshness = replacement;
+        assert_eq!(p.refresh_policy(), RefreshPolicy::WarnOnly);
+        assert_eq!(p.cfg.refresh_policy, policy);
+
+        p.force_next_verification_for_tests(RefreshVerification::Clean);
+        p.refresh_verified(RefreshStrategyPolicy::FullOnly).unwrap();
+        assert_eq!(p.auto_attempt, None, "Clean commit must clear auto_attempt");
+        assert_eq!(p.refresh_policy(), policy);
+        assert!(p.known_stale_after_refresh().is_none());
+    }
+}
+
+#[test]
 fn freshness_equally_uncertifiable_replacement_and_explicit_refresh() {
     for policy in [RefreshPolicy::AutoFull, RefreshPolicy::AutoIncremental] {
         let (d, cfg) = fixture(policy);

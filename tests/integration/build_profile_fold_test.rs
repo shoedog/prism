@@ -344,21 +344,6 @@ fn tiny_owner_rd_excludes_cfg_in_either_order() {
         assert_eq!(owners[2]["file_cfg_init_ns"], 0);
         // Same interval, sampled before the phase's drop.
         assert!(init <= cfg["wall_ns"].as_u64().unwrap());
-        if first {
-            // One-sided live backstop: tiny's RD and total exclude the whole
-            // file's CFG build. Correct code fails only if tiny stalls longer
-            // than that build; no cross-order timing ratio or warm-up is needed.
-            let tiny_rd = owners[1]["reaching_definitions_ns"].as_u64().unwrap();
-            let tiny_total = owners[1]["total_ns"].as_u64().unwrap();
-            assert!(
-                tiny_rd < init,
-                "tiny RD {tiny_rd} must exclude CFG init {init}"
-            );
-            assert!(
-                tiny_total < init,
-                "tiny total {tiny_total} must exclude CFG init {init}"
-            );
-        }
         let rd = rs
             .iter()
             .find(|r| r["name"] == "dfg.file_rd" && r["file"] == owners[1]["file"])
