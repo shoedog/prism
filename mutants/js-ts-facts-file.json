@@ -1,0 +1,70 @@
+{
+  "lane": "JS/TS per-file export resolution inventory",
+  "source": "src/ast/js_export_index.rs",
+  "lib_test_prefixes": [
+    "ast::js_module_forwarding::",
+    "call_graph::js_ts_facts::"
+  ],
+  "mutations": {
+    "JF01-drop-write-target": [
+      "src/ast/js_export_index.rs",
+      "out.writes.entry(name).or_default().push(target);",
+      "let _ = (name, target);",
+      "ast::js_module_forwarding::index::tests::import_filter_pins_visible_writes_and_shadowed_writes"
+    ],
+    "JF02-drop-competitor": [
+      "src/ast/js_export_index.rs",
+      "out.declarations.entry(name).or_default().insert(node.id());",
+      "let _ = name;",
+      "ast::js_module_forwarding::index::tests::indexed_predicates_match_legacy_syntax_and_shadowing"
+    ],
+    "JF03-allow-self-inverted": [
+      "src/ast/js_export_index.rs",
+      "*id != allowed",
+      "*id == allowed",
+      "ast::js_module_forwarding::index::tests::indexed_predicates_match_legacy_syntax_and_shadowing"
+    ],
+    "JF04-wrong-self-binding-policy": [
+      "src/ast/js_export_index.rs",
+      "parsed.tree.root_node().id(), true",
+      "parsed.tree.root_node().id(), false",
+      "ast::js_module_forwarding::index::tests::indexed_predicates_match_legacy_syntax_and_shadowing"
+    ],
+    "JF05-drop-descent": [
+      "src/ast/js_export_index.rs",
+      "stack.extend(node.named_children(&mut cursor));",
+      "let _ = &mut cursor;",
+      "ast::js_module_forwarding::index::tests::import_filter_pins_visible_writes_and_shadowed_writes"
+    ],
+    "JF06-ignore-updates": [
+      "src/ast/js_export_index.rs",
+      "| \"update_expression\"",
+      "| \"not_an_update\"",
+      "ast::js_module_forwarding::index::tests::import_filter_pins_visible_writes_and_shadowed_writes"
+    ],
+    "JF07-keep-written-imports": [
+      "src/ast/js_export_index.rs",
+      "names.retain(|name| !index.written(self, name));",
+      "let _ = index;",
+      "ast::js_module_forwarding::index::tests::import_filter_pins_visible_writes_and_shadowed_writes"
+    ],
+    "JF08-repeat-forwarding-walks": [
+      "src/ast/js_module_forwarding.rs",
+      "if !index.competes(name, declaration.id()) && !index.written(self, name) {",
+      "if !self.js_ts_forwarding_competitor(root, name, Some(declaration.id())) && !self.js_ts_module_value_written(name) {",
+      "ast::js_module_forwarding::tests::forwarding_work_is_one_file_walk"
+    ],
+    "JF09-drop-only-filter": [
+      "src/ast/js_export_index.rs",
+      "&& only.is_none_or(|name| b.local == name)",
+      "&& only.is_none_or(|_name| true)",
+      "ast::js_module_forwarding::index::tests::import_filter_pins_visible_writes_and_shadowed_writes"
+    ],
+    "JF10-admit-errorful-imports": [
+      "src/ast/js_export_index.rs",
+      "if root.has_error() {",
+      "if false && root.has_error() {",
+      "ast::js_module_forwarding::index::tests::indexed_predicates_match_legacy_syntax_and_shadowing"
+    ]
+  }
+}

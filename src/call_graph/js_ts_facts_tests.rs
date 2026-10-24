@@ -28,7 +28,7 @@ fn with_sequential<T>(op: impl FnOnce() -> T) -> T {
     }
     let _restore = Restore(SEQUENTIAL.with(|v| v.replace(true)));
     let before = ORACLE_CALLS.with(Cell::get);
-    let result = op();
+    let result = ParsedFile::with_legacy_export_facts(op);
     assert!(
         ORACLE_CALLS.with(Cell::get) > before,
         "sequential oracle bypassed"
@@ -286,3 +286,6 @@ fn incremental_partial_update_matches_full_and_sequential() {
         assert!(observations(&full) == observations(&serial));
     });
 }
+
+#[path = "js_ts_facts_file_tests.rs"]
+mod file_tests;

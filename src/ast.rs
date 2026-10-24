@@ -2466,33 +2466,6 @@ impl ParsedFile {
         imports
     }
 
-    fn js_ts_esm_named_imports(&self, only: Option<&str>) -> BTreeSet<String> {
-        let mut names = BTreeSet::new();
-        let root = self.tree.root_node();
-        if root.has_error() {
-            return names;
-        }
-        let mut cursor = root.walk();
-        for node in root.named_children(&mut cursor) {
-            if node.kind() != "import_statement" || self.js_ts_import_statement_is_type_only(node) {
-                continue;
-            }
-            let mut imports = Vec::new();
-            self.collect_js_import_statement_bindings(node, &mut imports);
-            names.extend(
-                imports
-                    .into_iter()
-                    .filter(|b| {
-                        b.kind == crate::call_graph::ImportBindingKind::MemberImport
-                            && only.is_none_or(|name| b.local == name)
-                    })
-                    .map(|b| b.local),
-            );
-        }
-        names.retain(|name| !self.js_ts_module_value_written(name));
-        names
-    }
-
     fn js_ts_export_statement_is_default(&self, node: Node<'_>) -> bool {
         let mut cursor = node.walk();
         let found = node
