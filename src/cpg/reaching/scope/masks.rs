@@ -22,6 +22,7 @@ pub(super) fn collect_classified_masks(
                 row.declaration,
                 Some(DeclarationKind::Other | DeclarationKind::Pattern)
             )
+            && !transfer::is_route_effect_node(parsed.language, node.kind())
             && row.ruling == Ruling::Classified
     }) {
         let scope = if row.roles.has(Role::Scope) {

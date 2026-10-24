@@ -14,4 +14,6 @@ kill_line = 4
 [[expect.edges]]
 from = "a.py:2:x"
 to = "a.py:6:x"
-confidence = "exact"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 5

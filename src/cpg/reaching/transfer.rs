@@ -1,5 +1,12 @@
 //! Edge-local transfer nodes for classified binding reuse constructs.
 
+mod route_effects;
+
+pub(super) use route_effects::{
+    apply_explicit_kills, is_route_effect_node, is_route_import_definition,
+    materialize_route_effects, merge_synthetic_nodes,
+};
+
 use super::binding_table::{select_binding_row, DeclarationKind, Role, Ruling};
 use super::grammar_lint::ByteSpan;
 use super::scope::{BindingFacts, BindingRelation};
@@ -66,7 +73,10 @@ pub(super) fn discover(parsed: &ParsedFile, func: &Node<'_>, defs: &[DefSite]) -
             return;
         }
         if let Some(row) = select_binding_row(parsed, node).filter(|row| {
-            row.ruling == Ruling::Classified
+            (row.ruling == Ruling::Classified
+                || (parsed.language == crate::languages::Language::Python
+                    && node.kind() == "with_item"
+                    && matches!(row.ruling, Ruling::Uncertain { .. })))
                 && row.roles.has(Role::Binding)
                 && matches!(
                     row.declaration,
@@ -500,7 +510,9 @@ pub(super) fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) ->
             | "expression_list"
             | "as_pattern_target"
             | "pattern_list"
+            | "tuple"
             | "tuple_pattern"
+            | "list"
             | "list_pattern"
             | "list_splat_pattern"
             | "splat_pattern" => {
@@ -525,9 +537,10 @@ pub(super) fn row_introduced_identifiers<'a>(
 ) -> Vec<Node<'a>> {
     let mut identifiers = Vec::new();
     for field in fields {
-        if let Some(target) = node.child_by_field_name(field) {
+        let mut cursor = node.walk();
+        for target in node.children_by_field_name(field, &mut cursor) {
             if parsed.language == crate::languages::Language::Python
-                && node.kind() == "except_clause"
+                && matches!(node.kind(), "except_clause" | "with_item")
                 && *field == "value"
                 && target.kind() != "as_pattern"
             {

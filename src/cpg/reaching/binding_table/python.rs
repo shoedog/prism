@@ -1,4 +1,4 @@
-use super::{BindingRow, DeclarationKind, Role, RoleSet, Ruling, Visibility};
+use super::{BindingRow, DeclarationKind, Predicate, Role, RoleSet, Ruling, Visibility};
 use crate::languages::Language;
 
 pub(super) static ROWS: &[BindingRow] = &[
@@ -106,7 +106,7 @@ pub(super) static ROWS: &[BindingRow] = &[
         kind: "named_expression",
         variant: None,
         roles: RoleSet::of(&[Role::Binding]),
-        fields: &["left"],
+        fields: &["name"],
         declaration: Some(DeclarationKind::PythonAssignment),
         visibility: Visibility::AfterIntroduction,
         ruling: Ruling::Classified,
@@ -133,6 +133,24 @@ pub(super) static ROWS: &[BindingRow] = &[
         visibility: Visibility::WholeScope,
         ruling: Ruling::Classified,
         regression: "py-with-statement-container",
+    },
+    BindingRow {
+        language: Language::Python,
+        kind: "with_item",
+        variant: Some(Predicate::NestedFieldChildKindIs {
+            field: "value",
+            nested_field: "alias",
+            any_of: &["tuple", "list"],
+        }),
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["value"],
+        declaration: Some(DeclarationKind::Reuse),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Uncertain {
+            reason: "sequence with-target CFG mapping",
+            revisit: "future:python-with-sequence-target",
+        },
+        regression: "py-with-sequence-aliases",
     },
     BindingRow {
         language: Language::Python,

@@ -1,9 +1,6 @@
 macro_rules! placeholder_owners {
     ($language:ident, $predicate:ident) => {
         &[
-            (($language::Python, "assignment", None::<$predicate>, "e0a-py-assignment"), "Task 11"),
-            (($language::Python, "augmented_assignment", None::<$predicate>, "e0a-py-augmented_assignment"), "Task 11"),
-            (($language::Python, "named_expression", None::<$predicate>, "e0a-py-named_expression"), "Task 11"),
             (($language::Python, "function_definition", None::<$predicate>, "e0a-py-function_definition"), "Task 12"),
             (($language::Python, "lambda", None::<$predicate>, "e0a-py-lambda"), "Task 12"),
             (($language::Python, "class_definition", None::<$predicate>, "e0a-py-class_definition"), "Task 12"),

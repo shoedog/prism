@@ -1,6 +1,7 @@
 //! Lexical binding ownership for reaching definitions.
 
 mod masks;
+mod use_lookup;
 
 use masks::{collect_classified_masks, simple_catch_parameter_owns_def};
 
@@ -275,7 +276,7 @@ impl BindingFacts {
         if let Some(cached) = self.use_byte_cache.borrow().get(&key) {
             return *cached;
         }
-        let value = use_byte(parsed, edge);
+        let value = use_lookup::use_byte(parsed, edge);
         #[cfg(test)]
         super::work_tests::bump(|counts| counts.use_byte_misses += 1);
         self.use_byte_cache.borrow_mut().insert(key, value);
@@ -436,6 +437,13 @@ fn declaration_seed(
         .descendant_for_byte_range(def.start_byte, end_byte)?;
     loop {
         let selected_row = select_binding_row(parsed, node);
+        if transfer::is_route_import_definition(parsed, node, def) {
+            return Some((
+                function_scope,
+                DeclarationKind::Reuse,
+                function_scope.start_byte,
+            ));
+        }
         if let Some(row) = selected_row.filter(|row| row.visibility == Visibility::Header) {
             let left = node.child_by_field_name("left");
             if left.is_some_and(|left| {
@@ -567,30 +575,6 @@ pub(super) fn scope_span(node: Node<'_>) -> ScopeSpan {
         end_byte: node.end_byte(),
         end_line: node.end_position().row + 1,
     }
-}
-
-fn use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
-    if edge.to.start_byte < edge.to.end_byte {
-        return Some(edge.to.start_byte);
-    }
-    let lines = std::collections::BTreeSet::from([edge.to.line]);
-    let func_node = parsed
-        .all_functions()
-        .into_iter()
-        .find(|node| parsed.node_line_range(node).0 == edge.to.function_start_line)?;
-    let mut spans = parsed
-        .rvalue_identifier_spans_on_lines(&func_node, &lines)
-        .into_iter()
-        .filter(|span| span.line == edge.to.line && span.path == edge.to.path);
-    if let Some(first) = spans.next() {
-        return spans.next().is_none().then_some(first.start_byte);
-    }
-    let mut identifiers = parsed
-        .identifiers_on_line(edge.to.line)
-        .into_iter()
-        .filter(|node| parsed.node_text(node) == edge.to.path.base);
-    let first = identifiers.next()?;
-    identifiers.next().is_none().then_some(first.start_byte())
 }
 
 #[cfg(test)]
