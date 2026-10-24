@@ -9,4 +9,4 @@ from = "a.py:2:x"
 to = "a.py:4:x"
 confidence = "nameonly"
 doubt = "ownership_uncertain"
-construct_line = 3
+kill_line = 3
