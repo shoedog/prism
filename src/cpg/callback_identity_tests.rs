@@ -457,13 +457,11 @@ fn synthetic_spelling_is_unspellable_by_any_real_owner() {
 #[test]
 fn enclosing_walk_never_reaches_nested_binders() {
     // Direction 1 (E3): the enclosing pass's Defs of `y` must not reach a Use
-    // whose binding is a nested formal, catch parameter, let/const for head,
-    // named function-expression self name, class-expression name, a
-    // block-level function declaration or a nested callable's hoisted `var`.
+    // whose binding is a nested formal, ordinary for initializer, named
+    // function-expression self name, class-expression name, a block-level
+    // function declaration or a nested callable's hoisted `var`.
     let cases = [
         ("function h(y) {\n  list.forEach(function (y) {\n    use(y);\n  });\n}\n", 3),
-        ("function h(y) {\n  try { a(); } catch (y) {\n    use(y);\n  }\n}\n", 3),
-        ("function h(y) {\n  for (const y of ys) {\n    use(y);\n  }\n}\n", 3),
         ("function h(y) {\n  const f = function y() {\n    use(y);\n  };\n}\n", 3),
         ("function h(y) {\n  const K = class y {\n    m() { use(y); }\n  };\n}\n", 3),
         ("function h(y) {\n  if (c) {\n    function y() {}\n    use(y);\n  }\n}\n", 4),
@@ -479,6 +477,34 @@ fn enclosing_walk_never_reaches_nested_binders() {
                 "{language:?} leaked outer y into the nested binder: {src}\n{rows:?}"
             );
         }
+    }
+
+    // Rule 2a deliberately retains the JavaScript outer-parameter edge into
+    // a catch body, but labels the different catch binding as masked.
+    let catch = "function h(y) {\n  try { a(); } catch (y) {\n    use(y);\n  }\n}\n";
+    assert_eq!(
+        r1_label(&build(Language::JavaScript, catch), "h", "y", 1, 3),
+        super::FlowConfidence::NameOnly(super::FlowDoubt::Killed { kill_line: 2 })
+    );
+    for language in [Language::TypeScript, Language::Tsx] {
+        let rows = rows(&build(language, catch));
+        assert!(
+            !edge(&rows, "h", "y", 1, 3),
+            "{language:?} changed the main catch-row behavior: {rows:?}"
+        );
+    }
+
+    // The enumerated for-of binder is also a classified mask. All three
+    // grammars retain the outer parameter as Killed and the loop-local Def
+    // as the Exact producer.
+    let for_of = "function h(y) {\n  for (const y of ys) {\n    use(y);\n  }\n}\n";
+    for language in JS_TS {
+        let cpg = build(language, for_of);
+        assert_eq!(
+            r1_label(&cpg, "h", "y", 1, 3),
+            super::FlowConfidence::NameOnly(super::FlowDoubt::Killed { kill_line: 2 })
+        );
+        assert_eq!(r1_label(&cpg, "h", "y", 2, 3), super::FlowConfidence::Exact);
     }
 }
 
