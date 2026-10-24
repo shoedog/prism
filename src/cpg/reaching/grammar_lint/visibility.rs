@@ -27,10 +27,10 @@ pub(in crate::cpg::reaching) fn visibility_span(
     binder_node: Node<'_>,
 ) -> SpanKind {
     if let Some(row) = guard_span_row(parsed.language, binder_node.kind()) {
-        let Some(guard) = ancestor_of_kind(binder_node, row.guard_kind) else {
+        let Some(guard) = super::ancestor_of_kind(binder_node, row.guard_kind) else {
             return SpanKind::Unknown;
         };
-        let Some(owner) = ancestor_of_kind(guard, row.owner_kind) else {
+        let Some(owner) = super::ancestor_of_kind(guard, row.owner_kind) else {
             return SpanKind::Unknown;
         };
         let Some(condition) = owner.child_by_field_name(row.condition_field) else {
@@ -84,7 +84,7 @@ pub(in crate::cpg::reaching) fn visibility_span(
         };
     }
     if parsed.language == Language::Python && super::is_python_match_pattern(binder_node) {
-        let Some(case_clause) = ancestor_of_kind(binder_node, "case_clause") else {
+        let Some(case_clause) = super::ancestor_of_kind(binder_node, "case_clause") else {
             return SpanKind::Unknown;
         };
         return if binder_node.end_byte() < case_clause.end_byte() {
@@ -114,15 +114,6 @@ pub(in crate::cpg::reaching) fn visibility_span(
             start: scoped.start_byte(),
             end: scoped.end_byte(),
         }])
-    }
-}
-
-fn ancestor_of_kind<'a>(mut node: Node<'a>, kind: &str) -> Option<Node<'a>> {
-    loop {
-        if node.kind() == kind {
-            return Some(node);
-        }
-        node = node.parent()?;
     }
 }
 

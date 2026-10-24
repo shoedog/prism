@@ -232,7 +232,7 @@ fn uncertain_construct_on_route(
     statements: &mut statement_lookup::StatementLookup<'_>,
     successors: &[Vec<(usize, bool)>],
 ) -> Option<Line> {
-    let use_byte = edge_use_byte(parsed, edge)?;
+    let use_byte = edge_use_byte(parsed, edge);
     let function = parsed
         .all_functions()
         .into_iter()
@@ -261,11 +261,11 @@ fn uncertain_construct_on_route(
                             | "class_pattern"
                             | "as_pattern"
                             | "keyword_pattern"
-                            | "pattern_list"
-                            | "tuple_pattern"
-                            | "list_pattern"
                     )
-            );
+            ) || (parsed.language
+                == crate::languages::Language::Python
+                && matches!(binder.kind(), "tuple_pattern" | "list_pattern")
+                && is_python_match_pattern(binder));
             if !explicit_uncertain_binder {
                 return None;
             }
@@ -295,11 +295,29 @@ fn uncertain_construct_on_route(
                 return None;
             }
             let visible = match visibility_span(parsed, binder) {
-                SpanKind::Known(spans) => spans.into_iter().any(|span| span.contains(use_byte)),
+                SpanKind::Known(spans) => use_byte.map_or_else(
+                    || {
+                        if !unplaced_python_pattern {
+                            return false;
+                        }
+                        let identifiers: Vec<_> = parsed
+                            .identifiers_on_line(edge.to.line)
+                            .into_iter()
+                            .filter(|node| parsed.node_text(node) == edge.to.path.base)
+                            .collect();
+                        identifiers.len() > 1
+                            && identifiers.iter().any(|identifier| {
+                                spans
+                                    .iter()
+                                    .any(|span| span.contains(identifier.start_byte()))
+                            })
+                    },
+                    |use_byte| spans.iter().any(|span| span.contains(use_byte)),
+                ),
                 SpanKind::Empty => false,
-                SpanKind::Unknown => {
+                SpanKind::Unknown => use_byte.is_some_and(|use_byte| {
                     binder.start_byte() <= use_byte && use_byte < function.end_byte()
-                }
+                }),
             };
             visible.then_some(construct_line)
         })

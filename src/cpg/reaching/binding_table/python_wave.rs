@@ -57,9 +57,25 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
         regression: "py-as-pattern-non-case-transparent",
     },
     pattern_row("keyword_pattern", None, &[], "py-keyword-pattern-uncertain"),
-    pattern_row("pattern_list", None, &[], "py-pattern-list-uncertain"),
-    pattern_row("tuple_pattern", None, &[], "py-tuple-pattern-uncertain"),
-    pattern_row("list_pattern", None, &[], "py-list-pattern-uncertain"),
+    transparent_row("pattern_list", "py-pattern-list-non-case-transparent"),
+    pattern_row(
+        "tuple_pattern",
+        Some(Predicate::AncestorKindIs {
+            kind: "case_clause",
+        }),
+        &[],
+        "py-tuple-pattern-uncertain",
+    ),
+    transparent_row("tuple_pattern", "py-tuple-pattern-non-case-transparent"),
+    pattern_row(
+        "list_pattern",
+        Some(Predicate::AncestorKindIs {
+            kind: "case_clause",
+        }),
+        &[],
+        "py-list-pattern-uncertain",
+    ),
+    transparent_row("list_pattern", "py-list-pattern-non-case-transparent"),
 ];
 
 const fn pattern_row(
@@ -77,6 +93,20 @@ const fn pattern_row(
         declaration: Some(DeclarationKind::Pattern),
         visibility: Visibility::Header,
         ruling: PATTERN_UNCERTAIN,
+        regression,
+    }
+}
+
+const fn transparent_row(kind: &'static str, regression: &'static str) -> BindingRow {
+    BindingRow {
+        language: Language::Python,
+        kind,
+        variant: None,
+        roles: RoleSet::of(&[Role::NotBinding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
         regression,
     }
 }

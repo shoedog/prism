@@ -545,7 +545,9 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
         .find(|r| r.kind == kind && r.variant.is_none())
     {
         return BindingScopeRule {
-            creates_scope: r.roles.has(Role::Scope),
+            creates_scope: r.roles.has(Role::Scope)
+                && !(language == Language::Python
+                    && matches!(kind, "match_statement" | "case_clause")),
             declaration: r.declaration,
         };
     }

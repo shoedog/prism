@@ -80,6 +80,9 @@ pub(crate) enum Predicate {
     ParentKindIs {
         kind: &'static str,
     },
+    AncestorKindIs {
+        kind: &'static str,
+    },
     HasField {
         field: &'static str,
     },
@@ -340,6 +343,18 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
         }
         Predicate::ParentKindIs { kind } => {
             node.parent().is_some_and(|parent| parent.kind() == *kind)
+        }
+        Predicate::AncestorKindIs { kind } => {
+            let mut current = node.parent();
+            let mut found = false;
+            while let Some(ancestor) = current {
+                if ancestor.kind() == *kind {
+                    found = true;
+                    break;
+                }
+                current = ancestor.parent();
+            }
+            found
         }
         Predicate::HasField { field } => node.child_by_field_name(field).is_some(),
         Predicate::IsImmediatelyInvoked => {

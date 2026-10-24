@@ -63,7 +63,7 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
                 .any(|identifier| parsed.node_text(&identifier) == name)
         });
     }
-    if parsed.language == Language::Python && is_python_pattern_kind(node.kind()) {
+    if parsed.language == Language::Python && is_python_match_pattern(node) {
         return subtree_has_name(parsed, node, name);
     }
     let special_target = match (parsed.language, node.kind()) {

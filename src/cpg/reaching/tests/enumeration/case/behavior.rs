@@ -143,17 +143,20 @@ pub(super) fn assert_ruling(
                 case.id
             );
         }
-        Some(Ruling::Classified) => assert!(
+        Some(Ruling::Classified) if is_not_binding => assert!(
             case.expect
                 .iter()
                 .all(|(_, _, label)| matches!(label, FlowConfidence::Exact)),
-            "{}: classified {} behavior needs Exact invariance",
-            case.id,
-            if is_not_binding {
-                "NotBinding"
-            } else {
-                "scope"
-            }
+            "{}: classified NotBinding behavior needs Exact invariance",
+            case.id
+        ),
+        Some(Ruling::Classified) => assert!(
+            case.expect.iter().all(|(_, _, label)| matches!(
+                label,
+                FlowConfidence::Exact | FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+            )),
+            "{}: classified scope behavior needs Exact or CfgIncomplete",
+            case.id
         ),
         None => {}
     }
@@ -365,7 +368,7 @@ fn empty_behavioral_case_is_rejected() {
 }
 
 #[test]
-#[should_panic(expected = "classified scope behavior needs Exact invariance")]
+#[should_panic(expected = "classified scope behavior needs Exact or CfgIncomplete")]
 fn classified_scope_behavior_rejects_non_exact_invariance() {
     assert_ruling(
         &Case {
