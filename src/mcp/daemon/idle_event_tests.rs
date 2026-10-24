@@ -34,13 +34,18 @@ fn event(lines: &Lines, name: &str) -> String {
         .unwrap()
         .clone()
 }
+// First occurrence is metadata; the capped-error witness checks this even for token-like errors.
 fn number(line: &str, field: &str) -> u128 {
-    line.split_whitespace()
-        .find_map(|s| s.strip_prefix(&format!("{field}=")))
+    line.split_once(&format!(" {field}="))
+        .unwrap()
+        .1
+        .split_whitespace()
+        .next()
         .unwrap()
         .parse()
         .unwrap()
 }
+
 fn reason(lines: &Lines, name: &str, expected: &str) {
     let line = event(lines, name);
     assert!(
@@ -162,8 +167,7 @@ fn daemon_idle_release_volume() {
         close(client, worker);
     }
 }
-#[test]
-fn daemon_idle_producer_timestamps() {
+fn producer_timestamps(before_unload: i64, during_disposal: i64) {
     const EPOCH: u64 = 1_800_000_000_000;
     const SLEEP: u64 = 60_000; // wall advances independently of daemon monotonic time
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
@@ -180,8 +184,13 @@ fn daemon_idle_producer_timestamps() {
             + wall_clock.now().duration_since(origin)
     }));
     let dispose_clock = clock.clone();
+    let dispose_shift = wall_shift.clone();
     parts.hooks.dispose = Some(Arc::new(move || {
-        dispose_clock.advance(Duration::from_secs(7))
+        dispose_clock.advance(Duration::from_secs(7));
+        dispose_shift.store(
+            (SLEEP as i64 + before_unload + during_disposal) as u64,
+            std::sync::atomic::Ordering::SeqCst,
+        );
     }));
     let lines = Arc::new(Mutex::new(Vec::new()));
     let out = lines.clone();
@@ -211,20 +220,25 @@ fn daemon_idle_producer_timestamps() {
         .last_release_event
         .unwrap();
     assert_eq!(release.at.duration_since(origin), Duration::from_secs(2));
+    wall_shift.store(
+        (SLEEP as i64 + before_unload) as u64,
+        std::sync::atomic::Ordering::SeqCst,
+    );
     unload(&clock, &state);
     disposed(&state);
     close(client, worker);
-    for (name, producer_ms) in [
-        ("last_release", 2_000),
-        ("disposal_start", 12_000),
-        ("disposal_end", 19_000),
-        ("relief", 22_000),
+    for (name, producer_ms, shift) in [
+        ("last_release", 2_000, 0),
+        ("disposal_start", 12_000, before_unload),
+        ("unload", 12_000, before_unload),
+        ("disposal_end", 19_000, before_unload + during_disposal),
+        ("relief", 22_000, before_unload + during_disposal),
     ] {
         let line = event(&lines, name);
         assert_eq!(
             number(&line, "timestamp_ms"),
-            (EPOCH + SLEEP) as u128 + producer_ms,
-            "{name}: timestamp equals producer time after delayed emission and wall-clock sleep"
+            ((EPOCH + SLEEP) as i64 + shift) as u128 + producer_ms,
+            "{name}: captured producer wall survives delayed emission (pre-unload jump={before_unload}, disposal jump={during_disposal})"
         );
         assert_eq!(
             number(&line, "mono_ms"),
@@ -245,6 +259,22 @@ fn daemon_idle_producer_timestamps() {
     };
     assert!(position("disposal_start") < position("disposal_end"));
     assert!(position("disposal_end") < position("relief"));
+}
+#[test]
+fn daemon_idle_producer_timestamps() {
+    producer_timestamps(0, 0); // wall shift before release, then delayed emission
+}
+#[test]
+fn daemon_idle_producer_wall_jump_forward() {
+    producer_timestamps(30_000, 0);
+}
+#[test]
+fn daemon_idle_producer_wall_jump_backward() {
+    producer_timestamps(-30_000, 0);
+}
+#[test]
+fn daemon_idle_producer_wall_jump_during_disposal() {
+    producer_timestamps(0, 30_000);
 }
 #[test]
 fn daemon_idle_fingerprint_duration() {

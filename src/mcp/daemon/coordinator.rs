@@ -579,7 +579,7 @@ impl DaemonState {
     /// before the announcement finds it recorded and records its own after it.
     fn publish(&self, attempt: u64, mut provider: SessionProvider) {
         // Rejected late providers stay on this build thread and are dropped after both locks.
-        let accepted = {
+        let rejected = {
             let mut slot = match self.provider.write() {
                 Ok(slot) => slot,
                 Err(_) => {
@@ -604,7 +604,7 @@ impl DaemonState {
                 || control.idle.disposal_failed
                 || !matches!(control.build, BuildPhase::Building { attempt: a, .. } if a == attempt)
             {
-                false
+                Some(provider)
             } else {
                 if let Some(previous) = control.idle.previous {
                     provider.resume_idle_generation(previous);
@@ -612,13 +612,14 @@ impl DaemonState {
                 control.generation = provider.generation();
                 debug_assert!(slot.is_none());
                 *slot = Some(provider);
-                true
+                None
             }
         };
-        if !accepted {
-            self.settle(
+        if let Some(provider) = rejected {
+            self.settle_retiring(
                 attempt,
                 Err("the daemon is draining; obsolete publication rejected".into()),
+                Some(provider),
             );
             return;
         }
@@ -633,7 +634,18 @@ impl DaemonState {
     /// call. Nothing is recorded unless the phase is still `Building` that attempt, so an
     /// attempt ends once and `Ready` is not left. A poisoned control lock ends the daemon; under
     /// a test's `on_fatal` the parked calls find it when they wake.
-    fn settle(&self, attempt: u64, mut ended: Result<(), String>) {
+    fn settle(&self, attempt: u64, ended: Result<(), String>) {
+        self.settle_retiring(attempt, ended, None);
+    }
+
+    /// Keep capture/outcome ordering for rejected and retracted publications alike. Owned
+    /// providers die off-lock on the build thread, before notifications and terminal output.
+    fn settle_retiring(
+        &self,
+        attempt: u64,
+        mut ended: Result<(), String>,
+        mut retired: Option<SessionProvider>,
+    ) {
         // Successful publication is finalized in slot → control order. A drain may have
         // arrived after storing the provider but before announcing it; with unloading enabled,
         // retract on this build thread, never in the draining server loop or under either lock.
@@ -649,7 +661,6 @@ impl DaemonState {
         } else {
             None
         };
-        let mut retired = None;
         let mut event = None;
         let control = match self.control.lock() {
             Ok(control) => Some(control),

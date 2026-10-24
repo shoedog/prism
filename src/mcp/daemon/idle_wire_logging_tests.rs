@@ -163,7 +163,7 @@ fn daemon_idle_build_failure_event() {
     let (builder, _) = scripted(
         &cfg,
         vec![
-            Box::new(|| anyhow::bail!("build\nfailed\x1b{}", "x".repeat(2000))),
+            Box::new(|| anyhow::bail!("build\nfailed\x1b mono_ms=999 {}", "x".repeat(2000))),
             Box::new(move || crate::mcp::SessionProvider::bootstrap(&ready_cfg)),
             Box::new(|| anyhow::bail!("reload failed")),
         ],
@@ -184,8 +184,18 @@ fn daemon_idle_build_failure_event() {
     );
     assert!(s.len() <= 1000 && !s.chars().any(char::is_control));
     assert!(
-        s.ends_with(" mono_ms=0"),
-        "capped error must retain appended mono_ms: {s}"
+        s.contains("released_bytes=0 mono_ms=0 outcome=failed error=build"),
+        "capped error must keep mono_ms before final free-text outcome: {s}"
+    );
+    assert!(
+        s.split_whitespace()
+            .find_map(|t| t.strip_prefix("mono_ms="))
+            == Some("0"),
+        "first mono_ms token is metadata even when error contains mono_ms=: {s}"
+    );
+    assert!(
+        s.ends_with('x'),
+        "outcome remains last under the line cap: {s}"
     );
     drop(guard);
     build(&state);

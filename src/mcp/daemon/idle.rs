@@ -134,6 +134,7 @@ impl DaemonState {
             let started = Instant::now();
             disposal_event.event = "disposal_start";
             disposal_event.at = state.now();
+            disposal_event.wall = state.wall_now();
             #[cfg(test)]
             if let Some(hook) = &state.hooks.dispose {
                 hook();
@@ -142,6 +143,7 @@ impl DaemonState {
             let mut end = disposal_event.clone();
             end.event = "disposal_end";
             end.at = state.now();
+            end.wall = state.wall_now();
             end.duration = started.elapsed();
             // Capture both producer times around destruction; neither write can delay it.
             state.lifecycle_event(disposal_event);

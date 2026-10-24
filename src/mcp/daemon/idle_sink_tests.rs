@@ -195,3 +195,86 @@ fn daemon_idle_sink_unload() {
 fn daemon_idle_sink_disposal_start() {
     destruction("disposal_start");
 }
+
+// Test both rejection before slot publication and retraction during settlement.
+fn rejected_publication(publication_first: bool, disposal_failed: bool) {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let resume = Gate::closed();
+    let held_return = resume.clone();
+    let (tx, weak_rx) = mpsc::channel();
+    let build_cfg = cfg.clone();
+    let (builder, _) = scripted(
+        &cfg,
+        vec![Box::new(move || {
+            let provider = crate::mcp::SessionProvider::bootstrap(&build_cfg)?;
+            tx.send(Arc::downgrade(&provider.session().repo)).unwrap();
+            let _ = held_return.pass();
+            Ok(provider)
+        })],
+    );
+    let clock = ManualClock::new();
+    let mut parts = enabled(parts_with(builder, &clock));
+    let published = Gate::closed();
+    let settle = Gate::closed();
+    if publication_first {
+        let (reached, held) = (published.clone(), settle.clone());
+        parts.hooks.published = Some(Arc::new(move |_| {
+            reached.open();
+            let _ = held.pass();
+        }));
+    }
+    let (reached, held) = sink(&mut parts, "initial_build");
+    let state = DaemonState::from_parts(parts).unwrap();
+    let conn = Conn::open(&state, 600);
+    conn.call();
+    let weak = weak_rx.recv_timeout(HANG).unwrap();
+    if publication_first {
+        resume.open();
+        assert!(published.pass(), "provider published before drain");
+    }
+    if disposal_failed {
+        state.control_plane().unwrap().idle.disposal_failed = true;
+    } else {
+        state
+            .drain(super::control::StopReason::Signal, || {})
+            .unwrap();
+    }
+    resume.open();
+    settle.open();
+    reached.recv_timeout(HANG).unwrap();
+    let (control, thread) = probe_control(&state);
+    let control_ok = control.recv_timeout(Duration::from_secs(3)).is_ok();
+    let empty = state.provider.try_read().is_ok_and(|slot| slot.is_none());
+    let dead = weak.upgrade().is_none();
+    let answer = conn.outcome();
+    drop(held);
+    thread.join().unwrap();
+    assert!(
+        control_ok,
+        "rejected publication: control proceeds while terminal sink is held"
+    );
+    assert!(
+        empty,
+        "rejected publication: slot empty while terminal sink is held"
+    );
+    assert!(
+        matches!(answer, Outcome::Failed(_)),
+        "attempt remains failed: {answer:?}"
+    );
+    assert!(
+        dead,
+        "rejected publication: provider Weak is dead while terminal sink is held"
+    );
+}
+#[test]
+fn daemon_idle_sink_rejected_publication() {
+    rejected_publication(false, false);
+}
+#[test]
+fn daemon_idle_sink_disposal_failed_publication() {
+    rejected_publication(false, true);
+}
+#[test]
+fn daemon_idle_sink_retired_publication() {
+    rejected_publication(true, false);
+}

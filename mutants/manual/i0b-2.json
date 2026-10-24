@@ -98,12 +98,12 @@
     {
       "id": "I0b-timestamp-at-emission",
       "selector": "mcp::daemon::idle_event_tests::daemon_idle_producer_timestamps",
-      "description": "Replace producer age with zero; delayed release timestamps must still equal the producer time.",
+      "description": "Replace captured wall with emission wall without age correlation; delayed release must retain producer wall.",
       "edits": [
         {
           "file": "src/mcp/daemon/log.rs",
-          "old": "            .checked_sub(self.now().saturating_duration_since(e.at))",
-          "new": "            .checked_sub(Duration::ZERO)"
+          "old": "        let timestamp = e\n            .wall\n            .duration_since(UNIX_EPOCH)\n            .ok()",
+          "new": "        let timestamp = self.wall_now()\n            .duration_since(UNIX_EPOCH)\n            .ok()"
         }
       ]
     },
@@ -116,6 +116,30 @@
           "file": "src/mcp/daemon/activity.rs",
           "old": "        self.state.wake_idle_loop();",
           "new": "        if let Ok(mut control) = self.state.control_plane() {\n            let event = self.state.take_last_release(&mut control);\n            drop(control);\n            if let Some(event) = event { self.state.lifecycle_event(event); }\n        }\n        self.state.wake_idle_loop();"
+        }
+      ]
+    },
+    {
+      "id": "I0b-wall-at-emission",
+      "selector": "mcp::daemon::idle_event_tests::daemon_idle_producer_wall_jump_forward",
+      "description": "Restore emission-wall minus daemon-age correlation; a post-release wall jump must not move the historical release.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/log.rs",
+          "old": "        let timestamp = e\n            .wall\n            .duration_since(UNIX_EPOCH)\n            .ok()",
+          "new": "        let timestamp = self.wall_now()\n            .checked_sub(self.now().saturating_duration_since(e.at))\n            .and_then(|at| at.duration_since(UNIX_EPOCH).ok())"
+        }
+      ]
+    },
+    {
+      "id": "I0b-rejected-provider-held",
+      "selector": "mcp::daemon::idle_sink_tests::daemon_idle_sink_rejected_publication",
+      "description": "Keep rejected provider in publish across terminal settlement output; Weak must die while the terminal sink is held.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "                Some(provider),\n            );\n            return;",
+          "new": "                None,\n            );\n            drop(provider);\n            return;"
         }
       ]
     }

@@ -2,8 +2,10 @@
 //! (spec §4.1 step 6, §4.3). The log is truncated at daemon start when it is over 1 MiB, and the
 //! daemon stops adding its own lines past 8 MiB and says so once (§4.3). A panic message, which
 //! the panic hook writes, is not counted: it is followed by the end of the process.
-//! Lifecycle output happens after all serving guards and ownership transfer/drop: blocked stderr
-//! stalls only its writer, never the control plane, a serving lock or provider destruction.
+//! Lifecycle writes hold no control/slot guard; the affected provider is dropped or handed off
+//! before its line. Stderr is one lock shared by every thread, including shutdown's `stopped`
+//! line. A blocked disposal writer delays clearing `disposing`, so reload answers Warming.
+//! Refresh output retains the caller's tool lease, delaying only its own idle unload.
 //! Production daemons write to the shim's `O_APPEND` regular file.
 use std::io::Write;
 use std::os::fd::AsFd;
@@ -126,6 +128,7 @@ pub(super) struct Event {
     pub(super) event: &'static str,
     reason: &'static str,
     pub(super) at: Instant,
+    pub(super) wall: SystemTime,
     pub(super) duration: Duration,
     attempt: u64,
     generation: u64,
@@ -135,6 +138,14 @@ pub(super) struct Event {
 }
 
 impl DaemonState {
+    /// Sample wall time at production, through the same seam for all owned events.
+    pub(super) fn wall_now(&self) -> SystemTime {
+        #[cfg(test)]
+        if let Some(now) = &self.hooks.wall_time {
+            return now();
+        }
+        SystemTime::now()
+    }
     pub(super) fn lifecycle_snapshot(
         &self,
         control: &ControlState,
@@ -144,6 +155,7 @@ impl DaemonState {
         outcome: String,
     ) -> Event {
         let at = self.now();
+        let wall = self.wall_now();
         let idle = &control.idle;
         let origin = idle
             .published_at
@@ -152,6 +164,7 @@ impl DaemonState {
             event,
             reason,
             at,
+            wall,
             duration,
             attempt: control.attempts,
             generation: control.generation,
@@ -162,22 +175,22 @@ impl DaemonState {
     }
     pub(super) fn lifecycle_event(&self, e: Event) {
         let log = &self.lifecycle;
-        let wall = SystemTime::now();
-        #[cfg(test)]
-        let wall = self.hooks.wall_time.as_ref().map_or(wall, |now| now());
-        let timestamp = wall
-            .checked_sub(self.now().saturating_duration_since(e.at))
-            .and_then(|at| at.duration_since(UNIX_EPOCH).ok())
+        let timestamp = e
+            .wall
+            .duration_since(UNIX_EPOCH)
+            .ok()
             .unwrap_or_default()
             .as_millis();
         let mono_ms =
             e.at.saturating_duration_since(*log.origin.get_or_init(|| e.at))
                 .as_millis();
-        let suffix = format!(" mono_ms={mono_ms}");
-        let mut text = printable_prefix(&format!("identity={} pid={} event={} reason={} observed_idle_secs={:.3} configured_idle_secs={} timestamp_ms={} duration_ns={} attempt={} generation={} released_bytes={} outcome={}",
+        // Reserve the numeric trailer and outcome marker before capping free-text error data.
+        let suffix = format!(" mono_ms={mono_ms} outcome=");
+        let mut text = printable_prefix(&format!("identity={} pid={} event={} reason={} observed_idle_secs={:.3} configured_idle_secs={} timestamp_ms={} duration_ns={} attempt={} generation={} released_bytes={}",
             log.identity, std::process::id(), e.event, e.reason, e.observed_idle.as_secs_f64(), log.timeout.as_secs(), timestamp,
-            e.duration.as_nanos(), e.attempt, e.generation, e.released, e.outcome), MAX_LINE_BYTES - suffix.len());
+            e.duration.as_nanos(), e.attempt, e.generation, e.released), MAX_LINE_BYTES - suffix.len());
         text.push_str(&suffix);
+        text.push_str(&printable_prefix(&e.outcome, MAX_LINE_BYTES - text.len()));
         line(&text);
         #[cfg(test)]
         if let Some(observe) = &self.hooks.lifecycle {
@@ -222,6 +235,7 @@ impl DaemonState {
                 "complete".into(),
             );
             event.at = release.at;
+            event.wall = release.wall;
             event.attempt = release.attempt;
             event.generation = release.generation;
             event.observed_idle = Duration::ZERO;
@@ -231,6 +245,7 @@ impl DaemonState {
     pub(super) fn relieve(&self, mut event: Event) {
         event.event = "relief";
         event.at = self.now();
+        event.wall = self.wall_now();
         let started = Instant::now();
         event.released = crate::mcp::idle::pressure_relief(self.lifecycle.relief);
         event.duration = started.elapsed();
