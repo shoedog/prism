@@ -466,6 +466,14 @@ fn cfg_accounting_boundaries_hold(source: &str, owner: &str) {
         .find("run()")
         .expect("file_cfg must run the initializer");
     assert!(phase_start < run_start, "CFG phase must open before run()");
+    let init_add = "owner.row.file_cfg_init_ns+=ns(phase.started);";
+    let init_start = file_cfg
+        .find(init_add)
+        .expect("file_cfg must add the phase's elapsed time to the owner's CFG init");
+    assert!(
+        run_start < init_start,
+        "CFG init time must be recorded after run()"
+    );
     let compact_owner = compact(owner);
     assert!(
         compact_owner.contains(
