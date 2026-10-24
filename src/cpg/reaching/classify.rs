@@ -62,6 +62,11 @@ pub(super) fn classify_edge(
     if candidates.is_empty() {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
+    if let Some(construct_line) = unplaced_python_import(parsed, edge) {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
+    }
 
     // Rule 3: no downstream classification is admissible unless this exact
     // def-to-use query has an unflagged CFG route. Kills are checked separately
@@ -186,6 +191,34 @@ pub(super) fn classify_edge(
     )
 }
 
+fn unplaced_python_import(parsed: &ParsedFile, edge: &FlowEdge) -> Option<Line> {
+    if parsed.language != crate::languages::Language::Python {
+        return None;
+    }
+    let use_byte = edge_use_byte(parsed, edge)?;
+    let function = parsed
+        .all_functions()
+        .into_iter()
+        .find(|node| parsed.node_line_range(node).0 == edge.to.function_start_line)?;
+    uncertain_binding_nodes(parsed, &edge.to.path.base)
+        .into_iter()
+        .filter(|binder| {
+            matches!(
+                binder.kind(),
+                "import_statement" | "import_from_statement" | "aliased_import"
+            ) && function.start_byte() <= binder.start_byte()
+                && binder.end_byte() <= function.end_byte()
+        })
+        .filter_map(|binder| {
+            let construct_line = binder.start_position().row + 1;
+            (edge.from.line < construct_line
+                && binder.start_byte() <= use_byte
+                && use_byte < function.end_byte())
+            .then_some(construct_line)
+        })
+        .min()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn uncertain_construct_on_route(
     parsed: &ParsedFile,
@@ -220,11 +253,7 @@ fn uncertain_construct_on_route(
                 ) | (crate::languages::Language::Bash, "for_statement")
                     | (
                         crate::languages::Language::Python,
-                        "global_statement"
-                            | "nonlocal_statement"
-                            | "import_statement"
-                            | "import_from_statement"
-                            | "aliased_import"
+                        "global_statement" | "nonlocal_statement"
                     )
             );
             if !explicit_uncertain_binder {
@@ -234,14 +263,7 @@ fn uncertain_construct_on_route(
                 .get(construct_line)
                 .and_then(|line| line_index.get(&line).copied());
             let omitted_python_declaration = parsed.language == crate::languages::Language::Python
-                && matches!(
-                    binder.kind(),
-                    "global_statement"
-                        | "nonlocal_statement"
-                        | "import_statement"
-                        | "import_from_statement"
-                        | "aliased_import"
-                )
+                && matches!(binder.kind(), "global_statement" | "nonlocal_statement")
                 && construct_node.is_none();
             let on_route = candidates.iter().any(|index| {
                 mapped_defs[*index].is_some_and(|def_node| match construct_node {
@@ -258,20 +280,11 @@ fn uncertain_construct_on_route(
             if !on_route {
                 return None;
             }
-            let unplaced_python_import = parsed.language == crate::languages::Language::Python
-                && matches!(
-                    binder.kind(),
-                    "import_statement" | "import_from_statement" | "aliased_import"
-                );
-            let visible = if unplaced_python_import {
-                binder.start_byte() <= use_byte && use_byte < function.end_byte()
-            } else {
-                match visibility_span(parsed, binder) {
-                    SpanKind::Known(spans) => spans.into_iter().any(|span| span.contains(use_byte)),
-                    SpanKind::Empty => false,
-                    SpanKind::Unknown => {
-                        binder.start_byte() <= use_byte && use_byte < function.end_byte()
-                    }
+            let visible = match visibility_span(parsed, binder) {
+                SpanKind::Known(spans) => spans.into_iter().any(|span| span.contains(use_byte)),
+                SpanKind::Empty => false,
+                SpanKind::Unknown => {
+                    binder.start_byte() <= use_byte && use_byte < function.end_byte()
                 }
             };
             visible.then_some(construct_line)
