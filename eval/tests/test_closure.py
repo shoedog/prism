@@ -1,5 +1,6 @@
 import hashlib
 import re
+import subprocess
 import unicodedata
 
 import pytest
@@ -167,6 +168,61 @@ def test_anchored_repo_uses_mode_specific_sample_digests(tmp_path):
     assert re.fullmatch(r"sha256:[0-9a-f]{64}", quick_digest)
     assert re.fullmatch(r"sha256:[0-9a-f]{64}", full_digest)
     assert quick_digest != full_digest
+
+
+def test_anchored_repo_pins_its_corpus_independent_of_live_policy_state(
+    tmp_path, monkeypatch
+):
+    from tests import helpers
+
+    original_copy = helpers.copy_eval_policy_files
+    source_line = ""
+
+    def prism_table(contents):
+        return contents.split("[corpus.prism]\n", 1)[1].split("\n[", 1)[0]
+
+    def copy_with_identity_state(repo):
+        ev = original_copy(repo)
+        policy = ev / "corpora.toml"
+        contents = policy.read_text()
+        table = prism_table(contents)
+        lines = [
+            line
+            for line in table.splitlines(keepends=True)
+            if not line.strip().startswith("pinned_sha =")
+            and not line.strip().startswith("# Corpus identity is stored")
+        ]
+        excludes = next(
+            index for index, line in enumerate(lines) if line.strip().startswith("excludes =")
+        )
+        lines.insert(excludes + 1, source_line + "\n")
+        policy.write_text(contents.replace(table, "".join(lines), 1))
+        return ev
+
+    monkeypatch.setattr(helpers, "copy_eval_policy_files", copy_with_identity_state)
+    for name, identity_line in (
+        ("pinned", 'pinned_sha = "20c8490591a3"'),
+        (
+            "finalized",
+            "# Corpus identity is stored in eval/tier-a.lock.toml; "
+            "bootstrap snapshot: prism-20c8490591a3.json.",
+        ),
+    ):
+        source_line = identity_line
+        _lock, ev, repo = helpers.anchored_repo(tmp_path / name, publish=False)
+        bootstrap_sha = subprocess.run(
+            ["git", "rev-parse", "HEAD^"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        pins = re.findall(
+            r'^pinned_sha = "([0-9a-f]+)"$',
+            prism_table((ev / "corpora.toml").read_text()),
+            re.MULTILINE,
+        )
+        assert pins == [bootstrap_sha[:12]]
 
 
 def test_anchored_repo_publishes_real_manifests_and_can_remain_unpublished(

@@ -119,6 +119,48 @@ def edit(path: Path, old: str, new: str) -> None:
     path.write_text(contents.replace(old, new))
 
 
+def _pin_prism_policy(path: Path, sha: str) -> None:
+    lines = path.read_text().splitlines(keepends=True)
+    table_starts = [
+        index for index, line in enumerate(lines) if line.strip() == "[corpus.prism]"
+    ]
+    assert len(table_starts) == 1
+    start = table_starts[0] + 1
+    end = next(
+        (
+            index
+            for index in range(start, len(lines))
+            if lines[index].strip().startswith("[")
+        ),
+        len(lines),
+    )
+    table = lines[start:end]
+    pin_indexes = [
+        index
+        for index, line in enumerate(table)
+        if line.strip().startswith("pinned_sha =")
+    ]
+    pin = f'pinned_sha = "{sha}"\n'
+    if pin_indexes:
+        first = pin_indexes[0]
+        table[first] = pin
+        table = [
+            line
+            for index, line in enumerate(table)
+            if index == first or index not in pin_indexes
+        ]
+    else:
+        excludes = [
+            index
+            for index, line in enumerate(table)
+            if line.strip().startswith("excludes =")
+        ]
+        assert len(excludes) == 1
+        table.insert(excludes[0] + 1, pin)
+    lines[start:end] = table
+    path.write_text("".join(lines))
+
+
 def _raw_digest(contents: str) -> str:
     return "sha256:" + hashlib.sha256(contents.encode()).hexdigest()
 
@@ -361,7 +403,7 @@ def anchored_repo(tmp: Path, publish: bool = True) -> tuple[Lock, Path, Path]:
     )
     bootstrap_sha = git_head(repo)
     ev = copy_eval_policy_files(repo)
-    edit(ev / "corpora.toml", 'pinned_sha = "20c8490591a3"', f'pinned_sha = "{bootstrap_sha[:12]}"')
+    _pin_prism_policy(ev / "corpora.toml", bootstrap_sha[:12])
     shutil.copy2(EVAL_DIR / ".python-version", ev / ".python-version")
     shutil.copy2(EVAL_DIR / "uv.lock", ev / "uv.lock")
     adjudication_bytes = "".join(
