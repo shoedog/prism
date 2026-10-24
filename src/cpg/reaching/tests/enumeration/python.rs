@@ -287,9 +287,14 @@ pub(super) const CASES: &[super::case::Case] = &[
                 FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
             ),
             ("2:x", "6:x", FlowConfidence::Exact),
+            (
+                "4:x",
+                "6:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
+            ),
             ("2:y", "6:y", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
     },
     super::case::Case {
         id: "py-except-without-alias-preserves-type-name",

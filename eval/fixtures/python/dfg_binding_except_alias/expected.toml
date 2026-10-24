@@ -12,7 +12,7 @@ doubt = "killed"
 kill_line = 4
 
 [[expect.edges]]
-from = "a.py:2:x"
+from = "a.py:4:x"
 to = "a.py:6:x"
 confidence = "nameonly"
 doubt = "killed"
