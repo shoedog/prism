@@ -11,6 +11,9 @@ use std::collections::{BTreeMap, BTreeSet};
 #[path = "js_anonymous/sequential.rs"]
 mod sequential;
 #[cfg(test)]
+#[path = "js_anonymous/stack_tests.rs"]
+mod stack_tests;
+#[cfg(test)]
 #[path = "js_anonymous/parallel_tests.rs"]
 mod tests;
 
@@ -104,9 +107,21 @@ impl ProofIndex {
     }
 }
 
+// Production entry: public constructors can run on an ordinary thread, so the
+// recursive per-file walks go onto prism's large-stack pool.
+fn collect<'a, I, F>(files: I, work: F) -> ProofIndex
+where
+    I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
+    F: Fn(&str, &ParsedFile) -> Option<FileProofs> + Sync,
+{
+    let files: Vec<_> = files.into_iter().collect();
+    let work = &work;
+    crate::build_pool::install(move || collect_on_current_pool(files, work))
+}
+
 // Freeze caller positions before dispatch; indexed collect preserves them even
 // when later files finish first. Merge on this thread in the original order.
-fn collect<'a, I, F>(files: I, work: F) -> ProofIndex
+fn collect_on_current_pool<'a, I, F>(files: I, work: F) -> ProofIndex
 where
     I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
     F: Fn(&str, &ParsedFile) -> Option<FileProofs> + Sync,

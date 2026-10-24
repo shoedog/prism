@@ -160,7 +160,7 @@ fn duplicate_paths_merge_in_input_order_despite_reverse_completion() {
     let barrier = Barrier::new(2);
     let finished = (Mutex::new(Vec::new()), Condvar::new());
     let actual = pool(4).install(|| {
-        collect(inputs, |path, parsed| {
+        collect_on_current_pool(inputs, |path, parsed| {
             let facts = build_file(path, parsed);
             barrier.wait();
             let (lock, notify) = &finished;
