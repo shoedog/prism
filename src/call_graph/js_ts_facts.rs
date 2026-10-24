@@ -19,7 +19,19 @@ where
     collect(files, extract_file)
 }
 
+// Production entry: public constructors can run on an ordinary thread, so the
+// recursive per-file walks go onto prism's large-stack pool.
 fn collect<'a, I, F>(files: I, work: F) -> JsTsResolutionFacts
+where
+    I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
+    F: Fn(&str, &ParsedFile) -> JsTsResolutionFacts + Sync,
+{
+    let files: Vec<_> = files.into_iter().collect();
+    let work = &work;
+    crate::build_pool::install(move || collect_on_current_pool(files, work))
+}
+
+fn collect_on_current_pool<'a, I, F>(files: I, work: F) -> JsTsResolutionFacts
 where
     I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
     F: Fn(&str, &ParsedFile) -> JsTsResolutionFacts + Sync,
