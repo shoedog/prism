@@ -610,7 +610,7 @@
    "js_paths_r2c_test::custom_roots_miss_uses_secondary_package_lookup"
   ],
   "R4-22-project-all-modules": [
-   "src/js_exports.rs",
+   "src/js_exports/memo.rs",
    "for file in roots {",
    "for file in raw.keys() {",
    "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
