@@ -212,22 +212,36 @@ fn uncertain_construct_on_route(
             if construct_line <= edge.from.line {
                 return None;
             }
-            let explicit_task7_binder = matches!(
+            let explicit_uncertain_binder = matches!(
                 (parsed.language, binder.kind()),
                 (
                     crate::languages::Language::Java,
                     "record_pattern" | "type_pattern" | "instanceof_expression"
                 ) | (crate::languages::Language::Bash, "for_statement")
+                    | (
+                        crate::languages::Language::Python,
+                        "global_statement" | "nonlocal_statement"
+                    )
             );
-            if !explicit_task7_binder {
+            if !explicit_uncertain_binder {
                 return None;
             }
-            let statement_line = statements.get(construct_line)?;
-            let &construct_node = line_index.get(&statement_line)?;
+            let construct_node = statements
+                .get(construct_line)
+                .and_then(|line| line_index.get(&line).copied());
+            let omitted_python_declaration = parsed.language == crate::languages::Language::Python
+                && matches!(binder.kind(), "global_statement" | "nonlocal_statement")
+                && construct_node.is_none();
             let on_route = candidates.iter().any(|index| {
-                mapped_defs[*index].is_some_and(|def_node| {
-                    path_exists(successors, def_node, construct_node, false)
-                        && path_exists(successors, construct_node, use_node, false)
+                mapped_defs[*index].is_some_and(|def_node| match construct_node {
+                    Some(construct_node) => {
+                        path_exists(successors, def_node, construct_node, false)
+                            && path_exists(successors, construct_node, use_node, false)
+                    }
+                    None => {
+                        omitted_python_declaration
+                            && path_exists(successors, def_node, use_node, false)
+                    }
                 })
             });
             if !on_route {

@@ -35,33 +35,29 @@ pub(super) fn collect_classified_masks(
                 function_scope,
             )
         };
-        for field in row.fields {
-            if let Some(target) = node.child_by_field_name(field) {
-                for identifier in transfer::introduced_identifiers(parsed, target) {
-                    if defs
-                        .iter()
-                        .any(|def| def.start_byte == identifier.start_byte())
-                    {
-                        continue;
-                    }
-                    let index = declarations.len();
-                    declarations.push(Declaration {
-                        binding: Binding {
-                            id: BindingId::Declaration(index),
-                            scope,
-                            declaration_line: Some(node.start_position().row + 1),
-                            classified_mask: true,
-                        },
-                        name: parsed.node_text(&identifier).to_string(),
-                        visible_from: match row.visibility {
-                            Visibility::WholeScope => scope.start_byte,
-                            Visibility::Header => target.end_byte(),
-                            _ => node.end_byte(),
-                        },
-                        additional_visibility: Vec::new(),
-                    });
-                }
+        for identifier in transfer::row_introduced_identifiers(parsed, node, row.fields) {
+            if defs
+                .iter()
+                .any(|def| def.start_byte == identifier.start_byte())
+            {
+                continue;
             }
+            let index = declarations.len();
+            declarations.push(Declaration {
+                binding: Binding {
+                    id: BindingId::Declaration(index),
+                    scope,
+                    declaration_line: Some(node.start_position().row + 1),
+                    classified_mask: true,
+                },
+                name: parsed.node_text(&identifier).to_string(),
+                visible_from: match row.visibility {
+                    Visibility::WholeScope => scope.start_byte,
+                    Visibility::Header => identifier.end_byte(),
+                    _ => node.end_byte(),
+                },
+                additional_visibility: Vec::new(),
+            });
         }
     }
     let mut cursor = node.walk();

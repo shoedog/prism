@@ -1,4 +1,5 @@
 use super::super::super::binding_table::{rows, DeclarationKind, Role};
+use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
 pub(super) const SOURCE: &str = r#"from __future__ import annotations
@@ -40,7 +41,280 @@ def outer[T](a, typed: int, b: int = 1, *args, c: int = 2, **kwargs):
     return result
 "#;
 
-pub(super) const CASES: &[super::case::Case] = &[];
+pub(super) const CASES: &[super::case::Case] = &[
+    super::case::Case {
+        id: "py-for-target-reuse-inside",
+        language: Language::Python,
+        kind: "for_statement",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f(it):\n    x = source()\n    for x in it:\n        sink(x)\n    done()\n    sink(x)\n",
+        expect: &[
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "6:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "py-for-target-zero-iteration",
+        language: Language::Python,
+        kind: "for_statement",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f(it):\n    x = source()\n    for x in it:\n        sink(x)\n    done()\n    sink(x)\n",
+        expect: &[
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:x", "6:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "py-with-as-reuse-inside",
+        language: Language::Python,
+        kind: "with_item",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f(p):\n    x = source(); y = source()\n    with open(p) as x:\n        sink(x); sink(y)\n    sink(x); sink(y)\n",
+        expect: &[
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:y", "4:y", FlowConfidence::Exact),
+            ("2:y", "5:y", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
+    },
+    super::case::Case {
+        id: "py-with-statement-container",
+        language: Language::Python,
+        kind: "with_statement",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f(p):\n    x = source()\n    with open(p) as y:\n        sink(x)\n    sink(x)\n",
+        expect: &[
+            ("2:x", "4:x", FlowConfidence::Exact),
+            ("2:x", "5:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_exact", 2)),
+    },
+    super::case::Case {
+        id: "py-with-as-persists-after",
+        language: Language::Python,
+        kind: "with_item",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f(p):\n    x = source(); y = source()\n    with open(p) as x:\n        sink(x); sink(y)\n    sink(x); sink(y)\n",
+        expect: &[
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:y", "4:y", FlowConfidence::Exact),
+            ("2:y", "5:y", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
+    },
+    super::case::Case {
+        id: "py-conditional-reuse-bypass",
+        language: Language::Python,
+        kind: "assignment",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f(c):\n    x = source()\n    if c:\n        x = clean()\n        sink(x)\n    sink(x)\n",
+        expect: &[
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+            ),
+            ("2:x", "6:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "py-except-alias",
+        language: Language::Python,
+        kind: "except_clause",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f():\n    x = source()\n    try: risky()\n    except Error as x:\n        sink(x)\n    sink(x)\n",
+        expect: &[
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+            ),
+            ("2:x", "6:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "py-except-without-alias-preserves-type-name",
+        language: Language::Python,
+        kind: "except_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f():\n    Error = source(); x = source()\n    try: risky()\n    except Error:\n        x = clean()\n        sink(Error); sink(x)\n",
+        expect: &[
+            ("2:Error", "6:Error", FlowConfidence::Exact),
+            (
+                "2:x",
+                "6:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
+            ),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "py-except-group-alias",
+        language: Language::Python,
+        kind: "except_group_clause",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f():\n    x = source()\n    try: risky()\n    except* Error as x:\n        sink(x)\n    sink(x)\n",
+        expect: &[
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+            ),
+            ("2:x", "6:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "py-del-kills",
+        language: Language::Python,
+        kind: "delete_statement",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f():\n    x = source(); y = source()\n    del x\n    sink(x); sink(y)\n",
+        expect: &[
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:y", "4:y", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "py-import-statement-masks",
+        language: Language::Python,
+        kind: "import_statement",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f():\n    x = source(); y = source()\n    import package as x\n    sink(x); sink(y)\n",
+        expect: &[
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:y", "4:y", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "py-import-from-statement-masks",
+        language: Language::Python,
+        kind: "import_from_statement",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f():\n    x = source(); y = source()\n    from package import member as x\n    sink(x); sink(y)\n",
+        expect: &[
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:y", "4:y", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "py-import-alias-masks",
+        language: Language::Python,
+        kind: "aliased_import",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f():\n    x = source(); y = source()\n    import package as x\n    sink(x); sink(y)\n",
+        expect: &[
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+            ("2:y", "4:y", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "py-global-uncertain",
+        language: Language::Python,
+        kind: "global_statement",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "def f():\n    x = source()\n    global x\n    sink(x)\n",
+        expect: &[(
+            "2:x",
+            "4:x",
+            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+    },
+    super::case::Case {
+        id: "py-nonlocal-in-nested-def-is-capture",
+        language: Language::Python,
+        kind: "nonlocal_statement",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Structural,
+        src: "def outer():\n    x = source()\n    def inner():\n        nonlocal x\n        sink(x)\n    return inner\n",
+        expect: &[(
+            "2:x",
+            "5:x",
+            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
+    },
+];
 pub(super) const CURATED: &[(&str, &str)] = &[
     ("function_definition", "e0a-py-function_definition"),
     ("lambda", "e0a-py-lambda"),
@@ -57,6 +331,13 @@ pub(super) const CURATED: &[(&str, &str)] = &[
     ("named_expression", "e0a-py-named_expression"),
     ("parameters", "e0a-x-py-parameters"),
 ];
+
+#[test]
+fn task11_python_reuse_cases() {
+    for case in CASES {
+        super::case::check_case(case);
+    }
+}
 
 #[test]
 fn python_rows_reproduce_the_old_match_arms() {

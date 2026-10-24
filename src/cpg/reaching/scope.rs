@@ -415,9 +415,8 @@ fn declaration_seed(
     def: &DefSite,
     function_scope: ScopeSpan,
 ) -> Option<(ScopeSpan, DeclarationKind, usize)> {
-    // js-param-defs PR-A: the bare arrow formal (`x => …`) has no
-    // `parameters` list; without its region the Def is seeded as a non-
-    // parameter binding and its labels diverge from the `(x) => …` control.
+    // A bare arrow formal has no `parameters` list; without this region its Def
+    // is seeded as a non-parameter binding and diverges from the `(x) => …` control.
     if parsed
         .parameter_binding_region(func_node)
         .is_some_and(|parameters| {
@@ -437,7 +436,7 @@ fn declaration_seed(
         .descendant_for_byte_range(def.start_byte, end_byte)?;
     loop {
         let selected_row = select_binding_row(parsed, node);
-        if selected_row.is_some_and(|row| row.visibility == Visibility::Header) {
+        if let Some(row) = selected_row.filter(|row| row.visibility == Visibility::Header) {
             let left = node.child_by_field_name("left");
             if left.is_some_and(|left| {
                 left.start_byte() <= def.start_byte && def.start_byte < left.end_byte()
@@ -451,9 +450,7 @@ fn declaration_seed(
                 };
                 return Some((
                     scope_span(owner),
-                    selected_row
-                        .and_then(|row| row.declaration)
-                        .unwrap_or(DeclarationKind::Other),
+                    row.declaration.unwrap_or(DeclarationKind::Other),
                     if node.kind() == "range_clause" {
                         node.child_by_field_name("right")?.end_byte()
                     } else {
@@ -461,20 +458,26 @@ fn declaration_seed(
                     },
                 ));
             }
+            if row.roles.has(Role::Scope) {
+                if let Some(identifier) =
+                    transfer::row_introduced_identifiers(parsed, node, row.fields)
+                        .into_iter()
+                        .find(|identifier| identifier.start_byte() == def.start_byte)
+                {
+                    return Some((
+                        scope_span(node),
+                        row.declaration.unwrap_or(DeclarationKind::Other),
+                        identifier.end_byte(),
+                    ));
+                }
+            }
         }
         let rule = binding_scope_rule(parsed.language, node.kind());
         if let Some(kind) = rule.declaration {
             if selected_row.is_some_and(|row| {
                 row.ruling == Ruling::Classified
                     && row.roles.has(Role::Binding)
-                    && !row.fields.is_empty()
-                    && !row.fields.iter().any(|field| {
-                        node.child_by_field_name(field).is_some_and(|target| {
-                            transfer::introduced_identifiers(parsed, target)
-                                .iter()
-                                .any(|identifier| identifier.start_byte() == def.start_byte)
-                        })
-                    })
+                    && transfer::row_excludes_identifier(parsed, node, row.fields, def.start_byte)
             }) {
                 if node.id() == func_node.id() {
                     return None;

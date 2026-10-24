@@ -7,7 +7,6 @@ use super::Line;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::OnceLock;
 use tree_sitter::Node;
 
 #[derive(serde::Deserialize)]
@@ -113,7 +112,6 @@ pub(super) fn visibility_span(parsed: &ParsedFile, binder_node: Node<'_>) -> Spa
             SpanKind::Known(spans)
         };
     }
-
     let scoped = match parsed.language {
         Language::Rust => rust_visibility_node(binder_node),
         Language::Python => ancestor_field(binder_node, "if_statement", "consequence"),
@@ -160,6 +158,7 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
     let special_target = match (parsed.language, node.kind()) {
         (Language::Rust, "tuple_struct_pattern") => Some(node),
         (Language::Bash, "for_statement") => node.child_by_field_name("variable"),
+        (Language::Python, "global_statement" | "nonlocal_statement") => Some(node),
         _ => None,
     };
     if let Some(target) = special_target {
@@ -483,7 +482,8 @@ fn is_python_comprehension_target(node: Node<'_>) -> bool {
 }
 
 pub(super) fn grammar_introducing_fields(language: Language) -> &'static IntroducingFields {
-    static BY_LANGUAGE: OnceLock<BTreeMap<Language, IntroducingFields>> = OnceLock::new();
+    static BY_LANGUAGE: std::sync::OnceLock<BTreeMap<Language, IntroducingFields>> =
+        std::sync::OnceLock::new();
     BY_LANGUAGE
         .get_or_init(|| {
             Language::all()
