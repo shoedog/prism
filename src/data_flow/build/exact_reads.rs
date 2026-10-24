@@ -30,6 +30,7 @@ impl Producer {
         function: &str,
         function_start_line: usize,
         parameter_occurrences: &[(String, usize, usize)],
+        parameter_defs: &[VarLocation],
         raw_aliases: &[(String, String, usize)],
         lvalue_spans: &[PathSpan],
         rvalue_spans: &[PathSpan],
@@ -56,37 +57,55 @@ impl Producer {
             {
                 continue;
             }
-            let prior_defs: Vec<_> = lvalue_spans
+            let mut prior_defs = BTreeMap::<ExactVarLocation, VarLocation>::new();
+            for def in parameter_defs
+                .iter()
+                .filter(|def| def.path == read.path && def.line < read.line)
+            {
+                prior_defs.insert(ExactVarLocation::from_legacy(def), def.clone());
+            }
+            for span in lvalue_spans
                 .iter()
                 .filter(|span| span.path == read.path && span.line < read.line)
-                .collect();
-            if prior_defs.len() != 1 {
-                continue;
-            }
-            let def = prior_defs[0];
-            let edge = FlowEdge {
-                from: VarLocation {
+                .filter(|span| {
+                    crate::profile::gates::def_scope(
+                        parsed,
+                        func_node,
+                        &span.path.base,
+                        span.start_byte,
+                    )
+                    .is_none_or(|(start, end)| start <= read.start_byte && read.end_byte <= end)
+                })
+            {
+                let def = VarLocation {
                     file: file.to_string(),
                     function: function.to_string(),
                     function_start_line,
-                    line: def.line,
-                    path: def.path.clone(),
-                    start_byte: def.start_byte,
-                    end_byte: def.end_byte,
+                    line: span.line,
+                    path: span.path.clone(),
+                    start_byte: span.start_byte,
+                    end_byte: span.end_byte,
                     kind: VarAccessKind::Def,
-                },
-                to: VarLocation {
-                    file: file.to_string(),
-                    function: function.to_string(),
-                    function_start_line,
-                    line: read.line,
-                    path: read.path,
-                    start_byte: read.start_byte,
-                    end_byte: read.end_byte,
-                    kind: VarAccessKind::Use,
-                },
+                };
+                prior_defs.insert(ExactVarLocation::from_legacy(&def), def);
+            }
+            let to = VarLocation {
+                file: file.to_string(),
+                function: function.to_string(),
+                function_start_line,
+                line: read.line,
+                path: read.path,
+                start_byte: read.start_byte,
+                end_byte: read.end_byte,
+                kind: VarAccessKind::Use,
             };
-            candidates.insert(ExactFlowEdge::from_legacy(&edge), edge);
+            for from in prior_defs.into_values() {
+                let edge = FlowEdge {
+                    from,
+                    to: to.clone(),
+                };
+                candidates.insert(ExactFlowEdge::from_legacy(&edge), edge);
+            }
         }
         if !parsed.exact_read_callable_is_straight_line(func_node) {
             return candidates.into_values().collect();

@@ -148,6 +148,7 @@ impl Producer {
                 VarLocation,
             > = BTreeMap::new();
             let mut param_ref_jobs = Vec::new();
+            let mut parameter_defs = Vec::new();
             let mut member_only_params: Vec<(AccessPath, VarLocation)> = Vec::new();
             let mut rd_defs = Vec::new();
             let function_edge_start = edges.len();
@@ -206,6 +207,7 @@ impl Producer {
                 if member_only {
                     member_only_params.push((path.clone(), loc.clone()));
                 }
+                parameter_defs.push(loc.clone());
                 param_ref_jobs.push((path, loc, refs, param_decl_line));
             }
 
@@ -645,6 +647,7 @@ impl Producer {
                 &func_name,
                 start,
                 &param_occurrences,
+                &parameter_defs,
                 &raw_aliases,
                 &lvalue_spans,
                 &rvalue_spans,

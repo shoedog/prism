@@ -93,7 +93,7 @@ pub(super) fn classify_edge(
         });
     }
     if let Some(kill_line) =
-        use_byte.and_then(|byte| binding_facts.header_shadow(parsed, edge, byte, &candidates))
+        use_byte.and_then(|byte| binding_facts.header_shadow(parsed, edge, byte, candidates))
     {
         return FlowConfidence::NameOnly(FlowDoubt::Killed {
             kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
@@ -107,7 +107,7 @@ pub(super) fn classify_edge(
     if let Some(construct_line) = uncertain_construct_on_route(
         parsed,
         edge,
-        &candidates,
+        candidates,
         mapped_defs,
         use_node,
         line_index,

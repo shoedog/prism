@@ -845,3 +845,55 @@ fn exact_caller_reads_missing_wrong_and_conflicting_facts_fail_closed() {
         CodePropertyGraph::assemble_graph(built.call_graph.clone(), duplicate, &files, None);
     assert_eq!(complete_rows(&duplicate_cpg), complete_rows(&built));
 }
+
+#[test]
+fn classified_mask_projects_every_prior_write_through_production_cpg() {
+    let source = "function f() {\n  x = source();\n  x = other();\n  try { risky(); } catch (x) { sink(x); }\n  sink(x);\n}\n";
+    let cpg = CodePropertyGraph::build(&fixture(Language::JavaScript, "js", source));
+    let rows = producer_rows(&cpg, "app.js", "f", "x");
+    let killed = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 });
+    for def_line in [2, 3] {
+        assert!(
+            rows.iter().any(|row| {
+                row.def_line == def_line && row.use_line == 4 && row.confidence == killed
+            }),
+            "missing {def_line}:x -> 4:x Killed{{4}}: {rows:?}"
+        );
+    }
+    assert!(
+        rows.iter().any(|row| {
+            row.def_line == 3 && row.use_line == 5 && row.confidence == FlowConfidence::Exact
+        }),
+        "missing 3:x -> 5:x Exact: {rows:?}"
+    );
+
+    let loop_local = "function f(items) {\n  for (let x of items) { sink(x); }\n  try { risky(); } catch (x) { sink(x); }\n  sink(x);\n}\n";
+    let cpg = CodePropertyGraph::build(&fixture(Language::JavaScript, "js", loop_local));
+    let rows = producer_rows(&cpg, "app.js", "f", "x");
+    assert!(
+        rows.iter()
+            .all(|row| row.def_line != 2 || row.use_line == 2),
+        "loop-local x leaked beyond its declaration scope: {rows:?}"
+    );
+}
+
+#[test]
+fn classified_mask_projects_parameter_through_production_cpg() {
+    let source = "function f(x) {\n  try { risky(); } catch (x) { sink(x); }\n  sink(x);\n}\n";
+    let cpg = CodePropertyGraph::build(&fixture(Language::JavaScript, "js", source));
+    let rows = producer_rows(&cpg, "app.js", "f", "x");
+    assert!(
+        rows.iter().any(|row| {
+            row.def_line == 1
+                && row.use_line == 2
+                && row.confidence == FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 2 })
+        }),
+        "missing 1:x -> 2:x Killed{{2}}: {rows:?}"
+    );
+    assert!(
+        rows.iter().any(|row| {
+            row.def_line == 1 && row.use_line == 3 && row.confidence == FlowConfidence::Exact
+        }),
+        "missing 1:x -> 3:x Exact: {rows:?}"
+    );
+}
