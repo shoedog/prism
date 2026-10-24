@@ -3,6 +3,98 @@ use crate::mcp::transport::SessionRuntime;
 use crate::mcp::SessionProvider;
 use crate::navigation::queries::nodes_at;
 #[test]
+fn o_stdio_reasons() {
+    for startup in [
+        crate::mcp::StartupMode::Background,
+        crate::mcp::StartupMode::Lazy,
+    ] {
+        let (_dir, mut cfg) = fixture();
+        cfg.startup = startup;
+        let ((mut rt, send), lines) =
+            capture(|| crate::mcp::idle_runtime::IdleRuntime::deferred_for_tests(&cfg));
+        let finish = |rt: &mut crate::mcp::idle_runtime::IdleRuntime, success| {
+            send.send(success).unwrap();
+            rt.accept(
+                rt.rx
+                    .recv_timeout(std::time::Duration::from_secs(10))
+                    .unwrap(),
+            );
+            rt.join_build_for_tests();
+        };
+        finish(&mut rt, false);
+        assert!(matches!(
+            rt.ensure_ready(),
+            crate::mcp::lazy::Readiness::Failed { .. }
+        ));
+        assert!(matches!(
+            rt.ensure_ready(),
+            crate::mcp::lazy::Readiness::Warming { .. }
+        ));
+        finish(&mut rt, true);
+        // Check the initial retry before any real reload can obscure its publication.
+        for event in ["build", "publication"] {
+            let s = line(&lines, event);
+            assert_eq!(value(&s, "attempt"), "2");
+            assert_eq!(value(&s, "reason"), "demand_or_startup", "{startup:?}: {s}");
+        }
+        drop(rt.activity());
+        rt.refresh_index().unwrap();
+        rt.auto_refresh_index().unwrap();
+        unload(&mut rt);
+        assert!(matches!(
+            rt.ensure_ready(),
+            crate::mcp::lazy::Readiness::Warming { .. }
+        ));
+        finish(&mut rt, true);
+        unload(&mut rt);
+        std::fs::write(
+            cfg.repo_root.join("a.py"),
+            "def changed():\n    return 42\n",
+        )
+        .unwrap();
+        assert!(matches!(
+            rt.ensure_ready(),
+            crate::mcp::lazy::Readiness::Warming { .. }
+        ));
+        finish(&mut rt, true);
+        unload(&mut rt);
+        assert!(matches!(
+            rt.ensure_ready(),
+            crate::mcp::lazy::Readiness::Warming { .. }
+        ));
+        finish(&mut rt, false);
+        let logs = lines.lock().unwrap();
+        for (event, attempt, reason) in [
+            ("startup", "0", "startup"),
+            ("build_start", "1", "demand_or_startup"),
+            ("build_finish", "1", "demand_or_startup"),
+            ("build", "1", "build_failed"),
+            ("build_start", "2", "demand_or_startup"),
+            ("build_finish", "2", "demand_or_startup"),
+            ("build", "2", "demand_or_startup"),
+            ("publication", "2", "demand_or_startup"),
+            ("refresh", "2", "requested"),
+            ("auto_refresh", "2", "requested"),
+            ("last_release", "2", "tool_complete"),
+            ("unload", "2", "idle"),
+            ("disposal_start", "2", "idle"),
+            ("disposal_end", "2", "idle"),
+            ("relief", "2", "idle"),
+            ("reload", "3", "same_snapshot"),
+            ("publication", "3", "same_snapshot"),
+            ("reload", "4", "changed_snapshot"),
+            ("publication", "4", "changed_snapshot"),
+            ("reload", "5", "build_failed"),
+        ] {
+            let s = logs
+                .iter()
+                .find(|s| value(s, "event") == event && value(s, "attempt") == attempt)
+                .unwrap_or_else(|| panic!("missing {event} attempt={attempt}"));
+            assert_eq!(value(s, "reason"), reason, "{startup:?}: {s}");
+        }
+    }
+}
+#[test]
 fn o_sidecar_attempt_only() {
     for query in [false, true] {
         for state in ["hit", "miss", "io_failure", "ineligible"] {

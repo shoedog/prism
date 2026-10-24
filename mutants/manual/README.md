@@ -1,6 +1,6 @@
 # Manual feature and Python mutations
 
-Each catalog's own section below gives its count (O-lite adds **22**); the JSON files are the source of truth.
+Each catalog's own section below gives its count (O-lite adds **23**); the JSON files are the source of truth.
 
 The shared `scripts/mutgate/mutgate.py` gate reads only `mutants/*.json`, builds without features and has
 no Python test runner. Catalogs here are intentionally outside that glob. Do not pass them to that runner.
@@ -72,7 +72,7 @@ The authoritative ordinary shared-catalog gate remains separate and unchanged.
 
 ## `o.json` (O-lite lifecycle facts, `--features mcp`)
 
-The **22 mutants** use fully qualified library selectors; follow steps 1–6 above on the final candidate.
+The **23 mutants** use fully qualified library selectors; follow steps 1–6 above on the final candidate.
 Run the primary selector and each `supplemental_selectors` entry separately with
 `env CARGO_BUILD_JOBS=4 cargo test --offline --features mcp --lib SELECTOR -- --exact`
 (prepend `nice -n 19` when permitted). At least one executed test must fail behaviorally per record.
@@ -80,6 +80,6 @@ Run the primary selector and each `supplemental_selectors` entry separately with
 They cover actual CPG branches/stages, accepted publication facts in both modes and both startup policies, stale facts, unforced and late sidecars, disposal/publication,
 instance/clocks, post-drop relief with independent UNKNOWN-preserving samples, provider release, idle neutrality
 and emission after serving leases. The identity regressions cover warming attempt capture, unloaded release
-generation and failed-reload generation. Hash-verify every restoration and require each restored selector GREEN.
-Keep all raw receipts outside the checkout. I0b-1 + I0b-2 + O-lite total **49 mutants**; the ordinary
+generation, failed-reload generation and initial-retry publication reasons. Hash-verify every restoration and require each restored selector GREEN.
+Keep all raw receipts outside the checkout. I0b-1 + I0b-2 + O-lite total **50 mutants**; the ordinary
 shared-catalog gate and Tier-A remain separate controller gates.

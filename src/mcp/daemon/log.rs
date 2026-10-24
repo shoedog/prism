@@ -114,7 +114,24 @@ impl LifecycleLog {
         }
     }
     pub(super) fn startup(&self) {
-        let text = crate::mcp::serving_events::bounded(&format!("{} event=startup reason=startup attempt=0 generation=0 configured_idle_secs={:.3} observed_idle_secs=not_applicable duration_ns=not_applicable {} released_bytes=0 mono_ms=0", self.context.fields(Stamp::now()), self.timeout.as_secs_f64(), Details::default().fields("startup")), "complete");
+        let time = crate::mcp::serving_events::Stamp::now();
+        let fields = self.context.fields(time);
+        let details = crate::mcp::serving_events::Details::default().fields("startup");
+        let reason = "startup";
+        let outcome = "complete";
+        let text = crate::mcp::serving_events::bounded(
+            &format!(
+                concat!(
+                    "{} event=startup reason={} attempt=0 generation=0 configured_idle_secs={:.3} ",
+                    "observed_idle_secs=not_applicable duration_ns=not_applicable {} released_bytes=0 mono_ms=0",
+                ),
+                fields,
+                reason,
+                self.timeout.as_secs_f64(),
+                details,
+            ),
+            outcome,
+        );
         let mut stderr = std::io::stderr().lock();
         write_to(&sequenced(&text), &WRITTEN, &mut stderr);
     }
@@ -194,14 +211,36 @@ impl DaemonState {
                 .as_millis();
         // Reserve the numeric trailer and outcome marker before capping free-text error data.
         let suffix = format!(" mono_ms={mono_ms} outcome=");
-        let mut text = printable_prefix(&format!("{} event={} reason={} observed_idle_secs={:.3} configured_idle_secs={:.3} timestamp_ms={} duration_ns={} attempt={} generation={} {} released_bytes={}",
-            log.context.fields(Stamp { at: e.at, wall: e.wall }), e.event, e.reason, e.observed_idle.as_secs_f64(), log.timeout.as_secs_f64(), timestamp,
-            e.duration.as_nanos(), e.attempt, e.generation, e.details.fields(e.event), e.released), MAX_LINE_BYTES - suffix.len() - 30);
+        let time = Stamp {
+            at: e.at,
+            wall: e.wall,
+        };
+        let fields = log.context.fields(time);
+        let details = e.details.fields(e.event);
+        let reason = e.reason;
+        let outcome = &e.outcome;
+        let mut text = printable_prefix(
+            &format!(
+                concat!(
+                    "{} event={} reason={} observed_idle_secs={:.3} configured_idle_secs={:.3} ",
+                    "timestamp_ms={} duration_ns={} attempt={} generation={} {} released_bytes={}",
+                ),
+                fields,
+                e.event,
+                reason,
+                e.observed_idle.as_secs_f64(),
+                log.timeout.as_secs_f64(),
+                timestamp,
+                e.duration.as_nanos(),
+                e.attempt,
+                e.generation,
+                details,
+                e.released,
+            ),
+            MAX_LINE_BYTES - suffix.len() - 30,
+        );
         text.push_str(&suffix);
-        text.push_str(&printable_prefix(
-            &e.outcome,
-            MAX_LINE_BYTES - text.len() - 30,
-        ));
+        text.push_str(&printable_prefix(outcome, MAX_LINE_BYTES - text.len() - 30));
         let _text = {
             let mut stderr = std::io::stderr().lock();
             let text = sequenced(&text);

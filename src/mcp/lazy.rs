@@ -591,6 +591,34 @@ impl Context {
         facts: Option<super::serving_events::BuildFacts>,
         outcome: &str,
     ) {
-        self.emit(&super::serving_events::bounded(&format!("{} event={} reason={} configured_idle_secs={:.3} observed_idle_secs=not_applicable duration_ns=unknown attempt={} generation={} {} released_bytes=0 mono_ms={}", self.fields(time), event, if event == "build" && outcome.starts_with("failed") { "build_failed" } else { "demand_or_startup" }, self.timeout.as_secs_f64(), attempt, generation, super::serving_events::Details { build: facts, ..super::serving_events::Details::default() }.fields(event), time.mono()/1_000_000), outcome));
+        let reason = if event == "build" && outcome.starts_with("failed") {
+            "build_failed"
+        } else {
+            "demand_or_startup"
+        };
+        let fields = self.fields(time);
+        let details = super::serving_events::Details {
+            build: facts,
+            ..super::serving_events::Details::default()
+        }
+        .fields(event);
+        let mono_ms = time.mono() / 1_000_000;
+        self.emit(&super::serving_events::bounded(
+            &format!(
+                concat!(
+                    "{} event={} reason={} configured_idle_secs={:.3} observed_idle_secs=not_applicable ",
+                    "duration_ns=unknown attempt={} generation={} {} released_bytes=0 mono_ms={}",
+                ),
+                fields,
+                event,
+                reason,
+                self.timeout.as_secs_f64(),
+                attempt,
+                generation,
+                details,
+                mono_ms,
+            ),
+            outcome,
+        ));
     }
 }

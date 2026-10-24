@@ -249,6 +249,13 @@ impl IdleRuntime {
                             Some(publication),
                             0,
                         );
+                        record.snapshot_reason = self.previous.map_or("demand_or_startup", |_| {
+                            if changed {
+                                "changed_snapshot"
+                            } else {
+                                "same_snapshot"
+                            }
+                        });
                         record.details.build = Some(facts);
                         let mut published = record.clone();
                         published.event = "publication";
@@ -445,6 +452,7 @@ struct Observation {
     generation: u64,
     released: usize,
     details: Details,
+    snapshot_reason: &'static str,
 }
 impl LifecycleLog {
     fn record(
@@ -464,21 +472,57 @@ impl LifecycleLog {
             generation: published.map_or(0, |p| p.generation),
             released,
             details: Details::default(),
+            snapshot_reason: "demand_or_startup",
         }
     }
     fn write(&self, event: Observation) {
         self.context.emit(&self.format(&event));
     }
     fn format(&self, e: &Observation) -> String {
-        super::serving_events::bounded(&format!("{} event={} reason={} configured_idle_secs={:.3} observed_idle_secs=unknown timestamp_ms={} duration_ns={} duration_ms={} attempt={} generation={} {} released_bytes={} mono_ms={}", self.context.fields(e.time), e.event, match e.event {
+        let reason = match e.event {
             "unload" | "disposal_start" | "disposal_end" | "relief" => "idle",
             "last_release" => "tool_complete",
             "refresh" | "auto_refresh" => "requested",
             "build" | "reload" | "publication" if e.outcome.starts_with("failed") => "build_failed",
-            "reload" | "publication" if e.outcome == "changed_snapshot" => "changed_snapshot",
-            "reload" | "publication" if e.attempt > 1 => "same_snapshot",
+            "reload" | "publication" => e.snapshot_reason,
             _ => "demand_or_startup",
-        }, self.context.timeout.as_secs_f64(), e.time.wall.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis(), e.duration.as_nanos(), e.duration.as_millis(), e.attempt, e.generation, e.details.fields(e.event), e.released, e.time.mono()/1_000_000), if matches!(e.outcome.as_str(), "ready" | "changed_snapshot") { "complete" } else { &e.outcome })
+        };
+        let outcome = if matches!(e.outcome.as_str(), "ready" | "changed_snapshot") {
+            "complete"
+        } else {
+            &e.outcome
+        };
+        let fields = self.context.fields(e.time);
+        let details = e.details.fields(e.event);
+        let timestamp_ms = e
+            .time
+            .wall
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let mono_ms = e.time.mono() / 1_000_000;
+        super::serving_events::bounded(
+            &format!(
+                concat!(
+                    "{} event={} reason={} configured_idle_secs={:.3} observed_idle_secs=unknown ",
+                    "timestamp_ms={} duration_ns={} duration_ms={} attempt={} generation={} ",
+                    "{} released_bytes={} mono_ms={}",
+                ),
+                fields,
+                e.event,
+                reason,
+                self.context.timeout.as_secs_f64(),
+                timestamp_ms,
+                e.duration.as_nanos(),
+                e.duration.as_millis(),
+                e.attempt,
+                e.generation,
+                details,
+                e.released,
+                mono_ms,
+            ),
+            outcome,
+        )
     }
     #[cfg(test)]
     fn line(

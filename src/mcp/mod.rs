@@ -160,7 +160,24 @@ impl serving_events::Context {
         )
     }
     pub fn startup(&self) {
-        self.emit(&serving_events::bounded(&format!("{} event=startup reason=startup attempt=0 generation=0 configured_idle_secs={:.3} observed_idle_secs=not_applicable duration_ns=not_applicable {} released_bytes=0 mono_ms=0", self.fields(serving_events::Stamp::now()), self.timeout.as_secs_f64(), serving_events::Details::default().fields("startup")), "complete"));
+        let time = serving_events::Stamp::now();
+        let fields = self.fields(time);
+        let details = serving_events::Details::default().fields("startup");
+        let reason = "startup";
+        let outcome = "complete";
+        self.emit(&serving_events::bounded(
+            &format!(
+                concat!(
+                    "{} event=startup reason={} attempt=0 generation=0 configured_idle_secs={:.3} ",
+                    "observed_idle_secs=not_applicable duration_ns=not_applicable {} released_bytes=0 mono_ms=0",
+                ),
+                fields,
+                reason,
+                self.timeout.as_secs_f64(),
+                details,
+            ),
+            outcome,
+        ));
     }
 }
 

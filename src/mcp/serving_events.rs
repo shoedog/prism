@@ -66,7 +66,26 @@ impl Details {
             }
         );
         if let Some(p) = &self.pair {
-            text.push_str(&format!(" sample_before_ns={} sample_after_ns={} sample_before_epoch_ns={} sample_after_epoch_ns={} heap_before={} heap_after={} footprint_before={} footprint_after={}", p.times[0].mono(), p.times[1].mono(), p.times[0].epoch(), p.times[1].epoch(), optional(p.samples[0].heap_in_use_bytes), optional(p.samples[1].heap_in_use_bytes), optional(p.samples[0].phys_footprint_bytes), optional(p.samples[1].phys_footprint_bytes)));
+            let before = p.times[0];
+            let after = p.times[1];
+            let heap_before = optional(p.samples[0].heap_in_use_bytes);
+            let heap_after = optional(p.samples[1].heap_in_use_bytes);
+            let footprint_before = optional(p.samples[0].phys_footprint_bytes);
+            let footprint_after = optional(p.samples[1].phys_footprint_bytes);
+            text.push_str(&format!(
+                concat!(
+                    " sample_before_ns={} sample_after_ns={} sample_before_epoch_ns={} sample_after_epoch_ns={} ",
+                    "heap_before={} heap_after={} footprint_before={} footprint_after={}",
+                ),
+                before.mono(),
+                after.mono(),
+                before.epoch(),
+                after.epoch(),
+                heap_before,
+                heap_after,
+                footprint_before,
+                footprint_after,
+            ));
         }
         text
     }
