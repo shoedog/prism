@@ -49,4 +49,8 @@ const _: fn() = || {
 };
 
 #[cfg(test)]
+mod idle_event_tests;
+#[cfg(test)]
+mod idle_sink_tests;
+#[cfg(test)]
 mod idle_wire_logging_tests;

@@ -14,6 +14,11 @@ fn capture(parts: &mut Parts) -> Lines {
     lines
 }
 fn require_event(lines: &Lines, event: &str, outcome: &str) {
+    wait_until("lifecycle event after unlocked notification", || {
+        lines.lock().unwrap().iter().any(|s| {
+            s.contains(&format!("event={event} ")) && s.contains(&format!("outcome={outcome}"))
+        })
+    });
     let lines = lines.lock().unwrap();
     assert!(
         lines
@@ -33,7 +38,7 @@ fn daemon_idle_logging_and_relief() {
     let lines = capture(&mut parts);
     let state = DaemonState::from_parts(parts).unwrap();
     build(&state);
-    // Actual tool release slot is consumed by the timer, including when still before N.
+    // Tool release remains pending until the timer accepts an unload.
     let (mut client, worker) = connect(&state, client_settings(600));
     client.handshake();
     client.request(CALLEES);
@@ -77,6 +82,7 @@ fn daemon_idle_logging_and_relief() {
             "generation=",
             "outcome=",
             "released_bytes=",
+            "mono_ms=",
         ] {
             assert!(s.contains(field), "missing {field}: {s}");
         }
@@ -87,25 +93,16 @@ fn daemon_idle_logging_and_relief() {
         assert!(s.len() <= 1000);
     }
     let guard = lines.lock().unwrap();
-    let log = guard.iter().find(|s| s.contains("event=unload ")).unwrap();
-    let nanos: u128 = log
-        .split_whitespace()
-        .find_map(|s| s.strip_prefix("duration_ns="))
-        .unwrap()
-        .parse()
-        .unwrap();
-    assert!(
-        nanos > 0,
-        "unload must measure the locked section including fingerprint: {log}"
-    );
-    let release = guard
-        .iter()
-        .find(|s| s.contains("event=last_release "))
-        .unwrap();
-    assert!(
-        release.contains("observed_idle_secs=0.000"),
-        "release timestamp must be producer time: {release}"
-    );
+    for (event, reason) in [
+        ("initial_build", "demand_or_startup"),
+        ("reload", "same_snapshot"),
+    ] {
+        let line = guard
+            .iter()
+            .find(|s| s.contains(&format!("event={event} ")))
+            .unwrap();
+        assert!(line.contains(&format!("reason={reason} ")), "{line}");
+    }
 }
 
 #[test]
@@ -186,6 +183,10 @@ fn daemon_idle_build_failure_event() {
         "error must be sanitized: {s:?}"
     );
     assert!(s.len() <= 1000 && !s.chars().any(char::is_control));
+    assert!(
+        s.ends_with(" mono_ms=0"),
+        "capped error must retain appended mono_ms: {s}"
+    );
     drop(guard);
     build(&state);
     unload(&clock, &state);
@@ -213,8 +214,23 @@ fn daemon_idle_refresh_events() {
         .unwrap();
     client.request(REFRESH);
     std::fs::write(dir.path().join("util.py"), "def helper():\n    return 12\n").unwrap();
+    let modified = std::fs::metadata(dir.path().join("util.py"))
+        .unwrap()
+        .modified()
+        .unwrap();
     client.request(CALLEES);
-    std::fs::write(dir.path().join("util.py"), "def helper():\n    return 13\n").unwrap();
+    std::fs::write(
+        dir.path().join("util.py"),
+        "def helper():\n    return 123456\n",
+    )
+    .unwrap();
+    // Equal mtime deliberately models a coarse filesystem clock; the changed size must suffice.
+    std::fs::File::options()
+        .write(true)
+        .open(dir.path().join("util.py"))
+        .unwrap()
+        .set_times(std::fs::FileTimes::new().set_modified(modified))
+        .unwrap();
     state
         .write(|p| p.force_next_refresh_error_for_tests("auto failure"))
         .unwrap();

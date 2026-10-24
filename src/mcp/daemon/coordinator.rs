@@ -90,6 +90,8 @@ pub(super) type AttemptHook = Arc<dyn Fn(u64) + Send + Sync>;
 #[derive(Clone, Default)]
 pub(super) struct TestHooks {
     pub(super) lifecycle: Option<super::log::EventObserver>,
+    pub(super) wall_time: Option<Arc<dyn Fn() -> std::time::SystemTime + Send + Sync>>,
+    pub(super) fingerprint: Option<Arc<dyn Fn() + Send + Sync>>,
     /// After the provider is in the slot, before `Ready` is announced.
     pub(super) published: Option<AttemptHook>,
     /// After an attempt's outcome is recorded, before the parked calls are notified.
@@ -193,9 +195,15 @@ impl DaemonState {
             hooks: parts.hooks,
         });
         if state.startup == StartupMode::Background {
-            let mut control = state.lock_control()?;
-            let _fatal = state.guard(Domain::Control);
-            let _started = state.start_attempt(&mut control);
+            let mut event = None;
+            {
+                let mut control = state.lock_control()?;
+                let _fatal = state.guard(Domain::Control);
+                let _started = state.start_attempt(&mut control, &mut event);
+            }
+            if let Some(event) = event {
+                state.lifecycle_event(event);
+            }
         }
         Ok(state)
     }
@@ -295,11 +303,25 @@ impl DaemonState {
             } => Some((*attempt, *started, Arc::clone(outcome))),
             BuildPhase::Idle | BuildPhase::Unloaded { .. } | BuildPhase::Failed { .. } => None,
         };
+        let mut event = None;
         let (attempt, started, outcome) =
-            building.unwrap_or_else(|| self.start_attempt(&mut control));
+            building.unwrap_or_else(|| self.start_attempt(&mut control, &mut event));
         let mut deadline = budget.join(attempt, &outcome, self.now());
         if let Some(limit) = disposal_deadline {
             deadline = budget.cap_deadline(limit);
+        }
+        if let Some(event) = event {
+            // Spawn failure is already terminal. Freeze this caller's answer before another
+            // client can retry, then release both guards before the potentially blocking sink.
+            budget.told();
+            let answer = answer_for(
+                outcome.ended().expect("spawn failure ended"),
+                &control.build,
+            );
+            drop(_fatal);
+            drop(control);
+            self.lifecycle_event(event);
+            return Ok(answer);
         }
         loop {
             if self.idle_timeout.is_some()
@@ -500,11 +522,13 @@ impl DaemonState {
     fn start_attempt(
         self: &Arc<Self>,
         control: &mut ControlState,
+        event: &mut Option<super::log::Event>,
     ) -> (u64, Instant, Arc<AttemptOutcome>) {
         if let BuildPhase::Unloaded { last_published } = control.build {
             control.idle.previous = Some(last_published);
         }
         let started = self.clock.now();
+        self.lifecycle.start_clock(started);
         let outcome = Arc::new(AttemptOutcome::default());
         let Some(attempt) = control.attempts.checked_add(1) else {
             let attempt = control.attempts;
@@ -528,7 +552,7 @@ impl DaemonState {
             // No thread, so nothing will ever end this attempt: end it here. Nobody but the
             // caller can have joined it, because the control lock has been held since it began.
             let error = format!("could not start the index build thread: {error}");
-            self.log_build(control, &Err(error.clone()));
+            *event = Some(self.log_build(control, &Err(error.clone())));
             outcome.fill(Err(error.clone()));
             control.build = BuildPhase::Failed { attempt, error };
         }
@@ -626,6 +650,7 @@ impl DaemonState {
             None
         };
         let mut retired = None;
+        let mut event = None;
         let control = match self.control.lock() {
             Ok(control) => Some(control),
             Err(_) => {
@@ -650,7 +675,7 @@ impl DaemonState {
                 _ => None,
             };
             if let Some(outcome) = building {
-                self.log_build(&control, &ended);
+                event = Some(self.log_build(&control, &ended));
                 control.build = match &ended {
                     Ok(()) => {
                         control.idle.published_at = Some(self.now());
@@ -673,6 +698,9 @@ impl DaemonState {
         }
         self.changed.notify_all();
         self.wake_idle_loop();
+        if let Some(event) = event {
+            self.lifecycle_event(event);
+        }
     }
 }
 

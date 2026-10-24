@@ -71,7 +71,7 @@ fn requests_have_one_spelling_and_round_trip() {
 fn a_request_spelled_otherwise_is_refused() {
     let key = "ab".repeat(32);
     let refused = [
-        "STATUS {\"control\": 1}".to_string(),
+        "STATUS {\"control\": 2}".to_string(),
         "STATUS {}".to_string(),
         "STATUS {\"control\":2,\"extra\":0}".to_string(),
         format!("SHUTDOWN {{\"control\":2,\"pid\":4242,\"identity\":\"{key}\",\"start_time\":1}}"),
@@ -80,6 +80,15 @@ fn a_request_spelled_otherwise_is_refused() {
         "STATUS [1]".to_string(),
     ];
     for text in refused {
+        if text == "STATUS {\"control\": 2}" {
+            assert!(
+                matches!(
+                    ControlRequest::decode(text.as_bytes()),
+                    Err(PreambleError::Invalid { detail }) if detail.contains("not spelled")
+                ),
+                "whitespace fixture must exercise canonical spelling, not version rejection"
+            );
+        }
         assert!(
             ControlRequest::decode(text.as_bytes()).is_err(),
             "accepted: {text}"

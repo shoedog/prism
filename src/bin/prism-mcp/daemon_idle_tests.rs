@@ -173,7 +173,12 @@ fn socket_policy(extra: &[&str], expected: u64, relief: bool) {
         line(&stream, "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"nav_callees\",\"arguments\":{\"seed\":{\"kind\":\"symbol\",\"name\":\"run\",\"file\":\"main.py\"}}}}\n");
         let refresh: Value = serde_json::from_str(&line(&stream, "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"refresh_index\",\"arguments\":{}}}\n")).unwrap();
         assert_eq!(refresh["result"]["isError"], false);
-        assert_eq!(status()["generation"], 1, "resident G before unload");
+        assert_eq!(
+            refresh["result"]["_meta"]["prism/refresh_generation"], 1,
+            "resident G is captured in the refresh response"
+        );
+        // Deliberately deschedule the parent beyond the child's legitimate unload deadline.
+        std::thread::sleep(Duration::from_millis(1100));
         let deadline = Instant::now() + Duration::from_secs(20);
         loop {
             let s = status();

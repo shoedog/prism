@@ -173,13 +173,17 @@ fn dispatch_tool_call(
     state.dispatch_hook();
 
     if call.is_refresh() {
+        let mut event = None;
         let refreshed = state.write(|provider| {
             dispatch_tool_refresh(
                 call,
-                &mut super::log::LoggedRefresh(state, provider),
+                &mut super::log::LoggedRefresh(state, provider, &mut event),
                 settings,
             )
         })?;
+        if let Some(event) = event {
+            state.lifecycle_event(event);
+        }
         return published(refreshed);
     }
 
@@ -200,18 +204,22 @@ fn dispatch_tool_call(
     state.response_hook(); // preliminary dispatch finished; final owned reply is not built
     #[cfg(test)]
     state.before_exclusive();
+    let mut event = None;
     let answered =
         state.write(
             |provider| match dispatch_tool_read(call, &*provider, settings) {
                 ReadDispatch::Response(response) => response,
                 ReadDispatch::NeedsAutoRefresh { initial_report } => dispatch_tool_auto_refresh(
                     call,
-                    &mut super::log::LoggedRefresh(state, provider),
+                    &mut super::log::LoggedRefresh(state, provider, &mut event),
                     initial_report,
                     settings,
                 ),
             },
         )?;
+    if let Some(event) = event {
+        state.lifecycle_event(event);
+    }
     published(answered)
 }
 

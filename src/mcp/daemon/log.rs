@@ -2,6 +2,9 @@
 //! (spec §4.1 step 6, §4.3). The log is truncated at daemon start when it is over 1 MiB, and the
 //! daemon stops adding its own lines past 8 MiB and says so once (§4.3). A panic message, which
 //! the panic hook writes, is not counted: it is followed by the end of the process.
+//! Lifecycle output happens after all serving guards and ownership transfer/drop: blocked stderr
+//! stalls only its writer, never the control plane, a serving lock or provider destruction.
+//! Production daemons write to the shim's `O_APPEND` regular file.
 use std::io::Write;
 use std::os::fd::AsFd;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -88,8 +91,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub(super) struct LifecycleLog {
     identity: String,
-    origin: Instant,
-    epoch_ms: u128,
+    origin: std::sync::OnceLock<Instant>,
     timeout: Duration,
     pub(super) relief: bool,
 }
@@ -102,15 +104,15 @@ impl LifecycleLog {
     pub(super) fn new(identity: String, policy: IdlePolicy) -> Self {
         Self {
             identity,
-            origin: Instant::now(),
-            epoch_ms: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis(),
+            origin: std::sync::OnceLock::new(),
             timeout: policy.timeout.unwrap_or_default(),
             // Reuse I0a applicability, with the ordinary lifecycle enabled for this daemon.
             relief: policy.pressure_relief && policy.pressure_relief_note(true, false).is_none(),
         }
+    }
+    /// Use the first build's existing guarded clock read; construction must not read the clock.
+    pub(super) fn start_clock(&self, at: Instant) {
+        let _ = self.origin.set(at);
     }
     pub(super) fn with_timeout(mut self, timeout: Option<Duration>) -> Self {
         self.timeout = timeout.unwrap_or_default();
@@ -160,17 +162,30 @@ impl DaemonState {
     }
     pub(super) fn lifecycle_event(&self, e: Event) {
         let log = &self.lifecycle;
-        let timestamp = log.epoch_ms + e.at.saturating_duration_since(log.origin).as_millis();
-        let text = printable_prefix(&format!("identity={} pid={} event={} reason={} observed_idle_secs={:.3} configured_idle_secs={} timestamp_ms={} duration_ns={} attempt={} generation={} released_bytes={} outcome={}",
+        let wall = SystemTime::now();
+        #[cfg(test)]
+        let wall = self.hooks.wall_time.as_ref().map_or(wall, |now| now());
+        let timestamp = wall
+            .checked_sub(self.now().saturating_duration_since(e.at))
+            .and_then(|at| at.duration_since(UNIX_EPOCH).ok())
+            .unwrap_or_default()
+            .as_millis();
+        let mono_ms =
+            e.at.saturating_duration_since(*log.origin.get_or_init(|| e.at))
+                .as_millis();
+        let suffix = format!(" mono_ms={mono_ms}");
+        let mut text = printable_prefix(&format!("identity={} pid={} event={} reason={} observed_idle_secs={:.3} configured_idle_secs={} timestamp_ms={} duration_ns={} attempt={} generation={} released_bytes={} outcome={}",
             log.identity, std::process::id(), e.event, e.reason, e.observed_idle.as_secs_f64(), log.timeout.as_secs(), timestamp,
-            e.duration.as_nanos(), e.attempt, e.generation, e.released, e.outcome), MAX_LINE_BYTES);
+            e.duration.as_nanos(), e.attempt, e.generation, e.released, e.outcome), MAX_LINE_BYTES - suffix.len());
+        text.push_str(&suffix);
         line(&text);
         #[cfg(test)]
         if let Some(observe) = &self.hooks.lifecycle {
             observe(&text);
         }
     }
-    pub(super) fn log_build(&self, control: &ControlState, result: &Result<(), String>) {
+    /// Capture only; callers emit after settlement and guard/provider release.
+    pub(super) fn log_build(&self, control: &ControlState, result: &Result<(), String>) -> Event {
         let duration = match control.build {
             BuildPhase::Building { started, .. } => self.now().saturating_duration_since(started),
             _ => Duration::ZERO,
@@ -184,23 +199,23 @@ impl DaemonState {
             "build_failed"
         } else {
             control.idle.previous.map_or("demand_or_startup", |p| {
-                if p.generation == control.generation {
-                    "same_snapshot"
-                } else {
+                if p.diverged || p.generation != control.generation {
                     "changed_snapshot"
+                } else {
+                    "same_snapshot"
                 }
             })
         };
         let outcome = result
             .as_ref()
             .map_or_else(|e| format!("failed error={e}"), |_| "complete".into());
-        self.lifecycle_event(self.lifecycle_snapshot(control, event, reason, duration, outcome));
+        self.lifecycle_snapshot(control, event, reason, duration, outcome)
     }
-    pub(super) fn flush_last_release(&self) -> Result<(), super::coordinator::Poisoned> {
-        let mut control = self.control_plane()?;
-        let event = control.idle.last_release_event.take().map(|release| {
+    /// Consume only for an accepted unload, retaining the release's producer identity/time.
+    pub(super) fn take_last_release(&self, control: &mut ControlState) -> Option<Event> {
+        control.idle.last_release_event.take().map(|release| {
             let mut event = self.lifecycle_snapshot(
-                &control,
+                control,
                 "last_release",
                 "tool_complete",
                 Duration::ZERO,
@@ -211,12 +226,7 @@ impl DaemonState {
             event.generation = release.generation;
             event.observed_idle = Duration::ZERO;
             event
-        });
-        drop(control);
-        if let Some(event) = event {
-            self.lifecycle_event(event);
-        }
-        Ok(())
+        })
     }
     pub(super) fn relieve(&self, mut event: Event) {
         event.event = "relief";
@@ -232,7 +242,7 @@ impl DaemonState {
         started: Instant,
         result: &anyhow::Result<T>,
         generation: u64,
-    ) {
+    ) -> Option<Event> {
         if let Ok(control) = self.control_plane() {
             let outcome = result
                 .as_ref()
@@ -240,8 +250,9 @@ impl DaemonState {
             let mut event =
                 self.lifecycle_snapshot(&control, event, "requested", started.elapsed(), outcome);
             event.generation = generation;
-            drop(control);
-            self.lifecycle_event(event);
+            Some(event)
+        } else {
+            None
         }
     }
 }
@@ -251,6 +262,7 @@ impl DaemonState {
 pub(super) struct LoggedRefresh<'a>(
     pub(super) &'a DaemonState,
     pub(super) &'a mut SessionProvider,
+    pub(super) &'a mut Option<Event>,
 );
 impl SessionRuntime for LoggedRefresh<'_> {
     fn ensure_ready(&mut self) -> crate::mcp::lazy::Readiness {
@@ -274,14 +286,16 @@ impl SessionRuntime for LoggedRefresh<'_> {
     fn refresh_index(&mut self) -> anyhow::Result<RefreshSummary> {
         let started = Instant::now();
         let result = self.1.refresh_index();
-        self.0
+        *self.2 = self
+            .0
             .log_refresh("refresh", started, &result, self.1.generation());
         result
     }
     fn auto_refresh_index(&mut self) -> anyhow::Result<AutoRefreshSummary> {
         let started = Instant::now();
         let result = self.1.auto_refresh_index();
-        self.0
+        *self.2 = self
+            .0
             .log_refresh("auto_refresh", started, &result, self.1.generation());
         result
     }

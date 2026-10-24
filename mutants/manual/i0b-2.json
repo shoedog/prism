@@ -54,7 +54,7 @@
         },
         {
           "file": "src/mcp/daemon/idle.rs",
-          "old": "            state.relieve(disposal_event);",
+          "old": "            state.relieve(end);",
           "new": "            // mutant: relief already ran before drop"
         }
       ]
@@ -66,8 +66,56 @@
       "edits": [
         {
           "file": "src/mcp/daemon/coordinator.rs",
-          "old": "                self.log_build(&control, &ended);",
+          "old": "                event = Some(self.log_build(&control, &ended));",
           "new": "                // mutant: terminal build event omitted"
+        }
+      ]
+    },
+    {
+      "id": "I0b-log-under-lock",
+      "selector": "mcp::daemon::idle_sink_tests::daemon_idle_sink_initial_build",
+      "description": "Emit the captured build event inside settle under slot/control guards; independent control and read dispatch must proceed through a held sink.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/coordinator.rs",
+          "old": "                event = Some(self.log_build(&control, &ended));",
+          "new": "                self.lifecycle_event(self.log_build(&control, &ended));"
+        }
+      ]
+    },
+    {
+      "id": "I0b-diverged-same-snapshot",
+      "selector": "mcp::daemon::idle_event_tests::daemon_idle_diverged_same_snapshot_reason",
+      "description": "Ignore prior divergence when G is unchanged; the clearing reload must be changed_snapshot.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/log.rs",
+          "old": "                if p.diverged || p.generation != control.generation {",
+          "new": "                if p.generation != control.generation {"
+        }
+      ]
+    },
+    {
+      "id": "I0b-timestamp-at-emission",
+      "selector": "mcp::daemon::idle_event_tests::daemon_idle_producer_timestamps",
+      "description": "Replace producer age with zero; delayed release timestamps must still equal the producer time.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/log.rs",
+          "old": "            .checked_sub(self.now().saturating_duration_since(e.at))",
+          "new": "            .checked_sub(Duration::ZERO)"
+        }
+      ]
+    },
+    {
+      "id": "I0b-release-per-call",
+      "selector": "mcp::daemon::idle_event_tests::daemon_idle_release_volume",
+      "description": "Emit the bounded release event on every tool release, even with idle off.",
+      "edits": [
+        {
+          "file": "src/mcp/daemon/activity.rs",
+          "old": "        self.state.wake_idle_loop();",
+          "new": "        if let Ok(mut control) = self.state.control_plane() {\n            let event = self.state.take_last_release(&mut control);\n            drop(control);\n            if let Some(event) = event { self.state.lifecycle_event(event); }\n        }\n        self.state.wake_idle_loop();"
         }
       ]
     }

@@ -71,7 +71,6 @@ impl DaemonState {
     }
 
     pub(super) fn unload_tick(self: &Arc<Self>) -> Result<(), Poisoned> {
-        self.flush_last_release()?;
         if self
             .unload_deadline()?
             .is_none_or(|deadline| self.now() < deadline)
@@ -110,6 +109,10 @@ impl DaemonState {
         let Some(provider) = slot.as_ref() else {
             return Ok(());
         };
+        #[cfg(test)]
+        if let Some(hook) = &self.hooks.fingerprint {
+            hook();
+        }
         let last_published = provider.idle_publication();
         let mut event = self.lifecycle_snapshot(
             &control,
@@ -131,17 +134,19 @@ impl DaemonState {
             let started = Instant::now();
             disposal_event.event = "disposal_start";
             disposal_event.at = state.now();
-            state.lifecycle_event(disposal_event.clone());
             #[cfg(test)]
             if let Some(hook) = &state.hooks.dispose {
                 hook();
             }
             drop(provider);
-            disposal_event.event = "disposal_end";
-            disposal_event.at = state.now();
-            disposal_event.duration = started.elapsed();
-            state.lifecycle_event(disposal_event.clone());
-            state.relieve(disposal_event);
+            let mut end = disposal_event.clone();
+            end.event = "disposal_end";
+            end.at = state.now();
+            end.duration = started.elapsed();
+            // Capture both producer times around destruction; neither write can delay it.
+            state.lifecycle_event(disposal_event);
+            state.lifecycle_event(end.clone());
+            state.relieve(end);
         });
         if (self.disposal_spawner)(job).is_err() {
             let retry = control
@@ -153,6 +158,7 @@ impl DaemonState {
             return Ok(());
         }
         control.idle.spawn_retry = None;
+        let release = self.take_last_release(&mut control);
         let provider = slot.take().expect("checked resident provider");
         control.build = BuildPhase::Unloaded { last_published };
         control.generation = 0;
@@ -162,7 +168,6 @@ impl DaemonState {
         drop(control);
         drop(slot);
         event.duration = locked_started.elapsed();
-        self.lifecycle_event(event);
         // The worker only receives ownership after both guards are gone.
         // A valid spawner never runs the job inline and starts it exactly once.
         if let Err(unsent) = send.send(provider) {
@@ -178,6 +183,11 @@ impl DaemonState {
             control.build = BuildPhase::Ready;
             control.idle.disposing = false;
             control.idle.rearm = self.now().checked_add(REARM);
+        } else {
+            if let Some(release) = release {
+                self.lifecycle_event(release);
+            }
+            self.lifecycle_event(event);
         }
         Ok(())
     }
