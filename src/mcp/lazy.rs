@@ -32,6 +32,8 @@ pub struct LazySessionProvider {
     builder: SessionBuilder,
     context: Context,
     #[cfg(test)]
+    build_workers: Vec<std::thread::JoinHandle<()>>,
+    #[cfg(test)]
     hooks: LazyTestHooks,
 }
 
@@ -120,6 +122,8 @@ impl LazySessionProvider {
             builder,
             context,
             #[cfg(test)]
+            build_workers: Vec::new(),
+            #[cfg(test)]
             hooks,
         };
         if provider.startup == StartupMode::Background {
@@ -200,6 +204,13 @@ impl LazySessionProvider {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn join_build_for_tests(&mut self) {
+        for worker in self.build_workers.drain(..) {
+            worker.join().unwrap();
+        }
+    }
+
     fn spawn_build(&mut self) {
         self.attempts += 1;
         let (tx, rx) = mpsc::channel();
@@ -210,7 +221,7 @@ impl LazySessionProvider {
         let context = self.context.clone();
         let attempt = self.attempts;
         let start = Stamp::now();
-        std::thread::spawn(move || {
+        let _worker = std::thread::spawn(move || {
             context.build_event("build_start", start, attempt, 0, None, "complete");
             let result = builder();
             let finish = Stamp::now();
@@ -223,6 +234,8 @@ impl LazySessionProvider {
                 published();
             }
         });
+        #[cfg(test)]
+        self.build_workers.push(_worker);
         self.state = LazyState::Building {
             rx,
             started,
@@ -578,6 +591,6 @@ impl Context {
         facts: Option<super::serving_events::BuildFacts>,
         outcome: &str,
     ) {
-        self.emit(&super::serving_events::bounded(&format!("{} event={} reason=demand_or_startup configured_idle_secs={:.3} observed_idle_secs=not_applicable duration_ns=unknown attempt={} generation={} {} released_bytes=0 mono_ms={}", self.fields(time), event, self.timeout.as_secs_f64(), attempt, generation, super::serving_events::Details { build: facts, ..super::serving_events::Details::default() }.fields(), time.mono()/1_000_000), outcome));
+        self.emit(&super::serving_events::bounded(&format!("{} event={} reason={} configured_idle_secs={:.3} observed_idle_secs=not_applicable duration_ns=unknown attempt={} generation={} {} released_bytes=0 mono_ms={}", self.fields(time), event, if event == "build" && outcome.starts_with("failed") { "build_failed" } else { "demand_or_startup" }, self.timeout.as_secs_f64(), attempt, generation, super::serving_events::Details { build: facts, ..super::serving_events::Details::default() }.fields(event), time.mono()/1_000_000), outcome));
     }
 }

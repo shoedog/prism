@@ -201,12 +201,12 @@ impl DaemonState {
     }
 }
 
-/// Made before the received provider, so that even unwinding finishes destruction before
-/// accounting is cleared. Panic never authorizes another reload; production aborts here.
 #[cfg(test)]
 #[path = "serving_event_tests.rs"]
 mod serving_event_tests;
 
+/// Made before the received provider, so that even unwinding finishes destruction before
+/// accounting is cleared. Panic never authorizes another reload; production aborts here.
 struct DisposalCompletion(Arc<DaemonState>);
 impl Drop for DisposalCompletion {
     fn drop(&mut self) {

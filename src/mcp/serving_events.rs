@@ -46,7 +46,7 @@ pub(super) struct Details {
     pub pair: Option<ReliefPair>,
 }
 impl Details {
-    pub fn fields(&self) -> String {
+    pub fn fields(&self, event: &str) -> String {
         let stages = self
             .build
             .map(|f| f.stages.map(|v| v.to_string()))
@@ -58,10 +58,11 @@ impl Details {
             stages[1],
             stages[2],
             stages[3],
-            if self.sidecar.is_empty() {
-                "not_attempted"
-            } else {
-                self.sidecar
+            match event {
+                "publication" => "not_attempted",
+                "unload" if !self.sidecar.is_empty() => self.sidecar,
+                "unload" => "not_attempted",
+                _ => "not_applicable",
             }
         );
         if let Some(p) = &self.pair {

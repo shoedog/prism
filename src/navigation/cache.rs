@@ -52,7 +52,8 @@ impl NavigationIndex {
         Self::build_cached_at_observed(repo, &cache_dir)
     }
 
-    /// Cache in an exact final directory.
+    /// Cache in an exact final directory (test fixtures only).
+    #[cfg(test)]
     pub(crate) fn build_cached_at(repo: &LoadedRepo, cache_dir: &Path) -> Self {
         Self::build_cached_at_observed(repo, cache_dir).0
     }

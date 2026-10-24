@@ -25,6 +25,7 @@ pub(super) fn runtime(cfg: &ServerConfig) -> (IdleRuntime, Lines) {
 }
 pub(super) fn ready(rt: &mut IdleRuntime) {
     assert!(matches!(rt.ensure_ready(), Readiness::Ready));
+    rt.join_build_for_tests();
 }
 pub(super) fn unload(rt: &mut IdleRuntime) {
     rt.tick(rt.idle_deadline().unwrap());
@@ -55,6 +56,28 @@ pub(crate) fn value<'a>(s: &'a str, key: &str) -> &'a str {
 pub(crate) fn number(s: &str, key: &str) -> u128 {
     value(s, key).parse().unwrap()
 }
+pub(crate) fn sidecar_scope(s: &str) {
+    if !matches!(value(s, "event"), "publication" | "unload") {
+        assert_eq!(
+            value(s, "sidecar"),
+            "not_applicable",
+            "unrelated event: {s}"
+        );
+    }
+}
+pub(crate) fn publication_facts(s: &str, expected: &str) {
+    assert_eq!(value(s, "cpg"), expected, "actual publication cache branch");
+    let stages: u128 = ["load_parse_ns", "f_validation_ns", "index_ns"]
+        .iter()
+        .map(|k| {
+            let n = number(s, k);
+            assert!(n > 0, "missing actual publication stage {k}");
+            n
+        })
+        .sum();
+    assert!(number(s, "bootstrap_ns") >= stages);
+}
+
 pub(super) fn edges(rt: &IdleRuntime) {
     crate::navigation::queries::callees(rt.session(), Some("run"), None, None, 1).unwrap();
 }
@@ -99,6 +122,7 @@ fn o_actual_cache_and_stages() {
     }
     let (mut lazy, lines) = capture(|| crate::mcp::lazy::LazySessionProvider::new(&cfg).unwrap());
     assert!(matches!(lazy.ensure_ready(), Readiness::Ready));
+    lazy.join_build_for_tests();
     assert_eq!(value(&line(&lines, "publication"), "cpg"), "disabled");
     assert!(!lines
         .lock()
@@ -115,5 +139,40 @@ fn o_actual_cache_and_stages() {
         .unwrap()
     });
     assert!(matches!(rt.ensure_ready(), Readiness::Failed { .. }));
+    rt.join_build_for_tests();
     assert_eq!(value(&line(&lines, "build"), "cpg"), "unknown");
+}
+
+#[test]
+fn o_resident_publication_facts() {
+    for startup in [
+        crate::mcp::StartupMode::Lazy,
+        crate::mcp::StartupMode::Background,
+    ] {
+        let (_dir, mut cfg) = fixture();
+        cfg.startup = startup;
+        for expected in ["miss", "hit"] {
+            let (mut lazy, lines) =
+                capture(|| crate::mcp::lazy::LazySessionProvider::new(&cfg).unwrap());
+            assert!(matches!(lazy.ensure_ready(), Readiness::Ready));
+            lazy.join_build_for_tests();
+            publication_facts(&line(&lines, "publication"), expected);
+            for s in lines.lock().unwrap().iter() {
+                sidecar_scope(s);
+            }
+        }
+        let bad = Arc::new(|| anyhow::bail!("injected resident failure"));
+        let (mut lazy, lines) = capture(|| {
+            crate::mcp::lazy::LazySessionProvider::with_builder(&cfg, Duration::from_secs(10), bad)
+                .unwrap()
+        });
+        assert!(matches!(lazy.ensure_ready(), Readiness::Failed { .. }));
+        lazy.join_build_for_tests();
+        assert_eq!(
+            value(&line(&lines, "build_finish"), "reason"),
+            "demand_or_startup"
+        );
+        assert_eq!(value(&line(&lines, "build"), "reason"), "build_failed");
+        assert_eq!(value(&line(&lines, "build"), "cpg"), "unknown");
+    }
 }

@@ -49,6 +49,8 @@ pub(super) struct IdleRuntime {
     events: Vec<Observation>,
     release: Rc<Cell<Option<(Stamp, usize, u64)>>>,
     ids: Rc<Cell<(usize, u64)>>,
+    #[cfg(test)]
+    build_workers: Vec<(usize, std::thread::JoinHandle<()>)>,
     disposing: bool,
     disposal_deadline: Option<Instant>,
     #[cfg(test)]
@@ -113,13 +115,7 @@ impl IdleRuntime {
         let builder =
             builder.unwrap_or_else(|| Arc::new(move || SessionProvider::bootstrap(&builder_cfg)));
         let (tx, rx) = mpsc::channel();
-        use sha2::{Digest, Sha256};
-        let identity = format!(
-            "{:x}",
-            Sha256::digest(cfg.repo_root.to_string_lossy().as_bytes())
-        )[..12]
-            .to_owned();
-        let context = Context::new(identity, policy);
+        let context = Context::stdio(&cfg, policy);
         context.startup();
         let mut rt = Self {
             tx,
@@ -144,6 +140,8 @@ impl IdleRuntime {
             events: Vec::new(),
             release: Rc::new(Cell::new(None)),
             ids: Rc::new(Cell::new((0, 0))),
+            #[cfg(test)]
+            build_workers: Vec::new(),
             disposing: false,
             disposal_deadline: None,
             #[cfg(test)]
@@ -181,7 +179,7 @@ impl IdleRuntime {
         };
         let log = self.log.clone();
         let start = log.record("build_start", "complete", Duration::ZERO, None, 0);
-        std::thread::spawn(move || {
+        let _worker = std::thread::spawn(move || {
             log.write(start);
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| builder()))
                 .unwrap_or_else(|_| Err(anyhow::anyhow!("index build panicked")))
@@ -203,6 +201,17 @@ impl IdleRuntime {
             });
             log.write(finish);
         });
+        #[cfg(test)]
+        self.build_workers.push((self.attempt, _worker));
+    }
+
+    #[cfg(test)]
+    pub(super) fn join_build_for_tests(&mut self) -> usize {
+        for (attempt, worker) in self.build_workers.drain(..) {
+            assert!(attempt <= self.attempt);
+            worker.join().unwrap();
+        }
+        self.attempt
     }
 
     pub fn accept(&mut self, event: Event) {
@@ -461,7 +470,15 @@ impl LifecycleLog {
         self.context.emit(&self.format(&event));
     }
     fn format(&self, e: &Observation) -> String {
-        super::serving_events::bounded(&format!("{} event={} reason={} configured_idle_secs={:.3} observed_idle_secs=unknown timestamp_ms={} duration_ns={} duration_ms={} attempt={} generation={} {} released_bytes={} mono_ms={}", self.context.fields(e.time), e.event, if e.event == "unload" { "idle" } else { "demand_or_startup" }, self.context.timeout.as_secs_f64(), e.time.wall.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis(), e.duration.as_nanos(), e.duration.as_millis(), e.attempt, e.generation, e.details.fields(), e.released, e.time.mono()/1_000_000), &e.outcome)
+        super::serving_events::bounded(&format!("{} event={} reason={} configured_idle_secs={:.3} observed_idle_secs=unknown timestamp_ms={} duration_ns={} duration_ms={} attempt={} generation={} {} released_bytes={} mono_ms={}", self.context.fields(e.time), e.event, match e.event {
+            "unload" | "disposal_start" | "disposal_end" | "relief" => "idle",
+            "last_release" => "tool_complete",
+            "refresh" | "auto_refresh" => "requested",
+            "build" | "reload" | "publication" if e.outcome.starts_with("failed") => "build_failed",
+            "reload" | "publication" if e.outcome == "changed_snapshot" => "changed_snapshot",
+            "reload" | "publication" if e.attempt > 1 => "same_snapshot",
+            _ => "demand_or_startup",
+        }, self.context.timeout.as_secs_f64(), e.time.wall.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis(), e.duration.as_nanos(), e.duration.as_millis(), e.attempt, e.generation, e.details.fields(e.event), e.released, e.time.mono()/1_000_000), if matches!(e.outcome.as_str(), "ready" | "changed_snapshot") { "complete" } else { &e.outcome })
     }
     #[cfg(test)]
     fn line(

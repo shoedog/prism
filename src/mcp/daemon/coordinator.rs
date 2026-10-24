@@ -571,13 +571,13 @@ impl DaemonState {
             state: &self,
             attempt,
         };
+        self.lifecycle_event(self.build_boundary(attempt, start, "build_start"));
         let built = (self.builder)();
         let finish = self.finished_build(attempt, &built);
         match built {
             Ok(provider) => self.publish(attempt, provider),
             Err(error) => self.settle(attempt, Err(error.to_string())),
         }
-        self.lifecycle_event(self.build_boundary(attempt, start, "build_start"));
         self.lifecycle_event(finish);
         drop(fail_on_panic);
     }

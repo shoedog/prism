@@ -114,7 +114,7 @@ impl LifecycleLog {
         }
     }
     pub(super) fn startup(&self) {
-        let text = crate::mcp::serving_events::bounded(&format!("{} event=startup reason=startup attempt=0 generation=0 configured_idle_secs={} observed_idle_secs=not_applicable duration_ns=not_applicable released_bytes=0 mono_ms=0", self.context.fields(Stamp::now()), self.timeout.as_secs()), "complete");
+        let text = crate::mcp::serving_events::bounded(&format!("{} event=startup reason=startup attempt=0 generation=0 configured_idle_secs={:.3} observed_idle_secs=not_applicable duration_ns=not_applicable {} released_bytes=0 mono_ms=0", self.context.fields(Stamp::now()), self.timeout.as_secs_f64(), Details::default().fields("startup")), "complete");
         let mut stderr = std::io::stderr().lock();
         write_to(&sequenced(&text), &WRITTEN, &mut stderr);
     }
@@ -194,23 +194,31 @@ impl DaemonState {
                 .as_millis();
         // Reserve the numeric trailer and outcome marker before capping free-text error data.
         let suffix = format!(" mono_ms={mono_ms} outcome=");
-        let mut text = printable_prefix(&format!("{} event={} reason={} observed_idle_secs={:.3} configured_idle_secs={} timestamp_ms={} duration_ns={} attempt={} generation={} {} released_bytes={}",
-            log.context.fields(Stamp { at: e.at, wall: e.wall }), e.event, e.reason, e.observed_idle.as_secs_f64(), log.timeout.as_secs(), timestamp,
-            e.duration.as_nanos(), e.attempt, e.generation, e.details.fields(), e.released), MAX_LINE_BYTES - suffix.len() - 30);
+        let mut text = printable_prefix(&format!("{} event={} reason={} observed_idle_secs={:.3} configured_idle_secs={:.3} timestamp_ms={} duration_ns={} attempt={} generation={} {} released_bytes={}",
+            log.context.fields(Stamp { at: e.at, wall: e.wall }), e.event, e.reason, e.observed_idle.as_secs_f64(), log.timeout.as_secs_f64(), timestamp,
+            e.duration.as_nanos(), e.attempt, e.generation, e.details.fields(e.event), e.released), MAX_LINE_BYTES - suffix.len() - 30);
         text.push_str(&suffix);
         text.push_str(&printable_prefix(
             &e.outcome,
             MAX_LINE_BYTES - text.len() - 30,
         ));
-        let text = {
+        let _text = {
             let mut stderr = std::io::stderr().lock();
             let text = sequenced(&text);
             write_to(&text, &WRITTEN, &mut stderr);
             text
         };
         #[cfg(test)]
-        if let Some(observe) = &self.hooks.lifecycle {
-            observe(&text);
+        {
+            // Keep I0b's terminal-event seam; O-lite boundaries have their own observer.
+            let observer = if matches!(e.event, "build_start" | "build_finish") {
+                &log.context.observe
+            } else {
+                &self.hooks.lifecycle
+            };
+            if let Some(observe) = observer {
+                observe(&_text);
+            }
         }
         if matches!(e.event, "initial_build" | "reload") && e.outcome == "complete" {
             let mut published = e;

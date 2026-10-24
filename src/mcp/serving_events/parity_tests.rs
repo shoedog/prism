@@ -83,6 +83,7 @@ pub(super) fn delayed_publication(cfg: &crate::mcp::ServerConfig) {
         let built = delayed.rx.recv_timeout(Duration::from_secs(10)).unwrap();
         let before = super::Stamp::now();
         delayed.accept(built);
+        delayed.join_build_for_tests();
         if success {
             assert!(number(&line(&seen, "publication"), "mono_ns") >= before.mono());
             delayed.refresh_index().unwrap();

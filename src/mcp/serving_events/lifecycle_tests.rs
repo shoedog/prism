@@ -51,6 +51,14 @@ fn o_sidecar_attempt_only() {
                 expected,
                 "late outcome exports in stdio"
             );
+            for event in ["disposal_start", "disposal_end", "relief"] {
+                assert_eq!(
+                    value(&line(&lines, event), "sidecar"),
+                    "not_applicable",
+                    "{event} must not contradict unload {expected}"
+                );
+                assert_eq!(value(&line(&lines, event), "reason"), "idle");
+            }
             assert_eq!(forced.is_some(), query);
         }
     }
@@ -76,9 +84,15 @@ fn o_lifecycle_events() {
         line(&lines, name);
     }
     super::parity_tests::delayed_publication(&cfg);
-    let finish = line(&lines, "build_finish");
-    let published = line(&lines, "publication");
-    assert!(number(&finish, "mono_ns") <= number(&published, "mono_ns"));
+    for attempt in [1, 2] {
+        let logs = lines.lock().unwrap();
+        let find = |event| {
+            logs.iter()
+                .find(|s| value(s, "event") == event && number(s, "attempt") == attempt)
+                .unwrap()
+        };
+        assert!(number(find("build_finish"), "mono_ns") <= number(find("publication"), "mono_ns"));
+    }
     let logs = lines.lock().unwrap();
     let names: Vec<_> = logs.iter().map(|s| value(s, "event")).collect();
     assert_eq!(names.iter().filter(|n| **n == "last_release").count(), 1);
@@ -93,6 +107,7 @@ fn o_event_identity_and_clock() {
     let logs = lines.lock().unwrap();
     let mut seq = 0;
     for s in logs.iter() {
+        sidecar_scope(s);
         assert_eq!(number(s, "pid"), std::process::id() as u128);
         assert!(number(s, "epoch_ns") > 0 && number(s, "instance_start") > 0);
         assert_ne!(value(s, "identity"), "unbound");

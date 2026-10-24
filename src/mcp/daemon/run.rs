@@ -75,7 +75,7 @@ pub fn run_daemon(options: DaemonOptions) -> anyhow::Result<()> {
     let mut parts = Parts::production(builder, cfg.startup);
     parts.idle_timeout = options.idle_policy.timeout;
     parts.lifecycle = log::LifecycleLog::new(key.to_string(), options.idle_policy);
-    parts.lifecycle.context.instance_start = start_time.to_string();
+    parts.lifecycle.context.instance_start = (u128::from(start_time) * 1_000_000_000).to_string();
     parts.lifecycle.startup();
     let state = DaemonState::from_parts(parts)?;
     let served = Served {
