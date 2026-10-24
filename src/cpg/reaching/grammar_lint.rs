@@ -86,7 +86,7 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
 }
 
 pub(super) fn is_python_match_pattern(node: Node<'_>) -> bool {
-    is_python_pattern_kind(node.kind()) && ancestor_of_kind(node, "case_clause").is_some()
+    is_python_pattern_kind(node.kind()) && ancestor_of_kind(node, "case_pattern").is_some()
 }
 
 fn is_python_pattern_kind(kind: &str) -> bool {

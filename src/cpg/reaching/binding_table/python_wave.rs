@@ -61,7 +61,7 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
     pattern_row(
         "tuple_pattern",
         Some(Predicate::AncestorKindIs {
-            kind: "case_clause",
+            kind: "case_pattern",
         }),
         &[],
         "py-tuple-pattern-uncertain",
@@ -70,7 +70,7 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
     pattern_row(
         "list_pattern",
         Some(Predicate::AncestorKindIs {
-            kind: "case_clause",
+            kind: "case_pattern",
         }),
         &[],
         "py-list-pattern-uncertain",

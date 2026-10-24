@@ -41,12 +41,15 @@ const fn uncertain(line: u32) -> FlowConfidence {
         construct_line: line,
     })
 }
+const fn killed(line: u32) -> FlowConfidence {
+    FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: line })
+}
 
 const CASE_PARENT: Option<Predicate> = Some(Predicate::ParentKindIs {
     kind: "case_pattern",
 });
 const CASE_ANCESTOR: Option<Predicate> = Some(Predicate::AncestorKindIs {
-    kind: "case_clause",
+    kind: "case_pattern",
 });
 
 pub(crate) const CASES: &[Case] = &[
@@ -340,8 +343,25 @@ fn task12_fix1_w1_non_case_patterns() {
 
 fn assert_supplemental_edges(src: &str, expected: &[(usize, &str, usize, FlowConfidence)]) {
     let parsed = super::super::super::parsed(src, Language::Python);
-    let function = super::super::super::function(&parsed);
-    let defs = super::super::super::collect_defs(&parsed);
+    let function = parsed
+        .all_functions()
+        .into_iter()
+        .filter(|function| {
+            let (start, end) = parsed.node_line_range(function);
+            expected
+                .iter()
+                .all(|(from, _, to, _)| start <= *from && *from <= end && *to <= end)
+        })
+        .min_by_key(|function| {
+            let (start, end) = parsed.node_line_range(function);
+            end - start
+        })
+        .expect("expected edge must be inside a function");
+    let (function_start, function_end) = parsed.node_line_range(&function);
+    let defs: Vec<_> = super::super::super::collect_defs(&parsed)
+        .into_iter()
+        .filter(|def| function_start <= def.line && def.line <= function_end)
+        .collect();
     let edges: Vec<_> = expected
         .iter()
         .map(|(from_line, name, to_line, _)| {
@@ -352,11 +372,51 @@ fn assert_supplemental_edges(src: &str, expected: &[(usize, &str, usize, FlowCon
             super::super::super::edge(&parsed, &function, def, *to_line)
         })
         .collect();
-    let (outcome, _) = super::super::super::run(&parsed, &defs, &edges);
+    let outcome = crate::cpg::reaching::reaching_definitions(&parsed, &function, &defs, &edges);
     for (edge, (_, _, _, label)) in edges.iter().zip(expected) {
         super::super::super::assert_label(&outcome, edge, *label);
     }
 }
+
+macro_rules! arm_body_preservation_case {
+    ($name:ident, $src:literal, $expected:expr) => {
+        #[test]
+        fn $name() {
+            assert_supplemental_edges($src, $expected);
+        }
+    };
+}
+
+arm_body_preservation_case!(
+    task12_fix2_w1g_arm_body_tuple_assignment,
+    "def f(c, v):\n    a = source()\n    match v:\n        case 1:\n            (a, b) = v\n            sink(a)\n    sink(a)\n",
+    &[(2, "a", 6, killed(5))]
+);
+arm_body_preservation_case!(
+    task12_fix2_w1i_arm_body_bypass_list_assignment,
+    "def f(c, v):\n    a = source()\n    match v:\n        case 1:\n            if c:\n                [a, b] = v\n            sink(a)\n    sink(a)\n",
+    &[(2, "a", 7, EXACT)]
+);
+arm_body_preservation_case!(
+    task12_fix2_w1j_arm_body_for_tuple_target,
+    "def f(v, items):\n    a = source()\n    match v:\n        case 1:\n            for (a, b) in items:\n                sink(a)\n            sink(a)\n    sink(a)\n",
+    &[(2, "a", 6, killed(5)), (2, "a", 7, EXACT)]
+);
+arm_body_preservation_case!(
+    task12_fix2_w1k_nested_def_tuple_assignment,
+    "def f(v):\n    match v:\n        case 1:\n            def g(w):\n                a = source()\n                (a, b) = w\n                sink(a)\n            return g\n",
+    &[(5, "a", 7, killed(6))]
+);
+arm_body_preservation_case!(
+    task12_fix2_w1l_arm_body_comprehension_target,
+    "def f(v, items):\n    a = source()\n    match v:\n        case 1:\n            out = [a for (a, b) in items]\n            sink(a)\n    sink(a)\n    return out\n",
+    &[(2, "a", 6, EXACT)]
+);
+arm_body_preservation_case!(
+    task12_fix2_x3_guard_comprehension_target,
+    "def f(v, items):\n    a = source()\n    match v:\n        case [y] if [a for (a, b) in items]:\n            sink(a)\n    sink(a)\n",
+    &[(2, "a", 5, EXACT)]
+);
 
 #[test]
 fn task12_fix1_w2_match_arms_are_not_scopes() {
