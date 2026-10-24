@@ -169,6 +169,7 @@ pub(crate) struct NavigationCallEdgeCacheStore {
     cache_dir: PathBuf,
     fingerprint: NavigationCallEdgeCacheFingerprint,
     cpg_cache_hit: bool,
+    outcome: std::sync::OnceLock<&'static str>,
 }
 
 impl NavigationCallEdgeCacheStore {
@@ -187,6 +188,7 @@ impl NavigationCallEdgeCacheStore {
                 has_type_db,
             ),
             cpg_cache_hit,
+            outcome: std::sync::OnceLock::new(),
         }
     }
 
@@ -196,12 +198,18 @@ impl NavigationCallEdgeCacheStore {
         self.cpg_cache_hit
     }
 
+    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
+    pub(crate) fn outcome(&self) -> &'static str {
+        self.outcome.get().copied().unwrap_or("not_attempted")
+    }
+
     pub(crate) fn load_best_effort(&self) -> Option<NavigationCallEdgeIndex> {
         if !self.cpg_cache_hit {
             return None;
         }
         let binary_input_dirty = cpg_cache::binary_input_dirty();
         if binary_input_dirty && !dirty_load_override_enabled() {
+            let _ = self.outcome.set("refused_dirty");
             eprintln!(
                 "nav edge cache: skipping warm sidecar load because prism was built from dirty binary inputs; recomputing resolved call edges"
             );
@@ -213,9 +221,16 @@ impl NavigationCallEdgeCacheStore {
             );
         }
         match load(&self.cache_dir, &self.fingerprint) {
-            Ok(Some(index)) => Some(index),
-            Ok(None) => None,
+            Ok(Some(index)) => {
+                let _ = self.outcome.set("hit");
+                Some(index)
+            }
+            Ok(None) => {
+                let _ = self.outcome.set("miss");
+                None
+            }
             Err(e) => {
+                let _ = self.outcome.set("io_failure");
                 eprintln!(
                     "nav edge cache: failed to load sidecar in {}: {e}; rebuilding",
                     self.cache_dir.display()
@@ -928,6 +943,7 @@ mod tests {
             cache_dir: dir.path().to_path_buf(),
             fingerprint,
             cpg_cache_hit: true,
+            outcome: std::sync::OnceLock::new(),
         };
 
         std::env::remove_var(LOAD_DIRTY_OVERRIDE);

@@ -111,8 +111,8 @@
         },
         {
           "file": "src/mcp/daemon/connection.rs",
-          "old": "    drop(activity); // owned response/error complete; socket write has not begun\n    result",
-          "new": "    result.map(|response| (response, activity))"
+          "old": "    drop(activity); // owned response/error complete; socket write has not begun\n    if let Some(event) = event {\n        state.lifecycle_event(event);\n    }\n    result",
+          "new": "    if let Some(event) = event { state.lifecycle_event(event); }\n    result.map(|response| (response, activity))"
         }
       ]
     },

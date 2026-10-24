@@ -105,6 +105,7 @@ pub struct SessionProvider {
     known_stale_after_refresh: Option<FreshnessReport>,
     generation: u64,
     auto_attempt: Option<[u8; 32]>,
+    pub(super) build_facts: super::serving_events::BuildFacts,
     #[cfg(test)]
     forced_refresh: Option<ForcedRefreshForTests>,
 }
@@ -173,10 +174,11 @@ impl SessionProvider {
         cfg: &ServerConfig,
         observe: &mut dyn FnMut(BuildStage),
     ) -> anyhow::Result<Self> {
+        let started = std::time::Instant::now();
         let cfg = canonical_config(cfg)?;
-        let state = build_state(&cfg, observe)?;
+        let (state, build_facts) = build_state(&cfg, observe)?;
         let known_stale = state.freshness.bootstrap_report().cloned();
-        Ok(Self {
+        let mut provider = Self {
             cfg,
             session: state.session,
             freshness: state.freshness,
@@ -184,9 +186,12 @@ impl SessionProvider {
             known_stale_after_refresh: known_stale,
             generation: 0,
             auto_attempt: None,
+            build_facts,
             #[cfg(test)]
             forced_refresh: None,
-        })
+        };
+        provider.build_facts.stages[3] = started.elapsed().as_nanos();
+        Ok(provider)
     }
 
     pub fn session(&self) -> &NavigationSession {
@@ -425,26 +430,36 @@ fn verify_snapshot(
 fn build_state(
     cfg: &ServerConfig,
     observe: &mut dyn FnMut(BuildStage),
-) -> anyhow::Result<SessionState> {
+) -> anyhow::Result<(SessionState, super::serving_events::BuildFacts)> {
+    let started = std::time::Instant::now();
     let loaded_repo = load_repo(&cfg.repo_root)?;
+    let load_parse = started.elapsed().as_nanos();
     observe(BuildStage::RepoLoaded);
     let snapshot = SnapshotFingerprint::from_repo(&loaded_repo);
-    let freshness = FreshnessProbe::from_loaded_repo(&loaded_repo);
+    let (freshness, validation) = FreshnessProbe::from_loaded_repo_timed(&loaded_repo);
     let repo = Arc::new(loaded_repo);
-    let index = match &cfg.cache {
-        CacheMode::NoCache => NavigationIndex::build(&repo),
-        CacheMode::Default => NavigationIndex::build_cached(&repo),
-        CacheMode::Dir(base) => NavigationIndex::build_cached_under(&repo, base),
+    let started = std::time::Instant::now();
+    let (index, cpg) = match &cfg.cache {
+        CacheMode::NoCache => (NavigationIndex::build(&repo), "disabled"),
+        CacheMode::Default => NavigationIndex::build_cached_observed(&repo),
+        CacheMode::Dir(base) => NavigationIndex::build_cached_under_observed(&repo, base),
     };
+    let index_time = started.elapsed().as_nanos();
     observe(BuildStage::IndexBuilt);
     let index = Arc::new(index);
-    Ok(SessionState {
-        session: NavigationSession { repo, index },
-        freshness,
-        snapshot,
-        strategy: RefreshStrategy::Full,
-        fallback_reason: None,
-    })
+    Ok((
+        SessionState {
+            session: NavigationSession { repo, index },
+            freshness,
+            snapshot,
+            strategy: RefreshStrategy::Full,
+            fallback_reason: None,
+        },
+        super::serving_events::BuildFacts {
+            cpg,
+            stages: [load_parse, validation.as_nanos(), index_time, 0],
+        },
+    ))
 }
 
 #[allow(clippy::arc_with_non_send_sync)]

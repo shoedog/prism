@@ -37,6 +37,7 @@ pub struct DaemonOptions {
 /// Run a daemon for `options` until it drains. Returns `Ok` when it drained, and also at once,
 /// silently, when another live daemon owns the key (spec §3.1: "exit 0 silently").
 pub fn run_daemon(options: DaemonOptions) -> anyhow::Result<()> {
+    crate::mcp::serving_events::origin();
     let cfg = canonical_config(&options.config)?;
     let identity = DaemonIdentity::resolve(&cfg)?;
     let key = identity.key();
@@ -74,6 +75,8 @@ pub fn run_daemon(options: DaemonOptions) -> anyhow::Result<()> {
     let mut parts = Parts::production(builder, cfg.startup);
     parts.idle_timeout = options.idle_policy.timeout;
     parts.lifecycle = log::LifecycleLog::new(key.to_string(), options.idle_policy);
+    parts.lifecycle.context.instance_start = start_time.to_string();
+    parts.lifecycle.startup();
     let state = DaemonState::from_parts(parts)?;
     let served = Served {
         key,

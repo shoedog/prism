@@ -92,8 +92,22 @@ fn invalid_output_env_value_warns_at_server_start_on_a_handshake_only_session() 
     let stderr = String::from_utf8(output.stderr).expect("stderr utf8");
     assert_eq!(
         stderr.lines().count(),
+        2,
+        "one startup record and one warning: {stderr}"
+    );
+    assert_eq!(
+        stderr
+            .lines()
+            .filter(|line| line.contains(" event=startup "))
+            .count(),
         1,
-        "exactly one stderr line, the warning: {stderr}"
+        "exactly one startup record: {stderr}"
+    );
+    assert!(
+        !stderr
+            .lines()
+            .any(|line| line.contains("event=build_start") || line.contains("event=publication")),
+        "handshake-only session starts no build: {stderr}"
     );
     assert_eq!(
         stderr.matches("PRISM_MCP_CONCISE_SHAPE=").count(),
