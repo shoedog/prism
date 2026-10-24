@@ -230,6 +230,7 @@ def stage_candidate(
         "harness_sha": harness_sha,
     })
     lock._corpus_rows, lock._policy_data, lock._population_data = closure_rows, policy, population
+    lock._sut_rows = sut_rows
     candidate = CandidateIdentity(lock, staged)
     candidate._repo, candidate._eval_dir, candidate._binary = repo, eval_dir, binary
     candidate._staging, candidate._manifest_bytes = staging, manifest_bytes
@@ -248,6 +249,8 @@ def validate_staged(cand: CandidateIdentity) -> list[str]:
     for key in ("closure", "policy", "population"):
         final = cand._repo / trial.prism[key]["manifest"]
         trial.prism[key]["manifest"] = canonical_path(cand._repo, actual[final])
+    sut_final = cand._repo / trial.prism["sut"]["inputs"]
+    trial.prism["sut"]["inputs"] = canonical_path(cand._repo, actual[sut_final])
     reasons = [reason for reason in integrity_check(trial, cand._eval_dir) if reason != "baseline_heading_mismatch"]
     for final, path in actual.items():
         if not path.is_file() or path.read_bytes() != cand._manifest_bytes[final]:

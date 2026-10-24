@@ -18,7 +18,7 @@ from .closure import (
     sut_input_paths,
 )
 from .corpus import load_snapshot, snapshot_path
-from .lock import Lock, load_lock
+from .lock import Lock, _bound_sut_rows, load_lock
 from .model import FunctionDef
 
 
@@ -278,10 +278,13 @@ def _allowed_harness_open(path: str, declared: set[str]) -> bool:
 
 def _sut_input_reasons(lock: Lock, eval_dir: Path) -> tuple[list[str], set[str]]:
     repo = eval_dir.parent
-    manifest_path = repo / lock.prism["sut"]["inputs"]
+    try:
+        sut_rows = _bound_sut_rows(lock)
+    except ValueError:
+        sut_rows = read_tsv(repo / lock.prism["sut"]["inputs"])
     reasons = []
     paths = set()
-    for path, expected, *_rest in read_tsv(manifest_path):
+    for path, expected, *_rest in sut_rows:
         paths.add(path)
         disk_path = repo / path
         actual = (

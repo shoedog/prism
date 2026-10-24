@@ -435,6 +435,30 @@ def test_sut_input_absent_present_transition_refuses(tmp_path):
     ]
 
 
+@pytest.mark.parametrize(
+    ("mutation", "expected"),
+    [
+        ("digest", "data_digest_moved: src/a.rs"),
+        ("presence", "sut_input_absent_present_transition: generated.rs"),
+    ],
+)
+def test_published_sut_input_reasons_preserve_refusals(tmp_path, mutation, expected):
+    from tier_a.closure import read_tsv, write_tsv
+
+    lock, ev, repo = anchored_repo(tmp_path)
+    if mutation == "digest":
+        (repo / "src/a.rs").write_text("fn changed() {}\n")
+    else:
+        manifest = repo / lock.prism["sut"]["inputs"]
+        write_tsv(read_tsv(manifest) + [("generated.rs", "absent")], manifest)
+        (repo / "generated.rs").write_text("fn generated() {}\n")
+
+    reasons, paths = boundary._sut_input_reasons(lock, ev)
+
+    assert reasons == [expected]
+    assert expected.rsplit(": ", 1)[1] in paths
+
+
 def test_observe_cargo_equals_selected_binary_manifest_and_keeps_refusal(tmp_path):
     lock, ev, repo = anchored_repo(tmp_path)
     binary = repo / "target/release/prism"

@@ -301,9 +301,11 @@ def _repo_path(repo: Path, stored: str) -> Path:
 
 def _bind_manifests(lock: Lock, repo: Path) -> None:
     closure_path = _repo_path(repo, lock.prism["closure"]["manifest"])
+    sut_path = _repo_path(repo, lock.prism["sut"]["inputs"])
     policy_path = _repo_path(repo, lock.prism["policy"]["manifest"])
     population_path = _repo_path(repo, lock.prism["population"]["manifest"])
     lock._corpus_rows = read_tsv(closure_path)
+    lock._sut_rows = read_tsv(sut_path)
     lock._policy_data = json.loads(policy_path.read_text())
     lock._population_data = json.loads(population_path.read_text())
 
@@ -312,6 +314,13 @@ def _bound_rows(lock: Lock) -> list[tuple]:
     rows = getattr(lock, "_corpus_rows", None)
     if rows is None:
         raise ValueError("corpus manifest is not bound")
+    return rows
+
+
+def _bound_sut_rows(lock: Lock) -> list[tuple]:
+    rows = getattr(lock, "_sut_rows", None)
+    if rows is None:
+        raise ValueError("SUT inputs manifest is not bound")
     return rows
 
 

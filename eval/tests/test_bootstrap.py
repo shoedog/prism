@@ -17,7 +17,8 @@ from tests.helpers import (
     stub_binary,
 )
 from tier_a import cli, commands
-from tier_a.lock import IDENTITY_KEYS, lock_identities, integrity_check
+from tier_a.boundary import Observation, OpenAudit, admit, load_declared_inputs
+from tier_a.lock import IDENTITY_KEYS, integrity_check, load_lock, lock_identities
 from tier_a.closure import policy_digest, policy_manifest, population_manifest, raw_digest
 from tier_a.corpus import load_snapshot
 from tier_a.model import FunctionDef, Location
@@ -121,6 +122,27 @@ def test_stage_then_validate_needs_no_published_lock(tmp_path):
         "data_digest_moved: eval/adjudications.jsonl"
         in validate_staged(cand)
     )
+
+
+def test_stage_validate_admit_then_publish_without_final_sut_manifest(tmp_path):
+    _lock, ev, repo = anchored_repo(tmp_path, publish=False)
+    cand = STAGE(repo, ev, tmp_path)
+    sut_manifest = repo / cand.lock.prism["sut"]["inputs"]
+    declared = load_declared_inputs(cand.lock, ev)
+    observation = Observation([], {row[0] for row in cand._sut_rows}, set())
+    closure_paths = {row[0] for row in cand.lock._corpus_rows}
+
+    assert validate_staged(cand) == []
+    assert not sut_manifest.exists()
+    with OpenAudit(ev) as audit:
+        admit(cand.lock, declared, observation, closure_paths, ev)
+    assert cand.lock.prism["sut"]["inputs"] not in audit.opens
+
+    run = fake_run(lock_identities(cand.lock))
+    publish_anchor_v1(cand, run, *OUT(ev, tmp_path))
+    published = load_lock(ev / "tier-a.lock.toml")
+    assert integrity_check(published, ev) == []
+    admit(published, declared, observation, closure_paths, ev)
 
 
 @pytest.mark.parametrize("key", IDENTITY_KEYS)
