@@ -5,6 +5,18 @@
   ],
   "mutants": [
     {
+      "id": "F-diverged-clears-auto-attempt",
+      "selector": "mcp::session::freshness_policy_tests::freshness_diverged_commit_preserves_uncertifiable_attempt",
+      "description": "Clear the uncertain-evidence automatic attempt on every commit, including Diverged replacements.",
+      "edits": [
+        {
+          "file": "src/mcp/session.rs",
+          "old": "            self.auto_attempt = None;\n        }\n        let indexed_files",
+          "new": "        }\n        self.auto_attempt = None;\n        let indexed_files"
+        }
+      ]
+    },
+    {
       "id": "F-postread-stamp-clean",
       "selector": "mcp::session::freshness_policy_tests::freshness_read_a_edit_b_stamp_b",
       "description": "Restore late, unvalidated stamps after the loader has read A.",
