@@ -1,271 +1,141 @@
-# O — normal-serving observation for the I0 readout
+# Lean O — lifecycle facts for an external I0 readout
 
-Plan only, 2026-10-23. Inspected clean `plan/serving-observer` at `6c46a465169ef71b5222aba4da898f8412ec1fcf`.
-Only this new file is written; controller owns commit/snapshot and lane handoff custody. No implementation, cargo,
-builds, tests, index loads, daemons, measurements or dotfile reads. Static source reads and weighted-size checks only.
-**[R]** denotes a fact read at this revision; **[D]** denotes a chosen implementation/verification contract, not measured evidence.
+Plan only, 2026-10-23; rewrites full O in place on `plan/serving-observer`, inspected clean HEAD `5a2587a1d0980414ff12f90e6502530c0b8b4ba8`.
+**[R]** = read source/document fact at this checkout; **[D]** = design or future verification obligation, not measured evidence.
+Owner decision: I0c samples physical memory externally; **one O-lite PR after I0b-2 merges** supplies missing lifecycle facts.
+No periodic in-process sampler, separate observation JSONL, observer switch, or observer-on/off measurement protocol.
+This turn permits source/document reads, size checks and this plan rewrite only; controller commits. No cargo, tests, loads or measurements.
+**[D] Sequence:** F → I0b-1 → I0b-2 → O-lite → complete I0c acceptance → admitted readout → owner activation decision.
+I0c may develop its disjoint Python files against this contract. Rebind I0b-2's final symbols/format before O-lite dispatch; no concurrent writers.
+Review cap: two rounds for O-lite; this rewrite has one drafting and one static verification pass. At cap, disclose any converging bounded fix extension; recurring open-class findings return to design.
 
-## Decision and dependencies
+## Decision served [D]
 
-O supplies evidence for deciding whether I0 should become default on a 24 GiB host: physical idle relief versus reload
-delay and failed/abandoned use. It cannot establish the separate <1 GiB active cache-hit index / 12–16 checkout capacity claim.
-Binding: `2026-10-19-i0b-i0c-freshness.md:142–200` (O producers/schema, I0c rows, verification, readout prerequisites 1–4);
-parent `2026-10-18-optimization-round2.md:64,82–132,168–170`. Both plans and the complete I0b-2 brief were read.
-I0b-2 brief: `~/prism-evidence/mcp-memory/optimization-round2/idle-unload/i0b-2/brief.md`, especially rulings 1–5.
+Keep M unchanged: median matched **current idle physical footprint** savings ≥200 MiB OR ≥15% on ≥2 corpora, ≥3 admitted runs/side and candidate max < base min; +30 s footprint ≤128 MiB/checkout on all four corpora, **both stdio and shared**.
+Exact-hit reload median ≤ same-binary/settings/cache fresh-lazy +max(5%,100 ms); time-to-ready ≤3 s target; configured first-call wait stays 20 s default. Keep explicit misses and served-within-wait/warming/failure/abandonment counts and proportions, including warming→poll→success.
+Relief requires allocator heap-in-use after−before within ±1 MiB, including A's matched no-op; missing heap excludes that comparison. Returned relief bytes are evidence, never a substitute for physical footprint.
+Take report-only RSS from external `ri_resident_size`. Omit periodic heap, compression, lifetime/phase peaks, footprint−heap levels and residual attribution; retain report-only pre-index footprint/RSS deltas (+16 MiB reference) and 15%-of-base idle ratio. No activation gate uses the omitted diagnostics.
+C0 pins, binary/features/workload provenance, confirmed soak completion, ≥50 GiB free, quiet serial runs and non-increasing swap remain prerequisites. N stays provisional 600; this does not certify 12–16 active indexes.
 
-**[D] Ordering:** preserve **F → I0b-1 → I0b-2 → I0c → admitted measurement → owner decision**.
-O implementation starts only after I0b-2 merges: **O1 → O2 → O3**; I0c can design against this schema but takes shared
-files only after O3. Complete both-mode acceptance waits for O3, I0c, real producer transcripts and neutrality evidence.
-No concurrent O edits to I0b-2 files; rebind its final symbols/schema before dispatch, without treating its work as absent.
-Two review rounds per PR, declared before dispatch; one drafting plus one static verification pass for this document.
-At cap, target closed converging findings and disclose any extension; recurring open-class findings return to design.
+## I0c external sampling [R/D]
 
-## Read implementation basis and chosen hooks
+**[R]** `scripts/soak/soak.py:160–183`, `measure_footprints`, invokes `footprint -f bytes --noCategories -j …` and reads each process's auxiliary `phys_footprint`.
+Apple's installed `/usr/share/man/man1/footprint.1` describes VM-region/category inspection, shared-object deduplication and optional corpse analysis; auxiliary footprint is the kernel ledger. `--noCategories` changes output, not a documented guarantee to avoid inspection.
+VM inspection can perturb CPU/VM-lock scheduling. The installed documentation does **not** establish whether that invocation suspends the target: pause-free behavior is UNKNOWN, not assumed. Keep one CLI cross-check on a separate, unscored instance/window; never use it as the series source or run it inside latency/relief windows.
+**[R]** Apple's [`rusage_info_v4` layout](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/resource.h), [`proc_get_rusage` / `gather_rusage_info`](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_resource.c) and [`fill_task_rusage`](https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/kern/bsd_kern.c) expose start identity and ledger values. The latter uses short kernel task locks, not task suspension or target allocator calls; this is not a claim of zero host CPU cost.
+**[D]** Python standard library only: `ctypes` binding to `proc_pid_rusage(pid, RUSAGE_INFO_V4, …)`, exact complete ABI structure, signatures and byte units; check return/errno before reading fields. Default series values are `ri_phys_footprint`, `ri_resident_size`, `ri_proc_start_abstime`; reject exited/zombie readings (`ri_proc_exit_abstime != 0`). No `ps`/RSS substitution, CLI fallback or sampling MCP calls. Linux is out of scope for this macOS readout.
+Bind each manifest PID at spawn/discovery to OS start identity, then verify it in every returned sample; daemon userspace `start_time` alone is insufficient. Keep the same-host/run identity and READY key/start join. A changed identity, permission failure, unsupported flavor, ABI failure or absent reading is UNKNOWN with reason, never zero or a reused PID's memory.
+Tail stdio stderr and daemon key-log continuously (poll ≤50 ms), retaining file identity/offset, production timestamps and event sequence. The launch journal supplies shim membership/PIDs; READY binds the daemon. No shim observer or pump parsing is added.
+For each boundary, sample **every surviving process** (stdio alone; each shim plus its daemon), sum each verified instance once, and retain per-member start/end times. Missing member ⇒ checkout total UNKNOWN; exited required process excludes the arm rather than manufacturing reclamation. Inventory changes during a sweep exclude it.
 
-Unqualified MCP filenames below are under `src/mcp/`; `navigation/` paths are under `src/`.
-
-| Read fact on `6c46a465` [R] | O hook / decision served [D] |
+| Boundary | Scheduling and admission [D] |
 |---|---|
-| `src/mcp/mem_sample.rs:6–32`, `sample()` returns this process's optional RSS/footprint/compression/lifetime peak/allocator-in-use bytes. | Call this function in each process; never sample a daemon by calling it in a shim. Physical relief admission needs current footprint, not a peak or heap proxy. |
-| `mem_report.rs:50–72` `Recorder::{start,mark}` retains a Vec; `run():299–330` bootstraps and forces lazy edges. `src/bin/prism-mcp.rs:239–257` requires eager report mode. | Reuse `MemSample` and units, not Recorder's lifetime, eager driver or forced edge initialization. O observes normal Lazy/Background, including idle-disabled resident control. |
-| `mem_attribution.rs:35–37` `attribute()` walks/allocates; `mem_tree_alloc.rs:26,51` `live_bytes()/install()` require global allocator hooks installed before parsing. | Do not install hooks or run a census. Optional attribution stays deferred; no unmeasured residual attribution or new framework. |
-| `src/profile/mod.rs:38,204` `Session::start` / `Phase::serial` are opt-in; phase drop locks a collector, output is finalized at exit. `src/repo_loader.rs:64–65` profiles `load_parse`. | Reuse stage meanings and existing call boundaries; do not enable PRISM_PROFILE, flush its collector, copy per-file profiling, or depend on shutdown for serving spans. Profile files are optional diagnostics only. |
-| `session.rs:167–189,425–447` `bootstrap/bootstrap_observed/build_state`; `load_repo` → `FreshnessProbe::from_loaded_repo` → index construction. `freshness.rs:89` calls `capture::validate`. | Scoped `bootstrap`, `source_load_parse`, `freshness_capture`, `f_validation`, `index_construct` intervals; tiny timestamp hooks immediately around actual calls. Source interval includes load/parse, not a claimed parse-only measurement. |
-| `session.rs:383,406,451` `build_verified_candidate/verify_snapshot/build_candidate_state` can construct twice and load again for verification. | Each construction and verifier gets a distinct build ID/parent span; explicit unloaded refresh retains bootstrap plus refresh. No flattening into one misleading reload span. |
-| `navigation/cache.rs:44–143` `NavigationIndex::build_cached_at` matches `CacheResult::{Hit,PartialHit,Miss}`; partial graphs drop before rebuild. | Record the actual matched result before ownership moves, keeping drops in place. Reasons: `exact_hash_topology`, `partial_rejected`, `unusable_cpg`; `disabled`/`bypassed` at session's no-cache/incremental branch. Never infer from elapsed time. |
-| `navigation/call_edge_cache.rs:199–225` `load_best_effort`; `load():242–263` collapses absent/decode/fingerprint failures. `navigation/mod.rs:261–292` getters do not force edges. | Hook only actual sidecar attempts: `exact_hit`, `cpg_not_exact`, `dirty_build_refused`, `absent_decode_or_fingerprint`, `io_error`. Until normal use forces edges, report `not_attempted`; no fabricated miss. Finer CPG reject taxonomy is deferred: it does not change hit/miss admission. |
-| `mcp/mod.rs:61–100` `run_with_idle_policy/route_stdio/serve_legacy` selects the legacy path when idle is off. `lazy.rs:123,180` `ensure_ready/spawn_build` collects completion on demand. | Start O before either runtime is constructed; instrument legacy build completion and publication separately. Never route control through IdleRuntime or drain its completion receiver to get observations. |
-| `idle_runtime.rs:146,171,235` `spawn/accept/tick`, `Activity::drop():68`; `idle_stdio.rs:109–157` `serve_events` releases activity before writing. | Stdio initial/reload publication, build failure, last release, unload, disposal start/end, relief, explicit/auto refresh outcome; preserve `finished_at` versus actual publication/collection timestamps. Emit response-owned timestamp after dispatch, flush after lease release. |
-| `session_idle.rs:7,18` `idle_publication/resume_idle_generation` computes snapshot identity; `idle.rs:116` `pressure_relief` is post-drop/no-op. | Reuse existing compact publication values, never recompute a fingerprint for O. Bracket the existing relief/no-op once with samples; do not change applicability, generation, or call count. |
-| `transport.rs:103,127,620` `serve_connection/serve_loop/dispatch_tool`; daemon `connection.rs:150,165` `run_tool_call/dispatch_tool_call`. | Request accepted, readiness answer and owned response/error spans with connection/request ordinals; capture before write, report write failure separately. Client arrival remains I0c's timestamp. |
-| `daemon/coordinator.rs:499,537,554,610` `start_attempt/run_build/publish/settle`; daemon `idle.rs:74,169` `unload_tick/DisposalCompletion::drop`; daemon `activity.rs:71` release guard. | Consume I0b-2's lifecycle records, including locked-unload duration and existing release timestamp. Add build-context propagation at `run_build`, response spans outside provider locks, post-drop sample brackets only; no second lifecycle emitter. |
-| `daemon/run.rs:40,63–73` `run_daemon` creates a userspace epoch-seconds `start_time`; `log.rs:10–58` truncates >1 MiB at startup and caps at 8 MiB. | OS start identity is additional evidence, not this timestamp. After merge, enrich the single I0b-2 log serialization with O envelope/headers; preserve the key-log lifecycle owner and its cap/truncation semantics. |
-| `shim/run.rs:39,50,156` `run_shim/shim`; shim `spawn.rs:66` `daemon_command` inherits env; shim `pump.rs:43` `pump` is byte-transparent. | Start the shim's own observer before arbitration; bind READY peer to daemon header asynchronously on O's worker. Inherited opt-in enables newly spawned daemon; existing unobserved daemon remains unobserved and is excluded. No pump parsing, observer-driven reconnect or extra STATUS polling. |
+| Pre-index | After spawn/discovery and before first tool call **and build start**; collector waits to send the first call until the sweep completes. Use normal Lazy for scored baselines. Background is admissible only if the sample provably precedes its build-start event; otherwise UNKNOWN, without delaying startup or pretending pre-call means pre-index. |
+| Loaded | First sweep after actual publication, using its production time; build completion queued for later publication is distinct. |
+| +5 s / +30 s | Deadlines are `disposal_end` production time +5/+30 s, learned from logs. Disposal end means provider destruction finished; relief is separately bracketed immediately after drop. Exclude a sweep crossed by reload/refresh or disposal failure. |
+| Resident match | No invented disposal event: use resident last release + the paired arm's release→disposal_end elapsed interval +5/+30 s. Collect the arm first so the resident deadlines can be scheduled, never reconstructed by interpolation. Preregister this ordering/matching rule and retain actual elapsed times; same boundary for the savings denominator. |
 
-## Exact record contract [D]
+**[D] Bounds:** publication/+5/+30 sweeps must start no earlier than target and finish ≤250 ms late, including all members and log delivery. Pre-index sweep completes ≤250 ms after its scheduled collector boundary and before build/call. Record due/start/end/lateness; a late event or slow/failed query excludes the affected boundary, with no interpolation, catch-up pass or last-value fill.
+Collector brackets reads with realtime and monotonic clocks; event `epoch_ns` joins across processes, process offsets calculate durations. Bracket uncertainty >1 ms or realtime/monotonic offset discontinuity >10 ms excludes the window. Detect suspend using `mach_continuous_time` versus `mach_absolute_time` via `ctypes` and `mach_timebase_info`; >10 ms differential change, known sleep, or inability to establish clock continuity excludes the window. Never bridge host sleep.
+Cross-check once outside scoring against CLI auxiliary per-PID footprint (not its deduplicated total), retaining both times and differences. Disagreement is investigated, not corrected by subtracting an assumed overhead.
 
-UTF-8 JSONL, one discriminated format for both modes and every process. O schema **1** is independent of I0b-2
-protocol/control **2**. Required keys are always present; unavailable values are JSON null with a reason, never zero.
-Integers are checked u64 (signed i64 for deltas/clock offsets); bool is not an integer. No float NaN/Infinity or saturating timestamps.
-Each record has exactly these envelope fields; variant payload fields below are exhaustive for version 1:
+## O-lite hooks and bounded event contract [R/D]
 
-| Envelope field | Type / meaning |
+Paths in the hook table are relative to `src/`. Reuse the I0b-2 sanitized, capped key=value line format; stdio writes the identical event grammar on stderr. No new file sink or MCP response fields.
+Every event carries `epoch_ns` captured at production, `mono_ns` from the process-start monotonic anchor initialized before runtime construction, pid, instance start, key/stdio equivalent, sequence, event/reason, attempt/G/outcome. Preserve existing configured/observed idle, duration and returned-byte fields; inapplicable/unavailable values are explicit `unknown`/`not_applicable`, not numeric zero.
+Daemon instance is `(pid, start_time, key)` corroborated by collector OS start identity; stdio uses `(pid, startup epoch_ns, existing root identity)`, likewise corroborated. Do not add identity-key inputs or recompute fingerprints. Emit a startup line with resolved policy and clock origin, plus build-start/finish points where needed to separate bootstrap, completion and publication.
+
+| Read hook [R] | O-lite change / readout purpose [D] |
 |---|---|
-| `o_version`, `kind`, `name` | `1`; `header/clock/event/span/cache/sample/health/end`; stable enum name. |
-| `pid`, `os_start`, `instance_id`, `host_boot_id` | PID; `{source,value}` OS start identity or null; fresh 128-bit random hex nonce per process; OS boot identity or null. Never use PID alone. |
-| `mode`, `role`, `key` | `stdio/shared`; `stdio/daemon/shim`; `{kind:daemon/stdio,value:hex}`. Full daemon key, not key16. Stdio equivalent hashes canonical root + root dev/inode + configured cache mode/base + build identity + refresh policy. No observer/idle setting enters either key. |
-| `stream_id`, `seq`, `mono_ns` | Unique stream nonce; starts at 0, increases per produced record including dropped records; host CLOCK_MONOTONIC nanoseconds at the producer boundary. |
-| `cycle_id`, `attempt_id`, `build_id`, `connection_id`, `request_ordinal` | Nullable u64 scoped to instance; cycle 0 initial, then each successful detach; attempt from runtime, build distinguishes candidate/retry/verifier; connection ordinal and accepted-tool ordinal disambiguate repeated RPC IDs. |
-| `generation`, `payload` | Nullable published G (unloaded wire G=0 is separate from retained G); object specified below. |
+| `mcp/session.rs:167–189,425–447`, `SessionProvider::{bootstrap,bootstrap_observed}`, `build_state`; `mcp/freshness.rs:55–94`, `FreshnessProbe::from_loaded_repo`, actual `capture::validate` at :89 | Capture load+parse around `load_repo`, F-validation around the existing `capture::validate`, index construction around the actual index build, total bootstrap around bootstrap. Return small build facts with the completed provider to publication; do not change `BuildStage` meanings or eager Recorder behavior. |
+| `navigation/cache.rs:33–45,61–152`, `NavigationIndex::{build_cached,build_cached_under,build_cached_at}` | Observation-aware internal return path carries actual `CacheResult::{Hit,PartialHit,Miss}`; preserve ordinary wrappers. Session sets `disabled` for NoCache, `bypassed` for actual bypass/incremental routes. PartialHit remains rebuilt and scores as miss; elapsed time never decides cache classification. |
+| `navigation/call_edge_cache.rs:199–225,242–263`, `NavigationCallEdgeCacheStore::load_best_effort`, `load`; `navigation/mod.rs:261–292`, non-forcing getters | Store only the actual attempt result: hit / absent-decode-fingerprint miss / I/O failure. No call to `load` means `not_attempted` (lazy, disabled, CPG-ineligible or dirty refusal), with optional refusal reason. Expose a non-forcing accessor through the impl in `cache.rs`; publication snapshots facts to date, never forces sidecar work or claims a later hit. |
+| `mcp/session.rs:383,406,451`, `build_verified_candidate`, `verify_snapshot`, `build_candidate_state` | Keep refresh candidate/retry facts separate from initial/reload bootstrap; report explicit/auto refresh outcome without folding verification reloads into a cache-hit bootstrap time. |
+| `mcp/mod.rs:61–93`, `run_with_idle_policy`, `route_stdio`, `serve_legacy`; `mcp/lazy.rs:123,181,203`, `LazySessionProvider::{ensure_ready,spawn_build,failed}` | Initialize event context before runtime creation; idle-off resident retains legacy route. Capture worker finish at source and publication when collected, never drain completion early for logging. Both routes supply publication/build-failure facts. |
+| `mcp/transport.rs:88,127,294,300`, `serve_runtime`, `serve_loop`, `SessionRuntime for LazySessionProvider::{refresh_index,auto_refresh_index}` | Legacy resident stdio records last tool release after owned response and before write, plus explicit/auto refresh outcomes. Keep hooks scoped to that route so I0a and daemon events are not duplicated; no framing or response change. This supplies the resident matching boundary. |
+| `mcp/idle_runtime.rs:68,146,171,235,285,389,401`, `Activity::drop`, `IdleRuntime::{spawn,accept,tick,refresh_index,auto_refresh_index}`, `LifecycleLog::event`; `mcp/idle_stdio.rs:109–157`, `serve_events` | Match daemon initial/reload publication, build failure, last release, unload, disposal start/end, relief and explicit/auto refresh outcomes. Time stdio's exclusive detach section (no mutex exists) in the same unload-duration field; daemon measures its actual locked section. Keep response/lease release ordering unchanged. |
+| `mcp/idle_runtime.rs:263–279`, disposal closure; `mcp/idle.rs:116`, `pressure_relief`; `mcp/mem_sample.rs:6–32`, `sample` | After drop: sample-before → existing relief/no-op once → sample-after, then format/log. Relief carries both heap/optional footprint values, sample times and returned bytes. No logging allocations between the pair; missing heap means UNKNOWN delta. No sampling of a shim as a proxy for daemon heap. |
+| `mcp/daemon/coordinator.rs:499,537,554,610`, `DaemonState::{start_attempt,run_build,publish,settle}`; `daemon/idle.rs:73,169`, `unload_tick`, `DisposalCompletion::drop`; `daemon/connection.rs:127,149`, `run_tool_call`, `dispatch_tool_call`; `daemon/log.rs:21,44`, `start`, `line`; `daemon/run.rs:38,60–73`, `run_daemon` | **To rebind after I0b-2 merges**, including its new formatter/emitter symbols. Enrich its single publication/lifecycle emitter with build facts, envelope and relief pair. Preserve its release producer, locked-unload timing, cap and failure semantics; no second daemon lifecycle emitter. |
 
-| Kind/name | Exact payload fields |
+**[D] Threading:** use owned scalar `BuildFacts` from observed cache/validation/bootstrap helpers through `SessionProvider` into the existing publication boundary, not an Arc to the provider or a global last-build slot. Preserve existing bootstrap APIs via wrappers; the observed error path carries partial facts beside the real error to build-failure logging. Unexecuted stages are unknown, never zero-duration success. Publish build-start/finish timestamps separately from actual publication; total bootstrap includes overhead outside the three measured stages, so they need not sum exactly.
+I0c derives time-to-ready from build start→publication (also reports demand→publication), and first-served latency/outcomes from its request/response-arrival journal. Distinguish warming/indexing/tool error from successful service; journal connection/request occurrence, EOF, timeout, polls and abandonment. No new per-request response-owned spans; client latency is explicitly client-observed in both reload and fresh-lazy reference.
+**[D] Neutrality by mechanism:** external ledger reads do not suspend targets or invoke target malloc statistics. O-lite adds a few bounded lines per lifecycle event and one sample pair per existing relief/no-op, with identical hook code across resident/A/A+C (resident has no disposal, hence no fabricated pair). No timing on/off experiment is required.
+Snapshot scalar event data at the existing boundary; format/emit only after serving guards are released. No new lock acquisition, fingerprint/cache/stat work, provider retention, idle reset or forced lazy edges. Preserve I0b-2 bounded sanitization/caps; do not silently truncate required fields. Collector drains stderr/key-log; capped, malformed, missing or sequence-gapped intervals are excluded, not zero activity. Unit parity witnesses below check these mechanics, not a claim that text I/O has no cost.
+
+## Exclusive ownership and estimate [R/D]
+
+Brace lists enumerate exact paths. These are O-lite's only implementation files, transferred after I0b-2; I0c owns every Python sampler/scorer/test. No O-lite ownership of shim, CLI, wire or collector files.
+
+| Exclusive O-lite files | Read weighted size at `5a2587a1` [R] / bounded scope [D] |
 |---|---|
-| `header/stream` | `role_stream` (`observation/lifecycle`), `build_identity`, `git_sha`, `binary_input_dirty`, `platform_os`, `platform_arch`, `allocator`, `startup`, `refresh_policy`, `cache_mode`, `first_call_wait_ns`, `effective_idle_secs`, `effective_relief`, `wire_start_time`, `root_digest`, `peer_instance_id`, `expected_streams`, `segment`, `previous_segment_last_seq`, `sample_period_ns`, `queue_capacity`, `record_cap_bytes`, `stream_cap_bytes`, `identity_error`. `expected_streams` entries: `{stream_id,role_stream,sink}`. `peer_instance_id` null before binding. |
-| `clock/correlation` | `mono_before_ns`, `unix_ns`, `mono_after_ns`, `instant_offset_ns`, `calibration_error_ns`, `source`, `error`. Bracket realtime with monotonic reads; uncertainty is bracket width plus Instant calibration error. Emit at startup, every 30 s, and close. |
-| `event/<lifecycle>` | `reason`, `outcome`, `event_start_ns`, `event_end_ns`, `observed_idle_ns`, `configured_idle_ns`, `locked_section_ns`, `fingerprint`, `diverged`, `retained_generation`, `released_bytes`, `error_code`, `error_text`, `error_truncated`. Names: `publication_initial`, `publication_reload`, `build_failure`, `last_release`, `unload`, `disposal_start`, `disposal_end`, `relief`, `refresh_explicit`, `refresh_auto`; inapplicable fields null. |
-| `event/peer_binding` | `peer_pid`, `peer_wire_start_time`, `peer_key`, `peer_instance_id`, `peer_os_start`, `effective_idle_secs`, `effective_relief`, `client_count`, `binding_error`. Actual READY/header join; late discovery appends this event, never rewrites the header. |
-| `span/<stage>` | `span_id`, `parent_span_id`, `start_ns`, `end_ns`, `outcome`, `error_code`, `error_text`, `error_truncated`, `rpc_id_digest`, `tool_name`, `first_for_publication`. Stages: `bootstrap`, `source_load_parse`, `freshness_capture`, `f_validation`, `index_construct`, `verify_snapshot`, `build_complete`, `index_ready`, `request`, `readiness`, `response_owned`, `write_complete`. Point stages have equal start/end, not invented duration. |
-| `cache/result` | `layer` (`cpg/sidecar`), `result` (`exact_hit/partial_rejected/miss/disabled/bypassed/not_attempted`), `reason`, `start_ns`, `end_ns`. Coarse reasons above are deliberate; they never claim an unavailable finer cause. |
-| `sample/memory` | `trigger` (`pre_index/loaded/periodic/before_relief/after_relief`), `scheduled_ns`, `sample_start_ns`, `sample_end_ns`, `rss_bytes`, `phys_footprint_bytes`, `compressed_bytes`, `peak_bytes`, `heap_in_use_bytes`, `unavailable`. `unavailable` maps each null metric to `unsupported_or_read_failed`; peak scope is always process lifetime. |
-| `health/visibility` | `state` (`ok/gap/capped/truncated/io_error/identity_unavailable/clock_error`), `first_lost_seq`, `last_lost_seq`, `lost_count`, `reason`, `last_complete_seq`. Unknown loss count is null. |
-| `end/stream` | `last_produced_seq`, `lost_count`, `reason` (`normal/cap/error`), `complete`. No terminal record after crash is incomplete, not a clean end. |
+| `src/mcp/{session,freshness,lazy,idle_runtime,idle_stdio,mod}.rs` | 862 / 631.5 / 470 / 398.5 / 169.5 / 136; facts, stdio events/context and registration only. |
+| `src/mcp/transport.rs` | 907.5; ≤25 added lines for legacy resident release/refresh emission, no framing edits. |
+| `src/navigation/{cache,call_edge_cache}.rs` | 144.5 / 893; actual branch facts and non-forcing result accessor only. |
+| `src/mcp/daemon/{run,log,coordinator,connection,idle}.rs` | 139.5 / 73.5 / 608.5 / 197 / 168.5; narrow I0b-2 emitter enrichment; coordinator ≤15 net lines, helpers in event module. |
+| NEW `src/mcp/serving_events.rs` | ≤180: scalar facts, common formatter/context and relief-pair helper; no sampler thread/sink framework. |
+| NEW `src/mcp/serving_events/{build_tests,lifecycle_tests,parity_tests}.rs` | ≤150 / 180 / 120, registered by `serving_events.rs`; both daemon and stdio paths, behavior-only harness seams in owned files. |
+| NEW `mutants/manual/o.json`; `mutants/manual/README.md` | README 45; catalog/selector documentation only, sequential edit after I0b-2 and before I0c. |
 
-Numeric suffixes/counts/IDs are integers; flags are bools; names, hashes and reasons are strings. `outcome` is
-`success/served/warming/indexing/failure/cancelled/panicked/not_applicable`; first-served requires an actual successful tool result,
-not JSON-RPC success wrapping warming or tool failure. Null inapplicable fields follow role/event applicability, not missing evidence:
-shim has no local attempt/G; resident has no unload/relief; fingerprint is required only where existing I0 publication supplies it.
-Periodic samples carry no guessed cycle/attempt/G: I0c binds their intervals against lifecycle records, excluding overlaps/ambiguity.
+**[R]** Sizes above were read using `python3 scripts/file_size.py` on every owned existing file; no executable verification was run. **[D] Estimate:** 300–400 production + 350–450 tests + 60–100 mutant/docs = **710–950 weighted additions**, one PR. Recheck after I0b-2 and before/after implementation; each new file ≤600, touched Rust facades stay <1,000, files already >2,000 must not grow. Report estimate drift before widening scope.
+**Must not touch:** `src/mcp/idle.rs`, `session_idle.rs`, `mem_sample.rs`, `daemon/activity.rs`, transport framing, shared wire/identity/control/server policy, all shim/CLI files, `navigation/mod.rs`, cache formats/validity, CPG/AST/call resolution, loader/F policy/capture logic, eager memreport/profile/attribution modules, existing tests/scorers, workload pins, soak or launchers, dotfiles/env files. `freshness.rs` gets duration plumbing only. No change to lease/admission/drop order, fatal behavior or relief implementation.
+I0c retains its freshness-plan owned files, including `tests/mcp/main.rs`, process witness and `mutants/manual/i0c.json`; it additionally owns proposed `scripts/memreport/{memreport_idle_sampling,test_memreport_idle_sampling}.py` (each ≤300) through amendment A01. O-lite's sole shared documentation transfer is manual README O-lite→I0c; no overlap with I0c's `idle.rs`/shim work.
 
-OS identity: macOS kernel process-start seconds/useconds; Linux `/proc/self/stat` start ticks plus boot ID and tick units
-encoded in `os_start.value`. Unsupported/unreadable identity remains null and excludes acceptance. Do not substitute wall launch time.
-Existing producer `Instant` values are converted using a bracketed Instant↔CLOCK_MONOTONIC calibration, with error included
-in clock correlation; no collector-read timestamp substitutes for release, build finish or disposal. Calibration/bracket error >1 ms,
-clock failure or host sleep spanning a scored interval excludes timing; do not extrapolate an offset through suspend.
-Sequence is production order within a stream, not timestamp order across concurrent workers; delayed emission may carry older time.
-Span IDs and runtime attempt IDs join causality; I0c must not sort by arrival and invent causality. Same-host monotonic time joins
-shim/daemon samples; collector journals its own realtime/monotonic brackets. Across hosts or boot IDs, reject the join.
+## RED, mutants and retained evidence [D]
 
-## Sampling, lifecycle and neutrality [D]
+Write behavioral tests before implementation; same-environment RED on the merged I0b-2 parent via behavior-only hook backport, preserving production behavior. Compiler failures, zero selected tests and environment refusal are inadmissible. Existing-green preservation cases are labeled separately.
 
-Opt-in is `PRISM_MCP_SERVING_OBSERVER=1`; absent/empty/0 is off. Invalid values disable O with one sanitized stderr note,
-leaving serving configuration unchanged. `PRISM_MCP_SERVING_OBSERVER_DIR` optionally selects an absolute private output directory;
-otherwise use the validated runtime directory. A path alone never enables O. No new feature or identity-key input.
-Eager/report/owner runs are outside this readout; O does not turn them into ordinary sessions or install allocator hooks.
-Off cost: one startup env resolution, then an empty handle/branch at hooks; no worker, file open, OS sampling, clock reads,
-formatting, heap buffer, provider retention or extra cache work. Non-MCP builds compile observation hooks out.
+| Named RED test (module under `mcp::serving_events`) | Required assertion and negative case | Manual MCP mutant(s) in `mutants/manual/o.json` |
+|---|---|---|
+| `build_tests::o_actual_cache_and_stages` | Hit/PartialHit/Miss/disabled/bypass facts reach the correct publication; fast miss stays miss, F duration covers actual validation, failed/unexecuted stage not successful zero, retry does not borrow prior build facts. | `O-speed-is-hit`, `O-omit-f-validation`, `O-stale-build-facts` |
+| `build_tests::o_sidecar_attempt_only` | Real load hit/miss/I/O result; unforced/dirty-refused/ineligible path is not_attempted and performs no extra load. | `O-not-attempted-is-miss`, `O-force-sidecar` |
+| `lifecycle_tests::o_stdio_and_daemon_events` | Both modes' complete lifecycle, failed build, explicit/auto success/failure, last release, unload-section duration and disposal times; resident route logs publication without unloading; delayed completion is not publication, no duplicate daemon event. | `O-omit-stdio-disposal`, `O-collection-is-finish`, `O-refresh-kind-lost`, `O-duplicate-daemon` |
+| `lifecycle_tests::o_event_identity_and_clock` | Every event has production epoch, monotonic offset, pid/start/key and sequence; injected delayed sink, wall jump, missing timestamp and restart do not borrow arrival time/identity; escaped text and cap preserve detectable completeness failure. | `O-arrival-is-event-time`, `O-omit-instance` |
+| `lifecycle_tests::o_relief_pair_after_drop` | Destructor precedes two distinct samples bracketing exactly one existing call; A no-op included, off/non-macOS applicability unchanged; missing sample never becomes zero heap delta, formatting occurs after pair. | `O-relief-before-drop`, `O-reuse-before-sample`, `O-unknown-heap-zero` |
+| `parity_tests::o_event_fields_preserve_serving` | Existing-green output/cache/deadline/build/drop parity with/without added fields; Weak provider releases, no added serving lock hold, emitter sees guards released, fingerprint/cache/stat counters unchanged, lazy edges unforced and stdout byte-identical, including failed/blocked sink. | `O-retain-provider`, `O-reset-idle`, `O-emit-under-lock` |
 
-One bounded worker per process samples `mem_sample::sample()` every **100 ms**, on absolute deadlines, without catch-up bursts.
-This common cadence runs unchanged in resident, A and A+C; it is needed to align every surviving shim without synchronizing
-serving or disposal with a collector. It also samples with no incoming bytes, blocked output and silent completed builds.
-Initialize the bounded worker/buffers before the synchronous `pre_index` sample, then allow normal runtime construction;
-shim pre-index is before arbitration/spawn. Failure to obtain this boundary is UNKNOWN, never a post-build substitute.
-Bootstrap worker takes `loaded` after successful construction and before handing off the provider, with no serving lock;
-refresh under a provider lock records scalar stage times only, never invokes a sampler there. Periodic samples cover its memory.
-For shim loaded and each surviving process's +5/+30, I0c selects the first scheduled sample starting at/after publication
-or **actual disposal_end + 5/30 s**, with lateness ≤100 ms and sample duration ≤20 ms. Keep both endpoints and actual lateness.
-Late/absent samples or a reload/refresh overlapping an idle window exclude that cycle. A sampling cadence is not proof of punctuality.
+Every catalog entry gets exact edit anchors and one fully qualified table selector (`mcp::serving_events::…`), `manual_only: true`, features `mcp`. Hand-run per manual README with `--features mcp --lib SELECTOR -- --exact`; require one behavioral failure, restore in finally, verify before/restored SHA-256 and restored GREEN. No MCP mutant goes into the no-feature shared runner.
+Future controller gates: fmt/clippy, full default and MCP library/integration/binary suites, separate shared-catalog gate; navigation hooks require immediate release rebuild then Tier-A matrix and quick. Report totals/exclusions; unrelated failures need same-environment base control. None is authorized this planning turn.
+**I0c tests/mutants (not O-lite):** `test_rusage_v4_abi_and_unknown` / `I0c-rusage-failure-zero` (ABI sentinels, errno, unsupported, genuine zero); `test_pid_start_and_survivor_sum` / `I0c-pid-only` (PID reuse/zombie/exit/missing shim/dedup); `test_event_deadlines_and_lateness` / `I0c-tail-time-as-disposal` (late log/read, all-member sweep, pre-index race, no interpolation); `test_clock_sleep_exclusion` / `I0c-accept-sleep` (sleep/wall jump/missing clock); `test_outcomes_and_matched_boundaries` / `I0c-drop-abandoned` (resident elapsed match, reference latency, warming/failure/EOF denominators). Place in I0c sampling/readout tests and `mutants/manual/i0c.json` with exact Python selectors.
+**Real transcripts controller retains:** binary-bound raw stderr + daemon key-log + external sample/request journals, both modes, resident/A/A+C, pre-index→loaded→disposal→+5/+30, repeated exact reload and changed miss, warming→poll→success and abandonment, explicit/auto refresh outcomes and real relief heap pairs. Shared includes all surviving shims/daemon and READY identity. Parser fixtures cannot establish producer availability or physical relief; four-corpus admitted runs decide activation.
 
-Stdio/daemon disposal workers bracket their existing post-drop `pressure_relief` call (including A's no-op) with immediate
-before/after samples, with no formatting/allocation between the pair and call; their signed live-heap delta is after minus before.
-Shims never call relief: use their last completed periodic sample before relief_start and first sample after relief_end,
-each within 100 ms. Keep per-process deltas, bracket widths, and the summed checkout delta; this is a bracketed observation,
-not an assertion of atomic cross-process sampling. Missing/bracket-too-wide/concurrent-work pairs are UNKNOWN/excluded.
-Require ±1 MiB heap stability for the releaser and checkout aggregate before attributing A+C's physical effect to allocator relief.
-Resident control has no disposal/relief events: align scheduled samples to the matched candidate's elapsed-from-last-release
-boundary (including disposal duration), explicitly labelled `matched_resident_boundary` by I0c, never emit a fake unload.
+## Controller amendments only — `2026-10-19-i0b-i0c-freshness.md` [D]
 
-Observer state contains only IDs, clocks, bounded scalar records and capped text; no provider/repo/index Arc, response Value,
-source path collection or retained error object. Capture scalar timing locally; defer queue submission, serialization, sampling
-and I/O until after existing provider/control guards and activity leases are released. Refresh/cache stage records use a fixed
-thread-local buffer scoped to the build/request, then drain outside locks; propagate context explicitly into build threads.
-No added serving-lock acquisition/hold, timestamp-driven policy branch, wait deadline change, idle tick/message, wake of the
-runtime, fingerprint serialization, forced cache, extra stat/hash validation, profiler collector or blocking queue send.
-Use a bounded nonwaiting queue: 256 records, total observer record storage ≤256 KiB/process, worker stack 256 KiB;
-overflow or sink failure drops observation, records loss, and never delays/fails service. Bound scoped buffers for all 64 clients.
+Do not edit that file in this lane. **24 replacements** below use exact old sentences/cells/substrings at current lines; unchanged surrounding text remains. A12 replaces the first sentence only; A13 removes the on/off requirement while preserving real transcripts. Rows 173 and 176 and the unchanged policy-neutrality sentence remain valid.
 
-**Unit preservation witnesses:** off spies observe zero observer work; identical runtime branch, builder/drop/relief counts,
-activity/deadline histories, cache results and output bytes with on/off; Weak/drop barriers prove no lifetime extension.
-Block the sink, fill the queue, hold a provider lock, stall stdout/socket, inject worker failure, EOF, panic and timer races;
-serving/release proceeds with the same lease boundary. Except pre-runtime baseline, samples run off main/server loop and outside serving locks.
-No unit witness proves physical or timing neutrality; allocator statistics can contend with real malloc work even off-lock.
-
-**Controller on/off protocol:** admitted post-soak, one binary/hash/features, frozen corpus/cache/workload/settings/threads,
-fresh instances, isolated shared runtime dirs, alternating on/off order, ≥3 pairs per mode/arm on each of E/P/ruff/Py.
-Include Lazy/Background, cache hit/miss, resident control, A, A+C, no-op, refresh, blocked-write and repeated unload/reload cases.
-Compare full response bytes/G/freshness/errors, cache dispositions, build/relief/drop counts, last-release/unload eligibility,
-warming/failure/served/abandonment counts; deterministic barrier cases have **zero semantic tolerance**.
-Compare client-journal load/ready/first-served/workload medians: increase ≤max(5%,100 ms); idle-boundary jitter ≤100 ms;
-heap increase ≤1 MiB/process, current +30 footprint increase ≤1 MiB/process and ≤2 MiB/checkout;
-lifetime peak increase ≤max(1%,16 MiB). External host footprint/RSS sampling is identical on/off; heap checks use an identical
-minimal endpoint-only support probe on both sides, without periodic O recording. Record its patch/hash and cost separately.
-Separated excess is FAIL, noisy overlap/excess INCONCLUSIVE; a changed warming/abandonment classification at the wait boundary
-also requires resolution. No subtracting guessed observer overhead or relaxing the 128 MiB bar. Neutrality failure blocks timings
-and activation evidence; fix O rather than changing I0 policy. At most one preregistered follow-up pair under parent admission rules.
-
-## Sink and stream completeness [D]
-
-Observation stream: `<dir>/o-<instance_id>-<stream_id>.<segment>.jsonl` for stdio, shim and daemon alike; mode 0600,
-exclusive creation through a validated private directory descriptor, no symlink following, no overwrite or cross-instance append.
-Reuse `shared/runtime_dir.rs:181,265` validation and `daemon/files.rs` descriptor-relative conventions; do not invent a second ACL policy.
-Single writer uses append writes; segment limit 4 MiB, four segments / **16 MiB per instance** including reserved terminal space;
-max record 4096 bytes, error text ≤256 UTF-8 bytes with truncation flag. Flush at most every 100 ms, never fsync on serving paths.
-Rotate only between records; sequence continues, new segment repeats identity/clock header and links with `previous_segment_last_seq`.
-Never delete old segments automatically. Reserve room for health/end; crash, failed terminal write or partial JSON line stays incomplete.
-At cap stop recording, retain a loss counter/terminal state; never silently wrap. Text is JSON escaped and control characters sanitized;
-no source, arguments or env dump; paths in errors are escaped/capped. RPC IDs are hashed; allowlisted tool names and bounded failure text suffice.
-
-Daemon lifecycle remains **only in I0b-2's key-log**, not copied into the observation file. O3 adds envelope/sequence/clock headers
-to that existing emitter's single record (retain its normal text when O is off); prefixed JSON is parsed after the fixed log prefix.
-Extend only the O-enabled record limit to 4096 for valid JSON, preserve 1 MiB startup truncation and 8 MiB total cap with a terminal
-visibility marker. Carry I0b-2's producer timestamps, last-release event and locked-unload duration unchanged; no fresh snapshot work.
-The observation header declares that lifecycle stream; I0c retains stderr, key-log inode/device/offset and O segments. Missing key-log,
-startup truncation, file replacement/shrink, sequence gaps, cap notes, malformed tail or missing close cannot mean zero activity.
-Deduplicate `(instance_id,stream_id,seq)` only when bytes match; conflicting duplicates exclude. A killed process cannot mark its own
-missing stream: I0c's launch manifest and expected-stream header identify absence. No acceptance until the observation window closes.
-MCP stdout/framing and shim pump bytes remain identical; no observer record or marker goes to stdout or an MCP tool result.
-
-## Exclusive file ownership, size and sequencing [D]
-
-Brace lists below enumerate exact files, not directory-wide permission. Estimates include tests/mutants, not measured effort.
-O1 is schema/sampler/sink (550–750 weighted additions), O2 stages+stdio (650–850), O3 daemon+shim (450–650).
-Inventory each PR before dispatch; split further before implementation if its finite behavior set cannot converge in two rounds.
-
-| Slice | Exclusive owned files / scope and estimated additions |
+| ID / anchor | Exact old → new text |
 |---|---|
-| O1 | NEW `src/mcp/serving_observer.rs` (facade/context, ≤120), `src/mcp/serving_observer/{schema,clock,sink,sampler}.rs` (≤80/100/140/100), `src/mcp/serving_observer/{schema_tests,sink_tests,sampler_tests}.rs` (≤80/80/100); `src/mcp/mod.rs` registration only. No serving hooks activated yet. |
-| O2 | NEW `src/mcp/serving_observer/{stages,stdio,stage_tests,stdio_tests,neutrality_tests}.rs` (≤100/100/150/150/140); existing `src/mcp/{session,freshness,lazy,idle_runtime,idle_stdio,transport}.rs`, `src/navigation/{cache,call_edge_cache}.rs` emission/context hooks only (≤150 total). `src/mcp/mod.rs` and `serving_observer.rs` transfer from O1 for startup/child registration. |
-| O3 | NEW `src/mcp/serving_observer/{shared,shared_tests}.rs` (≤100/160); existing `src/mcp/daemon/{run,log,coordinator,connection,idle}.rs` (≤100 total), `src/mcp/shim/run.rs` (≤20); transfer `serving_observer.rs` for shared registration. NEW `tests/mcp/serving_observer_test.rs` (≤180), `tests/mcp/main.rs` registration only. |
-| Sequential O1 → O2 → O3 | NEW `mutants/manual/o.json`, existing `mutants/manual/README.md`: add only implemented mutants/selectors each slice (≤80 total). This plan receives settled schema changes sequentially. No parallel ownership. |
+| A01 :156 owned-file row | `scripts/memreport/{memreport_idle,memreport_idle_readout,test_memreport_idle,test_memreport_idle_readout}.py` → `scripts/memreport/{memreport_idle,memreport_idle_sampling,memreport_idle_readout,test_memreport_idle,test_memreport_idle_sampling,test_memreport_idle_readout}.py` |
+| A02 :159 | “Serving observation O is a separate controller prerequisite, not an I0c scope expansion.” → “O-lite lifecycle hooks are a separate controller prerequisite; external macOS memory sampling belongs to I0c.” |
+| A03 :165 | “Keep sampling separate from tool traffic, which would reset idle.” → “I0c uses a Python-standard-library ctypes proc_pid_rusage(RUSAGE_INFO_V4) sampler for every surviving instance at pre-index, publication, disposal_end +5/+30 s; use lean O's lateness, OS-start, UNKNOWN and sleep exclusions, without sampling tool traffic. Keep footprint CLI to an unscored one-time cross-check.” |
+| A04 :167 field list | “footprint/RSS/heap/compression and footprint levels” → “external physical footprint/RSS; heap only in the in-process relief pair; omit other heap/compression/peak/footprint-level diagnostics” |
+| A05 :169 paragraph | “**Observation prerequisite O (controller-owned, not yet implemented):** separately dispatch an opt-in normal-serving observer, proposed `src/mcp/serving_observer.rs`, with serialized ownership of session/build/cache-result, stdio/daemon lifecycle and shim sampling hooks. I0c waits for its schema; complete readout waits for its implementation/neutrality evidence. Existing `mem_sample::sample` samples only its own process, and the eager `mem_report::Recorder` is not a serving producer. O must supply the following before measurement; this plan grants no observer implementation/file edits tonight.” → “**Observation prerequisite lean O (controller-owned):** dispatch one O-lite PR after I0b-2 merges for publication cache/stage facts, stdio lifecycle parity, event identity/clocks and post-drop relief sample pairs. I0c owns external sampling. Complete readout waits for hooks, unit parity witnesses and real transcripts; no periodic in-process sampler, separate observation stream or on/off protocol. This plan authorizes no implementation tonight.” |
+| A06 :174 producer cell | “I0b-2 READY/STATUS and O startup-instance record (stdio and shim included) → I0b-2/O; I0c joins by instance, never reports requested as effective.” → “I0b-2 READY/STATUS, O-lite stdio startup policy and I0c launch inventory/OS start identities → I0b-2/O-lite/I0c; include every shim, join by instance, never report requested as effective.” |
+| A07 :175 producer cell | “O build-stage spans and actual cache-result hook → controller O. `load_repo` span includes source loading/parsing; separate validation and index-ready spans, never infer cache outcome from speed.” → “O-lite publication facts from actual CPG/sidecar branches and load+parse, F-validation, index-construction and total-bootstrap durations → controller O-lite; distinguish not_attempted and never infer cache outcome from speed.” |
+| A08 :177 observation cell | “Genuine pre-index/loaded/+5/+30 footprint, RSS, compression, heap and sample times; before/after relief live-heap delta” → “Genuine pre-index/loaded/+5/+30 physical footprint, RSS and external sample times; in-process before/after relief heap delta” |
+| A09 :177 producer cell | “O scheduled in-process `mem_sample::sample()` records in each surviving stdio/shim/daemon process → controller O; I0c sums checkout footprint and computes levels/deltas. No tool calls to sample; unavailable OS fields remain UNKNOWN.” → “I0c external proc_pid_rusage sampler covers every surviving stdio/shim/daemon instance and sums checkout footprint; O-lite brackets existing post-drop relief/no-op with mem_sample::sample() in the index process. No sampling tool calls; failed/missing readings remain UNKNOWN.” |
+| A10 :178 producer cell | “O producer ready/response-owned timestamps + I0c request/response-arrival journal → O/I0c. Keep producer completion distinct from client arrival and include failed/abandoned attempts.” → “O-lite build-start/finish/publication facts + I0c request/response-arrival journal → O-lite/I0c. Ready is publication; first-served latency is client-observed. Keep completion distinct from arrival and include failed/abandoned attempts.” |
+| A11 :179 producer cell | “O stream sequence/clock/instance headers + I0c collector/scorer → O/I0c. Missing required producer fields or wrong-instance samples exclude acceptance, not the raw record.” → “O-lite event sequence/epoch/monotonic/pid/instance fields + I0c file offsets, OS-start checks and collector/scorer → O-lite/I0c. Missing fields, capped/truncated logs, wrong-instance, late or sleep-crossing samples exclude acceptance, not raw records.” |
+| A12 :181 first sentence | “O schema binds event/sample sequence to pid + OS start identity + unique instance + daemon key, with monotonic event time and explicit collector clock correlation.” → “O-lite events carry production epoch and process-relative monotonic time, pid/start/key and sequence; I0c binds external samples to OS start identity and brackets clocks under lean O's admission bounds.” |
+| A13 :181 third sentence | “Controller supplies observer-on/off neutrality evidence before using timings; real transcripts in **both modes** must demonstrate pre-index→loaded→disposed/+5/+30, cache result and the ±1 MiB relief live-heap comparison.” → “Mechanism and unit parity witnesses establish lean O's observation contract without an on/off experiment; real transcripts in **both modes** must demonstrate pre-index→loaded→disposed/+5/+30, cache result and the ±1 MiB relief live-heap comparison.” |
+| A14 :183 test clause | “`idle_collector_visibility` (both sinks/dedup/truncation/missing/wrong-pid/restart)” → “`idle_collector_visibility` (both sinks/dedup/truncation/missing/wrong-pid/restart), plus lean O's five named external-sampler/readout tests for ABI/UNKNOWN, OS-start/survivors, deadlines, sleep and outcomes” |
+| A15 :185 mutant sentence | “Each requires behavioral RED/restored GREEN.” → “Add I0c-rusage-failure-zero, I0c-pid-only, I0c-tail-time-as-disposal, I0c-accept-sleep and I0c-drop-abandoned with exact Python selectors. Each requires behavioral RED/restored GREEN.” |
+| A16 :185 estimate | “**Estimate unchanged: 300–450 production/docs + 400–600 collector/tests**, ≤600 per new file.” → “**Estimate: existing 300–450 production/docs + 400–600 collector/tests, plus 120–200 sampler and 150–250 sampler-test lines**; new sampling modules ≤300 each, all new files ≤600.” |
+| A17 :185 dependency sentence | “Depends on F/I0b-1/I0b-2 and O's schema; complete acceptance also requires O's real producer evidence.” → “Depends on F/I0b-1/I0b-2 and lean O's event contract; complete acceptance requires O-lite, I0c sampling and real producer/external-sample evidence.” |
+| A18 :197 prerequisite 1 sentence | “All four slices plus O and verification must land for complete both-mode acceptance.” → “All four slices plus O-lite and verification must land for complete both-mode acceptance; no observer-on/off evidence is required.” |
+| A19 :198 prerequisite 2 sentences | “Sample genuine pre-index/loaded/+5/+30 after disposal and repeated cycles; sum surviving shim/daemon memory. Relief follows drop; record return bytes, footprint and heap unchanged within ±1 MiB.” → “I0c externally samples genuine pre-index/loaded and disposal_end +5/+30 across repeated cycles, summing every surviving instance under lean O's identity/timing bounds and resident elapsed-match rule. O-lite brackets post-drop relief and A's no-op with heap/optional footprint samples; record returned bytes and require heap delta within ±1 MiB.” |
+| A20 :199 prerequisite 3 sentences | “RSS/heap/compression/footprint levels and +16 MiB above pre-index footprint/RSS are report-only diagnostics. Inventory pool stacks/query cache/identity/allocator residuals without unmeasured attribution.” → “External RSS, +16 MiB above pre-index footprint/RSS and 15%-of-base idle ratio remain report-only. Omit periodic heap, compression, peaks, footprint−heap levels and residual attribution; retain only the required relief heap pair.” |
+| A21 :200 prerequisite 4 sentence | “Measure source parse, ready and first-served separately; configured wait remains 20 s default.” → “Measure load+parse, F-validation, index construction, bootstrap and publication-ready separately; first-served is client-observed consistently for reload and fresh-lazy, and configured wait remains 20 s default.” |
+| A22 :205 gate clause | “controller schedules verification and separately supplies O's missing serving producer/neutrality evidence.” → “controller schedules verification and supplies O-lite lifecycle transcripts, I0c external samples and unit parity witnesses.” |
+| A23 :208 final sentence | “Implementation, O producer/neutrality evidence, tests and measurements remain pending.” → “Implementation, O-lite producer transcripts/unit parity, I0c external samples, tests and admitted measurements remain pending.” |
+| A24 :167 outcome fields | “served-within-wait/warming/failure outcome and failure text” → “served-within-wait/warming/failure/abandonment outcome and failure text” |
 
-From I0b-2 **after merge**, O3 takes `daemon/{run,log,coordinator,connection,idle}.rs` for the narrow hooks above;
-`activity.rs` remains read-only, consuming its already-produced release through I0b-2. No wire/CLI ownership transfer to O.
-After O3, `shim/run.rs` transfers to I0c. I0c exclusively retains `src/bin/prism-mcp.rs`, `src/mcp/idle.rs`,
-`idle_fix_tests.rs`, `shim/{spawn,status,mod,spawn_tests,status_tests,idle_tests}.rs`, CLI idle tests, operator docs,
-`scripts/memreport/{memreport.py,README.md,memreport_idle.py,memreport_idle_readout.py,test_memreport_idle.py,test_memreport_idle_readout.py}`
-and `mutants/manual/i0c.json`; `tests/mcp/main.rs` transfers O3→I0c for its separate `idle_process_test.rs` registration.
+## What is given up; owner questions; custody [D]
 
-**Must not touch:** cache formats/version/validity, CPG/AST/call resolution, loader/resolver, F validation/policy semantics,
-`session_idle.rs`, idle settings/relief implementation, transport framing, `transport_tests.rs`, daemon admission/leases/fatal policy,
-shared identity/wire, shim pump/arbitration/spawn policy, eager memreport/attribution/tree allocator/profile modules, existing scoring,
-workload pins, launchers, soak configuration, shell profiles and env files. The named freshness/transport/cache hooks change observation only.
-S0/tree/D13 owners must reserve the hook files before dispatch; no ownership inferred from a shared symbol.
+Lean O gives up the 100 ms memory series, dedicated JSONL/worker/rotation/health framework, shim instrumentation, general per-request spans, fine cache-refusal taxonomy, allocation census, continuous heap/peak/compression curves and empirical on/off overhead distributions. Physical boundaries, exact cache classification, publication/latency, all request outcomes and the relief heap pair suffice for the activation gates; omitted diagnostics cannot authorize or block activation.
+**Revisit only if** the external accounting read on this host proves unreliable or too coarse to admit the required boundaries/identities within the declared bounds. Preserve UNKNOWN and bring that evidence to the owner; do not silently relax gates or revive full O.
+Owner questions (separate, non-blocking for this plan):
 
-**[R] Static sizes checked with `python3 scripts/file_size.py`:** session 862, freshness 631.5, lazy 470,
-idle_runtime 398.5, idle_stdio 169.5, transport 907.5, navigation/cache 144.5, call_edge_cache 893;
-daemon run/log/coordinator/connection/idle 139.5/73.5/608.5/197/168.5; shim/run 168.5; mcp/mod 136.
-Navigation/mod is 1145.5 and cpg_cache 1526: both stay read-only by using existing getters/coarse actual-result reasons.
-Aim ≤600 weighted lines per new file, keep touched facades <1,000; **no file already >2,000 may grow**.
-Re-run `python3 scripts/file_size.py` on every owned existing/new file before/after each PR; a required extraction is a separate move-only PR.
+- Accept ≤250 ms complete-sweep lateness and ≤50 ms tail polling? **Recommended: yes**, retain actual times and exclude misses; revisit only on the host evidence condition above.
+- When should default-on/N be chosen? **Recommended: only at the admitted readout**, keep off and N=600 provisional; this plan supplies no activation or gap-distribution evidence.
 
-## RED, negative witnesses, mutants and real transcripts [D]
-
-Each named test below asserts records/behavior, not mere successful execution; every new behavior needs a same-environment
-pre-slice-parent RED via behavior-only hook backport, with unchanged production behavior. Compilation/zero-selection/refusal is inadmissible.
-Existing-green on/off preservation witnesses are listed separately from new-producer RED. Register tests in the owning module.
-
-| RED test / slice | Positive assertion; negative/edge case; manual mutant in `mutants/manual/o.json` |
-|---|---|
-| `o_identity_clock_sequence` / O1 | Restart/PID reuse changes instance/start binding; contiguous sequence and bounded clock bracket. Missing OS identity, wall jump, unknown version, counter overflow reject completeness. `O-pid-only` must fail distinct-instance assertion; `O-wall-as-monotonic` must fail wall-jump duration assertion. |
-| `o_sink_loss_is_unknown` / O1 | Complete escaped records, bounded queue/rotation and explicit loss; full disk, blocked writer, cap, symlink, multibyte truncation and abrupt EOF never complete. `O-hide-gap` must fail health/lost-count assertion. |
-| `o_sampler_self_and_schedule` / O1 | Injected own-PID sampler records deadlines/endpoints through silence; unavailable metric stays null, missed deadline is visible, no catch-up burst. `O-null-is-zero` must fail null assertion; `O-sample-on-tool` must fail silent-period sample count. |
-| `o_actual_cache_and_stages` / O2 | Exact/partial/corrupt/no-cache/bypass and sidecar refused/not-forced classify actual branches with scoped begin/end; F failure and verifier retry keep separate error spans. Artificially fast miss stays miss. `O-speed-is-hit` fails that classification; `O-omit-f-validation` fails required span presence. |
-| `o_stdio_lifecycle_boundaries` / O2 | Lazy/Background, resident/enabled, initial/reload/failure, release, disposal and both refresh outcomes carry real IDs/times. Delayed completion, EOF, disposal timeout and warming→retry preserve distinction. `O-collection-time` fails preserved finished-at assertion; `O-refresh-kind-lost` fails explicit/auto distinction. |
-| `o_response_before_write` / O2/O3 | Block output after owned response: response time precedes write and lease release is unchanged; failure/warming are not first-served. `O-served-at-arrival` fails blocked-writer timestamp assertion. Concurrent identical RPC IDs remain distinct by connection/ordinal. |
-| `o_off_and_retention_neutral` / O2 | Off has zero observer calls/allocations; on/off output/cache/deadline/build/drop parity under blocked/full sink, no retained provider or forced edges. `O-force-sidecar` fails uninitialized-edge witness; `O-reset-idle` fails original unload deadline; `O-retain-provider` fails Weak release before +5. |
-| `o_shared_single_lifecycle_and_relief` / O3 | Exactly one I0b-2 record/event with original event time; daemon/shim identities differ, startup/peer binding agrees with READY. Existing unobserved peer, v1, restart, late attachment exclude. `O-reemit-daemon` fails exactly-once count; `O-shim-as-daemon` fails sample identity assertion. |
-| `o_relief_brackets_after_drop` / O2/O3 | Destructor witness precedes before-relief→call→after-relief; A is one no-op, off/non-macOS no physical relief, null heap never zero delta. `O-relief-before-drop` fails ordering assertion; `O-relief-pair-reused` fails distinct sample/timestamp assertion. |
-
-Manual catalog selectors are fully qualified, one executed MCP-feature test each (shared variants get distinct selectors).
-Follow `mutants/manual/README.md`: exact anchors, before/mutant/restored SHA-256, behavioral RED, restoration in finally,
-restored GREEN. Hand-run `--features mcp`; shared no-feature mutation runner cannot certify O. Keep its full gate separately required.
-Full default and MCP library/integration/binary suites, fmt/clippy/shared-catalog gates and affected Tier-A matrix/quick after immediate
-release rebuild are future controller gates (navigation hooks trigger Tier-A); report passed/failed/ignored/filtered and all host exclusions.
-I0c runs its full Python collector suite. Unrelated failures need same-environment base controls, never quiet rebaselining.
-
-**Real producer obligations, separate from parser fixtures:** controller retains raw binary-bound stdio and shared transcripts,
-each covering Lazy/Background, resident/A/A+C, genuine pre-index→loaded→disposal→+5/+30, repeated exact reload and changed miss,
-explicit/auto refresh success/failure, warming→poll→success and abandonment. Shared evidence includes every surviving shim plus
-daemon and the original key-log; demonstrate the ±1 MiB relief heap comparison with real samples. Small process fixtures prove
-availability/byte parity only; four-corpus admitted measurements prove relief/latency. Parser fixtures cannot stand in for either.
-
-## I0c readout interface and admission [D]
-
-I0c reads O JSONL segments + I0b-2 prefixed lifecycle JSON in key-log + stdio/shim stderr + actual READY/STATUS receipts,
-then joins its frozen batch manifest and request/response-arrival journal. It owns parsing, deduplication, cycle construction,
-derived durations/deltas/footprint levels, all denominators and exclusions; O owns no scorer or admission verdict.
-
-| Every required I0c row field (`i0b-i0c-freshness.md:167`) | Producer → readout decision |
-|---|---|
-| Binary/commit/features; corpus pin/workload hash; mode; A/A+C/resident/no-op | Controller manifest hashes actual executable/features and pins workload; O header corroborates build/mode/role. One binary per batch and matched inputs, no side mixing. |
-| Cache classification/reason; source-parse, F/bootstrap, ready, first-served durations | O actual cache/stage spans: build-start→index_ready; demand request→readiness (includes disposal wait); build-start→first successful response_owned per publication. Background-ready before request is reported as already ready, not a negative duration. I0c client arrival times remain separate. Exact-hit relative reload gate versus explicit misses. |
-| Requested/effective idle/relief; first-call wait; pid/start/key/client count | Manifest/request journal for requested/wait; O stdio resolved policy and own identity; I0b-2 READY/STATUS for daemon effective/client count; O peer binding/header for OS start/instance. Mismatch excludes intended arm; requested never fills effective. Stdio client count is one. |
-| Cycle/attempt/G; publication/release/unload/disposal/reload timestamps | O stdio lifecycle; I0b-2 daemon lifecycle; O bootstrap/readiness spans. Separate finish/publication, retained/wire G, failed attempts and disposal waits; no survivor-only reload distributions. |
-| Pre-index/loaded/+5/+30 sample times; footprint/RSS/heap/compression/levels | O own-process samples and clock brackets; I0c chooses scheduled boundaries, sums distinct surviving instances once and classifies footprint−heap levels before unblinding. Missing member makes checkout total UNKNOWN. |
-| Relief-return bytes/live-heap delta | I0b-2 daemon relief or O stdio relief; O before/after samples and shim brackets; I0c signed deltas. Real zero no-op differs from unavailable. |
-| Served-within-wait/warming/failure, failure text; polling/pre-warm and abandonment | O readiness/response_owned outcomes plus client journal arrival/EOF/timeout/poll sequence. Hash joins include request occurrence, not just RPC ID; missing response remains outcome evidence. Pre-warm within N of use. |
-| Visibility/admission/exclusion reason | O headers/seq/health/end plus I0c file identity/offset/launch inventory and controller host/admission journal. Keep raw row, every failure and exclusion; UNKNOWN is not zero or PASS. |
-
-Required producer field missing, wrong-instance/start/boot/key sample, unsupported required metric, cap/gap/truncation,
-unbounded clock alignment, missing survivor, invalid sample window or effective≠requested idle/relief ⇒ **EXCLUDED from acceptance**,
-retaining raw row and reason. Legitimate build/query failure remains in preregistered outcome counts; no successful-sample denominator
-may erase it. Sidecar `not_attempted` does not pass a true CPG+sidecar-hit workload row; do not force it to manufacture admission.
-Genuine pre-index must precede any build; peer already loaded at attach cannot supply a missing baseline by subtraction.
-Clean close/complete sequences plus all expected streams are required for the scored interval; neither exit 0 nor Weak-drop proves relief.
-
-Controller still supplies confirmed soak completion, C0 Py pin, ≥50 GiB free, quiet/serial admitted window and non-increasing swap.
-I0c preserves M: matched current idle footprint median savings ≥200 MiB OR ≥15% on ≥2 corpora, ≥3 admitted runs/side,
-candidate max < base min; +30 footprint ≤128 MiB/checkout on all four corpora in both modes. 15% idle and pre-index +16 MiB are
-report-only. Exact-hit reload median ≤ fresh-lazy +max(5%,100 ms), ready ≤3 s target; wait stays configured (20 s default).
-Keep missed targets and served/warming/failure distributions visible. N remains provisional 600; O neither selects it nor activates I0.
-
-## Owner questions and handoff
-
-- **Cadence/cost:** accept 100 ms sampling/alignment and the stated neutrality tolerances? Recommended yes provisionally;
-  require measured neutrality, and redesign sampling if it fails, rather than subtract overhead or weaken the physical bar.
-- **Scope:** accept three sequential PRs and coarse actual cache refusal reasons? Recommended yes; finer diagnostics, census,
-  general profiling, adaptive cadence, process-exit B and active-capacity instrumentation are deferred because they do not decide I0 activation.
-- **Activation/N:** default-on and timeout remain owner decisions at admitted readout. Recommended keep off/600 provisional
-  until complete both-mode evidence; no gap-distribution evidence is supplied here.
-
-Stable handoff: design only; O1/O2/O3 and I0c pending. Controller commits this single document and records exclusive transfers,
-verification/admission scheduling and final I0b-2 rebind in the controller handoff. No separate handoff or evidence file is written here.
+Stable state: design only; controller applies A01–A24, rebinds I0b-2, reserves ownership and commits this rewrite. Evidence copy and template-based lane handoff live under `~/prism-evidence/mcp-memory/optimization-round2/idle-unload/o-plan/`; no other repository file is changed.
