@@ -18,6 +18,7 @@
 //! re-export chains, so `ast.rs` and `call_graph.rs` stay thin call sites.
 
 use std::collections::{BTreeMap, BTreeSet};
+mod memo;
 
 /// Depth bound for re-export chain / barrel resolution. Mirrors
 /// `name_resolution::engine::MAX_GLOB_DEPTH`'s fail-closed pattern: a chain
@@ -197,11 +198,12 @@ pub struct JsExportResolution {
 /// `resolve_module` maps `(from_file, module_path) -> Option<target_file>`,
 /// using the same exact relative-module resolution R4c already uses
 /// (`call_graph::resolve_js_ts_relative_module`) against the indexed file set.
+/// The mapping must be stable during this invocation; repeated pairs are memoized.
 pub fn resolve_js_exports(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
 ) -> JsExportResolution {
-    resolve_js_exports_for_projection(raw, resolve_module, raw.keys(), ExportProjection::Legacy)
+    memo::resolve(raw, resolve_module, raw.keys(), ExportProjection::Legacy)
 }
 
 // Alias consumers query only admitted root modules. Keep the complete raw map
@@ -211,7 +213,7 @@ pub(crate) fn resolve_js_exports_for<'a>(
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
     roots: impl IntoIterator<Item = &'a String>,
 ) -> JsExportResolution {
-    resolve_js_exports_for_projection(raw, resolve_module, roots, ExportProjection::CallerPaths)
+    memo::resolve(raw, resolve_module, roots, ExportProjection::CallerPaths)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -231,7 +233,8 @@ fn raw_relative_literal(spec: &str) -> bool {
     (spec.starts_with("./") || spec.starts_with("../")) && spec.trim() == spec
 }
 
-fn resolve_js_exports_for_projection<'a>(
+#[cfg(test)]
+fn resolve_js_exports_for_projection_uncached<'a>(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
     roots: impl IntoIterator<Item = &'a String>,
@@ -266,7 +269,16 @@ fn resolve_js_exports_for_projection<'a>(
 
 /// Namespace-only positive proof. Unknown branches invalidate uniqueness even
 /// when another branch has a terminal. Absence is never row authority.
+/// `resolve_module` must return a stable mapping during this invocation.
 pub fn resolve_js_namespace_exports(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+) -> BTreeMap<String, BTreeMap<String, ResolvedJsExport>> {
+    memo::namespace(raw, resolve_module)
+}
+
+#[cfg(test)]
+fn resolve_js_namespace_exports_uncached(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
 ) -> BTreeMap<String, BTreeMap<String, ResolvedJsExport>> {

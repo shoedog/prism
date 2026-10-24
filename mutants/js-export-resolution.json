@@ -1,0 +1,58 @@
+{
+  "mutations": {
+    "JER01-repeat-module-work": [
+      "src/js_exports/memo.rs",
+      "return hit.clone();",
+      "return module(from, spec);",
+      "js_exports::memo::tests::repeated_module_work_is_bounded_by_distinct_pairs"
+    ],
+    "JER02-omit-origin-from-key": [
+      "src/js_exports/memo.rs",
+      ".get(from)",
+      ".get(\"\")",
+      "js_exports::memo::tests::cache_keys_include_from_and_exact_spec_and_cache_misses"
+    ],
+    "JER03-trim-spec-key": [
+      "src/js_exports/memo.rs",
+      "specs.get(spec)",
+      "specs.get(spec.trim())",
+      "js_exports::memo::tests::cache_keys_include_from_and_exact_spec_and_cache_misses"
+    ],
+    "JER04-lose-negative-result": [
+      "src/js_exports/memo.rs",
+      "return hit.clone();",
+      "if hit.is_some() { return hit.clone(); }",
+      "js_exports::memo::tests::cache_keys_include_from_and_exact_spec_and_cache_misses"
+    ],
+    "JER05-drop-counter-increments": [
+      "src/js_exports/memo.rs",
+      "    out\n}",
+      "    out.chain_unresolved = 0;\n    out.barrel_conflicts = 0;\n    out\n}",
+      "js_exports::memo::tests::generated_graphs_preserve_all_fields_and_namespace"
+    ],
+    "JER06-drop-namespace-rows": [
+      "src/js_exports/memo.rs",
+      "    resolved\n}",
+      "    resolved.clear();\n    resolved\n}",
+      "js_exports::memo::tests::generated_graphs_preserve_all_fields_and_namespace"
+    ],
+    "JER07-namespace-repeat-module-work": [
+      "src/js_exports/memo.rs",
+      "    let resolve_module: &dyn Fn(&str, &str) -> Option<String> = &cached;\n    let mut resolved = BTreeMap::new();",
+      "    let _ = &cached;\n    let mut resolved = BTreeMap::new();",
+      "js_exports::memo::tests::namespace_module_work_is_bounded_by_distinct_pairs"
+    ]
+  },
+  "lib_test_prefixes": [
+    "js_exports::memo::"
+  ],
+  "extra": {
+    "JER02-omit-origin-from-key": [
+      [
+        "src/js_exports/memo.rs",
+        ".entry(from.into())",
+        ".entry(\"\".into())"
+      ]
+    ]
+  }
+}
