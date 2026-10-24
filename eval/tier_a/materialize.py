@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from .lock import Lock, _bind_manifests, _checkout_closure_matches
+from .lock import Lock, _bind_manifests, _bound_policy, _checkout_closure_matches
 
 
 class CorpusPinViolation(Exception):
@@ -79,6 +79,9 @@ def materialize(
     mirror = ensure_mirror(root, origin_url)
     if not hasattr(lock, "_corpus_rows"):
         _bind_source_manifests(lock, origin_url)
+    cfg = _bound_policy(lock)["corpora"]["corpus"]["prism"]
+    lang = cfg["lang"]
+    excludes = cfg.get("excludes", [])
 
     aliases = lock.prism.get("sha_aliases", [])
     if not aliases:
@@ -95,7 +98,9 @@ def materialize(
 
     suffix = lock.prism["closure"]["digest"].removeprefix("sha256:")[:12]
     checkout = root / "corpus" / name / suffix
-    if checkout.is_dir() and _checkout_closure_matches(lock, checkout):
+    if checkout.is_dir() and _checkout_closure_matches(
+        lock, checkout, lang, excludes
+    ):
         return checkout
     if checkout.exists():
         if checkout.is_dir():
@@ -107,7 +112,7 @@ def materialize(
     temporary = Path(tempfile.mkdtemp(prefix=f".{suffix}-", dir=checkout.parent))
     try:
         _extract_archive(mirror, sha, temporary)
-        if not _checkout_closure_matches(lock, temporary):
+        if not _checkout_closure_matches(lock, temporary, lang, excludes):
             raise CorpusPinViolation("extracted checkout closure mismatch")
         temporary.replace(checkout)
     except Exception:

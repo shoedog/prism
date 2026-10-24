@@ -3,7 +3,7 @@ import subprocess
 import pytest
 
 from tests.helpers import anchored_repo, git_repo
-from tier_a.closure import corpus_manifest, manifest_digest
+from tier_a.closure import corpus_manifest, manifest_digest, raw_digest
 from tier_a.lock import Lock, resolve_corpus_identity
 from tier_a.materialize import CorpusPinViolation, materialize
 
@@ -56,6 +56,76 @@ def test_extra_closure_source_is_dirty_untracked_and_reextracted(tmp_path):
     clean = materialize(lock, root, str(repo))
     assert not (clean / "src/extra.rs").exists()
     assert resolve_corpus_identity(lock, clean).dirty is False
+
+
+def _rust_checkout(tmp_path):
+    checkout = tmp_path / "checkout"
+    source = checkout / "src/a.rs"
+    source.parent.mkdir(parents=True)
+    source.write_text("fn a() {}\n")
+    cargo = checkout / "Cargo.toml"
+    cargo.write_text("[package]\nname='x'\nversion='0.1.0'\n")
+    rows = [("Cargo.toml", raw_digest(cargo)), ("src/a.rs", raw_digest(source))]
+    lock = Lock(
+        prism={
+            "sha_aliases": ["a" * 40],
+            "closure": {"digest": manifest_digest(rows)},
+        }
+    )
+    lock._corpus_rows = rows
+    lock._policy_data = {
+        "corpora": {
+            "corpus": {
+                "prism": {
+                    "lang": "rust",
+                    "excludes": ["tests/fixtures/*"],
+                }
+            }
+        }
+    }
+    return lock, checkout
+
+
+def test_other_language_source_is_outside_rust_checkout_closure(tmp_path):
+    lock, checkout = _rust_checkout(tmp_path)
+    (checkout / "extra.py").write_text("def extra(): pass\n")
+
+    identity = resolve_corpus_identity(lock, checkout)
+
+    assert identity.dirty is False
+    assert identity.untracked == []
+
+
+def test_undeclared_rust_source_is_inside_rust_checkout_closure(tmp_path):
+    lock, checkout = _rust_checkout(tmp_path)
+    (checkout / "src/extra.rs").write_text("fn extra() {}\n")
+
+    identity = resolve_corpus_identity(lock, checkout)
+
+    assert identity.dirty is True
+    assert identity.untracked == ["src/extra.rs"]
+
+
+def test_declared_source_digest_drift_is_dirty(tmp_path):
+    lock, checkout = _rust_checkout(tmp_path)
+    (checkout / "src/a.rs").write_text("fn changed() {}\n")
+
+    identity = resolve_corpus_identity(lock, checkout)
+
+    assert identity.dirty is True
+    assert identity.untracked == []
+
+
+def test_excluded_same_language_source_is_outside_checkout_closure(tmp_path):
+    lock, checkout = _rust_checkout(tmp_path)
+    excluded = checkout / "tests/fixtures/extra.rs"
+    excluded.parent.mkdir(parents=True)
+    excluded.write_text("fn excluded() {}\n")
+
+    identity = resolve_corpus_identity(lock, checkout)
+
+    assert identity.dirty is False
+    assert identity.untracked == []
 
 
 def test_missing_closure_path_is_dirty_and_reextracted(tmp_path):

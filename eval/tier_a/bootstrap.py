@@ -18,7 +18,8 @@ from .closure import canonical_path, corpus_manifest, manifest_digest, policy_di
 from .closure import policy_manifest, population_manifest, raw_digest
 from .closure import sut_inputs_manifest, write_tsv
 from .corpus import load_snapshot, save_snapshot, universe
-from .lock import IDENTITY_KEYS, Lock, integrity_check, lock_identities
+from .lock import IDENTITY_KEYS, Lock, _bound_policy, _checkout_closure_matches
+from .lock import integrity_check, lock_identities
 from .lock import report_bindable, save_lock
 from .report import render_markdown
 from .sut import PrismCli, verified_binary_identity
@@ -252,6 +253,11 @@ def validate_staged(cand: CandidateIdentity) -> list[str]:
         if not path.is_file() or path.read_bytes() != cand._manifest_bytes[final]:
             reasons.append(f"staged_manifest_moved: {final.name}")
     try:
+        cfg = _bound_policy(trial)["corpora"]["corpus"]["prism"]
+        if not _checkout_closure_matches(
+            trial, cand._repo, cfg["lang"], cfg.get("excludes", [])
+        ):
+            reasons.append("closure_digest_moved")
         if corpus_manifest(cand._repo, [row[0] for row in cand.lock._corpus_rows]) != cand.lock._corpus_rows:
             reasons.append("closure_digest_moved")
         if sut_inputs_manifest(cand._repo, cand._binary) != cand._sut_rows:
@@ -262,7 +268,7 @@ def validate_staged(cand: CandidateIdentity) -> list[str]:
             reasons.append("harness_sha_moved")
         if scrubbed_env(None) != cand.lock.prism["env"]["values"]:
             reasons.append("env_values_moved")
-    except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+    except (KeyError, OSError, ValueError, subprocess.CalledProcessError) as exc:
         reasons.append(f"staged_candidate_invalid: {exc}")
     return list(dict.fromkeys(reasons))
 

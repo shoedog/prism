@@ -1,6 +1,7 @@
 """Declared-input closure manifests for Tier-A anchors."""
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import json
 import re
@@ -52,9 +53,6 @@ _CORPUS_CONTROL_FILES = {
     "rust-toolchain",
     "rust-toolchain.toml",
 }
-_CORPUS_SOURCE_EXTENSIONS = tuple(
-    sorted({extension for extensions in EXTENSIONS.values() for extension in extensions})
-)
 
 
 def canonical_path(root: Path, p: Path) -> str:
@@ -92,10 +90,14 @@ def corpus_manifest(
 
 
 def checkout_corpus_manifest(
-    root: Path, expected_paths: set[str]
+    root: Path,
+    expected_paths: set[str],
+    lang: str,
+    excludes: list[str],
 ) -> list[tuple[str, str]]:
     """Enumerate closure-applicable checkout paths and their raw-byte digests."""
     applicable = set()
+    extensions = tuple(EXTENSIONS[lang])
     git_entry = root / ".git"
     if git_entry.exists():
         applicable.add(".git")
@@ -105,8 +107,11 @@ def checkout_corpus_manifest(
         path = canonical_path(root, disk_path)
         if (
             path in expected_paths
-            or disk_path.name in _CORPUS_CONTROL_FILES
-            or path.endswith(_CORPUS_SOURCE_EXTENSIONS)
+            or path in _CORPUS_CONTROL_FILES
+            or (
+                path.endswith(extensions)
+                and not any(fnmatch.fnmatch(path, pattern) for pattern in excludes)
+            )
         ):
             applicable.add(path)
     rows = [

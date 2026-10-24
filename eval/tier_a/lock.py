@@ -78,6 +78,7 @@ def corpus_check(
             reasons.append(
                 f"toolchain_mismatch: {name}: {toolchain.get(name)} != {runtime.get(name)}"
             )
+    cfg = _bound_policy(lock)["corpora"]["corpus"]["prism"]
     try:
         population = _bound_population(lock)
         if population["lang"] == "python":
@@ -90,7 +91,9 @@ def corpus_check(
                 reasons.append("package_dirs_mismatch")
     except (KeyError, ValueError):
         reasons.append("package_dirs_mismatch")
-    if not _checkout_closure_matches(lock, checkout):
+    if not _checkout_closure_matches(
+        lock, checkout, cfg["lang"], cfg.get("excludes", [])
+    ):
         reasons.append("checkout_closure_mismatch")
     return reasons
 
@@ -266,9 +269,11 @@ def resolve_corpus_identity(lock: Lock, checkout: Path) -> CorpusIdentity:
         from .materialize import CorpusPinViolation
 
         raise CorpusPinViolation("canonical corpus SHA is not 40 lowercase hex")
-    matches, untracked = _checkout_closure_state(lock, checkout)
     policy = _bound_policy(lock)
     cfg = policy["corpora"]["corpus"]["prism"]
+    matches, untracked = _checkout_closure_state(
+        lock, checkout, cfg["lang"], cfg.get("excludes", [])
+    )
     extensions = EXTENSIONS[cfg["lang"]]
     excludes = cfg.get("excludes", [])
     files = [
@@ -324,11 +329,15 @@ def _bound_population(lock: Lock) -> dict:
     return population
 
 
-def _checkout_closure_matches(lock: Lock, checkout: Path) -> bool:
-    return _checkout_closure_state(lock, checkout)[0]
+def _checkout_closure_matches(
+    lock: Lock, checkout: Path, lang: str, excludes: list[str]
+) -> bool:
+    return _checkout_closure_state(lock, checkout, lang, excludes)[0]
 
 
-def _checkout_closure_state(lock: Lock, checkout: Path) -> tuple[bool, list[str]]:
+def _checkout_closure_state(
+    lock: Lock, checkout: Path, lang: str, excludes: list[str]
+) -> tuple[bool, list[str]]:
     try:
         expected = {}
         rows = _bound_rows(lock)
@@ -341,7 +350,9 @@ def _checkout_closure_state(lock: Lock, checkout: Path) -> tuple[bool, list[str]
             if row[0] in expected:
                 return False, []
             expected[row[0]] = row[1]
-        recomputed = dict(checkout_corpus_manifest(checkout, set(expected)))
+        recomputed = dict(
+            checkout_corpus_manifest(checkout, set(expected), lang, excludes)
+        )
         untracked = sorted(set(recomputed) - set(expected))
         matches = set(recomputed) == set(expected) and all(
             recomputed[path] == digest for path, digest in expected.items()
