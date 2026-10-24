@@ -161,14 +161,14 @@ impl ParsedFile {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::ParsedFile;
     use crate::languages::Language;
 
     thread_local! {
         static VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     }
-    pub(super) fn visit() {
+    pub(in crate::ast) fn visit() {
         VISITS.with(|v| v.set(v.get() + 1));
     }
     pub(super) fn reset_visits() {

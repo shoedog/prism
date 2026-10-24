@@ -4475,6 +4475,8 @@ impl ParsedFile {
             return false;
         }
         fn walk(parsed: &ParsedFile, node: Node<'_>, root_id: usize, name: &str, u: bool) -> bool {
+            #[cfg(test)]
+            js_module_forwarding::tests::visit();
             if matches!(
                 node.kind(),
                 "assignment_expression"
@@ -4500,10 +4502,8 @@ impl ParsedFile {
                 }
             }
             let mut cursor = node.walk();
-            let written = node
-                .named_children(&mut cursor)
-                .any(|child| walk(parsed, child, root_id, name, u));
-            written
+            let mut children = node.named_children(&mut cursor);
+            children.any(|child| walk(parsed, child, root_id, name, u))
         }
         let root = self.tree.root_node();
         walk(self, root, root.id(), name, skip_using)

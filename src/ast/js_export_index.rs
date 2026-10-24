@@ -23,6 +23,8 @@ pub(super) struct ExportIndex<'a> {
 
 impl<'a> ExportIndex<'a> {
     pub(super) fn new(parsed: &'a ParsedFile) -> Self {
+        #[cfg(test)]
+        tests::record_build();
         let mut out = Self {
             declarations: BTreeMap::new(),
             writes: BTreeMap::new(),
@@ -101,8 +103,18 @@ impl<'a> ExportIndex<'a> {
     }
 
     pub(super) fn written(&self, parsed: &ParsedFile, name: &str) -> bool {
+        if !matches!(
+            parsed.language,
+            crate::languages::Language::JavaScript
+                | crate::languages::Language::TypeScript
+                | crate::languages::Language::Tsx
+        ) {
+            return false;
+        }
         self.writes.get(name).is_some_and(|targets| {
             targets.iter().any(|target| {
+                #[cfg(test)]
+                super::tests::visit();
                 !parsed.js_ts_has_closer_binding(target, name, parsed.tree.root_node().id(), true)
             })
         })
@@ -138,8 +150,12 @@ impl ParsedFile {
             );
         }
         if !names.is_empty() {
-            let index = ExportIndex::new(self);
-            names.retain(|name| !index.written(self, name));
+            if only.is_some() {
+                names.retain(|name| !self.js_ts_module_value_written(name));
+            } else {
+                let index = ExportIndex::new(self);
+                names.retain(|name| !index.written(self, name));
+            }
         }
         names
     }

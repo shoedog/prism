@@ -1,6 +1,21 @@
 use super::*;
 use crate::languages::Language;
 
+thread_local! {
+    static BUILDS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+pub(super) fn record_build() {
+    BUILDS.with(|n| n.set(n.get() + 1));
+}
+impl ParsedFile {
+    pub(crate) fn export_index_builds() -> usize {
+        BUILDS.with(std::cell::Cell::get)
+    }
+    pub(crate) fn export_facts_cached(&self) -> bool {
+        self.js_export_facts.get().is_some()
+    }
+}
+
 fn check(source: &str, language: Language) {
     let parsed = ParsedFile::parse("index.ts", source, language).unwrap();
     let root = parsed.tree.root_node();
@@ -116,13 +131,66 @@ fn many_import_queries_share_one_inventory() {
     let source =
         format!("import {{{imports}}} from './m'; function nested(f0) {{ f0++; }} f1 = other;");
     let parsed = ParsedFile::parse("index.ts", &source, Language::TypeScript).unwrap();
+    let mut stack = vec![parsed.tree.root_node()];
+    let mut named_nodes = 0;
+    while let Some(node) = stack.pop() {
+        named_nodes += 1;
+        let mut cursor = node.walk();
+        stack.extend(node.named_children(&mut cursor));
+    }
     super::super::tests::reset_visits();
     let names = parsed.js_ts_esm_named_imports(None);
     assert_eq!(names.len(), 127);
     assert!(names.contains("f0") && !names.contains("f1"));
     let visits = super::super::tests::visits();
+    let bound = named_nodes + 2; // f0 and f1 each require one matching-target scope check.
+    println!("IMPORT_WORK {visits} visits; {named_nodes} nodes; bound {bound}");
     assert!(
-        visits > 0 && visits < 400,
-        "{visits} visits for 128 imports"
+        visits > 0 && visits <= bound,
+        "{visits} visits > {bound} for 128 imports"
     );
+    super::super::tests::reset_visits();
+    assert_eq!(parsed.js_ts_esm_named_imports_legacy(None), names);
+    let legacy_visits = super::super::tests::visits();
+    println!("IMPORT_WORK_LEGACY {legacy_visits} visits; bound {bound}");
+    assert!(legacy_visits > bound, "legacy witness must discriminate");
+}
+
+#[test]
+fn single_name_queries_do_not_build_an_index() {
+    let parsed = ParsedFile::parse(
+        "index.ts",
+        "import {a,b,c} from './m'; a++; function inner(b) { b++; }",
+        Language::TypeScript,
+    )
+    .unwrap();
+    let before = ParsedFile::export_index_builds();
+    for (name, expected) in [("a", false), ("b", true), ("c", true), ("absent", false)] {
+        assert_eq!(
+            parsed.js_ts_esm_named_imports(Some(name)).contains(name),
+            expected
+        );
+    }
+    let builds = ParsedFile::export_index_builds() - before;
+    println!("SINGLE_NAME_BUILDS {builds}");
+    assert_eq!(builds, 0);
+}
+
+#[test]
+fn written_refuses_non_js_ts_languages() {
+    let parsed = ParsedFile::parse(
+        "index.java",
+        "class C { void f() { a = b; } }",
+        Language::Java,
+    )
+    .unwrap();
+    assert!(!parsed.tree.root_node().has_error());
+    let index = ExportIndex::new(&parsed);
+    assert!(
+        index.writes.contains_key("a"),
+        "exercise a matching write target"
+    );
+    assert!(!parsed.js_ts_module_value_written("a"));
+    assert!(!index.written(&parsed, "a"));
+    assert!(!index.written(&parsed, "absent"));
 }

@@ -93,6 +93,14 @@ fn sequential<'a, I>(files: I) -> JsTsResolutionFacts
 where
     I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
 {
+    ParsedFile::with_legacy_export_facts(|| sequential_legacy(files))
+}
+
+#[cfg(test)]
+fn sequential_legacy<'a, I>(files: I) -> JsTsResolutionFacts
+where
+    I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
+{
     tests::record_oracle();
     let mut export_facts: BTreeMap<String, crate::js_exports::JsExportFacts> = BTreeMap::new();
     let mut function_locals: BTreeMap<FunctionId, BTreeSet<String>> = BTreeMap::new();
