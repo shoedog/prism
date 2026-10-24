@@ -305,7 +305,10 @@ def _bind_manifests(lock: Lock, repo: Path) -> None:
     policy_path = _repo_path(repo, lock.prism["policy"]["manifest"])
     population_path = _repo_path(repo, lock.prism["population"]["manifest"])
     lock._corpus_rows = read_tsv(closure_path)
-    lock._sut_rows = read_tsv(sut_path)
+    if sut_path.is_file():
+        lock._sut_rows = read_tsv(sut_path)
+    else:
+        lock.__dict__.pop("_sut_rows", None)
     lock._policy_data = json.loads(policy_path.read_text())
     lock._population_data = json.loads(population_path.read_text())
 

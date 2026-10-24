@@ -27,7 +27,7 @@ from tier_a.boundary import (
     scrubbed_env,
 )
 from tier_a.closure import raw_digest, sut_inputs_manifest, write_tsv
-from tier_a.lock import Lock
+from tier_a.lock import Lock, integrity_check
 from tier_a.report import render_markdown
 from tier_a.sut import PrismCli
 
@@ -442,15 +442,22 @@ def test_sut_input_absent_present_transition_refuses(tmp_path):
         ("presence", "sut_input_absent_present_transition: generated.rs"),
     ],
 )
-def test_published_sut_input_reasons_preserve_refusals(tmp_path, mutation, expected):
+@pytest.mark.parametrize("bound", [False, True], ids=["unbound", "bound"])
+def test_published_sut_input_reasons_preserve_refusals(
+    tmp_path, mutation, expected, bound
+):
     from tier_a.closure import read_tsv, write_tsv
 
     lock, ev, repo = anchored_repo(tmp_path)
+    if mutation == "presence":
+        manifest = repo / lock.prism["sut"]["inputs"]
+        write_tsv(read_tsv(manifest) + [("generated.rs", "absent")], manifest)
+    if bound:
+        assert integrity_check(lock, ev) == []
+
     if mutation == "digest":
         (repo / "src/a.rs").write_text("fn changed() {}\n")
     else:
-        manifest = repo / lock.prism["sut"]["inputs"]
-        write_tsv(read_tsv(manifest) + [("generated.rs", "absent")], manifest)
         (repo / "generated.rs").write_text("fn generated() {}\n")
 
     reasons, paths = boundary._sut_input_reasons(lock, ev)

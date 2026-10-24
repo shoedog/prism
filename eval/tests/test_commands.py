@@ -2,8 +2,10 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from tests.helpers import FakeOracle, FakeSut, admitted_fake_run, anchored_repo, edit
-from tier_a import cli
+from tier_a import boundary, cli
 from tier_a.closure import raw_digest
 from tier_a.commands import preflight_quick
 from tier_a.lock import corpus_check, integrity_check, save_lock
@@ -82,6 +84,33 @@ def test_preflights_refuse_with_exit_3_and_no_report(
     assert cli.main() == 3
     assert_no_run_or_report(ev)
     assert "FATAL boundary_violation: data_digest_moved" in capsys.readouterr().err
+
+
+def test_missing_published_sut_manifest_preserves_matrix_preflight_boundary(
+    tmp_path, monkeypatch, capsys
+):
+    lock, ev, repo = anchored_repo(tmp_path)
+    sut_manifest = repo / lock.prism["sut"]["inputs"]
+    assert integrity_check(lock, ev) == []
+    assert hasattr(lock, "_sut_rows")
+    sut_manifest.unlink()
+    assert integrity_check(lock, ev) == []
+    assert not hasattr(lock, "_sut_rows")
+
+    monkeypatch.setattr(cli, "EVAL_DIR", ev)
+    monkeypatch.setattr(cli, "PrismCli", FakeSut)
+    monkeypatch.setattr(cli, "run_matrix", lambda *a, **k: [])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["tier-a", "--matrix-only", "--allow-stale-sut", "--date", REFUSAL_DATE],
+    )
+    assert cli.main() == 0
+    assert capsys.readouterr().err == ""
+
+    with pytest.raises(FileNotFoundError) as exc:
+        boundary._sut_input_reasons(lock, ev)
+    assert exc.value.filename == str(sut_manifest)
 
 
 def test_preflight_refuses_half_published_anchor_without_a_lock(

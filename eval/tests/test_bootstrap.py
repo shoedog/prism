@@ -128,15 +128,18 @@ def test_stage_validate_admit_then_publish_without_final_sut_manifest(tmp_path):
     _lock, ev, repo = anchored_repo(tmp_path, publish=False)
     cand = STAGE(repo, ev, tmp_path)
     sut_manifest = repo / cand.lock.prism["sut"]["inputs"]
+    unpublished_manifests = {
+        path.relative_to(repo).as_posix() for path in cand.staged
+    }
     declared = load_declared_inputs(cand.lock, ev)
     observation = Observation([], {row[0] for row in cand._sut_rows}, set())
     closure_paths = {row[0] for row in cand.lock._corpus_rows}
 
-    assert validate_staged(cand) == []
     assert not sut_manifest.exists()
     with OpenAudit(ev) as audit:
+        assert validate_staged(cand) == []
         admit(cand.lock, declared, observation, closure_paths, ev)
-    assert cand.lock.prism["sut"]["inputs"] not in audit.opens
+    assert audit.opens.isdisjoint(unpublished_manifests)
 
     run = fake_run(lock_identities(cand.lock))
     publish_anchor_v1(cand, run, *OUT(ev, tmp_path))
