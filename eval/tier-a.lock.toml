@@ -1,0 +1,90 @@
+[prism]
+sha_aliases = [
+    "f7d90615b29b101fc2e06edf20e4a167d18551f8",
+]
+harness_sha = "f5fe5b2726cc35ee660f44542c6fb4bb4df7bf8d"
+
+[prism.closure]
+digest = "sha256:082f0265186c54aa5d1bc73aa43fbfec10940df736613810f1f6d75bfbf07b69"
+manifest = "eval/closure/prism-corpus-082f0265186c.tsv"
+
+[prism.policy]
+digest = "sha256:c50c405d7742eabecd3bccb4c087125d317fc2a014acd1aa618872f51408e6f2"
+manifest = "eval/closure/policy-c50c405d7742.json"
+
+[prism.population]
+digest = "sha256:4a3b3a24d0b6547cd390b03af1af0487b3a6cb6dfd138539d82ff1e2e954ce56"
+manifest = "eval/closure/prism-population-4a3b3a24d0b6.json"
+
+[prism.snapshot]
+path = "eval/snapshots/prism-f7d90615b29b.json"
+digest = "sha256:722ec0b4554d26e420662cc82310c2ecb76af7da3c9a86e2a569cdd58d632180"
+
+[prism.sample]
+schema = 1
+seed = 42
+
+[prism.sample.per_stratum]
+quick = 3
+full = 8
+
+[prism.sample.digest]
+quick = "sha256:07334dcd56d8cf203e868f5ee3ceafc545fe31c4a9fc35976d6ceabc3452b003"
+full = "sha256:855512232fd6f3bf0b65dca9b6055d8f375742fb565e49ddb5e361b17459e36f"
+
+[prism.oracle]
+version = "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)"
+
+[prism.oracle.init.cargo]
+features = "all"
+
+[prism.sut]
+sha = "f7d90615b29b101fc2e06edf20e4a167d18551f8"
+digest = "sha256:195c062da8a21f5c6c63093db9247319ba09366b341b20efd6aaee7b974cc5ab"
+inputs = "eval/closure/sut-inputs-b5a82905061a.tsv"
+archive = "/Users/wesleyjinks/Library/Caches/prism/tier-a/sut/195c062da8a21f5c6c63093db9247319ba09366b341b20efd6aaee7b974cc5ab/prism"
+
+[prism.runtime]
+python = "3.12.13"
+python_version_file = "sha256:7b55f8e67b5623c4bef3fa691288da9437d79d3aba156de48d481db32ac7d16d"
+uv_lock = "sha256:81a456c78e9970513959a341e711e989ab92b633af871a495a90fec1579ae085"
+rustc = "rustc 1.94.0 (4a4ef493e 2026-03-02)"
+cargo = "cargo 1.94.0 (85eff7c80 2026-01-15)"
+rust_toolchain = "absent"
+cargo_config = "absent"
+
+[prism.data]
+fixtures = "sha256:c6c749ac4c6d06341fca0580d764fa30fcf1955bbeee707087b869d3a0b73245"
+pinned_probes = "sha256:0b59b81a3ae442986ff8eda7213851cd9783a949eef4f84c4756d86c754834bc"
+
+[prism.data.adjudications]
+path = "eval/adjudications.jsonl"
+digest = "sha256:d58c21ff834352d3bdd098564ce46c7298d5dfeb93ee77cc74a1f805a7371f45"
+records = 2324
+
+[prism.env]
+allow = [
+    "PATH",
+    "HOME",
+    "CARGO_HOME",
+    "RUSTUP_HOME",
+    "TMPDIR",
+    "LANG",
+    "TIER_A_ROOT",
+]
+forbid_read_outside_allow = true
+
+[prism.env.values]
+PATH = "/Users/wesleyjinks/code/slicing-tiera/eval/.venv/bin:/Users/wesleyjinks/.local/share/mise/installs/node/lts/bin:/Users/wesleyjinks/.local/share/mise/installs/go/1.26.2/bin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/Users/wesleyjinks/.cargo/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin"
+HOME = "/Users/wesleyjinks"
+TMPDIR = "/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/"
+LANG = "C.UTF-8"
+
+[prism.baseline_report]
+path = "docs/eval/tier-a/2026-10-24-prism.json"
+digest = "sha256:52fbf4087965b16ec029efc737f29c23617417fd834a3783caea8af1e9d0bdad"
+
+[prism.blessed]
+by = "bootstrap"
+at = "2026-10-24"
+sut_sha = "f7d90615b29b101fc2e06edf20e4a167d18551f8"
