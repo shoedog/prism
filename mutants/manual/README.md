@@ -1,6 +1,6 @@
 # Manual feature and Python mutations
 
-Five manual catalogs contain **67 mutants** (including the eleven I0b-2 entries).
+Each catalog's own section below gives its count; the JSON files are the source of truth.
 
 The shared `scripts/mutgate/mutgate.py` gate reads only `mutants/*.json`, builds without features and has
 no Python test runner. Catalogs here are intentionally outside that glob. Do not pass them to that runner.
