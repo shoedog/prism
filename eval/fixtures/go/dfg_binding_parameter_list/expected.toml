@@ -1,0 +1,17 @@
+[case]
+language = "go"
+capability = "dfg_binding_parameter_list"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.go:4:x"
+to = "main.go:6:x"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 5
+
+[[expect.edges]]
+from = "main.go:4:x"
+to = "main.go:8:x"
+confidence = "exact"

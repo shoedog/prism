@@ -246,7 +246,7 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
         ),
         Language::TypeScript => combined!(TYPESCRIPT_ROWS, javascript::ROWS, typescript_wave::ROWS),
         Language::Tsx => combined!(TSX_ROWS, javascript::ROWS, tsx_wave::ROWS),
-        Language::Go => combined!(GO_ROWS, go::ROWS, go_wave::ROWS),
+        Language::Go => combined3!(GO_ROWS, go::ROWS, go_wave::CURATED_ROWS, go_wave::ROWS),
         Language::Java => combined!(JAVA_ROWS, other::JAVA_ROWS, java_wave::ROWS),
         Language::C => combined!(C_ROWS, other::C_ROWS, c_wave::ROWS),
         Language::Cpp => combined!(CPP_ROWS, other::CPP_ROWS, cpp_wave::ROWS),

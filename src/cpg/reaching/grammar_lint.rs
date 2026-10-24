@@ -63,6 +63,13 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
                 .any(|identifier| parsed.node_text(&identifier) == name)
         });
     }
+    if parsed.language == Language::Go && node.kind() == "type_switch_statement" {
+        return select_binding_row(parsed, node).is_some_and(|row| {
+            super::transfer::row_introduced_identifiers(parsed, node, row.fields)
+                .into_iter()
+                .any(|identifier| parsed.node_text(&identifier) == name)
+        });
+    }
     if parsed.language == Language::Python && is_python_match_pattern(node) {
         return subtree_has_name(parsed, node, name);
     }

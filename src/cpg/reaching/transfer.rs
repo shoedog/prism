@@ -77,6 +77,8 @@ pub(super) fn discover(parsed: &ParsedFile, func: &Node<'_>, defs: &[DefSite]) -
                     && node.kind() == "with_item"
                     && matches!(row.ruling, Ruling::Uncertain { .. })))
                 && row.roles.has(Role::Binding)
+                && !(parsed.language == crate::languages::Language::Go
+                    && matches!(node.kind(), "for_clause" | "short_var_declaration"))
                 && matches!(
                     row.declaration,
                     Some(

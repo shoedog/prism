@@ -47,12 +47,16 @@ const EXPECTED_PARAMETER_ROWS: &[ExpectedParameterRow] = &[
         &[],
         "e0a-x-js-formal_parameters",
     ),
-    parameter_row(
+    parameter_row_with_ruling(
         Language::Go,
         Language::Go,
         "parameter_list",
         &[],
         "e0a-x-go-parameter_list",
+        Ruling::Uncertain {
+            reason: "parameter list has no CFG binding node",
+            revisit: "future:go-parameter-cfg",
+        },
     ),
     parameter_row(
         Language::Java,
@@ -119,6 +123,24 @@ const fn parameter_row(
     fields: &'static [&'static str],
     regression: &'static str,
 ) -> ExpectedParameterRow {
+    parameter_row_with_ruling(
+        lookup_language,
+        language,
+        kind,
+        fields,
+        regression,
+        Ruling::Classified,
+    )
+}
+
+const fn parameter_row_with_ruling(
+    lookup_language: Language,
+    language: Language,
+    kind: &'static str,
+    fields: &'static [&'static str],
+    regression: &'static str,
+    ruling: Ruling,
+) -> ExpectedParameterRow {
     ExpectedParameterRow {
         lookup_language,
         language,
@@ -129,7 +151,7 @@ const fn parameter_row(
         fields,
         declaration: Some(DeclarationKind::Parameter),
         visibility: Visibility::WholeScope,
-        ruling: Ruling::Classified,
+        ruling,
         regression,
     }
 }
