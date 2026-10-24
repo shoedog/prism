@@ -2,6 +2,9 @@ use super::super::super::binding_table::{rows, DeclarationKind, Predicate, Role}
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod patterns;
+pub(super) use patterns::{CASES as PATTERN_CASES, CURATED as PATTERN_CURATED};
+
 pub(super) const SOURCE: &str = r#"from __future__ import annotations
 import os as operating_system
 from .pkg import item as alias

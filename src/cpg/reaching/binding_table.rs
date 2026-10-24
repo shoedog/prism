@@ -229,7 +229,12 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
         }};
     }
     match language {
-        Language::Python => combined!(PYTHON_ROWS, python::ROWS, python_wave::ROWS),
+        Language::Python => combined3!(
+            PYTHON_ROWS,
+            python::ROWS,
+            python_wave::CURATED_ROWS,
+            python_wave::ROWS
+        ),
         Language::JavaScript => combined3!(
             JAVASCRIPT_ROWS,
             javascript::ROWS,

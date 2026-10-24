@@ -1,4 +1,6 @@
-use super::grammar_lint::{uncertain_binding_nodes, visibility_span, SpanKind};
+use super::grammar_lint::{
+    is_python_match_pattern, uncertain_binding_nodes, visibility_span, SpanKind,
+};
 use super::graph::{definition_reaches_unflagged, path_exists, BitSet};
 use super::transfer::HeaderUse;
 use super::{capture, scope, statement_lookup, DefSite, FlowConfidence, FlowDoubt, Line};
@@ -253,17 +255,29 @@ fn uncertain_construct_on_route(
                 ) | (crate::languages::Language::Bash, "for_statement")
                     | (
                         crate::languages::Language::Python,
-                        "global_statement" | "nonlocal_statement"
+                        "global_statement"
+                            | "nonlocal_statement"
+                            | "case_pattern"
+                            | "class_pattern"
+                            | "as_pattern"
+                            | "keyword_pattern"
+                            | "pattern_list"
+                            | "tuple_pattern"
+                            | "list_pattern"
                     )
             );
             if !explicit_uncertain_binder {
                 return None;
             }
-            let construct_node = statements
-                .get(construct_line)
+            let unplaced_python_pattern = parsed.language == crate::languages::Language::Python
+                && is_python_match_pattern(binder);
+            let construct_node = (!unplaced_python_pattern)
+                .then(|| statements.get(construct_line))
+                .flatten()
                 .and_then(|line| line_index.get(&line).copied());
             let omitted_python_declaration = parsed.language == crate::languages::Language::Python
-                && matches!(binder.kind(), "global_statement" | "nonlocal_statement")
+                && (matches!(binder.kind(), "global_statement" | "nonlocal_statement")
+                    || unplaced_python_pattern)
                 && construct_node.is_none();
             let on_route = candidates.iter().any(|index| {
                 mapped_defs[*index].is_some_and(|def_node| match construct_node {

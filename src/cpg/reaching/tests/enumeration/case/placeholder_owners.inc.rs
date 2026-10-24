@@ -1,14 +1,6 @@
 macro_rules! placeholder_owners {
     ($language:ident, $predicate:ident) => {
         &[
-            (($language::Python, "function_definition", None::<$predicate>, "e0a-py-function_definition"), "Task 12"),
-            (($language::Python, "lambda", None::<$predicate>, "e0a-py-lambda"), "Task 12"),
-            (($language::Python, "class_definition", None::<$predicate>, "e0a-py-class_definition"), "Task 12"),
-            (($language::Python, "list_comprehension", None::<$predicate>, "e0a-py-list_comprehension"), "Task 12"),
-            (($language::Python, "set_comprehension", None::<$predicate>, "e0a-py-set_comprehension"), "Task 12"),
-            (($language::Python, "dictionary_comprehension", None::<$predicate>, "e0a-py-dictionary_comprehension"), "Task 12"),
-            (($language::Python, "generator_expression", None::<$predicate>, "e0a-py-generator_expression"), "Task 12"),
-            (($language::Python, "parameters", None::<$predicate>, "e0a-x-py-parameters"), "Task 12"),
             (($language::JavaScript, "arrow_function", None::<$predicate>, "e0a-js-arrow_function"), "Task 16"),
             (($language::JavaScript, "class_body", None::<$predicate>, "e0a-js-class_body"), "Task 16"),
             (($language::JavaScript, "for_statement", None::<$predicate>, "e0a-js-for_statement"), "Task 16"),

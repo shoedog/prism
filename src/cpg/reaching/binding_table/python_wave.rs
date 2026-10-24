@@ -1,19 +1,91 @@
-use super::{provisional_rows, BindingRow};
+use super::{
+    provisional_rows, BindingRow, DeclarationKind, Predicate, Role, RoleSet, Ruling, Visibility,
+};
 use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "7ff6914d278faf4254d923e1205b887f940cfb3db46a81eddbde01e782707ac3";
 pub(super) const CENSUS_DIGEST: &str =
     "d6f9cf15bb6191845d42c1ae36a448403b246408553120f4942884dea453f6c5";
 
+const PATTERN_UNCERTAIN: Ruling = Ruling::Uncertain {
+    reason: "pattern identifiers not field-addressable",
+    revisit: "future:python-patterns",
+};
+
+pub(super) static CURATED_ROWS: &[BindingRow] = &[
+    BindingRow {
+        language: Language::Python,
+        kind: "match_statement",
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "py-match-statement-scope",
+    },
+    BindingRow {
+        language: Language::Python,
+        kind: "case_clause",
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "py-case-clause-scope",
+    },
+    pattern_row("case_pattern", None, &[], "py-case-pattern-uncertain"),
+    pattern_row("class_pattern", None, &[], "py-class-pattern-uncertain"),
+    pattern_row(
+        "as_pattern",
+        Some(Predicate::ParentKindIs {
+            kind: "case_pattern",
+        }),
+        &["alias"],
+        "py-case-as-pattern-inside-arm",
+    ),
+    BindingRow {
+        language: Language::Python,
+        kind: "as_pattern",
+        variant: None,
+        roles: RoleSet::of(&[Role::NotBinding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "py-as-pattern-non-case-transparent",
+    },
+    pattern_row("keyword_pattern", None, &[], "py-keyword-pattern-uncertain"),
+    pattern_row("pattern_list", None, &[], "py-pattern-list-uncertain"),
+    pattern_row("tuple_pattern", None, &[], "py-tuple-pattern-uncertain"),
+    pattern_row("list_pattern", None, &[], "py-list-pattern-uncertain"),
+];
+
+const fn pattern_row(
+    kind: &'static str,
+    variant: Option<Predicate>,
+    fields: &'static [&'static str],
+    regression: &'static str,
+) -> BindingRow {
+    BindingRow {
+        language: Language::Python,
+        kind,
+        variant,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields,
+        declaration: Some(DeclarationKind::Pattern),
+        visibility: Visibility::Header,
+        ruling: PATTERN_UNCERTAIN,
+        regression,
+    }
+}
+
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Python,
-    "E1a-1",
+    "E1a-later",
     [
-        ("as_pattern", "e0b-py-as_pattern"),
         ("block", "e0b-py-block"),
-        ("case_clause", "e0b-py-case_clause"),
-        ("case_pattern", "e0b-py-case_pattern"),
-        ("class_pattern", "e0b-py-class_pattern"),
         ("complex_pattern", "e0b-py-complex_pattern"),
         ("default_parameter", "e0b-py-default_parameter"),
         ("dict_pattern", "e0b-py-dict_pattern"),
@@ -24,15 +96,10 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("for_in_clause", "e0b-py-for_in_clause"),
         ("future_import_statement", "e0b-py-future_import_statement"),
         ("import_prefix", "e0b-py-import_prefix"),
-        ("keyword_pattern", "e0b-py-keyword_pattern"),
         ("lambda_parameters", "e0b-py-lambda_parameters"),
-        ("list_pattern", "e0b-py-list_pattern"),
         ("list_splat_pattern", "e0b-py-list_splat_pattern"),
-        ("match_statement", "e0b-py-match_statement"),
-        ("pattern_list", "e0b-py-pattern_list"),
         ("relative_import", "e0b-py-relative_import"),
         ("splat_pattern", "e0b-py-splat_pattern"),
-        ("tuple_pattern", "e0b-py-tuple_pattern"),
         ("type_parameter", "e0b-py-type_parameter"),
         ("typed_default_parameter", "e0b-py-typed_default_parameter"),
         ("typed_parameter", "e0b-py-typed_parameter"),

@@ -350,7 +350,16 @@ fn source_for_kind(language: Language, kind: &str) -> &'static str {
 
 fn curated_cases(language: Language) -> &'static [(&'static str, &'static str)] {
     match language {
-        Language::Python => super::python::CURATED,
+        Language::Python => {
+            static PYTHON_CURATED: OnceLock<Vec<(&str, &str)>> = OnceLock::new();
+            PYTHON_CURATED.get_or_init(|| {
+                super::python::CURATED
+                    .iter()
+                    .chain(super::python::PATTERN_CURATED)
+                    .copied()
+                    .collect()
+            })
+        }
         Language::JavaScript | Language::TypeScript | Language::Tsx => super::javascript::CURATED,
         Language::Go => super::go::CURATED,
         Language::Java => super::java::CURATED,
@@ -391,6 +400,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
             let mut overrides = BTreeSet::new();
             for case in super::python::CASES
                 .iter()
+                .chain(super::python::PATTERN_CASES)
                 .chain(super::javascript::CASES)
                 .chain(super::typescript::CASES)
                 .chain(super::tsx::CASES)
