@@ -8,6 +8,77 @@ use tree_sitter::Node;
 
 pub(super) const LET_ELSE_CFG_REVISIT: &str = "future:rust-let-else-cfg";
 
+pub(super) fn pattern_excludes_def(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
+    if parsed.language != Language::Rust {
+        return false;
+    }
+    let pattern = if node.kind() == "let_declaration" {
+        node.child_by_field_name("pattern").filter(|pattern| {
+            super::super::grammar_lint::contains_scope_bounded_rust_pattern(*pattern)
+        })
+    } else {
+        super::super::grammar_lint::contains_scope_bounded_rust_pattern(node).then_some(node)
+    };
+    pattern.is_some_and(|pattern| {
+        !super::super::grammar_lint::rust_pattern_introduces_name(parsed, pattern, name)
+    })
+}
+
+pub(super) fn pattern_declaration_scope(
+    parsed: &ParsedFile,
+    pattern: Node<'_>,
+) -> Option<ScopeSpan> {
+    use super::super::grammar_lint::{visibility_span, SpanKind};
+
+    if parsed.language != Language::Rust
+        || !super::super::grammar_lint::contains_scope_bounded_rust_pattern(pattern)
+    {
+        return None;
+    }
+    match visibility_span(parsed, pattern) {
+        SpanKind::Known(spans) => {
+            let start_byte = spans.iter().map(|span| span.start).min()?;
+            let end_byte = spans.iter().map(|span| span.end).max()?;
+            Some(ScopeSpan {
+                start_byte,
+                end_byte,
+                end_line: parsed.line_for_byte(end_byte.saturating_sub(1)),
+            })
+        }
+        SpanKind::Empty => Some(ScopeSpan {
+            start_byte: pattern.end_byte(),
+            end_byte: pattern.end_byte(),
+            end_line: pattern.end_position().row + 1,
+        }),
+        SpanKind::Unknown => None,
+    }
+}
+
+pub(super) fn let_header_scope(node: Node<'_>) -> Option<ScopeSpan> {
+    if !matches!(node.kind(), "let_condition" | "let_chain") {
+        return None;
+    }
+    let start_byte = node.end_byte();
+    let mut current = node;
+    while let Some(parent) = current.parent() {
+        let body = match parent.kind() {
+            "match_arm" => parent.child_by_field_name("value"),
+            "if_expression" => parent.child_by_field_name("consequence"),
+            "while_expression" => parent.child_by_field_name("body"),
+            _ => {
+                current = parent;
+                continue;
+            }
+        }?;
+        return Some(ScopeSpan {
+            start_byte,
+            end_byte: body.end_byte(),
+            end_line: body.end_position().row + 1,
+        });
+    }
+    None
+}
+
 pub(super) fn closure_parameter_scope(parsed: &ParsedFile, node: Node<'_>) -> Option<ScopeSpan> {
     (parsed.language == Language::Rust && node.kind() == "closure_parameters")
         .then(|| node.parent())

@@ -474,6 +474,13 @@ fn declaration_seed(
         }
         let rule = binding_scope_rule(parsed.language, node.kind());
         if let Some(kind) = rule.declaration {
+            if rust_scope::pattern_excludes_def(parsed, node, &def.path.base) {
+                if node.id() == func_node.id() {
+                    return None;
+                }
+                node = node.parent()?;
+                continue;
+            }
             if selected_row.is_some_and(|row| {
                 row.declaration.is_some()
                     && transfer::row_excludes_identifier(parsed, node, row.fields, def.start_byte)
@@ -530,6 +537,11 @@ fn declaration_scope(
     if kind == DeclarationKind::JavaScriptVar {
         return function_scope;
     }
+    if kind == DeclarationKind::Pattern {
+        if let Some(scope) = rust_scope::pattern_declaration_scope(parsed, node) {
+            return scope;
+        }
+    }
     if let Some(scope) = rust_scope::closure_parameter_scope(parsed, node) {
         return scope;
     }
@@ -572,27 +584,14 @@ fn function_scope(_parsed: &ParsedFile, func_node: &Node<'_>) -> ScopeSpan {
 }
 
 pub(super) fn scope_span(node: Node<'_>) -> ScopeSpan {
-    let node = if matches!(node.kind(), "let_condition" | "let_chain") {
-        rust_let_header_body(node).unwrap_or(node)
-    } else {
-        node
-    };
+    if let Some(span) = rust_scope::let_header_scope(node) {
+        return span;
+    }
     ScopeSpan {
         start_byte: node.start_byte(),
         end_byte: node.end_byte(),
         end_line: node.end_position().row + 1,
     }
-}
-
-fn rust_let_header_body(mut node: Node<'_>) -> Option<Node<'_>> {
-    while let Some(parent) = node.parent() {
-        match parent.kind() {
-            "if_expression" => return parent.child_by_field_name("consequence"),
-            "while_expression" => return parent.child_by_field_name("body"),
-            _ => node = parent,
-        }
-    }
-    None
 }
 
 #[cfg(test)]

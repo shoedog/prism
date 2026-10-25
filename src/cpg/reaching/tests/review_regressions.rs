@@ -186,11 +186,7 @@ fn rust_inner_block_declaration_does_not_kill_outer_binding() {
     assert_label(&outcome, &outer_use, FlowConfidence::Exact);
 }
 
-fn assert_rust_unclassified_pattern_uses_flat_fallback(
-    source: &str,
-    use_line: usize,
-    kill_line: u32,
-) {
+fn assert_rust_pattern_uses_scoped_uncertainty(source: &str, use_line: usize, construct_line: u32) {
     let parsed = parsed(source, Language::Rust);
     let func = function(&parsed);
     let defs = collect_defs(&parsed);
@@ -204,34 +200,34 @@ fn assert_rust_unclassified_pattern_uses_flat_fallback(
     assert_label(
         &outcome,
         &outer_use,
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line }),
+        FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line }),
     );
 }
 
 #[test]
-fn rust_if_let_pattern_uncertainty_uses_flat_path_fallback() {
-    assert_rust_unclassified_pattern_uses_flat_fallback(
+fn rust_if_let_pattern_uncertainty_is_scoped_to_body() {
+    assert_rust_pattern_uses_scoped_uncertainty(
         "fn f(opt: Option<i32>) {\n    let value = source();\n    if let Some(value) = opt {\n        {\n            let value = clean();\n        }\n        sink(value);\n    }\n}\n",
         7,
-        5,
+        3,
     );
 }
 
 #[test]
-fn rust_match_arm_pattern_uncertainty_uses_flat_path_fallback() {
-    assert_rust_unclassified_pattern_uses_flat_fallback(
+fn rust_match_arm_pattern_uncertainty_is_scoped_to_arm() {
+    assert_rust_pattern_uses_scoped_uncertainty(
         "fn f(opt: Option<i32>) {\n    let value = source();\n    match opt {\n        Some(value) => {\n            {\n                let value = clean();\n            }\n            sink(value);\n        }\n        None => {}\n    }\n}\n",
         8,
-        6,
+        4,
     );
 }
 
 #[test]
-fn rust_while_let_pattern_uncertainty_uses_flat_path_fallback() {
-    assert_rust_unclassified_pattern_uses_flat_fallback(
+fn rust_while_let_pattern_uncertainty_is_scoped_to_body() {
+    assert_rust_pattern_uses_scoped_uncertainty(
         "fn f(mut opt: Option<i32>) {\n    let value = source();\n    while let Some(value) = opt.take() {\n        {\n            let value = clean();\n        }\n        sink(value);\n    }\n}\n",
         7,
-        5,
+        3,
     );
 }
 
@@ -577,4 +573,22 @@ fn unclassified_introduction_after_use_does_not_demote_reaching_edge() {
     let use_before_range = edge(&parsed, &func, &outer, 3);
     let outcome = run(&parsed, &defs, std::slice::from_ref(&use_before_range)).0;
     assert_label(&outcome, &use_before_range, FlowConfidence::Exact);
+}
+
+#[test]
+fn rust_pattern_initializer_reads_parameter_after_prior_pattern() {
+    let parsed = parsed(
+        "fn f(p: Option<i32>) {\n    let Some(v) = next();\n    let Some(w) = p;\n    sink(w);\n}\n",
+        Language::Rust,
+    );
+    let func = function(&parsed);
+    let parameter = def(&parsed, 0, "p", 1, 0, false);
+    let defs = vec![
+        parameter.clone(),
+        def(&parsed, 1, "v", 2, 0, false),
+        def(&parsed, 2, "w", 3, 0, false),
+    ];
+    let initializer_use = edge(&parsed, &func, &parameter, 3);
+    let outcome = run(&parsed, &defs, std::slice::from_ref(&initializer_use)).0;
+    assert_label(&outcome, &initializer_use, FlowConfidence::Exact);
 }

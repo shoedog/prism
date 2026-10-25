@@ -372,6 +372,17 @@ fn uncertain_construct_on_route(
                     "record_pattern" | "type_pattern" | "instanceof_expression"
                 ) | (crate::languages::Language::Bash, "for_statement")
                     | (
+                        crate::languages::Language::Rust,
+                        "captured_pattern"
+                            | "mut_pattern"
+                            | "or_pattern"
+                            | "ref_pattern"
+                            | "slice_pattern"
+                            | "struct_pattern"
+                            | "tuple_pattern"
+                            | "tuple_struct_pattern"
+                    )
+                    | (
                         crate::languages::Language::Python,
                         "global_statement"
                             | "nonlocal_statement"

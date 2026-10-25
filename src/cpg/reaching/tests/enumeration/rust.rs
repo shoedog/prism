@@ -2,6 +2,9 @@ use super::super::super::binding_table::{rows, DeclarationKind, Role, Ruling, Vi
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod patterns;
+pub(super) use patterns::CASES as PATTERN_CASES;
+
 const fn killed(line: u32) -> FlowConfidence {
     FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: line })
 }
@@ -318,6 +321,14 @@ pub(super) const CURATED: &[(&str, &str)] = &[
     ("closure_parameters", "rs-closure-parameters-deferred"),
     ("try_block", "rs-try-block"),
     ("const_block", "rs-const-block"),
+    ("captured_pattern", "rs-captured-pattern"),
+    ("mut_pattern", "rs-mut-pattern-inside-arm"),
+    ("or_pattern", "rs-or-pattern-inside-arm"),
+    ("ref_pattern", "rs-ref-pattern-inside-arm"),
+    ("slice_pattern", "rs-slice-pattern-inside-arm"),
+    ("struct_pattern", "rs-struct-pattern-inside-arm"),
+    ("tuple_pattern", "rs-for-pattern-tuple"),
+    ("tuple_struct_pattern", "rs-tuple-struct-pattern-inside-arm"),
 ];
 
 pub(super) fn source_for_kind(kind: &str) -> &'static str {

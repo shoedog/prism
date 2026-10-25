@@ -250,7 +250,12 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
         Language::Java => combined!(JAVA_ROWS, other::JAVA_ROWS, java_wave::ROWS),
         Language::C => combined!(C_ROWS, other::C_ROWS, c_wave::ROWS),
         Language::Cpp => combined!(CPP_ROWS, other::CPP_ROWS, cpp_wave::ROWS),
-        Language::Rust => combined!(RUST_ROWS, rust::ROWS, rust_wave::ROWS),
+        Language::Rust => combined3!(
+            RUST_ROWS,
+            rust::ROWS,
+            rust_wave::CURATED_ROWS,
+            rust_wave::ROWS
+        ),
         Language::Lua => combined!(LUA_ROWS, other::LUA_ROWS, lua_wave::ROWS),
         Language::Terraform => terraform_wave::ROWS,
         Language::Bash => bash_wave::ROWS,
