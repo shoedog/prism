@@ -35,13 +35,13 @@ pub(super) fn classify_edge(
     binding_facts: &scope::BindingFacts,
     function_start: Line,
 ) -> FlowConfidence {
+    if capture::is_capture(edge, capture_facts) {
+        return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
     if let Some(construct_line) = unplaced_go_parameter(parsed, edge) {
         return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
-    }
-    if capture::is_capture(edge, capture_facts) {
-        return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
 
     let use_statement = statements.get(edge.to.line);
@@ -307,8 +307,9 @@ fn unplaced_go_type_switch(parsed: &ParsedFile, edge: &FlowEdge) -> Option<Line>
                 inside_case |= matches!(node.kind(), "type_case" | "default_case");
                 current = node.parent();
             }
-            (edge.from.line < construct_line && inside_switch && inside_case)
-                .then_some(construct_line)
+            let def_outside_switch = edge.from.start_byte < binder.start_byte()
+                || binder.end_byte() <= edge.from.start_byte;
+            (def_outside_switch && inside_switch && inside_case).then_some(construct_line)
         })
         .min()
 }

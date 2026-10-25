@@ -574,7 +574,7 @@ pub(super) fn row_excludes_identifier(
     byte: usize,
 ) -> bool {
     let identifiers = row_introduced_identifiers(parsed, node, fields);
-    !identifiers.is_empty()
+    !fields.is_empty()
         && identifiers
             .iter()
             .all(|identifier| identifier.start_byte() != byte)

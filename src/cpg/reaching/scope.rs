@@ -476,8 +476,7 @@ fn declaration_seed(
         let rule = binding_scope_rule(parsed.language, node.kind());
         if let Some(kind) = rule.declaration {
             if selected_row.is_some_and(|row| {
-                row.ruling == Ruling::Classified
-                    && row.roles.has(Role::Binding)
+                row.declaration.is_some()
                     && transfer::row_excludes_identifier(parsed, node, row.fields, def.start_byte)
             }) {
                 if node.id() == func_node.id() {

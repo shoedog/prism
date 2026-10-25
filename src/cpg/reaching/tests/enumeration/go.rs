@@ -4,6 +4,9 @@ use super::super::super::binding_table::{
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+#[path = "go_fix1.rs"]
+mod fix1;
+
 pub(super) const CASES: &[super::case::Case] = &[
     super::case::Case {
         id: "e0a-go-block",
@@ -164,14 +167,14 @@ pub(super) const CASES: &[super::case::Case] = &[
         kind: "parameter_list",
         variant: Some("binding"),
         row_variant: None,
-        class: super::case::CaseClass::Behavioral,
+        class: super::case::CaseClass::Structural,
         src: "func f() {\n  x := source()\n  _ = func(x int) {\n    sink(x)\n  }\n  sink(x)\n}\n",
         expect: &[(
             "2:x",
             "4:x",
-            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
+            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
         ), ("2:x", "6:x", FlowConfidence::Exact)],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
     },
     super::case::Case {
         id: "go-parameter-nested-type-name-preserved",
@@ -193,6 +196,17 @@ pub(super) const CASES: &[super::case::Case] = &[
         language: Language::Go,
         kind: "type_switch_statement",
         variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "func f(value any) {\n  x := source()\n  switch x := x.(type) {\n  case int:\n    sink(x)\n  }\n  sink(x)\n}\n",
+        expect: &[("2:x", "3:x", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)), ("2:x", "5:x", FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 })), ("2:x", "7:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+    },
+    super::case::Case {
+        id: "go-type-switch-alias",
+        language: Language::Go,
+        kind: "type_switch_statement",
+        variant: None,
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
         src: "func f(value any) {\n  x := source()\n  switch x := x.(type) {\n  case int:\n    sink(x)\n  }\n  sink(x)\n}\n",
@@ -239,9 +253,9 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: Some("binding"),
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "func f(ch chan int) {\n  x := source()\n  select {\n  case <-ch:\n    x := clean()\n    sink(x)\n  }\n  sink(x)\n}\n",
-        expect: &[("5:x", "6:x", FlowConfidence::Exact), ("2:x", "8:x", FlowConfidence::Exact)],
-        expect_counter: Some(("dfg_label_exact", 2)),
+        src: "func f(ch, dh chan int) {\n  x := source()\n  select {\n  case <-ch:\n    x := clean()\n    sink(x)\n  case <-dh:\n    sink(x)\n  }\n  sink(x)\n}\n",
+        expect: &[("5:x", "6:x", FlowConfidence::Exact), ("2:x", "8:x", FlowConfidence::Exact), ("2:x", "10:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 3)),
     },
     super::case::Case {
         id: "go-for-clause-init",
