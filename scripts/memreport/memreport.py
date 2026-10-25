@@ -429,6 +429,8 @@ def cmd_render(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest='command', required=True)
+    from memreport_idle_driver import add_parser
+    add_parser(commands)
     gen = commands.add_parser('gen-workload')
     gen.add_argument('--bin', required=True)
     gen.add_argument('--corpus', action='append', required=True, metavar='NAME=PATH')

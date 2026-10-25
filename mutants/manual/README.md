@@ -1,6 +1,6 @@
 # Manual feature and Python mutations
 
-Each catalog's own section below gives its count (O-lite adds **23**, I0c-1 adds **13**); the JSON files are the source of truth.
+Each catalog's own section below gives its count (O-lite adds **23**, I0c-1 adds **13**, I0c-2 adds **70** Python mutants); the JSON files are the source of truth.
 
 The shared `scripts/mutgate/mutgate.py` gate reads only `mutants/*.json`, builds without features and has
 no Python test runner. Catalogs here are intentionally outside that glob. Do not pass them to that runner.
@@ -106,3 +106,14 @@ Keep logs, exact selectors/counts
 and before/mutant/restored hashes outside the repo. I0b-1 + I0b-2 + O-lite + I0c-1 total
 **63 mutants**; Python I0c collection belongs to a separate catalog/lane. Tier-A and the ordinary
 shared-catalog gate remain controller-owned.
+
+## `i0c-2.json` (I0c Python collector, external sampler and readout)
+
+The **70 mutants** use `[file, exact anchor, replacement, unittest selector]`, the existing Python format.
+Run steps 1–6 above from `scripts/memreport` with `python3 -B -m unittest SELECTOR`; use a fresh external
+`PYTHONPYCACHEPREFIX` and disable bytecode writes to avoid same-second stale caches during restoration.
+All nine required Python mutants plus completeness, identity, clocks, boundaries, sidecar ownership,
+independent-run/heap/range/coverage, smoke/prerequisite/binary/client admission rules have behavioral witnesses.
+Require exactly one behavioral failure, SHA-256-identical restoration and exactly one restored GREEN per record.
+Receipts, before-source snapshots, hashes and logs stay in I0c-2's evidence directory outside the checkout.
+This README lists Python catalogs, so this is the brief-authorized catalog section. No shared gate changes.
