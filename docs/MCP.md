@@ -344,7 +344,31 @@ The socket path must fit in 103 bytes; a long `PRISM_MCP_RUNTIME_DIR` fails clos
 | `--idle-ttl <SECS>` | `900` (1–86400) | Idle time before a daemon retires. **Only for a daemon this shim starts**; a shim that reaches a running daemon ignores it, silently. |
 | `--max-clients <N>` | `64` (1–4096) | Connections a daemon admits at once. Same rule as `--idle-ttl`. |
 | `--warm-at-startup` | off | Passed to a daemon this shim starts (it builds at once); otherwise ignored. |
+| `--index-idle-secs <SECS>` | `0` (off) | Unload the whole index after tool-idle seconds, even with clients connected. Flag overrides `PRISM_MCP_INDEX_IDLE_SECS`, which overrides off. First-spawner policy, outside the daemon key. |
+| `--index-idle-pressure-relief` (hidden) | off | Measurement A+C intent, forwarded to the daemon. Effective only with nonzero index idle on macOS; other cases report it unused. |
 | `--first-call-wait`, `PRISM_MCP_STRUCTURED_CONTENT`, `PRISM_MCP_CONCISE_SHAPE`, `PRISM_MCP_MAX_RESULT_CHARS` | as standalone | Per connection: each shim's own values apply to its own session. |
+
+Index idle stays **off by default** in both stdio and shared mode. Measurement runs explicitly
+pass `--index-idle-secs 600`; default activation remains an owner decision at a measured readout.
+Values must be unsigned integer seconds that fit the monotonic clock; invalid or overflowing
+flag/env values fail before a daemon is started or reached. Explicit `0` overrides even an invalid
+ambient value. The shim resolves once and always passes `--index-idle-secs S`, including zero,
+to its child. Direct `prism-mcp daemon` accepts explicit options only and reads no idle env.
+
+Index idle measures inactivity of tool work, separately from `--idle-ttl` (time with no clients
+before the daemon exits). Unload preserves connected MCP sessions; the next tool call reloads
+and serves through the daemon's normal build path. Neither setting changes daemon identity.
+An existing daemon keeps its first spawner's policy. A differing shim writes exactly one stderr
+line, for example:
+
+```text
+prism-mcp: shared daemon pid 4242 idle policy mismatch: effective index_idle_timeout_secs=600; requested index_idle_timeout_secs=0; keeping first-spawner policy
+```
+
+If relief differs, that same line also names effective and requested
+`index_idle_pressure_relief`. Requested relief intent can differ from effective relief when
+idle is off or the platform cannot apply it. Equal settings produce no mismatch line. This
+diagnostic does not restart or kill the daemon, reconnect the session, or replay a request.
 
 ### What changes for a client
 
@@ -358,7 +382,8 @@ The socket path must fit in 103 bytes; a long `PRISM_MCP_RUNTIME_DIR` fails clos
   for a call whose own build attempt failed while a later attempt is already building; retry after
   that many seconds, or ignore it if a retry already succeeded.
 - **The shim says which daemon it reached**, on its standard error:
-  `prism-mcp: shared daemon pid <pid> (started <epoch seconds>, generation <g>) at <socket>`.
+  `prism-mcp: shared daemon pid <pid> (started <epoch seconds>, generation <g>) at <socket>; index <state>; index_idle_timeout_secs=<effective seconds>; index_idle_pressure_relief=<effective bool>`.
+  These are the daemon's actual READY fields, including `unloaded`, rather than the shim's request.
 - **A session ends with its daemon.** If the daemon stops while a client is attached (a termination
   signal, its repository root removed or replaced, its runtime files replaced, or a crash), the shim
   exits 1 with `prism-mcp: the shared daemon closed the connection (shared daemon pid <pid>); this
@@ -406,6 +431,13 @@ without it both commands resolve the directory as a shim does. `--repo` with `--
   dead daemon left; and in one line the keys that hold nothing but lock files and logs. It reads and
   removes nothing, and asking does not keep a daemon of this build alive. It exits 1 when some key
   could not be looked at.
+  Index state (`idle`, `building`, `ready`, `failed`, `unloaded`) is separate from client state
+  (`connected` or `clientless`). `idle` means no initial index has been built; `unloaded` means
+  an index was disposed after tool-idle. The effective policy line shows
+  `index_idle_timeout_secs` (zero disables) and `index_idle_pressure_relief` (a boolean).
+  Status and shutdown need no idle setting, ignore idle env, and do not reset tool-idle.
+  An incompatible/old control reply leaves policy unavailable and asks for the daemon's
+  matching binary for status/shutdown; unknown values are never reported as zero/off.
 - **`daemon-shutdown`** asks one daemon to drain once it has no client left. It never disconnects a
   client, and the daemon keeps admitting new clients until its count reaches 0. Exit 0: that
   instance no longer serves the key, or it has accepted and will drain after its clients (the
@@ -427,7 +459,8 @@ without it both commands resolve the directory as a shim does. `--repo` with `--
 counts them. With no `prism-mcp` process running the whole `prism-mcpd` directory can be removed.
 
 **The daemon** is started by shims as `prism-mcp daemon --repo <root> --cache-dir <base>
---refresh-policy <p> --key <64 hex> [--warm-at-startup] [--idle-ttl S] [--max-clients N]`, in a
+--refresh-policy <p> --key <64 hex> --index-idle-secs S [--index-idle-pressure-relief]
+[--warm-at-startup] [--idle-ttl S] [--max-clients N]`, in a
 session of its own, from `/`, with the shim's environment (but not `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY`).
 It exits 0 when it has drained, or at once and silently when another daemon already owns the key; it
 exits non-zero with one `Error:` line in its log when it cannot start. Its log says

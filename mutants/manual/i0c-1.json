@@ -1,0 +1,129 @@
+{
+  "manual_only": true,
+  "features": [
+    "mcp"
+  ],
+  "mutants": [
+    {
+      "id": "I0c-drop-spawn-setting",
+      "selector": "mcp::shim::idle_tests::shim_idle_flag_env_forwarding",
+      "description": "Drop the explicit resolved timeout, including zero, from child argv.",
+      "edits": [
+        {
+          "file": "src/mcp/shim/spawn.rs",
+          "old": "        args.extend([\n            \"--index-idle-secs\".into(),\n            self.idle_policy\n                .timeout\n                .unwrap_or_default()\n                .as_secs()\n                .to_string()\n                .into(),\n        ]);\n",
+          "new": ""
+        }
+      ]
+    },
+    {
+      "id": "I0c-env-beats-zero",
+      "selector": "mcp::shim::idle_tests::shim_idle_flag_env_forwarding",
+      "description": "Discard explicit zero before resolving ambient policy.",
+      "edits": [
+        {
+          "file": "src/mcp/shim/run.rs",
+          "old": "let explicit = options.index_idle_secs.as_deref();",
+          "new": "let explicit = options.index_idle_secs.as_deref().filter(|value| *value != \"0\");"
+        }
+      ]
+    },
+    {
+      "id": "I0c-suppress-mismatch",
+      "selector": "mcp::shim::idle_tests::shim_idle_first_spawner_mismatch_once",
+      "description": "Suppress the one first-spawner mismatch diagnostic.",
+      "edits": [
+        {
+          "file": "src/mcp/shim/run.rs",
+          "old": "    lines\n}",
+          "new": "    lines.truncate(1);\n    lines\n}"
+        }
+      ]
+    },
+    {
+      "id": "I0c-report-requested-as-effective",
+      "selector": "mcp::shim::idle_tests::shim_idle_first_spawner_mismatch_once",
+      "description": "Substitute this shim request for actual daemon READY policy in startup text.",
+      "edits": [
+        {
+          "file": "src/mcp/shim/run.rs",
+          "old": "        ready.index_idle_timeout_secs, ready.index_idle_pressure_relief\n",
+          "new": "        requested_secs, requested_relief\n"
+        }
+      ]
+    },
+    {
+      "id": "I0c-drop-relief-intent",
+      "selector": "mcp::shim::idle_tests::shim_idle_relief_forwarding_and_applicability",
+      "description": "Drop hidden A+C intent from spawned daemon argv.",
+      "edits": [
+        {
+          "file": "src/mcp/shim/spawn.rs",
+          "old": "            args.push(\"--index-idle-pressure-relief\".into());",
+          "new": "            // mutant: relief intent discarded"
+        }
+      ]
+    },
+    {
+      "id": "I0c-shared-relief-unused",
+      "selector": "idle_tests::shared_idle_relief_applicability",
+      "description": "Incorrectly declare shared enabled relief unused on macOS.",
+      "edits": [
+        {
+          "file": "src/mcp/idle.rs",
+          "old": "(requested && (self.timeout.is_none() || !cfg!(target_os = \"macos\")))",
+          "new": "(requested && (_shared || self.timeout.is_none() || !cfg!(target_os = \"macos\")))"
+        }
+      ],
+      "target": "prism-mcp"
+    },
+    {
+      "id": "I0c-hide-control-incompatibility",
+      "selector": "mcp::shim::idle_tests::operator_idle_old_control_unavailable",
+      "description": "Omit matching-binary guidance for old/refused control.",
+      "edits": [
+        {
+          "file": "src/mcp/shim/status.rs",
+          "old": "    if incompatible {",
+          "new": "    if false && incompatible {"
+        }
+      ]
+    },
+    {
+      "id": "I0c-status-policy-zero",
+      "selector": "mcp::shim::idle_tests::operator_idle_unloaded_status",
+      "description": "Invent zero/off policy in human STATUS rather than using daemon fields.",
+      "edits": [
+        {
+          "file": "src/mcp/shim/status.rs",
+          "old": "            status.index_idle_timeout_secs, status.index_idle_pressure_relief\n",
+          "new": "            0, false\n"
+        }
+      ]
+    },
+    {
+      "id": "I0c-accept-invalid-setting",
+      "selector": "mcp::shim::idle_tests::shim_idle_invalid_values",
+      "description": "Silently convert malformed/overflow input into off.",
+      "edits": [
+        {
+          "file": "src/mcp/shim/run.rs",
+          "old": "crate::mcp::idle::IdlePolicy::resolve(explicit, ambient, cfg, false)?",
+          "new": "crate::mcp::idle::IdlePolicy::resolve(explicit, ambient, cfg, false)\n        .or_else(|_| crate::mcp::idle::IdlePolicy::resolve(Some(\"0\"), None, cfg, false))?"
+        }
+      ]
+    },
+    {
+      "id": "I0c-conflate-index-and-clients",
+      "selector": "mcp::shim::idle_tests::operator_idle_unloaded_status",
+      "description": "Derive connection state from initial index idleness instead of client counts.",
+      "edits": [
+        {
+          "file": "src/mcp/shim/status.rs",
+          "old": "let connection = if status.admitted == 0 && status.pending == 0 {",
+          "new": "let connection = if status.build == crate::mcp::shared::preamble::BuildState::Idle {"
+        }
+      ]
+    }
+  ]
+}

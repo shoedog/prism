@@ -32,6 +32,10 @@ pub struct ShimOptions {
     /// `--idle-ttl` and `--max-clients` for a daemon this shim starts.
     pub idle_ttl: Option<u64>,
     pub max_clients: Option<u32>,
+    /// Explicit idle setting, overriding PRISM_MCP_INDEX_IDLE_SECS; absent means env or off.
+    pub index_idle_secs: Option<String>,
+    /// Hidden A+C intent, forwarded even when this platform cannot apply it.
+    pub index_idle_pressure_relief: bool,
 }
 
 /// Run a shim until its client or its daemon ends the session. Returns the exit status: 0 when
@@ -89,6 +93,16 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
     let cfg = canonical_config(&options.config).map_err(|e| early(&e))?;
     let identity = DaemonIdentity::resolve(&cfg).map_err(|e| early(&e))?;
     let key = identity.key();
+    let ambient = std::env::var_os("PRISM_MCP_INDEX_IDLE_SECS");
+    // Lossy conversion remains invalid numeric input; an explicit zero still overrides it.
+    let ambient = ambient.as_deref().map(|value| value.to_string_lossy());
+    let args = daemon_args(&identity, options, ambient.as_deref()).map_err(|e| early(&e))?;
+    if let Some(note) = args
+        .idle_policy
+        .pressure_relief_note(options.index_idle_pressure_relief, true)
+    {
+        eprintln!("{note}");
+    }
     // Spec §4.1 step 3: this shim's own settings, from its own environment and flags; an
     // invalid value warns here, as it does for a standalone server.
     let settings = ClientSettings::new(
@@ -134,15 +148,7 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
     };
     let mut starter = ProcessStarter {
         exe,
-        args: DaemonArgs {
-            repo_root: identity.repo_root().to_path_buf(),
-            cache_base: identity.cache_base().to_path_buf(),
-            refresh_policy: identity.refresh_policy(),
-            key,
-            warm_at_startup: cfg.startup == StartupMode::Background,
-            idle_ttl: options.idle_ttl,
-            max_clients: options.max_clients,
-        },
+        args,
         runtime_dir: dir.clone(),
     };
     let arbiter = Arbiter {
@@ -157,15 +163,9 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
         .arbitrate(&mut starter)
         .map_err(|failure| fail(&failure, at(failure.runtime_dir_validated())))?;
     let pid = connected.ready.pid;
-    eprintln!(
-        "{}",
-        one_line(&format!(
-            "prism-mcp: shared daemon pid {pid} (started {}, generation {}) at {}",
-            connected.ready.start_time,
-            connected.ready.generation,
-            paths.socket().display()
-        ))
-    );
+    for line in ready_lines(&connected.ready, &starter.args, paths.socket()) {
+        eprintln!("{line}");
+    }
     if let Some(started) = connected.started {
         std::thread::spawn(move || started.reap());
     }
@@ -180,4 +180,55 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
              shim does not reconnect once MCP bytes have been forwarded"
         ))),
     }
+}
+
+/// The production spawn construction, also used when an existing daemon wins arbitration.
+pub(super) fn daemon_args(
+    identity: &DaemonIdentity,
+    options: &ShimOptions,
+    ambient: Option<&str>,
+) -> anyhow::Result<DaemonArgs> {
+    let cfg = &options.config;
+    let explicit = options.index_idle_secs.as_deref();
+    let idle_policy = crate::mcp::idle::IdlePolicy::resolve(explicit, ambient, cfg, false)?
+        .policy
+        .with_pressure_relief(options.index_idle_pressure_relief);
+    Ok(DaemonArgs {
+        repo_root: identity.repo_root().to_path_buf(),
+        cache_base: identity.cache_base().to_path_buf(),
+        refresh_policy: identity.refresh_policy(),
+        key: identity.key(),
+        warm_at_startup: cfg.startup == StartupMode::Background,
+        idle_ttl: options.idle_ttl,
+        max_clients: options.max_clients,
+        idle_policy,
+    })
+}
+
+pub(super) fn ready_lines(
+    ready: &crate::mcp::shared::preamble::Ready,
+    args: &DaemonArgs,
+    socket: &std::path::Path,
+) -> Vec<String> {
+    let requested_secs = args.idle_policy.timeout.unwrap_or_default().as_secs();
+    let requested_relief = args.idle_policy.pressure_relief;
+    let mut lines = vec![one_line(&format!(
+        "prism-mcp: shared daemon pid {} (started {}, generation {}) at {}; index {}; index_idle_timeout_secs={}; index_idle_pressure_relief={}",
+        ready.pid, ready.start_time, ready.generation, socket.display(), ready.build.word(),
+        ready.index_idle_timeout_secs, ready.index_idle_pressure_relief
+    ))];
+    if requested_secs != ready.index_idle_timeout_secs
+        || requested_relief != ready.index_idle_pressure_relief
+    {
+        let relief = if requested_relief != ready.index_idle_pressure_relief {
+            format!("; effective index_idle_pressure_relief={}; requested index_idle_pressure_relief={requested_relief}", ready.index_idle_pressure_relief)
+        } else {
+            String::new()
+        };
+        lines.push(one_line(&format!(
+            "prism-mcp: shared daemon pid {} idle policy mismatch: effective index_idle_timeout_secs={}; requested index_idle_timeout_secs={requested_secs}{relief}; keeping first-spawner policy",
+            ready.pid, ready.index_idle_timeout_secs
+        )));
+    }
+    lines
 }
