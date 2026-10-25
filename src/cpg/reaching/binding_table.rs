@@ -86,6 +86,10 @@ pub(crate) enum Predicate {
     HasField {
         field: &'static str,
     },
+    JavaScriptDestructuringDeclarator {
+        lexical: bool,
+    },
+    JavaScriptBindingPattern,
     IsImmediatelyInvoked,
 }
 
@@ -362,6 +366,31 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
             found
         }
         Predicate::HasField { field } => node.child_by_field_name(field).is_some(),
+        Predicate::JavaScriptDestructuringDeclarator { lexical } => {
+            node.child_by_field_name("name")
+                .is_some_and(|name| matches!(name.kind(), "object_pattern" | "array_pattern"))
+                && node
+                    .parent()
+                    .is_some_and(|parent| (parent.kind() == "lexical_declaration") == *lexical)
+        }
+        Predicate::JavaScriptBindingPattern => {
+            let mut current = node.parent();
+            while let Some(ancestor) = current {
+                match ancestor.kind() {
+                    "variable_declarator" | "formal_parameters" => {
+                        return true;
+                    }
+                    "for_in_statement" => {
+                        return ancestor.child_by_field_name("kind").is_some_and(|kind| {
+                            matches!(parsed.node_text(&kind), "let" | "const")
+                        });
+                    }
+                    "assignment_expression" => return false,
+                    _ => current = ancestor.parent(),
+                }
+            }
+            false
+        }
         Predicate::IsImmediatelyInvoked => {
             // Task 19 adds call-site-aware matching for immediately invoked constructs.
             false

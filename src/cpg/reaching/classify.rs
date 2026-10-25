@@ -391,6 +391,14 @@ fn uncertain_construct_on_route(
                             | "as_pattern"
                             | "keyword_pattern"
                     )
+                    | (
+                        crate::languages::Language::JavaScript,
+                        "object_pattern"
+                            | "array_pattern"
+                            | "assignment_pattern"
+                            | "rest_pattern"
+                            | "shorthand_property_identifier_pattern"
+                    )
             ) || (parsed.language
                 == crate::languages::Language::Python
                 && matches!(binder.kind(), "tuple_pattern" | "list_pattern")

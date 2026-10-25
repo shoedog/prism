@@ -4,6 +4,9 @@ use super::super::super::binding_table::{
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod task16;
+pub(super) use task16::CASES as TASK16_CASES;
+
 pub(super) const SOURCE: &str = r#"import defaultName, * as ns from "pkg" with { type: "json" };
 import {item as alias} from "pkg";
 var outer = source();
@@ -443,13 +446,13 @@ fn javascript_rows_reproduce_the_old_match_arms() {
     assert!(catch.roles.has(Role::Scope));
     assert_eq!(catch.fields, &["parameter"]);
     assert_eq!(catch.visibility, Visibility::WholeScope);
-    assert!(javascript_rows[curated_len + 1..]
+    assert!(!javascript_rows[curated_len + 1..]
         .iter()
-        .all(|row| matches!(
+        .any(|row| matches!(
             row.ruling,
             Ruling::Uncertain {
                 reason: "not yet curated",
-                ..
+                revisit: "E2a"
             }
         )));
 

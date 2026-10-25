@@ -402,6 +402,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                 .iter()
                 .chain(super::python::PATTERN_CASES)
                 .chain(super::javascript::CASES)
+                .chain(super::javascript::TASK16_CASES)
                 .chain(super::typescript::CASES)
                 .chain(super::tsx::CASES)
                 .chain(super::go::CASES)

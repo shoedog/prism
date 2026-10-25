@@ -1,14 +1,6 @@
 macro_rules! placeholder_owners {
     ($language:ident, $predicate:ident) => {
         &[
-            (($language::JavaScript, "arrow_function", None::<$predicate>, "e0a-js-arrow_function"), "Task 16"),
-            (($language::JavaScript, "class_body", None::<$predicate>, "e0a-js-class_body"), "Task 16"),
-            (($language::JavaScript, "for_statement", None::<$predicate>, "e0a-js-for_statement"), "Task 16"),
-            (($language::JavaScript, "formal_parameters", None::<$predicate>, "e0a-x-js-formal_parameters"), "Task 16"),
-            (($language::JavaScript, "function_declaration", None::<$predicate>, "e0a-js-function_declaration"), "Task 16"),
-            (($language::JavaScript, "function_expression", None::<$predicate>, "e0a-js-function_expression"), "Task 16"),
-            (($language::JavaScript, "statement_block", None::<$predicate>, "e0a-js-statement_block"), "Task 16"),
-            (($language::JavaScript, "variable_declaration", None::<$predicate>, "e0a-js-variable_declaration"), "Task 16"),
             (($language::TypeScript, "arrow_function", None::<$predicate>, "e0a-js-arrow_function"), "Task 17"),
             (($language::TypeScript, "class_body", None::<$predicate>, "e0a-js-class_body"), "Task 17"),
             (($language::TypeScript, "for_statement", None::<$predicate>, "e0a-js-for_statement"), "Task 17"),

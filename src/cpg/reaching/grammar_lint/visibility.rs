@@ -99,6 +99,11 @@ pub(in crate::cpg::reaching) fn visibility_span(
     if parsed.language == Language::Rust {
         return rust_visibility_span(binder_node);
     }
+    if parsed.language == Language::JavaScript {
+        if let Some(span) = javascript_pattern_visibility_span(binder_node) {
+            return span;
+        }
+    }
     let scoped = match parsed.language {
         Language::Python => ancestor_field(binder_node, "if_statement", "consequence"),
         Language::Go | Language::JavaScript | Language::TypeScript | Language::Tsx => {
@@ -117,6 +122,44 @@ pub(in crate::cpg::reaching) fn visibility_span(
             end: scoped.end_byte(),
         }])
     }
+}
+
+fn javascript_pattern_visibility_span(binder_node: Node<'_>) -> Option<SpanKind> {
+    let mut current = binder_node;
+    while let Some(parent) = current.parent() {
+        let scope = match parent.kind() {
+            "lexical_declaration" => nearest_ancestor_kind(parent, "statement_block"),
+            "variable_declaration" => {
+                let scope = nearest_field(parent, "body")?;
+                return Some(SpanKind::Known(vec![ByteSpan {
+                    start: binder_node.end_byte(),
+                    end: scope.end_byte(),
+                }]));
+            }
+            "formal_parameters" => nearest_field(parent, "body"),
+            "catch_clause" | "for_in_statement" => parent.child_by_field_name("body"),
+            "assignment_expression" => return None,
+            _ => {
+                current = parent;
+                continue;
+            }
+        }?;
+        return Some(SpanKind::Known(vec![ByteSpan {
+            start: binder_node.start_byte(),
+            end: scope.end_byte(),
+        }]));
+    }
+    None
+}
+
+fn nearest_ancestor_kind<'a>(mut node: Node<'a>, kind: &str) -> Option<Node<'a>> {
+    while let Some(parent) = node.parent() {
+        if parent.kind() == kind {
+            return Some(parent);
+        }
+        node = parent;
+    }
+    None
 }
 
 fn ancestor_field<'a>(mut node: Node<'a>, kind: &str, field: &str) -> Option<Node<'a>> {

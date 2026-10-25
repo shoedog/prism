@@ -472,8 +472,9 @@ fn declaration_seed(
                 }
             }
         }
+        let selected = selected_row.and_then(|row| row.declaration);
         let rule = binding_scope_rule(parsed.language, node.kind());
-        if let Some(kind) = rule.declaration {
+        if let Some(kind) = selected.or(rule.declaration) {
             if rust_scope::pattern_excludes_def(parsed, node, &def.path.base) {
                 if node.id() == func_node.id() {
                     return None;

@@ -468,7 +468,7 @@ fn go_range_short_var_binding_kills_at_header() {
 }
 
 #[test]
-fn javascript_and_typescript_destructuring_uncertainty_use_flat_path_fallback() {
+fn javascript_destructuring_uncertainty_is_scoped_while_typescript_uses_flat_fallback() {
     for language in [Language::JavaScript, Language::TypeScript] {
         let parsed = parsed(
             "function f(obj) {\n  const value = source();\n  {\n    const { value } = obj;\n    consume(value);\n  }\n  sink(value);\n}\n",
@@ -483,7 +483,11 @@ fn javascript_and_typescript_destructuring_uncertainty_use_flat_path_fallback() 
             .clone();
         let outer_use = edge(&parsed, &func, &outer, 7);
         let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
-        let expected = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 });
+        let expected = if language == Language::JavaScript {
+            FlowConfidence::Exact
+        } else {
+            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
+        };
         let RdOutcome::Available(result) = outcome else {
             panic!("{language:?}: expected Available with {expected:?}, got {outcome:?}");
         };

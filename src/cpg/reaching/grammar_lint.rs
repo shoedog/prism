@@ -76,6 +76,20 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
     if parsed.language == Language::Rust && is_rust_pattern_kind(node.kind()) {
         return rust_pattern_introduces_name(parsed, node, name);
     }
+    if parsed.language == Language::JavaScript
+        && matches!(
+            node.kind(),
+            "object_pattern"
+                | "array_pattern"
+                | "assignment_pattern"
+                | "rest_pattern"
+                | "shorthand_property_identifier_pattern"
+        )
+    {
+        return super::transfer::introduced_identifiers(parsed, node)
+            .into_iter()
+            .any(|identifier| parsed.node_text(&identifier) == name);
+    }
     let special_target = match (parsed.language, node.kind()) {
         (Language::Bash, "for_statement") => node.child_by_field_name("variable"),
         (Language::Python, "global_statement" | "nonlocal_statement") => Some(node),
@@ -364,6 +378,14 @@ pub(super) fn introduction_is_classified(
         // handling. Do not also feed them to the older function-wide fallback.
         return true;
     }
+    if parsed.language == Language::JavaScript
+        && javascript_uncertain_owner_introduces_target(parsed, node, target, root.function)
+    {
+        // Task 16 rows carry scope-bounded Rule 1 handling. Recording the same
+        // composite target in the legacy fallback would extend doubt to the
+        // end of the function after the lexical declaration's scope has ended.
+        return true;
+    }
 
     if target.kind() == "identifier"
         && select_binding_row(parsed, node).is_some_and(|row| row.visibility == Visibility::Header)
@@ -384,6 +406,47 @@ pub(super) fn introduction_is_classified(
             return !composite_pattern;
         }
         if candidate.id() == root.function.id() {
+            break;
+        }
+        current = candidate.parent();
+    }
+    false
+}
+
+fn javascript_uncertain_owner_introduces_target(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    target: Node<'_>,
+    root_function: Node<'_>,
+) -> bool {
+    let names = super::transfer::introduced_identifiers(parsed, target);
+    let mut current = Some(node);
+    while let Some(candidate) = current {
+        if let Some(row) = select_binding_row(parsed, candidate)
+            .filter(|row| matches!(row.ruling, Ruling::Uncertain { .. }))
+        {
+            let owned = if row.fields.is_empty()
+                && matches!(
+                    candidate.kind(),
+                    "object_pattern"
+                        | "array_pattern"
+                        | "assignment_pattern"
+                        | "rest_pattern"
+                        | "shorthand_property_identifier_pattern"
+                ) {
+                super::transfer::introduced_identifiers(parsed, candidate)
+            } else {
+                super::transfer::row_introduced_identifiers(parsed, candidate, row.fields)
+            };
+            if names.iter().any(|name| {
+                owned
+                    .iter()
+                    .any(|identifier| parsed.node_text(identifier) == parsed.node_text(name))
+            }) {
+                return true;
+            }
+        }
+        if candidate.id() == root_function.id() {
             break;
         }
         current = candidate.parent();
