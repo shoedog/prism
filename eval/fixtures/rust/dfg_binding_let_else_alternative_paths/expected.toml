@@ -1,0 +1,65 @@
+[case]
+language = "rust"
+capability = "dfg_binding_let_else_alternative_paths"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.rs:6:s"
+to = "main.rs:11:s"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:8:s.f"
+to = "main.rs:11:s.f"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:14:r"
+to = "main.rs:20:r"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:15:r"
+to = "main.rs:20:r"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:17:r"
+to = "main.rs:20:r"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:23:r"
+to = "main.rs:29:r"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:24:r"
+to = "main.rs:29:r"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:26:r"
+to = "main.rs:29:r"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:33:a"
+to = "main.rs:38:a"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:46:x"
+to = "main.rs:44:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"

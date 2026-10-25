@@ -1,6 +1,6 @@
 //! Rust-specific lexical scope derivation.
 
-use super::{scope_span, ScopeSpan};
+use super::{scope_span, DefSite, ScopeSpan};
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use crate::languages::Language;
@@ -17,7 +17,11 @@ pub(super) fn closure_parameter_scope(parsed: &ParsedFile, node: Node<'_>) -> Op
         .map(scope_span)
 }
 
-pub(in crate::cpg::reaching) fn let_else_cfg_gap(parsed: &ParsedFile, edge: &FlowEdge) -> bool {
+pub(in crate::cpg::reaching) fn let_else_cfg_gap(
+    parsed: &ParsedFile,
+    edge: &FlowEdge,
+    defs: &[DefSite],
+) -> bool {
     if parsed.language != Language::Rust {
         return false;
     }
@@ -44,9 +48,10 @@ pub(in crate::cpg::reaching) fn let_else_cfg_gap(parsed: &ParsedFile, edge: &Flo
                 let use_inside = contains(alternative, use_byte);
                 let def_inside = contains(alternative, edge.from.start_byte);
                 let crosses = !use_inside
-                    && use_byte >= node.end_byte()
-                    && (def_inside || edge.from.start_byte < node.start_byte());
-                if crosses && alternative_assigns_name(parsed, alternative, name, &boundaries) {
+                    && (def_inside
+                        || (edge.from.start_byte < node.start_byte()
+                            && use_byte >= node.end_byte()));
+                if crosses && alternative_assigns_name(alternative, name, defs) {
                     return true;
                 }
             }
@@ -57,43 +62,9 @@ pub(in crate::cpg::reaching) fn let_else_cfg_gap(parsed: &ParsedFile, edge: &Flo
     false
 }
 
-fn alternative_assigns_name(
-    parsed: &ParsedFile,
-    alternative: Node<'_>,
-    name: &str,
-    boundaries: &[&str],
-) -> bool {
-    let mut stack = vec![alternative];
-    while let Some(node) = stack.pop() {
-        if node.id() != alternative.id() && boundaries.contains(&node.kind()) {
-            continue;
-        }
-        if parsed.language.is_assignment_node(node.kind())
-            && parsed
-                .language
-                .assignment_target(&node)
-                .is_some_and(|target| target_assigns_name(parsed, target, name))
-        {
-            return true;
-        }
-        let mut cursor = node.walk();
-        stack.extend(node.named_children(&mut cursor));
-    }
-    false
-}
-
-fn target_assigns_name(parsed: &ParsedFile, target: Node<'_>, name: &str) -> bool {
-    match target.kind() {
-        "identifier" => parsed.node_text(&target) == name,
-        "tuple_expression" | "parenthesized_expression" => {
-            let mut cursor = target.walk();
-            let assigns = target
-                .named_children(&mut cursor)
-                .any(|child| target_assigns_name(parsed, child, name));
-            assigns
-        }
-        _ => false,
-    }
+fn alternative_assigns_name(alternative: Node<'_>, name: &str, defs: &[DefSite]) -> bool {
+    defs.iter()
+        .any(|def| def.path.base == name && contains(alternative, def.start_byte))
 }
 
 fn contains(node: Node<'_>, byte: usize) -> bool {

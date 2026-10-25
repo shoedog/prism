@@ -38,7 +38,7 @@ pub(super) fn classify_edge(
     if capture::is_capture(edge, capture_facts) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
-    if scope::rust_scope::let_else_cfg_gap(parsed, edge) {
+    if scope::rust_scope::let_else_cfg_gap(parsed, edge, defs) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
     if let Some(construct_line) = unplaced_go_parameter(parsed, edge) {

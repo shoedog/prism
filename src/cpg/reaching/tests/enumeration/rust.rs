@@ -206,6 +206,83 @@ pub(super) const CASES: &[super::case::Case] = &[
         expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 2)),
     },
     super::case::Case {
+        id: "rs-let-else-cfg-gap-e07-field",
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f(o: Option<i32>) {\n    let mut s = S { f: source() };\n    let Some(v) = o else {\n        s.f = clean();\n        return;\n    };\n    sink(s.f);\n}\n",
+        expect: &[("2:s", "7:s", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)), ("4:s.f", "7:s.f", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete))],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 2)),
+    },
+    super::case::Case {
+        id: "rs-let-else-cfg-gap-e08-deref",
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f(o: Option<i32>, r: &mut i32) {\n    *r = source();\n    let Some(v) = o else {\n        *r = clean();\n        return;\n    };\n    sink(*r);\n}\n",
+        expect: &[("2:r", "7:r", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)), ("4:r", "7:r", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete))],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 2)),
+    },
+    super::case::Case {
+        id: "rs-let-else-cfg-gap-f04-index",
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f(o: Option<i32>) {\n    let mut a = source_vec();\n    let Some(v) = o else {\n        a[0] = clean();\n        return;\n    };\n    sink(a);\n}\n",
+        expect: &[("2:a", "7:a", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete))],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
+    },
+    super::case::Case {
+        id: "rs-let-else-cfg-gap-compound-deref",
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f(o: Option<i32>, r: &mut i32) {\n    *r = source();\n    let Some(v) = o else {\n        *r += 1;\n        return;\n    };\n    sink(*r);\n}\n",
+        expect: &[("2:r", "7:r", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)), ("4:r", "7:r", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete))],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 2)),
+    },
+    super::case::Case {
+        id: "rs-let-else-cfg-gap-e19-use-before",
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f(v: Vec<Option<i32>>) {\n    let mut x = source();\n    for o in v {\n        sink(x);\n        let Some(w) = o else {\n            x = clean();\n            continue;\n        };\n    }\n}\n",
+        expect: &[("6:x", "4:x", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete))],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
+    },
+    super::case::Case {
+        id: "rs-let-pattern-wrapper-g07",
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f(w: W, z: W) {\n    let W(a) = w;\n    let W(b) = z;\n    sink(a);\n    sink(b);\n}\n",
+        expect: &[("1:z", "3:z", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "rs-let-pattern-wrapper-g04",
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f(o: Option<i32>, p: Option<i32>) {\n    let Some(v) = o;\n    let Some(w) = p;\n    sink(w);\n}\n",
+        expect: &[("1:p", "3:p", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
         id: "rs-let-else-no-assignment-control",
         language: Language::Rust,
         kind: "let_declaration",
@@ -258,6 +335,30 @@ fn task14_rust_binding_cases() {
         super::case::check_case(case);
     }
 }
+
+macro_rules! task14_fix2_case {
+    ($test:ident, $id:literal) => {
+        #[test]
+        fn $test() {
+            let case = CASES.iter().find(|case| case.id == $id).unwrap();
+            super::case::check_case(case);
+        }
+    };
+}
+
+task14_fix2_case!(fix2_e07_field_target, "rs-let-else-cfg-gap-e07-field");
+task14_fix2_case!(fix2_e08_deref_target, "rs-let-else-cfg-gap-e08-deref");
+task14_fix2_case!(fix2_f04_index_target, "rs-let-else-cfg-gap-f04-index");
+task14_fix2_case!(
+    fix2_compound_deref_target,
+    "rs-let-else-cfg-gap-compound-deref"
+);
+task14_fix2_case!(
+    fix2_e19_use_before_let,
+    "rs-let-else-cfg-gap-e19-use-before"
+);
+task14_fix2_case!(fix2_g07_wrapper_pattern, "rs-let-pattern-wrapper-g07");
+task14_fix2_case!(fix2_g04_some_pattern, "rs-let-pattern-wrapper-g04");
 
 #[test]
 fn rust_declaration_rows_introduce_only_their_owned_fields() {

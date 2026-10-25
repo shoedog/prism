@@ -66,6 +66,12 @@ pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
     if case.id == "e0a-x-rs-parameters" {
         defs.push(super::super::super::def(parsed, u32::MAX, "x", 1, 0, false));
     }
+    if case.id == "rs-let-pattern-wrapper-g07" {
+        defs.push(super::super::super::def(parsed, u32::MAX, "z", 1, 0, false));
+    }
+    if case.id == "rs-let-pattern-wrapper-g04" {
+        defs.push(super::super::super::def(parsed, u32::MAX, "p", 1, 0, false));
+    }
     let mut edges = Vec::new();
     for (from, to, _) in case.expect {
         let (def_line, def_name) = from
@@ -159,6 +165,22 @@ pub(super) fn assert_ruling(
                         | FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
                 )),
                 "{}: future:rust-let-else-cfg cases need CfgIncomplete across the CFG gap and may preserve Exact uses inside the alternative",
+                case.id
+            );
+        }
+        Some(Ruling::Classified)
+            if is_binding
+                && case.language == Language::Rust
+                && matches!(
+                    case.id,
+                    "rs-let-pattern-wrapper-g07" | "rs-let-pattern-wrapper-g04"
+                ) =>
+        {
+            assert!(
+                case.expect
+                    .iter()
+                    .all(|(_, _, label)| matches!(label, FlowConfidence::Exact)),
+                "{}: wrapper-pattern fixtures pin the R1-era Exact improvement without curating pattern rows",
                 case.id
             );
         }
