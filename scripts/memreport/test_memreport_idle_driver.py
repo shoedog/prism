@@ -12,7 +12,7 @@ from memreport_idle import parse_line
 
 def manifest():
     return dict(binary='/binary', repo='/repo', cache_dir='/cache', mode='stdio', arm='A',
-                requested_idle_secs=600, requested_relief=False, first_call_wait_secs=20,
+                requested_idle_secs=600, requested_relief=False, first_call_wait_secs=20, platform='darwin',
                 first_request={'name':'nav_callees','arguments':{'seed':{'kind':'symbol','name':'f'}}},
                 commit='pin', features=['mcp'], corpus='py', corpus_pin='pin', workload_hash='hash',
                 cache_class='warm', pair_id='1', cycles=2)

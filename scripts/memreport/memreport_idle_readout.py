@@ -3,16 +3,19 @@ from collections import Counter, defaultdict
 from statistics import median
 from memreport_idle_pairing import validate as validate_pairing
 from memreport_idle_results import arm_results, relief_results, service_results
+from memreport_idle_rows import relief_settings
 
 MIB = 1024 * 1024
 PROVENANCE = ('binary_sha256', 'commit', 'features', 'corpus', 'corpus_pin', 'workload_hash',
               'cache_class', 'mode', 'arm', 'pair_id')
 REQUIRED = PROVENANCE + ('requested_idle_secs', 'effective_idle_secs', 'requested_relief',
                          'effective_relief', 'instance', 'os_start', 'client_count',
-                         'first_call_wait_secs', 'cycle', 'attempt', 'generation')
+                         'first_call_wait_secs', 'cycle', 'attempt', 'generation',
+                         'platform', 'applicable_requested_relief')
 
 
 def admit(row):
+    row = dict(row,**relief_settings(row))
     result = dict(row)
     reasons = list(row.get('reasons', []))
     if row.get('binary_sha256') is None:
@@ -20,7 +23,7 @@ def admit(row):
     if any(row.get(k) is None for k in REQUIRED):
         reasons.append('missing_row_field')
     if (row.get('requested_idle_secs') != row.get('effective_idle_secs') or
-            row.get('requested_relief') != row.get('effective_relief')):
+            row.get('applicable_requested_relief') != row.get('effective_relief')):
         reasons.append('settings_mismatch')
     if row.get('outcome') in ('failed', 'abandoned', 'warming', 'unpublished'):
         reasons.append('outcome_' + row['outcome'])
@@ -31,6 +34,10 @@ def admit(row):
         result['status'] = 'UNKNOWN'
     else:
         result['status'] = 'ADMITTED'
+    if row.get('outcome') in ('failed','abandoned','warming','unpublished'):
+        result['score_memory'] = False
+    result['cap_eligible'] = result['status']=='ADMITTED' and row.get('boundary')=='idle30'
+    result['m_eligible'] = result['cap_eligible'] and result.get('score_memory',True)
     return result
 
 
@@ -122,15 +129,15 @@ def readout(rows, corpora=('py', 'e', 'p', 'ruff'), binary_sha256=None):
     outcomes = Counter(x.get('outcome', 'unpublished') for x in rows)
     resident, groups, duplicate = {}, defaultdict(list), set()
     for x in rows:
-        if x.get('score_memory', True) and x.get('arm') == 'resident' and x.get('boundary') == 'idle30':
+        if x['m_eligible'] and x.get('arm') == 'resident':
             key = (x['corpus'], x['mode'], x['pair_id'])
             if key in resident:
                 for item in (resident[key],x):
-                    duplicate.add((item['mode'],item.get('resident_pairing',{}).get('arm')))
+                    duplicate.add((item['mode'],(item.get('resident_pairing') or {}).get('arm')))
             resident[key] = x
     seen = set()
     for x in rows:
-        if not x.get('score_memory',True) or x.get('arm') not in ('A', 'A+C') or x.get('boundary') != 'idle30':
+        if not x['m_eligible'] or x.get('arm') not in ('A', 'A+C'):
             continue
         key = (x['corpus'], x['mode'], x['pair_id'])
         full = key + (x['arm'],)

@@ -7,7 +7,7 @@ M = 1024 * 1024
 def row(arm='A', corpus='py', mode='stdio', rep=1, footprint=100*M):
     return dict(binary_sha256='abc', commit='ae49d937', features=['mcp'], corpus=corpus,
                 corpus_pin='pin', workload_hash='work', cache_class='warm', mode=mode, arm=arm,
-                requested_idle_secs=600, effective_idle_secs=600, requested_relief=False,
+                requested_idle_secs=600, effective_idle_secs=600, requested_relief=False, platform='darwin',
                 effective_relief=False, first_call_wait_secs=20, instance=[str(1000+rep)+'-'+arm,'100','key'],
                 os_start=99, client_count=1, cycle=rep, attempt=1, generation=2,
                 status='ADMITTED', reasons=[], outcome='served', boundary='idle30',

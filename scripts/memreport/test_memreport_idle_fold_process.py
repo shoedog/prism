@@ -1,4 +1,5 @@
 """Inventory and pre-discovery custody tests with sequenced kernel responses."""
+import signal
 import tempfile
 import unittest
 from pathlib import Path
@@ -49,8 +50,7 @@ class FoldProcess(unittest.TestCase):
                 p.close()
             self.assertIn(2,p.members)
             self.assertFalse(p.cleanup_confirmed)
-            if kill.called:
-                self.assertEqual(kill.call_args[0][0],2)
+            kill.assert_called_once_with(2,signal.SIGTERM)
             p.sampler.read.return_value = dict(reason='rusage_ESRCH',os_start=None)
             p.sampler.read.side_effect = None
             with patch('memreport_idle_process.os.kill') as kill:

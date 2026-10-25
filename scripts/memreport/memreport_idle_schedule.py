@@ -11,6 +11,7 @@ class Engine:
         self.samples, self.pending, self.observations, self.events = [], [], [], []
         self.reasons = []
         self.completed_queries = {}
+        self.unserved_queries = set()
 
     def clock(self):
         value = self.clocks.valid_read()
@@ -76,6 +77,11 @@ class Engine:
         if now is None:
             return
         for task in list(self.pending):
+            if task['boundary']=='loaded' and task['attempt'] in self.unserved_queries:
+                self.samples.append(dict(task,start_epoch_ns=None,end_epoch_ns=None,
+                    footprint_bytes=None,rss_bytes=None,members=[],reasons=['unserved_query']))
+                self.pending.remove(task)
+                continue
             if task['boundary'] == 'loaded' and task['attempt'] not in self.completed_queries:
                 continue
             if task['due_mono_ns'] is None or now['mono_ns'] >= task['due_mono_ns']:

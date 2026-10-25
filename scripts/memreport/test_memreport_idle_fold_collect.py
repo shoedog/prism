@@ -65,9 +65,17 @@ class FoldCollect(unittest.TestCase):
                         except Exception as escaped:
                             self.fail('exception lost run.json: '+repr(escaped))
                     saved = json.loads((Path(tmp)/'out'/'run.json').read_text())
-                    self.assertEqual(len(saved['rows']),1)
-                    self.assertEqual(saved['rows'][0]['outcome'],'abandoned')
+                    self.assertEqual(len(saved['rows']),2 if target=='rows_for_run' else 1)
+                    self.assertTrue(all(x['outcome']=='abandoned' for x in saved['rows']))
                     self.assertIn(type(error).__name__,result['rows'][0]['failure_text'])
+                    rebuilt = d.rows_for_run(saved['manifest'],saved['events'],saved['journal'],saved['samples'],saved['reasons'])
+                    self.assertTrue(all(isinstance(x['samples'],dict) for x in rebuilt))
+                    from memreport import main
+                    output = Path(tmp)/'readout.json'
+                    main(['idle','readout','--run',str(Path(tmp)/'out'/'run.json'),'--out',str(output)])
+                    rescored = json.loads(output.read_text())
+                    self.assertEqual(len(rescored['rows']),len(saved['rows']))
+                    self.assertTrue(all(type(error).__name__ in x['failure_text'] for x in rescored['rows']))
 
     def test_invalid_pairing_and_manifest_are_durable(self):
         for kind in ('missing','empty','ambiguous','null','negative','first_request'):

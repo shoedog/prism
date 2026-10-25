@@ -1,6 +1,7 @@
 """Bounded idle CLI, deliberately independent of the eager memory-report driver."""
 import hashlib
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -10,6 +11,8 @@ from memreport_idle_readout import admit, readout, rows_for_run
 from memreport_idle_sampling import Sampler, resident_deadline
 from memreport_idle_schedule import Engine
 from memreport_idle_pairing import prepare
+from memreport_idle_recovery import recover
+from memreport_idle_rows import relief_settings
 
 PREREQUISITES = ('soak_complete','c0_pins','quiet_serial','swap_non_increasing',
                  'reserved_window','all_prerequisites_landed')
@@ -79,18 +82,15 @@ def collect(meta, out):
     out = external_output(out)
     if (out/'run.json').exists():
         raise ValueError('run directory already used')
+    state = dict(events=[],journal=[],samples=[],reasons=[])
     try:
         meta = dict(meta)
-        return collect_run(meta,out)
+        meta['platform'] = sys.platform
+        meta.update(relief_settings(meta))
+        return collect_run(meta,out,state)
     except (Exception, KeyboardInterrupt) as error:
         meta = meta if isinstance(meta,dict) else {}
-        # Even validation/finalization failures retain a denominator and typed reason.
-        journal = [dict(kind='abandoned',epoch_ns=time.time_ns(),reason=error_text(error))]
-        rows = [dict(meta,outcome='abandoned',status='EXCLUDED',boundary='idle30',
-                     footprint_bytes=None,rss_bytes=None,failure_text=error_text(error),
-                     reasons=['collection_failed'],events=[],journal=journal,samples={})]
-        result = dict(manifest=meta,events=[],journal=journal,samples=[],rows=rows,
-                      reasons=['collection_failed'],wall_secs=0)
+        result = recover(meta,state,error,time.time_ns())
         write(out/'run.json',result)
         return result
 
@@ -99,8 +99,9 @@ def error_text(error):
     return type(error).__name__+': '+str(error)
 
 
-def collect_run(meta, out):
+def collect_run(meta, out, state):
     reasons = validate_manifest(meta)
+    state['reasons'] = reasons
     try:
         bound, pin_reasons = bind_binary(meta)
         meta.update(bound)
@@ -112,7 +113,8 @@ def collect_run(meta, out):
     meta.setdefault('cycles',1 if meta['arm'] in ('resident','reference') else 2)
     budget = prepare(meta)
     write(out/'manifest.json',meta)
-    sampler, journal, samples, collector, engine, process = Sampler(), [], [], None, None, None
+    sampler, journal, samples = Sampler(), state['journal'], state['samples']
+    collector, engine, process = None, None, None
     active = {'demand_id':None, 'attempts':set()}
     started = time.monotonic()
     expires = started + budget
@@ -131,6 +133,8 @@ def collect_run(meta, out):
             engine.observe(new)
             if active.get('served_arrival') is not None:
                 engine.served(active['attempts'],active['served_arrival'])
+            if active.get('unserved'):
+                engine.unserved_queries.update(active['attempts'])
             engine.tick()
         return process.responses()
     def wait_for(predicate):
@@ -157,7 +161,9 @@ def collect_run(meta, out):
                 raise TimeoutError('daemon discovery')
             time.sleep(.025); streams=process.discover()
         collector = Collector(streams)
+        state['events'] = collector.events
         engine = Engine(sampler,process.members,process.inventory)
+        state['samples'] = engine.samples
         engine.pre_index()
         collector.poll(); engine.observe(collector.events); engine.tick()
         if process.status:
@@ -175,7 +181,7 @@ def collect_run(meta, out):
             if cycle==1 and meta.get('startup')=='background':
                 demand.update(epoch_ns=launch_epoch_ns,prewarm=True)
             journal.append(demand)
-            active.update(demand_id=demand_id,attempts=set(),served_arrival=None)
+            active.update(demand_id=demand_id,attempts=set(),served_arrival=None,unserved=False)
             current_attempts = active['attempts']
             if cycle==1 and meta.get('startup')=='background':
                 for e in collector.events:
@@ -200,6 +206,8 @@ def collect_run(meta, out):
                     break
                 pause_end = time.monotonic()+meta.get('poll_interval_secs',.1)
                 wait_for(lambda:time.monotonic() >= pause_end)
+            if outcome != 'served':
+                active['unserved'] = True
             if outcome == 'failed':
                 journal.append(dict(kind='failed',demand_id=demand_id,epoch_ns=arrival,reason=str(response)))
                 break

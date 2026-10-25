@@ -372,6 +372,54 @@
       "row['build_time_ns'] = span(publication['epoch_ns'], min(starts)) if starts else None",
       "row['build_time_ns'] = span(publication['epoch_ns'], demand['epoch_ns']) if starts else None",
       "test_memreport_idle_fold_timing.FoldTiming.test_readiness_build_poll_retry_and_abandonment"
+    ],
+    "I0c-r2-1-cap-scored-only": [
+      "scripts/memreport/memreport_idle_results.py",
+      "                        (mode,arm,'idle30')]",
+      "                        (mode,arm,'idle30') and x.get('score_memory',True)]",
+      "test_memreport_idle_r2_rules.RoundTwoRules.test_cap_all_cycles"
+    ],
+    "I0c-r2-2-forget-demands": [
+      "scripts/memreport/memreport_idle_recovery.py",
+      "    demands = [x for x in journal if x['kind']=='demand']",
+      "    demands = []\n    journal, events, samples = [], [], []",
+      "test_memreport_idle_r2_collect.RoundTwoCollect.test_two_demand_recovery_and_cli"
+    ],
+    "I0c-r2-3-raw-relief-mismatch": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "            row.get('applicable_requested_relief') != row.get('effective_relief')):",
+      "            row.get('requested_relief') != row.get('effective_relief')):",
+      "test_memreport_idle_r2_rules.RoundTwoRules.test_relief_applicability"
+    ],
+    "I0c-r2-4-failed-pair-eligible": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    result['m_eligible'] = result['cap_eligible'] and result.get('score_memory',True)",
+      "    result['m_eligible'] = row.get('boundary')=='idle30' and row.get('score_memory',True)",
+      "test_memreport_idle_r2_rules.RoundTwoRules.test_failed_retry_keeps_unique_admitted_pair"
+    ],
+    "I0c-r2-5-unserved-loaded-stalls": [
+      "scripts/memreport/memreport_idle_driver.py",
+      "                active['unserved'] = True",
+      "                active['unserved'] = False  # mutant: lose exhausted demand state",
+      "test_memreport_idle_r2_collect.RoundTwoCollect.test_warming_exhaustion_collects_next_cycle"
+    ],
+    "I0c-r2-6-relief-exclusion-poisons": [
+      "scripts/memreport/memreport_idle_results.py",
+      "        status = 'FAIL' if counts['FAIL'] else 'PASS' if counts['PASS'] else 'UNKNOWN'",
+      "        status = 'FAIL' if counts['FAIL'] else 'UNKNOWN' if counts['EXCLUDED'] else 'PASS'",
+      "test_memreport_idle_r2_rules.RoundTwoRules.test_relief_remaining_comparisons"
+    ],
+    "I0c-r2-S3-no-SIGTERM": [
+      "scripts/memreport/memreport_idle_process.py",
+      "                    os.kill(pid,signal.SIGTERM)  # fresh private runtime + verified OS start",
+      "                    pass  # mutant: omit pre-discovery daemon shutdown",
+      "test_memreport_idle_fold_process.FoldProcess.test_pre_discovery_failure_has_custody"
+    ],
+    "I0c-r2-2-synthetic-samples-list": [
+      "scripts/memreport/memreport_idle_rows.py",
+      "                   journal=journal, samples={}, polling=[], prewarm=[],",
+      "                   journal=journal, samples=samples, polling=[], prewarm=[],",
+      "test_memreport_idle_fold_collect.FoldCollect.test_all_named_exceptions_write_run"
     ]
   }
 }

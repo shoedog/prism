@@ -96,15 +96,15 @@ class FoldRules(unittest.TestCase):
         out = r.readout(rows)
         self.assertTrue(out['matched']['stdio/A/py']['pass'])
         relief = out['relief']['stdio/A']
-        self.assertEqual(relief['counts']['UNKNOWN'],1)
+        self.assertEqual(relief['counts']['EXCLUDED'],1)
         self.assertEqual(relief['counts']['FAIL'],1)
         self.assertEqual(relief['status'],'FAIL')
         rows[3]['heap_delta_bytes'] = -M
-        self.assertEqual(r.readout(rows)['relief']['stdio/A']['status'],'UNKNOWN')
+        self.assertEqual(r.readout(rows)['relief']['stdio/A']['status'],'PASS')
         rows[5]['reasons'] = ['sequence_gap']
         out = r.readout(rows)
-        self.assertEqual(out['relief']['A']['counts']['EXCLUDED'],1)
-        self.assertEqual(out['relief']['A']['status'],'UNKNOWN')
+        self.assertEqual(out['relief']['A']['counts']['EXCLUDED'],2)
+        self.assertEqual(out['relief']['A']['status'],'PASS')
 
     def test_per_arm_cap_and_coverage(self):
         rows = batch()

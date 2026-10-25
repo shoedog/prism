@@ -359,8 +359,8 @@ arm/instance/cycle/attempt/G and response-to-disposal delta on the resident row 
 Resident deadlines use its last response arrival + (X disposal_end - X last response arrival) +5/+30 seconds.
 The default resident run budget is that delta +30 seconds +180 seconds of bounded launch/query overhead.
 An explicit `timeout_secs` below that budget produces a failed run record before any launch.
-Never pool resident samples across different X deadlines or interpolate. Score the preregistered cycle
-(default initial cycle 1); subsequent cycles remain raw reload observations, not independent repetitions.
+Never pool resident samples across different X deadlines or interpolate. M scores the preregistered cycle
+(default initial cycle 1); the cap checks every admitted idle30 cycle. Later cycles are not independent repetitions.
 Polls replay only the preregistered first request, up to `max_polls`, and never restart its demand clock.
 `prewarm: true` labels a preregistered demand; no bridge pre-warm implementation is provided here.
 
@@ -370,6 +370,11 @@ request/response arrival, poll, failure and abandonment. Rows include cycle/atte
 settings, PID/start/key/OS start/client count, cache/sidecar facts, stages, readiness/build/first-served times,
 sample due/start/end/lateness, member footprint/RSS, relief return/heap pair, and admission reasons.
 JSON `null` means UNKNOWN; an absent reading is never zero. Raw failed/abandoned rows remain in readout.
+Outer failures preserve collected facts and one conservative row per original demand, or one synthetic row
+before any demand. Failed retries remain in outcomes; duplicate-pair detection uses admitted M rows only.
+The collector records `platform` and `applicable_requested_relief` alongside raw `requested_relief`.
+Applicability requires raw relief, enabled idle and macOS; admission compares it with effective relief.
+Runs without platform provenance remain excluded.
 `readout` rebuilds rows from raw facts instead of trusting a saved scored status. It compares known binary
 hashes against each other and the preregistered pin; a failed launch's unknown hash remains a failed row.
 For a short **unscored** parser smoke only, set `smoke_only: true`, idle=2, `smoke_hold_secs: 0` and a short
@@ -382,6 +387,7 @@ Pre-index precedes both the first call and build; loaded is publication+query; i
 `disposal_end`, not log delivery. Sweeps start no earlier than due and finish within 250 ms, including all
 members. Loaded waits for its linked served query to complete and retains the publication deadline; completion
 after the 250 ms bound leaves loaded UNKNOWN. Late boundaries get no catch-up sampling. Reload/refresh/disposal-failure crossings exclude them.
+Exhausting warming polls makes loaded UNKNOWN without holding up later cycles.
 Reads/deadline joins bracket realtime/monotonic within 1 ms; bad observations are re-read. Consecutive valid
 observations enforce 10 ms +50 ppm offset continuity, while Mach continuous/absolute clocks detect >10 ms
 sleep steps. Missing boundary clocks or sleep exclude, never bridge; cumulative drift remains report-only.
@@ -412,7 +418,8 @@ RSS, pre-index deltas (+16 MiB reference), loaded/+5, idle fraction and optional
 `memory_gate` is keyed by arm, with M and cap per mode and an arm summary requiring both modes.
 A and A+C are independent activation alternatives. `relief` reports the +/-1 MiB heap comparison separately
 per arm and mode (including A's no-op); it never filters physical M pairs. Missing heap excludes only that
-relief comparison. `reload_latency` is separate. Activation always remains an owner
+relief comparison; remaining comparisons determine PASS/FAIL, or UNKNOWN if none remain.
+`reload_latency` is separate. Activation always remains an owner
 decision per arm after complete prerequisites, both modes, unit parity and admitted external evidence.
 
 Tests: `python3 -m unittest discover -s scripts/memreport -p 'test_*.py'` and the soak no-regression suite.

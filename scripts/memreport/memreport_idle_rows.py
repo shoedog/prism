@@ -7,7 +7,15 @@ FIELDS = ('binary_sha256 commit features corpus corpus_pin workload_hash cache_c
           'instance client_count first_call_wait_secs cycle attempt generation first_request '
           'cpg sidecar heap_delta_bytes relief_returned_bytes demand_readiness_ns build_time_ns '
           'first_served_ns failure_text last_response_epoch_ns disposal_end_epoch_ns footprint_bytes '
-          'rss_bytes pair_id edges_unused resident_pairing declared_binary_sha256').split()
+          'rss_bytes pair_id edges_unused resident_pairing declared_binary_sha256 '
+          'platform applicable_requested_relief').split()
+
+
+def relief_settings(meta):
+    platform, raw, idle = (meta.get(k) for k in ('platform','requested_relief','requested_idle_secs'))
+    applicable = (raw and idle > 0 and platform=='darwin') if (
+        platform is not None and type(raw) is bool and type(idle) is int) else None
+    return dict(platform=platform,applicable_requested_relief=applicable)
 
 
 def number(value):
@@ -20,6 +28,7 @@ def span(end, start):
 
 def rows_for_run(meta, events, journal, samples, exclusions):
     """One row per original demand; retries stay linked and do not reset its clock."""
+    meta = dict(meta,**relief_settings(meta))
     demands = [x for x in journal if x['kind'] == 'demand']
     rows = []
     for demand in demands:
@@ -115,13 +124,16 @@ def rows_for_run(meta, events, journal, samples, exclusions):
             row['footprint_bytes'],row['rss_bytes'] = idle.get('footprint_bytes'),idle.get('rss_bytes')
             if row['footprint_bytes'] is not None and not row['reasons']:
                 row['status'] = 'ADMITTED'
+        if row['outcome'] in ('failed','abandoned','warming','unpublished'):
+            row.update(score_memory=False,cap_eligible=False,m_eligible=False)
         rows.append(row)
     if not rows:
         row = {k:meta.get(k) for k in FIELDS}
         row.update(outcome='abandoned', status='EXCLUDED', boundary='idle30', events=events,
-                   journal=journal, samples=samples, polling=[], prewarm=[],
+                   journal=journal, samples={}, polling=[], prewarm=[],
                    failure_text='; '.join(j.get('reason','') for j in journal if j['kind'] in
                                           ('failed','abandoned')) or 'no recorded demand',
-                   reasons=list(exclusions)+['missing_demand'])
+                   reasons=list(exclusions)+['missing_demand'],score_memory=False,
+                   cap_eligible=False,m_eligible=False)
         rows.append(row)
     return rows

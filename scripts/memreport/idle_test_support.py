@@ -28,7 +28,7 @@ class Clock:
 
 
 @contextmanager
-def simulation(meta, fail=None, response_delay=.15):
+def simulation(meta, fail=None, response_delay=.15, build_delay=0):
     meta.setdefault('prerequisites',dict.fromkeys(d.PREREQUISITES,True))
     meta['prerequisites']['free_bytes'] = 50*1024**3
     clock, scheduled, instances = Clock(), [], []
@@ -58,7 +58,7 @@ def simulation(meta, fail=None, response_delay=.15):
                     if meta['arm'] == 'resident' and name in ('unload','disposal_end'):
                         continue
                     e = copy.deepcopy(templates[name])
-                    e.update(epoch_ns=clock.ns+round(offset*NS), attempt=self.cycle,
+                    e.update(epoch_ns=clock.ns+round((offset+build_delay)*NS), attempt=self.cycle,
                              generation=self.cycle, configured_idle_secs=meta['requested_idle_secs'])
                     scheduled.append(e)
                 self.queue.append((self.cycle+1,clock.ns+round(response_delay*NS)))

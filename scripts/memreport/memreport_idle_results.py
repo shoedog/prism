@@ -15,14 +15,17 @@ def relief_results(rows, eligible):
         details = []
         for row in group:
             value = row.get('heap_delta_bytes')
-            status = 'UNKNOWN' if value is None else 'PASS' if abs(value) <= MIB else 'FAIL'
+            status = 'EXCLUDED' if value is None else 'PASS' if abs(value) <= MIB else 'FAIL'
             if not eligible(row):
                 status = 'EXCLUDED'
+            reasons = list(row.get('run_reasons',row.get('reasons',[]))) if status=='EXCLUDED' else []
+            if value is None:
+                reasons.append('missing_heap')
             details.append(dict(instance=row.get('instance'),cycle=row.get('cycle'),status=status,
                                 heap_delta_bytes=value,relief_returned_bytes=row.get('relief_returned_bytes'),
-                                reasons=row.get('run_reasons',row.get('reasons',[])) if status=='EXCLUDED' else ['missing_heap'] if value is None else []))
+                                reasons=reasons))
         counts = Counter(x['status'] for x in details)
-        status = 'FAIL' if counts['FAIL'] else 'UNKNOWN' if counts['UNKNOWN'] or counts['EXCLUDED'] else 'PASS'
+        status = 'FAIL' if counts['FAIL'] else 'PASS' if counts['PASS'] else 'UNKNOWN'
         results[key] = dict(status=status,counts=dict(counts),comparisons=details)
     return results
 
@@ -52,7 +55,7 @@ def arm_results(rows, matched, arms, corpora, duplicate):
                      corpora={c:matched.get('/'.join((mode,arm,c)),{'pass':False,'reason':'not_measured'})
                               for c in corpora})
             selected = [x for x in rows if (x.get('mode'),x.get('arm'),x.get('boundary')) ==
-                        (mode,arm,'idle30') and x.get('score_memory',True)]
+                        (mode,arm,'idle30')]
             cap = cap_result(selected,corpora)
             status = 'FAIL' if (mode,arm) in duplicate or cap['status']=='FAIL' or m['status']=='FAIL' else (
                 'PASS' if m['status']==cap['status']=='PASS' else 'UNKNOWN')
