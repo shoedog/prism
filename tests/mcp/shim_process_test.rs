@@ -606,7 +606,13 @@ fn the_printed_invocation_runs_as_printed_whatever_the_path_holds() {
     let repo = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
         b"/nonexistent/a\nb\tc'd \\e\xff\x1b[2J\xc2\x85f",
     ));
-    let mut shim = ShimProcess::start_with(&setup, &repo, setup.cache.path(), &[], &[]);
+    let mut shim = ShimProcess::start_with(
+        &setup,
+        &repo,
+        setup.cache.path(),
+        &["--index-idle-secs", "0"],
+        &[],
+    );
     let (status, stderr) = shim.ended();
     assert!(!status.success(), "{stderr}");
     assert_eq!(stderr.lines().count(), 1, "{stderr:?}");
@@ -630,6 +636,8 @@ fn the_printed_invocation_runs_as_printed_whatever_the_path_holds() {
             repo.as_os_str().as_bytes(),
             b"--cache-dir",
             setup.cache.path().as_os_str().as_bytes(),
+            b"--index-idle-secs",
+            b"0",
             b"--standalone",
             b"",
         ],

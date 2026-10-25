@@ -15,6 +15,7 @@ fn args(warm: bool, idle_ttl: Option<u64>, max_clients: Option<u32>) -> DaemonAr
         warm_at_startup: warm,
         idle_ttl,
         max_clients,
+        idle_policy: crate::mcp::idle::IdlePolicy::default(),
     }
 }
 
@@ -44,7 +45,9 @@ fn the_daemon_is_started_with_the_shim_s_configuration_and_key() {
             "--refresh-policy",
             "auto-incremental",
             "--key",
-            hex.as_str()
+            hex.as_str(),
+            "--index-idle-secs",
+            "0"
         ]
         .map(OsStr::new)
     );
@@ -52,7 +55,16 @@ fn the_daemon_is_started_with_the_shim_s_configuration_and_key() {
     let tail: Vec<_> = full.get_args().skip(9).collect();
     assert_eq!(
         tail,
-        ["--warm-at-startup", "--idle-ttl", "5", "--max-clients", "8"].map(OsStr::new)
+        [
+            "--warm-at-startup",
+            "--idle-ttl",
+            "5",
+            "--max-clients",
+            "8",
+            "--index-idle-secs",
+            "0"
+        ]
+        .map(OsStr::new)
     );
 }
 

@@ -75,17 +75,17 @@ fn control_characters_in_paths_cannot_end_the_line() {
 fn the_standalone_invocation_keeps_the_configuration() {
     let mut cfg = ServerConfig::new(PathBuf::from("/my repo"));
     assert_eq!(
-        standalone_invocation(Path::new("/bin/prism-mcp"), &cfg),
-        "/bin/prism-mcp --repo '/my repo' --standalone"
+        standalone_invocation(Path::new("/bin/prism-mcp"), &cfg, "0", false),
+        "/bin/prism-mcp --repo '/my repo' --index-idle-secs 0 --standalone"
     );
     cfg.cache = CacheMode::Dir(PathBuf::from("/c/it's"));
     cfg.refresh_policy = RefreshPolicy::AutoFull;
     cfg.first_call_wait = Duration::from_secs(60);
     cfg.startup = StartupMode::Background;
     assert_eq!(
-        standalone_invocation(Path::new("/bin/prism-mcp"), &cfg),
+        standalone_invocation(Path::new("/bin/prism-mcp"), &cfg, "600", true),
         "/bin/prism-mcp --repo '/my repo' --cache-dir '/c/it'\\''s' --refresh-policy auto-full \
-         --first-call-wait 60 --warm-at-startup --standalone"
+         --first-call-wait 60 --warm-at-startup --index-idle-secs 600 --index-idle-pressure-relief --standalone"
     );
 }
 
@@ -164,10 +164,10 @@ fn the_printed_invocation_quotes_each_word_from_its_bytes() {
         b"/tmp/a\nb\tc'd \\e\xff\x1b[2J\xc2\x85f",
     ));
     let exe = Path::new("/opt/it's\nprism-mcp");
-    let invocation = standalone_invocation(exe, &ServerConfig::new(repo));
+    let invocation = standalone_invocation(exe, &ServerConfig::new(repo), "0", false);
     assert_eq!(
         invocation,
-        r"$'/opt/it\'s\nprism-mcp' --repo $'/tmp/a\nb\tc\'d \\e\377\033[2J\302\205f' --standalone"
+        r"$'/opt/it\'s\nprism-mcp' --repo $'/tmp/a\nb\tc\'d \\e\377\033[2J\302\205f' --index-idle-secs 0 --standalone"
     );
     let at = Where {
         key: None,

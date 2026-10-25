@@ -10,7 +10,7 @@
 //! lock files and a log, which every build of prism leaves behind (S4's D70), are counted in one
 //! line, not listed and not removed (owner question 1).
 use super::arbitrate::BUILD_CRASH_BACKOFF;
-use super::connect::PeerUid;
+use super::connect::{PeerUid, Refusal, Transient};
 use super::control::{exchange, Exchanged};
 use super::diagnostic::{one_line, pid_file};
 use super::key_files::{KeyDir, Marker};
@@ -213,6 +213,7 @@ fn look(
     peer_uid: PeerUid,
 ) -> Result<Option<String>, String> {
     let mut no_answer = None;
+    let mut incompatible = false;
     if present(paths.socket())? {
         let deadline = Instant::now() + timeout;
         match exchange(
@@ -233,8 +234,14 @@ fn look(
                 )))
             }
             Exchanged::NotListening(error) => no_answer = Some(format!("connect failed: {error}")),
-            Exchanged::NoReply(reason) => no_answer = Some(reason.to_string()),
-            Exchanged::Refused(reason) => no_answer = Some(reason.to_string()),
+            Exchanged::NoReply(reason) => {
+                incompatible = matches!(reason, Transient::Closed);
+                no_answer = Some(reason.to_string());
+            }
+            Exchanged::Refused(reason) => {
+                incompatible = matches!(reason, Refusal::BadReply(_));
+                no_answer = Some(reason.to_string());
+            }
         }
     } else if !has_daemon_files(paths)? {
         return Ok(None);
@@ -251,7 +258,11 @@ fn look(
         ),
         Holder::Free(line) => line?,
     };
-    Ok(Some(one_line(&line) + "\n"))
+    let mut text = one_line(&line) + "\n";
+    if incompatible {
+        text.push_str("  status unavailable: incompatible or unreadable control reply; use the daemon's matching binary for status/shutdown\n");
+    }
+    Ok(Some(text))
 }
 
 /// Whether anything of a daemon's is at a key's paths: a socket, a pid file or a build marker.
@@ -349,6 +360,11 @@ pub(super) fn died_building(marker: &MarkerContents, now: u64) -> String {
 /// The lines of a daemon that answered.
 fn describe(locator: &str, status: &DaemonStatus, wanted: Option<IdentityKey>) -> String {
     let instance = &status.instance;
+    let connection = if status.admitted == 0 && status.pending == 0 {
+        "clientless"
+    } else {
+        "connected"
+    };
     let idle = match status.idle_secs {
         Some(secs) => format!(
             "idle {secs} s; retires after {} s idle",
@@ -366,7 +382,7 @@ fn describe(locator: &str, status: &DaemonStatus, wanted: Option<IdentityKey>) -
             instance.identity, status.build_identity
         ),
         format!(
-            "  clients: {} admitted, {} pending, at most {}; {idle}",
+            "  clients: {} admitted, {} pending, at most {}; {connection}; {idle}",
             status.admitted, status.pending, status.max_clients
         ),
         format!(
@@ -374,6 +390,10 @@ fn describe(locator: &str, status: &DaemonStatus, wanted: Option<IdentityKey>) -
             status.build.word(),
             status.attempt,
             status.generation
+        ),
+        format!(
+            "  effective index idle policy: index_idle_timeout_secs={}; index_idle_pressure_relief={}",
+            status.index_idle_timeout_secs, status.index_idle_pressure_relief
         ),
     ];
     if status.shutdown {

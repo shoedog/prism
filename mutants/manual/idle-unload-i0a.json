@@ -241,8 +241,8 @@
       "edits": [
         {
           "file": "src/mcp/idle.rs",
-          "old": "(requested && (shared || self.timeout.is_none() || !cfg!(target_os = \"macos\")))",
-          "new": "(false && requested && (shared || self.timeout.is_none() || !cfg!(target_os = \"macos\")))"
+          "old": "(requested && (self.timeout.is_none() || !cfg!(target_os = \"macos\")))",
+          "new": "(false && requested && (self.timeout.is_none() || !cfg!(target_os = \"macos\")))"
         }
       ]
     },
