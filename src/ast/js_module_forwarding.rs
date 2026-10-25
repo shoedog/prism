@@ -5,6 +5,9 @@ use crate::js_exports::JsExportTarget;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
+#[path = "js_export_index.rs"]
+mod index;
+
 impl ParsedFile {
     /// Only called at a plain-identifier, top-level ESM export occurrence.
     pub(super) fn js_ts_forwarded_import(&self, local: &str) -> Option<JsExportTarget> {
@@ -33,6 +36,10 @@ impl ParsedFile {
     /// Source terminal proof consumed ONLY by ImportForward. Existing direct
     /// export/import and class lanes keep their independent contracts.
     pub(super) fn js_ts_forwardable_functions(&self) -> BTreeSet<String> {
+        #[cfg(test)]
+        if index::legacy_enabled() {
+            return self.js_ts_forwardable_functions_legacy();
+        }
         let root = self.tree.root_node();
         if root.has_error() || self.js_ts_forwarding_hazard(root) {
             return BTreeSet::new();
@@ -40,6 +47,7 @@ impl ParsedFile {
         let imports = self.extract_import_bindings();
         let types = self.js_ts_type_only_imports();
         let mut out = BTreeSet::new();
+        let mut index = None;
         let mut cursor = root.walk();
         for wrapper in root.named_children(&mut cursor) {
             let declaration = if wrapper.kind() == "export_statement" {
@@ -59,11 +67,11 @@ impl ParsedFile {
                 continue;
             };
             let name = self.node_text(&name);
-            if !imports.iter().any(|b| b.local == name)
-                && !types.contains_key(name)
-                && !self.js_ts_forwarding_competitor(root, name, Some(declaration.id()))
-                && !self.js_ts_module_value_written(name)
-            {
+            if imports.iter().any(|b| b.local == name) || types.contains_key(name) {
+                continue;
+            }
+            let index = index.get_or_insert_with(|| index::ExportIndex::new(self));
+            if !index.competes(name, declaration.id()) && !index.written(self, name) {
                 out.insert(name.to_owned());
             }
         }
@@ -110,6 +118,8 @@ impl ParsedFile {
         name: &str,
         allowed: &[usize],
     ) -> bool {
+        #[cfg(test)]
+        tests::visit();
         if !allowed.contains(&node.id()) {
             if node.kind() == "variable_declarator" {
                 if let Some(pattern) = node.child_by_field_name("name") {
@@ -151,9 +161,44 @@ impl ParsedFile {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::ParsedFile;
     use crate::languages::Language;
+
+    thread_local! {
+        static VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
+    pub(in crate::ast) fn visit() {
+        VISITS.with(|v| v.set(v.get() + 1));
+    }
+    pub(super) fn reset_visits() {
+        VISITS.with(|v| v.set(0));
+    }
+    pub(super) fn visits() -> usize {
+        VISITS.with(|v| v.get())
+    }
+
+    #[test]
+    fn forwarding_work_is_one_file_walk() {
+        let source: String = (0..64)
+            .map(|i| format!("function f{i}({{x}}) {{ const q = () => x; return q; }}\n"))
+            .collect();
+        let parsed = ParsedFile::parse("work.ts", &source, Language::TypeScript).unwrap();
+        let mut stack = vec![parsed.tree.root_node()];
+        let mut named_nodes = 0;
+        while let Some(node) = stack.pop() {
+            named_nodes += 1;
+            let mut cursor = node.walk();
+            stack.extend(node.named_children(&mut cursor));
+        }
+        VISITS.with(|v| v.set(0));
+        assert_eq!(parsed.js_ts_forwardable_functions().len(), 64);
+        let visits = VISITS.with(|v| v.get());
+        assert!(
+            visits <= named_nodes,
+            "{visits} visits > {named_nodes} named nodes"
+        );
+    }
 
     #[test]
     fn cjs_refusal_module_write_source_bindings() {

@@ -28,7 +28,7 @@ fn with_sequential<T>(op: impl FnOnce() -> T) -> T {
     }
     let _restore = Restore(SEQUENTIAL.with(|v| v.replace(true)));
     let before = ORACLE_CALLS.with(Cell::get);
-    let result = op();
+    let result = ParsedFile::with_legacy_export_facts(op);
     assert!(
         ORACLE_CALLS.with(Cell::get) > before,
         "sequential oracle bypassed"
@@ -248,6 +248,33 @@ fn repository_fixtures_complete_maps_and_serialization() {
 }
 
 #[test]
+fn sequential_enters_legacy_export_helpers() {
+    let files = BTreeMap::from([(
+        "oracle.ts".into(),
+        parsed(
+            "oracle.ts",
+            "import {a} from './m'; export function f() { return a; }",
+        ),
+    )]);
+    let before = ParsedFile::export_index_builds();
+    let expected = sequential(files.iter());
+    assert!(!expected.0.is_empty());
+    assert_eq!(
+        ParsedFile::export_index_builds(),
+        before,
+        "oracle built an index"
+    );
+    // The thread-local guard must restore new mode after returning.
+    let cold = reparse(&files);
+    cold["oracle.ts"].extract_js_ts_export_facts();
+    assert!(ParsedFile::export_index_builds() > before);
+    assert_eq!(
+        sequential(std::iter::empty()),
+        JsTsResolutionFacts::default()
+    );
+}
+
+#[test]
 fn incremental_partial_update_matches_full_and_sequential() {
     crate::build_pool::install(|| {
         let mut files = BTreeMap::from([
@@ -270,7 +297,14 @@ fn incremental_partial_update_matches_full_and_sequential() {
             None,
         );
         let full = CodePropertyGraph::build(&files);
-        let serial = with_sequential(|| CodePropertyGraph::build(&files));
+        let serial = with_sequential(|| {
+            let files = reparse(&files);
+            assert!(
+                files.values().all(|file| !file.export_facts_cached()),
+                "serial oracle reused cached exports"
+            );
+            CodePropertyGraph::build(&files)
+        });
         assert_eq!(maps(&partial.call_graph), maps(&full.call_graph));
         assert_eq!(maps(&partial.call_graph), maps(&serial.call_graph));
         // Incremental assembly can have a different storage insertion order;
@@ -286,3 +320,6 @@ fn incremental_partial_update_matches_full_and_sequential() {
         assert!(observations(&full) == observations(&serial));
     });
 }
+
+#[path = "js_ts_facts_file_tests.rs"]
+mod file_tests;
