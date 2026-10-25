@@ -1,0 +1,28 @@
+[case]
+language = "rust"
+capability = "dfg_binding_pattern_let_shadow_swap"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.rs:2:a"
+to = "main.rs:4:a"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 3
+
+[[expect.edges]]
+from = "main.rs:3:a"
+to = "main.rs:4:a"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.rs:9:a"
+to = "main.rs:11:a"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+
+[[expect.edges]]
+from = "main.rs:10:a"
+to = "main.rs:11:a"
+confidence = "exact"

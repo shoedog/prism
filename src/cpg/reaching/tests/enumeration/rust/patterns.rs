@@ -7,6 +7,10 @@ use crate::languages::Language;
 const EXACT: FlowConfidence = FlowConfidence::Exact;
 const CFG_INCOMPLETE: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
 
+const fn killed(line: u32) -> FlowConfidence {
+    FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: line })
+}
+
 const fn uncertain(line: u32) -> FlowConfidence {
     FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
         construct_line: line,
@@ -293,6 +297,21 @@ fn rust_let_pattern_initializer_reads_outer_binding() {
 }
 
 #[test]
+fn rust_multiline_pattern_let_initializer_reads_outer_bindings() {
+    super::super::case::check_case(&Case {
+        id: "rs-multiline-let-pattern-initializer-control",
+        language: Language::Rust,
+        kind: "tuple_pattern",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "fn f() {\n    let a = source();\n    let b = source();\n    let (a, b) = (\n        prepare(a),\n        prepare(b),\n    );\n    consume(a + b);\n}\n",
+        expect: &[("2:a", "5:a", EXACT), ("3:b", "6:b", EXACT)],
+        expect_counter: Some(("dfg_label_exact", 2)),
+    });
+}
+
+#[test]
 fn rust_while_let_pattern_is_uncertain_in_body_and_discharged_after_loop() {
     const EXPECT: &[(&str, &str, FlowConfidence)] =
         &[("2:x", "4:x", uncertain(3)), ("2:x", "6:x", EXACT)];
@@ -386,6 +405,101 @@ fn rust_constructor_and_field_labels_are_not_pattern_bindings() {
     ] {
         super::super::case::check_case(&case);
     }
+}
+
+fn check_pattern_let_shadow_case(
+    id: &'static str,
+    kind: &'static str,
+    src: &'static str,
+    expect: &'static [(&'static str, &'static str, FlowConfidence)],
+    expect_counter: (&'static str, i64),
+) {
+    super::super::case::check_case(&Case {
+        id,
+        language: Language::Rust,
+        kind,
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src,
+        expect,
+        expect_counter: Some(expect_counter),
+    });
+}
+
+const SHADOW_AT_3: &[(&str, &str, FlowConfidence)] =
+    &[("2:a", "4:a", killed(3)), ("3:a", "4:a", EXACT)];
+const SHADOW_AT_5: &[(&str, &str, FlowConfidence)] =
+    &[("2:a", "6:a", killed(5)), ("5:a", "6:a", EXACT)];
+const LOOP_SHADOW_AT_4: &[(&str, &str, FlowConfidence)] =
+    &[("3:a", "5:a", killed(4)), ("4:a", "5:a", EXACT)];
+const PATTERN_AFTER_PLAIN: &[(&str, &str, FlowConfidence)] =
+    &[("2:a", "4:a", uncertain(3)), ("3:a", "4:a", EXACT)];
+
+#[test]
+fn rust_tuple_pattern_let_then_plain_let_restores_shadow_order() {
+    check_pattern_let_shadow_case(
+        "rs-tuple-pattern-let-then-plain-shadow",
+        "let_declaration",
+        "fn f() {\n    let (a, b) = (source(), 1);\n    let a: i32 = clean();\n    sink(a);\n    sink(b);\n}\n",
+        SHADOW_AT_3,
+        ("dfg_label_nameonly_killed", 1),
+    );
+}
+
+#[test]
+fn rust_tuple_pattern_let_then_plain_source_restores_shadow_order() {
+    check_pattern_let_shadow_case(
+        "rs-tuple-pattern-let-then-plain-source",
+        "let_declaration",
+        "fn f() {\n    let (a, b) = (clean(), 1);\n    let a = source();\n    sink(a);\n}\n",
+        SHADOW_AT_3,
+        ("dfg_label_nameonly_killed", 1),
+    );
+}
+
+#[test]
+fn rust_ref_pattern_let_then_plain_let_restores_shadow_order() {
+    check_pattern_let_shadow_case(
+        "rs-ref-pattern-let-then-plain-shadow",
+        "let_declaration",
+        "fn f() {\n    let ref a = clean();\n    let a = source();\n    sink(a);\n}\n",
+        SHADOW_AT_3,
+        ("dfg_label_nameonly_killed", 1),
+    );
+}
+
+#[test]
+fn rust_let_else_pattern_then_plain_let_restores_shadow_order() {
+    check_pattern_let_shadow_case(
+        "rs-let-else-pattern-then-plain-shadow",
+        "let_declaration",
+        "fn f(o: Option<i32>) {\n    let Some(a) = o else {\n        return;\n    };\n    let a = clean();\n    sink(a);\n}\n",
+        SHADOW_AT_5,
+        ("dfg_label_nameonly_killed", 1),
+    );
+}
+
+#[test]
+fn rust_loop_pattern_let_then_plain_let_restores_shadow_order() {
+    check_pattern_let_shadow_case(
+        "rs-loop-pattern-let-then-plain-shadow",
+        "let_declaration",
+        "fn f(v: Vec<i32>) {\n    for i in v {\n        let (a, b) = (source(), i);\n        let a = clean();\n        sink(a);\n    }\n}\n",
+        LOOP_SHADOW_AT_4,
+        ("dfg_label_nameonly_killed", 1),
+    );
+}
+
+#[test]
+fn rust_plain_let_then_pattern_let_keeps_later_pattern_visible() {
+    check_pattern_let_shadow_case(
+        "rs-plain-let-then-pattern-shadow-control",
+        "tuple_pattern",
+        "fn f() {\n    let a = clean();\n    let (a, b) = (source(), 1);\n    sink(a);\n    sink(b);\n}\n",
+        PATTERN_AFTER_PLAIN,
+        ("dfg_label_nameonly_ownership_uncertain", 1),
+    );
 }
 
 #[test]

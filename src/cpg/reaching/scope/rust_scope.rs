@@ -35,6 +35,9 @@ pub(super) fn pattern_declaration_scope(
     {
         return None;
     }
+    if let Some(scope) = enclosing_let_declaration_scope(pattern) {
+        return Some(scope);
+    }
     match visibility_span(parsed, pattern) {
         SpanKind::Known(spans) => {
             let start_byte = spans.iter().map(|span| span.start).min()?;
@@ -51,6 +54,35 @@ pub(super) fn pattern_declaration_scope(
             end_line: pattern.end_position().row + 1,
         }),
         SpanKind::Unknown => None,
+    }
+}
+
+pub(super) fn pattern_visible_from(node: Node<'_>) -> usize {
+    enclosing_let_declaration(node).map_or(node.end_byte(), |declaration| declaration.end_byte())
+}
+
+fn enclosing_let_declaration_scope(node: Node<'_>) -> Option<ScopeSpan> {
+    let declaration = enclosing_let_declaration(node)?;
+    let mut current = declaration;
+    while let Some(parent) = current.parent() {
+        if matches!(
+            parent.kind(),
+            "block" | "unsafe_block" | "const_block" | "try_block" | "match_arm"
+        ) {
+            return Some(scope_span(parent));
+        }
+        current = parent;
+    }
+    None
+}
+
+fn enclosing_let_declaration(mut node: Node<'_>) -> Option<Node<'_>> {
+    loop {
+        let parent = node.parent()?;
+        if parent.kind() == "let_declaration" {
+            return Some(parent);
+        }
+        node = parent;
     }
 }
 

@@ -514,8 +514,8 @@ fn declaration_seed(
                     | DeclarationKind::Reuse => scope.start_byte,
                     DeclarationKind::GoShort
                     | DeclarationKind::Other
-                    | DeclarationKind::Pattern
                     | DeclarationKind::CaptureCopy => node.end_byte(),
+                    DeclarationKind::Pattern => rust_scope::pattern_visible_from(node),
                 }
             };
             return Some((scope, kind, visible_from));
