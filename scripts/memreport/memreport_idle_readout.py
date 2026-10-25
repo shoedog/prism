@@ -1,6 +1,8 @@
 """Idle readout rules in byte/ns units, independent of eager memreport scoring."""
 from collections import Counter, defaultdict
 from statistics import median
+from memreport_idle_pairing import validate as validate_pairing
+from memreport_idle_results import arm_results, relief_results, service_results
 
 MIB = 1024 * 1024
 PROVENANCE = ('binary_sha256', 'commit', 'features', 'corpus', 'corpus_pin', 'workload_hash',
@@ -13,6 +15,8 @@ REQUIRED = PROVENANCE + ('requested_idle_secs', 'effective_idle_secs', 'requeste
 def admit(row):
     result = dict(row)
     reasons = list(row.get('reasons', []))
+    if row.get('binary_sha256') is None:
+        reasons.append('binary_unavailable')
     if any(row.get(k) is None for k in REQUIRED):
         reasons.append('missing_row_field')
     if (row.get('requested_idle_secs') != row.get('effective_idle_secs') or
@@ -36,6 +40,7 @@ def saving(base, candidate):
     if any(base[k] != candidate[k] for k in ('pair_id', 'corpus', 'corpus_pin', 'workload_hash',
                                             'mode', 'binary_sha256', 'commit', 'features')):
         raise ValueError('unmatched pair')
+    validate_pairing(base,candidate)
     denominator = base['footprint_bytes']
     if denominator is None or candidate['footprint_bytes'] is None or denominator <= 0:
         return dict(bytes=None, fraction=None)
@@ -45,20 +50,20 @@ def saving(base, candidate):
 
 
 def matched_m(pairs):
-    pairs = [(a,b) for a,b in pairs if admit(a)['status'] == admit(b)['status'] == 'ADMITTED'
-             and relief_ok(b)]
+    pairs = [(a,b) for a,b in pairs if admit(a)['status'] == admit(b)['status'] == 'ADMITTED']
     independent = min(len({tuple(a['instance']) for a,b in pairs}),
                       len({tuple(b['instance']) for a,b in pairs}))
     if independent < 3:
-        return {'pass': False, 'reason': 'need_three_pairs', 'pairs': len(pairs)}
+        return {'pass': False, 'status':'UNKNOWN', 'reason': 'need_three_pairs', 'pairs': len(pairs)}
     deltas = [saving(a,b) for a,b in pairs]
     if any(d['bytes'] is None for d in deltas):
-        return {'pass': False, 'reason': 'unknown_denominator', 'pairs': len(pairs)}
+        return {'pass': False, 'status':'UNKNOWN', 'reason': 'unknown_denominator', 'pairs': len(pairs)}
     bases = [a['footprint_bytes'] for a,b in pairs]
     candidates = [b['footprint_bytes'] for a,b in pairs]
     absolute, fraction = median(d['bytes'] for d in deltas), median(d['fraction'] for d in deltas)
     separated = max(candidates) < min(bases)
     return dict(**{'pass': separated and (absolute >= 200*MIB or fraction >= .15)},
+                status='PASS' if separated and (absolute >= 200*MIB or fraction >= .15) else 'FAIL',
                 pairs=len(pairs), median_bytes=absolute, median_fraction=fraction,
                 base_range=[min(bases),max(bases)], candidate_range=[min(candidates),max(candidates)],
                 separated=separated, idle_fractions=[d['idle_fraction'] for d in deltas])
@@ -77,11 +82,18 @@ def exact_hit(reload, reference):
                                          reload.get('edges_unused') and reference.get('edges_unused'))
 
 
+def service_admitted(row):
+    memory_reasons = set(row.get('samples',{}).get('idle30',{}).get('reasons',[]))
+    reasons = row.get('run_reasons', [x for x in row.get('reasons',[]) if x not in memory_reasons])
+    candidate = dict(row,reasons=reasons,status='ADMITTED',footprint_bytes=0)
+    return admit(candidate)['status']=='ADMITTED'
+
+
 def latency(reloads, references):
     by_pair = {x['pair_id']: x for x in references}
     pairs = [(x, by_pair[x['pair_id']]) for x in reloads if x['pair_id'] in by_pair and
-             exact_hit(x, by_pair[x['pair_id']]) and admit(x)['status'] == 'ADMITTED' and
-             admit(by_pair[x['pair_id']])['status'] == 'ADMITTED']
+             exact_hit(x, by_pair[x['pair_id']]) and service_admitted(x) and
+             service_admitted(by_pair[x['pair_id']])]
     known = [(a,b) for a,b in pairs if a.get('first_served_ns') is not None and
              b.get('first_served_ns') is not None and a.get('demand_readiness_ns') is not None]
     if not known:
@@ -97,19 +109,24 @@ def relief_ok(row):
     return heap is not None and abs(heap) <= MIB
 
 
-def readout(rows, corpora=('py', 'e', 'p', 'ruff')):
+def readout(rows, corpora=('py', 'e', 'p', 'ruff'), binary_sha256=None):
     rows = list(rows)  # Failed, abandoned and UNKNOWN rows are never filtered away.
-    binaries = {(x.get('binary_sha256'), x.get('commit'), tuple(x.get('features') or [])) for x in rows}
-    if len(binaries) > 1:
+    binaries = {(x.get('binary_sha256'), x.get('commit'), tuple(x.get('features') or [])) for x in rows
+                if x.get('binary_sha256') is not None}
+    declared = {x.get('declared_binary_sha256') for x in rows if x.get('declared_binary_sha256') is not None}
+    if binary_sha256 is not None:
+        declared.add(binary_sha256)
+    if len(binaries) > 1 or len(declared | {x[0] for x in binaries}) > 1:
         raise ValueError('mixed binaries/features in one batch')
     rows = [admit(x) for x in rows]
     outcomes = Counter(x.get('outcome', 'unpublished') for x in rows)
-    resident, groups, duplicate = {}, defaultdict(list), False
+    resident, groups, duplicate = {}, defaultdict(list), set()
     for x in rows:
         if x.get('score_memory', True) and x.get('arm') == 'resident' and x.get('boundary') == 'idle30':
             key = (x['corpus'], x['mode'], x['pair_id'])
             if key in resident:
-                duplicate = True
+                for item in (resident[key],x):
+                    duplicate.add((item['mode'],item.get('resident_pairing',{}).get('arm')))
             resident[key] = x
     seen = set()
     for x in rows:
@@ -118,31 +135,16 @@ def readout(rows, corpora=('py', 'e', 'p', 'ruff')):
         key = (x['corpus'], x['mode'], x['pair_id'])
         full = key + (x['arm'],)
         if full in seen:
-            duplicate = True
+            duplicate.add((x['mode'],x['arm']))
         seen.add(full)
         if key in resident:
             groups[(x['mode'],x['arm'],x['corpus'])].append((resident[key],x))
     results = {'/'.join(k): matched_m(v) for k,v in groups.items()}
     arms = sorted({x['arm'] for x in rows if x.get('arm') in ('A','A+C')})
-    memory_gate = bool(arms) and not duplicate
-    for arm in arms:
-        for mode in ('stdio', 'shared'):
-            passes = sum(results.get('/'.join((mode,arm,c)), {}).get('pass', False) for c in corpora)
-            memory_gate &= passes >= 2
-            for corpus in corpora:
-                candidates = [x for x in rows if (x.get('mode'),x.get('arm'),x.get('corpus'),
-                                                  x.get('boundary')) == (mode,arm,corpus,'idle30')
-                              and x.get('score_memory',True)]
-                memory_gate &= (len(candidates) >= 3 and all(x['status'] == 'ADMITTED' and
-                                 x['footprint_bytes'] <= 128*MIB for x in candidates))
+    memory_gate = arm_results(rows,results,arms,corpora,duplicate)
     total = len(rows)
-    service = Counter()
-    for x in rows:
-        if x.get('outcome') == 'served' and x.get('first_served_ns') is not None:
-            service['served_within_wait'] += x['first_served_ns'] <= x['first_call_wait_secs']*1000000000
-        warming = sum(j.get('outcome') == 'warming' for j in x.get('journal',[]))
-        service['warming_responses'] += warming
-        service['warming_poll_success'] += bool(warming and x.get('polling') and x.get('outcome')=='served')
+    service_groups = service_results(rows,exact_hit)
+    service = service_groups.get('pooled',{}).get('counts',{})
     reload_latency = {}
     for mode in ('stdio','shared'):
         for arm in arms:
@@ -152,8 +154,9 @@ def readout(rows, corpora=('py', 'e', 'p', 'ruff')):
                     [x for x in selected if x.get('arm')==arm and x.get('kind')=='reload'],
                     [x for x in selected if x.get('arm')=='reference'])
     return dict(rows=rows, outcomes=dict(outcomes), outcome_proportions={k:v/total for k,v in outcomes.items()},
-                matched=results, memory_gate=bool(memory_gate), duplicate_pairs=duplicate,
-                service_counts=dict(service), reload_latency=reload_latency,
+                matched=results, memory_gate=memory_gate, duplicate_pairs=bool(duplicate),
+                service_counts=dict(service), service_groups=service_groups,
+                relief=relief_results(rows,service_admitted), reload_latency=reload_latency,
                 units={'memory':'bytes','duration':'ns'}, activation='OWNER_DECISION_REQUIRED',
                 report_only=['RSS','pre_index_deltas','loaded','idle5','idle_fraction','relief_footprint'])
 

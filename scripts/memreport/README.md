@@ -354,7 +354,11 @@ No startup is delayed to manufacture a pre-index sample. Eager is refused on thi
 
 Collect X before its resident match. For each X=A or A+C, launch a **separate** resident run with idle=0,
 relief=false, cycles=1 and `resident_pair` pointing to X's `run.json`; use the same pair ID, pins and binary.
+Before launch, the collector requires one unique preregistered scored candidate row. It records X's
+arm/instance/cycle/attempt/G and response-to-disposal delta on the resident row and verifies them when scoring.
 Resident deadlines use its last response arrival + (X disposal_end - X last response arrival) +5/+30 seconds.
+The default resident run budget is that delta +30 seconds +180 seconds of bounded launch/query overhead.
+An explicit `timeout_secs` below that budget produces a failed run record before any launch.
 Never pool resident samples across different X deadlines or interpolate. Score the preregistered cycle
 (default initial cycle 1); subsequent cycles remain raw reload observations, not independent repetitions.
 Polls replay only the preregistered first request, up to `max_polls`, and never restart its demand clock.
@@ -366,7 +370,8 @@ request/response arrival, poll, failure and abandonment. Rows include cycle/atte
 settings, PID/start/key/OS start/client count, cache/sidecar facts, stages, readiness/build/first-served times,
 sample due/start/end/lateness, member footprint/RSS, relief return/heap pair, and admission reasons.
 JSON `null` means UNKNOWN; an absent reading is never zero. Raw failed/abandoned rows remain in readout.
-`readout` rebuilds rows from raw facts instead of trusting a saved scored status and rejects mixed binaries.
+`readout` rebuilds rows from raw facts instead of trusting a saved scored status. It compares known binary
+hashes against each other and the preregistered pin; a failed launch's unknown hash remains a failed row.
 For a short **unscored** parser smoke only, set `smoke_only: true`, idle=2, `smoke_hold_secs: 0` and a short
 `timeout_secs`. It still waits for unload/reload but omits +5/+30; every row remains EXCLUDED.
 
@@ -375,7 +380,8 @@ return/errno before fields, rejects exited/reused PIDs, sums every surviving shi
 an incomplete or changing inventory UNKNOWN. `ri_resident_size` is report-only RSS, never footprint.
 Pre-index precedes both the first call and build; loaded is publication+query; idle deadlines use production
 `disposal_end`, not log delivery. Sweeps start no earlier than due and finish within 250 ms, including all
-members. Late boundaries get no catch-up sampling. Reload/refresh/disposal-failure crossings exclude them.
+members. Loaded waits for its linked served query to complete and retains the publication deadline; completion
+after the 250 ms bound leaves loaded UNKNOWN. Late boundaries get no catch-up sampling. Reload/refresh/disposal-failure crossings exclude them.
 Reads/deadline joins bracket realtime/monotonic within 1 ms; bad observations are re-read. Consecutive valid
 observations enforce 10 ms +50 ppm offset continuity, while Mach continuous/absolute clocks detect >10 ms
 sleep steps. Missing boundary clocks or sleep exclude, never bridge; cumulative drift remains report-only.
@@ -390,15 +396,24 @@ sequence numbers at different offsets are errors. Event-scoped unload sidecar jo
 instance/attempt/generation publication. Readout uses `mono_ns`/`epoch_ns`, never cross-mode `mono_ms`.
 
 M uses matched current idle physical footprint: median savings >=200 MiB **or** >=15% on >=2 corpora,
->=3 independent runs/side, candidate max < base min. The +30 s cap is <=128 MiB on all four corpora in both
-modes. 15%-of-base idle is report-only. Relief/no-op heap delta must stay within +/-1 MiB; missing heap
+>=3 independent runs/side, candidate max < base min. The +30 s cap is <=128 MiB on admitted rows in all four corpora in both
+modes. Any admitted over-cap row fails; any cell with no admitted row is UNKNOWN. Excluded and failed
+rows retain their reasons and counts. A report-only boundary failure leaves its value UNKNOWN and never
+filters M, the cap or reload latency; a later failed cycle does not taint an earlier scored cycle. 15%-of-base idle is report-only. Relief/no-op heap delta must stay within +/-1 MiB; missing heap
 excludes that comparison. Exact-hit reload needs actual CPG hit in reload/reference, identical first request,
 and ending unload sidecars hit/hit or legitimately unused not_attempted/not_attempted. Its median first-served
 latency must be <= reference +max(5%,100 ms); demand-to-publication <=3 s is the separate readiness target.
-The report keeps warming, served-within-wait, warming/poll/success, failure/abandonment counts and proportions.
+The report keeps warming, served-within-wait, warming/poll/success, failure/abandonment counts and proportions
+pooled and by corpus, mode, reload class and their arm-specific intersections. Reload CPG hit is the exact-hit
+class; preregister `changed_snapshot_cycles` for changed-snapshot reloads supplied by a separate lane.
+Other misses and unavailable facts have separate classes; a cache miss alone does not prove a changed snapshot.
+This collector does not edit the workload between cycles.
 RSS, pre-index deltas (+16 MiB reference), loaded/+5, idle fraction and optional relief footprint are report-only.
-`memory_gate` is only the memory component; `reload_latency` is separate. Activation always remains an owner
-decision after complete prerequisites, both modes/arms, unit parity and admitted external evidence.
+`memory_gate` is keyed by arm, with M and cap per mode and an arm summary requiring both modes.
+A and A+C are independent activation alternatives. `relief` reports the +/-1 MiB heap comparison separately
+per arm and mode (including A's no-op); it never filters physical M pairs. Missing heap excludes only that
+relief comparison. `reload_latency` is separate. Activation always remains an owner
+decision per arm after complete prerequisites, both modes, unit parity and admitted external evidence.
 
 Tests: `python3 -m unittest discover -s scripts/memreport -p 'test_*.py'` and the soak no-regression suite.
 Compressed fixtures in `test_memreport_idle.py` are byte-real ae49d937 stdio/direct-daemon captures (local filesystem paths in non-lifecycle diagnostic lines replaced by placeholders); edge tests

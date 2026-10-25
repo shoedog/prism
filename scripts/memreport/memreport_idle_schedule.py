@@ -10,6 +10,7 @@ class Engine:
         self.guard = Continuity()
         self.samples, self.pending, self.observations, self.events = [], [], [], []
         self.reasons = []
+        self.completed_queries = {}
 
     def clock(self):
         value = self.clocks.valid_read()
@@ -36,6 +37,10 @@ class Engine:
             elif event['event'] == 'disposal_end':
                 self.enqueue('idle5', deadline(event, 5), event)
                 self.enqueue('idle30', deadline(event, 30), event)
+
+    def served(self, attempts, arrival):
+        for attempt in attempts:
+            self.completed_queries[attempt] = arrival
 
     def take(self, task):
         before = self.clock()
@@ -71,6 +76,8 @@ class Engine:
         if now is None:
             return
         for task in list(self.pending):
+            if task['boundary'] == 'loaded' and task['attempt'] not in self.completed_queries:
+                continue
             if task['due_mono_ns'] is None or now['mono_ns'] >= task['due_mono_ns']:
                 self.take(task)
                 self.pending.remove(task)

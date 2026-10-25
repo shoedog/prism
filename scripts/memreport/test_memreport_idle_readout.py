@@ -16,7 +16,10 @@ def row(arm='A', corpus='py', mode='stdio', rep=1, footprint=100*M):
                 first_served_ns=200000000, cpg='hit', sidecar='hit', first_request='q',
                 edges_unused=False, ending_unload=True, first_call_ns=0, samples={}, events=[],
                 last_response_epoch_ns=10, disposal_end_epoch_ns=20, failure_text=None,
-                journal=[], polling=[], prewarm=[])
+                journal=[], polling=[], prewarm=[],
+                resident_pairing=dict(arm='A',instance=[str(1000+rep)+'-A','100','key'],
+                    cycle=rep,attempt=1,generation=2,delta_ns=10,
+                    last_response_epoch_ns=10,disposal_end_epoch_ns=20) if arm=='resident' else None)
 
 class Readout(unittest.TestCase):
     def test_idle_readout_denominators_and_outcomes(self):
@@ -45,18 +48,18 @@ class Readout(unittest.TestCase):
                 for rep in range(3):
                     rows.extend([row('resident',corpus,mode,rep,1000*M),row('A',corpus,mode,rep,128*M)])
         result=r.readout(rows)
-        self.assertTrue(result['memory_gate']) # 128MiB is inclusive; 15% idle is report-only
+        self.assertTrue(result['memory_gate']['A']['pass']) # 128MiB is inclusive; 15% idle is report-only
         rows[-1]['footprint_bytes']=128*M+1
-        self.assertFalse(r.readout(rows)['memory_gate'])
+        self.assertFalse(r.readout(rows)['memory_gate']['A']['pass'])
         # Two passing corpora establish M, but cap still requires all four and both modes.
         for x in rows:
             if x['corpus'] in ('p','ruff') and x['arm']=='resident': x['footprint_bytes']=129*M
         rows[-1]['footprint_bytes']=128*M
-        self.assertTrue(r.readout(rows)['memory_gate'])
+        self.assertTrue(r.readout(rows)['memory_gate']['A']['pass'])
         for x in rows:
             if x['corpus']=='py' and x['arm']=='resident': x['footprint_bytes']=129*M
-        self.assertFalse(r.readout(rows)['memory_gate'])
-        self.assertFalse(r.readout(rows[:6])['memory_gate'])
+        self.assertFalse(r.readout(rows)['memory_gate']['A']['pass'])
+        self.assertFalse(r.readout(rows[:6])['memory_gate']['A']['pass'])
         self.assertEqual(r.readout(rows)['units'], {'memory':'bytes','duration':'ns'})
 
     def test_outcomes_and_matched_boundaries(self):
@@ -97,12 +100,13 @@ class Readout(unittest.TestCase):
         pairs=[(row('resident',rep=i,footprint=500*M),row(rep=i,footprint=100*M)) for i in (1,2,3)]
         for a,b in pairs:
             a['instance']=pairs[0][0]['instance']; b['instance']=pairs[0][1]['instance']
+            a['resident_pairing']['instance']=b['instance']
         self.assertFalse(r.matched_m(pairs)['pass'])
         bad=row(); bad['status']='EXCLUDED'
         self.assertEqual(r.admit(bad)['status'],'EXCLUDED')
         pairs=[(row('resident',rep=i,footprint=500*M),row(rep=i,footprint=100*M)) for i in (1,2,3)]
         pairs[0][1]['heap_delta_bytes']=None
-        self.assertFalse(r.matched_m(pairs)['pass'])
+        self.assertTrue(r.matched_m(pairs)['pass'])
 
     def test_served_requires_publication_and_keeps_later_abandonment(self):
         meta=row()

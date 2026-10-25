@@ -9,6 +9,7 @@ from memreport_idle_process import Process
 from memreport_idle_readout import admit, readout, rows_for_run
 from memreport_idle_sampling import Sampler, resident_deadline
 from memreport_idle_schedule import Engine
+from memreport_idle_pairing import prepare
 
 PREREQUISITES = ('soak_complete','c0_pins','quiet_serial','swap_non_increasing',
                  'reserved_window','all_prerequisites_landed')
@@ -75,23 +76,46 @@ def write(path, value):
 
 
 def collect(meta, out):
-    reasons = validate_manifest(meta)
     out = external_output(out)
     if (out/'run.json').exists():
         raise ValueError('run directory already used')
     try:
-        meta, pin_reasons = bind_binary(meta)
+        meta = dict(meta)
+        return collect_run(meta,out)
+    except (Exception, KeyboardInterrupt) as error:
+        meta = meta if isinstance(meta,dict) else {}
+        # Even validation/finalization failures retain a denominator and typed reason.
+        journal = [dict(kind='abandoned',epoch_ns=time.time_ns(),reason=error_text(error))]
+        rows = [dict(meta,outcome='abandoned',status='EXCLUDED',boundary='idle30',
+                     footprint_bytes=None,rss_bytes=None,failure_text=error_text(error),
+                     reasons=['collection_failed'],events=[],journal=journal,samples={})]
+        result = dict(manifest=meta,events=[],journal=journal,samples=[],rows=rows,
+                      reasons=['collection_failed'],wall_secs=0)
+        write(out/'run.json',result)
+        return result
+
+
+def error_text(error):
+    return type(error).__name__+': '+str(error)
+
+
+def collect_run(meta, out):
+    reasons = validate_manifest(meta)
+    try:
+        bound, pin_reasons = bind_binary(meta)
+        meta.update(bound)
     except OSError as error:
-        meta = dict(meta, binary_sha256=None)
+        meta.update(binary_sha256=None)
         pin_reasons = ['binary_unavailable: '+str(error)]
     reasons.extend(pin_reasons)
     meta.setdefault('first_call_wait_secs',20)
     meta.setdefault('cycles',1 if meta['arm'] in ('resident','reference') else 2)
+    budget = prepare(meta)
     write(out/'manifest.json',meta)
     sampler, journal, samples, collector, engine, process = Sampler(), [], [], None, None, None
     active = {'demand_id':None, 'attempts':set()}
     started = time.monotonic()
-    expires = started + meta.get('timeout_secs', meta['requested_idle_secs']*meta.get('cycles',2)+180)
+    expires = started + budget
     def pump():
         if time.monotonic() >= expires:
             raise TimeoutError('run deadline')
@@ -104,7 +128,10 @@ def collect(meta, out):
                     active['attempts'].add(e['attempt'])
                     journal.append(dict(kind='attempt',demand_id=active['demand_id'],
                                         epoch_ns=e['epoch_ns'],attempt=e['attempt']))
-            engine.observe(new); engine.tick()
+            engine.observe(new)
+            if active.get('served_arrival') is not None:
+                engine.served(active['attempts'],active['served_arrival'])
+            engine.tick()
         return process.responses()
     def wait_for(predicate):
         while not predicate():
@@ -148,7 +175,7 @@ def collect(meta, out):
             if cycle==1 and meta.get('startup')=='background':
                 demand.update(epoch_ns=launch_epoch_ns,prewarm=True)
             journal.append(demand)
-            active.update(demand_id=demand_id,attempts=set())
+            active.update(demand_id=demand_id,attempts=set(),served_arrival=None)
             current_attempts = active['attempts']
             if cycle==1 and meta.get('startup')=='background':
                 for e in collector.events:
@@ -165,6 +192,9 @@ def collect(meta, out):
                           result.get('isError')) else 'served'
                 journal.append(dict(kind='response',demand_id=demand_id,epoch_ns=arrival,
                                     outcome=outcome,response=response))
+                if outcome == 'served':
+                    active['served_arrival'] = arrival
+                    engine.served(current_attempts,arrival)
                 pump()
                 if outcome != 'warming':
                     break
@@ -174,28 +204,34 @@ def collect(meta, out):
                 journal.append(dict(kind='failed',demand_id=demand_id,epoch_ns=arrival,reason=str(response)))
                 break
             if meta['arm']=='resident':
-                paired = json.loads(Path(meta['resident_pair']).read_text())
-                match = next(x for x in paired['rows'] if x['cycle']==cycle)
-                if any(meta[k] != match[k] for k in ('corpus_pin','workload_hash','commit','features','binary_sha256','mode','pair_id')):
-                    raise ValueError('resident pairing provenance mismatch')
+                match = meta['resident_pairing']
+                local = [e for e in collector.events if e['event']=='publication' and
+                         e['attempt'] in current_attempts and e['outcome']=='complete']
+                if len(local) != 1:
+                    raise ValueError('resident requires unique local publication')
                 for delay,label in ((5,'idle5'),(30,'idle30')):
                     due = resident_deadline(arrival,match['last_response_epoch_ns'],match['disposal_end_epoch_ns'],delay)
-                    engine.enqueue(label,due,dict(epoch_ns=arrival,attempt=match['attempt'],generation=match['generation']))
+                    engine.enqueue(label,due,dict(epoch_ns=arrival,attempt=local[0]['attempt'],
+                                                  generation=local[0]['generation']))
             else:
                 wait_for(lambda:any(e['event']=='disposal_end' and e['attempt'] in current_attempts for e in collector.events))
             hold = meta.get('smoke_hold_secs',30) if meta.get('smoke_only') else 30
             if hold >= 30:
                 wait_for(lambda:not engine.pending)
         pump()
-    except (OSError, ValueError, TimeoutError, EOFError, KeyboardInterrupt) as error:
-        reasons.append('collection_failed')
+    except (Exception, KeyboardInterrupt) as error:
         journal.append(dict(kind='abandoned',demand_id=journal[-1].get('demand_id','none') if journal else 'none',
-                            epoch_ns=time.time_ns(),reason=str(error)))
+                            epoch_ns=time.time_ns(),reason=error_text(error)))
     finally:
         if process:
-            process.close()
+            try:
+                process.close()
+            except Exception as error:
+                reasons.append('cleanup_failed: '+error_text(error))
+                process.cleanup_confirmed = False
             if process.child.returncode != 0:
-                reasons.append('child_exit_'+str(process.child.returncode))
+                journal.append(dict(kind='abandoned',demand_id=active['demand_id'],
+                    epoch_ns=time.time_ns(),reason='child_exit_'+str(process.child.returncode)))
             if not process.cleanup_confirmed:
                 reasons.append('shutdown_unconfirmed')
         if collector:

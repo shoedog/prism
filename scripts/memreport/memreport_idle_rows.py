@@ -7,7 +7,7 @@ FIELDS = ('binary_sha256 commit features corpus corpus_pin workload_hash cache_c
           'instance client_count first_call_wait_secs cycle attempt generation first_request '
           'cpg sidecar heap_delta_bytes relief_returned_bytes demand_readiness_ns build_time_ns '
           'first_served_ns failure_text last_response_epoch_ns disposal_end_epoch_ns footprint_bytes '
-          'rss_bytes pair_id edges_unused').split()
+          'rss_bytes pair_id edges_unused resident_pairing declared_binary_sha256').split()
 
 
 def number(value):
@@ -24,7 +24,7 @@ def rows_for_run(meta, events, journal, samples, exclusions):
     rows = []
     for demand in demands:
         row = {k: meta.get(k) for k in FIELDS}
-        row.update(status='UNKNOWN', reasons=list(exclusions), events=[], journal=[], samples={},
+        row.update(status='UNKNOWN', run_reasons=list(exclusions), reasons=list(exclusions), events=[], journal=[], samples={},
                    polling=[], prewarm=[], outcome='unpublished', boundary='idle30', ending_unload=False,
                    demand_readiness_ns=None, build_time_ns=None, first_served_ns=None,
                    stage_durations_ns={k:None for k in ('load_parse_ns','f_validation_ns','index_ns','bootstrap_ns')},
@@ -36,7 +36,8 @@ def rows_for_run(meta, events, journal, samples, exclusions):
         row['prewarm'] = [x for x in linked if x.get('prewarm')]
         row['first_request'] = demand.get('request_hash')
         row['cycle'] = demand.get('cycle', 1)
-        row['score_memory'] = row['cycle'] == meta.get('score_cycle',1)
+        row['score_memory'] = row['cycle'] == (1 if meta.get('arm')=='resident' else meta.get('score_cycle',1))
+        row['changed_snapshot'] = row['cycle'] in meta.get('changed_snapshot_cycles',[])
         row['kind'] = 'reference' if meta.get('arm')=='reference' else 'reload' if row['cycle']>1 else 'initial'
         selected = [e for e in events if e.get('attempt') in attempts and
                     (meta.get('instance') is None or identity(e) == tuple(map(str,meta['instance'])))]
@@ -86,19 +87,23 @@ def rows_for_run(meta, events, journal, samples, exclusions):
                 row['relief_returned_bytes'] = number(e['released_bytes'])
             for sample in samples:
                 if sample.get('attempt') == attempt and sample.get('generation') == generation:
-                    row['samples'][sample['boundary']] = sample
-                    row['reasons'].extend(sample.get('reasons',[]))
+                    row['samples'][sample['boundary']] = dict(sample,reasons=list(sample.get('reasons',[])))
             pre = next((s for s in samples if s['boundary']=='pre_index'), None)
             if pre:
+                pre = dict(pre,reasons=list(pre.get('reasons',[])))
                 row['samples']['pre_index'] = pre
                 if starts and pre.get('end_epoch_ns') is not None and pre['end_epoch_ns'] >= min(starts):
-                    row['reasons'].append('pre_index_after_build')
+                    pre['reasons'].append('pre_index_after_build')
                 if pre.get('end_epoch_ns') is not None and pre['end_epoch_ns'] >= demand['epoch_ns']:
-                    row['reasons'].append('pre_index_after_call')
-                row['reasons'].extend(pre.get('reasons',[]))
+                    pre['reasons'].append('pre_index_after_call')
             for boundary in ('pre_index','loaded','idle5','idle30'):
                 if boundary not in row['samples']:
-                    row['reasons'].append('missing_sample_'+boundary)
+                    row['samples'][boundary] = dict(reasons=['missing_sample_'+boundary])
+                sample = row['samples'][boundary]
+                if sample.get('reasons') or sample.get('footprint_bytes') is None:
+                    sample.update(status='UNKNOWN',footprint_bytes=None,rss_bytes=None)
+                else:
+                    sample['status'] = 'ADMITTED'
             row['pre_index_deltas'] = {}
             for field in ('footprint_bytes','rss_bytes'):
                 loaded_value = row['samples'].get('loaded',{}).get(field)
@@ -106,6 +111,7 @@ def rows_for_run(meta, events, journal, samples, exclusions):
                 row['pre_index_deltas'][field] = (loaded_value-pre_value if loaded_value is not None
                                                  and pre_value is not None else None)
             idle = row['samples'].get('idle30', {})
+            row['reasons'].extend(idle.get('reasons',[]))
             row['footprint_bytes'],row['rss_bytes'] = idle.get('footprint_bytes'),idle.get('rss_bytes')
             if row['footprint_bytes'] is not None and not row['reasons']:
                 row['status'] = 'ADMITTED'

@@ -83,6 +83,8 @@ def sweep(sampler, members, inventory, observe=None):
         reasons.append('missing_members')
     if dict(inventory()) != dict(members):
         reasons.append('inventory_changed')
+        owner = getattr(inventory,'__self__',None)
+        reasons.extend(getattr(owner,'inventory_reasons',[]))
     return dict(start_epoch_ns=start, end_epoch_ns=time.time_ns(), members=readings, reasons=reasons,
                 footprint_bytes=None if reasons else sum(v['footprint_bytes'] for v in readings),
                 rss_bytes=None if reasons else sum(v['rss_bytes'] for v in readings))

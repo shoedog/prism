@@ -123,11 +123,11 @@ class Driver(unittest.TestCase):
             value=r.rows_for_run(meta,events,journal,samples,[])[0]
         except TypeError as error:
             self.fail('missing clock must preserve a row: '+str(error))
-        self.assertIn('missing_clock',value['reasons'])
+        self.assertIn('missing_clock',value['samples']['pre_index']['reasons'])
         samples[0].update(end_epoch_ns=start+1,reasons=[])
         value=r.rows_for_run(meta,events,journal,samples,[])[0]
-        self.assertIn('pre_index_after_build',value['reasons'])
-        self.assertIn('pre_index_after_call',value['reasons'])
+        self.assertIn('pre_index_after_build',value['samples']['pre_index']['reasons'])
+        self.assertIn('pre_index_after_call',value['samples']['pre_index']['reasons'])
 
     def test_observed_settings_and_binary_pin(self):
         status=dict(index_idle_timeout_secs=0,index_idle_pressure_relief=False,admitted=2)

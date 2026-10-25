@@ -27,8 +27,8 @@
     ],
     "I0c-gate-on-15pct-idle": [
       "scripts/memreport/memreport_idle_readout.py",
-      "    total = len(rows)",
-      "    memory_gate &= all(saving(a,b)['idle_fraction'] <= .15 for pairs in groups.values() for a,b in pairs)\n    total = len(rows)",
+      "    memory_gate = arm_results(rows,results,arms,corpora,duplicate)",
+      "    memory_gate = arm_results(rows,results,arms,corpora,duplicate)\n    for arm in arms:\n        memory_gate[arm]['pass'] &= all(f <= .15 for key,v in results.items() if key.split('/')[1]==arm for f in v.get('idle_fractions',[]))",
       "test_memreport_idle_readout.Readout.test_idle_readout_denominators_and_outcomes"
     ],
     "I0c-rusage-failure-zero": [
@@ -164,15 +164,15 @@
       "test_memreport_idle_readout.Readout.test_ranges_and_relief"
     ],
     "I0c-two-corpora": [
-      "scripts/memreport/memreport_idle_readout.py",
-      "            memory_gate &= passes >= 2",
-      "            memory_gate &= passes >= 1",
+      "scripts/memreport/memreport_idle_results.py",
+      "status='PASS' if passes >= 2 else 'UNKNOWN' if passes+unknown >= 2 else 'FAIL'",
+      "status='PASS' if passes >= 1 else 'UNKNOWN' if passes+unknown >= 1 else 'FAIL'",
       "test_memreport_idle_readout.Readout.test_idle_readout_denominators_and_outcomes"
     ],
     "I0c-idle-cap": [
-      "scripts/memreport/memreport_idle_readout.py",
-      "                                 x['footprint_bytes'] <= 128*MIB for x in candidates))",
-      "                                 x['footprint_bytes'] <= 129*MIB for x in candidates))",
+      "scripts/memreport/memreport_idle_results.py",
+      "x['footprint_bytes'] > 128*MIB",
+      "x['footprint_bytes'] > 129*MIB",
       "test_memreport_idle_readout.Readout.test_idle_readout_denominators_and_outcomes"
     ],
     "I0c-exact-ending-unload": [
@@ -244,7 +244,7 @@
     "I0c-prelaunch-failure": [
       "scripts/memreport/memreport_idle_driver.py",
       "        pin_reasons = ['binary_unavailable: '+str(error)]",
-      "        raise error",
+      "        return dict(rows=[])",
       "test_memreport_idle_driver.Driver.test_prelaunch_failure_keeps_row"
     ],
     "I0c-runtime-custody": [
@@ -255,9 +255,123 @@
     ],
     "I0c-shutdown-confirmation": [
       "scripts/memreport/memreport_idle_process.py",
-      "        self.cleanup_confirmed = not self.owned_daemon",
+      "        self.cleanup_confirmed = bool(child_done and custody_ok and all_gone and\n                                      (not shared or self.cleanup_daemons))",
       "        self.cleanup_confirmed = True",
       "test_memreport_idle_driver.Driver.test_shutdown_checks_os_identity"
+    ],
+    "I0c-r1-1-resident-budget": [
+      "scripts/memreport/memreport_idle_pairing.py",
+      "        default = meta['resident_pairing']['delta_ns']/1000000000+30+180",
+      "        default = 180",
+      "test_memreport_idle_fold_collect.FoldCollect.test_resident_recipe_budget"
+    ],
+    "I0c-r1-1-explicit-short-timeout": [
+      "scripts/memreport/memreport_idle_pairing.py",
+      "    if meta['arm']=='resident' and timeout < default:",
+      "    if False:",
+      "test_memreport_idle_fold_collect.FoldCollect.test_resident_recipe_budget"
+    ],
+    "I0c-r1-2-report-boundary-gate": [
+      "scripts/memreport/memreport_idle_rows.py",
+      "            row['reasons'].extend(idle.get('reasons',[]))",
+      "            row['reasons'].extend(r for s in row['samples'].values() for r in s.get('reasons',[]))",
+      "test_memreport_idle_fold_rules.FoldRules.test_report_boundaries_do_not_gate"
+    ],
+    "I0c-r1-2-cycle-failure-global": [
+      "scripts/memreport/memreport_idle_driver.py",
+      "    except (Exception, KeyboardInterrupt) as error:\n        journal.append",
+      "    except (Exception, KeyboardInterrupt) as error:\n        reasons.append('collection_failed')\n        journal.append",
+      "test_memreport_idle_fold_collect.FoldCollect.test_cycle_two_failure_is_local"
+    ],
+    "I0c-r1-2-memory-gates-latency": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    candidate = dict(row,reasons=reasons,status='ADMITTED',footprint_bytes=0)",
+      "    candidate = dict(row)",
+      "test_memreport_idle_fold_rules.FoldRules.test_latency_independent_of_idle_memory"
+    ],
+    "I0c-r1-3-scored-candidate": [
+      "scripts/memreport/memreport_idle_pairing.py",
+      "if x.get('score_memory') is True and x.get('arm') in ('A','A+C')",
+      "if x.get('cycle') == 1 and x.get('arm') in ('A','A+C')",
+      "test_memreport_idle_fold_collect.FoldCollect.test_selected_candidate_and_local_tags"
+    ],
+    "I0c-r1-3-validate-pairing": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    validate_pairing(base,candidate)",
+      "    pass  # mutant: accept mismatched source",
+      "test_memreport_idle_fold_rules.FoldRules.test_pair_provenance_checked_when_scoring"
+    ],
+    "I0c-r1-4-loaded-before-query": [
+      "scripts/memreport/memreport_idle_schedule.py",
+      "            if task['boundary'] == 'loaded' and task['attempt'] not in self.completed_queries:",
+      "            if False:",
+      "test_memreport_idle_fold_rules.FoldRules.test_loaded_waits_for_served_query"
+    ],
+    "I0c-r1-5-inventory-suppressed": [
+      "scripts/memreport/memreport_idle_process.py",
+      "            if reason:\n                self.inventory_reasons.append",
+      "            if reason == 'exited_process':\n                self.inventory_reasons.append",
+      "test_memreport_idle_fold_process.FoldProcess.test_inventory_recheck_failure_is_unknown"
+    ],
+    "I0c-r1-6-pre-discovery-custody": [
+      "scripts/memreport/memreport_idle_process.py",
+      "        if getattr(self,'meta',{}).get('mode') != 'shared':",
+      "        if True:",
+      "test_memreport_idle_fold_process.FoldProcess.test_pre_discovery_failure_has_custody"
+    ],
+    "I0c-r1-6-os-before-shutdown": [
+      "scripts/memreport/memreport_idle_process.py",
+      "            if not same:\n                all_gone &= gone\n                continue",
+      "            if False:\n                all_gone &= gone\n                continue",
+      "test_memreport_idle_fold_process.FoldProcess.test_shutdown_errors_and_unknown_identity"
+    ],
+    "I0c-r1-7-durable-exception-boundary": [
+      "scripts/memreport/memreport_idle_driver.py",
+      "    except (Exception, KeyboardInterrupt) as error:\n        meta =",
+      "    except (OSError, ValueError, TimeoutError, EOFError, KeyboardInterrupt) as error:\n        meta =",
+      "test_memreport_idle_fold_collect.FoldCollect.test_all_named_exceptions_write_run"
+    ],
+    "I0c-r1-8-unknown-is-mixed": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "                if x.get('binary_sha256') is not None}",
+      "                if True}",
+      "test_memreport_idle_fold_rules.FoldRules.test_failed_binary_keeps_denominator"
+    ],
+    "I0c-r1-9-readiness-subtraction": [
+      "scripts/memreport/memreport_idle_rows.py",
+      "demand_readiness_ns=span(publication['epoch_ns'],demand['epoch_ns']))",
+      "demand_readiness_ns=span(publication['epoch_ns'],next(e['epoch_ns'] for e in selected if e['event']=='build_start' and e['attempt']==attempt)))",
+      "test_memreport_idle_fold_timing.FoldTiming.test_readiness_build_poll_retry_and_abandonment"
+    ],
+    "I0c-r1-S1-relief-filters-M": [
+      "scripts/memreport/memreport_idle_readout.py",
+      " == 'ADMITTED']",
+      " == 'ADMITTED' and relief_ok(b)]",
+      "test_memreport_idle_fold_rules.FoldRules.test_relief_is_independent_and_per_arm"
+    ],
+    "I0c-r1-S2-arms-conjoined": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    total = len(rows)",
+      "    for arm in arms:\n        memory_gate[arm]['pass'] = all(x['pass'] for x in memory_gate.values())\n    total = len(rows)",
+      "test_memreport_idle_fold_rules.FoldRules.test_per_arm_cap_and_coverage"
+    ],
+    "I0c-r1-S3-empty-cap-passes": [
+      "scripts/memreport/memreport_idle_results.py",
+      "'UNKNOWN' if missing else 'PASS'",
+      "'PASS' if missing else 'PASS'",
+      "test_memreport_idle_fold_rules.FoldRules.test_per_arm_cap_and_coverage"
+    ],
+    "I0c-r1-S4-pooled-only": [
+      "scripts/memreport/memreport_idle_results.py",
+      "        for key in keys:",
+      "        for key in keys[:1]:",
+      "test_memreport_idle_fold_rules.FoldRules.test_service_counts_and_proportions"
+    ],
+    "I0c-r1-9-build-subtraction": [
+      "scripts/memreport/memreport_idle_rows.py",
+      "row['build_time_ns'] = span(publication['epoch_ns'], min(starts)) if starts else None",
+      "row['build_time_ns'] = span(publication['epoch_ns'], demand['epoch_ns']) if starts else None",
+      "test_memreport_idle_fold_timing.FoldTiming.test_readiness_build_poll_retry_and_abandonment"
     ]
   }
 }
