@@ -38,6 +38,9 @@ pub(super) fn classify_edge(
     if capture::is_capture(edge, capture_facts) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
+    if scope::rust_scope::let_else_cfg_gap(parsed, edge) {
+        return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
     if let Some(construct_line) = unplaced_go_parameter(parsed, edge) {
         return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),

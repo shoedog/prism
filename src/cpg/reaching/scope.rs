@@ -1,7 +1,7 @@
 //! Lexical binding ownership for reaching definitions.
 
 mod masks;
-mod rust_scope;
+pub(super) mod rust_scope;
 mod use_lookup;
 use super::binding_table::{
     rows, select_binding_row, BindingScopeRule, DeclarationKind, Role, Ruling, Visibility,

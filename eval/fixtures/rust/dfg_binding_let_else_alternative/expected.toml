@@ -1,0 +1,23 @@
+[case]
+language = "rust"
+capability = "dfg_binding_let_else_alternative"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.rs:2:x"
+to = "main.rs:10:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:5:x"
+to = "main.rs:10:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.rs:2:x"
+to = "main.rs:8:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
