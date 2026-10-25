@@ -1042,3 +1042,7 @@ mod split_tests;
 #[cfg(test)]
 #[path = "transport_loop_tests.rs"]
 mod loop_tests;
+
+#[cfg(test)]
+#[path = "transport_retry_tests.rs"]
+mod retry_tests;
