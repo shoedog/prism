@@ -32,6 +32,7 @@ pub(super) struct DaemonArgs {
     /// its own.
     pub(super) idle_ttl: Option<u64>,
     pub(super) max_clients: Option<u32>,
+    pub(super) idle_policy: crate::mcp::idle::IdlePolicy,
 }
 
 impl DaemonArgs {
@@ -56,6 +57,19 @@ impl DaemonArgs {
         }
         if let Some(max) = self.max_clients {
             args.extend(["--max-clients".into(), max.to_string().into()]);
+        }
+        // Always explicit, including off: the child must not decide policy from inherited env.
+        args.extend([
+            "--index-idle-secs".into(),
+            self.idle_policy
+                .timeout
+                .unwrap_or_default()
+                .as_secs()
+                .to_string()
+                .into(),
+        ]);
+        if self.idle_policy.pressure_relief {
+            args.push("--index-idle-pressure-relief".into());
         }
         args
     }

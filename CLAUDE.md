@@ -466,16 +466,20 @@ a build marker is a daemon that died during its build: the first shim to see it 
 sighting in the marker, and the key is not restarted for 60 s from that sighting (the restart bound
 for a build that keeps dying, however long it runs). `key_files.rs` opens the key's files through
 the runtime directory's descriptor with `daemon::files`' functions. `spawn.rs` starts `prism-mcp daemon` from the
-same executable with the shim's canonical root, cache base, refresh policy and full key (and
+same executable with the shim's canonical root, cache base, refresh policy, full key and resolved
+`--index-idle-secs S` (including zero), plus `--index-idle-pressure-relief` when requested (and
 `--warm-at-startup`, `--idle-ttl`, `--max-clients` when the shim has them), in a session of its own
 (`setsid`), from `/`, standard input null, output appended (`O_APPEND`) to `<key16>.log`, without
 `PRISM_NAV_EDGE_CACHE_LOAD_DIRTY`. `diagnostic.rs` writes the one fail-closed line (reason, key,
-runtime dir, socket, pid file contents, log, and the `--standalone` invocation, named for failures
+runtime dir, socket, pid file contents, log, and the `--standalone` invocation carrying the selected
+idle seconds and relief intent, named for failures
 before the key is known too; control characters escaped); exit 1. `pump.rs` carries the session
 byte for byte: the client's end of input half-closes the socket and the daemon's last responses are
 still delivered (exit 0); a daemon that closes first ends the session (exit 1) and the shim never
 reconnects. `run.rs` is `run_shim`; on `READY` it writes `prism-mcp: shared daemon pid N (started
-T, generation G) at <socket>` to stderr.
+T, generation G) at <socket>; index STATE; index_idle_timeout_secs=S; index_idle_pressure_relief=B`
+to stderr. A differing applicable request adds one mismatch line naming effective/requested
+seconds (and relief when it differs), keeping first-spawner policy; inapplicable relief gets the unused note.
 
 The operator's commands (`src/mcp/shim/`, clients of the same sockets and files; spec §4.7):
 `prism-mcp daemon-status [--repo X [--cache-dir D] [--refresh-policy P]] [--runtime-dir BASE]

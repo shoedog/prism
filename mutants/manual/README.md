@@ -1,6 +1,6 @@
 # Manual feature and Python mutations
 
-Each catalog's own section below gives its count (O-lite adds **23**); the JSON files are the source of truth.
+Each catalog's own section below gives its count (O-lite adds **23**, I0c-1 adds **13**); the JSON files are the source of truth.
 
 The shared `scripts/mutgate/mutgate.py` gate reads only `mutants/*.json`, builds without features and has
 no Python test runner. Catalogs here are intentionally outside that glob. Do not pass them to that runner.
@@ -83,3 +83,26 @@ and emission after serving leases. The identity regressions cover warming attemp
 generation, failed-reload generation and initial-retry publication reasons. Hash-verify every restoration and require each restored selector GREEN.
 Keep all raw receipts outside the checkout. I0b-1 + I0b-2 + O-lite total **50 mutants**; the ordinary
 shared-catalog gate and Tier-A remain separate controller gates.
+
+## `i0c-1.json` (Rust shim/operator, `--features mcp`)
+
+The **13 mutants** use exact selectors and edit lists in the I0b-2 format. Follow steps 1–6;
+run `env CARGO_BUILD_JOBS=4 cargo test --offline --features mcp --lib SELECTOR -- --exact`.
+For `target: "prism-mcp"`, replace `--lib` with `--bin prism-mcp`. No `nice` in this sandbox.
+For `target: "mcp", target_kind: "test"`, use `--test mcp` instead of `--lib`.
+Require exactly one executed behavioral failure, restore saved candidate bytes in `finally`,
+verify SHA-256, and require the same selector GREEN. A compiler error, zero tests or socket
+permission refusal is inadmissible. The shared-relief applicability witness needs macOS;
+on another host route that selector to a macOS host and report the exclusion.
+
+The four binding mutants cover dropped spawn settings, env overriding zero, suppressed mismatch
+and requested policy reported as effective. Six more cover relief forwarding/applicability,
+old-control guidance, truthful human STATUS fields, invalid settings and index/client separation.
+Three round-1 mutants cover applicable-relief comparison and standalone suggestions retaining
+resolved seconds and relief intent. The inherited `I0-pressure-relief-silent` anchor is rebound
+in its catalog to the current applicability rule. Also re-run existing manual mutants whose
+file or anchor changed, recording the rebind externally rather than silently accepting a missing anchor.
+Keep logs, exact selectors/counts
+and before/mutant/restored hashes outside the repo. I0b-1 + I0b-2 + O-lite + I0c-1 total
+**63 mutants**; Python I0c collection belongs to a separate catalog/lane. Tier-A and the ordinary
+shared-catalog gate remain controller-owned.

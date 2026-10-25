@@ -30,9 +30,10 @@ impl IdlePolicy {
     }
 
     /// One entry-point warning when the requested measurement arm cannot run.
-    pub fn pressure_relief_note(&self, requested: bool, shared: bool) -> Option<&'static str> {
-        (requested && (shared || self.timeout.is_none() || !cfg!(target_os = "macos")))
-            .then_some("prism-mcp: --index-idle-pressure-relief is unused: requires enabled ordinary stdio I0 on macOS")
+    pub fn pressure_relief_note(&self, requested: bool, _shared: bool) -> Option<&'static str> {
+        (requested && (self.timeout.is_none() || !cfg!(target_os = "macos"))).then_some(
+            "prism-mcp: --index-idle-pressure-relief is unused: requires enabled I0 on macOS",
+        )
     }
 
     /// Resolve once at the entry point. Unsupported modes ignore ambient values, including

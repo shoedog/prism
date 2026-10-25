@@ -129,10 +129,15 @@ pub(super) fn pid_file(paths: &DaemonPaths, dir_validated: bool) -> String {
 }
 
 /// The invocation that serves the same configuration in process: this executable, the same
-/// repository, cache, refresh policy, first-call wait and warm start, and `--standalone`. It is
+/// repository, cache, refresh policy, first-call wait, warm start and selected idle request. It is
 /// one line of shell a user can run as printed: every word is quoted for the shell from its
 /// bytes, so it holds no control character whatever the paths hold (review round 1, sol 2).
-pub(super) fn standalone_invocation(exe: &Path, cfg: &ServerConfig) -> String {
+pub(super) fn standalone_invocation(
+    exe: &Path,
+    cfg: &ServerConfig,
+    idle_secs: &str,
+    pressure_relief: bool,
+) -> String {
     let mut words: Vec<OsString> = vec![
         exe.as_os_str().to_owned(),
         "--repo".into(),
@@ -155,6 +160,10 @@ pub(super) fn standalone_invocation(exe: &Path, cfg: &ServerConfig) -> String {
     }
     if cfg.startup == StartupMode::Background {
         words.push("--warm-at-startup".into());
+    }
+    words.extend(["--index-idle-secs".into(), idle_secs.into()]);
+    if pressure_relief {
+        words.push("--index-idle-pressure-relief".into());
     }
     words.push("--standalone".into());
     words

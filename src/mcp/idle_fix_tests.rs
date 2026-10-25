@@ -224,7 +224,10 @@ fn idle_pressure_relief_unused_note() {
     let on = IdlePolicy::enabled(Duration::from_secs(600));
     assert!(off.pressure_relief_note(false, false).is_none());
     assert!(off.pressure_relief_note(true, false).is_some());
-    assert!(on.pressure_relief_note(true, true).is_some());
+    assert_eq!(
+        on.pressure_relief_note(true, true).is_none(),
+        cfg!(target_os = "macos")
+    );
     assert_eq!(
         on.pressure_relief_note(true, false).is_none(),
         cfg!(target_os = "macos")

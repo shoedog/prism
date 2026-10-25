@@ -15,6 +15,8 @@ mod control;
 #[cfg(test)]
 mod control_support;
 mod diagnostic;
+#[cfg(test)]
+mod idle_tests;
 mod key_files;
 mod pump;
 mod run;

@@ -56,8 +56,8 @@ fn a_daemon_that_answers_is_listed_with_its_instance_and_state() {
         about_the_key(base.path(), &paths),
         format!(
             "{LOCATOR} pid 4242, started 1760600000, serving /work/repo\n  key {}; build {}\n  \
-             clients: 1 admitted, 0 pending, at most 64; in use\n  index: ready (attempt 1, \
-             generation 2)\n",
+             clients: 1 admitted, 0 pending, at most 64; connected; in use\n  index: ready (attempt 1, \
+             generation 2)\n  effective index idle policy: index_idle_timeout_secs=0; index_idle_pressure_relief=false\n",
             key(),
             "b".repeat(64)
         )

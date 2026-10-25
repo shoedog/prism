@@ -16,7 +16,7 @@ struct Cli {
     warm_at_startup: bool,
     #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u64).range(0..=600))]
     first_call_wait: u64,
-    /// Unload an ordinary stdio index after this many idle seconds (0 disables). Off unless this flag or
+    /// Unload a stdio or shared index after this many idle seconds (0 disables). Off unless this flag or
     /// PRISM_MCP_INDEX_IDLE_SECS is set; measurement runs pass 600 explicitly.
     #[arg(long)]
     index_idle_secs: Option<String>,
@@ -306,15 +306,9 @@ fn main() -> anyhow::Result<()> {
     }
 
     if c.shared {
-        if let Some(note) = prism::mcp::idle::IdlePolicy::default()
-            .pressure_relief_note(c.index_idle_pressure_relief, true)
-        {
-            eprintln!("{note}");
-        }
-        if c.index_idle_secs.is_some() {
-            eprintln!("prism-mcp: --index-idle-secs is unused by the shared shim in I0a");
-        }
         std::process::exit(prism::mcp::run_shim(prism::mcp::ShimOptions {
+            index_idle_secs: c.index_idle_secs,
+            index_idle_pressure_relief: c.index_idle_pressure_relief,
             config: cfg,
             start_timeout: std::time::Duration::from_secs(
                 c.daemon_start_timeout
@@ -380,3 +374,7 @@ mod mem_cli_tests {
 #[cfg(test)]
 #[path = "prism-mcp/daemon_idle_tests.rs"]
 mod daemon_idle_tests;
+
+#[cfg(test)]
+#[path = "prism-mcp/idle_tests.rs"]
+mod idle_tests;
