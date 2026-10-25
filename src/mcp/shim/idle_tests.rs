@@ -165,6 +165,41 @@ fn shim_idle_first_spawner_mismatch_once() {
 }
 
 #[test]
+fn shim_idle_mismatch_uses_applicable_relief() {
+    let (_root, mut options, identity) = options();
+    for seconds in [0, 7] {
+        options.index_idle_secs = Some(seconds.to_string());
+        options.index_idle_pressure_relief = true;
+        let args = daemon_args(&identity, &options, None).unwrap();
+        let mut ready = Ready {
+            identity: identity.key(),
+            pid: 4242,
+            start_time: 123,
+            generation: 0,
+            build: BuildState::Idle,
+            index_idle_timeout_secs: seconds,
+            index_idle_pressure_relief: seconds != 0 && cfg!(target_os = "macos"),
+        };
+        let lines = ready_lines(&ready, &args, Path::new("/socket"));
+        assert_eq!(
+            lines.len(),
+            1,
+            "only inapplicable relief differs: {lines:?}"
+        );
+        // Applicability must not hide a different first spawner's timeout.
+        ready.index_idle_timeout_secs = seconds + 1;
+        let lines = ready_lines(&ready, &args, Path::new("/socket"));
+        assert_eq!(
+            lines.len(),
+            2,
+            "timeout mismatch remains visible: {lines:?}"
+        );
+        assert!(lines[1].contains("keeping first-spawner policy"));
+        assert!(!lines[1].contains("pressure_relief"), "{lines:?}");
+    }
+}
+
+#[test]
 fn operator_idle_unloaded_status() {
     for build in [
         BuildState::Idle,

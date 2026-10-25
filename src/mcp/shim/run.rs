@@ -58,12 +58,24 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
     let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("prism-mcp"));
     let given_root = std::path::absolute(&options.config.repo_root)
         .unwrap_or_else(|_| options.config.repo_root.clone());
+    let ambient = std::env::var_os("PRISM_MCP_INDEX_IDLE_SECS");
+    // Lossy conversion remains invalid numeric input; an explicit zero still overrides it.
+    let ambient = ambient.as_deref().map(|value| value.to_string_lossy());
+    // Pin the selected seconds even before validation, so early failures reproduce the request
+    // and invalid requests stay invalid rather than silently inheriting a different policy.
+    let idle_secs = options
+        .index_idle_secs
+        .as_deref()
+        .or(ambient.as_deref())
+        .unwrap_or("0");
     let standalone = standalone_invocation(
         &exe,
         &ServerConfig {
             repo_root: given_root,
             ..options.config.clone()
         },
+        idle_secs,
+        options.index_idle_pressure_relief,
     );
     let fail = |reason: &dyn std::fmt::Display, at: Where<'_>| {
         fail_closed_line(&reason.to_string(), &at, &standalone)
@@ -93,9 +105,6 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
     let cfg = canonical_config(&options.config).map_err(|e| early(&e))?;
     let identity = DaemonIdentity::resolve(&cfg).map_err(|e| early(&e))?;
     let key = identity.key();
-    let ambient = std::env::var_os("PRISM_MCP_INDEX_IDLE_SECS");
-    // Lossy conversion remains invalid numeric input; an explicit zero still overrides it.
-    let ambient = ambient.as_deref().map(|value| value.to_string_lossy());
     let args = daemon_args(&identity, options, ambient.as_deref()).map_err(|e| early(&e))?;
     if let Some(note) = args
         .idle_policy
@@ -211,7 +220,9 @@ pub(super) fn ready_lines(
     socket: &std::path::Path,
 ) -> Vec<String> {
     let requested_secs = args.idle_policy.timeout.unwrap_or_default().as_secs();
-    let requested_relief = args.idle_policy.pressure_relief;
+    // The unused note covers inapplicable intent; only applicable policy can differ by spawner.
+    let requested_relief = args.idle_policy.pressure_relief
+        && args.idle_policy.pressure_relief_note(true, true).is_none();
     let mut lines = vec![one_line(&format!(
         "prism-mcp: shared daemon pid {} (started {}, generation {}) at {}; index {}; index_idle_timeout_secs={}; index_idle_pressure_relief={}",
         ready.pid, ready.start_time, ready.generation, socket.display(), ready.build.word(),

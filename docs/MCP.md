@@ -366,8 +366,9 @@ prism-mcp: shared daemon pid 4242 idle policy mismatch: effective index_idle_tim
 ```
 
 If relief differs, that same line also names effective and requested
-`index_idle_pressure_relief`. Requested relief intent can differ from effective relief when
-idle is off or the platform cannot apply it. Equal settings produce no mismatch line. This
+`index_idle_pressure_relief`, comparing the request after relief applicability is applied.
+Relief requested with idle off or outside macOS gets the unused note instead of a relief mismatch.
+Equal applicable settings produce no mismatch line. This
 diagnostic does not restart or kill the daemon, reconnect the session, or replay a request.
 
 ### What changes for a client

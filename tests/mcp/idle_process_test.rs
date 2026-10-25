@@ -96,10 +96,18 @@ fn shared_idle_spawn_reload_process() {
         format!("pid {pid}"),
         "effective index_idle_timeout_secs=1".into(),
         "requested index_idle_timeout_secs=7".into(),
-        "effective index_idle_pressure_relief=false; requested index_idle_pressure_relief=true"
-            .into(),
     ] {
         assert!(mismatch[0].contains(&part), "{said}");
+    }
+    if cfg!(target_os = "macos") {
+        assert!(mismatch[0].contains(
+            "effective index_idle_pressure_relief=false; requested index_idle_pressure_relief=true"
+        ), "{said}");
+    } else {
+        assert!(
+            !mismatch[0].contains("index_idle_pressure_relief="),
+            "{said}"
+        );
     }
     assert!(
         said.contains("index_idle_timeout_secs=1; index_idle_pressure_relief=false"),
@@ -227,7 +235,7 @@ fn shared_idle_cli_resolution_process() {
             text.lines()
                 .filter(|l| l.contains("idle policy mismatch"))
                 .count(),
-            usize::from(relief != effective_relief),
+            0,
             "{text}"
         );
     }
@@ -253,5 +261,57 @@ fn shared_idle_invalid_settings_process() {
         assert!(!output.status.success(), "{flag:?}/{env}: {text}");
         assert!(text.contains("index idle seconds"), "{text}");
         assert!(!setup.paths.socket().exists(), "must not spawn");
+    }
+}
+
+#[test]
+fn shared_idle_fail_closed_suggestion_preserves_request() {
+    for early in [false, true] {
+        for (flag, env, relief, expected) in [
+            (Some("0"), Some("600"), false, "0"),
+            (None, Some("600"), true, "600"),
+            (Some("7"), Some("600"), true, "7"),
+            (Some("0"), Some("bad"), true, "0"),
+            (None, None, false, "0"),
+        ] {
+            let setup = setup();
+            let mut command = shim_command(&setup);
+            // Fail both before the key is known and after idle validation, before spawning.
+            if early {
+                std::fs::remove_dir_all(setup.repo.path()).unwrap();
+            } else {
+                let not_a_directory = setup.base.path().join("not-a-directory");
+                std::fs::write(&not_a_directory, "file").unwrap();
+                command.env("PRISM_MCP_RUNTIME_DIR", not_a_directory);
+            }
+            if let Some(flag) = flag {
+                command.args(["--index-idle-secs", flag]);
+            }
+            if let Some(env) = env {
+                command.env("PRISM_MCP_INDEX_IDLE_SECS", env);
+            }
+            if relief {
+                command.arg("--index-idle-pressure-relief");
+            }
+            let output = command.output().unwrap();
+            let text = String::from_utf8(output.stderr).unwrap();
+            assert!(!output.status.success(), "{text}");
+            let suggestion = text
+                .split("; to run without the shared daemon: ")
+                .nth(1)
+                .expect(&text);
+            assert!(
+                suggestion.contains(&format!("--index-idle-secs {expected} ")),
+                "{text}"
+            );
+            assert_eq!(suggestion.matches("--index-idle-secs").count(), 1, "{text}");
+            assert_eq!(
+                suggestion.contains("--index-idle-pressure-relief"),
+                relief,
+                "{text}"
+            );
+            assert!(suggestion.trim_end().ends_with("--standalone"), "{text}");
+            assert!(!setup.paths.socket().exists(), "must not spawn");
+        }
     }
 }
