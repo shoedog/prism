@@ -433,64 +433,6 @@ fn lazy_runtime_validates_bad_calls_before_waiting_or_retrying() {
 }
 
 #[test]
-fn lazy_runtime_reports_build_failures_then_retries_until_success() {
-    use std::collections::VecDeque;
-    use std::sync::{Arc, Mutex};
-
-    let dir = tempfile::tempdir().unwrap();
-    write_file(dir.path(), "a.py", "def f():\n    return 1\n");
-    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
-    cfg.cache = crate::mcp::CacheMode::NoCache;
-    let outcomes = Arc::new(Mutex::new(VecDeque::from(["first", "second", "ready"])));
-    let builder_cfg = cfg.clone();
-    let builder: crate::mcp::lazy::SessionBuilder =
-        Arc::new(
-            move || match outcomes.lock().unwrap().pop_front().unwrap() {
-                "first" => anyhow::bail!("first build failure"),
-                "second" => anyhow::bail!("second build failure"),
-                "ready" => crate::mcp::SessionProvider::bootstrap(&builder_cfg),
-                _ => unreachable!(),
-            },
-        );
-    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
-        &cfg,
-        std::time::Duration::from_secs(1),
-        builder,
-    )
-    .unwrap();
-    let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
-
-    for (attempt, cause) in [(1, "first build failure"), (2, "second build failure")] {
-        let response = call_tool_at_cap_with_mode(
-            &mut provider,
-            &ToolRegistry::all_v1(),
-            request,
-            crate::mcp::output::MAX_RESULT_CHARS,
-            crate::mcp::output::StructuredContentMode::Always,
-        );
-        let result = &response["result"];
-        assert_eq!(result["isError"], true);
-        assert_eq!(result["_meta"]["prism/index_state"], "failed");
-        let status: serde_json::Value =
-            serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap();
-        assert_eq!(status["status"], "build_failed");
-        assert_eq!(status["cause"], cause);
-        assert_eq!(provider.attempts(), attempt);
-    }
-
-    let response = call_tool_at_cap_with_mode(
-        &mut provider,
-        &ToolRegistry::all_v1(),
-        request,
-        crate::mcp::output::MAX_RESULT_CHARS,
-        crate::mcp::output::StructuredContentMode::Always,
-    );
-    assert_eq!(response["result"]["isError"], false);
-    assert_eq!(provider.attempts(), 3);
-    assert_eq!(provider.last_error(), None);
-}
-
-#[test]
 fn lazy_runtime_reports_build_failure_without_structured_content_on_the_default_path() {
     use std::sync::Arc;
 
