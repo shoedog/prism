@@ -295,3 +295,113 @@ The comparison decides nothing about what ships: it reports the numbers and the 
 - The readout prints, per candidate and corpus, the estimate, the base, the percentage, which arm of the rule
   fired, the number of runs behind each, and a mark when that is below the requested repetitions.
 - Freed memory can stay in the footprint, so nothing here is attributed by freeing and re-measuring.
+
+## Idle lifecycle collection (I0c-2)
+
+`idle` is a separate normal-serving path. Existing `run` stays eager and unchanged.
+I0 remains off by default; these commands explicitly request a policy and never activate it globally.
+Python 3.9+, standard library only. Live ledger/clock sampling requires macOS; other hosts retain UNKNOWN
+readings. The portable fixture/injection tests run there; only the live Apple ABI test skips.
+
+```sh
+python3 scripts/memreport/memreport.py idle collect --manifest "$E/arm.json" --out "$E/run-A-1"
+python3 scripts/memreport/memreport.py idle readout --run "$E/run-A-1/run.json" \
+  --run "$E/resident-for-A-1/run.json" --out "$E/readout.json"
+# Once, on a separate unscored instance/window, never during latency or relief:
+python3 scripts/memreport/memreport.py idle cross-check --pid PID --out "$E/cross-check"
+```
+
+Each collect invocation launches one fresh stdio process or one shared shim and its fresh daemon.
+Shared uses `--shared --index-idle-secs N [--index-idle-pressure-relief]`, requiring the parallel Rust
+forwarding slice. It requires a private, empty `runtime_dir` base per run, never the default runtime.
+The shim stderr and daemon key-log are both tailed. STATUS corroborates PID/start/key/settings and client
+count; more than the single launched shim excludes the run because membership is incomplete.
+The daemon's READY/STATUS epoch seconds join event `instance_start` after multiplication by 1e9.
+Each process is additionally bound to kernel OS start identity at discovery and every sweep.
+The driver closes stdin/reaps its client and sends instance-bound daemon SHUTDOWN on every exit path.
+It records unconfirmed shutdown; the operator must resolve that before another run.
+
+A preregistered manifest (replace paths, pins and hashes with actual frozen values):
+
+```json
+{
+  "binary": "/absolute/path/prism-mcp", "binary_sha256": "SHA256",
+  "commit": "COMMIT", "features": ["mcp"],
+  "repo": "/private/mirror", "cache_dir": "/private/cache",
+  "corpus": "py", "corpus_pin": "COMMIT", "workload_hash": "SHA256",
+  "cache_class": "warm", "mode": "stdio", "arm": "A", "pair_id": "A-rep-1",
+  "requested_idle_secs": 600, "requested_relief": false,
+  "startup": "lazy", "first_call_wait_secs": 20, "cycles": 2, "score_cycle": 1,
+  "first_request": {"name": "nav_callees", "arguments": {"seed": {
+    "kind": "symbol", "name": "run", "file": "main.py"}}},
+  "edges_unused": false, "max_polls": 3, "poll_interval_secs": 0.1,
+  "prerequisites": {
+    "soak_complete": true, "c0_pins": true, "free_bytes": 53687091200,
+    "quiet_serial": true, "swap_non_increasing": true, "reserved_window": true,
+    "all_prerequisites_landed": true
+  }
+}
+```
+
+Preregister these prerequisites with the controller; booleans record the supplied receipts, not independent
+host/soak verification. The binary is hashed locally; a missing or differing declared hash excludes it.
+Use corpus names `py`, `e`, `p`, `ruff` for the four-corpus readout. Pair IDs identify independent repetitions,
+not cycles. Run at least three fresh instances per side. Every A/A+C/reference generation ends in unload;
+`reference` defaults to one fresh-lazy cycle, using the reload arm's settings/cache and identical first request.
+A+C requires relief; A uses the matched no-op. Scored enabled runs require 600 seconds. Optional Background
+startup uses its launch as the original pre-warm demand; a pre-index sweep after build start is excluded.
+No startup is delayed to manufacture a pre-index sample. Eager is refused on this path.
+
+Collect X before its resident match. For each X=A or A+C, launch a **separate** resident run with idle=0,
+relief=false, cycles=1 and `resident_pair` pointing to X's `run.json`; use the same pair ID, pins and binary.
+Resident deadlines use its last response arrival + (X disposal_end - X last response arrival) +5/+30 seconds.
+Never pool resident samples across different X deadlines or interpolate. Score the preregistered cycle
+(default initial cycle 1); subsequent cycles remain raw reload observations, not independent repetitions.
+Polls replay only the preregistered first request, up to `max_polls`, and never restart its demand clock.
+`prewarm: true` labels a preregistered demand; no bridge pre-warm implementation is provided here.
+
+Raw output must be outside the checkout. `manifest.json`, `run.json`, `stdout.jsonl`, `stderr.log`, shared
+key-log, `status.json`, `visibility.json` and `clocks.json` retain provenance, file identity/offset, every event,
+request/response arrival, poll, failure and abandonment. Rows include cycle/attempt/generation, effective
+settings, PID/start/key/OS start/client count, cache/sidecar facts, stages, readiness/build/first-served times,
+sample due/start/end/lateness, member footprint/RSS, relief return/heap pair, and admission reasons.
+JSON `null` means UNKNOWN; an absent reading is never zero. Raw failed/abandoned rows remain in readout.
+`readout` rebuilds rows from raw facts instead of trusting a saved scored status and rejects mixed binaries.
+For a short **unscored** parser smoke only, set `smoke_only: true`, idle=2, `smoke_hold_secs: 0` and a short
+`timeout_secs`. It still waits for unload/reload but omits +5/+30; every row remains EXCLUDED.
+
+The sampler uses the complete 296-byte Apple `rusage_info_v4` ABI via `proc_pid_rusage` flavor 4, checks
+return/errno before fields, rejects exited/reused PIDs, sums every surviving shim/daemon once, and makes
+an incomplete or changing inventory UNKNOWN. `ri_resident_size` is report-only RSS, never footprint.
+Pre-index precedes both the first call and build; loaded is publication+query; idle deadlines use production
+`disposal_end`, not log delivery. Sweeps start no earlier than due and finish within 250 ms, including all
+members. Late boundaries get no catch-up sampling. Reload/refresh/disposal-failure crossings exclude them.
+Reads/deadline joins bracket realtime/monotonic within 1 ms; bad observations are re-read. Consecutive valid
+observations enforce 10 ms +50 ppm offset continuity, while Mach continuous/absolute clocks detect >10 ms
+sleep steps. Missing boundary clocks or sleep exclude, never bridge; cumulative drift remains report-only.
+The CLI cross-check retains per-PID auxiliary bytes/times/differences and failures; it never substitutes a CLI
+series or subtracts assumed overhead. A permission failure leaves the comparison UNKNOWN for the controller.
+
+The parser accepts real stdio/daemon producer grammar, ignoring unrelated diagnostics. Sequence gaps,
+duplicates, missing/malformed fields, wrong/restarted instances, missing/replaced/truncated streams and cap
+notices exclude acceptance. After stripping transport prefix, newline and the leading-space metadata sequence
+token, a UTF-8 body **>=967 bytes** is possibly capped. Hardlinks are deduplicated by inode/offset; repeated
+sequence numbers at different offsets are errors. Event-scoped unload sidecar joins only the same
+instance/attempt/generation publication. Readout uses `mono_ns`/`epoch_ns`, never cross-mode `mono_ms`.
+
+M uses matched current idle physical footprint: median savings >=200 MiB **or** >=15% on >=2 corpora,
+>=3 independent runs/side, candidate max < base min. The +30 s cap is <=128 MiB on all four corpora in both
+modes. 15%-of-base idle is report-only. Relief/no-op heap delta must stay within +/-1 MiB; missing heap
+excludes that comparison. Exact-hit reload needs actual CPG hit in reload/reference, identical first request,
+and ending unload sidecars hit/hit or legitimately unused not_attempted/not_attempted. Its median first-served
+latency must be <= reference +max(5%,100 ms); demand-to-publication <=3 s is the separate readiness target.
+The report keeps warming, served-within-wait, warming/poll/success, failure/abandonment counts and proportions.
+RSS, pre-index deltas (+16 MiB reference), loaded/+5, idle fraction and optional relief footprint are report-only.
+`memory_gate` is only the memory component; `reload_latency` is separate. Activation always remains an owner
+decision after complete prerequisites, both modes/arms, unit parity and admitted external evidence.
+
+Tests: `python3 -m unittest discover -s scripts/memreport -p 'test_*.py'` and the soak no-regression suite.
+Compressed fixtures in `test_memreport_idle.py` are byte-real ae49d937 stdio/direct-daemon captures (local filesystem paths in non-lifecycle diagnostic lines replaced by placeholders); edge tests
+transform those bytes explicitly. Raw capture locations, hashes, REDs, GREENs, mutations and exclusions live
+in the lane's external `VERIFICATION.md`. Additional modules split clock binding, scheduling, row joins,
+normal-serving transport and CLI orchestration along those responsibilities; each stays below 300 weighted lines.

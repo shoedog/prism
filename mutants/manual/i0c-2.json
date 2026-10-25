@@ -1,0 +1,263 @@
+{
+  "lane": "I0c-2 Python idle collector (manual unittest; outside shared glob)",
+  "mutations": {
+    "I0c-ignore-daemon-log": [
+      "scripts/memreport/memreport_idle.py",
+      "    body = raw[len(prefix):]",
+      "    if prefix == b'prism-mcp daemon: ':\n        return None, None\n    body = raw[len(prefix):]",
+      "test_memreport_idle.Collector.test_idle_collector_visibility"
+    ],
+    "I0c-drop-failures": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    rows = list(rows)  # Failed, abandoned and UNKNOWN rows are never filtered away.",
+      "    rows = [x for x in rows if x.get('outcome') != 'failed']",
+      "test_memreport_idle_readout.Readout.test_idle_readout_denominators_and_outcomes"
+    ],
+    "I0c-drop-abandoned": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    rows = list(rows)  # Failed, abandoned and UNKNOWN rows are never filtered away.",
+      "    rows = [x for x in rows if x.get('outcome') != 'abandoned']",
+      "test_memreport_idle_readout.Readout.test_idle_readout_denominators_and_outcomes"
+    ],
+    "I0c-use-heap-denominator": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    denominator = base['footprint_bytes']",
+      "    denominator = base['heap_delta_bytes']",
+      "test_memreport_idle_readout.Readout.test_idle_readout_denominators_and_outcomes"
+    ],
+    "I0c-gate-on-15pct-idle": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    total = len(rows)",
+      "    memory_gate &= all(saving(a,b)['idle_fraction'] <= .15 for pairs in groups.values() for a,b in pairs)\n    total = len(rows)",
+      "test_memreport_idle_readout.Readout.test_idle_readout_denominators_and_outcomes"
+    ],
+    "I0c-rusage-failure-zero": [
+      "scripts/memreport/memreport_idle_sampling.py",
+      "            value['reason'] = 'rusage_' + errno.errorcode.get(error, str(error))",
+      "            value.update(footprint_bytes=0,rss_bytes=0,reason=None)",
+      "test_memreport_idle_sampling.Sampling.test_rusage_v4_abi_and_unknown"
+    ],
+    "I0c-pid-only": [
+      "scripts/memreport/memreport_idle_sampling.py",
+      "        if expected_start is not None and buffer.ri_proc_start_abstime != expected_start:",
+      "        if False:",
+      "test_memreport_idle_sampling.Sampling.test_pid_start_and_survivor_sum"
+    ],
+    "I0c-tail-time-as-disposal": [
+      "scripts/memreport/memreport_idle_sampling.py",
+      "    return event['epoch_ns'] + int(delay * 1000000000)",
+      "    return event.get('received_epoch_ns',event['epoch_ns']) + int(delay * 1000000000)",
+      "test_memreport_idle_sampling.Sampling.test_event_deadlines_and_lateness"
+    ],
+    "I0c-accept-sleep": [
+      "scripts/memreport/memreport_idle_clock.py",
+      "            if gap < 0 or abs(differential) > 10000000:",
+      "            if gap < 0:",
+      "test_memreport_idle_sampling.Sampling.test_clock_sleep_exclusion"
+    ],
+    "I0c-cap-threshold": [
+      "scripts/memreport/memreport_idle.py",
+      "    if len(uncapped) >= 967:",
+      "    if len(uncapped) >= 968:",
+      "test_memreport_idle.Collector.test_cap_boundary_and_mirrored_sink"
+    ],
+    "I0c-sequence-gap": [
+      "scripts/memreport/memreport_idle.py",
+      "                    self.exclude('sequence_gap')",
+      "                    pass  # mutant: accept gaps",
+      "test_memreport_idle.Collector.test_idle_collector_visibility"
+    ],
+    "I0c-duplicate-sequence": [
+      "scripts/memreport/memreport_idle.py",
+      "                    self.exclude('duplicate_sequence')",
+      "                    pass  # mutant: accept duplicates",
+      "test_memreport_idle.Collector.test_idle_collector_visibility"
+    ],
+    "I0c-wrong-instance": [
+      "scripts/memreport/memreport_idle.py",
+      "                if stream.get('instance') and identity(event) != identity(stream['instance']):",
+      "                if False:",
+      "test_memreport_idle.Collector.test_idle_collector_visibility"
+    ],
+    "I0c-missing-stream": [
+      "scripts/memreport/memreport_idle.py",
+      "    def exclude(self, reason):\n        if reason not in self.reasons:",
+      "    def exclude(self, reason):\n        if reason == 'missing_stream': return\n        if reason not in self.reasons:",
+      "test_memreport_idle.Collector.test_idle_collector_visibility"
+    ],
+    "I0c-required-field": [
+      "scripts/memreport/memreport_idle.py",
+      "    body = raw[len(prefix):]",
+      "    COMMON.discard('mono_ns')\n    body = raw[len(prefix):]",
+      "test_memreport_idle.Collector.test_idle_collector_visibility"
+    ],
+    "I0c-regrow-blind": [
+      "scripts/memreport/memreport_idle.py",
+      "                    if state.get('head'):",
+      "                    if False:",
+      "test_memreport_idle.Collector.test_truncate_and_regrow"
+    ],
+    "I0c-inventory-change": [
+      "scripts/memreport/memreport_idle_sampling.py",
+      "    if dict(inventory()) != dict(members):",
+      "    if False:",
+      "test_memreport_idle_sampling.Sampling.test_pid_start_and_survivor_sum"
+    ],
+    "I0c-exited-process": [
+      "scripts/memreport/memreport_idle_sampling.py",
+      "        if buffer.ri_proc_exit_abstime != 0:",
+      "        if False:",
+      "test_memreport_idle_sampling.Sampling.test_rusage_v4_abi_and_unknown"
+    ],
+    "I0c-late-boundary": [
+      "scripts/memreport/memreport_idle_sampling.py",
+      "    if end < start or end - due > 250000000:",
+      "    if end < start:",
+      "test_memreport_idle_sampling.Sampling.test_event_deadlines_and_lateness"
+    ],
+    "I0c-early-boundary": [
+      "scripts/memreport/memreport_idle_sampling.py",
+      "    if start < due:",
+      "    if False:",
+      "test_memreport_idle_sampling.Sampling.test_event_deadlines_and_lateness"
+    ],
+    "I0c-clock-step": [
+      "scripts/memreport/memreport_idle_clock.py",
+      "            elif abs(offset - (old['epoch_ns'] - old['mono_ns'])) > 10000000 + gap * .00005:",
+      "            elif False:",
+      "test_memreport_idle_sampling.Sampling.test_clock_sleep_exclusion"
+    ],
+    "I0c-clock-bracket": [
+      "scripts/memreport/memreport_idle_clock.py",
+      "            if value is None or 0 <= value['bracket_ns'] <= 1000000:",
+      "            if value is None or 0 <= value['bracket_ns'] <= 2000000:",
+      "test_memreport_idle_sampling.Sampling.test_injected_mach_and_bracket_retry"
+    ],
+    "I0c-crossed-lifecycle": [
+      "scripts/memreport/memreport_idle_schedule.py",
+      "            if crossed or failed:",
+      "            if False:",
+      "test_memreport_idle_driver.Driver.test_crossed_boundary"
+    ],
+    "I0c-independent-runs": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    if independent < 3:",
+      "    if len(pairs) < 3:",
+      "test_memreport_idle_readout.Readout.test_independent_runs_and_excluded_status"
+    ],
+    "I0c-revive-excluded": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    if reasons or row.get('status') == 'EXCLUDED':",
+      "    if reasons:",
+      "test_memreport_idle_readout.Readout.test_independent_runs_and_excluded_status"
+    ],
+    "I0c-relief-heap": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    return heap is not None and abs(heap) <= MIB",
+      "    return True",
+      "test_memreport_idle_readout.Readout.test_ranges_and_relief"
+    ],
+    "I0c-range-separation": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "{'pass': separated and (absolute >= 200*MIB or fraction >= .15)}",
+      "{'pass': (absolute >= 200*MIB or fraction >= .15)}",
+      "test_memreport_idle_readout.Readout.test_ranges_and_relief"
+    ],
+    "I0c-two-corpora": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "            memory_gate &= passes >= 2",
+      "            memory_gate &= passes >= 1",
+      "test_memreport_idle_readout.Readout.test_idle_readout_denominators_and_outcomes"
+    ],
+    "I0c-idle-cap": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "                                 x['footprint_bytes'] <= 128*MIB for x in candidates))",
+      "                                 x['footprint_bytes'] <= 129*MIB for x in candidates))",
+      "test_memreport_idle_readout.Readout.test_idle_readout_denominators_and_outcomes"
+    ],
+    "I0c-exact-ending-unload": [
+      "scripts/memreport/memreport_idle_readout.py",
+      "    if not all(x.get('ending_unload') and x.get('cpg') == 'hit' for x in (reload, reference)):",
+      "    if not all(x.get('cpg') == 'hit' for x in (reload, reference)):",
+      "test_memreport_idle_readout.Readout.test_outcomes_and_matched_boundaries"
+    ],
+    "I0c-sidecar-generation": [
+      "scripts/memreport/memreport_idle_rows.py",
+      "                    e['generation'] == generation]",
+      "                    True]",
+      "test_memreport_idle_driver.Driver.test_real_rows_sidecar_binding"
+    ],
+    "I0c-pre-index-build": [
+      "scripts/memreport/memreport_idle_rows.py",
+      "                if starts and pre.get('end_epoch_ns') is not None and pre['end_epoch_ns'] >= min(starts):",
+      "                if False:",
+      "test_memreport_idle_driver.Driver.test_pre_index_unknown_and_negative_delta"
+    ],
+    "I0c-pre-index-call": [
+      "scripts/memreport/memreport_idle_rows.py",
+      "                if pre.get('end_epoch_ns') is not None and pre['end_epoch_ns'] >= demand['epoch_ns']:",
+      "                if False:",
+      "test_memreport_idle_driver.Driver.test_pre_index_unknown_and_negative_delta"
+    ],
+    "I0c-no-smoke-exclusion": [
+      "scripts/memreport/memreport_idle_driver.py",
+      "    reasons = ['smoke_only'] if meta.get('smoke_only') else []",
+      "    reasons = []",
+      "test_memreport_idle_driver.Driver.test_lazy_command_and_manifest"
+    ],
+    "I0c-no-prerequisites": [
+      "scripts/memreport/memreport_idle_driver.py",
+      "        reasons.append('missing_prerequisite')",
+      "        pass",
+      "test_memreport_idle_driver.Driver.test_lazy_command_and_manifest"
+    ],
+    "I0c-binary-pin": [
+      "scripts/memreport/memreport_idle_driver.py",
+      "    return result,reasons",
+      "    return result,[]",
+      "test_memreport_idle_driver.Driver.test_observed_settings_and_binary_pin"
+    ],
+    "I0c-extra-client": [
+      "scripts/memreport/memreport_idle_driver.py",
+      "    return fields, ['unknown_shim_membership'] if status.get('admitted') != 1 else []",
+      "    return fields, []",
+      "test_memreport_idle_driver.Driver.test_observed_settings_and_binary_pin"
+    ],
+    "I0c-cli-total": [
+      "scripts/memreport/memreport_idle_sampling.py",
+      "    auxiliary = entry.get('auxiliary',{}).get('phys_footprint')",
+      "    auxiliary = data.get('phys_footprint')",
+      "test_memreport_idle_sampling.Sampling.test_cli_auxiliary_cross_check"
+    ],
+    "I0c-publication-required": [
+      "scripts/memreport/memreport_idle_rows.py",
+      "            row['outcome'] = 'served' if publication else 'unpublished'",
+      "            row['outcome'] = 'served'",
+      "test_memreport_idle_readout.Readout.test_served_requires_publication_and_keeps_later_abandonment"
+    ],
+    "I0c-abandon-after-response": [
+      "scripts/memreport/memreport_idle_rows.py",
+      "        if failures and (not served or failures[-1]['epoch_ns'] >= served[-1]['epoch_ns']):",
+      "        if False:",
+      "test_memreport_idle_readout.Readout.test_served_requires_publication_and_keeps_later_abandonment"
+    ],
+    "I0c-prelaunch-failure": [
+      "scripts/memreport/memreport_idle_driver.py",
+      "        pin_reasons = ['binary_unavailable: '+str(error)]",
+      "        raise error",
+      "test_memreport_idle_driver.Driver.test_prelaunch_failure_keeps_row"
+    ],
+    "I0c-runtime-custody": [
+      "scripts/memreport/memreport_idle_driver.py",
+      "        if not Path(meta['runtime_dir']).is_absolute() or runtime == root or root in runtime.parents:",
+      "        if not Path(meta['runtime_dir']).is_absolute():",
+      "test_memreport_idle_driver.Driver.test_runtime_outside_checkout"
+    ],
+    "I0c-shutdown-confirmation": [
+      "scripts/memreport/memreport_idle_process.py",
+      "        self.cleanup_confirmed = not self.owned_daemon",
+      "        self.cleanup_confirmed = True",
+      "test_memreport_idle_driver.Driver.test_shutdown_checks_os_identity"
+    ]
+  }
+}

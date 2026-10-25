@@ -83,3 +83,14 @@ and emission after serving leases. The identity regressions cover warming attemp
 generation, failed-reload generation and initial-retry publication reasons. Hash-verify every restoration and require each restored selector GREEN.
 Keep all raw receipts outside the checkout. I0b-1 + I0b-2 + O-lite total **50 mutants**; the ordinary
 shared-catalog gate and Tier-A remain separate controller gates.
+
+## `i0c-2.json` (I0c Python collector, external sampler and readout)
+
+The **43 mutants** use `[file, exact anchor, replacement, unittest selector]`, the existing Python format.
+Run steps 1–6 above from `scripts/memreport` with `python3 -B -m unittest SELECTOR`; use a fresh external
+`PYTHONPYCACHEPREFIX` and disable bytecode writes to avoid same-second stale caches during restoration.
+All nine required Python mutants plus completeness, identity, clocks, boundaries, sidecar ownership,
+independent-run/heap/range/coverage, smoke/prerequisite/binary/client admission rules have behavioral witnesses.
+Require exactly one behavioral failure, SHA-256-identical restoration and exactly one restored GREEN per record.
+Receipts, before-source snapshots, hashes and logs stay in I0c-2's evidence directory outside the checkout.
+This README lists Python catalogs, so this is the brief-authorized catalog section. No shared gate changes.
