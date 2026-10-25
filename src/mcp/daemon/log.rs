@@ -5,7 +5,7 @@
 //! Lifecycle writes hold no control/slot guard; the affected provider is dropped or handed off
 //! before its line. Stderr is one lock shared by every thread, including shutdown's `stopped`
 //! line. A blocked disposal writer delays clearing `disposing`, so reload answers Warming.
-//! Refresh output retains the caller's tool lease, delaying only its own idle unload.
+//! Refresh scalars are captured under access and emitted after the caller's activity is released.
 //! Production daemons write to the shim's `O_APPEND` regular file.
 use std::io::Write;
 use std::os::fd::AsFd;
@@ -86,13 +86,14 @@ pub(super) fn printable_prefix(text: &str, max: usize) -> String {
 use super::coordinator::{BuildPhase, ControlState, DaemonState};
 use crate::mcp::freshness::{FreshnessProbe, FreshnessReport};
 use crate::mcp::idle::IdlePolicy;
+use crate::mcp::serving_events::{relief_pair, sequenced, Context, Details, Stamp};
 use crate::mcp::transport::SessionRuntime;
 use crate::mcp::{AutoRefreshSummary, RefreshPolicy, RefreshSummary, SessionProvider, StartupMode};
 use crate::navigation::NavigationSession;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub(super) struct LifecycleLog {
-    identity: String,
+    pub(super) context: Context,
     origin: std::sync::OnceLock<Instant>,
     timeout: Duration,
     pub(super) relief: bool,
@@ -105,12 +106,34 @@ impl Default for LifecycleLog {
 impl LifecycleLog {
     pub(super) fn new(identity: String, policy: IdlePolicy) -> Self {
         Self {
-            identity,
+            context: Context::new(identity, policy),
             origin: std::sync::OnceLock::new(),
             timeout: policy.timeout.unwrap_or_default(),
             // Reuse I0a applicability, with the ordinary lifecycle enabled for this daemon.
             relief: policy.pressure_relief && policy.pressure_relief_note(true, false).is_none(),
         }
+    }
+    pub(super) fn startup(&self) {
+        let time = crate::mcp::serving_events::Stamp::now();
+        let fields = self.context.fields(time);
+        let details = crate::mcp::serving_events::Details::default().fields("startup");
+        let reason = "startup";
+        let outcome = "complete";
+        let text = crate::mcp::serving_events::bounded(
+            &format!(
+                concat!(
+                    "{} event=startup reason={} attempt=0 generation=0 configured_idle_secs={:.3} ",
+                    "observed_idle_secs=not_applicable duration_ns=not_applicable {} released_bytes=0 mono_ms=0",
+                ),
+                fields,
+                reason,
+                self.timeout.as_secs_f64(),
+                details,
+            ),
+            outcome,
+        );
+        let mut stderr = std::io::stderr().lock();
+        write_to(&sequenced(&text), &WRITTEN, &mut stderr);
     }
     /// Use the first build's existing guarded clock read; construction must not read the clock.
     pub(super) fn start_clock(&self, at: Instant) {
@@ -125,6 +148,7 @@ impl LifecycleLog {
 
 #[derive(Clone)]
 pub(super) struct Event {
+    pub(super) details: Details,
     pub(super) event: &'static str,
     reason: &'static str,
     pub(super) at: Instant,
@@ -161,6 +185,7 @@ impl DaemonState {
             .published_at
             .map(|p| p.max(idle.last_release.unwrap_or(p)));
         Event {
+            details: Details::default(),
             event,
             reason,
             at,
@@ -186,15 +211,106 @@ impl DaemonState {
                 .as_millis();
         // Reserve the numeric trailer and outcome marker before capping free-text error data.
         let suffix = format!(" mono_ms={mono_ms} outcome=");
-        let mut text = printable_prefix(&format!("identity={} pid={} event={} reason={} observed_idle_secs={:.3} configured_idle_secs={} timestamp_ms={} duration_ns={} attempt={} generation={} released_bytes={}",
-            log.identity, std::process::id(), e.event, e.reason, e.observed_idle.as_secs_f64(), log.timeout.as_secs(), timestamp,
-            e.duration.as_nanos(), e.attempt, e.generation, e.released), MAX_LINE_BYTES - suffix.len());
+        let time = Stamp {
+            at: e.at,
+            wall: e.wall,
+        };
+        let fields = log.context.fields(time);
+        let details = e.details.fields(e.event);
+        let reason = e.reason;
+        let outcome = &e.outcome;
+        let mut text = printable_prefix(
+            &format!(
+                concat!(
+                    "{} event={} reason={} observed_idle_secs={:.3} configured_idle_secs={:.3} ",
+                    "timestamp_ms={} duration_ns={} attempt={} generation={} {} released_bytes={}",
+                ),
+                fields,
+                e.event,
+                reason,
+                e.observed_idle.as_secs_f64(),
+                log.timeout.as_secs_f64(),
+                timestamp,
+                e.duration.as_nanos(),
+                e.attempt,
+                e.generation,
+                details,
+                e.released,
+            ),
+            MAX_LINE_BYTES - suffix.len() - 30,
+        );
         text.push_str(&suffix);
-        text.push_str(&printable_prefix(&e.outcome, MAX_LINE_BYTES - text.len()));
-        line(&text);
+        text.push_str(&printable_prefix(outcome, MAX_LINE_BYTES - text.len() - 30));
+        let _text = {
+            let mut stderr = std::io::stderr().lock();
+            let text = sequenced(&text);
+            write_to(&text, &WRITTEN, &mut stderr);
+            text
+        };
         #[cfg(test)]
-        if let Some(observe) = &self.hooks.lifecycle {
-            observe(&text);
+        {
+            // Keep I0b's terminal-event seam; O-lite boundaries have their own observer.
+            let observer = if matches!(e.event, "build_start" | "build_finish") {
+                &log.context.observe
+            } else {
+                &self.hooks.lifecycle
+            };
+            if let Some(observe) = observer {
+                observe(&_text);
+            }
+        }
+        if matches!(e.event, "initial_build" | "reload") && e.outcome == "complete" {
+            let mut published = e;
+            published.event = "publication";
+            self.lifecycle_event(published);
+        }
+    }
+    pub(super) fn build_boundary(&self, attempt: u64, time: Stamp, event: &'static str) -> Event {
+        Event {
+            event,
+            reason: "demand_or_startup",
+            at: time.at,
+            wall: time.wall,
+            duration: Duration::ZERO,
+            attempt,
+            generation: 0,
+            observed_idle: Duration::ZERO,
+            outcome: "complete".into(),
+            released: 0,
+            details: Details::default(),
+        }
+    }
+    pub(super) fn finished_build(
+        &self,
+        attempt: u64,
+        built: &anyhow::Result<SessionProvider>,
+    ) -> Event {
+        let mut e = self.build_boundary(attempt, self.build_stamp(self.now()), "build_finish");
+        e.details.build = built.as_ref().ok().map(|p| p.build_facts);
+        if let Err(error) = built {
+            e.outcome = format!("failed error={error}");
+        }
+        e
+    }
+    pub(super) fn build_stamp(&self, at: Instant) -> Stamp {
+        Stamp {
+            at,
+            wall: self.wall_now(),
+        }
+    }
+    pub(super) fn enrich_build(
+        &self,
+        event: &mut Option<Event>,
+        provider: Option<&SessionProvider>,
+        control: &ControlState,
+    ) {
+        if let Some(e) = event
+            .as_mut()
+            .filter(|_| matches!(control.build, BuildPhase::Ready))
+        {
+            e.details.build = provider.map(|p| p.build_facts);
+            e.at = control.idle.published_at.unwrap();
+            e.wall = self.wall_now();
         }
     }
     /// Capture only; callers emit after settlement and guard/provider release.
@@ -246,9 +362,11 @@ impl DaemonState {
         event.event = "relief";
         event.at = self.now();
         event.wall = self.wall_now();
-        let started = Instant::now();
-        event.released = crate::mcp::idle::pressure_relief(self.lifecycle.relief);
-        event.duration = started.elapsed();
+        let (pair, released, duration) =
+            relief_pair(self.lifecycle.relief, &self.lifecycle.context);
+        event.released = released;
+        event.duration = duration;
+        event.details.pair = Some(pair);
         self.lifecycle_event(event);
     }
     fn log_refresh<T>(

@@ -244,13 +244,20 @@ impl DaemonState {
         budget: &mut ConnectionBudget,
     ) -> Result<Answer, Poisoned> {
         let mut activity = self.admit_tool()?;
-        self.ensure_serving(budget, &mut activity)
+        let mut event = None;
+        let result = self.ensure_serving(budget, &mut activity, &mut event);
+        drop(activity);
+        if let Some(event) = event {
+            self.lifecycle_event(event);
+        }
+        result
     }
 
     pub(super) fn ensure_serving(
         self: &Arc<Self>,
         budget: &mut ConnectionBudget,
         activity: &mut ToolActivity,
+        pending: &mut Option<super::log::Event>,
     ) -> Result<Answer, Poisoned> {
         let mut control = self.lock_control()?;
         let _fatal = self.guard(Domain::Control);
@@ -311,8 +318,6 @@ impl DaemonState {
             deadline = budget.cap_deadline(limit);
         }
         if let Some(event) = event {
-            // Spawn failure is already terminal. Freeze this caller's answer before another
-            // client can retry, then release both guards before the potentially blocking sink.
             budget.told();
             let answer = answer_for(
                 outcome.ended().expect("spawn failure ended"),
@@ -320,7 +325,7 @@ impl DaemonState {
             );
             drop(_fatal);
             drop(control);
-            self.lifecycle_event(event);
+            *pending = Some(event);
             return Ok(answer);
         }
         loop {
@@ -547,7 +552,8 @@ impl DaemonState {
         };
 
         let state = Arc::clone(self);
-        let job: BuildJob = Box::new(move || state.run_build(attempt));
+        let start = self.build_stamp(started);
+        let job: BuildJob = Box::new(move || state.run_build(attempt, start));
         if let Err(error) = (self.spawner)(job) {
             // No thread, so nothing will ever end this attempt: end it here. Nobody but the
             // caller can have joined it, because the control lock has been held since it began.
@@ -559,17 +565,20 @@ impl DaemonState {
         (attempt, started, outcome)
     }
 
-    /// The build thread: run the builder with no lock held, then publish or record the failure.
-    fn run_build(self: Arc<Self>, attempt: u64) {
+    // Build without serving locks, then hand off or retire before output.
+    fn run_build(self: Arc<Self>, attempt: u64, start: crate::mcp::serving_events::Stamp) {
         let fail_on_panic = PanicGuard {
             state: &self,
             attempt,
         };
+        self.lifecycle_event(self.build_boundary(attempt, start, "build_start"));
         let built = (self.builder)();
+        let finish = self.finished_build(attempt, &built);
         match built {
             Ok(provider) => self.publish(attempt, provider),
             Err(error) => self.settle(attempt, Err(error.to_string())),
         }
+        self.lifecycle_event(finish);
         drop(fail_on_panic);
     }
 
@@ -698,6 +707,7 @@ impl DaemonState {
                         error: error.clone(),
                     },
                 };
+                self.enrich_build(&mut event, slot.as_ref().and_then(|s| s.as_ref()), &control);
                 outcome.fill(ended);
             }
         }

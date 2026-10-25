@@ -161,6 +161,12 @@ impl DaemonState {
         }
         control.idle.spawn_retry = None;
         let release = self.take_last_release(&mut control);
+        event.details.sidecar = slot
+            .as_ref()
+            .expect("checked resident provider")
+            .session()
+            .index
+            .sidecar_outcome();
         let provider = slot.take().expect("checked resident provider");
         control.build = BuildPhase::Unloaded { last_published };
         control.generation = 0;
@@ -194,6 +200,10 @@ impl DaemonState {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "serving_event_tests.rs"]
+mod serving_event_tests;
 
 /// Made before the received provider, so that even unwinding finishes destruction before
 /// accounting is cleared. Panic never authorizes another reload; production aborts here.

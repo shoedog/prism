@@ -17,6 +17,7 @@ pub mod mem_tree_alloc;
 pub mod output;
 mod owner;
 pub mod registry;
+mod serving_events;
 pub mod session;
 pub mod settings;
 #[cfg(unix)]
@@ -59,6 +60,7 @@ fn library_idle_policy(
 }
 
 pub fn run_with_idle_policy(cfg: ServerConfig, policy: idle::IdlePolicy) -> anyhow::Result<()> {
+    serving_events::origin();
     let r = registry::ToolRegistry::all_v1();
     route_stdio(
         &cfg,
@@ -142,5 +144,59 @@ mod idle_route_tests {
             route_stdio(&cfg, opt_in, |_, _| "idle", |_| "legacy"),
             "idle"
         );
+    }
+}
+
+impl serving_events::Context {
+    pub fn stdio(cfg: &ServerConfig, policy: idle::IdlePolicy) -> Self {
+        use sha2::{Digest, Sha256};
+        Self::new(
+            format!(
+                "{:x}",
+                Sha256::digest(cfg.repo_root.to_string_lossy().as_bytes())
+            )[..12]
+                .into(),
+            policy,
+        )
+    }
+    pub fn startup(&self) {
+        let time = serving_events::Stamp::now();
+        let fields = self.fields(time);
+        let details = serving_events::Details::default().fields("startup");
+        let reason = "startup";
+        let outcome = "complete";
+        self.emit(&serving_events::bounded(
+            &format!(
+                concat!(
+                    "{} event=startup reason={} attempt=0 generation=0 configured_idle_secs={:.3} ",
+                    "observed_idle_secs=not_applicable duration_ns=not_applicable {} released_bytes=0 mono_ms=0",
+                ),
+                fields,
+                reason,
+                self.timeout.as_secs_f64(),
+                details,
+            ),
+            outcome,
+        ));
+    }
+}
+
+impl serving_events::Context {
+    pub fn emit(&self, text: &str) {
+        self.emit_lines(&[text.to_owned()]);
+    }
+    pub fn emit_lines(&self, lines: &[String]) {
+        let mut stderr = std::io::stderr().lock();
+        self.emit_lines_to(lines, &mut stderr);
+    }
+    pub(super) fn emit_lines_to(&self, lines: &[String], stderr: &mut impl std::io::Write) {
+        for text in lines {
+            let text = serving_events::sequenced(text);
+            let _ = writeln!(stderr, "prism-mcp: {text}");
+            #[cfg(test)]
+            if let Some(observe) = &self.observe {
+                observe(&text);
+            }
+        }
     }
 }

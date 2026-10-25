@@ -53,6 +53,10 @@ enum PathKind {
 
 impl FreshnessProbe {
     pub fn from_loaded_repo(repo: &LoadedRepo) -> Self {
+        Self::from_loaded_repo_timed(repo).0
+    }
+
+    pub(crate) fn from_loaded_repo_timed(repo: &LoadedRepo) -> (Self, std::time::Duration) {
         let mut real_paths = BTreeSet::from([".".to_string()]);
         for rel in repo
             .files
@@ -86,12 +90,17 @@ impl FreshnessProbe {
             })
             .collect();
 
+        let started = std::time::Instant::now();
         let capture = capture::validate(repo, &mut tracked);
-        Self {
-            root: repo.root.clone(),
-            tracked,
-            capture,
-        }
+        let validation = started.elapsed();
+        (
+            Self {
+                root: repo.root.clone(),
+                tracked,
+                capture,
+            },
+            validation,
+        )
     }
 
     pub fn check(&self) -> FreshnessReport {
