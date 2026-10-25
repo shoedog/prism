@@ -116,8 +116,7 @@ impl<'a> CpgContext<'a> {
         // files. Run it on the large-stack pool so a directly-built or
         // cache-loaded CpgContext (library/MCP, outside the CLI command wrap) is
         // protected too.
-        let live_types =
-            crate::build_pool::build_pool().install(|| types.collect_live_types(files));
+        let live_types = crate::build_pool::install(|| types.collect_live_types(files));
         CpgContext {
             cpg,
             files,
@@ -171,8 +170,7 @@ impl<'a> CpgContext<'a> {
         // files. Run it on the large-stack pool so a directly-built or
         // cache-loaded CpgContext (library/MCP, outside the CLI command wrap) is
         // protected too.
-        let live_types =
-            crate::build_pool::build_pool().install(|| types.collect_live_types(files));
+        let live_types = crate::build_pool::install(|| types.collect_live_types(files));
         CpgContext {
             cpg,
             files,
@@ -199,7 +197,7 @@ impl<'a> CpgContext<'a> {
         // it on the CallGraph would pin a SECOND full Go dataset for the
         // lifetime of this (long-lived) context. Drop it.
         drop(cpg.call_graph.shared_plain_go_provider.take());
-        let live_types = registry.collect_live_types(files);
+        let live_types = crate::build_pool::install(|| registry.collect_live_types(files));
         CpgContext {
             cpg,
             files,
@@ -271,7 +269,7 @@ impl<'a> CpgContext<'a> {
         drop(cpg.call_graph.shared_plain_go_provider.take());
         let types = Self::build_registry(files, type_db, None);
         // Collect live types from ALL files (not just scoped) for accurate RTA.
-        let live_types = types.collect_live_types(files);
+        let live_types = crate::build_pool::install(|| types.collect_live_types(files));
         CpgContext {
             cpg,
             files,
@@ -293,7 +291,7 @@ impl<'a> CpgContext<'a> {
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
         let types = Self::build_registry(files, type_db, None);
-        let live_types = types.collect_live_types(files);
+        let live_types = crate::build_pool::install(|| types.collect_live_types(files));
         CpgContext {
             cpg: CodePropertyGraph::empty(),
             files,

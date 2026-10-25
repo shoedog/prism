@@ -24,7 +24,7 @@ fn producer_shares_one_member_index_across_functions() {
             .unwrap();
         let (edges, normalizations) = pool.install(|| {
             NORMALIZATIONS.with(|c| c.set(0));
-            let graph = DataFlowGraph::build(&files);
+            let graph = DataFlowGraph::build_on_current_pool(&files);
             let edges = graph.edges().len();
             (edges, NORMALIZATIONS.with(|c| c.get()))
         });

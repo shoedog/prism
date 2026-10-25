@@ -16,6 +16,7 @@ use std::path::PathBuf;
 #[cfg(test)]
 #[path = "call_graph_anon_prep_tests.rs"]
 mod anon_prep_tests;
+mod boundary;
 #[path = "call_graph_profile_initializers.rs"]
 mod init_profile;
 mod js_ts_facts;
@@ -1345,7 +1346,7 @@ impl CallGraph {
     /// tables, parameter-passed callbacks). Used by `CpgContext::build_scoped()`
     /// to quickly identify which files are in the dependency neighborhood of a
     /// diff, before committing to a full CPG build on the scoped subset.
-    pub fn build_skeleton(files: &BTreeMap<String, ParsedFile>) -> Self {
+    fn build_skeleton_inner(files: &BTreeMap<String, ParsedFile>) -> Self {
         let mut p = crate::profile::Stages::new("call_graph", "call_graph.skeleton.prelude");
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
         let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
@@ -1625,42 +1626,9 @@ impl CallGraph {
         }
     }
 
-    /// Build a call graph from all parsed files (default receiver-recovery config).
-    pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
-        let inputs = ScopeGraphBuildInputs::from_files_convention(files);
-        Self::build_with_receiver_config_and_scope_graph_inputs(
-            files,
-            &crate::resolution::ReceiverRecoveryConfig::default(),
-            Some(&inputs),
-        )
-    }
-
-    /// Build a call graph with an explicit receiver-recovery config (spec §2 seam).
-    /// The classifier is built once and shared across the rayon extraction loop.
-    pub fn build_with_receiver_config(
-        files: &BTreeMap<String, ParsedFile>,
-        receiver_config: &crate::resolution::ReceiverRecoveryConfig,
-    ) -> Self {
-        let inputs = ScopeGraphBuildInputs::from_files_convention(files);
-        Self::build_with_receiver_config_and_scope_graph_inputs(
-            files,
-            receiver_config,
-            Some(&inputs),
-        )
-    }
-
-    pub fn build_with_scope_graph_inputs(
-        files: &BTreeMap<String, ParsedFile>,
-        inputs: Option<&ScopeGraphBuildInputs>,
-    ) -> Self {
-        Self::build_with_receiver_config_and_scope_graph_inputs(
-            files,
-            &crate::resolution::ReceiverRecoveryConfig::default(),
-            inputs,
-        )
-    }
-
-    pub fn build_with_receiver_config_and_scope_graph_inputs(
+    // The public `build*` constructors live in `call_graph/boundary.rs`: each
+    // enters the large-stack build pool once, then calls this body.
+    fn build_inner(
         files: &BTreeMap<String, ParsedFile>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
@@ -5089,19 +5057,7 @@ impl CallGraph {
     /// Unlike `build()`, this skips Phase 3 (indirect call resolution) because
     /// that requires knowledge of all functions, not just the subset. The caller
     /// should run `recompute_indirect_calls` on the merged result.
-    pub fn build_direct_subset(
-        files: &BTreeMap<String, ParsedFile>,
-        only_files: &BTreeSet<String>,
-    ) -> Self {
-        Self::build_direct_subset_with_receiver_config(
-            files,
-            only_files,
-            &crate::resolution::ReceiverRecoveryConfig::default(),
-        )
-    }
-
-    /// `build_direct_subset` with an explicit receiver-recovery config (spec §2 seam).
-    pub fn build_direct_subset_with_receiver_config(
+    fn build_direct_subset_inner(
         files: &BTreeMap<String, ParsedFile>,
         only_files: &BTreeSet<String>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
