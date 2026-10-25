@@ -120,7 +120,34 @@ regression!(
     "fix1-w2-c05-type-switch-alias-case-assignment",
     "type_switch_statement",
     "package main\n\nfunc f(v any) {\n\tx := source()\n\tswitch x := v.(type) {\n\tcase int:\n\t\tx = 3\n\t\tsink(x)\n\t}\n\tsink(x)\n}\n",
-    &[("7:x", "8:x", EXACT)],
+    &[("7:x", "8:x", EXACT), ("7:x", "10:x", ownership_uncertain(5))],
+    ("dfg_label_nameonly_ownership_uncertain", 1)
+);
+
+regression!(
+    w4_h08_type_switch_alias_arm_definition_reaches_other_arm_and_exit,
+    "fix2-w4-h08-type-switch-alias-arm-definition-reaches-other-arm-and-exit",
+    "type_switch_statement",
+    "package main\n\nfunc f(v any) {\n\tx := source()\n\tfor {\n\t\tswitch x := v.(type) {\n\t\tcase int:\n\t\t\tsink(x)\n\t\tcase string:\n\t\t\tx = clean()\n\t\t}\n\t\tsink(x)\n\t}\n}\n",
+    &[("10:x", "6:x", EXACT), ("10:x", "8:x", ownership_uncertain(6)), ("10:x", "12:x", ownership_uncertain(6))],
+    ("dfg_label_nameonly_ownership_uncertain", 2)
+);
+
+regression!(
+    w4_m01_type_switch_alias_arm_definition_reaching_before_switch_stays_incomplete,
+    "fix2-w4-m01-type-switch-alias-arm-definition-reaching-before-switch-stays-incomplete",
+    "type_switch_statement",
+    "package main\n\nfunc f(v any) {\n\tx := source()\n\tfor {\n\t\tsink(x)\n\t\tswitch x := v.(type) {\n\t\tcase int:\n\t\t\tx = 1\n\t\t}\n\t}\n}\n",
+    &[("9:x", "6:x", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)), ("9:x", "7:x", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete))],
+    ("dfg_label_nameonly_cfg_incomplete", 2)
+);
+
+regression!(
+    w4_m03_different_alias_name_preserves_outer_assignment,
+    "fix2-w4-m03-different-alias-name-preserves-outer-assignment",
+    "type_switch_statement",
+    "package main\n\nfunc f(v any) {\n\tx := source()\n\tswitch y := v.(type) {\n\tcase int:\n\t\tx = clean()\n\t\tsink(y)\n\t}\n\tsink(x)\n}\n",
+    &[("7:x", "10:x", EXACT)],
     ("dfg_label_exact", 1)
 );
 

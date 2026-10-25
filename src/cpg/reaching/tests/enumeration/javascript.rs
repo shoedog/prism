@@ -359,7 +359,50 @@ pub(super) const CASES: &[super::case::Case] = &[
         ],
         expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
+    super::case::Case {
+        id: "fix2-s6-js-optional-catch-assignment",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f() {\n  let x = source(), y = source();\n  { let y = clean(); sink(y); } try {\n    g();\n  } catch {\n    x = clean();\n    sink(x);\n  }\n  sink(x);\n}\n",
+        expect: &[
+            ("6:x", "7:x", FlowConfidence::Exact),
+            (
+                "2:y",
+                "3:y",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "fix2-s6-js-optional-catch-destructure-assignment",
+        language: Language::JavaScript,
+        kind: "catch_clause",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "function f(arr) {\n  let x = source(), y = source();\n  { let y = clean(); sink(y); } try {\n    h();\n  } catch {\n    [x] = arr;\n    sink(x);\n  }\n  sink(x);\n}\n",
+        expect: &[
+            ("6:x", "7:x", FlowConfidence::Exact),
+            (
+                "2:y",
+                "3:y",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+            ),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
 ];
+
+#[test]
+fn fix2_s6_optional_catch_cases() {
+    for case in CASES.iter().filter(|case| case.id.starts_with("fix2-s6-")) {
+        super::case::check_case(case);
+    }
+}
 pub(super) const CURATED: &[(&str, &str)] = &[
     ("statement_block", "e0a-js-statement_block"),
     ("class_body", "e0a-js-class_body"),
