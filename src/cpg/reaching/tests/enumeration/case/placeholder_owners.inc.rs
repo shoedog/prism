@@ -33,11 +33,6 @@ macro_rules! placeholder_owners {
             (($language::C, "parameter_list", None::<$predicate>, "e0a-x-c-parameter_list"), "Task 22"),
             (($language::Cpp, "parameter_declaration", None::<$predicate>, "e0a-x-cpp-parameter_declaration"), "Task 23"),
             (($language::Cpp, "parameter_list", None::<$predicate>, "e0a-x-cpp-parameter_list"), "Task 23"),
-            (($language::Rust, "block", None::<$predicate>, "e0a-rs-block"), "Task 14"),
-            (($language::Rust, "const_item", None::<$predicate>, "e0a-rs-const_item"), "Task 14"),
-            (($language::Rust, "let_declaration", None::<$predicate>, "e0a-rs-let_declaration"), "Task 14"),
-            (($language::Rust, "parameters", None::<$predicate>, "e0a-x-rs-parameters"), "Task 14"),
-            (($language::Rust, "static_item", None::<$predicate>, "e0a-rs-static_item"), "Task 14"),
             (($language::Lua, "parameters", None::<$predicate>, "e0a-x-lua-parameters"), "Task 26"),
         ]
     };

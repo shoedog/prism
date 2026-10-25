@@ -1,10 +1,8 @@
 //! Lexical binding ownership for reaching definitions.
 
 mod masks;
+mod rust_scope;
 mod use_lookup;
-
-use masks::{collect_classified_masks, simple_catch_parameter_owns_def};
-
 use super::binding_table::{
     rows, select_binding_row, BindingScopeRule, DeclarationKind, Role, Ruling, Visibility,
 };
@@ -17,6 +15,7 @@ use super::{CfgView, DefSite, Line};
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use crate::languages::Language;
+use masks::{collect_classified_masks, simple_catch_parameter_owns_def};
 use std::cell::OnceCell;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
@@ -496,15 +495,21 @@ fn declaration_seed(
                 return None;
             }
             let scope = declaration_scope(parsed, func_node, node, kind, function_scope);
-            let visible_from = match kind {
-                DeclarationKind::Parameter
-                | DeclarationKind::JavaScriptVar
-                | DeclarationKind::PythonAssignment
-                | DeclarationKind::Reuse => scope.start_byte,
-                DeclarationKind::GoShort
-                | DeclarationKind::Other
-                | DeclarationKind::Pattern
-                | DeclarationKind::CaptureCopy => node.end_byte(),
+            let rust_item_is_hoisted = parsed.language == Language::Rust
+                && matches!(node.kind(), "const_item" | "static_item");
+            let visible_from = if rust_item_is_hoisted {
+                scope.start_byte
+            } else {
+                match kind {
+                    DeclarationKind::Parameter
+                    | DeclarationKind::JavaScriptVar
+                    | DeclarationKind::PythonAssignment
+                    | DeclarationKind::Reuse => scope.start_byte,
+                    DeclarationKind::GoShort
+                    | DeclarationKind::Other
+                    | DeclarationKind::Pattern
+                    | DeclarationKind::CaptureCopy => node.end_byte(),
+                }
             };
             return Some((scope, kind, visible_from));
         }
@@ -524,6 +529,9 @@ fn declaration_scope(
 ) -> ScopeSpan {
     if kind == DeclarationKind::JavaScriptVar {
         return function_scope;
+    }
+    if let Some(scope) = rust_scope::closure_parameter_scope(parsed, node) {
+        return scope;
     }
     let mut current = node.parent();
     while let Some(parent) = current {
@@ -564,11 +572,27 @@ fn function_scope(_parsed: &ParsedFile, func_node: &Node<'_>) -> ScopeSpan {
 }
 
 pub(super) fn scope_span(node: Node<'_>) -> ScopeSpan {
+    let node = if matches!(node.kind(), "let_condition" | "let_chain") {
+        rust_let_header_body(node).unwrap_or(node)
+    } else {
+        node
+    };
     ScopeSpan {
         start_byte: node.start_byte(),
         end_byte: node.end_byte(),
         end_line: node.end_position().row + 1,
     }
+}
+
+fn rust_let_header_body(mut node: Node<'_>) -> Option<Node<'_>> {
+    while let Some(parent) = node.parent() {
+        match parent.kind() {
+            "if_expression" => return parent.child_by_field_name("consequence"),
+            "while_expression" => return parent.child_by_field_name("body"),
+            _ => node = parent,
+        }
+    }
+    None
 }
 
 #[cfg(test)]

@@ -122,6 +122,23 @@ pub(super) fn assert_ruling(
             "{}: uncertain behavior needs OwnershipUncertain",
             case.id
         ),
+        Some(Ruling::Classified)
+            if is_binding
+                && case.language == Language::Rust
+                && matches!(case.kind, "parameters" | "closure_parameters") =>
+        {
+            assert!(
+                case.expect
+                    .iter()
+                    .any(|(_, _, label)| matches!(label, FlowConfidence::Exact))
+                    && case.expect.iter().any(|(_, _, label)| matches!(
+                        label,
+                        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                    )),
+                "{}: deferred closure parameters need CfgIncomplete inside and Exact outside",
+                case.id
+            );
+        }
         Some(Ruling::Classified) if is_binding => {
             assert!(
                 case.expect
@@ -150,14 +167,19 @@ pub(super) fn assert_ruling(
             "{}: classified NotBinding behavior needs Exact invariance",
             case.id
         ),
-        Some(Ruling::Classified) => assert!(
-            case.expect.iter().all(|(_, _, label)| matches!(
-                label,
-                FlowConfidence::Exact | FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
-            )),
-            "{}: classified scope behavior needs Exact or CfgIncomplete",
-            case.id
-        ),
+        Some(Ruling::Classified) => {
+            assert!(
+                case.expect.iter().all(|(_, _, label)| matches!(
+                    label,
+                    FlowConfidence::Exact
+                        | FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
+                        | FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { .. })
+                        | FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                )),
+                "{}: classified scope behavior needs Exact or CfgIncomplete; scoped Killed or OwnershipUncertain are also supported",
+                case.id
+            );
+        }
         None => {}
     }
 }
@@ -218,6 +240,21 @@ pub(super) fn assert_row_case_identities() {
                 })
                 .collect();
             if !row_cases.iter().any(|case| case.id == row.regression) {
+                continue;
+            }
+            if language == Language::Rust && matches!(row.kind, "parameters" | "closure_parameters")
+            {
+                assert!(
+                    row_cases
+                        .iter()
+                        .flat_map(|case| case.expect)
+                        .any(|(_, _, label)| matches!(
+                            label,
+                            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                        )),
+                    "{language:?} {}: closure parameters need deferred capture evidence",
+                    row.kind
+                );
                 continue;
             }
             assert!(
@@ -369,7 +406,7 @@ fn empty_behavioral_case_is_rejected() {
 
 #[test]
 #[should_panic(expected = "classified scope behavior needs Exact or CfgIncomplete")]
-fn classified_scope_behavior_rejects_non_exact_invariance() {
+fn classified_scope_behavior_rejects_unsupported_doubt() {
     assert_ruling(
         &Case {
             id: "e0a-x-for_in_statement-residual",
@@ -382,7 +419,7 @@ fn classified_scope_behavior_rejects_non_exact_invariance() {
             expect: &[(
                 "2:item",
                 "3:item",
-                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+                FlowConfidence::NameOnly(FlowDoubt::SameLine),
             )],
             expect_counter: Some(("dfg_label_nameonly_killed", 1)),
         },

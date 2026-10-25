@@ -51,6 +51,43 @@ fn bare_arrow_keeps_the_original_absent_parameter_region() {
 }
 
 #[test]
+fn rust_closure_parameters_use_the_closure_body_scope() {
+    fn find_kind<'tree>(node: Node<'tree>, kind: &str) -> Option<Node<'tree>> {
+        if node.kind() == kind {
+            return Some(node);
+        }
+        let mut cursor = node.walk();
+        let found = node
+            .named_children(&mut cursor)
+            .find_map(|child| find_kind(child, kind));
+        found
+    }
+
+    let parsed = ParsedFile::parse(
+        "closure.rs",
+        "fn f() { let closure = |parameter: i32| { consume(parameter); }; }",
+        Language::Rust,
+    )
+    .unwrap();
+    let owner = parsed.all_functions()[0];
+    let parameters =
+        find_kind(parsed.tree.root_node(), "closure_parameters").expect("closure parameters");
+    let body = parameters
+        .parent()
+        .and_then(|closure| closure.child_by_field_name("body"))
+        .expect("closure body");
+    let scope = declaration_scope(
+        &parsed,
+        &owner,
+        parameters,
+        DeclarationKind::Other,
+        function_scope(&parsed, &owner),
+    );
+
+    assert_eq!(scope, scope_span(body));
+}
+
+#[test]
 #[cfg(debug_assertions)]
 #[should_panic(expected = "root function must remain indexed")]
 fn unindexed_root_trips_debug_invariant() {

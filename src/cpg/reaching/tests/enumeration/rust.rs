@@ -1,13 +1,180 @@
 use super::super::super::binding_table::{rows, DeclarationKind, Role, Ruling, Visibility};
+use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
-pub(super) const CASES: &[super::case::Case] = &[];
+const fn killed(line: u32) -> FlowConfidence {
+    FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: line })
+}
+
+pub(super) const CASES: &[super::case::Case] = &[
+    super::case::Case {
+        id: "e0a-rs-block",
+        language: Language::Rust,
+        kind: "block",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    {\n        let x = clean();\n        sink(x);\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "5:x", killed(4)), ("2:x", "7:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "e0a-rs-let_declaration",
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    {\n        let x = clean(x);\n        sink(x);\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "4:x", FlowConfidence::Exact), ("2:x", "5:x", killed(4)), ("2:x", "7:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "e0a-rs-const_item",
+        language: Language::Rust,
+        kind: "const_item",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    {\n        sink(x);\n        const x: i32 = 1;\n        consume(x);\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "4:x", killed(5)), ("2:x", "6:x", killed(5)), ("2:x", "8:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
+    },
+    super::case::Case {
+        id: "e0a-rs-static_item",
+        language: Language::Rust,
+        kind: "static_item",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    {\n        sink(x);\n        static x: i32 = 1;\n        consume(x);\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "4:x", killed(5)), ("2:x", "6:x", killed(5)), ("2:x", "8:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
+    },
+    super::case::Case {
+        id: "e0a-x-rs-parameters",
+        language: Language::Rust,
+        kind: "parameters",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    fn inner(x: i32) {\n        sink(x);\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "4:x", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)), ("2:x", "6:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
+    },
+    super::case::Case {
+        id: "rs-unsafe-block-shadow",
+        language: Language::Rust,
+        kind: "unsafe_block",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    unsafe { let x = clean();\n        sink(x);\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "4:x", killed(3)), ("2:x", "6:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "rs-match-arm-scope",
+        language: Language::Rust,
+        kind: "match_arm",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f(opt: Option<i32>) {\n    let x = source();\n    match opt {\n        Some(_) => {\n            let x = clean();\n            sink(x);\n        }\n        None => {}\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "6:x", killed(5)), ("2:x", "10:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "rs-if-let-header-scope",
+        language: Language::Rust,
+        kind: "let_condition",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f(opt: Option<i32>) {\n    let x = source();\n    if let Some(y) = opt {\n        sink(x);\n        consume(y);\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "4:x", FlowConfidence::Exact), ("2:x", "7:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 2)),
+    },
+    super::case::Case {
+        id: "rs-let-chain-header-scope",
+        language: Language::Rust,
+        kind: "let_chain",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f(a: Option<i32>, b: Option<i32>) {\n    let x = source();\n    if let Some(y) = a && let Some(z) = b {\n        sink(x);\n        consume(y + z);\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "4:x", FlowConfidence::Exact), ("2:x", "7:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 2)),
+    },
+    super::case::Case {
+        id: "rs-closure-parameters-deferred",
+        language: Language::Rust,
+        kind: "closure_parameters",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    let closure = |x: i32| {\n        sink(x);\n    };\n    sink(x);\n}\n",
+        expect: &[("2:x", "4:x", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)), ("2:x", "6:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
+    },
+    super::case::Case {
+        id: "rs-try-block",
+        language: Language::Rust,
+        kind: "try_block",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    let _: Result<i32, ()> = try {\n        let x = clean();\n        sink(x);\n        x\n    };\n    sink(x);\n}\n",
+        expect: &[("2:x", "5:x", killed(4)), ("2:x", "8:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "rs-const-block",
+        language: Language::Rust,
+        kind: "const_block",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    let _ = const {\n        let x = clean();\n        sink(x);\n        x\n    };\n    sink(x);\n}\n",
+        expect: &[("2:x", "5:x", killed(4)), ("2:x", "8:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "rs-let-else-after-introduction",
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    {\n        let x = clean() else { return; };\n        sink(x);\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "5:x", killed(4)), ("2:x", "7:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "rs-uninitialized-let-after-introduction",
+        language: Language::Rust,
+        kind: "let_declaration",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "fn f() {\n    let x = source();\n    {\n        let x: i32;\n        x = clean();\n        sink(x);\n    }\n    sink(x);\n}\n",
+        expect: &[("2:x", "6:x", killed(4)), ("2:x", "8:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+];
 pub(super) const CURATED: &[(&str, &str)] = &[
     ("block", "e0a-rs-block"),
     ("let_declaration", "e0a-rs-let_declaration"),
     ("const_item", "e0a-rs-const_item"),
     ("static_item", "e0a-rs-static_item"),
     ("parameters", "e0a-x-rs-parameters"),
+    ("unsafe_block", "rs-unsafe-block-shadow"),
+    ("match_arm", "rs-match-arm-scope"),
+    ("let_condition", "rs-if-let-header-scope"),
+    ("let_chain", "rs-let-chain-header-scope"),
+    ("closure_parameters", "rs-closure-parameters-deferred"),
+    ("try_block", "rs-try-block"),
+    ("const_block", "rs-const-block"),
 ];
 
 pub(super) fn source_for_kind(kind: &str) -> &'static str {
@@ -20,40 +187,70 @@ pub(super) fn source_for_kind(kind: &str) -> &'static str {
 }
 
 #[test]
-fn rust_rows_reproduce_the_old_match_arms() {
+fn task14_rust_binding_cases() {
+    for case in CASES {
+        super::case::check_case(case);
+    }
+}
+
+#[test]
+fn rust_declaration_rows_introduce_only_their_owned_fields() {
+    use super::super::super::binding_table::select_binding_row;
+    use super::super::super::transfer::row_introduced_identifiers;
+
+    let parsed = super::super::parsed(
+        "fn f() {\n    let mut other = 0;\n    let owned = { other = 1; other };\n    const OWNED_CONST: i32 = { let mut nested = 0; nested = 1; nested };\n    static OWNED_STATIC: i32 = { let mut nested = 0; nested = 1; nested };\n    let closure = |parameter: i32| parameter;\n}\n",
+        Language::Rust,
+    );
+    let cases = [
+        ("let_declaration", "let owned", vec!["owned"]),
+        ("const_item", "OWNED_CONST", vec!["OWNED_CONST"]),
+        ("static_item", "OWNED_STATIC", vec!["OWNED_STATIC"]),
+        ("parameters", "()", vec![]),
+        ("closure_parameters", "parameter", vec![]),
+    ];
+    for (kind, marker, expected) in cases {
+        let node = super::case::nodes_of_kind(&parsed, kind)
+            .into_iter()
+            .find(|node| parsed.node_text(node).contains(marker))
+            .unwrap_or_else(|| panic!("missing {kind} containing {marker}"));
+        let row = select_binding_row(&parsed, node).expect("curated Rust declaration row");
+        let actual: Vec<_> = row_introduced_identifiers(&parsed, node, row.fields)
+            .into_iter()
+            .map(|identifier| parsed.node_text(&identifier))
+            .collect();
+        assert_eq!(
+            actual, expected,
+            "{kind}: nested assignments are not declarations"
+        );
+    }
+}
+
+#[test]
+fn rust_rows_reproduce_the_curated_scope_and_binding_rules() {
     let rust_rows = rows(Language::Rust);
     let expected = [
-        (
-            "block",
-            true,
-            false,
-            None,
-            Visibility::WholeScope,
-            "e0a-rs-block",
-        ),
+        ("block", true, false, None, Visibility::WholeScope),
         (
             "let_declaration",
             false,
             true,
             Some(DeclarationKind::Other),
             Visibility::AfterIntroduction,
-            "e0a-rs-let_declaration",
         ),
         (
             "const_item",
             false,
             true,
             Some(DeclarationKind::Other),
-            Visibility::AfterIntroduction,
-            "e0a-rs-const_item",
+            Visibility::WholeScope,
         ),
         (
             "static_item",
             false,
             true,
             Some(DeclarationKind::Other),
-            Visibility::AfterIntroduction,
-            "e0a-rs-static_item",
+            Visibility::WholeScope,
         ),
         (
             "parameters",
@@ -61,18 +258,23 @@ fn rust_rows_reproduce_the_old_match_arms() {
             true,
             Some(DeclarationKind::Parameter),
             Visibility::WholeScope,
-            "e0a-x-rs-parameters",
+        ),
+        ("unsafe_block", true, false, None, Visibility::WholeScope),
+        ("const_block", true, false, None, Visibility::WholeScope),
+        ("try_block", true, false, None, Visibility::WholeScope),
+        ("match_arm", true, false, None, Visibility::WholeScope),
+        ("let_condition", true, false, None, Visibility::Header),
+        ("let_chain", true, false, None, Visibility::Header),
+        (
+            "closure_parameters",
+            false,
+            true,
+            Some(DeclarationKind::Other),
+            Visibility::WholeScope,
         ),
     ];
 
-    assert!(rust_rows[expected.len()..].iter().all(|row| matches!(
-        row.ruling,
-        Ruling::Uncertain {
-            reason: "not yet curated",
-            ..
-        }
-    )));
-    for (kind, creates_scope, is_binding, declaration, visibility, regression) in expected {
+    for (kind, creates_scope, is_binding, declaration, visibility) in expected {
         let row = rust_rows
             .iter()
             .find(|row| row.kind == kind)
@@ -81,6 +283,6 @@ fn rust_rows_reproduce_the_old_match_arms() {
         assert_eq!(row.roles.has(Role::Binding), is_binding, "{kind}");
         assert_eq!(row.declaration, declaration, "{kind}");
         assert_eq!(row.visibility, visibility, "{kind}");
-        assert_eq!(row.regression, regression, "{kind}");
+        assert_eq!(row.ruling, Ruling::Classified, "{kind}");
     }
 }
