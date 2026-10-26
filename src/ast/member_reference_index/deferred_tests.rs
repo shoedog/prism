@@ -24,7 +24,7 @@ fn producer_shares_one_member_index_across_functions() {
             .unwrap();
         let (edges, normalizations) = pool.install(|| {
             NORMALIZATIONS.with(|c| c.set(0));
-            let graph = DataFlowGraph::build(&files);
+            let graph = DataFlowGraph::build_on_current_pool(&files);
             let edges = graph.edges().len();
             (edges, NORMALIZATIONS.with(|c| c.get()))
         });
@@ -48,6 +48,7 @@ fn complete_dfg_fixture_sweep_against_fully_legacy_path() {
             vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")];
         let mut files_checked = 0;
         let mut owners_checked = 0;
+        let mut oracle_runs = 0;
         while let Some(path) = pending.pop() {
             if path.is_dir() {
                 for entry in std::fs::read_dir(path).unwrap() {
@@ -74,10 +75,13 @@ fn complete_dfg_fixture_sweep_against_fully_legacy_path() {
             let parsed = ParsedFile::parse(&path.to_string_lossy(), &source, lang).unwrap();
             owners_checked += parsed.all_functions().len();
             let files = BTreeMap::from([(parsed.path.clone(), parsed)]);
-            let build = || bincode::serialize(&DataFlowGraph::build(&files)).unwrap();
+            let build =
+                || bincode::serialize(&DataFlowGraph::build_on_current_pool(&files)).unwrap();
             let indexed = build();
             USE_ORACLE.with(|f| f.set(true));
+            let before = ORACLE_RUNS.with(|n| n.get());
             let legacy = crate::ast::binding_verdict_memo::direct(build);
+            oracle_runs += ORACLE_RUNS.with(|n| n.get()) - before;
             USE_ORACLE.with(|f| f.set(false));
             assert_eq!(
                 indexed,
@@ -89,5 +93,8 @@ fn complete_dfg_fixture_sweep_against_fully_legacy_path() {
         }
         println!("complete DFG differential: files={files_checked}, owners={owners_checked}");
         assert!(files_checked >= 20 && owners_checked > 100);
+        // The flag is this worker's thread-local: a build that left the pool
+        // would compare the indexed path with itself.
+        assert!(oracle_runs > 0, "legacy builds never ran the member oracle");
     });
 }

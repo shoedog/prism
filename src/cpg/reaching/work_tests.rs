@@ -145,7 +145,10 @@ fn build_counting(parsed: ParsedFile, count_only: bool) -> (DataFlowGraph, Vec<C
         .install(|| {
             let _recording = Recording::begin();
             COUNT_ONLY.with(|mode| mode.set(count_only));
-            let graph = DataFlowGraph::build(&BTreeMap::from([(parsed.path.clone(), parsed)]));
+            let graph = DataFlowGraph::build_on_current_pool(&BTreeMap::from([(
+                parsed.path.clone(),
+                parsed,
+            )]));
             COUNT_ONLY.with(|mode| mode.set(false));
             (graph, take_records())
         })
@@ -400,14 +403,14 @@ fn compare(source: &str, path: &str, language: Language) -> Vec<Counts> {
         let files = BTreeMap::from([(path.to_string(), parsed)]);
         let _recording = Recording::begin();
         LEGACY.with(|mode| mode.set(true));
-        let old = DataFlowGraph::build(&files);
+        let old = DataFlowGraph::build_on_current_pool(&files);
         LEGACY.with(|mode| mode.set(false));
         let old_counts = take_records();
         if old_counts.iter().any(|counts| counts.introductions > 0) {
             assert!(old_counts.iter().map(|counts| counts.all_functions).sum::<usize>() > 0,
                 "legacy lookup must execute: {path}");
         }
-        let new = DataFlowGraph::build(&files);
+        let new = DataFlowGraph::build_on_current_pool(&files);
         let new_counts = take_records();
         assert_eq!(old_counts.len(), new_counts.len(), "pass count: {path}");
         assert_eq!(

@@ -58,8 +58,24 @@ impl DataFlowGraph {
         Self::build_from_refs(&refs)
     }
 
+    /// `build` without the pool boundary, for tests that observe per-worker
+    /// thread-local counters on a pool they own: `build` hands the work to the
+    /// build pool, where those counters would not be seen.
+    #[cfg(test)]
+    pub(crate) fn build_on_current_pool(files: &BTreeMap<String, ParsedFile>) -> Self {
+        let refs: BTreeMap<String, &ParsedFile> =
+            files.iter().map(|(k, v)| (k.clone(), v)).collect();
+        Self::build_from_refs_on_pool(&refs)
+    }
+
     /// Build a DFG from file references (shared implementation for build and build_subset).
     fn build_from_refs(files: &BTreeMap<String, &ParsedFile>) -> Self {
+        // The per-file extraction walks syntax recursively; enter the large-stack
+        // build pool once (inline when already on it) whatever thread calls.
+        crate::build_pool::install(|| Self::build_from_refs_on_pool(files))
+    }
+
+    fn build_from_refs_on_pool(files: &BTreeMap<String, &ParsedFile>) -> Self {
         let _profile = crate::profile::Phase::serial("dfg");
         let ordered_files: Vec<(&String, &ParsedFile)> =
             files.iter().map(|(path, parsed)| (path, *parsed)).collect();

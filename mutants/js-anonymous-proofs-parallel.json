@@ -76,12 +76,6 @@
       "                    cache.proof_trace = Some(Vec::new());",
       "                    cache.proof_trace = None;",
       "js_anonymous::tests::generated_complete_index_and_serialization"
-    ],
-    "AP13-build-pool-bypassed": [
-      "src/js_anonymous.rs",
-      "crate::build_pool::install(move || collect_on_current_pool(files, work))",
-      "collect_on_current_pool(files, work)",
-      "js_anonymous::stack_tests::proofs_public_constructor_stack_safety"
     ]
   }
 }

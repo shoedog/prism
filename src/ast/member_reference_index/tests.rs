@@ -338,7 +338,10 @@ fn member_index_alias_twins_and_partial_rebuild_match_oracle() {
             .start_handler(move |_| USE_ORACLE.with(|flag| flag.set(legacy)))
             .build()
             .unwrap();
-        pool.install(|| bincode::serialize(&DataFlowGraph::build(files)).unwrap())
+        let dfg = pool
+            .install(|| bincode::serialize(&DataFlowGraph::build_on_current_pool(files)).unwrap());
+        assert_oracle_ran(&pool, legacy);
+        dfg
     }
     let indexed = build(&files, false);
     let legacy = build(&files, true);

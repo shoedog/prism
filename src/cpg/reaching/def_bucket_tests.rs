@@ -117,11 +117,11 @@ fn compare(path: &str, source: &str) -> (usize, BTreeSet<FlowDoubt>) {
                 ParsedFile::parse(path, source, Language::from_path(path).unwrap()).unwrap();
             let files = BTreeMap::from([(path.to_owned(), parsed)]);
             let mode = Mode::begin(true);
-            let old_dfg = crate::data_flow::DataFlowGraph::build(&files);
+            let old_dfg = crate::data_flow::DataFlowGraph::build_on_current_pool(&files);
             let old_observation = Mode::take();
             drop(mode);
             let mode = Mode::begin(false);
-            let new_dfg = crate::data_flow::DataFlowGraph::build(&files);
+            let new_dfg = crate::data_flow::DataFlowGraph::build_on_current_pool(&files);
             let new_observation = Mode::take();
             drop(mode);
             assert_eq!(

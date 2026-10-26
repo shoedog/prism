@@ -65,11 +65,11 @@ fn compare(parsed: &ParsedFile) -> Observation {
         .install(|| {
             let files = BTreeMap::from([(parsed.path.clone(), parsed.clone())]);
             let old_mode = Mode::begin(true);
-            let old = DataFlowGraph::build(&files);
+            let old = DataFlowGraph::build_on_current_pool(&files);
             let old_observation = Mode::take();
             drop(old_mode);
             let new_mode = Mode::begin(false);
-            let new = DataFlowGraph::build(&files);
+            let new = DataFlowGraph::build_on_current_pool(&files);
             let new_observation = Mode::take();
             drop(new_mode);
             assert_eq!(

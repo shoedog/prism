@@ -65,12 +65,6 @@
       "\n            function_locals.insert(func_id.clone(), locals);",
       "\n            let _ = (func_id.clone(), locals);",
       "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
-    ],
-    "PF11-build-pool-bypassed": [
-      "src/call_graph/js_ts_facts.rs",
-      "crate::build_pool::install(move || collect_on_current_pool(files, work))",
-      "collect_on_current_pool(files, work)",
-      "js_anonymous::stack_tests::facts_public_constructor_stack_safety"
     ]
   }
 }
