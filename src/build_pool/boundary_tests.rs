@@ -7,7 +7,7 @@
 //! - `same`: a build-pool worker (inline, same thread);
 //! - `foreign`: a one-worker foreign pool, `rayon::join(A, B)` where A holds a
 //!   mutex across the call and B takes it (issue #513 item 1);
-//! - `deep`: a 2 MiB ordinary thread, 8192-deep input (issue #513 item 2).
+//! - `deep`: a 256 KiB ordinary thread and 256 KiB default rayon stacks, 1024-deep input (issue #513 item 2).
 use super::{build_pool, install};
 use crate::{ast::ParsedFile, call_graph::CallGraph, languages::Language};
 use std::{
@@ -93,8 +93,16 @@ fn construct(route: &str, files: &BTreeMap<String, ParsedFile>, prebuilt: Prebui
         .any(|s| s.callee_name == "leaf"));
 }
 
+// The deep cases shrink every default stack to `SMALL_STACK` (the caller thread
+// and, through RUST_MIN_STACK, rayon's default workers), so a modest depth
+// overflows on main. Cost is roughly quadratic in depth (tree-sitter parent
+// walks), which keeps the cases fast on slow, instrumented runners. 1024 levels
+// overflow on main for every deep route with about 2x margin at 256 KiB.
+const SMALL_STACK: usize = 256 * 1024;
+const DEEP_DEPTH: usize = 1024;
+
 fn ts_source(deep: bool) -> String {
-    let depth = if deep { 8192 } else { 2 };
+    let depth = if deep { DEEP_DEPTH } else { 2 };
     format!(
         "class Thing {{}} const t = new Thing(); function leaf() {{ return 1; }} function caller() {{ leaf(); const v = {}0{}; return v; }}",
         "[".repeat(depth),
@@ -106,7 +114,7 @@ fn ts_source(deep: bool) -> String {
 // (`GoTypeProvider`, `RustTypeProvider`), which context constructors run
 // when they build a registry.
 fn go_source(deep: bool) -> String {
-    let depth = if deep { 8192 } else { 2 };
+    let depth = if deep { DEEP_DEPTH } else { 2 };
     format!(
         "package p\ntype T struct{{}}\nfunc (x T) Hit() {{}}\nfunc goCall(x T) {{ x.Hit() }}\nfunc deep() int {{ return {}1{} }}",
         "(".repeat(depth),
@@ -115,7 +123,7 @@ fn go_source(deep: bool) -> String {
 }
 
 fn rust_mod_source(deep: bool) -> String {
-    let depth = if deep { 8192 } else { 2 };
+    let depth = if deep { DEEP_DEPTH } else { 2 };
     format!(
         "{}struct Leaf;{}",
         "mod m { ".repeat(depth),
@@ -278,7 +286,11 @@ fn child(route: &str, case: &str) {
             }),
             "ordinary" | "deep" => std::thread::scope(|s| {
                 std::thread::Builder::new()
-                    .stack_size(2 * 1024 * 1024)
+                    .stack_size(if case == "deep" {
+                        SMALL_STACK
+                    } else {
+                        2 * 1024 * 1024
+                    })
                     .spawn_scoped(s, || {
                         assert!(rayon::current_thread_index().is_none());
                         check();
@@ -329,6 +341,7 @@ fn watchdog(route: &'static str, test: &str) {
                 .env("RAYON_NUM_THREADS", "2")
                 .env_remove("RAYON_RS_NUM_CPUS")
                 .env_remove("RUST_MIN_STACK")
+                .envs((*case == "deep").then(|| ("RUST_MIN_STACK", SMALL_STACK.to_string())))
                 .stdout(Stdio::null())
                 .stderr(Stdio::from(stderr.try_clone().unwrap()))
                 .spawn()
