@@ -193,6 +193,7 @@ impl<'a> MemberReferenceSearch<'a> {
         let parsed = self.parsed;
         #[cfg(test)]
         if USE_ORACLE.with(|flag| flag.get()) {
+            ORACLE_RUNS.with(|n| n.set(n.get() + 1));
             return parsed.legacy_path_reference_spans_fenced_in(
                 owner, path, def_line, def_byte, within, reads_only,
             );
@@ -317,6 +318,26 @@ pub(super) fn count_normalization() {
 }
 #[cfg(test)]
 thread_local! { static USE_ORACLE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+#[cfg(test)]
+thread_local! { static ORACLE_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+/// Oracle dispatches executed on the workers of `pool`. A test that sets
+/// `USE_ORACLE` on its own pool's workers asserts this is positive for the
+/// legacy build and zero for the indexed one: a build that hops to another
+/// pool would otherwise compare the indexed path with itself.
+#[cfg(test)]
+pub(crate) fn oracle_runs_on(pool: &rayon::ThreadPool) -> usize {
+    pool.broadcast(|_| ORACLE_RUNS.with(|n| n.get()))
+        .iter()
+        .sum()
+}
+#[cfg(test)]
+pub(crate) fn assert_oracle_ran(pool: &rayon::ThreadPool, legacy: bool) {
+    let runs = oracle_runs_on(pool);
+    assert!(
+        (runs > 0) == legacy,
+        "member oracle dispatches {runs} with legacy={legacy}: the build left this pool"
+    );
+}
 #[cfg(test)]
 mod tests;
 

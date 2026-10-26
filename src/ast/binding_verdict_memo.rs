@@ -76,6 +76,7 @@ fn cached(
 ) -> Value {
     #[cfg(test)]
     if BYPASS.with(|b| b.get()) {
+        BYPASS_RUNS.with(|n| n.set(n.get() + 1));
         return evaluate();
     }
     let memo = ACTIVE.with(|slot| {
@@ -212,6 +213,16 @@ impl ParsedFile {
 
 #[cfg(test)]
 thread_local! { static BYPASS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+#[cfg(test)]
+thread_local! { static BYPASS_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+/// Memo-bypass dispatches executed on the workers of `pool`; see
+/// `member_reference_index::oracle_runs_on`.
+#[cfg(test)]
+pub(crate) fn bypass_runs_on(pool: &rayon::ThreadPool) -> usize {
+    pool.broadcast(|_| BYPASS_RUNS.with(|n| n.get()))
+        .iter()
+        .sum()
+}
 /// The original binder, including all recursive helper calls, without any memo.
 #[cfg(test)]
 pub(crate) fn direct<R>(run: impl FnOnce() -> R) -> R {

@@ -347,12 +347,20 @@ fn cache_keys_preserve_names_scopes_regions_and_bytes() {
 }
 
 fn build(files: &BTreeMap<String, ParsedFile>, threads: usize, bypass: bool) -> Vec<u8> {
-    rayon::ThreadPoolBuilder::new()
+    let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
         .start_handler(move |_| BYPASS.with(|b| b.set(bypass)))
         .build()
-        .unwrap()
-        .install(|| bincode::serialize(&DataFlowGraph::build(files)).unwrap())
+        .unwrap();
+    let dfg =
+        pool.install(|| bincode::serialize(&DataFlowGraph::build_on_current_pool(files)).unwrap());
+    // The flag lives on this pool's workers: the build must have run there.
+    let runs = super::bypass_runs_on(&pool);
+    assert!(
+        (runs > 0) == bypass,
+        "memo bypass dispatches {runs} with bypass={bypass}: the build left this pool"
+    );
+    dfg
 }
 
 #[test]

@@ -661,7 +661,10 @@ fn identifier_index_complete_dfg_and_partial_rebuild() {
             .start_handler(move |_| super::super::USE_ORACLE.with(|f| f.set(oracle)))
             .build()
             .unwrap();
-        pool.install(|| bincode::serialize(&DataFlowGraph::build(files)).unwrap())
+        let dfg = pool
+            .install(|| bincode::serialize(&DataFlowGraph::build_on_current_pool(files)).unwrap());
+        super::super::assert_oracle_ran(&pool, oracle);
+        dfg
     }
     let rust_files = BTreeMap::from([(
         "fixture.rs".into(),

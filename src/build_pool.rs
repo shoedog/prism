@@ -54,6 +54,18 @@ pub(crate) fn build_pool() -> &'static rayon::ThreadPool {
 ///   thread never runs anyone's queued jobs.
 ///
 /// A panic in `op` propagates to the caller on every route.
+///
+/// # Contract for callers on another pool's worker
+///
+/// On the third route the calling worker is parked in a blocking join until
+/// `op` returns, and `op` runs on the build pool. So `op` must not wait on
+/// work that only the calling pool can run: for example, calling that same
+/// pool's `install` (or `join`/`scope` on it) while all of its workers are
+/// parked this way never completes. rayon's own cross-pool `install` would
+/// complete that nested call by running it on the parked worker, at the price
+/// of the hazard above; this function takes the other side of the trade. The
+/// large-stack boundaries inside prism (graph constructors, the CPG build,
+/// the loader) never call back into the caller's pool.
 pub fn install<R: Send>(op: impl FnOnce() -> R + Send) -> R {
     #[cfg(test)]
     let op = {

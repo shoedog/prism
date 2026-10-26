@@ -3,7 +3,8 @@
   "source": "src/build_pool.rs",
   "lib_test_prefixes": [
     "build_pool::",
-    "js_anonymous::stack_tests::"
+    "js_anonymous::stack_tests::",
+    "ast::"
   ],
   "mutations": {
     "BP01-handoff-never-taken": [
@@ -105,41 +106,83 @@
         "build_pool::boundary_tests::dfg_subset_contexts"
       ]
     ],
-    "BP30-built-cpg-live-types-raw-pool": [
-      "src/cpg/context.rs",
-      "crate::build_pool::install(|| types.collect_live_types(files));\n        CpgContext {\n            cpg,\n            files,\n            types,\n            scope,\n",
-      "crate::build_pool::build_pool().install(|| types.collect_live_types(files));\n        CpgContext {\n            cpg,\n            files,\n            types,\n            scope,\n",
-      "build_pool::boundary_tests::cpg_fresh_contexts"
-    ],
-    "BP31-cached-cpg-live-types-raw-pool": [
-      "src/cpg/context.rs",
-      "crate::build_pool::install(|| types.collect_live_types(files));\n        CpgContext {\n            cpg,\n            files,\n            types,\n            scope: None,\n",
-      "crate::build_pool::build_pool().install(|| types.collect_live_types(files));\n        CpgContext {\n            cpg,\n            files,\n            types,\n            scope: None,\n",
-      "build_pool::boundary_tests::cpg_cached_contexts"
-    ],
     "BP32-registry-live-types-bypassed": [
       "src/cpg/context.rs",
       "crate::build_pool::install(|| registry.collect_live_types(files));",
       "registry.collect_live_types(files);",
       "build_pool::boundary_tests::cpg_registry_contexts"
     ],
-    "BP33-scoped-live-types-bypassed": [
-      "src/cpg/context.rs",
-      "crate::build_pool::install(|| types.collect_live_types(files));\n        CpgContext {\n            cpg,\n            files,\n            types,\n            scope: Some(",
-      "types.collect_live_types(files);\n        CpgContext {\n            cpg,\n            files,\n            types,\n            scope: Some(",
-      "build_pool::boundary_tests::cpg_scoped_contexts"
-    ],
-    "BP34-without-cpg-live-types-bypassed": [
-      "src/cpg/context.rs",
-      "crate::build_pool::install(|| types.collect_live_types(files));\n        CpgContext {\n            cpg: CodePropertyGraph::empty(),",
-      "types.collect_live_types(files);\n        CpgContext {\n            cpg: CodePropertyGraph::empty(),",
-      "build_pool::boundary_tests::cpg_without_contexts"
-    ],
     "BP40-loader-parse-raw-pool": [
       "src/repo_loader.rs",
       "crate::build_pool::install(|| candidates.into_par_iter().map(parse_candidate).collect())",
       "crate::build_pool::build_pool().install(|| candidates.into_par_iter().map(parse_candidate).collect())",
       "build_pool::boundary_tests::loader_contexts"
+    ],
+    "BP30-built-cpg-registry-on-caller-thread": [
+      "src/cpg/context.rs",
+      "Self::registry_with_live_types(files, type_db, shared_go_provider)",
+      "{\n            let t = Self::build_registry(files, type_db, shared_go_provider);\n            let l = t.collect_live_types(files);\n            (t, l)\n        }",
+      "build_pool::boundary_tests::cpg_contexts"
+    ],
+    "BP31-cached-cpg-registry-on-caller-thread": [
+      "src/cpg/context.rs",
+      "let (types, live_types) = Self::registry_with_live_types(files, type_db, None);\n        CpgContext {\n            cpg,\n            files,\n            types,\n            scope: None,",
+      "let (types, live_types) = {\n            let t = Self::build_registry(files, type_db, None);\n            let l = t.collect_live_types(files);\n            (t, l)\n        };\n        CpgContext {\n            cpg,\n            files,\n            types,\n            scope: None,",
+      "build_pool::boundary_tests::cpg_cached_contexts"
+    ],
+    "BP33-scoped-registry-on-caller-thread": [
+      "src/cpg/context.rs",
+      "let (types, live_types) = Self::registry_with_live_types(files, type_db, None);\n        CpgContext {\n            cpg,\n            files,\n            types,\n            scope: Some(",
+      "let (types, live_types) = {\n            let t = Self::build_registry(files, type_db, None);\n            let l = t.collect_live_types(files);\n            (t, l)\n        };\n        CpgContext {\n            cpg,\n            files,\n            types,\n            scope: Some(",
+      "build_pool::boundary_tests::cpg_scoped_contexts"
+    ],
+    "BP34-without-cpg-registry-on-caller-thread": [
+      "src/cpg/context.rs",
+      "let (types, live_types) = Self::registry_with_live_types(files, type_db, None);\n        CpgContext {\n            cpg: CodePropertyGraph::empty(),",
+      "let (types, live_types) = {\n            let t = Self::build_registry(files, type_db, None);\n            let l = t.collect_live_types(files);\n            (t, l)\n        };\n        CpgContext {\n            cpg: CodePropertyGraph::empty(),",
+      "build_pool::boundary_tests::cpg_without_contexts"
+    ],
+    "BP35-registry-helper-bypassed": [
+      "src/cpg/context.rs",
+      "crate::build_pool::install(|| {\n            let types = Self::build_registry(files, type_db, shared_go_provider);\n            let live_types = types.collect_live_types(files);\n            (types, live_types)\n        })",
+      "{\n            let types = Self::build_registry(files, type_db, shared_go_provider);\n            let live_types = types.collect_live_types(files);\n            (types, live_types)\n        }",
+      "build_pool::boundary_tests::cpg_without_contexts"
+    ],
+    "BP36-registry-outside-helper-boundary": [
+      "src/cpg/context.rs",
+      "crate::build_pool::install(|| {\n            let types = Self::build_registry(files, type_db, shared_go_provider);\n            let live_types = types.collect_live_types(files);\n            (types, live_types)\n        })",
+      "{\n            let types = Self::build_registry(files, type_db, shared_go_provider);\n            let live_types = crate::build_pool::install(|| types.collect_live_types(files));\n            (types, live_types)\n        }",
+      "build_pool::boundary_tests::cpg_without_contexts"
+    ],
+    "MI01-member-index-drops-nonsimple-twins": [
+      "src/ast/member_reference_index.rs",
+      "                if !refused_read\n                    && !crate::profile::gates::fence::<COUNT>(",
+      "                if false\n                    && !crate::profile::gates::fence::<COUNT>(",
+      "ast::member_reference_index::tests::member_index_alias_twins_and_partial_rebuild_match_oracle"
+    ],
+    "MI03-member-index-drops-nonsimple-deep": [
+      "src/ast/member_reference_index.rs",
+      "                if !refused_read\n                    && !crate::profile::gates::fence::<COUNT>(",
+      "                if false\n                    && !crate::profile::gates::fence::<COUNT>(",
+      "ast::member_reference_index::regressions::member_index_deep_syntax_outside_owner"
+    ],
+    "BV01-binding-memo-hit-flipped": [
+      "src/ast/binding_verdict_memo.rs",
+      "    if let Some(hit) = hit {\n        return hit;",
+      "    if let Some(hit) = hit {\n        return match hit {\n            Value::Bool(v) => Value::Bool(!v),\n            other => other,\n        };",
+      "ast::binding_verdict_memo::tests::dfg_rayon_reparse_and_partial_rebuild"
+    ],
+    "MI02-identifier-index-missing-name": [
+      "src/ast/member_reference_index/identifiers.rs",
+      ".get(name)",
+      ".get(\"absent\")",
+      "ast::member_reference_index::identifiers::tests::identifier_index_complete_dfg_and_partial_rebuild"
+    ],
+    "MI04-identifier-index-missing-name-sweep": [
+      "src/ast/member_reference_index/identifiers.rs",
+      ".get(name)",
+      ".get(\"absent\")",
+      "ast::member_reference_index::deferred_tests::complete_dfg_fixture_sweep_against_fully_legacy_path"
     ]
   }
 }

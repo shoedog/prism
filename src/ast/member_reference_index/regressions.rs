@@ -141,7 +141,10 @@ fn member_index_deep_syntax_outside_owner() {
                     .start_handler(move |_| USE_ORACLE.with(|flag| flag.set(legacy)))
                     .build()
                     .unwrap();
-                pool.install(|| crate::data_flow::DataFlowGraph::build(&files))
+                let dfg =
+                    pool.install(|| crate::data_flow::DataFlowGraph::build_on_current_pool(&files));
+                assert_oracle_ran(&pool, legacy);
+                dfg
             };
             let expected = build(true);
             let actual = build(false);

@@ -102,6 +102,27 @@ fn ts_source(deep: bool) -> String {
     )
 }
 
+// Deep Go and Rust inputs reach the type providers' recursive extraction
+// (`GoTypeProvider`, `RustTypeProvider`), which context constructors run
+// when they build a registry.
+fn go_source(deep: bool) -> String {
+    let depth = if deep { 8192 } else { 2 };
+    format!(
+        "package p\ntype T struct{{}}\nfunc (x T) Hit() {{}}\nfunc goCall(x T) {{ x.Hit() }}\nfunc deep() int {{ return {}1{} }}",
+        "(".repeat(depth),
+        ")".repeat(depth)
+    )
+}
+
+fn rust_mod_source(deep: bool) -> String {
+    let depth = if deep { 8192 } else { 2 };
+    format!(
+        "{}struct Leaf;{}",
+        "mod m { ".repeat(depth),
+        " }".repeat(depth)
+    )
+}
+
 fn files(deep: bool) -> BTreeMap<String, ParsedFile> {
     [
         ("a.ts", ts_source(deep), Language::TypeScript),
@@ -110,11 +131,8 @@ fn files(deep: bool) -> BTreeMap<String, ParsedFile> {
             "struct T; impl T { fn hit(&self) {} } fn rust_call(x: T) { x.hit(); }".into(),
             Language::Rust,
         ),
-        (
-            "c.go",
-            "package p\ntype T struct{}\nfunc (x T) Hit() {}\nfunc goCall(x T) { x.Hit() }".into(),
-            Language::Go,
-        ),
+        ("c.go", go_source(deep), Language::Go),
+        ("d.rs", rust_mod_source(deep), Language::Rust),
     ]
     .into_iter()
     .map(|(path, source, lang)| {

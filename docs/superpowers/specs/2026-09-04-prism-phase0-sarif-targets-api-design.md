@@ -268,7 +268,7 @@ pub fn callees(s: &NavigationSession, seed: Seed, depth: usize, exact_only: bool
 // Thin wrappers over navigation::queries::{callers,callees}_with_confidence. Typed call edges stay pub(crate) (§9).
 
 // src/api/mod.rs re-exports, plus:
-pub use crate::build_pool::install as with_build_pool;   // nesting is safe (OnceLock pool, re-entrant install)
+pub use crate::build_pool::install as with_build_pool;   // nesting is safe from the pool itself (inline) and from ordinary threads; from a worker of another rayon pool `op` runs on the build pool while that worker blocks in a join, so `op` must not wait on work only that pool can run (e.g. re-enter that pool's install while all its workers are parked); see build_pool::install
 pub use crate::finding_confidence::{classify, evidence_files, FindingConfidence, FindingTier, ParseQuality, RESOLUTION_MODE};
 pub use crate::output::sarif::{to_sarif, SarifInputs};
 pub use crate::targets::{project, TargetsDocument, TargetsMeta};
