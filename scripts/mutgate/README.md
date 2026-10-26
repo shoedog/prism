@@ -1,6 +1,9 @@
 # mutgate: authoritative text gate and advisory scoped checks
 
-Before merge, run the full gate. Every authoritative verdict comes from an
+Before merge, run the tiered pre-merge gate described in `CLAUDE.md` ("Mutation
+gate"): an authoritative scoped run plus the PR's lanes by default, dependent
+lanes on a named trigger, and the full gate for cross-cutting infrastructure and a
+periodic sweep of main. Every authoritative verdict comes from an
 isolated text mutant containing only its own main and `extra` edits. Source
 baseline preflight must pass first. Schema mode never decides an authoritative
 verdict. Production `src/` is never edited.
@@ -42,7 +45,7 @@ Each `mutants/<lane>.json` has a flat `mutations` map:
 ## Commands
 
 ```bash
-python3 scripts/mutgate/mutgate.py                              # authoritative full gate, pre-merge
+python3 scripts/mutgate/mutgate.py                              # authoritative full gate (tier 3, periodic sweep)
 python3 scripts/mutgate/mutgate.py --jobs 2                     # two isolated text workers
 python3 scripts/mutgate/mutgate.py --since main --scope fn       # ADVISORY scoped round
 python3 scripts/mutgate/mutgate.py --since main --scope line     # ADVISORY overlapping anchors
@@ -101,7 +104,9 @@ fn scope conservatively selects every registered mutant in the changed file;
 the Rust function parser does not define script function boundaries. They do
 not trace callers/dependencies and can omit effects of helper changes. Missing
 registered paths/anchors are selected even outside the diff and fail visibly.
-A green scoped run cannot replace the full pre-merge gate.
+A green scoped run therefore does not cover dependency effects: when a change
+alters behaviour that other lanes' tests rely on, add those lanes, and use the
+full gate for cross-cutting changes (tiers in `CLAUDE.md`).
 
 ## Build state, resources and cleanup
 
