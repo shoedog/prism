@@ -158,6 +158,33 @@ def extract_callees(seed: FunctionDef, ev: dict) -> list[CallEdge]:
 
 class PrismCli:
     @classmethod
+    def from_archive(
+        cls, prism_repo: str, path: str, sha_full: str, digest: str
+    ) -> "PrismCli":
+        if raw_digest(Path(path)) != digest:
+            raise SutStale("binary digest does not match the archived identity")
+        out = subprocess.run(
+            [path, "--version"], check=True, capture_output=True, text=True
+        ).stdout
+        sha, dirty = parse_version(out)
+        if dirty:
+            raise SutStale("archived binary was built from a dirty tree")
+        try:
+            resolved = resolve_prefix(sha, [sha_full])
+        except ValueError as exc:
+            raise SutStale("binary SHA does not match the archived identity") from exc
+        if resolved != sha_full:
+            raise SutStale("binary SHA does not match the archived identity")
+        instance = cls.__new__(cls)
+        instance.repo = prism_repo
+        instance.bin = path
+        instance.allow_stale = False
+        instance.env = None
+        instance.no_cache = False
+        instance.sha, instance.sha_full, instance.dirty = sha, sha_full, False
+        return instance
+
+    @classmethod
     def from_verified(
         cls,
         prism_repo: str,

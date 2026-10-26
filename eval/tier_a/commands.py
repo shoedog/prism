@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import subprocess
 import sys
 import tomllib
@@ -19,6 +20,7 @@ from .boundary import (
     scrubbed_env,
 )
 from .closure import raw_digest
+from .adjudication import load_records
 from .corpus import universe
 from .lock import (
     CorpusIdentity,
@@ -72,8 +74,13 @@ def dispatch(argv: list[str]) -> int | None:
     if argv[0] == "bootstrap":
         return _bootstrap(argv[1:])
     if argv[0] == "compare":
-        print(f"FATAL command_not_implemented: {argv[0]}", file=sys.stderr)
-        return 3
+        parser = argparse.ArgumentParser(prog="tier-a compare")
+        parser.add_argument("--base", required=True, type=Path)
+        parser.add_argument("--candidate", required=True, type=Path)
+        parser.add_argument("--out", required=True, type=Path)
+        args = parser.parse_args(argv[1:])
+        result = compare(args.base, args.candidate, args.out)
+        return 0 if result["verdict"] == "NO_REGRESSION" else 2
 
     integrity = "--integrity" in argv[1:]
     corpus = None
@@ -100,6 +107,37 @@ def dispatch(argv: list[str]) -> int | None:
         print(f"FATAL boundary_violation: {exc}", file=sys.stderr)
         return 3
     return 0
+
+
+def compare(
+    base: Path,
+    candidate: Path,
+    out: Path,
+    adjudications: Path = EVAL_DIR / "adjudications.jsonl",
+) -> dict:
+    """Compare two stored runs and write the JSON/Markdown report pair."""
+    from .compare_report import compare_runs, render_compare_md
+
+    run_b = json.loads(base.read_text())
+    run_c = json.loads(candidate.read_text())
+    records = load_records(adjudications)
+    digest = raw_digest(adjudications)
+    result = compare_runs(run_b, run_c, (records, digest))
+    result["runs"] = {
+        "base": {"path": str(base), "digest": raw_digest(base)},
+        "candidate": {"path": str(candidate), "digest": raw_digest(candidate)},
+    }
+    result["meta"] = {
+        "harness_sha": _harness_sha(EVAL_DIR),
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    if "adjudications_digest" not in result["verdict"]:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        Path(f"{out}.json").write_text(
+            json.dumps(result, indent=1, sort_keys=True, allow_nan=False)
+        )
+        Path(f"{out}.md").write_text(render_compare_md(result))
+    return result
 
 
 def _bootstrap(argv: list[str]) -> int:
@@ -388,6 +426,16 @@ def run_quick_admitted(
             raise BoundaryViolation([f"corpus_mismatch: {exc}"]) from exc
     corpus_cfg = {**cfg, "path": str(corpus_path)}
     env = scrubbed_env(lock)
+    if sut is None and getattr(args, "sut_archive", None):
+        from .sut import PrismCli
+
+        sut = PrismCli.from_archive(
+            str(eval_dir.parent),
+            args.sut_archive,
+            lock.prism["sut"]["sha"],
+            lock.prism["sut"]["digest"],
+        )
+        sut.env = env
     with OpenAudit(eval_dir) as audit:
         declared = load_declared_inputs(
             lock,

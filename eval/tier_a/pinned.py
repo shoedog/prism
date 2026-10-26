@@ -92,6 +92,7 @@ def run_pinned(oracle, sut, snapshot: list[FunctionDef], corpus_root: str,
             result = evaluate_pinned(probe, [], [], ambiguous_raised)
             if error is not None:
                 result["error"] = error
+                result["error_side"] = "sut"
             out.append(result)
             continue
 
@@ -109,12 +110,24 @@ def run_pinned(oracle, sut, snapshot: list[FunctionDef], corpus_root: str,
         pfd = (prism_by_oracle or {}).get(fd, fd)
         try:
             oracle_edges = oracle.callers(fd)
+        except Exception as exc:
+            out.append({
+                "id": probe["id"],
+                "expected": probe["expected"],
+                "outcome": "error",
+                "error_side": "oracle",
+                "error": str(exc),
+            })
+            continue
+        try:
             prism_edges = sut.callers(corpus_root, pfd)
         except Exception as exc:
             out.append({
                 "id": probe["id"],
                 "expected": probe["expected"],
                 "outcome": "error",
+                "error_side": "sut",
+                "oracle_sites": _sites(oracle_edges),
                 "error": str(exc),
             })
             continue

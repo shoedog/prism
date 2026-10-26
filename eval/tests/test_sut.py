@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from tier_a.closure import raw_digest
 from tier_a.model import FunctionDef, Location
 from tier_a.sut import (PrismCli, SutAmbiguous, SutError, SutSeedMiss, SutStale,
                         extract_callees, extract_callers, extract_functions,
@@ -28,6 +29,35 @@ def test_parse_version_sha_and_dirty():
     assert parse_version("slicing 3.1.2 (abcdef1234567)\n") == ("abcdef1234567", False)
     with pytest.raises(SutStale, match="gitless build"):
         parse_version("slicing 3.1.2 (unknown)\n")
+
+
+def test_from_archive_binds_bytes_and_full_sha_without_head_freshness(
+    tmp_path, monkeypatch
+):
+    binary = tmp_path / "prism"
+    binary.write_bytes(b"archived prism")
+    sha_full = "a" * 40
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: FakeRun(
+            stdout=f"slicing 3.1.2 ({sha_full[:12]})\n"
+        ),
+    )
+
+    sut = PrismCli.from_archive(
+        "/repo", str(binary), sha_full, raw_digest(binary)
+    )
+    assert (sut.sha, sut.sha_full, sut.dirty) == (sha_full[:12], sha_full, False)
+    with pytest.raises(SutStale, match="digest"):
+        PrismCli.from_archive("/repo", str(binary), sha_full, "sha256:wrong")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: FakeRun(stdout=f"slicing 3.1.2 ({'b' * 12})\n"),
+    )
+    with pytest.raises(SutStale, match="SHA"):
+        PrismCli.from_archive("/repo", str(binary), sha_full, raw_digest(binary))
 
 
 def test_extract_functions_inventory_records():

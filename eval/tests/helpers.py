@@ -262,7 +262,7 @@ def fake_run(
         for stratum in STRATA
     }
     return {
-        "meta": {**ids, "admitted": True, "baseline_invalid": False},
+        "meta": {"admitted": True, "baseline_invalid": False, **ids},
         "probes": normalized,
         "probe_status": status
         or {pid: probe["outcome"] for pid, probe in normalized.items() if not pid.startswith("_")},

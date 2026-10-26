@@ -794,6 +794,11 @@ def run_corpus(
 
         run["meta"]["oracle_error_rate"] = acc.oracle_error_rate()
         run["meta"]["sut_error_rate"] = acc.sut_error_rate()
+        run["probe_status"] = {
+            pid: outcome
+            for pid, outcome in acc.probes.items()
+            if not pid.startswith("docsym:")
+        }
         run["site_fingerprints"] = _site_fingerprints_for_probes(run["probes"], cfg["path"])
         if compute_metrics:
             ok, reasons = evaluate_floors(
@@ -890,6 +895,8 @@ def main() -> int:
     ap.add_argument(
         "--live", action="store_true", help="measure the working tree, never anchoring"
     )
+    ap.add_argument("--run-id")
+    ap.add_argument("--sut-archive")
     ap.add_argument("--oracle", default=None,
                     help="override per-corpus oracle (e.g. basedpyright); "
                          "outputs are written under <corpus>-<oracle> so they "
@@ -966,6 +973,8 @@ def main() -> int:
             )
         run["meta"].setdefault("corpus", run_name)
         run["meta"].setdefault("date", args.date)
+        if args.run_id:
+            run["meta"]["corpus"] = f"{run_name}-{args.run_id}"
         if overlay.get("baseline_invalid"):
             run["meta"]["baseline_invalid"] = True
             run["meta"]["invalid_reasons"] = list(
@@ -989,7 +998,8 @@ def main() -> int:
         ):
             run["meta"].setdefault(key, value)
         (EVAL_DIR / "runs").mkdir(exist_ok=True)
-        (EVAL_DIR / "runs" / f"{args.date}-{run_name}.json").write_text(
+        artifact_name = run["meta"]["corpus"]
+        (EVAL_DIR / "runs" / f"{args.date}-{artifact_name}.json").write_text(
             json.dumps(run, indent=1, sort_keys=True, default=str, allow_nan=False)
         )
         write_reports(run, out_dir)

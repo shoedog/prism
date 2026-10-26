@@ -11,6 +11,7 @@ from tier_a.closure import raw_digest, read_tsv, write_tsv
 from tier_a.commands import preflight_quick
 from tier_a.lock import corpus_check, integrity_check, save_lock
 from tier_a.materialize import materialize
+from tier_a.sut import PrismCli
 
 
 REFUSAL_DATE = "2099-01-02"
@@ -167,6 +168,53 @@ def test_quick_uses_pin_not_head_and_live_never_anchors(tmp_path, monkeypatch):
     assert "live_corpus" in overlay["invalid_reasons"]
 
 
+def test_quick_run_id_and_sut_archive_name_both_output_pairs(tmp_path, monkeypatch):
+    lock, ev, repo = anchored_repo(tmp_path)
+    monkeypatch.setenv("TIER_A_ROOT", str(tmp_path / "root"))
+    monkeypatch.setattr(cli, "EVAL_DIR", ev)
+    seen = {}
+
+    def from_archive(cls, prism_repo, path, sha_full, digest):
+        seen.update(
+            prism_repo=prism_repo,
+            path=path,
+            sha_full=sha_full,
+            digest=digest,
+        )
+        return FakeSut(prism_repo, path)
+
+    monkeypatch.setattr(PrismCli, "from_archive", classmethod(from_archive))
+    monkeypatch.setattr(cli, "run_corpus", lambda *args, **kwargs: admitted_fake_run())
+    archive = tmp_path / "archive-prism"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tier-a",
+            "--quick",
+            "--allow-stale-sut",
+            "--date",
+            REFUSAL_DATE,
+            "--run-id",
+            "base",
+            "--sut-archive",
+            str(archive),
+        ],
+    )
+
+    assert cli.main() == 0
+    assert seen == {
+        "prism_repo": str(ev.parent),
+        "path": str(archive),
+        "sha_full": lock.prism["sut"]["sha"],
+        "digest": lock.prism["sut"]["digest"],
+    }
+    assert (ev / f"runs/{REFUSAL_DATE}-prism-base.json").exists()
+    report = ev.parent / f"docs/eval/tier-a/{REFUSAL_DATE}-prism-base"
+    assert report.with_suffix(".json").exists()
+    assert report.with_suffix(".md").exists()
+
+
 def test_live_quick_drift_reports_only_live_corpus(tmp_path, monkeypatch):
     lock, ev, repo = anchored_repo(tmp_path)
     monkeypatch.setattr(cli, "EVAL_DIR", ev)
@@ -189,6 +237,10 @@ def test_live_quick_drift_reports_only_live_corpus(tmp_path, monkeypatch):
 
     assert cli.main() == 2
     run = json.loads((ev / "runs/2099-01-03-prism.json").read_text())
+    assert run["probe_status"] == {
+        "callers:src/a.rs:1": "inventory_miss",
+        "callees:src/a.rs:1": "inventory_miss",
+    }
     assert "live_corpus" in run["meta"]["invalid_reasons"]
     assert not any(
         reason.startswith("corpus_sha_drift")
