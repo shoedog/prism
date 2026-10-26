@@ -1,7 +1,9 @@
 """Declared/observed input boundary for admitted Tier-A quick runs."""
 from __future__ import annotations
 
+import hashlib
 import os
+import subprocess
 import sys
 import tomllib
 from copy import deepcopy
@@ -276,7 +278,9 @@ def _allowed_harness_open(path: str, declared: set[str]) -> bool:
     )
 
 
-def _sut_input_reasons(lock: Lock, eval_dir: Path) -> tuple[list[str], set[str]]:
+def _sut_input_verification(
+    lock: Lock, eval_dir: Path
+) -> tuple[list[str], set[str], dict[str, list[str]]]:
     repo = eval_dir.parent
     try:
         sut_rows = _bound_sut_rows(lock)
@@ -284,18 +288,54 @@ def _sut_input_reasons(lock: Lock, eval_dir: Path) -> tuple[list[str], set[str]]
         sut_rows = read_tsv(repo / lock.prism["sut"]["inputs"])
     reasons = []
     paths = set()
+    provenance = {
+        "tracked_source": [],
+        "repository_metadata": [],
+        "archived_generated": [],
+    }
+    staged_archive = getattr(lock, "_sut_archive_inputs", {})
+    archive_root = Path(lock.prism["sut"]["archive"]).parent / "inputs"
     for path, expected, *_rest in sut_rows:
         paths.add(path)
-        disk_path = repo / path
-        actual = (
-            raw_digest(disk_path)
-            if disk_path.is_file()
-            else "present" if disk_path.exists() else "absent"
-        )
-        if (expected == "absent") != (actual == "absent"):
-            reasons.append(f"sut_input_absent_present_transition: {path}")
-        elif actual != expected:
+        if path.startswith(".git/"):
+            provenance["repository_metadata"].append(path)
+            continue
+        if path.startswith("target/"):
+            provenance["archived_generated"].append(path)
+            if path in staged_archive:
+                actual = "sha256:" + hashlib.sha256(staged_archive[path]).hexdigest()
+            else:
+                archived = archive_root / path
+                if not archived.is_file():
+                    reasons.append(f"sut_input_provenance_missing: {path}")
+                    continue
+                actual = raw_digest(archived)
+        else:
+            provenance["tracked_source"].append(path)
+            result = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(repo),
+                    "cat-file",
+                    "blob",
+                    f"{lock.prism['sut']['sha']}:{path}",
+                ],
+                capture_output=True,
+            )
+            if result.returncode:
+                reasons.append(f"sut_input_provenance_missing: {path}")
+                continue
+            actual = "sha256:" + hashlib.sha256(result.stdout).hexdigest()
+        if actual != expected:
             reasons.append(f"data_digest_moved: {path}")
+    return reasons, paths, {
+        kind: sorted(class_paths) for kind, class_paths in provenance.items()
+    }
+
+
+def _sut_input_reasons(lock: Lock, eval_dir: Path) -> tuple[list[str], set[str]]:
+    reasons, paths, _provenance = _sut_input_verification(lock, eval_dir)
     return reasons, paths
 
 
@@ -305,7 +345,7 @@ def admit(
     observed: Observation,
     closure_paths: set[str],
     eval_dir: Path,
-) -> None:
+) -> dict:
     reasons = [
         f"env_read_outside_allow: {read.name}"
         for read in observed.env_reads
@@ -317,6 +357,11 @@ def admit(
     ]
 
     sut_paths = set()
+    sut_provenance = {
+        "tracked_source": [],
+        "repository_metadata": [],
+        "archived_generated": [],
+    }
     if lock is not None:
         data = lock.prism["data"]
         expected_digests = {
@@ -332,7 +377,7 @@ def admit(
         if declared.fixtures_digest != data["fixtures"]:
             reasons.append("data_digest_moved: eval/fixtures")
 
-        sut_reasons, sut_paths = _sut_input_reasons(lock, eval_dir)
+        sut_reasons, sut_paths, sut_provenance = _sut_input_verification(lock, eval_dir)
         reasons.extend(sut_reasons)
 
     declared_paths = set(declared.digests)
@@ -348,3 +393,4 @@ def admit(
     )
     if reasons:
         raise BoundaryViolation(reasons)
+    return {"sut_input_provenance": sut_provenance}

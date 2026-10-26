@@ -18,7 +18,7 @@ from .closure import canonical_path, corpus_manifest, manifest_digest, policy_di
 from .closure import policy_manifest, population_manifest, raw_digest
 from .closure import sut_inputs_manifest, write_tsv
 from .corpus import load_snapshot, save_snapshot, universe
-from .lock import IDENTITY_KEYS, Lock
+from .lock import IDENTITY_KEYS, Lock, load_lock
 from .lock import integrity_check, lock_identities
 from .lock import report_bindable, save_lock
 from .report import render_markdown
@@ -132,6 +132,62 @@ def _json_bytes(value: object) -> bytes:
     return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode()
 
 
+def _git_blob(repo: Path, revision: str, path: str) -> bytes:
+    result = subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "blob", f"{revision}:{path}"],
+        capture_output=True,
+    )
+    if result.returncode:
+        raise ValueError(f"re_anchor_previous_mismatch: {path}")
+    return result.stdout
+
+
+def verify_re_anchor_previous(
+    repo: Path, eval_dir: Path
+) -> tuple[Lock, set[Path]]:
+    repo, eval_dir = repo.resolve(), eval_dir.resolve()
+    lock_path = eval_dir / "tier-a.lock.toml"
+    lock_relative = "eval/tier-a.lock.toml"
+    if (
+        not lock_path.is_file()
+        or lock_path.read_bytes() != _git_blob(repo, "HEAD", lock_relative)
+    ):
+        raise ValueError("re_anchor_previous_mismatch: eval/tier-a.lock.toml")
+    try:
+        previous = load_lock(lock_path)
+    except Exception as exc:
+        raise ValueError(
+            "re_anchor_previous_mismatch: eval/tier-a.lock.toml"
+        ) from exc
+    relative_paths = {
+        lock_relative,
+        previous.prism["closure"]["manifest"],
+        previous.prism["sut"]["inputs"],
+        previous.prism["policy"]["manifest"],
+        previous.prism["population"]["manifest"],
+        previous.prism["snapshot"]["path"],
+        previous.prism["baseline_report"]["path"],
+        str(Path(previous.prism["baseline_report"]["path"]).with_suffix(".md")),
+        "docs/eval/tier-a/baseline.md",
+    }
+    for relative in sorted(relative_paths):
+        path = repo / relative
+        if not path.is_file() or path.read_bytes() != _git_blob(repo, "HEAD", relative):
+            raise ValueError(f"re_anchor_previous_mismatch: {relative}")
+    anchor_commit = _git(
+        repo, "log", "-1", "--format=%H", "HEAD", "--", "eval/tier-a.lock.toml"
+    )
+    head = _git(repo, "rev-parse", "HEAD")
+    if not anchor_commit or anchor_commit == head:
+        raise ValueError("re_anchor_previous_mismatch: anchor_not_ancestor")
+    subprocess.run(
+        ["git", "-C", str(repo), "merge-base", "--is-ancestor", anchor_commit, head],
+        check=True,
+        capture_output=True,
+    )
+    return previous, {repo / relative for relative in relative_paths}
+
+
 def stage_candidate(
     repo: Path,
     eval_dir: Path,
@@ -231,6 +287,18 @@ def stage_candidate(
     })
     lock._corpus_rows, lock._policy_data, lock._population_data = closure_rows, policy, population
     lock._sut_rows = sut_rows
+    archived_inputs = {}
+    for path, expected, *_rest in sut_rows:
+        if not path.startswith("target/"):
+            continue
+        source = repo / path
+        if not source.is_file():
+            raise ValueError(f"sut_input_provenance_missing: {path}")
+        contents = source.read_bytes()
+        if "sha256:" + hashlib.sha256(contents).hexdigest() != expected:
+            raise ValueError(f"data_digest_moved: {path}")
+        archived_inputs[path] = contents
+    lock._sut_archive_inputs = archived_inputs
     candidate = CandidateIdentity(lock, staged)
     candidate._repo, candidate._eval_dir, candidate._binary = repo, eval_dir, binary
     candidate._staging, candidate._manifest_bytes = staging, manifest_bytes
@@ -285,6 +353,9 @@ def publish_anchor_v1(
     eval_dir: Path,
     out_dir: Path,
     archive_dir: Path,
+    *,
+    superseded: Lock | None = None,
+    previous_paths: set[Path] | None = None,
 ) -> Lock:
     meta = run.get("meta", {})
     if meta.get("admitted") is not True:
@@ -320,6 +391,11 @@ def publish_anchor_v1(
 
     report = copy.deepcopy(run)
     report_meta = report["meta"]
+    if superseded is not None:
+        report_meta.setdefault("provenance", {})["superseded_anchor"] = {
+            "sut_sha": superseded.prism["sut"]["sha"],
+            "sut_digest": superseded.prism["sut"]["digest"],
+        }
     date = report_meta.setdefault("date", datetime.date.today().isoformat())
     report_meta.setdefault("corpus", "prism")
     for key, value in {
@@ -347,9 +423,22 @@ def publish_anchor_v1(
     _atomic_bytes(report_json, report_bytes)
     _atomic_bytes(report_md, render_markdown(report).encode())
     _atomic_bytes(archive, binary_bytes, binary_mode)
+    for path, contents in sorted(cand.lock._sut_archive_inputs.items()):
+        _atomic_bytes(archive.parent / "inputs" / path, contents)
     lock_temp = eval_dir / f".tier-a.lock.toml.{os.getpid()}.tmp"
     save_lock(cand.lock, lock_temp)
     os.replace(lock_temp, eval_dir / "tier-a.lock.toml")
+    if previous_paths:
+        current_paths = {
+            *cand.staged,
+            report_json,
+            report_md,
+            eval_dir / "tier-a.lock.toml",
+            eval_dir.parent / cand.lock.prism["snapshot"]["path"],
+            eval_dir.parent / "docs/eval/tier-a/baseline.md",
+        }
+        for path in sorted(previous_paths - current_paths):
+            path.unlink()
     cand._staging.rmdir()
     return cand.lock
 

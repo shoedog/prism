@@ -17,7 +17,13 @@ from tests.helpers import (
     stub_binary,
 )
 from tier_a import cli, commands
-from tier_a.boundary import Observation, OpenAudit, admit, load_declared_inputs
+from tier_a.boundary import (
+    Observation,
+    OpenAudit,
+    _sut_input_reasons,
+    admit,
+    load_declared_inputs,
+)
 from tier_a.lock import IDENTITY_KEYS, integrity_check, load_lock, lock_identities
 from tier_a.closure import policy_digest, policy_manifest, population_manifest, raw_digest
 from tier_a.corpus import load_snapshot
@@ -610,3 +616,86 @@ def test_prepare_snapshot_only_refuses_existing_lock(tmp_path, monkeypatch, caps
     assert capsys.readouterr().err == (
         "FATAL bootstrap_refused: anchor_already_exists\n"
     )
+
+
+def _commit_anchor_and_descendant(repo):
+    ev = repo / "eval"
+    finalize_policy(ev)
+    report_json = next((repo / "docs/eval/tier-a").glob("*.json"))
+    report_json.with_suffix(".md").write_text("# Previous committed anchor\n")
+    (repo / "docs/eval/tier-a/baseline.md").write_text(
+        "# Tier-A Baseline — anchor v1 (2026-01-01) — prior sections superseded\n"
+    )
+    subprocess.run(["git", "add", "eval", "docs"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "publish anchor"], cwd=repo, check=True,
+        capture_output=True,
+    )
+    (repo / "FROZEN-HARNESS").write_text("ready\n")
+    subprocess.run(["git", "add", "FROZEN-HARNESS"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "freeze harness"], cwd=repo, check=True,
+        capture_output=True,
+    )
+    return git_head(repo)
+
+
+def test_re_anchor_publishes_over_committed_anchor_and_archives_generated_inputs(
+    tmp_path, monkeypatch, capsys
+):
+    previous, ev, repo = anchored_repo(tmp_path)
+    previous_sut = dict(previous.prism["sut"])
+    descendant = _commit_anchor_and_descendant(repo)
+    generated = repo / "target/generated.rs"
+    generated.parent.mkdir(parents=True, exist_ok=True)
+    generated.write_text("fn generated() {}\n")
+    (repo / "prism.d").write_text(
+        f"{repo / 'prism'}: {repo / 'src/a.rs'} {repo / 'Cargo.toml'} "
+        f"{repo / '.git/HEAD'} {generated}\n"
+    )
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+    monkeypatch.setenv("TIER_A_ROOT", str(tmp_path / "root"))
+
+    def admitted(*args, candidate=None, re_anchor=False, **kwargs):
+        assert re_anchor is True
+        return fake_run(lock_identities(candidate.lock)), {}
+
+    monkeypatch.setattr(commands, "run_quick_admitted", admitted)
+    assert _bootstrap_rc(["--re-anchor", "--sut-bin", str(repo / "prism")]) == 0
+    assert capsys.readouterr().err == ""
+
+    published = load_lock(ev / "tier-a.lock.toml")
+    report = json.loads((repo / published.prism["baseline_report"]["path"]).read_text())
+    archived = Path(published.prism["sut"]["archive"]).parent / "inputs/target/generated.rs"
+    assert published.prism["harness_sha"] == descendant
+    assert report["meta"]["provenance"]["superseded_anchor"] == {
+        "sut_sha": previous_sut["sha"],
+        "sut_digest": previous_sut["digest"],
+    }
+    assert archived.read_bytes() == generated.read_bytes()
+    assert integrity_check(published, ev) == []
+    reasons, _paths = _sut_input_reasons(published, ev)
+    assert reasons == []
+
+
+def test_re_anchor_refuses_modified_previous_anchor(tmp_path, monkeypatch, capsys):
+    _previous, ev, repo = anchored_repo(tmp_path)
+    _commit_anchor_and_descendant(repo)
+    (ev / "tier-a.lock.toml").write_text(
+        (ev / "tier-a.lock.toml").read_text() + "# hand edit\n"
+    )
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+
+    assert _bootstrap_rc(["--re-anchor", "--sut-bin", str(repo / "prism")]) == 3
+    assert "re_anchor_previous_mismatch: eval/tier-a.lock.toml" in capsys.readouterr().err
+
+
+def test_bootstrap_without_re_anchor_still_refuses_existing_lock(
+    tmp_path, monkeypatch, capsys
+):
+    _previous, ev, repo = anchored_repo(tmp_path)
+    _commit_anchor_and_descendant(repo)
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+
+    assert _bootstrap_rc(["--sut-bin", str(repo / "prism")]) == 3
+    assert capsys.readouterr().err == "FATAL bootstrap_refused: anchor_already_exists\n"

@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import types
+from pathlib import Path
 
 import pytest
 from tests.helpers import (
@@ -14,6 +15,7 @@ from tests.helpers import (
     anchored_repo,
     copy_fixture,
     edit,
+    git_head,
 )
 from tier_a import boundary, cli, commands, matrix
 from tier_a.boundary import (
@@ -50,6 +52,29 @@ def _assert_no_run_or_report(ev):
     report_dir = ev.parent / "docs/eval/tier-a"
     assert not (report_dir / f"{REFUSAL_DATE}-prism.json").exists()
     assert not (report_dir / f"{REFUSAL_DATE}-prism.md").exists()
+
+
+def _bind_sut_provenance(lock, repo, rows):
+    tracked = sorted(
+        path
+        for path, _digest in rows
+        if not path.startswith((".git/", "target/")) and (repo / path).is_file()
+    )
+    if tracked:
+        subprocess.run(["git", "add", "--", *tracked], cwd=repo, check=True)
+    if subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=repo).returncode:
+        subprocess.run(
+            ["git", "commit", "-m", "bind synthetic SUT inputs"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+    lock.prism["sut"]["sha"] = git_head(repo)
+    lock._sut_archive_inputs = {
+        path: (repo / path).read_bytes()
+        for path, _digest in rows
+        if path.startswith("target/") and (repo / path).is_file()
+    }
 
 
 def test_scrubbed_env_keeps_only_allow_list(monkeypatch):
@@ -122,7 +147,6 @@ def test_data_inputs_loaded_and_digested_before_admission(tmp_path):            
         ("snapshot", "data_digest_moved: {snapshot}"),
         ("pinned", "data_digest_moved: eval/tier_a/pinned.py"),
         ("fixtures", "data_digest_moved: eval/fixtures"),
-        ("sut", "data_digest_moved: src/a.rs"),
     ],
 )
 def test_every_declared_data_drift_uses_one_exact_vocabulary(tmp_path, target, reason):
@@ -139,12 +163,10 @@ def test_every_declared_data_drift_uses_one_exact_vocabulary(tmp_path, target, r
     elif target == "pinned":
         pinned = ev / "tier_a/pinned.py"
         pinned.write_text(pinned.read_text() + "\n")
-    elif target == "fixtures":
+    else:
         fixture = ev / "fixtures/new/expected.toml"
         fixture.parent.mkdir(parents=True)
         fixture.write_text("expected = true\n")
-    else:
-        (repo / "src/a.rs").write_text("fn a() { }\n")
 
     declared = load_declared_inputs(lock, ev)
     with pytest.raises(BoundaryViolation) as exc:
@@ -417,29 +439,35 @@ def test_open_audit_installs_one_dispatcher_and_scopes_collectors(tmp_path, monk
     assert second.opens == {"eval/second.json"}
 
 
-def test_sut_input_absent_present_transition_refuses(tmp_path):
+def test_tracked_sut_input_is_verified_from_sut_commit_not_worktree(tmp_path):
     from tier_a.closure import read_tsv, write_tsv
 
     lock, ev, repo = anchored_repo(tmp_path)
     manifest = repo / lock.prism["sut"]["inputs"]
-    write_tsv(read_tsv(manifest) + [("generated.rs", "absent")], manifest)
     declared = load_declared_inputs(lock, ev)
     closure = {"src/a.rs", "Cargo.toml"}
     admit(lock, declared, Observation([], set(), set()), closure, ev)
 
-    (repo / "generated.rs").write_text("fn generated() {}\n")
+    (repo / "src/a.rs").write_text("fn changed_only_in_worktree() {}\n")
+    admit(lock, declared, Observation([], set(), set()), closure, ev)
+
+    rows = [
+        (path, "sha256:" + "0" * 64 if path == "src/a.rs" else digest)
+        for path, digest in read_tsv(manifest)
+    ]
+    write_tsv(rows, manifest)
+    assert integrity_check(lock, ev) == []
     with pytest.raises(BoundaryViolation) as exc:
         admit(lock, declared, Observation([], set(), set()), closure, ev)
-    assert exc.value.reasons == [
-        "sut_input_absent_present_transition: generated.rs"
-    ]
+    assert exc.value.reasons == ["data_digest_moved: src/a.rs"]
 
 
 @pytest.mark.parametrize(
     ("mutation", "expected"),
     [
-        ("digest", "data_digest_moved: src/a.rs"),
-        ("presence", "sut_input_absent_present_transition: generated.rs"),
+        ("tracked", "data_digest_moved: src/a.rs"),
+        ("archive-corrupt", "data_digest_moved: target/generated.rs"),
+        ("archive-missing", "sut_input_provenance_missing: target/generated.rs"),
     ],
 )
 @pytest.mark.parametrize("bound", [False, True], ids=["unbound", "bound"])
@@ -449,21 +477,83 @@ def test_published_sut_input_reasons_preserve_refusals(
     from tier_a.closure import read_tsv, write_tsv
 
     lock, ev, repo = anchored_repo(tmp_path)
-    if mutation == "presence":
-        manifest = repo / lock.prism["sut"]["inputs"]
-        write_tsv(read_tsv(manifest) + [("generated.rs", "absent")], manifest)
+    manifest = repo / lock.prism["sut"]["inputs"]
+    rows = read_tsv(manifest)
+    if mutation == "tracked":
+        rows = [
+            (path, "sha256:" + "0" * 64 if path == "src/a.rs" else digest)
+            for path, digest in rows
+        ]
+    else:
+        generated = repo / "target/generated.rs"
+        generated.parent.mkdir(parents=True, exist_ok=True)
+        generated.write_text("fn generated() {}\n")
+        rows.append(("target/generated.rs", raw_digest(generated)))
+        archived = (
+            Path(lock.prism["sut"]["archive"]).parent
+            / "inputs/target/generated.rs"
+        )
+        if mutation == "archive-corrupt":
+            archived.parent.mkdir(parents=True, exist_ok=True)
+            archived.write_text("corrupt\n")
+    write_tsv(rows, manifest)
     if bound:
         assert integrity_check(lock, ev) == []
-
-    if mutation == "digest":
-        (repo / "src/a.rs").write_text("fn changed() {}\n")
-    else:
-        (repo / "generated.rs").write_text("fn generated() {}\n")
 
     reasons, paths = boundary._sut_input_reasons(lock, ev)
 
     assert reasons == [expected]
     assert expected.rsplit(": ", 1)[1] in paths
+
+
+def test_sut_input_provenance_admits_other_checkouts_and_records_every_class(tmp_path):
+    from tier_a.closure import read_tsv, write_tsv
+
+    lock, ev, repo = anchored_repo(tmp_path)
+    manifest = repo / lock.prism["sut"]["inputs"]
+    generated = repo / "target/generated.rs"
+    generated.parent.mkdir(parents=True, exist_ok=True)
+    generated.write_text("fn generated() {}\n")
+    write_tsv(
+        read_tsv(manifest)
+        + [
+            (".git/HEAD", raw_digest(repo / ".git/HEAD")),
+            ("target/generated.rs", raw_digest(generated)),
+        ],
+        manifest,
+    )
+    archived = Path(lock.prism["sut"]["archive"]).parent / "inputs/target/generated.rs"
+    archived.parent.mkdir(parents=True, exist_ok=True)
+    archived.write_bytes(generated.read_bytes())
+    assert integrity_check(lock, ev) == []
+
+    verification = admit(
+        lock,
+        load_declared_inputs(lock, ev),
+        Observation([], set(), set()),
+        {"src/a.rs", "Cargo.toml"},
+        ev,
+    )
+    assert verification["sut_input_provenance"] == {
+        "tracked_source": ["Cargo.toml", "src/a.rs"],
+        "repository_metadata": [".git/HEAD"],
+        "archived_generated": ["target/generated.rs"],
+    }
+
+    for name, revision in (("published", "HEAD"), ("archived-base", lock.prism["sut"]["sha"])):
+        checkout = tmp_path / name
+        subprocess.run(
+            ["git", "clone", "--no-hardlinks", str(repo), str(checkout)],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(checkout), "checkout", "--detach", revision],
+            check=True,
+            capture_output=True,
+        )
+        assert not (checkout / "target").exists()
+        assert boundary._sut_input_reasons(lock, checkout / "eval")[0] == []
 
 
 def test_observe_cargo_equals_selected_binary_manifest_and_keeps_refusal(tmp_path):
@@ -599,7 +689,9 @@ def test_selected_dependency_generated_input_is_observed_and_declared(tmp_path):
     env_reads, observed = observe_cargo(binary.parent, repo, {}, binary.stem)
     full_rows = sut_inputs_manifest(repo, binary)
     manifest = repo / lock.prism["sut"]["inputs"]
-    write_tsv([row for row in full_rows if row[0] != generated_path], manifest)
+    reduced_rows = [row for row in full_rows if row[0] != generated_path]
+    _bind_sut_provenance(lock, repo, reduced_rows)
+    write_tsv(reduced_rows, manifest)
 
     with pytest.raises(BoundaryViolation) as exc:
         admit(
@@ -612,6 +704,7 @@ def test_selected_dependency_generated_input_is_observed_and_declared(tmp_path):
     assert exc.value.reasons == [f"undeclared_read: {generated_path}"]
 
     write_tsv(full_rows, manifest)
+    _bind_sut_provenance(lock, repo, full_rows)
     assert observed == {path for path, _digest in full_rows}
     admit(
         lock,
@@ -756,6 +849,7 @@ def test_dependency_graph_excludes_stale_same_name_build_variant(tmp_path):
     env_reads, observed = observe_cargo(binary.parent, repo, {}, binary.stem)
     full_rows = sut_inputs_manifest(repo, binary)
     manifest = repo / lock.prism["sut"]["inputs"]
+    _bind_sut_provenance(lock, repo, full_rows)
     write_tsv(full_rows, manifest)
     stale_path = stale.relative_to(repo).as_posix()
     with pytest.raises(BoundaryViolation) as exc:
@@ -820,10 +914,9 @@ def test_hyphenated_dependency_uses_target_name_for_dep_info(tmp_path):
     full_rows = sut_inputs_manifest(repo, binary)
     generated_path = generated.relative_to(repo).as_posix()
     manifest = repo / lock.prism["sut"]["inputs"]
-    write_tsv(
-        [row for row in full_rows if row[0] != generated_path],
-        manifest,
-    )
+    reduced_rows = [row for row in full_rows if row[0] != generated_path]
+    _bind_sut_provenance(lock, repo, reduced_rows)
+    write_tsv(reduced_rows, manifest)
     with pytest.raises(BoundaryViolation) as exc:
         admit(
             lock,
@@ -835,6 +928,7 @@ def test_hyphenated_dependency_uses_target_name_for_dep_info(tmp_path):
     assert exc.value.reasons == [f"undeclared_read: {generated_path}"]
 
     write_tsv(full_rows, manifest)
+    _bind_sut_provenance(lock, repo, full_rows)
     assert observed == {path for path, _digest in full_rows}
     assert generated_path in observed
     admit(
@@ -1088,7 +1182,9 @@ def test_selected_build_script_chain_includes_host_dependency_inputs(tmp_path):
     host_path = host_generated.relative_to(repo).as_posix()
     unrelated_path = unrelated_generated.relative_to(repo).as_posix()
     manifest = repo / lock.prism["sut"]["inputs"]
-    write_tsv([row for row in full_rows if row[0] != host_path], manifest)
+    reduced_rows = [row for row in full_rows if row[0] != host_path]
+    _bind_sut_provenance(lock, repo, reduced_rows)
+    write_tsv(reduced_rows, manifest)
     with pytest.raises(BoundaryViolation) as exc:
         admit(
             lock,
@@ -1100,6 +1196,7 @@ def test_selected_build_script_chain_includes_host_dependency_inputs(tmp_path):
     assert exc.value.reasons == [f"undeclared_read: {host_path}"]
 
     write_tsv(full_rows, manifest)
+    _bind_sut_provenance(lock, repo, full_rows)
     assert observed == {path for path, _digest in full_rows}
     assert host_path in observed
     assert unrelated_path not in observed

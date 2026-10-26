@@ -1,12 +1,13 @@
 import json
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from tests.helpers import FakeOracle, FakeSut, admitted_fake_run, anchored_repo, edit
-from tier_a import boundary, cli
-from tier_a.closure import raw_digest
+from tests.helpers import FakeOracle, FakeSut, admitted_fake_run, anchored_repo, edit, git_head
+from tier_a import boundary, cli, commands
+from tier_a.closure import raw_digest, read_tsv, write_tsv
 from tier_a.commands import preflight_quick
 from tier_a.lock import corpus_check, integrity_check, save_lock
 from tier_a.materialize import materialize
@@ -195,39 +196,58 @@ def test_live_quick_drift_reports_only_live_corpus(tmp_path, monkeypatch):
     )
 
 
-def test_quick_refuses_harness_sha_drift_before_artifacts(
+def test_published_anchor_at_descendant_head_admits_and_reports_execution_head(
     tmp_path, monkeypatch, capsys
 ):
     lock, ev, repo = anchored_repo(tmp_path)
-    locked_sha = "f" * 40
-    lock.prism["harness_sha"] = locked_sha
-    baseline = repo / lock.prism["baseline_report"]["path"]
-    baseline_run = json.loads(baseline.read_text())
-    baseline_run["meta"]["harness_sha"] = locked_sha
-    baseline.write_text(json.dumps(baseline_run, indent=1, sort_keys=True) + "\n")
-    lock.prism["baseline_report"]["digest"] = raw_digest(baseline)
-    save_lock(lock, ev / "tier-a.lock.toml")
+    manifest = repo / lock.prism["sut"]["inputs"]
+    generated = repo / "target/generated.rs"
+    generated.parent.mkdir(parents=True, exist_ok=True)
+    generated.write_text("fn generated() {}\n")
+    rows = read_tsv(manifest) + [
+        (".git/HEAD", raw_digest(repo / ".git/HEAD")),
+        ("target/generated.rs", raw_digest(generated)),
+    ]
+    write_tsv(rows, manifest)
+    archived = Path(lock.prism["sut"]["archive"]).parent / "inputs/target/generated.rs"
+    archived.parent.mkdir(parents=True, exist_ok=True)
+    archived.write_bytes(generated.read_bytes())
+    subprocess.run(["git", "add", "eval", "docs"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "publish anchor"], cwd=repo, check=True,
+        capture_output=True,
+    )
+    (repo / "DESCENDANT").write_text("frozen harness\n")
+    subprocess.run(["git", "add", "DESCENDANT"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "freeze harness"], cwd=repo, check=True,
+        capture_output=True,
+    )
+    execution_head = git_head(repo)
+    assert execution_head != lock.prism["harness_sha"]
+
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
     monkeypatch.setattr(cli, "EVAL_DIR", ev)
     monkeypatch.setenv("TIER_A_ROOT", str(tmp_path / "root"))
-    monkeypatch.setattr(
-        cli,
-        "run_corpus",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            AssertionError("run_corpus must not execute")
-        ),
-    )
+    monkeypatch.setattr(cli, "PrismCli", FakeSut)
+    monkeypatch.setattr(cli, "make_oracle", lambda *_a, **_k: FakeOracle())
+
+    assert commands.dispatch(["lock-check", "--corpus", "prism"]) == 0
+    assert capsys.readouterr().err == ""
+    assert any((tmp_path / "root").rglob("src/a.rs"))
     monkeypatch.setattr(
         sys,
         "argv",
         ["tier-a", "--quick", "--allow-stale-sut", "--date", REFUSAL_DATE],
     )
 
-    assert cli.main() == 3
-    assert_no_run_or_report(ev)
-    assert (
-        f"FATAL boundary_violation: harness_sha_drift {locked_sha} != "
-        f"{lock.prism['sha_aliases'][0]}"
-    ) in capsys.readouterr().err
+    assert cli.main() == 0
+    run = json.loads((ev / f"runs/{REFUSAL_DATE}-prism.json").read_text())
+    assert run["meta"]["harness_sha"] == execution_head
+    assert run["meta"]["harness_sha"] != lock.prism["harness_sha"]
+    assert run["meta"]["sut_input_provenance"]["repository_metadata"] == [
+        ".git/HEAD"
+    ]
 
 
 def test_pinned_corpus_without_git_runs_to_a_verdict(tmp_path, monkeypatch):

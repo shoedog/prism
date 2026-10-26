@@ -110,6 +110,7 @@ def _bootstrap(argv: list[str]) -> int:
         publish_anchor_v1,
         stage_candidate,
         validate_staged,
+        verify_re_anchor_previous,
     )
     from .sut import PrismCli, SutStale
 
@@ -118,6 +119,7 @@ def _bootstrap(argv: list[str]) -> int:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--finalize-policy-only", action="store_true")
     mode.add_argument("--prepare-snapshot-only", action="store_true")
+    mode.add_argument("--re-anchor", action="store_true")
     args = parser.parse_args(argv)
     if args.prepare_snapshot_only:
         if args.sut_bin is None:
@@ -143,12 +145,23 @@ def _bootstrap(argv: list[str]) -> int:
             print(f"FATAL bootstrap_refused: {exc}", file=sys.stderr)
             return 3
         return 0
-    finalize_policy(EVAL_DIR)
     if args.finalize_policy_only:
+        finalize_policy(EVAL_DIR)
         return 0
     if args.sut_bin is None:
         parser.error("--sut-bin is required")
     try:
+        previous = None
+        previous_paths = None
+        if (EVAL_DIR / "tier-a.lock.toml").exists():
+            if not args.re_anchor:
+                raise ValueError("anchor_already_exists")
+            previous, previous_paths = verify_re_anchor_previous(
+                EVAL_DIR.parent, EVAL_DIR
+            )
+        elif args.re_anchor:
+            raise ValueError("re_anchor_previous_mismatch: eval/tier-a.lock.toml")
+        finalize_policy(EVAL_DIR)
         root = tier_a_root()
         binary = Path(args.sut_bin).resolve()
         candidate = stage_candidate(
@@ -177,11 +190,11 @@ def _bootstrap(argv: list[str]) -> int:
         )
         run, _overlay = run_quick_admitted(
             "prism", config["corpus"]["prism"], config["defaults"], run_args,
-            EVAL_DIR, candidate=candidate, sut=sut,
+            EVAL_DIR, candidate=candidate, sut=sut, re_anchor=args.re_anchor,
         )
         published = publish_anchor_v1(
             candidate, run, EVAL_DIR, EVAL_DIR.parent / "docs/eval/tier-a",
-            root / "sut",
+            root / "sut", superseded=previous, previous_paths=previous_paths,
         )
         mark_history(EVAL_DIR.parent / "docs/eval/tier-a/baseline.md", run_args.date)
         if integrity_check(published, EVAL_DIR):
@@ -214,16 +227,6 @@ def preflight_quick(
         raise BoundaryViolation([f"lock_invalid: {exc}"]) from exc
     if reasons:
         raise BoundaryViolation(reasons)
-    if lock is not None:
-        locked_harness_sha = lock.prism.get("harness_sha")
-        computed_harness_sha = _harness_sha(eval_dir)
-        if locked_harness_sha != computed_harness_sha:
-            raise BoundaryViolation(
-                [
-                    "harness_sha_drift "
-                    f"{locked_harness_sha} != {computed_harness_sha}"
-                ]
-            )
     if live:
         return (
             lock,
@@ -327,6 +330,7 @@ def run_quick_admitted(
     *,
     candidate=None,
     sut=None,
+    re_anchor: bool = False,
 ) -> tuple[dict, dict]:
     """Run quick observations, admit them, then compute verdict metrics."""
     from . import cli
@@ -335,11 +339,13 @@ def run_quick_admitted(
         lock, corpus_path, overlay, identity = preflight_quick(eval_dir, args.live)
     else:
         existing = _load_optional_lock(eval_dir)
-        reasons = integrity_check(existing, eval_dir)
-        if reasons:
-            raise BoundaryViolation(reasons)
-        if existing is not None:
+        if existing is not None and not re_anchor:
+            reasons = integrity_check(existing, eval_dir)
+            if reasons:
+                raise BoundaryViolation(reasons)
             raise BoundaryViolation(["anchor_already_exists"])
+        if existing is None and re_anchor:
+            raise BoundaryViolation(["re_anchor_previous_mismatch"])
         lock, overlay = candidate.lock, {}
         try:
             corpus_path = materialize(
@@ -398,13 +404,14 @@ def run_quick_admitted(
         if lock is not None
         else _lockless_closure_paths(corpus_cfg)
     )
-    admit(lock, declared, observed, closure_paths, eval_dir)
+    admission = admit(lock, declared, observed, closure_paths, eval_dir)
 
     run["meta"]["observation"] = {
         "env_reads": [asdict(read) for read in observed.env_reads],
         "dep_paths": sorted(observed.dep_paths),
         "harness_opens": sorted(observed.harness_opens),
     }
+    run["meta"].update(admission)
     finalize_metrics(run, declared, defaults, corpus_cfg)
 
     run["meta"]["env_values"] = dict(env)
