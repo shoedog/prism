@@ -69,6 +69,9 @@ pub(crate) enum Predicate {
         field: &'static str,
         any_of: &'static [&'static str],
     },
+    TypeScriptParameterPattern {
+        kind: &'static str,
+    },
     NestedFieldChildKindIs {
         field: &'static str,
         nested_field: &'static str,
@@ -248,7 +251,21 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
             javascript_wave::CLASSIFIED_ROWS,
             javascript_wave::ROWS
         ),
-        Language::TypeScript => combined!(TYPESCRIPT_ROWS, javascript::ROWS, typescript_wave::ROWS),
+        Language::TypeScript => {
+            static TYPESCRIPT_ROWS: OnceLock<Vec<BindingRow>> = OnceLock::new();
+            TYPESCRIPT_ROWS.get_or_init(|| {
+                typescript_wave::CURATED_ROWS
+                    .iter()
+                    .chain(
+                        javascript::ROWS
+                            .iter()
+                            .filter(|row| !typescript_wave::replaces_javascript_row(row.kind)),
+                    )
+                    .chain(typescript_wave::ROWS)
+                    .copied()
+                    .collect()
+            })
+        }
         Language::Tsx => combined!(TSX_ROWS, javascript::ROWS, tsx_wave::ROWS),
         Language::Go => combined3!(GO_ROWS, go::ROWS, go_wave::CURATED_ROWS, go_wave::ROWS),
         Language::Java => combined!(JAVA_ROWS, other::JAVA_ROWS, java_wave::ROWS),
@@ -329,6 +346,23 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
         Predicate::FieldTextIs { field, any_of } => node
             .child_by_field_name(field)
             .is_some_and(|child| any_of.contains(&parsed.node_text(&child))),
+        Predicate::TypeScriptParameterPattern { kind } => {
+            if parsed.language != Language::TypeScript
+                || node.child_by_field_name("name").is_some()
+                || node.child_by_field_name("decorator").is_some()
+                || node.child_by_field_name("value").is_some()
+                || node
+                    .child_by_field_name("pattern")
+                    .is_none_or(|pattern| pattern.kind() != *kind)
+            {
+                return false;
+            }
+            let mut cursor = node.walk();
+            let has_parameter_property_modifier = node.named_children(&mut cursor).any(|child| {
+                matches!(child.kind(), "accessibility_modifier" | "override_modifier")
+            });
+            !has_parameter_property_modifier
+        }
         Predicate::NestedFieldChildKindIs {
             field,
             nested_field,

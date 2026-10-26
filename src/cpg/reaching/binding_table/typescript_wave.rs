@@ -1,18 +1,237 @@
-use super::{provisional_rows, BindingRow};
+use super::{
+    provisional_rows, BindingRow, DeclarationKind, Predicate, Role, RoleSet, Ruling, Visibility,
+};
 use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "c790a733fc756b54d4e54dceeb7d2d51e40d8b57136e70277753a75804cce3e3";
 pub(super) const CENSUS_DIGEST: &str =
     "ccc10d7bddb99d2e1a13c5bc9eccb01d9cb8e4523f60a5923bc7f174c770355c";
 
+const PARAMETER_PATTERN_UNCERTAIN: Ruling = Ruling::Uncertain {
+    reason: "pattern identifiers not field-addressable",
+    revisit: "future:ts-destructuring",
+};
+
+pub(super) fn replaces_javascript_row(kind: &str) -> bool {
+    matches!(
+        kind,
+        "statement_block"
+            | "class_body"
+            | "function_declaration"
+            | "function_expression"
+            | "arrow_function"
+            | "for_statement"
+            | "formal_parameters"
+            | "variable_declaration"
+            | "lexical_declaration"
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+const fn row(
+    kind: &'static str,
+    variant: Option<Predicate>,
+    roles: RoleSet,
+    fields: &'static [&'static str],
+    declaration: Option<DeclarationKind>,
+    visibility: Visibility,
+    ruling: Ruling,
+    regression: &'static str,
+) -> BindingRow {
+    BindingRow {
+        language: Language::TypeScript,
+        kind,
+        variant,
+        roles,
+        fields,
+        declaration,
+        visibility,
+        ruling,
+        regression,
+    }
+}
+
+pub(super) static CURATED_ROWS: &[BindingRow] = &[
+    row(
+        "statement_block",
+        None,
+        RoleSet::of(&[Role::Scope]),
+        &[],
+        None,
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "e0a-js-statement_block",
+    ),
+    row(
+        "class_body",
+        None,
+        RoleSet::of(&[Role::Scope]),
+        &[],
+        None,
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "e0a-js-class_body",
+    ),
+    row(
+        "function_declaration",
+        None,
+        RoleSet::of(&[Role::Scope]),
+        &[],
+        None,
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "e0a-js-function_declaration",
+    ),
+    row(
+        "function_expression",
+        None,
+        RoleSet::of(&[Role::Scope]),
+        &[],
+        None,
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "e0a-js-function_expression",
+    ),
+    row(
+        "arrow_function",
+        None,
+        RoleSet::of(&[Role::Scope]),
+        &[],
+        None,
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "e0a-js-arrow_function",
+    ),
+    row(
+        "for_statement",
+        None,
+        RoleSet::of(&[Role::Scope]),
+        &[],
+        None,
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "e0a-js-for_statement",
+    ),
+    row(
+        "formal_parameters",
+        None,
+        RoleSet::of(&[Role::Binding]),
+        &[],
+        Some(DeclarationKind::Parameter),
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "e0a-x-js-formal_parameters",
+    ),
+    row(
+        "variable_declaration",
+        None,
+        RoleSet::of(&[Role::Binding]),
+        &[],
+        Some(DeclarationKind::JavaScriptVar),
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "e0a-js-variable_declaration",
+    ),
+    row(
+        "lexical_declaration",
+        None,
+        RoleSet::of(&[Role::Binding]),
+        &[],
+        Some(DeclarationKind::Other),
+        Visibility::AfterIntroduction,
+        Ruling::Classified,
+        "e0a-js-lexical_declaration",
+    ),
+    row(
+        "required_parameter",
+        Some(Predicate::TypeScriptParameterPattern { kind: "identifier" }),
+        RoleSet::of(&[Role::Binding]),
+        &["pattern"],
+        Some(DeclarationKind::Parameter),
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "ts-required-parameter-seeds",
+    ),
+    row(
+        "required_parameter",
+        Some(Predicate::TypeScriptParameterPattern {
+            kind: "rest_pattern",
+        }),
+        RoleSet::of(&[Role::Binding]),
+        &["pattern"],
+        Some(DeclarationKind::Parameter),
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "ts-rest-parameter",
+    ),
+    row(
+        "required_parameter",
+        None,
+        RoleSet::of(&[Role::Binding]),
+        &["pattern"],
+        None,
+        Visibility::WholeScope,
+        PARAMETER_PATTERN_UNCERTAIN,
+        "ts-required-parameter-pattern-uncertain",
+    ),
+    row(
+        "optional_parameter",
+        Some(Predicate::TypeScriptParameterPattern { kind: "identifier" }),
+        RoleSet::of(&[Role::Binding]),
+        &["pattern"],
+        Some(DeclarationKind::Parameter),
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "ts-optional-parameter",
+    ),
+    row(
+        "optional_parameter",
+        None,
+        RoleSet::of(&[Role::Binding]),
+        &["pattern"],
+        None,
+        Visibility::WholeScope,
+        PARAMETER_PATTERN_UNCERTAIN,
+        "ts-optional-parameter-pattern-uncertain",
+    ),
+    row(
+        "rest_pattern",
+        Some(Predicate::ParentKindIs {
+            kind: "required_parameter",
+        }),
+        RoleSet::of(&[Role::NotBinding]),
+        &[],
+        None,
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "ts-rest-pattern-owned-by-parameter",
+    ),
+    row(
+        "enum_assignment",
+        None,
+        RoleSet::of(&[Role::NotBinding]),
+        &[],
+        None,
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "ts-enum-assignment-not-binding",
+    ),
+    row(
+        "abstract_class_declaration",
+        None,
+        RoleSet::of(&[Role::Scope]),
+        &[],
+        None,
+        Visibility::WholeScope,
+        Ruling::Classified,
+        "ts-abstract-class-scope",
+    ),
+];
+
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::TypeScript,
     "E2b-1",
     [
-        (
-            "abstract_class_declaration",
-            "e0b-ts-abstract_class_declaration"
-        ),
         (
             "abstract_method_signature",
             "e0b-ts-abstract_method_signature"
@@ -32,7 +251,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("class_static_block", "e0b-ts-class_static_block"),
         ("construct_signature", "e0b-ts-construct_signature"),
         ("constructor_type", "e0b-ts-constructor_type"),
-        ("enum_assignment", "e0b-ts-enum_assignment"),
         ("enum_body", "e0b-ts-enum_body"),
         ("enum_declaration", "e0b-ts-enum_declaration"),
         ("function_signature", "e0b-ts-function_signature"),
@@ -61,9 +279,7 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
             "e0b-ts-object_assignment_pattern"
         ),
         ("object_pattern", "e0b-ts-object_pattern"),
-        ("optional_parameter", "e0b-ts-optional_parameter"),
         ("pair_pattern", "e0b-ts-pair_pattern"),
-        ("required_parameter", "e0b-ts-required_parameter"),
         ("rest_pattern", "e0b-ts-rest_pattern"),
         ("switch_body", "e0b-ts-switch_body"),
         ("switch_case", "e0b-ts-switch_case"),

@@ -1,7 +1,6 @@
-//! Lexical binding ownership for reaching definitions.
-
 mod masks;
 pub(super) mod rust_scope;
+mod typescript;
 mod use_lookup;
 use super::binding_table::{
     rows, select_binding_row, BindingScopeRule, DeclarationKind, Role, Ruling, Visibility,
@@ -15,6 +14,7 @@ use super::{CfgView, DefSite, Line};
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use crate::languages::Language;
+pub(super) use masks::classified_masked_reads;
 use masks::{collect_classified_masks, simple_catch_parameter_owns_def};
 use std::cell::OnceCell;
 use std::cmp::Reverse;
@@ -104,7 +104,6 @@ impl<'a> RootFunction<'a> {
         *self.parameters.get_or_init(|| {
             #[cfg(test)]
             super::work_tests::bump(|counts| counts.parameter_queries += 1);
-            // Cache absence too; preserve bare-arrow semantics.
             parsed.find_parameters_node(&self.function)
         })
     }
@@ -120,9 +119,7 @@ pub(super) struct BindingFacts {
     pub(super) no_entry_spans: Vec<(String, Line, super::grammar_lint::ByteSpan)>,
     function_scope: ScopeSpan,
     language: Language,
-    /// PR-B perf: zero-width Use byte resolution is a pure function of the
-    /// pass and `(line, path)`; memoize it per pass (it re-runs whole-function
-    /// rvalue queries per edge otherwise).
+    /// Memoized zero-width Use byte resolution for `(line, path)` within this pass.
     use_byte_cache:
         std::cell::RefCell<BTreeMap<(Line, crate::access_path::AccessPath), Option<usize>>>,
 }
@@ -401,33 +398,36 @@ impl BindingFacts {
     }
 }
 
-pub(super) fn classified_masked_reads(
-    parsed: &ParsedFile,
-    func_node: &Node<'_>,
-    spans: &[crate::ast::PathSpan],
-) -> Vec<crate::ast::PathSpan> {
-    masks::classified_masked_reads(parsed, func_node, spans)
-}
-
 fn declaration_seed(
     parsed: &ParsedFile,
     func_node: &Node<'_>,
     def: &DefSite,
     function_scope: ScopeSpan,
 ) -> Option<(ScopeSpan, DeclarationKind, usize)> {
-    // A bare arrow formal has no `parameters` list; without this region its Def
-    // is seeded as a non-parameter binding and diverges from the `(x) => …` control.
-    if parsed
-        .parameter_binding_region(func_node)
-        .is_some_and(|parameters| {
-            parameters.start_byte() <= def.start_byte && def.start_byte < parameters.end_byte()
-        })
-    {
-        return Some((
-            function_scope,
-            DeclarationKind::Parameter,
-            function_scope.start_byte,
-        ));
+    // A bare arrow formal has no `parameters` list but still owns its parameter Def.
+    let in_parameter_region =
+        parsed
+            .parameter_binding_region(func_node)
+            .is_some_and(|parameters| {
+                parameters.start_byte() <= def.start_byte && def.start_byte < parameters.end_byte()
+            });
+    if in_parameter_region {
+        let binding = if parsed.language == Language::TypeScript {
+            typescript::parameter_binding(parsed, func_node, def)
+        } else {
+            typescript::ParameterBinding::Owned
+        };
+        match binding {
+            typescript::ParameterBinding::Owned => {
+                return Some((
+                    function_scope,
+                    DeclarationKind::Parameter,
+                    function_scope.start_byte,
+                ));
+            }
+            typescript::ParameterBinding::FailClosed => return None,
+            typescript::ParameterBinding::Legacy => {}
+        }
     }
     let end_byte = def.start_byte.checked_add(1)?;
     let mut node = parsed

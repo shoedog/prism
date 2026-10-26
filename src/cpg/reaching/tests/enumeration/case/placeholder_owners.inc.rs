@@ -1,15 +1,6 @@
 macro_rules! placeholder_owners {
     ($language:ident, $predicate:ident) => {
         &[
-            (($language::TypeScript, "arrow_function", None::<$predicate>, "e0a-js-arrow_function"), "Task 17"),
-            (($language::TypeScript, "class_body", None::<$predicate>, "e0a-js-class_body"), "Task 17"),
-            (($language::TypeScript, "for_statement", None::<$predicate>, "e0a-js-for_statement"), "Task 17"),
-            (($language::TypeScript, "formal_parameters", None::<$predicate>, "e0a-x-js-formal_parameters"), "Task 17"),
-            (($language::TypeScript, "function_declaration", None::<$predicate>, "e0a-js-function_declaration"), "Task 17"),
-            (($language::TypeScript, "function_expression", None::<$predicate>, "e0a-js-function_expression"), "Task 17"),
-            (($language::TypeScript, "lexical_declaration", None::<$predicate>, "e0a-js-lexical_declaration"), "Task 17"),
-            (($language::TypeScript, "statement_block", None::<$predicate>, "e0a-js-statement_block"), "Task 17"),
-            (($language::TypeScript, "variable_declaration", None::<$predicate>, "e0a-js-variable_declaration"), "Task 17"),
             (($language::Tsx, "arrow_function", None::<$predicate>, "e0a-js-arrow_function"), "Task 18"),
             (($language::Tsx, "class_body", None::<$predicate>, "e0a-js-class_body"), "Task 18"),
             (($language::Tsx, "for_statement", None::<$predicate>, "e0a-js-for_statement"), "Task 18"),

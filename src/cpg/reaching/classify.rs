@@ -399,6 +399,10 @@ fn uncertain_construct_on_route(
                             | "rest_pattern"
                             | "shorthand_property_identifier_pattern"
                     )
+                    | (
+                        crate::languages::Language::TypeScript,
+                        "required_parameter" | "optional_parameter"
+                    )
             ) || (parsed.language
                 == crate::languages::Language::Python
                 && matches!(binder.kind(), "tuple_pattern" | "list_pattern")

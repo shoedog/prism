@@ -5,6 +5,8 @@ use crate::cpg::reaching::RdFileStats;
 use crate::cpg::{DfgLabelStats, FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod parameter_defs;
+
 #[derive(Clone, Copy)]
 enum CounterField {
     LabelExact,
@@ -63,13 +65,7 @@ pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
         .map(|(field, expected)| (select_counter(case.id, field), field, expected));
     let function = super::super::super::function(parsed);
     let mut defs = super::super::super::collect_defs(parsed);
-    if matches!(
-        case.id,
-        "e0a-x-rs-parameters"
-            | "e0a-x-js-formal_parameters"
-            | "js-lexical-destructuring-declarator"
-            | "js-var-destructuring-declarator"
-    ) {
+    if parameter_defs::needs_synthetic_definition(case.id) {
         defs.push(super::super::super::def(parsed, u32::MAX, "x", 1, 0, false));
     }
     if case.id == "rs-let-pattern-wrapper-g07" {
@@ -250,7 +246,7 @@ pub(super) fn assert_ruling(
             case.id
         ),
         Some(Ruling::Classified)
-            if case.language == Language::JavaScript
+            if matches!(case.language, Language::JavaScript | Language::TypeScript)
                 && matches!(
                     case.kind,
                     "statement_block"
@@ -267,7 +263,7 @@ pub(super) fn assert_ruling(
                         | FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
                         | FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
                 )),
-                "{}: JavaScript scopes need Exact, Killed, or deferred CfgIncomplete evidence",
+                "{}: JavaScript/TypeScript scopes need Exact, Killed, or deferred CfgIncomplete evidence",
                 case.id
             );
         }
