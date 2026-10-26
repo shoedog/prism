@@ -3,6 +3,8 @@ use crate::cpg::reaching::binding_table::Predicate;
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod r1;
+
 const EXACT: FlowConfidence = FlowConfidence::Exact;
 const IMPORT_SOURCE: &str = "import defaultName, * as ns from 'pkg' with { type: 'json' };\nimport {item as alias} from 'pkg';\nfunction f() {\n  let keep = source();\n  sink(keep);\n}\n";
 

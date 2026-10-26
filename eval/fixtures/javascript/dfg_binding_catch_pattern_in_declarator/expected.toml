@@ -1,0 +1,17 @@
+[case]
+language = "javascript"
+capability = "dfg_binding_catch_pattern_in_declarator"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.js:2:code"
+to = "main.js:3:code"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 3
+
+[[expect.edges]]
+from = "main.js:2:code"
+to = "main.js:4:code"
+confidence = "exact"

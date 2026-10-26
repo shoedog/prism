@@ -385,7 +385,15 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
                             matches!(parsed.node_text(&kind), "let" | "const")
                         });
                     }
-                    "assignment_expression" => return false,
+                    "catch_clause"
+                    | "assignment_expression"
+                    | "function_declaration"
+                    | "function_expression"
+                    | "arrow_function"
+                    | "method_definition"
+                    | "generator_function"
+                    | "generator_function_declaration"
+                    | "class_static_block" => return false,
                     _ => current = ancestor.parent(),
                 }
             }

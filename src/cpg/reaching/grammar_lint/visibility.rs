@@ -128,7 +128,16 @@ fn javascript_pattern_visibility_span(binder_node: Node<'_>) -> Option<SpanKind>
     let mut current = binder_node;
     while let Some(parent) = current.parent() {
         let scope = match parent.kind() {
-            "lexical_declaration" => nearest_ancestor_kind(parent, "statement_block"),
+            "lexical_declaration" => nearest_ancestor_kind_in(
+                parent,
+                &[
+                    "statement_block",
+                    "switch_body",
+                    "for_statement",
+                    "class_static_block",
+                    "program",
+                ],
+            ),
             "variable_declaration" => {
                 let scope = nearest_field(parent, "body")?;
                 return Some(SpanKind::Known(vec![ByteSpan {
@@ -152,9 +161,9 @@ fn javascript_pattern_visibility_span(binder_node: Node<'_>) -> Option<SpanKind>
     None
 }
 
-fn nearest_ancestor_kind<'a>(mut node: Node<'a>, kind: &str) -> Option<Node<'a>> {
+fn nearest_ancestor_kind_in<'a>(mut node: Node<'a>, kinds: &[&str]) -> Option<Node<'a>> {
     while let Some(parent) = node.parent() {
-        if parent.kind() == kind {
+        if kinds.contains(&parent.kind()) {
             return Some(parent);
         }
         node = parent;
