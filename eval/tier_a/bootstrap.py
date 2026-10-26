@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import tomllib
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -77,9 +78,12 @@ def prepare_snapshot_only(
     eval_dir: Path,
     binary: Path,
     init_options: dict,
+    *,
+    allow_existing_anchor: bool = False,
+    stage_for_re_anchor: bool = False,
 ) -> tuple[Path, bool, str, str]:
     repo, eval_dir, binary = repo.resolve(), eval_dir.resolve(), binary.resolve()
-    if (eval_dir / "tier-a.lock.toml").exists():
+    if (eval_dir / "tier-a.lock.toml").exists() and not allow_existing_anchor:
         raise ValueError("anchor_already_exists")
 
     env = scrubbed_env(None)
@@ -88,9 +92,14 @@ def prepare_snapshot_only(
     PrismCli.from_verified(
         str(repo), str(binary), sut_sha, sut_digest, env=env
     )
-    snapshot = eval_dir / "snapshots" / f"prism-{sut_sha[:12]}.json"
-    if snapshot.exists():
-        return snapshot, True, sut_sha, sut_digest
+    final_snapshot = eval_dir / "snapshots" / f"prism-{sut_sha[:12]}.json"
+    if final_snapshot.exists():
+        return final_snapshot, True, sut_sha, sut_digest
+    snapshot = final_snapshot
+    if stage_for_re_anchor:
+        snapshot = final_snapshot.parent / (
+            f".staging-{uuid.uuid4().hex}-{final_snapshot.name}"
+        )
 
     config = tomllib.loads((eval_dir / "corpora.toml").read_text())
     defaults = config["defaults"]
@@ -195,6 +204,8 @@ def stage_candidate(
     init_options: dict,
     root: Path,
     origin_url: str,
+    *,
+    snapshot_source: Path | None = None,
 ) -> CandidateIdentity:
     repo, eval_dir, binary = repo.resolve(), eval_dir.resolve(), binary.resolve()
     policy_file = (eval_dir / "corpora.toml").relative_to(repo).as_posix()
@@ -216,7 +227,12 @@ def stage_candidate(
     )
     closure_rows = corpus_manifest(repo, sorted(closure_paths))
     sut_rows = sut_inputs_manifest(repo, binary)
-    snapshot = _snapshot_for(eval_dir, sut_sha)
+    snapshot_final = eval_dir / "snapshots" / f"prism-{sut_sha[:12]}.json"
+    snapshot = (
+        snapshot_source.resolve()
+        if snapshot_source is not None
+        else _snapshot_for(eval_dir, sut_sha)
+    )
     package_dirs = set()
     if cfg["lang"] == "python":
         from .cli import package_dirs as find_package_dirs
@@ -268,7 +284,7 @@ def stage_candidate(
         "sha_aliases": [sut_sha],
         "policy": {"digest": ids["policy"], "manifest": canonical_path(repo, finals[2][0])},
         "population": {"digest": ids["population"], "manifest": canonical_path(repo, finals[3][0])},
-        "snapshot": {"path": canonical_path(repo, snapshot), "digest": raw_digest(snapshot)},
+        "snapshot": {"path": canonical_path(repo, snapshot_final), "digest": raw_digest(snapshot)},
         "sample": sample,
         "oracle": {"version": _run("rust-analyzer", "--version"), "init": copy.deepcopy(init_options)},
         "sut": {"sha": sut_sha, "digest": sut_digest, "inputs": canonical_path(repo, finals[1][0]), "archive": str(root.resolve() / "sut" / sut_digest[7:] / "prism")},
@@ -292,6 +308,10 @@ def stage_candidate(
         if not path.startswith("target/"):
             continue
         source = repo / path
+        if expected == "absent":
+            if source.is_file():
+                raise ValueError(f"sut_input_absent_present_transition: {path}")
+            continue
         if not source.is_file():
             raise ValueError(f"sut_input_provenance_missing: {path}")
         contents = source.read_bytes()
@@ -299,6 +319,9 @@ def stage_candidate(
             raise ValueError(f"data_digest_moved: {path}")
         archived_inputs[path] = contents
     lock._sut_archive_inputs = archived_inputs
+    if snapshot_source is not None:
+        staged[snapshot_final] = snapshot
+        manifest_bytes[snapshot_final] = snapshot.read_bytes()
     candidate = CandidateIdentity(lock, staged)
     candidate._repo, candidate._eval_dir, candidate._binary = repo, eval_dir, binary
     candidate._staging, candidate._manifest_bytes = staging, manifest_bytes
@@ -319,6 +342,10 @@ def validate_staged(cand: CandidateIdentity) -> list[str]:
         trial.prism[key]["manifest"] = canonical_path(cand._repo, actual[final])
     sut_final = cand._repo / trial.prism["sut"]["inputs"]
     trial.prism["sut"]["inputs"] = canonical_path(cand._repo, actual[sut_final])
+    snapshot_final = cand._repo / trial.prism["snapshot"]["path"]
+    trial.prism["snapshot"]["path"] = canonical_path(
+        cand._repo, actual.get(snapshot_final, snapshot_final)
+    )
     reasons = [reason for reason in integrity_check(trial, cand._eval_dir) if reason != "baseline_heading_mismatch"]
     for final, path in actual.items():
         if not path.is_file() or path.read_bytes() != cand._manifest_bytes[final]:
@@ -407,7 +434,12 @@ def publish_anchor_v1(
         "wall_s": {},
     }.items():
         report_meta.setdefault(key, value)
-    report_base = out_dir / f"{date}-{report_meta['corpus']}"
+    report_name = f"{date}-{report_meta['corpus']}"
+    if superseded is not None:
+        report_name += (
+            f"-{expected['sut_sha_full']}-{expected['harness_sha']}"
+        )
+    report_base = out_dir / report_name
     report_json, report_md = report_base.with_suffix(".json"), report_base.with_suffix(".md")
     report_bytes = json.dumps(report, indent=1, sort_keys=True, default=str, allow_nan=False).encode()
     cand.lock.prism["baseline_report"] = {

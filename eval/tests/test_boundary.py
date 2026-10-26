@@ -462,6 +462,46 @@ def test_tracked_sut_input_is_verified_from_sut_commit_not_worktree(tmp_path):
     assert exc.value.reasons == ["data_digest_moved: src/a.rs"]
 
 
+@pytest.mark.parametrize("bound", [False, True], ids=["unbound", "bound"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".git/../src/a.rs",
+        ".git/../Cargo.toml",
+        "/src/a.rs",
+        "src/./a.rs",
+        r"src\a.rs",
+        "src//a.rs",
+    ],
+)
+def test_sut_input_noncanonical_paths_refuse_before_provenance_classification(
+    tmp_path, bound, path
+):
+    from tier_a.closure import read_tsv, write_tsv
+
+    lock, ev, repo = anchored_repo(tmp_path)
+    manifest = repo / lock.prism["sut"]["inputs"]
+    metadata = [".git/HEAD", ".git/packed-refs", ".git/refs/heads/tier-a-reanchor"]
+    rows = (
+        read_tsv(manifest)
+        + [(path, "sha256:" + "0" * 64)]
+        + [(item, "sha256:" + "0" * 64) for item in metadata]
+    )
+    write_tsv(rows, manifest)
+    if bound:
+        assert integrity_check(lock, ev) == []
+    else:
+        lock.__dict__.pop("_sut_rows", None)
+
+    reasons, _paths, provenance = boundary._sut_input_verification(lock, ev)
+
+    assert reasons == [f"sut_input_path_noncanonical: {path}"]
+    assert path not in {
+        item for class_paths in provenance.values() for item in class_paths
+    }
+    assert provenance["repository_metadata"] == metadata
+
+
 @pytest.mark.parametrize(
     ("mutation", "expected"),
     [

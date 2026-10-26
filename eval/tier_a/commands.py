@@ -150,20 +150,37 @@ def _bootstrap(argv: list[str]) -> int:
         return 0
     if args.sut_bin is None:
         parser.error("--sut-bin is required")
+    staged_snapshot = None
     try:
         previous = None
         previous_paths = None
-        if (EVAL_DIR / "tier-a.lock.toml").exists():
-            if not args.re_anchor:
-                raise ValueError("anchor_already_exists")
+        existing = _load_optional_lock(EVAL_DIR)
+        if args.re_anchor:
+            if existing is None:
+                raise ValueError("re_anchor_previous_mismatch: eval/tier-a.lock.toml")
             previous, previous_paths = verify_re_anchor_previous(
                 EVAL_DIR.parent, EVAL_DIR
             )
-        elif args.re_anchor:
-            raise ValueError("re_anchor_previous_mismatch: eval/tier-a.lock.toml")
+        else:
+            existing_reasons = integrity_check(existing, EVAL_DIR)
+            if existing_reasons:
+                raise BoundaryViolation(existing_reasons)
+            if existing is not None:
+                raise ValueError("anchor_already_exists")
         finalize_policy(EVAL_DIR)
         root = tier_a_root()
         binary = Path(args.sut_bin).resolve()
+        if args.re_anchor:
+            snapshot, present, _sut_sha, _sut_digest = prepare_snapshot_only(
+                EVAL_DIR.parent,
+                EVAL_DIR,
+                binary,
+                {"cargo": {"features": "all"}},
+                allow_existing_anchor=True,
+                stage_for_re_anchor=True,
+            )
+            if not present:
+                staged_snapshot = snapshot
         candidate = stage_candidate(
             EVAL_DIR.parent,
             EVAL_DIR,
@@ -171,6 +188,7 @@ def _bootstrap(argv: list[str]) -> int:
             {"cargo": {"features": "all"}},
             root,
             str(EVAL_DIR.parent),
+            snapshot_source=staged_snapshot,
         )
         staged_reasons = validate_staged(candidate)
         if staged_reasons:
@@ -202,6 +220,9 @@ def _bootstrap(argv: list[str]) -> int:
     except (BoundaryViolation, SutStale, ValueError, OSError, subprocess.SubprocessError) as exc:
         print(f"FATAL bootstrap_refused: {exc}", file=sys.stderr)
         return 3
+    finally:
+        if staged_snapshot is not None:
+            staged_snapshot.unlink(missing_ok=True)
     return 0
 
 
@@ -339,11 +360,12 @@ def run_quick_admitted(
         lock, corpus_path, overlay, identity = preflight_quick(eval_dir, args.live)
     else:
         existing = _load_optional_lock(eval_dir)
-        if existing is not None and not re_anchor:
+        if not re_anchor:
             reasons = integrity_check(existing, eval_dir)
             if reasons:
                 raise BoundaryViolation(reasons)
-            raise BoundaryViolation(["anchor_already_exists"])
+            if existing is not None:
+                raise BoundaryViolation(["anchor_already_exists"])
         if existing is None and re_anchor:
             raise BoundaryViolation(["re_anchor_previous_mismatch"])
         lock, overlay = candidate.lock, {}

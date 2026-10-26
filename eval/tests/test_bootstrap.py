@@ -303,6 +303,51 @@ def test_crash_before_publish_leaves_nothing_and_half_publish_is_refused(
     assert integrity_check(published, ev) == []
 
 
+def test_declared_absent_tracked_and_generated_inputs_publish_and_keep_transition(
+    tmp_path
+):
+    _lock, ev, repo = anchored_repo(tmp_path, publish=False)
+    binary = repo / "prism"
+    tracked = repo / "optional/missing.rs"
+    generated = repo / "target/generated/missing.rs"
+    binary.with_suffix(".d").write_text(
+        f"{binary}: {repo / 'src/a.rs'} {repo / 'Cargo.toml'} "
+        f"{tracked} {generated}\n"
+    )
+
+    cand = STAGE(repo, ev, tmp_path)
+    absent = {(path, digest) for path, digest in cand._sut_rows if digest == "absent"}
+    assert absent == {
+        ("optional/missing.rs", "absent"),
+        ("target/generated/missing.rs", "absent"),
+    }
+    assert validate_staged(cand) == []
+    published = publish_anchor_v1(
+        cand, fake_run(lock_identities(cand.lock)), *OUT(ev, tmp_path)
+    )
+    assert _sut_input_reasons(published, ev)[0] == []
+    admit(
+        published,
+        load_declared_inputs(published, ev),
+        Observation([], set(), set()),
+        {row[0] for row in published._corpus_rows},
+        ev,
+    )
+
+    generated.parent.mkdir(parents=True)
+    generated.write_text("now present\n")
+    assert _sut_input_reasons(published, ev)[0] == [
+        "sut_input_absent_present_transition: target/generated/missing.rs"
+    ]
+
+    published._sut_rows.append(
+        ("target/generated/digest-bearing.rs", "sha256:" + "0" * 64)
+    )
+    assert _sut_input_reasons(published, ev)[0][-1] == (
+        "sut_input_provenance_missing: target/generated/digest-bearing.rs"
+    )
+
+
 def test_staged_candidate_files_never_trigger_half_publication(tmp_path):
     lock, ev, repo = anchored_repo(tmp_path, publish=False)
     cand = STAGE(repo, ev, tmp_path)
@@ -678,6 +723,162 @@ def test_re_anchor_publishes_over_committed_anchor_and_archives_generated_inputs
     assert reasons == []
 
 
+def test_bootstrap_ordinary_path_checks_half_publication_and_allows_staging_only(
+    tmp_path, monkeypatch, capsys
+):
+    _lock, ev, repo = anchored_repo(tmp_path)
+    (ev / "tier-a.lock.toml").unlink()
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+    reached = []
+
+    def reach_stage(*_args, **_kwargs):
+        reached.append(True)
+        raise ValueError("reached_stage")
+
+    monkeypatch.setattr("tier_a.bootstrap.finalize_policy", lambda *_args: None)
+    monkeypatch.setattr("tier_a.bootstrap.stage_candidate", reach_stage)
+
+    assert _bootstrap_rc(["--sut-bin", str(repo / "prism")]) == 3
+    assert "half_published_anchor" in capsys.readouterr().err
+    assert reached == []
+
+    for path in (ev / "closure").iterdir():
+        if path.is_file():
+            path.unlink()
+    (ev / "closure/.staging-next").write_text("in progress\n")
+    assert _bootstrap_rc(["--sut-bin", str(repo / "prism")]) == 3
+    assert capsys.readouterr().err == "FATAL bootstrap_refused: reached_stage\n"
+    assert reached == [True]
+
+
+def test_bootstrap_existing_corrupt_anchor_reports_integrity_before_exists(
+    tmp_path, monkeypatch, capsys
+):
+    lock, ev, repo = anchored_repo(tmp_path)
+    report = repo / lock.prism["baseline_report"]["path"]
+    report.write_text(report.read_text() + "corrupt\n")
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+
+    assert _bootstrap_rc(["--sut-bin", str(repo / "prism")]) == 3
+    assert capsys.readouterr().err == (
+        "FATAL bootstrap_refused: baseline_report_digest_moved\n"
+    )
+
+
+def test_re_anchor_prepares_snapshot_for_a_new_sut_sha(tmp_path, monkeypatch, capsys):
+    previous, ev, repo = anchored_repo(tmp_path)
+    previous_paths = {
+        repo / previous.prism["snapshot"]["path"],
+        repo / previous.prism["baseline_report"]["path"],
+        ev / "tier-a.lock.toml",
+    }
+    _commit_anchor_and_descendant(repo)
+    new_sha = git_head(repo)
+    binary = stub_binary(repo / "new-prism", new_sha[:12])
+    binary.with_suffix(".d").write_text(
+        f"{binary}: {repo / 'src/a.rs'} {repo / 'Cargo.toml'}\n"
+    )
+    _write_stub_cargo_metadata(binary)
+    snapshot = ev / "snapshots" / f"prism-{new_sha[:12]}.json"
+    assert not snapshot.exists()
+    before = {path: path.read_bytes() for path in previous_paths}
+
+    class InventoryOracle(FakeOracle):
+        def document_symbols(self, path):
+            return [FunctionDef("new", "function", None, Location(path, 1, 1), 1)]
+
+    def admitted(*args, candidate=None, re_anchor=False, **kwargs):
+        assert re_anchor is True
+        assert not snapshot.exists()
+        assert before == {path: path.read_bytes() for path in previous_paths}
+        return fake_run(lock_identities(candidate.lock)), {}
+
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+    monkeypatch.setenv("TIER_A_ROOT", str(tmp_path / "root"))
+    monkeypatch.setattr(cli, "make_oracle", lambda *_args, **_kwargs: InventoryOracle())
+    monkeypatch.setattr(commands, "run_quick_admitted", admitted)
+
+    assert _bootstrap_rc(["--re-anchor", "--sut-bin", str(binary)]) == 0
+    assert capsys.readouterr().err == ""
+    published = load_lock(ev / "tier-a.lock.toml")
+    assert published.prism["sut"]["sha"] == new_sha
+    assert snapshot.is_file()
+    assert integrity_check(published, ev) == []
+    assert _sut_input_reasons(published, ev)[0] == []
+
+
+def test_same_day_re_anchor_swaps_lock_last_and_cleans_obsolete_paths(
+    tmp_path, monkeypatch
+):
+    def prepared_anchor(root):
+        _seed, ev, repo = anchored_repo(root, publish=False)
+        finalize_policy(ev)
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-qam", "finalize policy"],
+            check=True,
+        )
+        predecessor = STAGE(repo, ev, root)
+        predecessor_run = fake_run(lock_identities(predecessor.lock))
+        predecessor_run["meta"]["date"] = "2026-01-01"
+        previous = publish_anchor_v1(
+            predecessor, predecessor_run, *OUT(ev, root)
+        )
+        assert integrity_check(previous, ev) == []
+        _commit_anchor_and_descendant(repo)
+        previous_paths = {
+            repo / previous.prism["closure"]["manifest"],
+            repo / previous.prism["sut"]["inputs"],
+            repo / previous.prism["policy"]["manifest"],
+            repo / previous.prism["population"]["manifest"],
+            repo / previous.prism["snapshot"]["path"],
+            repo / previous.prism["baseline_report"]["path"],
+            (repo / previous.prism["baseline_report"]["path"]).with_suffix(".md"),
+            ev / "tier-a.lock.toml",
+            repo / "docs/eval/tier-a/baseline.md",
+        }
+        cand = STAGE(repo, ev, root)
+        run = fake_run(lock_identities(cand.lock))
+        run["meta"]["date"] = "2026-01-01"
+        return previous, previous_paths, cand, run, ev, repo
+
+    previous, previous_paths, cand, run, ev, repo = prepared_anchor(tmp_path / "fault")
+    protected = {path: path.read_bytes() for path in previous_paths}
+    real_replace = os.replace
+
+    def fail_lock_swap(src, dst):
+        if Path(dst) == ev / "tier-a.lock.toml":
+            raise OSError("simulated failure before lock swap")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", fail_lock_swap)
+    with pytest.raises(OSError, match="before lock swap"):
+        publish_anchor_v1(
+            cand,
+            run,
+            *OUT(ev, tmp_path / "fault"),
+            superseded=previous,
+            previous_paths=previous_paths,
+        )
+    monkeypatch.setattr(os, "replace", real_replace)
+    assert protected == {path: path.read_bytes() for path in previous_paths}
+    assert integrity_check(load_lock(ev / "tier-a.lock.toml"), ev) == []
+
+    previous, previous_paths, cand, run, ev, repo = prepared_anchor(tmp_path / "success")
+    old_report = repo / previous.prism["baseline_report"]["path"]
+    published = publish_anchor_v1(
+        cand,
+        run,
+        *OUT(ev, tmp_path / "success"),
+        superseded=previous,
+        previous_paths=previous_paths,
+    )
+    new_report = repo / published.prism["baseline_report"]["path"]
+    assert new_report != old_report
+    assert not old_report.exists()
+    assert not old_report.with_suffix(".md").exists()
+    assert integrity_check(published, ev) == []
+
+
 def test_re_anchor_refuses_modified_previous_anchor(tmp_path, monkeypatch, capsys):
     _previous, ev, repo = anchored_repo(tmp_path)
     _commit_anchor_and_descendant(repo)
@@ -694,7 +895,6 @@ def test_bootstrap_without_re_anchor_still_refuses_existing_lock(
     tmp_path, monkeypatch, capsys
 ):
     _previous, ev, repo = anchored_repo(tmp_path)
-    _commit_anchor_and_descendant(repo)
     monkeypatch.setattr(commands, "EVAL_DIR", ev)
 
     assert _bootstrap_rc(["--sut-bin", str(repo / "prism")]) == 3

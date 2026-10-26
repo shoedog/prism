@@ -297,15 +297,32 @@ def _sut_input_verification(
     archive_root = Path(lock.prism["sut"]["archive"]).parent / "inputs"
     for path, expected, *_rest in sut_rows:
         paths.add(path)
+        parts = path.split("/")
+        if (
+            not path
+            or path.startswith("/")
+            or "\\" in path
+            or any(part in {"", ".", ".."} for part in parts)
+        ):
+            reasons.append(f"sut_input_path_noncanonical: {path}")
+            continue
         if path.startswith(".git/"):
             provenance["repository_metadata"].append(path)
             continue
         if path.startswith("target/"):
             provenance["archived_generated"].append(path)
+            archived = archive_root / path
+            if expected == "absent":
+                if (
+                    path in staged_archive
+                    or archived.is_file()
+                    or (repo / path).is_file()
+                ):
+                    reasons.append(f"sut_input_absent_present_transition: {path}")
+                continue
             if path in staged_archive:
                 actual = "sha256:" + hashlib.sha256(staged_archive[path]).hexdigest()
             else:
-                archived = archive_root / path
                 if not archived.is_file():
                     reasons.append(f"sut_input_provenance_missing: {path}")
                     continue
@@ -323,6 +340,10 @@ def _sut_input_verification(
                 ],
                 capture_output=True,
             )
+            if expected == "absent":
+                if result.returncode == 0:
+                    reasons.append(f"sut_input_absent_present_transition: {path}")
+                continue
             if result.returncode:
                 reasons.append(f"sut_input_provenance_missing: {path}")
                 continue
