@@ -432,11 +432,28 @@ pub(super) fn source_for_kind(kind: &str) -> &'static str {
 fn javascript_rows_reproduce_the_old_match_arms() {
     let javascript_rows = rows(Language::JavaScript);
     let curated_len = CURATED.len() + 1;
-    assert_eq!(
-        &javascript_rows[..curated_len],
-        &rows(Language::Tsx)[..curated_len],
-        "Tsx: shared curated prefix"
-    );
+    let tsx_rows = rows(Language::Tsx);
+    let tsx_owned = [
+        "statement_block",
+        "class_body",
+        "function_declaration",
+        "function_expression",
+        "arrow_function",
+        "for_statement",
+        "formal_parameters",
+        "variable_declaration",
+        "lexical_declaration",
+    ];
+    for inherited in javascript_rows[..curated_len]
+        .iter()
+        .filter(|row| !tsx_owned.contains(&row.kind))
+    {
+        assert!(
+            tsx_rows.contains(inherited),
+            "Tsx must preserve inherited JavaScript row {} byte-for-byte",
+            inherited.kind
+        );
+    }
     let catch = &javascript_rows[curated_len];
     assert_eq!(catch.kind, "catch_clause");
     assert_eq!(catch.declaration, Some(DeclarationKind::Other));

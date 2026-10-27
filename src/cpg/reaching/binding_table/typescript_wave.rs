@@ -51,6 +51,19 @@ const fn row(
     }
 }
 
+const fn not_binding(kind: &'static str, regression: &'static str) -> BindingRow {
+    row(
+        kind,
+        None,
+        RoleSet::of(&[Role::NotBinding]),
+        &[],
+        None,
+        Visibility::WholeScope,
+        Ruling::Classified,
+        regression,
+    )
+}
+
 pub(super) static CURATED_ROWS: &[BindingRow] = &[
     row(
         "statement_block",
@@ -226,17 +239,28 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
         Ruling::Classified,
         "ts-abstract-class-scope",
     ),
+    not_binding("ambient_declaration", "ts-ambient-not-binding"),
+    not_binding("enum_declaration", "ts-enum-declaration-not-binding"),
+    not_binding("interface_declaration", "ts-interface-not-binding"),
+    not_binding("type_alias_declaration", "ts-type-alias-not-binding"),
+    not_binding("type_parameter", "ts-type-parameter-not-binding"),
+    not_binding("type_parameters", "ts-type-parameters-not-binding"),
+    not_binding("function_type", "ts-function-type-not-binding"),
+    not_binding("method_signature", "ts-method-signature-not-binding"),
+    not_binding("constructor_type", "ts-constructor-type-not-binding"),
+    not_binding("call_signature", "ts-call-signature-not-binding"),
+    not_binding("construct_signature", "ts-construct-signature-not-binding"),
+    not_binding("function_signature", "ts-function-signature-not-binding"),
+    not_binding(
+        "abstract_method_signature",
+        "ts-abstract-method-signature-not-binding",
+    ),
 ];
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::TypeScript,
     "E2b-1",
     [
-        (
-            "abstract_method_signature",
-            "e0b-ts-abstract_method_signature"
-        ),
-        ("ambient_declaration", "e0b-ts-ambient_declaration"),
         ("array_pattern", "e0b-ts-array_pattern"),
         ("assignment_expression", "e0b-ts-assignment_expression"),
         ("assignment_pattern", "e0b-ts-assignment_pattern"),
@@ -244,17 +268,11 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
             "augmented_assignment_expression",
             "e0b-ts-augmented_assignment_expression"
         ),
-        ("call_signature", "e0b-ts-call_signature"),
         ("catch_clause", "e0b-ts-catch_clause"),
         ("class", "e0b-ts-class"),
         ("class_heritage", "e0b-ts-class_heritage"),
         ("class_static_block", "e0b-ts-class_static_block"),
-        ("construct_signature", "e0b-ts-construct_signature"),
-        ("constructor_type", "e0b-ts-constructor_type"),
         ("enum_body", "e0b-ts-enum_body"),
-        ("enum_declaration", "e0b-ts-enum_declaration"),
-        ("function_signature", "e0b-ts-function_signature"),
-        ("function_type", "e0b-ts-function_type"),
         ("generator_function", "e0b-ts-generator_function"),
         (
             "generator_function_declaration",
@@ -268,10 +286,8 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("import_specifier", "e0b-ts-import_specifier"),
         ("import_statement", "e0b-ts-import_statement"),
         ("interface_body", "e0b-ts-interface_body"),
-        ("interface_declaration", "e0b-ts-interface_declaration"),
         ("mapped_type_clause", "e0b-ts-mapped_type_clause"),
         ("method_definition", "e0b-ts-method_definition"),
-        ("method_signature", "e0b-ts-method_signature"),
         ("named_imports", "e0b-ts-named_imports"),
         ("namespace_import", "e0b-ts-namespace_import"),
         (
@@ -283,9 +299,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("rest_pattern", "e0b-ts-rest_pattern"),
         ("switch_body", "e0b-ts-switch_body"),
         ("switch_case", "e0b-ts-switch_case"),
-        ("type_alias_declaration", "e0b-ts-type_alias_declaration"),
-        ("type_parameter", "e0b-ts-type_parameter"),
-        ("type_parameters", "e0b-ts-type_parameters"),
         ("variable_declarator", "e0b-ts-variable_declarator"),
         ("with_statement", "e0b-ts-with_statement"),
         ("regex_pattern", "e0b-ts-regex_pattern"),

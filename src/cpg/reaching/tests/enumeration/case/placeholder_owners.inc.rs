@@ -1,15 +1,6 @@
 macro_rules! placeholder_owners {
     ($language:ident, $predicate:ident) => {
         &[
-            (($language::Tsx, "arrow_function", None::<$predicate>, "e0a-js-arrow_function"), "Task 18"),
-            (($language::Tsx, "class_body", None::<$predicate>, "e0a-js-class_body"), "Task 18"),
-            (($language::Tsx, "for_statement", None::<$predicate>, "e0a-js-for_statement"), "Task 18"),
-            (($language::Tsx, "formal_parameters", None::<$predicate>, "e0a-x-js-formal_parameters"), "Task 18"),
-            (($language::Tsx, "function_declaration", None::<$predicate>, "e0a-js-function_declaration"), "Task 18"),
-            (($language::Tsx, "function_expression", None::<$predicate>, "e0a-js-function_expression"), "Task 18"),
-            (($language::Tsx, "lexical_declaration", None::<$predicate>, "e0a-js-lexical_declaration"), "Task 18"),
-            (($language::Tsx, "statement_block", None::<$predicate>, "e0a-js-statement_block"), "Task 18"),
-            (($language::Tsx, "variable_declaration", None::<$predicate>, "e0a-js-variable_declaration"), "Task 18"),
             (($language::Java, "formal_parameters", None::<$predicate>, "e0a-x-java-formal_parameters"), "Task 20"),
             (($language::Java, "spread_parameter", None::<$predicate>, "e0a-x-java-spread_parameter"), "Task 20"),
             (($language::C, "parameter_declaration", None::<$predicate>, "e0a-x-c-parameter_declaration"), "Task 22"),

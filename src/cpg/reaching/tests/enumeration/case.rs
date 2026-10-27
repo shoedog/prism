@@ -406,6 +406,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                 .chain(super::typescript::CASES)
                 .chain(super::typescript::TASK17_CASES)
                 .chain(super::tsx::CASES)
+                .chain(super::tsx::TASK18_CASES)
                 .chain(super::go::CASES)
                 .chain(super::java::CASES)
                 .chain(super::c::CASES)

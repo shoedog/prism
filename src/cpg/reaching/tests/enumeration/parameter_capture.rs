@@ -49,7 +49,7 @@ const EXPECTED_PARAMETER_ROWS: &[ExpectedParameterRow] = &[
     typescript_parameter_row("optional_parameter", "identifier", "ts-optional-parameter"),
     parameter_row(
         Language::Tsx,
-        Language::JavaScript,
+        Language::Tsx,
         "formal_parameters",
         &[],
         "e0a-x-js-formal_parameters",

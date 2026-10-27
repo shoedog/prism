@@ -266,7 +266,21 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
                     .collect()
             })
         }
-        Language::Tsx => combined!(TSX_ROWS, javascript::ROWS, tsx_wave::ROWS),
+        Language::Tsx => {
+            static TSX_ROWS: OnceLock<Vec<BindingRow>> = OnceLock::new();
+            TSX_ROWS.get_or_init(|| {
+                tsx_wave::CURATED_ROWS
+                    .iter()
+                    .chain(
+                        javascript::ROWS
+                            .iter()
+                            .filter(|row| !tsx_wave::replaces_javascript_row(row.kind)),
+                    )
+                    .chain(tsx_wave::ROWS)
+                    .copied()
+                    .collect()
+            })
+        }
         Language::Go => combined3!(GO_ROWS, go::ROWS, go_wave::CURATED_ROWS, go_wave::ROWS),
         Language::Java => combined!(JAVA_ROWS, other::JAVA_ROWS, java_wave::ROWS),
         Language::C => combined!(C_ROWS, other::C_ROWS, c_wave::ROWS),

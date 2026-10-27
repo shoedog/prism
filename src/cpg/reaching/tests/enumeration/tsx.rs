@@ -2,6 +2,9 @@ use super::super::super::binding_table::Predicate;
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod task18;
+pub(super) use task18::CASES as TASK18_CASES;
+
 pub(super) const CASES: &[super::case::Case] = &[
     super::case::Case {
         id: "e0a-js-class_declaration",

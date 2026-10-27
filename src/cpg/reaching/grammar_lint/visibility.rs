@@ -104,7 +104,7 @@ pub(in crate::cpg::reaching) fn visibility_span(
             return span;
         }
     }
-    if parsed.language == Language::TypeScript
+    if matches!(parsed.language, Language::TypeScript | Language::Tsx)
         && matches!(
             binder_node.kind(),
             "required_parameter" | "optional_parameter"

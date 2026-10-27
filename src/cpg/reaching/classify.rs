@@ -403,7 +403,10 @@ fn uncertain_construct_on_route(
                 == crate::languages::Language::Python
                 && matches!(binder.kind(), "tuple_pattern" | "list_pattern")
                 && is_python_match_pattern(binder))
-                || (parsed.language == crate::languages::Language::TypeScript
+                || (matches!(
+                    parsed.language,
+                    crate::languages::Language::TypeScript | crate::languages::Language::Tsx
+                )
                     && matches!(binder.kind(), "required_parameter" | "optional_parameter")
                     && crate::cpg::reaching::grammar_lint::visibility::typescript_parameter_has_body_owner(binder));
             if !explicit_uncertain_binder {
