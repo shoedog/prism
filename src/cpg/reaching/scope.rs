@@ -460,11 +460,11 @@ fn declaration_seed(
                         .into_iter()
                         .find(|identifier| identifier.start_byte() == def.start_byte)
                 {
-                    let owner = lua::header_owner(parsed.language, node);
+                    let scope = lua::header_scope(parsed.language, node);
                     return Some((
-                        scope_span(owner),
+                        scope,
                         row.declaration.unwrap_or(DeclarationKind::Other),
-                        identifier.end_byte(),
+                        lua::header_visible_from(parsed.language, node, identifier, scope),
                     ));
                 }
             }

@@ -140,7 +140,7 @@ fn no_provisional_row_whose_revisit_task_closed() {
     for language in Language::all() {
         for row in rows(language) {
             if let Ruling::Uncertain {
-                reason: "not yet curated",
+                reason: "not yet curated" | "census-only language",
                 revisit,
             } = row.ruling
             {

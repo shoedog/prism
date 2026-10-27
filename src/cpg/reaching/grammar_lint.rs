@@ -5,9 +5,9 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
-
+mod bash;
+mod names;
 pub(super) mod visibility;
-
 pub(super) use visibility::{visibility_span, ByteSpan, SpanKind};
 #[derive(serde::Deserialize)]
 struct NodeTypeSchema {
@@ -98,6 +98,9 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
             .any(|identifier| parsed.node_text(&identifier) == name);
     }
     let special_target = match (parsed.language, node.kind()) {
+        (Language::Bash, "declaration_command") => {
+            return bash::introduces_name(parsed, node, name)
+        }
         (Language::Bash, "for_statement") => node.child_by_field_name("variable"),
         (Language::Python, "global_statement" | "nonlocal_statement") => Some(node),
         _ => None,
@@ -263,6 +266,7 @@ pub(super) fn collect_unclassified_binding_lines(
     }
 
     if node.id() != root_function_id {
+        bash::collect_bare_declaration_lines(parsed, node, root_function_id, lines);
         if let Some(fields) = introducing_fields.get(node.kind()) {
             for field in fields {
                 if let Some(target) = node.child_by_field_name(field) {
@@ -298,7 +302,7 @@ fn collect_binding_identifiers(
     let named_children: Vec<_> = node.named_children(&mut cursor).collect();
     if named_children.is_empty() {
         let name = parsed.node_text(&node);
-        if is_binding_name(name) {
+        if names::is_binding_name(name) {
             let entry = lines.entry(name.to_string()).or_default();
             entry.insert(node.start_position().row + 1);
             entry.extend(dominance_lines.iter().copied());
@@ -349,14 +353,6 @@ fn collect_lines_after(node: Node<'_>, introduction_line: Line, lines: &mut BTre
     for child in node.named_children(&mut cursor) {
         collect_lines_after(child, introduction_line, lines);
     }
-}
-
-fn is_binding_name(text: &str) -> bool {
-    text != "_"
-        && !text.is_empty()
-        && text.bytes().enumerate().all(|(index, byte)| {
-            byte == b'_' || byte.is_ascii_alphanumeric() && (index > 0 || !byte.is_ascii_digit())
-        })
 }
 
 pub(super) fn introduction_is_classified(

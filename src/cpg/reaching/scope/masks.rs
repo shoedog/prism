@@ -26,16 +26,7 @@ pub(super) fn collect_classified_masks(
             && row.ruling == Ruling::Classified
     }) {
         let scope = if row.roles.has(Role::Scope) {
-            if parsed.language == Language::Lua
-                && matches!(node.kind(), "for_numeric_clause" | "for_generic_clause")
-            {
-                node.parent()
-                    .filter(|parent| parent.kind() == "for_statement")
-                    .map(scope_span)
-                    .unwrap_or_else(|| scope_span(node))
-            } else {
-                scope_span(node)
-            }
+            lua::header_scope(parsed.language, node)
         } else {
             declaration_scope(
                 parsed,
@@ -63,7 +54,9 @@ pub(super) fn collect_classified_masks(
                 name: parsed.node_text(&identifier).to_string(),
                 visible_from: match row.visibility {
                     Visibility::WholeScope => scope.start_byte,
-                    Visibility::Header => identifier.end_byte(),
+                    Visibility::Header => {
+                        lua::header_visible_from(parsed.language, node, identifier, scope)
+                    }
                     _ => node.end_byte(),
                 },
                 additional_visibility: Vec::new(),

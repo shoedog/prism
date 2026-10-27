@@ -3,15 +3,32 @@ use super::{scope_span, ScopeSpan};
 use crate::languages::Language;
 use tree_sitter::Node;
 
-pub(super) fn header_owner(language: Language, node: Node<'_>) -> Node<'_> {
+pub(super) fn header_scope(language: Language, node: Node<'_>) -> ScopeSpan {
     if language == Language::Lua
         && matches!(node.kind(), "for_numeric_clause" | "for_generic_clause")
     {
         node.parent()
             .filter(|parent| parent.kind() == "for_statement")
-            .unwrap_or(node)
+            .and_then(|parent| parent.child_by_field_name("body"))
+            .map(scope_span)
+            .unwrap_or_else(|| scope_span(node))
     } else {
-        node
+        scope_span(node)
+    }
+}
+
+pub(super) fn header_visible_from(
+    language: Language,
+    node: Node<'_>,
+    identifier: Node<'_>,
+    scope: ScopeSpan,
+) -> usize {
+    if language == Language::Lua
+        && matches!(node.kind(), "for_numeric_clause" | "for_generic_clause")
+    {
+        scope.start_byte
+    } else {
+        identifier.end_byte()
     }
 }
 

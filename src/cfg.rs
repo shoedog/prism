@@ -420,18 +420,25 @@ fn collect_loop_back_edges(
     stmt_lines: &[usize],
     edges: &mut EdgeSink,
 ) {
-    if parsed.language.is_loop_node(node.kind()) {
+    let lua_do_block = parsed.language == Language::Lua && node.kind() == "do_statement";
+    let lua_repeat = parsed.language == Language::Lua && node.kind() == "repeat_statement";
+    if parsed.language.is_loop_node(node.kind()) && !lua_do_block {
         let loop_line = node.start_position().row + 1;
-        // Find the loop body and add back-edge from last statement to loop header
-        if let Some(body) = node
+        let body = node
             .child_by_field_name("body")
-            .or_else(|| node.child_by_field_name("consequence"))
-        {
-            if let Some(last) = last_statement_line(&body, parsed) {
+            .or_else(|| node.child_by_field_name("consequence"));
+        if let Some(body) = body {
+            let back_edge_from = if lua_repeat {
+                node.child_by_field_name("condition")
+                    .map(|condition| condition.start_position().row + 1)
+            } else {
+                last_statement_line(&body, parsed)
+            };
+            if let Some(from_line) = back_edge_from {
                 if !ends_with_terminator(&body, parsed) {
                     edges.push(CfgEdge {
                         file: parsed.path.clone(),
-                        from_line: last,
+                        from_line,
                         to_line: loop_line,
                     });
                 }
@@ -440,9 +447,16 @@ fn collect_loop_back_edges(
         // Loop condition false → next statement after loop
         let loop_end = node.end_position().row + 1;
         if let Some(&next) = stmt_lines.iter().find(|&&l| l > loop_end) {
+            let from_line = if lua_repeat {
+                node.child_by_field_name("condition")
+                    .map(|condition| condition.start_position().row + 1)
+                    .unwrap_or(loop_line)
+            } else {
+                loop_line
+            };
             edges.push(CfgEdge {
                 file: parsed.path.clone(),
-                from_line: loop_line,
+                from_line,
                 to_line: next,
             });
         }
@@ -1680,6 +1694,37 @@ void f() {
         assert!(
             flagged.is_empty(),
             "no edge in this loop crosses arms, flagged={flagged:?}"
+        );
+    }
+
+    #[test]
+    fn lua_do_and_repeat_have_mandatory_first_iteration_cfg() {
+        let source = "function f()\n  x = source()\n  do\n    x = clean()\n  end\n  sink(x)\n  repeat\n    x = clean()\n  until done()\n  sink(x)\nend\n";
+        let parsed = ParsedFile::parse("d.lua", source, Language::Lua).unwrap();
+        let edges: Vec<(usize, usize)> = build_cfg_edges(&parsed)
+            .iter()
+            .map(|edge| (edge.from_line, edge.to_line))
+            .collect();
+
+        assert!(
+            !edges.contains(&(3, 6)),
+            "Lua do block cannot bypass its body: {edges:?}"
+        );
+        assert!(
+            edges.contains(&(4, 6)),
+            "Lua do body must fall through: {edges:?}"
+        );
+        assert!(
+            !edges.contains(&(7, 10)),
+            "Lua repeat cannot bypass its body: {edges:?}"
+        );
+        assert!(
+            edges.contains(&(9, 7)),
+            "Lua repeat condition must loop to its body: {edges:?}"
+        );
+        assert!(
+            edges.contains(&(9, 10)),
+            "Lua repeat condition must exit to its successor: {edges:?}"
         );
     }
 
