@@ -1,10 +1,36 @@
 use super::{Case, CaseClass};
-use crate::cpg::reaching::binding_table::{select_capture_row, Predicate, Timing};
+use crate::cpg::reaching::binding_table::{
+    capture_rows, select_capture_row, CaptureRow, Predicate, Timing,
+};
 use crate::cpg::reaching::RdFileStats;
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
 const CFG_INCOMPLETE: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+
+const TSX_IIFE_FUNCTION_INVOKED: Case = Case {
+    id: "tsx-iife-function-invoked",
+    language: Language::Tsx,
+    kind: "function_expression",
+    variant: Some("capture"),
+    row_variant: Some(Predicate::IsImmediatelyInvoked),
+    class: CaseClass::Behavioral,
+    src: "function outer(): void {\n  let x: number = source();\n  (function (): void { sink(x); })();\n  return <div>{x}</div>;\n}\n",
+    expect: &[("2:x", "3:x", CFG_INCOMPLETE)],
+    expect_counter: Some(("dfg_label_capture_immediate", 1)),
+};
+
+const TSX_IIFE_ARROW_INVOKED: Case = Case {
+    id: "tsx-iife-arrow-invoked",
+    language: Language::Tsx,
+    kind: "arrow_function",
+    variant: Some("capture"),
+    row_variant: Some(Predicate::IsImmediatelyInvoked),
+    class: CaseClass::Behavioral,
+    src: "function outer(): void {\n  let x: number = source();\n  (() => sink(x))();\n  return <div>{x}</div>;\n}\n",
+    expect: &[("2:x", "3:x", CFG_INCOMPLETE)],
+    expect_counter: Some(("dfg_label_capture_immediate", 1)),
+};
 
 pub(super) const CASES: &[Case] = &[
     Case {
@@ -73,6 +99,8 @@ pub(super) const CASES: &[Case] = &[
         expect: &[("2:x", "3:x", CFG_INCOMPLETE)],
         expect_counter: Some(("dfg_label_capture_immediate", 1)),
     },
+    TSX_IIFE_FUNCTION_INVOKED,
+    TSX_IIFE_ARROW_INVOKED,
 ];
 
 fn assert_behavior(case: &Case) {
@@ -116,6 +144,127 @@ fn assert_selected_timing(src: &str, language: Language, kind: &str, timing: Tim
         Some(timing),
         "{kind} timing"
     );
+}
+
+fn assert_nested_capture_counter(
+    id: &'static str,
+    language: Language,
+    src: &'static str,
+    counter: i64,
+) {
+    assert_behavior(&supplemental_case(
+        id,
+        language,
+        src,
+        &[("2:x", "3:x", CFG_INCOMPLETE)],
+        counter,
+    ));
+}
+
+#[test]
+fn js_concise_nested_arrow_uses_inner_deferred_timing() {
+    assert_nested_capture_counter(
+        "js-concise-nested-arrow",
+        Language::JavaScript,
+        "function outer() {\n  let x = source();\n  (() => () => sink(x))();\n}\n",
+        0,
+    );
+}
+
+#[test]
+fn js_concise_nested_function_expression_uses_inner_deferred_timing() {
+    assert_nested_capture_counter(
+        "js-concise-nested-function-expression",
+        Language::JavaScript,
+        "function outer() {\n  let x = source();\n  (() => function () { sink(x); })();\n}\n",
+        0,
+    );
+}
+
+#[test]
+fn python_concise_nested_lambda_uses_inner_deferred_timing() {
+    assert_nested_capture_counter(
+        "py-concise-nested-lambda",
+        Language::Python,
+        "def outer():\n    x = source()\n    (lambda: lambda: sink(x))()\n",
+        0,
+    );
+}
+
+#[test]
+fn js_parenthesized_concise_nested_arrow_stays_deferred() {
+    assert_nested_capture_counter(
+        "js-parenthesized-concise-nested-arrow",
+        Language::JavaScript,
+        "function outer() {\n  let x = source();\n  (() => (() => sink(x)))();\n}\n",
+        0,
+    );
+}
+
+#[test]
+fn python_parenthesized_concise_nested_lambda_stays_deferred() {
+    assert_nested_capture_counter(
+        "py-parenthesized-concise-nested-lambda",
+        Language::Python,
+        "def outer():\n    x = source()\n    (lambda: (lambda: sink(x)))()\n",
+        0,
+    );
+}
+
+#[test]
+fn js_block_returned_arrow_stays_deferred() {
+    assert_nested_capture_counter(
+        "js-block-returned-arrow",
+        Language::JavaScript,
+        "function outer() {\n  let x = source();\n  (() => { return () => sink(x); })();\n}\n",
+        0,
+    );
+}
+
+#[test]
+fn js_concise_nested_arrow_invoked_in_outer_body_counts_once() {
+    assert_nested_capture_counter(
+        "js-concise-nested-arrow-invoked",
+        Language::JavaScript,
+        "function outer() {\n  let x = source();\n  (() => (() => sink(x))())();\n}\n",
+        1,
+    );
+}
+
+#[test]
+fn tsx_iife_function_expression_is_immediate() {
+    super::check_case(&TSX_IIFE_FUNCTION_INVOKED);
+}
+
+#[test]
+fn tsx_iife_arrow_is_immediate() {
+    super::check_case(&TSX_IIFE_ARROW_INVOKED);
+}
+
+#[test]
+fn tsx_capture_rows_match_typescript_twins_except_language_and_regression() {
+    let typescript = capture_rows(Language::TypeScript);
+    let tsx = capture_rows(Language::Tsx);
+    assert_eq!(tsx.len(), typescript.len(), "TSX capture row count");
+    for (ts_row, tsx_row) in typescript.iter().zip(tsx) {
+        assert_eq!(
+            tsx_row.language,
+            Language::Tsx,
+            "TSX-owned {}",
+            tsx_row.kind
+        );
+        assert_eq!(
+            CaptureRow {
+                language: Language::TypeScript,
+                regression: ts_row.regression,
+                ..*tsx_row
+            },
+            *ts_row,
+            "TSX capture twin {} {:?}",
+            tsx_row.kind,
+            tsx_row.variant
+        );
+    }
 }
 
 #[test]

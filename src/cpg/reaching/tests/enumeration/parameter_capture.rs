@@ -213,6 +213,12 @@ const EXPECTED_CAPTURE_ROWS: &[ExpectedCaptureRow] = &[
         "function_expression",
         "ts-iife-function-invoked",
     ),
+    immediate_capture_row(Language::Tsx, "arrow_function", "tsx-iife-arrow-invoked"),
+    immediate_capture_row(
+        Language::Tsx,
+        "function_expression",
+        "tsx-iife-function-invoked",
+    ),
     immediate_capture_row(
         Language::Cpp,
         "lambda_expression",

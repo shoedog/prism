@@ -13,28 +13,36 @@ pub(super) struct CaptureFacts {
 }
 
 pub(super) fn capture_facts(parsed: &ParsedFile, func_node: Node<'_>) -> CaptureFacts {
-    fn visit(parsed: &ParsedFile, node: Node<'_>, inside_boundary: bool, facts: &mut CaptureFacts) {
+    fn visit_node(
+        parsed: &ParsedFile,
+        node: Node<'_>,
+        inside_boundary: bool,
+        facts: &mut CaptureFacts,
+    ) {
+        if let Some(row) = select_capture_row(parsed, node) {
+            let body = node.child_by_field_name("body").unwrap_or(node);
+            let range = (body.start_byte(), body.end_byte());
+            facts.ranges.push((range.0, range.1, row.timing));
+            collect_reference_identities(
+                parsed,
+                body,
+                range,
+                !inside_boundary,
+                &mut facts.references,
+                &mut facts.timing_references,
+            );
+            if !inside_boundary {
+                facts.capture_ranges.push(range);
+            }
+            if body.id() != node.id() {
+                visit_node(parsed, body, true, facts);
+            }
+            return;
+        }
+
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            if let Some(row) = select_capture_row(parsed, child) {
-                let body = child.child_by_field_name("body").unwrap_or(child);
-                let range = (body.start_byte(), body.end_byte());
-                facts.ranges.push((range.0, range.1, row.timing));
-                collect_reference_identities(
-                    parsed,
-                    body,
-                    range,
-                    !inside_boundary,
-                    &mut facts.references,
-                    &mut facts.timing_references,
-                );
-                if !inside_boundary {
-                    facts.capture_ranges.push(range);
-                }
-                visit(parsed, body, true, facts);
-            } else {
-                visit(parsed, child, inside_boundary, facts);
-            }
+            visit_node(parsed, child, inside_boundary, facts);
         }
     }
 
@@ -44,7 +52,10 @@ pub(super) fn capture_facts(parsed: &ParsedFile, func_node: Node<'_>) -> Capture
         references: BTreeSet::new(),
         timing_references: BTreeSet::new(),
     };
-    visit(parsed, func_node, false, &mut facts);
+    let mut cursor = func_node.walk();
+    for child in func_node.children(&mut cursor) {
+        visit_node(parsed, child, false, &mut facts);
+    }
     facts
 }
 

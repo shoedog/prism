@@ -84,10 +84,12 @@ js_capture_rows!(
         "generator_function",
     ]
 );
-capture_rows!(
+js_capture_rows!(
     TSX,
     Language::Tsx,
     "tsx",
+    "tsx-iife-arrow-invoked",
+    "tsx-iife-function-invoked",
     [
         "function_declaration",
         "method_definition",
