@@ -1,3 +1,4 @@
+import errno
 import hashlib
 import json
 import os
@@ -24,8 +25,20 @@ from tier_a.boundary import (
     admit,
     load_declared_inputs,
 )
-from tier_a.lock import IDENTITY_KEYS, integrity_check, load_lock, lock_identities
-from tier_a.closure import policy_digest, policy_manifest, population_manifest, raw_digest
+from tier_a.lock import (
+    IDENTITY_KEYS,
+    integrity_check,
+    load_lock,
+    lock_identities,
+    save_lock,
+)
+from tier_a.closure import (
+    manifest_digest,
+    policy_digest,
+    policy_manifest,
+    population_manifest,
+    raw_digest,
+)
 from tier_a.corpus import load_snapshot
 from tier_a.model import FunctionDef, Location
 from tier_a.oracles import OracleError
@@ -49,6 +62,26 @@ STAGE = lambda repo, ev, tmp: stage_candidate(
     str(repo),
 )
 OUT = lambda ev, tmp: (ev, ev.parent / "docs/eval/tier-a", tmp / "root/sut")
+
+
+def _write_nonempty_fixture(ev):
+    fixture = ev / "fixtures/nonempty.json"
+    fixture.parent.mkdir(parents=True, exist_ok=True)
+    fixture.write_text('{"fixture": true}\n')
+    return fixture
+
+
+def _bind_nonempty_fixture(lock, ev, repo):
+    fixture = _write_nonempty_fixture(ev)
+    fixture_rows = [(fixture.relative_to(repo).as_posix(), raw_digest(fixture))]
+    lock.prism["data"]["fixtures"] = manifest_digest(fixture_rows)
+    report = repo / lock.prism["baseline_report"]["path"]
+    report.write_text(
+        json.dumps(fake_run(lock_identities(lock)), indent=1, sort_keys=True) + "\n"
+    )
+    lock.prism["baseline_report"]["digest"] = raw_digest(report)
+    save_lock(lock, ev / "tier-a.lock.toml")
+    return fixture
 
 
 def _binary_sha(repo):
@@ -128,6 +161,30 @@ def test_stage_then_validate_needs_no_published_lock(tmp_path):
         "data_digest_moved: eval/adjudications.jsonl"
         in validate_staged(cand)
     )
+
+
+def test_published_lock_integrity_accepts_nonempty_fixtures(tmp_path):
+    lock, ev, repo = anchored_repo(tmp_path)
+    _bind_nonempty_fixture(lock, ev, repo)
+
+    assert integrity_check(load_lock(ev / "tier-a.lock.toml"), ev) == []
+
+
+def test_staged_candidate_validation_accepts_nonempty_fixtures(tmp_path):
+    _lock, ev, repo = anchored_repo(tmp_path, publish=False)
+    _write_nonempty_fixture(ev)
+
+    assert validate_staged(STAGE(repo, ev, tmp_path)) == []
+
+
+def test_fixture_digest_drift_is_refused(tmp_path):
+    lock, ev, repo = anchored_repo(tmp_path)
+    fixture = _bind_nonempty_fixture(lock, ev, repo)
+    fixture.write_text('{"fixture": false}\n')
+
+    assert integrity_check(load_lock(ev / "tier-a.lock.toml"), ev) == [
+        "data_digest_moved: eval/fixtures"
+    ]
 
 
 def test_stage_validate_admit_then_publish_without_final_sut_manifest(tmp_path):
@@ -538,6 +595,7 @@ def _install_end_to_end_bootstrap_doubles(monkeypatch, ev, root):
 
 def _ordinary_bootstrap_end_to_end(tmp_path, monkeypatch):
     _lock, ev, repo = anchored_repo(tmp_path, publish=False)
+    _write_nonempty_fixture(ev)
     baseline = repo / "docs/eval/tier-a/baseline.md"
     baseline.write_text("# Tier-A Baseline — pre-anchor\n")
     finalize_policy(ev)
@@ -862,7 +920,17 @@ def test_re_anchor_publishes_over_committed_anchor_and_archives_generated_inputs
         f"{repo / '.git/HEAD'} {generated}\n"
     )
     monkeypatch.setattr(commands, "EVAL_DIR", ev)
-    monkeypatch.setenv("TIER_A_ROOT", str(tmp_path / "root"))
+    archive_root = (tmp_path / "root").resolve()
+    monkeypatch.setenv("TIER_A_ROOT", str(archive_root))
+    real_replace = os.replace
+
+    def reject_cross_directory_archive_replace(src, dst):
+        source, destination = Path(src), Path(dst)
+        if destination.is_relative_to(archive_root) and source.parent != destination.parent:
+            raise OSError(errno.EXDEV, "simulated cross-device rename", str(destination))
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(os, "replace", reject_cross_directory_archive_replace)
 
     def admitted(*args, candidate=None, re_anchor=False, **kwargs):
         assert re_anchor is True

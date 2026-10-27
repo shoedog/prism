@@ -192,7 +192,7 @@ def integrity_check(
     data = prism.get("data", {})
     fixtures = [path for path in (eval_dir / "fixtures").rglob("*") if path.is_file()]
     fixture_rows = [
-        (_repo_path(repo, path.relative_to(repo).as_posix()).relative_to(repo).as_posix(), raw_digest(path))
+        (path.relative_to(repo).as_posix(), raw_digest(path))
         for path in fixtures
     ]
     if data.get("fixtures") is not None and manifest_digest(fixture_rows) != data["fixtures"]:

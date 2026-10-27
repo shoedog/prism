@@ -467,7 +467,8 @@ def publish_anchor_v1(
     for final, staged in sorted(cand._staged_archive_inputs.items()):
         final.parent.mkdir(parents=True, exist_ok=True)
         if staged.is_file():
-            os.replace(staged, final)
+            _atomic_bytes(final, staged.read_bytes())
+            staged.unlink()
         elif not final.is_file() or final.read_bytes() != cand._manifest_bytes[final]:
             raise ValueError(f"published archive input mismatch: {final.name}")
         cand.artifacts.staged.pop(final, None)
