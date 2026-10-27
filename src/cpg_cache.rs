@@ -266,7 +266,9 @@ mod stream;
 /// - v122: compact DFG arena, occurrence/rank indexes and validated native codec.
 /// - v123: property-method syntax evidence excludes bare-name call targets (#443).
 /// - v124: module-tree Rust Self calls reach concrete impl scope resolution (#521).
-const CACHE_VERSION: u32 = 124;
+/// - v125: Self allow-list retains impl headers and named-item boundaries (#521).
+/// - v126: Self headers preserve token and lexical-module identity (#521).
+const CACHE_VERSION: u32 = 126;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -817,7 +819,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 124);
+        assert_eq!(super::CACHE_VERSION, 126);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

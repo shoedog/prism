@@ -85,3 +85,5 @@ mod targets_evidence_test;
 mod targets_mapping_test;
 mod type_relative_receiver_test;
 mod umbrella_completeness_test;
+
+mod rust_self_allowlist_test;

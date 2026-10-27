@@ -21,7 +21,7 @@ mod js_namespace;
 #[path = "resolution_js_returns.rs"]
 mod js_returns;
 #[path = "resolution_rust_self.rs"]
-mod rust_self;
+pub(crate) mod rust_self;
 
 pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
 pub use crate::resolution_identity::{

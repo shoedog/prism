@@ -820,6 +820,9 @@ pub struct CallGraph {
     /// S3: owning type per method FunctionId (primary owner, not the trait).
     #[serde(default)]
     pub method_owners: BTreeMap<FunctionId, String>,
+    /// Rust `Self::f` allow-list proofs (impl syntax, self-type headers, trait defaults).
+    #[serde(default)]
+    pub(crate) rust_self_proofs: crate::resolution::rust_self::ProofIndex,
     /// Method FunctionId -> owner class definition node byte span (start, end).
     /// Py/JS/TS only; the self-receiver class identity.
     #[serde(default)]
@@ -1249,6 +1252,7 @@ impl CallGraph {
             imports: BTreeMap::new(),
             methods: BTreeMap::new(),
             method_owners: BTreeMap::new(),
+            rust_self_proofs: Default::default(),
             method_class_span: BTreeMap::new(),
             method_class_span_ambiguous: BTreeSet::new(),
             js_ts_static_methods: BTreeSet::new(),
@@ -1537,6 +1541,7 @@ impl CallGraph {
             imports: BTreeMap::new(),
             methods,
             method_owners,
+            rust_self_proofs: Default::default(),
             method_class_span,
             method_class_span_ambiguous,
             js_ts_static_methods,
@@ -1986,6 +1991,7 @@ impl CallGraph {
             imports,
             methods,
             method_owners,
+            rust_self_proofs: Default::default(),
             method_class_span,
             method_class_span_ambiguous,
             js_ts_static_methods,
@@ -3611,6 +3617,7 @@ impl CallGraph {
     }
 
     fn refresh_rust_receiver_state(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.rust_self_proofs = crate::resolution::rust_self::ProofIndex::build(files);
         self.populate_method_identity_indices(files);
         self.rematerialize_rust_receiver_keys(files);
     }
@@ -5356,6 +5363,7 @@ impl CallGraph {
             imports,
             methods,
             method_owners,
+            rust_self_proofs: Default::default(),
             method_class_span,
             method_class_span_ambiguous,
             js_ts_static_methods,

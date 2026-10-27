@@ -5,12 +5,12 @@ fn compact_codec_rejects_bad_bounds_groups_and_order() {
 }
 #[test]
 fn production_cache_version_activates_compact_codec() {
-    assert_eq!(super::CACHE_VERSION, 124);
+    assert_eq!(super::CACHE_VERSION, 126);
 }
 
 #[test]
 fn production_cache_version_includes_module_owners() {
-    assert_eq!(super::CACHE_VERSION, 124);
+    assert_eq!(super::CACHE_VERSION, 126);
 }
 
 #[test]
@@ -35,7 +35,7 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
     let path = cache_bin_path(dir.path());
     let bytes = fs::read(&path).unwrap();
     let mut owned: CpgCache = bincode::deserialize(&bytes).unwrap();
-    assert_eq!(owned.version, 124);
+    assert_eq!(owned.version, 126);
     assert_eq!(bytes, bincode::serialize(&owned).unwrap());
     assert!(matches!(
         load_cache(&hashes, false, dir.path()),

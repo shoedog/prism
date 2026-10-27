@@ -35,14 +35,14 @@
     ],
     "MB-06-cpg-version": [
       "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 126;",
       "const CACHE_VERSION: u32 = 124;",
-      "const CACHE_VERSION: u32 = 123;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "MB-07-nav-version": [
       "src/navigation/call_edge_cache.rs",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 71;",
       "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 68;",
       "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
     ],
     "MB-04-skip-proven-alias-route": [

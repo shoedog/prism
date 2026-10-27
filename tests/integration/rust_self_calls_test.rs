@@ -56,6 +56,17 @@ fn exact(caller: &str, callee: &str, target: &str, file: &str) {
     let resolved = &outcome.resolved[0];
     assert_eq!(resolved.target.name, target);
     assert_eq!(resolved.target.file, file);
+    let line = match target {
+        "assoc" => 3,
+        "method" => 4,
+        "g_assoc" => 19,
+        "w_assoc" => 24,
+        "b" => 33,
+        "new" => 43,
+        "same_target" => 45,
+        _ => panic!("target line must be pinned"),
+    };
+    assert_eq!(resolved.target.start_line, line);
     assert_eq!(resolved.confidence, ResolutionConfidence::Exact);
     assert_eq!(resolved.kind, ResolutionKind::SelfReceiver);
 }
@@ -137,6 +148,43 @@ fn nested_fn() {
 #[test]
 fn missing() {
     dropped("missing_call", "Self::missing");
+
+    // The full matrix's first fallback is a cross-impl trait method, now
+    // refused independently. Isolate missing-name lookup from applicability.
+    let path = "src/lib.rs";
+    let parsed = ParsedFile::parse(
+        path,
+        "struct T;\nimpl T {\nfn aaa() {}\nfn isolated_missing() { Self::missing(); }\nfn direct() { Self::aaa(); }\n}",
+        Language::Rust,
+    )
+    .unwrap();
+    let cg = CallGraph::build(&BTreeMap::from([(path.to_string(), parsed)]));
+    assert!(cg.scope_graph.as_ref().unwrap().complete);
+    let first = cg.methods_by_scope.values().next().unwrap();
+    assert_eq!(first.len(), 1);
+    assert_eq!(
+        (
+            first[0].file.as_str(),
+            first[0].start_line,
+            first[0].name.as_str()
+        ),
+        (path, 3, "aaa")
+    );
+    let direct = cg.resolve_call_site(site(&cg, "direct", "Self::aaa"));
+    assert_eq!(direct.len(), 1);
+    assert_eq!(
+        (
+            direct[0].target.file.as_str(),
+            direct[0].target.start_line,
+            direct[0].target.name.as_str()
+        ),
+        (path, 3, "aaa")
+    );
+    assert_eq!(direct[0].confidence, ResolutionConfidence::Exact);
+    assert_eq!(direct[0].kind, ResolutionKind::SelfReceiver);
+    let outcome = cg.resolve_call_site_full(site(&cg, "isolated_missing", "Self::missing"));
+    assert!(outcome.resolved.is_empty(), "{outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::UnknownName));
 }
 #[test]
 fn enum_constructor() {

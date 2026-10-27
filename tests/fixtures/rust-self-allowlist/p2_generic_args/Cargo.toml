@@ -1,0 +1,4 @@
+[package]
+name="p2_generic_args"
+version="0.1.0"
+edition="2021"

@@ -27,15 +27,19 @@
     ],
     "RS-03-trait-default-open": [
       "src/resolution_rust_self.rs",
-      "if matches!(&facts.kind, MethodKind::Trait(tr) if tr == owner) {",
+      "if self.rust_self_proofs.default_names.contains(name) {",
       "if false {",
-      "rust_self_calls_test::trait_default"
+      "rust_self_allowlist_test::default_name_global_refuses"
     ],
     "RS-04-nested-item-capture": [
       "src/resolution_rust_self.rs",
-      "if self.rust_self_captured_from_nested_item(site) {",
-      "if false {",
-      "rust_self_calls_test::nested_fn"
+      "if !caller\n                .self_spans\n                .contains(&(site.start_byte, site.end_byte))",
+      "if false",
+      [
+        "rust_self_allowlist_test::sol_f4",
+        "rust_self_calls_test::nested_fn",
+        "rust_self_allowlist_test::macro_tokens_refuse"
+      ]
     ],
     "RS-05-owner-evidence-fallback": [
       "src/resolution_rust_self.rs",
@@ -97,14 +101,14 @@
     ],
     "RS-14-cpg-generation": [
       "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 126;",
       "const CACHE_VERSION: u32 = 124;",
-      "const CACHE_VERSION: u32 = 123;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "RS-15-nav-generation": [
       "src/navigation/call_edge_cache.rs",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 71;",
       "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 68;",
       "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
     ],
     "RS-16-ambiguous-nameonly-fanout": [
@@ -115,10 +119,110 @@
         "rust_self_calls_test::distinct_from_impls_drop",
         "rust_self_calls_test::multiple_candidates_drop"
       ]
+    ],
+    "RS-17-module-level-caller": [
+      "src/resolution_rust_self.rs",
+      "if !caller.module_level {",
+      "if false {",
+      "rust_self_allowlist_test::module_impl_required"
+    ],
+    "RS-18-cross-impl-inherent": [
+      "src/resolution_rust_self.rs",
+      "if !target.module_level || !target.inherent {",
+      "if !target.module_level {",
+      "rust_self_allowlist_test::cross_trait_refuses"
+    ],
+    "RS-19-self-type-arguments": [
+      "src/resolution_rust_self.rs",
+      "if self.self_type != target.self_type {",
+      "if false {",
+      "rust_self_allowlist_test::sol_f1_inherent"
+    ],
+    "RS-20-impl-header-constraints": [
+      "src/resolution_rust_self.rs",
+      "!constrained\n            || (self.generics == target.generics && self.where_clause == target.where_clause)",
+      "true",
+      "rust_self_allowlist_test::generic_headers_refuse"
+    ],
+    "RS-21-same-impl-admitted": [
+      "src/resolution_rust_self.rs",
+      "if self.file == target.file && self.span == target.span {",
+      "if false {",
+      "rust_self_allowlist_test::same_impl_trait_allow"
+    ],
+    "RS-22-module-level-target": [
+      "src/resolution_rust_self.rs",
+      "if !target.module_level || !target.inherent {",
+      "if !target.inherent {",
+      "rust_self_allowlist_test::module_target_required"
+    ],
+    "RS-23-where-header-proof": [
+      "src/resolution_rust_self.rs",
+      ".find(|n| n.kind() == \"where_clause\")",
+      ".find(|_| false)",
+      "rust_self_allowlist_test::where_headers_refuse"
+    ],
+    "RS-24-generic-header-proof": [
+      "src/resolution_rust_self.rs",
+      ".child_by_field_name(\"type_parameters\")",
+      ".child_by_field_name(\"never_parameters\")",
+      "rust_self_allowlist_test::generic_headers_refuse"
+    ],
+    "RS-25-whitespace-normalized": [
+      "src/resolution_rust_self.rs",
+      "syntax_tokens(parsed, node);",
+      "vec![parsed.node_text(&node).to_string()];",
+      "rust_self_allowlist_test::identical_headers_allow"
+    ],
+    "RS-26-applicability-required": [
+      "src/resolution_rust_self.rs",
+      "if !caller.admits(target) {",
+      "if false {",
+      "rust_self_allowlist_test::sol_f1_inherent"
+    ],
+    "RS-27-duplicate-impl-proof": [
+      "src/resolution_rust_self.rs",
+      "if result.methods.insert(fid.clone(), proof).is_some() {",
+      "if result.methods.insert(fid.clone(), proof).is_some() && false {",
+      "rust_self_allowlist_test::duplicate_impl_identity_refuses"
+    ],
+    "RS-28-lexical-header-context": [
+      "src/resolution_rust_self.rs",
+      "if needs_context && !self.same_module(target) {",
+      "if false {",
+      "rust_self_allowlist_test::generic_module_files_refuse"
+    ],
+    "RS-29-token-identity": [
+      "src/resolution_rust_self.rs",
+      "    tokens\n}",
+      "    vec![parsed.node_text(&node).chars().filter(|c| !c.is_whitespace()).collect()]\n}",
+      "rust_self_allowlist_test::token_boundary_refuses"
+    ],
+    "RS-30-module-identity": [
+      "src/resolution_rust_self.rs",
+      "self.file == target.file && self.module == target.module",
+      "self.file == target.file",
+      "rust_self_allowlist_test::generic_module_blocks_refuse"
+    ],
+    "RS-31-module-file-identity": [
+      "src/resolution_rust_self.rs",
+      "self.file == target.file && self.module == target.module",
+      "self.module == target.module",
+      "rust_self_allowlist_test::generic_module_files_refuse"
+    ],
+    "RS-32-generic-context-required": [
+      "src/resolution_rust_self.rs",
+      "plain_self_path: plain_nominal_path(ty),",
+      "plain_self_path: true,",
+      "rust_self_allowlist_test::generic_module_files_refuse"
     ]
   },
   "lib_test_prefixes": [
     "cpg_cache::",
     "navigation::call_edge_cache::"
-  ]
+  ],
+  "intent_revisions": {
+    "RS-03-trait-default-open": "The former trait-default-caller guard is subsumed by requiring direct module-level impl syntax. This mutant now removes the global default-name refusal required to close missing inherited candidates; the independent same-impl witness avoids masking by cross-trait or applicability guards.",
+    "RS-04-nested-item-capture": "Replace indexed duplicate-call inference with syntax-span membership that refuses every nested named item, including const/static without function identities."
+  }
 }

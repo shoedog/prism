@@ -214,8 +214,24 @@ with a `ResolutionConfidence` (`Exact` | `NameOnly`) and a `ResolutionKind`. The
 rungs (R1–R7): qualified `T::m`/`mod::T::m` and `Self::`/`self.`/receiver-var
 calls bind via a per-`(owner, name)` method index (Rust trait impls are dual-keyed
 under the trait, demoted when >1 impl); authoritative Rust `Self::` calls reach
-the dedicated Self rung and bind through the enclosing concrete impl type scope;
-trait-default and unbound nested-function `Self` calls remain dropped; import-qualified `pkg.f()` narrows by file
+the dedicated Self allow-list. The caller must be a direct method of a module-level
+impl, with no nested named item between the method and the call. Closures, async
+blocks and inline const blocks retain Self. The singleton target must be in the
+same impl, or in a module-level inherent impl with identical whitespace-normalized
+self-type syntax (including generic arguments). If either impl has generic
+parameters or a where clause, both generics and where clauses must also match
+textually. Normalization compares syntax-token sequences, preserving token
+boundaries and literal contents. Cross-impl generic/composite self types or
+constrained headers additionally require the same lexical module (same file and
+enclosing module nodes); plain nominal paths retain cross-file support. This is
+a conservative restriction because equal argument/bound text can name different
+types in different modules. Cross-impl trait targets, local impls, missing syntax/owner evidence,
+trait-default callers, any in-repo trait default with the callee name, and pools
+with zero or multiple candidates drop as UnknownName; there is no NameOnly fan-out.
+Ambiguous impl metadata and macro-token calls without a parsed call expression
+also refuse.
+External, std, derive and macro-generated impls remain outside the existing owner
+index model. Import-qualified `pkg.f()` narrows by file
 stem or Go package directory with no permissive fall-through; `Class.m()` binds
 when the qualifier is itself an owner key; unqualified calls prefer a local free
 definition, then Java/C++ implicit-`this`, then cross-file free functions
