@@ -453,18 +453,13 @@ fn declaration_seed(
                 ));
             }
             if row.roles.has(Role::Scope) {
-                if let Some(identifier) =
-                    transfer::row_introduced_identifiers(parsed, node, row.fields)
-                        .into_iter()
-                        .find(|identifier| {
-                            identifier.start_byte() == def.start_byte
-                                && parsed.node_text(identifier) == def.path.base
-                        })
+                if let Some(bounds) =
+                    java::header_identifier_bounds_for_def(parsed, node, row, def, scope_span(node))
                 {
                     return Some((
-                        scope_span(node),
+                        bounds.scope,
                         row.declaration.unwrap_or(DeclarationKind::Other),
-                        identifier.end_byte(),
+                        bounds.visible_from,
                     ));
                 }
             }
@@ -498,22 +493,24 @@ fn declaration_seed(
             }) {
                 return None;
             }
-            let scope = declaration_scope(parsed, func_node, node, kind, function_scope);
+            let default_scope = declaration_scope(parsed, func_node, node, kind, function_scope);
+            let java_bounds = selected_row.and_then(|row| {
+                java::identifier_bounds_for_def(parsed, node, row, def, default_scope)
+            });
+            let scope = java_bounds.map_or(default_scope, |bounds| bounds.scope);
             let rust_item_is_hoisted = parsed.language == Language::Rust
                 && matches!(node.kind(), "const_item" | "static_item");
-            let java_identifier_end =
-                java::identifier_visible_from(parsed, node, selected_row, def);
             let visible_from = if rust_item_is_hoisted {
                 scope.start_byte
+            } else if let Some(bounds) = java_bounds {
+                bounds.visible_from
             } else {
                 match kind {
                     DeclarationKind::Parameter
                     | DeclarationKind::JavaScriptVar
                     | DeclarationKind::PythonAssignment
                     | DeclarationKind::Reuse => scope.start_byte,
-                    DeclarationKind::Other => {
-                        java_identifier_end.unwrap_or_else(|| node.end_byte())
-                    }
+                    DeclarationKind::Other => node.end_byte(),
                     DeclarationKind::GoShort | DeclarationKind::CaptureCopy => node.end_byte(),
                     DeclarationKind::Pattern => rust_scope::pattern_visible_from(node),
                 }

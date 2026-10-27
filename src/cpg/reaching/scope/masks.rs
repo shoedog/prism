@@ -25,7 +25,7 @@ pub(super) fn collect_classified_masks(
             && !transfer::is_route_effect_node(parsed.language, node.kind())
             && row.ruling == Ruling::Classified
     }) {
-        let scope = if row.roles.has(Role::Scope) {
+        let default_scope = if row.roles.has(Role::Scope) {
             scope_span(node)
         } else {
             declaration_scope(
@@ -43,20 +43,17 @@ pub(super) fn collect_classified_masks(
             {
                 continue;
             }
+            let bounds = java::identifier_bounds(parsed, node, row, identifier, default_scope);
             let index = declarations.len();
             declarations.push(Declaration {
                 binding: Binding {
                     id: BindingId::Declaration(index),
-                    scope,
-                    declaration_line: Some(node.start_position().row + 1),
+                    scope: bounds.scope,
+                    declaration_line: Some(bounds.declaration_line),
                     classified_mask: true,
                 },
                 name: parsed.node_text(&identifier).to_string(),
-                visible_from: match row.visibility {
-                    Visibility::WholeScope => scope.start_byte,
-                    Visibility::Header => identifier.end_byte(),
-                    _ => node.end_byte(),
-                },
+                visible_from: bounds.visible_from,
                 additional_visibility: Vec::new(),
             });
         }

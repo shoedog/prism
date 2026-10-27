@@ -55,6 +55,14 @@ pub(super) fn classify_edge(
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
     }
+    let use_byte = edge_use_byte(parsed, edge);
+    if let Some(kill_line) =
+        use_byte.and_then(|byte| binding_facts.java_resource_initializer_mask(parsed, edge, byte))
+    {
+        return FlowConfidence::NameOnly(FlowDoubt::Killed {
+            kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
+        });
+    }
 
     let use_statement = statements.get(edge.to.line);
     let def_statement =
@@ -105,7 +113,6 @@ pub(super) fn classify_edge(
     if candidates.iter().any(|index| defs[*index].alias_derived) {
         return FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
     }
-    let use_byte = edge_use_byte(parsed, edge);
     if use_byte.is_some_and(|byte| binding_facts.header_use(edge, byte) == Some(HeaderUse::Body)) {
         return FlowConfidence::NameOnly(FlowDoubt::SameLine);
     }

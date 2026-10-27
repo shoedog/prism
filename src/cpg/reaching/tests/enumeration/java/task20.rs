@@ -6,6 +6,7 @@ use super::super::case::{Case, CaseClass};
 const KILLED_4: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 });
 const KILLED_5: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 });
 const KILLED_6: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 6 });
+const KILLED_7: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 7 });
 
 pub(super) const CASES: &[Case] = &[
     Case {
@@ -64,6 +65,17 @@ pub(super) const CASES: &[Case] = &[
         expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     Case {
+        id: "java-enhanced-for-multiline-iterable",
+        language: Language::Java,
+        kind: "enhanced_for_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "class C {\n  Item[] x;\n  void f() {\n    x = source();\n    for (Item x :\n          x) {\n      sink(x);\n    }\n    sink(x);\n  }\n}\n",
+        expect: &[("4:x", "6:x", FlowConfidence::Exact), ("4:x", "7:x", KILLED_5), ("4:x", "9:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    Case {
         id: "java-for-init-scope",
         language: Language::Java,
         kind: "for_statement",
@@ -106,6 +118,28 @@ pub(super) const CASES: &[Case] = &[
         src: "class C {\n  void f() {\n    AutoCloseable x = source();\n    try (var x = open()) {\n      sink(x);\n    }\n    sink(x);\n  }\n}\n",
         expect: &[("3:x", "5:x", KILLED_4), ("3:x", "7:x", FlowConfidence::Exact)],
         expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    Case {
+        id: "java-resource-finally-scope",
+        language: Language::Java,
+        kind: "try_with_resources_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "class C {\n  AutoCloseable x;\n  void f() {\n    x = source();\n    try (var x = open()) {\n      sink(x);\n    } finally {\n      sink(x);\n    }\n    sink(x);\n  }\n}\n",
+        expect: &[("4:x", "6:x", KILLED_5), ("4:x", "8:x", FlowConfidence::Exact), ("4:x", "10:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    Case {
+        id: "java-resource-multiline-declarators",
+        language: Language::Java,
+        kind: "try_with_resources_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "class C {\n  AutoCloseable x;\n  void f() {\n    x = source();\n    try (var a = open();\n         var x = open();\n         var b = wrap(x)) {\n      sink(x);\n    }\n    sink(x);\n  }\n}\n",
+        expect: &[("4:x", "7:x", KILLED_6), ("4:x", "8:x", KILLED_6), ("4:x", "10:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
     },
     Case {
         id: "java-existing-resource-is-use",
@@ -182,6 +216,28 @@ pub(super) const CASES: &[Case] = &[
         expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     Case {
+        id: "java-local-multiline-declarators",
+        language: Language::Java,
+        kind: "local_variable_declaration",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "class C {\n  int x;\n  void f() {\n    x = source();\n    {\n      int a = 1,\n          x = clean(),\n          b = x;\n      sink(x);\n    }\n    sink(x);\n  }\n}\n",
+        expect: &[("4:x", "8:x", KILLED_7), ("4:x", "9:x", KILLED_7), ("4:x", "11:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
+    },
+    Case {
+        id: "java-for-init-multiline-declarators",
+        language: Language::Java,
+        kind: "local_variable_declaration",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "class C {\n  int x;\n  void f() {\n    x = source();\n    for (int a = 1,\n             x = clean(),\n             b = x; a < 3; a++) {\n      sink(x);\n    }\n    sink(x);\n  }\n}\n",
+        expect: &[("4:x", "7:x", KILLED_6), ("4:x", "8:x", KILLED_6), ("4:x", "10:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
+    },
+    Case {
         id: "java-lambda-body-block-scope",
         language: Language::Java,
         kind: "block",
@@ -189,7 +245,7 @@ pub(super) const CASES: &[Case] = &[
         row_variant: None,
         class: CaseClass::Behavioral,
         src: "class C {\n  void f() {\n    int x = source();\n    Runnable r = () -> {\n      int x = clean();\n      sink(x);\n    };\n    sink(x);\n  }\n}\n",
-        expect: &[("3:x", "8:x", FlowConfidence::Exact)],
+        expect: &[("5:x", "3:x", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)), ("3:x", "8:x", FlowConfidence::Exact)],
         expect_counter: Some(("dfg_label_exact", 1)),
     },
     Case {
@@ -268,6 +324,39 @@ pub(super) const CASES: &[Case] = &[
         expect_counter: Some(("dfg_label_nameonly_killed", 2)),
     },
 ];
+
+fn check_named_case(id: &str) {
+    let case = CASES
+        .iter()
+        .find(|case| case.id == id)
+        .unwrap_or_else(|| panic!("missing case {id}"));
+    super::super::case::check_case(case);
+}
+
+#[test]
+fn astra_r1_w1_enhanced_for_multiline_iterable() {
+    check_named_case("java-enhanced-for-multiline-iterable");
+}
+
+#[test]
+fn astra_r1_w2_resource_finally_scope() {
+    check_named_case("java-resource-finally-scope");
+}
+
+#[test]
+fn astra_r1_w3_local_multiline_declarators() {
+    check_named_case("java-local-multiline-declarators");
+}
+
+#[test]
+fn astra_r1_w3_for_init_multiline_declarators() {
+    check_named_case("java-for-init-multiline-declarators");
+}
+
+#[test]
+fn astra_r1_w3_resource_multiline_declarators() {
+    check_named_case("java-resource-multiline-declarators");
+}
 
 #[test]
 fn java_declaration_rows_own_only_introduced_names() {

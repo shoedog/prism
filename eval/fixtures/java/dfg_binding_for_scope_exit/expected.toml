@@ -1,0 +1,94 @@
+[case]
+language = "java"
+capability = "dfg_binding_for_scope_exit"
+status = "pass"
+probe = "dfg"
+
+# The Classified for_statement row attributes each old-loop definition to the
+# first loop's closing brace. This matches JLS 6.3: a for-init local's scope is
+# the basic for statement, so none of these definitions can own a later loop's
+# same-name uses.
+
+[[expect.edges]]
+from = "Main.java:7:cursor"
+to = "Main.java:18:cursor"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 14
+
+[[expect.edges]]
+from = "Main.java:7:cursor"
+to = "Main.java:19:cursor"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 14
+
+[[expect.edges]]
+from = "Main.java:7:cursor"
+to = "Main.java:20:cursor"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 14
+
+[[expect.edges]]
+from = "Main.java:9:cursor"
+to = "Main.java:18:cursor"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 14
+
+[[expect.edges]]
+from = "Main.java:9:cursor"
+to = "Main.java:19:cursor"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 14
+
+[[expect.edges]]
+from = "Main.java:9:cursor"
+to = "Main.java:20:cursor"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 14
+
+[[expect.edges]]
+from = "Main.java:13:cursor"
+to = "Main.java:18:cursor"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 14
+
+[[expect.edges]]
+from = "Main.java:13:cursor"
+to = "Main.java:19:cursor"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 14
+
+[[expect.edges]]
+from = "Main.java:13:cursor"
+to = "Main.java:20:cursor"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 14
+
+[[expect.edges]]
+from = "Main.java:25:i"
+to = "Main.java:31:i"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 28
+
+[[expect.edges]]
+from = "Main.java:25:i"
+to = "Main.java:32:i"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 28
+
+[[expect.edges]]
+from = "Main.java:25:i"
+to = "Main.java:33:i"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 28
