@@ -2,6 +2,7 @@
 mod cpp;
 mod masks;
 pub(super) mod rust_scope;
+mod span;
 mod typescript;
 mod use_lookup;
 use super::binding_table::{
@@ -18,6 +19,8 @@ use crate::data_flow::FlowEdge;
 use crate::languages::Language;
 pub(super) use masks::classified_masked_reads;
 use masks::{collect_classified_masks, simple_catch_parameter_owns_def};
+use span::function_scope;
+pub(super) use span::scope_span;
 use std::cell::OnceCell;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
@@ -461,9 +464,17 @@ fn declaration_seed(
                 }
             }
         }
-        let selected = selected_row.and_then(|row| row.declaration);
         let rule = binding_scope_rule(parsed.language, node.kind());
-        if let Some(kind) = selected.or(rule.declaration) {
+        let declaration = if parsed.language == Language::Cpp
+            && selected_row.is_some_and(|row| row.roles.has(Role::NotBinding))
+        {
+            None
+        } else {
+            selected_row
+                .and_then(|row| row.declaration)
+                .or(rule.declaration)
+        };
+        if let Some(kind) = declaration {
             if rust_scope::pattern_excludes_def(parsed, node, &def.path.base) {
                 if node.id() == func_node.id() {
                     return None;
@@ -473,7 +484,7 @@ fn declaration_seed(
             }
             if selected_row.is_some_and(|row| {
                 row.declaration.is_some()
-                    && transfer::row_excludes_identifier(parsed, node, row.fields, def.start_byte)
+                    && transfer::row_excludes_def(parsed, node, row.fields, def)
             }) {
                 if node.id() == func_node.id() {
                     return None;
@@ -571,24 +582,6 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
     BindingScopeRule {
         creates_scope: false,
         declaration: None,
-    }
-}
-
-fn function_scope(_parsed: &ParsedFile, func_node: &Node<'_>) -> ScopeSpan {
-    func_node
-        .child_by_field_name("body")
-        .map(scope_span)
-        .unwrap_or_else(|| scope_span(*func_node))
-}
-
-pub(super) fn scope_span(node: Node<'_>) -> ScopeSpan {
-    if let Some(span) = rust_scope::let_header_scope(node) {
-        return span;
-    }
-    ScopeSpan {
-        start_byte: node.start_byte(),
-        end_byte: node.end_byte(),
-        end_line: node.end_position().row + 1,
     }
 }
 

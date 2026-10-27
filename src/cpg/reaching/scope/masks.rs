@@ -39,7 +39,7 @@ pub(super) fn collect_classified_masks(
         for identifier in transfer::row_introduced_identifiers(parsed, node, row.fields) {
             if defs
                 .iter()
-                .any(|def| def.start_byte == identifier.start_byte())
+                .any(|def| transfer::row_owns_def(parsed, node, row.fields, def))
             {
                 continue;
             }

@@ -67,6 +67,7 @@ pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
         .map(|(field, expected)| (select_counter(case.id, field), field, expected));
     let function = super::super::super::function(parsed);
     let mut defs = super::super::super::collect_defs(parsed);
+    parameter_defs::mark_alias_derived(case.id, &mut defs);
     if parameter_defs::needs_synthetic_definition(case.id) {
         defs.push(super::super::super::def(parsed, u32::MAX, "x", 1, 0, false));
     }

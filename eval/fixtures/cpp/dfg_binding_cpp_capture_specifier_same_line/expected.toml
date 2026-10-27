@@ -9,3 +9,8 @@ from = "main.cpp:2:x"
 to = "main.cpp:3:x"
 confidence = "nameonly"
 doubt = "cfg_incomplete"
+
+[[expect.edges]]
+from = "main.cpp:2:x"
+to = "main.cpp:4:x"
+confidence = "exact"

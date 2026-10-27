@@ -110,15 +110,23 @@ pub(in crate::cpg::reaching) fn visibility_span(
             "declaration" | "structured_binding_declarator"
         )
     {
-        return nearest_ancestor_kind_in(binder_node, &["compound_statement"]).map_or(
-            SpanKind::Unknown,
-            |scope| {
-                SpanKind::Known(vec![ByteSpan {
-                    start: binder_node.start_byte(),
-                    end: scope.end_byte(),
-                }])
-            },
-        );
+        return nearest_ancestor_kind_in(
+            binder_node,
+            &[
+                "compound_statement",
+                "for_statement",
+                "for_range_loop",
+                "if_statement",
+                "while_statement",
+                "switch_statement",
+            ],
+        )
+        .map_or(SpanKind::Unknown, |scope| {
+            SpanKind::Known(vec![ByteSpan {
+                start: binder_node.start_byte(),
+                end: scope.end_byte(),
+            }])
+        });
     }
     if matches!(parsed.language, Language::TypeScript | Language::Tsx)
         && matches!(

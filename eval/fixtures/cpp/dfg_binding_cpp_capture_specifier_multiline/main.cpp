@@ -5,4 +5,5 @@ void f() {
   ] {
     sink(x);
   };
+  sink(x);
 }

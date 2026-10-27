@@ -1,8 +1,9 @@
 //! Edge-local transfer nodes for classified binding reuse constructs.
-mod cpp;
+pub(super) mod cpp;
 mod route_effects;
 mod statement_defs;
 
+pub(super) use cpp::{row_excludes_def, row_owns_def, row_owns_source};
 pub(super) use route_effects::{apply_explicit_kills, is_route_effect_node};
 pub(super) use statement_defs::materialize_def_sites_and_effects;
 
@@ -568,19 +569,6 @@ pub(super) fn row_introduced_identifiers<'a>(
     identifiers.sort_by_key(Node::start_byte);
     identifiers.dedup_by_key(|identifier| identifier.start_byte());
     identifiers
-}
-
-pub(super) fn row_excludes_identifier(
-    parsed: &ParsedFile,
-    node: Node<'_>,
-    fields: &[&str],
-    byte: usize,
-) -> bool {
-    let identifiers = row_introduced_identifiers(parsed, node, fields);
-    !fields.is_empty()
-        && identifiers
-            .iter()
-            .all(|identifier| identifier.start_byte() != byte)
 }
 
 fn byte_span(node: Node<'_>) -> ByteSpan {

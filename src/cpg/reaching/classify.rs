@@ -1,9 +1,9 @@
-use super::binding_table::Timing;
+use super::binding_table::{select_binding_row, Timing};
 use super::grammar_lint::{
     is_python_match_pattern, uncertain_binding_nodes, visibility_span, SpanKind,
 };
 use super::graph::{definition_reaches_unflagged, path_exists, BitSet};
-use super::transfer::HeaderUse;
+use super::transfer::{self, HeaderUse};
 use super::{scope, statement_lookup, DefSite, FlowConfidence, FlowDoubt, Line};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
@@ -13,6 +13,10 @@ use std::collections::{BTreeMap, BTreeSet};
 mod cpp;
 mod finally_kill;
 mod import_exception_gap;
+#[cfg(test)]
+mod matching_defs;
+#[cfg(test)]
+pub(super) use matching_defs::matching_defs;
 
 #[derive(Clone, Copy)]
 struct KillNodeLines<'a> {
@@ -97,6 +101,23 @@ pub(super) fn classify_edge(
     }) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
+    let uncertain_construct = uncertain_construct_on_route(
+        parsed,
+        edge,
+        candidates,
+        mapped_defs,
+        use_node,
+        line_index,
+        statements,
+        successors,
+    );
+    if parsed.language == crate::languages::Language::Cpp {
+        if let Some(construct_line) = uncertain_construct {
+            return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+                construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+            });
+        }
+    }
     if def_line == use_line
         || collapsed.contains(&(edge.from.path.clone(), edge.from.line))
         || collapsed.contains(&(edge.to.path.clone(), edge.to.line))
@@ -129,16 +150,7 @@ pub(super) fn classify_edge(
         .iter()
         .any(|index| binding_facts.lookup_requires_flat_fallback(parsed, edge, *index));
     let recorded_uncertain = binding_facts.unclassified_binding_lines(&edge.to.path.base);
-    if let Some(construct_line) = uncertain_construct_on_route(
-        parsed,
-        edge,
-        candidates,
-        mapped_defs,
-        use_node,
-        line_index,
-        statements,
-        successors,
-    ) {
+    if let Some(construct_line) = uncertain_construct {
         return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
@@ -346,7 +358,17 @@ fn uncertain_construct_on_route(
         })
         .filter_map(|binder| {
             let construct_line = binder.start_position().row + 1;
-            if construct_line <= edge.from.line {
+            let cpp_own_definition = parsed.language == crate::languages::Language::Cpp
+                && select_binding_row(parsed, binder).is_some_and(|row| {
+                    transfer::row_owns_source(
+                        parsed,
+                        binder,
+                        row.fields,
+                        &edge.from.path.base,
+                        edge.from.start_byte,
+                    )
+                });
+            if construct_line <= edge.from.line && !cpp_own_definition {
                 return None;
             }
             let explicit_uncertain_binder = matches!(
@@ -413,7 +435,9 @@ fn uncertain_construct_on_route(
                 && construct_node.is_none();
             let cpp_direct_block = cpp::direct_block_uncertainty(parsed, binder, use_byte);
             let on_route = cpp_direct_block
-                || construct_line == edge.to.line
+                || cpp_own_definition
+                || (parsed.language == crate::languages::Language::Cpp
+                    && construct_line == edge.to.line)
                 || candidates.iter().any(|index| {
                     mapped_defs[*index].is_some_and(|def_node| match construct_node {
                         Some(construct_node) => {
@@ -535,38 +559,6 @@ fn classify_by_reaching_sets(
     FlowConfidence::NameOnly(FlowDoubt::Killed {
         kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
     })
-}
-
-// Frozen main scanner, independent of bucket construction.
-#[cfg(test)]
-pub(super) fn matching_defs(edge: &FlowEdge, defs: &[DefSite]) -> Vec<usize> {
-    super::work_tests::bump(|counts| {
-        counts.matching_defs_calls += 1;
-        counts.matching_defs_items += defs.len();
-    });
-    let mut matches: Vec<usize> = defs
-        .iter()
-        .enumerate()
-        .filter_map(|(index, def)| {
-            (!def.synthetic
-                && def.path == edge.from.path
-                && def.line == edge.from.line
-                && def.start_byte == edge.from.start_byte)
-                .then_some(index)
-        })
-        .collect();
-    if matches.is_empty() {
-        super::work_tests::bump(|counts| {
-            counts.matching_defs_fallbacks += 1;
-            counts.matching_defs_items += defs.len();
-        });
-        matches.extend(defs.iter().enumerate().filter_map(|(index, def)| {
-            (!def.synthetic && def.path == edge.from.path && def.line == edge.from.line)
-                .then_some(index)
-        }));
-    }
-    super::work_tests::bump(|counts| counts.projected_matching_defs_items += matches.len());
-    matches
 }
 
 fn lowest_reachable_kill(

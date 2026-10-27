@@ -1,6 +1,8 @@
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod fix1;
+
 pub(super) const CASES: &[super::case::Case] = &[
     super::case::Case {
         id: "cpp-block-shadow",
@@ -101,10 +103,21 @@ pub(super) const CASES: &[super::case::Case] = &[
         kind: "declaration",
         variant: Some("binding"),
         row_variant: None,
-        class: super::case::CaseClass::Structural,
+        class: super::case::CaseClass::Behavioral,
         src: "void f() {\n  int x = clean(),\n      y = x;\n  sink(x);\n}\n",
-        expect: &[],
-        expect_counter: None,
+        expect: &[
+            (
+                "2:x",
+                "3:x",
+                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 2 }),
+            ),
+            (
+                "2:x",
+                "4:x",
+                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 2 }),
+            ),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 2)),
     },
     super::case::Case {
         id: "cpp-declarator-chain-uncertain-behavior",
@@ -172,13 +185,21 @@ pub(super) const CASES: &[super::case::Case] = &[
         variant: Some("binding"),
         row_variant: None,
         class: super::case::CaseClass::Behavioral,
-        src: "void f(Pair pair) {\n  int x = source();\n  {\n    auto [x, y] = pair;\n    sink(x);\n  }\n}\n",
-        expect: &[(
-            "2:x",
-            "5:x",
-            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 4 }),
-        )],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        src: "void f(Pair pair) {\n  int x = source();\n  {\n    auto [x, y] = pair;\n    sink(x);\n  }\n  sink(x);\n}\n",
+        expect: &[
+            (
+                "2:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 4 }),
+            ),
+            (
+                "4:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 4 }),
+            ),
+            ("2:x", "7:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 2)),
     },
     super::case::Case {
         id: "cpp-structured-binding-outside-preserved",
