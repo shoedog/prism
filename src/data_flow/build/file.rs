@@ -686,6 +686,13 @@ impl Producer {
                             binder_line,
                         );
                     }
+                    for (from, to) in result.capture_immediate_edges {
+                        rd_function_stats.record_capture_immediate(
+                            func_name.clone(),
+                            start,
+                            format!("{}:{}→{}:{}", from.line, from.path, to.line, to.path),
+                        );
+                    }
                     // Task 5 owns loop-carried telemetry. Consume the
                     // classified set here without changing edge shape.
                     drop(result.loop_carried_edges);

@@ -126,7 +126,16 @@ fn run(parsed: &ParsedFile, defs: &[DefSite], edges: &[FlowEdge]) -> (RdOutcome,
     let (function_start_line, _) = parsed.node_line_range(&func);
     let outcome = reaching_definitions(parsed, &func, defs, edges);
     let mut stats = RdFileStats::default();
-    match outcome {
+    match &outcome {
+        RdOutcome::Available(result) => {
+            for (from, to) in &result.capture_immediate_edges {
+                stats.record_capture_immediate(
+                    function_name.clone(),
+                    function_start_line,
+                    format!("{}:{}→{}:{}", from.line, from.path, to.line, to.path),
+                );
+            }
+        }
         RdOutcome::Unavailable(reason) if reason.is_def_cap() || reason.is_line_cap() => {
             stats.record_over_cap(function_name, function_start_line);
         }

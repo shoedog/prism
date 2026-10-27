@@ -192,6 +192,32 @@ struct ExpectedCaptureRow {
 }
 
 const EXPECTED_CAPTURE_ROWS: &[ExpectedCaptureRow] = &[
+    immediate_capture_row(Language::Python, "lambda", "py-lambda-called-in-place"),
+    immediate_capture_row(
+        Language::JavaScript,
+        "arrow_function",
+        "js-iife-arrow-invoked",
+    ),
+    immediate_capture_row(
+        Language::JavaScript,
+        "function_expression",
+        "js-iife-parenthesized-invoked",
+    ),
+    immediate_capture_row(
+        Language::TypeScript,
+        "arrow_function",
+        "ts-iife-arrow-invoked",
+    ),
+    immediate_capture_row(
+        Language::TypeScript,
+        "function_expression",
+        "ts-iife-function-invoked",
+    ),
+    immediate_capture_row(
+        Language::Cpp,
+        "lambda_expression",
+        "cpp-lambda-invoked-vs-stored",
+    ),
     capture_row(
         Language::Python,
         "function_definition",
@@ -391,6 +417,20 @@ const fn capture_row(
     }
 }
 
+const fn immediate_capture_row(
+    language: Language,
+    kind: &'static str,
+    regression: &'static str,
+) -> ExpectedCaptureRow {
+    ExpectedCaptureRow {
+        language,
+        kind,
+        variant: Some(Predicate::IsImmediatelyInvoked),
+        timing: Timing::Immediate,
+        regression,
+    }
+}
+
 #[test]
 fn every_parameter_row_matches_the_expected_table() {
     for lookup_language in Language::all() {
@@ -465,7 +505,7 @@ fn every_parameter_row_matches_the_expected_table() {
 }
 
 #[test]
-fn every_capture_residual_row_matches_the_expected_table() {
+fn every_capture_row_matches_the_expected_table() {
     for language in Language::all() {
         let actual = capture_rows(language);
         let expected = EXPECTED_CAPTURE_ROWS
@@ -476,7 +516,7 @@ fn every_capture_residual_row_matches_the_expected_table() {
         for expected in expected {
             let row = actual
                 .iter()
-                .find(|row| row.kind == expected.kind)
+                .find(|row| row.kind == expected.kind && row.variant == expected.variant)
                 .unwrap_or_else(|| panic!("{language:?}: missing row {}", expected.kind));
             assert_eq!(
                 row.language, expected.language,

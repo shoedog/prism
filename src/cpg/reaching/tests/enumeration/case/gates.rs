@@ -119,7 +119,11 @@ fn uncertain_rows_carry_reasons() {
 #[test]
 fn capture_table_covers_every_boundary_kind() {
     for language in Language::all() {
-        let actual: Vec<_> = capture_rows(language).iter().map(|row| row.kind).collect();
+        let actual: Vec<_> = capture_rows(language)
+            .iter()
+            .filter(|row| row.variant.is_none())
+            .map(|row| row.kind)
+            .collect();
         assert_eq!(
             actual,
             language.callable_boundary_node_types(),

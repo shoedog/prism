@@ -297,13 +297,18 @@ fn rd_file_stats_round_trip_through_serde() {
     expected.record_without_cfg("cfg_a".into(), 8);
     expected.record_without_cfg("cfg_b".into(), 11);
     expected.record_without_cfg("cfg_c".into(), 14);
+    expected.record_capture_immediate("iife".into(), 17, "2:x→3:x".into());
     expected.record_no_body_entry("loop".into(), 20, "x".into(), 21);
     assert_eq!(expected.functions_over_cap, 2);
     assert_eq!(expected.functions_without_cfg, 3);
+    assert_eq!(expected.capture_immediate_edges, 1);
     assert_eq!(expected.no_body_entry, 1);
     let bytes = bincode::serialize(&expected).unwrap();
     let mut restored = bincode::deserialize::<RdFileStats>(&bytes).unwrap();
     assert_eq!(restored, expected);
+
+    restored.record_capture_immediate("iife".into(), 17, "2:x→3:x".into());
+    assert_eq!(restored.capture_immediate_edges, 1);
 
     restored.record_without_cfg("cfg_a".into(), 8);
     assert_eq!(restored.functions_without_cfg, 3);

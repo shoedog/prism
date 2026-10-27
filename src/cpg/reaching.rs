@@ -89,8 +89,8 @@ pub(crate) struct RdResult {
     pub(crate) labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
     pub(crate) exact_labels: BTreeMap<ExactFlowEdge, FlowConfidence>,
     pub(crate) loop_carried_edges: BTreeSet<(VarLocation, VarLocation)>,
-    /// May-reaching facts, independent of confidence (including flagged CFG
-    /// routes). Used only to admit implicit parameter-to-body entry copies.
+    pub(crate) capture_immediate_edges: BTreeSet<(VarLocation, VarLocation)>,
+    /// May-reaching facts used only to admit implicit parameter-to-body entry copies.
     pub(crate) reaching_edges: BTreeSet<(VarLocation, VarLocation)>,
     pub(crate) no_body_entry_binders: BTreeSet<(String, Line)>,
 }
@@ -102,11 +102,12 @@ type NoBodyEntryKey = (String, usize, String, Line);
 pub struct RdFileStats {
     pub functions_over_cap: usize,
     pub functions_without_cfg: usize,
+    pub capture_immediate_edges: usize,
     pub no_body_entry: usize,
-    // These identity sets are the persisted source of truth. The public counts
-    // remain derived mirrors for the approved Task 2 interface.
+    // Persisted source of truth; public counts are derived mirrors.
     over_cap_function_keys: BTreeSet<RdFunctionKey>,
     without_cfg_function_keys: BTreeSet<RdFunctionKey>,
+    capture_immediate_edge_keys: BTreeSet<(RdFunctionKey, String)>,
     no_body_entry_keys: BTreeSet<NoBodyEntryKey>,
 }
 
@@ -115,6 +116,7 @@ impl RdFileStats {
     pub(crate) fn counts_match_keys(&self) -> bool {
         self.functions_over_cap == self.over_cap_function_keys.len()
             && self.functions_without_cfg == self.without_cfg_function_keys.len()
+            && self.capture_immediate_edges == self.capture_immediate_edge_keys.len()
             && self.no_body_entry == self.no_body_entry_keys.len()
     }
 
@@ -126,6 +128,17 @@ impl RdFileStats {
     pub(crate) fn record_without_cfg(&mut self, function: String, start_line: usize) {
         self.without_cfg_function_keys
             .insert((function, start_line));
+        self.refresh_counts();
+    }
+
+    pub(crate) fn record_capture_immediate(
+        &mut self,
+        function: String,
+        start_line: usize,
+        edge_id: String,
+    ) {
+        self.capture_immediate_edge_keys
+            .insert(((function, start_line), edge_id));
         self.refresh_counts();
     }
 
@@ -146,6 +159,8 @@ impl RdFileStats {
             .extend(other.over_cap_function_keys);
         self.without_cfg_function_keys
             .extend(other.without_cfg_function_keys);
+        self.capture_immediate_edge_keys
+            .extend(other.capture_immediate_edge_keys);
         self.no_body_entry_keys.extend(other.no_body_entry_keys);
         self.refresh_counts();
     }
@@ -153,6 +168,7 @@ impl RdFileStats {
     fn refresh_counts(&mut self) {
         self.functions_over_cap = self.over_cap_function_keys.len();
         self.functions_without_cfg = self.without_cfg_function_keys.len();
+        self.capture_immediate_edges = self.capture_immediate_edge_keys.len();
         self.no_body_entry = self.no_body_entry_keys.len();
     }
 }
@@ -265,6 +281,7 @@ fn reaching_definitions_impl(
             labels: BTreeMap::new(),
             exact_labels: BTreeMap::new(),
             loop_carried_edges: BTreeSet::new(),
+            capture_immediate_edges: BTreeSet::new(),
             reaching_edges: BTreeSet::new(),
             no_body_entry_binders: BTreeSet::new(),
         });
@@ -366,6 +383,7 @@ fn reaching_definitions_impl(
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
     let mut exact_labels = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
+    let mut capture_immediate_edges = BTreeSet::new();
     let mut reaching_edges = BTreeSet::new();
     for edge in dfg_edges {
         let key = (edge.from.clone(), edge.to.clone());
@@ -381,6 +399,7 @@ fn reaching_definitions_impl(
         {
             reaching_edges.insert(key.clone());
         }
+        let capture_timing = capture::is_capture(edge, &capture_facts);
         let label = classify_edge(
             edge,
             parsed,
@@ -396,12 +415,15 @@ fn reaching_definitions_impl(
             &successors,
             &applied.synthetic_nodes,
             &collapsed,
-            &capture_facts,
+            capture_timing,
             &binding_facts,
             function_start,
         );
         if label.is_exact() && edge.to.line < edge.from.line {
             loop_carried_edges.insert(key.clone());
+        }
+        if capture_timing == Some(binding_table::Timing::Immediate) {
+            capture_immediate_edges.insert(key.clone());
         }
         labels
             .entry(key)
@@ -426,7 +448,7 @@ fn reaching_definitions_impl(
             &successors,
             &applied.synthetic_nodes,
             &collapsed,
-            &capture_facts,
+            capture::is_capture(edge, &capture_facts),
             &binding_facts,
             function_start,
         );
@@ -440,6 +462,7 @@ fn reaching_definitions_impl(
         labels,
         exact_labels,
         loop_carried_edges,
+        capture_immediate_edges,
         reaching_edges,
         no_body_entry_binders: binding_facts.no_entry_identities(),
     })

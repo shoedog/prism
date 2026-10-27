@@ -12,6 +12,8 @@ use std::sync::OnceLock;
 use tree_sitter::Node;
 
 mod behavior;
+#[path = "captures.rs"]
+mod captures;
 mod gates;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -417,8 +419,9 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                 .chain(super::terraform::CASES)
                 .chain(super::bash::CASES)
                 .chain(super::barrier::CASES)
+                .chain(captures::CASES)
             {
-                overrides.insert((case.language, case.kind, case.variant));
+                overrides.insert((case.language, case.kind, case.variant, case.row_variant));
                 cases.push(*case);
             }
             for language in Language::all() {
@@ -433,7 +436,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                         .map(|kind| kind.kind.as_str()),
                 );
                 for kind in binding_kinds {
-                    if overrides.contains(&(language, kind, Some("binding"))) {
+                    if overrides.contains(&(language, kind, Some("binding"), None)) {
                         continue;
                     }
                     let id = curated
@@ -453,7 +456,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                     });
                 }
                 for kind in language.callable_boundary_node_types() {
-                    if overrides.contains(&(language, kind, Some("capture"))) {
+                    if overrides.contains(&(language, kind, Some("capture"), None)) {
                         continue;
                     }
                     cases.push(Case {

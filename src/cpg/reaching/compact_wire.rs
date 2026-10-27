@@ -6,9 +6,11 @@ use serde::{Deserialize, Deserializer};
 struct WireRdFileStats {
     functions_over_cap: usize,
     functions_without_cfg: usize,
+    capture_immediate_edges: usize,
     no_body_entry: usize,
     over_cap_function_keys: Vec<RdFunctionKey>,
     without_cfg_function_keys: Vec<RdFunctionKey>,
+    capture_immediate_edge_keys: Vec<(RdFunctionKey, String)>,
     no_body_entry_keys: Vec<NoBodyEntryKey>,
 }
 impl RdFileStats {
@@ -26,15 +28,26 @@ impl RdFileStats {
                 if s.no_body_entry_keys.windows(2).any(|w| w[0] >= w[1]) {
                     return Err(serde::de::Error::custom("DFG RD set order/duplicate"));
                 }
+                if s.capture_immediate_edge_keys
+                    .windows(2)
+                    .any(|w| w[0] >= w[1])
+                {
+                    return Err(serde::de::Error::custom("DFG RD set order/duplicate"));
+                }
                 Ok((
                     file,
                     Self {
                         functions_over_cap: s.functions_over_cap,
                         functions_without_cfg: s.functions_without_cfg,
+                        capture_immediate_edges: s.capture_immediate_edges,
                         no_body_entry: s.no_body_entry,
                         over_cap_function_keys: s.over_cap_function_keys.into_iter().collect(),
                         without_cfg_function_keys: s
                             .without_cfg_function_keys
+                            .into_iter()
+                            .collect(),
+                        capture_immediate_edge_keys: s
+                            .capture_immediate_edge_keys
                             .into_iter()
                             .collect(),
                         no_body_entry_keys: s.no_body_entry_keys.into_iter().collect(),
