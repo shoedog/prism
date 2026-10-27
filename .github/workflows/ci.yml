@@ -142,6 +142,9 @@ jobs:
       - name: Soak tool tests (Python)
         run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
 
+      - name: Host-quiet marker tests (Python)
+        run: python3 -m unittest discover -s scripts/hostquiet -p 'test_*.py'
+
   clippy:
     name: Clippy Lint
     needs: changes

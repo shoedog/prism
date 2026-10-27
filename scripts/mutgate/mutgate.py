@@ -10,6 +10,9 @@ once and are removed after execution; the shared warm target remains reusable.
 import argparse, concurrent.futures as cf, json, os, re, shutil, subprocess, sys, tempfile, threading, time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'hostquiet'))
+from host_quiet import wait_until_free
+
 ROOT = Path(__file__).resolve().parents[2]
 LANES_GLOB = 'mutants/*.json'
 LIB_PREFIXES_DEFAULT = ()
@@ -650,6 +653,11 @@ def gate_passes(results, selected):
 
 
 # ---------------------------------------------------------------- main
+def quiet_wait(args, env, log, waiter=wait_until_free):
+    if not (args.plan_only or args.no_quiet_wait or env.get('HOST_QUIET_IGNORE') == '1'):
+        waiter(log, timeout=None)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--lane', action='append'); ap.add_argument('--only', action='append')
@@ -660,6 +668,7 @@ def main():
     ap.add_argument('--timeout', type=float, default=120.0)
     ap.add_argument('--out', default=None)
     ap.add_argument('--plan-only', action='store_true')
+    ap.add_argument('--no-quiet-wait', action='store_true', help='skip waiting for a host-quiet marker')
     a = ap.parse_args()
     if a.jobs < 1: ap.error('--jobs must be positive')
     if a.mode == 'schema' and (not a.since or a.authoritative):
@@ -668,9 +677,10 @@ def main():
     authoritative = a.mode == 'text'
     label = 'AUTHORITATIVE' if authoritative else 'ADVISORY'
     T0 = time.monotonic()
+    def log(msg): print(f'[{time.monotonic() - T0:7.1f}s] {label} {msg}', flush=True)
+    quiet_wait(a, os.environ, log)
     target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target')).resolve()
     out = Path(a.out or target / 'mutgate' / 'report'); out.mkdir(parents=True, exist_ok=True)
-    def log(msg): print(f'[{time.monotonic() - T0:7.1f}s] {label} {msg}', flush=True)
     lanes = a.lane or sorted(str(p) for p in ROOT.glob(LANES_GLOB))
     muts = load_population(lanes)
     src_text = {str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'src').rglob('*.rs')}
