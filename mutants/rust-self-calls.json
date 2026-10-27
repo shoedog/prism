@@ -1,0 +1,124 @@
+{
+  "mutations": {
+    "RS-01-authoritative-self-cut": [
+      "src/resolution_rust_self.rs",
+      ".strip_prefix(\"Self::\")",
+      ".strip_prefix(\"NeverSelf::\")",
+      [
+        "rust_self_calls_test::associated",
+        "rust_self_calls_test::method",
+        "rust_self_calls_test::lifetime",
+        "rust_self_calls_test::generic",
+        "rust_self_calls_test::trait_to_inherent",
+        "rust_self_calls_test::trait_to_trait",
+        "rust_self_calls_test::closure",
+        "rust_self_calls_test::split_impl"
+      ]
+    ],
+    "RS-02-skip-scope-proof": [
+      "src/resolution.rs",
+      "self.rust_self_scope_resolution(site, fn_name)",
+      "None::<ResolutionOutcome<'_>>",
+      [
+        "rust_self_calls_test::same_named_types",
+        "rust_self_calls_test::trait_default",
+        "rust_self_calls_test::nested_fn"
+      ]
+    ],
+    "RS-03-trait-default-open": [
+      "src/resolution_rust_self.rs",
+      "if matches!(&facts.kind, MethodKind::Trait(tr) if tr == owner) {",
+      "if false {",
+      "rust_self_calls_test::trait_default"
+    ],
+    "RS-04-nested-item-capture": [
+      "src/resolution_rust_self.rs",
+      "if self.rust_self_captured_from_nested_item(site) {",
+      "if false {",
+      "rust_self_calls_test::nested_fn"
+    ],
+    "RS-05-owner-evidence-fallback": [
+      "src/resolution_rust_self.rs",
+      "self.method_owners.get(&site.caller)?",
+      "self.method_owners.get(&site.caller).or_else(|| self.method_owners.values().next())?",
+      "rust_self_calls_test::absent_owner_evidence_refuses"
+    ],
+    "RS-06-facts-evidence-fallback": [
+      "src/resolution_rust_self.rs",
+      "self.method_facts.get(&site.caller)?",
+      "self.method_facts.get(&site.caller).or_else(|| self.method_facts.values().next())?",
+      "rust_self_calls_test::absent_facts_refuses"
+    ],
+    "RS-07-caller-membership": [
+      "src/resolution_rust_self.rs",
+      "method == &site.caller.name && ids.contains(&site.caller)",
+      "method == &site.caller.name",
+      "rust_self_calls_test::absent_scope_evidence_refuses"
+    ],
+    "RS-08-primary-owner-filter": [
+      "src/resolution_rust_self.rs",
+      "graph_owner_name_for_scope(graph, *scope).as_deref() == Some(owner.as_str())",
+      "graph_owner_name_for_scope(graph, *scope).as_deref() != Some(owner.as_str())",
+      "rust_self_calls_test::trait_to_inherent"
+    ],
+    "RS-09-ambiguous-owner-open": [
+      "src/resolution_rust_self.rs",
+      "if scopes.len() != 1 {",
+      "if scopes.is_empty() {",
+      "rust_self_calls_test::ambiguous_scope_evidence_refuses"
+    ],
+    "RS-10-missing-item-fallback": [
+      "src/resolution_rust_self.rs",
+      "self.methods_by_scope.get(&(scope, name.to_string()))?",
+      "self.methods_by_scope.get(&(scope, name.to_string())).or_else(|| self.methods_by_scope.values().next())?",
+      [
+        "rust_self_calls_test::missing",
+        "rust_self_calls_test::missing_on_same_named_type",
+        "rust_self_calls_test::enum_constructor"
+      ]
+    ],
+    "RS-11-multiple-exact": [
+      "src/resolution_rust_self.rs",
+      "if ids.len() == 1 {",
+      "if !ids.is_empty() {",
+      "rust_self_calls_test::multiple_candidates_drop"
+    ],
+    "RS-12-orphan-scope-authority": [
+      "src/resolution_rust_self.rs",
+      "        rust_authoritative_scope(graph, site)?;",
+      "        let _ = graph;",
+      "rust_self_calls_test::orphan_preserves_legacy"
+    ],
+    "RS-13-noncall-path-extraction": [
+      "src/queries.rs",
+      "Language::Rust => {\n            r#\"[\n                (call_expression) @call\n                (macro_invocation) @call\n            ]\"#\n        }",
+      "Language::Rust => {\n            r#\"[\n                (call_expression) @call\n                (macro_invocation) @call\n                (scoped_identifier) @call\n            ]\"#\n        }",
+      "rust_self_calls_test::constant_is_not_a_call"
+    ],
+    "RS-14-cpg-generation": [
+      "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 124;",
+      "const CACHE_VERSION: u32 = 123;",
+      "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
+    ],
+    "RS-15-nav-generation": [
+      "src/navigation/call_edge_cache.rs",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 68;",
+      "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
+    ],
+    "RS-16-ambiguous-nameonly-fanout": [
+      "src/resolution_rust_self.rs",
+      "// Type ownership alone cannot distinguish trait overloads.\n                None",
+      "// Type ownership alone cannot distinguish trait overloads.\n                Some(demoted(ids, ResolutionKind::SelfReceiver))",
+      [
+        "rust_self_calls_test::distinct_from_impls_drop",
+        "rust_self_calls_test::multiple_candidates_drop"
+      ]
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg_cache::",
+    "navigation::call_edge_cache::"
+  ]
+}

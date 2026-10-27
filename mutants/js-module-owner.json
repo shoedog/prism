@@ -61,14 +61,14 @@
     ],
     "M10-cpg-cache": [
       "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 124;",
       "const CACHE_VERSION: u32 = 123;",
-      "const CACHE_VERSION: u32 = 122;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "M11-nav-cache": [
       "src/navigation/call_edge_cache.rs",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
       "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 68;",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 67;",
       "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
     ],
     "M12-skeleton-agreement": [

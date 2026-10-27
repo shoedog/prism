@@ -213,7 +213,9 @@ Navigation and CPG call resolution share one ordered ladder (S3),
 with a `ResolutionConfidence` (`Exact` | `NameOnly`) and a `ResolutionKind`. The
 rungs (R1–R7): qualified `T::m`/`mod::T::m` and `Self::`/`self.`/receiver-var
 calls bind via a per-`(owner, name)` method index (Rust trait impls are dual-keyed
-under the trait, demoted when >1 impl); import-qualified `pkg.f()` narrows by file
+under the trait, demoted when >1 impl); authoritative Rust `Self::` calls reach
+the dedicated Self rung and bind through the enclosing concrete impl type scope;
+trait-default and unbound nested-function `Self` calls remain dropped; import-qualified `pkg.f()` narrows by file
 stem or Go package directory with no permissive fall-through; `Class.m()` binds
 when the qualifier is itself an owner key; unqualified calls prefer a local free
 definition, then Java/C++ implicit-`this`, then cross-file free functions
@@ -281,7 +283,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v123) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v124) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

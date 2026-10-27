@@ -20,6 +20,8 @@ mod js_alias;
 mod js_namespace;
 #[path = "resolution_js_returns.rs"]
 mod js_returns;
+#[path = "resolution_rust_self.rs"]
+mod rust_self;
 
 pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
 pub use crate::resolution_identity::{
@@ -2349,70 +2351,8 @@ impl CallGraph {
         let name = site.callee_name.as_str();
         let caller = &site.caller;
 
-        if let Some(graph) = self.scope_graph.as_ref() {
-            if crate::languages::Language::from_path(&site.caller.file)
-                == Some(crate::languages::Language::Rust)
-                && (name.contains("::") || site.qualifier.is_none())
-            {
-                if let Some((file, from)) = rust_authoritative_scope(graph, site) {
-                    let owner_method = if name.contains("::") {
-                        owner_method_key(name)
-                    } else {
-                        None
-                    };
-                    let has_bare_pool = owner_method.as_ref().is_some_and(|(owner, method)| {
-                        self.methods.contains_key(&(owner.clone(), method.clone()))
-                    });
-
-                    if has_bare_pool
-                        && name.contains("::")
-                        && self.rust_graph_qualified_target_is_free_fn(graph, site, file, from)
-                    {
-                        return match self.rust_scope_graph_resolution(graph, site, file, from) {
-                            Some(resolved) => ResolutionOutcome::hit(resolved),
-                            None => ResolutionOutcome::dropped(DropReason::UnknownName),
-                        };
-                    }
-
-                    if has_bare_pool {
-                        if let Some(resolved) =
-                            self.rust_scope_prune_owner(graph, site, file, from, name)
-                        {
-                            return ResolutionOutcome::hit(resolved);
-                        }
-
-                        let (owner, method) = owner_method.as_ref().expect("has_bare_pool");
-                        let segs: Vec<&str> = name.split("::").collect();
-                        let mut prefix: Vec<&str> = segs[..segs.len() - 1].to_vec();
-                        while matches!(prefix.first(), Some(&"crate") | Some(&"super")) {
-                            prefix.remove(0);
-                        }
-                        let module_segs = &prefix[..prefix.len().saturating_sub(1)];
-                        if let Some(resolved) =
-                            self.owner_lookup_in_modules(owner, method, module_segs)
-                        {
-                            // Authoritative scope site: a distinct-owner (trait-CHA)
-                            // pool must DECLINE so the CHA fan-out emits Exact — the
-                            // legacy TraitCha NameOnly edge is intentionally disabled
-                            // at authoritative scope sites (matches the pre-existing
-                            // `Render::draw(x)` behavior). Only the same-owner
-                            // collision floor (#120 QualifiedOwner) is a valid
-                            // fail-open here.
-                            if !resolved.iter().any(|c| c.kind == ResolutionKind::TraitCha) {
-                                return ResolutionOutcome::hit(resolved);
-                            }
-                        }
-                        return ResolutionOutcome::dropped(DropReason::UnknownName);
-                    }
-
-                    if let Some(resolved) =
-                        self.rust_scope_graph_resolution(graph, site, file, from)
-                    {
-                        return ResolutionOutcome::hit(resolved);
-                    }
-                    return ResolutionOutcome::dropped(DropReason::UnknownName);
-                }
-            }
+        if let Some(outcome) = self.rust_authoritative_resolution(site) {
+            return outcome;
         }
 
         // R1/R2/R7: Rust/C++ `::` path shapes where the raw name carries the path.
@@ -2436,6 +2376,9 @@ impl CallGraph {
 
             if let Some(&head) = segs.last() {
                 if head == "Self" {
+                    if let Some(outcome) = self.rust_self_scope_resolution(site, fn_name) {
+                        return outcome;
+                    }
                     if let Some(owner) = self.method_owners.get(caller) {
                         if let Some(mut resolved) = self.owner_lookup(owner, fn_name) {
                             for callee in &mut resolved {

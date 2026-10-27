@@ -78,6 +78,7 @@ mod owner_activation_test;
 mod r6_candidate_test;
 mod receiver_self_binding_test;
 mod resolution_test;
+mod rust_self_calls_test;
 mod scoped_cpg_test;
 mod targets_dependency_hint_test;
 mod targets_evidence_test;
