@@ -6,7 +6,7 @@ use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
-mod visibility;
+pub(super) mod visibility;
 
 pub(super) use visibility::{visibility_span, ByteSpan, SpanKind};
 #[derive(serde::Deserialize)]
@@ -75,6 +75,12 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
     }
     if parsed.language == Language::Rust && is_rust_pattern_kind(node.kind()) {
         return rust_pattern_introduces_name(parsed, node, name);
+    }
+    if parsed.language == Language::TypeScript
+        && matches!(node.kind(), "required_parameter" | "optional_parameter")
+        && !visibility::typescript_parameter_has_body_owner(node)
+    {
+        return false;
     }
     if parsed.language == Language::JavaScript
         && matches!(

@@ -1,3 +1,5 @@
+//! Lexical binding ownership for reaching definitions.
+
 mod masks;
 pub(super) mod rust_scope;
 mod typescript;
@@ -104,6 +106,7 @@ impl<'a> RootFunction<'a> {
         *self.parameters.get_or_init(|| {
             #[cfg(test)]
             super::work_tests::bump(|counts| counts.parameter_queries += 1);
+            // Cache absence too; preserve bare-arrow semantics.
             parsed.find_parameters_node(&self.function)
         })
     }
@@ -119,7 +122,9 @@ pub(super) struct BindingFacts {
     pub(super) no_entry_spans: Vec<(String, Line, super::grammar_lint::ByteSpan)>,
     function_scope: ScopeSpan,
     language: Language,
-    /// Memoized zero-width Use byte resolution for `(line, path)` within this pass.
+    /// PR-B perf: zero-width Use byte resolution is a pure function of the
+    /// pass and `(line, path)`; memoize it per pass (it re-runs whole-function
+    /// rvalue queries per edge otherwise).
     use_byte_cache:
         std::cell::RefCell<BTreeMap<(Line, crate::access_path::AccessPath), Option<usize>>>,
 }
@@ -405,18 +410,7 @@ fn declaration_seed(
     function_scope: ScopeSpan,
 ) -> Option<(ScopeSpan, DeclarationKind, usize)> {
     // A bare arrow formal has no `parameters` list but still owns its parameter Def.
-    let in_parameter_region =
-        parsed
-            .parameter_binding_region(func_node)
-            .is_some_and(|parameters| {
-                parameters.start_byte() <= def.start_byte && def.start_byte < parameters.end_byte()
-            });
-    if in_parameter_region {
-        let binding = if parsed.language == Language::TypeScript {
-            typescript::parameter_binding(parsed, func_node, def)
-        } else {
-            typescript::ParameterBinding::Owned
-        };
+    if let Some(binding) = typescript::parameter_binding_in_region(parsed, func_node, def) {
         match binding {
             typescript::ParameterBinding::Owned => {
                 return Some((

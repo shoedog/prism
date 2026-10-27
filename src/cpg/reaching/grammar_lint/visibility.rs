@@ -104,6 +104,14 @@ pub(in crate::cpg::reaching) fn visibility_span(
             return span;
         }
     }
+    if parsed.language == Language::TypeScript
+        && matches!(
+            binder_node.kind(),
+            "required_parameter" | "optional_parameter"
+        )
+    {
+        return typescript_parameter_visibility_span(binder_node);
+    }
     let scoped = match parsed.language {
         Language::Python => ancestor_field(binder_node, "if_statement", "consequence"),
         Language::Go | Language::JavaScript | Language::TypeScript | Language::Tsx => {
@@ -121,6 +129,41 @@ pub(in crate::cpg::reaching) fn visibility_span(
             start: scoped.start_byte(),
             end: scoped.end_byte(),
         }])
+    }
+}
+
+pub(in crate::cpg::reaching) fn typescript_parameter_has_body_owner(binder_node: Node<'_>) -> bool {
+    binder_node
+        .parent()
+        .filter(|parameters| parameters.kind() == "formal_parameters")
+        .and_then(|parameters| parameters.parent())
+        .is_some_and(|owner| {
+            matches!(
+                owner.kind(),
+                "arrow_function"
+                    | "function_declaration"
+                    | "function_expression"
+                    | "generator_function"
+                    | "generator_function_declaration"
+                    | "method_definition"
+            ) && owner.child_by_field_name("body").is_some()
+        })
+}
+
+fn typescript_parameter_visibility_span(binder_node: Node<'_>) -> SpanKind {
+    if !typescript_parameter_has_body_owner(binder_node) {
+        return SpanKind::Empty;
+    }
+    let body = binder_node
+        .parent()
+        .and_then(|parameters| parameters.parent())
+        .and_then(|owner| owner.child_by_field_name("body"));
+    match body {
+        Some(body) if body.named_child_count() != 0 => SpanKind::Known(vec![ByteSpan {
+            start: body.start_byte(),
+            end: body.end_byte(),
+        }]),
+        _ => SpanKind::Empty,
     }
 }
 

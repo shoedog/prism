@@ -1,12 +1,32 @@
 use super::super::binding_table::{select_binding_row, DeclarationKind};
 use super::super::{transfer, DefSite};
 use crate::ast::ParsedFile;
+use crate::languages::Language;
 use tree_sitter::Node;
 
 pub(super) enum ParameterBinding {
     Owned,
     Legacy,
     FailClosed,
+}
+
+pub(super) fn parameter_binding_in_region(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    def: &DefSite,
+) -> Option<ParameterBinding> {
+    parsed
+        .parameter_binding_region(func_node)
+        .is_some_and(|parameters| {
+            parameters.start_byte() <= def.start_byte && def.start_byte < parameters.end_byte()
+        })
+        .then(|| {
+            if parsed.language == Language::TypeScript {
+                parameter_binding(parsed, func_node, def)
+            } else {
+                ParameterBinding::Owned
+            }
+        })
 }
 
 pub(super) fn parameter_binding(

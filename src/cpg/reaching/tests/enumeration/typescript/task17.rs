@@ -266,6 +266,184 @@ fn task17_parameter_patterns_fail_closed_to_the_function_body() {
     }
 }
 
+fn assert_type_position_parameter_transparent(
+    src: &str,
+    owner_kind: &str,
+    from_line: usize,
+    use_line: usize,
+) {
+    use crate::cpg::reaching::grammar_lint::{uncertain_binding_nodes, visibility_span, SpanKind};
+
+    let parsed = super::super::super::parsed(src, Language::TypeScript);
+    let parameter = super::super::case::nodes_of_kind(&parsed, "required_parameter")
+        .into_iter()
+        .find(|parameter| {
+            parameter
+                .parent()
+                .and_then(|parameters| parameters.parent())
+                .is_some_and(|owner| owner.kind() == owner_kind)
+        })
+        .unwrap_or_else(|| panic!("missing parameter owned by {owner_kind}"));
+    assert_eq!(visibility_span(&parsed, parameter), SpanKind::Empty);
+    assert!(
+        uncertain_binding_nodes(&parsed, "x")
+            .into_iter()
+            .all(|binder| binder.id() != parameter.id()),
+        "{owner_kind} type-position parameter must not be an uncertain binder"
+    );
+
+    let function = super::super::super::function(&parsed);
+    let mut defs = super::super::super::collect_defs(&parsed);
+    if from_line == 1
+        && !defs
+            .iter()
+            .any(|def| def.line == from_line && def.path.to_string() == "x")
+    {
+        defs.push(super::super::super::def(
+            &parsed,
+            u32::MAX,
+            "x",
+            1,
+            0,
+            false,
+        ));
+    }
+    let def = defs
+        .iter()
+        .find(|def| def.line == from_line && def.path.to_string() == "x")
+        .unwrap_or_else(|| panic!("missing {from_line}:x definition"));
+    let edge = super::super::super::edge(&parsed, &function, def, use_line);
+    let (outcome, _) = super::super::super::run(&parsed, &defs, &[edge.clone()]);
+    super::super::super::assert_label(&outcome, &edge, EXACT);
+}
+
+macro_rules! transparent_type_parameter_test {
+    ($name:ident, $owner:literal, $src:literal, $from:literal, $to:literal) => {
+        #[test]
+        fn $name() {
+            assert_type_position_parameter_transparent($src, $owner, $from, $to);
+        }
+    };
+}
+
+transparent_type_parameter_test!(
+    task17_r1_function_type_parameter_is_transparent,
+    "function_type",
+    "function f(): void {\n  let x = source();\n  let g: ({ x }: Box) => void = h;\n  sink(x);\n}\n",
+    2,
+    4
+);
+transparent_type_parameter_test!(
+    task17_r1_method_signature_parameter_is_transparent,
+    "method_signature",
+    "function f(): void {\n  let x = source();\n  let o: { m({ x }: Box): void } = h;\n  sink(x);\n}\n",
+    2,
+    4
+);
+transparent_type_parameter_test!(
+    task17_r1_constructor_type_parameter_is_transparent,
+    "constructor_type",
+    "function f(): void {\n  let x = source();\n  let C: new ({ x }: Box) => Thing = h;\n  sink(x);\n}\n",
+    2,
+    4
+);
+transparent_type_parameter_test!(
+    task17_r1_call_signature_parameter_is_transparent,
+    "call_signature",
+    "function f(): void {\n  let x = source();\n  let o: { ({ x }: Box): void } = h;\n  sink(x);\n}\n",
+    2,
+    4
+);
+transparent_type_parameter_test!(
+    task17_r1_construct_signature_parameter_is_transparent,
+    "construct_signature",
+    "function f(): void {\n  let x = source();\n  let o: { new ({ x }: Box): Thing } = h;\n  sink(x);\n}\n",
+    2,
+    4
+);
+transparent_type_parameter_test!(
+    task17_r1_function_type_does_not_mask_real_parameter,
+    "function_type",
+    "function f(x: number): void {\n  let g: ({ x }: Box) => void = h;\n  sink(x);\n}\n",
+    1,
+    3
+);
+transparent_type_parameter_test!(
+    task17_r1_function_type_inside_block_does_not_leak,
+    "function_type",
+    "function f(): void {\n  let x = source();\n  if (c()) {\n    const g = h as ({ x }: Box) => void;\n  }\n  sink(x);\n}\n",
+    2,
+    6
+);
+transparent_type_parameter_test!(
+    task17_r1_function_signature_parameter_is_transparent,
+    "function_signature",
+    "function f(): void {\n  let x = source();\n  function g({ x }: Box): void;\n  function g(a: any): void {}\n  sink(x);\n}\n",
+    2,
+    5
+);
+transparent_type_parameter_test!(
+    task17_r1_abstract_method_signature_parameter_is_transparent,
+    "abstract_method_signature",
+    "function f(): void {\n  let x = source();\n  abstract class A { abstract m({ x }: Box): void; }\n  sink(x);\n}\n",
+    2,
+    4
+);
+
+#[test]
+fn task17_r1_readonly_parameter_property_fails_closed() {
+    use crate::cpg::reaching::binding_table::{select_binding_row, Ruling};
+
+    let parsed = super::super::super::parsed(
+        "class C { constructor(readonly z: number) {} }",
+        Language::TypeScript,
+    );
+    let parameter = super::super::case::nodes_of_kind(&parsed, "required_parameter")[0];
+    assert!(matches!(
+        select_binding_row(&parsed, parameter).map(|row| row.ruling),
+        Some(Ruling::Uncertain {
+            revisit: "future:ts-destructuring",
+            ..
+        })
+    ));
+}
+
+#[test]
+fn task17_typescript_rows_match_shared_javascript_rows_except_language() {
+    use crate::cpg::reaching::binding_table::{rows, BindingRow};
+
+    let javascript = rows(Language::JavaScript);
+    let typescript = rows(Language::TypeScript);
+    for kind in [
+        "statement_block",
+        "class_body",
+        "function_declaration",
+        "function_expression",
+        "arrow_function",
+        "for_statement",
+        "formal_parameters",
+        "variable_declaration",
+        "lexical_declaration",
+    ] {
+        let ts_row = typescript
+            .iter()
+            .find(|row| row.kind == kind)
+            .unwrap_or_else(|| panic!("missing TypeScript row {kind}"));
+        let js_row = javascript
+            .iter()
+            .find(|row| row.kind == kind && row.regression == ts_row.regression)
+            .unwrap_or_else(|| panic!("missing JavaScript twin for {kind}"));
+        assert_eq!(
+            BindingRow {
+                language: Language::JavaScript,
+                ..*ts_row
+            },
+            *js_row,
+            "shared curated row {kind}"
+        );
+    }
+}
+
 #[test]
 fn task17_declaration_rows_own_only_named_fields() {
     use crate::cpg::reaching::binding_table::{select_binding_row, DeclarationKind};

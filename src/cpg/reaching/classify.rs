@@ -399,14 +399,13 @@ fn uncertain_construct_on_route(
                             | "rest_pattern"
                             | "shorthand_property_identifier_pattern"
                     )
-                    | (
-                        crate::languages::Language::TypeScript,
-                        "required_parameter" | "optional_parameter"
-                    )
             ) || (parsed.language
                 == crate::languages::Language::Python
                 && matches!(binder.kind(), "tuple_pattern" | "list_pattern")
-                && is_python_match_pattern(binder));
+                && is_python_match_pattern(binder))
+                || (parsed.language == crate::languages::Language::TypeScript
+                    && matches!(binder.kind(), "required_parameter" | "optional_parameter")
+                    && crate::cpg::reaching::grammar_lint::visibility::typescript_parameter_has_body_owner(binder));
             if !explicit_uncertain_binder {
                 return None;
             }

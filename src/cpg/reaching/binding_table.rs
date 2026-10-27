@@ -358,8 +358,11 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
                 return false;
             }
             let mut cursor = node.walk();
-            let has_parameter_property_modifier = node.named_children(&mut cursor).any(|child| {
-                matches!(child.kind(), "accessibility_modifier" | "override_modifier")
+            let has_parameter_property_modifier = node.children(&mut cursor).any(|child| {
+                matches!(
+                    child.kind(),
+                    "accessibility_modifier" | "override_modifier" | "readonly"
+                )
             });
             !has_parameter_property_modifier
         }
