@@ -286,6 +286,9 @@ mutation of module objects (monkey-patching, reflective writes, `eval`, host glo
 (replan probes, 2026-09-25). Producer-side mutation is modeled only where mutation is the construction
 idiom (CJS `module.exports`, `src/ast/js_cjs_export_barriers.rs`). A slice that wants to model runtime
 mutation proposes it as a new contract, not as a precision fix to an existing rung.
+Rust `#[cfg]`/`#[cfg_attr]` availability is out of model for every Rust rung: a cfg-disabled item stays
+a candidate and can be the Exact target while rustc binds another callable (#527 measures it first and
+fences it only if warranted).
 Known JS/TS, React and Node resolution gaps, with options and tracking issues, are listed in
 `docs/features/language-coverage/js-ts-known-gaps.md`; update it when a slice closes or finds one.
 
