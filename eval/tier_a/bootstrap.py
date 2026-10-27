@@ -14,6 +14,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from .artifacts import ArtifactPaths
 from .boundary import DEFAULT_ENV_ALLOW, scrubbed_env
 from .closure import canonical_path, corpus_manifest, manifest_digest, policy_digest
 from .closure import policy_manifest, population_manifest, raw_digest
@@ -30,6 +31,7 @@ from .sut import PrismCli, verified_binary_identity
 class CandidateIdentity:
     lock: Lock
     staged: dict[Path, Path]
+    artifacts: ArtifactPaths | None = None
 
 
 def _run(*command: str, env: dict[str, str] | None = None) -> str:
@@ -168,19 +170,23 @@ def verify_re_anchor_previous(
         raise ValueError(
             "re_anchor_previous_mismatch: eval/tier-a.lock.toml"
         ) from exc
-    relative_paths = {
-        lock_relative,
+    artifacts = ArtifactPaths.from_lock(repo, previous)
+    declared = {
         previous.prism["closure"]["manifest"],
         previous.prism["sut"]["inputs"],
         previous.prism["policy"]["manifest"],
         previous.prism["population"]["manifest"],
         previous.prism["snapshot"]["path"],
         previous.prism["baseline_report"]["path"],
+    }
+    relative_paths = {
+        lock_relative,
+        *declared,
         str(Path(previous.prism["baseline_report"]["path"]).with_suffix(".md")),
         "docs/eval/tier-a/baseline.md",
     }
     for relative in sorted(relative_paths):
-        path = repo / relative
+        path = artifacts.resolve(relative) if relative in declared else repo / relative
         if not path.is_file() or path.read_bytes() != _git_blob(repo, "HEAD", relative):
             raise ValueError(f"re_anchor_previous_mismatch: {relative}")
     anchor_commit = _git(
@@ -279,6 +285,7 @@ def stage_candidate(
         if path.is_file()
     ]
     sut_digest = raw_digest(binary)
+    archive = root.resolve() / "sut" / sut_digest[7:] / "prism"
     lock = Lock(prism={
         "closure": {"digest": ids["closure"], "manifest": canonical_path(repo, finals[0][0])},
         "sha_aliases": [sut_sha],
@@ -287,7 +294,7 @@ def stage_candidate(
         "snapshot": {"path": canonical_path(repo, snapshot_final), "digest": raw_digest(snapshot)},
         "sample": sample,
         "oracle": {"version": _run("rust-analyzer", "--version"), "init": copy.deepcopy(init_options)},
-        "sut": {"sha": sut_sha, "digest": sut_digest, "inputs": canonical_path(repo, finals[1][0]), "archive": str(root.resolve() / "sut" / sut_digest[7:] / "prism")},
+        "sut": {"sha": sut_sha, "digest": sut_digest, "inputs": canonical_path(repo, finals[1][0]), "archive": str(archive)},
         "runtime": {
             "python": sys.version.split()[0], "python_version_file": raw_digest(eval_dir / ".python-version"),
             "uv_lock": raw_digest(eval_dir / "uv.lock"), "rustc": _run("rustc", "--version"),
@@ -304,6 +311,7 @@ def stage_candidate(
     lock._corpus_rows, lock._policy_data, lock._population_data = closure_rows, policy, population
     lock._sut_rows = sut_rows
     archived_inputs = {}
+    staged_archive_inputs = {}
     for path, expected, *_rest in sut_rows:
         if not path.startswith("target/"):
             continue
@@ -318,6 +326,11 @@ def stage_candidate(
         if "sha256:" + hashlib.sha256(contents).hexdigest() != expected:
             raise ValueError(f"data_digest_moved: {path}")
         archived_inputs[path] = contents
+        final = archive.parent / "inputs" / path
+        temporary = staging / f"archive-input-{len(staged_archive_inputs)}"
+        temporary.write_bytes(contents)
+        staged_archive_inputs[final] = temporary
+        manifest_bytes[final] = contents
     lock._sut_archive_inputs = archived_inputs
     if snapshot_source is not None:
         staged[snapshot_final] = snapshot
@@ -325,29 +338,23 @@ def stage_candidate(
     candidate = CandidateIdentity(lock, staged)
     candidate._repo, candidate._eval_dir, candidate._binary = repo, eval_dir, binary
     candidate._staging, candidate._manifest_bytes = staging, manifest_bytes
+    candidate._staged_archive_inputs = staged_archive_inputs
     candidate._sut_rows = sut_rows
     candidate._origin_url, candidate._root = origin_url, root
+    candidate.artifacts = ArtifactPaths.from_candidate(candidate)
     return candidate
 
 
 def validate_staged(cand: CandidateIdentity) -> list[str]:
-    trial = copy.deepcopy(cand.lock)
-    trial.prism.pop("baseline_report", None); trial.prism.pop("blessed", None)
-    actual = {
-        final: staged if staged.is_file() else final
-        for final, staged in cand.staged.items()
-    }
-    for key in ("closure", "policy", "population"):
-        final = cand._repo / trial.prism[key]["manifest"]
-        trial.prism[key]["manifest"] = canonical_path(cand._repo, actual[final])
-    sut_final = cand._repo / trial.prism["sut"]["inputs"]
-    trial.prism["sut"]["inputs"] = canonical_path(cand._repo, actual[sut_final])
-    snapshot_final = cand._repo / trial.prism["snapshot"]["path"]
-    trial.prism["snapshot"]["path"] = canonical_path(
-        cand._repo, actual.get(snapshot_final, snapshot_final)
-    )
-    reasons = [reason for reason in integrity_check(trial, cand._eval_dir) if reason != "baseline_heading_mismatch"]
-    for final, path in actual.items():
+    assert cand.artifacts is not None
+    reasons = [
+        reason
+        for reason in integrity_check(
+            cand.lock, cand._eval_dir, artifacts=cand.artifacts
+        )
+        if reason != "baseline_heading_mismatch"
+    ]
+    for final, path in cand.artifacts.staged.items():
         if not path.is_file() or path.read_bytes() != cand._manifest_bytes[final]:
             reasons.append(f"staged_manifest_moved: {final.name}")
     try:
@@ -399,8 +406,9 @@ def publish_anchor_v1(
     invalid = validate_staged(cand)
     if invalid:
         raise ValueError(f"staged invalid: {','.join(invalid)}")
+    assert cand.artifacts is not None
     archive = archive_dir.resolve() / expected["sut_digest"][7:] / "prism"
-    if Path(cand.lock.prism["sut"]["archive"]) != archive:
+    if cand.artifacts.sut_archive() != archive:
         raise ValueError("archive path mismatch")
     binary_fd = os.open(cand._binary, os.O_RDONLY)
     try:
@@ -452,11 +460,17 @@ def publish_anchor_v1(
             os.replace(staged, final)
         elif not final.is_file() or final.read_bytes() != cand._manifest_bytes[final]:
             raise ValueError(f"published manifest mismatch: {final.name}")
+        cand.artifacts.staged.pop(final, None)
     _atomic_bytes(report_json, report_bytes)
     _atomic_bytes(report_md, render_markdown(report).encode())
     _atomic_bytes(archive, binary_bytes, binary_mode)
-    for path, contents in sorted(cand.lock._sut_archive_inputs.items()):
-        _atomic_bytes(archive.parent / "inputs" / path, contents)
+    for final, staged in sorted(cand._staged_archive_inputs.items()):
+        final.parent.mkdir(parents=True, exist_ok=True)
+        if staged.is_file():
+            os.replace(staged, final)
+        elif not final.is_file() or final.read_bytes() != cand._manifest_bytes[final]:
+            raise ValueError(f"published archive input mismatch: {final.name}")
+        cand.artifacts.staged.pop(final, None)
     lock_temp = eval_dir / f".tier-a.lock.toml.{os.getpid()}.tmp"
     save_lock(cand.lock, lock_temp)
     os.replace(lock_temp, eval_dir / "tier-a.lock.toml")
@@ -466,7 +480,7 @@ def publish_anchor_v1(
             report_json,
             report_md,
             eval_dir / "tier-a.lock.toml",
-            eval_dir.parent / cand.lock.prism["snapshot"]["path"],
+            cand.artifacts.published(cand.lock.prism["snapshot"]["path"]),
             eval_dir.parent / "docs/eval/tier-a/baseline.md",
         }
         for path in sorted(previous_paths - current_paths):

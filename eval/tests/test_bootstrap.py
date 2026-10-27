@@ -137,15 +137,16 @@ def test_stage_validate_admit_then_publish_without_final_sut_manifest(tmp_path):
     unpublished_manifests = {
         path.relative_to(repo).as_posix() for path in cand.staged
     }
-    declared = load_declared_inputs(cand.lock, ev)
+    declared = load_declared_inputs(cand.lock, ev, artifacts=cand.artifacts)
     observation = Observation([], {row[0] for row in cand._sut_rows}, set())
     closure_paths = {row[0] for row in cand.lock._corpus_rows}
 
     assert not sut_manifest.exists()
-    with OpenAudit(ev) as audit:
+    with OpenAudit(ev, cand.artifacts) as audit:
         assert validate_staged(cand) == []
         admit(cand.lock, declared, observation, closure_paths, ev)
-    assert audit.opens.isdisjoint(unpublished_manifests)
+    assert unpublished_manifests <= audit.opens
+    assert not any(".staging-" in path for path in audit.opens)
 
     run = fake_run(lock_identities(cand.lock))
     publish_anchor_v1(cand, run, *OUT(ev, tmp_path))
@@ -493,6 +494,168 @@ def _bootstrap_rc(argv):
         return commands._bootstrap(argv)
     except SystemExit as exc:
         return int(exc.code)
+
+
+def _install_end_to_end_bootstrap_doubles(monkeypatch, ev, root):
+    """Keep external tools lightweight while exercising the real bootstrap path."""
+    expected = FunctionDef("a", "function", None, Location("src/a.rs", 1, 1), 1)
+
+    class EndToEndOracle(FakeOracle):
+        def version(self):
+            return subprocess.run(
+                ["rust-analyzer", "--version"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+        def document_symbols(self, path):
+            return [expected]
+
+    class EndToEndSut(FakeSut):
+        def __init__(self, path, sha):
+            super().__init__()
+            self.bin = path
+            self.sha = sha[:12]
+            self.sha_full = sha
+
+        def inventory(self, _root):
+            return [expected]
+
+    def from_verified(_cls, _repo, path, sha, _digest, env=None):
+        sut = EndToEndSut(path, sha)
+        sut.env = env
+        return sut
+
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+    monkeypatch.setattr(cli, "EVAL_DIR", ev)
+    monkeypatch.setenv("TIER_A_ROOT", str(root))
+    monkeypatch.setattr(cli, "make_oracle", lambda *_a, **_k: EndToEndOracle())
+    monkeypatch.setattr(cli, "run_matrix", lambda *_a, **_k: [])
+    monkeypatch.setattr(cli.pinned_mod, "run_pinned", lambda *_a, **_k: {})
+    monkeypatch.setattr(PrismCli, "from_verified", classmethod(from_verified))
+
+
+def _ordinary_bootstrap_end_to_end(tmp_path, monkeypatch):
+    _lock, ev, repo = anchored_repo(tmp_path, publish=False)
+    baseline = repo / "docs/eval/tier-a/baseline.md"
+    baseline.write_text("# Tier-A Baseline — pre-anchor\n")
+    finalize_policy(ev)
+    subprocess.run(
+        ["git", "add", "eval/corpora.toml", "docs/eval/tier-a/baseline.md"],
+        cwd=repo,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "prepare bootstrap"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    _install_end_to_end_bootstrap_doubles(monkeypatch, ev, tmp_path / "root")
+    assert _bootstrap_rc(["--sut-bin", str(repo / "prism")]) == 0
+    return load_lock(ev / "tier-a.lock.toml"), ev, repo
+
+
+def _assert_published_candidate(lock, repo):
+    declared = [
+        lock.prism["closure"]["manifest"],
+        lock.prism["sut"]["inputs"],
+        lock.prism["policy"]["manifest"],
+        lock.prism["population"]["manifest"],
+        lock.prism["snapshot"]["path"],
+        lock.prism["baseline_report"]["path"],
+    ]
+    assert all((repo / relative).is_file() for relative in declared)
+
+
+def test_ordinary_bootstrap_real_entry_publishes_and_lock_checks(
+    tmp_path, monkeypatch, capsys
+):
+    published, ev, repo = _ordinary_bootstrap_end_to_end(tmp_path, monkeypatch)
+
+    _assert_published_candidate(published, repo)
+    capsys.readouterr()
+    assert commands.dispatch(["lock-check", "--integrity"]) == 0
+    assert commands.dispatch(["lock-check", "--corpus", "prism"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+
+
+def test_re_anchor_real_entry_resolves_staged_snapshot_and_swaps_lock_last(
+    tmp_path, monkeypatch, capsys
+):
+    previous, ev, repo = _ordinary_bootstrap_end_to_end(tmp_path, monkeypatch)
+    subprocess.run(["git", "add", "eval", "docs"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "publish first anchor"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    (repo / "FROZEN-HARNESS").write_text("ready\n")
+    subprocess.run(["git", "add", "FROZEN-HARNESS"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "freeze harness"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    new_sha = git_head(repo)
+    binary = stub_binary(repo / "new-prism", new_sha[:12])
+    binary.with_suffix(".d").write_text(
+        f"{binary}: {repo / 'src/a.rs'} {repo / 'Cargo.toml'}\n"
+    )
+    _write_stub_cargo_metadata(binary)
+    snapshot = ev / "snapshots" / f"prism-{new_sha[:12]}.json"
+    assert not snapshot.exists()
+
+    replaced = []
+    real_replace = os.replace
+
+    def record_replace(src, dst):
+        replaced.append(Path(dst))
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", record_replace)
+    assert _bootstrap_rc(["--re-anchor", "--sut-bin", str(binary)]) == 0
+    published = load_lock(ev / "tier-a.lock.toml")
+
+    assert published.prism["sut"]["sha"] == new_sha
+    _assert_published_candidate(published, repo)
+    assert snapshot.is_file()
+    assert replaced[-1] == ev / "tier-a.lock.toml"
+    report = json.loads((repo / published.prism["baseline_report"]["path"]).read_text())
+    assert report["meta"]["provenance"]["superseded_anchor"] == {
+        "sut_sha": previous.prism["sut"]["sha"],
+        "sut_digest": previous.prism["sut"]["digest"],
+    }
+    capsys.readouterr()
+    assert commands.dispatch(["lock-check", "--integrity"]) == 0
+    assert commands.dispatch(["lock-check", "--corpus", "prism"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+
+
+def test_bootstrap_logs_traceback_before_fatal_for_unnamed_exception(
+    tmp_path, monkeypatch, capsys
+):
+    _lock, ev, repo = anchored_repo(tmp_path, publish=False)
+    monkeypatch.setattr(commands, "EVAL_DIR", ev)
+    monkeypatch.setattr("tier_a.bootstrap.finalize_policy", lambda *_args: None)
+
+    def missing_snapshot(*_args, **_kwargs):
+        raise FileNotFoundError(2, "No such file or directory", "final-snapshot.json")
+
+    monkeypatch.setattr("tier_a.bootstrap.stage_candidate", missing_snapshot)
+    assert _bootstrap_rc(["--sut-bin", str(repo / "prism")]) == 3
+    lines = capsys.readouterr().err.splitlines()
+    assert any("test_bootstrap.py" in line and "missing_snapshot" in line for line in lines)
+    assert lines[-1].startswith("FATAL bootstrap_refused: [Errno 2]")
+    assert sum(line.startswith("FATAL bootstrap_refused:") for line in lines) == 1
+    assert len(lines) <= 15
 
 
 def test_prepare_snapshot_only_writes_binary_sha_snapshot_and_is_idempotent(

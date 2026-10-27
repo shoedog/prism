@@ -10,6 +10,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 
+from .artifacts import ArtifactPaths
 from .adjudication import Adjudication, load_records
 from .closure import (
     cargo_build_outputs,
@@ -79,9 +80,10 @@ def _install_audit_dispatcher() -> None:
 
 
 class OpenAudit:
-    def __init__(self, eval_dir: Path):
+    def __init__(self, eval_dir: Path, artifacts: ArtifactPaths | None = None):
         self.eval_dir = eval_dir.resolve()
         self.repo = self.eval_dir.parent
+        self.artifacts = artifacts
         self.opens: set[str] = set()
 
     def _record(self, event: str, args: tuple) -> None:
@@ -93,7 +95,11 @@ class OpenAudit:
         try:
             path = Path(os.fsdecode(raw)).resolve()
             path.relative_to(self.eval_dir)
-            self.opens.add(path.relative_to(self.repo).as_posix())
+            self.opens.add(
+                self.artifacts.declared_open(path)
+                if self.artifacts is not None
+                else path.relative_to(self.repo).as_posix()
+            )
         except (OSError, ValueError):
             return
 
@@ -180,11 +186,23 @@ def load_declared_inputs(
     *,
     corpus: str = "prism",
     cfg: dict | None = None,
+    artifacts: ArtifactPaths | None = None,
 ) -> DeclaredInputs:
     repo = eval_dir.parent
     adjudications_entry, snapshot_entry = _declared_paths(lock, eval_dir, corpus, cfg)
-    adjudications_path = repo / adjudications_entry
-    snapshot_disk_path = repo / snapshot_entry
+    artifacts = artifacts or (
+        ArtifactPaths.from_lock(repo, lock) if lock is not None else None
+    )
+    adjudications_path = (
+        artifacts.resolve(adjudications_entry)
+        if artifacts is not None
+        else repo / adjudications_entry
+    )
+    snapshot_disk_path = (
+        artifacts.resolve(snapshot_entry)
+        if artifacts is not None
+        else repo / snapshot_entry
+    )
     pinned_path = eval_dir / "tier_a/pinned.py"
     fixture_rows = _fixture_rows(eval_dir)
     digests = {
@@ -216,28 +234,39 @@ def _stored_data_digests(data: dict) -> dict[str, str]:
     return inputs
 
 
-def _current_data_digest(eval_dir: Path, path: str) -> str:
+def _current_data_digest(
+    eval_dir: Path, path: str, artifacts: ArtifactPaths | None
+) -> str:
     if path == "eval/fixtures":
         return manifest_digest(_fixture_rows(eval_dir))
-    disk_path = eval_dir.parent / path
+    disk_path = (
+        artifacts.resolve(path)
+        if artifacts is not None
+        else eval_dir.parent / path
+    )
     return raw_digest(disk_path) if disk_path.is_file() else "absent"
 
 
-def _known_declared_paths(stored: dict, eval_dir: Path) -> list[str]:
+def _known_declared_paths(
+    stored: dict, eval_dir: Path
+) -> tuple[list[str], ArtifactPaths | None]:
     lock_path = eval_dir / "tier-a.lock.toml"
     lock = load_lock(lock_path) if lock_path.is_file() else None
     corpus = stored.get("meta", {}).get("corpus", "prism")
     adjudications, snapshot = _declared_paths(lock, eval_dir, corpus)
-    return list(
-        dict.fromkeys(
-            [
-                adjudications,
-                snapshot,
-                "eval/tier_a/pinned.py",
-                *(path for path, _digest in _fixture_rows(eval_dir)),
-                "eval/fixtures",
-            ]
-        )
+    return (
+        list(
+            dict.fromkeys(
+                [
+                    adjudications,
+                    snapshot,
+                    "eval/tier_a/pinned.py",
+                    *(path for path, _digest in _fixture_rows(eval_dir)),
+                    "eval/fixtures",
+                ]
+            )
+        ),
+        ArtifactPaths.from_lock(eval_dir.parent, lock) if lock is not None else None,
     )
 
 
@@ -248,16 +277,16 @@ def readmit_stored(stored: dict, eval_dir: Path) -> dict:
         return replay
     stored_digests = _stored_data_digests(meta.get("data", {}))
     mismatches = []
-    declared_paths = _known_declared_paths(replay, eval_dir)
+    declared_paths, artifacts = _known_declared_paths(replay, eval_dir)
     for path in declared_paths:
         if path not in stored_digests:
             mismatches.append(f"missing_declared_digest: {path}")
-        elif _current_data_digest(eval_dir, path) != stored_digests[path]:
+        elif _current_data_digest(eval_dir, path, artifacts) != stored_digests[path]:
             mismatches.append(f"derived_from_changed_inputs: {path}")
     for path, expected in stored_digests.items():
         if path in declared_paths:
             continue
-        if _current_data_digest(eval_dir, path) != expected:
+        if _current_data_digest(eval_dir, path, artifacts) != expected:
             mismatches.append(f"derived_from_changed_inputs: {path}")
     if mismatches:
         meta = replay.setdefault("meta", {})
@@ -279,13 +308,16 @@ def _allowed_harness_open(path: str, declared: set[str]) -> bool:
 
 
 def _sut_input_verification(
-    lock: Lock, eval_dir: Path
+    lock: Lock,
+    eval_dir: Path,
+    artifacts: ArtifactPaths | None = None,
 ) -> tuple[list[str], set[str], dict[str, list[str]]]:
     repo = eval_dir.parent
+    artifacts = artifacts or ArtifactPaths.from_lock(repo, lock)
     try:
         sut_rows = _bound_sut_rows(lock)
     except ValueError:
-        sut_rows = read_tsv(repo / lock.prism["sut"]["inputs"])
+        sut_rows = read_tsv(artifacts.sut_inputs())
     reasons = []
     paths = set()
     provenance = {
@@ -294,7 +326,6 @@ def _sut_input_verification(
         "archived_generated": [],
     }
     staged_archive = getattr(lock, "_sut_archive_inputs", {})
-    archive_root = Path(lock.prism["sut"]["archive"]).parent / "inputs"
     for path, expected, *_rest in sut_rows:
         paths.add(path)
         parts = path.split("/")
@@ -311,7 +342,7 @@ def _sut_input_verification(
             continue
         if path.startswith("target/"):
             provenance["archived_generated"].append(path)
-            archived = archive_root / path
+            archived = artifacts.sut_archive_input(path)
             if expected == "absent":
                 if (
                     path in staged_archive
@@ -320,13 +351,13 @@ def _sut_input_verification(
                 ):
                     reasons.append(f"sut_input_absent_present_transition: {path}")
                 continue
-            if path in staged_archive:
+            if archived.is_file():
+                actual = raw_digest(archived)
+            elif path in staged_archive:
                 actual = "sha256:" + hashlib.sha256(staged_archive[path]).hexdigest()
             else:
-                if not archived.is_file():
-                    reasons.append(f"sut_input_provenance_missing: {path}")
-                    continue
-                actual = raw_digest(archived)
+                reasons.append(f"sut_input_provenance_missing: {path}")
+                continue
         else:
             provenance["tracked_source"].append(path)
             result = subprocess.run(
@@ -355,8 +386,12 @@ def _sut_input_verification(
     }
 
 
-def _sut_input_reasons(lock: Lock, eval_dir: Path) -> tuple[list[str], set[str]]:
-    reasons, paths, _provenance = _sut_input_verification(lock, eval_dir)
+def _sut_input_reasons(
+    lock: Lock, eval_dir: Path, artifacts: ArtifactPaths | None = None
+) -> tuple[list[str], set[str]]:
+    reasons, paths, _provenance = _sut_input_verification(
+        lock, eval_dir, artifacts
+    )
     return reasons, paths
 
 
@@ -366,6 +401,7 @@ def admit(
     observed: Observation,
     closure_paths: set[str],
     eval_dir: Path,
+    artifacts: ArtifactPaths | None = None,
 ) -> dict:
     reasons = [
         f"env_read_outside_allow: {read.name}"
@@ -398,7 +434,9 @@ def admit(
         if declared.fixtures_digest != data["fixtures"]:
             reasons.append("data_digest_moved: eval/fixtures")
 
-        sut_reasons, sut_paths, sut_provenance = _sut_input_verification(lock, eval_dir)
+        sut_reasons, sut_paths, sut_provenance = _sut_input_verification(
+            lock, eval_dir, artifacts
+        )
         reasons.extend(sut_reasons)
 
     declared_paths = set(declared.digests)

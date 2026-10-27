@@ -10,6 +10,7 @@ from pathlib import Path
 
 import tomli_w
 
+from .artifacts import ArtifactPaths
 from .closure import (
     checkout_corpus_manifest,
     manifest_digest,
@@ -98,7 +99,12 @@ def corpus_check(
     return reasons
 
 
-def integrity_check(lock: Lock | None, eval_dir: Path) -> list[str]:
+def integrity_check(
+    lock: Lock | None,
+    eval_dir: Path,
+    *,
+    artifacts: ArtifactPaths | None = None,
+) -> list[str]:
     closure_dir = eval_dir / "closure"
     published = (
         [
@@ -115,8 +121,9 @@ def integrity_check(lock: Lock | None, eval_dir: Path) -> list[str]:
     reasons = []
     prism = lock.prism
     repo = eval_dir.parent
+    artifacts = artifacts or ArtifactPaths.from_lock(repo, lock)
     try:
-        _bind_manifests(lock, repo)
+        _bind_manifests(lock, artifacts)
     except Exception as exc:
         reasons.append(f"manifest_invalid: {exc}")
         return reasons
@@ -137,11 +144,11 @@ def integrity_check(lock: Lock | None, eval_dir: Path) -> list[str]:
         reasons.append(f"policy_manifest_invalid: {exc}")
         current_policy = None
 
-    snapshot = _repo_path(repo, prism["snapshot"]["path"])
+    snapshot = artifacts.snapshot()
     if not snapshot.is_file() or raw_digest(snapshot) != prism["snapshot"]["digest"]:
         reasons.append("snapshot_digest_moved")
 
-    population_path = _repo_path(repo, prism["population"]["manifest"])
+    population_path = artifacts.population_manifest()
     try:
         stored_population = json.loads(population_path.read_text())
         population_matches = (
@@ -177,7 +184,7 @@ def integrity_check(lock: Lock | None, eval_dir: Path) -> list[str]:
 
     adjudications = prism.get("data", {}).get("adjudications")
     if isinstance(adjudications, dict):
-        path = _repo_path(repo, adjudications["path"])
+        path = artifacts.resolve(adjudications["path"])
         if not path.is_file() or raw_digest(path) != adjudications["digest"]:
             reasons.append(f"data_digest_moved: {adjudications['path']}")
         elif len(path.read_text().splitlines()) != adjudications.get("records"):
@@ -229,7 +236,7 @@ def integrity_check(lock: Lock | None, eval_dir: Path) -> list[str]:
 
     baseline = prism.get("baseline_report")
     if isinstance(baseline, dict):
-        path = _repo_path(repo, baseline["path"])
+        path = artifacts.resolve(baseline["path"])
         if not path.is_file() or raw_digest(path) != baseline["digest"]:
             reasons.append("baseline_report_digest_moved")
         else:
@@ -292,18 +299,11 @@ def resolve_corpus_identity(lock: Lock, checkout: Path) -> CorpusIdentity:
     )
 
 
-def _repo_path(repo: Path, stored: str) -> Path:
-    path = Path(stored)
-    if path.is_absolute() or ".." in path.parts:
-        raise ValueError(f"non-canonical lock path: {stored}")
-    return repo / path
-
-
-def _bind_manifests(lock: Lock, repo: Path) -> None:
-    closure_path = _repo_path(repo, lock.prism["closure"]["manifest"])
-    sut_path = _repo_path(repo, lock.prism["sut"]["inputs"])
-    policy_path = _repo_path(repo, lock.prism["policy"]["manifest"])
-    population_path = _repo_path(repo, lock.prism["population"]["manifest"])
+def _bind_manifests(lock: Lock, artifacts: ArtifactPaths) -> None:
+    closure_path = artifacts.closure_manifest()
+    sut_path = artifacts.sut_inputs()
+    policy_path = artifacts.policy_manifest()
+    population_path = artifacts.population_manifest()
     lock._corpus_rows = read_tsv(closure_path)
     if sut_path.is_file():
         lock._sut_rows = read_tsv(sut_path)

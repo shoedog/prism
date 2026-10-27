@@ -8,6 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from .artifacts import ArtifactPaths
 from .lock import Lock, _bind_manifests, _bound_policy, _checkout_closure_matches
 
 
@@ -46,7 +47,7 @@ def _bind_source_manifests(lock: Lock, origin_url: str) -> None:
     source = Path(origin_url).expanduser()
     if not source.is_dir():
         raise CorpusPinViolation("manifest source is not a local repository")
-    _bind_manifests(lock, source)
+    _bind_manifests(lock, ArtifactPaths.from_lock(source, lock))
 
 
 def _extract_archive(mirror: Path, sha: str, destination: Path) -> None:

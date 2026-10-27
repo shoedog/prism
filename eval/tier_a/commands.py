@@ -7,9 +7,11 @@ import json
 import subprocess
 import sys
 import tomllib
+import traceback
 from dataclasses import asdict
 from pathlib import Path
 
+from .artifacts import ArtifactPaths
 from .boundary import (
     BoundaryViolation,
     Observation,
@@ -152,6 +154,18 @@ def _bootstrap(argv: list[str]) -> int:
     )
     from .sut import PrismCli, SutStale
 
+    def refuse(exc: Exception) -> int:
+        named = (BoundaryViolation, SutStale, ValueError, subprocess.SubprocessError)
+        if not isinstance(exc, named):
+            lines = "".join(
+                traceback.format_exception(type(exc), exc, exc.__traceback__, limit=4)
+            ).rstrip().splitlines()
+            if len(lines) > 14:
+                lines = [lines[0], *lines[-13:]]
+            print("\n".join(lines), file=sys.stderr)
+        print(f"FATAL bootstrap_refused: {exc}", file=sys.stderr)
+        return 3
+
     parser = argparse.ArgumentParser(prog="tier-a bootstrap")
     parser.add_argument("--sut-bin")
     mode = parser.add_mutually_exclusive_group()
@@ -173,15 +187,8 @@ def _bootstrap(argv: list[str]) -> int:
                 print("snapshot present")
             else:
                 print(f"snapshot prepared: sha={sut_sha} digest={sut_digest}")
-        except (
-            BoundaryViolation,
-            SutStale,
-            ValueError,
-            OSError,
-            subprocess.SubprocessError,
-        ) as exc:
-            print(f"FATAL bootstrap_refused: {exc}", file=sys.stderr)
-            return 3
+        except Exception as exc:
+            return refuse(exc)
         return 0
     if args.finalize_policy_only:
         finalize_policy(EVAL_DIR)
@@ -255,9 +262,8 @@ def _bootstrap(argv: list[str]) -> int:
         mark_history(EVAL_DIR.parent / "docs/eval/tier-a/baseline.md", run_args.date)
         if integrity_check(published, EVAL_DIR):
             raise BoundaryViolation(integrity_check(published, EVAL_DIR))
-    except (BoundaryViolation, SutStale, ValueError, OSError, subprocess.SubprocessError) as exc:
-        print(f"FATAL bootstrap_refused: {exc}", file=sys.stderr)
-        return 3
+    except Exception as exc:
+        return refuse(exc)
     finally:
         if staged_snapshot is not None:
             staged_snapshot.unlink(missing_ok=True)
@@ -396,6 +402,11 @@ def run_quick_admitted(
 
     if candidate is None:
         lock, corpus_path, overlay, identity = preflight_quick(eval_dir, args.live)
+        artifacts = (
+            ArtifactPaths.from_lock(eval_dir.parent, lock)
+            if lock is not None
+            else None
+        )
     else:
         existing = _load_optional_lock(eval_dir)
         if not re_anchor:
@@ -407,6 +418,7 @@ def run_quick_admitted(
         if existing is None and re_anchor:
             raise BoundaryViolation(["re_anchor_previous_mismatch"])
         lock, overlay = candidate.lock, {}
+        artifacts = candidate.artifacts
         try:
             corpus_path = materialize(
                 lock, candidate._root, candidate._origin_url
@@ -436,12 +448,13 @@ def run_quick_admitted(
             lock.prism["sut"]["digest"],
         )
         sut.env = env
-    with OpenAudit(eval_dir) as audit:
+    with OpenAudit(eval_dir, artifacts) as audit:
         declared = load_declared_inputs(
             lock,
             eval_dir,
             corpus=name,
             cfg=corpus_cfg,
+            artifacts=artifacts,
         )
         run = cli.run_corpus(
             name,
@@ -474,7 +487,9 @@ def run_quick_admitted(
         if lock is not None
         else _lockless_closure_paths(corpus_cfg)
     )
-    admission = admit(lock, declared, observed, closure_paths, eval_dir)
+    admission = admit(
+        lock, declared, observed, closure_paths, eval_dir, artifacts
+    )
 
     run["meta"]["observation"] = {
         "env_reads": [asdict(read) for read in observed.env_reads],
@@ -517,8 +532,7 @@ def run_quick_admitted(
         for key, value in observed.items():
             if value is not None:
                 run["meta"][key] = value
-        run["meta"]["snapshot_digest"] = raw_digest(
-            eval_dir.parent / lock.prism["snapshot"]["path"]
-        )
+        assert artifacts is not None
+        run["meta"]["snapshot_digest"] = raw_digest(artifacts.snapshot())
         run["meta"]["admitted"] = True
     return run, overlay
