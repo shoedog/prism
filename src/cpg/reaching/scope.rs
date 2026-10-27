@@ -1,10 +1,8 @@
 //! Lexical binding ownership for reaching definitions.
 
 mod masks;
+pub(super) mod rust_scope;
 mod use_lookup;
-
-use masks::{collect_classified_masks, simple_catch_parameter_owns_def};
-
 use super::binding_table::{
     rows, select_binding_row, BindingScopeRule, DeclarationKind, Role, Ruling, Visibility,
 };
@@ -17,6 +15,7 @@ use super::{CfgView, DefSite, Line};
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use crate::languages::Language;
+use masks::{collect_classified_masks, simple_catch_parameter_owns_def};
 use std::cell::OnceCell;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
@@ -475,6 +474,13 @@ fn declaration_seed(
         }
         let rule = binding_scope_rule(parsed.language, node.kind());
         if let Some(kind) = rule.declaration {
+            if rust_scope::pattern_excludes_def(parsed, node, &def.path.base) {
+                if node.id() == func_node.id() {
+                    return None;
+                }
+                node = node.parent()?;
+                continue;
+            }
             if selected_row.is_some_and(|row| {
                 row.declaration.is_some()
                     && transfer::row_excludes_identifier(parsed, node, row.fields, def.start_byte)
@@ -496,15 +502,21 @@ fn declaration_seed(
                 return None;
             }
             let scope = declaration_scope(parsed, func_node, node, kind, function_scope);
-            let visible_from = match kind {
-                DeclarationKind::Parameter
-                | DeclarationKind::JavaScriptVar
-                | DeclarationKind::PythonAssignment
-                | DeclarationKind::Reuse => scope.start_byte,
-                DeclarationKind::GoShort
-                | DeclarationKind::Other
-                | DeclarationKind::Pattern
-                | DeclarationKind::CaptureCopy => node.end_byte(),
+            let rust_item_is_hoisted = parsed.language == Language::Rust
+                && matches!(node.kind(), "const_item" | "static_item");
+            let visible_from = if rust_item_is_hoisted {
+                scope.start_byte
+            } else {
+                match kind {
+                    DeclarationKind::Parameter
+                    | DeclarationKind::JavaScriptVar
+                    | DeclarationKind::PythonAssignment
+                    | DeclarationKind::Reuse => scope.start_byte,
+                    DeclarationKind::GoShort
+                    | DeclarationKind::Other
+                    | DeclarationKind::CaptureCopy => node.end_byte(),
+                    DeclarationKind::Pattern => rust_scope::pattern_visible_from(node),
+                }
             };
             return Some((scope, kind, visible_from));
         }
@@ -524,6 +536,14 @@ fn declaration_scope(
 ) -> ScopeSpan {
     if kind == DeclarationKind::JavaScriptVar {
         return function_scope;
+    }
+    if kind == DeclarationKind::Pattern {
+        if let Some(scope) = rust_scope::pattern_declaration_scope(parsed, node) {
+            return scope;
+        }
+    }
+    if let Some(scope) = rust_scope::closure_parameter_scope(parsed, node) {
+        return scope;
     }
     let mut current = node.parent();
     while let Some(parent) = current {
@@ -564,6 +584,9 @@ fn function_scope(_parsed: &ParsedFile, func_node: &Node<'_>) -> ScopeSpan {
 }
 
 pub(super) fn scope_span(node: Node<'_>) -> ScopeSpan {
+    if let Some(span) = rust_scope::let_header_scope(node) {
+        return span;
+    }
     ScopeSpan {
         start_byte: node.start_byte(),
         end_byte: node.end_byte(),

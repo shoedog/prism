@@ -409,6 +409,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                 .chain(super::c::CASES)
                 .chain(super::cpp::CASES)
                 .chain(super::rust::CASES)
+                .chain(super::rust::PATTERN_CASES)
                 .chain(super::lua::CASES)
                 .chain(super::terraform::CASES)
                 .chain(super::bash::CASES)

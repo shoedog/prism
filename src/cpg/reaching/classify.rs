@@ -38,6 +38,9 @@ pub(super) fn classify_edge(
     if capture::is_capture(edge, capture_facts) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
+    if scope::rust_scope::let_else_cfg_gap(parsed, edge, defs) {
+        return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
     if let Some(construct_line) = unplaced_go_parameter(parsed, edge) {
         return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
@@ -368,6 +371,17 @@ fn uncertain_construct_on_route(
                     crate::languages::Language::Java,
                     "record_pattern" | "type_pattern" | "instanceof_expression"
                 ) | (crate::languages::Language::Bash, "for_statement")
+                    | (
+                        crate::languages::Language::Rust,
+                        "captured_pattern"
+                            | "mut_pattern"
+                            | "or_pattern"
+                            | "ref_pattern"
+                            | "slice_pattern"
+                            | "struct_pattern"
+                            | "tuple_pattern"
+                            | "tuple_struct_pattern"
+                    )
                     | (
                         crate::languages::Language::Python,
                         "global_statement"

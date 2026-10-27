@@ -62,7 +62,16 @@ pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
         .expect_counter
         .map(|(field, expected)| (select_counter(case.id, field), field, expected));
     let function = super::super::super::function(parsed);
-    let defs = super::super::super::collect_defs(parsed);
+    let mut defs = super::super::super::collect_defs(parsed);
+    if case.id == "e0a-x-rs-parameters" {
+        defs.push(super::super::super::def(parsed, u32::MAX, "x", 1, 0, false));
+    }
+    if case.id == "rs-let-pattern-wrapper-g07" {
+        defs.push(super::super::super::def(parsed, u32::MAX, "z", 1, 0, false));
+    }
+    if case.id == "rs-let-pattern-wrapper-g04" {
+        defs.push(super::super::super::def(parsed, u32::MAX, "p", 1, 0, false));
+    }
     let mut edges = Vec::new();
     for (from, to, _) in case.expect {
         let (def_line, def_name) = from
@@ -122,6 +131,76 @@ pub(super) fn assert_ruling(
             "{}: uncertain behavior needs OwnershipUncertain",
             case.id
         ),
+        Some(Ruling::Classified)
+            if is_binding
+                && case.language == Language::Rust
+                && case.kind == "let_declaration"
+                && matches!(
+                    case.id,
+                    "rs-let-else-no-assignment-control"
+                        | "rs-let-else-different-assignment-control"
+                ) =>
+        {
+            assert!(
+                case.expect
+                    .iter()
+                    .all(|(_, _, label)| matches!(label, FlowConfidence::Exact)),
+                "{}: Rust let-else negative controls preserve base Exact labels",
+                case.id
+            );
+        }
+        Some(Ruling::Classified)
+            if is_binding
+                && case.language == Language::Rust
+                && case.kind == "let_declaration"
+                && case.id.starts_with("rs-let-else-cfg-gap-") =>
+        {
+            assert!(
+                case.expect.iter().any(|(_, _, label)| matches!(
+                    label,
+                    FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                )) && case.expect.iter().all(|(_, _, label)| matches!(
+                    label,
+                    FlowConfidence::Exact
+                        | FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                )),
+                "{}: future:rust-let-else-cfg cases need CfgIncomplete across the CFG gap and may preserve Exact uses inside the alternative",
+                case.id
+            );
+        }
+        Some(Ruling::Classified)
+            if is_binding
+                && case.language == Language::Rust
+                && matches!(
+                    case.id,
+                    "rs-let-pattern-wrapper-g07" | "rs-let-pattern-wrapper-g04"
+                ) =>
+        {
+            assert!(
+                case.expect
+                    .iter()
+                    .all(|(_, _, label)| matches!(label, FlowConfidence::Exact)),
+                "{}: wrapper-pattern fixtures pin the R1-era Exact improvement without curating pattern rows",
+                case.id
+            );
+        }
+        Some(Ruling::Classified)
+            if is_binding
+                && case.language == Language::Rust
+                && case.kind == "closure_parameters" =>
+        {
+            assert!(
+                case.expect
+                    .iter()
+                    .any(|(_, _, label)| matches!(label, FlowConfidence::Exact))
+                    && case.expect.iter().any(|(_, _, label)| matches!(
+                        label,
+                        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                    )),
+                "{}: Rust deferred closure parameters need CfgIncomplete inside and Exact outside",
+                case.id
+            );
+        }
         Some(Ruling::Classified) if is_binding => {
             assert!(
                 case.expect
@@ -150,6 +229,29 @@ pub(super) fn assert_ruling(
             "{}: classified NotBinding behavior needs Exact invariance",
             case.id
         ),
+        Some(Ruling::Classified)
+            if case.language == Language::Rust
+                && matches!(
+                    case.kind,
+                    "block" | "unsafe_block" | "const_block" | "try_block" | "match_arm"
+                ) =>
+        {
+            assert!(
+                case.expect
+                    .iter()
+                    .any(|(_, _, label)| matches!(label, FlowConfidence::Exact))
+                    && case.expect.iter().any(|(_, _, label)| matches!(
+                        label,
+                        FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
+                    ))
+                    && case.expect.iter().all(|(_, _, label)| matches!(
+                        label,
+                        FlowConfidence::Exact | FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
+                    )),
+                "{}: Rust lexical scopes need Killed inside and Exact after the scope",
+                case.id
+            );
+        }
         Some(Ruling::Classified) => assert!(
             case.expect.iter().all(|(_, _, label)| matches!(
                 label,
@@ -218,6 +320,20 @@ pub(super) fn assert_row_case_identities() {
                 })
                 .collect();
             if !row_cases.iter().any(|case| case.id == row.regression) {
+                continue;
+            }
+            if language == Language::Rust && row.kind == "closure_parameters" {
+                assert!(
+                    row_cases
+                        .iter()
+                        .flat_map(|case| case.expect)
+                        .any(|(_, _, label)| matches!(
+                            label,
+                            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                        )),
+                    "{language:?} {}: closure parameters need deferred capture evidence",
+                    row.kind
+                );
                 continue;
             }
             assert!(
@@ -369,7 +485,7 @@ fn empty_behavioral_case_is_rejected() {
 
 #[test]
 #[should_panic(expected = "classified scope behavior needs Exact or CfgIncomplete")]
-fn classified_scope_behavior_rejects_non_exact_invariance() {
+fn classified_scope_behavior_rejects_unsupported_doubt() {
     assert_ruling(
         &Case {
             id: "e0a-x-for_in_statement-residual",

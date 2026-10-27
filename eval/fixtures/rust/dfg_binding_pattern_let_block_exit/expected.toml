@@ -1,0 +1,28 @@
+[case]
+language = "rust"
+capability = "dfg_binding_pattern_let_block_exit"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.rs:12:a"
+to = "main.rs:14:a"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+
+[[expect.edges]]
+from = "main.rs:2:a"
+to = "main.rs:8:a"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.rs:4:a"
+to = "main.rs:5:a"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.rs:4:a"
+to = "main.rs:8:a"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 7

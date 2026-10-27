@@ -96,8 +96,10 @@ pub(in crate::cpg::reaching) fn visibility_span(
             SpanKind::Empty
         };
     }
+    if parsed.language == Language::Rust {
+        return rust_visibility_span(binder_node);
+    }
     let scoped = match parsed.language {
-        Language::Rust => rust_visibility_node(binder_node),
         Language::Python => ancestor_field(binder_node, "if_statement", "consequence"),
         Language::Go | Language::JavaScript | Language::TypeScript | Language::Tsx => {
             nearest_field(binder_node, "body")
@@ -137,17 +139,101 @@ fn nearest_field<'a>(mut node: Node<'a>, field: &str) -> Option<Node<'a>> {
     None
 }
 
-fn rust_visibility_node(binder_node: Node<'_>) -> Option<Node<'_>> {
+fn rust_visibility_span(binder_node: Node<'_>) -> SpanKind {
     let mut current = binder_node;
     while let Some(parent) = current.parent() {
         match parent.kind() {
-            "match_arm" => return parent.child_by_field_name("value"),
-            "if_expression" => return parent.child_by_field_name("consequence"),
-            "while_expression" => return parent.child_by_field_name("body"),
+            "let_condition" => return rust_let_condition_span(parent),
+            "let_declaration" => return rust_following_scope(parent),
+            "match_arm" => return rust_field_span(parent, "value"),
+            "for_expression" | "closure_expression" => return rust_field_span(parent, "body"),
+            "if_expression" => return rust_field_span(parent, "consequence"),
+            "while_expression" => return rust_field_span(parent, "body"),
             _ => current = parent,
         }
     }
-    None
+    SpanKind::Unknown
+}
+
+fn rust_let_condition_span(let_condition: Node<'_>) -> SpanKind {
+    let mut current = let_condition;
+    while let Some(parent) = current.parent() {
+        let (condition, body) = match parent.kind() {
+            "if_expression" => (
+                parent.child_by_field_name("condition"),
+                parent.child_by_field_name("consequence"),
+            ),
+            "while_expression" => (
+                parent.child_by_field_name("condition"),
+                parent.child_by_field_name("body"),
+            ),
+            "match_arm" => (
+                current.child_by_field_name("condition"),
+                parent.child_by_field_name("value"),
+            ),
+            _ => {
+                current = parent;
+                continue;
+            }
+        };
+        let (Some(condition), Some(body)) = (condition, body) else {
+            return SpanKind::Unknown;
+        };
+        let mut spans = Vec::new();
+        if let_condition.end_byte() < condition.end_byte() {
+            spans.push(ByteSpan {
+                start: let_condition.end_byte(),
+                end: condition.end_byte(),
+            });
+        }
+        if body.named_child_count() > 0 {
+            spans.push(ByteSpan {
+                start: body.start_byte(),
+                end: body.end_byte(),
+            });
+        }
+        return if spans.is_empty() {
+            SpanKind::Empty
+        } else {
+            SpanKind::Known(spans)
+        };
+    }
+    SpanKind::Unknown
+}
+
+fn rust_following_scope(declaration: Node<'_>) -> SpanKind {
+    let mut current = declaration;
+    while let Some(parent) = current.parent() {
+        if matches!(
+            parent.kind(),
+            "block" | "unsafe_block" | "const_block" | "try_block" | "match_arm"
+        ) {
+            return if declaration.end_byte() < parent.end_byte() {
+                SpanKind::Known(vec![ByteSpan {
+                    start: declaration.end_byte(),
+                    end: parent.end_byte(),
+                }])
+            } else {
+                SpanKind::Empty
+            };
+        }
+        current = parent;
+    }
+    SpanKind::Unknown
+}
+
+fn rust_field_span(owner: Node<'_>, field: &str) -> SpanKind {
+    let Some(node) = owner.child_by_field_name(field) else {
+        return SpanKind::Unknown;
+    };
+    if node.named_child_count() == 0 {
+        SpanKind::Empty
+    } else {
+        SpanKind::Known(vec![ByteSpan {
+            start: node.start_byte(),
+            end: node.end_byte(),
+        }])
+    }
 }
 
 fn guard_is_negated(parsed: &ParsedFile, guard: Node<'_>, condition: Node<'_>) -> Option<bool> {

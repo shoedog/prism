@@ -1,0 +1,15 @@
+[case]
+language = "rust"
+capability = "dfg_binding_let_pattern_wrapper"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.rs:3:z"
+to = "main.rs:5:z"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.rs:10:p"
+to = "main.rs:12:p"
+confidence = "exact"

@@ -73,8 +73,10 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
     if parsed.language == Language::Python && is_python_match_pattern(node) {
         return subtree_has_name(parsed, node, name);
     }
+    if parsed.language == Language::Rust && is_rust_pattern_kind(node.kind()) {
+        return rust_pattern_introduces_name(parsed, node, name);
+    }
     let special_target = match (parsed.language, node.kind()) {
-        (Language::Rust, "tuple_struct_pattern") => Some(node),
         (Language::Bash, "for_statement") => node.child_by_field_name("variable"),
         (Language::Python, "global_statement" | "nonlocal_statement") => Some(node),
         _ => None,
@@ -90,6 +92,59 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
                     .is_some_and(|target| target_introduces_name(parsed, node, target, name))
             })
         })
+}
+
+fn is_rust_pattern_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        "captured_pattern"
+            | "mut_pattern"
+            | "or_pattern"
+            | "ref_pattern"
+            | "slice_pattern"
+            | "struct_pattern"
+            | "tuple_pattern"
+            | "tuple_struct_pattern"
+    )
+}
+
+pub(super) fn contains_scope_bounded_rust_pattern(node: Node<'_>) -> bool {
+    if is_rust_pattern_kind(node.kind()) {
+        return true;
+    }
+    let mut cursor = node.walk();
+    let contains = node
+        .named_children(&mut cursor)
+        .any(contains_scope_bounded_rust_pattern);
+    contains
+}
+
+pub(super) fn rust_pattern_introduces_name(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    name: &str,
+) -> bool {
+    if node.kind() == "identifier" {
+        return parsed.node_text(&node) == name;
+    }
+    if node.kind() == "field_pattern" {
+        return node
+            .child_by_field_name("pattern")
+            .is_some_and(|pattern| rust_pattern_introduces_name(parsed, pattern, name))
+            || (node.child_by_field_name("pattern").is_none()
+                && node
+                    .child_by_field_name("name")
+                    .is_some_and(|field| parsed.node_text(&field) == name));
+    }
+    let excluded = matches!(node.kind(), "struct_pattern" | "tuple_struct_pattern")
+        .then(|| node.child_by_field_name("type"))
+        .flatten();
+    let mut cursor = node.walk();
+    let introduces = node.named_children(&mut cursor).any(|child| {
+        excluded.is_none_or(|type_node| child.id() != type_node.id())
+            && rust_pattern_introduces_name(parsed, child, name)
+    });
+    introduces
 }
 
 pub(super) fn is_python_match_pattern(node: Node<'_>) -> bool {
@@ -301,6 +356,12 @@ pub(super) fn introduction_is_classified(
     }
 
     if parsed.language == Language::Python && is_python_comprehension_target(node) {
+        return true;
+    }
+
+    if parsed.language == Language::Rust && contains_scope_bounded_rust_pattern(target) {
+        // The curated Task 15 rows carry their own scope-bounded Rule 1
+        // handling. Do not also feed them to the older function-wide fallback.
         return true;
     }
 
