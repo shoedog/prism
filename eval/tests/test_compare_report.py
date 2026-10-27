@@ -1,14 +1,22 @@
+import copy
 import json
+from pathlib import Path
+
+import pytest
 from tests.helpers import ADJ, ADJ_DIGEST, ADJ_RECORDS, DECLARED_ADJ, FakeOracle, FakeSut, base_ids, edit, fake_run, quick_probes
 from tier_a import pinned as pinned_mod
-from tier_a.model import FunctionDef, Location
+from tier_a import cli
+from tier_a.model import CallEdge, FunctionDef, Location
 from tier_a.oracles import OracleError
 from tier_a.sut import SutError
 from tier_a.strata import STRATA
 from tier_a.metrics import wilson
 from tier_a.closure import raw_digest
 from tier_a import commands
-from tier_a.compare_report import COMPARE_IDENTITIES, COMPARE_POLICY, PINNED_RANK, SUT_ERROR_LEG, classify_probe, compare_runs, join_probes, oracle_answer, partition_by_oracle, recall_nondecreasing, wilson_regressed
+from tier_a.compare_report import COMPARE_IDENTITIES, COMPARE_POLICY, PINNED_RANK, SUT_ERROR_LEG, classify_probe, compare_runs, join_probes, oracle_answer, partition_by_oracle, recall_nondecreasing, render_compare_md, wilson_regressed
+
+
+EVAL_DIR = Path(__file__).resolve().parents[1]
 
 
 def test_classes_on_the_sut_axis():
@@ -182,3 +190,147 @@ def test_compare_subcommand_exit_contract(monkeypatch, tmp_path):
     assert commands.dispatch(
         ["compare", "--base", str(paths[0]), "--candidate", str(paths[1]), "--out", str(paths[2])]
     ) == 2
+
+
+@pytest.mark.parametrize("bad_name,language", [
+    ("route_decorator_guard", "python"),
+    ("route_handler_entry", "python"),
+    ("route_handler_entry", "javascript"),
+])
+def test_matrix_fixture_identity_preserves_colliding_rows(bad_name, language):
+    from tier_a.matrix import _run_callers_case, load_case
+
+    class FixtureSut:
+        def __init__(self, bad):
+            self.bad = bad
+
+        def callers(self, root, fd):
+            case = load_case(Path(root) / "expected.toml")
+            sites = set(case.expect_callers)
+            if self.bad and Path(root).name == bad_name:
+                sites = set() if sites else {("app.py", 99)}
+            return [
+                CallEdge(
+                    "caller", fd, None, None, Location(file, line, line),
+                    case.expected_resolution_kind or "framework_entry",
+                )
+                for file, line in sites
+            ]
+
+    names = (
+        ["route_decorator_guard", "route_handler_entry", "route_handler_entry_fastapi"]
+        if language == "python"
+        else ["route_handler_entry", "route_receiver_guard"]
+    )
+    cases = [
+        load_case(EVAL_DIR / "fixtures" / language / name / "expected.toml")
+        for name in names
+    ]
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    base = fake_run(ids); candidate = fake_run(cand)
+    base["matrix"] = [
+        cli.matrix_result_to_json(_run_callers_case(case, language, FixtureSut(False)))
+        for case in cases
+    ]
+    candidate["matrix"] = [
+        cli.matrix_result_to_json(_run_callers_case(case, language, FixtureSut(True)))
+        for case in cases
+    ]
+    unchanged = compare_runs(base, copy.deepcopy(base), DECLARED_ADJ)
+    assert unchanged["verdict"] == "NO_REGRESSION" and unchanged["matrix_diffs"] == {}
+    index = names.index(bad_name)
+    fixture_id = str(cases[index].path)
+    missing = copy.deepcopy(candidate)
+    missing["matrix"].pop(index)
+    missing_cmp = compare_runs(base, missing, DECLARED_ADJ)
+    assert missing_cmp["matrix_diffs"][fixture_id] == ["ok", None]
+    cmp = compare_runs(base, candidate, DECLARED_ADJ)
+    assert cmp["matrix_diffs"][fixture_id] == ["ok", "regression"]
+    assert cmp["verdict"] == "REGRESSION(matrix_no_regression)"
+
+
+def _pinned_edge(file, line):
+    fd = FunctionDef("f", "function", None, Location("src/f.rs", 1, 1), 1)
+    return CallEdge("caller", fd, Location(file, line, line), "caller", Location(file, line, line))
+
+
+def test_pinned_oracle_sites_use_sets_for_improvements_and_real_changes():
+    cfg = {"id": "pin-duplicates", "expected": "known_fail"}
+    a, b, miss = _pinned_edge("src/a.rs", 3), _pinned_edge("src/b.rs", 8), _pinned_edge("src/miss.rs", 9)
+    known = pinned_mod.evaluate_pinned(cfg, [miss], [a, b], False)
+    flip = pinned_mod.evaluate_pinned(cfg, [b, a], [b, a, a], False)
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    cmp = compare_runs(fake_run(ids, pinned=[known]), fake_run(cand, pinned=[flip]), DECLARED_ADJ)
+    assert cmp["pinned_oracle_changed"] == []
+    assert cmp["criteria"]["pinned_no_regression"] is True
+    assert cmp["verdict"] == "NO_REGRESSION"
+    moved = copy.deepcopy(flip)
+    moved["oracle_sites"] = ["src/other.rs:4"]
+    changed = compare_runs(fake_run(ids, pinned=[known]), fake_run(cand, pinned=[moved]), DECLARED_ADJ)
+    assert changed["pinned_oracle_changed"] == ["pin-duplicates"]
+    assert changed["pinned_diffs"] == {}
+
+
+def test_pinned_oracle_site_duplicates_do_not_hide_regression():
+    cfg = {"id": "pin-duplicates", "expected": "known_fail"}
+    a, b, miss = _pinned_edge("src/a.rs", 3), _pinned_edge("src/b.rs", 8), _pinned_edge("src/miss.rs", 9)
+    flip = pinned_mod.evaluate_pinned(cfg, [a, b], [b, a, a], False)
+    known = pinned_mod.evaluate_pinned(cfg, [miss], [a, b], False)
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    cmp = compare_runs(fake_run(ids, pinned=[flip]), fake_run(cand, pinned=[known]), DECLARED_ADJ)
+    assert cmp["pinned_oracle_changed"] == []
+    assert cmp["pinned_diffs"] == {"pin-duplicates": ["flip_candidate", "known_fail"]}
+    assert cmp["verdict"] == "REGRESSION(pinned_no_regression)"
+
+
+def test_markdown_renders_complete_comparison_contract():
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    cmp = compare_runs(fake_run(ids), fake_run(cand), DECLARED_ADJ)
+    cmp["runs"] = {
+        "base": {"path": "BASE-RUN-PATH", "digest": "BASE-RUN-DIGEST"},
+        "candidate": {"path": "CAND-RUN-PATH", "digest": "CAND-RUN-DIGEST"},
+    }
+    cmp["meta"] = {"harness_sha": "COMPARE-HARNESS-SHA", "generated_at": "GENERATED-AT"}
+    cmp["policy"] = {"oracle_changed_max_fraction": 0.123, "min_comparable_per_stratum": 7}
+    cmp["oracle_changed"] = {"count": 1, "fraction": 0.03125, "ids": ["ORACLE-CHANGED-ID"]}
+    cmp["oracle_changed_answers"] = {"ORACLE-CHANGED-ID": {"base": ["BASE-ANSWER"], "candidate": ["CAND-ANSWER"]}}
+    cmp["pinned_oracle_changed"] = ["PINNED-EXCLUSION-ID"]
+    cmp["pinned_diffs"] = {"PIN-DIFF-ID": ["PIN-BEFORE", "PIN-AFTER"]}
+    cmp["matrix_diffs"] = {"MATRIX-DIFF-ID": ["MATRIX-BEFORE", "MATRIX-AFTER"]}
+    cmp["wilson_flags"] = ["WILSON-FLAG-VALUE"]
+    cmp["recall_regressions"] = ["RECALL-REGRESSION-VALUE"]
+    cmp["status_transitions"] = {"STATUS-ID": ["STATUS-BEFORE", "STATUS-AFTER"]}
+    cmp["m2"] = {
+        "base": {"direction": {"stratum": {"raw": {"marker": "BASE-RAW"}, "corrected": {"marker": "BASE-CORRECTED"}}}},
+        "candidate": {"direction": {"stratum": {"raw": {"marker": "CAND-RAW"}, "corrected": {"marker": "CAND-CORRECTED"}}}},
+    }
+    cmp["full_sample_m2"] = {"base": {"marker": "BASE-FULL-SAMPLE"}, "candidate": {"marker": "CAND-FULL-SAMPLE"}}
+    markdown = render_compare_md(cmp)
+    for literal in (
+        "BASE-RUN-PATH", "BASE-RUN-DIGEST", "CAND-RUN-PATH", "CAND-RUN-DIGEST",
+        "COMPARE-HARNESS-SHA", "GENERATED-AT", "0.123", "7", "1", "0.03125",
+        "ORACLE-CHANGED-ID", "BASE-ANSWER", "CAND-ANSWER", "PINNED-EXCLUSION-ID",
+        "PIN-DIFF-ID", "MATRIX-DIFF-ID", "WILSON-FLAG-VALUE", "RECALL-REGRESSION-VALUE",
+        "STATUS-ID", "BASE-RAW", "CAND-RAW", "BASE-CORRECTED", "CAND-CORRECTED",
+        "BASE-FULL-SAMPLE", "CAND-FULL-SAMPLE",
+    ):
+        assert literal in markdown
+
+
+def test_not_comparable_reports_identity_churn_and_floor_reasons_in_order():
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    base = fake_run(ids); candidate = fake_run(cand)
+    candidate["meta"]["harness_sha"] = "d" * 40
+    for i in range(1, 4):
+        candidate["probes"][f"callers:src/U-free.rs:{i}"]["oracle_sites"] = [["changed.rs", 9, 9]]
+    candidate["probes"]["callers:src/U-method.rs:1"]["oracle_sites"] = [["changed.rs", 9, 9]]
+    cmp = compare_runs(base, candidate, DECLARED_ADJ)
+    assert cmp["verdict"] == "NOT_COMPARABLE(harness_sha; oracle_changed: 4/30 > 0.10; stratum U-free: 3 comparable < 4)"
+    assert cmp["oracle_changed"] == {
+        "count": 4,
+        "fraction": 4 / 30,
+        "ids": [
+            "callers:src/U-free.rs:1", "callers:src/U-free.rs:2",
+            "callers:src/U-free.rs:3", "callers:src/U-method.rs:1",
+        ],
+    }

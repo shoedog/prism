@@ -493,7 +493,7 @@ def matrix_result_to_json(result) -> dict:
         got = result.got
         expected = result.expected
         got_kinds = {}
-    return {
+    row = {
         "capability": result.capability,
         "language": result.language,
         "outcome": result.outcome,
@@ -504,6 +504,10 @@ def matrix_result_to_json(result) -> dict:
         "expected_resolution_kind": result.expected_resolution_kind,
         "forbid_resolution_kind": result.forbid_resolution_kind,
     }
+    fixture_id = getattr(result, "fixture_id", None)
+    if fixture_id is not None:
+        row["id"] = fixture_id
+    return row
 
 
 def run_m3_spotcheck(

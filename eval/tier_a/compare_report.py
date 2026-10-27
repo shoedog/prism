@@ -235,6 +235,14 @@ def _common_m2(run: dict, ids: set[str], records: list[Adjudication]) -> dict:
     )[0]
 
 
+def _canonical_pinned_sites(row: dict) -> tuple:
+    sites = {
+        tuple(site[:3]) if isinstance(site, (list, tuple)) else site
+        for site in row.get("oracle_sites", [])
+    }
+    return tuple(sorted(sites, key=lambda site: json.dumps(site, sort_keys=True)))
+
+
 def _pinned_result(base_run: dict, cand_run: dict) -> tuple[list[str], dict, bool]:
     base = {row["id"]: row for row in base_run.get("pinned", [])}
     cand = {row["id"]: row for row in cand_run.get("pinned", [])}
@@ -252,7 +260,7 @@ def _pinned_result(base_run: dict, cand_run: dict) -> tuple[list[str], dict, boo
                 and c is not None
                 and "oracle_sites" in b
                 and "oracle_sites" in c
-                and sorted(b["oracle_sites"]) != sorted(c["oracle_sites"])
+                and _canonical_pinned_sites(b) != _canonical_pinned_sites(c)
             )
         )
         if oracle_moved:
@@ -351,7 +359,7 @@ def compare_runs(
         refusal.append("probe_set")
     if not adjudications_match:
         refusal.append("adjudications_digest")
-    if refusal:
+    if not probe_sets_equal:
         report["verdict"] = f"NOT_COMPARABLE({'; '.join(refusal)})"
         return report
 
@@ -374,8 +382,9 @@ def compare_runs(
     }
 
     threshold = policy["oracle_changed_max_fraction"]
+    oracle_refusal = []
     if fraction > threshold:
-        refusal.append(
+        oracle_refusal.append(
             f"oracle_changed: {len(changed_ids)}/{total} > {threshold:.2f}"
         )
     present_strata = {_stratum(legs) for legs in joined.values()} - {None}
@@ -385,8 +394,12 @@ def compare_runs(
             continue
         count = sum(_stratum(legs) == stratum for legs in comparable.values())
         if count < floor:
-            refusal.append(f"stratum {stratum}: {count} comparable < {floor}")
-    criteria["oracle_changed_within_threshold"] = not refusal
+            oracle_refusal.append(f"stratum {stratum}: {count} comparable < {floor}")
+    criteria["oracle_changed_within_threshold"] = not oracle_refusal
+    refusal.extend(oracle_refusal)
+    if refusal:
+        report["verdict"] = f"NOT_COMPARABLE({'; '.join(refusal)})"
+        return report
 
     classes = {
         pid: classify_probe(pid, *legs, base_meta, cand_meta)
@@ -427,10 +440,6 @@ def compare_runs(
     report["matrix_diffs"] = matrix_diffs
     criteria["matrix_no_regression"] = matrix_ok
 
-    if refusal:
-        report["verdict"] = f"NOT_COMPARABLE({'; '.join(refusal)})"
-        return report
-
     regressions = []
     for criterion, label in (
         ("both_baseline_valid", "both_baseline_valid"),
@@ -450,41 +459,6 @@ def compare_runs(
 
 def render_compare_md(cmp: dict) -> str:
     """Render the JSON comparison as a reviewable Markdown report."""
-    lines = [
-        "# Tier-A base-vs-candidate comparison",
-        "",
-        f"**Verdict:** `{cmp['verdict']}`",
-        "",
-        "## Identities",
-        "",
-        "```json",
-        json.dumps(cmp["identities"], indent=2, sort_keys=True),
-        "```",
-        "",
-        "## Criteria",
-        "",
-    ]
-    lines.extend(
-        f"- [{'x' if passed else ' '}] `{name}`"
-        for name, passed in cmp["criteria"].items()
-    )
-    lines.extend(["", "## Class counts", ""])
-    lines.extend(f"- `{name}`: {count}" for name, count in cmp["counts"].items())
-    lines.extend(["", "## Oracle changed (excluded)", ""])
-    if not cmp["oracle_changed"]["ids"]:
-        lines.append("None.")
-    for pid in cmp["oracle_changed"]["ids"]:
-        answers = cmp["oracle_changed_answers"][pid]
-        lines.extend(
-            [
-                f"- `{pid}`",
-                f"  - base: `{json.dumps(answers['base'], sort_keys=True)}`",
-                f"  - candidate: `{json.dumps(answers['candidate'], sort_keys=True)}`",
-            ]
-        )
-    lines.extend(["", "## Status transitions", "", "```json"])
-    lines.append(json.dumps(cmp["status_transitions"], indent=2, sort_keys=True))
-    lines.extend(["```", "", "## Metric comparison", "", "```json"])
-    lines.append(json.dumps(cmp["m2"], indent=2, sort_keys=True))
-    lines.extend(["```", ""])
-    return "\n".join(lines)
+    from .compare_render import render_compare_md as render
+
+    return render(cmp)
