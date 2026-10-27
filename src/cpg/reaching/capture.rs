@@ -36,6 +36,11 @@ pub(super) fn capture_facts(parsed: &ParsedFile, func_node: Node<'_>) -> Capture
             }
             if body.id() != node.id() {
                 visit_node(parsed, body, true, facts);
+            } else {
+                let mut c = node.walk();
+                for child in node.children(&mut c) {
+                    visit_node(parsed, child, true, facts);
+                }
             }
             return;
         }

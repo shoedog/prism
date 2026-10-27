@@ -192,6 +192,50 @@ fn python_concise_nested_lambda_uses_inner_deferred_timing() {
 }
 
 #[test]
+fn python_decorated_definition_iife_uses_inner_immediate_timing() {
+    assert_behavior(&supplemental_case(
+        "py-decorated-definition-iife",
+        Language::Python,
+        "def outer():\n    x = source()\n    @deco\n    def inner(): (lambda: sink(x))()\n    return x\n",
+        &[("2:x", "4:x", CFG_INCOMPLETE)],
+        1,
+    ));
+}
+
+#[test]
+fn python_decorated_definition_stored_lambda_stays_deferred() {
+    assert_behavior(&supplemental_case(
+        "py-decorated-definition-stored-lambda",
+        Language::Python,
+        "def outer():\n    x = source()\n    @deco\n    def inner():\n        stored = lambda: sink(x)\n    return x\n",
+        &[("2:x", "5:x", CFG_INCOMPLETE)],
+        0,
+    ));
+}
+
+#[test]
+fn python_decorated_definition_concise_nested_lambda_stays_deferred() {
+    assert_behavior(&supplemental_case(
+        "py-decorated-definition-concise-nested-lambda",
+        Language::Python,
+        "def outer():\n    x = source()\n    @deco\n    def inner(): (lambda: lambda: sink(x))()\n    return x\n",
+        &[("2:x", "4:x", CFG_INCOMPLETE)],
+        0,
+    ));
+}
+
+#[test]
+fn python_undecorated_definition_iife_control_is_immediate() {
+    assert_behavior(&supplemental_case(
+        "py-undecorated-definition-iife-control",
+        Language::Python,
+        "def outer():\n    x = source()\n    def inner(): (lambda: sink(x))()\n    return x\n",
+        &[("2:x", "3:x", CFG_INCOMPLETE)],
+        1,
+    ));
+}
+
+#[test]
 fn js_parenthesized_concise_nested_arrow_stays_deferred() {
     assert_nested_capture_counter(
         "js-parenthesized-concise-nested-arrow",
