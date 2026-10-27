@@ -19,6 +19,7 @@ cargo test --features mcp                   # Run tests with MCP enabled
 ```
 
 ### Mutation gate
+Mutgate waits for live host-quiet markers before starting; `--plan-only`, `--no-quiet-wait` or `HOST_QUIET_IGNORE=1` skips waiting (see `scripts/hostquiet/README.md`).
 ```bash
 python3 scripts/mutgate/mutgate.py --since main --scope fn    # fast ADVISORY check each review round
 python3 scripts/mutgate/mutgate.py --since main --scope fn --authoritative  # pre-merge default, plus touched lanes

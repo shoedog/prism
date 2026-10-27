@@ -256,6 +256,9 @@ class GateRegressionTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(prefix='mutgate-regression-')
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        quiet_env = patch.dict(os.environ, {'HOST_QUIET_DIR': str(self.root / 'quiet')})
+        quiet_env.start()
+        self.addCleanup(quiet_env.stop)
         (self.root / 'src').mkdir()
         (self.root / 'Cargo.toml').write_text(
             '[package]\nname="prism"\nversion="0.0.0"\nedition="2021"\n')
