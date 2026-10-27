@@ -64,7 +64,10 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
                     .any(|identifier| parsed.node_text(&identifier) == name)
             });
     }
-    if parsed.language == Language::Go && node.kind() == "type_switch_statement" {
+    if matches!(
+        (parsed.language, node.kind()),
+        (Language::Go, "type_switch_statement") | (Language::C, "declaration")
+    ) {
         return select_binding_row(parsed, node).is_some_and(|row| {
             super::transfer::row_introduced_identifiers(parsed, node, row.fields)
                 .into_iter()
@@ -381,16 +384,13 @@ pub(super) fn introduction_is_classified(
     }
 
     if parsed.language == Language::Rust && contains_scope_bounded_rust_pattern(target) {
-        // The curated Task 15 rows carry their own scope-bounded Rule 1
-        // handling. Do not also feed them to the older function-wide fallback.
         return true;
     }
     if parsed.language == Language::JavaScript
         && javascript_uncertain_owner_introduces_target(parsed, node, target, root.function)
     {
-        // Task 16 rows carry scope-bounded Rule 1 handling. Recording the same
-        // composite target in the legacy fallback would extend doubt to the
-        // end of the function after the lexical declaration's scope has ended.
+        // Task 16 rows carry scope-bounded Rule 1; do not extend composite doubt
+        // into the function-wide fallback after lexical scope exit.
         return true;
     }
 

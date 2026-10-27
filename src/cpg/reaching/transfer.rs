@@ -1,8 +1,12 @@
 //! Edge-local transfer nodes for classified binding reuse constructs.
 
+mod identifiers;
 mod route_effects;
 mod statement_defs;
 
+pub(super) use identifiers::{
+    introduced_identifiers, row_excludes_identifier, row_introduced_identifiers,
+};
 pub(super) use route_effects::{apply_explicit_kills, is_route_effect_node};
 pub(super) use statement_defs::materialize_def_sites_and_effects;
 
@@ -438,146 +442,6 @@ impl BindingFacts {
     pub(super) fn def_binding_count(&self) -> usize {
         self.def_bindings.len()
     }
-}
-
-pub(super) fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) -> Vec<Node<'a>> {
-    fn collect<'a>(parsed: &ParsedFile, node: Node<'a>, identifiers: &mut Vec<Node<'a>>) {
-        if node.kind() == "shorthand_property_identifier_pattern" {
-            identifiers.push(node);
-            return;
-        }
-        if parsed.language.is_identifier_node(node.kind()) {
-            identifiers.push(node);
-            return;
-        }
-        match node.kind() {
-            "as_pattern" | "aliased_import"
-                if parsed.language == crate::languages::Language::Python =>
-            {
-                if let Some(alias) = node.child_by_field_name("alias") {
-                    collect(parsed, alias, identifiers);
-                }
-            }
-            "except_group_clause" if parsed.language == crate::languages::Language::Python => {
-                let mut cursor = node.walk();
-                for child in node.named_children(&mut cursor) {
-                    if child.kind() == "as_pattern"
-                        || child
-                            .prev_sibling()
-                            .is_some_and(|previous| previous.kind() == "as")
-                    {
-                        collect(parsed, child, identifiers);
-                    }
-                }
-            }
-            "delete_statement" | "global_statement" | "nonlocal_statement"
-                if parsed.language == crate::languages::Language::Python =>
-            {
-                let mut cursor = node.walk();
-                for child in node.named_children(&mut cursor) {
-                    collect(parsed, child, identifiers);
-                }
-            }
-            "dotted_name" if parsed.language == crate::languages::Language::Python => {
-                let mut cursor = node.walk();
-                let mut children: Vec<_> = node.named_children(&mut cursor).collect();
-                let selected = if node
-                    .parent()
-                    .is_some_and(|parent| parent.kind() == "import_statement")
-                {
-                    children.drain(..).next()
-                } else {
-                    children.pop()
-                };
-                if let Some(identifier) = selected {
-                    collect(parsed, identifier, identifiers);
-                }
-            }
-            "pair_pattern" => {
-                if let Some(value) = node.child_by_field_name("value") {
-                    collect(parsed, value, identifiers);
-                }
-            }
-            "assignment_pattern" | "object_assignment_pattern" => {
-                if let Some(left) = node.child_by_field_name("left") {
-                    collect(parsed, left, identifiers);
-                }
-            }
-            "object_pattern"
-            | "array_pattern"
-            | "rest_pattern"
-            | "parenthesized_expression"
-            | "parenthesized_pattern"
-            | "expression_list"
-            | "as_pattern_target"
-            | "pattern_list"
-            | "tuple"
-            | "tuple_pattern"
-            | "list"
-            | "list_pattern"
-            | "list_splat_pattern"
-            | "splat_pattern" => {
-                let mut cursor = node.walk();
-                for child in node.named_children(&mut cursor) {
-                    collect(parsed, child, identifiers);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    let mut identifiers = Vec::new();
-    collect(parsed, node, &mut identifiers);
-    identifiers
-}
-
-pub(super) fn row_introduced_identifiers<'a>(
-    parsed: &ParsedFile,
-    node: Node<'a>,
-    fields: &[&str],
-) -> Vec<Node<'a>> {
-    let mut identifiers = Vec::new();
-    for field in fields {
-        let mut cursor = node.walk();
-        for target in node.children_by_field_name(field, &mut cursor) {
-            if parsed.language == crate::languages::Language::Python
-                && matches!(node.kind(), "except_clause" | "with_item")
-                && *field == "value"
-                && target.kind() != "as_pattern"
-            {
-                continue;
-            }
-            identifiers.extend(introduced_identifiers(parsed, target));
-        }
-    }
-    if parsed.language == crate::languages::Language::Python
-        && (fields.is_empty()
-            && matches!(
-                node.kind(),
-                "except_group_clause"
-                    | "delete_statement"
-                    | "global_statement"
-                    | "nonlocal_statement"
-            ))
-    {
-        identifiers.extend(introduced_identifiers(parsed, node));
-    }
-    identifiers.sort_by_key(Node::start_byte);
-    identifiers.dedup_by_key(|identifier| identifier.start_byte());
-    identifiers
-}
-
-pub(super) fn row_excludes_identifier(
-    parsed: &ParsedFile,
-    node: Node<'_>,
-    fields: &[&str],
-    byte: usize,
-) -> bool {
-    let identifiers = row_introduced_identifiers(parsed, node, fields);
-    !fields.is_empty()
-        && identifiers
-            .iter()
-            .all(|identifier| identifier.start_byte() != byte)
 }
 
 fn byte_span(node: Node<'_>) -> ByteSpan {

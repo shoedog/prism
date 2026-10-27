@@ -345,7 +345,13 @@ fn uncertain_construct_on_route(
         })
         .filter_map(|binder| {
             let construct_line = binder.start_position().row + 1;
-            if construct_line <= edge.from.line {
+            let c_declarator_chain_definition = parsed.language
+                == crate::languages::Language::C
+                && binder.kind() == "declaration"
+                && construct_line == edge.from.line;
+            if construct_line < edge.from.line
+                || (construct_line == edge.from.line && !c_declarator_chain_definition)
+            {
                 return None;
             }
             let explicit_uncertain_binder = matches!(
@@ -383,6 +389,7 @@ fn uncertain_construct_on_route(
                             | "rest_pattern"
                             | "shorthand_property_identifier_pattern"
                     )
+                    | (crate::languages::Language::C, "declaration")
             ) || (parsed.language
                 == crate::languages::Language::Python
                 && matches!(binder.kind(), "tuple_pattern" | "list_pattern")
