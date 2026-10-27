@@ -1,5 +1,4 @@
 //! Intraprocedural reaching definitions over the existing line-granular CFG.
-
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cfg::{self, ArmProvenance, CfgEdge, EdgeOrigin};
@@ -318,13 +317,14 @@ fn reaching_definitions_impl(
         })
         .collect();
     let binders = transfer::discover(parsed, func_node, &defs);
-    let materialized_defs = transfer::materialize_existing_def_sites(
+    let (materialized_defs, route_effects) = transfer::materialize_def_sites_and_effects(
+        parsed,
+        func_node,
         &binders,
         &line_index,
         &mut defs,
         &mut mapped_defs,
     );
-    let route_effects = transfer::materialize_route_effects(parsed, func_node, &line_index);
     let original_successors = successors.clone();
     let cfg_view = CfgView {
         line_index: &line_index,

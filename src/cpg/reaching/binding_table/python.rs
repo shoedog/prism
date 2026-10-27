@@ -198,16 +198,24 @@ pub(super) static ROWS: &[BindingRow] = &[
     },
     BindingRow {
         language: Language::Python,
+        kind: "future_import_statement",
+        variant: None,
+        roles: RoleSet::of(&[Role::NotBinding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "py-future-import-not-binding",
+    },
+    BindingRow {
+        language: Language::Python,
         kind: "import_statement",
         variant: None,
         roles: RoleSet::of(&[Role::Binding]),
         fields: &["name"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Uncertain {
-            reason: "import statements have no CFG node; placement unprovable",
-            revisit: "future:python-import-cfg",
-        },
+        ruling: Ruling::Classified,
         regression: "py-import-statement-masks",
     },
     BindingRow {
@@ -218,10 +226,7 @@ pub(super) static ROWS: &[BindingRow] = &[
         fields: &["name"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Uncertain {
-            reason: "import statements have no CFG node; placement unprovable",
-            revisit: "future:python-import-cfg",
-        },
+        ruling: Ruling::Classified,
         regression: "py-import-from-statement-masks",
     },
     BindingRow {
@@ -232,11 +237,22 @@ pub(super) static ROWS: &[BindingRow] = &[
         fields: &["alias"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Uncertain {
-            reason: "import statements have no CFG node; placement unprovable",
-            revisit: "future:python-import-cfg",
-        },
+        ruling: Ruling::Classified,
         regression: "py-import-alias-masks",
+    },
+    BindingRow {
+        language: Language::Python,
+        kind: "wildcard_import",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Uncertain {
+            reason: "wildcard import",
+            revisit: "future:python-import-star",
+        },
+        regression: "py-import-star-uncertain",
     },
     BindingRow {
         language: Language::Python,

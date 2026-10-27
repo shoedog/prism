@@ -956,6 +956,9 @@ impl Language {
                     | "yield_statement"   // Python
                     | "assert_statement"  // Python
                     | "delete_statement"  // Python
+                    | "import_statement"  // Python
+                    | "import_from_statement" // Python
+                    | "future_import_statement" // Python
                     // Go
                     | "go_statement"
                     | "defer_statement"

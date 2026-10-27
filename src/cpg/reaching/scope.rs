@@ -183,7 +183,7 @@ impl BindingFacts {
             };
             let name = defs[index].path.base.clone();
             let reused = kind
-                .reuses_binding_in_scope()
+                .reuses_binding_in_scope(parsed.language)
                 .then(|| {
                     declarations
                         .iter()

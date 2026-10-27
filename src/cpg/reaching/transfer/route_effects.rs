@@ -1,4 +1,4 @@
-//! Route-local Python `del` kills.
+//! Python nodes whose effects must be decided by the CFG rather than textual masks.
 
 use super::super::binding_table::{select_binding_row, DeclarationKind, Role, Ruling};
 use super::super::graph::BitSet;
@@ -22,7 +22,11 @@ pub(in crate::cpg::reaching) struct RouteEffects {
 }
 
 pub(in crate::cpg::reaching) fn is_route_effect_node(language: Language, kind: &str) -> bool {
-    language == Language::Python && kind == "delete_statement"
+    language == Language::Python
+        && matches!(
+            kind,
+            "delete_statement" | "import_statement" | "import_from_statement" | "aliased_import"
+        )
 }
 
 pub(in crate::cpg::reaching) fn materialize_route_effects(

@@ -11782,12 +11782,13 @@ mod tests {
 
     #[test]
     fn statements_in_function_descends_python_statement_wrappers() {
-        let source = "def h(x, lock):\n    with lock:\n        sink_py_with(x)\n    match x:\n        case 1:\n            sink_py_case(x)\n    try:\n        sink_py_try(x)\n    except ValueError:\n        sink_py_except(x)\n    finally:\n        sink_py_finally(x)\n    try:\n        sink_py_group_try(x)\n    except* TypeError:\n        sink_py_except_group(x)\n    return x\n";
+        let source = "def h(x, lock):\n    with lock:\n        import package as sink_py_import\n        sink_py_with(x)\n    match x:\n        case 1:\n            sink_py_case(x)\n    try:\n        sink_py_try(x)\n    except ValueError:\n        sink_py_except(x)\n    finally:\n        sink_py_finally(x)\n    try:\n        sink_py_group_try(x)\n    except* TypeError:\n        sink_py_except_group(x)\n    return x\n";
         assert_statement_markers(
             "m.py",
             source,
             Language::Python,
             &[
+                "sink_py_import",
                 "sink_py_with",
                 "sink_py_case",
                 "sink_py_except(x)",

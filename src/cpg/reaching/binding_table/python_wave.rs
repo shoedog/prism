@@ -5,7 +5,7 @@ use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "7ff6914d278faf4254d923e1205b887f940cfb3db46a81eddbde01e782707ac3";
 pub(super) const CENSUS_DIGEST: &str =
-    "d6f9cf15bb6191845d42c1ae36a448403b246408553120f4942884dea453f6c5";
+    "e2b5c3e1a8f287a904cfad0ce9ad7ccf8eb7462c1ed6aa796c9869b725684a99";
 
 const PATTERN_UNCERTAIN: Ruling = Ruling::Uncertain {
     reason: "pattern identifiers not field-addressable",
@@ -124,7 +124,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
             "e0b-py-dictionary_splat_pattern"
         ),
         ("for_in_clause", "e0b-py-for_in_clause"),
-        ("future_import_statement", "e0b-py-future_import_statement"),
         ("import_prefix", "e0b-py-import_prefix"),
         ("lambda_parameters", "e0b-py-lambda_parameters"),
         ("list_splat_pattern", "e0b-py-list_splat_pattern"),
@@ -134,7 +133,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("typed_default_parameter", "e0b-py-typed_default_parameter"),
         ("typed_parameter", "e0b-py-typed_parameter"),
         ("union_pattern", "e0b-py-union_pattern"),
-        ("wildcard_import", "e0b-py-wildcard_import"),
         ("with_clause", "e0b-py-with_clause"),
     ]
 );

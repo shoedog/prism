@@ -45,6 +45,9 @@ pub(super) fn is_incomplete_join(
     if provenance.crosses_lexical_arm() {
         return true;
     }
+    if matches!(provenance.origin, EdgeOrigin::ImportExceptionBypass) {
+        return false;
+    }
     if !matches!(provenance.origin, EdgeOrigin::Structured) {
         return false;
     }

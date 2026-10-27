@@ -402,6 +402,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
             let mut overrides = BTreeSet::new();
             for case in super::python::CASES
                 .iter()
+                .chain(super::python::TASK20P_CASES)
                 .chain(super::python::PATTERN_CASES)
                 .chain(super::javascript::CASES)
                 .chain(super::javascript::TASK16_CASES)

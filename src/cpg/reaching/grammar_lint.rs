@@ -54,14 +54,15 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
     if parsed.language == Language::Python
         && matches!(
             node.kind(),
-            "import_statement" | "import_from_statement" | "aliased_import"
+            "import_statement" | "import_from_statement" | "aliased_import" | "wildcard_import"
         )
     {
-        return select_binding_row(parsed, node).is_some_and(|row| {
-            super::transfer::row_introduced_identifiers(parsed, node, row.fields)
-                .into_iter()
-                .any(|identifier| parsed.node_text(&identifier) == name)
-        });
+        return node.kind() == "wildcard_import"
+            || select_binding_row(parsed, node).is_some_and(|row| {
+                super::transfer::row_introduced_identifiers(parsed, node, row.fields)
+                    .into_iter()
+                    .any(|identifier| parsed.node_text(&identifier) == name)
+            });
     }
     if parsed.language == Language::Go && node.kind() == "type_switch_statement" {
         return select_binding_row(parsed, node).is_some_and(|row| {

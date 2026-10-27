@@ -145,11 +145,11 @@ pub(crate) enum DeclarationKind {
 }
 
 impl DeclarationKind {
-    pub(super) fn reuses_binding_in_scope(self) -> bool {
+    pub(super) fn reuses_binding_in_scope(self, language: Language) -> bool {
         matches!(
             self,
             Self::GoShort | Self::JavaScriptVar | Self::PythonAssignment | Self::Reuse
-        )
+        ) || (language == Language::Python && self == Self::Other)
     }
 }
 

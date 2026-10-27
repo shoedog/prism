@@ -2,7 +2,9 @@ use super::super::super::binding_table::{rows, DeclarationKind, Predicate, Role}
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod imports;
 mod patterns;
+pub(super) use imports::CASES as TASK20P_CASES;
 pub(super) use patterns::{CASES as PATTERN_CASES, CURATED as PATTERN_CURATED};
 
 pub(super) const SOURCE: &str = r#"from __future__ import annotations
@@ -390,16 +392,16 @@ pub(super) const CASES: &[super::case::Case] = &[
             (
                 "2:a",
                 "4:a",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
             ),
             (
                 "2:x",
                 "4:x",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
             ),
             ("2:keep", "4:keep", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 2)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
     },
     super::case::Case {
         id: "py-import-from-statement-masks",
@@ -413,26 +415,26 @@ pub(super) const CASES: &[super::case::Case] = &[
             (
                 "2:y",
                 "5:y",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
             ),
             (
                 "2:z",
                 "5:z",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
             ),
             (
                 "2:w",
                 "5:w",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 4 }),
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
             ),
             (
                 "2:q",
                 "5:q",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 4 }),
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
             ),
             ("2:keep", "5:keep", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 4)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 4)),
     },
     super::case::Case {
         id: "py-import-alias-masks",
@@ -446,11 +448,11 @@ pub(super) const CASES: &[super::case::Case] = &[
             (
                 "2:x",
                 "4:x",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
             ),
             ("2:y", "4:y", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
         id: "py-import-bypass-preserves",
@@ -460,12 +462,8 @@ pub(super) const CASES: &[super::case::Case] = &[
         row_variant: None,
         class: super::case::CaseClass::Structural,
         src: "def f(c):\n    x = source()\n    if c:\n        import pkg as x\n    sink(x)\n",
-        expect: &[(
-            "2:x",
-            "5:x",
-            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 4 }),
-        )],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        expect: &[("2:x", "5:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
     },
     super::case::Case {
         id: "py-import-exception-bypass-preserves",
@@ -475,15 +473,11 @@ pub(super) const CASES: &[super::case::Case] = &[
         row_variant: None,
         class: super::case::CaseClass::Structural,
         src: "def f():\n    json = source()\n    try:\n        import ujson as json\n    except ImportError:\n        pass\n    sink(json)\n",
-        expect: &[(
-            "2:json",
-            "7:json",
-            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 4 }),
-        )],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        expect: &[("2:json", "7:json", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
     },
     super::case::Case {
-        id: "py-import-try-else-uncertain",
+        id: "py-import-try-else-cfg-incomplete",
         language: Language::Python,
         kind: "import_statement",
         variant: None,
@@ -493,9 +487,9 @@ pub(super) const CASES: &[super::case::Case] = &[
         expect: &[(
             "2:x",
             "9:x",
-            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 8 }),
+            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
         )],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
     },
     super::case::Case {
         id: "py-import-after-return-preserves-base-label",
@@ -565,7 +559,7 @@ pub(super) const CURATED: &[(&str, &str)] = &[
 
 #[test]
 fn task11_python_reuse_cases() {
-    for case in CASES {
+    for case in CASES.iter().chain(TASK20P_CASES) {
         super::case::check_case(case);
     }
 }

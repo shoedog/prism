@@ -1,10 +1,10 @@
 //! Edge-local transfer nodes for classified binding reuse constructs.
 
 mod route_effects;
+mod statement_defs;
 
-pub(super) use route_effects::{
-    apply_explicit_kills, is_route_effect_node, materialize_route_effects,
-};
+pub(super) use route_effects::{apply_explicit_kills, is_route_effect_node};
+pub(super) use statement_defs::materialize_def_sites_and_effects;
 
 use super::binding_table::{select_binding_row, DeclarationKind, Role, Ruling};
 use super::grammar_lint::ByteSpan;

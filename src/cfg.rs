@@ -46,6 +46,10 @@ pub(crate) enum EdgeOrigin {
     /// from the construct itself, so they are real control flow whatever arms
     /// their endpoints are in.
     Structured,
+    /// A Python `try` whose sole tracked body statement is an import can reach
+    /// its continuation through an otherwise empty (`pass`) exception handler
+    /// before the import binds a name.
+    ImportExceptionBypass,
 }
 
 /// One lexical arm, as a preorder interval: `id` is the arm and `subtree_last`
@@ -130,6 +134,11 @@ impl EdgeSink {
     fn push_sequential(&mut self, edge: CfgEdge) {
         self.edges.push(edge);
         self.origins.push(EdgeOrigin::Sequential);
+    }
+
+    fn push_import_exception_bypass(&mut self, edge: CfgEdge) {
+        self.edges.push(edge);
+        self.origins.push(EdgeOrigin::ImportExceptionBypass);
     }
 
     fn is_empty(&self) -> bool {
@@ -498,6 +507,22 @@ fn build_python_edges(
     // try/except/finally
     if kind == "try_statement" {
         let try_line = node.start_position().row + 1;
+        let body_is_single_import = node.child_by_field_name("body").is_some_and(|body| {
+            let mut body_cursor = body.walk();
+            let statements: Vec<_> = body
+                .named_children(&mut body_cursor)
+                .filter(|child| parsed.language.is_statement_node(child.kind()))
+                .collect();
+            matches!(
+                statements.as_slice(),
+                [statement]
+                    if matches!(
+                        statement.kind(),
+                        "import_statement" | "import_from_statement"
+                    )
+            )
+        });
+        let mut has_untracked_except = false;
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             // except_clause / except_group_clause
@@ -509,6 +534,8 @@ fn build_python_edges(
                         from_line: try_line,
                         to_line: first,
                     });
+                } else {
+                    has_untracked_except = true;
                 }
             }
             // finally_clause
@@ -521,6 +548,16 @@ fn build_python_edges(
                         to_line: first,
                     });
                 }
+            }
+        }
+        if body_is_single_import && has_untracked_except {
+            let try_end = node.end_position().row + 1;
+            if let Some(&next) = stmt_lines.iter().find(|&&line| line > try_end) {
+                edges.push_import_exception_bypass(CfgEdge {
+                    file: parsed.path.clone(),
+                    from_line: try_line,
+                    to_line: next,
+                });
             }
         }
     }
@@ -1032,6 +1069,94 @@ def f():
             "Python should have sequential edge 4→5, got {:?}",
             edge_pairs
         );
+    }
+
+    #[test]
+    fn test_python_import_is_a_sequential_cfg_node() {
+        let source = "def f():\n    x = 1\n    import os\n    sink(x)\n";
+        let parsed = ParsedFile::parse("test.py", source, Language::Python).unwrap();
+        let edges = build_cfg_edges(&parsed);
+        let edge_pairs: Vec<(usize, usize)> = edges
+            .iter()
+            .map(|edge| (edge.from_line, edge.to_line))
+            .collect();
+
+        assert!(
+            edge_pairs.contains(&(2, 3)),
+            "assignment should flow to import, got {edge_pairs:?}"
+        );
+        assert!(
+            edge_pairs.contains(&(3, 4)),
+            "import should flow to following call, got {edge_pairs:?}"
+        );
+    }
+
+    #[test]
+    fn test_python_guarded_import_has_a_bypass_edge() {
+        let source =
+            "def f(c):\n    x = source()\n    if c:\n        import package as x\n    sink(x)\n";
+        let parsed = ParsedFile::parse("test.py", source, Language::Python).unwrap();
+        let edges = build_cfg_edges(&parsed);
+        let edge_pairs: Vec<(usize, usize)> = edges
+            .iter()
+            .map(|edge| (edge.from_line, edge.to_line))
+            .collect();
+
+        assert!(
+            edge_pairs.contains(&(3, 5)),
+            "guarded import needs a false-condition bypass, got {edge_pairs:?}"
+        );
+    }
+
+    #[test]
+    fn test_python_import_after_return_has_no_fabricated_route() {
+        let source = "def f():\n    x = 1\n    return x\n    import os\n    sink(x)\n";
+        let parsed = ParsedFile::parse("test.py", source, Language::Python).unwrap();
+        let edges = build_cfg_edges(&parsed);
+        let edge_pairs: Vec<(usize, usize)> = edges
+            .iter()
+            .map(|edge| (edge.from_line, edge.to_line))
+            .collect();
+
+        assert!(
+            !edge_pairs.contains(&(3, 4)),
+            "return must not flow to an unreachable import, got {edge_pairs:?}"
+        );
+        assert!(
+            edge_pairs.contains(&(4, 5)),
+            "the unreachable import remains a statement node, got {edge_pairs:?}"
+        );
+    }
+
+    #[test]
+    fn test_python_import_is_first_and_last_statement_in_branch_body() {
+        let source =
+            "def f(c):\n    if c:\n        import os\n    else:\n        from pkg import value\n";
+        let parsed = ParsedFile::parse("test.py", source, Language::Python).unwrap();
+        let function = parsed.all_functions().into_iter().next().expect("function");
+        let body = function.child_by_field_name("body").expect("function body");
+        let branches: Vec<_> = {
+            let mut cursor = body.walk();
+            body.named_children(&mut cursor)
+                .filter(|node| matches!(node.kind(), "if_statement" | "else_clause"))
+                .collect()
+        };
+        let if_statement = branches
+            .iter()
+            .find(|node| node.kind() == "if_statement")
+            .copied()
+            .expect("if statement");
+        let consequence = if_statement
+            .child_by_field_name("consequence")
+            .expect("if consequence");
+        let alternative = if_statement
+            .child_by_field_name("alternative")
+            .expect("if alternative");
+
+        assert_eq!(first_statement_line(&consequence, &parsed), Some(3));
+        assert_eq!(last_statement_line(&consequence, &parsed), Some(3));
+        assert_eq!(first_statement_line(&alternative, &parsed), Some(5));
+        assert_eq!(last_statement_line(&alternative, &parsed), Some(5));
     }
 
     #[test]

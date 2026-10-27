@@ -99,7 +99,9 @@ fn record_admitted(provenance: ArmProvenance) {
     super::work_tests::bump(|counts| {
         counts.cfg_admitted += 1;
         match provenance.origin {
-            EdgeOrigin::Structured => counts.cfg_structured += 1,
+            EdgeOrigin::Structured | EdgeOrigin::ImportExceptionBypass => {
+                counts.cfg_structured += 1
+            }
             EdgeOrigin::Sequential if provenance.crosses_lexical_arm() => counts.cfg_cross_arm += 1,
             EdgeOrigin::Sequential => counts.cfg_sequential += 1,
         }

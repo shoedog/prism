@@ -73,9 +73,7 @@ pub(super) fn classify_edge(
     if candidates.is_empty() {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
-    if let Some(construct_line) =
-        unplaced_python_import(parsed, edge).or_else(|| unplaced_go_type_switch(parsed, edge))
-    {
+    if let Some(construct_line) = unplaced_go_type_switch(parsed, edge) {
         return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
@@ -202,34 +200,6 @@ pub(super) fn classify_edge(
         successors,
         kill_node_lines,
     )
-}
-
-fn unplaced_python_import(parsed: &ParsedFile, edge: &FlowEdge) -> Option<Line> {
-    if parsed.language != crate::languages::Language::Python {
-        return None;
-    }
-    let use_byte = edge_use_byte(parsed, edge)?;
-    let function = parsed
-        .all_functions()
-        .into_iter()
-        .find(|node| parsed.node_line_range(node).0 == edge.to.function_start_line)?;
-    uncertain_binding_nodes(parsed, &edge.to.path.base)
-        .into_iter()
-        .filter(|binder| {
-            matches!(
-                binder.kind(),
-                "import_statement" | "import_from_statement" | "aliased_import"
-            ) && function.start_byte() <= binder.start_byte()
-                && binder.end_byte() <= function.end_byte()
-        })
-        .filter_map(|binder| {
-            let construct_line = binder.start_position().row + 1;
-            (edge.from.line < construct_line
-                && binder.start_byte() <= use_byte
-                && use_byte < function.end_byte())
-            .then_some(construct_line)
-        })
-        .min()
 }
 
 fn unplaced_go_parameter(parsed: &ParsedFile, edge: &FlowEdge) -> Option<Line> {
@@ -387,6 +357,7 @@ fn uncertain_construct_on_route(
                         crate::languages::Language::Python,
                         "global_statement"
                             | "nonlocal_statement"
+                            | "wildcard_import"
                             | "case_pattern"
                             | "class_pattern"
                             | "as_pattern"
