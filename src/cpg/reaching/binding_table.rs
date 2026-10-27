@@ -451,8 +451,24 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
             false
         }
         Predicate::IsImmediatelyInvoked => {
-            // Task 19 adds call-site-aware matching for immediately invoked constructs.
-            false
+            let mut callee = node;
+            while callee
+                .parent()
+                .is_some_and(|parent| parent.kind() == "parenthesized_expression")
+            {
+                callee = callee.parent().expect("checked parent");
+            }
+            callee.parent().is_some_and(|call| {
+                let call_kind = if parsed.language == Language::Python {
+                    "call"
+                } else {
+                    "call_expression"
+                };
+                call.kind() == call_kind
+                    && call
+                        .child_by_field_name("function")
+                        .is_some_and(|function| function == callee)
+            })
         }
     }
 }

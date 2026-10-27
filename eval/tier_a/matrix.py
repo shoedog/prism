@@ -105,7 +105,7 @@ EXPECT_KEYS_BY_PROBE = {
     "dfg": {"edges", "stats"},
 }
 DFG_EDGE_KEYS = {"from", "to", "confidence", "doubt", "kill_line", "present"}
-DFG_STATS_KEYS = {"dfg_label_loop_carried_min"}
+DFG_STATS_KEYS = {"dfg_label_loop_carried_min", "dfg_label_capture_immediate"}
 # Controller adjudication (e): the only wire `Reachability` variants plus this
 # harness's own "None" (JSON null / frontier mode) sentinel. Anything else is
 # a typo'd sentinel that would otherwise silently never match. "Sanitized" (P10)
@@ -284,6 +284,14 @@ def load_case(toml_path: Path) -> Case:
             raise ValueError(
                 f"{toml_path}: expect.stats.dfg_label_loop_carried_min "
                 f"must be an int >= 1, got {loop_carried_min!r}"
+            )
+        capture_immediate = stats.get("dfg_label_capture_immediate")
+        if capture_immediate is not None and (
+            type(capture_immediate) is not int or capture_immediate < 0
+        ):
+            raise ValueError(
+                f"{toml_path}: expect.stats.dfg_label_capture_immediate "
+                f"must be an int >= 0, got {capture_immediate!r}"
             )
         return Case(
             **common,
@@ -624,6 +632,13 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
                     stats_matched = (
                         isinstance(got_stats.get("dfg_label_loop_carried"), int)
                         and got_stats["dfg_label_loop_carried"] >= loop_min
+                    )
+                capture_immediate = case.expect_dfg_stats.get(
+                    "dfg_label_capture_immediate"
+                )
+                if capture_immediate is not None:
+                    stats_matched = stats_matched and (
+                        got_stats.get("dfg_label_capture_immediate") == capture_immediate
                     )
 
     matched = edges_matched and stats_matched

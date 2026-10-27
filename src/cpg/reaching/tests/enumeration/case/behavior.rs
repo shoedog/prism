@@ -53,7 +53,7 @@ fn counter_value(
         CounterField::LabelCfgIncomplete => label_stats.dfg_label_nameonly_cfg_incomplete,
         CounterField::LabelAliasUnstable => label_stats.dfg_label_nameonly_alias_unstable,
         CounterField::LabelCall => label_stats.dfg_label_nameonly_call,
-        CounterField::LabelCaptureImmediate => label_stats.dfg_label_capture_immediate,
+        CounterField::LabelCaptureImmediate => rd_stats.capture_immediate_edges,
         CounterField::RdFunctionsOverCap => rd_stats.functions_over_cap,
         CounterField::RdFunctionsWithoutCfg => rd_stats.functions_without_cfg,
     }) as i64

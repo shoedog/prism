@@ -1,9 +1,10 @@
+use super::binding_table::Timing;
 use super::grammar_lint::{
     is_python_match_pattern, uncertain_binding_nodes, visibility_span, SpanKind,
 };
 use super::graph::{definition_reaches_unflagged, path_exists, BitSet};
 use super::transfer::HeaderUse;
-use super::{capture, scope, statement_lookup, DefSite, FlowConfidence, FlowDoubt, Line};
+use super::{scope, statement_lookup, DefSite, FlowConfidence, FlowDoubt, Line};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
@@ -31,11 +32,11 @@ pub(super) fn classify_edge(
     successors: &[Vec<(usize, bool)>],
     synthetic_nodes: &BTreeMap<usize, Line>,
     collapsed: &BTreeSet<(AccessPath, Line)>,
-    capture_facts: &capture::CaptureFacts,
+    capture_timing: Option<Timing>,
     binding_facts: &scope::BindingFacts,
     function_start: Line,
 ) -> FlowConfidence {
-    if capture::is_capture(edge, capture_facts) {
+    if capture_timing.is_some() {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
     if scope::rust_scope::let_else_cfg_gap(parsed, edge, defs) {

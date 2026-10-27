@@ -1,0 +1,14 @@
+[case]
+language = "javascript"
+capability = "dfg_binding_iife"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.js:2:x"
+to = "main.js:3:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"
+
+[expect.stats]
+dfg_label_capture_immediate = 1

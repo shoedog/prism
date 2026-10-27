@@ -272,7 +272,8 @@ mod stream;
 /// - v128: Self syntax evidence retains the declared self-type path (#521).
 /// - v129: Self proofs persist repository-wide non-ASCII identifier refusal (#521).
 /// - v130: Self proofs persist identifier file membership; crate scope, new edges only.
-/// - v131: FlowDoubt::OwnershipUncertain payload (binding enumeration).
+/// - v131: FlowDoubt::OwnershipUncertain and capture-immediate RD stats payloads
+///   (binding enumeration).
 const CACHE_VERSION: u32 = 131;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
