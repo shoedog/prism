@@ -8,7 +8,10 @@ pub(super) fn direct_block_uncertainty(
     use_byte: Option<usize>,
 ) -> bool {
     parsed.language == Language::Cpp
-        && binder.kind() == "declaration"
+        && matches!(
+            binder.kind(),
+            "declaration" | "structured_binding_declarator"
+        )
         && binder.parent().is_some_and(|scope| {
             scope.kind() == "compound_statement"
                 && use_byte

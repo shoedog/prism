@@ -14,12 +14,30 @@ pub(super) fn collect_introduced_identifiers<'a>(
     true
 }
 
+pub(super) fn collect_row<'a>(
+    parsed: &ParsedFile,
+    node: Node<'a>,
+    fields: &[&str],
+    identifiers: &mut Vec<Node<'a>>,
+) {
+    if fields.is_empty() && node.kind() == "structured_binding_declarator" {
+        collect_introduced_identifiers(parsed, node, identifiers);
+    }
+}
+
 fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) -> Option<Vec<Node<'a>>> {
     if parsed.language != Language::Cpp {
         return None;
     }
     let mut identifiers = Vec::new();
     match node.kind() {
+        "structured_binding_declarator" => {
+            let mut cursor = node.walk();
+            identifiers.extend(
+                node.named_children(&mut cursor)
+                    .filter(|child| parsed.language.is_identifier_node(child.kind())),
+            );
+        }
         "parameter_list" => {
             let mut cursor = node.walk();
             for parameter in node

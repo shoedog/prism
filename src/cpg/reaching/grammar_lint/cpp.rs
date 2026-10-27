@@ -22,7 +22,7 @@ pub(super) fn uncertain_node_introduces_name(
 
 pub(super) fn has_byte_scoped_uncertainty(parsed: &ParsedFile, node: Node<'_>) -> bool {
     parsed.language == Language::Cpp
-        && node.kind() == "declaration"
+        && matches!(node.kind(), "declaration" | "structured_binding_declarator")
         && select_binding_row(parsed, node)
             .is_some_and(|row| matches!(row.ruling, Ruling::Uncertain { .. }))
 }

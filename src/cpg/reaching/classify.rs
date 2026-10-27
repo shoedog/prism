@@ -355,7 +355,10 @@ fn uncertain_construct_on_route(
                     crate::languages::Language::Java,
                     "record_pattern" | "type_pattern" | "instanceof_expression"
                 ) | (crate::languages::Language::Bash, "for_statement")
-                    | (crate::languages::Language::Cpp, "declaration")
+                    | (
+                        crate::languages::Language::Cpp,
+                        "declaration" | "structured_binding_declarator"
+                    )
                     | (
                         crate::languages::Language::Rust,
                         "captured_pattern"

@@ -5,7 +5,7 @@ use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "fdfd4b1f3dca1516616a1eb615bb6c1ad3082b8937ad21070d0def5dcfe7e535";
 pub(super) const CENSUS_DIGEST: &str =
-    "2aa8b8a90b435001e53816eb7ac2de02a5a65b59a5751656f048b9c58af22b60";
+    "8bbbbb6399c643195b895534be370156785ac249512e3096096b1d6b56280b32";
 
 const fn scope_row(kind: &'static str, regression: &'static str) -> BindingRow {
     BindingRow {
@@ -74,6 +74,20 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
             revisit: "future:cpp-declarators",
         },
         regression: "cpp-declarator-chain-uncertain",
+    },
+    BindingRow {
+        language: Language::Cpp,
+        kind: "structured_binding_declarator",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Uncertain {
+            reason: "N bindings at one line; per-occurrence DefId is a future item",
+            revisit: "future:cpp-structured",
+        },
+        regression: "cpp-structured-binding-uncertain-inside",
     },
 ];
 
@@ -161,10 +175,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
             "e0b-cpp-static_assert_declaration"
         ),
         ("storage_class_specifier", "e0b-cpp-storage_class_specifier"),
-        (
-            "structured_binding_declarator",
-            "e0b-cpp-structured_binding_declarator"
-        ),
         (
             "subscript_range_designator",
             "e0b-cpp-subscript_range_designator"

@@ -533,7 +533,6 @@ pub(super) fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) ->
     collect(parsed, node, &mut identifiers);
     identifiers
 }
-
 pub(super) fn row_introduced_identifiers<'a>(
     parsed: &ParsedFile,
     node: Node<'a>,
@@ -565,6 +564,7 @@ pub(super) fn row_introduced_identifiers<'a>(
     {
         identifiers.extend(introduced_identifiers(parsed, node));
     }
+    cpp::collect_row(parsed, node, fields, &mut identifiers);
     identifiers.sort_by_key(Node::start_byte);
     identifiers.dedup_by_key(|identifier| identifier.start_byte());
     identifiers

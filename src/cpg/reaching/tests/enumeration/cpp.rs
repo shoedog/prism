@@ -165,7 +165,45 @@ pub(super) const CASES: &[super::case::Case] = &[
         ],
         expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
     },
+    super::case::Case {
+        id: "cpp-structured-binding-uncertain-inside",
+        language: Language::Cpp,
+        kind: "structured_binding_declarator",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "void f(Pair pair) {\n  int x = source();\n  {\n    auto [x, y] = pair;\n    sink(x);\n  }\n}\n",
+        expect: &[(
+            "2:x",
+            "5:x",
+            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 4 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+    },
+    super::case::Case {
+        id: "cpp-structured-binding-outside-preserved",
+        language: Language::Cpp,
+        kind: "compound_statement",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "void f(Pair pair) {\n  int x = source();\n  {\n    auto [x, y] = pair;\n    sink(x);\n  }\n  sink(x);\n}\n",
+        expect: &[("2:x", "7:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "cpp-structured-binding-no-shadow-exact",
+        language: Language::Cpp,
+        kind: "compound_statement",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "void f(Pair pair) {\n  int z = source();\n  {\n    auto [x, y] = pair;\n    sink(z);\n  }\n}\n",
+        expect: &[("2:z", "5:z", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
 ];
+const TASK23_CASE_COUNT: usize = 9;
 pub(super) const CURATED: &[(&str, &str)] = &[
     ("parameter_list", "e0a-x-cpp-parameter_list"),
     ("parameter_declaration", "e0a-x-cpp-parameter_declaration"),
@@ -173,7 +211,14 @@ pub(super) const CURATED: &[(&str, &str)] = &[
 
 #[test]
 fn cpp_task23_cases() {
-    for case in CASES {
+    for case in &CASES[..TASK23_CASE_COUNT] {
+        super::case::check_case(case);
+    }
+}
+
+#[test]
+fn cpp_task24_cases() {
+    for case in &CASES[TASK23_CASE_COUNT..] {
         super::case::check_case(case);
     }
 }
@@ -206,6 +251,19 @@ fn cpp_task23_declaration_rows_extract_only_their_declarators() {
         .map(|node| node.start_position().row + 1)
         .collect();
     assert_eq!(lines, [4]);
+}
+
+#[test]
+fn cpp_task24_structured_row_extracts_each_identifier() {
+    let parsed = super::super::parsed(CASES[TASK23_CASE_COUNT].src, Language::Cpp);
+    let binder = super::case::nodes_of_kind(&parsed, "structured_binding_declarator")[0];
+    let row = super::super::super::binding_table::select_binding_row(&parsed, binder).unwrap();
+    let names: Vec<_> =
+        super::super::super::transfer::row_introduced_identifiers(&parsed, binder, row.fields)
+            .into_iter()
+            .map(|node| parsed.node_text(&node).to_string())
+            .collect();
+    assert_eq!(names, ["x", "y"]);
 }
 
 pub(super) fn source_for_kind(kind: &str) -> &'static str {

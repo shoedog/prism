@@ -104,7 +104,12 @@ pub(in crate::cpg::reaching) fn visibility_span(
             return span;
         }
     }
-    if parsed.language == Language::Cpp && binder_node.kind() == "declaration" {
+    if parsed.language == Language::Cpp
+        && matches!(
+            binder_node.kind(),
+            "declaration" | "structured_binding_declarator"
+        )
+    {
         return nearest_ancestor_kind_in(binder_node, &["compound_statement"]).map_or(
             SpanKind::Unknown,
             |scope| {
