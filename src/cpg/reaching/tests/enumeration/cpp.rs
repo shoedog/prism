@@ -202,8 +202,95 @@ pub(super) const CASES: &[super::case::Case] = &[
         expect: &[("2:z", "5:z", FlowConfidence::Exact)],
         expect_counter: Some(("dfg_label_exact", 1)),
     },
+    super::case::Case {
+        id: "cpp-capture-specifier-multiline",
+        language: Language::Cpp,
+        kind: "lambda_capture_specifier",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "void f() {\n  int x = source();\n  auto call = [\n    x\n  ] {\n    sink(x);\n  };\n}\n",
+        expect: &[
+            ("2:x", "4:x", FlowConfidence::Exact),
+            (
+                "2:x",
+                "6:x",
+                FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+            ),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
+    },
+    super::case::Case {
+        id: "cpp-capture-specifier-same-line",
+        language: Language::Cpp,
+        kind: "compound_statement",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "void f() {\n  int x = source();\n  auto call = [x] { sink(x); };\n}\n",
+        expect: &[(
+            "2:x",
+            "3:x",
+            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
+    },
+    super::case::Case {
+        id: "cpp-capture-not-a-mask",
+        language: Language::Cpp,
+        kind: "compound_statement",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "void f() {\n  int x = source();\n  auto call = [x] { sink(x); };\n  sink(x);\n}\n",
+        expect: &[("2:x", "4:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "cpp-capture-init-copy",
+        language: Language::Cpp,
+        kind: "compound_statement",
+        variant: None,
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "void f() {\n  int x = source();\n  auto call = [\n    y = x\n  ] {\n    sink(y);\n  };\n}\n",
+        expect: &[
+            ("2:x", "4:x", FlowConfidence::Exact),
+            (
+                "4:y",
+                "6:y",
+                FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+            ),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
+    },
+    super::case::Case {
+        id: "cpp-default-capture-not-binding",
+        language: Language::Cpp,
+        kind: "lambda_default_capture",
+        variant: Some("binding"),
+        row_variant: None,
+        class: super::case::CaseClass::Behavioral,
+        src: "void f() {\n  int z = source();\n  auto copy = [=] { work(); };\n  auto reference = [&] { work(); };\n  sink(z);\n}\n",
+        expect: &[("2:z", "5:z", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    super::case::Case {
+        id: "cpp-capture-by-reference",
+        language: Language::Cpp,
+        kind: "lambda_capture_specifier",
+        variant: Some("binding"),
+        row_variant: Some(
+            super::super::super::binding_table::Predicate::CppReferenceCaptureOnly,
+        ),
+        class: super::case::CaseClass::Behavioral,
+        src: "void f() {\n  int x = source();\n  auto call = [&x] { sink(x); };\n  sink(x);\n}\n",
+        expect: &[("2:x", "4:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
 ];
 const TASK23_CASE_COUNT: usize = 9;
+const TASK24_CASE_END: usize = 12;
 pub(super) const CURATED: &[(&str, &str)] = &[
     ("parameter_list", "e0a-x-cpp-parameter_list"),
     ("parameter_declaration", "e0a-x-cpp-parameter_declaration"),
@@ -218,7 +305,14 @@ fn cpp_task23_cases() {
 
 #[test]
 fn cpp_task24_cases() {
-    for case in &CASES[TASK23_CASE_COUNT..] {
+    for case in &CASES[TASK23_CASE_COUNT..TASK24_CASE_END] {
+        super::case::check_case(case);
+    }
+}
+
+#[test]
+fn cpp_task25_cases() {
+    for case in &CASES[TASK24_CASE_END..] {
         super::case::check_case(case);
     }
 }
@@ -264,6 +358,33 @@ fn cpp_task24_structured_row_extracts_each_identifier() {
             .map(|node| parsed.node_text(&node).to_string())
             .collect();
     assert_eq!(names, ["x", "y"]);
+}
+
+#[test]
+fn cpp_task25_capture_rows_extract_only_copies() {
+    let names = |case: &super::case::Case| {
+        let parsed = super::super::parsed(case.src, Language::Cpp);
+        let binder = super::case::nodes_of_kind(&parsed, "lambda_capture_specifier")[0];
+        let row = super::super::super::binding_table::select_binding_row(&parsed, binder).unwrap();
+        let names: Vec<_> =
+            super::super::super::transfer::row_introduced_identifiers(&parsed, binder, row.fields)
+                .into_iter()
+                .map(|node| parsed.node_text(&node).to_string())
+                .collect();
+        (row, names)
+    };
+    let (copy, copy_names) = names(&CASES[TASK24_CASE_END]);
+    assert_eq!(
+        copy.declaration,
+        Some(super::super::super::binding_table::DeclarationKind::CaptureCopy)
+    );
+    assert_eq!(copy_names, ["x"]);
+    assert_eq!(names(&CASES[TASK24_CASE_END + 3]).1, ["y"]);
+    let (reference, reference_names) = names(&CASES[TASK24_CASE_END + 5]);
+    assert!(reference
+        .roles
+        .has(super::super::super::binding_table::Role::NotBinding));
+    assert!(reference_names.is_empty());
 }
 
 pub(super) fn source_for_kind(kind: &str) -> &'static str {

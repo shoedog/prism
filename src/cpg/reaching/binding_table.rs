@@ -100,6 +100,7 @@ pub(crate) enum Predicate {
         lexical: bool,
     },
     JavaScriptBindingPattern,
+    CppReferenceCaptureOnly,
     IsImmediatelyInvoked,
 }
 
@@ -465,6 +466,18 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
                 }
             }
             false
+        }
+        Predicate::CppReferenceCaptureOnly => {
+            if parsed.language != Language::Cpp || node.kind() != "lambda_capture_specifier" {
+                return false;
+            }
+            let mut cursor = node.walk();
+            let children: Vec<_> = node.named_children(&mut cursor).collect();
+            children.len() == 1
+                && children[0].kind() == "identifier"
+                && children[0]
+                    .prev_sibling()
+                    .is_some_and(|previous| previous.kind() == "&")
         }
         Predicate::IsImmediatelyInvoked => {
             let mut callee = node;

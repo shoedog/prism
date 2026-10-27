@@ -5,7 +5,7 @@ use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "fdfd4b1f3dca1516616a1eb615bb6c1ad3082b8937ad21070d0def5dcfe7e535";
 pub(super) const CENSUS_DIGEST: &str =
-    "8bbbbb6399c643195b895534be370156785ac249512e3096096b1d6b56280b32";
+    "6e900fe653d61e792f535b1599ecfe3725c1b26868758dccc10a874e81fcfda3";
 
 const fn scope_row(kind: &'static str, regression: &'static str) -> BindingRow {
     BindingRow {
@@ -89,6 +89,39 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
         },
         regression: "cpp-structured-binding-uncertain-inside",
     },
+    BindingRow {
+        language: Language::Cpp,
+        kind: "lambda_capture_specifier",
+        variant: Some(Predicate::CppReferenceCaptureOnly),
+        roles: RoleSet::of(&[Role::NotBinding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "cpp-capture-by-reference",
+    },
+    BindingRow {
+        language: Language::Cpp,
+        kind: "lambda_capture_specifier",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: Some(DeclarationKind::CaptureCopy),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Classified,
+        regression: "cpp-capture-specifier-multiline",
+    },
+    BindingRow {
+        language: Language::Cpp,
+        kind: "lambda_default_capture",
+        variant: None,
+        roles: RoleSet::of(&[Role::NotBinding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "cpp-default-capture-not-binding",
+    },
 ];
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
@@ -140,11 +173,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
             "lambda_capture_initializer",
             "e0b-cpp-lambda_capture_initializer"
         ),
-        (
-            "lambda_capture_specifier",
-            "e0b-cpp-lambda_capture_specifier"
-        ),
-        ("lambda_default_capture", "e0b-cpp-lambda_default_capture"),
         ("lambda_expression", "e0b-cpp-lambda_expression"),
         ("new_declarator", "e0b-cpp-new_declarator"),
         ("noexcept", "e0b-cpp-noexcept"),

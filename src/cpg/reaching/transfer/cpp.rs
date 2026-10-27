@@ -20,7 +20,12 @@ pub(super) fn collect_row<'a>(
     fields: &[&str],
     identifiers: &mut Vec<Node<'a>>,
 ) {
-    if fields.is_empty() && node.kind() == "structured_binding_declarator" {
+    if fields.is_empty()
+        && matches!(
+            node.kind(),
+            "structured_binding_declarator" | "lambda_capture_specifier"
+        )
+    {
         collect_introduced_identifiers(parsed, node, identifiers);
     }
 }
@@ -31,6 +36,20 @@ fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) -> Option<Vec
     }
     let mut identifiers = Vec::new();
     match node.kind() {
+        "lambda_capture_specifier" => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                if child.kind() == "identifier"
+                    && child
+                        .prev_sibling()
+                        .is_none_or(|previous| previous.kind() != "&")
+                {
+                    identifiers.push(child);
+                } else if child.kind() == "lambda_capture_initializer" {
+                    identifiers.extend(child.child_by_field_name("left"));
+                }
+            }
+        }
         "structured_binding_declarator" => {
             let mut cursor = node.walk();
             identifiers.extend(

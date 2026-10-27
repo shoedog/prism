@@ -1,0 +1,16 @@
+[case]
+language = "cpp"
+capability = "dfg_binding_cpp_capture_specifier_multiline"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.cpp:2:x"
+to = "main.cpp:4:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.cpp:4:x"
+to = "main.cpp:6:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"

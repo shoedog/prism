@@ -1,12 +1,14 @@
-use super::super::super::super::binding_table::{capture_rows, rows, Predicate, Ruling};
+use super::super::super::super::binding_table::{
+    capture_rows, rows, BindingRow, DeclarationKind, Predicate, Ruling,
+};
 use super::{all_cases, check_case, Case, CaseClass};
 use crate::ast::ParsedFile;
 use crate::cpg::reaching::RdFileStats;
 use crate::cpg::{DfgLabelStats, FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod cpp;
 mod parameter_defs;
-
 #[derive(Clone, Copy)]
 enum CounterField {
     LabelExact,
@@ -218,6 +220,9 @@ pub(super) fn assert_ruling(
                 case.id
             );
         }
+        Some(Ruling::Classified) if cpp::is_capture_copy(case, is_binding) => {
+            cpp::assert_capture_copy(case);
+        }
         Some(Ruling::Classified) if is_binding => {
             assert!(
                 case.expect
@@ -387,12 +392,7 @@ pub(super) fn assert_row_case_identities() {
                 row.kind
             );
             assert!(
-                row_cases
-                    .iter()
-                    .flat_map(|case| case.expect)
-                    .any(|(_, _, label)| {
-                        matches!(label, FlowConfidence::NameOnly(FlowDoubt::Killed { .. }))
-                    }),
+                cpp::has_required_kill(row, &row_cases),
                 "{language:?} {}: classified binding cases need Killed masking",
                 row.kind
             );

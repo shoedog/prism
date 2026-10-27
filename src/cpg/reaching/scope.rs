@@ -1,5 +1,4 @@
 //! Lexical binding ownership for reaching definitions.
-
 mod cpp;
 mod masks;
 pub(super) mod rust_scope;
@@ -44,6 +43,7 @@ impl ScopeSpan {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum BindingId {
     Declaration(usize),
+    CaptureCopy(usize),
     ImplicitFunction(String),
     FlatFallback(String),
 }
@@ -221,7 +221,7 @@ impl BindingFacts {
                 let declaration_index = declarations.len();
                 declarations.push(Declaration {
                     binding: Binding {
-                        id: BindingId::Declaration(declaration_index),
+                        id: cpp::binding_id(kind, declaration_index),
                         scope,
                         declaration_line: Some(defs[index].line),
                         classified_mask: false,
@@ -346,14 +346,7 @@ impl BindingFacts {
     ) -> BindingRelation {
         let definition = &self.def_bindings[def_index];
         let Some(use_byte) = self.use_byte(parsed, edge) else {
-            return if definition
-                .scope
-                .contains(parsed.line_start_byte(edge.to.line))
-            {
-                BindingRelation::Unresolved
-            } else {
-                BindingRelation::KilledAt(definition.scope.end_line)
-            };
+            return cpp::missing_use_relation(definition, parsed.line_start_byte(edge.to.line));
         };
         let use_binding = self
             .visible_declaration(&edge.to.path.base, use_byte)
@@ -362,7 +355,7 @@ impl BindingFacts {
             return BindingRelation::Same;
         }
         if !definition.scope.contains(use_byte) {
-            return BindingRelation::KilledAt(definition.scope.end_line);
+            return cpp::outside_scope_relation(definition);
         }
         if use_binding.scope.contains(use_byte) {
             if let Some(line) = use_binding.declaration_line {
@@ -537,6 +530,11 @@ fn declaration_scope(
     if kind == DeclarationKind::Pattern {
         if let Some(scope) = rust_scope::pattern_declaration_scope(parsed, node) {
             return scope;
+        }
+    }
+    if kind == DeclarationKind::CaptureCopy {
+        if let Some(scope) = cpp::capture_body_scope(node) {
+            return scope_span(scope);
         }
     }
     if let Some(scope) = rust_scope::closure_parameter_scope(parsed, node) {
