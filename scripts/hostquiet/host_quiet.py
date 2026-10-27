@@ -11,34 +11,68 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+import threading
 import time
 
 GUARD_WAIT_SECS = 10.0
 MAX_EXPECTED_SECS = 6 * 60 * 60
+_guard_fds = set()
+_guard_fds_lock = threading.Lock()
+
+
+def _after_fork_child():
+    try:
+        for fd in _guard_fds:
+            # LOCK_UN would also unlock the parent's shared open description.
+            os.close(fd)
+        _guard_fds.clear()
+    finally:
+        _guard_fds_lock.release()
+
+
+os.register_at_fork(before=_guard_fds_lock.acquire,
+                    after_in_parent=_guard_fds_lock.release,
+                    after_in_child=_after_fork_child)
 
 
 @contextmanager
 def transition_guard(directory):
     """Serialize marker mutations; leave the guard inode in place forever."""
-    fd = os.open(directory / 'transition.guard', os.O_CREAT | os.O_RDONLY, 0o666)
-    try:
-        deadline = time.monotonic() + GUARD_WAIT_SECS
-        while True:
+    deadline = time.monotonic() + GUARD_WAIT_SECS
+    while True:
+        # A fork must see either a registered fd or no fd. Failed attempts close
+        # before dropping this lock, so retry sleeps never delay other forks.
+        with _guard_fds_lock:
+            fd = os.open(directory / 'transition.guard', os.O_CREAT | os.O_RDONLY, 0o666)
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
+                _guard_fds.add(fd)
+                holder_pid = os.getpid()
             except (BlockingIOError, InterruptedError):
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    yield False
-                    return
-                time.sleep(min(0.05, remaining))
-        try:
-            yield True
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+                os.close(fd)
+                fd = None
+            except BaseException:
+                os.close(fd)
+                raise
+        if fd is not None:
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            yield False
+            return
+        time.sleep(min(0.05, remaining))
+    try:
+        yield True
     finally:
-        os.close(fd)
+        # A child may unwind an inherited context after its fork hook closed fd;
+        # it must not close a descriptor subsequently reused in that child.
+        if os.getpid() == holder_pid:
+            with _guard_fds_lock:
+                _guard_fds.remove(fd)
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+                finally:
+                    os.close(fd)
 
 
 def marker_directory(directory=None):
@@ -135,9 +169,12 @@ def _acquire_locked(owner, step, expected_secs, pid, directory):
             json.dump(info, handle)
         os.rename(temporary, lock / 'info.json')
     except BaseException:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-        lock.rmdir()
+        # Rename can have succeeded just before an exception was delivered.
+        # Published metadata belongs to the holder and is never failure cleanup.
+        if not (lock / 'info.json').exists():
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            lock.rmdir()
         raise
     return True
 
@@ -146,11 +183,13 @@ def release(pid=None, directory=None):
     """Only the recorded holder may release; missing metadata is not ownership."""
     pid = os.getpid() if pid is None else pid
     directory = marker_directory(directory)
+    lock = directory / 'lock'
+    if not lock.exists():
+        return False
     try:
         with transition_guard(directory) as held:
             if not held:
                 return False
-            lock = directory / 'lock'
             info = read_info(lock)
             if info is None or info['pid'] != pid:
                 return False

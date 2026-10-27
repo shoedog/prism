@@ -53,7 +53,8 @@ class TransitionGuardTests(unittest.TestCase):
                 original = (lock / 'info.json').read_bytes() if existing else None
                 with self.guard.open('a') as held:
                     fcntl.flock(held, fcntl.LOCK_EX)
-                    for operation in (self.take, lambda: quiet.release(directory=self.directory)):
+                    for index, operation in enumerate(
+                            (self.take, lambda: quiet.release(directory=self.directory))):
                         ticks = [0.0]
                         sleeps = []
 
@@ -64,7 +65,7 @@ class TransitionGuardTests(unittest.TestCase):
                         with patch.object(quiet.time, 'monotonic', side_effect=lambda: ticks[0]), \
                                 patch.object(quiet.time, 'sleep', side_effect=sleep):
                             self.assertFalse(operation())
-                        self.assertAlmostEqual(ticks[0], 10.0)
+                        self.assertAlmostEqual(ticks[0], 10.0 if existing or index == 0 else 0.0)
                         self.assertTrue(all(0 < delay <= 0.05 for delay in sleeps))
                         self.assertEqual(lock.exists(), existing)
                         if existing:
