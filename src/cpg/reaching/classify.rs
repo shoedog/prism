@@ -11,6 +11,7 @@ use crate::data_flow::FlowEdge;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod finally_kill;
+mod import_exception_gap;
 
 #[derive(Clone, Copy)]
 struct KillNodeLines<'a> {
@@ -43,6 +44,11 @@ pub(super) fn classify_edge(
     }
     if scope::rust_scope::let_else_cfg_gap(parsed, edge, defs) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
+    if let Some(construct_line) = import_exception_gap::unplaced(parsed, edge) {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
     }
     if let Some(construct_line) = unplaced_go_parameter(parsed, edge) {
         return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
@@ -457,6 +463,7 @@ fn edge_use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
     identifiers.next().is_none().then_some(first.start_byte())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn classify_by_reaching_sets(
     parsed: &ParsedFile,
     edge: &FlowEdge,

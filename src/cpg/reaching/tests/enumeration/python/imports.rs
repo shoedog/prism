@@ -236,4 +236,144 @@ pub(in crate::cpg::reaching::tests::enumeration) const CASES: &[Case] = &[
         )],
         expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
     },
+    Case {
+        id: "py-import-exception-enclosing-finally-kills",
+        language: Language::Python,
+        kind: "import_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "def f():\n    x = source()\n    try:\n        try:\n            import ujson as y\n        except ImportError:\n            pass\n    finally:\n        x = clean()\n    sink(x)\n",
+        expect: &[(
+            "2:x",
+            "10:x",
+            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 9 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    Case {
+        id: "py-import-exception-enclosing-else-kills",
+        language: Language::Python,
+        kind: "import_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "def f():\n    x = source()\n    try:\n        try:\n            import ujson as y\n        except ImportError:\n            pass\n    except ValueError:\n        return\n    else:\n        x = clean()\n    sink(x)\n",
+        expect: &[(
+            "2:x",
+            "12:x",
+            FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 11 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    Case {
+        id: "py-import-exception-enclosing-handler-finally-kills",
+        language: Language::Python,
+        kind: "import_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "def f():\n    x = source()\n    try:\n        risky()\n    except ValueError:\n        try:\n            import ujson as y\n        except ImportError:\n            pass\n    finally:\n        x = clean()\n    sink(x)\n",
+        expect: &[(
+            "2:x",
+            "12:x",
+            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_cfg_incomplete", 1)),
+    },
+    Case {
+        id: "py-import-exception-inside-enclosing-finally-preserves",
+        language: Language::Python,
+        kind: "import_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "def f():\n    x = source()\n    try:\n        risky()\n    finally:\n        try:\n            import ujson as x\n        except ImportError:\n            pass\n    sink(x)\n",
+        expect: &[("2:x", "10:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    Case {
+        id: "py-import-exception-with-last-preserves",
+        language: Language::Python,
+        kind: "import_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "def f(m):\n    x = source()\n    with m:\n        try:\n            import ujson as x\n        except ImportError:\n            pass\n    sink(x)\n",
+        expect: &[("2:x", "8:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    Case {
+        id: "py-import-exception-with-following-statement-preserves",
+        language: Language::Python,
+        kind: "import_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "def f(m):\n    x = source()\n    with m:\n        try:\n            import ujson as x\n        except ImportError:\n            pass\n        k()\n    sink(x)\n",
+        expect: &[("2:x", "9:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    Case {
+        id: "py-import-exception-if-inside-with-preserves",
+        language: Language::Python,
+        kind: "import_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "def f(m, c):\n    x = source()\n    with m:\n        if c:\n            try:\n                import ujson as x\n            except ImportError:\n                pass\n    sink(x)\n",
+        expect: &[("2:x", "9:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_exact", 1)),
+    },
+    Case {
+        id: "py-import-exception-no-successor-fails-closed",
+        language: Language::Python,
+        kind: "import_statement",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Structural,
+        src: "def f():\n    x = source()\n    def g():\n        try:\n            import ujson as x\n        except ImportError:\n            pass\n    g()\n    sink(x)\n",
+        expect: &[(
+            "2:x",
+            "9:x",
+            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 5 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+    },
 ];
+
+fn check(id: &str) {
+    let case = CASES
+        .iter()
+        .find(|case| case.id == id)
+        .unwrap_or_else(|| panic!("missing Task 20p case {id}"));
+    super::super::case::check_case(case);
+}
+
+#[test]
+fn task20p_fix2_enclosing_try_successors() {
+    for id in [
+        "py-import-exception-enclosing-finally-kills",
+        "py-import-exception-enclosing-else-kills",
+        "py-import-exception-enclosing-handler-finally-kills",
+        "py-import-exception-inside-enclosing-finally-preserves",
+    ] {
+        check(id);
+    }
+}
+
+#[test]
+fn task20p_fix2_with_successors() {
+    for id in [
+        "py-import-exception-with-last-preserves",
+        "py-import-exception-with-following-statement-preserves",
+        "py-import-exception-if-inside-with-preserves",
+    ] {
+        check(id);
+    }
+}
+
+#[test]
+fn task20p_fix2_no_successor_fails_closed() {
+    check("py-import-exception-no-successor-fails-closed");
+}

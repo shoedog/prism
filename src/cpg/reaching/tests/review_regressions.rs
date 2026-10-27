@@ -122,6 +122,8 @@ fn cross_arm_kill_that_cannot_reach_use_is_not_a_witness() {
     );
 }
 
+mod task20p;
+
 #[test]
 fn unresolved_binding_uses_flat_path_kill_equation() {
     let parsed = parsed(

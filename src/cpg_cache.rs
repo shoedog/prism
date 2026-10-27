@@ -274,7 +274,8 @@ mod stream;
 /// - v130: Self proofs persist identifier file membership; crate scope, new edges only.
 /// - v131: FlowDoubt::OwnershipUncertain and capture-immediate RD stats payloads
 ///   (binding enumeration).
-/// - v132: Python import statements are persisted CFG nodes and route-aware RD definitions.
+/// - v132: Python imports are persisted CFG nodes and route-aware RD definitions; Python
+///   `finally` kills that cut every def-to-use route are reported as the kill line.
 const CACHE_VERSION: u32 = 132;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;

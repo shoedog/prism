@@ -23,14 +23,15 @@ pub(super) fn dominant(
         .iter()
         .filter(|(line, _)| name_on_line_is_in_finally(parsed, edge, **line))
         .filter(|(_, node)| {
-            candidates.iter().all(|index| {
-                mapped_defs[*index].is_some_and(|def_node| {
-                    kill[**node].contains(*index)
-                        && path_exists(successors, def_node, **node, false)
-                        && path_exists(successors, **node, use_node, false)
-                        && !path_exists_avoiding(successors, def_node, use_node, **node)
+            **node != use_node
+                && candidates.iter().all(|index| {
+                    mapped_defs[*index].is_some_and(|def_node| {
+                        kill[**node].contains(*index)
+                            && path_exists(successors, def_node, **node, false)
+                            && path_exists(successors, **node, use_node, false)
+                            && !path_exists_avoiding(successors, def_node, use_node, **node)
+                    })
                 })
-            })
         })
         .map(|(line, _)| *line)
         .min()

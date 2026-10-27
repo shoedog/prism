@@ -573,7 +573,10 @@ fn build_python_edges(
 
 /// The continuation of a Python statement in its enclosing execution arm.
 /// Sibling clauses (`else`, `elif`, `case`, `except`) are never successors.
-fn python_structural_successor(statement: Node<'_>, parsed: &ParsedFile) -> Option<usize> {
+pub(crate) fn python_structural_successor(
+    statement: Node<'_>,
+    parsed: &ParsedFile,
+) -> Option<usize> {
     let mut current = statement;
     loop {
         let parent = current.parent()?;
@@ -596,10 +599,45 @@ fn python_structural_successor(statement: Node<'_>, parsed: &ParsedFile) -> Opti
             {
                 return None;
             }
-            if parsed.language.is_statement_node(enclosing.kind()) {
+            if parsed.language.is_statement_node(enclosing.kind())
+                || enclosing.kind() == "with_statement"
+            {
                 break;
             }
             enclosing = enclosing.parent()?;
+        }
+
+        if enclosing.kind() == "try_statement" {
+            let contains_current = |clause: Node<'_>| {
+                clause.start_byte() <= current.start_byte()
+                    && current.end_byte() <= clause.end_byte()
+            };
+            let came_from_body = enclosing
+                .child_by_field_name("body")
+                .is_some_and(contains_current);
+            let mut cursor = enclosing.walk();
+            let clauses: Vec<_> = enclosing.named_children(&mut cursor).collect();
+            if came_from_body {
+                if let Some(line) = clauses
+                    .iter()
+                    .find(|clause| clause.kind() == "else_clause")
+                    .and_then(|clause| first_statement_line(clause, parsed))
+                {
+                    return Some(line);
+                }
+            }
+            let came_from_finally = clauses
+                .iter()
+                .any(|clause| clause.kind() == "finally_clause" && contains_current(*clause));
+            if !came_from_finally {
+                if let Some(line) = clauses
+                    .iter()
+                    .find(|clause| clause.kind() == "finally_clause")
+                    .and_then(|clause| first_statement_line(clause, parsed))
+                {
+                    return Some(line);
+                }
+            }
         }
 
         if matches!(enclosing.kind(), "for_statement" | "while_statement")
@@ -1218,6 +1256,36 @@ def f():
                 "def f(c):\n    if c:\n        try:\n            import ujson as y\n        except ImportError:\n            pass\n    else:\n        sibling()\n    after()\n",
                 (3, 9),
                 Some((3, 8)),
+            ),
+            (
+                "enclosing-finally.py",
+                "def f():\n    x = source()\n    try:\n        try:\n            import ujson as y\n        except ImportError:\n            pass\n    finally:\n        x = clean()\n    sink(x)\n",
+                (4, 9),
+                None,
+            ),
+            (
+                "enclosing-else.py",
+                "def f():\n    x = source()\n    try:\n        try:\n            import ujson as y\n        except ImportError:\n            pass\n    except ValueError:\n        return\n    else:\n        x = clean()\n    sink(x)\n",
+                (4, 11),
+                None,
+            ),
+            (
+                "with.py",
+                "def f(m):\n    x = source()\n    with m:\n        try:\n            import ujson as x\n        except ImportError:\n            pass\n    sink(x)\n",
+                (4, 8),
+                None,
+            ),
+            (
+                "enclosing-handler.py",
+                "def f():\n    x = source()\n    try:\n        risky()\n    except ValueError:\n        try:\n            import ujson as y\n        except ImportError:\n            pass\n    finally:\n        x = clean()\n    sink(x)\n",
+                (6, 11),
+                None,
+            ),
+            (
+                "inside-enclosing-finally.py",
+                "def f():\n    x = source()\n    try:\n        risky()\n    finally:\n        try:\n            import ujson as x\n        except ImportError:\n            pass\n    sink(x)\n",
+                (6, 10),
+                None,
             ),
         ];
 

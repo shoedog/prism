@@ -8543,7 +8543,12 @@ impl ParsedFile {
         def_line: usize,
         out: &mut BTreeSet<usize>,
     ) {
-        if self.python_import_syntax(node) {
+        if self.language == Language::Python
+            && matches!(
+                node.kind(),
+                "import_statement" | "import_from_statement" | "future_import_statement"
+            )
+        {
             return;
         }
         let node_start = node.start_position().row + 1;
