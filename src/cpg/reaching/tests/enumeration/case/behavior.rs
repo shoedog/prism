@@ -271,11 +271,12 @@ pub(super) fn assert_ruling(
             );
         }
         Some(Ruling::Classified)
-            if case.language == Language::Rust
+            if (case.language == Language::Rust
                 && matches!(
                     case.kind,
                     "block" | "unsafe_block" | "const_block" | "try_block" | "match_arm"
-                ) =>
+                ))
+                || (case.language == Language::Lua && case.kind == "block") =>
         {
             assert!(
                 case.expect
@@ -289,7 +290,7 @@ pub(super) fn assert_ruling(
                         label,
                         FlowConfidence::Exact | FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
                     )),
-                "{}: Rust lexical scopes need Killed inside and Exact after the scope",
+                "{}: lexical scopes need Killed inside and Exact after the scope",
                 case.id
             );
         }

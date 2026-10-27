@@ -26,7 +26,16 @@ pub(super) fn collect_classified_masks(
             && row.ruling == Ruling::Classified
     }) {
         let scope = if row.roles.has(Role::Scope) {
-            scope_span(node)
+            if parsed.language == Language::Lua
+                && matches!(node.kind(), "for_numeric_clause" | "for_generic_clause")
+            {
+                node.parent()
+                    .filter(|parent| parent.kind() == "for_statement")
+                    .map(scope_span)
+                    .unwrap_or_else(|| scope_span(node))
+            } else {
+                scope_span(node)
+            }
         } else {
             declaration_scope(
                 parsed,

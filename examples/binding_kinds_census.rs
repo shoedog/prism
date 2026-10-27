@@ -197,7 +197,20 @@ fn curated_row_kinds(language: Language) -> &'static [&'static str] {
         ],
         Language::Java => &["formal_parameters", "spread_parameter"],
         Language::C | Language::Cpp => &["parameter_list", "parameter_declaration"],
-        Language::Lua => &["parameters"],
+        Language::Lua => &[
+            "assignment_statement",
+            "block",
+            "for_generic_clause",
+            "for_numeric_clause",
+            "for_statement",
+            "function_call",
+            "function_declaration",
+            "function_definition",
+            "implicit_variable_declaration",
+            "parameters",
+            "variable_declaration",
+            "variable_list",
+        ],
         Language::Terraform | Language::Bash => &[],
     }
 }

@@ -1,27 +1,148 @@
-use super::{provisional_rows, BindingRow};
+use super::{BindingRow, DeclarationKind, Predicate, Role, RoleSet, Ruling, Visibility};
 use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "12ea1259c9e644754a13068eafd6160a9c5561c7a69e9cb9c8cd6c968b5e09fc";
 pub(super) const CENSUS_DIGEST: &str =
-    "8cb3e50b850296fdc8a49c0a63d1481b759f4e51a7e43cb7a16b3a1b43474066";
+    "9a802d292db5dd466b35f5507414ebbdd73ee5ab40a8465b72f2faa648b3a75d";
 
-pub(super) static ROWS: &[BindingRow] = provisional_rows!(
-    Language::Lua,
-    "E4e-1",
-    [
-        ("assignment_statement", "e0b-lua-assignment_statement"),
-        ("block", "e0b-lua-block"),
-        ("for_generic_clause", "e0b-lua-for_generic_clause"),
-        ("for_numeric_clause", "e0b-lua-for_numeric_clause"),
-        ("for_statement", "e0b-lua-for_statement"),
-        ("function_call", "e0b-lua-function_call"),
-        ("function_declaration", "e0b-lua-function_declaration"),
-        ("function_definition", "e0b-lua-function_definition"),
-        (
-            "implicit_variable_declaration",
-            "e0b-lua-implicit_variable_declaration"
-        ),
-        ("variable_declaration", "e0b-lua-variable_declaration"),
-        ("variable_list", "e0b-lua-variable_list"),
-    ]
-);
+const LUA_RESIDUAL: Ruling = Ruling::Uncertain {
+    reason: "residual Lua binding shape",
+    revisit: "future:lua-residual",
+};
+
+pub(super) static ROWS: &[BindingRow] = &[
+    BindingRow {
+        language: Language::Lua,
+        kind: "assignment_statement",
+        variant: Some(Predicate::ParentKindIs {
+            kind: "variable_declaration",
+        }),
+        roles: RoleSet::of(&[Role::NotBinding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::AfterIntroduction,
+        ruling: LUA_RESIDUAL,
+        regression: "lua-local-assignment-not-reuse",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "assignment_statement",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["name"],
+        declaration: Some(DeclarationKind::Reuse),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Classified,
+        regression: "lua-assignment-reuse-bypass",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "block",
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "lua-local-masks",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "for_generic_clause",
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope, Role::Binding]),
+        fields: &["name"],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::Header,
+        ruling: Ruling::Classified,
+        regression: "lua-for-generic-header",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "for_numeric_clause",
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope, Role::Binding]),
+        fields: &["name"],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::Header,
+        ruling: Ruling::Classified,
+        regression: "lua-for-clause-header",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "for_statement",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: LUA_RESIDUAL,
+        regression: "e0b-lua-for_statement",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "function_call",
+        variant: None,
+        roles: RoleSet::of(&[Role::NotBinding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: LUA_RESIDUAL,
+        regression: "e0b-lua-function_call",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "function_declaration",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["name"],
+        declaration: None,
+        visibility: Visibility::AfterIntroduction,
+        ruling: LUA_RESIDUAL,
+        regression: "e0b-lua-function_declaration",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "function_definition",
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression: "lua-nested-function-body-scope",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "implicit_variable_declaration",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: LUA_RESIDUAL,
+        regression: "e0b-lua-implicit_variable_declaration",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "variable_declaration",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["name"],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Classified,
+        regression: "e4e-1-lua-variable_declaration",
+    },
+    BindingRow {
+        language: Language::Lua,
+        kind: "variable_list",
+        variant: None,
+        roles: RoleSet::of(&[Role::NotBinding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: LUA_RESIDUAL,
+        regression: "e0b-lua-variable_list",
+    },
+];

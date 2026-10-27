@@ -1,8 +1,8 @@
 //! Edge-local transfer nodes for classified binding reuse constructs.
 
+mod lua;
 mod route_effects;
 mod statement_defs;
-
 pub(super) use route_effects::{apply_explicit_kills, is_route_effect_node};
 pub(super) use statement_defs::materialize_def_sites_and_effects;
 
@@ -548,6 +548,9 @@ pub(super) fn row_introduced_identifiers<'a>(
                 continue;
             }
             identifiers.extend(introduced_identifiers(parsed, target));
+        }
+        if parsed.language == crate::languages::Language::Lua && *field == "name" {
+            identifiers.extend(lua::variable_names(parsed, node));
         }
     }
     if parsed.language == crate::languages::Language::Python

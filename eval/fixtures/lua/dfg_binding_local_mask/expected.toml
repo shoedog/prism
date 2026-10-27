@@ -1,0 +1,17 @@
+[case]
+language = "lua"
+capability = "dfg_binding_local_mask"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.lua:2:x"
+to = "main.lua:5:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 4
+
+[[expect.edges]]
+from = "main.lua:2:x"
+to = "main.lua:7:x"
+confidence = "exact"

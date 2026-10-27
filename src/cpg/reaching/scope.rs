@@ -1,5 +1,6 @@
 //! Lexical binding ownership for reaching definitions.
 
+mod lua;
 mod masks;
 pub(super) mod rust_scope;
 mod typescript;
@@ -214,7 +215,7 @@ impl BindingFacts {
                 .flatten();
             let declaration_index = if let Some(reused) = reused {
                 reused
-            } else if kind == DeclarationKind::Reuse {
+            } else if kind == DeclarationKind::Reuse && parsed.language != Language::Lua {
                 continue;
             } else {
                 let declaration_index = declarations.len();
@@ -459,17 +460,18 @@ fn declaration_seed(
                         .into_iter()
                         .find(|identifier| identifier.start_byte() == def.start_byte)
                 {
+                    let owner = lua::header_owner(parsed.language, node);
                     return Some((
-                        scope_span(node),
+                        scope_span(owner),
                         row.declaration.unwrap_or(DeclarationKind::Other),
                         identifier.end_byte(),
                     ));
                 }
             }
         }
-        let selected = selected_row.and_then(|row| row.declaration);
         let rule = binding_scope_rule(parsed.language, node.kind());
-        if let Some(kind) = selected.or(rule.declaration) {
+        let declaration = lua::selected_declaration(parsed.language, selected_row, rule);
+        if let Some(kind) = declaration {
             if rust_scope::pattern_excludes_def(parsed, node, &def.path.base) {
                 if node.id() == func_node.id() {
                     return None;
@@ -547,7 +549,7 @@ fn declaration_scope(
             break;
         }
         if binding_scope_rule(parsed.language, parent.kind()).creates_scope {
-            return scope_span(parent);
+            return lua::lexical_scope(parsed.language, parent);
         }
         current = parent.parent();
     }
