@@ -523,6 +523,7 @@ fn build_python_edges(
             )
         });
         let mut has_untracked_except = false;
+        let mut finally_first = None;
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             // except_clause / except_group_clause
@@ -541,6 +542,7 @@ fn build_python_edges(
             // finally_clause
             if child.kind() == "finally_clause" {
                 if let Some(first) = first_statement_line(&child, parsed) {
+                    finally_first = Some(first);
                     // try → finally (always runs)
                     edges.push(CfgEdge {
                         file: parsed.path.clone(),
@@ -551,8 +553,8 @@ fn build_python_edges(
             }
         }
         if body_is_single_import && has_untracked_except {
-            let try_end = node.end_position().row + 1;
-            if let Some(&next) = stmt_lines.iter().find(|&&line| line > try_end) {
+            if let Some(next) = finally_first.or_else(|| python_structural_successor(node, parsed))
+            {
                 edges.push_import_exception_bypass(CfgEdge {
                     file: parsed.path.clone(),
                     from_line: try_line,
@@ -566,6 +568,49 @@ fn build_python_edges(
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         build_python_edges(child, parsed, stmt_lines, edges);
+    }
+}
+
+/// The continuation of a Python statement in its enclosing execution arm.
+/// Sibling clauses (`else`, `elif`, `case`, `except`) are never successors.
+fn python_structural_successor(statement: Node<'_>, parsed: &ParsedFile) -> Option<usize> {
+    let mut current = statement;
+    loop {
+        let parent = current.parent()?;
+        if parent.kind() == "block" {
+            let mut sibling = current.next_named_sibling();
+            while let Some(next) = sibling {
+                if parsed.language.is_statement_node(next.kind()) {
+                    return Some(next.start_position().row + 1);
+                }
+                sibling = next.next_named_sibling();
+            }
+        }
+
+        let mut enclosing = parent;
+        loop {
+            if parsed
+                .language
+                .function_node_types()
+                .contains(&enclosing.kind())
+            {
+                return None;
+            }
+            if parsed.language.is_statement_node(enclosing.kind()) {
+                break;
+            }
+            enclosing = enclosing.parent()?;
+        }
+
+        if matches!(enclosing.kind(), "for_statement" | "while_statement")
+            && enclosing.child_by_field_name("body").is_some_and(|body| {
+                body.start_byte() <= statement.start_byte()
+                    && statement.end_byte() <= body.end_byte()
+            })
+        {
+            return Some(enclosing.start_position().row + 1);
+        }
+        current = enclosing;
     }
 }
 
@@ -1157,6 +1202,40 @@ def f():
         assert_eq!(last_statement_line(&consequence, &parsed), Some(3));
         assert_eq!(first_statement_line(&alternative, &parsed), Some(5));
         assert_eq!(last_statement_line(&alternative, &parsed), Some(5));
+    }
+
+    #[test]
+    fn python_import_exception_bypass_targets_structural_successor() {
+        let cases = [
+            (
+                "finally.py",
+                "def f():\n    x = source()\n    try:\n        import ujson as y\n    except ImportError:\n        pass\n    finally:\n        x = clean()\n    sink(x)\n",
+                (3, 8),
+                None,
+            ),
+            (
+                "sibling.py",
+                "def f(c):\n    if c:\n        try:\n            import ujson as y\n        except ImportError:\n            pass\n    else:\n        sibling()\n    after()\n",
+                (3, 9),
+                Some((3, 8)),
+            ),
+        ];
+
+        for (path, source, expected, forbidden) in cases {
+            let parsed = ParsedFile::parse(path, source, Language::Python).unwrap();
+            let bypass: Vec<_> = build_cfg_edges_with_arms(&parsed)
+                .into_iter()
+                .filter(|(_, provenance)| provenance.origin == EdgeOrigin::ImportExceptionBypass)
+                .map(|(edge, _)| (edge.from_line, edge.to_line))
+                .collect();
+            assert_eq!(bypass, vec![expected], "{path}: bypass target");
+            if let Some(forbidden) = forbidden {
+                assert!(
+                    !bypass.contains(&forbidden),
+                    "{path}: bypass must not enter a sibling arm"
+                );
+            }
+        }
     }
 
     #[test]

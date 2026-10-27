@@ -1,0 +1,11 @@
+[case]
+language = "python"
+capability = "dfg_binding_import_try_except_handler_use"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "a.py:1:status"
+to = "a.py:5:status"
+confidence = "nameonly"
+doubt = "cfg_incomplete"

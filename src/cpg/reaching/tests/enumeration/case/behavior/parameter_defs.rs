@@ -11,3 +11,30 @@ pub(super) fn needs_synthetic_definition(case_id: &str) -> bool {
             | "ts-rest-pattern-owned-by-parameter"
     )
 }
+
+use crate::ast::ParsedFile;
+use crate::cpg::reaching::DefSite;
+
+pub(super) fn add_named_synthetic_definitions(
+    case_id: &str,
+    parsed: &ParsedFile,
+    defs: &mut Vec<DefSite>,
+) {
+    let names: &[&str] = match case_id {
+        "py-import-dotted-path-r08" => &["path"],
+        "py-import-alias-original-r09" => &["a", "pkg"],
+        "py-import-dotted-from-a06" => &["incident"],
+        "py-import-try-except-handler-use" => &["status"],
+        _ => &[],
+    };
+    for (index, name) in names.iter().enumerate() {
+        defs.push(super::super::super::super::def(
+            parsed,
+            u32::MAX - index as u32,
+            name,
+            1,
+            0,
+            false,
+        ));
+    }
+}

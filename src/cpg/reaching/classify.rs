@@ -10,6 +10,8 @@ use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use std::collections::{BTreeMap, BTreeSet};
 
+mod finally_kill;
+
 #[derive(Clone, Copy)]
 struct KillNodeLines<'a> {
     statements: &'a BTreeMap<Line, usize>,
@@ -159,6 +161,8 @@ pub(super) fn classify_edge(
             synthetic: synthetic_nodes,
         };
         return classify_by_reaching_sets(
+            parsed,
+            edge,
             candidates,
             use_node,
             mapped_defs,
@@ -192,6 +196,8 @@ pub(super) fn classify_edge(
         synthetic: synthetic_nodes,
     };
     classify_by_reaching_sets(
+        parsed,
+        edge,
         &same_binding,
         use_node,
         mapped_defs,
@@ -452,6 +458,8 @@ fn edge_use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
 }
 
 fn classify_by_reaching_sets(
+    parsed: &ParsedFile,
+    edge: &FlowEdge,
     candidates: &[usize],
     use_node: usize,
     mapped_defs: &[Option<usize>],
@@ -476,6 +484,21 @@ fn classify_by_reaching_sets(
     }
     if !reaching_candidates.is_empty() {
         return FlowConfidence::Exact;
+    }
+
+    if let Some(kill_line) = finally_kill::dominant(
+        parsed,
+        edge,
+        candidates,
+        use_node,
+        mapped_defs,
+        kill,
+        successors,
+        kill_node_lines.statements,
+    ) {
+        return FlowConfidence::NameOnly(FlowDoubt::Killed {
+            kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
+        });
     }
 
     let Some(kill_line) = candidates

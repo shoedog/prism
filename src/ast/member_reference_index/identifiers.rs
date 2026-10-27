@@ -20,6 +20,26 @@ struct Index<'a> {
     by_name: HashMap<&'a str, Vec<Candidate<'a>>>,
 }
 
+impl ParsedFile {
+    pub(crate) fn python_import_syntax(&self, mut node: Node<'_>) -> bool {
+        if self.language != crate::languages::Language::Python {
+            return false;
+        }
+        loop {
+            if matches!(
+                node.kind(),
+                "import_statement" | "import_from_statement" | "future_import_statement"
+            ) {
+                return true;
+            }
+            let Some(parent) = node.parent() else {
+                return false;
+            };
+            node = parent;
+        }
+    }
+}
+
 impl<'a> Index<'a> {
     fn build(parsed: &'a ParsedFile, query: &Query) -> Self {
         #[cfg(test)]
@@ -120,7 +140,9 @@ impl<'a> IdentifierReferenceSearch<'a> {
         let mut lines = BTreeSet::new();
         if let Some(index) = self.index() {
             for node in index.matching(name, owner.byte_range()) {
-                if !shadow::<COUNT>(self.parsed, &node, owner, name, def_line) {
+                if !self.parsed.python_import_syntax(node)
+                    && !shadow::<COUNT>(self.parsed, &node, owner, name, def_line)
+                {
                     lines.insert(node.start_position().row + 1);
                 }
             }
@@ -158,7 +180,8 @@ impl<'a> IdentifierReferenceSearch<'a> {
             return;
         };
         for node in index.matching(name, root.byte_range()) {
-            if !shadow::<COUNT>(parsed, &node, owner, name, def_line)
+            if !parsed.python_import_syntax(node)
+                && !shadow::<COUNT>(parsed, &node, owner, name, def_line)
                 && !fence::<COUNT>(parsed, &node, owner, name, def_byte)
                 && !(reads_only && parsed.js_ts_identifier_is_not_a_read(node))
                 && !(reads_only && parsed.js_ts_reference_in_with_body(node))
@@ -212,6 +235,7 @@ pub(super) fn one_shot_fenced(
             crate::profile::gates::SCOPED_QUERY_WORK.with(|n| n.set((n.get().0, n.get().1 + 1)));
             if c.index == ident
                 && parsed.node_text(&c.node) == name
+                && !parsed.python_import_syntax(c.node)
                 && !shadow::<false>(parsed, &c.node, owner, name, def_line)
                 && !fence::<false>(parsed, &c.node, owner, name, def_byte)
                 && !(reads_only

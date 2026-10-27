@@ -310,6 +310,36 @@ fn language_cases() -> [(Language, &'static str); 12] {
     ]
 }
 
+#[test]
+fn python_import_syntax_never_contributes_identifier_references() {
+    let source = "from __future__ import annotations\ndef f(x, path, a, pkg, project, incident, model):\n    x = source()\n    import package as x\n    import os.path\n    from pkg import a as b\n    import pkg2 as pkg\n    from dispatch.project import flows as project_flows\n    from .model import Variant\n    sink(x); sink(path); sink(a); sink(pkg); sink(project); sink(incident); sink(model)\n";
+    let parsed = ParsedFile::parse("imports.py", source, Language::Python).unwrap();
+    let search = IdentifierReferenceSearch::new(&parsed);
+    let root = parsed.tree.root_node();
+    for (name, forbidden_lines) in [
+        ("annotations", &[1][..]),
+        ("package", &[4][..]),
+        ("x", &[4][..]),
+        ("os", &[5][..]),
+        ("path", &[5][..]),
+        ("pkg", &[6, 7][..]),
+        ("a", &[6][..]),
+        ("b", &[6][..]),
+        ("pkg2", &[7][..]),
+        ("project", &[8][..]),
+        ("flows", &[8][..]),
+        ("project_flows", &[8][..]),
+        ("model", &[9][..]),
+        ("Variant", &[9][..]),
+    ] {
+        let refs = search.scoped::<false>(&root, name, 0);
+        assert!(
+            forbidden_lines.iter().all(|line| !refs.contains(line)),
+            "{name}: import syntax contributed references on {refs:?}"
+        );
+    }
+}
+
 fn ranges_match(parsed: &ParsedFile, query: &Query) {
     let index = Index::build(parsed, query);
     let all = raw(parsed, query, 0..0);

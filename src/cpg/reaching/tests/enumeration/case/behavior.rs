@@ -68,6 +68,7 @@ pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
     if parameter_defs::needs_synthetic_definition(case.id) {
         defs.push(super::super::super::def(parsed, u32::MAX, "x", 1, 0, false));
     }
+    parameter_defs::add_named_synthetic_definitions(case.id, parsed, &mut defs);
     if case.id == "rs-let-pattern-wrapper-g07" {
         defs.push(super::super::super::def(parsed, u32::MAX, "z", 1, 0, false));
     }

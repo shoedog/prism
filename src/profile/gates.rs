@@ -103,7 +103,10 @@ pub(crate) fn scoped_refs<const COUNT: bool>(
             for capture in m.captures {
                 #[cfg(test)]
                 SCOPED_QUERY_WORK.with(|c| c.set((c.get().0, c.get().1 + 1)));
-                if capture.index == ident_idx && parsed.node_text(&capture.node) == var_name {
+                if capture.index == ident_idx
+                    && parsed.node_text(&capture.node) == var_name
+                    && !parsed.python_import_syntax(capture.node)
+                {
                     // Bottom-up scope check: walk from the capture node up to the
                     // function boundary. If any enclosing scope block re-declares
                     // var_name and doesn't contain def_line, skip this reference.

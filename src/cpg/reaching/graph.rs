@@ -88,6 +88,34 @@ pub(super) fn path_exists(
     false
 }
 
+pub(super) fn path_exists_avoiding(
+    successors: &[Vec<(usize, bool)>],
+    from: usize,
+    to: usize,
+    avoided: usize,
+) -> bool {
+    if from == avoided || to == avoided {
+        return false;
+    }
+    let mut seen = vec![false; successors.len()];
+    let mut queue = VecDeque::from([from]);
+    while let Some(node) = queue.pop_front() {
+        if node == to {
+            return true;
+        }
+        if seen[node] {
+            continue;
+        }
+        seen[node] = true;
+        for (successor, incomplete) in &successors[node] {
+            if !incomplete && *successor != avoided && !seen[*successor] {
+                queue.push_back(*successor);
+            }
+        }
+    }
+    false
+}
+
 pub(super) fn definition_reaches_unflagged(
     def_index: usize,
     from: usize,

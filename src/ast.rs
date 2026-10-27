@@ -8543,6 +8543,9 @@ impl ParsedFile {
         def_line: usize,
         out: &mut BTreeSet<usize>,
     ) {
+        if self.python_import_syntax(node) {
+            return;
+        }
         let node_start = node.start_position().row + 1;
         let node_end = node.end_position().row + 1;
 

@@ -25,7 +25,10 @@ pub(crate) fn legacy_scoped_refs<const COUNT: bool>(
         while let Some(m) = matches.next() {
             for capture in m.captures {
                 super::record_capture();
-                if capture.index == ident_idx && parsed.node_text(&capture.node) == var_name {
+                if capture.index == ident_idx
+                    && parsed.node_text(&capture.node) == var_name
+                    && !parsed.python_import_syntax(capture.node)
+                {
                     // Bottom-up scope check: walk from the capture node up to the
                     // function boundary. If any enclosing scope block re-declares
                     // var_name and doesn't contain def_line, skip this reference.
@@ -84,6 +87,7 @@ impl ParsedFile {
                 super::record_capture();
                 if capture.index == ident_idx
                     && self.node_text(&capture.node) == name
+                    && !self.python_import_syntax(capture.node)
                     && !shadow::<COUNT>(self, &capture.node, owner, name, def_line)
                     && !fence::<COUNT>(self, &capture.node, owner, name, def_byte)
                     && !(reads_only && self.js_ts_identifier_is_not_a_read(capture.node))
