@@ -11,7 +11,7 @@ pub(super) static JAVA_ROWS: &[BindingRow] = &[
         declaration: Some(DeclarationKind::Parameter),
         visibility: Visibility::WholeScope,
         ruling: Ruling::Classified,
-        regression: "e0a-x-java-formal_parameters",
+        regression: "java-formal-parameter-masks",
     },
     BindingRow {
         language: Language::Java,
@@ -22,6 +22,6 @@ pub(super) static JAVA_ROWS: &[BindingRow] = &[
         declaration: Some(DeclarationKind::Parameter),
         visibility: Visibility::WholeScope,
         ruling: Ruling::Classified,
-        regression: "e0a-x-java-spread_parameter",
+        regression: "java-spread-parameter-masks",
     },
 ];

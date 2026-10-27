@@ -1,5 +1,5 @@
 //! Lexical binding ownership for reaching definitions.
-
+mod java;
 mod masks;
 pub(super) mod rust_scope;
 mod typescript;
@@ -29,7 +29,6 @@ pub(super) struct ScopeSpan {
     end_byte: usize,
     end_line: Line,
 }
-
 impl ScopeSpan {
     fn contains(self, byte: usize) -> bool {
         self.start_byte <= byte && byte < self.end_byte
@@ -457,7 +456,10 @@ fn declaration_seed(
                 if let Some(identifier) =
                     transfer::row_introduced_identifiers(parsed, node, row.fields)
                         .into_iter()
-                        .find(|identifier| identifier.start_byte() == def.start_byte)
+                        .find(|identifier| {
+                            identifier.start_byte() == def.start_byte
+                                && parsed.node_text(identifier) == def.path.base
+                        })
                 {
                     return Some((
                         scope_span(node),
@@ -478,8 +480,7 @@ fn declaration_seed(
                 continue;
             }
             if selected_row.is_some_and(|row| {
-                row.declaration.is_some()
-                    && transfer::row_excludes_identifier(parsed, node, row.fields, def.start_byte)
+                row.declaration.is_some() && java::row_excludes_identifier(parsed, node, row, def)
             }) {
                 if node.id() == func_node.id() {
                     return None;
@@ -500,6 +501,8 @@ fn declaration_seed(
             let scope = declaration_scope(parsed, func_node, node, kind, function_scope);
             let rust_item_is_hoisted = parsed.language == Language::Rust
                 && matches!(node.kind(), "const_item" | "static_item");
+            let java_identifier_end =
+                java::identifier_visible_from(parsed, node, selected_row, def);
             let visible_from = if rust_item_is_hoisted {
                 scope.start_byte
             } else {
@@ -508,9 +511,10 @@ fn declaration_seed(
                     | DeclarationKind::JavaScriptVar
                     | DeclarationKind::PythonAssignment
                     | DeclarationKind::Reuse => scope.start_byte,
-                    DeclarationKind::GoShort
-                    | DeclarationKind::Other
-                    | DeclarationKind::CaptureCopy => node.end_byte(),
+                    DeclarationKind::Other => {
+                        java_identifier_end.unwrap_or_else(|| node.end_byte())
+                    }
+                    DeclarationKind::GoShort | DeclarationKind::CaptureCopy => node.end_byte(),
                     DeclarationKind::Pattern => rust_scope::pattern_visible_from(node),
                 }
             };
@@ -562,7 +566,8 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
         return BindingScopeRule {
             creates_scope: r.roles.has(Role::Scope)
                 && !(language == Language::Python
-                    && matches!(kind, "match_statement" | "case_clause")),
+                    && matches!(kind, "match_statement" | "case_clause"))
+                && !(language == Language::Java && kind == "switch_block_statement_group"),
             declaration: r.declaration,
         };
     }

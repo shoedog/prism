@@ -68,7 +68,7 @@ fn classified_placeholders_are_enumerated() {
     assert_placeholder_registry_exact(&placeholders, PLACEHOLDER_OWNERS);
     assert_eq!(
         placeholders.len(),
-        7,
+        5,
         "placeholder debt count changed; update only as Behavioral cases replace debt"
     );
 }
