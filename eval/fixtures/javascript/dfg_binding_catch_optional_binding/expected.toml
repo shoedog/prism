@@ -1,0 +1,16 @@
+[case]
+language = "javascript"
+capability = "dfg_binding_catch_optional_binding"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.js:6:x"
+to = "main.js:7:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.js:2:x"
+to = "main.js:9:x"
+confidence = "nameonly"
+doubt = "cfg_incomplete"

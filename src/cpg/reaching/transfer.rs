@@ -77,6 +77,8 @@ pub(super) fn discover(parsed: &ParsedFile, func: &Node<'_>, defs: &[DefSite]) -
                     && node.kind() == "with_item"
                     && matches!(row.ruling, Ruling::Uncertain { .. })))
                 && row.roles.has(Role::Binding)
+                && !(parsed.language == crate::languages::Language::Go
+                    && matches!(node.kind(), "for_clause" | "short_var_declaration"))
                 && matches!(
                     row.declaration,
                     Some(
@@ -572,7 +574,7 @@ pub(super) fn row_excludes_identifier(
     byte: usize,
 ) -> bool {
     let identifiers = row_introduced_identifiers(parsed, node, fields);
-    !identifiers.is_empty()
+    !fields.is_empty()
         && identifiers
             .iter()
             .all(|identifier| identifier.start_byte() != byte)
