@@ -60,9 +60,10 @@ fn exact_call(
         (
             r.target.file.as_str(),
             r.target.start_line,
+            r.target.end_line,
             r.target.name.as_str()
         ),
-        (file, target_line, name)
+        (file, target_line, target_line, name)
     );
     assert_eq!(
         (r.confidence, r.kind),
@@ -293,13 +294,13 @@ impl T { fn b() {} fn caller() { Self::b(); } }",
 }
 
 #[test]
-fn same_impl_trait_allow() {
+fn same_impl_trait_refuses() {
     let cg = build(&[(
         "src/lib.rs",
         "struct T; trait Tr { fn b(); fn caller(); }
 impl Tr for T { fn b() {} fn caller() { Self::b(); } }",
     )]);
-    exact_call(&cg, "caller", 2, "Self::b", "src/lib.rs", 2, "b");
+    drop_call(&cg, "caller", 2, "Self::b");
 }
 
 #[test]

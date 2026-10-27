@@ -1,5 +1,6 @@
 //! Authoritative Rust call routing and the concrete `Self::` scope proof.
 use super::*;
+use crate::name_resolution::types::ScopeKind;
 
 impl CallGraph {
     /// `Self` has no lexical module binding. Let its dedicated rung run.
@@ -133,7 +134,15 @@ impl CallGraph {
             let ids = self.methods_by_scope.get(&(scope, name.to_string()))?;
             if ids.len() == 1 {
                 let target = self.rust_self_proofs.methods.get(&ids[0])?;
-                if !caller.admits(target) {
+                if self
+                    .rust_self_proofs
+                    .enum_variants
+                    .get(owner.trim_start_matches("r#"))
+                    .is_some_and(|variants| variants.contains(name.trim_start_matches("r#")))
+                {
+                    return None;
+                }
+                if !caller.admits(target, graph) {
                     return None;
                 }
                 Some(exact(ids, ResolutionKind::SelfReceiver))
@@ -154,6 +163,7 @@ impl CallGraph {
 pub(crate) struct ProofIndex {
     methods: BTreeMap<FunctionId, ImplProof>,
     default_names: BTreeSet<String>,
+    enum_variants: BTreeMap<String, BTreeSet<String>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -162,6 +172,7 @@ struct ImplProof {
     span: (usize, usize),
     module_level: bool,
     inherent: bool,
+    visibility: Vec<String>,
     module: Vec<usize>,
     plain_self_path: bool,
     self_type: Vec<String>,
@@ -171,16 +182,43 @@ struct ImplProof {
 }
 
 impl ImplProof {
+    fn can_see(&self, target: &Self, graph: &ScopeGraph) -> bool {
+        if target.visibility == ["pub"] {
+            return true;
+        }
+        let Some(caller) = impl_module(graph, &self.file, self.span.0) else {
+            return false;
+        };
+        let Some(defining) = impl_module(graph, &target.file, target.span.0) else {
+            return false;
+        };
+        if target.visibility == ["pub", "(", "crate", ")"] {
+            return scope_ancestors(graph, caller).last()
+                == scope_ancestors(graph, defining).last();
+        }
+        // Private and other restricted forms are proven only within the defining
+        // module and its descendants. Do not guess pub(super)/pub(in ...) paths.
+        scope_ancestors(graph, caller).contains(&defining)
+    }
+
     fn same_module(&self, target: &Self) -> bool {
         self.file == target.file && self.module == target.module
     }
 
-    fn admits(&self, target: &Self) -> bool {
+    fn admits(&self, target: &Self, graph: &ScopeGraph) -> bool {
+        // Duplicate FunctionIds demote this proof. Check before every shortcut.
+        if !target.module_level {
+            return false;
+        }
+        // Inherent precedence avoids needing a complete trait candidate set.
+        if !target.inherent {
+            return false;
+        }
+        if !self.can_see(target, graph) {
+            return false;
+        }
         if self.file == target.file && self.span == target.span {
             return true;
-        }
-        if !target.module_level || !target.inherent {
-            return false;
         }
         if self.self_type != target.self_type {
             return false;
@@ -206,6 +244,7 @@ impl ProofIndex {
             if parsed.language != crate::languages::Language::Rust {
                 continue;
             }
+            collect_enum_variants(parsed, parsed.tree.root_node(), &mut result.enum_variants);
             for method in parsed.all_functions() {
                 let Some(name) = parsed.language.function_name(&method) else {
                     continue;
@@ -259,6 +298,11 @@ impl ProofIndex {
                     span: (item.start_byte(), item.end_byte()),
                     module_level,
                     inherent: item.child_by_field_name("trait").is_none(),
+                    visibility: method
+                        .named_children(&mut method.walk())
+                        .find(|n| n.kind() == "visibility_modifier")
+                        .map(normalize)
+                        .unwrap_or_default(),
                     module,
                     plain_self_path: plain_nominal_path(ty),
                     self_type: normalize(ty),
@@ -347,4 +391,53 @@ fn self_call_spans(method: tree_sitter::Node<'_>) -> BTreeSet<(usize, usize)> {
         visit(child, &mut spans);
     }
     spans
+}
+
+// Module extents and parent edges include out-of-line modules and crate roots.
+fn impl_module(graph: &ScopeGraph, file: &str, byte: usize) -> Option<ScopeId> {
+    let mut scope = enclosing_scope(graph, *graph.file_paths.get(file)?, byte)?;
+    loop {
+        if matches!(
+            graph.scope(scope)?.kind,
+            ScopeKind::Root | ScopeKind::Module
+        ) {
+            return Some(scope);
+        }
+        scope = graph.parent_of(scope)?;
+    }
+}
+
+fn scope_ancestors(graph: &ScopeGraph, scope: ScopeId) -> Vec<ScopeId> {
+    let mut result = vec![scope];
+    while let Some(parent) = graph.parent_of(*result.last().unwrap()) {
+        result.push(parent);
+    }
+    result
+}
+
+fn collect_enum_variants(
+    parsed: &crate::ast::ParsedFile,
+    node: tree_sitter::Node<'_>,
+    variants: &mut BTreeMap<String, BTreeSet<String>>,
+) {
+    if node.kind() == "enum_item" {
+        if let (Some(name), Some(body)) = (
+            node.child_by_field_name("name"),
+            node.child_by_field_name("body"),
+        ) {
+            let names = variants
+                .entry(parsed.node_text(&name).trim_start_matches("r#").to_string())
+                .or_default();
+            for variant in body.named_children(&mut body.walk()) {
+                if variant.kind() == "enum_variant" {
+                    if let Some(name) = variant.child_by_field_name("name") {
+                        names.insert(parsed.node_text(&name).trim_start_matches("r#").to_string());
+                    }
+                }
+            }
+        }
+    }
+    for child in node.named_children(&mut node.walk()) {
+        collect_enum_variants(parsed, child, variants);
+    }
 }

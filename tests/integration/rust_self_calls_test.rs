@@ -67,6 +67,7 @@ fn exact(caller: &str, callee: &str, target: &str, file: &str) {
         _ => panic!("target line must be pinned"),
     };
     assert_eq!(resolved.target.start_line, line);
+    assert_eq!(resolved.target.end_line, line);
     assert_eq!(resolved.confidence, ResolutionConfidence::Exact);
     assert_eq!(resolved.kind, ResolutionKind::SelfReceiver);
 }
@@ -93,7 +94,7 @@ fn trait_to_inherent() {
 }
 #[test]
 fn trait_to_trait() {
-    exact("a", "Self::b", "b", "src/cases.rs");
+    dropped("a", "Self::b");
 }
 #[test]
 fn closure() {
@@ -118,6 +119,7 @@ fn dropped(caller: &str, callee: &str) {
     let outcome = cg.resolve_call_site_full(site(&cg, caller, callee));
     println!("{caller}: {outcome:?}");
     assert!(outcome.resolved.is_empty(), "{caller}: {outcome:?}");
+    assert_eq!(outcome.drop, Some(DropReason::UnknownName));
 }
 #[test]
 fn trait_default() {

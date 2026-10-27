@@ -113,7 +113,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v69: module-tree Rust Self calls add scope-proven edges (#521, CPG v124).
 // v70: Self allow-list refusals and persisted impl syntax (CPG v125).
 // v71: token and lexical-module header applicability (CPG v126).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 71;
+// v72: accessible inherent Self targets, enum variants and duplicate-first proof (CPG v127).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 72;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 pub(crate) const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -753,7 +754,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 71);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 72);
     }
 
     #[test]

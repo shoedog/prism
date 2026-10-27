@@ -101,13 +101,13 @@
     ],
     "RS-14-cpg-generation": [
       "src/cpg_cache.rs",
-      "const CACHE_VERSION: u32 = 126;",
+      "const CACHE_VERSION: u32 = 127;",
       "const CACHE_VERSION: u32 = 124;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "RS-15-nav-generation": [
       "src/navigation/call_edge_cache.rs",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 71;",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 72;",
       "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
       "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
     ],
@@ -128,8 +128,8 @@
     ],
     "RS-18-cross-impl-inherent": [
       "src/resolution_rust_self.rs",
-      "if !target.module_level || !target.inherent {",
-      "if !target.module_level {",
+      "if !target.inherent {",
+      "if false {",
       "rust_self_allowlist_test::cross_trait_refuses"
     ],
     "RS-19-self-type-arguments": [
@@ -146,14 +146,14 @@
     ],
     "RS-21-same-impl-admitted": [
       "src/resolution_rust_self.rs",
-      "if self.file == target.file && self.span == target.span {",
-      "if false {",
-      "rust_self_allowlist_test::same_impl_trait_allow"
+      "if self.file == target.file && self.span == target.span {\n            return true;",
+      "if self.file == target.file && self.span == target.span {\n            return false;",
+      "rust_self_calls_test::associated"
     ],
     "RS-22-module-level-target": [
       "src/resolution_rust_self.rs",
-      "if !target.module_level || !target.inherent {",
-      "if !target.inherent {",
+      "if !target.module_level {",
+      "if false {",
       "rust_self_allowlist_test::module_target_required"
     ],
     "RS-23-where-header-proof": [
@@ -176,7 +176,7 @@
     ],
     "RS-26-applicability-required": [
       "src/resolution_rust_self.rs",
-      "if !caller.admits(target) {",
+      "if !caller.admits(target, graph) {",
       "if false {",
       "rust_self_allowlist_test::sol_f1_inherent"
     ],
@@ -215,6 +215,39 @@
       "plain_self_path: plain_nominal_path(ty),",
       "plain_self_path: true,",
       "rust_self_allowlist_test::generic_module_files_refuse"
+    ],
+    "RS-33-inherent-only": [
+      "src/resolution_rust_self.rs",
+      "if !target.inherent {",
+      "if false {",
+      "rust_self_allowlist_test::same_impl_trait_refuses"
+    ],
+    "RS-34-target-accessibility": [
+      "src/resolution_rust_self.rs",
+      "if !self.can_see(target, graph) {",
+      "if false {",
+      "rust_self_closed_rule_test::q7_private_inherent_blanket"
+    ],
+    "RS-35-enum-variant-veto": [
+      "src/resolution_rust_self.rs",
+      "variants.contains(name.trim_start_matches(\"r#\"))",
+      "false",
+      "rust_self_closed_rule_test::q9_variant_method"
+    ],
+    "RS-36-duplicate-before-shortcut": [
+      "src/resolution_rust_self.rs",
+      "if !target.module_level {",
+      "if !target.module_level && self.span != target.span {",
+      "rust_self_closed_rule_test::same_impl_duplicate"
+    ],
+    "RS-37-raw-variant-spelling": [
+      "src/resolution_rust_self.rs",
+      ".trim_start_matches(\"r#\")",
+      ".trim_start_matches(\"never_raw_prefix\")",
+      [
+        "rust_self_closed_rule_test::raw_variant_name_refuses",
+        "rust_self_closed_rule_test::raw_enum_name_veto_is_conservative"
+      ]
     ]
   },
   "lib_test_prefixes": [
@@ -223,6 +256,7 @@
   ],
   "intent_revisions": {
     "RS-03-trait-default-open": "The former trait-default-caller guard is subsumed by requiring direct module-level impl syntax. This mutant now removes the global default-name refusal required to close missing inherited candidates; the independent same-impl witness avoids masking by cross-trait or applicability guards.",
-    "RS-04-nested-item-capture": "Replace indexed duplicate-call inference with syntax-span membership that refuses every nested named item, including const/static without function identities."
+    "RS-04-nested-item-capture": "Replace indexed duplicate-call inference with syntax-span membership that refuses every nested named item, including const/static without function identities.",
+    "RS-21-same-impl-admitted": "Inherent-only makes skipping the shortcut equivalent to the later same-header proof. Refusing the same-impl branch still independently checks its positive admission; trait targets are now always refused."
   }
 }

@@ -216,8 +216,8 @@ calls bind via a per-`(owner, name)` method index (Rust trait impls are dual-key
 under the trait, demoted when >1 impl); authoritative Rust `Self::` calls reach
 the dedicated Self allow-list. The caller must be a direct method of a module-level
 impl, with no nested named item between the method and the call. Closures, async
-blocks and inline const blocks retain Self. The singleton target must be in the
-same impl, or in a module-level inherent impl with identical whitespace-normalized
+blocks and inline const blocks retain Self. The singleton target must always be inherent, with an unambiguous syntax identity
+checked before the same-impl shortcut. Otherwise it must have identical whitespace-normalized
 self-type syntax (including generic arguments). If either impl has generic
 parameters or a where clause, both generics and where clauses must also match
 textually. Normalization compares syntax-token sequences, preserving token
@@ -225,9 +225,16 @@ boundaries and literal contents. Cross-impl generic/composite self types or
 constrained headers additionally require the same lexical module (same file and
 enclosing module nodes); plain nominal paths retain cross-file support. This is
 a conservative restriction because equal argument/bound text can name different
-types in different modules. Cross-impl trait targets, local impls, missing syntax/owner evidence,
+types in different modules. All trait targets (including same-impl targets), local impls, missing syntax/owner evidence,
 trait-default callers, any in-repo trait default with the callee name, and pools
 with zero or multiple candidates drop as UnknownName; there is no NameOnly fan-out.
+The target must be accessible: public methods pass, pub(crate) requires the same
+crate root, and private or other restricted forms require the caller's module to
+be the defining module or a descendant (including out-of-line modules). Other
+pub(super)/pub(in ...) cases conservatively refuse. A same-named variant on any
+in-repo enum with the self type's name vetoes the edge; variants on differently
+named enums do not. Enum and variant names canonicalize raw identifier spelling.
+Trait-impl callers may still call inherent targets.
 Ambiguous impl metadata and macro-token calls without a parsed call expression
 also refuse.
 External, std, derive and macro-generated impls remain outside the existing owner
@@ -299,7 +306,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v124) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v127) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

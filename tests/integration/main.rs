@@ -87,3 +87,5 @@ mod type_relative_receiver_test;
 mod umbrella_completeness_test;
 
 mod rust_self_allowlist_test;
+
+mod rust_self_closed_rule_test;
