@@ -1,6 +1,7 @@
 //! Lexical binding ownership for reaching definitions.
 
 mod masks;
+mod use_lookup;
 
 use masks::{collect_classified_masks, simple_catch_parameter_owns_def};
 
@@ -275,7 +276,7 @@ impl BindingFacts {
         if let Some(cached) = self.use_byte_cache.borrow().get(&key) {
             return *cached;
         }
-        let value = use_byte(parsed, edge);
+        let value = use_lookup::use_byte(parsed, edge);
         #[cfg(test)]
         super::work_tests::bump(|counts| counts.use_byte_misses += 1);
         self.use_byte_cache.borrow_mut().insert(key, value);
@@ -415,9 +416,8 @@ fn declaration_seed(
     def: &DefSite,
     function_scope: ScopeSpan,
 ) -> Option<(ScopeSpan, DeclarationKind, usize)> {
-    // js-param-defs PR-A: the bare arrow formal (`x => …`) has no
-    // `parameters` list; without its region the Def is seeded as a non-
-    // parameter binding and its labels diverge from the `(x) => …` control.
+    // A bare arrow formal has no `parameters` list; without this region its Def
+    // is seeded as a non-parameter binding and diverges from the `(x) => …` control.
     if parsed
         .parameter_binding_region(func_node)
         .is_some_and(|parameters| {
@@ -437,7 +437,7 @@ fn declaration_seed(
         .descendant_for_byte_range(def.start_byte, end_byte)?;
     loop {
         let selected_row = select_binding_row(parsed, node);
-        if selected_row.is_some_and(|row| row.visibility == Visibility::Header) {
+        if let Some(row) = selected_row.filter(|row| row.visibility == Visibility::Header) {
             let left = node.child_by_field_name("left");
             if left.is_some_and(|left| {
                 left.start_byte() <= def.start_byte && def.start_byte < left.end_byte()
@@ -451,9 +451,7 @@ fn declaration_seed(
                 };
                 return Some((
                     scope_span(owner),
-                    selected_row
-                        .and_then(|row| row.declaration)
-                        .unwrap_or(DeclarationKind::Other),
+                    row.declaration.unwrap_or(DeclarationKind::Other),
                     if node.kind() == "range_clause" {
                         node.child_by_field_name("right")?.end_byte()
                     } else {
@@ -461,20 +459,26 @@ fn declaration_seed(
                     },
                 ));
             }
+            if row.roles.has(Role::Scope) {
+                if let Some(identifier) =
+                    transfer::row_introduced_identifiers(parsed, node, row.fields)
+                        .into_iter()
+                        .find(|identifier| identifier.start_byte() == def.start_byte)
+                {
+                    return Some((
+                        scope_span(node),
+                        row.declaration.unwrap_or(DeclarationKind::Other),
+                        identifier.end_byte(),
+                    ));
+                }
+            }
         }
         let rule = binding_scope_rule(parsed.language, node.kind());
         if let Some(kind) = rule.declaration {
             if selected_row.is_some_and(|row| {
                 row.ruling == Ruling::Classified
                     && row.roles.has(Role::Binding)
-                    && !row.fields.is_empty()
-                    && !row.fields.iter().any(|field| {
-                        node.child_by_field_name(field).is_some_and(|target| {
-                            transfer::introduced_identifiers(parsed, target)
-                                .iter()
-                                .any(|identifier| identifier.start_byte() == def.start_byte)
-                        })
-                    })
+                    && transfer::row_excludes_identifier(parsed, node, row.fields, def.start_byte)
             }) {
                 if node.id() == func_node.id() {
                     return None;
@@ -541,7 +545,9 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
         .find(|r| r.kind == kind && r.variant.is_none())
     {
         return BindingScopeRule {
-            creates_scope: r.roles.has(Role::Scope),
+            creates_scope: r.roles.has(Role::Scope)
+                && !(language == Language::Python
+                    && matches!(kind, "match_statement" | "case_clause")),
             declaration: r.declaration,
         };
     }
@@ -564,30 +570,6 @@ pub(super) fn scope_span(node: Node<'_>) -> ScopeSpan {
         end_byte: node.end_byte(),
         end_line: node.end_position().row + 1,
     }
-}
-
-fn use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
-    if edge.to.start_byte < edge.to.end_byte {
-        return Some(edge.to.start_byte);
-    }
-    let lines = std::collections::BTreeSet::from([edge.to.line]);
-    let func_node = parsed
-        .all_functions()
-        .into_iter()
-        .find(|node| parsed.node_line_range(node).0 == edge.to.function_start_line)?;
-    let mut spans = parsed
-        .rvalue_identifier_spans_on_lines(&func_node, &lines)
-        .into_iter()
-        .filter(|span| span.line == edge.to.line && span.path == edge.to.path);
-    if let Some(first) = spans.next() {
-        return spans.next().is_none().then_some(first.start_byte);
-    }
-    let mut identifiers = parsed
-        .identifiers_on_line(edge.to.line)
-        .into_iter()
-        .filter(|node| parsed.node_text(node) == edge.to.path.base);
-    let first = identifiers.next()?;
-    identifiers.next().is_none().then_some(first.start_byte())
 }
 
 #[cfg(test)]

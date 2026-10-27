@@ -502,7 +502,7 @@ fn javascript_and_typescript_destructuring_uncertainty_use_flat_path_fallback() 
 }
 
 #[test]
-fn python_except_and_with_alias_uncertainty_use_flat_path_fallback() {
+fn python_except_and_with_aliases_use_curated_binding_rows() {
     let except_parsed = parsed(
         "def f():\n    try:\n        may_throw()\n    except E as value:\n        consume(value)\n",
         Language::Python,
@@ -517,7 +517,7 @@ fn python_except_and_with_alias_uncertainty_use_flat_path_fallback() {
     };
     let except_facts =
         scope::BindingFacts::with_cfg_view(&except_parsed, &except_func, &except_defs, &empty_cfg);
-    assert_eq!(except_facts.unclassified_binding_lines("value"), vec![4]);
+    assert!(except_facts.unclassified_binding_lines("value").is_empty());
 
     let with_conditional = parsed(
         "def f(flag):\n    value = source()\n    with resource() as value:\n        if flag:\n            value = clean()\n        sink(value)\n",
@@ -527,10 +527,7 @@ fn python_except_and_with_alias_uncertainty_use_flat_path_fallback() {
     let defs = collect_defs(&with_conditional);
     let with_facts =
         scope::BindingFacts::with_cfg_view(&with_conditional, &func, &defs, &empty_cfg);
-    assert_eq!(
-        with_facts.unclassified_binding_lines("value"),
-        vec![3, 4, 5, 6]
-    );
+    assert!(with_facts.unclassified_binding_lines("value").is_empty());
     let outer = defs
         .iter()
         .find(|def| def.path == AccessPath::simple("value") && def.line == 2)
@@ -538,7 +535,11 @@ fn python_except_and_with_alias_uncertainty_use_flat_path_fallback() {
         .clone();
     let killed_use = edge(&with_conditional, &func, &outer, 6);
     let outcome = run(&with_conditional, &defs, std::slice::from_ref(&killed_use)).0;
-    assert_label(&outcome, &killed_use, FlowConfidence::Exact);
+    assert_label(
+        &outcome,
+        &killed_use,
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
+    );
 
     let parsed = parsed(
         "def f():\n    value = source()\n    with resource() as value:\n        value = clean()\n        sink(value)\n",
@@ -556,7 +557,7 @@ fn python_except_and_with_alias_uncertainty_use_flat_path_fallback() {
     assert_label(
         &outcome,
         &killed_use,
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
     );
 }
 

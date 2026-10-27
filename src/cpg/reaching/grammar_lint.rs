@@ -1,15 +1,14 @@
-use super::binding_table::{
-    guard_span_row, java_binding_identifiers, java_statement_cannot_complete_normally,
-    select_binding_row, Ruling, Visibility,
-};
+use super::binding_table::{java_binding_identifiers, select_binding_row, Ruling, Visibility};
 use super::scope::{binding_scope_rule, RootFunction};
 use super::Line;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::OnceLock;
 use tree_sitter::Node;
 
+mod visibility;
+
+pub(super) use visibility::{visibility_span, ByteSpan, SpanKind};
 #[derive(serde::Deserialize)]
 struct NodeTypeSchema {
     #[serde(rename = "type")]
@@ -21,120 +20,17 @@ struct NodeTypeSchema {
     #[serde(default)]
     children: Option<NodeTypeMembers>,
 }
-
 #[derive(serde::Deserialize)]
 struct NodeTypeMembers {
     #[serde(default)]
     types: Vec<NodeTypeRef>,
 }
-
 #[derive(serde::Deserialize)]
 struct NodeTypeRef {
     #[serde(rename = "type")]
     kind: String,
 }
-
 pub(super) type IntroducingFields = BTreeMap<String, BTreeSet<String>>;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct ByteSpan {
-    pub(super) start: usize,
-    pub(super) end: usize,
-}
-
-impl ByteSpan {
-    pub(super) fn contains(self, byte: usize) -> bool {
-        self.start <= byte && byte < self.end
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) enum SpanKind {
-    Known(Vec<ByteSpan>),
-    Empty,
-    Unknown,
-}
-
-pub(super) fn visibility_span(parsed: &ParsedFile, binder_node: Node<'_>) -> SpanKind {
-    if let Some(row) = guard_span_row(parsed.language, binder_node.kind()) {
-        let Some(guard) = ancestor_of_kind(binder_node, row.guard_kind) else {
-            return SpanKind::Unknown;
-        };
-        let Some(owner) = ancestor_of_kind(guard, row.owner_kind) else {
-            return SpanKind::Unknown;
-        };
-        let Some(condition) = owner.child_by_field_name(row.condition_field) else {
-            return SpanKind::Unknown;
-        };
-        if !(condition.start_byte() <= guard.start_byte()
-            && guard.end_byte() <= condition.end_byte())
-        {
-            return SpanKind::Unknown;
-        }
-        let Some(negated) = guard_is_negated(parsed, guard, condition) else {
-            return SpanKind::Unknown;
-        };
-        let mut spans = Vec::new();
-        if !negated && row.positive_condition_tail && binder_node.end_byte() < condition.end_byte()
-        {
-            spans.push(ByteSpan {
-                start: binder_node.end_byte(),
-                end: condition.end_byte(),
-            });
-        }
-        let fields = if negated {
-            row.negative_fields
-        } else {
-            row.positive_fields
-        };
-        for field in fields {
-            if let Some(node) = owner.child_by_field_name(field) {
-                spans.push(ByteSpan {
-                    start: node.start_byte(),
-                    end: node.end_byte(),
-                });
-            }
-        }
-        if negated
-            && java_statement_cannot_complete_normally(owner.child_by_field_name("consequence"))
-        {
-            if let Some(parent) = owner.parent() {
-                if owner.end_byte() < parent.end_byte() {
-                    spans.push(ByteSpan {
-                        start: owner.end_byte(),
-                        end: parent.end_byte(),
-                    });
-                }
-            }
-        }
-        return if spans.is_empty() {
-            SpanKind::Empty
-        } else {
-            SpanKind::Known(spans)
-        };
-    }
-
-    let scoped = match parsed.language {
-        Language::Rust => rust_visibility_node(binder_node),
-        Language::Python => ancestor_field(binder_node, "if_statement", "consequence"),
-        Language::Go | Language::JavaScript | Language::TypeScript | Language::Tsx => {
-            nearest_field(binder_node, "body")
-        }
-        _ => None,
-    };
-    let Some(scoped) = scoped else {
-        return SpanKind::Unknown;
-    };
-    if scoped.named_child_count() == 0 {
-        SpanKind::Empty
-    } else {
-        SpanKind::Known(vec![ByteSpan {
-            start: scoped.start_byte(),
-            end: scoped.end_byte(),
-        }])
-    }
-}
-
 pub(super) fn uncertain_binding_nodes<'a>(parsed: &'a ParsedFile, name: &str) -> Vec<Node<'a>> {
     fn walk<'a>(parsed: &'a ParsedFile, node: Node<'a>, name: &str, out: &mut Vec<Node<'a>>) {
         let uncertain = select_binding_row(parsed, node)
@@ -147,19 +43,33 @@ pub(super) fn uncertain_binding_nodes<'a>(parsed: &'a ParsedFile, name: &str) ->
             walk(parsed, child, name, out);
         }
     }
-
     let mut nodes = Vec::new();
     walk(parsed, parsed.tree.root_node(), name, &mut nodes);
     nodes
 }
-
 fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
     if parsed.language == Language::Java {
         return java_node_introduces_name(parsed, node, name);
     }
+    if parsed.language == Language::Python
+        && matches!(
+            node.kind(),
+            "import_statement" | "import_from_statement" | "aliased_import"
+        )
+    {
+        return select_binding_row(parsed, node).is_some_and(|row| {
+            super::transfer::row_introduced_identifiers(parsed, node, row.fields)
+                .into_iter()
+                .any(|identifier| parsed.node_text(&identifier) == name)
+        });
+    }
+    if parsed.language == Language::Python && is_python_match_pattern(node) {
+        return subtree_has_name(parsed, node, name);
+    }
     let special_target = match (parsed.language, node.kind()) {
         (Language::Rust, "tuple_struct_pattern") => Some(node),
         (Language::Bash, "for_statement") => node.child_by_field_name("variable"),
+        (Language::Python, "global_statement" | "nonlocal_statement") => Some(node),
         _ => None,
     };
     if let Some(target) = special_target {
@@ -175,6 +85,22 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
         })
 }
 
+pub(super) fn is_python_match_pattern(node: Node<'_>) -> bool {
+    is_python_pattern_kind(node.kind()) && ancestor_of_kind(node, "case_pattern").is_some()
+}
+
+fn is_python_pattern_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        "case_pattern"
+            | "class_pattern"
+            | "as_pattern"
+            | "keyword_pattern"
+            | "pattern_list"
+            | "tuple_pattern"
+            | "list_pattern"
+    )
+}
 fn java_node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
     let Some(root_function) = parsed
         .all_functions()
@@ -235,71 +161,6 @@ fn ancestor_of_kind<'a>(mut node: Node<'a>, kind: &str) -> Option<Node<'a>> {
             return Some(node);
         }
         node = node.parent()?;
-    }
-}
-
-fn ancestor_field<'a>(mut node: Node<'a>, kind: &str, field: &str) -> Option<Node<'a>> {
-    while let Some(parent) = node.parent() {
-        if parent.kind() == kind {
-            return parent.child_by_field_name(field);
-        }
-        node = parent;
-    }
-    None
-}
-
-fn nearest_field<'a>(mut node: Node<'a>, field: &str) -> Option<Node<'a>> {
-    while let Some(parent) = node.parent() {
-        if let Some(scoped) = parent.child_by_field_name(field) {
-            return Some(scoped);
-        }
-        node = parent;
-    }
-    None
-}
-
-fn rust_visibility_node(binder_node: Node<'_>) -> Option<Node<'_>> {
-    let mut current = binder_node;
-    while let Some(parent) = current.parent() {
-        match parent.kind() {
-            "match_arm" => return parent.child_by_field_name("value"),
-            "if_expression" => return parent.child_by_field_name("consequence"),
-            "while_expression" => return parent.child_by_field_name("body"),
-            _ => current = parent,
-        }
-    }
-    None
-}
-
-fn guard_is_negated(parsed: &ParsedFile, guard: Node<'_>, condition: Node<'_>) -> Option<bool> {
-    let mut current = guard;
-    let mut negated = false;
-    let mut accepted_and = false;
-    loop {
-        if current.id() == condition.id() {
-            return Some(negated);
-        }
-        let parent = current.parent()?;
-        match parent.kind() {
-            "parenthesized_expression" => {}
-            "unary_expression" => {
-                let operator = parent.child_by_field_name("operator")?;
-                if parsed.node_text(&operator) != "!" || accepted_and {
-                    return None;
-                }
-                negated = !negated;
-            }
-            "binary_expression" => {
-                let operator = parent.child_by_field_name("operator")?;
-                let left = parent.child_by_field_name("left")?;
-                if negated || parsed.node_text(&operator) != "&&" || left.id() != current.id() {
-                    return None;
-                }
-                accepted_and = true;
-            }
-            _ => return None,
-        }
-        current = parent;
     }
 }
 
@@ -483,7 +344,8 @@ fn is_python_comprehension_target(node: Node<'_>) -> bool {
 }
 
 pub(super) fn grammar_introducing_fields(language: Language) -> &'static IntroducingFields {
-    static BY_LANGUAGE: OnceLock<BTreeMap<Language, IntroducingFields>> = OnceLock::new();
+    static BY_LANGUAGE: std::sync::OnceLock<BTreeMap<Language, IntroducingFields>> =
+        std::sync::OnceLock::new();
     BY_LANGUAGE
         .get_or_init(|| {
             Language::all()

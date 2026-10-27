@@ -1,5 +1,11 @@
 //! Edge-local transfer nodes for classified binding reuse constructs.
 
+mod route_effects;
+
+pub(super) use route_effects::{
+    apply_explicit_kills, is_route_effect_node, materialize_route_effects,
+};
+
 use super::binding_table::{select_binding_row, DeclarationKind, Role, Ruling};
 use super::grammar_lint::ByteSpan;
 use super::scope::{BindingFacts, BindingRelation};
@@ -66,7 +72,10 @@ pub(super) fn discover(parsed: &ParsedFile, func: &Node<'_>, defs: &[DefSite]) -
             return;
         }
         if let Some(row) = select_binding_row(parsed, node).filter(|row| {
-            row.ruling == Ruling::Classified
+            (row.ruling == Ruling::Classified
+                || (parsed.language == crate::languages::Language::Python
+                    && node.kind() == "with_item"
+                    && matches!(row.ruling, Ruling::Uncertain { .. })))
                 && row.roles.has(Role::Binding)
                 && matches!(
                     row.declaration,
@@ -78,38 +87,36 @@ pub(super) fn discover(parsed: &ParsedFile, func: &Node<'_>, defs: &[DefSite]) -
                     )
                 )
         }) {
-            let owner = if node.kind() == "range_clause" {
-                node.parent()
-                    .filter(|parent| parent.kind() == "for_statement")
-            } else {
-                Some(node)
+            let owner = match node.kind() {
+                "range_clause" => node
+                    .parent()
+                    .filter(|parent| parent.kind() == "for_statement"),
+                "with_item" => std::iter::successors(node.parent(), |parent| parent.parent())
+                    .find(|parent| parent.kind() == "with_statement"),
+                _ => Some(node),
             };
             if let Some(owner) = owner {
-                for field in row.fields {
-                    if let Some(target) = node.child_by_field_name(field) {
-                        for identifier in introduced_identifiers(parsed, target) {
-                            let name = parsed.node_text(&identifier);
-                            if name == "_" {
-                                continue;
-                            }
-                            let missing_def = !defs.iter().any(|def| {
-                                !def.synthetic && def.start_byte == identifier.start_byte()
-                            });
-                            out.push(ReuseBinder {
-                                node_line: owner.start_position().row + 1,
-                                header_span: byte_span(node),
-                                body_span: owner.child_by_field_name("body").map(byte_span),
-                                initializer_span: node
-                                    .child_by_field_name("right")
-                                    .or_else(|| node.child_by_field_name("value"))
-                                    .map(byte_span),
-                                path: AccessPath::simple(name),
-                                kind: row.declaration.expect("filtered declaration kind"),
-                                identifier_byte: identifier.start_byte(),
-                                missing_def,
-                            });
-                        }
+                for identifier in row_introduced_identifiers(parsed, node, row.fields) {
+                    let name = parsed.node_text(&identifier);
+                    if name == "_" {
+                        continue;
                     }
+                    let missing_def = !defs
+                        .iter()
+                        .any(|def| !def.synthetic && def.start_byte == identifier.start_byte());
+                    out.push(ReuseBinder {
+                        node_line: owner.start_position().row + 1,
+                        header_span: byte_span(node),
+                        body_span: owner.child_by_field_name("body").map(byte_span),
+                        initializer_span: node
+                            .child_by_field_name("right")
+                            .or_else(|| node.child_by_field_name("value"))
+                            .map(byte_span),
+                        path: AccessPath::simple(name),
+                        kind: row.declaration.expect("filtered declaration kind"),
+                        identifier_byte: identifier.start_byte(),
+                        missing_def,
+                    });
                 }
             }
         }
@@ -165,7 +172,7 @@ pub(super) fn apply(
                 .filter(|binder| match (binder.body_span, target_line) {
                     (None, _) => true,
                     (Some(body), Some(line)) => {
-                        line != binder.node_line && body.contains(parsed.line_start_byte(line))
+                        line != binder.node_line && span_contains_line(parsed, body, line)
                     }
                     (Some(_), None) => false,
                 })
@@ -202,6 +209,73 @@ pub(super) fn apply(
             }
         }
         successors[header] = replacement;
+    }
+
+    let mut orphaned = BTreeMap::<usize, Vec<(&ReuseBinder, usize)>>::new();
+    for binder in binders
+        .iter()
+        .filter(|binder| binder.kind == DeclarationKind::Reuse && !binder.missing_def)
+    {
+        let Some(def_index) = defs
+            .iter()
+            .position(|def| !def.synthetic && def.start_byte == binder.identifier_byte)
+        else {
+            continue;
+        };
+        if mapped_defs[def_index].is_some() {
+            continue;
+        }
+        let Some(body) = binder.body_span else {
+            continue;
+        };
+        let Some(body_node) = line_index
+            .iter()
+            .filter(|(line, _)| span_contains_line(parsed, body, **line))
+            .min_by_key(|(line, _)| **line)
+            .map(|(_, node)| *node)
+        else {
+            continue;
+        };
+        orphaned
+            .entry(body_node)
+            .or_default()
+            .push((binder, def_index));
+    }
+    for (body_node, binders) in orphaned {
+        let body = binders[0].0.body_span.expect("grouped body span");
+        let incoming: Vec<usize> = (0..successors.len())
+            .filter(|from| {
+                !node_lines
+                    .get(from)
+                    .is_some_and(|line| span_contains_line(parsed, body, *line))
+                    && successors[*from].iter().any(|(to, _)| *to == body_node)
+            })
+            .collect();
+        if incoming.is_empty() {
+            continue;
+        }
+        let first_synthetic = successors.len();
+        let mut synthetic_chain = Vec::with_capacity(binders.len());
+        for (binder, def_index) in binders {
+            let synthetic_node = successors.len();
+            successors.push(Vec::new());
+            synthetic_chain.push(synthetic_node);
+            applied
+                .synthetic_nodes
+                .insert(synthetic_node, binder.node_line);
+            mapped_defs[def_index] = Some(synthetic_node);
+        }
+        for from in incoming {
+            for (to, _) in &mut successors[from] {
+                if *to == body_node {
+                    *to = first_synthetic;
+                }
+            }
+        }
+        for (index, synthetic_node) in synthetic_chain.iter().copied().enumerate() {
+            let next = synthetic_chain.get(index + 1).copied().unwrap_or(body_node);
+            successors[synthetic_node].push((next, false));
+        }
     }
 
     *predecessors = vec![Vec::new(); successors.len()];
@@ -264,6 +338,9 @@ pub(super) fn binding_metadata(
             path: binder.path.clone(),
             kind: binder.kind,
         });
+        if !binder.missing_def {
+            continue;
+        }
         let Some(body) = binder.body_span else {
             continue;
         };
@@ -276,7 +353,7 @@ pub(super) fn binding_metadata(
             .into_iter()
             .flat_map(|node| cfg.successors[*node].iter())
             .filter_map(|(node, _)| node_lines.get(node))
-            .any(|line| *line != binder.node_line && body.contains(parsed.line_start_byte(*line)));
+            .any(|line| *line != binder.node_line && span_contains_line(parsed, body, *line));
         if !has_entry {
             no_entry_binders
                 .entry(binder.path.base.clone())
@@ -372,6 +449,48 @@ pub(super) fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) ->
             return;
         }
         match node.kind() {
+            "as_pattern" | "aliased_import"
+                if parsed.language == crate::languages::Language::Python =>
+            {
+                if let Some(alias) = node.child_by_field_name("alias") {
+                    collect(parsed, alias, identifiers);
+                }
+            }
+            "except_group_clause" if parsed.language == crate::languages::Language::Python => {
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    if child.kind() == "as_pattern"
+                        || child
+                            .prev_sibling()
+                            .is_some_and(|previous| previous.kind() == "as")
+                    {
+                        collect(parsed, child, identifiers);
+                    }
+                }
+            }
+            "delete_statement" | "global_statement" | "nonlocal_statement"
+                if parsed.language == crate::languages::Language::Python =>
+            {
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    collect(parsed, child, identifiers);
+                }
+            }
+            "dotted_name" if parsed.language == crate::languages::Language::Python => {
+                let mut cursor = node.walk();
+                let mut children: Vec<_> = node.named_children(&mut cursor).collect();
+                let selected = if node
+                    .parent()
+                    .is_some_and(|parent| parent.kind() == "import_statement")
+                {
+                    children.drain(..).next()
+                } else {
+                    children.pop()
+                };
+                if let Some(identifier) = selected {
+                    collect(parsed, identifier, identifiers);
+                }
+            }
             "pair_pattern" => {
                 if let Some(value) = node.child_by_field_name("value") {
                     collect(parsed, value, identifiers);
@@ -387,7 +506,15 @@ pub(super) fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) ->
             | "rest_pattern"
             | "parenthesized_expression"
             | "parenthesized_pattern"
-            | "expression_list" => {
+            | "expression_list"
+            | "as_pattern_target"
+            | "pattern_list"
+            | "tuple"
+            | "tuple_pattern"
+            | "list"
+            | "list_pattern"
+            | "list_splat_pattern"
+            | "splat_pattern" => {
                 let mut cursor = node.walk();
                 for child in node.named_children(&mut cursor) {
                     collect(parsed, child, identifiers);
@@ -402,11 +529,66 @@ pub(super) fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) ->
     identifiers
 }
 
+pub(super) fn row_introduced_identifiers<'a>(
+    parsed: &ParsedFile,
+    node: Node<'a>,
+    fields: &[&str],
+) -> Vec<Node<'a>> {
+    let mut identifiers = Vec::new();
+    for field in fields {
+        let mut cursor = node.walk();
+        for target in node.children_by_field_name(field, &mut cursor) {
+            if parsed.language == crate::languages::Language::Python
+                && matches!(node.kind(), "except_clause" | "with_item")
+                && *field == "value"
+                && target.kind() != "as_pattern"
+            {
+                continue;
+            }
+            identifiers.extend(introduced_identifiers(parsed, target));
+        }
+    }
+    if parsed.language == crate::languages::Language::Python
+        && (fields.is_empty()
+            && matches!(
+                node.kind(),
+                "except_group_clause"
+                    | "delete_statement"
+                    | "global_statement"
+                    | "nonlocal_statement"
+            ))
+    {
+        identifiers.extend(introduced_identifiers(parsed, node));
+    }
+    identifiers.sort_by_key(Node::start_byte);
+    identifiers.dedup_by_key(|identifier| identifier.start_byte());
+    identifiers
+}
+
+pub(super) fn row_excludes_identifier(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    fields: &[&str],
+    byte: usize,
+) -> bool {
+    let identifiers = row_introduced_identifiers(parsed, node, fields);
+    !identifiers.is_empty()
+        && identifiers
+            .iter()
+            .all(|identifier| identifier.start_byte() != byte)
+}
+
 fn byte_span(node: Node<'_>) -> ByteSpan {
     ByteSpan {
         start: node.start_byte(),
         end: node.end_byte(),
     }
+}
+
+fn span_contains_line(parsed: &ParsedFile, span: ByteSpan, line: Line) -> bool {
+    let start_line = parsed.line_for_byte(span.start);
+    let end_line = parsed.line_for_byte(span.end.saturating_sub(1));
+    (start_line..=end_line).contains(&line)
 }
 
 #[cfg(test)]

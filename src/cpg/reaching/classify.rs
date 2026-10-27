@@ -1,4 +1,6 @@
-use super::grammar_lint::{uncertain_binding_nodes, visibility_span, SpanKind};
+use super::grammar_lint::{
+    is_python_match_pattern, uncertain_binding_nodes, visibility_span, SpanKind,
+};
 use super::graph::{definition_reaches_unflagged, path_exists, BitSet};
 use super::transfer::HeaderUse;
 use super::{capture, scope, statement_lookup, DefSite, FlowConfidence, FlowDoubt, Line};
@@ -61,6 +63,11 @@ pub(super) fn classify_edge(
 
     if candidates.is_empty() {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
+    if let Some(construct_line) = unplaced_python_import(parsed, edge) {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
     }
 
     // Rule 3: no downstream classification is admissible unless this exact
@@ -186,6 +193,34 @@ pub(super) fn classify_edge(
     )
 }
 
+fn unplaced_python_import(parsed: &ParsedFile, edge: &FlowEdge) -> Option<Line> {
+    if parsed.language != crate::languages::Language::Python {
+        return None;
+    }
+    let use_byte = edge_use_byte(parsed, edge)?;
+    let function = parsed
+        .all_functions()
+        .into_iter()
+        .find(|node| parsed.node_line_range(node).0 == edge.to.function_start_line)?;
+    uncertain_binding_nodes(parsed, &edge.to.path.base)
+        .into_iter()
+        .filter(|binder| {
+            matches!(
+                binder.kind(),
+                "import_statement" | "import_from_statement" | "aliased_import"
+            ) && function.start_byte() <= binder.start_byte()
+                && binder.end_byte() <= function.end_byte()
+        })
+        .filter_map(|binder| {
+            let construct_line = binder.start_position().row + 1;
+            (edge.from.line < construct_line
+                && binder.start_byte() <= use_byte
+                && use_byte < function.end_byte())
+            .then_some(construct_line)
+        })
+        .min()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn uncertain_construct_on_route(
     parsed: &ParsedFile,
@@ -197,7 +232,7 @@ fn uncertain_construct_on_route(
     statements: &mut statement_lookup::StatementLookup<'_>,
     successors: &[Vec<(usize, bool)>],
 ) -> Option<Line> {
-    let use_byte = edge_use_byte(parsed, edge)?;
+    let use_byte = edge_use_byte(parsed, edge);
     let function = parsed
         .all_functions()
         .into_iter()
@@ -212,33 +247,77 @@ fn uncertain_construct_on_route(
             if construct_line <= edge.from.line {
                 return None;
             }
-            let explicit_task7_binder = matches!(
+            let explicit_uncertain_binder = matches!(
                 (parsed.language, binder.kind()),
                 (
                     crate::languages::Language::Java,
                     "record_pattern" | "type_pattern" | "instanceof_expression"
                 ) | (crate::languages::Language::Bash, "for_statement")
-            );
-            if !explicit_task7_binder {
+                    | (
+                        crate::languages::Language::Python,
+                        "global_statement"
+                            | "nonlocal_statement"
+                            | "case_pattern"
+                            | "class_pattern"
+                            | "as_pattern"
+                            | "keyword_pattern"
+                    )
+            ) || (parsed.language
+                == crate::languages::Language::Python
+                && matches!(binder.kind(), "tuple_pattern" | "list_pattern")
+                && is_python_match_pattern(binder));
+            if !explicit_uncertain_binder {
                 return None;
             }
-            let statement_line = statements.get(construct_line)?;
-            let &construct_node = line_index.get(&statement_line)?;
+            let unplaced_python_pattern = parsed.language == crate::languages::Language::Python
+                && is_python_match_pattern(binder);
+            let construct_node = (!unplaced_python_pattern)
+                .then(|| statements.get(construct_line))
+                .flatten()
+                .and_then(|line| line_index.get(&line).copied());
+            let omitted_python_declaration = parsed.language == crate::languages::Language::Python
+                && (matches!(binder.kind(), "global_statement" | "nonlocal_statement")
+                    || unplaced_python_pattern)
+                && construct_node.is_none();
             let on_route = candidates.iter().any(|index| {
-                mapped_defs[*index].is_some_and(|def_node| {
-                    path_exists(successors, def_node, construct_node, false)
-                        && path_exists(successors, construct_node, use_node, false)
+                mapped_defs[*index].is_some_and(|def_node| match construct_node {
+                    Some(construct_node) => {
+                        path_exists(successors, def_node, construct_node, false)
+                            && path_exists(successors, construct_node, use_node, false)
+                    }
+                    None => {
+                        omitted_python_declaration
+                            && path_exists(successors, def_node, use_node, false)
+                    }
                 })
             });
             if !on_route {
                 return None;
             }
             let visible = match visibility_span(parsed, binder) {
-                SpanKind::Known(spans) => spans.into_iter().any(|span| span.contains(use_byte)),
+                SpanKind::Known(spans) => use_byte.map_or_else(
+                    || {
+                        if !unplaced_python_pattern {
+                            return false;
+                        }
+                        let identifiers: Vec<_> = parsed
+                            .identifiers_on_line(edge.to.line)
+                            .into_iter()
+                            .filter(|node| parsed.node_text(node) == edge.to.path.base)
+                            .collect();
+                        identifiers.len() > 1
+                            && identifiers.iter().any(|identifier| {
+                                spans
+                                    .iter()
+                                    .any(|span| span.contains(identifier.start_byte()))
+                            })
+                    },
+                    |use_byte| spans.iter().any(|span| span.contains(use_byte)),
+                ),
                 SpanKind::Empty => false,
-                SpanKind::Unknown => {
+                SpanKind::Unknown => use_byte.is_some_and(|use_byte| {
                     binder.start_byte() <= use_byte && use_byte < function.end_byte()
-                }
+                }),
             };
             visible.then_some(construct_line)
         })

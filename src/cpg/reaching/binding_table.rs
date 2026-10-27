@@ -69,10 +69,18 @@ pub(crate) enum Predicate {
         field: &'static str,
         any_of: &'static [&'static str],
     },
+    NestedFieldChildKindIs {
+        field: &'static str,
+        nested_field: &'static str,
+        any_of: &'static [&'static str],
+    },
     OperatorIs {
         any_of: &'static [&'static str],
     },
     ParentKindIs {
+        kind: &'static str,
+    },
+    AncestorKindIs {
         kind: &'static str,
     },
     HasField {
@@ -224,7 +232,12 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
         }};
     }
     match language {
-        Language::Python => combined!(PYTHON_ROWS, python::ROWS, python_wave::ROWS),
+        Language::Python => combined3!(
+            PYTHON_ROWS,
+            python::ROWS,
+            python_wave::CURATED_ROWS,
+            python_wave::ROWS
+        ),
         Language::JavaScript => combined3!(
             JAVASCRIPT_ROWS,
             javascript::ROWS,
@@ -307,6 +320,20 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
         Predicate::FieldTextIs { field, any_of } => node
             .child_by_field_name(field)
             .is_some_and(|child| any_of.contains(&parsed.node_text(&child))),
+        Predicate::NestedFieldChildKindIs {
+            field,
+            nested_field,
+            any_of,
+        } => node
+            .child_by_field_name(field)
+            .and_then(|child| child.child_by_field_name(nested_field))
+            .is_some_and(|nested| {
+                let mut cursor = nested.walk();
+                let matches = nested
+                    .named_children(&mut cursor)
+                    .any(|child| any_of.contains(&child.kind()));
+                matches
+            }),
         Predicate::OperatorIs { any_of } => {
             let mut cursor = node.walk();
             let matches = node
@@ -316,6 +343,18 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
         }
         Predicate::ParentKindIs { kind } => {
             node.parent().is_some_and(|parent| parent.kind() == *kind)
+        }
+        Predicate::AncestorKindIs { kind } => {
+            let mut current = node.parent();
+            let mut found = false;
+            while let Some(ancestor) = current {
+                if ancestor.kind() == *kind {
+                    found = true;
+                    break;
+                }
+                current = ancestor.parent();
+            }
+            found
         }
         Predicate::HasField { field } => node.child_by_field_name(field).is_some(),
         Predicate::IsImmediatelyInvoked => {

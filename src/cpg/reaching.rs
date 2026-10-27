@@ -300,11 +300,6 @@ fn reaching_definitions_impl(
             }
         })
         .collect();
-    let original_successors = successors.clone();
-    let cfg_view = CfgView {
-        line_index: &line_index,
-        successors: &original_successors,
-    };
     let binders = transfer::discover(parsed, func_node, &defs);
     let materialized_defs = transfer::materialize_existing_def_sites(
         &binders,
@@ -312,6 +307,12 @@ fn reaching_definitions_impl(
         &mut defs,
         &mut mapped_defs,
     );
+    let route_effects = transfer::materialize_route_effects(parsed, func_node, &line_index);
+    let original_successors = successors.clone();
+    let cfg_view = CfgView {
+        line_index: &line_index,
+        successors: &original_successors,
+    };
     let applied = transfer::apply(
         parsed,
         &binders,
@@ -341,7 +342,9 @@ fn reaching_definitions_impl(
         }
     }
     let buckets = def_buckets::DefinitionBuckets::new(&defs);
-    let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts, &materialized_defs);
+    let (mut kill, mut flat_kill) =
+        buckets.kill_sets(&defs, &gen, &binding_facts, &materialized_defs);
+    transfer::apply_explicit_kills(&route_effects, &defs, &mut kill, &mut flat_kill);
 
     let in_sets = solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
     let flat_in_sets = solve_reaching_sets(
@@ -352,7 +355,6 @@ fn reaching_definitions_impl(
         entry,
         defs.len(),
     );
-
     #[cfg(test)]
     join_kind_tests::record_sets(&in_sets, &flat_in_sets);
     #[cfg(test)]
