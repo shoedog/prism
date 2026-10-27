@@ -10,20 +10,23 @@ use std::sync::OnceLock;
 use tree_sitter::Node;
 
 mod bash_wave;
+mod c;
 mod c_wave;
 mod capture_rows;
+mod cpp;
 mod cpp_wave;
 mod go;
 mod go_wave;
+mod java;
 mod java_wave;
 mod javascript;
 mod javascript_wave;
 mod lua_wave;
-mod other;
 mod python;
 mod python_wave;
 mod rust;
 mod rust_wave;
+mod scripting;
 mod terraform_wave;
 mod tsx_wave;
 mod typescript_wave;
@@ -282,16 +285,16 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
             })
         }
         Language::Go => combined3!(GO_ROWS, go::ROWS, go_wave::CURATED_ROWS, go_wave::ROWS),
-        Language::Java => combined!(JAVA_ROWS, other::JAVA_ROWS, java_wave::ROWS),
-        Language::C => combined!(C_ROWS, other::C_ROWS, c_wave::ROWS),
-        Language::Cpp => combined!(CPP_ROWS, other::CPP_ROWS, cpp_wave::ROWS),
+        Language::Java => combined!(JAVA_ROWS, java::JAVA_ROWS, java_wave::ROWS),
+        Language::C => combined!(C_ROWS, c::C_ROWS, c_wave::ROWS),
+        Language::Cpp => combined!(CPP_ROWS, cpp::CPP_ROWS, cpp_wave::ROWS),
         Language::Rust => combined3!(
             RUST_ROWS,
             rust::ROWS,
             rust_wave::CURATED_ROWS,
             rust_wave::ROWS
         ),
-        Language::Lua => combined!(LUA_ROWS, other::LUA_ROWS, lua_wave::ROWS),
+        Language::Lua => combined!(LUA_ROWS, scripting::LUA_ROWS, lua_wave::ROWS),
         Language::Terraform => terraform_wave::ROWS,
         Language::Bash => bash_wave::ROWS,
     }
