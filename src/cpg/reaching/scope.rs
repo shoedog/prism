@@ -409,7 +409,8 @@ fn declaration_seed(
     def: &DefSite,
     function_scope: ScopeSpan,
 ) -> Option<(ScopeSpan, DeclarationKind, usize)> {
-    // A bare arrow formal has no `parameters` list but still owns its parameter Def.
+    // A bare arrow formal has no `parameters` list; without this region its Def
+    // is seeded as a non-parameter binding and diverges from the `(x) => …` control.
     if let Some(binding) = typescript::parameter_binding_in_region(parsed, func_node, def) {
         match binding {
             typescript::ParameterBinding::Owned => {

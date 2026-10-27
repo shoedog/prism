@@ -313,7 +313,7 @@ fn assert_type_position_parameter_transparent(
         .find(|def| def.line == from_line && def.path.to_string() == "x")
         .unwrap_or_else(|| panic!("missing {from_line}:x definition"));
     let edge = super::super::super::edge(&parsed, &function, def, use_line);
-    let (outcome, _) = super::super::super::run(&parsed, &defs, &[edge.clone()]);
+    let (outcome, _) = super::super::super::run(&parsed, &defs, std::slice::from_ref(&edge));
     super::super::super::assert_label(&outcome, &edge, EXACT);
 }
 
