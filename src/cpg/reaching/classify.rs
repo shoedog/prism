@@ -383,6 +383,9 @@ fn uncertain_construct_on_route(
                             | "rest_pattern"
                             | "shorthand_property_identifier_pattern"
                     )
+            ) || matches!(
+                parsed.language,
+                crate::languages::Language::Bash | crate::languages::Language::Terraform
             ) || (parsed.language
                 == crate::languages::Language::Python
                 && matches!(binder.kind(), "tuple_pattern" | "list_pattern")
