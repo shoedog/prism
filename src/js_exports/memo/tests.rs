@@ -38,23 +38,18 @@ fn compare(raw: &BTreeMap<String, JsExportFacts>) {
     for projection in [ExportProjection::Legacy, ExportProjection::CallerPaths] {
         assert_eq!(
             resolve(raw, &module, raw.keys(), projection),
-            super::super::resolve_js_exports_for_projection_uncached(
-                raw,
-                &module,
-                raw.keys(),
-                projection
-            )
+            oracle::with_uncached(|| resolve(raw, &module, raw.keys(), projection))
         );
         // Repeated roots preserve counter multiplicity, and empty roots stay empty.
         let roots = raw.keys().chain(raw.keys());
         assert_eq!(
             resolve(raw, &module, roots, projection),
-            super::super::resolve_js_exports_for_projection_uncached(
+            oracle::with_uncached(|| resolve(
                 raw,
                 &module,
                 raw.keys().chain(raw.keys()),
                 projection
-            )
+            ))
         );
         assert_eq!(
             resolve(raw, &module, std::iter::empty(), projection),
@@ -63,7 +58,7 @@ fn compare(raw: &BTreeMap<String, JsExportFacts>) {
     }
     assert_eq!(
         namespace(raw, &module),
-        super::super::resolve_js_namespace_exports_uncached(raw, &module)
+        oracle::with_uncached(|| namespace(raw, &module))
     );
 }
 
@@ -120,6 +115,9 @@ fn generated_graphs_preserve_all_fields_and_namespace() {
     assert!(!out
         .resolved
         .contains_key(&format!("chain{}.ts", MAX_REEXPORT_DEPTH)));
+    let namespaces = namespace(&raw, &module);
+    assert_eq!(namespaces["a.ts"]["real"].file, "a.ts");
+    assert!(!namespaces.contains_key("barrel.ts"));
     // Deterministically generated topologies include diamonds, self/mutual cycles,
     // renamed/default/import-forward claims, classes and opaque namespace nodes.
     let mut seed = 19u64;
@@ -180,12 +178,8 @@ fn repeated_module_work_is_bounded_by_distinct_pairs() {
         calls.set(calls.get() + 1);
         module(from, spec)
     };
-    let old = super::super::resolve_js_exports_for_projection_uncached(
-        &raw,
-        &counted,
-        raw.keys(),
-        ExportProjection::Legacy,
-    );
+    let old =
+        oracle::with_uncached(|| resolve(&raw, &counted, raw.keys(), ExportProjection::Legacy));
     let old_calls = calls.replace(0);
     let new = resolve(&raw, &counted, raw.keys(), ExportProjection::Legacy);
     assert_eq!(old, new);
@@ -218,7 +212,7 @@ fn namespace_module_work_is_bounded_by_distinct_pairs() {
         calls.set(calls.get() + 1);
         module(from, spec)
     };
-    let old = super::super::resolve_js_namespace_exports_uncached(&raw, &counted);
+    let old = oracle::with_uncached(|| namespace(&raw, &counted));
     let old_calls = calls.replace(0);
     assert_eq!(namespace(&raw, &counted), old);
     assert_eq!(calls.get(), 66);

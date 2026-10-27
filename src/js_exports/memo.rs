@@ -41,18 +41,20 @@ pub(super) fn resolve<'a>(
     roots: impl IntoIterator<Item = &'a String>,
     projection: ExportProjection,
 ) -> JsExportResolution {
-    #[cfg(test)]
-    if oracle::enabled() {
-        return super::resolve_js_exports_for_projection_uncached(
-            raw,
-            resolve_module,
-            roots,
-            projection,
-        );
-    }
     let modules = Modules::default();
     let cached = |from: &str, spec: &str| modules.get(resolve_module, from, spec);
-    let resolve_module: &dyn Fn(&str, &str) -> Option<String> = &cached;
+    let lookup: &dyn Fn(&str, &str) -> Option<String> = &cached;
+    #[cfg(test)]
+    let lookup = oracle::select(resolve_module, lookup);
+    resolve_with(raw, lookup, roots, projection)
+}
+
+fn resolve_with<'a>(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    roots: impl IntoIterator<Item = &'a String>,
+    projection: ExportProjection,
+) -> JsExportResolution {
     let resolver = ExportResolver {
         module: resolve_module,
         projection,
@@ -84,13 +86,18 @@ pub(super) fn namespace(
     raw: &BTreeMap<String, JsExportFacts>,
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
 ) -> BTreeMap<String, BTreeMap<String, ResolvedJsExport>> {
-    #[cfg(test)]
-    if oracle::enabled() {
-        return super::resolve_js_namespace_exports_uncached(raw, resolve_module);
-    }
     let modules = Modules::default();
     let cached = |from: &str, spec: &str| modules.get(resolve_module, from, spec);
-    let resolve_module: &dyn Fn(&str, &str) -> Option<String> = &cached;
+    let lookup: &dyn Fn(&str, &str) -> Option<String> = &cached;
+    #[cfg(test)]
+    let lookup = oracle::select(resolve_module, lookup);
+    namespace_with(raw, lookup)
+}
+
+fn namespace_with(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+) -> BTreeMap<String, BTreeMap<String, ResolvedJsExport>> {
     let mut resolved = BTreeMap::new();
     for file in raw.keys() {
         let mut telemetry = JsExportResolution::default();

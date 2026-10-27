@@ -233,40 +233,6 @@ fn raw_relative_literal(spec: &str) -> bool {
     (spec.starts_with("./") || spec.starts_with("../")) && spec.trim() == spec
 }
 
-#[cfg(test)]
-fn resolve_js_exports_for_projection_uncached<'a>(
-    raw: &BTreeMap<String, JsExportFacts>,
-    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
-    roots: impl IntoIterator<Item = &'a String>,
-    projection: ExportProjection,
-) -> JsExportResolution {
-    let resolver = ExportResolver {
-        module: resolve_module,
-        projection,
-    };
-    let mut out = JsExportResolution::default();
-    for file in roots {
-        let mut visited_files = BTreeSet::new();
-        let names =
-            collect_candidate_names(raw, resolve_module, file, 0, &mut visited_files, &mut out);
-        let mut per_file = BTreeMap::new();
-        for name in names {
-            let mut visited = BTreeSet::new();
-            if let ExportLookup::Resolved(mut hit, false) =
-                resolve_one(raw, &resolver, file, &name, 0, &mut visited, &mut out)
-            {
-                hit.via_unresolved_star =
-                    skipped_star(raw, resolve_module, file, &name, &mut BTreeSet::new());
-                per_file.insert(name, hit);
-            }
-        }
-        if !per_file.is_empty() {
-            out.resolved.insert(file.clone(), per_file);
-        }
-    }
-    out
-}
-
 /// Namespace-only positive proof. Unknown branches invalidate uniqueness even
 /// when another branch has a terminal. Absence is never row authority.
 /// `resolve_module` must return a stable mapping during this invocation.
@@ -275,36 +241,6 @@ pub fn resolve_js_namespace_exports(
     resolve_module: &dyn Fn(&str, &str) -> Option<String>,
 ) -> BTreeMap<String, BTreeMap<String, ResolvedJsExport>> {
     memo::namespace(raw, resolve_module)
-}
-
-#[cfg(test)]
-fn resolve_js_namespace_exports_uncached(
-    raw: &BTreeMap<String, JsExportFacts>,
-    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
-) -> BTreeMap<String, BTreeMap<String, ResolvedJsExport>> {
-    let mut resolved = BTreeMap::new();
-    for file in raw.keys() {
-        let mut telemetry = JsExportResolution::default();
-        let names = collect_candidate_names(
-            raw,
-            resolve_module,
-            file,
-            0,
-            &mut BTreeSet::new(),
-            &mut telemetry,
-        );
-        for name in names {
-            if let Ok(Some(target)) =
-                namespace_identity(raw, resolve_module, file, &name, 0, &mut BTreeSet::new())
-            {
-                resolved
-                    .entry(file.clone())
-                    .or_insert_with(BTreeMap::new)
-                    .insert(name, target);
-            }
-        }
-    }
-    resolved
 }
 
 fn namespace_identity(

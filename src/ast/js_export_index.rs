@@ -122,7 +122,26 @@ impl<'a> ExportIndex<'a> {
 }
 
 impl ParsedFile {
+    pub(in crate::ast) fn js_ts_export_imports_and_functions(
+        &self,
+        facts: &mut crate::js_exports::JsExportFacts,
+    ) {
+        // Both all-name queries share one lazy inventory. Empty/refused queries
+        // still avoid building it, and single-name queries keep their raw walk.
+        let mut index = None;
+        facts.esm_named_imports = self.js_ts_esm_named_imports_with_index(None, &mut index);
+        facts.forwardable_function_locals = self.js_ts_forwardable_functions_with_index(&mut index);
+    }
+
     pub(in crate::ast) fn js_ts_esm_named_imports(&self, only: Option<&str>) -> BTreeSet<String> {
+        self.js_ts_esm_named_imports_with_index(only, &mut None)
+    }
+
+    fn js_ts_esm_named_imports_with_index<'a>(
+        &'a self,
+        only: Option<&str>,
+        index: &mut Option<ExportIndex<'a>>,
+    ) -> BTreeSet<String> {
         #[cfg(test)]
         if legacy_enabled() {
             return self.js_ts_esm_named_imports_legacy(only);
@@ -153,7 +172,7 @@ impl ParsedFile {
             if only.is_some() {
                 names.retain(|name| !self.js_ts_module_value_written(name));
             } else {
-                let index = ExportIndex::new(self);
+                let index = index.get_or_insert_with(|| ExportIndex::new(self));
                 names.retain(|name| !index.written(self, name));
             }
         }

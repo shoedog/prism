@@ -177,6 +177,59 @@ fn single_name_queries_do_not_build_an_index() {
 }
 
 #[test]
+fn facts_route_builds_one_index_per_file() {
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let parsed = ParsedFile::parse(
+            "facts.ts",
+            "import {kept, written} from './m'; written++; function origin() {} function mutable() {} mutable = origin; export {origin};",
+            language,
+        )
+        .unwrap();
+        assert!(!parsed.tree.root_node().has_error());
+        let before = ParsedFile::export_index_builds();
+        let facts = parsed.extract_js_ts_export_facts();
+        assert_eq!(facts.esm_named_imports, BTreeSet::from(["kept".into()]));
+        assert_eq!(
+            facts.forwardable_function_locals,
+            BTreeSet::from(["origin".into()])
+        );
+        let builds = ParsedFile::export_index_builds() - before;
+        println!("FACTS_INDEX_BUILDS {language:?} {builds}");
+        assert_eq!(builds, 1, "one shared index for both facts queries");
+        assert_eq!(parsed.extract_js_ts_export_facts(), facts);
+        assert_eq!(
+            ParsedFile::export_index_builds() - before,
+            1,
+            "cached facts"
+        );
+    }
+    for (source, expected) in [
+        ("", 0),
+        ("import type {T} from './m';", 0),
+        ("import {a} from './m'; const = ;", 0),
+        ("function f() { eval(''); }", 0),
+        ("import {a} from './m';", 1),
+        ("function f() {}", 1),
+        ("import {a} from './m'; function f() { eval(''); }", 1),
+    ] {
+        let parsed = ParsedFile::parse("facts.ts", source, Language::TypeScript).unwrap();
+        let before = ParsedFile::export_index_builds();
+        let facts = parsed.extract_js_ts_export_facts();
+        assert_eq!(
+            ParsedFile::export_index_builds() - before,
+            expected,
+            "{source}"
+        );
+        assert_eq!(parsed.extract_js_ts_export_facts(), facts);
+        assert_eq!(
+            ParsedFile::export_index_builds() - before,
+            expected,
+            "cached {source}"
+        );
+    }
+}
+
+#[test]
 fn written_refuses_non_js_ts_languages() {
     let parsed = ParsedFile::parse(
         "index.java",

@@ -35,7 +35,15 @@ impl ParsedFile {
 
     /// Source terminal proof consumed ONLY by ImportForward. Existing direct
     /// export/import and class lanes keep their independent contracts.
+    #[cfg(test)]
     pub(super) fn js_ts_forwardable_functions(&self) -> BTreeSet<String> {
+        self.js_ts_forwardable_functions_with_index(&mut None)
+    }
+
+    fn js_ts_forwardable_functions_with_index<'a>(
+        &'a self,
+        index: &mut Option<index::ExportIndex<'a>>,
+    ) -> BTreeSet<String> {
         #[cfg(test)]
         if index::legacy_enabled() {
             return self.js_ts_forwardable_functions_legacy();
@@ -47,7 +55,6 @@ impl ParsedFile {
         let imports = self.extract_import_bindings();
         let types = self.js_ts_type_only_imports();
         let mut out = BTreeSet::new();
-        let mut index = None;
         let mut cursor = root.walk();
         for wrapper in root.named_children(&mut cursor) {
             let declaration = if wrapper.kind() == "export_statement" {

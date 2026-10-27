@@ -38,8 +38,8 @@
     ],
     "JER07-namespace-repeat-module-work": [
       "src/js_exports/memo.rs",
-      "    let resolve_module: &dyn Fn(&str, &str) -> Option<String> = &cached;\n    let mut resolved = BTreeMap::new();",
-      "    let _ = &cached;\n    let mut resolved = BTreeMap::new();",
+      "namespace_with(raw, lookup)",
+      "namespace_with(raw, resolve_module)",
       "js_exports::memo::tests::namespace_module_work_is_bounded_by_distinct_pairs"
     ]
   },
