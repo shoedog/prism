@@ -35,14 +35,21 @@ const EXPECTED_PARAMETER_ROWS: &[ExpectedParameterRow] = &[
     ),
     parameter_row(
         Language::TypeScript,
-        Language::JavaScript,
+        Language::TypeScript,
         "formal_parameters",
         &[],
         "e0a-x-js-formal_parameters",
     ),
+    typescript_parameter_row(
+        "required_parameter",
+        "identifier",
+        "ts-required-parameter-seeds",
+    ),
+    typescript_parameter_row("required_parameter", "rest_pattern", "ts-rest-parameter"),
+    typescript_parameter_row("optional_parameter", "identifier", "ts-optional-parameter"),
     parameter_row(
         Language::Tsx,
-        Language::JavaScript,
+        Language::Tsx,
         "formal_parameters",
         &[],
         "e0a-x-js-formal_parameters",
@@ -152,6 +159,26 @@ const fn parameter_row_with_ruling(
         declaration: Some(DeclarationKind::Parameter),
         visibility: Visibility::WholeScope,
         ruling,
+        regression,
+    }
+}
+
+const fn typescript_parameter_row(
+    kind: &'static str,
+    pattern_kind: &'static str,
+    regression: &'static str,
+) -> ExpectedParameterRow {
+    ExpectedParameterRow {
+        lookup_language: Language::TypeScript,
+        language: Language::TypeScript,
+        kind,
+        variant: Some(Predicate::TypeScriptParameterPattern { kind: pattern_kind }),
+        creates_scope: false,
+        is_binding: true,
+        fields: &["pattern"],
+        declaration: Some(DeclarationKind::Parameter),
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
         regression,
     }
 }
@@ -379,7 +406,7 @@ fn every_parameter_row_matches_the_expected_table() {
         for expected in expected {
             let row = actual
                 .iter()
-                .find(|row| row.kind == expected.kind)
+                .find(|row| row.kind == expected.kind && row.variant == expected.variant)
                 .unwrap_or_else(|| panic!("{lookup_language:?}: missing row {}", expected.kind));
             assert_eq!(
                 row.language, expected.language,

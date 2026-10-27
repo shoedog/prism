@@ -74,7 +74,7 @@ pub(super) fn collect_classified_masks(
     }
 }
 
-pub(super) fn classified_masked_reads(
+pub(in crate::cpg::reaching) fn classified_masked_reads(
     parsed: &ParsedFile,
     func_node: &Node<'_>,
     spans: &[crate::ast::PathSpan],

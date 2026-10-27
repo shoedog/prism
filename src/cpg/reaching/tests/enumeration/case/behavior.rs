@@ -5,6 +5,8 @@ use crate::cpg::reaching::RdFileStats;
 use crate::cpg::{DfgLabelStats, FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod parameter_defs;
+
 #[derive(Clone, Copy)]
 enum CounterField {
     LabelExact,
@@ -63,7 +65,7 @@ pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
         .map(|(field, expected)| (select_counter(case.id, field), field, expected));
     let function = super::super::super::function(parsed);
     let mut defs = super::super::super::collect_defs(parsed);
-    if case.id == "e0a-x-rs-parameters" {
+    if parameter_defs::needs_synthetic_definition(case.id) {
         defs.push(super::super::super::def(parsed, u32::MAX, "x", 1, 0, false));
     }
     if case.id == "rs-let-pattern-wrapper-g07" {
@@ -123,6 +125,20 @@ pub(super) fn assert_ruling(
         case.id
     );
     match ruling {
+        Some(Ruling::Uncertain {
+            revisit: "future:js-named-body-binding",
+            ..
+        }) => assert!(
+            case.expect.iter().any(|(_, _, label)| matches!(
+                label,
+                FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+            )) && case
+                .expect
+                .iter()
+                .any(|(_, _, label)| matches!(label, FlowConfidence::Exact)),
+            "{}: deferred named body needs CfgIncomplete inside and Exact after",
+            case.id
+        ),
         Some(Ruling::Uncertain { .. }) => assert!(
             case.expect.iter().any(|(_, _, label)| matches!(
                 label,
@@ -229,6 +245,30 @@ pub(super) fn assert_ruling(
             "{}: classified NotBinding behavior needs Exact invariance",
             case.id
         ),
+        Some(Ruling::Classified)
+            if matches!(
+                case.language,
+                Language::JavaScript | Language::TypeScript | Language::Tsx
+            ) && matches!(
+                case.kind,
+                "statement_block"
+                    | "class_body"
+                    | "class_static_block"
+                    | "for_statement"
+                    | "switch_body"
+            ) =>
+        {
+            assert!(
+                case.expect.iter().all(|(_, _, label)| matches!(
+                    label,
+                    FlowConfidence::Exact
+                        | FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
+                        | FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                )),
+                "{}: JavaScript/TypeScript/TSX scopes need Exact, Killed, or deferred CfgIncomplete evidence",
+                case.id
+            );
+        }
         Some(Ruling::Classified)
             if case.language == Language::Rust
                 && matches!(

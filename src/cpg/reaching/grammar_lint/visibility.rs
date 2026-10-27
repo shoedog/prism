@@ -99,6 +99,19 @@ pub(in crate::cpg::reaching) fn visibility_span(
     if parsed.language == Language::Rust {
         return rust_visibility_span(binder_node);
     }
+    if parsed.language == Language::JavaScript {
+        if let Some(span) = javascript_pattern_visibility_span(binder_node) {
+            return span;
+        }
+    }
+    if matches!(parsed.language, Language::TypeScript | Language::Tsx)
+        && matches!(
+            binder_node.kind(),
+            "required_parameter" | "optional_parameter"
+        )
+    {
+        return typescript_parameter_visibility_span(binder_node);
+    }
     let scoped = match parsed.language {
         Language::Python => ancestor_field(binder_node, "if_statement", "consequence"),
         Language::Go | Language::JavaScript | Language::TypeScript | Language::Tsx => {
@@ -117,6 +130,88 @@ pub(in crate::cpg::reaching) fn visibility_span(
             end: scoped.end_byte(),
         }])
     }
+}
+
+pub(in crate::cpg::reaching) fn typescript_parameter_has_body_owner(binder_node: Node<'_>) -> bool {
+    binder_node
+        .parent()
+        .filter(|parameters| parameters.kind() == "formal_parameters")
+        .and_then(|parameters| parameters.parent())
+        .is_some_and(|owner| {
+            matches!(
+                owner.kind(),
+                "arrow_function"
+                    | "function_declaration"
+                    | "function_expression"
+                    | "generator_function"
+                    | "generator_function_declaration"
+                    | "method_definition"
+            ) && owner.child_by_field_name("body").is_some()
+        })
+}
+
+fn typescript_parameter_visibility_span(binder_node: Node<'_>) -> SpanKind {
+    if !typescript_parameter_has_body_owner(binder_node) {
+        return SpanKind::Empty;
+    }
+    let body = binder_node
+        .parent()
+        .and_then(|parameters| parameters.parent())
+        .and_then(|owner| owner.child_by_field_name("body"));
+    match body {
+        Some(body) if body.named_child_count() != 0 => SpanKind::Known(vec![ByteSpan {
+            start: body.start_byte(),
+            end: body.end_byte(),
+        }]),
+        _ => SpanKind::Empty,
+    }
+}
+
+fn javascript_pattern_visibility_span(binder_node: Node<'_>) -> Option<SpanKind> {
+    let mut current = binder_node;
+    while let Some(parent) = current.parent() {
+        let scope = match parent.kind() {
+            "lexical_declaration" => nearest_ancestor_kind_in(
+                parent,
+                &[
+                    "statement_block",
+                    "switch_body",
+                    "for_statement",
+                    "class_static_block",
+                    "program",
+                ],
+            ),
+            "variable_declaration" => {
+                let scope = nearest_field(parent, "body")?;
+                return Some(SpanKind::Known(vec![ByteSpan {
+                    start: binder_node.end_byte(),
+                    end: scope.end_byte(),
+                }]));
+            }
+            "formal_parameters" => nearest_field(parent, "body"),
+            "catch_clause" | "for_in_statement" => parent.child_by_field_name("body"),
+            "assignment_expression" => return None,
+            _ => {
+                current = parent;
+                continue;
+            }
+        }?;
+        return Some(SpanKind::Known(vec![ByteSpan {
+            start: binder_node.start_byte(),
+            end: scope.end_byte(),
+        }]));
+    }
+    None
+}
+
+fn nearest_ancestor_kind_in<'a>(mut node: Node<'a>, kinds: &[&str]) -> Option<Node<'a>> {
+    while let Some(parent) = node.parent() {
+        if kinds.contains(&parent.kind()) {
+            return Some(parent);
+        }
+        node = parent;
+    }
+    None
 }
 
 fn ancestor_field<'a>(mut node: Node<'a>, kind: &str, field: &str) -> Option<Node<'a>> {

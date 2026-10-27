@@ -4,6 +4,9 @@ use super::super::super::binding_table::{
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod task16;
+pub(super) use task16::CASES as TASK16_CASES;
+
 pub(super) const SOURCE: &str = r#"import defaultName, * as ns from "pkg" with { type: "json" };
 import {item as alias} from "pkg";
 var outer = source();
@@ -429,11 +432,26 @@ pub(super) fn source_for_kind(kind: &str) -> &'static str {
 fn javascript_rows_reproduce_the_old_match_arms() {
     let javascript_rows = rows(Language::JavaScript);
     let curated_len = CURATED.len() + 1;
-    for language in [Language::TypeScript, Language::Tsx] {
-        assert_eq!(
-            &javascript_rows[..curated_len],
-            &rows(language)[..curated_len],
-            "{language:?}: shared curated prefix"
+    let tsx_rows = rows(Language::Tsx);
+    let tsx_owned = [
+        "statement_block",
+        "class_body",
+        "function_declaration",
+        "function_expression",
+        "arrow_function",
+        "for_statement",
+        "formal_parameters",
+        "variable_declaration",
+        "lexical_declaration",
+    ];
+    for inherited in javascript_rows[..curated_len]
+        .iter()
+        .filter(|row| !tsx_owned.contains(&row.kind))
+    {
+        assert!(
+            tsx_rows.contains(inherited),
+            "Tsx must preserve inherited JavaScript row {} byte-for-byte",
+            inherited.kind
         );
     }
     let catch = &javascript_rows[curated_len];
@@ -443,13 +461,13 @@ fn javascript_rows_reproduce_the_old_match_arms() {
     assert!(catch.roles.has(Role::Scope));
     assert_eq!(catch.fields, &["parameter"]);
     assert_eq!(catch.visibility, Visibility::WholeScope);
-    assert!(javascript_rows[curated_len + 1..]
+    assert!(!javascript_rows[curated_len + 1..]
         .iter()
-        .all(|row| matches!(
+        .any(|row| matches!(
             row.ruling,
             Ruling::Uncertain {
                 reason: "not yet curated",
-                ..
+                revisit: "E2a"
             }
         )));
 

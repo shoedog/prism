@@ -1,0 +1,15 @@
+[case]
+language = "tsx"
+capability = "dfg_binding_jsx_not_binding"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.tsx:2:x"
+to = "main.tsx:3:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.tsx:2:x"
+to = "main.tsx:4:x"
+confidence = "exact"

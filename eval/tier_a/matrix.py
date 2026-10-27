@@ -28,7 +28,7 @@ from .model import FunctionDef, Location
 from .sut import run_bounded
 
 
-MATRIX_LANGUAGES = ["rust", "go", "python", "javascript", "typescript"]
+MATRIX_LANGUAGES = ["rust", "go", "python", "javascript", "typescript", "tsx"]
 MATRIX_EXTRA_DFG_GLOBS = [("java", "dfg_binding_*/expected.toml")]
 PROBE_TYPES = ("callers", "taint", "module_deps", "dfg")
 

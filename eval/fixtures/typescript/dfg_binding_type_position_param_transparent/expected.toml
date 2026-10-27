@@ -1,0 +1,15 @@
+[case]
+language = "typescript"
+capability = "dfg_binding_type_position_param_transparent"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.ts:2:x"
+to = "main.ts:4:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.ts:7:x"
+to = "main.ts:9:x"
+confidence = "exact"
