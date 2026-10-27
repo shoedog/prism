@@ -39,7 +39,7 @@ const fn scope_row(kind: &'static str, regression: &'static str) -> BindingRow {
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Go,
-    "E1b",
+    "future:go-residual",
     [
         ("assignment_statement", "e0b-go-assignment_statement"),
         ("field_declaration", "e0b-go-field_declaration"),

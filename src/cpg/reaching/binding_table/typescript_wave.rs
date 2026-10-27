@@ -259,7 +259,7 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::TypeScript,
-    "E2b-1",
+    "future:ts-residual",
     [
         ("array_pattern", "e0b-ts-array_pattern"),
         ("assignment_expression", "e0b-ts-assignment_expression"),

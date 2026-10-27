@@ -37,7 +37,7 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Rust,
-    "E1c",
+    "future:rust-residual",
     [
         ("assignment_expression", "e0b-rs-assignment_expression"),
         ("async_block", "e0b-rs-async_block"),

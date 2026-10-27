@@ -173,7 +173,7 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Tsx,
-    "E2b-2",
+    "future:tsx-residual",
     [
         (
             "abstract_class_declaration",
