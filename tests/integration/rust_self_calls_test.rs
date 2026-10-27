@@ -121,7 +121,10 @@ fn trait_default() {
     )
     .unwrap();
     let cg = CallGraph::build(&BTreeMap::from([(path.to_string(), parsed)]));
-    assert_eq!(cg.methods[&("Single".to_string(), "single_target".to_string())].len(), 1);
+    assert_eq!(
+        cg.methods[&("Single".to_string(), "single_target".to_string())].len(),
+        1
+    );
     let outcome = cg.resolve_call_site_full(site(&cg, "single_default", "Self::single_target"));
     assert!(outcome.resolved.is_empty(), "{outcome:?}");
     assert_eq!(outcome.drop, Some(DropReason::UnknownName));
