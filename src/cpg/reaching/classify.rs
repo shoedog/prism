@@ -10,6 +10,7 @@ use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use std::collections::{BTreeMap, BTreeSet};
 
+mod cpp;
 mod finally_kill;
 mod import_exception_gap;
 
@@ -354,6 +355,7 @@ fn uncertain_construct_on_route(
                     crate::languages::Language::Java,
                     "record_pattern" | "type_pattern" | "instanceof_expression"
                 ) | (crate::languages::Language::Bash, "for_statement")
+                    | (crate::languages::Language::Cpp, "declaration")
                     | (
                         crate::languages::Language::Rust,
                         "captured_pattern"
@@ -406,18 +408,21 @@ fn uncertain_construct_on_route(
                 && (matches!(binder.kind(), "global_statement" | "nonlocal_statement")
                     || unplaced_python_pattern)
                 && construct_node.is_none();
-            let on_route = candidates.iter().any(|index| {
-                mapped_defs[*index].is_some_and(|def_node| match construct_node {
-                    Some(construct_node) => {
-                        path_exists(successors, def_node, construct_node, false)
-                            && path_exists(successors, construct_node, use_node, false)
-                    }
-                    None => {
-                        omitted_python_declaration
-                            && path_exists(successors, def_node, use_node, false)
-                    }
-                })
-            });
+            let cpp_direct_block = cpp::direct_block_uncertainty(parsed, binder, use_byte);
+            let on_route = cpp_direct_block
+                || construct_line == edge.to.line
+                || candidates.iter().any(|index| {
+                    mapped_defs[*index].is_some_and(|def_node| match construct_node {
+                        Some(construct_node) => {
+                            path_exists(successors, def_node, construct_node, false)
+                                && path_exists(successors, construct_node, use_node, false)
+                        }
+                        None => {
+                            omitted_python_declaration
+                                && path_exists(successors, def_node, use_node, false)
+                        }
+                    })
+                });
             if !on_route {
                 return None;
             }

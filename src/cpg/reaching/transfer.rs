@@ -1,5 +1,5 @@
 //! Edge-local transfer nodes for classified binding reuse constructs.
-
+mod cpp;
 mod route_effects;
 mod statement_defs;
 
@@ -448,6 +448,9 @@ pub(super) fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) ->
         }
         if parsed.language.is_identifier_node(node.kind()) {
             identifiers.push(node);
+            return;
+        }
+        if cpp::collect_introduced_identifiers(parsed, node, identifiers) {
             return;
         }
         match node.kind() {

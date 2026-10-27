@@ -72,6 +72,10 @@ pub(crate) enum Predicate {
         field: &'static str,
         any_of: &'static [&'static str],
     },
+    FieldChildCountIs {
+        field: &'static str,
+        count: usize,
+    },
     TypeScriptParameterPattern {
         kind: &'static str,
     },
@@ -287,7 +291,12 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
         Language::Go => combined3!(GO_ROWS, go::ROWS, go_wave::CURATED_ROWS, go_wave::ROWS),
         Language::Java => combined!(JAVA_ROWS, java::JAVA_ROWS, java_wave::ROWS),
         Language::C => combined!(C_ROWS, c::C_ROWS, c_wave::ROWS),
-        Language::Cpp => combined!(CPP_ROWS, cpp::CPP_ROWS, cpp_wave::ROWS),
+        Language::Cpp => combined3!(
+            CPP_ROWS,
+            cpp::CPP_ROWS,
+            cpp_wave::CURATED_ROWS,
+            cpp_wave::ROWS
+        ),
         Language::Rust => combined3!(
             RUST_ROWS,
             rust::ROWS,
@@ -363,6 +372,10 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
         Predicate::FieldTextIs { field, any_of } => node
             .child_by_field_name(field)
             .is_some_and(|child| any_of.contains(&parsed.node_text(&child))),
+        Predicate::FieldChildCountIs { field, count } => {
+            let mut cursor = node.walk();
+            node.children_by_field_name(field, &mut cursor).count() == *count
+        }
         Predicate::TypeScriptParameterPattern { kind } => {
             if parsed.language != Language::TypeScript
                 || node.child_by_field_name("name").is_some()

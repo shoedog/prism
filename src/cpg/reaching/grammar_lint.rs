@@ -5,9 +5,8 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
-
+mod cpp;
 pub(super) mod visibility;
-
 pub(super) use visibility::{visibility_span, ByteSpan, SpanKind};
 #[derive(serde::Deserialize)]
 struct NodeTypeSchema {
@@ -71,6 +70,9 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
                 .any(|identifier| parsed.node_text(&identifier) == name)
         });
     }
+    if let Some(introduces) = cpp::uncertain_node_introduces_name(parsed, node, name) {
+        return introduces;
+    }
     if parsed.language == Language::Python && is_python_match_pattern(node) {
         return subtree_has_name(parsed, node, name);
     }
@@ -114,7 +116,6 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
             })
         })
 }
-
 fn is_rust_pattern_kind(kind: &str) -> bool {
     matches!(
         kind,
@@ -128,7 +129,6 @@ fn is_rust_pattern_kind(kind: &str) -> bool {
             | "tuple_struct_pattern"
     )
 }
-
 pub(super) fn contains_scope_bounded_rust_pattern(node: Node<'_>) -> bool {
     if is_rust_pattern_kind(node.kind()) {
         return true;
@@ -262,7 +262,7 @@ pub(super) fn collect_unclassified_binding_lines(
         return;
     }
 
-    if node.id() != root_function_id {
+    if node.id() != root_function_id && !cpp::has_byte_scoped_uncertainty(parsed, node) {
         if let Some(fields) = introducing_fields.get(node.kind()) {
             for field in fields {
                 if let Some(target) = node.child_by_field_name(field) {

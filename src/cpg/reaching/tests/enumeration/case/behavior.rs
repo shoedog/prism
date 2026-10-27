@@ -247,7 +247,7 @@ pub(super) fn assert_ruling(
             case.id
         ),
         Some(Ruling::Classified)
-            if matches!(
+            if (matches!(
                 case.language,
                 Language::JavaScript | Language::TypeScript | Language::Tsx
             ) && matches!(
@@ -257,7 +257,8 @@ pub(super) fn assert_ruling(
                     | "class_static_block"
                     | "for_statement"
                     | "switch_body"
-            ) =>
+            )) || (case.language == Language::Cpp
+                && matches!(case.kind, "for_statement" | "condition_clause")) =>
         {
             assert!(
                 case.expect.iter().all(|(_, _, label)| matches!(
@@ -266,7 +267,7 @@ pub(super) fn assert_ruling(
                         | FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
                         | FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
                 )),
-                "{}: JavaScript/TypeScript/TSX scopes need Exact, Killed, or deferred CfgIncomplete evidence",
+                "{}: lexical/header scopes need Exact, Killed, or deferred CfgIncomplete evidence",
                 case.id
             );
         }

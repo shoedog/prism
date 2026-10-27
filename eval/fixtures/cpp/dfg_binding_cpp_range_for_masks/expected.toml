@@ -1,0 +1,17 @@
+[case]
+language = "cpp"
+capability = "dfg_binding_cpp_range_for_masks"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.cpp:2:x"
+to = "main.cpp:4:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 3
+
+[[expect.edges]]
+from = "main.cpp:2:x"
+to = "main.cpp:6:x"
+confidence = "exact"

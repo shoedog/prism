@@ -104,6 +104,17 @@ pub(in crate::cpg::reaching) fn visibility_span(
             return span;
         }
     }
+    if parsed.language == Language::Cpp && binder_node.kind() == "declaration" {
+        return nearest_ancestor_kind_in(binder_node, &["compound_statement"]).map_or(
+            SpanKind::Unknown,
+            |scope| {
+                SpanKind::Known(vec![ByteSpan {
+                    start: binder_node.start_byte(),
+                    end: scope.end_byte(),
+                }])
+            },
+        );
+    }
     if matches!(parsed.language, Language::TypeScript | Language::Tsx)
         && matches!(
             binder_node.kind(),

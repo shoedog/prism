@@ -1,5 +1,6 @@
 //! Lexical binding ownership for reaching definitions.
 
+mod cpp;
 mod masks;
 pub(super) mod rust_scope;
 mod typescript;
@@ -547,6 +548,9 @@ fn declaration_scope(
             break;
         }
         if binding_scope_rule(parsed.language, parent.kind()).creates_scope {
+            if let Some(owner) = cpp::condition_scope_owner(parsed.language, parent) {
+                return scope_span(owner);
+            }
             return scope_span(parent);
         }
         current = parent.parent();

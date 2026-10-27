@@ -1,0 +1,15 @@
+[case]
+language = "cpp"
+capability = "dfg_binding_cpp_block_shadow"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.cpp:4:x"
+to = "main.cpp:5:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.cpp:2:x"
+to = "main.cpp:7:x"
+confidence = "exact"

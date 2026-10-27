@@ -1,9 +1,81 @@
-use super::{provisional_rows, BindingRow};
+use super::{
+    provisional_rows, BindingRow, DeclarationKind, Predicate, Role, RoleSet, Ruling, Visibility,
+};
 use crate::languages::Language;
 
 pub(super) const DIGEST: &str = "fdfd4b1f3dca1516616a1eb615bb6c1ad3082b8937ad21070d0def5dcfe7e535";
 pub(super) const CENSUS_DIGEST: &str =
-    "d4070dda79948b342303c84ff5d0dfd5103bef73fb98d6bccb47a64ce510f6ba";
+    "2aa8b8a90b435001e53816eb7ac2de02a5a65b59a5751656f048b9c58af22b60";
+
+const fn scope_row(kind: &'static str, regression: &'static str) -> BindingRow {
+    BindingRow {
+        language: Language::Cpp,
+        kind,
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression,
+    }
+}
+
+pub(super) static CURATED_ROWS: &[BindingRow] = &[
+    scope_row("compound_statement", "cpp-lambda-body-block-scope"),
+    scope_row("for_statement", "cpp-for-init-scope"),
+    scope_row("condition_clause", "cpp-if-init-declaration"),
+    BindingRow {
+        language: Language::Cpp,
+        kind: "for_range_loop",
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope, Role::Binding]),
+        fields: &["declarator"],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::Header,
+        ruling: Ruling::Classified,
+        regression: "cpp-range-for-masks",
+    },
+    BindingRow {
+        language: Language::Cpp,
+        kind: "catch_clause",
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope, Role::Binding]),
+        fields: &["parameters"],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::Header,
+        ruling: Ruling::Classified,
+        regression: "cpp-catch-param-masks",
+    },
+    BindingRow {
+        language: Language::Cpp,
+        kind: "declaration",
+        variant: Some(Predicate::FieldChildCountIs {
+            field: "declarator",
+            count: 1,
+        }),
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["declarator"],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Classified,
+        regression: "cpp-block-shadow",
+    },
+    BindingRow {
+        language: Language::Cpp,
+        kind: "declaration",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["declarator"],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Uncertain {
+            reason: "declarator chain",
+            revisit: "future:cpp-declarators",
+        },
+        regression: "cpp-declarator-chain-uncertain",
+    },
+];
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Cpp,
@@ -36,9 +108,7 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("attributed_declarator", "e0b-cpp-attributed_declarator"),
         ("base_class_clause", "e0b-cpp-base_class_clause"),
         ("case_statement", "e0b-cpp-case_statement"),
-        ("catch_clause", "e0b-cpp-catch_clause"),
         ("class_specifier", "e0b-cpp-class_specifier"),
-        ("declaration", "e0b-cpp-declaration"),
         ("declaration_list", "e0b-cpp-declaration_list"),
         ("delete_expression", "e0b-cpp-delete_expression"),
         ("delete_method_clause", "e0b-cpp-delete_method_clause"),
@@ -48,8 +118,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ),
         ("field_declaration", "e0b-cpp-field_declaration"),
         ("field_declaration_list", "e0b-cpp-field_declaration_list"),
-        ("for_range_loop", "e0b-cpp-for_range_loop"),
-        ("for_statement", "e0b-cpp-for_statement"),
         ("friend_declaration", "e0b-cpp-friend_declaration"),
         ("function_declarator", "e0b-cpp-function_declarator"),
         ("function_definition", "e0b-cpp-function_definition"),
