@@ -2,6 +2,8 @@
 """Cooperative host-wide quiet marker; Python 3.9, standard library only."""
 
 import argparse
+from contextlib import contextmanager
+import fcntl
 import json
 import math
 import os
@@ -10,6 +12,33 @@ import shutil
 import sys
 import tempfile
 import time
+
+GUARD_WAIT_SECS = 10.0
+MAX_EXPECTED_SECS = 6 * 60 * 60
+
+
+@contextmanager
+def transition_guard(directory):
+    """Serialize marker mutations; leave the guard inode in place forever."""
+    fd = os.open(directory / 'transition.guard', os.O_CREAT | os.O_RDONLY, 0o666)
+    try:
+        deadline = time.monotonic() + GUARD_WAIT_SECS
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except (BlockingIOError, InterruptedError):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    yield False
+                    return
+                time.sleep(min(0.05, remaining))
+        try:
+            yield True
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
 
 
 def marker_directory(directory=None):
@@ -53,18 +82,26 @@ def inspect_lock(directory=None, now=None):
         return info, True, stat
     except PermissionError:
         pass  # An existing process owned by another user is alive.
+    except OverflowError:
+        return None, now - stat.st_mtime > 60, stat
     return info, now > info['expected_end_epoch'] + 1800, stat
 
 
 def acquire(owner, step, expected_secs, pid=None, directory=None):
-    """Try once; atomic mkdir arbitrates acquisition, including stale takeover."""
+    """Acquire or recover a marker under a bounded exclusive transition guard."""
     pid = os.getpid() if pid is None else pid
     if type(pid) is not int or pid <= 0:
         raise ValueError('pid must be positive')
-    if not math.isfinite(expected_secs) or expected_secs < 0:
-        raise ValueError('expected_secs must be finite and nonnegative')
+    if not math.isfinite(expected_secs) or not 0 <= expected_secs <= MAX_EXPECTED_SECS:
+        raise ValueError('expected_secs must be finite and between 0 and 21600 (6 hours)')
     directory = marker_directory(directory)
     directory.mkdir(parents=True, exist_ok=True)
+    with transition_guard(directory) as held:
+        return _acquire_locked(owner, step, expected_secs, pid, directory) if held else False
+
+
+def _acquire_locked(owner, step, expected_secs, pid, directory):
+    """The guard covers mkdir through publication, including failure cleanup."""
     lock = directory / 'lock'
     try:
         os.mkdir(lock)
@@ -73,7 +110,7 @@ def acquire(owner, step, expected_secs, pid=None, directory=None):
         if observed is not None:
             if not observed[1]:
                 return False
-            # Recheck identity before renaming; never recursively delete lock itself.
+            # Identity validation and replacement share the same guard.
             try:
                 current = lock.stat()
                 if (current.st_dev, current.st_ino) != (observed[2].st_dev, observed[2].st_ino):
@@ -108,12 +145,16 @@ def acquire(owner, step, expected_secs, pid=None, directory=None):
 def release(pid=None, directory=None):
     """Only the recorded holder may release; missing metadata is not ownership."""
     pid = os.getpid() if pid is None else pid
-    lock = marker_directory(directory) / 'lock'
-    info = read_info(lock)
-    if info is None or info['pid'] != pid:
-        return False
+    directory = marker_directory(directory)
     try:
-        shutil.rmtree(lock)
+        with transition_guard(directory) as held:
+            if not held:
+                return False
+            lock = directory / 'lock'
+            info = read_info(lock)
+            if info is None or info['pid'] != pid:
+                return False
+            shutil.rmtree(lock)
     except FileNotFoundError:
         return False
     return True
@@ -162,16 +203,23 @@ def positive_pid(value):
     return pid
 
 
+def expected_duration(value):
+    number = finite_nonnegative(value)
+    if number > MAX_EXPECTED_SECS:
+        raise argparse.ArgumentTypeError('must be at most 21600 (6 hours)')
+    return number
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
     take = commands.add_parser('acquire')
     take.add_argument('--owner', required=True)
     take.add_argument('--step', required=True)
-    take.add_argument('--expected-secs', required=True, type=finite_nonnegative)
-    take.add_argument('--pid', type=positive_pid, default=os.getppid())
+    take.add_argument('--expected-secs', required=True, type=expected_duration)
+    take.add_argument('--pid', type=positive_pid, required=True)
     drop = commands.add_parser('release')
-    drop.add_argument('--pid', type=positive_pid, default=os.getppid())
+    drop.add_argument('--pid', type=positive_pid, required=True)
     commands.add_parser('status')
     wait = commands.add_parser('wait')
     wait.add_argument('--timeout', type=finite_nonnegative)

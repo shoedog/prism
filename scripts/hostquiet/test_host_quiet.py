@@ -70,7 +70,8 @@ class MarkerTests(unittest.TestCase):
         self.assertEqual(self.info()['owner'], 'replacement')
         self.assertEqual(rename.call_args_list[0].args[0], self.lock)
         self.assertTrue(rename.call_args_list[0].args[1].name.startswith('lock.stale-'))
-        self.assertEqual(list(self.directory.iterdir()), [self.lock])
+        self.assertEqual(set(self.directory.iterdir()),
+                         {self.lock, self.directory / 'transition.guard'})
 
     def test_overdue_live_pid_and_exact_grace_boundary(self):
         self.take()
@@ -197,13 +198,15 @@ class MarkerTests(unittest.TestCase):
             with self.subTest(pid=pid), self.assertRaises(ValueError):
                 self.take(pid=pid)
 
-    def test_cli_codes_holder_json_and_parent_pid_default(self):
+    def test_cli_codes_holder_json_and_explicit_pid(self):
         self.assertEqual(self.cli('status').stdout.strip(), 'free')
         self.assertEqual(self.cli('wait', '--timeout', '0').returncode, 0)
-        acquired = self.cli('acquire', '--owner', 'cli', '--step', 'sample', '--expected-secs', '1200')
+        acquired = self.cli('acquire', '--owner', 'cli', '--step', 'sample',
+                            '--expected-secs', '1200', '--pid', str(self.pid))
         self.assertEqual(acquired.returncode, 0, acquired.stderr)
         self.assertEqual(self.info()['pid'], self.pid)
-        refused = self.cli('acquire', '--owner', 'other', '--step', 'sample', '--expected-secs', '1')
+        refused = self.cli('acquire', '--owner', 'other', '--step', 'sample',
+                           '--expected-secs', '1', '--pid', str(self.pid))
         self.assertEqual(refused.returncode, 1)
         self.assertEqual(json.loads(refused.stderr), self.info())
         status = self.cli('status')
@@ -215,10 +218,56 @@ class MarkerTests(unittest.TestCase):
         wrong = self.cli('release', '--pid', str(self.pid + 1))
         self.assertEqual(wrong.returncode, 0)
         self.assertEqual(wrong.stdout.strip(), 'not released')
-        released = self.cli('release')
+        released = self.cli('release', '--pid', str(self.pid))
         self.assertEqual(released.returncode, 0)
         self.assertEqual(released.stdout.strip(), 'released')
-        self.assertEqual(self.cli('release').returncode, 0)
+        self.assertEqual(self.cli('release', '--pid', str(self.pid)).returncode, 0)
+
+    def test_cli_requires_pid_for_acquire_and_release(self):
+        missing = self.cli('acquire', '--owner', 'cli', '--step', 'sample', '--expected-secs', '1')
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn('--pid', missing.stderr)
+        self.assertFalse(self.lock.exists())
+        self.take()
+        original = self.info()
+        missing = self.cli('release')
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn('--pid', missing.stderr)
+        self.assertEqual(self.info(), original)
+
+    def test_expected_duration_six_hour_limit_library_and_cli(self):
+        for duration in (21600.01, 21601):
+            with self.subTest(duration=duration):
+                with self.assertRaises(ValueError):
+                    quiet.acquire('a', 'b', duration)
+                invalid = self.cli('acquire', '--owner', 'a', '--step', 'b',
+                                   '--expected-secs', str(duration), '--pid', str(self.pid))
+                self.assertEqual(invalid.returncode, 2)
+                self.assertIn('6 hours', invalid.stderr)
+                self.assertFalse(self.lock.exists())
+        for duration in (0, 21600):
+            with self.subTest(boundary=duration):
+                self.assertTrue(quiet.acquire('a', 'b', duration))
+                self.assertEqual(self.info()['expected_end_epoch'] - self.info()['started_epoch'], duration)
+                self.assertTrue(quiet.release())
+                result = self.cli('acquire', '--owner', 'a', '--step', 'b',
+                                  '--expected-secs', str(duration), '--pid', str(self.pid))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(quiet.release())
+
+    def test_overflowing_pid_uses_unreadable_metadata_grace(self):
+        self.take()
+        self.rewrite(pid=2 ** 100)
+        now = time.time()
+        os.utime(self.lock, (now, now))
+        observed = quiet.inspect_lock(now=now + 60)
+        self.assertIsNone(observed[0])
+        self.assertFalse(observed[1])
+        self.assertTrue(quiet.inspect_lock(now=now + 61)[1])
+        self.assertFalse(self.take())
+        self.assertEqual(json.loads(self.cli('status').stdout), {'stale': False})
+        os.utime(self.lock, (now - 61, now - 61))
+        self.assertTrue(self.take())
 
     def test_cli_explicit_pid_stale_status_and_invalid_arguments(self):
         result = self.cli('acquire', '--owner', 'cli', '--step', 'step',
@@ -229,7 +278,8 @@ class MarkerTests(unittest.TestCase):
         self.assertEqual(self.cli('wait', '--timeout', '0').returncode, 0)
         for args in (('wait', '--poll', '0'), ('wait', '--timeout', '-1'),
                      ('wait', '--poll', 'nan'), ('release', '--pid', '0'),
-                     ('acquire', '--owner', 'x', '--step', 'y', '--expected-secs', 'inf')):
+                     ('acquire', '--owner', 'x', '--step', 'y', '--expected-secs', 'inf',
+                      '--pid', str(self.pid))):
             with self.subTest(args=args):
                 self.assertEqual(self.cli(*args).returncode, 2)
 
@@ -257,21 +307,16 @@ class MarkerTests(unittest.TestCase):
             self.assertFalse(self.take())
         self.assertEqual(self.info(), original)
 
-    def test_losing_stale_rename_and_mkdir_races(self):
+    def test_losing_stale_rename_and_mkdir_refused(self):
         self.lock.mkdir()
         now = time.time()
         os.utime(self.lock, (now - 61, now - 61))
         with patch.object(quiet.os, 'rename', side_effect=FileNotFoundError):
             self.assertFalse(self.take())
-        original = quiet.shutil.rmtree
-
-        def competing_acquirer(path):
-            original(path)
-            self.assertTrue(quiet.acquire('winner', 'next', 1200))
-
-        with patch.object(quiet.shutil, 'rmtree', side_effect=competing_acquirer):
+        # Even an unsupported external mkdir is refused, rather than published
+        # into, if it appears after the guarded stale directory was removed.
+        with patch.object(quiet.os, 'mkdir', side_effect=FileExistsError):
             self.assertFalse(self.take())
-        self.assertEqual(self.info()['owner'], 'winner')
 
     def test_info_publish_failure_cleans_up_own_unpublished_lock(self):
         with patch.object(quiet.os, 'rename', side_effect=OSError('publish failed')):

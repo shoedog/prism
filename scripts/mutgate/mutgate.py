@@ -8,10 +8,14 @@ Production source is never edited. Workers clone/copy the shared warm target
 once and are removed after execution; the shared warm target remains reusable.
 """
 import argparse, concurrent.futures as cf, json, os, re, shutil, subprocess, sys, tempfile, threading, time
+import importlib.util
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'hostquiet'))
-from host_quiet import wait_until_free
+_quiet_spec = importlib.util.spec_from_file_location(
+    '_mutgate_host_quiet', Path(__file__).resolve().parents[1] / 'hostquiet' / 'host_quiet.py')
+_quiet_module = importlib.util.module_from_spec(_quiet_spec)
+_quiet_spec.loader.exec_module(_quiet_module)
+wait_until_free = _quiet_module.wait_until_free
 
 ROOT = Path(__file__).resolve().parents[2]
 LANES_GLOB = 'mutants/*.json'
@@ -655,7 +659,17 @@ def gate_passes(results, selected):
 # ---------------------------------------------------------------- main
 def quiet_wait(args, env, log, waiter=wait_until_free):
     if not (args.plan_only or args.no_quiet_wait or env.get('HOST_QUIET_IGNORE') == '1'):
-        waiter(log, timeout=None)
+        started = time.monotonic()
+        observed_holder = False
+
+        def waiting(message):
+            nonlocal observed_holder
+            observed_holder = True
+            log(message)
+
+        waiter(waiting, timeout=None)
+        return round(time.monotonic() - started, 2) if observed_holder else 0.0
+    return 0.0
 
 
 def main():
@@ -678,7 +692,8 @@ def main():
     label = 'AUTHORITATIVE' if authoritative else 'ADVISORY'
     T0 = time.monotonic()
     def log(msg): print(f'[{time.monotonic() - T0:7.1f}s] {label} {msg}', flush=True)
-    quiet_wait(a, os.environ, log)
+    wait_seconds = quiet_wait(a, os.environ, log)
+    active_started = time.monotonic()
     target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target')).resolve()
     out = Path(a.out or target / 'mutgate' / 'report'); out.mkdir(parents=True, exist_ok=True)
     lanes = a.lane or sorted(str(p) for p in ROOT.glob(LANES_GLOB))
@@ -693,7 +708,7 @@ def main():
     if a.only: ids = [i for i in ids if i in set(a.only)]
     sel = {i: muts[i] for i in ids}
     log(f'{len(muts)} mutants in {len(lanes)} lane file(s); selected {len(sel)}')
-    timings = {}
+    timings = {'quiet_wait': wait_seconds}
     results = {}
     units, static = plan_schemata(sel, src_text) if a.mode == 'schema' or a.plan_only else ({}, {})
     if a.plan_only:
@@ -797,7 +812,7 @@ def main():
             results[mid]['schema_observation'] = observation
     # Restore source even when there were only schema survivors/timeouts.
     if eligible: sync_tree(tree, {})
-    timings['total'] = round(time.monotonic() - T0, 2)
+    timings['total'] = round(time.monotonic() - active_started, 2)
     killed = sum(verdict(r) == 'KILLED' for r in results.values()); adm = sum(r['admissible'] for r in results.values())
     summary = {'authoritative': authoritative, 'label': label, 'execution_mode': a.mode, 'jobs': a.jobs,
                'since': a.since, 'scope': a.scope if a.since else None,
@@ -806,7 +821,7 @@ def main():
                'text_confirmations': len(schema_observations),
                'results': {mid: dict(r, verdict=verdict(r)) for mid, r in results.items()}}
     (out / 'summary.json').write_text(json.dumps(summary, indent=2))
-    log(f'TOTAL killed {killed}/{len(sel)} admissible {adm} timings {timings}')
+    log(f'TOTAL killed {killed}/{len(sel)} admissible {adm} quiet wait {wait_seconds}s timings {timings}')
     return 0 if gate_passes(results, len(sel)) else 1
 
 

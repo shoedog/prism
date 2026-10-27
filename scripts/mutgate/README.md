@@ -70,8 +70,10 @@ while a live [host-quiet marker](../hostquiet/README.md) exists. It logs the
 holder and expected end when waiting starts and when the holder changes.
 `HOST_QUIET_DIR` defaults to `~/.local/state/host-quiet`. Stale markers do not
 block a gate. `--plan-only` skips waiting; use `--no-quiet-wait` or
-`HOST_QUIET_IGNORE=1` to bypass it explicitly. Only total wall time includes
-the wait; phase timings, mutation execution and verdicts are unchanged.
+`HOST_QUIET_IGNORE=1` to bypass it explicitly. Summary `timings.quiet_wait`
+records wait seconds (0 when skipped or free), and `timings.total` records
+active gate time excluding that wait. The TOTAL log line includes the wait;
+existing phase timings, mutation execution and verdicts are unchanged.
 
 ## Soundness contracts and exit codes
 
