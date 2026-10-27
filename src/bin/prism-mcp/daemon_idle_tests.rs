@@ -112,7 +112,11 @@ fn socket_policy(extra: &[&str], expected: u64, relief: bool) {
                 "invalid-ambient-must-be-ignored",
             )
             .stdout(Stdio::null())
-            .stderr(Stdio::inherit())
+            // Never the test's own stderr: the daemon empties a regular-file stderr over 1 MiB at
+            // start (log.rs), which would wipe a `cargo test > log 2>&1` caller's log.
+            .stderr(Stdio::from(
+                std::fs::File::create(runtime.path().join("daemon.log")).unwrap(),
+            ))
             .spawn()
             .unwrap(),
     );
