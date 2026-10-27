@@ -33,13 +33,13 @@ impl ParsedFile {
         })
     }
 
-    /// Source terminal proof consumed ONLY by ImportForward. Existing direct
-    /// export/import and class lanes keep their independent contracts.
     #[cfg(test)]
     pub(super) fn js_ts_forwardable_functions(&self) -> BTreeSet<String> {
         self.js_ts_forwardable_functions_with_index(&mut None)
     }
 
+    /// Source terminal proof consumed ONLY by ImportForward. Existing direct
+    /// export/import and class lanes keep their independent contracts.
     fn js_ts_forwardable_functions_with_index<'a>(
         &'a self,
         index: &mut Option<index::ExportIndex<'a>>,

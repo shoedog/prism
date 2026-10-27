@@ -63,6 +63,48 @@ fn compare(raw: &BTreeMap<String, JsExportFacts>) {
 }
 
 #[test]
+fn repeated_roots_preserve_maps_and_double_telemetry() {
+    let raw = BTreeMap::from([
+        ("a.ts".into(), leaf("a")),
+        ("b.ts".into(), leaf("b")),
+        ("barrel.ts".into(), stars(&["./a", "./missing"])),
+        ("conflict.ts".into(), stars(&["./a", "./b"])),
+        ("cycle.ts".into(), stars(&["./cycle", "./a"])),
+    ]);
+    for projection in [ExportProjection::Legacy, ExportProjection::CallerPaths] {
+        let single = resolve(&raw, &module, raw.keys(), projection);
+        assert!(single.chain_unresolved > 0);
+        assert!(single.barrel_conflicts > 0);
+        let repeated = resolve(&raw, &module, raw.keys().chain(raw.keys()), projection);
+        assert_eq!(repeated.resolved, single.resolved);
+        assert_eq!(repeated.chain_unresolved, single.chain_unresolved * 2);
+        assert_eq!(repeated.barrel_conflicts, single.barrel_conflicts * 2);
+    }
+}
+
+#[test]
+fn class_hits_are_excluded_from_callable_resolution() {
+    let mut facts = leaf("a");
+    facts
+        .named
+        .insert("Ctor".into(), JsExportTarget::Class("Ctor".into()));
+    let raw = BTreeMap::from([
+        ("a.ts".into(), facts),
+        ("barrel.ts".into(), stars(&["./a"])),
+    ]);
+    for projection in [ExportProjection::Legacy, ExportProjection::CallerPaths] {
+        let out = resolve(&raw, &module, raw.keys(), projection);
+        for file in ["a.ts", "barrel.ts"] {
+            assert_eq!(out.resolved[file]["real"].file, "a.ts");
+            assert!(
+                !out.resolved[file].contains_key("Ctor"),
+                "class hit must not be projected as callable in {file}"
+            );
+        }
+    }
+}
+
+#[test]
 fn generated_graphs_preserve_all_fields_and_namespace() {
     let mut raw = BTreeMap::from([("a.ts".into(), leaf("a")), ("b.ts".into(), leaf("b"))]);
     raw.insert("barrel.ts".into(), stars(&["./a", "./missing"]));

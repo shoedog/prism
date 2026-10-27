@@ -41,6 +41,21 @@
       "namespace_with(raw, lookup)",
       "namespace_with(raw, resolve_module)",
       "js_exports::memo::tests::namespace_module_work_is_bounded_by_distinct_pairs"
+    ],
+    "JER08-deduplicate-roots": [
+      "src/js_exports/memo.rs",
+      "for file in roots {",
+      "for file in roots.into_iter().collect::<BTreeSet<_>>() {",
+      "js_exports::memo::tests::repeated_roots_preserve_maps_and_double_telemetry"
+    ],
+    "JER09-admit-class-hits": [
+      "src/js_exports/memo.rs",
+      "Resolved(mut hit, false)",
+      "Resolved(mut hit, _)",
+      [
+        "js_exports::memo::tests::class_hits_are_excluded_from_callable_resolution",
+        "imported_class_receiver_test::exported_class_identity_is_not_a_function_export"
+      ]
     ]
   },
   "lib_test_prefixes": [
