@@ -38,23 +38,18 @@ fn compare(raw: &BTreeMap<String, JsExportFacts>) {
     for projection in [ExportProjection::Legacy, ExportProjection::CallerPaths] {
         assert_eq!(
             resolve(raw, &module, raw.keys(), projection),
-            super::super::resolve_js_exports_for_projection_uncached(
-                raw,
-                &module,
-                raw.keys(),
-                projection
-            )
+            oracle::with_uncached(|| resolve(raw, &module, raw.keys(), projection))
         );
         // Repeated roots preserve counter multiplicity, and empty roots stay empty.
         let roots = raw.keys().chain(raw.keys());
         assert_eq!(
             resolve(raw, &module, roots, projection),
-            super::super::resolve_js_exports_for_projection_uncached(
+            oracle::with_uncached(|| resolve(
                 raw,
                 &module,
                 raw.keys().chain(raw.keys()),
                 projection
-            )
+            ))
         );
         assert_eq!(
             resolve(raw, &module, std::iter::empty(), projection),
@@ -63,8 +58,50 @@ fn compare(raw: &BTreeMap<String, JsExportFacts>) {
     }
     assert_eq!(
         namespace(raw, &module),
-        super::super::resolve_js_namespace_exports_uncached(raw, &module)
+        oracle::with_uncached(|| namespace(raw, &module))
     );
+}
+
+#[test]
+fn repeated_roots_preserve_maps_and_double_telemetry() {
+    let raw = BTreeMap::from([
+        ("a.ts".into(), leaf("a")),
+        ("b.ts".into(), leaf("b")),
+        ("barrel.ts".into(), stars(&["./a", "./missing"])),
+        ("conflict.ts".into(), stars(&["./a", "./b"])),
+        ("cycle.ts".into(), stars(&["./cycle", "./a"])),
+    ]);
+    for projection in [ExportProjection::Legacy, ExportProjection::CallerPaths] {
+        let single = resolve(&raw, &module, raw.keys(), projection);
+        assert!(single.chain_unresolved > 0);
+        assert!(single.barrel_conflicts > 0);
+        let repeated = resolve(&raw, &module, raw.keys().chain(raw.keys()), projection);
+        assert_eq!(repeated.resolved, single.resolved);
+        assert_eq!(repeated.chain_unresolved, single.chain_unresolved * 2);
+        assert_eq!(repeated.barrel_conflicts, single.barrel_conflicts * 2);
+    }
+}
+
+#[test]
+fn class_hits_are_excluded_from_callable_resolution() {
+    let mut facts = leaf("a");
+    facts
+        .named
+        .insert("Ctor".into(), JsExportTarget::Class("Ctor".into()));
+    let raw = BTreeMap::from([
+        ("a.ts".into(), facts),
+        ("barrel.ts".into(), stars(&["./a"])),
+    ]);
+    for projection in [ExportProjection::Legacy, ExportProjection::CallerPaths] {
+        let out = resolve(&raw, &module, raw.keys(), projection);
+        for file in ["a.ts", "barrel.ts"] {
+            assert_eq!(out.resolved[file]["real"].file, "a.ts");
+            assert!(
+                !out.resolved[file].contains_key("Ctor"),
+                "class hit must not be projected as callable in {file}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -120,6 +157,9 @@ fn generated_graphs_preserve_all_fields_and_namespace() {
     assert!(!out
         .resolved
         .contains_key(&format!("chain{}.ts", MAX_REEXPORT_DEPTH)));
+    let namespaces = namespace(&raw, &module);
+    assert_eq!(namespaces["a.ts"]["real"].file, "a.ts");
+    assert!(!namespaces.contains_key("barrel.ts"));
     // Deterministically generated topologies include diamonds, self/mutual cycles,
     // renamed/default/import-forward claims, classes and opaque namespace nodes.
     let mut seed = 19u64;
@@ -180,12 +220,8 @@ fn repeated_module_work_is_bounded_by_distinct_pairs() {
         calls.set(calls.get() + 1);
         module(from, spec)
     };
-    let old = super::super::resolve_js_exports_for_projection_uncached(
-        &raw,
-        &counted,
-        raw.keys(),
-        ExportProjection::Legacy,
-    );
+    let old =
+        oracle::with_uncached(|| resolve(&raw, &counted, raw.keys(), ExportProjection::Legacy));
     let old_calls = calls.replace(0);
     let new = resolve(&raw, &counted, raw.keys(), ExportProjection::Legacy);
     assert_eq!(old, new);
@@ -218,7 +254,7 @@ fn namespace_module_work_is_bounded_by_distinct_pairs() {
         calls.set(calls.get() + 1);
         module(from, spec)
     };
-    let old = super::super::resolve_js_namespace_exports_uncached(&raw, &counted);
+    let old = oracle::with_uncached(|| namespace(&raw, &counted));
     let old_calls = calls.replace(0);
     assert_eq!(namespace(&raw, &counted), old);
     assert_eq!(calls.get(), 66);

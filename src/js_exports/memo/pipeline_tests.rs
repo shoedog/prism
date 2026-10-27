@@ -141,7 +141,7 @@ fn repository_fixtures_match_uncached_oracle_bytes() {
                 raw.keys(),
                 ExportProjection::Legacy
             ),
-            super::super::resolve_js_exports_for_projection_uncached(
+            oracle::with_uncached(|| resolve(
                 raw,
                 &|f, s| crate::call_graph::resolve_js_ts_relative_module(
                     s,
@@ -150,7 +150,7 @@ fn repository_fixtures_match_uncached_oracle_bytes() {
                 ),
                 raw.keys(),
                 ExportProjection::Legacy
-            )
+            ))
         );
     }
 }
@@ -192,12 +192,9 @@ fn snapshot_dependency_sets_match_without_shared_state() {
     let old_hop = |from: &str, spec: &str| old_resolver.hop("tsconfig.json", from, spec, &indexed);
     let new_hop = |from: &str, spec: &str| new_resolver.hop("tsconfig.json", from, spec, &indexed);
     let before = new_snapshot.topology();
-    let old = super::super::resolve_js_exports_for_projection_uncached(
-        &raw,
-        &old_hop,
-        raw.keys(),
-        ExportProjection::CallerPaths,
-    );
+    let old = oracle::with_uncached(|| {
+        resolve(&raw, &old_hop, raw.keys(), ExportProjection::CallerPaths)
+    });
     assert_eq!(
         resolve(&raw, &new_hop, raw.keys(), ExportProjection::CallerPaths),
         old

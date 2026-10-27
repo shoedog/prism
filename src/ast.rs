@@ -2285,10 +2285,9 @@ impl ParsedFile {
                 }
             }
         }
-        facts.esm_named_imports = self.js_ts_esm_named_imports(None);
+        self.js_ts_export_imports_and_functions(&mut facts);
         facts.type_only_imports = types;
         facts.module_value_bindings = self.js_ts_function_local_bindings(&root);
-        facts.forwardable_function_locals = self.js_ts_forwardable_functions();
         for (exported, target) in &facts.named {
             if let crate::js_exports::JsExportTarget::Local(local) = target {
                 if d4.0.contains(local) {

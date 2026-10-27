@@ -95,6 +95,12 @@
       "let files = reparse(&files);",
       "let files = &files;",
       "call_graph::js_ts_facts::tests::incremental_partial_update_matches_full_and_sequential"
+    ],
+    "JF16-build-second-facts-index": [
+      "src/ast/js_export_index.rs",
+      "self.js_ts_forwardable_functions_with_index(&mut index)",
+      "self.js_ts_forwardable_functions_with_index(&mut None)",
+      "ast::js_module_forwarding::index::tests::facts_route_builds_one_index_per_file"
     ]
   }
 }
