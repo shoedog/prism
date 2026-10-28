@@ -1,6 +1,7 @@
 use super::binding_table::Timing;
 use super::grammar_lint::{
-    is_python_match_pattern, uncertain_binding_nodes, visibility_span, SpanKind,
+    c_declaration_definition_in_scope, is_python_match_pattern, uncertain_binding_nodes,
+    visibility_span, SpanKind,
 };
 use super::graph::{definition_reaches_unflagged, path_exists, BitSet};
 use super::transfer::HeaderUse;
@@ -9,16 +10,14 @@ use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use std::collections::{BTreeMap, BTreeSet};
-
 mod finally_kill;
+mod go;
 mod import_exception_gap;
-
 #[derive(Clone, Copy)]
 struct KillNodeLines<'a> {
     statements: &'a BTreeMap<Line, usize>,
     synthetic: &'a BTreeMap<usize, Line>,
 }
-
 #[allow(clippy::too_many_arguments)]
 pub(super) fn classify_edge(
     edge: &FlowEdge,
@@ -50,7 +49,7 @@ pub(super) fn classify_edge(
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
     }
-    if let Some(construct_line) = unplaced_go_parameter(parsed, edge) {
+    if let Some(construct_line) = go::unplaced_parameter(parsed, edge) {
         return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
@@ -89,12 +88,11 @@ pub(super) fn classify_edge(
     if candidates.is_empty() {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
-    if let Some(construct_line) = unplaced_go_type_switch(parsed, edge) {
+    if let Some(construct_line) = go::unplaced_type_switch(parsed, edge) {
         return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
     }
-
     // Rule 3: no downstream classification is admissible unless this exact
     // def-to-use query has an unflagged CFG route. Kills are checked separately
     // below and must also reach this use through unflagged edges.
@@ -109,6 +107,11 @@ pub(super) fn classify_edge(
         || collapsed.contains(&(edge.to.path.clone(), edge.to.line))
     {
         return FlowConfidence::NameOnly(FlowDoubt::SameLine);
+    }
+    if let Some(construct_line) = binding_facts.recovered_c_seed_line(&edge.to.path.base) {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
     }
     if candidates.iter().any(|index| defs[*index].alias_derived) {
         return FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
@@ -221,114 +224,6 @@ pub(super) fn classify_edge(
     )
 }
 
-fn unplaced_go_parameter(parsed: &ParsedFile, edge: &FlowEdge) -> Option<Line> {
-    if parsed.language != crate::languages::Language::Go {
-        return None;
-    }
-    let use_byte = edge_use_byte(parsed, edge)?;
-    let mut current = Some(
-        parsed
-            .tree
-            .root_node()
-            .descendant_for_byte_range(use_byte, use_byte.saturating_add(1))?,
-    );
-    let function = loop {
-        let node = current?;
-        if matches!(
-            node.kind(),
-            "function_declaration" | "method_declaration" | "func_literal"
-        ) {
-            break node;
-        }
-        current = node.parent();
-    };
-    if function.kind() != "func_literal" {
-        return None;
-    }
-    let parameters = parsed.find_parameters_node(&function)?;
-    if use_byte < parameters.end_byte() || function.end_byte() <= use_byte {
-        return None;
-    }
-    let construct_line = parameters.start_position().row + 1;
-    (edge.from.line < construct_line
-        && parameter_declares_name(parsed, parameters, &edge.to.path.base))
-    .then_some(construct_line)
-}
-
-fn parameter_declares_name(parsed: &ParsedFile, node: tree_sitter::Node<'_>, name: &str) -> bool {
-    let mut cursor = node.walk();
-    let declares = node
-        .named_children(&mut cursor)
-        .filter(|child| {
-            matches!(
-                child.kind(),
-                "parameter_declaration" | "variadic_parameter_declaration"
-            )
-        })
-        .any(|parameter| {
-            let mut names = parameter.walk();
-            let found = parameter
-                .children_by_field_name("name", &mut names)
-                .any(|identifier| parsed.node_text(&identifier) == name);
-            found
-        });
-    declares
-}
-
-fn unplaced_go_type_switch(parsed: &ParsedFile, edge: &FlowEdge) -> Option<Line> {
-    if parsed.language != crate::languages::Language::Go {
-        return None;
-    }
-    let use_byte = edge_use_byte(parsed, edge)?;
-    let use_node = parsed
-        .tree
-        .root_node()
-        .descendant_for_byte_range(use_byte, use_byte.saturating_add(1))?;
-    uncertain_binding_nodes(parsed, &edge.to.path.base)
-        .into_iter()
-        .filter(|binder| binder.kind() == "type_switch_statement")
-        .filter_map(|binder| {
-            let construct_line = binder.start_position().row + 1;
-            let mut current = Some(use_node);
-            let mut inside_case = false;
-            let mut inside_switch = false;
-            while let Some(node) = current {
-                if node.id() == binder.id() {
-                    inside_switch = true;
-                    break;
-                }
-                inside_case |= matches!(node.kind(), "type_case" | "default_case");
-                current = node.parent();
-            }
-            let def_outside_switch = edge.from.start_byte < binder.start_byte()
-                || binder.end_byte() <= edge.from.start_byte;
-            let mut def_current = Some(parsed.tree.root_node().descendant_for_byte_range(
-                edge.from.start_byte,
-                edge.from.start_byte.saturating_add(1),
-            )?);
-            let mut def_case = None;
-            let def_case_of_binder = loop {
-                let Some(node) = def_current else {
-                    break None;
-                };
-                if matches!(node.kind(), "type_case" | "default_case") && def_case.is_none() {
-                    def_case = Some(node);
-                }
-                if node.kind() == "type_switch_statement" {
-                    break (node.id() == binder.id()).then_some(def_case?);
-                }
-                def_current = node.parent();
-            };
-            let arm_def_reaches_outside = def_case_of_binder.is_some_and(|case| {
-                !(case.start_byte() <= use_byte && use_byte < case.end_byte())
-                    && ((inside_switch && inside_case) || binder.end_byte() <= use_byte)
-            });
-            ((def_outside_switch && inside_switch && inside_case) || arm_def_reaches_outside)
-                .then_some(construct_line)
-        })
-        .min()
-}
-
 #[allow(clippy::too_many_arguments)]
 fn uncertain_construct_on_route(
     parsed: &ParsedFile,
@@ -352,7 +247,14 @@ fn uncertain_construct_on_route(
         })
         .filter_map(|binder| {
             let construct_line = binder.start_position().row + 1;
-            if construct_line <= edge.from.line {
+            let visibility = visibility_span(parsed, binder);
+            let c_declarator_chain_definition = c_declaration_definition_in_scope(
+                parsed,
+                binder,
+                edge.from.start_byte,
+                &visibility,
+            );
+            if construct_line <= edge.from.line && !c_declarator_chain_definition {
                 return None;
             }
             let explicit_uncertain_binder = matches!(
@@ -390,6 +292,7 @@ fn uncertain_construct_on_route(
                             | "rest_pattern"
                             | "shorthand_property_identifier_pattern"
                     )
+                    | (crate::languages::Language::C, "declaration")
             ) || (parsed.language
                 == crate::languages::Language::Python
                 && matches!(binder.kind(), "tuple_pattern" | "list_pattern")
@@ -416,8 +319,13 @@ fn uncertain_construct_on_route(
             let on_route = candidates.iter().any(|index| {
                 mapped_defs[*index].is_some_and(|def_node| match construct_node {
                     Some(construct_node) => {
-                        path_exists(successors, def_node, construct_node, false)
-                            && path_exists(successors, construct_node, use_node, false)
+                        if c_declarator_chain_definition {
+                            path_exists(successors, construct_node, def_node, false)
+                                && path_exists(successors, def_node, use_node, false)
+                        } else {
+                            path_exists(successors, def_node, construct_node, false)
+                                && path_exists(successors, construct_node, use_node, false)
+                        }
                     }
                     None => {
                         omitted_python_declaration
@@ -428,7 +336,7 @@ fn uncertain_construct_on_route(
             if !on_route {
                 return None;
             }
-            let visible = match visibility_span(parsed, binder) {
+            let visible = match visibility {
                 SpanKind::Known(spans) => use_byte.map_or_else(
                     || {
                         if !unplaced_python_pattern {
@@ -457,7 +365,6 @@ fn uncertain_construct_on_route(
         })
         .min()
 }
-
 fn edge_use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
     if edge.to.start_byte < edge.to.end_byte {
         return Some(edge.to.start_byte);
@@ -469,7 +376,6 @@ fn edge_use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
     let first = identifiers.next()?;
     identifiers.next().is_none().then_some(first.start_byte())
 }
-
 #[allow(clippy::too_many_arguments)]
 fn classify_by_reaching_sets(
     parsed: &ParsedFile,
@@ -499,7 +405,6 @@ fn classify_by_reaching_sets(
     if !reaching_candidates.is_empty() {
         return FlowConfidence::Exact;
     }
-
     if let Some(kill_line) = finally_kill::dominant(
         parsed,
         edge,
@@ -514,7 +419,6 @@ fn classify_by_reaching_sets(
             kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
         });
     }
-
     let Some(kill_line) = candidates
         .iter()
         .filter_map(|index| {

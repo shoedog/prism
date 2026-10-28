@@ -1,0 +1,42 @@
+[case]
+language = "c"
+capability = "dfg_binding_c_declaration_identity"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.c:2:p"
+to = "main.c:3:p"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:7:buf"
+to = "main.c:8:buf"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:7:buf"
+to = "main.c:9:buf"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 8
+
+[[expect.edges]]
+from = "main.c:8:buf"
+to = "main.c:9:buf"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:13:fp"
+to = "main.c:14:fp"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:18:s"
+to = "main.c:19:s"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:23:pp"
+to = "main.c:24:pp"
+confidence = "exact"

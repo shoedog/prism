@@ -11,7 +11,7 @@ mod parameter_defs;
 
 use counters::{counter_value, select_counter};
 
-pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
+pub(crate) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
     let counter = case
         .expect_counter
         .map(|(field, expected)| (select_counter(case.id, field), field, expected));
@@ -21,6 +21,7 @@ pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
         defs.push(super::super::super::def(parsed, u32::MAX, "x", 1, 0, false));
     }
     parameter_defs::add_named_synthetic_definitions(case.id, parsed, &mut defs);
+    parameter_defs::add_alias_derived_definition(case.id, parsed, &mut defs);
     if case.id == "rs-let-pattern-wrapper-g07" {
         defs.push(super::super::super::def(parsed, u32::MAX, "z", 1, 0, false));
     }
@@ -235,11 +236,13 @@ pub(super) fn assert_ruling(
             );
         }
         Some(Ruling::Classified)
-            if case.language == Language::Rust
-                && matches!(
-                    case.kind,
-                    "block" | "unsafe_block" | "const_block" | "try_block" | "match_arm"
-                ) =>
+            if (case.language == Language::C
+                && matches!(case.kind, "compound_statement" | "for_statement"))
+                || (case.language == Language::Rust
+                    && matches!(
+                        case.kind,
+                        "block" | "unsafe_block" | "const_block" | "try_block" | "match_arm"
+                    )) =>
         {
             assert!(
                 case.expect
@@ -253,7 +256,7 @@ pub(super) fn assert_ruling(
                         label,
                         FlowConfidence::Exact | FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
                     )),
-                "{}: Rust lexical scopes need Killed inside and Exact after the scope",
+                "{}: lexical scopes need Killed inside and Exact after the scope",
                 case.id
             );
         }

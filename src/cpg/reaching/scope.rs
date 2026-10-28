@@ -1,4 +1,6 @@
 //! Lexical binding ownership for reaching definitions.
+mod c;
+mod declaration;
 mod java;
 mod masks;
 pub(super) mod rust_scope;
@@ -16,13 +18,13 @@ use super::{CfgView, DefSite, Line};
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use crate::languages::Language;
+use declaration::declaration_scope;
 pub(super) use masks::classified_masked_reads;
 use masks::{collect_classified_masks, simple_catch_parameter_owns_def};
 use std::cell::OnceCell;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct ScopeSpan {
     start_byte: usize,
@@ -33,19 +35,16 @@ impl ScopeSpan {
     fn contains(self, byte: usize) -> bool {
         self.start_byte <= byte && byte < self.end_byte
     }
-
     fn width(self) -> usize {
         self.end_byte.saturating_sub(self.start_byte)
     }
 }
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum BindingId {
     Declaration(usize),
     ImplicitFunction(String),
     FlatFallback(String),
 }
-
 #[derive(Clone, Debug)]
 pub(super) struct Binding {
     pub(super) id: BindingId,
@@ -53,7 +52,6 @@ pub(super) struct Binding {
     pub(super) declaration_line: Option<Line>,
     pub(super) classified_mask: bool,
 }
-
 #[derive(Clone, Debug)]
 pub(super) struct Declaration {
     pub(super) binding: Binding,
@@ -119,6 +117,7 @@ pub(super) struct BindingFacts {
     pub(super) header_spans: Vec<HeaderSpan>,
     pub(super) no_entry_binders: BTreeMap<String, BTreeSet<Line>>,
     pub(super) no_entry_spans: Vec<(String, Line, super::grammar_lint::ByteSpan)>,
+    c: c::BindingFacts,
     function_scope: ScopeSpan,
     language: Language,
     java_field_names: BTreeSet<String>,
@@ -140,9 +139,14 @@ impl BindingFacts {
         let function_scope = function_scope(parsed, func_node);
         let (header_spans, no_entry_binders, no_entry_spans) =
             transfer::binding_metadata(parsed, binders, cfg);
+        let c = c::BindingFacts::new(parsed, func_node, defs);
         let seeds: Vec<Option<(ScopeSpan, DeclarationKind, usize, Line)>> = defs
             .iter()
-            .map(|def| declaration_seed(parsed, func_node, def, function_scope))
+            .map(|def| {
+                c.allows(def)
+                    .then(|| declaration_seed(parsed, func_node, def, function_scope))
+                    .flatten()
+            })
             .collect();
 
         let mut declarations = Vec::<Declaration>::new();
@@ -244,6 +248,7 @@ impl BindingFacts {
             header_spans,
             no_entry_binders,
             no_entry_spans,
+            c,
             function_scope,
             language: parsed.language,
             java_field_names: java::enclosing_type_field_names(parsed, function_scope),
@@ -333,6 +338,10 @@ impl BindingFacts {
             .get(name)
             .map(|lines| lines.iter().copied().collect())
             .unwrap_or_default()
+    }
+
+    pub(super) fn recovered_c_seed_line(&self, name: &str) -> Option<Line> {
+        self.c.recovered_line(name)
     }
 
     pub(super) fn relation(
@@ -525,37 +534,6 @@ fn declaration_seed(
         }
         node = node.parent()?;
     }
-}
-
-fn declaration_scope(
-    parsed: &ParsedFile,
-    func_node: &Node<'_>,
-    node: Node<'_>,
-    kind: DeclarationKind,
-    function_scope: ScopeSpan,
-) -> ScopeSpan {
-    if kind == DeclarationKind::JavaScriptVar {
-        return function_scope;
-    }
-    if kind == DeclarationKind::Pattern {
-        if let Some(scope) = rust_scope::pattern_declaration_scope(parsed, node) {
-            return scope;
-        }
-    }
-    if let Some(scope) = rust_scope::closure_parameter_scope(parsed, node) {
-        return scope;
-    }
-    let mut current = node.parent();
-    while let Some(parent) = current {
-        if parent.id() == func_node.id() {
-            break;
-        }
-        if binding_scope_rule(parsed.language, parent.kind()).creates_scope {
-            return scope_span(parent);
-        }
-        current = parent.parent();
-    }
-    function_scope
 }
 
 pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {

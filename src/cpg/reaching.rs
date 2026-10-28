@@ -1,4 +1,5 @@
 //! Intraprocedural reaching definitions over the existing line-granular CFG.
+use super::{FlowConfidence, FlowDoubt};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cfg::{self, ArmProvenance, CfgEdge, EdgeOrigin};
@@ -8,8 +9,6 @@ use crate::languages::Language;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use tree_sitter::Node;
-
-use super::{FlowConfidence, FlowDoubt};
 
 mod binding_table;
 mod capture;
@@ -238,6 +237,7 @@ fn reaching_definitions_impl(
     #[cfg(test)]
     work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
     let mut defs = deduplicate_definitions(defs);
+    transfer::normalize_c_declaration_facts(parsed, &mut defs);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
             actual: defs.len(),

@@ -37,10 +37,14 @@ pub(super) fn collect_classified_masks(
             )
         };
         for identifier in transfer::row_introduced_identifiers(parsed, node, row.fields) {
-            if defs
-                .iter()
-                .any(|def| java::def_anchors_identifier(parsed, node, def, identifier))
-            {
+            if defs.iter().any(|def| {
+                if parsed.language == crate::languages::Language::Java {
+                    java::def_anchors_identifier(parsed, node, def, identifier)
+                } else {
+                    transfer::row_identifier_for_def(parsed, node, row.fields, def)
+                        .is_some_and(|owned| owned.start_byte() == identifier.start_byte())
+                }
+            }) {
                 continue;
             }
             let bounds = java::identifier_bounds(parsed, node, row, identifier, default_scope);

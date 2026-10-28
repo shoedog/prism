@@ -22,6 +22,17 @@ pub(in crate::cpg::reaching) enum SpanKind {
     Unknown,
 }
 
+pub(in crate::cpg::reaching) fn c_declaration_definition_in_scope(
+    parsed: &ParsedFile,
+    binder: Node<'_>,
+    definition_byte: usize,
+    visibility: &SpanKind,
+) -> bool {
+    parsed.language == Language::C
+        && binder.kind() == "declaration"
+        && matches!(visibility, SpanKind::Known(spans) if spans.iter().any(|span| span.contains(definition_byte)))
+}
+
 pub(in crate::cpg::reaching) fn visibility_span(
     parsed: &ParsedFile,
     binder_node: Node<'_>,
@@ -111,6 +122,18 @@ pub(in crate::cpg::reaching) fn visibility_span(
         )
     {
         return typescript_parameter_visibility_span(binder_node);
+    }
+    if parsed.language == Language::C && binder_node.kind() == "declaration" {
+        let scope = nearest_ancestor_kind_in(binder_node, &["compound_statement", "for_statement"]);
+        return match scope {
+            Some(scope) if binder_node.start_byte() < scope.end_byte() => {
+                SpanKind::Known(vec![ByteSpan {
+                    start: binder_node.start_byte(),
+                    end: scope.end_byte(),
+                }])
+            }
+            _ => SpanKind::Unknown,
+        };
     }
     let scoped = match parsed.language {
         Language::Python => ancestor_field(binder_node, "if_statement", "consequence"),

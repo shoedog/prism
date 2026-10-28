@@ -83,6 +83,10 @@ pub(crate) enum Predicate {
     OperatorIs {
         any_of: &'static [&'static str],
     },
+    FieldChildCountAtLeast {
+        field: &'static str,
+        count: usize,
+    },
     ParentKindIs {
         kind: &'static str,
     },
@@ -408,6 +412,10 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
                 .children(&mut cursor)
                 .any(|child| any_of.contains(&child.kind()));
             matches
+        }
+        Predicate::FieldChildCountAtLeast { field, count } => {
+            let mut cursor = node.walk();
+            node.children_by_field_name(field, &mut cursor).count() >= *count
         }
         Predicate::ParentKindIs { kind } => {
             node.parent().is_some_and(|parent| parent.kind() == *kind)

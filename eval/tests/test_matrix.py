@@ -3,12 +3,18 @@ from pathlib import Path
 
 import pytest
 
-from tier_a.matrix import MATRIX_LANGUAGES, load_case, run_matrix
+from tier_a.matrix import MATRIX_EXTRA_DFG_GLOBS, MATRIX_LANGUAGES, load_case, run_matrix
 from tier_a.model import CallEdge, FunctionDef, Location
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 PRISM_BIN = os.environ.get("PRISM_BIN", str(Path(__file__).resolve().parents[2]
                                             / "target/release/prism"))
+
+
+def test_c_binding_dfg_fixtures_are_in_matrix_inventory():
+    c_patterns = [pattern for language, pattern in MATRIX_EXTRA_DFG_GLOBS if language == "c"]
+    assert c_patterns == ["dfg_binding_*/expected.toml"]
+    assert len(list((FIXTURES / "c").glob(c_patterns[0]))) == 3
 
 
 class FakeSut:

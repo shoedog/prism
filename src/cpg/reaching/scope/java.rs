@@ -124,7 +124,7 @@ pub(super) fn row_excludes_identifier(
             .into_iter()
             .all(|identifier| !def_anchors_identifier(parsed, node, def, identifier));
     }
-    transfer::row_excludes_identifier(parsed, node, row.fields, def.start_byte)
+    transfer::row_excludes_def(parsed, node, row.fields, def)
 }
 
 pub(super) fn same_def_binding(facts: &BindingFacts, left: usize, right: usize) -> bool {

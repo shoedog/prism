@@ -1,0 +1,29 @@
+[case]
+language = "c"
+capability = "dfg_binding_for_init"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.c:2:x"
+to = "main.c:4:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 3
+
+[[expect.edges]]
+from = "main.c:2:x"
+to = "main.c:6:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:3:x"
+to = "main.c:4:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:3:x"
+to = "main.c:6:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 5

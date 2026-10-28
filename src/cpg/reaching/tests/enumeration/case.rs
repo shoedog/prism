@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 use std::sync::OnceLock;
 use tree_sitter::Node;
 
-mod behavior;
+pub(super) mod behavior;
 #[path = "captures.rs"]
 mod captures;
 mod gates;

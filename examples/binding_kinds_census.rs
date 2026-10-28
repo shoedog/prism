@@ -208,7 +208,17 @@ fn curated_row_kinds(language: Language) -> &'static [&'static str] {
             "switch_block_statement_group",
             "try_with_resources_statement",
         ],
-        Language::C | Language::Cpp => &["parameter_list", "parameter_declaration"],
+        Language::C => &[
+            "compound_statement",
+            "for_statement",
+            "declaration",
+            "init_declarator",
+            "assignment_expression",
+            "case_statement",
+            "parameter_list",
+            "parameter_declaration",
+        ],
+        Language::Cpp => &["parameter_list", "parameter_declaration"],
         Language::Lua => &["parameters"],
         Language::Terraform | Language::Bash => &[],
     }
