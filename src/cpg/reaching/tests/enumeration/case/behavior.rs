@@ -59,7 +59,7 @@ fn counter_value(
     }) as i64
 }
 
-pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
+pub(crate) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
     let counter = case
         .expect_counter
         .map(|(field, expected)| (select_counter(case.id, field), field, expected));
@@ -69,6 +69,7 @@ pub(super) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
         defs.push(super::super::super::def(parsed, u32::MAX, "x", 1, 0, false));
     }
     parameter_defs::add_named_synthetic_definitions(case.id, parsed, &mut defs);
+    parameter_defs::add_alias_derived_definition(case.id, parsed, &mut defs);
     if case.id == "rs-let-pattern-wrapper-g07" {
         defs.push(super::super::super::def(parsed, u32::MAX, "z", 1, 0, false));
     }

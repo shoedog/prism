@@ -189,3 +189,176 @@ fn c_declaration_rows_own_only_their_introduced_identifiers() {
         assert!(row_introduced_identifiers(&parsed, compound, row.fields).is_empty());
     }
 }
+
+#[test]
+fn fix1_w1_declarator_identity() {
+    const UNINITIALIZED: &[(&str, &str, FlowConfidence)] = &[
+        ("2:buf", "3:buf", EXACT),
+        ("2:buf", "4:buf", killed(3)),
+        ("3:buf", "4:buf", EXACT),
+    ];
+    let cases = [
+        case!(
+            "c-fix1-pointer-definition",
+            "declaration",
+            "void f() {\n  int *p = source();\n  sink(p);\n}\n",
+            &[("2:p", "3:p", EXACT)],
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix1-uninitialized-pointer",
+            "declaration",
+            "void f() {\n  char *buf;\n  buf = source();\n  sink(buf);\n}\n",
+            UNINITIALIZED,
+            ("dfg_label_exact", 2),
+            None,
+            None
+        ),
+        case!(
+            "c-fix1-function-pointer-definition",
+            "declaration",
+            "void f() {\n  int (*fp)(int) = source();\n  sink(fp);\n}\n",
+            &[("2:fp", "3:fp", EXACT)],
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix1-const-pointer-definition",
+            "declaration",
+            "void f() {\n  const char *s = source();\n  sink(s);\n}\n",
+            &[("2:s", "3:s", EXACT)],
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix1-pointer-to-pointer-definition",
+            "declaration",
+            "void f() {\n  int **pp = source();\n  sink(pp);\n}\n",
+            &[("2:pp", "3:pp", EXACT)],
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+    ];
+    for case in &cases {
+        super::case::behavior::assert_behavior(
+            case,
+            &super::super::parsed(case.src, case.language),
+        );
+    }
+}
+
+#[test]
+fn fix1_w2_alias_facts_do_not_declare_foreign_names() {
+    let cases = [
+        case!(
+            "c-fix1-alias-uninitialized",
+            "declaration",
+            "void f(int x) {\n  int y;\n  y = x;\n  sink(x);\n}\n",
+            &[("1:x", "3:x", EXACT), ("1:x", "4:x", EXACT)],
+            ("dfg_label_exact", 2),
+            None,
+            None
+        ),
+        case!(
+            "c-fix1-alias-initialized",
+            "declaration",
+            "void f(int x) {\n  int y = x;\n  sink(x);\n}\n",
+            &[("1:x", "3:x", EXACT)],
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix1-alias-conditional",
+            "declaration",
+            "void f(int x) {\n  int y;\n  if (ready()) y = x;\n  sink(x);\n}\n",
+            &[("1:x", "3:x", EXACT), ("1:x", "4:x", EXACT)],
+            ("dfg_label_exact", 2),
+            None,
+            None
+        ),
+        case!(
+            "c-fix1-frr-match-from",
+            "declaration",
+            "void f(int match) {\n  int from;\n  if (ready()) from = match;\n  sink(match);\n}\n",
+            &[("1:match", "3:match", EXACT), ("1:match", "4:match", EXACT)],
+            ("dfg_label_exact", 2),
+            None,
+            None
+        ),
+    ];
+    for case in &cases {
+        super::case::behavior::assert_behavior(
+            case,
+            &super::super::parsed(case.src, case.language),
+        );
+    }
+}
+
+#[test]
+fn fix1_w3_chain_uncertainty_is_scope_bounded() {
+    const BLOCK: &[(&str, &str, FlowConfidence)] = &[
+        ("2:x", "7:x", EXACT),
+        ("4:x", "5:x", uncertain(4)),
+        ("4:x", "7:x", killed(6)),
+    ];
+    const FOR: &[(&str, &str, FlowConfidence)] = &[
+        ("2:x", "4:x", uncertain(3)),
+        ("2:x", "6:x", EXACT),
+        ("3:x", "4:x", uncertain(3)),
+        ("3:x", "6:x", killed(5)),
+    ];
+    const SINGLE_LINE_FOR: &[(&str, &str, FlowConfidence)] =
+        &[("2:i", "4:i", EXACT), ("3:i", "4:i", killed(4))];
+    let cases = [
+        case!("c-fix1-chain-block-scope", "declaration", "void f() {\n  int x = source();\n  {\n    int a = 1, x = 2;\n    sink(x);\n  }\n  sink(x);\n}\n", BLOCK, ("dfg_label_nameonly_ownership_uncertain", 1), None, None),
+        case!("c-fix1-chain-for-scope", "declaration", "void f() {\n  int x = source();\n  for (int a = 1, x = 2; ready(); step()) {\n    sink(x);\n  }\n  sink(x);\n}\n", FOR, ("dfg_label_nameonly_ownership_uncertain", 2), None, None),
+        case!("c-fix1-single-line-for-scope-exit", "for_statement", "void f(int n) {\n  int i = 7;\n  for (int i = 0; i < n; i++) sink(i);\n  sink(i);\n}\n", SINGLE_LINE_FOR, ("dfg_label_exact", 1), None, None),
+    ];
+    for case in &cases {
+        super::case::behavior::assert_behavior(
+            case,
+            &super::super::parsed(case.src, case.language),
+        );
+    }
+}
+
+#[test]
+fn fix1_w4_multiline_chain_membership() {
+    const UNCERTAIN: &[(&str, &str, FlowConfidence)] = &[("3:x", "4:x", uncertain(2))];
+    let chain = Some(Predicate::FieldChildCountAtLeast {
+        field: "declarator",
+        count: 2,
+    });
+    let cases = [
+        case!(
+            "c-fix1-chain-continuation-line",
+            "declaration",
+            "void f() {\n  int a = 1,\n      x = 2;\n  sink(x);\n}\n",
+            UNCERTAIN,
+            ("dfg_label_nameonly_ownership_uncertain", 1),
+            None,
+            chain
+        ),
+        case!(
+            "c-fix1-chain-later-assignment",
+            "declaration",
+            "void f() {\n  int a, x;\n  x = source();\n  sink(x);\n}\n",
+            UNCERTAIN,
+            ("dfg_label_nameonly_ownership_uncertain", 1),
+            None,
+            chain
+        ),
+    ];
+    for case in &cases {
+        super::case::behavior::assert_behavior(
+            case,
+            &super::super::parsed(case.src, case.language),
+        );
+    }
+}

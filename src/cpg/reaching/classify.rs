@@ -1,6 +1,7 @@
 use super::binding_table::Timing;
 use super::grammar_lint::{
-    is_python_match_pattern, uncertain_binding_nodes, visibility_span, SpanKind,
+    c_declaration_definition_in_scope, is_python_match_pattern, uncertain_binding_nodes,
+    visibility_span, SpanKind,
 };
 use super::graph::{definition_reaches_unflagged, path_exists, BitSet};
 use super::transfer::HeaderUse;
@@ -345,13 +346,14 @@ fn uncertain_construct_on_route(
         })
         .filter_map(|binder| {
             let construct_line = binder.start_position().row + 1;
-            let c_declarator_chain_definition = parsed.language
-                == crate::languages::Language::C
-                && binder.kind() == "declaration"
-                && construct_line == edge.from.line;
-            if construct_line < edge.from.line
-                || (construct_line == edge.from.line && !c_declarator_chain_definition)
-            {
+            let visibility = visibility_span(parsed, binder);
+            let c_declarator_chain_definition = c_declaration_definition_in_scope(
+                parsed,
+                binder,
+                edge.from.start_byte,
+                &visibility,
+            );
+            if construct_line <= edge.from.line && !c_declarator_chain_definition {
                 return None;
             }
             let explicit_uncertain_binder = matches!(
@@ -416,8 +418,13 @@ fn uncertain_construct_on_route(
             let on_route = candidates.iter().any(|index| {
                 mapped_defs[*index].is_some_and(|def_node| match construct_node {
                     Some(construct_node) => {
-                        path_exists(successors, def_node, construct_node, false)
-                            && path_exists(successors, construct_node, use_node, false)
+                        if c_declarator_chain_definition {
+                            path_exists(successors, construct_node, def_node, false)
+                                && path_exists(successors, def_node, use_node, false)
+                        } else {
+                            path_exists(successors, def_node, construct_node, false)
+                                && path_exists(successors, construct_node, use_node, false)
+                        }
                     }
                     None => {
                         omitted_python_declaration
@@ -428,7 +435,7 @@ fn uncertain_construct_on_route(
             if !on_route {
                 return None;
             }
-            let visible = match visibility_span(parsed, binder) {
+            let visible = match visibility {
                 SpanKind::Known(spans) => use_byte.map_or_else(
                     || {
                         if !unplaced_python_pattern {
@@ -457,7 +464,6 @@ fn uncertain_construct_on_route(
         })
         .min()
 }
-
 fn edge_use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
     if edge.to.start_byte < edge.to.end_byte {
         return Some(edge.to.start_byte);
@@ -469,7 +475,6 @@ fn edge_use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
     let first = identifiers.next()?;
     identifiers.next().is_none().then_some(first.start_byte())
 }
-
 #[allow(clippy::too_many_arguments)]
 fn classify_by_reaching_sets(
     parsed: &ParsedFile,
@@ -499,7 +504,6 @@ fn classify_by_reaching_sets(
     if !reaching_candidates.is_empty() {
         return FlowConfidence::Exact;
     }
-
     if let Some(kill_line) = finally_kill::dominant(
         parsed,
         edge,
@@ -514,7 +518,6 @@ fn classify_by_reaching_sets(
             kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
         });
     }
-
     let Some(kill_line) = candidates
         .iter()
         .filter_map(|index| {

@@ -5,7 +5,8 @@ mod route_effects;
 mod statement_defs;
 
 pub(super) use identifiers::{
-    introduced_identifiers, row_excludes_identifier, row_introduced_identifiers,
+    introduced_identifiers, normalize_c_declaration_facts, row_excludes_def,
+    row_identifier_for_def, row_introduced_identifiers,
 };
 pub(super) use route_effects::{apply_explicit_kills, is_route_effect_node};
 pub(super) use statement_defs::materialize_def_sites_and_effects;

@@ -5,10 +5,10 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
-
 pub(super) mod visibility;
-
-pub(super) use visibility::{visibility_span, ByteSpan, SpanKind};
+pub(super) use visibility::{
+    c_declaration_definition_in_scope, visibility_span, ByteSpan, SpanKind,
+};
 #[derive(serde::Deserialize)]
 struct NodeTypeSchema {
     #[serde(rename = "type")]

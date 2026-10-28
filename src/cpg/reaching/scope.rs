@@ -1,5 +1,5 @@
 //! Lexical binding ownership for reaching definitions.
-
+mod c;
 mod masks;
 pub(super) mod rust_scope;
 mod typescript;
@@ -479,7 +479,7 @@ fn declaration_seed(
             }
             if selected_row.is_some_and(|row| {
                 row.declaration.is_some()
-                    && transfer::row_excludes_identifier(parsed, node, row.fields, def.start_byte)
+                    && transfer::row_excludes_def(parsed, node, row.fields, def)
             }) {
                 if node.id() == func_node.id() {
                     return None;
@@ -547,7 +547,7 @@ fn declaration_scope(
             break;
         }
         if binding_scope_rule(parsed.language, parent.kind()).creates_scope {
-            return scope_span(parent);
+            return c::scope_span(parsed, parent);
         }
         current = parent.parent();
     }

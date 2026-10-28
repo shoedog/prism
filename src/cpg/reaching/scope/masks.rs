@@ -37,10 +37,10 @@ pub(super) fn collect_classified_masks(
             )
         };
         for identifier in transfer::row_introduced_identifiers(parsed, node, row.fields) {
-            if defs
-                .iter()
-                .any(|def| def.start_byte == identifier.start_byte())
-            {
+            if defs.iter().any(|def| {
+                transfer::row_identifier_for_def(parsed, node, row.fields, def)
+                    .is_some_and(|owned| owned.start_byte() == identifier.start_byte())
+            }) {
                 continue;
             }
             let index = declarations.len();

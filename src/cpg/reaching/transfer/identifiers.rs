@@ -1,3 +1,5 @@
+use super::super::binding_table::select_binding_row;
+use super::super::DefSite;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
 use tree_sitter::Node;
@@ -145,25 +147,82 @@ pub(in crate::cpg::reaching) fn row_introduced_identifiers<'a>(
     identifiers
 }
 
-pub(in crate::cpg::reaching) fn row_excludes_identifier(
+fn identifier_owns_definition(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    identifier: Node<'_>,
+    byte: usize,
+) -> bool {
+    if identifier.start_byte() == byte {
+        return true;
+    }
+    if parsed.language != Language::C || byte > identifier.start_byte() {
+        return false;
+    }
+    std::iter::successors(identifier.parent(), |ancestor| ancestor.parent())
+        .take_while(|ancestor| ancestor.id() != node.id())
+        .any(|ancestor| {
+            ancestor.start_byte() <= byte && identifier.end_byte() <= ancestor.end_byte()
+        })
+}
+
+pub(in crate::cpg::reaching) fn row_identifier_for_def<'a>(
+    parsed: &ParsedFile,
+    node: Node<'a>,
+    fields: &[&str],
+    def: &DefSite,
+) -> Option<Node<'a>> {
+    row_introduced_identifiers(parsed, node, fields)
+        .into_iter()
+        .find(|identifier| {
+            (parsed.language != Language::C || parsed.node_text(identifier) == def.path.base)
+                && identifier_owns_definition(parsed, node, *identifier, def.start_byte)
+        })
+}
+
+pub(in crate::cpg::reaching) fn row_excludes_def(
     parsed: &ParsedFile,
     node: Node<'_>,
     fields: &[&str],
-    byte: usize,
+    def: &DefSite,
 ) -> bool {
-    let identifiers = row_introduced_identifiers(parsed, node, fields);
-    let owns_byte = identifiers.iter().any(|identifier| {
-        if identifier.start_byte() == byte {
-            return true;
+    !fields.is_empty() && row_identifier_for_def(parsed, node, fields, def).is_none()
+}
+
+pub(in crate::cpg::reaching) fn normalize_c_declaration_facts(
+    parsed: &ParsedFile,
+    defs: &mut [DefSite],
+) {
+    if parsed.language != Language::C {
+        return;
+    }
+    for def in defs.iter_mut().filter(|def| !def.alias_derived) {
+        let Some(end_byte) = def.start_byte.checked_add(1) else {
+            continue;
+        };
+        let Some(mut node) = parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(def.start_byte, end_byte)
+        else {
+            continue;
+        };
+        loop {
+            if let Some(row) =
+                select_binding_row(parsed, node).filter(|row| row.declaration.is_some())
+            {
+                if row_identifier_for_def(parsed, node, row.fields, def).is_some() {
+                    break;
+                }
+                if node.kind() == "declaration" {
+                    def.alias_derived = true;
+                    break;
+                }
+            }
+            let Some(parent) = node.parent() else {
+                break;
+            };
+            node = parent;
         }
-        if parsed.language != Language::C || byte > identifier.start_byte() {
-            return false;
-        }
-        std::iter::successors(identifier.parent(), |ancestor| ancestor.parent())
-            .take_while(|ancestor| ancestor.id() != node.id())
-            .any(|ancestor| {
-                ancestor.start_byte() <= byte && identifier.end_byte() <= ancestor.end_byte()
-            })
-    });
-    !fields.is_empty() && !owns_byte
+    }
 }

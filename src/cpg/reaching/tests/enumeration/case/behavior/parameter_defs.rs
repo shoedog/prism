@@ -9,9 +9,13 @@ pub(super) fn needs_synthetic_definition(case_id: &str) -> bool {
             | "ts-optional-parameter"
             | "ts-rest-parameter"
             | "ts-rest-pattern-owned-by-parameter"
+            | "c-fix1-alias-uninitialized"
+            | "c-fix1-alias-initialized"
+            | "c-fix1-alias-conditional"
     )
 }
 
+use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cpg::reaching::DefSite;
 
@@ -25,6 +29,7 @@ pub(super) fn add_named_synthetic_definitions(
         "py-import-alias-original-r09" => &["a", "pkg"],
         "py-import-dotted-from-a06" => &["incident"],
         "py-import-try-except-handler-use" => &["status"],
+        "c-fix1-frr-match-from" => &["match"],
         _ => &[],
     };
     for (index, name) in names.iter().enumerate() {
@@ -37,4 +42,21 @@ pub(super) fn add_named_synthetic_definitions(
             false,
         ));
     }
+}
+
+pub(super) fn add_alias_derived_definition(
+    case_id: &str,
+    parsed: &ParsedFile,
+    defs: &mut Vec<DefSite>,
+) {
+    let (name, anchor) = match case_id {
+        "c-fix1-alias-uninitialized" | "c-fix1-alias-initialized" | "c-fix1-alias-conditional" => {
+            ("x", "y")
+        }
+        "c-fix1-frr-match-from" => ("match", "from"),
+        _ => return,
+    };
+    let mut alias = super::super::super::super::def(parsed, u32::MAX - 64, anchor, 2, 0, true);
+    alias.path = AccessPath::from_expr(name);
+    defs.push(alias);
 }

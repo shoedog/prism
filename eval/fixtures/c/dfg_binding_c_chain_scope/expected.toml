@@ -1,0 +1,50 @@
+[case]
+language = "c"
+capability = "dfg_binding_c_chain_scope"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.c:2:x"
+to = "main.c:7:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:4:x"
+to = "main.c:5:x"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 4
+
+[[expect.edges]]
+from = "main.c:4:x"
+to = "main.c:7:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 6
+
+[[expect.edges]]
+from = "main.c:11:x"
+to = "main.c:13:x"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 12
+
+[[expect.edges]]
+from = "main.c:11:x"
+to = "main.c:15:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:12:x"
+to = "main.c:13:x"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 12
+
+[[expect.edges]]
+from = "main.c:12:x"
+to = "main.c:15:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 14

@@ -1,0 +1,40 @@
+[case]
+language = "c"
+capability = "dfg_binding_c_alias_identity"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.c:1:x"
+to = "main.c:3:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:1:x"
+to = "main.c:4:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:7:x"
+to = "main.c:9:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:12:x"
+to = "main.c:15:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:12:x"
+to = "main.c:16:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:19:match"
+to = "main.c:22:match"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.c:19:match"
+to = "main.c:23:match"
+confidence = "exact"
