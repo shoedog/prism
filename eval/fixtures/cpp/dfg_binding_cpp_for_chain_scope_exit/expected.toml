@@ -1,0 +1,31 @@
+[case]
+language = "cpp"
+capability = "dfg_binding_cpp_for_chain_scope_exit"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.cpp:2:x"
+to = "main.cpp:3:x"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 2
+
+[[expect.edges]]
+from = "main.cpp:1:x"
+to = "main.cpp:3:x"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 2
+
+[[expect.edges]]
+from = "main.cpp:1:x"
+to = "main.cpp:5:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.cpp:2:x"
+to = "main.cpp:5:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 4

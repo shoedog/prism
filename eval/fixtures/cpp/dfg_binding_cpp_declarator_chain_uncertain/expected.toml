@@ -1,0 +1,31 @@
+[case]
+language = "cpp"
+capability = "dfg_binding_cpp_declarator_chain_uncertain"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.cpp:4:a"
+to = "main.cpp:5:a"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 4
+
+[[expect.edges]]
+from = "main.cpp:4:x"
+to = "main.cpp:6:x"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 4
+
+[[expect.edges]]
+from = "main.cpp:2:x"
+to = "main.cpp:8:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.cpp:4:x"
+to = "main.cpp:8:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 7

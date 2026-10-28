@@ -1,18 +1,24 @@
-use super::binding_table::Timing;
+use super::binding_table::{select_binding_row, Timing};
+use super::grammar_lint::visibility::c_declaration_definition_in_scope;
 use super::grammar_lint::{
-    c_declaration_definition_in_scope, is_python_match_pattern, uncertain_binding_nodes,
-    visibility_span, SpanKind,
+    is_python_match_pattern, uncertain_binding_nodes, visibility_span, SpanKind,
 };
 use super::graph::{definition_reaches_unflagged, path_exists, BitSet};
-use super::transfer::HeaderUse;
+use super::transfer::{self, HeaderUse};
 use super::{scope, statement_lookup, DefSite, FlowConfidence, FlowDoubt, Line};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use std::collections::{BTreeMap, BTreeSet};
+mod cpp;
 mod finally_kill;
 mod go;
 mod import_exception_gap;
+#[cfg(test)]
+mod matching_defs;
+#[cfg(test)]
+pub(super) use matching_defs::matching_defs;
+
 #[derive(Clone, Copy)]
 struct KillNodeLines<'a> {
     statements: &'a BTreeMap<Line, usize>,
@@ -102,6 +108,23 @@ pub(super) fn classify_edge(
     }) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
+    let uncertain_construct = uncertain_construct_on_route(
+        parsed,
+        edge,
+        candidates,
+        mapped_defs,
+        use_node,
+        line_index,
+        statements,
+        successors,
+    );
+    if parsed.language == crate::languages::Language::Cpp {
+        if let Some(construct_line) = uncertain_construct {
+            return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+                construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+            });
+        }
+    }
     if def_line == use_line
         || collapsed.contains(&(edge.from.path.clone(), edge.from.line))
         || collapsed.contains(&(edge.to.path.clone(), edge.to.line))
@@ -138,16 +161,7 @@ pub(super) fn classify_edge(
         .iter()
         .any(|index| binding_facts.lookup_requires_flat_fallback(parsed, edge, *index));
     let recorded_uncertain = binding_facts.unclassified_binding_lines(&edge.to.path.base);
-    if let Some(construct_line) = uncertain_construct_on_route(
-        parsed,
-        edge,
-        candidates,
-        mapped_defs,
-        use_node,
-        line_index,
-        statements,
-        successors,
-    ) {
+    if let Some(construct_line) = uncertain_construct {
         return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
@@ -254,7 +268,23 @@ fn uncertain_construct_on_route(
                 edge.from.start_byte,
                 &visibility,
             );
-            if construct_line <= edge.from.line && !c_declarator_chain_definition {
+            let cpp_own_definition = parsed.language == crate::languages::Language::Cpp
+                && select_binding_row(parsed, binder).is_some_and(|row| {
+                    transfer::row_owns_source(
+                        parsed,
+                        binder,
+                        row.fields,
+                        &edge.from.path.base,
+                        edge.from.start_byte,
+                    )
+                });
+            let cpp_subsequent_definition =
+                cpp::subsequent_definition_in_uncertain_owner(parsed, binder, edge);
+            if construct_line <= edge.from.line
+                && !c_declarator_chain_definition
+                && !cpp_own_definition
+                && !cpp_subsequent_definition
+            {
                 return None;
             }
             let explicit_uncertain_binder = matches!(
@@ -263,6 +293,10 @@ fn uncertain_construct_on_route(
                     crate::languages::Language::Java,
                     "record_pattern" | "type_pattern" | "instanceof_expression"
                 ) | (crate::languages::Language::Bash, "for_statement")
+                    | (
+                        crate::languages::Language::Cpp,
+                        "declaration" | "structured_binding_declarator"
+                    )
                     | (
                         crate::languages::Language::Rust,
                         "captured_pattern"
@@ -316,23 +350,29 @@ fn uncertain_construct_on_route(
                 && (matches!(binder.kind(), "global_statement" | "nonlocal_statement")
                     || unplaced_python_pattern)
                 && construct_node.is_none();
-            let on_route = candidates.iter().any(|index| {
-                mapped_defs[*index].is_some_and(|def_node| match construct_node {
-                    Some(construct_node) => {
-                        if c_declarator_chain_definition {
-                            path_exists(successors, construct_node, def_node, false)
-                                && path_exists(successors, def_node, use_node, false)
-                        } else {
-                            path_exists(successors, def_node, construct_node, false)
-                                && path_exists(successors, construct_node, use_node, false)
+            let cpp_direct_block = cpp::direct_block_uncertainty(parsed, binder, use_byte);
+            let on_route = cpp_direct_block
+                || cpp_own_definition
+                || cpp_subsequent_definition
+                || (parsed.language == crate::languages::Language::Cpp
+                    && construct_line == edge.to.line)
+                || candidates.iter().any(|index| {
+                    mapped_defs[*index].is_some_and(|def_node| match construct_node {
+                        Some(construct_node) => {
+                            if c_declarator_chain_definition {
+                                path_exists(successors, construct_node, def_node, false)
+                                    && path_exists(successors, def_node, use_node, false)
+                            } else {
+                                path_exists(successors, def_node, construct_node, false)
+                                    && path_exists(successors, construct_node, use_node, false)
+                            }
                         }
-                    }
-                    None => {
-                        omitted_python_declaration
-                            && path_exists(successors, def_node, use_node, false)
-                    }
-                })
-            });
+                        None => {
+                            omitted_python_declaration
+                                && path_exists(successors, def_node, use_node, false)
+                        }
+                    })
+                });
             if !on_route {
                 return None;
             }
@@ -438,38 +478,6 @@ fn classify_by_reaching_sets(
     FlowConfidence::NameOnly(FlowDoubt::Killed {
         kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),
     })
-}
-
-// Frozen main scanner, independent of bucket construction.
-#[cfg(test)]
-pub(super) fn matching_defs(edge: &FlowEdge, defs: &[DefSite]) -> Vec<usize> {
-    super::work_tests::bump(|counts| {
-        counts.matching_defs_calls += 1;
-        counts.matching_defs_items += defs.len();
-    });
-    let mut matches: Vec<usize> = defs
-        .iter()
-        .enumerate()
-        .filter_map(|(index, def)| {
-            (!def.synthetic
-                && def.path == edge.from.path
-                && def.line == edge.from.line
-                && def.start_byte == edge.from.start_byte)
-                .then_some(index)
-        })
-        .collect();
-    if matches.is_empty() {
-        super::work_tests::bump(|counts| {
-            counts.matching_defs_fallbacks += 1;
-            counts.matching_defs_items += defs.len();
-        });
-        matches.extend(defs.iter().enumerate().filter_map(|(index, def)| {
-            (!def.synthetic && def.path == edge.from.path && def.line == edge.from.line)
-                .then_some(index)
-        }));
-    }
-    super::work_tests::bump(|counts| counts.projected_matching_defs_items += matches.len());
-    matches
 }
 
 fn lowest_reachable_kill(

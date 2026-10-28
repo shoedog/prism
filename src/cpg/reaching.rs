@@ -238,6 +238,7 @@ fn reaching_definitions_impl(
     work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
     let mut defs = deduplicate_definitions(defs);
     transfer::normalize_c_declaration_facts(parsed, &mut defs);
+    transfer::cpp::normalize_cpp_pseudo_defs(parsed, &mut defs);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
             actual: defs.len(),
@@ -362,7 +363,6 @@ fn reaching_definitions_impl(
     let (mut kill, mut flat_kill) =
         buckets.kill_sets(&defs, &gen, &binding_facts, &materialized_defs);
     transfer::apply_explicit_kills(&route_effects, &defs, &mut kill, &mut flat_kill);
-
     let in_sets = solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
     let flat_in_sets = solve_reaching_sets(
         &gen,

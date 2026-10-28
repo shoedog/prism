@@ -1,4 +1,6 @@
-use super::super::super::super::binding_table::{capture_rows, rows, Predicate, Ruling};
+use super::super::super::super::binding_table::{
+    capture_rows, rows, BindingRow, DeclarationKind, Predicate, Ruling,
+};
 use super::{all_cases, check_case, Case, CaseClass};
 use crate::ast::ParsedFile;
 use crate::cpg::reaching::RdFileStats;
@@ -6,6 +8,7 @@ use crate::cpg::{DfgLabelStats, FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
 mod counters;
+mod cpp;
 mod java;
 mod parameter_defs;
 
@@ -17,6 +20,7 @@ pub(crate) fn assert_behavior(case: &Case, parsed: &ParsedFile) {
         .map(|(field, expected)| (select_counter(case.id, field), field, expected));
     let function = super::super::super::function(parsed);
     let mut defs = super::super::super::collect_defs(parsed);
+    parameter_defs::mark_alias_derived(case.id, &mut defs);
     if parameter_defs::needs_synthetic_definition(case.id) {
         defs.push(super::super::super::def(parsed, u32::MAX, "x", 1, 0, false));
     }
@@ -183,6 +187,9 @@ pub(super) fn assert_ruling(
         {
             java::assert_assignment_reuse(case);
         }
+        Some(Ruling::Classified) if cpp::is_capture_copy(case, is_binding) => {
+            cpp::assert_capture_copy(case);
+        }
         Some(Ruling::Classified) if is_binding => {
             assert!(
                 case.expect
@@ -212,7 +219,7 @@ pub(super) fn assert_ruling(
             case.id
         ),
         Some(Ruling::Classified)
-            if matches!(
+            if (matches!(
                 case.language,
                 Language::JavaScript | Language::TypeScript | Language::Tsx
             ) && matches!(
@@ -222,7 +229,8 @@ pub(super) fn assert_ruling(
                     | "class_static_block"
                     | "for_statement"
                     | "switch_body"
-            ) =>
+            )) || (case.language == Language::Cpp
+                && matches!(case.kind, "for_statement" | "condition_clause")) =>
         {
             assert!(
                 case.expect.iter().all(|(_, _, label)| matches!(
@@ -231,7 +239,7 @@ pub(super) fn assert_ruling(
                         | FlowConfidence::NameOnly(FlowDoubt::Killed { .. })
                         | FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
                 )),
-                "{}: JavaScript/TypeScript/TSX scopes need Exact, Killed, or deferred CfgIncomplete evidence",
+                "{}: lexical/header scopes need Exact, Killed, or deferred CfgIncomplete evidence",
                 case.id
             );
         }
@@ -362,12 +370,7 @@ pub(super) fn assert_row_case_identities() {
                 row.kind
             );
             assert!(
-                row_cases
-                    .iter()
-                    .flat_map(|case| case.expect)
-                    .any(|(_, _, label)| {
-                        matches!(label, FlowConfidence::NameOnly(FlowDoubt::Killed { .. }))
-                    }),
+                cpp::has_required_kill(row, &row_cases),
                 "{language:?} {}: classified binding cases need Killed masking",
                 row.kind
             );

@@ -22,6 +22,20 @@ use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cpg::reaching::DefSite;
 
+pub(super) fn mark_alias_derived(case_id: &str, defs: &mut [DefSite]) {
+    for def in defs.iter_mut() {
+        let initializer_alias = case_id == "cpp-initializer-alias-does-not-bind-target"
+            && def.line == 3
+            && def.path.base == "x";
+        let reference_capture_body_read =
+            (case_id == "cpp-multiple-reference-captures-not-copy-bindings" && def.line >= 7)
+                || (case_id == "cpp-capture-by-reference" && def.line == 3);
+        if initializer_alias || reference_capture_body_read {
+            def.alias_derived = true;
+        }
+    }
+}
+
 pub(super) fn add_named_synthetic_definitions(
     case_id: &str,
     parsed: &ParsedFile,
@@ -36,6 +50,10 @@ pub(super) fn add_named_synthetic_definitions(
         "c-fix2-side-effect-pointer-update" => (&["p"], 1),
         "c-fix2-recovered-macro-parameter" => (&["conn"], 2),
         "c-fix2-ordinary-call-control" | "c-fix2-real-parameter-mask" => (&["conn"], 1),
+        "cpp-structured-range-header-stops-at-loop-exit"
+        | "cpp-nested-structured-range-does-not-leak"
+        | "cpp-for-chain-header-stops-at-loop-exit"
+        | "cpp-uncertain-owner-stops-at-block-exit" => (&["x"], 1),
         _ => (&[], 1),
     };
     for (index, name) in names.iter().enumerate() {

@@ -1,5 +1,6 @@
 use super::super::binding_table::select_binding_row;
 use super::super::DefSite;
+use super::cpp;
 use super::java;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
@@ -21,19 +22,22 @@ pub(in crate::cpg::reaching) fn introduced_identifiers<'a>(
         if java::collect_introduced_identifiers(parsed.language, node, identifiers) {
             return;
         }
+        if cpp::collect_introduced_identifiers(parsed, node, identifiers) {
+            return;
+        }
         match node.kind() {
             "init_declarator"
             | "pointer_declarator"
             | "array_declarator"
             | "function_declarator"
-                if parsed.language == Language::C =>
+                if super::super::binding_table::c_slice3_wave_applies(parsed) =>
             {
                 if let Some(declarator) = node.child_by_field_name("declarator") {
                     collect(parsed, declarator, identifiers);
                 }
             }
             "parenthesized_declarator" | "attributed_declarator"
-                if parsed.language == Language::C =>
+                if super::super::binding_table::c_slice3_wave_applies(parsed) =>
             {
                 let mut cursor = node.walk();
                 for child in node.named_children(&mut cursor) {
@@ -146,6 +150,7 @@ pub(in crate::cpg::reaching) fn row_introduced_identifiers<'a>(
     {
         identifiers.extend(introduced_identifiers(parsed, node));
     }
+    cpp::collect_row(parsed, node, fields, &mut identifiers);
     identifiers.sort_by_key(Node::start_byte);
     identifiers.dedup_by_key(|identifier| identifier.start_byte());
     identifiers
@@ -160,7 +165,8 @@ fn identifier_owns_definition(
     if identifier.start_byte() == byte {
         return true;
     }
-    if parsed.language != Language::C || byte > identifier.start_byte() {
+    if !super::super::binding_table::c_slice3_wave_applies(parsed) || byte > identifier.start_byte()
+    {
         return false;
     }
     std::iter::successors(identifier.parent(), |ancestor| ancestor.parent())
@@ -179,7 +185,8 @@ pub(in crate::cpg::reaching) fn row_identifier_for_def<'a>(
     row_introduced_identifiers(parsed, node, fields)
         .into_iter()
         .find(|identifier| {
-            (parsed.language != Language::C || parsed.node_text(identifier) == def.path.base)
+            (!super::super::binding_table::c_slice3_wave_applies(parsed)
+                || parsed.node_text(identifier) == def.path.base)
                 && identifier_owns_definition(parsed, node, *identifier, def.start_byte)
         })
 }
@@ -190,14 +197,30 @@ pub(in crate::cpg::reaching) fn row_excludes_def(
     fields: &[&str],
     def: &DefSite,
 ) -> bool {
+    if parsed.language == Language::Cpp {
+        return cpp::row_excludes_def(parsed, node, fields, def);
+    }
     !fields.is_empty() && row_identifier_for_def(parsed, node, fields, def).is_none()
+}
+
+pub(in crate::cpg::reaching) fn row_identifier_owns_def(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    identifier: Node<'_>,
+    def: &DefSite,
+) -> bool {
+    if parsed.language == Language::Cpp {
+        return cpp::identifier_owns_def(parsed, node, identifier, def);
+    }
+    parsed.node_text(&identifier) == def.path.base
+        && identifier_owns_definition(parsed, node, identifier, def.start_byte)
 }
 
 pub(in crate::cpg::reaching) fn normalize_c_declaration_facts(
     parsed: &ParsedFile,
     defs: &mut [DefSite],
 ) {
-    if parsed.language != Language::C {
+    if !super::super::binding_table::c_slice3_wave_applies(parsed) {
         return;
     }
     for def in defs.iter_mut().filter(|def| !def.alias_derived) {

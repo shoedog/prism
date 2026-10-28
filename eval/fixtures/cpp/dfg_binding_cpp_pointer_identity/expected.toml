@@ -1,0 +1,10 @@
+[case]
+language = "cpp"
+capability = "dfg_binding_cpp_pointer_identity"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.cpp:2:pointer"
+to = "main.cpp:3:pointer"
+confidence = "exact"

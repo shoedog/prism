@@ -15,6 +15,11 @@ pub(super) fn declaration_scope(
             return scope;
         }
     }
+    if kind == DeclarationKind::CaptureCopy {
+        if let Some(scope) = cpp::capture_body_scope(node) {
+            return scope_span(scope);
+        }
+    }
     if let Some(scope) = rust_scope::closure_parameter_scope(parsed, node) {
         return scope;
     }
@@ -23,7 +28,10 @@ pub(super) fn declaration_scope(
         if parent.id() == func_node.id() {
             break;
         }
-        if binding_scope_rule(parsed.language, parent.kind()).creates_scope {
+        if binding_scope_rule_for(parsed, parent.kind()).creates_scope {
+            if let Some(owner) = cpp::condition_scope_owner(parsed.language, parent) {
+                return scope_span(owner);
+            }
             return c::scope_span(parsed, parent);
         }
         current = parent.parent();

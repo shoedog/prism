@@ -41,8 +41,7 @@ pub(super) fn collect_classified_masks(
                 if parsed.language == crate::languages::Language::Java {
                     java::def_anchors_identifier(parsed, node, def, identifier)
                 } else {
-                    transfer::row_identifier_for_def(parsed, node, row.fields, def)
-                        .is_some_and(|owned| owned.start_byte() == identifier.start_byte())
+                    transfer::row_identifier_owns_def(parsed, node, identifier, def)
                 }
             }) {
                 continue;
@@ -124,4 +123,75 @@ pub(super) fn simple_catch_parameter_owns_def(
         .any(|parameter| {
             parameter.kind() == "identifier" && parsed.node_text(&parameter) == def.path.base
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cpg::{AccessPath, DefId};
+
+    #[test]
+    fn astra_r2_f4_mask_suppression_is_per_identifier() {
+        let parsed = ParsedFile::parse(
+            "test.cpp",
+            "void f() { try {} catch (int represented, int masked) { sink(masked); } }",
+            Language::Cpp,
+        )
+        .unwrap();
+        let function = parsed.all_functions()[0];
+        let catch = function
+            .named_descendant_for_byte_range(function.start_byte(), function.end_byte())
+            .and_then(|_| {
+                let mut pending = vec![function];
+                while let Some(node) = pending.pop() {
+                    if node.kind() == "catch_clause" {
+                        return Some(node);
+                    }
+                    let mut cursor = node.walk();
+                    pending.extend(node.named_children(&mut cursor));
+                }
+                None
+            })
+            .expect("catch clause");
+        let row = select_binding_row(&parsed, catch).expect("catch row");
+        let identifiers = transfer::row_introduced_identifiers(&parsed, catch, row.fields);
+        assert_eq!(
+            identifiers
+                .iter()
+                .map(|identifier| parsed.node_text(identifier))
+                .collect::<Vec<_>>(),
+            ["represented", "masked"]
+        );
+        let represented = identifiers[0];
+        let defs = [DefSite {
+            id: DefId(0),
+            path: AccessPath::from_expr("represented"),
+            line: represented.start_position().row + 1,
+            start_byte: represented.start_byte(),
+            alias_derived: false,
+            synthetic: false,
+        }];
+        let mut declarations = Vec::new();
+        collect_classified_masks(
+            &parsed,
+            function,
+            function,
+            &defs,
+            function_scope(&parsed, &function),
+            &mut declarations,
+        );
+        let masked: Vec<_> = declarations
+            .iter()
+            .filter(|declaration| declaration.binding.classified_mask)
+            .map(|declaration| declaration.name.as_str())
+            .collect();
+        assert!(
+            masked.contains(&"masked"),
+            "unrepresented name needs a mask"
+        );
+        assert!(
+            !masked.contains(&"represented"),
+            "represented name must not be masked"
+        );
+    }
 }

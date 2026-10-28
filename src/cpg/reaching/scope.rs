@@ -1,13 +1,15 @@
 //! Lexical binding ownership for reaching definitions.
 mod c;
+mod cpp;
 mod declaration;
 mod java;
 mod masks;
 pub(super) mod rust_scope;
+mod span;
 mod typescript;
 mod use_lookup;
 use super::binding_table::{
-    rows, select_binding_row, BindingScopeRule, DeclarationKind, Role, Ruling, Visibility,
+    rows_for_file, select_binding_row, BindingScopeRule, DeclarationKind, Role, Ruling, Visibility,
 };
 #[cfg(test)]
 use super::grammar_lint::introduction_is_classified;
@@ -21,6 +23,8 @@ use crate::languages::Language;
 use declaration::declaration_scope;
 pub(super) use masks::classified_masked_reads;
 use masks::{collect_classified_masks, simple_catch_parameter_owns_def};
+use span::function_scope;
+pub(super) use span::scope_span;
 use std::cell::OnceCell;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
@@ -42,6 +46,7 @@ impl ScopeSpan {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum BindingId {
     Declaration(usize),
+    CaptureCopy(usize),
     ImplicitFunction(String),
     FlatFallback(String),
 }
@@ -222,7 +227,7 @@ impl BindingFacts {
                 let declaration_index = declarations.len();
                 declarations.push(Declaration {
                     binding: Binding {
-                        id: BindingId::Declaration(declaration_index),
+                        id: cpp::binding_id(kind, declaration_index),
                         scope,
                         declaration_line: Some(declaration_line),
                         classified_mask: false,
@@ -352,14 +357,7 @@ impl BindingFacts {
     ) -> BindingRelation {
         let definition = &self.def_bindings[def_index];
         let Some(use_byte) = self.use_byte(parsed, edge) else {
-            return if definition
-                .scope
-                .contains(parsed.line_start_byte(edge.to.line))
-            {
-                BindingRelation::Unresolved
-            } else {
-                BindingRelation::KilledAt(definition.scope.end_line)
-            };
+            return cpp::missing_use_relation(definition, parsed.line_start_byte(edge.to.line));
         };
         let use_binding = self
             .visible_declaration(&edge.to.path.base, use_byte)
@@ -368,7 +366,7 @@ impl BindingFacts {
             return BindingRelation::Same;
         }
         if !definition.scope.contains(use_byte) {
-            return BindingRelation::KilledAt(definition.scope.end_line);
+            return cpp::outside_scope_relation(definition);
         }
         if use_binding.scope.contains(use_byte) {
             if let Some(line) = use_binding.declaration_line {
@@ -474,9 +472,17 @@ fn declaration_seed(
                 }
             }
         }
-        let selected = selected_row.and_then(|row| row.declaration);
-        let rule = binding_scope_rule(parsed.language, node.kind());
-        if let Some(kind) = selected.or(rule.declaration) {
+        let rule = binding_scope_rule_for(parsed, node.kind());
+        let declaration = if parsed.language == Language::Cpp
+            && selected_row.is_some_and(|row| row.roles.has(Role::NotBinding))
+        {
+            None
+        } else {
+            selected_row
+                .and_then(|row| row.declaration)
+                .or(rule.declaration)
+        };
+        if let Some(kind) = declaration {
             if rust_scope::pattern_excludes_def(parsed, node, &def.path.base) {
                 if node.id() == func_node.id() {
                     return None;
@@ -536,11 +542,16 @@ fn declaration_seed(
     }
 }
 
-pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {
-    if let Some(r) = rows(language)
-        .iter()
-        .find(|r| r.kind == kind && r.variant.is_none())
-    {
+pub(super) fn binding_scope_rule_for(parsed: &ParsedFile, kind: &str) -> BindingScopeRule {
+    binding_scope_rule_in(rows_for_file(parsed), parsed.language, kind)
+}
+
+fn binding_scope_rule_in(
+    rows: &[super::binding_table::BindingRow],
+    language: Language,
+    kind: &str,
+) -> BindingScopeRule {
+    if let Some(r) = rows.iter().find(|r| r.kind == kind && r.variant.is_none()) {
         return BindingScopeRule {
             creates_scope: r.roles.has(Role::Scope)
                 && !(language == Language::Python
@@ -552,24 +563,6 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
     BindingScopeRule {
         creates_scope: false,
         declaration: None,
-    }
-}
-
-fn function_scope(_parsed: &ParsedFile, func_node: &Node<'_>) -> ScopeSpan {
-    func_node
-        .child_by_field_name("body")
-        .map(scope_span)
-        .unwrap_or_else(|| scope_span(*func_node))
-}
-
-pub(super) fn scope_span(node: Node<'_>) -> ScopeSpan {
-    if let Some(span) = rust_scope::let_header_scope(node) {
-        return span;
-    }
-    ScopeSpan {
-        start_byte: node.start_byte(),
-        end_byte: node.end_byte(),
-        end_line: node.end_position().row + 1,
     }
 }
 

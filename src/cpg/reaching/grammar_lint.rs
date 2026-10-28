@@ -1,14 +1,13 @@
 use super::binding_table::{java_binding_identifiers, select_binding_row, Ruling, Visibility};
-use super::scope::{binding_scope_rule, RootFunction};
+use super::scope::{binding_scope_rule_for, RootFunction};
 use super::Line;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
+mod cpp;
 pub(super) mod visibility;
-pub(super) use visibility::{
-    c_declaration_definition_in_scope, visibility_span, ByteSpan, SpanKind,
-};
+pub(super) use visibility::{visibility_span, ByteSpan, SpanKind};
 #[derive(serde::Deserialize)]
 struct NodeTypeSchema {
     #[serde(rename = "type")]
@@ -64,15 +63,17 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
                     .any(|identifier| parsed.node_text(&identifier) == name)
             });
     }
-    if matches!(
-        (parsed.language, node.kind()),
-        (Language::Go, "type_switch_statement") | (Language::C, "declaration")
-    ) {
+    if (parsed.language == Language::Go && node.kind() == "type_switch_statement")
+        || (super::binding_table::c_slice3_wave_applies(parsed) && node.kind() == "declaration")
+    {
         return select_binding_row(parsed, node).is_some_and(|row| {
             super::transfer::row_introduced_identifiers(parsed, node, row.fields)
                 .into_iter()
                 .any(|identifier| parsed.node_text(&identifier) == name)
         });
+    }
+    if let Some(introduces) = cpp::uncertain_node_introduces_name(parsed, node, name) {
+        return introduces;
     }
     if parsed.language == Language::Python && is_python_match_pattern(node) {
         return subtree_has_name(parsed, node, name);
@@ -117,7 +118,6 @@ fn node_introduces_name(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool
             })
         })
 }
-
 fn is_rust_pattern_kind(kind: &str) -> bool {
     matches!(
         kind,
@@ -131,7 +131,6 @@ fn is_rust_pattern_kind(kind: &str) -> bool {
             | "tuple_struct_pattern"
     )
 }
-
 pub(super) fn contains_scope_bounded_rust_pattern(node: Node<'_>) -> bool {
     if is_rust_pattern_kind(node.kind()) {
         return true;
@@ -265,7 +264,7 @@ pub(super) fn collect_unclassified_binding_lines(
         return;
     }
 
-    if node.id() != root_function_id {
+    if node.id() != root_function_id && !cpp::has_byte_scoped_uncertainty(parsed, node) {
         if let Some(fields) = introducing_fields.get(node.kind()) {
             for field in fields {
                 if let Some(target) = node.child_by_field_name(field) {
@@ -406,7 +405,7 @@ pub(super) fn introduction_is_classified(
     ) && target.kind() != "identifier";
     let mut current = Some(node);
     while let Some(candidate) = current {
-        if binding_scope_rule(parsed.language, candidate.kind())
+        if binding_scope_rule_for(parsed, candidate.kind())
             .declaration
             .is_some()
         {

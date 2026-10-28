@@ -1,7 +1,6 @@
 use super::super::binding_table::{select_binding_row, DeclarationKind};
 use super::{DefSite, Line, ScopeSpan};
 use crate::ast::ParsedFile;
-use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
@@ -13,7 +12,7 @@ pub(super) struct BindingFacts {
 
 impl BindingFacts {
     pub(super) fn new(parsed: &ParsedFile, function: &Node<'_>, defs: &[DefSite]) -> Self {
-        if parsed.language != Language::C {
+        if !super::super::binding_table::c_slice3_wave_applies(parsed) {
             return Self::default();
         }
         let parameters = parsed.find_parameters_node(function);
@@ -75,7 +74,7 @@ fn recovered_parameter_seed(
 
 pub(super) fn scope_span(parsed: &ParsedFile, node: Node<'_>) -> ScopeSpan {
     let mut span = super::scope_span(node);
-    if parsed.language == Language::C
+    if super::super::binding_table::c_slice3_wave_applies(parsed)
         && node.kind() == "for_statement"
         && node.start_position().row == node.end_position().row
     {

@@ -108,3 +108,7 @@ pub(super) static C_ROWS: &[BindingRow] = &[
         regression: "e0a-x-c-parameter_declaration",
     },
 ];
+
+pub(super) fn pre_e4b_rows() -> &'static [BindingRow] {
+    &C_ROWS[C_ROWS.len() - 2..]
+}

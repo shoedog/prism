@@ -28,7 +28,7 @@ pub(in crate::cpg::reaching) fn c_declaration_definition_in_scope(
     definition_byte: usize,
     visibility: &SpanKind,
 ) -> bool {
-    parsed.language == Language::C
+    super::super::binding_table::c_slice3_wave_applies(parsed)
         && binder.kind() == "declaration"
         && matches!(visibility, SpanKind::Known(spans) if spans.iter().any(|span| span.contains(definition_byte)))
 }
@@ -115,6 +115,30 @@ pub(in crate::cpg::reaching) fn visibility_span(
             return span;
         }
     }
+    if parsed.language == Language::Cpp
+        && matches!(
+            binder_node.kind(),
+            "declaration" | "structured_binding_declarator"
+        )
+    {
+        return nearest_ancestor_kind_in(
+            binder_node,
+            &[
+                "compound_statement",
+                "for_statement",
+                "for_range_loop",
+                "if_statement",
+                "while_statement",
+                "switch_statement",
+            ],
+        )
+        .map_or(SpanKind::Unknown, |scope| {
+            SpanKind::Known(vec![ByteSpan {
+                start: binder_node.start_byte(),
+                end: scope.end_byte(),
+            }])
+        });
+    }
     if matches!(parsed.language, Language::TypeScript | Language::Tsx)
         && matches!(
             binder_node.kind(),
@@ -123,7 +147,9 @@ pub(in crate::cpg::reaching) fn visibility_span(
     {
         return typescript_parameter_visibility_span(binder_node);
     }
-    if parsed.language == Language::C && binder_node.kind() == "declaration" {
+    if super::super::binding_table::c_slice3_wave_applies(parsed)
+        && binder_node.kind() == "declaration"
+    {
         let scope = nearest_ancestor_kind_in(binder_node, &["compound_statement", "for_statement"]);
         return match scope {
             Some(scope) if binder_node.start_byte() < scope.end_byte() => {
