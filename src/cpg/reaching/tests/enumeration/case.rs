@@ -411,7 +411,7 @@ pub(super) fn all_cases() -> Vec<&'static Case> {
                 .chain(super::tsx::CASES)
                 .chain(super::tsx::TASK18_CASES)
                 .chain(super::go::CASES)
-                .chain(super::java::CASES)
+                .chain(super::java::cases())
                 .chain(super::c::CASES)
                 .chain(super::cpp::CASES)
                 .chain(super::rust::CASES)

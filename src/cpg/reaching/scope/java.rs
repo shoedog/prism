@@ -82,6 +82,48 @@ pub(super) fn identifier_bounds(
     }
     let declaration_line = identifier.start_position().row + 1;
 
+    if node.kind() == "instanceof_expression" {
+        match super::super::grammar_lint::visibility_span(parsed, node) {
+            super::super::grammar_lint::SpanKind::Known(spans) => {
+                let visibility: Vec<_> = spans
+                    .into_iter()
+                    .map(|span| ScopeSpan {
+                        start_byte: span.start,
+                        end_byte: span.end,
+                        end_line: parsed
+                            .tree
+                            .root_node()
+                            .descendant_for_byte_range(span.end.saturating_sub(1), span.end)
+                            .map_or(declaration_line, |node| node.end_position().row + 1),
+                    })
+                    .collect();
+                if let (Some(first), Some(last)) = (visibility.first(), visibility.last()) {
+                    return IdentifierBounds {
+                        scope: ScopeSpan {
+                            start_byte: first.start_byte,
+                            end_byte: last.end_byte,
+                            end_line: last.end_line,
+                        },
+                        visible_from: usize::MAX,
+                        declaration_line,
+                    };
+                }
+            }
+            super::super::grammar_lint::SpanKind::Empty => {
+                return IdentifierBounds {
+                    scope: ScopeSpan {
+                        start_byte: node.end_byte(),
+                        end_byte: node.end_byte(),
+                        end_line: declaration_line,
+                    },
+                    visible_from: usize::MAX,
+                    declaration_line,
+                };
+            }
+            super::super::grammar_lint::SpanKind::Unknown => {}
+        }
+    }
+
     if node.kind() == "enhanced_for_statement" {
         if let Some(body) = node.child_by_field_name("body") {
             let scope = scope_span(body);
@@ -111,6 +153,31 @@ pub(super) fn identifier_bounds(
         visible_from: identifier.end_byte(),
         declaration_line,
     }
+}
+
+pub(super) fn additional_visibility(parsed: &ParsedFile, node: Node<'_>) -> Vec<ScopeSpan> {
+    if parsed.language != Language::Java || node.kind() != "instanceof_expression" {
+        return Vec::new();
+    }
+    let super::super::grammar_lint::SpanKind::Known(spans) =
+        super::super::grammar_lint::visibility_span(parsed, node)
+    else {
+        return Vec::new();
+    };
+    spans
+        .into_iter()
+        .map(|span| ScopeSpan {
+            start_byte: span.start,
+            end_byte: span.end,
+            end_line: parsed
+                .tree
+                .root_node()
+                .descendant_for_byte_range(span.end.saturating_sub(1), span.end)
+                .map_or(node.end_position().row + 1, |end| {
+                    end.end_position().row + 1
+                }),
+        })
+        .collect()
 }
 
 pub(super) fn row_excludes_identifier(

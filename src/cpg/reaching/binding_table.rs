@@ -100,6 +100,7 @@ pub(crate) enum Predicate {
     AncestorKindIs {
         kind: &'static str,
     },
+    JavaInstanceofGuard,
     HasField {
         field: &'static str,
     },
@@ -450,6 +451,7 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
             }
             found
         }
+        Predicate::JavaInstanceofGuard => java_wave::classified_instanceof_guard(parsed, node),
         Predicate::HasField { field } => node.child_by_field_name(field).is_some(),
         Predicate::JavaScriptDestructuringDeclarator { lexical } => {
             node.child_by_field_name("name")

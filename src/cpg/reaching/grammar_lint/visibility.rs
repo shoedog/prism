@@ -37,6 +37,13 @@ pub(in crate::cpg::reaching) fn visibility_span(
     parsed: &ParsedFile,
     binder_node: Node<'_>,
 ) -> SpanKind {
+    if parsed.language == Language::Java
+        && matches!(binder_node.kind(), "record_pattern" | "type_pattern")
+    {
+        if let Some(span) = java_switch_pattern_visibility_span(binder_node) {
+            return span;
+        }
+    }
     if let Some(row) = guard_span_row(parsed.language, binder_node.kind()) {
         let Some(guard) = super::ancestor_of_kind(binder_node, row.guard_kind) else {
             return SpanKind::Unknown;
@@ -179,6 +186,20 @@ pub(in crate::cpg::reaching) fn visibility_span(
             end: scoped.end_byte(),
         }])
     }
+}
+
+fn java_switch_pattern_visibility_span(binder_node: Node<'_>) -> Option<SpanKind> {
+    let switch_label = super::ancestor_of_kind(binder_node, "switch_label")?;
+    let owner = std::iter::successors(switch_label.parent(), |node| node.parent())
+        .find(|node| matches!(node.kind(), "switch_rule" | "switch_block_statement_group"))?;
+    Some(if binder_node.end_byte() < owner.end_byte() {
+        SpanKind::Known(vec![ByteSpan {
+            start: binder_node.end_byte(),
+            end: owner.end_byte(),
+        }])
+    } else {
+        SpanKind::Empty
+    })
 }
 
 pub(in crate::cpg::reaching) fn typescript_parameter_has_body_owner(binder_node: Node<'_>) -> bool {

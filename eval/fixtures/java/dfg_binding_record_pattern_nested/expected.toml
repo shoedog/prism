@@ -1,0 +1,16 @@
+[case]
+language = "java"
+capability = "dfg_binding_record_pattern_nested"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "Main.java:6:x"
+to = "Main.java:8:x"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+
+[[expect.edges]]
+from = "Main.java:6:x"
+to = "Main.java:10:x"
+confidence = "exact"

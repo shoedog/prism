@@ -1,0 +1,16 @@
+[case]
+language = "java"
+capability = "dfg_binding_switch_pattern"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "Main.java:3:text"
+to = "Main.java:5:text"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+
+[[expect.edges]]
+from = "Main.java:3:text"
+to = "Main.java:8:text"
+confidence = "exact"

@@ -1,3 +1,4 @@
+use super::super::binding_table::Predicate;
 use super::super::grammar_lint::{visibility_span, ByteSpan, SpanKind};
 use super::case::{Case, CaseClass};
 use crate::cpg::{CodePropertyGraph, DfgLabelStats, FlowConfidence, FlowDoubt};
@@ -10,7 +11,7 @@ mod order;
 
 pub(super) const CASES: &[Case] = &[
     Case {
-        id: "e0b-java-record_pattern",
+        id: "java-instanceof-pattern-uncertain",
         language: Language::Java,
         kind: "record_pattern",
         variant: Some("binding"),
@@ -98,8 +99,31 @@ const fn supplemental_java_case(
     }
 }
 
+const fn classified_java_case(
+    id: &'static str,
+    src: &'static str,
+    expect: &'static [(&'static str, &'static str, FlowConfidence)],
+    expected_counter: i64,
+) -> Case {
+    Case {
+        id,
+        language: Language::Java,
+        kind: "instanceof_expression",
+        variant: None,
+        row_variant: Some(Predicate::JavaInstanceofGuard),
+        class: CaseClass::Behavioral,
+        src,
+        expect,
+        expect_counter: Some(("dfg_label_nameonly_killed", expected_counter)),
+    }
+}
+
 const fn ou(construct_line: u32) -> FlowConfidence {
     FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line })
+}
+
+const fn killed(kill_line: u32) -> FlowConfidence {
+    FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line })
 }
 
 const JAVA_DOUBLE_NEGATED_CASE: Case = supplemental_java_case(
@@ -138,25 +162,23 @@ const JAVA_RECORD_BINDER_NAMES_CASE: Case = supplemental_java_case(
     1,
 );
 
-const JAVA_NAME_CARRIER_POSITIVE_CASE: Case = supplemental_java_case(
+const JAVA_NAME_CARRIER_POSITIVE_CASE: Case = classified_java_case(
     "e0c-1-java-instanceof-name-positive",
-    "instanceof_expression",
     "int f(Object o) {\n    int x = source();\n    if (o instanceof String x && guard(x)) {\n        sink(x);\n    }\n    return x;\n}\n",
     &[
-        ("2:x", "3:x", ou(3)),
-        ("2:x", "4:x", ou(3)),
+        ("2:x", "3:x", killed(3)),
+        ("2:x", "4:x", killed(3)),
         ("2:x", "6:x", FlowConfidence::Exact),
     ],
     2,
 );
 
-const JAVA_NAME_CARRIER_NEGATED_CASE: Case = supplemental_java_case(
+const JAVA_NAME_CARRIER_NEGATED_CASE: Case = classified_java_case(
     "e0c-1-java-instanceof-name-negated",
-    "instanceof_expression",
     "int f(Object o) {\n    int x = source();\n    if (!(o instanceof String x)) {\n        sink(x);\n    } else {\n        consume(x);\n    }\n    return x;\n}\n",
     &[
         ("2:x", "4:x", FlowConfidence::Exact),
-        ("2:x", "6:x", ou(3)),
+        ("2:x", "6:x", killed(3)),
         ("2:x", "8:x", FlowConfidence::Exact),
     ],
     1,
@@ -232,7 +254,6 @@ fn assert_barrier_case(case: &Case) {
         super::super::assert_label(&outcome, edge, *expected);
     }
     if let Some((field, expected)) = case.expect_counter {
-        assert_eq!(field, "dfg_label_nameonly_ownership_uncertain");
         let super::super::RdOutcome::Available(result) = outcome else {
             panic!("{}: expected measurable outcome, got {outcome:?}", case.id);
         };
@@ -240,11 +261,14 @@ fn assert_barrier_case(case: &Case) {
         for label in result.labels.values().copied() {
             stats.record_label(label);
         }
-        assert_eq!(
-            stats.dfg_label_nameonly_ownership_uncertain as i64, expected,
-            "{}: measured {field}",
-            case.id
-        );
+        let actual = match field {
+            "dfg_label_nameonly_killed" => stats.dfg_label_nameonly_killed,
+            "dfg_label_nameonly_ownership_uncertain" => {
+                stats.dfg_label_nameonly_ownership_uncertain
+            }
+            _ => panic!("{}: unsupported barrier counter {field}", case.id),
+        };
+        assert_eq!(actual as i64, expected, "{}: measured {field}", case.id);
     }
 }
 

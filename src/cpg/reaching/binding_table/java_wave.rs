@@ -1,6 +1,8 @@
 use super::{
-    provisional_rows, BindingRow, DeclarationKind, GuardSpanRow, Role, RoleSet, Ruling, Visibility,
+    provisional_rows, BindingRow, DeclarationKind, GuardSpanRow, Predicate, Role, RoleSet, Ruling,
+    Visibility,
 };
+use crate::ast::ParsedFile;
 use crate::languages::Language;
 use tree_sitter::Node;
 
@@ -68,6 +70,66 @@ pub(super) fn binding_identifiers(node: Node<'_>) -> Vec<Node<'_>> {
     }
 }
 
+pub(super) fn classified_instanceof_guard(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    if node.kind() != "instanceof_expression" || node.child_by_field_name("name").is_none() {
+        return false;
+    }
+    let mut owner = node.parent();
+    let owner = loop {
+        let Some(candidate) = owner else {
+            return false;
+        };
+        if candidate.kind() == "if_statement" {
+            break candidate;
+        }
+        owner = candidate.parent();
+    };
+    let Some(condition) = owner.child_by_field_name("condition") else {
+        return false;
+    };
+    if !(condition.start_byte() <= node.start_byte() && node.end_byte() <= condition.end_byte()) {
+        return false;
+    }
+
+    let mut current = node;
+    let mut negated = false;
+    let mut accepted_and = false;
+    loop {
+        if current.id() == condition.id() {
+            return true;
+        }
+        let Some(parent) = current.parent() else {
+            return false;
+        };
+        match parent.kind() {
+            "parenthesized_expression" => {}
+            "unary_expression" => {
+                let Some(operator) = parent.child_by_field_name("operator") else {
+                    return false;
+                };
+                if parsed.node_text(&operator) != "!" || accepted_and {
+                    return false;
+                }
+                negated = !negated;
+            }
+            "binary_expression" => {
+                let Some(operator) = parent.child_by_field_name("operator") else {
+                    return false;
+                };
+                let Some(left) = parent.child_by_field_name("left") else {
+                    return false;
+                };
+                if negated || parsed.node_text(&operator) != "&&" || left.id() != current.id() {
+                    return false;
+                }
+                accepted_and = true;
+            }
+            _ => return false,
+        }
+        current = parent;
+    }
+}
+
 pub(super) fn statement_cannot_complete_normally(statement: Option<Node<'_>>) -> bool {
     let Some(statement) = statement else {
         return false;
@@ -116,6 +178,31 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
     scope_row("for_statement", "java-for-init-scope", Ruling::Classified),
     BindingRow {
         language: Language::Java,
+        kind: "instanceof_expression",
+        variant: Some(Predicate::JavaInstanceofGuard),
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["name"],
+        declaration: Some(DeclarationKind::Pattern),
+        visibility: Visibility::Custom("java-pattern-guard"),
+        ruling: Ruling::Classified,
+        regression: "java-instanceof-and-chained-guard",
+    },
+    BindingRow {
+        language: Language::Java,
+        kind: "instanceof_expression",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["name"],
+        declaration: None,
+        visibility: Visibility::Custom("java-pattern-guard"),
+        ruling: Ruling::Uncertain {
+            reason: "instanceof pattern owner is outside the curated if-statement guard shape",
+            revisit: "future:java-patterns",
+        },
+        regression: "java-instanceof-unsupported-owner-uncertain",
+    },
+    BindingRow {
+        language: Language::Java,
         kind: "local_variable_declaration",
         variant: None,
         roles: RoleSet::of(&[Role::Binding]),
@@ -125,6 +212,12 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
         ruling: Ruling::Classified,
         regression: "java-local-without-initializer",
     },
+    uncertain_pattern_row(
+        "record_pattern",
+        "record pattern identifiers are anonymous children, not field-addressable",
+        "java-instanceof-pattern-uncertain",
+    ),
+    not_binding_row("record_pattern_body", "java-record-pattern-body-structural"),
     scope_row(
         "switch_block",
         "java-switch-block-scope",
@@ -143,7 +236,48 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
         &["resources"],
         "java-try-with-resources",
     ),
+    uncertain_pattern_row(
+        "type_pattern",
+        "type pattern identifier is an anonymous child, not field-addressable",
+        "java-switch-pattern-uncertain",
+    ),
+    not_binding_row("underscore_pattern", "java-underscore-pattern-not-binding"),
 ];
+
+const fn uncertain_pattern_row(
+    kind: &'static str,
+    reason: &'static str,
+    regression: &'static str,
+) -> BindingRow {
+    BindingRow {
+        language: Language::Java,
+        kind,
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::Custom("java-pattern-guard"),
+        ruling: Ruling::Uncertain {
+            reason,
+            revisit: "future:java-patterns",
+        },
+        regression,
+    }
+}
+
+const fn not_binding_row(kind: &'static str, regression: &'static str) -> BindingRow {
+    BindingRow {
+        language: Language::Java,
+        kind,
+        variant: None,
+        roles: RoleSet::of(&[Role::NotBinding]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling: Ruling::Classified,
+        regression,
+    }
+}
 
 const fn scope_row(kind: &'static str, regression: &'static str, ruling: Ruling) -> BindingRow {
     BindingRow {
@@ -212,7 +346,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("formal_parameter", "e0b-java-formal_parameter"),
         ("import_declaration", "e0b-java-import_declaration"),
         ("inferred_parameters", "e0b-java-inferred_parameters"),
-        ("instanceof_expression", "e0b-java-instanceof_expression"),
         ("interface_body", "e0b-java-interface_body"),
         ("interface_declaration", "e0b-java-interface_declaration"),
         ("lambda_expression", "e0b-java-lambda_expression"),
@@ -222,8 +355,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("package_declaration", "e0b-java-package_declaration"),
         ("receiver_parameter", "e0b-java-receiver_parameter"),
         ("record_declaration", "e0b-java-record_declaration"),
-        ("record_pattern", "e0b-java-record_pattern"),
-        ("record_pattern_body", "e0b-java-record_pattern_body"),
         (
             "record_pattern_component",
             "e0b-java-record_pattern_component"
@@ -231,9 +362,7 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("superclass", "e0b-java-superclass"),
         ("type_parameter", "e0b-java-type_parameter"),
         ("type_parameters", "e0b-java-type_parameters"),
-        ("type_pattern", "e0b-java-type_pattern"),
         ("variable_declarator", "e0b-java-variable_declarator"),
         ("block_comment", "e0b-java-block_comment"),
-        ("underscore_pattern", "e0b-java-underscore_pattern"),
     ]
 );

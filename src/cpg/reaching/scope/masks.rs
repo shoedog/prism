@@ -62,7 +62,7 @@ pub(super) fn collect_classified_masks(
                     bounds.visible_from,
                     bounds.scope,
                 ),
-                additional_visibility: Vec::new(),
+                additional_visibility: java::additional_visibility(parsed, node),
             });
         }
     }
