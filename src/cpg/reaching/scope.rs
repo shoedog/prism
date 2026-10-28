@@ -121,9 +121,8 @@ pub(super) struct BindingFacts {
     pub(super) no_entry_spans: Vec<(String, Line, super::grammar_lint::ByteSpan)>,
     function_scope: ScopeSpan,
     language: Language,
-    /// PR-B perf: zero-width Use byte resolution is a pure function of the
-    /// pass and `(line, path)`; memoize it per pass (it re-runs whole-function
-    /// rvalue queries per edge otherwise).
+    java_field_names: BTreeSet<String>,
+    /// Memoized zero-width Use byte resolution for this pass.
     use_byte_cache:
         std::cell::RefCell<BTreeMap<(Line, crate::access_path::AccessPath), Option<usize>>>,
 }
@@ -141,7 +140,7 @@ impl BindingFacts {
         let function_scope = function_scope(parsed, func_node);
         let (header_spans, no_entry_binders, no_entry_spans) =
             transfer::binding_metadata(parsed, binders, cfg);
-        let seeds: Vec<Option<(ScopeSpan, DeclarationKind, usize)>> = defs
+        let seeds: Vec<Option<(ScopeSpan, DeclarationKind, usize, Line)>> = defs
             .iter()
             .map(|def| declaration_seed(parsed, func_node, def, function_scope))
             .collect();
@@ -177,7 +176,7 @@ impl BindingFacts {
         let mut order: Vec<usize> = (0..defs.len()).collect();
         order.sort_by_key(|index| defs[*index].start_byte);
         for index in order {
-            let Some((scope, kind, visible_from)) = seeds[index] else {
+            let Some((scope, kind, visible_from, declaration_line)) = seeds[index] else {
                 continue;
             };
             let name = defs[index].path.base.clone();
@@ -221,7 +220,7 @@ impl BindingFacts {
                     binding: Binding {
                         id: BindingId::Declaration(declaration_index),
                         scope,
-                        declaration_line: Some(defs[index].line),
+                        declaration_line: Some(declaration_line),
                         classified_mask: false,
                     },
                     name,
@@ -247,11 +246,12 @@ impl BindingFacts {
             no_entry_spans,
             function_scope,
             language: parsed.language,
+            java_field_names: java::enclosing_type_field_names(parsed, function_scope),
             use_byte_cache: std::cell::RefCell::new(BTreeMap::new()),
         };
         for (index, def) in defs.iter().enumerate() {
             let catch_var = seeds[index]
-                .is_some_and(|(_, kind, _)| kind == DeclarationKind::JavaScriptVar)
+                .is_some_and(|(_, kind, _, _)| kind == DeclarationKind::JavaScriptVar)
                 && simple_catch_parameter_owns_def(parsed, func_node.id(), def);
             let binding = catch_var
                 .then(|| facts.visible_declaration(&def.path.base, def.start_byte))
@@ -296,11 +296,7 @@ impl BindingFacts {
     }
 
     pub(super) fn same_def_binding(&self, left: usize, right: usize) -> bool {
-        let left = &self.def_bindings[left].id;
-        let right = &self.def_bindings[right].id;
-        left == right
-            || matches!(left, BindingId::FlatFallback(_))
-            || matches!(right, BindingId::FlatFallback(_))
+        java::same_def_binding(self, left, right)
     }
 
     pub(super) fn same_def_binding_strict(&self, left: usize, right: usize) -> bool {
@@ -313,6 +309,9 @@ impl BindingFacts {
         edge: &FlowEdge,
         def_index: usize,
     ) -> bool {
+        if java::lexical_relation_overrides_flat_fallback(self, parsed, edge, def_index) {
+            return false;
+        }
         if matches!(self.def_bindings[def_index].id, BindingId::FlatFallback(_)) {
             return true;
         }
@@ -407,9 +406,8 @@ fn declaration_seed(
     func_node: &Node<'_>,
     def: &DefSite,
     function_scope: ScopeSpan,
-) -> Option<(ScopeSpan, DeclarationKind, usize)> {
-    // A bare arrow formal has no `parameters` list; without this region its Def
-    // is seeded as a non-parameter binding and diverges from the `(x) => …` control.
+) -> Option<(ScopeSpan, DeclarationKind, usize, Line)> {
+    // Bare arrow formals otherwise diverge from the `(x) => …` control.
     if let Some(binding) = typescript::parameter_binding_in_region(parsed, func_node, def) {
         match binding {
             typescript::ParameterBinding::Owned => {
@@ -417,6 +415,7 @@ fn declaration_seed(
                     function_scope,
                     DeclarationKind::Parameter,
                     function_scope.start_byte,
+                    def.line,
                 ));
             }
             typescript::ParameterBinding::FailClosed => return None,
@@ -450,6 +449,7 @@ fn declaration_seed(
                     } else {
                         left.expect("checked above").end_byte()
                     },
+                    def.line,
                 ));
             }
             if row.roles.has(Role::Scope) {
@@ -460,6 +460,7 @@ fn declaration_seed(
                         bounds.scope,
                         row.declaration.unwrap_or(DeclarationKind::Other),
                         bounds.visible_from,
+                        bounds.declaration_line,
                     ));
                 }
             }
@@ -483,6 +484,10 @@ fn declaration_seed(
                 node = node.parent()?;
                 continue;
             }
+            let default_scope = declaration_scope(parsed, func_node, node, kind, function_scope);
+            let java_bounds = selected_row.and_then(|row| {
+                java::identifier_bounds_for_def(parsed, node, row, def, default_scope)
+            });
             let value = if kind == DeclarationKind::PythonAssignment {
                 parsed.language.assignment_value(&node)
             } else {
@@ -490,13 +495,10 @@ fn declaration_seed(
             };
             if value.is_some_and(|value| {
                 value.start_byte() <= def.start_byte && def.start_byte < value.end_byte()
-            }) {
+            }) && java_bounds.is_none()
+            {
                 return None;
             }
-            let default_scope = declaration_scope(parsed, func_node, node, kind, function_scope);
-            let java_bounds = selected_row.and_then(|row| {
-                java::identifier_bounds_for_def(parsed, node, row, def, default_scope)
-            });
             let scope = java_bounds.map_or(default_scope, |bounds| bounds.scope);
             let rust_item_is_hoisted = parsed.language == Language::Rust
                 && matches!(node.kind(), "const_item" | "static_item");
@@ -515,7 +517,8 @@ fn declaration_seed(
                     DeclarationKind::Pattern => rust_scope::pattern_visible_from(node),
                 }
             };
-            return Some((scope, kind, visible_from));
+            let declaration_line = java_bounds.map_or(def.line, |bounds| bounds.declaration_line);
+            return Some((scope, kind, visible_from, declaration_line));
         }
         if node.id() == func_node.id() {
             return None;

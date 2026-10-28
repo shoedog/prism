@@ -1,0 +1,28 @@
+[case]
+language = "java"
+capability = "dfg_binding_for_init_field_shadow"
+status = "pass"
+probe = "dfg"
+
+# JLS 6.3 scopes the for-init local through the basic for statement only. The
+# later declarator sees that local, the loop body is masked, and the field is
+# visible again after the loop.
+
+[[expect.edges]]
+from = "Main.java:5:x"
+to = "Main.java:7:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 6
+
+[[expect.edges]]
+from = "Main.java:5:x"
+to = "Main.java:10:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "Main.java:6:x"
+to = "Main.java:10:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 9

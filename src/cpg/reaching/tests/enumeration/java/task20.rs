@@ -7,6 +7,7 @@ const KILLED_4: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::Killed { ki
 const KILLED_5: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 });
 const KILLED_6: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 6 });
 const KILLED_7: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 7 });
+const KILLED_8: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 8 });
 
 pub(super) const CASES: &[Case] = &[
     Case {
@@ -238,6 +239,50 @@ pub(super) const CASES: &[Case] = &[
         expect_counter: Some(("dfg_label_nameonly_killed", 2)),
     },
     Case {
+        id: "java-for-init-field-shadow",
+        language: Language::Java,
+        kind: "local_variable_declaration",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "class C {\n  int x;\n  void f() {\n    x = source();\n    for (int x = clean(),\n             y = x; y < 3; y++) {\n      sink(x);\n    }\n    sink(x);\n  }\n}\n",
+        expect: &[("4:x", "6:x", KILLED_5), ("4:x", "9:x", FlowConfidence::Exact), ("5:x", "9:x", KILLED_8)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
+    },
+    Case {
+        id: "java-local-field-shadow-declarator-order",
+        language: Language::Java,
+        kind: "local_variable_declaration",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "class C {\n  int x;\n  void f() {\n    x = source();\n    {\n      int y =\n          x,\n          x = clean(),\n          z = x;\n      sink(x);\n    }\n    sink(x);\n  }\n}\n",
+        expect: &[("4:x", "7:x", FlowConfidence::Exact), ("4:x", "9:x", KILLED_8), ("4:x", "10:x", KILLED_8), ("4:x", "12:x", FlowConfidence::Exact)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
+    },
+    Case {
+        id: "java-for-init-single-field-shadow",
+        language: Language::Java,
+        kind: "local_variable_declaration",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "class C {\n  int x;\n  void f() {\n    x = source();\n    for (int x = clean();\n             x < 3; x++) {\n      sink(x);\n    }\n    sink(x);\n  }\n}\n",
+        expect: &[("4:x", "7:x", KILLED_5), ("4:x", "9:x", FlowConfidence::Exact), ("5:x", "9:x", KILLED_8)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
+    },
+    Case {
+        id: "java-for-init-same-line-field-shadow",
+        language: Language::Java,
+        kind: "local_variable_declaration",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "class C {\n  int x;\n  void f() {\n    x = source();\n    for (int y = x, x = clean(); y < 3; y++) {\n      sink(x);\n    }\n    sink(x);\n  }\n}\n",
+        expect: &[("4:x", "6:x", KILLED_5), ("4:x", "8:x", FlowConfidence::Exact), ("5:x", "8:x", KILLED_7)],
+        expect_counter: Some(("dfg_label_nameonly_killed", 2)),
+    },
+    Case {
         id: "java-lambda-body-block-scope",
         language: Language::Java,
         kind: "block",
@@ -245,7 +290,7 @@ pub(super) const CASES: &[Case] = &[
         row_variant: None,
         class: CaseClass::Behavioral,
         src: "class C {\n  void f() {\n    int x = source();\n    Runnable r = () -> {\n      int x = clean();\n      sink(x);\n    };\n    sink(x);\n  }\n}\n",
-        expect: &[("5:x", "3:x", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)), ("3:x", "8:x", FlowConfidence::Exact)],
+        expect: &[("3:x", "6:x", FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)), ("3:x", "8:x", FlowConfidence::Exact)],
         expect_counter: Some(("dfg_label_exact", 1)),
     },
     Case {
@@ -356,6 +401,26 @@ fn astra_r1_w3_for_init_multiline_declarators() {
 #[test]
 fn astra_r1_w3_resource_multiline_declarators() {
     check_named_case("java-resource-multiline-declarators");
+}
+
+#[test]
+fn astra_r2_w3_for_init_field_shadow() {
+    check_named_case("java-for-init-field-shadow");
+}
+
+#[test]
+fn astra_r2_w3_local_field_shadow_declarator_order() {
+    check_named_case("java-local-field-shadow-declarator-order");
+}
+
+#[test]
+fn astra_r2_w3_single_field_shadow() {
+    check_named_case("java-for-init-single-field-shadow");
+}
+
+#[test]
+fn astra_r2_w3_same_line_field_shadow() {
+    check_named_case("java-for-init-same-line-field-shadow");
 }
 
 #[test]
