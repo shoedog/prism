@@ -33,6 +33,11 @@ MATRIX_EXTRA_DFG_GLOBS = [
     ("java", "dfg_binding_*/expected.toml"),
     ("c", "dfg_binding_*/expected.toml"),
 ]
+MATRIX_REQUIRED_DFG_CASES = [
+    ("java", "dfg_binding_instanceof_and_guard_field_shadow"),
+    ("java", "dfg_binding_instanceof_negated_return_field_shadow"),
+    ("java", "dfg_binding_switch_pattern_field_shadow"),
+]
 PROBE_TYPES = ("callers", "taint", "module_deps", "dfg")
 
 
@@ -749,6 +754,10 @@ def run_matrix(fixtures_root: Path, sut, languages: list[str]) -> list[CaseResul
 
 def _run_matrix_inner(fixtures_root: Path, sut, languages: list[str]) -> list[CaseResult]:
     results = []
+    for lang, fixture in MATRIX_REQUIRED_DFG_CASES:
+        expected = fixtures_root / lang / fixture / "expected.toml"
+        if not expected.is_file():
+            raise FileNotFoundError(f"required DFG matrix case is missing: {expected}")
     fixture_sets = [
         (lang, sorted((fixtures_root / lang).glob("*/expected.toml")))
         for lang in languages

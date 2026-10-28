@@ -1,4 +1,4 @@
-use super::super::binding_table::{guard_span_row, java_statement_cannot_complete_normally};
+use super::super::binding_table::{guard_span_row, java_statement_completion, JavaCompletion};
 use crate::ast::ParsedFile;
 use crate::languages::Language;
 use tree_sitter::Node;
@@ -83,17 +83,24 @@ pub(in crate::cpg::reaching) fn visibility_span(
                 });
             }
         }
-        if negated
-            && java_statement_cannot_complete_normally(owner.child_by_field_name("consequence"))
-        {
-            if let Some(parent) = owner.parent() {
-                if owner.end_byte() < parent.end_byte() {
-                    spans.push(ByteSpan {
-                        start: owner.end_byte(),
-                        end: parent.end_byte(),
-                    });
+        let post_if_branch = if negated {
+            owner.child_by_field_name("consequence")
+        } else {
+            owner.child_by_field_name("alternative")
+        };
+        match java_statement_completion(parsed, post_if_branch) {
+            JavaCompletion::Abrupt => {
+                if let Some(parent) = owner.parent() {
+                    if owner.end_byte() < parent.end_byte() {
+                        spans.push(ByteSpan {
+                            start: owner.end_byte(),
+                            end: parent.end_byte(),
+                        });
+                    }
                 }
             }
+            JavaCompletion::Normal => {}
+            JavaCompletion::Unknown => return SpanKind::Unknown,
         }
         return if spans.is_empty() {
             SpanKind::Empty

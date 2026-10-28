@@ -339,9 +339,7 @@ pub(crate) fn java_binding_identifiers(node: Node<'_>) -> Vec<Node<'_>> {
     java_wave::binding_identifiers(node)
 }
 
-pub(crate) fn java_statement_cannot_complete_normally(statement: Option<Node<'_>>) -> bool {
-    java_wave::statement_cannot_complete_normally(statement)
-}
+pub(crate) use java_wave::{statement_completion as java_statement_completion, JavaCompletion};
 
 pub(crate) fn capture_rows(language: Language) -> &'static [CaptureRow] {
     capture_rows::rows(language)

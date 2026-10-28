@@ -185,8 +185,15 @@ pub(super) fn classify_edge(
                 })
             })
         });
-    if let Some(kill_line) =
-        edge_use_byte(parsed, edge).and_then(|use_byte| binding_facts.mask_on_route(edge, use_byte))
+    if let Some(construct_line) = edge_use_byte(parsed, edge)
+        .and_then(|use_byte| binding_facts.classified_mask_uncertainty(parsed, edge, use_byte))
+    {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
+    }
+    if let Some(kill_line) = edge_use_byte(parsed, edge)
+        .and_then(|use_byte| binding_facts.mask_on_route(parsed, edge, use_byte))
     {
         return FlowConfidence::NameOnly(FlowDoubt::Killed {
             kill_line: u32::try_from(kill_line).unwrap_or(u32::MAX),

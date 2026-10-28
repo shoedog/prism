@@ -10,6 +10,13 @@ pub(super) const DIGEST: &str = "19c46facc653381c337ff6cad75dd8b052524179a366c80
 pub(super) const CENSUS_DIGEST: &str =
     "4c20a0721a3376c50bc43e6b43cca087573c477b447dcada659c387141ece7c8";
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum JavaCompletion {
+    Abrupt,
+    Normal,
+    Unknown,
+}
+
 pub(super) static PATTERN_GUARD_SPANS: &[GuardSpanRow] = &[
     GuardSpanRow {
         binder_kind: "record_pattern",
@@ -96,7 +103,12 @@ pub(super) fn classified_instanceof_guard(parsed: &ParsedFile, node: Node<'_>) -
     let mut accepted_and = false;
     loop {
         if current.id() == condition.id() {
-            return true;
+            let post_if_branch = if negated {
+                owner.child_by_field_name("consequence")
+            } else {
+                owner.child_by_field_name("alternative")
+            };
+            return statement_completion(parsed, post_if_branch) != JavaCompletion::Unknown;
         }
         let Some(parent) = current.parent() else {
             return false;
@@ -130,26 +142,148 @@ pub(super) fn classified_instanceof_guard(parsed: &ParsedFile, node: Node<'_>) -
     }
 }
 
-pub(super) fn statement_cannot_complete_normally(statement: Option<Node<'_>>) -> bool {
+pub(crate) fn statement_completion(
+    parsed: &ParsedFile,
+    statement: Option<Node<'_>>,
+) -> JavaCompletion {
     let Some(statement) = statement else {
-        return false;
+        return JavaCompletion::Normal;
     };
     if matches!(
         statement.kind(),
-        "return_statement" | "throw_statement" | "break_statement" | "continue_statement"
+        "return_statement"
+            | "throw_statement"
+            | "break_statement"
+            | "continue_statement"
+            | "yield_statement"
     ) {
+        return JavaCompletion::Abrupt;
+    }
+    match statement.kind() {
+        "block" => {
+            let mut cursor = statement.walk();
+            let last = statement
+                .named_children(&mut cursor)
+                .filter(|child| !matches!(child.kind(), "line_comment" | "block_comment"))
+                .last();
+            statement_completion(parsed, last)
+        }
+        "if_statement" => {
+            let consequence =
+                statement_completion(parsed, statement.child_by_field_name("consequence"));
+            let Some(alternative) = statement.child_by_field_name("alternative") else {
+                return JavaCompletion::Normal;
+            };
+            merge_alternative_completion(
+                consequence,
+                statement_completion(parsed, Some(alternative)),
+            )
+        }
+        "while_statement" => {
+            let literal_true = statement
+                .child_by_field_name("condition")
+                .is_some_and(|condition| java_condition_is_literal_true(parsed, condition));
+            if !literal_true {
+                JavaCompletion::Normal
+            } else if statement
+                .child_by_field_name("body")
+                .is_some_and(contains_break_statement)
+            {
+                JavaCompletion::Unknown
+            } else {
+                JavaCompletion::Abrupt
+            }
+        }
+        "labeled_statement" => {
+            let mut cursor = statement.walk();
+            let body = statement.named_children(&mut cursor).last();
+            statement_completion(parsed, body)
+        }
+        "try_statement" | "try_with_resources_statement" => {
+            try_statement_completion(parsed, statement)
+        }
+        "finally_clause" | "synchronized_statement" => {
+            let body = statement.child_by_field_name("body").or_else(|| {
+                let mut cursor = statement.walk();
+                let block = statement
+                    .named_children(&mut cursor)
+                    .find(|child| child.kind() == "block");
+                block
+            });
+            statement_completion(parsed, body)
+        }
+        "assert_statement"
+        | "empty_statement"
+        | "expression_statement"
+        | "local_variable_declaration" => JavaCompletion::Normal,
+        _ => JavaCompletion::Unknown,
+    }
+}
+
+fn merge_alternative_completion(left: JavaCompletion, right: JavaCompletion) -> JavaCompletion {
+    match (left, right) {
+        (JavaCompletion::Normal, _) | (_, JavaCompletion::Normal) => JavaCompletion::Normal,
+        (JavaCompletion::Abrupt, JavaCompletion::Abrupt) => JavaCompletion::Abrupt,
+        _ => JavaCompletion::Unknown,
+    }
+}
+
+fn try_statement_completion(parsed: &ParsedFile, statement: Node<'_>) -> JavaCompletion {
+    let mut cursor = statement.walk();
+    let children: Vec<_> = statement.named_children(&mut cursor).collect();
+    if let Some(finally) = children
+        .iter()
+        .copied()
+        .find(|child| child.kind() == "finally_clause")
+    {
+        match statement_completion(parsed, Some(finally)) {
+            JavaCompletion::Abrupt => return JavaCompletion::Abrupt,
+            JavaCompletion::Unknown => return JavaCompletion::Unknown,
+            JavaCompletion::Normal => {}
+        }
+    }
+    let mut branches = Vec::new();
+    if let Some(body) = statement.child_by_field_name("body").or_else(|| {
+        children
+            .iter()
+            .copied()
+            .find(|child| child.kind() == "block")
+    }) {
+        branches.push(statement_completion(parsed, Some(body)));
+    }
+    for catch in children
+        .iter()
+        .copied()
+        .filter(|child| child.kind() == "catch_clause")
+    {
+        branches.push(statement_completion(
+            parsed,
+            catch.child_by_field_name("body"),
+        ));
+    }
+    branches
+        .into_iter()
+        .reduce(merge_alternative_completion)
+        .unwrap_or(JavaCompletion::Unknown)
+}
+
+fn contains_break_statement(node: Node<'_>) -> bool {
+    if node.kind() == "break_statement" {
         return true;
     }
-    if statement.kind() == "if_statement" {
-        return statement_cannot_complete_normally(statement.child_by_field_name("consequence"))
-            && statement_cannot_complete_normally(statement.child_by_field_name("alternative"));
+    let mut cursor = node.walk();
+    let contains = node
+        .named_children(&mut cursor)
+        .any(contains_break_statement);
+    contains
+}
+
+fn java_condition_is_literal_true(parsed: &ParsedFile, condition: Node<'_>) -> bool {
+    let mut text = parsed.node_text(&condition).trim();
+    while text.starts_with('(') && text.ends_with(')') {
+        text = text[1..text.len() - 1].trim();
     }
-    if statement.kind() != "block" {
-        return false;
-    }
-    statement
-        .named_child(statement.named_child_count().saturating_sub(1))
-        .is_some_and(|last| statement_cannot_complete_normally(Some(last)))
+    text == "true"
 }
 
 pub(super) static CURATED_ROWS: &[BindingRow] = &[

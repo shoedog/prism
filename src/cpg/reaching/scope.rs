@@ -295,14 +295,33 @@ impl BindingFacts {
         value
     }
 
-    pub(super) fn mask_on_route(&self, edge: &FlowEdge, use_byte: usize) -> Option<Line> {
+    pub(super) fn mask_on_route(
+        &self,
+        parsed: &ParsedFile,
+        edge: &FlowEdge,
+        use_byte: usize,
+    ) -> Option<Line> {
         let def_index = self.def_sites.get(&(
             edge.from.path.base.clone(),
             edge.from.line,
             edge.from.start_byte,
         ))?;
         let mask = self.visible_declaration(&edge.to.path.base, use_byte)?;
-        (mask.classified_mask && self.def_bindings[*def_index].id != mask.id)
+        (mask.classified_mask
+            && java::classified_mask_applies_to_use(parsed, edge, use_byte)
+            && self.def_bindings[*def_index].id != mask.id)
+            .then_some(mask.declaration_line)
+            .flatten()
+    }
+
+    pub(super) fn classified_mask_uncertainty(
+        &self,
+        parsed: &ParsedFile,
+        edge: &FlowEdge,
+        use_byte: usize,
+    ) -> Option<Line> {
+        let mask = self.visible_declaration(&edge.to.path.base, use_byte)?;
+        (mask.classified_mask && !java::classified_mask_applies_to_use(parsed, edge, use_byte))
             .then_some(mask.declaration_line)
             .flatten()
     }
@@ -331,7 +350,11 @@ impl BindingFacts {
             return true;
         };
         self.visible_declaration(&edge.to.path.base, use_byte)
-            .map(|binding| matches!(binding.id, BindingId::FlatFallback(_)))
+            .map(|binding| {
+                (binding.classified_mask
+                    && !java::classified_mask_applies_to_use(parsed, edge, use_byte))
+                    || matches!(binding.id, BindingId::FlatFallback(_))
+            })
             .unwrap_or_else(|| {
                 matches!(
                     self.implicit_binding(&edge.to.path.base).id,

@@ -205,6 +205,111 @@ fn task21_java_pattern_visibility_is_guard_bounded() {
     ));
 }
 
+#[test]
+fn task21_fix1_w1_pattern_masks_only_unqualified_simple_names() {
+    assert_legal_field_labels(
+        "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (o instanceof String text) {\n            sink(this.text);\n            sink(text);\n            sink(text); sink(this.text);\n        }\n    }\n    String source() { return \"field\"; }\n    void sink(Object value) {}\n}\n",
+        4,
+        &[
+            (6, ownership_uncertain(5)),
+            (7, killed_at(5)),
+            (8, ownership_uncertain(5)),
+        ],
+    );
+}
+
+#[test]
+fn task21_fix1_w2_positive_abrupt_else_extends_post_if_scope() {
+    for (src, expected) in [
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (o instanceof String text) {\n            sink(text);\n        } else {\n            return;\n        }\n        sink(text);\n    }\n}\n",
+            killed_at(5),
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (o instanceof String text) {\n            sink(text);\n        } else {\n            throw new RuntimeException();\n        }\n        sink(text);\n    }\n}\n",
+            killed_at(5),
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (o instanceof String text && guard(text)) {\n            sink(text);\n        } else {\n            return;\n        }\n        sink(text);\n    }\n}\n",
+            killed_at(5),
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (o instanceof String text) {\n            sink(text);\n        } else {\n            sink(text);\n        }\n        sink(text);\n    }\n}\n",
+            FlowConfidence::Exact,
+        ),
+        (
+            "class Main {\n    String text; boolean flag;\n    void f(Object o) {\n        text = source();\n        if (o instanceof String text) {\n            sink(text);\n        } else {\n            if (flag) return;\n        }\n        sink(text);\n    }\n}\n",
+            FlowConfidence::Exact,
+        ),
+    ] {
+        assert_legal_field_labels(src, 4, &[(10, expected)]);
+    }
+}
+
+#[test]
+fn task21_fix1_w3_unknown_completion_fails_closed() {
+    for (src, expected) in [
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            while (true) {}\n        }\n        sink(text);\n    }\n}\n",
+            killed_at(5),
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            forever: while (true) {}\n        }\n        sink(text);\n    }\n}\n",
+            killed_at(5),
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            try { sink(text); } finally { return; }\n        }\n        sink(text);\n    }\n}\n",
+            killed_at(5),
+        ),
+        (
+            "class Main {\n    String text; boolean flag;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            while (flag) {}\n        }\n        sink(text);\n    }\n}\n",
+            FlowConfidence::Exact,
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            sink(text);\n        }\n        sink(text);\n    }\n}\n",
+            FlowConfidence::Exact,
+        ),
+        (
+            "class Main {\n    String text; boolean flag;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            if (flag) return;\n        }\n        sink(text);\n    }\n}\n",
+            FlowConfidence::Exact,
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            do {} while (true);\n        }\n        sink(text);\n    }\n}\n",
+            ownership_uncertain(5),
+        ),
+    ] {
+        assert_legal_field_labels(src, 4, &[(8, expected)]);
+    }
+}
+
+fn assert_legal_field_labels(src: &str, def_line: usize, expected: &[(usize, FlowConfidence)]) {
+    let parsed = super::super::super::parsed(src, Language::Java);
+    let function = super::super::super::function(&parsed);
+    let defs = super::super::super::collect_defs(&parsed);
+    let def = defs
+        .iter()
+        .find(|def| def.line == def_line && def.path.to_string() == "text")
+        .unwrap_or_else(|| panic!("field definition missing on line {def_line}"));
+    let edges: Vec<_> = expected
+        .iter()
+        .map(|(use_line, _)| super::super::super::edge(&parsed, &function, def, *use_line))
+        .collect();
+    let (outcome, _) = super::super::super::run(&parsed, &defs, &edges);
+    for (edge, (_, label)) in edges.iter().zip(expected) {
+        super::super::super::assert_label(&outcome, edge, *label);
+    }
+}
+
+const fn killed_at(line: u32) -> FlowConfidence {
+    FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: line })
+}
+
+const fn ownership_uncertain(line: u32) -> FlowConfidence {
+    FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+        construct_line: line,
+    })
+}
+
 fn span_contains_source_exit(span: &SpanKind, src: &str) -> bool {
     let return_byte = src.rfind("return text.length").unwrap();
     matches!(span, SpanKind::Known(spans) if spans.iter().any(|span| span.contains(return_byte)))

@@ -20,6 +20,50 @@ pub(super) fn def_anchors_identifier(
                 && def.start_byte < identifier.start_byte()))
 }
 
+pub(super) fn classified_mask_applies_to_use(
+    parsed: &ParsedFile,
+    edge: &FlowEdge,
+    use_byte: usize,
+) -> bool {
+    if parsed.language != Language::Java {
+        return true;
+    }
+    let identifiers: Vec<_> = parsed
+        .identifiers_on_line(edge.to.line)
+        .into_iter()
+        .filter(|identifier| parsed.node_text(identifier) == edge.to.path.base)
+        .filter(|identifier| !is_instanceof_pattern_name(*identifier))
+        .collect();
+    if identifiers.is_empty()
+        || !identifiers
+            .iter()
+            .any(|identifier| identifier.start_byte() == use_byte)
+    {
+        return false;
+    }
+    identifiers
+        .iter()
+        .all(|identifier| !is_qualified_field_identifier(*identifier))
+}
+
+fn is_instanceof_pattern_name(identifier: Node<'_>) -> bool {
+    identifier.parent().is_some_and(|parent| {
+        parent.kind() == "instanceof_expression"
+            && parent
+                .child_by_field_name("name")
+                .is_some_and(|name| name.id() == identifier.id())
+    })
+}
+
+fn is_qualified_field_identifier(identifier: Node<'_>) -> bool {
+    identifier.parent().is_some_and(|parent| {
+        parent.kind() == "field_access"
+            && parent
+                .child_by_field_name("field")
+                .is_some_and(|field| field.id() == identifier.id())
+    })
+}
+
 pub(super) fn identifier_bounds_for_def(
     parsed: &ParsedFile,
     node: Node<'_>,
@@ -287,7 +331,7 @@ impl BindingFacts {
             .find(|ancestor| ancestor.kind() == "resource")?;
         let value = resource.child_by_field_name("value")?;
         (value.start_byte() <= use_byte && use_byte < value.end_byte())
-            .then(|| self.mask_on_route(edge, use_byte))
+            .then(|| self.mask_on_route(parsed, edge, use_byte))
             .flatten()
     }
 }
