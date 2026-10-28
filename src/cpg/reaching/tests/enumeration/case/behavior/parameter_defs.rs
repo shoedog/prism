@@ -9,6 +9,8 @@ pub(super) fn needs_synthetic_definition(case_id: &str) -> bool {
             | "ts-optional-parameter"
             | "ts-rest-parameter"
             | "ts-rest-pattern-owned-by-parameter"
+            | "java-formal-parameter-masks"
+            | "java-spread-parameter-masks"
     )
 }
 

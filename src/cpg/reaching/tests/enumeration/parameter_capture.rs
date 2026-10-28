@@ -70,14 +70,14 @@ const EXPECTED_PARAMETER_ROWS: &[ExpectedParameterRow] = &[
         Language::Java,
         "formal_parameters",
         &[],
-        "e0a-x-java-formal_parameters",
+        "java-formal-parameter-masks",
     ),
     parameter_row(
         Language::Java,
         Language::Java,
         "spread_parameter",
         &[],
-        "e0a-x-java-spread_parameter",
+        "java-spread-parameter-masks",
     ),
     parameter_row(
         Language::C,

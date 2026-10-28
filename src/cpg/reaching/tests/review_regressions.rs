@@ -430,7 +430,7 @@ fn python_comprehension_later_iterable_uses_earlier_target_binding() {
 }
 
 #[test]
-fn unclassified_language_binding_construct_uses_flat_path_fallback() {
+fn classified_java_block_declaration_ends_at_scope_exit() {
     let parsed = parsed(
         "class C {\n  void f() {\n    int x = source();\n    {\n      int x = clean();\n    }\n    sink(x);\n  }\n}\n",
         Language::Java,
@@ -440,11 +440,7 @@ fn unclassified_language_binding_construct_uses_flat_path_fallback() {
     let outer = definition_on_line(&defs, 3);
     let outer_use = edge(&parsed, &func, &outer, 7);
     let outcome = run(&parsed, &defs, std::slice::from_ref(&outer_use)).0;
-    assert_label(
-        &outcome,
-        &outer_use,
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
-    );
+    assert_label(&outcome, &outer_use, FlowConfidence::Exact);
 }
 
 #[test]

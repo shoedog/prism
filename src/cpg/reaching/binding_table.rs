@@ -285,7 +285,12 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
             })
         }
         Language::Go => combined3!(GO_ROWS, go::ROWS, go_wave::CURATED_ROWS, go_wave::ROWS),
-        Language::Java => combined!(JAVA_ROWS, java::JAVA_ROWS, java_wave::ROWS),
+        Language::Java => combined3!(
+            JAVA_ROWS,
+            java::JAVA_ROWS,
+            java_wave::CURATED_ROWS,
+            java_wave::ROWS
+        ),
         Language::C => combined!(C_ROWS, c::C_ROWS, c_wave::ROWS),
         Language::Cpp => combined!(CPP_ROWS, cpp::CPP_ROWS, cpp_wave::ROWS),
         Language::Rust => combined3!(

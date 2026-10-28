@@ -1,10 +1,12 @@
-use super::{provisional_rows, BindingRow, GuardSpanRow};
+use super::{
+    provisional_rows, BindingRow, DeclarationKind, GuardSpanRow, Role, RoleSet, Ruling, Visibility,
+};
 use crate::languages::Language;
 use tree_sitter::Node;
 
 pub(super) const DIGEST: &str = "19c46facc653381c337ff6cad75dd8b052524179a366c80825d6d0010520eef2";
 pub(super) const CENSUS_DIGEST: &str =
-    "a8dada12e0a02956df92434752c5fd5878f8835ab6d15d01ebffd83f41a0421c";
+    "4c20a0721a3376c50bc43e6b43cca087573c477b447dcada659c387141ece7c8";
 
 pub(super) static PATTERN_GUARD_SPANS: &[GuardSpanRow] = &[
     GuardSpanRow {
@@ -88,6 +90,93 @@ pub(super) fn statement_cannot_complete_normally(statement: Option<Node<'_>>) ->
         .is_some_and(|last| statement_cannot_complete_normally(Some(last)))
 }
 
+pub(super) static CURATED_ROWS: &[BindingRow] = &[
+    scope_row("block", "java-block-shadow", Ruling::Classified),
+    scope_row(
+        "catch_clause",
+        "java-catch-clause-scope",
+        Ruling::Classified,
+    ),
+    BindingRow {
+        language: Language::Java,
+        kind: "catch_formal_parameter",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["name"],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::Header,
+        ruling: Ruling::Classified,
+        regression: "java-catch-param-masks",
+    },
+    header_scope_row(
+        "enhanced_for_statement",
+        &["name"],
+        "java-enhanced-for-header",
+    ),
+    scope_row("for_statement", "java-for-init-scope", Ruling::Classified),
+    BindingRow {
+        language: Language::Java,
+        kind: "local_variable_declaration",
+        variant: None,
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["declarator"],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Classified,
+        regression: "java-local-without-initializer",
+    },
+    scope_row(
+        "switch_block",
+        "java-switch-block-scope",
+        Ruling::Classified,
+    ),
+    scope_row(
+        "switch_block_statement_group",
+        "java-switch-group-scope",
+        Ruling::Uncertain {
+            reason: "Java switch statement groups share the enclosing switch block scope",
+            revisit: "future:java-switch-scope",
+        },
+    ),
+    header_scope_row(
+        "try_with_resources_statement",
+        &["resources"],
+        "java-try-with-resources",
+    ),
+];
+
+const fn scope_row(kind: &'static str, regression: &'static str, ruling: Ruling) -> BindingRow {
+    BindingRow {
+        language: Language::Java,
+        kind,
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope]),
+        fields: &[],
+        declaration: None,
+        visibility: Visibility::WholeScope,
+        ruling,
+        regression,
+    }
+}
+
+const fn header_scope_row(
+    kind: &'static str,
+    fields: &'static [&'static str],
+    regression: &'static str,
+) -> BindingRow {
+    BindingRow {
+        language: Language::Java,
+        kind,
+        variant: None,
+        roles: RoleSet::of(&[Role::Scope, Role::Binding]),
+        fields,
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::Header,
+        ruling: Ruling::Classified,
+        regression,
+    }
+}
+
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Java,
     "E4a-1",
@@ -102,9 +191,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
             "e0b-java-annotation_type_element_declaration"
         ),
         ("assignment_expression", "e0b-java-assignment_expression"),
-        ("block", "e0b-java-block"),
-        ("catch_clause", "e0b-java-catch_clause"),
-        ("catch_formal_parameter", "e0b-java-catch_formal_parameter"),
         ("catch_type", "e0b-java-catch_type"),
         ("class_body", "e0b-java-class_body"),
         ("class_declaration", "e0b-java-class_declaration"),
@@ -119,12 +205,10 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
             "constructor_declaration",
             "e0b-java-constructor_declaration"
         ),
-        ("enhanced_for_statement", "e0b-java-enhanced_for_statement"),
         ("enum_body", "e0b-java-enum_body"),
         ("enum_body_declarations", "e0b-java-enum_body_declarations"),
         ("enum_declaration", "e0b-java-enum_declaration"),
         ("field_declaration", "e0b-java-field_declaration"),
-        ("for_statement", "e0b-java-for_statement"),
         ("formal_parameter", "e0b-java-formal_parameter"),
         ("import_declaration", "e0b-java-import_declaration"),
         ("inferred_parameters", "e0b-java-inferred_parameters"),
@@ -132,10 +216,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("interface_body", "e0b-java-interface_body"),
         ("interface_declaration", "e0b-java-interface_declaration"),
         ("lambda_expression", "e0b-java-lambda_expression"),
-        (
-            "local_variable_declaration",
-            "e0b-java-local_variable_declaration"
-        ),
         ("method_declaration", "e0b-java-method_declaration"),
         ("module_body", "e0b-java-module_body"),
         ("module_declaration", "e0b-java-module_declaration"),
@@ -149,15 +229,6 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
             "e0b-java-record_pattern_component"
         ),
         ("superclass", "e0b-java-superclass"),
-        ("switch_block", "e0b-java-switch_block"),
-        (
-            "switch_block_statement_group",
-            "e0b-java-switch_block_statement_group"
-        ),
-        (
-            "try_with_resources_statement",
-            "e0b-java-try_with_resources_statement"
-        ),
         ("type_parameter", "e0b-java-type_parameter"),
         ("type_parameters", "e0b-java-type_parameters"),
         ("type_pattern", "e0b-java-type_pattern"),
