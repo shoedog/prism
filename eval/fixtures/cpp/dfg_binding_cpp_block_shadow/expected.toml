@@ -5,11 +5,32 @@ status = "pass"
 probe = "dfg"
 
 [[expect.edges]]
-from = "main.cpp:4:x"
-to = "main.cpp:5:x"
+from = "main.cpp:5:x"
+to = "main.cpp:6:x"
 confidence = "exact"
 
 [[expect.edges]]
-from = "main.cpp:2:x"
-to = "main.cpp:7:x"
+from = "main.cpp:3:x"
+to = "main.cpp:8:x"
 confidence = "exact"
+
+[[expect.edges]]
+from = "main.cpp:5:x"
+to = "main.cpp:8:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 7
+
+[[expect.edges]]
+from = "main.cpp:11:m.done"
+to = "main.cpp:15:m.done"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 12
+
+[[expect.edges]]
+from = "main.cpp:11:m.done"
+to = "main.cpp:16:m.done"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 12

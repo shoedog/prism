@@ -120,6 +120,7 @@ pub(in crate::cpg::reaching) fn normalize_cpp_pseudo_defs(
                 let name = parsed.node_text(&descendant);
                 if names.is_none_or(|names| names.iter().any(|candidate| candidate == name))
                     && !is_mutating_target(descendant, root)
+                    && !is_declaration_introduction(parsed, descendant)
                 {
                     mark_identifier(parsed, defs, descendant, descendant.start_byte());
                 }
@@ -128,6 +129,16 @@ pub(in crate::cpg::reaching) fn normalize_cpp_pseudo_defs(
             let mut children = descendant.walk();
             pending.extend(descendant.named_children(&mut children));
         }
+    }
+
+    fn is_declaration_introduction(parsed: &ParsedFile, identifier: Node<'_>) -> bool {
+        let name = parsed.node_text(&identifier);
+        std::iter::successors(Some(identifier), |node| node.parent()).any(|node| {
+            super::super::binding_table::select_binding_row(parsed, node).is_some_and(|row| {
+                row.declaration.is_some()
+                    && row_owns_source(parsed, node, row.fields, name, identifier.start_byte())
+            })
+        })
     }
 
     if parsed.language != Language::Cpp {
@@ -247,12 +258,23 @@ pub(in crate::cpg::reaching) fn row_owns_def(
     fields: &[&str],
     def: &super::super::DefSite,
 ) -> bool {
+    super::row_introduced_identifiers(parsed, node, fields)
+        .into_iter()
+        .any(|identifier| identifier_owns_def(parsed, node, identifier, def))
+}
+
+pub(super) fn identifier_owns_def(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+    identifier: Node<'_>,
+    def: &super::super::DefSite,
+) -> bool {
     if parsed.language == Language::Cpp {
-        row_owns_source(parsed, node, fields, &def.path.base, def.start_byte)
+        parsed.node_text(&identifier) == def.path.base
+            && (identifier.start_byte() == def.start_byte
+                || declarator_producer_owns_identifier(parsed, node, identifier, def.start_byte))
     } else {
-        super::row_introduced_identifiers(parsed, node, fields)
-            .iter()
-            .any(|identifier| identifier.start_byte() == def.start_byte)
+        identifier.start_byte() == def.start_byte
     }
 }
 

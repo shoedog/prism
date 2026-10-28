@@ -2,6 +2,7 @@ use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
 mod fix1;
+mod fix2;
 
 pub(super) const CASES: &[super::case::Case] = &[
     super::case::Case {

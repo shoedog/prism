@@ -368,7 +368,12 @@ fn uncertain_construct_on_route(
                         edge.from.start_byte,
                     )
                 });
-            if construct_line <= edge.from.line && !cpp_own_definition {
+            let cpp_subsequent_definition =
+                cpp::subsequent_definition_in_uncertain_owner(parsed, binder, edge);
+            if construct_line <= edge.from.line
+                && !cpp_own_definition
+                && !cpp_subsequent_definition
+            {
                 return None;
             }
             let explicit_uncertain_binder = matches!(
@@ -436,6 +441,7 @@ fn uncertain_construct_on_route(
             let cpp_direct_block = cpp::direct_block_uncertainty(parsed, binder, use_byte);
             let on_route = cpp_direct_block
                 || cpp_own_definition
+                || cpp_subsequent_definition
                 || (parsed.language == crate::languages::Language::Cpp
                     && construct_line == edge.to.line)
                 || candidates.iter().any(|index| {

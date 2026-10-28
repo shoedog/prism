@@ -41,7 +41,8 @@ pub(super) fn add_named_synthetic_definitions(
         "py-import-try-except-handler-use" => &["status"],
         "cpp-structured-range-header-stops-at-loop-exit"
         | "cpp-nested-structured-range-does-not-leak"
-        | "cpp-for-chain-header-stops-at-loop-exit" => &["x"],
+        | "cpp-for-chain-header-stops-at-loop-exit"
+        | "cpp-uncertain-owner-stops-at-block-exit" => &["x"],
         _ => &[],
     };
     for (index, name) in names.iter().enumerate() {
