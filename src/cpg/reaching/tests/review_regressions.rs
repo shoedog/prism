@@ -1,5 +1,7 @@
 use super::*;
 
+mod task27i;
+
 fn definition_on_line(defs: &[DefSite], line: usize) -> DefSite {
     defs.iter()
         .find(|def| def.path == AccessPath::simple("x") && def.line == line)

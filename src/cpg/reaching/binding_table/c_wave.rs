@@ -45,15 +45,3 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
         ("variadic_parameter", "e0b-c-variadic_parameter"),
     ]
 );
-
-pub(super) static PRE_E4B_ROWS: &[BindingRow] = provisional_rows!(
-    Language::C,
-    "future:c-residual",
-    [
-        ("assignment_expression", "e0b-c-assignment_expression"),
-        ("case_statement", "e0b-c-case_statement"),
-        ("declaration", "e0b-c-declaration"),
-        ("for_statement", "e0b-c-for_statement"),
-        ("init_declarator", "e0b-c-init_declarator"),
-    ]
-);

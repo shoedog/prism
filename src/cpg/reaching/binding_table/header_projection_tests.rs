@@ -13,7 +13,7 @@ fn declaration(parsed: &ParsedFile) -> Node<'_> {
 }
 
 #[test]
-fn c_source_uses_e4b_rows_while_ambiguous_header_keeps_pre_e4b_projection() {
+fn c_source_and_header_use_the_same_e4b_rows() {
     let source = "void f(void) { int value; }";
     let c_source = ParsedFile::parse("test.c", source, Language::C).unwrap();
     let c_row = select_binding_row(&c_source, declaration(&c_source)).expect("C row");
@@ -22,12 +22,7 @@ fn c_source_uses_e4b_rows_while_ambiguous_header_keeps_pre_e4b_projection() {
 
     let header = ParsedFile::parse("test.h", source, Language::C).unwrap();
     let header_row = select_binding_row(&header, declaration(&header)).expect("header row");
-    assert_eq!(header_row.regression, "e0b-c-declaration");
-    assert_eq!(
-        header_row.ruling,
-        Ruling::Uncertain {
-            reason: "not yet curated",
-            revisit: "future:c-residual",
-        }
-    );
+    assert_eq!(header_row, c_row);
+    assert_eq!(header_row.regression, "c-local-without-initializer");
+    assert_eq!(header_row.ruling, Ruling::Classified);
 }
