@@ -179,7 +179,7 @@ const fn header_scope_row(
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Java,
-    "E4a-1",
+    "future:java-residual",
     [
         ("annotation_type_body", "e0b-java-annotation_type_body"),
         (

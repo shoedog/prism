@@ -126,7 +126,7 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::Cpp,
-    "E4c",
+    "future:cpp-residual",
     [
         (
             "abstract_array_declarator",

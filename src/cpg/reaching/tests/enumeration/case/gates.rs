@@ -135,7 +135,8 @@ fn capture_table_covers_every_boundary_kind() {
 #[test]
 fn no_provisional_row_whose_revisit_task_closed() {
     let closed: &[&str] = &[
-        "E1a-1", "E1a-2", "E1b", "E1c", "E1d", "E2a", "E2b-1", "E2b-2", "E3",
+        "E1a-1", "E1a-2", "E1b", "E1c", "E1d", "E2a", "E2b-1", "E2b-2", "E3", "E4a-1", "E4a-2",
+        "E4b", "E4c", "E4d-1", "E4d-2", "E4e-1", "E4e-2",
     ];
     for language in Language::all() {
         for row in rows(language) {

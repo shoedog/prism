@@ -7,7 +7,7 @@ pub(super) const CENSUS_DIGEST: &str =
 
 pub(super) static ROWS: &[BindingRow] = provisional_rows!(
     Language::C,
-    "E4b",
+    "future:c-residual",
     [
         (
             "abstract_array_declarator",
@@ -48,7 +48,7 @@ pub(super) static ROWS: &[BindingRow] = provisional_rows!(
 
 pub(super) static PRE_E4B_ROWS: &[BindingRow] = provisional_rows!(
     Language::C,
-    "E4b",
+    "future:c-residual",
     [
         ("assignment_expression", "e0b-c-assignment_expression"),
         ("case_statement", "e0b-c-case_statement"),

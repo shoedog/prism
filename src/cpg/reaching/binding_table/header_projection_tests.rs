@@ -27,7 +27,7 @@ fn c_source_uses_e4b_rows_while_ambiguous_header_keeps_pre_e4b_projection() {
         header_row.ruling,
         Ruling::Uncertain {
             reason: "not yet curated",
-            revisit: "E4b",
+            revisit: "future:c-residual",
         }
     );
 }
