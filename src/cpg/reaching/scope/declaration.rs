@@ -32,6 +32,9 @@ pub(super) fn declaration_scope(
             if let Some(owner) = cpp::condition_scope_owner(parsed.language, parent) {
                 return scope_span(owner);
             }
+            if parsed.language == Language::Lua {
+                return lua::lexical_scope(parsed.language, parent);
+            }
             return c::scope_span(parsed, parent);
         }
         current = parent.parent();

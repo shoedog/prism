@@ -2,6 +2,7 @@
 pub(super) mod cpp;
 mod identifiers;
 mod java;
+mod lua;
 mod route_effects;
 mod statement_defs;
 

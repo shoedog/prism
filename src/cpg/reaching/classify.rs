@@ -139,6 +139,13 @@ pub(super) fn classify_edge(
     if candidates.iter().any(|index| defs[*index].alias_derived) {
         return FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
     }
+    if let Some(construct_line) =
+        scope::ambiguous::masked_same_line_lookup(binding_facts, parsed, edge)
+    {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
+    }
     if use_byte.is_some_and(|byte| binding_facts.header_use(edge, byte) == Some(HeaderUse::Body)) {
         return FlowConfidence::NameOnly(FlowDoubt::SameLine);
     }
@@ -327,6 +334,9 @@ fn uncertain_construct_on_route(
                             | "shorthand_property_identifier_pattern"
                     )
                     | (crate::languages::Language::C, "declaration")
+            ) || matches!(
+                parsed.language,
+                crate::languages::Language::Bash | crate::languages::Language::Terraform
             ) || (parsed.language
                 == crate::languages::Language::Python
                 && matches!(binder.kind(), "tuple_pattern" | "list_pattern")

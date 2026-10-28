@@ -310,11 +310,11 @@ impl Language {
             Self::C | Self::Cpp => node.child_by_field_name("left"),
             Self::Rust => node.child_by_field_name("left"),
             Self::Lua => {
-                // assignment_statement -> variable_list (first child with identifiers)
+                // Preserve the whole list so multi-assignment emits one DefSite per name.
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
                     if child.kind() == "variable_list" {
-                        return child.child(0);
+                        return Some(child);
                     }
                 }
                 None

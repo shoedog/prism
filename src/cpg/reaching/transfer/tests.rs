@@ -6,6 +6,10 @@ fn fixture(source: &str) -> ParsedFile {
     ParsedFile::parse("test.go", source, Language::Go).unwrap()
 }
 
+fn lua_fixture(source: &str) -> ParsedFile {
+    ParsedFile::parse("test.lua", source, Language::Lua).unwrap()
+}
+
 fn real_defs(parsed: &ParsedFile, function: &Node<'_>) -> Vec<DefSite> {
     let (start, end) = parsed.node_line_range(function);
     parsed
@@ -101,6 +105,28 @@ fn go_short_range_does_not_synthesize_a_definition() {
     );
     assert!(applied.synthetic_nodes.is_empty());
     assert_eq!(defs.len(), before);
+}
+
+#[test]
+fn lua_assignments_reuse_existing_defs_and_locals_are_not_reuse_binders() {
+    let parsed = lua_fixture(
+        "function f(c)\n  x = source()\n  local y = source()\n  x = clean()\n  sink(x)\nend\n",
+    );
+    let function = parsed.all_functions()[0];
+    let defs = real_defs(&parsed, &function);
+    let binders = discover(&parsed, &function, &defs);
+
+    assert_eq!(
+        binders
+            .iter()
+            .map(|binder| (
+                binder.node_line,
+                binder.path.base.as_str(),
+                binder.missing_def
+            ))
+            .collect::<Vec<_>>(),
+        vec![(2, "x", false), (4, "x", false)]
+    );
 }
 
 #[test]

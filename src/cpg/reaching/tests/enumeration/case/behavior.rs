@@ -250,7 +250,8 @@ pub(super) fn assert_ruling(
                     && matches!(
                         case.kind,
                         "block" | "unsafe_block" | "const_block" | "try_block" | "match_arm"
-                    )) =>
+                    ))
+                || (case.language == Language::Lua && case.kind == "block") =>
         {
             assert!(
                 case.expect

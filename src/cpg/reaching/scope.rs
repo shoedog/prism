@@ -1,8 +1,10 @@
 //! Lexical binding ownership for reaching definitions.
+pub(super) mod ambiguous;
 mod c;
 mod cpp;
 mod declaration;
 mod java;
+mod lua;
 mod masks;
 pub(super) mod rust_scope;
 mod span;
@@ -221,7 +223,7 @@ impl BindingFacts {
                 .flatten();
             let declaration_index = if let Some(reused) = reused {
                 reused
-            } else if kind == DeclarationKind::Reuse {
+            } else if kind == DeclarationKind::Reuse && parsed.language != Language::Lua {
                 continue;
             } else {
                 let declaration_index = declarations.len();
@@ -460,13 +462,19 @@ fn declaration_seed(
                 ));
             }
             if row.roles.has(Role::Scope) {
+                let default_scope = lua::header_scope(parsed.language, node);
                 if let Some(bounds) =
-                    java::header_identifier_bounds_for_def(parsed, node, row, def, scope_span(node))
+                    java::header_identifier_bounds_for_def(parsed, node, row, def, default_scope)
                 {
                     return Some((
                         bounds.scope,
                         row.declaration.unwrap_or(DeclarationKind::Other),
-                        bounds.visible_from,
+                        lua::header_visible_from(
+                            parsed.language,
+                            node,
+                            bounds.visible_from,
+                            bounds.scope,
+                        ),
                         bounds.declaration_line,
                     ));
                 }
@@ -478,9 +486,7 @@ fn declaration_seed(
         {
             None
         } else {
-            selected_row
-                .and_then(|row| row.declaration)
-                .or(rule.declaration)
+            lua::selected_declaration(parsed.language, selected_row, rule)
         };
         if let Some(kind) = declaration {
             if rust_scope::pattern_excludes_def(parsed, node, &def.path.base) {

@@ -1,0 +1,49 @@
+[case]
+language = "lua"
+capability = "dfg_binding_loop_initializer_scope"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.lua:2:x"
+to = "main.lua:3:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.lua:2:x"
+to = "main.lua:4:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 3
+
+[[expect.edges]]
+from = "main.lua:2:x"
+to = "main.lua:6:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.lua:10:x"
+to = "main.lua:12:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.lua:10:x"
+to = "main.lua:13:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.lua:10:x"
+to = "main.lua:14:x"
+confidence = "exact"
+
+[[expect.edges]]
+from = "main.lua:10:x"
+to = "main.lua:16:x"
+confidence = "nameonly"
+doubt = "killed"
+kill_line = 11
+
+[[expect.edges]]
+from = "main.lua:10:x"
+to = "main.lua:18:x"
+confidence = "exact"

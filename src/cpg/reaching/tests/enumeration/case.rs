@@ -98,7 +98,7 @@ pub(super) fn check_case(case: &Case) {
     let provisional = matches!(
         selected_ruling,
         Some(Ruling::Uncertain {
-            reason: "not yet curated",
+            reason: "not yet curated" | "census-only language",
             ..
         })
     );

@@ -26,7 +26,7 @@ pub(super) fn collect_classified_masks(
             && row.ruling == Ruling::Classified
     }) {
         let default_scope = if row.roles.has(Role::Scope) {
-            scope_span(node)
+            lua::header_scope(parsed.language, node)
         } else {
             declaration_scope(
                 parsed,
@@ -56,7 +56,12 @@ pub(super) fn collect_classified_masks(
                     classified_mask: true,
                 },
                 name: parsed.node_text(&identifier).to_string(),
-                visible_from: bounds.visible_from,
+                visible_from: lua::header_visible_from(
+                    parsed.language,
+                    node,
+                    bounds.visible_from,
+                    bounds.scope,
+                ),
                 additional_visibility: Vec::new(),
             });
         }

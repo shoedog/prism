@@ -140,6 +140,9 @@ pub(in crate::cpg::reaching) fn row_introduced_identifiers<'a>(
             }
             identifiers.extend(introduced_identifiers(parsed, target));
         }
+        if parsed.language == Language::Lua && *field == "name" {
+            identifiers.extend(super::lua::variable_names(parsed, node));
+        }
     }
     if parsed.language == Language::Python
         && fields.is_empty()
