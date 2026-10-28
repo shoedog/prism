@@ -215,7 +215,8 @@ rungs (R1–R7): qualified `T::m`/`mod::T::m` and `Self::`/`self.`/receiver-var
 calls bind via a per-`(owner, name)` method index (Rust trait impls are dual-keyed
 under the trait, demoted when >1 impl); authoritative Rust `Self::` calls reach
 the dedicated Self allow-list. The caller must be a direct method of a module-level
-impl, with no nested named item between the method and the call. Closures, async
+impl, whose raw self type resolves to the selected in-repo type scope (never a
+trait-only key for an alias or external self type), with no nested named item between the method and the call. Closures, async
 blocks and inline const blocks retain Self. The singleton target must always be inherent, with an unambiguous syntax identity
 checked before the same-impl shortcut. Otherwise it must have identical whitespace-normalized
 self-type syntax (including generic arguments). If either impl has generic
@@ -234,6 +235,13 @@ be the defining module or a descendant (including out-of-line modules). Other
 pub(super)/pub(in ...) cases conservatively refuse. A same-named variant on any
 in-repo enum with the self type's name vetoes the edge; variants on differently
 named enums do not. Enum and variant names canonicalize raw identifier spelling.
+Non-ASCII callees, self-type names, variants of same-named enums, or any in-repo
+enum declaration name conservatively refuse because Rust identifier equality uses
+NFC; without normalization an ASCII owner key can match a non-ASCII enum name.
+FunctionIds retain source spelling.
+Known limitation (#521 fold 4): NFC-equivalent local type names can shadow glob
+imports differently in Rust and the scope graph, still yielding a wrong Exact.
+The compiled nominal-type witness is parked for an owner scope decision.
 Trait-impl callers may still call inherent targets.
 Ambiguous impl metadata and macro-token calls without a parsed call expression
 also refuse.
@@ -309,7 +317,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v127) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v128) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

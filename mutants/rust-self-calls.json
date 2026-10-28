@@ -101,13 +101,13 @@
     ],
     "RS-14-cpg-generation": [
       "src/cpg_cache.rs",
-      "const CACHE_VERSION: u32 = 127;",
+      "const CACHE_VERSION: u32 = 128;",
       "const CACHE_VERSION: u32 = 124;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "RS-15-nav-generation": [
       "src/navigation/call_edge_cache.rs",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 72;",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 73;",
       "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
       "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
     ],
@@ -247,6 +247,32 @@
       [
         "rust_self_closed_rule_test::raw_variant_name_refuses",
         "rust_self_closed_rule_test::raw_enum_name_veto_is_conservative"
+      ]
+    ],
+    "RS-38-crate-root-check": [
+      "src/resolution_rust_self.rs",
+      "return scope_ancestors(graph, caller).last()\n                == scope_ancestors(graph, defining).last();",
+      "return true;",
+      "rust_self_closed_rule_test::p16_ws_pubcrate"
+    ],
+    "RS-39-nonascii-enum-guard": [
+      "src/resolution_rust_self.rs",
+      "if !owner.is_ascii()\n                    || !name.is_ascii()\n                    || self\n                        .rust_self_proofs\n                        .enum_variants\n                        .keys()\n                        .any(|enum_name| !enum_name.is_ascii())\n                    || self\n                        .rust_self_proofs\n                        .enum_variants\n                        .get(owner.trim_start_matches(\"r#\"))\n                        .is_some_and(|variants| variants.iter().any(|v| !v.is_ascii()))",
+      "if false",
+      [
+        "rust_self_closed_rule_test::unicode_variant",
+        "rust_self_closed_rule_test::unicode_kelvin",
+        "rust_self_closed_rule_test::nonascii_enum_declaration_refuses",
+        "rust_self_closed_rule_test::unicode_kelvin_reverse"
+      ]
+    ],
+    "RS-40-self-type-scope": [
+      "src/resolution_rust_self.rs",
+      "if resolve_type_path_to_type_scope(graph, module, &caller.raw_self_type)\n                != Some(TypeKey::InRepo(scope))",
+      "if false",
+      [
+        "rust_self_closed_rule_test::p13_bare_dyn_2018",
+        "rust_self_closed_rule_test::p14_io_error_2018"
       ]
     ]
   },

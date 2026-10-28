@@ -131,9 +131,35 @@ impl CallGraph {
                 return None;
             }
             let scope = *scopes.first()?;
+            // Trait impl methods are also keyed under the trait. That scope is
+            // not Self unless the declared self type independently resolves to it.
+            let module = impl_module(graph, &caller.file, caller.span.0)?;
+            if resolve_type_path_to_type_scope(graph, module, &caller.raw_self_type)
+                != Some(TypeKey::InRepo(scope))
+            {
+                return None;
+            }
             let ids = self.methods_by_scope.get(&(scope, name.to_string()))?;
             if ids.len() == 1 {
                 let target = self.rust_self_proofs.methods.get(&ids[0])?;
+                // Rust uses NFC identifier equivalence. Without normalization,
+                // refuse non-ASCII lookup/declaration spellings, including an
+                // ASCII call whose variant is spelled with the Kelvin sign.
+                if !owner.is_ascii()
+                    || !name.is_ascii()
+                    || self
+                        .rust_self_proofs
+                        .enum_variants
+                        .keys()
+                        .any(|enum_name| !enum_name.is_ascii())
+                    || self
+                        .rust_self_proofs
+                        .enum_variants
+                        .get(owner.trim_start_matches("r#"))
+                        .is_some_and(|variants| variants.iter().any(|v| !v.is_ascii()))
+                {
+                    return None;
+                }
                 if self
                     .rust_self_proofs
                     .enum_variants
@@ -175,6 +201,7 @@ struct ImplProof {
     visibility: Vec<String>,
     module: Vec<usize>,
     plain_self_path: bool,
+    raw_self_type: String,
     self_type: Vec<String>,
     generics: Vec<String>,
     where_clause: Vec<String>,
@@ -305,6 +332,7 @@ impl ProofIndex {
                         .unwrap_or_default(),
                     module,
                     plain_self_path: plain_nominal_path(ty),
+                    raw_self_type: parsed.node_text(&ty).to_string(),
                     self_type: normalize(ty),
                     generics: item
                         .child_by_field_name("type_parameters")

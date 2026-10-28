@@ -270,3 +270,129 @@ impl T { fn V(_: u8) {} fn caller() { Self::V(1); } }",
     )]);
     check(&cg, "caller", "Self::V", None);
 }
+
+#[test]
+fn unicode_variant() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        include_str!("../fixtures/rust-self-closed/unicode_variant/src/lib.rs"),
+    )]);
+    check(&cg, "caller", "Self::É", None);
+}
+
+#[test]
+fn unicode_reverse() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        include_str!("../fixtures/rust-self-closed/unicode_reverse/src/lib.rs"),
+    )]);
+    check(&cg, "caller", "Self::É", None);
+}
+
+#[test]
+fn unicode_raw() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        include_str!("../fixtures/rust-self-closed/unicode_raw/src/lib.rs"),
+    )]);
+    check(&cg, "caller", "Self::r#É", None);
+}
+
+#[test]
+fn unicode_kelvin() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        include_str!("../fixtures/rust-self-closed/unicode_kelvin/src/lib.rs"),
+    )]);
+    check(&cg, "caller", "Self::K", None);
+}
+
+#[test]
+fn unicode_same() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        include_str!("../fixtures/rust-self-closed/unicode_same/src/lib.rs"),
+    )]);
+    check(&cg, "caller", "Self::É", None);
+}
+
+#[test]
+fn p13_bare_dyn_2018() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        include_str!("../fixtures/rust-self-closed/p13_bare_dyn_2018/src/lib.rs"),
+    )]);
+    check(&cg, "a", "Self::b", None);
+}
+
+#[test]
+fn p14_io_error_2018() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        include_str!("../fixtures/rust-self-closed/p14_io_error_2018/src/lib.rs"),
+    )]);
+    check(&cg, "code", "Self::raw_os_error", None);
+}
+
+#[test]
+fn p13f_dyn_same_impl_2021() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        include_str!("../fixtures/rust-self-closed/p13f_dyn_same_impl_2021/src/lib.rs"),
+    )]);
+    check(&cg, "caller", "Self::b", Some(("src/lib.rs", 2, 2, "b")));
+}
+
+#[test]
+fn p16_ws_pubcrate() {
+    let cg = graph(&[
+        (
+            "a/src/lib.rs",
+            include_str!("../fixtures/rust-self-closed/p16_ws_pubcrate/a/src/lib.rs"),
+        ),
+        (
+            "b/src/lib.rs",
+            include_str!("../fixtures/rust-self-closed/p16_ws_pubcrate/b/src/lib.rs"),
+        ),
+    ]);
+    check(&cg, "a", "Self::b", None);
+}
+
+#[test]
+fn nonascii_enum_owner_refuses() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        "enum É { V } impl É { fn b() {} fn caller() { Self::b(); } }",
+    )]);
+    check(&cg, "caller", "Self::b", None);
+}
+#[test]
+fn nonascii_other_variant_allows() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        "enum Other { K } struct T; impl T { fn K() {} fn caller() { Self::K(); } }",
+    )]);
+    check(&cg, "caller", "Self::K", Some(("src/lib.rs", 1, 1, "K")));
+}
+
+#[test]
+fn nonascii_enum_declaration_refuses() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        "mod other { pub enum K { V } }
+struct K; impl K { fn b() {} fn caller() { Self::b(); } }",
+    )]);
+    check(&cg, "caller", "Self::b", None);
+}
+#[test]
+fn unicode_kelvin_reverse() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        "pub enum E { K(u8) }
+impl E {
+ pub fn K(_: u8) -> bool { true }
+ pub fn caller() -> E { Self::K(1) }
+}",
+    )]);
+    check(&cg, "caller", "Self::K", None);
+}
