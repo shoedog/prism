@@ -8,6 +8,17 @@ use std::sync::{
     OnceLock,
 };
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+/// A bounded token, including for empty, non-Unicode or operator-supplied free text.
+pub(super) fn malloc_space_efficient() -> &'static str {
+    match std::env::var_os("MallocSpaceEfficient").as_deref() {
+        None => "unset",
+        Some(value) if value == "1" => "1",
+        Some(value) if value == "0" => "0",
+        Some(_) => "other",
+    }
+}
+
 static ORIGIN: OnceLock<Stamp> = OnceLock::new();
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 #[derive(Clone, Copy)]
