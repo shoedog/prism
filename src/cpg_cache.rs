@@ -269,7 +269,10 @@ mod stream;
 /// - v125: Self allow-list retains impl headers and named-item boundaries (#521).
 /// - v126: Self headers preserve token and lexical-module identity (#521).
 /// - v127: Self targets require inherent visibility, variant and duplicate proofs (#521).
-const CACHE_VERSION: u32 = 128;
+/// - v128: Self syntax evidence retains the declared self-type path (#521).
+/// - v129: Self proofs persist repository-wide non-ASCII identifier refusal (#521).
+/// - v130: Self proofs persist identifier file membership; crate scope, new edges only.
+const CACHE_VERSION: u32 = 130;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -820,7 +823,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 128);
+        assert_eq!(super::CACHE_VERSION, 130);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

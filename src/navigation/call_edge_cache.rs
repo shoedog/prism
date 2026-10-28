@@ -114,7 +114,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v70: Self allow-list refusals and persisted impl syntax (CPG v125).
 // v71: token and lexical-module header applicability (CPG v126).
 // v72: accessible inherent Self targets, enum variants and duplicate-first proof (CPG v127).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 73;
+// v73: declared self-type scope proof (CPG v128).
+// v74: repository-wide non-ASCII Rust identifier refusal (CPG v129).
+// v75: crate-scoped identifier refusal on new Self edges only (CPG v130).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 75;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 pub(crate) const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -754,7 +757,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 73);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 75);
     }
 
     #[test]

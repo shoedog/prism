@@ -89,8 +89,8 @@
     ],
     "RS-12-orphan-scope-authority": [
       "src/resolution_rust_self.rs",
-      "        rust_authoritative_scope(graph, site)?;",
-      "        let _ = graph;",
+      "let (file, from) = rust_authoritative_scope(graph, site)?;\n        // Replay main's authoritative branch",
+      "let file = graph.file_paths[&site.caller.file]; let from = graph.scopes.keys().next().copied()?;\n        // Replay main's authoritative branch",
       "rust_self_calls_test::orphan_preserves_legacy"
     ],
     "RS-13-noncall-path-extraction": [
@@ -101,13 +101,13 @@
     ],
     "RS-14-cpg-generation": [
       "src/cpg_cache.rs",
-      "const CACHE_VERSION: u32 = 128;",
+      "const CACHE_VERSION: u32 = 130;",
       "const CACHE_VERSION: u32 = 124;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "RS-15-nav-generation": [
       "src/navigation/call_edge_cache.rs",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 73;",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 75;",
       "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
       "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
     ],
@@ -253,12 +253,15 @@
       "src/resolution_rust_self.rs",
       "return scope_ancestors(graph, caller).last()\n                == scope_ancestors(graph, defining).last();",
       "return true;",
-      "rust_self_closed_rule_test::p16_ws_pubcrate"
+      [
+        "rust_self_closed_rule_test::p16_ws_pubcrate",
+        "rust_self_closed_rule_test::workspace_dependency_visibility_controls"
+      ]
     ],
     "RS-39-nonascii-enum-guard": [
       "src/resolution_rust_self.rs",
-      "if !owner.is_ascii()\n                    || !name.is_ascii()\n                    || self\n                        .rust_self_proofs\n                        .enum_variants\n                        .keys()\n                        .any(|enum_name| !enum_name.is_ascii())\n                    || self\n                        .rust_self_proofs\n                        .enum_variants\n                        .get(owner.trim_start_matches(\"r#\"))\n                        .is_some_and(|variants| variants.iter().any(|v| !v.is_ascii()))",
-      "if false",
+      "if self.rust_self_proofs.identifier_refuses(graph, from) {",
+      "if false {",
       [
         "rust_self_closed_rule_test::unicode_variant",
         "rust_self_closed_rule_test::unicode_kelvin",
@@ -274,6 +277,36 @@
         "rust_self_closed_rule_test::p13_bare_dyn_2018",
         "rust_self_closed_rule_test::p14_io_error_2018"
       ]
+    ],
+    "RS-41-identifier-class-guard": [
+      "src/resolution_rust_self.rs",
+      "if self.rust_self_proofs.identifier_refuses(graph, from) {",
+      "if false {",
+      [
+        "rust_self_closed_rule_test::identifier_nominal_nfc_refuses",
+        "rust_self_closed_rule_test::identifier_reference_only_refuses",
+        "rust_self_closed_rule_test::identifier_other_file_refuses",
+        "rust_self_closed_rule_test::identifier_macro_tokens_refuse",
+        "rust_self_closed_rule_test::identifier_token_kinds_refuse"
+      ]
+    ],
+    "RS-42-crate-scope-widened": [
+      "src/resolution_rust_self.rs",
+      "refused.contains(&root)",
+      "!self.non_ascii_files.is_empty()",
+      "rust_self_closed_rule_test::identifier_unrelated_workspace_exact"
+    ],
+    "RS-43-dependency-edge-ignored": [
+      "src/resolution_rust_self.rs",
+      "if deps.iter().any(|dep| refused.contains(dep)) {",
+      "if false {",
+      "rust_self_closed_rule_test::identifier_workspace_dependency_refuses"
+    ],
+    "RS-44-main-parity-bypass": [
+      "src/resolution_rust_self.rs",
+      "let (file, from) = rust_authoritative_scope(graph, site)?;\n        // Replay main's authoritative branch",
+      "let Some((file, from)) = rust_authoritative_scope(graph, site) else { return Some(ResolutionOutcome::dropped(DropReason::UnknownName)); };\n        // Replay main's authoritative branch",
+      "rust_self_closed_rule_test::identifier_main_legacy_parity"
     ]
   },
   "lib_test_prefixes": [
@@ -283,6 +316,9 @@
   "intent_revisions": {
     "RS-03-trait-default-open": "The former trait-default-caller guard is subsumed by requiring direct module-level impl syntax. This mutant now removes the global default-name refusal required to close missing inherited candidates; the independent same-impl witness avoids masking by cross-trait or applicability guards.",
     "RS-04-nested-item-capture": "Replace indexed duplicate-call inference with syntax-span membership that refuses every nested named item, including const/static without function identities.",
-    "RS-21-same-impl-admitted": "Inherent-only makes skipping the shortcut equivalent to the later same-header proof. Refusing the same-impl branch still independently checks its positive admission; trait targets are now always refused."
+    "RS-21-same-impl-admitted": "Inherent-only makes skipping the shortcut equivalent to the later same-header proof. Refusing the same-impl branch still independently checks its positive admission; trait targets are now always refused.",
+    "RS-39-nonascii-enum-guard": "Fold6 keeps the token class guard on new edges in the caller crate and reachable in-repo crates.",
+    "RS-38-crate-root-check": "Retain the original file-only p16 refusal and add real loader/Cargo dependency inputs, with public and missing-dependency controls. Without those inputs p16 refuses before visibility and cannot kill removal of the crate-root check.",
+    "RS-12-orphan-scope-authority": "Retain main legacy outcomes for sites outside modeled scopes; injecting a root falsely activates the new proof."
   }
 }

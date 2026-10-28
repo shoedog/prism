@@ -96,7 +96,16 @@ impl CallGraph {
             return None;
         }
         let graph = self.scope_graph.as_ref()?;
-        rust_authoritative_scope(graph, site)?;
+        let (file, from) = rust_authoritative_scope(graph, site)?;
+        // Replay main's authoritative branch before admitting a new edge. An
+        // unmodeled site falls through above to main's unchanged legacy lookup.
+        let main = self.rust_authoritative_nonself(graph, site, file, from);
+        if main.drop != Some(DropReason::UnknownName) {
+            return Some(main);
+        }
+        if self.rust_self_proofs.identifier_refuses(graph, from) {
+            return Some(ResolutionOutcome::dropped(DropReason::UnknownName));
+        }
         let resolve = || {
             let owner = self.method_owners.get(&site.caller)?;
             let _facts = self.method_facts.get(&site.caller)?;
@@ -142,24 +151,6 @@ impl CallGraph {
             let ids = self.methods_by_scope.get(&(scope, name.to_string()))?;
             if ids.len() == 1 {
                 let target = self.rust_self_proofs.methods.get(&ids[0])?;
-                // Rust uses NFC identifier equivalence. Without normalization,
-                // refuse non-ASCII lookup/declaration spellings, including an
-                // ASCII call whose variant is spelled with the Kelvin sign.
-                if !owner.is_ascii()
-                    || !name.is_ascii()
-                    || self
-                        .rust_self_proofs
-                        .enum_variants
-                        .keys()
-                        .any(|enum_name| !enum_name.is_ascii())
-                    || self
-                        .rust_self_proofs
-                        .enum_variants
-                        .get(owner.trim_start_matches("r#"))
-                        .is_some_and(|variants| variants.iter().any(|v| !v.is_ascii()))
-                {
-                    return None;
-                }
                 if self
                     .rust_self_proofs
                     .enum_variants
@@ -187,6 +178,9 @@ impl CallGraph {
 /// Persisted syntax evidence, replaced from the full parsed snapshot on refresh.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ProofIndex {
+    non_ascii_files: BTreeSet<String>,
+    #[serde(skip)]
+    identifier_crates: std::sync::OnceLock<BTreeSet<ScopeId>>,
     methods: BTreeMap<FunctionId, ImplProof>,
     default_names: BTreeSet<String>,
     enum_variants: BTreeMap<String, BTreeSet<String>>,
@@ -270,6 +264,9 @@ impl ProofIndex {
         for (file, parsed) in files {
             if parsed.language != crate::languages::Language::Rust {
                 continue;
+            }
+            if has_non_ascii_identifier(parsed) {
+                result.non_ascii_files.insert(file.clone());
             }
             collect_enum_variants(parsed, parsed.tree.root_node(), &mut result.enum_variants);
             for method in parsed.all_functions() {
@@ -441,6 +438,181 @@ fn scope_ancestors(graph: &ScopeGraph, scope: ScopeId) -> Vec<ScopeId> {
         result.push(parent);
     }
     result
+}
+
+impl ProofIndex {
+    fn identifier_refuses(&self, graph: &ScopeGraph, from: ScopeId) -> bool {
+        if self.non_ascii_files.is_empty() {
+            return false;
+        }
+        let refused = self
+            .identifier_crates
+            .get_or_init(|| self.identifier_crates(graph));
+        crate_root(graph, from).is_none_or(|root| refused.contains(&root))
+    }
+
+    /// Use scope extents, never directory containment, for crate membership.
+    /// An unassigned Unicode file may belong to any crate. Dependencies and
+    /// import targets are followed transitively, including cfg alternatives.
+    fn identifier_crates(&self, graph: &ScopeGraph) -> BTreeSet<ScopeId> {
+        use crate::name_resolution::consumer::{
+            graph_module_dep_edge, GraphImport, ResolvedImport,
+        };
+        use crate::name_resolution::types::BindTarget;
+        let roots: BTreeSet<_> = graph
+            .scopes
+            .values()
+            .filter(|s| s.kind == ScopeKind::Root)
+            .map(|s| s.id)
+            .collect();
+        let mut membership: BTreeMap<FileId, BTreeSet<ScopeId>> = BTreeMap::new();
+        for scope in graph.scopes.values() {
+            if let Some(root) = crate_root(graph, scope.id) {
+                for extent in &scope.extents {
+                    if extent.range.hi.byte > extent.range.lo.byte {
+                        membership.entry(extent.file).or_default().insert(root);
+                    }
+                }
+            }
+        }
+        let file_roots = |file: &str| {
+            graph
+                .file_paths
+                .get(file)
+                .and_then(|id| membership.get(id))
+                .filter(|set| !set.is_empty())
+                .cloned()
+                .unwrap_or_else(|| roots.clone())
+        };
+        let mut refused: BTreeSet<_> = self
+            .non_ascii_files
+            .iter()
+            .flat_map(|file| file_roots(file))
+            .collect();
+        let mut dependencies: BTreeMap<ScopeId, BTreeSet<ScopeId>> = graph
+            .crate_deps_by_root
+            .iter()
+            .map(|(root, deps)| (*root, deps.values().copied().collect()))
+            .collect();
+        // A pending use with an ambiguous in-repo crate name must not disappear
+        // simply because the normal import consumer cannot pick one target.
+        let mut names: BTreeMap<String, BTreeSet<ScopeId>> = BTreeMap::new();
+        for root in &roots {
+            for extent in &graph.scopes[root].extents {
+                for (path, _) in graph
+                    .file_paths
+                    .iter()
+                    .filter(|(_, id)| **id == extent.file)
+                {
+                    if let Some(dir) = path.strip_suffix("/src/lib.rs") {
+                        let name = dir.rsplit('/').next().unwrap_or(dir).replace('-', "_");
+                        names.entry(name).or_default().insert(*root);
+                    }
+                }
+            }
+        }
+        let imports = graph
+            .bindings
+            .iter()
+            .filter(|b| {
+                matches!(
+                    b.target,
+                    BindTarget::Pending(..) | BindTarget::Resolved(Target::Scope(..))
+                )
+            })
+            .map(|b| (b.scope, GraphImport::Named(b)))
+            .chain(graph.edges.iter().map(|e| (e.from, GraphImport::Glob(e))));
+        for (from, import) in imports {
+            let consumers = crate_root(graph, from)
+                .map(|r| BTreeSet::from([r]))
+                .unwrap_or_else(|| roots.clone());
+            let targets = match graph_module_dep_edge(graph, import) {
+                ResolvedImport::File(file) => file_roots(&file),
+                ResolvedImport::External => BTreeSet::new(),
+                ResolvedImport::Unresolved => {
+                    let target = match import {
+                        GraphImport::Named(b) => &b.target,
+                        GraphImport::Glob(e) => &e.to,
+                    };
+                    match target {
+                        BindTarget::Pending(path, anchor)
+                            if matches!(
+                                anchor.kind,
+                                crate::name_resolution::types::AnchorKind::Bare
+                                    | crate::name_resolution::types::AnchorKind::UsePath
+                                    | crate::name_resolution::types::AnchorKind::LeadingColon
+                            ) =>
+                        {
+                            path.0
+                                .first()
+                                .and_then(|n| names.get(&n.replace('-', "_")))
+                                .cloned()
+                                .unwrap_or_default()
+                        }
+                        _ => BTreeSet::new(),
+                    }
+                }
+            };
+            for consumer in consumers {
+                dependencies.entry(consumer).or_default().extend(&targets);
+            }
+        }
+        loop {
+            let prior = refused.len();
+            for (root, deps) in &dependencies {
+                if deps.iter().any(|dep| refused.contains(dep)) {
+                    refused.insert(*root);
+                }
+            }
+            if refused.len() == prior {
+                break;
+            }
+        }
+        refused
+    }
+}
+
+fn crate_root(graph: &ScopeGraph, scope: ScopeId) -> Option<ScopeId> {
+    scope_ancestors(graph, scope)
+        .into_iter()
+        .find(|id| graph.scope(*id).is_some_and(|s| s.kind == ScopeKind::Root))
+}
+
+/// Inspect identifier tokens, including macro token trees. Scoped identifier
+/// containers are traversed rather than tested as text: they can contain type
+/// arguments with literals, which are not identifiers. Comments (including doc
+/// comments) and literals cannot affect this census.
+fn has_non_ascii_identifier(parsed: &crate::ast::ParsedFile) -> bool {
+    let mut cursor = parsed.tree.walk();
+    loop {
+        let node = cursor.node();
+        if matches!(
+            node.kind(),
+            "identifier" | "type_identifier" | "field_identifier" | "shorthand_field_identifier"
+        ) && !parsed.node_text(&node).trim_start_matches("r#").is_ascii()
+        {
+            return true;
+        }
+        if !matches!(
+            node.kind(),
+            "line_comment"
+                | "block_comment"
+                | "string_literal"
+                | "raw_string_literal"
+                | "char_literal"
+        ) && cursor.goto_first_child()
+        {
+            continue;
+        }
+        loop {
+            if cursor.goto_next_sibling() {
+                break;
+            }
+            if !cursor.goto_parent() {
+                return false;
+            }
+        }
+    }
 }
 
 fn collect_enum_variants(

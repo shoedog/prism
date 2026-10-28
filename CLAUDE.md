@@ -235,13 +235,11 @@ be the defining module or a descendant (including out-of-line modules). Other
 pub(super)/pub(in ...) cases conservatively refuse. A same-named variant on any
 in-repo enum with the self type's name vetoes the edge; variants on differently
 named enums do not. Enum and variant names canonicalize raw identifier spelling.
-Non-ASCII callees, self-type names, variants of same-named enums, or any in-repo
-enum declaration name conservatively refuse because Rust identifier equality uses
-NFC; without normalization an ASCII owner key can match a non-ASCII enum name.
-FunctionIds retain source spelling.
-Known limitation (#521 fold 4): NFC-equivalent local type names can shadow glob
-imports differently in Rust and the scope graph, still yielding a wrong Exact.
-The compiled nominal-type witness is parked for an owner scope decision.
+Only new Self edges (main gives UnknownName) refuse when the caller's modeled
+crate or a reachable in-repo dependency contains a non-ASCII Rust identifier token
+(references and macro tokens count; literals/comments do not); unassigned files
+count toward every possible crate. Main's outcomes and source-spelled FunctionIds
+are preserved; main's identifier byte comparison belongs to #528.
 Trait-impl callers may still call inherent targets.
 Ambiguous impl metadata and macro-token calls without a parsed call expression
 also refuse.

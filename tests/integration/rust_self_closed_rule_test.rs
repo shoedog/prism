@@ -367,12 +367,12 @@ fn nonascii_enum_owner_refuses() {
     check(&cg, "caller", "Self::b", None);
 }
 #[test]
-fn nonascii_other_variant_allows() {
+fn nonascii_other_variant_refuses() {
     let cg = graph(&[(
         "src/lib.rs",
         "enum Other { K } struct T; impl T { fn K() {} fn caller() { Self::K(); } }",
     )]);
-    check(&cg, "caller", "Self::K", Some(("src/lib.rs", 1, 1, "K")));
+    check(&cg, "caller", "Self::K", None);
 }
 
 #[test]
@@ -395,4 +395,270 @@ impl E {
 }",
     )]);
     check(&cg, "caller", "Self::K", None);
+}
+
+#[test]
+fn identifier_nominal_nfc_refuses() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        include_str!("../fixtures/rust-self-closed/nominal_nfc/src/lib.rs"),
+    )]);
+    check(&cg, "a", "Self::b", None);
+}
+#[test]
+fn identifier_reference_only_refuses() {
+    let cg = graph(&[(
+        "src/lib.rs",
+        "struct K; fn reference() { let _ = K; } impl K { fn b() {} fn caller() { Self::b(); } }",
+    )]);
+    check(&cg, "caller", "Self::b", None);
+}
+#[test]
+fn identifier_other_file_refuses() {
+    let mut cg = graph(&[
+        (
+            "src/lib.rs",
+            "struct T; impl T { fn b() {} fn caller() { Self::b(); } }",
+        ),
+        ("unreachable.rs", "const café: u8 = 1;"),
+    ]);
+    check(&cg, "caller", "Self::b", None);
+    // Fold6 preserves main's legacy outcome when no scope proof is available.
+    cg.scope_graph = None;
+    check(&cg, "caller", "Self::b", Some(("src/lib.rs", 1, 1, "b")));
+}
+#[test]
+fn identifier_macro_tokens_refuse() {
+    let cg = graph(&[("src/lib.rs", "macro_rules! discard { ($($t:tt)*) => {}; } discard!(K); struct T; impl T { fn b() {} fn caller() { Self::b(); } }")]);
+    check(&cg, "caller", "Self::b", None);
+}
+#[test]
+fn identifier_token_kinds_refuse() {
+    for text in [
+        "struct É;",
+        "struct Field { é: u8 }",
+        "fn field(f: Field) { let _ = f.é; }",
+        "fn shorthand() { let Field { é } = todo!(); }",
+        "fn raw() { let r#é = 1; }",
+    ] {
+        let source =
+            format!("struct T; impl T {{ fn b() {{}} fn caller() {{ Self::b(); }} }} {text}");
+        let cg = graph(&[("src/lib.rs", &source)]);
+        check(&cg, "caller", "Self::b", None);
+    }
+}
+#[test]
+fn identifier_unicode_literals_allow() {
+    let cg = graph(&[("src/lib.rs", "const S: &str = \"Ké\"; const R: &str = r#\"é\"#; const C: char = 'é'; struct T; impl T { fn b() {} fn caller() { Self::b(); } }")]);
+    check(&cg, "caller", "Self::b", Some(("src/lib.rs", 1, 1, "b")));
+}
+#[test]
+fn identifier_unicode_comments_allow() {
+    let cg = graph(&[("src/lib.rs", "// Ké\n/// café\n/** K */ struct T; /* é */ impl T { fn b() {} fn caller() { Self::b(); } }")]);
+    check(&cg, "caller", "Self::b", Some(("src/lib.rs", 3, 3, "b")));
+}
+
+#[test]
+fn workspace_dependency_visibility_controls() {
+    for (with_dependency, public_target, expected) in [
+        (true, false, None),
+        (true, true, Some(("a/src/lib.rs", 2, 2, "b"))),
+        (false, true, None),
+    ] {
+        let root = tempfile::tempdir().unwrap();
+        for (relative, source) in [
+            (
+                "Cargo.toml",
+                include_str!("../fixtures/rust-self-closed/p16_ws_pubcrate/Cargo.toml"),
+            ),
+            (
+                "a/Cargo.toml",
+                include_str!("../fixtures/rust-self-closed/p16_ws_pubcrate/a/Cargo.toml"),
+            ),
+            (
+                "b/Cargo.toml",
+                include_str!("../fixtures/rust-self-closed/p16_ws_pubcrate/b/Cargo.toml"),
+            ),
+            (
+                "a/src/lib.rs",
+                include_str!("../fixtures/rust-self-closed/p16_ws_pubcrate/a/src/lib.rs"),
+            ),
+            (
+                "b/src/lib.rs",
+                include_str!("../fixtures/rust-self-closed/p16_ws_pubcrate/b/src/lib.rs"),
+            ),
+        ] {
+            let source = match relative {
+                "a/src/lib.rs" if public_target => source.replace("pub(crate) fn b", "pub fn b"),
+                "b/src/lib.rs" if public_target => source.replace("fn a() -> u8", "fn a() -> bool"),
+                "b/Cargo.toml" if !with_dependency => {
+                    source.split_once("[dependencies]").unwrap().0.to_string()
+                }
+                _ => source.to_string(),
+            };
+            let path = root.path().join(relative);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, source).unwrap();
+        }
+        let repo = prism::repo_loader::load_repo(root.path()).unwrap();
+        let cg =
+            CallGraph::build_with_scope_graph_inputs(&repo.files, repo.scope_graph_inputs.as_ref());
+        assert!(cg.scope_graph.as_ref().unwrap().complete);
+        check(&cg, "a", "Self::b", expected);
+    }
+}
+
+fn identifier_workspace(dependency: bool) -> CallGraph {
+    let root = tempfile::tempdir().unwrap();
+    let manifest = if dependency {
+        "[package]\nname='caller'\nedition='2021'\n[dependencies]\ndep={path='../dep'}\n"
+    } else {
+        "[package]\nname='caller'\nedition='2021'\n"
+    };
+    for (path, source) in [
+        ("Cargo.toml", "[workspace]\nmembers=['caller','dep']\n"),
+        ("caller/Cargo.toml", manifest),
+        ("dep/Cargo.toml", "[package]\nname='dep'\nedition='2021'\n"),
+        (
+            "caller/src/lib.rs",
+            if dependency {
+                "use dep::*;\nstruct T; impl T { fn b() {} fn caller() { Self::b(); } }"
+            } else {
+                "// Unicode in comments is inert: café\nstruct T; impl T { fn b() {} fn caller() { Self::b(); } }"
+            },
+        ),
+        ("dep/src/lib.rs", "pub const café: u8 = 1;"),
+    ] {
+        let path = root.path().join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, source).unwrap();
+    }
+    let repo = prism::repo_loader::load_repo(root.path()).unwrap();
+    CallGraph::build_with_scope_graph_inputs(&repo.files, repo.scope_graph_inputs.as_ref())
+}
+
+#[test]
+fn identifier_workspace_dependency_refuses() {
+    check(&identifier_workspace(true), "caller", "Self::b", None);
+}
+
+#[test]
+fn identifier_unrelated_workspace_exact() {
+    check(
+        &identifier_workspace(false),
+        "caller",
+        "Self::b",
+        Some(("caller/src/lib.rs", 2, 2, "b")),
+    );
+}
+
+#[test]
+fn identifier_manifest_free_fixture_is_separate() {
+    let cg = graph(&[
+        (
+            "src/lib.rs",
+            "struct T; impl T { fn b() {} fn caller() { Self::b(); } }",
+        ),
+        (
+            "tests/fixtures/unicode/src/lib.rs",
+            "struct U; const café:u8=1; impl U { fn f() {} fn unicode_caller() { Self::f(); } }",
+        ),
+    ]);
+    let sg = cg.scope_graph.as_ref().unwrap();
+    for path in ["src/lib.rs", "tests/fixtures/unicode/src/lib.rs"] {
+        assert!(sg
+            .scopes
+            .values()
+            .any(|s| s.kind == prism::name_resolution::types::ScopeKind::Root
+                && s.extents.iter().any(|e| e.file == sg.file_paths[path])));
+    }
+    check(&cg, "caller", "Self::b", Some(("src/lib.rs", 1, 1, "b")));
+    check(&cg, "unicode_caller", "Self::f", None);
+}
+
+#[test]
+fn identifier_main_legacy_parity() {
+    // Minimized ast_callback_identity.rs shape: an unmodeled method file,
+    // with a recursive Self call inside a closure. Main's owner lookup is exact.
+    let cg = graph(&[
+        ("src/lib.rs", "const café:u8=1;"),
+        (
+            "src/ast_callback_identity.rs",
+            "struct T; impl T {\nfn f() { let _ = || Self::f(); }\n}",
+        ),
+    ]);
+    let sg = cg.scope_graph.as_ref().unwrap();
+    let site = cg
+        .calls
+        .values()
+        .flatten()
+        .find(|s| s.callee_name == "Self::f")
+        .unwrap();
+    assert!(prism::name_resolution::rust_populator::enclosing_scope(
+        sg,
+        sg.file_paths["src/ast_callback_identity.rs"],
+        site.start_byte
+    )
+    .is_none());
+    check(
+        &cg,
+        "f",
+        "Self::f",
+        Some(("src/ast_callback_identity.rs", 2, 2, "f")),
+    );
+}
+
+#[test]
+fn identifier_resolved_cross_crate_use_refuses() {
+    for import in ["extern crate dep; use dep::*;", "extern crate dep;"] {
+        let source =
+            format!("{import} struct T; impl T {{ fn b() {{}} fn caller() {{ Self::b(); }} }}");
+        let cg = graph(&[
+            ("caller/src/lib.rs", &source),
+            ("dep/src/lib.rs", "pub const café:u8=1;"),
+        ]);
+        assert!(cg
+            .scope_graph
+            .as_ref()
+            .unwrap()
+            .crate_deps_by_root
+            .is_empty());
+        check(&cg, "caller", "Self::b", None);
+    }
+}
+
+#[test]
+fn identifier_crate_guard_roundtrip() {
+    for dependency in [false, true] {
+        let cg = identifier_workspace(dependency);
+        let expected = (!dependency).then_some(("caller/src/lib.rs", 2, 2, "b"));
+        check(&cg, "caller", "Self::b", expected);
+        let bytes = bincode::serialize(&cg).unwrap();
+        let restored: CallGraph = bincode::deserialize(&bytes).unwrap();
+        check(&restored, "caller", "Self::b", expected);
+    }
+}
+
+#[test]
+fn identifier_transitive_import_refuses() {
+    let cg = graph(&[
+        ("caller/src/lib.rs", "extern crate bridge; use bridge::*; struct T; impl T { fn b() {} fn caller() { Self::b(); } }"),
+        ("bridge/src/lib.rs", "extern crate dep; pub use dep::*;"),
+        ("dep/src/lib.rs", "pub const café:u8=1;"),
+    ]);
+    check(&cg, "caller", "Self::b", None);
+}
+
+#[test]
+fn identifier_uncertain_inrepo_import_refuses() {
+    let cg = graph(&[
+        (
+            "caller/src/lib.rs",
+            "use dep::*; struct T; impl T { fn b() {} fn caller() { Self::b(); } }",
+        ),
+        ("dep/src/lib.rs", "pub const café:u8=1;"),
+    ]);
+    // No extern crate in edition2015: import resolution cannot establish the
+    // edge, but the in-repo crate name is a possible dependency, so refuse.
+    check(&cg, "caller", "Self::b", None);
 }
