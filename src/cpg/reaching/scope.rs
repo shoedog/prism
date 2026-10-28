@@ -22,31 +22,26 @@ use std::cell::OnceCell;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct ScopeSpan {
     start_byte: usize,
     end_byte: usize,
     end_line: Line,
 }
-
 impl ScopeSpan {
     fn contains(self, byte: usize) -> bool {
         self.start_byte <= byte && byte < self.end_byte
     }
-
     fn width(self) -> usize {
         self.end_byte.saturating_sub(self.start_byte)
     }
 }
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum BindingId {
     Declaration(usize),
     ImplicitFunction(String),
     FlatFallback(String),
 }
-
 #[derive(Clone, Debug)]
 pub(super) struct Binding {
     pub(super) id: BindingId,
@@ -54,7 +49,6 @@ pub(super) struct Binding {
     pub(super) declaration_line: Option<Line>,
     pub(super) classified_mask: bool,
 }
-
 #[derive(Clone, Debug)]
 pub(super) struct Declaration {
     pub(super) binding: Binding,
@@ -120,6 +114,7 @@ pub(super) struct BindingFacts {
     pub(super) header_spans: Vec<HeaderSpan>,
     pub(super) no_entry_binders: BTreeMap<String, BTreeSet<Line>>,
     pub(super) no_entry_spans: Vec<(String, Line, super::grammar_lint::ByteSpan)>,
+    c: c::BindingFacts,
     function_scope: ScopeSpan,
     language: Language,
     /// PR-B perf: zero-width Use byte resolution is a pure function of the
@@ -142,9 +137,14 @@ impl BindingFacts {
         let function_scope = function_scope(parsed, func_node);
         let (header_spans, no_entry_binders, no_entry_spans) =
             transfer::binding_metadata(parsed, binders, cfg);
+        let c = c::BindingFacts::new(parsed, func_node, defs);
         let seeds: Vec<Option<(ScopeSpan, DeclarationKind, usize)>> = defs
             .iter()
-            .map(|def| declaration_seed(parsed, func_node, def, function_scope))
+            .map(|def| {
+                c.allows(def)
+                    .then(|| declaration_seed(parsed, func_node, def, function_scope))
+                    .flatten()
+            })
             .collect();
 
         let mut declarations = Vec::<Declaration>::new();
@@ -246,6 +246,7 @@ impl BindingFacts {
             header_spans,
             no_entry_binders,
             no_entry_spans,
+            c,
             function_scope,
             language: parsed.language,
             use_byte_cache: std::cell::RefCell::new(BTreeMap::new()),
@@ -335,6 +336,10 @@ impl BindingFacts {
             .get(name)
             .map(|lines| lines.iter().copied().collect())
             .unwrap_or_default()
+    }
+
+    pub(super) fn recovered_c_seed_line(&self, name: &str) -> Option<Line> {
+        self.c.recovered_line(name)
     }
 
     pub(super) fn relation(

@@ -10,16 +10,13 @@ use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use std::collections::{BTreeMap, BTreeSet};
-
 mod finally_kill;
 mod import_exception_gap;
-
 #[derive(Clone, Copy)]
 struct KillNodeLines<'a> {
     statements: &'a BTreeMap<Line, usize>,
     synthetic: &'a BTreeMap<usize, Line>,
 }
-
 #[allow(clippy::too_many_arguments)]
 pub(super) fn classify_edge(
     edge: &FlowEdge,
@@ -56,7 +53,6 @@ pub(super) fn classify_edge(
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
     }
-
     let use_statement = statements.get(edge.to.line);
     let def_statement =
         if edge.from.line == function_start && !line_index.contains_key(&function_start) {
@@ -87,7 +83,6 @@ pub(super) fn classify_edge(
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
         });
     }
-
     // Rule 3: no downstream classification is admissible unless this exact
     // def-to-use query has an unflagged CFG route. Kills are checked separately
     // below and must also reach this use through unflagged edges.
@@ -102,6 +97,11 @@ pub(super) fn classify_edge(
         || collapsed.contains(&(edge.to.path.clone(), edge.to.line))
     {
         return FlowConfidence::NameOnly(FlowDoubt::SameLine);
+    }
+    if let Some(construct_line) = binding_facts.recovered_c_seed_line(&edge.to.path.base) {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
     }
     if candidates.iter().any(|index| defs[*index].alias_derived) {
         return FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);

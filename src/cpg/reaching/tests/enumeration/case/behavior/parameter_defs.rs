@@ -12,7 +12,8 @@ pub(super) fn needs_synthetic_definition(case_id: &str) -> bool {
             | "c-fix1-alias-uninitialized"
             | "c-fix1-alias-initialized"
             | "c-fix1-alias-conditional"
-    )
+    ) || (case_id.starts_with("c-fix2-side-effect-")
+        && case_id != "c-fix2-side-effect-pointer-update")
 }
 
 use crate::access_path::AccessPath;
@@ -24,20 +25,23 @@ pub(super) fn add_named_synthetic_definitions(
     parsed: &ParsedFile,
     defs: &mut Vec<DefSite>,
 ) {
-    let names: &[&str] = match case_id {
-        "py-import-dotted-path-r08" => &["path"],
-        "py-import-alias-original-r09" => &["a", "pkg"],
-        "py-import-dotted-from-a06" => &["incident"],
-        "py-import-try-except-handler-use" => &["status"],
-        "c-fix1-frr-match-from" => &["match"],
-        _ => &[],
+    let (names, line): (&[&str], usize) = match case_id {
+        "py-import-dotted-path-r08" => (&["path"], 1),
+        "py-import-alias-original-r09" => (&["a", "pkg"], 1),
+        "py-import-dotted-from-a06" => (&["incident"], 1),
+        "py-import-try-except-handler-use" => (&["status"], 1),
+        "c-fix1-frr-match-from" => (&["match"], 1),
+        "c-fix2-side-effect-pointer-update" => (&["p"], 1),
+        "c-fix2-recovered-macro-parameter" => (&["conn"], 2),
+        "c-fix2-ordinary-call-control" | "c-fix2-real-parameter-mask" => (&["conn"], 1),
+        _ => (&[], 1),
     };
     for (index, name) in names.iter().enumerate() {
         defs.push(super::super::super::super::def(
             parsed,
             u32::MAX - index as u32,
             name,
-            1,
+            line,
             0,
             false,
         ));

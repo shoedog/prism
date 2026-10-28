@@ -1,0 +1,12 @@
+[case]
+language = "c"
+capability = "dfg_binding_c_recovered_parameter_fail_closed"
+status = "pass"
+probe = "dfg"
+
+[[expect.edges]]
+from = "main.c:2:conn"
+to = "main.c:4:conn"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 5

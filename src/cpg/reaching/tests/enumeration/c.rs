@@ -362,3 +362,127 @@ fn fix1_w4_multiline_chain_membership() {
         );
     }
 }
+
+#[test]
+fn fix2_f1_side_effect_definitions_survive_normalization() {
+    const UPDATE: &[(&str, &str, FlowConfidence)] =
+        &[("1:x", "3:x", killed(2)), ("2:x", "3:x", EXACT)];
+    const POINTER_UPDATE: &[(&str, &str, FlowConfidence)] =
+        &[("1:p", "3:p", killed(2)), ("2:p", "3:p", EXACT)];
+    let cases = [
+        case!(
+            "c-fix2-side-effect-post-increment",
+            "update_expression",
+            "void f(int x) {\n  int y = x++;\n  sink(x);\n}\n",
+            UPDATE,
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix2-side-effect-prefix-increment",
+            "update_expression",
+            "void f(int x) {\n  int y = ++x;\n  sink(x);\n}\n",
+            UPDATE,
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix2-side-effect-post-decrement",
+            "update_expression",
+            "void f(int x) {\n  int y = x--;\n  sink(x);\n}\n",
+            UPDATE,
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix2-side-effect-prefix-decrement",
+            "update_expression",
+            "void f(int x) {\n  int y = --x;\n  sink(x);\n}\n",
+            UPDATE,
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix2-side-effect-simple-assignment",
+            "assignment_expression",
+            "void f(int x) {\n  int y = (x = clean());\n  sink(x);\n}\n",
+            UPDATE,
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix2-side-effect-compound-assignment",
+            "assignment_expression",
+            "void f(int x) {\n  int y = (x += clean());\n  sink(x);\n}\n",
+            UPDATE,
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix2-side-effect-pointer-update",
+            "update_expression",
+            "void f(char *p) {\n  int y = *p++;\n  sink(p);\n}\n",
+            POINTER_UPDATE,
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+        case!(
+            "c-fix2-side-effect-initializer-read",
+            "declaration",
+            "void f(int x) {\n  int y = x;\n  sink(x);\n}\n",
+            &[("1:x", "3:x", EXACT)],
+            ("dfg_label_exact", 1),
+            None,
+            None
+        ),
+    ];
+    for case in &cases {
+        super::case::behavior::assert_behavior(
+            case,
+            &super::super::parsed(case.src, case.language),
+        );
+    }
+}
+
+#[test]
+fn fix2_f2_outer_chain_shadow_is_parked() {
+    const PARKED: &[(&str, &str, FlowConfidence)] =
+        &[("4:x", "5:x", uncertain(2)), ("4:x", "7:x", uncertain(2))];
+    let case = case!(
+        "c-fix2-parked-chain-shadow",
+        "declaration",
+        "void f() {\n  int x = source(), y = 0;\n  {\n    int x = clean();\n    sink(x);\n  }\n  sink(x);\n}\n",
+        PARKED,
+        ("dfg_label_nameonly_ownership_uncertain", 2),
+        None,
+        None
+    );
+    super::case::behavior::assert_behavior(&case, &super::super::parsed(case.src, case.language));
+}
+
+#[test]
+fn fix2_f3_recovered_parameter_seeds_fail_closed() {
+    const RECOVERED: &[(&str, &str, FlowConfidence)] = &[("2:conn", "4:conn", uncertain(5))];
+    const ORDINARY: &[(&str, &str, FlowConfidence)] =
+        &[("1:conn", "3:conn", EXACT), ("1:conn", "4:conn", EXACT)];
+    const REAL_MASK: &[(&str, &str, FlowConfidence)] =
+        &[("1:conn", "2:conn", killed(2)), ("1:conn", "3:conn", EXACT)];
+    let cases = [
+        case!("c-fix2-recovered-macro-parameter", "parameter_declaration", "#define container_of(a,b,c) (a)\nvoid f(int *conn) {\n  if (ready()) {\n    sink(conn);\n    use(container_of(conn, struct msg_client, conn), 0);\n  }\n}\n", RECOVERED, ("dfg_label_nameonly_ownership_uncertain", 1), None, None),
+        case!("c-fix2-ordinary-call-control", "parameter_declaration", "void f(int *conn) {\n  if (ready()) {\n    sink(conn);\n    use(conn, conn);\n  }\n}\n", ORDINARY, ("dfg_label_exact", 2), None, None),
+        case!("c-fix2-real-parameter-mask", "declaration", "void f(int *conn) {\n  { int *conn = source(); sink(conn); }\n  sink(conn);\n}\n", REAL_MASK, ("dfg_label_exact", 1), None, None),
+    ];
+    for case in &cases {
+        super::case::behavior::assert_behavior(
+            case,
+            &super::super::parsed(case.src, case.language),
+        );
+    }
+}

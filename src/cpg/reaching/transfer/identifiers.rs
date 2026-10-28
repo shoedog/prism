@@ -197,6 +197,9 @@ pub(in crate::cpg::reaching) fn normalize_c_declaration_facts(
         return;
     }
     for def in defs.iter_mut().filter(|def| !def.alias_derived) {
+        if c_side_effect_target(parsed, def) {
+            continue;
+        }
         let Some(end_byte) = def.start_byte.checked_add(1) else {
             continue;
         };
@@ -225,4 +228,32 @@ pub(in crate::cpg::reaching) fn normalize_c_declaration_facts(
             node = parent;
         }
     }
+}
+
+fn c_side_effect_target(parsed: &ParsedFile, def: &DefSite) -> bool {
+    let Some(end_byte) = def.start_byte.checked_add(1) else {
+        return false;
+    };
+    let Some(node) = parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(def.start_byte, end_byte)
+    else {
+        return false;
+    };
+    for ancestor in std::iter::successors(Some(node), |node| node.parent()) {
+        match ancestor.kind() {
+            "update_expression" => return true,
+            "assignment_expression"
+                if ancestor.child_by_field_name("left").is_some_and(|left| {
+                    left.start_byte() <= def.start_byte && def.start_byte < left.end_byte()
+                }) =>
+            {
+                return true;
+            }
+            "declaration" => break,
+            _ => {}
+        }
+    }
+    false
 }
