@@ -263,7 +263,7 @@ fn task21_fix1_w3_unknown_completion_fails_closed() {
         ),
         (
             "class Main {\n    String text; boolean flag;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            while (flag) {}\n        }\n        sink(text);\n    }\n}\n",
-            FlowConfidence::Exact,
+            ownership_uncertain(5),
         ),
         (
             "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            sink(text);\n        }\n        sink(text);\n    }\n}\n",
@@ -279,6 +279,67 @@ fn task21_fix1_w3_unknown_completion_fails_closed() {
         ),
     ] {
         assert_legal_field_labels(src, 4, &[(8, expected)]);
+    }
+}
+
+#[test]
+fn task21_fix2_w4_consumed_label_break_fails_closed() {
+    for (src, use_line, expected) in [
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            done: { break done; }\n        }\n        sink(text);\n    }\n}\n",
+            8,
+            ownership_uncertain(5),
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (o instanceof String text) {\n            sink(text);\n        } else {\n            done: { break done; }\n        }\n        sink(text);\n    }\n}\n",
+            10,
+            ownership_uncertain(5),
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            done: { return; }\n        }\n        sink(text);\n    }\n}\n",
+            8,
+            killed_at(5),
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (o instanceof String text) {\n            sink(text);\n        } else {\n            throw new RuntimeException();\n        }\n        sink(text);\n    }\n}\n",
+            10,
+            killed_at(5),
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            log();\n        }\n        sink(text);\n    }\n}\n",
+            8,
+            FlowConfidence::Exact,
+        ),
+    ] {
+        assert_legal_field_labels(src, 4, &[(use_line, expected)]);
+    }
+}
+
+#[test]
+fn task21_fix2_w5_unproved_while_conditions_fail_closed() {
+    for condition in ["1 == 1", "!false", "FOREVER", "true /* c */"] {
+        let negated = format!(
+            "class Main {{\n    String text; static final boolean FOREVER = true;\n    void f(Object o) {{\n        text = source();\n        if (!(o instanceof String text)) {{\n            while ({condition}) {{}}\n        }}\n        sink(text);\n    }}\n}}\n"
+        );
+        assert_legal_field_labels(&negated, 4, &[(8, ownership_uncertain(5))]);
+
+        let positive = format!(
+            "class Main {{\n    String text; static final boolean FOREVER = true;\n    void f(Object o) {{\n        text = source();\n        if (o instanceof String text) {{\n            sink(text);\n        }} else {{\n            while ({condition}) {{}}\n        }}\n        sink(text);\n    }}\n}}\n"
+        );
+        assert_legal_field_labels(&positive, 4, &[(10, ownership_uncertain(5))]);
+    }
+
+    for (src, use_line) in [
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (!(o instanceof String text)) {\n            while (true) {}\n        }\n        sink(text);\n    }\n}\n",
+            8,
+        ),
+        (
+            "class Main {\n    String text;\n    void f(Object o) {\n        text = source();\n        if (o instanceof String text) {\n            sink(text);\n        } else {\n            while (true) {}\n        }\n        sink(text);\n    }\n}\n",
+            10,
+        ),
+    ] {
+        assert_legal_field_labels(src, 4, &[(use_line, killed_at(5))]);
     }
 }
 

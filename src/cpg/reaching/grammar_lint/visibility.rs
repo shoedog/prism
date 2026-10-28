@@ -88,7 +88,12 @@ pub(in crate::cpg::reaching) fn visibility_span(
         } else {
             owner.child_by_field_name("alternative")
         };
-        match java_statement_completion(parsed, post_if_branch) {
+        let post_if_completion = match post_if_branch {
+            Some(branch) => java_statement_completion(parsed, Some(branch)),
+            None if !negated => JavaCompletion::Normal,
+            None => JavaCompletion::Unknown,
+        };
+        match post_if_completion {
             JavaCompletion::Abrupt => {
                 if let Some(parent) = owner.parent() {
                     if owner.end_byte() < parent.end_byte() {

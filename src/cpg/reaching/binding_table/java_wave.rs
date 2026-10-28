@@ -108,7 +108,12 @@ pub(super) fn classified_instanceof_guard(parsed: &ParsedFile, node: Node<'_>) -
             } else {
                 owner.child_by_field_name("alternative")
             };
-            return statement_completion(parsed, post_if_branch) != JavaCompletion::Unknown;
+            let completion = match post_if_branch {
+                Some(branch) => statement_completion(parsed, Some(branch)),
+                None if !negated => JavaCompletion::Normal,
+                None => JavaCompletion::Unknown,
+            };
+            return completion != JavaCompletion::Unknown;
         }
         let Some(parent) = current.parent() else {
             return false;
@@ -147,7 +152,7 @@ pub(crate) fn statement_completion(
     statement: Option<Node<'_>>,
 ) -> JavaCompletion {
     let Some(statement) = statement else {
-        return JavaCompletion::Normal;
+        return JavaCompletion::Unknown;
     };
     if matches!(
         statement.kind(),
@@ -166,11 +171,16 @@ pub(crate) fn statement_completion(
                 .named_children(&mut cursor)
                 .filter(|child| !matches!(child.kind(), "line_comment" | "block_comment"))
                 .last();
-            statement_completion(parsed, last)
+            match last {
+                Some(last) => statement_completion(parsed, Some(last)),
+                None => JavaCompletion::Normal,
+            }
         }
         "if_statement" => {
-            let consequence =
-                statement_completion(parsed, statement.child_by_field_name("consequence"));
+            let Some(consequence) = statement.child_by_field_name("consequence") else {
+                return JavaCompletion::Unknown;
+            };
+            let consequence = statement_completion(parsed, Some(consequence));
             let Some(alternative) = statement.child_by_field_name("alternative") else {
                 return JavaCompletion::Normal;
             };
@@ -184,7 +194,9 @@ pub(crate) fn statement_completion(
                 .child_by_field_name("condition")
                 .is_some_and(|condition| java_condition_is_literal_true(parsed, condition));
             if !literal_true {
-                JavaCompletion::Normal
+                // Constant-condition and symbol resolution is parked as
+                // future:java-completion; unproved loop completion fails closed.
+                JavaCompletion::Unknown
             } else if statement
                 .child_by_field_name("body")
                 .is_some_and(contains_break_statement)
@@ -197,7 +209,14 @@ pub(crate) fn statement_completion(
         "labeled_statement" => {
             let mut cursor = statement.walk();
             let body = statement.named_children(&mut cursor).last();
-            statement_completion(parsed, body)
+            match body {
+                Some(body) if contains_break_statement(body) => {
+                    // Break-target resolution is parked as future:java-completion.
+                    JavaCompletion::Unknown
+                }
+                Some(body) => statement_completion(parsed, Some(body)),
+                None => JavaCompletion::Unknown,
+            }
         }
         "try_statement" | "try_with_resources_statement" => {
             try_statement_completion(parsed, statement)
