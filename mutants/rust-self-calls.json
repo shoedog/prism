@@ -1,0 +1,324 @@
+{
+  "mutations": {
+    "RS-01-authoritative-self-cut": [
+      "src/resolution_rust_self.rs",
+      ".strip_prefix(\"Self::\")",
+      ".strip_prefix(\"NeverSelf::\")",
+      [
+        "rust_self_calls_test::associated",
+        "rust_self_calls_test::method",
+        "rust_self_calls_test::lifetime",
+        "rust_self_calls_test::generic",
+        "rust_self_calls_test::trait_to_inherent",
+        "rust_self_calls_test::trait_to_trait",
+        "rust_self_calls_test::closure",
+        "rust_self_calls_test::split_impl"
+      ]
+    ],
+    "RS-02-skip-scope-proof": [
+      "src/resolution.rs",
+      "self.rust_self_scope_resolution(site, fn_name)",
+      "None::<ResolutionOutcome<'_>>",
+      [
+        "rust_self_calls_test::same_named_types",
+        "rust_self_calls_test::trait_default",
+        "rust_self_calls_test::nested_fn"
+      ]
+    ],
+    "RS-03-trait-default-open": [
+      "src/resolution_rust_self.rs",
+      "if self.rust_self_proofs.default_names.contains(name) {",
+      "if false {",
+      "rust_self_allowlist_test::default_name_global_refuses"
+    ],
+    "RS-04-nested-item-capture": [
+      "src/resolution_rust_self.rs",
+      "if !caller\n                .self_spans\n                .contains(&(site.start_byte, site.end_byte))",
+      "if false",
+      [
+        "rust_self_allowlist_test::sol_f4",
+        "rust_self_calls_test::nested_fn",
+        "rust_self_allowlist_test::macro_tokens_refuse"
+      ]
+    ],
+    "RS-05-owner-evidence-fallback": [
+      "src/resolution_rust_self.rs",
+      "self.method_owners.get(&site.caller)?",
+      "self.method_owners.get(&site.caller).or_else(|| self.method_owners.values().next())?",
+      "rust_self_calls_test::absent_owner_evidence_refuses"
+    ],
+    "RS-06-facts-evidence-fallback": [
+      "src/resolution_rust_self.rs",
+      "self.method_facts.get(&site.caller)?",
+      "self.method_facts.get(&site.caller).or_else(|| self.method_facts.values().next())?",
+      "rust_self_calls_test::absent_facts_refuses"
+    ],
+    "RS-07-caller-membership": [
+      "src/resolution_rust_self.rs",
+      "method == &site.caller.name && ids.contains(&site.caller)",
+      "method == &site.caller.name",
+      "rust_self_calls_test::absent_scope_evidence_refuses"
+    ],
+    "RS-08-primary-owner-filter": [
+      "src/resolution_rust_self.rs",
+      "graph_owner_name_for_scope(graph, *scope).as_deref() == Some(owner.as_str())",
+      "graph_owner_name_for_scope(graph, *scope).as_deref() != Some(owner.as_str())",
+      "rust_self_calls_test::trait_to_inherent"
+    ],
+    "RS-09-ambiguous-owner-open": [
+      "src/resolution_rust_self.rs",
+      "if scopes.len() != 1 {",
+      "if scopes.is_empty() {",
+      "rust_self_calls_test::ambiguous_scope_evidence_refuses"
+    ],
+    "RS-10-missing-item-fallback": [
+      "src/resolution_rust_self.rs",
+      "self.methods_by_scope.get(&(scope, name.to_string()))?",
+      "self.methods_by_scope.get(&(scope, name.to_string())).or_else(|| self.methods_by_scope.values().next())?",
+      [
+        "rust_self_calls_test::missing",
+        "rust_self_calls_test::missing_on_same_named_type",
+        "rust_self_calls_test::enum_constructor"
+      ]
+    ],
+    "RS-11-multiple-exact": [
+      "src/resolution_rust_self.rs",
+      "if ids.len() == 1 {",
+      "if !ids.is_empty() {",
+      "rust_self_calls_test::multiple_candidates_drop"
+    ],
+    "RS-12-orphan-scope-authority": [
+      "src/resolution_rust_self.rs",
+      "let (file, from) = rust_authoritative_scope(graph, site)?;\n        // Replay main's authoritative branch",
+      "let file = graph.file_paths[&site.caller.file]; let from = graph.scopes.keys().next().copied()?;\n        // Replay main's authoritative branch",
+      "rust_self_calls_test::orphan_preserves_legacy"
+    ],
+    "RS-13-noncall-path-extraction": [
+      "src/queries.rs",
+      "Language::Rust => {\n            r#\"[\n                (call_expression) @call\n                (macro_invocation) @call\n            ]\"#\n        }",
+      "Language::Rust => {\n            r#\"[\n                (call_expression) @call\n                (macro_invocation) @call\n                (scoped_identifier) @call\n            ]\"#\n        }",
+      "rust_self_calls_test::constant_is_not_a_call"
+    ],
+    "RS-14-cpg-generation": [
+      "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 130;",
+      "const CACHE_VERSION: u32 = 124;",
+      "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
+    ],
+    "RS-15-nav-generation": [
+      "src/navigation/call_edge_cache.rs",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 75;",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
+      "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
+    ],
+    "RS-16-ambiguous-nameonly-fanout": [
+      "src/resolution_rust_self.rs",
+      "// Type ownership alone cannot distinguish trait overloads.\n                None",
+      "// Type ownership alone cannot distinguish trait overloads.\n                Some(demoted(ids, ResolutionKind::SelfReceiver))",
+      [
+        "rust_self_calls_test::distinct_from_impls_drop",
+        "rust_self_calls_test::multiple_candidates_drop"
+      ]
+    ],
+    "RS-17-module-level-caller": [
+      "src/resolution_rust_self.rs",
+      "if !caller.module_level {",
+      "if false {",
+      "rust_self_allowlist_test::module_impl_required"
+    ],
+    "RS-18-cross-impl-inherent": [
+      "src/resolution_rust_self.rs",
+      "if !target.inherent {",
+      "if false {",
+      "rust_self_allowlist_test::cross_trait_refuses"
+    ],
+    "RS-19-self-type-arguments": [
+      "src/resolution_rust_self.rs",
+      "if self.self_type != target.self_type {",
+      "if false {",
+      "rust_self_allowlist_test::sol_f1_inherent"
+    ],
+    "RS-20-impl-header-constraints": [
+      "src/resolution_rust_self.rs",
+      "!constrained\n            || (self.generics == target.generics && self.where_clause == target.where_clause)",
+      "true",
+      "rust_self_allowlist_test::generic_headers_refuse"
+    ],
+    "RS-21-same-impl-admitted": [
+      "src/resolution_rust_self.rs",
+      "if self.file == target.file && self.span == target.span {\n            return true;",
+      "if self.file == target.file && self.span == target.span {\n            return false;",
+      "rust_self_calls_test::associated"
+    ],
+    "RS-22-module-level-target": [
+      "src/resolution_rust_self.rs",
+      "if !target.module_level {",
+      "if false {",
+      "rust_self_allowlist_test::module_target_required"
+    ],
+    "RS-23-where-header-proof": [
+      "src/resolution_rust_self.rs",
+      ".find(|n| n.kind() == \"where_clause\")",
+      ".find(|_| false)",
+      "rust_self_allowlist_test::where_headers_refuse"
+    ],
+    "RS-24-generic-header-proof": [
+      "src/resolution_rust_self.rs",
+      ".child_by_field_name(\"type_parameters\")",
+      ".child_by_field_name(\"never_parameters\")",
+      "rust_self_allowlist_test::generic_headers_refuse"
+    ],
+    "RS-25-whitespace-normalized": [
+      "src/resolution_rust_self.rs",
+      "syntax_tokens(parsed, node);",
+      "vec![parsed.node_text(&node).to_string()];",
+      "rust_self_allowlist_test::identical_headers_allow"
+    ],
+    "RS-26-applicability-required": [
+      "src/resolution_rust_self.rs",
+      "if !caller.admits(target, graph) {",
+      "if false {",
+      "rust_self_allowlist_test::sol_f1_inherent"
+    ],
+    "RS-27-duplicate-impl-proof": [
+      "src/resolution_rust_self.rs",
+      "if result.methods.insert(fid.clone(), proof).is_some() {",
+      "if result.methods.insert(fid.clone(), proof).is_some() && false {",
+      "rust_self_allowlist_test::duplicate_impl_identity_refuses"
+    ],
+    "RS-28-lexical-header-context": [
+      "src/resolution_rust_self.rs",
+      "if needs_context && !self.same_module(target) {",
+      "if false {",
+      "rust_self_allowlist_test::generic_module_files_refuse"
+    ],
+    "RS-29-token-identity": [
+      "src/resolution_rust_self.rs",
+      "    tokens\n}",
+      "    vec![parsed.node_text(&node).chars().filter(|c| !c.is_whitespace()).collect()]\n}",
+      "rust_self_allowlist_test::token_boundary_refuses"
+    ],
+    "RS-30-module-identity": [
+      "src/resolution_rust_self.rs",
+      "self.file == target.file && self.module == target.module",
+      "self.file == target.file",
+      "rust_self_allowlist_test::generic_module_blocks_refuse"
+    ],
+    "RS-31-module-file-identity": [
+      "src/resolution_rust_self.rs",
+      "self.file == target.file && self.module == target.module",
+      "self.module == target.module",
+      "rust_self_allowlist_test::generic_module_files_refuse"
+    ],
+    "RS-32-generic-context-required": [
+      "src/resolution_rust_self.rs",
+      "plain_self_path: plain_nominal_path(ty),",
+      "plain_self_path: true,",
+      "rust_self_allowlist_test::generic_module_files_refuse"
+    ],
+    "RS-33-inherent-only": [
+      "src/resolution_rust_self.rs",
+      "if !target.inherent {",
+      "if false {",
+      "rust_self_allowlist_test::same_impl_trait_refuses"
+    ],
+    "RS-34-target-accessibility": [
+      "src/resolution_rust_self.rs",
+      "if !self.can_see(target, graph) {",
+      "if false {",
+      "rust_self_closed_rule_test::q7_private_inherent_blanket"
+    ],
+    "RS-35-enum-variant-veto": [
+      "src/resolution_rust_self.rs",
+      "variants.contains(name.trim_start_matches(\"r#\"))",
+      "false",
+      "rust_self_closed_rule_test::q9_variant_method"
+    ],
+    "RS-36-duplicate-before-shortcut": [
+      "src/resolution_rust_self.rs",
+      "if !target.module_level {",
+      "if !target.module_level && self.span != target.span {",
+      "rust_self_closed_rule_test::same_impl_duplicate"
+    ],
+    "RS-37-raw-variant-spelling": [
+      "src/resolution_rust_self.rs",
+      ".trim_start_matches(\"r#\")",
+      ".trim_start_matches(\"never_raw_prefix\")",
+      [
+        "rust_self_closed_rule_test::raw_variant_name_refuses",
+        "rust_self_closed_rule_test::raw_enum_name_veto_is_conservative"
+      ]
+    ],
+    "RS-38-crate-root-check": [
+      "src/resolution_rust_self.rs",
+      "return scope_ancestors(graph, caller).last()\n                == scope_ancestors(graph, defining).last();",
+      "return true;",
+      [
+        "rust_self_closed_rule_test::p16_ws_pubcrate",
+        "rust_self_closed_rule_test::workspace_dependency_visibility_controls"
+      ]
+    ],
+    "RS-39-nonascii-enum-guard": [
+      "src/resolution_rust_self.rs",
+      "if self.rust_self_proofs.identifier_refuses(graph, from) {",
+      "if false {",
+      [
+        "rust_self_closed_rule_test::unicode_variant",
+        "rust_self_closed_rule_test::unicode_kelvin",
+        "rust_self_closed_rule_test::nonascii_enum_declaration_refuses",
+        "rust_self_closed_rule_test::unicode_kelvin_reverse"
+      ]
+    ],
+    "RS-40-self-type-scope": [
+      "src/resolution_rust_self.rs",
+      "if resolve_type_path_to_type_scope(graph, module, &caller.raw_self_type)\n                != Some(TypeKey::InRepo(scope))",
+      "if false",
+      [
+        "rust_self_closed_rule_test::p13_bare_dyn_2018",
+        "rust_self_closed_rule_test::p14_io_error_2018"
+      ]
+    ],
+    "RS-41-identifier-class-guard": [
+      "src/resolution_rust_self.rs",
+      "if self.rust_self_proofs.identifier_refuses(graph, from) {",
+      "if false {",
+      [
+        "rust_self_closed_rule_test::identifier_nominal_nfc_refuses",
+        "rust_self_closed_rule_test::identifier_reference_only_refuses",
+        "rust_self_closed_rule_test::identifier_other_file_refuses",
+        "rust_self_closed_rule_test::identifier_macro_tokens_refuse",
+        "rust_self_closed_rule_test::identifier_token_kinds_refuse"
+      ]
+    ],
+    "RS-42-crate-scope-widened": [
+      "src/resolution_rust_self.rs",
+      "refused.contains(&root)",
+      "!self.non_ascii_files.is_empty()",
+      "rust_self_closed_rule_test::identifier_unrelated_workspace_exact"
+    ],
+    "RS-43-dependency-edge-ignored": [
+      "src/resolution_rust_self.rs",
+      "if deps.iter().any(|dep| refused.contains(dep)) {",
+      "if false {",
+      "rust_self_closed_rule_test::identifier_workspace_dependency_refuses"
+    ],
+    "RS-44-main-parity-bypass": [
+      "src/resolution_rust_self.rs",
+      "let (file, from) = rust_authoritative_scope(graph, site)?;\n        // Replay main's authoritative branch",
+      "let Some((file, from)) = rust_authoritative_scope(graph, site) else { return Some(ResolutionOutcome::dropped(DropReason::UnknownName)); };\n        // Replay main's authoritative branch",
+      "rust_self_closed_rule_test::identifier_main_legacy_parity"
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg_cache::",
+    "navigation::call_edge_cache::"
+  ],
+  "intent_revisions": {
+    "RS-03-trait-default-open": "The former trait-default-caller guard is subsumed by requiring direct module-level impl syntax. This mutant now removes the global default-name refusal required to close missing inherited candidates; the independent same-impl witness avoids masking by cross-trait or applicability guards.",
+    "RS-04-nested-item-capture": "Replace indexed duplicate-call inference with syntax-span membership that refuses every nested named item, including const/static without function identities.",
+    "RS-21-same-impl-admitted": "Inherent-only makes skipping the shortcut equivalent to the later same-header proof. Refusing the same-impl branch still independently checks its positive admission; trait targets are now always refused.",
+    "RS-39-nonascii-enum-guard": "Fold6 keeps the token class guard on new edges in the caller crate and reachable in-repo crates.",
+    "RS-38-crate-root-check": "Retain the original file-only p16 refusal and add real loader/Cargo dependency inputs, with public and missing-dependency controls. Without those inputs p16 refuses before visibility and cannot kill removal of the crate-root check.",
+    "RS-12-orphan-scope-authority": "Retain main legacy outcomes for sites outside modeled scopes; injecting a root falsely activates the new proof."
+  }
+}

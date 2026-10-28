@@ -213,7 +213,38 @@ Navigation and CPG call resolution share one ordered ladder (S3),
 with a `ResolutionConfidence` (`Exact` | `NameOnly`) and a `ResolutionKind`. The
 rungs (R1–R7): qualified `T::m`/`mod::T::m` and `Self::`/`self.`/receiver-var
 calls bind via a per-`(owner, name)` method index (Rust trait impls are dual-keyed
-under the trait, demoted when >1 impl); import-qualified `pkg.f()` narrows by file
+under the trait, demoted when >1 impl); authoritative Rust `Self::` calls reach
+the dedicated Self allow-list. The caller must be a direct method of a module-level
+impl, whose raw self type resolves to the selected in-repo type scope (never a
+trait-only key for an alias or external self type), with no nested named item between the method and the call. Closures, async
+blocks and inline const blocks retain Self. The singleton target must always be inherent, with an unambiguous syntax identity
+checked before the same-impl shortcut. Otherwise it must have identical whitespace-normalized
+self-type syntax (including generic arguments). If either impl has generic
+parameters or a where clause, both generics and where clauses must also match
+textually. Normalization compares syntax-token sequences, preserving token
+boundaries and literal contents. Cross-impl generic/composite self types or
+constrained headers additionally require the same lexical module (same file and
+enclosing module nodes); plain nominal paths retain cross-file support. This is
+a conservative restriction because equal argument/bound text can name different
+types in different modules. All trait targets (including same-impl targets), local impls, missing syntax/owner evidence,
+trait-default callers, any in-repo trait default with the callee name, and pools
+with zero or multiple candidates drop as UnknownName; there is no NameOnly fan-out.
+The target must be accessible: public methods pass, pub(crate) requires the same
+crate root, and private or other restricted forms require the caller's module to
+be the defining module or a descendant (including out-of-line modules). Other
+pub(super)/pub(in ...) cases conservatively refuse. A same-named variant on any
+in-repo enum with the self type's name vetoes the edge; variants on differently
+named enums do not. Enum and variant names canonicalize raw identifier spelling.
+Only new Self edges (main gives UnknownName) refuse when the caller's modeled
+crate or a reachable in-repo dependency contains a non-ASCII Rust identifier token
+(references and macro tokens count; literals/comments do not); unassigned files
+count toward every possible crate. Main's outcomes and source-spelled FunctionIds
+are preserved; main's identifier byte comparison belongs to #528.
+Trait-impl callers may still call inherent targets.
+Ambiguous impl metadata and macro-token calls without a parsed call expression
+also refuse.
+External, std, derive and macro-generated impls remain outside the existing owner
+index model. Import-qualified `pkg.f()` narrows by file
 stem or Go package directory with no permissive fall-through; `Class.m()` binds
 when the qualifier is itself an owner key; unqualified calls prefer a local free
 definition, then Java/C++ implicit-`this`, then cross-file free functions
@@ -261,6 +292,9 @@ mutation of module objects (monkey-patching, reflective writes, `eval`, host glo
 (replan probes, 2026-09-25). Producer-side mutation is modeled only where mutation is the construction
 idiom (CJS `module.exports`, `src/ast/js_cjs_export_barriers.rs`). A slice that wants to model runtime
 mutation proposes it as a new contract, not as a precision fix to an existing rung.
+Rust `#[cfg]`/`#[cfg_attr]` availability is out of model for every Rust rung: a cfg-disabled item stays
+a candidate and can be the Exact target while rustc binds another callable (#527 measures it first and
+fences it only if warranted).
 Known JS/TS, React and Node resolution gaps, with options and tracking issues, are listed in
 `docs/features/language-coverage/js-ts-known-gaps.md`; update it when a slice closes or finds one.
 
@@ -281,7 +315,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v123) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v128) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
