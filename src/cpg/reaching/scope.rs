@@ -1,5 +1,6 @@
 //! Lexical binding ownership for reaching definitions.
 
+pub(super) mod ambiguous;
 mod lua;
 mod masks;
 pub(super) mod rust_scope;

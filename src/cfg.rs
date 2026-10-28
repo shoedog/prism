@@ -14,6 +14,8 @@ use crate::languages::Language;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+mod lua;
+
 /// A control flow edge between two source lines within a function.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CfgEdge {
@@ -411,7 +413,9 @@ fn build_loop_back_edges(
     stmt_lines: &[usize],
     edges: &mut EdgeSink,
 ) {
-    collect_loop_back_edges(func_node, parsed, stmt_lines, edges);
+    let lua_function_has_goto =
+        parsed.language == Language::Lua && lua::function_has_goto(parsed, func_node);
+    collect_loop_back_edges(func_node, parsed, stmt_lines, edges, lua_function_has_goto);
 }
 
 fn collect_loop_back_edges(
@@ -419,16 +423,22 @@ fn collect_loop_back_edges(
     parsed: &ParsedFile,
     stmt_lines: &[usize],
     edges: &mut EdgeSink,
+    lua_function_has_goto: bool,
 ) {
-    let lua_do_block = parsed.language == Language::Lua && node.kind() == "do_statement";
+    let lua_do = parsed.language == Language::Lua && node.kind() == "do_statement";
     let lua_repeat = parsed.language == Language::Lua && node.kind() == "repeat_statement";
-    if parsed.language.is_loop_node(node.kind()) && !lua_do_block {
+    let lua_mandatory_body = (lua_do || lua_repeat)
+        && !lua_function_has_goto
+        && !lua::body_has_exiting_break(parsed, node);
+    let lua_mandatory_do = lua_do && lua_mandatory_body;
+    let lua_mandatory_repeat = lua_repeat && lua_mandatory_body;
+    if parsed.language.is_loop_node(node.kind()) && !lua_mandatory_do {
         let loop_line = node.start_position().row + 1;
         let body = node
             .child_by_field_name("body")
             .or_else(|| node.child_by_field_name("consequence"));
         if let Some(body) = body {
-            let back_edge_from = if lua_repeat {
+            let back_edge_from = if lua_mandatory_repeat {
                 node.child_by_field_name("condition")
                     .map(|condition| condition.start_position().row + 1)
             } else {
@@ -447,7 +457,7 @@ fn collect_loop_back_edges(
         // Loop condition false → next statement after loop
         let loop_end = node.end_position().row + 1;
         if let Some(&next) = stmt_lines.iter().find(|&&l| l > loop_end) {
-            let from_line = if lua_repeat {
+            let from_line = if lua_mandatory_repeat {
                 node.child_by_field_name("condition")
                     .map(|condition| condition.start_position().row + 1)
                     .unwrap_or(loop_line)
@@ -464,7 +474,7 @@ fn collect_loop_back_edges(
 
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        collect_loop_back_edges(child, parsed, stmt_lines, edges);
+        collect_loop_back_edges(child, parsed, stmt_lines, edges, lua_function_has_goto);
     }
 }
 
@@ -1725,6 +1735,57 @@ void f() {
         assert!(
             edges.contains(&(9, 10)),
             "Lua repeat condition must exit to its successor: {edges:?}"
+        );
+    }
+
+    #[test]
+    fn lua_mandatory_body_cfg_is_withheld_across_break_and_goto() {
+        fn pairs(source: &str) -> Vec<(usize, usize)> {
+            let parsed = ParsedFile::parse("d.lua", source, Language::Lua).unwrap();
+            build_cfg_edges(&parsed)
+                .iter()
+                .map(|edge| (edge.from_line, edge.to_line))
+                .collect()
+        }
+
+        let repeat_break = pairs(
+            "function f(c)\n  x = source()\n  repeat\n    if c then break end\n    x = clean()\n  until done()\n  sink(x)\nend\n",
+        );
+        assert!(
+            repeat_break.contains(&(3, 7)),
+            "repeat with an exiting break must retain the BASE bypass: {repeat_break:?}"
+        );
+
+        let repeat_inner_loop_break = pairs(
+            "function f(c)\n  x = source()\n  repeat\n    while c do\n      break\n    end\n    x = clean()\n  until done()\n  sink(x)\nend\n",
+        );
+        assert!(
+            !repeat_inner_loop_break.contains(&(3, 9)),
+            "a break owned by an inner loop must not withhold mandatory repeat CFG: {repeat_inner_loop_break:?}"
+        );
+
+        let repeat_nested_do_break = pairs(
+            "function f(c)\n  x = source()\n  repeat\n    do\n      if c then break end\n      x = clean()\n    end\n  until done()\n  sink(x)\nend\n",
+        );
+        assert!(
+            repeat_nested_do_break.contains(&(3, 9)),
+            "a break in a nested do exits the repeat and must retain the BASE bypass: {repeat_nested_do_break:?}"
+        );
+
+        let do_break_in_while = pairs(
+            "function f(c)\n  x = source()\n  while c do\n    do\n      if c then break end\n      x = clean()\n    end\n  end\n  sink(x)\nend\n",
+        );
+        assert!(
+            do_break_in_while.contains(&(4, 9)),
+            "a break in do exits the enclosing while and must retain the BASE do bypass: {do_break_in_while:?}"
+        );
+
+        let goto_elsewhere = pairs(
+            "function f(c)\n  x = source()\n  if c then goto again end\n  ::again::\n  do\n    x = clean()\n  end\n  sink(x)\nend\n",
+        );
+        assert!(
+            goto_elsewhere.contains(&(5, 8)),
+            "any goto in the function withholds mandatory do CFG: {goto_elsewhere:?}"
         );
     }
 

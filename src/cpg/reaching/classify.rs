@@ -106,6 +106,13 @@ pub(super) fn classify_edge(
         return FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
     }
     let use_byte = edge_use_byte(parsed, edge);
+    if let Some(construct_line) =
+        scope::ambiguous::masked_same_line_lookup(binding_facts, parsed, edge)
+    {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
+    }
     if use_byte.is_some_and(|byte| binding_facts.header_use(edge, byte) == Some(HeaderUse::Body)) {
         return FlowConfidence::NameOnly(FlowDoubt::SameLine);
     }
