@@ -22,11 +22,13 @@ fn malloc_plan(space_efficient: Option<&OsStr>, opt_out: Option<&OsStr>) -> Mall
 
 #[cfg(target_os = "macos")]
 pub(super) fn restart_if_needed() {
+    use std::io::Write;
+
     let space_efficient = std::env::var_os("MallocSpaceEfficient");
     let opt_out = std::env::var_os("PRISM_MCP_MALLOC_SPACE_EFFICIENT");
     let plan = malloc_plan(space_efficient.as_deref(), opt_out.as_deref());
     if let Some(warning) = apply_plan(plan, restart) {
-        eprintln!("{warning}");
+        let _ = writeln!(std::io::stderr(), "{warning}");
     }
 }
 

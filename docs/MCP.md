@@ -223,8 +223,11 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span` 
 | `PRISM_MCP_SHARED` | unset | Read by the plugin's launcher (`scripts/prism-mcp-launch.sh`), not by `prism-mcp`: `1` adds `--shared`; unset, empty or `0` adds nothing; any other value stops the launcher. |
 
 On macOS this allocator policy lets unload return freed memory and reduces loaded footprint;
-one measurement found index loading about 10% slower (n=1). Re-exec preserves the PID, arguments,
-environment and stdio; if restart fails, one stderr warning is emitted and startup continues.
+one measurement found index loading about 10% slower (n=1). Re-exec preserves the PID, arguments
+and stdio; the restarted process has the caller's environment plus `MallocSpaceEfficient=1`.
+Child processes inherit this setting, including a shared daemon started by the shim. A shared
+daemon keeps the allocator mode of its first spawner, like its idle policy; later clients do not
+change it. If restart fails, one stderr warning is attempted and startup continues.
 Serving startup events report `malloc_space_efficient=1`, `0`, `unset` or `other` from the current
 process environment.
 

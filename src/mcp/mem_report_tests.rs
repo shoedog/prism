@@ -80,9 +80,13 @@ fn a_plain_report_has_the_build_stages_and_no_optional_ones() {
     );
     assert_eq!(report["build"]["allocator"], "system");
     assert_eq!(report["prism_mem_report"], 3);
-    // Every PRISM_* setting is echoed except the variable that selects this mode.
+    // Allocator mode and PRISM_* settings are echoed except the report-mode switch.
     let env = report["env"].as_object().expect("env section");
-    assert!(env.keys().all(|name| name.starts_with("PRISM_")), "{env:?}");
+    assert!(
+        env.keys()
+            .all(|name| name.starts_with("PRISM_") || name == "MallocSpaceEfficient"),
+        "{env:?}"
+    );
     assert!(!env.contains_key("PRISM_MCP_MEM_REPORT"), "{env:?}");
     assert!(report["build"]["cpg_cache_version"].as_u64().unwrap() > 0);
 }
@@ -143,11 +147,12 @@ fn a_generated_workload_runs_with_no_errors_and_adds_its_stage() {
 }
 
 #[test]
-fn only_prism_settings_are_echoed_and_never_the_mode_switch() {
+fn prism_and_allocator_settings_are_echoed_and_never_the_mode_switch() {
     let vars = [
         ("PRISM_MCP_MEM_REPORT", "1"),
         ("PRISM_MCP_CONCISE_SHAPE", "slim"),
         ("PRISM_A", ""),
+        ("MallocSpaceEfficient", "1"),
         ("PATH", "/bin"),
         ("NOT_PRISM_B", "x"),
         ("prism_lower", "y"),
@@ -157,10 +162,26 @@ fn only_prism_settings_are_echoed_and_never_the_mode_switch() {
     assert_eq!(
         got.into_iter().collect::<Vec<_>>(),
         [
+            ("MallocSpaceEfficient".to_string(), "1".to_string()),
             ("PRISM_A".to_string(), String::new()),
             ("PRISM_MCP_CONCISE_SHAPE".to_string(), "slim".to_string()),
         ]
     );
+}
+
+#[test]
+fn allocator_setting_preserves_caller_values_and_absence() {
+    assert!(prism_settings(std::iter::empty()).is_empty());
+    for value in ["", "0", "1", "other"] {
+        let got = prism_settings(std::iter::once((
+            "MallocSpaceEfficient".into(),
+            value.into(),
+        )));
+        assert_eq!(
+            got.get("MallocSpaceEfficient").map(String::as_str),
+            Some(value)
+        );
+    }
 }
 
 /// Whether a file named `name` exists anywhere under `dir`.

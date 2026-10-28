@@ -85,7 +85,8 @@ Observed before/after/restored hashes are retained in the report. Abort/SIGKILL 
 inspect the mirror before using it again.
 
 Set `PRISM_SUPPORT_PATCH_SHA256=<support patch digest>` **on both baseline and candidate sides**. Reported
-`PRISM_*` environment values bind the common support seam and are checked by comparison. Defaults stay unchanged.
+`PRISM_*` environment values and `MallocSpaceEfficient` (when present in the measured process)
+bind the common support seam and are checked by comparison. Defaults stay unchanged.
 The FullOnly S0 validator requires strategy `full` and generation 1; later strategy prototypes must update it
 explicitly. Admission here checks primary peaks; complete auxiliary timing/heap/footprint/RSS/tree availability
 must be checked by downstream optimization acceptance gates.
