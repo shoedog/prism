@@ -23,6 +23,18 @@ class CensusTest(unittest.TestCase):
         self.assertEqual(es[0].display, 'all(any(),feature="x")')
         self.assertEqual(c.statically_false(es), 'under:feature="x"')
 
+    def test_implied(self):
+        def ctx(*conds):
+            info = c.AttrInfo()
+            for t in conds:
+                c._apply_attr(c.cx.tokenize(t), None, info)
+            return c.entries_from(info, "item")
+        self.assertTrue(c.is_implied(ctx('cfg(any(feature = "p", test))'), ctx("cfg(test)")))
+        self.assertTrue(c.is_implied(ctx("cfg(all(unix, test))"), ctx("cfg(test)", "cfg(unix)")))
+        self.assertFalse(c.is_implied(ctx("cfg(all(unix, test))"), ctx("cfg(test)")))
+        self.assertFalse(c.is_implied(ctx('cfg(feature = "x")'), ctx("cfg(test)")))
+        self.assertTrue(c.is_implied(ctx("cfg_attr(x, cfg(test))"), ctx("cfg(test)")))
+
     def test_path_attr(self):
         info = c.AttrInfo()
         c._apply_attr(c.cx.tokenize('cfg_attr(unix, path = "u.rs")'), None, info)

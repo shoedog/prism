@@ -1,0 +1,15 @@
+axum dump: 	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:05.69
+axum dump: 	Maximum resident set size (kbytes): 171452
+axum dump: 	Exit status: 0
+ripgrep dump: 	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:20.18
+ripgrep dump: 	Maximum resident set size (kbytes): 218740
+ripgrep dump: 	Exit status: 0
+clap dump: 	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:11.46
+clap dump: 	Maximum resident set size (kbytes): 355328
+clap dump: 	Exit status: 0
+tokio dump: 	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:22.78
+tokio dump: 	Maximum resident set size (kbytes): 537204
+tokio dump: 	Exit status: 0
+prism dump: 	Elapsed (wall clock) time (h:mm:ss or m:ss): 4:35.16
+prism dump: 	Maximum resident set size (kbytes): 2467508
+prism dump: 	Exit status: 0

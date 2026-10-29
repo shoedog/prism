@@ -1,0 +1,702 @@
+{
+ "admissible": true,
+ "attr_parse_errors": 0,
+ "by_rung_nonfixture": {
+  "constructor_local": {
+   "A": 0,
+   "A_syntactic": 0,
+   "E": 815,
+   "F1_cost": 0,
+   "F1_cost_syntactic": 0,
+   "F2_cost": 0,
+   "F2_cost_with_c": 0,
+   "F3_cost": 116,
+   "F3_false": 116,
+   "F3_not_implied": 0,
+   "F3_unknown": 0,
+   "G": 116,
+   "atom_family_hist": {
+    "feature": 82,
+    "target": 54,
+    "test": 75
+   },
+   "classes": {
+    "a1": {
+     "implied": 1,
+     "not_implied": 0
+    },
+    "a2": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-other": {
+     "implied": 112,
+     "not_implied": 0
+    },
+    "b-std": {
+     "implied": 3,
+     "not_implied": 0
+    },
+    "c": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "none": {
+     "implied": 0,
+     "not_implied": 699
+    },
+    "unmapped": {
+     "implied": 0,
+     "not_implied": 0
+    }
+   },
+   "origin_hist": {
+    "impl": 7,
+    "item": 34,
+    "mod_decl": 82,
+    "mod_inline": 2
+   },
+   "statically_false": 0,
+   "statically_false_always": 0
+  },
+  "field_typed": {
+   "A": 0,
+   "A_syntactic": 0,
+   "E": 703,
+   "F1_cost": 1,
+   "F1_cost_syntactic": 1,
+   "F2_cost": 0,
+   "F2_cost_with_c": 0,
+   "F3_cost": 62,
+   "F3_false": 62,
+   "F3_not_implied": 1,
+   "F3_unknown": 0,
+   "G": 62,
+   "atom_family_hist": {
+    "feature": 61,
+    "target": 35,
+    "test": 2
+   },
+   "classes": {
+    "a1": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "a2": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-other": {
+     "implied": 60,
+     "not_implied": 1
+    },
+    "b-std": {
+     "implied": 1,
+     "not_implied": 0
+    },
+    "c": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "none": {
+     "implied": 0,
+     "not_implied": 641
+    },
+    "unmapped": {
+     "implied": 0,
+     "not_implied": 0
+    }
+   },
+   "origin_hist": {
+    "item": 1,
+    "mod_decl": 62
+   },
+   "statically_false": 0,
+   "statically_false_always": 0
+  },
+  "free_single": {
+   "A": 0,
+   "A_syntactic": 0,
+   "E": 4084,
+   "F1_cost": 228,
+   "F1_cost_syntactic": 228,
+   "F2_cost": 0,
+   "F2_cost_with_c": 0,
+   "F3_cost": 1835,
+   "F3_false": 1835,
+   "F3_not_implied": 228,
+   "F3_unknown": 0,
+   "G": 1835,
+   "atom_family_hist": {
+    "feature": 1325,
+    "target": 1130,
+    "test": 1488
+   },
+   "classes": {
+    "a1": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "a2": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-other": {
+     "implied": 1607,
+     "not_implied": 228
+    },
+    "b-std": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "c": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "none": {
+     "implied": 0,
+     "not_implied": 2249
+    },
+    "unmapped": {
+     "implied": 0,
+     "not_implied": 0
+    }
+   },
+   "origin_hist": {
+    "file_inner": 12,
+    "item": 107,
+    "mod_decl": 1791,
+    "mod_inline": 7
+   },
+   "statically_false": 0,
+   "statically_false_always": 0
+  },
+  "local_def": {
+   "A": 0,
+   "A_syntactic": 0,
+   "E": 15669,
+   "F1_cost": 8,
+   "F1_cost_syntactic": 11,
+   "F2_cost": 0,
+   "F2_cost_with_c": 0,
+   "F3_cost": 6080,
+   "F3_false": 6080,
+   "F3_not_implied": 8,
+   "F3_unknown": 0,
+   "G": 6082,
+   "atom_family_hist": {
+    "feature": 2551,
+    "target": 1190,
+    "test": 5261
+   },
+   "classes": {
+    "a1": {
+     "implied": 3,
+     "not_implied": 0
+    },
+    "a2": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-other": {
+     "implied": 5999,
+     "not_implied": 8
+    },
+    "b-std": {
+     "implied": 72,
+     "not_implied": 0
+    },
+    "c": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "none": {
+     "implied": 0,
+     "not_implied": 9587
+    },
+    "unmapped": {
+     "implied": 0,
+     "not_implied": 0
+    }
+   },
+   "origin_hist": {
+    "file_inner": 216,
+    "item": 36,
+    "mod_decl": 5154,
+    "mod_inline": 832
+   },
+   "statically_false": 0,
+   "statically_false_always": 0
+  },
+  "qualified_owner": {
+   "A": 0,
+   "A_syntactic": 0,
+   "E": 7665,
+   "F1_cost": 84,
+   "F1_cost_syntactic": 85,
+   "F2_cost": 0,
+   "F2_cost_with_c": 1,
+   "F3_cost": 1580,
+   "F3_false": 1580,
+   "F3_not_implied": 84,
+   "F3_unknown": 0,
+   "G": 1580,
+   "atom_family_hist": {
+    "feature": 1368,
+    "target": 717,
+    "test": 692
+   },
+   "classes": {
+    "a1": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "a2": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-other": {
+     "implied": 1487,
+     "not_implied": 84
+    },
+    "b-std": {
+     "implied": 9,
+     "not_implied": 0
+    },
+    "c": {
+     "implied": 0,
+     "not_implied": 1
+    },
+    "none": {
+     "implied": 0,
+     "not_implied": 6084
+    },
+    "unmapped": {
+     "implied": 0,
+     "not_implied": 0
+    }
+   },
+   "origin_hist": {
+    "file_inner": 34,
+    "impl": 20,
+    "item": 142,
+    "mod_decl": 1462,
+    "mod_inline": 49
+   },
+   "statically_false": 0,
+   "statically_false_always": 0
+  },
+  "qualifier_owner": {
+   "A": 0,
+   "A_syntactic": 0,
+   "E": 3,
+   "F1_cost": 0,
+   "F1_cost_syntactic": 0,
+   "F2_cost": 0,
+   "F2_cost_with_c": 0,
+   "F3_cost": 0,
+   "F3_false": 0,
+   "F3_not_implied": 0,
+   "F3_unknown": 0,
+   "G": 0,
+   "atom_family_hist": {},
+   "classes": {
+    "a1": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "a2": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-other": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-std": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "c": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "none": {
+     "implied": 0,
+     "not_implied": 3
+    },
+    "unmapped": {
+     "implied": 0,
+     "not_implied": 0
+    }
+   },
+   "origin_hist": {},
+   "statically_false": 0,
+   "statically_false_always": 0
+  },
+  "return_typed": {
+   "A": 0,
+   "A_syntactic": 0,
+   "E": 544,
+   "F1_cost": 10,
+   "F1_cost_syntactic": 10,
+   "F2_cost": 0,
+   "F2_cost_with_c": 0,
+   "F3_cost": 149,
+   "F3_false": 149,
+   "F3_not_implied": 10,
+   "F3_unknown": 0,
+   "G": 149,
+   "atom_family_hist": {
+    "feature": 136,
+    "target": 47,
+    "test": 58
+   },
+   "classes": {
+    "a1": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "a2": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-other": {
+     "implied": 119,
+     "not_implied": 10
+    },
+    "b-std": {
+     "implied": 20,
+     "not_implied": 0
+    },
+    "c": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "none": {
+     "implied": 0,
+     "not_implied": 395
+    },
+    "unmapped": {
+     "implied": 0,
+     "not_implied": 0
+    }
+   },
+   "origin_hist": {
+    "item": 3,
+    "mod_decl": 146
+   },
+   "statically_false": 0,
+   "statically_false_always": 0
+  },
+  "self_receiver": {
+   "A": 0,
+   "A_syntactic": 0,
+   "E": 2569,
+   "F1_cost": 4,
+   "F1_cost_syntactic": 4,
+   "F2_cost": 0,
+   "F2_cost_with_c": 0,
+   "F3_cost": 291,
+   "F3_false": 291,
+   "F3_not_implied": 4,
+   "F3_unknown": 0,
+   "G": 291,
+   "atom_family_hist": {
+    "feature": 247,
+    "target": 162,
+    "test": 69
+   },
+   "classes": {
+    "a1": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "a2": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-other": {
+     "implied": 275,
+     "not_implied": 4
+    },
+    "b-std": {
+     "implied": 12,
+     "not_implied": 0
+    },
+    "c": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "none": {
+     "implied": 0,
+     "not_implied": 2278
+    },
+    "unmapped": {
+     "implied": 0,
+     "not_implied": 0
+    }
+   },
+   "origin_hist": {
+    "file_inner": 16,
+    "item": 11,
+    "mod_decl": 261,
+    "mod_inline": 5
+   },
+   "statically_false": 0,
+   "statically_false_always": 0
+  },
+  "stem_single": {
+   "A": 0,
+   "A_syntactic": 0,
+   "E": 781,
+   "F1_cost": 8,
+   "F1_cost_syntactic": 8,
+   "F2_cost": 0,
+   "F2_cost_with_c": 1,
+   "F3_cost": 68,
+   "F3_false": 68,
+   "F3_not_implied": 8,
+   "F3_unknown": 0,
+   "G": 68,
+   "atom_family_hist": {
+    "feature": 21,
+    "target": 12,
+    "test": 60
+   },
+   "classes": {
+    "a1": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "a2": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-other": {
+     "implied": 60,
+     "not_implied": 8
+    },
+    "b-std": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "c": {
+     "implied": 0,
+     "not_implied": 1
+    },
+    "none": {
+     "implied": 0,
+     "not_implied": 712
+    },
+    "unmapped": {
+     "implied": 0,
+     "not_implied": 0
+    }
+   },
+   "origin_hist": {
+    "item": 1,
+    "mod_decl": 68
+   },
+   "statically_false": 0,
+   "statically_false_always": 0
+  },
+  "typed_param": {
+   "A": 0,
+   "A_syntactic": 0,
+   "E": 1303,
+   "F1_cost": 7,
+   "F1_cost_syntactic": 7,
+   "F2_cost": 0,
+   "F2_cost_with_c": 0,
+   "F3_cost": 124,
+   "F3_false": 124,
+   "F3_not_implied": 7,
+   "F3_unknown": 0,
+   "G": 124,
+   "atom_family_hist": {
+    "feature": 117,
+    "target": 77,
+    "test": 20
+   },
+   "classes": {
+    "a1": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "a2": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "b-other": {
+     "implied": 115,
+     "not_implied": 6
+    },
+    "b-std": {
+     "implied": 2,
+     "not_implied": 1
+    },
+    "c": {
+     "implied": 0,
+     "not_implied": 0
+    },
+    "none": {
+     "implied": 0,
+     "not_implied": 1179
+    },
+    "unmapped": {
+     "implied": 0,
+     "not_implied": 0
+    }
+   },
+   "origin_hist": {
+    "item": 4,
+    "mod_decl": 123
+   },
+   "statically_false": 0,
+   "statically_false_always": 0
+  }
+ },
+ "cfg_if_files": 0,
+ "cfg_wrapper_expansions": 0,
+ "cfg_wrapper_macros": 0,
+ "corpus": "prism",
+ "files_parsed": 1026,
+ "fixture": {
+  "A": 0,
+  "A_syntactic": 0,
+  "E": 1193,
+  "F1_cost": 73,
+  "F1_cost_syntactic": 73,
+  "F2_cost": 0,
+  "F2_cost_with_c": 0,
+  "F3_cost": 73,
+  "F3_false": 73,
+  "F3_not_implied": 73,
+  "F3_unknown": 0,
+  "G": 73,
+  "atom_family_hist": {
+   "feature": 72,
+   "target": 72,
+   "test": 73
+  },
+  "classes": {
+   "a1": {
+    "implied": 0,
+    "not_implied": 0
+   },
+   "a2": {
+    "implied": 0,
+    "not_implied": 0
+   },
+   "b-other": {
+    "implied": 0,
+    "not_implied": 73
+   },
+   "b-std": {
+    "implied": 0,
+    "not_implied": 0
+   },
+   "c": {
+    "implied": 0,
+    "not_implied": 0
+   },
+   "none": {
+    "implied": 0,
+    "not_implied": 1120
+   },
+   "unmapped": {
+    "implied": 0,
+    "not_implied": 0
+   }
+  },
+  "origin_hist": {
+   "mod_decl": 73
+  },
+  "statically_false": 0,
+  "statically_false_always": 0
+ },
+ "identity": {
+  "commit": "732863c09fc273f372aaf98ab1b3c53f5d8bbe7a",
+  "source": "git archive 732863c0 (this repository)"
+ },
+ "inputs": {
+  "dump_sha256": "64722d86f5ca02405e7d8d1451bdb75ca81635340f50620831fc7aabe37e9a6c",
+  "host_cfg_sha256": "de83cfea3c26b77e5109d1fbb7cb65187d45b7020ff6a2de1456242eadea656a",
+  "pairs_sha256": "a658b7d1bef2cbc3b9ea79f0266d96119e5c96dc6c97c9841c5d59e9ff6b9e55",
+  "script_sha256": {
+   "cfg527_census.py": "ad58246c29ce450e015fbb3169cb6fb1b410277e0339e113e01c7c17074bc038",
+   "cfgexpr.py": "c87185c5d74f43094b1ea230a2e6fef7fbd60298a2f6f143f2d37e35a0a2a07b"
+  }
+ },
+ "map_kinds": {
+  "exact": 35329
+ },
+ "map_rate": 1.0,
+ "mapped": 35329,
+ "multi_context_files": 10,
+ "nonfixture": {
+  "A": 0,
+  "A_syntactic": 0,
+  "E": 34136,
+  "F1_cost": 350,
+  "F1_cost_syntactic": 354,
+  "F2_cost": 0,
+  "F2_cost_with_c": 2,
+  "F3_cost": 10305,
+  "F3_false": 10305,
+  "F3_not_implied": 350,
+  "F3_unknown": 0,
+  "G": 10307,
+  "atom_family_hist": {
+   "feature": 5908,
+   "target": 3424,
+   "test": 7725
+  },
+  "classes": {
+   "a1": {
+    "implied": 4,
+    "not_implied": 0
+   },
+   "a2": {
+    "implied": 0,
+    "not_implied": 0
+   },
+   "b-other": {
+    "implied": 9834,
+    "not_implied": 349
+   },
+   "b-std": {
+    "implied": 119,
+    "not_implied": 1
+   },
+   "c": {
+    "implied": 0,
+    "not_implied": 2
+   },
+   "none": {
+    "implied": 0,
+    "not_implied": 23827
+   },
+   "unmapped": {
+    "implied": 0,
+    "not_implied": 0
+   }
+  },
+  "origin_hist": {
+   "file_inner": 278,
+   "impl": 27,
+   "item": 339,
+   "mod_decl": 9149,
+   "mod_inline": 895
+  },
+  "statically_false": 0,
+  "statically_false_always": 0
+ },
+ "packages": 17,
+ "parent_unknown_files": 103,
+ "parent_unknown_pairs": 1244,
+ "rust_exact_pairs": 35329,
+ "script_version": "cfg527-census-2",
+ "unparsed_files": 0
+}

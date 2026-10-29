@@ -34,11 +34,11 @@ clone clone_from default from into try_from try_into eq ne cmp partial_cmp lt le
 fmt hash next next_back size_hint as_ref as_mut borrow borrow_mut deref deref_mut drop to_string
 to_owned extend from_iter into_iter index index_mut add sub mul div rem neg not bitand bitor bitxor
 shl shr add_assign sub_assign mul_assign div_assign rem_assign from_str poll call call_mut call_once
-write_str write_fmt write flush read len is_empty iter iter_mut get get_mut map collect
+write_str write_fmt write flush read len map collect
 """.split())
 
 SKIP_DIRS = {".git", "target", "node_modules", ".venv", "__pycache__"}
-SCRIPT_VERSION = "cfg527-census-1"
+SCRIPT_VERSION = "cfg527-census-2"
 
 
 def sha256_file(path):
@@ -221,6 +221,8 @@ class Corpus:
         self.modpath = {}  # module key -> (crate root rel, tuple path)
         self.globs = collections.defaultdict(list)  # module key -> [segments]
         self.visited = set()
+        self.wrappers = {}
+        self.macro_expansions = 0
 
     # ---- files
 
@@ -276,7 +278,78 @@ class Corpus:
 
     # ---- module tree
 
+    def collect_wrappers(self):
+        """Repair round: item-forwarding cfg wrapper macros, `macro_rules! m { ($($i:item)*) =>
+        { $( #[cfg(P)] $i )* } }` (tokio's `cfg_fs!` family). Keyed by (package, name)."""
+        self.wrappers = {}
+        for dirpath, dirnames, filenames in os.walk(self.root):
+            dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
+            for fn in sorted(filenames):
+                if not fn.endswith(".rs"):
+                    continue
+                full = os.path.join(dirpath, fn)
+                try:
+                    with open(full, "rb") as f:
+                        if b"macro_rules!" not in f.read():
+                            continue
+                except OSError:
+                    continue
+                rel = self.rel(full)
+                parsed = self.parse(rel)
+                if parsed is None:
+                    continue
+                tree, src = parsed
+                stack = [tree.root_node]
+                while stack:
+                    n = stack.pop()
+                    if n.type == "macro_definition":
+                        self.add_wrapper(n, src, rel)
+                        continue
+                    stack.extend(n.named_children)
+
+    def add_wrapper(self, node, src, rel):
+        name = node.child_by_field_name("name")
+        if name is None:
+            return
+        for rule in node.named_children:
+            if rule.type != "macro_rule":
+                continue
+            left, right = rule.child_by_field_name("left"), rule.child_by_field_name("right")
+            if left is None or right is None:
+                continue
+            m = re.match(r"^[\(\{\[]\$\(\$(\w+):item\)\*[\)\}\]]$", re.sub(r"\s+", "", text(left, src)))
+            if not m or ("$" + m.group(1)) not in text(right, src):
+                continue
+            info = AttrInfo()
+            toks = cx.tokenize(text(right, src))
+            i = 0
+            while i < len(toks) - 1:
+                if toks[i] == ("p", "#") and toks[i + 1] == ("p", "["):
+                    depth, j = 0, i + 1
+                    while j < len(toks):
+                        if toks[j] == ("p", "["):
+                            depth += 1
+                        elif toks[j] == ("p", "]"):
+                            depth -= 1
+                            if depth == 0:
+                                break
+                        j += 1
+                    _apply_attr(toks[i + 2:j], None, info)
+                    i = j
+                i += 1
+            if info.cfgs:
+                self.wrappers[(self.package_of(rel), text(name, src))] = info
+            return
+
+    def wrapper_for(self, pkg, name):
+        hit = self.wrappers.get((pkg, name))
+        if hit is not None:
+            return hit
+        hits = [v for (p, n), v in self.wrappers.items() if n == name]
+        return hits[0] if len(hits) == 1 else None
+
     def walk_crates(self):
+        self.collect_wrappers()
         for prel in sorted(self.packages):
             for root in self.packages[prel]["roots"]:
                 self.load_file(root, [], (root, ()), is_modrs=True)
@@ -373,9 +446,45 @@ class Corpus:
                     self.load_mod_decl(ch, name, info, st, ctx, inline, mpath, base)
             elif t == "use_declaration":
                 self.record_glob(ch, st, inline)
+            elif t == "macro_invocation":
+                self.expand_macro(ch, st, ctx, inline, mpath, base, impl, allow_dep)
             elif t in ("declaration_list", "block", "expression_statement", "const_item", "static_item",
                        "foreign_mod_item"):
                 self.walk(ch, st, ctx, inline, mpath, base, impl, allow_dep)
+
+    def expand_macro(self, node, st, ctx, inline, mpath, base, impl, allow_dep):
+        src = st["src"]
+        mac = node.child_by_field_name("macro")
+        tt = next((c for c in node.named_children if c.type == "token_tree"), None)
+        if mac is None or tt is None:
+            return
+        full = re.sub(r"\s+", "", text(mac, src))
+        name = full.split("::")[-1]
+        if full == "automod::dir":
+            lit = next((c for c in tt.named_children if c.type == "string_literal"), None)
+            pdir = st["pkg"]
+            if lit is None or pdir is None:
+                return
+            d = os.path.normpath(os.path.join(pdir, text(lit, src).strip('"'))).replace(os.sep, "/")
+            absd = os.path.join(self.root, d)
+            if os.path.isdir(absd):
+                for fn in sorted(os.listdir(absd)):
+                    if fn.endswith(".rs") and os.path.isfile(os.path.join(absd, fn)):
+                        self.load_file(d + "/" + fn, ctx, (st["crate_root"], mpath + (fn[:-3],)), is_modrs=False)
+            return
+        info = self.wrapper_for(st["pkg"], name)
+        if info is None:
+            return
+        self.macro_expansions += 1
+        buf = bytearray(src)
+        lo, hi = tt.start_byte + 1, tt.end_byte - 1
+        for i in range(len(buf)):
+            if (i < lo or i >= hi) and buf[i] != 10:
+                buf[i] = 32
+        padded = bytes(buf)
+        sub = PARSER.parse(padded)
+        st2 = dict(st, src=padded)
+        self.walk(sub.root_node, st2, ctx + entries_from(info, "macro_cfg"), inline, mpath, base, impl, allow_dep)
 
     def record_glob(self, node, st, inline):
         src = st["src"]
@@ -647,7 +756,7 @@ def alternatives(corpus, tgt, caller_mod, idx):
     alts = []
 
     def add(f, rel, ctx):
-        if f is tgt:
+        if f is tgt or f.key() == tgt.key():
             return
         if ctx_keys(ctx) == tkeys:
             return
@@ -693,9 +802,38 @@ def alternatives(corpus, tgt, caller_mod, idx):
     return out
 
 
+def implied_by(f, ckeys):
+    """Sound implication from the caller's conjunct set: f is one of them, or an
+    `any` with an implied member, or an `all` whose members are all implied."""
+    if cx.render(f) in ckeys:
+        return True
+    if f[0] == "any":
+        return any(implied_by(x, ckeys) for x in f[1])
+    if f[0] == "all":
+        return bool(f[1]) and all(implied_by(x, ckeys) for x in f[1])
+    return False
+
+
+def is_implied(tctx, cctx):
+    """Repair round (summary.md): every conjunct of T follows from C's conjuncts.
+    A cfg_attr(q, cfg(p)) conjunct is implied when C carries it verbatim, or implies
+    its real meaning any(not(q), p) through p."""
+    ckeys = ctx_keys(cctx)
+    plain = frozenset(e.key for e in cctx if not e.key.startswith("cfg_attr:"))
+    for e in tctx:
+        if e.key in ckeys:
+            continue
+        if e.key.startswith("cfg_attr:"):
+            if not implied_by(e.formula[1][1], plain):
+                return False
+        elif not implied_by(e.formula, plain):
+            return False
+    return True
+
+
 def classify(tgt, tctx, cctx, alts, caller_mod):
     t_nonempty = bool(tctx)
-    implied = t_nonempty and ctx_keys(tctx) <= ctx_keys(cctx)
+    implied = t_nonempty and is_implied(tctx, cctx)
     danger = [a for a in alts if a[1] in ("same_owner_inherent", "trait_reachable", "same_module_free")]
     if t_nonempty:
         if danger:
@@ -808,6 +946,7 @@ def run(args):
             sf = statically_false(tgt.ctx)
             row.update({
                 "T": ctx_json(tgt.ctx), "C": ctx_json(cctx), "implied": implied, "class": cls,
+                "implied_syntactic": bool(tgt.ctx) and ctx_keys(tgt.ctx) <= ctx_keys(cctx),
                 "target_kind": tgt.kind, "target_owner": tgt.owner, "target_trait": tgt.trait,
                 "alternatives": [{"fid": f.fid(), "relation": rel, "ctx": ctx_json(ctx),
                                   "c0_eval": ctx_eval(ctx, env_for(f.package)), "kind": f.kind,
@@ -860,6 +999,11 @@ def summarize(args, corpus, rows, map_kinds):
                                "not_implied": sum(1 for r in sel if not r.get("implied"))}
         a_ni = [r for r in rs if r["class"] in ("a1", "a2") and not r.get("implied")]
         b["A"] = len(a_ni)
+        b["A_syntactic"] = sum(1 for r in rs if r["class"] in ("a1", "a2") and not r.get("implied_syntactic"))
+        b["F1_cost_syntactic"] = sum(1 for r in rs if r["class"] in ("a1", "a2", "b-std", "b-other")
+                                     and not r.get("implied_syntactic"))
+        b["F3_not_implied"] = sum(1 for r in rs if r.get("T") and r.get("t_c0_eval") is not True
+                                  and not r.get("implied"))
         b["F1_cost"] = sum(1 for r in rs if r["class"] in ("a1", "a2", "b-std", "b-other") and not r.get("implied"))
         b["F2_cost"] = b["A"]
         b["F2_cost_with_c"] = b["A"] + sum(1 for r in rs if r["class"] == "c")
@@ -890,6 +1034,9 @@ def summarize(args, corpus, rows, map_kinds):
          "parent_unknown_pairs": sum(1 for r in rows if r.get("parent_unknown")),
          "unparsed_files": len(corpus.error_files),
          "cfg_if_files": len(corpus.cfg_if_files),
+         "cfg_wrapper_macros": len(corpus.wrappers),
+         "cfg_wrapper_expansions": corpus.macro_expansions,
+         "multi_context_files": sum(1 for v in corpus.file_ctx.values() if len(v) > 1),
          "attr_parse_errors": corpus.attr_errors,
          "files_parsed": sum(1 for v in corpus.parsed.values() if v),
          "packages": sum(1 for p in corpus.packages.values() if p.get("name")),
