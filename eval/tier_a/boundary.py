@@ -147,6 +147,16 @@ def observe_cargo(
     return [env_reads[name] for name in sorted(env_reads)], dep_paths
 
 
+def _archive_is_file(path: Path, translate: bool = True) -> bool:
+    """``Path.is_file`` that turns a stat failure (e.g. EACCES on a parent) into a named refusal."""
+    try:
+        return path.is_file()
+    except OSError as exc:
+        if translate:
+            raise BoundaryViolation([f"sut_observation_unavailable: {path}"]) from exc
+        raise
+
+
 def authenticate_sut_inputs(lock: Lock, artifacts: ArtifactPaths) -> list[tuple]:
     """Bind the complete SUT-input manifest to existing anchor commitments."""
     try:
@@ -216,7 +226,7 @@ def observe_archive(
             and any(parts[-2].startswith(f"{prefix}-") for prefix in prefixes)
         ):
             archived = artifacts.sut_archive_input(path)
-            if archived.is_file():
+            if _archive_is_file(archived):
                 build_outputs.append(archived)
 
     env_reads: dict[str, EnvRead] = {}
@@ -459,12 +469,12 @@ def _sut_input_verification(
             if expected == "absent":
                 if (
                     path in staged_archive
-                    or archived.is_file()
-                    or (repo / path).is_file()
+                    or _archive_is_file(archived, archive_provenance)
+                    or _archive_is_file(repo / path, archive_provenance)
                 ):
                     reasons.append(f"sut_input_absent_present_transition: {path}")
                 continue
-            if archived.is_file():
+            if _archive_is_file(archived, archive_provenance):
                 try:
                     actual = raw_digest(archived)
                 except OSError as exc:
