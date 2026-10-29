@@ -57,6 +57,17 @@ in the environment). With `--prism-bin`, commit identity is `unknown (prism-bin)
   counts unique runs participating in shared rounds, each ref-pair header counts its runs,
   and every metric verdict states `k of m runs gate-failed` for that metric's complete pairs.
 
+## Corpora
+
+| Key | Corpus | Language | Root |
+|---|---|---|---|
+| T | TypeScript 7964e22f, `src/` only | TypeScript | `TypeScript/src` |
+| X | Excalidraw 0642e72c | TypeScript/TSX | `excalidraw` |
+| D | Django e8cff292 | Python | `django` |
+| M | mypy 5ef09027 | Python | `mypy` |
+
+Pass the keys to both scripts, e.g. `--corpora D,M` for a Python measurement.
+
 ## Adding a corpus (controller only)
 
 Public corpora only; never a private corpus. Upload the archive and its line in `SHA256SUMS` to the

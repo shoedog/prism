@@ -7,5 +7,15 @@
     "asset": "excalidraw-0642e72c.tar.gz",
     "root": "excalidraw",
     "manifest_sha256": "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0"
+  },
+  "D": {
+    "asset": "django-e8cff292.tar.gz",
+    "root": "django",
+    "manifest_sha256": "275cf4ebc44ee230f2a653aa370426c0962836e0c0d55898f8e559910f140eaa"
+  },
+  "M": {
+    "asset": "mypy-5ef09027.tar.gz",
+    "root": "mypy",
+    "manifest_sha256": "2c90b4a6d2e8250e76853d77d3c75cd6df0d638be7edf57c9bf820e31ed82bd4"
   }
 }
