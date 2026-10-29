@@ -128,8 +128,7 @@ where
     F: Fn(&str, &ParsedFile) -> Option<FileProofs> + Sync,
 {
     let files: Vec<_> = files.into_iter().collect();
-    let per_file: Vec<_> = files
-        .par_iter()
+    let per_file: Vec<_> = crate::build_pool::per_item(&files)
         .map(|(file, parsed)| work(file, parsed))
         .collect();
     let mut result = ProofIndex::default();

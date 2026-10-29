@@ -40,8 +40,7 @@ where
     // Freeze the caller's order before dispatch. Indexed parallel collection
     // retains these positions even when later files finish first.
     let files: Vec<_> = files.into_iter().collect();
-    let per_file: Vec<_> = files
-        .par_iter()
+    let per_file: Vec<_> = crate::build_pool::per_item(&files)
         .map(|(path, parsed)| work(path, parsed))
         .collect();
     let (mut exports, mut locals, mut returns) = JsTsResolutionFacts::default();

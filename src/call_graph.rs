@@ -1703,8 +1703,7 @@ impl CallGraph {
         profile.next("call_graph.definitions");
         // Phase 1: Collect all function definitions per file in parallel, then
         // flatten serially in file order to preserve insertion order.
-        let per_file_functions: Vec<FileFunctions> = ordered_files
-            .par_iter()
+        let per_file_functions: Vec<FileFunctions> = crate::build_pool::per_item(&ordered_files)
             .map(|entry| {
                 let (file_path, parsed) = *entry;
                 let mut file_functions = Vec::new();
@@ -1809,8 +1808,7 @@ impl CallGraph {
         profile.next("call_graph.calls");
         // Phase 2: Find all call sites within each function in parallel, then
         // flatten serially in file order to preserve insertion order.
-        let per_file_calls: Vec<FileCallSites> = ordered_files
-            .par_iter()
+        let per_file_calls: Vec<FileCallSites> = crate::build_pool::per_item(&ordered_files)
             .map(|entry| {
                 let (file_path, parsed) = *entry;
                 let mut file_call_sites = Vec::new();
@@ -3680,8 +3678,7 @@ impl CallGraph {
         // shared (by reference) across every parallel per-caller task below.
         let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
         let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
-        ordered
-            .par_iter()
+        crate::build_pool::per_item(&ordered)
             .copied() // (&FunctionId, &BTreeSet) is Copy -> avoid &&-destructuring
             .map(|(caller, sites)| {
                 Self::receiver_updates_for_caller(caller, sites, &typer, files, &macro_shadow)
@@ -4634,8 +4631,7 @@ impl CallGraph {
 
         let classifier = receiver_config.classifier();
         let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
-        ordered
-            .par_iter()
+        crate::build_pool::per_item(&ordered)
             .copied()
             .map(|(caller, sites)| {
                 self.go_receiver_updates_for_caller(
