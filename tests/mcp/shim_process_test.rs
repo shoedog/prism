@@ -76,7 +76,8 @@ impl ShimProcess {
             .env(RUNTIME_DIR_ENV, setup.base.path())
             .env_remove("PRISM_MCP_STRUCTURED_CONTENT")
             .env_remove("PRISM_MCP_CONCISE_SHAPE")
-            .env_remove("PRISM_MCP_MAX_RESULT_CHARS");
+            .env_remove("PRISM_MCP_MAX_RESULT_CHARS")
+            .env_remove("PRISM_MCP_INDEX_IDLE_SECS");
         for (name, value) in env {
             command.env(name, value);
         }
@@ -592,6 +593,25 @@ fn a_failure_before_the_key_is_known_still_names_the_standalone_invocation() {
         assert_eq!(stderr.lines().count(), 1, "{stderr}");
         assert!(stderr.contains("failed closed"), "{stderr}");
         assert!(stderr.contains("--standalone"), "{stderr}");
+    }
+}
+
+#[test]
+fn printed_standalone_idle_default_and_opt_out() {
+    let setup = setup();
+    let missing = setup.repo.path().join("no-such-repository");
+    for (extra, env, seconds) in [
+        (vec![], vec![], "600"),
+        (vec!["--index-idle-secs", "0"], vec![], "0"),
+        (vec![], vec![("PRISM_MCP_INDEX_IDLE_SECS", "0")], "0"),
+    ] {
+        let mut shim = ShimProcess::start_with(&setup, &missing, setup.cache.path(), &extra, &env);
+        let (_, stderr) = shim.ended();
+        assert!(stderr.contains("failed closed"), "{stderr}");
+        assert!(
+            stderr.contains(&format!("--index-idle-secs {seconds} --standalone")),
+            "{stderr}"
+        );
     }
 }
 

@@ -354,16 +354,18 @@ The socket path must fit in 103 bytes; a long `PRISM_MCP_RUNTIME_DIR` fails clos
 | `--idle-ttl <SECS>` | `900` (1–86400) | Idle time before a daemon retires. **Only for a daemon this shim starts**; a shim that reaches a running daemon ignores it, silently. |
 | `--max-clients <N>` | `64` (1–4096) | Connections a daemon admits at once. Same rule as `--idle-ttl`. |
 | `--warm-at-startup` | off | Passed to a daemon this shim starts (it builds at once); otherwise ignored. |
-| `--index-idle-secs <SECS>` | `0` (off) | Unload the whole index after tool-idle seconds, even with clients connected. Flag overrides `PRISM_MCP_INDEX_IDLE_SECS`, which overrides off. First-spawner policy, outside the daemon key. |
+| `--index-idle-secs <SECS>` | `600` | Unload the whole index after tool-idle seconds, even with clients connected; `0` disables. Flag overrides `PRISM_MCP_INDEX_IDLE_SECS`, which overrides the default. First-spawner policy, outside the daemon key. |
 | `--index-idle-pressure-relief` (hidden) | off | Measurement A+C intent, forwarded to the daemon. Effective only with nonzero index idle on macOS; other cases report it unused. |
 | `--first-call-wait`, `PRISM_MCP_STRUCTURED_CONTENT`, `PRISM_MCP_CONCISE_SHAPE`, `PRISM_MCP_MAX_RESULT_CHARS` | as standalone | Per connection: each shim's own values apply to its own session. |
 
-Index idle stays **off by default** in both stdio and shared mode. Measurement runs explicitly
-pass `--index-idle-secs 600`; default activation remains an owner decision at a measured readout.
+Index idle unload is **on by default after 600 seconds** in both stdio and shared mode.
+Opt out with `--index-idle-secs 0` or `PRISM_MCP_INDEX_IDLE_SECS=0`.
+Eager and `--owner-*` modes keep idle unload off: explicit nonzero values are rejected, and
+ambient values are ignored with a note. Allocator pressure relief stays hidden and off by default.
 Values must be unsigned integer seconds that fit the monotonic clock; invalid or overflowing
 flag/env values fail before a daemon is started or reached. Explicit `0` overrides even an invalid
 ambient value. The shim resolves once and always passes `--index-idle-secs S`, including zero,
-to its child. Direct `prism-mcp daemon` accepts explicit options only and reads no idle env.
+to its child. Direct `prism-mcp daemon` also defaults to 600 seconds and reads no idle env.
 
 Index idle measures inactivity of tool work, separately from `--idle-ttl` (time with no clients
 before the daemon exits). Unload preserves connected MCP sessions; the next tool call reloads

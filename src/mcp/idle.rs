@@ -2,8 +2,8 @@
 use super::{ServerConfig, StartupMode};
 use std::time::{Duration, Instant};
 
-/// Provisional measurement setting; activation remains an explicit owner decision.
-pub const PROVISIONAL_IDLE_SECS: u64 = 600;
+/// Default tool-idle timeout for ordinary lazy/background sessions; zero opts out.
+pub const DEFAULT_IDLE_SECS: u64 = 600;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct IdlePolicy {
@@ -61,7 +61,7 @@ impl IdlePolicy {
             Some(secs) => Duration::from_secs(secs),
             None => match ambient {
                 Some(value) => Duration::from_secs(parse_seconds(value)?),
-                None => Duration::ZERO,
+                None => Duration::from_secs(DEFAULT_IDLE_SECS),
             },
         };
         Ok(IdleResolution {
@@ -132,13 +132,37 @@ mod tests {
     use super::*;
     use crate::mcp::CacheMode;
     #[test]
+    fn idle_default_and_opt_out() {
+        for startup in [StartupMode::Lazy, StartupMode::Background] {
+            let mut cfg = ServerConfig::new(".".into());
+            cfg.startup = startup;
+            for (flag, env, seconds) in [
+                (None, None, 600),
+                (Some("0"), None, 0),
+                (None, Some("0"), 0),
+                (Some("0"), Some("600"), 0),
+                (Some("600"), Some("0"), 600),
+            ] {
+                let resolved = IdlePolicy::resolve(flag, env, &cfg, false).unwrap();
+                assert_eq!(
+                    resolved.policy.timeout,
+                    (seconds != 0).then(|| Duration::from_secs(seconds)),
+                    "{startup:?} flag={flag:?} env={env:?}"
+                );
+                assert!(!resolved.policy.pressure_relief);
+                assert!(resolved.note.is_none());
+            }
+        }
+    }
+
+    #[test]
     fn idle_config_validation_and_precedence() {
         let mut cfg = ServerConfig::new(".".into());
         let resolve =
             |flag, env, cfg: &ServerConfig, owner| IdlePolicy::resolve(flag, env, cfg, owner);
         assert_eq!(
             resolve(None, None, &cfg, false).unwrap().policy.timeout,
-            None
+            Some(Duration::from_secs(600))
         );
         assert_eq!(
             resolve(Some("0"), Some("bad"), &cfg, false)
@@ -173,11 +197,10 @@ mod tests {
             assert!(resolve(None, Some(value), &cfg, false).is_err(), "{value}");
         }
         cfg.cache = CacheMode::NoCache;
-        assert!(resolve(None, None, &cfg, false)
-            .unwrap()
-            .policy
-            .timeout
-            .is_none());
+        assert_eq!(
+            resolve(None, None, &cfg, false).unwrap().policy.timeout,
+            Some(Duration::from_secs(600))
+        );
         assert!(resolve(None, Some("1"), &cfg, false)
             .unwrap()
             .policy
@@ -194,6 +217,11 @@ mod tests {
             } else {
                 StartupMode::Eager
             };
+            assert!(resolve(None, None, &cfg, owner)
+                .unwrap()
+                .policy
+                .timeout
+                .is_none());
             let ignored = resolve(None, Some("bad"), &cfg, owner).unwrap();
             assert!(ignored.note.is_some());
             assert!(ignored.policy.timeout.is_none());

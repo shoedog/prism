@@ -115,14 +115,14 @@
       ]
     },
     {
-      "id": "I0-policy-default-on",
-      "selector": "mcp::idle_route_tests::idle_default_and_library_run_route_legacy",
-      "description": "Re-enable I0 for absent settings; both entry-point policies must select legacy by default.",
+      "id": "I0-policy-default-off",
+      "selector": "mcp::idle_route_tests::idle_default_and_library_run_route",
+      "description": "Disable I0 for absent settings; ordinary resolver and library entry-point policies must select the idle runtime by default.",
       "edits": [
         {
           "file": "src/mcp/idle.rs",
-          "old": "                None => Duration::ZERO,",
-          "new": "                None => Duration::from_secs(PROVISIONAL_IDLE_SECS),"
+          "old": "                None => Duration::from_secs(DEFAULT_IDLE_SECS),",
+          "new": "                None => Duration::ZERO,"
         }
       ]
     },
