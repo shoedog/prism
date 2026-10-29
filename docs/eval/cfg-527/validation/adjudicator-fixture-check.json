@@ -1,0 +1,93 @@
+[
+ {
+  "corpus": "f1_issue",
+  "callee_text": "T::b",
+  "config": "C0",
+  "verdict": "WRONG",
+  "why": "alternative S0 marker + E0308 found `u8`"
+ },
+ {
+  "corpus": "f2_self_b",
+  "callee_text": "Self::b",
+  "config": "C0",
+  "verdict": "WRONG",
+  "why": "alternative S0 marker + E0308 found `u8`"
+ },
+ {
+  "corpus": "f2_self_b",
+  "callee_text": "Self::b",
+  "config": "C_test",
+  "verdict": "WRONG",
+  "why": "alternative S0 marker + E0308 found `u8`"
+ },
+ {
+  "corpus": "f2_self_b",
+  "callee_text": "Self::b",
+  "config": "C_all",
+  "verdict": "WRONG",
+  "why": "alternative S0 marker + E0308 found `u8`"
+ },
+ {
+  "corpus": "f4_mod_decl",
+  "callee_text": "m::only_here",
+  "config": "C0",
+  "verdict": "INADMISSIBLE",
+  "why": "baseline red"
+ },
+ {
+  "corpus": "f4_mod_decl",
+  "callee_text": "m::only_here",
+  "config": "C_test",
+  "verdict": "INADMISSIBLE",
+  "why": "baseline red"
+ },
+ {
+  "corpus": "f4_mod_decl",
+  "callee_text": "m::only_here",
+  "config": "C_all",
+  "verdict": "correct_in_config",
+  "why": "target marker at site"
+ },
+ {
+  "corpus": "f5_test_helper",
+  "callee_text": "helper",
+  "config": "C0",
+  "verdict": "dead_in_config",
+  "why": "no marker, no E0308: site not compiled"
+ },
+ {
+  "corpus": "f5_test_helper",
+  "callee_text": "helper",
+  "config": "C_test",
+  "verdict": "correct_in_config",
+  "why": "target marker at site"
+ },
+ {
+  "corpus": "f5_test_helper",
+  "callee_text": "helper",
+  "config": "C_all",
+  "verdict": "correct_in_config",
+  "why": "target marker at site"
+ },
+ {
+  "corpus": "f8_baseline",
+  "callee_text": "k",
+  "config": "C0",
+  "verdict": "correct_in_config",
+  "why": "target marker at site"
+ },
+ {
+  "corpus": "f8_baseline",
+  "callee_text": "k",
+  "config": "C_test",
+  "verdict": "correct_in_config",
+  "why": "target marker at site"
+ },
+ {
+  "corpus": "f8_baseline",
+  "callee_text": "k",
+  "config": "C_all",
+  "verdict": "correct_in_config",
+  "why": "target marker at site"
+ }
+]
