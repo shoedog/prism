@@ -219,3 +219,112 @@ $ cat /proc/loadavg
 min 2.498 s, max 2.935 s, median 2.6895 s → spread (max−min)/median = 0.437/2.6895 = **16.2%**.
 
 VERDICT: WORKS (substitute timer only)
+
+### Timing loop, run 2 (as written, 06:28:50 UTC, about 5 min after run 1)
+
+```console
+$ cat /proc/loadavg
+0.00 0.07 0.04 1/103 1132
+$ for i in $(seq 1 10); do /usr/bin/time -f "%e s" python3 -c "s=0
+for i in range(30_000_000): s+=i" ; done 2>&1
+/bin/bash: line 3: /usr/bin/time: No such file or directory
+(the same line 10 times)
+```
+
+VERDICT: BLOCKED (/bin/bash: /usr/bin/time: No such file or directory)
+
+### Timing loop, run 2 — substitute (bash `time` keyword, 06:28:50–06:29:19 UTC)
+
+```console
+$ TIMEFORMAT='%R s'; for i in $(seq 1 10); do time python3 -c "s=0
+for i in range(30_000_000): s+=i" ; done 2>&1
+3.265 s
+3.020 s
+2.562 s
+3.251 s
+2.783 s
+2.784 s
+2.530 s
+2.864 s
+2.514 s
+2.861 s
+$ cat /proc/loadavg
+0.40 0.16 0.07 1/103 1165
+```
+
+min 2.514 s, max 3.265 s, median 2.8225 s → spread (max−min)/median = 0.751/2.8225 = **26.6%**.
+
+VERDICT: WORKS (substitute timer only)
+
+### P4 summary
+
+| | steal `st` | min | median | max | spread |
+|---|---|---|---|---|---|
+| run 1 (06:23) | 0–0 | 2.498 s | 2.690 s | 2.935 s | 16.2% |
+| run 2 (06:29) | — | 2.514 s | 2.823 s | 3.265 s | 26.6% |
+
+There was no steal while idle, but single-thread wall time still varied 16–27% across 10 identical
+runs with load average ≤ 0.55. On this VM, single-run timing differences below about 30% are not
+meaningful without repeated runs.
+
+## P2b: release assets over REST (controller follow-up)
+
+The P2 403s came from `gh release` using GraphQL, which this session's proxy refuses. Retried with
+REST (`gh api`) only. Run 06:27:19–06:27:36 UTC.
+
+```console
+$ gh api repos/shoedog/prism/releases/tags/v3.2.0 --jq '.assets[] | [.id,.name,.size] | @tsv'
+642747759	prism-aarch64-apple-darwin	26842752
+642747760	prism-mcp-aarch64-apple-darwin	24815568
+642747765	prism-mcp-x86_64-apple-darwin	26187120
+642747761	prism-x86_64-apple-darwin	28666352
+```
+
+VERDICT: WORKS
+
+```console
+$ gh api -H 'Accept: application/octet-stream' repos/shoedog/prism/releases/assets/642747761 > /tmp/p2b.bin && ls -la /tmp/p2b.bin && sha256sum /tmp/p2b.bin
+-rw-r--r-- 1 root root 28666352 Oct 29 06:27 /tmp/p2b.bin
+c63da4eeaa14a0801ed7c9c8ab9c2bb09635e9f9353bae6a16a97fbb6d8b63c3  /tmp/p2b.bin
+```
+
+The size matches the asset's listed size (28666352 bytes).
+
+VERDICT: WORKS
+
+```console
+$ gh api repos/shoedog/prism/releases --jq '.[] | [.id,.draft,.name] | @tsv' | head -5
+427525215	true	cloud probe (draft, delete after)
+413438455	false	v3.2.0
+314827274	false	v3.1.2
+314821458	false	v2.1.3
+310569231	false	v3.1.1
+```
+
+VERDICT: WORKS (the draft release is visible)
+
+```console
+$ gh api repos/shoedog/prism/releases/427525215/assets --jq '.[] | [.id,.name] | @tsv'
+687577041	probe-asset.txt
+$ gh api -H 'Accept: application/octet-stream' repos/shoedog/prism/releases/assets/687577041 > /tmp/p2b-draft.txt && ls -la /tmp/p2b-draft.txt && cat /tmp/p2b-draft.txt
+-rw-r--r-- 1 root root 53 Oct 29 06:27 /tmp/p2b-draft.txt
+cloud-probe draft-release asset 2026-10-29T06:19:16Z
+```
+
+VERDICT: WORKS (draft asset listed and downloaded)
+
+## P5: GNU time for peak RSS (controller follow-up)
+
+```console
+$ sudo apt-get install -y time 2>&1 | tail -3
+Building dependency tree...
+Reading state information...
+E: Unable to locate package time
+$ /usr/bin/time -v true 2>&1 | grep -m1 'Maximum resident'
+(no output; exit 127 — /usr/bin/time still absent)
+```
+
+`apt-get` exited 100. The package index was probably never populated in this image. `apt-get
+update` was not in the instructions, so it was not tried.
+
+VERDICT: BLOCKED (E: Unable to locate package time)
