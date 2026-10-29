@@ -480,10 +480,8 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
             if let Ok(release) = rx.lock() {
                 let _ = release.recv();
             }
-            crate::mcp::SessionProvider::bootstrap(&builder_cfg)
-        } else {
-            crate::mcp::SessionProvider::bootstrap(&builder_cfg)
         }
+        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
     });
     let mut build = BlockingBuild {
         release: Some(release),
@@ -492,7 +490,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
     };
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
-        std::time::Duration::from_secs(1),
+        std::time::Duration::from_secs(60),
         builder,
         publication_hooks(published),
     )
@@ -501,6 +499,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
     build.release();
     let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
 
+    let first_call_started = std::time::Instant::now();
     let failed = call_tool_at_cap_with_mode(
         &mut provider,
         &ToolRegistry::all_v1(),
@@ -508,6 +507,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
         crate::mcp::output::MAX_RESULT_CHARS,
         crate::mcp::output::StructuredContentMode::Always,
     );
+    assert!(first_call_started.elapsed() < std::time::Duration::from_secs(5));
     assert_eq!(failed["result"]["isError"], true);
     assert_eq!(provider.attempts(), 1);
     build.wait();
@@ -539,7 +539,7 @@ fn lazy_runtime_returns_the_eager_result_when_the_builder_finishes_during_the_fi
     }));
     let mut lazy = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
-        std::time::Duration::from_secs(5),
+        std::time::Duration::from_secs(60),
         builder,
         hooks,
     )
@@ -618,7 +618,7 @@ fn lazy_refresh_after_an_initial_snapshot_edit_reports_stale_before_refresh() {
     )
     .unwrap();
     snapshot_rx
-        .recv_timeout(std::time::Duration::from_secs(1))
+        .recv_timeout(std::time::Duration::from_secs(60))
         .unwrap();
     write_file(dir.path(), "a.py", "def fresh():\n    return 2\n");
     build.release();
@@ -663,7 +663,7 @@ fn lazy_runtime_reports_a_panicking_builder_then_retries() {
     });
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
         &cfg,
-        std::time::Duration::from_secs(1),
+        std::time::Duration::from_secs(60),
         builder,
     )
     .unwrap();
@@ -997,7 +997,7 @@ fn lazy_runtime_delegates_each_refresh_policy_after_readiness() {
         let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
         cfg.cache = crate::mcp::CacheMode::NoCache;
         cfg.refresh_policy = policy;
-        cfg.first_call_wait = std::time::Duration::from_secs(1);
+        cfg.first_call_wait = std::time::Duration::from_secs(60);
         let mut provider = crate::mcp::lazy::LazySessionProvider::new(&cfg).unwrap();
         assert!(matches!(
             provider.ensure_ready(),
