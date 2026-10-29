@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -38,6 +39,7 @@ from tier_a.closure import (
     policy_manifest,
     population_manifest,
     raw_digest,
+    read_tsv,
 )
 from tier_a.corpus import load_snapshot
 from tier_a.model import FunctionDef, Location
@@ -639,6 +641,89 @@ def test_ordinary_bootstrap_real_entry_publishes_and_lock_checks(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err == ""
+
+
+def test_archived_sut_quick_real_entry_uses_bound_provenance(
+    tmp_path, monkeypatch, capsys
+):
+    published, ev, repo = _ordinary_bootstrap_end_to_end(tmp_path, monkeypatch)
+    subprocess.run(["git", "add", "eval", "docs"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "publish anchor"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    archive = Path(published.prism["sut"]["archive"])
+    assert archive.is_file()
+
+    expected = FunctionDef("a", "function", None, Location("src/a.rs", 1, 1), 1)
+    monkeypatch.setattr(PrismCli, "inventory", lambda _self, _root: [expected])
+    monkeypatch.setattr(
+        PrismCli, "callers", lambda _self, _root, _seed, confidence="all": []
+    )
+    monkeypatch.setattr(
+        PrismCli, "callees", lambda _self, _root, _seed, confidence="all": []
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tier-a",
+            "--quick",
+            "--run-id",
+            "base",
+            "--sut-archive",
+            str(archive),
+            "--date",
+            "2099-01-04",
+        ],
+    )
+
+    rc = cli.main()
+    run = json.loads((ev / "runs/2099-01-04-prism-base.json").read_text())
+    assert "error" not in run["meta"], run["meta"].get("error")
+    assert rc == 0, run["meta"]
+    assert run["meta"]["admitted"] is True
+    assert set(run["meta"]["observation"]["dep_paths"]) == {
+        row[0] for row in read_tsv(repo / published.prism["sut"]["inputs"])
+    }
+    assert [read["name"] for read in run["meta"]["observation"]["env_reads"]] == sorted(
+        published.prism["env"]["allow"]
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tier-a",
+            "--quick",
+            "--run-id",
+            "candidate",
+            "--sut-bin",
+            str(repo / "prism"),
+            "--allow-stale-sut",
+            "--date",
+            "2099-01-04",
+        ],
+    )
+    assert cli.main() == 0
+    candidate = json.loads(
+        (ev / "runs/2099-01-04-prism-candidate.json").read_text()
+    )
+    assert candidate["meta"]["admitted"] == run["meta"]["admitted"]
+
+    corrupt = archive.with_name("corrupt-prism")
+    corrupt.write_bytes(archive.read_bytes() + b"corrupt\n")
+    corrupt.chmod(0o755)
+    capsys.readouterr()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["tier-a", "--quick", "--sut-archive", str(corrupt)],
+    )
+    assert cli.main() == 3
+    assert capsys.readouterr().err.startswith("FATAL sut_stale: binary digest")
 
 
 def test_re_anchor_real_entry_resolves_staged_snapshot_and_swaps_lock_last(

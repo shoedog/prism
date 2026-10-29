@@ -145,6 +145,66 @@ def observe_cargo(
     return [env_reads[name] for name in sorted(env_reads)], dep_paths
 
 
+def observe_archive(
+    lock: Lock,
+    repo: Path,
+    env: dict[str, str],
+    artifacts: ArtifactPaths,
+) -> tuple[list[EnvRead], set[str]]:
+    """Observe a digest-bound archive through its bound input provenance."""
+    try:
+        sut_rows = _bound_sut_rows(lock)
+    except ValueError:
+        sut_rows = read_tsv(artifacts.sut_inputs())
+
+    package = cargo_package_name(repo)
+    prefixes = {package, package.replace("-", "_")}
+    build_outputs = []
+    for path, expected, *_rest in sut_rows:
+        parts = Path(path).parts
+        if (
+            expected != "absent"
+            and len(parts) >= 5
+            and parts[0] == "target"
+            and "build" in parts
+            and parts[-1] == "output"
+            and any(parts[-2].startswith(f"{prefix}-") for prefix in prefixes)
+        ):
+            archived = artifacts.sut_archive_input(path)
+            if archived.is_file():
+                build_outputs.append(archived)
+
+    env_reads: dict[str, EnvRead] = {}
+    if build_outputs:
+        for output in sorted(build_outputs):
+            for line in output.read_text().splitlines():
+                for prefix in (
+                    "cargo:rerun-if-env-changed=",
+                    "cargo::rerun-if-env-changed=",
+                ):
+                    if line.startswith(prefix):
+                        name = line.removeprefix(prefix)
+                        env_reads[name] = EnvRead(name, name in env, env.get(name))
+                        break
+    else:
+        env_config = lock.prism.get("env", {})
+        allowed = env_config.get("allow")
+        if not isinstance(allowed, list) or not all(
+            isinstance(name, str) for name in allowed
+        ):
+            raise ValueError(
+                "sut_observation_unavailable: archive has no build outputs and "
+                "lock has no recorded env allow-list"
+            )
+        env_reads = {
+            name: EnvRead(name, name in env, env.get(name)) for name in allowed
+        }
+
+    return [env_reads[name] for name in sorted(env_reads)], {
+        row[0] for row in sut_rows
+    }
+
+
 def _fixture_rows(eval_dir: Path) -> list[tuple[str, str]]:
     repo = eval_dir.parent
     return [

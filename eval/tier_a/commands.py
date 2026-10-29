@@ -18,6 +18,7 @@ from .boundary import (
     OpenAudit,
     admit,
     load_declared_inputs,
+    observe_archive,
     observe_cargo,
     scrubbed_env,
 )
@@ -477,10 +478,29 @@ def run_quick_admitted(
     sut_bin = Path(
         run.pop("_sut_bin", args.sut_bin or eval_dir.parent / "target/release/prism")
     )
-    build_dir = sut_bin.parent if sut_bin.parent != Path(".") else eval_dir.parent / "target/release"
-    env_reads, dep_paths = observe_cargo(
-        build_dir, eval_dir.parent, env, sut_bin.stem
-    )
+    try:
+        if getattr(args, "sut_archive", None):
+            if lock is None or artifacts is None:
+                raise ValueError("sut_observation_unavailable: archive is not lock-bound")
+            env_reads, dep_paths = observe_archive(
+                lock, eval_dir.parent, env, artifacts
+            )
+        else:
+            build_dir = (
+                sut_bin.parent
+                if sut_bin.parent != Path(".")
+                else eval_dir.parent / "target/release"
+            )
+            env_reads, dep_paths = observe_cargo(
+                build_dir, eval_dir.parent, env, sut_bin.stem
+            )
+    except ValueError as exc:
+        reason = str(exc)
+        if not reason.startswith(
+            ("sut_fingerprint_unavailable:", "sut_observation_unavailable:")
+        ):
+            reason = f"sut_observation_unavailable: {reason}"
+        raise BoundaryViolation([reason]) from exc
     observed = Observation(env_reads, dep_paths, audit.opens)
     closure_paths = (
         {row[0] for row in getattr(lock, "_corpus_rows", [])}

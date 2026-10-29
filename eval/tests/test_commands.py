@@ -168,6 +168,28 @@ def test_quick_uses_pin_not_head_and_live_never_anchors(tmp_path, monkeypatch):
     assert "live_corpus" in overlay["invalid_reasons"]
 
 
+def test_quick_observation_value_error_is_a_named_refusal(
+    tmp_path, monkeypatch, capsys
+):
+    _lock, ev, repo = anchored_repo(tmp_path)
+    monkeypatch.setenv("TIER_A_ROOT", str(tmp_path / "root"))
+    monkeypatch.setattr(cli, "EVAL_DIR", ev)
+
+    def run_without_observable_cargo(*_args, **_kwargs):
+        run = admitted_fake_run()
+        run["_sut_bin"] = repo / "archive-like/prism"
+        return run
+
+    monkeypatch.setattr(cli, "run_corpus", run_without_observable_cargo)
+    monkeypatch.setattr(sys, "argv", ["tier-a", "--quick"])
+
+    assert cli.main() == 3
+    assert capsys.readouterr().err == (
+        "FATAL boundary_violation: sut_fingerprint_unavailable: prism\n"
+    )
+    assert_no_run_or_report(ev)
+
+
 def test_quick_run_id_and_sut_archive_name_both_output_pairs(tmp_path, monkeypatch):
     lock, ev, repo = anchored_repo(tmp_path)
     monkeypatch.setenv("TIER_A_ROOT", str(tmp_path / "root"))

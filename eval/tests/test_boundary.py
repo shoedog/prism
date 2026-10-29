@@ -18,6 +18,7 @@ from tests.helpers import (
     git_head,
 )
 from tier_a import boundary, cli, commands, matrix
+from tier_a.artifacts import ArtifactPaths
 from tier_a.boundary import (
     BoundaryViolation,
     EnvRead,
@@ -25,10 +26,11 @@ from tier_a.boundary import (
     OpenAudit,
     admit,
     load_declared_inputs,
+    observe_archive,
     observe_cargo,
     scrubbed_env,
 )
-from tier_a.closure import raw_digest, sut_inputs_manifest, write_tsv
+from tier_a.closure import raw_digest, read_tsv, sut_inputs_manifest, write_tsv
 from tier_a.lock import Lock, integrity_check
 from tier_a.report import render_markdown
 from tier_a.sut import PrismCli
@@ -84,6 +86,31 @@ def test_scrubbed_env_keeps_only_allow_list(monkeypatch):
     monkeypatch.setenv("PATH", "/usr/bin")
     lock = Lock(prism={"env": {"allow": ALLOW, "forbid_read_outside_allow": True}})
     assert scrubbed_env(lock) == {"PATH": "/usr/bin"}
+
+
+def test_archive_observation_prefers_archived_env_declarations_and_requires_fallback(
+    tmp_path,
+):
+    lock, _ev, repo = anchored_repo(tmp_path)
+    artifacts = ArtifactPaths.from_lock(repo, lock)
+    output_path = "target/release/build/x-fixture/output"
+    archived = artifacts.sut_archive_input(output_path)
+    archived.parent.mkdir(parents=True, exist_ok=True)
+    archived.write_text("cargo:rerun-if-env-changed=MODE\n")
+    lock._sut_rows = read_tsv(repo / lock.prism["sut"]["inputs"])
+    lock._sut_rows.append((output_path, raw_digest(archived)))
+
+    reads, paths = observe_archive(lock, repo, {"MODE": "on"}, artifacts)
+    assert reads == [EnvRead("MODE", True, "on")]
+    assert paths == {row[0] for row in lock._sut_rows}
+
+    lock._sut_rows = [row for row in lock._sut_rows if row[0] != output_path]
+    lock.prism["env"].pop("allow")
+    with pytest.raises(
+        ValueError,
+        match="sut_observation_unavailable: archive has no build outputs",
+    ):
+        observe_archive(lock, repo, {}, artifacts)
 
 
 def test_env_read_unset_admits_and_set_refuses(tmp_path, monkeypatch):                     # T-q both legs (W2)
