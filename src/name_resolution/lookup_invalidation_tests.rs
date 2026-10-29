@@ -174,3 +174,77 @@ fn navigation_mutation_hook_invalidates_warm_scope_graph() {
     });
     Family::Name.assert_linear(index.call_graph().scope_graph.as_ref().unwrap());
 }
+
+// The cross-check compares whole index vectors, not just their lengths, and skips graphs above the cap.
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic(expected = "binding name lookup equivalence")]
+fn cross_check_rejects_equal_length_different_indices() {
+    assert_lookup_indices(
+        &[1u32, 2].iter(),
+        2,
+        [1usize, 3].into_iter(),
+        "binding name",
+    );
+}
+
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic(expected = "edge lookup equivalence")]
+fn cross_check_rejects_reordered_indices() {
+    assert_lookup_indices(&[1u32, 2].iter(), 2, [2usize, 1].into_iter(), "edge");
+}
+
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic(expected = "wildcard lookup equivalence")]
+fn cross_check_runs_at_the_cap() {
+    assert_lookup_indices(
+        &[1u32].iter(),
+        CROSS_CHECK_MAX_LEN,
+        [2usize].into_iter(),
+        "wildcard",
+    );
+}
+
+#[cfg(debug_assertions)]
+#[test]
+fn cross_check_skips_above_the_cap() {
+    assert_lookup_indices(
+        &[1u32].iter(),
+        CROSS_CHECK_MAX_LEN + 1,
+        [2usize].into_iter(),
+        "wildcard",
+    );
+}
+
+/// A graph with `n` file paths whose index is warm and then made stale by a same-length edit:
+/// `FileId(0)` is remapped from `f0.rs` to `g0.rs` without invalidating.
+#[cfg(debug_assertions)]
+fn stale_paths(n: u32) -> ScopeGraph {
+    let mut graph = ScopeGraph::new();
+    for i in 0..n {
+        graph.file_paths.insert(format!("f{i}.rs"), FileId(i));
+    }
+    assert_eq!(graph.path_for_file(FileId(0)), Some("f0.rs"));
+    graph.file_paths.remove("f0.rs");
+    graph.file_paths.insert("g0.rs".to_string(), FileId(0));
+    graph
+}
+
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic(expected = "file path lookup equivalence")]
+fn path_cross_check_runs_at_the_cap() {
+    stale_paths(CROSS_CHECK_MAX_LEN as u32).path_for_file(FileId(0));
+}
+
+#[cfg(debug_assertions)]
+#[test]
+fn path_cross_check_skips_above_the_cap() {
+    // Above the cap the debug check is skipped, so the stale index answers (as a release build would).
+    assert_eq!(
+        stale_paths(CROSS_CHECK_MAX_LEN as u32 + 1).path_for_file(FileId(0)),
+        Some("f0.rs")
+    );
+}
