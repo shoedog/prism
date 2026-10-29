@@ -38,8 +38,8 @@
     ],
     "PF06-first-file-skipped": [
       "src/call_graph/js_ts_facts.rs",
-      "        .par_iter()",
-      "        .par_iter().skip(1)",
+      "crate::build_pool::per_item(&files)",
+      "crate::build_pool::per_item(&files).skip(1)",
       "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
     ],
     "PF07-reversed-owners": [

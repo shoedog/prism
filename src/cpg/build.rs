@@ -1347,8 +1347,7 @@ impl CodePropertyGraph {
         let ordered: Vec<(&String, &ParsedFile)> = files.iter().collect();
 
         // 2. Parallel collect (read-only).
-        let per_file: Vec<(&String, Vec<PendingStatement>)> = ordered
-            .par_iter()
+        let per_file: Vec<(&String, Vec<PendingStatement>)> = crate::build_pool::per_item(&ordered)
             .map(|(path, parsed)| {
                 let out = statement_calls::collect_file(parsed);
                 (*path, out)
@@ -1385,8 +1384,7 @@ impl CodePropertyGraph {
         use rayon::prelude::*;
 
         let ordered: Vec<_> = cg.calls.iter().collect();
-        ordered
-            .par_iter()
+        crate::build_pool::per_item(&ordered)
             .map(|(caller_id, sites)| {
                 Self::step5_edges_for_caller(caller_id, sites, cg, func_index)
             })
@@ -1499,12 +1497,11 @@ impl CodePropertyGraph {
         }
         let shared_params = ParamCache::new(files);
 
-        files.par_iter().for_each(|(_, p)| {
+        crate::build_pool::per_item(files.iter().collect::<Vec<_>>()).for_each(|(_, p)| {
             let _ = p.call_args_index();
         });
         let ordered: Vec<_> = cg.calls.iter().collect();
-        ordered
-            .par_iter()
+        crate::build_pool::per_item(&ordered)
             .map(|(caller_id, sites)| {
                 Self::step5b_edges_for_caller_with_exact(
                     caller_id,
@@ -1869,8 +1866,7 @@ impl CodePropertyGraph {
         use rayon::prelude::*;
 
         let ordered: Vec<(&String, &ParsedFile)> = files.iter().collect();
-        ordered
-            .par_iter()
+        crate::build_pool::per_item(&ordered)
             .map(|(_path, parsed)| {
                 let mut out: Vec<PendingEdge> = Vec::new();
                 for edge in cfg::build_cfg_edges(parsed) {

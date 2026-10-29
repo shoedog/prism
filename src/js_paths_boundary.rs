@@ -143,8 +143,7 @@ fn scan_sources(jobs: &[SourceJob], remaining: u64) -> std::io::Result<ScanResul
     })?;
     let parsed: Mutex<BTreeMap<String, (Vec<String>, usize)>> = Mutex::new(BTreeMap::new());
     let large = Mutex::new(());
-    let files: std::io::Result<Vec<Scanned>> = jobs
-        .par_iter()
+    let files: std::io::Result<Vec<Scanned>> = crate::build_pool::per_item(jobs)
         .map(|job| {
             use std::io::Read as _;
             let _one_large_job = (job.len > INLINE_PARSE_BYTES).then(|| large.lock().unwrap());

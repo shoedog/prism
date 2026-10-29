@@ -113,7 +113,11 @@ fn parse_candidates_parallel(candidates: Vec<CandidateData>) -> Vec<ParseOutcome
     // (error-node counting), which overflows a default ~2 MiB rayon worker on
     // deeply-nested files (e.g. a #if-split 8192-element C initializer). See
     // crate::build_pool.
-    crate::build_pool::install(|| candidates.into_par_iter().map(parse_candidate).collect())
+    crate::build_pool::install(|| {
+        crate::build_pool::per_item(candidates)
+            .map(parse_candidate)
+            .collect()
+    })
 }
 
 #[cfg_attr(not(test), allow(dead_code))] // parity twin: used by the in-module loader test
@@ -258,8 +262,7 @@ fn scope_graph_build_inputs_from_snapshot(
                 .into_iter()
                 .filter(|entry| visited.insert(entry.clone()))
                 .collect();
-            frontier
-                .par_iter()
+            crate::build_pool::per_item(&frontier)
                 .filter_map(|(_, file)| files.get(file))
                 .for_each(|parsed| {
                     parsed.extract_js_ts_export_facts();

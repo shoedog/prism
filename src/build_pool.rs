@@ -15,6 +15,18 @@ use std::sync::OnceLock;
 
 #[cfg(test)]
 mod boundary_tests;
+#[cfg(test)]
+mod per_item_tests;
+
+/// Keep lumpy file/caller jobs independently stealable without changing their
+/// indexed collection order. Call before adapters that discard indexing.
+pub(crate) fn per_item<I>(items: I) -> impl rayon::iter::IndexedParallelIterator<Item = I::Item>
+where
+    I: rayon::iter::IntoParallelIterator,
+    I::Iter: rayon::iter::IndexedParallelIterator,
+{
+    rayon::iter::IndexedParallelIterator::with_max_len(items.into_par_iter(), 1)
+}
 
 /// Per-worker stack for the shared pool: 256 MiB.
 ///

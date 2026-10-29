@@ -114,8 +114,8 @@
     ],
     "BP40-loader-parse-raw-pool": [
       "src/repo_loader.rs",
-      "crate::build_pool::install(|| candidates.into_par_iter().map(parse_candidate).collect())",
-      "crate::build_pool::build_pool().install(|| candidates.into_par_iter().map(parse_candidate).collect())",
+      "crate::build_pool::install(|| {\n        crate::build_pool::per_item(candidates)",
+      "crate::build_pool::build_pool().install(|| {\n        crate::build_pool::per_item(candidates)",
       "build_pool::boundary_tests::loader_contexts"
     ],
     "BP30-built-cpg-registry-on-caller-thread": [

@@ -79,13 +79,13 @@ impl DataFlowGraph {
         let _profile = crate::profile::Phase::serial("dfg");
         let ordered_files: Vec<(&String, &ParsedFile)> =
             files.iter().map(|(path, parsed)| (path, *parsed)).collect();
-        let per_file_refs: Vec<super::compact::CompactDfg> = ordered_files
-            .par_iter()
-            .map(|entry| {
-                let (file_path, parsed) = *entry;
-                Producer::compact_file_refs(file_path, parsed)
-            })
-            .collect();
+        let per_file_refs: Vec<super::compact::CompactDfg> =
+            crate::build_pool::per_item(&ordered_files)
+                .map(|entry| {
+                    let (file_path, parsed) = *entry;
+                    Producer::compact_file_refs(file_path, parsed)
+                })
+                .collect();
 
         DataFlowGraph {
             storage: super::compact::combine(per_file_refs)
