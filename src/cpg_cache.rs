@@ -274,9 +274,9 @@ mod stream;
 /// - v130: Self proofs persist identifier file membership; crate scope, new edges only.
 /// - v131: FlowDoubt::OwnershipUncertain and capture-immediate RD stats payloads
 ///   (binding enumeration).
-/// - v132: Python imports are persisted CFG nodes and route-aware RD definitions; Python
-///   `finally` kills that cut every def-to-use route are reported as the kill line.
-const CACHE_VERSION: u32 = 132;
+/// - v132: Python imports persist as route-aware CFG/RD nodes; `finally` cut-kills report the kill line.
+/// - v133: C/C++ multi-declarators persist per-name labels; same-declaration reads/direct-init fail closed.
+const CACHE_VERSION: u32 = 133;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -836,7 +836,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 132);
+        assert_eq!(super::CACHE_VERSION, 133);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -873,7 +873,7 @@ mod tests {
         );
 
         let target_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("target");
-        let observed: Vec<Outcome> = [85, 131, 132]
+        let observed: Vec<Outcome> = [85, 132, 133]
             .into_iter()
             .map(|version| {
                 let dir = tempfile::Builder::new()
@@ -884,7 +884,7 @@ mod tests {
                     fs::write(cache_bin_path(dir.path()), captured_v85).unwrap();
                 } else {
                     save_cache(&cpg, &hashes, false, dir.path()).unwrap();
-                    if version == 131 {
+                    if version == 132 {
                         force_cache_version(dir.path(), version);
                     }
                 }
@@ -920,23 +920,23 @@ mod tests {
                 persisted_version: 85,
                 initial_kind: "Miss",
                 initial_nodes: Vec::new(),
-                rebuilt_version: 132,
-                rebuilt_kind: "Hit",
-                rebuilt_nodes: expected_nodes.clone(),
-            },
-            Outcome {
-                persisted_version: 131,
-                initial_kind: "Miss",
-                initial_nodes: Vec::new(),
-                rebuilt_version: 132,
+                rebuilt_version: 133,
                 rebuilt_kind: "Hit",
                 rebuilt_nodes: expected_nodes.clone(),
             },
             Outcome {
                 persisted_version: 132,
+                initial_kind: "Miss",
+                initial_nodes: Vec::new(),
+                rebuilt_version: 133,
+                rebuilt_kind: "Hit",
+                rebuilt_nodes: expected_nodes.clone(),
+            },
+            Outcome {
+                persisted_version: 133,
                 initial_kind: "Hit",
                 initial_nodes: expected_nodes.clone(),
-                rebuilt_version: 132,
+                rebuilt_version: 133,
                 rebuilt_kind: "Hit",
                 rebuilt_nodes: expected_nodes,
             },

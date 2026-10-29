@@ -50,16 +50,34 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
     BindingRow {
         language: Language::Cpp,
         kind: "declaration",
-        variant: Some(Predicate::FieldChildCountIs {
+        variant: Some(Predicate::FieldChildKindIs {
             field: "declarator",
-            count: 1,
+            any_of: &["function_declarator"],
+        }),
+        roles: RoleSet::of(&[Role::Binding]),
+        fields: &["declarator"],
+        declaration: Some(DeclarationKind::Other),
+        visibility: Visibility::AfterIntroduction,
+        ruling: Ruling::Uncertain {
+            reason: "direct-initialization and function-declaration syntax are ambiguous",
+            revisit: "future:cpp-declarators",
+        },
+        regression: "cpp-direct-init-uncertain",
+    },
+    BindingRow {
+        language: Language::Cpp,
+        kind: "declaration",
+        variant: Some(Predicate::FieldChildCountAtLeastExcludingKinds {
+            field: "declarator",
+            count: 2,
+            excluded: &["function_declarator"],
         }),
         roles: RoleSet::of(&[Role::Binding]),
         fields: &["declarator"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
         ruling: Ruling::Classified,
-        regression: "cpp-block-shadow",
+        regression: "cpp-declarator-chain-uncertain",
     },
     BindingRow {
         language: Language::Cpp,
@@ -69,11 +87,8 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
         fields: &["declarator"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Uncertain {
-            reason: "declarator chain",
-            revisit: "future:cpp-declarators",
-        },
-        regression: "cpp-declarator-chain-uncertain",
+        ruling: Ruling::Classified,
+        regression: "cpp-block-shadow",
     },
     BindingRow {
         language: Language::Cpp,

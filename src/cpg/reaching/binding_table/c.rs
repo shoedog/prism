@@ -35,10 +35,7 @@ pub(super) static C_ROWS: &[BindingRow] = &[
         fields: &["declarator"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Uncertain {
-            reason: "declarator chain",
-            revisit: "future:c-declarators",
-        },
+        ruling: Ruling::Classified,
         regression: "c-declarator-chain-uncertain",
     },
     BindingRow {

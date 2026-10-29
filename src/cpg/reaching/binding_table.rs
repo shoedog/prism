@@ -25,6 +25,7 @@ mod java_wave;
 mod javascript;
 mod javascript_wave;
 mod lua_wave;
+mod predicate;
 mod python;
 mod python_wave;
 mod rust;
@@ -69,48 +70,7 @@ impl RoleSet {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Predicate {
-    FieldTextIs {
-        field: &'static str,
-        any_of: &'static [&'static str],
-    },
-    FieldChildCountIs {
-        field: &'static str,
-        count: usize,
-    },
-    TypeScriptParameterPattern {
-        kind: &'static str,
-    },
-    NestedFieldChildKindIs {
-        field: &'static str,
-        nested_field: &'static str,
-        any_of: &'static [&'static str],
-    },
-    OperatorIs {
-        any_of: &'static [&'static str],
-    },
-    FieldChildCountAtLeast {
-        field: &'static str,
-        count: usize,
-    },
-    ParentKindIs {
-        kind: &'static str,
-    },
-    AncestorKindIs {
-        kind: &'static str,
-    },
-    JavaInstanceofGuard,
-    HasField {
-        field: &'static str,
-    },
-    JavaScriptDestructuringDeclarator {
-        lexical: bool,
-    },
-    JavaScriptBindingPattern,
-    CppReferenceCaptureOnly,
-    IsImmediatelyInvoked,
-}
+pub(crate) use predicate::Predicate;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Visibility {
@@ -388,6 +348,25 @@ pub(crate) fn predicate_matches(parsed: &ParsedFile, node: Node<'_>, p: &Predica
         Predicate::FieldChildCountIs { field, count } => {
             let mut cursor = node.walk();
             node.children_by_field_name(field, &mut cursor).count() == *count
+        }
+        Predicate::FieldChildKindIs { field, any_of } => {
+            let mut cursor = node.walk();
+            let matches = node
+                .children_by_field_name(field, &mut cursor)
+                .any(|child| any_of.contains(&child.kind()));
+            matches
+        }
+        Predicate::FieldChildCountAtLeastExcludingKinds {
+            field,
+            count,
+            excluded,
+        } => {
+            let mut cursor = node.walk();
+            let children: Vec<_> = node.children_by_field_name(field, &mut cursor).collect();
+            children.len() >= *count
+                && children
+                    .iter()
+                    .all(|child| !excluded.contains(&child.kind()))
         }
         Predicate::TypeScriptParameterPattern { kind } => {
             if parsed.language != Language::TypeScript

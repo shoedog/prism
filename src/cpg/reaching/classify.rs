@@ -11,6 +11,7 @@ use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use std::collections::{BTreeMap, BTreeSet};
 mod cpp;
+mod declarator_chain;
 mod finally_kill;
 mod go;
 mod import_exception_gap;
@@ -107,6 +108,11 @@ pub(super) fn classify_edge(
             .is_some_and(|def_node| path_exists(successors, def_node, use_node, false))
     }) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
+    if let Some(construct_line) = declarator_chain::chain_mate_read(parsed, edge) {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
     }
     let uncertain_construct = uncertain_construct_on_route(
         parsed,

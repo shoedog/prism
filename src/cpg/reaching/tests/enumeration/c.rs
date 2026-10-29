@@ -2,6 +2,8 @@ use super::super::super::binding_table::Predicate;
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+mod task29;
+
 const EXACT: FlowConfidence = FlowConfidence::Exact;
 
 const fn killed(line: u32) -> FlowConfidence {
@@ -88,9 +90,9 @@ pub(super) const CASES: &[super::case::Case] = &[
     case!(
         "c-declarator-chain-uncertain",
         "declaration",
-        "void f() {\n  int a = 1, x = 2;\n  sink(x);\n}\n",
-        &[("2:x", "3:x", uncertain(2))],
-        ("dfg_label_nameonly_ownership_uncertain", 1),
+        "void f() {\n  int x = source(), seed = 0;\n  {\n    int a = 1, x = 2;\n    sink(x);\n  }\n  sink(x);\n}\n",
+        &[("2:x", "5:x", killed(4)), ("2:x", "7:x", EXACT)],
+        ("dfg_label_nameonly_killed", 1),
         Some("binding"),
         Some(Predicate::FieldChildCountAtLeast {
             field: "declarator",
@@ -304,20 +306,20 @@ fn fix1_w2_alias_facts_do_not_declare_foreign_names() {
 fn fix1_w3_chain_uncertainty_is_scope_bounded() {
     const BLOCK: &[(&str, &str, FlowConfidence)] = &[
         ("2:x", "7:x", EXACT),
-        ("4:x", "5:x", uncertain(4)),
+        ("4:x", "5:x", EXACT),
         ("4:x", "7:x", killed(6)),
     ];
     const FOR: &[(&str, &str, FlowConfidence)] = &[
-        ("2:x", "4:x", uncertain(3)),
+        ("2:x", "4:x", killed(3)),
         ("2:x", "6:x", EXACT),
-        ("3:x", "4:x", uncertain(3)),
+        ("3:x", "4:x", EXACT),
         ("3:x", "6:x", killed(5)),
     ];
     const SINGLE_LINE_FOR: &[(&str, &str, FlowConfidence)] =
         &[("2:i", "4:i", EXACT), ("3:i", "4:i", killed(4))];
     let cases = [
-        case!("c-fix1-chain-block-scope", "declaration", "void f() {\n  int x = source();\n  {\n    int a = 1, x = 2;\n    sink(x);\n  }\n  sink(x);\n}\n", BLOCK, ("dfg_label_nameonly_ownership_uncertain", 1), None, None),
-        case!("c-fix1-chain-for-scope", "declaration", "void f() {\n  int x = source();\n  for (int a = 1, x = 2; ready(); step()) {\n    sink(x);\n  }\n  sink(x);\n}\n", FOR, ("dfg_label_nameonly_ownership_uncertain", 2), None, None),
+        case!("c-fix1-chain-block-scope", "declaration", "void f() {\n  int x = source();\n  {\n    int a = 1, x = 2;\n    sink(x);\n  }\n  sink(x);\n}\n", BLOCK, ("dfg_label_exact", 2), None, None),
+        case!("c-fix1-chain-for-scope", "declaration", "void f() {\n  int x = source();\n  for (int a = 1, x = 2; ready(); step()) {\n    sink(x);\n  }\n  sink(x);\n}\n", FOR, ("dfg_label_nameonly_killed", 2), None, None),
         case!("c-fix1-single-line-for-scope-exit", "for_statement", "void f(int n) {\n  int i = 7;\n  for (int i = 0; i < n; i++) sink(i);\n  sink(i);\n}\n", SINGLE_LINE_FOR, ("dfg_label_exact", 1), None, None),
     ];
     for case in &cases {
@@ -330,7 +332,7 @@ fn fix1_w3_chain_uncertainty_is_scope_bounded() {
 
 #[test]
 fn fix1_w4_multiline_chain_membership() {
-    const UNCERTAIN: &[(&str, &str, FlowConfidence)] = &[("3:x", "4:x", uncertain(2))];
+    const OWNED: &[(&str, &str, FlowConfidence)] = &[("3:x", "4:x", EXACT)];
     let chain = Some(Predicate::FieldChildCountAtLeast {
         field: "declarator",
         count: 2,
@@ -340,8 +342,8 @@ fn fix1_w4_multiline_chain_membership() {
             "c-fix1-chain-continuation-line",
             "declaration",
             "void f() {\n  int a = 1,\n      x = 2;\n  sink(x);\n}\n",
-            UNCERTAIN,
-            ("dfg_label_nameonly_ownership_uncertain", 1),
+            OWNED,
+            ("dfg_label_exact", 1),
             None,
             chain
         ),
@@ -349,8 +351,8 @@ fn fix1_w4_multiline_chain_membership() {
             "c-fix1-chain-later-assignment",
             "declaration",
             "void f() {\n  int a, x;\n  x = source();\n  sink(x);\n}\n",
-            UNCERTAIN,
-            ("dfg_label_nameonly_ownership_uncertain", 1),
+            OWNED,
+            ("dfg_label_exact", 1),
             None,
             chain
         ),
@@ -453,14 +455,14 @@ fn fix2_f1_side_effect_definitions_survive_normalization() {
 
 #[test]
 fn fix2_f2_outer_chain_shadow_is_parked() {
-    const PARKED: &[(&str, &str, FlowConfidence)] =
-        &[("4:x", "5:x", uncertain(2)), ("4:x", "7:x", uncertain(2))];
+    const OWNED: &[(&str, &str, FlowConfidence)] =
+        &[("4:x", "5:x", EXACT), ("4:x", "7:x", killed(6))];
     let case = case!(
         "c-fix2-parked-chain-shadow",
         "declaration",
         "void f() {\n  int x = source(), y = 0;\n  {\n    int x = clean();\n    sink(x);\n  }\n  sink(x);\n}\n",
-        PARKED,
-        ("dfg_label_nameonly_ownership_uncertain", 2),
+        OWNED,
+        ("dfg_label_exact", 1),
         None,
         None
     );

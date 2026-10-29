@@ -219,6 +219,7 @@ pub(super) fn declarator_producer_owns_identifier(
                 "init_declarator"
                     | "array_declarator"
                     | "attributed_declarator"
+                    | "function_declarator"
                     | "parenthesized_declarator"
                     | "pointer_declarator"
                     | "reference_declarator"
@@ -326,6 +327,7 @@ fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) -> Option<Vec
         | "parameter_declaration"
         | "array_declarator"
         | "attributed_declarator"
+        | "function_declarator"
         | "parenthesized_declarator"
         | "pointer_declarator"
         | "reference_declarator" => {

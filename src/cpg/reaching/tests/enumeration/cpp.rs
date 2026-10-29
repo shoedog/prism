@@ -3,6 +3,7 @@ use crate::languages::Language;
 
 mod fix1;
 mod fix2;
+mod task29;
 
 pub(super) const CASES: &[super::case::Case] = &[
     super::case::Case {
@@ -10,10 +11,7 @@ pub(super) const CASES: &[super::case::Case] = &[
         language: Language::Cpp,
         kind: "declaration",
         variant: Some("binding"),
-        row_variant: Some(super::super::super::binding_table::Predicate::FieldChildCountIs {
-            field: "declarator",
-            count: 1,
-        }),
+        row_variant: None,
         class: super::case::CaseClass::Behavioral,
         src: "void f() {\n  int x = source();\n  {\n    int x = clean();\n    sink(x);\n  }\n  sink(x);\n}\n",
         expect: &[
@@ -25,6 +23,24 @@ pub(super) const CASES: &[super::case::Case] = &[
             ("2:x", "7:x", FlowConfidence::Exact),
         ],
         expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+    },
+    super::case::Case {
+        id: "cpp-direct-init-uncertain",
+        language: Language::Cpp,
+        kind: "declaration",
+        variant: Some("binding"),
+        row_variant: Some(super::super::super::binding_table::Predicate::FieldChildKindIs {
+            field: "declarator",
+            any_of: &["function_declarator"],
+        }),
+        class: super::case::CaseClass::Behavioral,
+        src: "struct T { T(int); };\nvoid f(int y) {\n  T x(y);\n  sink(x);\n}\n",
+        expect: &[(
+            "3:x",
+            "4:x",
+            FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 3 }),
+        )],
+        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
     },
     super::case::Case {
         id: "cpp-range-for-masks",
@@ -103,22 +119,24 @@ pub(super) const CASES: &[super::case::Case] = &[
         language: Language::Cpp,
         kind: "declaration",
         variant: Some("binding"),
-        row_variant: None,
+        row_variant: Some(
+            super::super::super::binding_table::Predicate::FieldChildCountAtLeastExcludingKinds {
+                field: "declarator",
+                count: 2,
+                excluded: &["function_declarator"],
+            },
+        ),
         class: super::case::CaseClass::Behavioral,
-        src: "void f() {\n  int x = clean(),\n      y = x;\n  sink(x);\n}\n",
+        src: "void f() {\n  int x = source(), seed = 0;\n  {\n    int a = 1, x = clean();\n    sink(x);\n  }\n  sink(x);\n}\n",
         expect: &[
             (
                 "2:x",
-                "3:x",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 2 }),
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
             ),
-            (
-                "2:x",
-                "4:x",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 2 }),
-            ),
+            ("2:x", "7:x", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 2)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
         id: "cpp-declarator-chain-uncertain-behavior",
@@ -137,11 +155,11 @@ pub(super) const CASES: &[super::case::Case] = &[
             (
                 "2:x",
                 "6:x",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 4 }),
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
             ),
             ("2:x", "8:x", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 2)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     super::case::Case {
         id: "cpp-if-init-declaration",
@@ -311,8 +329,8 @@ pub(super) const CASES: &[super::case::Case] = &[
         expect_counter: Some(("dfg_label_exact", 1)),
     },
 ];
-const TASK23_CASE_COUNT: usize = 9;
-const TASK24_CASE_END: usize = 12;
+const TASK23_CASE_COUNT: usize = 10;
+const TASK24_CASE_END: usize = 13;
 pub(super) const CURATED: &[(&str, &str)] = &[
     ("parameter_list", "e0a-x-cpp-parameter_list"),
     ("parameter_declaration", "e0a-x-cpp-parameter_declaration"),
@@ -366,7 +384,7 @@ fn cpp_task23_declaration_rows_extract_only_their_declarators() {
         .iter()
         .map(|node| node.start_position().row + 1)
         .collect();
-    assert_eq!(lines, [4]);
+    assert!(lines.is_empty());
 }
 
 #[test]

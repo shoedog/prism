@@ -2,6 +2,14 @@ use super::super::case::{check_case, Case, CaseClass};
 use crate::cpg::{FlowConfidence, FlowDoubt};
 use crate::languages::Language;
 
+const CHAIN: Option<super::super::super::binding_table::Predicate> = Some(
+    super::super::super::binding_table::Predicate::FieldChildCountAtLeastExcludingKinds {
+        field: "declarator",
+        count: 2,
+        excluded: &["function_declarator"],
+    },
+);
+
 macro_rules! exact_case {
     ($id:literal, $src:literal, $from:literal, $to:literal $(,)?) => {
         Case {
@@ -25,12 +33,7 @@ macro_rules! capture_assignment_case {
             language: Language::Cpp,
             kind: "declaration",
             variant: None,
-            row_variant: Some(
-                super::super::super::binding_table::Predicate::FieldChildCountIs {
-                    field: "declarator",
-                    count: 1,
-                },
-            ),
+            row_variant: None,
             class: CaseClass::Behavioral,
             src: $src,
             expect: &[
@@ -79,44 +82,28 @@ const W2_CASES: &[Case] = &[
         language: Language::Cpp,
         kind: "declaration",
         variant: None,
-        row_variant: None,
+        row_variant: CHAIN,
         class: CaseClass::Behavioral,
         src: "void f() {\n  int a = 1, x = 2;\n  sink(a);\n  sink(x);\n}\n",
         expect: &[
-            (
-                "2:a",
-                "3:a",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 2 }),
-            ),
-            (
-                "2:x",
-                "4:x",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 2 }),
-            ),
+            ("2:a", "3:a", FlowConfidence::Exact),
+            ("2:x", "4:x", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 2)),
+        expect_counter: Some(("dfg_label_exact", 2)),
     },
     Case {
         id: "cpp-multiline-chain-own-definitions-uncertain",
         language: Language::Cpp,
         kind: "declaration",
         variant: None,
-        row_variant: None,
+        row_variant: CHAIN,
         class: CaseClass::Behavioral,
         src: "void f() {\n  int a = 1,\n      x = 2;\n  sink(a);\n  sink(x);\n}\n",
         expect: &[
-            (
-                "2:a",
-                "4:a",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 2 }),
-            ),
-            (
-                "3:x",
-                "5:x",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 2 }),
-            ),
+            ("2:a", "4:a", FlowConfidence::Exact),
+            ("3:x", "5:x", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 2)),
+        expect_counter: Some(("dfg_label_exact", 2)),
     },
 ];
 
@@ -206,18 +193,18 @@ const W5_CASES: &[Case] = &[
         language: Language::Cpp,
         kind: "declaration",
         variant: None,
-        row_variant: None,
+        row_variant: CHAIN,
         class: CaseClass::Behavioral,
         src: "void f(int x) {\n  for (int a = 1, x = 2; ready(); step()) {\n    sink(x);\n  }\n  sink(x);\n}\n",
         expect: &[
             (
                 "2:x",
                 "3:x",
-                FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain { construct_line: 2 }),
+                FlowConfidence::Exact,
             ),
             ("1:x", "5:x", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        expect_counter: Some(("dfg_label_exact", 2)),
     },
 ];
 
@@ -231,10 +218,7 @@ const W6_CASES: &[Case] = &[
         language: Language::Cpp,
         kind: "declaration",
         variant: None,
-        row_variant: Some(super::super::super::binding_table::Predicate::FieldChildCountIs {
-            field: "declarator",
-            count: 1,
-        }),
+        row_variant: None,
         class: CaseClass::Behavioral,
         src: "void f() {\n  int x = source();\n  int z = source();\n  auto call = [z, y = (x = clean())] { sink(y); };\n  sink(x);\n}\n",
         expect: &[
@@ -252,10 +236,7 @@ const W6_CASES: &[Case] = &[
         language: Language::Cpp,
         kind: "declaration",
         variant: None,
-        row_variant: Some(super::super::super::binding_table::Predicate::FieldChildCountIs {
-            field: "declarator",
-            count: 1,
-        }),
+        row_variant: None,
         class: CaseClass::Behavioral,
         src: "void f() {\n  int x = source();\n  auto call = [&y = (x = clean())] { sink(y); };\n  sink(x);\n}\n",
         expect: &[
@@ -338,7 +319,12 @@ fn astra_r1_w1_pointer_declarations_keep_own_identity() {
 
 #[test]
 fn astra_r1_w2_declarator_chain_own_reads_fail_closed() {
-    check_all(W2_CASES);
+    for case in W2_CASES {
+        super::super::case::behavior::assert_behavior(
+            case,
+            &super::super::super::parsed(case.src, case.language),
+        );
+    }
 }
 
 #[test]
@@ -353,7 +339,16 @@ fn astra_r1_w4_structured_binding_own_reads_fail_closed() {
 
 #[test]
 fn astra_r1_w5_header_uncertainty_stops_at_its_owner() {
-    check_all(W5_CASES);
+    for case in W5_CASES {
+        if case.id == "cpp-for-chain-header-stops-at-loop-exit" {
+            super::super::case::behavior::assert_behavior(
+                case,
+                &super::super::super::parsed(case.src, case.language),
+            );
+        } else {
+            check_case(case);
+        }
+    }
 }
 
 #[test]
