@@ -1,0 +1,72 @@
+{
+  "lane": "Python imported-class proof memo and owner range",
+  "source": "src/call_graph/python_import_proofs.rs",
+  "lib_test_prefixes": [
+    "call_graph::python_import_proofs::tests::"
+  ],
+  "mutations": {
+    "PYIP01-omit-caller": [
+      "src/call_graph/python_import_proofs.rs",
+      "let directory = relative.then(|| {",
+      "let directory = false.then(|| {",
+      "call_graph::python_import_proofs::tests::relative_proofs_separate_callers_and_cached_misses"
+    ],
+    "PYIP02-key-absolute-by-caller": [
+      "src/call_graph/python_import_proofs.rs",
+      "let directory = relative.then(|| {",
+      "let directory = true.then(|| {",
+      "call_graph::python_import_proofs::tests::memo_reuses_successes_and_failures_at_the_exact_scope"
+    ],
+    "PYIP03-repeat-repo-scans": [
+      "src/call_graph/python_import_proofs.rs",
+      "let trimmed = module_path.trim();",
+      "self.results.clear();\n        let trimmed = module_path.trim();",
+      "call_graph::python_import_proofs::tests::whole_computation_shares_route_and_enumeration_lookups"
+    ],
+    "PYIP04-accept-ambiguous": [
+      "src/call_graph/python_import_proofs.rs",
+      "module_files.next().is_none().then_some(defining_file)",
+      "Some(defining_file)",
+      "call_graph::python_import_proofs::tests::memo_matches_lookup_for_every_path_shape"
+    ],
+    "PYIP05-include-non-python": [
+      "src/call_graph/python_import_proofs.rs",
+      "crate::languages::Language::from_path(file) == Some(crate::languages::Language::Python)",
+      "true",
+      "call_graph::python_import_proofs::tests::memo_matches_lookup_for_every_path_shape"
+    ],
+    "PYIP06-range-past-file": [
+      "src/call_graph/python_import_proofs.rs",
+      ".take_while(move |((file, _), _)| file == defining_file)",
+      "",
+      "call_graph::python_import_proofs::tests::owner_range_preserves_order_and_file_boundaries"
+    ],
+    "PYIP07-range-skips-empty-owner": [
+      "src/call_graph/python_import_proofs.rs",
+      ".range((defining_file.to_string(), String::new())..)",
+      ".range((defining_file.to_string(), \"Z\".to_string())..)",
+      "call_graph::python_import_proofs::tests::owner_range_preserves_order_and_file_boundaries"
+    ],
+    "PYIP08-range-missing-file": [
+      "src/call_graph/python_import_proofs.rs",
+      ".range((defining_file.to_string(), String::new())..)",
+      ".range((String::new(), String::new())..)",
+      "call_graph::python_import_proofs::tests::owner_range_preserves_order_and_file_boundaries"
+    ],
+    "PYIP09-repeat-whole-class-scan": [
+      "src/call_graph/python_import_proofs.rs",
+      ".range((defining_file.to_string(), String::new())..)",
+      ".iter()",
+      "call_graph::python_import_proofs::tests::owner_range_does_not_visit_unrelated_classes"
+    ]
+  },
+  "extra": {
+    "PYIP09-repeat-whole-class-scan": [
+      [
+        "src/call_graph/python_import_proofs.rs",
+        ".take_while(move |((file, _), _)| file == defining_file)",
+        ".filter(move |((file, _), _)| file == defining_file)"
+      ]
+    ]
+  }
+}
