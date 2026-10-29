@@ -1,0 +1,159 @@
+{
+ "f1_issue": {
+  "T::b": {
+   "expected": {
+    "class": "a2",
+    "implied": false,
+    "rung": "qualified_owner",
+    "statically_false": "always"
+   },
+   "observed": {
+    "class": "a2",
+    "implied": false,
+    "origins": [
+     "item"
+    ],
+    "rung": "qualified_owner",
+    "statically_false": "always"
+   },
+   "ok": true
+  }
+ },
+ "f2_self_b": {
+  "Self::b": {
+   "expected": {
+    "class": "a2",
+    "implied": false,
+    "rung": "self_receiver",
+    "statically_false": "always"
+   },
+   "observed": {
+    "class": "a2",
+    "implied": false,
+    "origins": [
+     "item"
+    ],
+    "rung": "self_receiver",
+    "statically_false": "always"
+   },
+   "ok": true
+  }
+ },
+ "f3_unix_pair": {
+  "p": {
+   "ok": true,
+   "rows": 0
+  }
+ },
+ "f4_mod_decl": {
+  "m::only_here": {
+   "expected": {
+    "class": "b-other",
+    "implied": false,
+    "origins": [
+     "mod_decl"
+    ],
+    "statically_false": null
+   },
+   "observed": {
+    "class": "b-other",
+    "implied": false,
+    "origins": [
+     "mod_decl"
+    ],
+    "rung": "qualified_owner",
+    "statically_false": null
+   },
+   "ok": true
+  }
+ },
+ "f5_test_helper": {
+  "helper": {
+   "expected": {
+    "class": "b-other",
+    "implied": true,
+    "statically_false": null
+   },
+   "observed": {
+    "class": "b-other",
+    "implied": true,
+    "origins": [
+     "item"
+    ],
+    "rung": "local_def",
+    "statically_false": null
+   },
+   "ok": true
+  }
+ },
+ "f6_cfg_attr_false": {
+  "g": {
+   "expected": {
+    "class": "b-other",
+    "implied": false,
+    "statically_false": "under:feature=\"x\""
+   },
+   "observed": {
+    "class": "b-other",
+    "implied": false,
+    "origins": [
+     "item"
+    ],
+    "rung": "local_def",
+    "statically_false": "under:feature=\"x\""
+   },
+   "ok": true
+  }
+ },
+ "f7_shadow": {
+  "b": {
+   "expected": {
+    "class": "c",
+    "implied": false
+   },
+   "observed": {
+    "class": "c",
+    "implied": false,
+    "origins": [],
+    "rung": "self_receiver",
+    "statically_false": null
+   },
+   "ok": true
+  }
+ },
+ "f7b_glob_shadow": {
+  "h": {
+   "ok": true,
+   "rows": 0
+  }
+ },
+ "f8_baseline": {
+  "k": {
+   "expected": {
+    "class": "none",
+    "implied": false
+   },
+   "observed": {
+    "class": "none",
+    "implied": false,
+    "origins": [],
+    "rung": "local_def",
+    "statically_false": null
+   },
+   "ok": true
+  }
+ },
+ "matrix": {
+  "E": 19,
+  "admissible": true,
+  "classes": {},
+  "map_rate": 1.0,
+  "nonfixture_classes": {
+   "none": {
+    "implied": 0,
+    "not_implied": 19
+   }
+  }
+ },
+ "mismatches": 0
+}

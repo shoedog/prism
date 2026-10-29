@@ -1,0 +1,59 @@
+{
+  "axum": {
+    "url": "https://github.com/tokio-rs/axum.git",
+    "pinned": "485c603dddcee45bb4bc40aab492b47576e2a2f8",
+    "head": "485c603dddcee45bb4bc40aab492b47576e2a2f8",
+    "match": true,
+    "status_clean": true,
+    "clone": "shallow depth 1"
+  },
+  "ripgrep": {
+    "url": "https://github.com/BurntSushi/ripgrep.git",
+    "pinned": "82313cf95849bfe425109ad9506a52154879b1b1",
+    "head": "82313cf95849bfe425109ad9506a52154879b1b1",
+    "match": true,
+    "status_clean": true,
+    "clone": "shallow depth 1"
+  },
+  "clap": {
+    "url": "https://github.com/clap-rs/clap.git",
+    "pinned": "8387c812c4b9726474b8407f81ec97f0acf570ed",
+    "head": "8387c812c4b9726474b8407f81ec97f0acf570ed",
+    "match": true,
+    "status_clean": true,
+    "clone": "shallow depth 1"
+  },
+  "tokio": {
+    "url": "https://github.com/tokio-rs/tokio.git",
+    "pinned": "ecb5125a6787b9d8eb818b1b00973bcd55ae77c0",
+    "head": "ecb5125a6787b9d8eb818b1b00973bcd55ae77c0",
+    "match": true,
+    "status_clean": true,
+    "clone": "shallow depth 1"
+  },
+  "uv": {
+    "url": "https://github.com/astral-sh/uv.git",
+    "pinned": "3cdf50e0924f1ace7a92ddbac98b12a958b87688",
+    "head": "3cdf50e0924f1ace7a92ddbac98b12a958b87688",
+    "match": true,
+    "status_clean": true,
+    "clone": "shallow depth 1"
+  },
+  "ruff": {
+    "url": "https://github.com/astral-sh/ruff.git",
+    "pinned": "44f6d1865fd29ed1d96585e167f56119b2a2d57c",
+    "head": "44f6d1865fd29ed1d96585e167f56119b2a2d57c",
+    "match": true,
+    "status_clean": true,
+    "clone": "shallow depth 1"
+  },
+  "prism": {
+    "source": "git archive 732863c0 (this repository)",
+    "commit": "732863c09fc273f372aaf98ab1b3c53f5d8bbe7a"
+  },
+  "prism-quick": {
+    "source": "git archive 20c8490591a379227b70c1d5ec4c75ff4b64ff01 (this repository)",
+    "commit": "20c8490591a379227b70c1d5ec4c75ff4b64ff01",
+    "note": "reported separately, never pooled"
+  }
+}

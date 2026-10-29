@@ -1,0 +1,12 @@
+{
+  "_note": "One entry per fixture crate: the expected census row for each Exact pair, keyed by callee text. 'no_exact' means prism emits no Rust Exact pair for that call (the census then has nothing to classify). f7_shadow: the census classifies by owner type name, so a cfg'd inherent on T counts as a pool shadow of the trait-default self.b() target; rustc binds Tr::b there (Self is generic), so this fixture checks the classifier's (c) rule, and is an instance of the deliberate over-count that adjudication corrects. f2_self_b is reconstructed from the #524 review description (the original counterexample file is not in this repository).",
+  "f1_issue":          {"T::b":          {"class": "a2", "implied": false, "rung": "qualified_owner", "statically_false": "always"}},
+  "f2_self_b":         {"Self::b":       {"class": "a2", "implied": false, "rung": "self_receiver", "statically_false": "always"}},
+  "f3_unix_pair":      {"p":             "no_exact"},
+  "f4_mod_decl":       {"m::only_here":  {"class": "b-other", "implied": false, "origins": ["mod_decl"], "statically_false": null}},
+  "f5_test_helper":    {"helper":        {"class": "b-other", "implied": true, "statically_false": null}},
+  "f6_cfg_attr_false": {"g":             {"class": "b-other", "implied": false, "statically_false": "under:feature=\"x\""}},
+  "f7_shadow":         {"b":             {"class": "c", "implied": false}},
+  "f7b_glob_shadow":   {"h":             "no_exact"},
+  "f8_baseline":       {"k":             {"class": "none", "implied": false}}
+}
