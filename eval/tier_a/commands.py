@@ -17,6 +17,7 @@ from .boundary import (
     Observation,
     OpenAudit,
     admit,
+    authenticate_sut_inputs,
     load_declared_inputs,
     observe_archive,
     observe_cargo,
@@ -437,6 +438,8 @@ def run_quick_admitted(
             raise
         except Exception as exc:
             raise BoundaryViolation([f"corpus_mismatch: {exc}"]) from exc
+    if lock is not None and artifacts is not None:
+        authenticate_sut_inputs(lock, artifacts)
     corpus_cfg = {**cfg, "path": str(corpus_path)}
     env = scrubbed_env(lock)
     if sut is None and getattr(args, "sut_archive", None):
@@ -508,7 +511,13 @@ def run_quick_admitted(
         else _lockless_closure_paths(corpus_cfg)
     )
     admission = admit(
-        lock, declared, observed, closure_paths, eval_dir, artifacts
+        lock,
+        declared,
+        observed,
+        closure_paths,
+        eval_dir,
+        artifacts,
+        archive_provenance=bool(getattr(args, "sut_archive", None)),
     )
 
     run["meta"]["observation"] = {

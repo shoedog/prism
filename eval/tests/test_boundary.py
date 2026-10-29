@@ -30,7 +30,13 @@ from tier_a.boundary import (
     observe_cargo,
     scrubbed_env,
 )
-from tier_a.closure import raw_digest, read_tsv, sut_inputs_manifest, write_tsv
+from tier_a.closure import (
+    manifest_digest,
+    raw_digest,
+    read_tsv,
+    sut_inputs_manifest,
+    write_tsv,
+)
 from tier_a.lock import Lock, integrity_check
 from tier_a.report import render_markdown
 from tier_a.sut import PrismCli
@@ -97,14 +103,27 @@ def test_archive_observation_prefers_archived_env_declarations_and_requires_fall
     archived = artifacts.sut_archive_input(output_path)
     archived.parent.mkdir(parents=True, exist_ok=True)
     archived.write_text("cargo:rerun-if-env-changed=MODE\n")
-    lock._sut_rows = read_tsv(repo / lock.prism["sut"]["inputs"])
-    lock._sut_rows.append((output_path, raw_digest(archived)))
+    manifest = repo / lock.prism["sut"]["inputs"]
+    rows = read_tsv(manifest)
+    rows.append((output_path, raw_digest(archived)))
+    rebound = manifest.with_name(f"sut-inputs-{manifest_digest(rows)[7:19]}.tsv")
+    write_tsv(rows, rebound)
+    manifest.unlink()
+    lock.prism["sut"]["inputs"] = rebound.relative_to(repo).as_posix()
+    artifacts = ArtifactPaths.from_lock(repo, lock)
 
     reads, paths = observe_archive(lock, repo, {"MODE": "on"}, artifacts)
     assert reads == [EnvRead("MODE", True, "on")]
-    assert paths == {row[0] for row in lock._sut_rows}
+    assert paths == {row[0] for row in rows}
 
-    lock._sut_rows = [row for row in lock._sut_rows if row[0] != output_path]
+    fallback_rows = [row for row in rows if row[0] != output_path]
+    fallback = rebound.with_name(
+        f"sut-inputs-{manifest_digest(fallback_rows)[7:19]}.tsv"
+    )
+    write_tsv(fallback_rows, fallback)
+    rebound.unlink()
+    lock.prism["sut"]["inputs"] = fallback.relative_to(repo).as_posix()
+    artifacts = ArtifactPaths.from_lock(repo, lock)
     lock.prism["env"].pop("allow")
     with pytest.raises(
         ValueError,

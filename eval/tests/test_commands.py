@@ -7,7 +7,7 @@ import pytest
 
 from tests.helpers import FakeOracle, FakeSut, admitted_fake_run, anchored_repo, edit, git_head
 from tier_a import boundary, cli, commands
-from tier_a.closure import raw_digest, read_tsv, write_tsv
+from tier_a.closure import manifest_digest, raw_digest, read_tsv, write_tsv
 from tier_a.commands import preflight_quick
 from tier_a.lock import corpus_check, integrity_check, save_lock
 from tier_a.materialize import materialize
@@ -282,7 +282,11 @@ def test_published_anchor_at_descendant_head_admits_and_reports_execution_head(
         (".git/HEAD", raw_digest(repo / ".git/HEAD")),
         ("target/generated.rs", raw_digest(generated)),
     ]
-    write_tsv(rows, manifest)
+    rebound = manifest.with_name(f"sut-inputs-{manifest_digest(rows)[7:19]}.tsv")
+    write_tsv(rows, rebound)
+    manifest.unlink()
+    lock.prism["sut"]["inputs"] = rebound.relative_to(repo).as_posix()
+    save_lock(lock, ev / "tier-a.lock.toml")
     archived = Path(lock.prism["sut"]["archive"]).parent / "inputs/target/generated.rs"
     archived.parent.mkdir(parents=True, exist_ok=True)
     archived.write_bytes(generated.read_bytes())

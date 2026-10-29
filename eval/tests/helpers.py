@@ -457,7 +457,11 @@ def anchored_repo(tmp: Path, publish: bool = True) -> tuple[Lock, Path, Path]:
     policy = policy_manifest(ev)
     population = population_manifest(inventory, policy, set(), "rust")
     closure_path = ev / "closure" / f"prism-corpus-{suffix}.tsv"
-    sut_inputs_path = ev / "closure" / f"sut-inputs-{suffix}.tsv"
+    sut_inputs_path = (
+        ev
+        / "closure"
+        / f"sut-inputs-{manifest_digest(sut_rows)[7:19]}.tsv"
+    )
     policy_path = ev / "closure" / f"policy-{suffix}.json"
     population_path = ev / "closure" / f"prism-population-{suffix}.json"
 

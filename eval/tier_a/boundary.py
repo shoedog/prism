@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -145,6 +147,52 @@ def observe_cargo(
     return [env_reads[name] for name in sorted(env_reads)], dep_paths
 
 
+def authenticate_sut_inputs(lock: Lock, artifacts: ArtifactPaths) -> list[tuple]:
+    """Bind the complete SUT-input manifest to existing anchor commitments."""
+    try:
+        rows = read_tsv(artifacts.sut_inputs())
+        digest = manifest_digest(rows)
+        name = Path(lock.prism["sut"]["inputs"]).name
+        match = re.fullmatch(r"sut-inputs-([0-9a-f]{12})\.tsv", name)
+
+        provenance = None
+        baseline = lock.prism.get("baseline_report")
+        if isinstance(baseline, dict):
+            report_path = artifacts.resolve(baseline["path"])
+            if raw_digest(report_path) != baseline["digest"]:
+                raise ValueError("baseline report digest mismatch")
+            provenance = json.loads(report_path.read_text()).get("meta", {}).get(
+                "sut_input_provenance"
+            )
+        kinds = (
+            "tracked_source",
+            "repository_metadata",
+            "archived_generated",
+        )
+        provenance_bound = isinstance(provenance, dict) and any(
+            kind in provenance for kind in kinds
+        )
+        if provenance_bound:
+            if not all(
+                isinstance(provenance.get(kind), list)
+                and all(isinstance(path, str) for path in provenance[kind])
+                for kind in kinds
+            ):
+                raise ValueError("baseline provenance invalid")
+            expected_paths = {path for kind in kinds for path in provenance[kind]}
+            if {row[0] for row in rows} != expected_paths:
+                raise ValueError("baseline provenance path mismatch")
+
+        content_addressed = match is not None and digest[7:19] == match.group(1)
+        if not content_addressed:
+            raise ValueError("content-addressed name mismatch")
+    except (KeyError, IndexError, OSError, TypeError, ValueError) as exc:
+        raise BoundaryViolation(["sut_input_manifest_mismatch"]) from exc
+
+    lock._sut_rows = rows
+    return rows
+
+
 def observe_archive(
     lock: Lock,
     repo: Path,
@@ -152,10 +200,7 @@ def observe_archive(
     artifacts: ArtifactPaths,
 ) -> tuple[list[EnvRead], set[str]]:
     """Observe a digest-bound archive through its bound input provenance."""
-    try:
-        sut_rows = _bound_sut_rows(lock)
-    except ValueError:
-        sut_rows = read_tsv(artifacts.sut_inputs())
+    sut_rows = authenticate_sut_inputs(lock, artifacts)
 
     package = cargo_package_name(repo)
     prefixes = {package, package.replace("-", "_")}
@@ -177,7 +222,13 @@ def observe_archive(
     env_reads: dict[str, EnvRead] = {}
     if build_outputs:
         for output in sorted(build_outputs):
-            for line in output.read_text().splitlines():
+            try:
+                lines = output.read_text().splitlines()
+            except OSError as exc:
+                raise BoundaryViolation(
+                    [f"sut_observation_unavailable: {output}"]
+                ) from exc
+            for line in lines:
                 for prefix in (
                     "cargo:rerun-if-env-changed=",
                     "cargo::rerun-if-env-changed=",
@@ -371,6 +422,8 @@ def _sut_input_verification(
     lock: Lock,
     eval_dir: Path,
     artifacts: ArtifactPaths | None = None,
+    *,
+    archive_provenance: bool = False,
 ) -> tuple[list[str], set[str], dict[str, list[str]]]:
     repo = eval_dir.parent
     artifacts = artifacts or ArtifactPaths.from_lock(repo, lock)
@@ -412,7 +465,14 @@ def _sut_input_verification(
                     reasons.append(f"sut_input_absent_present_transition: {path}")
                 continue
             if archived.is_file():
-                actual = raw_digest(archived)
+                try:
+                    actual = raw_digest(archived)
+                except OSError as exc:
+                    if archive_provenance:
+                        raise BoundaryViolation(
+                            [f"sut_observation_unavailable: {archived}"]
+                        ) from exc
+                    raise
             elif path in staged_archive:
                 actual = "sha256:" + hashlib.sha256(staged_archive[path]).hexdigest()
             else:
@@ -462,6 +522,8 @@ def admit(
     closure_paths: set[str],
     eval_dir: Path,
     artifacts: ArtifactPaths | None = None,
+    *,
+    archive_provenance: bool = False,
 ) -> dict:
     reasons = [
         f"env_read_outside_allow: {read.name}"
@@ -495,7 +557,10 @@ def admit(
             reasons.append("data_digest_moved: eval/fixtures")
 
         sut_reasons, sut_paths, sut_provenance = _sut_input_verification(
-            lock, eval_dir, artifacts
+            lock,
+            eval_dir,
+            artifacts,
+            archive_provenance=archive_provenance,
         )
         reasons.extend(sut_reasons)
 
