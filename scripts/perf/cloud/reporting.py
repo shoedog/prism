@@ -35,7 +35,10 @@ def paired_delta(before, after):
     values = [b - a for a, b in zip(before, after)]
     percents = [None if a == 0 else 100.0 * (b - a) / a for a, b in zip(before, after)]
     same = all(v > 0 for v in values) or all(v < 0 for v in values)
-    return values, percents, "holds in every pair" if same else "mixed"
+    n = len(values)
+    verdict = (f"insufficient pairs ({n})" if n < 3 else
+               f"{'holds in every pair' if same else 'mixed'} ({n} pairs)")
+    return values, percents, verdict
 
 
 def table(headers, rows):
@@ -57,36 +60,60 @@ def pct(value):
     return "n/a" if value is None else f"{value:+.1f}%"
 
 
-def delta_cell(before, after, scale=1.0, unit=""):
-    try:
-        values, percents, verdict = paired_delta(before, after)
-    except ValueError:
-        return "unavailable", "unavailable", "unavailable"
+def gate_summary(runs):
+    runs = list(runs)
+    return f"{sum(bool(r.get('gate_failed', False)) for r in runs)} of {len(runs)} runs gate-failed"
+
+
+def delta_cell(before, after, scale=1.0, unit="", base_wall_spread="unavailable",
+               gate_failures=None):
+    if gate_failures is None:
+        gate_failures = [0] * len(before)
+    if len(before) != len(after) or len(gate_failures) != len(before):
+        raise ValueError("delta_cell needs equal-length lists")
+    pairs = [(a, b, k) for a, b, k in zip(before, after, gate_failures)
+             if a is not None and b is not None]
+    if not pairs:
+        return ("unavailable", "unavailable", "unavailable", base_wall_spread,
+                "insufficient pairs (0); 0 of 0 runs gate-failed")
+    before, after, failures = zip(*pairs)
+    values, percents, verdict = paired_delta(before, after)
+    verdict += f"; {sum(failures)} of {2 * len(pairs)} runs gate-failed"
+    base = median(before)
+    median_percent = None if base == 0 else 100.0 * median(values) / base
     return (", ".join(f"{v / scale:+.1f}{unit}" for v in values),
-            ", ".join(pct(p) for p in percents), verdict)
+            ", ".join(pct(p) for p in percents), pct(median_percent), base_wall_spread, verdict)
 
 
-def render_results(environment, binaries, runs):
-    if not runs or not binaries:
+def render_results(environment, binaries, runs, failure=None, warnings=()):
+    if (not runs or not binaries) and failure is None:
         raise ValueError("no runs or binaries to render")
     refs = [b["ref"] for b in binaries]
     corpora = sorted({r["corpus"] for r in runs})
     group = defaultdict(dict)
     for r in runs:
         group[(r["corpus"], r["ref"])][r["round"]] = r
-    rounds = {c: sorted(set.intersection(*(set(group[(c, ref)]) for ref in refs)))
-              for c in corpora}
-    out = ["# Cloud measurement results", "", CAVEAT, "", "## Environment", ""]
+    out = ["# Cloud measurement results", "", CAVEAT, ""]
+    if failure is not None:
+        out += ["## PARTIAL", "", "Failure reason / incomplete state:", "", failure, ""]
+    if warnings:
+        out += ["## Warnings", "", *[f"- {w}" for w in warnings], ""]
+    out += ["## Environment", ""]
     out += [f"- {k}: {v}" for k, v in sorted(environment.items())]
-    out += ["", "## Binaries", "", table(["ref", "sha256"], [
-        (b["ref"], b.get("sha256", "unavailable")) for b in binaries]), "",
+    out += ["", "## Binaries", "", table(["ref", "commit", "sha256"], [
+        (b["ref"], b.get("commit", "unavailable"), b.get("sha256", "unavailable"))
+        for b in binaries]), "",
             "## Runs", "", table(
                 ["round", "corpus", "ref", "wall s", "peak RSS MiB", "cpu user s",
-                 "cpu sys s", "load", "steal ticks"],
+                 "cpu sys s", "load", "steal ticks", "gate_failed", "gate failure reason",
+                 "gate wait limit s", "gate wait reduced"],
                 [(r["round"], r["corpus"], r["ref"], fmt(r["wall_s"]),
                   fmt(r["peak_rss_bytes"] / 2**20, 1), fmt(r["cpu_user_s"]),
-                  fmt(r["cpu_system_s"]), fmt(r["quiet_load"], 2), steal(r))
+                  fmt(r["cpu_system_s"]), fmt(r["quiet_load"], 2), steal(r),
+                  r.get("gate_failed", False), r.get("gate_failure_reason") or "",
+                  r.get("quiet_wait_s", "unavailable"), r.get("quiet_wait_reduced", "unavailable"))
                  for r in sorted(runs, key=lambda r: (r["round"], r["corpus"], r["ref"]))])]
+    out += ["", "Peak RSS from wait4 is a floor that may include the parent's size."]
     out += ["", f"## Top {TOP} phases by median", "",
             "Serial wall and parallel work are different units of time and are never summed."]
     for c in corpora:
@@ -95,14 +122,23 @@ def render_results(environment, binaries, runs):
             out += ["", f"### {c} / {ref}", "", table(
                 ["phase", "time_kind", "median ms", "min ms", "max ms", "runs"], rows)]
     if len(refs) > 1:
-        out += ["", "## Paired deltas", "",
+        comparisons = [(c, a, b, sorted(set(group[(c, a)]) & set(group[(c, b)])))
+                       for c in corpora for a, b in combinations(refs, 2)]
+        included = {(c, ref, i): group[(c, ref)][i]
+                    for c, a, b, rounds in comparisons for ref in (a, b) for i in rounds}
+        out += ["", f"## Paired deltas ({gate_summary(included.values())})", "",
                 "Delta is second ref minus first ref, paired by round. "
-                "A verdict is `holds in every pair` only when every round agrees in sign."]
-        for c in corpora:
-            for a, b in combinations(refs, 2):
-                out += ["", f"### {c}: {a} → {b}", "", table(
-                    ["metric", "deltas", "percent", "verdict"],
-                    pair_rows(group, c, a, b, rounds[c]))]
+                "A verdict is `holds in every pair` only with at least 3 pairs, all agreeing in sign. "
+                "Missing metrics are omitted from that metric's pairs; every verdict gives its count. "
+                "Median delta / base median is median(paired deltas) / median(base values). "
+                "Base wall spread is (max-min)/median over this ref pair's shared rounds. "
+                "Gate-failed runs remain included. The section header counts unique runs in "
+                "shared rounds; each verdict counts only runs in that metric's complete pairs."]
+        for c, a, b, rounds in comparisons:
+            paired_runs = [group[(c, ref)][i] for ref in (a, b) for i in rounds]
+            out += ["", f"### {c}: {a} → {b} ({gate_summary(paired_runs)})", "", table(
+                ["metric", "deltas", "percent", "median delta / base median",
+                 "base wall spread", "verdict"], pair_rows(group, c, a, b, rounds))]
     out += ["", "## Noise", "", table(
         ["corpus", "ref", "wall spread (max-min)/median", "steal range ticks"],
         [(c, ref, spread(group[(c, ref)]), steal_range(group[(c, ref)]))
@@ -123,6 +159,8 @@ def steal_range(by_round):
 
 def spread(by_round):
     walls = [r["wall_s"] for r in by_round.values()]
+    if not walls:
+        return "unavailable"
     mid = median(walls)
     return "n/a" if mid == 0 else f"{100 * (max(walls) - min(walls)) / mid:.2f}%"
 
@@ -144,11 +182,18 @@ def phase_rows(runs):
 def pair_rows(group, corpus, a, b, round_ids):
     first = [group[(corpus, a)][i] for i in round_ids]
     second = [group[(corpus, b)][i] for i in round_ids]
+    gate_failures = [sum(bool(r.get("gate_failed", False)) for r in pair)
+                     for pair in zip(first, second)]
+    base_spread = spread({i: r for i, r in enumerate(first)})
     rows = [("command wall ms", *delta_cell([r["wall_s"] for r in first],
-                                            [r["wall_s"] for r in second], 1e-3))]
+                                            [r["wall_s"] for r in second], 1e-3,
+                                            base_wall_spread=base_spread,
+                                            gate_failures=gate_failures))]
     top = phase_rows(list(group[(corpus, a)].values()))
     for name, kind, *_ in top:
         before = [per_run_phases(r).get((name, kind)) for r in first]
         after = [per_run_phases(r).get((name, kind)) for r in second]
-        rows.append((f"{name} ({kind}) ms", *delta_cell(before, after, 1e6)))
+        rows.append((f"{name} ({kind}) ms", *delta_cell(before, after, 1e6,
+                                                     base_wall_spread=base_spread,
+                                                     gate_failures=gate_failures)))
     return rows

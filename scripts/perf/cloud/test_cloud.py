@@ -149,11 +149,11 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(list(measure.run_order(["a"], ["S"], 1)), [(0, "S", "a")])
 
     def test_delta_signs_zero_and_missing(self):
-        for before, after, verdict in [([10, 20], [9, 18], "holds in every pair"),
-                                        ([10, 20], [11, 22], "holds in every pair"),
-                                        ([10, 20], [9, 22], "mixed"),
-                                        ([10, 20], [10, 20], "mixed"),
-                                        ([10, 20], [9, 20], "mixed")]:
+        for before, after, verdict in [([10, 20, 30], [9, 18, 27], "holds in every pair (3 pairs)"),
+                                        ([10, 20, 30], [11, 22, 33], "holds in every pair (3 pairs)"),
+                                        ([10, 20, 30], [9, 22, 27], "mixed (3 pairs)"),
+                                        ([10, 20, 30], [10, 20, 30], "mixed (3 pairs)"),
+                                        ([10, 20, 30], [9, 20, 27], "mixed (3 pairs)")]:
             values, percents, actual = reporting.paired_delta(before, after)
             self.assertEqual(actual, verdict)
             self.assertEqual(values, [b - a for a, b in zip(before, after)])
@@ -237,7 +237,7 @@ class MetricsTests(unittest.TestCase):
                                  phases=[dict(name="parse", time_kind="serial_wall", ns=ns)]))
         report = reporting.render_results(dict(os="test"), [{"ref": x, "sha256": "abc"}
                                                           for x in ["a", "b", "c"]], runs)
-        for text in ["a → b", "a → c", "b → c", "holds in every pair", "serial_wall",
+        for text in ["a → b", "a → c", "b → c", "insufficient pairs (2)", "serial_wall",
                      "Cloud VM wall times are not comparable with local history.", "Noise", "0.00%"]:
             self.assertIn(text, report)
         runs[1]["phases"] = []
