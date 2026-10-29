@@ -1,4 +1,4 @@
-use super::binding_table::{select_binding_row, Timing};
+use super::binding_table::{select_binding_row, Timing, CHAIN_RECOVERY_ENABLED};
 use super::grammar_lint::visibility::c_declaration_definition_in_scope;
 use super::grammar_lint::{
     is_python_match_pattern, uncertain_binding_nodes, visibility_span, SpanKind,
@@ -109,17 +109,19 @@ pub(super) fn classify_edge(
     }) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
-    if let Some(construct_line) = declarator_chain::unproved_exclusive_route(
-        parsed, edge, defs, def_line, use_line, statements,
-    ) {
-        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
-            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
-        });
-    }
-    if let Some(construct_line) = declarator_chain::chain_mate_read(parsed, edge) {
-        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
-            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
-        });
+    if CHAIN_RECOVERY_ENABLED {
+        if let Some(construct_line) = declarator_chain::unproved_exclusive_route(
+            parsed, edge, defs, def_line, use_line, statements,
+        ) {
+            return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+                construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+            });
+        }
+        if let Some(construct_line) = declarator_chain::chain_mate_read(parsed, edge) {
+            return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+                construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+            });
+        }
     }
     let uncertain_construct = uncertain_construct_on_route(
         parsed,

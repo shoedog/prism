@@ -16,6 +16,7 @@ const fn uncertain(line: u32) -> FlowConfidence {
 
 const KILLED_3: FlowConfidence = killed(3);
 const UNCERTAIN_2: FlowConfidence = uncertain(2);
+const UNCERTAIN_3: FlowConfidence = uncertain(3);
 const CFG_INCOMPLETE: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
 
 fn check(case: &Case) {
@@ -23,6 +24,7 @@ fn check(case: &Case) {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn task29_c_chain_matches_single_declarations_after_the_declaration() {
     let cases = [
         Case {
@@ -54,6 +56,7 @@ fn task29_c_chain_matches_single_declarations_after_the_declaration() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn task29_c_chain_pointer_array_and_nested_shadow_are_owned_per_declarator() {
     const POINTER_ARRAY: &[(&str, &str, FlowConfidence)] = &[
         ("3:p", "4:p", EXACT),
@@ -92,6 +95,7 @@ fn task29_c_chain_pointer_array_and_nested_shadow_are_owned_per_declarator() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn task29_c_chain_same_line_mate_read_stays_uncertain() {
     const SAME_LINE: &[(&str, &str, FlowConfidence)] =
         &[("2:a", "2:a", uncertain(2)), ("2:a", "3:a", EXACT)];
@@ -110,6 +114,7 @@ fn task29_c_chain_same_line_mate_read_stays_uncertain() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn task29_fix1_c_initializer_controls_preserve_reads_and_writes() {
     let cases = [
         Case {
@@ -142,6 +147,7 @@ fn task29_fix1_c_initializer_controls_preserve_reads_and_writes() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn task29_fix1_c_exclusive_branch_routes_fail_closed() {
     let cases = [
         Case {
@@ -198,6 +204,67 @@ fn task29_fix1_c_exclusive_branch_routes_fail_closed() {
             src: "void f(int kind) {\n  int j, left = 0, vectorlen;\n  j = 2;\n  while (ready()) {\n    if (kind == 0) {\n      sink(left);\n    } else if (kind == 1) {\n      j += 2;\n    } else if (kind == 2) {\n      sink(left);\n    } else if (kind == 3) {\n      sink(\n          j);\n    }\n    j++;\n  }\n}\n",
             expect: &[("8:j", "13:j", UNCERTAIN_2)],
             expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        },
+    ];
+    for case in &cases {
+        check(case);
+    }
+}
+
+#[test]
+fn task29_park_r2_c_probes_match_base_ownership_uncertainty() {
+    let cases = [
+        Case {
+            id: "task29-park-if-else-nobraces-chain-c",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: include_str!(
+                "../../../../../../tests/fixtures/task29_park/r2_if_else_nobraces_chain_c/main.c"
+            ),
+            expect: &[("3:x", "7:x", UNCERTAIN_3)],
+            expect_counter: None,
+        },
+        Case {
+            id: "task29-park-switch-case-same-chain-c",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: include_str!(
+                "../../../../../../tests/fixtures/task29_park/r2_switch_case_same_chain_c/main.c"
+            ),
+            expect: &[("5:x", "8:x", UNCERTAIN_3)],
+            expect_counter: None,
+        },
+        Case {
+            id: "task29-park-if-same-line-chain-c",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: include_str!(
+                "../../../../../../tests/fixtures/task29_park/r2_if_same_line_chain_c/main.c"
+            ),
+            expect: &[("4:x", "6:x", UNCERTAIN_3)],
+            expect_counter: None,
+        },
+        Case {
+            id: "task29-park-conditional-chain-c",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: include_str!(
+                "../../../../../../tests/fixtures/task29_park/r2_conditional_chain_c/main.c"
+            ),
+            expect: &[("3:x", "6:x", UNCERTAIN_3)],
+            expect_counter: None,
         },
     ];
     for case in &cases {

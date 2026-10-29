@@ -12,7 +12,9 @@ confidence = "exact"
 [[expect.edges]]
 from = "main.c:4:x"
 to = "main.c:5:x"
-confidence = "exact"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 4
 
 [[expect.edges]]
 from = "main.c:4:x"
@@ -25,7 +27,7 @@ kill_line = 6
 from = "main.c:11:x"
 to = "main.c:13:x"
 confidence = "nameonly"
-doubt = "killed"
+doubt = "ownership_uncertain"
 kill_line = 12
 
 [[expect.edges]]
@@ -36,7 +38,9 @@ confidence = "exact"
 [[expect.edges]]
 from = "main.c:12:x"
 to = "main.c:13:x"
-confidence = "exact"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 12
 
 [[expect.edges]]
 from = "main.c:12:x"

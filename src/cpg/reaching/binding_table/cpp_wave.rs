@@ -1,5 +1,6 @@
 use super::{
-    provisional_rows, BindingRow, DeclarationKind, Predicate, Role, RoleSet, Ruling, Visibility,
+    declarator_chain_ruling, provisional_rows, BindingRow, DeclarationKind, Predicate, Role,
+    RoleSet, Ruling, Visibility, CHAIN_RECOVERY_ENABLED,
 };
 use crate::languages::Language;
 
@@ -19,6 +20,10 @@ const fn scope_row(kind: &'static str, regression: &'static str) -> BindingRow {
         ruling: Ruling::Classified,
         regression,
     }
+}
+
+pub(super) fn row_is_active(row: &BindingRow) -> bool {
+    CHAIN_RECOVERY_ENABLED || row.regression != "cpp-block-shadow" || row.variant.is_some()
 }
 
 pub(super) static CURATED_ROWS: &[BindingRow] = &[
@@ -50,33 +55,52 @@ pub(super) static CURATED_ROWS: &[BindingRow] = &[
     BindingRow {
         language: Language::Cpp,
         kind: "declaration",
-        variant: Some(Predicate::FieldChildKindIs {
-            field: "declarator",
-            any_of: &["function_declarator"],
-        }),
+        variant: if CHAIN_RECOVERY_ENABLED {
+            Some(Predicate::FieldChildKindIs {
+                field: "declarator",
+                any_of: &["function_declarator"],
+            })
+        } else {
+            Some(Predicate::FieldChildCountIs {
+                field: "declarator",
+                count: 1,
+            })
+        },
         roles: RoleSet::of(&[Role::Binding]),
         fields: &["declarator"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Uncertain {
-            reason: "direct-initialization and function-declaration syntax are ambiguous",
-            revisit: "future:cpp-declarators",
+        ruling: if CHAIN_RECOVERY_ENABLED {
+            Ruling::Uncertain {
+                reason: "direct-initialization and function-declaration syntax are ambiguous",
+                revisit: "future:cpp-declarators",
+            }
+        } else {
+            Ruling::Classified
         },
-        regression: "cpp-direct-init-uncertain",
+        regression: if CHAIN_RECOVERY_ENABLED {
+            "cpp-direct-init-uncertain"
+        } else {
+            "cpp-block-shadow"
+        },
     },
     BindingRow {
         language: Language::Cpp,
         kind: "declaration",
-        variant: Some(Predicate::FieldChildCountAtLeastExcludingKinds {
-            field: "declarator",
-            count: 2,
-            excluded: &["function_declarator"],
-        }),
+        variant: if CHAIN_RECOVERY_ENABLED {
+            Some(Predicate::FieldChildCountAtLeastExcludingKinds {
+                field: "declarator",
+                count: 2,
+                excluded: &["function_declarator"],
+            })
+        } else {
+            None
+        },
         roles: RoleSet::of(&[Role::Binding]),
         fields: &["declarator"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Classified,
+        ruling: declarator_chain_ruling(),
         regression: "cpp-declarator-chain-uncertain",
     },
     BindingRow {

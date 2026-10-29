@@ -7,9 +7,13 @@ probe = "dfg"
 [[expect.edges]]
 from = "main.c:3:x"
 to = "main.c:4:x"
-confidence = "exact"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 2
 
 [[expect.edges]]
 from = "main.c:9:x"
 to = "main.c:10:x"
-confidence = "exact"
+confidence = "nameonly"
+doubt = "ownership_uncertain"
+kill_line = 8

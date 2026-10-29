@@ -1,4 +1,7 @@
-use super::{BindingRow, DeclarationKind, Predicate, Role, RoleSet, Ruling, Visibility};
+use super::{
+    declarator_chain_ruling, BindingRow, DeclarationKind, Predicate, Role, RoleSet, Ruling,
+    Visibility,
+};
 use crate::languages::Language;
 
 pub(super) static C_ROWS: &[BindingRow] = &[
@@ -35,7 +38,7 @@ pub(super) static C_ROWS: &[BindingRow] = &[
         fields: &["declarator"],
         declaration: Some(DeclarationKind::Other),
         visibility: Visibility::AfterIntroduction,
-        ruling: Ruling::Classified,
+        ruling: declarator_chain_ruling(),
         regression: "c-declarator-chain-uncertain",
     },
     BindingRow {

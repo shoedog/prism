@@ -7,6 +7,4 @@ probe = "dfg"
 [[expect.edges]]
 from = "main.cpp:6:x"
 to = "main.cpp:7:x"
-confidence = "nameonly"
-doubt = "ownership_uncertain"
-kill_line = 6
+confidence = "exact"

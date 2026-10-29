@@ -327,6 +327,7 @@ fn astra_r1_w1_pointer_declarations_keep_own_identity() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn astra_r1_w2_declarator_chain_own_reads_fail_closed() {
     for case in W2_CASES {
         check_case(case);
@@ -344,6 +345,7 @@ fn astra_r1_w4_structured_binding_own_reads_fail_closed() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn astra_r1_w5_header_uncertainty_stops_at_its_owner() {
     for case in W5_CASES {
         check_case(case);
@@ -351,6 +353,7 @@ fn astra_r1_w5_header_uncertainty_stops_at_its_owner() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn astra_r1_w6_capture_copy_requires_introduced_membership() {
     check_all(W6_CASES);
 }

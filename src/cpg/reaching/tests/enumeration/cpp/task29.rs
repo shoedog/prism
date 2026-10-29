@@ -22,6 +22,7 @@ fn check(case: &Case) {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn task29_cpp_chain_matches_single_declarations_after_the_declaration() {
     let cases = [
         Case {
@@ -53,6 +54,7 @@ fn task29_cpp_chain_matches_single_declarations_after_the_declaration() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn task29_cpp_chain_nested_shadow_and_same_line_read_partition() {
     const SHADOW: &[(&str, &str, FlowConfidence)] =
         &[("2:x", "3:x", killed(3)), ("2:x", "4:x", EXACT)];
@@ -101,6 +103,7 @@ fn task29_cpp_chain_nested_shadow_and_same_line_read_partition() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn task29_cpp_direct_init_and_most_vexing_parse_stay_uncertain() {
     const DIRECT: &[(&str, &str, FlowConfidence)] = &[("3:x", "4:x", uncertain(3))];
     let direct = Case {
@@ -155,6 +158,7 @@ fn task29_cpp_direct_init_and_most_vexing_parse_stay_uncertain() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn task29_fix1_cpp_initializer_reads_are_not_definitions() {
     let cases = [
         Case {
@@ -198,6 +202,7 @@ fn task29_fix1_cpp_initializer_reads_are_not_definitions() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn task29_fix1_cpp_exclusive_branch_routes_fail_closed() {
     let cases = [
         Case {
@@ -226,4 +231,20 @@ fn task29_fix1_cpp_exclusive_branch_routes_fail_closed() {
     for case in &cases {
         check(case);
     }
+}
+
+#[test]
+fn task29_park_r2_cpp_direct_init_probe_matches_base_ownership_uncertainty() {
+    let case = Case {
+        id: "task29-park-control-direct-defined",
+        language: Language::Cpp,
+        kind: "declaration",
+        variant: None,
+        row_variant: None,
+        class: CaseClass::Behavioral,
+        src: "void test() {\n int x=1,y=0;\n { int a(x); }\n sink(x);\n}\n",
+        expect: &[("2:x", "4:x", UNCERTAIN_2)],
+        expect_counter: None,
+    };
+    check(&case);
 }

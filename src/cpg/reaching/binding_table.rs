@@ -101,6 +101,21 @@ pub(crate) enum Ruling {
     },
 }
 
+/// Task 29 chain precision is parked by owner decision (#530, DECISIONS §P.1)
+/// until the dedicated CFG route-soundness root-defect issue lands.
+pub(crate) const CHAIN_RECOVERY_ENABLED: bool = false;
+
+pub(crate) const fn declarator_chain_ruling() -> Ruling {
+    if CHAIN_RECOVERY_ENABLED {
+        Ruling::Classified
+    } else {
+        Ruling::Uncertain {
+            reason: "declarator chain",
+            revisit: "future:c-cpp-declarators",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Timing {
     Deferred,
@@ -265,12 +280,21 @@ pub(crate) fn rows(language: Language) -> &'static [BindingRow] {
             java_wave::ROWS
         ),
         Language::C => combined!(C_ROWS, c::C_ROWS, c_wave::ROWS),
-        Language::Cpp => combined3!(
-            CPP_ROWS,
-            cpp::CPP_ROWS,
-            cpp_wave::CURATED_ROWS,
-            cpp_wave::ROWS
-        ),
+        Language::Cpp => {
+            static CPP_ROWS: OnceLock<Vec<BindingRow>> = OnceLock::new();
+            CPP_ROWS.get_or_init(|| {
+                cpp::CPP_ROWS
+                    .iter()
+                    .chain(
+                        cpp_wave::CURATED_ROWS
+                            .iter()
+                            .filter(|row| cpp_wave::row_is_active(row)),
+                    )
+                    .chain(cpp_wave::ROWS)
+                    .copied()
+                    .collect()
+            })
+        }
         Language::Rust => combined3!(
             RUST_ROWS,
             rust::ROWS,

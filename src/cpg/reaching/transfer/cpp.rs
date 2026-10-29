@@ -193,7 +193,7 @@ pub(in crate::cpg::reaching) fn normalize_cpp_pseudo_defs(
                 }
             }
         }
-        if node.kind() == "init_declarator" {
+        if node.kind() == "init_declarator" && belongs_to_declarator_chain(node) {
             if let Some(value) = node.child_by_field_name("value") {
                 mark_reads(parsed, defs, value, None);
             }
@@ -201,6 +201,20 @@ pub(in crate::cpg::reaching) fn normalize_cpp_pseudo_defs(
         let mut cursor = node.walk();
         stack.extend(node.named_children(&mut cursor));
     }
+}
+
+fn belongs_to_declarator_chain(node: Node<'_>) -> bool {
+    node.parent().is_some_and(|parent| {
+        if parent.kind() != "declaration" {
+            return false;
+        }
+        let mut declarators = parent.walk();
+        let is_chain = parent
+            .children_by_field_name("declarator", &mut declarators)
+            .nth(1)
+            .is_some();
+        is_chain
+    })
 }
 
 pub(super) fn declarator_producer_owns_identifier(

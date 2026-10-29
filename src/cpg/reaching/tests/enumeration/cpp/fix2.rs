@@ -148,6 +148,7 @@ fn check_all(cases: &[Case]) {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn astra_r2_f1_uncertainty_covers_subsequent_definitions_in_owner() {
     for case in F1_CASES {
         check_case(case);
@@ -155,6 +156,7 @@ fn astra_r2_f1_uncertainty_covers_subsequent_definitions_in_owner() {
 }
 
 #[test]
+#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn astra_r2_f2_reference_capture_normalization_excludes_declarations() {
     check_all(F2_CASES);
 }
