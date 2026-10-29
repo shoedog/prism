@@ -1281,12 +1281,20 @@ impl ParsedFile {
 
     /// Manual recursive identifier-at-row collection (pre-query fallback).
     fn collect_identifiers_at_row<'a>(&self, node: Node<'a>, row: usize, out: &mut Vec<Node<'a>>) {
+        #[cfg(test)]
+        identifier_row_tests::record_visit();
         if node.start_position().row == row && self.language.is_identifier_node(node.kind()) {
             out.push(node);
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_identifiers_at_row(child, row, out);
+            if child.start_position().row > row {
+                break;
+            }
+            // Inclusive end row keeps zero-width nodes and multiline containers.
+            if child.end_position().row >= row {
+                self.collect_identifiers_at_row(child, row, out);
+            }
         }
     }
 
@@ -11691,6 +11699,10 @@ mod nested_execution_owner_tests;
 #[cfg(test)]
 #[path = "ast_call_execution_owner_tests.rs"]
 mod call_execution_owner_tests;
+
+#[cfg(test)]
+#[path = "ast_identifiers_on_line_tests.rs"]
+mod identifier_row_tests;
 
 #[cfg(test)]
 mod tests {
