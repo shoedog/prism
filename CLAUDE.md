@@ -292,9 +292,12 @@ mutation of module objects (monkey-patching, reflective writes, `eval`, host glo
 (replan probes, 2026-09-25). Producer-side mutation is modeled only where mutation is the construction
 idiom (CJS `module.exports`, `src/ast/js_cjs_export_barriers.rs`). A slice that wants to model runtime
 mutation proposes it as a new contract, not as a precision fix to an existing rung.
-Rust `#[cfg]`/`#[cfg_attr]` availability is out of model for every Rust rung: a cfg-disabled item stays
-a candidate and can be the Exact target while rustc binds another callable (#527 measures it first and
-fences it only if warranted).
+Rust Exact does not depend on build configuration: a site is Exact only if, in every configuration in
+which the site itself compiles, it binds the same callable; conditions implied by the caller's own `#[cfg]`
+context are assumed true. Rungs do not evaluate `#[cfg]`/`#[cfg_attr]`: every cfg-gated item is a candidate,
+and cfg alternatives that meet in one pool demote or refuse. A cfg-gated target whose competitor the rung
+cannot see stays a documented gap (#527 measured 0 cfg-caused wrong Exacts in 57 adjudicated tokio sites;
+fencing failed its cost bound). Tier-A's rust-analyzer oracle uses default features and the host target.
 Known JS/TS, React and Node resolution gaps, with options and tracking issues, are listed in
 `docs/features/language-coverage/js-ts-known-gaps.md`; update it when a slice closes or finds one.
 
@@ -315,7 +318,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v128) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v130) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
