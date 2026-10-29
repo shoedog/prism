@@ -1,0 +1,8 @@
+4
+               total        used        free      shared  buff/cache   available
+Mem:              15           0          15           0           0          15
+Swap:              0           0           0
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G  8.8G   30G  23% /
+rustc 1.97.0 (2d8144b78 2026-07-07)
+cargo 1.97.0 (c980f4866 2026-06-30)

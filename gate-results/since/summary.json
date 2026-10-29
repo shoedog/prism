@@ -1,0 +1,20 @@
+{
+  "authoritative": true,
+  "label": "AUTHORITATIVE",
+  "execution_mode": "text",
+  "jobs": 4,
+  "since": "73136b1b",
+  "scope": "fn",
+  "selected": 0,
+  "killed": 0,
+  "admissible": 0,
+  "timings": {
+    "quiet_wait": 0.0,
+    "total": 0.47
+  },
+  "resources": {},
+  "baselines": {},
+  "static": {},
+  "text_confirmations": 0,
+  "results": {}
+}

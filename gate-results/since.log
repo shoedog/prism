@@ -1,0 +1,2 @@
+[    0.5s] AUTHORITATIVE 875 mutants in 35 lane file(s); selected 0
+[    0.5s] AUTHORITATIVE TOTAL killed 0/0 admissible 0 quiet wait 0.0s timings {'quiet_wait': 0.0, 'total': 0.47}
