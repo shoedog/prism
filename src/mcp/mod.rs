@@ -42,6 +42,9 @@ pub use shim::{
     DEFAULT_CONTROL_TIMEOUT_SECS, DEFAULT_DAEMON_START_TIMEOUT_SECS,
 };
 
+/// Serve MCP over stdio, reading `PRISM_MCP_INDEX_IDLE_SECS` for the idle policy.
+/// Ordinary Lazy/Background sessions unload after 600 tool-idle seconds by default;
+/// `0` disables unloading. Eager/owner modes keep unloading disabled.
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
     let ambient = std::env::var("PRISM_MCP_INDEX_IDLE_SECS").ok();
     let policy = library_idle_policy(&cfg, ambient.as_deref())?;

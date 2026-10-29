@@ -26,6 +26,7 @@ fn query(p: &mut SessionProvider) -> Value {
         &mut lifecycle,
         &registry,
         StartupMode::Eager,
+        false,
         &settings,
     ) else {
         panic!("valid fixture must produce a tool call")

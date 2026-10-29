@@ -24,7 +24,7 @@ def test_build_isolated_config_layout(tmp_path):
     assert os.path.isfile(os.path.join(cfg.config_dir, "skills", "prism-code-navigation", "SKILL.md"))
     # the MCP config points prism at the repo
     mcp = json.load(open(cfg.mcp_cfg))
-    assert mcp["mcpServers"]["prism"]["args"] == ["--repo", "/repo/x", "--warm-at-startup"]
+    assert mcp["mcpServers"]["prism"]["args"] == ["--repo", "/repo/x", "--warm-at-startup", "--index-idle-secs", "0"]
     # settings: no hooks, prism allowed, writes denied
     settings = json.load(open(os.path.join(cfg.config_dir, "settings.json")))
     assert settings["hooks"] == {}
@@ -33,3 +33,12 @@ def test_build_isolated_config_layout(tmp_path):
     # credentials seeded (auth survives the CLAUDE_CONFIG_DIR override)
     assert json.load(open(os.path.join(cfg.config_dir, ".credentials.json")))["token"] == "x"
     assert cfg.config_dir != os.path.expanduser("~/.claude")
+
+
+def test_off_arm_has_no_mcp_config(tmp_path):
+    cfg = build_isolated_config(skill_src=str(tmp_path / "unused"), mcp_repo="/repo/x",
+                                prism_mcp_bin="/bin/prism-mcp", root=str(tmp_path / "iso"),
+                                credentials_src=str(tmp_path / "missing"),
+                                include_skill_and_mcp=False)
+    assert cfg.mcp_cfg == ""
+    assert not (tmp_path / "iso" / "mcp.json").exists()

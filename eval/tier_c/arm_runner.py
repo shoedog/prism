@@ -55,8 +55,9 @@ def prism_mcp_args(repo_root: str, *, no_cache: bool = False,
     --warm-at-startup pins the at-spawn background build that every Part-C/Part-D/B1.2 baseline
     ran under (prism-mcp's default became build-on-first-call on 2026-10-09), so later arms stay
     comparable with those baselines instead of confounding startup mode with the treatment.
+    --index-idle-secs 0 pins their resident index; idle unload became default on 2026-10-29.
     """
-    args = ["--repo", repo_root, "--warm-at-startup"]
+    args = ["--repo", repo_root, "--warm-at-startup", "--index-idle-secs", "0"]
     if no_cache:
         args.append("--no-cache")
     elif cache_dir:

@@ -225,12 +225,12 @@
     {
       "id": "I0-background-instructions-startup-only",
       "selector": "mcp::idle_stdio::tests::idle_stdio_background_instructions_explain_demand_reload",
-      "description": "Remove enabled-loop reload wording, leaving Background initialize startup-only.",
+      "description": "Suppress the enabled Background reload clause in the shared instructions builder; stdio initialize must explain demand reload.",
       "edits": [
         {
-          "file": "src/mcp/idle_stdio.rs",
-          "old": "                        if rt.startup_mode() == super::StartupMode::Background {\n                            if let Some(Value::String(text)) =\n                                value.pointer_mut(\"/result/instructions\")\n                            {\n                                *text = text.replace(\"started at server startup\", \"started at server startup or by the first tool call after an idle unload\");\n                            }\n                        }\n",
-          "new": ""
+          "file": "src/mcp/transport.rs",
+          "old": "        StartupMode::Background if idle_enabled => \"The repository snapshot is loaded by a background build started at server startup or by the first tool call after an idle unload; until it completes, tool calls return an `index warming` result \u2014 retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot.\",\n",
+          "new": "        StartupMode::Background if false && idle_enabled => \"The repository snapshot is loaded by a background build started at server startup or by the first tool call after an idle unload; until it completes, tool calls return an `index warming` result \u2014 retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot.\",\n"
         }
       ]
     },

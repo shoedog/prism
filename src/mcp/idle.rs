@@ -5,6 +5,8 @@ use std::time::{Duration, Instant};
 /// Default tool-idle timeout for ordinary lazy/background sessions; zero opts out.
 pub const DEFAULT_IDLE_SECS: u64 = 600;
 
+/// Effective idle policy. Derived `Default` disables unloading; it is not the product default.
+/// Use [`Self::resolve`] for the ordinary-session default of 600 tool-idle seconds.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct IdlePolicy {
     pub(crate) timeout: Option<Duration>,

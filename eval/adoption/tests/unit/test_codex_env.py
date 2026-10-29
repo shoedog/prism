@@ -47,7 +47,7 @@ def test_config_toml_has_only_prism_mcp(tmp_path):
     assert "mcp_servers" in cfg
     assert "prism" in cfg["mcp_servers"]
     prism = cfg["mcp_servers"]["prism"]
-    assert "/repo/y" in prism.get("args", [])
+    assert prism["args"] == ["--repo", "/repo/y", "--warm-at-startup", "--index-idle-secs", "0"]
     # Must NOT have extra skill dirs or other top-level keys that could bleed in user config
     assert "skills_dirs" not in cfg
 
@@ -95,7 +95,8 @@ def test_config_toml_includes_cache_dir_in_args(tmp_path):
         cfg = tomllib.load(f)
     args = cfg["mcp_servers"]["prism"]["args"]
     assert "--cache-dir" in args, f"expected --cache-dir in args; got {args}"
-    assert "/tmp/shared-prism-cache" in args
+    assert args == ["--repo", "/repo/y", "--warm-at-startup", "--index-idle-secs", "0",
+                    "--cache-dir", "/tmp/shared-prism-cache"]
 
 
 def test_config_toml_omits_cache_dir_when_none(tmp_path):

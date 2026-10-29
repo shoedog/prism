@@ -56,7 +56,14 @@ fn control<'r>(
     startup_mode: StartupMode,
     settings: &ConnectionSettings,
 ) -> Control<'r> {
-    handle_control(&parse(request), state, registry, startup_mode, settings)
+    handle_control(
+        &parse(request),
+        state,
+        registry,
+        startup_mode,
+        false,
+        settings,
+    )
 }
 
 fn response_of(control: Control<'_>) -> Value {
