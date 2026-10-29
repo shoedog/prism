@@ -106,6 +106,13 @@ pub(in crate::cpg::reaching) fn normalize_cpp_pseudo_defs(
         root: Node<'_>,
         names: Option<&[String]>,
     ) {
+        if parsed
+            .language
+            .callable_boundary_node_types()
+            .contains(&root.kind())
+        {
+            return;
+        }
         let mut pending = vec![root];
         while let Some(descendant) = pending.pop() {
             if descendant.id() != root.id()
@@ -184,6 +191,11 @@ pub(in crate::cpg::reaching) fn normalize_cpp_pseudo_defs(
                 if !names.is_empty() {
                     mark_reads(parsed, defs, body, Some(&names));
                 }
+            }
+        }
+        if node.kind() == "init_declarator" {
+            if let Some(value) = node.child_by_field_name("value") {
+                mark_reads(parsed, defs, value, None);
             }
         }
         let mut cursor = node.walk();

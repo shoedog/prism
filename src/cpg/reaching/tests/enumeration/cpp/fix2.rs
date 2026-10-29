@@ -19,12 +19,11 @@ const F1_CASES: &[Case] = &[
         row_variant: CHAIN,
         class: CaseClass::Behavioral,
         src: "void f() {\n  int x = source(), y = 0;\n  x = clean();\n  sink(x);\n}\n",
-        expect: &[(
-            "3:x",
-            "4:x",
-            FlowConfidence::Exact,
-        )],
-        expect_counter: Some(("dfg_label_exact", 1)),
+        expect: &[
+            ("2:x", "4:x", FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 })),
+            ("3:x", "4:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     Case {
         id: "cpp-multiline-chain-subsequent-definition-uncertain",
@@ -34,12 +33,11 @@ const F1_CASES: &[Case] = &[
         row_variant: CHAIN,
         class: CaseClass::Behavioral,
         src: "void f() {\n  int x = source(),\n      y = 0;\n  x = clean();\n  sink(x);\n}\n",
-        expect: &[(
-            "4:x",
-            "5:x",
-            FlowConfidence::Exact,
-        )],
-        expect_counter: Some(("dfg_label_exact", 1)),
+        expect: &[
+            ("2:x", "5:x", FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })),
+            ("4:x", "5:x", FlowConfidence::Exact),
+        ],
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     Case {
         id: "cpp-structured-subsequent-definition-uncertain",
@@ -65,6 +63,11 @@ const F1_CASES: &[Case] = &[
         class: CaseClass::Behavioral,
         src: "void f() {\n  int x = source(), y = 0;\n  x = clean();\n  {\n    int x = fresh();\n    sink(x);\n  }\n  sink(x);\n}\n",
         expect: &[
+            (
+                "3:x",
+                "6:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
+            ),
             ("5:x", "6:x", FlowConfidence::Exact),
             (
                 "3:x",
@@ -72,7 +75,7 @@ const F1_CASES: &[Case] = &[
                 FlowConfidence::Exact,
             ),
         ],
-        expect_counter: Some(("dfg_label_exact", 2)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     Case {
         id: "cpp-uncertain-owner-stops-at-block-exit",
@@ -84,13 +87,18 @@ const F1_CASES: &[Case] = &[
         src: "void f(int x) {\n  {\n    int x = source(), y = 0;\n    x = clean();\n    sink(x);\n  }\n  sink(x);\n}\n",
         expect: &[
             (
+                "3:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+            ),
+            (
                 "4:x",
                 "5:x",
                 FlowConfidence::Exact,
             ),
             ("1:x", "7:x", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_exact", 2)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
 ];
 
@@ -142,10 +150,7 @@ fn check_all(cases: &[Case]) {
 #[test]
 fn astra_r2_f1_uncertainty_covers_subsequent_definitions_in_owner() {
     for case in F1_CASES {
-        super::super::case::behavior::assert_behavior(
-            case,
-            &super::super::super::parsed(case.src, case.language),
-        );
+        check_case(case);
     }
 }
 

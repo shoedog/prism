@@ -84,12 +84,14 @@ const W2_CASES: &[Case] = &[
         variant: None,
         row_variant: CHAIN,
         class: CaseClass::Behavioral,
-        src: "void f() {\n  int a = 1, x = 2;\n  sink(a);\n  sink(x);\n}\n",
+        src: "void f(int x) {\n  { int a = 1, x = 2;\n    sink(a);\n    sink(x);\n  }\n  sink(x);\n}\n",
         expect: &[
             ("2:a", "3:a", FlowConfidence::Exact),
+            ("1:x", "4:x", FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 2 })),
             ("2:x", "4:x", FlowConfidence::Exact),
+            ("1:x", "6:x", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_exact", 2)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
     Case {
         id: "cpp-multiline-chain-own-definitions-uncertain",
@@ -98,12 +100,14 @@ const W2_CASES: &[Case] = &[
         variant: None,
         row_variant: CHAIN,
         class: CaseClass::Behavioral,
-        src: "void f() {\n  int a = 1,\n      x = 2;\n  sink(a);\n  sink(x);\n}\n",
+        src: "void f(int x) {\n  { int a = 1,\n        x = 2;\n    sink(a);\n    sink(x);\n  }\n  sink(x);\n}\n",
         expect: &[
             ("2:a", "4:a", FlowConfidence::Exact),
+            ("1:x", "5:x", FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 })),
             ("3:x", "5:x", FlowConfidence::Exact),
+            ("1:x", "7:x", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_exact", 2)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
 ];
 
@@ -198,13 +202,18 @@ const W5_CASES: &[Case] = &[
         src: "void f(int x) {\n  for (int a = 1, x = 2; ready(); step()) {\n    sink(x);\n  }\n  sink(x);\n}\n",
         expect: &[
             (
+                "1:x",
+                "3:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 2 }),
+            ),
+            (
                 "2:x",
                 "3:x",
                 FlowConfidence::Exact,
             ),
             ("1:x", "5:x", FlowConfidence::Exact),
         ],
-        expect_counter: Some(("dfg_label_exact", 2)),
+        expect_counter: Some(("dfg_label_nameonly_killed", 1)),
     },
 ];
 
@@ -320,10 +329,7 @@ fn astra_r1_w1_pointer_declarations_keep_own_identity() {
 #[test]
 fn astra_r1_w2_declarator_chain_own_reads_fail_closed() {
     for case in W2_CASES {
-        super::super::case::behavior::assert_behavior(
-            case,
-            &super::super::super::parsed(case.src, case.language),
-        );
+        check_case(case);
     }
 }
 
@@ -340,14 +346,7 @@ fn astra_r1_w4_structured_binding_own_reads_fail_closed() {
 #[test]
 fn astra_r1_w5_header_uncertainty_stops_at_its_owner() {
     for case in W5_CASES {
-        if case.id == "cpp-for-chain-header-stops-at-loop-exit" {
-            super::super::case::behavior::assert_behavior(
-                case,
-                &super::super::super::parsed(case.src, case.language),
-            );
-        } else {
-            check_case(case);
-        }
+        check_case(case);
     }
 }
 

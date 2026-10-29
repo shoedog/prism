@@ -53,6 +53,8 @@ pub(super) fn add_named_synthetic_definitions(
         "cpp-structured-range-header-stops-at-loop-exit"
         | "cpp-nested-structured-range-does-not-leak"
         | "cpp-for-chain-header-stops-at-loop-exit"
+        | "cpp-chain-own-definitions-uncertain"
+        | "cpp-multiline-chain-own-definitions-uncertain"
         | "cpp-uncertain-owner-stops-at-block-exit" => (&["x"], 1),
         _ => (&[], 1),
     };

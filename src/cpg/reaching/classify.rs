@@ -109,6 +109,13 @@ pub(super) fn classify_edge(
     }) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
+    if let Some(construct_line) = declarator_chain::unproved_exclusive_route(
+        parsed, edge, defs, def_line, use_line, statements,
+    ) {
+        return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
+            construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),
+        });
+    }
     if let Some(construct_line) = declarator_chain::chain_mate_read(parsed, edge) {
         return FlowConfidence::NameOnly(FlowDoubt::OwnershipUncertain {
             construct_line: u32::try_from(construct_line).unwrap_or(u32::MAX),

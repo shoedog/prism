@@ -14,6 +14,10 @@ const fn uncertain(line: u32) -> FlowConfidence {
     })
 }
 
+const KILLED_3: FlowConfidence = killed(3);
+const UNCERTAIN_2: FlowConfidence = uncertain(2);
+const CFG_INCOMPLETE: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+
 fn check(case: &Case) {
     assert_behavior(case, &super::super::super::parsed(case.src, case.language));
 }
@@ -103,4 +107,100 @@ fn task29_c_chain_same_line_mate_read_stays_uncertain() {
         expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
     };
     check(&case);
+}
+
+#[test]
+fn task29_fix1_c_initializer_controls_preserve_reads_and_writes() {
+    let cases = [
+        Case {
+            id: "c-chain-initializer-read-preserves-outer",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "void f() {\n  int x = source(), y = 0;\n  int a = x, b = 0;\n  sink(x);\n}\n",
+            expect: &[("2:x", "4:x", EXACT)],
+            expect_counter: Some(("dfg_label_exact", 1)),
+        },
+        Case {
+            id: "c-chain-initializer-assignment-kills-outer",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src:
+                "void f() {\n  int x = source(), y = 0;\n  int a = (x = 0), b = 0;\n  sink(x);\n}\n",
+            expect: &[("2:x", "4:x", KILLED_3)],
+            expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+        },
+    ];
+    for case in &cases {
+        check(case);
+    }
+}
+
+#[test]
+fn task29_fix1_c_exclusive_branch_routes_fail_closed() {
+    let cases = [
+        Case {
+            id: "c-chain-exclusive-arm-false-exact",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "void f(int kind) {\n  int x = 0, y = 0;\n  if (kind == 1) {\n    if ((x = source()) == -1) return;\n  } else if (kind == 2) {\n    sink(x);\n  }\n}\n",
+            expect: &[("4:x", "6:x", UNCERTAIN_2)],
+            expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        },
+        Case {
+            id: "c-chain-exclusive-arm-wrong-kill-witness",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "void f(int kind) {\n  int x = 0, y = 0;\n  if (kind == 1) {\n    if ((x = source()) == -1) return;\n  } else if (kind == 2) {\n    if ((x = clean()) == -1) return;\n    sink(x);\n  }\n}\n",
+            expect: &[("2:x", "7:x", UNCERTAIN_2), ("4:x", "7:x", UNCERTAIN_2)],
+            expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 2)),
+        },
+        Case {
+            id: "c-chain-redis-rdb-save-exclusive-object-arms",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "void f(int kind) {\n  int n = 0, written = 0;\n  if (kind == 1) {\n    if ((n = save()) == -1) return;\n  } else if (kind == 2) {\n    sink(n);\n  }\n}\n",
+            expect: &[("4:n", "6:n", UNCERTAIN_2)],
+            expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        },
+        Case {
+            id: "c-chain-redis-rdb-load-kill-from-selected-arm",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "void f(int kind) {\n  int o = 0, ele = 0;\n  if (kind == 1) {\n    o = make_set();\n  } else if (kind == 2) {\n    o = make_hash();\n    sink(o);\n  }\n}\n",
+            expect: &[("2:o", "7:o", UNCERTAIN_2), ("4:o", "7:o", CFG_INCOMPLETE)],
+            expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        },
+        Case {
+            id: "c-chain-redis-sort-loop-exclusive-option-arms",
+            language: Language::C,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "void f(int kind) {\n  int j, left = 0, vectorlen;\n  j = 2;\n  while (ready()) {\n    if (kind == 0) {\n      sink(left);\n    } else if (kind == 1) {\n      j += 2;\n    } else if (kind == 2) {\n      sink(left);\n    } else if (kind == 3) {\n      sink(\n          j);\n    }\n    j++;\n  }\n}\n",
+            expect: &[("8:j", "13:j", UNCERTAIN_2)],
+            expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        },
+    ];
+    for case in &cases {
+        check(case);
+    }
 }

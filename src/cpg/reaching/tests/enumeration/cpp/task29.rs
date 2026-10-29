@@ -14,6 +14,9 @@ const fn uncertain(line: u32) -> FlowConfidence {
     })
 }
 
+const KILLED_3: FlowConfidence = killed(3);
+const UNCERTAIN_2: FlowConfidence = uncertain(2);
+
 fn check(case: &Case) {
     assert_behavior(case, &super::super::super::parsed(case.src, case.language));
 }
@@ -149,4 +152,78 @@ fn task29_cpp_direct_init_and_most_vexing_parse_stay_uncertain() {
             ..
         }
     ));
+}
+
+#[test]
+fn task29_fix1_cpp_initializer_reads_are_not_definitions() {
+    let cases = [
+        Case {
+            id: "cpp-chain-initializer-read-preserves-outer",
+            language: Language::Cpp,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "void f() {\n  int x = source(), y = 0;\n  { int a = x, b = 0; }\n  sink(x);\n}\n",
+            expect: &[("2:x", "4:x", EXACT)],
+            expect_counter: Some(("dfg_label_exact", 1)),
+        },
+        Case {
+            id: "cpp-chain-initializer-assignment-kills-outer",
+            language: Language::Cpp,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src:
+                "void f() {\n  int x = source(), y = 0;\n  int a = (x = 0), b = 0;\n  sink(x);\n}\n",
+            expect: &[("2:x", "4:x", KILLED_3)],
+            expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+        },
+        Case {
+            id: "cpp-chain-initializer-read-before-shadow-preserves-outer",
+            language: Language::Cpp,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "void f() {\n  int x = source(), y = 0;\n  { int a = x, x = 0; }\n  sink(x);\n}\n",
+            expect: &[("2:x", "4:x", EXACT)],
+            expect_counter: Some(("dfg_label_exact", 1)),
+        },
+    ];
+    for case in &cases {
+        check(case);
+    }
+}
+
+#[test]
+fn task29_fix1_cpp_exclusive_branch_routes_fail_closed() {
+    let cases = [
+        Case {
+            id: "cpp-chain-exclusive-arm-false-exact",
+            language: Language::Cpp,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "void f(int kind) {\n  int x = 0, y = 0;\n  if (kind == 1) {\n    if ((x = source()) == -1) return;\n  } else if (kind == 2) {\n    sink(x);\n  }\n}\n",
+            expect: &[("4:x", "6:x", UNCERTAIN_2)],
+            expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 1)),
+        },
+        Case {
+            id: "cpp-chain-exclusive-arm-wrong-kill-witness",
+            language: Language::Cpp,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Behavioral,
+            src: "void f(int kind) {\n  int x = 0, y = 0;\n  if (kind == 1) {\n    if ((x = source()) == -1) return;\n  } else if (kind == 2) {\n    if ((x = clean()) == -1) return;\n    sink(x);\n  }\n}\n",
+            expect: &[("2:x", "7:x", UNCERTAIN_2), ("4:x", "7:x", UNCERTAIN_2)],
+            expect_counter: Some(("dfg_label_nameonly_ownership_uncertain", 2)),
+        },
+    ];
+    for case in &cases {
+        check(case);
+    }
 }
