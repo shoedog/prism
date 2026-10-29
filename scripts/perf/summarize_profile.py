@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Render PRISM_PROFILE schema v1 JSONL. Python standard library only."""
 import argparse
+import gzip
 import json
 from collections import defaultdict, deque
 from pathlib import Path
@@ -55,6 +56,22 @@ def render(records):
                table(["Other count", "Total ms", "p50 ms", "p90 ms", "p99 ms", "Max ms"],
                      [(other["count"], *(milliseconds(other[k]) for k in ("total_ns", "p50_ns", "p90_ns", "p99_ns", "max_ns")))])]
     return "\n".join(result) + "\n"
+
+
+def load_records(path):
+    """Read a plain or gzip profile; refuse empty, malformed or incomplete input."""
+    path = Path(path)
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt") as stream:
+        records = [json.loads(line) for line in stream.read().splitlines() if line.strip()]
+    if not records or not all(isinstance(r, dict) for r in records):
+        raise ValueError(f"empty or malformed profile: {path}")
+    headers = [r for r in records if r.get("record") == "header"]
+    if len(headers) != 1 or headers[0].get("schema_version") != 1:
+        raise ValueError(f"unsupported or missing profile header: {path}")
+    if not any(r.get("record") == "summary" for r in records):
+        raise ValueError(f"profile has no summary (truncated?): {path}")
+    return records
 
 
 def main():

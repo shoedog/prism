@@ -1,0 +1,11 @@
+{
+  "T": {
+    "asset": "TypeScript-7964e22f-src.tar.gz",
+    "root": "TypeScript/src"
+  },
+  "X": {
+    "asset": "excalidraw-0642e72c.tar.gz",
+    "root": "excalidraw",
+    "manifest_sha256": "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0"
+  }
+}
