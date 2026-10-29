@@ -174,7 +174,40 @@ impl Iterator for BindingIndices<'_> {
     }
 }
 
+/// Debug builds check every indexed lookup against the linear scan, but only on graphs small enough for the
+/// scan to be cheap: test fixtures are covered, while tests that index whole repositories skip it so the
+/// debug suite stays near its pre-index wall time.
+#[cfg(debug_assertions)]
+const CROSS_CHECK_MAX_LEN: usize = 4096;
+
+#[cfg(debug_assertions)]
+fn assert_lookup_indices(
+    indexed: &std::slice::Iter<'_, u32>,
+    len: usize,
+    scan: impl Iterator<Item = usize>,
+    family: &str,
+) {
+    if len > CROSS_CHECK_MAX_LEN {
+        return;
+    }
+    assert_eq!(
+        indexed.clone().map(|&i| i as usize).collect::<Vec<_>>(),
+        scan.collect::<Vec<_>>(),
+        "{family} lookup equivalence: invalidate lookup indexes after editing keys"
+    );
+}
+
 impl ScopeGraph {
+    /// Drop all derived lookup indexes after editing public storage in place,
+    /// removing or reordering entries, or changing file paths. Call this before
+    /// the next lookup; add_binding/add_edge/add_macro_wildcard already invalidate
+    /// their own indexes. Debug builds check indexed results against linear scans.
+    pub fn invalidate_lookup_indexes(&mut self) {
+        self.binding_index.invalidate();
+        self.binding_index.invalidate_edges();
+        self.binding_index.invalidate_wildcards();
+    }
+
     /// Outgoing edge indices in insertion order; all policy filters stay with
     /// the caller. A direct public-Vec append uses the original linear scan.
     pub(crate) fn edge_indices(&self, scope: ScopeId) -> ScopeIndices<'_> {
@@ -184,9 +217,15 @@ impl ScopeGraph {
                 .1
                 .get_or_init(|| sorted_indices(self.edges.len(), |i| self.edges[i].from));
             if indices.len() == self.edges.len() {
-                return ScopeIndices::Indexed(matching_indices(indices, scope, |i| {
-                    self.edges[i].from
-                }));
+                let found = matching_indices(indices, scope, |i| self.edges[i].from);
+                #[cfg(debug_assertions)]
+                assert_lookup_indices(
+                    &found,
+                    self.edges.len(),
+                    ScopeIndices::Edges(self.edges.iter().enumerate(), scope),
+                    "edge",
+                );
+                return ScopeIndices::Indexed(found);
             }
         }
         ScopeIndices::Edges(self.edges.iter().enumerate(), scope)
@@ -209,7 +248,15 @@ impl ScopeGraph {
                 .2
                 .get_or_init(|| sorted_indices(self.macro_wildcards.len(), key));
             if indices.len() == self.macro_wildcards.len() {
-                return ScopeIndices::Indexed(matching_indices(indices, (scope, ns), key));
+                let found = matching_indices(indices, (scope, ns), key);
+                #[cfg(debug_assertions)]
+                assert_lookup_indices(
+                    &found,
+                    self.macro_wildcards.len(),
+                    ScopeIndices::Wildcards(self.macro_wildcards.iter().enumerate(), scope, ns),
+                    "wildcard",
+                );
+                return ScopeIndices::Indexed(found);
             }
         }
         ScopeIndices::Wildcards(self.macro_wildcards.iter().enumerate(), scope, ns)
@@ -244,7 +291,18 @@ impl ScopeGraph {
             let hi = index
                 .by_name
                 .partition_point(|&i| name_key(&self.bindings[i as usize]) <= key);
-            BindingIndices::Indexed(index.by_name[lo..hi].iter())
+            let found = index.by_name[lo..hi].iter();
+            #[cfg(debug_assertions)]
+            assert_lookup_indices(
+                &found,
+                self.bindings.len(),
+                BindingIndices::Scan {
+                    bindings: self.bindings.iter().enumerate(),
+                    key: LookupKey::Name(scope, ns, name),
+                },
+                "binding name",
+            );
+            BindingIndices::Indexed(found)
         } else {
             BindingIndices::Scan {
                 bindings: self.bindings.iter().enumerate(),
@@ -261,7 +319,18 @@ impl ScopeGraph {
             let hi = index
                 .by_target
                 .partition_point(|&i| resolved_target(&self.bindings[i as usize]) <= target);
-            BindingIndices::Indexed(index.by_target[lo..hi].iter())
+            let found = index.by_target[lo..hi].iter();
+            #[cfg(debug_assertions)]
+            assert_lookup_indices(
+                &found,
+                self.bindings.len(),
+                BindingIndices::Scan {
+                    bindings: self.bindings.iter().enumerate(),
+                    key: LookupKey::Target(target),
+                },
+                "resolved target",
+            );
+            BindingIndices::Indexed(found)
         } else {
             BindingIndices::Scan {
                 bindings: self.bindings.iter().enumerate(),
@@ -274,11 +343,20 @@ impl ScopeGraph {
         if let Some(index) = self.current_binding_index() {
             if index.file_count == self.file_paths.len() {
                 let i = index.paths.partition_point(|(id, _)| *id < file);
-                return index
+                let found = index
                     .paths
                     .get(i)
                     .filter(|(id, _)| *id == file)
                     .map(|(_, path)| path.as_str());
+                #[cfg(debug_assertions)]
+                assert_eq!(
+                    found,
+                    self.file_paths
+                        .iter()
+                        .find_map(|(path, &id)| (id == file).then_some(path.as_str())),
+                    "file path lookup equivalence: invalidate lookup indexes after editing keys"
+                );
+                return found;
             }
         }
         self.file_paths
@@ -294,3 +372,7 @@ mod tests;
 #[cfg(test)]
 #[path = "scope_index_tests.rs"]
 mod scope_tests;
+
+#[cfg(test)]
+#[path = "lookup_invalidation_tests.rs"]
+mod invalidation_tests;

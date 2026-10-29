@@ -111,20 +111,20 @@ pub struct ScopeGraph {
     pub crate_deps_by_root:
         std::collections::BTreeMap<ScopeId, std::collections::BTreeMap<String, ScopeId>>,
     pub scopes: std::collections::BTreeMap<ScopeId, Scope>,
-    /// Append-only after lookup: scope/name/ns/target must not be mutated in
-    /// place, nor may bindings be reordered or removed. Use add_binding to
+    /// After in-place scope/name/ns/target edits, removal or reordering, call
+    /// invalidate_lookup_indexes before lookup. Use add_binding to
     /// invalidate the lazy index; direct appends are detected by its length
     /// guard and use the original scan. Policy fields are read by callers.
     pub bindings: Vec<Binding>,
     /// Rust local-binding facts keyed by `(file, def_byte)`.
     #[serde(default)]
     pub local_facts: BTreeMap<(FileId, usize), LocalFact>,
-    /// Append-only after lookup: `from` must not change in place, and entries
-    /// must not be reordered or removed. add_edge invalidates the lazy index;
+    /// After in-place `from` edits, removal or reordering, call
+    /// invalidate_lookup_indexes before lookup. add_edge invalidates the lazy index;
     /// direct appends select its length-guarded scan fallback.
     pub edges: Vec<Edge>,
-    /// Append-only after lookup: scope/ns must not change in place, and entries
-    /// must not be reordered or removed. add_macro_wildcard invalidates the lazy
+    /// After in-place scope/ns edits, removal or reordering, call
+    /// invalidate_lookup_indexes before lookup. add_macro_wildcard invalidates the lazy
     /// index; direct appends select its length-guarded scan fallback.
     pub macro_wildcards: Vec<MacroWildcard>,
     /// Deferred-glob expansion telemetry for resolution walked over **this**
@@ -136,7 +136,7 @@ pub struct ScopeGraph {
     #[serde(skip)]
     pub glob_stats: crate::name_resolution::glob_stats::GraphGlobStats,
     /// Derived lookup arrays, excluded from serialization and graph identity.
-    /// file_paths is also frozen after lookup (populators set it before use).
+    /// After changing file_paths, call invalidate_lookup_indexes before lookup.
     #[serde(skip)]
     pub binding_index: crate::name_resolution::binding_index::GraphBindingIndex,
 }

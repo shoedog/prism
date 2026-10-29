@@ -11,7 +11,9 @@ pub(super) fn fixture() -> ScopeGraph {
     graph.file_paths = BTreeMap::from([
         ("a.rs".into(), FileId(0)),
         ("alias.rs".into(), FileId(0)),
-        ("b.rs".into(), FileId(1)),
+        ("b.rs".into(), FileId(4)),
+        ("m.rs".into(), FileId(2)),
+        ("z.rs".into(), FileId(0)),
     ]);
     for scope in 0..3 {
         let extents: Vec<_> = (0..2)
@@ -112,7 +114,7 @@ fn check_equivalence(graph: &ScopeGraph, indexed: bool) {
             .collect();
         assert_eq!(found.collect::<Vec<_>>(), expected);
     }
-    for file in [FileId(0), FileId(1), FileId(999)] {
+    for file in [FileId(0), FileId(1), FileId(2), FileId(4), FileId(999)] {
         let expected = graph
             .file_paths
             .iter()
