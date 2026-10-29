@@ -5,7 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from tests.helpers import FakeOracle, FakeSut, admitted_fake_run, anchored_repo, edit, git_head
+from tests.helpers import (
+    _write_stub_cargo_metadata,
+    FakeOracle,
+    FakeSut,
+    admitted_fake_run,
+    anchored_repo,
+    edit,
+    git_head,
+    stub_binary,
+)
 from tier_a import boundary, cli, commands
 from tier_a.closure import manifest_digest, raw_digest, read_tsv, write_tsv
 from tier_a.commands import preflight_quick
@@ -326,6 +335,53 @@ def test_published_anchor_at_descendant_head_admits_and_reports_execution_head(
     assert run["meta"]["sut_input_provenance"]["repository_metadata"] == [
         ".git/HEAD"
     ]
+
+
+def test_candidate_quick_records_the_binary_that_actually_ran(
+    tmp_path, monkeypatch
+):
+    lock, ev, repo = anchored_repo(tmp_path)
+    candidate_sha = "c" * 40
+    binary = stub_binary(repo / "target/release/prism", candidate_sha[:12])
+    _write_stub_cargo_metadata(binary)
+    candidate_digest = raw_digest(binary)
+    assert candidate_digest != lock.prism["sut"]["digest"]
+
+    class CandidateSut(FakeSut):
+        def __init__(
+            self, prism_repo=None, sut_bin=None, allow_stale=False, *, env=None
+        ):
+            super().__init__(prism_repo, sut_bin, allow_stale, env=env)
+            self.sha = candidate_sha[:12]
+            self.sha_full = candidate_sha
+            self.bin = sut_bin
+
+    monkeypatch.setattr(cli, "EVAL_DIR", ev)
+    monkeypatch.setenv("TIER_A_ROOT", str(tmp_path / "root"))
+    monkeypatch.setattr(cli, "PrismCli", CandidateSut)
+    monkeypatch.setattr(cli, "make_oracle", lambda *_a, **_k: FakeOracle())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tier-a",
+            "--quick",
+            "--allow-stale-sut",
+            "--sut-bin",
+            str(binary),
+            "--run-id",
+            "candidate",
+            "--date",
+            "2099-01-04",
+        ],
+    )
+
+    assert cli.main() == 0
+    run = json.loads((ev / "runs/2099-01-04-prism-candidate.json").read_text())
+    assert run["meta"]["admitted"] is True
+    assert run["meta"]["baseline_invalid"] is False
+    assert run["meta"]["sut_sha_full"] == candidate_sha
+    assert run["meta"]["sut_digest"] == candidate_digest
 
 
 def test_pinned_corpus_without_git_runs_to_a_verdict(tmp_path, monkeypatch):

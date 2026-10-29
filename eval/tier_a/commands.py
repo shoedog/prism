@@ -40,6 +40,17 @@ from .materialize import materialize, tier_a_root
 
 EVAL_DIR = Path(__file__).resolve().parents[1]
 
+OBSERVED_RUN_IDENTITIES = (
+    "corpus_sha_full",
+    "sut_sha_full",
+    "sut_digest",
+    "oracle",
+    "oracle_init",
+    "snapshot_digest",
+    "env_values",
+    "harness_sha",
+)
+
 
 def _load_optional_lock(eval_dir: Path) -> Lock | None:
     path = eval_dir / "tier-a.lock.toml"
@@ -324,7 +335,8 @@ def preflight_quick(
     except Exception as exc:
         raise BoundaryViolation([f"corpus_mismatch: {exc}"]) from exc
     identities = lock_identities(lock)
-    identities.pop("harness_sha", None)
+    for key in OBSERVED_RUN_IDENTITIES:
+        identities.pop(key, None)
     return (
         lock,
         checkout,
@@ -333,7 +345,6 @@ def preflight_quick(
             "corpus_sha": identity.sha,
             "corpus_dirty": identity.dirty,
             "untracked_sources": identity.untracked,
-            "prism_sha": lock.prism["sut"]["sha"][:12],
             "corpus_mode": "pinned",
         },
         identity,
@@ -481,6 +492,8 @@ def run_quick_admitted(
     sut_bin = Path(
         run.pop("_sut_bin", args.sut_bin or eval_dir.parent / "target/release/prism")
     )
+    if sut_bin.is_file():
+        run["meta"]["sut_digest"] = raw_digest(sut_bin)
     try:
         if getattr(args, "sut_archive", None):
             if lock is None or artifacts is None:
@@ -543,14 +556,9 @@ def run_quick_admitted(
         run["meta"]["admitted"] = False
     else:
         observed = {
-            key: run["meta"].get(key)
-            for key in (
-                "corpus_sha_full",
-                "sut_sha_full",
-                "oracle",
-                "oracle_init",
-                "harness_sha",
-            )
+            key: run["meta"][key]
+            for key in OBSERVED_RUN_IDENTITIES
+            if key in run["meta"]
         }
         run["meta"].update(lock_identities(lock))
         run["meta"]["corpus_sha_full"] = (
@@ -558,9 +566,7 @@ def run_quick_admitted(
             if identity is not None
             else run["meta"]["corpus_sha_full"]
         )
-        for key, value in observed.items():
-            if value is not None:
-                run["meta"][key] = value
+        run["meta"].update(observed)
         assert artifacts is not None
         run["meta"]["snapshot_digest"] = raw_digest(artifacts.snapshot())
         run["meta"]["admitted"] = True

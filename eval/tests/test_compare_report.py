@@ -103,6 +103,102 @@ def test_adjudications_must_be_the_runs_declared_copy(tmp_path):                
     assert cmp2["verdict"] == "NOT_COMPARABLE(adjudications_digest)" and not (tmp_path / "compare2.json").exists() and not (tmp_path / "compare2.md").exists()   # R6-S1: a mutated store never silently rescores a historical pair; neither output is written
 
 
+def test_adjudications_digest_accepts_lock_shape_and_legacy_but_refuses_drift():
+    ids = base_ids()
+    cand = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    base = fake_run(ids)
+    candidate = fake_run(cand)
+    lock_data = {
+        "adjudications": {
+            "path": "eval/adjudications.jsonl",
+            "digest": ADJ_DIGEST,
+            "records": len(ADJ_RECORDS),
+        },
+        "fixtures": "sha256:fixtures",
+        "pinned_probes": "sha256:pinned",
+    }
+    base["meta"]["data"] = copy.deepcopy(lock_data)
+    candidate["meta"]["data"] = copy.deepcopy(lock_data)
+
+    cmp = compare_runs(base, candidate, DECLARED_ADJ)
+    assert cmp["verdict"] == "NO_REGRESSION"
+    assert cmp["criteria"]["adjudications_digest_keys"] == {
+        "base": "data.adjudications.digest",
+        "candidate": "data.adjudications.digest",
+    }
+
+    candidate["meta"]["data"]["adjudications"]["digest"] = "sha256:different"
+    assert (
+        compare_runs(base, candidate, DECLARED_ADJ)["verdict"]
+        == "NOT_COMPARABLE(adjudications_digest)"
+    )
+
+    legacy = fake_run(cand)
+    cmp_legacy = compare_runs(fake_run(ids), legacy, DECLARED_ADJ)
+    assert cmp_legacy["verdict"] == "NO_REGRESSION"
+    assert cmp_legacy["criteria"]["adjudications_digest_keys"] == {
+        "base": "data.eval/adjudications.jsonl.digest",
+        "candidate": "data.eval/adjudications.jsonl.digest",
+    }
+
+
+def test_adjudications_digest_refuses_missing_wrong_path_and_ambiguous_shapes():
+    ids = base_ids()
+    base = fake_run(ids)
+    for data in (
+        {},
+        {"adjudications": {"path": "other.jsonl", "digest": ADJ_DIGEST}},
+        {
+            "adjudications": {
+                "path": "eval/adjudications.jsonl",
+                "digest": ADJ_DIGEST,
+            },
+            "eval/adjudications.jsonl": {"digest": ADJ_DIGEST},
+        },
+    ):
+        base["meta"]["data"] = copy.deepcopy(data)
+        candidate = fake_run(ids)
+        candidate["meta"]["data"] = copy.deepcopy(data)
+        assert (
+            compare_runs(base, candidate, DECLARED_ADJ)["verdict"]
+            == "NOT_COMPARABLE(adjudications_digest)"
+        )
+
+
+def test_compare_uses_observed_sut_digest_for_changed_answers():
+    ids = base_ids()
+    pid = "callers:src/U-free.rs:1"
+    changed = quick_probes()
+    changed[pid] = {**changed[pid], "prism_sites": [["src/changed.rs", 9, 9]]}
+
+    different_sut = {
+        **ids,
+        "sut_sha_full": "b" * 40,
+        "sut_digest": "sha256:different-binary",
+    }
+    cmp = compare_runs(fake_run(ids), fake_run(different_sut, probes=changed), DECLARED_ADJ)
+    assert cmp["classes"][pid] == "carried_changed/sut_change"
+
+    same_digest = {**different_sut, "sut_digest": ids["sut_digest"]}
+    cmp_same = compare_runs(fake_run(ids), fake_run(same_digest, probes=changed), DECLARED_ADJ)
+    assert cmp_same["classes"][pid] == "unexplained"
+
+
+def test_real_m6_lock_bound_pair_is_comparable():
+    fixtures = Path(__file__).parent / "fixtures/m6pre2"
+    base = json.loads((fixtures / "2026-10-29-prism-base.json").read_text())
+    candidate = json.loads(
+        (fixtures / "2026-10-29-prism-candidate.json").read_text()
+    )
+    digest = base["meta"]["data"]["adjudications"]["digest"]
+    assert candidate["meta"]["sut_digest"] == base["meta"]["sut_digest"]
+
+    cmp = compare_runs(base, candidate, ([], digest))
+    assert cmp["verdict"] == "NO_REGRESSION"
+    assert cmp["counts"]["carried_same"] == 30
+    assert set(cmp["classes"].values()) == {"carried_same"}
+
+
 def test_pinned_probes_are_partitioned_by_oracle_answer_and_ranked_by_contract():                 # R5-W6, R6-W3, R6-W4, R7-W1
     # Rows are hand-built but PRODUCER-COHERENT with evaluate_pinned (pinned.py:34-70): an oracle_miss_site pin is "ok" iff the configured miss site is in prism_only (prism reports it, the oracle does not), else "missing"; a known_fail pin is "known_fail" iff P <= 0.2 and R <= 0.2 (prism sites disjoint from the oracle's), else "flip_candidate". compare_report reads only id/outcome/oracle_sites/error_side. (The implementer may build these rows through evaluate_pinned with CallEdge fixtures instead; the transitions below are the ones it can emit.)
     ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
@@ -174,7 +270,7 @@ def test_report_carries_e5_contract():
     cmp = compare_runs(fake_run(ids), fake_run(cand), DECLARED_ADJ)
     for k in ("base_sha", "candidate_sha", "base_sut_digest", "candidate_sut_digest", *COMPARE_IDENTITIES): assert k in cmp["identities"]
     assert len(cmp["identities"]["base_sha"]) == 40 and len(cmp["identities"]["candidate_sha"]) == 40                   # full SHAs (astra W5)
-    assert cmp["criteria"] == {"both_admitted": True, "both_baseline_valid": True, "identities_equal": True, "probe_sets_equal": True, "adjudications_match": True, "oracle_answers_joined": True, "oracle_changed_within_threshold": True, "no_new_sut_errors": True, "unexplained_zero": True, "no_recall_loss": True, "matrix_no_regression": True, "pinned_no_regression": True}
+    assert cmp["criteria"] == {"both_admitted": True, "both_baseline_valid": True, "identities_equal": True, "probe_sets_equal": True, "adjudications_match": True, "adjudications_digest_keys": {"base": "data.eval/adjudications.jsonl.digest", "candidate": "data.eval/adjudications.jsonl.digest"}, "oracle_answers_joined": True, "oracle_changed_within_threshold": True, "no_new_sut_errors": True, "unexplained_zero": True, "no_recall_loss": True, "matrix_no_regression": True, "pinned_no_regression": True}
     assert cmp["oracle_changed"] == {"count": 0, "fraction": 0.0, "ids": []}
     assert cmp["policy"] == COMPARE_POLICY and cmp["pinned_oracle_changed"] == [] and cmp["runs"] == {"base": None, "candidate": None}   # R5-W4/W6/W7: policy echoed; runs filled by commands.compare
     assert cmp["verdict"] == "NO_REGRESSION" and "wilson_flags" in cmp

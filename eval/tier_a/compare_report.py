@@ -297,6 +297,39 @@ def _matrix_result(base_run: dict, cand_run: dict) -> tuple[dict, bool]:
     return diffs, no_regression
 
 
+def _adjudications_digest(meta: dict) -> tuple[str | None, str | None]:
+    data = meta.get("data", {})
+    if not isinstance(data, dict):
+        return None, None
+    lock_present = "adjudications" in data
+    legacy_present = "eval/adjudications.jsonl" in data
+    if lock_present == legacy_present:
+        return None, None
+    if lock_present:
+        entry = data.get("adjudications")
+        if not isinstance(entry, dict) or entry.get("path") != "eval/adjudications.jsonl":
+            return None, None
+        key = "data.adjudications.digest"
+    else:
+        entry = data.get("eval/adjudications.jsonl")
+        if not isinstance(entry, dict):
+            return None, None
+        key = "data.eval/adjudications.jsonl.digest"
+    digest = entry.get("digest")
+    return (digest, key) if isinstance(digest, str) else (None, None)
+
+
+def _compare_identity(meta: dict, key: str):
+    value = meta.get(key)
+    if key != "data" or not isinstance(value, dict):
+        return value
+    return {
+        name: entry
+        for name, entry in value.items()
+        if name not in {"adjudications", "eval/adjudications.jsonl"}
+    }
+
+
 def compare_runs(
     base_run: dict,
     cand_run: dict,
@@ -310,7 +343,8 @@ def compare_runs(
     report = _empty_report(base_run, cand_run, policy)
 
     identities_equal = all(
-        base_meta.get(key) == cand_meta.get(key) for key in COMPARE_IDENTITIES
+        _compare_identity(base_meta, key) == _compare_identity(cand_meta, key)
+        for key in COMPARE_IDENTITIES
     )
     both_admitted = bool(base_meta.get("admitted") and cand_meta.get("admitted"))
     both_baseline_valid = not (
@@ -319,16 +353,8 @@ def compare_runs(
     base_probe_set = set(base_run.get("probe_status", {}))
     cand_probe_set = set(cand_run.get("probe_status", {}))
     probe_sets_equal = base_probe_set == cand_probe_set
-    declared_digest = (
-        base_meta.get("data", {})
-        .get("eval/adjudications.jsonl", {})
-        .get("digest")
-    )
-    candidate_digest = (
-        cand_meta.get("data", {})
-        .get("eval/adjudications.jsonl", {})
-        .get("digest")
-    )
+    declared_digest, base_digest_key = _adjudications_digest(base_meta)
+    candidate_digest, candidate_digest_key = _adjudications_digest(cand_meta)
     adjudications_match = (
         adjudications_digest == declared_digest == candidate_digest
     )
@@ -338,6 +364,10 @@ def compare_runs(
         "identities_equal": identities_equal,
         "probe_sets_equal": probe_sets_equal,
         "adjudications_match": adjudications_match,
+        "adjudications_digest_keys": {
+            "base": base_digest_key,
+            "candidate": candidate_digest_key,
+        },
         "oracle_answers_joined": probe_sets_equal,
         "oracle_changed_within_threshold": True,
         "no_new_sut_errors": True,
@@ -351,7 +381,7 @@ def compare_runs(
     refusal = [
         key
         for key in COMPARE_IDENTITIES
-        if base_meta.get(key) != cand_meta.get(key)
+        if _compare_identity(base_meta, key) != _compare_identity(cand_meta, key)
     ]
     if not both_admitted:
         refusal.append("admitted")
