@@ -111,6 +111,10 @@ pub struct ScopeGraph {
     pub crate_deps_by_root:
         std::collections::BTreeMap<ScopeId, std::collections::BTreeMap<String, ScopeId>>,
     pub scopes: std::collections::BTreeMap<ScopeId, Scope>,
+    /// Append-only after lookup: scope/name/ns/target must not be mutated in
+    /// place, nor may bindings be reordered or removed. Use add_binding to
+    /// invalidate the lazy index; direct appends are detected by its length
+    /// guard and use the original scan. Policy fields are read by callers.
     pub bindings: Vec<Binding>,
     /// Rust local-binding facts keyed by `(file, def_byte)`.
     #[serde(default)]
@@ -125,6 +129,10 @@ pub struct ScopeGraph {
     /// [`GraphGlobStats`](crate::name_resolution::glob_stats::GraphGlobStats).
     #[serde(skip)]
     pub glob_stats: crate::name_resolution::glob_stats::GraphGlobStats,
+    /// Derived lookup arrays, excluded from serialization and graph identity.
+    /// file_paths is also frozen after lookup (populators set it before use).
+    #[serde(skip)]
+    pub binding_index: crate::name_resolution::binding_index::GraphBindingIndex,
 }
 
 impl ScopeGraph {
@@ -145,6 +153,7 @@ impl ScopeGraph {
 
     /// Append a binding (its index becomes its scope-relative ordinal source).
     pub fn add_binding(&mut self, b: Binding) {
+        self.binding_index.invalidate();
         self.bindings.push(b);
     }
 

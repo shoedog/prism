@@ -1,7 +1,5 @@
-use crate::name_resolution::consumer::{graph_module_dep_edge, GraphImport, ResolvedImport};
 use crate::name_resolution::graph::ScopeGraph;
-use crate::name_resolution::rust_policy::EK_GLOB;
-use crate::name_resolution::types::{BindTarget, FileId};
+use crate::navigation::module_imports::collect_graph_import_deps;
 use crate::navigation::types::*;
 use crate::navigation::NavigationSession;
 use crate::resolution::ResolutionConfidence;
@@ -77,12 +75,6 @@ struct EdgeReasons {
     reasons: BTreeSet<ModuleCallReason>,
 }
 
-#[derive(Debug, Default)]
-struct GraphImportDeps {
-    files: BTreeMap<String, BTreeSet<String>>,
-    external: BTreeSet<String>,
-}
-
 /// Derive every distinct call-derived cross-file edge once, keyed
 /// `(source_file, target_file) -> reasons` (self-file edges excluded). Shared by
 /// `module_deps` (projected to one source file) and `repo_map` (all edges) so the
@@ -129,62 +121,6 @@ fn authoritative_rust_scope_graph<'a>(
         return None;
     }
     Some(graph)
-}
-
-fn scope_in_file(
-    graph: &ScopeGraph,
-    scope: crate::name_resolution::types::ScopeId,
-    file: FileId,
-) -> bool {
-    graph
-        .scope(scope)
-        .map(|s| s.extents.iter().any(|e| e.file == file))
-        .unwrap_or(false)
-}
-
-fn collect_graph_import_deps(graph: &ScopeGraph, file: &str) -> GraphImportDeps {
-    let Some(&file_id) = graph.file_paths.get(file) else {
-        return GraphImportDeps::default();
-    };
-    let mut deps = GraphImportDeps::default();
-    for binding in &graph.bindings {
-        if !scope_in_file(graph, binding.scope, file_id) {
-            continue;
-        }
-        if !matches!(binding.target, BindTarget::Pending(_, _)) {
-            continue;
-        }
-        match graph_module_dep_edge(graph, GraphImport::Named(binding)) {
-            ResolvedImport::File(target) if target != file => {
-                deps.files
-                    .entry(target)
-                    .or_default()
-                    .insert(binding.name.clone());
-            }
-            ResolvedImport::External => {
-                deps.external.insert(binding.name.clone());
-            }
-            ResolvedImport::File(_) | ResolvedImport::Unresolved => {}
-        }
-    }
-    for edge in &graph.edges {
-        if edge.kind != EK_GLOB || !scope_in_file(graph, edge.from, file_id) {
-            continue;
-        }
-        match graph_module_dep_edge(graph, GraphImport::Glob(edge)) {
-            ResolvedImport::File(target) if target != file => {
-                deps.files
-                    .entry(target)
-                    .or_default()
-                    .insert("*".to_string());
-            }
-            ResolvedImport::External => {
-                deps.external.insert("*".to_string());
-            }
-            ResolvedImport::File(_) | ResolvedImport::Unresolved => {}
-        }
-    }
-    deps
 }
 
 /// Outbound module dependencies of `file`: distinct target files reached by a
@@ -262,7 +198,9 @@ pub fn module_deps(s: &NavigationSession, file: &str) -> Evidence {
 
     let mut warnings = Vec::new();
     if let Some(graph) = authoritative_rust_scope_graph(s, file) {
-        let deps = collect_graph_import_deps(graph, file);
+        let deps = collect_graph_import_deps(graph, [file])
+            .remove(file)
+            .unwrap_or_default();
         for (target, modules) in deps.files {
             items.push(EvidenceItem {
                 symbol: None,
@@ -369,15 +307,19 @@ pub fn repo_map(s: &NavigationSession) -> Evidence {
     // Shared edge collector: distinct (source_file, target_file) keys are the edges.
     let mut edges_map = collect_module_edges(s);
     let mut graph_external_modules = BTreeSet::new();
-    for file in s.repo.files.keys() {
-        let Some(graph) = authoritative_rust_scope_graph(s, file) else {
-            continue;
-        };
-        let deps = collect_graph_import_deps(graph, file);
-        for target in deps.files.keys() {
-            edges_map.entry((file.clone(), target.clone())).or_default();
+    if let Some(graph) = cg.scope_graph.as_ref().filter(|g| g.complete) {
+        let files = s
+            .repo
+            .files
+            .keys()
+            .filter(|file| authoritative_rust_scope_graph(s, file).is_some())
+            .map(String::as_str);
+        for (file, deps) in collect_graph_import_deps(graph, files) {
+            for target in deps.files.keys() {
+                edges_map.entry((file.clone(), target.clone())).or_default();
+            }
+            graph_external_modules.extend(deps.external);
         }
-        graph_external_modules.extend(deps.external);
     }
 
     // Whole-repo node set: every indexed file (isolated files included).

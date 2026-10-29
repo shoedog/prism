@@ -863,12 +863,8 @@ fn scope_member_lookup_probed(
     // (the wildcard is glob-tier — §4.3b Reading B), so it is checked AFTER this
     // rib, not before.
     let rib: Vec<usize> = graph
-        .bindings
-        .iter()
-        .enumerate()
-        .filter(|(_, b)| b.scope == scope && b.name == q.name && b.ns == q.ns)
-        .filter(|(_, b)| cfg_compatible(&b.cond))
-        .map(|(i, _)| i)
+        .binding_indices(scope, &q.name, q.ns)
+        .filter(|&i| cfg_compatible(&graph.bindings[i].cond))
         .collect();
     if !rib.is_empty() {
         return resolve_rib_probed(graph, &rib, q, policy, guard);
@@ -899,13 +895,9 @@ fn self_rib_bindings(
     at: &SourceLoc,
 ) -> Vec<usize> {
     graph
-        .bindings
-        .iter()
-        .enumerate()
-        .filter(|(_, b)| b.scope == scope && b.name == name && b.ns == ns)
-        .filter(|(_, b)| vis_extent_covers(b, at))
-        .filter(|(_, b)| cfg_compatible(&b.cond))
-        .map(|(i, _)| i)
+        .binding_indices(scope, name, ns)
+        .filter(|&i| vis_extent_covers(&graph.bindings[i], at))
+        .filter(|&i| cfg_compatible(&graph.bindings[i].cond))
         .collect()
 }
 
@@ -917,13 +909,7 @@ fn glob_member_bindings(
     name: &str,
     ns: NamespaceId,
 ) -> Vec<usize> {
-    graph
-        .bindings
-        .iter()
-        .enumerate()
-        .filter(|(_, b)| b.scope == scope && b.name == name && b.ns == ns)
-        .map(|(i, _)| i)
-        .collect()
+    graph.binding_indices(scope, name, ns).collect()
 }
 
 /// Does any unexpanded-macro wildcard in `scope` for `ns` cover `at.byte`?

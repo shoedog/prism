@@ -51,13 +51,13 @@ pub fn lookup_visible_binding<'a>(
     };
     let mut cur = enclosing_scope(graph, file, at_byte);
     while let Some(scope_id) = cur {
-        let mut matches = graph.bindings.iter().filter(|binding| {
-            binding.scope == scope_id
-                && binding.name == name
-                && binding.ns == NS_VALUE
-                && matches!(&binding.target, BindTarget::Resolved(Target::Local(_)))
-                && vis_extent_covers(binding, &at)
-        });
+        let mut matches = graph
+            .binding_indices(scope_id, name, NS_VALUE)
+            .map(|i| &graph.bindings[i])
+            .filter(|binding| {
+                matches!(&binding.target, BindTarget::Resolved(Target::Local(_)))
+                    && vis_extent_covers(binding, &at)
+            });
         let first = matches.next();
         if matches.next().is_some() {
             return None;

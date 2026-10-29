@@ -3933,9 +3933,8 @@ fn leading_segment_binds_directly(
     };
 
     let rib: Vec<&Binding> = graph
-        .bindings
-        .iter()
-        .filter(|b| b.scope == start && b.name == leading && b.ns == NS_TYPE)
+        .binding_indices(start, leading, NS_TYPE)
+        .map(|i| &graph.bindings[i])
         .collect();
     if rib.is_empty() {
         return false;
@@ -4030,9 +4029,9 @@ fn leading_segment_has_block_local_shadow(
 ) -> bool {
     let at = SourceLoc { file, byte };
     for scope in scope_chain_below_module(graph, from) {
-        let exact_binding = graph.bindings.iter().any(|b| {
-            b.scope == scope && b.name == leading && b.ns == NS_TYPE && binding_vis_covers(b, &at)
-        });
+        let exact_binding = graph
+            .binding_indices(scope, leading, NS_TYPE)
+            .any(|i| binding_vis_covers(&graph.bindings[i], &at));
         if exact_binding {
             return true;
         }

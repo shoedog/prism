@@ -343,10 +343,7 @@ impl ResolutionPolicy for RustPolicy<'_> {
             graph.scope(scope)?.kind,
             ScopeKind::Module | ScopeKind::Root
         ) {
-            if graph
-                .bindings
-                .iter()
-                .any(|b| b.scope == scope && b.ns == NS_TYPE && b.name == name)
+            if graph.binding_indices(scope, name, NS_TYPE).next().is_some()
                 || graph
                     .edges
                     .iter()

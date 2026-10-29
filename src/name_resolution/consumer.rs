@@ -263,9 +263,8 @@ fn target_file(graph: &ScopeGraph, target: &Target) -> Option<String> {
 
 fn defining_binding_file(graph: &ScopeGraph, target: &Target) -> Option<String> {
     graph
-        .bindings
-        .iter()
-        .filter(|b| matches!(&b.target, BindTarget::Resolved(t) if t == target))
+        .resolved_binding_indices(target)
+        .map(|i| &graph.bindings[i])
         .filter_map(|b| file_for_scope(graph, b.scope))
         .min()
 }
@@ -276,10 +275,7 @@ fn file_for_scope(graph: &ScopeGraph, scope: ScopeId) -> Option<String> {
 }
 
 fn path_for_file(graph: &ScopeGraph, file: FileId) -> Option<String> {
-    graph
-        .file_paths
-        .iter()
-        .find_map(|(path, id)| (*id == file).then(|| path.clone()))
+    graph.path_for_file(file).map(str::to_owned)
 }
 
 fn file_id_for_path(graph: &ScopeGraph, path: &str) -> Option<FileId> {
