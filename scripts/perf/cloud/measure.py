@@ -63,6 +63,13 @@ def read_steal(path="/proc/stat"):
         return None
 
 
+class QuietTimeout(RuntimeError):
+    def __init__(self, load, threshold, max_wait):
+        self.load = load
+        super().__init__(f"host not quiet: 1-min loadavg {load:.2f} >= {threshold} "
+                         f"after {max_wait}s")
+
+
 def wait_quiet(threshold, max_wait):
     """Block until the 1-minute loadavg is below threshold; return the value used."""
     deadline = time.monotonic() + max_wait
@@ -71,8 +78,7 @@ def wait_quiet(threshold, max_wait):
         if load < threshold:
             return load
         if time.monotonic() >= deadline:
-            raise RuntimeError(
-                f"host not quiet: 1-min loadavg {load:.2f} >= {threshold} after {max_wait}s")
+            raise QuietTimeout(load, threshold, max_wait)
         time.sleep(min(5.0, max(0.0, deadline - time.monotonic())))
 
 
@@ -101,21 +107,32 @@ def git(repo, *args):
                           check=True).stdout.strip()
 
 
-def resolve_ref(repo, ref):
+def resolve_ref(repo, ref, warnings=None):
+    resolved = {}
     for candidate in (ref, f"origin/{ref}"):
         try:
-            return git(repo, "rev-parse", "--verify", "--quiet", candidate + "^{commit}")
+            resolved[candidate] = git(repo, "rev-parse", "--verify", "--quiet",
+                                      candidate + "^{commit}")
         except subprocess.CalledProcessError:
             continue
-    raise ValueError(f"cannot resolve ref: {ref}")
+    remote = f"origin/{ref}"
+    if not resolved:
+        raise ValueError(f"cannot resolve ref: {ref}")
+    if ref in resolved and remote in resolved and resolved[ref] != resolved[remote]:
+        warning = (f"{ref} resolves to {resolved[ref]}, but {remote} resolves to "
+                   f"{resolved[remote]}; using {remote}")
+        print(f"warning: {warning}", file=sys.stderr, flush=True)
+        if warnings is not None:
+            warnings.append(warning)
+    return resolved.get(remote, resolved.get(ref))
 
 
-def build_binaries(refs, repo, work_dir):
+def build_binaries(refs, repo, work_dir, allow_dirty=False, warnings=None):
     """Build each ref (a ref equal to HEAD reuses the checkout); return [{ref, sha256, path}]."""
     head = git(repo, "rev-parse", "HEAD")
     result = []
     for ref in refs:
-        commit = resolve_ref(repo, ref)
+        commit = resolve_ref(repo, ref, warnings)
         if commit == head:
             tree = Path(repo)
         else:
@@ -123,6 +140,11 @@ def build_binaries(refs, repo, work_dir):
             if not tree.exists():
                 subprocess.run(["git", "-C", str(repo), "worktree", "add", "--detach",
                                 str(tree), commit], check=True)
+        actual = git(tree, "rev-parse", "HEAD")
+        if actual != commit:
+            raise ValueError(f"worktree {tree} HEAD {actual} != requested commit {commit}")
+        if not allow_dirty and git(tree, "status", "--porcelain", "--untracked-files=no"):
+            raise ValueError(f"dirty tracked tree at {tree}; use --allow-dirty to opt in")
         subprocess.run(["cargo", "build", "--release", "--locked", "--bin", "prism"],
                        cwd=tree, check=True)
         binary = tree / "target" / "release" / "prism"
@@ -144,10 +166,18 @@ def parse_args(argv):
     p.add_argument("--repo", type=Path, default=REPO_ROOT)
     p.add_argument("--prism-bin", type=Path,
                    help="use this binary for the single ref and skip the build")
+    p.add_argument("--allow-dirty", action="store_true",
+                   help="allow building a checkout with tracked changes")
     p.add_argument("--quiet-threshold", type=float, default=0.5,
                    help="1-min loadavg below this before each run; raise to relax")
     p.add_argument("--quiet-wait", type=float, default=300.0, help="max seconds to wait")
+    p.add_argument("--quiet-on-timeout", choices=("fail", "record"), default="record",
+                   help="abort on gate timeout or record gate_failed and continue (default)")
     args = p.parse_args(argv)
+    for name in ("out", "work_dir", "repo", "prism_bin"):
+        path = getattr(args, name)
+        if path is not None:
+            setattr(args, name, path.resolve())
     args.refs = [r for r in args.refs.split(",")]
     args.corpora = args.corpora.split(",")
     if args.rounds < 1 or args.threads < 1:
@@ -167,7 +197,7 @@ def parse_args(argv):
         key, sep, path = item.partition("=")
         if not sep or not key or not path:
             p.error(f"--corpus-dir needs KEY=PATH: {item!r}")
-        overrides[key] = Path(path)
+        overrides[key] = Path(path).resolve()
     args.overrides = overrides
     return args
 
@@ -200,52 +230,82 @@ def environment(args):
             "mem_total_gib": f"{int(total.group(1)) / 2**20:.1f}" if total else "unavailable",
             "threads": args.threads, "rounds": args.rounds, "query": args.query,
             "quiet_threshold": args.quiet_threshold,
+            "quiet_on_timeout": args.quiet_on_timeout, "allow_dirty": args.allow_dirty,
             "steal_sampling": "available" if read_steal() is not None else "unavailable",
             "loadavg_at_start": " ".join(f"{x:.2f}" for x in os.getloadavg())}
 
 
 def main(argv=None):
     args = parse_args(argv)
-    try:
-        roots = corpus_roots(args)
-    except ValueError as error:
-        sys.exit(f"measure failed: {error}")
     runs_dir = args.out / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
-    if args.prism_bin is not None:
-        binaries = [dict(ref=args.refs[0], path=str(args.prism_bin),
-                         sha256=sha256_file(args.prism_bin))]
-    else:
-        binaries = build_binaries(args.refs, args.repo, args.work_dir)
-    by_ref = {b["ref"]: b for b in binaries}
-    env_info = environment(args)
-    runs = []
-    query = shlex.split(args.query)
-    for round_id, corpus, ref in run_order(args.refs, args.corpora, args.rounds):
-        run_id = f"r{round_id}-{corpus}-{re.sub(r'[^A-Za-z0-9_.-]', '_', ref)}"
-        profile = runs_dir / f"{run_id}.profile.jsonl"
-        command = [by_ref[ref]["path"], *query, "--repo", str(roots[corpus])]
-        child_env = {**os.environ, "PRISM_PROFILE": str(profile),
-                     "RAYON_NUM_THREADS": str(args.threads)}
-        load = wait_quiet(args.quiet_threshold, args.quiet_wait)
-        steal_before = read_steal()
-        usage = run_child(command, runs_dir, child_env, runs_dir / f"{run_id}.stdout",
-                          runs_dir / f"{run_id}.stderr")
-        steal_after = read_steal()
-        records = load_records(profile)
-        with gzip.open(runs_dir / f"{run_id}.jsonl.gz", "wt") as stream:
-            stream.write("".join(json.dumps(r) + "\n" for r in records))
-        profile.unlink()
-        phases = [dict(name=n, time_kind=k, ns=v)
-                  for (n, k), v in sorted(reporting.phase_totals(records).items())]
-        run = dict(round=round_id, corpus=corpus, ref=ref, quiet_load=load,
-                   steal_before=steal_before, steal_after=steal_after, phases=phases,
-                   threads=args.threads, command=command,
-                   sha256=by_ref[ref]["sha256"], **usage)
-        (runs_dir / f"{run_id}.meta.json").write_text(json.dumps(run, indent=2) + "\n")
-        runs.append(run)
-        print(f"{run_id}: wall {usage['wall_s']:.2f}s", flush=True)
-    (args.out / "RESULTS.md").write_text(reporting.render_results(env_info, binaries, runs))
+    env_info, binaries, runs, warnings = {}, [], [], []
+    failure = None
+
+    def write_results(reason):
+        # Replace a complete file, so interruption during rendering preserves the last checkpoint.
+        temporary = args.out / "RESULTS.md.tmp"
+        temporary.write_text(reporting.render_results(env_info, binaries, runs,
+                                                      failure=reason, warnings=warnings))
+        temporary.replace(args.out / "RESULTS.md")
+
+    try:
+        env_info = environment(args)
+        roots = corpus_roots(args)
+        if args.prism_bin is not None:
+            binaries = [dict(ref=args.refs[0], commit="unknown (prism-bin)",
+                             path=str(args.prism_bin), sha256=sha256_file(args.prism_bin))]
+        else:
+            binaries = build_binaries(args.refs, args.repo, args.work_dir,
+                                      allow_dirty=args.allow_dirty, warnings=warnings)
+        by_ref = {b["ref"]: b for b in binaries}
+        ref_ids = {ref: i for i, ref in enumerate(args.refs)}
+        query = shlex.split(args.query)
+        write_results("measurement in progress")
+        for round_id, corpus, ref in run_order(args.refs, args.corpora, args.rounds):
+            run_id = f"r{round_id}-{corpus}-{re.sub(r'[^A-Za-z0-9_.-]', '_', ref)}-{ref_ids[ref]}"
+            profile = runs_dir / f"{run_id}.profile.jsonl"
+            command = [by_ref[ref]["path"], *query, "--repo", str(roots[corpus])]
+            child_env = {**os.environ, "PRISM_PROFILE": str(profile),
+                         "RAYON_NUM_THREADS": str(args.threads)}
+            gate_reason = None
+            try:
+                load = wait_quiet(args.quiet_threshold, args.quiet_wait)
+            except QuietTimeout as error:
+                if args.quiet_on_timeout == "fail":
+                    raise
+                load, gate_reason = error.load, str(error)
+                print(f"warning: {run_id}: {gate_reason}; recording gate_failed", file=sys.stderr)
+            # A previous invocation's profile cannot satisfy this run's profile requirement.
+            profile.unlink(missing_ok=True)
+            steal_before = read_steal()
+            usage = run_child(command, runs_dir, child_env, runs_dir / f"{run_id}.stdout",
+                              runs_dir / f"{run_id}.stderr")
+            steal_after = read_steal()
+            if not profile.is_file():
+                raise RuntimeError(f"{run_id}: missing profile file after successful child: {profile}")
+            records = load_records(profile)
+            phases = [dict(name=n, time_kind=k, ns=v)
+                      for (n, k), v in sorted(reporting.phase_totals(records).items())]
+            with gzip.open(runs_dir / f"{run_id}.jsonl.gz", "wt") as stream:
+                stream.write("".join(json.dumps(r) + "\n" for r in records))
+            profile.unlink()
+            run = dict(round=round_id, corpus=corpus, ref=ref, quiet_load=load,
+                       gate_failed=gate_reason is not None, gate_failure_reason=gate_reason,
+                       steal_before=steal_before, steal_after=steal_after, phases=phases,
+                       threads=args.threads, command=command,
+                       commit=by_ref[ref]["commit"], sha256=by_ref[ref]["sha256"], **usage)
+            (runs_dir / f"{run_id}.meta.json").write_text(json.dumps(run, indent=2) + "\n")
+            runs.append(run)
+            write_results("measurement in progress")
+            print(f"{run_id}: wall {usage['wall_s']:.2f}s", flush=True)
+    except BaseException as error:
+        failure = f"{type(error).__name__}: {error}"
+        if isinstance(error, (KeyboardInterrupt, SystemExit)):
+            raise
+        sys.exit(f"measure failed: {failure}")
+    finally:
+        write_results(failure)
     print(f"wrote {args.out / 'RESULTS.md'}")
 
 
