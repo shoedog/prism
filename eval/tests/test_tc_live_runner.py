@@ -95,4 +95,5 @@ def test_claude_runner_per_checkout_prism_config(monkeypatch):
     # The written config must point prism-mcp at /repo
     with open(cfg_path) as f:
         cfg = json.load(f)
-    assert cfg["mcpServers"]["prism"]["args"] == ["--repo", "/repo", "--warm-at-startup"]
+    assert cfg["mcpServers"]["prism"]["args"] == ["--repo", "/repo", "--warm-at-startup",
+                                                   "--index-idle-secs", "0"]
