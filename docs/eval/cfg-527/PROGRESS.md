@@ -8,5 +8,5 @@
 | 3 | probe validation | done | fixtures/expected.json reproduced, 0 mismatches; matrix (eval/fixtures/rust) E=19, map 100%, all (none); unit tests pass |
 | 4 | dumps | done | all 8; sha256 + rows in dump-manifest.json; timings/dump-timings.txt (ruff 34:18 wall) |
 | 5 | census + pool | done | repair round used (summary.md); pooled E=126068, A=120 (tokio 114, uv 4, ruff 2) → step 6 |
-| 6 | adjudicate | running | sample.json: 94 sites (seed 527); tokio first |
-| 7 | decide | pending | |
+| 6 | adjudicate | done (stopped at rule 5) | tokio 72 sites: 4+1 configs, marker+E0308, declared-type control for candidates; 22 non-tokio sites not adjudicated (outcome fixed) |
+| 7 | decide | done | DECISION.md: escalate to the owner (rule 5) |

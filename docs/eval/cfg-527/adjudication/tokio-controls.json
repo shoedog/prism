@@ -1,0 +1,172 @@
+[
+ {
+  "site_id": "13edf288328bfcc92e9182f97881c2baeb76f0c2466cebd45706d4e8944a4571",
+  "type": "tokio::fs::OpenOptions",
+  "config": {
+   "name": "C_uring",
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio/io-uring,tokio/taskdump,tokio-util/full"
+   ],
+   "rustflags": [
+    "--cfg",
+    "tokio_unstable"
+   ]
+  },
+  "role": "candidate"
+ },
+ {
+  "site_id": "1e7c8b81eeee7beef381ca1ccb1e75a630587457a32175225f95bb33e9f3f8a9",
+  "type": "tokio::fs::OpenOptions",
+  "config": {
+   "name": "C_uring",
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio/io-uring,tokio/taskdump,tokio-util/full"
+   ],
+   "rustflags": [
+    "--cfg",
+    "tokio_unstable"
+   ]
+  },
+  "role": "candidate"
+ },
+ {
+  "site_id": "db86a4a85560a0a939113e397ab664c92a13dc20321236458666fb031c7fa797",
+  "type": "crate::fs::OpenOptions",
+  "config": {
+   "name": "C_uring",
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio/io-uring,tokio/taskdump,tokio-util/full"
+   ],
+   "rustflags": [
+    "--cfg",
+    "tokio_unstable"
+   ]
+  },
+  "role": "candidate"
+ },
+ {
+  "site_id": "b64858b3571205313713385d16d96329429cbb34cf50c260a1af798aa3982703",
+  "type": "&mut crate::fs::OpenOptions",
+  "config": {
+   "name": "C_uring",
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio/io-uring,tokio/taskdump,tokio-util/full"
+   ],
+   "rustflags": [
+    "--cfg",
+    "tokio_unstable"
+   ]
+  },
+  "role": "candidate"
+ },
+ {
+  "site_id": "3a9f7ee90611364e048168e7edf85d810aa73a2ef3f5c169e77d65e08f5a3ee2",
+  "type": "crate::sync::RwLock<T>",
+  "config": {
+   "name": "C_uring",
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio/io-uring,tokio/taskdump,tokio-util/full"
+   ],
+   "rustflags": [
+    "--cfg",
+    "tokio_unstable"
+   ]
+  },
+  "role": "candidate"
+ },
+ {
+  "site_id": "d3da4371ed9988d2a403be3bd14403c5f2f71d1a68b1e31f795e9b63cc7a866d",
+  "type": "crate::runtime::Handle",
+  "config": {
+   "name": "C_uring",
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio/io-uring,tokio/taskdump,tokio-util/full"
+   ],
+   "rustflags": [
+    "--cfg",
+    "tokio_unstable"
+   ]
+  },
+  "role": "candidate"
+ },
+ {
+  "site_id": "5da607fdd758b5fc70a28eac46d81f56836db8d33c3a7f4f52a6c0f1dcbc4525",
+  "type": "crate::runtime::time_alt::Timer",
+  "config": {
+   "name": "C_uring",
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio/io-uring,tokio/taskdump,tokio-util/full"
+   ],
+   "rustflags": [
+    "--cfg",
+    "tokio_unstable"
+   ]
+  },
+  "role": "candidate"
+ },
+ {
+  "site_id": "1d036ce0cd21fe6f680914ae70186f52529ce9c764c3be1fc73fdce215462a5b",
+  "type": "tokio::net::unix::pipe::OpenOptions",
+  "config": {
+   "name": "C_uring",
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio/io-uring,tokio/taskdump,tokio-util/full"
+   ],
+   "rustflags": [
+    "--cfg",
+    "tokio_unstable"
+   ]
+  },
+  "role": "positive"
+ },
+ {
+  "site_id": "44b1a0918fdb8590e51f5108ceaba6041cbbdabf59f57f71347d19999580cef3",
+  "type": "tokio::runtime::Handle",
+  "config": {
+   "name": "C_uring",
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio/io-uring,tokio/taskdump,tokio-util/full"
+   ],
+   "rustflags": [
+    "--cfg",
+    "tokio_unstable"
+   ]
+  },
+  "role": "positive"
+ },
+ {
+  "site_id": "28d589d0e92ee11723b26fcbd825f45055993c5aa058edc33d56737216e208b2",
+  "type": "tokio_util::codec::length_delimited::Builder",
+  "config": {
+   "name": "C_uring",
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio/io-uring,tokio/taskdump,tokio-util/full"
+   ],
+   "rustflags": [
+    "--cfg",
+    "tokio_unstable"
+   ]
+  },
+  "role": "positive"
+ }
+]

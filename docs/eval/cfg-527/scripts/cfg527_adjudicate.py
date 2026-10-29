@@ -164,7 +164,9 @@ class Adjudicator:
         return e
 
     def cargo(self, cfg, tag):
-        cmd = ["cargo", "check", "--message-format=json"] + cfg["args"]
+        # --keep-going: without it cargo stops scheduling targets after the first failing
+        # one, so an E0308 round would type-check only one test target (adjudicator fix).
+        cmd = ["cargo", "check", "--keep-going", "--message-format=json"] + cfg["args"]
         for p in self.packages:
             cmd += ["-p", p]
         out, code, secs = sh(cmd, self.src, self.env(cfg), os.path.join(self.logs, tag + ".stderr"),

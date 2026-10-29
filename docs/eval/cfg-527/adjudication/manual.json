@@ -1,0 +1,67 @@
+{
+ "13edf288328bfcc92e9182f97881c2baeb76f0c2466cebd45706d4e8944a4571": {
+  "cause": "non_cfg: std path owner resolved to same-named in-repo type (tokio::fs::OpenOptions)",
+  "cfg_caused": false,
+  "config": "C_uring",
+  "evidence": "marker: target note absent at a compiled site (or alternative note present); declared-type control: expected `tokio::fs::OpenOptions`, found `std::fs::OpenOptions`",
+  "verdict": "WRONG"
+ },
+ "1e7c8b81eeee7beef381ca1ccb1e75a630587457a32175225f95bb33e9f3f8a9": {
+  "cause": "non_cfg: std path owner resolved to same-named in-repo type (tokio::fs::OpenOptions)",
+  "cfg_caused": false,
+  "config": "C_uring",
+  "evidence": "marker: target note absent at a compiled site (or alternative note present); declared-type control: expected `tokio::fs::OpenOptions`, found `std::fs::OpenOptions`",
+  "verdict": "WRONG"
+ },
+ "254f54cf5b41a98ea1261293a6d6ac24f83daa6557e6bcad2b90aa329ba6e5a0": {
+  "note": "target is an impl of a std trait (unmarkable); E0308 found type equals the target's self type; which impl rustc picked is not observable with these probes",
+  "verdict": "indistinct"
+ },
+ "3a9f7ee90611364e048168e7edf85d810aa73a2ef3f5c169e77d65e08f5a3ee2": {
+  "cause": "non_cfg: `sync` is std::sync here; owner resolved to tokio::sync::RwLock",
+  "cfg_caused": false,
+  "config": "C_uring",
+  "evidence": "marker: target note absent at a compiled site (or alternative note present); declared-type control: expected `sync::rwlock::RwLock<T>`, found `std::sync::RwLock<T>`",
+  "verdict": "WRONG"
+ },
+ "5da607fdd758b5fc70a28eac46d81f56836db8d33c3a7f4f52a6c0f1dcbc4525": {
+  "cause": "owner-name collision: rustc binds runtime::Timer::new (impl inside a cfg-wrapper macro prism does not index); target is runtime::time_alt::Timer",
+  "cfg_caused": false,
+  "config": "C_uring",
+  "evidence": "marker: target note absent at a compiled site (or alternative note present); declared-type control: expected `timer::Timer`, found `runtime::Timer`",
+  "verdict": "WRONG"
+ },
+ "a047be6fe27d7dfcfe26e3d9e84eae1a06c80a140de5829bb57a163de88221b8": {
+  "note": "target is an impl of a std trait (unmarkable); E0308 found type equals the target's self type; which impl rustc picked is not observable with these probes",
+  "verdict": "indistinct"
+ },
+ "b64858b3571205313713385d16d96329429cbb34cf50c260a1af798aa3982703": {
+  "cause": "non_cfg: receiver is std::fs::OpenOptions (constructor_local follows the std::fs::OpenOptions::new mis-resolution)",
+  "cfg_caused": false,
+  "config": "C_uring",
+  "evidence": "marker: target note absent at a compiled site (or alternative note present); declared-type control: expected `open_options::OpenOptions`, found `std::fs::OpenOptions`",
+  "verdict": "WRONG"
+ },
+ "d3da4371ed9988d2a403be3bd14403c5f2f71d1a68b1e31f795e9b63cc7a866d": {
+  "cause": "owner-name collision: rustc binds runtime::scheduler::Handle::current, an impl inside a cfg-wrapper macro prism does not index; target is a different type (runtime::Handle)",
+  "cfg_caused": false,
+  "config": "C_uring",
+  "evidence": "marker: target note absent at a compiled site (or alternative note present); declared-type control: expected `runtime::handle::Handle`, found `runtime::scheduler::Handle`",
+  "verdict": "WRONG"
+ },
+ "d8ff1fdf03b96ac8f57c87703ea8439c928455d81db3e8f58f6592cdede1e5b9": {
+  "note": "cfg(loom) test; loom configuration not built",
+  "verdict": "config_unreachable"
+ },
+ "db86a4a85560a0a939113e397ab664c92a13dc20321236458666fb031c7fa797": {
+  "cause": "non_cfg: std path owner resolved to same-named in-repo type (tokio::fs::OpenOptions)",
+  "cfg_caused": false,
+  "config": "C_uring",
+  "evidence": "marker: target note absent at a compiled site (or alternative note present); declared-type control: expected `open_options::OpenOptions`, found `std::fs::OpenOptions`",
+  "verdict": "WRONG"
+ },
+ "eb76c7a6b4229016141484c65913f94d689d3b4ed2454125e00a754400f68672": {
+  "note": "bsd/aio-only module (target_os freebsd etc.); only x86_64-unknown-linux-gnu installed",
+  "verdict": "config_unreachable"
+ }
+}

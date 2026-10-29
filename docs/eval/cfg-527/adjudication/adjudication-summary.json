@@ -1,0 +1,106 @@
+{
+ "groups": {
+  "a_implied_control": {
+   "by_corpus": {
+    "tokio": 2
+   },
+   "by_rung": {
+    "constructor_local": 1,
+    "self_receiver": 1
+   },
+   "decided": 2,
+   "sites": 2,
+   "verdicts": {
+    "correct": 2
+   },
+   "wilson95_any_wrong": [
+    0.0,
+    0.6576280471103807
+   ],
+   "wilson95_cfg_wrong": [
+    0.0,
+    0.6576280471103807
+   ],
+   "wrong_any_cause": 0,
+   "wrong_cfg": 0
+  },
+  "a_not_implied": {
+   "by_corpus": {
+    "tokio": 58
+   },
+   "by_rung": {
+    "constructor_local": 1,
+    "qualified_owner": 55,
+    "stem_single": 1,
+    "typed_param": 1
+   },
+   "decided": 57,
+   "sites": 58,
+   "verdicts": {
+    "WRONG": 7,
+    "config_unreachable": 1,
+    "correct": 50
+   },
+   "wilson95_any_wrong": [
+    0.060779830035075,
+    0.2324668958892925
+   ],
+   "wilson95_cfg_wrong": [
+    0.060779830035075,
+    0.2324668958892925
+   ],
+   "wrong_any_cause": 7,
+   "wrong_cfg": 7
+  },
+  "b_other": {
+   "by_corpus": {
+    "tokio": 1
+   },
+   "by_rung": {
+    "qualified_owner": 1
+   },
+   "decided": 1,
+   "sites": 1,
+   "verdicts": {
+    "correct": 1
+   },
+   "wilson95_any_wrong": [
+    0.0,
+    0.7934567085261071
+   ],
+   "wilson95_cfg_wrong": [
+    0.0,
+    0.7934567085261071
+   ],
+   "wrong_any_cause": 0,
+   "wrong_cfg": 0
+  },
+  "b_std": {
+   "by_corpus": {
+    "tokio": 9
+   },
+   "by_rung": {
+    "qualified_owner": 9
+   },
+   "decided": 6,
+   "sites": 9,
+   "verdicts": {
+    "config_unreachable": 1,
+    "correct": 6,
+    "indistinct": 2
+   },
+   "wilson95_any_wrong": [
+    0.0,
+    0.3903430336530645
+   ],
+   "wilson95_cfg_wrong": [
+    0.0,
+    0.3903430336530645
+   ],
+   "wrong_any_cause": 0,
+   "wrong_cfg": 0
+  }
+ },
+ "rows": 360,
+ "sites": 70
+}

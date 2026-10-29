@@ -1,0 +1,662 @@
+{
+ "configs": {
+  "C0": {
+   "args": [
+    "--lib",
+    "--bins"
+   ],
+   "baseline": {
+    "exit": 0,
+    "secs": 1.0,
+    "success": true
+   },
+   "e0308_rounds": [
+    {
+     "exit": 101,
+     "round": [
+      "tokio",
+      "src"
+     ],
+     "secs": 0.5,
+     "sites": 11
+    },
+    {
+     "exit": 0,
+     "round": [
+      "tokio",
+      "tests"
+     ],
+     "secs": 0.6,
+     "sites": 39
+    },
+    {
+     "exit": 0,
+     "round": [
+      "tokio",
+      "tests-overlap"
+     ],
+     "secs": 0.1,
+     "sites": 1
+    },
+    {
+     "exit": 0,
+     "round": [
+      "tokio-util",
+      "tests"
+     ],
+     "secs": 0.1,
+     "sites": 20
+    },
+    {
+     "exit": 0,
+     "round": [
+      "tokio-util",
+      "tests-overlap"
+     ],
+     "secs": 0.1,
+     "sites": 1
+    }
+   ],
+   "marker": {
+    "exit": 0,
+    "secs": 0.6,
+    "success": true
+   },
+   "rustflags": [
+    "--cap-lints=warn"
+   ]
+  },
+  "C_flip": {
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio-util/full"
+   ],
+   "baseline": {
+    "exit": 0,
+    "secs": 4.5,
+    "success": true
+   },
+   "e0308_rounds": [
+    {
+     "exit": 101,
+     "round": [
+      "tokio",
+      "src"
+     ],
+     "secs": 1.8,
+     "sites": 11
+    },
+    {
+     "exit": 101,
+     "round": [
+      "tokio",
+      "tests"
+     ],
+     "secs": 7.6,
+     "sites": 39
+    },
+    {
+     "exit": 0,
+     "round": [
+      "tokio",
+      "tests-overlap"
+     ],
+     "secs": 0.7,
+     "sites": 1
+    },
+    {
+     "exit": 101,
+     "round": [
+      "tokio-util",
+      "tests"
+     ],
+     "secs": 0.6,
+     "sites": 20
+    },
+    {
+     "exit": 101,
+     "round": [
+      "tokio-util",
+      "tests-overlap"
+     ],
+     "secs": 0.3,
+     "sites": 1
+    }
+   ],
+   "marker": {
+    "exit": 0,
+    "secs": 8.0,
+    "success": true
+   },
+   "rustflags": [
+    "--cap-lints=warn"
+   ]
+  },
+  "C_test": {
+   "args": [
+    "--all-targets"
+   ],
+   "baseline": {
+    "exit": 101,
+    "secs": 7.5,
+    "success": false
+   },
+   "e0308_rounds": [
+    {
+     "exit": 101,
+     "round": [
+      "tokio",
+      "src"
+     ],
+     "secs": 1.7,
+     "sites": 11
+    },
+    {
+     "exit": 101,
+     "round": [
+      "tokio",
+      "tests"
+     ],
+     "secs": 8.1,
+     "sites": 39
+    },
+    {
+     "exit": 101,
+     "round": [
+      "tokio",
+      "tests-overlap"
+     ],
+     "secs": 1.2,
+     "sites": 1
+    },
+    {
+     "exit": 101,
+     "round": [
+      "tokio-util",
+      "tests"
+     ],
+     "secs": 0.8,
+     "sites": 20
+    },
+    {
+     "exit": 101,
+     "round": [
+      "tokio-util",
+      "tests-overlap"
+     ],
+     "secs": 0.7,
+     "sites": 1
+    }
+   ],
+   "marker": {
+    "exit": 101,
+    "secs": 7.8,
+    "success": false
+   },
+   "rustflags": [
+    "--cap-lints=warn"
+   ]
+  },
+  "C_unstable": {
+   "args": [
+    "--all-targets",
+    "--features",
+    "tokio/full,tokio/test-util,tokio/tracing,tokio-util/full"
+   ],
+   "baseline": {
+    "exit": 0,
+    "secs": 0.5,
+    "success": true
+   },
+   "e0308_rounds": [
+    {
+     "exit": 101,
+     "round": [
+      "tokio",
+      "src"
+     ],
+     "secs": 2.0,
+     "sites": 11
+    },
+    {
+     "exit": 101,
+     "round": [
+      "tokio",
+      "tests"
+     ],
+     "secs": 8.5,
+     "sites": 39
+    },
+    {
+     "exit": 0,
+     "round": [
+      "tokio",
+      "tests-overlap"
+     ],
+     "secs": 0.8,
+     "sites": 1
+    },
+    {
+     "exit": 101,
+     "round": [
+      "tokio-util",
+      "tests"
+     ],
+     "secs": 0.5,
+     "sites": 20
+    },
+    {
+     "exit": 101,
+     "round": [
+      "tokio-util",
+      "tests-overlap"
+     ],
+     "secs": 0.4,
+     "sites": 1
+    }
+   ],
+   "marker": {
+    "exit": 0,
+    "secs": 9.8,
+    "success": true
+   },
+   "rustflags": [
+    "--cap-lints=warn",
+    "--cfg",
+    "tokio_unstable"
+   ]
+  }
+ },
+ "corpus": "tokio",
+ "marks": 38,
+ "marks_table": {
+  "14e42e49cae8": {
+   "fid": {
+    "end_line": 375,
+    "file": "tokio/src/sync/mutex.rs",
+    "name": "new",
+    "start_line": 338
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "1a0832aa67d3": {
+   "fid": {
+    "end_line": 71,
+    "file": "tokio/src/task/builder.rs",
+    "name": "new",
+    "start_line": 69
+   },
+   "kind": "inherent",
+   "label": "S1"
+  },
+  "25dbbe478b34": {
+   "fid": {
+    "end_line": 24,
+    "file": "tokio/tests/sync_set_once.rs",
+    "name": "assert_num_drops",
+    "start_line": 22
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "30809b7d3f7c": {
+   "fid": {
+    "end_line": 15,
+    "file": "tokio/src/loom/mocked.rs",
+    "name": "new",
+    "start_line": 13
+   },
+   "kind": "inherent",
+   "label": "S2"
+  },
+  "321351d31249": {
+   "fid": {
+    "end_line": 52,
+    "file": "tokio/src/loom/std/parking_lot.rs",
+    "name": "new",
+    "start_line": 50
+   },
+   "kind": "inherent",
+   "label": "S1"
+  },
+  "370b1a046ced": {
+   "fid": {
+    "end_line": 49,
+    "file": "tokio/src/runtime/time_alt/timer.rs",
+    "name": "new",
+    "start_line": 30
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "3ee085bdb15d": {
+   "fid": {
+    "end_line": 316,
+    "file": "tokio/src/runtime/scheduler/mod.rs",
+    "name": "current",
+    "start_line": 314
+   },
+   "kind": "inherent",
+   "label": "S0"
+  },
+  "41121c05bf0f": {
+   "fid": {
+    "end_line": 473,
+    "file": "tokio/src/runtime/mod.rs",
+    "name": "new",
+    "start_line": 463
+   },
+   "kind": "inherent",
+   "label": "S0"
+  },
+  "42b3c98c5c8a": {
+   "fid": {
+    "end_line": 59,
+    "file": "tokio/src/io/async_read.rs",
+    "name": "poll_read",
+    "start_line": 55
+   },
+   "kind": "trait_decl",
+   "label": "T@trait"
+  },
+  "43a449a5b7b8": {
+   "fid": {
+    "end_line": 60,
+    "file": "tokio/src/runtime/time/handle.rs",
+    "name": "current",
+    "start_line": 58
+   },
+   "kind": "inherent",
+   "label": "S1"
+  },
+  "44c3055ec519": {
+   "fid": {
+    "end_line": 1328,
+    "file": "tokio/src/io/util/async_write_ext.rs",
+    "name": "shutdown",
+    "start_line": 1323
+   },
+   "kind": "trait_decl",
+   "label": "S0"
+  },
+  "492dfda6fd53": {
+   "fid": {
+    "end_line": 148,
+    "file": "tokio/src/runtime/handle.rs",
+    "name": "current",
+    "start_line": 144
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "55d7704f9d5d": {
+   "fid": {
+    "end_line": 13,
+    "file": "tokio/src/loom/std/rwlock.rs",
+    "name": "new",
+    "start_line": 11
+   },
+   "kind": "inherent",
+   "label": "S1"
+  },
+  "593794ce4b5b": {
+   "fid": {
+    "end_line": 278,
+    "file": "tokio/src/net/udp.rs",
+    "name": "as_socket",
+    "start_line": 276
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "6b29d3ea108c": {
+   "fid": {
+    "end_line": 44,
+    "file": "tokio-util/src/task/join_queue.rs",
+    "name": "len",
+    "start_line": 42
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "7234b66d7784": {
+   "fid": {
+    "end_line": 579,
+    "file": "tokio/src/sync/oneshot.rs",
+    "name": "channel",
+    "start_line": 497
+   },
+   "kind": "free",
+   "label": "T"
+  },
+  "726848cd3486": {
+   "fid": {
+    "end_line": 214,
+    "file": "tokio-util/src/task/join_map.rs",
+    "name": "len",
+    "start_line": 210
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "747f54e588f3": {
+   "fid": {
+    "end_line": 185,
+    "file": "tokio/src/fs/open_options.rs",
+    "name": "read",
+    "start_line": 168
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "766d2fbc4b40": {
+   "fid": {
+    "end_line": 65,
+    "file": "tokio/src/doc/os.rs",
+    "name": "as_socket",
+    "start_line": 65
+   },
+   "kind": "trait_decl",
+   "label": "S0@trait"
+  },
+  "7ce12e27361a": {
+   "fid": {
+    "end_line": 97,
+    "file": "tokio/src/loom/std/parking_lot.rs",
+    "name": "new",
+    "start_line": 95
+   },
+   "kind": "inherent",
+   "label": "S0"
+  },
+  "8168faf97105": {
+   "fid": {
+    "end_line": 111,
+    "file": "tokio/src/sync/barrier.rs",
+    "name": "new",
+    "start_line": 63
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "87f8cfb8b4f5": {
+   "fid": {
+    "end_line": 384,
+    "file": "tokio/src/task/join_set.rs",
+    "name": "shutdown",
+    "start_line": 381
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "9c9ebf81a19e": {
+   "fid": {
+    "end_line": 252,
+    "file": "tokio-util/src/task/join_queue.rs",
+    "name": "shutdown",
+    "start_line": 249
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "a8657c569d5e": {
+   "fid": {
+    "end_line": 538,
+    "file": "tokio-util/src/task/join_map.rs",
+    "name": "shutdown",
+    "start_line": 535
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "a9a952e4cda6": {
+   "fid": {
+    "end_line": 345,
+    "file": "tokio/src/runtime/builder.rs",
+    "name": "new",
+    "start_line": 279
+   },
+   "kind": "inherent",
+   "label": "S0"
+  },
+  "abbff3f026f2": {
+   "fid": {
+    "end_line": 91,
+    "file": "tokio/src/task/join_set.rs",
+    "name": "len",
+    "start_line": 89
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "ac3025d0c14f": {
+   "fid": {
+    "end_line": 603,
+    "file": "tokio/src/task/local.rs",
+    "name": "spawn_local",
+    "start_line": 592
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "ad2a0cf41455": {
+   "fid": {
+    "end_line": 37,
+    "file": "tokio/src/loom/mocked.rs",
+    "name": "new",
+    "start_line": 35
+   },
+   "kind": "inherent",
+   "label": "S2"
+  },
+  "becf827097c9": {
+   "fid": {
+    "end_line": 23,
+    "file": "tokio/src/sync/tests/loom_set_once.rs",
+    "name": "assert_num_drops",
+    "start_line": 21
+   },
+   "kind": "inherent",
+   "label": "S0"
+  },
+  "c7563bbd6f7e": {
+   "fid": {
+    "end_line": 13,
+    "file": "tokio/src/loom/std/mutex.rs",
+    "name": "new",
+    "start_line": 11
+   },
+   "kind": "inherent",
+   "label": "S0"
+  },
+  "cf71dcec8855": {
+   "fid": {
+    "end_line": 27,
+    "file": "tokio/src/runtime/blocking/shutdown.rs",
+    "name": "channel",
+    "start_line": 21
+   },
+   "kind": "free",
+   "label": "S1"
+  },
+  "d8be606dc1f2": {
+   "fid": {
+    "end_line": 138,
+    "file": "tokio/src/net/unix/pipe.rs",
+    "name": "new",
+    "start_line": 132
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "da647ae058d7": {
+   "fid": {
+    "end_line": 141,
+    "file": "tokio/src/fs/open_options.rs",
+    "name": "new",
+    "start_line": 122
+   },
+   "kind": "inherent",
+   "label": "S0"
+  },
+  "dd4604912cab": {
+   "fid": {
+    "end_line": 253,
+    "file": "tokio/src/sync/rwlock.rs",
+    "name": "new",
+    "start_line": 203
+   },
+   "kind": "inherent",
+   "label": "T"
+  },
+  "e3e64fd6d417": {
+   "fid": {
+    "end_line": 82,
+    "file": "tokio-test/src/io.rs",
+    "name": "new",
+    "start_line": 80
+   },
+   "kind": "inherent",
+   "label": "S2"
+  },
+  "f0f9b759b954": {
+   "fid": {
+    "end_line": 182,
+    "file": "tokio/src/io/util/async_read_ext.rs",
+    "name": "read",
+    "start_line": 177
+   },
+   "kind": "trait_decl",
+   "label": "S0"
+  },
+  "fb55f91fe095": {
+   "fid": {
+    "end_line": 94,
+    "file": "tokio/src/loom/std/barrier.rs",
+    "name": "new",
+    "start_line": 85
+   },
+   "kind": "inherent",
+   "label": "S0"
+  },
+  "fc9afd7a6cb3": {
+   "fid": {
+    "end_line": 711,
+    "file": "tokio-util/src/codec/length_delimited.rs",
+    "name": "new",
+    "start_line": 691
+   },
+   "kind": "inherent",
+   "label": "T"
+  }
+ },
+ "packages": [
+  "tokio",
+  "tokio-util"
+ ],
+ "unmarkable": {
+  "extern_trait_impl": 2
+ }
+}
