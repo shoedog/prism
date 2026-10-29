@@ -128,7 +128,11 @@ def classify_probe(
     """Classify one oracle-comparable probe."""
     del pid
     if "sut_error" in (base_status, cand_status) and base_status != cand_status:
-        return "carried_changed/sut_change"
+        if ids_base.get("closure_digest") != ids_cand.get("closure_digest"):
+            return "carried_changed/content_change"
+        if ids_base.get("sut_digest") != ids_cand.get("sut_digest"):
+            return "carried_changed/sut_change"
+        return "unexplained"
     if _prism_answer(base) == _prism_answer(cand):
         return "carried_same"
     if ids_base.get("closure_digest") != ids_cand.get("closure_digest"):

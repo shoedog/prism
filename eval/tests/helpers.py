@@ -294,7 +294,11 @@ class FakeSut:
         self.dirty = False
         self.no_cache = False
         self.env = env
-        self.bin = "prism"
+        self.bin = (
+            sut_bin
+            or (str(Path(prism_repo) / "target/release/prism") if prism_repo else None)
+            or "prism"
+        )
 
     def inventory(self, root):
         return []

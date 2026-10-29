@@ -183,10 +183,13 @@ def test_quick_observation_value_error_is_a_named_refusal(
     _lock, ev, repo = anchored_repo(tmp_path)
     monkeypatch.setenv("TIER_A_ROOT", str(tmp_path / "root"))
     monkeypatch.setattr(cli, "EVAL_DIR", ev)
+    unobservable = repo / "archive-like/prism"
+    unobservable.parent.mkdir(parents=True)
+    stub_binary(unobservable, git_head(repo)[:12])
 
     def run_without_observable_cargo(*_args, **_kwargs):
         run = admitted_fake_run()
-        run["_sut_bin"] = repo / "archive-like/prism"
+        run["_sut_bin"] = unobservable
         return run
 
     monkeypatch.setattr(cli, "run_corpus", run_without_observable_cargo)

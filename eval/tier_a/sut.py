@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -48,24 +49,47 @@ def parse_version(out: str) -> tuple[str, bool]:
     return sha, bool(m.group(2))
 
 
+def _resolve_executable(command: str, env: dict[str, str] | None) -> str:
+    search_path = os.pathsep.join(os.get_exec_path(env))
+    selected = shutil.which(command, path=search_path)
+    if selected is None:
+        raise SutStale(
+            f"sut_observation_unavailable: executable_not_found: {command}"
+        )
+    try:
+        return str(Path(selected).resolve(strict=True))
+    except OSError as exc:
+        raise SutStale(
+            f"sut_observation_unavailable: executable_unresolvable: {selected}"
+        ) from exc
+
+
+def _resolve_binary_commit(prism_repo: str, sha: str) -> str:
+    try:
+        resolved = subprocess.run(
+            ["git", "-C", prism_repo, "rev-parse", "--verify", f"{sha}^{{commit}}"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if resolve_prefix(sha, [resolved]) != resolved:
+            raise ValueError("prefix mismatch")
+        return resolved
+    except (subprocess.CalledProcessError, ValueError) as exc:
+        raise SutStale(f"binary_commit_unresolvable: {sha}") from exc
+
+
 def verified_binary_identity(
     prism_repo: str, path: str, env: dict[str, str] | None
 ) -> tuple[str, str]:
+    path = _resolve_executable(path, env)
     out = subprocess.run(
         [path, "--version"], check=True, capture_output=True, text=True, env=env
     ).stdout
     sha, dirty = parse_version(out)
     if dirty:
         raise SutStale("binary was built from a dirty tree")
-    try:
-        resolved = subprocess.run(
-            ["git", "-C", prism_repo, "rev-parse", "--verify", f"{sha}^{{commit}}"],
-            check=True, capture_output=True, text=True,
-        ).stdout.strip()
-        if resolve_prefix(sha, [resolved]) != resolved:
-            raise ValueError("prefix mismatch")
-    except (subprocess.CalledProcessError, ValueError) as exc:
-        raise SutStale(f"binary commit is not uniquely resolvable: {sha}") from exc
+    resolved = _resolve_binary_commit(prism_repo, sha)
     if subprocess.run(
         ["git", "-C", prism_repo, "merge-base", "--is-ancestor", resolved, "HEAD"],
         capture_output=True,
@@ -161,6 +185,7 @@ class PrismCli:
     def from_archive(
         cls, prism_repo: str, path: str, sha_full: str, digest: str
     ) -> "PrismCli":
+        path = _resolve_executable(path, None)
         if raw_digest(Path(path)) != digest:
             raise SutStale("binary digest does not match the archived identity")
         out = subprocess.run(
@@ -194,6 +219,7 @@ class PrismCli:
         *,
         env: dict[str, str] | None = None,
     ) -> "PrismCli":
+        path = _resolve_executable(path, env)
         if raw_digest(Path(path)) != digest:
             raise SutStale("binary digest does not match the staged identity")
         sha, resolved = verified_binary_identity(prism_repo, path, env)
@@ -217,11 +243,12 @@ class PrismCli:
         env: dict[str, str] | None = None,
     ):
         self.repo = prism_repo
-        self.bin = sut_bin or os.environ.get("PRISM_BIN") or os.path.join(
+        selected = sut_bin or os.environ.get("PRISM_BIN") or os.path.join(
             prism_repo, "target/release/prism"
         )
         self.allow_stale = allow_stale
         self.env = env
+        self.bin = _resolve_executable(selected, env)
         # When True, nav calls pass `--no-cache` so the per-repo nav store is
         # bypassed. The matrix runner sets this for deterministic fixture eval —
         # a stale fixture cache silently served pre-S3 results and produced false
@@ -233,13 +260,14 @@ class PrismCli:
         out = self._run(["--version"])
         assert isinstance(out, str)
         sha, dirty = parse_version(out)
+        binary_sha_full = _resolve_binary_commit(self.repo, sha)
         head = subprocess.run(
             ["git", "-C", self.repo, "rev-parse", "HEAD"],
             capture_output=True,
             text=True,
             check=True,
         ).stdout.strip()
-        self.sha_full = head
+        self.sha_full = binary_sha_full
         status = subprocess.run(
             ["git", "-C", self.repo, "status", "--porcelain", "-uno"],
             capture_output=True,
@@ -247,9 +275,9 @@ class PrismCli:
             check=True,
         ).stdout
         repo_dirty = bool(status)
-        if (not head.startswith(sha) or dirty or repo_dirty) and not self.allow_stale:
+        if (binary_sha_full != head or dirty or repo_dirty) and not self.allow_stale:
             flags = []
-            if not head.startswith(sha):
+            if binary_sha_full != head:
                 flags.append(f"binary {sha} != HEAD {head}")
             if dirty:
                 flags.append("binary was built from a dirty tree")

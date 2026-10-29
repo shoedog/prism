@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from tier_a import sut as sut_mod
 from tier_a.closure import raw_digest
 from tier_a.model import FunctionDef, Location
 from tier_a.sut import (PrismCli, SutAmbiguous, SutError, SutSeedMiss, SutStale,
@@ -36,6 +37,7 @@ def test_from_archive_binds_bytes_and_full_sha_without_head_freshness(
 ):
     binary = tmp_path / "prism"
     binary.write_bytes(b"archived prism")
+    binary.chmod(0o755)
     sha_full = "a" * 40
     monkeypatch.setattr(
         subprocess,
@@ -173,6 +175,7 @@ def test_run_invalid_json_and_non_ambiguous_error(monkeypatch):
 
 def test_constructor_discovers_binary_in_contract_order(monkeypatch):
     monkeypatch.setattr(PrismCli, "_check_freshness", lambda self: ("abcdef123456", False))
+    monkeypatch.setattr(sut_mod, "_resolve_executable", lambda command, _env: command)
     monkeypatch.setenv("PRISM_BIN", "/env/prism")
 
     assert PrismCli("/repo", sut_bin="/arg/prism").bin == "/arg/prism"
@@ -185,6 +188,7 @@ def test_constructor_discovers_binary_in_contract_order(monkeypatch):
 def test_check_freshness_accepts_sha_prefix_and_clean_repo(monkeypatch):
     calls = iter([
         FakeRun(stdout="slicing 3.1.2 (abcdef1234567)\n"),
+        FakeRun(stdout="abcdef1234567890abcdef1234567890abcdef12\n"),
         FakeRun(stdout="abcdef1234567890abcdef1234567890abcdef12\n"),
         FakeRun(stdout=""),
     ])
@@ -200,6 +204,7 @@ def test_check_freshness_accepts_sha_prefix_and_clean_repo(monkeypatch):
 def test_check_freshness_rejects_dirty_repo_even_if_binary_clean(monkeypatch):
     calls = iter([
         FakeRun(stdout="slicing 3.1.2 (abcdef123456)\n"),
+        FakeRun(stdout="abcdef1234567890abcdef1234567890abcdef12\n"),
         FakeRun(stdout="abcdef1234567890abcdef1234567890abcdef12\n"),
         FakeRun(stdout=" M src/main.rs\n"),
     ])

@@ -18,6 +18,7 @@ from tests.helpers import (
     git_head,
 )
 from tier_a import boundary, cli, commands, matrix
+from tier_a import sut as sut_mod
 from tier_a.artifacts import ArtifactPaths
 from tier_a.boundary import (
     BoundaryViolation,
@@ -284,6 +285,7 @@ def test_quick_and_matrix_version_launches_use_exact_scrubbed_env(
         raise VersionSeen
 
     monkeypatch.setattr(PrismCli, "_run", spy_run)
+    monkeypatch.setattr(sut_mod, "_resolve_executable", lambda command, _env: command)
     monkeypatch.setattr(subprocess, "run", stop_at_version)
     args = types.SimpleNamespace(sut_bin="/sut/prism", allow_stale_sut=True)
 

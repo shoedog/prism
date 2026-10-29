@@ -492,8 +492,12 @@ def run_quick_admitted(
     sut_bin = Path(
         run.pop("_sut_bin", args.sut_bin or eval_dir.parent / "target/release/prism")
     )
-    if sut_bin.is_file():
+    try:
         run["meta"]["sut_digest"] = raw_digest(sut_bin)
+    except OSError as exc:
+        raise BoundaryViolation(
+            [f"sut_observation_unavailable: executable_digest: {sut_bin}"]
+        ) from exc
     try:
         if getattr(args, "sut_archive", None):
             if lock is None or artifacts is None:
@@ -556,17 +560,15 @@ def run_quick_admitted(
         run["meta"]["admitted"] = False
     else:
         observed = {
-            key: run["meta"][key]
-            for key in OBSERVED_RUN_IDENTITIES
-            if key in run["meta"]
+            key: run["meta"].get(key) for key in OBSERVED_RUN_IDENTITIES
         }
-        run["meta"].update(lock_identities(lock))
-        run["meta"]["corpus_sha_full"] = (
-            identity.sha_full
-            if identity is not None
-            else run["meta"]["corpus_sha_full"]
-        )
+        declared = lock_identities(lock)
+        for key in OBSERVED_RUN_IDENTITIES:
+            declared.pop(key, None)
+        run["meta"].update(declared)
         run["meta"].update(observed)
+        if identity is not None:
+            run["meta"]["corpus_sha_full"] = identity.sha_full
         assert artifacts is not None
         run["meta"]["snapshot_digest"] = raw_digest(artifacts.snapshot())
         run["meta"]["admitted"] = True
