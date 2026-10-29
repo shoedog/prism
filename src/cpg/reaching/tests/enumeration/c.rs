@@ -319,12 +319,9 @@ fn fix1_w3_chain_uncertainty_is_scope_bounded() {
         ("3:x", "4:x", EXACT),
         ("3:x", "6:x", killed(5)),
     ];
-    const SINGLE_LINE_FOR: &[(&str, &str, FlowConfidence)] =
-        &[("2:i", "4:i", EXACT), ("3:i", "4:i", killed(4))];
     let cases = [
         case!("c-fix1-chain-block-scope", "declaration", "void f() {\n  int x = source();\n  {\n    int a = 1, x = 2;\n    sink(x);\n  }\n  sink(x);\n}\n", BLOCK, ("dfg_label_exact", 2), None, None),
         case!("c-fix1-chain-for-scope", "declaration", "void f() {\n  int x = source();\n  for (int a = 1, x = 2; ready(); step()) {\n    sink(x);\n  }\n  sink(x);\n}\n", FOR, ("dfg_label_nameonly_killed", 2), None, None),
-        case!("c-fix1-single-line-for-scope-exit", "for_statement", "void f(int n) {\n  int i = 7;\n  for (int i = 0; i < n; i++) sink(i);\n  sink(i);\n}\n", SINGLE_LINE_FOR, ("dfg_label_exact", 1), None, None),
     ];
     for case in &cases {
         super::case::behavior::assert_behavior(
@@ -332,6 +329,22 @@ fn fix1_w3_chain_uncertainty_is_scope_bounded() {
             &super::super::parsed(case.src, case.language),
         );
     }
+}
+
+#[test]
+fn fix1_w3_single_line_for_scope_exit_matches_base() {
+    const EXPECT: &[(&str, &str, FlowConfidence)] =
+        &[("2:i", "4:i", EXACT), ("3:i", "4:i", killed(4))];
+    let case = case!(
+        "c-fix1-single-line-for-scope-exit",
+        "for_statement",
+        "void f(int n) {\n  int i = 7;\n  for (int i = 0; i < n; i++) sink(i);\n  sink(i);\n}\n",
+        EXPECT,
+        ("dfg_label_exact", 1),
+        None,
+        None
+    );
+    super::case::behavior::assert_behavior(&case, &super::super::parsed(case.src, case.language));
 }
 
 #[test]

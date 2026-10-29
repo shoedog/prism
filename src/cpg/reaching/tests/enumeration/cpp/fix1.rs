@@ -10,6 +10,13 @@ const CHAIN: Option<super::super::super::binding_table::Predicate> = Some(
     },
 );
 
+const BASE_SINGLE: Option<super::super::super::binding_table::Predicate> = Some(
+    super::super::super::binding_table::Predicate::FieldChildCountIs {
+        field: "declarator",
+        count: 1,
+    },
+);
+
 macro_rules! exact_case {
     ($id:literal, $src:literal, $from:literal, $to:literal $(,)?) => {
         Case {
@@ -33,7 +40,7 @@ macro_rules! capture_assignment_case {
             language: Language::Cpp,
             kind: "declaration",
             variant: None,
-            row_variant: None,
+            row_variant: BASE_SINGLE,
             class: CaseClass::Behavioral,
             src: $src,
             expect: &[
@@ -227,7 +234,7 @@ const W6_CASES: &[Case] = &[
         language: Language::Cpp,
         kind: "declaration",
         variant: None,
-        row_variant: None,
+        row_variant: BASE_SINGLE,
         class: CaseClass::Behavioral,
         src: "void f() {\n  int x = source();\n  int z = source();\n  auto call = [z, y = (x = clean())] { sink(y); };\n  sink(x);\n}\n",
         expect: &[
@@ -245,7 +252,7 @@ const W6_CASES: &[Case] = &[
         language: Language::Cpp,
         kind: "declaration",
         variant: None,
-        row_variant: None,
+        row_variant: BASE_SINGLE,
         class: CaseClass::Behavioral,
         src: "void f() {\n  int x = source();\n  auto call = [&y = (x = clean())] { sink(y); };\n  sink(x);\n}\n",
         expect: &[
@@ -307,6 +314,95 @@ fn check_all(cases: &[Case]) {
     }
 }
 
+fn park_replay_cases() -> [Case; 4] {
+    const ALIAS_UNSTABLE: FlowConfidence = FlowConfidence::NameOnly(FlowDoubt::AliasUnstable);
+    [
+        Case {
+            id: "cpp-park-plain-int-chain-valid",
+            language: Language::Cpp,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Structural,
+            src: "int source(); void sink(int);\nvoid test() {\n int x=source();\n int a=x,b=0;\n sink(x);\n}\n",
+            expect: &[(
+                "3:x",
+                "5:x",
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }),
+            )],
+            expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+        },
+        Case {
+            id: "cpp-park-direct-mixed-valid",
+            language: Language::Cpp,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Structural,
+            src: "struct T { T(int); };\nvoid sink(T);\nvoid test(int y,int w) {\n T x(y), z{w};\n sink(x);\n sink(z);\n}\n",
+            expect: &[("4:x", "5:x", FlowConfidence::Exact)],
+            expect_counter: Some(("dfg_label_exact", 1)),
+        },
+        Case {
+            id: "cpp-park-nested-lambda-2",
+            language: Language::Cpp,
+            kind: "compound_statement",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Structural,
+            src: "int source(); void sink(int);\nvoid test() {\n int x = source();\n auto g = [h = [x] {\n int a = x;\n sink(x);\n }] { return h; };\n sink(x);\n}\n",
+            expect: &[("6:x", "8:x", ALIAS_UNSTABLE), ("6:sink", "8:sink", ALIAS_UNSTABLE)],
+            expect_counter: Some(("dfg_label_nameonly_alias_unstable", 2)),
+        },
+        Case {
+            id: "cpp-park-single-shadow-direct",
+            language: Language::Cpp,
+            kind: "declaration",
+            variant: None,
+            row_variant: None,
+            class: CaseClass::Structural,
+            src: "struct T { T(int); T(); };\nvoid sink(T); void sink(int (*)(int));\nvoid test(T x, int y, T *p) {\n {\n T x(y);\n sink(x);\n }\n sink(x);\n}\n",
+            expect: &[
+                (
+                    "3:x",
+                    "8:x",
+                    FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
+                ),
+                ("5:x", "8:x", FlowConfidence::Exact),
+            ],
+            expect_counter: Some(("dfg_label_nameonly_killed", 1)),
+        },
+    ]
+}
+
+fn assert_park_replay_case(index: usize) {
+    let case = park_replay_cases()[index];
+    super::super::case::behavior::assert_behavior(
+        &case,
+        &super::super::super::parsed(case.src, case.language),
+    );
+}
+
+#[test]
+fn park_replay_plain_int_chain_matches_base_label() {
+    assert_park_replay_case(0);
+}
+
+#[test]
+fn park_replay_direct_mixed_matches_base_label() {
+    assert_park_replay_case(1);
+}
+
+#[test]
+fn park_replay_nested_lambda_matches_base_labels() {
+    assert_park_replay_case(2);
+}
+
+#[test]
+fn park_replay_single_shadow_matches_base_labels() {
+    assert_park_replay_case(3);
+}
+
 #[test]
 fn astra_r1_w1_pointer_declarations_keep_own_identity() {
     check_all(W1_CASES);
@@ -345,16 +441,18 @@ fn astra_r1_w4_structured_binding_own_reads_fail_closed() {
 }
 
 #[test]
-#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
-fn astra_r1_w5_header_uncertainty_stops_at_its_owner() {
-    for case in W5_CASES {
-        check_case(case);
-    }
+fn astra_r1_w5_structured_range_uncertainty_stops_at_its_owner() {
+    check_all(&W5_CASES[..2]);
 }
 
 #[test]
 #[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
-fn astra_r1_w6_capture_copy_requires_introduced_membership() {
+fn astra_r1_w5_chain_header_uncertainty_stops_at_its_owner() {
+    check_case(&W5_CASES[2]);
+}
+
+#[test]
+fn astra_r1_w6_capture_assignments_preserve_base_labels() {
     check_all(W6_CASES);
 }
 

@@ -2,6 +2,8 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use tree_sitter::Node;
 
+use super::super::binding_table::CHAIN_RECOVERY_ENABLED;
+
 pub(super) fn collect_introduced_identifiers<'a>(
     parsed: &ParsedFile,
     node: Node<'a>,
@@ -106,10 +108,11 @@ pub(in crate::cpg::reaching) fn normalize_cpp_pseudo_defs(
         root: Node<'_>,
         names: Option<&[String]>,
     ) {
-        if parsed
-            .language
-            .callable_boundary_node_types()
-            .contains(&root.kind())
+        if CHAIN_RECOVERY_ENABLED
+            && parsed
+                .language
+                .callable_boundary_node_types()
+                .contains(&root.kind())
         {
             return;
         }
@@ -193,7 +196,10 @@ pub(in crate::cpg::reaching) fn normalize_cpp_pseudo_defs(
                 }
             }
         }
-        if node.kind() == "init_declarator" && belongs_to_declarator_chain(node) {
+        if CHAIN_RECOVERY_ENABLED
+            && node.kind() == "init_declarator"
+            && belongs_to_declarator_chain(node)
+        {
             if let Some(value) = node.child_by_field_name("value") {
                 mark_reads(parsed, defs, value, None);
             }
@@ -240,16 +246,15 @@ pub(super) fn declarator_producer_owns_identifier(
         if current.start_byte() == producer_byte
             && current.start_byte() <= identifier.start_byte()
             && identifier.end_byte() <= current.end_byte()
-            && matches!(
+            && (matches!(
                 current.kind(),
                 "init_declarator"
                     | "array_declarator"
                     | "attributed_declarator"
-                    | "function_declarator"
                     | "parenthesized_declarator"
                     | "pointer_declarator"
                     | "reference_declarator"
-            )
+            ) || (CHAIN_RECOVERY_ENABLED && current.kind() == "function_declarator"))
         {
             return true;
         }
@@ -349,11 +354,15 @@ fn introduced_identifiers<'a>(parsed: &ParsedFile, node: Node<'a>) -> Option<Vec
                 collect(parsed, parameter, &mut identifiers);
             }
         }
+        "function_declarator" if CHAIN_RECOVERY_ENABLED => {
+            if let Some(declarator) = node.child_by_field_name("declarator") {
+                collect(parsed, declarator, &mut identifiers);
+            }
+        }
         "init_declarator"
         | "parameter_declaration"
         | "array_declarator"
         | "attributed_declarator"
-        | "function_declarator"
         | "parenthesized_declarator"
         | "pointer_declarator"
         | "reference_declarator" => {

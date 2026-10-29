@@ -56,6 +56,7 @@ pub(super) fn add_named_synthetic_definitions(
         | "cpp-chain-own-definitions-uncertain"
         | "cpp-multiline-chain-own-definitions-uncertain"
         | "cpp-uncertain-owner-stops-at-block-exit" => (&["x"], 1),
+        "cpp-park-single-shadow-direct" => (&["x"], 3),
         _ => (&[], 1),
     };
     for (index, name) in names.iter().enumerate() {

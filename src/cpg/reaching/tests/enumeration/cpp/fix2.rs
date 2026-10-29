@@ -10,6 +10,13 @@ const CHAIN: Option<super::super::super::binding_table::Predicate> = Some(
     },
 );
 
+const BASE_SINGLE: Option<super::super::super::binding_table::Predicate> = Some(
+    super::super::super::binding_table::Predicate::FieldChildCountIs {
+        field: "declarator",
+        count: 1,
+    },
+);
+
 const F1_CASES: &[Case] = &[
     Case {
         id: "cpp-chain-subsequent-definition-uncertain",
@@ -108,7 +115,7 @@ const F2_CASES: &[Case] = &[
         language: Language::Cpp,
         kind: "declaration",
         variant: None,
-        row_variant: None,
+        row_variant: BASE_SINGLE,
         class: CaseClass::Behavioral,
         src: "void f() {\n  int x = source();\n  auto g = [&x] {\n    { int x = clean();\n      sink(x);\n    }\n  };\n  sink(x);\n}\n",
         expect: &[
@@ -126,7 +133,7 @@ const F2_CASES: &[Case] = &[
         language: Language::Cpp,
         kind: "declaration",
         variant: None,
-        row_variant: None,
+        row_variant: BASE_SINGLE,
         class: CaseClass::Behavioral,
         src: "void f() {\n  int x = source();\n  auto g = [x] {\n    { int x = clean();\n      sink(x);\n    }\n  };\n  sink(x);\n}\n",
         expect: &[
@@ -150,13 +157,17 @@ fn check_all(cases: &[Case]) {
 #[test]
 #[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
 fn astra_r2_f1_uncertainty_covers_subsequent_definitions_in_owner() {
-    for case in F1_CASES {
+    for case in F1_CASES[..2].iter().chain(&F1_CASES[3..]) {
         check_case(case);
     }
 }
 
 #[test]
-#[ignore = "chain recovery parked: DECISIONS §P.1 / #530"]
-fn astra_r2_f2_reference_capture_normalization_excludes_declarations() {
+fn astra_r2_f1_structured_subsequent_definition_preserves_base_label() {
+    check_case(&F1_CASES[2]);
+}
+
+#[test]
+fn astra_r2_f2_capture_shadows_preserve_base_labels() {
     check_all(F2_CASES);
 }
