@@ -40,7 +40,7 @@ class CorpusTests(unittest.TestCase):
         return fetch.load_registry(path)
 
     def test_registry_and_default(self):
-        self.assertEqual(set(fetch.load_registry()), {"T", "X"})
+        self.assertEqual(set(fetch.load_registry()), {"T", "X", "D", "M"})
         self.assertEqual(self.registry({"S": {"asset": "s.tar.gz", "root": "s/src"}})
                          ["S"]["root"], "s/src")
 
