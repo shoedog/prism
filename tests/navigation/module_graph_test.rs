@@ -401,3 +401,78 @@ fn repo_map_emits_whole_repo_file_graph() {
         .iter()
         .any(|w| matches!(w.kind, WarningKind::UnresolvedModule)));
 }
+
+#[test]
+fn repo_map_multi_region_imports_equal_per_file_union() {
+    use std::collections::BTreeSet;
+
+    let s = rust_session(&[
+        ("src/lib.rs", "mod second; mod util; use crate::util::*; use std::collections::BTreeMap; use crate::here as local; pub fn here() {}"),
+        ("src/second.rs", ""),
+        ("src/util.rs", "pub fn helper() {}"),
+        ("other.py", ""),
+    ]);
+    let index = NavigationIndex::build(&s.repo).with_modified_cpg_for_testing(|cpg| {
+        // A reopened scope contributes the same imports to both source files.
+        let graph = cpg.call_graph.scope_graph.as_mut().unwrap();
+        let first = graph.file_paths["src/lib.rs"];
+        let second = graph.file_paths["src/second.rs"];
+        let root = graph
+            .scopes
+            .values_mut()
+            .find(|scope| scope.parent.is_none() && scope.extents.iter().any(|e| e.file == first))
+            .unwrap();
+        let mut extent = root.extents[0].clone();
+        extent.file = second;
+        extent.range.lo.file = second;
+        extent.range.hi.file = second;
+        root.extents.extend([extent.clone(), extent]); // duplicate regions must deduplicate
+    });
+    let s = NavigationSession {
+        repo: Arc::clone(&s.repo),
+        index: Arc::new(index),
+    };
+    let map = repo_map(&s);
+    let payload = map.graph.as_ref().unwrap();
+    let edges: BTreeSet<_> = payload
+        .edges
+        .iter()
+        .map(|edge| {
+            (
+                payload.nodes[edge.from].location.file.clone(),
+                payload.nodes[edge.to].location.file.clone(),
+            )
+        })
+        .collect();
+    let expected = BTreeSet::from([
+        ("src/lib.rs".to_string(), "src/util.rs".to_string()),
+        ("src/second.rs".to_string(), "src/lib.rs".to_string()),
+        ("src/second.rs".to_string(), "src/util.rs".to_string()),
+    ]);
+    assert_eq!(edges, expected);
+    let mut union = BTreeSet::new();
+    for file in s.repo.files.keys() {
+        let deps = module_deps(&s, file);
+        for target in resolved_import_targets(&deps) {
+            union.insert((file.clone(), target));
+        }
+        if file == "src/lib.rs" || file == "src/second.rs" {
+            assert!(has_resolved_import(&deps, "*", "src/util.rs"));
+            assert_eq!(deps.warnings.len(), 1);
+            assert_eq!(deps.warnings[0].kind, WarningKind::UnresolvedModule);
+            assert_eq!(
+                deps.warnings[0].message,
+                "1 module import(s) not filesystem-resolved (v1)"
+            );
+        } else {
+            assert!(deps.warnings.is_empty());
+        }
+    }
+    assert_eq!(edges, union);
+    assert_eq!(map.warnings.len(), 1);
+    assert_eq!(map.warnings[0].kind, WarningKind::UnresolvedModule);
+    assert_eq!(
+        map.warnings[0].message,
+        "1 module import(s) not filesystem-resolved (v1)"
+    );
+}

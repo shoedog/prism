@@ -4,6 +4,7 @@ pub mod call_resolve;
 pub mod code_context;
 pub mod inventory;
 pub mod module_graph;
+mod module_imports;
 mod module_owner;
 pub mod onboarding;
 #[cfg(test)]
@@ -247,11 +248,14 @@ impl NavigationIndex {
     }
 
     /// Test-only escape hatch for call graph/scope graph mutations. This resets
-    /// the lazy call-edge index; it must not be used to mutate CPG function nodes
+    /// the lazy call-edge and scope-graph lookup indexes; it must not mutate CPG function nodes
     /// because `line_range_index` and `name_index` would need rebuilding too.
     #[doc(hidden)]
     pub fn with_modified_cpg_for_testing(mut self, f: impl FnOnce(&mut CodePropertyGraph)) -> Self {
         f(&mut self.cpg);
+        if let Some(graph) = self.cpg.call_graph.scope_graph.as_mut() {
+            graph.invalidate_lookup_indexes();
+        }
         self.resolved_call_edges = OnceLock::new();
         self.call_edges_loaded = OnceLock::new();
         self.call_edge_cache_store = None;

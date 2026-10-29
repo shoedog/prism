@@ -9,8 +9,8 @@ use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::rust_policy::{RustPolicy, EK_GLOB, NS_TYPE, NS_VALUE};
 use crate::name_resolution::rust_populator::enclosing_scope;
 use crate::name_resolution::types::{
-    Anchor, AnchorKind, BindTarget, Binding, Candidate, Edge, FileId, NamespaceId, RawPath,
-    ResStatus, ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Span, Target, TraversalCtx,
+    Anchor, AnchorKind, BindTarget, Binding, Candidate, FileId, NamespaceId, RawPath, ResStatus,
+    ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Span, Target, TraversalCtx,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -3933,9 +3933,8 @@ fn leading_segment_binds_directly(
     };
 
     let rib: Vec<&Binding> = graph
-        .bindings
-        .iter()
-        .filter(|b| b.scope == start && b.name == leading && b.ns == NS_TYPE)
+        .binding_indices(start, leading, NS_TYPE)
+        .map(|i| &graph.bindings[i])
         .collect();
     if rib.is_empty() {
         return false;
@@ -4030,26 +4029,24 @@ fn leading_segment_has_block_local_shadow(
 ) -> bool {
     let at = SourceLoc { file, byte };
     for scope in scope_chain_below_module(graph, from) {
-        let exact_binding = graph.bindings.iter().any(|b| {
-            b.scope == scope && b.name == leading && b.ns == NS_TYPE && binding_vis_covers(b, &at)
-        });
+        let exact_binding = graph
+            .binding_indices(scope, leading, NS_TYPE)
+            .any(|i| binding_vis_covers(&graph.bindings[i], &at));
         if exact_binding {
             return true;
         }
 
-        let glob_shadow = graph.edges.iter().any(|e: &Edge| {
-            e.from == scope
-                && e.kind == EK_GLOB
-                && e.vis_range.as_ref().is_some_and(|s| span_covers(s, &at))
+        let glob_shadow = graph.edge_indices(scope).any(|i| {
+            let e = &graph.edges[i];
+            e.kind == EK_GLOB && e.vis_range.as_ref().is_some_and(|s| span_covers(s, &at))
         });
         if glob_shadow {
             return true;
         }
 
         let macro_shadow = graph
-            .macro_wildcards
-            .iter()
-            .any(|m| m.scope == scope && m.ns == NS_TYPE && span_covers(&m.range, &at));
+            .macro_wildcard_indices(scope, NS_TYPE)
+            .any(|i| span_covers(&graph.macro_wildcards[i].range, &at));
         if macro_shadow {
             return true;
         }

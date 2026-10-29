@@ -541,8 +541,9 @@ fn glob_lookup_inner(
     let glob_kinds = policy.edge_order();
     let mut candidates: Vec<Candidate> = Vec::new();
     let mut saw_glob = false;
-    for (edge_idx, e) in graph.edges.iter().enumerate() {
-        if e.from != scope_id || !glob_kinds.contains(&e.kind) {
+    for edge_idx in graph.edge_indices(scope_id) {
+        let e = &graph.edges[edge_idx];
+        if !glob_kinds.contains(&e.kind) {
             continue;
         }
         if e.vis_range
@@ -863,12 +864,8 @@ fn scope_member_lookup_probed(
     // (the wildcard is glob-tier — §4.3b Reading B), so it is checked AFTER this
     // rib, not before.
     let rib: Vec<usize> = graph
-        .bindings
-        .iter()
-        .enumerate()
-        .filter(|(_, b)| b.scope == scope && b.name == q.name && b.ns == q.ns)
-        .filter(|(_, b)| cfg_compatible(&b.cond))
-        .map(|(i, _)| i)
+        .binding_indices(scope, &q.name, q.ns)
+        .filter(|&i| cfg_compatible(&graph.bindings[i].cond))
         .collect();
     if !rib.is_empty() {
         return resolve_rib_probed(graph, &rib, q, policy, guard);
@@ -899,13 +896,9 @@ fn self_rib_bindings(
     at: &SourceLoc,
 ) -> Vec<usize> {
     graph
-        .bindings
-        .iter()
-        .enumerate()
-        .filter(|(_, b)| b.scope == scope && b.name == name && b.ns == ns)
-        .filter(|(_, b)| vis_extent_covers(b, at))
-        .filter(|(_, b)| cfg_compatible(&b.cond))
-        .map(|(i, _)| i)
+        .binding_indices(scope, name, ns)
+        .filter(|&i| vis_extent_covers(&graph.bindings[i], at))
+        .filter(|&i| cfg_compatible(&graph.bindings[i].cond))
         .collect()
 }
 
@@ -917,13 +910,7 @@ fn glob_member_bindings(
     name: &str,
     ns: NamespaceId,
 ) -> Vec<usize> {
-    graph
-        .bindings
-        .iter()
-        .enumerate()
-        .filter(|(_, b)| b.scope == scope && b.name == name && b.ns == ns)
-        .map(|(i, _)| i)
-        .collect()
+    graph.binding_indices(scope, name, ns).collect()
 }
 
 /// Does any unexpanded-macro wildcard in `scope` for `ns` cover `at.byte`?
@@ -934,9 +921,8 @@ fn macro_wildcard_poisons(
     at: &SourceLoc,
 ) -> bool {
     graph
-        .macro_wildcards
-        .iter()
-        .any(|m| m.scope == scope && m.ns == ns && span_covers(&m.range, at))
+        .macro_wildcard_indices(scope, ns)
+        .any(|i| span_covers(&graph.macro_wildcards[i].range, at))
 }
 
 // ── small predicates / combinators ────────────────────────────────────────────
