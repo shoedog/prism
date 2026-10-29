@@ -137,3 +137,85 @@ The npm tarball has **no `.ts`/`.tsx` source**: only built `.js` bundles plus `.
 declarations. It cannot stand in for the excalidraw source corpus.
 
 VERDICT: WORKS (download only; content is built `.js` + `.d.ts`, no `.ts`/`.tsx` source)
+
+## P4: VM and timing noise
+
+### VM facts
+
+```console
+$ nproc; free -g; df -h /; cat /proc/cpuinfo | grep -m1 'model name'; cat /proc/loadavg
+4
+               total        used        free      shared  buff/cache   available
+Mem:              15           0          14           0           0          15
+Swap:              0           0           0
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G  8.7G   30G  23% /
+model name	: Intel(R) Xeon(R) Processor @ 2.80GHz
+0.55 0.14 0.04 1/106 734
+```
+
+VERDICT: WORKS
+
+### vmstat (06:22:16–06:23:11 UTC)
+
+```console
+$ vmstat 5 12
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 0  0      0 15601632  22708 599660    0    0  2164  1058  502    1  2  2 96  0  0  0
+ 0  0      0 15607808  22708 599860    0    0     0     2  153  157  0  0 100  0  0  0
+ 0  0      0 15610376  22708 599864    0    0     1  2136  156  149  0  0 100  0  0  0
+ 0  0      0 15610752  22708 599864    0    0     0     0  126  110  0  0 100  0  0  0
+ 1  0      0 15610876  22708 599864    0    0     0     0  113  104  0  0 100  0  0  0
+ 1  0      0 15612456  22708 599864    0    0     0     0  102   86  0  0 100  0  0  0
+ 0  0      0 15612516  22708 599864    0    0     0    14  139  128  0  0 100  0  0  0
+ 0  0      0 15612516  22708 599864    0    0     0     1  150  165  0  0 100  0  0  0
+ 0  0      0 15613564  22708 599864    0    0     0     9  115  103  0  0 100  0  0  0
+ 0  0      0 15613564  22708 599864    0    0     0     0  128  108  0  0 100  0  0  0
+ 0  0      0 15613312  22708 599864    0    0     0     0  121  109  0  0 100  0  0  0
+ 0  0      0 15613312  22708 599864    0    0     0     0  108   98  0  0 100  0  0  0
+```
+
+`st` (steal) range: **0–0** across all 12 samples (the host was idle, so this does not show steal
+under load).
+
+VERDICT: WORKS
+
+### Timing loop, run 1 (as written)
+
+```console
+$ for i in $(seq 1 10); do /usr/bin/time -f "%e s" python3 -c "s=0
+for i in range(30_000_000): s+=i" ; done 2>&1
+/bin/bash: line 8: /usr/bin/time: No such file or directory
+(the same line 10 times)
+$ ls -la /usr/bin/time
+ls: cannot access '/usr/bin/time': No such file or directory
+```
+
+VERDICT: BLOCKED (/bin/bash: /usr/bin/time: No such file or directory)
+
+### Timing loop, run 1 — substitute (bash `time` keyword, 06:23:17–06:23:45 UTC)
+
+Not the PROBE.md command: same workload and loop, timed by bash's `time` keyword with
+`TIMEFORMAT='%R s'` (wall-clock seconds, same quantity as `%e`). Nothing was installed.
+
+```console
+$ TIMEFORMAT='%R s'; for i in $(seq 1 10); do time python3 -c "s=0
+for i in range(30_000_000): s+=i" ; done 2>&1
+2.517 s
+2.829 s
+2.924 s
+2.602 s
+2.635 s
+2.802 s
+2.577 s
+2.744 s
+2.498 s
+2.935 s
+$ cat /proc/loadavg
+0.52 0.19 0.07 1/105 778
+```
+
+min 2.498 s, max 2.935 s, median 2.6895 s → spread (max−min)/median = 0.437/2.6895 = **16.2%**.
+
+VERDICT: WORKS (substitute timer only)
