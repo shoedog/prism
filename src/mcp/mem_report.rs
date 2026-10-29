@@ -227,8 +227,8 @@ struct Report {
     build: BuildSection,
     platform: PlatformSection,
     config: ConfigSection,
-    /// Every `PRISM_*` variable set in this process, sorted by name, except the one that selects
-    /// this mode: settings that can change what is measured.
+    /// `MallocSpaceEfficient` and every `PRISM_*` variable set in this process, sorted by name,
+    /// except the report-mode switch: settings that can change what is measured.
     env: BTreeMap<String, String>,
     cache: CacheSection,
     /// Worker count of the rayon pool that parses and builds the index (`RAYON_NUM_THREADS` and the
@@ -282,13 +282,14 @@ fn env_section() -> BTreeMap<String, String> {
     prism_settings(std::env::vars_os())
 }
 
-/// The `PRISM_*` entries of an environment, minus the variable that selects report mode.
+/// Allocator mode and `PRISM_*` entries, minus the variable that selects report mode.
 fn prism_settings(
     vars: impl Iterator<Item = (std::ffi::OsString, std::ffi::OsString)>,
 ) -> BTreeMap<String, String> {
     vars.filter_map(|(name, value)| {
         let name = name.to_string_lossy().into_owned();
-        (name.starts_with("PRISM_") && name != "PRISM_MCP_MEM_REPORT")
+        ((name.starts_with("PRISM_") && name != "PRISM_MCP_MEM_REPORT")
+            || name == "MallocSpaceEfficient")
             .then(|| (name, value.to_string_lossy().into_owned()))
     })
     .collect()

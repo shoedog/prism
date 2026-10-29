@@ -1,3 +1,7 @@
+#[cfg(any(target_os = "macos", test))]
+#[path = "prism-mcp/malloc.rs"]
+mod malloc;
+
 #[derive(clap::Parser)]
 struct Cli {
     #[command(flatten)]
@@ -221,6 +225,9 @@ fn shutdown_main() -> i32 {
 }
 
 fn main() -> anyhow::Result<()> {
+    #[cfg(target_os = "macos")]
+    malloc::restart_if_needed();
+
     let first = std::env::args_os().nth(1);
     if first.as_ref().is_some_and(|first| first == "daemon") {
         return daemon_main();

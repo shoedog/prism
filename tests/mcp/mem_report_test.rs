@@ -74,6 +74,23 @@ fn report_mode_prints_one_report_and_does_not_serve() {
 }
 
 #[test]
+fn report_records_allocator_mode_in_the_measured_environment() {
+    let repo = repo();
+    for setting in [None, Some("0"), Some("1"), Some("")] {
+        let mut command = report_command(&repo);
+        command
+            .env_remove("MallocSpaceEfficient")
+            .env("PRISM_MCP_MALLOC_SPACE_EFFICIENT", "0");
+        if let Some(value) = setting {
+            command.env("MallocSpaceEfficient", value);
+        }
+        let output = command.assert().success().get_output().clone();
+        let report = report_line(&output.stderr);
+        assert_eq!(report["env"]["MallocSpaceEfficient"].as_str(), setting);
+    }
+}
+
+#[test]
 fn a_generated_workload_feeds_a_workload_and_refresh_run() {
     let repo = repo();
     let emitted = report_command(&repo)

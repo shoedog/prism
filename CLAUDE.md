@@ -348,6 +348,8 @@ also suppresses `p.x`) all count. `p[k]` counts as a bare read; `this.x`, destru
 cargo run --bin prism-mcp --features mcp -- --repo /path/to/repo
 ```
 
+On macOS it re-execs before dispatch with `MallocSpaceEfficient=1` unless the caller already set it or `PRISM_MCP_MALLOC_SPACE_EFFICIENT=0` opts out; see the environment table in `docs/MCP.md`.
+
 Startup modes: by default the repository index is built on the first valid `tools/call`
 (`initialize`, `ping`, and `tools/list` never start it, so a client that only handshakes costs
 a few MB); `--warm-at-startup` starts the background build at process start; `--eager` builds

@@ -168,10 +168,11 @@ impl serving_events::Context {
         self.emit(&serving_events::bounded(
             &format!(
                 concat!(
-                    "{} event=startup reason={} attempt=0 generation=0 configured_idle_secs={:.3} ",
+                    "{} event=startup malloc_space_efficient={} reason={} attempt=0 generation=0 configured_idle_secs={:.3} ",
                     "observed_idle_secs=not_applicable duration_ns=not_applicable {} released_bytes=0 mono_ms=0",
                 ),
                 fields,
+                serving_events::malloc_space_efficient(),
                 reason,
                 self.timeout.as_secs_f64(),
                 details,

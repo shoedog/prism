@@ -215,11 +215,21 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span` 
 
 | Variable | Default | Meaning |
 |---|---|---|
+| `PRISM_MCP_MALLOC_SPACE_EFFICIENT` | `1` on macOS | On macOS, when `MallocSpaceEfficient` is absent, this variable being unset, empty or `1` re-execs `prism-mcp` with `MallocSpaceEfficient=1` before subcommand dispatch or threads start. `0` opts out; any other value warns once and keeps the default allocator settings. A caller's `MallocSpaceEfficient` always wins, even when empty. No allocator policy change on other operating systems. |
 | `PRISM_MCP_MAX_RESULT_CHARS` | `80000` | Wire byte cap per tool result (floor `12000`). |
 | `PRISM_MCP_STRUCTURED_CONTENT` | `omit-default-path` | `omit-default-path` (the default) drops `structuredContent` from the wire on the default (`canonical_json`) path — `content[0].text` already carries the identical JSON, so nothing is lost, only a redundant second copy (~31% of the result). Agent views (`format: agent_markdown` / `agent_json`) always keep `structuredContent`; it is their only canonical-Evidence carrier once `content_text` has been rewritten into prose. `always` opts back into repeating canonical Evidence in both `content[0].text` and `structuredContent` (the pre-2026-07-03 shape) for clients that read only `structuredContent`. |
 | `PRISM_MCP_CONCISE_SHAPE` | `slim` | Shape of items in `Verbosity::Concise` results (Concise is the MCP default when a tool call omits `verbosity`). `slim` (the default) drops each item's `symbol` byte-offset/`ordinal` fields, drops the separate `location` field when it duplicates the symbol's file/line span, and omits `snippet` when null (instead of serializing `"snippet": null`). `Verbosity::Detailed` and agent views are never affected. `legacy` opts back into the pre-2026-07-03 item shape, byte-identical to historical output. |
 | `PRISM_MCP_RUNTIME_DIR` | the user runtime or temporary directory | Base of the shared daemon's runtime directory (`<base>/prism-mcpd`). Every launcher that should share a daemon must resolve the same one. |
 | `PRISM_MCP_SHARED` | unset | Read by the plugin's launcher (`scripts/prism-mcp-launch.sh`), not by `prism-mcp`: `1` adds `--shared`; unset, empty or `0` adds nothing; any other value stops the launcher. |
+
+On macOS this allocator policy lets unload return freed memory and reduces loaded footprint;
+one measurement found index loading about 10% slower (n=1). Re-exec preserves the PID, arguments
+and stdio; the restarted process has the caller's environment plus `MallocSpaceEfficient=1`.
+Child processes inherit this setting, including a shared daemon started by the shim. A shared
+daemon keeps the allocator mode of its first spawner, like its idle policy; later clients do not
+change it. If restart fails, one stderr warning is attempted and startup continues.
+Serving startup events report `malloc_space_efficient=1`, `0`, `unset` or `other` from the current
+process environment.
 
 The `slim` transform only touches `items`; it never reaches graph-carried results —
 `nav_ego_graph` / `nav_repo_map` payloads live under `graph`, untouched by design.
