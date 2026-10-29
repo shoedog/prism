@@ -66,7 +66,7 @@ prism-mcp --repo /abs/path/to/repo --eager < /dev/null               # build syn
 | `--no-cache` | no | Don't read/write the nav cache (rebuild from source whenever an index build runs). Conflicts with `--cache-dir`. |
 | `--eager` | no | Build the repository index before answering `initialize`, preserving the historical synchronous startup. Use for explicit pre-warming; normally leave it off. |
 | `--warm-at-startup` | no | Start the background index build when the process starts instead of on the first valid `tools/call`. Trades memory for a warm first call; the index stays loaded until 600 tool-idle seconds pass, then unloads; the next tool call reloads it (see `--index-idle-secs`). Conflicts with `--eager`. |
-| `--index-idle-secs <SECS>` | no | Unload the index after tool-idle seconds (default `600`); the next tool call reloads it. `0` keeps it resident. Flag overrides `PRISM_MCP_INDEX_IDLE_SECS`, then the default. Disabled in Eager/owner modes. |
+| `--index-idle-secs <SECS>` | no | Unload the index after tool-idle seconds (default `600`); the next tool call reloads it. `0` keeps it resident. Flag overrides `PRISM_MCP_INDEX_IDLE_SECS`, then the default. Eager/owner modes keep it off and reject a nonzero flag. |
 | `--first-call-wait <SECS>` | no | Maximum wait for the first valid `tools/call` while the background build finishes (default `20`, range `0`–`600`). `0` returns a warming result immediately. Accepted but ignored with `--eager`. |
 | `--shared` | no | Serve through the shared per-repository daemon (a shim of a few MB) instead of an index of this process's own; opt-in. See [Shared daemon](#shared-daemon---shared-opt-in-macos-and-linux). |
 | `--standalone` | no | An index of this process's own (the default). |

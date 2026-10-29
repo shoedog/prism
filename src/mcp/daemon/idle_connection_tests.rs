@@ -18,7 +18,7 @@ fn daemon_idle_off_drain_serves_resident() {
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
     let (builder, builds) = scripted(&cfg, vec![]);
     let clock = ManualClock::new();
-    let state = state_with(builder, &clock); // production default: unloading disabled
+    let state = state_with(builder, &clock); // this helper builds with unloading disabled
     let (mut client, worker) = connect(&state, client_settings(600));
     client.handshake();
     let before = client.request(CALLEES);

@@ -15,7 +15,7 @@ fn successful_build_during_drain(publication_first: bool) {
     let build_gate = Gate::closed();
     let (builder, builds) = scripted(&cfg, vec![build_after(&build_gate, &cfg)]);
     let clock = ManualClock::new();
-    let mut parts = parts_with(builder, &clock); // production default: unloading disabled
+    let mut parts = parts_with(builder, &clock); // this helper builds with unloading disabled
     let published = Gate::closed();
     let settle_gate = Gate::closed();
     if publication_first {
