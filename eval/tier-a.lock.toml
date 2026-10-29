@@ -1,23 +1,23 @@
 [prism]
 sha_aliases = [
-    "f7d90615b29b101fc2e06edf20e4a167d18551f8",
+    "8651b57803cf2f28fc00c70b86ef939dd761d168",
 ]
-harness_sha = "f5fe5b2726cc35ee660f44542c6fb4bb4df7bf8d"
+harness_sha = "8651b57803cf2f28fc00c70b86ef939dd761d168"
 
 [prism.closure]
 digest = "sha256:082f0265186c54aa5d1bc73aa43fbfec10940df736613810f1f6d75bfbf07b69"
 manifest = "eval/closure/prism-corpus-082f0265186c.tsv"
 
 [prism.policy]
-digest = "sha256:c50c405d7742eabecd3bccb4c087125d317fc2a014acd1aa618872f51408e6f2"
-manifest = "eval/closure/policy-c50c405d7742.json"
+digest = "sha256:aba4cb86c0e11f9642f72651f69df403653c2c18bf730580d8cccbe43a3938f1"
+manifest = "eval/closure/policy-aba4cb86c0e1.json"
 
 [prism.population]
-digest = "sha256:4a3b3a24d0b6547cd390b03af1af0487b3a6cb6dfd138539d82ff1e2e954ce56"
-manifest = "eval/closure/prism-population-4a3b3a24d0b6.json"
+digest = "sha256:1588c41ab72777809b56b7bca949b4f03b368b7114eb1d382d0cd4b2ad2daa39"
+manifest = "eval/closure/prism-population-1588c41ab727.json"
 
 [prism.snapshot]
-path = "eval/snapshots/prism-f7d90615b29b.json"
+path = "eval/snapshots/prism-8651b57803cf.json"
 digest = "sha256:722ec0b4554d26e420662cc82310c2ecb76af7da3c9a86e2a569cdd58d632180"
 
 [prism.sample]
@@ -39,10 +39,10 @@ version = "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)"
 features = "all"
 
 [prism.sut]
-sha = "f7d90615b29b101fc2e06edf20e4a167d18551f8"
-digest = "sha256:195c062da8a21f5c6c63093db9247319ba09366b341b20efd6aaee7b974cc5ab"
-inputs = "eval/closure/sut-inputs-b5a82905061a.tsv"
-archive = "/Users/wesleyjinks/Library/Caches/prism/tier-a/sut/195c062da8a21f5c6c63093db9247319ba09366b341b20efd6aaee7b974cc5ab/prism"
+sha = "8651b57803cf2f28fc00c70b86ef939dd761d168"
+digest = "sha256:9822f6fb1601509bb78f40db24604da8a77f8a4f659c64fa71e45f0f5e152c8a"
+inputs = "eval/closure/sut-inputs-4ccbe2c658a0.tsv"
+archive = "/Users/wesleyjinks/Library/Caches/prism/tier-a/sut/9822f6fb1601509bb78f40db24604da8a77f8a4f659c64fa71e45f0f5e152c8a/prism"
 
 [prism.runtime]
 python = "3.12.13"
@@ -55,7 +55,7 @@ cargo_config = "absent"
 
 [prism.data]
 fixtures = "sha256:c6c749ac4c6d06341fca0580d764fa30fcf1955bbeee707087b869d3a0b73245"
-pinned_probes = "sha256:0b59b81a3ae442986ff8eda7213851cd9783a949eef4f84c4756d86c754834bc"
+pinned_probes = "sha256:ddac64f09034b4b646732c248ae6ea606800e7cb0df2bc132b94cfa28f450699"
 
 [prism.data.adjudications]
 path = "eval/adjudications.jsonl"
@@ -81,10 +81,10 @@ TMPDIR = "/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/"
 LANG = "C.UTF-8"
 
 [prism.baseline_report]
-path = "docs/eval/tier-a/2026-10-24-prism.json"
-digest = "sha256:52fbf4087965b16ec029efc737f29c23617417fd834a3783caea8af1e9d0bdad"
+path = "docs/eval/tier-a/2026-10-28-prism-8651b57803cf2f28fc00c70b86ef939dd761d168-8651b57803cf2f28fc00c70b86ef939dd761d168.json"
+digest = "sha256:29d57e4ded24ee7a602581696ca04ab5e75e5b9cec3896e91f6c49c9f6a4b0bf"
 
 [prism.blessed]
 by = "bootstrap"
-at = "2026-10-24"
-sut_sha = "f7d90615b29b101fc2e06edf20e4a167d18551f8"
+at = "2026-10-28"
+sut_sha = "8651b57803cf2f28fc00c70b86ef939dd761d168"

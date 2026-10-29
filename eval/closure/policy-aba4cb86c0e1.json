@@ -259,9 +259,9 @@
   },
   "modules": {
     "tier_a/accounting.py": "sha256:b8e4dc382a5aae3914e4099dc10268275349f911d042028d0fe216cbff8089f3",
-    "tier_a/cli.py": "sha256:eec366c125d9c011276689b74d5ab31482d16344524c48b8d86f421e168ba729",
+    "tier_a/cli.py": "sha256:50a0fa775d07675e6643cc70426acedbbce24fd841e9cfaa659aa23b010ba2c0",
     "tier_a/corpus.py": "sha256:01b4c5e038c62924a8ee9ab908ca5b115233fa2d3971541c4e17e5c11dbea350",
-    "tier_a/pinned.py": "sha256:0b59b81a3ae442986ff8eda7213851cd9783a949eef4f84c4756d86c754834bc",
+    "tier_a/pinned.py": "sha256:ddac64f09034b4b646732c248ae6ea606800e7cb0df2bc132b94cfa28f450699",
     "tier_a/spotcheck.py": "sha256:a103c10eecb197cd0b621646f9136cd05ac472d8ff6fd79793126f08e08b8581",
     "tier_a/strata.py": "sha256:e7eaad2b981cfacc02817430a1be7f3211980eaff809221344494c11f80f620e"
   },

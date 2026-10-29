@@ -1049,6 +1049,7 @@
    "got_kinds": {
     "main.rs:12": "return_typed"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/chain_in_repo_exact",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1072,6 +1073,7 @@
    "got_kinds": {
     "main.rs:4": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/closure_call",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1095,6 +1097,7 @@
    "got_kinds": {
     "main.rs:5": "stem_single"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/common_name_collision",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1118,6 +1121,7 @@
    "got_kinds": {
     "main.rs:9": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/crate_glob_caller",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1141,6 +1145,7 @@
    "got_kinds": {
     "main.rs:5": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/cross_module_no_collision",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1202,6 +1207,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/dfg_reaching_alias_conservative",
    "language": "rust",
    "outcome": "ok",
    "probe": "dfg"
@@ -1256,6 +1262,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/dfg_reaching_capture_timing",
    "language": "rust",
    "outcome": "ok",
    "probe": "dfg"
@@ -1310,6 +1317,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/dfg_reaching_cfg_branch_arm_negative",
    "language": "rust",
    "outcome": "ok",
    "probe": "dfg"
@@ -1363,6 +1371,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/dfg_reaching_killed_def",
    "language": "rust",
    "outcome": "ok",
    "probe": "dfg"
@@ -1409,6 +1418,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/dfg_reaching_loop_carried",
    "language": "rust",
    "outcome": "ok",
    "probe": "dfg"
@@ -1470,6 +1480,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/dfg_reaching_loop_carried_negative",
    "language": "rust",
    "outcome": "ok",
    "probe": "dfg"
@@ -1523,6 +1534,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/dfg_reaching_rust_let_shadow",
    "language": "rust",
    "outcome": "ok",
    "probe": "dfg"
@@ -1574,6 +1586,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/dfg_reaching_shadowed_inner",
    "language": "rust",
    "outcome": "ok",
    "probe": "dfg"
@@ -1655,6 +1668,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/dfg_reaching_shadowed_inner_negative",
    "language": "rust",
    "outcome": "ok",
    "probe": "dfg"
@@ -1678,6 +1692,7 @@
    "got_kinds": {
     "main.rs:10": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/extension_trait_method",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1689,6 +1704,7 @@
    "forbid_resolution_kind": null,
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/external_chain_unchanged",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1712,6 +1728,7 @@
    "got_kinds": {
     "main.rs:12": "field_typed"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/field_receiver_method",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1735,6 +1752,7 @@
    "got_kinds": {
     "main.rs:13": "field_typed"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/field_typed_recovery",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1758,6 +1776,7 @@
    "got_kinds": {
     "main.rs:4": "free_single"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/free_fn_cross_file_use",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1781,6 +1800,7 @@
    "got_kinds": {
     "main.rs:4": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/free_fn_same_file",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1804,6 +1824,7 @@
    "got_kinds": {
     "main.rs:8": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/inherent_method_same_file",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1815,6 +1836,7 @@
    "forbid_resolution_kind": null,
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/inrepo_then_external_unchanged",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1838,6 +1860,7 @@
    "got_kinds": {
     "main.rs:6": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/macro_arg_call",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1849,6 +1872,7 @@
    "forbid_resolution_kind": null,
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/macro_arg_ctor_guard",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1881,6 +1905,7 @@
     "main.rs:7": "local_def",
     "main.rs:8": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/macro_arg_nested",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1892,6 +1917,7 @@
    "forbid_resolution_kind": null,
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/macro_arg_nontransparent_guard",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1915,6 +1941,7 @@
    "got_kinds": {
     "main.rs:2": "stem_single"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/macro_arg_qualified",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1938,6 +1965,7 @@
    "got_kinds": {
     "main.rs:4": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/method_cross_file_type_ne_stem",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1961,6 +1989,7 @@
    "got_kinds": {
     "main.rs:4": "stem_single"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/mod_qualified_free_fn",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -1972,6 +2001,7 @@
    "forbid_resolution_kind": null,
    "got": "util.rs",
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/module_edges_basic",
    "language": "rust",
    "outcome": "ok",
    "probe": "module_deps"
@@ -1995,6 +2025,7 @@
    "got_kinds": {
     "main.rs:11": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/nested_test_module_glob_gap",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -2018,6 +2049,7 @@
    "got_kinds": {
     "m.rs:2": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/p6_typed_param_recovery",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -2029,6 +2061,7 @@
    "forbid_resolution_kind": null,
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/r6_multi_owner_drop",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -2052,6 +2085,7 @@
    "got_kinds": {
     "m.rs:3": "r6_single_owner"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/r6_single_owner_demote",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -2075,6 +2109,7 @@
    "got_kinds": {
     "main.rs:4": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/receiver_method_cross_file_stem_eq",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -2098,6 +2133,7 @@
    "got_kinds": {
     "main.rs:13": "return_typed"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/return_typed_recovery",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -2121,6 +2157,7 @@
    "got_kinds": {
     "main.rs:10": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/super_super_glob_caller",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -2144,6 +2181,7 @@
    "got_kinds": {
     "main.rs:12": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/trait_dyn_dispatch",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -2167,6 +2205,7 @@
    "got_kinds": {
     "main.rs:12": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/trait_static_dispatch",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -2190,6 +2229,7 @@
    "got_kinds": {
     "main.rs:4": "qualified_owner"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/rust/type_method_qualified",
    "language": "rust",
    "outcome": "ok",
    "probe": "callers"
@@ -2213,6 +2253,7 @@
    "got_kinds": {
     "use_linux.go:3": "same_package"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/build_suffix_partition",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -2236,6 +2277,7 @@
    "got_kinds": {
     "main.go:6": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/closure",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -2259,6 +2301,7 @@
    "got_kinds": {
     "main.go:6": "import_qualified"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/common_name_collision",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -2282,6 +2325,7 @@
    "got_kinds": {
     "main.go:6": "import_qualified"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/cross_pkg_qualified",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -2364,6 +2408,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_alias_conservative",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -2516,6 +2561,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_alias_unstable",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -2577,6 +2623,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_call_nameonly_named_param",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -2638,6 +2685,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_capture_timing",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -2699,6 +2747,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_cfg_go_defer_negative",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -2759,6 +2808,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_defer_argument_now",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -2820,6 +2870,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_defer_argument_now_negative",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -2941,6 +2992,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_go_short_var_if",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -2987,6 +3039,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_interproc_exact",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -3019,6 +3072,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_interproc_nameonly",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -3086,6 +3140,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_killed_def",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -3146,6 +3201,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_loop_carried",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -3221,6 +3277,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_loop_carried_negative",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -3300,6 +3357,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_shadowed_inner",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -3423,6 +3481,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/dfg_reaching_shadowed_inner_negative",
    "language": "go",
    "outcome": "ok",
    "probe": "dfg"
@@ -3446,6 +3505,7 @@
    "got_kinds": {
     "main.go:16": "interface_dispatch"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/embedded_interface_struct",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3469,6 +3529,7 @@
    "got_kinds": {
     "main.go:12": "embedded_promotion"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/embedded_method",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3480,6 +3541,7 @@
    "forbid_resolution_kind": null,
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/field_typed_depth_guard",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3503,6 +3565,7 @@
    "got_kinds": {
     "main.go:12": "field_typed"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/field_typed_recovery",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3526,6 +3589,7 @@
    "got_kinds": {
     "main.go:12": "callback_registration"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/func_value_fanout",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3554,6 +3618,7 @@
     "main.go:10": "callback_registration",
     "main.go:14": "func_value_field"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/func_value_invocation",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3577,6 +3642,7 @@
    "got_kinds": {
     "main.go:10": "callback_registration"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/func_value_registration",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3600,6 +3666,7 @@
    "got_kinds": {
     "use_fast.go:5": "same_package"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/gobuild_expr_partition",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3623,6 +3690,7 @@
    "got_kinds": {
     "main.go:6": "import_qualified"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/import_package_path",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3646,6 +3714,7 @@
    "got_kinds": {
     "main.go:12": "interface_dispatch"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/interface_dispatch",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3669,6 +3738,7 @@
    "got_kinds": {
     "main.go:14": "interface_dispatch"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/interface_dispatch_assert",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3692,6 +3762,7 @@
    "got_kinds": {
     "main.go:15": "interface_dispatch"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/interface_dispatch_var",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3715,6 +3786,7 @@
    "got_kinds": {
     "main.go:14": "interface_dispatch"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/package_var_receiver",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3738,6 +3810,7 @@
    "got_kinds": {
     "global_test.go:3": "same_package"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/pkg_clause_partition",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3749,6 +3822,7 @@
    "forbid_resolution_kind": null,
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/return_typed_multi_return_guard",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3772,6 +3846,7 @@
    "got_kinds": {
     "main.go:13": "return_typed"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/return_typed_recovery",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3795,6 +3870,7 @@
    "got_kinds": {
     "main.go:6": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/same_pkg_free_fn",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3818,6 +3894,7 @@
    "got_kinds": {
     "main.go:4": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/struct_method_cross_file",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3841,6 +3918,7 @@
    "got_kinds": {
     "main.go:8": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/go/struct_method_same_file",
    "language": "go",
    "outcome": "ok",
    "probe": "callers"
@@ -3864,6 +3942,7 @@
    "got_kinds": {
     "app.py:6": "r6_single_owner"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/class_method_same_file",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -3887,6 +3966,7 @@
    "got_kinds": {
     "app.py:6": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/closure",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -3910,6 +3990,7 @@
    "got_kinds": {
     "app.py:4": "import_qualified"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/common_name_collision",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -3933,6 +4014,7 @@
    "got_kinds": {
     "app.py:8": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/decorator_wrapped",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -3994,6 +4076,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_alias_conservative",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4111,6 +4194,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_alias_unstable",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4165,6 +4249,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_capture_timing",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4219,6 +4304,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_cfg_branch_arm_negative",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4245,6 +4331,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_cfg_gap",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4292,6 +4379,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_cfg_try_header_negative",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4331,6 +4419,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_interproc_exact",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4371,6 +4460,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_interproc_nameonly",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4424,6 +4514,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_killed_def",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4488,6 +4579,7 @@
     }
    },
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_loop_carried",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4549,6 +4641,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_loop_carried_negative",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4574,6 +4667,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_nonlocal_global",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4607,6 +4701,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/dfg_reaching_same_line",
    "language": "python",
    "outcome": "ok",
    "probe": "dfg"
@@ -4630,6 +4725,7 @@
    "got_kinds": {
     "app.py:4": "import_member"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/from_import_alias",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4653,6 +4749,7 @@
    "got_kinds": {
     "app.py:4": "import_qualified"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/import_module_call",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4676,6 +4773,7 @@
    "got_kinds": {
     "app.py:13": "typed_param"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/inherited_direct_base_typed",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4699,6 +4797,7 @@
    "got_kinds": {
     "app.py:10": "r6_multi_owner_candidate"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/inherited_override",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4722,6 +4821,7 @@
    "got_kinds": {
     "app.py:5": "constructor_local"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/instance_method_cross_file",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4733,6 +4833,7 @@
    "forbid_resolution_kind": null,
    "got": "a.py,b.py",
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/module_edges_basic",
    "language": "python",
    "outcome": "ok",
    "probe": "module_deps"
@@ -4756,6 +4857,7 @@
    "got_kinds": {
     "app.py:5": "local_def"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/module_fn",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4779,6 +4881,7 @@
    "got_kinds": {
     "app.py:12": "r6_multi_owner_candidate"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/multi_owner_candidate",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4790,6 +4893,7 @@
    "forbid_resolution_kind": null,
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/multi_owner_over_cap",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4813,6 +4917,7 @@
    "got_kinds": {
     "app.py:8": "property_access"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/property_access",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4824,6 +4929,7 @@
    "forbid_resolution_kind": null,
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/property_fanout",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4847,6 +4953,7 @@
    "got_kinds": {
     "app.py:7": "property_access"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/property_self_access",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4858,6 +4965,7 @@
    "forbid_resolution_kind": null,
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/property_setter_guard",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4869,6 +4977,7 @@
    "forbid_resolution_kind": "framework_entry",
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/route_decorator_guard",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4892,6 +5001,7 @@
    "got_kinds": {
     "app.py:6": "framework_entry"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/route_handler_entry",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4915,6 +5025,7 @@
    "got_kinds": {
     "app.py:6": "framework_entry"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/route_handler_entry_fastapi",
    "language": "python",
    "outcome": "ok",
    "probe": "callers"
@@ -4926,6 +5037,7 @@
    "forbid_resolution_kind": null,
    "got": "BoundaryExited|warnings=InterproceduralBoundary|sanitizers=false",
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/taint_boundary_negative",
    "language": "python",
    "outcome": "ok",
    "probe": "taint"
@@ -4937,6 +5049,7 @@
    "forbid_resolution_kind": null,
    "got": "Reached|warnings=none|sanitizers=false",
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/taint_cross_function_positive",
    "language": "python",
    "outcome": "ok",
    "probe": "taint"
@@ -4948,6 +5061,7 @@
    "forbid_resolution_kind": null,
    "got": "BoundaryExited|warnings=InterproceduralBoundary|sanitizers=false",
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/taint_descent_depth_bound",
    "language": "python",
    "outcome": "ok",
    "probe": "taint"
@@ -4959,6 +5073,7 @@
    "forbid_resolution_kind": null,
    "got": "None|warnings=none|sanitizers=false|frontier=2",
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/taint_frontier_only",
    "language": "python",
    "outcome": "ok",
    "probe": "taint"
@@ -4970,6 +5085,7 @@
    "forbid_resolution_kind": null,
    "got": "Reached|warnings=OrderingUnavailable|sanitizers=false",
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/taint_reach_positive",
    "language": "python",
    "outcome": "ok",
    "probe": "taint"
@@ -4981,6 +5097,7 @@
    "forbid_resolution_kind": null,
    "got": "Sanitized|warnings=Cleansed|sanitizers=true",
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/taint_sanitized_current",
    "language": "python",
    "outcome": "ok",
    "probe": "taint"
@@ -4992,6 +5109,7 @@
    "forbid_resolution_kind": null,
    "got": "Reached|warnings=Cleansed|sanitizers=true",
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/python/taint_sanitizer_bypass",
    "language": "python",
    "outcome": "ok",
    "probe": "taint"
@@ -5015,6 +5133,7 @@
    "got_kinds": {
     "app.js:4": "import_member"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/commonjs_export_deferred",
    "language": "javascript",
    "outcome": "ok",
    "probe": "callers"
@@ -5069,6 +5188,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/dfg_reaching_capture_timing",
    "language": "javascript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5116,6 +5236,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/dfg_reaching_cfg_try_header_negative",
    "language": "javascript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5141,6 +5262,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/dfg_reaching_js_var_hoisting",
    "language": "javascript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5194,6 +5316,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/dfg_reaching_killed_def",
    "language": "javascript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5240,6 +5363,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/dfg_reaching_loop_carried",
    "language": "javascript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5301,6 +5425,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/dfg_reaching_loop_carried_negative",
    "language": "javascript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5334,6 +5459,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/dfg_reaching_same_line",
    "language": "javascript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5385,6 +5511,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/dfg_reaching_shadowed_inner",
    "language": "javascript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5466,6 +5593,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/dfg_reaching_shadowed_inner_negative",
    "language": "javascript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5489,6 +5617,7 @@
    "got_kinds": {
     "app.js:4": "import_member"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/named_import_alias",
    "language": "javascript",
    "outcome": "ok",
    "probe": "callers"
@@ -5500,6 +5629,7 @@
    "forbid_resolution_kind": "import_member",
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/non_exported_function_deferred",
    "language": "javascript",
    "outcome": "ok",
    "probe": "callers"
@@ -5523,6 +5653,7 @@
    "got_kinds": {
     "app.js:6": "framework_entry"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/route_handler_entry",
    "language": "javascript",
    "outcome": "ok",
    "probe": "callers"
@@ -5534,6 +5665,7 @@
    "forbid_resolution_kind": "framework_entry",
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/javascript/route_receiver_guard",
    "language": "javascript",
    "outcome": "ok",
    "probe": "callers"
@@ -5557,6 +5689,7 @@
    "got_kinds": {
     "app.ts:4": "import_member"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/arrow_const_export_deferred",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -5568,6 +5701,7 @@
    "forbid_resolution_kind": "import_member",
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/barrel_reexport_three_hop_fails",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -5591,6 +5725,7 @@
    "got_kinds": {
     "app.ts:4": "import_member"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/barrel_reexport_two_hop_resolves",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -5609,6 +5744,7 @@
    "got_kinds": {
     "app.ts:7": "free_single"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/catch_shadow_deferred",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -5632,6 +5768,7 @@
    "got_kinds": {
     "app.ts:4": "import_member"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/common_name_collision",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -5655,6 +5792,7 @@
    "got_kinds": {
     "app.ts:4": "import_member"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/default_export_function_deferred",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -5666,6 +5804,7 @@
    "forbid_resolution_kind": "import_member",
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/default_export_named_import_mismatch",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -5689,6 +5828,7 @@
    "got_kinds": {
     "app.ts:4": "import_member"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/default_import_deferred",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -5700,6 +5840,7 @@
    "forbid_resolution_kind": "import_member",
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/default_import_named_export_mismatch",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -5754,6 +5895,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/dfg_reaching_capture_timing",
    "language": "typescript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5779,6 +5921,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/dfg_reaching_cfg_gap",
    "language": "typescript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5826,6 +5969,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/dfg_reaching_cfg_try_header_negative",
    "language": "typescript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5879,6 +6023,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/dfg_reaching_killed_def",
    "language": "typescript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5925,6 +6070,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/dfg_reaching_loop_carried",
    "language": "typescript",
    "outcome": "ok",
    "probe": "dfg"
@@ -5986,6 +6132,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/dfg_reaching_loop_carried_negative",
    "language": "typescript",
    "outcome": "ok",
    "probe": "dfg"
@@ -6019,6 +6166,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/dfg_reaching_same_line",
    "language": "typescript",
    "outcome": "ok",
    "probe": "dfg"
@@ -6070,6 +6218,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/dfg_reaching_shadowed_inner",
    "language": "typescript",
    "outcome": "ok",
    "probe": "dfg"
@@ -6151,6 +6300,7 @@
     }
    ],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/dfg_reaching_shadowed_inner_negative",
    "language": "typescript",
    "outcome": "ok",
    "probe": "dfg"
@@ -6169,6 +6319,7 @@
    "got_kinds": {
     "app.ts:5": "free_multi"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/duplicate_import_local",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -6192,6 +6343,7 @@
    "got_kinds": {
     "app.ts:4": "import_member"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/index_module",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -6203,6 +6355,7 @@
    "forbid_resolution_kind": "import_member",
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/local_shadow_deferred",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -6226,6 +6379,7 @@
    "got_kinds": {
     "app.ts:4": "import_member"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/named_import_alias",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -6237,6 +6391,7 @@
    "forbid_resolution_kind": "import_member",
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/non_exported_function_deferred",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -6255,6 +6410,7 @@
    "got_kinds": {
     "app.ts:4": "free_single"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/param_shadow_deferred",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -6266,6 +6422,7 @@
    "forbid_resolution_kind": "import_member",
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/rebound_import_local",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -6284,6 +6441,7 @@
    "got_kinds": {
     "app.ts:4": "free_single"
    },
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/type_only_import_deferred",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -6295,6 +6453,7 @@
    "forbid_resolution_kind": "import_member",
    "got": [],
    "got_kinds": {},
+   "id": "/Users/wesleyjinks/code/slicing-tiera/eval/fixtures/typescript/wrong_directory_same_stem",
    "language": "typescript",
    "outcome": "ok",
    "probe": "callers"
@@ -6307,8 +6466,8 @@
   "corpus": "prism",
   "corpus_dirty": false,
   "corpus_dirty_reasons": [],
-  "corpus_sha": "f7d90615b29b",
-  "corpus_sha_full": "f7d90615b29b101fc2e06edf20e4a167d18551f8",
+  "corpus_sha": "8651b57803cf",
+  "corpus_sha_full": "8651b57803cf2f28fc00c70b86ef939dd761d168",
   "data": {
    "adjudications": {
     "digest": "sha256:d58c21ff834352d3bdd098564ce46c7298d5dfeb93ee77cc74a1f805a7371f45",
@@ -6316,9 +6475,9 @@
     "records": 2324
    },
    "fixtures": "sha256:c6c749ac4c6d06341fca0580d764fa30fcf1955bbeee707087b869d3a0b73245",
-   "pinned_probes": "sha256:0b59b81a3ae442986ff8eda7213851cd9783a949eef4f84c4756d86c754834bc"
+   "pinned_probes": "sha256:ddac64f09034b4b646732c248ae6ea606800e7cb0df2bc132b94cfa28f450699"
   },
-  "date": "2026-10-24",
+  "date": "2026-10-28",
   "env_allow": [
    "PATH",
    "HOME",
@@ -6334,7 +6493,7 @@
    "PATH": "/Users/wesleyjinks/code/slicing-tiera/eval/.venv/bin:/Users/wesleyjinks/.local/share/mise/installs/node/lts/bin:/Users/wesleyjinks/.local/share/mise/installs/go/1.26.2/bin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/Users/wesleyjinks/.cargo/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin",
    "TMPDIR": "/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/"
   },
-  "harness_sha": "f5fe5b2726cc35ee660f44542c6fb4bb4df7bf8d",
+  "harness_sha": "8651b57803cf2f28fc00c70b86ef939dd761d168",
   "invalid_reasons": [],
   "observation": {
    "dep_paths": [
@@ -7023,7 +7182,7 @@
     "eval/fixtures/typescript/wrong_directory_same_stem/elsewhere/util.ts",
     "eval/fixtures/typescript/wrong_directory_same_stem/expected.toml",
     "eval/fixtures/typescript/wrong_directory_same_stem/src/app.ts",
-    "eval/snapshots/prism-f7d90615b29b.json",
+    "eval/snapshots/prism-8651b57803cf.json",
     "eval/tier_a/pinned.py"
    ]
   },
@@ -7035,10 +7194,16 @@
    }
   },
   "oracle_not_quiescent": false,
-  "policy_digest": "sha256:c50c405d7742eabecd3bccb4c087125d317fc2a014acd1aa618872f51408e6f2",
-  "population_digest": "sha256:4a3b3a24d0b6547cd390b03af1af0487b3a6cb6dfd138539d82ff1e2e954ce56",
+  "policy_digest": "sha256:aba4cb86c0e11f9642f72651f69df403653c2c18bf730580d8cccbe43a3938f1",
+  "population_digest": "sha256:1588c41ab72777809b56b7bca949b4f03b368b7114eb1d382d0cd4b2ad2daa39",
   "prism_dirty": false,
-  "prism_sha": "f7d90615b29b",
+  "prism_sha": "8651b57803cf",
+  "provenance": {
+   "superseded_anchor": {
+    "sut_digest": "sha256:195c062da8a21f5c6c63093db9247319ba09366b341b20efd6aaee7b974cc5ab",
+    "sut_sha": "f7d90615b29b101fc2e06edf20e4a167d18551f8"
+   }
+  },
   "runtime": {
    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
    "cargo_config": "absent",
@@ -7054,21 +7219,327 @@
   },
   "seed": 42,
   "sha_aliases": [
-   "f7d90615b29b101fc2e06edf20e4a167d18551f8"
+   "8651b57803cf2f28fc00c70b86ef939dd761d168"
   ],
   "snapshot_digest": "sha256:722ec0b4554d26e420662cc82310c2ecb76af7da3c9a86e2a569cdd58d632180",
   "stale_adjudications": 6,
-  "sut_digest": "sha256:195c062da8a21f5c6c63093db9247319ba09366b341b20efd6aaee7b974cc5ab",
+  "sut_digest": "sha256:9822f6fb1601509bb78f40db24604da8a77f8a4f659c64fa71e45f0f5e152c8a",
   "sut_error_rate": 0.0,
-  "sut_sha_full": "f7d90615b29b101fc2e06edf20e4a167d18551f8",
+  "sut_input_provenance": {
+   "archived_generated": [
+    "target/release/build/serde-b7b046519a27089d/out/private.rs",
+    "target/release/build/serde_core-88a16ba1f079e7e6/out/private.rs",
+    "target/release/build/thiserror-d525f5e18180f2ec/out/private.rs",
+    "target/release/build/tree-sitter-26fff64ad3efe855/out/stdlib-symbols.txt"
+   ],
+   "repository_metadata": [
+    ".git/HEAD",
+    ".git/packed-refs",
+    ".git/refs/heads/tier-a-reanchor"
+   ],
+   "tracked_source": [
+    "Cargo.lock",
+    "Cargo.toml",
+    "build.rs",
+    "scripts/callable-observations/config-provenance.mjs",
+    "scripts/callable-observations/detached-owner-worker.mjs",
+    "scripts/callable-observations/direct-owner.mjs",
+    "scripts/callable-observations/entries.mjs",
+    "scripts/callable-observations/entry-obligations.mjs",
+    "scripts/callable-observations/exact-ambient.mjs",
+    "scripts/callable-observations/identity-domains.mjs",
+    "scripts/callable-observations/index.mjs",
+    "scripts/callable-observations/inventory.mjs",
+    "scripts/callable-observations/lib-search.mjs",
+    "scripts/callable-observations/merged-wildcard.mjs",
+    "scripts/callable-observations/nested.mjs",
+    "scripts/callable-observations/props-class.mjs",
+    "scripts/callable-observations/provenance.mjs",
+    "scripts/callable-observations/required-paths.mjs",
+    "scripts/callable-observations/schema.mjs",
+    "scripts/callable-observations/search-provenance.mjs",
+    "scripts/callable-observations/semantic-closure-v2.mjs",
+    "scripts/callable-observations/semantic-closure-v3.mjs",
+    "scripts/callable-observations/semantic-closure.mjs",
+    "scripts/callable-observations/type-lib.mjs",
+    "scripts/callable-observations/wildcard.mjs",
+    "scripts/callable-observations/worker.mjs",
+    "src/access_path.rs",
+    "src/algorithms/absence_slice.rs",
+    "src/algorithms/angle_slice.rs",
+    "src/algorithms/barrier_slice.rs",
+    "src/algorithms/callback_dispatcher_slice.rs",
+    "src/algorithms/chop.rs",
+    "src/algorithms/circular_slice.rs",
+    "src/algorithms/conditioned_slice.rs",
+    "src/algorithms/contract_slice.rs",
+    "src/algorithms/delta_slice.rs",
+    "src/algorithms/echo_slice.rs",
+    "src/algorithms/full_flow.rs",
+    "src/algorithms/gradient_slice.rs",
+    "src/algorithms/horizontal_slice.rs",
+    "src/algorithms/left_flow.rs",
+    "src/algorithms/membrane_slice.rs",
+    "src/algorithms/mod.rs",
+    "src/algorithms/original_diff.rs",
+    "src/algorithms/parent_function.rs",
+    "src/algorithms/peer_consistency_slice.rs",
+    "src/algorithms/phantom_slice.rs",
+    "src/algorithms/primitive_slice.rs",
+    "src/algorithms/provenance_slice.rs",
+    "src/algorithms/quantum_slice.rs",
+    "src/algorithms/relevant_slice.rs",
+    "src/algorithms/resonance_slice.rs",
+    "src/algorithms/spiral_slice.rs",
+    "src/algorithms/symmetry_slice.rs",
+    "src/algorithms/taint.rs",
+    "src/algorithms/thin_slice.rs",
+    "src/algorithms/threed_slice.rs",
+    "src/algorithms/vertical_slice.rs",
+    "src/api/build_info.rs",
+    "src/api/mod.rs",
+    "src/api/nav.rs",
+    "src/api/owner.rs",
+    "src/api/review.rs",
+    "src/api/run.rs",
+    "src/ast.rs",
+    "src/ast_asserted_member.rs",
+    "src/ast_asserted_member_tests.rs",
+    "src/ast_erased_rvalue_tests.rs",
+    "src/ast_inert_default_parameter_tests.rs",
+    "src/ast_loop_header_tests.rs",
+    "src/ast_required_parameter_tests.rs",
+    "src/bin/prism-mcp.rs",
+    "src/build_pool.rs",
+    "src/call_graph.rs",
+    "src/call_graph/promoted_snapshot_consult_test.rs",
+    "src/cfg.rs",
+    "src/cli.rs",
+    "src/cpg.rs",
+    "src/cpg/asserted_member_tests.rs",
+    "src/cpg/build.rs",
+    "src/cpg/cfg_queries.rs",
+    "src/cpg/context.rs",
+    "src/cpg/exact_parameter_binding_tests.rs",
+    "src/cpg/flow_confidence.rs",
+    "src/cpg/inert_default_parameter_tests.rs",
+    "src/cpg/loop_header_def_tests.rs",
+    "src/cpg/multiline_call_arg_parity_tests.rs",
+    "src/cpg/multiline_call_arg_tests.rs",
+    "src/cpg/optional_parameter_tests.rs",
+    "src/cpg/parameter_slots_parity_tests.rs",
+    "src/cpg/query.rs",
+    "src/cpg/reaching.rs",
+    "src/cpg/reaching/capture.rs",
+    "src/cpg/reaching/graph.rs",
+    "src/cpg/reaching/scope.rs",
+    "src/cpg/reaching/tests.rs",
+    "src/cpg/reaching/tests/captures.rs",
+    "src/cpg/reaching/tests/cfg_joins.rs",
+    "src/cpg/reaching/tests/limits.rs",
+    "src/cpg/reaching/tests/review_regressions.rs",
+    "src/cpg/required_parameter_tests.rs",
+    "src/cpg/tests.rs",
+    "src/cpg/trace.rs",
+    "src/cpg/types.rs",
+    "src/cpg_cache.rs",
+    "src/data_flow.rs",
+    "src/diff.rs",
+    "src/executable_owner.rs",
+    "src/executable_owner/acquisition.rs",
+    "src/executable_owner/admission.rs",
+    "src/executable_owner/audit_tests.rs",
+    "src/executable_owner/integration.rs",
+    "src/executable_owner/integration/tests.rs",
+    "src/executable_owner/tests.rs",
+    "src/finding_confidence.rs",
+    "src/finding_confidence/tests.rs",
+    "src/framework_entries/express.rs",
+    "src/framework_entries/mod.rs",
+    "src/framework_entries/python.rs",
+    "src/frameworks/gin.rs",
+    "src/frameworks/gorilla_mux.rs",
+    "src/frameworks/js_ts/express.rs",
+    "src/frameworks/js_ts/fastify.rs",
+    "src/frameworks/js_ts/koa.rs",
+    "src/frameworks/js_ts/mod.rs",
+    "src/frameworks/js_ts/nestjs.rs",
+    "src/frameworks/mod.rs",
+    "src/frameworks/nethttp.rs",
+    "src/frameworks/python/django.rs",
+    "src/frameworks/python/drf.rs",
+    "src/frameworks/python/fastapi.rs",
+    "src/frameworks/python/flask.rs",
+    "src/frameworks/python/mod.rs",
+    "src/go_build_profile.rs",
+    "src/go_build_profile/implication.rs",
+    "src/go_callback.rs",
+    "src/go_concrete_receiver.rs",
+    "src/go_func_type.rs",
+    "src/go_mod.rs",
+    "src/go_module_graph.rs",
+    "src/go_module_graph/identity.rs",
+    "src/go_module_graph/paths.rs",
+    "src/go_module_graph/replacements.rs",
+    "src/go_module_graph/semver.rs",
+    "src/go_module_graph_fix2_tests.rs",
+    "src/go_module_graph_tests.rs",
+    "src/go_owner_partition.rs",
+    "src/go_owner_partition_s4.rs",
+    "src/go_promoted_snapshot.rs",
+    "src/go_promoted_snapshot/interface_profiles.rs",
+    "src/go_promoted_snapshot/selector_resolution.rs",
+    "src/go_receiver_index.rs",
+    "src/go_receiver_index_visibility.rs",
+    "src/go_selector_supply.rs",
+    "src/go_type_alias.rs",
+    "src/go_type_alias/canon.rs",
+    "src/go_type_alias/types.rs",
+    "src/js_exports.rs",
+    "src/js_ts_props.rs",
+    "src/languages/mod.rs",
+    "src/lib.rs",
+    "src/live_types.rs",
+    "src/main.rs",
+    "src/manifest_snapshot.rs",
+    "src/mcp/concise_shape.rs",
+    "src/mcp/error.rs",
+    "src/mcp/evidence_view.rs",
+    "src/mcp/freshness.rs",
+    "src/mcp/input.rs",
+    "src/mcp/lazy.rs",
+    "src/mcp/mod.rs",
+    "src/mcp/output.rs",
+    "src/mcp/owner.rs",
+    "src/mcp/owner_transport_tests.rs",
+    "src/mcp/registry.rs",
+    "src/mcp/session.rs",
+    "src/mcp/tools.rs",
+    "src/mcp/tools_reasoning.rs",
+    "src/mcp/tools_refresh.rs",
+    "src/mcp/transport.rs",
+    "src/mcp/transport_tests.rs",
+    "src/name_resolution/binding_lookup.rs",
+    "src/name_resolution/consumer.rs",
+    "src/name_resolution/engine.rs",
+    "src/name_resolution/glob_stats.rs",
+    "src/name_resolution/graph.rs",
+    "src/name_resolution/mod.rs",
+    "src/name_resolution/rust_policy.rs",
+    "src/name_resolution/rust_populator/builder.rs",
+    "src/name_resolution/rust_populator/mod.rs",
+    "src/name_resolution/rust_populator/scopes.rs",
+    "src/name_resolution/rust_populator/walk/items.rs",
+    "src/name_resolution/rust_populator/walk/locals.rs",
+    "src/name_resolution/rust_populator/walk/mod.rs",
+    "src/name_resolution/rust_populator/walk/types.rs",
+    "src/name_resolution/types.rs",
+    "src/navigation/cache.rs",
+    "src/navigation/call_edge_cache.rs",
+    "src/navigation/call_resolve.rs",
+    "src/navigation/code_context.rs",
+    "src/navigation/inventory.rs",
+    "src/navigation/mod.rs",
+    "src/navigation/module_graph.rs",
+    "src/navigation/onboarding.rs",
+    "src/navigation/owner_cache_tests.rs",
+    "src/navigation/partition_site_dump.rs",
+    "src/navigation/queries.rs",
+    "src/navigation/seed.rs",
+    "src/navigation/types.rs",
+    "src/output/mermaid.rs",
+    "src/output/mod.rs",
+    "src/output/navigation.rs",
+    "src/output/onboarding.rs",
+    "src/output/review.rs",
+    "src/output/review_compact.rs",
+    "src/output/sarif.rs",
+    "src/output/sarif/tests.rs",
+    "src/output/sarif_model.rs",
+    "src/output/sarif_rules.rs",
+    "src/parameter_slots.rs",
+    "src/queries.rs",
+    "src/react_hooks.rs",
+    "src/reasoning/mod.rs",
+    "src/reasoning/order.rs",
+    "src/reasoning/sanitizer_walk.rs",
+    "src/reasoning/scope_honesty.rs",
+    "src/reasoning/seeds.rs",
+    "src/reasoning/shape.rs",
+    "src/reasoning/taint_reaches.rs",
+    "src/reasoning/types.rs",
+    "src/receiver_index.rs",
+    "src/repo_loader.rs",
+    "src/resolution.rs",
+    "src/resolution_disproof.rs",
+    "src/resolution_identity.rs",
+    "src/resolution_receiver.rs",
+    "src/resolution_receiver/tests.rs",
+    "src/rust_macro_args.rs",
+    "src/rust_macro_args/tests.rs",
+    "src/sanitizers/js_ts.rs",
+    "src/sanitizers/mod.rs",
+    "src/sanitizers/path.rs",
+    "src/sanitizers/python.rs",
+    "src/sanitizers/shell.rs",
+    "src/slice.rs",
+    "src/targets/dependency_hint.rs",
+    "src/targets/dependency_hint_binding_scope_tests.rs",
+    "src/targets/dependency_hint_tests.rs",
+    "src/targets/dependency_identity.rs",
+    "src/targets/mapping.rs",
+    "src/targets/mod.rs",
+    "src/targets/model.rs",
+    "src/terraform.rs",
+    "src/type_db.rs",
+    "src/type_provider.rs",
+    "src/type_providers/cpp.rs",
+    "src/type_providers/go.rs",
+    "src/type_providers/java.rs",
+    "src/type_providers/mod.rs",
+    "src/type_providers/python.rs",
+    "src/type_providers/rust_provider.rs",
+    "src/type_providers/typescript.rs",
+    "vendor/tree-sitter-typescript/Cargo.toml",
+    "vendor/tree-sitter-typescript/LICENSE",
+    "vendor/tree-sitter-typescript/PRISM.md",
+    "vendor/tree-sitter-typescript/README.md",
+    "vendor/tree-sitter-typescript/bindings/rust/build.rs",
+    "vendor/tree-sitter-typescript/bindings/rust/lib.rs",
+    "vendor/tree-sitter-typescript/common/common.mak",
+    "vendor/tree-sitter-typescript/common/define-grammar.js",
+    "vendor/tree-sitter-typescript/common/scanner.h",
+    "vendor/tree-sitter-typescript/queries/highlights.scm",
+    "vendor/tree-sitter-typescript/queries/locals.scm",
+    "vendor/tree-sitter-typescript/queries/tags.scm",
+    "vendor/tree-sitter-typescript/tree-sitter.json",
+    "vendor/tree-sitter-typescript/tsx/grammar.js",
+    "vendor/tree-sitter-typescript/tsx/src/grammar.json",
+    "vendor/tree-sitter-typescript/tsx/src/node-types.json",
+    "vendor/tree-sitter-typescript/tsx/src/parser.c",
+    "vendor/tree-sitter-typescript/tsx/src/scanner.c",
+    "vendor/tree-sitter-typescript/tsx/src/tree_sitter/alloc.h",
+    "vendor/tree-sitter-typescript/tsx/src/tree_sitter/array.h",
+    "vendor/tree-sitter-typescript/tsx/src/tree_sitter/parser.h",
+    "vendor/tree-sitter-typescript/typescript/grammar.js",
+    "vendor/tree-sitter-typescript/typescript/src/grammar.json",
+    "vendor/tree-sitter-typescript/typescript/src/node-types.json",
+    "vendor/tree-sitter-typescript/typescript/src/parser.c",
+    "vendor/tree-sitter-typescript/typescript/src/scanner.c",
+    "vendor/tree-sitter-typescript/typescript/src/tree_sitter/alloc.h",
+    "vendor/tree-sitter-typescript/typescript/src/tree_sitter/array.h",
+    "vendor/tree-sitter-typescript/typescript/src/tree_sitter/parser.h"
+   ]
+  },
+  "sut_sha_full": "8651b57803cf2f28fc00c70b86ef939dd761d168",
   "untracked_sources": [],
   "wall_s": {
-   "m1_oracle_inventory": 17.632,
-   "m2": 134.321,
-   "m3": 0.016,
-   "matrix": 6.897,
-   "oracle_start": 7.617,
-   "pinned": 5.566
+   "m1_oracle_inventory": 12.452,
+   "m2": 90.686,
+   "m3": 0.015,
+   "matrix": 6.757,
+   "oracle_start": 7.67,
+   "pinned": 5.371
   }
  },
  "pending": [
@@ -8003,10 +8474,13 @@
    "oracle_miss_site_found": false,
    "oracle_only": [],
    "oracle_sites": [
-    "tests/navigation/scoped_calls_test.rs:223",
+    "src/main.rs:193",
     "src/mcp/tools.rs:230",
-    "tests/navigation/cache_test.rs:331",
+    "tests/navigation/scoped_calls_test.rs:223",
+    "tests/name_resolution/build_wiring_test.rs:642",
+    "tests/name_resolution/build_wiring_test.rs:643",
     "tests/navigation/cache_test.rs:345",
+    "tests/navigation/cache_test.rs:331",
     "tests/navigation/module_graph_test.rs:93",
     "tests/navigation/module_graph_test.rs:142",
     "tests/navigation/module_graph_test.rs:152",
@@ -8017,10 +8491,7 @@
     "tests/navigation/module_graph_test.rs:281",
     "tests/navigation/module_graph_test.rs:307",
     "tests/navigation/module_graph_test.rs:332",
-    "tests/navigation/module_graph_test.rs:353",
-    "tests/name_resolution/build_wiring_test.rs:642",
-    "tests/name_resolution/build_wiring_test.rs:643",
-    "src/main.rs:193"
+    "tests/navigation/module_graph_test.rs:353"
    ],
    "outcome": "missing",
    "prism_only": [],
@@ -8072,45 +8543,33 @@
     "tests/integration/resolution_test.rs:5368"
    ],
    "oracle_sites": [
-    "tests/navigation/symbol_spans_test.rs:21",
-    "src/executable_owner/admission.rs:120",
-    "tests/navigation/onboarding_test.rs:7",
-    "tests/navigation/loader_test.rs:32",
-    "src/cpg/tests.rs:2542",
-    "tests/navigation/func_value_test.rs:19",
-    "tests/navigation/callees_test.rs:11",
-    "tests/name_resolution/build_wiring_test.rs:72",
-    "tests/name_resolution/build_wiring_test.rs:127",
-    "tests/name_resolution/build_wiring_test.rs:169",
-    "tests/name_resolution/build_wiring_test.rs:198",
-    "tests/name_resolution/build_wiring_test.rs:233",
-    "tests/name_resolution/build_wiring_test.rs:323",
-    "tests/name_resolution/build_wiring_test.rs:469",
-    "tests/name_resolution/build_wiring_test.rs:528",
-    "tests/name_resolution/build_wiring_test.rs:576",
-    "tests/name_resolution/build_wiring_test.rs:628",
-    "src/mcp/freshness.rs:401",
-    "tests/integration/resolution_test.rs:5299",
-    "tests/integration/resolution_test.rs:5342",
-    "tests/integration/resolution_test.rs:5368",
-    "tests/integration/resolution_test.rs:5428",
-    "src/executable_owner/audit_tests.rs:310",
-    "src/executable_owner/audit_tests.rs:322",
-    "src/executable_owner/audit_tests.rs:333",
-    "tests/infra/parallel_equality_test.rs:18",
-    "tests/infra/parallel_equality_test.rs:22",
-    "tests/navigation/seed_test.rs:11",
-    "tests/ast/cpg_cache_test.rs:559",
-    "src/executable_owner/acquisition.rs:127",
-    "tests/navigation/nodes_at_test.rs:17",
-    "src/cpg_cache.rs:755",
-    "tests/navigation/index_test.rs:13",
-    "tests/navigation/index_test.rs:31",
-    "examples/project_membership_census.rs:63",
-    "tests/navigation/framework_entry_test.rs:20",
+    "tests/cli/nav_compat_test.rs:819",
     "src/call_graph.rs:7014",
     "src/call_graph.rs:7027",
+    "examples/project_membership_census.rs:63",
+    "tests/navigation/symbol_spans_test.rs:21",
     "src/navigation/call_edge_cache.rs:729",
+    "examples/parameter_site_census.rs:219",
+    "tests/navigation/onboarding_test.rs:7",
+    "tests/integration/dfg_label_parity_test.rs:30",
+    "src/api/nav.rs:26",
+    "src/executable_owner/integration/tests.rs:22",
+    "src/executable_owner/integration/tests.rs:79",
+    "tests/navigation/func_value_test.rs:19",
+    "tests/infra/parallel_equality_test.rs:18",
+    "tests/infra/parallel_equality_test.rs:22",
+    "tests/navigation/callees_test.rs:11",
+    "src/navigation/inventory.rs:16",
+    "tests/navigation/seed_test.rs:11",
+    "src/mcp/session.rs:359",
+    "src/mcp/session.rs:374",
+    "src/mcp/session.rs:400",
+    "tests/cli/nav_compat_test.rs:329",
+    "tests/navigation/nodes_at_test.rs:17",
+    "tests/navigation/index_test.rs:13",
+    "tests/navigation/index_test.rs:31",
+    "src/executable_owner/integration.rs:156",
+    "tests/navigation/framework_entry_test.rs:20",
     "tests/navigation/cache_test.rs:78",
     "tests/navigation/cache_test.rs:96",
     "tests/navigation/cache_test.rs:139",
@@ -8127,10 +8586,11 @@
     "tests/navigation/cache_test.rs:541",
     "tests/navigation/cache_test.rs:542",
     "tests/navigation/cache_test.rs:592",
-    "src/api/nav.rs:26",
-    "src/executable_owner/integration/tests.rs:22",
-    "src/executable_owner/integration/tests.rs:79",
-    "tests/navigation/scoped_calls_test.rs:20",
+    "tests/integration/resolution_test.rs:5299",
+    "tests/integration/resolution_test.rs:5342",
+    "tests/integration/resolution_test.rs:5368",
+    "tests/integration/resolution_test.rs:5428",
+    "tests/reasoning/taint_reaches_test.rs:25",
     "tests/lang/go/loader_hygiene_test.rs:143",
     "tests/lang/go/loader_hygiene_test.rs:163",
     "tests/lang/go/loader_hygiene_test.rs:186",
@@ -8144,20 +8604,37 @@
     "tests/lang/go/loader_hygiene_test.rs:314",
     "tests/lang/go/loader_hygiene_test.rs:325",
     "tests/lang/go/loader_hygiene_test.rs:372",
-    "examples/parameter_site_census.rs:219",
+    "src/repo_loader.rs:993",
+    "src/repo_loader.rs:1030",
+    "src/repo_loader.rs:1049",
+    "src/repo_loader.rs:1076",
+    "src/repo_loader.rs:1114",
+    "src/repo_loader.rs:1155",
+    "src/repo_loader.rs:1193",
+    "src/repo_loader.rs:1235",
+    "src/repo_loader.rs:1293",
+    "src/repo_loader.rs:1321",
+    "src/repo_loader.rs:1380",
+    "src/repo_loader.rs:1447",
+    "src/repo_loader.rs:1483",
+    "src/repo_loader.rs:1515",
+    "src/repo_loader.rs:1540",
+    "tests/navigation/scoped_calls_test.rs:20",
+    "src/navigation/mod.rs:569",
+    "src/navigation/mod.rs:584",
+    "src/navigation/mod.rs:607",
+    "src/navigation/mod.rs:651",
     "tests/navigation/module_graph_test.rs:17",
     "tests/navigation/go_concrete_cache_test.rs:90",
     "tests/navigation/go_concrete_cache_test.rs:188",
     "tests/navigation/go_concrete_cache_test.rs:387",
-    "src/navigation/inventory.rs:16",
-    "tests/navigation/ego_test.rs:9",
-    "src/mcp/session.rs:359",
-    "src/mcp/session.rs:374",
-    "src/mcp/session.rs:400",
-    "examples/dfg_census.rs:359",
     "tests/lang/go/receiver_origin_prereq_test.rs:36",
-    "tests/cli/nav_compat_test.rs:819",
-    "src/executable_owner/integration.rs:156",
+    "src/executable_owner/admission.rs:120",
+    "tests/navigation/ego_test.rs:9",
+    "tests/navigation/loader_test.rs:32",
+    "src/cpg/tests.rs:2542",
+    "tests/ast/cpg_cache_test.rs:559",
+    "examples/dfg_census.rs:359",
     "tests/navigation/property_access_test.rs:19",
     "tests/navigation/loader_test.rs:13",
     "tests/navigation/loader_test.rs:41",
@@ -8174,33 +8651,27 @@
     "tests/navigation/loader_test.rs:176",
     "tests/navigation/loader_test.rs:179",
     "tests/navigation/loader_test.rs:181",
-    "src/repo_loader.rs:993",
-    "src/repo_loader.rs:1030",
-    "src/repo_loader.rs:1049",
-    "src/repo_loader.rs:1076",
-    "src/repo_loader.rs:1114",
-    "src/repo_loader.rs:1155",
-    "src/repo_loader.rs:1193",
-    "src/repo_loader.rs:1235",
-    "src/repo_loader.rs:1293",
-    "src/repo_loader.rs:1321",
-    "src/repo_loader.rs:1380",
-    "src/repo_loader.rs:1447",
-    "src/repo_loader.rs:1483",
-    "src/repo_loader.rs:1515",
-    "src/repo_loader.rs:1540",
+    "src/mcp/freshness.rs:401",
+    "tests/lang/go/test_support.rs:23",
+    "src/executable_owner/audit_tests.rs:310",
+    "src/executable_owner/audit_tests.rs:322",
+    "src/executable_owner/audit_tests.rs:333",
     "tests/navigation/glob_stats_scope_test.rs:46",
-    "tests/integration/dfg_label_parity_test.rs:30",
+    "src/executable_owner/acquisition.rs:127",
     "tests/navigation/callers_test.rs:11",
     "tests/navigation/callers_test.rs:37",
     "tests/navigation/callers_test.rs:69",
-    "tests/lang/go/test_support.rs:23",
-    "tests/reasoning/taint_reaches_test.rs:25",
-    "src/navigation/mod.rs:569",
-    "src/navigation/mod.rs:584",
-    "src/navigation/mod.rs:607",
-    "src/navigation/mod.rs:651",
-    "tests/cli/nav_compat_test.rs:329"
+    "tests/name_resolution/build_wiring_test.rs:72",
+    "tests/name_resolution/build_wiring_test.rs:127",
+    "tests/name_resolution/build_wiring_test.rs:169",
+    "tests/name_resolution/build_wiring_test.rs:198",
+    "tests/name_resolution/build_wiring_test.rs:233",
+    "tests/name_resolution/build_wiring_test.rs:323",
+    "tests/name_resolution/build_wiring_test.rs:469",
+    "tests/name_resolution/build_wiring_test.rs:528",
+    "tests/name_resolution/build_wiring_test.rs:576",
+    "tests/name_resolution/build_wiring_test.rs:628",
+    "src/cpg_cache.rs:755"
    ],
    "outcome": "missing",
    "prism_only": [],
@@ -8355,6 +8826,88 @@
    "prism_sites": []
   }
  ],
+ "probe_status": {
+  "callees:src/access_path.rs:234": "ok",
+  "callees:src/algorithms/contract_slice.rs:140": "ok",
+  "callees:src/algorithms/delta_slice.rs:17": "ok",
+  "callees:src/algorithms/symmetry_slice.rs:24": "ok",
+  "callees:src/ast.rs:6699": "ok",
+  "callees:src/ast.rs:8776": "ok",
+  "callees:src/bin/prism-mcp.rs:19": "ok",
+  "callees:src/call_graph.rs:2197": "ok",
+  "callees:src/call_graph.rs:2482": "ok",
+  "callees:src/cpg/types.rs:278": "ok",
+  "callees:src/data_flow.rs:54": "ok",
+  "callees:src/data_flow.rs:836": "ok",
+  "callees:src/executable_owner/admission.rs:63": "ok",
+  "callees:src/frameworks/python/flask.rs:258": "ok",
+  "callees:src/go_concrete_receiver.rs:263": "ok",
+  "callees:src/go_concrete_receiver.rs:332": "ok",
+  "callees:src/go_owner_partition.rs:166": "ok",
+  "callees:src/go_receiver_index.rs:295": "ok",
+  "callees:src/main.rs:1031": "ok",
+  "callees:src/main.rs:1037": "ok",
+  "callees:src/main.rs:20": "ok",
+  "callees:src/main.rs:473": "ok",
+  "callees:src/main.rs:487": "ok",
+  "callees:src/main.rs:949": "ok",
+  "callees:src/main.rs:962": "ok",
+  "callees:src/main.rs:987": "ok",
+  "callees:src/mcp/transport.rs:154": "inventory_miss",
+  "callees:src/mcp/transport.rs:199": "ok",
+  "callees:src/mcp/transport.rs:273": "ok",
+  "callees:src/name_resolution/rust_populator/builder.rs:231": "ok",
+  "callees:src/type_provider.rs:285": "ok",
+  "callees:src/type_providers/java.rs:382": "ok",
+  "callees:tests/cli/algo_test.rs:29": "ok",
+  "callees:tests/cli/nav_compat_test.rs:5": "ok",
+  "callees:tests/cli/readme_test.rs:83": "ok",
+  "callees:tests/integration/dfg_label_store_test.rs:54": "ok",
+  "callees:tests/integration/targets_dependency_hint_test.rs:86": "ok",
+  "callees:tests/lang/c/algo_expand_test.rs:374": "ok",
+  "callees:tests/lang/go/owner_partition_telemetry_test.rs:84": "ok",
+  "callees:tests/lang/go/span_test.rs:4": "ok",
+  "callers:src/access_path.rs:234": "ok",
+  "callers:src/algorithms/contract_slice.rs:140": "ok",
+  "callers:src/algorithms/delta_slice.rs:17": "ok",
+  "callers:src/algorithms/symmetry_slice.rs:24": "ok",
+  "callers:src/ast.rs:6699": "ok",
+  "callers:src/ast.rs:8776": "ok",
+  "callers:src/bin/prism-mcp.rs:19": "ok",
+  "callers:src/call_graph.rs:2197": "ok",
+  "callers:src/call_graph.rs:2482": "ok",
+  "callers:src/cpg/types.rs:278": "ok",
+  "callers:src/data_flow.rs:54": "ok",
+  "callers:src/data_flow.rs:836": "ok",
+  "callers:src/executable_owner/admission.rs:63": "ok",
+  "callers:src/frameworks/python/flask.rs:258": "ok",
+  "callers:src/go_concrete_receiver.rs:263": "ok",
+  "callers:src/go_concrete_receiver.rs:332": "ok",
+  "callers:src/go_owner_partition.rs:166": "ok",
+  "callers:src/go_receiver_index.rs:295": "ok",
+  "callers:src/main.rs:1031": "ok",
+  "callers:src/main.rs:1037": "ok",
+  "callers:src/main.rs:20": "ok",
+  "callers:src/main.rs:473": "ok",
+  "callers:src/main.rs:487": "ok",
+  "callers:src/main.rs:949": "ok",
+  "callers:src/main.rs:962": "ok",
+  "callers:src/main.rs:987": "ok",
+  "callers:src/mcp/transport.rs:154": "inventory_miss",
+  "callers:src/mcp/transport.rs:199": "ok",
+  "callers:src/mcp/transport.rs:273": "ok",
+  "callers:src/name_resolution/rust_populator/builder.rs:231": "ok",
+  "callers:src/type_provider.rs:285": "ok",
+  "callers:src/type_providers/java.rs:382": "ok",
+  "callers:tests/cli/algo_test.rs:29": "ok",
+  "callers:tests/cli/nav_compat_test.rs:5": "ok",
+  "callers:tests/cli/readme_test.rs:83": "ok",
+  "callers:tests/integration/dfg_label_store_test.rs:54": "ok",
+  "callers:tests/integration/targets_dependency_hint_test.rs:86": "ok",
+  "callers:tests/lang/c/algo_expand_test.rs:374": "ok",
+  "callers:tests/lang/go/owner_partition_telemetry_test.rs:84": "ok",
+  "callers:tests/lang/go/span_test.rs:4": "ok"
+ },
  "probes": {
   "_corpus": "prism",
   "_strata": {
@@ -10592,13 +11145,13 @@
    "oracle_sites": [
     [
      "src/access_path.rs",
-     251,
-     251
+     381,
+     381
     ],
     [
      "src/access_path.rs",
-     381,
-     381
+     251,
+     251
     ]
    ],
    "outcome": "ok",
@@ -10759,46 +11312,6 @@
    ],
    "oracle_sites": [
     [
-     "tests/algo/taxonomy/misc_lang_test.rs",
-     306,
-     306
-    ],
-    [
-     "tests/lang/typescript/typescript_test.rs",
-     478,
-     478
-    ],
-    [
-     "tests/lang/c/algo_expand_test.rs",
-     241,
-     241
-    ],
-    [
-     "tests/lang/lua/algo_expand_test.rs",
-     80,
-     80
-    ],
-    [
-     "tests/lang/rust/algo_expand_test.rs",
-     35,
-     35
-    ],
-    [
-     "tests/lang/tsx/algo_expand_test.rs",
-     113,
-     113
-    ],
-    [
-     "tests/lang/cpp/algo_test.rs",
-     173,
-     173
-    ],
-    [
-     "src/api/run.rs",
-     137,
-     137
-    ],
-    [
      "tests/algo/taxonomy/misc_test.rs",
      374,
      374
@@ -10814,9 +11327,14 @@
      80
     ],
     [
-     "tests/lang/javascript/algo_test.rs",
-     272,
-     272
+     "tests/lang/tsx/algo_expand_test.rs",
+     113,
+     113
+    ],
+    [
+     "tests/lang/c/algo_expand_test.rs",
+     241,
+     241
     ],
     [
      "tests/lang/terraform/algo_expand_test.rs",
@@ -10827,6 +11345,41 @@
      "tests/lang/java/algo_expand_test.rs",
      35,
      35
+    ],
+    [
+     "tests/lang/rust/algo_expand_test.rs",
+     35,
+     35
+    ],
+    [
+     "tests/algo/taxonomy/misc_lang_test.rs",
+     306,
+     306
+    ],
+    [
+     "tests/lang/javascript/algo_test.rs",
+     272,
+     272
+    ],
+    [
+     "tests/lang/lua/algo_expand_test.rs",
+     80,
+     80
+    ],
+    [
+     "tests/lang/cpp/algo_test.rs",
+     173,
+     173
+    ],
+    [
+     "tests/lang/typescript/typescript_test.rs",
+     478,
+     478
+    ],
+    [
+     "src/api/run.rs",
+     137,
+     137
     ],
     [
      "tests/lang/go/algo_test.rs",
@@ -11333,79 +11886,9 @@
    ],
    "oracle_sites": [
     [
-     "tests/lang/typescript/typed_receiver_test.rs",
-     476,
-     476
-    ],
-    [
-     "tests/lang/typescript/typed_receiver_test.rs",
-     724,
-     724
-    ],
-    [
-     "src/cpg/build.rs",
-     521,
-     521
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     332,
-     332
-    ],
-    [
-     "tests/integration/resolution_test.rs",
-     4077,
-     4077
-    ],
-    [
-     "tests/integration/imported_object_alias_test.rs",
-     175,
-     175
-    ],
-    [
-     "tests/integration/imported_object_alias_test.rs",
-     342,
-     342
-    ],
-    [
-     "tests/integration/imported_object_alias_test.rs",
-     352,
-     352
-    ],
-    [
-     "tests/integration/js_export_reexport_test.rs",
-     505,
-     505
-    ],
-    [
      "tests/integration/call_graph_test.rs",
      1825,
      1825
-    ],
-    [
-     "src/executable_owner/integration/tests.rs",
-     127,
-     127
-    ],
-    [
-     "src/executable_owner/integration/tests.rs",
-     213,
-     213
-    ],
-    [
-     "src/executable_owner/integration/tests.rs",
-     357,
-     357
-    ],
-    [
-     "src/executable_owner/integration/tests.rs",
-     367,
-     367
-    ],
-    [
-     "tests/integration/import_binding_test.rs",
-     936,
-     936
     ],
     [
      "tests/ast/cpg_cache_test.rs",
@@ -11431,6 +11914,76 @@
      "src/call_graph.rs",
      7442,
      7442
+    ],
+    [
+     "tests/integration/import_binding_test.rs",
+     936,
+     936
+    ],
+    [
+     "src/cpg/build.rs",
+     521,
+     521
+    ],
+    [
+     "tests/lang/typescript/typed_receiver_test.rs",
+     476,
+     476
+    ],
+    [
+     "tests/lang/typescript/typed_receiver_test.rs",
+     724,
+     724
+    ],
+    [
+     "tests/integration/imported_object_alias_test.rs",
+     175,
+     175
+    ],
+    [
+     "tests/integration/imported_object_alias_test.rs",
+     342,
+     342
+    ],
+    [
+     "tests/integration/imported_object_alias_test.rs",
+     352,
+     352
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     332,
+     332
+    ],
+    [
+     "tests/integration/js_export_reexport_test.rs",
+     505,
+     505
+    ],
+    [
+     "src/executable_owner/integration/tests.rs",
+     127,
+     127
+    ],
+    [
+     "src/executable_owner/integration/tests.rs",
+     213,
+     213
+    ],
+    [
+     "src/executable_owner/integration/tests.rs",
+     357,
+     357
+    ],
+    [
+     "src/executable_owner/integration/tests.rs",
+     367,
+     367
+    ],
+    [
+     "tests/integration/resolution_test.rs",
+     4077,
+     4077
     ]
    ],
    "outcome": "ok",
@@ -11655,14 +12208,14 @@
    ],
    "oracle_sites": [
     [
-     "src/executable_owner/integration.rs",
-     159,
-     159
-    ],
-    [
      "src/executable_owner/admission.rs",
      124,
      124
+    ],
+    [
+     "src/executable_owner/integration.rs",
+     159,
+     159
     ]
    ],
    "outcome": "ok",
@@ -11811,6 +12364,21 @@
    ],
    "oracle_sites": [
     [
+     "src/resolution.rs",
+     2711,
+     2711
+    ],
+    [
+     "src/call_graph.rs",
+     4492,
+     4492
+    ],
+    [
+     "src/navigation/queries.rs",
+     1281,
+     1281
+    ],
+    [
      "src/call_graph/promoted_snapshot_consult_test.rs",
      68,
      68
@@ -11819,21 +12387,6 @@
      "src/call_graph/promoted_snapshot_consult_test.rs",
      83,
      83
-    ],
-    [
-     "src/resolution.rs",
-     2711,
-     2711
-    ],
-    [
-     "src/navigation/queries.rs",
-     1281,
-     1281
-    ],
-    [
-     "src/call_graph.rs",
-     4492,
-     4492
     ]
    ],
    "outcome": "ok",
@@ -11918,6 +12471,11 @@
    ],
    "oracle_sites": [
     [
+     "src/go_receiver_index_visibility.rs",
+     36,
+     36
+    ],
+    [
      "src/resolution.rs",
      1493,
      1493
@@ -11931,11 +12489,6 @@
      "src/go_owner_partition_s4.rs",
      453,
      453
-    ],
-    [
-     "src/go_receiver_index_visibility.rs",
-     36,
-     36
     ]
    ],
    "outcome": "ok",
@@ -12407,6 +12960,11 @@
    "oracle_sites": [
     [
      "src/main.rs",
+     466,
+     466
+    ],
+    [
+     "src/main.rs",
      1042,
      1042
     ],
@@ -12419,11 +12977,6 @@
      "src/main.rs",
      1044,
      1044
-    ],
-    [
-     "src/main.rs",
-     466,
-     466
     ]
    ],
    "outcome": "ok",
@@ -12681,26 +13234,6 @@
    "oracle_sites": [
     [
      "src/main.rs",
-     1015,
-     1015
-    ],
-    [
-     "src/main.rs",
-     1021,
-     1021
-    ],
-    [
-     "src/main.rs",
-     1027,
-     1027
-    ],
-    [
-     "src/main.rs",
-     1033,
-     1033
-    ],
-    [
-     "src/main.rs",
      720,
      720
     ],
@@ -12753,6 +13286,26 @@
      "src/main.rs",
      938,
      938
+    ],
+    [
+     "src/main.rs",
+     1015,
+     1015
+    ],
+    [
+     "src/main.rs",
+     1021,
+     1021
+    ],
+    [
+     "src/main.rs",
+     1027,
+     1027
+    ],
+    [
+     "src/main.rs",
+     1033,
+     1033
     ]
    ],
    "outcome": "ok",
@@ -13022,14 +13575,14 @@
    ],
    "oracle_sites": [
     [
-     "src/name_resolution/rust_populator/walk/items.rs",
-     239,
-     239
-    ],
-    [
      "src/name_resolution/rust_populator/builder.rs",
      256,
      256
+    ],
+    [
+     "src/name_resolution/rust_populator/walk/items.rs",
+     239,
+     239
     ]
    ],
    "outcome": "ok",

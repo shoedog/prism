@@ -1,7 +1,7 @@
 {
   "lang": "rust",
   "package_dirs": [],
-  "policy_digest": "sha256:c50c405d7742eabecd3bccb4c087125d317fc2a014acd1aa618872f51408e6f2",
+  "policy_digest": "sha256:aba4cb86c0e11f9642f72651f69df403653c2c18bf730580d8cccbe43a3938f1",
   "symbols": {
     "build.rs:10": {
       "eligible": true,
