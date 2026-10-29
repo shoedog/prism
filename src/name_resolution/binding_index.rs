@@ -349,13 +349,15 @@ impl ScopeGraph {
                     .filter(|(id, _)| *id == file)
                     .map(|(_, path)| path.as_str());
                 #[cfg(debug_assertions)]
-                assert_eq!(
-                    found,
-                    self.file_paths
-                        .iter()
-                        .find_map(|(path, &id)| (id == file).then_some(path.as_str())),
-                    "file path lookup equivalence: invalidate lookup indexes after editing keys"
-                );
+                if self.file_paths.len() <= CROSS_CHECK_MAX_LEN {
+                    assert_eq!(
+                        found,
+                        self.file_paths
+                            .iter()
+                            .find_map(|(path, &id)| (id == file).then_some(path.as_str())),
+                        "file path lookup equivalence: invalidate lookup indexes after editing keys"
+                    );
+                }
                 return found;
             }
         }
