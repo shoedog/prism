@@ -8,11 +8,13 @@
 {
   "base": {
     "digest": "sha256:6b805ea3c62ab0d1274b93868ac2cc65182a16bb1c37886d993f7c698aef7a68",
-    "path": "runs/2026-10-29-prism-base3.json"
+    "path": "docs/eval/tier-a/2026-10-29-prism-base3.json",
+    "path_base": "repo_root"
   },
   "candidate": {
     "digest": "sha256:0b0c4c58708ad63cb888febc3bac80651b8014096e9f40109fd895e34dfb39da",
-    "path": "runs/2026-10-29-prism-candidate2.json"
+    "path": "docs/eval/tier-a/2026-10-29-prism-candidate2.json",
+    "path_base": "repo_root"
   }
 }
 ```
@@ -21,8 +23,8 @@
 
 ```json
 {
-  "generated_at": "2026-10-29T09:51:43.950888+00:00",
-  "harness_sha": "3c6bda3bec8a4193654007c41a22cab5674cb90f"
+  "generated_at": "2026-10-29T10:31:57.069124+00:00",
+  "harness_sha": "ffa6f5aaefb888a9be1c7bdaec95569482800842"
 }
 ```
 
@@ -229,6 +231,7 @@
 - [x] `no_new_sut_errors`
 - [x] `unexplained_zero`
 - [x] `no_recall_loss`
+- [x] `no_lost_matched_oracle_sites`
 - [x] `matrix_no_regression`
 - [x] `pinned_no_regression`
 
@@ -317,6 +320,12 @@
 ```
 
 ## Status transitions
+
+```json
+{}
+```
+
+## Lost matched oracle sites
 
 ```json
 {}

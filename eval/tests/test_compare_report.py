@@ -6,6 +6,7 @@ import pytest
 from tests.helpers import ADJ, ADJ_DIGEST, ADJ_RECORDS, DECLARED_ADJ, FakeOracle, FakeSut, base_ids, edit, fake_run, quick_probes
 from tier_a import pinned as pinned_mod
 from tier_a import cli
+from tier_a.adjudication import Adjudication
 from tier_a.model import CallEdge, FunctionDef, Location
 from tier_a.oracles import OracleError
 from tier_a.sut import SutError
@@ -89,18 +90,35 @@ def test_candidate_sut_error_on_a_comparable_probe_is_a_regression():           
     assert cmp_r["verdict"] == "NO_REGRESSION" and cmp_r["criteria"]["no_recall_loss"] is True and cmp_r["status_transitions"] == {pid: ["sut_error", "ok"]}   # m2 over the common scored intersection: the recovered probe sits outside BOTH denominators
 
 
-def test_adjudications_must_be_the_runs_declared_copy(tmp_path):                                   # R5-W5, R5-W7
+def test_adjudications_must_be_the_runs_declared_copy(tmp_path, monkeypatch):                      # R5-W5, R5-W7
     ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
     b = fake_run(ids); c = fake_run(cand)
     assert compare_runs(b, c, (ADJ, "sha256:" + "0"*64))["verdict"] == "NOT_COMPARABLE(adjudications_digest)"   # records whose digest is not the legs' meta.data digest are refused
     adj = tmp_path / "adjudications.jsonl"; adj.write_text("".join(json.dumps(r) + "\n" for r in ADJ_RECORDS)); assert raw_digest(adj) == ADJ_DIGEST
-    bp, cp = tmp_path / "base.json", tmp_path / "cand.json"; bp.write_text(json.dumps(b)); cp.write_text(json.dumps(c))
-    cmp = commands.compare(bp, cp, tmp_path / "compare", adjudications=adj)
-    assert cmp["verdict"] == "NO_REGRESSION" and cmp["runs"] == {"base": {"path": str(bp), "digest": raw_digest(bp)}, "candidate": {"path": str(cp), "digest": raw_digest(cp)}} and len(cmp["meta"]["harness_sha"]) == 40
+    bp, cp = tmp_path / "base.json", tmp_path / "nested/cand.json"; cp.parent.mkdir(); bp.write_text(json.dumps(b)); cp.write_text(json.dumps(c))
+    monkeypatch.chdir(tmp_path)
+    cmp = commands.compare(bp, Path("nested/cand.json"), tmp_path / "compare", adjudications=adj, repo_root=tmp_path)
+    assert cmp["verdict"] == "NO_REGRESSION" and cmp["runs"] == {
+        "base": {"path_base": "repo_root", "path": "base.json", "digest": raw_digest(bp)},
+        "candidate": {"path_base": "repo_root", "path": "nested/cand.json", "digest": raw_digest(cp)},
+    } and len(cmp["meta"]["harness_sha"]) == 40
+    for leg in cmp["runs"].values():
+        resolved = tmp_path / leg["path"]
+        assert resolved.is_file() and raw_digest(resolved) == leg["digest"]
     assert (tmp_path / "compare.json").exists() and (tmp_path / "compare.md").exists()
     edit(adj, '"verdict": "oracle_miss"', '"verdict": "prism_fp"')                                  # a LEGAL mutation after the runs (adjudication.py:10-18)
-    cmp2 = commands.compare(bp, cp, tmp_path / "compare2", adjudications=adj)
+    cmp2 = commands.compare(bp, cp, tmp_path / "compare2", adjudications=adj, repo_root=tmp_path)
     assert cmp2["verdict"] == "NOT_COMPARABLE(adjudications_digest)" and not (tmp_path / "compare2.json").exists() and not (tmp_path / "compare2.md").exists()   # R6-S1: a mutated store never silently rescores a historical pair; neither output is written
+
+
+def test_compare_refuses_input_resolving_outside_repo_root(tmp_path):
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}")
+
+    with pytest.raises(ValueError):
+        commands._repo_run(outside, repo_root)
 
 
 def test_adjudications_digest_accepts_lock_shape_and_legacy_but_refuses_drift():
@@ -182,6 +200,112 @@ def test_compare_uses_observed_sut_digest_for_changed_answers():
     same_digest = {**different_sut, "sut_digest": ids["sut_digest"]}
     cmp_same = compare_runs(fake_run(ids), fake_run(same_digest, probes=changed), DECLARED_ADJ)
     assert cmp_same["classes"][pid] == "unexplained"
+
+
+def test_exact_m6_mutation_losing_unadjudicated_matched_sites_is_a_regression():
+    records_dir = EVAL_DIR.parent / "docs/eval/tier-a"
+    base = json.loads((records_dir / "2026-10-29-prism-base3.json").read_text())
+    candidate = json.loads(
+        (records_dir / "2026-10-29-prism-candidate2.json").read_text()
+    )
+    pid = "callees:src/ast.rs:2914"
+    candidate["probes"][pid]["prism_sites"] = []
+    adjudications = EVAL_DIR / "adjudications.jsonl"
+
+    cmp = compare_runs(
+        base,
+        candidate,
+        (commands.load_records(adjudications), raw_digest(adjudications)),
+    )
+
+    assert cmp["counts"]["carried_changed/sut_change"] == 1
+    assert cmp["counts"]["carried_same"] == 29
+    assert cmp["criteria"]["no_recall_loss"] is True
+    assert cmp["criteria"]["no_lost_matched_oracle_sites"] is False
+    assert cmp["lost_matched_oracle_sites"] == {
+        pid: [["src/ast.rs", 2923, 2923], ["src/ast.rs", 2929, 2929]]
+    }
+    assert cmp["verdict"] == "REGRESSION(no_lost_matched_oracle_sites)"
+
+
+def test_pending_change_without_lost_match_remains_no_regression():
+    ids = base_ids()
+    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    pid = "callers:src/U-method.rs:1"
+    base_probes = quick_probes()
+    base_probes[pid] = {
+        **base_probes[pid],
+        "prism_sites": [["src/a.rs", 3, 3], ["src/pending.rs", 50, 50]],
+    }
+    candidate_probes = copy.deepcopy(base_probes)
+    candidate_probes[pid]["prism_sites"] = [["src/a.rs", 3, 3]]
+
+    cmp = compare_runs(
+        fake_run(ids, probes=base_probes),
+        fake_run(candidate_ids, probes=candidate_probes),
+        DECLARED_ADJ,
+    )
+
+    assert cmp["m2"]["base"]["callers"]["U-method"]["pending"] == 1
+    assert cmp["m2"]["candidate"]["callers"]["U-method"]["pending"] == 0
+    assert cmp["criteria"]["no_lost_matched_oracle_sites"] is True
+    assert cmp["verdict"] == "NO_REGRESSION"
+
+
+def test_added_prism_only_site_is_precision_only_not_a_matched_site_loss():
+    ids = base_ids()
+    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    pid = "callers:src/U-method.rs:1"
+    candidate_probes = quick_probes()
+    candidate_probes[pid] = {
+        **candidate_probes[pid],
+        "prism_sites": [["src/a.rs", 3, 3], ["src/added.rs", 60, 60]],
+    }
+
+    cmp = compare_runs(
+        fake_run(ids),
+        fake_run(candidate_ids, probes=candidate_probes),
+        DECLARED_ADJ,
+    )
+
+    assert cmp["m2"]["base"]["callers"]["U-method"]["pending"] == 0
+    assert cmp["m2"]["candidate"]["callers"]["U-method"]["pending"] == 1
+    assert cmp["criteria"]["no_lost_matched_oracle_sites"] is True
+    assert cmp["verdict"] == "NO_REGRESSION"
+
+
+def test_adjudicated_lost_matched_site_keeps_existing_recall_regression():
+    ids = base_ids()
+    digest = "sha256:adjudicated-matched-site-loss"
+    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    for leg in (ids, candidate_ids):
+        leg["data"] = {"eval/adjudications.jsonl": {"digest": digest}}
+    pid = "callers:src/U-method.rs:1"
+    candidate_probes = quick_probes()
+    candidate_probes[pid] = {**candidate_probes[pid], "prism_sites": []}
+    adjudication = Adjudication(
+        corpus="prism",
+        measurement="callers",
+        direction="oracle_only",
+        seed_def="src/U-method.rs:1",
+        site="src/a.rs:3",
+        verdict="prism_fn",
+        reason="fixture",
+        adjudicated_by="test",
+        date="2026-10-29",
+    )
+
+    cmp = compare_runs(
+        fake_run(ids),
+        fake_run(candidate_ids, probes=candidate_probes),
+        ([adjudication], digest),
+    )
+
+    assert cmp["criteria"]["no_recall_loss"] is False
+    assert cmp["criteria"]["no_lost_matched_oracle_sites"] is False
+    assert cmp["verdict"] == (
+        "REGRESSION(no_recall_loss; no_lost_matched_oracle_sites)"
+    )
 
 
 def test_real_m6_lock_bound_pair_is_comparable():
@@ -270,7 +394,7 @@ def test_report_carries_e5_contract():
     cmp = compare_runs(fake_run(ids), fake_run(cand), DECLARED_ADJ)
     for k in ("base_sha", "candidate_sha", "base_sut_digest", "candidate_sut_digest", *COMPARE_IDENTITIES): assert k in cmp["identities"]
     assert len(cmp["identities"]["base_sha"]) == 40 and len(cmp["identities"]["candidate_sha"]) == 40                   # full SHAs (astra W5)
-    assert cmp["criteria"] == {"both_admitted": True, "both_baseline_valid": True, "identities_equal": True, "probe_sets_equal": True, "adjudications_match": True, "adjudications_digest_keys": {"base": "data.eval/adjudications.jsonl.digest", "candidate": "data.eval/adjudications.jsonl.digest"}, "oracle_answers_joined": True, "oracle_changed_within_threshold": True, "no_new_sut_errors": True, "unexplained_zero": True, "no_recall_loss": True, "matrix_no_regression": True, "pinned_no_regression": True}
+    assert cmp["criteria"] == {"both_admitted": True, "both_baseline_valid": True, "identities_equal": True, "probe_sets_equal": True, "adjudications_match": True, "adjudications_digest_keys": {"base": "data.eval/adjudications.jsonl.digest", "candidate": "data.eval/adjudications.jsonl.digest"}, "oracle_answers_joined": True, "oracle_changed_within_threshold": True, "no_new_sut_errors": True, "unexplained_zero": True, "no_recall_loss": True, "no_lost_matched_oracle_sites": True, "matrix_no_regression": True, "pinned_no_regression": True}
     assert cmp["oracle_changed"] == {"count": 0, "fraction": 0.0, "ids": []}
     assert cmp["policy"] == COMPARE_POLICY and cmp["pinned_oracle_changed"] == [] and cmp["runs"] == {"base": None, "candidate": None}   # R5-W4/W6/W7: policy echoed; runs filled by commands.compare
     assert cmp["verdict"] == "NO_REGRESSION" and "wilson_flags" in cmp
@@ -383,8 +507,8 @@ def test_markdown_renders_complete_comparison_contract():
     ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
     cmp = compare_runs(fake_run(ids), fake_run(cand), DECLARED_ADJ)
     cmp["runs"] = {
-        "base": {"path": "BASE-RUN-PATH", "digest": "BASE-RUN-DIGEST"},
-        "candidate": {"path": "CAND-RUN-PATH", "digest": "CAND-RUN-DIGEST"},
+        "base": {"path_base": "REPO-ROOT-BASE", "path": "BASE-RUN-PATH", "digest": "BASE-RUN-DIGEST"},
+        "candidate": {"path_base": "REPO-ROOT-BASE", "path": "CAND-RUN-PATH", "digest": "CAND-RUN-DIGEST"},
     }
     cmp["meta"] = {"harness_sha": "COMPARE-HARNESS-SHA", "generated_at": "GENERATED-AT"}
     cmp["policy"] = {"oracle_changed_max_fraction": 0.123, "min_comparable_per_stratum": 7}
@@ -395,6 +519,7 @@ def test_markdown_renders_complete_comparison_contract():
     cmp["matrix_diffs"] = {"MATRIX-DIFF-ID": ["MATRIX-BEFORE", "MATRIX-AFTER"]}
     cmp["wilson_flags"] = ["WILSON-FLAG-VALUE"]
     cmp["recall_regressions"] = ["RECALL-REGRESSION-VALUE"]
+    cmp["lost_matched_oracle_sites"] = {"LOST-PROBE-ID": [["LOST-SITE", 1, 1]]}
     cmp["status_transitions"] = {"STATUS-ID": ["STATUS-BEFORE", "STATUS-AFTER"]}
     cmp["m2"] = {
         "base": {"direction": {"stratum": {"raw": {"marker": "BASE-RAW"}, "corrected": {"marker": "BASE-CORRECTED"}}}},
@@ -403,10 +528,10 @@ def test_markdown_renders_complete_comparison_contract():
     cmp["full_sample_m2"] = {"base": {"marker": "BASE-FULL-SAMPLE"}, "candidate": {"marker": "CAND-FULL-SAMPLE"}}
     markdown = render_compare_md(cmp)
     for literal in (
-        "BASE-RUN-PATH", "BASE-RUN-DIGEST", "CAND-RUN-PATH", "CAND-RUN-DIGEST",
+        "REPO-ROOT-BASE", "BASE-RUN-PATH", "BASE-RUN-DIGEST", "CAND-RUN-PATH", "CAND-RUN-DIGEST",
         "COMPARE-HARNESS-SHA", "GENERATED-AT", "0.123", "7", "1", "0.03125",
         "ORACLE-CHANGED-ID", "BASE-ANSWER", "CAND-ANSWER", "PINNED-EXCLUSION-ID",
-        "PIN-DIFF-ID", "MATRIX-DIFF-ID", "WILSON-FLAG-VALUE", "RECALL-REGRESSION-VALUE",
+        "PIN-DIFF-ID", "MATRIX-DIFF-ID", "WILSON-FLAG-VALUE", "RECALL-REGRESSION-VALUE", "LOST-PROBE-ID", "LOST-SITE",
         "STATUS-ID", "BASE-RAW", "CAND-RAW", "BASE-CORRECTED", "CAND-CORRECTED",
         "BASE-FULL-SAMPLE", "CAND-FULL-SAMPLE",
     ):

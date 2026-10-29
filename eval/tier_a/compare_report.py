@@ -212,6 +212,7 @@ def _empty_report(base_run: dict, cand_run: dict, policy: dict) -> dict:
             "base": base_run.get("m2", {}),
             "candidate": cand_run.get("m2", {}),
         },
+        "lost_matched_oracle_sites": {},
         "wilson_flags": [],
         "recall_regressions": [],
     }
@@ -237,6 +238,24 @@ def _common_m2(run: dict, ids: set[str], records: list[Adjudication]) -> dict:
     return _compute_m2_and_pending(
         probes, records, run.get("site_fingerprints", {})
     )[0]
+
+
+def _lost_matched_oracle_sites(comparable: dict) -> dict[str, list[list]]:
+    """Return base true-positive sites absent from an oracle-stable candidate."""
+    losses = {}
+    for pid, legs in comparable.items():
+        base_status, base, cand_status, cand = legs
+        if base_status not in _SCORED or cand_status not in _SCORED:
+            continue
+        oracle_sites = set(_canonical_sites(base or {}, "oracle_sites"))
+        base_matches = oracle_sites & set(_canonical_sites(base or {}, "prism_sites"))
+        candidate_matches = oracle_sites & set(
+            _canonical_sites(cand or {}, "prism_sites")
+        )
+        lost = sorted(base_matches - candidate_matches)
+        if lost:
+            losses[pid] = [list(site) for site in lost]
+    return losses
 
 
 def _canonical_pinned_sites(row: dict) -> tuple:
@@ -377,6 +396,7 @@ def compare_runs(
         "no_new_sut_errors": True,
         "unexplained_zero": True,
         "no_recall_loss": True,
+        "no_lost_matched_oracle_sites": True,
         "matrix_no_regression": True,
         "pinned_no_regression": True,
     }
@@ -465,6 +485,10 @@ def compare_runs(
     report["wilson_flags"] = wilson_regressed(base_m2, cand_m2)
     report["recall_regressions"] = recall_nondecreasing(base_m2, cand_m2)
     criteria["no_recall_loss"] = not report["recall_regressions"]
+    report["lost_matched_oracle_sites"] = _lost_matched_oracle_sites(comparable)
+    criteria["no_lost_matched_oracle_sites"] = not report[
+        "lost_matched_oracle_sites"
+    ]
 
     pinned_changed, pinned_diffs, pinned_ok = _pinned_result(base_run, cand_run)
     report["pinned_oracle_changed"] = pinned_changed
@@ -480,6 +504,7 @@ def compare_runs(
         ("no_new_sut_errors", "no_new_sut_errors"),
         ("unexplained_zero", "unexplained"),
         ("no_recall_loss", "no_recall_loss"),
+        ("no_lost_matched_oracle_sites", "no_lost_matched_oracle_sites"),
         ("matrix_no_regression", "matrix_no_regression"),
         ("pinned_no_regression", "pinned_no_regression"),
     ):

@@ -124,23 +124,37 @@ def dispatch(argv: list[str]) -> int | None:
     return 0
 
 
+def _repo_run(path: Path, repo_root: Path) -> tuple[Path, dict]:
+    resolved_root = repo_root.resolve(strict=True)
+    resolved_path = path.resolve(strict=True)
+    relative_path = resolved_path.relative_to(resolved_root).as_posix()
+    return resolved_path, {
+        "path_base": "repo_root",
+        "path": relative_path,
+        "digest": raw_digest(resolved_path),
+    }
+
+
 def compare(
     base: Path,
     candidate: Path,
     out: Path,
     adjudications: Path = EVAL_DIR / "adjudications.jsonl",
+    repo_root: Path = EVAL_DIR.parent,
 ) -> dict:
     """Compare two stored runs and write the JSON/Markdown report pair."""
     from .compare_report import compare_runs, render_compare_md
 
+    base, base_record = _repo_run(base, repo_root)
+    candidate, candidate_record = _repo_run(candidate, repo_root)
     run_b = json.loads(base.read_text())
     run_c = json.loads(candidate.read_text())
     records = load_records(adjudications)
     digest = raw_digest(adjudications)
     result = compare_runs(run_b, run_c, (records, digest))
     result["runs"] = {
-        "base": {"path": str(base), "digest": raw_digest(base)},
-        "candidate": {"path": str(candidate), "digest": raw_digest(candidate)},
+        "base": base_record,
+        "candidate": candidate_record,
     }
     result["meta"] = {
         "harness_sha": _harness_sha(EVAL_DIR),

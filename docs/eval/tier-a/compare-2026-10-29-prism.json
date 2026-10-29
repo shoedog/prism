@@ -49,6 +49,7 @@
   "both_baseline_valid": true,
   "identities_equal": true,
   "matrix_no_regression": true,
+  "no_lost_matched_oracle_sites": true,
   "no_new_sut_errors": true,
   "no_recall_loss": true,
   "oracle_answers_joined": true,
@@ -2002,6 +2003,7 @@
    "snapshot_digest": "sha256:722ec0b4554d26e420662cc82310c2ecb76af7da3c9a86e2a569cdd58d632180"
   }
  },
+ "lost_matched_oracle_sites": {},
  "m2": {
   "base": {
    "callees": {
@@ -3778,8 +3780,8 @@
  },
  "matrix_diffs": {},
  "meta": {
-  "generated_at": "2026-10-29T09:51:43.950888+00:00",
-  "harness_sha": "3c6bda3bec8a4193654007c41a22cab5674cb90f"
+  "generated_at": "2026-10-29T10:31:57.069124+00:00",
+  "harness_sha": "ffa6f5aaefb888a9be1c7bdaec95569482800842"
  },
  "oracle_changed": {
   "count": 0,
@@ -3797,11 +3799,13 @@
  "runs": {
   "base": {
    "digest": "sha256:6b805ea3c62ab0d1274b93868ac2cc65182a16bb1c37886d993f7c698aef7a68",
-   "path": "runs/2026-10-29-prism-base3.json"
+   "path": "docs/eval/tier-a/2026-10-29-prism-base3.json",
+   "path_base": "repo_root"
   },
   "candidate": {
    "digest": "sha256:0b0c4c58708ad63cb888febc3bac80651b8014096e9f40109fd895e34dfb39da",
-   "path": "runs/2026-10-29-prism-candidate2.json"
+   "path": "docs/eval/tier-a/2026-10-29-prism-candidate2.json",
+   "path_base": "repo_root"
   }
  },
  "status_transitions": {},

@@ -54,6 +54,11 @@ def render_compare_md(cmp: dict) -> str:
     _json_section(lines, "Pinned outcome differences", cmp.get("pinned_diffs", {}))
     _json_section(lines, "Matrix differences", cmp.get("matrix_diffs", {}))
     _json_section(lines, "Status transitions", cmp.get("status_transitions", {}))
+    _json_section(
+        lines,
+        "Lost matched oracle sites",
+        cmp.get("lost_matched_oracle_sites", {}),
+    )
 
     measured = cmp.get("m2", {})
     _json_section(lines, "Corrected measured metrics", _metric_tier(measured, "corrected"))
