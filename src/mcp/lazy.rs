@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn lazy_construction_starts_no_build_until_the_first_readiness_check() {
-        let (_dir, mut provider, mut build) = blocking_lazy(Duration::from_secs(1));
+        let (_dir, mut provider, mut build) = blocking_lazy(Duration::from_secs(60));
 
         assert_eq!(provider.attempts(), 0);
         assert_eq!(provider.builds(), 0);
