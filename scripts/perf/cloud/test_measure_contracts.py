@@ -128,6 +128,10 @@ class RunnerFixTests(unittest.TestCase):
             raise RuntimeError("synthetic build failure")
 
         def git(repo, *args):
+            if args[0] == "symbolic-ref":
+                return "refs/heads/feature"
+            if args[0] == "merge-base":
+                return ""
             return "remote" if args[-1] == "origin/main^{commit}" else "local"
 
         args = self.args()
@@ -236,6 +240,10 @@ class GitFixTests(unittest.TestCase):
         for local, remote, expected, warning in cases:
             with self.subTest(local=local, remote=remote):
                 def git(repo, *args):
+                    if args[0] == "symbolic-ref":
+                        return "refs/heads/feature"
+                    if args[0] == "merge-base":
+                        return ""
                     value = remote if args[-1] == "origin/main^{commit}" else local
                     if value is None:
                         raise subprocess.CalledProcessError(1, "git")
@@ -320,7 +328,7 @@ class ReportFixTests(unittest.TestCase):
         for row in rows:
             self.assertIn("+30.0%", row)  # median([1,8,6])/median([10,20,30]); median percent is 20
             self.assertIn("100.00%", row)
-            self.assertIn("holds in every pair (3 pairs)", row)
+            self.assertIn("holds in every pair (3 pairs); 0 of 6 runs gate-failed", row)
         report = reporting.render_results({}, [{"ref": "a"}, {"ref": "b"}],
                                           [r for values in group.values() for r in values.values()])
         self.assertIn("median delta / base median", report)
@@ -328,12 +336,12 @@ class ReportFixTests(unittest.TestCase):
 
     def test_no_pairs_and_zero_base_are_explicit(self):
         row = reporting.delta_cell([], [])
-        self.assertIn("insufficient pairs (0)", row)
+        self.assertIn("insufficient pairs (0); 0 of 0 runs gate-failed", row)
         self.assertIn("n/a", reporting.delta_cell([0, 0, 0], [1, 1, 1]))
 
     def test_missing_metric_pairs_are_counted_and_zero_wall_is_defined(self):
         row = reporting.delta_cell([10, None, 30], [9, 20, None])
-        self.assertIn("insufficient pairs (1)", row)
+        self.assertIn("insufficient pairs (1); 0 of 2 runs gate-failed", row)
         self.assertIn("-10.0%", row)
         self.assertEqual(reporting.spread({0: self.run_record("a", 0, 0)}), "n/a")
         self.assertEqual(reporting.spread({}), "unavailable")

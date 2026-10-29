@@ -109,7 +109,10 @@ def git(repo, *args):
 
 def resolve_ref(repo, ref, warnings=None):
     resolved = {}
-    for candidate in (ref, f"origin/{ref}"):
+    explicit = (ref == "HEAD" or ref.startswith(("origin/", "refs/")) or
+                re.fullmatch(r"[0-9a-f]{7,40}", ref) is not None)
+    candidates = (ref,) if explicit else (ref, f"origin/{ref}")
+    for candidate in candidates:
         try:
             resolved[candidate] = git(repo, "rev-parse", "--verify", "--quiet",
                                       candidate + "^{commit}")
@@ -119,20 +122,40 @@ def resolve_ref(repo, ref, warnings=None):
     if not resolved:
         raise ValueError(f"cannot resolve ref: {ref}")
     if ref in resolved and remote in resolved and resolved[ref] != resolved[remote]:
-        warning = (f"{ref} resolves to {resolved[ref]}, but {remote} resolves to "
-                   f"{resolved[remote]}; using {remote}")
-        print(f"warning: {warning}", file=sys.stderr, flush=True)
-        if warnings is not None:
-            warnings.append(warning)
+        identities = (f"{ref} resolves to {resolved[ref]}, but {remote} resolves to "
+                      f"{resolved[remote]}")
+        try:
+            branch = git(repo, "symbolic-ref", "--quiet", "HEAD")
+        except subprocess.CalledProcessError as error:
+            if error.returncode != 1:
+                raise
+            branch = None  # Detached HEAD is not a checked-out branch.
+        if branch == f"refs/heads/{ref}":
+            record_warning(f"{identities}; checked-out branch, using {ref}", warnings)
+            return resolved[ref]
+        try:
+            git(repo, "merge-base", "--is-ancestor", resolved[ref], resolved[remote])
+        except subprocess.CalledProcessError as error:
+            if error.returncode != 1:
+                raise
+            raise ValueError(f"{identities}; ambiguous ref: pass {remote} or a SHA explicitly")
+        record_warning(f"{identities}; stale local ref, using {remote}", warnings)
     return resolved.get(remote, resolved.get(ref))
+
+
+def record_warning(message, warnings):
+    print(f"warning: {message}", file=sys.stderr, flush=True)
+    if warnings is not None:
+        warnings.append(message)
 
 
 def build_binaries(refs, repo, work_dir, allow_dirty=False, warnings=None):
     """Build each ref (a ref equal to HEAD reuses the checkout); return [{ref, sha256, path}]."""
     head = git(repo, "rev-parse", "HEAD")
+    # Refuse ambiguous inputs before building even the first requested ref.
+    commits = [(ref, resolve_ref(repo, ref, warnings)) for ref in refs]
     result = []
-    for ref in refs:
-        commit = resolve_ref(repo, ref, warnings)
+    for ref, commit in commits:
         if commit == head:
             tree = Path(repo)
         else:
@@ -262,6 +285,7 @@ def main(argv=None):
         ref_ids = {ref: i for i, ref in enumerate(args.refs)}
         query = shlex.split(args.query)
         write_results("measurement in progress")
+        quiet_wait = args.quiet_wait
         for round_id, corpus, ref in run_order(args.refs, args.corpora, args.rounds):
             run_id = f"r{round_id}-{corpus}-{re.sub(r'[^A-Za-z0-9_.-]', '_', ref)}-{ref_ids[ref]}"
             profile = runs_dir / f"{run_id}.profile.jsonl"
@@ -269,13 +293,18 @@ def main(argv=None):
             child_env = {**os.environ, "PRISM_PROFILE": str(profile),
                          "RAYON_NUM_THREADS": str(args.threads)}
             gate_reason = None
+            gate_wait = quiet_wait
             try:
-                load = wait_quiet(args.quiet_threshold, args.quiet_wait)
+                load = wait_quiet(args.quiet_threshold, gate_wait)
             except QuietTimeout as error:
                 if args.quiet_on_timeout == "fail":
                     raise
                 load, gate_reason = error.load, str(error)
                 print(f"warning: {run_id}: {gate_reason}; recording gate_failed", file=sys.stderr)
+                if quiet_wait > 60:
+                    quiet_wait = 60.0
+                    record_warning(f"{run_id}: timeout; later quiet gates wait at most "
+                                   f"{quiet_wait:g}s (reduced from {gate_wait:g}s)", warnings)
             # A previous invocation's profile cannot satisfy this run's profile requirement.
             profile.unlink(missing_ok=True)
             steal_before = read_steal()
@@ -291,6 +320,7 @@ def main(argv=None):
                 stream.write("".join(json.dumps(r) + "\n" for r in records))
             profile.unlink()
             run = dict(round=round_id, corpus=corpus, ref=ref, quiet_load=load,
+                       quiet_wait_s=gate_wait, quiet_wait_reduced=gate_wait < args.quiet_wait,
                        gate_failed=gate_reason is not None, gate_failure_reason=gate_reason,
                        steal_before=steal_before, steal_after=steal_after, phases=phases,
                        threads=args.threads, command=command,

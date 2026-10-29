@@ -23,14 +23,21 @@ load average (default below 0.5, wait up to 300 s, the value used is recorded), 
 order per round, and writes `<out>/runs/` plus `<out>/RESULTS.md`. Use an even `--rounds` for two
 refs so both run orders occur equally often. On a gate timeout, `--quiet-on-timeout record`
 (default) records the load and flags `gate_failed`, then continues; use `--quiet-on-timeout fail`
-to abort instead. The initial idle loadavg is recorded once before setup/builds. Finished runs
+to abort instead. After the first timeout, later gates in that measurement wait at most 60 s,
+without increasing a shorter configured wait. Each run records its effective wait limit and
+whether it was reduced; reductions also appear in the warnings. The initial idle loadavg is
+recorded once before setup/builds. Finished runs
 are checkpointed in RESULTS.md, marked PARTIAL with a reason on abort. Relax the gate with
 `--quiet-threshold`; skip the build with `--prism-bin` (single ref) and use a local directory with
 `--corpus-dir KEY=PATH`. Steal ticks come from `/proc/stat` and are recorded as `unavailable` where
 it is missing.
 
-The Binaries table records resolved commits and hashes. When local `<ref>` and `origin/<ref>`
-differ, the runner uses `origin/<ref>` and records a warning. Reused worktrees must match the
+The Binaries table records resolved commits and hashes. `HEAD`, refs starting with `origin/` or
+`refs/`, and 7–40 character lowercase hex SHAs resolve as given, without an added origin candidate.
+When local `<ref>` and `origin/<ref>` differ, the checked-out branch uses local with a warning.
+Otherwise a stale local ancestor uses origin with a warning; an ahead or diverged local ref
+refuses before any build, naming both commits. Pass `origin/<ref>` or a SHA explicitly to choose.
+Warnings print to stderr at resolution time and appear in RESULTS.md. Reused worktrees must match the
 requested commit. Tracked changes refuse a build unless `--allow-dirty` is explicit (recorded
 in the environment). With `--prism-bin`, commit identity is `unknown (prism-bin)`.
 
@@ -46,7 +53,9 @@ in the environment). With `--prism-bin`, commit identity is `unknown (prism-bin)
   otherwise `mixed` (3+ pairs) or `insufficient pairs (n)`. Each verdict gives its pair count.
   Each metric includes median(paired delta) as a percentage of its base median, beside the
   base command-wall spread. Missing metric values reduce that metric's pair count; zero base
-  medians have `n/a` percentages. Gate-failed runs remain included and visibly flagged.
+  medians have `n/a` percentages. Gate-failed runs remain included. The Paired deltas header
+  counts unique runs participating in shared rounds, each ref-pair header counts its runs,
+  and every metric verdict states `k of m runs gate-failed` for that metric's complete pairs.
 
 ## Adding a corpus (controller only)
 
