@@ -1,0 +1,8 @@
+[submodule "corpora/TypeScript"]
+	path = corpora/TypeScript
+	url = https://github.com/microsoft/TypeScript.git
+	shallow = true
+[submodule "corpora/excalidraw"]
+	path = corpora/excalidraw
+	url = https://github.com/excalidraw/excalidraw.git
+	shallow = true
