@@ -541,8 +541,9 @@ fn glob_lookup_inner(
     let glob_kinds = policy.edge_order();
     let mut candidates: Vec<Candidate> = Vec::new();
     let mut saw_glob = false;
-    for (edge_idx, e) in graph.edges.iter().enumerate() {
-        if e.from != scope_id || !glob_kinds.contains(&e.kind) {
+    for edge_idx in graph.edge_indices(scope_id) {
+        let e = &graph.edges[edge_idx];
+        if !glob_kinds.contains(&e.kind) {
             continue;
         }
         if e.vis_range
@@ -920,9 +921,8 @@ fn macro_wildcard_poisons(
     at: &SourceLoc,
 ) -> bool {
     graph
-        .macro_wildcards
-        .iter()
-        .any(|m| m.scope == scope && m.ns == ns && span_covers(&m.range, at))
+        .macro_wildcard_indices(scope, ns)
+        .any(|i| span_covers(&graph.macro_wildcards[i].range, at))
 }
 
 // ── small predicates / combinators ────────────────────────────────────────────

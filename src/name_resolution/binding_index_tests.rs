@@ -6,7 +6,7 @@ use crate::name_resolution::rust_populator::{populate_rust, RustCrateConfig};
 use crate::name_resolution::types::*;
 use std::collections::BTreeMap;
 
-fn fixture() -> ScopeGraph {
+pub(super) fn fixture() -> ScopeGraph {
     let mut graph = ScopeGraph::new();
     graph.file_paths = BTreeMap::from([
         ("a.rs".into(), FileId(0)),
@@ -202,14 +202,18 @@ fn populated_graph_keys_equal_scans_from_rayon_threads() {
     let graph = populate_rust(&files, &config, None);
     rayon::scope(|s| {
         for _ in 0..8 {
-            s.spawn(|_| check_equivalence(&graph, true));
+            s.spawn(|_| {
+                check_equivalence(&graph, true);
+                super::scope_tests::check_equivalence(&graph, true, true);
+            });
         }
     });
 }
 
 #[test]
 fn index_is_absent_from_serialization_and_identity() {
-    let graph = fixture();
+    let mut graph = fixture();
+    super::scope_tests::add_entries(&mut graph);
     // The pre-index bincode layout, pinned independently of ScopeGraph's derive.
     let old_bytes = bincode::serialize(&(
         graph.complete,
@@ -226,13 +230,20 @@ fn index_is_absent_from_serialization_and_identity() {
     .unwrap();
     let cold_json = serde_json::to_string(&graph).unwrap();
     check_equivalence(&graph, true);
+    super::scope_tests::check_equivalence(&graph, true, true);
     assert_eq!(bincode::serialize(&graph).unwrap(), old_bytes);
     assert_eq!(serde_json::to_string(&graph).unwrap(), cold_json);
     let back: ScopeGraph = bincode::deserialize(&old_bytes).unwrap();
     assert!(back.binding_index.0.get().is_none());
+    assert!(back.binding_index.1.get().is_none());
+    assert!(back.binding_index.2.get().is_none());
     assert_eq!(graph, back);
     let clone = graph.clone();
     assert!(clone.binding_index.0.get().is_none());
+    assert!(clone.binding_index.1.get().is_none());
+    assert!(clone.binding_index.2.get().is_none());
     assert_eq!(graph, clone);
     check_equivalence(&back, true);
+    super::scope_tests::check_equivalence(&back, true, true);
+    super::scope_tests::check_equivalence(&clone, true, true);
 }

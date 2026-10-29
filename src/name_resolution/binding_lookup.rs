@@ -98,15 +98,14 @@ fn macro_wildcard_poisons(
     scope: crate::name_resolution::types::ScopeId,
     at: &SourceLoc,
 ) -> bool {
-    graph.macro_wildcards.iter().any(|wildcard| {
-        wildcard.scope == scope
-            && wildcard.ns == NS_VALUE
-            && wildcard.range.lo.file == at.file
+    graph.macro_wildcard_indices(scope, NS_VALUE).any(|i| {
+        let wildcard = &graph.macro_wildcards[i];
+        wildcard.range.lo.file == at.file
             && at.byte >= wildcard.range.lo.byte
             && at.byte < wildcard.range.hi.byte
-    }) || graph.edges.iter().any(|edge| {
-        edge.from == scope
-            && edge.kind == EK_GLOB
+    }) || graph.edge_indices(scope).any(|i| {
+        let edge = &graph.edges[i];
+        edge.kind == EK_GLOB
             && matches!(&edge.to, BindTarget::Pending(_, _))
             && edge.vis_range.as_ref().is_none_or(|span| {
                 span.lo.file == at.file && at.byte >= span.lo.byte && at.byte < span.hi.byte

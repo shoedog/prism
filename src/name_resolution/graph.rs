@@ -119,7 +119,13 @@ pub struct ScopeGraph {
     /// Rust local-binding facts keyed by `(file, def_byte)`.
     #[serde(default)]
     pub local_facts: BTreeMap<(FileId, usize), LocalFact>,
+    /// Append-only after lookup: `from` must not change in place, and entries
+    /// must not be reordered or removed. add_edge invalidates the lazy index;
+    /// direct appends select its length-guarded scan fallback.
     pub edges: Vec<Edge>,
+    /// Append-only after lookup: scope/ns must not change in place, and entries
+    /// must not be reordered or removed. add_macro_wildcard invalidates the lazy
+    /// index; direct appends select its length-guarded scan fallback.
     pub macro_wildcards: Vec<MacroWildcard>,
     /// Deferred-glob expansion telemetry for resolution walked over **this**
     /// graph (spec §3.5). Scoped here rather than in a process-global so a
@@ -159,11 +165,13 @@ impl ScopeGraph {
 
     /// Append an edge.
     pub fn add_edge(&mut self, e: Edge) {
+        self.binding_index.invalidate_edges();
         self.edges.push(e);
     }
 
     /// Append an unexpanded-macro wildcard marker.
     pub fn add_macro_wildcard(&mut self, m: MacroWildcard) {
+        self.binding_index.invalidate_wildcards();
         self.macro_wildcards.push(m);
     }
 

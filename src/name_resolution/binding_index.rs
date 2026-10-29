@@ -1,15 +1,19 @@
 //! Derived, non-serialized lookup accelerators. Keys borrow the graph's strings;
-//! each binding costs one u32 per applicable key, with no per-query allocation.
+//! each entry costs one u32 per applicable key, with no per-query allocation.
 
 use std::sync::OnceLock;
 
-use super::graph::ScopeGraph;
-use super::types::{BindTarget, Binding, FileId, NamespaceId, ScopeId, Target};
+use super::graph::{MacroWildcard, ScopeGraph};
+use super::types::{BindTarget, Binding, Edge, FileId, NamespaceId, ScopeId, Target};
 
 /// Like glob telemetry, this cache is not part of graph identity. Cloning drops
 /// it so a clone can be extended independently without copying derived arrays.
 #[derive(Debug, Default)]
-pub struct GraphBindingIndex(OnceLock<BindingIndex>);
+pub struct GraphBindingIndex(
+    OnceLock<BindingIndex>,
+    OnceLock<Vec<u32>>,
+    OnceLock<Vec<u32>>,
+);
 
 impl Clone for GraphBindingIndex {
     fn clone(&self) -> Self {
@@ -28,6 +32,56 @@ impl Eq for GraphBindingIndex {}
 impl GraphBindingIndex {
     pub(super) fn invalidate(&mut self) {
         self.0.take();
+    }
+
+    pub(super) fn invalidate_edges(&mut self) {
+        self.1.take();
+    }
+
+    pub(super) fn invalidate_wildcards(&mut self) {
+        self.2.take();
+    }
+}
+
+/// Each equal-key range retains original Vec indices in ascending order. In
+/// particular, edge indices are also CycleGuard identities, not local offsets.
+fn sorted_indices<K: Ord>(len: usize, key: impl Fn(usize) -> K) -> Vec<u32> {
+    let mut indices: Vec<u32> = (0..len as u32).collect();
+    indices.sort_unstable_by(|&a, &b| key(a as usize).cmp(&key(b as usize)).then(a.cmp(&b)));
+    indices
+}
+
+fn matching_indices<K: Ord>(
+    indices: &[u32],
+    key: K,
+    entry_key: impl Fn(usize) -> K,
+) -> std::slice::Iter<'_, u32> {
+    let lo = indices.partition_point(|&i| entry_key(i as usize) < key);
+    let hi = indices.partition_point(|&i| entry_key(i as usize) <= key);
+    indices[lo..hi].iter()
+}
+
+pub(crate) enum ScopeIndices<'a> {
+    Indexed(std::slice::Iter<'a, u32>),
+    Edges(std::iter::Enumerate<std::slice::Iter<'a, Edge>>, ScopeId),
+    Wildcards(
+        std::iter::Enumerate<std::slice::Iter<'a, MacroWildcard>>,
+        ScopeId,
+        NamespaceId,
+    ),
+}
+
+impl Iterator for ScopeIndices<'_> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Indexed(indices) => indices.next().map(|&i| i as usize),
+            Self::Edges(entries, scope) => entries.find(|(_, e)| e.from == *scope).map(|(i, _)| i),
+            Self::Wildcards(entries, scope, ns) => entries
+                .find(|(_, m)| m.scope == *scope && m.ns == *ns)
+                .map(|(i, _)| i),
+        }
     }
 }
 
@@ -121,6 +175,46 @@ impl Iterator for BindingIndices<'_> {
 }
 
 impl ScopeGraph {
+    /// Outgoing edge indices in insertion order; all policy filters stay with
+    /// the caller. A direct public-Vec append uses the original linear scan.
+    pub(crate) fn edge_indices(&self, scope: ScopeId) -> ScopeIndices<'_> {
+        if self.edges.len() <= u32::MAX as usize {
+            let indices = self
+                .binding_index
+                .1
+                .get_or_init(|| sorted_indices(self.edges.len(), |i| self.edges[i].from));
+            if indices.len() == self.edges.len() {
+                return ScopeIndices::Indexed(matching_indices(indices, scope, |i| {
+                    self.edges[i].from
+                }));
+            }
+        }
+        ScopeIndices::Edges(self.edges.iter().enumerate(), scope)
+    }
+
+    /// Wildcard indices for exactly (scope, namespace), in insertion order.
+    /// Range/file checks remain caller-owned, as in the linear scan.
+    pub(crate) fn macro_wildcard_indices(
+        &self,
+        scope: ScopeId,
+        ns: NamespaceId,
+    ) -> ScopeIndices<'_> {
+        if self.macro_wildcards.len() <= u32::MAX as usize {
+            let key = |i: usize| {
+                let m = &self.macro_wildcards[i];
+                (m.scope, m.ns)
+            };
+            let indices = self
+                .binding_index
+                .2
+                .get_or_init(|| sorted_indices(self.macro_wildcards.len(), key));
+            if indices.len() == self.macro_wildcards.len() {
+                return ScopeIndices::Indexed(matching_indices(indices, (scope, ns), key));
+            }
+        }
+        ScopeIndices::Wildcards(self.macro_wildcards.iter().enumerate(), scope, ns)
+    }
+
     fn current_binding_index(&self) -> Option<&BindingIndex> {
         // Extremely large graphs cannot be represented by u32 indices.
         if self.bindings.len() > u32::MAX as usize {
@@ -196,3 +290,7 @@ impl ScopeGraph {
 #[cfg(test)]
 #[path = "binding_index_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "scope_index_tests.rs"]
+mod scope_tests;
