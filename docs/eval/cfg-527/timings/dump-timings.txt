@@ -13,3 +13,12 @@ tokio dump: 	Exit status: 0
 prism dump: 	Elapsed (wall clock) time (h:mm:ss or m:ss): 4:35.16
 prism dump: 	Maximum resident set size (kbytes): 2467508
 prism dump: 	Exit status: 0
+uv dump: 	Elapsed (wall clock) time (h:mm:ss or m:ss): 6:12.00
+uv dump: 	Maximum resident set size (kbytes): 1370212
+uv dump: 	Exit status: 0
+ruff dump: 	Elapsed (wall clock) time (h:mm:ss or m:ss): 34:18.11
+ruff dump: 	Maximum resident set size (kbytes): 2618248
+ruff dump: 	Exit status: 0
+prism-quick dump: 	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:58.71
+prism-quick dump: 	Maximum resident set size (kbytes): 646308
+prism-quick dump: 	Exit status: 0

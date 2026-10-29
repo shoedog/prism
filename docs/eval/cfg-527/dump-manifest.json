@@ -1,0 +1,51 @@
+{
+ "axum": {
+  "sha256": "b59ca75269ad76c427d6ad1f87ab40bc8711d6a17979e971d9dd3258fab8f89e",
+  "rows": 11754,
+  "call_site_rows": 11754,
+  "command": "prism nav --no-cache call-stats --repo <root> --dump-sites"
+ },
+ "ripgrep": {
+  "sha256": "b2afe63e4779ea8bd6812e4e7a674f406aba25c8159e52d1c5f3b5a57249754e",
+  "rows": 14169,
+  "call_site_rows": 14169,
+  "command": "prism nav --no-cache call-stats --repo <root> --dump-sites"
+ },
+ "clap": {
+  "sha256": "7ba4a299adfb0b97eb26d19194e3ac676fb02da6bfe1fbbfbf4c8ede871960f9",
+  "rows": 28782,
+  "call_site_rows": 28782,
+  "command": "prism nav --no-cache call-stats --repo <root> --dump-sites"
+ },
+ "tokio": {
+  "sha256": "42369cdb5ee1e066905faef1faf4a20a5082b77a6777ceee4b52b270012ba383",
+  "rows": 37069,
+  "call_site_rows": 37069,
+  "command": "prism nav --no-cache call-stats --repo <root> --dump-sites"
+ },
+ "prism": {
+  "sha256": "64722d86f5ca02405e7d8d1451bdb75ca81635340f50620831fc7aabe37e9a6c",
+  "rows": 191452,
+  "call_site_rows": 191452,
+  "command": "prism nav --no-cache call-stats --repo <root> --dump-sites"
+ },
+ "prism-quick": {
+  "sha256": "7dc7ca00f3d7c8f8212bab3a15e2987b037dae7ddcbf2b141a437a280a08eea2",
+  "rows": 49342,
+  "call_site_rows": 49342,
+  "command": "prism nav --no-cache call-stats --repo <root> --dump-sites"
+ },
+ "uv": {
+  "sha256": "06f7ba3c8ca3e1bd253ffff9e82e6b7c5a643a0a8368d5ba32f5db110465a522",
+  "rows": 105554,
+  "call_site_rows": 105554,
+  "command": "prism nav --no-cache call-stats --repo <root> --dump-sites"
+ },
+ "ruff": {
+  "sha256": "fb794b223b32b77bb135cf63637f36848f403a23a2679de28e775791368dd332",
+  "rows": 176114,
+  "call_site_rows": 176114,
+  "command": "prism nav --no-cache call-stats --repo <root> --dump-sites"
+ },
+ "_prism_binary_sha256": "e35c18453205805236bcb7cd3addb90e6673b51cf39ce3dab029ab82c5967156"
+}
