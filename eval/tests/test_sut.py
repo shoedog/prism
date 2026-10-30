@@ -114,6 +114,17 @@ def test_prism_corpus_population_is_only_cargo_target_sources():
     assert stray == []
 
 
+def test_harness_modules_load_before_the_boundary_observes_reads():
+    """make_oracle runs after the boundary starts observing opens; every harness module
+    it needs must already be imported, or reading its source is an undeclared read."""
+    import subprocess as sp
+    import sys
+    code = "import sys, tier_a.cli; print('tier_a.tsserver' in sys.modules)"
+    out = sp.run([sys.executable, "-B", "-c", code], capture_output=True, text=True,
+                 cwd=Path(__file__).parents[1], check=True).stdout.strip()
+    assert out == "True"
+
+
 def test_extract_functions_inventory_records():
     recs = extract_functions(json.loads((FIX / "wire_functions_sample.json").read_text()))
     assert recs, "sample must be non-empty"

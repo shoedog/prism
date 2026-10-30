@@ -41,6 +41,7 @@ from .report import write_reports
 from .spotcheck import classify_site, find_call_position, utf16_column
 from .strata import classify, filter_to_universe, inventory_diff, sample_strata
 from .sut import PrismCli, SutAmbiguous, SutError, SutStale, SutTimeout, configure_seed_addresses
+from .tsserver import TsserverOracle  # imported with the harness, not mid-run: a lazy import is an undeclared read under the boundary
 
 EVAL_DIR = Path(__file__).resolve().parents[1]
 
@@ -400,7 +401,6 @@ def resolve_capability(oracle, overlay_probe_ok: bool, inventory: list) -> bool:
 
 def make_oracle(cfg: dict, init_options=None):
     from .oracles import LspOracle
-    from .tsserver import TsserverOracle
 
     cmd = {
         "rust-analyzer": ["rust-analyzer"],
