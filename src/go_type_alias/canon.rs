@@ -393,6 +393,8 @@ pub(crate) fn signature_imports(
     parsed: &ParsedFile,
     local_import_path: Option<&str>,
 ) -> BTreeMap<String, String> {
+    #[cfg(test)]
+    super::import_memo::record_scan();
     let mut imports = parsed.extract_imports();
     if let Some(path) = local_import_path.filter(|path| !path.is_empty()) {
         imports.insert(String::new(), path.to_string());

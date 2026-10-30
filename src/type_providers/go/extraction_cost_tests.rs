@@ -28,21 +28,21 @@ fn repeated_signatures_scan_imports_once_per_file_not_once_per_signature() {
                 GoTypeProvider::from_parsed_files_inner(&parsed, &paths, true)
             });
             assert_eq!(format!("{:#?}", old.data), format!("{:#?}", new.data));
-            assert_eq!(old_count, 2 * (count + 1));
+            assert_eq!(old_count, 2 * (count + 2), "aliases plus every signature");
             assert_eq!(new_count, 2, "one scan in each file extraction");
         }
     }
 }
 
 #[test]
-fn files_without_signatures_and_non_go_files_do_not_scan() {
+fn files_without_signatures_only_scan_for_aliases_and_non_go_files_do_not_scan() {
     let mut parsed = files(&[("a.go", "package a\ntype S struct{X int}\n")]);
     parsed.insert(
         "a.rs".into(),
         ParsedFile::parse("a.rs", "fn f() {}", Language::Rust).unwrap(),
     );
-    for parsed in [BTreeMap::new(), parsed] {
+    for (parsed, expected) in [(BTreeMap::new(), 0), (parsed, 1)] {
         let (_, count) = signature_inputs::measured(|| GoTypeProvider::from_parsed_files(&parsed));
-        assert_eq!(count, 0);
+        assert_eq!(count, expected);
     }
 }
