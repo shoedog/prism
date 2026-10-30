@@ -127,7 +127,9 @@ class Client:
 
 
 def client_argv(binary, repo, cache_dir, mode):
-    argv = [str(binary), '--repo', str(repo), '--cache-dir', str(cache_dir), '--first-call-wait', '600']
+    # Resident-index measurement: a warmed client can wait for slower clients at the barrier.
+    argv = [str(binary), '--repo', str(repo), '--cache-dir', str(cache_dir), '--first-call-wait', '600',
+            '--index-idle-secs', '0']
     return argv + (['--shared', '--daemon-start-timeout', '120'] if mode == 'shared' else [])
 
 

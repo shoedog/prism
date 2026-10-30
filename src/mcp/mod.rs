@@ -42,6 +42,9 @@ pub use shim::{
     DEFAULT_CONTROL_TIMEOUT_SECS, DEFAULT_DAEMON_START_TIMEOUT_SECS,
 };
 
+/// Serve MCP over stdio, reading `PRISM_MCP_INDEX_IDLE_SECS` for the idle policy.
+/// Ordinary Lazy/Background sessions unload after 600 tool-idle seconds by default;
+/// `0` disables unloading. Eager/owner modes keep unloading disabled.
 pub fn run(cfg: ServerConfig) -> anyhow::Result<()> {
     let ambient = std::env::var("PRISM_MCP_INDEX_IDLE_SECS").ok();
     let policy = library_idle_policy(&cfg, ambient.as_deref())?;
@@ -108,7 +111,7 @@ mod idle_route_tests {
     use super::*;
 
     #[test]
-    fn idle_default_and_library_run_route_legacy() {
+    fn idle_default_and_library_run_route() {
         for startup in [
             StartupMode::Lazy,
             StartupMode::Background,
@@ -120,20 +123,29 @@ mod idle_route_tests {
                 .unwrap()
                 .policy;
             let library = library_idle_policy(&cfg, None).unwrap();
-            for policy in [
-                default,
-                library,
-                idle::IdlePolicy::enabled(std::time::Duration::ZERO),
-            ] {
+            for policy in [default, library] {
+                assert_eq!(
+                    policy.timeout.map(|timeout| timeout.as_secs()),
+                    (startup != StartupMode::Eager).then_some(600)
+                );
                 assert_eq!(
                     route_stdio(&cfg, policy, |_, _| "idle", |_| "legacy"),
-                    "legacy"
+                    if startup == StartupMode::Eager {
+                        "legacy"
+                    } else {
+                        "idle"
+                    }
                 );
             }
+            let disabled = library_idle_policy(&cfg, Some("0")).unwrap();
+            assert_eq!(
+                route_stdio(&cfg, disabled, |_, _| "idle", |_| "legacy"),
+                "legacy"
+            );
         }
         let cfg = ServerConfig::new(".".into());
         let opt_in = idle::IdlePolicy::resolve(
-            Some(&idle::PROVISIONAL_IDLE_SECS.to_string()),
+            Some(&idle::DEFAULT_IDLE_SECS.to_string()),
             None,
             &cfg,
             false,

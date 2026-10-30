@@ -19,6 +19,11 @@ const MODES: &[Mode] = &[
         env: &[],
     },
     Mode {
+        name: "lazy-idle-off",
+        flags: &["--first-call-wait", "60", "--index-idle-secs", "0"],
+        env: &[],
+    },
+    Mode {
         name: "eager-always-legacy",
         flags: &["--eager"],
         env: &[
@@ -39,6 +44,11 @@ const MODES: &[Mode] = &[
 ];
 
 fn golden_path(name: &str) -> PathBuf {
+    let name = if name == "lazy-idle-off" {
+        "lazy-default"
+    } else {
+        name
+    };
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/mcp/golden")
         .join(format!("{name}.jsonl"))
@@ -164,4 +174,33 @@ fn every_scripted_request_gets_exactly_one_response_line() {
         !String::from_utf8_lossy(&transcript).contains(&repo_path),
         "the temp repository path leaked into a response"
     );
+}
+
+#[test]
+fn stdio_background_instructions_follow_effective_idle_policy() {
+    for (name, flags, idle) in [
+        ("background-idle", &["--warm-at-startup"][..], true),
+        (
+            "background-idle-off",
+            &["--warm-at-startup", "--index-idle-secs", "0"][..],
+            false,
+        ),
+    ] {
+        let repo = tempfile::tempdir().unwrap();
+        write_fixture(repo.path());
+        let mode = Mode {
+            name,
+            flags,
+            env: &[],
+        };
+        let bytes = run_transcript(repo.path(), &mode, &script()[3..4]);
+        let response: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let text = response["result"]["instructions"].as_str().unwrap();
+        assert!(text.contains("started at server startup"));
+        assert_eq!(
+            text.contains("first tool call after an idle unload"),
+            idle,
+            "{text}"
+        );
+    }
 }

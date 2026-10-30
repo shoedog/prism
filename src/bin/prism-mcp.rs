@@ -20,8 +20,8 @@ struct Cli {
     warm_at_startup: bool,
     #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u64).range(0..=600))]
     first_call_wait: u64,
-    /// Unload a stdio or shared index after this many idle seconds (0 disables). Off unless this flag or
-    /// PRISM_MCP_INDEX_IDLE_SECS is set; measurement runs pass 600 explicitly.
+    /// Unload a stdio or shared index after this many tool-idle seconds (default 600; 0 disables).
+    /// Overrides PRISM_MCP_INDEX_IDLE_SECS. Unsupported in Eager/owner mode.
     #[arg(long)]
     index_idle_secs: Option<String>,
     /// Prototype A+C allocator release, only after whole-session idle disposal.
@@ -79,7 +79,7 @@ struct DaemonCli {
     /// Seconds with no client and no build before the daemon retires.
     #[arg(long, default_value_t = prism::mcp::DEFAULT_IDLE_TTL_SECS, value_parser = clap::value_parser!(u64).range(1..=86_400))]
     idle_ttl: u64,
-    /// Unload the daemon index after idle seconds (0 or absent disables); ignores environment.
+    /// Unload the daemon index after tool-idle seconds (default 600; 0 disables); ignores environment.
     #[arg(long)]
     index_idle_secs: Option<String>,
     #[arg(long, hide = true)]

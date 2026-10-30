@@ -119,7 +119,14 @@ fn serve_client(
     let mut budget = state.budget_for(client)?;
     let startup = state.startup_mode();
     serve_loop(transport, |message, lifecycle| {
-        match handle_control(message, lifecycle, registry, startup, &settings) {
+        match handle_control(
+            message,
+            lifecycle,
+            registry,
+            startup,
+            state.idle_timeout.is_some(),
+            &settings,
+        ) {
             Control::Response(response) => Ok(Some(response)),
             Control::NoResponse => Ok(None),
             Control::ToolCall(call) => {

@@ -49,6 +49,12 @@ def corpus_and_workload(root, requests=6):
 
 
 class Pure(unittest.TestCase):
+    def test_resident_clients_disable_idle_unload(self):
+        for mode in ('shared', 'standalone'):
+            argv = fanout.client_argv('/bin/prism-mcp', '/repo', '/cache', mode)
+            self.assertEqual(argv.count('--index-idle-secs'), 1)
+            self.assertEqual(argv[argv.index('--index-idle-secs') + 1], '0')
+
     def test_percentile_is_nearest_rank(self):
         values = list(range(1, 101))
         self.assertEqual(fanout.percentile(values, 0.50), 50)

@@ -28,7 +28,9 @@ fn options() -> (tempfile::TempDir, ShimOptions, DaemonIdentity) {
 fn shim_idle_flag_env_forwarding() {
     let (_root, mut options, identity) = options();
     for (flag, env, expected) in [
-        (None, None, "0"),
+        (None, None, "600"),
+        (None, Some("0"), "0"),
+        (Some("0"), None, "0"),
         (None, Some("7"), "7"),
         (Some("3"), Some("7"), "3"),
         (Some("0"), Some("7"), "0"),

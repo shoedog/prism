@@ -38,7 +38,9 @@ resolves calls and imports across files; grep can't.
   `prism` is not on PATH, call it by full path (`<prism checkout>/target/release/prism`).
 - **Wait out warming.** The first call on a checkout with no index builds it: seconds to a few minutes
   on large repos. Retry the same call every ~10 s for up to ~3 min before giving up;
-  later calls answer in milliseconds.
+  later calls answer in milliseconds while the index is loaded. After 10 minutes without tool
+  calls, the index unloads and the next call reloads it; retry warming results then too.
+  `--index-idle-secs 0` keeps the index resident.
 
 ## Orient before you read â€” especially for a spec / plan / impact analysis
 
@@ -126,7 +128,7 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config â
   its raw `body_span` may include braces/delimiters, and null fields explain themselves in
   `unavailable`. It never returns body text or edits source.
 - **Graphs truncate (50 items by default, raise with `max_results` up to 1000; 80 KB byte cap)** and the
-  **first call on a fresh checkout can take seconds to minutes** (building the CPG); instant after.
+  **first call on a fresh checkout can take seconds to minutes** (building the CPG); fast while loaded. After 10 minutes idle, the next call reloads the index.
 - **A retryable answer is not a result.** `_meta` `prism/retryable: true` with `status` `warming` or
   `indexing` means the index is still building: retry the same call (after `retry_after_secs`, when
   given). `build_failed` reports why; the next call retries the build. Under a shared server

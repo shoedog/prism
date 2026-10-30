@@ -80,9 +80,10 @@ def build_isolated_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
         with open(mcp_cfg, "w") as f:
             # --warm-at-startup keeps the at-spawn build the adoption baselines ran under (the
             # prism-mcp default became build-on-first-call on 2026-10-09).
+            # --index-idle-secs 0 pins their resident index; idle unload became default on 2026-10-29.
             json.dump({"mcpServers": {"prism": {"command": prism_mcp_bin,
                                                 "args": ["--repo", mcp_repo,
-                                                         "--warm-at-startup"]}}}, f)
+                                                         "--warm-at-startup", "--index-idle-secs", "0"]}}}, f)
     else:
         mcp_cfg = ""
 

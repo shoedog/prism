@@ -18,7 +18,7 @@ fn daemon_idle_off_drain_serves_resident() {
     let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
     let (builder, builds) = scripted(&cfg, vec![]);
     let clock = ManualClock::new();
-    let state = state_with(builder, &clock); // production default: unloading disabled
+    let state = state_with(builder, &clock); // this helper builds with unloading disabled
     let (mut client, worker) = connect(&state, client_settings(600));
     client.handshake();
     let before = client.request(CALLEES);
@@ -352,5 +352,30 @@ fn daemon_idle_reload_after_stamp() {
             assert!(response.to_string().contains("newone"));
         }
         close(client, worker);
+    }
+}
+
+#[test]
+fn background_instructions_follow_effective_idle_policy() {
+    for idle in [false, true] {
+        let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+        let (builder, _) = scripted(&cfg, vec![]);
+        let clock = ManualClock::new();
+        let mut parts = parts_with(builder, &clock);
+        parts.startup = crate::mcp::StartupMode::Background;
+        if idle {
+            parts = enabled(parts);
+        }
+        let state = DaemonState::from_parts(parts).unwrap();
+        let (mut client, worker) = connect(&state, client_settings(600));
+        let response = client.request(INIT);
+        close(client, worker);
+        let text = response["result"]["instructions"].as_str().unwrap();
+        assert!(text.contains("started at server startup"));
+        assert_eq!(
+            text.contains("first tool call after an idle unload"),
+            idle,
+            "{text}"
+        );
     }
 }

@@ -146,6 +146,7 @@ fn prism_mcp_warm_at_startup_restores_the_startup_build_and_conflicts_with_eager
         .expect("prism-mcp binary")
         .args(["--repo", repo.path().to_str().unwrap()])
         .args(["--warm-at-startup", "--no-cache", "--first-call-wait", "0"])
+        .env_remove("PRISM_MCP_INDEX_IDLE_SECS")
         .write_stdin(initialize_message())
         .assert()
         .success()
@@ -156,7 +157,7 @@ fn prism_mcp_warm_at_startup_restores_the_startup_build_and_conflicts_with_eager
     assert_eq!(
         response_with_id(&responses, 1)["result"]["instructions"],
         background_instructions(),
-        "--warm-at-startup must advertise the build started at server startup"
+        "--warm-at-startup must advertise startup build and default idle demand reload"
     );
 
     Command::cargo_bin("prism-mcp")
@@ -299,7 +300,7 @@ fn eager_instructions() -> String {
 }
 
 fn background_instructions() -> String {
-    "The repository snapshot is loaded by a background build started at server startup; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot. Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.".to_string()
+    "The repository snapshot is loaded by a background build started at server startup or by the first tool call after an idle unload; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot. Optional LLM views are opt-in: set format to agent_markdown or agent_json. Agent views change only content text and view metadata; structuredContent remains canonical Evidence. agent_json includes normalized locations, canonical symbol_ref handles, deterministic reasons, group summaries, and parser-valid next_queries.".to_string()
 }
 
 fn lazy_instructions() -> String {

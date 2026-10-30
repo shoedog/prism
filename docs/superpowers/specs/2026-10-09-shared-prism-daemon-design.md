@@ -1,5 +1,7 @@
 # Shared per-repo prism daemon — design
 
+**Activation update 2026-10-29 (owner decision):** ordinary stdio/shared idle unload now defaults to 600 s, including `--no-cache`; explicit flag or env `0` opts out. Eager/owner remain unsupported and A+C remains hidden/off. This supersedes earlier absent-means-off wording below; see [MCP settings](../../MCP.md#flags).
+
 Date: 2026-10-09 · Status: **v3 APPROVED by the owner 2026-10-12** (two gpt-6-astra rounds at the declared cap; round
 2 converged to closed corrections, all folded; see §13; §11 decided) · Owner decision 2026-10-09: approach **A**
 (per-repo daemon + stdio shim) with the **C** memory measurement folded in as a first-class step. Predecessor: #356 (merged, main cb0eeec0; this

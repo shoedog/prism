@@ -5,15 +5,15 @@
   ],
   "mutants": [
     {
-      "id": "I0b-default-on",
+      "id": "I0b-default-off",
       "selector": "daemon_idle_tests::daemon_idle_wire_policy_default",
       "target": "prism-mcp",
-      "description": "Enable the absent daemon flag; READY must still report zero/off.",
+      "description": "Disable idle unload for an absent daemon flag; READY must still report the 600-second default.",
       "edits": [
         {
           "file": "src/bin/prism-mcp.rs",
           "old": "prism::mcp::idle::IdlePolicy::resolve(c.index_idle_secs.as_deref(), None, &config, false)?",
-          "new": "prism::mcp::idle::IdlePolicy::resolve(c.index_idle_secs.as_deref().or(Some(\"600\")), None, &config, false)?"
+          "new": "prism::mcp::idle::IdlePolicy::resolve(c.index_idle_secs.as_deref().or(Some(\"0\")), None, &config, false)?"
         }
       ]
     },
