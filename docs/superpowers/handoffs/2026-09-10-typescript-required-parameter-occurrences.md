@@ -46,7 +46,7 @@
 |---:|---|---|---|---|---|
 | 1 | Implementation/verification | done | No further production edit | None |6a53c66a |
 | 2 | Publication | done | PR309 merged013d4bf0 | None | Fresh gh check |
-| 3 | Real-site value checkpoint | next | Approved audit successor handoff | None | Public corpus + authorized frontend portal |
+| 3 | Real-site value checkpoint | next | Approved audit successor handoff | None | Public corpus + authorized private corpus |
 
 ## 5. Invariants and traps — do not do these
 

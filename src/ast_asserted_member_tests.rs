@@ -1,5 +1,6 @@
 //! Runtime path identity only: assertions confer no class or owner authority.
 use super::*;
+use crate::data_flow::test_support::label_snapshot;
 use crate::{cpg::FlowConfidence, data_flow::DataFlowGraph};
 use std::collections::BTreeMap;
 
@@ -14,28 +15,38 @@ fn graph(source: &str, language: Language) -> DataFlowGraph {
     let full = DataFlowGraph::build(&files);
     let subset = DataFlowGraph::build_subset(&files, &BTreeSet::from(["fixture.ts".into()]));
     // VarLocation equality excludes bytes. Serialization explicitly checks them.
-    for (a, b) in [(&full.edges, &subset.edges)] {
+    for (a, b) in [(
+        &full
+            .edges()
+            .iter()
+            .map(|e| e.to_owned())
+            .collect::<Vec<_>>(),
+        &subset
+            .edges()
+            .iter()
+            .map(|e| e.to_owned())
+            .collect::<Vec<_>>(),
+    )] {
         assert_eq!(
             serde_json::to_value(a).unwrap(),
             serde_json::to_value(b).unwrap()
         );
     }
     assert_eq!(
-        serde_json::to_value(full.defs.values().collect::<Vec<_>>()).unwrap(),
-        serde_json::to_value(subset.defs.values().collect::<Vec<_>>()).unwrap()
+        serde_json::to_value(full.defs().map(|(_, v)| v.to_vec()).collect::<Vec<_>>()).unwrap(),
+        serde_json::to_value(subset.defs().map(|(_, v)| v.to_vec()).collect::<Vec<_>>()).unwrap()
     );
     assert_eq!(
-        serde_json::to_value(full.uses.values().collect::<Vec<_>>()).unwrap(),
-        serde_json::to_value(subset.uses.values().collect::<Vec<_>>()).unwrap()
+        serde_json::to_value(full.uses().map(|(_, v)| v.to_vec()).collect::<Vec<_>>()).unwrap(),
+        serde_json::to_value(subset.uses().map(|(_, v)| v.to_vec()).collect::<Vec<_>>()).unwrap()
     );
-    assert_eq!(full.labels, subset.labels);
+    assert_eq!(label_snapshot(&full), label_snapshot(&subset));
     full
 }
 
 fn field_labels(graph: &DataFlowGraph) -> Vec<(usize, usize, FlowConfidence)> {
     let path = AccessPath::from_expr("runtime.X");
-    graph
-        .labels
+    label_snapshot(&graph)
         .iter()
         .filter_map(|((from, to), label)| {
             (from.path == path && to.path == path).then_some((from.line, to.line, *label))
@@ -295,8 +306,8 @@ fn asserted_lhs_writes_share_plain_rhs_field_identity() {
         let full = graph(source, language);
         assert!(field_labels(&full).contains(&(2, 3, FlowConfidence::Exact)));
         let def = full
-            .defs
-            .values()
+            .defs()
+            .map(|(_, v)| v)
             .flatten()
             .find(|d| d.line == 2 && d.path == AccessPath::from_expr("runtime.X"))
             .unwrap();

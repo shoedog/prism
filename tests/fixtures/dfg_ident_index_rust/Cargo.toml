@@ -1,0 +1,4 @@
+[package]
+name = "dfg-ident-index-fixture"
+version = "0.0.0"
+edition = "2021"

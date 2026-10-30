@@ -1,0 +1,287 @@
+   Compiling find-msvc-tools v0.1.9
+   Compiling shlex v1.3.0
+   Compiling tree-sitter-language v0.1.7
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling serde_core v1.0.228
+   Compiling memchr v2.8.0
+   Compiling libc v0.2.183
+   Compiling equivalent v1.0.2
+   Compiling serde v1.0.228
+   Compiling hashbrown v0.16.1
+   Compiling version_check v0.9.5
+   Compiling typenum v1.19.0
+   Compiling itoa v1.0.18
+   Compiling zmij v1.0.21
+   Compiling cc v1.2.57
+   Compiling regex-syntax v0.8.10
+   Compiling serde_json v1.0.149
+   Compiling generic-array v0.14.7
+   Compiling crossbeam-utils v0.8.21
+   Compiling cfg-if v1.0.4
+   Compiling aho-corasick v1.1.4
+   Compiling autocfg v1.5.0
+   Compiling anstyle v1.0.14
+   Compiling utf8parse v0.2.2
+   Compiling indexmap v2.13.0
+   Compiling anstyle-parse v1.0.0
+   Compiling colorchoice v1.0.5
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling predicates-core v1.0.10
+   Compiling rayon-core v1.13.0
+   Compiling num-traits v0.2.19
+   Compiling rustix v1.1.4
+   Compiling ryu v1.0.23
+   Compiling crossbeam-epoch v0.9.18
+   Compiling syn v2.0.117
+   Compiling anstyle-query v1.1.5
+   Compiling getrandom v0.4.2
+   Compiling errno v0.3.14
+   Compiling anstream v1.0.0
+   Compiling cpufeatures v0.2.17
+   Compiling crossbeam-deque v0.8.6
+   Compiling fnv v1.0.7
+   Compiling termtree v0.5.1
+   Compiling winnow v0.7.15
+   Compiling heck v0.5.0
+   Compiling anyhow v1.0.102
+   Compiling assert_cmd v2.2.0
+   Compiling winnow v1.0.1
+   Compiling strsim v0.11.1
+   Compiling toml_write v0.1.2
+   Compiling normalize-line-endings v0.3.0
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling bitflags v2.11.0
+   Compiling pratt v0.4.0
+   Compiling digest v0.10.7
+   Compiling option-ext v0.2.0
+   Compiling clap_lex v1.1.0
+   Compiling tree-sitter-go v0.23.4
+   Compiling tree-sitter-typescript v0.23.2 (/private/tmp/prism-post316-orchestration/base-final-red/vendor/tree-sitter-typescript)
+   Compiling tree-sitter-java v0.23.5
+   Compiling tree-sitter-bash v0.25.1
+   Compiling tree-sitter-python v0.23.6
+   Compiling tree-sitter-c v0.24.1
+   Compiling sha2 v0.10.9
+   Compiling tree-sitter-lua v0.5.0
+   Compiling tree-sitter-cpp v0.23.4
+   Compiling regex-automata v0.4.14
+   Compiling tree-sitter-rust v0.24.2
+   Compiling tree-sitter-hcl v1.1.0
+   Compiling tree-sitter-javascript v0.23.1
+   Compiling float-cmp v0.10.0
+   Compiling difflib v0.4.0
+   Compiling thiserror v2.0.18
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-orchestration/base-final-red)
+   Compiling clap_builder v4.6.0
+   Compiling dirs-sys v0.5.0
+   Compiling predicates-tree v1.0.13
+   Compiling wait-timeout v0.2.1
+   Compiling once_cell v1.21.4
+   Compiling fastrand v2.3.0
+   Compiling fixedbitset v0.5.7
+   Compiling streaming-iterator v0.1.9
+   Compiling either v1.15.0
+   Compiling petgraph v0.7.1
+   Compiling rayon v1.12.0
+   Compiling dirs v6.0.0
+   Compiling tree-sitter v0.25.10
+   Compiling tempfile v3.27.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling clap_derive v4.6.0
+   Compiling regex v1.12.3
+   Compiling bstr v1.12.1
+   Compiling predicates v3.1.4
+   Compiling clap v4.6.0
+   Compiling hcl-primitives v0.1.11
+   Compiling vecmap-rs v0.2.4
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling bincode v1.3.3
+   Compiling toml_edit v0.22.27
+   Compiling hcl-edit v0.9.6
+   Compiling toml v0.8.23
+   Compiling hcl-rs v0.19.7
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.20s
+     Running unittests src/lib.rs (/private/tmp/prism-post316-orchestration/base-final-red-target/debug/deps/prism-4b417becfe78b2c6)
+
+running 8 tests
+test ast::call_execution_owner_tests::call_execution_owner_python_nested_and_root_preservation ... ok
+
+thread 'ast::call_execution_owner_tests::call_execution_owner_computed_key_unindexed_and_root_controls' (53935501) panicked at src/ast_call_execution_owner_tests.rs:294:5:
+assertion `left == right` failed
+  left: ["body", "direct", "key", "late"]
+ right: ["direct", "key"]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test ast::call_execution_owner_tests::call_execution_owner_computed_key_unindexed_and_root_controls ... FAILED
+
+thread 'cpg::build::nested_execution_owner_audit_tests::call_execution_owner_complete_site_and_edge_metadata' (53935504) panicked at src/cpg/nested_execution_owner_audit_tests.rs:450:9:
+assertion `left == right` failed: js/full
+  left: ["inner:1:item:1:63-74:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(1):spread=false:outcome=None:origin=Source:target=None", "inner:1:register:1:22-77:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(2):spread=false:outcome=None:origin=Source:target=None", "outer:1:direct:1:78-86:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(0):spread=false:outcome=None:origin=Source:target=None", "outer:1:eager:1:31-38:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(0):spread=false:outcome=None:origin=Source:target=None", "outer:1:item:1:63-74:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(1):spread=false:outcome=None:origin=Source:target=None", "outer:1:register:1:22-77:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(2):spread=false:outcome=None:origin=Source:target=None"]
+ right: ["inner:1:item:1:63-74:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(1):spread=false:outcome=None:origin=Source:target=None", "outer:1:direct:1:78-86:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(0):spread=false:outcome=None:origin=Source:target=None", "outer:1:eager:1:31-38:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(0):spread=false:outcome=None:origin=Source:target=None", "outer:1:register:1:22-77:Call:src=None:q=None:bound=false:type=None:owner=None:shadow=false:recovery=None:materialized=false:new=false:argc=Some(2):spread=false:outcome=None:origin=Source:target=None"]
+OWNER_EPOCH epoch=0 sha=ce6868c121c3e1a0066075cb893dea7eaad15064f2123e5208a9c20bc2637157 rows=5 resolution=["outer:1:item:29-40->FreeSingle:Exact:origin.js:item:1"]
+test cpg::build::nested_execution_owner_audit_tests::call_execution_owner_complete_site_and_edge_metadata ... FAILED
+test ast::call_execution_owner_tests::call_execution_owner_class_computed_key_preserves_baseline ... ok
+
+thread 'cpg::build::nested_execution_owner_audit_tests::call_execution_owner_source_epochs' (53935506) panicked at src/cpg/nested_execution_owner_audit_tests.rs:363:9:
+assertion `left == right` failed: epoch 1
+  left: ["inner:1:item:55-66->FreeSingle:Exact:origin.js:item:1", "outer:1:item:55-66->FreeSingle:Exact:origin.js:item:1"]
+ right: ["inner:1:item:55-66->FreeSingle:Exact:origin.js:item:1"]
+test cpg::build::nested_execution_owner_audit_tests::call_execution_owner_source_epochs ... FAILED
+CALL_EXECUTION_OWNER_COLLISION JavaScript/full: colliding graph owner calls=["one", "two"]
+CALL_EXECUTION_OWNER_COLLISION JavaScript/full: unrelated outer calls=["direct", "one", "two"]
+CALL_EXECUTION_OWNER_COLLISION JavaScript/skeleton: colliding graph owner calls=["one", "two"]
+CALL_EXECUTION_OWNER_COLLISION JavaScript/skeleton: unrelated outer calls=["direct", "one", "two"]
+CALL_EXECUTION_OWNER_COLLISION JavaScript/subset: colliding graph owner calls=["one", "two"]
+CALL_EXECUTION_OWNER_COLLISION JavaScript/subset: unrelated outer calls=["direct", "one", "two"]
+CALL_EXECUTION_OWNER_COLLISION TypeScript/full: colliding graph owner calls=["one", "two"]
+CALL_EXECUTION_OWNER_COLLISION TypeScript/full: unrelated outer calls=["direct", "one", "two"]
+CALL_EXECUTION_OWNER_COLLISION TypeScript/skeleton: colliding graph owner calls=["one", "two"]
+CALL_EXECUTION_OWNER_COLLISION TypeScript/skeleton: unrelated outer calls=["direct", "one", "two"]
+CALL_EXECUTION_OWNER_COLLISION TypeScript/subset: colliding graph owner calls=["one", "two"]
+CALL_EXECUTION_OWNER_COLLISION TypeScript/subset: unrelated outer calls=["direct", "one", "two"]
+CALL_EXECUTION_OWNER_COLLISION Tsx/full: colliding graph owner calls=["one", "two"]
+CALL_EXECUTION_OWNER_COLLISION Tsx/full: unrelated outer calls=["direct", "one", "two"]
+CALL_EXECUTION_OWNER_COLLISION Tsx/skeleton: colliding graph owner calls=["one", "two"]
+CALL_EXECUTION_OWNER_COLLISION Tsx/skeleton: unrelated outer calls=["direct", "one", "two"]
+CALL_EXECUTION_OWNER_COLLISION Tsx/subset: colliding graph owner calls=["one", "two"]
+CALL_EXECUTION_OWNER_COLLISION Tsx/subset: unrelated outer calls=["direct", "one", "two"]
+
+thread 'cpg::build::nested_execution_owner_audit_tests::call_execution_owner_same_line_identity_collision_refuses_graph_calls' (53935505) panicked at src/cpg/nested_execution_owner_audit_tests.rs:755:5:
+18 collision mismatches
+test cpg::build::nested_execution_owner_audit_tests::call_execution_owner_same_line_identity_collision_refuses_graph_calls ... FAILED
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-0: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-1: actual=[("direct", 62, 70), ("late", 52, 59), ("seed", 44, 50)] expected=[("direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-2: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-3: actual=[("None:direct", 62, 70), ("None:late", 52, 59), ("None:seed", 44, 50)] expected=[("None:direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-4: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-5: actual=[("direct", 62, 70), ("late", 52, 59), ("seed", 44, 50)] expected=[("direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-6: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/JavaScript/outer/route-7: actual=[("None:direct", 62, 70), ("None:late", 52, 59), ("None:seed", 44, 50)] expected=[("None:direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/JavaScript/outer/route-0: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/JavaScript/outer/route-1: actual=[("direct", 61, 69), ("late", 51, 58), ("seed", 43, 49)] expected=[("direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/JavaScript/outer/route-2: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/JavaScript/outer/route-3: actual=[("None:direct", 61, 69), ("None:late", 51, 58), ("None:seed", 43, 49)] expected=[("None:direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/JavaScript/outer/route-4: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/JavaScript/outer/route-5: actual=[("direct", 61, 69), ("late", 51, 58), ("seed", 43, 49)] expected=[("direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/JavaScript/outer/route-6: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/JavaScript/outer/route-7: actual=[("None:direct", 61, 69), ("None:late", 51, 58), ("None:seed", 43, 49)] expected=[("None:direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/outer/route-0: actual=[("direct", 0, 0), ("eager", 0, 0), ("late", 0, 0), ("register", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0), ("eager", 0, 0), ("register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/inner/route-0: actual=[("late", 0, 0), ("register", 0, 0), ("seed", 0, 0)] expected=[("late", 0, 0), ("seed", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/outer/route-1: actual=[("direct", 70, 78), ("eager", 26, 33), ("late", 59, 66), ("register", 17, 69), ("seed", 51, 57)] expected=[("direct", 70, 78), ("eager", 26, 33), ("register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/inner/route-1: actual=[("late", 59, 66), ("register", 17, 69), ("seed", 51, 57)] expected=[("late", 59, 66), ("seed", 51, 57)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/outer/route-2: actual=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:late", 0, 0), ("None:register", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/inner/route-2: actual=[("None:late", 0, 0), ("None:register", 0, 0), ("None:seed", 0, 0)] expected=[("None:late", 0, 0), ("None:seed", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/outer/route-3: actual=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:late", 59, 66), ("None:register", 17, 69), ("None:seed", 51, 57)] expected=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/inner/route-3: actual=[("None:late", 59, 66), ("None:register", 17, 69), ("None:seed", 51, 57)] expected=[("None:late", 59, 66), ("None:seed", 51, 57)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/outer/route-4: actual=[("direct", 0, 0), ("eager", 0, 0), ("late", 0, 0), ("register", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0), ("eager", 0, 0), ("register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/outer/route-5: actual=[("direct", 70, 78), ("eager", 26, 33), ("late", 59, 66), ("register", 17, 69), ("seed", 51, 57)] expected=[("direct", 70, 78), ("eager", 26, 33), ("register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/outer/route-6: actual=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:late", 0, 0), ("None:register", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/JavaScript/outer/route-7: actual=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:late", 59, 66), ("None:register", 17, 69), ("None:seed", 51, 57)] expected=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH returned/JavaScript/outer/route-0: actual=[("eager", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/JavaScript/outer/route-1: actual=[("eager", 25, 32), ("late", 58, 65), ("seed", 50, 56)] expected=[("eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH returned/JavaScript/outer/route-2: actual=[("None:eager", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/JavaScript/outer/route-3: actual=[("None:eager", 25, 32), ("None:late", 58, 65), ("None:seed", 50, 56)] expected=[("None:eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH returned/JavaScript/outer/route-4: actual=[("eager", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/JavaScript/outer/route-5: actual=[("eager", 25, 32), ("late", 58, 65), ("seed", 50, 56)] expected=[("eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH returned/JavaScript/outer/route-6: actual=[("None:eager", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/JavaScript/outer/route-7: actual=[("None:eager", 25, 32), ("None:late", 58, 65), ("None:seed", 50, 56)] expected=[("None:eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/TypeScript/outer/route-0: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/TypeScript/outer/route-1: actual=[("direct", 62, 70), ("late", 52, 59), ("seed", 44, 50)] expected=[("direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/TypeScript/outer/route-2: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/TypeScript/outer/route-3: actual=[("None:direct", 62, 70), ("None:late", 52, 59), ("None:seed", 44, 50)] expected=[("None:direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/TypeScript/outer/route-4: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/TypeScript/outer/route-5: actual=[("direct", 62, 70), ("late", 52, 59), ("seed", 44, 50)] expected=[("direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/TypeScript/outer/route-6: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/TypeScript/outer/route-7: actual=[("None:direct", 62, 70), ("None:late", 52, 59), ("None:seed", 44, 50)] expected=[("None:direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/TypeScript/outer/route-0: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/TypeScript/outer/route-1: actual=[("direct", 61, 69), ("late", 51, 58), ("seed", 43, 49)] expected=[("direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/TypeScript/outer/route-2: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/TypeScript/outer/route-3: actual=[("None:direct", 61, 69), ("None:late", 51, 58), ("None:seed", 43, 49)] expected=[("None:direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/TypeScript/outer/route-4: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/TypeScript/outer/route-5: actual=[("direct", 61, 69), ("late", 51, 58), ("seed", 43, 49)] expected=[("direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/TypeScript/outer/route-6: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/TypeScript/outer/route-7: actual=[("None:direct", 61, 69), ("None:late", 51, 58), ("None:seed", 43, 49)] expected=[("None:direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/outer/route-0: actual=[("direct", 0, 0), ("eager", 0, 0), ("late", 0, 0), ("register", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0), ("eager", 0, 0), ("register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/inner/route-0: actual=[("late", 0, 0), ("register", 0, 0), ("seed", 0, 0)] expected=[("late", 0, 0), ("seed", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/outer/route-1: actual=[("direct", 70, 78), ("eager", 26, 33), ("late", 59, 66), ("register", 17, 69), ("seed", 51, 57)] expected=[("direct", 70, 78), ("eager", 26, 33), ("register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/inner/route-1: actual=[("late", 59, 66), ("register", 17, 69), ("seed", 51, 57)] expected=[("late", 59, 66), ("seed", 51, 57)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/outer/route-2: actual=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:late", 0, 0), ("None:register", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/inner/route-2: actual=[("None:late", 0, 0), ("None:register", 0, 0), ("None:seed", 0, 0)] expected=[("None:late", 0, 0), ("None:seed", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/outer/route-3: actual=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:late", 59, 66), ("None:register", 17, 69), ("None:seed", 51, 57)] expected=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/inner/route-3: actual=[("None:late", 59, 66), ("None:register", 17, 69), ("None:seed", 51, 57)] expected=[("None:late", 59, 66), ("None:seed", 51, 57)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/outer/route-4: actual=[("direct", 0, 0), ("eager", 0, 0), ("late", 0, 0), ("register", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0), ("eager", 0, 0), ("register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/outer/route-5: actual=[("direct", 70, 78), ("eager", 26, 33), ("late", 59, 66), ("register", 17, 69), ("seed", 51, 57)] expected=[("direct", 70, 78), ("eager", 26, 33), ("register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/outer/route-6: actual=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:late", 0, 0), ("None:register", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/TypeScript/outer/route-7: actual=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:late", 59, 66), ("None:register", 17, 69), ("None:seed", 51, 57)] expected=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH returned/TypeScript/outer/route-0: actual=[("eager", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/TypeScript/outer/route-1: actual=[("eager", 25, 32), ("late", 58, 65), ("seed", 50, 56)] expected=[("eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH returned/TypeScript/outer/route-2: actual=[("None:eager", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/TypeScript/outer/route-3: actual=[("None:eager", 25, 32), ("None:late", 58, 65), ("None:seed", 50, 56)] expected=[("None:eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH returned/TypeScript/outer/route-4: actual=[("eager", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/TypeScript/outer/route-5: actual=[("eager", 25, 32), ("late", 58, 65), ("seed", 50, 56)] expected=[("eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH returned/TypeScript/outer/route-6: actual=[("None:eager", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/TypeScript/outer/route-7: actual=[("None:eager", 25, 32), ("None:late", 58, 65), ("None:seed", 50, 56)] expected=[("None:eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/Tsx/outer/route-0: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/Tsx/outer/route-1: actual=[("direct", 62, 70), ("late", 52, 59), ("seed", 44, 50)] expected=[("direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/Tsx/outer/route-2: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/Tsx/outer/route-3: actual=[("None:direct", 62, 70), ("None:late", 52, 59), ("None:seed", 44, 50)] expected=[("None:direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/Tsx/outer/route-4: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/Tsx/outer/route-5: actual=[("direct", 62, 70), ("late", 52, 59), ("seed", 44, 50)] expected=[("direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/Tsx/outer/route-6: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH assignment/Tsx/outer/route-7: actual=[("None:direct", 62, 70), ("None:late", 52, 59), ("None:seed", 44, 50)] expected=[("None:direct", 62, 70)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/Tsx/outer/route-0: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/Tsx/outer/route-1: actual=[("direct", 61, 69), ("late", 51, 58), ("seed", 43, 49)] expected=[("direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/Tsx/outer/route-2: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/Tsx/outer/route-3: actual=[("None:direct", 61, 69), ("None:late", 51, 58), ("None:seed", 43, 49)] expected=[("None:direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/Tsx/outer/route-4: actual=[("direct", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/Tsx/outer/route-5: actual=[("direct", 61, 69), ("late", 51, 58), ("seed", 43, 49)] expected=[("direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/Tsx/outer/route-6: actual=[("None:direct", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH initializer/Tsx/outer/route-7: actual=[("None:direct", 61, 69), ("None:late", 51, 58), ("None:seed", 43, 49)] expected=[("None:direct", 61, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/outer/route-0: actual=[("direct", 0, 0), ("eager", 0, 0), ("late", 0, 0), ("register", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0), ("eager", 0, 0), ("register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/inner/route-0: actual=[("late", 0, 0), ("register", 0, 0), ("seed", 0, 0)] expected=[("late", 0, 0), ("seed", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/outer/route-1: actual=[("direct", 70, 78), ("eager", 26, 33), ("late", 59, 66), ("register", 17, 69), ("seed", 51, 57)] expected=[("direct", 70, 78), ("eager", 26, 33), ("register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/inner/route-1: actual=[("late", 59, 66), ("register", 17, 69), ("seed", 51, 57)] expected=[("late", 59, 66), ("seed", 51, 57)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/outer/route-2: actual=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:late", 0, 0), ("None:register", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/inner/route-2: actual=[("None:late", 0, 0), ("None:register", 0, 0), ("None:seed", 0, 0)] expected=[("None:late", 0, 0), ("None:seed", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/outer/route-3: actual=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:late", 59, 66), ("None:register", 17, 69), ("None:seed", 51, 57)] expected=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/inner/route-3: actual=[("None:late", 59, 66), ("None:register", 17, 69), ("None:seed", 51, 57)] expected=[("None:late", 59, 66), ("None:seed", 51, 57)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/outer/route-4: actual=[("direct", 0, 0), ("eager", 0, 0), ("late", 0, 0), ("register", 0, 0), ("seed", 0, 0)] expected=[("direct", 0, 0), ("eager", 0, 0), ("register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/outer/route-5: actual=[("direct", 70, 78), ("eager", 26, 33), ("late", 59, 66), ("register", 17, 69), ("seed", 51, 57)] expected=[("direct", 70, 78), ("eager", 26, 33), ("register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/outer/route-6: actual=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:late", 0, 0), ("None:register", 0, 0), ("None:seed", 0, 0)] expected=[("None:direct", 0, 0), ("None:eager", 0, 0), ("None:register", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH call-argument/Tsx/outer/route-7: actual=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:late", 59, 66), ("None:register", 17, 69), ("None:seed", 51, 57)] expected=[("None:direct", 70, 78), ("None:eager", 26, 33), ("None:register", 17, 69)]
+CALL_EXECUTION_OWNER_MISMATCH returned/Tsx/outer/route-0: actual=[("eager", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/Tsx/outer/route-1: actual=[("eager", 25, 32), ("late", 58, 65), ("seed", 50, 56)] expected=[("eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH returned/Tsx/outer/route-2: actual=[("None:eager", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/Tsx/outer/route-3: actual=[("None:eager", 25, 32), ("None:late", 58, 65), ("None:seed", 50, 56)] expected=[("None:eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH returned/Tsx/outer/route-4: actual=[("eager", 0, 0), ("late", 0, 0), ("seed", 0, 0)] expected=[("eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/Tsx/outer/route-5: actual=[("eager", 25, 32), ("late", 58, 65), ("seed", 50, 56)] expected=[("eager", 25, 32)]
+CALL_EXECUTION_OWNER_MISMATCH returned/Tsx/outer/route-6: actual=[("None:eager", 0, 0), ("None:late", 0, 0), ("None:seed", 0, 0)] expected=[("None:eager", 0, 0)]
+CALL_EXECUTION_OWNER_MISMATCH returned/Tsx/outer/route-7: actual=[("None:eager", 25, 32), ("None:late", 58, 65), ("None:seed", 50, 56)] expected=[("None:eager", 25, 32)]
+
+thread 'ast::call_execution_owner_tests::call_execution_owner_query_and_manual_routes' (53935503) panicked at src/ast_call_execution_owner_tests.rs:275:5:
+108 ownership mismatches
+test ast::call_execution_owner_tests::call_execution_owner_query_and_manual_routes ... FAILED
+
+thread 'ast::call_execution_owner_tests::call_execution_owner_computed_key_callback_and_recovery_controls' (53935500) panicked at src/ast_call_execution_owner_tests.rs:407:17:
+assertion `left == right` failed: JavaScript/outer/route-0
+  left: [("direct", 0, 0), ("suspect", 0, 0)]
+ right: [("direct", 0, 0)]
+test ast::call_execution_owner_tests::call_execution_owner_computed_key_callback_and_recovery_controls ... FAILED
+
+failures:
+
+failures:
+    ast::call_execution_owner_tests::call_execution_owner_computed_key_callback_and_recovery_controls
+    ast::call_execution_owner_tests::call_execution_owner_computed_key_unindexed_and_root_controls
+    ast::call_execution_owner_tests::call_execution_owner_query_and_manual_routes
+    cpg::build::nested_execution_owner_audit_tests::call_execution_owner_complete_site_and_edge_metadata
+    cpg::build::nested_execution_owner_audit_tests::call_execution_owner_same_line_identity_collision_refuses_graph_calls
+    cpg::build::nested_execution_owner_audit_tests::call_execution_owner_source_epochs
+
+test result: FAILED. 2 passed; 6 failed; 0 ignored; 0 measured; 1130 filtered out; finished in 0.19s
+
+error: test failed, to rerun pass `--lib`

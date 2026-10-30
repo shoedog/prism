@@ -1,0 +1,17 @@
+{
+  "baseCommit": "032e1824",
+  "evidenceRoot": "/private/tmp/prism-cjs-terminal-iVeqxl",
+  "newTests": 62,
+  "matchedBase": {"passed": 26, "failed": 36},
+  "candidateCjs": {"passed": 151, "failed": 0, "priorControls": 89},
+  "matchedSyntheticObservations": {"rows": 294, "exactRevoked": 150, "exactRestored": 0, "otherTargetChanges": 0, "unchanged": 144},
+  "limits": "Observations are logged synthetic fixture/language/build rows, not all test assertions, unique sites, demonstrated runtime bugs, or real-corpus recall. Conservative refusals are included.",
+  "sha256": {
+    "base-final-terminal-v4.log": "14922f93aef385dfeaed26109e653d2e5b1ed6a4a88ce2f3bc028687385201dd",
+    "candidate-final-cjs.log": "b63533e72d59f47e5fd8cc6a8efd7a66015eef1e49c9fa95348004788303a52d",
+    "final-source-checkpoint.tgz": "69f274e685424103ef0c9c530c81e3f5fca252bf501f89e671a4cb3439f975d0",
+    "tests/integration/cjs_terminal_test.rs": "4ec457f36574e3c4ec725cd5b36977974c3af0aded53e2f5c37f56d301ddcdfa",
+    "tests/integration/cjs_terminal_state_test.rs": "55485d25b850b2c93463f6c75a81804eb1a6946369ef774911f5c43633c9e0a8",
+    "tests/integration/main.rs": "a48a6ba0e5074f2722e54b668b42195cad02853842cd620571ffd266e1b0bcd2"
+  }
+}

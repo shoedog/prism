@@ -103,6 +103,8 @@ mod tests {
             receiver_outcome: None,
             origin: CallSiteOrigin::Source,
             pre_resolved_target: None,
+            jsx_element: false,
+            local_binding: Default::default(),
         };
         let outcome = ResolutionOutcome {
             resolved: vec![crate::resolution::ResolvedCallee {
@@ -112,6 +114,8 @@ mod tests {
             }],
             drop: None,
             telemetry: ResolutionTelemetry::default(),
+            via_alias_route: false,
+            anonymous_certificate: None,
         };
         let dump = partition_site_json(
             &site,
@@ -140,6 +144,8 @@ mod tests {
                 resolved: Vec::new(),
                 drop: Some(DropReason::ExternalReceiver),
                 telemetry: ResolutionTelemetry::default(),
+                via_alias_route: false,
+                anonymous_certificate: None,
             },
             GoOwnerPartitionTelemetry {
                 drops: 1,

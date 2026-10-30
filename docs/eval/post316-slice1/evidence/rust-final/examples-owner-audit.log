@@ -1,0 +1,57 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.89s
+     Running unittests examples/asserted_member_observations.rs (target/debug/examples/asserted_member_observations-66049795ba5108f0)
+
+running 7 tests
+test tests::rejects_unknown_missing_duplicate_fields_and_wrong_shapes ... ok
+test tests::records_parse_errors_without_repairing_source ... ok
+test tests::preserves_input_order_dialects_and_flat_graph_shapes ... ok
+test tests::rejects_out_of_range_lines_but_preserves_empty_last_row ... ok
+test tests::enforces_input_and_source_byte_limits ... ok
+test tests::preserves_non_ascii_source_and_raw_return_byte_slots ... ok
+test tests::rejects_empty_duplicate_and_oversized_batches ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running unittests examples/dfg_census.rs (target/debug/examples/dfg_census-27793545b759686b)
+
+running 7 tests
+test tests::same_statement_def_to_use_is_never_distinct ... ok
+test tests::continuation_line_edge_is_span_admissible_but_not_cfg_start_admissible ... ok
+test tests::multiline_parameter_definition_is_normalized_to_entry ... ok
+test tests::same_line_arrow_does_not_exclude_unrelated_outer_endpoint ... ok
+test tests::with_header_use_and_definition_are_unmapped_residuals ... ok
+test tests::lambda_body_edge_is_counted_as_nested_callable ... ok
+test tests::rust_if_body_edge_maps_to_distinct_inner_statements ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running unittests examples/parameter_site_census.rs (target/debug/examples/parameter_site_census-f13dc2f8a1a5b215)
+
+running 6 tests
+test tests::classifiers_keep_javascript_patterns_and_recovery_distinct ... ok
+test tests::duplicate_lists_preserve_syntax_but_gain_no_occurrences ... ok
+test tests::exact_occurrences_are_not_syntax_counts_or_field_only_defs ... ok
+test tests::separates_properties_decorators_and_erased_this ... ok
+test tests::classifies_syntax_without_compressing_default_and_pattern_forms ... ok
+test tests::flow_endpoints_retain_parameter_tokens_without_body_fallback ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running unittests examples/project_membership_census.rs (target/debug/examples/project_membership_census-39812fed6af5a4d0)
+
+running 12 tests
+test tests::directory_and_root_skips_keep_identity ... ok
+test tests::rejects_relative_missing_file_and_filesystem_roots ... ok
+test tests::rejects_noncanonical_duplicate_or_unsafe_ids ... ok
+test tests::skipped_match_javascript_utf16_order ... ok
+test tests::rejects_malformed_input_and_limits ... ok
+test tests::symlink_is_reported_not_followed ... ok
+test tests::supported_match_javascript_utf16_order ... ok
+test tests::files_match_javascript_utf16_order ... ok
+test tests::retains_nonfatal_parse_error_counts ... ok
+test tests::classifications_include_dependencies_without_loading_them ... ok
+test tests::actual_whole_root_not_supplied_or_config_subset ... ok
+test tests::retains_skips_and_deterministic_order ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s

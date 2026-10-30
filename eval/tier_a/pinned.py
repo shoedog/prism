@@ -4,7 +4,8 @@ from __future__ import annotations
 from .compare import site_compare
 from .metrics import precision_recall
 from .model import CallEdge, FunctionDef
-from .sut import SutAmbiguous
+from .oracles import OracleTimeout
+from .sut import SutAmbiguous, SutError, SutTimeout
 
 PINNED = [
     {"id": "target-c-method", "symbol": "target", "file": "src/algorithms/taint.rs",
@@ -88,6 +89,21 @@ def run_pinned(oracle, sut, snapshot: list[FunctionDef], corpus_root: str,
             except SutAmbiguous:
                 ambiguous_raised = True
             except Exception as exc:
+                compatibility_error = isinstance(exc, AttributeError) or (
+                    isinstance(exc, SutError)
+                    and not isinstance(exc, SutTimeout)
+                    and getattr(sut, "no_cache", False)
+                )
+                if not compatibility_error:
+                    out.append({
+                        "id": probe["id"],
+                        "expected": probe["expected"],
+                        "outcome": (
+                            "sut_timeout" if isinstance(exc, SutTimeout) else "sut_error"
+                        ),
+                        "error": str(exc),
+                    })
+                    continue
                 error = str(exc)
             result = evaluate_pinned(probe, [], [], ambiguous_raised)
             if error is not None:
@@ -114,7 +130,7 @@ def run_pinned(oracle, sut, snapshot: list[FunctionDef], corpus_root: str,
             out.append({
                 "id": probe["id"],
                 "expected": probe["expected"],
-                "outcome": "error",
+                "outcome": "oracle_timeout" if isinstance(exc, OracleTimeout) else "error",
                 "error_side": "oracle",
                 "error": str(exc),
             })
@@ -125,7 +141,7 @@ def run_pinned(oracle, sut, snapshot: list[FunctionDef], corpus_root: str,
             out.append({
                 "id": probe["id"],
                 "expected": probe["expected"],
-                "outcome": "error",
+                "outcome": "sut_timeout" if isinstance(exc, SutTimeout) else "error",
                 "error_side": "sut",
                 "oracle_sites": _sites(oracle_edges),
                 "error": str(exc),

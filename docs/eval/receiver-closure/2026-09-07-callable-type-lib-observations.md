@@ -58,7 +58,7 @@ merely to obtain complete closure.
 The Prism owner selected **keep unresolved and document**. Treat the directive as
 obsolete for maintenance prioritization, while preserving the pinned public
 Excalidraw benchmark source and its unresolved-reference negative case. This is
-not a finding about Prism's dependencies or the team's frontend-portal repository.
+not a finding about Prism's dependencies or the team's private-corpus repository.
 
 - Do not install or bootstrap react-scripts or its transitive dependencies.
 - Do not remove the directive, substitute Vite declarations, add a shim, exclude

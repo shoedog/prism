@@ -1,0 +1,778 @@
+[
+ {
+  "callee_text": "Col",
+  "file": "packages/excalidraw/components/Actions.tsx",
+  "lane": "drop:UnknownName:alias",
+  "line": 1288,
+  "start_byte": 39709,
+  "target": "ColStack"
+ },
+ {
+  "callee_text": "Col",
+  "file": "packages/excalidraw/components/LayerUI.tsx",
+  "lane": "drop:UnknownName:alias",
+  "line": 302,
+  "start_byte": 9067,
+  "target": "ColStack"
+ },
+ {
+  "callee_text": "Col",
+  "file": "packages/excalidraw/components/LibraryMenuItems.tsx",
+  "lane": "drop:UnknownName:alias",
+  "line": 409,
+  "start_byte": 12475,
+  "target": "ColStack"
+ },
+ {
+  "callee_text": "Col",
+  "file": "packages/excalidraw/components/dropdownMenu/DropdownMenuContent.tsx",
+  "lane": "drop:UnknownName:alias",
+  "line": 99,
+  "start_byte": 2744,
+  "target": "ColStack"
+ },
+ {
+  "callee_text": "Col",
+  "file": "packages/excalidraw/components/dropdownMenu/DropdownMenuSubContent.tsx",
+  "lane": "drop:UnknownName:alias",
+  "line": 56,
+  "start_byte": 1665,
+  "target": "ColStack"
+ },
+ {
+  "callee_text": "Col",
+  "file": "packages/excalidraw/components/footer/Footer.tsx",
+  "lane": "drop:UnknownName:alias",
+  "line": 37,
+  "start_byte": 1067,
+  "target": "ColStack"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "excalidraw-app/share/ShareDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 126,
+  "start_byte": 3522,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "excalidraw-app/share/ShareDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 135,
+  "start_byte": 3767,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "excalidraw-app/share/ShareDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 162,
+  "start_byte": 4488,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "excalidraw-app/share/ShareDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 198,
+  "start_byte": 5471,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "excalidraw-app/share/ShareDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 231,
+  "start_byte": 6349,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "packages/excalidraw/components/ImageExportDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 304,
+  "start_byte": 8715,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "packages/excalidraw/components/ImageExportDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 316,
+  "start_byte": 9156,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "packages/excalidraw/components/ImageExportDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 329,
+  "start_byte": 9660,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "packages/excalidraw/components/LinkButton.tsx",
+  "lane": "drop:UnknownName",
+  "line": 12,
+  "start_byte": 247,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "packages/excalidraw/components/OverwriteConfirm/OverwriteConfirmActions.tsx",
+  "lane": "drop:UnknownName",
+  "line": 28,
+  "start_byte": 735,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "packages/excalidraw/components/ShareableLinkDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 63,
+  "start_byte": 1666,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "packages/excalidraw/components/TTDDialog/Chat/ChatHistoryMenu.tsx",
+  "lane": "drop:UnknownName",
+  "line": 39,
+  "start_byte": 925,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "FilledButton",
+  "file": "packages/excalidraw/components/TTDDialog/Chat/ChatMessage.tsx",
+  "lane": "drop:UnknownName",
+  "line": 84,
+  "start_byte": 2606,
+  "target": "FilledButton"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/Actions.tsx",
+  "lane": "drop:UnknownName",
+  "line": 931,
+  "start_byte": 27940,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/Dialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 116,
+  "start_byte": 3268,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/LayerUI.tsx",
+  "lane": "drop:UnknownName",
+  "line": 248,
+  "start_byte": 7354,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/LayerUI.tsx",
+  "lane": "drop:UnknownName",
+  "line": 266,
+  "start_byte": 8002,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/MobileMenu.tsx",
+  "lane": "drop:UnknownName",
+  "line": 152,
+  "start_byte": 4011,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/PropertiesPopover.tsx",
+  "lane": "drop:UnknownName",
+  "line": 87,
+  "start_byte": 2755,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/Sidebar/Sidebar.tsx",
+  "lane": "drop:UnknownName",
+  "line": 144,
+  "start_byte": 4361,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/Stats/index.tsx",
+  "lane": "drop:UnknownName",
+  "line": 187,
+  "start_byte": 5060,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/UserList.tsx",
+  "lane": "drop:UnknownName",
+  "line": 221,
+  "start_byte": 5881,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/dropdownMenu/DropdownMenuContent.tsx",
+  "lane": "drop:UnknownName",
+  "line": 101,
+  "start_byte": 2838,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Island",
+  "file": "packages/excalidraw/components/dropdownMenu/DropdownMenuSubContent.tsx",
+  "lane": "drop:UnknownName",
+  "line": 58,
+  "start_byte": 1755,
+  "target": "Island"
+ },
+ {
+  "callee_text": "Picker",
+  "file": "packages/excalidraw/components/ColorPicker/ColorPicker.tsx",
+  "lane": "drop:UnknownName",
+  "line": 151,
+  "start_byte": 4294,
+  "target": "Picker"
+ },
+ {
+  "callee_text": "Picker",
+  "file": "packages/excalidraw/components/IconPicker.tsx",
+  "lane": "resolved_elsewhere",
+  "line": 319,
+  "start_byte": 9644,
+  "target": "Picker"
+ },
+ {
+  "callee_text": "PropertiesPopover",
+  "file": "packages/excalidraw/components/Actions.tsx",
+  "lane": "drop:UnknownName",
+  "line": 384,
+  "start_byte": 11165,
+  "target": "PropertiesPopover"
+ },
+ {
+  "callee_text": "PropertiesPopover",
+  "file": "packages/excalidraw/components/Actions.tsx",
+  "lane": "drop:UnknownName",
+  "line": 503,
+  "start_byte": 14868,
+  "target": "PropertiesPopover"
+ },
+ {
+  "callee_text": "PropertiesPopover",
+  "file": "packages/excalidraw/components/Actions.tsx",
+  "lane": "drop:UnknownName",
+  "line": 578,
+  "start_byte": 17048,
+  "target": "PropertiesPopover"
+ },
+ {
+  "callee_text": "PropertiesPopover",
+  "file": "packages/excalidraw/components/Actions.tsx",
+  "lane": "drop:UnknownName",
+  "line": 683,
+  "start_byte": 20343,
+  "target": "PropertiesPopover"
+ },
+ {
+  "callee_text": "PropertiesPopover",
+  "file": "packages/excalidraw/components/ColorPicker/ColorPicker.tsx",
+  "lane": "drop:UnknownName",
+  "line": 110,
+  "start_byte": 2898,
+  "target": "PropertiesPopover"
+ },
+ {
+  "callee_text": "PropertiesPopover",
+  "file": "packages/excalidraw/components/FontPicker/FontPickerList.tsx",
+  "lane": "drop:UnknownName",
+  "line": 371,
+  "start_byte": 10614,
+  "target": "PropertiesPopover"
+ },
+ {
+  "callee_text": "QuickSearch",
+  "file": "packages/excalidraw/components/FontPicker/FontPickerList.tsx",
+  "lane": "drop:UnknownName",
+  "line": 395,
+  "start_byte": 11391,
+  "target": "QuickSearch"
+ },
+ {
+  "callee_text": "QuickSearch",
+  "file": "packages/excalidraw/components/UserList.tsx",
+  "lane": "drop:UnknownName",
+  "line": 224,
+  "start_byte": 6030,
+  "target": "QuickSearch"
+ },
+ {
+  "callee_text": "Row",
+  "file": "packages/excalidraw/components/Actions.tsx",
+  "lane": "drop:UnknownName:alias",
+  "line": 1289,
+  "start_byte": 39766,
+  "target": "RowStack"
+ },
+ {
+  "callee_text": "TextField",
+  "file": "excalidraw-app/share/ShareDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 110,
+  "start_byte": 3044,
+  "target": "TextField"
+ },
+ {
+  "callee_text": "TextField",
+  "file": "excalidraw-app/share/ShareDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 118,
+  "start_byte": 3344,
+  "target": "TextField"
+ },
+ {
+  "callee_text": "TextField",
+  "file": "packages/excalidraw/components/CommandPalette/CommandPalette.tsx",
+  "lane": "drop:UnknownName",
+  "line": 897,
+  "start_byte": 26009,
+  "target": "TextField"
+ },
+ {
+  "callee_text": "TextField",
+  "file": "packages/excalidraw/components/ElementLinkDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 122,
+  "start_byte": 3341,
+  "target": "TextField"
+ },
+ {
+  "callee_text": "TextField",
+  "file": "packages/excalidraw/components/LibraryMenuItems.tsx",
+  "lane": "drop:UnknownName",
+  "line": 392,
+  "start_byte": 11857,
+  "target": "TextField"
+ },
+ {
+  "callee_text": "TextField",
+  "file": "packages/excalidraw/components/SearchMenu.tsx",
+  "lane": "drop:UnknownName",
+  "line": 353,
+  "start_byte": 9590,
+  "target": "TextField"
+ },
+ {
+  "callee_text": "TextField",
+  "file": "packages/excalidraw/components/ShareableLinkDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 55,
+  "start_byte": 1490,
+  "target": "TextField"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "excalidraw-app/components/ExportToExcalidrawPlus.tsx",
+  "lane": "drop:UnknownName",
+  "line": 114,
+  "start_byte": 3308,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionAlign.tsx",
+  "lane": "drop:UnknownName",
+  "line": 133,
+  "start_byte": 3797,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionAlign.tsx",
+  "lane": "drop:UnknownName",
+  "line": 167,
+  "start_byte": 4877,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionAlign.tsx",
+  "lane": "drop:UnknownName",
+  "line": 201,
+  "start_byte": 5954,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionAlign.tsx",
+  "lane": "drop:UnknownName",
+  "line": 233,
+  "start_byte": 6973,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionAlign.tsx",
+  "lane": "drop:UnknownName",
+  "line": 263,
+  "start_byte": 7949,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionAlign.tsx",
+  "lane": "drop:UnknownName",
+  "line": 99,
+  "start_byte": 2722,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionCanvas.tsx",
+  "lane": "drop:UnknownName",
+  "line": 158,
+  "start_byte": 4547,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionCanvas.tsx",
+  "lane": "drop:UnknownName",
+  "line": 199,
+  "start_byte": 5732,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionCanvas.tsx",
+  "lane": "drop:UnknownName",
+  "line": 241,
+  "start_byte": 6978,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionCropEditor.tsx",
+  "lane": "drop:UnknownName",
+  "line": 50,
+  "start_byte": 1420,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionDeleteSelected.tsx",
+  "lane": "drop:UnknownName",
+  "line": 312,
+  "start_byte": 9026,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionDistribute.tsx",
+  "lane": "drop:UnknownName",
+  "line": 121,
+  "start_byte": 3626,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionDistribute.tsx",
+  "lane": "drop:UnknownName",
+  "line": 90,
+  "start_byte": 2626,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionDuplicateSelection.tsx",
+  "lane": "drop:UnknownName",
+  "line": 116,
+  "start_byte": 3282,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionExport.tsx",
+  "lane": "drop:UnknownName",
+  "line": 427,
+  "start_byte": 11916,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionFinalize.tsx",
+  "lane": "drop:UnknownName",
+  "line": 393,
+  "start_byte": 12285,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionGroup.tsx",
+  "lane": "drop:UnknownName",
+  "line": 202,
+  "start_byte": 6103,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionGroup.tsx",
+  "lane": "drop:UnknownName",
+  "line": 310,
+  "start_byte": 9187,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionHistory.tsx",
+  "lane": "drop:UnknownName",
+  "line": 128,
+  "start_byte": 3807,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionHistory.tsx",
+  "lane": "drop:UnknownName",
+  "line": 88,
+  "start_byte": 2601,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionLinearEditor.tsx",
+  "lane": "drop:UnknownName",
+  "line": 101,
+  "start_byte": 2907,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/actions/actionLink.tsx",
+  "lane": "drop:UnknownName",
+  "line": 45,
+  "start_byte": 1410,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/DarkModeToggle.tsx",
+  "lane": "drop:UnknownName",
+  "line": 25,
+  "start_byte": 590,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/ElementLinkDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 140,
+  "start_byte": 3818,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/HandButton.tsx",
+  "lane": "drop:UnknownName",
+  "line": 20,
+  "start_byte": 371,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/JSONExportDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 61,
+  "start_byte": 1779,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/JSONExportDialog.tsx",
+  "lane": "drop:UnknownName",
+  "line": 78,
+  "start_byte": 2429,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/LibraryMenuHeaderContent.tsx",
+  "lane": "drop:UnknownName",
+  "line": 130,
+  "start_byte": 3821,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/MobileToolBar.tsx",
+  "lane": "drop:UnknownName",
+  "line": 235,
+  "start_byte": 6224,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/MobileToolBar.tsx",
+  "lane": "drop:UnknownName",
+  "line": 250,
+  "start_byte": 6710,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/MobileToolBar.tsx",
+  "lane": "drop:UnknownName",
+  "line": 330,
+  "start_byte": 9108,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/MobileToolBar.tsx",
+  "lane": "drop:UnknownName",
+  "line": 347,
+  "start_byte": 9633,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/MobileToolBar.tsx",
+  "lane": "drop:UnknownName",
+  "line": 364,
+  "start_byte": 10170,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/PublishLibrary.tsx",
+  "lane": "drop:UnknownName",
+  "line": 151,
+  "start_byte": 4109,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/Toast.tsx",
+  "lane": "drop:UnknownName",
+  "line": 68,
+  "start_byte": 1715,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/ToolPopover.tsx",
+  "lane": "drop:UnknownName",
+  "line": 74,
+  "start_byte": 1839,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/hyperlink/Hyperlink.tsx",
+  "lane": "drop:UnknownName",
+  "line": 315,
+  "start_byte": 8917,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/hyperlink/Hyperlink.tsx",
+  "lane": "drop:UnknownName",
+  "line": 325,
+  "start_byte": 9227,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "ToolButton",
+  "file": "packages/excalidraw/components/hyperlink/Hyperlink.tsx",
+  "lane": "drop:UnknownName",
+  "line": 341,
+  "start_byte": 9726,
+  "target": "ToolButton"
+ },
+ {
+  "callee_text": "getStateForZoom",
+  "file": "packages/excalidraw/actions/actionCanvas.tsx",
+  "lane": "resolved_to_target",
+  "line": 144,
+  "start_byte": 4114,
+  "target": "getStateForZoom"
+ },
+ {
+  "callee_text": "getStateForZoom",
+  "file": "packages/excalidraw/actions/actionCanvas.tsx",
+  "lane": "resolved_to_target",
+  "line": 185,
+  "start_byte": 5299,
+  "target": "getStateForZoom"
+ },
+ {
+  "callee_text": "getStateForZoom",
+  "file": "packages/excalidraw/actions/actionCanvas.tsx",
+  "lane": "resolved_to_target",
+  "line": 226,
+  "start_byte": 6501,
+  "target": "getStateForZoom"
+ },
+ {
+  "callee_text": "getStateForZoom",
+  "file": "packages/excalidraw/components/App.tsx",
+  "lane": "resolved_to_target",
+  "line": 4327,
+  "start_byte": 138539,
+  "target": "getStateForZoom"
+ },
+ {
+  "callee_text": "getStateForZoom",
+  "file": "packages/excalidraw/components/App.tsx",
+  "lane": "resolved_to_target",
+  "line": 6930,
+  "start_byte": 217657,
+  "target": "getStateForZoom"
+ },
+ {
+  "callee_text": "prepareElementsForExport",
+  "file": "packages/excalidraw/actions/actionClipboard.tsx",
+  "lane": "resolved_to_target",
+  "line": 136,
+  "start_byte": 3889,
+  "target": "prepareElementsForExport"
+ },
+ {
+  "callee_text": "prepareElementsForExport",
+  "file": "packages/excalidraw/actions/actionClipboard.tsx",
+  "lane": "resolved_to_target",
+  "line": 209,
+  "start_byte": 5823,
+  "target": "prepareElementsForExport"
+ },
+ {
+  "callee_text": "prepareElementsForExport",
+  "file": "packages/excalidraw/components/ImageExportDialog.tsx",
+  "lane": "resolved_to_target",
+  "line": 108,
+  "start_byte": 3174,
+  "target": "prepareElementsForExport"
+ },
+ {
+  "callee_text": "prepareElementsForExport",
+  "file": "packages/excalidraw/data/resave.ts",
+  "lane": "drop:UnknownName",
+  "line": 38,
+  "start_byte": 1069,
+  "target": "prepareElementsForExport"
+ }
+]

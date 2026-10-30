@@ -1,12 +1,13 @@
 [package]
 name = "prism"
-version = "3.1.2"
+version = "3.2.0"
 edition = "2021"
 description = "Code slicing algorithms for defect-focused automated code review, based on arXiv:2505.17928"
 license = "Apache-2.0"
 
 [features]
 mcp = []
+memreport-changed-refresh = ["mcp"]
 # Explicit real-compiler tests only; no production consumer or compiler dependency.
 detached-owner-audit = []
 
@@ -41,9 +42,11 @@ anyhow = "1"
 thiserror = "2"
 petgraph = "0.7"
 bincode = "1"
+memmap2 = "=0.9.8"
 sha2 = "0.10"
 rayon = "1"
 dirs = "6.0.0"
+libc = "0.2"
 
 [dev-dependencies]
 tempfile = "3"

@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 1,
+  "scope": "classification and executable proof requirements only",
+  "productionBase": "7bdf9981e1fed40c8c5715b21d7e393934c592e0",
+  "productionUnchanged": true,
+  "cache": {
+    "cpg": 91,
+    "navigation": 52
+  },
+  "evidenceRoot": "/private/tmp/prism-namespace-flow-MhHdDf",
+  "sources": {
+    "src/ast.rs": "61dcfe24d5aa634a4d953d2be2c36c616d2089ccb43304091163faa0e8d76215",
+    "src/data_flow.rs": "2ea9bf1c0121b3f44e0c0cfd5920724adecdddd4cd85cde2556be35c439f35ce",
+    "src/cpg/build.rs": "b4aca8667067bac50468c3b2510cf2e17bbcc0ce99e5666365b7f0150988697e",
+    "src/languages/mod.rs": "4131fe22628ca54e64bddeef806a0422933ded67208af04c58a49aed81c43404",
+    "src/queries.rs": "84e9390c383cc2c652e75208d696e67a6416d389920693298ce97f9358fba54b",
+    "src/cpg/namespace_flow_audit_tests.rs": "8b5ef236b615470cb309d407d6d6cedb5b22db29bd2f8ae31813411b74d34acb"
+  },
+  "fullClassificationCounts": {
+    "Supported": 24,
+    "ParameterTokenUse": 9,
+    "RefusedTarget": 3,
+    "GenuineSameLineUse": 3,
+    "RefusedParameter": 3
+  },
+  "fullRows": [
+    "NS_AUDIT assignment-head-prior-line/js/full Supported args=[(\"value\", 91..96)] indexed=Some((91, 96)) phantom_raw=false escaping={} retained_true_use={(91, 96)} edges=1",
+    "NS_AUDIT assignment-head-prior-line/ts/full Supported args=[(\"value\", 91..96)] indexed=Some((91, 96)) phantom_raw=false escaping={} retained_true_use={(91, 96)} edges=1",
+    "NS_AUDIT assignment-head-prior-line/tsx/full Supported args=[(\"value\", 91..96)] indexed=Some((91, 96)) phantom_raw=false escaping={} retained_true_use={(91, 96)} edges=1",
+    "NS_AUDIT compact-explicit-other-name/js/full ParameterTokenUse args=[(\"value\", 99..104)] indexed=Some((77, 82)) phantom_raw=true escaping={(52, 107)} retained_true_use={(99, 104)} edges=0",
+    "NS_AUDIT compact-explicit-other-name/ts/full ParameterTokenUse args=[(\"value\", 99..104)] indexed=Some((77, 82)) phantom_raw=true escaping={(52, 107)} retained_true_use={(99, 104)} edges=0",
+    "NS_AUDIT compact-explicit-other-name/tsx/full ParameterTokenUse args=[(\"value\", 99..104)] indexed=Some((77, 82)) phantom_raw=true escaping={(52, 107)} retained_true_use={(99, 104)} edges=0",
+    "NS_AUDIT compact-named-import-property/js/full ParameterTokenUse args=[(\"value\", 110..115)] indexed=Some((89, 94)) phantom_raw=true escaping={(67, 118)} retained_true_use={(110, 115)} edges=0",
+    "NS_AUDIT compact-named-import-property/ts/full ParameterTokenUse args=[(\"value\", 110..115)] indexed=Some((89, 94)) phantom_raw=true escaping={(67, 118)} retained_true_use={(110, 115)} edges=0",
+    "NS_AUDIT compact-named-import-property/tsx/full ParameterTokenUse args=[(\"value\", 110..115)] indexed=Some((89, 94)) phantom_raw=true escaping={(67, 118)} retained_true_use={(110, 115)} edges=0",
+    "NS_AUDIT compact-namespace-property/js/full ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-namespace-property/ts/full ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-namespace-property/tsx/full ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-object-pair/js/full Supported args=[(\"value\", 83..88)] indexed=Some((83, 88)) phantom_raw=false escaping={} retained_true_use={(83, 88)} edges=1",
+    "NS_AUDIT compact-object-pair/ts/full Supported args=[(\"value\", 83..88)] indexed=Some((83, 88)) phantom_raw=false escaping={} retained_true_use={(83, 88)} edges=1",
+    "NS_AUDIT compact-object-pair/tsx/full Supported args=[(\"value\", 83..88)] indexed=Some((83, 88)) phantom_raw=false escaping={} retained_true_use={(83, 88)} edges=1",
+    "NS_AUDIT compact-variable-arrow/js/full Supported args=[(\"value\", 59..64)] indexed=Some((59, 64)) phantom_raw=false escaping={} retained_true_use={(59, 64)} edges=1",
+    "NS_AUDIT compact-variable-arrow/ts/full Supported args=[(\"value\", 59..64)] indexed=Some((59, 64)) phantom_raw=false escaping={} retained_true_use={(59, 64)} edges=1",
+    "NS_AUDIT compact-variable-arrow/tsx/full Supported args=[(\"value\", 59..64)] indexed=Some((59, 64)) phantom_raw=false escaping={} retained_true_use={(59, 64)} edges=1",
+    "NS_AUDIT compact-variable-function/js/full Supported args=[(\"value\", 73..78)] indexed=Some((73, 78)) phantom_raw=false escaping={} retained_true_use={(73, 78)} edges=1",
+    "NS_AUDIT compact-variable-function/ts/full Supported args=[(\"value\", 73..78)] indexed=Some((73, 78)) phantom_raw=false escaping={} retained_true_use={(73, 78)} edges=1",
+    "NS_AUDIT compact-variable-function/tsx/full Supported args=[(\"value\", 73..78)] indexed=Some((73, 78)) phantom_raw=false escaping={} retained_true_use={(73, 78)} edges=1",
+    "NS_AUDIT explicit-self-refusal/js/full RefusedTarget args=[(\"value\", 93..98)] indexed=Some((71, 76)) phantom_raw=true escaping={(52, 101)} retained_true_use={(93, 98)} edges=0",
+    "NS_AUDIT explicit-self-refusal/ts/full RefusedTarget args=[(\"value\", 93..98)] indexed=Some((71, 76)) phantom_raw=true escaping={(52, 101)} retained_true_use={(93, 98)} edges=0",
+    "NS_AUDIT explicit-self-refusal/tsx/full RefusedTarget args=[(\"value\", 93..98)] indexed=Some((71, 76)) phantom_raw=true escaping={(52, 101)} retained_true_use={(93, 98)} edges=0",
+    "NS_AUDIT genuine-distinct-line-earlier-use/js/full Supported args=[(\"value\", 80..85)] indexed=Some((80, 85)) phantom_raw=false escaping={} retained_true_use={(80, 85)} edges=1",
+    "NS_AUDIT genuine-distinct-line-earlier-use/ts/full Supported args=[(\"value\", 80..85)] indexed=Some((80, 85)) phantom_raw=false escaping={} retained_true_use={(80, 85)} edges=1",
+    "NS_AUDIT genuine-distinct-line-earlier-use/tsx/full Supported args=[(\"value\", 80..85)] indexed=Some((80, 85)) phantom_raw=false escaping={} retained_true_use={(80, 85)} edges=1",
+    "NS_AUDIT genuine-same-line-earlier-use/js/full GenuineSameLineUse args=[(\"value\", 79..84)] indexed=Some((57, 62)) phantom_raw=false escaping={} retained_true_use={(79, 84)} edges=0",
+    "NS_AUDIT genuine-same-line-earlier-use/ts/full GenuineSameLineUse args=[(\"value\", 79..84)] indexed=Some((57, 62)) phantom_raw=false escaping={} retained_true_use={(79, 84)} edges=0",
+    "NS_AUDIT genuine-same-line-earlier-use/tsx/full GenuineSameLineUse args=[(\"value\", 79..84)] indexed=Some((57, 62)) phantom_raw=false escaping={} retained_true_use={(79, 84)} edges=0",
+    "NS_AUDIT multiline-property/js/full Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/ts/full Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/tsx/full Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT named-import-declaration/js/full Supported args=[(\"value\", 75..80)] indexed=Some((75, 80)) phantom_raw=false escaping={} retained_true_use={(75, 80)} edges=1",
+    "NS_AUDIT named-import-declaration/ts/full Supported args=[(\"value\", 75..80)] indexed=Some((75, 80)) phantom_raw=false escaping={} retained_true_use={(75, 80)} edges=1",
+    "NS_AUDIT named-import-declaration/tsx/full Supported args=[(\"value\", 75..80)] indexed=Some((75, 80)) phantom_raw=false escaping={} retained_true_use={(75, 80)} edges=1",
+    "NS_AUDIT namespace-declaration/js/full Supported args=[(\"value\", 67..72)] indexed=Some((67, 72)) phantom_raw=false escaping={} retained_true_use={(67, 72)} edges=1",
+    "NS_AUDIT namespace-declaration/ts/full Supported args=[(\"value\", 67..72)] indexed=Some((67, 72)) phantom_raw=false escaping={} retained_true_use={(67, 72)} edges=1",
+    "NS_AUDIT namespace-declaration/tsx/full Supported args=[(\"value\", 67..72)] indexed=Some((67, 72)) phantom_raw=false escaping={} retained_true_use={(67, 72)} edges=1",
+    "NS_AUDIT unsupported-parameter-refusal/js/full RefusedParameter args=[(\"value\", 67..72)] indexed=Some((67, 72)) phantom_raw=false escaping={} retained_true_use={(67, 72)} edges=0",
+    "NS_AUDIT unsupported-parameter-refusal/ts/full RefusedParameter args=[(\"value\", 67..72)] indexed=Some((67, 72)) phantom_raw=false escaping={} retained_true_use={(67, 72)} edges=0",
+    "NS_AUDIT unsupported-parameter-refusal/tsx/full RefusedParameter args=[(\"value\", 67..72)] indexed=Some((67, 72)) phantom_raw=false escaping={} retained_true_use={(67, 72)} edges=0"
+  ],
+  "epochRows": [
+    "NS_AUDIT compact-namespace-property/js/epoch0-full ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-namespace-property/js/epoch2-full ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-namespace-property/js/epoch2-incremental ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-namespace-property/ts/epoch0-full ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-namespace-property/ts/epoch2-full ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-namespace-property/ts/epoch2-incremental ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-namespace-property/tsx/epoch0-full ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-namespace-property/tsx/epoch2-full ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT compact-namespace-property/tsx/epoch2-incremental ParameterTokenUse args=[(\"value\", 90..95)] indexed=Some((68, 73)) phantom_raw=true escaping={(52, 98)} retained_true_use={(90, 95)} edges=0",
+    "NS_AUDIT explicit-self-refusal/js/epoch3-full RefusedTarget args=[(\"value\", 93..98)] indexed=Some((71, 76)) phantom_raw=true escaping={(52, 101)} retained_true_use={(93, 98)} edges=0",
+    "NS_AUDIT explicit-self-refusal/js/epoch3-incremental RefusedTarget args=[(\"value\", 93..98)] indexed=Some((71, 76)) phantom_raw=true escaping={(52, 101)} retained_true_use={(93, 98)} edges=0",
+    "NS_AUDIT explicit-self-refusal/ts/epoch3-full RefusedTarget args=[(\"value\", 93..98)] indexed=Some((71, 76)) phantom_raw=true escaping={(52, 101)} retained_true_use={(93, 98)} edges=0",
+    "NS_AUDIT explicit-self-refusal/ts/epoch3-incremental RefusedTarget args=[(\"value\", 93..98)] indexed=Some((71, 76)) phantom_raw=true escaping={(52, 101)} retained_true_use={(93, 98)} edges=0",
+    "NS_AUDIT explicit-self-refusal/tsx/epoch3-full RefusedTarget args=[(\"value\", 93..98)] indexed=Some((71, 76)) phantom_raw=true escaping={(52, 101)} retained_true_use={(93, 98)} edges=0",
+    "NS_AUDIT explicit-self-refusal/tsx/epoch3-incremental RefusedTarget args=[(\"value\", 93..98)] indexed=Some((71, 76)) phantom_raw=true escaping={(52, 101)} retained_true_use={(93, 98)} edges=0",
+    "NS_AUDIT multiline-property/js/epoch1-full Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/js/epoch1-incremental Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/js/epoch4-full Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/js/epoch4-incremental Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/ts/epoch1-full Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/ts/epoch1-incremental Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/ts/epoch4-full Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/ts/epoch4-incremental Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/tsx/epoch1-full Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/tsx/epoch1-incremental Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/tsx/epoch4-full Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1",
+    "NS_AUDIT multiline-property/tsx/epoch4-incremental Supported args=[(\"value\", 92..97)] indexed=Some((92, 97)) phantom_raw=true escaping={(53, 101)} retained_true_use={(92, 97)} edges=1"
+  ],
+  "nestedOwnershipRows": [
+    "NS_OWNERSHIP js/assignment outer_has_nested_parameter_use=true path_has_inner=true nested_return_use=true immediate_rhs_and_return_reads=true",
+    "NS_OWNERSHIP js/initializer outer_has_nested_parameter_use=false path_has_inner=false nested_return_use=true immediate_rhs_and_return_reads=true",
+    "NS_OWNERSHIP ts/assignment outer_has_nested_parameter_use=true path_has_inner=true nested_return_use=true immediate_rhs_and_return_reads=true",
+    "NS_OWNERSHIP ts/initializer outer_has_nested_parameter_use=false path_has_inner=false nested_return_use=true immediate_rhs_and_return_reads=true",
+    "NS_OWNERSHIP tsx/assignment outer_has_nested_parameter_use=true path_has_inner=true nested_return_use=true immediate_rhs_and_return_reads=true",
+    "NS_OWNERSHIP tsx/initializer outer_has_nested_parameter_use=false path_has_inner=false nested_return_use=true immediate_rhs_and_return_reads=true"
+  ],
+  "focused": {
+    "passed": 3,
+    "failed": 0,
+    "ignoredKnownGap": 1
+  },
+  "desiredBehaviorRed": {
+    "passed": 0,
+    "failed": 1,
+    "rows": 15,
+    "flowControls": 9,
+    "missing": [
+      "compact-namespace-property/js",
+      "compact-named-import-property/js",
+      "compact-namespace-property/ts",
+      "compact-named-import-property/ts",
+      "compact-namespace-property/tsx",
+      "compact-named-import-property/tsx"
+    ]
+  },
+  "evidenceLogSha256": {
+    "initial-probe.log": "0414df1079d3c8cd258344aae5115e7dccd385fbc7e3406aa5736967053c307c",
+    "classification-first.log": "9bc7e01cc46b3596767337300e51a927cf48200c0f8922ad42cf9e3b29d85808",
+    "classification-complete.log": "a7708a4956f307a283087dddd4b3bf7cf1271098a5b3881d8fa7795aa6cd8819",
+    "classification-enumeration.log": "5570c69979786e7c6f45a1be00008afe9882185e3a82e757d40976e2878ddb01",
+    "classification-verified.log": "c5d6028542f210404207337c2cdfbdc764116a59d4fb0632957eb0834641b54f",
+    "desired-behavior-red.log": "4dd631ee9cfd3f4cc554c9977033da19ca4609ad0b1f919fe6d16b98c88d89e8"
+  },
+  "limits": [
+    "No production repair or admission expansion",
+    "Known-gap desired-behavior test explicitly ignored in normal suites",
+    "Synthetic parsed fixtures, not compiler-valid Program or real-site census",
+    "Nested execution scope and genuine same-line occurrence identity require separate designs"
+  ],
+  "verification": {
+    "rust": {
+      "default": {
+        "passed": 4495,
+        "failed": 0,
+        "ignored": 2,
+        "logSha256": "2251e33edbde31a47841d42ff3f6f5ad4963e5971acbb47d7fe30b147788be9d",
+        "ignoredTests": [
+          "test cpg::build::namespace_flow_audit_tests::namespace_flow_compact_callback_requires_argument_edge ... ignored, Known compact callback rvalue ownership defect; captured RED, repair not admitted by this audit",
+          "test resolution_test::slice_elem_variant_reserved ... ignored, SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"
+        ]
+      },
+      "mcp": {
+        "passed": 4688,
+        "failed": 0,
+        "ignored": 2,
+        "logSha256": "e44ceefba5dc6100cbf8033143a3d21a7b459745e3fdb387c226a9eb67d3d9aa",
+        "ignoredTests": [
+          "test cpg::build::namespace_flow_audit_tests::namespace_flow_compact_callback_requires_argument_edge ... ignored, Known compact callback rvalue ownership defect; captured RED, repair not admitted by this audit",
+          "test resolution_test::slice_elem_variant_reserved ... ignored, SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"
+        ]
+      },
+      "audit": {
+        "passed": 4711,
+        "failed": 0,
+        "ignored": 2,
+        "logSha256": "8a56d8995afb9d9e7707d622c4b75412064b725fee5033ef57b8a28a3a851b03",
+        "ignoredTests": [
+          "test cpg::build::namespace_flow_audit_tests::namespace_flow_compact_callback_requires_argument_edge ... ignored, Known compact callback rvalue ownership defect; captured RED, repair not admitted by this audit",
+          "test resolution_test::slice_elem_variant_reserved ... ignored, SliceElem is reserved (spec §5/§10); classifier returns None until a future slice"
+        ]
+      },
+      "examples": {
+        "passed": 32,
+        "failed": 0,
+        "ignored": 0,
+        "logSha256": "751604b138f2c77180e798df2c9238d6079c7001f2a6ef2b513342acecced206",
+        "ignoredTests": []
+      }
+    },
+    "node": {
+      "passed": 786,
+      "excludedTests": 3,
+      "excludedFile": "docs/eval/receiver-closure/audit-imported-props-source.test.mjs",
+      "reason": "required historical real-sites.jsonl absent"
+    },
+    "authority": {
+      "passed": 40
+    },
+    "python": {
+      "passed": 940,
+      "skippedLiveAdoption": 1
+    },
+    "tierA": {
+      "matrixPassed": 159,
+      "quick": {
+        "pid": 32623,
+        "code": 143,
+        "signal": null,
+        "timedOut": true,
+        "elapsedMs": 300024,
+        "artifacts": []
+      },
+      "quickPassed": false,
+      "fullMultiCorpusNotRun": true
+    },
+    "clippy": {
+      "completed": true,
+      "warningLines": 257
+    },
+    "binaries": {
+      "/private/tmp/prism-namespace-flow-MhHdDf/verified-bin/prism": "73f2c7c67c44f50815a80b4dc48227ef5e1f2d2e9147a12ee532c34fb7464dec",
+      "/private/tmp/prism-namespace-flow-MhHdDf/verified-bin/prism-mcp": "850ad086f8535eaeaf9639f1e8a4bcc8650721d5fd0d069477bc45e4f4960967",
+      "/private/tmp/prism-namespace-flow-MhHdDf/verified-bin/project_membership_census": "2e16f1a90ce707cdc9b759e8c1d60351d89a9bb5a18bbc42c64d1a9995a58cc3",
+      "/private/tmp/prism-namespace-flow-MhHdDf/verified-bin/parameter_site_census": "08220ee2e3fbddc4d0964ec981dba82ab2fe304ae53899dc1318a099c77c200d"
+    },
+    "gatesReceiptSha256": "260fc3394c23b66b2ae9b54549b5d05fa18a357fd46fa3718e76f0d23b9439cd",
+    "review": {
+      "rounds": 2,
+      "finalIndependentVerdict": "FIX W2/S0",
+      "rootClosedFindings": 2,
+      "thirdIndependentApprovalClaimed": false
+    }
+  }
+}

@@ -31,7 +31,7 @@ All old fields and resolution occurrence ordering are equal after removing only
 schema/producer identity and the new field. Outside lookup remains true; all
 existing dependency/augmentation/resolution closure bits remain false. Thirty
 callable observations and53 nested calls are unchanged. This measures the fixed
-public repository, not a fresh frontend-portal run.
+public repository, not a fresh private-corpus run.
 
 The independent source verifier replays the1445-file historical source census,
 then checks all252 new declaration/selected-entry occurrences against original

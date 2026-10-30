@@ -264,10 +264,10 @@ fn default_admission_never_removes_existing_required_or_optional_occurrences() {
             "{language:?}: {occ:?}"
         );
 
-        // When every parameter qualifies, `c` gains a NEW default occurrence
-        // (in declaration order), while `b`'s optional occurrence
-        // stays refused by the pre-existing, unrelated whole-signature
-        // initializer barrier for optional parameters.
+        // When every parameter qualifies, `c` gains its default occurrence
+        // and `b` gains its optional occurrence (both in declaration order).
+        // The optional admission is specific to this nonempty inert-default
+        // sibling set.
         let (occ2, _, errors2) = occurrences(
             "function take(a: any, b?: any, c: any = 1) { sink(a, b, c); }",
             language,
@@ -275,7 +275,7 @@ fn default_admission_never_removes_existing_required_or_optional_occurrences() {
         assert_eq!(errors2, 0, "{language:?}");
         assert_eq!(
             occ2.iter().map(|p| p.0.as_str()).collect::<Vec<_>>(),
-            ["a", "c"],
+            ["a", "b", "c"],
             "{language:?}: {occ2:?}"
         );
     }

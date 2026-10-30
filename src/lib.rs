@@ -37,6 +37,9 @@
 
 pub mod access_path;
 pub mod algorithms;
+pub mod anon_owner;
+#[cfg_attr(not(test), allow(dead_code))] // S3a1a: syntax only; S3a1b attaches it.
+pub(crate) mod anonymous;
 pub mod api;
 pub mod ast;
 pub mod build_pool;
@@ -65,11 +68,22 @@ mod go_receiver_index;
 mod go_receiver_index_visibility;
 mod go_selector_supply;
 mod go_type_alias;
+mod js_anonymous;
 pub mod js_exports;
+mod js_paths;
+mod js_paths_first_pass;
+pub mod js_paths_snapshot;
+mod js_paths_syntax;
+pub mod js_returns;
 pub mod js_ts_props;
 pub mod languages;
+pub mod process_usage;
+pub mod profile;
+
 pub mod live_types;
 mod manifest_snapshot;
+#[cfg(test)]
+mod nested_execution_owner_audit;
 pub use manifest_snapshot::ManifestSnapshot;
 #[cfg(feature = "mcp")]
 pub mod mcp;

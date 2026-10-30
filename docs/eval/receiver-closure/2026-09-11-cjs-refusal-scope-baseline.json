@@ -1,0 +1,50 @@
+{
+  "baseCommit": "88af6511",
+  "evidenceRoot": "/private/tmp/prism-cjs-refusal-amrJB2",
+  "newTests": {"integration": 37, "unit": 1},
+  "matchedBase": {"integrationPassed": 10, "integrationFailed": 27, "unitPassed": 0, "unitFailed": 1},
+  "candidate": {"cjsIntegrationPassed": 188, "priorCjsControls": 151, "sourceWriteUnitPassed": 1},
+  "matchedSyntheticCallObservations": {"rows": 234, "exactRevoked": 138, "exactRestored": 0, "otherTargetChanges": 0, "unchanged": 96},
+  "matchedResidualObservations": {"rows": 48, "unchanged": 48, "unenumeratedCjsRows": 30, "anonymousPropertyReceiverRows": 6, "namedExpressionControlRows": 6, "differentPropertyControlRows": 6, "dependencyLocksIdentical": true},
+  "runtimeControls": {"writeProofPassed": 7, "receiverSelfBindingPassed": 3},
+  "residualFixtures": {
+    "languages": ["js", "ts", "tsx"],
+    "builds": ["full", "direct-subset-plus-export-resolution"],
+    "cjsShared": {
+      "good": "export function item() {}",
+      "barrel": "export * from './bad'; export * from './good';",
+      "app": "import {item as invoke} from './barrel'; function run(){invoke();}"
+    },
+    "cjsBadSources": {
+      "computed_only": "exports[key] = other;",
+      "alias_only": "const alias = exports; alias.item = other;",
+      "skipped_static_rhs": "exports.item = () => 0;",
+      "wrapper_only": "this.item = () => 0;",
+      "spread_discards_literal": "function origin() {} module.exports = {item:origin,...other};"
+    },
+    "receiverOrigin": "export function item() {}",
+    "receiverAppSources": {
+      "anonymous_property_display": "import * as ns from './origin'; const obj={ns:null}; obj.ns = function(){ns.item();};",
+      "named_expression_self": "import * as ns from './origin'; const obj={ns:null}; obj.ns = function ns(){ns.item();};",
+      "different_display_control": "import * as ns from './origin'; const obj={callback:null}; obj.callback = function(){ns.item();};"
+    }
+  },
+  "limits": "Repeated observations are keyed by occurrence, not deduplicated by label. Synthetic fixture/language/build rows are not unique real sites or demonstrated runtime bug counts. Conservative refusals included. Residual observation probes are not acceptance gates.",
+  "sha256": {
+    "residual-audit.rs": "fd396268b1bd348efe4f19d78307cc0a8b86bdbf5013cca789e34de6a1f31c29",
+    "base-residual-matched.log": "c174f1c7fc35088ceed671f988a71f199b014ef7a567e7ed0cd5cfa95c67abd7",
+    "candidate-residual-observations.log": "62acbb2836a5a4d4cac556b799177e1ae50d32f4cb37421b947ef6312a2ddf86",
+    "probe/Cargo.lock": "7b8be0b5aa056f09e71f806b1f00a2babd3dfc1286de4dc4eaa493d400f25702",
+    "src/ast.rs": "6d7fb8a2bd3363de2ed31e87c0128bed1e9d7f8879069790be2f54a21d4ad1f5",
+    "src/ast/js_module_forwarding.rs": "96bf9b939c92b186ff15ce40e5289790ebb4d1ca7f605e0c862e4dd655dc1ad6",
+    "src/cpg_cache.rs": "a6f89fe4917dafa955031c2f2d9ff73cf12561f7923929540cc4bd1341990dbe",
+    "src/navigation/call_edge_cache.rs": "52b4aaf5d8d0f30d869d18e72deea497fa46da6801607eea879353ba47333022",
+    "tests/integration/cjs_refusal_test.rs": "fb8494a365af63b18db40e21650211e3d6f5e43809373083fa5c74d11ef2fa3e",
+    "tests/integration/cjs_refusal_state_test.rs": "4475ea37626ecf306d75bbc54fdbbbaf72871bec506c260fea589963605026bc",
+    "tests/integration/cjs_export_barrier_test.rs": "435f3e0a7f18897f3d2b65a1320ff58fe3976b6b2fe8f7bf5bea8a06b0b3b09d",
+    "tests/integration/main.rs": "44ee12627ddd7989915e7936891f3ed67a42d598c221cab714b65954c4d1bc62",
+    "base-final-refusal-all.log": "730996e4d52b693b46c2b3edc0248c3d837741d8f81ecf080200c91e46e9b1ad",
+    "candidate-cjs.log": "ddae33d4ddc382a788de97438597e6c12b3dd7c118a3974b686e6ff344de691e",
+    "candidate-write-unit.log": "100c97ab182e4c851ef67db53c9ee00e22be8a6e5bc38d4853a85da73e52cf5c"
+  }
+}

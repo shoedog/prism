@@ -31,12 +31,22 @@ npm i -g pyright
 pyright-langserver --version
 ```
 
+JS/TS uses the native `tsserver` protocol from a local TypeScript installation
+(`tsserver` on PATH); automatic typing acquisition is disabled.
 `--matrix-only` does not start oracle servers. It only needs the Prism SUT binary.
 
 ## Corpus Prep
 
-The corpus list lives in `eval/corpora.toml`. `pinned_sha` is intentionally empty
-until the first baseline run records the live SHAs.
+The corpus list and pins live in `eval/corpora.toml`. Quick uses immutable inputs:
+Prism's original `20c8490591a3` source archive under
+`~/.local/share/prism/corpora/prism-20c8490591a3/source`, and Excalidraw `0642e72c`
+under `~/prism-evidence/inputs/excalidraw-0642e72c/source`. Complete file manifests
+are checked against their pinned SHA256 and source contents before and after a
+run. Reports name the drifting manifest, source file, or added file. The
+[repair packet](../docs/superpowers/plans/2026-10-04-tier-a-quick-repair/prepare-inputs.md)
+contains the offline Prism recovery recipe. Quick enables the Rust `mcp` feature
+because its inventory and fixed sample include that module; reports record this
+oracle configuration. Historical default-feature Prism anchors are preserved.
 
 Expected local paths:
 
@@ -76,12 +86,63 @@ local debugging, not a baseline.
 Run from `eval/`:
 
 ```bash
-uv run tier-a --corpus all              # full run, 5 corpora
+uv run tier-a --corpus all              # full run, human-triggered
 uv run tier-a --corpus prism            # one corpus
-uv run tier-a --quick                   # prism corpus, reduced M2/M3 sample, plus matrix
+uv run tier-a --quick                   # pinned Rust + Excalidraw TS + SecBench Node; smoke sample; matrix
+uv run tier-a --quick --lang ts,js       # JS/TS call-resolution smoke check
+uv run tier-a --lang ts,js --sample 20 --out-dir <new-path> # decision sample, 20 symbols/stratum
 uv run tier-a --matrix-only             # capability matrix only, no LSP
 uv run tier-a --report-only <run.json>  # replay metrics and re-render reports
 ```
+
+`--quick` honors an explicit `--corpus`; `--lang` filters selected corpora.
+Without `--corpus`, `--lang ts,js` selects the pinned quick inputs even without
+`--quick`. `--sample N` overrides the symbols per stratum; pooled results are
+sample agreement, not population-weighted estimates. Wilson intervals are 95%
+binomial intervals over matched site counts, not design/cluster-adjusted intervals.
+TS/JS Q-scoped means lexical container nesting, not directory nesting.
+
+`frame` reports the entire Prism-named population outside native call hierarchy
+and an independent TypeScript syntax census. `member_sites` separately samples
+calls to object-property callbacks and getter accesses, using native definition
+queries at AST-derived UTF-16 positions. It reports site detection recall and
+explicit nonconcrete/unsupported definitions; it cannot estimate precision for
+the complete incoming edge population. Alias and generic/interface binding
+limitations remain oracle calibration limits; pending differences are retained.
+
+The Node corpus contains runtime server, process, configuration and search code
+from five cached SecBench packages; vulnerable-package selection biases this
+stratum, so it is not a general JavaScript population estimate.
+Reproduction recipe: [R1 preparation](../docs/superpowers/plans/2026-10-04-tier-a-quick-repair/r1-prepare.md).
+Use `--out-dir <path>` for exploratory reports so committed anchors are preserved.
+Each report's `summary` contains sample-pooled raw and Exact-tier caller/callee
+P/R with tp/fp/fn counts; per-stratum metrics and pending differences remain.
+These are sampled in-repository call sites, with Wilson intervals, not whole
+program soundness or data-flow/async measurements. Excalidraw runs here use local
+source without installed project dependencies. Corpus validity binds tsserver
+6.0.3 and rejects any node_modules directory inside the source manifest root.
+
+Defaults: LSP requests 10s, startup 60s, each corpus/oracle budget 600s; SUT commands
+120s within that corpus budget. Override LSP limits with `--query-timeout-s`,
+`--startup-timeout-s`, `--oracle-budget-s`. Rust readiness requires explicit serverStatus quiescence and completed progress
+both at startup and after document inventory. `ContentModified` retries use
+backoff within one original query deadline; retries/readiness are recorded. Transport
+writes and shutdown are bounded too. `oracle_timeout`/`sut_timeout` retain their
+probe and error, invalidate rather than mint an empty oracle answer, and appear
+in progress, run JSON, and Markdown. Partial inventories are not saved as new
+snapshots. Corpus SUT calls use `target/tier-a-nav-cache`; the matrix bypasses it.
+
+For an offline managed workspace with an already installed harness environment:
+
+```bash
+PYTHONPATH="$PWD" UV_CACHE_DIR="$HOME/.local/share/prism/uv-cache" \
+  UV_PROJECT_ENVIRONMENT=/path/to/existing/eval/.venv \
+  uv run --offline --no-sync tier-a --quick --lang ts,js \
+  --allow-stale-sut --out-dir "$HOME/prism-evidence/meas/tiera/local"
+```
+
+Rebuild the SUT immediately before using `--allow-stale-sut`. `PYTHONPATH` binds
+imports to this checkout when reusing another clone's editable environment.
 
 For pre-commit matrix checks on a dirty worktree, rebuild immediately first and
 then pass `--allow-stale-sut` so the dirty Prism binary is accepted:

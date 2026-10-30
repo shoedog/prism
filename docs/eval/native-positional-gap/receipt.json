@@ -1,0 +1,52 @@
+{
+  "build_command": "CARGO_TARGET_DIR=<evidence>/target cargo build --offline --locked --example parameter_slot_characterization",
+  "builder_sha256": "1e802c5434675d72772525844e5f8342a0bc14ce262e487ba849f7dc098b6926",
+  "cold_repeat_byte_identical": true,
+  "command": "node scripts/parameter-slot-characterization/request.mjs --root <source_root> --manifest <manifest> --manifest-sha256 789352a575d68ef672de7449299676de0c0aab8edd4abd8228e23efda65d326b --native-sha256 <native_binary_sha256> | <native binary> > out-N.json",
+  "independent_reconciliation": {
+    "record": "~/prism-evidence/native-positional-gap/public-run/RECONCILIATION-sol.md",
+    "record_sha256": "bb977aad10f98de3d8cff05e8580c4e4fcc23298cbaf85d64a48dd2626038f47",
+    "reviewer": "gpt-5.6-sol xhigh (static)",
+    "smell": 0,
+    "verdict": "RECONCILED",
+    "wrong": 0
+  },
+  "manifest": {
+    "path": "docs/eval/native-positional-gap/site-manifest.json",
+    "sha256": "789352a575d68ef672de7449299676de0c0aab8edd4abd8228e23efda65d326b"
+  },
+  "native_binary_sha256": "964b2076920aab5204acb174d59a86626db0a3522113b5a1c72796152c612f84",
+  "next_action": "bounded_entry_and_call_proof",
+  "observation": {
+    "path": "docs/eval/native-positional-gap/observation.json",
+    "sha256": "d7f7b1b8c8b107f3e666169c61dec507061db1e79c171a1b95cdb99163ff9355"
+  },
+  "production_diff_vs_30e13053": "empty (src Cargo.toml Cargo.lock build.rs)",
+  "production_equivalent_to": "30e13053c9f3f9940b5526e20af0cb40f2a9fae4",
+  "reason": "named_native_binding_outside_legacy_prefix_requires_entry_and_call_proof",
+  "rebased_onto_main": "source commit 700c1519 rebased onto origin/main after #321; observer code diff empty",
+  "runs": [
+    {
+      "exit": 0,
+      "n": 1,
+      "output_sha256": "d7f7b1b8c8b107f3e666169c61dec507061db1e79c171a1b95cdb99163ff9355"
+    },
+    {
+      "exit": 0,
+      "n": 2,
+      "output_sha256": "d7f7b1b8c8b107f3e666169c61dec507061db1e79c171a1b95cdb99163ff9355"
+    }
+  ],
+  "schema": "prism.native-positional-gap-receipt/1",
+  "source_commit": "700c1519df314776467c4be5c3a55049e20cbfec",
+  "source_root": "/Users/wesleyjinks/prism-evidence/inputs/excalidraw-0642e72c/source (see input-recovery.md)",
+  "totals": {
+    "ambiguous": 0,
+    "files": 11,
+    "missing": 0,
+    "recovery_quarantined": 0,
+    "sites": 12,
+    "unique_named": 12,
+    "unique_unnamed": 0
+  }
+}

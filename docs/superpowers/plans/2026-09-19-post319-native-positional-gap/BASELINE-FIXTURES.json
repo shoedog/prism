@@ -1,0 +1,62 @@
+[
+  {
+    "id": "object",
+    "source": "function take({x}, later){return later;}",
+    "bytes": 40,
+    "sha256": "3966d4d4836c2f05fad72bc0d41ec8cb04e21acc47a04a20a41d14afe308d83f"
+  },
+  {
+    "id": "alias",
+    "source": "function take(first, {key: value}, later){return later;}",
+    "bytes": 56,
+    "sha256": "c7db22801318b21109a9632bc95973e3fa678e957b66d1b44c5185f0dcb1d8a8"
+  },
+  {
+    "id": "nested_default",
+    "source": "function take({x = init()}, later){return later;}",
+    "bytes": 49,
+    "sha256": "ab6cd137a48ca4cc43dd10e0cd58292a7a04cad760bada0bdd0503c826415bc4"
+  },
+  {
+    "id": "array",
+    "source": "function take([x], later){return later;}",
+    "bytes": 40,
+    "sha256": "8a0db74098caf8641cc073465e49dd9b342145900d6d08c782ebddeb9748aa64"
+  },
+  {
+    "id": "rest",
+    "source": "function take(...items){return items;}",
+    "bytes": 38,
+    "sha256": "3c9e70977ca4d2230b7a67c71502c1833c4b4a942f1ead61b6ef04a946c659b6"
+  },
+  {
+    "id": "duplicate",
+    "source": "function take({x}, x){return x;}",
+    "bytes": 32,
+    "sha256": "458c88789e039d308fa946288e8927b1500272fce73a0fd6d132523980cfd277"
+  },
+  {
+    "id": "assigned",
+    "source": "const take = ({x}, later) => later;",
+    "bytes": 35,
+    "sha256": "c4137a5bff670872853e15207ff1306e5b3e395acd6a8a8439d247fdf8b8ca35"
+  },
+  {
+    "id": "wrapped",
+    "source": "const take = memo(({x}, later) => later);",
+    "bytes": 41,
+    "sha256": "baad04fd46879efbc43b7128e6b4cd74be0696efab1e1b3891c334d020362a1a"
+  },
+  {
+    "id": "unnamed",
+    "source": "consume(({x}, later) => later);",
+    "bytes": 31,
+    "sha256": "39d11293b8bcdab0fa7af1eaa5b217c37d4d7666a6e525893746fe3b91269e36"
+  },
+  {
+    "id": "shadow",
+    "source": "function take({x}, later){function nested(later){return later;}return later;}",
+    "bytes": 77,
+    "sha256": "991a790fd06e27bd0d5053ff3bd412fc2029e47001180b2625f5ae4cf702dcb1"
+  }
+]

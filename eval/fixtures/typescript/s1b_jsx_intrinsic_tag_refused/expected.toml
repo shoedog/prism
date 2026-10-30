@@ -1,0 +1,12 @@
+[case]
+language = "typescript"
+capability = "s1b_jsx_intrinsic_tag_refused"
+status = "pass"
+[seed]
+symbol = "input"
+file = "helpers.ts"
+line = 1
+[expect]
+callers = []
+exact = false
+forbid_resolution_kind = "free_single"

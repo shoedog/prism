@@ -1,0 +1,826 @@
+//! Planning skeleton (NOT the implementation): bounded CPG-entry and resolved-call observer.
+//! Reads only public API; builds one fresh CPG over the supplied root; writes stdout only.
+use petgraph::graph::NodeIndex;
+use petgraph::visit::EdgeRef;
+use petgraph::Direction;
+use prism::access_path::AccessPath;
+use prism::ast::ParsedFile;
+use prism::call_graph::{CallSite, FunctionId};
+use prism::cpg::{CpgContext, CpgEdge, CpgNode, VarAccess};
+use prism::languages::Language;
+use prism::repo_loader;
+use prism::resolution::{ResolutionConfidence, ResolutionKind};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Range;
+use std::path::Path;
+use tree_sitter::Node;
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(deny_unknown_fields)]
+struct Span {
+    name: String,
+    start_byte: usize,
+    end_byte: usize,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+struct Target {
+    path: String,
+    callable: Span,
+    binding: Span,
+    ordinal: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Targets {
+    schema: String,
+    source_observation_sha256: String,
+    targets: Vec<Target>,
+}
+
+#[derive(Serialize)]
+struct Packet {
+    schema: &'static str,
+    measurement: &'static str,
+    authorizes_production_change: bool,
+    targets_sha256: String,
+    source_observation_sha256: String,
+    repo: RepoRow,
+    sites: Vec<SiteRow>,
+    totals: BTreeMap<String, usize>,
+    decision: Decision,
+}
+
+#[derive(Serialize)]
+struct RepoRow {
+    files_loaded: usize,
+    files_skipped: usize,
+    loaded_files_digest: String,
+}
+
+#[derive(Serialize)]
+struct SiteRow {
+    path: String,
+    callable: Span,
+    binding: Span,
+    ordinal: usize,
+    callable_status: &'static str,
+    slots: Option<Vec<Span>>,
+    entry: Option<Entry>,
+    callers: Vec<CallerRow>,
+    candidates: Vec<CandidateRow>,
+    site_status: &'static str,
+}
+
+#[derive(Serialize)]
+struct Entry {
+    status: &'static str,
+    bare_reference: bool,
+}
+
+#[derive(Serialize)]
+struct CallerRow {
+    file: String,
+    start_byte: usize,
+    line: usize,
+    caller: String,
+    caller_start_line: usize,
+    confidence: ResolutionConfidence,
+    kind: ResolutionKind,
+    arg_count: Option<usize>,
+    argument_variables: Option<usize>,
+    flow_edges: usize,
+    production_refusal: &'static str,
+    prefix_only_blocked: bool,
+    prefix_controls: Vec<PrefixControl>,
+}
+
+#[derive(Serialize)]
+struct PrefixControl {
+    ordinal: usize,
+    slot_def_present: bool,
+    flow_present: bool,
+}
+
+#[derive(Serialize)]
+struct CandidateRow {
+    file: String,
+    start_byte: usize,
+    line: usize,
+    disposition: &'static str,
+    drop: Option<String>,
+    resolved_targets: usize,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+struct Decision {
+    exact_prefix_only_blocked: usize,
+    sites_with_yield: usize,
+    observer_mismatches: usize,
+    disposition: &'static str,
+    reason: &'static str,
+}
+
+#[derive(Clone, Copy)]
+struct Facts {
+    r6: bool,
+    arg_count: usize,
+    slots_len: Option<usize>,
+    ordinal: usize,
+    entry_bound: bool,
+    argument_variables: usize,
+}
+
+fn main() {
+    if let Err(error) = run() {
+        eprintln!("entry_call_proof: {error}");
+        std::process::exit(2);
+    }
+}
+
+fn run() -> Result<(), String> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let [root, targets] = args.as_slice() else {
+        return Err("usage: entry_call_proof <repo-root> <targets.json>".into());
+    };
+    let bytes = std::fs::read(targets).map_err(|e| format!("{targets}: {e}"))?;
+    let packet = observe_repo(Path::new(root), &bytes, true)?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&packet).map_err(|e| e.to_string())?
+    );
+    Ok(())
+}
+
+fn hex(bytes: impl AsRef<[u8]>) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+fn parse_targets(bytes: &[u8]) -> Result<Targets, String> {
+    let mut parsed: Targets = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+    if parsed.schema != "prism.entry-call-targets/1" {
+        return Err(format!("unsupported targets schema {}", parsed.schema));
+    }
+    let mut seen = BTreeSet::new();
+    for t in &parsed.targets {
+        let js = [".js", ".jsx", ".ts", ".tsx"]
+            .iter()
+            .any(|e| t.path.ends_with(e));
+        let inside = t.callable.start_byte <= t.binding.start_byte
+            && t.binding.end_byte <= t.callable.end_byte
+            && t.binding.start_byte < t.binding.end_byte;
+        let key = (t.path.clone(), t.callable.clone(), t.ordinal);
+        if !js || !inside || !seen.insert(key) {
+            return Err(format!("invalid or duplicate target in {}", t.path));
+        }
+    }
+    parsed
+        .targets
+        .sort_by(|a, b| (&a.path, &a.callable, a.ordinal).cmp(&(&b.path, &b.callable, b.ordinal)));
+    Ok(parsed)
+}
+
+fn observe_repo(root: &Path, bytes: &[u8], exact_entry: bool) -> Result<Packet, String> {
+    let targets = parse_targets(bytes)?;
+    let repo = repo_loader::load_repo(root).map_err(|e| e.to_string())?;
+    let ctx = CpgContext::build_with_scope_graph_inputs(
+        &repo.files,
+        repo.type_db.as_ref(),
+        repo.scope_graph_inputs.as_ref(),
+    );
+    let digest: String = repo
+        .file_hashes
+        .iter()
+        .map(|(path, hash)| format!("{hash}  {path}\n"))
+        .collect();
+    let obs = Observer::new(&ctx, &targets.targets, exact_entry);
+    let sites: Vec<SiteRow> = targets.targets.iter().map(|t| obs.site(t)).collect();
+    let yields: Vec<usize> = sites
+        .iter()
+        .map(|s| s.callers.iter().filter(|c| c.prefix_only_blocked).count())
+        .collect();
+    let mismatches = sites
+        .iter()
+        .flat_map(|s| &s.callers)
+        .filter(|c| c.production_refusal.starts_with("unexplained"))
+        .count();
+    Ok(Packet {
+        schema: "prism.entry-call-proof/1",
+        measurement: "cpg_entry_and_resolved_call_observation",
+        authorizes_production_change: false,
+        targets_sha256: hex(bytes),
+        source_observation_sha256: targets.source_observation_sha256,
+        repo: RepoRow {
+            files_loaded: repo.files.len(),
+            files_skipped: repo.skipped.len(),
+            loaded_files_digest: hex(digest),
+        },
+        totals: totals(&sites),
+        decision: decide(&yields, mismatches),
+        sites,
+    })
+}
+
+struct Observer<'a> {
+    ctx: &'a CpgContext<'a>,
+    sites: BTreeMap<(String, usize), Vec<&'a CallSite>>,
+    syntactic: BTreeMap<String, BTreeSet<(String, usize, usize)>>,
+    exact_entry: bool,
+}
+
+fn is_js_ts(language: Language) -> bool {
+    matches!(
+        language,
+        Language::JavaScript | Language::TypeScript | Language::Tsx
+    )
+}
+
+fn walk<'t>(node: Node<'t>, f: &mut impl FnMut(Node<'t>)) {
+    f(node);
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        walk(child, f);
+    }
+}
+
+impl<'a> Observer<'a> {
+    fn new(ctx: &'a CpgContext<'a>, targets: &[Target], exact_entry: bool) -> Self {
+        let names: BTreeSet<&str> = targets.iter().map(|t| t.callable.name.as_str()).collect();
+        let mut sites: BTreeMap<(String, usize), Vec<&CallSite>> = BTreeMap::new();
+        for site in ctx.cpg.call_graph.calls.values().flatten() {
+            let key = (site.caller.file.clone(), site.start_byte);
+            sites.entry(key).or_default().push(site);
+        }
+        let mut syntactic: BTreeMap<String, BTreeSet<_>> = BTreeMap::new();
+        for (file, parsed) in ctx.files.iter().filter(|(_, p)| is_js_ts(p.language)) {
+            walk(parsed.tree.root_node(), &mut |node| {
+                if !parsed.language.is_call_node(node.kind()) {
+                    return;
+                }
+                let Some(name) = parsed.language.call_function_name(&node) else {
+                    return;
+                };
+                let name = parsed.node_text(&name);
+                if names.contains(name) {
+                    let row = (
+                        file.clone(),
+                        node.start_byte(),
+                        node.start_position().row + 1,
+                    );
+                    syntactic.entry(name.to_string()).or_default().insert(row);
+                }
+            });
+        }
+        Observer {
+            ctx,
+            sites,
+            syntactic,
+            exact_entry,
+        }
+    }
+
+    fn graph(&self) -> &petgraph::Graph<CpgNode, CpgEdge> {
+        &self.ctx.cpg.graph
+    }
+
+    /// Entry Def nodes for one binding. Production passes exact bytes; the RED adapter keys by name.
+    fn def_nodes(&self, func: &FunctionId, span: &Span) -> Vec<NodeIndex> {
+        let path = AccessPath::simple(&span.name);
+        self.graph()
+            .node_indices()
+            .filter(|&i| {
+                matches!(&self.graph()[i], CpgNode::Variable {
+                    file, function, function_start_line, line, path: p,
+                    access: VarAccess::Def, start_byte, end_byte,
+                } if *file == func.file && *function == func.name
+                    && *function_start_line == func.start_line && *line == func.start_line
+                    && *p == path
+                    && (!self.exact_entry || (*start_byte, *end_byte) == (span.start_byte, span.end_byte)))
+            })
+            .collect()
+    }
+
+    fn in_span(&self, i: NodeIndex, caller: &FunctionId, arg: &Range<usize>) -> bool {
+        matches!(&self.graph()[i], CpgNode::Variable {
+            file, function, function_start_line, start_byte, end_byte, ..
+        } if *file == caller.file && *function == caller.name
+            && *function_start_line == caller.start_line
+            && arg.start <= *start_byte && *end_byte <= arg.end)
+    }
+
+    fn flow_edges(&self, caller: &FunctionId, arg: &Range<usize>, entry: NodeIndex) -> usize {
+        self.graph()
+            .edges_directed(entry, Direction::Incoming)
+            .filter(|e| matches!(e.weight(), CpgEdge::DataFlow(_)))
+            .filter(|e| self.in_span(e.source(), caller, arg))
+            .count()
+    }
+
+    fn site(&self, t: &Target) -> SiteRow {
+        let mut row = SiteRow {
+            path: t.path.clone(),
+            callable: t.callable.clone(),
+            binding: t.binding.clone(),
+            ordinal: t.ordinal,
+            callable_status: "missing",
+            slots: None,
+            entry: None,
+            callers: Vec::new(),
+            candidates: Vec::new(),
+            site_status: "callable_not_unique",
+        };
+        let Some(parsed) = self.ctx.files.get(&t.path) else {
+            return row;
+        };
+        let nodes: Vec<Node> = parsed
+            .all_functions()
+            .into_iter()
+            .filter(|n| {
+                (n.start_byte(), n.end_byte()) == (t.callable.start_byte, t.callable.end_byte)
+            })
+            .filter(|n| {
+                let name = parsed.language.function_name(n);
+                name.is_some_and(|name| parsed.node_text(&name) == t.callable.name)
+            })
+            .collect();
+        let functions: Vec<FunctionId> = self
+            .graph()
+            .node_weights()
+            .filter_map(|n| match n {
+                CpgNode::Function {
+                    name,
+                    file,
+                    start_line,
+                    end_line,
+                    start_byte,
+                    end_byte,
+                } if *file == t.path
+                    && *name == t.callable.name
+                    && (*start_byte, *end_byte) == (t.callable.start_byte, t.callable.end_byte) =>
+                {
+                    Some(FunctionId {
+                        file: file.clone(),
+                        name: name.clone(),
+                        start_line: *start_line,
+                        end_line: *end_line,
+                    })
+                }
+                _ => None,
+            })
+            .collect();
+        match (nodes.as_slice(), functions.as_slice()) {
+            ([node], [func]) => self.fill(&mut row, parsed, *node, func, t),
+            ([], _) | (_, []) => {}
+            _ => row.callable_status = "ambiguous",
+        }
+        row
+    }
+
+    fn fill(
+        &self,
+        row: &mut SiteRow,
+        parsed: &ParsedFile,
+        node: Node,
+        func: &FunctionId,
+        t: &Target,
+    ) {
+        row.callable_status = "unique";
+        let to_span = |(name, start_byte, end_byte)| Span {
+            name,
+            start_byte,
+            end_byte,
+        };
+        let unique_by_lines = parsed
+            .all_functions()
+            .into_iter()
+            .filter(|n| parsed.node_line_range(n) == (func.start_line, func.end_line))
+            .filter(|n| {
+                let name = parsed.language.function_name(n);
+                name.is_some_and(|name| parsed.node_text(&name) == func.name)
+            })
+            .count()
+            == 1;
+        row.slots = parsed
+            .function_parameter_slot_occurrences(&node)
+            .filter(|_| unique_by_lines)
+            .map(|slots| slots.into_iter().map(to_span).collect());
+        let entry = self.def_nodes(func, &t.binding);
+        row.entry = Some(Entry {
+            status: match entry.len() {
+                0 => "absent",
+                1 => "present",
+                _ => "ambiguous",
+            },
+            bare_reference: parsed.has_bare_references(&node, &t.binding.name),
+        });
+        let entry = (entry.len() == 1).then(|| entry[0]);
+        let mut resolved = BTreeSet::new();
+        for site in self.sites.values().flatten() {
+            for hit in self.ctx.cpg.call_graph.resolve_call_site(site) {
+                if hit.target == func {
+                    resolved.insert((site.caller.file.clone(), site.start_byte));
+                    row.callers.push(self.caller(
+                        site,
+                        hit.confidence,
+                        hit.kind,
+                        func,
+                        t,
+                        row,
+                        entry,
+                    ));
+                }
+            }
+        }
+        for (file, start, line) in self.syntactic.get(&t.callable.name).into_iter().flatten() {
+            if resolved.contains(&(file.clone(), *start)) {
+                continue;
+            }
+            let site = self.sites.get(&(file.clone(), *start)).and_then(|sites| {
+                sites
+                    .iter()
+                    .find(|s| s.effective_source_callee_name() == t.callable.name)
+            });
+            let outcome = site.map(|s| self.ctx.cpg.call_graph.resolve_call_site_full(s));
+            row.candidates.push(CandidateRow {
+                file: file.clone(),
+                start_byte: *start,
+                line: *line,
+                disposition: match &outcome {
+                    None => "unowned",
+                    Some(o) if o.resolved.is_empty() => "dropped",
+                    Some(_) => "resolved_elsewhere",
+                },
+                drop: outcome
+                    .as_ref()
+                    .and_then(|o| o.drop.map(|d| format!("{d:?}"))),
+                resolved_targets: outcome.map_or(0, |o| o.resolved.len()),
+            });
+        }
+        row.callers
+            .sort_by(|a, b| (&a.file, a.start_byte).cmp(&(&b.file, b.start_byte)));
+        row.site_status = if row.callers.is_empty() {
+            "no_resolved_callers"
+        } else if row.callers.iter().any(|c| c.flow_edges > 0) {
+            "flow_present"
+        } else {
+            "flow_absent"
+        };
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn caller(
+        &self,
+        site: &CallSite,
+        confidence: ResolutionConfidence,
+        kind: ResolutionKind,
+        callee: &FunctionId,
+        t: &Target,
+        row: &SiteRow,
+        entry: Option<NodeIndex>,
+    ) -> CallerRow {
+        let parsed = &self.ctx.files[&site.caller.file];
+        let args = argument_spans(parsed, site);
+        let arg = args.as_ref().and_then(|a| a.get(t.ordinal));
+        let argument_variables = arg.map(|r| {
+            self.graph()
+                .node_indices()
+                .filter(|&i| self.in_span(i, &site.caller, r))
+                .count()
+        });
+        let flow_edges = match (entry, arg) {
+            (Some(e), Some(r)) => self.flow_edges(&site.caller, r, e),
+            _ => 0,
+        };
+        let slots = row.slots.as_deref().unwrap_or_default();
+        let arg_list = args.as_deref().unwrap_or_default();
+        let prefix_controls = slots
+            .iter()
+            .zip(arg_list)
+            .enumerate()
+            .map(|(ordinal, (slot, arg))| {
+                let defs = self.def_nodes(callee, slot);
+                let present = defs.len() == 1;
+                PrefixControl {
+                    ordinal,
+                    slot_def_present: present,
+                    flow_present: present && self.flow_edges(&site.caller, arg, defs[0]) > 0,
+                }
+            })
+            .collect();
+        let facts = Facts {
+            r6: kind == ResolutionKind::R6MultiOwnerCandidate,
+            arg_count: arg_list.len(),
+            slots_len: row.slots.as_ref().map(Vec::len),
+            ordinal: t.ordinal,
+            entry_bound: entry.is_some() && slots.get(t.ordinal) == Some(&t.binding),
+            argument_variables: argument_variables.unwrap_or(0),
+        };
+        let production_refusal = match (classify(&facts), flow_edges > 0) {
+            ("none", false) => "unexplained_absence",
+            ("none", true) => "none",
+            (_, true) => "unexplained_presence",
+            (refusal, false) => refusal,
+        };
+        CallerRow {
+            file: site.caller.file.clone(),
+            start_byte: site.start_byte,
+            line: site.line,
+            caller: site.caller.name.clone(),
+            caller_start_line: site.caller.start_line,
+            confidence,
+            kind,
+            arg_count: args.as_ref().map(Vec::len),
+            argument_variables,
+            flow_edges,
+            prefix_only_blocked: production_refusal == "slot_prefix_excludes_ordinal"
+                && entry.is_some()
+                && facts.argument_variables > 0
+                && confidence == ResolutionConfidence::Exact
+                && !facts.r6,
+            production_refusal,
+            prefix_controls,
+        }
+    }
+}
+
+/// Step-5b order (src/cpg/build.rs step5b_edges_for_caller_with_exact): first refusing stage.
+fn classify(f: &Facts) -> &'static str {
+    if f.r6 {
+        "r6_candidate_excluded"
+    } else if f.arg_count == 0 {
+        "no_positional_arguments"
+    } else if f.slots_len.is_none() {
+        "callee_slots_unavailable"
+    } else if f.slots_len <= Some(f.ordinal) {
+        "slot_prefix_excludes_ordinal"
+    } else if f.ordinal >= f.arg_count {
+        "argument_absent_at_ordinal"
+    } else if !f.entry_bound {
+        "entry_def_unbound"
+    } else if f.argument_variables == 0 {
+        "argument_variable_unresolved"
+    } else {
+        "none"
+    }
+}
+
+fn find_call<'t>(
+    parsed: &ParsedFile,
+    node: Node<'t>,
+    start: usize,
+    name: &str,
+) -> Option<Node<'t>> {
+    if node.start_byte() > start || node.end_byte() <= start {
+        return None;
+    }
+    let named = parsed.language.call_function_name(&node);
+    if node.start_byte() == start
+        && parsed.language.is_call_node(node.kind())
+        && named.is_some_and(|n| parsed.node_text(&n) == name)
+    {
+        return Some(node);
+    }
+    let mut cursor = node.walk();
+    let children: Vec<Node<'t>> = node.children(&mut cursor).collect();
+    children
+        .into_iter()
+        .find_map(|c| find_call(parsed, c, start, name))
+}
+
+/// Positional argument spans as Step-5b sees them; None when the call has no argument list (JSX).
+fn argument_spans(parsed: &ParsedFile, site: &CallSite) -> Option<Vec<Range<usize>>> {
+    let root = parsed.tree.root_node();
+    let call = find_call(
+        parsed,
+        root,
+        site.start_byte,
+        site.effective_source_callee_name(),
+    )?;
+    let list = parsed.language.call_arguments(&call)?;
+    let mut cursor = list.walk();
+    let spans = list
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() != "comment")
+        .map(|c| c.byte_range())
+        .collect();
+    Some(spans)
+}
+
+fn totals(sites: &[SiteRow]) -> BTreeMap<String, usize> {
+    let mut out = BTreeMap::new();
+    for site in sites {
+        *out.entry(format!("site_status:{}", site.site_status))
+            .or_default() += 1;
+        if let Some(entry) = &site.entry {
+            *out.entry(format!("entry:{}", entry.status)).or_default() += 1;
+        }
+        for caller in &site.callers {
+            *out.entry(format!("caller_refusal:{}", caller.production_refusal))
+                .or_default() += 1;
+        }
+        for candidate in &site.candidates {
+            *out.entry(format!("candidate:{}", candidate.disposition))
+                .or_default() += 1;
+        }
+    }
+    out.insert("sites".into(), sites.len());
+    out
+}
+
+fn decide(yields: &[usize], mismatches: usize) -> Decision {
+    let total: usize = yields.iter().sum();
+    let with_yield = yields.iter().filter(|&&y| y > 0).count();
+    let (disposition, reason) = if mismatches > 0 {
+        ("inconclusive", "observer_model_mismatch")
+    } else if total >= 3 && with_yield >= 2 {
+        (
+            "targeted_repair_warranted",
+            "exact_callers_blocked_only_by_positional_prefix",
+        )
+    } else if total == 0 {
+        ("defer", "no_exact_caller_blocked_only_by_positional_prefix")
+    } else {
+        ("defer", "prefix_only_yield_below_threshold")
+    };
+    Decision {
+        exact_prefix_only_blocked: total,
+        sites_with_yield: with_yield,
+        observer_mismatches: mismatches,
+        disposition,
+        reason,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    fn dir(case: &str) -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("fixtures")
+            .join(case)
+    }
+
+    fn run_case(case: &str, exact: bool) -> Value {
+        let targets = std::fs::read(dir(case).join("targets.json")).unwrap();
+        let packet = observe_repo(&dir(case).join("repo"), &targets, exact).unwrap();
+        serde_json::to_value(packet).unwrap()
+    }
+
+    fn expected(case: &str) -> Value {
+        let text = std::fs::read_to_string(dir(case).join("expected.json")).unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    fn red() -> bool {
+        std::env::var_os("PRISM_CAPTURE_RED").is_some()
+    }
+
+    #[test]
+    fn calls_fixture_complete_record() {
+        assert_eq!(run_case("calls", !red()), expected("calls"));
+    }
+
+    #[test]
+    fn jsx_fixture_complete_record() {
+        assert_eq!(run_case("jsx", true), expected("jsx"));
+    }
+
+    #[test]
+    fn identity_fixture_complete_record() {
+        assert_eq!(run_case("identity", true), expected("identity"));
+    }
+
+    #[test]
+    fn repeat_runs_are_byte_identical() {
+        let first = serde_json::to_string(&run_case("calls", true)).unwrap();
+        assert_eq!(
+            first,
+            serde_json::to_string(&run_case("calls", true)).unwrap()
+        );
+    }
+
+    #[test]
+    fn refusal_order_table() {
+        let base = Facts {
+            r6: false,
+            arg_count: 3,
+            slots_len: Some(3),
+            ordinal: 2,
+            entry_bound: true,
+            argument_variables: 1,
+        };
+        let rows = [
+            (
+                Facts {
+                    r6: true,
+                    arg_count: 0,
+                    ..base
+                },
+                "r6_candidate_excluded",
+            ),
+            (
+                Facts {
+                    arg_count: 0,
+                    slots_len: None,
+                    ..base
+                },
+                "no_positional_arguments",
+            ),
+            (
+                Facts {
+                    slots_len: None,
+                    arg_count: 2,
+                    ..base
+                },
+                "callee_slots_unavailable",
+            ),
+            (
+                Facts {
+                    slots_len: Some(2),
+                    arg_count: 2,
+                    ..base
+                },
+                "slot_prefix_excludes_ordinal",
+            ),
+            (
+                Facts {
+                    arg_count: 2,
+                    entry_bound: false,
+                    ..base
+                },
+                "argument_absent_at_ordinal",
+            ),
+            (
+                Facts {
+                    entry_bound: false,
+                    argument_variables: 0,
+                    ..base
+                },
+                "entry_def_unbound",
+            ),
+            (
+                Facts {
+                    argument_variables: 0,
+                    ..base
+                },
+                "argument_variable_unresolved",
+            ),
+            (base, "none"),
+        ];
+        for (facts, want) in rows {
+            assert_eq!(classify(&facts), want);
+        }
+    }
+
+    #[test]
+    fn decision_rule_table() {
+        let rows: [(&[usize], usize, &str, &str); 5] = [
+            (
+                &[0, 0],
+                0,
+                "defer",
+                "no_exact_caller_blocked_only_by_positional_prefix",
+            ),
+            (&[1, 0], 0, "defer", "prefix_only_yield_below_threshold"),
+            (&[3, 0], 0, "defer", "prefix_only_yield_below_threshold"),
+            (
+                &[2, 1],
+                0,
+                "targeted_repair_warranted",
+                "exact_callers_blocked_only_by_positional_prefix",
+            ),
+            (&[2, 1], 1, "inconclusive", "observer_model_mismatch"),
+        ];
+        for (yields, mismatches, disposition, reason) in rows {
+            let got = decide(yields, mismatches);
+            assert_eq!((got.disposition, got.reason), (disposition, reason));
+        }
+    }
+
+    #[test]
+    fn malformed_targets_refuse() {
+        let ok = r#"{"path":"a.ts","callable":{"name":"f","start_byte":0,"end_byte":9},"binding":{"name":"x","start_byte":2,"end_byte":3},"ordinal":1}"#;
+        let wrap = |rows: &str| {
+            format!(
+                r#"{{"schema":"prism.entry-call-targets/1","source_observation_sha256":"0","targets":[{rows}]}}"#
+            )
+        };
+        assert!(parse_targets(wrap(ok).as_bytes()).is_ok());
+        let bad = [
+            wrap(&format!("{ok},{ok}")),
+            wrap(&ok.replace("a.ts", "a.py")),
+            wrap(&ok.replace(r#""start_byte":2"#, r#""start_byte":20"#)),
+            wrap(&ok.replace("\"ordinal\":1", "\"ordinal\":1,\"x\":0")),
+            wrap(ok).replace("targets/1", "targets/2"),
+        ];
+        for text in bad {
+            assert!(parse_targets(text.as_bytes()).is_err(), "{text}");
+        }
+    }
+}

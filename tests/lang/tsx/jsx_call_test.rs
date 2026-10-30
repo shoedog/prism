@@ -37,9 +37,20 @@ fn test_jsx_regular_calls_still_work() {
     let names = all_callee_names(&call_graph);
 
     assert!(
-        names.iter().any(|n| n == "fetchUser"),
+        names.iter().any(|n| n == "fetch"),
         "Call graph should contain regular function calls, got: {names:?}"
     );
+    let effect_calls: Vec<_> = call_graph
+        .calls
+        .values()
+        .flatten()
+        .filter(|s| s.callee_name == "fetchUser")
+        .collect();
+    assert_eq!(effect_calls.len(), 1);
+    assert!(prism::anon_owner::is_anonymous_owner_name(
+        &effect_calls[0].caller.name
+    ));
+    assert_ne!(effect_calls[0].caller.name, "UserProfile");
 }
 
 #[test]

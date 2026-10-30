@@ -23,11 +23,19 @@ pub(crate) fn typescript_parameter_bindings(
     parsed: &ParsedFile,
     function: &Node<'_>,
 ) -> Vec<ParameterOccurrence> {
-    let Some(params) = parsed.find_parameters_node(function) else {
+    // js-param-defs PR-A: a bare arrow formal (`x => …`) is the whole list.
+    let Some(params) = parsed.parameter_binding_region(function) else {
         return Vec::new();
     };
     if contains_recovery(params) {
         return Vec::new();
+    }
+    if params.kind() == "identifier" {
+        let name = parsed.node_text(&params);
+        if name.contains('\\') || parsed.js_ts_nested_callable_binds_formal(function, name) {
+            return Vec::new();
+        }
+        return vec![(name.to_string(), params.start_byte(), params.end_byte())];
     }
     // Source spelling is not canonical identity for escaped identifiers. An
     // escaped binding anywhere in the list could alias a supported binding.
@@ -39,18 +47,16 @@ pub(crate) fn typescript_parameter_bindings(
     if duplicate || bindings.iter().any(|name| name.contains('\\')) {
         return Vec::new();
     }
-    // Optional-parameter occurrences additionally require the whole signature
-    // to carry no initializer anywhere (a sibling default, or a default
-    // nested in a destructuring pattern): the runtime binding identity of a
-    // `?` token has not been proven safe under sibling defaults, so the
-    // entire list is conservatively refused for optional occurrences when
-    // one is present. Required occurrences are unaffected and keep their
-    // existing independent per-parameter contract. This scan is
-    // deliberately broad (any `=` token anywhere under `params`, including
-    // inside a type annotation) rather than enumerating every initializer
-    // shape; a false refusal from a non-runtime `=` in a type position is an
-    // acceptable, documented conservative cost.
+    // Optional-parameter occurrences retain the old initializer-free path,
+    // or use the already-validated all-simple signature when it has at least
+    // one inert runtime default. The broad scan still sees every `=` under
+    // `params`, including type annotations; a successful empty validator
+    // result must not erase that old conservative false refusal.
     let optional_signature_clear = !params_list_has_initializer(params);
+    let inert_defaults = typescript_inert_default_occurrences(parsed, params);
+    let optional_inert_signature = inert_defaults
+        .as_ref()
+        .is_some_and(|defaults| !defaults.is_empty());
     let mut occurrences: Vec<ParameterOccurrence> = named_children(params)
         .into_iter()
         .filter_map(|parameter| {
@@ -58,11 +64,23 @@ pub(crate) fn typescript_parameter_bindings(
             if parameter.kind() != "required_parameter" && !is_optional {
                 return None;
             }
-            if is_optional && !optional_signature_clear {
+            if is_optional && !optional_signature_clear && !optional_inert_signature {
                 return None;
             }
             let pattern = parameter.child_by_field_name("pattern")?;
-            if pattern.kind() != "identifier" {
+            // js-param-defs PR-A: `...name: T[]` binds the engine-created
+            // array under `name`; destructured rest stays refused. Positional
+            // slots still stop at rest (`typescript_slots`), so no argument
+            // ever binds to this Def through Step 5b.
+            let rest_identifier = (!is_optional && js_ts_is_last_parameter(params, parameter))
+                .then(|| parsed.js_ts_rest_identifier(pattern))
+                .flatten();
+            if rest_identifier.is_some_and(|rest| {
+                parsed.js_ts_nested_callable_binds_formal(function, parsed.node_text(&rest))
+            }) {
+                return None;
+            }
+            if pattern.kind() != "identifier" && rest_identifier.is_none() {
                 return None;
             }
             let annotation = parameter.child_by_field_name("type");
@@ -79,14 +97,15 @@ pub(crate) fn typescript_parameter_bindings(
             }) {
                 return None;
             }
+            let binding = rest_identifier.unwrap_or(pattern);
             Some((
-                parsed.node_text(&pattern).to_string(),
-                pattern.start_byte(),
-                pattern.end_byte(),
+                parsed.node_text(&binding).to_string(),
+                binding.start_byte(),
+                binding.end_byte(),
             ))
         })
         .collect();
-    if let Some(defaults) = typescript_inert_default_occurrences(parsed, params) {
+    if let Some(defaults) = inert_defaults {
         occurrences.extend(defaults);
         occurrences.sort_by_key(|occurrence| occurrence.1);
     }
@@ -321,6 +340,29 @@ fn named_children(node: Node<'_>) -> Vec<Node<'_>> {
 
 fn identifier(node: Node<'_>) -> Option<Node<'_>> {
     (node.kind() == "identifier").then_some(node)
+}
+
+/// js-param-defs PR-A: whole-list guard for newly admitted JS rest formals.
+pub(crate) fn js_ts_parameter_list_is_clean(parsed: &ParsedFile, params: Node<'_>) -> bool {
+    !contains_recovery(params) && !has_duplicate_js_ts_bindings(parsed, params)
+}
+
+/// js-param-defs PR-A: a rest formal binds only as the final parameter.
+/// `(...xs, y)` is an early error that tree-sitter parses without recovery;
+/// the invalid list resolves toward no Def.
+pub(crate) fn js_ts_is_last_parameter(params: Node<'_>, parameter: Node<'_>) -> bool {
+    named_children(params)
+        .into_iter()
+        .rev()
+        .find(|child| child.kind() != "comment")
+        .is_some_and(|last| last.id() == parameter.id())
+        && {
+            let mut cursor = params.walk();
+            let clear = !params
+                .children(&mut cursor)
+                .any(|child| child.start_byte() >= parameter.end_byte() && child.kind() == ",");
+            clear
+        }
 }
 
 /// Duplicates invalidate a JS/TS parameter list even if an earlier pattern

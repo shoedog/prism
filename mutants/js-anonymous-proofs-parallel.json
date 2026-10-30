@@ -1,0 +1,81 @@
+{
+  "lane": "JS anonymous proofs per-file parallel build",
+  "source": "src/js_anonymous.rs",
+  "lib_test_prefixes": [
+    "js_anonymous::"
+  ],
+  "mutations": {
+    "AP01-reversed-merge": [
+      "src/js_anonymous.rs",
+      "files.into_iter().zip(per_file) {",
+      "files.into_iter().zip(per_file).rev() {",
+      "js_anonymous::tests::duplicate_paths_merge_in_input_order_despite_reverse_completion"
+    ],
+    "AP02-first-file-skipped": [
+      "src/js_anonymous.rs",
+      "crate::build_pool::per_item(&files)",
+      "crate::build_pool::per_item(&files).skip(1)",
+      "js_anonymous::tests::generated_complete_index_and_serialization"
+    ],
+    "AP03-returns-dropped": [
+      "src/js_anonymous.rs",
+      "        proof.returns.insert(id, (supported && safe, imports));",
+      "        let _ = (id, supported, safe, imports);",
+      "js_anonymous::tests::generated_complete_index_and_serialization"
+    ],
+    "AP04-owners-dropped": [
+      "src/js_anonymous.rs",
+      "        proof.owners.insert(id.clone(), supported);",
+      "        let _ = (id.clone(), supported);",
+      "js_anonymous::tests::generated_complete_index_and_serialization"
+    ],
+    "AP05-property-methods-dropped": [
+      "src/js_anonymous.rs",
+      "            proof.property_methods.insert(id.clone());",
+      "            let _ = id.clone();",
+      "js_anonymous::tests::generated_complete_index_and_serialization"
+    ],
+    "AP06-sites-dropped": [
+      "src/js_anonymous.rs",
+      "    Some(proof)\n}",
+      "    proof.sites.clear();\n    Some(proof)\n}",
+      "js_anonymous::tests::generated_complete_index_and_serialization"
+    ],
+    "AP07-unsupported-admitted": [
+      "src/js_anonymous.rs",
+      "let file_supported = parsed.anonymous_file_environment().supported();",
+      "let file_supported = true;",
+      "js_anonymous::tests::generated_complete_index_and_serialization"
+    ],
+    "AP08-reversed-owners": [
+      "src/js_anonymous.rs",
+      "for owner in crate::anon_owner::candidate_nodes(parsed, true) {",
+      "for owner in crate::anon_owner::candidate_nodes(parsed, true).into_iter().rev() {",
+      "js_anonymous::tests::generated_complete_index_and_serialization"
+    ],
+    "AP09-oracle-bypassed": [
+      "src/js_anonymous.rs",
+      "return sequential::build(files);",
+      "return collect(files, build_file);",
+      "js_anonymous::tests::generated_complete_index_and_serialization"
+    ],
+    "AP10-non-js-admitted": [
+      "src/js_anonymous.rs",
+      "    if !matches!(\n        parsed.language,",
+      "    if false && !matches!(\n        parsed.language,",
+      "js_anonymous::tests::generated_complete_index_and_serialization"
+    ],
+    "AP11-empty-file-not-replacing": [
+      "src/js_anonymous.rs",
+      "        if let Some(proof) = proof {",
+      "        if let Some(proof) = proof.filter(|p| !p.sites.is_empty()) {",
+      "js_anonymous::tests::duplicate_paths_merge_in_input_order_despite_reverse_completion"
+    ],
+    "AP12-site-trace-not-reset": [
+      "src/js_anonymous.rs",
+      "                    cache.proof_trace = Some(Vec::new());",
+      "                    cache.proof_trace = None;",
+      "js_anonymous::tests::generated_complete_index_and_serialization"
+    ]
+  }
+}

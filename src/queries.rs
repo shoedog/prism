@@ -102,6 +102,7 @@ fn function_query(lang: Language) -> Option<&'static str> {
                 (arrow_function) @func
                 (function_expression) @func
                 (generator_function_declaration) @func
+                (generator_function !name) @func
             ]"#
         }
         Language::TypeScript | Language::Tsx => {
@@ -111,6 +112,7 @@ fn function_query(lang: Language) -> Option<&'static str> {
                 (arrow_function) @func
                 (function_expression) @func
                 (generator_function_declaration) @func
+                (generator_function !name) @func
             ]"#
         }
         Language::Go => {

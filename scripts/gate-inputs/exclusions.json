@@ -1,0 +1,6 @@
+[
+  {
+    "path": "docs/eval/receiver-closure/audit-imported-props-source.test.mjs",
+    "reason": "inputs-not-reconstructible"
+  }
+]

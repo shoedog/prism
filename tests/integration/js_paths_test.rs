@@ -1,0 +1,500 @@
+use super::js_paths_common::*;
+use prism::call_graph::CallGraph;
+use prism::repo_loader::load_repo;
+use prism::resolution::ResolutionConfidence;
+use tempfile::TempDir;
+#[test]
+fn js_paths_same_directory_tsconfig_precedes_jsconfig() {
+    for ext in ["jsx", "tsx"] {
+        for jsconfig in [
+            config(serde_json::json!({"@lib":["decoy/real"]})),
+            "{ invalid ignored jsconfig".into(),
+        ] {
+            let d = fixture(
+                ext,
+                "@lib",
+                &config(serde_json::json!({"@lib":["lib/real"]})),
+            );
+            write(d.path(), "jsconfig.json", &jsconfig);
+            assert_alias(
+                d.path(),
+                &graph(d.path()),
+                &format!("app.{ext}"),
+                "picked",
+                &format!("lib/real.{ext}"),
+            );
+        }
+    }
+}
+
+#[test]
+fn js_paths_strictly_nearer_or_only_jsconfig_preserves_base() {
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(
+            ext,
+            "@lib",
+            &config(serde_json::json!({"@lib":["lib/real"]})),
+        );
+        write(
+            d.path(),
+            "jsconfig.json",
+            &config(serde_json::json!({"@lib":["decoy/real"]})),
+        );
+        write(
+            d.path(),
+            "pkg/jsconfig.json",
+            &config(serde_json::json!({"@lib":["../decoy/real"]})),
+        );
+        let app = format!("pkg/app.{ext}");
+        write(
+            d.path(),
+            &app,
+            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+        );
+        for tsconfig_present in [true, false] {
+            if !tsconfig_present {
+                std::fs::remove_file(d.path().join("tsconfig.json")).unwrap();
+            }
+            let loaded = load_repo(d.path()).unwrap();
+            assert_eq!(
+                outcome(&graph(d.path()), &app, "picked"),
+                outcome(&CallGraph::build(&loaded.files), &app, "picked")
+            );
+        }
+    }
+}
+
+#[test]
+fn js_paths_exact_and_wildcard_red() {
+    for ext in ["jsx", "tsx"] {
+        for paths in [
+            serde_json::json!({"@lib/real":["lib/real"]}),
+            serde_json::json!({"@lib/*":["lib/*"]}),
+        ] {
+            let d = fixture(ext, "@lib/real", &config(paths));
+            assert_alias(
+                d.path(),
+                &graph(d.path()),
+                &format!("app.{ext}"),
+                "picked",
+                &format!("lib/real.{ext}"),
+            );
+        }
+    }
+}
+#[test]
+fn js_paths_exact_precedes_longest_prefix_and_suffix() {
+    for ext in ["jsx", "tsx"] {
+        for paths in [
+            serde_json::json!({"@lib/real":["lib/real"],"@lib/*":["decoy/*"]}),
+            serde_json::json!({"@lib/*end":["lib/*"],"@*end":["decoy/real"]}),
+        ] {
+            let spec = if paths.get("@lib/real").is_some() {
+                "@lib/real"
+            } else {
+                "@lib/realend"
+            };
+            let d = fixture(ext, spec, &config(paths));
+            assert_alias(
+                d.path(),
+                &graph(d.path()),
+                &format!("app.{ext}"),
+                "picked",
+                &format!("lib/real.{ext}"),
+            );
+        }
+    }
+}
+#[test]
+fn js_paths_parent_origin_without_baseurl_and_child_override() {
+    for ext in ["jsx", "tsx"] {
+        let d = TempDir::new().unwrap();
+        write(
+            d.path(),
+            "packages/tsconfig.base.json",
+            r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@lib":["lib/real"]}}}"#,
+        );
+        write(
+            d.path(),
+            "packages/app/tsconfig.json",
+            r#"{"extends":"../tsconfig.base.json","include":["**/*"],"exclude":["dist"]}"#,
+        );
+        write(
+            d.path(),
+            &format!("packages/app/app.{ext}"),
+            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+        );
+        write(
+            d.path(),
+            &format!("packages/lib/real.{ext}"),
+            "export function real() { return 1; }\n",
+        );
+        write(
+            d.path(),
+            &format!("packages/app/lib/real.{ext}"),
+            "export function real() { return 2; }\n",
+        );
+        assert_alias(
+            d.path(),
+            &graph(d.path()),
+            &format!("packages/app/app.{ext}"),
+            "picked",
+            &format!("packages/lib/real.{ext}"),
+        );
+        write(
+            d.path(),
+            "packages/app/tsconfig.json",
+            r#"{"extends":"../tsconfig.base.json","compilerOptions":{"paths":{"@lib":["app/lib/real"]}},"include":["**/*"],"exclude":["dist"]}"#,
+        );
+        // Child paths origin is the child config, not the parent's origin.
+        write(
+            d.path(),
+            &format!("packages/app/app/lib/real.{ext}"),
+            "export function real() { return 3; }\n",
+        );
+        assert_alias(
+            d.path(),
+            &graph(d.path()),
+            &format!("packages/app/app.{ext}"),
+            "picked",
+            &format!("packages/app/app/lib/real.{ext}"),
+        );
+    }
+}
+#[test]
+fn js_paths_baseurl_declaration_origin() {
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(
+            ext,
+            "@lib",
+            r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"lib"}}"#,
+        );
+        write(
+            d.path(),
+            "pkg/tsconfig.json",
+            r#"{"extends":"../tsconfig.json","compilerOptions":{"paths":{"@lib":["real"]}},"include":["**/*"]}"#,
+        );
+        write(
+            d.path(),
+            &format!("pkg/app.{ext}"),
+            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+        );
+        assert_alias(
+            d.path(),
+            &graph(d.path()),
+            &format!("pkg/app.{ext}"),
+            "picked",
+            &format!("lib/real.{ext}"),
+        );
+    }
+}
+#[test]
+fn js_paths_nearest_including_config_and_files_override_exclude() {
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(
+            ext,
+            "@lib",
+            &config(serde_json::json!({"@lib":["lib/real"]})),
+        );
+        write(
+            d.path(),
+            "pkg/tsconfig.json",
+            r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"..","paths":{"@lib":["decoy/real"]}},"include":["other/**/*"]}"#,
+        );
+        write(
+            d.path(),
+            &format!("pkg/app.{ext}"),
+            "import { real as picked } from '@lib';\nexport function run() { picked(); }\n",
+        );
+        assert_alias(
+            d.path(),
+            &graph(d.path()),
+            &format!("pkg/app.{ext}"),
+            "picked",
+            &format!("lib/real.{ext}"),
+        );
+        write(d.path(),"pkg/tsconfig.json",&serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"..","paths":{"@lib":["decoy/real"]}},"files":[format!("app.{ext}")],"exclude":["**/*"]}).to_string());
+        assert_alias(
+            d.path(),
+            &graph(d.path()),
+            &format!("pkg/app.{ext}"),
+            "picked",
+            &format!("decoy/real.{ext}"),
+        );
+    }
+}
+#[test]
+fn js_paths_index_and_relative_barrel() {
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(ext, "@lib", &config(serde_json::json!({"@lib":["lib"]})));
+        write(
+            d.path(),
+            &format!("lib/index.{ext}"),
+            "export { real } from './real';\n",
+        );
+        assert_hop_alias(
+            d.path(),
+            &graph(d.path()),
+            &format!("app.{ext}"),
+            "picked",
+            &format!("lib/real.{ext}"),
+        );
+    }
+}
+#[test]
+fn js_paths_jsonc_and_unicode_escaped_key() {
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(
+            ext,
+            "@lib",
+            r#"{// comment
+"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@\u006cib":["./lib/real"],},},"include":["**/*"], /* end */ }"#,
+        );
+        assert_alias(
+            d.path(),
+            &graph(d.path()),
+            &format!("app.{ext}"),
+            "picked",
+            &format!("lib/real.{ext}"),
+        );
+    }
+}
+#[test]
+fn js_paths_unproven_configs_preserve_complete_base_row() {
+    for ext in ["jsx", "tsx"] {
+        let cfgs=[r#"{"extends":"./tsconfig.json"}"#.to_string(),r#"{"extends":"missing-package"}"#.to_string(),r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@lib":["lib/real"],"@lib":["decoy/real"]}}}"#.to_string(),config(serde_json::json!({"@lib":["missing","lib/real"]})),config(serde_json::json!({"@*ib":["lib/real"],"@*lib":["decoy/real"]})),config(serde_json::json!({"@lib":["../lib/real"]})),config(serde_json::json!({"@lib":["lib/real.js"]})),r#"{"compilerOptions":{"moduleResolution":"NodeNext","allowJs":true,"paths":{"@lib":["lib/real"]}},"include":["**/*"]}"#.to_string(),r#"{"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":"lib"},"include":["**/*"]}"#.to_string()];
+        for cfg in cfgs {
+            let d = fixture(ext, "@lib", &cfg);
+            let loaded = load_repo(d.path()).unwrap();
+            let base = CallGraph::build(&loaded.files);
+            let head = graph(d.path());
+            assert_eq!(
+                outcome(&head, &format!("app.{ext}"), "picked"),
+                outcome(&base, &format!("app.{ext}"), "picked"),
+                "{cfg}"
+            );
+        }
+    }
+}
+#[test]
+fn js_paths_competing_extensions_declarations_and_package_json_preserve_base() {
+    for ext in ["jsx", "tsx"] {
+        for blocker in ["lib/real.d.ts", "lib/real.js", "lib/real/package.json"] {
+            let d = fixture(
+                ext,
+                "@lib",
+                &config(serde_json::json!({"@lib":["lib/real"]})),
+            );
+            write(
+                d.path(),
+                blocker,
+                if blocker.ends_with("json") {
+                    r#"{"main":"other.js"}"#
+                } else {
+                    "export function real() {}\n"
+                },
+            );
+            let loaded = load_repo(d.path()).unwrap();
+            let base = CallGraph::build(&loaded.files);
+            assert_eq!(
+                outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
+                outcome(&base, &format!("app.{ext}"), "picked")
+            );
+        }
+    }
+}
+#[cfg(unix)]
+#[test]
+fn js_paths_symlink_candidate_preserves_base() {
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(
+            ext,
+            "@lib",
+            &config(serde_json::json!({"@lib":["lib/link"]})),
+        );
+        std::os::unix::fs::symlink(
+            format!("real.{ext}"),
+            d.path().join(format!("lib/link.{ext}")),
+        )
+        .unwrap();
+        let loaded = load_repo(d.path()).unwrap();
+        let base = CallGraph::build(&loaded.files);
+        assert_eq!(
+            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
+            outcome(&base, &format!("app.{ext}"), "picked")
+        );
+    }
+}
+#[test]
+fn js_paths_config_change_and_incremental_rebuild() {
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(
+            ext,
+            "@lib",
+            &config(serde_json::json!({"@lib":["lib/real"]})),
+        );
+        let old = load_repo(d.path()).unwrap();
+        let old_graph = graph(d.path());
+        assert_alias(
+            d.path(),
+            &old_graph,
+            &format!("app.{ext}"),
+            "picked",
+            &format!("lib/real.{ext}"),
+        );
+        write(
+            d.path(),
+            "tsconfig.json",
+            &config(serde_json::json!({"@lib":["decoy/real"]})),
+        );
+        let new = load_repo(d.path()).unwrap();
+        assert_ne!(old.manifest_hashes, new.manifest_hashes);
+        let cached = prism::cpg::CodePropertyGraph::build_enriched_with_scope_graph_inputs(
+            &old.files,
+            None,
+            old.scope_graph_inputs.as_ref(),
+        );
+        let rebuilt = prism::cpg::CodePropertyGraph::build_incremental_with_scope_graph_inputs(
+            cached.call_graph,
+            cached.dfg,
+            &Default::default(),
+            &new.files,
+            None,
+            new.scope_graph_inputs.as_ref(),
+        );
+        let full = graph(d.path());
+        assert_alias(
+            d.path(),
+            &full,
+            &format!("app.{ext}"),
+            "picked",
+            &format!("decoy/real.{ext}"),
+        );
+        assert_eq!(
+            outcome(&rebuilt.call_graph, &format!("app.{ext}"), "picked"),
+            outcome(&full, &format!("app.{ext}"), "picked")
+        );
+    }
+}
+#[test]
+fn js_paths_s1b_namespace_star_proof_is_reused() {
+    for ext in ["jsx", "tsx"] {
+        for (barrel, proven) in [
+            ("export * from './lib/real';\n", true),
+            (
+                "export * from './lib/real';\nexport * from './missing';\n",
+                false,
+            ),
+            (
+                "export { real } from './lib/real';\nexport * from './missing';\n",
+                true,
+            ),
+        ] {
+            let d = fixture(ext, "@lib", &config(serde_json::json!({"@lib":["barrel"]})));
+            write(d.path(), &format!("barrel.{ext}"), barrel);
+            write(d.path(), &format!("app.{ext}"), "import { real as picked } from '@lib';\nimport * as Lib from './barrel';\nexport function run() { picked(); Lib.real(); }\n");
+            let loaded = load_repo(d.path()).unwrap();
+            let base = CallGraph::build(&loaded.files);
+            let head = graph(d.path());
+            let namespace = head
+                .js_ts_namespace_exports
+                .get(&format!("barrel.{ext}"))
+                .and_then(|exports| exports.get("real"));
+            assert_eq!(namespace.is_some(), proven);
+            if let Some(terminal) = namespace {
+                assert!(!terminal.via_unresolved_star);
+                assert_hop_alias(
+                    d.path(),
+                    &head,
+                    &format!("app.{ext}"),
+                    "picked",
+                    &format!("lib/real.{ext}"),
+                );
+            } else {
+                assert!(
+                    head.js_ts_resolved_exports[&format!("barrel.{ext}")]["real"]
+                        .via_unresolved_star
+                );
+                assert_eq!(
+                    outcome(&head, &format!("app.{ext}"), "picked"),
+                    outcome(&base, &format!("app.{ext}"), "picked")
+                );
+            }
+            // P1 only adds named-import aliases; the landed relative namespace
+            // route keeps precisely its original complete row in every case.
+            assert_eq!(
+                outcome(&head, &format!("app.{ext}"), "real"),
+                outcome(&base, &format!("app.{ext}"), "real")
+            );
+        }
+    }
+}
+
+#[test]
+fn js_paths_namespace_route_and_parameter_shadow_remain_base() {
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(
+            ext,
+            "@lib",
+            &config(serde_json::json!({"@lib":["lib/real"]})),
+        );
+        write(d.path(),&format!("app.{ext}"),"import { real as picked } from '@lib';\nimport * as Lib from '@lib';\nexport function run(picked) { picked(); Lib.real(); }\n");
+        let loaded = load_repo(d.path()).unwrap();
+        let base = CallGraph::build(&loaded.files);
+        let head = graph(d.path());
+        assert_eq!(
+            outcome(&head, &format!("app.{ext}"), "picked"),
+            outcome(&base, &format!("app.{ext}"), "picked")
+        );
+        assert_eq!(
+            outcome(&head, &format!("app.{ext}"), "real"),
+            outcome(&base, &format!("app.{ext}"), "real")
+        );
+        assert!(head
+            .resolve_call_site(head.calls.values().flatten().next().unwrap())
+            .iter()
+            .all(|t| t.confidence != ResolutionConfidence::Exact));
+    }
+}
+
+#[test]
+fn js_paths_explicit_exclude_preserves_base() {
+    for ext in ["jsx", "tsx"] {
+        let cfg = serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"paths":{"@lib":["lib/real"]}},"include":["**/*"],"exclude":[format!("app.{ext}")]});
+        let d = fixture(ext, "@lib", &cfg.to_string());
+        let loaded = load_repo(d.path()).unwrap();
+        assert_eq!(
+            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
+            outcome(
+                &CallGraph::build(&loaded.files),
+                &format!("app.{ext}"),
+                "picked"
+            )
+        );
+    }
+}
+
+#[test]
+fn js_paths_cjs_terminal_without_span_preserves_base() {
+    for ext in ["jsx", "tsx"] {
+        let d = fixture(
+            ext,
+            "@lib",
+            &config(serde_json::json!({"@lib":["lib/real"]})),
+        );
+        write(
+            d.path(),
+            &format!("lib/real.{ext}"),
+            "function real() { return 1; }\nmodule.exports = { real };\n",
+        );
+        let loaded = load_repo(d.path()).unwrap();
+        assert_eq!(
+            outcome(&graph(d.path()), &format!("app.{ext}"), "picked"),
+            outcome(
+                &CallGraph::build(&loaded.files),
+                &format!("app.{ext}"),
+                "picked"
+            )
+        );
+    }
+}

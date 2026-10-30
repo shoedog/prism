@@ -389,18 +389,47 @@ impl CodePropertyGraph {
     // CallGraph-equivalent methods
     // -----------------------------------------------------------------------
 
-    /// Find the function containing a specific line in a file.
+    /// Find the named function containing a specific line in a file.
     /// Equivalent to `CallGraph::function_at()`.
+    ///
+    /// Anonymous callable nodes (`<anon@L:C>`) are skipped: an anonymous node
+    /// would win the smallest-range tie on any line holding a one-line
+    /// callback and silently re-seed every caller of this lookup (barrier,
+    /// membrane, vertical, threed, spiral) onto it. Anonymous-aware callers use
+    /// [`Self::function_at_including_anonymous`].
     pub fn function_at(&self, file: &str, line: usize) -> Option<(NodeIndex, FunctionId)> {
+        self.function_at_filtered(file, line, false)
+    }
+
+    /// Like [`Self::function_at`], but anonymous callable nodes may win.
+    pub fn function_at_including_anonymous(
+        &self,
+        file: &str,
+        line: usize,
+    ) -> Option<(NodeIndex, FunctionId)> {
+        self.function_at_filtered(file, line, true)
+    }
+
+    fn function_at_filtered(
+        &self,
+        file: &str,
+        line: usize,
+        include_anonymous: bool,
+    ) -> Option<(NodeIndex, FunctionId)> {
         let mut best: Option<(NodeIndex, usize)> = None;
         for (&(ref f, ref _name, ref _sl), &idx) in &self.func_index {
             if f == file {
                 if let CpgNode::Function {
+                    name,
                     start_line,
                     end_line,
                     ..
-                } = self.graph[idx]
+                } = &self.graph[idx]
                 {
+                    if !include_anonymous && crate::anon_owner::is_anonymous_owner_name(name) {
+                        continue;
+                    }
+                    let (start_line, end_line) = (*start_line, *end_line);
                     if line >= start_line && line <= end_line {
                         let range_len = end_line.saturating_sub(start_line);
                         if best
@@ -823,6 +852,141 @@ impl CodePropertyGraph {
             .into_iter()
             .filter_map(|idx| self.to_var_location(idx))
             .collect()
+    }
+
+    /// PR-C: backward reachability that does not expand out of a projection-only Def.
+    /// Returns `(all, seeds)`: `all` equals `dfg_backward_reachable` (every upstream
+    /// location, for backward-only line inclusion); `seeds` is the subset reached
+    /// without passing through a projection-only Def (the Defs themselves and
+    /// everything beyond them are excluded). A composer that walks forward from the
+    /// backward set must seed only from `seeds`: expanding from a member-only formal's
+    /// base Def, or from an argument Use/Def upstream of it, fans out to every sibling
+    /// field (`p.x` back to `Def(p)`, then on to `p.y`).
+    pub fn dfg_backward_reachable_bounded(
+        &self,
+        from: &VarLocation,
+    ) -> (BTreeSet<VarLocation>, BTreeSet<VarLocation>) {
+        let from_access = match from.kind {
+            VarAccessKind::Def => VarAccess::Def,
+            VarAccessKind::Use => VarAccess::Use,
+        };
+        let Some(start) = self.var_node(
+            &from.file,
+            &from.function,
+            from.function_start_line,
+            from.line,
+            &from.path,
+            from_access,
+        ) else {
+            return (BTreeSet::new(), BTreeSet::new());
+        };
+        let all = self.reachable_backward(start, &|e| matches!(e, CpgEdge::DataFlow(_)));
+        let mut seen = BTreeSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(start);
+        while let Some(node) = queue.pop_front() {
+            if !seen.insert(node) {
+                continue;
+            }
+            if node != start && self.node_is_projection_only_def(node) {
+                continue;
+            }
+            for edge in self
+                .graph
+                .edges_directed(node, petgraph::Direction::Incoming)
+            {
+                if matches!(edge.weight(), CpgEdge::DataFlow(_)) && !seen.contains(&edge.source()) {
+                    queue.push_back(edge.source());
+                }
+            }
+        }
+        seen.remove(&start);
+        let seeds: BTreeSet<NodeIndex> = seen
+            .into_iter()
+            .filter(|&idx| !self.node_is_projection_only_def(idx))
+            .collect();
+        let to_locs = |set: BTreeSet<NodeIndex>| -> BTreeSet<VarLocation> {
+            set.into_iter()
+                .filter_map(|idx| self.to_var_location(idx))
+                .collect()
+        };
+        (to_locs(all), to_locs(seeds))
+    }
+
+    /// PR-C: a Def with a bare path whose every outgoing DataFlow edge ends at a
+    /// field Use of the same base (`Def(p) -> Use(p.x)`), i.e. a member-only formal's
+    /// base Def.
+    pub fn dfg_is_projection_only_def(&self, def: &VarLocation) -> bool {
+        if def.kind != VarAccessKind::Def {
+            return false;
+        }
+        self.var_node(
+            &def.file,
+            &def.function,
+            def.function_start_line,
+            def.line,
+            &def.path,
+            VarAccess::Def,
+        )
+        .is_some_and(|idx| self.node_is_projection_only_def(idx))
+    }
+
+    /// True when `use_loc` is a Use whose direct DataFlow predecessor is a projection-only
+    /// Def, i.e. the Use is a field read of its own callable's member-only formal (the
+    /// projection edge `Def(p) -> Use(p.x)`). A projection-only Def reached further
+    /// upstream (through an argument edge into another callable) does not count.
+    pub fn dfg_use_reads_projection_only_def(&self, use_loc: &VarLocation) -> bool {
+        if use_loc.kind != VarAccessKind::Use {
+            return false;
+        }
+        let Some(idx) = self.var_node(
+            &use_loc.file,
+            &use_loc.function,
+            use_loc.function_start_line,
+            use_loc.line,
+            &use_loc.path,
+            VarAccess::Use,
+        ) else {
+            return false;
+        };
+        self.graph
+            .edges_directed(idx, petgraph::Direction::Incoming)
+            .any(|edge| {
+                matches!(edge.weight(), CpgEdge::DataFlow(_))
+                    && self.node_is_projection_only_def(edge.source())
+            })
+    }
+
+    fn node_is_projection_only_def(&self, start: NodeIndex) -> bool {
+        let CpgNode::Variable {
+            access: VarAccess::Def,
+            path: def_path,
+            ..
+        } = &self.graph[start]
+        else {
+            return false;
+        };
+        if def_path.has_fields() {
+            return false;
+        }
+        let mut any = false;
+        for edge in self
+            .graph
+            .edges_directed(start, petgraph::Direction::Outgoing)
+        {
+            if !matches!(edge.weight(), CpgEdge::DataFlow(_)) {
+                continue;
+            }
+            match &self.graph[edge.target()] {
+                CpgNode::Variable {
+                    access: VarAccess::Use,
+                    path,
+                    ..
+                } if path.base == def_path.base && path.has_fields() => any = true,
+                _ => return false,
+            }
+        }
+        any
     }
 
     /// Forward taint propagation from a set of tainted locations.

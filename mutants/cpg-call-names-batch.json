@@ -1,0 +1,56 @@
+{
+  "mutations": {
+    "B01-repeat-whole-file-query": [
+      "src/cpg/statement_calls.rs",
+      "let kind = classify_stmt_kind(&span.kind, parsed, span.line, calls);",
+      "let kind = classify_stmt_kind(&span.kind, parsed, span.line, &StatementCalls::default());",
+      "cpg::statement_calls_tests::step7_queries_at_most_once_per_file"
+    ],
+    "B02-use-last-name": [
+      "src/cpg/statement_calls.rs",
+      ".and_then(|names| names.first())",
+      ".and_then(|names| names.last())",
+      "cpg::statement_calls_tests::step7_identity_matches_main"
+    ],
+    "B03-wrong-line": [
+      "src/cpg/statement_calls.rs",
+      ".get(&line)",
+      ".get(&(line + 1))",
+      "cpg::statement_calls_tests::step7_identity_matches_main"
+    ],
+    "B04-drop-names": [
+      "src/cpg/statement_calls.rs",
+      "parsed.call_names_on_lines(&lines)",
+      "{ let _ = &lines; BTreeMap::new() }",
+      "cpg::statement_calls_tests::step7_identity_matches_main"
+    ],
+    "B05-remove-dedup": [
+      "src/cpg/statement_calls.rs",
+      "if !seen.insert(span.line) {",
+      "if false && !seen.insert(span.line) {",
+      "cpg::statement_calls_tests::step7_identity_matches_main"
+    ],
+    "B06-misclassify-return": [
+      "src/cpg/statement_calls.rs",
+      "return StmtKind::Return;",
+      "return StmtKind::Other;",
+      "cpg::statement_calls_tests::step7_identity_matches_main"
+    ],
+    "B07-omit-expression-wrapper": [
+      "src/cpg/statement_calls.rs",
+      "parsed.language.is_call_node(kind_str) || kind_str == \"expression_statement\"",
+      "parsed.language.is_call_node(kind_str)",
+      "cpg::statement_calls_tests::step7_identity_matches_main"
+    ],
+    "B08-change-fallback-order": [
+      "src/ast/call_names.rs",
+      "out.entry(line).or_default().push(name);",
+      "out.entry(line).or_default().insert(0, name);",
+      "ast::call_names::manual_fallback_batch_preserves_order_and_line_filter"
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::statement_calls_tests::",
+    "ast::call_names::"
+  ]
+}

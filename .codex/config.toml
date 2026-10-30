@@ -1,4 +1,8 @@
 [mcp_servers.prism]
-command = "/Users/wesleyjinks/code/slicing/target/release/prism-mcp"
-args = ["--repo", "/Users/wesleyjinks/code/slicing"]
+# Index the checkout Codex runs in: Codex starts MCP servers in its working directory (-C), so a
+# worktree or clone of this repo gets its own index instead of another checkout's. PRISM_MCP_BIN
+# is the absolute path of the prism-mcp binary.
+command = "/bin/sh"
+args = ["-c", 'root=$(git rev-parse --show-toplevel) || exit 1; exec "$PRISM_MCP_BIN" --repo "$root" --shared']
 startup_timeout_sec = 60
+env = { PRISM_MCP_RUNTIME_DIR = "/tmp", PRISM_MCP_BIN = "/Users/wesleyjinks/code/slicing/target/release/prism-mcp" }

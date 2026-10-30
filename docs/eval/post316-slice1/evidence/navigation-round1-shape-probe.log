@@ -1,0 +1,135 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.41s
+     Running tests/navigation/main.rs (target/debug/deps/navigation-1567b34f600bdf8b)
+
+running 1 test
+OWNER_NAV_CALLERS Evidence {
+    query: "callers:item@origin.js",
+    items: [
+        EvidenceItem {
+            symbol: Some(
+                Function {
+                    file: "app.js",
+                    name: "inner",
+                    start_line: 3,
+                    end_line: 3,
+                    start_byte: 59,
+                    end_byte: 91,
+                    ordinal: 0,
+                },
+            ),
+            location: Location {
+                file: "app.js",
+                start_line: 3,
+                end_line: 3,
+                start_byte: 59,
+                end_byte: 91,
+            },
+            score: 1.0,
+            source: PrismCpg,
+            fallback: false,
+            why: [
+                CalledBy {
+                    caller: "inner",
+                    call_site_line: 3,
+                },
+                Resolution {
+                    kind: "import_member",
+                },
+            ],
+            snippet: None,
+        },
+        EvidenceItem {
+            symbol: Some(
+                Function {
+                    file: "app.js",
+                    name: "direct",
+                    start_line: 6,
+                    end_line: 6,
+                    start_byte: 107,
+                    end_byte: 140,
+                    ordinal: 0,
+                },
+            ),
+            location: Location {
+                file: "app.js",
+                start_line: 6,
+                end_line: 6,
+                start_byte: 107,
+                end_byte: 140,
+            },
+            score: 1.0,
+            source: PrismCpg,
+            fallback: false,
+            why: [
+                CalledBy {
+                    caller: "direct",
+                    call_site_line: 6,
+                },
+                Resolution {
+                    kind: "import_member",
+                },
+            ],
+            snippet: None,
+        },
+    ],
+    truncated: false,
+    warnings: [],
+    graph: None,
+    reasoning: None,
+}
+OWNER_NAV_INNER Evidence {
+    query: "callees:inner@app.js",
+    items: [
+        EvidenceItem {
+            symbol: Some(
+                Function {
+                    file: "origin.js",
+                    name: "item",
+                    start_line: 1,
+                    end_line: 1,
+                    start_byte: 7,
+                    end_byte: 33,
+                    ordinal: 0,
+                },
+            ),
+            location: Location {
+                file: "origin.js",
+                start_line: 1,
+                end_line: 1,
+                start_byte: 7,
+                end_byte: 33,
+            },
+            score: 1.0,
+            source: PrismCpg,
+            fallback: false,
+            why: [
+                Calls {
+                    callee: "item",
+                    call_site_line: 3,
+                    qualifier: None,
+                },
+                Resolution {
+                    kind: "import_member",
+                },
+            ],
+            snippet: None,
+        },
+    ],
+    truncated: false,
+    warnings: [],
+    graph: None,
+    reasoning: None,
+}
+OWNER_NAV_OUTER Evidence {
+    query: "callees:outer@app.js",
+    items: [],
+    truncated: false,
+    warnings: [],
+    graph: None,
+    reasoning: None,
+}
+test callers_test::call_execution_owner_navigation_callers_and_callees ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 124 filtered out; finished in 0.19s
+

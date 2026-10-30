@@ -625,9 +625,36 @@ impl CodePropertyGraph {
 
     /// Does a function's signature start at `(file, line)`? Function nodes are indexed at their
     /// `start_line`, so this is where parameters are bound and where a callee's CFG entry is murky.
-    fn function_starts_at(&self, file: &str, line: usize) -> bool {
+    ///
+    /// Anonymous callable nodes (`<anon@L:C>`) do not count, so they add no new "signature line"
+    /// cases once S2 mints them. It does not stop a callback line degrading to pure taint
+    /// through other routes: on main a line can already degrade via `multi_function` when PR-B
+    /// gives the callback its own data-flow owner on that line. [`Self::function_starts_at_including_anonymous`] is
+    /// the anonymous-aware variant.
+    pub(super) fn function_starts_at(&self, file: &str, line: usize) -> bool {
+        self.function_starts_at_filtered(file, line, false)
+    }
+
+    /// Like [`Self::function_starts_at`], but an anonymous callable starting at `line` counts.
+    #[allow(dead_code)] // opt-in for anonymous-aware callers (lane A2 S2+)
+    pub(super) fn function_starts_at_including_anonymous(&self, file: &str, line: usize) -> bool {
+        self.function_starts_at_filtered(file, line, true)
+    }
+
+    fn function_starts_at_filtered(
+        &self,
+        file: &str,
+        line: usize,
+        include_anonymous: bool,
+    ) -> bool {
         self.nodes_at(file, line).iter().any(|&n| {
-            matches!(&self.graph[n], CpgNode::Function { start_line, .. } if *start_line == line)
+            matches!(
+                &self.graph[n],
+                CpgNode::Function { name, start_line, .. }
+                    if *start_line == line
+                        && (include_anonymous
+                            || !crate::anon_owner::is_anonymous_owner_name(name))
+            )
         })
     }
 

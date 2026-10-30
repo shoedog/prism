@@ -110,14 +110,8 @@ impl<'a> CpgContext<'a> {
         // was constructed from the SAME complete `files` map; scoped /
         // cache-loaded / AST-only contexts construct their own.
         let shared_go_provider = cpg.call_graph.shared_plain_go_provider.take();
-        let types = Self::build_registry(files, type_db, shared_go_provider);
-        // collect_live_types recursively walks each file's AST (the C/C++/Python
-        // live-type scan), which overflows the caller thread on deeply-nested
-        // files. Run it on the large-stack pool so a directly-built or
-        // cache-loaded CpgContext (library/MCP, outside the CLI command wrap) is
-        // protected too.
-        let live_types =
-            crate::build_pool::build_pool().install(|| types.collect_live_types(files));
+        let (types, live_types) =
+            Self::registry_with_live_types(files, type_db, shared_go_provider);
         CpgContext {
             cpg,
             files,
@@ -134,16 +128,26 @@ impl<'a> CpgContext<'a> {
     /// If `type_db` is provided (via `--compile-commands`), it is injected
     /// into the cached CPG so that algorithms like `delta_slice` that call
     /// `ctx.cpg.type_db` get virtual dispatch enrichment.
+    #[cfg_attr(test, allow(unused_mut))] // Test adapter takes ownership before the guard.
     pub fn build_with_cached_cpg(
         files: &'a BTreeMap<String, ParsedFile>,
         mut cpg: CodePropertyGraph,
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
+        #[cfg(test)]
+        let lifetime = super::fallback_lifetime_tests::Probe::current();
+        #[cfg(test)]
+        let cpg = lifetime.track(cpg, 2);
         // A live opted-in graph is not an ordinary cache artifact. Rebuild all
         // edges without authority rather than adopt a historical proof snapshot.
         if cpg.ephemeral_owner || cpg.call_graph.owner_ephemeral {
+            drop(cpg);
+            #[cfg(test)]
+            lifetime.record("context_owner");
             return Self::build(files, type_db);
         }
+        #[cfg(test)]
+        let mut cpg = cpg.into_inner();
         // P15a-fix4: drop the stash UNCONDITIONALLY. A deserialized CPG has
         // none (serde skips the field), but a caller may pass a FRESHLY BUILT
         // CPG whose stash is a full live Go dataset — combined with the fresh
@@ -155,14 +159,7 @@ impl<'a> CpgContext<'a> {
         // P15a-fix1: cache-loaded contexts keep their own construction — the
         // deserialized CPG's stashed provider (if any) was extracted from a
         // possibly different (stale) file set than the current `files`.
-        let types = Self::build_registry(files, type_db, None);
-        // collect_live_types recursively walks each file's AST (the C/C++/Python
-        // live-type scan), which overflows the caller thread on deeply-nested
-        // files. Run it on the large-stack pool so a directly-built or
-        // cache-loaded CpgContext (library/MCP, outside the CLI command wrap) is
-        // protected too.
-        let live_types =
-            crate::build_pool::build_pool().install(|| types.collect_live_types(files));
+        let (types, live_types) = Self::registry_with_live_types(files, type_db, None);
         CpgContext {
             cpg,
             files,
@@ -189,7 +186,7 @@ impl<'a> CpgContext<'a> {
         // it on the CallGraph would pin a SECOND full Go dataset for the
         // lifetime of this (long-lived) context. Drop it.
         drop(cpg.call_graph.shared_plain_go_provider.take());
-        let live_types = registry.collect_live_types(files);
+        let live_types = crate::build_pool::install(|| registry.collect_live_types(files));
         CpgContext {
             cpg,
             files,
@@ -230,12 +227,19 @@ impl<'a> CpgContext<'a> {
 
         // Pass 1: skeleton call graph (Phases 1-2 only, no indirect resolution).
         let skeleton_cg = CallGraph::build_skeleton(files);
+        #[cfg(test)]
+        let lifetime = super::fallback_lifetime_tests::Probe::current();
+        #[cfg(test)]
+        let skeleton_cg = lifetime.track(skeleton_cg, 1);
 
         // Compute the scoped file set: Tier 0 (changed) + Tier 1 (callers) + Tier 2 (callees).
         let scoped_files = compute_scope(&skeleton_cg, &changed_files, files);
+        drop(skeleton_cg);
 
         // Short-circuit: if scope covers >50% of files, just build the full CPG.
         if scoped_files.len() > files.len() / 2 {
+            #[cfg(test)]
+            lifetime.record("context_scope");
             return Self::build(files, type_db);
         }
 
@@ -252,9 +256,8 @@ impl<'a> CpgContext<'a> {
         // Its stashed provider must NOT be reused; drop it so the scoped CPG
         // never pins Go type data after build.
         drop(cpg.call_graph.shared_plain_go_provider.take());
-        let types = Self::build_registry(files, type_db, None);
-        // Collect live types from ALL files (not just scoped) for accurate RTA.
-        let live_types = types.collect_live_types(files);
+        // Registry and live types come from ALL files (not just scoped) for accurate RTA.
+        let (types, live_types) = Self::registry_with_live_types(files, type_db, None);
         CpgContext {
             cpg,
             files,
@@ -275,8 +278,7 @@ impl<'a> CpgContext<'a> {
         files: &'a BTreeMap<String, ParsedFile>,
         type_db: Option<&'a TypeDatabase>,
     ) -> Self {
-        let types = Self::build_registry(files, type_db, None);
-        let live_types = types.collect_live_types(files);
+        let (types, live_types) = Self::registry_with_live_types(files, type_db, None);
         CpgContext {
             cpg: CodePropertyGraph::empty(),
             files,
@@ -310,6 +312,27 @@ impl<'a> CpgContext<'a> {
     pub fn type_db(&self) -> Option<&TypeDatabase> {
         // The CPG internally owns its own copy of the TypeDatabase.
         self.cpg.type_db.as_ref()
+    }
+
+    /// Registry construction and the live-type scan behind ONE large-stack
+    /// boundary. Both recursively walk each file's AST (the Go, Java, Rust,
+    /// Python and TypeScript providers' extraction; the C/C++/Python live-type
+    /// scan), which overflows a ~2 MiB caller thread on deeply nested files, so
+    /// a directly built or cache-loaded context (library/MCP, outside the CLI
+    /// command wrap) needs both on big stacks. One `install` per constructor
+    /// (rather than wrapping `build_registry` alone) is one hand-off from a
+    /// foreign worker, not two. The shared Go provider is moved in, so the
+    /// transfer/drop semantics of the callers are unchanged.
+    fn registry_with_live_types(
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<&TypeDatabase>,
+        shared_go_provider: Option<GoTypeProvider>,
+    ) -> (TypeRegistry, BTreeSet<String>) {
+        crate::build_pool::install(|| {
+            let types = Self::build_registry(files, type_db, shared_go_provider);
+            let live_types = types.collect_live_types(files);
+            (types, live_types)
+        })
     }
 
     /// Build a TypeRegistry from parsed files and optional TypeDatabase.

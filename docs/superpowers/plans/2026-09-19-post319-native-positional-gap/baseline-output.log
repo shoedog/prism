@@ -1,0 +1,63 @@
+CASE object JavaScript errors=0
+FN Some("take") 0 40 slots=Some([]) occurrences=[("later", 19, 24)]
+CASE alias JavaScript errors=0
+FN Some("take") 0 56 slots=Some([("first", 14, 19)]) occurrences=[("first", 14, 19), ("later", 35, 40)]
+CASE nested_default JavaScript errors=0
+FN Some("take") 0 49 slots=Some([]) occurrences=[("later", 28, 33)]
+CASE array JavaScript errors=0
+FN Some("take") 0 40 slots=Some([]) occurrences=[("later", 19, 24)]
+CASE rest JavaScript errors=0
+FN Some("take") 0 38 slots=Some([]) occurrences=[]
+CASE duplicate JavaScript errors=0
+FN Some("take") 0 32 slots=None occurrences=[("x", 19, 20)]
+CASE assigned JavaScript errors=0
+FN Some("take") 13 34 slots=Some([]) occurrences=[("later", 19, 24)]
+CASE wrapped JavaScript errors=0
+FN Some("take") 18 39 slots=Some([]) occurrences=[("later", 24, 29)]
+CASE unnamed JavaScript errors=0
+FN None 8 29 slots=Some([]) occurrences=[("later", 14, 19)]
+CASE shadow JavaScript errors=0
+FN Some("take") 0 77 slots=Some([]) occurrences=[("later", 19, 24)]
+FN Some("nested") 26 63 slots=Some([("later", 42, 47)]) occurrences=[("later", 42, 47)]
+CASE object TypeScript errors=0
+FN Some("take") 0 40 slots=Some([]) occurrences=[("later", 19, 24)]
+CASE alias TypeScript errors=0
+FN Some("take") 0 56 slots=Some([("first", 14, 19)]) occurrences=[("first", 14, 19), ("later", 35, 40)]
+CASE nested_default TypeScript errors=0
+FN Some("take") 0 49 slots=Some([]) occurrences=[("later", 28, 33)]
+CASE array TypeScript errors=0
+FN Some("take") 0 40 slots=Some([]) occurrences=[("later", 19, 24)]
+CASE rest TypeScript errors=0
+FN Some("take") 0 38 slots=Some([]) occurrences=[]
+CASE duplicate TypeScript errors=0
+FN Some("take") 0 32 slots=None occurrences=[]
+CASE assigned TypeScript errors=0
+FN Some("take") 13 34 slots=Some([]) occurrences=[("later", 19, 24)]
+CASE wrapped TypeScript errors=0
+FN Some("take") 18 39 slots=Some([]) occurrences=[("later", 24, 29)]
+CASE unnamed TypeScript errors=0
+FN None 8 29 slots=Some([]) occurrences=[("later", 14, 19)]
+CASE shadow TypeScript errors=0
+FN Some("take") 0 77 slots=Some([]) occurrences=[("later", 19, 24)]
+FN Some("nested") 26 63 slots=Some([("later", 42, 47)]) occurrences=[("later", 42, 47)]
+CASE object Tsx errors=0
+FN Some("take") 0 40 slots=Some([]) occurrences=[("later", 19, 24)]
+CASE alias Tsx errors=0
+FN Some("take") 0 56 slots=Some([("first", 14, 19)]) occurrences=[("first", 14, 19), ("later", 35, 40)]
+CASE nested_default Tsx errors=0
+FN Some("take") 0 49 slots=Some([]) occurrences=[("later", 28, 33)]
+CASE array Tsx errors=0
+FN Some("take") 0 40 slots=Some([]) occurrences=[("later", 19, 24)]
+CASE rest Tsx errors=0
+FN Some("take") 0 38 slots=Some([]) occurrences=[]
+CASE duplicate Tsx errors=0
+FN Some("take") 0 32 slots=None occurrences=[]
+CASE assigned Tsx errors=0
+FN Some("take") 13 34 slots=Some([]) occurrences=[("later", 19, 24)]
+CASE wrapped Tsx errors=0
+FN Some("take") 18 39 slots=Some([]) occurrences=[("later", 24, 29)]
+CASE unnamed Tsx errors=0
+FN None 8 29 slots=Some([]) occurrences=[("later", 14, 19)]
+CASE shadow Tsx errors=0
+FN Some("take") 0 77 slots=Some([]) occurrences=[("later", 19, 24)]
+FN Some("nested") 26 63 slots=Some([("later", 42, 47)]) occurrences=[("later", 42, 47)]

@@ -1,0 +1,397 @@
+{
+  "mutations": {
+    "ANON-PREP-01-predicate-off": [
+      "src/anon_owner.rs",
+      "!claims.contains(&(start, end))\n        && parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "call_graph::anon_prep_tests::compatibility_uses_exact_named_claims_and_strict_scope"
+    ],
+    "ANON-PREP-02-chain-off": [
+      "src/anon_owner.rs",
+      "locals.extend(own_locals(parsed, &scope));",
+      "let _ = scope;",
+      "call_graph::anon_prep_tests::injected_shadow_chain_owns_parameters_and_isolates_siblings"
+    ],
+    "ANON-PREP-03-own-locals-off": [
+      "src/anon_owner.rs",
+      "parsed.js_ts_function_local_bindings(node)",
+      "BTreeSet::new()",
+      "call_graph::anon_prep_tests::injected_shadow_chain_owns_parameters_and_isolates_siblings"
+    ],
+    "ANON-PREP-04-builder-helper-divergence": [
+      "src/call_graph.rs",
+      "        // Phase 1: Collect all function definitions\n        for (file_path, parsed) in files {\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                if let Some(func_id) =\n                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)\n                {\n",
+      "        // Phase 1: Collect all function definitions\n        for (file_path, parsed) in files {\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                if let Some(func_id) =\n                    crate::anon_owner::identity(parsed, &func_node, file_path).filter(|id| !crate::anon_owner::is_anonymous_owner_name(&id.name))\n                {\n",
+      "anon_owner::node_tests::builders_agree_including_same_line_and_parameter_early_errors"
+    ],
+    "ANON-PREP-05-strict-scope-off": [
+      "src/anon_owner.rs",
+      "!claims.contains(&(start, end))\n        && parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "!claims.contains(&(start, end))",
+      "call_graph::anon_prep_tests::compatibility_uses_exact_named_claims_and_strict_scope"
+    ],
+    "ANON-PREP-06-bytes-by-name": [
+      "src/anon_owner/source_index.rs",
+      "self.anonymous_spans()\n            .get(&(id.name.clone(), id.start_line, id.end_line))\n            .copied()",
+      "self.parsed.functions().iter().find(|f| f.name.as_deref() == Some(id.name.as_str())).map(|f| (f.start_byte, f.end_byte))",
+      "cpg::build::anon_prep_tests::injected_identity_drives_step1_bytes_and_step6_contains"
+    ],
+    "ANON-PREP-07-indirect-refusal-off": [
+      "src/anon_owner.rs",
+      "!is_anonymous_owner_name(&id.name)\n}",
+      "true\n}",
+      "call_graph::anon_prep_tests::anonymous_source_is_exact_and_legacy_indirect_declines"
+    ],
+    "ANON-PREP-08-d12-anonymous-off": [
+      "src/cpg/build.rs",
+      "&& !registered.contains_key(&owner)",
+      "",
+      "cpg::build::anon_prep_tests::d12_refuses_registered_anonymous_sources_only"
+    ],
+    "ANON-PREP-09-generator-candidate-off": [
+      "src/queries.rs",
+      "                (generator_function !name) @func\n",
+      "",
+      "anon_owner::node_tests::generator_dfg_owns_formals_but_refuses_early_errors"
+    ],
+    "ANON-PREP-10-full-phase2": [
+      "src/call_graph.rs",
+      "                for func_node in crate::anon_owner::owner_nodes(parsed) {\n                    let Some(caller_id) =\n                        crate::anon_owner::emitted_identity(parsed, &func_node, file_path)\n",
+      "                for func_node in crate::anon_owner::owner_nodes(parsed) {\n                    let Some(caller_id) =\n                        crate::anon_owner::identity(parsed, &func_node, file_path).filter(|id| !crate::anon_owner::is_anonymous_owner_name(&id.name))\n",
+      "anon_owner::node_tests::builders_agree_including_same_line_and_parameter_early_errors"
+    ],
+    "ANON-PREP-11-subset-phase2": [
+      "src/call_graph.rs",
+      "        // Phase 2: Find call sites from subset.\n        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =\n            BTreeMap::new();\n        for (file_path, parsed) in files {\n            if !only_files.contains(file_path) {\n                continue;\n            }\n            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();\n            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);\n            let named_claims =\n                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);\n            let mut binding_cache = crate::ast::JsBindingCache::for_sites();\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                let Some(caller_id) =\n                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)\n",
+      "        // Phase 2: Find call sites from subset.\n        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =\n            BTreeMap::new();\n        for (file_path, parsed) in files {\n            if !only_files.contains(file_path) {\n                continue;\n            }\n            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();\n            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);\n            let named_claims =\n                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);\n            let mut binding_cache = crate::ast::JsBindingCache::for_sites();\n            for func_node in crate::anon_owner::owner_nodes(parsed) {\n                let Some(caller_id) =\n                    crate::anon_owner::identity(parsed, &func_node, file_path).filter(|id| !crate::anon_owner::is_anonymous_owner_name(&id.name))\n",
+      "anon_owner::node_tests::builders_agree_including_same_line_and_parameter_early_errors"
+    ],
+    "ANON-PREP-12-named-shadow-return-off": [
+      "src/anon_owner.rs",
+      "if parsed.language.function_name(node).is_some() {\n        return locals;\n    }",
+      "if false && parsed.language.function_name(node).is_some() {\n        return locals;\n    }",
+      "call_graph::anon_prep_tests::authority_tests::named_guards_preserve_own_locals_and_legacy_claims"
+    ],
+    "ANON-PREP-13-named-mint-return-off": [
+      "src/anon_owner.rs",
+      "if parsed.language.function_name(owner).is_some() {\n        return true;\n    }",
+      "if false && parsed.language.function_name(owner).is_some() {\n        return true;\n    }",
+      "call_graph::anon_prep_tests::authority_tests::named_guards_preserve_own_locals_and_legacy_claims"
+    ],
+    "ANON-PREP-14-method-metadata-guard-off": [
+      "src/call_graph.rs",
+      "if parsed.language.function_name(func_node).is_none() {\n            return (None, None, None, None);\n        }",
+      "if false && parsed.language.function_name(func_node).is_none() {\n            return (None, None, None, None);\n        }",
+      "call_graph::anon_prep_tests::anonymous_source_is_exact_and_legacy_indirect_declines"
+    ],
+    "ANON-PREP-15-binder-authority-off": [
+      "src/js_anonymous.rs",
+      "self.admit_anonymous_exact(site, outcome)",
+      "outcome",
+      "call_graph::anon_prep_tests::barrier_tests::census_w1_through_w6_and_disclosed_receiver_recall"
+    ],
+    "ANON-BARRIER-16-B0-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "true",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-17-B0-escaped-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "true && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-18-B0-with-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "!self.escaped && true && !self.eval && !self.nested_import && !self.uncertain",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-19-B0-eval-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "!self.escaped && !self.with && true && !self.nested_import && !self.uncertain",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-20-B0-nested_import-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "!self.escaped && !self.with && !self.eval && true && !self.uncertain",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-21-B0-uncertain-off": [
+      "src/js_anonymous.rs",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && !self.uncertain",
+      "!self.escaped && !self.with && !self.eval && !self.nested_import && true",
+      "call_graph::anon_prep_tests::barrier_tests::b0_each_file_trigger_and_clean_control"
+    ],
+    "ANON-BARRIER-22-B0-evaluation-chain-off": [
+      "src/ast/js_anonymous.rs",
+      "Some(Pos::Unlisted | Pos::WithBody | Pos::Leave) => return false,",
+      "Some(Pos::Unlisted | Pos::WithBody) => return false,",
+      "call_graph::anon_prep_tests::barrier_tests::b0_evaluation_environments_and_table_controls"
+    ],
+    "ANON-BARRIER-23-B0-static-block-off": [
+      "src/ast/js_anonymous.rs",
+      "Some(Pos::Inside) if node.kind() == \"class_static_block\" => return false,",
+      "Some(Pos::Inside) if false => return false,",
+      "call_graph::anon_prep_tests::barrier_tests::b0_evaluation_environments_and_table_controls"
+    ],
+    "ANON-BARRIER-24-B0-unlisted-position-off": [
+      "src/ast/js_anonymous.rs",
+      "Some(Pos::Unlisted | Pos::WithBody | Pos::Leave) => return false,",
+      "Some(Pos::WithBody | Pos::Leave) => return false,",
+      "call_graph::anon_prep_tests::barrier_tests::evaluation_table_refuses_unlisted_type_positions"
+    ],
+    "ANON-BARRIER-25-B1-any-import-fact": [
+      "src/js_anonymous.rs",
+      ".is_some_and(|c| c.proves(site, one.target))",
+      " .is_some_and(|c| c.proves(site, one.target)) || matches!(&site.local_binding, JsLocalBinding::Unproven(r) if r == \"import\")",
+      "call_graph::anon_prep_tests::barrier_tests::boundary_dominates_all_route_kinds_and_rejects_wrong_site_or_target"
+    ],
+    "ANON-BARRIER-26-namespace-stem-fallback-admitted": [
+      "src/js_anonymous.rs",
+      ".is_some_and(|c| c.proves(site, one.target))",
+      " .is_some_and(|c| c.proves(site, one.target)) || matches!(&site.local_binding, JsLocalBinding::NamespaceImport {..})",
+      "call_graph::anon_prep_tests::barrier_tests::namespace_export_proof_never_admits_stem_fallback"
+    ],
+    "ANON-BARRIER-27-boundary-bypass-owner-route": [
+      "src/js_anonymous.rs",
+      "self.admit_anonymous_exact(site, outcome)",
+      "if outcome.resolved.iter().any(|r| r.kind == crate::resolution::ResolutionKind::QualifierOwner) { outcome } else { self.admit_anonymous_exact(site, outcome) }",
+      "call_graph::anon_prep_tests::barrier_tests::census_w1_through_w6_and_disclosed_receiver_recall"
+    ],
+    "ANON-BARRIER-28-B0-internal_module-off": [
+      "src/ast/js_anonymous.rs",
+      "Some(Pos::Unlisted | Pos::WithBody | Pos::Leave) => return false,",
+      "Some(Pos::Leave) if node.kind() != \"internal_module\" => return false, Some(Pos::Unlisted | Pos::WithBody) => return false,",
+      "call_graph::anon_prep_tests::barrier_tests::b0_evaluation_environments_and_table_controls"
+    ],
+    "ANON-BARRIER-29-B0-enum_declaration-off": [
+      "src/ast/js_anonymous.rs",
+      "Some(Pos::Unlisted | Pos::WithBody | Pos::Leave) => return false,",
+      "Some(Pos::Leave) if node.kind() != \"enum_declaration\" => return false, Some(Pos::Unlisted | Pos::WithBody) => return false,",
+      "call_graph::anon_prep_tests::barrier_tests::b0_evaluation_environments_and_table_controls"
+    ],
+    "ANON-BARRIER-30-filename-authority-bypass": [
+      "src/js_anonymous.rs",
+      "fn anonymous(site: &CallSite) -> bool {\n    // Only the shared JS/TS minting helper can create this reserved owner identity.\n    crate::anon_owner::is_anonymous_owner_name(&site.caller.name)\n}",
+      "fn anonymous(site: &CallSite) -> bool {\n    crate::anon_owner::is_anonymous_owner_name(&site.caller.name)\n        && matches!(\n            crate::languages::Language::from_path(&site.caller.file),\n            Some(\n                crate::languages::Language::JavaScript\n                    | crate::languages::Language::TypeScript\n                    | crate::languages::Language::Tsx\n            )\n        )\n}",
+      "call_graph::anon_prep_tests::barrier_tests::extensionless_javascript_anonymous_owners_cannot_bypass_admission"
+    ],
+    "ANON-BARRIER-31-computed-eval-name-off": [
+      "src/ast/js_anonymous.rs",
+      "self.anonymous_eval_index(n, i, &mut cache)",
+      "i.kind() == \"string\" && self.js_ts_module_export_name(i).as_deref() == Some(\"eval\")",
+      "call_graph::anon_prep_tests::barrier_tests::static_eval_member_spellings_are_all_vetoed"
+    ],
+    "ANON-ENABLE-32-emission-off": [
+      "src/anon_owner.rs",
+      "EMIT_ANONYMOUS_OWNERS: bool = true",
+      "EMIT_ANONYMOUS_OWNERS: bool = false",
+      "anon_owner::node_tests::enable_tests::enabled_callers_include_anonymous_but_shadowed_sibling_drops"
+    ],
+    "ANON-ENABLE-33-fallback-A-bypass": [
+      "src/anon_owner.rs",
+      "!claims.contains(&(start, end))\n        && parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "parsed.js_ts_span_in_own_scope(owner, start, end)",
+      "anon_owner::node_tests::nested_field_callbacks_are_strict_but_class_methods_keep_a1"
+    ],
+    "ANON-ENABLE-34-generator-dfg-off": [
+      "src/ast_callback_identity.rs",
+      "\"arrow_function\" | \"function_expression\" | \"generator_function\"",
+      "\"arrow_function\" | \"function_expression\"",
+      "anon_owner::node_tests::generator_dfg_owns_formals_but_refuses_early_errors"
+    ],
+    "ANON-ENABLE-35-cache-load-proof-off": [
+      "src/call_graph.rs",
+      "/// Source-backed anonymous proof evidence; partial builds refresh it from all current files.\n    #[serde(default)]",
+      "/// Source-backed anonymous proof evidence; partial builds refresh it from all current files.\n    #[serde(skip)]",
+      "anon_owner::node_tests::enable_tests::anonymous_cold_full_and_partial_cache_hits_are_byte_identical"
+    ],
+    "ANON-ENABLE-36-bytes-by-name": [
+      "src/anon_owner/source_index.rs",
+      "self.anonymous_spans()\n            .get(&(id.name.clone(), id.start_line, id.end_line))\n            .copied()",
+      "self.parsed.functions().iter().find(|f| f.name.as_deref() == Some(id.name.as_str())).map(|f| (f.start_byte, f.end_byte))",
+      "anon_owner::node_tests::anonymous_bytes_and_dfg_contains_are_exact"
+    ],
+    "ANON-ENABLE-37-d12-registration-off": [
+      "src/cpg/build.rs",
+      "&& !registered.contains_key(&owner)",
+      "&& true",
+      "anon_owner::node_tests::enable_tests::d12_registered_bare_and_rest_lose_cfg_incomplete_edges_with_parenthesized_control"
+    ],
+    "ANON-ENABLE-38-manual-generator-off": [
+      "src/ast/js_anonymous.rs",
+      "|| self.js_ts_synthetic_callable_name(node).is_some()",
+      "|| false",
+      "anon_owner::node_tests::enable_tests::generator_inventory_preserves_named_claims_and_legacy_enclosing_seeds"
+    ],
+    "ANON-ENABLE-39-generator-default-seed-change": [
+      "src/languages/mod.rs",
+      "                \"generator_function_declaration\",\n",
+      "                \"generator_function_declaration\",\n                \"generator_function\",\n",
+      "anon_owner::node_tests::enable_tests::generator_inventory_preserves_named_claims_and_legacy_enclosing_seeds"
+    ],
+    "ANON-ENABLE-40-generator-formal-refusal-off": [
+      "src/ast_callback_identity.rs",
+      "            || self.js_ts_generator_formals_refused(func_node)\n",
+      "",
+      "anon_owner::node_tests::enable_tests::generator_formals_refuse_suspension_and_reserved_names_but_keep_nested_values"
+    ],
+    "ANON-ENABLE-41-generator-nested-default-veto": [
+      "src/ast/js_generator.rs",
+      "if node.id() != params.id() && boundaries.contains(&node.kind()) {",
+      "if false && node.id() != params.id() && boundaries.contains(&node.kind()) {",
+      "anon_owner::node_tests::enable_tests::generator_formals_refuse_suspension_and_reserved_names_but_keep_nested_values"
+    ],
+    "ANON-ENABLE-42-generator-async-await-name-off": [
+      "src/ast/js_generator.rs",
+      "name == \"yield\" || (async_ && name == \"await\")",
+      "name == \"yield\"",
+      "anon_owner::node_tests::enable_tests::generator_formals_refuse_suspension_and_reserved_names_but_keep_nested_values"
+    ],
+    "ANON-ENABLE-43-unknown-computed-safe": [
+      "src/ast/js_anonymous.rs",
+      ".is_some_and(|object| self.anonymous_global_receiver(object, cache))",
+      ".is_some_and(|_object| false)",
+      "anon_owner::node_tests::eval_tests::computed_eval_unknown_name_loses_exact"
+    ],
+    "ANON-ENABLE-44-subset-proof-build-off": [
+      "src/call_graph.rs",
+      "            js_anonymous: crate::js_anonymous::ProofIndex::build(files),\n            js_ts_return_facts,\n            // P5: whole-program Go func-value state \u2014 left empty here, exactly",
+      "            js_anonymous: crate::js_anonymous::ProofIndex::default(),\n            js_ts_return_facts,\n            // P5: whole-program Go func-value state \u2014 left empty here, exactly",
+      "anon_owner::node_tests::enable_tests::anonymous_cold_full_and_partial_cache_hits_are_byte_identical"
+    ],
+    "ANON-ENABLE-45-program-host-var-shadowed": [
+      "src/ast/js_anonymous.rs",
+      "if scope.kind() != \"program\" {\n            return true;\n        }",
+      "if true {\n            return true;\n        }",
+      "anon_owner::node_tests::eval_tests::computed_host_program_var_and_ambient_declarations_are_not_shadows"
+    ],
+    "ANON-ENABLE-47-pattern-keys-not-inspected": [
+      "src/ast/js_anonymous.rs",
+      "result.eval |= k == \"pair_pattern\"",
+      "result.eval |= false && k == \"pair_pattern\"",
+      [
+        "anon_owner::node_tests::eval_tests::computed_pattern_proven_eval_loses_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_unknown_host_loses_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_assignment_loses_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_nested_loses_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_parameters_and_loop_heads_lose_exact"
+      ]
+    ],
+    "ANON-ENABLE-46-ambient-host-shadowed": [
+      "src/ast/js_anonymous.rs",
+      "if node.kind() == \"ambient_declaration\" {",
+      "if false && node.kind() == \"ambient_declaration\" {",
+      "anon_owner::node_tests::eval_tests::computed_host_program_var_and_ambient_declarations_are_not_shadows"
+    ],
+    "ANON-ENABLE-47-pattern-comment-skip-off": [
+      "src/ast/js_anonymous.rs",
+      ".and_then(anonymous_first_expression)",
+      ".and_then(|key| key.named_child(0))",
+      [
+        "anon_owner::node_tests::eval_tests::computed_pattern_comments_proven_eval_lose_exact",
+        "anon_owner::node_tests::eval_tests::computed_pattern_comments_safe_keys_keep_exact"
+      ]
+    ],
+    "ANON-ENABLE-48-receiver-value-peel-off": [
+      "src/ast/js_anonymous.rs",
+      "\"await_expression\" => anonymous_first_expression(node),\n                \"assignment_expression\" => node.child_by_field_name(\"right\"),",
+      "\"await_expression\" | \"assignment_expression\" => None,",
+      "anon_owner::node_tests::eval_tests::computed_await_assignment_host_receivers_lose_exact"
+    ],
+    "ANON-S4A-01-membership-bypass": [
+      "src/ast/call_membership.rs",
+      "!*self.listed.get_or_init(|| {\n                file.all_functions().iter().any(|candidate| {\n                    candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)\n                })\n            })",
+      "false",
+      "ast::call_membership_tests::identity_matches_main_complete_sites_and_edges"
+    ],
+    "ANON-S4A-02-fallback-loss": [
+      "src/ast/call_membership.rs",
+      "file.all_functions().iter().any(|candidate| {\n                    candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)\n                })",
+      "file.functions().iter().filter_map(|info| file.reconstruct_function_node(info)).any(|candidate| {\n                    candidate.kind() == owner.kind() && byte_range_eq(&candidate, owner)\n                })",
+      "ast::call_membership_tests::identity_matches_main_complete_sites_and_edges"
+    ],
+    "ANON-S4A-03-reuse-off": [
+      "src/ast/call_membership.rs",
+      "!*self.listed.get_or_init(|| {",
+      "!*OnceCell::new().get_or_init(|| {",
+      [
+        "ast::call_membership_tests::cost_names",
+        "ast::call_membership_tests::cost_qualifiers",
+        "ast::call_membership_tests::cost_spans",
+        "ast::call_membership_tests::cost_qualifiers_and_spans"
+      ]
+    ],
+    "ANON-S4A-04-kind-off": [
+      "src/ast/call_membership.rs",
+      "candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)",
+      "byte_range_eq(candidate, owner)",
+      "ast::call_membership_tests::foreign_kind_and_same_span_ancestors"
+    ],
+    "ANON-S4A-05-range-off": [
+      "src/ast/call_membership.rs",
+      "candidate.kind() == owner.kind() && byte_range_eq(candidate, owner)",
+      "candidate.kind() == owner.kind()",
+      "ast::call_membership_tests::foreign_owner_of_a_listed_kind_needs_its_own_byte_range"
+    ],
+    "ANON-S4B-01-identity-key": [
+      "src/anon_owner/source_index.rs",
+      ".get(&(id.name.clone(), id.start_line, id.end_line))",
+      ".get(&(id.name.clone(), id.start_line, id.start_line))",
+      "anon_owner::source_index::tests::exact_identity_aliases_missing_generators_and_nested_callbacks"
+    ],
+    "ANON-S4B-02-duplicate-overwrite": [
+      "src/anon_owner/source_index.rs",
+      ".or_insert((node.start_byte(), node.end_byte()));",
+      ".and_modify(|span| *span = (node.start_byte(), node.end_byte())).or_insert((node.start_byte(), node.end_byte()));",
+      "anon_owner::source_index::tests::duplicate_identity_retains_first_candidate_and_named_lookup_stays_legacy"
+    ],
+    "ANON-S4B-03-missing-fallback": [
+      "src/anon_owner/source_index.rs",
+      "self.anonymous_spans()\n            .get(&(id.name.clone(), id.start_line, id.end_line))\n            .copied()",
+      "self.anonymous_spans()\n            .get(&(id.name.clone(), id.start_line, id.end_line))\n            .or_else(|| self.anonymous_spans().values().next())\n            .copied()",
+      "anon_owner::source_index::tests::exact_identity_aliases_missing_generators_and_nested_callbacks"
+    ],
+    "ANON-S4B-04-stale-index": [
+      "src/anon_owner/source_index.rs",
+      ".entry(file.as_str())",
+      ".entry(\"\")",
+      "cpg::build::anon_prep_tests::source_index_tests::step1_enumerates_once_per_file_with_exact_bytes_and_missing_ids"
+    ]
+  },
+  "lib_test_prefixes": [
+    "call_graph::anon_prep_tests::",
+    "cpg::build::anon_prep_tests::",
+    "anon_owner::node_tests::",
+    "ast::call_membership_tests::",
+    "anon_owner::source_index::tests::"
+  ],
+  "extra": {
+    "ANON-BARRIER-16-B0-off": [
+      [
+        "src/ast/js_anonymous.rs",
+        "pub(crate) fn anonymous_evaluation_supported(&self, site: Node<'_>) -> bool {",
+        "pub(crate) fn anonymous_evaluation_supported(&self, site: Node<'_>) -> bool { return true;"
+      ]
+    ],
+    "ANON-BARRIER-22-B0-evaluation-chain-off": [
+      [
+        "src/ast/js_anonymous.rs",
+        "Some(Pos::Inside) if node.kind() == \"class_static_block\" => return false,",
+        "Some(Pos::Inside) if false => return false,"
+      ]
+    ]
+  },
+  "intent_revisions": {
+    "ANON-PREP-04-builder-helper-divergence": "S2a-enable retires emission-off expectation; mutant now suppresses emitted owners in this builder.",
+    "ANON-PREP-10-full-phase2": "S2a-enable retires emission-off expectation; mutant now suppresses emitted owners in this builder.",
+    "ANON-PREP-11-subset-phase2": "S2a-enable retires emission-off expectation; mutant now suppresses emitted owners in this builder.",
+    "ANON-PREP-09-generator-candidate-off": "Generators enter eager query inventory; disabling that query must lose generator DFG enumeration.",
+    "ANON-PREP-06-bytes-by-name": "S4b moves the CPG Step-1 lookup to the borrowed index; mutate that exercised path to eager name-only bytes.",
+    "ANON-ENABLE-36-bytes-by-name": "S4b Step 1 now uses SourceIndex; preserve the original CPG byte-identity obligation by mutating the exercised indexed lookup instead of the unused legacy anonymous helper."
+  }
+}

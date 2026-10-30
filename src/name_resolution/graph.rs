@@ -111,11 +111,21 @@ pub struct ScopeGraph {
     pub crate_deps_by_root:
         std::collections::BTreeMap<ScopeId, std::collections::BTreeMap<String, ScopeId>>,
     pub scopes: std::collections::BTreeMap<ScopeId, Scope>,
+    /// After in-place scope/name/ns/target edits, removal or reordering, call
+    /// invalidate_lookup_indexes before lookup. Use add_binding to
+    /// invalidate the lazy index; direct appends are detected by its length
+    /// guard and use the original scan. Policy fields are read by callers.
     pub bindings: Vec<Binding>,
     /// Rust local-binding facts keyed by `(file, def_byte)`.
     #[serde(default)]
     pub local_facts: BTreeMap<(FileId, usize), LocalFact>,
+    /// After in-place `from` edits, removal or reordering, call
+    /// invalidate_lookup_indexes before lookup. add_edge invalidates the lazy index;
+    /// direct appends select its length-guarded scan fallback.
     pub edges: Vec<Edge>,
+    /// After in-place scope/ns edits, removal or reordering, call
+    /// invalidate_lookup_indexes before lookup. add_macro_wildcard invalidates the lazy
+    /// index; direct appends select its length-guarded scan fallback.
     pub macro_wildcards: Vec<MacroWildcard>,
     /// Deferred-glob expansion telemetry for resolution walked over **this**
     /// graph (spec §3.5). Scoped here rather than in a process-global so a
@@ -125,6 +135,10 @@ pub struct ScopeGraph {
     /// [`GraphGlobStats`](crate::name_resolution::glob_stats::GraphGlobStats).
     #[serde(skip)]
     pub glob_stats: crate::name_resolution::glob_stats::GraphGlobStats,
+    /// Derived lookup arrays, excluded from serialization and graph identity.
+    /// After changing file_paths, call invalidate_lookup_indexes before lookup.
+    #[serde(skip)]
+    pub binding_index: crate::name_resolution::binding_index::GraphBindingIndex,
 }
 
 impl ScopeGraph {
@@ -145,16 +159,19 @@ impl ScopeGraph {
 
     /// Append a binding (its index becomes its scope-relative ordinal source).
     pub fn add_binding(&mut self, b: Binding) {
+        self.binding_index.invalidate();
         self.bindings.push(b);
     }
 
     /// Append an edge.
     pub fn add_edge(&mut self, e: Edge) {
+        self.binding_index.invalidate_edges();
         self.edges.push(e);
     }
 
     /// Append an unexpanded-macro wildcard marker.
     pub fn add_macro_wildcard(&mut self, m: MacroWildcard) {
+        self.binding_index.invalidate_wildcards();
         self.macro_wildcards.push(m);
     }
 

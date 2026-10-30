@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "--manifest-path",
+    "/Users/wesleyjinks/code/prism-mutation-gate/target/mutgate/tree/Cargo.toml",
+    "--all-features"
+  ],
+  "exit": 101,
+  "wall_seconds": 55.53,
+  "monitor_wall_seconds": 56.02,
+  "peak_rusage_rss_bytes": 2202238976,
+  "peak_target_disk_bytes": 4572147712,
+  "samples": 106,
+  "sample_interval_seconds": 0.5,
+  "measurement": "macOS getrusage(RUSAGE_CHILDREN) maximum RSS in bytes, including nested waited children (not aggregate concurrent RSS); sampled du -sk target blocks (APFS shared extents can be counted repeatedly)",
+  "measurement_errors": []
+}

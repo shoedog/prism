@@ -233,11 +233,17 @@ fn classify_recovery_typepath(cg: &CallGraph, site: &CallSite) -> &'static str {
 
 /// Deterministic JSONL-ready custody records for every raw call-graph site.
 pub fn call_site_dump(cg: &CallGraph) -> Vec<serde_json::Value> {
+    call_site_dump_iter(cg).collect()
+}
+
+/// Build one custody record at a time, keeping large CLI dumps bounded.
+pub fn call_site_dump_iter(cg: &CallGraph) -> impl Iterator<Item = serde_json::Value> + '_ {
     use crate::resolution::ResolutionConfidence;
 
-    let mut records = Vec::new();
-    for sites in cg.calls.values() {
-        for site in sites {
+    cg.calls
+        .values()
+        .flat_map(|sites| sites.iter())
+        .map(move |site| {
             let outcome = cg.resolve_call_site_full(site);
             let resolved_targets: Vec<_> = outcome
                 .resolved
@@ -253,7 +259,7 @@ pub fn call_site_dump(cg: &CallGraph) -> Vec<serde_json::Value> {
                     })
                 })
                 .collect();
-            records.push(serde_json::json!({
+            serde_json::json!({
                 "record_kind": "call_site",
                 "caller": site.caller,
                 "source_span": {
@@ -269,31 +275,29 @@ pub fn call_site_dump(cg: &CallGraph) -> Vec<serde_json::Value> {
                 "exact_target": site.pre_resolved_target,
                 "resolved_targets": resolved_targets,
                 "drop": outcome.drop.map(|drop| format!("{drop:?}")),
-            }));
-        }
-    }
-    records.extend(cg.go_level3_b1_telemetry.sites.iter().map(|site| {
-        serde_json::json!({
-            "record_kind": "go_level3_b1_candidate",
-            "inbound_caller": site.inbound_caller,
-            "inbound_span": {
-                "file": site.inbound_caller.file,
-                "line": site.inbound_line,
-                "start_byte": site.inbound_start_byte,
-                "end_byte": site.inbound_end_byte,
-            },
-            "hof_name": site.hof_name,
-            "slot": site.slot,
-            "argument": site.argument,
-            "hof": site.hof,
-            "exact_target": site.target,
-            "callback_parameter": site.callback_parameter,
-            "invocation_spans": site.invocation_spans,
-            "decision": if site.accepted { "accepted" } else { "dropped" },
-            "drop_reason": site.drop_reason,
+            })
         })
-    }));
-    records
+        .chain(cg.go_level3_b1_telemetry.sites.iter().map(|site| {
+            serde_json::json!({
+                "record_kind": "go_level3_b1_candidate",
+                "inbound_caller": site.inbound_caller,
+                "inbound_span": {
+                    "file": site.inbound_caller.file,
+                    "line": site.inbound_line,
+                    "start_byte": site.inbound_start_byte,
+                    "end_byte": site.inbound_end_byte,
+                },
+                "hof_name": site.hof_name,
+                "slot": site.slot,
+                "argument": site.argument,
+                "hof": site.hof,
+                "exact_target": site.target,
+                "callback_parameter": site.callback_parameter,
+                "invocation_spans": site.invocation_spans,
+                "decision": if site.accepted { "accepted" } else { "dropped" },
+                "drop_reason": site.drop_reason,
+            })
+        }))
 }
 
 pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
@@ -378,9 +382,52 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     // this. Keyed by `site.receiver_recovery` (Debug-formatted; "none" when
     // absent) so Go misses stop landing unattributed.
     let mut dropped_go_receiver: BTreeMap<String, usize> = BTreeMap::new();
+    let mut wrapped_non_jsx = 0usize;
+    let mut jsx_intrinsic = 0usize;
+    let mut local_binding_unproven = 0usize;
+    // S1b-3b (SPEC §5): bindings kept at base behavior, by reason, observable regardless of
+    // the resolution outcome a site lands on (a `MayCall`/`Position` site can still drop for
+    // an unrelated reason downstream, for example `UnknownName`).
+    let mut local_binding_unchecked_position: BTreeMap<String, usize> = BTreeMap::new();
+    let mut local_binding_may_call: BTreeMap<String, usize> = BTreeMap::new();
+    // Slice L: followed `const` aliases by terminal kind and outcome (`proven`: the alias route
+    // bound exactly one Exact target; `kept_main`: it did not, and the site's records are
+    // those of an unfollowed alias, i.e. main's).
+    let mut js_alias_follow: BTreeMap<String, usize> = BTreeMap::new();
     for sites in cg.calls.values() {
         for site in sites {
             total += 1;
+            match &site.local_binding {
+                crate::call_graph::JsLocalBinding::Position(r) => {
+                    *local_binding_unchecked_position
+                        .entry(r.clone())
+                        .or_default() += 1
+                }
+                crate::call_graph::JsLocalBinding::MayCall(r) => {
+                    *local_binding_may_call.entry(r.clone()).or_default() += 1
+                }
+                followed if followed.is_followed() => {
+                    let hit = cg.js_ts_alias_route_hit(site);
+                    let kind = match followed {
+                        crate::call_graph::JsLocalBinding::AliasCallable(_) => "callable",
+                        crate::call_graph::JsLocalBinding::AliasImport { .. } => "import",
+                        crate::call_graph::JsLocalBinding::Returned { kept, .. } => {
+                            // Slice V: a returned-value site the fact does not prove still
+                            // counts under the base reason it always did.
+                            if !hit {
+                                *local_binding_may_call.entry(kept.clone()).or_default() += 1;
+                            }
+                            "returned"
+                        }
+                        _ => "namespace_member",
+                    };
+                    let outcome = if hit { "proven" } else { "kept_main" };
+                    *js_alias_follow
+                        .entry(format!("{kind}_{outcome}"))
+                        .or_default() += 1
+                }
+                _ => {}
+            }
             let out = cg.resolve_call_site_full(site);
             match out.drop {
                 Some(DropReason::MultiOwnerCollision) => multi += 1,
@@ -389,6 +436,9 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::UnknownName) => unknown += 1,
                 Some(DropReason::FuncValueFanout) => func_value_fanout += 1,
                 Some(DropReason::GoSamePkgAllFiltered) => go_same_pkg_all_filtered_drop += 1,
+                Some(DropReason::WrappedExportNonJsx) => wrapped_non_jsx += 1,
+                Some(DropReason::JsxIntrinsic) => jsx_intrinsic += 1,
+                Some(DropReason::LocalBindingUnproven) => local_binding_unproven += 1,
                 Some(
                     DropReason::ConcreteReceiverPromotedDeferred
                     | DropReason::ConcreteReceiverNoSelector,
@@ -556,6 +606,17 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "member_hidden_continue_poison": ge.member_hidden_continue_poison,
     });
 
+    let mut decl_reasons: BTreeMap<String, usize> = BTreeMap::new();
+    let (mut local_refusals, mut local_may_call) = (BTreeMap::<String, usize>::new(), 0);
+    for facts in cg.js_ts_exports.values() {
+        for (reason, n) in &facts.skipped_decl_reasons {
+            *decl_reasons.entry(reason.clone()).or_default() += n;
+        }
+        for (reason, n) in &facts.local_export_refusals {
+            *local_refusals.entry(reason.clone()).or_default() += n;
+        }
+        local_may_call += facts.local_export_may_call;
+    }
     let mut stats = serde_json::json!({
         "total_call_sites": total,
         "kinds": kinds,
@@ -629,6 +690,23 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         // structural skip elsewhere, not counted here; spread-poisoned
         // literals, non-arrow/function-expr initializers, and arbitrary
         // default-export/CJS-assignment RHS all count here).
+        // S1: span-verified wrapped React exports and declarator skip reasons (a
+        // subset of `js_export_skipped_exprs`).
+        "js_export_spanned_admitted": cg
+            .js_ts_exports
+            .values()
+            .map(|f| f.spanned_admitted)
+            .sum::<usize>(),
+        "js_export_skipped_decl_reasons": decl_reasons,
+        "js_export_local_refusals": local_refusals,
+        "js_export_local_may_call": local_may_call,
+        "dropped_wrapped_export_non_jsx": wrapped_non_jsx,
+        // S1b: intrinsic JSX tags and unproven JS/TS lexical bindings.
+        "dropped_jsx_intrinsic": jsx_intrinsic,
+        "dropped_local_binding_unproven": local_binding_unproven,
+        "local_binding_unchecked_position": local_binding_unchecked_position,
+        "local_binding_may_call": local_binding_may_call,
+        "js_alias_follow": js_alias_follow,
         "js_export_skipped_exprs": cg
             .js_ts_exports
             .values()
@@ -1847,7 +1925,7 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
         };
     }
     let mut items = Vec::new();
-    for idx in s.index.cpg.nodes_at(file, line) {
+    for idx in nav_visible_nodes_at(s, file, line) {
         match s.index.cpg.node(idx) {
             CpgNode::Function {
                 name,
@@ -1952,6 +2030,31 @@ pub fn nodes_at(s: &NavigationSession, file: &str, line: usize) -> Evidence {
     }
 }
 
+/// Whether a CPG node is an anonymous-callable identity: the callable's own
+/// Function node, or a Variable / ReturnValue row it owns (`<anon@L:C>`).
+fn is_anonymous_identity_node(s: &NavigationSession, idx: NodeIndex) -> bool {
+    match s.index.cpg.node(idx) {
+        CpgNode::Function { name, .. } => crate::anon_owner::is_anonymous_owner_name(name),
+        CpgNode::Variable { function, .. } | CpgNode::ReturnValue { function, .. } => {
+            crate::anon_owner::is_anonymous_owner_name(function)
+        }
+        CpgNode::Statement { .. } => false,
+    }
+}
+
+/// js-param-defs PR-B: DFG rows of anonymous JS/TS callables carry a synthetic
+/// `<anon@L:C>` owner. Navigation stays byte-identical by default, so those
+/// nodes (and, once they exist, the anonymous Function nodes themselves) are
+/// never navigation evidence or ego seeds (SPEC-prB D7).
+fn nav_visible_nodes_at(s: &NavigationSession, file: &str, line: usize) -> Vec<NodeIndex> {
+    s.index
+        .cpg
+        .nodes_at(file, line)
+        .into_iter()
+        .filter(|&idx| !is_anonymous_identity_node(s, idx))
+        .collect()
+}
+
 fn fid_of(sym: &SymbolRef) -> FunctionId {
     match sym {
         // `..` — SymbolRef::Function also has `ordinal` (R2-B1).
@@ -2043,30 +2146,22 @@ pub fn callers_with_confidence(
                 }
                 let caller = &edge.caller;
                 let (start_byte, end_byte) = function_bytes(s, caller);
+                let (symbol, location) =
+                    super::module_owner::caller_evidence(caller, edge, (start_byte, end_byte));
                 // One item PER CALL SITE (m7 symmetry with callees); `visited` only gates BFS recursion.
                 items.push(SortableEvidenceItem {
                     item: EvidenceItem {
-                        symbol: Some(SymbolRef::Function {
-                            file: caller.file.clone(),
-                            name: caller.name.clone(),
-                            start_line: caller.start_line,
-                            end_line: caller.end_line,
-                            start_byte,
-                            end_byte,
-                            ordinal: 0,
-                        }),
-                        location: Location {
-                            file: caller.file.clone(),
-                            start_line: caller.start_line,
-                            end_line: caller.end_line,
-                            start_byte,
-                            end_byte,
-                        },
+                        symbol: Some(symbol),
+                        location,
                         score: confidence_score(edge.confidence) / (1.0 + hop as f32),
                         source: Source::PrismCpg,
                         fallback: false,
                         why: vec![Reason::CalledBy {
-                            caller: caller.name.clone(),
+                            caller: if crate::anon_owner::is_module_owner_name(&caller.name) {
+                                "module-level".into()
+                            } else {
+                                caller.name.clone()
+                            },
                             call_site_line: edge.call_site_line,
                         }]
                         .into_iter()
@@ -2292,15 +2387,14 @@ fn node_symbol_loc(s: &NavigationSession, ni: NodeIndex) -> (SymbolRef, Location
             start_byte,
             end_byte,
         } => (
-            SymbolRef::Function {
-                file: file.clone(),
-                name: name.clone(),
-                start_line: *start_line,
-                end_line: *end_line,
-                start_byte: *start_byte,
-                end_byte: *end_byte,
-                ordinal: 0,
-            },
+            super::module_owner::function_symbol(
+                file,
+                name,
+                *start_line,
+                *end_line,
+                *start_byte,
+                *end_byte,
+            ),
             Location {
                 file: file.clone(),
                 start_line: *start_line,
@@ -2409,7 +2503,7 @@ fn resolve_ego_seed(
 ) -> Result<EgoSeed, QueryError> {
     if let Some(loc) = location {
         let (f, line) = parse_location(loc)?;
-        let mut nodes = s.index.cpg.nodes_at(&f, line);
+        let mut nodes = nav_visible_nodes_at(s, &f, line);
         nodes.sort_by_key(|i| i.index());
         nodes.dedup();
         if nodes.is_empty() {
@@ -2487,6 +2581,15 @@ pub fn ego_graph(
                 } else {
                     er.source()
                 };
+                // Contains hops (and any other edge) must not surface a synthetic
+                // Variable / ReturnValue owned by an anonymous callable.
+                if matches!(
+                    s.index.cpg.node(other),
+                    CpgNode::Variable { .. } | CpgNode::ReturnValue { .. }
+                ) && is_anonymous_identity_node(s, other)
+                {
+                    continue;
+                }
                 let (from, _) = intern(s, ni, &mut order, &mut nodes);
                 let (to, is_new) = intern(s, other, &mut order, &mut nodes);
                 let (a, b) = if dir == Direction::Outgoing {
@@ -2571,5 +2674,43 @@ fn item_fn(
         fallback: false,
         why: vec![],
         snippet: None,
+    }
+}
+
+#[cfg(test)]
+mod call_site_dump_stream_tests {
+    use super::*;
+    use crate::ast::ParsedFile;
+    use crate::languages::Language;
+
+    #[test]
+    fn empty_and_partial_stream_keep_source_then_callback_custody_order() {
+        let empty = CallGraph::build(&BTreeMap::new());
+        assert_eq!(call_site_dump_iter(&empty).next(), None);
+        let parsed = ParsedFile::parse(
+            "callbacks.go",
+            "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc accepted() { invoke(safe) }\nfunc dropped() { safe := func() {}; invoke(safe) }\n",
+            Language::Go,
+        ).unwrap();
+        let cg = CallGraph::build(&BTreeMap::from([("callbacks.go".into(), parsed)]));
+        let mut rows = call_site_dump_iter(&cg);
+        let first = rows.next().unwrap();
+        assert_eq!(first["record_kind"], "call_site");
+        assert_eq!(first["caller"]["name"], "accepted");
+        let remaining: Vec<_> = rows.collect();
+        let candidates: Vec<_> = remaining
+            .iter()
+            .filter(|r| r["record_kind"] == "go_level3_b1_candidate")
+            .collect();
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(
+            remaining.last().unwrap()["record_kind"],
+            "go_level3_b1_candidate"
+        );
+        assert!(candidates.iter().any(|r| r["decision"] == "accepted"));
+        assert!(candidates.iter().any(|r| r["decision"] == "dropped"));
+        let collected = call_site_dump(&cg);
+        assert_eq!(collected[0], first);
+        assert_eq!(collected[1..], remaining);
     }
 }

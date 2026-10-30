@@ -1,0 +1,155 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.00s
+     Running unittests src/lib.rs (target/debug/deps/prism-4b417becfe78b2c6)
+
+running 3 tests
+CONTAINED_RAW JavaScript/assignment-function/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/assignment-function/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/assignment-function/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+test ast::contained_rvalue_tests::contained_rvalue_whole_file_root_keeps_accepted_capture_behavior ... ok
+CONTAINED_RAW JavaScript/assignment-arrow/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/assignment-arrow/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/assignment-arrow/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+test ast::contained_rvalue_tests::contained_rvalue_non_js_immediate_reads_are_unchanged ... ok
+CONTAINED_RAW JavaScript/assignment-sibling/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/assignment-sibling/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/assignment-sibling/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW JavaScript/call-function/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/call-function/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/call-function/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW JavaScript/call-arrow/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/call-arrow/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/call-arrow/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW JavaScript/call-multiline/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/call-multiline/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/call-multiline/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW JavaScript/return-function/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/return-function/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/return-function/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW JavaScript/return-arrow/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/return-arrow/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW JavaScript/return-arrow/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW TypeScript/assignment-function/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/assignment-function/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/assignment-function/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW TypeScript/assignment-arrow/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/assignment-arrow/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/assignment-arrow/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW TypeScript/assignment-sibling/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/assignment-sibling/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/assignment-sibling/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW TypeScript/call-function/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/call-function/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/call-function/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW TypeScript/call-arrow/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/call-arrow/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/call-arrow/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW TypeScript/call-multiline/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/call-multiline/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/call-multiline/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW TypeScript/return-function/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/return-function/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/return-function/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW TypeScript/return-arrow/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/return-arrow/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW TypeScript/return-arrow/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW Tsx/assignment-function/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/assignment-function/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/assignment-function/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW Tsx/assignment-arrow/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/assignment-arrow/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/assignment-arrow/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW Tsx/assignment-sibling/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/assignment-sibling/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/assignment-sibling/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW Tsx/call-function/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/call-function/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/call-function/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW Tsx/call-arrow/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/call-arrow/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/call-arrow/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW Tsx/call-multiline/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/call-multiline/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/call-multiline/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW Tsx/return-function/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/return-function/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/return-function/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+CONTAINED_RAW Tsx/return-arrow/names {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/return-arrow/paths {"arg", "delta", "rhs", "sink"}
+CONTAINED_RAW Tsx/return-arrow/spans {"arg", "delta", "local", "returned", "rhs", "sink"}
+test ast::contained_rvalue_tests::contained_rvalue_query_capture_boundaries ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 1135 filtered out; finished in 0.19s
+
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.97s
+     Running unittests src/lib.rs (target/debug/deps/prism-4b417becfe78b2c6)
+
+running 46 tests
+test rust_macro_args::tests::last_segment_strips_leading_path ... ok
+test rust_macro_args::tests::allowlist_matches_on_last_segment ... ok
+test rust_macro_args::tests::find_token_tree_child_locates_the_args_token_tree ... ok
+test rust_macro_args::tests::keyword_guard_skips_move_as_callee ... ok
+test rust_macro_args::tests::nontransparent_undefined_macro_is_skipped_and_counted ... ok
+test rust_macro_args::tests::keyword_guard_skips_dyn_as_callee ... ok
+test rust_macro_args::tests::matches_macro_is_fully_skipped ... ok
+test rust_macro_args::tests::method_call_with_identifier_receiver_derives_qualifier ... ok
+test rust_macro_args::tests::chained_receiver_method_call_mints_with_no_qualifier ... ok
+test rust_macro_args::tests::qualified_by_arbitrary_path_is_not_transparent ... ok
+test rust_macro_args::tests::punctuation_run_range_does_not_trigger_method_call ... ok
+test rust_macro_args::tests::non_allowlisted_nested_macro_is_not_walked_but_outer_method_still_mints ... ok
+test rust_macro_args::tests::outer_attribute_token_tree_is_not_scanned ... ok
+test rust_macro_args::tests::free_call_is_minted ... ok
+test rust_macro_args::tests::inner_attribute_token_tree_is_not_scanned ... ok
+test rust_macro_args::tests::punctuation_run_range_inclusive_does_not_trigger_method_call ... ok
+test rust_macro_args::tests::nested_transparent_macro_recurses_and_mints_inner_call ... ok
+test rust_macro_args::tests::method_call_after_paren_group_mints_both_unknown_receiver ... ok
+test rust_macro_args::tests::qualified_by_std_core_alloc_is_still_transparent ... ok
+test rust_macro_args::tests::lowercase_final_segment_qualified_ctor_style_call_still_mints ... ok
+test rust_macro_args::tests::minted_sites_carry_call_kind_and_macro_arg_origin ... ok
+test rust_macro_args::tests::punctuation_run_ne_does_not_trigger_nested_macro ... ok
+test rust_macro_args::tests::method_call_on_call_result_still_has_no_qualifier ... ok
+test rust_macro_args::tests::qualified_my_assert_mints_nothing ... ok
+test rust_macro_args::tests::qualified_std_assert_still_mints ... ok
+test rust_macro_args::tests::qualified_path_call_is_minted_with_joined_name ... ok
+test rust_macro_args::tests::simple_receiver_method_call_still_derives_qualifier ... ok
+test rust_macro_args::tests::simple_receiver_preceded_by_non_dot_token_still_derives_qualifier ... ok
+test rust_macro_args::tests::splitter_keeps_ne_as_one_atom ... ok
+test rust_macro_args::tests::splitter_handles_bang_alone ... ok
+test rust_macro_args::tests::splitter_keeps_fat_arrow_as_one_atom ... ok
+test rust_macro_args::tests::splitter_handles_dot_alone ... ok
+test rust_macro_args::tests::splitter_keeps_range_as_one_atom ... ok
+test rust_macro_args::tests::splitter_keeps_range_inclusive_as_one_atom ... ok
+test rust_macro_args::tests::splitter_splits_question_dot_into_two_atoms ... ok
+test rust_macro_args::tests::splitter_splits_turbofish_colons_from_angle ... ok
+test rust_macro_args::tests::shadow_set_blocks_transparency_for_shadowed_name ... ok
+test rust_macro_args::tests::shadow_set_does_not_block_unrelated_names ... ok
+test rust_macro_args::tests::stringify_never_mints_the_call_inside_it ... ok
+test rust_macro_args::tests::struct_literal_lookalike_is_not_a_call ... ok
+test rust_macro_args::tests::turbofish_call_is_deliberately_not_minted ... ok
+test rust_macro_args::tests::user_defined_vec_macro_in_another_file_mints_nothing ... ok
+test rust_macro_args::tests::uppercase_constructor_is_skipped_and_counted ... ok
+test rust_macro_args::tests::collect_macro_shadow_set_finds_macro_rules_across_files ... ok
+test rust_macro_args::tests::uppercase_constructor_inside_call_args_does_not_block_finding_nested_calls ... ok
+test rust_macro_args::tests::vec_macro_mints_two_free_calls ... ok
+
+test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 1092 filtered out; finished in 0.18s
+
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.96s
+     Running unittests src/lib.rs (target/debug/deps/prism-4b417becfe78b2c6)
+
+running 1 test
+test cpg::build::nested_execution_owner_audit_tests::nested_execution_owner_capture_and_refusal_controls ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1137 filtered out; finished in 0.20s
+
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.69s
+     Running tests/infra/main.rs (target/debug/deps/infra-859f419bea803895)
+
+running 1 test
+test parallel_equality_test::cpg_build_parallel_matches_serial_reference_in_order ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 47.24s
+

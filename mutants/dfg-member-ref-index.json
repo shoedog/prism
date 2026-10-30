@@ -1,0 +1,110 @@
+{
+  "lane": "DFG member-reference candidate index identity and bounded normalization",
+  "lib_test_prefixes": [
+    "ast::member_reference_index::"
+  ],
+  "mutations": {
+    "MRI-renormalize-every-search": [
+      "src/ast/member_reference_index.rs",
+      "self.index\n            .get_or_init(|| Index::build(self.parsed))",
+      "{ let _rebuilt = Index::build(self.parsed); &self.index }\n            .get_or_init(|| Index::build(self.parsed))",
+      [
+        "ast::member_reference_index::tests::member_index_cost_is_per_file_not_per_search",
+        "ast::member_reference_index::tests::member_index_mixed_query_cost"
+      ]
+    ],
+    "MRI-cutoff-removed": [
+      "src/ast/member_reference_index.rs",
+      "|| line <= def_line",
+      "|| false && line <= def_line",
+      "ast::member_reference_index::tests::member_index_differential_edges_and_non_js"
+    ],
+    "MRI-parent-suppression-removed": [
+      "src/ast/member_reference_index.rs",
+      "c.preorder < suppressed_until",
+      "false && c.preorder < suppressed_until",
+      "ast::member_reference_index::tests::member_index_suppresses_matching_parent_before_gates"
+    ],
+    "MRI-normalizer-removed": [
+      "src/ast/member_reference_index.rs",
+      ".bounded_member_path(node)",
+      ".bounded_member_path(node).filter(|_| false)",
+      "ast::member_reference_index::tests::member_index_differential_edges_and_non_js"
+    ],
+    "MRI-fallback-removed": [
+      "src/ast/member_reference_index.rs",
+      "AccessPath::from_expr(parsed.node_text(&node))",
+      "AccessPath::simple(parsed.node_text(&node))",
+      "ast::member_reference_index::tests::member_index_differential_edges_and_non_js"
+    ],
+    "MRI-binding-gate-removed": [
+      "src/ast/member_reference_index.rs",
+      "&& !crate::profile::gates::fence::<COUNT>(\n                        parsed, &node, owner, &path.base, def_byte,\n                    )",
+      "&& true",
+      "ast::member_reference_index::tests::member_index_differential_edges_and_non_js"
+    ],
+    "MRI-read-gate-removed": [
+      "src/ast/member_reference_index.rs",
+      "if !refused_read",
+      "if true || !refused_read",
+      "ast::member_reference_index::tests::member_index_differential_edges_and_non_js"
+    ],
+    "MRI-first-occurrence-overwritten": [
+      "src/ast/member_reference_index.rs",
+      ".or_insert((node.start_byte(), node.end_byte()));",
+      ".and_modify(|span| *span = (node.start_byte(), node.end_byte())).or_insert((node.start_byte(), node.end_byte()));",
+      "ast::member_reference_index::tests::member_index_differential_edges_and_non_js"
+    ],
+    "MRI-scope-root-ignored": [
+      "src/ast/member_reference_index.rs",
+      ".unwrap_or(*owner);",
+      ".map(|_| *owner).unwrap_or(*owner);",
+      "ast::member_reference_index::tests::member_index_differential_edges_and_non_js"
+    ],
+    "MRI-preorder-reversed": [
+      "src/ast/member_reference_index.rs",
+      ".iter()\n            .take_while",
+      ".iter().rev()\n            .take_while",
+      "ast::member_reference_index::tests::member_index_differential_edges_and_non_js"
+    ],
+    "MRI-scope-start-search-removed": [
+      "src/ast/member_reference_index.rs",
+      "let start = candidates.partition_point(|c| c.node.start_byte() < root.start_byte());",
+      "let start = 0;",
+      "ast::member_reference_index::regressions::member_index_query_bound_and_ambiguous_ranges"
+    ],
+    "MRI-scope-end-stop-removed": [
+      "src/ast/member_reference_index.rs",
+      ".take_while(move |c| c.node.start_byte() <= root.end_byte())",
+      ".take_while(move |_| true)",
+      "ast::member_reference_index::regressions::member_index_query_bound_and_ambiguous_ranges"
+    ],
+    "MRI-constant-containment-removed": [
+      "src/ast/member_reference_index.rs",
+      "if interior || self.exact_descendant(root, c) {",
+      "if self.exact_descendant(root, c) {",
+      "ast::member_reference_index::regressions::member_index_query_bound_and_ambiguous_ranges"
+    ],
+    "MRI-session-per-function": [
+      "src/data_flow/build/file.rs",
+      "        let member_refs = crate::ast::member_reference_index::MemberReferenceSearch::new(parsed);",
+      "",
+      "ast::member_reference_index::deferred_tests::producer_shares_one_member_index_across_functions"
+    ],
+    "MRI-index-preorder-off-by-one": [
+      "src/ast/member_reference_index.rs",
+      "let preorder = next;",
+      "let preorder = next + 1;",
+      "ast::member_reference_index::regressions::member_index_query_bound_and_ambiguous_ranges"
+    ]
+  },
+  "extra": {
+    "MRI-session-per-function": [
+      [
+        "src/data_flow/build/file.rs",
+        "        for func_node in function_nodes {",
+        "        for func_node in function_nodes {\n            let member_refs = crate::ast::member_reference_index::MemberReferenceSearch::new(parsed);"
+      ]
+    ]
+  }
+}

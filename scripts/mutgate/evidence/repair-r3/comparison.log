@@ -1,0 +1,80 @@
+{
+  "bound_files": 761,
+  "hash_mismatches": [],
+  "full_gate_ids": 93,
+  "id_bound_verdict_or_admissibility_differences": 0,
+  "jobs": {
+    "jobs1": {
+      "timings": {
+        "source_baseline_build": 0.1,
+        "source_baseline": 10.57,
+        "text_mode": 460.63,
+        "total": 471.43
+      },
+      "resources": {
+        "workers": 1,
+        "seed_methods": [
+          "apfs-clone"
+        ],
+        "worker_disk_peak_bytes": 2156544000,
+        "disk_measurement": "du -sk; allocated blocks, shared clone extents may be counted repeatedly",
+        "workers_cleaned": true
+      }
+    },
+    "jobs2": {
+      "timings": {
+        "source_baseline_build": 0.12,
+        "source_baseline": 5.52,
+        "text_mode": 271.28,
+        "total": 277.03
+      },
+      "resources": {
+        "workers": 2,
+        "seed_methods": [
+          "apfs-clone",
+          "apfs-clone"
+        ],
+        "worker_disk_peak_bytes": 4310695936,
+        "disk_measurement": "du -sk; allocated blocks, shared clone extents may be counted repeatedly",
+        "workers_cleaned": true
+      }
+    },
+    "jobs4": {
+      "timings": {
+        "source_baseline_build": 0.16,
+        "source_baseline": 3.22,
+        "text_mode": 199.3,
+        "total": 202.83
+      },
+      "resources": {
+        "workers": 4,
+        "seed_methods": [
+          "apfs-clone",
+          "apfs-clone",
+          "apfs-clone",
+          "apfs-clone"
+        ],
+        "worker_disk_peak_bytes": 8628686848,
+        "disk_measurement": "du -sk; allocated blocks, shared clone extents may be counted repeatedly",
+        "workers_cleaned": true
+      }
+    }
+  },
+  "suite_totals": {
+    "result_blocks": 31,
+    "passed": 5145,
+    "failed": 0,
+    "ignored": 1
+  },
+  "scoped_synthetic_changed_lines": {
+    "src/js_paths_boundary.rs": [
+      169
+    ]
+  },
+  "scoped_ids": [
+    "I17-no-project-reference-cut",
+    "I73-declare-prefilter",
+    "R4-08-dropped-import-decline"
+  ],
+  "real_scope_selected": 0
+}

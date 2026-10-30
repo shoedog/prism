@@ -87,10 +87,40 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v44: source-backed imported object-alias receiver authority (CPG v76).
 // v45: contextual imported object-alias receiver authority (CPG v77).
 // v46: JS/TS call-site fingerprints exclude comment trivia from argument counts.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 46;
+// v47: JS/TS module binding / export refusal and comment-safe write barriers.
+// v48: bounded ESM imported-local forwarding with terminal function proof.
+// v49: CommonJS producer export-object mutation barriers.
+// v50: CJS terminal capture proof and non-erasing blocked export claims.
+// v51: rejected CJS name retention and source-self-binding write proof.
+// v52: source-only receiver self names and non-hidden anonymous callback writes.
+// v53: JS/TS/TSX nested-call execution ownership and identity-collision refusal.
+// v54: span-verified wrapped React exports bind JSX sites only (CPG v98).
+// v55: S1b-1 intrinsic JSX tags and shared binding-collector fixes (CPG v99).
+// v56: S1b-1b JS/TS declarator locals are BoundNames (CPG v100).
+// v57: S1b-2b ESM local exports through the module-scope binding (CPG v101).
+// v58: S1b-3a extends the binding core to every scope (CPG v102).
+// v59: S1b-3b wires the binding core to call sites, `CallSite.local_binding` (CPG v103).
+// v60: S1b-4 qualifier proof and positive-only namespace R3 refinement (CPG v104).
+// v61: lane-P P1 tsconfig `paths` import-member resolution (CPG v105).
+// v62: lane-P P2 relative JS export-hop proof (CPG v106).
+// v63: I1 relative-specifier candidates: `.js` -> `.ts`/`.tsx`, bare `.`/`..`,
+//      redundant path segments (CPG v115).
+// v64: slice L follows JS/TS `const` aliases (CPG v116).
+// v65: slice V follows a value another in-repo function returned (CPG v117).
+// v66: lane A2 S2a anonymous call-owner nodes and certified call edges (CPG v120).
+// v67: module call owners, with certified edges and module-level presentation (CPG v121).
+// v68: bare JS/TS property names cannot supply call targets (#443, CPG v122).
+// v69: module-tree Rust Self calls add scope-proven edges (#521, CPG v124).
+// v70: Self allow-list refusals and persisted impl syntax (CPG v125).
+// v71: token and lexical-module header applicability (CPG v126).
+// v72: accessible inherent Self targets, enum variants and duplicate-first proof (CPG v127).
+// v73: declared self-type scope proof (CPG v128).
+// v74: repository-wide non-ASCII Rust identifier refusal (CPG v129).
+// v75: crate-scoped identifier refusal on new Self edges only (CPG v130).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 75;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
-const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
+pub(crate) const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
 
 static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -146,6 +176,7 @@ pub(crate) struct NavigationCallEdgeCacheStore {
     cache_dir: PathBuf,
     fingerprint: NavigationCallEdgeCacheFingerprint,
     cpg_cache_hit: bool,
+    outcome: std::sync::OnceLock<&'static str>,
 }
 
 impl NavigationCallEdgeCacheStore {
@@ -164,7 +195,19 @@ impl NavigationCallEdgeCacheStore {
                 has_type_db,
             ),
             cpg_cache_hit,
+            outcome: std::sync::OnceLock::new(),
         }
+    }
+
+    /// Whether the CPG this store belongs to was an exact cache hit.
+    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
+    pub(crate) fn cpg_cache_hit(&self) -> bool {
+        self.cpg_cache_hit
+    }
+
+    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
+    pub(crate) fn outcome(&self) -> &'static str {
+        self.outcome.get().copied().unwrap_or("not_attempted")
     }
 
     pub(crate) fn load_best_effort(&self) -> Option<NavigationCallEdgeIndex> {
@@ -173,6 +216,7 @@ impl NavigationCallEdgeCacheStore {
         }
         let binary_input_dirty = cpg_cache::binary_input_dirty();
         if binary_input_dirty && !dirty_load_override_enabled() {
+            let _ = self.outcome.set("refused_dirty");
             eprintln!(
                 "nav edge cache: skipping warm sidecar load because prism was built from dirty binary inputs; recomputing resolved call edges"
             );
@@ -184,9 +228,16 @@ impl NavigationCallEdgeCacheStore {
             );
         }
         match load(&self.cache_dir, &self.fingerprint) {
-            Ok(Some(index)) => Some(index),
-            Ok(None) => None,
+            Ok(Some(index)) => {
+                let _ = self.outcome.set("hit");
+                Some(index)
+            }
+            Ok(None) => {
+                let _ = self.outcome.set("miss");
+                None
+            }
             Err(e) => {
+                let _ = self.outcome.set("io_failure");
                 eprintln!(
                     "nav edge cache: failed to load sidecar in {}: {e}; rebuilding",
                     self.cache_dir.display()
@@ -706,7 +757,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 46);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 75);
     }
 
     #[test]
@@ -742,6 +793,42 @@ mod tests {
                 .collect();
             assert_eq!(edges.len(), 1);
             assert_eq!(edges[0].caller.name, "visible");
+        }
+    }
+
+    #[test]
+    fn returned_value_sidecar_round_trip_keeps_one_edge_for_the_function_a_hook_returned() {
+        use crate::{ast::ParsedFile, cpg::CpgContext, languages::Language};
+        let hooks = "export function useThing() {\n  function doIt() {\n    return 1;\n  }\n  \
+                     return { run: doIt };\n}\n";
+        let app = "import { useThing } from './hooks';\nexport function main() {\n  \
+                   const { run } = useThing();\n  return run();\n}\n";
+        let files = BTreeMap::from([
+            (
+                "hooks.ts".to_string(),
+                ParsedFile::parse("hooks.ts", hooks, Language::TypeScript).unwrap(),
+            ),
+            (
+                "app.ts".to_string(),
+                ParsedFile::parse("app.ts", app, Language::TypeScript).unwrap(),
+            ),
+        ]);
+        let nav = crate::navigation::NavigationIndex::from_ctx(CpgContext::build(&files, None));
+        let index = nav.build_resolved_call_edges();
+        let dir = tempfile::tempdir().unwrap();
+        let fingerprint = fixture_fingerprint();
+        save(dir.path(), &fingerprint, &index).unwrap();
+        let loaded = load(dir.path(), &fingerprint).unwrap().unwrap();
+        for index in [&index, &loaded] {
+            let edges: Vec<_> = index
+                .incoming_by_target
+                .iter()
+                .filter(|(target, _)| target.file == "hooks.ts" && target.name == "doIt")
+                .flat_map(|(_, edges)| edges)
+                .collect();
+            assert_eq!(edges.len(), 1, "{edges:?}");
+            assert_eq!(edges[0].caller.name, "main");
+            assert_eq!(edges[0].confidence, ResolutionConfidence::Exact);
         }
     }
 
@@ -863,6 +950,7 @@ mod tests {
             cache_dir: dir.path().to_path_buf(),
             fingerprint,
             cpg_cache_hit: true,
+            outcome: std::sync::OnceLock::new(),
         };
 
         std::env::remove_var(LOAD_DIRTY_OVERRIDE);
@@ -914,7 +1002,7 @@ mod tests {
         let (index, _) = fixture_index();
         for mutate in [
             |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version += 1,
-            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 44,
+            |cache: &mut NavigationCallEdgeCache| cache.nav_call_edge_cache_version = 52,
             |cache: &mut NavigationCallEdgeCache| cache.prism_version = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.grammar_fingerprint = "stale".into(),
             |cache: &mut NavigationCallEdgeCache| cache.skip_policy_version += 1,

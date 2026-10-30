@@ -51,8 +51,12 @@ def prism_mcp_args(repo_root: str, *, no_cache: bool = False,
     `<dir>/prism/nav/<hash>` cache instead of relying on the default OS cache dir.
     no_cache and cache_dir are mutually exclusive (prism-mcp's --no-cache conflicts with
     --cache-dir); no_cache wins when both are given.
+
+    --warm-at-startup pins the at-spawn background build that every Part-C/Part-D/B1.2 baseline
+    ran under (prism-mcp's default became build-on-first-call on 2026-10-09), so later arms stay
+    comparable with those baselines instead of confounding startup mode with the treatment.
     """
-    args = ["--repo", repo_root]
+    args = ["--repo", repo_root, "--warm-at-startup"]
     if no_cache:
         args.append("--no-cache")
     elif cache_dir:

@@ -1,0 +1,20 @@
+.............................usage: mutgate [-h] [--lane LANE] [--only ONLY] [--since SINCE]
+               [--scope {line,fn,file}] [--mode {schema,text}]
+               [--authoritative] [--jobs JOBS] [--timeout TIMEOUT] [--out OUT]
+               [--plan-only]
+mutgate: error: schema verdicts are advisory: use --since REV without --authoritative
+usage: mutgate [-h] [--lane LANE] [--only ONLY] [--since SINCE]
+               [--scope {line,fn,file}] [--mode {schema,text}]
+               [--authoritative] [--jobs JOBS] [--timeout TIMEOUT] [--out OUT]
+               [--plan-only]
+mutgate: error: schema verdicts are advisory: use --since REV without --authoritative
+usage: mutgate [-h] [--lane LANE] [--only ONLY] [--since SINCE]
+               [--scope {line,fn,file}] [--mode {schema,text}]
+               [--authoritative] [--jobs JOBS] [--timeout TIMEOUT] [--out OUT]
+               [--plan-only]
+mutgate: error: --jobs must be positive
+..........................
+----------------------------------------------------------------------
+Ran 55 tests in 10.085s
+
+OK

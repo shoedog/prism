@@ -1,0 +1,23 @@
+> **Current r5 targeted fold: all requested local gates PASS.** HEAD `5aa30552` plus the dirty repair; retained binary `target/repair-r5/head/prism`, SHA-256 `907d110c70962063d5fde23acd22b6d92b62b117d837b97a81f6d65ed263aa03`; source binding `ddd3a9c4d844a180a7b43ebda7db8daef23265ccccd9e37919806b4d9d04fbad`. Cache **105/61**. [Results and every repeat](REPAIR-R5-RESULTS.md), [handoff](REPAIR-R5-HANDOFF.md), [files and proposed commits](REPAIR-R5-FILES.md). Earlier receipts below are historical. Controller Git custody remains open. No repairer Git writes or F access.
+
+> **Historical adopted fix `b28f6e72`: full requested verification PASS.** Production behavior unchanged; no Git writes or F access. Complete totals, gates, driver rebindings and limits: [VERIFY-FABLE-RESULTS.md](VERIFY-FABLE-RESULTS.md). Earlier r4 and lint-stop receipts are historical.
+
+
+
+[MEASURED] Source revision `b28f6e721552c946fab8a41039e7b30552fc7f41`, branch `feat/tsconfig-paths-p1`; production/tests/vendor/build inputs frozen in `target/verify-fable/current/source-binding.json` (747 files), unchanged through release build. Pinned release binary `target/verify-fable/current/head/prism`, SHA-256 **6d88f31a6297445d3dc63ee7c6845eb87ce82d104b0f392c231188d9b1b59da0**; version `slicing 3.1.2 (b28f6e721552-dirty)` (verification drivers/docs only). Same-environment r4 clippy control uses `git archive b5e9ed72`; both commands offline all-targets/all-features with debug=0 and incremental disabled.
+
+[MEASURED] `PRISM_TYPESCRIPT=/Users/wesleyjinks/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js`; SHA-256 **3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675**, freshly checked. Rust/clippy 1.94.0. All suites used the pinned path. Immediate same-worktree release rebuild then matrix-only with the pinned binary: 170 OK, zero regressions/skips. Binding: `target/verify-fable/current/binary-binding.json`. Controller pointer now defaults to this pinned binary; bash -n passed. Full requested non-F verification completed; current receipts and cleanup/custody bindings are under target/verify-fable/current/.
+
+> **Historical r4:** owner-authorized accepted-risk repair and its then-requested local verification. See [REPAIR-R4-RESULTS.md](REPAIR-R4-RESULTS.md). Binary SHA-256 `79b00a7c85938f7aafdae22bbb2321a47e1d67c307fbe5c8814a67a1b05b34f6`; cache **105/61**. Earlier receipts do not certify the adopted performance fix.
+
+> Historical r3 was **PARKED / NOT SHIPPABLE**, on HEAD 247f1627 with local modifications. Current binding: target/repair-r3/current/final-binding.json; immutable executable SHA256 **887fef5c61bcf407bab937dfe920fcfba125de22817f34896f57f952d87ceccc**. Source/doc and lean receipt snapshots are bound in target/repair-r3/current/custody-final.json. Pre-main binding remains target/repair-r3/final-binding-pre-main.json. See [REPAIR-R3-RESULTS.md](REPAIR-R3-RESULTS.md) and [REPAIR-R3-HANDOFF.md](REPAIR-R3-HANDOFF.md). The following r2d binding is historical evidence.
+
+# Historical Lane P P1 r2d build binding
+
+[MEASURED] Original base a66b877f; controller custody HEAD 6965da75eb85f32d3ae0dda9e96704ad432375e6; final source dirty, frozen across1017 build inputs in target/repair-r2d/boundary-final/production-binding.json. Immutable binary target/repair-r2d/head/prism-r2d-boundary, SHA256 **ab4fdc0091c53696dfe38239001c3d689f592fcd3546162030b5ad958fe8222c**, byte-identical to the immediate release rebuild.
+
+Comparison binaries: original base target/repair-r1/base/prism SHA256 d5b3a84ff9b10fcc8fbda4b7050a625bdb10f3ef7b9eb27ffca9ac4e88151aa6; r2c target/repair-r2c/head/prism-r2c-final SHA256 d6b8198266379cce8cf9d2ebf78b856fec2e59e3a4fafec311c6f7a905b6b9c9. The r2c301 production inputs match original a66b877f, not the current WIP (r2c-base-source-parity.json). Offline TS5.9.3 typescript.js SHA256 3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675. Cache105/61 unchanged.
+
+Full suites4897/5090/5113; mutants68/57 all killed; X/R/T3121/0/0. Controls38 certified +1 parked recovered, retained cost5 correct bindings. Cache and S1b411 pass; matrix170; quick baseline-invalid on both with28 identical successful SUT outputs. Serial perf passes1.20 in all three scenarios. Details and exact receipts: MEASUREMENTS.md.
+
+The wrapper points at this binary. Repairer made no Git writes or F access. Controller WIP6965da75 is existing custody, not acceptance. Final delta and lean receipts are locally archived and byte-checked; no external-backup claim. F acceptance, independent review, quiet-host attestation and controller Git custody remain pending.

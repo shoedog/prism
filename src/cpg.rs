@@ -16,17 +16,38 @@
 //! `pub use` re-exports below preserve the original `crate::cpg::*` API surface.
 
 #[cfg(test)]
+pub(crate) mod anon_guard_tests;
+#[cfg(test)]
 mod asserted_member_tests;
 mod build;
+#[cfg(test)]
+mod callback_identity_tests;
 mod cfg_queries;
 mod context;
 #[cfg(test)]
+mod dfg_missing_label_tests;
+#[cfg(test)]
+#[path = "cpg_cache/dfg_observation.rs"]
+pub(crate) mod dfg_observation;
+#[cfg(test)]
 mod exact_parameter_binding_tests;
+#[cfg(test)]
+pub(crate) mod fallback_lifetime_tests;
 mod flow_confidence;
 #[cfg(test)]
 mod inert_default_parameter_tests;
 #[cfg(test)]
+mod js_param_defs_tests;
+#[cfg(test)]
 mod loop_header_def_tests;
+#[cfg(test)]
+mod member_only_param_leftflow_tests;
+#[cfg(test)]
+mod member_only_param_r1_tests;
+#[cfg(test)]
+mod member_only_param_r2_tests;
+#[cfg(test)]
+mod member_only_param_tests;
 #[cfg(test)]
 mod multiline_call_arg_parity_tests;
 #[cfg(test)]
@@ -39,6 +60,8 @@ pub mod query;
 mod reaching;
 #[cfg(test)]
 mod required_parameter_tests;
+#[cfg(test)]
+mod statement_calls_tests;
 #[cfg(test)]
 mod tests;
 mod trace;
@@ -56,7 +79,9 @@ pub use build::{CodePropertyGraph, DfgLabelStats, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
 pub use reaching::RdFileStats;
-pub(crate) use reaching::{reaching_definitions, DefId, DefSite, RdOutcome};
+pub(crate) use reaching::{
+    reaching_definitions_with_exact, DefId, DefSite, FileCfgEdgeIndex, RdOutcome,
+};
 pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
     Relation, ReturnFlowMode, SameLineOrderView, Trace,

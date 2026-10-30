@@ -34,6 +34,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+mod stream;
+
 /// Current cache format version. Bump this when the serialized format changes
 /// (new fields, different node/edge types, etc.) to force a full rebuild.
 ///
@@ -198,7 +200,79 @@ use std::path::{Path, PathBuf};
 /// - v83: JS/TS/TSX argument-list comments do not occupy runtime slots.
 /// - v84: JS/TS/TSX call-site argument counts exclude comment trivia.
 /// - v85: bounded JS/TS/TSX inert-default identifier definitions and flow.
-const CACHE_VERSION: u32 = 85;
+/// - v86: JS/TS module binding refusal facts, type/CJS export barriers and
+///   comment-safe module extraction / reflective writes.
+/// - v87: bounded ESM imported-local forwarding with terminal function proof.
+/// - v88: CommonJS producer export-object mutation barriers.
+/// - v89: CJS terminal capture proof and non-erasing blocked export claims.
+/// - v90: retain rejected CJS names and use source self bindings for write proof.
+/// - v91: receiver lexical/write guards use explicit source names, not display names.
+/// - v92: JS/TS/TSX rvalue query captures must be contained in the requested callable.
+/// - v93: JS/TS/TSX callable rvalue queries exclude nested execution regions.
+/// - v94: JS/TS/TSX call sites bind to exact execution owners and refuse
+///   line-identity collisions.
+/// - v95: JS/TS/TSX CPG variable nodes retain byte-distinct same-line
+///   occurrences for exact Step 4 endpoints and Step 5b argument binding.
+/// - v96: TS/TSX optional occurrences admit only all-simple signatures with
+///   a nonempty inert-default sibling set.
+/// - v97: persist byte-distinct supplemental caller producer facts and labels.
+/// - v98: JS/TS span-verified wrapped React exports (`SpannedLocal`), JSX-element
+///   call-site flag, declarator skip reasons.
+/// - v99: S1b-1 intrinsic JSX tags drop `JsxIntrinsic`; the shared JS/TS binding
+///   collectors see single arrow parameters, `{ f = d }` defaults and TS assertion writes.
+/// - v100: S1b-1b JS/TS top-scope declarator locals are BoundNames (shorthand destructuring
+///   shadows; destructuring-default expressions no longer do); binding patterns accept `$`.
+/// - v101: S1b-2b ESM local exports bind through the module-scope binding (`VerifiedLocal`,
+///   `ResolvedJsExport.wrapped`, refusal counts) and string export names by StringValue.
+/// - v102: S1b-3a extends the binding core to every scope (scoped M2, pattern-declarator M1,
+///   the alias/NoFn value class, the B1 containment fold): D4 export facts on C166-C168, C172
+///   change.
+/// - v103: S1b-3b wires the binding core to call sites (`CallSite.local_binding`): a JS/TS
+///   lexical binding resolves first (Callable), and an `Unproven` binding drops the R4/R5
+///   same-name fallback (SPEC §3.6, §3.8 (8)).
+/// - v104: S1b-4 qualifier proof and positive-only namespace R3 refinement.
+/// - v105: lane-P P1 tsconfig `paths` import-member resolution and config-input cache key.
+/// - v106: lane-P P2 Node10 proof for relative/non-relative JS export hops;
+///   CallGraph path-module values and export-table keys carry caller config
+///   paths (String) instead of allowJs flags (bool).
+/// - v107: js-param-defs PR-A registers JS/TS/TSX parameter Defs for the bare
+///   arrow formal (`x => …`) and identifier rest formals (`...xs`), adding
+///   DataFlow rows and RD declaration seeds for them.
+/// - v108: js-param-defs PR-B gives anonymous JS/TS/TSX callables their own
+///   DFG pass under a synthetic `<anon@L:C>` owner and fences every JS/TS
+///   reference walk at nested binders (E3), adding and removing DataFlow rows.
+/// - v109: PR-B R2 binds Use occurrences, shares body-hoisted functions with
+///   simple formals, separates expression-parameter/body vars and refuses
+///   wrapped writes and synthetic with-body references.
+/// - v110: final R2 also refuses with-body Def/Use admission, so preliminary
+///   generation-109 object-backed writes cannot enter final observations.
+/// - v111: PR-B R2b admits kill-aware implicit parameter-to-body-var copies.
+/// - v112: PR-B R5 retains flat named seam rows and refuses synthetic formals.
+/// - v113: PR-B R9 positive recovery proof, receiver and reference fences.
+/// - v114: PR-B R10 labelled body, JSX member, enum and commented-eval repairs.
+/// - v115: I1 relative-specifier candidates: a `.js` spelling with no indexed `.js` file
+///   finds the same-stem `.ts`/`.tsx`; bare `.`/`..` find the directory index; redundant
+///   `//`, `/./`, `/../` segments are normalized within the repo root.
+/// - v116: slice L follows JS/TS `const` aliases: `CallSite.local_binding` gains
+///   `AliasCallable`, `AliasImport` and `AliasNamespaceMember`.
+/// - v117: slice V follows a value another in-repo function returned: `CallSite.local_binding`
+///   gains `Returned` and the call graph persists per-function returned-value facts
+///   (`js_ts_return_facts`).
+/// - v118: PR-C: member-only JS/TS formals (no bare read, at least one static `p.<field>`
+///   read) get a base Def and Def(p) -> Use(p.<path>) projection edges.
+/// - v119: lane A2 S0 renames persisted anonymous-callable DFG owners to `<anon@L:C>`.
+/// - v120: lane A2 S2a emits anonymous call owners and persists their proof evidence.
+/// - v121: file-bound JS/TS module call owners and their A2 proof inventory.
+/// - v122: compact DFG arena, occurrence/rank indexes and validated native codec.
+/// - v123: property-method syntax evidence excludes bare-name call targets (#443).
+/// - v124: module-tree Rust Self calls reach concrete impl scope resolution (#521).
+/// - v125: Self allow-list retains impl headers and named-item boundaries (#521).
+/// - v126: Self headers preserve token and lexical-module identity (#521).
+/// - v127: Self targets require inherent visibility, variant and duplicate proofs (#521).
+/// - v128: Self syntax evidence retains the declared self-type path (#521).
+/// - v129: Self proofs persist repository-wide non-ASCII identifier refusal (#521).
+/// - v130: Self proofs persist identifier file membership; crate scope, new edges only.
+const CACHE_VERSION: u32 = 130;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -303,24 +377,37 @@ pub fn current_cache_build_identity() -> &'static str {
     env!("PRISM_CACHE_BUILD_IDENTITY")
 }
 
+/// The on-disk CPG cache format version this binary reads and writes.
+pub fn current_cache_format_version() -> u32 {
+    CACHE_VERSION
+}
+
 pub fn binary_input_dirty() -> bool {
     env!("PRISM_BINARY_INPUT_DIRTY") == "1"
 }
 
 /// Path to the binary cache file within the cache directory.
 fn cache_bin_path(cache_dir: &Path) -> PathBuf {
-    cache_dir.join("cpg-cache.bin")
+    cache_dir.join(stream::CACHE_FILE_NAME)
 }
 
 /// Path to the metadata JSON file within the cache directory.
 fn cache_meta_path(cache_dir: &Path) -> PathBuf {
-    cache_dir.join("cache-meta.json")
+    cache_dir.join(stream::META_FILE_NAME)
 }
 
 /// Serialize a `CodePropertyGraph` and write it to the cache directory.
 ///
-/// Writes both `cpg-cache.bin` (bincode) and `cache-meta.json` (human-readable).
-/// Uses atomic write (temp file + rename) to prevent corruption from interrupted writes.
+/// Writes both `cpg-cache-v2.bin` (bincode) and `cache-meta-v2.json` (human-readable). The
+/// names changed with the memory-mapped reader: no earlier prism touches them, and a load removes
+/// the files those versions left behind once they have been idle for a day. An older binary that
+/// only reads its cache (a hit does not touch the file) may therefore find it removed and rebuild
+/// once; that is the accepted migration cost.
+/// Uses atomic write (temp file + rename) to prevent corruption from interrupted writes. Saves
+/// are serialized per directory by a lock file, held through the metadata write. A save that
+/// cannot take the lock (another process is saving, or loading: checking that the lock works, or
+/// clearing a leftover temp file) writes nothing and returns [`SaveOutcome::Skipped`]: the
+/// save is lost, and a later load revalidates whatever cache is there.
 ///
 /// `has_type_db` records whether the CPG was built with a `TypeDatabase`.
 /// This flag is checked on load to ensure virtual dispatch edge consistency.
@@ -329,9 +416,18 @@ pub fn save_cache(
     file_hashes: &BTreeMap<String, String>,
     has_type_db: bool,
     cache_dir: &Path,
-) -> io::Result<()> {
+) -> io::Result<SaveOutcome> {
     let topology_key = compute_topology_key(file_hashes, &BTreeMap::new());
     save_cache_with_topology(cpg, file_hashes, &topology_key, has_type_db, cache_dir)
+}
+
+/// What a successful [`save_cache`] call did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SaveOutcome {
+    /// `cpg-cache-v2.bin` was written and published.
+    Saved,
+    /// The directory lock was not available; nothing was written.
+    Skipped,
 }
 
 pub fn save_cache_with_topology(
@@ -340,7 +436,8 @@ pub fn save_cache_with_topology(
     topology_key: &BTreeMap<String, String>,
     has_type_db: bool,
     cache_dir: &Path,
-) -> io::Result<()> {
+) -> io::Result<SaveOutcome> {
+    let _profile = crate::profile::Phase::serial("cache.save");
     if cpg.ephemeral_owner || cpg.call_graph.owner_ephemeral {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -349,76 +446,55 @@ pub fn save_cache_with_topology(
     }
     fs::create_dir_all(cache_dir)?;
 
-    // Extract node list + edge list from DiGraph.
-    let nodes: Vec<CpgNode> = cpg
-        .graph
-        .node_indices()
-        .map(|idx| cpg.graph[idx].clone())
-        .collect();
-
-    let edges: Vec<(u32, u32, CpgEdge)> = cpg
-        .graph
-        .edge_indices()
-        .map(|eidx| {
-            let (src, tgt) = cpg.graph.edge_endpoints(eidx).unwrap();
-            (
-                src.index() as u32,
-                tgt.index() as u32,
-                cpg.graph[eidx].clone(),
-            )
-        })
-        .collect();
-
-    let cache = CpgCache {
+    // Encode straight from the live graph into the temp file: no copy of the graph and no
+    // encoded buffer. Atomic write: temp file, then rename.
+    let prism_version = env!("CARGO_PKG_VERSION");
+    let git_sha = env!("GIT_SHA");
+    let cache = stream::CpgCacheRef {
         version: CACHE_VERSION,
-        prism_version: env!("CARGO_PKG_VERSION").to_string(),
-        grammar_fingerprint: env!("GRAMMAR_FINGERPRINT").to_string(),
-        cache_build_identity: current_cache_build_identity().to_string(),
-        git_sha: env!("GIT_SHA").to_string(),
+        prism_version,
+        grammar_fingerprint: env!("GRAMMAR_FINGERPRINT"),
+        cache_build_identity: current_cache_build_identity(),
+        git_sha,
         skip_policy_version: SKIP_POLICY_VERSION,
-        file_hashes: file_hashes.clone(),
-        topology_key: topology_key.clone(),
+        file_hashes,
+        topology_key,
         has_type_db,
-        graph: SerializedCpg {
-            nodes,
-            edges,
-            call_graph: cpg.call_graph.clone(),
-            dfg: cpg.dfg.clone(),
-            return_flow_stats: cpg.return_flow_stats.clone(),
-            dfg_label_stats: cpg.dfg_label_stats.clone(),
+        graph: stream::SerializedCpgRef {
+            nodes: stream::NodeSeq(&cpg.graph),
+            edges: stream::EdgeSeq(&cpg.graph),
+            call_graph: &cpg.call_graph,
+            dfg: &cpg.dfg,
+            return_flow_stats: &cpg.return_flow_stats,
+            dfg_label_stats: &cpg.dfg_label_stats,
         },
     };
 
-    let encoded = bincode::serialize(&cache).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("bincode serialize error: {}", e),
-        )
+    let bin_path = cache_bin_path(cache_dir);
+    // The metadata is written inside the publish, under the same lock, so it always
+    // describes the cache file just renamed into place.
+    let published = stream::publish_cache_file(cache_dir, &bin_path, &cache, |encoded_len| {
+        // Human-readable metadata (best-effort, non-fatal).
+        let meta = CacheMeta {
+            prism_version: prism_version.to_string(),
+            cache_version: CACHE_VERSION,
+            file_count: file_hashes.len(),
+            node_count: cpg.graph.node_count(),
+            edge_count: cpg.graph.edge_count(),
+            cache_size_bytes: encoded_len,
+            has_type_db,
+            cache_build_identity: current_cache_build_identity().to_string(),
+            git_sha: git_sha.to_string(),
+            created: chrono_free_timestamp(),
+        };
+        let meta_json = serde_json::to_string_pretty(&meta).unwrap_or_default();
+        let _ = fs::write(cache_meta_path(cache_dir), meta_json);
     })?;
 
-    // Atomic write: write to temp file, then rename.
-    let bin_path = cache_bin_path(cache_dir);
-    let tmp_path = cache_dir.join("cpg-cache.bin.tmp");
-    fs::write(&tmp_path, &encoded)?;
-    fs::rename(&tmp_path, &bin_path)?;
-
-    // Write human-readable metadata (best-effort, non-fatal).
-    let meta = CacheMeta {
-        prism_version: env!("CARGO_PKG_VERSION").to_string(),
-        cache_version: CACHE_VERSION,
-        file_count: file_hashes.len(),
-        node_count: cache.graph.nodes.len(),
-        edge_count: cache.graph.edges.len(),
-        cache_size_bytes: encoded.len() as u64,
-        has_type_db,
-        cache_build_identity: cache.cache_build_identity.clone(),
-        git_sha: cache.git_sha.clone(),
-        created: chrono_free_timestamp(),
-    };
-    let meta_json = serde_json::to_string_pretty(&meta).unwrap_or_default();
-    let _ = fs::write(cache_meta_path(cache_dir), meta_json);
-
-    Ok(())
+    Ok(match published {
+        Some(_) => SaveOutcome::Saved,
+        None => SaveOutcome::Skipped,
+    })
 }
 
 /// Result of attempting to load a CPG from cache.
@@ -463,15 +539,24 @@ pub fn load_cache_with_topology(
     has_type_db: bool,
     cache_dir: &Path,
 ) -> CacheResult {
-    let bin_path = cache_bin_path(cache_dir);
-    let data = match fs::read(&bin_path) {
-        Ok(d) => d,
-        Err(_) => return CacheResult::Miss,
-    };
+    let _profile = crate::profile::Phase::serial("cache.load");
+    let result = read_cache(current_hashes, current_topology_key, has_type_db, cache_dir);
+    // After the read, so the result never depends on it: clear a crashed writer's leftover and
+    // the idle files of earlier versions.
+    stream::clean_after_load(cache_dir);
+    result
+}
 
-    let cache: CpgCache = match bincode::deserialize(&data) {
-        Ok(c) => c,
-        Err(_) => return CacheResult::Miss,
+fn read_cache(
+    current_hashes: &BTreeMap<String, String>,
+    current_topology_key: &BTreeMap<String, String>,
+    has_type_db: bool,
+    cache_dir: &Path,
+) -> CacheResult {
+    let bin_path = cache_bin_path(cache_dir);
+    let cache: CpgCache = match stream::read_cache_file(&bin_path) {
+        Some(c) => c,
+        None => return CacheResult::Miss,
     };
 
     // Version check.
@@ -565,19 +650,20 @@ pub fn load_cache_with_topology(
 
 /// Reconstruct a `CodePropertyGraph` from serialized node/edge lists.
 fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
-    let mut graph = DiGraph::new();
+    let mut graph = DiGraph::with_capacity(ser.nodes.len(), ser.edges.len());
 
-    // Add nodes in order — this preserves NodeIndex values (0, 1, 2, ...).
-    for node in &ser.nodes {
-        graph.add_node(node.clone());
+    // Add nodes in order — this preserves NodeIndex values (0, 1, 2, ...). Nodes and edges
+    // are moved, not cloned, so the decoded lists and the graph never hold two copies.
+    for node in ser.nodes {
+        graph.add_node(node);
     }
 
     // Add edges using the stored indices.
-    for &(src, tgt, ref edge) in &ser.edges {
+    for (src, tgt, edge) in ser.edges {
         graph.add_edge(
             NodeIndex::new(src as usize),
             NodeIndex::new(tgt as usize),
-            edge.clone(),
+            edge,
         );
     }
 
@@ -616,17 +702,16 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
                 access,
                 ..
             } => {
-                var_index.insert(
-                    (
+                var_index
+                    .entry((
                         file.clone(),
                         function.clone(),
                         *function_start_line,
                         *line,
                         path.clone(),
                         *access,
-                    ),
-                    idx,
-                );
+                    ))
+                    .or_insert(idx);
                 location_index
                     .entry((file.clone(), *line))
                     .or_default()
@@ -738,7 +823,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 85);
+        assert_eq!(super::CACHE_VERSION, 130);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -1444,6 +1529,128 @@ mod tests {
     }
 
     #[test]
+    fn followed_js_alias_bindings_round_trip_and_the_previous_version_misses() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            "callee.js".to_string(),
+            "export function target() {\n  return 1;\n}\n".to_string(),
+        );
+        sources.insert(
+            "caller.js".to_string(),
+            "import { target } from './callee';\nimport * as N from './callee';\n\
+             function real() {\n  return 0;\n}\n\
+             export function run() {\n  const a = target;\n  const b = N.target;\n  \
+             const c = real;\n  return [a(), b(), c()];\n}\n"
+                .to_string(),
+        );
+        let files: BTreeMap<String, crate::ast::ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| {
+                let parsed = crate::ast::ParsedFile::parse(
+                    path,
+                    source,
+                    crate::languages::Language::JavaScript,
+                )
+                .unwrap();
+                (path.clone(), parsed)
+            })
+            .collect();
+        let cpg = crate::cpg::CodePropertyGraph::build(&files);
+        let hashes = compute_file_hashes(&sources);
+        let dump = call_site_dump(&cpg).join("\n");
+        for variant in ["AliasImport", "AliasNamespaceMember", "AliasCallable("] {
+            assert!(dump.contains(variant), "{variant} missing from {dump}");
+        }
+
+        save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+        match load_cache(&hashes, false, dir.path()) {
+            CacheResult::Hit(restored) => {
+                assert_eq!(call_site_dump(&cpg), call_site_dump(&restored));
+            }
+            other => panic!("expected Hit, got {}", cache_result_kind(&other)),
+        }
+        force_cache_version(dir.path(), 115);
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
+    }
+
+    #[test]
+    fn returned_value_bindings_and_facts_round_trip_and_the_previous_version_misses() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            "hooks.ts".to_string(),
+            "export function useThing() {\n  function doIt() {\n    return 1;\n  }\n  \
+             return { run: doIt, list: [doIt] };\n}\n"
+                .to_string(),
+        );
+        sources.insert(
+            "app.ts".to_string(),
+            "import { useThing } from './hooks';\nexport function main() {\n  \
+             const { run } = useThing();\n  return run();\n}\n"
+                .to_string(),
+        );
+        let files: BTreeMap<String, crate::ast::ParsedFile> = sources
+            .iter()
+            .map(|(path, source)| {
+                let parsed = crate::ast::ParsedFile::parse(
+                    path,
+                    source,
+                    crate::languages::Language::TypeScript,
+                )
+                .unwrap();
+                (path.clone(), parsed)
+            })
+            .collect();
+        let cpg = crate::cpg::CodePropertyGraph::build(&files);
+        let hashes = compute_file_hashes(&sources);
+        assert_eq!(cpg.call_graph.js_ts_return_facts.len(), 1, "one hook fact");
+        assert!(call_site_dump(&cpg).join("\n").contains("Returned"));
+
+        save_cache(&cpg, &hashes, false, dir.path()).unwrap();
+        match load_cache(&hashes, false, dir.path()) {
+            CacheResult::Hit(restored) => {
+                assert_eq!(call_site_dump(&cpg), call_site_dump(&restored));
+                assert_eq!(
+                    cpg.call_graph.js_ts_return_facts,
+                    restored.call_graph.js_ts_return_facts
+                );
+            }
+            other => panic!("expected Hit, got {}", cache_result_kind(&other)),
+        }
+        force_cache_version(dir.path(), 116);
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
+    }
+
+    #[test]
+    fn v93_call_owner_cache_is_a_miss() {
+        let dir = tempfile::tempdir().unwrap();
+        let hashes = compute_file_hashes(&BTreeMap::new());
+        save_cache(
+            &crate::cpg::CodePropertyGraph::empty(),
+            &hashes,
+            false,
+            dir.path(),
+        )
+        .unwrap();
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Hit(_)
+        ));
+        force_cache_version(dir.path(), 93);
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
+    }
+
+    #[test]
     fn v4_cache_is_a_miss() {
         let dir = tempfile::tempdir().unwrap();
         let sources = BTreeMap::new();
@@ -1536,7 +1743,7 @@ mod tests {
             },
         };
         std::fs::write(
-            dir.path().join("cpg-cache.bin"),
+            dir.path().join("cpg-cache-v2.bin"),
             bincode::serialize(&bad).unwrap(),
         )
         .unwrap();
@@ -1571,7 +1778,7 @@ mod tests {
             },
         };
         std::fs::write(
-            dir.path().join("cpg-cache.bin"),
+            dir.path().join("cpg-cache-v2.bin"),
             bincode::serialize(&bad).unwrap(),
         )
         .unwrap();
@@ -1581,3 +1788,6 @@ mod tests {
         ));
     }
 }
+
+#[cfg(test)]
+mod dfg_codec_tests;

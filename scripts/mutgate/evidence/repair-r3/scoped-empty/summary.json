@@ -1,0 +1,19 @@
+{
+  "authoritative": false,
+  "label": "ADVISORY",
+  "execution_mode": "schema",
+  "jobs": 4,
+  "since": "origin/main",
+  "scope": "fn",
+  "selected": 0,
+  "killed": 0,
+  "admissible": 0,
+  "timings": {
+    "total": 2.24
+  },
+  "resources": {},
+  "baselines": {},
+  "static": {},
+  "text_confirmations": 0,
+  "results": {}
+}

@@ -1,0 +1,111 @@
+{
+  "lane": "DFG per-file binding sub-result memo",
+  "lib_test_prefixes": [
+    "ast::binding_verdict_memo::",
+    "ast::member_reference_index::deferred_tests::"
+  ],
+  "mutations": {
+    "BM-drop-epoch": [
+      "src/ast/binding_verdict_memo.rs",
+      "entry.file == p as *const ParsedFile as usize\n                    && entry.root == p.tree.root_node().id()",
+      "true",
+      "ast::binding_verdict_memo::tests::epoch_isolation_and_session_drop"
+    ],
+    "BM-drop-raw-name": [
+      "src/ast/binding_verdict_memo.rs",
+      "let raw_name = name;",
+      "let raw_name = \"\";",
+      "ast::binding_verdict_memo::tests::cache_keys_preserve_names_scopes_regions_and_bytes"
+    ],
+    "BM-drop-scope-node": [
+      "src/ast/binding_verdict_memo.rs",
+      "                    scope.id(),",
+      "                    0,",
+      "ast::binding_verdict_memo::tests::cache_keys_preserve_names_scopes_regions_and_bytes"
+    ],
+    "BM-drop-byte": [
+      "src/ast/binding_verdict_memo.rs",
+      "Key::At(byte)",
+      "Key::At(0)",
+      "ast::binding_verdict_memo::tests::cache_keys_preserve_names_scopes_regions_and_bytes"
+    ],
+    "BM-drop-seam-owner": [
+      "src/ast/binding_verdict_memo.rs",
+      "Key::Seam(owner.id())",
+      "Key::Seam(0)",
+      "ast::binding_verdict_memo::tests::differential_binding_regions_and_owners"
+    ],
+    "BM-drop-declaration-scope": [
+      "src/ast/binding_verdict_memo.rs",
+      "Key::Declaration(scope.id())",
+      "Key::Declaration(0)",
+      "ast::binding_verdict_memo::tests::cache_keys_preserve_names_scopes_regions_and_bytes"
+    ],
+    "BM-drop-region-body": [
+      "src/ast/binding_verdict_memo.rs",
+      "u8::from(inside(scope.child_by_field_name(\"body\")))",
+      "0u8",
+      "ast::binding_verdict_memo::tests::cache_keys_preserve_names_scopes_regions_and_bytes"
+    ],
+    "BM-drop-region-parameters": [
+      "src/ast/binding_verdict_memo.rs",
+      "u8::from(inside(self.parameter_binding_region(&scope))) << 1",
+      "0u8",
+      "ast::binding_verdict_memo::tests::cache_keys_preserve_names_scopes_regions_and_bytes"
+    ],
+    "BM-drop-region-self-name": [
+      "src/ast/binding_verdict_memo.rs",
+      "u8::from(inside(scope.child_by_field_name(\"name\"))) << 2",
+      "0u8",
+      "ast::binding_verdict_memo::tests::cache_keys_preserve_names_scopes_regions_and_bytes"
+    ],
+    "BM-drop-region-return-type": [
+      "src/ast/binding_verdict_memo.rs",
+      "u8::from(inside(scope.child_by_field_name(\"return_type\"))) << 3",
+      "0u8",
+      "ast::binding_verdict_memo::tests::cache_keys_preserve_names_scopes_regions_and_bytes"
+    ],
+    "BM-do-not-store": [
+      "src/ast/binding_verdict_memo.rs",
+      ".insert(key, value);",
+      ".remove(&key);",
+      "ast::binding_verdict_memo::probe::binding_work_is_per_scope_not_per_gate"
+    ],
+    "BM-do-not-cache-negatives": [
+      "src/ast/binding_verdict_memo.rs",
+      "    let value = evaluate();",
+      "    let value = evaluate();\n    if matches!(value, Value::Bool(false) | Value::Binding(None)) { return value; }",
+      "ast::binding_verdict_memo::probe::negative_sub_results_are_cached"
+    ],
+    "BM-session-not-registered": [
+      "src/ast/binding_verdict_memo.rs",
+      "file: parsed as *const ParsedFile as usize,",
+      "file: usize::MAX,",
+      "ast::binding_verdict_memo::probe::binding_work_is_per_scope_not_per_gate"
+    ],
+    "BM-drop-boundary-assert": [
+      "src/ast/binding_verdict_memo.rs",
+      "debug_assert_eq!(boundaries, self.language.callable_boundary_node_types());",
+      "/* boundary assertion removed */",
+      "ast::binding_verdict_memo::tests::scope_boundaries_must_match_language"
+    ],
+    "BM-drop-root-identity": [
+      "src/ast/binding_verdict_memo.rs",
+      "&& entry.root == p.tree.root_node().id()",
+      "&& true",
+      "ast::binding_verdict_memo::tests::registration_requires_root_identity_even_with_same_address"
+    ],
+    "BM-eager-probe-identity": [
+      "src/ast/binding_verdict_probe.rs",
+      "    if active() {\n        observe(kind, node, 0, &name());\n    }",
+      "    let identity = name();\n    if active() { observe(kind, node, 0, &identity); }",
+      "ast::binding_verdict_memo::probe::gate_identity_is_lazy_and_active_probe_still_records"
+    ],
+    "BM-complete-dfg-raw-name": [
+      "src/ast/binding_verdict_memo.rs",
+      "let raw_name = name;",
+      "let raw_name = \"\";",
+      "ast::member_reference_index::deferred_tests::complete_dfg_fixture_sweep_against_fully_legacy_path"
+    ]
+  }
+}

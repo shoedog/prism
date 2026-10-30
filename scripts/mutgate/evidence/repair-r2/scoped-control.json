@@ -1,0 +1,15 @@
+{
+  "exit": 0,
+  "wall_seconds": 33.444629917,
+  "synthetic_changed_lines": {
+    "src/js_paths_boundary.rs": [
+      169
+    ]
+  },
+  "ids": [
+    "I17-no-project-reference-cut",
+    "I73-declare-prefilter",
+    "R4-08-dropped-import-decline"
+  ],
+  "production_diff": "empty: this is a synthetic selector control, not an actual source diff"
+}

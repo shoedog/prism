@@ -1,0 +1,94 @@
+{
+  "jsx": [
+    {
+      "call_kind": "Call",
+      "callee_text": "K",
+      "caller": {
+        "end_line": 2,
+        "file": "app.jsx",
+        "name": "run",
+        "start_line": 2
+      },
+      "drop": "UnknownName",
+      "exact_target": null,
+      "origin": "Source",
+      "record_kind": "call_site",
+      "resolved_targets": [],
+      "source_callee_text": "K",
+      "source_span": {
+        "end_byte": 53,
+        "file": "app.jsx",
+        "line": 2,
+        "start_byte": 50
+      }
+    },
+    {
+      "call_kind": "Call",
+      "callee_text": "K",
+      "caller": {
+        "end_line": 2,
+        "file": "app.jsx",
+        "name": "run",
+        "start_line": 2
+      },
+      "drop": "UnknownName",
+      "exact_target": null,
+      "origin": "Source",
+      "record_kind": "call_site",
+      "resolved_targets": [],
+      "source_callee_text": "K",
+      "source_span": {
+        "end_byte": 67,
+        "file": "app.jsx",
+        "line": 2,
+        "start_byte": 62
+      }
+    }
+  ],
+  "tsx": [
+    {
+      "call_kind": "Call",
+      "callee_text": "K",
+      "caller": {
+        "end_line": 2,
+        "file": "app.tsx",
+        "name": "run",
+        "start_line": 2
+      },
+      "drop": "UnknownName",
+      "exact_target": null,
+      "origin": "Source",
+      "record_kind": "call_site",
+      "resolved_targets": [],
+      "source_callee_text": "K",
+      "source_span": {
+        "end_byte": 53,
+        "file": "app.tsx",
+        "line": 2,
+        "start_byte": 50
+      }
+    },
+    {
+      "call_kind": "Call",
+      "callee_text": "K",
+      "caller": {
+        "end_line": 2,
+        "file": "app.tsx",
+        "name": "run",
+        "start_line": 2
+      },
+      "drop": "UnknownName",
+      "exact_target": null,
+      "origin": "Source",
+      "record_kind": "call_site",
+      "resolved_targets": [],
+      "source_callee_text": "K",
+      "source_span": {
+        "end_byte": 67,
+        "file": "app.tsx",
+        "line": 2,
+        "start_byte": 62
+      }
+    }
+  ]
+}

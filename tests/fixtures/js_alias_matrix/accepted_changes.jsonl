@@ -1,0 +1,3 @@
+{"id":"param.shadows-import.call.same.ts","from":"NONE-OK","to":"MAY-NONE","reason":"truth corrected in review: a parameter's value is unknown, not absent; prism's behavior at the site is unchanged"}
+{"id":"param.shadows-import.call.same.js","from":"NONE-OK","to":"MAY-NONE","reason":"truth corrected in review: a parameter's value is unknown, not absent; prism's behavior at the site is unchanged"}
+{"id":"local.cjs-exports-ns-destructure-nested.call.js","from":"CORRECT","to":"MISSING","reason":"#449: owner decision of 2026-10-17 accepts the correct-by-coincidence Exact loss for exports.legacy reached by destructuring a namespace import. Recovery path: #376 item 2 (CJS export proof on the alias route)."}

@@ -1,0 +1,13 @@
+{
+  "passed": 5145,
+  "failed": 0,
+  "ignored": 1,
+  "result_blocks": 31,
+  "wall_seconds": 283.14,
+  "ignored_tests": [
+    {
+      "name": "resolution_test::slice_elem_variant_reserved",
+      "reason": "SliceElem is reserved (spec \u00a75/\u00a710); classifier returns None until a future slice"
+    }
+  ]
+}

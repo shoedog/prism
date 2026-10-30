@@ -1,0 +1,210 @@
+diff --git a/src/ast.rs b/src/ast.rs
+index dc3a4af1..a8f42174 100644
+--- a/src/ast.rs
++++ b/src/ast.rs
+@@ -2887,6 +2887,19 @@ impl ParsedFile {
+                                     JsExportTarget::Local(name_text),
+                                 );
+                             }
++                            Some("call_expression") => {
++                                match self.proto_admitted_wrapper(decl, d) {
++                                    Some((local, start_line, end_line)) => facts.insert_named(
++                                        name_text,
++                                        JsExportTarget::WrappedLocal {
++                                            local,
++                                            start_line,
++                                            end_line,
++                                        },
++                                    ),
++                                    None => facts.skipped_expr_count += 1,
++                                }
++                            }
+                             _ => facts.skipped_expr_count += 1,
+                         }
+                     }
+@@ -2897,6 +2910,82 @@ impl ParsedFile {
+         }
+     }
+ 
++    /// PROTOTYPE (planning feasibility only): admitted React wrapper
++    /// `const X = forwardRef|memo|React.forwardRef|React.memo(fn[, cmp])`, callee
++    /// provenance-checked against an eligible import from "react". Returns the
++    /// inner function's registered name and line span.
++    fn proto_admitted_wrapper(
++        &self,
++        decl: Node<'_>,
++        declarator: Node<'_>,
++    ) -> Option<(String, usize, usize)> {
++        if decl.kind() != "lexical_declaration" || decl.child(0)?.kind() != "const" {
++            return None;
++        }
++        let call = declarator.child_by_field_name("value")?;
++        let callee = call.child_by_field_name("function")?;
++        let bindings = self.extract_import_bindings();
++        let from_react = |local: &str, member: Option<&str>| {
++            bindings.iter().any(|b| {
++                (b.eligible || member.is_none())
++                    && !self.js_ts_module_value_written(local)
++                    && b.local == local
++                    && b.module_path == "react"
++                    && match member {
++                        Some(m) => b.member.as_deref() == Some(m),
++                        None => {
++                            b.member.as_deref() == Some("default")
++                                || matches!(b.kind, crate::call_graph::ImportBindingKind::ModuleImport)
++                        }
++                    }
++            })
++        };
++        let wrapper = match callee.kind() {
++            "identifier" => {
++                let t = self.node_text(&callee).to_string();
++                let m = bindings
++                    .iter()
++                    .find(|b| b.eligible && b.local == t && b.module_path == "react")?
++                    .member
++                    .clone()?;
++                if !from_react(&t, Some(&m)) {
++                    return None;
++                }
++                m
++            }
++            "member_expression" => {
++                let obj = callee.child_by_field_name("object")?;
++                let prop = callee.child_by_field_name("property")?;
++                if obj.kind() != "identifier" || !from_react(self.node_text(&obj), None) {
++                    return None;
++                }
++                self.node_text(&prop).to_string()
++            }
++            _ => return None,
++        };
++        let args = call.child_by_field_name("arguments")?;
++        if args.kind() != "arguments" {
++            return None;
++        }
++        let mut c = args.walk();
++        let named: Vec<Node<'_>> = args.named_children(&mut c).collect();
++        let max_args = match wrapper.as_str() {
++            "forwardRef" => 1,
++            "memo" => 2,
++            _ => return None,
++        };
++        if named.is_empty() || named.len() > max_args {
++            return None;
++        }
++        let inner = named[0];
++        if !matches!(inner.kind(), "arrow_function" | "function_expression") {
++            return None;
++        }
++        let name = self.language.function_name(&inner)?;
++        let (s, e) = self.node_line_range(&inner);
++        Some((self.node_text(&name).to_string(), s, e))
++    }
++
+     /// Handle a single top-level `expression_statement`, looking for CommonJS
+     /// `module.exports = ...` / `module.exports.f = ...` / `exports.f = ...`
+     /// assignments.
+diff --git a/src/js_exports.rs b/src/js_exports.rs
+index 9cb9b5c1..f142b9f2 100644
+--- a/src/js_exports.rs
++++ b/src/js_exports.rs
+@@ -36,6 +36,13 @@ pub enum JsExportTarget {
+     UnprovenLocal(String),
+     /// Declaration-backed local class. Never a callable-function export.
+     Class(String),
++    /// PROTOTYPE: `export const X = <admitted react wrapper>(fn)`; the inner function's
++    /// registered name and exact line span (span-verified at R4c, never name-only).
++    WrappedLocal {
++        local: String,
++        start_line: usize,
++        end_line: usize,
++    },
+     /// `export { imported as exported_name } from './y'` (also used for the
+     /// re-export half of barrel resolution). `imported` is the name as
+     /// declared/exported in the target module (`"default"` for a default
+@@ -124,6 +131,8 @@ impl JsExportFacts {
+ pub struct ResolvedJsExport {
+     pub file: String,
+     pub local_name: String,
++    #[serde(default)]
++    pub span: Option<(usize, usize)>,
+ }
+ 
+ /// Whole-program resolution output: per-file resolved export tables plus
+@@ -281,10 +290,23 @@ fn resolve_one_inner(
+         return match target {
+             JsExportTarget::UnprovenLocal(_) => ExportLookup::BlockedClaim,
+             // Class identity participates in conflicts, never callable projection.
++            JsExportTarget::WrappedLocal {
++                local,
++                start_line,
++                end_line,
++            } => ExportLookup::Resolved(
++                ResolvedJsExport {
++                    file: file.to_string(),
++                    local_name: local.clone(),
++                    span: Some((*start_line, *end_line)),
++                },
++                false,
++            ),
+             JsExportTarget::Class(local) | JsExportTarget::Local(local) => ExportLookup::Resolved(
+                 ResolvedJsExport {
+                     file: file.to_string(),
+                     local_name: local.clone(),
++                    span: None,
+                 },
+                 matches!(target, JsExportTarget::Class(_)),
+             ),
+@@ -337,7 +359,7 @@ fn resolve_one_inner(
+         telemetry.chain_unresolved += 1;
+         return ExportLookup::NoTarget;
+     }
+-    let mut candidates: BTreeSet<(String, String, bool)> = BTreeSet::new();
++    let mut candidates: BTreeSet<(String, String, bool, Option<(usize, usize)>)> = BTreeSet::new();
+     for module_path in &facts.star_reexports {
+         let Some(target_file) = resolve_module(file, module_path) else {
+             continue;
+@@ -356,7 +378,7 @@ fn resolve_one_inner(
+             telemetry,
+         ) {
+             ExportLookup::Resolved(hit, is_class) => {
+-                candidates.insert((hit.file, hit.local_name, is_class));
++                candidates.insert((hit.file, hit.local_name, is_class, hit.span));
+             }
+             ExportLookup::BlockedClaim => return ExportLookup::BlockedClaim,
+             ExportLookup::NoTarget => {}
+@@ -365,8 +387,15 @@ fn resolve_one_inner(
+     match candidates.len() {
+         0 => ExportLookup::NoTarget,
+         1 => {
+-            let (file, local_name, is_class) = candidates.into_iter().next().unwrap();
+-            ExportLookup::Resolved(ResolvedJsExport { file, local_name }, is_class)
++            let (file, local_name, is_class, span) = candidates.into_iter().next().unwrap();
++            ExportLookup::Resolved(
++                ResolvedJsExport {
++                    file,
++                    local_name,
++                    span,
++                },
++                is_class,
++            )
+         }
+         _ => {
+             telemetry.barrel_conflicts += 1;
+diff --git a/src/resolution.rs b/src/resolution.rs
+index 95e7f6f5..a7ac17b7 100644
+--- a/src/resolution.rs
++++ b/src/resolution.rs
+@@ -3675,6 +3675,11 @@ impl CallGraph {
+             Some(ids) => ids
+                 .iter()
+                 .filter(|fid| fid.file == resolved.file && !self.method_owners.contains_key(*fid))
++                .filter(|fid| {
++                    resolved
++                        .span
++                        .map_or(true, |(s, e)| fid.start_line == s && fid.end_line == e)
++                })
+                 .collect(),
+             None => Vec::new(),
+         }

@@ -9,10 +9,19 @@ use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::rust_policy::{RustPolicy, EK_GLOB, NS_TYPE, NS_VALUE};
 use crate::name_resolution::rust_populator::enclosing_scope;
 use crate::name_resolution::types::{
-    Anchor, AnchorKind, BindTarget, Binding, Candidate, Edge, FileId, NamespaceId, RawPath,
-    ResStatus, ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Span, Target, TraversalCtx,
+    Anchor, AnchorKind, BindTarget, Binding, Candidate, FileId, NamespaceId, RawPath, ResStatus,
+    ResolutionPolicy, ResolveQuery, ScopeId, SourceLoc, Span, Target, TraversalCtx,
 };
 use std::collections::{BTreeMap, BTreeSet};
+
+#[path = "resolution_js_alias.rs"]
+mod js_alias;
+#[path = "resolution_js_namespace.rs"]
+mod js_namespace;
+#[path = "resolution_js_returns.rs"]
+mod js_returns;
+#[path = "resolution_rust_self.rs"]
+pub(crate) mod rust_self;
 
 pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
 pub use crate::resolution_identity::{
@@ -1031,6 +1040,12 @@ pub enum DropReason {
     ConcreteReceiverPromotedDeferred,
     /// P17 R1(e): a proven concrete receiver has no admissible selector lane.
     ConcreteReceiverNoSelector,
+    /// S1: a span-verified wrapped React export reached by a non-JSX site.
+    WrappedExportNonJsx,
+    /// S1b: a lowercase, dashed or namespaced plain JSX tag names an intrinsic element.
+    JsxIntrinsic,
+    /// S1b: a JS/TS unqualified call whose lexical binding holds no single proven callable.
+    LocalBindingUnproven,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -1082,6 +1097,10 @@ pub struct ResolutionOutcome<'a> {
     /// Some(..) iff `resolved` is empty for a classified reason.
     pub drop: Option<DropReason>,
     pub telemetry: ResolutionTelemetry,
+    /// Positive producer evidence, never inferred from a route kind or singleton pool.
+    pub(crate) anonymous_certificate: Option<crate::js_anonymous::Certificate>,
+    /// The candidate came from a followed binding.
+    pub via_alias_route: bool,
 }
 
 impl<'a> ResolutionOutcome<'a> {
@@ -1090,6 +1109,8 @@ impl<'a> ResolutionOutcome<'a> {
             resolved,
             drop: None,
             telemetry: ResolutionTelemetry::default(),
+            anonymous_certificate: None,
+            via_alias_route: false,
         }
     }
 
@@ -1098,9 +1119,8 @@ impl<'a> ResolutionOutcome<'a> {
         telemetry: ResolutionTelemetry,
     ) -> Self {
         Self {
-            resolved,
-            drop: None,
             telemetry,
+            ..Self::hit(resolved)
         }
     }
 
@@ -1109,14 +1129,15 @@ impl<'a> ResolutionOutcome<'a> {
             resolved: Vec::new(),
             drop: Some(reason),
             telemetry: ResolutionTelemetry::default(),
+            anonymous_certificate: None,
+            via_alias_route: false,
         }
     }
 
     pub fn dropped_with_telemetry(reason: DropReason, telemetry: ResolutionTelemetry) -> Self {
         Self {
-            resolved: Vec::new(),
-            drop: Some(reason),
             telemetry,
+            ..Self::dropped(reason)
         }
     }
 }
@@ -2288,10 +2309,20 @@ impl CallGraph {
         })
     }
 
-    /// S3 R1-R7 ladder. This is the single full-resolution entry point for the
-    /// new precision ladder. Legacy callers continue to use the old resolver
-    /// until Tasks 9-11 migrate them.
-    pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
+    /// Candidate generation. All public outcomes pass the anonymous admission boundary.
+    pub(crate) fn resolve_call_site_candidates(&self, site: &CallSite) -> ResolutionOutcome<'_> {
+        // S1b §3.5: a plain JSX tag spelled lowercase, dashed or namespaced is an intrinsic
+        // element (TypeScript `isIntrinsicJsxName`, Babel `isCompatTag`). It references no
+        // binding, so no rung may bind it. Member, `_x` and `$x` tags are not intrinsic.
+        if site.jsx_element
+            && site.qualifier.is_none()
+            && (site
+                .callee_name
+                .starts_with(|c: char| c.is_ascii_lowercase())
+                || site.callee_name.contains(['-', ':']))
+        {
+            return ResolutionOutcome::dropped(DropReason::JsxIntrinsic);
+        }
         if let Some(result) = self
             .executable_owner
             .as_ref()
@@ -2320,70 +2351,8 @@ impl CallGraph {
         let name = site.callee_name.as_str();
         let caller = &site.caller;
 
-        if let Some(graph) = self.scope_graph.as_ref() {
-            if crate::languages::Language::from_path(&site.caller.file)
-                == Some(crate::languages::Language::Rust)
-                && (name.contains("::") || site.qualifier.is_none())
-            {
-                if let Some((file, from)) = rust_authoritative_scope(graph, site) {
-                    let owner_method = if name.contains("::") {
-                        owner_method_key(name)
-                    } else {
-                        None
-                    };
-                    let has_bare_pool = owner_method.as_ref().is_some_and(|(owner, method)| {
-                        self.methods.contains_key(&(owner.clone(), method.clone()))
-                    });
-
-                    if has_bare_pool
-                        && name.contains("::")
-                        && self.rust_graph_qualified_target_is_free_fn(graph, site, file, from)
-                    {
-                        return match self.rust_scope_graph_resolution(graph, site, file, from) {
-                            Some(resolved) => ResolutionOutcome::hit(resolved),
-                            None => ResolutionOutcome::dropped(DropReason::UnknownName),
-                        };
-                    }
-
-                    if has_bare_pool {
-                        if let Some(resolved) =
-                            self.rust_scope_prune_owner(graph, site, file, from, name)
-                        {
-                            return ResolutionOutcome::hit(resolved);
-                        }
-
-                        let (owner, method) = owner_method.as_ref().expect("has_bare_pool");
-                        let segs: Vec<&str> = name.split("::").collect();
-                        let mut prefix: Vec<&str> = segs[..segs.len() - 1].to_vec();
-                        while matches!(prefix.first(), Some(&"crate") | Some(&"super")) {
-                            prefix.remove(0);
-                        }
-                        let module_segs = &prefix[..prefix.len().saturating_sub(1)];
-                        if let Some(resolved) =
-                            self.owner_lookup_in_modules(owner, method, module_segs)
-                        {
-                            // Authoritative scope site: a distinct-owner (trait-CHA)
-                            // pool must DECLINE so the CHA fan-out emits Exact — the
-                            // legacy TraitCha NameOnly edge is intentionally disabled
-                            // at authoritative scope sites (matches the pre-existing
-                            // `Render::draw(x)` behavior). Only the same-owner
-                            // collision floor (#120 QualifiedOwner) is a valid
-                            // fail-open here.
-                            if !resolved.iter().any(|c| c.kind == ResolutionKind::TraitCha) {
-                                return ResolutionOutcome::hit(resolved);
-                            }
-                        }
-                        return ResolutionOutcome::dropped(DropReason::UnknownName);
-                    }
-
-                    if let Some(resolved) =
-                        self.rust_scope_graph_resolution(graph, site, file, from)
-                    {
-                        return ResolutionOutcome::hit(resolved);
-                    }
-                    return ResolutionOutcome::dropped(DropReason::UnknownName);
-                }
-            }
+        if let Some(outcome) = self.rust_authoritative_resolution(site) {
+            return outcome;
         }
 
         // R1/R2/R7: Rust/C++ `::` path shapes where the raw name carries the path.
@@ -2407,6 +2376,9 @@ impl CallGraph {
 
             if let Some(&head) = segs.last() {
                 if head == "Self" {
+                    if let Some(outcome) = self.rust_self_scope_resolution(site, fn_name) {
+                        return outcome;
+                    }
                     if let Some(owner) = self.method_owners.get(caller) {
                         if let Some(mut resolved) = self.owner_lookup(owner, fn_name) {
                             for callee in &mut resolved {
@@ -2541,9 +2513,19 @@ impl CallGraph {
                     )
                 ) && site.receiver_lexically_bound;
 
+                let namespace_refused = match &site.local_binding {
+                    crate::call_graph::JsLocalBinding::Callable(_) => true,
+                    crate::call_graph::JsLocalBinding::Unproven(r) => {
+                        matches!(
+                            r.as_str(),
+                            "not_callable" | "unindexed" | "namespace_shadow"
+                        )
+                    }
+                    _ => false,
+                };
                 // R3: imported-module qualifier. If an import matches, the
                 // narrowed set is final; empty means the call is external.
-                if !recv_materialized && !js_ts_receiver_lexically_bound {
+                if !recv_materialized && !js_ts_receiver_lexically_bound && !namespace_refused {
                     if let Some(file_imports) = self.imports.get(&caller.file) {
                         if let Some(module_path) = file_imports.get(q) {
                             let ids = match self.functions.get(name) {
@@ -2572,6 +2554,16 @@ impl CallGraph {
                                 .collect();
                             if matched.is_empty() {
                                 return ResolutionOutcome::dropped(DropReason::ImportExternal);
+                            }
+                            if let crate::call_graph::JsLocalBinding::NamespaceImport {
+                                module_path,
+                            } = &site.local_binding
+                            {
+                                if let Some(outcome) =
+                                    self.js_ts_namespace_outcome(module_path, name, site, &matched)
+                                {
+                                    return outcome;
+                                }
                             }
                             return ResolutionOutcome::hit(exact(
                                 matched,
@@ -3355,10 +3347,21 @@ impl CallGraph {
                 ResolutionOutcome::dropped(DropReason::MultiOwnerCollision)
             }
             None => {
-                // R4c: import-member resolution (Python/JS/TS).
-                // Must fire before the functions.get(name) check because aliases
-                // mean the call-site name ("p") differs from the function name
-                // ("process"), so the index won't have a hit on the aliased name.
+                use crate::call_graph::JsLocalBinding;
+                // S1b-3b (SPEC §3.6): a JS/TS name whose binding holds one callable binds it,
+                // by registered name and span, before any import or same-name lookup.
+                if let JsLocalBinding::Callable(t) = &site.local_binding {
+                    return self.anonymous_local_outcome(caller, name, t, site);
+                }
+                // Slice L: proven aliases precede import and same-name fallback.
+                if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {
+                    outcome.via_alias_route = true;
+                    return self.certify_anonymous_site(site, outcome);
+                }
+                if !crate::anon_owner::permits_unqualified_fallback(site) {
+                    return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
+                }
+                // R4c precedes same-name lookup: imported aliases may rename the target.
                 if site.qualifier.is_none() && supports_import_member_resolution(&caller.file) {
                     if let Some(bindings) = self.import_bindings.get(&caller.file) {
                         if let Some(binding) = bindings.iter().find(|b| {
@@ -3369,27 +3372,17 @@ impl CallGraph {
                                     crate::call_graph::ImportBindingKind::MemberImport
                                 )
                         }) {
-                            let is_js_ts = is_js_ts_import_member_file(&caller.file);
-                            if is_js_ts
-                                && self
-                                    .js_ts_function_locals
-                                    .get(caller)
-                                    .is_some_and(|locals| locals.contains(name))
-                            {
-                                // A parameter or local binding shadows the imported
-                                // local name; do not mint an exact import edge.
+                            if is_js_ts_import_member_file(&caller.file) {
+                                // A parameter or local binding shadows the imported local
+                                // name; do not mint an exact import edge.
+                                if !crate::anon_owner::shadows(self, caller, name) {
+                                    return self.anonymous_import_outcome(caller, binding, site);
+                                }
                             } else {
                                 let member = binding.member.as_deref().unwrap_or(name);
-                                // JS/TS: resolve through the typed, whole-program-
-                                // resolved export facts (P4) — `member` is the raw
-                                // imported/exported NAME, which for a rename/
-                                // default/CJS/barrel form differs from the
-                                // declaring function's actual name, so this can't
-                                // start from `self.functions.get(member)` the way
-                                // the Python arm below does.
-                                let matched: Vec<&FunctionId> = if is_js_ts {
-                                    self.js_ts_import_member_candidates(caller, binding, member)
-                                } else if let Some(ids) = self.functions.get(member) {
+                                let matched: Vec<&FunctionId> = if let Some(ids) =
+                                    self.functions.get(member)
+                                {
                                     // Python: filter to free, module-level
                                     // functions in matching files.
                                     ids.iter()
@@ -3430,11 +3423,6 @@ impl CallGraph {
                                             ResolutionKind::ImportMember,
                                         ))
                                     }
-                                    // An unshadowed JS import names this module's
-                                    // export, not a same-named global function.
-                                    _ if is_js_ts => {
-                                        return ResolutionOutcome::dropped(DropReason::UnknownName)
-                                    }
                                     _ => {} // Python retains its existing R5 route.
                                 }
                             }
@@ -3459,7 +3447,12 @@ impl CallGraph {
                     .filter(|f| f.file == caller.file)
                     .collect();
                 if !local.is_empty() {
-                    return ResolutionOutcome::hit(exact(local, ResolutionKind::LocalDef));
+                    // S1b-3b: a refused JS/TS binding never falls back to a same-name
+                    // function (SPEC §3.8 (8): any `Unproven` reason drops at R4).
+                    if matches!(site.local_binding, JsLocalBinding::Unproven(_)) {
+                        return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
+                    }
+                    return self.bare_name_exact(local, ResolutionKind::LocalDef);
                 }
 
                 // R4.5: a Go unqualified call resolves within its own package
@@ -3542,6 +3535,23 @@ impl CallGraph {
                     }
                 }
 
+                // A JS/TS lexical binding is not a repo-global function of the
+                // same spelling. Earlier proven local/import routes are kept;
+                // this guard never supplies a new callable or alias target.
+                if is_js_ts_import_member_file(&caller.file)
+                    && (crate::anon_owner::shadows(self, caller, name)
+                        || self
+                            .import_bindings
+                            .get(&caller.file)
+                            .is_some_and(|bs| bs.iter().any(|b| b.local == name))
+                        || self.js_ts_exports.get(&caller.file).is_some_and(|f| {
+                            f.module_value_bindings.contains(name)
+                                || f.type_only_imports.contains_key(name)
+                        }))
+                {
+                    return ResolutionOutcome::dropped(DropReason::UnknownName);
+                }
+
                 // R5: cross-file free functions only, preserving legacy static exclusion.
                 let nonstatic: Vec<&FunctionId> = free
                     .into_iter()
@@ -3551,12 +3561,58 @@ impl CallGraph {
                             .contains(&(fid.file.clone(), name.to_string()))
                     })
                     .collect();
+                // S1b-3b (SPEC §3.8 (8), carry-forward 4 as narrowed 2026-09-29): a name bound
+                // in-file to a declaration that provably holds no function, a duplicate
+                // declaration, or a recovered import is not a repo-wide function of that
+                // spelling either.
+                if let JsLocalBinding::Unproven(r) = &site.local_binding {
+                    let drops_at_r5 = matches!(
+                        r.as_str(),
+                        "not_callable" | "duplicate_declaration" | "import_parse_recovery"
+                    );
+                    if !nonstatic.is_empty() && drops_at_r5 {
+                        return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
+                    }
+                }
                 match nonstatic.len() {
                     0 => ResolutionOutcome::dropped(DropReason::UnknownName),
-                    1 => ResolutionOutcome::hit(exact(nonstatic, ResolutionKind::FreeSingle)),
+                    1 => self.bare_name_exact(nonstatic, ResolutionKind::FreeSingle),
                     _ => ResolutionOutcome::hit(demoted(nonstatic, ResolutionKind::FreeMulti)),
                 }
             }
+        }
+    }
+
+    /// S1b-3b: the in-file callable a proven binding holds, matched by registered name and
+    /// span (SPEC §3.6). `t.local` can differ from the call-site spelling `name` (a renamed
+    /// binding, W4 option a).
+    pub(crate) fn js_ts_local_callable(
+        &self,
+        caller: &FunctionId,
+        name: &str,
+        t: &crate::ast::JsTerminal,
+        site: &CallSite,
+    ) -> ResolutionOutcome<'_> {
+        if t.wrapped && !site.jsx_element {
+            return ResolutionOutcome::dropped(DropReason::WrappedExportNonJsx);
+        }
+        let local = |n: &str| -> Vec<&FunctionId> {
+            self.functions.get(n).map_or(Vec::new(), |ids| {
+                ids.iter()
+                    .filter(|f| f.file == caller.file && !self.method_owners.contains_key(*f))
+                    .collect()
+            })
+        };
+        let hit: Vec<&FunctionId> = local(&t.local)
+            .into_iter()
+            .filter(|f| f.start_line == t.start_line && f.end_line == t.end_line)
+            .collect();
+        match hit.len() {
+            1 => ResolutionOutcome::hit(exact(hit, ResolutionKind::LocalDef)),
+            // No same-file function shares this span: fall back by the call-site spelling
+            // (`name`), which can differ from `t.local` (SPEC §3.6).
+            _ if local(name).is_empty() => ResolutionOutcome::dropped(DropReason::UnknownName),
+            _ => ResolutionOutcome::dropped(DropReason::LocalBindingUnproven),
         }
     }
 
@@ -3631,33 +3687,97 @@ impl CallGraph {
     /// imported/exported name, which for a rename, default export, CommonJS
     /// assignment, or barrel differs from the declaring function's actual
     /// name entirely.
+    ///
+    /// S1/S1b: a span-verified export binds only the one function with its exact span; zero
+    /// or 2+ span matches yield no candidate (never NameOnly). A wrapped React export binds
+    /// only from a JSX element site; non-JSX sites drop `WrappedExportNonJsx`.
     fn js_ts_import_member_candidates(
         &self,
         caller: &FunctionId,
         binding: &crate::call_graph::ImportBinding,
         member: &str,
-    ) -> Vec<&FunctionId> {
-        let Some(candidate_file) = crate::call_graph::resolve_js_ts_relative_module(
-            &binding.module_path,
-            &caller.file,
-            &self.indexed_files,
-        ) else {
-            return Vec::new();
+        site: &CallSite,
+        alias_route: bool,
+    ) -> Result<Vec<&FunctionId>, DropReason> {
+        // A caller/module cache entry can also be shared by a require binding.
+        // Prove this particular ESM binding and position before consulting it.
+        // Slice L: a followed alias chain that the binder proved ends at this import local
+        // carries the same proof as a direct call to it.
+        let import_proven = match &site.local_binding {
+            crate::call_graph::JsLocalBinding::Unproven(reason) => reason == "import",
+            // Only while resolving through the alias route: a site that fell through to main's
+            // rungs must not see this proof (it would diverge from an unfollowed alias).
+            crate::call_graph::JsLocalBinding::AliasImport { local } => {
+                alias_route && *local == binding.local
+            }
+            _ => false,
         };
-        let Some(resolved) = self
-            .js_ts_resolved_exports
+        if !binding.module_path.trim().starts_with('.')
+            && (!self
+                .js_ts_exports
+                .get(&caller.file)
+                .is_some_and(|exports| exports.esm_named_imports.contains(&binding.local))
+                || !import_proven)
+        {
+            return Ok(Vec::new());
+        }
+        let Some(candidate_file) =
+            self.resolve_js_ts_member_module(&binding.module_path, &caller.file)
+        else {
+            return Ok(Vec::new());
+        };
+        let exports = if binding.module_path.trim().starts_with('.') {
+            &self.js_ts_resolved_exports
+        } else {
+            let Some((_, project)) = self
+                .js_ts_path_modules
+                .get(&(caller.file.clone(), binding.module_path.clone()))
+            else {
+                return Ok(Vec::new());
+            };
+            let Some(exports) = self.js_ts_path_exports.get(project) else {
+                return Ok(Vec::new());
+            };
+            exports
+        };
+        let Some(resolved) = exports
             .get(&candidate_file)
             .and_then(|exports| exports.get(member))
         else {
-            return Vec::new();
+            return Ok(Vec::new());
         };
-        match self.functions.get(&resolved.local_name) {
+        if !binding.module_path.trim().starts_with('.') && resolved.via_unresolved_star {
+            return Ok(Vec::new());
+        }
+        if resolved.wrapped && !site.jsx_element {
+            return Err(DropReason::WrappedExportNonJsx);
+        }
+        // Slice L: an alias route is proven only by a source-backed span; the span-less
+        // fallback below matches any same-named function in the file (the direct routes keep it).
+        if alias_route && resolved.span.is_none() {
+            return Ok(Vec::new());
+        }
+        // New alias authority requires a source-backed callable span. Existing
+        // relative/CJS and may-call fallback semantics are not widened by P1.
+        if !binding.module_path.trim().starts_with('.') && resolved.span.is_none() {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
             Some(ids) => ids
                 .iter()
                 .filter(|fid| fid.file == resolved.file && !self.method_owners.contains_key(*fid))
+                .filter(|fid| {
+                    resolved
+                        .span
+                        .is_none_or(|(s, e)| fid.start_line == s && fid.end_line == e)
+                })
                 .collect(),
             None => Vec::new(),
+        };
+        if resolved.span.is_some() && ids.len() > 1 {
+            return Ok(Vec::new());
         }
+        Ok(ids)
     }
 
     pub fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>> {
@@ -3813,9 +3933,8 @@ fn leading_segment_binds_directly(
     };
 
     let rib: Vec<&Binding> = graph
-        .bindings
-        .iter()
-        .filter(|b| b.scope == start && b.name == leading && b.ns == NS_TYPE)
+        .binding_indices(start, leading, NS_TYPE)
+        .map(|i| &graph.bindings[i])
         .collect();
     if rib.is_empty() {
         return false;
@@ -3910,26 +4029,24 @@ fn leading_segment_has_block_local_shadow(
 ) -> bool {
     let at = SourceLoc { file, byte };
     for scope in scope_chain_below_module(graph, from) {
-        let exact_binding = graph.bindings.iter().any(|b| {
-            b.scope == scope && b.name == leading && b.ns == NS_TYPE && binding_vis_covers(b, &at)
-        });
+        let exact_binding = graph
+            .binding_indices(scope, leading, NS_TYPE)
+            .any(|i| binding_vis_covers(&graph.bindings[i], &at));
         if exact_binding {
             return true;
         }
 
-        let glob_shadow = graph.edges.iter().any(|e: &Edge| {
-            e.from == scope
-                && e.kind == EK_GLOB
-                && e.vis_range.as_ref().is_some_and(|s| span_covers(s, &at))
+        let glob_shadow = graph.edge_indices(scope).any(|i| {
+            let e = &graph.edges[i];
+            e.kind == EK_GLOB && e.vis_range.as_ref().is_some_and(|s| span_covers(s, &at))
         });
         if glob_shadow {
             return true;
         }
 
         let macro_shadow = graph
-            .macro_wildcards
-            .iter()
-            .any(|m| m.scope == scope && m.ns == NS_TYPE && span_covers(&m.range, &at));
+            .macro_wildcard_indices(scope, NS_TYPE)
+            .any(|i| span_covers(&graph.macro_wildcards[i].range, &at));
         if macro_shadow {
             return true;
         }
@@ -4475,6 +4592,8 @@ mod scope_resolution_predicate_tests {
             receiver_outcome: None,
             origin: CallSiteOrigin::Source,
             pre_resolved_target: None,
+            jsx_element: false,
+            local_binding: Default::default(),
         }
     }
 
@@ -4494,6 +4613,30 @@ mod scope_resolution_predicate_tests {
         assert!(
             !pred.disproves(&cand, &site("CliTest::with_file"), &cx),
             "non-uniform edition must disprove nothing (keep-all)"
+        );
+    }
+
+    #[test]
+    fn t_j3_non_jsx_site_on_a_spanned_export_drops() {
+        // S1 T-J3: the gate keys on `site.jsx_element` alone; the same site binds when set.
+        let parse = |p: &str, s: &str| {
+            let parsed = crate::ast::ParsedFile::parse(p, s, crate::languages::Language::Tsx);
+            (p.to_string(), parsed.unwrap())
+        };
+        let lib = "import { memo } from 'react';\nexport const Island = memo((p: any) => null);\n";
+        let app =
+            "import { Island } from './lib';\nexport function App() {\n  return <Island/>;\n}\n";
+        let cg = CallGraph::build(&[parse("lib.tsx", lib), parse("app.tsx", app)].into());
+        let mut s = site("Island");
+        s.caller = cg.functions["App"][0].clone();
+        s.line = 3;
+        let out = cg.resolve_call_site_full(&s);
+        assert_eq!(out.drop, Some(DropReason::WrappedExportNonJsx));
+        s.jsx_element = true;
+        let out = cg.resolve_call_site_full(&s);
+        assert_eq!(
+            (out.resolved.len(), out.resolved[0].target.name.as_str()),
+            (1, "Island")
         );
     }
 }

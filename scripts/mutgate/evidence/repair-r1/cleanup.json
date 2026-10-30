@@ -1,0 +1,8 @@
+{
+  "removed": [
+    "/Users/wesleyjinks/code/prism-mutation-gate/target"
+  ],
+  "retained_evidence": "scripts/mutgate/evidence/repair-r1",
+  "build_target_absent": true,
+  "logical_size_before": "4.5 GiB (du -sh; not a physical APFS reclaim claim)"
+}

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "base": "c3d110efe32ec2278b3f802c0f35edfde751b168",
+  "population": "synthetic fixture/language/build observations; not real sites or recall",
+  "observations": 444,
+  "matchedKeys": true,
+  "revokedExact": 234,
+  "restoredEsmExact": 12,
+  "unchanged": 198,
+  "otherTargetChanges": 0,
+  "promotedOriginalGapCases": [],
+  "tests": {
+    "base": { "passed": 44, "failed": 45 },
+    "candidate": { "passed": 89, "failed": 0 },
+    "newTests": 62,
+    "existingControls": 27,
+    "reviewDeltaRed": { "passed": 0, "failed": 2 },
+    "hardeningRed": { "passed": 81, "failed": 8 },
+    "moduleBindingControls": { "passed": 62, "failed": 0 }
+  },
+  "matchedTestHashes": {
+    "tests/integration/cjs_export_barrier_test.rs": "eb00968d8ce557a461086f937ff478fbc12b7ae91b7c5effe348a5b61047d307",
+    "tests/integration/cjs_export_state_test.rs": "d95ca884d40ed84cf5b6ff52297ada0eef83f3e0acbb331aacbebd2b86b0608e",
+    "tests/integration/esm_forwarding_state_test.rs": "0ec3b25b2030c8a8dcea6e66d5b8fb9187e5c6b68a9592f7b897664d7e0ee2dc",
+    "tests/integration/main.rs": "7f4914bd707796d0fc91dee31fce513fa4ed6aa7cbbc8a0a0808a5eb31df912d",
+    "tests/integration/module_binding_audit_test.rs": "85556b2e14472dfedd8f166a0d0db8f9c35875b56704d6d3467533a024ceb851"
+  },
+  "sourceHashes": {
+    "src/ast.rs": "dfd8bd0d2095543448ed72530a940ca79b0979982e9941b894244b9a452090bb",
+    "src/ast/js_cjs_export_barriers.rs": "7a9ab3ec76074a6bc2fd8ad2eeae701c96a4cd918362d525ed47e8cbad2b8e68",
+    "src/cpg_cache.rs": "dca302985c62f6ab1ff43d9be1f0f18c057e8b37b4770506784f7bd04c4dd31b",
+    "src/navigation/call_edge_cache.rs": "4d30807bde4f425b7d5dacfba32eccfb1b82f64d0da2dbd8224643978c4cdeac"
+  },
+  "logs": {
+    "base-final-cjs-v3.log": "a07b61fbb818dd5985846323989acc3dbc5d84feb6f096751177d9393a9657bd",
+    "candidate-final-cjs-v3.log": "0b29d80c42db25709bdd2d319b8d3c8b2ebebc154df81db7828023f508519c46",
+    "review-delta-red.log": "0220f92aff21853bb3c4e789a2fb74e46da6f4ff4ccf8603713a8fbcbb618d05",
+    "hardening-red-final.log": "27d7b1e615a8d01f279200525ae2f40f512c73a722e72b22556edd0ea05d49b6",
+    "base-nested-shadow.log": "5518c3d4fb83f4eb2b71f9d5b52cf3efff6e6a5fbb251bd3aaa92da085b79728",
+    "candidate-module-matrix.log": "1f179438ffe4fa02cff9e78b2d7ad222f8c6c9a99f5770ea74c13a4dd6ff7863",
+    "runtime-producer-control.json": "08351354ec26e9298bf314f43e5dc7b4703944cfb21effb6e5721a244d85e7f9"
+  },
+  "verification": {
+    "rustDefaultPassed": 4356,
+    "rustMcpPassed": 4549,
+    "rustMcpOwnerPassed": 4572,
+    "rustIgnoredPerConfiguration": 1,
+    "examplesPassed": 32,
+    "nodePassed": 786,
+    "authorityPassed": 40,
+    "pythonPassed": 940,
+    "pythonLiveSkipped": 1,
+    "unavailableHistoricalHelperTests": 3,
+    "tierAMatrixPassed": 159,
+    "tierAQuick": "incomplete after 300044ms; no verdict",
+    "sameBuildBinaryHashesUnchanged": true,
+    "rustLogHashes": {
+      "rust-default.log": "3eba9a0ee6bc4292ab16a6f505de65fef9d8cf340f822818a22c4d823e41f19a",
+      "rust-mcp.log": "3ceb44111fa05c1432aba9343e5ead14e9125671fcb5b44686cd1ea4cf3e7b84",
+      "rust-owner.log": "5466b0859ac94cf7dfdd0df465cae01e9a1e141a6802b232e3b71622f9b76cfe",
+      "rust-examples.log": "d1cd04f1c62b16ee1975c1a5521842d99e1179198e17bea6b4a2707811301e94"
+    },
+    "helperGateReceiptSha256": "f6a12b429e42336099532d999bf74a5e8408c23f6bc73ffdb22ff8acd9e3b7fa"
+  },
+  "note": "Revocations include conservative refusals, not only demonstrated wrong targets. No forwarding or complete runtime authority claimed."
+}

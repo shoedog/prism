@@ -1,0 +1,6 @@
+M14 C57_TR6P4b_block_var None [(7, 'exact', 'import_member')]
+M14 C58_for_of_var UnknownName []
+M14 C59_try_for_init_var None [(5, 'exact', 'import_member')]
+M14 C64_TR6P4_top_function UnknownName []
+M14 C65_TR6P4_top_class UnknownName []
+M14 C66_TR6P4_top_destructure UnknownName []

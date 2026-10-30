@@ -1,0 +1,477 @@
+#!/usr/bin/env python3
+"""Memory-report driver for prism-mcp (shared-daemon spec section 6.1).
+
+    memreport.py gen-workload --bin BIN --corpus NAME=PATH [--functions 50] [--workloads DIR]
+    memreport.py run --bin BIN --corpus NAME=PATH [--corpus ...] --out DIR [--workloads DIR] [--kinds LIST]
+    memreport.py summarize --run DIR
+    memreport.py render --run DIR --out FILE.md
+    memreport.py compare --experiment m2 --baseline DIR --candidate DIR --out FILE.md [--json FILE.json]
+
+Runs are sequential on purpose: one index in memory at a time.
+Unit tests: python3 -m unittest scripts/memreport/test_memreport.py
+"""
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+from memreport_changed import edit_reason, verified_original
+
+from memreport_builddir import directory_identity, inside, prepare_repetition, remove_created  # noqa: F401
+from memreport_compare import EXPERIMENTS, cmd_compare
+from memreport_derive import derive, difference, num  # noqa: F401
+from memreport_render import KINDS, MIB, render  # noqa: F401
+from memreport_rule import (CANDIDATES, RULE_ABSOLUTE, RULE_FRACTION, decision_points, evaluate,  # noqa: F401
+                            meets, rule_arm)
+from memreport_summary import (RUN_KINDS, assemble_summary, build_entry, effective_status,  # noqa: F401
+                               exclude_entry, prime_peak, rescore, summarize, write_json_atomically, write_summary)
+# The validation names are re-exported: tests and callers use them as `memreport.validate` and so on.
+from memreport_validate import (BUILD, BUILD_SAVE_MARKERS, CACHE_REASONS, CACHED_KINDS, PRIME,  # noqa: F401
+                                REPORT_VERSION, REQUIRED, build_cache_reason, find_stage, footprint, is_number,
+                                validate, well_formed)
+
+MARKER = '{"prism_mem_report":'
+# stderr text that means a cache-loaded run did not load everything from cache. The report's `cache` section
+# is the evidence that decides admission; these only name the cause more precisely when they are present.
+CACHE_MISS_MARKERS = (
+    ('CPG cache miss', 'the CPG cache missed, so this was a cold build'),
+    ('partial CPG cache hit', 'the CPG cache partially missed, so part of the index was rebuilt'),
+    ('nav edge cache: skipping warm sidecar load',
+     'the call-edge sidecar was not loaded (binary built from a dirty tree), so call edges were recomputed'),
+    ('nav edge cache: failed to load sidecar',
+     'the call-edge sidecar failed to load, so call edges were recomputed'),
+)
+# Each measured file, under the names a build may have used: the current name first, then the one that
+# builds from before the cache file was renamed wrote, so a baseline build measured with this tool still counts.
+CACHE_FILES = {'cpg_cache_bytes': ('cpg-cache-v2.bin', 'cpg-cache.bin'),
+               'call_edge_sidecar_bytes': ('resolved-call-edge-index.bin',)}
+HERE = Path(__file__).resolve().parent
+WORKLOADS = HERE / 'workloads'
+
+
+def parse_report(stderr_text):
+    """The single report line in a prism-mcp stderr capture, parsed."""
+    lines = [line for line in stderr_text.splitlines() if line.startswith(MARKER)]
+    if len(lines) != 1:
+        raise ValueError('expected exactly one report line, found %d' % len(lines))
+    return json.loads(lines[0])
+
+
+def command_for(binary, repo, cache_dir, kind, workload, settle, edit=None):
+    command = [str(binary), '--repo', str(repo), '--eager', '--mem-settle-secs', str(settle)]
+    command += ['--no-cache'] if kind == 'cold' else ['--cache-dir', str(cache_dir)]
+    if kind == 'workload':
+        command += ['--mem-workload', str(workload)]
+    if kind == 'refresh':
+        command += ['--mem-refresh']
+    if kind == 'changed-refresh':
+        if edit is None:
+            raise SystemExit('changed-refresh needs --changed-edit NAME=PATH')
+        command += ['--mem-changed-refresh', str(edit)]
+    return command
+
+
+def run_one(command, kind, timeout, expected=None):
+    """Run one measurement. Never raises for a bad run: the result says what happened."""
+    env = dict(os.environ, PRISM_MCP_MEM_REPORT='1')
+    started = time.time()
+    try:
+        done = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, timeout=timeout, env=env)
+    except subprocess.TimeoutExpired:
+        return {'kind': kind, 'status': 'timeout', 'reason': 'timeout', 'command': command,
+                'wall_secs': timeout}
+    result = {'kind': kind, 'command': command, 'wall_secs': round(time.time() - started, 1)}
+    stderr = done.stderr.decode('utf-8', 'replace')
+    if kind == 'changed-refresh':
+        result['stderr'] = stderr  # retain successful diagnostics and failures for this scenario
+    if done.returncode != 0:
+        result.update(status='failed', reason='exit %d' % done.returncode, exit=done.returncode,
+                      stderr_tail=stderr[-2000:])
+        return result
+    try:
+        report = parse_report(stderr)
+    except ValueError as error:
+        result.update(status='inadmissible', reason=str(error), stderr_tail=stderr[-2000:])
+        return result
+    result['report'] = report
+    reason = validate(kind, report, expected)
+    # The report's own cache section decides admission. A marker on stderr is a second witness: it can only
+    # exclude a run, and it names the cause more precisely than the report's reason does.
+    markers = CACHE_MISS_MARKERS if kind in CACHED_KINDS else BUILD_SAVE_MARKERS if kind == BUILD else ()
+    missed = [text for marker, text in markers if marker in stderr]
+    if missed:
+        reasons = missed + ([reason] if reason and reason not in CACHE_REASONS else [])
+        result.update(status='inadmissible', reason='; '.join(reasons))
+    elif reason is None:
+        result['status'] = 'ok'
+    else:
+        result.update(status='inadmissible', reason=reason)
+    return result
+
+
+def capture(command):
+    """The stripped stdout of a command, or None when it could not run or exited non-zero."""
+    try:
+        done = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return done.stdout.decode('utf-8', 'replace').strip() if done.returncode == 0 else None
+
+
+def load_average():
+    """The host's 1-, 5- and 15-minute load averages, or None where the platform has none."""
+    try:
+        return list(os.getloadavg())
+    except (AttributeError, OSError):
+        return None
+
+
+def host_state():
+    """Swap and compressor state at the time of a run (spec 6.1)."""
+    if sys.platform == 'darwin':
+        return {'swapusage': capture(['sysctl', '-n', 'vm.swapusage']), 'vm_stat': capture(['vm_stat']),
+                'loadavg': load_average()}
+    try:
+        return {'meminfo': Path('/proc/meminfo').read_text()[:1500], 'loadavg': load_average()}
+    except OSError:
+        return {}
+
+
+def corpus_provenance(path):
+    """Path, commit and count of dirty files; commit and dirty are None when git cannot say (not a checkout)."""
+    status = capture(['git', '-C', str(path), 'status', '--porcelain'])
+    return {'path': str(path), 'commit': capture(['git', '-C', str(path), 'rev-parse', 'HEAD']) or None,
+            'dirty': None if status is None else len([line for line in status.splitlines() if line])}
+
+
+def parse_kinds(text):
+    """The kinds named by `--kinds` in the order `run` executes them; exits on an unknown, repeated or empty name."""
+    names = text.split(',')
+    problems = ['%r is not a kind' % name for name in names if name not in RUN_KINDS]
+    problems += ['%s is listed twice' % name for name in sorted(set(names)) if names.count(name) > 1]
+    if problems:
+        raise SystemExit('--kinds %r: %s (kinds: %s)' % (text, '; '.join(problems), ','.join(RUN_KINDS)))
+    return tuple(kind for kind in RUN_KINDS if kind in names)
+
+
+CORPUS_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]*\Z')    # NAME becomes a path component under --out
+
+
+def parse_corpora(pairs):
+    corpora = {}
+    for pair in pairs:
+        name, sep, path = pair.partition('=')
+        if not sep or not name or not path:
+            raise SystemExit('--corpus takes NAME=PATH, got %r' % pair)
+        if not CORPUS_NAME.match(name):
+            raise SystemExit('--corpus NAME %r must be letters, digits, dots, underscores or hyphens, starting with '
+                             'a letter or digit: it names directories under --out' % name)
+        corpora[name] = Path(path).expanduser().resolve()
+    for name, path in corpora.items():
+        twins = [other for other, other_path in corpora.items() if other_path == path and other < name]
+        if twins:
+            raise SystemExit('--corpus names %s and %s are the same path (%s): one corpus would count twice'
+                             % (twins[0], name, path))
+    return corpora
+
+
+def emit_workload(binary, path, functions, timeout):
+    """(stdout bytes, None) for a workload the binary emitted, or (None, why not)."""
+    command = [binary, '--repo', str(path), '--eager', '--no-cache', '--mem-emit-workload', str(functions)]
+    try:
+        done = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, timeout=timeout,
+                              env=dict(os.environ, PRISM_MCP_MEM_REPORT='1'))
+    except subprocess.TimeoutExpired:
+        return None, 'timed out after %ss' % timeout
+    except OSError as error:
+        return None, 'could not run %s: %s' % (binary, error)
+    if done.returncode != 0:
+        return None, 'exit %d:\n%s' % (done.returncode, done.stderr.decode('utf-8', 'replace')[-2000:])
+    if done.stdout.count(b'\n') == 0:
+        return None, 'emitted no requests'
+    return done.stdout, None
+
+
+def cmd_gen_workload(args):
+    """Generate a workload per corpus. Each finished corpus is written (file and manifest) before the next starts."""
+    corpora = parse_corpora(args.corpus)    # first: a bad NAME must not leave a directory behind
+    directory = Path(args.workloads)
+    directory.mkdir(parents=True, exist_ok=True)
+    manifest_path = directory / 'MANIFEST.json'
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    failed = []
+    for name, path in corpora.items():
+        data, problem = emit_workload(args.bin, path, args.functions, args.timeout)
+        if problem is not None:
+            print('%s: workload generation failed: %s' % (name, problem), file=sys.stderr, flush=True)
+            failed.append(name)
+            continue
+        (directory / (name + '.jsonl')).write_bytes(data)
+        manifest[name] = dict(corpus_provenance(path), requests=data.count(b'\n'),
+                              functions_requested=args.functions, sha256=hashlib.sha256(data).hexdigest())
+        write_json_atomically(manifest_path, manifest)
+        print('%s: %d requests' % (name, manifest[name]['requests']), flush=True)
+    if failed:
+        raise SystemExit('workload generation failed for: %s' % ', '.join(failed))
+
+
+def single_file_size(directory, *filenames):
+    """Size of the one file called by the first of `filenames` that exists under `directory` (recursive);
+    None unless exactly one file has that name."""
+    for filename in filenames:
+        matches = [path for path in Path(directory).rglob(filename) if path.is_file()]
+        if matches:
+            return matches[0].stat().st_size if len(matches) == 1 else None
+    return None
+
+
+def cache_file_sizes(cache_dir):
+    return {key: single_file_size(cache_dir, *filenames) for key, filenames in CACHE_FILES.items()}
+
+
+def bind_workload(name, directory, commit):
+    """Read a corpus's workload once and check it against the manifest.
+
+    Returns (bytes, {'sha256', 'requests'}); exits with a message when the file is missing, is not in the
+    manifest, differs from it, or was generated at another commit than the corpus is at now.
+    """
+    if not commit:
+        raise SystemExit('%s: the corpus has no git commit (not a git checkout, or no commits), so a workload '
+                         'cannot be bound to it' % name)
+    path = Path(directory) / (name + '.jsonl')
+    if not path.exists():
+        raise SystemExit('%s: no workload at %s; run gen-workload first' % (name, path))
+    data = path.read_bytes()
+    manifest_path = Path(directory) / 'MANIFEST.json'
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    entry = manifest.get(name)
+    if entry is None:
+        raise SystemExit('%s: %s has no entry for this corpus; re-run gen-workload' % (name, manifest_path))
+    digest = {'sha256': hashlib.sha256(data).hexdigest(), 'requests': data.count(b'\n')}
+    if digest['sha256'] != entry.get('sha256') or digest['requests'] != entry.get('requests'):
+        raise SystemExit('%s: %s has sha256 %s and %d requests but the manifest has %s and %s; '
+                         're-run gen-workload' % (name, path, digest['sha256'], digest['requests'],
+                                                  entry.get('sha256'), entry.get('requests')))
+    if entry.get('commit') != commit:
+        raise SystemExit('%s: the workload was generated at commit %s but the corpus is at %s; '
+                         're-run gen-workload' % (name, entry.get('commit'), commit))
+    return data, digest
+
+
+def run_build(args, path, out, name, rep, snapshot):
+    """One first build into a cache directory of its own; its file sizes are recorded, then it is deleted.
+
+    The directory is created here, exclusively (memreport_builddir.py): an existing one, a symlink on the way or
+    any filesystem error refuses the repetition without running a child. Its contents are deleted through a
+    descriptor opened when it was created, never by path, and `cache_dir_removed` records whether the path is
+    gone afterwards (with `cache_dir_note` saying why not).
+    """
+    root = out / 'cache-build'
+    cache_dir, owned, refusal = prepare_repetition(root, name, rep)
+    if refusal:
+        return {'kind': BUILD, 'status': 'inadmissible', 'command': [], 'wall_secs': 0, 'reason': refusal}
+    result = None
+    try:
+        result = run_one(command_for(args.bin, path, cache_dir, BUILD, snapshot, args.settle), BUILD, args.timeout)
+        result['cache_files'] = cache_file_sizes(cache_dir)
+        reason = build_cache_reason(result['cache_files']) if result.get('status') == 'ok' else None
+        if reason:
+            result.update(status='inadmissible', reason=reason)
+    finally:
+        removed, note = remove_created(cache_dir, root, owned)
+        if result is not None:
+            result['cache_dir_removed'] = removed
+            if note:
+                result['cache_dir_note'] = note
+    return result
+
+
+def run_changed(args, path, out, name, rep, snapshot, cache_dir, edit_path, edit):
+    """A disposable copy of the prime, with recovery even when the child is interrupted."""
+    original = verified_original(path, edit)
+    target = path / edit['path']
+    root = out / 'cache-changed'
+    changed_cache, owned, refusal = prepare_repetition(root, name, rep)
+    if refusal:
+        return dict(kind='changed-refresh', status='inadmissible', wall_secs=0, reason=refusal)
+    result = None
+    try:
+        shutil.copytree(cache_dir, changed_cache, dirs_exist_ok=True)  # preserve the pinned prime
+        try:
+            command = command_for(args.bin, path, changed_cache, 'changed-refresh', snapshot, args.settle, edit_path)
+            result = run_one(command, 'changed-refresh', args.timeout, edit)
+        finally:
+            # subprocess.run reaps timed-out/interrupted children before unwinding here.
+            try:
+                if target.is_symlink() or target.resolve() != target or not target.is_file():
+                    raise OSError('restore target replaced')
+                if target.read_bytes() != original:
+                    if result is not None:
+                        result.update(status='failed', reason='%s; child did not restore mirror' % result.get('reason', ''))
+                    target.write_bytes(original)
+                    if target.read_bytes() != original:
+                        raise OSError('restored bytes mismatch')
+            except OSError as error:
+                if result is None:
+                    raise RuntimeError('changed-refresh restore failed: %s' % error) from error
+                result.update(status='failed', reason='%s; restore failed: %s' % (result.get('reason', ''), error))
+    finally:
+        removed, note = remove_created(changed_cache, root, owned)
+        if result is not None:
+            result['cache_dir_removed'] = removed
+            if note:
+                result['cache_dir_note'] = note
+    return result
+
+
+def measure_corpus(args, name, path, provenance, snapshot, digest, kinds=KINDS):
+    """Run the chosen kinds for one corpus, saving each raw result as it finishes. Returns (corpus, results, prime)."""
+    out = Path(args.out)
+    raw = out / 'raw' / name
+    raw.mkdir(parents=True, exist_ok=True)
+    cache_dir = out / 'cache' / name
+    edit_path, edit = args.changed_edits.get(name, (None, None))
+    if 'changed-refresh' in kinds:
+        verified_original(path, edit)  # before priming or any other child
+    prime = None
+    if set(kinds) & set(CACHED_KINDS):
+        # Prime the cache with a discarded run so that "warm" means a cache hit.
+        prime = run_one(command_for(args.bin, path, cache_dir, 'warm', snapshot, 0), PRIME, args.timeout)
+        (raw / 'prime.json').write_text(json.dumps(prime, indent=1))
+    corpus = dict(provenance, cache_files=cache_file_sizes(cache_dir), workload=digest)
+    if edit is not None:
+        corpus['changed_edit'] = edit
+    (raw / 'corpus.json').write_text(json.dumps(corpus, indent=1, sort_keys=True))
+    results = []
+    for kind in kinds:
+        for rep in range(1, args.reps + 1):
+            before = host_state()
+            if kind == BUILD:
+                result = run_build(args, path, out, name, rep, snapshot)
+            elif kind == 'changed-refresh':
+                result = run_changed(args, path, out, name, rep, snapshot, cache_dir, edit_path, edit)
+            else:
+                result = run_one(command_for(args.bin, path, cache_dir, kind, snapshot, args.settle, edit_path),
+                                 kind, args.timeout, digest if kind == 'workload' else None)
+            result.update(rep=rep, host_before=before)
+            (raw / ('%s-%d.json' % (kind, rep))).write_text(json.dumps(result, indent=1))
+            print('%s %s #%d: %s (%ss)' % (name, kind, rep, result['status'], result['wall_secs']), flush=True)
+            results.append(result)
+            if kind == 'changed-refresh' and result['status'] != 'ok':
+                raise SystemExit('changed-refresh stopped; inspect %s before another repetition' % raw)
+    return corpus, results, prime
+
+
+def cmd_run(args):
+    kinds = parse_kinds(args.kinds)  # before anything else: a typo must not cost a run
+    out = Path(args.out)
+    # One run directory holds one run: a second run would overwrite some raw files and leave others, and
+    # `summarize` would pool the two.
+    if any((out / name).exists() for name in ('raw', 'run.json', 'summary.json')):
+        raise SystemExit("run directory already has results; use a new --out, or 'summarize' to rescore")
+    settings = {'reps': args.reps, 'settle': args.settle, 'timeout': args.timeout, 'bin': args.bin}
+    # Bind every corpus to its workload before any run starts: a mismatch must not cost hours first.
+    bound = {}
+    args.changed_edits = {}
+    edit_paths = parse_corpora(args.changed_edit) if args.changed_edit else {}
+    for name, path in parse_corpora(args.corpus).items():
+        provenance = corpus_provenance(path)
+        if 'changed-refresh' in kinds:
+            if provenance['dirty'] != 0 or not provenance['commit']:
+                raise SystemExit('%s: dirty mirror or identity unavailable' % name)
+            if name not in edit_paths:
+                raise SystemExit('%s: changed-refresh needs --changed-edit NAME=PATH' % name)
+            edit = json.loads(edit_paths[name].read_text())
+            reason = edit_reason(edit)
+            if reason or edit['repo_root'] != str(path) or edit['commit'] != provenance['commit']:
+                raise SystemExit('%s: %s' % (name, reason or 'changed edit identity mismatch'))
+            verified_original(path, edit)
+            args.changed_edits[name] = (edit_paths[name], edit)
+        bound[name] = (path, provenance) + bind_workload(name, args.workloads, provenance['commit'])
+    out.mkdir(parents=True, exist_ok=True)
+    (out / 'run.json').write_text(json.dumps(dict(settings, kinds=list(kinds)), indent=1, sort_keys=True))
+    entries = {}
+    for name, (path, provenance, data, digest) in bound.items():
+        if name in args.changed_edits:
+            _, edit = args.changed_edits[name]
+            edit_path = out / 'edits' / (name + '.json')
+            edit_path.parent.mkdir(parents=True, exist_ok=True)
+            write_json_atomically(edit_path, edit)
+            args.changed_edits[name] = (edit_path, edit)
+        snapshot = out / 'workloads' / (name + '.jsonl')
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        snapshot.write_bytes(data)
+        corpus, results, prime = measure_corpus(args, name, path, provenance, snapshot, digest, kinds)
+        entries[name] = build_entry(corpus, results, prime)
+        write_summary(out, assemble_summary(settings, entries))  # kept after every corpus, not just at the end
+    print('wrote %s' % (out / 'summary.json'))
+
+
+def cmd_summarize(args):
+    """Rebuild summary.json from raw/ alone, validating every stored report with today's rules."""
+    print('wrote %s' % write_summary(Path(args.run), rescore(args.run)))
+
+
+def cmd_render(args):
+    summary = json.loads((Path(args.run) / 'summary.json').read_text())
+    Path(args.out).write_text(render(summary))
+    print('wrote %s' % args.out)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = parser.add_subparsers(dest='command', required=True)
+    from memreport_idle_driver import add_parser
+    add_parser(commands)
+    gen = commands.add_parser('gen-workload')
+    gen.add_argument('--bin', required=True)
+    gen.add_argument('--corpus', action='append', required=True, metavar='NAME=PATH')
+    gen.add_argument('--workloads', type=Path, default=WORKLOADS, metavar='DIR',
+                     help='where workloads/*.jsonl and MANIFEST.json live (default: %(default)s)')
+    gen.add_argument('--functions', type=int, default=50)
+    gen.add_argument('--timeout', type=int, default=3600)
+    gen.set_defaults(handler=cmd_gen_workload)
+    run = commands.add_parser('run')
+    run.add_argument('--bin', required=True)
+    run.add_argument('--corpus', action='append', required=True, metavar='NAME=PATH')
+    run.add_argument('--out', required=True)
+    run.add_argument('--workloads', type=Path, default=WORKLOADS, metavar='DIR',
+                     help='where workloads/*.jsonl and MANIFEST.json live (default: %(default)s)')
+    run.add_argument('--kinds', default=','.join(KINDS), metavar='LIST',
+                     help='comma-separated subset of %s (default: %%(default)s)' % ','.join(RUN_KINDS))
+    run.add_argument('--reps', type=int, default=3)
+    run.add_argument('--changed-edit', action='append', default=[], metavar='NAME=PATH',
+                     help='preregistered edit JSON for a dedicated clean private mirror')
+    run.add_argument('--timeout', type=int, default=1800)
+    run.add_argument('--settle', type=int, default=5)
+    run.set_defaults(handler=cmd_run)
+    summarizing = commands.add_parser('summarize', help='rebuild summary.json from raw/ of an earlier run')
+    summarizing.add_argument('--run', required=True)
+    summarizing.set_defaults(handler=cmd_summarize)
+    rendering = commands.add_parser('render')
+    rendering.add_argument('--run', required=True)
+    rendering.add_argument('--out', required=True)
+    rendering.set_defaults(handler=cmd_render)
+    comparing = commands.add_parser('compare', help='baseline run against candidate run under a pinned rule')
+    comparing.add_argument('--experiment', required=True, choices=sorted(EXPERIMENTS))
+    comparing.add_argument('--baseline', required=True, type=Path, metavar='DIR')
+    comparing.add_argument('--candidate', required=True, type=Path, metavar='DIR')
+    comparing.add_argument('--out', required=True, metavar='FILE.md')
+    comparing.add_argument('--json', metavar='FILE.json', help='the same content as data')
+    comparing.add_argument('--allow-same-build', action='store_true',
+                           help='compare runs of one build identity (a noise check)')
+    comparing.set_defaults(handler=cmd_compare)
+    args = parser.parse_args(argv)
+    args.handler(args)
+
+
+if __name__ == '__main__':
+    main()

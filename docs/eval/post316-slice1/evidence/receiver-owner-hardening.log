@@ -1,0 +1,332 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+warning: unused variable: `conf`
+   --> tests/integration/import_binding_test.rs:354:10
+    |
+354 |     let (conf, kind) = resolve_kind(&cg, "app.py", "run", "process");
+    |          ^^^^ help: if this is intentional, prefix it with an underscore: `_conf`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `resolve_count` is never used
+  --> tests/integration/import_binding_test.rs:55:4
+   |
+55 | fn resolve_count(cg: &CallGraph, caller_file: &str, caller_name: &str, callee: &str) -> usize {
+   |    ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `prism` (test "integration") generated 2 warnings (run `cargo fix --test "integration" -p prism` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.39s
+     Running tests/integration/main.rs (target/debug/deps/integration-477ca01d9f2cb111)
+
+running 36 tests
+RECEIVER_SELF_RAW receiver_self_destructured_parameter/js bound=true
+RECEIVER_SELF_RAW receiver_self_explicit_generator/js bound=true
+RECEIVER_SELF_RAW receiver_self_different_property/js bound=false
+RECEIVER_SELF_RAW receiver_self_arrow_property/js bound=false
+RECEIVER_SELF_RAW receiver_self_async_generator_property/js bound=false
+RECEIVER_SELF_RAW receiver_self_different_explicit_name/js bound=false
+RECEIVER_SELF_RAW receiver_self_async_property/js bound=false
+RECEIVER_SELF_RAW receiver_self_anonymous_property/js bound=false
+RECEIVER_SELF_RAW receiver_self_catch/js bound=true
+RECEIVER_SELF_RAW receiver_self_explicit_generator/ts bound=true
+RECEIVER_SELF_RAW receiver_self_async_generator_property/ts bound=false
+RECEIVER_SELF_RAW receiver_self_explicit_generator/tsx bound=true
+RECEIVER_SELF_RAW receiver_self_async_generator_property/tsx bound=false
+test receiver_self_binding_test::receiver_self_explicit_generator ... ok
+test receiver_self_binding_test::receiver_self_async_generator_property ... ok
+RECEIVER_SELF_RAW receiver_self_generator_property/js bound=false
+RECEIVER_SELF_RAW receiver_self_explicit_name/js bound=true
+RECEIVER_SELF_RAW receiver_self_generator_property/ts bound=false
+RECEIVER_SELF_RAW receiver_self_generator_property/tsx bound=false
+test receiver_self_binding_test::receiver_self_generator_property ... ok
+RECEIVER_SELF_RAW receiver_self_local_after/js bound=true
+RECEIVER_SELF receiver_self_local_after/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+RECEIVER_SELF receiver_self_catch/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=98-112 bound=true []
+RECEIVER_SELF receiver_self_destructured_parameter/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=82-92 bound=true []
+RECEIVER_SELF receiver_self_local_after/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+RECEIVER_SELF receiver_self_destructured_parameter/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=82-92 bound=true []
+RECEIVER_SELF receiver_self_anonymous_property/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=83-97 bound=false [("origin.js", "item", 1)]
+RECEIVER_TYPED constructor-same-display/ts/full/0 caller=FunctionId { file: "app.ts", name: "client", start_line: 2, end_line: 2 } span=131-149 [("app.ts", "item", 1)]
+RECEIVER_TYPED constructor-identifier-parameter-shadow/ts/full/0 caller=FunctionId { file: "app.ts", name: "Client", start_line: 2, end_line: 2 } span=132-146 []
+RECEIVER_TYPED constructor-identifier-display/ts/full/0 caller=FunctionId { file: "app.ts", name: "Client", start_line: 2, end_line: 2 } span=131-149 [("app.ts", "item", 1)]
+RECEIVER_SELF receiver_self_different_explicit_name/js/full/0 caller=FunctionId { file: "app.js", name: "callback", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF receiver_self_arrow_property/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.js", "item", 1)]
+RECEIVER_TYPED constructor-identifier-named-shadow/ts/full/0 caller=FunctionId { file: "app.ts", name: "Client", start_line: 2, end_line: 2 } span=138-156 []
+RECEIVER_WRITE different-display-member/js/full []
+RECEIVER_TYPED constructor-identifier-named-shadow/ts/subset/0 caller=FunctionId { file: "app.ts", name: "Client", start_line: 2, end_line: 2 } span=138-156 []
+RECEIVER_SELF receiver_self_explicit_name/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=86-100 bound=true []
+RECEIVER_SELF receiver_self_async_property/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=89-103 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF receiver_self_explicit_name/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=86-100 bound=true []
+RECEIVER_SELF receiver_self_anonymous_property/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=83-97 bound=false [("origin.js", "item", 1)]
+RECEIVER_TYPED constructor-identifier-parameter-shadow/ts/subset/0 caller=FunctionId { file: "app.ts", name: "Client", start_line: 2, end_line: 2 } span=132-146 []
+RECEIVER_TYPED constructor-identifier-display/ts/subset/0 caller=FunctionId { file: "app.ts", name: "Client", start_line: 2, end_line: 2 } span=131-149 [("app.ts", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_destructured_parameter/ts bound=true
+RECEIVER_SELF_RAW receiver_self_local_after/ts bound=true
+RECEIVER_SELF receiver_self_arrow_property/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.js", "item", 1)]
+RECEIVER_WRITE anonymous-member/js/full []
+RECEIVER_WRITE different-display-member/js/subset []
+RECEIVER_SELF receiver_self_catch/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=98-112 bound=true []
+RECEIVER_TYPED constructor-same-display/ts/subset/0 caller=FunctionId { file: "app.ts", name: "client", start_line: 2, end_line: 2 } span=131-149 [("app.ts", "item", 1)]
+RECEIVER_SELF receiver_self_async_property/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=89-103 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF receiver_self_different_explicit_name/js/subset/0 caller=FunctionId { file: "app.js", name: "callback", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF receiver_self_different_property/js/full/0 caller=FunctionId { file: "app.js", name: "callback", start_line: 2, end_line: 2 } span=95-109 bound=false [("origin.js", "item", 1)]
+RECEIVER_WRITE anonymous-member/js/subset []
+RECEIVER_SELF_RAW receiver_self_explicit_name/ts bound=true
+RECEIVER_SELF receiver_self_different_property/js/subset/0 caller=FunctionId { file: "app.js", name: "callback", start_line: 2, end_line: 2 } span=95-109 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_anonymous_property/ts bound=false
+RECEIVER_SELF_RAW receiver_self_arrow_property/ts bound=false
+RECEIVER_SELF_RAW receiver_self_catch/ts bound=true
+RECEIVER_SELF_RAW receiver_self_async_property/ts bound=false
+RECEIVER_SELF_RAW receiver_self_different_explicit_name/ts bound=false
+RECEIVER_SELF_RAW receiver_self_different_property/ts bound=false
+RECEIVER_TYPED constructor-identifier-named-shadow/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "Client", start_line: 2, end_line: 2 } span=138-156 []
+RECEIVER_SELF receiver_self_destructured_parameter/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=82-92 bound=true []
+RECEIVER_TYPED constructor-identifier-named-shadow/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "Client", start_line: 2, end_line: 2 } span=138-156 []
+RECEIVER_SELF receiver_self_destructured_parameter/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=82-92 bound=true []
+RECEIVER_TYPED constructor-identifier-parameter-shadow/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "Client", start_line: 2, end_line: 2 } span=132-146 []
+RECEIVER_TYPED constructor-identifier-parameter-shadow/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "Client", start_line: 2, end_line: 2 } span=132-146 []
+test receiver_self_binding_test::receiver_self_constructor_identifier_named_shadow ... ok
+test receiver_self_binding_test::receiver_self_constructor_identifier_parameter_shadow ... ok
+RECEIVER_SELF receiver_self_local_after/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+RECEIVER_SELF receiver_self_local_after/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+RECEIVER_SELF receiver_self_explicit_name/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=86-100 bound=true []
+RECEIVER_SELF receiver_self_explicit_name/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=86-100 bound=true []
+RECEIVER_SELF_RAW receiver_self_destructured_parameter/tsx bound=true
+RECEIVER_SELF_RAW receiver_self_local_before/js bound=true
+RECEIVER_TYPED constructor-identifier-display/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "Client", start_line: 2, end_line: 2 } span=131-149 [("app.tsx", "item", 1)]
+RECEIVER_TYPED constructor-identifier-display/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "Client", start_line: 2, end_line: 2 } span=131-149 [("app.tsx", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_loop_binding/js bound=true
+RECEIVER_SELF_RAW receiver_self_explicit_name/tsx bound=true
+RECEIVER_SELF_RAW receiver_self_local_after/tsx bound=true
+RECEIVER_TYPED constructor-same-display/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "client", start_line: 2, end_line: 2 } span=131-149 [("app.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_constructor_identifier_display ... ok
+RECEIVER_TYPED constructor-same-display/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "client", start_line: 2, end_line: 2 } span=131-149 [("app.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_constructor_same_display ... ok
+RECEIVER_SELF receiver_self_anonymous_property/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=83-97 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_anonymous_property/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=83-97 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_arrow_property/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_arrow_property/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_async_property/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=89-103 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_async_property/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=89-103 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_catch/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=98-112 bound=true []
+RECEIVER_SELF receiver_self_different_property/ts/full/0 caller=FunctionId { file: "app.ts", name: "callback", start_line: 2, end_line: 2 } span=95-109 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_catch/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=98-112 bound=true []
+RECEIVER_SELF receiver_self_different_property/ts/subset/0 caller=FunctionId { file: "app.ts", name: "callback", start_line: 2, end_line: 2 } span=95-109 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_named_nested_callback/js bound=true
+RECEIVER_SELF_RAW receiver_self_anonymous_property/tsx bound=false
+RECEIVER_SELF_RAW receiver_self_arrow_property/tsx bound=false
+RECEIVER_SELF_RAW receiver_self_async_property/tsx bound=false
+RECEIVER_SELF receiver_self_different_explicit_name/ts/full/0 caller=FunctionId { file: "app.ts", name: "callback", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_different_property/tsx bound=false
+RECEIVER_SELF receiver_self_different_explicit_name/ts/subset/0 caller=FunctionId { file: "app.ts", name: "callback", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_catch/tsx bound=true
+RECEIVER_SELF_RAW receiver_self_different_explicit_name/tsx bound=false
+RECEIVER_SELF receiver_self_destructured_parameter/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=82-92 bound=true []
+RECEIVER_SELF receiver_self_destructured_parameter/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=82-92 bound=true []
+test receiver_self_binding_test::receiver_self_destructured_parameter ... ok
+RECEIVER_SELF receiver_self_explicit_name/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=86-100 bound=true []
+RECEIVER_SELF receiver_self_explicit_name/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=86-100 bound=true []
+test receiver_self_binding_test::receiver_self_explicit_name ... ok
+RECEIVER_SELF receiver_self_local_before/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+RECEIVER_SELF receiver_self_local_before/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+RECEIVER_SELF receiver_self_loop_binding/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+RECEIVER_SELF receiver_self_loop_binding/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+RECEIVER_WRITE different-display-member/ts/full []
+RECEIVER_WRITE different-display-member/ts/subset []
+RECEIVER_SELF receiver_self_local_after/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+RECEIVER_SELF receiver_self_local_after/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+RECEIVER_SELF_RAW receiver_self_nested_callback/js bound=false
+RECEIVER_WRITE anonymous-member/ts/full []
+test receiver_self_binding_test::receiver_self_local_after ... ok
+RECEIVER_SELF_RAW receiver_self_nested_declaration/js bound=true
+RECEIVER_SELF_RAW receiver_self_loop_binding/ts bound=true
+RECEIVER_WRITE anonymous-member/ts/subset []
+RECEIVER_SELF_RAW receiver_self_local_before/ts bound=true
+RECEIVER_SELF receiver_self_anonymous_property/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=83-97 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF receiver_self_anonymous_property/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=83-97 bound=false [("origin.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_anonymous_property ... ok
+RECEIVER_SELF_RAW receiver_self_object_method/js bound=false
+RECEIVER_SELF receiver_self_different_property/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "callback", start_line: 2, end_line: 2 } span=95-109 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF receiver_self_catch/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=98-112 bound=true []
+RECEIVER_SELF receiver_self_different_property/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "callback", start_line: 2, end_line: 2 } span=95-109 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF receiver_self_catch/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=98-112 bound=true []
+RECEIVER_SELF receiver_self_async_property/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=89-103 bound=false [("origin.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_different_property ... ok
+RECEIVER_SELF receiver_self_async_property/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=89-103 bound=false [("origin.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_catch ... ok
+RECEIVER_SELF receiver_self_arrow_property/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF receiver_self_arrow_property/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_async_property ... ok
+test receiver_self_binding_test::receiver_self_arrow_property ... ok
+RECEIVER_SELF_RAW receiver_self_object_pair/js bound=false
+RECEIVER_SELF_RAW receiver_self_named_nested_callback/ts bound=true
+RECEIVER_SELF receiver_self_different_explicit_name/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "callback", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_parameter/js bound=true
+RECEIVER_SELF receiver_self_different_explicit_name/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "callback", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_outer_parameter/js bound=true
+test receiver_self_binding_test::receiver_self_different_explicit_name ... ok
+RECEIVER_WRITE named-member/js/full [("app.js", "item", 1)]
+RECEIVER_WRITE named-member/js/subset [("app.js", "item", 1)]
+RECEIVER_SELF receiver_self_loop_binding/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+RECEIVER_SELF receiver_self_loop_binding/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+RECEIVER_SELF receiver_self_nested_declaration/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=73-87 bound=true []
+RECEIVER_SELF receiver_self_nested_declaration/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=73-87 bound=true []
+RECEIVER_SELF receiver_self_local_before/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+RECEIVER_SELF_RAW receiver_self_nested_callback/ts bound=false
+RECEIVER_SELF receiver_self_local_before/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+RECEIVER_SELF_RAW receiver_self_nested_declaration/ts bound=true
+RECEIVER_SELF_RAW receiver_self_loop_binding/tsx bound=true
+RECEIVER_SELF_RAW receiver_self_local_before/tsx bound=true
+RECEIVER_SELF receiver_self_object_method/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=60-74 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF receiver_self_object_method/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=60-74 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF receiver_self_object_pair/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF receiver_self_object_pair/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF receiver_self_parameter/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=80-90 bound=true []
+RECEIVER_SELF receiver_self_parameter/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=80-90 bound=true []
+RECEIVER_SELF_RAW receiver_self_object_method/ts bound=false
+RECEIVER_SELF_RAW receiver_self_object_pair/ts bound=false
+RECEIVER_TYPED typed-inner/ts/full/0 caller=FunctionId { file: "app.ts", name: "client", start_line: 2, end_line: 2 } span=113-127 [("app.ts", "item", 1)]
+RECEIVER_TYPED typed-inner/ts/subset/0 caller=FunctionId { file: "app.ts", name: "client", start_line: 2, end_line: 2 } span=113-127 [("app.ts", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_parameter/ts bound=true
+RECEIVER_SELF_RAW receiver_self_named_nested_callback/tsx bound=true
+RECEIVER_WRITE anonymous-member/tsx/full []
+RECEIVER_WRITE anonymous-member/tsx/subset []
+RECEIVER_SELF receiver_self_outer_parameter/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=100-114 bound=true []
+RECEIVER_SELF receiver_self_outer_parameter/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=100-114 bound=true []
+test receiver_self_binding_test::receiver_self_anonymous_member_write ... ok
+RECEIVER_WRITE different-display-member/tsx/full []
+RECEIVER_WRITE different-display-member/tsx/subset []
+RECEIVER_SELF_RAW receiver_self_outer_parameter/ts bound=true
+RECEIVER_SELF receiver_self_local_before/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+test receiver_self_binding_test::receiver_self_different_display_member_write ... ok
+RECEIVER_SELF receiver_self_local_before/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+RECEIVER_WRITE parameter-member/js/full [("app.js", "item", 1)]
+RECEIVER_SELF receiver_self_nested_declaration/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=73-87 bound=true []
+RECEIVER_SELF receiver_self_nested_declaration/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=73-87 bound=true []
+test receiver_self_binding_test::receiver_self_local_before ... ok
+RECEIVER_SELF_RAW receiver_self_nested_callback/tsx bound=false
+RECEIVER_WRITE parameter-member/js/subset [("app.js", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_nested_declaration/tsx bound=true
+RECEIVER_SELF receiver_self_loop_binding/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+RECEIVER_SELF receiver_self_loop_binding/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=96-110 bound=true []
+test receiver_self_binding_test::receiver_self_loop_binding ... ok
+RECEIVER_SELF_RAW receiver_self_unrelated_block/js bound=false
+RECEIVER_TYPED typed-inner/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "client", start_line: 2, end_line: 2 } span=113-127 [("app.tsx", "item", 1)]
+RECEIVER_TYPED typed-inner/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "client", start_line: 2, end_line: 2 } span=113-127 [("app.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_typed_inner_parameter ... ok
+RECEIVER_SELF receiver_self_object_pair/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_object_pair/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_unrelated_callable/js bound=false
+test receiver_self_binding_test::receiver_self_named_nested_callback ... ok
+RECEIVER_SELF_RAW receiver_self_object_pair/tsx bound=false
+RECEIVER_SELF_RAW receiver_self_var_after/js bound=true
+RECEIVER_SELF receiver_self_parameter/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=80-90 bound=true []
+RECEIVER_SELF receiver_self_parameter/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=80-90 bound=true []
+RECEIVER_SELF receiver_self_object_method/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=60-74 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_object_method/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=60-74 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_nested_declaration/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=73-87 bound=true []
+RECEIVER_SELF receiver_self_nested_declaration/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=73-87 bound=true []
+test receiver_self_binding_test::receiver_self_nested_declaration ... ok
+RECEIVER_WRITE named-member/ts/full [("app.ts", "item", 1)]
+RECEIVER_WRITE named-member/ts/subset [("app.ts", "item", 1)]
+RECEIVER_EPOCH js/full/0 targets={("origin.js", "item")} flow={("origin.js", "item")}
+RECEIVER_SELF_RAW receiver_self_parameter/tsx bound=true
+RECEIVER_TYPED typed-named-shadow/ts/full/0 caller=FunctionId { file: "app.ts", name: "client", start_line: 2, end_line: 2 } span=140-158 []
+RECEIVER_SELF_RAW receiver_self_object_method/tsx bound=false
+RECEIVER_TYPED typed-named-shadow/ts/subset/0 caller=FunctionId { file: "app.ts", name: "client", start_line: 2, end_line: 2 } span=140-158 []
+RECEIVER_SELF receiver_self_outer_parameter/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=100-114 bound=true []
+RECEIVER_SELF receiver_self_outer_parameter/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=100-114 bound=true []
+test receiver_self_binding_test::receiver_self_nested_callback ... ok
+RECEIVER_SELF receiver_self_unrelated_block/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF receiver_self_unrelated_block/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_outer_parameter/tsx bound=true
+RECEIVER_SELF receiver_self_object_pair/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_unrelated_block/ts bound=false
+RECEIVER_SELF receiver_self_var_after/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+RECEIVER_SELF receiver_self_unrelated_callable/js/full/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=103-117 bound=false [("origin.js", "item", 1)]
+RECEIVER_SELF receiver_self_var_after/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+RECEIVER_SELF receiver_self_object_pair/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=69-83 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF receiver_self_unrelated_callable/js/subset/0 caller=FunctionId { file: "app.js", name: "ns", start_line: 2, end_line: 2 } span=103-117 bound=false [("origin.js", "item", 1)]
+test receiver_self_binding_test::receiver_self_object_pair ... ok
+RECEIVER_SELF_RAW receiver_self_var_after/ts bound=true
+RECEIVER_SELF_RAW receiver_self_unrelated_callable/ts bound=false
+RECEIVER_SELF receiver_self_object_method/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=60-74 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF receiver_self_object_method/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=60-74 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_TYPED typed-named-shadow/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "client", start_line: 2, end_line: 2 } span=140-158 []
+RECEIVER_SELF receiver_self_parameter/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=80-90 bound=true []
+RECEIVER_TYPED typed-named-shadow/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "client", start_line: 2, end_line: 2 } span=140-158 []
+test receiver_self_binding_test::receiver_self_object_method ... RECEIVER_SELF receiver_self_parameter/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=80-90 bound=true []
+ok
+test receiver_self_binding_test::receiver_self_typed_named_shadow ... ok
+test receiver_self_binding_test::receiver_self_parameter ... ok
+RECEIVER_TYPED typed-outer/ts/full/0 caller=FunctionId { file: "app.ts", name: "client", start_line: 2, end_line: 2 } span=133-151 [("app.ts", "item", 1)]
+RECEIVER_EPOCH js/full/1 targets={} flow={}
+RECEIVER_TYPED typed-outer/ts/subset/0 caller=FunctionId { file: "app.ts", name: "client", start_line: 2, end_line: 2 } span=133-151 [("app.ts", "item", 1)]
+RECEIVER_WRITE parameter-member/ts/full [("app.ts", "item", 1)]
+RECEIVER_WRITE parameter-member/ts/subset [("app.ts", "item", 1)]
+RECEIVER_SELF receiver_self_outer_parameter/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=100-114 bound=true []
+RECEIVER_SELF receiver_self_var_after/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+RECEIVER_SELF receiver_self_outer_parameter/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=100-114 bound=true []
+RECEIVER_SELF receiver_self_var_after/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+test receiver_self_binding_test::receiver_self_outer_parameter ... ok
+RECEIVER_SELF receiver_self_unrelated_block/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_unrelated_block/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_var_after/tsx bound=true
+RECEIVER_SELF_RAW receiver_self_unrelated_block/tsx bound=false
+RECEIVER_EPOCH js/incremental/1 targets={} flow={}
+RECEIVER_SELF receiver_self_unrelated_callable/ts/full/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=103-117 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF receiver_self_unrelated_callable/ts/subset/0 caller=FunctionId { file: "app.ts", name: "ns", start_line: 2, end_line: 2 } span=103-117 bound=false [("origin.ts", "item", 1)]
+RECEIVER_SELF_RAW receiver_self_unrelated_callable/tsx bound=false
+RECEIVER_WRITE named-member/tsx/full [("app.tsx", "item", 1)]
+RECEIVER_WRITE named-member/tsx/subset [("app.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_named_member_write ... ok
+RECEIVER_SELF receiver_self_var_after/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+RECEIVER_SELF receiver_self_var_after/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=76-90 bound=true []
+test receiver_self_binding_test::receiver_self_var_after ... ok
+RECEIVER_TYPED typed-outer/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "client", start_line: 2, end_line: 2 } span=133-151 [("app.tsx", "item", 1)]
+RECEIVER_TYPED typed-outer/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "client", start_line: 2, end_line: 2 } span=133-151 [("app.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_typed_outer_parameter ... ok
+RECEIVER_EPOCH js/full/2 targets={("origin.js", "item")} flow={("origin.js", "item")}
+RECEIVER_SELF receiver_self_unrelated_block/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF receiver_self_unrelated_block/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=92-106 bound=false [("origin.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_unrelated_block ... ok
+RECEIVER_SELF receiver_self_unrelated_callable/tsx/full/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=103-117 bound=false [("origin.tsx", "item", 1)]
+RECEIVER_SELF receiver_self_unrelated_callable/tsx/subset/0 caller=FunctionId { file: "app.tsx", name: "ns", start_line: 2, end_line: 2 } span=103-117 bound=false [("origin.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_unrelated_callable ... ok
+RECEIVER_WRITE parameter-member/tsx/full [("app.tsx", "item", 1)]
+RECEIVER_WRITE parameter-member/tsx/subset [("app.tsx", "item", 1)]
+test receiver_self_binding_test::receiver_self_parameter_member_write ... ok
+RECEIVER_EPOCH js/incremental/2 targets={("origin.js", "item")} flow={("origin.js", "item")}
+RECEIVER_EPOCH js/full/3 targets={("origin.js", "item")} flow={("origin.js", "item")}
+RECEIVER_EPOCH js/incremental/3 targets={("origin.js", "item")} flow={("origin.js", "item")}
+RECEIVER_EPOCH js/full/4 targets={} flow={}
+RECEIVER_EPOCH js/incremental/4 targets={} flow={}
+RECEIVER_EPOCH js/full/5 targets={("origin.js", "item")} flow={("origin.js", "item")}
+RECEIVER_EPOCH js/incremental/5 targets={("origin.js", "item")} flow={("origin.js", "item")}
+RECEIVER_EPOCH ts/full/0 targets={("origin.ts", "item")} flow={("origin.ts", "item")}
+RECEIVER_EPOCH ts/full/1 targets={} flow={}
+RECEIVER_EPOCH ts/incremental/1 targets={} flow={}
+RECEIVER_EPOCH ts/full/2 targets={("origin.ts", "item")} flow={("origin.ts", "item")}
+RECEIVER_EPOCH ts/incremental/2 targets={("origin.ts", "item")} flow={("origin.ts", "item")}
+RECEIVER_EPOCH ts/full/3 targets={("origin.ts", "item")} flow={("origin.ts", "item")}
+RECEIVER_EPOCH ts/incremental/3 targets={("origin.ts", "item")} flow={("origin.ts", "item")}
+RECEIVER_EPOCH ts/full/4 targets={} flow={}
+RECEIVER_EPOCH ts/incremental/4 targets={} flow={}
+RECEIVER_EPOCH ts/full/5 targets={("origin.ts", "item")} flow={("origin.ts", "item")}
+RECEIVER_EPOCH ts/incremental/5 targets={("origin.ts", "item")} flow={("origin.ts", "item")}
+RECEIVER_EPOCH tsx/full/0 targets={("origin.tsx", "item")} flow={("origin.tsx", "item")}
+RECEIVER_EPOCH tsx/full/1 targets={} flow={}
+RECEIVER_EPOCH tsx/incremental/1 targets={} flow={}
+RECEIVER_EPOCH tsx/full/2 targets={("origin.tsx", "item")} flow={("origin.tsx", "item")}
+RECEIVER_EPOCH tsx/incremental/2 targets={("origin.tsx", "item")} flow={("origin.tsx", "item")}
+RECEIVER_EPOCH tsx/full/3 targets={("origin.tsx", "item")} flow={("origin.tsx", "item")}
+RECEIVER_EPOCH tsx/incremental/3 targets={("origin.tsx", "item")} flow={("origin.tsx", "item")}
+RECEIVER_EPOCH tsx/full/4 targets={} flow={}
+RECEIVER_EPOCH tsx/incremental/4 targets={} flow={}
+RECEIVER_EPOCH tsx/full/5 targets={("origin.tsx", "item")} flow={("origin.tsx", "item")}
+RECEIVER_EPOCH tsx/incremental/5 targets={("origin.tsx", "item")} flow={("origin.tsx", "item")}
+test receiver_self_binding_test::receiver_self_source_epochs ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 802 filtered out; finished in 0.21s
+

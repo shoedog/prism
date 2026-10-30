@@ -88,7 +88,10 @@ pub fn build_report(session: &NavigationSession) -> Result<ProjectOverview> {
         .cpg()
         .graph
         .node_weights()
-        .filter(|node| matches!(node, CpgNode::Function { .. }))
+        .filter(|node| {
+            matches!(node, CpgNode::Function { name, .. }
+                if !crate::anon_owner::is_anonymous_owner_name(name))
+        })
         .count();
 
     let mut warnings: Vec<String> = repo_map

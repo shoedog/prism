@@ -1,0 +1,14 @@
+{
+  "lane": "nav cache PartialHit early release (R0)",
+  "lib_test_prefixes": [
+    "navigation::cache::cache_load::"
+  ],
+  "mutations": {
+    "NAV-PARTIALHIT-retain-stale-payload": [
+      "src/navigation/cache.rs",
+      "                drop((cached_call_graph, cached_dfg));",
+      "                let _retained_payload = (cached_call_graph, cached_dfg);",
+      "navigation::cache::cache_load::partial_hit_drops_stale_payloads_before_rebuild"
+    ]
+  }
+}

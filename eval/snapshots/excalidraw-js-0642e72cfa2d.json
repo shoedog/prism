@@ -1,0 +1,506 @@
+[
+ {
+  "container": "<function>",
+  "kind": "method",
+  "location": {
+   "end_line": 172,
+   "file": "dev-docs/docusaurus.config.js",
+   "start_line": 155
+  },
+  "name": "configureWebpack",
+  "selection_char": 8,
+  "selection_line": 155
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 15,
+   "file": "dev-docs/src/components/Highlight.js",
+   "start_line": 2
+  },
+  "name": "Highlight",
+  "selection_char": 24,
+  "selection_line": 2
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 49,
+   "file": "dev-docs/src/components/Homepage/index.js",
+   "start_line": 37
+  },
+  "name": "Feature",
+  "selection_char": 9,
+  "selection_line": 37
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 63,
+   "file": "dev-docs/src/components/Homepage/index.js",
+   "start_line": 51
+  },
+  "name": "HomepageFeatures",
+  "selection_char": 24,
+  "selection_line": 51
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 13,
+   "file": "scripts/build-locales-coverage.js",
+   "start_line": 4
+  },
+  "name": "flatten",
+  "selection_char": 6,
+  "selection_line": 4
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 32,
+   "file": "scripts/build-version.js",
+   "start_line": 21
+  },
+  "name": "commitDate",
+  "selection_char": 6,
+  "selection_line": 21
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 19,
+   "file": "scripts/build-version.js",
+   "start_line": 10
+  },
+  "name": "commitHash",
+  "selection_char": 6,
+  "selection_line": 10
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 37,
+   "file": "scripts/build-version.js",
+   "start_line": 34
+  },
+  "name": "getFullVersion",
+  "selection_char": 6,
+  "selection_line": 34
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 8,
+   "file": "scripts/build-version.js",
+   "start_line": 8
+  },
+  "name": "versionDate",
+  "selection_char": 6,
+  "selection_line": 8
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 32,
+   "file": "scripts/buildBase.js",
+   "start_line": 24
+  },
+  "name": "buildDev",
+  "selection_char": 9,
+  "selection_line": 24
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 42,
+   "file": "scripts/buildBase.js",
+   "start_line": 34
+  },
+  "name": "buildProd",
+  "selection_char": 9,
+  "selection_line": 34
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 50,
+   "file": "scripts/buildBase.js",
+   "start_line": 44
+  },
+  "name": "createESMRawBuild",
+  "selection_char": 6,
+  "selection_line": 44
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 22,
+   "file": "scripts/buildBase.js",
+   "start_line": 6
+  },
+  "name": "getConfig",
+  "selection_char": 6,
+  "selection_line": 6
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 96,
+   "file": "scripts/buildPackage.js",
+   "start_line": 88
+  },
+  "name": "buildDev",
+  "selection_char": 9,
+  "selection_line": 88
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 106,
+   "file": "scripts/buildPackage.js",
+   "start_line": 98
+  },
+  "name": "buildProd",
+  "selection_char": 9,
+  "selection_line": 98
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 125,
+   "file": "scripts/buildPackage.js",
+   "start_line": 108
+  },
+  "name": "createESMRawBuild",
+  "selection_char": 6,
+  "selection_line": 108
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 86,
+   "file": "scripts/buildPackage.js",
+   "start_line": 60
+  },
+  "name": "getConfig",
+  "selection_char": 6,
+  "selection_line": 60
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 57,
+   "file": "scripts/buildPackage.js",
+   "start_line": 44
+  },
+  "name": "precompile",
+  "selection_char": 6,
+  "selection_line": 44
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 41,
+   "file": "scripts/buildPackage.js",
+   "start_line": 22
+  },
+  "name": "resolveRelativePath",
+  "selection_char": 6,
+  "selection_line": 22
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 38,
+   "file": "scripts/buildUtils.js",
+   "start_line": 29
+  },
+  "name": "buildDev",
+  "selection_char": 9,
+  "selection_line": 29
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 54,
+   "file": "scripts/buildUtils.js",
+   "start_line": 40
+  },
+  "name": "buildProd",
+  "selection_char": 9,
+  "selection_line": 40
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 62,
+   "file": "scripts/buildUtils.js",
+   "start_line": 56
+  },
+  "name": "createESMRawBuild",
+  "selection_char": 6,
+  "selection_line": 56
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 27,
+   "file": "scripts/buildUtils.js",
+   "start_line": 9
+  },
+  "name": "getConfig",
+  "selection_char": 6,
+  "selection_line": 9
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 176,
+   "file": "scripts/locales-coverage-description.js",
+   "start_line": 176
+  },
+  "name": "boldIf",
+  "selection_char": 6,
+  "selection_line": 176
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 182,
+   "file": "scripts/locales-coverage-description.js",
+   "start_line": 178
+  },
+  "name": "printHeader",
+  "selection_char": 6,
+  "selection_line": 178
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 199,
+   "file": "scripts/locales-coverage-description.js",
+   "start_line": 184
+  },
+  "name": "printRow",
+  "selection_char": 6,
+  "selection_line": 184
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 172,
+   "file": "scripts/release.js",
+   "start_line": 141
+  },
+  "name": "askToCommit",
+  "selection_char": 6,
+  "selection_line": 141
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 212,
+   "file": "scripts/release.js",
+   "start_line": 190
+  },
+  "name": "askToPublish",
+  "selection_char": 6,
+  "selection_line": 190
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 188,
+   "file": "scripts/release.js",
+   "start_line": 174
+  },
+  "name": "buildPackages",
+  "selection_char": 6,
+  "selection_line": 174
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 95,
+   "file": "scripts/release.js",
+   "start_line": 31
+  },
+  "name": "getArguments",
+  "selection_char": 6,
+  "selection_line": 31
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 107,
+   "file": "scripts/release.js",
+   "start_line": 104
+  },
+  "name": "getPackageJsonPath",
+  "selection_char": 6,
+  "selection_line": 104
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 139,
+   "file": "scripts/release.js",
+   "start_line": 137
+  },
+  "name": "getShortCommitHash",
+  "selection_char": 6,
+  "selection_line": 137
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 225,
+   "file": "scripts/release.js",
+   "start_line": 214
+  },
+  "name": "publishPackages",
+  "selection_char": 6,
+  "selection_line": 214
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 135,
+   "file": "scripts/release.js",
+   "start_line": 109
+  },
+  "name": "updatePackageJsons",
+  "selection_char": 6,
+  "selection_line": 109
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 102,
+   "file": "scripts/release.js",
+   "start_line": 97
+  },
+  "name": "validatePackageName",
+  "selection_char": 6,
+  "selection_line": 97
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 36,
+   "file": "scripts/updateChangelog.js",
+   "start_line": 25
+  },
+  "name": "getCommitHashForLastVersion",
+  "selection_char": 6,
+  "selection_line": 25
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 79,
+   "file": "scripts/updateChangelog.js",
+   "start_line": 38
+  },
+  "name": "getLibraryCommitsSinceLastRelease",
+  "selection_char": 6,
+  "selection_line": 38
+ },
+ {
+  "container": null,
+  "kind": "function",
+  "location": {
+   "end_line": 104,
+   "file": "scripts/updateChangelog.js",
+   "start_line": 81
+  },
+  "name": "updateChangelog",
+  "selection_char": 6,
+  "selection_line": 81
+ },
+ {
+  "container": "woff2ServerPlugin",
+  "kind": "method",
+  "location": {
+   "end_line": 250,
+   "file": "scripts/woff2/woff2-esbuild-plugins.js",
+   "start_line": 23
+  },
+  "name": "setup",
+  "selection_char": 4,
+  "selection_line": 23
+ },
+ {
+  "container": "build.onEnd() callback",
+  "kind": "function",
+  "location": {
+   "end_line": 223,
+   "file": "scripts/woff2/woff2-esbuild-plugins.js",
+   "start_line": 213
+  },
+  "name": "getNameField",
+  "selection_char": 16,
+  "selection_line": 213
+ },
+ {
+  "container": "woff2BrowserPlugin",
+  "kind": "method",
+  "location": {
+   "end_line": 18,
+   "file": "scripts/woff2/woff2-vite-plugins.js",
+   "start_line": 16
+  },
+  "name": "config",
+  "selection_char": 4,
+  "selection_line": 16
+ },
+ {
+  "container": "woff2BrowserPlugin",
+  "kind": "method",
+  "location": {
+   "end_line": 110,
+   "file": "scripts/woff2/woff2-vite-plugins.js",
+   "start_line": 19
+  },
+  "name": "transform",
+  "selection_char": 4,
+  "selection_line": 19
+ }
+]

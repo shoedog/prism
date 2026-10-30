@@ -2,10 +2,66 @@
 //! building the unified graph from parsed files, assembling nodes/edges, and
 //! statement classification.
 
+#[path = "callee_params.rs"]
+mod callee_params;
+
+#[path = "callee_returns.rs"]
+mod callee_returns;
+
+#[path = "step5c.rs"]
+mod step5c;
+
+#[cfg(test)]
+#[path = "step5c_reference.rs"]
+mod step5c_reference;
+
+#[cfg(test)]
+#[path = "callee_cases.rs"]
+mod callee_cases;
+
+#[cfg(test)]
+#[path = "callee_legacy.rs"]
+mod callee_legacy;
+
+#[cfg(test)]
+#[path = "callee_identity_tests.rs"]
+mod callee_identity_tests;
+
+#[cfg(test)]
+#[path = "callee_census_tests.rs"]
+mod callee_census_tests;
+
+#[cfg(test)]
+#[path = "callee_cost_tests.rs"]
+mod callee_cost_tests;
+
+#[cfg(test)]
+#[path = "anon_prep_tests.rs"]
+mod anon_prep_tests;
+
+#[cfg(test)]
+#[path = "namespace_flow_audit_tests.rs"]
+mod namespace_flow_audit_tests;
+
+#[cfg(test)]
+#[path = "nested_execution_owner_audit_tests.rs"]
+mod nested_execution_owner_audit_tests;
+
+#[cfg(test)]
+#[path = "same_line_occurrence_tests.rs"]
+mod same_line_occurrence_tests;
+
+#[cfg(test)]
+#[path = "exact_caller_read_tests.rs"]
+mod exact_caller_read_tests;
+
+#[path = "statement_calls.rs"]
+mod statement_calls;
+
 use crate::access_path::AccessPath;
 use crate::call_graph::{CallGraph, CallSite, FunctionId, ScopeGraphBuildInputs};
 use crate::cfg;
-use crate::data_flow::{DataFlowGraph, VarAccessKind};
+use crate::data_flow::{DataFlowGraph, VarAccessKind, VarLocation};
 use crate::resolution::{ResolutionConfidence, ResolutionKind, ResolutionOutcome, ResolvedCallee};
 use crate::type_db::TypeDatabase;
 
@@ -15,6 +71,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::{CpgEdge, CpgNode, FlowConfidence, FlowDoubt, StmtKind, VarAccess};
 use crate::ast::ParsedFile;
+
+type LegacyVarKey = (String, String, usize, usize, AccessPath, VarAccess);
+type ExactVarIndex = BTreeMap<LegacyVarKey, BTreeMap<(usize, usize), Vec<NodeIndex>>>;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ReturnFlowStats {
@@ -69,12 +128,12 @@ impl DfgLabelStats {
 
     fn record_rd_stats(&mut self, dfg: &DataFlowGraph) {
         self.dfg_rd_functions_over_cap = dfg
-            .rd_function_stats
+            .rd_function_stats()
             .values()
             .map(|stats| stats.functions_over_cap)
             .sum();
         self.dfg_rd_functions_without_cfg = dfg
-            .rd_function_stats
+            .rd_function_stats()
             .values()
             .map(|stats| stats.functions_without_cfg)
             .sum();
@@ -128,91 +187,9 @@ pub(crate) fn compute_param_names(
     Some(final_names)
 }
 
-/// Per-build positional targets. Holes are unsupported slots, not removed args.
-/// The graph and source inputs are immutable for both Step-5b traversals.
-fn compute_param_def_nodes(
-    parsed: &ParsedFile,
-    callee: &FunctionId,
-    var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
-    graph: &DiGraph<CpgNode, CpgEdge>,
-) -> Option<Vec<Option<NodeIndex>>> {
-    if !matches!(
-        parsed.language,
-        crate::languages::Language::JavaScript
-            | crate::languages::Language::TypeScript
-            | crate::languages::Language::Tsx
-    ) {
-        // Preserve other languages' existing normalization and lookup contract.
-        return Some(
-            compute_param_names(parsed, callee)?
-                .into_iter()
-                .map(|name| {
-                    let path = AccessPath::simple(name);
-                    (callee.start_line..=callee.end_line).find_map(|line| {
-                        var_index
-                            .get(&(
-                                callee.file.clone(),
-                                callee.name.clone(),
-                                callee.start_line,
-                                line,
-                                path.clone(),
-                                VarAccess::Def,
-                            ))
-                            .copied()
-                    })
-                })
-                .collect(),
-        );
-    }
-
-    let mut functions = parsed.all_functions().into_iter().filter(|node| {
-        parsed.node_line_range(node) == (callee.start_line, callee.end_line)
-            && parsed
-                .language
-                .function_name(node)
-                .is_some_and(|name| parsed.node_text(&name) == callee.name)
-    });
-    let function = functions.next()?;
-    if functions.next().is_some() {
-        return None;
-    }
-    // Slots and occurrences have distinct contracts. Defaults and refused
-    // optional forms may occupy slots without a supported Def. Never compress
-    // those holes, nor fall back to FunctionInfo names or body definitions.
-    let slots = parsed.function_parameter_slot_occurrences(&function)?;
-    let supported: BTreeSet<_> = parsed
-        .function_parameter_occurrences(&function)
-        .into_iter()
-        .collect();
-    Some(
-        slots
-            .into_iter()
-            .map(|slot| {
-                if !supported.contains(&slot) {
-                    return None;
-                }
-                let path = AccessPath::simple(&slot.0);
-                let idx = *var_index.get(&(
-                    callee.file.clone(),
-                    callee.name.clone(),
-                    callee.start_line,
-                    callee.start_line,
-                    path.clone(),
-                    VarAccess::Def,
-                ))?;
-                matches!(graph.node_weight(idx), Some(CpgNode::Variable {
-                    file, function, function_start_line, line, path: actual_path,
-                    access: VarAccess::Def, start_byte, end_byte,
-                }) if file == &callee.file && function == &callee.name
-                    && *function_start_line == callee.start_line
-                    && *line == callee.start_line && actual_path == &path
-                    && (*start_byte, *end_byte) == (slot.1, slot.2)
-                )
-                .then_some(idx)
-            })
-            .collect(),
-    )
-}
+#[cfg(test)]
+use callee_params::compute_param_def_nodes;
+use callee_params::ParamCache;
 
 struct PendingStatement {
     line: usize,
@@ -224,6 +201,12 @@ struct PendingStatement {
 /// An edge pending insertion: (from, to, weight). Collected in deterministic
 /// unit order, then applied by a serial `add_edge` loop (S1 C2 pattern).
 pub(crate) type PendingEdge = (NodeIndex, NodeIndex, CpgEdge);
+
+/// Argument flow retains the resolution evidence needed by the new-source guard.
+struct PendingArgumentFlow {
+    edge: PendingEdge,
+    cross_file_free_single_exact: bool,
+}
 
 // ---------------------------------------------------------------------------
 // Code Property Graph
@@ -277,6 +260,115 @@ pub struct CodePropertyGraph {
 }
 
 impl CodePropertyGraph {
+    /// Reverse reachability includes locals, interprocedural argument/return
+    /// flow, and conservative labels. It cannot miss an already assembled E5
+    /// path by inspecting only direct reads of the formal. Existing edges and
+    /// callable resolution remain unchanged; the new static Def stays present.
+    fn refuse_new_sources_exposing_free_single_calls(
+        graph: &mut DiGraph<CpgNode, CpgEdge>,
+        files: &BTreeMap<String, ParsedFile>,
+        argument_seeds: Vec<NodeIndex>,
+        stats: &mut DfgLabelStats,
+        registered: &BTreeMap<(String, String, usize), NodeIndex>,
+    ) {
+        let mut new_sources = BTreeSet::new();
+        for (file, parsed) in files {
+            if !matches!(
+                parsed.language,
+                crate::languages::Language::JavaScript
+                    | crate::languages::Language::TypeScript
+                    | crate::languages::Language::Tsx
+            ) {
+                continue;
+            }
+            for function in parsed.all_functions() {
+                let Some(id) = crate::anon_owner::identity(parsed, &function, file) else {
+                    continue;
+                };
+                let owner = crate::anon_owner::owner_key(file, &id.name, id.start_line);
+                if crate::anon_owner::is_anonymous_owner_name(&id.name)
+                    && !registered.contains_key(&owner)
+                {
+                    continue;
+                }
+                for (start, end) in crate::anon_owner::d12_source_spans(parsed, &function) {
+                    new_sources.insert((owner.clone(), start, end));
+                }
+            }
+        }
+        if new_sources.is_empty() || argument_seeds.is_empty() {
+            return;
+        }
+        let mut reached = BTreeSet::new();
+        let mut stack = argument_seeds;
+        while let Some(node) = stack.pop() {
+            if !reached.insert(node) {
+                continue;
+            }
+            stack.extend(
+                graph
+                    .edges_directed(node, petgraph::Direction::Incoming)
+                    .filter(|e| matches!(e.weight(), CpgEdge::DataFlow(_)))
+                    .map(|e| e.source()),
+            );
+        }
+        let refused: BTreeSet<_> = reached.into_iter().filter(|&n| {
+            matches!(&graph[n], CpgNode::Variable { file, function, function_start_line,
+                access: VarAccess::Def, start_byte, end_byte, .. }
+                if new_sources.contains(&((file.clone(), function.clone(), *function_start_line), *start_byte, *end_byte)))
+        }).collect();
+        if refused.is_empty() {
+            return;
+        }
+        let mut remove: Vec<_> = graph
+            .edge_references()
+            .filter(|e| refused.contains(&e.source()) && matches!(e.weight(), CpgEdge::DataFlow(_)))
+            .map(|e| e.id())
+            .collect();
+        remove.sort_by_key(|e| std::cmp::Reverse(e.index()));
+        for edge in remove {
+            if let Some((from, to)) = graph.edge_endpoints(edge) {
+                // Only intraprocedural Def->Use rows contributed these labels
+                // before Step 5c. Keep unrelated languages and telemetry intact.
+                if matches!((&graph[from], &graph[to]),
+                    (CpgNode::Variable { file: f, function: n, function_start_line: s, access: VarAccess::Def, .. },
+                     CpgNode::Variable { file: g, function: m, function_start_line: t, access: VarAccess::Use, .. })
+                     if (f,n,s) == (g,m,t))
+                {
+                    if let CpgEdge::DataFlow(label) = graph[edge] {
+                        match label {
+                            FlowConfidence::Exact => stats.dfg_label_exact -= 1,
+                            FlowConfidence::NameOnly(FlowDoubt::Killed { .. }) => {
+                                stats.dfg_label_nameonly_killed -= 1
+                            }
+                            FlowConfidence::NameOnly(FlowDoubt::SameLine) => {
+                                stats.dfg_label_nameonly_sameline -= 1
+                            }
+                            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => {
+                                stats.dfg_label_nameonly_cfg_incomplete -= 1
+                            }
+                            FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => {
+                                stats.dfg_label_nameonly_alias_unstable -= 1
+                            }
+                            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => {
+                                stats.dfg_label_nameonly_call -= 1
+                            }
+                        }
+                        if label.is_exact()
+                            && matches!((&graph[from], &graph[to]),
+                            (CpgNode::Variable { line: f, .. }, CpgNode::Variable { line: t, .. }) if t < f)
+                        {
+                            stats.dfg_label_loop_carried -= 1;
+                        }
+                    }
+                }
+            }
+            graph.remove_edge(edge);
+        }
+        // Retain the raw DFG. Incremental reconstruction must be able to
+        // restore these gains when an inferred target changes or disappears.
+    }
+
     /// Build a CPG from parsed files, with optional type enrichment.
     ///
     /// When `type_db` is provided, the CPG gains virtual dispatch Call edges
@@ -460,6 +552,7 @@ impl CodePropertyGraph {
         )
     }
 
+    #[cfg_attr(test, allow(unused_mut))] // Test adapters take ownership of the mutable graphs.
     pub fn build_incremental_with_scope_graph_inputs(
         mut cached_cg: CallGraph,
         mut cached_dfg: DataFlowGraph,
@@ -468,8 +561,16 @@ impl CodePropertyGraph {
         type_db: Option<TypeDatabase>,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
+        #[cfg(test)]
+        let lifetime = super::fallback_lifetime_tests::Probe::current();
+        #[cfg(test)]
+        let (mut cached_cg, mut cached_dfg) =
+            (lifetime.track(cached_cg, 1), lifetime.track(cached_dfg, 1));
         // An ordinary incremental entry cannot inherit opted-in authority.
         if cached_cg.owner_ephemeral {
+            drop((cached_cg, cached_dfg)); // Abandoned owner graphs.
+            #[cfg(test)]
+            lifetime.record("incremental_owner");
             return Self::build_impl(files, type_db, scope_inputs);
         }
         // Same large-stack pool as build_impl — the subset CG/DFG builds and the
@@ -478,6 +579,7 @@ impl CodePropertyGraph {
         // wrapper so test counter generations are inherited by the worker
         // (P15a-fix2).
         crate::build_pool::install(move || {
+            let mut p = crate::profile::Stages::new("cpg.incremental", "cpg.incremental.proofs");
             let old_python_imported_class_proofs =
                 crate::call_graph::python_imported_class_proof_keys(
                     &cached_cg.import_bindings,
@@ -514,18 +616,26 @@ impl CodePropertyGraph {
                     &crate::rust_macro_args::collect_macro_shadow_set(files),
                 );
             if fresh_macro_shadow_intersection != cached_cg.macro_shadow_intersection {
+                drop(p);
+                drop((cached_cg, cached_dfg)); // Abandoned macro-shadow graphs.
+                #[cfg(test)]
+                lifetime.record("incremental_macro");
                 return Self::build_impl_inner(files, type_db, scope_inputs);
             }
 
+            p.next("cpg.incremental.remove");
             // Step 1: Remove stale data for changed files.
             cached_cg.remove_files(changed_files);
             cached_dfg.remove_files(changed_files);
 
             // Step 2: Build fresh CG/DFG for changed files only. The merged graph
             // recomputes derived whole-program indexes below.
+            p.next("call_graph.incremental_direct");
             let fresh_cg = CallGraph::build_direct_subset(files, changed_files);
+            p.next("dfg.incremental_build");
             let fresh_dfg = DataFlowGraph::build_subset(files, changed_files);
 
+            p.next("cpg.incremental.merge");
             // Step 3: Merge fresh into retained.
             cached_cg.merge(fresh_cg);
             cached_dfg.merge(fresh_dfg);
@@ -535,6 +645,7 @@ impl CodePropertyGraph {
             // changes, call sites retained from unchanged files carry stale
             // receiver state. Re-extract the complete graph rather than maintaining
             // a reverse dependency index solely for this rare transition.
+            p.next("cpg.incremental.proofs_after_merge");
             let fresh_python_imported_class_proofs =
                 crate::call_graph::python_imported_class_proof_keys(
                     &cached_cg.import_bindings,
@@ -543,11 +654,16 @@ impl CodePropertyGraph {
                     &cached_cg.python_inert_initializers,
                 );
             if fresh_python_imported_class_proofs != old_python_imported_class_proofs {
+                drop(p);
+                drop((cached_cg, cached_dfg)); // Abandoned merged Python graphs.
+                #[cfg(test)]
+                lifetime.record("incremental_python");
                 return Self::build_impl_inner(files, type_db, scope_inputs);
             }
 
             // Rebuild-together: this also refreshes Phase-2a Rust receiver indices
             // and re-materializes CallSite.receiver_outcome before assemble reads it.
+            p.next("call_graph.incremental_refresh");
             cached_cg.rebuild_scope_graph(files, scope_inputs);
             // Phase-IP: Go embedding/interface dispatch are whole-program — recompute
             // after scope/Rust receiver state to mirror full-build derived ordering.
@@ -601,26 +717,221 @@ impl CodePropertyGraph {
             // P4: JS/TS export-fact resolution (re-export chains/barrels) is
             // ALSO whole-program derived — recompute after merge, same
             // rationale as the Go passes above.
+            cached_cg.apply_js_paths(scope_inputs);
             cached_cg.apply_js_export_resolution();
             // Match full construction: recompute the remaining indirect passes,
             // including Go B1 Level-3 callbacks, after every whole-program
             // resolution fact is restored.
             cached_cg.recompute_indirect_calls(files);
 
+            p.next("cpg.incremental.assembly");
+            #[cfg(test)]
+            let (cached_cg, cached_dfg) = (cached_cg.into_inner(), cached_dfg.into_inner());
             Self::assemble_graph(cached_cg, cached_dfg, files, type_db)
         })
+    }
+
+    fn legacy_var_key(loc: &VarLocation, access: VarAccess) -> LegacyVarKey {
+        (
+            loc.file.clone(),
+            loc.function.clone(),
+            loc.function_start_line,
+            loc.line,
+            loc.path.clone(),
+            access,
+        )
+    }
+
+    fn exact_occurrence_language(files: &BTreeMap<String, ParsedFile>, file: &str) -> bool {
+        files.get(file).is_some_and(|parsed| {
+            matches!(
+                parsed.language,
+                crate::languages::Language::JavaScript
+                    | crate::languages::Language::TypeScript
+                    | crate::languages::Language::Tsx
+            )
+        })
+    }
+
+    #[cfg(test)]
+    fn exact_var_index_from_graph(graph: &DiGraph<CpgNode, CpgEdge>) -> ExactVarIndex {
+        let mut exact = ExactVarIndex::new();
+        for idx in graph.node_indices() {
+            if let CpgNode::Variable {
+                path,
+                file,
+                function,
+                function_start_line,
+                line,
+                access,
+                start_byte,
+                end_byte,
+            } = &graph[idx]
+            {
+                if start_byte >= end_byte {
+                    continue;
+                }
+                exact
+                    .entry((
+                        file.clone(),
+                        function.clone(),
+                        *function_start_line,
+                        *line,
+                        path.clone(),
+                        *access,
+                    ))
+                    .or_default()
+                    .entry((*start_byte, *end_byte))
+                    .or_default()
+                    .push(idx);
+            }
+        }
+        exact
+    }
+
+    fn materialize_var_location(
+        loc: &VarLocation,
+        access: VarAccess,
+        files: &BTreeMap<String, ParsedFile>,
+        graph: &mut DiGraph<CpgNode, CpgEdge>,
+        var_index: &mut BTreeMap<LegacyVarKey, NodeIndex>,
+        exact_var_index: &mut ExactVarIndex,
+        location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
+    ) -> NodeIndex {
+        let legacy_key = Self::legacy_var_key(loc, access);
+        let nonzero = loc.start_byte < loc.end_byte;
+        let materialize_exact = nonzero && Self::exact_occurrence_language(files, &loc.file);
+
+        if materialize_exact {
+            if let Some(existing) = exact_var_index
+                .get(&legacy_key)
+                .and_then(|spans| spans.get(&(loc.start_byte, loc.end_byte)))
+                .and_then(|nodes| nodes.first())
+                .copied()
+            {
+                var_index.entry(legacy_key).or_insert(existing);
+                return existing;
+            }
+        } else if let Some(&existing) = var_index.get(&legacy_key) {
+            return existing;
+        }
+
+        let idx = graph.add_node(CpgNode::Variable {
+            path: loc.path.clone(),
+            file: loc.file.clone(),
+            function: loc.function.clone(),
+            function_start_line: loc.function_start_line,
+            line: loc.line,
+            access,
+            start_byte: loc.start_byte,
+            end_byte: loc.end_byte,
+        });
+        var_index.entry(legacy_key.clone()).or_insert(idx);
+        if nonzero {
+            exact_var_index
+                .entry(legacy_key)
+                .or_default()
+                .entry((loc.start_byte, loc.end_byte))
+                .or_default()
+                .push(idx);
+        }
+        location_index
+            .entry((loc.file.clone(), loc.line))
+            .or_default()
+            .push(idx);
+        idx
+    }
+
+    fn validated_exact_nodes(
+        exact_var_index: &ExactVarIndex,
+        legacy_key: &LegacyVarKey,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+    ) -> Vec<NodeIndex> {
+        let mut nodes = BTreeSet::new();
+        let Some(spans) = exact_var_index.get(legacy_key) else {
+            return Vec::new();
+        };
+        for (&(start_byte, end_byte), bucket) in spans {
+            if start_byte >= end_byte {
+                continue;
+            }
+            for &idx in bucket {
+                if matches!(
+                    graph.node_weight(idx),
+                    Some(CpgNode::Variable {
+                        file,
+                        function,
+                        function_start_line,
+                        line,
+                        path,
+                        access,
+                        start_byte: actual_start,
+                        end_byte: actual_end,
+                    }) if file == &legacy_key.0
+                        && function == &legacy_key.1
+                        && *function_start_line == legacy_key.2
+                        && *line == legacy_key.3
+                        && path == &legacy_key.4
+                        && *access == legacy_key.5
+                        && (*actual_start, *actual_end) == (start_byte, end_byte)
+                ) {
+                    nodes.insert(idx);
+                }
+            }
+        }
+        nodes.into_iter().collect()
+    }
+
+    fn dfg_endpoint_node(
+        loc: &VarLocation,
+        access: VarAccess,
+        files: &BTreeMap<String, ParsedFile>,
+        var_index: &BTreeMap<LegacyVarKey, NodeIndex>,
+        exact_var_index: &ExactVarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+    ) -> Option<NodeIndex> {
+        let key = Self::legacy_var_key(loc, access);
+        if loc.start_byte < loc.end_byte && Self::exact_occurrence_language(files, &loc.file) {
+            Self::exact_dfg_endpoint_node(loc, access, exact_var_index, graph)
+        } else {
+            var_index.get(&key).copied()
+        }
+    }
+
+    fn exact_dfg_endpoint_node(
+        loc: &VarLocation,
+        access: VarAccess,
+        exact_var_index: &ExactVarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+    ) -> Option<NodeIndex> {
+        if loc.start_byte >= loc.end_byte {
+            return None;
+        }
+        let key = Self::legacy_var_key(loc, access);
+        let matching: Vec<_> = Self::validated_exact_nodes(exact_var_index, &key, graph)
+            .into_iter()
+            .filter(|&idx| {
+                matches!(
+                    &graph[idx],
+                    CpgNode::Variable { start_byte, end_byte, .. }
+                        if (*start_byte, *end_byte) == (loc.start_byte, loc.end_byte)
+                )
+            })
+            .collect();
+        (matching.len() == 1).then(|| matching[0])
     }
 
     /// Assemble a CPG petgraph from pre-built CG and DFG.
     ///
     /// Shared by `build_impl` (full build) and `build_incremental` (partial).
     /// Runs Steps 1–9 of graph construction.
-    fn assemble_graph(
+    pub(super) fn assemble_graph(
         cg: CallGraph,
         mut dfg: DataFlowGraph,
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<TypeDatabase>,
     ) -> Self {
+        let mut profile = crate::profile::Stages::new("cpg_assembly", "cpg.init");
         let ephemeral_owner = cg.owner_ephemeral;
         let mut graph = DiGraph::new();
         let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
@@ -629,23 +940,15 @@ impl CodePropertyGraph {
             (String, String, usize, usize, AccessPath, VarAccess),
             NodeIndex,
         > = BTreeMap::new();
+        let mut exact_var_index = ExactVarIndex::new();
         let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
 
+        profile.next("cpg.step1");
         // --- Step 1: Function nodes ---
+        let mut source_indexes = crate::anon_owner::source_index::Step1Sources::new(files);
         for func_ids in cg.functions.values() {
             for fid in func_ids {
-                let (start_byte, end_byte) = files
-                    .get(&fid.file)
-                    .and_then(|p| {
-                        p.functions()
-                            .iter()
-                            .find(|f| {
-                                f.name.as_deref() == Some(fid.name.as_str())
-                                    && f.start_line == fid.start_line
-                            })
-                            .map(|f| (f.start_byte, f.end_byte))
-                    })
-                    .unwrap_or((0, 0));
+                let (start_byte, end_byte) = source_indexes.source_bytes(fid).unwrap_or((0, 0));
                 let idx = graph.add_node(CpgNode::Function {
                     name: fid.name.clone(),
                     file: fid.file.clone(),
@@ -654,7 +957,10 @@ impl CodePropertyGraph {
                     start_byte,
                     end_byte,
                 });
-                func_index.insert((fid.file.clone(), fid.name.clone(), fid.start_line), idx);
+                func_index.insert(
+                    crate::anon_owner::owner_key(&fid.file, &fid.name, fid.start_line),
+                    idx,
+                );
                 name_index
                     .entry((fid.file.clone(), fid.name.clone()))
                     .or_default()
@@ -665,6 +971,7 @@ impl CodePropertyGraph {
                     .push(idx);
             }
         }
+        drop(source_indexes);
         for nodes in name_index.values_mut() {
             nodes.sort_by_key(|&n| match &graph[n] {
                 CpgNode::Function { start_line, .. } => *start_line,
@@ -672,72 +979,70 @@ impl CodePropertyGraph {
             });
         }
 
+        profile.next("cpg.steps2_3");
         // --- Steps 2-3: Variable nodes from DFG ---
-        for locs in dfg.defs.values() {
+        for locs in dfg.defs().map(|(_, v)| v) {
             for loc in locs {
-                let access = VarAccess::Def;
-                let key = (
-                    loc.file.clone(),
-                    loc.function.clone(),
-                    loc.function_start_line,
-                    loc.line,
-                    loc.path.clone(),
-                    access,
+                Self::materialize_var_location(
+                    loc,
+                    VarAccess::Def,
+                    files,
+                    &mut graph,
+                    &mut var_index,
+                    &mut exact_var_index,
+                    &mut location_index,
                 );
-                if !var_index.contains_key(&key) {
-                    let idx = graph.add_node(CpgNode::Variable {
-                        path: loc.path.clone(),
-                        file: loc.file.clone(),
-                        function: loc.function.clone(),
-                        function_start_line: loc.function_start_line,
-                        line: loc.line,
-                        access,
-                        start_byte: loc.start_byte,
-                        end_byte: loc.end_byte,
-                    });
-                    var_index.insert(key, idx);
-                    location_index
-                        .entry((loc.file.clone(), loc.line))
-                        .or_default()
-                        .push(idx);
-                }
             }
         }
-        for locs in dfg.uses.values() {
+        for locs in dfg.uses().map(|(_, v)| v) {
             for loc in locs {
-                let access = VarAccess::Use;
-                let key = (
-                    loc.file.clone(),
-                    loc.function.clone(),
-                    loc.function_start_line,
-                    loc.line,
-                    loc.path.clone(),
-                    access,
+                Self::materialize_var_location(
+                    loc,
+                    VarAccess::Use,
+                    files,
+                    &mut graph,
+                    &mut var_index,
+                    &mut exact_var_index,
+                    &mut location_index,
                 );
-                if !var_index.contains_key(&key) {
-                    let idx = graph.add_node(CpgNode::Variable {
-                        path: loc.path.clone(),
-                        file: loc.file.clone(),
-                        function: loc.function.clone(),
-                        function_start_line: loc.function_start_line,
-                        line: loc.line,
-                        access,
-                        start_byte: loc.start_byte,
-                        end_byte: loc.end_byte,
-                    });
-                    var_index.insert(key, idx);
-                    location_index
-                        .entry((loc.file.clone(), loc.line))
-                        .or_default()
-                        .push(idx);
-                }
             }
         }
 
+        profile.next("cpg.step4");
         // --- Step 4: DataFlow edges ---
         let mut dfg_label_stats = DfgLabelStats::default();
         let mut dfg_rd_functions_without_cfg = BTreeSet::new();
-        for edge in &dfg.edges {
+        let mut materialized_dfg_edges = BTreeSet::new();
+        let mut legacy_materialized_labels = BTreeMap::new();
+        let legacy_exact_labels: BTreeMap<_, _> = dfg
+            .edges()
+            .iter()
+            .map(|edge| {
+                let confidence = dfg
+                    .label(edge.from, edge.to)
+                    .unwrap_or(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
+                (
+                    crate::data_flow::ExactFlowEdge::from_refs(edge.from, edge.to),
+                    confidence,
+                )
+            })
+            .collect();
+        let conflicting_exact_bindings: BTreeSet<_> = dfg
+            .exact_labels()
+            .filter_map(|(edge, label)| {
+                legacy_exact_labels
+                    .get(&edge)
+                    .is_some_and(|legacy| *legacy != label)
+                    .then(|| edge.binding_key())
+            })
+            .collect();
+        if !conflicting_exact_bindings.is_empty() {
+            eprintln!(
+                "prism: refused {} conflicting exact producer binding(s) during CPG assembly",
+                conflicting_exact_bindings.len()
+            );
+        }
+        for edge in dfg.edges().iter() {
             let from_access = match edge.from.kind {
                 VarAccessKind::Def => VarAccess::Def,
                 VarAccessKind::Use => VarAccess::Use,
@@ -746,37 +1051,76 @@ impl CodePropertyGraph {
                 VarAccessKind::Def => VarAccess::Def,
                 VarAccessKind::Use => VarAccess::Use,
             };
-            let from_key = (
-                edge.from.file.clone(),
-                edge.from.function.clone(),
-                edge.from.function_start_line,
-                edge.from.line,
-                edge.from.path.clone(),
-                from_access,
-            );
-            let to_key = (
-                edge.to.file.clone(),
-                edge.to.function.clone(),
-                edge.to.function_start_line,
-                edge.to.line,
-                edge.to.path.clone(),
-                to_access,
-            );
-            if let (Some(&from_idx), Some(&to_idx)) =
-                (var_index.get(&from_key), var_index.get(&to_key))
+            if let (Some(from_idx), Some(to_idx)) = (
+                Self::dfg_endpoint_node(
+                    &edge.from,
+                    from_access,
+                    files,
+                    &var_index,
+                    &exact_var_index,
+                    &graph,
+                ),
+                Self::dfg_endpoint_node(
+                    &edge.to,
+                    to_access,
+                    files,
+                    &var_index,
+                    &exact_var_index,
+                    &graph,
+                ),
+            ) {
+                let confidence = dfg.label(edge.from, edge.to).unwrap_or_else(|| {
+                    dfg_rd_functions_without_cfg.insert((
+                        edge.from.file.clone(),
+                        edge.from.function.clone(),
+                        edge.from.function_start_line,
+                    ));
+                    FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                });
+                if materialized_dfg_edges.insert((from_idx, to_idx, confidence)) {
+                    legacy_materialized_labels
+                        .entry((from_idx, to_idx))
+                        .and_modify(|stored: &mut FlowConfidence| {
+                            *stored = stored.worst(confidence)
+                        })
+                        .or_insert(confidence);
+                    dfg_label_stats.record_label(confidence);
+                    if confidence.is_exact() && edge.to.line < edge.from.line {
+                        dfg_label_stats.dfg_label_loop_carried += 1;
+                    }
+                    graph.add_edge(from_idx, to_idx, CpgEdge::DataFlow(confidence));
+                }
+            }
+        }
+        for (exact_edge, confidence) in dfg.exact_labels() {
+            if conflicting_exact_bindings.contains(&exact_edge.binding_key()) {
+                continue;
+            }
+            let edge = exact_edge.as_legacy();
+            if edge.from.kind != VarAccessKind::Def
+                || edge.to.kind != VarAccessKind::Use
+                || edge.from.file != edge.to.file
+                || edge.from.function != edge.to.function
+                || edge.from.function_start_line != edge.to.function_start_line
+                || edge.from.path != edge.to.path
+                || !edge.from.path.is_simple()
+                || !Self::exact_occurrence_language(files, &edge.from.file)
             {
-                let confidence = dfg
-                    .labels
-                    .get(&(edge.from.clone(), edge.to.clone()))
-                    .copied()
-                    .unwrap_or_else(|| {
-                        dfg_rd_functions_without_cfg.insert((
-                            edge.from.file.clone(),
-                            edge.from.function.clone(),
-                            edge.from.function_start_line,
-                        ));
-                        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
-                    });
+                continue;
+            }
+            let (Some(from_idx), Some(to_idx)) = (
+                Self::exact_dfg_endpoint_node(&edge.from, VarAccess::Def, &exact_var_index, &graph),
+                Self::exact_dfg_endpoint_node(&edge.to, VarAccess::Use, &exact_var_index, &graph),
+            ) else {
+                continue;
+            };
+            if let Some(legacy_confidence) = legacy_materialized_labels.get(&(from_idx, to_idx)) {
+                // Same-pair overlap is either an exact duplicate or a conflict.
+                // In both cases the legacy row wins unchanged.
+                debug_assert_eq!(legacy_confidence, &confidence);
+                continue;
+            }
+            if materialized_dfg_edges.insert((from_idx, to_idx, confidence)) {
                 dfg_label_stats.record_label(confidence);
                 if confidence.is_exact() && edge.to.line < edge.from.line {
                     dfg_label_stats.dfg_label_loop_carried += 1;
@@ -788,26 +1132,36 @@ impl CodePropertyGraph {
             // The identity set persists through PartialHit. Inserting the same
             // retained fallback again is idempotent, while a missing label in a
             // newly affected function grows the exact per-file union.
-            dfg.rd_function_stats
+            dfg.rd_function_stats_mut()
                 .entry(file)
                 .or_default()
                 .record_without_cfg(function, start_line);
         }
         dfg_label_stats.record_rd_stats(&dfg);
 
+        profile.next("cpg.step5");
         // --- Step 5: Call edges ---
         for (from, to, w) in Self::collect_step5_edges(&cg, &func_index) {
             graph.add_edge(from, to, w);
         }
 
+        profile.next("cpg.step5b");
         // --- Step 5b: Interprocedural data flow edges ---
-        for (from, to, w) in Self::collect_step5b_edges(&cg, &var_index, &graph, files) {
+        let mut argument_seeds = Vec::new();
+        for flow in
+            Self::collect_step5b_edges_with_exact(&cg, &var_index, &exact_var_index, &graph, files)
+        {
+            let (from, to, w) = flow.edge;
+            if flow.cross_file_free_single_exact {
+                argument_seeds.push(from);
+            }
             if let CpgEdge::DataFlow(confidence) = w {
                 dfg_label_stats.record_label(confidence);
             }
             graph.add_edge(from, to, w);
         }
 
+        profile.next("cpg.step5c");
         // --- Step 5c: callee-return → exact caller-LHS flow ---
         let return_flow_stats = Self::assemble_step5c_return_flow(
             &cg,
@@ -818,24 +1172,54 @@ impl CodePropertyGraph {
             files,
         );
 
+        // D12 incoming holes do not isolate outgoing E5 paths. After all flow
+        // construction, refuse only outgoing edges of new sources that can
+        // reach a cross-file Exact free_single argument edge (regardless of
+        // callee syntax). Imported and NameOnly targets do not seed refusal.
+        Self::refuse_new_sources_exposing_free_single_calls(
+            &mut graph,
+            files,
+            argument_seeds,
+            &mut dfg_label_stats,
+            &func_index,
+        );
+
+        profile.next("cpg.step6");
         // --- Step 6: Contains edges ---
-        for (&(ref file, ref func, func_start_line, ref _line, ref _path, ref _access), &var_idx) in
-            &var_index
-        {
-            if let Some(&func_idx) = func_index.get(&(file.clone(), func.clone(), func_start_line))
-            {
+        let variable_nodes: Vec<_> = graph
+            .node_indices()
+            .filter(|&idx| matches!(graph[idx], CpgNode::Variable { .. }))
+            .collect();
+        for var_idx in variable_nodes {
+            let CpgNode::Variable {
+                file,
+                function,
+                function_start_line,
+                ..
+            } = &graph[var_idx]
+            else {
+                unreachable!();
+            };
+            if let Some(&func_idx) = func_index.get(&crate::anon_owner::owner_key(
+                file,
+                function,
+                *function_start_line,
+            )) {
                 graph.add_edge(func_idx, var_idx, CpgEdge::Contains);
             }
         }
 
+        profile.next("cpg.step7");
         // --- Step 7: Statement nodes for CFG ---
         let stmt_index = Self::assemble_step7(files, &mut graph, &mut location_index);
 
+        profile.next("cpg.step8");
         // --- Step 8: ControlFlow edges ---
         for (from, to, w) in Self::collect_step8_edges(&stmt_index, files) {
             graph.add_edge(from, to, w);
         }
 
+        profile.next("cpg.step9");
         // --- Step 9: Virtual dispatch enrichment ---
         if let Some(ref tdb) = type_db {
             let mut virtual_edges: Vec<(NodeIndex, NodeIndex)> = Vec::new();
@@ -963,19 +1347,9 @@ impl CodePropertyGraph {
         let ordered: Vec<(&String, &ParsedFile)> = files.iter().collect();
 
         // 2. Parallel collect (read-only).
-        let per_file: Vec<(&String, Vec<PendingStatement>)> = ordered
-            .par_iter()
+        let per_file: Vec<(&String, Vec<PendingStatement>)> = crate::build_pool::per_item(&ordered)
             .map(|(path, parsed)| {
-                let func_types = parsed.language.function_node_types();
-                let mut seen: std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
-                let mut out: Vec<PendingStatement> = Vec::new();
-                Self::collect_pending(
-                    parsed.tree.root_node(),
-                    &func_types,
-                    parsed,
-                    &mut seen,
-                    &mut out,
-                );
+                let out = statement_calls::collect_file(parsed);
                 (*path, out)
             })
             .collect(); // rayon indexed collect is order-preserving => ordered-files order
@@ -1010,8 +1384,7 @@ impl CodePropertyGraph {
         use rayon::prelude::*;
 
         let ordered: Vec<_> = cg.calls.iter().collect();
-        ordered
-            .par_iter()
+        crate::build_pool::per_item(&ordered)
             .map(|(caller_id, sites)| {
                 Self::step5_edges_for_caller(caller_id, sites, cg, func_index)
             })
@@ -1096,33 +1469,59 @@ impl CodePropertyGraph {
     /// over ordered caller units (`par_iter`, order-preserving), then serial
     /// `add_edge`. Prewarms each file's `call_args` OnceLock first so the
     /// parallel collect reads an initialized, deterministic index.
+    #[cfg(test)]
     pub(crate) fn collect_step5b_edges(
         cg: &CallGraph,
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
-        use rayon::prelude::*;
+        let exact_var_index = Self::exact_var_index_from_graph(graph);
+        Self::collect_step5b_edges_with_exact(cg, var_index, &exact_var_index, graph, files)
+            .into_iter()
+            .map(|flow| flow.edge)
+            .collect()
+    }
 
-        files.par_iter().for_each(|(_, p)| {
+    fn collect_step5b_edges_with_exact(
+        cg: &CallGraph,
+        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        exact_var_index: &ExactVarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<PendingArgumentFlow> {
+        use rayon::prelude::*;
+        #[cfg(test)]
+        if callee_legacy::enabled() {
+            return callee_legacy::collect(cg, var_index, exact_var_index, graph, files);
+        }
+        let shared_params = ParamCache::new(files);
+
+        crate::build_pool::per_item(files.iter().collect::<Vec<_>>()).for_each(|(_, p)| {
             let _ = p.call_args_index();
         });
         let ordered: Vec<_> = cg.calls.iter().collect();
-        ordered
-            .par_iter()
+        crate::build_pool::per_item(&ordered)
             .map(|(caller_id, sites)| {
-                Self::step5b_edges_for_caller(caller_id, sites, cg, var_index, graph, files)
+                Self::step5b_edges_for_caller_with_exact(
+                    caller_id,
+                    sites,
+                    cg,
+                    var_index,
+                    exact_var_index,
+                    graph,
+                    &shared_params,
+                )
             })
-            .collect::<Vec<Vec<PendingEdge>>>()
+            .collect::<Vec<Vec<PendingArgumentFlow>>>()
             .into_iter()
             .flatten()
             .collect()
     }
 
-    /// Per-caller Step-5b emission, with a caller-local param memo
-    /// (`compute_param_def_nodes` is pure, so emitted edges are identical to the global
-    /// memo). The arg→param binding is field-sensitive (full access path first, base
-    /// fallback) — a deliberate precision change from the original base-only loop.
+    /// Per-caller Step-5b emission with shared immutable parameter coordinates.
+    /// Argument binding keeps the field path and base fallback.
+    #[cfg(test)]
     fn step5b_edges_for_caller(
         caller_id: &FunctionId,
         sites: &BTreeSet<CallSite>,
@@ -1131,8 +1530,33 @@ impl CodePropertyGraph {
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
-        let mut out: Vec<PendingEdge> = Vec::new();
-        let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
+        let exact_var_index = Self::exact_var_index_from_graph(graph);
+        Self::step5b_edges_for_caller_with_exact(
+            caller_id,
+            sites,
+            cg,
+            var_index,
+            &exact_var_index,
+            graph,
+            &ParamCache::new(files),
+        )
+        .into_iter()
+        .map(|flow| flow.edge)
+        .collect()
+    }
+
+    fn step5b_edges_for_caller_with_exact(
+        caller_id: &FunctionId,
+        sites: &BTreeSet<CallSite>,
+        cg: &CallGraph,
+        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        exact_var_index: &ExactVarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+        shared_params: &ParamCache<'_>,
+    ) -> Vec<PendingArgumentFlow> {
+        let files = shared_params.files;
+        let mut out = Vec::new();
+        let mut param_cache: BTreeMap<FunctionId, callee_params::FactCell> = BTreeMap::new();
         for site in sites {
             for resolved in cg.resolve_call_site(site) {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
@@ -1144,6 +1568,9 @@ impl CodePropertyGraph {
                     continue;
                 }
                 let callee_id = resolved.target;
+                let cross_file_free_single_exact = resolved.kind == ResolutionKind::FreeSingle
+                    && resolved.confidence == ResolutionConfidence::Exact
+                    && callee_id.file != caller_id.file;
                 let caller_parsed = match files.get(&caller_id.file) {
                     Some(p) => p,
                     None => continue,
@@ -1159,13 +1586,13 @@ impl CodePropertyGraph {
                     Some(p) => p,
                     None => continue,
                 };
-                let param_nodes = match param_cache.entry(callee_id.clone()).or_insert_with(|| {
-                    compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
-                }) {
-                    Some(nodes) => nodes.as_slice(),
-                    None => continue,
+                let cell = param_cache.entry(callee_id.clone()).or_insert_with(|| {
+                    shared_params.get(callee_id, callee_parsed, var_index, graph)
+                });
+                let Some(param_nodes) = cell.get().expect("initialized parameter facts") else {
+                    continue;
                 };
-                for (i, &param_idx) in param_nodes.iter().enumerate() {
+                for (i, param_target) in param_nodes.iter().enumerate() {
                     if i >= args.len() {
                         break;
                     }
@@ -1189,23 +1616,30 @@ impl CodePropertyGraph {
                     let arg_idxs: Vec<NodeIndex> = arg_paths
                         .into_iter()
                         .filter_map(|arg_path| {
-                            Self::argument_var_node_in_span(
+                            Self::argument_var_node_in_span_with_exact(
                                 caller_id,
                                 caller_parsed,
                                 &arg_path,
                                 arg_span,
                                 var_index,
+                                exact_var_index,
                                 graph,
                             )
                         })
                         .collect();
-                    if let Some(to) = param_idx {
+                    if let Some(to) = param_target
+                        .as_ref()
+                        .and_then(|t| t.resolve(var_index, graph))
+                    {
                         for from in arg_idxs {
-                            out.push((
-                                from,
-                                to,
-                                CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
-                            ));
+                            out.push(PendingArgumentFlow {
+                                edge: (
+                                    from,
+                                    to,
+                                    CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
+                                ),
+                                cross_file_free_single_exact,
+                            });
                         }
                     }
                 }
@@ -1214,17 +1648,38 @@ impl CodePropertyGraph {
         out
     }
 
-    /// Select the caller variable occurrence for one call argument. `var_index`
-    /// intentionally has one node per `(function, line, path, access)` key, so
-    /// same-line same-path collisions predate this lookup and remain out of scope.
-    /// For the indexed node we do have, require byte containment in the AST
-    /// argument span. A zero or multi-line match is ambiguous and fails closed.
+    /// Select the caller variable occurrence for one call argument. JavaScript,
+    /// TypeScript, and TSX use byte-distinct occurrences; other languages retain
+    /// the legacy first-wins line key. A zero or multi-match is ambiguous and
+    /// fails closed.
+    #[cfg(test)]
     fn argument_var_node_in_span(
         caller_id: &FunctionId,
         caller_parsed: &ParsedFile,
         arg_path: &AccessPath,
         arg_span: &std::ops::Range<usize>,
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+    ) -> Option<NodeIndex> {
+        let exact_var_index = Self::exact_var_index_from_graph(graph);
+        Self::argument_var_node_in_span_with_exact(
+            caller_id,
+            caller_parsed,
+            arg_path,
+            arg_span,
+            var_index,
+            &exact_var_index,
+            graph,
+        )
+    }
+
+    fn argument_var_node_in_span_with_exact(
+        caller_id: &FunctionId,
+        caller_parsed: &ParsedFile,
+        arg_path: &AccessPath,
+        arg_span: &std::ops::Range<usize>,
+        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
     ) -> Option<NodeIndex> {
         if arg_span.start >= arg_span.end {
@@ -1242,6 +1697,39 @@ impl CodePropertyGraph {
                 } if arg_span.start <= *start_byte && *end_byte <= arg_span.end
             )
         };
+        if matches!(
+            caller_parsed.language,
+            crate::languages::Language::JavaScript
+                | crate::languages::Language::TypeScript
+                | crate::languages::Language::Tsx
+        ) {
+            let candidates_for_access = |access| {
+                let mut candidates = BTreeSet::new();
+                for line in first_line..=last_line {
+                    let key = (
+                        caller_id.file.clone(),
+                        caller_id.name.clone(),
+                        caller_id.start_line,
+                        line,
+                        arg_path.clone(),
+                        access,
+                    );
+                    for idx in Self::validated_exact_nodes(exact_var_index, &key, graph) {
+                        if contains_arg_occurrence(idx) {
+                            candidates.insert(idx);
+                        }
+                    }
+                }
+                candidates
+            };
+            let uses = candidates_for_access(VarAccess::Use);
+            if !uses.is_empty() {
+                return (uses.len() == 1).then(|| *uses.first().unwrap());
+            }
+            let defs = candidates_for_access(VarAccess::Def);
+            return (defs.len() == 1).then(|| *defs.first().unwrap());
+        }
+
         let mut candidates = Vec::new();
         for line in first_line..=last_line {
             let key = |access| {
@@ -1275,306 +1763,6 @@ impl CodePropertyGraph {
         }
     }
 
-    fn assemble_step5c_return_flow(
-        cg: &CallGraph,
-        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
-        func_index: &BTreeMap<(String, String, usize), NodeIndex>,
-        graph: &mut DiGraph<CpgNode, CpgEdge>,
-        location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
-        files: &BTreeMap<String, ParsedFile>,
-    ) -> ReturnFlowStats {
-        let mut stats = ReturnFlowStats::default();
-        let mut return_value_index: BTreeMap<
-            (String, String, usize, usize, usize, usize),
-            NodeIndex,
-        > = BTreeMap::new();
-
-        for (caller_id, sites) in &cg.calls {
-            let Some(caller_parsed) = files.get(&caller_id.file) else {
-                continue;
-            };
-            for site in sites {
-                let Some(assignment) =
-                    caller_parsed.assignment_for_exact_call(site.start_byte, site.end_byte)
-                else {
-                    continue;
-                };
-
-                let outcome = cg.resolve_call_site_full(site);
-                let Some(resolved) = singleton_exact(&outcome) else {
-                    let has_exact = outcome
-                        .resolved
-                        .iter()
-                        .any(|item| item.confidence == ResolutionConfidence::Exact);
-                    let has_nameonly = outcome
-                        .resolved
-                        .iter()
-                        .any(|item| item.confidence == ResolutionConfidence::NameOnly);
-                    if has_exact && has_nameonly {
-                        stats.return_flow_skipped_mixed += 1;
-                    } else if has_exact && outcome.resolved.len() > 1 {
-                        stats.return_flow_skipped_multi += 1;
-                    } else {
-                        stats.return_flow_skipped_nameonly += 1;
-                    }
-                    continue;
-                };
-
-                if assignment.lvalues.is_empty()
-                    || assignment
-                        .lvalues
-                        .iter()
-                        .any(|lhs| !lhs.path.fields.is_empty())
-                {
-                    stats.return_flow_skipped_non_simple_lhs += 1;
-                    continue;
-                }
-
-                let Some(callee_parsed) = files.get(&resolved.target.file) else {
-                    continue;
-                };
-                let Some(callee_node) = callee_parsed.all_functions().into_iter().find(|node| {
-                    callee_parsed.node_line_range(node).0 == resolved.target.start_line
-                        && callee_parsed
-                            .language
-                            .function_name(node)
-                            .is_some_and(|name| {
-                                callee_parsed.node_text(&name) == resolved.target.name.as_str()
-                            })
-                }) else {
-                    continue;
-                };
-                let returns = callee_parsed.return_value_nodes(&callee_node);
-
-                let targets: Vec<NodeIndex> = assignment
-                    .lvalues
-                    .iter()
-                    .filter_map(|lhs| {
-                        var_index
-                            .get(&(
-                                caller_id.file.clone(),
-                                caller_id.name.clone(),
-                                caller_id.start_line,
-                                lhs.line,
-                                lhs.path.clone(),
-                                VarAccess::Def,
-                            ))
-                            .copied()
-                            .filter(|&idx| {
-                                matches!(
-                                    &graph[idx],
-                                    CpgNode::Variable { start_byte, end_byte, .. }
-                                        if *start_byte == lhs.start_byte && *end_byte == lhs.end_byte
-                                )
-                            })
-                    })
-                    .collect();
-                if targets.len() != assignment.lvalues.len() {
-                    stats.return_flow_skipped_non_simple_lhs += 1;
-                    continue;
-                }
-
-                let mut modeled: Vec<(NodeIndex, NodeIndex)> = Vec::new();
-                let mut complete_returns = !returns.is_empty();
-                for ret in &returns {
-                    if ret.values.is_empty() {
-                        stats.return_flow_skipped_named_return += 1;
-                        complete_returns = false;
-                        continue;
-                    }
-                    if targets.len() > 1
-                        && ret.values.len() == 1
-                        && callee_parsed
-                            .language
-                            .is_call_node(ret.values[0].kind.as_str())
-                    {
-                        stats.return_flow_skipped_forwarded_return += 1;
-                        complete_returns = false;
-                        continue;
-                    }
-                    if ret.values.len() != targets.len() {
-                        stats.return_flow_skipped_arity_mismatch += 1;
-                        complete_returns = false;
-                        continue;
-                    }
-
-                    for (value, &target) in ret.values.iter().zip(&targets) {
-                        let simple_path = matches!(
-                            value.kind.as_str(),
-                            "identifier"
-                                | "field_expression"
-                                | "member_expression"
-                                | "selector_expression"
-                                | "attribute"
-                                | "field_access"
-                                | "dot_index_expression"
-                                | "method_index_expression"
-                        )
-                        .then(|| {
-                            callee_parsed
-                                .bounded_member_path_at(value.start_byte, value.end_byte)
-                                .unwrap_or_else(|| AccessPath::from_expr(&value.text))
-                        });
-
-                        let endpoint = simple_path.and_then(|path| {
-                            var_index
-                                .get(&(
-                                    resolved.target.file.clone(),
-                                    resolved.target.name.clone(),
-                                    resolved.target.start_line,
-                                    value.line,
-                                    path,
-                                    VarAccess::Use,
-                                ))
-                                .copied()
-                                .filter(|&idx| {
-                                    matches!(
-                                        &graph[idx],
-                                        CpgNode::Variable { start_byte, end_byte, .. }
-                                            if value.start_byte <= *start_byte
-                                                && *end_byte <= value.end_byte
-                                    )
-                                })
-                        });
-
-                        let endpoint = if let Some(endpoint) = endpoint {
-                            endpoint
-                        } else {
-                            let identity = (
-                                resolved.target.file.clone(),
-                                resolved.target.name.clone(),
-                                resolved.target.start_line,
-                                ret.start_byte,
-                                ret.end_byte,
-                                value.slot,
-                            );
-                            if let Some(&synthetic) = return_value_index.get(&identity) {
-                                synthetic
-                            } else {
-                                let synthetic = graph.add_node(CpgNode::ReturnValue {
-                                    file: resolved.target.file.clone(),
-                                    function: resolved.target.name.clone(),
-                                    function_start_line: resolved.target.start_line,
-                                    line: value.line,
-                                    return_start_byte: ret.start_byte,
-                                    return_end_byte: ret.end_byte,
-                                    child_slot: value.slot,
-                                    start_byte: value.start_byte,
-                                    end_byte: value.end_byte,
-                                });
-                                return_value_index.insert(identity, synthetic);
-                                location_index
-                                    .entry((resolved.target.file.clone(), value.line))
-                                    .or_default()
-                                    .push(synthetic);
-                                if let Some(&function) = func_index.get(&(
-                                    resolved.target.file.clone(),
-                                    resolved.target.name.clone(),
-                                    resolved.target.start_line,
-                                )) {
-                                    graph.add_edge(function, synthetic, CpgEdge::Contains);
-                                }
-
-                                let mut inputs: Vec<NodeIndex> = graph
-                                    .node_indices()
-                                    .filter(|&idx| {
-                                        matches!(
-                                            &graph[idx],
-                                            CpgNode::Variable {
-                                                file,
-                                                function,
-                                                function_start_line,
-                                                access: VarAccess::Use,
-                                                start_byte,
-                                                end_byte,
-                                                ..
-                                            } if file == &resolved.target.file
-                                                && function == &resolved.target.name
-                                                && *function_start_line == resolved.target.start_line
-                                                && value.start_byte <= *start_byte
-                                                && *end_byte <= value.end_byte
-                                                && callee_parsed
-                                                    .is_semantic_value_use(*start_byte, *end_byte)
-                                        )
-                                    })
-                                    .collect();
-                                inputs.sort_by_key(|idx| idx.index());
-                                for input in inputs {
-                                    graph.add_edge(input, synthetic, CpgEdge::ReturnInput);
-                                    stats.return_input_edges += 1;
-                                }
-                                synthetic
-                            }
-                        };
-                        modeled.push((endpoint, target));
-                    }
-                }
-
-                let rhs_uses: Vec<NodeIndex> = graph
-                    .node_indices()
-                    .filter(|&idx| {
-                        matches!(
-                            &graph[idx],
-                            CpgNode::Variable {
-                                file,
-                                function,
-                                function_start_line,
-                                access: VarAccess::Use,
-                                start_byte,
-                                end_byte,
-                                ..
-                            } if file == &caller_id.file
-                                && function == &caller_id.name
-                                && *function_start_line == caller_id.start_line
-                                && site.start_byte <= *start_byte
-                                && *end_byte <= site.end_byte
-                                && caller_parsed.is_semantic_value_use(*start_byte, *end_byte)
-                        )
-                    })
-                    .collect();
-                let all_rhs_uses_bound = rhs_uses.iter().all(|&use_idx| {
-                    graph.edges(use_idx).any(|edge| {
-                        matches!(edge.weight(), CpgEdge::DataFlow(_))
-                            && matches!(
-                                &graph[edge.target()],
-                                CpgNode::Variable {
-                                    file,
-                                    function,
-                                    function_start_line,
-                                    access: VarAccess::Def,
-                                    ..
-                                } if file == &resolved.target.file
-                                    && function == &resolved.target.name
-                                    && *function_start_line == resolved.target.start_line
-                            )
-                    })
-                });
-                let certified = complete_returns && all_rhs_uses_bound && !modeled.is_empty();
-                if certified {
-                    stats.return_flow_suppression_certified += 1;
-                } else {
-                    if !complete_returns {
-                        stats.return_flow_suppression_void_incomplete_returns += 1;
-                    }
-                    if !all_rhs_uses_bound {
-                        stats.return_flow_suppression_void_unbound_uses += 1;
-                    }
-                }
-                for (from, to) in modeled {
-                    graph.add_edge(
-                        from,
-                        to,
-                        CpgEdge::ReturnFlow {
-                            suppress_shortcut: certified,
-                        },
-                    );
-                    stats.return_flow_edges += 1;
-                }
-            }
-        }
-        stats
-    }
-
     #[cfg(test)]
     pub(crate) fn collect_step5b_edges_reference(
         cg: &CallGraph,
@@ -1588,6 +1776,7 @@ impl CodePropertyGraph {
         // (it is no longer a frozen pre-edge-steps original; that byte-identity is
         // intentionally superseded by the field-sensitivity change).
         let mut out: Vec<PendingEdge> = Vec::new();
+        let exact_var_index = Self::exact_var_index_from_graph(graph);
         let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
         for (caller_id, sites) in &cg.calls {
             for site in sites {
@@ -1641,12 +1830,13 @@ impl CodePropertyGraph {
                         let arg_idxs: Vec<NodeIndex> = arg_paths
                             .into_iter()
                             .filter_map(|arg_path| {
-                                Self::argument_var_node_in_span(
+                                Self::argument_var_node_in_span_with_exact(
                                     caller_id,
                                     caller_parsed,
                                     &arg_path,
                                     arg_span,
                                     var_index,
+                                    &exact_var_index,
                                     graph,
                                 )
                             })
@@ -1676,8 +1866,7 @@ impl CodePropertyGraph {
         use rayon::prelude::*;
 
         let ordered: Vec<(&String, &ParsedFile)> = files.iter().collect();
-        ordered
-            .par_iter()
+        crate::build_pool::per_item(&ordered)
             .map(|(_path, parsed)| {
                 let mut out: Vec<PendingEdge> = Vec::new();
                 for edge in cfg::build_cfg_edges(parsed) {
@@ -1737,36 +1926,6 @@ impl CodePropertyGraph {
         stmt_index
     }
 
-    /// Read-only per-file collect: the `collect_function_statements` recursion with
-    /// node creation removed. Whole-file `seen` (by line), checked BEFORE classify -
-    /// exactly the current `if stmt_index.contains_key(&(file,line)) { continue }`.
-    fn collect_pending(
-        node: tree_sitter::Node<'_>,
-        func_types: &[&str],
-        parsed: &ParsedFile,
-        seen: &mut std::collections::BTreeSet<usize>,
-        out: &mut Vec<PendingStatement>,
-    ) {
-        if func_types.contains(&node.kind()) {
-            for span in parsed.statement_spans_in_function(&node) {
-                if !seen.insert(span.line) {
-                    continue; // duplicate (file,line) - skip BEFORE classify, as today
-                }
-                let kind = Self::classify_stmt_kind(&span.kind, parsed, span.line);
-                out.push(PendingStatement {
-                    line: span.line,
-                    kind,
-                    start_byte: span.start_byte,
-                    end_byte: span.end_byte,
-                });
-            }
-        }
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            Self::collect_pending(child, func_types, parsed, seen, out);
-        }
-    }
-
     #[cfg(test)]
     fn collect_function_statements(
         node: tree_sitter::Node<'_>,
@@ -1811,6 +1970,8 @@ impl CodePropertyGraph {
         }
     }
 
+    // Frozen pre-batch classifier for identity tests.
+    #[cfg(test)]
     /// Classify a tree-sitter node kind string into a `StmtKind`.
     fn classify_stmt_kind(kind_str: &str, parsed: &ParsedFile, line: usize) -> StmtKind {
         if parsed.language.is_return_node(kind_str) {
@@ -1923,8 +2084,10 @@ mod dfg_label_stats_tests {
         second.record_without_cfg("generated".to_string(), 8);
 
         let mut dfg = DataFlowGraph::empty();
-        dfg.rd_function_stats.insert("a.py".to_string(), first);
-        dfg.rd_function_stats.insert("b.py".to_string(), second);
+        dfg.rd_function_stats_mut()
+            .insert("a.py".to_string(), first);
+        dfg.rd_function_stats_mut()
+            .insert("b.py".to_string(), second);
 
         let mut stats = DfgLabelStats::default();
         stats.record_rd_stats(&dfg);

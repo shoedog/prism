@@ -1,0 +1,19 @@
+{
+ "S": 1,
+ "Y": 1,
+ "blocked_rows": [
+  {
+   "arg_at_ordinal": "exportSelectionOnly",
+   "blocked_only_by_prefix": true,
+   "entry_def": true,
+   "file": "packages/excalidraw/components/ImageExportDialog.tsx",
+   "identifier_arg": true,
+   "line": 108,
+   "target": "prepareElementsForExport"
+  }
+ ],
+ "decision": "defer/prefix_only_yield_below_threshold",
+ "ordinal0_control_edges_into_elements": 3,
+ "threshold": "Y>=3 and S>=2",
+ "warranted": false
+}

@@ -86,3 +86,20 @@ def match_by_selection(oracle_fd: FunctionDef,
              and r.location.file == oracle_fd.location.file
              and r.location.start_line <= oracle_fd.selection_line <= r.location.end_line]
     return tie_break(cands) if cands else None
+
+
+class SelectionMatcher:
+    """Same greedy one-use matching, indexed by its mandatory file/name key."""
+
+    def __init__(self, records: list[FunctionDef]):
+        self.by_key: dict[tuple, list[FunctionDef]] = {}
+        self.used: set[FunctionDef] = set()
+        for r in records:
+            self.by_key.setdefault((r.location.file, r.name), []).append(r)
+
+    def match(self, fd: FunctionDef) -> FunctionDef | None:
+        bucket = self.by_key.get((fd.location.file, fd.name), [])
+        match = match_by_selection(fd, [r for r in bucket if r not in self.used])
+        if match is not None:
+            self.used.add(match)
+        return match

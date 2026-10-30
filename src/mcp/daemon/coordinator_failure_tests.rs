@@ -1,0 +1,284 @@
+//! Tests for the ways an attempt can end without a build: the thread cannot be started, the
+//! builder panics, a lock is poisoned. In each, every parked call must get an answer.
+use super::super::fatal::{Domain, Fatal};
+use super::super::test_support::{
+    build_after, fail_now, fixture, panic_now, parts_with, scripted, state_with, status,
+    wait_until, Conn, FatalLog, Gate, ManualClock, Outcome,
+};
+use super::*;
+use crate::mcp::RefreshPolicy;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+fn built(calls: &AtomicU64) -> u64 {
+    calls.load(Ordering::SeqCst)
+}
+
+/// `std::thread::spawn` panics when the thread cannot be created, and the first tool call of
+/// any client reaches that line. Rules out ignoring the spawner's error (the call would then
+/// wait for a build that never runs).
+#[test]
+fn a_build_thread_that_cannot_be_started_is_a_failed_attempt_and_the_next_call_retries() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, calls) = scripted(&cfg, vec![]);
+    let clock = ManualClock::new();
+    let mut parts = parts_with(builder, &clock);
+    let refusals_left = AtomicU64::new(1);
+    let spawner: Spawner = Box::new(move |job: BuildJob| {
+        if refusals_left.swap(0, Ordering::SeqCst) == 1 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "no more threads",
+            ));
+        }
+        std::thread::Builder::new().spawn(job).map(|_handle| ())
+    });
+    parts.spawner = spawner;
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
+    let conn = Conn::open(&state, 600);
+
+    conn.call();
+    assert_eq!(
+        conn.outcome(),
+        Outcome::Failed("could not start the index build thread: no more threads".to_string())
+    );
+    assert_eq!(
+        status(&state),
+        BuildStatus {
+            state: BuildState::Failed,
+            attempt: 1,
+            generation: 0,
+            waiting: 0
+        }
+    );
+    assert_eq!(built(&calls), 0, "the builder never ran");
+    assert!(
+        matches!(
+            &state.lock_control().expect("the control lock").build,
+            BuildPhase::Failed { attempt: 1, error } if error.ends_with("no more threads")
+        ),
+        "the phase names the attempt that failed and why"
+    );
+
+    conn.call();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+    assert_eq!(status(&state).attempt, 2);
+    assert_eq!(built(&calls), 1);
+}
+
+/// Spec §3.1: a panic on the build thread ends the daemon. Under a recording `on_fatal`, which
+/// returns where the abort would not, the attempt still ends: rules out a panic that leaves the
+/// phase `Building` forever in a test, and a builder panic reported as a failed build only.
+#[test]
+fn a_builder_panic_is_fatal() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, calls) = scripted(&cfg, vec![panic_now()]);
+    let clock = ManualClock::new();
+    let mut parts = parts_with(builder, &clock);
+    let log = FatalLog::install(&mut parts);
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
+    let conn = Conn::open(&state, 600);
+
+    conn.call();
+    assert_eq!(
+        conn.outcome(),
+        Outcome::Failed("index build panicked".to_string())
+    );
+    assert_eq!(log.events(), vec![Fatal::Panicked(Domain::Build)]);
+    assert_eq!(status(&state).state, BuildState::Failed);
+    assert_eq!(status(&state).waiting, 0);
+
+    conn.call();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+    assert_eq!(built(&calls), 2);
+}
+
+/// Rules out recording an outcome without looking at the phase: a late `Failed` after `Ready`
+/// would let the next call rebuild and replace an index that has since been refreshed.
+#[test]
+fn an_attempt_s_outcome_is_recorded_once_and_ready_is_never_left() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let gate = Gate::closed();
+    let (builder, calls) = scripted(&cfg, vec![build_after(&gate, &cfg)]);
+    let clock = ManualClock::new();
+    let state = state_with(builder, &clock);
+    let conn = Conn::open(&state, 600);
+
+    conn.call();
+    wait_until("the call to be waiting", || status(&state).waiting == 1);
+
+    // An outcome for an attempt that is not the one building is ignored.
+    state.settle(9, Ok(()));
+    assert_eq!(status(&state).state, BuildState::Building);
+    assert_eq!(state.read(|_| ()), Ok(None));
+
+    gate.open();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+
+    // So is a second outcome for the attempt that already ended.
+    state.settle(1, Err("too late".to_string()));
+    assert_eq!(status(&state).state, BuildState::Ready);
+    conn.call();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+    assert_eq!(built(&calls), 1, "nothing was rebuilt");
+}
+
+fn poison_the_control_lock(state: &Arc<DaemonState>) {
+    let state = Arc::clone(state);
+    let panicked = std::thread::spawn(move || {
+        let _control = state.control.lock();
+        panic!("poisoning the control lock for a test");
+    })
+    .join();
+    assert!(panicked.is_err());
+}
+
+/// Rules out `unwrap` on the lock (a panic on a client's path) and a wait that never looks at
+/// the lock again (a hang).
+#[test]
+fn a_poisoned_control_lock_is_an_error_for_every_caller_never_a_panic_or_a_hang() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let gate = Gate::closed();
+    let (builder, _calls) = scripted(&cfg, vec![build_after(&gate, &cfg)]);
+    let clock = ManualClock::new();
+    let mut parts = parts_with(builder, &clock);
+    let log = FatalLog::install(&mut parts);
+    let state = DaemonState::from_parts(parts).expect("a lazy daemon state");
+    let parked = Conn::open(&state, 600);
+
+    parked.call();
+    wait_until("the call to be waiting", || status(&state).waiting == 1);
+    poison_the_control_lock(&state);
+    state.wake();
+
+    // Spec §4.2: each find of the poisoned lock ends the daemon, one at a time; nothing is
+    // read through it.
+    let poisoned = Fatal::Poisoned { lock: "control" };
+    assert_eq!(parked.outcome(), Outcome::Poisoned, "a parked call returns");
+    assert_eq!(log.events(), vec![poisoned; 1]);
+    assert_eq!(state.status(), Err(Poisoned { lock: "control" }));
+    assert_eq!(log.events(), vec![poisoned; 2]);
+    let later = Conn::open(&state, 600);
+    later.call();
+    assert_eq!(later.outcome(), Outcome::Poisoned, "and so does a new one");
+    assert_eq!(log.events(), vec![poisoned; 3]);
+
+    // The build thread still ends: it publishes, finds the control lock poisoned when it
+    // records the generation and again when it records the outcome, and stops.
+    gate.open();
+    wait_until("the build thread to publish", || {
+        state.read(|_| ()) == Ok(Some(()))
+    });
+    wait_until("the build thread to find the lock poisoned twice", || {
+        log.events().len() == 5
+    });
+    assert_eq!(log.events(), vec![poisoned; 5]);
+}
+
+/// An attempt's outcome is written once. Rules out a second ending that replaces the first:
+/// calls that share the outcome could then be told two different things.
+#[test]
+fn an_attempt_s_outcome_keeps_the_first_ending_it_is_given() {
+    let outcome = AttemptOutcome::default();
+    assert!(outcome.ended().is_none(), "empty while the attempt builds");
+
+    outcome.fill(Err("the first ending".to_string()));
+    outcome.fill(Ok(()));
+    outcome.fill(Err("a third".to_string()));
+
+    assert!(matches!(outcome.ended(), Some(Err(error)) if error == "the first ending"));
+}
+
+/// A warm daemon (`StartupMode::Background`) starts its first attempt at construction. If the
+/// build thread cannot be started then, construction still succeeds, the attempt is failed,
+/// and the first call retries. Rules out a daemon that fails to start, or one left `Building`
+/// with no thread.
+#[test]
+fn a_warm_daemon_whose_build_thread_cannot_be_started_is_built_by_the_first_call() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, calls) = scripted(&cfg, vec![]);
+    let clock = ManualClock::new();
+    let mut parts = parts_with(builder, &clock);
+    parts.startup = StartupMode::Background;
+    let refusals_left = AtomicU64::new(1);
+    let spawner: Spawner = Box::new(move |job: BuildJob| {
+        if refusals_left.swap(0, Ordering::SeqCst) == 1 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "no more threads",
+            ));
+        }
+        std::thread::Builder::new().spawn(job).map(|_handle| ())
+    });
+    parts.spawner = spawner;
+    let state = DaemonState::from_parts(parts).expect("a warm daemon state");
+
+    assert_eq!(
+        status(&state),
+        BuildStatus {
+            state: BuildState::Failed,
+            attempt: 1,
+            generation: 0,
+            waiting: 0
+        }
+    );
+    assert_eq!(built(&calls), 0);
+
+    let conn = Conn::open(&state, 600);
+    conn.call();
+    assert_eq!(conn.outcome(), Outcome::Ready);
+    assert_eq!(status(&state).attempt, 2);
+    assert_eq!(built(&calls), 1);
+}
+
+/// An attempt's number is what a connection's budget and an attempt's outcome are told apart
+/// by, so one is never used twice. When the counter cannot go on, a call is told so and no
+/// build is started. Rules out a counter that saturates and reuses its last number.
+#[test]
+fn an_exhausted_attempt_counter_is_a_failure_that_starts_no_build() {
+    let (_dir, cfg) = fixture(RefreshPolicy::WarnOnly);
+    let (builder, calls) = scripted(&cfg, vec![fail_now("the last attempt failed")]);
+    let clock = ManualClock::new();
+    let state = state_with(builder, &clock);
+    state.lock_control().expect("the control lock").attempts = u64::MAX - 1;
+    let conn = Conn::open(&state, 600);
+
+    conn.call();
+    assert_eq!(
+        conn.outcome(),
+        Outcome::Failed("the last attempt failed".to_string())
+    );
+    assert_eq!(status(&state).attempt, u64::MAX);
+    assert_eq!(built(&calls), 1);
+
+    for _ in 0..2 {
+        conn.call();
+        assert_eq!(
+            conn.outcome(),
+            Outcome::Failed(ATTEMPTS_EXHAUSTED.to_string())
+        );
+    }
+    assert_eq!(
+        built(&calls),
+        1,
+        "no build was started for a number already used"
+    );
+    assert_eq!(
+        status(&state),
+        BuildStatus {
+            state: BuildState::Failed,
+            attempt: u64::MAX,
+            generation: 0,
+            waiting: 0
+        }
+    );
+    assert!(matches!(
+        &state.lock_control().expect("the control lock").build,
+        BuildPhase::Failed { attempt: u64::MAX, error } if error == ATTEMPTS_EXHAUSTED
+    ));
+}
+
+/// Linux keeps 15 bytes of a thread's name.
+#[test]
+fn the_build_thread_s_name_fits_in_what_linux_keeps() {
+    assert!(BUILD_THREAD_NAME.len() <= 15, "{BUILD_THREAD_NAME}");
+}

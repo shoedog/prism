@@ -1,5 +1,6 @@
+use super::serving_events::{Context, Stamp};
 use super::session::canonical_config;
-use super::{ServerConfig, SessionProvider, FIRST_CALL_WAIT_MAX};
+use super::{ServerConfig, SessionProvider, StartupMode, FIRST_CALL_WAIT_MAX};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
@@ -23,15 +24,24 @@ pub(crate) struct LazyTestHooks {
 
 pub struct LazySessionProvider {
     state: LazyState,
+    /// `Lazy` (build on the first valid `tools/call`) or `Background` (build at startup).
+    startup: StartupMode,
     wait: Duration,
     last_error: Option<String>,
     attempts: usize,
     builder: SessionBuilder,
+    context: Context,
+    #[cfg(test)]
+    build_workers: Vec<std::thread::JoinHandle<()>>,
     #[cfg(test)]
     hooks: LazyTestHooks,
 }
 
 enum LazyState {
+    /// No build has been requested yet. The default (`StartupMode::Lazy`) construction state:
+    /// the index is built only once a valid `tools/call` asks for it, so a client that merely
+    /// handshakes and lists tools never pays for the repository index.
+    Idle,
     Building {
         rx: mpsc::Receiver<anyhow::Result<SessionProvider>>,
         started: Instant,
@@ -53,6 +63,8 @@ impl LazySessionProvider {
         Self::from_canonical_config(
             wait,
             builder,
+            cfg.startup,
+            Context::stdio(&cfg, super::idle::IdlePolicy::default()),
             #[cfg(test)]
             LazyTestHooks::default(),
         )
@@ -74,41 +86,67 @@ impl LazySessionProvider {
         builder: SessionBuilder,
         hooks: LazyTestHooks,
     ) -> anyhow::Result<Self> {
-        canonical_config(cfg)?;
-        Self::from_canonical_config(wait, builder, hooks)
+        let cfg = canonical_config(cfg)?;
+        Self::from_canonical_config(
+            wait,
+            builder,
+            cfg.startup,
+            Context::stdio(&cfg, super::idle::IdlePolicy::default()),
+            hooks,
+        )
     }
 
     fn from_canonical_config(
         wait: Duration,
         builder: SessionBuilder,
+        startup: StartupMode,
+        context: Context,
         #[cfg(test)] hooks: LazyTestHooks,
     ) -> anyhow::Result<Self> {
         validate_wait(wait)?;
+        // This provider never builds before `initialize`; `StartupMode::Eager` is served by
+        // `SessionProvider::bootstrap` (see `mcp::run`), so asking for it here is a caller error.
+        if startup == StartupMode::Eager {
+            anyhow::bail!(
+                "StartupMode::Eager builds before `initialize` via SessionProvider::bootstrap; \
+                 the lazy provider serves Lazy or Background only"
+            );
+        }
+        context.startup();
         let mut provider = Self {
-            state: LazyState::Failed {
-                error: String::new(),
-                at: Instant::now(),
-            },
+            state: LazyState::Idle,
+            startup,
             wait,
             last_error: None,
             attempts: 0,
             builder,
+            context,
+            #[cfg(test)]
+            build_workers: Vec::new(),
             #[cfg(test)]
             hooks,
         };
-        provider.spawn_build();
+        if provider.startup == StartupMode::Background {
+            provider.spawn_build();
+        }
         Ok(provider)
     }
 
+    pub(crate) fn startup_mode(&self) -> StartupMode {
+        self.startup
+    }
+
     pub fn ensure_ready(&mut self) -> Readiness {
-        let retry_failed = match &self.state {
+        // Idle starts the first build; Failed retries it. Both then wait like Building.
+        let start_build = match &self.state {
+            LazyState::Idle => true,
             LazyState::Failed { error, at } => {
                 let _ = (error, at);
                 true
             }
             LazyState::Building { .. } | LazyState::Ready(_) => false,
         };
-        if retry_failed {
+        if start_build {
             self.spawn_build();
         }
 
@@ -137,12 +175,24 @@ impl LazySessionProvider {
                 (rx.recv_timeout(remaining), started.elapsed())
             }
             LazyState::Ready(_) => return Readiness::Ready,
-            LazyState::Failed { .. } => unreachable!("failed state always restarts before waiting"),
+            LazyState::Idle | LazyState::Failed { .. } => {
+                unreachable!("idle and failed states always start a build before waiting")
+            }
         };
 
         match result {
             Ok(Ok(provider)) => {
+                let facts = provider.build_facts;
+                let generation = provider.generation();
                 self.state = LazyState::Ready(Box::new(provider));
+                self.context.build_event(
+                    "publication",
+                    Stamp::now(),
+                    self.attempts,
+                    generation,
+                    Some(facts),
+                    "complete",
+                );
                 self.last_error = None;
                 Readiness::Ready
             }
@@ -154,6 +204,13 @@ impl LazySessionProvider {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn join_build_for_tests(&mut self) {
+        for worker in self.build_workers.drain(..) {
+            worker.join().unwrap();
+        }
+    }
+
     fn spawn_build(&mut self) {
         self.attempts += 1;
         let (tx, rx) = mpsc::channel();
@@ -161,14 +218,24 @@ impl LazySessionProvider {
         #[cfg(test)]
         let published = self.hooks.published.clone();
         let started = Instant::now();
-        std::thread::spawn(move || {
+        let context = self.context.clone();
+        let attempt = self.attempts;
+        let start = Stamp::now();
+        let _worker = std::thread::spawn(move || {
+            context.build_event("build_start", start, attempt, 0, None, "complete");
             let result = builder();
+            let finish = Stamp::now();
+            let facts = result.as_ref().ok().map(|p| p.build_facts);
+            let outcome = if result.is_ok() { "complete" } else { "failed" };
             let _ = tx.send(result);
+            context.build_event("build_finish", finish, attempt, 0, facts, outcome);
             #[cfg(test)]
             if let Some(published) = published {
                 published();
             }
         });
+        #[cfg(test)]
+        self.build_workers.push(_worker);
         self.state = LazyState::Building {
             rx,
             started,
@@ -182,20 +249,28 @@ impl LazySessionProvider {
             error: error.clone(),
             at: Instant::now(),
         };
+        self.context.build_event(
+            "build",
+            Stamp::now(),
+            self.attempts,
+            0,
+            None,
+            &format!("failed error={error}"),
+        );
         Readiness::Failed { error }
     }
 
     pub(crate) fn ready(&self) -> Option<&SessionProvider> {
         match &self.state {
             LazyState::Ready(provider) => Some(provider.as_ref()),
-            LazyState::Building { .. } | LazyState::Failed { .. } => None,
+            LazyState::Idle | LazyState::Building { .. } | LazyState::Failed { .. } => None,
         }
     }
 
     pub(crate) fn ready_mut(&mut self) -> Option<&mut SessionProvider> {
         match &mut self.state {
             LazyState::Ready(provider) => Some(provider.as_mut()),
-            LazyState::Building { .. } | LazyState::Failed { .. } => None,
+            LazyState::Idle | LazyState::Building { .. } | LazyState::Failed { .. } => None,
         }
     }
 
@@ -212,6 +287,7 @@ impl LazySessionProvider {
     #[cfg(test)]
     pub(crate) fn state_kind(&self) -> &'static str {
         match self.state {
+            LazyState::Idle => "idle",
             LazyState::Building { .. } => "building",
             LazyState::Ready(_) => "ready",
             LazyState::Failed { .. } => "failed",
@@ -237,7 +313,7 @@ fn validate_wait(wait: Duration) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mcp::{CacheMode, ServerConfig};
+    use crate::mcp::{CacheMode, ServerConfig, StartupMode};
     use std::sync::{mpsc, Arc, Mutex};
     use std::time::{Duration, Instant};
 
@@ -324,10 +400,19 @@ mod tests {
         wait: Duration,
         before_wait: Option<mpsc::Sender<()>>,
     ) -> (tempfile::TempDir, LazySessionProvider, BlockingBuild) {
+        blocking_lazy_with_startup(wait, before_wait, StartupMode::Lazy)
+    }
+
+    fn blocking_lazy_with_startup(
+        wait: Duration,
+        before_wait: Option<mpsc::Sender<()>>,
+        startup: StartupMode,
+    ) -> (tempfile::TempDir, LazySessionProvider, BlockingBuild) {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("a.py"), "def f():\n    return 1\n").unwrap();
         let mut cfg = ServerConfig::new(dir.path().to_path_buf());
         cfg.cache = CacheMode::NoCache;
+        cfg.startup = startup;
         let (release, rx) = mpsc::channel();
         let (published, published_rx) = mpsc::channel();
         let provider = LazySessionProvider::with_builder_and_hooks(
@@ -341,8 +426,26 @@ mod tests {
     }
 
     #[test]
-    fn construction_starts_one_background_build_without_waiting_for_readiness() {
-        let (_dir, mut provider, mut build) = blocking_lazy(Duration::from_secs(1));
+    fn lazy_construction_starts_no_build_until_the_first_readiness_check() {
+        let (_dir, mut provider, mut build) = blocking_lazy(Duration::from_secs(60));
+
+        assert_eq!(provider.attempts(), 0);
+        assert_eq!(provider.builds(), 0);
+        assert_eq!(provider.state_kind(), "idle");
+        assert!(provider.ready().is_none());
+
+        // Release before the first check: the build the check starts completes at once.
+        build.release();
+        assert!(matches!(provider.ensure_ready(), Readiness::Ready));
+        build.wait();
+        assert_eq!(provider.attempts(), 1);
+        assert_eq!(provider.state_kind(), "ready");
+    }
+
+    #[test]
+    fn background_startup_starts_one_build_at_construction() {
+        let (_dir, mut provider, mut build) =
+            blocking_lazy_with_startup(Duration::from_secs(1), None, StartupMode::Background);
 
         assert_eq!(provider.attempts(), 1);
         assert_eq!(provider.builds(), 1);
@@ -451,6 +554,20 @@ mod tests {
     }
 
     #[test]
+    fn eager_startup_is_rejected_by_the_lazy_provider() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut cfg = ServerConfig::new(dir.path().to_path_buf());
+        cfg.cache = CacheMode::NoCache;
+        cfg.startup = StartupMode::Eager;
+
+        let error = match LazySessionProvider::new(&cfg) {
+            Ok(_) => panic!("eager startup must not be served by the lazy provider"),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains("Eager"));
+    }
+
+    #[test]
     fn injected_builder_rejects_an_unbounded_wait() {
         let dir = tempfile::tempdir().unwrap();
         let cfg = ServerConfig::new(dir.path().to_path_buf());
@@ -461,5 +578,47 @@ mod tests {
             Err(error) => error,
         };
         assert!(error.to_string().contains("first_call_wait"));
+    }
+}
+
+impl Context {
+    pub fn build_event(
+        &self,
+        event: &str,
+        time: Stamp,
+        attempt: usize,
+        generation: u64,
+        facts: Option<super::serving_events::BuildFacts>,
+        outcome: &str,
+    ) {
+        let reason = if event == "build" && outcome.starts_with("failed") {
+            "build_failed"
+        } else {
+            "demand_or_startup"
+        };
+        let fields = self.fields(time);
+        let details = super::serving_events::Details {
+            build: facts,
+            ..super::serving_events::Details::default()
+        }
+        .fields(event);
+        let mono_ms = time.mono() / 1_000_000;
+        self.emit(&super::serving_events::bounded(
+            &format!(
+                concat!(
+                    "{} event={} reason={} configured_idle_secs={:.3} observed_idle_secs=not_applicable ",
+                    "duration_ns=unknown attempt={} generation={} {} released_bytes=0 mono_ms={}",
+                ),
+                fields,
+                event,
+                reason,
+                self.timeout.as_secs_f64(),
+                attempt,
+                generation,
+                details,
+                mono_ms,
+            ),
+            outcome,
+        ));
     }
 }

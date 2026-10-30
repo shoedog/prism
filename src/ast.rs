@@ -4,6 +4,41 @@ use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::{Node, Parser, Tree};
 
+#[cfg(test)]
+pub(crate) mod call_membership_tests;
+
+pub(crate) mod binding_verdict_memo;
+mod call_membership;
+pub(crate) mod call_names;
+pub(crate) mod member_reference_index;
+
+mod js_binding;
+mod js_binding_alias;
+pub(crate) use js_binding::{JsBinding, JsBindingCache};
+pub use js_binding_alias::JsFollow;
+// Public because the public JsLocalBinding variants carry JsTerminal (private_interfaces).
+pub use js_binding::JsTerminal;
+mod js_anonymous;
+mod js_binding_checks;
+mod js_binding_decls;
+#[cfg(test)]
+mod js_binding_helper_tests;
+mod js_binding_namespace;
+mod js_binding_recovery;
+mod js_binding_returned;
+mod js_binding_site;
+mod js_binding_values;
+mod js_binding_walk;
+mod js_binding_writes;
+mod js_cjs_export_barriers;
+mod js_cjs_terminal;
+mod js_generator;
+mod js_module_forwarding;
+mod js_return_facts;
+mod js_wrapped_export;
+mod statement_traversal;
+mod tree_access;
+
 /// A parameter binding and the byte span of its identifier token.
 pub type ParameterOccurrence = (String, usize, usize);
 
@@ -28,6 +63,19 @@ fn count_nodes_recursive(node: Node<'_>, errors: &mut usize, total: &mut usize) 
     for child in node.children(&mut cursor) {
         count_nodes_recursive(child, errors, total);
     }
+}
+
+/// S1b-1b: whether a JS/TS declaration sits in `collect_js_ts_local_bindings`' root scope: at
+/// module scope (directly or through `export`) or in a function's body block. A bare block,
+/// even at module scope, is nested. That collector never enters a non-root function, so a
+/// function-like parent here is the root.
+fn js_ts_declaration_at_top(decl: Node<'_>) -> bool {
+    decl.parent()
+        .is_some_and(|h| match (h.kind(), h.parent().map_or("", |p| p.kind())) {
+            ("program", _) | ("export_statement", "program") => true,
+            ("statement_block", parent) => is_js_ts_function_like(parent),
+            _ => false,
+        })
 }
 
 fn is_js_ts_function_like(kind: &str) -> bool {
@@ -196,6 +244,40 @@ pub struct PathSpan {
     pub end_byte: usize,
 }
 
+/// Execution region used only by the rvalue-query family. Whole-file callers
+/// retain the historical inventory walk; supported JS/TS/TSX callables are
+/// bounded to their exact body bytes. Unknown roots fail closed rather than
+/// guessing ownership from a display name or line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RvalueQueryScope {
+    LegacyInventory,
+    CallableBody {
+        owner_start_byte: usize,
+        owner_end_byte: usize,
+        body_start_byte: usize,
+        body_end_byte: usize,
+    },
+    Unresolved,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RvalueOwnerDecision {
+    Owned,
+    Nested,
+    Signature,
+    Outside,
+    Unsupported,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CallOwnerDecision {
+    Owned,
+    Nested,
+    Outside,
+    Unsupported,
+    LegacyInventory,
+}
+
 /// A statement the parser located, with its real source span.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatementSpan {
@@ -224,20 +306,6 @@ pub(crate) struct LexicalArms {
     of_line: BTreeMap<usize, u32>,
     /// `subtree_last[a]` is the largest arm id allocated inside arm `a`.
     subtree_last: Vec<u32>,
-}
-
-/// Preorder arm-id allocator for one function.
-///
-/// `collect_nested_statements` — which the arm walk mirrors exactly — descends
-/// into a block-ish child **twice** (once via `collect_statements`, once via
-/// itself), so a block is visited a number of times exponential in its nesting
-/// depth. `seen` gives each block node ONE arm however often it is reached:
-/// without it a 154-line C fixture allocated 55,356 arms for the 70 that hold a
-/// statement line, which is unbounded memory per function, not just waste.
-struct ArmAllocator {
-    next: u32,
-    /// tree-sitter node id -> the arm allocated for that node.
-    seen: BTreeMap<usize, u32>,
 }
 
 impl LexicalArms {
@@ -393,6 +461,17 @@ pub struct ParsedFile {
     /// AST-only consumers, and callers with no resolved-call args pay nothing; the
     /// cold CPG/nav build that runs Step 5b builds it on demand.
     call_args: std::sync::OnceLock<CallArgsIndex>,
+    /// Lazily-extracted JS/TS export facts: a pure function of the parsed
+    /// file, shared by the P1 loader priming and the call-graph build.
+    js_export_facts: std::sync::OnceLock<crate::js_exports::JsExportFacts>,
+}
+
+/// How a formal parameter is used in its callable body (PR-C).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParameterUse {
+    Bare,
+    MemberOnly,
+    Unused,
 }
 
 impl ParsedFile {
@@ -425,6 +504,7 @@ impl ParsedFile {
             framework: std::sync::OnceLock::new(),
             functions: Vec::new(),
             call_args: std::sync::OnceLock::new(),
+            js_export_facts: std::sync::OnceLock::new(),
         };
         pf.functions = pf.build_function_table();
         Ok(pf)
@@ -519,251 +599,6 @@ impl ParsedFile {
             .trim()
             .trim_start_matches('&')
             .to_string()
-    }
-
-    /// Find the smallest function/method node containing the given line (1-indexed).
-    pub fn enclosing_function(&self, line: usize) -> Option<Node<'_>> {
-        let row = line.saturating_sub(1); // tree-sitter uses 0-indexed rows
-        self.find_enclosing_node(
-            self.tree.root_node(),
-            row,
-            &self.language.function_node_types(),
-        )
-    }
-
-    fn find_enclosing_node<'a>(
-        &self,
-        node: Node<'a>,
-        row: usize,
-        types: &[&str],
-    ) -> Option<Node<'a>> {
-        let start = node.start_position().row;
-        let end = node.end_position().row;
-
-        if row < start || row > end {
-            return None;
-        }
-
-        // Check children first (prefer smallest/deepest match)
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            if let Some(found) = self.find_enclosing_node(child, row, types) {
-                return Some(found);
-            }
-        }
-
-        if types.contains(&node.kind()) {
-            Some(node)
-        } else {
-            None
-        }
-    }
-
-    /// Function nodes, reconstructed from the eager table. On any reconstruction
-    /// miss, falls back to the direct dual-path collection for the WHOLE file —
-    /// never a partial sequence. The bool is the fallback-fire flag: in-module
-    /// tests assert it is false for all 12 supported languages so grammar drift
-    /// cannot silently route a language to the slow path.
-    pub fn all_functions(&self) -> Vec<Node<'_>> {
-        self.all_functions_inner().0
-    }
-
-    fn unwrap_decorated<'a>(&self, node: Node<'a>) -> Node<'a> {
-        if self.language == Language::Python && node.kind() == "decorated_definition" {
-            let mut cursor = node.walk();
-            for child in node.children(&mut cursor) {
-                if child.kind() == "function_definition" {
-                    return child;
-                }
-            }
-        }
-        node
-    }
-
-    pub(crate) fn all_functions_inner(&self) -> (Vec<Node<'_>>, bool) {
-        let mut out = Vec::with_capacity(self.functions.len());
-        for info in &self.functions {
-            match self.reconstruct_function_node(info) {
-                Some(node) => out.push(node),
-                None => return (self.all_functions_via_tree(), true),
-            }
-        }
-        (out, false)
-    }
-
-    fn reconstruct_function_node(&self, info: &FunctionInfo) -> Option<Node<'_>> {
-        let mut node = self
-            .tree
-            .root_node()
-            .descendant_for_byte_range(info.start_byte, info.end_byte)?;
-        // descendant_for_byte_range returns the DEEPEST node spanning the range,
-        // so recovery walks UP through same-span ancestors — a walk-down can
-        // never reach a same-span ancestor.
-        loop {
-            if node.start_byte() == info.start_byte
-                && node.end_byte() == info.end_byte
-                && node.kind_id() == info.kind_id
-            {
-                return Some(node);
-            }
-            match node.parent() {
-                Some(p) if p.start_byte() == info.start_byte && p.end_byte() == info.end_byte => {
-                    node = p
-                }
-                _ => return None,
-            }
-        }
-    }
-
-    /// Reconstruct one callable by its exact eager-table byte identity and project
-    /// edit coordinates without returning or copying source text.
-    pub(crate) fn function_ast_spans(
-        &self,
-        start_byte: usize,
-        end_byte: usize,
-    ) -> Option<FunctionAstSpans> {
-        const MAX_INDENTATION_BYTES: usize = 256;
-
-        fn span(node: Node<'_>) -> AstNodeSpan {
-            AstNodeSpan {
-                start_byte: node.start_byte(),
-                end_byte: node.end_byte(),
-                start_line: node.start_position().row + 1,
-                end_line: node.end_position().row + 1,
-            }
-        }
-
-        fn indentation_before(
-            source: &str,
-            byte: usize,
-            non_whitespace_reason: &'static str,
-        ) -> Result<String, &'static str> {
-            let line_start = source.as_bytes()[..byte]
-                .iter()
-                .rposition(|b| *b == b'\n')
-                .map_or(0, |newline| newline + 1);
-            let prefix = &source[line_start..byte];
-            if prefix.len() > MAX_INDENTATION_BYTES {
-                return Err("line indentation exceeds 256-byte limit");
-            }
-            if prefix.bytes().all(|b| matches!(b, b' ' | b'\t')) {
-                Ok(prefix.to_string())
-            } else {
-                Err(non_whitespace_reason)
-            }
-        }
-
-        let info = self
-            .functions
-            .iter()
-            .find(|info| info.start_byte == start_byte && info.end_byte == end_byte)?;
-        let outer = self.reconstruct_function_node(info)?;
-        let inner = self.unwrap_decorated(outer);
-        let name = self.language.function_name(&inner).map(span);
-        let body_node = inner.child_by_field_name("body");
-        let body = body_node.map(span);
-        let symbol_indentation = indentation_before(
-            &self.source,
-            outer.start_byte(),
-            "outer callable is not preceded only by line indentation",
-        );
-        let body_indentation = match body_node {
-            None => Err("body span unavailable"),
-            Some(body) => match body.named_child(0) {
-                None => Err("body has no named child"),
-                Some(child) => indentation_before(
-                    &self.source,
-                    child.start_byte(),
-                    "first named body child is not preceded only by line indentation",
-                ),
-            },
-        };
-
-        Some(FunctionAstSpans {
-            name,
-            body,
-            symbol_indentation,
-            body_indentation,
-        })
-    }
-
-    fn all_functions_via_tree(&self) -> Vec<Node<'_>> {
-        use crate::queries::{get_query, QueryKind};
-        use tree_sitter::StreamingIterator;
-
-        let mut functions = Vec::new();
-
-        // Use compiled tree-sitter query when available (faster: skips irrelevant subtrees).
-        if let Some(query) = get_query(self.language, QueryKind::Functions) {
-            let func_idx = query
-                .capture_index_for_name("func")
-                .expect("Functions query must have @func capture");
-            let mut cursor = tree_sitter::QueryCursor::new();
-            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
-            while let Some(m) = matches.next() {
-                for capture in m.captures {
-                    if capture.index == func_idx {
-                        functions.push(capture.node);
-                    }
-                }
-            }
-        } else {
-            // Fallback: manual recursive walk.
-            self.collect_functions_manual(self.tree.root_node(), &mut functions);
-        }
-
-        functions.retain(|node| !self.is_python_decorated_inner_function(node));
-        functions
-    }
-
-    fn is_python_decorated_inner_function(&self, node: &Node<'_>) -> bool {
-        self.language == Language::Python
-            && node.kind() == "function_definition"
-            && node
-                .parent()
-                .is_some_and(|parent| parent.kind() == "decorated_definition")
-    }
-
-    /// Build the eager function table via the existing dual-path collection.
-    fn build_function_table(&self) -> Vec<FunctionInfo> {
-        self.all_functions_via_tree()
-            .into_iter()
-            .map(|node| FunctionInfo {
-                name: self
-                    .language
-                    .function_name(&node)
-                    .map(|n| self.node_text(&n).to_string()),
-                kind_id: node.kind_id(),
-                start_byte: node.start_byte(),
-                end_byte: node.end_byte(),
-                start_line: node.start_position().row + 1,
-                end_line: node.end_position().row + 1,
-                param_names: self.function_parameter_slots(&node),
-                owner: self
-                    .language
-                    .method_owner(&node)
-                    .map(|n| crate::resolution::owner_key(self.node_text(&n))),
-                receiver_var: self
-                    .language
-                    .go_receiver_var(&node)
-                    .map(|n| self.node_text(&n).to_string()),
-            })
-            .collect()
-    }
-
-    pub fn functions(&self) -> &[FunctionInfo] {
-        &self.functions
-    }
-
-    /// Find the smallest function node spanning the given 1-indexed line.
-    pub fn function_node_spanning(&self, line: usize) -> Option<Node<'_>> {
-        self.all_functions()
-            .into_iter()
-            .filter(|node| {
-                let (start, end) = self.node_line_range(node);
-                start <= line && line <= end
-            })
-            .min_by_key(|node| node.end_byte().saturating_sub(node.start_byte()))
     }
 
     /// S3 P6-lite: syntactically-provable receiver type for `receiver` at a call
@@ -1423,8 +1258,7 @@ impl ParsedFile {
     /// Manual recursive function collection (pre-query fallback).
     /// `pub(crate)` for dual-path consistency testing in `queries::tests`.
     pub(crate) fn collect_functions_manual<'a>(&self, node: Node<'a>, out: &mut Vec<Node<'a>>) {
-        let types = self.language.function_node_types();
-        if types.contains(&node.kind()) {
+        if self.is_inventoried_function(&node) {
             out.push(node);
         }
         let mut cursor = node.walk();
@@ -1447,12 +1281,20 @@ impl ParsedFile {
 
     /// Manual recursive identifier-at-row collection (pre-query fallback).
     fn collect_identifiers_at_row<'a>(&self, node: Node<'a>, row: usize, out: &mut Vec<Node<'a>>) {
+        #[cfg(test)]
+        identifier_row_tests::record_visit();
         if node.start_position().row == row && self.language.is_identifier_node(node.kind()) {
             out.push(node);
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_identifiers_at_row(child, row, out);
+            if child.start_position().row > row {
+                break;
+            }
+            // Inclusive end row keeps zero-width nodes and multiline containers.
+            if child.end_position().row >= row {
+                self.collect_identifiers_at_row(child, row, out);
+            }
         }
     }
 
@@ -1750,12 +1592,14 @@ impl ParsedFile {
             // Check if value is a require() call
             if self.language.is_call_node(val.kind()) {
                 if let Some(func_name) = self.language.call_function_name(&val) {
-                    if self.node_text(&func_name) == "require" {
+                    if self.node_text(&func_name) == "require"
+                        && self.js_ts_unshadowed_ambient(func_name)
+                    {
                         if let Some(args) = self.language.call_arguments(&val) {
                             // Extract the module path from first argument
                             let mut cursor = args.walk();
                             for child in args.children(&mut cursor) {
-                                if child.is_named() {
+                                if self.is_positional_argument_node(child) {
                                     let text = self.node_text(&child);
                                     let path =
                                         text.trim_matches(|c| c == '\'' || c == '"').to_string();
@@ -1797,13 +1641,13 @@ impl ParsedFile {
             return None;
         }
         let func_name = self.language.call_function_name(node)?;
-        if self.node_text(&func_name) != "require" {
+        if self.node_text(&func_name) != "require" || !self.js_ts_unshadowed_ambient(func_name) {
             return None;
         }
         let args = self.language.call_arguments(node)?;
         let mut cursor = args.walk();
         for child in args.children(&mut cursor) {
-            if child.is_named() {
+            if self.is_positional_argument_node(child) {
                 let text = self.node_text(&child);
                 return Some(text.trim_matches(|c| c == '\'' || c == '"').to_string());
             }
@@ -2223,9 +2067,13 @@ impl ParsedFile {
                             if self.js_ts_import_specifier_is_type_only(spec) {
                                 continue;
                             }
+                            // `import { "g" as h }` names export `g` (StringValue, S1b-2b); an
+                            // unmatchable name (an unpaired surrogate, or any name in a list with a
+                            // parse error: recovery puts the ERROR beside the specifier) keeps the
+                            // binding with no member, which R4c refuses.
                             let name = spec
                                 .child_by_field_name("name")
-                                .map(|n| self.node_text(&n).to_string());
+                                .and_then(|n| self.js_ts_module_export_name(n));
                             let alias = spec
                                 .child_by_field_name("alias")
                                 .map(|n| self.node_text(&n).to_string());
@@ -2234,7 +2082,7 @@ impl ParsedFile {
                                 out.push(ImportBinding {
                                     local,
                                     module_path: module_path.to_string(),
-                                    member: name,
+                                    member: name.filter(|_| !child.has_error()),
                                     kind: ImportBindingKind::MemberImport,
                                     eligible: true,
                                 });
@@ -2374,6 +2222,11 @@ impl ParsedFile {
     /// TS `export =` CJS interop, anonymous/aliased class exports, anonymous default
     /// function/arrow exports, spread in `module.exports = { ...x }`.
     pub fn extract_js_ts_export_facts(&self) -> crate::js_exports::JsExportFacts {
+        self.js_export_facts
+            .get_or_init(|| self.extract_js_ts_export_facts_uncached())
+            .clone()
+    }
+    fn extract_js_ts_export_facts_uncached(&self) -> crate::js_exports::JsExportFacts {
         let mut facts = crate::js_exports::JsExportFacts::default();
         if !matches!(
             self.language,
@@ -2383,19 +2236,123 @@ impl ParsedFile {
         }
 
         let root = self.tree.root_node();
+        let mut cjs = crate::js_exports::JsExportFacts::default();
+        // A local export of an imported binding is not an in-file callable.
+        // Forwarding requires separate proof; do not let a nested same-name
+        // declaration satisfy the existing Local(file, name) route.
+        let types = self.js_ts_type_only_imports();
+        let imports = self.extract_import_bindings().into_iter().map(|b| b.local);
+        let mut d4 = (
+            imports.chain(types.keys().cloned()).collect(),
+            Default::default(),
+        );
+        let mut has_esm_exports = false;
+        let mut unsupported_export = root.has_error();
+        facts.namespace_proof_complete = true;
         let mut cursor = root.walk();
         for child in root.children(&mut cursor) {
             match child.kind() {
-                "export_statement" => self.collect_js_ts_export_statement(child, &mut facts),
-                "expression_statement" => {
-                    self.collect_js_ts_cjs_export_statement(child, &mut facts)
+                "export_statement" => {
+                    has_esm_exports = true;
+                    let mut export_cursor = child.walk();
+                    unsupported_export |= child
+                        .children(&mut export_cursor)
+                        .any(|n| matches!(n.kind(), "=" | "import_alias"));
+                    self.collect_js_ts_export_statement(child, &mut facts, &mut d4)
                 }
+                "expression_statement" => self.collect_js_ts_cjs_export_statement(child, &mut cjs),
                 _ => {}
             }
         }
-        facts.esm_named_imports = self.js_ts_esm_named_imports(None);
-        facts.type_only_imports = self.js_ts_type_only_imports();
+        // Preserve ESM provenance: an unsafe CJS use cannot erase an
+        // independently extracted ESM export. Safe cross-form duplicates still
+        // pass through the normal conflict-aware insertion path.
+        let cjs_safe = self.js_ts_cjs_export_object_safe();
+        facts.namespace_proof_complete &= has_esm_exports
+            && !unsupported_export
+            && cjs.is_empty()
+            && cjs_safe
+            && facts.skipped_expr_count == 0
+            && facts.local_export_refusals.is_empty();
+        facts.skipped_expr_count += cjs.skipped_expr_count;
+        if cjs.conflicted.is_empty() && cjs_safe {
+            for (name, target) in cjs.named {
+                facts.insert_named(name, target);
+            }
+        } else {
+            // Unsafe producers revoke the whole CJS set, including disjoint
+            // siblings. Retain already-enumerated names as refusal claims so a
+            // barrel cannot mistake them for absence. Independent ESM wins.
+            // No claim is invented for unknown/computed-only export names.
+            for name in cjs.named.keys().chain(cjs.conflicted.iter()) {
+                if !facts.named.contains_key(name) && !facts.conflicted.contains(name) {
+                    facts.insert_named(
+                        name.clone(),
+                        crate::js_exports::JsExportTarget::UnprovenLocal(name.clone()),
+                    );
+                }
+            }
+        }
+        self.js_ts_export_imports_and_functions(&mut facts);
+        facts.type_only_imports = types;
+        facts.module_value_bindings = self.js_ts_function_local_bindings(&root);
+        for (exported, target) in &facts.named {
+            if let crate::js_exports::JsExportTarget::Local(local) = target {
+                if d4.0.contains(local) {
+                    facts.conflicted.insert(exported.clone());
+                }
+            }
+        }
+        for local in &facts.module_value_bindings {
+            // The landed core's wrapper provenance check is structural and cannot
+            // re-enter classification through a self/mutual initializer cycle.
+            if let JsBinding::Callable(t) = self.js_ts_module_binding(local, root, &mut d4.1) {
+                facts
+                    .namespace_callable_locals
+                    .entry(t.local.clone())
+                    .or_default()
+                    .push(crate::js_exports::ResolvedJsExport {
+                        file: self.path.clone(),
+                        local_name: t.local,
+                        span: Some((t.start_line, t.end_line)),
+                        wrapped: t.wrapped,
+                        // Local callable terminals have traversed no star. The
+                        // namespace resolver rejects any unresolved branch.
+                        via_unresolved_star: false,
+                    });
+            }
+        }
         facts
+    }
+
+    /// Only a refusal guard: lexical declarations or writes revoke recognition
+    /// of the CommonJS ambient spelling. No ambient module existence is proven.
+    fn js_ts_unshadowed_ambient(&self, identifier: Node<'_>) -> bool {
+        !self.js_ts_receiver_lexically_bound_at_call(&self.tree.root_node(), Some(identifier))
+            && !self.js_ts_module_value_written(self.node_text(&identifier))
+    }
+
+    /// Replacing module.exports may detach the original exports object. Refuse
+    /// exports.* throughout the file, including possible reattachment; no heap
+    /// alias or execution-order proof is available in this export-fact model.
+    fn js_ts_module_exports_replaced(&self, node: Node<'_>) -> bool {
+        if let Some(left) = self.js_ts_write_target(node) {
+            if left.kind() == "member_expression"
+                && left
+                    .child_by_field_name("object")
+                    .is_some_and(|n| self.node_text(&n) == "module")
+                && left
+                    .child_by_field_name("property")
+                    .is_some_and(|n| self.node_text(&n) == "exports")
+            {
+                return true;
+            }
+        }
+        let mut cursor = node.walk();
+        let found = node
+            .named_children(&mut cursor)
+            .any(|n| self.js_ts_module_exports_replaced(n));
+        found
     }
 
     fn js_ts_type_only_imports(&self) -> BTreeMap<String, Option<(String, String)>> {
@@ -2516,33 +2473,6 @@ impl ParsedFile {
         imports
     }
 
-    fn js_ts_esm_named_imports(&self, only: Option<&str>) -> BTreeSet<String> {
-        let mut names = BTreeSet::new();
-        let root = self.tree.root_node();
-        if root.has_error() {
-            return names;
-        }
-        let mut cursor = root.walk();
-        for node in root.named_children(&mut cursor) {
-            if node.kind() != "import_statement" || self.js_ts_import_statement_is_type_only(node) {
-                continue;
-            }
-            let mut imports = Vec::new();
-            self.collect_js_import_statement_bindings(node, &mut imports);
-            names.extend(
-                imports
-                    .into_iter()
-                    .filter(|b| {
-                        b.kind == crate::call_graph::ImportBindingKind::MemberImport
-                            && only.is_none_or(|name| b.local == name)
-                    })
-                    .map(|b| b.local),
-            );
-        }
-        names.retain(|name| !self.js_ts_module_value_written(name));
-        names
-    }
-
     fn js_ts_export_statement_is_default(&self, node: Node<'_>) -> bool {
         let mut cursor = node.walk();
         let found = node
@@ -2626,12 +2556,20 @@ impl ParsedFile {
     /// Handle a single top-level `export_statement` node: default exports,
     /// named export lists (local or re-export), direct declaration exports
     /// (`export function`/`export const`), and `export * [from]`.
-    fn collect_js_ts_export_statement(
-        &self,
-        node: Node<'_>,
+    fn collect_js_ts_export_statement<'a>(
+        &'a self,
+        node: Node<'a>,
         facts: &mut crate::js_exports::JsExportFacts,
+        d4: &mut js_binding::ExportScope<'a>,
     ) {
         use crate::js_exports::JsExportTarget;
+
+        // The grammar uses the same immediate `type` token for type-only
+        // import/export statements and specifiers; names named `type` remain
+        // identifier nodes and are not rejected by this predicate.
+        if self.js_ts_import_statement_is_type_only(node) {
+            return;
+        }
 
         let source = node.child_by_field_name("source").map(|n| {
             self.node_text(&n)
@@ -2645,7 +2583,10 @@ impl ParsedFile {
         for child in node.children(&mut ec) {
             match child.kind() {
                 "export_clause" => export_clause = Some(child),
-                "namespace_export" => has_namespace_export = true,
+                "namespace_export" => {
+                    has_namespace_export = true;
+                    facts.namespace_proof_complete = false;
+                }
                 _ => {}
             }
         }
@@ -2664,25 +2605,36 @@ impl ParsedFile {
         if let Some(clause) = export_clause {
             let mut cc = clause.walk();
             for spec in clause.children(&mut cc) {
-                if spec.kind() != "export_specifier" {
+                if spec.kind() != "export_specifier"
+                    || self.js_ts_import_specifier_is_type_only(spec)
+                    || clause.has_error()
+                {
                     continue;
                 }
+                // An errorful list (above: recovery puts the ERROR beside the specifier) or an
+                // unmatchable name or alias (an unpaired surrogate) records no claim.
                 let Some(name) = spec
                     .child_by_field_name("name")
-                    .map(|n| self.node_text(&n).to_string())
+                    .and_then(|n| self.js_ts_module_export_name(n))
                 else {
+                    facts.namespace_proof_complete = false;
                     continue;
                 };
                 let alias = spec
                     .child_by_field_name("alias")
-                    .map(|n| self.node_text(&n).to_string());
-                let exported_as = alias.unwrap_or_else(|| name.clone());
+                    .map(|n| self.js_ts_module_export_name(n));
+                let Some(exported_as) = alias.unwrap_or_else(|| Some(name.clone())) else {
+                    facts.namespace_proof_complete = false;
+                    continue;
+                };
                 let target = match &source {
                     Some(module_path) => JsExportTarget::ReExport {
                         module_path: module_path.clone(),
                         imported: name,
                     },
-                    None => JsExportTarget::Local(name),
+                    None => self
+                        .js_ts_forwarded_import(&name)
+                        .unwrap_or_else(|| self.js_ts_local_export_target(name, spec, facts, d4)),
                 };
                 facts.insert_named(exported_as, target);
             }
@@ -2701,7 +2653,10 @@ impl ParsedFile {
                     }
                     return;
                 }
-                facts.insert_named("default".to_string(), JsExportTarget::Local(name));
+                let target = self
+                    .js_ts_forwarded_import(&name)
+                    .unwrap_or_else(|| self.js_ts_local_export_target(name, value, facts, d4));
+                facts.insert_named("default".to_string(), target);
             } else {
                 facts.skipped_expr_count += 1;
             }
@@ -2732,7 +2687,8 @@ impl ParsedFile {
                         } else {
                             name_text.clone()
                         };
-                        facts.insert_named(exported_as, JsExportTarget::Local(name_text));
+                        let target = self.js_ts_local_export_target(name_text, decl, facts, d4);
+                        facts.insert_named(exported_as, target);
                     }
                 }
                 "lexical_declaration" | "variable_declaration" => {
@@ -2745,6 +2701,7 @@ impl ParsedFile {
                             continue;
                         };
                         if name_node.kind() != "identifier" {
+                            facts.namespace_proof_complete = false;
                             continue;
                         }
                         let name_text = self.node_text(&name_node).to_string();
@@ -2757,20 +2714,44 @@ impl ParsedFile {
                         // declaration elsewhere in the file (e.g. a nested
                         // function), since the "local" target here is just
                         // the declarator's own name, not a verified function.
-                        match d.child_by_field_name("value").map(|v| v.kind()) {
+                        //
+                        // S1 (SPEC §3.1): a call initializer is admitted only as a
+                        // span-verified React wrapper; every other skip names its reason.
+                        let admitted = match d.child_by_field_name("value").map(|v| v.kind()) {
                             Some("arrow_function") | Some("function_expression") => {
-                                facts.insert_named(
-                                    name_text.clone(),
-                                    JsExportTarget::Local(name_text),
-                                );
+                                let target =
+                                    self.js_ts_local_export_target(name_text.clone(), d, facts, d4);
+                                facts.insert_named(name_text, target);
+                                continue;
                             }
-                            _ => facts.skipped_expr_count += 1,
+                            Some("call_expression") => self.js_ts_wrapped_export(decl, d, false),
+                            _ => Err("non_call_initializer"),
+                        };
+                        match admitted {
+                            Ok((local, start_line, end_line)) => {
+                                facts.spanned_admitted += 1;
+                                let target = JsExportTarget::SpannedLocal {
+                                    local,
+                                    start_line,
+                                    end_line,
+                                };
+                                facts.insert_named(name_text, target);
+                            }
+                            Err(reason) => {
+                                facts.skipped_expr_count += 1;
+                                *facts
+                                    .skipped_decl_reasons
+                                    .entry(reason.to_string())
+                                    .or_default() += 1;
+                            }
                         }
                     }
                 }
-                // Class exports are deliberately out of scope.
-                _ => {}
+                // Unrecorded value exports cannot establish a unique namespace identity.
+                _ => facts.namespace_proof_complete = false,
             }
+        } else {
+            facts.namespace_proof_complete = false;
         }
     }
 
@@ -2810,28 +2791,32 @@ impl ParsedFile {
             && self.node_text(&object) == "module"
             && property_name == "exports"
         {
+            if !self.js_ts_unshadowed_ambient(object) {
+                return;
+            }
             // `module.exports = <rhs>;`
             self.collect_js_ts_cjs_module_exports_rhs(right, facts);
             return;
         }
 
         let is_module_exports_member = object.kind() == "member_expression"
-            && object
-                .child_by_field_name("object")
-                .is_some_and(|o| o.kind() == "identifier" && self.node_text(&o) == "module")
+            && object.child_by_field_name("object").is_some_and(|o| {
+                o.kind() == "identifier"
+                    && self.node_text(&o) == "module"
+                    && self.js_ts_unshadowed_ambient(o)
+            })
             && object
                 .child_by_field_name("property")
                 .is_some_and(|p| self.node_text(&p) == "exports");
-        let is_exports_member =
-            object.kind() == "identifier" && self.node_text(&object) == "exports";
+        let is_exports_member = object.kind() == "identifier"
+            && self.node_text(&object) == "exports"
+            && self.js_ts_unshadowed_ambient(object)
+            && !self.js_ts_module_exports_replaced(self.tree.root_node());
 
         if is_module_exports_member || is_exports_member {
             // `module.exports.f = f;` or `exports.f = f;`
             if right.kind() == "identifier" {
-                facts.insert_named(
-                    property_name,
-                    crate::js_exports::JsExportTarget::Local(self.node_text(&right).to_string()),
-                );
+                facts.insert_named(property_name, self.js_ts_cjs_local_target(right));
             } else {
                 facts.skipped_expr_count += 1;
             }
@@ -2846,13 +2831,9 @@ impl ParsedFile {
         rhs: Node<'_>,
         facts: &mut crate::js_exports::JsExportFacts,
     ) {
-        use crate::js_exports::JsExportTarget;
         match rhs.kind() {
             "identifier" => {
-                facts.insert_named(
-                    "default".to_string(),
-                    JsExportTarget::Local(self.node_text(&rhs).to_string()),
-                );
+                facts.insert_named("default".to_string(), self.js_ts_cjs_local_target(rhs));
             }
             "object" => {
                 // F2 (review-fix wave, codex BLOCKER 2): a spread can shadow
@@ -2876,7 +2857,7 @@ impl ParsedFile {
                     match prop.kind() {
                         "shorthand_property_identifier" => {
                             let name = self.node_text(&prop).to_string();
-                            facts.insert_named(name.clone(), JsExportTarget::Local(name));
+                            facts.insert_named(name, self.js_ts_cjs_local_target(prop));
                         }
                         "pair" => {
                             let key = prop.child_by_field_name("key").map(|k| {
@@ -2887,10 +2868,7 @@ impl ParsedFile {
                             let value = prop.child_by_field_name("value");
                             match (key, value) {
                                 (Some(key), Some(value)) if value.kind() == "identifier" => {
-                                    facts.insert_named(
-                                        key,
-                                        JsExportTarget::Local(self.node_text(&value).to_string()),
-                                    );
+                                    facts.insert_named(key, self.js_ts_cjs_local_target(value));
                                 }
                                 (Some(_), Some(_)) => facts.skipped_expr_count += 1,
                                 _ => {}
@@ -3288,10 +3266,20 @@ impl ParsedFile {
                     )
                     && node
                         .child_by_field_name("arguments")
-                        .and_then(|n| n.named_child(0))
+                        .and_then(|n| {
+                            let mut cursor = n.walk();
+                            let first = n
+                                .named_children(&mut cursor)
+                                .find(|child| self.is_positional_argument_node(*child));
+                            first
+                        })
                         .is_some_and(|mut n| {
                             while n.kind() == "parenthesized_expression" {
-                                let Some(inner) = n.named_child(0) else {
+                                let mut cursor = n.walk();
+                                let Some(inner) = n
+                                    .named_children(&mut cursor)
+                                    .find(|child| self.is_positional_argument_node(*child))
+                                else {
                                     return true;
                                 };
                                 n = inner;
@@ -3338,9 +3326,8 @@ impl ParsedFile {
                     | "function_expression"
                     | "generator_function_declaration"
                     | "generator_function"
-            ) && self
-                .language
-                .function_name(&root_scope)
+            ) && root_scope
+                .child_by_field_name("name")
                 .is_some_and(|name| self.node_text(&name) == receiver_name)
             {
                 if let Some(distance) = self.js_ts_scope_distance(receiver, root_scope.id()) {
@@ -4482,13 +4469,21 @@ impl ParsedFile {
     /// an escaping callable, revokes the whole-file owner proof. Shadow writes
     /// are separated by the same lexical predicate used for receiver mutations.
     pub(crate) fn js_ts_module_value_written(&self, name: &str) -> bool {
+        self.js_ts_module_written(name, false)
+    }
+
+    /// The module write scan; with `skip_using`, a TS `using` declaration declares and is
+    /// never a W1 write (S1b SPEC §3.1 D4, W1).
+    pub(crate) fn js_ts_module_written(&self, name: &str, skip_using: bool) -> bool {
         if !matches!(
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
         ) {
             return false;
         }
-        fn walk(parsed: &ParsedFile, node: Node<'_>, root_id: usize, name: &str) -> bool {
+        fn walk(parsed: &ParsedFile, node: Node<'_>, root_id: usize, name: &str, u: bool) -> bool {
+            #[cfg(test)]
+            js_module_forwarding::tests::visit();
             if matches!(
                 node.kind(),
                 "assignment_expression"
@@ -4497,7 +4492,8 @@ impl ParsedFile {
                     | "for_in_statement"
                     | "for_of_statement"
                     | "for_await_statement"
-            ) {
+            ) && !(u && js_binding_decls::js_ts_is_using(node))
+            {
                 if let Some(target) = node
                     .child_by_field_name("left")
                     .or_else(|| node.child_by_field_name("argument"))
@@ -4506,20 +4502,18 @@ impl ParsedFile {
                     let mut names = BTreeSet::new();
                     parsed.collect_js_ts_binding_pattern_names(target, &mut names);
                     if names.contains(name)
-                        && !parsed.js_ts_receiver_has_closer_binding(&target, name, root_id)
+                        && !parsed.js_ts_has_closer_binding(&target, name, root_id, true)
                     {
                         return true;
                     }
                 }
             }
             let mut cursor = node.walk();
-            let written = node
-                .named_children(&mut cursor)
-                .any(|child| walk(parsed, child, root_id, name));
-            written
+            let mut children = node.named_children(&mut cursor);
+            children.any(|child| walk(parsed, child, root_id, name, u))
         }
         let root = self.tree.root_node();
-        walk(self, root, root.id(), name)
+        walk(self, root, root.id(), name, skip_using)
     }
 
     fn js_ts_receiver_has_closer_binding(
@@ -4528,13 +4522,43 @@ impl ParsedFile {
         receiver_name: &str,
         binding_scope_id: usize,
     ) -> bool {
+        self.js_ts_has_closer_binding(target, receiver_name, binding_scope_id, false)
+    }
+
+    /// Write proofs distinguish expression self bindings from declarations.
+    /// Receiver lookup also uses source names, but retains declaration-name
+    /// shadow refusal; do not conflate that policy with declaration writes.
+    fn js_ts_has_closer_binding(
+        &self,
+        target: &Node<'_>,
+        receiver_name: &str,
+        binding_scope_id: usize,
+        source_self_bindings: bool,
+    ) -> bool {
         let mut current = target.parent();
         while let Some(scope) = current {
             if scope.id() == binding_scope_id {
                 return false;
             }
             if is_js_ts_function_like(scope.kind()) {
-                if self.js_ts_function_scope_binds_receiver(&scope, target, receiver_name) {
+                let binds = if source_self_bindings {
+                    let mut parameters = BTreeSet::new();
+                    self.collect_js_ts_parameter_bindings(scope, &mut parameters);
+                    parameters.contains(receiver_name)
+                        || (matches!(scope.kind(), "function_expression" | "generator_function")
+                            && scope
+                                .child_by_field_name("name")
+                                .is_some_and(|n| self.node_text(&n) == receiver_name))
+                        || self.js_ts_receiver_binding_reaches_call(
+                            scope,
+                            scope.id(),
+                            target,
+                            receiver_name,
+                        )
+                } else {
+                    self.js_ts_function_scope_binds_receiver(&scope, target, receiver_name)
+                };
+                if binds {
                     return true;
                 }
             } else if self.language.is_scope_block(scope.kind())
@@ -4775,6 +4799,9 @@ impl ParsedFile {
             for child in params.children(&mut cursor) {
                 self.collect_js_ts_parameter_binding_names(child, out);
             }
+        } else if let Some(param) = func_node.child_by_field_name("parameter") {
+            // S1b F3: a single unparenthesized arrow parameter (`x => x()`).
+            self.collect_js_ts_binding_pattern_names(param, out);
         }
     }
 
@@ -4813,7 +4840,10 @@ impl ParsedFile {
         match node.kind() {
             "identifier" | "shorthand_property_identifier_pattern" => {
                 let name = self.node_text(&node);
-                if is_plain_ident(name) {
+                // S1b-3 (spec r1 sol W1): the parser confirmed an ECMAScript IdentifierName, so
+                // any spelling without a `\` escape is a BoundName (`é` with U+0301, ZWNJ/ZWJ,
+                // `$`, S1b-1b); an escaped spelling stays out and B0 refuses its scope.
+                if !name.contains('\\') {
                     out.insert(name.to_string());
                 }
             }
@@ -4828,9 +4858,22 @@ impl ParsedFile {
                     self.collect_js_ts_binding_pattern_names(child, out);
                 }
             }
-            "assignment_pattern" => {
+            // S1b F2: a `{ f = d }` destructuring default binds `f`, like `f = d`.
+            "assignment_pattern" | "object_assignment_pattern" => {
                 if let Some(left) = node.child_by_field_name("left") {
                     self.collect_js_ts_binding_pattern_names(left, out);
+                }
+            }
+            // S1b F1: a TS assertion around a write target still writes its binding.
+            "as_expression" | "satisfies_expression" | "non_null_expression" => {
+                if let Some(inner) = node.named_child(0) {
+                    self.collect_js_ts_binding_pattern_names(inner, out);
+                }
+            }
+            // `<T>x`: the asserted expression is the last named child.
+            "type_assertion" => {
+                if let Some(inner) = node.named_child(node.named_child_count().saturating_sub(1)) {
+                    self.collect_js_ts_binding_pattern_names(inner, out);
                 }
             }
             "object_pattern"
@@ -4864,6 +4907,14 @@ impl ParsedFile {
         }
 
         match node.kind() {
+            // S1b-1b (F4): a top-scope declarator binds the pattern's BoundNames (shorthand
+            // properties included, destructuring-default expressions excluded). A nested one
+            // keeps base (Option K): this set is block-blind; S1b-3's site walk owns blocks.
+            "variable_declarator" if node.parent().is_some_and(js_ts_declaration_at_top) => {
+                if let Some(name) = node.child_by_field_name("name") {
+                    self.collect_js_ts_binding_pattern_names(name, out);
+                }
+            }
             "variable_declarator" => {
                 if let Some(name) = node.child_by_field_name("name") {
                     self.collect_identifier_names(name, out);
@@ -5060,15 +5111,16 @@ impl ParsedFile {
             return true;
         }
 
+        // Callable display names may come from assignment properties or object
+        // keys. Only an explicit source name establishes this binding.
         if matches!(
             func_node.kind(),
             "function_declaration"
                 | "function_expression"
                 | "generator_function_declaration"
                 | "generator_function"
-        ) && self
-            .language
-            .function_name(func_node)
+        ) && func_node
+            .child_by_field_name("name")
             .is_some_and(|name| self.node_text(&name) == receiver_name)
         {
             return true;
@@ -6946,6 +6998,198 @@ impl ParsedFile {
         }
     }
 
+    /// Query byte ranges also admit overlapping ancestor nodes. For JS/TS/TSX,
+    /// an rvalue-producing capture must be wholly inside the requested callable
+    /// (or file root), not merely overlap its lines.
+    fn rvalue_capture_is_contained(&self, function: &Node<'_>, capture: Node<'_>) -> bool {
+        !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || (function.start_byte() <= capture.start_byte()
+            && capture.end_byte() <= function.end_byte())
+    }
+
+    fn rvalue_query_scope(&self, function: &Node<'_>) -> RvalueQueryScope {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || function.parent().is_none()
+        {
+            return RvalueQueryScope::LegacyInventory;
+        }
+        if function.has_error()
+            || !self
+                .language
+                .callable_boundary_node_types()
+                .contains(&function.kind())
+            || !self.all_functions().iter().any(|candidate| {
+                candidate.kind() == function.kind() && byte_range_eq(candidate, function)
+            })
+        {
+            return RvalueQueryScope::Unresolved;
+        }
+        let Some(body) = function.child_by_field_name("body") else {
+            return RvalueQueryScope::Unresolved;
+        };
+        if body.start_byte() < function.start_byte() || function.end_byte() < body.end_byte() {
+            return RvalueQueryScope::Unresolved;
+        }
+        RvalueQueryScope::CallableBody {
+            owner_start_byte: function.start_byte(),
+            owner_end_byte: function.end_byte(),
+            body_start_byte: body.start_byte(),
+            body_end_byte: body.end_byte(),
+        }
+    }
+
+    fn is_rvalue_class_node(kind: &str) -> bool {
+        matches!(
+            kind,
+            "class" | "class_declaration" | "abstract_class_declaration"
+        )
+    }
+
+    fn rvalue_has_class_ancestor_before_owner(
+        &self,
+        mut node: Node<'_>,
+        owner_start_byte: usize,
+        owner_end_byte: usize,
+    ) -> bool {
+        while let Some(parent) = node.parent() {
+            if parent.start_byte() == owner_start_byte && parent.end_byte() == owner_end_byte {
+                return false;
+            }
+            if Self::is_rvalue_class_node(parent.kind()) {
+                return true;
+            }
+            node = parent;
+        }
+        false
+    }
+
+    fn rvalue_is_computed_method_key_capture(
+        &self,
+        mut node: Node<'_>,
+        owner_start_byte: usize,
+        owner_end_byte: usize,
+    ) -> bool {
+        loop {
+            if node.start_byte() == owner_start_byte && node.end_byte() == owner_end_byte {
+                return false;
+            }
+            if node.kind() == "computed_property_name" {
+                if let Some(method) = node.parent() {
+                    if method.kind() == "method_definition"
+                        && method
+                            .child_by_field_name("name")
+                            .is_some_and(|name| byte_range_eq(&name, &node))
+                    {
+                        return true;
+                    }
+                }
+            }
+            let Some(parent) = node.parent() else {
+                return false;
+            };
+            node = parent;
+        }
+    }
+
+    fn rvalue_capture_owner(
+        &self,
+        function: &Node<'_>,
+        scope: &RvalueQueryScope,
+        capture: Node<'_>,
+    ) -> RvalueOwnerDecision {
+        match *scope {
+            RvalueQueryScope::LegacyInventory => RvalueOwnerDecision::Owned,
+            RvalueQueryScope::Unresolved => RvalueOwnerDecision::Unsupported,
+            RvalueQueryScope::CallableBody {
+                owner_start_byte,
+                owner_end_byte,
+                body_start_byte,
+                body_end_byte,
+            } => {
+                if !self.rvalue_capture_is_contained(function, capture) {
+                    return RvalueOwnerDecision::Outside;
+                }
+                if capture.start_byte() < body_start_byte || body_end_byte < capture.end_byte() {
+                    return RvalueOwnerDecision::Signature;
+                }
+                if self.rvalue_is_computed_method_key_capture(
+                    capture,
+                    owner_start_byte,
+                    owner_end_byte,
+                ) {
+                    return RvalueOwnerDecision::Owned;
+                }
+                // Class evaluation phases are intentionally outside this first
+                // repair. Preserve their legacy inventory until separately proved.
+                if self.rvalue_has_class_ancestor_before_owner(
+                    capture,
+                    owner_start_byte,
+                    owner_end_byte,
+                ) {
+                    return RvalueOwnerDecision::Owned;
+                }
+                let mut current = Some(capture);
+                while let Some(node) = current {
+                    if node.start_byte() == owner_start_byte && node.end_byte() == owner_end_byte {
+                        return RvalueOwnerDecision::Owned;
+                    }
+                    if self
+                        .language
+                        .callable_boundary_node_types()
+                        .contains(&node.kind())
+                    {
+                        return RvalueOwnerDecision::Nested;
+                    }
+                    current = node.parent();
+                }
+                RvalueOwnerDecision::Outside
+            }
+        }
+    }
+
+    fn rvalue_scope_allows_node(
+        &self,
+        scope: &RvalueQueryScope,
+        node: Node<'_>,
+        query_root: bool,
+    ) -> bool {
+        match *scope {
+            RvalueQueryScope::LegacyInventory => true,
+            RvalueQueryScope::Unresolved => false,
+            RvalueQueryScope::CallableBody {
+                owner_start_byte,
+                owner_end_byte,
+                body_start_byte,
+                body_end_byte,
+            } => {
+                (query_root
+                    && node.start_byte() == owner_start_byte
+                    && node.end_byte() == owner_end_byte)
+                    || (body_start_byte <= node.start_byte() && node.end_byte() <= body_end_byte)
+            }
+        }
+    }
+
+    fn rvalue_is_nested_callable(&self, scope: &RvalueQueryScope, node: Node<'_>) -> bool {
+        let RvalueQueryScope::CallableBody {
+            owner_start_byte,
+            owner_end_byte,
+            ..
+        } = *scope
+        else {
+            return false;
+        };
+        (node.start_byte() != owner_start_byte || node.end_byte() != owner_end_byte)
+            && self
+                .language
+                .callable_boundary_node_types()
+                .contains(&node.kind())
+    }
+
     /// Like `rvalue_identifiers_on_lines`, but returns structured `AccessPath`s.
     /// Used by the DFG for field-sensitive tracking.
     pub fn rvalue_identifier_paths_on_lines(
@@ -6955,6 +7199,8 @@ impl ParsedFile {
     ) -> Vec<(AccessPath, usize)> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
+
+        let scope = self.rvalue_query_scope(func_node);
 
         // Use the Assignments query to find assignment nodes, then extract RHS.
         // Also use the Calls query for call arguments on diff lines.
@@ -6975,9 +7221,13 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
+                            && matches!(
+                                self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                RvalueOwnerDecision::Owned
+                            )
                         {
                             if let Some(rhs) = self.language.assignment_value(&capture.node) {
-                                self.collect_identifier_paths(rhs, &mut paths);
+                                self.collect_identifier_paths_scoped(rhs, &scope, &mut paths);
                             }
                         }
                     }
@@ -6997,9 +7247,14 @@ impl ParsedFile {
                     for capture in m.captures {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
-                            if lines.contains(&line) {
+                            if lines.contains(&line)
+                                && matches!(
+                                    self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                    RvalueOwnerDecision::Owned
+                                )
+                            {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
-                                    self.collect_identifier_paths(args, &mut paths);
+                                    self.collect_identifier_paths_scoped(args, &scope, &mut paths);
                                 }
                                 if let Some(func_name_node) =
                                     self.language.call_function_name(&capture.node)
@@ -7021,6 +7276,315 @@ impl ParsedFile {
         paths
     }
 
+    /// Whether an ordinary named JS/TS/TSX function contains only the bounded
+    /// sequential statement subset used by exact-read expansion.
+    pub(crate) fn exact_read_callable_is_straight_line(&self, func_node: &Node<'_>) -> bool {
+        fn named(node: Node<'_>) -> Vec<Node<'_>> {
+            let mut cursor = node.walk();
+            node.named_children(&mut cursor)
+                .filter(|child| child.kind() != "comment")
+                .collect()
+        }
+        fn claimed(children: &[Node<'_>], fields: &[Option<Node<'_>>]) -> bool {
+            children.len() == fields.iter().flatten().count()
+                && children.iter().all(|child| {
+                    fields
+                        .iter()
+                        .flatten()
+                        .any(|field| child.id() == field.id())
+                })
+        }
+        fn tokens(node: Node<'_>) -> bool {
+            let mut cursor = node.walk();
+            let valid = node
+                .children(&mut cursor)
+                .filter(|child| !child.is_named())
+                .all(|child| {
+                    matches!(
+                        (node.kind(), child.kind()),
+                        ("function_declaration", "function")
+                            | ("formal_parameters", "(" | ")" | ",")
+                            | ("statement_block", "{" | "}")
+                            | ("empty_statement", ";")
+                            | ("expression_statement", ";")
+                            | ("lexical_declaration", "let" | "const" | "," | ";")
+                            | ("variable_declaration", "var" | "," | ";")
+                            | ("variable_declarator", "=")
+                            | ("return_statement", "return" | ";")
+                            | ("parenthesized_expression", "(" | ")")
+                            | ("arguments", "(" | ")" | ",")
+                            | ("member_expression", ".")
+                            | ("assignment_expression", "=")
+                            | ("binary_expression", "+")
+                            | ("non_null_expression", "!")
+                    )
+                });
+            valid
+        }
+        fn atom(parsed: &ParsedFile, node: Node<'_>, kind: &str) -> bool {
+            node.kind() == kind
+                && named(node).is_empty()
+                && !parsed.node_text(&node).contains('\\')
+                && parsed.node_text(&node) != "eval"
+        }
+        fn expression(parsed: &ParsedFile, node: Node<'_>) -> bool {
+            if node.is_error()
+                || node.is_missing()
+                || !tokens(node)
+                || !ParsedFile::exact_read_runtime_kind_is_supported(node.kind())
+            {
+                return false;
+            }
+            let children = named(node);
+            match node.kind() {
+                "identifier" => atom(parsed, node, "identifier"),
+                "number" | "true" | "false" | "null" | "undefined" => children.is_empty(),
+                "arguments" => children.into_iter().all(|child| expression(parsed, child)),
+                "non_null_expression" => children.len() == 1 && expression(parsed, children[0]),
+                "parenthesized_expression" => {
+                    let ty = node.child_by_field_name("type");
+                    let runtime: Vec<_> = children
+                        .iter()
+                        .copied()
+                        .filter(|child| ty.is_none_or(|ty| child.id() != ty.id()))
+                        .collect();
+                    runtime.len() == 1
+                        && claimed(&children, &[Some(runtime[0]), ty])
+                        && expression(parsed, runtime[0])
+                }
+                "call_expression" => {
+                    let (Some(function), Some(arguments)) = (
+                        node.child_by_field_name("function"),
+                        node.child_by_field_name("arguments"),
+                    ) else {
+                        return false;
+                    };
+                    let types = node.child_by_field_name("type_arguments");
+                    matches!(function.kind(), "identifier" | "member_expression")
+                        && arguments.kind() == "arguments"
+                        && claimed(&children, &[Some(function), Some(arguments), types])
+                        && expression(parsed, function)
+                        && expression(parsed, arguments)
+                }
+                "member_expression" | "assignment_expression" | "binary_expression" => {
+                    let names = if node.kind() == "member_expression" {
+                        ("object", "property")
+                    } else {
+                        ("left", "right")
+                    };
+                    let (Some(left), Some(right)) = (
+                        node.child_by_field_name(names.0),
+                        node.child_by_field_name(names.1),
+                    ) else {
+                        return false;
+                    };
+                    claimed(&children, &[Some(left), Some(right)])
+                        && expression(parsed, left)
+                        && if node.kind() == "member_expression" {
+                            atom(parsed, right, "property_identifier")
+                        } else {
+                            expression(parsed, right)
+                                && (node.kind() == "binary_expression"
+                                    || matches!(left.kind(), "identifier" | "member_expression"))
+                        }
+                }
+                _ => false,
+            }
+        }
+        fn statement(parsed: &ParsedFile, node: Node<'_>, terminal: bool) -> bool {
+            if node.is_error() || node.is_missing() || !tokens(node) {
+                return false;
+            }
+            let children = named(node);
+            match node.kind() {
+                "empty_statement" => children.is_empty(),
+                "expression_statement" => children.len() == 1 && expression(parsed, children[0]),
+                "return_statement" => {
+                    terminal
+                        && children.len() <= 1
+                        && children.into_iter().all(|n| expression(parsed, n))
+                }
+                "lexical_declaration" | "variable_declaration" => {
+                    !children.is_empty()
+                        && children.into_iter().all(|declaration| {
+                            if declaration.kind() != "variable_declarator" || !tokens(declaration) {
+                                return false;
+                            }
+                            let (Some(name), value) = (
+                                declaration.child_by_field_name("name"),
+                                declaration.child_by_field_name("value"),
+                            ) else {
+                                return false;
+                            };
+                            let ty = declaration.child_by_field_name("type");
+                            claimed(&named(declaration), &[Some(name), value, ty])
+                                && atom(parsed, name, "identifier")
+                                && value.is_none_or(|value| expression(parsed, value))
+                        })
+                }
+                _ => false,
+            }
+        }
+
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || func_node.kind() != "function_declaration"
+            || func_node.has_error()
+            || !tokens(*func_node)
+        {
+            return false;
+        }
+        let (Some(name), Some(parameters), Some(body)) = (
+            func_node.child_by_field_name("name"),
+            func_node.child_by_field_name("parameters"),
+            func_node.child_by_field_name("body"),
+        ) else {
+            return false;
+        };
+        let root_fields = [
+            Some(name),
+            Some(parameters),
+            Some(body),
+            func_node.child_by_field_name("type_parameters"),
+            func_node.child_by_field_name("return_type"),
+        ];
+        if !claimed(&named(*func_node), &root_fields)
+            || !atom(self, name, "identifier")
+            || parameters.kind() != "formal_parameters"
+            || body.kind() != "statement_block"
+            || !tokens(parameters)
+            || !tokens(body)
+        {
+            return false;
+        }
+        let parameters_valid = named(parameters)
+            .into_iter()
+            .all(|parameter| match self.language {
+                Language::JavaScript => atom(self, parameter, "identifier"),
+                Language::TypeScript | Language::Tsx => {
+                    let pattern = parameter.child_by_field_name("pattern");
+                    let ty = parameter.child_by_field_name("type");
+                    parameter.kind() == "required_parameter"
+                        && tokens(parameter)
+                        && parameter.child_by_field_name("value").is_none()
+                        && pattern.is_some_and(|pattern| atom(self, pattern, "identifier"))
+                        && claimed(&named(parameter), &[pattern, ty])
+                }
+                _ => false,
+            });
+        let statements = named(body);
+        let last = statements
+            .iter()
+            .rposition(|node| node.kind() != "empty_statement");
+        parameters_valid
+            && statements
+                .into_iter()
+                .enumerate()
+                .all(|(index, node)| statement(self, node, Some(index) == last))
+    }
+
+    pub(crate) fn exact_read_runtime_kind_is_supported(kind: &str) -> bool {
+        matches!(
+            kind,
+            "identifier"
+                | "number"
+                | "true"
+                | "false"
+                | "null"
+                | "undefined"
+                | "parenthesized_expression"
+                | "call_expression"
+                | "arguments"
+                | "member_expression"
+                | "assignment_expression"
+                | "binary_expression"
+                | "non_null_expression"
+        )
+    }
+
+    /// Whether the byte span is the token of a plain required parameter.
+    /// Optional, defaulted, rest, destructured, and recovered wrappers remain
+    /// outside the byte-distinct caller-read expansion.
+    pub(crate) fn exact_read_is_plain_required_parameter(
+        &self,
+        func_node: &Node<'_>,
+        span: &PathSpan,
+    ) -> bool {
+        let Some(node) = func_node
+            .descendant_for_byte_range(span.start_byte, span.end_byte)
+            .filter(|node| {
+                node.kind() == "identifier"
+                    && node.start_byte() == span.start_byte
+                    && node.end_byte() == span.end_byte
+            })
+        else {
+            return false;
+        };
+        let Some(parent) = node.parent() else {
+            return false;
+        };
+        // js-param-defs PR-A: the bare arrow formal is a plain required
+        // parameter; a rest formal's parent is `rest_pattern` and stays out.
+        if matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) && self
+            .js_ts_bare_arrow_parameter(&parent)
+            .is_some_and(|param| param.id() == node.id())
+        {
+            return true;
+        }
+        match self.language {
+            Language::JavaScript => parent.kind() == "formal_parameters",
+            Language::TypeScript | Language::Tsx => {
+                parent.kind() == "required_parameter"
+                    && parent.child_by_field_name("value").is_none()
+                    && parent
+                        .child_by_field_name("pattern")
+                        .is_some_and(|pattern| {
+                            pattern.id() == node.id() && pattern.kind() == "identifier"
+                        })
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether a real simple lvalue span is the binding token of a local
+    /// declaration rather than an assignment/update target.
+    pub(crate) fn exact_read_is_simple_local_declaration(
+        &self,
+        func_node: &Node<'_>,
+        span: &PathSpan,
+    ) -> bool {
+        if !span.path.is_simple() || span.start_byte >= span.end_byte {
+            return false;
+        }
+        let Some(mut node) = func_node.descendant_for_byte_range(span.start_byte, span.end_byte)
+        else {
+            return false;
+        };
+        loop {
+            if self.language.is_assignment_node(node.kind()) || node.kind() == "update_expression" {
+                return false;
+            }
+            if self.language.is_declaration_node(node.kind()) {
+                return self.language.declaration_name(&node).is_some_and(|name| {
+                    name.kind() == "identifier"
+                        && (name.start_byte(), name.end_byte()) == (span.start_byte, span.end_byte)
+                        && self.node_text(&name) == span.path.base
+                });
+            }
+            if node.id() == func_node.id() {
+                return false;
+            }
+            let Some(parent) = node.parent() else {
+                return false;
+            };
+            node = parent;
+        }
+    }
+
     /// Byte-bearing sibling of `rvalue_identifier_paths_on_lines`.
     pub fn rvalue_identifier_spans_on_lines(
         &self,
@@ -7029,6 +7593,8 @@ impl ParsedFile {
     ) -> Vec<PathSpan> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
+
+        let scope = self.rvalue_query_scope(func_node);
 
         if let Some(assign_query) = get_query(self.language, QueryKind::Assignments) {
             let assign_idx = assign_query
@@ -7046,14 +7612,20 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
+                            && matches!(
+                                self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                RvalueOwnerDecision::Owned
+                            )
                         {
                             if self.is_augmented_assignment(&capture.node) {
                                 if let Some(lhs) = self.language.assignment_target(&capture.node) {
-                                    self.collect_identifier_path_spans(lhs, &mut spans);
+                                    self.collect_identifier_path_spans_scoped(
+                                        lhs, &scope, &mut spans,
+                                    );
                                 }
                             }
                             if let Some(rhs) = self.language.assignment_value(&capture.node) {
-                                self.collect_identifier_path_spans(rhs, &mut spans);
+                                self.collect_identifier_path_spans_scoped(rhs, &scope, &mut spans);
                             }
                         }
                     }
@@ -7072,9 +7644,16 @@ impl ParsedFile {
                     for capture in m.captures {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
-                            if lines.contains(&line) {
+                            if lines.contains(&line)
+                                && matches!(
+                                    self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                    RvalueOwnerDecision::Owned
+                                )
+                            {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
-                                    self.collect_identifier_path_spans(args, &mut spans);
+                                    self.collect_identifier_path_spans_scoped(
+                                        args, &scope, &mut spans,
+                                    );
                                 }
                                 if let Some(func_name_node) =
                                     self.language.call_function_name(&capture.node)
@@ -7087,7 +7666,7 @@ impl ParsedFile {
                 }
             }
 
-            self.collect_return_value_identifier_spans(func_node, lines, &mut spans);
+            self.collect_return_value_identifier_spans(func_node, lines, &scope, &mut spans);
             spans.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));
             return spans;
         }
@@ -7105,17 +7684,56 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<(AccessPath, usize)>,
     ) {
+        let scope = self.rvalue_query_scope(&node);
+        self.collect_rvalue_paths_manual_scoped(node, lines, &scope, true, out);
+    }
+
+    fn collect_rvalue_paths_manual_scoped(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        scope: &RvalueQueryScope,
+        query_root: bool,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        if !self.rvalue_scope_allows_node(scope, node, query_root) {
+            return;
+        }
+        if !query_root && matches!(scope, RvalueQueryScope::CallableBody { .. }) {
+            if Self::is_rvalue_class_node(node.kind()) {
+                self.collect_rvalue_paths_manual_scoped(
+                    node,
+                    lines,
+                    &RvalueQueryScope::LegacyInventory,
+                    false,
+                    out,
+                );
+                return;
+            }
+            if self.rvalue_is_nested_callable(scope, node) {
+                if node.kind() == "method_definition" {
+                    if let Some(name) = node.child_by_field_name("name") {
+                        if name.kind() == "computed_property_name"
+                            && lines.contains(&(name.start_position().row + 1))
+                        {
+                            self.collect_identifier_paths_scoped(name, scope, out);
+                        }
+                    }
+                }
+                return;
+            }
+        }
         let line = node.start_position().row + 1;
 
         if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
             if let Some(rhs) = self.language.assignment_value(&node) {
-                self.collect_identifier_paths(rhs, out);
+                self.collect_identifier_paths_scoped(rhs, scope, out);
             }
         }
 
         if lines.contains(&line) && self.language.is_call_node(node.kind()) {
             if let Some(args) = self.language.call_arguments(&node) {
-                self.collect_identifier_paths(args, out);
+                self.collect_identifier_paths_scoped(args, scope, out);
             }
             if let Some(func_name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&func_name_node).to_string();
@@ -7125,7 +7743,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_rvalue_paths_manual(child, lines, out);
+            self.collect_rvalue_paths_manual_scoped(child, lines, scope, false, out);
         }
     }
 
@@ -7136,22 +7754,61 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<PathSpan>,
     ) {
+        let scope = self.rvalue_query_scope(&node);
+        self.collect_rvalue_spans_manual_scoped(node, lines, &scope, true, out);
+    }
+
+    fn collect_rvalue_spans_manual_scoped(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        scope: &RvalueQueryScope,
+        query_root: bool,
+        out: &mut Vec<PathSpan>,
+    ) {
+        if !self.rvalue_scope_allows_node(scope, node, query_root) {
+            return;
+        }
+        if !query_root && matches!(scope, RvalueQueryScope::CallableBody { .. }) {
+            if Self::is_rvalue_class_node(node.kind()) {
+                self.collect_rvalue_spans_manual_scoped(
+                    node,
+                    lines,
+                    &RvalueQueryScope::LegacyInventory,
+                    false,
+                    out,
+                );
+                return;
+            }
+            if self.rvalue_is_nested_callable(scope, node) {
+                if node.kind() == "method_definition" {
+                    if let Some(name) = node.child_by_field_name("name") {
+                        if name.kind() == "computed_property_name"
+                            && lines.contains(&(name.start_position().row + 1))
+                        {
+                            self.collect_identifier_path_spans_scoped(name, scope, out);
+                        }
+                    }
+                }
+                return;
+            }
+        }
         let line = node.start_position().row + 1;
 
         if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
             if self.is_augmented_assignment(&node) {
                 if let Some(lhs) = self.language.assignment_target(&node) {
-                    self.collect_identifier_path_spans(lhs, out);
+                    self.collect_identifier_path_spans_scoped(lhs, scope, out);
                 }
             }
             if let Some(rhs) = self.language.assignment_value(&node) {
-                self.collect_identifier_path_spans(rhs, out);
+                self.collect_identifier_path_spans_scoped(rhs, scope, out);
             }
         }
 
         if lines.contains(&line) && self.language.is_call_node(node.kind()) {
             if let Some(args) = self.language.call_arguments(&node) {
-                self.collect_identifier_path_spans(args, out);
+                self.collect_identifier_path_spans_scoped(args, scope, out);
             }
             if let Some(func_name_node) = self.language.call_function_name(&node) {
                 self.push_identifier_path_span(func_name_node, out);
@@ -7159,13 +7816,13 @@ impl ParsedFile {
         }
 
         if lines.contains(&line) && self.language.is_return_node(node.kind()) {
-            self.collect_return_node_value_spans(node, out);
+            self.collect_return_node_value_spans_scoped(node, scope, out);
             return;
         }
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_rvalue_spans_manual(child, lines, out);
+            self.collect_rvalue_spans_manual_scoped(child, lines, scope, false, out);
         }
     }
 
@@ -7273,6 +7930,86 @@ impl ParsedFile {
         }
     }
 
+    fn collect_identifier_paths_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        if matches!(scope, RvalueQueryScope::LegacyInventory) {
+            self.collect_identifier_paths(node, out);
+            return;
+        }
+        if !self.rvalue_scope_allows_node(scope, node, false)
+            || self.language.is_in_erased_type_context(node)
+        {
+            return;
+        }
+        self.collect_identifier_paths_in_value_context_scoped(node, scope, out);
+    }
+
+    fn collect_identifier_paths_in_value_context_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
+        if self.language.is_erased_type_boundary(node) {
+            return;
+        }
+        if Self::is_rvalue_class_node(node.kind()) {
+            self.collect_identifier_paths_in_value_context(node, out);
+            return;
+        }
+        if self.rvalue_is_nested_callable(scope, node) {
+            if node.kind() == "method_definition" {
+                if let Some(name) = node.child_by_field_name("name") {
+                    if name.kind() == "computed_property_name" {
+                        self.collect_identifier_paths_in_value_context_scoped(name, scope, out);
+                    }
+                }
+            }
+            return;
+        }
+        if Self::is_field_access_node(node.kind()) {
+            if let Some(member) = self.bounded_member_path(node) {
+                out.push((member.path, node.start_position().row + 1));
+                out.push((
+                    AccessPath::simple(self.node_text(&member.receiver)),
+                    member.receiver.start_position().row + 1,
+                ));
+                return;
+            }
+            let text = self.node_text(&node).to_string();
+            let line = node.start_position().row + 1;
+            out.push((AccessPath::from_expr(&text), line));
+            let base_node = node
+                .child_by_field_name("argument")
+                .or_else(|| node.child_by_field_name("object"))
+                .or_else(|| node.child_by_field_name("operand"))
+                .or_else(|| node.named_child(0));
+            if let Some(base) = base_node {
+                if self.language.is_identifier_node(base.kind()) {
+                    out.push((
+                        AccessPath::simple(self.node_text(&base)),
+                        base.start_position().row + 1,
+                    ));
+                }
+            }
+            return;
+        }
+        if self.language.is_identifier_node(node.kind()) {
+            out.push((
+                AccessPath::simple(self.node_text(&node)),
+                node.start_position().row + 1,
+            ));
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_identifier_paths_in_value_context_scoped(child, scope, out);
+        }
+    }
+
     fn collect_identifier_path_spans(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
         if !self.language.is_in_erased_type_context(node) {
             self.collect_identifier_spans_in_value_context(node, out);
@@ -7318,6 +8055,80 @@ impl ParsedFile {
         }
     }
 
+    fn collect_identifier_path_spans_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<PathSpan>,
+    ) {
+        if matches!(scope, RvalueQueryScope::LegacyInventory) {
+            self.collect_identifier_path_spans(node, out);
+            return;
+        }
+        if !self.rvalue_scope_allows_node(scope, node, false)
+            || self.language.is_in_erased_type_context(node)
+        {
+            return;
+        }
+        self.collect_identifier_spans_in_value_context_scoped(node, scope, out);
+    }
+
+    fn collect_identifier_spans_in_value_context_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<PathSpan>,
+    ) {
+        if self.language.is_erased_type_boundary(node) {
+            return;
+        }
+        if Self::is_rvalue_class_node(node.kind()) {
+            self.collect_identifier_spans_in_value_context(node, out);
+            return;
+        }
+        if self.rvalue_is_nested_callable(scope, node) {
+            if node.kind() == "method_definition" {
+                if let Some(name) = node.child_by_field_name("name") {
+                    if name.kind() == "computed_property_name" {
+                        self.collect_identifier_spans_in_value_context_scoped(name, scope, out);
+                    }
+                }
+            }
+            return;
+        }
+        if Self::is_field_access_node(node.kind()) {
+            if let Some(member) = self.bounded_member_path(node) {
+                out.push(PathSpan {
+                    path: member.path,
+                    line: node.start_position().row + 1,
+                    start_byte: node.start_byte(),
+                    end_byte: node.end_byte(),
+                });
+                self.push_identifier_path_span(member.receiver, out);
+                return;
+            }
+            let text = self.node_text(&node).to_string();
+            let line = node.start_position().row + 1;
+            out.push(PathSpan {
+                path: AccessPath::from_expr(&text),
+                line,
+                start_byte: node.start_byte(),
+                end_byte: node.end_byte(),
+            });
+            if let Some(base) = self.leftmost_receiver_identifier(node) {
+                self.push_identifier_path_span(base, out);
+            }
+            return;
+        }
+        if self.language.is_identifier_node(node.kind()) {
+            self.push_identifier_path_span(node, out);
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_identifier_spans_in_value_context_scoped(child, scope, out);
+        }
+    }
+
     fn leftmost_receiver_identifier<'a>(&self, mut node: Node<'a>) -> Option<Node<'a>> {
         loop {
             let receiver = node
@@ -7352,6 +8163,7 @@ impl ParsedFile {
         &self,
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
+        scope: &RvalueQueryScope,
         out: &mut Vec<PathSpan>,
     ) {
         use crate::queries::{get_query, QueryKind};
@@ -7368,8 +8180,13 @@ impl ParsedFile {
                 for capture in m.captures {
                     if capture.index == ret_idx {
                         let line = capture.node.start_position().row + 1;
-                        if lines.contains(&line) {
-                            self.collect_return_node_value_spans(capture.node, out);
+                        if lines.contains(&line)
+                            && matches!(
+                                self.rvalue_capture_owner(func_node, scope, capture.node),
+                                RvalueOwnerDecision::Owned
+                            )
+                        {
+                            self.collect_return_node_value_spans_scoped(capture.node, scope, out);
                         }
                     }
                 }
@@ -7390,6 +8207,24 @@ impl ParsedFile {
         }
     }
 
+    fn collect_return_node_value_spans_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<PathSpan>,
+    ) {
+        if matches!(scope, RvalueQueryScope::LegacyInventory) {
+            self.collect_return_node_value_spans(node, out);
+            return;
+        }
+        if !self.rvalue_scope_allows_node(scope, node, false) {
+            return;
+        }
+        if let Some(child) = node.named_child(0) {
+            self.collect_identifier_path_spans_scoped(child, scope, out);
+        }
+    }
+
     /// Find all R-value identifiers on diff lines within a function (excluding L-values).
     pub fn rvalue_identifiers_on_lines(
         &self,
@@ -7398,6 +8233,8 @@ impl ParsedFile {
     ) -> Vec<(String, usize)> {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
+
+        let scope = self.rvalue_query_scope(func_node);
 
         if let Some(assign_query) = get_query(self.language, QueryKind::Assignments) {
             let assign_idx = assign_query
@@ -7415,9 +8252,13 @@ impl ParsedFile {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line)
                             && self.language.is_assignment_node(capture.node.kind())
+                            && matches!(
+                                self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                RvalueOwnerDecision::Owned
+                            )
                         {
                             if let Some(rhs) = self.language.assignment_value(&capture.node) {
-                                self.collect_all_identifiers(rhs, &mut rvalues);
+                                self.collect_all_identifiers_scoped(rhs, &scope, &mut rvalues);
                             }
                         }
                     }
@@ -7437,9 +8278,14 @@ impl ParsedFile {
                     for capture in m.captures {
                         if capture.index == call_idx {
                             let line = capture.node.start_position().row + 1;
-                            if lines.contains(&line) {
+                            if lines.contains(&line)
+                                && matches!(
+                                    self.rvalue_capture_owner(func_node, &scope, capture.node),
+                                    RvalueOwnerDecision::Owned
+                                )
+                            {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
-                                    self.collect_all_identifiers(args, &mut rvalues);
+                                    self.collect_all_identifiers_scoped(args, &scope, &mut rvalues);
                                 }
                                 if let Some(func_name_node) =
                                     self.language.call_function_name(&capture.node)
@@ -7468,17 +8314,56 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<(String, usize)>,
     ) {
+        let scope = self.rvalue_query_scope(&node);
+        self.collect_rvalues_manual_scoped(node, lines, &scope, true, out);
+    }
+
+    fn collect_rvalues_manual_scoped(
+        &self,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        scope: &RvalueQueryScope,
+        query_root: bool,
+        out: &mut Vec<(String, usize)>,
+    ) {
+        if !self.rvalue_scope_allows_node(scope, node, query_root) {
+            return;
+        }
+        if !query_root && matches!(scope, RvalueQueryScope::CallableBody { .. }) {
+            if Self::is_rvalue_class_node(node.kind()) {
+                self.collect_rvalues_manual_scoped(
+                    node,
+                    lines,
+                    &RvalueQueryScope::LegacyInventory,
+                    false,
+                    out,
+                );
+                return;
+            }
+            if self.rvalue_is_nested_callable(scope, node) {
+                if node.kind() == "method_definition" {
+                    if let Some(name) = node.child_by_field_name("name") {
+                        if name.kind() == "computed_property_name"
+                            && lines.contains(&(name.start_position().row + 1))
+                        {
+                            self.collect_all_identifiers_scoped(name, scope, out);
+                        }
+                    }
+                }
+                return;
+            }
+        }
         let line = node.start_position().row + 1;
 
         if lines.contains(&line) && self.language.is_assignment_node(node.kind()) {
             if let Some(rhs) = self.language.assignment_value(&node) {
-                self.collect_all_identifiers(rhs, out);
+                self.collect_all_identifiers_scoped(rhs, scope, out);
             }
         }
 
         if lines.contains(&line) && self.language.is_call_node(node.kind()) {
             if let Some(args) = self.language.call_arguments(&node) {
-                self.collect_all_identifiers(args, out);
+                self.collect_all_identifiers_scoped(args, scope, out);
             }
             if let Some(func_name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&func_name_node).to_string();
@@ -7488,7 +8373,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_rvalues_manual(child, lines, out);
+            self.collect_rvalues_manual_scoped(child, lines, scope, false, out);
         }
     }
 
@@ -7512,6 +8397,59 @@ impl ParsedFile {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_identifiers_in_value_context(child, out);
+        }
+    }
+
+    fn collect_all_identifiers_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<(String, usize)>,
+    ) {
+        if matches!(scope, RvalueQueryScope::LegacyInventory) {
+            self.collect_all_identifiers(node, out);
+            return;
+        }
+        if !self.rvalue_scope_allows_node(scope, node, false)
+            || self.language.is_in_erased_type_context(node)
+        {
+            return;
+        }
+        self.collect_identifiers_in_value_context_scoped(node, scope, out);
+    }
+
+    fn collect_identifiers_in_value_context_scoped(
+        &self,
+        node: Node<'_>,
+        scope: &RvalueQueryScope,
+        out: &mut Vec<(String, usize)>,
+    ) {
+        if self.language.is_erased_type_boundary(node) {
+            return;
+        }
+        if Self::is_rvalue_class_node(node.kind()) {
+            self.collect_identifiers_in_value_context(node, out);
+            return;
+        }
+        if self.rvalue_is_nested_callable(scope, node) {
+            if node.kind() == "method_definition" {
+                if let Some(name) = node.child_by_field_name("name") {
+                    if name.kind() == "computed_property_name" {
+                        self.collect_identifiers_in_value_context_scoped(name, scope, out);
+                    }
+                }
+            }
+            return;
+        }
+        if self.language.is_identifier_node(node.kind()) {
+            out.push((
+                self.node_text(&node).to_string(),
+                node.start_position().row + 1,
+            ));
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_identifiers_in_value_context_scoped(child, scope, out);
         }
     }
 
@@ -7574,40 +8512,12 @@ impl ParsedFile {
         var_name: &str,
         def_line: usize,
     ) -> BTreeSet<usize> {
-        use crate::queries::{get_query, QueryKind};
-        use tree_sitter::StreamingIterator;
-
-        if let Some(query) = get_query(self.language, QueryKind::Identifiers) {
-            let ident_idx = query
-                .capture_index_for_name("ident")
-                .expect("Identifiers query must have @ident capture");
-            let mut cursor = tree_sitter::QueryCursor::new();
-            cursor.set_byte_range(func_node.byte_range());
-            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
-            let mut lines = BTreeSet::new();
-            while let Some(m) = matches.next() {
-                for capture in m.captures {
-                    if capture.index == ident_idx && self.node_text(&capture.node) == var_name {
-                        // Bottom-up scope check: walk from the capture node up to the
-                        // function boundary. If any enclosing scope block re-declares
-                        // var_name and doesn't contain def_line, skip this reference.
-                        if !self.is_shadowed_at(&capture.node, func_node, var_name, def_line) {
-                            lines.insert(capture.node.start_position().row + 1);
-                        }
-                    }
-                }
-            }
-            return lines;
-        }
-
-        let mut lines = BTreeSet::new();
-        self.collect_variable_refs_scoped_manual(*func_node, var_name, def_line, &mut lines);
-        lines
+        crate::profile::gates::scoped_refs::<false>(self, func_node, var_name, def_line)
     }
 
     /// Check whether a reference node is shadowed by a re-declaration in an inner scope.
     /// Walks bottom-up from the identifier node to the function boundary.
-    fn is_shadowed_at(
+    pub(crate) fn is_shadowed_at(
         &self,
         node: &Node<'_>,
         func_node: &Node<'_>,
@@ -7634,7 +8544,7 @@ impl ParsedFile {
     }
 
     /// Manual recursive scoped variable ref collection (pre-query fallback).
-    fn collect_variable_refs_scoped_manual(
+    pub(crate) fn collect_variable_refs_scoped_manual(
         &self,
         node: Node<'_>,
         var_name: &str,
@@ -7663,25 +8573,79 @@ impl ParsedFile {
 
     /// Check whether a scope block directly declares a variable with the given name.
     /// Does not recurse into nested scope blocks (those have their own scope).
-    fn scope_has_declaration(&self, node: Node<'_>, var_name: &str) -> bool {
+    pub(super) fn scope_has_declaration_uncached(&self, node: Node<'_>, var_name: &str) -> bool {
+        #[cfg(test)]
+        binding_verdict_memo::probe::observe("declaration", node.id(), 0, var_name);
         let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            if self.language.is_declaration_node(child.kind()) {
-                if let Some(name_node) = self.language.declaration_name(&child) {
-                    if self.node_text(&name_node) == var_name {
-                        return true;
-                    }
-                }
-            }
-            // Recurse into non-scope children (e.g., for-loop init, expression statements)
-            // but stop at nested scope blocks to avoid false positives.
-            if !self.language.is_scope_block(child.kind())
-                && self.scope_has_declaration(child, var_name)
-            {
+        let found = node.children(&mut cursor).any(|child| {
+            (self.language.is_declaration_node(child.kind())
+                && self
+                    .language
+                    .declaration_name(&child)
+                    .is_some_and(|name| self.node_text(&name) == var_name))
+                || (!self.language.is_scope_block(child.kind())
+                    && self.scope_has_declaration_uncached(child, var_name))
+        });
+        found
+    }
+
+    /// PR-C: classify how a formal is used. `MemberOnly`
+    /// is JS/TS/TSX only: no bare read, at least one `name.<prop>` member
+    /// read in the body, callable not parse-recovered, formal not a seam
+    /// binding, callable containing no `with` statement and no escaped identifier.
+    /// Shared by `data_flow.rs` and `reasoning/seeds.rs` (lockstep).
+    pub fn classify_parameter_use(&self, func_node: &Node<'_>, var_name: &str) -> ParameterUse {
+        if self.has_bare_references(func_node, var_name) {
+            return ParameterUse::Bare;
+        }
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return ParameterUse::Unused;
+        }
+        fn recovered(node: Node<'_>) -> bool {
+            if node.is_error() || node.is_missing() {
                 return true;
             }
+            let mut cursor = node.walk();
+            let found = node.children(&mut cursor).any(recovered);
+            found
         }
-        false
+        if recovered(*func_node)
+            || self.js_ts_seam_binding(func_node, var_name)
+            || self.callable_has_escaped_identifier(*func_node)
+            || self.callable_has_with_statement(*func_node)
+        {
+            return ParameterUse::Unused;
+        }
+        let Some(body) = self.function_body_node(func_node) else {
+            return ParameterUse::Unused;
+        };
+        if self.has_member_read_of(body, var_name) {
+            ParameterUse::MemberOnly
+        } else {
+            ParameterUse::Unused
+        }
+    }
+
+    fn has_member_read_of(&self, node: Node<'_>, var_name: &str) -> bool {
+        if node.kind() == "member_expression" {
+            if self.language.is_in_erased_type_context(node) {
+                // Erased TS positions (`typeof p.x`, interface members) are not reads.
+                return false;
+            }
+            if let Some(object) = node.child_by_field_name("object") {
+                if object.kind() == "identifier" && self.node_text(&object) == var_name {
+                    return true;
+                }
+            }
+        }
+        let mut cursor = node.walk();
+        let found = node
+            .children(&mut cursor)
+            .any(|child| self.has_member_read_of(child, var_name));
+        found
     }
 
     /// Check if a variable has any bare (non-field-access) references in a function
@@ -7738,9 +8702,13 @@ impl ParsedFile {
 
     fn find_bare_ref(&self, node: Node<'_>, var_name: &str) -> bool {
         // If this is a field access (dev.name, dev->name), skip it — the `dev`
-        // identifier inside is not a bare reference.
+        // identifier inside is not a bare reference. `member_expression` exists only in
+        // JS/TS/TSX, where the object can itself hold a bare read (`wrap(p).x`, `[p][0].x`).
         if Self::is_field_access_node(node.kind()) {
-            return false;
+            return node.kind() == "member_expression"
+                && node
+                    .child_by_field_name("object")
+                    .is_some_and(|object| self.find_bare_ref(object, var_name));
         }
 
         if self.language.is_identifier_node(node.kind()) && self.node_text(&node) == var_name {
@@ -7760,59 +8728,6 @@ impl ParsedFile {
             }
         }
         false
-    }
-
-    /// Find all references to an AccessPath within a function scope.
-    ///
-    /// For simple paths (no fields), delegates to `find_variable_references_scoped`.
-    /// For field-qualified paths (`dev->name`), searches for matching field_expression
-    /// nodes as well as bare identifier references to the base.
-    pub fn find_path_references_scoped(
-        &self,
-        func_node: &Node<'_>,
-        path: &AccessPath,
-        def_line: usize,
-    ) -> BTreeSet<usize> {
-        if path.is_simple() {
-            return self.find_variable_references_scoped(func_node, &path.base, def_line);
-        }
-        // For field-qualified paths, find matching field expressions.
-        // NOTE: this filters to references AFTER def_line (`line > def_line` in `collect_path_refs`),
-        // which does NOT match `find_variable_references_scoped` for simple paths — that returns ALL
-        // non-shadowed references, including earlier lines (so a loop-carried `def@N → use@M (M<N)`
-        // edge exists for simple paths but not field paths). `cpg/trace.rs::taint_neighbors` has a
-        // field-path recovery arm that re-supplies these dropped edges for the reasoning layer; this
-        // production DFG path is left as-is for byte-stability (Option C). See planA-followups Round 9.
-        let mut lines = BTreeSet::new();
-        self.collect_path_refs(*func_node, path, def_line, &mut lines);
-        lines
-    }
-
-    fn collect_path_refs(
-        &self,
-        node: Node<'_>,
-        path: &AccessPath,
-        def_line: usize,
-        out: &mut BTreeSet<usize>,
-    ) {
-        let line = node.start_position().row + 1;
-
-        // Check field/member access expressions (all languages)
-        if Self::is_field_access_node(node.kind()) {
-            let node_path = self
-                .bounded_member_path(node)
-                .map(|member| member.path)
-                .unwrap_or_else(|| AccessPath::from_expr(self.node_text(&node)));
-            if node_path == *path && line > def_line {
-                out.insert(line);
-                return; // Don't recurse into matched field expression
-            }
-        }
-
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.collect_path_refs(child, path, def_line, out);
-        }
     }
 
     /// Get the line range (1-indexed, inclusive) of a node.
@@ -8248,347 +9163,6 @@ impl ParsedFile {
         }
     }
 
-    /// Collect all statement-level nodes within a function for CFG construction.
-    ///
-    /// Returns `(line, node_kind)` pairs in source order. Only direct children of
-    /// the function body and top-level children of compound statements are included
-    /// — nested expressions within a statement are not separate CFG nodes.
-    pub fn statements_in_function(&self, func_node: &Node<'_>) -> Vec<(usize, String)> {
-        let func_node = self.unwrap_decorated(*func_node);
-        let mut stmts = Vec::new();
-        // Find the function body (compound_statement, block, etc.)
-        let body = func_node
-            .child_by_field_name("body")
-            .or_else(|| func_node.child_by_field_name("consequence"));
-        if let Some(body_node) = body {
-            self.collect_statements(body_node, &mut stmts);
-        }
-        stmts.sort_by_key(|(line, _)| *line);
-        stmts.dedup_by_key(|(line, _)| *line);
-        stmts
-    }
-
-    /// Build the lexical branch-arm tree for `func_node`.
-    ///
-    /// **Why this exists.** `statements_in_function` (`:5778`) sorts and
-    /// line-deduplicates its result, so `cfg::build_function_cfg`'s sequential
-    /// fall-through loop walks one globally ordered line list and can join two
-    /// statements that live in *different, mutually exclusive* lexical arms —
-    /// e.g. the last statement of a `then` block to the first statement of the
-    /// `else` block. Such an edge is not a control-flow fact. This tree is the
-    /// evidence `cfg::build_cfg_edges_with_arms` pairs with each edge so the
-    /// reaching-definitions pass (item 2 Task 3, `src/cpg/reaching.rs`) can
-    /// refuse to call such an edge a proof.
-    ///
-    /// Entering or leaving a *nested* arm is genuine control flow, so the
-    /// consumer asks whether the two arms are **incomparable** (neither contains
-    /// the other), not merely whether they differ — hence the preorder interval.
-    ///
-    /// **This is metadata only.** It does not change which lines
-    /// `statements_in_function` returns; it walks the same tree with the same
-    /// recursion and the same node-kind predicates, and records the first
-    /// traversal occurrence of each line — matching the stable
-    /// `sort_by_key` + `dedup_by_key` pair that decides which duplicate line
-    /// `statements_in_function` keeps.
-    pub(crate) fn statement_arms_in_function(&self, func_node: &Node<'_>) -> LexicalArms {
-        let func_node = self.unwrap_decorated(*func_node);
-        let mut arms = LexicalArms {
-            of_line: BTreeMap::new(),
-            // Arm 0 (the body) is allocated up front; its subtree bound is
-            // patched below once every nested arm has been allocated.
-            subtree_last: vec![0],
-        };
-        let mut alloc = ArmAllocator {
-            next: 1,
-            seen: BTreeMap::new(),
-        };
-        let body = func_node
-            .child_by_field_name("body")
-            .or_else(|| func_node.child_by_field_name("consequence"));
-        if let Some(body_node) = body {
-            self.collect_statement_arms(body_node, 0, &mut alloc, &mut arms);
-        }
-        arms.subtree_last[0] = alloc.next - 1;
-        arms
-    }
-
-    /// The arm for `node`, allocating one in preorder on first sight. Returns
-    /// `(arm, newly_opened)`; only a newly opened arm may have its
-    /// `subtree_last` written, because on a repeat visit the ids allocated since
-    /// belong to siblings, not to this arm's subtree.
-    fn open_arm(node: &Node<'_>, alloc: &mut ArmAllocator, arms: &mut LexicalArms) -> (u32, bool) {
-        if let Some(&existing) = alloc.seen.get(&node.id()) {
-            return (existing, false);
-        }
-        let id = alloc.next;
-        alloc.next += 1;
-        alloc.seen.insert(node.id(), id);
-        arms.subtree_last.push(id);
-        (id, true)
-    }
-
-    /// Arm-tagging twin of `collect_statements` (`:5805`). Same children, same
-    /// predicates, same recursion — only the payload differs.
-    fn collect_statement_arms(
-        &self,
-        node: Node<'_>,
-        arm: u32,
-        alloc: &mut ArmAllocator,
-        arms: &mut LexicalArms,
-    ) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            let kind = child.kind();
-            let line = child.start_position().row + 1;
-
-            if self.language.is_statement_node(kind) {
-                arms.of_line.entry(line).or_insert(arm);
-
-                if self.language.is_control_flow_node(kind)
-                    || self.language.statement_wrapper_kinds().contains(&kind)
-                {
-                    self.collect_nested_statement_arms(child, arm, alloc, arms);
-                }
-            } else if self.language.statement_wrapper_kinds().contains(&kind) {
-                self.collect_nested_statement_arms(child, arm, alloc, arms);
-            } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
-                // A bare nested block is not a branch arm — it inherits the
-                // current arm. Arms are allocated in
-                // `collect_nested_statement_arms`, which is the only place a
-                // block is reached *through* a control-flow node.
-                self.collect_statement_arms(child, arm, alloc, arms);
-            }
-        }
-    }
-
-    /// Arm-tagging twin of `collect_nested_statements` (`:5849`). A block-ish
-    /// child of a control-flow node is a new arm only when it is a *mutually
-    /// exclusive* alternative:
-    ///
-    /// - `switch_body` / `match_block` are containers of arms, not arms.
-    /// - `case_statement` / `default_statement` in a language whose `switch`
-    ///   falls through (`Language::switch_has_fallthrough`: C, C++, JS, TS, TSX,
-    ///   Java) are **not** mutually exclusive — control runs from one case into
-    ///   the next, which `cfg::tests::test_c_switch_fallthrough` pins as genuine
-    ///   — so they share the enclosing arm. In a language without fall-through
-    ///   each case is a real alternative and gets its own arm.
-    fn collect_nested_statement_arms(
-        &self,
-        node: Node<'_>,
-        arm: u32,
-        alloc: &mut ArmAllocator,
-        arms: &mut LexicalArms,
-    ) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            let kind = child.kind();
-            if kind == "compound_statement"
-                || kind == "block"
-                || kind == "statement_block"
-                || kind == "else_clause"
-                || kind == "elif_clause"
-                || kind == "else_if_clause"
-                || kind == "switch_body"
-                || kind == "case_statement"
-                || kind == "default_statement"
-                || kind == "match_block"
-                || kind == "match_arm"
-                || self.language.statement_wrapper_kinds().contains(&kind)
-            {
-                let container = matches!(
-                    kind,
-                    "switch_body"
-                        | "match_block"
-                        | "expression_statement"
-                        | "labeled_statement"
-                        | "attributed_statement"
-                        | "with_statement"
-                        | "finally_clause"
-                        | "select_statement"
-                        | "expression_switch_statement"
-                        | "type_switch_statement"
-                        | "switch_expression"
-                        | "switch_block"
-                        | "synchronized_statement"
-                        | "try_with_resources_statement"
-                        | "async_block"
-                        | "const_block"
-                        | "gen_block"
-                        | "try_block"
-                        | "unsafe_block"
-                        | "subshell"
-                        | "redirected_statement"
-                );
-                let fallthrough_case = matches!(
-                    kind,
-                    "case_statement"
-                        | "default_statement"
-                        | "switch_case"
-                        | "switch_default"
-                        | "switch_block_statement_group"
-                ) && self.language.switch_has_fallthrough();
-                let (child_arm, newly_opened) = if container || fallthrough_case {
-                    (arm, false)
-                } else {
-                    Self::open_arm(&child, alloc, arms)
-                };
-                self.collect_statement_arms(child, child_arm, alloc, arms);
-                self.collect_nested_statement_arms(child, child_arm, alloc, arms);
-                if newly_opened {
-                    // Preorder: everything allocated since `child_arm` opened is
-                    // lexically inside `child`, so the ids are contiguous.
-                    arms.subtree_last[child_arm as usize] = alloc.next - 1;
-                }
-            } else if self.language.is_control_flow_node(kind) {
-                // Nested control flow (if inside if, etc.) — the header itself
-                // belongs to the enclosing arm.
-                let line = child.start_position().row + 1;
-                arms.of_line.entry(line).or_insert(arm);
-                self.collect_nested_statement_arms(child, arm, alloc, arms);
-            } else if self.language.is_statement_node(kind) {
-                // Some wrappers (notably Bash subshells) contain statements
-                // directly rather than through a block node.
-                let line = child.start_position().row + 1;
-                arms.of_line.entry(line).or_insert(arm);
-            }
-        }
-    }
-
-    /// Byte-bearing sibling of `statements_in_function`.
-    pub fn statement_spans_in_function(&self, func_node: &Node<'_>) -> Vec<StatementSpan> {
-        let func_node = self.unwrap_decorated(*func_node);
-        let mut stmts = Vec::new();
-        if let Some(body_node) = self.function_body_node(&func_node) {
-            self.collect_statement_spans(body_node, &mut stmts);
-        }
-        stmts.sort_by_key(|stmt| stmt.line);
-        stmts.dedup_by_key(|stmt| stmt.line);
-        stmts
-    }
-
-    fn collect_statements(&self, node: Node<'_>, out: &mut Vec<(usize, String)>) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            let kind = child.kind();
-            let line = child.start_position().row + 1;
-
-            if self.language.is_statement_node(kind) {
-                out.push((line, kind.to_string()));
-
-                // For control flow nodes, also recurse into their bodies
-                // to find nested statements (then-branch, else-branch, loop body)
-                if self.language.is_control_flow_node(kind)
-                    || self.language.statement_wrapper_kinds().contains(&kind)
-                {
-                    self.collect_nested_statements(child, out);
-                }
-            } else if self.language.statement_wrapper_kinds().contains(&kind) {
-                self.collect_nested_statements(child, out);
-            } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
-                // Recurse into blocks
-                self.collect_statements(child, out);
-            }
-        }
-    }
-
-    fn collect_statement_spans(&self, node: Node<'_>, out: &mut Vec<StatementSpan>) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            let kind = child.kind();
-            let line = child.start_position().row + 1;
-
-            if self.language.is_statement_node(kind) {
-                out.push(StatementSpan {
-                    line,
-                    kind: kind.to_string(),
-                    start_byte: child.start_byte(),
-                    end_byte: child.end_byte(),
-                });
-
-                if self.language.is_control_flow_node(kind)
-                    || self.language.statement_wrapper_kinds().contains(&kind)
-                {
-                    self.collect_nested_statement_spans(child, out);
-                }
-            } else if self.language.statement_wrapper_kinds().contains(&kind) {
-                self.collect_nested_statement_spans(child, out);
-            } else if kind == "compound_statement" || kind == "block" || kind == "statement_block" {
-                self.collect_statement_spans(child, out);
-            }
-        }
-    }
-
-    fn collect_nested_statements(&self, node: Node<'_>, out: &mut Vec<(usize, String)>) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            let kind = child.kind();
-            if kind == "compound_statement"
-                || kind == "block"
-                || kind == "statement_block"
-                || kind == "else_clause"
-                || kind == "elif_clause"
-                || kind == "else_if_clause"
-                || kind == "switch_body"
-                || kind == "case_statement"
-                || kind == "default_statement"
-                || kind == "match_block"
-                || kind == "match_arm"
-                || self.language.statement_wrapper_kinds().contains(&kind)
-            {
-                self.collect_statements(child, out);
-                self.collect_nested_statements(child, out);
-            } else if self.language.is_control_flow_node(kind) {
-                // Nested control flow (if inside if, etc.)
-                let line = child.start_position().row + 1;
-                out.push((line, kind.to_string()));
-                self.collect_nested_statements(child, out);
-            } else if self.language.is_statement_node(kind) {
-                // Some wrappers (notably Bash subshells) contain statements
-                // directly rather than through a block node.
-                let line = child.start_position().row + 1;
-                out.push((line, kind.to_string()));
-            }
-        }
-    }
-
-    fn collect_nested_statement_spans(&self, node: Node<'_>, out: &mut Vec<StatementSpan>) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            let kind = child.kind();
-            if kind == "compound_statement"
-                || kind == "block"
-                || kind == "statement_block"
-                || kind == "else_clause"
-                || kind == "elif_clause"
-                || kind == "else_if_clause"
-                || kind == "switch_body"
-                || kind == "case_statement"
-                || kind == "default_statement"
-                || kind == "match_block"
-                || kind == "match_arm"
-                || self.language.statement_wrapper_kinds().contains(&kind)
-            {
-                self.collect_statement_spans(child, out);
-                self.collect_nested_statement_spans(child, out);
-            } else if self.language.is_control_flow_node(kind) {
-                out.push(StatementSpan {
-                    line: child.start_position().row + 1,
-                    kind: kind.to_string(),
-                    start_byte: child.start_byte(),
-                    end_byte: child.end_byte(),
-                });
-                self.collect_nested_statement_spans(child, out);
-            } else if self.language.is_statement_node(kind) {
-                out.push(StatementSpan {
-                    line: child.start_position().row + 1,
-                    kind: kind.to_string(),
-                    start_byte: child.start_byte(),
-                    end_byte: child.end_byte(),
-                });
-            }
-        }
-    }
-
     /// Find all goto statements in a function node.
     /// Returns `(target_label, goto_line)` pairs.
     pub fn goto_statements(&self, func_node: &Node<'_>) -> Vec<(String, usize)> {
@@ -8843,6 +9417,7 @@ impl ParsedFile {
         use tree_sitter::StreamingIterator;
 
         if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let membership = call_membership::CallMembership::new(self, *func_node);
             let call_idx = query
                 .capture_index_for_name("call")
                 .expect("Calls query must have @call capture");
@@ -8852,7 +9427,7 @@ impl ParsedFile {
             let mut calls = Vec::new();
             while let Some(m) = matches.next() {
                 for capture in m.captures {
-                    if capture.index == call_idx {
+                    if capture.index == call_idx && membership.is_owned(capture.node) {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line) {
                             if let Some(name_node) = self.language.call_function_name(&capture.node)
@@ -8892,6 +9467,7 @@ impl ParsedFile {
         use tree_sitter::StreamingIterator;
 
         if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let membership = call_membership::CallMembership::new(self, *func_node);
             let call_idx = query
                 .capture_index_for_name("call")
                 .expect("Calls query must have @call capture");
@@ -8902,6 +9478,9 @@ impl ParsedFile {
             while let Some(m) = matches.next() {
                 for capture in m.captures {
                     if capture.index != call_idx {
+                        continue;
+                    }
+                    if !membership.is_owned(capture.node) {
                         continue;
                     }
                     let line = capture.node.start_position().row + 1;
@@ -8952,6 +9531,7 @@ impl ParsedFile {
         use tree_sitter::StreamingIterator;
 
         if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let membership = call_membership::CallMembership::new(self, *func_node);
             let call_idx = query
                 .capture_index_for_name("call")
                 .expect("Calls query must have @call capture");
@@ -8961,7 +9541,7 @@ impl ParsedFile {
             let mut calls = Vec::new();
             while let Some(m) = matches.next() {
                 for capture in m.captures {
-                    if capture.index == call_idx {
+                    if capture.index == call_idx && membership.is_owned(capture.node) {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line) {
                             if let Some(name_node) = self.language.call_function_name(&capture.node)
@@ -9013,6 +9593,7 @@ impl ParsedFile {
         let mut facts = crate::rust_macro_args::MacroArgFacts::default();
 
         if let Some(query) = get_query(self.language, QueryKind::Calls) {
+            let membership = call_membership::CallMembership::new(self, *func_node);
             let call_idx = query
                 .capture_index_for_name("call")
                 .expect("Calls query must have @call capture");
@@ -9023,6 +9604,9 @@ impl ParsedFile {
             while let Some(m) = matches.next() {
                 for capture in m.captures {
                     if capture.index != call_idx {
+                        continue;
+                    }
+                    if !membership.is_owned(capture.node) {
                         continue;
                     }
                     let line = capture.node.start_position().row + 1;
@@ -9092,9 +9676,22 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<CallSiteMeta<'a>>,
     ) {
+        self.collect_calls_manual_with_qualifier_and_spans_for_owner(node, node, lines, out);
+    }
+
+    fn collect_calls_manual_with_qualifier_and_spans_for_owner<'a>(
+        &'a self,
+        owner: Node<'_>,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<CallSiteMeta<'a>>,
+    ) {
         let line = node.start_position().row + 1;
 
-        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+        if lines.contains(&line)
+            && self.language.is_call_node(node.kind())
+            && self.call_capture_is_owned(&owner, node)
+        {
             if let Some(name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 let qualifier = self
@@ -9121,7 +9718,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_calls_manual_with_qualifier_and_spans(child, lines, out);
+            self.collect_calls_manual_with_qualifier_and_spans_for_owner(owner, child, lines, out);
         }
     }
 
@@ -9131,9 +9728,22 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<(String, usize, Option<String>)>,
     ) {
+        self.collect_calls_manual_with_qualifier_for_owner(node, node, lines, out);
+    }
+
+    fn collect_calls_manual_with_qualifier_for_owner(
+        &self,
+        owner: Node<'_>,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(String, usize, Option<String>)>,
+    ) {
         let line = node.start_position().row + 1;
 
-        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+        if lines.contains(&line)
+            && self.language.is_call_node(node.kind())
+            && self.call_capture_is_owned(&owner, node)
+        {
             if let Some(name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 let qualifier = self
@@ -9146,7 +9756,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_calls_manual_with_qualifier(child, lines, out);
+            self.collect_calls_manual_with_qualifier_for_owner(owner, child, lines, out);
         }
     }
 
@@ -9156,9 +9766,22 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<CallSiteMeta<'a>>,
     ) {
+        self.collect_calls_manual_with_spans_for_owner(node, node, lines, out);
+    }
+
+    fn collect_calls_manual_with_spans_for_owner<'a>(
+        &'a self,
+        owner: Node<'_>,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<CallSiteMeta<'a>>,
+    ) {
         let line = node.start_position().row + 1;
 
-        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+        if lines.contains(&line)
+            && self.language.is_call_node(node.kind())
+            && self.call_capture_is_owned(&owner, node)
+        {
             if let Some(name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 out.push(CallSiteMeta {
@@ -9178,7 +9801,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_calls_manual_with_spans(child, lines, out);
+            self.collect_calls_manual_with_spans_for_owner(owner, child, lines, out);
         }
     }
 
@@ -9190,9 +9813,22 @@ impl ParsedFile {
         lines: &BTreeSet<usize>,
         out: &mut Vec<(String, usize)>,
     ) {
+        self.collect_calls_manual_for_owner(node, node, lines, out);
+    }
+
+    fn collect_calls_manual_for_owner(
+        &self,
+        owner: Node<'_>,
+        node: Node<'_>,
+        lines: &BTreeSet<usize>,
+        out: &mut Vec<(String, usize)>,
+    ) {
         let line = node.start_position().row + 1;
 
-        if lines.contains(&line) && self.language.is_call_node(node.kind()) {
+        if lines.contains(&line)
+            && self.language.is_call_node(node.kind())
+            && self.call_capture_is_owned(&owner, node)
+        {
             if let Some(name_node) = self.language.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 out.push((name, line));
@@ -9201,64 +9837,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_calls_manual(child, lines, out);
-        }
-    }
-
-    /// Collect all function call names on specific lines (1-indexed).
-    /// Returns a map from line number to list of called function names found on that line.
-    /// Only matches actual AST call nodes — ignores calls inside comments or string literals.
-    pub fn call_names_on_lines(&self, lines: &[usize]) -> BTreeMap<usize, Vec<String>> {
-        use crate::queries::{get_query, QueryKind};
-        use tree_sitter::StreamingIterator;
-
-        let line_set: BTreeSet<usize> = lines.iter().copied().collect();
-
-        if let Some(query) = get_query(self.language, QueryKind::Calls) {
-            let call_idx = query
-                .capture_index_for_name("call")
-                .expect("Calls query must have @call capture");
-            let mut cursor = tree_sitter::QueryCursor::new();
-            let mut matches = cursor.matches(query, self.tree.root_node(), self.source.as_bytes());
-            let mut result: BTreeMap<usize, Vec<String>> = BTreeMap::new();
-            while let Some(m) = matches.next() {
-                for capture in m.captures {
-                    if capture.index == call_idx {
-                        let line = capture.node.start_position().row + 1;
-                        if line_set.contains(&line) {
-                            if let Some(name_node) = self.language.call_function_name(&capture.node)
-                            {
-                                let name = self.node_text(&name_node).to_string();
-                                result.entry(line).or_default().push(name);
-                            }
-                        }
-                    }
-                }
-            }
-            return result;
-        }
-
-        let mut result: BTreeMap<usize, Vec<String>> = BTreeMap::new();
-        self.collect_call_names_at_lines_manual(self.tree.root_node(), &line_set, &mut result);
-        result
-    }
-
-    fn collect_call_names_at_lines_manual(
-        &self,
-        node: Node<'_>,
-        lines: &BTreeSet<usize>,
-        out: &mut BTreeMap<usize, Vec<String>>,
-    ) {
-        let line = node.start_position().row + 1;
-        if self.language.is_call_node(node.kind()) && lines.contains(&line) {
-            if let Some(name_node) = self.language.call_function_name(&node) {
-                let name = self.node_text(&name_node).to_string();
-                out.entry(line).or_default().push(name);
-            }
-        }
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.collect_call_names_at_lines_manual(child, lines, out);
+            self.collect_calls_manual_for_owner(owner, child, lines, out);
         }
     }
 
@@ -9322,10 +9901,40 @@ impl ParsedFile {
         if matches!(self.language, Language::TypeScript | Language::Tsx) {
             return crate::parameter_slots::typescript_parameter_bindings(self, func_node);
         }
+        if let Some(param) = self.js_ts_bare_arrow_parameter(func_node) {
+            // js-param-defs PR-A: `x => …` binds exactly one formal; the
+            // arrow has no `parameters` list for the loop below to walk.
+            let name = self.node_text(&param);
+            if self.js_ts_nested_callable_binds_formal(func_node, name) {
+                return Vec::new();
+            }
+            return vec![(name.to_string(), param.start_byte(), param.end_byte())];
+        }
         let mut params_out = Vec::new();
         if let Some(params) = self.find_parameters_node(func_node) {
+            // js-param-defs PR-A: a JS rest formal is admitted only from a
+            // recovery-free list without duplicate bindings (a rest element
+            // makes the list non-simple, so duplicates are early errors).
+            let admit_js_rest = self.language == Language::JavaScript
+                && crate::parameter_slots::js_ts_parameter_list_is_clean(self, params);
             let mut cursor = params.walk();
             for child in params.children(&mut cursor) {
+                if child.kind() == "rest_pattern" && self.language == Language::JavaScript {
+                    if let Some(name_node) = (admit_js_rest
+                        && crate::parameter_slots::js_ts_is_last_parameter(params, child))
+                    .then(|| self.js_ts_rest_identifier(child))
+                    .flatten()
+                    .filter(|name| {
+                        !self.js_ts_nested_callable_binds_formal(func_node, self.node_text(name))
+                    }) {
+                        params_out.push((
+                            self.node_text(&name_node).to_string(),
+                            name_node.start_byte(),
+                            name_node.end_byte(),
+                        ));
+                    }
+                    continue;
+                }
                 for name_node in self.parameter_binding_name_nodes(child) {
                     params_out.push((
                         self.node_text(&name_node).to_string(),
@@ -9375,6 +9984,121 @@ impl ParsedFile {
                 .collect();
         }
         self.extract_param_name_node(&node).into_iter().collect()
+    }
+
+    /// js-param-defs PR-A: the single unparenthesised formal of a JS/TS/TSX
+    /// `arrow_function` (`x => …`). Tree-sitter stores it in the `parameter`
+    /// field, not in a `parameters` list, so `find_parameters_node` is `None`
+    /// for this shape. `find_parameters_node` deliberately stays unchanged:
+    /// its callers iterate the list's children (an identifier has none) and
+    /// several treat `None` as "no list" with their own `parameter` fallback.
+    pub(crate) fn js_ts_bare_arrow_parameter<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        if !matches!(
+            self.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) || func_node.kind() != "arrow_function"
+        {
+            return None;
+        }
+        func_node
+            .child_by_field_name("parameter")
+            .filter(|param| param.kind() == "identifier" && !param.is_missing())
+    }
+
+    /// js-param-defs PR-A: `...name` binds one identifier (the engine-created
+    /// array). Destructured rest (`...[a, b]`, `...{a}`) stays refused.
+    pub(crate) fn js_ts_rest_identifier<'a>(&self, rest: Node<'a>) -> Option<Node<'a>> {
+        if rest.kind() != "rest_pattern" {
+            return None;
+        }
+        let mut cursor = rest.walk();
+        let named: Vec<_> = rest
+            .named_children(&mut cursor)
+            .filter(|child| child.kind() != "comment")
+            .collect();
+        match named.as_slice() {
+            [only] if only.kind() == "identifier" => Some(*only),
+            _ => None,
+        }
+    }
+
+    /// PR-A D11: refuse new shapes if another binding anywhere inside the
+    /// owner's body may bind this name. Escaped binding spellings are ambiguous
+    /// and fail closed. Plain-formal admission and the legacy walk stay intact.
+    pub(crate) fn js_ts_nested_callable_binds_formal(
+        &self,
+        func_node: &Node<'_>,
+        name: &str,
+    ) -> bool {
+        let boundaries = self.language.callable_boundary_node_types();
+        let mut stack: Vec<_> = func_node.child_by_field_name("body").into_iter().collect();
+        while let Some(node) = stack.pop() {
+            if boundaries.contains(&node.kind()) {
+                if let Some(params) = self
+                    .find_parameters_node(&node)
+                    .or_else(|| node.child_by_field_name("parameter"))
+                {
+                    if self.js_ts_binding_pattern_may_bind(params, name) {
+                        return true;
+                    }
+                }
+            }
+            let binding = match node.kind() {
+                "variable_declarator"
+                | "function_expression"
+                | "function_declaration"
+                | "generator_function"
+                | "generator_function_declaration"
+                | "class"
+                | "class_declaration"
+                | "abstract_class_declaration"
+                | "enum_declaration"
+                | "internal_module"
+                | "module" => node.child_by_field_name("name"),
+                "catch_clause" => node.child_by_field_name("parameter"),
+                "for_in_statement" => node.child_by_field_name("left"),
+                _ => None,
+            };
+            if binding.is_some_and(|binding| self.js_ts_binding_pattern_may_bind(binding, name)) {
+                return true;
+            }
+            let mut cursor = node.walk();
+            stack.extend(node.named_children(&mut cursor));
+        }
+        false
+    }
+
+    fn js_ts_binding_pattern_may_bind(&self, node: Node<'_>, name: &str) -> bool {
+        match node.kind() {
+            "identifier" | "type_identifier" | "shorthand_property_identifier_pattern" => {
+                let text = self.node_text(&node);
+                text == name || text.contains('\\')
+            }
+            "pair_pattern" => node
+                .child_by_field_name("value")
+                .is_some_and(|n| self.js_ts_binding_pattern_may_bind(n, name)),
+            "assignment_pattern" | "object_assignment_pattern" => node
+                .child_by_field_name("left")
+                .is_some_and(|n| self.js_ts_binding_pattern_may_bind(n, name)),
+            "required_parameter" | "optional_parameter" => node
+                .child_by_field_name("pattern")
+                .is_some_and(|n| self.js_ts_binding_pattern_may_bind(n, name)),
+            "formal_parameters" | "object_pattern" | "array_pattern" | "rest_pattern" => {
+                let mut cursor = node.walk();
+                let found = node
+                    .named_children(&mut cursor)
+                    .any(|n| self.js_ts_binding_pattern_may_bind(n, name));
+                found
+            }
+            _ => false,
+        }
+    }
+
+    /// JS/TS/TSX byte region holding the parameter bindings: the `parameters`
+    /// list, or the bare arrow formal. Other languages: `find_parameters_node`.
+    pub(crate) fn parameter_binding_region<'a>(&self, func_node: &Node<'a>) -> Option<Node<'a>> {
+        self.find_parameters_node(func_node)
+            .or_else(|| self.js_ts_bare_arrow_parameter(func_node))
     }
 
     /// Find the parameters node within a function definition.
@@ -10936,6 +11660,14 @@ mod erased_rvalue_tests;
 #[path = "ast_asserted_member.rs"]
 mod asserted_member;
 
+#[path = "ast_callback_identity.rs"]
+mod callback_identity;
+#[path = "ast_member_projection.rs"]
+mod member_projection;
+pub use crate::anon_owner::is_anonymous_owner_name as is_synthetic_owner;
+#[cfg(test)]
+pub(crate) use member_projection::FormalMemberFacts;
+
 #[cfg(test)]
 #[path = "ast_asserted_member_tests.rs"]
 mod asserted_member_tests;
@@ -10945,12 +11677,32 @@ mod asserted_member_tests;
 mod required_parameter_tests;
 
 #[cfg(test)]
+#[path = "ast_js_param_defs_tests.rs"]
+mod js_param_defs_tests;
+
+#[cfg(test)]
 #[path = "ast_inert_default_parameter_tests.rs"]
 mod inert_default_parameter_tests;
 
 #[cfg(test)]
 #[path = "ast_loop_header_tests.rs"]
 mod loop_header_tests;
+
+#[cfg(test)]
+#[path = "ast_contained_rvalue_tests.rs"]
+mod contained_rvalue_tests;
+
+#[cfg(test)]
+#[path = "ast_nested_execution_owner_tests.rs"]
+mod nested_execution_owner_tests;
+
+#[cfg(test)]
+#[path = "ast_call_execution_owner_tests.rs"]
+mod call_execution_owner_tests;
+
+#[cfg(test)]
+#[path = "ast_identifiers_on_line_tests.rs"]
+mod identifier_row_tests;
 
 #[cfg(test)]
 mod tests {

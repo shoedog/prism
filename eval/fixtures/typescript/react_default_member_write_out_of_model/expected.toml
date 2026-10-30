@@ -1,0 +1,14 @@
+[case]
+language = "typescript"
+capability = "react_default_member_write_out_of_model"
+status = "pass"
+[seed]
+symbol = "Island"
+file = "lib.tsx"
+line = 5
+[[expect.callers]]
+file = "app.tsx"
+line = 3
+[expect]
+exact = true
+resolution_kind = "import_member"

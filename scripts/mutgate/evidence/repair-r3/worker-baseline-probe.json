@@ -1,0 +1,112 @@
+{
+  "candidate_exit": 0,
+  "candidate": {
+    "authoritative": true,
+    "label": "AUTHORITATIVE",
+    "execution_mode": "text",
+    "jobs": 2,
+    "since": null,
+    "scope": null,
+    "selected": 1,
+    "killed": 1,
+    "admissible": 1,
+    "timings": {
+      "source_baseline_build": 0.15,
+      "source_baseline": 0.01,
+      "text_mode": 0.18,
+      "total": 0.34
+    },
+    "resources": {
+      "workers": 1,
+      "seed_methods": [
+        "apfs-clone"
+      ],
+      "worker_disk_peak_bytes": 2523136,
+      "disk_measurement": "du -sk; allocated blocks, shared clone extents may be counted repeatedly",
+      "workers_cleaned": true
+    },
+    "baselines": {
+      "source": {
+        "('lib', 't')": {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.005,
+          "log_tail": "\nrunning 1 test\ntest t ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+          "failure_locations": []
+        }
+      }
+    },
+    "static": {},
+    "text_confirmations": 0,
+    "results": {
+      "m": {
+        "mode": "text",
+        "build_seconds": 0.13,
+        "runs": [
+          {
+            "killed": true,
+            "timeout": false,
+            "admissible": true,
+            "status": 101,
+            "seconds": 0.004,
+            "log_tail": "\nrunning 1 test\ntest t ... FAILED\n\nfailures:\n\n---- t stdout ----\n\nthread 't' (116799009) panicked at src/lib.rs:3:15:\nassertion `left == right` failed\n  left: \"/private/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/mutgate-regression-49rgslu6/target/mutgate/workers-k7tkdqah/0/tree\"\n right: \"/private/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/mutgate-regression-49rgslu6/target/mutgate/tree\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    t\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+            "failure_locations": []
+          }
+        ],
+        "admissible": true,
+        "killed": true,
+        "verdict": "KILLED"
+      }
+    }
+  },
+  "base_exit": 1,
+  "base": {
+    "selected": 1,
+    "killed": 0,
+    "admissible": 1,
+    "timings": {
+      "source_baseline_build": 0.02,
+      "source_baseline": 0.01,
+      "text_mode": 0.12,
+      "total": 0.14
+    },
+    "baselines": {
+      "source": {
+        "('lib', 't')": {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.005,
+          "log_tail": "\nrunning 1 test\ntest t ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+          "failure_locations": []
+        }
+      }
+    },
+    "static": {},
+    "text_confirmations": 0,
+    "results": {
+      "m": {
+        "mode": "text",
+        "build_seconds": 0.11,
+        "runs": [
+          {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.004,
+            "log_tail": "\nrunning 1 test\ntest t ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+            "failure_locations": []
+          }
+        ],
+        "admissible": true,
+        "killed": false,
+        "verdict": "SURVIVED"
+      }
+    }
+  },
+  "fixture": "fn f() { let ignored = 1; }\n#[test]\nfn t() { f(); assert_eq!(env!(\"CARGO_MANIFEST_DIR\"), \"/private/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/mutgate-regression-49rgslu6/target/mutgate/tree\"); }\n"
+}

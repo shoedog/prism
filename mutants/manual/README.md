@@ -1,0 +1,119 @@
+# Manual feature and Python mutations
+
+Each catalog's own section below gives its count (O-lite adds **23**, I0c-1 adds **13**, I0c-2 adds **70** Python mutants); the JSON files are the source of truth.
+
+The shared `scripts/mutgate/mutgate.py` gate reads only `mutants/*.json`, builds without features and has
+no Python test runner. Catalogs here are intentionally outside that glob. Do not pass them to that runner.
+The shared runner and its ordinary catalogs remain unchanged.
+
+`memreport-changed-refresh.json` records `[file, exact original text, mutant text, one test selector]`.
+For each entry, on the final candidate:
+
+1. Read the file, require exactly one original anchor, save its current bytes and SHA-256 externally.
+2. Replace only that anchor with the mutant text. Never reset source to a parent revision.
+3. For Rust, run `nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features memreport-changed-refresh --lib <selector> -- --exact`.
+   For Python, from `scripts/memreport`, run `python3 -m unittest <selector>`.
+4. Require exactly one executed test and a behavioral failure exposing the intended missing behavior.
+   Compile errors, missing anchors, zero tests and sandbox refusal are INADMISSIBLE, not kills.
+5. In a `finally` block restore the saved current bytes, verify the original SHA-256, and run the same
+   selector to GREEN. Stop on any restoration mismatch or survivor; do not continue with a mutant applied.
+6. Save `mutant-<id>-killed.log` and `mutant-<id>-restored.log` plus the restore/hash checklist.
+
+S0 fix-round-1 receipts are kept in the lane's private evidence (`FIX-R1.md`, `mutant-results.json`); these
+README steps are the authority for re-running the population. An import-time error (`_FailedTest`,
+`SyntaxError`, `ImportError`) is INADMISSIBLE even though unittest reports it as one failed test.
+The authoritative full shared gate is a separate controller gate; these lane receipts certify only this
+manual population. A shared `--plan-only` run confirms catalog exclusion, not mutant kills.
+
+## `idle-unload-i0a.json` (I0a idle unload, `--features mcp`)
+
+Records are `{old, new}` edit lists with one exact selector each. Follow the same steps with
+`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`, applying every listed
+edit once. The first four records are the plan's required mutants; later records add negative witnesses. These
+are fault injections, not claims that the parent supported the new lifecycle API. I0a receipts are kept in the
+lane's private evidence.
+
+## `i0-freshness.json` (F source-bound freshness, `--features mcp`)
+
+Apply each record's exact edits to the current candidate and run its single selector with
+`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`.
+Use steps 1–6 above: require one behavioral failure, restore saved bytes in `finally`,
+verify SHA-256, then require one restored GREEN. Compiler errors and zero selections are
+inadmissible. The eight mutants cover late stamping, lost divergence, wrong comparison,
+loader input replay, final service recheck, repeated uncertifiable auto refresh and
+permission-only recovery of suppressed auto refresh, and lost suppression after a Diverged commit.
+Save receipts outside the checkout; the full shared-catalog gate remains separate.
+
+## `i0b-1.json` (daemon idle lifecycle, `--features mcp`)
+
+Apply each record to the current candidate using steps 1–6 above and its one exact selector:
+`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`.
+The 16 distinct selectors cover serving admission, both response boundaries, whole-session and
+uncollected-outcome release, re-arm, worker destruction, publication time, history, failure
+supersession, fatal disposal/poison, a mutant-only retained-provider reload that skips bootstrap,
+idle-off drain answers, successful build publication/settlement during drain, and exponential
+spawn-failure backoff.
+Keep before/mutant/restored SHA-256 receipts and behavioral RED/restored GREEN outside the repo.
+Do not count compiler failures, zero selections, aborts without a test verdict, or host refusals as kills.
+
+## `i0b-2.json` (daemon options, wire and readout, `--features mcp`)
+
+The eleven mutants use one exact selector each. Apply all edits in a record using steps 1–6
+above. A record with `target: "prism-mcp"` uses `--bin prism-mcp` in place of `--lib`;
+otherwise run `cargo test --features mcp --lib SELECTOR -- --exact`.
+They cover absent-option activation, unloaded-state misreporting, discarded daemon options,
+relief before provider drop, a missing terminal lifecycle event, logging under serving locks,
+diverged equal-snapshot reasons, emission-time substitution, per-call release volume,
+emission-time correlation across wall jumps and rejected-provider retention. Require exactly one
+behaviorally failed test, hash-verified restoration, then exactly one restored GREEN.
+Keep receipts outside the repo. Use `nice -n 19 env CARGO_BUILD_JOBS=4` as above; when
+`nice` is refused, drop only `nice`. This catalog adds **11 mutants**; I0b-1 + I0b-2 total **27**.
+The authoritative ordinary shared-catalog gate remains separate and unchanged.
+
+## `o.json` (O-lite lifecycle facts, `--features mcp`)
+
+The **23 mutants** use fully qualified library selectors; follow steps 1–6 above on the final candidate.
+Run the primary selector and each `supplemental_selectors` entry separately with
+`env CARGO_BUILD_JOBS=4 cargo test --offline --features mcp --lib SELECTOR -- --exact`
+(prepend `nice -n 19` when permitted). At least one executed test must fail behaviorally per record.
+`O-drop-late-sidecar-export` must fail **both** its stdio and daemon selectors; publication alone cannot kill it.
+They cover actual CPG branches/stages, accepted publication facts in both modes and both startup policies, stale facts, unforced and late sidecars, disposal/publication,
+instance/clocks, post-drop relief with independent UNKNOWN-preserving samples, provider release, idle neutrality
+and emission after serving leases. The identity regressions cover warming attempt capture, unloaded release
+generation, failed-reload generation and initial-retry publication reasons. Hash-verify every restoration and require each restored selector GREEN.
+Keep all raw receipts outside the checkout. I0b-1 + I0b-2 + O-lite total **50 mutants**; the ordinary
+shared-catalog gate and Tier-A remain separate controller gates.
+
+## `i0c-1.json` (Rust shim/operator, `--features mcp`)
+
+The **13 mutants** use exact selectors and edit lists in the I0b-2 format. Follow steps 1–6;
+run `env CARGO_BUILD_JOBS=4 cargo test --offline --features mcp --lib SELECTOR -- --exact`.
+For `target: "prism-mcp"`, replace `--lib` with `--bin prism-mcp`. No `nice` in this sandbox.
+For `target: "mcp", target_kind: "test"`, use `--test mcp` instead of `--lib`.
+Require exactly one executed behavioral failure, restore saved candidate bytes in `finally`,
+verify SHA-256, and require the same selector GREEN. A compiler error, zero tests or socket
+permission refusal is inadmissible. The shared-relief applicability witness needs macOS;
+on another host route that selector to a macOS host and report the exclusion.
+
+The four binding mutants cover dropped spawn settings, env overriding zero, suppressed mismatch
+and requested policy reported as effective. Six more cover relief forwarding/applicability,
+old-control guidance, truthful human STATUS fields, invalid settings and index/client separation.
+Three round-1 mutants cover applicable-relief comparison and standalone suggestions retaining
+resolved seconds and relief intent. The inherited `I0-pressure-relief-silent` anchor is rebound
+in its catalog to the current applicability rule. Also re-run existing manual mutants whose
+file or anchor changed, recording the rebind externally rather than silently accepting a missing anchor.
+Keep logs, exact selectors/counts
+and before/mutant/restored hashes outside the repo. I0b-1 + I0b-2 + O-lite + I0c-1 total
+**63 mutants**; Python I0c collection belongs to a separate catalog/lane. Tier-A and the ordinary
+shared-catalog gate remain controller-owned.
+
+## `i0c-2.json` (I0c Python collector, external sampler and readout)
+
+The **70 mutants** use `[file, exact anchor, replacement, unittest selector]`, the existing Python format.
+Run steps 1–6 above from `scripts/memreport` with `python3 -B -m unittest SELECTOR`; use a fresh external
+`PYTHONPYCACHEPREFIX` and disable bytecode writes to avoid same-second stale caches during restoration.
+All nine required Python mutants plus completeness, identity, clocks, boundaries, sidecar ownership,
+independent-run/heap/range/coverage, smoke/prerequisite/binary/client admission rules have behavioral witnesses.
+Require exactly one behavioral failure, SHA-256-identical restoration and exactly one restored GREEN per record.
+Receipts, before-source snapshots, hashes and logs stay in I0c-2's evidence directory outside the checkout.
+This README lists Python catalogs, so this is the brief-authorized catalog section. No shared gate changes.

@@ -1,0 +1,16 @@
+# Implementor prompt — native positional-gap characterization
+
+Planning artifact only. Begin implementation only after explicit controller dispatch binds accepted planning manifest, source commit and two-round implementation review cap. Read SPEC.md, SITE-MANIFEST.json, BASELINE-FIXTURES.json, baseline-output.log and current applicable AGENTS.
+
+Build the exact12-site research observer, not a parameter repair. Native APIs remain unchanged. Own only the new example/launcher/tests/README and named evidence docs. Use explicit ParsedFile parsing of authenticated retained strings; no repository loader, graph, cache, compiler, Program, imports or dependencies. Reuse current all_functions, function_name, slot-occurrence and binding-occurrence APIs. Never flatten an object into argument positions; preserve native null/prefix/asymmetry behavior.
+
+Hard caps450combined Rust+Node helper lines,450all test/fixture lines,900total. Allocate before edits; stop with preserved artifact if forecast breaks caps. Do not hide executable code in docs or restart.
+
+1. Authenticate predecessor and exact12/11/37,040 manifest; read exact current seams. Keep existing parked snapshots. Characterization probe is GAP/PASS, not RED.
+2. Establish final-schema test adapter that compresses a later binding ordinal and capture complete assertion failure on a concrete wrong value. No setup/zero-selection RED. Fix schema/oracle errors before drawing conclusions. Implement each path with negative/mutation controls from all seven groups.
+3. Implement the small native request worker and bounded authenticated Node launcher. Exact byte match only; retain all native candidates and all API observations. Do not infer owner/callee/entry readiness from names. Implement the exact path-associated request schema and extension/script-kind/native-language mapping before parse. Status priority and next-proof/defer predicate must follow SPEC exactly: slots:null is unavailable authority, and selected object/later labels must agree with actual native raw shapes. Add full duplicate/null, array-as-object, out-of-range and positive-object controls; no compiler-label promotion.
+4. Complete own tests (including explicit Rust example tests if any), source/format checks and bounded line counts. Freeze code/tests with hashes, behavioral RED/controls and build receipt for independent core review before any public native parse. Return the complete known defect list if a gate stops early.
+5. After controller/core approval only, execute exact12 cold/repeat and independent complete row/status/manifest reconciliation. Run full appropriate Node/default Rust/CI gates, keep unavailable historical inputs explicit. No Tier-A is triggered by the allowed path set; touching production seams is a stop.
+6. Return compact source/binary/input/output/gate custody and readout that selects bounded next proof or defer. No support gain, graph entry/call proof or production repair claim. Controller owns commits and any later publication authorization.
+
+Before each diagnostic probe record hypothesis, expected/falsifying observation and alternative cause. Preserve evidence on failure; no unapproved broad retry, cap inflation or fresh replacement artifact.

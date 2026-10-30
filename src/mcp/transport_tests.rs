@@ -205,7 +205,7 @@ fn lazy_runtime_returns_warming_status_in_both_wire_modes_while_ping_remains_rea
         .unwrap()
         .is_empty());
     assert_eq!(responses[2]["result"], serde_json::json!({}));
-    assert_eq!(provider.attempts(), 1);
+    assert_eq!(provider.attempts(), 0);
 
     let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
     for mode in [
@@ -223,6 +223,150 @@ fn lazy_runtime_returns_warming_status_in_both_wire_modes_while_ping_remains_rea
         assert_eq!(provider.attempts(), 1);
     }
     build.finish();
+}
+
+#[test]
+fn lazy_runtime_serves_the_handshake_and_tools_list_without_starting_a_build() {
+    let dir = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def f():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::NoCache;
+    let (builder, hooks, mut build) = blocking_builder(cfg.clone());
+    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
+        &cfg,
+        std::time::Duration::ZERO,
+        builder,
+        hooks,
+    )
+    .unwrap();
+
+    // A client that only ever handshakes and lists tools (codex's ephemeral title thread, a
+    // review session that never navigates) must not pay for the repository index.
+    let responses = run_provider(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+            r#"{"jsonrpc":"2.0","id":3,"method":"ping"}"#,
+        ],
+    );
+    assert!(responses[0]["result"]["instructions"]
+        .as_str()
+        .unwrap()
+        .contains("started by the first tool call"));
+    assert!(!responses[1]["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert_eq!(provider.attempts(), 0);
+    assert_eq!(provider.state_kind(), "idle");
+
+    // The first valid tools/call starts the one build and reports warming within its budget.
+    let request = r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
+    let response = call_tool_at_cap_with_mode(
+        &mut provider,
+        &ToolRegistry::all_v1(),
+        request,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    assert_warming_result(&response, crate::mcp::output::StructuredContentMode::Always);
+    assert_eq!(provider.attempts(), 1);
+    assert_eq!(provider.state_kind(), "building");
+    build.finish();
+}
+
+#[test]
+fn lazy_first_call_with_a_warm_cache_snapshots_edits_made_before_the_call() {
+    // Warm the nav cache, then handshake lazily, edit the repo, and only then make the first call:
+    // the snapshot is taken by that call, so the edit is part of the index, not stale evidence.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def old():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::Dir(cache.path().to_path_buf());
+    drop(crate::mcp::SessionProvider::bootstrap(&cfg).unwrap());
+
+    let mut lazy = crate::mcp::lazy::LazySessionProvider::new(&cfg).unwrap();
+    run_provider(
+        &mut lazy,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+        ],
+    );
+    assert_eq!(lazy.attempts(), 0);
+    write_file(dir.path(), "a.py", "def fresh():\n    return 2\n");
+
+    let nodes = call_tool_at_cap_with_mode(
+        &mut lazy,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    let result = &nodes["result"];
+    assert_eq!(result["isError"], false);
+    assert!(result["_meta"]["prism/index_freshness"].is_null());
+    assert!(!evidence_of(result)["warnings"]
+        .as_array()
+        .map_or(false, |warnings| warnings
+            .iter()
+            .any(|warning| warning["kind"] == "StaleIndex")));
+
+    let callees = call_tool_at_cap_with_mode(
+        &mut lazy,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"nav_callees","arguments":{"seed":{"kind":"symbol","name":"fresh","file":"a.py"}}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    assert_eq!(callees["result"]["isError"], false);
+    assert_eq!(lazy.attempts(), 1);
+}
+
+#[test]
+fn background_startup_with_a_warm_cache_snapshots_before_the_edit_and_reports_stale() {
+    // The same sequence under --warm-at-startup: the build ran at construction, so an edit made
+    // before the first call is stale evidence. This is the pre-change default behavior.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    write_file(dir.path(), "a.py", "def old():\n    return 1\n");
+    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
+    cfg.cache = crate::mcp::CacheMode::Dir(cache.path().to_path_buf());
+    cfg.startup = crate::mcp::StartupMode::Background;
+    drop(crate::mcp::SessionProvider::bootstrap(&cfg).unwrap());
+
+    let mut background = crate::mcp::lazy::LazySessionProvider::new(&cfg).unwrap();
+    assert_eq!(background.attempts(), 1);
+    assert!(matches!(
+        background.ensure_ready(),
+        crate::mcp::lazy::Readiness::Ready
+    ));
+    run_provider(
+        &mut background,
+        &ToolRegistry::all_v1(),
+        vec![
+            INIT,
+            INITED,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+        ],
+    );
+    write_file(dir.path(), "a.py", "def fresh():\n    return 2\n");
+
+    let nodes = call_tool_at_cap_with_mode(
+        &mut background,
+        &ToolRegistry::all_v1(),
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_nodes_at","arguments":{"file":"a.py","line":1}}}"#,
+        crate::mcp::output::MAX_RESULT_CHARS,
+        crate::mcp::output::StructuredContentMode::Always,
+    );
+    assert_eq!(nodes["result"]["_meta"]["prism/index_freshness"], "stale");
+    assert_eq!(background.attempts(), 1);
 }
 
 #[test]
@@ -250,7 +394,7 @@ fn lazy_runtime_validates_bad_calls_before_waiting_or_retrying() {
     );
     assert_eq!(protocol_negatives[0]["error"]["code"], -32600);
     assert_eq!(protocol_negatives[1]["error"]["code"], -32602);
-    assert_eq!(provider.attempts(), 1);
+    assert_eq!(provider.attempts(), 0);
 
     let requests = [
         r#"{"jsonrpc":"2.0","id":2,"method":"tools/call"}"#,
@@ -273,66 +417,19 @@ fn lazy_runtime_validates_bad_calls_before_waiting_or_retrying() {
         );
     }
     assert!(started.elapsed() < std::time::Duration::from_millis(100));
-    assert_eq!(provider.attempts(), 1);
-    build.finish();
-}
+    assert_eq!(provider.attempts(), 0);
 
-#[test]
-fn lazy_runtime_reports_build_failures_then_retries_until_success() {
-    use std::collections::VecDeque;
-    use std::sync::{Arc, Mutex};
-
-    let dir = tempfile::tempdir().unwrap();
-    write_file(dir.path(), "a.py", "def f():\n    return 1\n");
-    let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
-    cfg.cache = crate::mcp::CacheMode::NoCache;
-    let outcomes = Arc::new(Mutex::new(VecDeque::from(["first", "second", "ready"])));
-    let builder_cfg = cfg.clone();
-    let builder: crate::mcp::lazy::SessionBuilder =
-        Arc::new(
-            move || match outcomes.lock().unwrap().pop_front().unwrap() {
-                "first" => anyhow::bail!("first build failure"),
-                "second" => anyhow::bail!("second build failure"),
-                "ready" => crate::mcp::SessionProvider::bootstrap(&builder_cfg),
-                _ => unreachable!(),
-            },
-        );
-    let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
-        &cfg,
-        std::time::Duration::from_secs(1),
-        builder,
-    )
-    .unwrap();
-    let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
-
-    for (attempt, cause) in [(1, "first build failure"), (2, "second build failure")] {
-        let response = call_tool_at_cap_with_mode(
-            &mut provider,
-            &ToolRegistry::all_v1(),
-            request,
-            crate::mcp::output::MAX_RESULT_CHARS,
-            crate::mcp::output::StructuredContentMode::Always,
-        );
-        let result = &response["result"];
-        assert_eq!(result["isError"], true);
-        assert_eq!(result["_meta"]["prism/index_state"], "failed");
-        let status: serde_json::Value =
-            serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap();
-        assert_eq!(status["status"], "build_failed");
-        assert_eq!(status["cause"], cause);
-        assert_eq!(provider.attempts(), attempt);
-    }
-
+    // Only a valid call starts the one build.
     let response = call_tool_at_cap_with_mode(
         &mut provider,
         &ToolRegistry::all_v1(),
-        request,
+        r#"{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#,
         crate::mcp::output::MAX_RESULT_CHARS,
         crate::mcp::output::StructuredContentMode::Always,
     );
-    assert_eq!(response["result"]["isError"], false);
-    assert_eq!(provider.attempts(), 3);
-    assert_eq!(provider.last_error(), None);
+    assert_warming_result(&response, crate::mcp::output::StructuredContentMode::Always);
+    assert_eq!(provider.attempts(), 1);
+    build.finish();
 }
 
 #[test]
@@ -383,10 +480,8 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
             if let Ok(release) = rx.lock() {
                 let _ = release.recv();
             }
-            crate::mcp::SessionProvider::bootstrap(&builder_cfg)
-        } else {
-            crate::mcp::SessionProvider::bootstrap(&builder_cfg)
         }
+        crate::mcp::SessionProvider::bootstrap(&builder_cfg)
     });
     let mut build = BlockingBuild {
         release: Some(release),
@@ -395,7 +490,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
     };
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
-        std::time::Duration::from_secs(1),
+        std::time::Duration::from_secs(60),
         builder,
         publication_hooks(published),
     )
@@ -404,6 +499,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
     build.release();
     let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nav_repo_map","arguments":{}}}"#;
 
+    let first_call_started = std::time::Instant::now();
     let failed = call_tool_at_cap_with_mode(
         &mut provider,
         &ToolRegistry::all_v1(),
@@ -411,6 +507,7 @@ fn lazy_runtime_retries_a_real_bootstrap_after_the_repo_root_is_recreated() {
         crate::mcp::output::MAX_RESULT_CHARS,
         crate::mcp::output::StructuredContentMode::Always,
     );
+    assert!(first_call_started.elapsed() < std::time::Duration::from_secs(5));
     assert_eq!(failed["result"]["isError"], true);
     assert_eq!(provider.attempts(), 1);
     build.wait();
@@ -442,12 +539,11 @@ fn lazy_runtime_returns_the_eager_result_when_the_builder_finishes_during_the_fi
     }));
     let mut lazy = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
-        std::time::Duration::from_secs(5),
+        std::time::Duration::from_secs(60),
         builder,
         hooks,
     )
     .unwrap();
-    build.wait_started();
     let release = build.release_sender();
     let releaser = std::thread::spawn(move || {
         let reached_wait = before_wait_rx
@@ -476,6 +572,8 @@ fn lazy_runtime_returns_the_eager_result_when_the_builder_finishes_during_the_fi
     );
     assert_eq!(lazy_response, eager_response);
     assert_eq!(lazy.attempts(), 1);
+    // The builder began inside the first call, not at construction.
+    build.wait_started();
     assert!(releaser
         .join()
         .expect("wait releaser thread must not panic"));
@@ -490,6 +588,8 @@ fn lazy_refresh_after_an_initial_snapshot_edit_reports_stale_before_refresh() {
     write_file(dir.path(), "a.py", "def old():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
+    // Background startup: the initial build (and its snapshot) runs before the first call.
+    cfg.startup = crate::mcp::StartupMode::Background;
     let (snapshot_taken, snapshot_rx) = mpsc::channel();
     let (release, release_rx) = mpsc::channel();
     let (published, published_rx) = mpsc::channel();
@@ -518,7 +618,7 @@ fn lazy_refresh_after_an_initial_snapshot_edit_reports_stale_before_refresh() {
     )
     .unwrap();
     snapshot_rx
-        .recv_timeout(std::time::Duration::from_secs(1))
+        .recv_timeout(std::time::Duration::from_secs(60))
         .unwrap();
     write_file(dir.path(), "a.py", "def fresh():\n    return 2\n");
     build.release();
@@ -563,7 +663,7 @@ fn lazy_runtime_reports_a_panicking_builder_then_retries() {
     });
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder(
         &cfg,
-        std::time::Duration::from_secs(1),
+        std::time::Duration::from_secs(60),
         builder,
     )
     .unwrap();
@@ -599,6 +699,8 @@ fn lazy_runtime_returns_on_eof_without_waiting_for_the_background_builder() {
     write_file(dir.path(), "a.py", "def f():\n    return 1\n");
     let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::mcp::CacheMode::NoCache;
+    // Background startup: a build is in flight before any request arrives.
+    cfg.startup = crate::mcp::StartupMode::Background;
     let (builder, hooks, mut build) = blocking_builder(cfg.clone());
     let mut provider = crate::mcp::lazy::LazySessionProvider::with_builder_and_hooks(
         &cfg,
@@ -631,6 +733,7 @@ fn lazy_refresh_returns_warming_then_delegates_and_preserves_raced_stale_evidenc
     )
     .unwrap();
     let request = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"refresh_index","arguments":{}}}"#;
+    assert_eq!(provider.attempts(), 0);
 
     let warming = call_tool_at_cap_with_mode(
         &mut provider,
@@ -856,6 +959,18 @@ fn initialize_instructions_are_exact_for_eager_and_lazy_startup() {
     assert_eq!(
         lazy_response[0]["result"]["instructions"],
         format!(
+            "The repository snapshot is loaded by a background build started by the first tool call; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot. {}",
+            crate::mcp::tools::VIEW_NOTICE
+        )
+    );
+
+    let mut background_cfg = cfg.clone();
+    background_cfg.startup = crate::mcp::StartupMode::Background;
+    let mut background = crate::mcp::lazy::LazySessionProvider::new(&background_cfg).unwrap();
+    let background_response = run_provider(&mut background, &ToolRegistry::all_v1(), vec![INIT]);
+    assert_eq!(
+        background_response[0]["result"]["instructions"],
+        format!(
             "The repository snapshot is loaded by a background build started at server startup; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot. {}",
             crate::mcp::tools::VIEW_NOTICE
         )
@@ -882,7 +997,7 @@ fn lazy_runtime_delegates_each_refresh_policy_after_readiness() {
         let mut cfg = crate::mcp::ServerConfig::new(dir.path().to_path_buf());
         cfg.cache = crate::mcp::CacheMode::NoCache;
         cfg.refresh_policy = policy;
-        cfg.first_call_wait = std::time::Duration::from_secs(1);
+        cfg.first_call_wait = std::time::Duration::from_secs(60);
         let mut provider = crate::mcp::lazy::LazySessionProvider::new(&cfg).unwrap();
         assert!(matches!(
             provider.ensure_ready(),

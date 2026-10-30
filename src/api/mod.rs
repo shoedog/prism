@@ -54,6 +54,19 @@ pub use run::{
 /// ```
 pub use run::review;
 
+/// Runs `op` on prism's large-stack worker pool and returns its result.
+///
+/// Wrap a whole embedding session (or any call into the `prism` graph
+/// constructors) in this to give prism's recursive syntax walks the
+/// large-stack workers they need. Nesting is safe from the pool itself and from
+/// ordinary threads: inside the pool the call runs inline.
+///
+/// Called from a worker of *another* rayon pool, `op` runs on the build pool
+/// while that worker waits in a blocking join, so it never runs the calling
+/// pool's queued jobs. `op` must therefore not wait on work that only the
+/// calling pool can run, for example by calling that same pool's `install`
+/// when all of its workers are waiting in this way. prism's own constructors
+/// never do this. See [`crate::build_pool::install`] for the three routes.
 pub use crate::build_pool::install as with_build_pool;
 pub use crate::finding_confidence::{
     classify, classify_for_resolution, classify_with_evidence, evidence_files, EvidenceHop,

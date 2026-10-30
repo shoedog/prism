@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/Library/Developer/CommandLineTools/usr/bin/python3",
+    "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/mutgate.py",
+    "--since",
+    "origin/main",
+    "--scope",
+    "fn",
+    "--out",
+    "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/evidence/repair-r3/scoped-empty"
+  ],
+  "exit": 0,
+  "wall_seconds": 2.27,
+  "monitor_wall_seconds": 2.65,
+  "peak_rusage_rss_bytes": 53035008,
+  "peak_target_disk_bytes": 5671170048,
+  "samples": 5,
+  "sample_interval_seconds": 0.5,
+  "measurement": "macOS getrusage(RUSAGE_CHILDREN) maximum RSS in bytes, including nested waited children (not aggregate concurrent RSS); sampled du -sk target blocks (APFS shared extents can be counted repeatedly)",
+  "measurement_errors": []
+}

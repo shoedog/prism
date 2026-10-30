@@ -1,0 +1,97 @@
+{
+  "lane": "JS method property names are not lexical bindings (#443)",
+  "lib_test_prefixes": [
+    "cpg_cache::",
+    "navigation::",
+    "languages::js_inferred_name::"
+  ],
+  "mutations": {
+    "MB-01-allow-property-fallback": [
+      "src/js_anonymous.rs",
+      "!self.js_anonymous.is_property_method(id)",
+      "true",
+      [
+        "js_method_name_binding_test::supplied_identity_fixtures",
+        "js_method_name_binding_test::unresolved_values_never_bind_property_method_names"
+      ]
+    ],
+    "MB-02-forget-method-syntax": [
+      "src/js_anonymous.rs",
+      "owner.kind() == \"method_definition\"",
+      "false",
+      "js_method_name_binding_test::supplied_identity_fixtures"
+    ],
+    "MB-03-forget-inferred-property": [
+      "src/languages/js_inferred_name.rs",
+      "JsInferredNameSource::Pair | JsInferredNameSource::Field => true,",
+      "JsInferredNameSource::Pair | JsInferredNameSource::Field => false,",
+      "js_method_name_binding_test::unresolved_values_never_bind_property_method_names"
+    ],
+    "MB-05-lose-unrelated-negative-facts": [
+      "src/js_anonymous.rs",
+      "let property_methods = std::mem::take(&mut proof.property_methods);",
+      "let property_methods = BTreeSet::new();",
+      "js_method_name_binding_test::property_exclusion_survives_cache_hits_and_unrelated_partial_rebuilds"
+    ],
+    "MB-06-cpg-version": [
+      "src/cpg_cache.rs",
+      "const CACHE_VERSION: u32 = 130;",
+      "const CACHE_VERSION: u32 = 124;",
+      "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
+    ],
+    "MB-07-nav-version": [
+      "src/navigation/call_edge_cache.rs",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 75;",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
+      "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
+    ],
+    "MB-04-skip-proven-alias-route": [
+      "src/resolution.rs",
+      "if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {",
+      "if let Some(mut outcome) = None::<ResolutionOutcome<'_>> {",
+      "js_method_name_binding_test::proven_outer_bindings_and_named_function_expressions_keep_exact"
+    ],
+    "MB-08-super-is-not-an-identifier": [
+      "src/js_anonymous.rs",
+      "id.name == \"super\" || !self.js_anonymous.is_property_method(id)",
+      "!self.js_anonymous.is_property_method(id)",
+      "js_alias_matrix_test::matrix_matches_pinned_expectations"
+    ],
+    "MB-09-allow-singleton-r5-property": [
+      "src/resolution.rs",
+      "1 => self.bare_name_exact(nonstatic, ResolutionKind::FreeSingle),",
+      "1 => ResolutionOutcome::hit(exact(nonstatic, ResolutionKind::FreeSingle)),",
+      "js_method_name_binding_test::singleton_r5_rejects_property_names_across_files"
+    ],
+    "MB-10-forget-member-assignment": [
+      "src/languages/js_inferred_name.rs",
+      "JsInferredNameSource::MemberAssign => !self.is_declarator_value(source),",
+      "JsInferredNameSource::MemberAssign => false,",
+      "js_method_name_binding_test::inferred_members_and_fields_are_not_lexical_bindings"
+    ],
+    "MB-11-forget-field": [
+      "src/languages/js_inferred_name.rs",
+      "JsInferredNameSource::Pair | JsInferredNameSource::Field => true,",
+      "JsInferredNameSource::Pair => true,\n            JsInferredNameSource::Field => false,",
+      "js_method_name_binding_test::inferred_members_and_fields_are_not_lexical_bindings"
+    ],
+    "MB-12-remove-declarator-exemption": [
+      "src/languages/js_inferred_name.rs",
+      "JsInferredNameSource::MemberAssign => !self.is_declarator_value(source),",
+      "JsInferredNameSource::MemberAssign => true,",
+      [
+        "js_method_name_binding_test::member_assignment_value_of_same_named_declarator_keeps_exact",
+        "languages::js_inferred_name::tests::declarator_value_facts_control_bare_name_admission"
+      ]
+    ],
+    "MB-13-exempt-different-declarator": [
+      "src/languages/js_inferred_name.rs",
+      "source.get(name.byte_range()) == source.get(self.name.byte_range())",
+      "true",
+      [
+        "js_method_name_binding_test::inferred_members_and_fields_are_not_lexical_bindings",
+        "languages::js_inferred_name::tests::declarator_value_facts_control_bare_name_admission"
+      ]
+    ]
+  }
+}

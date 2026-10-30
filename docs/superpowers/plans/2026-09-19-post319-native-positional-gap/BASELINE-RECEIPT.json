@@ -1,0 +1,13 @@
+{
+  "status": "PASS characterization; not RED",
+  "fixture_cases": 10,
+  "dialects": 3,
+  "parse_error_cases": 0,
+  "source_equivalence_command": "git diff f79bb954 30e13053 -- src Cargo.toml Cargo.lock build.rs",
+  "source_equivalence": "empty",
+  "native_rlib_sha256": "ba6238e7a61e3b82988131c226a5864200d642504da70a7ecb3e6d39457b8be3",
+  "probe_source_sha256": "38d940ad2859582441a750726bfe1339701985c12bdc466b58f8049cc8be876a",
+  "probe_binary_sha256": "d6f5e28eff76eeb6856fab03602ee1b77bebec17b4f255129e4374a9b0d1f8f5",
+  "output_sha256": "4fdd17842542265f27660b7536be716790317edee4edc83f19ce4140b8864720",
+  "site_manifest_sha256": "789352a575d68ef672de7449299676de0c0aab8edd4abd8228e23efda65d326b"
+}

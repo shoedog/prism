@@ -13,6 +13,18 @@ use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::PathBuf;
 
+#[cfg(test)]
+#[path = "call_graph_anon_prep_tests.rs"]
+mod anon_prep_tests;
+mod boundary;
+#[path = "call_graph_profile_initializers.rs"]
+mod init_profile;
+mod js_ts_facts;
+mod python_import_proofs;
+pub(crate) use python_import_proofs::{
+    python_imported_class_proof_keys, python_imported_class_route,
+};
+
 /// A node in the call graph: a function identified by file path and name.
 #[derive(
     Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
@@ -375,6 +387,10 @@ mod go_level3_callback_tests {
 #[path = "call_graph/promoted_snapshot_consult_test.rs"]
 mod promoted_snapshot_consult_test;
 
+#[cfg(test)]
+#[path = "call_graph/js_relative_candidates_test.rs"]
+mod js_relative_candidates_test;
+
 #[derive(
     Debug,
     Clone,
@@ -493,7 +509,70 @@ pub struct CallSite {
     /// construction sets this while ordinary source sites leave it empty.
     #[serde(default)]
     pub pre_resolved_target: Option<FunctionId>,
+    /// JS/JSX/TSX: the site is a JSX element (`<X/>`), not a call expression.
+    /// Excluded from cmp_key. Only span-verified wrapped export targets consult it.
+    #[serde(default)]
+    pub jsx_element: bool,
+    /// S1b-3b (SPEC §3.6, §3.8 (8)): the JS/TS static lexical binding of this site's callee,
+    /// when it is a plain identifier (call `function` field or JSX `name`). `Unchecked` is the
+    /// default for every other language, synthetic and indirect sites, and non-identifier
+    /// callees. Excluded from `cmp_key`.
+    #[serde(default)]
+    pub local_binding: JsLocalBinding,
 }
+
+/// S1b-3b (SPEC §3.6): what a JS/TS unqualified callee statically denotes at its site.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JsLocalBinding {
+    /// Not computed: another language, or a synthetic or non-identifier callee.
+    #[default]
+    Unchecked,
+    /// The binding holds exactly this callable.
+    Callable(crate::ast::JsTerminal),
+    /// S1b-4: one unwritten program namespace import, proved at this site.
+    NamespaceImport { module_path: String },
+    /// May-call or unresolved alias: candidate generation retains the named contract.
+    MayCall(String),
+    /// No single proven in-file callable, by reason (`unbound` and `import` included).
+    Unproven(String),
+    /// Owner OQ1 (Option K): an unproven position keeps base behavior, counted by reason.
+    Position(String),
+    /// Callable terminal of a followed const chain; enables textual-path stand-down.
+    AliasCallable(crate::ast::JsTerminal),
+    /// Program import terminal of a const chain; its export proof decides the target.
+    AliasImport { local: String },
+    /// Namespace-member terminal of a const chain; requires the member export proof.
+    AliasNamespaceMember { module_path: String, member: String },
+    /// Returned terminal: hook identity, selected result path, and the fallback reason.
+    /// Anonymous admission also checks the hook and return-proof dependency environments.
+    Returned {
+        hook: crate::ast::JsFollow,
+        path: crate::js_returns::JsReturnPath,
+        kept: String,
+    },
+}
+
+impl JsLocalBinding {
+    /// The binder followed this callee to something the alias or returned-value route resolves
+    /// (slice L aliases and slice V returned values).
+    pub fn is_followed(&self) -> bool {
+        matches!(
+            self,
+            JsLocalBinding::AliasCallable(_)
+                | JsLocalBinding::AliasImport { .. }
+                | JsLocalBinding::AliasNamespaceMember { .. }
+                | JsLocalBinding::Returned { .. }
+        )
+    }
+}
+
+/// Per-file JS/TS facts extracted together: export facts by file, parameter/local binding names
+/// and slice V's returned-value facts, each by function.
+type JsTsResolutionFacts = (
+    BTreeMap<String, crate::js_exports::JsExportFacts>,
+    BTreeMap<FunctionId, BTreeSet<String>>,
+    BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
+);
 
 /// Parameter arity for a method definition (language-agnostic shape).
 ///
@@ -540,11 +619,11 @@ pub struct MethodFacts {
 pub struct ImportBinding {
     /// The name as used in the caller file (after `as` aliasing).
     pub local: String,
-    /// Raw module string from the import statement.
+
     pub module_path: String,
     /// The original member name (before alias); `None` for module imports.
     pub member: Option<String>,
-    /// What kind of import this is.
+
     pub kind: ImportBindingKind,
     /// False if poisoned by wildcard or re-bound by another top-level binding.
     pub eligible: bool,
@@ -591,6 +670,8 @@ pub struct ScopeGraphBuildInputs {
     #[serde(default)]
     pub manifest_snapshot: crate::ManifestSnapshot,
     #[serde(default)]
+    pub js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
+    #[serde(default)]
     pub skipped_go_testdata_files: usize,
     pub cfg: RustCrateConfig,
     pub complete: bool,
@@ -603,6 +684,7 @@ impl ScopeGraphBuildInputs {
             all_file_paths: files.keys().cloned().collect(),
             manifest_hashes: BTreeMap::new(),
             manifest_snapshot: crate::ManifestSnapshot::default(),
+            js_paths_snapshot: Default::default(),
             skipped_go_testdata_files: 0,
             cfg: RustCrateConfig::from_convention(files),
             complete: true,
@@ -742,6 +824,9 @@ pub struct CallGraph {
     /// S3: owning type per method FunctionId (primary owner, not the trait).
     #[serde(default)]
     pub method_owners: BTreeMap<FunctionId, String>,
+    /// Rust `Self::f` allow-list proofs (impl syntax, self-type headers, trait defaults).
+    #[serde(default)]
+    pub(crate) rust_self_proofs: crate::resolution::rust_self::ProofIndex,
     /// Method FunctionId -> owner class definition node byte span (start, end).
     /// Py/JS/TS only; the self-receiver class identity.
     #[serde(default)]
@@ -846,6 +931,14 @@ pub struct CallGraph {
     /// R4c: authority flag — which files prism has actually indexed.
     #[serde(default)]
     pub indexed_files: BTreeSet<String>,
+    /// P1 proven non-relative modules; empty for convention-only builds.
+    #[serde(default)]
+    pub js_ts_path_modules: BTreeMap<(String, String), (String, String)>,
+    /// Alias-only export tables. Every hop uses P1 occupancy/Node10 proof;
+    /// the config path partitions callers by their owning project's options.
+    #[serde(default)]
+    pub js_ts_path_exports:
+        BTreeMap<String, BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>>,
     /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
     /// named export lists (incl. renames), exported const-arrow/
     /// function-expression declarations, CommonJS assignments, and re-export
@@ -858,6 +951,10 @@ pub struct CallGraph {
     /// `js_ts_exports`; recomputed by `apply_js_export_resolution` the same
     /// way `interface_impls`/`go_registrations` are (whole-program derived —
     /// a barrel's resolution can depend on an unchanged file elsewhere).
+    /// S1b-4 namespace-only export projection (unspanned means keep base).
+    #[serde(default)]
+    pub js_ts_namespace_exports:
+        BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
     #[serde(default)]
     pub js_ts_resolved_exports:
         BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
@@ -874,6 +971,11 @@ pub struct CallGraph {
     /// JS/TS R4c: caller function -> conservative parameter/local binding names.
     #[serde(default)]
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
+    /// Source-backed anonymous proof evidence; partial builds refresh it from all current files.
+    #[serde(default)]
+    pub(crate) js_anonymous: crate::js_anonymous::ProofIndex,
+    #[serde(default)]
+    pub js_ts_return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
     /// Go package directory index. Plain keys are legacy directory basenames;
     /// `@go-import:` keys carry effective module import paths proven by the
     /// module graph. Qualified `pkg.T` lookup prefers the exact key and uses a
@@ -1113,6 +1215,31 @@ pub struct CallGraph {
 }
 
 impl CallGraph {
+    fn ambiguous_js_ts_call_owner_ids(parsed: &ParsedFile) -> BTreeSet<(String, usize, usize)> {
+        if !matches!(
+            parsed.language,
+            crate::languages::Language::JavaScript
+                | crate::languages::Language::TypeScript
+                | crate::languages::Language::Tsx
+        ) {
+            return BTreeSet::new();
+        }
+        let mut counts = BTreeMap::new();
+        for node in parsed.all_functions() {
+            let Some(name) = parsed.language.function_name(&node) else {
+                continue;
+            };
+            let (start, end) = parsed.node_line_range(&node);
+            *counts
+                .entry((parsed.node_text(&name).to_string(), start, end))
+                .or_insert(0usize) += 1;
+        }
+        counts
+            .into_iter()
+            .filter_map(|(identity, count)| (count > 1).then_some(identity))
+            .collect()
+    }
+
     /// Create an empty call graph with no functions or edges.
     pub fn empty() -> Self {
         CallGraph {
@@ -1129,6 +1256,7 @@ impl CallGraph {
             imports: BTreeMap::new(),
             methods: BTreeMap::new(),
             method_owners: BTreeMap::new(),
+            rust_self_proofs: Default::default(),
             method_class_span: BTreeMap::new(),
             method_class_span_ambiguous: BTreeSet::new(),
             js_ts_static_methods: BTreeSet::new(),
@@ -1158,11 +1286,16 @@ impl CallGraph {
             import_bindings: BTreeMap::new(),
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
+            js_ts_path_modules: BTreeMap::new(),
+            js_ts_path_exports: BTreeMap::new(),
             js_ts_exports: BTreeMap::new(),
             js_ts_resolved_exports: BTreeMap::new(),
+            js_ts_namespace_exports: BTreeMap::new(),
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
+            js_anonymous: Default::default(),
+            js_ts_return_facts: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
             go_func_typed_fields: BTreeSet::new(),
@@ -1221,7 +1354,8 @@ impl CallGraph {
     /// tables, parameter-passed callbacks). Used by `CpgContext::build_scoped()`
     /// to quickly identify which files are in the dependency neighborhood of a
     /// diff, before committing to a full CPG build on the scoped subset.
-    pub fn build_skeleton(files: &BTreeMap<String, ParsedFile>) -> Self {
+    fn build_skeleton_inner(files: &BTreeMap<String, ParsedFile>) -> Self {
+        let mut p = crate::profile::Stages::new("call_graph", "call_graph.skeleton.prelude");
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
         let mut calls: BTreeMap<FunctionId, BTreeSet<CallSite>> = BTreeMap::new();
         let mut callers: BTreeMap<String, Vec<CallSite>> = BTreeMap::new();
@@ -1241,18 +1375,14 @@ impl CallGraph {
         let (go_file_profiles, go_build_profile_unparsed) =
             Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
 
+        p.next("call_graph.skeleton.definitions");
         // Phase 1: Collect all function definitions
         for (file_path, parsed) in files {
-            for func_node in parsed.all_functions() {
-                if let Some(name_node) = parsed.language.function_name(&func_node) {
-                    let name = parsed.node_text(&name_node).to_string();
-                    let (start, end) = parsed.node_line_range(&func_node);
-                    let func_id = FunctionId {
-                        file: file_path.clone(),
-                        name: name.clone(),
-                        start_line: start,
-                        end_line: end,
-                    };
+            for func_node in crate::anon_owner::owner_nodes(parsed) {
+                if let Some(func_id) =
+                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                {
+                    let name = func_id.name.clone();
                     functions
                         .entry(name.clone())
                         .or_default()
@@ -1305,20 +1435,27 @@ impl CallGraph {
             }
         }
 
+        p.next("call_graph.skeleton.calls");
         // Phase 2: Find all call sites within each function
         for (file_path, parsed) in files {
-            for func_node in parsed.all_functions() {
-                let func_name = match parsed.language.function_name(&func_node) {
-                    Some(n) => parsed.node_text(&n).to_string(),
-                    None => continue,
+            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
+            let named_claims =
+                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);
+            let mut binding_cache = crate::ast::JsBindingCache::for_sites();
+            for func_node in crate::anon_owner::owner_nodes(parsed) {
+                let Some(caller_id) =
+                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                else {
+                    continue;
                 };
-                let (start, end) = parsed.node_line_range(&func_node);
-                let caller_id = FunctionId {
-                    file: file_path.clone(),
-                    name: func_name,
-                    start_line: start,
-                    end_line: end,
-                };
+                let (start, end) = (caller_id.start_line, caller_id.end_line);
+                if ambiguous_owner_ids.contains(&(
+                    caller_id.name.clone(),
+                    caller_id.start_line,
+                    caller_id.end_line,
+                )) {
+                    continue;
+                }
 
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
                 let call_sites = parsed.function_calls_with_spans_on_lines(
@@ -1328,6 +1465,15 @@ impl CallGraph {
                 );
 
                 for meta in call_sites {
+                    if !crate::anon_owner::may_mint_call(
+                        parsed,
+                        &func_node,
+                        meta.start_byte,
+                        meta.end_byte,
+                        &named_claims,
+                    ) {
+                        continue;
+                    }
                     let callee_name = meta.callee_name;
                     let start_byte = meta.start_byte;
                     let end_byte = meta.end_byte;
@@ -1364,6 +1510,14 @@ impl CallGraph {
                         receiver_outcome: None,
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         pre_resolved_target: None,
+                        jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                        local_binding: Self::js_local_binding_at(
+                            parsed,
+                            start_byte,
+                            end_byte,
+                            &callee_name,
+                            &mut binding_cache,
+                        ),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -1374,6 +1528,7 @@ impl CallGraph {
             }
         }
 
+        p.next("call_graph.skeleton.assembly");
         // Skip Phase 3 (indirect call resolution) — skeleton only needs direct calls.
 
         CallGraph {
@@ -1390,6 +1545,7 @@ impl CallGraph {
             imports: BTreeMap::new(),
             methods,
             method_owners,
+            rust_self_proofs: Default::default(),
             method_class_span,
             method_class_span_ambiguous,
             js_ts_static_methods,
@@ -1419,11 +1575,16 @@ impl CallGraph {
             import_bindings: BTreeMap::new(),
             module_bindings: BTreeMap::new(),
             indexed_files: BTreeSet::new(),
+            js_ts_path_modules: BTreeMap::new(),
+            js_ts_path_exports: BTreeMap::new(),
             js_ts_exports: BTreeMap::new(),
             js_ts_resolved_exports: BTreeMap::new(),
+            js_ts_namespace_exports: BTreeMap::new(),
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
+            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
+            js_ts_return_facts: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
             go_func_typed_fields: BTreeSet::new(),
@@ -1474,46 +1635,14 @@ impl CallGraph {
         }
     }
 
-    /// Build a call graph from all parsed files (default receiver-recovery config).
-    pub fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
-        let inputs = ScopeGraphBuildInputs::from_files_convention(files);
-        Self::build_with_receiver_config_and_scope_graph_inputs(
-            files,
-            &crate::resolution::ReceiverRecoveryConfig::default(),
-            Some(&inputs),
-        )
-    }
-
-    /// Build a call graph with an explicit receiver-recovery config (spec §2 seam).
-    /// The classifier is built once and shared across the rayon extraction loop.
-    pub fn build_with_receiver_config(
-        files: &BTreeMap<String, ParsedFile>,
-        receiver_config: &crate::resolution::ReceiverRecoveryConfig,
-    ) -> Self {
-        let inputs = ScopeGraphBuildInputs::from_files_convention(files);
-        Self::build_with_receiver_config_and_scope_graph_inputs(
-            files,
-            receiver_config,
-            Some(&inputs),
-        )
-    }
-
-    pub fn build_with_scope_graph_inputs(
-        files: &BTreeMap<String, ParsedFile>,
-        inputs: Option<&ScopeGraphBuildInputs>,
-    ) -> Self {
-        Self::build_with_receiver_config_and_scope_graph_inputs(
-            files,
-            &crate::resolution::ReceiverRecoveryConfig::default(),
-            inputs,
-        )
-    }
-
-    pub fn build_with_receiver_config_and_scope_graph_inputs(
+    // The public `build*` constructors live in `call_graph/boundary.rs`: each
+    // enters the large-stack build pool once, then calls this body.
+    fn build_inner(
         files: &BTreeMap<String, ParsedFile>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
+        let mut profile = crate::profile::Stages::new("call_graph", "call_graph.prelude");
         let classifier = receiver_config.classifier();
         let classifier: &dyn crate::resolution::ReceiverClassifier = classifier.as_ref();
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
@@ -1575,10 +1704,10 @@ impl CallGraph {
             js_ts_unproven_instance_methods: Vec<FunctionId>,
         }
 
+        profile.next("call_graph.definitions");
         // Phase 1: Collect all function definitions per file in parallel, then
         // flatten serially in file order to preserve insertion order.
-        let per_file_functions: Vec<FileFunctions> = ordered_files
-            .par_iter()
+        let per_file_functions: Vec<FileFunctions> = crate::build_pool::per_item(&ordered_files)
             .map(|entry| {
                 let (file_path, parsed) = *entry;
                 let mut file_functions = Vec::new();
@@ -1586,16 +1715,11 @@ impl CallGraph {
                 let mut file_js_ts_static_methods = Vec::new();
                 let mut file_js_ts_unproven_instance_methods = Vec::new();
 
-                for func_node in parsed.all_functions() {
-                    if let Some(name_node) = parsed.language.function_name(&func_node) {
-                        let name = parsed.node_text(&name_node).to_string();
-                        let (start, end) = parsed.node_line_range(&func_node);
-                        let func_id = FunctionId {
-                            file: file_path.clone(),
-                            name: name.clone(),
-                            start_line: start,
-                            end_line: end,
-                        };
+                for func_node in crate::anon_owner::owner_nodes(parsed) {
+                    if let Some(func_id) =
+                        crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                    {
+                        let name = func_id.name.clone();
                         let (owner, trait_key, recv_var, class_span) =
                             Self::method_metadata(parsed, &func_node);
                         let facts = Self::method_facts(parsed, &func_node);
@@ -1685,10 +1809,10 @@ impl CallGraph {
             macro_arg_facts: crate::rust_macro_args::MacroArgFacts,
         }
 
+        profile.next("call_graph.calls");
         // Phase 2: Find all call sites within each function in parallel, then
         // flatten serially in file order to preserve insertion order.
-        let per_file_calls: Vec<FileCallSites> = ordered_files
-            .par_iter()
+        let per_file_calls: Vec<FileCallSites> = crate::build_pool::per_item(&ordered_files)
             .map(|entry| {
                 let (file_path, parsed) = *entry;
                 let mut file_call_sites = Vec::new();
@@ -1696,19 +1820,27 @@ impl CallGraph {
                 let file_imports_ref = imports.get(file_path);
                 let proven_imported_receiver_types =
                     proven_python_imported_receiver_types.get(file_path);
+                let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
+                let named_claims = crate::anon_owner::named_claims(
+                    parsed,
+                    crate::anon_owner::EMIT_ANONYMOUS_OWNERS,
+                );
+                let mut binding_cache = crate::ast::JsBindingCache::for_sites();
 
-                for func_node in parsed.all_functions() {
-                    let func_name = match parsed.language.function_name(&func_node) {
-                        Some(n) => parsed.node_text(&n).to_string(),
-                        None => continue,
+                for func_node in crate::anon_owner::owner_nodes(parsed) {
+                    let Some(caller_id) =
+                        crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                    else {
+                        continue;
                     };
-                    let (start, end) = parsed.node_line_range(&func_node);
-                    let caller_id = FunctionId {
-                        file: file_path.clone(),
-                        name: func_name,
-                        start_line: start,
-                        end_line: end,
-                    };
+                    let (start, end) = (caller_id.start_line, caller_id.end_line);
+                    if ambiguous_owner_ids.contains(&(
+                        caller_id.name.clone(),
+                        caller_id.start_line,
+                        caller_id.end_line,
+                    )) {
+                        continue;
+                    }
 
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
                     let (call_sites, facts) = parsed
@@ -1726,6 +1858,15 @@ impl CallGraph {
                         .map(|n| parsed.node_text(&n).to_string());
 
                     for meta in call_sites {
+                        if !crate::anon_owner::may_mint_call(
+                            parsed,
+                            &func_node,
+                            meta.start_byte,
+                            meta.end_byte,
+                            &named_claims,
+                        ) {
+                            continue;
+                        }
                         let callee_name = meta.callee_name;
                         let line = meta.line;
                         let start_byte = meta.start_byte;
@@ -1758,7 +1899,7 @@ impl CallGraph {
                             .js_ts_receiver_lexically_bound_at_call(&func_node, meta.receiver_node);
                         let site = CallSite {
                             caller: caller_id.clone(),
-                            callee_name,
+                            callee_name: callee_name.clone(),
                             source_callee_name: None,
                             line,
                             kind: meta.kind_override.unwrap_or_else(|| {
@@ -1788,6 +1929,14 @@ impl CallGraph {
                             receiver_outcome: None,
                             origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                             pre_resolved_target: None,
+                            jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                            local_binding: Self::js_local_binding_at(
+                                parsed,
+                                start_byte,
+                                end_byte,
+                                &callee_name,
+                                &mut binding_cache,
+                            ),
                         };
                         file_call_sites.push((caller_id.clone(), site));
                     }
@@ -1801,6 +1950,7 @@ impl CallGraph {
             })
             .collect();
 
+        profile.next("call_graph.merge");
         let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
             BTreeMap::new();
         for file_calls in &per_file_calls {
@@ -1822,13 +1972,18 @@ impl CallGraph {
             }
         }
 
-        let (js_ts_exports, js_ts_function_locals) = Self::extract_js_ts_resolution_facts(files);
+        profile.next("call_graph.js_ts_facts");
+        let (js_ts_exports, js_ts_function_locals, js_ts_return_facts) =
+            Self::extract_js_ts_resolution_facts(files);
 
+        profile.next("call_graph.parameter_slots");
+        let param_slots_unknown = Self::parameter_slots_unknown(files);
+        let initial = init_profile::collect(files, scope_inputs, &macro_shadow, &mut profile);
         let mut cg = CallGraph {
             functions,
             calls,
             callers,
-            param_slots_unknown: Self::parameter_slots_unknown(files),
+            param_slots_unknown,
             level3_indirect_resolved: 0,
             go_level3_b1_telemetry: Default::default(),
             go_callback_parameters: BTreeMap::new(),
@@ -1838,13 +1993,14 @@ impl CallGraph {
             imports,
             methods,
             method_owners,
+            rust_self_proofs: Default::default(),
             method_class_span,
             method_class_span_ambiguous,
             js_ts_static_methods,
             js_ts_unproven_instance_methods,
             class_bases,
             clean_class_spans,
-            js_ts_imported_props: crate::js_ts_props::collect(files),
+            js_ts_imported_props: initial.props,
             executable_owner: None,
             owner_ephemeral: false,
             python_inert_initializers,
@@ -1863,15 +2019,20 @@ impl CallGraph {
             interface_dispatch_computed: false,
             method_arity: BTreeMap::new(),
             method_facts,
-            scope_graph: Self::populate_scope_graph(files, scope_inputs),
+            scope_graph: initial.scope,
             import_bindings,
             module_bindings,
             indexed_files,
+            js_ts_path_modules: BTreeMap::new(),
+            js_ts_path_exports: BTreeMap::new(),
             js_ts_exports,
             js_ts_resolved_exports: BTreeMap::new(),
+            js_ts_namespace_exports: BTreeMap::new(),
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
+            js_anonymous: initial.proofs,
+            js_ts_return_facts,
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
             go_func_typed_fields: BTreeSet::new(),
@@ -1899,9 +2060,7 @@ impl CallGraph {
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
             macro_arg_facts,
-            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
-                &macro_shadow,
-            ),
+            macro_shadow_intersection: initial.macro_shadow,
             // P9: whole-program framework-entry state — left empty here,
             // same reason as the Go/Python whole-program facts below:
             // `apply_framework_entries` populates it after `functions` /
@@ -1921,6 +2080,7 @@ impl CallGraph {
             go_package_vars: BTreeMap::new(),
             shared_plain_go_provider: None,
         };
+        profile.next("call_graph.rust_receiver_refresh");
         cg.refresh_rust_receiver_state(files);
         // P15a-fix1: interface dispatch runs BEFORE the shared plain provider
         // is constructed. Dispatch and embedding promotion are mutually
@@ -1932,6 +2092,7 @@ impl CallGraph {
         // guarantees at most ONE full `GoTypeData` is alive at any moment
         // (the plain one is built only after the dispatch construction has
         // been dropped).
+        profile.next("call_graph.go_dispatch_embedding");
         cg.apply_go_interface_dispatch_with_scope_inputs(files, scope_inputs);
         // P15a: extract the plain Go type data ONCE per build and share it
         // between embedding promotion and receiver rematerialization (both use
@@ -1963,18 +2124,24 @@ impl CallGraph {
         // P7: python property-access state — needs the complete method_owners
         // / method_class_span / class_bases indexes already populated above,
         // so it runs last, same rationale as the Go passes.
+        profile.next("call_graph.python_properties");
         cg.apply_python_property_accesses(files);
         // P9: framework-entry state (Flask/FastAPI/Express route
         // registrations) needs the complete `functions`/
         // `js_ts_function_locals` index already populated above (Express
         // identifier-arg resolution reads both) — runs after the Go/Python
         // whole-program passes, same rationale.
+        profile.next("call_graph.framework_entries");
         cg.apply_framework_entries(files);
         // P4: JS/TS export-fact resolution (re-export chains/barrels) is ALSO
         // whole-program derived, same rationale as the Go passes above.
+        profile.next("call_graph.apply_js_paths");
+        cg.apply_js_paths(scope_inputs);
+        profile.next("call_graph.apply_js_export_resolution");
         cg.apply_js_export_resolution();
         // Recompute the remaining whole-program indirect passes after all
         // resolution facts are installed, including Go B1 Level-3 callbacks.
+        profile.next("call_graph.indirect");
         cg.recompute_indirect_calls(files);
         cg
     }
@@ -2016,12 +2183,7 @@ impl CallGraph {
         (import_bindings, module_bindings)
     }
 
-    fn extract_js_ts_resolution_facts(
-        files: &BTreeMap<String, ParsedFile>,
-    ) -> (
-        BTreeMap<String, crate::js_exports::JsExportFacts>,
-        BTreeMap<FunctionId, BTreeSet<String>>,
-    ) {
+    fn extract_js_ts_resolution_facts(files: &BTreeMap<String, ParsedFile>) -> JsTsResolutionFacts {
         Self::extract_js_ts_resolution_facts_from_iter(files.iter())
     }
 
@@ -2039,53 +2201,11 @@ impl CallGraph {
         unknown
     }
 
-    fn extract_js_ts_resolution_facts_from_iter<'a, I>(
-        files: I,
-    ) -> (
-        BTreeMap<String, crate::js_exports::JsExportFacts>,
-        BTreeMap<FunctionId, BTreeSet<String>>,
-    )
+    fn extract_js_ts_resolution_facts_from_iter<'a, I>(files: I) -> JsTsResolutionFacts
     where
         I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
     {
-        let mut export_facts: BTreeMap<String, crate::js_exports::JsExportFacts> = BTreeMap::new();
-        let mut function_locals: BTreeMap<FunctionId, BTreeSet<String>> = BTreeMap::new();
-
-        for (file_path, parsed) in files {
-            if !matches!(
-                parsed.language,
-                crate::languages::Language::JavaScript
-                    | crate::languages::Language::TypeScript
-                    | crate::languages::Language::Tsx
-            ) {
-                continue;
-            }
-
-            let exports = parsed.extract_js_ts_export_facts();
-            if !exports.is_empty() {
-                export_facts.insert(file_path.clone(), exports);
-            }
-
-            for func_node in parsed.all_functions() {
-                let Some(name_node) = parsed.language.function_name(&func_node) else {
-                    continue;
-                };
-                let name = parsed.node_text(&name_node).to_string();
-                let (start, end) = parsed.node_line_range(&func_node);
-                let func_id = FunctionId {
-                    file: file_path.clone(),
-                    name,
-                    start_line: start,
-                    end_line: end,
-                };
-                let locals = parsed.js_ts_function_local_bindings(&func_node);
-                if !locals.is_empty() {
-                    function_locals.insert(func_id, locals);
-                }
-            }
-        }
-
-        (export_facts, function_locals)
+        js_ts_facts::extract(files)
     }
 
     /// P4: whole-program resolution of JS/TS export facts — recomputed from
@@ -2095,6 +2215,79 @@ impl CallGraph {
     /// `apply_go_registrations`/`apply_go_interface_dispatch`: a barrel's
     /// resolution can depend on an unchanged file elsewhere, so it can't be
     /// incrementally patched per changed file.
+    pub(crate) fn apply_js_paths(&mut self, inputs: Option<&ScopeGraphBuildInputs>) {
+        self.js_ts_path_modules.clear();
+        self.js_ts_path_exports.clear();
+        let Some(inputs) = inputs else {
+            return;
+        };
+        let mut resolver = crate::js_paths::Resolver::new(&inputs.js_paths_snapshot);
+        for (file, bindings) in &self.import_bindings {
+            if !matches!(
+                crate::languages::Language::from_path(file),
+                Some(
+                    crate::languages::Language::JavaScript
+                        | crate::languages::Language::TypeScript
+                        | crate::languages::Language::Tsx
+                )
+            ) {
+                continue;
+            }
+            for b in bindings {
+                if b.eligible
+                    && b.kind == ImportBindingKind::MemberImport
+                    && self
+                        .js_ts_exports
+                        .get(file)
+                        .is_some_and(|exports| exports.esm_named_imports.contains(&b.local))
+                {
+                    if let Some(target) =
+                        resolver.resolve(file, &b.module_path, &self.indexed_files)
+                    {
+                        self.js_ts_path_modules.insert(
+                            (file.clone(), b.module_path.clone()),
+                            (
+                                target,
+                                resolver.project(file).expect("resolved caller project"),
+                            ),
+                        );
+                    }
+                }
+            }
+        }
+        for project in self
+            .js_ts_path_modules
+            .values()
+            .map(|(_, project)| project.clone())
+            .collect::<BTreeSet<_>>()
+        {
+            let resolve_module =
+                |from: &str, spec: &str| resolver.hop(&project, from, spec, &self.indexed_files);
+            let roots = self
+                .js_ts_path_modules
+                .values()
+                .filter_map(|(file, owner)| (*owner == project).then_some(file))
+                .collect::<BTreeSet<_>>();
+            let resolution = crate::js_exports::resolve_js_exports_for(
+                &self.js_ts_exports,
+                &resolve_module,
+                roots,
+            );
+            self.js_ts_path_exports.insert(project, resolution.resolved);
+        }
+    }
+
+    pub(crate) fn resolve_js_ts_member_module(&self, module: &str, caller: &str) -> Option<String> {
+        let relative = module.trim();
+        if is_js_ts_relative_specifier(relative) {
+            resolve_js_ts_relative_module(relative, caller, &self.indexed_files)
+        } else {
+            self.js_ts_path_modules
+                .get(&(caller.into(), module.into()))
+                .map(|(target, _)| target.clone())
+        }
+    }
+
     pub fn apply_js_export_resolution(&mut self) {
         self.clear_js_export_resolution();
         let indexed_files = &self.indexed_files;
@@ -2103,6 +2296,8 @@ impl CallGraph {
         };
         let resolution =
             crate::js_exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
+        self.js_ts_namespace_exports =
+            crate::js_exports::resolve_js_namespace_exports(&self.js_ts_exports, &resolve_module);
         self.js_ts_resolved_exports = resolution.resolved;
         self.js_export_chain_unresolved = resolution.chain_unresolved;
         self.js_export_barrel_conflicts = resolution.barrel_conflicts;
@@ -2110,6 +2305,7 @@ impl CallGraph {
 
     fn clear_js_export_resolution(&mut self) {
         self.js_ts_resolved_exports.clear();
+        self.js_ts_namespace_exports.clear();
         self.js_export_chain_unresolved = 0;
         self.js_export_barrel_conflicts = 0;
     }
@@ -2195,6 +2391,7 @@ impl CallGraph {
     /// Used by incremental cache update: when a file changes, its call graph
     /// contributions are stripped out before fresh data is merged in.
     pub fn remove_files(&mut self, exclude: &BTreeSet<String>) {
+        self.js_anonymous.remove_files(exclude);
         self.executable_owner = None;
         // Both are whole-program pass products and are repopulated from the
         // complete files map by `build_direct_subset` / `recompute_indirect_calls`.
@@ -2271,6 +2468,8 @@ impl CallGraph {
         self.module_bindings.retain(|f, _| !exclude.contains(f));
         self.js_ts_exports.retain(|f, _| !exclude.contains(f));
         self.js_ts_function_locals
+            .retain(|fid, _| !exclude.contains(&fid.file));
+        self.js_ts_return_facts
             .retain(|fid, _| !exclude.contains(&fid.file));
         // indexed_files tracks the file set; removed files are no longer indexed.
         self.indexed_files.retain(|f| !exclude.contains(f));
@@ -2414,6 +2613,8 @@ impl CallGraph {
         self.js_ts_exports.extend(other.js_ts_exports);
         self.js_ts_function_locals
             .extend(other.js_ts_function_locals);
+        self.js_anonymous.merge(other.js_anonymous);
+        self.js_ts_return_facts.extend(other.js_ts_return_facts);
         // P8: per-file macro-arg facts extend directly -- `other` only ever
         // carries entries for files it (re)built, so this can never
         // double-count a file that remove_files didn't first drop. (This
@@ -2473,7 +2674,7 @@ impl CallGraph {
     pub(crate) fn recompute_indirect_calls(&mut self, files: &BTreeMap<String, ParsedFile>) {
         self.executable_owner = None;
         self.clear_indirect_calls();
-        let (sites, level3_telemetry) = self.compute_indirect_call_sites(files);
+        let (sites, level3_telemetry) = self.compute_indirect_call_sites(files, true);
         self.apply_indirect_call_sites(sites);
         self.level3_indirect_resolved = level3_telemetry.edges;
         self.go_level3_b1_telemetry = level3_telemetry;
@@ -2493,9 +2694,25 @@ impl CallGraph {
         self.callers.retain(|_, sites| !sites.is_empty());
     }
 
+    /// Audit seam for the structural rule test: the indirect records a rebuild would add with the
+    /// textual-path stand-down on (`true`, the product) or forced off (`false`, main's behavior),
+    /// computed on a copy with the held indirect records cleared first.
+    #[doc(hidden)]
+    pub fn audit_indirect_records(
+        &self,
+        files: &BTreeMap<String, ParsedFile>,
+        stand_down: bool,
+    ) -> Vec<(FunctionId, CallSite)> {
+        let mut copy = self.clone();
+        copy.executable_owner = None;
+        copy.clear_indirect_calls();
+        copy.compute_indirect_call_sites(files, stand_down).0
+    }
+
     fn compute_indirect_call_sites(
         &self,
         files: &BTreeMap<String, ParsedFile>,
+        stand_down: bool,
     ) -> (
         Vec<(FunctionId, CallSite)>,
         crate::go_callback::GoLevel3Telemetry,
@@ -2507,7 +2724,11 @@ impl CallGraph {
         let known_fn_names: BTreeSet<String> = self.functions.keys().cloned().collect();
         let mut extra_sites: Vec<(FunctionId, CallSite)> = Vec::new();
 
-        for (caller_id, sites) in &self.calls {
+        for (caller_id, sites) in self
+            .calls
+            .iter()
+            .filter(|(id, _)| crate::anon_owner::permits_legacy_indirect(id))
+        {
             for site in sites {
                 if self.functions.contains_key(&site.callee_name) {
                     continue;
@@ -2556,7 +2777,7 @@ impl CallGraph {
                     .all(|c| c.is_alphanumeric() || c == '_')
                 {
                     let Some(func_source) =
-                        Self::extract_func_source_before(parsed, caller_id, site.start_byte)
+                        crate::anon_owner::source_before(parsed, caller_id, site.start_byte)
                     else {
                         continue;
                     };
@@ -2597,7 +2818,11 @@ impl CallGraph {
         }
 
         let mut level4_sites: Vec<(FunctionId, CallSite)> = Vec::new();
-        for (caller_id, sites) in &self.calls {
+        for (caller_id, sites) in self
+            .calls
+            .iter()
+            .filter(|(id, _)| crate::anon_owner::permits_legacy_indirect(id))
+        {
             for site in sites {
                 if self.functions.contains_key(&site.callee_name) {
                     continue;
@@ -2782,6 +3007,30 @@ impl CallGraph {
         telemetry.unique_targets = accepted_targets.len();
         telemetry.edges = level3_sites.len();
         extra_sites.extend(level3_sites);
+        // Slice L stand-down: every level above ran unchanged, so each read of the Level-1/2
+        // output (Level 4's `already_resolved`; Level 3 reads `self.calls`, not `extra_sites`)
+        // saw main's population. Only now, on the finished output, are the records whose source
+        // site is an alias site with a proven hit (the one predicate) removed, by exact site
+        // identity (caller, start byte, end byte).
+        if stand_down {
+            let proven: BTreeSet<(&FunctionId, usize, usize)> = self
+                .calls
+                .iter()
+                .flat_map(|(caller, sites)| {
+                    sites
+                        .iter()
+                        .filter(|s| {
+                            s.origin == CallSiteOrigin::Source && self.js_ts_alias_route_hit(s)
+                        })
+                        .map(move |s| (caller, s.start_byte, s.end_byte))
+                })
+                .collect();
+            if !proven.is_empty() {
+                extra_sites.retain(|(caller, record)| {
+                    !proven.contains(&(caller, record.start_byte, record.end_byte))
+                });
+            }
+        }
         debug_assert_eq!(
             telemetry.candidates,
             telemetry.accepted_inbound_sites + telemetry.drops.values().sum::<usize>()
@@ -2827,6 +3076,9 @@ impl CallGraph {
             receiver_outcome: None,
             origin: CallSiteOrigin::IndirectResolution,
             pre_resolved_target: None,
+            jsx_element: false,
+            // E10 non-goal: indirect-resolution sites never carry a lexical binding.
+            local_binding: JsLocalBinding::Unchecked,
         }
     }
 
@@ -3367,6 +3619,7 @@ impl CallGraph {
     }
 
     fn refresh_rust_receiver_state(&mut self, files: &BTreeMap<String, ParsedFile>) {
+        self.rust_self_proofs = crate::resolution::rust_self::ProofIndex::build(files);
         self.populate_method_identity_indices(files);
         self.rematerialize_rust_receiver_keys(files);
     }
@@ -3381,6 +3634,7 @@ impl CallGraph {
         if !inputs.complete {
             return None;
         }
+        let _profile = crate::profile::Phase::serial("scope_graph");
         Some(populate_rust(files, &inputs.cfg, None))
     }
 
@@ -3428,8 +3682,7 @@ impl CallGraph {
         // shared (by reference) across every parallel per-caller task below.
         let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
         let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
-        ordered
-            .par_iter()
+        crate::build_pool::per_item(&ordered)
             .copied() // (&FunctionId, &BTreeSet) is Copy -> avoid &&-destructuring
             .map(|(caller, sites)| {
                 Self::receiver_updates_for_caller(caller, sites, &typer, files, &macro_shadow)
@@ -3461,7 +3714,7 @@ impl CallGraph {
         if !matches!(parsed.language, crate::languages::Language::Rust) {
             return out;
         }
-        let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
+        let Some(fn_node) = crate::anon_owner::node_for_id(parsed, caller) else {
             return out;
         };
         let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
@@ -3515,7 +3768,7 @@ impl CallGraph {
             if !matches!(parsed.language, crate::languages::Language::Rust) {
                 continue;
             }
-            let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
+            let Some(fn_node) = crate::anon_owner::node_for_id(parsed, caller) else {
                 continue;
             };
             let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
@@ -3547,22 +3800,6 @@ impl CallGraph {
             }
         }
         updates
-    }
-
-    fn function_node_for_id<'a>(
-        parsed: &'a ParsedFile,
-        fid: &FunctionId,
-    ) -> Option<tree_sitter::Node<'a>> {
-        parsed.all_functions().into_iter().find(|node| {
-            let Some(name_node) = parsed.language.function_name(node) else {
-                return false;
-            };
-            if parsed.node_text(&name_node) != fid.name {
-                return false;
-            }
-            let (start, end) = parsed.node_line_range(node);
-            start == fid.start_line && end == fid.end_line
-        })
     }
 
     /// Remove all promoted embedding aliases from the owner index (preserving any
@@ -4318,9 +4555,15 @@ impl CallGraph {
                     files
                         .get(&old_site.caller.file)
                         .and_then(|parsed| {
-                            Self::function_node_for_id(parsed, &old_site.caller).map(|func_node| {
-                                parsed.go_local_type_shadows(&func_node, ty, old_site.start_byte)
-                            })
+                            crate::anon_owner::node_for_id(parsed, &old_site.caller).map(
+                                |func_node| {
+                                    parsed.go_local_type_shadows(
+                                        &func_node,
+                                        ty,
+                                        old_site.start_byte,
+                                    )
+                                },
+                            )
                         })
                         .unwrap_or(false)
                 });
@@ -4336,13 +4579,15 @@ impl CallGraph {
                     files
                         .get(&old_site.caller.file)
                         .and_then(|parsed| {
-                            Self::function_node_for_id(parsed, &old_site.caller).map(|func_node| {
-                                parsed.go_func_literal_parameter_binds_receiver(
-                                    &func_node,
-                                    receiver,
-                                    old_site.start_byte,
-                                )
-                            })
+                            crate::anon_owner::node_for_id(parsed, &old_site.caller).map(
+                                |func_node| {
+                                    parsed.go_func_literal_parameter_binds_receiver(
+                                        &func_node,
+                                        receiver,
+                                        old_site.start_byte,
+                                    )
+                                },
+                            )
                         })
                         .unwrap_or(false)
                 });
@@ -4390,8 +4635,7 @@ impl CallGraph {
 
         let classifier = receiver_config.classifier();
         let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
-        ordered
-            .par_iter()
+        crate::build_pool::per_item(&ordered)
             .copied()
             .map(|(caller, sites)| {
                 self.go_receiver_updates_for_caller(
@@ -4431,7 +4675,7 @@ impl CallGraph {
         if parsed.language != crate::languages::Language::Go {
             return out;
         }
-        let Some(fn_node) = Self::function_node_for_id(parsed, caller) else {
+        let Some(fn_node) = crate::anon_owner::node_for_id(parsed, caller) else {
             return out;
         };
         let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
@@ -4820,23 +5064,12 @@ impl CallGraph {
     /// Unlike `build()`, this skips Phase 3 (indirect call resolution) because
     /// that requires knowledge of all functions, not just the subset. The caller
     /// should run `recompute_indirect_calls` on the merged result.
-    pub fn build_direct_subset(
-        files: &BTreeMap<String, ParsedFile>,
-        only_files: &BTreeSet<String>,
-    ) -> Self {
-        Self::build_direct_subset_with_receiver_config(
-            files,
-            only_files,
-            &crate::resolution::ReceiverRecoveryConfig::default(),
-        )
-    }
-
-    /// `build_direct_subset` with an explicit receiver-recovery config (spec §2 seam).
-    pub fn build_direct_subset_with_receiver_config(
+    fn build_direct_subset_inner(
         files: &BTreeMap<String, ParsedFile>,
         only_files: &BTreeSet<String>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
     ) -> Self {
+        let mut p = crate::profile::Stages::new("call_graph", "call_graph.direct_subset.prelude");
         let classifier = receiver_config.classifier();
         let classifier: &dyn crate::resolution::ReceiverClassifier = classifier.as_ref();
         let mut functions: BTreeMap<String, Vec<FunctionId>> = BTreeMap::new();
@@ -4914,21 +5147,17 @@ impl CallGraph {
             &python_inert_initializers,
         );
 
+        p.next("call_graph.direct_subset.definitions");
         // Phase 1: Collect function definitions from subset.
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
                 continue;
             }
-            for func_node in parsed.all_functions() {
-                if let Some(name_node) = parsed.language.function_name(&func_node) {
-                    let name = parsed.node_text(&name_node).to_string();
-                    let (start, end) = parsed.node_line_range(&func_node);
-                    let func_id = FunctionId {
-                        file: file_path.clone(),
-                        name: name.clone(),
-                        start_line: start,
-                        end_line: end,
-                    };
+            for func_node in crate::anon_owner::owner_nodes(parsed) {
+                if let Some(func_id) =
+                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                {
+                    let name = func_id.name.clone();
                     functions
                         .entry(name.clone())
                         .or_default()
@@ -4981,6 +5210,7 @@ impl CallGraph {
             }
         }
 
+        p.next("call_graph.direct_subset.calls");
         // Phase 2: Find call sites from subset.
         let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
             BTreeMap::new();
@@ -4989,18 +5219,24 @@ impl CallGraph {
                 continue;
             }
             let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
-            for func_node in parsed.all_functions() {
-                let func_name = match parsed.language.function_name(&func_node) {
-                    Some(n) => parsed.node_text(&n).to_string(),
-                    None => continue,
+            let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
+            let named_claims =
+                crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);
+            let mut binding_cache = crate::ast::JsBindingCache::for_sites();
+            for func_node in crate::anon_owner::owner_nodes(parsed) {
+                let Some(caller_id) =
+                    crate::anon_owner::emitted_identity(parsed, &func_node, file_path)
+                else {
+                    continue;
                 };
-                let (start, end) = parsed.node_line_range(&func_node);
-                let caller_id = FunctionId {
-                    file: file_path.clone(),
-                    name: func_name,
-                    start_line: start,
-                    end_line: end,
-                };
+                let (start, end) = (caller_id.start_line, caller_id.end_line);
+                if ambiguous_owner_ids.contains(&(
+                    caller_id.name.clone(),
+                    caller_id.start_line,
+                    caller_id.end_line,
+                )) {
+                    continue;
+                }
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
                 let (call_sites, facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
                     &func_node,
@@ -5019,6 +5255,15 @@ impl CallGraph {
                     proven_python_imported_receiver_types.get(file_path);
 
                 for meta in call_sites {
+                    if !crate::anon_owner::may_mint_call(
+                        parsed,
+                        &func_node,
+                        meta.start_byte,
+                        meta.end_byte,
+                        &named_claims,
+                    ) {
+                        continue;
+                    }
                     let callee_name = meta.callee_name;
                     let line = meta.line;
                     let start_byte = meta.start_byte;
@@ -5077,6 +5322,14 @@ impl CallGraph {
                         receiver_outcome: None,
                         origin: meta.origin_override.unwrap_or(CallSiteOrigin::Source),
                         pre_resolved_target: None,
+                        jsx_element: Self::jsx_element_at(parsed, start_byte, end_byte),
+                        local_binding: Self::js_local_binding_at(
+                            parsed,
+                            start_byte,
+                            end_byte,
+                            &callee_name,
+                            &mut binding_cache,
+                        ),
                     };
                     calls
                         .entry(caller_id.clone())
@@ -5090,9 +5343,11 @@ impl CallGraph {
             }
         }
 
-        let (js_ts_exports, js_ts_function_locals) = Self::extract_js_ts_resolution_facts_from_iter(
-            subset_files.iter().map(|(fp, parsed)| (fp, *parsed)),
-        );
+        p.next("call_graph.direct_subset.resolution_facts");
+        let (js_ts_exports, js_ts_function_locals, js_ts_return_facts) =
+            Self::extract_js_ts_resolution_facts_from_iter(
+                subset_files.iter().map(|(fp, parsed)| (fp, *parsed)),
+            );
 
         CallGraph {
             functions,
@@ -5108,6 +5363,7 @@ impl CallGraph {
             imports,
             methods,
             method_owners,
+            rust_self_proofs: Default::default(),
             method_class_span,
             method_class_span_ambiguous,
             js_ts_static_methods,
@@ -5137,6 +5393,8 @@ impl CallGraph {
             import_bindings: import_bindings_map,
             module_bindings: module_bindings_map,
             indexed_files,
+            js_ts_path_modules: BTreeMap::new(),
+            js_ts_path_exports: BTreeMap::new(),
             js_ts_exports,
             // P4: whole-program resolved export facts — left empty here,
             // exactly like the Go whole-program state below:
@@ -5144,9 +5402,12 @@ impl CallGraph {
             // itself; the caller re-applies `apply_js_export_resolution` on
             // the merged graph.
             js_ts_resolved_exports: BTreeMap::new(),
+            js_ts_namespace_exports: BTreeMap::new(),
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
+            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
+            js_ts_return_facts,
             // P5: whole-program Go func-value state — left empty here, exactly
             // like `interface_impls`/`interface_dispatch_computed: false`
             // above: `build_direct_subset` never computes whole-program Go
@@ -5414,6 +5675,9 @@ impl CallGraph {
         Option<String>,
         Option<(usize, usize)>,
     ) {
+        if parsed.language.function_name(func_node).is_none() {
+            return (None, None, None, None);
+        }
         let owner = parsed
             .language
             .method_owner(func_node)
@@ -5452,6 +5716,122 @@ impl CallGraph {
             .map(str::to_string)
     }
 
+    /// Source-byte JS binding query; unsupported/synthetic callees remain Unchecked.
+    pub(crate) fn js_local_binding_at<'a>(
+        parsed: &'a ParsedFile,
+        start_byte: usize,
+        end_byte: usize,
+        callee: &str,
+        cache: &mut crate::ast::JsBindingCache<'a>,
+    ) -> JsLocalBinding {
+        use crate::ast::{JsBinding, JsFollow};
+        use crate::languages::Language;
+        if !matches!(
+            parsed.language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) {
+            return JsLocalBinding::Unchecked;
+        }
+        let ident = parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start_byte, end_byte)
+            .filter(|n| n.start_byte() == start_byte && n.end_byte() == end_byte)
+            .and_then(|site| match site.kind() {
+                "call_expression" => site.child_by_field_name("function"),
+                "jsx_self_closing_element" | "jsx_opening_element" => {
+                    site.child_by_field_name("name")
+                }
+                _ => None,
+            });
+        let Some(ident) = ident else {
+            return JsLocalBinding::Unchecked;
+        };
+        let binding = if ident.kind() == "identifier" && parsed.node_text(&ident) == callee {
+            let binding = parsed.js_ts_site_binding(ident, callee, cache);
+            // Slice L: a `const` alias is followed to what it names; an alias that cannot be
+            // followed keeps `Alias` (base behavior).
+            if binding == JsBinding::Alias {
+                match parsed.js_ts_follow_alias(ident, callee, cache) {
+                    Some(JsFollow::Callable(t)) => return JsLocalBinding::AliasCallable(t),
+                    Some(JsFollow::ImportLocal(local)) => {
+                        return JsLocalBinding::AliasImport { local }
+                    }
+                    Some(JsFollow::NamespaceMember {
+                        module_path,
+                        member,
+                    }) => {
+                        return JsLocalBinding::AliasNamespaceMember {
+                            module_path,
+                            member,
+                        }
+                    }
+                    None => {}
+                }
+            }
+            // Slice V: a `const` taking its value from a call to one in-repo function `H` is
+            // followed to `H`'s returned-value fact. A site the fact does not prove resolves
+            // as `kept` says (the base reason).
+            if matches!(binding, JsBinding::Alias | JsBinding::MayCall) {
+                if let Some((hook, path)) = parsed.js_ts_follow_returned(ident, callee, cache) {
+                    let kept = if binding == JsBinding::Alias {
+                        "alias"
+                    } else {
+                        "may_call"
+                    };
+                    return JsLocalBinding::Returned {
+                        hook,
+                        path,
+                        kept: kept.to_string(),
+                    };
+                }
+            }
+            binding
+        } else if ident.kind() == "member_expression" {
+            let qualifier = ident
+                .child_by_field_name("object")
+                .filter(|n| n.kind() == "identifier");
+            let member = ident.child_by_field_name("property");
+            let Some(q) =
+                qualifier.filter(|_| member.is_some_and(|m| parsed.node_text(&m) == callee))
+            else {
+                return JsLocalBinding::Unchecked;
+            };
+            let Some((binding, module)) = parsed.js_ts_namespace_binding(q, cache) else {
+                return JsLocalBinding::Unchecked;
+            };
+            if let Some(module_path) = module {
+                return JsLocalBinding::NamespaceImport { module_path };
+            }
+            binding
+        } else {
+            return JsLocalBinding::Unchecked;
+        };
+        match binding {
+            JsBinding::Callable(t) => JsLocalBinding::Callable(t),
+            JsBinding::MayCall => JsLocalBinding::MayCall("may_call".to_string()),
+            JsBinding::Alias => JsLocalBinding::MayCall("alias".to_string()),
+            // Unbound or an import: no in-file function is the binding (R4 drops); the
+            // import and repo-wide rungs keep base behavior.
+            JsBinding::Import => JsLocalBinding::Unproven("import".to_string()),
+            JsBinding::Refused(r) => JsLocalBinding::Unproven(r.to_string()),
+            JsBinding::Unchecked(r) => JsLocalBinding::Position(r.to_string()),
+        }
+    }
+
+    /// True iff the node spanning exactly these bytes is a JSX element tag (S1).
+    fn jsx_element_at(parsed: &ParsedFile, start_byte: usize, end_byte: usize) -> bool {
+        parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start_byte, end_byte)
+            .is_some_and(|n| {
+                n.start_byte() == start_byte
+                    && n.end_byte() == end_byte
+                    && matches!(n.kind(), "jsx_self_closing_element" | "jsx_opening_element")
+            })
+    }
+
     fn call_kind_at(parsed: &ParsedFile, start_byte: usize, end_byte: usize) -> CallKind {
         if !matches!(parsed.language, crate::languages::Language::Rust) {
             return CallKind::Call;
@@ -5473,20 +5853,6 @@ impl CallGraph {
                 return CallKind::Call;
             })
             .unwrap_or(CallKind::Call)
-    }
-
-    /// Exact function-source prefix ending immediately before `before_byte`.
-    /// Assignment-based callback resolution must never inspect later writes.
-    fn extract_func_source_before<'a>(
-        parsed: &'a ParsedFile,
-        func_id: &FunctionId,
-        before_byte: usize,
-    ) -> Option<&'a str> {
-        let function = Self::function_node_for_id(parsed, func_id)?;
-        if before_byte < function.start_byte() || before_byte > function.end_byte() {
-            return None;
-        }
-        parsed.source.get(function.start_byte()..before_byte)
     }
 
     /// Extract the source text for a function from its parsed file.
@@ -5975,192 +6341,6 @@ fn python_namespace_submodule_path(
     Some(format!("{module_path}.{member}"))
 }
 
-fn unique_python_module_file<'a>(
-    module_path: &str,
-    caller_file: &str,
-    indexed_files: &'a BTreeSet<String>,
-) -> Option<&'a String> {
-    let mut module_files = indexed_files
-        .iter()
-        .filter(|file| {
-            crate::languages::Language::from_path(file) == Some(crate::languages::Language::Python)
-        })
-        .filter(|file| file_matches_module(file, module_path, caller_file, indexed_files));
-    let defining_file = module_files.next()?;
-    module_files.next().is_none().then_some(defining_file)
-}
-
-pub(crate) fn python_imported_class_route(
-    caller_file: &str,
-    receiver_type: &str,
-    bindings: Option<&[ImportBinding]>,
-    indexed_files: &BTreeSet<String>,
-    clean_class_spans: &BTreeMap<(String, String), (usize, usize)>,
-    inert_initializers: &BTreeSet<String>,
-) -> PythonImportedClassRoute {
-    let Some(bindings) = bindings else {
-        return PythonImportedClassRoute::NotImported;
-    };
-    let qualified = python_qualified_receiver_parts(receiver_type);
-    let local = qualified
-        .and_then(|(qualifier, _)| qualifier.split('.').next())
-        .unwrap_or(receiver_type);
-    let matching: Vec<_> = bindings
-        .iter()
-        .filter(|binding| binding.local == local)
-        .collect();
-    if matching.is_empty() {
-        return PythonImportedClassRoute::NotImported;
-    }
-    if matching.len() != 1 {
-        return PythonImportedClassRoute::Blocked;
-    }
-    let binding = matching[0];
-    if !binding.eligible {
-        return PythonImportedClassRoute::Blocked;
-    }
-    let (owner, module_path) = match qualified {
-        Some((qualifier, owner))
-            if matches!(binding.kind, ImportBindingKind::ModuleImport)
-                && qualifier == binding.module_path =>
-        {
-            (owner, binding.module_path.clone())
-        }
-        Some((qualifier, owner))
-            if matches!(binding.kind, ImportBindingKind::AliasedModuleImport)
-                && qualifier == binding.local =>
-        {
-            (owner, binding.module_path.clone())
-        }
-        Some((qualifier, owner))
-            if matches!(binding.kind, ImportBindingKind::MemberImport)
-                && qualifier == binding.local =>
-        {
-            let Some(module_path) = python_namespace_submodule_path(
-                binding,
-                caller_file,
-                indexed_files,
-                inert_initializers,
-            ) else {
-                return PythonImportedClassRoute::Blocked;
-            };
-            (owner, module_path)
-        }
-        None if matches!(binding.kind, ImportBindingKind::MemberImport) => {
-            let Some(owner) = binding.member.as_deref() else {
-                return PythonImportedClassRoute::Blocked;
-            };
-            (owner, binding.module_path.clone())
-        }
-        _ => return PythonImportedClassRoute::Blocked,
-    };
-
-    // Count module candidates before consulting the requested class. This
-    // prevents a single-component import from becoming Exact merely because
-    // only one of several same-stem modules happens to declare `owner`.
-    let Some(defining_file) = unique_python_module_file(&module_path, caller_file, indexed_files)
-    else {
-        return PythonImportedClassRoute::Blocked;
-    };
-    if !clean_class_spans.contains_key(&(defining_file.to_string(), owner.to_string())) {
-        return PythonImportedClassRoute::Blocked;
-    }
-    PythonImportedClassRoute::Proven {
-        defining_file: defining_file.to_string(),
-        owner: owner.to_string(),
-    }
-}
-
-pub(crate) fn python_imported_class_proof_keys(
-    import_bindings: &BTreeMap<String, Vec<ImportBinding>>,
-    indexed_files: &BTreeSet<String>,
-    clean_class_spans: &BTreeMap<(String, String), (usize, usize)>,
-    inert_initializers: &BTreeSet<String>,
-) -> BTreeSet<(String, String, String, String)> {
-    let mut proven = BTreeSet::new();
-    for (caller_file, bindings) in import_bindings {
-        for binding in bindings {
-            match binding.kind {
-                ImportBindingKind::MemberImport => {
-                    let receiver_type = binding.local.as_str();
-                    if let PythonImportedClassRoute::Proven {
-                        defining_file,
-                        owner,
-                    } = python_imported_class_route(
-                        caller_file,
-                        receiver_type,
-                        Some(bindings),
-                        indexed_files,
-                        clean_class_spans,
-                        inert_initializers,
-                    ) {
-                        proven.insert((
-                            caller_file.clone(),
-                            receiver_type.to_string(),
-                            defining_file,
-                            owner,
-                        ));
-                    }
-
-                    if !binding.eligible {
-                        continue;
-                    }
-                    let Some(module_path) = python_namespace_submodule_path(
-                        binding,
-                        caller_file,
-                        indexed_files,
-                        inert_initializers,
-                    ) else {
-                        continue;
-                    };
-                    let Some(defining_file) =
-                        unique_python_module_file(&module_path, caller_file, indexed_files)
-                    else {
-                        continue;
-                    };
-                    for (file, owner) in clean_class_spans.keys() {
-                        if file == defining_file {
-                            proven.insert((
-                                caller_file.clone(),
-                                format!("{}.{}", binding.local, owner),
-                                defining_file.clone(),
-                                owner.clone(),
-                            ));
-                        }
-                    }
-                }
-                ImportBindingKind::ModuleImport | ImportBindingKind::AliasedModuleImport
-                    if binding.eligible =>
-                {
-                    let Some(defining_file) =
-                        unique_python_module_file(&binding.module_path, caller_file, indexed_files)
-                    else {
-                        continue;
-                    };
-                    let receiver_prefix =
-                        if matches!(binding.kind, ImportBindingKind::AliasedModuleImport) {
-                            &binding.local
-                        } else {
-                            &binding.module_path
-                        };
-                    for (file, owner) in clean_class_spans.keys() {
-                        if file == defining_file {
-                            proven.insert((
-                                caller_file.clone(),
-                                format!("{receiver_prefix}.{owner}"),
-                                defining_file.clone(),
-                                owner.clone(),
-                            ));
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-    proven
-}
-
 fn python_imported_receiver_types(
     import_bindings: &BTreeMap<String, Vec<ImportBinding>>,
     indexed_files: &BTreeSet<String>,
@@ -6384,9 +6564,135 @@ pub fn resolve_js_ts_relative_module(
         .next()
 }
 
+const JS_TS_MODULE_EXTENSIONS: [&str; 7] = [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ""];
+const JS_TS_INDEX_FILES: [&str; 6] = [
+    "index.js",
+    "index.jsx",
+    "index.mjs",
+    "index.cjs",
+    "index.ts",
+    "index.tsx",
+];
+
 /// Preserve the existing function-import precedence; class identity callers
 /// additionally require candidate cardinality one before consulting a class.
+///
+/// Additive rule (I1): the literal candidate list is returned unchanged
+/// whenever it is non-empty. Only a specifier with no literal candidate falls
+/// through to the normalized form, which (a) resolves bare `.`/`..` and
+/// redundant `//`, `/./`, `/../` segments within the repo root, and (b) maps a
+/// `.js` spelling whose file is not indexed to the same-stem `.ts` then
+/// `.tsx` (the TypeScript ESM convention). `.jsx`/`.mjs`/`.cjs` and `.d.ts`
+/// are not substituted.
 pub(crate) fn js_ts_relative_module_candidates(
+    module_path: &str,
+    caller_file: &str,
+    indexed_files: &BTreeSet<String>,
+) -> Option<Vec<String>> {
+    let literal = js_ts_literal_module_candidates(module_path, caller_file, indexed_files);
+    if literal.as_ref().is_some_and(|found| !found.is_empty()) {
+        return literal;
+    }
+    match js_ts_normalized_module_candidates(module_path, caller_file, indexed_files) {
+        Some(found) if !found.is_empty() => Some(found),
+        _ => literal,
+    }
+}
+
+/// True for the specifier spellings the relative candidate function accepts:
+/// `./x`, `../x`, and the bare directory forms `.` and `..`.
+pub(crate) fn is_js_ts_relative_specifier(module_path: &str) -> bool {
+    let module_path = module_path.trim();
+    module_path == "."
+        || module_path == ".."
+        || module_path.starts_with("./")
+        || module_path.starts_with("../")
+}
+
+fn js_ts_normalized_module_candidates(
+    module_path: &str,
+    caller_file: &str,
+    indexed_files: &BTreeSet<String>,
+) -> Option<Vec<String>> {
+    let module_path = module_path.trim();
+    if !is_js_ts_relative_specifier(module_path) {
+        return None;
+    }
+    let caller_dir = caller_file.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
+    let mut parts: Vec<&str> = if caller_dir.is_empty() {
+        Vec::new()
+    } else {
+        caller_dir.split('/').collect()
+    };
+    let segments: Vec<&str> = module_path.split('/').collect();
+    // `.`, `..`, `./` and `./sub/` name a directory, never a file.
+    let directory_only = matches!(segments.last(), Some(&("" | "." | "..")));
+    for segment in segments {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            name => parts.push(name),
+        }
+    }
+    let target = parts.join("/");
+    let indexed = |candidate: &String| indexed_files.contains(candidate);
+    let mut candidates: Vec<String> = Vec::new();
+    if !directory_only && !target.is_empty() {
+        let has_module_extension = [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]
+            .iter()
+            .any(|ext| target.ends_with(ext));
+        if has_module_extension {
+            // TypeScript order for a spelled extension: the literal file, then
+            // (`.js` only) the emitted-name substitution `.ts` before `.tsx`, never
+            // through a `.d` stem, then the spelling with an extension appended.
+            // The first non-empty tier wins; index files follow below.
+            let literal = Some(target.clone()).filter(indexed);
+            let substituted = target
+                .strip_suffix(".js")
+                .filter(|stem| !stem.is_empty() && !stem.ends_with('/') && !stem.ends_with(".d"))
+                .map(|stem| {
+                    [".ts", ".tsx"]
+                        .iter()
+                        .map(|ext| format!("{stem}{ext}"))
+                        .filter(indexed)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let appended = JS_TS_MODULE_EXTENSIONS
+                .iter()
+                .map(|ext| format!("{target}{ext}"))
+                .filter(indexed)
+                .collect::<Vec<_>>();
+            candidates = literal
+                .map(|file| vec![file])
+                .into_iter()
+                .chain([substituted, appended])
+                .find(|tier| !tier.is_empty())
+                .unwrap_or_default();
+        } else {
+            candidates = JS_TS_MODULE_EXTENSIONS
+                .iter()
+                .map(|ext| format!("{target}{ext}"))
+                .filter(indexed)
+                .collect();
+        }
+    }
+    for index in JS_TS_INDEX_FILES {
+        let candidate = if target.is_empty() {
+            index.to_string()
+        } else {
+            format!("{target}/{index}")
+        };
+        if indexed_files.contains(&candidate) {
+            candidates.push(candidate);
+        }
+    }
+    Some(candidates)
+}
+
+pub(crate) fn js_ts_literal_module_candidates(
     module_path: &str,
     caller_file: &str,
     indexed_files: &BTreeSet<String>,
@@ -6414,7 +6720,7 @@ pub(crate) fn js_ts_relative_module_candidates(
     let base = base_parts.join("/");
     let mut candidates = Vec::new();
 
-    for ext in &[".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ""] {
+    for ext in &JS_TS_MODULE_EXTENSIONS {
         let candidate = if base.is_empty() {
             format!("{rel}{ext}")
         } else {
@@ -6425,14 +6731,7 @@ pub(crate) fn js_ts_relative_module_candidates(
         }
     }
 
-    for index in &[
-        "index.js",
-        "index.jsx",
-        "index.mjs",
-        "index.cjs",
-        "index.ts",
-        "index.tsx",
-    ] {
+    for index in &JS_TS_INDEX_FILES {
         let candidate = if base.is_empty() {
             format!("{rel}/{index}")
         } else {

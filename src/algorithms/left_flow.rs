@@ -63,7 +63,7 @@ pub fn left_flow_core(
     }
 
     // Check whether the CPG has DFG edges we can use.
-    let has_dfg = !ctx.cpg.dfg.edges.is_empty();
+    let has_dfg = !ctx.cpg.dfg.edges().is_empty();
 
     // Phase 1: Trace L-values (assignment targets)
     //
@@ -143,6 +143,16 @@ pub fn left_flow_core(
     if has_dfg {
         let cond_vars = parsed.condition_variables_on_lines(func_node, lines);
         let mut dfg_covered_conds: BTreeSet<String> = BTreeSet::new();
+        // Condition variables with a Use that is a field read of their own callable's
+        // member-only formal (a direct projection edge from its projection-only base
+        // Def), and those with any other Use. A variable whose condition Uses are ALL
+        // projection reads had no Use node before #390 and took the name fallback
+        // below (every `p` line); it keeps that decision, and its bounded DFG leg stops
+        // at the base Def instead of walking through `p`'s projections to locals
+        // derived from sibling fields. Any other Use (a call argument `f(p.x)`, an
+        // assignment RHS) existed before #390 and keeps the DFG answer.
+        let mut projection_read_conds: BTreeSet<String> = BTreeSet::new();
+        let mut plain_read_conds: BTreeSet<String> = BTreeSet::new();
 
         for (var_name, cond_line) in &cond_vars {
             // Find Use nodes at the condition line matching this variable
@@ -161,7 +171,16 @@ pub fn left_flow_core(
                     }
                     if let Some(var_loc) = ctx.cpg.to_var_location(idx) {
                         // Backward: find where this condition variable is defined
-                        let defs = ctx.cpg.dfg_backward_reachable(&var_loc);
+                        let (defs, seeds) = ctx.cpg.dfg_backward_reachable_bounded(&var_loc);
+                        // Only the condition's own member-only formal (a direct
+                        // projection edge into this Use) counts as a projection read; a
+                        // projection-only Def reached through an argument edge into
+                        // another callable does not (the bounded seeds already stop there).
+                        if ctx.cpg.dfg_use_reads_projection_only_def(&var_loc) {
+                            projection_read_conds.insert(var_name.clone());
+                        } else {
+                            plain_read_conds.insert(var_name.clone());
+                        }
                         for def_loc in &defs {
                             if def_loc.file == file_path
                                 && def_loc.line >= func_start
@@ -169,7 +188,12 @@ pub fn left_flow_core(
                             {
                                 slice_lines.entry(def_loc.line).or_insert(false);
                             }
-                            // Forward from each def: find all uses of this variable
+                        }
+                        // Forward from each def: find all uses of this variable. As in
+                        // FullFlow, never expand out of a member-only formal's
+                        // projection-only base Def (or anything upstream of it): that
+                        // carries an `if (p.x)` seed to `p.y` and to locals derived from it.
+                        for def_loc in &seeds {
                             let uses = ctx.cpg.dfg_forward_reachable(def_loc);
                             for use_loc in &uses {
                                 if use_loc.file == file_path
@@ -192,7 +216,9 @@ pub fn left_flow_core(
 
         // Fallback for condition variables not covered by DFG
         for (var_name, _) in &cond_vars {
-            if dfg_covered_conds.contains(var_name) {
+            let projection_cut =
+                projection_read_conds.contains(var_name) && !plain_read_conds.contains(var_name);
+            if dfg_covered_conds.contains(var_name) && !projection_cut {
                 continue;
             }
             fallback_evidence.push(EvidencePath::unlabeled_for(algorithm));

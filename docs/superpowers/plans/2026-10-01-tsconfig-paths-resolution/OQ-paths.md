@@ -1,0 +1,32 @@
+# Lane P owner questions
+
+READ: D5 approved this planning lane, Exact is static binding, Option K preserves base on unproven positions, and numeric LOC caps are abolished. The answers below remain placeholders; recommendations are ASSUMPTION, not owner rulings. Prototype work is already authorized by the planning brief.
+
+| ID | Question | Recommendation (ASSUMPTION) | Alternative / tradeoff | Owner answer |
+|---|---|---|---|---|
+| OQ1 | Approve P1’s finite scope and conservative cuts: Node10 configs, singleton paths substitutions, exact/single-wildcard keys, local single-parent extends, named/default ESM members; tied patterns, candidate competition, package boundary and unsupported syntax preserve the complete base row? | Yes. MEASURED: 3,121 correct X edges, 99.68% of the oracle’s 3,131 callable alias candidates; R/T 0. READ controller-supplied prior F is 2,345/3,102 (75.60%), leaving 757 unexplained under the old denominator. Fresh F uses Node10-only recoverability and an aggregates-only refusal histogram; its new denominator/yield are pending. Unknown dotted suffixes are now supported, with zero final X count cost. | Implement complete TypeScript resolution now: ordered substitutions, NodeNext, package exports and references add separate precedence/ownership proof surfaces with 0 measured public alias yield. | __OWNER_OQ1__ |
+| OQ2 | Which project defines static binding when a nearer config excludes the file but reaches it transitively, and an ancestor root-file program disagrees? | Controller round-2 threshold selected **Fix A**: excluding tsconfig blocks only with same-directory jsconfig or disableSolutionSearching; ordinary excluded/not-listed configs may fall through. **Fix B** would refuse every such nearer config, costing **89 X gains** (94 module-admitted alias sites; 102 root-model sites), so it was halted before implementation. ProjectService supplies independent oracle ownership; any root-file disagreement is UNPROVEN. S6 is an owner question, not closed. | Adopt Fix B with its measured yield cost, or define which building/editor/root-file project has authority. Two real programs can disagree; the planner has not accepted wrong or unproven changed rows as correct. | __OWNER_OQ2__ |
+| OQ3 | Must fresh F aggregates be folded before P1 implementation dispatch? | Yes. Controller runs the provided script; fold only aggregates. Prior F 2,345/3,102 is controller-supplied, not planner-measured; the revised binary and oracle require fresh controller aggregates. | Dispatch using public evidence first, explicitly leaving F acceptance open. Saves controller latency but cannot certify the private corpus. | __OWNER_OQ3__ |
+| OQ4 | After P1, should P2 be parked unless F supplies material incremental yield? | Yes. Public MEASURED yield is 0 for bare baseUrl, non-relative .js→.ts, references and package/workspace routes. Re-measure each future mechanism before authorizing it. | Authorize a general resolver lane now for API completeness, with broader cost and review surface despite no public measured gain. | __OWNER_OQ4__ |
+
+READ: no question asks to redefine Exact or to reopen Option K. READ: cache numbers on this bound base are CPG 104 and nav 60; prototype uses 105/61. If the implementation parent changes, bind that revision, use its actual versions +1 and re-run the controls and corpus comparisons. No stale approval transfers across that change.
+
+## Controller interim dispositions (2026-10-01; the owner is asleep, so the owner answer slots above stay open)
+
+The owner authorized overnight orchestration, including scope cuts and splits. The positions below let planning and review continue. Each one is **pending owner confirmation**, and none redefines Exact or Option K.
+- **OQ1: proceed with the recommended finite P1 scope.** It is a scope cut that preserves base on everything outside it, so no new accepted cost.
+- **OQ2: historical interim root-file model, now amended by the round-2 Fix A threshold disposition above.** Transitive disagreements remain an explicit owner question.
+- **OQ3: yes.** The controller runs `CONTROLLER-paths.sh` and folds the F aggregates before the P1 implementation dispatch.
+- **OQ4: P2 is parked** until a re-measurement shows yield. That is a scheduling position; the owner decides any later lane.
+
+## Round-1 controller dispositions folded
+
+READ: W1 uses TypeScript root-file membership on the bounded supported patterns, with same-stem/declaration ambiguity, package-folder wildcard ownership, non-ASCII wildcard membership and case disagreement refused; exact explicit files bypass wildcard cuts. The final public cost of these extra cuts is zero X/R/T changed rows. W2 refuses alias exports past skipped stars while preserving base relative routes. S1 barriers apply now as Option K; S2 includes the F gap, scope-aware oracle and aggregate reasons; S3 adds controls/mutants; S4 narrows topology; S5 trims all relative classifications while keeping raw alias keys distinct. No finding is downgraded. If independent round 2 finds more membership mismatches, classify that family as open-class and switch to refuse-on-any-doubt instead of adding piecemeal semantics.
+
+## Round-2 controller dispositions at the cap
+
+READ: supplied spec-r2-opus.md is FIX (2 WRONG / 4 SMELL). Controller authorizes a disclosed targeted fold, with no new review round or restart. W1-r2 is covered by refuse-on-doubt matcher barriers and a mutant per barrier. W3 uses Fix A because pre-fold Fix B would remove 89 X gained rows; 8 original gained controls also rely on fall-through. S6 stays open under OQ2. S7 oracle ownership comes from getDefaultProjectForFile; root-file selection is only a cross-check. S8 dispatch starts at proto/tsconfig-paths-final with the controller's new SHA and parent e61d52b8. S9 independently identifies import-forward terminal classes and reports member writes as detail codes. F is controller-only and remains pending.
+
+## Post-cap W1 residual disposition
+
+READ: spec-confirm-opus.md found one residual WRONG; user authorized a generic TypeScript extension-priority table fold, controls including scenario O, two mutants and complete requested remeasurement. This is a closed targeted correction with no restart or additional review round. Current cumulative body has 40 paths and must receive a fresh controller commit/binary/F binding. Existing S6/OQ2 authority remains open; no private input was opened. Current receipts and counts are in BUILD-MANIFEST and MEASUREMENTS.

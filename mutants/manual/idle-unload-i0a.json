@@ -1,0 +1,274 @@
+{
+  "manual_only": true,
+  "features": [
+    "mcp"
+  ],
+  "mutants": [
+    {
+      "id": "I0-unload-mid-request",
+      "selector": "mcp::idle_runtime::tests::idle_never_interrupts_request",
+      "description": "Remove both active-lease guards so timer detaches an in-use session.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": " || self.active.get() != 0",
+          "new": ""
+        },
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        if self.active.get() != 0 {\n            return;\n        }\n",
+          "new": ""
+        }
+      ]
+    },
+    {
+      "id": "I0-never-unloads",
+      "selector": "mcp::idle_runtime::tests::idle_releases_whole_session",
+      "description": "Never pass the timer deadline check; the resident provider remains pinned.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        if now < deadline {",
+          "new": "        if now >= deadline || now < deadline {"
+        }
+      ]
+    },
+    {
+      "id": "I0-reload-skips-freshness",
+      "selector": "mcp::idle_runtime::tests::idle_reload_rechecks_freshness",
+      "description": "Fault injection retains the old provider and re-publishes it on demand instead of calling bootstrap. The unchanged cycle still works; an unloaded source edit exposes stale source/freshness.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        self.disposing = true;\n        self.disposal_deadline = None;\n        let tx = self.tx.clone();\n        let log = self.log.clone();\n        let relief = self.policy.pressure_relief;\n        let mut unload = log.record(\n            \"unload\",\n            \"complete\",\n            detached.elapsed(),\n            Some(last_published),\n            0,\n        );\n        unload.details.sidecar = sidecar;\n        let release = self.release.take().map(|(time, attempt, generation)| {\n            let mut e = log.record(\n                \"last_release\",\n                \"complete\",\n                Duration::ZERO,\n                Some(last_published),\n                0,\n            );\n            e.time = time;\n            e.attempt = attempt;\n            e.generation = generation;\n            e\n        });\n        #[cfg(test)]\n        let before_dispose = self.before_dispose.clone();\n        std::thread::spawn(move || {\n            let started = Instant::now();\n            let start = log.record(\n                \"disposal_start\",\n                \"complete\",\n                Duration::ZERO,\n                Some(last_published),\n                0,\n            );\n            #[cfg(test)]\n            if let Some(hook) = before_dispose {\n                hook();\n            }\n            drop(provider); // whole session, including sticky diagnostics and lazy edge storage\n            let end = log.record(\n                \"disposal_end\",\n                \"complete\",\n                started.elapsed(),\n                Some(last_published),\n                0,\n            );\n            let (pair, released, duration) = relief_pair(relief, &log.context);\n            let mut relief = log.record(\n                \"relief\",\n                \"complete\",\n                duration,\n                Some(last_published),\n                released,\n            );\n            relief.details.pair = Some(pair);\n            log.write(start);\n            log.write(end);\n            log.write(relief);\n            let _ = tx.send(Event::Disposed);\n        });\n        // Ownership has been transferred; emit both records under the same stderr lock.\n        let mut lines = Vec::new();\n        if let Some(e) = release {\n            lines.push(self.log.format(&e));\n        }\n        lines.push(self.log.format(&unload));\n        self.log.context.emit_lines(&lines);",
+          "new": "        self.provider = Some(provider); // MUTANT: retained old snapshot\n"
+        },
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        let builder = self.builder.clone();",
+          "new": "        if let Some(provider) = self.provider.take() {\n            self.phase = Phase::Building { started: (self.clock)(), deadline: None };\n            self.accept(Event::Built { result: Ok(provider), finished_at: (self.clock)() });\n            return;\n        }\n        let builder = self.builder.clone();"
+        }
+      ]
+    },
+    {
+      "id": "I0-uncollected-build-pinned",
+      "selector": "mcp::idle_runtime::tests::idle_releases_uncollected_build",
+      "description": "Collect result but omit the Ready transition, leaving a completed build classified busy.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                        self.phase = Phase::Ready;",
+          "new": "                        // MUTANT: completed build remains classified Building"
+        }
+      ],
+      "supplemental_selectors": [
+        "mcp::idle_runtime::tests::idle_warming_retry_success",
+        "mcp::idle_stdio::tests::idle_stdio_warming_retry_success"
+      ]
+    },
+    {
+      "id": "I0-disposal-on-owner",
+      "selector": "mcp::idle_runtime::tests::idle_disposal_runs_off_loop_and_blocks_reload",
+      "description": "Remove only the short-lived worker wrapper; destruction executes synchronously on owner.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        std::thread::spawn(move || {\n            let started = Instant::now();\n            let start = log.record(\n                \"disposal_start\",\n                \"complete\",\n                Duration::ZERO,\n                Some(last_published),\n                0,\n            );\n            #[cfg(test)]\n            if let Some(hook) = before_dispose {\n                hook();\n            }\n            drop(provider); // whole session, including sticky diagnostics and lazy edge storage\n            let end = log.record(\n                \"disposal_end\",\n                \"complete\",\n                started.elapsed(),\n                Some(last_published),\n                0,\n            );\n            let (pair, released, duration) = relief_pair(relief, &log.context);\n            let mut relief = log.record(\n                \"relief\",\n                \"complete\",\n                duration,\n                Some(last_published),\n                released,\n            );\n            relief.details.pair = Some(pair);\n            log.write(start);\n            log.write(end);\n            log.write(relief);\n            let _ = tx.send(Event::Disposed);\n        });",
+          "new": "        {\n            let started = Instant::now();\n            let start = log.record(\n                \"disposal_start\",\n                \"complete\",\n                Duration::ZERO,\n                Some(last_published),\n                0,\n            );\n            #[cfg(test)]\n            if let Some(hook) = before_dispose {\n                hook();\n            }\n            drop(provider); // whole session, including sticky diagnostics and lazy edge storage\n            let end = log.record(\n                \"disposal_end\",\n                \"complete\",\n                started.elapsed(),\n                Some(last_published),\n                0,\n            );\n            let (pair, released, duration) = relief_pair(relief, &log.context);\n            let mut relief = log.record(\n                \"relief\",\n                \"complete\",\n                duration,\n                Some(last_published),\n                released,\n            );\n            relief.details.pair = Some(pair);\n            log.write(start);\n            log.write(end);\n            log.write(relief);\n            let _ = tx.send(Event::Disposed);\n        }"
+        }
+      ]
+    },
+    {
+      "id": "I0-autonomous-failure-heard",
+      "selector": "mcp::idle_runtime::tests::idle_unheard_failure",
+      "description": "Mark failure as already heard, causing next call to retry instead of reporting.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                            heard: false,",
+          "new": "                            heard: true,"
+        }
+      ]
+    },
+    {
+      "id": "I0-reset-generation",
+      "selector": "mcp::idle_runtime::tests::idle_reload_rechecks_freshness",
+      "description": "Remove generation continuity on reload.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                            provider.resume_idle_generation(previous);",
+          "new": "                            let _ = previous;"
+        }
+      ]
+    },
+    {
+      "id": "I0-collection-clock",
+      "selector": "mcp::idle_runtime::tests::idle_pending_input_and_finished_at_clock",
+      "description": "Use collection time instead of completion time.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                        self.published_at = Some(finished_at);",
+          "new": "                        self.published_at = Some((self.clock)());"
+        }
+      ]
+    },
+    {
+      "id": "I0-policy-default-on",
+      "selector": "mcp::idle_route_tests::idle_default_and_library_run_route_legacy",
+      "description": "Re-enable I0 for absent settings; both entry-point policies must select legacy by default.",
+      "edits": [
+        {
+          "file": "src/mcp/idle.rs",
+          "old": "                None => Duration::ZERO,",
+          "new": "                None => Duration::from_secs(PROVISIONAL_IDLE_SECS),"
+        }
+      ]
+    },
+    {
+      "id": "I0-disposal-ignores-zero-wait",
+      "selector": "mcp::idle_runtime::tests::idle_zero_wait_during_disposal_returns_warming",
+      "description": "Remove the new disposal deadline handling, restoring an unconditional recv.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                let now = (self.clock)();\n                let deadline = *self.disposal_deadline.get_or_insert(now + self.wait);\n                match self\n                    .rx\n                    .recv_timeout(deadline.saturating_duration_since(now))\n                {\n                    Ok(event) => self.accept(event),\n                    // No build has started yet, so its elapsed time is still zero.\n                    Err(_) => {\n                        // A timed-out call cannot spend a later call's reload budget.\n                        self.disposal_deadline.take();\n                        return Readiness::Warming {\n                            elapsed: Duration::ZERO,\n                        };\n                    }\n                }\n",
+          "new": "                if let Ok(event) = self.rx.recv() {\n                    self.accept(event);\n                }\n"
+        }
+      ]
+    },
+    {
+      "id": "I0-late-result-leaked",
+      "selector": "mcp::idle_stdio::tests::idle_stdio_eof_disposes_late_build",
+      "description": "Leak the rejected completion after the EOF owner has retired.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "            let _ = tx.send(Event::Built {\n                result,\n                finished_at,\n            });",
+          "new": "            if let Err(late) = tx.send(Event::Built {\n                result,\n                finished_at,\n            }) {\n                std::mem::forget(late); // MUTANT: pin a late result after EOF\n            }"
+        }
+      ]
+    },
+    {
+      "id": "I0-warming-elapsed-before-wait",
+      "selector": "mcp::idle_runtime::fix_tests::idle_warming_elapsed_includes_blocked_wait",
+      "description": "Sample elapsed before waiting, removing only the W2 freshness correction.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "elapsed: (self.clock)().saturating_duration_since(started),",
+          "new": "elapsed: now.saturating_duration_since(started),"
+        }
+      ]
+    },
+    {
+      "id": "I0-stale-disposal-deadline",
+      "selector": "mcp::idle_runtime::fix_tests::idle_disposal_timeout_gives_next_call_full_wait",
+      "description": "Remove timeout disposal_deadline.take(); later demand inherits an exhausted budget.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "                        self.disposal_deadline.take();\n",
+          "new": ""
+        }
+      ]
+    },
+    {
+      "id": "I0-stdio-lease-after-dispatch",
+      "selector": "mcp::idle_runtime::fix_tests::idle_stdio_production_lease_and_release_clock",
+      "description": "Move the actual production admission lease after readiness and dispatch.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_stdio.rs",
+          "old": "                        let lease = rt.activity();\n                        let response = transport::dispatch_tool(&call, &mut rt, settings);",
+          "new": "                        let response = transport::dispatch_tool(&call, &mut rt, settings);\n                        let lease = rt.activity();"
+        }
+      ]
+    },
+    {
+      "id": "I0-stdio-release-before-response",
+      "selector": "mcp::idle_runtime::fix_tests::idle_stdio_production_lease_and_release_clock",
+      "description": "Release production lease before constructing the owned response; last-release clock is stale.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_stdio.rs",
+          "old": "                        let response = transport::dispatch_tool(&call, &mut rt, settings);\n                        drop(lease); // release after the owned response and before stdout",
+          "new": "                        drop(lease);\n                        let response = transport::dispatch_tool(&call, &mut rt, settings);"
+        }
+      ]
+    },
+    {
+      "id": "I0-first-build-logged-reload",
+      "selector": "mcp::idle_runtime::fix_tests::idle_lifecycle_log_names_build_and_configured_timeout",
+      "description": "Undo initial-build event naming.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "            \"build\"\n",
+          "new": "            \"reload\"\n"
+        }
+      ]
+    },
+    {
+      "id": "I0-configured-timeout-mislabeled",
+      "selector": "mcp::idle_runtime::fix_tests::idle_lifecycle_log_names_build_and_configured_timeout",
+      "description": "Undo configured timeout field naming.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "configured_idle_secs={:.3}",
+          "new": "idle_minutes={:.3}"
+        }
+      ]
+    },
+    {
+      "id": "I0-background-instructions-startup-only",
+      "selector": "mcp::idle_stdio::tests::idle_stdio_background_instructions_explain_demand_reload",
+      "description": "Remove enabled-loop reload wording, leaving Background initialize startup-only.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_stdio.rs",
+          "old": "                        if rt.startup_mode() == super::StartupMode::Background {\n                            if let Some(Value::String(text)) =\n                                value.pointer_mut(\"/result/instructions\")\n                            {\n                                *text = text.replace(\"started at server startup\", \"started at server startup or by the first tool call after an idle unload\");\n                            }\n                        }\n",
+          "new": ""
+        }
+      ]
+    },
+    {
+      "id": "I0-pressure-relief-silent",
+      "selector": "mcp::idle_runtime::fix_tests::idle_pressure_relief_unused_note",
+      "description": "Silence unused experimental-arm warning.",
+      "edits": [
+        {
+          "file": "src/mcp/idle.rs",
+          "old": "(requested && (self.timeout.is_none() || !cfg!(target_os = \"macos\")))",
+          "new": "(false && requested && (self.timeout.is_none() || !cfg!(target_os = \"macos\")))"
+        }
+      ]
+    },
+    {
+      "id": "I0-disposal-budget-reset",
+      "selector": "mcp::idle_runtime::fix_tests::idle_disposal_and_build_share_current_call_budget",
+      "description": "Replace spawn disposal_deadline.take() with None: reset the remaining wait budget within the same call.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "            deadline: self.disposal_deadline.take(),",
+          "new": "            deadline: None,"
+        }
+      ]
+    },
+    {
+      "id": "I0-stdio-release-clock-stale",
+      "selector": "mcp::idle_runtime::fix_tests::idle_stdio_production_lease_and_release_clock",
+      "description": "Remove activity release clock stamp; production writer sees the old publication/admission clock.",
+      "edits": [
+        {
+          "file": "src/mcp/idle_runtime.rs",
+          "old": "        self.last_release.set(at);\n",
+          "new": ""
+        }
+      ]
+    }
+  ]
+}

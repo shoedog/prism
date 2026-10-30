@@ -1,0 +1,16 @@
+9c2d402e034de290a5f7d7214b3fca361eafe45afb9b54bc71d3117527313c49  docs/eval/post316-slice1/evidence/base-red-first-error.log
+9a8dd5886b699eb0bbf8bd6192ff8e9da8d12f6ac03a66e3ec5719b876f8d150  docs/eval/post316-slice1/evidence/base-red-invalid-compile.log
+bfc9a566307bf39e4251c826f583f0ef7dfbd0161804d29b6b548f145585ecf4  docs/eval/post316-slice1/evidence/base-red.log
+8d6735b31e7724569c0d15ff4856a04ccd994f6ba8d51a3b97e270e96868d85d  docs/eval/post316-slice1/evidence/c07-pre-guard-red-first-error.log
+06a37c0e4f61085201a51a8931670b3c8059ff4c769fefa4ea19fd821d68f7f0  docs/eval/post316-slice1/evidence/c07-pre-guard-red.log
+086eaefa4bfd5464fc6c66714f8767ecc58c5996b7d7b304899bd6c65150d56e  docs/eval/post316-slice1/evidence/cache-cpg-old-reject.log
+494583336803efb820fafd4c03c82617a00857b67b6c702a7f2a864f395e5298  docs/eval/post316-slice1/evidence/cache-cpg-pin.log
+b478bd8f828a6797e27f9f7462889d5cc896e98161a92498e55e121d47ed4112  docs/eval/post316-slice1/evidence/cache-green-invalid-cli.log
+ffc655f9440ed0256758f89ab1702f0cc51baa0c3fea61b240bd63fd0afd21f8  docs/eval/post316-slice1/evidence/cache-nav-old-reject.log
+4d7e6b6c53ed1ac2f22c9b644ea2a4034541391e8ba6d6eeec8bd10eee020382  docs/eval/post316-slice1/evidence/cache-nav-pin.log
+02257810952eae82dede9bab2659a4f8a9009d5d35bfbcae82d770f4d827782e  docs/eval/post316-slice1/evidence/focused-green-attempt1.log
+d39fc5ee3a3b6e2bab24dd2a657e4ef8ce3ca17977ff900a2d9e3b8ceaf2c59d  docs/eval/post316-slice1/evidence/focused-green.log
+dab8d5f38c295a315c11fbcf189d69045ceaf93d2b64fd6fac553d1589ded800  docs/eval/post316-slice1/evidence/focused-green.patch
+83d06453b32cc1a60050c7e6e505ea737cf352ee4868583d7c72e4a8a11f9039  docs/eval/post316-slice1/evidence/focused-green.sha256
+5ac1c2b4104ace6515be7ef447f955485952a79e6f043770ca8939fa61ca177e  docs/eval/post316-slice1/evidence/navigation-green.log
+6318c508f99791cc1dfc2c4fdc62e6635c1f5788ad311fd7e1955321775e181e  docs/eval/post316-slice1/evidence/reviewer-freeze.patch

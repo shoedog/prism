@@ -1,0 +1,61 @@
+{
+  "mutations": {
+    "RR-01-restore-per-introduction-inventory": [
+      "src/cpg/reaching/scope.rs",
+      "let parameters = root.parameters(parsed);",
+      "let parameters = parsed.find_parameters_node(&parsed.all_functions().into_iter().find(|function| function.id() == root.function.id()).expect(\"root function must remain indexed\"));",
+      "cpg::reaching::work_tests::root_inventory_cost_is_constant_per_owner"
+    ],
+    "RR-02-drop-cached-parameter-region": [
+      "src/cpg/reaching/scope.rs",
+      "parsed.find_parameters_node(&self.function)",
+      "None",
+      "cpg::reaching::scope::reuse_tests::root_parameters_match_main_inventory_and_classification"
+    ],
+    "RR-03-broaden-bare-arrow-parameter-region": [
+      "src/cpg/reaching/scope.rs",
+      "parsed.find_parameters_node(&self.function)",
+      "parsed.parameter_binding_region(&self.function)",
+      "cpg::reaching::scope::reuse_tests::bare_arrow_keeps_the_original_absent_parameter_region"
+    ],
+    "RR-05-disable-parameter-classification": [
+      "src/cpg/reaching/scope.rs",
+      "if parameters.is_some_and(|parameters| {",
+      "if false && parameters.is_some_and(|parameters| {",
+      "cpg::reaching::scope::reuse_tests::root_parameters_match_main_inventory_and_classification"
+    ],
+    "RR-04-replace-exact-root-with-parent": [
+      "src/cpg/reaching/scope.rs",
+      "Self {\n            function,",
+      "Self {\n            function: function.parent().unwrap_or(function),",
+      "cpg::reaching::scope::reuse_tests::root_parameters_match_main_inventory_and_classification"
+    ],
+    "RR-06-restore-eager-parameter-discovery": [
+      "src/cpg/reaching/scope.rs",
+      "parameters: OnceCell::new(),",
+      "parameters: OnceCell::from({\n                #[cfg(test)]\n                super::work_tests::bump(|counts| counts.parameter_queries += 1);\n                parsed.find_parameters_node(&function)\n            }),",
+      "cpg::reaching::work_tests::zero_introductions_do_not_query_parameters"
+    ],
+    "RR-07-do-not-cache-absent-parameters": [
+      "src/cpg/reaching/scope.rs",
+      "*self.parameters.get_or_init(|| {\n            #[cfg(test)]\n            super::work_tests::bump(|counts| counts.parameter_queries += 1);\n            // Cache absence too; preserve bare-arrow semantics.\n            parsed.find_parameters_node(&self.function)\n        })",
+      "if let Some(parameters) = self.parameters.get() { return *parameters; }\n        #[cfg(test)]\n        super::work_tests::bump(|counts| counts.parameter_queries += 1);\n        let parameters = parsed.find_parameters_node(&self.function);\n        if parameters.is_some() { let _ = self.parameters.set(parameters); }\n        parameters",
+      "cpg::reaching::work_tests::absent_parameters_are_cached_across_introductions"
+    ],
+    "RR-08-remove-indexed-root-tripwire": [
+      "src/cpg/reaching/scope.rs",
+      "debug_assert!(\n            parsed\n                .all_functions()\n                .iter()\n                .any(|f| f.id() == function.id()),\n            \"root function must remain indexed\"\n        );",
+      "debug_assert!(true);",
+      "cpg::reaching::scope::reuse_tests::unindexed_root_trips_debug_invariant"
+    ],
+    "RR-09-record-without-enabling": [
+      "src/cpg/reaching/work_tests.rs",
+      "if !RECORDING.with(Cell::get) {",
+      "if false && !RECORDING.with(Cell::get) {",
+      "cpg::reaching::work_tests::ordinary_passes_do_not_record"
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::reaching::"
+  ]
+}

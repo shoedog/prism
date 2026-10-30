@@ -1,0 +1,853 @@
+{
+  "rows": [
+    {
+      "id": "I01-no-config-fingerprint",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I02-no-post-merge-map",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I03-no-span-requirement",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I04-no-binding-position-guard",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I05-no-skipped-star-guard",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I06-all-file-occupancy",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I07-no-proven-empty-facts",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I08-no-opaque-star-guard",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I09-ignore-skipped-declaration-name",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I10-trim-alias-cache-key",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I11-taint-namespace-terminal",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I12-legacy-alias-hop-table",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I13-no-probe-occupancy",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I14-last-config-wins",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I15-no-js-hop-cut",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I16-no-config-types-cut",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I17-no-project-reference-cut",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I18-no-ambient-content-hash",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I19-no-ambient-read-occupancy",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I20-no-js-module-cut",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I21-no-typeRoots-coverage",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I22-no-reference-path-arm",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I23-no-reference-types-arm",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I24-no-reference-closure",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I27-global-export-priming",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I28-no-reachable-export-priming",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I29-no-package-types",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I30-no-package-typings",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I31-no-package-typesVersions",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I32-broad-package-exports-cut",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I34-absent-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I35-no-installed-ambient",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I36-all-wildcards-match",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I37-outside-is-absent",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I38-no-secondary-type-lookup",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I39-no-first-pass-dependencies",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I40-restore-blanket-JS-cut",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I41-no-node-file",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I42-no-node-index",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I43-no-at-types",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I44-no-module-types",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I45-no-module-typings",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I46-no-module-versions",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I47-no-module-typeRoots",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I48-no-module-main",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I49-no-JS-object-order",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I50-no-last-duplicate-value",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I51-range-u64-overflow",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I52-relative-only-package-field",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I53-relative-only-version-substitution",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I54-remap-out-of-package-entry",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I55-truthy-empty-exact-key",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I56-no-paths-first-pass",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I57-Rust-version-whitespace",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I58-no-root-file-boundary",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I59-no-physical-absence",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I61-ancestor-named-types",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I66-uppercase-suffix",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I67-candidate-fold",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I68-bin-exclusion",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I69-git-exclusion",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I71-internal-link",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I72-large-source-bound",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I73-declare-prefilter",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I74-tolerant-literal-exclusion",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I78-canonical-dedupe",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I79-byte-budget",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I80-unknown-volume",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "I81-unicode-fold",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "I82-entry-budget",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "R4-01-unread-metadata-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-02-outside-link-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-03-non-source-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-04-non-utf8-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "R4-05-malformed-wildcard",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-06-skipped-type-unsafe",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-07-opaque-package-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-08-dropped-import-decline",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-09-dropped-ancestor-decline",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-10-skip-counter",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "R4-11-unread-file-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-12-unread-dir-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-13-non-regular-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-14-non-utf8-path-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-15-duplicate-scan-inventory",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-16-duplicate-fold-inventory",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "R4-17-no-canonical-case-collision",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "R4-18-unread-walk-declines",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-19-duplicate-file-coverage",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-20-duplicate-indexed-read-receipt",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    },
+    {
+      "id": "R4-21-drop-valid-redirect-with-malformed-sibling",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "R4-22-project-all-modules",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "schema+text",
+      "equal": true
+    },
+    {
+      "id": "R4-23-project-wrong-allowjs-roots",
+      "text": "KILLED",
+      "schema": "KILLED",
+      "text_admissible": true,
+      "schema_admissible": true,
+      "schema_execution": "text",
+      "equal": true
+    }
+  ],
+  "compared": 93,
+  "differences": [],
+  "wall_seconds": {
+    "text": 724.59,
+    "schema": 733.28
+  },
+  "source_baseline_selectors": {
+    "text": 54,
+    "schema": 54
+  },
+  "schema_baseline_selectors": 54,
+  "schema_candidates": 27
+}

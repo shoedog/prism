@@ -1,0 +1,134 @@
+..........................F..usage: mutgate [-h] [--lane LANE] [--only ONLY] [--since SINCE]
+               [--scope {line,fn,file}] [--mode {schema,text}] [--jobs JOBS]
+               [--timeout TIMEOUT] [--out OUT] [--plan-only]
+mutgate: error: unrecognized arguments: --authoritative
+E.....................
+======================================================================
+ERROR: test_schema_without_scope_and_authoritative_schema_are_rejected (scripts.mutgate.test_mutgate.GateRegressionTests) (flags=('--jobs', '0'))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 288, in test_schema_without_scope_and_authoritative_schema_are_rejected
+    status, _ = self.gate(source, mutation, flags=flags)
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 251, in gate
+    status = mutgate.main()
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/evidence/repair-r3/base-mutgate.py.txt", line 611, in main
+    t = time.monotonic(); base = baseline(eligible, exes, target, a.timeout, a.jobs)
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/evidence/repair-r3/base-mutgate.py.txt", line 547, in baseline
+    with cf.ThreadPoolExecutor(jobs) as ex:
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/concurrent/futures/thread.py", line 138, in __init__
+    raise ValueError("max_workers must be greater than 0")
+ValueError: max_workers must be greater than 0
+
+======================================================================
+ERROR: test_scoped_default_is_advisory_and_explicit_text_is_authoritative (scripts.mutgate.test_mutgate.GateRegressionTests) (mode=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 298, in test_scoped_default_is_advisory_and_explicit_text_is_authoritative
+    self.assertEqual(summary['authoritative'], mode == 'text')
+KeyError: 'authoritative'
+
+======================================================================
+ERROR: test_scoped_default_is_advisory_and_explicit_text_is_authoritative (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='text')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 298, in test_scoped_default_is_advisory_and_explicit_text_is_authoritative
+    self.assertEqual(summary['authoritative'], mode == 'text')
+KeyError: 'authoritative'
+
+======================================================================
+ERROR: test_seed_failure_refuses_entire_population_and_cleans_workers (scripts.mutgate.test_mutgate.GateRegressionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 324, in test_seed_failure_refuses_entire_population_and_cleans_workers
+    with patch.object(mutgate, 'seed_target', side_effect=OSError('seed refused')):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py", line 1405, in __enter__
+    original, local = self.get_original()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/unittest/mock.py", line 1378, in get_original
+    raise AttributeError(
+AttributeError: <module 'mutgate_r2_control' from '/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/evidence/repair-r3/base-mutgate.py.txt'> does not have the attribute 'seed_target'
+
+======================================================================
+ERROR: test_copy_and_failed_clone_fallback_are_private_and_exclude_workers (scripts.mutgate.test_mutgate.WorkerSeedTests) (platform='linux')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 512, in test_copy_and_failed_clone_fallback_are_private_and_exclude_workers
+    self.assertEqual(mutgate.seed_target(source, target), 'copy')
+AttributeError: module 'mutgate_r2_control' has no attribute 'seed_target'
+
+======================================================================
+ERROR: test_copy_and_failed_clone_fallback_are_private_and_exclude_workers (scripts.mutgate.test_mutgate.WorkerSeedTests) (platform='darwin')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 512, in test_copy_and_failed_clone_fallback_are_private_and_exclude_workers
+    self.assertEqual(mutgate.seed_target(source, target), 'copy')
+AttributeError: module 'mutgate_r2_control' has no attribute 'seed_target'
+
+======================================================================
+FAIL: test_parallel_text_workers_have_private_trees_targets_and_cleanup (scripts.mutgate.test_mutgate.GateRegressionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 312, in test_parallel_text_workers_have_private_trees_targets_and_cleanup
+    self.assertEqual(len({target for _, target, _ in worker_builds}), 2)
+AssertionError: 1 != 2
+
+======================================================================
+FAIL: test_schema_without_scope_and_authoritative_schema_are_rejected (scripts.mutgate.test_mutgate.GateRegressionTests) (flags=('--mode', 'schema'))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 289, in test_schema_without_scope_and_authoritative_schema_are_rejected
+    self.assertEqual(status, 2)
+AssertionError: 0 != 2
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='aliased-Location')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 273, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='aliased-other-module')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 273, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='debug-aliased-Location')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 273, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='generated-should-panic')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 273, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='generated-track-caller')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 273, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='panic-without-rs-colon')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 273, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+----------------------------------------------------------------------
+Ran 55 tests in 8.959s
+
+FAILED (failures=8, errors=6)
+EXPECTED PRECHANGE REGRESSION CONTROL: 8 failures, 6 errors

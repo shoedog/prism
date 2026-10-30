@@ -1,0 +1,9 @@
+   Compiling prism v3.1.2 (/private/tmp/prism-post316-slice1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.96s
+     Running tests/navigation/main.rs (target/debug/deps/navigation-1567b34f600bdf8b)
+
+running 1 test
+test callers_test::call_execution_owner_navigation_callers_and_callees ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 124 filtered out; finished in 0.18s
+

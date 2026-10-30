@@ -1,0 +1,282 @@
+[
+  {
+    "case": "N1_ambient_tripleslash_jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import { real } from \"@/util\";\nexport function main() { return real(); }\n",
+      "src/ref.ts": "/// <reference path=\"../types/ambient.d.ts\" />\nexport const x = 1;\n",
+      "src/util.jsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}}, \"include\": [\"src\", \"app.jsx\"]}",
+      "types/ambient.d.ts": "declare module \"@/util\" {\n  export function real(): number;\n}\n"
+    }
+  },
+  {
+    "case": "N1_ambient_tripleslash_tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import { real } from \"@/util\";\nexport function main() { return real(); }\n",
+      "src/ref.ts": "/// <reference path=\"../types/ambient.d.ts\" />\nexport const x = 1;\n",
+      "src/util.tsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}}, \"include\": [\"src\", \"app.tsx\"]}",
+      "types/ambient.d.ts": "declare module \"@/util\" {\n  export function real(): number;\n}\n"
+    }
+  },
+  {
+    "case": "N2_ambient_typeroots_jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import { real } from \"@/util\";\nexport function main() { return real(); }\n",
+      "src/util.jsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}, \"typeRoots\": [\"./typings\"]}, \"include\": [\"src\", \"app.jsx\"]}",
+      "typings/legacy/index.d.ts": "declare module \"@/util\" {\n  export function real(): number;\n}\n"
+    }
+  },
+  {
+    "case": "N2_ambient_typeroots_tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import { real } from \"@/util\";\nexport function main() { return real(); }\n",
+      "src/util.tsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}, \"typeRoots\": [\"./typings\"]}, \"include\": [\"src\", \"app.tsx\"]}",
+      "typings/legacy/index.d.ts": "declare module \"@/util\" {\n  export function real(): number;\n}\n"
+    }
+  },
+  {
+    "case": "N4_nm_file_form_jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import { real } from \"utils\";\nexport function main() { return real(); }\n",
+      "lib/utils.jsx": "export function real() { return 1; }\n",
+      "node_modules/utils.d.ts": "export declare function real(): number;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "N4_nm_file_form_tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import { real } from \"utils\";\nexport function main() { return real(); }\n",
+      "lib/utils.jsx": "export function real() { return 1; }\n",
+      "node_modules/utils.d.ts": "export declare function real(): number;\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "N5_typeroots_file_jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import { real } from \"utils\";\nexport function main() { return real(); }\n",
+      "lib/utils.jsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}, \"typeRoots\": [\"./typings\"]}, \"include\": [\"**/*\"]}",
+      "typings/utils.d.ts": "export declare function real(): number;\n"
+    }
+  },
+  {
+    "case": "N5_typeroots_file_tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import { real } from \"utils\";\nexport function main() { return real(); }\n",
+      "lib/utils.jsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}, \"typeRoots\": [\"./typings\"]}, \"include\": [\"**/*\"]}",
+      "typings/utils.d.ts": "export declare function real(): number;\n"
+    }
+  },
+  {
+    "case": "N5b_typeroots_dir_jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import { real } from \"utils\";\nexport function main() { return real(); }\n",
+      "lib/utils.jsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}, \"typeRoots\": [\"./typings\"]}, \"include\": [\"**/*\"]}",
+      "typings/utils/index.d.ts": "export declare function real(): number;\n"
+    }
+  },
+  {
+    "case": "N5b_typeroots_dir_tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import { real } from \"utils\";\nexport function main() { return real(); }\n",
+      "lib/utils.jsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}, \"typeRoots\": [\"./typings\"]}, \"include\": [\"**/*\"]}",
+      "typings/utils/index.d.ts": "export declare function real(): number;\n"
+    }
+  },
+  {
+    "case": "N5c_control_no_typing_jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import { real } from \"utils\";\nexport function main() { return real(); }\n",
+      "lib/utils.jsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}, \"typeRoots\": [\"./typings\"]}, \"include\": [\"**/*\"]}",
+      "typings/other/index.d.ts": "export declare const z: number;\n"
+    }
+  },
+  {
+    "case": "N5c_control_no_typing_tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import { real } from \"utils\";\nexport function main() { return real(); }\n",
+      "lib/utils.jsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}, \"typeRoots\": [\"./typings\"]}, \"include\": [\"**/*\"]}",
+      "typings/other/index.d.ts": "export declare const z: number;\n"
+    }
+  },
+  {
+    "case": "N7_ambient_in_vendor_dir_jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import { real } from \"@/util\";\nexport function main() { return real(); }\n",
+      "src/util.jsx": "export function real() { return 1; }\n",
+      "src/vendor/legacy.d.ts": "declare module \"@/util\" {\n  export function real(): number;\n}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "N7_ambient_in_vendor_dir_tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import { real } from \"@/util\";\nexport function main() { return real(); }\n",
+      "src/util.tsx": "export function real() { return 1; }\n",
+      "src/vendor/legacy.d.ts": "declare module \"@/util\" {\n  export function real(): number;\n}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "N7b_ambient_in_build_dir_jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import { real } from \"@/util\";\nexport function main() { return real(); }\n",
+      "src/util.jsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}}, \"include\": [\"**/*\"]}",
+      "types/build/legacy.d.ts": "declare module \"@/util\" {\n  export function real(): number;\n}\n"
+    }
+  },
+  {
+    "case": "N7b_ambient_in_build_dir_tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import { real } from \"@/util\";\nexport function main() { return real(); }\n",
+      "src/util.tsx": "export function real() { return 1; }\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"jsx\": \"preserve\", \"allowJs\": true, \"baseUrl\": \".\", \"paths\": {\"@/*\": [\"src/*\"], \"utils\": [\"lib/utils\"]}}, \"include\": [\"**/*\"]}",
+      "types/build/legacy.d.ts": "declare module \"@/util\" {\n  export function real(): number;\n}\n"
+    }
+  },
+  {
+    "case": "ambient-bom-declare-jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}}, \"include\": [\"**/*\"]}",
+      "types/ambient.d.ts": "declare﻿module \"utils/format\" { export function real(): number; }\n"
+    }
+  },
+  {
+    "case": "ambient-bom-declare-tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}}, \"include\": [\"**/*\"]}",
+      "types/ambient.d.ts": "declare﻿module \"utils/format\" { export function real(): number; }\n"
+    }
+  },
+  {
+    "case": "ambient-bom-module-jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}}, \"include\": [\"**/*\"]}",
+      "types/ambient.d.ts": "declare module﻿\"utils/format\" { export function real(): number; }\n"
+    }
+  },
+  {
+    "case": "ambient-bom-module-tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}}, \"include\": [\"**/*\"]}",
+      "types/ambient.d.ts": "declare module﻿\"utils/format\" { export function real(): number; }\n"
+    }
+  },
+  {
+    "case": "ambient-name-unicode-jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}}, \"include\": [\"**/*\"]}",
+      "types/ambient.d.ts": "declare module // comment \"utils/format\" { export function real(): number; }\n"
+    }
+  },
+  {
+    "case": "ambient-name-unicode-tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}}, \"include\": [\"**/*\"]}",
+      "types/ambient.d.ts": "declare module // comment \"utils/format\" { export function real(): number; }\n"
+    }
+  },
+  {
+    "case": "ambient-unicode-jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}}, \"include\": [\"**/*\"]}",
+      "types/ambient.d.ts": "declare // comment module \"utils/format\" { export function real(): number; }\n"
+    }
+  },
+  {
+    "case": "ambient-unicode-tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}}, \"include\": [\"**/*\"]}",
+      "types/ambient.d.ts": "declare // comment module \"utils/format\" { export function real(): number; }\n"
+    }
+  },
+  {
+    "case": "typeRoots-absent-jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}, \"typeRoots\": [\"./custom-types\"], \"types\": []}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "typeRoots-absent-tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}, \"typeRoots\": [\"./custom-types\"], \"types\": []}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "typeRoots-jsx",
+    "app": "app.jsx",
+    "payload": {
+      "app.jsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "custom-types/utils/format.d.ts": "export declare function real(): number;\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}, \"typeRoots\": [\"./custom-types\"], \"types\": []}, \"include\": [\"**/*\"]}"
+    }
+  },
+  {
+    "case": "typeRoots-tsx",
+    "app": "app.tsx",
+    "payload": {
+      "app.tsx": "import {real as picked} from \"utils/format\";\nexport function run(){picked();}\n",
+      "custom-types/utils/format.d.ts": "export declare function real(): number;\n",
+      "src/util.jsx": "export function real(){return 1;}\n",
+      "tsconfig.json": "{\"compilerOptions\": {\"moduleResolution\": \"node\", \"allowJs\": true, \"jsx\": \"preserve\", \"baseUrl\": \".\", \"noEmit\": true, \"paths\": {\"utils/format\": [\"src/util\"]}, \"typeRoots\": [\"./custom-types\"], \"types\": []}, \"include\": [\"**/*\"]}"
+    }
+  }
+]

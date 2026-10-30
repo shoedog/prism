@@ -1,0 +1,12 @@
+[    0.0s] ADVISORY 93 mutants in 1 lane file(s); selected 3
+[    2.7s] ADVISORY source baseline 3 selectors, 0 inadmissible mutants
+[    4.9s] ADVISORY schemata: 1 fn units, 2 schema mutants, 1 static: {'R4-08-dropped-import-decline': 'outside-fn-body'}
+[   13.1s] ADVISORY schemata build rc=0 in 8.09s
+[   13.4s] ADVISORY schema baseline 3 selectors, 0 inadmissible mutants
+[   18.6s] ADVISORY I17-no-project-reference-cut KILLED
+[   18.6s] ADVISORY I73-declare-prefilter KILLED
+[   18.6s] ADVISORY schema runs: 2 in 0.18s (jobs=4)
+[   19.0s] ADVISORY text worker 1/1: 1 mutants, seed=apfs-clone
+[   32.3s] ADVISORY text worker 1: baseline 1 selectors, 0 inadmissible mutants
+[   36.9s] ADVISORY R4-08-dropped-import-decline KILLED (text)
+[   37.1s] ADVISORY TOTAL killed 3/3 admissible 3 timings {'source_baseline_build': 0.11, 'source_baseline': 0.37, 'schema_build': 8.09, 'schema_baseline': 0.31, 'schema_runs': 0.18, 'confirmation_scan': 5.06, 'text_mode': 18.49, 'total': 37.14}

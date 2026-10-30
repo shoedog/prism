@@ -99,8 +99,8 @@ fn observe(
     let cpg = prism::build_pool::install(|| CodePropertyGraph::build(files));
     let dfg_defs: BTreeSet<DefKey> = cpg
         .dfg
-        .defs
-        .values()
+        .defs()
+        .map(|(_, v)| v)
         .flatten()
         .map(|d| {
             (

@@ -1,0 +1,12 @@
+[case]
+language = "typescript"
+capability = "s1b_list_export_nested_decoy_refused"
+status = "pass"
+[seed]
+symbol = "f"
+file = "util.ts"
+line = 2
+[expect]
+callers = []
+exact = false
+forbid_resolution_kind = "import_member"

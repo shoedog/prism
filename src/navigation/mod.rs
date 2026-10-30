@@ -4,6 +4,8 @@ pub mod call_resolve;
 pub mod code_context;
 pub mod inventory;
 pub mod module_graph;
+mod module_imports;
+mod module_owner;
 pub mod onboarding;
 #[cfg(test)]
 mod owner_cache_tests;
@@ -118,6 +120,9 @@ pub struct NavigationIndex {
     pub line_range_index: BTreeMap<String, Vec<(usize, usize, NodeIndex)>>,
     pub name_index: BTreeMap<(String, String), Vec<NodeIndex>>,
     resolved_call_edges: OnceLock<NavigationCallEdgeIndex>,
+    /// Provenance of `resolved_call_edges`: `true` when it was loaded from the sidecar, `false` when
+    /// it was computed. Set once, inside the same initialization, and never read by the index itself.
+    call_edges_loaded: OnceLock<bool>,
     call_edge_cache_store: Option<call_edge_cache::NavigationCallEdgeCacheStore>,
 }
 
@@ -150,6 +155,13 @@ impl NavigationIndex {
         repo: &LoadedRepo,
         changed_files: &BTreeSet<String>,
     ) -> Self {
+        // Ordinary rebuilds cannot reuse opted-in owner authority. Decide before
+        // cloning the previous index's large graphs; its published index stays live.
+        if previous.cpg.call_graph.owner_ephemeral {
+            return Self::build(repo);
+        }
+        #[cfg(test)]
+        crate::cpg::fallback_lifetime_tests::Probe::current().clones();
         let cpg = CodePropertyGraph::build_incremental_with_scope_graph_inputs(
             previous.cpg.call_graph.clone(),
             previous.cpg.dfg.clone(),
@@ -222,6 +234,7 @@ impl NavigationIndex {
             line_range_index,
             name_index,
             resolved_call_edges: OnceLock::new(),
+            call_edges_loaded: OnceLock::new(),
             call_edge_cache_store,
         }
     }
@@ -235,12 +248,16 @@ impl NavigationIndex {
     }
 
     /// Test-only escape hatch for call graph/scope graph mutations. This resets
-    /// the lazy call-edge index; it must not be used to mutate CPG function nodes
+    /// the lazy call-edge and scope-graph lookup indexes; it must not mutate CPG function nodes
     /// because `line_range_index` and `name_index` would need rebuilding too.
     #[doc(hidden)]
     pub fn with_modified_cpg_for_testing(mut self, f: impl FnOnce(&mut CodePropertyGraph)) -> Self {
         f(&mut self.cpg);
+        if let Some(graph) = self.cpg.call_graph.scope_graph.as_mut() {
+            graph.invalidate_lookup_indexes();
+        }
         self.resolved_call_edges = OnceLock::new();
+        self.call_edges_loaded = OnceLock::new();
         self.call_edge_cache_store = None;
         self
     }
@@ -249,6 +266,7 @@ impl NavigationIndex {
         self.resolved_call_edges.get_or_init(|| {
             if let Some(store) = &self.call_edge_cache_store {
                 if let Some(index) = store.load_best_effort() {
+                    let _ = self.call_edges_loaded.set(true);
                     return index;
                 }
             }
@@ -256,8 +274,26 @@ impl NavigationIndex {
             if let Some(store) = &self.call_edge_cache_store {
                 store.save_best_effort(&index);
             }
+            let _ = self.call_edges_loaded.set(false);
             index
         })
+    }
+
+    /// Whether the resolved call-edge index came from its on-disk sidecar (`Some(true)`) or was
+    /// computed (`Some(false)`, including when caching is disabled). `None` until the index is first
+    /// forced. Provenance only: it changes nothing about what `resolved_call_edges` returns.
+    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
+    pub(crate) fn call_edges_loaded_from_cache(&self) -> Option<bool> {
+        self.call_edges_loaded.get().copied()
+    }
+
+    /// Whether the CPG was loaded from an exact cache hit (`Some(true)`) or built (`Some(false)`);
+    /// `None` when this index has no cache store (caching disabled, or fenced off for an ephemeral owner).
+    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
+    pub(crate) fn cpg_loaded_from_cache(&self) -> Option<bool> {
+        self.call_edge_cache_store
+            .as_ref()
+            .map(call_edge_cache::NavigationCallEdgeCacheStore::cpg_cache_hit)
     }
 
     pub(crate) fn direct_callers(&self, target: &FunctionId) -> &[IndexedIncomingCall] {
@@ -341,7 +377,12 @@ impl NavigationIndex {
                     // suffix), which does not apply here. The site is already
                     // fully precise (one CallSite -> its resolved targets), so
                     // count it directly rather than gating on name match.
-                    let count = if resolved.kind == ResolutionKind::FuncValueField {
+                    let count = if resolved.kind == ResolutionKind::FuncValueField
+                        || cg.js_ts_alias_route_hit(site)
+                    {
+                        // Slice L: a followed alias is filed under its own spelling, so the
+                        // name match below cannot see it; the alias route already proved this
+                        // site's target, so count it once.
                         1
                     } else {
                         let suffix = format!("::{}", resolved.target.name);
@@ -530,22 +571,52 @@ impl NavigationIndex {
         idx
     }
 
-    /// Innermost enclosing function (smallest [start,end] containing `line`).
+    /// Innermost enclosing NAMED function (smallest [start,end] containing `line`).
+    ///
+    /// Anonymous callable nodes (`<anon@L:C>`) are skipped, so a location seed on a callback
+    /// line resolves to the named function that holds it. Anonymous-aware callers (an explicit
+    /// `--at L:C` seed) use [`Self::enclosing_function_including_anonymous`].
     pub fn enclosing_function(&self, file: &str, line: usize) -> Option<(NodeIndex, String)> {
+        self.enclosing_function_filtered(file, line, false)
+    }
+
+    /// Like [`Self::enclosing_function`], but anonymous callable nodes may win.
+    pub fn enclosing_function_including_anonymous(
+        &self,
+        file: &str,
+        line: usize,
+    ) -> Option<(NodeIndex, String)> {
+        self.enclosing_function_filtered(file, line, true)
+    }
+
+    fn enclosing_function_filtered(
+        &self,
+        file: &str,
+        line: usize,
+        include_anonymous: bool,
+    ) -> Option<(NodeIndex, String)> {
         let ranges = self.line_range_index.get(file)?;
         ranges
             .iter()
             .filter(|&&(s, e, _)| s <= line && line <= e)
-            .min_by_key(|&&(s, e, _)| e - s)
-            .map(|&(_, _, idx)| {
-                let name = match self.cpg.node(idx) {
-                    CpgNode::Function { name, .. } => name.clone(),
-                    _ => String::new(),
-                };
-                (idx, name)
+            .filter_map(|&(s, e, idx)| match self.cpg.node(idx) {
+                CpgNode::Function { name, .. }
+                    if include_anonymous || !crate::anon_owner::is_anonymous_owner_name(name) =>
+                {
+                    Some((e - s, idx, name.clone()))
+                }
+                // Non-function nodes never enter `line_range_index`; keep the legacy
+                // empty-name fallback shape for them.
+                CpgNode::Function { .. } => None,
+                _ => Some((e - s, idx, String::new())),
             })
+            .min_by_key(|&(len, _, _)| len)
+            .map(|(_, idx, name)| (idx, name))
     }
 }
+
+#[cfg(test)]
+mod anon_guard_tests;
 
 #[cfg(test)]
 mod tests {

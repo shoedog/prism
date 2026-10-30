@@ -1,0 +1,1181 @@
+{
+ "failures": {},
+ "m1": {
+  "anon_oracle": 0,
+  "anon_prism": 29,
+  "matched": 42,
+  "prism_extra": 11,
+  "prism_missing": 0,
+  "snapshot_prism_missing": 0
+ },
+ "m2": {
+  "callees": {
+   "C-name": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.0,
+       0.0,
+       0.5614970356393196
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.0,
+       0.0,
+       0.5614970356393196
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.6666666666666666,
+       0.2076595988078242,
+       0.9385080559790691
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.43850296436068037,
+      1.0
+     ],
+     "tp": 3
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       0.6576197760453506
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 2,
+    "raw": {
+     "fn": 2,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      0.6576197760453506
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   }
+  },
+  "callers": {
+   "C-name": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.5101091596030786,
+       0.9999999999999999
+      ],
+      "tp": 4
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.43850296436068037,
+       1.0
+      ],
+      "tp": 3
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "recall": [
+      1.0,
+      0.5101091596030786,
+      0.9999999999999999
+     ],
+     "tp": 4
+    },
+    "shortfall": 0
+   },
+   "Q-scoped": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "tp": 1
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 3,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.25,
+       0.04558726029536886,
+       0.6993581599030918
+      ],
+      "tp": 1
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "tp": 1
+     },
+     "raw": {
+      "fn": 2,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       0.3333333333333333,
+       0.06149194402093078,
+       0.7923404011921757
+      ],
+      "tp": 1
+     }
+    },
+    "pending": 3,
+    "raw": {
+     "fn": 3,
+     "fp": 0,
+     "precision": [
+      1.0,
+      0.2065493117918027,
+      1.0
+     ],
+     "recall": [
+      0.25,
+      0.04558726029536886,
+      0.6993581599030918
+     ],
+     "tp": 1
+    },
+    "shortfall": 0
+   },
+   "U-method": {
+    "candidate_tier": {
+     "count": 0,
+     "oracle_confirmed": 0,
+     "oracle_unconfirmed": 0
+    },
+    "corrected": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "exact_tier": {
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "function": {
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     }
+    },
+    "pending": 0,
+    "raw": {
+     "fn": 0,
+     "fp": 0,
+     "precision": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "recall": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "tp": 0
+    },
+    "shortfall": 0
+   }
+  }
+ },
+ "m3": {
+  "cap": 10,
+  "checked": [],
+  "counts": {
+   "alias_site": 0,
+   "ambiguous": 0,
+   "confirmed_fp": 0,
+   "confirmed_tp": 0
+  }
+ },
+ "meta": {
+  "baseline_invalid": false,
+  "corpus": "excalidraw-js",
+  "corpus_dirty": false,
+  "corpus_dirty_reasons": [],
+  "corpus_identity": {
+   "component": "source_manifest",
+   "drift": [],
+   "expected": "0642e72cfa2d",
+   "manifest_sha256": "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0",
+   "observed": "0642e72cfa2d"
+  },
+  "corpus_sha": "0642e72cfa2d",
+  "date": "meas-b-final",
+  "harness_sha": "4e592daa7858",
+  "invalid_reasons": [],
+  "language": "js",
+  "oracle": "tsserver 6.0.3",
+  "oracle_configuration": {
+   "cargo_features": null
+  },
+  "oracle_error_rate": 0.0,
+  "oracle_not_quiescent": false,
+  "oracle_retries": [],
+  "prism_dirty": false,
+  "prism_sha": "4e592daa7858",
+  "seed": 42,
+  "stale_adjudications": 0,
+  "sut_error_rate": 0.0,
+  "timeouts": {
+   "oracle_budget_s": 600.0,
+   "query_timeout_s": 10.0,
+   "startup_timeout_s": 60.0
+  },
+  "wall_s": {
+   "m1_oracle_inventory": 1.295,
+   "m2": 45.141,
+   "m3": 0.0,
+   "oracle_start": 0.084,
+   "total": 49.052
+  }
+ },
+ "pending": [
+  {
+   "corpus": "excalidraw-js",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "scripts/build-version.js:34",
+   "site": "scripts/build-version.js:41",
+   "site_fingerprint": "4213e1c70ad7727d"
+  },
+  {
+   "corpus": "excalidraw-js",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "scripts/build-version.js:34",
+   "site": "scripts/build-version.js:54",
+   "site_fingerprint": "a8383c28ed1ba524"
+  },
+  {
+   "corpus": "excalidraw-js",
+   "direction": "oracle_only",
+   "measurement": "callers",
+   "seed_def": "scripts/buildPackage.js:22",
+   "site": "scripts/buildPackage.js:49",
+   "site_fingerprint": "b0d7f9451ace5610"
+  },
+  {
+   "corpus": "excalidraw-js",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/woff2/woff2-esbuild-plugins.js:23",
+   "site": "scripts/woff2/woff2-esbuild-plugins.js:229",
+   "site_fingerprint": "ca6196ebbed25521"
+  },
+  {
+   "corpus": "excalidraw-js",
+   "direction": "oracle_only",
+   "measurement": "callees",
+   "seed_def": "scripts/woff2/woff2-esbuild-plugins.js:23",
+   "site": "scripts/woff2/woff2-esbuild-plugins.js:230",
+   "site_fingerprint": "b936fdaca9364e2c"
+  }
+ ],
+ "probes": {
+  "_corpus": "excalidraw-js",
+  "_strata": {
+   "C-method": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 3
+   },
+   "C-name": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "Q-scoped": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   },
+   "U-free": {
+    "eligible_probes": 0,
+    "eligible_symbols": 0,
+    "target": 3
+   },
+   "U-method": {
+    "eligible_probes": 6,
+    "eligible_symbols": 3,
+    "target": 3
+   }
+  },
+  "callees:dev-docs/docusaurus.config.js:155": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "dev-docs/docusaurus.config.js:155",
+   "stratum": "U-method"
+  },
+  "callees:scripts/build-version.js:34": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "scripts/build-version.js",
+     "getFullVersion"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/build-version.js",
+     35,
+     35
+    ],
+    [
+     "scripts/build-version.js",
+     36,
+     36
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/build-version.js",
+     "getFullVersion"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/build-version.js",
+     35,
+     35,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "scripts/build-version.js",
+     36,
+     36,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "scripts/build-version.js:34",
+   "stratum": "Q-scoped"
+  },
+  "callees:scripts/buildBase.js:24": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/buildBase.js",
+     "buildDev"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "scripts/buildBase.js:24",
+   "stratum": "C-name"
+  },
+  "callees:scripts/buildBase.js:6": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/buildBase.js",
+     "getConfig"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "scripts/buildBase.js:6",
+   "stratum": "C-name"
+  },
+  "callees:scripts/buildPackage.js:22": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/buildPackage.js",
+     "resolveRelativePath"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "scripts/buildPackage.js:22",
+   "stratum": "Q-scoped"
+  },
+  "callees:scripts/buildUtils.js:40": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/buildUtils.js",
+     "buildProd"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "scripts/buildUtils.js:40",
+   "stratum": "C-name"
+  },
+  "callees:scripts/updateChangelog.js:38": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "scripts/updateChangelog.js",
+     "getLibraryCommitsSinceLastRelease"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/updateChangelog.js",
+     39,
+     39
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/updateChangelog.js",
+     "getLibraryCommitsSinceLastRelease"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/updateChangelog.js",
+     39,
+     39,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "scripts/updateChangelog.js:38",
+   "stratum": "Q-scoped"
+  },
+  "callees:scripts/woff2/woff2-esbuild-plugins.js:23": {
+   "direction": "callees",
+   "oracle_functions": [
+    [
+     "scripts/woff2/woff2-esbuild-plugins.js",
+     "setup"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/woff2/woff2-esbuild-plugins.js",
+     229,
+     229
+    ],
+    [
+     "scripts/woff2/woff2-esbuild-plugins.js",
+     230,
+     230
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/woff2/woff2-esbuild-plugins.js",
+     "setup"
+    ]
+   ],
+   "prism_sites": [],
+   "seed_def": "scripts/woff2/woff2-esbuild-plugins.js:23",
+   "stratum": "U-method"
+  },
+  "callees:scripts/woff2/woff2-vite-plugins.js:16": {
+   "direction": "callees",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "scripts/woff2/woff2-vite-plugins.js:16",
+   "stratum": "U-method"
+  },
+  "callers:dev-docs/docusaurus.config.js:155": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "dev-docs/docusaurus.config.js:155",
+   "stratum": "U-method"
+  },
+  "callers:scripts/build-version.js:34": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/build-version.js",
+     "<module_level>"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/build-version.js",
+     41,
+     41
+    ],
+    [
+     "scripts/build-version.js",
+     54,
+     54
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "scripts/build-version.js:34",
+   "stratum": "Q-scoped"
+  },
+  "callers:scripts/buildBase.js:24": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/buildBase.js",
+     "createESMRawBuild"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/buildBase.js",
+     46,
+     46
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/buildBase.js",
+     "createESMRawBuild"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/buildBase.js",
+     46,
+     46,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "scripts/buildBase.js:24",
+   "stratum": "C-name"
+  },
+  "callers:scripts/buildBase.js:6": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/buildBase.js",
+     "createESMRawBuild"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/buildBase.js",
+     46,
+     46
+    ],
+    [
+     "scripts/buildBase.js",
+     49,
+     49
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/buildBase.js",
+     "createESMRawBuild"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/buildBase.js",
+     46,
+     46,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ],
+    [
+     "scripts/buildBase.js",
+     49,
+     49,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "scripts/buildBase.js:6",
+   "stratum": "C-name"
+  },
+  "callers:scripts/buildPackage.js:22": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/buildPackage.js",
+     "precompile"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/buildPackage.js",
+     49,
+     49
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "scripts/buildPackage.js:22",
+   "stratum": "Q-scoped"
+  },
+  "callers:scripts/buildUtils.js:40": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/buildUtils.js",
+     "createESMRawBuild"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/buildUtils.js",
+     61,
+     61
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/buildUtils.js",
+     "createESMRawBuild"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/buildUtils.js",
+     61,
+     61,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "scripts/buildUtils.js:40",
+   "stratum": "C-name"
+  },
+  "callers:scripts/updateChangelog.js:38": {
+   "direction": "callers",
+   "oracle_functions": [
+    [
+     "scripts/updateChangelog.js",
+     "updateChangelog"
+    ]
+   ],
+   "oracle_sites": [
+    [
+     "scripts/updateChangelog.js",
+     82,
+     82
+    ]
+   ],
+   "outcome": "ok",
+   "prism_functions": [
+    [
+     "scripts/updateChangelog.js",
+     "updateChangelog"
+    ]
+   ],
+   "prism_sites": [
+    [
+     "scripts/updateChangelog.js",
+     82,
+     82,
+     {
+      "resolution_kind": "local_def",
+      "score": 1.0
+     }
+    ]
+   ],
+   "seed_def": "scripts/updateChangelog.js:38",
+   "stratum": "Q-scoped"
+  },
+  "callers:scripts/woff2/woff2-esbuild-plugins.js:23": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "scripts/woff2/woff2-esbuild-plugins.js:23",
+   "stratum": "U-method"
+  },
+  "callers:scripts/woff2/woff2-vite-plugins.js:16": {
+   "direction": "callers",
+   "oracle_functions": [],
+   "oracle_sites": [],
+   "outcome": "ok",
+   "prism_functions": [],
+   "prism_sites": [],
+   "seed_def": "scripts/woff2/woff2-vite-plugins.js:16",
+   "stratum": "U-method"
+  }
+ },
+ "site_fingerprints": {
+  "scripts/build-version.js:35": "806695a04b919111",
+  "scripts/build-version.js:36": "86fd22f27d21307d",
+  "scripts/build-version.js:41": "4213e1c70ad7727d",
+  "scripts/build-version.js:54": "a8383c28ed1ba524",
+  "scripts/buildBase.js:46": "c38f4b0cd5a5ce1c",
+  "scripts/buildBase.js:49": "b810996fb3bb422e",
+  "scripts/buildPackage.js:49": "b0d7f9451ace5610",
+  "scripts/buildUtils.js:61": "b810996fb3bb422e",
+  "scripts/updateChangelog.js:39": "debc70016b3f7831",
+  "scripts/updateChangelog.js:82": "e7355f9f6132975e",
+  "scripts/woff2/woff2-esbuild-plugins.js:229": "ca6196ebbed25521",
+  "scripts/woff2/woff2-esbuild-plugins.js:230": "b936fdaca9364e2c"
+ },
+ "summary": {
+  "callees": {
+   "exact_tier": {
+    "fn": 2,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.43850296436068037,
+     1.0
+    ],
+    "recall": [
+     0.6,
+     0.23072427940911855,
+     0.8823792268590028
+    ],
+    "tp": 3
+   },
+   "raw": {
+    "fn": 2,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.43850296436068037,
+     1.0
+    ],
+    "recall": [
+     0.6,
+     0.23072427940911855,
+     0.8823792268590028
+    ],
+    "tp": 3
+   }
+  },
+  "callers": {
+   "exact_tier": {
+    "fn": 3,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "recall": [
+     0.625,
+     0.30574239265377096,
+     0.8631557152608771
+    ],
+    "tp": 5
+   },
+   "raw": {
+    "fn": 3,
+    "fp": 0,
+    "precision": [
+     1.0,
+     0.5655175313406071,
+     1.0
+    ],
+    "recall": [
+     0.625,
+     0.30574239265377096,
+     0.8631557152608771
+    ],
+    "tp": 5
+   }
+  }
+ }
+}

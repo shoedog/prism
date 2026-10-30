@@ -1,0 +1,47 @@
+use prism::navigation::types::SymbolRef;
+use prism::navigation::{queries, NavigationIndex, NavigationSession};
+use prism::repo_loader::load_repo;
+use std::sync::Arc;
+
+fn caller_rows(session: &NavigationSession) -> Vec<(String, String, usize)> {
+    let evidence = queries::callers(session, Some("item"), Some("origin.js"), None, 1).unwrap();
+    let mut rows: Vec<_> = evidence
+        .items
+        .into_iter()
+        .filter_map(|item| match item.symbol {
+            Some(SymbolRef::Function { file, name, .. }) => {
+                let line = item.why.into_iter().find_map(|reason| match reason {
+                    prism::navigation::types::Reason::CalledBy { call_site_line, .. } => {
+                        Some(call_site_line)
+                    }
+                    _ => None,
+                })?;
+                Some((file, name, line))
+            }
+            _ => None,
+        })
+        .collect();
+    rows.sort();
+    rows
+}
+
+#[test]
+fn candidate_rejects_and_rebuilds_genuine_base_cache() {
+    let repo_path = std::path::PathBuf::from(std::env::var("OLD_CACHE_REPO").unwrap());
+    let cache_path = std::path::PathBuf::from(std::env::var("OLD_CACHE_ROOT").unwrap());
+    let repo = Arc::new(load_repo(&repo_path).unwrap());
+    let cached = NavigationSession {
+        repo: repo.clone(),
+        index: Arc::new(NavigationIndex::build_cached_under(&repo, &cache_path)),
+    };
+    let uncached = NavigationSession {
+        repo: repo.clone(),
+        index: Arc::new(NavigationIndex::build(&repo)),
+    };
+    let expected = vec![
+        ("app.js".to_string(), "direct".to_string(), 3),
+        ("app.js".to_string(), "inner".to_string(), 2),
+    ];
+    assert_eq!(caller_rows(&cached), expected);
+    assert_eq!(caller_rows(&cached), caller_rows(&uncached));
+}

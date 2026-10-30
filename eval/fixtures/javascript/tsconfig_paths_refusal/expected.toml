@@ -1,0 +1,10 @@
+[case]
+language = "javascript"
+capability = "tsconfig_paths_refusal"
+status = "pass"
+[seed]
+symbol = "real"
+file = "src/util.jsx"
+line = 1
+[expect]
+exact = true

@@ -1052,6 +1052,11 @@ fn push_symbol_query(
     let Some(SymbolRef::Function { file, name, .. }) = symbol else {
         return;
     };
+    // Anonymous callables are reached by location only; a symbol seed spelling
+    // one is rejected, so never suggest it.
+    if crate::anon_owner::is_anonymous_owner_name(name) {
+        return;
+    }
     let arguments = json!({
         "seed": {
             "kind": "symbol",
@@ -1568,5 +1573,37 @@ mod tests {
         assert_eq!(location.display, "main.py:4");
         assert_eq!(location.start_byte, None);
         assert_eq!(location.end_byte, None);
+    }
+
+    #[test]
+    fn symbol_next_queries_are_never_suggested_for_anonymous_owners() {
+        for name in ["<anon@2:21>", "<anon@2:21>"] {
+            let mut queries = Vec::new();
+            let mut seen = BTreeSet::new();
+            push_symbol_query(
+                &mut queries,
+                &mut seen,
+                "nav_callers",
+                "caller_symbol",
+                &Some(function_symbol(name, "a.js", 2)),
+                None,
+            );
+            assert!(queries.is_empty(), "{name}: {queries:?}");
+        }
+    }
+
+    #[test]
+    fn symbol_next_queries_are_still_suggested_for_named_functions() {
+        let mut queries = Vec::new();
+        let mut seen = BTreeSet::new();
+        push_symbol_query(
+            &mut queries,
+            &mut seen,
+            "nav_callers",
+            "caller_symbol",
+            &Some(function_symbol("outer", "a.js", 1)),
+            None,
+        );
+        assert_eq!(queries.len(), 1);
     }
 }

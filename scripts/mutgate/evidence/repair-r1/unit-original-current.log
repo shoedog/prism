@@ -1,0 +1,399 @@
+test_ignored_selector_is_not_a_survivor (scripts.mutgate.test_mutgate.AdmissibilityTests) ... FAIL
+test_inadmissibility_has_priority_over_a_kill (scripts.mutgate.test_mutgate.AdmissibilityTests) ... FAIL
+test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) ... test_scope_file_includes_other_functions_in_changed_file (scripts.mutgate.test_mutgate.AdmissibilityTests) ... FAIL
+test_scope_stale_anchor_is_not_silently_omitted (scripts.mutgate.test_mutgate.AdmissibilityTests) ... FAIL
+test_track_caller_attribute_demotes (scripts.mutgate.test_mutgate.AdmissibilityTests) ... FAIL
+test_byte_string_braces_are_masked (scripts.mutgate.test_mutgate.CodeMaskTests) ... ok
+test_raw_string_braces_are_masked (scripts.mutgate.test_mutgate.CodeMaskTests) ... ok
+test_const_fn_is_detected (scripts.mutgate.test_mutgate.FnBodiesTests) ... ok
+test_nested_fn_bodies_both_discovered_outer_first (scripts.mutgate.test_mutgate.FnBodiesTests) ... ok
+test_raw_string_with_unbalanced_brace_does_not_confuse_depth_counting (scripts.mutgate.test_mutgate.FnBodiesTests) ... ok
+test_empty_selector_list_and_missing_anchor_fail (scripts.mutgate.test_mutgate.GateRegressionTests) ... test_w1_constructed_false_kill_survives_both_modes (scripts.mutgate.test_mutgate.GateRegressionTests) ... test_w1_hidden_track_caller_false_kill_requires_text_confirmation (scripts.mutgate.test_mutgate.GateRegressionTests) ... FAIL
+test_w2_timeout_never_kills (scripts.mutgate.test_mutgate.GateRegressionTests) ... test_w3_bad_baseline_does_not_disappear_from_denominator (scripts.mutgate.test_mutgate.GateRegressionTests) ... test_w3_red_baseline_is_inadmissible_both_modes (scripts.mutgate.test_mutgate.GateRegressionTests) ... test_w4_missing_selector_fails_even_with_killing_selector (scripts.mutgate.test_mutgate.GateRegressionTests) ... test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible (scripts.mutgate.test_mutgate.GateRegressionTests) ... test_w5_failed_extra_edit_is_restored_before_next_mutant (scripts.mutgate.test_mutgate.GateRegressionTests) ... ok
+test_w5_static_fallback_contains_only_its_own_edits (scripts.mutgate.test_mutgate.GateRegressionTests) ... test_closure_inside_fn_uses_enclosing_fn_body (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_const_fn_schema_included (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_impl_trait_return_demotes_to_static (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_macro_rules_body_at_module_scope_demotes_to_static (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_macro_rules_body_nested_in_fn_demotes_for_unknown_expansion (scripts.mutgate.test_mutgate.PlanSchemataTests) ... FAIL
+test_multiple_mutants_in_one_function_become_separate_arms (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_mutation_outside_any_fn_body_demotes_to_static (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_nested_fn_mutation_attaches_to_outermost_enclosing_fn (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_non_impl_trait_fn_after_impl_trait_fn_is_unaffected (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_static_inside_fn_body_schema_included (scripts.mutgate.test_mutgate.PlanSchemataTests) ... ok
+test_r4_04_preserves_a_distinct_decoding_obligation (scripts.mutgate.test_mutgate.RegistryIntentTests) ... FAIL
+test_accessor_for_main_and_bin_use_prism_path (scripts.mutgate.test_mutgate.RenderTests) ... ok
+
+======================================================================
+FAIL: test_ignored_selector_is_not_a_survivor (scripts.mutgate.test_mutgate.AdmissibilityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 384, in test_ignored_selector_is_not_a_survivor
+    self.assertFalse(result['admissible'])
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_inadmissibility_has_priority_over_a_kill (scripts.mutgate.test_mutgate.AdmissibilityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 374, in test_inadmissibility_has_priority_over_a_kill
+    self.assertEqual(mutgate.verdict({'killed': True, 'admissible': False}), 'INADMISSIBLE')
+AssertionError: 'KILLED' != 'INADMISSIBLE'
+- KILLED
++ INADMISSIBLE
+
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='line!()', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 35): {'m': [(23, 25, '2; ')]}} != {}
+- {('src/lib.rs', 7, 35): {'m': [(23, 25, '2; ')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='line!()', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; line!()')]}} != {}
+- {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; line!()')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='column!()', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 37): {'m': [(23, 25, '2; ')]}} != {}
+- {('src/lib.rs', 7, 37): {'m': [(23, 25, '2; ')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='column!()', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; column!()')]}} != {}
+- {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; column!()')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='file!()', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 35): {'m': [(23, 25, '2; ')]}} != {}
+- {('src/lib.rs', 7, 35): {'m': [(23, 25, '2; ')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='file!()', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; file!()')]}} != {}
+- {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; file!()')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='panic!("x")', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 39): {'m': [(23, 25, '2; ')]}} != {}
+- {('src/lib.rs', 7, 39): {'m': [(23, 25, '2; ')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='panic!("x")', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; panic!("x")')]}} != {}
+- {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; panic!("x")')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='assert!(true)', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 41): {'m': [(23, 25, '2; ')]}} != {}
+- {('src/lib.rs', 7, 41): {'m': [(23, 25, '2; ')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='assert!(true)', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; assert!(true)')]}} != {}
+- {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; assert!(true)')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='Some(1).unwrap()', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 44): {'m': [(23, 25, '2; ')]}} != {}
+- {('src/lib.rs', 7, 44): {'m': [(23, 25, '2; ')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='Some(1).unwrap()', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; Some(1).unwrap()')]}} != {}
+- {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; Some(1).unwrap()')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='wrapped!()', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 38): {'m': [(23, 25, '2; ')]}} != {}
+- {('src/lib.rs', 7, 38): {'m': [(23, 25, '2; ')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='wrapped!()', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; wrapped!()')]}} != {}
+- {('src/lib.rs', 7, 27): {'m': [(23, 24, '2; wrapped!()')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='std::panic::Location::caller().line()', in_mutant=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 65): {'m': [(23, 25, '2; ')]}} != {}
+- {('src/lib.rs', 7, 65): {'m': [(23, 25, '2; ')]}}
++ {}
+
+======================================================================
+FAIL: test_location_observers_in_original_or_mutated_body_demote (scripts.mutgate.test_mutgate.AdmissibilityTests) (expression='std::panic::Location::caller().line()', in_mutant=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 396, in test_location_observers_in_original_or_mutated_body_demote
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 7, 27): {'m': [(23, 24, '2[39 chars]')]}} != {}
++ {}
+- {('src/lib.rs', 7, 27): {'m': [(23,
+-                                 24,
+-                                 '2; std::panic::Location::caller().line()')]}}
+
+======================================================================
+FAIL: test_scope_file_includes_other_functions_in_changed_file (scripts.mutgate.test_mutgate.AdmissibilityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 410, in test_scope_file_includes_other_functions_in_changed_file
+    self.assertEqual(mutgate.select_scoped(muts, {'src/lib.rs': source}, 'main', 'file'), ['m'])
+AssertionError: Lists differ: [] != ['m']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'m'
+
+- []
++ ['m']
+
+======================================================================
+FAIL: test_scope_stale_anchor_is_not_silently_omitted (scripts.mutgate.test_mutgate.AdmissibilityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 415, in test_scope_stale_anchor_is_not_silently_omitted
+    self.assertEqual(mutgate.select_scoped(muts, {}, 'main', 'line'), ['m'])
+AssertionError: Lists differ: [] != ['m']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'m'
+
+- []
++ ['m']
+
+======================================================================
+FAIL: test_track_caller_attribute_demotes (scripts.mutgate.test_mutgate.AdmissibilityTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 403, in test_track_caller_attribute_demotes
+    self.assertEqual(units, {})
+AssertionError: {('src/lib.rs', 30, 34): {'m': [(32, 33, '2')]}} != {}
+- {('src/lib.rs', 30, 34): {'m': [(32, 33, '2')]}}
++ {}
+
+======================================================================
+FAIL: test_empty_selector_list_and_missing_anchor_fail (scripts.mutgate.test_mutgate.GateRegressionTests) (mutation=['src/lib.rs', '{ 1 }', '{ 2 }', []])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 355, in test_empty_selector_list_and_missing_anchor_fail
+    self.assertEqual(mutgate.verdict(summary['results']['m']), 'INADMISSIBLE')
+AssertionError: 'SURVIVED' != 'INADMISSIBLE'
+- SURVIVED
++ INADMISSIBLE
+
+
+======================================================================
+FAIL: test_w1_constructed_false_kill_survives_both_modes (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 261, in test_w1_constructed_false_kill_survives_both_modes
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w1_hidden_track_caller_false_kill_requires_text_confirmation (scripts.mutgate.test_mutgate.GateRegressionTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 271, in test_w1_hidden_track_caller_false_kill_requires_text_confirmation
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w2_timeout_never_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='text')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 283, in test_w2_timeout_never_kills
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w2_timeout_never_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 283, in test_w2_timeout_never_kills
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w3_bad_baseline_does_not_disappear_from_denominator (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='text')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 333, in test_w3_bad_baseline_does_not_disappear_from_denominator
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w3_bad_baseline_does_not_disappear_from_denominator (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 333, in test_w3_bad_baseline_does_not_disappear_from_denominator
+    self.assertEqual(status, 1)
+AssertionError: "baseline red: [('lib', 'bad')]" != 1
+
+======================================================================
+FAIL: test_w3_red_baseline_is_inadmissible_both_modes (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='text')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 298, in test_w3_red_baseline_is_inadmissible_both_modes
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w3_red_baseline_is_inadmissible_both_modes (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 298, in test_w3_red_baseline_is_inadmissible_both_modes
+    self.assertEqual(status, 1)
+AssertionError: "baseline red: [('lib', 't')]" != 1
+
+======================================================================
+FAIL: test_w4_missing_selector_fails_even_with_killing_selector (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='text')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 308, in test_w4_missing_selector_fails_even_with_killing_selector
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w4_missing_selector_fails_even_with_killing_selector (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 308, in test_w4_missing_selector_fails_even_with_killing_selector
+    self.assertEqual(status, 1)
+AssertionError: "baseline red: [('lib', 't_missing')]" != 1
+
+======================================================================
+FAIL: test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible (scripts.mutgate.test_mutgate.GateRegressionTests) (replacement='fn other()', mode='text')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 320, in test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible (scripts.mutgate.test_mutgate.GateRegressionTests) (replacement='fn other()', mode='schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 320, in test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible (scripts.mutgate.test_mutgate.GateRegressionTests) (replacement='#[test]\n#[ignore]\nfn other()', mode='text')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 320, in test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible (scripts.mutgate.test_mutgate.GateRegressionTests) (replacement='#[test]\n#[ignore]\nfn other()', mode='schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 320, in test_w4_selector_removed_or_ignored_by_mutant_is_inadmissible
+    self.assertEqual(status, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_w5_static_fallback_contains_only_its_own_edits (scripts.mutgate.test_mutgate.GateRegressionTests) (mode='schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 366, in test_w5_static_fallback_contains_only_its_own_edits
+    self.assertEqual(status, 0)
+AssertionError: 1 != 0
+
+======================================================================
+FAIL: test_macro_rules_body_nested_in_fn_demotes_for_unknown_expansion (scripts.mutgate.test_mutgate.PlanSchemataTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 112, in test_macro_rules_body_nested_in_fn_demotes_for_unknown_expansion
+    self.assertEqual(static, {'m1': 'source-location'})
+AssertionError: {} != {'m1': 'source-location'}
+- {}
++ {'m1': 'source-location'}
+
+======================================================================
+FAIL: test_r4_04_preserves_a_distinct_decoding_obligation (scripts.mutgate.test_mutgate.RegistryIntentTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 425, in test_r4_04_preserves_a_distinct_decoding_obligation
+    self.assertNotEqual(population[mid]['edits'],
+AssertionError: [('src/js_paths_boundary.rs', 'let Some(read) = &scanned.read else {', 'let Some(read) = &scanned.read else { return Err(std::io::Error::other("mutant"));')] == [('src/js_paths_boundary.rs', 'let Some(read) = &scanned.read else {', 'let Some(read) = &scanned.read else { return Err(std::io::Error::other("mutant"));')]
+
+----------------------------------------------------------------------
+Ran 33 tests in 2.906s
+
+FAILED (failures=39)

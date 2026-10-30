@@ -1,0 +1,13 @@
+fix(mutgate): restore schema speed with targeted location checks
+
+Keep plain panic/unwrap and inspected safe macros in schema mode. Demote direct
+location observers and unaudited expansions; confirm only location-bearing
+schema failures or kills from location-sensitive tests and referenced helpers.
+
+Certify all 93 IDs against pure text: zero verdict/admissibility differences,
+89 schema mutants, four structural demotions, zero confirmations. Full schema
+wall 90.00 s, pure text 513.64 s, synthetic scoped control 33.50 s.
+
+Validation: 49 Python tests; offline all-features Cargo suite 5145 passed,
+zero failed, one existing ignored reserved SliceElem test. Production src diff
+against origin/main remains empty. No git writes by the repairer.

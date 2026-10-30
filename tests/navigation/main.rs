@@ -1,6 +1,9 @@
+mod anon_metadata_test;
 mod cache_test;
 mod callees_test;
 mod callers_test;
+mod dfg_compaction_test;
+mod dfg_incremental_test;
 mod ego_test;
 mod framework_entry_test;
 mod func_value_test;

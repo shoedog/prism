@@ -129,7 +129,12 @@ fn indirect_default_class_facts_do_not_fall_back_to_callable_exports() {
         let expected = if class {
             JsExportTarget::Class("Client".into())
         } else {
-            JsExportTarget::Local("Client".into())
+            let (local, start_line, end_line) = ("Client".into(), 1, 1);
+            JsExportTarget::VerifiedLocal {
+                local,
+                start_line,
+                end_line,
+            }
         };
         assert_eq!(facts.named.get("default"), Some(&expected), "{src}");
         assert_eq!(facts.conflicted.contains("default"), poison, "{src}");

@@ -1,0 +1,14 @@
+{
+  "original": {
+    "tests": 33,
+    "failures": 39,
+    "errors": 0,
+    "compiled_cases": 20
+  },
+  "repaired": {
+    "tests": 33,
+    "failures": 0,
+    "errors": 0,
+    "compiled_cases": 22
+  }
+}

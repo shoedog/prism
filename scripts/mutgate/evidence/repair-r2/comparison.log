@@ -1,0 +1,22 @@
+{
+  "compared": 93,
+  "differences": [],
+  "wall_seconds": {
+    "text": 513.64,
+    "schema": 90.0
+  },
+  "schema_execution_counts": {
+    "schema": 89,
+    "text": 4
+  },
+  "text_confirmations": 0,
+  "demotions": {
+    "I44-no-module-types": "outside-fn-body",
+    "I45-no-module-typings": "outside-fn-body",
+    "I48-no-module-main": "outside-fn-body",
+    "R4-08-dropped-import-decline": "outside-fn-body"
+  },
+  "scoped_control_wall_seconds": 33.444629917,
+  "source_baseline_selectors": 54,
+  "schema_baseline_selectors": 54
+}

@@ -270,21 +270,21 @@ fn normalized_cpg_behavior(cpg: &CodePropertyGraph) -> Vec<String> {
             ));
         }
     }
-    for edge in &cpg.dfg.edges {
+    for edge in cpg.dfg.edges().iter() {
         out.push(format!(
             "dfg-edge {} -> {}",
             var_location_dump(&edge.from),
             var_location_dump(&edge.to)
         ));
     }
-    for (key, vars) in &cpg.dfg.defs {
+    for (key, vars) in cpg.dfg.defs() {
         let mut normalized: Vec<String> = vars.iter().map(var_location_dump).collect();
         normalized.sort();
         for var in normalized {
             out.push(format!("dfg-def {key:?} {var}"));
         }
     }
-    for (key, vars) in &cpg.dfg.uses {
+    for (key, vars) in cpg.dfg.uses() {
         let mut normalized: Vec<String> = vars.iter().map(var_location_dump).collect();
         normalized.sort();
         for var in normalized {
@@ -588,7 +588,7 @@ fn cache_v12_round_trips_scope_graph_and_rejects_v11() {
         "scope_graph must survive v12 cache round trip"
     );
 
-    let bin = cache_dir.path().join("cpg-cache.bin");
+    let bin = cache_dir.path().join("cpg-cache-v2.bin");
     let mut bytes = std::fs::read(&bin).unwrap();
     bytes[0..4].copy_from_slice(&11u32.to_le_bytes());
     std::fs::write(&bin, bytes).unwrap();
@@ -661,8 +661,8 @@ fn test_cache_round_trip_python() {
     let hashes = cpg_cache::compute_file_hashes(&sources);
     cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
 
-    assert!(cache_dir.path().join("cpg-cache.bin").exists());
-    assert!(cache_dir.path().join("cache-meta.json").exists());
+    assert!(cache_dir.path().join("cpg-cache-v2.bin").exists());
+    assert!(cache_dir.path().join("cache-meta-v2.json").exists());
 
     let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
 
@@ -1231,9 +1231,12 @@ fn test_cache_preserves_dfg() {
     let hashes = cpg_cache::compute_file_hashes(&sources);
     cpg_cache::save_cache(&ctx_original.cpg, &hashes, false, cache_dir.path()).unwrap();
 
-    let loaded_cpg = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
-    assert_eq!(ctx_original.cpg.dfg.edges.len(), loaded_cpg.dfg.edges.len());
-    assert_eq!(ctx_original.cpg.dfg.defs.len(), loaded_cpg.dfg.defs.len());
+    let loaded = expect_hit(cpg_cache::load_cache(&hashes, false, cache_dir.path()));
+    assert_eq!(ctx_original.cpg.dfg.edges().len(), loaded.dfg.edges().len());
+    assert_eq!(
+        ctx_original.cpg.dfg.defs().count(),
+        loaded.dfg.defs().count()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1248,7 +1251,7 @@ fn test_cache_meta_json_is_valid() {
     let hashes = cpg_cache::compute_file_hashes(&sources);
     cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
-    let meta_text = std::fs::read_to_string(cache_dir.path().join("cache-meta.json")).unwrap();
+    let meta_text = std::fs::read_to_string(cache_dir.path().join("cache-meta-v2.json")).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&meta_text).unwrap();
     assert!(meta["prism_version"].is_string());
     assert!(meta["cache_version"].is_number());
@@ -1267,7 +1270,7 @@ fn test_cache_miss_on_corrupt_binary() {
     let cache_dir = TempDir::new().unwrap();
     // Write garbage to the cache file.
     std::fs::create_dir_all(cache_dir.path()).unwrap();
-    std::fs::write(cache_dir.path().join("cpg-cache.bin"), b"corrupt data").unwrap();
+    std::fs::write(cache_dir.path().join("cpg-cache-v2.bin"), b"corrupt data").unwrap();
 
     let hashes = BTreeMap::new();
     assert!(
@@ -1288,7 +1291,7 @@ fn test_cache_miss_on_truncated_binary() {
     cpg_cache::save_cache(&ctx.cpg, &hashes, false, cache_dir.path()).unwrap();
 
     // Truncate the binary file to simulate interrupted write.
-    let bin_path = cache_dir.path().join("cpg-cache.bin");
+    let bin_path = cache_dir.path().join("cpg-cache-v2.bin");
     let data = std::fs::read(&bin_path).unwrap();
     std::fs::write(&bin_path, &data[..data.len() / 2]).unwrap();
 
@@ -1504,7 +1507,7 @@ fn test_dfg_remove_files() {
     let dfg = DataFlowGraph::build(&files);
 
     let has_handler_edges = dfg
-        .edges
+        .edges()
         .iter()
         .any(|e| e.from.file == "src/handler.c" || e.to.file == "src/handler.c");
 
@@ -1514,7 +1517,7 @@ fn test_dfg_remove_files() {
 
     // After removal: no edges involving handler.c.
     let still_has_handler = dfg
-        .edges
+        .edges()
         .iter()
         .any(|e| e.from.file == "src/handler.c" || e.to.file == "src/handler.c");
     assert!(
@@ -1523,13 +1526,13 @@ fn test_dfg_remove_files() {
     );
 
     // Defs and uses for handler.c should be gone.
-    for (key, _) in &dfg.defs {
+    for (key, _) in dfg.defs() {
         assert_ne!(
             key.0, "src/handler.c",
             "defs from handler.c should be removed"
         );
     }
-    for (key, _) in &dfg.uses {
+    for (key, _) in dfg.uses() {
         assert_ne!(
             key.0, "src/handler.c",
             "uses from handler.c should be removed"
@@ -1537,11 +1540,11 @@ fn test_dfg_remove_files() {
     }
 
     // Device.c entries should be preserved if they existed.
-    let has_device = dfg.edges.iter().any(|e| e.from.file == "src/device.c");
-    let device_defs = dfg.defs.keys().any(|k| k.0 == "src/device.c");
+    let has_device = dfg.edges().iter().any(|e| e.from.file == "src/device.c");
+    let device_defs = dfg.defs().map(|(k, _)| k).any(|k| k.0 == "src/device.c");
     // At least one should be true (device.c has variables).
     assert!(
-        has_device || device_defs || dfg.edges.is_empty(),
+        has_device || device_defs || dfg.edges().is_empty(),
         "device.c data should be preserved (or DFG was empty)"
     );
 }
@@ -1550,24 +1553,21 @@ fn test_dfg_remove_files() {
 fn test_dfg_merge() {
     let (files, _sources, _diff) = make_c_multifile_test();
     let full_dfg = DataFlowGraph::build(&files);
-    let full_edge_count = full_dfg.edges.len();
+    let full_edge_count = full_dfg.edges().len();
 
     // Remove handler.c, then build subset and merge.
-    let mut retained = full_dfg;
+    let mut kept = full_dfg;
     let exclude = BTreeSet::from(["src/handler.c".to_string()]);
-    retained.remove_files(&exclude);
+    kept.remove_files(&exclude);
 
     let handler_only = BTreeSet::from(["src/handler.c".to_string()]);
     let subset = DataFlowGraph::build_subset(&files, &handler_only);
 
-    retained.merge(subset);
+    kept.merge(subset);
 
     // Merged DFG should have edges from both files.
-    let has_device = retained.edges.iter().any(|e| e.from.file == "src/device.c");
-    let has_handler = retained
-        .edges
-        .iter()
-        .any(|e| e.from.file == "src/handler.c");
+    let has_device = kept.edges().iter().any(|e| e.from.file == "src/device.c");
+    let has_handler = kept.edges().iter().any(|e| e.from.file == "src/handler.c");
 
     // At least handler.c should be present after merge (it has function calls).
     if full_edge_count > 0 {
@@ -1579,9 +1579,9 @@ fn test_dfg_merge() {
 
     // Forward/backward adjacency should be rebuilt.
     // Every edge should have a corresponding forward entry.
-    for edge in &retained.edges {
+    for edge in kept.edges().iter() {
         assert!(
-            retained.forward.contains_key(&edge.from),
+            kept.successors(&edge.from).is_some(),
             "forward adjacency should be rebuilt after merge"
         );
     }
@@ -1595,7 +1595,7 @@ fn test_dfg_build_subset() {
     let subset = DataFlowGraph::build_subset(&files, &only);
 
     // All edges should involve device.c only.
-    for edge in &subset.edges {
+    for edge in subset.edges().iter() {
         assert_eq!(
             edge.from.file, "src/device.c",
             "subset edges should only come from device.c"
@@ -1603,7 +1603,7 @@ fn test_dfg_build_subset() {
     }
 
     // All defs should be from device.c.
-    for (key, _) in &subset.defs {
+    for (key, _) in subset.defs() {
         assert_eq!(key.0, "src/device.c");
     }
 }
@@ -1612,14 +1612,14 @@ fn test_dfg_build_subset() {
 fn test_dfg_remove_empty_set() {
     let (files, _sources, _diff) = make_c_multifile_test();
     let dfg = DataFlowGraph::build(&files);
-    let original_edge_count = dfg.edges.len();
+    let original_edge_count = dfg.edges().len();
 
     let mut dfg = dfg;
     let exclude = BTreeSet::new();
     dfg.remove_files(&exclude);
 
     assert_eq!(
-        dfg.edges.len(),
+        dfg.edges().len(),
         original_edge_count,
         "removing empty set should not change edge count"
     );
@@ -2891,12 +2891,12 @@ fn test_cache_meta_includes_type_db_field() {
     let hashes = cpg_cache::compute_file_hashes(&sources);
     cpg_cache::save_cache(&ctx.cpg, &hashes, true, cache_dir.path()).unwrap();
 
-    let meta_text = std::fs::read_to_string(cache_dir.path().join("cache-meta.json")).unwrap();
+    let meta_text = std::fs::read_to_string(cache_dir.path().join("cache-meta-v2.json")).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&meta_text).unwrap();
     assert_eq!(
         meta["has_type_db"].as_bool(),
         Some(true),
-        "cache-meta.json should record has_type_db"
+        "cache-meta-v2.json should record has_type_db"
     );
 }
 

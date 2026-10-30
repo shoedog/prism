@@ -3,8 +3,9 @@
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cfg::{self, ArmProvenance, CfgEdge, EdgeOrigin};
-use crate::data_flow::{FlowEdge, VarLocation};
+use crate::data_flow::{ExactFlowEdge, FlowEdge, VarLocation};
 use crate::languages::Language;
+#[cfg(test)]
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use tree_sitter::Node;
@@ -12,9 +13,15 @@ use tree_sitter::Node;
 use super::{FlowConfidence, FlowDoubt};
 
 mod capture;
+mod cfg_edge_index;
+mod compact_wire;
+mod def_buckets;
 mod graph;
+mod join_kind;
 mod scope;
+mod statement_lookup;
 
+pub(crate) use cfg_edge_index::FileCfgEdgeIndex;
 use graph::{definition_reaches_unflagged, path_exists, reverse_postorder, BitSet};
 
 /// Hard caps from the authorised measurement pass
@@ -66,7 +73,11 @@ pub(crate) enum RdOutcome {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RdResult {
     pub(crate) labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
+    pub(crate) exact_labels: BTreeMap<ExactFlowEdge, FlowConfidence>,
     pub(crate) loop_carried_edges: BTreeSet<(VarLocation, VarLocation)>,
+    /// May-reaching facts, independent of confidence (including flagged CFG
+    /// routes). Used only to admit implicit parameter-to-body entry copies.
+    pub(crate) reaching_edges: BTreeSet<(VarLocation, VarLocation)>,
 }
 
 type RdFunctionKey = (String, usize);
@@ -82,6 +93,12 @@ pub struct RdFileStats {
 }
 
 impl RdFileStats {
+    // Native compact decoder consistency guard.
+    pub(crate) fn counts_match_keys(&self) -> bool {
+        self.functions_over_cap == self.over_cap_function_keys.len()
+            && self.functions_without_cfg == self.without_cfg_function_keys.len()
+    }
+
     pub(crate) fn record_over_cap(&mut self, function: String, start_line: usize) {
         self.over_cap_function_keys.insert((function, start_line));
         self.refresh_counts();
@@ -107,12 +124,63 @@ impl RdFileStats {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn reaching_definitions(
     parsed: &ParsedFile,
     func_node: &Node<'_>,
     defs: &[DefSite],
     dfg_edges: &[FlowEdge],
 ) -> RdOutcome {
+    let cfg_edges = cfg::build_cfg_edges_with_arms(parsed);
+    reaching_definitions_with_exact(
+        parsed,
+        func_node,
+        defs,
+        dfg_edges,
+        &[],
+        &FileCfgEdgeIndex::new(&cfg_edges),
+    )
+}
+
+pub(crate) fn reaching_definitions_with_exact(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    defs: &[DefSite],
+    dfg_edges: &[FlowEdge],
+    exact_edges: &[FlowEdge],
+    file_cfg_edges: &FileCfgEdgeIndex<'_>,
+) -> RdOutcome {
+    let outcome = reaching_definitions_impl(
+        parsed,
+        func_node,
+        defs,
+        dfg_edges,
+        exact_edges,
+        file_cfg_edges,
+    );
+    #[cfg(test)]
+    cfg_edge_index::tests::record_outcome(&outcome);
+    #[cfg(test)]
+    join_kind_tests::record_outcome(&outcome);
+    #[cfg(test)]
+    statement_lookup_tests::record_outcome(&outcome);
+    #[cfg(test)]
+    def_bucket_tests::record_outcome(&outcome);
+    outcome
+}
+
+fn reaching_definitions_impl(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+    defs: &[DefSite],
+    dfg_edges: &[FlowEdge],
+    exact_edges: &[FlowEdge],
+    file_cfg_edges: &FileCfgEdgeIndex<'_>,
+) -> RdOutcome {
+    #[cfg(test)]
+    let _work = work_tests::Pass::begin(parsed, func_node);
+    #[cfg(test)]
+    work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
     let defs = deduplicate_definitions(defs);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
@@ -127,6 +195,8 @@ pub(crate) fn reaching_definitions(
         });
     }
 
+    #[cfg(test)]
+    work_tests::bump(|counts| counts.statement_entries = statements.len());
     let lines: Vec<Line> = statements.iter().map(|(line, _)| *line).collect();
     let line_index: BTreeMap<Line, usize> = lines
         .iter()
@@ -134,21 +204,28 @@ pub(crate) fn reaching_definitions(
         .map(|(index, line)| (*line, index + 1))
         .collect();
     let mut cfg_edges = Vec::new();
-    for (edge, provenance) in cfg::build_cfg_edges_with_arms(parsed) {
-        let (Some(&from), Some(&to)) = (
-            line_index.get(&edge.from_line),
-            line_index.get(&edge.to_line),
-        ) else {
-            continue;
-        };
+    let kinds = join_kind::StatementKinds::new(&statements);
+    for (from, to, edge, provenance) in file_cfg_edges.for_owner(&line_index) {
         cfg_edges.push((
             from,
             to,
-            is_incomplete_join(parsed, &statements, &edge, provenance),
+            join_kind::is_incomplete_join(parsed, &kinds, &edge, provenance),
         ));
     }
     if cfg_edges.is_empty() {
         return RdOutcome::Unavailable(RdUnavailable::NoCfgEdges);
+    }
+
+    // The operation-only census stops after the measured CFG selection. It
+    // retains real producer inputs and caps, but does not measure the solver.
+    #[cfg(test)]
+    if work_tests::count_only() {
+        return RdOutcome::Available(RdResult {
+            labels: BTreeMap::new(),
+            exact_labels: BTreeMap::new(),
+            loop_carried_edges: BTreeSet::new(),
+            reaching_edges: BTreeSet::new(),
+        });
     }
 
     let node_count = lines.len() + 1;
@@ -165,6 +242,9 @@ pub(crate) fn reaching_definitions(
     }
 
     let spans = statement_line_spans(parsed, func_node);
+    #[cfg(test)]
+    work_tests::bump(|counts| counts.statement_span_entries = spans.len());
+    let mut statements = statement_lookup::StatementLookup::new(&spans);
     let (function_start, _) = parsed.node_line_range(func_node);
     let mapped_defs: Vec<Option<usize>> = defs
         .iter()
@@ -172,7 +252,8 @@ pub(crate) fn reaching_definitions(
             if def.line == function_start && !line_index.contains_key(&def.line) {
                 Some(entry)
             } else {
-                innermost_statement(def.line, &spans)
+                statements
+                    .get(def.line)
                     .and_then(|line| line_index.get(&line).copied())
             }
         })
@@ -185,27 +266,8 @@ pub(crate) fn reaching_definitions(
             gen[*node].insert(index);
         }
     }
-    let mut kill = vec![BitSet::new(defs.len()); node_count];
-    let mut flat_kill = vec![BitSet::new(defs.len()); node_count];
-    for node in 0..node_count {
-        let generated: Vec<usize> = gen[node].members().collect();
-        for &new_def in &generated {
-            if defs[new_def].alias_derived {
-                continue;
-            }
-            for old_def in 0..defs.len() {
-                if !gen[node].contains(old_def)
-                    && !defs[old_def].alias_derived
-                    && defs[old_def].path == defs[new_def].path
-                {
-                    flat_kill[node].insert(old_def);
-                    if binding_facts.same_def_binding(new_def, old_def) {
-                        kill[node].insert(old_def);
-                    }
-                }
-            }
-        }
-    }
+    let buckets = def_buckets::DefinitionBuckets::new(&defs);
+    let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts);
 
     let in_sets = solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
     let flat_in_sets = solve_reaching_sets(
@@ -217,19 +279,40 @@ pub(crate) fn reaching_definitions(
         defs.len(),
     );
 
+    #[cfg(test)]
+    join_kind_tests::record_sets(&in_sets, &flat_in_sets);
+    #[cfg(test)]
+    statement_lookup_tests::record_sets(&in_sets, &flat_in_sets);
+    #[cfg(test)]
+    def_bucket_tests::record_sets(&in_sets, &flat_in_sets, &kill, &flat_kill);
     let collapsed = collapsed_groups(&defs);
     let capture_facts = capture::capture_facts(parsed, *func_node);
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
+    let mut exact_labels = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
+    let mut reaching_edges = BTreeSet::new();
     for edge in dfg_edges {
         let key = (edge.from.clone(), edge.to.clone());
+        let candidates = buckets.matching_defs(edge);
+        if statements
+            .get(edge.to.line)
+            .and_then(|line| line_index.get(&line))
+            .is_some_and(|node| {
+                candidates
+                    .iter()
+                    .any(|index| in_sets[*node].contains(*index))
+            })
+        {
+            reaching_edges.insert(key.clone());
+        }
         let label = classify_edge(
             edge,
             parsed,
             &defs,
+            &candidates,
             &mapped_defs,
             &line_index,
-            &spans,
+            &mut statements,
             &in_sets,
             &kill,
             &flat_in_sets,
@@ -248,10 +331,38 @@ pub(crate) fn reaching_definitions(
             .and_modify(|stored| *stored = stored.worst(label))
             .or_insert(label);
     }
+    for edge in exact_edges {
+        let key = ExactFlowEdge::from_legacy(edge);
+        let candidates = buckets.matching_defs(edge);
+        let label = classify_edge(
+            edge,
+            parsed,
+            &defs,
+            &candidates,
+            &mapped_defs,
+            &line_index,
+            &mut statements,
+            &in_sets,
+            &kill,
+            &flat_in_sets,
+            &flat_kill,
+            &successors,
+            &collapsed,
+            &capture_facts,
+            &binding_facts,
+            function_start,
+        );
+        exact_labels
+            .entry(key)
+            .and_modify(|stored: &mut FlowConfidence| *stored = stored.worst(label))
+            .or_insert(label);
+    }
 
     RdOutcome::Available(RdResult {
         labels,
+        exact_labels,
         loop_carried_edges,
+        reaching_edges,
     })
 }
 
@@ -315,9 +426,10 @@ fn classify_edge(
     edge: &FlowEdge,
     parsed: &ParsedFile,
     defs: &[DefSite],
+    candidates: &[usize],
     mapped_defs: &[Option<usize>],
     line_index: &BTreeMap<Line, usize>,
-    spans: &[StatementLineSpan],
+    statements: &mut statement_lookup::StatementLookup<'_>,
     in_sets: &[BitSet],
     kill: &[BitSet],
     flat_in_sets: &[BitSet],
@@ -332,12 +444,12 @@ fn classify_edge(
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
 
-    let use_statement = innermost_statement(edge.to.line, spans);
+    let use_statement = statements.get(edge.to.line);
     let def_statement =
         if edge.from.line == function_start && !line_index.contains_key(&function_start) {
             Some(function_start)
         } else {
-            innermost_statement(edge.from.line, spans)
+            statements.get(edge.from.line)
         };
     let (Some(use_line), Some(def_line)) = (use_statement, def_statement) else {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
@@ -354,7 +466,6 @@ fn classify_edge(
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
 
-    let candidates = matching_defs(edge, defs);
     if candidates.is_empty() {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
@@ -384,7 +495,7 @@ fn classify_edge(
     let construct_uncertain = binding_facts
         .unclassified_binding_lines(&edge.to.path.base)
         .into_iter()
-        .filter_map(|line| innermost_statement(line, spans))
+        .filter_map(|line| statements.get(line))
         .filter_map(|line| line_index.get(&line).copied())
         .any(|construct_node| {
             candidates.iter().any(|index| {
@@ -396,7 +507,7 @@ fn classify_edge(
         });
     if lookup_uncertain || construct_uncertain {
         return classify_by_reaching_sets(
-            &candidates,
+            candidates,
             use_node,
             mapped_defs,
             flat_in_sets,
@@ -408,7 +519,7 @@ fn classify_edge(
 
     let mut same_binding = Vec::new();
     let mut boundary_kills = Vec::new();
-    for index in candidates {
+    for &index in candidates {
         match binding_facts.relation(parsed, edge, index) {
             scope::BindingRelation::Same => same_binding.push(index),
             scope::BindingRelation::KilledAt(line) => boundary_kills.push(line),
@@ -483,7 +594,14 @@ fn classify_by_reaching_sets(
     })
 }
 
+// Frozen main scanner, independent of bucket construction.
+#[cfg(test)]
 fn matching_defs(edge: &FlowEdge, defs: &[DefSite]) -> Vec<usize> {
+    #[cfg(test)]
+    work_tests::bump(|counts| {
+        counts.matching_defs_calls += 1;
+        counts.matching_defs_items += defs.len();
+    });
     let mut matches: Vec<usize> = defs
         .iter()
         .enumerate()
@@ -495,10 +613,17 @@ fn matching_defs(edge: &FlowEdge, defs: &[DefSite]) -> Vec<usize> {
         })
         .collect();
     if matches.is_empty() {
+        #[cfg(test)]
+        work_tests::bump(|counts| {
+            counts.matching_defs_fallbacks += 1;
+            counts.matching_defs_items += defs.len();
+        });
         matches.extend(defs.iter().enumerate().filter_map(|(index, def)| {
             (def.path == edge.from.path && def.line == edge.from.line).then_some(index)
         }));
     }
+    #[cfg(test)]
+    work_tests::bump(|counts| counts.projected_matching_defs_items += matches.len());
     matches
 }
 
@@ -554,10 +679,16 @@ fn statement_line_spans(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<Statem
         .collect()
 }
 
+// Frozen pre-memo scanner: independent differential oracle.
+#[cfg(test)]
 fn innermost_statement(line: Line, spans: &[StatementLineSpan]) -> Option<Line> {
     spans
         .iter()
-        .filter(|span| span.start_line <= line && line <= span.end_line)
+        .filter(|span| {
+            #[cfg(test)]
+            work_tests::bump(|counts| counts.statement_span_visits += 1);
+            span.start_line <= line && line <= span.end_line
+        })
         .min_by_key(|span| {
             (
                 span.end_byte.saturating_sub(span.start_byte),
@@ -568,37 +699,16 @@ fn innermost_statement(line: Line, spans: &[StatementLineSpan]) -> Option<Line> 
         .map(|span| span.start_line)
 }
 
-fn is_incomplete_join(
-    parsed: &ParsedFile,
-    statements: &[(Line, String)],
-    edge: &CfgEdge,
-    provenance: ArmProvenance,
-) -> bool {
-    if provenance.crosses_lexical_arm() {
-        return true;
-    }
-    if !matches!(provenance.origin, EdgeOrigin::Structured) {
-        return false;
-    }
-    let kinds: BTreeMap<Line, &str> = statements
-        .iter()
-        .map(|(line, kind)| (*line, kind.as_str()))
-        .collect();
-    let from_kind = kinds.get(&edge.from_line).copied().unwrap_or("");
-    let to_kind = kinds.get(&edge.to_line).copied().unwrap_or("");
-    let try_join = matches!(
-        parsed.language,
-        Language::Python
-            | Language::JavaScript
-            | Language::TypeScript
-            | Language::Tsx
-            | Language::Java
-    ) && from_kind == "try_statement";
-    let go_defer = parsed.language == Language::Go
-        && parsed.language.is_return_node(from_kind)
-        && to_kind == "defer_statement";
-    try_join || go_defer
-}
-
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod work_tests;
+
+#[cfg(test)]
+mod join_kind_tests;
+
+#[cfg(test)]
+mod statement_lookup_tests;
+
+#[cfg(test)]
+mod def_bucket_tests;

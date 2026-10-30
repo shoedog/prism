@@ -78,8 +78,11 @@ def build_isolated_config(*, skill_src: str, mcp_repo: str, prism_mcp_bin: str,
     if include_skill_and_mcp:
         mcp_cfg = os.path.join(base, "mcp.json")
         with open(mcp_cfg, "w") as f:
+            # --warm-at-startup keeps the at-spawn build the adoption baselines ran under (the
+            # prism-mcp default became build-on-first-call on 2026-10-09).
             json.dump({"mcpServers": {"prism": {"command": prism_mcp_bin,
-                                                "args": ["--repo", mcp_repo]}}}, f)
+                                                "args": ["--repo", mcp_repo,
+                                                         "--warm-at-startup"]}}}, f)
     else:
         mcp_cfg = ""
 

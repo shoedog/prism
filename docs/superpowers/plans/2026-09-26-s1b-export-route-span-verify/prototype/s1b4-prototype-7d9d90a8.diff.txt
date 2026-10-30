@@ -1,0 +1,1251 @@
+diff --git a/docs/eval/tier-a/2026-10-01-prism.json b/docs/eval/tier-a/2026-10-01-prism.json
+new file mode 100644
+index 00000000..f634eb01
+--- /dev/null
++++ b/docs/eval/tier-a/2026-10-01-prism.json
+@@ -0,0 +1,26 @@
++{
++ "m2": {},
++ "meta": {
++  "baseline_invalid": true,
++  "corpus": "prism",
++  "corpus_dirty": true,
++  "corpus_sha": "915fca43d84e",
++  "date": "2026-10-01",
++  "error": "prism nav --cache-dir failed (2): error: unexpected argument '--quick' found\n\nUsage: prism nav [OPTIONS] <COMMAND>\n\nFor more information, try '--help'.\n",
++  "harness_sha": "915fca43d84e",
++  "invalid_reasons": [
++   "oracle_unavailable"
++  ],
++  "oracle": "rust-analyzer",
++  "oracle_error_rate": 1.0,
++  "oracle_not_quiescent": false,
++  "prism_sha": "unknown",
++  "seed": 42,
++  "sut_error_rate": 0.0,
++  "wall_s": {}
++ },
++ "pending": [],
++ "probes": {
++  "_corpus": "prism"
++ }
++}
+\ No newline at end of file
+diff --git a/docs/eval/tier-a/2026-10-01-prism.md b/docs/eval/tier-a/2026-10-01-prism.md
+new file mode 100644
+index 00000000..9d410395
+--- /dev/null
++++ b/docs/eval/tier-a/2026-10-01-prism.md
+@@ -0,0 +1,12 @@
++# Tier-A run — prism (2026-10-01)
++
++- corpus: `prism` @ `915fca43d84e` **dirty**
++- prism: `unknown` · oracle: rust-analyzer · seed: 42 · harness: `915fca43d84e`
++- oracle_error_rate: 1.000 · sut_error_rate: 0.000 · baseline_invalid: True · oracle_not_quiescent: False
++- wall (s): {}
++
++## Pending triage
++
++```json
++[]
++```
+diff --git a/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/app.ts b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/app.ts
+new file mode 100644
+index 00000000..82ee2206
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/app.ts
+@@ -0,0 +1,2 @@
++import * as ns from './util';
++export function run() { return ns.f(); }
+diff --git a/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/expected.toml b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/expected.toml
+new file mode 100644
+index 00000000..42acc464
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/expected.toml
+@@ -0,0 +1,12 @@
++[case]
++language = "typescript"
++capability = "s1b_namespace_nested_decoy_refused"
++status = "pass"
++[seed]
++symbol = "f"
++file = "util.ts"
++line = 2
++[expect]
++callers = []
++exact = false
++forbid_resolution_kind = "import_qualified"
+diff --git a/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/util.ts b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/util.ts
+new file mode 100644
+index 00000000..a15308fb
+--- /dev/null
++++ b/eval/fixtures/typescript/s1b_namespace_nested_decoy_refused/util.ts
+@@ -0,0 +1,5 @@
++function helper() {
++  function f() { return 99; }
++  return f;
++}
++export function f() { return 1; }
+diff --git a/src/ast.rs b/src/ast.rs
+index 71608017..ebf55aac 100644
+--- a/src/ast.rs
++++ b/src/ast.rs
+@@ -15,6 +15,7 @@ mod js_binding_checks;
+ mod js_binding_decls;
+ #[cfg(test)]
+ mod js_binding_helper_tests;
++mod js_binding_namespace;
+ mod js_binding_recovery;
+ mod js_binding_site;
+ mod js_binding_values;
+@@ -2842,9 +2843,9 @@ impl ParsedFile {
+                         module_path: module_path.clone(),
+                         imported: name,
+                     },
+-                    None => self
+-                        .js_ts_forwarded_import(&name)
+-                        .unwrap_or_else(|| self.js_ts_local_export_target(name, spec, facts, d4)),
++                    None => self.js_ts_forwarded_import(&name).unwrap_or_else(|| {
++                        self.js_ts_local_export_target(name, &exported_as, spec, facts, d4)
++                    }),
+                 };
+                 facts.insert_named(exported_as, target);
+             }
+@@ -2863,9 +2864,9 @@ impl ParsedFile {
+                     }
+                     return;
+                 }
+-                let target = self
+-                    .js_ts_forwarded_import(&name)
+-                    .unwrap_or_else(|| self.js_ts_local_export_target(name, value, facts, d4));
++                let target = self.js_ts_forwarded_import(&name).unwrap_or_else(|| {
++                    self.js_ts_local_export_target(name, "default", value, facts, d4)
++                });
+                 facts.insert_named("default".to_string(), target);
+             } else {
+                 facts.skipped_expr_count += 1;
+@@ -2897,7 +2898,13 @@ impl ParsedFile {
+                         } else {
+                             name_text.clone()
+                         };
+-                        let target = self.js_ts_local_export_target(name_text, decl, facts, d4);
++                        let target = self.js_ts_local_export_target(
++                            name_text,
++                            &exported_as,
++                            decl,
++                            facts,
++                            d4,
++                        );
+                         facts.insert_named(exported_as, target);
+                     }
+                 }
+@@ -2928,8 +2935,13 @@ impl ParsedFile {
+                         // span-verified React wrapper; every other skip names its reason.
+                         let admitted = match d.child_by_field_name("value").map(|v| v.kind()) {
+                             Some("arrow_function") | Some("function_expression") => {
+-                                let target =
+-                                    self.js_ts_local_export_target(name_text.clone(), d, facts, d4);
++                                let target = self.js_ts_local_export_target(
++                                    name_text.clone(),
++                                    &name_text,
++                                    d,
++                                    facts,
++                                    d4,
++                                );
+                                 facts.insert_named(name_text, target);
+                                 continue;
+                             }
+@@ -2947,6 +2959,12 @@ impl ParsedFile {
+                                 facts.insert_named(name_text, target);
+                             }
+                             Err(reason) => {
++                                if matches!(
++                                    self.js_ts_module_binding(&name_text, d, &mut d4.1),
++                                    JsBinding::Alias | JsBinding::MayCall
++                                ) {
++                                    facts.record_namespace_opaque(name_text.clone(), name_text);
++                                }
+                                 facts.skipped_expr_count += 1;
+                                 *facts
+                                     .skipped_decl_reasons
+diff --git a/src/ast/js_binding.rs b/src/ast/js_binding.rs
+index b38fdf1d..fdd1ff73 100644
+--- a/src/ast/js_binding.rs
++++ b/src/ast/js_binding.rs
+@@ -58,6 +58,7 @@ pub(super) type ExportScope<'a> = (BTreeSet<String>, JsBindingCache<'a>);
+ 
+ /// Declared names and their declaring nodes (markers included).
+ pub(super) type Index<'a> = BTreeMap<String, Vec<Node<'a>>>;
++pub(super) type NamespaceImports<'a> = BTreeMap<String, Vec<(Node<'a>, Option<String>)>>;
+ 
+ /// Per-file memo: scope declaration indexes (with the unknown-strictness Annex-B names), B0
+ /// results, both keyed by scope node id, the file-level B1 brace condition, the leave
+@@ -71,6 +72,7 @@ pub(crate) struct JsBindingCache<'a> {
+     pub(super) partners: Option<BTreeMap<String, usize>>,
+     pub(super) write_targets: Option<BTreeMap<String, Vec<Node<'a>>>>,
+     pub(super) written: BTreeMap<(usize, String), bool>,
++    pub(super) namespace_imports: Option<NamespaceImports<'a>>,
+ }
+ 
+ impl<'a> JsBindingCache<'a> {
+@@ -367,6 +369,7 @@ impl ParsedFile {
+     pub(super) fn js_ts_local_export_target<'a>(
+         &'a self,
+         name: String,
++        exported: &str,
+         site: Node<'a>,
+         facts: &mut JsExportFacts,
+         (imported, cache): &mut ExportScope<'a>,
+@@ -398,7 +401,10 @@ impl ParsedFile {
+             // is not filtered above and would otherwise leak an unpoisoned `Local`, letting R4c
+             // bind a same-file decoy Exact — re-opening the edge S1b-2b closed. Both count
+             // `not_callable`.
+-            JsBinding::Alias | JsBinding::Import => {
++            binding @ (JsBinding::Alias | JsBinding::Import) => {
++                if binding == JsBinding::Alias {
++                    facts.record_namespace_opaque(exported.to_string(), name.clone());
++                }
+                 *facts
+                     .local_export_refusals
+                     .entry("not_callable".into())
+diff --git a/src/ast/js_binding_namespace.rs b/src/ast/js_binding_namespace.rs
+new file mode 100644
+index 00000000..dd3e9ee7
+--- /dev/null
++++ b/src/ast/js_binding_namespace.rs
+@@ -0,0 +1,81 @@
++//! S1b-4: namespace syntax provenance, proved at the exact qualifier node.
++use super::js_binding::{JsBinding, JsBindingCache, NamespaceImports};
++use super::js_binding_walk::Walk;
++use super::ParsedFile;
++use std::collections::BTreeMap;
++use tree_sitter::Node;
++
++impl ParsedFile {
++    /// None leaves non-namespace qualifiers at base. A spelling is only an
++    /// entry gate; Import authority additionally needs scope/declaration identity.
++    pub(crate) fn js_ts_namespace_binding<'a>(
++        &'a self,
++        ident: Node<'a>,
++        cache: &mut JsBindingCache<'a>,
++    ) -> Option<(JsBinding, Option<String>)> {
++        let name = self.node_text(&ident);
++        let imports = cache.namespace_imports.get_or_insert_with(|| {
++            let mut out: NamespaceImports<'a> = BTreeMap::new();
++            let root = self.tree.root_node();
++            let mut cursor = root.walk();
++            for stmt in root
++                .named_children(&mut cursor)
++                .filter(|s| s.kind() == "import_statement")
++            {
++                let mut type_cursor = stmt.walk();
++                // JSX recovers TS's type token as an ERROR; it still must not
++                // introduce namespace authority for the type-only non-goal.
++                let recovered_type = stmt
++                    .named_children(&mut type_cursor)
++                    .any(|n| n.is_error() && self.node_text(&n).trim() == "type");
++                if self.js_ts_import_statement_is_type_only(stmt) || recovered_type {
++                    continue;
++                }
++                let mut cursor = stmt.walk();
++                for clause in stmt
++                    .named_children(&mut cursor)
++                    .filter(|c| c.kind() == "import_clause")
++                {
++                    let mut cursor = clause.walk();
++                    for ns in clause
++                        .named_children(&mut cursor)
++                        .filter(|n| n.kind() == "namespace_import")
++                    {
++                        let mut cursor = ns.walk();
++                        if let Some(id) = ns
++                            .named_children(&mut cursor)
++                            .find(|n| n.kind() == "identifier")
++                        {
++                            let source = stmt
++                                .child_by_field_name("source")
++                                .and_then(|s| self.js_ts_module_export_name(s));
++                            out.entry(self.node_text(&id).to_string())
++                                .or_default()
++                                .push((stmt, source));
++                        };
++                    }
++                }
++            }
++            out
++        });
++        let declarations = imports.get(name)?.clone();
++        let binding = self.js_ts_site_binding(ident, name, cache);
++        let module = if binding == JsBinding::Import {
++            match self.js_ts_binding_walk(ident, name, cache) {
++                Walk::Found(scope, None) if scope.kind() == "program" => {
++                    let (decls, _) = self.js_ts_scope_lookup(scope, name, cache);
++                    match (decls.as_deref(), declarations.as_slice()) {
++                        (Some([decl]), [(stmt, source)]) if decl.id() == stmt.id() => {
++                            source.clone()
++                        }
++                        _ => None,
++                    }
++                }
++                _ => None,
++            }
++        } else {
++            None
++        };
++        Some((binding, module))
++    }
++}
+diff --git a/src/ast/js_binding_values_tests.rs b/src/ast/js_binding_values_tests.rs
+index cb747a4c..d5232b40 100644
+--- a/src/ast/js_binding_values_tests.rs
++++ b/src/ast/js_binding_values_tests.rs
+@@ -180,8 +180,13 @@ fn a_d4_import_alias_and_require_export_stay_unproven_with_a_nested_decoy() {
+             let p = parse(path, src);
+             let mut facts = crate::js_exports::JsExportFacts::default();
+             let mut scope = (std::collections::BTreeSet::new(), JsBindingCache::default());
+-            let got =
+-                p.js_ts_local_export_target("f".into(), p.tree.root_node(), &mut facts, &mut scope);
++            let got = p.js_ts_local_export_target(
++                "f".into(),
++                "f",
++                p.tree.root_node(),
++                &mut facts,
++                &mut scope,
++            );
+             let want = crate::js_exports::JsExportTarget::UnprovenLocal("f".into());
+             assert_eq!(
+                 (&got, facts.local_export_refusals.get("not_callable")),
+@@ -203,7 +208,7 @@ fn c_m40_d4_keeps_unproven_local_for_an_alias_export() {
+     let mut facts = crate::js_exports::JsExportFacts::default();
+     let mut scope: (std::collections::BTreeSet<String>, JsBindingCache<'_>) =
+         (std::collections::BTreeSet::new(), JsBindingCache::default());
+-    let got = p.js_ts_local_export_target("t".to_string(), root, &mut facts, &mut scope);
++    let got = p.js_ts_local_export_target("t".to_string(), "t", root, &mut facts, &mut scope);
+     assert_eq!(
+         got,
+         crate::js_exports::JsExportTarget::UnprovenLocal("t".to_string())
+diff --git a/src/call_graph.rs b/src/call_graph.rs
+index e8d790d8..4a5234f6 100644
+--- a/src/call_graph.rs
++++ b/src/call_graph.rs
+@@ -513,6 +513,8 @@ pub enum JsLocalBinding {
+     Unchecked,
+     /// The binding holds exactly this callable.
+     Callable(crate::ast::JsTerminal),
++    /// S1b-4: one unwritten program namespace import, proved at this site.
++    NamespaceImport { module_path: String },
+     /// Keeps base behavior, counted by reason: `may_call` (owner E5: M1, M2, a written
+     /// binding) or `alias` (a value that may hold a function by value flow, owner
+     /// 2026-09-29).
+@@ -886,6 +888,10 @@ pub struct CallGraph {
+     /// `js_ts_exports`; recomputed by `apply_js_export_resolution` the same
+     /// way `interface_impls`/`go_registrations` are (whole-program derived —
+     /// a barrel's resolution can depend on an unchanged file elsewhere).
++    /// S1b-4 namespace-only export projection (unspanned means keep base).
++    #[serde(default)]
++    pub js_ts_namespace_exports:
++        BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
+     #[serde(default)]
+     pub js_ts_resolved_exports:
+         BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
+@@ -1213,6 +1219,7 @@ impl CallGraph {
+             indexed_files: BTreeSet::new(),
+             js_ts_exports: BTreeMap::new(),
+             js_ts_resolved_exports: BTreeMap::new(),
++            js_ts_namespace_exports: BTreeMap::new(),
+             js_export_chain_unresolved: 0,
+             js_export_barrel_conflicts: 0,
+             js_ts_function_locals: BTreeMap::new(),
+@@ -1491,6 +1498,7 @@ impl CallGraph {
+             indexed_files: BTreeSet::new(),
+             js_ts_exports: BTreeMap::new(),
+             js_ts_resolved_exports: BTreeMap::new(),
++            js_ts_namespace_exports: BTreeMap::new(),
+             js_export_chain_unresolved: 0,
+             js_export_barrel_conflicts: 0,
+             js_ts_function_locals: BTreeMap::new(),
+@@ -1956,6 +1964,7 @@ impl CallGraph {
+             indexed_files,
+             js_ts_exports,
+             js_ts_resolved_exports: BTreeMap::new(),
++            js_ts_namespace_exports: BTreeMap::new(),
+             js_export_chain_unresolved: 0,
+             js_export_barrel_conflicts: 0,
+             js_ts_function_locals,
+@@ -2190,6 +2199,8 @@ impl CallGraph {
+         };
+         let resolution =
+             crate::js_exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
++        self.js_ts_namespace_exports =
++            crate::js_exports::resolve_js_namespace_exports(&self.js_ts_exports, &resolve_module);
+         self.js_ts_resolved_exports = resolution.resolved;
+         self.js_export_chain_unresolved = resolution.chain_unresolved;
+         self.js_export_barrel_conflicts = resolution.barrel_conflicts;
+@@ -2197,6 +2208,7 @@ impl CallGraph {
+ 
+     fn clear_js_export_resolution(&mut self) {
+         self.js_ts_resolved_exports.clear();
++        self.js_ts_namespace_exports.clear();
+         self.js_export_chain_unresolved = 0;
+         self.js_export_barrel_conflicts = 0;
+     }
+@@ -5251,6 +5263,7 @@ impl CallGraph {
+             // itself; the caller re-applies `apply_js_export_resolution` on
+             // the merged graph.
+             js_ts_resolved_exports: BTreeMap::new(),
++            js_ts_namespace_exports: BTreeMap::new(),
+             js_export_chain_unresolved: 0,
+             js_export_barrel_conflicts: 0,
+             js_ts_function_locals,
+@@ -5588,12 +5601,33 @@ impl CallGraph {
+                     site.child_by_field_name("name")
+                 }
+                 _ => None,
+-            })
+-            .filter(|n| n.kind() == "identifier" && parsed.node_text(n) == callee);
++            });
+         let Some(ident) = ident else {
+             return JsLocalBinding::Unchecked;
+         };
+-        match parsed.js_ts_site_binding(ident, callee, cache) {
++        let binding = if ident.kind() == "identifier" && parsed.node_text(&ident) == callee {
++            parsed.js_ts_site_binding(ident, callee, cache)
++        } else if ident.kind() == "member_expression" {
++            let qualifier = ident
++                .child_by_field_name("object")
++                .filter(|n| n.kind() == "identifier");
++            let member = ident.child_by_field_name("property");
++            let Some(q) =
++                qualifier.filter(|_| member.is_some_and(|m| parsed.node_text(&m) == callee))
++            else {
++                return JsLocalBinding::Unchecked;
++            };
++            let Some((binding, module)) = parsed.js_ts_namespace_binding(q, cache) else {
++                return JsLocalBinding::Unchecked;
++            };
++            if let Some(module_path) = module {
++                return JsLocalBinding::NamespaceImport { module_path };
++            }
++            binding
++        } else {
++            return JsLocalBinding::Unchecked;
++        };
++        match binding {
+             JsBinding::Callable(t) => JsLocalBinding::Callable(t),
+             JsBinding::MayCall => JsLocalBinding::MayCall("may_call".to_string()),
+             JsBinding::Alias => JsLocalBinding::MayCall("alias".to_string()),
+diff --git a/src/cpg_cache.rs b/src/cpg_cache.rs
+index 3ee34be8..b632e508 100644
+--- a/src/cpg_cache.rs
++++ b/src/cpg_cache.rs
+@@ -228,7 +228,7 @@ use std::path::{Path, PathBuf};
+ /// - v103: S1b-3b wires the binding core to call sites (`CallSite.local_binding`): a JS/TS
+ ///   lexical binding resolves first (Callable), and an `Unproven` binding drops the R4/R5
+ ///   same-name fallback (SPEC §3.6, §3.8 (8)).
+-const CACHE_VERSION: u32 = 103;
++const CACHE_VERSION: u32 = 104;
+ 
+ pub const SKIP_POLICY_VERSION: u32 = 2;
+ 
+@@ -767,7 +767,7 @@ mod tests {
+ 
+     #[test]
+     fn cache_versions_are_pinned_for_cpg_semantics() {
+-        assert_eq!(super::CACHE_VERSION, 103);
++        assert_eq!(super::CACHE_VERSION, 104);
+         assert_eq!(super::SKIP_POLICY_VERSION, 2);
+     }
+ 
+diff --git a/src/js_exports.rs b/src/js_exports.rs
+index 8b87afc9..6d50475f 100644
+--- a/src/js_exports.rs
++++ b/src/js_exports.rs
+@@ -71,6 +71,10 @@ pub enum JsExportTarget {
+ /// (`import_bindings`, `module_bindings`): removed/merged wholesale per file.
+ #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+ pub struct JsExportFacts {
++    /// R3-only keep-base terminals. None poisons duplicate/competing claims.
++    /// These never grant callable authority or alter D4 telemetry.
++    #[serde(default)]
++    pub namespace_opaque_exports: BTreeMap<String, Option<String>>,
+     /// Syntactic module value declarations, used only to forbid repo-global
+     /// name fallback. This is not callable or forwarding authority.
+     #[serde(default)]
+@@ -118,7 +122,8 @@ pub struct JsExportFacts {
+ 
+ impl JsExportFacts {
+     pub fn is_empty(&self) -> bool {
+-        self.named.is_empty()
++        self.namespace_opaque_exports.is_empty()
++            && self.named.is_empty()
+             && self.module_value_bindings.is_empty()
+             && self.forwardable_function_locals.is_empty()
+             && self.esm_named_imports.is_empty()
+@@ -138,6 +143,14 @@ impl JsExportFacts {
+     /// local declaration plus a re-export, even two identical re-exports of
+     /// the same target -- poisons the name: resolution refuses to bind it.
+     pub fn insert_named(&mut self, name: String, target: JsExportTarget) {
++        if let Some(local) = self.namespace_opaque_exports.get_mut(&name) {
++            if local
++                .as_ref()
++                .is_none_or(|l| target != JsExportTarget::UnprovenLocal(l.clone()))
++            {
++                *local = None;
++            }
++        }
+         if self.conflicted.contains(&name) {
+             return; // already poisoned; nothing more to do
+         }
+@@ -147,6 +160,13 @@ impl JsExportFacts {
+             self.named.insert(name, target);
+         }
+     }
++
++    pub(crate) fn record_namespace_opaque(&mut self, exported: String, local: String) {
++        let duplicate = self.named.contains_key(&exported)
++            || self.namespace_opaque_exports.contains_key(&exported);
++        self.namespace_opaque_exports
++            .insert(exported, (!duplicate).then_some(local));
++    }
+ }
+ 
+ /// One resolved JS/TS export: the concrete file and local declared name an
+@@ -211,6 +231,33 @@ pub fn resolve_js_exports(
+     out
+ }
+ 
++/// A separate projection through the same bounded traversal. Local without a
++/// span means keep the whole base R3 ladder, never mint callable authority.
++/// D4 receives the original facts and telemetry; this projection's telemetry
++/// is deliberately discarded. ImportForward can carry opaque Alias terminals.
++pub fn resolve_js_namespace_exports(
++    raw: &BTreeMap<String, JsExportFacts>,
++    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
++) -> BTreeMap<String, BTreeMap<String, ResolvedJsExport>> {
++    let mut namespace_raw = raw.clone();
++    for facts in namespace_raw.values_mut() {
++        for (exported, local) in &facts.namespace_opaque_exports {
++            match local {
++                Some(local) if !facts.conflicted.contains(exported) => {
++                    facts
++                        .named
++                        .insert(exported.clone(), JsExportTarget::Local(local.clone()));
++                    facts.forwardable_function_locals.insert(local.clone());
++                }
++                _ => {
++                    facts.conflicted.insert(exported.clone());
++                }
++            }
++        }
++    }
++    resolve_js_exports(&namespace_raw, resolve_module).resolved
++}
++
+ /// Collect the set of exported names a file can plausibly serve, including
+ /// names only reachable via `export * from` barrels (which don't enumerate
+ /// names syntactically — the candidate set has to be discovered from the
+@@ -452,6 +499,7 @@ mod tests {
+ 
+     fn facts(named: &[(&str, JsExportTarget)], star: &[&str]) -> JsExportFacts {
+         JsExportFacts {
++            namespace_opaque_exports: BTreeMap::new(),
+             module_value_bindings: BTreeSet::new(),
+             forwardable_function_locals: BTreeSet::new(),
+             esm_named_imports: BTreeSet::new(),
+diff --git a/src/navigation/call_edge_cache.rs b/src/navigation/call_edge_cache.rs
+index b4b06855..c4275d29 100644
+--- a/src/navigation/call_edge_cache.rs
++++ b/src/navigation/call_edge_cache.rs
+@@ -100,7 +100,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
+ // v57: S1b-2b ESM local exports through the module-scope binding (CPG v101).
+ // v58: S1b-3a extends the binding core to every scope (CPG v102).
+ // v59: S1b-3b wires the binding core to call sites, `CallSite.local_binding` (CPG v103).
+-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 59;
++const NAV_CALL_EDGE_CACHE_VERSION: u32 = 60;
+ const CACHE_BIN: &str = "resolved-call-edge-index.bin";
+ const CACHE_META: &str = "resolved-call-edge-index-meta.json";
+ const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
+@@ -719,7 +719,7 @@ mod tests {
+ 
+     #[test]
+     fn sidecar_version_is_pinned_for_receiver_authority() {
+-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 59);
++        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 60);
+     }
+ 
+     #[test]
+diff --git a/src/resolution.rs b/src/resolution.rs
+index aa2ab4bf..2aca11d5 100644
+--- a/src/resolution.rs
++++ b/src/resolution.rs
+@@ -14,6 +14,9 @@ use crate::name_resolution::types::{
+ };
+ use std::collections::{BTreeMap, BTreeSet};
+ 
++#[path = "resolution_js_namespace.rs"]
++mod js_namespace;
++
+ pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
+ pub use crate::resolution_identity::{
+     canonical_external, resolve_type_path_to_type_scope, ReceiverOutcome, ReceiverTypeKey, TypeKey,
+@@ -2559,9 +2562,24 @@ impl CallGraph {
+                     )
+                 ) && site.receiver_lexically_bound;
+ 
++                // A core-proven namespace import pre-empts the legacy receiver shadow
++                // flags, which cannot model every evaluation position. Opaque exports
++                // return None to preserve the entire old ladder, including its guards.
++                if let crate::call_graph::JsLocalBinding::NamespaceImport { module_path } =
++                    &site.local_binding
++                {
++                    if let Some(outcome) = self.js_ts_namespace_outcome(module_path, name, site) {
++                        return outcome;
++                    }
++                }
++                let namespace_refused = matches!(
++                    site.local_binding,
++                    crate::call_graph::JsLocalBinding::Callable(_)
++                        | crate::call_graph::JsLocalBinding::Unproven(_)
++                );
+                 // R3: imported-module qualifier. If an import matches, the
+                 // narrowed set is final; empty means the call is external.
+-                if !recv_materialized && !js_ts_receiver_lexically_bound {
++                if !recv_materialized && !js_ts_receiver_lexically_bound && !namespace_refused {
+                     if let Some(file_imports) = self.imports.get(&caller.file) {
+                         if let Some(module_path) = file_imports.get(q) {
+                             let ids = match self.functions.get(name) {
+@@ -3755,13 +3773,30 @@ impl CallGraph {
+         ) else {
+             return Ok(Vec::new());
+         };
++        self.js_ts_export_candidates(&candidate_file, member, site)
++    }
++
++    fn js_ts_export_candidates(
++        &self,
++        candidate_file: &str,
++        member: &str,
++        site: &CallSite,
++    ) -> Result<Vec<&FunctionId>, DropReason> {
+         let Some(resolved) = self
+             .js_ts_resolved_exports
+-            .get(&candidate_file)
++            .get(candidate_file)
+             .and_then(|exports| exports.get(member))
+         else {
+             return Ok(Vec::new());
+         };
++        self.js_ts_export_target_candidates(resolved, site)
++    }
++
++    fn js_ts_export_target_candidates(
++        &self,
++        resolved: &crate::js_exports::ResolvedJsExport,
++        site: &CallSite,
++    ) -> Result<Vec<&FunctionId>, DropReason> {
+         if resolved.wrapped && !site.jsx_element {
+             return Err(DropReason::WrappedExportNonJsx);
+         }
+diff --git a/src/resolution_js_namespace.rs b/src/resolution_js_namespace.rs
+new file mode 100644
+index 00000000..ff1be874
+--- /dev/null
++++ b/src/resolution_js_namespace.rs
+@@ -0,0 +1,123 @@
++//! S1b-4 namespace R3 and its scoped E7 module fallback.
++use super::{
++    CallGraph, CallSite, DropReason, ResolutionConfidence, ResolutionKind, ResolutionOutcome,
++    ResolvedCallee,
++};
++use crate::call_graph::{js_ts_relative_module_candidates, resolve_js_ts_relative_module};
++use std::collections::BTreeSet;
++
++impl CallGraph {
++    pub(super) fn js_ts_namespace_outcome(
++        &self,
++        module: &str,
++        member: &str,
++        site: &CallSite,
++    ) -> Option<ResolutionOutcome<'_>> {
++        let missing = || {
++            ResolutionOutcome::dropped(if self.functions.contains_key(member) {
++                DropReason::ImportExternal
++            } else {
++                DropReason::UnknownName
++            })
++        };
++        let module_file =
++            resolve_js_ts_relative_module(module, &site.caller.file, &self.indexed_files)
++                .or_else(|| namespace_sibling(module, &site.caller.file, &self.indexed_files));
++        if let Some(file) = module_file {
++            let Some(export) = self
++                .js_ts_namespace_exports
++                .get(&file)
++                .and_then(|e| e.get(member))
++            else {
++                return Some(missing());
++            };
++            export.span?;
++            return Some(match self.js_ts_export_target_candidates(export, site) {
++                Err(reason) => ResolutionOutcome::dropped(reason),
++                Ok(ids) if ids.is_empty() => missing(),
++                Ok(ids) => {
++                    let confidence = if ids.len() == 1 {
++                        ResolutionConfidence::Exact
++                    } else {
++                        ResolutionConfidence::NameOnly
++                    };
++                    ResolutionOutcome::hit(
++                        ids.into_iter()
++                            .map(|target| ResolvedCallee {
++                                target,
++                                confidence,
++                                kind: ResolutionKind::ImportQualified,
++                            })
++                            .collect(),
++                    )
++                }
++            });
++        }
++        // Only unresolved modules use stem/directory fallback. Each candidate's
++        // own export identity still filters it; even a single survivor is NameOnly.
++        let last = module.rsplit('/').next().unwrap_or(module);
++        let stem = last.rsplit('.').next_back().unwrap_or(last);
++        let mut ids = BTreeSet::new();
++        let mut wrapped = false;
++        for file in &self.indexed_files {
++            if super::file_stem(file) != stem && file.rsplit('/').nth(1) != Some(last) {
++                continue;
++            }
++            let Some(export) = self
++                .js_ts_namespace_exports
++                .get(file)
++                .and_then(|e| e.get(member))
++            else {
++                continue;
++            };
++            export.span?;
++            match self.js_ts_export_target_candidates(export, site) {
++                Ok(candidates) => ids.extend(candidates),
++                Err(DropReason::WrappedExportNonJsx) => wrapped = true,
++                Err(reason) => return Some(ResolutionOutcome::dropped(reason)),
++            }
++        }
++        Some(if ids.is_empty() {
++            if wrapped {
++                ResolutionOutcome::dropped(DropReason::WrappedExportNonJsx)
++            } else {
++                missing()
++            }
++        } else {
++            ResolutionOutcome::hit(
++                ids.into_iter()
++                    .map(|target| ResolvedCallee {
++                        target,
++                        confidence: ResolutionConfidence::NameOnly,
++                        kind: ResolutionKind::ImportQualified,
++                    })
++                    .collect(),
++            )
++        })
++    }
++}
++
++fn namespace_sibling(module: &str, caller: &str, indexed: &BTreeSet<String>) -> Option<String> {
++    let (prefix, extensions): (&str, &[&str]) = if let Some(p) = module.strip_suffix(".js") {
++        (p, &[".ts", ".tsx"])
++    } else if let Some(p) = module.strip_suffix(".jsx") {
++        (p, &[".tsx"])
++    } else if let Some(p) = module.strip_suffix(".mjs") {
++        (p, &[".mts"])
++    } else if let Some(p) = module.strip_suffix(".cjs") {
++        (p, &[".cts"])
++    } else {
++        return None;
++    };
++    for extension in extensions {
++        let replacement = format!("{prefix}{extension}");
++        let basename = replacement.rsplit('/').next()?;
++        if let Some(file) = js_ts_relative_module_candidates(&replacement, caller, indexed)?
++            .into_iter()
++            .find(|f| f.rsplit('/').next() == Some(basename))
++        {
++            return Some(file);
++        }
++    }
++    None
++}
+diff --git a/tests/integration/coverage_test.rs b/tests/integration/coverage_test.rs
+index d1fb1aab..45b92f4b 100644
+--- a/tests/integration/coverage_test.rs
++++ b/tests/integration/coverage_test.rs
+@@ -150,6 +150,7 @@ fn test_algorithm_language_matrix() {
+         "tests/cli/output_test.rs",
+         "tests/integration/call_graph_test.rs",
+         "tests/integration/core_test.rs",
++        "tests/integration/js_binding_namespace_test.rs",
+         "tests/integration/coverage_test.rs",
+         "tests/integration/cwe_phase1_suppression_test.rs",
+         "tests/integration/cwe_phase2_suppression_test.rs",
+@@ -383,6 +384,7 @@ fn test_language_coverage_minimum() {
+         "tests/cli/output_test.rs",
+         "tests/integration/call_graph_test.rs",
+         "tests/integration/core_test.rs",
++        "tests/integration/js_binding_namespace_test.rs",
+         "tests/integration/coverage_test.rs",
+         "tests/integration/cwe_phase1_suppression_test.rs",
+         "tests/integration/cwe_phase2_suppression_test.rs",
+@@ -544,6 +546,7 @@ fn test_coverage_matrix_validation() {
+         "tests/cli/output_test.rs",
+         "tests/integration/call_graph_test.rs",
+         "tests/integration/core_test.rs",
++        "tests/integration/js_binding_namespace_test.rs",
+         "tests/integration/coverage_test.rs",
+         "tests/integration/cwe_phase1_suppression_test.rs",
+         "tests/integration/cwe_phase2_suppression_test.rs",
+diff --git a/tests/integration/js_binding_namespace_test.rs b/tests/integration/js_binding_namespace_test.rs
+new file mode 100644
+index 00000000..a2a923a5
+--- /dev/null
++++ b/tests/integration/js_binding_namespace_test.rs
+@@ -0,0 +1,415 @@
++//! S1b-4 D-1..D-10: exported identity, qualifier proof and preservation.
++use prism::{
++    ast::ParsedFile,
++    call_graph::{CallGraph, JsLocalBinding},
++    languages::Language,
++};
++use std::collections::BTreeMap;
++const LIB: &str = "function helper() {\n  function f() { return 99; }\n  return f;\n}\nexport function f() { return 1; }\n";
++const APP: &str = "import * as ns from './lib';\nexport function run() { return ns.f(); }\n";
++fn parsed(ext: &str, sources: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
++    sources
++        .iter()
++        .map(|(p, s)| {
++            let path = format!("{p}.{ext}");
++            let f = ParsedFile::parse(&path, s, Language::from_path(&path).unwrap()).unwrap();
++            (path, f)
++        })
++        .collect()
++}
++fn graph(ext: &str, sources: &[(&str, &str)]) -> CallGraph {
++    CallGraph::build(&parsed(ext, sources))
++}
++fn rows(cg: &CallGraph, caller: &str, member: &str) -> Vec<String> {
++    cg.calls
++        .values()
++        .flatten()
++        .filter(|s| s.caller.name == caller && s.callee_name == member)
++        .map(|s| {
++            let out = cg.resolve_call_site_full(s);
++            if let Some(d) = out.drop {
++                return format!("drop {d:?}");
++            }
++            out.resolved
++                .iter()
++                .map(|r| {
++                    format!(
++                        "{}:{}@{}-{} {:?}/{}",
++                        r.target.file,
++                        r.target.name,
++                        r.target.start_line,
++                        r.target.end_line,
++                        r.confidence,
++                        r.kind.as_str()
++                    )
++                })
++                .collect::<Vec<_>>()
++                .join(", ")
++        })
++        .collect()
++}
++fn exact(ext: &str, file: &str, name: &str, line: usize) -> String {
++    format!("{file}.{ext}:{name}@{line}-{line} Exact/import_qualified")
++}
++#[test]
++fn d1_direct_and_directory_decoys() {
++    for ext in ["jsx", "tsx"] {
++        let cg = graph(ext, &[("lib", LIB), ("other/lib", LIB), ("app", APP)]);
++        assert_eq!(rows(&cg, "run", "f"), [exact(ext, "lib", "f", 5)]);
++        let f = cg.functions["f"]
++            .iter()
++            .find(|f| f.file == format!("lib.{ext}") && f.start_line == 5)
++            .unwrap();
++        assert_eq!(cg.resolved_caller_edges(f).len(), 1);
++        let decoy = cg.functions["f"]
++            .iter()
++            .find(|f| f.file == format!("lib.{ext}") && f.start_line == 2)
++            .unwrap();
++        assert!(cg.resolved_caller_edges(decoy).is_empty());
++    }
++}
++#[test]
++fn d2_wrapped_call_and_jsx() {
++    for ext in ["jsx", "tsx"] {
++        let cg=graph(ext,&[("lib","import { memo } from 'react';\nexport const f = memo(() => <div/>);\n"),("app","import * as ns from './lib';\nexport function run() { ns.f(); return <ns.f/>; }\n")]);
++        assert_eq!(
++            rows(&cg, "run", "f"),
++            [
++                "drop WrappedExportNonJsx".to_string(),
++                exact(ext, "lib", "f", 2)
++            ]
++        );
++    }
++}
++#[test]
++fn d3_rename_named_and_star_barrels() {
++    for ext in ["jsx", "tsx"] {
++        for barrel in [
++            "export { 'g' as f } from './impl';",
++            "export * from './impl';",
++        ] {
++            let implementation = if barrel.contains("'g'") {
++                "function actual() { return 1; }\nexport { actual as 'g' };"
++            } else {
++                "function actual() { return 1; }\nexport { actual as f };"
++            };
++            let cg = graph(
++                ext,
++                &[("impl", implementation), ("lib", barrel), ("app", APP)],
++            );
++            assert_eq!(rows(&cg, "run", "f"), [exact(ext, "impl", "actual", 1)]);
++        }
++    }
++}
++#[test]
++fn d4_scope_write_recovery_and_positions() {
++    for ext in ["jsx", "tsx"] {
++        for (app,want) in [
++            ("import * as ns from './lib';\nexport function run(a = ns.f()) { var ns=0; return a; }",true),
++            ("import * as ns from './lib';\nfunction write(ns) { ns=0; }\nexport function run() { return ns.f(); }",true),
++            ("import * as ns from './lib';\nfunction broken() { let bad = ; }\nexport function run() { return ns.f(); }",true),
++            ("import * as ns from './lib';\nexport function run() { return { [ns.f()](ns) {} }; }",true),
++            ("import * as ns from './lib';\nexport function run() { with(ns.f()) { return 0; } }",true),
++            ("import * as ns from './lib';\nconst broken = ;\nexport function run() { return ns.f(); }",false),
++            ("import * as ns from './lib';\nimport * as ns from './lib';\nexport function run() { return ns.f(); }",false),
++            ("import * as ns from './lib';\nexport function run(o) { with(o) { return ns.f(); } }",false),
++            ("import * as ns from './lib';\nexport function run() { const ns=0; return ns.f(); }",false),
++        ] {
++            let cg=graph(ext,&[("lib",LIB),("app",app)]);
++            let site=cg.calls.values().flatten().find(|s| s.caller.name=="run" && s.callee_name=="f").unwrap();
++            assert_eq!(matches!(site.local_binding,JsLocalBinding::NamespaceImport{..}),want,"{ext}: {app}");
++            if want { assert_eq!(rows(&cg,"run","f"),[exact(ext,"lib","f",5)],"{app}"); }
++            else { assert!(cg.resolve_call_site_full(site).resolved.iter().all(|r| r.kind.as_str()!="import_qualified"),"{app}"); }
++        }
++    }
++}
++#[test]
++fn d5_authoritative_missing_member_and_fallback() {
++    for ext in ["jsx", "tsx"] {
++        let wrapped = "import {memo} from 'react';\nexport const f=memo(() => null);";
++        let cg = graph(
++            ext,
++            &[
++                ("a/lib", wrapped),
++                ("b/lib", "export function f(){}"),
++                ("app", APP),
++            ],
++        );
++        assert_eq!(
++            rows(&cg, "run", "f"),
++            [format!("b/lib.{ext}:f@1-1 NameOnly/import_qualified")]
++        );
++        let cg = graph(ext, &[("a/lib", wrapped), ("app", APP)]);
++        assert_eq!(rows(&cg, "run", "f"), ["drop WrappedExportNonJsx"]);
++
++        let cg = graph(
++            ext,
++            &[("lib", "export {};"), ("other/lib", LIB), ("app", APP)],
++        );
++        assert_eq!(rows(&cg, "run", "f"), ["drop ImportExternal"]);
++        let cg = graph(ext, &[("other/lib", LIB), ("app", APP)]);
++        assert_eq!(
++            rows(&cg, "run", "f"),
++            [format!("other/lib.{ext}:f@5-5 NameOnly/import_qualified")]
++        );
++        let cg = graph(
++            ext,
++            &[("lib", LIB), ("app", &APP.replace("'./lib'", "'./lib.js'"))],
++        );
++        let grade = if ext == "tsx" { "Exact" } else { "NameOnly" };
++        assert_eq!(
++            rows(&cg, "run", "f"),
++            [format!("lib.{ext}:f@5-5 {grade}/import_qualified")]
++        );
++    }
++}
++#[test]
++fn d6_non_namespace_imports_keep_base() {
++    for ext in ["jsx", "tsx"] {
++        let cg=graph(ext,&[("lib",LIB),("app","import * as ns from './lib'; export function run(){ ns['f'](); ns.inner.f(); new ns.f(); }")]);
++        assert!(cg
++            .calls
++            .values()
++            .flatten()
++            .filter(|s| s.caller.name == "run")
++            .all(|s| s.local_binding == JsLocalBinding::Unchecked));
++
++        for import in [
++            "import ns from './lib';",
++            "import { thing as ns } from './lib';",
++            "const ns = require('./lib');",
++            "import type * as ns from './lib';",
++            "import ns = require('./lib');",
++        ] {
++            let cg = graph(
++                ext,
++                &[
++                    ("lib", LIB),
++                    (
++                        "app",
++                        &format!("{import}\nexport function run() {{ return ns.f(); }}"),
++                    ),
++                ],
++            );
++            let site = cg
++                .calls
++                .values()
++                .flatten()
++                .find(|s| s.caller.name == "run" && s.callee_name == "f")
++                .unwrap();
++            assert_eq!(
++                site.local_binding,
++                JsLocalBinding::Unchecked,
++                "{ext}: {import}"
++            );
++        }
++    }
++}
++#[test]
++fn d9_written_import_and_export_keep_base() {
++    for ext in ["jsx", "tsx"] {
++        for app in [
++            "import * as ns from './lib'; export function run(other){ class ns { static f(){} } ns=other; return ns.f(); }",
++            "import * as ns from './lib'; export function run(ns){ ns=other; return ns.f(); }",
++            "import * as ns from './lib'; export function run(other){ for(var ns of other){ ns=other; ns.f(); } }",
++        ] {
++            let cg=graph(ext,&[("lib",LIB),("app",app)]);
++            let site=cg.calls.values().flatten().find(|s| s.caller.name=="run" && s.callee_name=="f").unwrap();
++            assert!(matches!(&site.local_binding,JsLocalBinding::MayCall(r) if r=="may_call"));
++            assert_eq!(prism::navigation::queries::call_stats(&cg)["local_binding_may_call"]["may_call"],1);
++        }
++
++        let cg = graph(
++            ext,
++            &[
++                ("lib", LIB),
++                (
++                    "app",
++                    &APP.replace("return ns.f()", "ns=other; return ns.f()"),
++                ),
++            ],
++        );
++        let site = cg
++            .calls
++            .values()
++            .flatten()
++            .find(|s| s.caller.name == "run")
++            .unwrap();
++        assert!(matches!(&site.local_binding,JsLocalBinding::MayCall(r) if r=="may_call"));
++        assert_eq!(cg.resolve_call_site_full(site).resolved.len(), 2);
++        let cg = graph(ext, &[("lib", &format!("{LIB}f=other;")), ("app", APP)]);
++        assert_eq!(
++            rows(&cg, "run", "f")[0],
++            format!(
++                "lib.{ext}:f@2-2 Exact/import_qualified, lib.{ext}:f@5-5 Exact/import_qualified"
++            )
++        );
++    }
++}
++#[test]
++fn d10_alias_opacity_direct_named_star_forwarded_and_d4_pin() {
++    for ext in ["jsx", "tsx"] {
++        for alias in ["function make() {\n function f() { return 1; }\n return f;\n}\nexport const f=make();", "function make() {\n function f() { return 1; }\n return f;\n}\nconst f=make();\nexport {f};"] {
++            for barrel in [None,Some("export {f} from './impl';"),Some("export * from './impl';"),Some("import {f as alias} from './impl'; export {alias as f};")] {
++                let barrel_src=barrel.map(|b| format!("function holder(){{ function f(){{}} return f; }}\n{b}"));
++                let sources=if let Some(barrel)=barrel_src.as_deref() { vec![("impl",alias),("lib",barrel),("app",APP)] } else { vec![("lib",alias),("app",APP)] };
++                let mut sources=sources;
++                sources.push(("consumer","import {f} from './lib'; export function direct(){ return f(); }"));
++                let cg=graph(ext,&sources);
++                let direct=cg.calls.values().flatten().find(|s| s.caller.name=="direct" && s.callee_name=="f").unwrap();
++                assert!(cg.resolve_call_site_full(direct).resolved.is_empty());
++                // Opaque means whole base, including a barrel-local decoy (E5/Option K).
++                assert_eq!(rows(&cg,"run","f"),if barrel.is_none() {vec![exact(ext,"lib","f",2)]} else {vec![exact(ext,"lib","f",1)]});
++                let producer=if barrel.is_none() {"lib"} else {"impl"};
++                assert!(!cg.js_ts_resolved_exports.get(&format!("{producer}.{ext}")).is_some_and(|e| e.contains_key("f")));
++                assert!(cg.js_ts_namespace_exports[&format!("lib.{ext}")]["f"].span.is_none());
++            }
++        }
++    }
++}
++#[test]
++fn d10_opaque_conflict_never_authority() {
++    for ext in ["jsx", "tsx"] {
++        for lib in [
++            "export const f=make();\nexport const f=make();",
++            "export const f=make();\nexport function f() {}",
++            "export function f() {}\nexport const f=make();",
++        ] {
++            let cg = graph(ext, &[("lib", lib), ("app", APP)]);
++            assert!(!cg
++                .js_ts_namespace_exports
++                .get(&format!("lib.{ext}"))
++                .is_some_and(|e| e.contains_key("f")));
++        }
++    }
++}
++
++#[test]
++fn d8_serde_cache_and_incremental_epochs() {
++    use prism::cpg::CodePropertyGraph;
++    use prism::cpg_cache::{self, CacheResult};
++    use std::collections::BTreeSet;
++    for ext in ["jsx", "tsx"] {
++        let mut previous: Option<CodePropertyGraph> = None;
++        let mut last_sources: Option<(String, String)> = None;
++        for (lib, app) in [
++            (LIB, APP),
++            (
++                LIB,
++                "import * as ns from './lib';\nexport function run() { ns=other; return ns.f(); }",
++            ),
++            (LIB, APP),
++            (
++                "function make(){ function f(){} return f; }\nexport const f=make();",
++                APP,
++            ),
++            (LIB, APP),
++        ] {
++            let files = parsed(ext, &[("lib", lib), ("app", app)]);
++            let full = CodePropertyGraph::build(&files);
++            let fresh = rows(&full.call_graph, "run", "f");
++            let cpg = if let Some(old) = previous {
++                let (old_lib, old_app) = last_sources.as_ref().unwrap();
++                let mut changed = BTreeSet::new();
++                if old_lib != lib {
++                    changed.insert(format!("lib.{ext}"));
++                }
++                if old_app != app {
++                    changed.insert(format!("app.{ext}"));
++                }
++                let inc = CodePropertyGraph::build_incremental(
++                    old.call_graph,
++                    old.dfg,
++                    &changed,
++                    &files,
++                    None,
++                );
++                assert_eq!(rows(&inc.call_graph, "run", "f"), fresh);
++                assert_eq!(
++                    inc.call_graph.js_ts_namespace_exports,
++                    full.call_graph.js_ts_namespace_exports
++                );
++                inc
++            } else {
++                full
++            };
++            let sources = BTreeMap::from([
++                (format!("lib.{ext}"), lib.to_string()),
++                (format!("app.{ext}"), app.to_string()),
++            ]);
++            let hashes = cpg_cache::compute_file_hashes(&sources);
++            let dir = tempfile::tempdir().unwrap();
++            cpg_cache::save_cache(&cpg, &hashes, false, dir.path()).unwrap();
++            let CacheResult::Hit(hit) = cpg_cache::load_cache(&hashes, false, dir.path()) else {
++                panic!("cache miss");
++            };
++            assert_eq!(rows(&hit.call_graph, "run", "f"), fresh);
++            let bytes = bincode::serialize(&cpg.call_graph).unwrap();
++            let back: CallGraph = bincode::deserialize(&bytes).unwrap();
++            assert_eq!(
++                back.js_ts_namespace_exports,
++                cpg.call_graph.js_ts_namespace_exports
++            );
++            previous = Some(cpg);
++            last_sources = Some((lib.to_string(), app.to_string()));
++        }
++        // Same spelling, same file, different positions; proof cannot be reused.
++        let cg=graph(ext,&[("lib",LIB),("app","import * as ns from './lib';\nexport function run(a=ns.f()){ var ns=0; return ns.f(); }")]);
++        let sites: Vec<_> = cg
++            .calls
++            .values()
++            .flatten()
++            .filter(|s| s.caller.name == "run" && s.callee_name == "f")
++            .collect();
++        assert_eq!(sites.len(), 2);
++        assert!(matches!(
++            sites[0].local_binding,
++            JsLocalBinding::NamespaceImport { .. }
++        ));
++        assert!(matches!(
++            sites[1].local_binding,
++            JsLocalBinding::Unproven(_)
++        ));
++        let mut old = serde_json::to_value(sites[0]).unwrap();
++        old.as_object_mut().unwrap().remove("local_binding");
++        assert_eq!(
++            serde_json::from_value::<prism::call_graph::CallSite>(old)
++                .unwrap()
++                .local_binding,
++            JsLocalBinding::Unchecked
++        );
++    }
++}
++
++#[test]
++fn d10_barrel_conflict_cycle_and_depth_are_final() {
++    for ext in ["jsx", "tsx"] {
++        let alias = "function make(){ function f(){} return f; } export const f=make();";
++        for sources in [
++            vec![
++                (
++                    "lib",
++                    "function h(){function f(){}} export * from './a'; export * from './b';",
++                ),
++                ("a", alias),
++                ("b", "export function f(){}"),
++                ("app", APP),
++            ],
++            vec![
++                ("lib", "function h(){function f(){}} export {f} from './a';"),
++                ("a", "export {f} from './lib';"),
++                ("app", APP),
++            ],
++            vec![
++                ("lib", "function h(){function f(){}} export * from './a';"),
++                ("a", "export * from './b';"),
++                ("b", "export * from './c';"),
++                ("c", alias),
++                ("app", APP),
++            ],
++        ] {
++            let cg = graph(ext, &sources);
++            assert_eq!(rows(&cg, "run", "f"), ["drop ImportExternal"]);
++        }
++    }
++}
+diff --git a/tests/integration/main.rs b/tests/integration/main.rs
+index 469d601d..c0456a8a 100644
+--- a/tests/integration/main.rs
++++ b/tests/integration/main.rs
+@@ -32,6 +32,7 @@ mod inline_prop_receiver_test;
+ mod js_binding_export_state_test;
+ mod js_binding_export_test;
+ mod js_binding_intrinsic_test;
++mod js_binding_namespace_test;
+ mod js_binding_scope_resolution_fold2_test;
+ mod js_binding_scope_resolution_fold_r2_test;
+ mod js_binding_scope_resolution_fold_test;
+diff --git a/tests/integration/module_binding_audit_test.rs b/tests/integration/module_binding_audit_test.rs
+index 3760e682..0e3ac41f 100644
+--- a/tests/integration/module_binding_audit_test.rs
++++ b/tests/integration/module_binding_audit_test.rs
+@@ -186,7 +186,7 @@ case!(
+ );
+ case!(
+     esm_namespace_import,
+-    Gap,
++    Supported,
+     ESM,
+     "",
+     "import * as ns from './origin';\nfunction run() { ns.item(); }"

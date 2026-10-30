@@ -1,0 +1,70 @@
+{
+  "mutations": {
+    "E01-full-file-loop-per-owner": [
+      "src/cpg/reaching/cfg_edge_index.rs",
+      "if tests::legacy_enabled() {",
+      "if true || tests::legacy_enabled() {",
+      "cpg::reaching::work_tests::cfg_edge_cost_is_owner_bounded"
+    ],
+    "E02-index-destination-instead-of-source": [
+      "src/cpg/reaching/cfg_edge_index.rs",
+      "by_source.entry(edge.from_line).or_default().push(ordinal);",
+      "by_source.entry(edge.to_line).or_default().push(ordinal);",
+      "cpg::reaching::cfg_edge_index::tests::ordinal_order_duplicates_provenance_and_overlapping_lines"
+    ],
+    "E03-omit-destination-membership": [
+      "src/cpg/reaching/cfg_edge_index.rs",
+      "if let Some(&to) = line_index.get(&edge.to_line) {",
+      "if let Some(&to) = line_index.get(&edge.from_line) {",
+      "cpg::reaching::cfg_edge_index::tests::ordinal_order_duplicates_provenance_and_overlapping_lines"
+    ],
+    "E04-omit-ordinal-restoration": [
+      "src/cpg/reaching/cfg_edge_index.rs",
+      "ordinals.sort_unstable_by_key(|entry| entry.0);",
+      "// omitted ordinal restoration",
+      "cpg::reaching::cfg_edge_index::tests::ordinal_order_duplicates_provenance_and_overlapping_lines"
+    ],
+    "E05-deduplicate-endpoint-pairs": [
+      "src/cpg/reaching/cfg_edge_index.rs",
+      "ordinals.sort_unstable_by_key(|entry| entry.0);",
+      "ordinals.sort_unstable_by_key(|entry| entry.0);\n        ordinals.dedup_by_key(|entry| self.edges[entry.0].0.clone());",
+      "cpg::reaching::cfg_edge_index::tests::ordinal_order_duplicates_provenance_and_overlapping_lines"
+    ],
+    "E06-replace-arm-provenance": [
+      "src/cpg/reaching/cfg_edge_index.rs",
+      "let (edge, provenance) = self.edges[ordinal].clone();",
+      "let (edge, _) = self.edges[ordinal].clone();\n                let provenance = self.edges[0].1;",
+      "cpg::reaching::cfg_edge_index::tests::ordinal_order_duplicates_provenance_and_overlapping_lines"
+    ],
+    "E07-clone-rejected-candidates": [
+      "src/cpg/reaching/cfg_edge_index.rs",
+      "let edge = &self.edges[ordinal].0;",
+      "let cloned = self.edges[ordinal].clone();\n                    #[cfg(test)]\n                    super::work_tests::bump(|counts| counts.cfg_cloned += 1);\n                    let edge = &cloned.0;",
+      "cpg::reaching::cfg_edge_index::tests::rejected_destinations_are_examined_but_never_cloned"
+    ],
+    "E09-scan-full-index-per-owner": [
+      "src/cpg/reaching/cfg_edge_index.rs",
+      "        for (line, &from) in line_index {\n            #[cfg(test)]\n            super::work_tests::bump(|counts| counts.cfg_index_probes += 1);\n            if let Some(bucket) = self.by_source.get(line) {",
+      "        for (line, bucket) in &self.by_source {\n            #[cfg(test)]\n            super::work_tests::bump(|counts| counts.cfg_index_probes += 1);\n            if let Some(&from) = line_index.get(line) {",
+      "cpg::reaching::work_tests::cfg_edge_cost_is_owner_bounded"
+    ],
+    "E08-rebuild-index-per-owner": [
+      "src/data_flow/build/file.rs",
+      "            let cfg_index = file_cfg_edge_index.get_or_init(|| {\n                crate::profile::file_cfg(&mut profile_owner, file_path, || {\n                    let cfg = file_cfg_edges.get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed));\n                    FileCfgEdgeIndex::new(cfg)\n                })\n            });\n",
+      "            let repeated_index = {\n                crate::profile::file_cfg(&mut profile_owner, file_path, || {\n                    let cfg = file_cfg_edges.get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed));\n                    FileCfgEdgeIndex::new(cfg)\n                })\n            };\n            let cfg_index = &repeated_index;\n",
+      "cpg::reaching::work_tests::cfg_edge_cost_is_owner_bounded"
+    ]
+  },
+  "extra": {
+    "E08-rebuild-index-per-owner": [
+      [
+        "src/data_flow/build/file.rs",
+        "let file_cfg_edge_index = std::cell::OnceCell::new();",
+        ""
+      ]
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::reaching::"
+  ]
+}

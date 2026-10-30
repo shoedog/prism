@@ -10,8 +10,114 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Documentation-only changes run this job and the Language Coverage Matrix.
+  # A change confined to the Python eval harness (eval/, except eval/fixtures, which Rust tests
+  # read) skips the existing Rust jobs; Python runs. The path rules are in
+  # scripts/ci/. Existing Rust jobs run unless this job positively reports `code=false`, and the
+  # Python job runs unless it positively reports `eval=false`, so a classifier failure falls back
+  # to the full set.
+  changes:
+    name: Classify change (docs-only, eval-only or code)
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+      eval: ${{ steps.classify.outputs.eval }}
+    steps:
+      # Depth 2: a pull_request checkout is the merge of the PR into its base, so HEAD^1 is the base.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Test the classifier
+        run: |
+          bash scripts/ci/classify-changes.test.sh
+
+      - name: Classify changed paths
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          result=$'code=true\neval=true'
+          if [ "$EVENT_NAME" = pull_request ]; then
+            if git rev-parse --quiet --verify "HEAD^2" >/dev/null; then base="HEAD^1"; else base=""; fi
+          else
+            base="$BEFORE"
+            git cat-file -e "$base^{commit}" 2>/dev/null \
+              || git fetch --quiet --depth=1 origin "$base" 2>/dev/null || base=""
+          fi
+          if [ -n "$base" ] && paths="$(git diff --name-only --no-renames "$base" HEAD 2>/dev/null)"; then
+            echo "base=$base changed_paths=$(printf '%s\n' "$paths" | grep -c .)"
+            result="$(printf '%s\n' "$paths" | bash scripts/ci/classify-changes.sh)"
+          else
+            echo "change list unavailable (base='$base'): falling back to the full gate set"
+          fi
+          echo "$result" | tee -a "$GITHUB_OUTPUT"
+          case "$(printf '%s' "$result" | tr '\n' ' ')" in
+            "code=false eval=false")
+              echo "Documentation-only change: the Rust test, build, clippy and format jobs and the Python eval-harness job are skipped." >> "$GITHUB_STEP_SUMMARY" ;;
+            "code=false eval=true")
+              echo "Eval-harness-only change: the Rust test, build, clippy and format jobs are skipped; the Python eval-harness job runs." >> "$GITHUB_STEP_SUMMARY" ;;
+            *)
+              echo "Code change (or the change list could not be determined): full gate set." >> "$GITHUB_STEP_SUMMARY" ;;
+          esac
+
   test:
-    name: Test Suite
+    name: Test Suite + Coverage (${{ matrix.shard }}/4)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov and cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-nextest
+
+      - name: Cache cargo registry and build
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test-cov
+
+      # One instrumented run of the whole suite, split across 4 shards (mcp is a superset of
+      # default). nextest runs tests in parallel processes; a test failure fails the job.
+      - name: Run tests under coverage (nextest, --features mcp, shard ${{ matrix.shard }}/4)
+        run: cargo llvm-cov nextest --features mcp --no-report --profile ci --partition count:${{ matrix.shard }}/4
+
+      - name: Coverage reports (this shard)
+        run: |
+          cargo llvm-cov report --text --output-path coverage-summary.txt
+          cargo llvm-cov report --lcov --output-path lcov.info
+
+      # Codecov merges the four shard uploads for the commit.
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          flags: shard-${{ matrix.shard }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Publish coverage summary to job summary
+        run: |
+          echo "## Test Coverage (shard ${{ matrix.shard }}/4; Codecov shows the merged total)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -n 3 coverage-summary.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  build-checks:
+    name: Default-feature check + doctests
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,30 +126,37 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo registry and build
-        uses: actions/cache@v4
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          shared-key: build-checks
 
-      - name: Build
-        run: cargo build --verbose
+      # Default-feature configuration must still compile (tests run once, with mcp, in the shards).
+      - name: Check default features
+        run: cargo check --all-targets
 
-      - name: Run tests
-        run: cargo test --verbose
+      # nextest does not run doctests; they are fast and uninstrumented.
+      - name: Run doctests
+        run: cargo test --doc --features mcp
 
-      - name: Build MCP binary
-        run: cargo build --bin prism-mcp --features mcp
+      # The soak instrumentation's hermetic tests (Python standard library, a few seconds).
+      - name: Soak tool tests (Python)
+        run: python3 -m unittest discover -s scripts/soak -p 'test_*.py'
 
-      - name: Run MCP tests
-        run: cargo test --features mcp
+      - name: Host-quiet marker tests (Python)
+        run: python3 -m unittest discover -s scripts/hostquiet -p 'test_*.py'
+
+      - name: Perf tooling tests (Python)
+        run: |
+          python3 -m unittest discover -s scripts/perf -p 'test_*.py'
+          python3 -m unittest discover -s scripts/perf/cloud -p 'test_*.py'
+
+      - name: Mutgate quiet wait tests (Python)
+        run: python3 -m unittest discover -s scripts/mutgate -p 'test_quiet_wait.py'
 
   clippy:
     name: Clippy Lint
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,21 +167,17 @@ jobs:
           components: clippy
 
       - name: Cache cargo registry and build
-        uses: actions/cache@v4
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-clippy-
+          shared-key: clippy
 
       - name: Run clippy
         run: cargo clippy --all-targets --features mcp -- -W clippy::all
 
   format:
     name: Format Check
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,55 +190,49 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-  coverage:
-    name: Coverage
+  # Hermetic tests of the eval harness: no network, API keys, LSP servers, prism binary or
+  # downloaded corpora. Runs unless the classifier positively reports `eval=false`.
+  eval-python:
+    name: Eval harness tests (Python)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.eval != 'false' }}
     runs-on: ubuntu-latest
-    needs: test
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      # Python version from eval/.python-version, dependencies from eval/uv.lock.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          components: llvm-tools-preview
+          version: "0.13.0"
+          enable-cache: true
+          cache-dependency-glob: eval/uv.lock
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install eval harness dependencies
+        working-directory: eval
+        run: uv sync --locked
 
-      - name: Cache cargo registry and build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-cov-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-cov-
-
-      - name: Generate text coverage report
-        run: cargo llvm-cov --text --output-path coverage-summary.txt
-
-      - name: Generate coverage (lcov)
-        run: cargo llvm-cov --lcov --output-path lcov.info
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Publish coverage summary to job summary
-        run: |
-          echo "## Test Coverage" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat coverage-summary.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+      # Deselected (node-id prefixes, so parametrized cases are included), by reason:
+      #  - need tsserver (TypeScript language server) from an installed compiler;
+      #  - need a built target/release/prism;
+      #  - need the pinned TypeScript 5.9.3 compiler (PRISM_TYPESCRIPT, default a local evidence path);
+      # Tests that need a binary, API key or corpus and are not listed here skip themselves.
+      - name: Run eval harness tests
+        working-directory: eval
+        run: >-
+          uv run --locked pytest -q
+          --deselect tests/test_r1_repair.py::test_native_static_binding_quoted_offsets_and_calibration
+          --deselect tests/test_r2_repair.py::test_native_declaration_binding_and_distinct_declaration_negatives
+          --deselect tests/test_r2_repair.py::test_same_line_nested_initializer_is_a_distinct_binding
+          --deselect tests/test_r1_repair.py::test_native_sut_symbol_seeds_distinguish_same_line_targets
+          --deselect tests/test_r1_repair.py::test_native_sut_interior_seed_avoids_inline_default_callback
+          --deselect secbench/test_repair.py::RepairTests::test_admission_keeps_terminal_line_identity_after_metadata_formatting
+          --deselect secbench/test_repair.py::RepairTests::test_admission_relocation_preserves_original_and_endpoint_bytes
 
   language-coverage:
     name: Language Coverage Matrix
     runs-on: ubuntu-latest
-    needs: test
     steps:
       - uses: actions/checkout@v4
 

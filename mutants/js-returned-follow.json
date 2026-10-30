@@ -1,0 +1,480 @@
+{
+ "lane": "slice V: follow a value an in-repo function returned (2026-10-13)",
+ "source": "src/ast/js_return_facts.rs; src/ast/js_binding_returned.rs; src/resolution_js_returns.rs; src/js_returns.rs",
+ "lib_test_prefixes": [
+  "ast::"
+ ],
+ "mutations": {
+  "RV-01-let-var-followed": [
+   "src/ast/js_binding_alias.rs",
+   "list.child(0).is_some_and(|k| k.kind() == \"const\")",
+   "list.child(0).is_some()",
+   [
+    "ast::js_binding_returned::tests::a_binding_or_call_the_contract_excludes_is_not_followed",
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-02-written-binding-followed": [
+   "src/ast/js_binding_returned.rs",
+   "if self.js_ts_scoped_written(scope, name, cache) {",
+   "if false {",
+   [
+    "ast::js_binding_returned::tests::a_binding_or_call_the_contract_excludes_is_not_followed"
+   ]
+  ],
+  "RV-03-pattern-value-any-kind": [
+   "src/ast/js_binding_alias.rs",
+   ".filter(|v| v.kind() == \"identifier\")?;",
+   ".filter(|_| true)?;",
+   [
+    "ast::js_binding_returned::tests::an_object_pattern_with_any_unmodeled_entry_is_not_followed"
+   ]
+  ],
+  "RV-04-pattern-unknown-entry-skipped": [
+   "src/ast/js_binding_alias.rs",
+   "                _ => return None,\n            };\n            // Every bound name",
+   "                _ => continue,\n            };\n            // Every bound name",
+   [
+    "ast::js_binding_returned::tests::an_object_pattern_with_any_unmodeled_entry_is_not_followed"
+   ]
+  ],
+  "RV-05-array-pattern-unknown-element-skipped": [
+   "src/ast/js_binding_returned.rs",
+   "                _ => return None,\n            }\n        }\n        match slots.as_slice()",
+   "                _ => {}\n            }\n        }\n        match slots.as_slice()",
+   [
+    "ast::js_binding_returned::tests::an_array_pattern_with_any_unmodeled_element_is_not_followed"
+   ]
+  ],
+  "RV-06-pattern-slot-index-off": [
+   "src/ast/js_binding_returned.rs",
+   "\",\" => index += 1,",
+   "\",\" => index += 2,",
+   [
+    "ast::js_binding_returned::tests::the_three_declarator_forms_follow_a_same_file_hook"
+   ]
+  ],
+  "RV-07-optional-call-followed": [
+   "src/ast/js_binding_returned.rs",
+   ".filter(|f| f.kind() == \"identifier\" && !optional)",
+   ".filter(|f| f.kind() == \"identifier\")",
+   [
+    "ast::js_binding_returned::tests::a_binding_or_call_the_contract_excludes_is_not_followed"
+   ]
+  ],
+  "RV-08-tagged-template-followed": [
+   "src/ast/js_binding_returned.rs",
+   ".is_none_or(|a| a.kind() != \"arguments\")",
+   ".is_none_or(|_| false)",
+   [
+    "ast::js_binding_returned::tests::a_binding_or_call_the_contract_excludes_is_not_followed"
+   ]
+  ],
+  "RV-09-react-wrapper-followed": [
+   "src/ast/js_binding_returned.rs",
+   "JsBinding::Alias | JsBinding::MayCall\n        ) {",
+   "JsBinding::Alias | JsBinding::MayCall | JsBinding::Callable(_)\n        ) {",
+   [
+    "ast::js_binding_returned::tests::an_admitted_react_wrapper_stays_a_callable_and_is_never_a_returned_value"
+   ]
+  ],
+  "RV-10-unresolved-hook-followed": [
+   "src/ast/js_binding_returned.rs",
+   "let terminal = self.js_ts_terminal_of(hook, &hook_name, cache)?;",
+   "let terminal = self.js_ts_terminal_of(hook, &hook_name, cache).unwrap_or_else(|| JsFollow::ImportLocal(hook_name.clone()));",
+   [
+    "ast::js_binding_returned::tests::a_binding_or_call_the_contract_excludes_is_not_followed"
+   ]
+  ],
+  "RV-11-whole-form-unrouted": [
+   "src/ast/js_binding_returned.rs",
+   "\"identifier\" => JsReturnPath::Whole,",
+   "\"identifier\" => return None,",
+   [
+    "ast::js_binding_returned::tests::the_three_declarator_forms_follow_a_same_file_hook"
+   ]
+  ],
+  "RV-12-object-key-is-binding-name": [
+   "src/ast/js_binding_returned.rs",
+   "JsReturnPath::Key(self.js_ts_object_pattern_key(pattern, name)?)",
+   "JsReturnPath::Key(name.to_string())",
+   [
+    "ast::js_binding_returned::tests::the_three_declarator_forms_follow_a_same_file_hook"
+   ]
+  ],
+  "RV-13-nested-function-returns-collected": [
+   "src/ast/js_return_facts.rs",
+   "k if is_js_ts_function_like(k) => {}",
+   "k if false && is_js_ts_function_like(k) => {}",
+   [
+    "ast::js_return_facts::tests::each_return_form_selects_a_callable_by_key_slot_or_whole",
+    "ast::js_return_facts::tests::a_returned_nested_function_is_not_hoisted_into_the_outer_fact"
+   ]
+  ],
+  "RV-15-every-return-ignored": [
+   "src/ast/js_return_facts.rs",
+   "if expr.kind() == \"null\" {",
+   "if true {",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-16-divergent-returns-agree": [
+   "src/ast/js_return_facts.rs",
+   "self.keys.retain(|k, v| other.keys.get(k) == Some(v));",
+   "self.keys.retain(|k, _| other.keys.contains_key(k));",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-17-missing-key-agrees": [
+   "src/ast/js_return_facts.rs",
+   "self.keys.retain(|k, v| other.keys.get(k) == Some(v));",
+   "self.keys.retain(|k, v| other.keys.get(k).is_none_or(|o| o == v));",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-18-spread-after-key-allowed": [
+   "src/ast/js_return_facts.rs",
+   "let spread_after = last_spread.is_some_and(|s| s > *position);",
+   "let spread_after = false;",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-19-spread-before-key-refused": [
+   "src/ast/js_return_facts.rs",
+   "let spread_after = last_spread.is_some_and(|s| s > *position);",
+   "let spread_after = last_spread.is_some_and(|s| s < *position);",
+   [
+    "ast::js_return_facts::tests::each_return_form_selects_a_callable_by_key_slot_or_whole"
+   ]
+  ],
+  "RV-20-computed-key-allowed": [
+   "src/ast/js_return_facts.rs",
+   ".filter(|k| k.kind() == \"property_identifier\");",
+   ".filter(|_| true);",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-21-accessor-allowed": [
+   "src/ast/js_return_facts.rs",
+   "Some(k) if !(method && has_accessor_token(entry)) =>",
+   "Some(k) =>",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-22-duplicate-key-allowed": [
+   "src/ast/js_return_facts.rs",
+   "let unique = occurrences.get(key.as_str()) == Some(&1);",
+   "let unique = occurrences.get(key.as_str()).is_some_and(|c| *c >= 1);",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-23-array-spread-ignored": [
+   "src/ast/js_return_facts.rs",
+   "\"spread_element\" => break,",
+   "\"spread_element\" => {}",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-24-array-slot-index-off": [
+   "src/ast/js_return_facts.rs",
+   "                \",\" => {\n                    index += 1;\n                }",
+   "                \",\" => {\n                    index += 2;\n                }",
+   [
+    "ast::js_return_facts::tests::each_return_form_selects_a_callable_by_key_slot_or_whole"
+   ]
+  ],
+  "RV-25-async-function-has-fact": [
+   "src/ast/js_return_facts.rs",
+   "|| is_async_or_generator(func)",
+   "|| false",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-26-parse-error-has-fact": [
+   "src/ast/js_return_facts.rs",
+   "if func.has_error() ||",
+   "if false ||",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-27-bare-inline-function-has-identity": [
+   "src/ast/js_return_facts.rs",
+   "let name = self.language.function_name(&func)?;",
+   "let name = self.language.function_name(&func).unwrap_or(func);",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-29-intermediate-declared-outside": [
+   "src/ast/js_return_facts.rs",
+   "if decl.start_byte() < func.start_byte() || decl.end_byte() > func.end_byte() {",
+   "if false {",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-30-second-returned-step-followed": [
+   "src/ast/js_return_facts.rs",
+   "JsBinding::Alias => self.js_ts_follow_alias(ident, name, cache),",
+   "JsBinding::Alias => self.js_ts_follow_alias(ident, name, cache).or_else(|| self.js_ts_follow_returned(ident, name, cache).map(|(terminal, _)| terminal)),",
+   [
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact",
+    "js_returned_follow_fallback_test::every_unproven_returned_value_site_equals_the_base"
+   ]
+  ],
+  "RV-31-method-value-unrouted": [
+   "src/ast/js_return_facts.rs",
+   "\"method_definition\" => self.js_ts_inline_callable(*entry),",
+   "\"method_definition\" => None,",
+   [
+    "ast::js_return_facts::tests::each_return_form_selects_a_callable_by_key_slot_or_whole",
+    "js_returned_follow_test::an_object_method_and_an_inline_arrow_property_bind_their_own_function"
+   ]
+  ],
+  "RV-32-whole-fact-unreadable": [
+   "src/js_returns.rs",
+   "JsReturnPath::Whole => self.whole.as_ref(),",
+   "JsReturnPath::Whole => None,",
+   [
+    "js_returned_follow_test::whole_value_array_slot_and_renamed_binding_forms_are_followed"
+   ]
+  ],
+  "RV-33-slot-fact-wrong-index": [
+   "src/js_returns.rs",
+   "JsReturnPath::Slot(i) => self.slots.get(i),",
+   "JsReturnPath::Slot(_) => self.slots.get(&0),",
+   [
+    "js_returned_follow_test::whole_value_array_slot_and_renamed_binding_forms_are_followed"
+   ]
+  ],
+  "RV-34-returned-route-unrouted": [
+   "src/resolution_js_alias.rs",
+   "self.js_ts_returned_route(hook, path, site)",
+   "{ let _ = (hook, path); None }",
+   [
+    "js_returned_follow_test::a_renamed_key_binds_the_returned_function_not_the_same_named_decoy"
+   ]
+  ],
+  "RV-35-unproven-route-claims-a-hit": [
+   "src/resolution_js_returns.rs",
+   "let value = self.js_ts_return_facts.get(hook_fn)?.get(path)?;",
+   "let Some(value) = self.js_ts_return_facts.get(hook_fn).and_then(|f| f.get(path)) else { return self.functions.values().flatten().next().map(|t| ResolutionOutcome::hit(super::exact([t], super::ResolutionKind::FreeSingle))); };",
+   [
+    "js_returned_follow_fallback_test::every_unproven_returned_value_site_equals_the_base"
+   ]
+  ],
+  "RV-36-value-seen-from-callers-file": [
+   "src/resolution_js_returns.rs",
+   "self.js_ts_terminal_outcome(hook_fn, value, site, site.jsx_element)?",
+   "self.js_ts_terminal_outcome(&site.caller, value, site, site.jsx_element)?",
+   [
+    "js_returned_follow_test::a_value_that_is_an_import_in_the_hooks_file_resolves_as_seen_from_that_file"
+   ]
+  ],
+  "RV-37-value-ignores-jsx": [
+   "src/resolution_js_returns.rs",
+   "self.js_ts_terminal_outcome(hook_fn, value, site, site.jsx_element)?",
+   "self.js_ts_terminal_outcome(hook_fn, value, site, false)?",
+   [
+    "js_returned_follow_test::a_wrapped_returned_component_binds_from_jsx_only"
+   ]
+  ],
+  "RV-38-wrapped-hook-allowed": [
+   "src/resolution_js_returns.rs",
+   "self.js_ts_terminal_function(&site.caller, hook, site, false)?",
+   "self.js_ts_terminal_function(&site.caller, hook, site, site.jsx_element)?",
+   [
+    "js_returned_follow_test::a_wrapped_export_is_not_a_hook"
+   ]
+  ],
+  "RV-39-wrapped-value-binds-non-jsx": [
+   "src/resolution_js_returns.rs",
+   "self.js_ts_terminal_outcome(hook_fn, value, site, site.jsx_element)?",
+   "self.js_ts_terminal_outcome(hook_fn, value, site, true)?",
+   [
+    "js_returned_follow_test::a_wrapped_returned_component_binds_from_jsx_only"
+   ]
+  ],
+  "RV-40-nav-never-counts-returned-site": [
+   "src/navigation/mod.rs",
+   "|| cg.js_ts_alias_route_hit(site)",
+   "|| false",
+   [
+    "js_returned_callers_test::the_callers_index_lists_a_returned_value_caller_once"
+   ]
+  ],
+  "RV-41-nav-counts-returned-site-twice": [
+   "src/navigation/mod.rs",
+   "site's target, so count it once.\n                        1\n",
+   "site's target, so count it once.\n                        2\n",
+   [
+    "js_returned_callers_test::the_callers_index_lists_a_returned_value_caller_once"
+   ]
+  ],
+  "RV-42-returned-not-a-followed-binding": [
+   "src/call_graph.rs",
+   "                | JsLocalBinding::AliasNamespaceMember { .. }\n                | JsLocalBinding::Returned { .. }\n",
+   "                | JsLocalBinding::AliasNamespaceMember { .. }\n",
+   [
+    "js_returned_callers_test::format_callers_lists_a_returned_value_caller_once",
+    "js_returned_callers_test::call_stats_counts_returned_values_by_outcome_and_keeps_the_base_reason_when_unproven"
+   ]
+  ],
+  "RV-43-call-stats-miscounts-unproven": [
+   "src/navigation/queries.rs",
+   "if !hit {",
+   "if hit {",
+   [
+    "js_returned_callers_test::call_stats_counts_returned_values_by_outcome_and_keeps_the_base_reason_when_unproven"
+   ]
+  ],
+  "RV-44-base-reason-lost": [
+   "src/call_graph.rs",
+   "let kept = if binding == JsBinding::Alias {\n                        \"alias\"\n                    } else {\n                        \"may_call\"\n                    };",
+   "let kept = if binding == JsBinding::Alias {\n                        \"alias\"\n                    } else {\n                        \"alias\"\n                    };",
+   [
+    "js_returned_callers_test::call_stats_counts_returned_values_by_outcome_and_keeps_the_base_reason_when_unproven"
+   ]
+  ],
+  "RV-45-span-not-required-on-namespace-value": [
+   "src/resolution_js_alias.rs",
+   "let (start, end) = resolved.span?;",
+   "let (start, end) = resolved.span.unwrap_or((5, 5));",
+   [
+    "js_returned_follow_fallback_test::every_unproven_returned_value_site_equals_the_base"
+   ]
+  ],
+  "RV-46-span-not-required-on-import-value": [
+   "src/resolution.rs",
+   "if alias_route && resolved.span.is_none() {",
+   "if false {",
+   [
+    "js_returned_follow_fallback_test::every_unproven_returned_value_site_equals_the_base"
+   ]
+  ],
+  "RV-47-textual-stands-down-on-any-returned-site": [
+   "src/call_graph.rs",
+   "s.origin == CallSiteOrigin::Source && self.js_ts_alias_route_hit(s)",
+   "s.origin == CallSiteOrigin::Source && s.local_binding.is_followed()",
+   [
+    "js_returned_follow_fallback_test::the_textual_path_stands_down_for_a_returned_value_site_only_on_a_proven_hit"
+   ]
+  ],
+  "RV-48-duplicate-slot-name-allowed": [
+   "src/ast/js_binding_returned.rs",
+   "if !seen.insert(self.node_text(&child)) {",
+   "if !seen.insert(self.node_text(&child)) && false {",
+   [
+    "ast::js_binding_returned::tests::an_array_pattern_with_any_unmodeled_element_is_not_followed"
+   ]
+  ],
+  "RV-49-callers-credit-by-name": [
+   "src/output/review.rs",
+   "identity.as_ref().is_some_and(|id| targets.contains(id))",
+   "identity.as_ref().is_some_and(|id| targets.iter().any(|t| t.name == id.name))",
+   [
+    "js_returned_callers_test::format_callers_credits_the_exact_returned_function_not_a_same_named_one"
+   ]
+  ],
+  "RV-50-public-outcome-gate-ignores-returned": [
+   "src/resolution_js_alias.rs",
+   "if !site.local_binding.is_followed() {",
+   "if !matches!(site.local_binding, crate::call_graph::JsLocalBinding::AliasCallable(_) | crate::call_graph::JsLocalBinding::AliasImport { .. } | crate::call_graph::JsLocalBinding::AliasNamespaceMember { .. }) {",
+   [
+    "js_alias_rule_test::the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_site"
+   ]
+  ],
+  "RV-54-intermediate-escape-check-removed": [
+   "src/ast/js_return_facts.rs",
+   "returned_only.then_some(value)",
+   "Some(value)",
+   [
+    "ast::js_return_facts::tests::a_const_intermediate_that_escapes_before_the_return_has_no_fact",
+    "js_returned_follow_fallback_test::a_shadowed_undefined_and_an_escaping_intermediate_give_the_site_main_s_records"
+   ]
+  ],
+  "RV-55-closure-return-counts-as-returned": [
+   "src/ast/js_return_facts.rs",
+   "return a.id() == func.id();",
+   "return true;",
+   [
+    "ast::js_return_facts::tests::a_const_intermediate_that_escapes_before_the_return_has_no_fact"
+   ]
+  ],
+  "RV-56-escape-ignores-shorthand-references": [
+   "src/ast/js_return_facts.rs",
+   "                    \"identifier\"\n                        | \"shorthand_property_identifier\"\n                        | \"shorthand_property_identifier_pattern\"",
+   "                    \"identifier\"",
+   [
+    "ast::js_return_facts::tests::a_const_intermediate_that_escapes_before_the_return_has_no_fact"
+   ]
+  ],
+  "RV-57-returned-parenthesized-not-unwrapped": [
+   "src/ast/js_return_facts.rs",
+   "                \"parenthesized_expression\"\n                | \"as_expression\"\n                | \"satisfies_expression\"\n                | \"non_null_expression\"\n                | \"type_assertion\" => up = p,",
+   "                \"as_expression\"\n                | \"satisfies_expression\"\n                | \"non_null_expression\"\n                | \"type_assertion\" => up = p,",
+   [
+    "ast::js_return_facts::tests::a_const_intermediate_that_escapes_before_the_return_has_no_fact"
+   ]
+  ],
+  "RV-58-literal-cap-off-by-one-high": [
+   "src/ast/js_return_facts.rs",
+   "const MAX_LITERAL_ENTRIES: usize = 512;",
+   "const MAX_LITERAL_ENTRIES: usize = 513;",
+   [
+    "ast::js_return_facts::tests::a_literal_with_more_than_512_entries_has_no_fact_and_512_still_does"
+   ]
+  ],
+  "RV-59-literal-cap-off-by-one-low": [
+   "src/ast/js_return_facts.rs",
+   "const MAX_LITERAL_ENTRIES: usize = 512;",
+   "const MAX_LITERAL_ENTRIES: usize = 511;",
+   [
+    "ast::js_return_facts::tests::a_literal_with_more_than_512_entries_has_no_fact_and_512_still_does"
+   ]
+  ],
+  "RV-60-duplicate-keys-allowed-in-map-count": [
+   "src/ast/js_return_facts.rs",
+   "*occurrences.entry(key.as_str()).or_default() += 1;",
+   "occurrences.insert(key.as_str(), 1);",
+   [
+    "ast::js_return_facts::tests::duplicate_keys_and_spread_order_are_unchanged_in_a_wide_literal",
+    "ast::js_return_facts::tests::a_selection_the_contract_refuses_has_no_fact"
+   ]
+  ],
+  "RV-14-explicit-return-undefined-ignored-again": [
+   "src/ast/js_return_facts.rs",
+   "if expr.kind() == \"null\" {",
+   "if matches!(expr.kind(), \"null\" | \"undefined\") {",
+   [
+    "ast::js_return_facts::tests::an_explicit_return_undefined_gives_no_fact_whatever_undefined_is_bound_to",
+    "js_returned_follow_fallback_test::a_shadowed_undefined_and_an_escaping_intermediate_give_the_site_main_s_records"
+   ]
+  ],
+  "RV-61-escaped-name-check-removed": [
+   "src/ast/js_return_facts.rs",
+   "(!facts.is_empty() && !self.js_ts_has_escaped_name(func)).then_some(facts)",
+   "(!facts.is_empty()).then_some(facts)",
+   [
+    "ast::js_return_facts::tests::an_escaped_spelling_anywhere_in_the_function_gives_no_fact",
+    "js_returned_follow_fallback_test::a_shadowed_undefined_and_an_escaping_intermediate_give_the_site_main_s_records"
+   ]
+  ],
+  "RV-62-escaped-name-check-identifiers-only": [
+   "src/ast/js_return_facts.rs",
+   "n.kind().contains(\"identifier\")",
+   "n.kind() == \"identifier\"",
+   "ast::js_return_facts::tests::an_escaped_spelling_anywhere_in_the_function_gives_no_fact"
+  ]
+ }
+}

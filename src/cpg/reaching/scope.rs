@@ -4,6 +4,7 @@ use super::{DefSite, Line};
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use crate::languages::Language;
+use std::cell::OnceCell;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
@@ -115,16 +116,55 @@ pub(super) enum BindingRelation {
     Unresolved,
 }
 
+struct RootFunction<'a> {
+    function: Node<'a>,
+    parameters: OnceCell<Option<Node<'a>>>,
+}
+
+impl<'a> RootFunction<'a> {
+    fn new(parsed: &ParsedFile, function: Node<'a>) -> Self {
+        #[cfg(all(test, debug_assertions))]
+        super::work_tests::bump(|counts| counts.debug_root_inventories += 1);
+        debug_assert!(
+            parsed
+                .all_functions()
+                .iter()
+                .any(|f| f.id() == function.id()),
+            "root function must remain indexed"
+        );
+        Self {
+            function,
+            parameters: OnceCell::new(),
+        }
+    }
+
+    fn parameters(&self, parsed: &ParsedFile) -> Option<Node<'a>> {
+        *self.parameters.get_or_init(|| {
+            #[cfg(test)]
+            super::work_tests::bump(|counts| counts.parameter_queries += 1);
+            // Cache absence too; preserve bare-arrow semantics.
+            parsed.find_parameters_node(&self.function)
+        })
+    }
+}
+
 pub(super) struct BindingFacts {
     def_bindings: Vec<Binding>,
     declarations: Vec<Declaration>,
     unclassified_binding_lines: BTreeMap<String, BTreeSet<Line>>,
     function_scope: ScopeSpan,
     language: Language,
+    /// PR-B perf: zero-width Use byte resolution is a pure function of the
+    /// pass and `(line, path)`; memoize it per pass (it re-runs whole-function
+    /// rvalue queries per edge otherwise).
+    use_byte_cache:
+        std::cell::RefCell<BTreeMap<(Line, crate::access_path::AccessPath), Option<usize>>>,
 }
 
 impl BindingFacts {
     pub(super) fn new(parsed: &ParsedFile, func_node: &Node<'_>, defs: &[DefSite]) -> Self {
+        #[cfg(test)]
+        super::work_tests::bump(|counts| counts.binding_facts += 1);
         let function_scope = function_scope(parsed, func_node);
         let seeds: Vec<Option<(ScopeSpan, DeclarationKind, usize)>> = defs
             .iter()
@@ -145,7 +185,7 @@ impl BindingFacts {
         collect_unclassified_binding_lines(
             parsed,
             *func_node,
-            func_node.id(),
+            &RootFunction::new(parsed, *func_node),
             &callable_boundary_kinds,
             grammar_introducing_fields(parsed.language),
             &mut unclassified_binding_lines,
@@ -198,6 +238,7 @@ impl BindingFacts {
             unclassified_binding_lines,
             function_scope,
             language: parsed.language,
+            use_byte_cache: std::cell::RefCell::new(BTreeMap::new()),
         };
         for (index, def) in defs.iter().enumerate() {
             let binding = declaration_for_def[index]
@@ -207,6 +248,21 @@ impl BindingFacts {
             facts.def_bindings.push(binding);
         }
         facts
+    }
+
+    fn use_byte(&self, parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
+        if edge.to.start_byte < edge.to.end_byte {
+            return Some(edge.to.start_byte);
+        }
+        let key = (edge.to.line, edge.to.path.clone());
+        if let Some(cached) = self.use_byte_cache.borrow().get(&key) {
+            return *cached;
+        }
+        let value = use_byte(parsed, edge);
+        #[cfg(test)]
+        super::work_tests::bump(|counts| counts.use_byte_misses += 1);
+        self.use_byte_cache.borrow_mut().insert(key, value);
+        value
     }
 
     pub(super) fn same_def_binding(&self, left: usize, right: usize) -> bool {
@@ -226,7 +282,7 @@ impl BindingFacts {
         if matches!(self.def_bindings[def_index].id, BindingId::FlatFallback(_)) {
             return true;
         }
-        let Some(use_byte) = use_byte(parsed, edge) else {
+        let Some(use_byte) = self.use_byte(parsed, edge) else {
             return true;
         };
         self.visible_declaration(&edge.to.path.base, use_byte)
@@ -253,7 +309,7 @@ impl BindingFacts {
         def_index: usize,
     ) -> BindingRelation {
         let definition = &self.def_bindings[def_index];
-        let Some(use_byte) = use_byte(parsed, edge) else {
+        let Some(use_byte) = self.use_byte(parsed, edge) else {
             return if definition
                 .scope
                 .contains(parsed.line_start_byte(edge.to.line))
@@ -317,8 +373,11 @@ fn declaration_seed(
     def: &DefSite,
     function_scope: ScopeSpan,
 ) -> Option<(ScopeSpan, DeclarationKind, usize)> {
+    // js-param-defs PR-A: the bare arrow formal (`x => …`) has no
+    // `parameters` list; without its region the Def is seeded as a non-
+    // parameter binding and its labels diverge from the `(x) => …` control.
     if parsed
-        .find_parameters_node(func_node)
+        .parameter_binding_region(func_node)
         .is_some_and(|parameters| {
             parameters.start_byte() <= def.start_byte && def.start_byte < parameters.end_byte()
         })
@@ -476,11 +535,14 @@ fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {
 fn collect_unclassified_binding_lines(
     parsed: &ParsedFile,
     node: Node<'_>,
-    root_function_id: usize,
+    root: &RootFunction<'_>,
     callable_boundary_kinds: &[&str],
     introducing_fields: &IntroducingFields,
     lines: &mut BTreeMap<String, BTreeSet<Line>>,
 ) {
+    #[cfg(test)]
+    super::work_tests::bump(|counts| counts.binding_nodes += 1);
+    let root_function_id = root.function.id();
     if node.id() != root_function_id && callable_boundary_kinds.contains(&node.kind()) {
         return;
     }
@@ -489,7 +551,7 @@ fn collect_unclassified_binding_lines(
         if let Some(fields) = introducing_fields.get(node.kind()) {
             for field in fields {
                 if let Some(target) = node.child_by_field_name(field) {
-                    if !introduction_is_classified(parsed, node, target, root_function_id) {
+                    if !introduction_is_classified(parsed, node, target, root) {
                         let dominance_lines = dominance_route_lines(node, root_function_id);
                         collect_binding_identifiers(parsed, target, &dominance_lines, lines);
                     }
@@ -503,7 +565,7 @@ fn collect_unclassified_binding_lines(
         collect_unclassified_binding_lines(
             parsed,
             child,
-            root_function_id,
+            root,
             callable_boundary_kinds,
             introducing_fields,
             lines,
@@ -541,6 +603,8 @@ fn collect_binding_identifiers(
 }
 
 fn dominance_route_lines(node: Node<'_>, root_function_id: usize) -> Vec<Line> {
+    #[cfg(test)]
+    super::work_tests::bump(|counts| counts.dominance_calls += 1);
     let introduction_line = node.start_position().row + 1;
     let mut current = Some(node);
     while let Some(candidate) = current {
@@ -560,6 +624,8 @@ fn dominance_route_lines(node: Node<'_>, root_function_id: usize) -> Vec<Line> {
 }
 
 fn collect_lines_after(node: Node<'_>, introduction_line: Line, lines: &mut BTreeSet<Line>) {
+    #[cfg(test)]
+    super::work_tests::bump(|counts| counts.dominance_nodes += 1);
     let line = node.start_position().row + 1;
     if line > introduction_line {
         lines.insert(line);
@@ -582,21 +648,16 @@ fn introduction_is_classified(
     parsed: &ParsedFile,
     node: Node<'_>,
     target: Node<'_>,
-    root_function_id: usize,
+    root: &RootFunction<'_>,
 ) -> bool {
-    if parsed
-        .find_parameters_node(
-            &parsed
-                .all_functions()
-                .into_iter()
-                .find(|function| function.id() == root_function_id)
-                .expect("root function must remain indexed"),
-        )
-        .is_some_and(|parameters| {
-            parameters.start_byte() <= target.start_byte()
-                && target.end_byte() <= parameters.end_byte()
-        })
-    {
+    #[cfg(test)]
+    super::work_tests::bump(|counts| counts.introductions += 1);
+    let parameters = root.parameters(parsed);
+    #[cfg(test)]
+    let parameters = super::work_tests::parameters(parsed, root.function, parameters);
+    if parameters.is_some_and(|parameters| {
+        parameters.start_byte() <= target.start_byte() && target.end_byte() <= parameters.end_byte()
+    }) {
         return true;
     }
 
@@ -628,7 +689,7 @@ fn introduction_is_classified(
         {
             return !composite_pattern;
         }
-        if candidate.id() == root_function_id {
+        if candidate.id() == root.function.id() {
             break;
         }
         current = candidate.parent();
@@ -891,3 +952,7 @@ fn use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
     let first = identifiers.next()?;
     identifiers.next().is_none().then_some(first.start_byte())
 }
+
+#[cfg(test)]
+#[path = "scope_reuse_tests.rs"]
+mod reuse_tests;

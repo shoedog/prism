@@ -1,0 +1,14 @@
+[case]
+language = "typescript"
+capability = "forwardref_named_export"
+status = "pass"
+[seed]
+symbol = "Island"
+file = "lib.tsx"
+line = 2
+[[expect.callers]]
+file = "app.tsx"
+line = 3
+[expect]
+exact = true
+resolution_kind = "import_member"

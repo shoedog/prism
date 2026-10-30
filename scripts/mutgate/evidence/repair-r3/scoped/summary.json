@@ -1,0 +1,164 @@
+{
+  "authoritative": false,
+  "label": "ADVISORY",
+  "execution_mode": "schema",
+  "jobs": 4,
+  "since": "origin/main",
+  "scope": "fn",
+  "selected": 3,
+  "killed": 3,
+  "admissible": 3,
+  "timings": {
+    "source_baseline_build": 0.11,
+    "source_baseline": 0.37,
+    "schema_build": 8.09,
+    "schema_baseline": 0.31,
+    "schema_runs": 0.18,
+    "confirmation_scan": 5.06,
+    "text_mode": 18.49,
+    "total": 37.14
+  },
+  "resources": {
+    "workers": 1,
+    "seed_methods": [
+      "apfs-clone"
+    ],
+    "worker_disk_peak_bytes": 1813086208,
+    "disk_measurement": "du -sk; allocated blocks, shared clone extents may be counted repeatedly",
+    "workers_cleaned": true
+  },
+  "baselines": {
+    "source": {
+      "('integration', 'js_paths_cap_test::structural_project_triple_references')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.285,
+        "log_tail": "\nrunning 1 test\ntest js_paths_cap_test::structural_project_triple_references ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 0.27s\n\n",
+        "failure_locations": []
+      },
+      "('integration', 'js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.368,
+        "log_tail": "\nrunning 1 test\ntest js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 0.36s\n\n",
+        "failure_locations": []
+      },
+      "('integration', 'js_paths_r3_test::uppercase_ambient_reference_files_and_type_package_keep_base')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.318,
+        "log_tail": "\nrunning 1 test\ntest js_paths_r3_test::uppercase_ambient_reference_files_and_type_package_keep_base ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 0.31s\n\n",
+        "failure_locations": []
+      }
+    },
+    "schema": {
+      "('integration', 'js_paths_cap_test::structural_project_triple_references')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.233,
+        "log_tail": "\nrunning 1 test\ntest js_paths_cap_test::structural_project_triple_references ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 0.23s\n\n",
+        "failure_locations": []
+      },
+      "('integration', 'js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.312,
+        "log_tail": "\nrunning 1 test\ntest js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 0.31s\n\n",
+        "failure_locations": []
+      },
+      "('integration', 'js_paths_r3_test::uppercase_ambient_reference_files_and_type_package_keep_base')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.266,
+        "log_tail": "\nrunning 1 test\ntest js_paths_r3_test::uppercase_ambient_reference_files_and_type_package_keep_base ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 0.26s\n\n",
+        "failure_locations": []
+      }
+    },
+    "workers": {
+      "0": {
+        "build_seconds": 13.0,
+        "runs": {
+          "('integration', 'js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.3,
+            "log_tail": "\nrunning 1 test\ntest js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 0.29s\n\n",
+            "failure_locations": []
+          }
+        }
+      }
+    }
+  },
+  "static": {
+    "R4-08-dropped-import-decline": "outside-fn-body"
+  },
+  "text_confirmations": 0,
+  "results": {
+    "I17-no-project-reference-cut": {
+      "mode": "schema",
+      "runs": [
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.18,
+          "log_tail": "aths_cap_test.rs:205:5:\nassertion `left == right` failed\n  left: Object {\"call_kind\": String(\"Call\"), \"callee_text\": String(\"picked\"), \"caller\": Object {\"end_line\": Number(2), \"file\": String(\"app.jsx\"), \"name\": String(\"run\"), \"start_line\": Number(2)}, \"drop\": Null, \"exact_target\": Null, \"origin\": String(\"Source\"), \"record_kind\": String(\"call_site\"), \"resolved_targets\": Array [Object {\"confidence\": String(\"exact\"), \"function_id\": Object {\"end_line\": Number(1), \"file\": String(\"lib/real.tsx\"), \"name\": String(\"real\"), \"start_line\": Number(1)}, \"kind\": String(\"import_member\")}], \"source_callee_text\": String(\"picked\"), \"source_span\": Object {\"end_byte\": Number(112), \"file\": String(\"app.jsx\"), \"line\": Number(2), \"start_byte\": Number(104)}}\n right: Object {\"call_kind\": String(\"Call\"), \"callee_text\": String(\"picked\"), \"caller\": Object {\"end_line\": Number(2), \"file\": String(\"app.jsx\"), \"name\": String(\"run\"), \"start_line\": Number(2)}, \"drop\": String(\"UnknownName\"), \"exact_target\": Null, \"origin\": String(\"Source\"), \"record_kind\": String(\"call_site\"), \"resolved_targets\": Array [], \"source_callee_text\": String(\"picked\"), \"source_span\": Object {\"end_byte\": Number(112), \"file\": String(\"app.jsx\"), \"line\": Number(2), \"start_byte\": Number(104)}}\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    js_paths_cap_test::structural_project_triple_references\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 0.18s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "I73-declare-prefilter": {
+      "mode": "schema",
+      "runs": [
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.178,
+          "log_tail": "3:9:\nassertion `left == right` failed\n  left: Object {\"call_kind\": String(\"Call\"), \"callee_text\": String(\"picked\"), \"caller\": Object {\"end_line\": Number(1), \"file\": String(\"app.jsx\"), \"name\": String(\"run\"), \"start_line\": Number(1)}, \"drop\": Null, \"exact_target\": Null, \"origin\": String(\"Source\"), \"record_kind\": String(\"call_site\"), \"resolved_targets\": Array [Object {\"confidence\": String(\"exact\"), \"function_id\": Object {\"end_line\": Number(1), \"file\": String(\"src/util.jsx\"), \"name\": String(\"real\"), \"start_line\": Number(1)}, \"kind\": String(\"import_member\")}], \"source_callee_text\": String(\"picked\"), \"source_span\": Object {\"end_byte\": Number(75), \"file\": String(\"app.jsx\"), \"line\": Number(1), \"start_byte\": Number(67)}}\n right: Object {\"call_kind\": String(\"Call\"), \"callee_text\": String(\"picked\"), \"caller\": Object {\"end_line\": Number(1), \"file\": String(\"app.jsx\"), \"name\": String(\"run\"), \"start_line\": Number(1)}, \"drop\": String(\"UnknownName\"), \"exact_target\": Null, \"origin\": String(\"Source\"), \"record_kind\": String(\"call_site\"), \"resolved_targets\": Array [], \"source_callee_text\": String(\"picked\"), \"source_span\": Object {\"end_byte\": Number(75), \"file\": String(\"app.jsx\"), \"line\": Number(1), \"start_byte\": Number(67)}}\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    js_paths_r3_test::uppercase_ambient_reference_files_and_type_package_keep_base\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 0.17s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "R4-08-dropped-import-decline": {
+      "mode": "text",
+      "build_seconds": 4.36,
+      "runs": [
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.187,
+          "log_tail": "\nrunning 1 test\ntest js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary ... FAILED\n\nfailures:\n\n---- js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary stdout ----\nwarning: P1 paths disabled: mutant (5 scan entries, 110 bytes)\nwarning: P1 paths tolerant scan skipped: {\"non_source\":1}\n\nthread 'js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary' (117143275) panicked at tests/integration/js_paths_common.rs:25:5:\nassertion `left == right` failed: {\"call_kind\":\"Call\",\"callee_text\":\"picked\",\"caller\":{\"end_line\":1,\"file\":\"app.jsx\",\"name\":\"run\",\"start_line\":1},\"drop\":\"UnknownName\",\"exact_target\":null,\"origin\":\"Source\",\"record_kind\":\"call_site\",\"resolved_targets\":[],\"source_callee_text\":\"picked\",\"source_span\":{\"end_byte\":75,\"file\":\"app.jsx\",\"line\":1,\"start_byte\":67}}\n  left: 0\n right: 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    js_paths_r3_test::scanned_module_imports_do_not_close_the_repository_boundary\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1104 filtered out; finished in 0.18s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    }
+  }
+}

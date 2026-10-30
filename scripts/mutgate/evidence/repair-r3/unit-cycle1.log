@@ -1,0 +1,68 @@
+.............................usage: mutgate [-h] [--lane LANE] [--only ONLY] [--since SINCE]
+               [--scope {line,fn,file}] [--mode {schema,text}]
+               [--authoritative] [--jobs JOBS] [--timeout TIMEOUT] [--out OUT]
+               [--plan-only]
+mutgate: error: schema verdicts are advisory: use --since REV without --authoritative
+usage: mutgate [-h] [--lane LANE] [--only ONLY] [--since SINCE]
+               [--scope {line,fn,file}] [--mode {schema,text}]
+               [--authoritative] [--jobs JOBS] [--timeout TIMEOUT] [--out OUT]
+               [--plan-only]
+mutgate: error: schema verdicts are advisory: use --since REV without --authoritative
+usage: mutgate [-h] [--lane LANE] [--only ONLY] [--since SINCE]
+               [--scope {line,fn,file}] [--mode {schema,text}]
+               [--authoritative] [--jobs JOBS] [--timeout TIMEOUT] [--out OUT]
+               [--plan-only]
+mutgate: error: --jobs must be positive
+.......................
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='aliased-Location')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 272, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='aliased-other-module')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 272, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='debug-aliased-Location')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 272, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='generated-should-panic')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 272, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='generated-track-caller')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 272, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills (scripts.mutgate.test_mutgate.GateRegressionTests) (fixture='panic-without-rs-colon')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/wesleyjinks/code/prism-mutation-gate/scripts/mutgate/test_mutgate.py", line 272, in test_six_indirect_observers_are_authoritative_survivors_and_advisory_kills
+    self.assertEqual(status, 0 if advisory else 1)
+AssertionError: 0 != 1
+
+----------------------------------------------------------------------
+Ran 53 tests in 7.766s
+
+FAILED (failures=6)

@@ -1,0 +1,70 @@
+{
+  "lane": "JS/TS per-file resolution facts parallel extraction",
+  "source": "src/call_graph/js_ts_facts.rs",
+  "lib_test_prefixes": [
+    "call_graph::js_ts_facts::",
+    "js_anonymous::stack_tests::"
+  ],
+  "mutations": {
+    "PF01-reversed-merge": [
+      "src/call_graph/js_ts_facts.rs",
+      "for (file_exports, file_locals, file_returns) in per_file {",
+      "for (file_exports, file_locals, file_returns) in per_file.into_iter().rev() {",
+      "call_graph::js_ts_facts::tests::duplicate_paths_merge_in_input_order_despite_reverse_completion"
+    ],
+    "PF02-drop-proven-empty-export": [
+      "src/call_graph/js_ts_facts.rs",
+      "\n    if !exports.is_empty() || !parsed.tree.root_node().has_error() {",
+      "\n    if !exports.is_empty() {",
+      "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
+    ],
+    "PF03-admit-opaque-empty-export": [
+      "src/call_graph/js_ts_facts.rs",
+      "\n    if !exports.is_empty() || !parsed.tree.root_node().has_error() {",
+      "\n    if true {",
+      "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
+    ],
+    "PF04-locals-unconditional": [
+      "src/call_graph/js_ts_facts.rs",
+      "\n        if !locals.is_empty() {",
+      "\n        if true {",
+      "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
+    ],
+    "PF05-return-insert-dropped": [
+      "src/call_graph/js_ts_facts.rs",
+      "\n            return_facts.insert(func_id, facts);",
+      "\n            let _ = (func_id, facts);",
+      "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
+    ],
+    "PF06-first-file-skipped": [
+      "src/call_graph/js_ts_facts.rs",
+      "crate::build_pool::per_item(&files)",
+      "crate::build_pool::per_item(&files).skip(1)",
+      "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
+    ],
+    "PF07-reversed-owners": [
+      "src/call_graph/js_ts_facts.rs",
+      "\n    for func_node in crate::anon_owner::owner_nodes(parsed) {",
+      "\n    for func_node in crate::anon_owner::owner_nodes(parsed).into_iter().rev() {",
+      "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
+    ],
+    "PF08-oracle-bypassed": [
+      "src/call_graph/js_ts_facts.rs",
+      "return sequential(files);",
+      "return collect(files, extract_file);",
+      "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
+    ],
+    "PF09-non-js-admitted": [
+      "src/call_graph/js_ts_facts.rs",
+      "\n    if !matches!(",
+      "\n    if false && !matches!(",
+      "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
+    ],
+    "PF10-locals-insert-dropped": [
+      "src/call_graph/js_ts_facts.rs",
+      "\n            function_locals.insert(func_id.clone(), locals);",
+      "\n            let _ = (func_id.clone(), locals);",
+      "call_graph::js_ts_facts::tests::generated_complete_maps_and_serialization"
+    ]
+  }
+}

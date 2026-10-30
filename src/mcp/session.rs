@@ -11,9 +11,24 @@ pub const FIRST_CALL_WAIT_MAX: Duration = Duration::from_secs(600);
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum StartupMode {
+    /// Answer the handshake at once; start the repository index build on the first valid
+    /// `tools/call`. A client that only handshakes and lists tools never pays for the index.
     #[default]
     Lazy,
+    /// Answer the handshake at once; start the index build in the background at startup
+    /// (`--warm-at-startup`). Trades memory for a warm first call.
+    Background,
+    /// Build the index before answering `initialize` (`--eager`).
     Eager,
+}
+
+/// A point in the index build a caller can observe. The memory report samples at each.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BuildStage {
+    /// Sources are read and parsed; no graph exists yet.
+    RepoLoaded,
+    /// The code property graph is loaded from cache or built, and the navigation index exists.
+    IndexBuilt,
 }
 
 #[derive(Clone, Debug)]
@@ -89,6 +104,8 @@ pub struct SessionProvider {
     snapshot: SnapshotFingerprint,
     known_stale_after_refresh: Option<FreshnessReport>,
     generation: u64,
+    auto_attempt: Option<[u8; 32]>,
+    pub(super) build_facts: super::serving_events::BuildFacts,
     #[cfg(test)]
     forced_refresh: Option<ForcedRefreshForTests>,
 }
@@ -101,13 +118,16 @@ struct SessionState {
     fallback_reason: Option<&'static str>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 struct SnapshotFingerprint {
     file_hashes: BTreeMap<String, String>,
     manifest_hashes: BTreeMap<String, String>,
     topology_key: BTreeMap<String, String>,
     has_type_db: bool,
 }
+
+#[path = "session_idle.rs"]
+mod idle_support;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RefreshStrategyPolicy {
@@ -146,18 +166,32 @@ enum ForcedRefreshForTests {
 
 impl SessionProvider {
     pub fn bootstrap(cfg: &ServerConfig) -> anyhow::Result<Self> {
+        Self::bootstrap_observed(cfg, &mut |_| {})
+    }
+
+    /// `bootstrap`, calling `observe` as each build stage completes.
+    pub(crate) fn bootstrap_observed(
+        cfg: &ServerConfig,
+        observe: &mut dyn FnMut(BuildStage),
+    ) -> anyhow::Result<Self> {
+        let started = std::time::Instant::now();
         let cfg = canonical_config(cfg)?;
-        let state = build_state(&cfg)?;
-        Ok(Self {
+        let (state, build_facts) = build_state(&cfg, observe)?;
+        let known_stale = state.freshness.bootstrap_report().cloned();
+        let mut provider = Self {
             cfg,
             session: state.session,
             freshness: state.freshness,
             snapshot: state.snapshot,
-            known_stale_after_refresh: None,
+            known_stale_after_refresh: known_stale,
             generation: 0,
+            auto_attempt: None,
+            build_facts,
             #[cfg(test)]
             forced_refresh: None,
-        })
+        };
+        provider.build_facts.stages[3] = started.elapsed().as_nanos();
+        Ok(provider)
     }
 
     pub fn session(&self) -> &NavigationSession {
@@ -168,12 +202,27 @@ impl SessionProvider {
         &self.freshness
     }
 
+    /// Returns the effective refresh policy, including same-evidence auto suppression.
     pub fn refresh_policy(&self) -> RefreshPolicy {
-        self.cfg.refresh_policy
+        if self.auto_attempt.is_some() && self.auto_attempt == self.freshness.uncertifiable_key() {
+            RefreshPolicy::WarnOnly
+        } else {
+            self.cfg.refresh_policy
+        }
     }
 
     pub(crate) fn known_stale_after_refresh(&self) -> Option<&FreshnessReport> {
+        if self.known_stale_after_refresh.is_some() && self.freshness.uncertifiable_key().is_some()
+        {
+            self.freshness.check();
+        }
         self.known_stale_after_refresh.as_ref()
+    }
+
+    /// How many refreshes this provider has committed: 0 for a freshly built index. A shared
+    /// daemon reports it to its clients as the generation of the index it serves.
+    pub fn generation(&self) -> u64 {
+        self.generation
     }
 
     #[cfg(test)]
@@ -208,6 +257,7 @@ impl SessionProvider {
 
     pub(crate) fn auto_refresh(&mut self) -> anyhow::Result<AutoRefreshSummary> {
         let stale_before_refresh = self.effective_stale_report();
+        self.auto_attempt = self.freshness.uncertifiable_key();
         let policy = match self.cfg.refresh_policy {
             RefreshPolicy::AutoIncremental => RefreshStrategyPolicy::PreferIncremental,
             RefreshPolicy::WarnOnly | RefreshPolicy::AutoFull => RefreshStrategyPolicy::FullOnly,
@@ -225,10 +275,11 @@ impl SessionProvider {
     }
 
     fn effective_stale_report(&self) -> FreshnessReport {
+        let current = self.freshness.check();
         if let Some(report) = &self.known_stale_after_refresh {
             return report.clone();
         }
-        self.freshness.check()
+        current
     }
 
     fn refresh_verified(
@@ -275,6 +326,11 @@ impl SessionProvider {
             verification,
         } = verified;
 
+        let mut state = state;
+        if matches!(verification, RefreshVerification::Clean) {
+            state.freshness.clear_bootstrap_evidence();
+            self.auto_attempt = None;
+        }
         let indexed_files = state.session.repo.files.len();
         let tracked_paths = state.freshness.tracked_len();
         self.generation = self.generation.saturating_add(1);
@@ -366,28 +422,44 @@ fn verify_snapshot(
     ))
 }
 
-// `NavigationSession` holds `Arc<LoadedRepo>`/`Arc<NavigationIndex>` (the nav layer's shape);
-// `LoadedRepo` is not `Sync`, but the MCP server dispatches single-threaded (spec §8) — `Send+Sync`
-// is deferred to a future async transport (spec §17). Same `Arc<LoadedRepo>` pattern as `build_session`.
+// `NavigationSession` holds `Arc<LoadedRepo>`/`Arc<NavigationIndex>` (the nav layer's shape).
+// `SessionProvider` is `Send + Sync`; the shared daemon queries one provider from many
+// connection threads and asserts that at compile time in `src/mcp/daemon/mod.rs`. The lint
+// allowance below is older than that fact and is kept so that this change alters no lint outcome.
 #[allow(clippy::arc_with_non_send_sync)]
-fn build_state(cfg: &ServerConfig) -> anyhow::Result<SessionState> {
+fn build_state(
+    cfg: &ServerConfig,
+    observe: &mut dyn FnMut(BuildStage),
+) -> anyhow::Result<(SessionState, super::serving_events::BuildFacts)> {
+    let started = std::time::Instant::now();
     let loaded_repo = load_repo(&cfg.repo_root)?;
+    let load_parse = started.elapsed().as_nanos();
+    observe(BuildStage::RepoLoaded);
     let snapshot = SnapshotFingerprint::from_repo(&loaded_repo);
-    let freshness = FreshnessProbe::from_loaded_repo(&loaded_repo);
+    let (freshness, validation) = FreshnessProbe::from_loaded_repo_timed(&loaded_repo);
     let repo = Arc::new(loaded_repo);
-    let index = match &cfg.cache {
-        CacheMode::NoCache => NavigationIndex::build(&repo),
-        CacheMode::Default => NavigationIndex::build_cached(&repo),
-        CacheMode::Dir(base) => NavigationIndex::build_cached_under(&repo, base),
+    let started = std::time::Instant::now();
+    let (index, cpg) = match &cfg.cache {
+        CacheMode::NoCache => (NavigationIndex::build(&repo), "disabled"),
+        CacheMode::Default => NavigationIndex::build_cached_observed(&repo),
+        CacheMode::Dir(base) => NavigationIndex::build_cached_under_observed(&repo, base),
     };
+    let index_time = started.elapsed().as_nanos();
+    observe(BuildStage::IndexBuilt);
     let index = Arc::new(index);
-    Ok(SessionState {
-        session: NavigationSession { repo, index },
-        freshness,
-        snapshot,
-        strategy: RefreshStrategy::Full,
-        fallback_reason: None,
-    })
+    Ok((
+        SessionState {
+            session: NavigationSession { repo, index },
+            freshness,
+            snapshot,
+            strategy: RefreshStrategy::Full,
+            fallback_reason: None,
+        },
+        super::serving_events::BuildFacts {
+            cpg,
+            stages: [load_parse, validation.as_nanos(), index_time, 0],
+        },
+    ))
 }
 
 #[allow(clippy::arc_with_non_send_sync)]
@@ -893,3 +965,11 @@ mod tests {
         assert_eq!(retry_plan.fallback_reason, Some("file_set_changed"));
     }
 }
+
+#[cfg(test)]
+#[path = "session_stage_tests.rs"]
+mod stage_tests;
+
+#[cfg(all(test, unix))]
+#[path = "freshness_policy_tests.rs"]
+mod freshness_policy_tests;

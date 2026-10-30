@@ -65,6 +65,7 @@ pub struct ReviewInputs {
 
 pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<ReviewInputs> {
     crate::build_pool::install(|| {
+        let profile_load = crate::profile::Phase::serial("load_parse");
         let mut diff_input = if diff_text.trim_start().starts_with('{') {
             DiffInput::from_json(diff_text)?
         } else {
@@ -160,6 +161,7 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
 
         // Check parse quality for all files and collect warnings + structured data.
         let (parse_warnings, parse_quality) = algorithms::check_parse_quality(&files);
+        drop(profile_load);
         let scope_graph_inputs = crate::repo_loader::scope_graph_build_inputs(&opts.repo, &files);
         let diff_text_sha256 = format!("{:x}", Sha256::digest(diff_text.as_bytes()));
 
@@ -267,17 +269,26 @@ pub fn build_context<'a>(
 
                     // Save updated cache.
                     if let (Some(cache_dir), Some(hashes)) = (&opts.cache_dir, &file_hashes) {
-                        if let Err(e) = cpg_cache::save_cache_with_topology(
+                        match cpg_cache::save_cache_with_topology(
                             &ctx.cpg,
                             hashes,
                             topology_key.as_ref().unwrap(),
                             has_type_db,
                             cache_dir,
                         ) {
-                            eprintln!("Warning: failed to write CPG cache: {}", e);
-                            warnings.push(format!("Warning: failed to write CPG cache: {}", e));
-                        } else {
-                            eprintln!("CPG cache updated to {}", cache_dir.display());
+                            Err(e) => {
+                                eprintln!("Warning: failed to write CPG cache: {}", e);
+                                warnings.push(format!("Warning: failed to write CPG cache: {}", e));
+                            }
+                            Ok(cpg_cache::SaveOutcome::Saved) => {
+                                eprintln!("CPG cache updated to {}", cache_dir.display());
+                            }
+                            Ok(cpg_cache::SaveOutcome::Skipped) => {
+                                eprintln!(
+                                    "CPG cache not written to {}: another process holds its lock",
+                                    cache_dir.display()
+                                );
+                            }
                         }
                     }
                     ctx
@@ -299,17 +310,26 @@ pub fn build_context<'a>(
 
                     // Save cache after a full build (not for scoped builds).
                     if let (Some(cache_dir), Some(hashes)) = (&opts.cache_dir, &file_hashes) {
-                        if let Err(e) = cpg_cache::save_cache_with_topology(
+                        match cpg_cache::save_cache_with_topology(
                             &ctx.cpg,
                             hashes,
                             topology_key.as_ref().unwrap(),
                             has_type_db,
                             cache_dir,
                         ) {
-                            eprintln!("Warning: failed to write CPG cache: {}", e);
-                            warnings.push(format!("Warning: failed to write CPG cache: {}", e));
-                        } else {
-                            eprintln!("CPG cache written to {}", cache_dir.display());
+                            Err(e) => {
+                                eprintln!("Warning: failed to write CPG cache: {}", e);
+                                warnings.push(format!("Warning: failed to write CPG cache: {}", e));
+                            }
+                            Ok(cpg_cache::SaveOutcome::Saved) => {
+                                eprintln!("CPG cache written to {}", cache_dir.display());
+                            }
+                            Ok(cpg_cache::SaveOutcome::Skipped) => {
+                                eprintln!(
+                                    "CPG cache not written to {}: another process holds its lock",
+                                    cache_dir.display()
+                                );
+                            }
                         }
                     }
                     ctx
