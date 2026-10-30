@@ -141,13 +141,13 @@ fn same_family_cross_file_controls() {
 }
 
 #[test]
-fn mixed_pool_promotes_python_target() {
+fn mixed_pool_keeps_python_target_name_only() {
     let cg = graph(&[
         ("caller.py", "def run():\n    len()\n"),
         ("lib.py", "def len():\n    pass\n"),
         ("lib.rs", "fn len() {}"),
     ]);
-    assert_exact(&cg, "caller.py", "len", "lib.py");
+    assert_name_only(&cg, "caller.py", "len", "lib.py", ResolutionKind::FreeMulti);
 }
 
 #[test]
@@ -243,4 +243,230 @@ fn qualified_stem_pool_rejects_foreign_language() {
         ("lib.py", "def len():\n    pass\n"),
     ]);
     assert!(outcome(&cg, "caller.cpp", "lib::len").resolved.is_empty());
+}
+
+fn assert_name_only(cg: &CallGraph, caller: &str, name: &str, target: &str, kind: ResolutionKind) {
+    let result = outcome(cg, caller, name);
+    assert_eq!(result.resolved.len(), 1, "{result:?}");
+    assert_eq!(result.resolved[0].target.file, target);
+    assert_eq!(
+        result.resolved[0].confidence,
+        ResolutionConfidence::NameOnly
+    );
+    assert_eq!(result.resolved[0].kind, kind);
+}
+
+#[test]
+fn go_local_closure_does_not_promote_cross_directory_main() {
+    let cg = graph(&[
+        (
+            "app/test.go",
+            "package app\nfunc test() { run := func() {}; run() }",
+        ),
+        ("gen/main.go", "package main\nfunc run() {}"),
+        ("ui/run.tsx", "function run() {}"),
+    ]);
+    assert_name_only(
+        &cg,
+        "app/test.go",
+        "run",
+        "gen/main.go",
+        ResolutionKind::FreeMulti,
+    );
+}
+
+#[test]
+fn python_imported_alias_does_not_promote_unrelated_definition() {
+    let cg = graph(&[
+        (
+            "caller.py",
+            "from pytest import fixture as aliased\ndef test():\n    aliased()\n",
+        ),
+        ("fixtures/other.py", "def aliased():\n    pass\n"),
+        ("ui/other.js", "function aliased() {}"),
+    ]);
+    assert_name_only(
+        &cg,
+        "caller.py",
+        "aliased",
+        "fixtures/other.py",
+        ResolutionKind::FreeMulti,
+    );
+}
+
+#[test]
+fn larger_mixed_pool_keeps_one_name_only_target() {
+    let cg = graph(&[
+        ("caller.py", "def run():\n    check()\n"),
+        ("lib.py", "def check():\n    pass\n"),
+        ("lib.rs", "fn check() {}"),
+        ("lib.js", "function check() {}"),
+        ("lib.go", "package p\nfunc check() {}"),
+    ]);
+    assert_name_only(
+        &cg,
+        "caller.py",
+        "check",
+        "lib.py",
+        ResolutionKind::FreeMulti,
+    );
+}
+
+#[test]
+fn rust_macro_argument_method_does_not_promote_private_free_function() {
+    let cg = graph(&[
+        (
+            "docs/probe.rs",
+            "fn probe(v: Vec<i32>) { assert_eq!(v.iter().count(), 1); }",
+        ),
+        ("src/private.rs", "fn count() -> usize { 0 }"),
+        ("ui/lib.js", "function count() {}"),
+    ]);
+    assert_name_only(
+        &cg,
+        "docs/probe.rs",
+        "count",
+        "src/private.rs",
+        ResolutionKind::FreeMulti,
+    );
+}
+
+#[test]
+fn python_import_member_foreign_only_does_not_fall_through() {
+    for unrelated in [false, true] {
+        let mut files = vec![
+            (
+                "caller.py",
+                "from helpers import fmt\ndef run():\n    fmt(1)\n",
+            ),
+            ("helpers.js", "function fmt(x) { return x; }"),
+        ];
+        if unrelated {
+            files.push(("pkg/other.py", "def fmt(x):\n    return x\n"));
+        }
+        let cg = graph(&files);
+        assert!(outcome(&cg, "caller.py", "fmt").resolved.is_empty());
+    }
+}
+
+#[test]
+fn go_same_directory_foreign_only_does_not_fall_through() {
+    let cg = graph(&[
+        ("a/caller.go", "package a\nfunc run() { helper() }"),
+        ("a/gen.py", "def helper():\n    pass\n"),
+        ("b/lib.go", "package b\nfunc helper() {}"),
+    ]);
+    assert!(outcome(&cg, "a/caller.go", "helper").resolved.is_empty());
+}
+
+#[test]
+fn qualified_stem_mixed_pool_keeps_stem_multi() {
+    let cg = graph(&[
+        ("caller.cpp", "void run() { lib::check(); }"),
+        ("a/lib.cpp", "void check() {}"),
+        ("b/lib.py", "def check():\n    pass\n"),
+    ]);
+    assert_name_only(
+        &cg,
+        "caller.cpp",
+        "lib::check",
+        "a/lib.cpp",
+        ResolutionKind::StemMulti,
+    );
+}
+
+#[test]
+fn go_same_directory_mixed_pool_does_not_promote() {
+    let cg = graph(&[
+        ("a/caller.go", "package a\nfunc run() { helper() }"),
+        ("a/lib.go", "package a\nfunc helper() {}"),
+        ("a/lib.py", "def helper():\n    pass\n"),
+    ]);
+    let result = outcome(&cg, "a/caller.go", "helper");
+    assert!(
+        result
+            .resolved
+            .iter()
+            .all(|r| r.confidence == ResolutionConfidence::NameOnly),
+        "{result:?}"
+    );
+}
+
+#[test]
+fn c_field_mixed_pool_does_not_create_a_target() {
+    let cg = graph(&[
+        (
+            "caller.c",
+            "struct S { void (*len)(void); }; void run(struct S *s) { s->len(); }",
+        ),
+        ("lib.cpp", "void len() {}"),
+        ("lib.rs", "fn len() {}"),
+    ]);
+    assert!(outcome(&cg, "caller.c", "len").resolved.is_empty());
+}
+
+#[test]
+fn raw_singleton_same_family_stays_exact() {
+    let cg = graph(&[
+        ("caller.py", "def run():\n    check()\n"),
+        ("lib.py", "def check():\n    pass\n"),
+    ]);
+    assert_exact(&cg, "caller.py", "check", "lib.py");
+}
+
+#[test]
+fn python_import_member_mixed_pool_keeps_name_only() {
+    let cg = graph(&[
+        (
+            "caller.py",
+            "from helpers import fmt\ndef run():\n    fmt(1)\n",
+        ),
+        ("helpers.py", "def fmt(x):\n    return x\n"),
+        ("helpers.js", "function fmt(x) { return x; }"),
+    ]);
+    assert_name_only(
+        &cg,
+        "caller.py",
+        "fmt",
+        "helpers.py",
+        ResolutionKind::ImportMember,
+    );
+}
+
+#[test]
+fn imported_module_mixed_pool_keeps_legacy_exact() {
+    let cg = graph(&[
+        (
+            "caller.py",
+            "import helpers\ndef run():\n    helpers.fmt(1)\n",
+        ),
+        ("helpers.py", "def fmt(x):\n    return x\n"),
+        ("helpers.js", "function fmt(x) { return x; }"),
+    ]);
+    assert_exact(&cg, "caller.py", "fmt", "helpers.py");
+    assert_eq!(
+        outcome(&cg, "caller.py", "fmt").resolved[0].kind,
+        ResolutionKind::ImportQualified
+    );
+}
+
+#[test]
+fn go_bare_value_mixed_pool_does_not_gain_a_binding() {
+    let cg = graph(&[
+        ("caller.go", "package p\nfunc run() {}"),
+        ("lib.go", "package p\nfunc helper() {}"),
+        ("lib.py", "def helper():\n    pass\n"),
+    ]);
+    let mut ambiguous = 0;
+    assert_eq!(
+        resolve_go_bare_value_ref(
+            &cg.functions,
+            &cg.method_owners,
+            &cg.go_file_profiles,
+            &mut ambiguous,
+            "caller.go",
+            "helper"
+        ),
+        None
+    );
 }
