@@ -43,16 +43,17 @@ def test_paired_oracle_failures_count_against_threshold_and_floor():
         "sut_sha_full": "b" * 40,
         "sut_digest": CANDIDATE_DIGEST,
     }
-    statuses = {key: probe["outcome"] for key, probe in quick_probes().items()}
+    probes = quick_probes()
     failed = [
         "callers:src/U-free.rs:1",
         "callers:src/U-free.rs:2",
         "callers:src/U-free.rs:3",
         "callees:src/U-free.rs:1",
     ]
-    statuses.update({pid: "oracle_error" for pid in failed})
-    base = fake_run(identities, status=statuses)
-    candidate = fake_run(candidate_identities, status=statuses)
+    for pid in failed:
+        probes[pid] = {**probes[pid], "outcome": "oracle_error"}
+    base = fake_run(identities, probes=probes)
+    candidate = fake_run(candidate_identities, probes=probes)
 
     report = compare_runs(base, candidate, DECLARED_ADJ)
 

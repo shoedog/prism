@@ -47,7 +47,7 @@ def test_pinned_end_line_only_change_is_excluded_from_regression():
     assert result["criteria"]["pinned_no_regression"] is True
 
 
-def test_pinned_attribution_refuses_legacy_sites_without_end_line():
+def test_record_validator_refuses_legacy_pinned_sites_without_end_line():
     ids = base_ids()
     base = {"id": "pin", "outcome": "ok", "oracle_sites": ["src/a.rs:10"]}
     candidate = {
@@ -60,4 +60,7 @@ def test_pinned_attribution_refuses_legacy_sites_without_end_line():
     base_run["pinned"] = [base]
     candidate_run["pinned"] = [candidate]
     result = compare_runs(base_run, candidate_run, DECLARED_ADJ)
-    assert result["verdict"] == "NOT_COMPARABLE(pinned_oracle_window_missing: pin)"
+    assert result["verdict"] == (
+        "NOT_COMPARABLE(record_invalid: base.pinned.0.oracle_sites, "
+        "candidate.pinned.0.oracle_sites)"
+    )
