@@ -142,6 +142,19 @@ def test_adjudications_must_be_the_runs_declared_copy(tmp_path, monkeypatch):   
     assert cmp2["verdict"] == "NOT_COMPARABLE(adjudications_digest)" and not (tmp_path / "compare2.json").exists() and not (tmp_path / "compare2.md").exists()   # R6-S1: a mutated store never silently rescores a historical pair; neither output is written
 
 
+def test_committed_compare_paths_resolve_from_repo_root_with_recorded_digests():
+    repo_root = EVAL_DIR.parent
+    report = json.loads(
+        (repo_root / "docs/eval/tier-a/compare-2026-10-30-prism.json").read_text()
+    )
+
+    for leg in report["runs"].values():
+        assert leg["path_base"] == "repo_root"
+        resolved = repo_root / leg["path"]
+        assert resolved.is_file()
+        assert raw_digest(resolved) == leg["digest"]
+
+
 def test_compare_refuses_input_resolving_outside_repo_root(tmp_path):
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
