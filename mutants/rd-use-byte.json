@@ -1,0 +1,114 @@
+{
+  "mutations": {
+    "UB01-drop-rvalue-uniqueness": [
+      "src/cpg/reaching/use_bytes.rs",
+      ".and_modify(|value| *value = None)",
+      ".and_modify(|_| {})",
+      "cpg::reaching::scope::use_byte_tests::uniqueness_paths_fallback_and_shortcut"
+    ],
+    "UB02-drop-path-key": [
+      "src/cpg/reaching/use_bytes.rs",
+      "edge.to.path.clone(),",
+      "AccessPath::simple(edge.to.path.base.clone()),",
+      "cpg::reaching::scope::use_byte_tests::uniqueness_paths_fallback_and_shortcut"
+    ],
+    "UB03-union-capture-origins": [
+      "src/ast/singleton_rvalue_spans.rs",
+      "if spans[read].line == line {",
+      "if true {",
+      "cpg::reaching::scope::use_byte_tests::singleton_origin_and_order"
+    ],
+    "UB04-drop-fallback-uniqueness": [
+      "src/ast/singleton_rvalue_spans.rs",
+      ".and_modify(|value| *value = None)",
+      ".and_modify(|_| {})",
+      "cpg::reaching::scope::use_byte_tests::uniqueness_paths_fallback_and_shortcut"
+    ],
+    "UB05-allow-missing-owner-fallback": [
+      "src/cpg/reaching/use_bytes.rs",
+      "if !owners.contains_key(&key.0) {",
+      "if false {",
+      "cpg::reaching::scope::use_byte_tests::uniqueness_paths_fallback_and_shortcut"
+    ],
+    "UB06-choose-last-same-line-owner": [
+      "src/cpg/reaching/use_bytes.rs",
+      ".or_insert(owner);",
+      ".and_modify(|previous| *previous = owner).or_insert(owner);",
+      "cpg::reaching::scope::use_byte_tests::same_line_owners_and_module_absence"
+    ],
+    "UB07-shift-real-span": [
+      "src/cpg/reaching/use_bytes.rs",
+      "return Some(edge.to.start_byte);",
+      "return Some(edge.to.start_byte + 1);",
+      "cpg::reaching::scope::use_byte_tests::uniqueness_paths_fallback_and_shortcut"
+    ],
+    "UB08-disable-fallback": [
+      "src/cpg/reaching/use_bytes.rs",
+      "parsed.identifier_bytes_on_lines(&fallback_lines)",
+      "BTreeMap::<(usize, String), Option<usize>>::new()",
+      "cpg::reaching::scope::use_byte_tests::uniqueness_paths_fallback_and_shortcut"
+    ],
+    "UB09-restore-per-query-work": [
+      "src/cpg/reaching/use_bytes.rs",
+      "self.values.get_or_init(|| self.build(parsed))[&key(edge)]",
+      "super::scope::use_byte(parsed, edge)",
+      "cpg::reaching::scope::use_byte_tests::batches_are_per_invocation_not_per_line_or_path"
+    ],
+    "UB10-disable-lazy-cache": [
+      "src/cpg/reaching/use_bytes.rs",
+      "self.values.get_or_init(|| self.build(parsed))[&key(edge)]",
+      "self.build(parsed)[&key(edge)]",
+      "cpg::reaching::scope::use_byte_tests::batches_are_per_invocation_not_per_line_or_path"
+    ],
+    "UB11-drop-call-spans": [
+      "src/ast/singleton_rvalue_spans.rs",
+      "\"call\" => self.singleton_call_spans(node, &scope, &mut spans),",
+      "\"call\" => {},",
+      "cpg::reaching::scope::use_byte_tests::singleton_origin_and_order"
+    ],
+    "UB12-drop-return-spans": [
+      "src/ast/singleton_rvalue_spans.rs",
+      "self.collect_return_node_value_spans_scoped(\n                                    node, &scope, &mut spans,\n                                );",
+      "",
+      "cpg::reaching::scope::use_byte_tests::singleton_origin_and_order"
+    ],
+    "UB13-drop-augmented-lhs": [
+      "src/ast/singleton_rvalue_spans.rs",
+      "if self.is_augmented_assignment(&node) {",
+      "if false {",
+      "ast::singleton_rvalue_spans::tests::manual_singletons_match_frozen_manual_walk"
+    ],
+    "UB14-drop-manual-origin": [
+      "src/ast/singleton_rvalue_spans.rs",
+      "retain_origin(out, begin, line);",
+      "",
+      "ast::singleton_rvalue_spans::tests::manual_singletons_match_frozen_manual_walk"
+    ],
+    "UB15-reverse-span-order": [
+      "src/ast/singleton_rvalue_spans.rs",
+      "spans.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));",
+      "spans.sort_by_key(|span| std::cmp::Reverse((span.line, span.start_byte, span.end_byte)));",
+      "cpg::reaching::scope::use_byte_tests::singleton_origin_and_order"
+    ]
+  },
+  "extra": {
+    "UB02-drop-path-key": [
+      [
+        "src/cpg/reaching/use_bytes.rs",
+        "(start, span.line, span.path)",
+        "(start, span.line, AccessPath::simple(span.path.base))"
+      ]
+    ],
+    "UB05-allow-missing-owner-fallback": [
+      [
+        "src/cpg/reaching/use_bytes.rs",
+        "owners.contains_key(&key.0) && !spans.contains_key(*key)",
+        "!spans.contains_key(*key)"
+      ]
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::reaching::",
+    "ast::singleton_rvalue_spans::"
+  ]
+}
