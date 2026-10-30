@@ -110,6 +110,10 @@ pub struct ScopeGraph {
     #[serde(default)]
     pub crate_deps_by_root:
         std::collections::BTreeMap<ScopeId, std::collections::BTreeMap<String, ScopeId>>,
+    /// Use add_scope for insertion/replacement, including changed extents.
+    /// After direct in-place edits to scopes or extents, call
+    /// invalidate_lookup_indexes before lookup (as for bindings below).
+    /// Direct insertions/removals changing the count use a scan fallback.
     pub scopes: std::collections::BTreeMap<ScopeId, Scope>,
     /// After in-place scope/name/ns/target edits, removal or reordering, call
     /// invalidate_lookup_indexes before lookup. Use add_binding to
@@ -139,6 +143,9 @@ pub struct ScopeGraph {
     /// After changing file_paths, call invalidate_lookup_indexes before lookup.
     #[serde(skip)]
     pub binding_index: crate::name_resolution::binding_index::GraphBindingIndex,
+    /// Per-file scope extents, excluded from serialization and graph identity.
+    #[serde(skip)]
+    pub scope_extent_index: crate::name_resolution::scope_extent_index::GraphScopeExtentIndex,
 }
 
 impl ScopeGraph {
@@ -154,6 +161,7 @@ impl ScopeGraph {
 
     /// Insert a scope (keyed by its `id`).
     pub fn add_scope(&mut self, s: Scope) {
+        self.scope_extent_index.invalidate();
         self.scopes.insert(s.id, s);
     }
 
