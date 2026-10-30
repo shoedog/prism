@@ -126,6 +126,9 @@ class MarkerTests(unittest.TestCase):
     def test_wait_release_with_injected_sleep_logs_once(self):
         self.take()
         now = [time.time()]
+        # An expected end on the next local day: the log names the marker's end, not the waiter's clock (#538).
+        midnight = time.mktime(time.localtime(now[0])[:3] + (24, 0, 0, 0, 0, -1))
+        self.rewrite(expected_end_epoch=midnight + 600)
         calls = []
         logs = []
 
@@ -140,7 +143,8 @@ class MarkerTests(unittest.TestCase):
         self.assertEqual(calls, [2, 2])
         self.assertEqual(len(logs), 1)
         self.assertIn('owner=measurement, step=sample, expected end=', logs[0])
-        self.assertIn(time.strftime('%Y-%m-%d', time.localtime(now[0])), logs[0])
+        end = time.strftime('%Y-%m-%d %H:%M:%S %Z', time.localtime(midnight + 600))
+        self.assertIn('expected end=' + end, logs[0])
 
     def test_wait_logs_holder_change(self):
         self.take()
