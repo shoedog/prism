@@ -5,6 +5,9 @@ use prism::repo_loader::load_repo;
 use serde_json::json;
 use std::sync::Arc;
 
+#[path = "../common/callable_wrappers.rs"]
+mod callable_wrappers;
+
 fn session(file: &str, source: &str) -> NavigationSession {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join(file), source).unwrap();
@@ -226,5 +229,108 @@ fn location_seed_parse_failure_and_named_outer_controls() {
             matches!(seed::resolve_fn(&s, None, None, Some(&format!("a.js:{line}"))).unwrap().symbol,
             SymbolRef::Function { ref name, .. } if name == "outer")
         );
+    }
+}
+
+fn wrapper_class(case: usize, reasoning: bool) {
+    let (file, source, lines) = callable_wrappers::CLASS_CASES[case];
+    let s = session(file, source);
+    let mut failures = Vec::new();
+    for &line in lines {
+        let loc = format!("{file}:{line}");
+        let errors = if reasoning {
+            [SeedRole::Source, SeedRole::Sink]
+                .map(|role| {
+                    seeds::resolve(
+                        &s,
+                        &[SeedSpec::Loc {
+                            file: file.into(),
+                            line,
+                        }],
+                        role,
+                    )
+                    .unwrap_err()
+                })
+                .to_vec()
+        } else {
+            vec![
+                queries::callers(&s, None, None, Some(&loc), 1).unwrap_err(),
+                queries::callees(&s, None, None, Some(&loc), 1).unwrap_err(),
+                queries::ego_graph(&s, None, None, Some(&loc), 1, &[]).unwrap_err(),
+                queries::symbol_spans(&s, None, None, Some(&loc)).unwrap_err(),
+            ]
+        };
+        for error in errors {
+            let actual = serde_json::to_value(error).unwrap();
+            let expected = json!({"NoEnclosingCallable":{"file":file,"line":line}});
+            if actual != expected {
+                failures.push(format!("{loc}: {actual} != {expected}"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn location_seed_wrapper_dataclass_nav() {
+    wrapper_class(0, false);
+}
+#[test]
+fn location_seed_wrapper_attrs_nav() {
+    wrapper_class(1, false);
+}
+#[test]
+fn location_seed_wrapper_template_class_nav() {
+    wrapper_class(2, false);
+}
+#[test]
+fn location_seed_wrapper_dataclass_taint() {
+    wrapper_class(0, true);
+}
+#[test]
+fn location_seed_wrapper_attrs_taint() {
+    wrapper_class(1, true);
+}
+#[test]
+fn location_seed_wrapper_template_class_taint() {
+    wrapper_class(2, true);
+}
+
+#[test]
+fn location_seed_wrapper_plain_class_controls() {
+    for case in [3, 4] {
+        wrapper_class(case, false);
+        wrapper_class(case, true);
+    }
+}
+
+#[test]
+fn location_seed_wrapper_callable_controls() {
+    for &(file, source, lines, name) in callable_wrappers::CALLABLE_CONTROLS {
+        let s = session(file, source);
+        for &line in lines {
+            let loc = format!("{file}:{line}");
+            assert!(
+                matches!(seed::resolve_fn(&s, None, None, Some(&loc)).unwrap().symbol,
+                SymbolRef::Function { name: ref actual, .. } if actual == name),
+                "{loc}"
+            );
+            assert!(
+                queries::callers(&s, None, None, Some(&loc), 1).is_ok(),
+                "{loc}"
+            );
+            assert!(
+                queries::callees(&s, None, None, Some(&loc), 1).is_ok(),
+                "{loc}"
+            );
+            assert!(
+                queries::ego_graph(&s, None, None, Some(&loc), 1, &[]).is_ok(),
+                "{loc}"
+            );
+            assert!(
+                queries::symbol_spans(&s, None, None, Some(&loc)).is_ok(),
+                "{loc}"
+            );
+        }
     }
 }

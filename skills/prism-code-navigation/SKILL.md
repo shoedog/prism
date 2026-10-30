@@ -128,7 +128,7 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config â
   function's line or symbol. If a function failed to parse, fix the syntax and refresh the index.
   **`NoNamedEnclosingCallable` means navigation has no enclosing named callable in the index,**
   although a callable encloses the line (such as a JS callback or Go func literal). Seed a named
-  function's line or symbol, including an enclosing named function if available. For anonymous
+  function's line or symbol. For anonymous
   JS/TS/TSX variable flow, use `taint_reaches` on a line with usable variable evidence; anonymous
   symbol seeds are refused. JS/TS/TSX module lines are also taint regions: without variable
   evidence taint returns `SymbolNotFound`, including on comments and anonymous callback lines.

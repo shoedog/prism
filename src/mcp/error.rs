@@ -176,7 +176,7 @@ fn actionable_sentence(error: &QueryError) -> &'static str {
             "No recognized callable encloses this indexed line; seed a named function's line or symbol. If a function failed to parse, fix the syntax and refresh the index."
         }
         QueryError::NoNamedEnclosingCallable { .. } => {
-            "Navigation needs a named callable in the index; seed an enclosing named function if available, or another named function's line or symbol. For anonymous JS/TS/TSX variable flow, use taint_reaches on a line with usable variable evidence."
+            "Navigation needs a named callable in the index; seed a named function's line or symbol. For anonymous JS/TS/TSX variable flow, use taint_reaches on a line with usable variable evidence."
         }
         QueryError::UnsupportedFile { .. } => {
             "Use a supported source file from the indexed repository."

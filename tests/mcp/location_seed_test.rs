@@ -3,6 +3,9 @@
 use assert_cmd::Command;
 use serde_json::{json, Value};
 
+#[path = "../common/callable_wrappers.rs"]
+mod callable_wrappers;
+
 fn check(tool: &str) {
     let repo = tempfile::tempdir().unwrap();
     std::fs::write(
@@ -152,7 +155,7 @@ fn anonymous_only(file: &str, source: &str) {
         let wanted = json!({"error":{"NoNamedEnclosingCallable":{"file":file,"line":line}}});
         let correct = response["result"]["isError"] == true && text.rsplit_once('\n').is_some_and(|(error, hint)| {
             serde_json::from_str::<Value>(error).ok() == Some(wanted)
-                && hint == "Navigation needs a named callable in the index; seed an enclosing named function if available, or another named function's line or symbol. For anonymous JS/TS/TSX variable flow, use taint_reaches on a line with usable variable evidence."
+                && hint == "Navigation needs a named callable in the index; seed a named function's line or symbol. For anonymous JS/TS/TSX variable flow, use taint_reaches on a line with usable variable evidence."
         });
         if !correct {
             failures.push(format!("{tool} {file}:{line}: {response}"));
@@ -211,4 +214,114 @@ fn location_seed_mcp_usable_anonymous_ego_control() {
             .contains("ego:transmit.js:17"),
         "{response}"
     );
+}
+
+fn wrapper_requests(file: &str, source: &str, lines: &[usize], named: Option<&str>) {
+    let repo = tempfile::tempdir().unwrap();
+    std::fs::write(repo.path().join(file), source).unwrap();
+    let mut messages = vec![
+        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"wrapper-seed","version":"0"}}}),
+        json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
+    ];
+    let mut expected = Vec::new();
+    for tool in [
+        "nav_callers",
+        "nav_callees",
+        "nav_ego_graph",
+        "nav_symbol_spans",
+        "taint_reaches",
+    ] {
+        if named.is_some() && tool == "taint_reaches" {
+            continue;
+        }
+        for &line in lines {
+            let seed = json!({"kind":"loc","file":file,"line":line});
+            let arguments = if tool == "taint_reaches" {
+                json!({"sources":[seed]})
+            } else {
+                json!({"seed":seed})
+            };
+            let id = expected.len() + 2;
+            messages.push(json!({"jsonrpc":"2.0","id":id,"method":"tools/call","params":{"name":tool,"arguments":arguments}}));
+            expected.push((id, tool, line));
+        }
+    }
+    let out = Command::cargo_bin("prism-mcp")
+        .unwrap()
+        .arg("--repo")
+        .arg(repo.path())
+        .args(["--eager", "--no-cache"])
+        .write_stdin(
+            messages
+                .iter()
+                .map(|m| format!("{m}\n"))
+                .collect::<String>(),
+        )
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    let responses = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        .collect::<Vec<_>>();
+    let mut failures = Vec::new();
+    for (id, tool, line) in expected {
+        let response = responses.iter().find(|r| r["id"] == id).unwrap();
+        let result = &response["result"];
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let correct = if let Some(name) = named {
+            result["isError"] != true
+                && serde_json::from_str::<Value>(text).is_ok_and(|value| {
+                    if tool == "nav_ego_graph" {
+                        value["graph"]["nodes"]
+                            .as_array()
+                            .is_some_and(|nodes| !nodes.is_empty())
+                    } else {
+                        text.contains(name)
+                    }
+                })
+        } else {
+            result["isError"] == true
+                && text.rsplit_once('\n').is_some_and(|(error, hint)| {
+                    serde_json::from_str::<Value>(error).ok()
+                        == Some(json!({"error":{"NoEnclosingCallable":{"file":file,"line":line}}}))
+                        && hint.starts_with("No recognized callable encloses this indexed line;")
+                })
+        };
+        if !correct {
+            failures.push(format!("{tool} {file}:{line}: {response}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+fn wrapper_class(case: usize) {
+    let (file, source, lines) = callable_wrappers::CLASS_CASES[case];
+    wrapper_requests(file, source, lines, None);
+}
+
+#[test]
+fn location_seed_wrapper_dataclass() {
+    wrapper_class(0);
+}
+#[test]
+fn location_seed_wrapper_attrs() {
+    wrapper_class(1);
+}
+#[test]
+fn location_seed_wrapper_template_class() {
+    wrapper_class(2);
+}
+#[test]
+fn location_seed_wrapper_plain_class_controls() {
+    wrapper_class(3);
+    wrapper_class(4);
+}
+#[test]
+fn location_seed_wrapper_callable_controls() {
+    for &(file, source, lines, name) in callable_wrappers::CALLABLE_CONTROLS {
+        wrapper_requests(file, source, lines, Some(name));
+    }
 }

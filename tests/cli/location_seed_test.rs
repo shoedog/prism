@@ -1,6 +1,9 @@
 use assert_cmd::Command;
 use serde_json::json;
 
+#[path = "../common/callable_wrappers.rs"]
+mod callable_wrappers;
+
 fn check(format: &str, line: usize, kind: &str, message: &str) {
     let repo = tempfile::tempdir().unwrap();
     std::fs::write(
@@ -135,4 +138,110 @@ fn location_seed_cli_usable_anonymous_ego_control() {
             .is_some_and(|nodes| !nodes.is_empty()),
         "{result}"
     );
+}
+
+fn wrapper_class(case: usize) {
+    let (file, source, lines) = callable_wrappers::CLASS_CASES[case];
+    let repo = tempfile::tempdir().unwrap();
+    std::fs::write(repo.path().join(file), source).unwrap();
+    let mut failures = Vec::new();
+    for tool in ["callers", "callees", "ego", "symbol-spans", "taint-reaches"] {
+        for &line in lines {
+            let loc = format!("{file}:{line}");
+            let flag = if tool == "taint-reaches" {
+                "--source"
+            } else {
+                "--location"
+            };
+            let out = Command::cargo_bin("prism")
+                .unwrap()
+                .args(["nav", "--no-cache", tool, "--repo"])
+                .arg(repo.path())
+                .args([flag, &loc, "--format", "json"])
+                .output()
+                .unwrap();
+            let actual = serde_json::from_slice::<serde_json::Value>(&out.stdout).unwrap();
+            let expected = json!({"error":{"NoEnclosingCallable":{"file":file,"line":line}}});
+            if out.status.code() != Some(3) || actual != expected {
+                failures.push(format!("{tool} {loc}: {actual} != {expected}"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn location_seed_wrapper_dataclass() {
+    wrapper_class(0);
+}
+#[test]
+fn location_seed_wrapper_attrs() {
+    wrapper_class(1);
+}
+#[test]
+fn location_seed_wrapper_template_class() {
+    wrapper_class(2);
+}
+#[test]
+fn location_seed_wrapper_plain_class_controls() {
+    wrapper_class(3);
+    wrapper_class(4);
+}
+
+#[test]
+fn location_seed_wrapper_callable_controls() {
+    for &(file, source, lines, name) in callable_wrappers::CALLABLE_CONTROLS {
+        let repo = tempfile::tempdir().unwrap();
+        std::fs::write(repo.path().join(file), source).unwrap();
+        for tool in ["callers", "callees", "ego", "symbol-spans"] {
+            for &line in lines {
+                let out = Command::cargo_bin("prism")
+                    .unwrap()
+                    .args(["nav", "--no-cache", tool, "--repo"])
+                    .arg(repo.path())
+                    .args(["--location", &format!("{file}:{line}"), "--format", "json"])
+                    .output()
+                    .unwrap();
+                let value: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+                assert!(out.status.success(), "{tool} {file}:{line}: {value}");
+                if tool == "ego" {
+                    assert!(
+                        value["graph"]["nodes"]
+                            .as_array()
+                            .is_some_and(|nodes| !nodes.is_empty()),
+                        "{file}:{line}: {value}"
+                    );
+                } else {
+                    assert!(
+                        value.to_string().contains(name),
+                        "{tool} {file}:{line}: {value}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn location_seed_wrapper_repo_model_dataclass() {
+    let out = Command::cargo_bin("prism")
+        .unwrap()
+        .args([
+            "nav",
+            "--no-cache",
+            "callers",
+            "--repo",
+            "eval/tier_a",
+            "--location",
+            "model.py:10",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&out.stdout).unwrap(),
+        json!({"error":{"NoEnclosingCallable":{"file":"model.py","line":10}}})
+    );
+    assert_eq!(out.status.code(), Some(3));
 }

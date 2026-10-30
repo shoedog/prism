@@ -49,6 +49,17 @@ pub(crate) fn location_in_range(source: &str, line: usize) -> bool {
     line > 0 && source.lines().nth(line - 1).is_some()
 }
 
+/// The shared boundary list also includes wrappers around non-callable declarations.
+/// Class wrappers are not enclosures themselves; the walk still visits their methods.
+fn is_callable_enclosure_node(node: tree_sitter::Node<'_>, kinds: &[&str]) -> bool {
+    match node.kind() {
+        "decorated_definition" | "template_declaration" => node
+            .named_children(&mut node.walk())
+            .any(|child| child.kind() == "function_definition"),
+        kind => kinds.contains(&kind),
+    }
+}
+
 /// Recognize lexical callables even when they have no CPG Function identity (e.g. Go
 /// func literals). Walk only nodes spanning the line, including whitespace between children.
 /// A module evaluation region is deliberately not a lexical callable.
@@ -60,7 +71,7 @@ pub(crate) fn has_syntax_callable_enclosure(parsed: &crate::ast::ParsedFile, lin
         if line < start || line > end {
             continue;
         }
-        if kinds.contains(&node.kind()) {
+        if is_callable_enclosure_node(node, &kinds) {
             return true;
         }
         pending.extend(node.named_children(&mut node.walk()));
@@ -145,5 +156,52 @@ pub fn resolve_fn(
         _ => Err(QueryError::AmbiguousSymbol {
             candidates: hits.iter().filter_map(|&i| fn_symbol(s, i)).collect(),
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ast::ParsedFile, languages::Language};
+
+    mod callable_wrappers {
+        include!("../../tests/common/callable_wrappers.rs");
+    }
+
+    #[test]
+    fn syntax_wrapper_classes_are_not_callables() {
+        let mut failures = Vec::new();
+        for &(file, source, lines) in callable_wrappers::CLASS_CASES {
+            let language = if file.ends_with(".py") {
+                Language::Python
+            } else {
+                Language::Cpp
+            };
+            let parsed = ParsedFile::parse(file, source, language).unwrap();
+            for &line in lines {
+                if has_syntax_callable_enclosure(&parsed, line) {
+                    failures.push(format!("{file}:{line}: {source}"));
+                }
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
+    fn syntax_wrapper_functions_and_nested_methods_are_callables() {
+        for &(file, source, lines, _) in callable_wrappers::CALLABLE_CONTROLS {
+            let language = if file.ends_with(".py") {
+                Language::Python
+            } else {
+                Language::Cpp
+            };
+            let parsed = ParsedFile::parse(file, source, language).unwrap();
+            for &line in lines {
+                assert!(
+                    has_syntax_callable_enclosure(&parsed, line),
+                    "{file}:{line}: {source}"
+                );
+            }
+        }
     }
 }

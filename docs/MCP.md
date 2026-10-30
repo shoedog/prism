@@ -206,8 +206,8 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span` 
   recover that signature with a valid body, in which case normal callable resolution applies.
   `NoNamedEnclosingCallable { file, line }` means a callable encloses the line, but navigation has
   no enclosing named callable in the index (for example a module-level JS callback or Go func
-  literal). Navigation needs a named callable: seed a named function's line or symbol, including
-  an enclosing named function if available. For anonymous JS/TS/TSX variable flow, use
+  literal). Navigation needs a named callable: seed a named function's line or symbol.
+  For anonymous JS/TS/TSX variable flow, use
   `taint_reaches` on a line with usable variable evidence. Anonymous symbol seeds are refused.
   `LocationOutOfRange { file, line }` means line zero, a line past EOF, or a file absent from the
   navigation index; choose an indexed source file and an in-range line. Taint returns
