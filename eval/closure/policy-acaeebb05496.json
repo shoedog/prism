@@ -59,6 +59,29 @@
         "pinned_sha": "61d518f55eff",
         "quiescence_cap_s": 600
       },
+      "excalidraw-js": {
+        "lang": "js",
+        "oracle": "tsserver",
+        "oracle_version": "tsserver 6.0.3",
+        "path": "~/prism-evidence/inputs/excalidraw-0642e72c/source",
+        "pinned_sha": "0642e72cfa2d",
+        "reject_node_modules": true,
+        "source_manifest": "~/prism-evidence/inputs/excalidraw-0642e72c/source-file-manifest.sha256",
+        "source_manifest_sha256": "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0"
+      },
+      "excalidraw-ts": {
+        "excludes": [
+          "*.d.ts"
+        ],
+        "lang": "ts",
+        "oracle": "tsserver",
+        "oracle_version": "tsserver 6.0.3",
+        "path": "~/prism-evidence/inputs/excalidraw-0642e72c/source",
+        "pinned_sha": "0642e72cfa2d",
+        "reject_node_modules": true,
+        "source_manifest": "~/prism-evidence/inputs/excalidraw-0642e72c/source-file-manifest.sha256",
+        "source_manifest_sha256": "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0"
+      },
       "fastapi": {
         "excludes": [
           "tests/*",
@@ -139,11 +162,17 @@
         "excludes": [
           "tests/fixtures/*",
           "eval/fixtures/*",
-          "target/*"
+          "target/*",
+          "eval/tests/fixtures/*",
+          "scripts/mutgate/fixtures/*",
+          "docs/*"
         ],
         "lang": "rust",
         "oracle": "rust-analyzer",
-        "path": "."
+        "oracle_budget_s": 3600.0,
+        "path": ".",
+        "query_timeout_s": 30.0,
+        "startup_timeout_s": 300.0
       },
       "prometheus": {
         "lang": "go",
@@ -188,6 +217,20 @@
         "path": "~/code/bench-repos/ruff",
         "pinned_sha": "44f6d1865fd2",
         "quiescence_cap_s": 600
+      },
+      "secbench-node": {
+        "excludes": [
+          "*/scripts/*",
+          "*/dist/*"
+        ],
+        "lang": "js",
+        "oracle": "tsserver",
+        "oracle_version": "tsserver 6.0.3",
+        "path": "~/.local/share/prism/corpora/secbench-node-r1/source",
+        "pinned_sha": "secbench-node-r1",
+        "reject_node_modules": true,
+        "source_manifest": "eval/manifests/secbench-node-r1.sha256",
+        "source_manifest_sha256": "6c9e7e9252d173b60f083dff36734e597b8121943fba0e1d6946a315e4b812d0"
       },
       "starlette": {
         "excludes": [
@@ -234,36 +277,56 @@
       }
     },
     "defaults": {
+      "oracle_budget_s": 600.0,
       "oracle_error_floor": {
         "go": 0.1,
+        "js": 0.1,
         "python": 0.25,
-        "rust": 0.1
+        "rust": 0.1,
+        "ts": 0.1
       },
       "per_stratum": 8,
+      "query_timeout_s": 10.0,
       "quiescence_cap_s": 300,
       "seed": 42,
       "settle_s": 5.0,
+      "startup_timeout_s": 60.0,
       "sut_error_floor": 0.05
+    },
+    "quick": {
+      "corpora": [
+        "prism",
+        "excalidraw-ts",
+        "secbench-node"
+      ]
     }
   },
   "extensions": {
     "go": [
       ".go"
     ],
+    "js": [
+      ".js",
+      ".jsx"
+    ],
     "python": [
       ".py"
     ],
     "rust": [
       ".rs"
+    ],
+    "ts": [
+      ".ts",
+      ".tsx"
     ]
   },
   "modules": {
-    "tier_a/accounting.py": "sha256:b8e4dc382a5aae3914e4099dc10268275349f911d042028d0fe216cbff8089f3",
-    "tier_a/cli.py": "sha256:50a0fa775d07675e6643cc70426acedbbce24fd841e9cfaa659aa23b010ba2c0",
-    "tier_a/corpus.py": "sha256:01b4c5e038c62924a8ee9ab908ca5b115233fa2d3971541c4e17e5c11dbea350",
-    "tier_a/pinned.py": "sha256:ddac64f09034b4b646732c248ae6ea606800e7cb0df2bc132b94cfa28f450699",
-    "tier_a/spotcheck.py": "sha256:a103c10eecb197cd0b621646f9136cd05ac472d8ff6fd79793126f08e08b8581",
-    "tier_a/strata.py": "sha256:e7eaad2b981cfacc02817430a1be7f3211980eaff809221344494c11f80f620e"
+    "tier_a/accounting.py": "sha256:807c4a1360d723f08329a80f8f686a112c013d3c4e80f7a6f03c7b60763e6875",
+    "tier_a/cli.py": "sha256:399d7a0fc5a022ceded337d64bcad27913a5ef1f26ed3fa29ed2232e3bba6b4d",
+    "tier_a/corpus.py": "sha256:3a5cc9951bff17f581a3ca1ea62c301db94dcab4202bd4e4a6a573947f72d9a9",
+    "tier_a/pinned.py": "sha256:c03b7180a7d95bc9b9f20f38a1a1d5f7c790403bc8f8c06c3c1afbe8feec1fa7",
+    "tier_a/spotcheck.py": "sha256:32d7db5179dbc01ad23a726473246e458d3b94f2dbd7a5aa76d5add3966bfd87",
+    "tier_a/strata.py": "sha256:774d5f3af32b431d3097b01a8054f253ef95aba9f41f6a4202bf386ea78a9a5d"
   },
   "sampling": {
     "full_per_stratum": 8,
