@@ -456,10 +456,10 @@ def anchored_repo(tmp: Path, publish: bool = True) -> tuple[Lock, Path, Path]:
     ).encode()
     (ev / "adjudications.jsonl").write_bytes(adjudication_bytes)
 
-    # Bootstrap requires corpora.toml to be tracked so finalize_policy can be
-    # committed independently of the already-built SUT.
+    # Bootstrap requires the complete policy package and corpora.toml to be
+    # tracked; an untracked measurement input is now an admission refusal.
     subprocess.run(
-        ["git", "add", "eval/corpora.toml"],
+        ["git", "add", "eval/corpora.toml", "eval/tier_a"],
         cwd=repo,
         check=True,
         capture_output=True,
