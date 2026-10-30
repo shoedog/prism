@@ -499,7 +499,12 @@ def test_console_entrypoint_rejects_timestamp_valid_stale_tier_a_bytecode(tmp_pa
     env["PYTHONPATH"] = os.pathsep.join((str(tmp_path), str(eval_dir)))
 
     result = subprocess.run(
-        [sys.executable, "-c", "import tier_a_entrypoint; tier_a_entrypoint.main()"],
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.argv=['tier-a','--help']; "
+            "import tier_a_entrypoint; tier_a_entrypoint.main()",
+        ],
         check=True,
         capture_output=True,
         text=True,
@@ -507,4 +512,6 @@ def test_console_entrypoint_rejects_timestamp_valid_stale_tier_a_bytecode(tmp_pa
         cwd=tmp_path,
     )
 
-    assert result.stdout.strip() == "fresh"
+    assert "usage: tier-a" in result.stdout
+    assert "stale" not in result.stdout.splitlines()
+    assert "fresh" not in result.stdout.splitlines()

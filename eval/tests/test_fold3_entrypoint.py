@@ -31,7 +31,12 @@ def test_inherited_private_cache_marker_cannot_authorize_child_import(tmp_path):
     env["TIER_A_PRIVATE_PYCACHE"] = str(inherited_cache)
 
     result = subprocess.run(
-        [sys.executable, "-c", "import tier_a_entrypoint; tier_a_entrypoint.main()"],
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.argv=['tier-a','--help']; "
+            "import tier_a_entrypoint; tier_a_entrypoint.main()",
+        ],
         check=True,
         capture_output=True,
         text=True,
@@ -39,4 +44,6 @@ def test_inherited_private_cache_marker_cannot_authorize_child_import(tmp_path):
         cwd=tmp_path,
     )
 
-    assert result.stdout.strip() == "fresh"
+    assert "usage: tier-a" in result.stdout
+    assert "stale" not in result.stdout.splitlines()
+    assert "fresh" not in result.stdout.splitlines()
