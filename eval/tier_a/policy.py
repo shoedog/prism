@@ -150,6 +150,14 @@ def initial_run_invalid_reasons(
     )
 
 
+SCORED_PROBE_STATUSES = frozenset({"ok", "inventory_miss"})
+ORACLE_ANSWER_STATUSES = SCORED_PROBE_STATUSES | {"sut_error"}
+ORACLE_FAILURE_STATUSES = frozenset(
+    {"oracle_error", "oracle_timeout", "seed_unaddressable"}
+)
+PROBE_STATUS_VOCABULARY = ORACLE_ANSWER_STATUSES | ORACLE_FAILURE_STATUSES
+
+
 def oracle_failure_outcome(exc: Exception) -> str:
     return "oracle_timeout" if isinstance(exc, OracleTimeout) else "oracle_error"
 

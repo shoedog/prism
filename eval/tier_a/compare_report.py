@@ -7,6 +7,7 @@ from collections import Counter
 
 from .adjudication import Adjudication
 from .compare import match_oracle_sites
+from .policy import ORACLE_ANSWER_STATUSES, SCORED_PROBE_STATUSES
 from .strata import STRATA
 
 
@@ -55,7 +56,7 @@ PINNED_RANK = {
 }
 
 _ORACLE_ERROR = ("oracle_error",)
-_SCORED = {"ok", "inventory_miss"}
+_SCORED = SCORED_PROBE_STATUSES
 
 
 def _canonical_sites(probe: dict, key: str) -> tuple:
@@ -108,6 +109,12 @@ def partition_by_oracle(joined: dict) -> tuple[dict, dict]:
     changed = {}
     for pid, legs in joined.items():
         base_status, base, cand_status, cand = legs
+        if (
+            base_status not in ORACLE_ANSWER_STATUSES
+            or cand_status not in ORACLE_ANSWER_STATUSES
+        ):
+            changed[pid] = legs
+            continue
         base_answer = oracle_answer(base_status, base)
         cand_answer = oracle_answer(cand_status, cand)
         sut_error_comparable = (
