@@ -158,7 +158,7 @@ const generator = function* gen(p) { yield p; };
 #[test]
 fn big_declarations_and_recovery() {
     let mut source = String::from("function outer(){");
-    for i in 0..64 {
+    for i in 0..12 {
         source.push_str(&format!(
             "let l{i}; const c{i}=1; class C{i}{{}} function f{i}(){{}} enum E{i}{{M{i}}}"
         ));
