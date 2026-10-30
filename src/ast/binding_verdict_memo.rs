@@ -27,6 +27,7 @@ enum Value {
 struct Memo {
     names: HashMap<String, HashMap<Key, Value>>,
     bodies: HashMap<usize, Vec<BodyNames>>,
+    scopes: HashMap<usize, Vec<BodyNames>>,
 }
 struct BodyNames {
     boundaries: Vec<String>,
@@ -108,6 +109,49 @@ pub(super) fn function_scope_binds(
     memo.borrow_mut()
         .bodies
         .entry(body.id())
+        .or_default()
+        .push(BodyNames {
+            boundaries: boundaries.iter().map(|s| (*s).to_owned()).collect(),
+            names,
+        });
+    verdict
+}
+
+/// No AST nodes survive the immutable session borrow. Boundaries are part of
+/// the key even for callers with a nonstandard boundary list.
+pub(super) fn scope_binds(
+    p: &ParsedFile,
+    scope: Node<'_>,
+    boundaries: &[&str],
+    name: &str,
+    collect: impl FnOnce() -> HashSet<String>,
+) -> bool {
+    let memo = ACTIVE.with(|slot| {
+        slot.borrow()
+            .iter()
+            .rev()
+            .find(|entry| {
+                entry.file == p as *const ParsedFile as usize
+                    && entry.root == p.tree.root_node().id()
+            })
+            .and_then(|entry| entry.memo.upgrade())
+    });
+    let Some(memo) = memo else {
+        return collect().contains(name);
+    };
+    if let Some(verdict) = memo.borrow().scopes.get(&scope.id()).and_then(|entries| {
+        entries
+            .iter()
+            .find(|entry| entry.boundaries == boundaries)
+            .map(|entry| entry.names.contains(name))
+    }) {
+        return verdict;
+    }
+    let names = collect();
+    let verdict = names.contains(name);
+    memo.borrow_mut()
+        .scopes
+        .entry(scope.id())
         .or_default()
         .push(BodyNames {
             boundaries: boundaries.iter().map(|s| (*s).to_owned()).collect(),

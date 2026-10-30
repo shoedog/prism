@@ -28,6 +28,12 @@ pub(crate) fn active() -> bool {
     COUNTS.with(|slot| slot.borrow().is_some())
 }
 pub(crate) fn count_body_walks(run: impl FnOnce()) -> usize {
+    count_walks("function_body", run)
+}
+pub(crate) fn count_scope_walks(run: impl FnOnce()) -> usize {
+    count_walks("scope_names", run)
+}
+fn count_walks(kind: &'static str, run: impl FnOnce()) -> usize {
     struct Restore(Option<HashMap<&'static str, Counts>>);
     impl Drop for Restore {
         fn drop(&mut self) {
@@ -39,7 +45,7 @@ pub(crate) fn count_body_walks(run: impl FnOnce()) -> usize {
     COUNTS.with(|slot| {
         slot.borrow()
             .as_ref()
-            .and_then(|counts| counts.get("function_body"))
+            .and_then(|counts| counts.get(kind))
             .map_or(0, |counts| counts.total)
     })
 }
