@@ -20,20 +20,11 @@ query_timeout_s = 10.0
 startup_timeout_s = 60.0
 oracle_budget_s = 600.0
 
-# Immutable quick inputs, separate names preserve historical dogfood anchors.
+# The Rust quick leg is governed by eval/tier-a.lock.toml. JS/TS/Node quick
+# legs use main's immutable source manifests because the Tier-A lock does not
+# bind those corpora.
 [quick]
-corpora = ["prism-quick", "excalidraw-ts", "secbench-node"]
-
-[corpus.prism-quick]
-lang = "rust"
-cargo_features = ["mcp"]  # inventory includes this cfg-gated module; preserve its probes
-path = "~/.local/share/prism/corpora/prism-20c8490591a3/source"
-source_manifest = "~/.local/share/prism/corpora/prism-20c8490591a3/source-file-manifest.sha256"
-source_manifest_sha256 = "9c0598b8a737df30dd329ef2175498c8ce12e5ce2ecb82e5fbf20b8003e4b4f8"
-oracle = "rust-analyzer"
-excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*"]
-pinned_sha = "20c8490591a3"
-pinned_probes = true
+corpora = ["prism", "excalidraw-ts", "secbench-node"]
 
 [corpus.excalidraw-ts]
 lang = "ts"
@@ -77,8 +68,12 @@ excludes = ["*/scripts/*", "*/dist/*"] # Node runtime source, not duplicated bro
 lang = "rust"
 path = "."                       # the prism repo itself (dogfood)
 oracle = "rust-analyzer"
-excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*"]
-pinned_sha = "20c8490591a3"                  # ANCHOR · OER 0.067 · post-taint_reaches main (#113/#117 + perf arc)
+# excludes: Rust files outside every cargo target (fixture crates, doc probes) are excluded; rust-analyzer cannot answer for them
+excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*", "eval/tests/fixtures/*", "scripts/mutgate/fixtures/*", "docs/*"]
+# Corpus identity is stored in eval/tier-a.lock.toml; current snapshot: prism-289e4c1fa4c2.json.
+query_timeout_s = 30.0           # tier-a-reanchor's pre-merge LSP default; callHierarchy on the full corpus with features=all exceeds main's 10 s
+startup_timeout_s = 300.0        # = quiescence_cap_s, the pre-merge readiness bound; main's 60 s is exceeded at cold start
+oracle_budget_s = 3600.0         # pre-merge legs had no session budget; bounded by the bootstrap phase budget (3600 s)
 
 [corpus.ruff]
 lang = "rust"

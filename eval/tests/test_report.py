@@ -174,7 +174,7 @@ def test_replay_reports_function_level_metrics_and_pending_records():
 
 
 def test_replay_reports_stale_adjudication_count(monkeypatch):
-    from tier_a import cli
+    from tier_a import cli, policy
     from tier_a.adjudication import Adjudication
 
     probes = {
@@ -199,7 +199,7 @@ def test_replay_reports_stale_adjudication_count(monkeypatch):
         adjudicated_by="t",
         date="2026-06-11",
     )
-    monkeypatch.setattr(cli, "load_records", lambda _path: [stale])
+    monkeypatch.setattr(policy, "load_records", lambda _path: [stale])
 
     run = cli.recompute_metrics_from_stored({"meta": {"corpus": "prism"}, "probes": probes})
     assert run["meta"]["stale_adjudications"] == 1
@@ -306,7 +306,7 @@ def test_main_returns_nonzero_for_embedded_matrix_regression(monkeypatch, tmp_pa
         "load_corpora",
         lambda: {"corpus": {"prism": {}}, "defaults": {}},
     )
-    monkeypatch.setattr(cli, "run_corpus", lambda *_args: run)
+    monkeypatch.setattr(cli, "run_corpus", lambda *_args, **_kwargs: run)
     monkeypatch.setattr(cli, "write_reports", lambda *_args: None)
     monkeypatch.setattr("sys.argv", ["tier-a", "--date", "2026-06-11"])
     assert cli.main() == 1
@@ -349,6 +349,7 @@ def test_run_corpus_counts_inventory_miss_as_floor_success(monkeypatch, tmp_path
     monkeypatch.setattr(cli, "PrismCli", lambda *_args, **_kwargs: FakeSut())
     monkeypatch.setattr(cli, "make_oracle", lambda _cfg: FakeOracle())
     monkeypatch.setattr(cli, "corpus_sha", lambda _root: "abc123def456")
+    monkeypatch.setattr(cli, "corpus_sha_full", lambda _root: "a" * 40)
     monkeypatch.setattr(cli, "corpus_dirty", lambda _root: False)
     monkeypatch.setattr(cli, "untracked_sources", lambda *_args: [])
     monkeypatch.setattr(cli, "universe", lambda *_args, **_kwargs: ["src/lib.rs"])
@@ -431,6 +432,7 @@ def test_run_corpus_matches_snapshot_symbols_not_drifting_live_inventory(
     monkeypatch.setattr(cli, "PrismCli", lambda *_args, **_kwargs: MatchingSut())
     monkeypatch.setattr(cli, "make_oracle", lambda _cfg: DriftOracle())
     monkeypatch.setattr(cli, "corpus_sha", lambda _root: "abc123def456")
+    monkeypatch.setattr(cli, "corpus_sha_full", lambda _root: "a" * 40)
     monkeypatch.setattr(cli, "corpus_dirty", lambda _root: False)
     monkeypatch.setattr(cli, "untracked_sources", lambda *_args: [])
     monkeypatch.setattr(cli, "universe", lambda *_args, **_kwargs: ["src/lib.rs"])
@@ -468,7 +470,7 @@ def test_run_corpus_matches_snapshot_symbols_not_drifting_live_inventory(
 def test_main_continues_after_corpus_error(monkeypatch, tmp_path):
     from tier_a import cli
 
-    def fail_corpus(*_args):
+    def fail_corpus(*_args, **_kwargs):
         raise RuntimeError("missing gopls")
 
     monkeypatch.setattr(cli, "EVAL_DIR", tmp_path)
@@ -481,6 +483,7 @@ def test_main_continues_after_corpus_error(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "run_corpus", fail_corpus)
     monkeypatch.setattr(cli, "write_reports", lambda *_args: None)
     monkeypatch.setattr(cli, "corpus_sha", lambda _root: "abc123def456")
+    monkeypatch.setattr(cli, "corpus_sha_full", lambda _root: "a" * 40)
     monkeypatch.setattr(cli, "corpus_dirty", lambda _root: False)
     monkeypatch.setattr("sys.argv", ["tier-a", "--corpus", "all", "--date", "2026-06-11"])
 

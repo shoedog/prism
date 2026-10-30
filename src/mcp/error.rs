@@ -101,6 +101,16 @@ fn bound_query_error(error: QueryError) -> QueryError {
             file: output::clamp_user_text(&file),
             line,
         },
+        QueryError::NoEnclosingCallable { file, line } => QueryError::NoEnclosingCallable {
+            file: output::clamp_user_text(&file),
+            line,
+        },
+        QueryError::NoNamedEnclosingCallable { file, line } => {
+            QueryError::NoNamedEnclosingCallable {
+                file: output::clamp_user_text(&file),
+                line,
+            }
+        }
         QueryError::UnsupportedFile { file } => QueryError::UnsupportedFile {
             file: output::clamp_user_text(&file),
         },
@@ -161,6 +171,12 @@ fn actionable_sentence(error: &QueryError) -> &'static str {
         }
         QueryError::LocationOutOfRange { .. } => {
             "Choose a line that exists in the indexed file and retry."
+        }
+        QueryError::NoEnclosingCallable { .. } => {
+            "No recognized callable encloses this indexed line; seed a named function's line or symbol. If a function failed to parse, fix the syntax and refresh the index."
+        }
+        QueryError::NoNamedEnclosingCallable { .. } => {
+            "Navigation needs a named callable in the index; seed a named function's line or symbol. For anonymous JS/TS/TSX variable flow, use taint_reaches on a line with usable variable evidence."
         }
         QueryError::UnsupportedFile { .. } => {
             "Use a supported source file from the indexed repository."

@@ -1,6 +1,6 @@
 import json
 
-from tier_a import cli
+from tier_a import cli, policy
 from tier_a.model import CallEdge, FunctionDef, Location
 
 
@@ -32,7 +32,7 @@ def test_run_json_roundtrips_resolution_kind(tmp_path, monkeypatch):
     stored = loaded["probes"]["callers:main.go:9"]["prism_sites"]
     assert cli._edges(stored, "callers")[0].resolution_kind == "interface_dispatch"
 
-    monkeypatch.setattr(cli, "load_records", lambda _path: [])
+    monkeypatch.setattr(policy, "load_records", lambda _path: [])
     replayed = cli.recompute_metrics_from_stored(loaded)
     replayed_sites = replayed["probes"]["callers:main.go:9"]["prism_sites"]
     assert cli._edges(replayed_sites, "callers")[0].resolution_kind == "interface_dispatch"

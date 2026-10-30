@@ -318,7 +318,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v131) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v132) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -352,6 +352,8 @@ cargo run --bin prism-mcp --features mcp -- --repo /path/to/repo
 ```
 
 On macOS it re-execs before dispatch with `MallocSpaceEfficient=1` unless the caller already set it or `PRISM_MCP_MALLOC_SPACE_EFFICIENT=0` opts out; see the environment table in `docs/MCP.md`.
+
+The `macos-footprint` CI job runs allocator tests and an ignored idle-unloaded footprint guard; see `docs/MCP.md` for the local command.
 
 Startup modes: by default the repository index is built on the first valid `tools/call`
 (`initialize`, `ping`, and `tools/list` never start it, so a client that only handshakes costs

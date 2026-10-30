@@ -1,5 +1,7 @@
 use tree_sitter::Node;
+mod family;
 pub(crate) mod js_inferred_name;
+pub use family::same_language_family;
 
 /// Supported programming languages for slicing analysis.
 #[derive(
@@ -21,6 +23,11 @@ pub enum Language {
 }
 
 impl Language {
+    /// JS binding semantics apply to JS (including JSX, .mjs and .cjs), TS and TSX.
+    pub(crate) fn is_js_family(self) -> bool {
+        matches!(self, Self::JavaScript | Self::TypeScript | Self::Tsx)
+    }
+
     /// Detect language from file extension.
     pub fn from_extension(ext: &str) -> Option<Self> {
         match ext {

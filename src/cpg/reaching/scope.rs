@@ -154,15 +154,16 @@ pub(super) struct BindingFacts {
     unclassified_binding_lines: BTreeMap<String, BTreeSet<Line>>,
     function_scope: ScopeSpan,
     language: Language,
-    /// PR-B perf: zero-width Use byte resolution is a pure function of the
-    /// pass and `(line, path)`; memoize it per pass (it re-runs whole-function
-    /// rvalue queries per edge otherwise).
-    use_byte_cache:
-        std::cell::RefCell<BTreeMap<(Line, crate::access_path::AccessPath), Option<usize>>>,
+    use_bytes: super::use_bytes::UseBytes,
 }
 
 impl BindingFacts {
-    pub(super) fn new(parsed: &ParsedFile, func_node: &Node<'_>, defs: &[DefSite]) -> Self {
+    pub(super) fn new<'a>(
+        parsed: &ParsedFile,
+        func_node: &Node<'_>,
+        defs: &[DefSite],
+        use_edges: impl Iterator<Item = &'a FlowEdge>,
+    ) -> Self {
         #[cfg(test)]
         super::work_tests::bump(|counts| counts.binding_facts += 1);
         let function_scope = function_scope(parsed, func_node);
@@ -238,7 +239,7 @@ impl BindingFacts {
             unclassified_binding_lines,
             function_scope,
             language: parsed.language,
-            use_byte_cache: std::cell::RefCell::new(BTreeMap::new()),
+            use_bytes: super::use_bytes::UseBytes::new(use_edges),
         };
         for (index, def) in defs.iter().enumerate() {
             let binding = declaration_for_def[index]
@@ -251,18 +252,11 @@ impl BindingFacts {
     }
 
     fn use_byte(&self, parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
-        if edge.to.start_byte < edge.to.end_byte {
-            return Some(edge.to.start_byte);
-        }
-        let key = (edge.to.line, edge.to.path.clone());
-        if let Some(cached) = self.use_byte_cache.borrow().get(&key) {
-            return *cached;
-        }
-        let value = use_byte(parsed, edge);
         #[cfg(test)]
-        super::work_tests::bump(|counts| counts.use_byte_misses += 1);
-        self.use_byte_cache.borrow_mut().insert(key, value);
-        value
+        if use_byte_tests::legacy_enabled() {
+            return use_byte(parsed, edge);
+        }
+        self.use_bytes.get(parsed, edge)
     }
 
     pub(super) fn same_def_binding(&self, left: usize, right: usize) -> bool {
@@ -929,7 +923,8 @@ fn scope_span(node: Node<'_>) -> ScopeSpan {
     }
 }
 
-fn use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
+#[cfg(test)]
+pub(super) fn use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
     if edge.to.start_byte < edge.to.end_byte {
         return Some(edge.to.start_byte);
     }
@@ -956,3 +951,7 @@ fn use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
 #[cfg(test)]
 #[path = "scope_reuse_tests.rs"]
 mod reuse_tests;
+
+#[cfg(test)]
+#[path = "use_byte_tests.rs"]
+pub(super) mod use_byte_tests;

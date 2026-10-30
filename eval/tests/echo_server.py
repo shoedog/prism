@@ -25,8 +25,20 @@ def write_msg(obj):
 while True:
     msg = read_msg(sys.stdin.buffer)
     m, i = msg.get("method"), msg.get("id")
+    params = msg.get("params", {})
     if m == "initialize":
-        write_msg({"jsonrpc": "2.0", "id": i, "result": {"capabilities": {}}})
+        write_msg({
+            "jsonrpc": "2.0",
+            "id": i,
+            "result": {
+                "capabilities": {},
+                "echoedInit": params.get("initializationOptions"),
+                # exact-wire evidence: the full initialize params and an explicit
+                # membership flag, so a test can prove the key is ABSENT (not null)
+                "echoedParams": params,
+                "hasInitOptions": "initializationOptions" in params,
+            },
+        })
     elif m == "test/echo":
         write_msg({"jsonrpc": "2.0", "id": i, "result": msg["params"]})
     elif m == "test/slow":

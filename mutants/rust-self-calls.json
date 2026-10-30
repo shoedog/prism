@@ -101,7 +101,7 @@
     ],
     "RS-14-cpg-generation": [
       "src/cpg_cache.rs",
-      "const CACHE_VERSION: u32 = 131;",
+      "const CACHE_VERSION: u32 = 132;",
       "const CACHE_VERSION: u32 = 124;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],

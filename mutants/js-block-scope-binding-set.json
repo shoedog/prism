@@ -1,0 +1,128 @@
+{
+  "lane": "JS/TS child-scanning scope binding-name sets",
+  "lib_test_prefixes": [
+    "ast::callback_identity::js_block_scope_bindings_tests::"
+  ],
+  "mutations": {
+    "JSBLOCK-drop-parameters": [
+      "src/ast/js_block_scope_bindings.rs",
+      "pattern(p, params, &mut names);",
+      "/* omit params */",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
+    ],
+    "JSBLOCK-drop-self": [
+      "src/ast_callback_identity.rs",
+      "if matches!(scope.kind(), \"function_expression\" | \"generator_function\")",
+      "if false",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
+    ],
+    "JSBLOCK-body-exception": [
+      "src/ast/js_block_scope_bindings.rs",
+      "if callable_body\n",
+      "if false\n",
+      "ast::callback_identity::js_block_scope_bindings_tests::callable_exception_labels_and_enum_merge"
+    ],
+    "JSBLOCK-label-exclusion": [
+      "src/ast/js_block_scope_bindings.rs",
+      "while unlabelled.kind() == \"labeled_statement\" {",
+      "while false && unlabelled.kind() == \"labeled_statement\" {",
+      "ast::callback_identity::js_block_scope_bindings_tests::callable_exception_labels_and_enum_merge"
+    ],
+    "JSBLOCK-label-recursion": [
+      "src/ast/js_scope_bindings.rs",
+      "\"labeled_statement\" => {",
+      "\"never_label\" => {",
+      "ast::callback_identity::js_block_scope_bindings_tests::callable_exception_labels_and_enum_merge"
+    ],
+    "JSBLOCK-drop-switch": [
+      "src/ast/js_block_scope_bindings.rs",
+      "\"statement_block\" | \"switch_body\" => {",
+      "\"statement_block\" => {",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
+    ],
+    "JSBLOCK-drop-for": [
+      "src/ast/js_block_scope_bindings.rs",
+      "\"for_statement\" => {",
+      "\"never_for\" => {",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
+    ],
+    "JSBLOCK-var-as-lexical": [
+      "src/ast/js_block_scope_bindings.rs",
+      "init.kind() == \"lexical_declaration\"",
+      "matches!(init.kind(), \"lexical_declaration\" | \"variable_declaration\")",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
+    ],
+    "JSBLOCK-drop-for-in": [
+      "src/ast/js_block_scope_bindings.rs",
+      "\"for_in_statement\" => {",
+      "\"never_for_in\" => {",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
+    ],
+    "JSBLOCK-var-in-as-lexical": [
+      "src/ast/js_block_scope_bindings.rs",
+      "matches!(p.node_text(&k), \"let\" | \"const\")",
+      "matches!(p.node_text(&k), \"let\" | \"const\" | \"var\")",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
+    ],
+    "JSBLOCK-drop-catch": [
+      "src/ast/js_block_scope_bindings.rs",
+      "\"catch_clause\" => {",
+      "\"never_catch\" => {",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
+    ],
+    "JSBLOCK-drop-enum-assignment": [
+      "src/ast/js_block_scope_bindings.rs",
+      "member.child_by_field_name(\"name\")",
+      "None",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
+    ],
+    "JSBLOCK-enum-raw-strings": [
+      "src/ast/js_block_scope_bindings.rs",
+      "\"string\" => p.js_ts_module_export_name(key),",
+      "\"string\" => Some(p.node_text(&key).to_owned()),",
+      "ast::callback_identity::js_block_scope_bindings_tests::callable_exception_labels_and_enum_merge"
+    ],
+    "JSBLOCK-enum-raw-identifiers": [
+      "src/ast/js_block_scope_bindings.rs",
+      "ParsedFile::js_ts_decoded_identifier(p.node_text(&key))",
+      "Some(p.node_text(&key).to_owned())",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
+    ],
+    "JSBLOCK-drop-enum-merge": [
+      "src/ast/js_block_scope_bindings.rs",
+      "sibling.kind() == \"enum_declaration\"",
+      "false && sibling.kind() == \"enum_declaration\"",
+      "ast::callback_identity::js_block_scope_bindings_tests::callable_exception_labels_and_enum_merge"
+    ],
+    "JSBLOCK-merge-other-name": [
+      "src/ast/js_block_scope_bindings.rs",
+      "ParsedFile::js_ts_decoded_identifier(p.node_text(&n))\n                        == ParsedFile::js_ts_decoded_identifier(p.node_text(&own))",
+      "true",
+      "ast::callback_identity::js_block_scope_bindings_tests::callable_exception_labels_and_enum_merge"
+    ],
+    "JSBLOCK-scope-node-key": [
+      "src/ast/binding_verdict_memo.rs",
+      "memo.borrow().scopes.get(&scope.id())",
+      "memo.borrow().scopes.values().next()",
+      "ast::callback_identity::js_block_scope_bindings_tests::scope_cache_keys_lifetime_and_bypass"
+    ],
+    "JSBLOCK-scope-boundary-key": [
+      "src/ast/binding_verdict_memo.rs",
+      "memo.borrow().scopes.get(&scope.id()).and_then(|entries| {\n        entries\n            .iter()\n            .find(|entry| entry.boundaries == boundaries)",
+      "memo.borrow().scopes.get(&scope.id()).and_then(|entries| {\n        entries\n            .iter()\n            .find(|_| true)",
+      "ast::callback_identity::js_block_scope_bindings_tests::callable_exception_labels_and_enum_merge"
+    ],
+    "JSBLOCK-repeat-scans": [
+      "src/ast/js_block_scope_bindings.rs",
+      "binding_verdict_memo::scope_binds(p, scope, boundaries, name, || collect(p, scope, boundaries))",
+      "collect(p, scope, boundaries).contains(name)",
+      "ast::callback_identity::js_block_scope_bindings_tests::every_scanning_branch_collects_once"
+    ],
+    "JSBLOCK-drop-bypass": [
+      "src/ast_callback_identity.rs",
+      "return self.js_ts_scope_binds_reference(scope, boundaries, name, byte);",
+      "/* bypass omitted */",
+      "ast::callback_identity::js_block_scope_bindings_tests::scope_cache_keys_lifetime_and_bypass"
+    ]
+  }
+}

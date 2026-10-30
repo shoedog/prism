@@ -79,6 +79,7 @@ class CaseResult:
     expected_resolution_kind: str | None
     forbid_resolution_kind: str | None
     probe: str = "callers"
+    fixture_id: str | None = None
 
 
 def _expect_callers(expect: dict) -> set:
@@ -351,8 +352,11 @@ def _run_callers_case(case: Case, lang: str, sut) -> CaseResult:
             for kind in got_kinds.values()
         )
     outcome = _status_outcome(case.status, matched)
-    return CaseResult(case.capability, lang, outcome, got, case.expect_callers, got_kinds,
-                      case.expected_resolution_kind, case.forbid_resolution_kind, probe="callers")
+    return CaseResult(
+        case.capability, lang, outcome, got, case.expect_callers, got_kinds,
+        case.expected_resolution_kind, case.forbid_resolution_kind,
+        probe="callers", fixture_id=str(case.path),
+    )
 
 
 def _kind_discriminant(kind) -> str:
@@ -434,7 +438,10 @@ def _run_taint_case(case: Case, lang: str, sut) -> CaseResult:
             case.expect_sanitizers_present, frontier_expected,
         )
         outcome = _status_outcome(case.status, False)
-        return CaseResult(case.capability, lang, outcome, got, expected, {}, None, None, probe="taint")
+        return CaseResult(
+            case.capability, lang, outcome, got, expected, {}, None, None,
+            probe="taint", fixture_id=str(case.path),
+        )
 
     got_reachability = reasoning.get("reachability")
     got_warnings = sorted({_kind_discriminant(w.get("kind")) for w in ev.get("warnings", [])})
@@ -473,7 +480,10 @@ def _run_taint_case(case: Case, lang: str, sut) -> CaseResult:
         frontier_expected,
     )
     outcome = _status_outcome(case.status, matched)
-    return CaseResult(case.capability, lang, outcome, got, expected, {}, None, None, probe="taint")
+    return CaseResult(
+        case.capability, lang, outcome, got, expected, {}, None, None,
+        probe="taint", fixture_id=str(case.path),
+    )
 
 
 def _run_module_case(case: Case, lang: str, sut) -> CaseResult:
@@ -490,7 +500,10 @@ def _run_module_case(case: Case, lang: str, sut) -> CaseResult:
     if case.expect_module_forbid_to:
         expected += f"|forbid={','.join(sorted(case.expect_module_forbid_to))}"
     outcome = _status_outcome(case.status, matched)
-    return CaseResult(case.capability, lang, outcome, got, expected, {}, None, None, probe="module_deps")
+    return CaseResult(
+        case.capability, lang, outcome, got, expected, {}, None, None,
+        probe="module_deps", fixture_id=str(case.path),
+    )
 
 
 def _dfg_endpoint(item: dict) -> str:
@@ -531,7 +544,7 @@ def _dfg_expectation_matches(expected: dict, actual: list[dict]) -> bool:
 
 
 def _dfg_expected(case: Case) -> object:
-    if not case.expect_dfg_stats:
+    if not getattr(case, "expect_dfg_stats", None):
         return case.expect_dfg_edges
     return {
         "edges": case.expect_dfg_edges,
@@ -554,7 +567,8 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
         got = f"DFG_ORACLE_LAUNCH_FAILED|{exc}"
         return CaseResult(
             case.capability, lang, "regression", got,
-            _dfg_expected(case), {}, None, None, probe="dfg",
+            _dfg_expected(case), {}, None, None,
+            probe="dfg", fixture_id=str(case.path),
         )
     if completed.returncode != 0:
         detail = "\n".join(
@@ -568,8 +582,12 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
         got = f"{kind}|exit={completed.returncode}|{detail}"
         return CaseResult(
             case.capability, lang,
-            "expected_gap" if oracle_missing else _status_outcome(case.status, False), got,
-            _dfg_expected(case), {}, None, None, probe="dfg",
+            "expected_gap"
+            if oracle_missing
+            else _status_outcome(getattr(case, "status", None), False),
+            got,
+            _dfg_expected(case), {}, None, None,
+            probe="dfg", fixture_id=str(case.path),
         )
 
     try:
@@ -578,7 +596,8 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
         got = f"DFG_ORACLE_INVALID_JSONL|{exc}"
         return CaseResult(
             case.capability, lang, _status_outcome(case.status, False), got,
-            _dfg_expected(case), {}, None, None, probe="dfg",
+            _dfg_expected(case), {}, None, None,
+            probe="dfg", fixture_id=str(case.path),
         )
 
     edges_matched = all(
@@ -634,7 +653,8 @@ def _run_dfg_case(case: Case, lang: str, sut) -> CaseResult:
         }
     return CaseResult(
         case.capability, lang, _status_outcome(case.status, matched), got,
-        _dfg_expected(case), {}, None, None, probe="dfg",
+        _dfg_expected(case), {}, None, None,
+        probe="dfg", fixture_id=str(case.path),
     )
 
 

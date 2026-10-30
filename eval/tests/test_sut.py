@@ -1,9 +1,13 @@
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
+from tier_a import sut as sut_mod
+from tier_a.closure import raw_digest
 from tier_a.model import FunctionDef, Location
 from tier_a.sut import (PrismCli, SutAmbiguous, SutError, SutSeedMiss, SutStale,
                         extract_callees, extract_callers, extract_functions,
@@ -28,6 +32,152 @@ def test_parse_version_sha_and_dirty():
     assert parse_version("slicing 3.1.2 (abcdef1234567)\n") == ("abcdef1234567", False)
     with pytest.raises(SutStale, match="gitless build"):
         parse_version("slicing 3.1.2 (unknown)\n")
+
+
+def test_from_archive_binds_bytes_and_full_sha_without_head_freshness(
+    tmp_path, monkeypatch
+):
+    binary = tmp_path / "prism"
+    binary.write_bytes(b"archived prism")
+    binary.chmod(0o755)
+    sha_full = "a" * 40
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: FakeRun(
+            stdout=f"slicing 3.1.2 ({sha_full[:12]})\n"
+        ),
+    )
+
+    sut = PrismCli.from_archive(
+        "/repo", str(binary), sha_full, raw_digest(binary)
+    )
+    assert (sut.sha, sut.sha_full, sut.dirty) == (sha_full[:12], sha_full, False)
+    with pytest.raises(SutStale, match="digest"):
+        PrismCli.from_archive("/repo", str(binary), sha_full, "sha256:wrong")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: FakeRun(stdout=f"slicing 3.1.2 ({'b' * 12})\n"),
+    )
+    with pytest.raises(SutStale, match="SHA"):
+        PrismCli.from_archive("/repo", str(binary), sha_full, raw_digest(binary))
+
+
+def test_lock_bound_instances_use_digest_partitioned_nav_store(tmp_path, monkeypatch):
+    binary = tmp_path / "prism"
+    binary.write_bytes(b"lock-bound prism")
+    binary.chmod(0o755)
+    sha_full = "c" * 40
+    calls = []
+    cache_root = tmp_path / "tier-a-root"
+    monkeypatch.setenv("TIER_A_ROOT", str(cache_root))
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        out = f"slicing 3.1.2 ({sha_full[:12]})\n" if cmd[1:] == ["--version"] else "[]"
+        return FakeRun(stdout=out)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(sut_mod, "verified_binary_identity", lambda *_a: (sha_full[:12], sha_full))
+    archived = PrismCli.from_archive("/repo", str(binary), sha_full, raw_digest(binary))
+    verified = PrismCli.from_verified(
+        "/repo", str(binary), sha_full, raw_digest(binary), env={"PATH": "/usr/bin"}
+    )
+    for sut in (archived, verified):
+        sut._run(["functions"])
+        assert "--no-cache" not in calls[-1]
+        cache_index = calls[-1].index("--cache-dir")
+        assert calls[-1][cache_index + 1] == str(
+            cache_root / "nav-cache" / sut.sut_digest.removeprefix("sha256:")
+        )
+        assert sut.lock_bound  # pinned.py probe-error accounting keys on this, not on the cache
+
+
+def test_archive_runs_from_authenticated_private_snapshot(tmp_path, monkeypatch):
+    binary = tmp_path / "prism"
+    binary.write_bytes(b"binary-a")
+    binary.chmod(0o755)
+    sha_full = "a" * 40
+    launched = []
+
+    def run(command, **_kwargs):
+        launched.append(command)
+        return FakeRun(
+            stdout=(
+                f"slicing 3.1.2 ({sha_full[:12]})\n"
+                if command[1:] == ["--version"]
+                else "[]"
+            )
+        )
+
+    monkeypatch.setattr(subprocess, "run", run)
+    sut = PrismCli.from_archive(
+        "/repo", str(binary), sha_full, raw_digest(binary), env={"PATH": "/usr/bin"}
+    )
+    binary.write_bytes(b"binary-b")
+
+    assert sut._run(["functions"]) == []
+    assert Path(sut.bin) != binary
+    assert Path(sut.bin).read_bytes() == b"binary-a"
+    assert launched[-1][0] == sut.bin
+    assert sut.sut_digest == raw_digest(Path(sut.bin))
+
+
+def test_archive_version_uses_scrubbed_environment_and_bounded_launcher(
+    tmp_path, monkeypatch
+):
+    binary = tmp_path / "prism"
+    binary.write_bytes(b"archive")
+    binary.chmod(0o755)
+    sha_full = "a" * 40
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return FakeRun(stdout=f"slicing 3.1.2 ({sha_full[:12]})\n")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    PrismCli.from_archive(
+        "/repo", str(binary), sha_full, raw_digest(binary), env={"PATH": "/clean"}
+    )
+
+    assert calls[-1][1]["env"] == {"PATH": "/clean"}
+    assert calls[-1][1]["timeout"] == 120.0
+
+
+def test_prism_corpus_budgets_fit_full_corpus_with_all_features():
+    import tomllib
+    config = tomllib.loads((Path(__file__).parents[1] / "corpora.toml").read_text())
+    assert config["corpus"]["prism"]["query_timeout_s"] == 30.0
+    assert config["corpus"]["prism"]["startup_timeout_s"] == 300.0
+    assert config["corpus"]["prism"]["oracle_budget_s"] == 3600.0
+    assert config["defaults"]["query_timeout_s"] == 10.0  # main's default for other corpora
+
+
+def test_prism_corpus_population_is_only_cargo_target_sources():
+    """Every Rust file in the prism corpus population belongs to a cargo target of the
+    root package (or its vendored grammar crate); fixture crates and doc probes outside
+    the workspace are excluded because rust-analyzer cannot answer for them."""
+    import tomllib
+    from tier_a.corpus import universe
+    repo = Path(__file__).parents[2]
+    cfg = tomllib.loads((repo / "eval/corpora.toml").read_text())["corpus"]["prism"]
+    population = universe(str(repo), cfg["lang"], cfg["excludes"], tracked_only=True)
+    allowed = ("src/", "tests/", "benches/", "examples/", "vendor/")
+    stray = sorted(p for p in population if not (p == "build.rs" or p.startswith(allowed)))
+    assert stray == []
+
+
+def test_harness_modules_load_before_the_boundary_observes_reads():
+    """make_oracle runs after the boundary starts observing opens; every harness module
+    it needs must already be imported, or reading its source is an undeclared read."""
+    import subprocess as sp
+    import sys
+    code = "import sys, tier_a.cli; print('tier_a.tsserver' in sys.modules)"
+    out = sp.run([sys.executable, "-B", "-c", code], capture_output=True, text=True,
+                 cwd=Path(__file__).parents[1], check=True).stdout.strip()
+    assert out == "True"
 
 
 def test_extract_functions_inventory_records():
@@ -78,9 +228,15 @@ def test_run_classifies_ambiguous_symbol(monkeypatch):
         cli._run(["callers", "--repo", "/repo", "--symbol", "dup"])
 
 
-def test_run_classifies_seed_miss(monkeypatch):
+@pytest.mark.parametrize("kind,payload", [
+    ("SymbolNotFound", {"seed": "loc:x.py:1"}),
+    ("LocationOutOfRange", {"file": "x.py", "line": 1}),
+    ("NoEnclosingCallable", {"file": "x.py", "line": 1}),
+    ("NoNamedEnclosingCallable", {"file": "x.js", "line": 1}),
+])
+def test_run_classifies_seed_miss(monkeypatch, kind, payload):
     def fake_run(*_args, **_kwargs):
-        return FakeRun(3, '{"error":{"SymbolNotFound":{"seed":"loc:x.py:1"}}}\n')
+        return FakeRun(3, json.dumps({"error": {kind: payload}}) + "\n")
 
     cli = PrismCli.__new__(PrismCli)
     cli.bin = "/tmp/prism"
@@ -108,6 +264,22 @@ def test_run_happy_path_json_decode_and_argv(monkeypatch):
     ]
 
 
+def test_run_passes_the_scrubbed_environment(monkeypatch):
+    seen = {}
+    cli = PrismCli.__new__(PrismCli)
+    cli.bin = "/tmp/prism"
+    cli.env = {"PATH": "/usr/bin"}
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda _argv, **kwargs: seen.update(kwargs) or FakeRun(stdout='{"items":[]}\n'),
+    )
+
+    cli._run(["functions"])
+
+    assert seen["env"] == {"PATH": "/usr/bin"}
+
+
 def test_run_invalid_json_and_non_ambiguous_error(monkeypatch):
     cli = PrismCli.__new__(PrismCli)
     cli.bin = "/tmp/prism"
@@ -127,10 +299,17 @@ def test_run_invalid_json_and_non_ambiguous_error(monkeypatch):
 
 def test_constructor_discovers_binary_in_contract_order(monkeypatch):
     monkeypatch.setattr(PrismCli, "_check_freshness", lambda self: ("abcdef123456", False))
+    monkeypatch.setattr(sut_mod, "_resolve_executable", lambda command, _env: command)
+    monkeypatch.setattr(
+        sut_mod,
+        "_snapshot_executable",
+        lambda path, _digest=None: (None, path, "sha256:" + "a" * 64),
+    )
     monkeypatch.setenv("PRISM_BIN", "/env/prism")
 
     assert PrismCli("/repo", sut_bin="/arg/prism").bin == "/arg/prism"
     assert PrismCli("/repo").bin == "/env/prism"
+    assert PrismCli("/repo", env={"PATH": "/clean"}).bin == "/repo/target/release/prism"
 
     monkeypatch.delenv("PRISM_BIN")
     assert PrismCli("/repo").bin == "/repo/target/release/prism"
@@ -139,6 +318,7 @@ def test_constructor_discovers_binary_in_contract_order(monkeypatch):
 def test_check_freshness_accepts_sha_prefix_and_clean_repo(monkeypatch):
     calls = iter([
         FakeRun(stdout="slicing 3.1.2 (abcdef1234567)\n"),
+        FakeRun(stdout="abcdef1234567890abcdef1234567890abcdef12\n"),
         FakeRun(stdout="abcdef1234567890abcdef1234567890abcdef12\n"),
         FakeRun(stdout=""),
     ])
@@ -151,9 +331,29 @@ def test_check_freshness_accepts_sha_prefix_and_clean_repo(monkeypatch):
     assert cli._check_freshness() == ("abcdef1234567", False)
 
 
+def test_allow_stale_records_unresolvable_binary_commit_without_raising(monkeypatch):
+    monkeypatch.setattr(
+        sut_mod,
+        "_resolve_binary_commit",
+        lambda *_args: (_ for _ in ()).throw(SutStale("binary_commit_unresolvable")),
+    )
+    calls = iter([FakeRun(stdout="f" * 40 + "\n"), FakeRun(stdout="")])
+    monkeypatch.setattr(subprocess, "run", lambda *_a, **_k: next(calls))
+    cli = PrismCli.__new__(PrismCli)
+    cli.bin = "/tmp/prism"
+    cli.repo = "/repo"
+    cli.allow_stale = True
+    cli._run = lambda _args: "slicing 3.1.2 (abcdef123456)\n"
+
+    assert cli._check_freshness() == ("abcdef123456", False)
+    assert cli.sha_full == "abcdef123456"
+    assert cli.identity_note == "binary_commit_unresolvable"
+
+
 def test_check_freshness_rejects_dirty_repo_even_if_binary_clean(monkeypatch):
     calls = iter([
         FakeRun(stdout="slicing 3.1.2 (abcdef123456)\n"),
+        FakeRun(stdout="abcdef1234567890abcdef1234567890abcdef12\n"),
         FakeRun(stdout="abcdef1234567890abcdef1234567890abcdef12\n"),
         FakeRun(stdout=" M src/main.rs\n"),
     ])
@@ -275,3 +475,49 @@ def test_taint_reaches_and_module_deps_wire_flags_to_run(monkeypatch):
         ["taint-reaches", "--repo", "/repo", "--source", "app.py:2"],
         ["module-deps", "--repo", "/repo", "--file", "a.py"],
     ]
+
+
+def test_console_entrypoint_rejects_timestamp_valid_stale_tier_a_bytecode(tmp_path):
+    eval_dir = Path(__file__).parents[1]
+    entrypoint = eval_dir / "tier_a_entrypoint.py"
+    assert entrypoint.is_file()
+    (tmp_path / "tier_a").mkdir()
+    (tmp_path / "tier_a/__init__.py").write_text("")
+    cli_source = tmp_path / "tier_a/cli.py"
+    old = 'def main():\n    print("stale")\n    return 0\n'
+    fresh = 'def main():\n    print("fresh")\n    return 0\n'
+    assert len(old) == len(fresh)
+    cli_source.write_text(old)
+    fixed_time = 1_700_000_000
+    os.utime(cli_source, (fixed_time, fixed_time))
+    compile_env = dict(os.environ)
+    compile_env.pop("PYTHONPYCACHEPREFIX", None)
+    subprocess.run(
+        [sys.executable, "-m", "py_compile", str(cli_source)],
+        check=True,
+        env=compile_env,
+    )
+    cli_source.write_text(fresh)
+    os.utime(cli_source, (fixed_time, fixed_time))
+    env = dict(os.environ)
+    env.pop("PYTHONPYCACHEPREFIX", None)
+    env.pop("TIER_A_PRIVATE_PYCACHE", None)
+    env["PYTHONPATH"] = os.pathsep.join((str(tmp_path), str(eval_dir)))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.argv=['tier-a','--help']; "
+            "import tier_a_entrypoint; tier_a_entrypoint.main()",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=tmp_path,
+    )
+
+    assert "usage: tier-a" in result.stdout
+    assert "stale" not in result.stdout.splitlines()
+    assert "fresh" not in result.stdout.splitlines()
