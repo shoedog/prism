@@ -1,7 +1,7 @@
 {
   "lang": "rust",
   "package_dirs": [],
-  "policy_digest": "sha256:8e338ee2132d1dfc4e8abd54a84095f60765f6790f8d4f2130f54edad73ad401",
+  "policy_digest": "sha256:402d23439353842a958958953d3817612a70b52642c376cd6c261b3977a2a572",
   "symbols": {
     "build.rs:10": {
       "eligible": true,
@@ -4388,1557 +4388,1557 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:10008": {
+    "src/ast.rs:10011": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10025": {
+    "src/ast.rs:10057": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10071": {
+    "src/ast.rs:10083": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10097": {
+    "src/ast.rs:10090": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10104": {
+    "src/ast.rs:10105": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10119": {
+    "src/ast.rs:10126": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10140": {
+    "src/ast.rs:10136": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10150": {
+    "src/ast.rs:10157": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10171": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:10178": {
+    "src/ast.rs:10164": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:1022": {
+    "src/ast.rs:1024": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10256": {
+    "src/ast.rs:10242": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10286": {
+    "src/ast.rs:10272": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1043": {
+    "src/ast.rs:1045": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:1058": {
+    "src/ast.rs:1060": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:10680": {
+    "src/ast.rs:10666": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10683": {
+    "src/ast.rs:10669": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:10736": {
+    "src/ast.rs:10722": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10746": {
+    "src/ast.rs:10732": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10766": {
+    "src/ast.rs:10752": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10777": {
+    "src/ast.rs:10763": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10790": {
+    "src/ast.rs:10776": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10814": {
+    "src/ast.rs:10800": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1085": {
+    "src/ast.rs:10859": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10873": {
+    "src/ast.rs:1087": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10923": {
+    "src/ast.rs:10909": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10936": {
+    "src/ast.rs:10922": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10958": {
+    "src/ast.rs:10944": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10981": {
+    "src/ast.rs:10967": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:10994": {
+    "src/ast.rs:10980": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:11036": {
+    "src/ast.rs:11022": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:11046": {
+    "src/ast.rs:11032": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:11055": {
+    "src/ast.rs:11041": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1107": {
+    "src/ast.rs:11061": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:11077": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1109": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:11075": {
+    "src/ast.rs:11114": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:11091": {
+    "src/ast.rs:11150": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:11128": {
+    "src/ast.rs:11166": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:11164": {
+    "src/ast.rs:11197": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:11180": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:11211": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:11224": {
+    "src/ast.rs:11210": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11279": {
+    "src/ast.rs:11265": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11345": {
+    "src/ast.rs:11331": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11372": {
+    "src/ast.rs:11358": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11442": {
+    "src/ast.rs:11428": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11489": {
+    "src/ast.rs:11475": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:11497": {
+    "src/ast.rs:11483": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11520": {
+    "src/ast.rs:11506": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11568": {
+    "src/ast.rs:11554": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11580": {
+    "src/ast.rs:11566": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11607": {
+    "src/ast.rs:11593": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11636": {
+    "src/ast.rs:11622": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11643": {
+    "src/ast.rs:11629": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11711": {
+    "src/ast.rs:11697": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11715": {
+    "src/ast.rs:11701": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:11728": {
+    "src/ast.rs:11714": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:1176": {
+    "src/ast.rs:11759": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:1178": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:11773": {
+    "src/ast.rs:11781": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11795": {
+    "src/ast.rs:11800": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11814": {
+    "src/ast.rs:11819": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11833": {
+    "src/ast.rs:11835": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11849": {
+    "src/ast.rs:11851": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11865": {
+    "src/ast.rs:11870": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:1188": {
+    "src/ast.rs:11881": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:11892": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:1190": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:11884": {
+    "src/ast.rs:11913": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11895": {
+    "src/ast.rs:11929": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11906": {
+    "src/ast.rs:11940": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11927": {
+    "src/ast.rs:11942": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/ast.rs:11946": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11943": {
+    "src/ast.rs:11948": {
       "eligible": true,
       "rule": null,
-      "stratum": "Q-scoped"
+      "stratum": "C-name"
     },
     "src/ast.rs:11954": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11956": {
+    "src/ast.rs:11972": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:11995": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12018": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12036": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12057": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12058": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:11960": {
+    "src/ast.rs:12075": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:11962": {
+    "src/ast.rs:12083": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12138": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12166": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12193": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12208": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12220": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12231": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12240": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12249": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12258": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12268": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12281": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12303": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12316": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12400": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12410": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:12429": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:1260": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1272": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1284": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1303": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1354": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1367": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1381": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1392": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1471": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1514": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1563": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1627": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1641": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1660": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1706": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1737": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1780": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1890": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1919": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1927": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1963": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:1995": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2040": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2123": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2131": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2143": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2164": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2206": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2231": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2330": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2337": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2360": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:2367": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:11968": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:11986": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12009": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12032": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12050": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12071": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12072": {
+    "src/ast.rs:2382": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:12089": {
+    "src/ast.rs:2436": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:12097": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12152": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12180": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12207": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12222": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12234": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12245": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12254": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12263": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12272": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12282": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12295": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12317": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12330": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12414": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12424": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:12443": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:1258": {
+    "src/ast.rs:2478": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1270": {
+    "src/ast.rs:2486": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1282": {
+    "src/ast.rs:2504": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1301": {
+    "src/ast.rs:2558": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1352": {
+    "src/ast.rs:2760": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1365": {
+    "src/ast.rs:2828": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1379": {
+    "src/ast.rs:2892": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1390": {
+    "src/ast.rs:2913": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1469": {
+    "src/ast.rs:2960": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1512": {
+    "src/ast.rs:3038": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1561": {
+    "src/ast.rs:314": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:1625": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:1639": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:1658": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:1704": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:1735": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:1778": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:1888": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:1917": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:1925": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:1961": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:1993": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2038": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2121": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2129": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2141": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2162": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2204": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2229": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2328": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2335": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2358": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2365": {
+    "src/ast.rs:3147": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:2380": {
+    "src/ast.rs:3196": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:322": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3231": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:329": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3303": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3394": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3464": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3467": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:3475": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:3556": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3570": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3632": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3697": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3712": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3760": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3794": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:380": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:3856": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3866": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3921": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:394": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:3950": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:3976": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4177": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4190": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4198": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4271": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:4287": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4302": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4324": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4367": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4416": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4470": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4477": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:4486": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:2434": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:2476": {
+    "src/ast.rs:4521": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:2484": {
+    "src/ast.rs:4530": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:2502": {
+    "src/ast.rs:4592": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:2556": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2758": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2826": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2890": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2911": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:2958": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3036": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:312": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3145": {
+    "src/ast.rs:4596": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:3194": {
+    "src/ast.rs:4632": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:320": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3229": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:327": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3301": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3392": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3462": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3465": {
+    "src/ast.rs:47": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:3473": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:3554": {
+    "src/ast.rs:4774": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:3568": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3630": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3695": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3710": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3758": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:378": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:3792": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3854": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3864": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3919": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:392": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:3948": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:3974": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4175": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4188": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4196": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4269": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:4285": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4300": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4322": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4365": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4414": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4468": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4475": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4484": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "C-name"
-    },
-    "src/ast.rs:45": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:4519": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4528": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4590": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4594": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "C-name"
-    },
-    "src/ast.rs:4630": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4772": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:478": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "C-name"
-    },
-    "src/ast.rs:4796": {
+    "src/ast.rs:4798": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/ast.rs:4808": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4839": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "C-method"
-    },
-    "src/ast.rs:4892": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:4940": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5102": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:513": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5137": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5159": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5188": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5203": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "C-method"
-    },
-    "src/ast.rs:5213": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:522": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:530": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "C-method"
-    },
-    "src/ast.rs:5344": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:535": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:539": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5392": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5424": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5449": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:545": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5474": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:560": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5612": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5651": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5694": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:57": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:5737": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:576": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5797": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:587": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5888": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5922": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5938": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5973": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:5996": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6027": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:604": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6066": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6104": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6162": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6196": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6229": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6247": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6287": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:631": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6324": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6390": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6444": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6497": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:656": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6581": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6591": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:6598": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6610": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6641": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6660": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6708": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6736": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6751": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:68": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:680": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6807": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6872": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:6907": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:695": {
+    "src/ast.rs:480": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:7001": {
+    "src/ast.rs:4810": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:7012": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7045": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:7052": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7070": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7098": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7154": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7177": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7193": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:727": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7279": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7282": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "C-name"
-    },
-    "src/ast.rs:7288": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:7297": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:7324": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:7330": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:7394": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:7487": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:7506": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7553": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7588": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7680": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7691": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7750": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7761": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7829": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:7850": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7876": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7882": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7933": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:7951": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:8013": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:8019": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:8058": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:8076": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:81": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/ast.rs:8132": {
+    "src/ast.rs:4841": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/ast.rs:8150": {
+    "src/ast.rs:4894": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8162": {
+    "src/ast.rs:4942": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8197": {
+    "src/ast.rs:5104": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8210": {
+    "src/ast.rs:5139": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8228": {
+    "src/ast.rs:515": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8310": {
+    "src/ast.rs:5161": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8321": {
+    "src/ast.rs:5190": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8380": {
+    "src/ast.rs:5205": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/ast.rs:5215": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:524": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8386": {
+    "src/ast.rs:532": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/ast.rs:5346": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:537": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8403": {
+    "src/ast.rs:5394": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8421": {
+    "src/ast.rs:541": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8456": {
+    "src/ast.rs:5426": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8488": {
+    "src/ast.rs:5451": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8504": {
+    "src/ast.rs:547": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8518": {
+    "src/ast.rs:5476": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8546": {
+    "src/ast.rs:5614": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8574": {
+    "src/ast.rs:562": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8592": {
+    "src/ast.rs:5653": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8607": {
+    "src/ast.rs:5696": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:5739": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:578": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:5799": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:589": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:5890": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:59": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:5924": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:5940": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:5975": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:5998": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6029": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:606": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6068": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6106": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6164": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6198": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6231": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6249": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6289": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6326": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:633": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6392": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6446": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6499": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:658": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6583": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6593": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:6600": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6612": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6643": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6662": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6710": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6738": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6753": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6809": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:682": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6874": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:6909": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:697": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:8632": {
+    "src/ast.rs:70": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:7003": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7014": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7047": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:7054": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7072": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7100": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7156": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7179": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7195": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7281": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7284": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/ast.rs:729": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7290": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:7299": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:7326": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:7332": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:7396": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:7489": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:7508": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7555": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7590": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7682": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7693": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7752": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7763": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7831": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:7852": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7878": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7884": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7935": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:7953": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8015": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8021": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8060": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8078": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8134": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/ast.rs:8152": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8164": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8199": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8212": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8230": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:83": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast.rs:8312": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8323": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8382": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8388": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8405": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8423": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8458": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8490": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8506": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8520": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/ast.rs:8532": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8560": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8578": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8593": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/ast.rs:8618": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:8637": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
@@ -5948,257 +5948,257 @@
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8665": {
+    "src/ast.rs:8658": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8672": {
+    "src/ast.rs:8689": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8703": {
+    "src/ast.rs:8719": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8733": {
+    "src/ast.rs:8724": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8738": {
+    "src/ast.rs:8737": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8751": {
+    "src/ast.rs:8746": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8760": {
+    "src/ast.rs:8762": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8776": {
+    "src/ast.rs:8782": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8796": {
+    "src/ast.rs:8810": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8824": {
+    "src/ast.rs:8821": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8835": {
+    "src/ast.rs:8839": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8853": {
+    "src/ast.rs:8932": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8946": {
+    "src/ast.rs:8959": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8973": {
+    "src/ast.rs:8971": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:8985": {
+    "src/ast.rs:9079": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9093": {
+    "src/ast.rs:9110": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9124": {
+    "src/ast.rs:9152": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9166": {
+    "src/ast.rs:9160": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9174": {
+    "src/ast.rs:9175": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9189": {
+    "src/ast.rs:9201": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9215": {
+    "src/ast.rs:9216": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:922": {
+    "src/ast.rs:924": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9230": {
+    "src/ast.rs:9261": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9275": {
+    "src/ast.rs:9282": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:929": {
+    "src/ast.rs:931": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/ast.rs:9296": {
+    "src/ast.rs:9323": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9337": {
+    "src/ast.rs:9367": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9381": {
+    "src/ast.rs:9374": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9388": {
+    "src/ast.rs:9396": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9410": {
+    "src/ast.rs:9436": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:944": {
+    "src/ast.rs:946": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9450": {
+    "src/ast.rs:9509": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9523": {
+    "src/ast.rs:9554": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9568": {
+    "src/ast.rs:9659": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9673": {
+    "src/ast.rs:9668": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9682": {
+    "src/ast.rs:9711": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9725": {
+    "src/ast.rs:9720": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9734": {
+    "src/ast.rs:9749": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9763": {
+    "src/ast.rs:9758": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9772": {
+    "src/ast.rs:9794": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9808": {
+    "src/ast.rs:9805": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9819": {
+    "src/ast.rs:9830": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9844": {
+    "src/ast.rs:9835": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9849": {
+    "src/ast.rs:9853": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9867": {
+    "src/ast.rs:9881": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9895": {
+    "src/ast.rs:9942": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:994": {
+    "src/ast.rs:9951": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:9959": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast.rs:996": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/ast.rs:9956": {
+    "src/ast.rs:9975": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/ast.rs:9965": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:9973": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/ast.rs:9989": {
+    "src/ast.rs:9994": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
@@ -6331,7 +6331,7 @@
     "src/ast/binding_verdict_memo/tests.rs:6": {
       "eligible": true,
       "rule": null,
-      "stratum": "Q-scoped"
+      "stratum": "C-name"
     },
     "src/ast/binding_verdict_memo/tests.rs:76": {
       "eligible": true,
@@ -8138,6 +8138,111 @@
       "rule": null,
       "stratum": "C-name"
     },
+    "src/ast/shadow_walk.rs:25": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/ast/shadow_walk.rs:5": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast/shadow_walk.rs:60": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast/shadow_walk.rs:83": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/ast/shadow_walk/tests.rs:107": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast/shadow_walk/tests.rs:13": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/ast/shadow_walk/tests.rs:145": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast/shadow_walk/tests.rs:154": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast/shadow_walk/tests.rs:184": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast/shadow_walk/tests.rs:241": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast/shadow_walk/tests.rs:35": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/ast/shadow_walk/tests.rs:4": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/ast/shadow_walk/tests.rs:89": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast/singleton_rvalue_spans.rs:10": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast/singleton_rvalue_spans.rs:117": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast/singleton_rvalue_spans.rs:130": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast/singleton_rvalue_spans.rs:155": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast/singleton_rvalue_spans.rs:171": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/ast/singleton_rvalue_spans.rs:69": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast/singleton_rvalue_spans.rs:85": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/ast/singleton_rvalue_spans.rs:99": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
     "src/ast/statement_traversal.rs:109": {
       "eligible": true,
       "rule": null,
@@ -9303,12 +9408,12 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "src/bin/prism-mcp/daemon_idle_tests.rs:210": {
+    "src/bin/prism-mcp/daemon_idle_tests.rs:211": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/bin/prism-mcp/daemon_idle_tests.rs:214": {
+    "src/bin/prism-mcp/daemon_idle_tests.rs:215": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -9318,12 +9423,12 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/bin/prism-mcp/daemon_idle_tests.rs:222": {
+    "src/bin/prism-mcp/daemon_idle_tests.rs:223": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/bin/prism-mcp/daemon_idle_tests.rs:226": {
+    "src/bin/prism-mcp/daemon_idle_tests.rs:227": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -13456,7 +13561,7 @@
     "src/cpg/fallback_lifetime_tests.rs:32": {
       "eligible": true,
       "rule": null,
-      "stratum": "Q-scoped"
+      "stratum": "C-name"
     },
     "src/cpg/fallback_lifetime_tests.rs:359": {
       "eligible": true,
@@ -14863,100 +14968,100 @@
       "rule": null,
       "stratum": "C-method"
     },
-    "src/cpg/reaching.rs:102": {
+    "src/cpg/reaching.rs:103": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching.rs:107": {
+    "src/cpg/reaching.rs:109": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching.rs:113": {
+    "src/cpg/reaching.rs:114": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/cpg/reaching.rs:120": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/cpg/reaching.rs:121": {
+    "src/cpg/reaching.rs:128": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching.rs:127": {
+    "src/cpg/reaching.rs:134": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching.rs:145": {
+    "src/cpg/reaching.rs:152": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching.rs:172": {
+    "src/cpg/reaching.rs:181": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching.rs:369": {
+    "src/cpg/reaching.rs:390": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching.rs:409": {
+    "src/cpg/reaching.rs:430": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching.rs:424": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/cpg/reaching.rs:549": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/cpg/reaching.rs:58": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/cpg/reaching.rs:597": {
+    "src/cpg/reaching.rs:445": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/cpg/reaching.rs:62": {
+    "src/cpg/reaching.rs:594": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching.rs:642": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching.rs:65": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching.rs:630": {
+    "src/cpg/reaching.rs:675": {
       "eligible": true,
       "rule": null,
-      "stratum": "Q-scoped"
+      "stratum": "C-name"
     },
-    "src/cpg/reaching.rs:650": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/cpg/reaching.rs:669": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/cpg/reaching.rs:682": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/cpg/reaching.rs:96": {
+    "src/cpg/reaching.rs:69": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
+    },
+    "src/cpg/reaching.rs:695": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching.rs:714": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching.rs:727": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
     },
     "src/cpg/reaching/capture.rs:112": {
       "eligible": true,
@@ -15198,47 +15303,47 @@
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching/graph.rs:13": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "C-method"
-    },
-    "src/cpg/reaching/graph.rs:17": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "C-method"
-    },
-    "src/cpg/reaching/graph.rs:23": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/cpg/reaching/graph.rs:29": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/cpg/reaching/graph.rs:35": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "U-method"
-    },
-    "src/cpg/reaching/graph.rs:42": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/cpg/reaching/graph.rs:66": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/cpg/reaching/graph.rs:9": {
+    "src/cpg/reaching/graph.rs:10": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/cpg/reaching/graph.rs:91": {
+    "src/cpg/reaching/graph.rs:14": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/cpg/reaching/graph.rs:18": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/cpg/reaching/graph.rs:24": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/cpg/reaching/graph.rs:30": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/cpg/reaching/graph.rs:36": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/cpg/reaching/graph.rs:43": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/graph.rs:67": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/graph.rs:94": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -15353,6 +15458,111 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
+    "src/cpg/reaching/legacy_classify.rs:130": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/legacy_classify.rs:178": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/legacy_classify.rs:5": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/reach_memo.rs:119": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/cpg/reaching/reach_memo.rs:128": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/cpg/reaching/reach_memo.rs:18": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/reach_memo.rs:33": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/cpg/reaching/reach_memo.rs:39": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/cpg/reaching/reach_memo.rs:46": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/reach_memo.rs:73": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/reach_memo.rs:86": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/cpg/reaching/reach_memo_tests.rs:10": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/reach_memo_tests.rs:102": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/reach_memo_tests.rs:168": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/reach_memo_tests.rs:17": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/reach_memo_tests.rs:20": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/reach_memo_tests.rs:219": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/reach_memo_tests.rs:27": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/reach_memo_tests.rs:34": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/cpg/reaching/reach_memo_tests.rs:39": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/reach_memo_tests.rs:95": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
     "src/cpg/reaching/scope.rs:103": {
       "eligible": true,
       "rule": null,
@@ -15368,57 +15578,57 @@
       "rule": null,
       "stratum": "C-method"
     },
-    "src/cpg/reaching/scope.rs:165": {
+    "src/cpg/reaching/scope.rs:161": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/cpg/reaching/scope.rs:253": {
+    "src/cpg/reaching/scope.rs:254": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/cpg/reaching/scope.rs:268": {
+    "src/cpg/reaching/scope.rs:262": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching/scope.rs:276": {
+    "src/cpg/reaching/scope.rs:270": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching/scope.rs:298": {
+    "src/cpg/reaching/scope.rs:292": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching/scope.rs:305": {
+    "src/cpg/reaching/scope.rs:299": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching/scope.rs:339": {
+    "src/cpg/reaching/scope.rs:333": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching/scope.rs:356": {
+    "src/cpg/reaching/scope.rs:350": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/cpg/reaching/scope.rs:370": {
+    "src/cpg/reaching/scope.rs:364": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:446": {
+    "src/cpg/reaching/scope.rs:440": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:469": {
+    "src/cpg/reaching/scope.rs:463": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -15433,57 +15643,57 @@
       "rule": null,
       "stratum": "C-method"
     },
-    "src/cpg/reaching/scope.rs:535": {
+    "src/cpg/reaching/scope.rs:529": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:576": {
+    "src/cpg/reaching/scope.rs:570": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:605": {
+    "src/cpg/reaching/scope.rs:599": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:626": {
+    "src/cpg/reaching/scope.rs:620": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:639": {
+    "src/cpg/reaching/scope.rs:633": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:647": {
+    "src/cpg/reaching/scope.rs:641": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:700": {
+    "src/cpg/reaching/scope.rs:694": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:720": {
+    "src/cpg/reaching/scope.rs:714": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:733": {
+    "src/cpg/reaching/scope.rs:727": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:778": {
+    "src/cpg/reaching/scope.rs:772": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:799": {
+    "src/cpg/reaching/scope.rs:793": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -15493,37 +15703,37 @@
       "rule": null,
       "stratum": "U-method"
     },
+    "src/cpg/reaching/scope.rs:802": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
     "src/cpg/reaching/scope.rs:808": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:814": {
+    "src/cpg/reaching/scope.rs:831": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:837": {
+    "src/cpg/reaching/scope.rs:882": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:888": {
+    "src/cpg/reaching/scope.rs:911": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:917": {
+    "src/cpg/reaching/scope.rs:918": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/scope.rs:924": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/cpg/reaching/scope.rs:932": {
+    "src/cpg/reaching/scope.rs:926": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
@@ -16033,7 +16243,7 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/cpg/reaching/tests/review_regressions.rs:555": {
+    "src/cpg/reaching/tests/review_regressions.rs:560": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -16047,6 +16257,106 @@
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:150": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:21": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:217": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:25": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:264": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:320": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:33": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:332": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:43": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:48": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:53": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:60": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:64": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:84": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/use_byte_tests.rs:97": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/cpg/reaching/use_bytes.rs:103": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/use_bytes.rs:18": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/cpg/reaching/use_bytes.rs:28": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/cpg/reaching/use_bytes.rs:35": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/cpg/reaching/use_bytes.rs:95": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
     },
     "src/cpg/reaching/work_tests.rs:102": {
       "eligible": true,
@@ -16146,7 +16456,7 @@
     "src/cpg/reaching/work_tests.rs:72": {
       "eligible": true,
       "rule": null,
-      "stratum": "Q-scoped"
+      "stratum": "C-name"
     },
     "src/cpg/reaching/work_tests.rs:78": {
       "eligible": true,
@@ -21068,67 +21378,92 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_promoted_snapshot.rs:121": {
+    "src/go_promoted_snapshot.rs:125": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_promoted_snapshot.rs:138": {
+    "src/go_promoted_snapshot.rs:142": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_promoted_snapshot.rs:208": {
+    "src/go_promoted_snapshot.rs:212": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/go_promoted_snapshot.rs:26": {
+    "src/go_promoted_snapshot.rs:30": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/go_promoted_snapshot.rs:33": {
+    "src/go_promoted_snapshot.rs:37": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/go_promoted_snapshot.rs:419": {
+    "src/go_promoted_snapshot.rs:417": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_promoted_snapshot.rs:486": {
+    "src/go_promoted_snapshot.rs:484": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_promoted_snapshot.rs:500": {
+    "src/go_promoted_snapshot.rs:498": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_promoted_snapshot.rs:532": {
+    "src/go_promoted_snapshot.rs:530": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_promoted_snapshot/interface_profiles.rs:7": {
+    "src/go_promoted_snapshot/import_memo_tests.rs:6": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_promoted_snapshot/interface_profiles.rs:77": {
+    "src/go_promoted_snapshot/import_memo_tests.rs:88": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/go_promoted_snapshot/import_reference.rs:216": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/go_promoted_snapshot/import_reference.rs:286": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/go_promoted_snapshot/interface_profiles.rs:84": {
+    "src/go_promoted_snapshot/import_reference.rs:5": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_promoted_snapshot/interface_profiles.rs:99": {
+    "src/go_promoted_snapshot/interface_profiles.rs:6": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/go_promoted_snapshot/interface_profiles.rs:68": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/go_promoted_snapshot/interface_profiles.rs:75": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/go_promoted_snapshot/interface_profiles.rs:91": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -21278,92 +21613,97 @@
       "rule": null,
       "stratum": "U-method"
     },
-    "src/go_type_alias.rs:105": {
+    "src/go_type_alias.rs:109": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/go_type_alias.rs:125": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/go_type_alias.rs:147": {
+    "src/go_type_alias.rs:169": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/go_type_alias.rs:157": {
+    "src/go_type_alias.rs:179": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/go_type_alias.rs:161": {
+    "src/go_type_alias.rs:183": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/go_type_alias.rs:254": {
+    "src/go_type_alias.rs:276": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/go_type_alias.rs:278": {
+    "src/go_type_alias.rs:300": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/go_type_alias.rs:28": {
+    "src/go_type_alias.rs:31": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_type_alias.rs:361": {
+    "src/go_type_alias.rs:383": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/go_type_alias.rs:38": {
+    "src/go_type_alias.rs:41": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_type_alias.rs:435": {
+    "src/go_type_alias.rs:457": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/go_type_alias.rs:447": {
+    "src/go_type_alias.rs:469": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/go_type_alias.rs:51": {
+    "src/go_type_alias.rs:54": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_type_alias.rs:55": {
+    "src/go_type_alias.rs:58": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_type_alias.rs:581": {
+    "src/go_type_alias.rs:603": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_type_alias.rs:601": {
+    "src/go_type_alias.rs:623": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_type_alias.rs:618": {
+    "src/go_type_alias.rs:640": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/go_type_alias.rs:74": {
+    "src/go_type_alias.rs:77": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/go_type_alias.rs:89": {
+    "src/go_type_alias.rs:93": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -21413,17 +21753,87 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/go_type_alias/canon.rs:437": {
+    "src/go_type_alias/canon.rs:439": {
       "eligible": true,
       "rule": null,
-      "stratum": "Q-scoped"
+      "stratum": "C-name"
     },
-    "src/go_type_alias/canon.rs:446": {
+    "src/go_type_alias/canon.rs:448": {
       "eligible": true,
       "rule": null,
-      "stratum": "Q-scoped"
+      "stratum": "C-name"
     },
     "src/go_type_alias/canon.rs:7": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/go_type_alias/import_memo.rs:16": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/go_type_alias/import_memo.rs:31": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/go_type_alias/import_memo.rs:38": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/go_type_alias/import_memo.rs:52": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/go_type_alias/import_memo.rs:68": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/go_type_alias/import_memo.rs:73": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/go_type_alias/import_memo/reference.rs:5": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/go_type_alias/import_memo/reference.rs:50": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/go_type_alias/import_memo/reference.rs:59": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/go_type_alias/import_memo/tests.rs:16": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/go_type_alias/import_memo/tests.rs:5": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/go_type_alias/import_memo/tests.rs:59": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/go_type_alias/import_memo/tests.rs:79": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/go_type_alias/import_memo/tests.rs:94": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -23588,17 +23998,17 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/daemon/connection.rs:132": {
+    "src/mcp/daemon/connection.rs:139": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/daemon/connection.rs:153": {
+    "src/mcp/daemon/connection.rs:160": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/daemon/connection.rs:223": {
+    "src/mcp/daemon/connection.rs:230": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -24753,6 +25163,11 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
+    "src/mcp/daemon/idle_connection_tests.rs:358": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
     "src/mcp/daemon/idle_connection_tests.rs:38": {
       "eligible": true,
       "rule": null,
@@ -24843,32 +25258,32 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/daemon/idle_reload_tests.rs:127": {
+    "src/mcp/daemon/idle_reload_tests.rs:130": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/daemon/idle_reload_tests.rs:137": {
+    "src/mcp/daemon/idle_reload_tests.rs:140": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/daemon/idle_reload_tests.rs:234": {
+    "src/mcp/daemon/idle_reload_tests.rs:237": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/daemon/idle_reload_tests.rs:302": {
+    "src/mcp/daemon/idle_reload_tests.rs:305": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/daemon/idle_reload_tests.rs:59": {
+    "src/mcp/daemon/idle_reload_tests.rs:62": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/daemon/idle_reload_tests.rs:91": {
+    "src/mcp/daemon/idle_reload_tests.rs:94": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -26978,12 +27393,12 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:102": {
+    "src/mcp/freshness_policy_tests.rs:103": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:130": {
+    "src/mcp/freshness_policy_tests.rs:131": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -26993,57 +27408,57 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/freshness_policy_tests.rs:161": {
+    "src/mcp/freshness_policy_tests.rs:162": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:237": {
+    "src/mcp/freshness_policy_tests.rs:238": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:242": {
+    "src/mcp/freshness_policy_tests.rs:243": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:247": {
+    "src/mcp/freshness_policy_tests.rs:248": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:279": {
+    "src/mcp/freshness_policy_tests.rs:280": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:295": {
+    "src/mcp/freshness_policy_tests.rs:296": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:347": {
+    "src/mcp/freshness_policy_tests.rs:348": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:35": {
+    "src/mcp/freshness_policy_tests.rs:36": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:380": {
+    "src/mcp/freshness_policy_tests.rs:381": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:383": {
+    "src/mcp/freshness_policy_tests.rs:384": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/freshness_policy_tests.rs:44": {
+    "src/mcp/freshness_policy_tests.rs:45": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -27053,47 +27468,52 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/freshness_policy_tests.rs:74": {
+    "src/mcp/freshness_policy_tests.rs:75": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/idle.rs:116": {
+    "src/mcp/idle.rs:118": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/idle.rs:121": {
+    "src/mcp/idle.rs:123": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/idle.rs:134": {
+    "src/mcp/idle.rs:136": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/idle.rs:20": {
+    "src/mcp/idle.rs:160": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/mcp/idle.rs:22": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/idle.rs:27": {
+    "src/mcp/idle.rs:29": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/mcp/idle.rs:32": {
+    "src/mcp/idle.rs:34": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/mcp/idle.rs:39": {
+    "src/mcp/idle.rs:41": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/idle.rs:74": {
+    "src/mcp/idle.rs:76": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -27273,27 +27693,27 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/idle_stdio.rs:181": {
+    "src/mcp/idle_stdio.rs:173": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/idle_stdio.rs:189": {
+    "src/mcp/idle_stdio.rs:181": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/mcp/idle_stdio.rs:193": {
+    "src/mcp/idle_stdio.rs:185": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/mcp/idle_stdio.rs:199": {
+    "src/mcp/idle_stdio.rs:191": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/mcp/idle_stdio.rs:202": {
+    "src/mcp/idle_stdio.rs:194": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
@@ -28308,32 +28728,37 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/mod.rs:110": {
+    "src/mcp/mod.rs:102": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/mod.rs:151": {
+    "src/mcp/mod.rs:113": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/mod.rs:162": {
+    "src/mcp/mod.rs:163": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/mcp/mod.rs:174": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/mcp/mod.rs:186": {
+    "src/mcp/mod.rs:198": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/mcp/mod.rs:189": {
+    "src/mcp/mod.rs:201": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/mcp/mod.rs:193": {
+    "src/mcp/mod.rs:205": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
@@ -28343,27 +28768,22 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/mod.rs:51": {
+    "src/mcp/mod.rs:54": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/mod.rs:62": {
+    "src/mcp/mod.rs:65": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/mod.rs:73": {
+    "src/mcp/mod.rs:76": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/mod.rs:86": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/mcp/mod.rs:99": {
+    "src/mcp/mod.rs:89": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -31263,7 +31683,7 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/shim/idle_tests.rs:106": {
+    "src/mcp/shim/idle_tests.rs:108": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -31273,17 +31693,17 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/shim/idle_tests.rs:167": {
+    "src/mcp/shim/idle_tests.rs:169": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/shim/idle_tests.rs:202": {
+    "src/mcp/shim/idle_tests.rs:204": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/shim/idle_tests.rs:260": {
+    "src/mcp/shim/idle_tests.rs:262": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -31293,12 +31713,12 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/shim/idle_tests.rs:66": {
+    "src/mcp/shim/idle_tests.rs:68": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/shim/idle_tests.rs:92": {
+    "src/mcp/shim/idle_tests.rs:94": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -31378,12 +31798,12 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/shim/run.rs:194": {
+    "src/mcp/shim/run.rs:195": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/shim/run.rs:217": {
+    "src/mcp/shim/run.rs:218": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32423,7 +32843,12 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:1003": {
+    "src/mcp/transport.rs:1002": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/mcp/transport.rs:1006": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32433,7 +32858,12 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:1014": {
+    "src/mcp/transport.rs:1017": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/mcp/transport.rs:1028": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32628,32 +33058,32 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:351": {
+    "src/mcp/transport.rs:358": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:368": {
+    "src/mcp/transport.rs:375": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:455": {
+    "src/mcp/transport.rs:463": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:487": {
+    "src/mcp/transport.rs:500": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:502": {
+    "src/mcp/transport.rs:516": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:519": {
+    "src/mcp/transport.rs:533": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32663,32 +33093,32 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:542": {
+    "src/mcp/transport.rs:556": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:566": {
+    "src/mcp/transport.rs:580": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:618": {
+    "src/mcp/transport.rs:632": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:642": {
+    "src/mcp/transport.rs:656": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:661": {
+    "src/mcp/transport.rs:675": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:678": {
+    "src/mcp/transport.rs:692": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32698,12 +33128,12 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:704": {
+    "src/mcp/transport.rs:718": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:748": {
+    "src/mcp/transport.rs:762": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32713,22 +33143,22 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:819": {
+    "src/mcp/transport.rs:833": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/transport.rs:826": {
+    "src/mcp/transport.rs:840": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:836": {
+    "src/mcp/transport.rs:850": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:844": {
+    "src/mcp/transport.rs:858": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32738,37 +33168,27 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:900": {
+    "src/mcp/transport.rs:914": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:918": {
+    "src/mcp/transport.rs:932": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:939": {
+    "src/mcp/transport.rs:953": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:950": {
+    "src/mcp/transport.rs:964": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport.rs:968": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/mcp/transport.rs:988": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/mcp/transport.rs:992": {
+    "src/mcp/transport.rs:982": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32778,7 +33198,12 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/transport_loop_tests.rs:114": {
+    "src/mcp/transport_loop_tests.rs:102": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/mcp/transport_loop_tests.rs:121": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32794,11 +33219,6 @@
       "stratum": "Q-scoped"
     },
     "src/mcp/transport_loop_tests.rs:63": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/mcp/transport_loop_tests.rs:95": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32823,17 +33243,12 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/transport_split_tests.rs:155": {
+    "src/mcp/transport_split_tests.rs:162": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:205": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
-    "src/mcp/transport_split_tests.rs:213": {
+    "src/mcp/transport_split_tests.rs:212": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32843,37 +33258,37 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/transport_split_tests.rs:230": {
+    "src/mcp/transport_split_tests.rs:220": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:245": {
+    "src/mcp/transport_split_tests.rs:237": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:273": {
+    "src/mcp/transport_split_tests.rs:252": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:290": {
+    "src/mcp/transport_split_tests.rs:280": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:311": {
+    "src/mcp/transport_split_tests.rs:297": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:364": {
+    "src/mcp/transport_split_tests.rs:318": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:393": {
+    "src/mcp/transport_split_tests.rs:371": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32883,12 +33298,17 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:432": {
+    "src/mcp/transport_split_tests.rs:400": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:459": {
+    "src/mcp/transport_split_tests.rs:439": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/mcp/transport_split_tests.rs:466": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -32898,32 +33318,32 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "src/mcp/transport_split_tests.rs:516": {
-      "eligible": true,
-      "rule": null,
-      "stratum": "Q-scoped"
-    },
     "src/mcp/transport_split_tests.rs:52": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:62": {
+    "src/mcp/transport_split_tests.rs:523": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:70": {
+    "src/mcp/transport_split_tests.rs:69": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/mcp/transport_split_tests.rs:83": {
+    "src/mcp/transport_split_tests.rs:77": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
     "src/mcp/transport_split_tests.rs:90": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/mcp/transport_split_tests.rs:97": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -33483,12 +33903,12 @@
       "rule": null,
       "stratum": "U-method"
     },
-    "src/name_resolution/binding_index.rs:211": {
+    "src/name_resolution/binding_index.rs:212": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/name_resolution/binding_index.rs:234": {
+    "src/name_resolution/binding_index.rs:235": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
@@ -33498,17 +33918,17 @@
       "rule": null,
       "stratum": "C-method"
     },
-    "src/name_resolution/binding_index.rs:265": {
+    "src/name_resolution/binding_index.rs:266": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/name_resolution/binding_index.rs:278": {
+    "src/name_resolution/binding_index.rs:279": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/name_resolution/binding_index.rs:314": {
+    "src/name_resolution/binding_index.rs:315": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
@@ -33516,9 +33936,9 @@
     "src/name_resolution/binding_index.rs:33": {
       "eligible": true,
       "rule": null,
-      "stratum": "U-method"
+      "stratum": "C-method"
     },
-    "src/name_resolution/binding_index.rs:342": {
+    "src/name_resolution/binding_index.rs:343": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
@@ -33978,47 +34398,47 @@
       "rule": null,
       "stratum": "U-method"
     },
-    "src/name_resolution/graph.rs:145": {
+    "src/name_resolution/graph.rs:152": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/name_resolution/graph.rs:155": {
+    "src/name_resolution/graph.rs:162": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/name_resolution/graph.rs:160": {
+    "src/name_resolution/graph.rs:168": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/name_resolution/graph.rs:166": {
+    "src/name_resolution/graph.rs:174": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/name_resolution/graph.rs:172": {
+    "src/name_resolution/graph.rs:180": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/name_resolution/graph.rs:178": {
+    "src/name_resolution/graph.rs:186": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/name_resolution/graph.rs:183": {
+    "src/name_resolution/graph.rs:191": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/name_resolution/graph.rs:194": {
+    "src/name_resolution/graph.rs:202": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/name_resolution/graph.rs:213": {
+    "src/name_resolution/graph.rs:221": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -34553,42 +34973,47 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/name_resolution/rust_populator/mod.rs:268": {
+    "src/name_resolution/rust_populator/mod.rs:249": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/name_resolution/rust_populator/mod.rs:304": {
+    "src/name_resolution/rust_populator/mod.rs:278": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/name_resolution/rust_populator/mod.rs:318": {
+    "src/name_resolution/rust_populator/mod.rs:314": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/name_resolution/rust_populator/mod.rs:335": {
+    "src/name_resolution/rust_populator/mod.rs:328": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/name_resolution/rust_populator/mod.rs:350": {
+    "src/name_resolution/rust_populator/mod.rs:345": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/name_resolution/rust_populator/mod.rs:361": {
+    "src/name_resolution/rust_populator/mod.rs:360": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/name_resolution/rust_populator/mod.rs:379": {
+    "src/name_resolution/rust_populator/mod.rs:371": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/name_resolution/rust_populator/mod.rs:402": {
+    "src/name_resolution/rust_populator/mod.rs:389": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/name_resolution/rust_populator/mod.rs:412": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -34892,6 +35317,86 @@
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
+    },
+    "src/name_resolution/scope_extent_index.rs:17": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/name_resolution/scope_extent_index.rs:23": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/name_resolution/scope_extent_index.rs:31": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "src/name_resolution/scope_extent_index.rs:50": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/name_resolution/scope_extent_index.rs:71": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/name_resolution/scope_extent_index.rs:82": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/name_resolution/scope_extent_index.rs:98": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "U-method"
+    },
+    "src/name_resolution/scope_extent_index_tests.rs:103": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/name_resolution/scope_extent_index_tests.rs:164": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/name_resolution/scope_extent_index_tests.rs:211": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/name_resolution/scope_extent_index_tests.rs:22": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/name_resolution/scope_extent_index_tests.rs:238": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/name_resolution/scope_extent_index_tests.rs:249": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/name_resolution/scope_extent_index_tests.rs:33": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "src/name_resolution/scope_extent_index_tests.rs:45": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "src/name_resolution/scope_extent_index_tests.rs:9": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
     },
     "src/name_resolution/scope_index_tests.rs:126": {
       "eligible": true,
@@ -41498,87 +42003,87 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/type_providers/go.rs:578": {
+    "src/type_providers/go.rs:580": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/type_providers/go.rs:607": {
+    "src/type_providers/go.rs:609": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:619": {
+    "src/type_providers/go.rs:621": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:625": {
+    "src/type_providers/go.rs:627": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:631": {
+    "src/type_providers/go.rs:633": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:637": {
+    "src/type_providers/go.rs:639": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:641": {
+    "src/type_providers/go.rs:643": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:645": {
+    "src/type_providers/go.rs:647": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:649": {
+    "src/type_providers/go.rs:651": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:655": {
+    "src/type_providers/go.rs:657": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:669": {
+    "src/type_providers/go.rs:671": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:685": {
+    "src/type_providers/go.rs:687": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:692": {
+    "src/type_providers/go.rs:694": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:704": {
+    "src/type_providers/go.rs:706": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:724": {
+    "src/type_providers/go.rs:726": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:771": {
+    "src/type_providers/go.rs:773": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "src/type_providers/go.rs:782": {
+    "src/type_providers/go.rs:784": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
@@ -41658,22 +42163,22 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "src/type_providers/go/signature_inputs.rs:22": {
+    "src/type_providers/go/signature_inputs.rs:24": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "src/type_providers/go/signature_inputs.rs:35": {
+    "src/type_providers/go/signature_inputs.rs:38": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/type_providers/go/signature_inputs.rs:41": {
+    "src/type_providers/go/signature_inputs.rs:42": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "src/type_providers/go/signature_inputs.rs:53": {
+    "src/type_providers/go/signature_inputs.rs:57": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
@@ -62698,32 +63203,72 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "tests/mcp/golden_transcript_test.rs:101": {
+    "tests/mcp/footprint_guard_test.rs:194": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/golden_transcript_test.rs:126": {
+    "tests/mcp/footprint_guard_test.rs:28": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-method"
+    },
+    "tests/mcp/footprint_guard_test.rs:37": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/golden_transcript_test.rs:147": {
+    "tests/mcp/footprint_guard_test.rs:58": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/golden_transcript_test.rs:41": {
+    "tests/mcp/footprint_guard_test.rs:65": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "tests/mcp/footprint_guard_test.rs:79": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/golden_transcript_test.rs:47": {
+    "tests/mcp/footprint_guard_test.rs:99": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "C-name"
+    },
+    "tests/mcp/golden_transcript_test.rs:111": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/golden_transcript_test.rs:67": {
+    "tests/mcp/golden_transcript_test.rs:136": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "tests/mcp/golden_transcript_test.rs:157": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "tests/mcp/golden_transcript_test.rs:179": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "tests/mcp/golden_transcript_test.rs:46": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "tests/mcp/golden_transcript_test.rs:57": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "tests/mcp/golden_transcript_test.rs:77": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -62748,7 +63293,7 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/idle_process_test.rs:244": {
+    "tests/mcp/idle_process_test.rs:246": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -62758,7 +63303,7 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "tests/mcp/idle_process_test.rs:267": {
+    "tests/mcp/idle_process_test.rs:269": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -63033,87 +63578,87 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:102": {
+    "tests/mcp/shim_process_test.rs:103": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "tests/mcp/shim_process_test.rs:108": {
+    "tests/mcp/shim_process_test.rs:109": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "tests/mcp/shim_process_test.rs:119": {
+    "tests/mcp/shim_process_test.rs:120": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "tests/mcp/shim_process_test.rs:126": {
+    "tests/mcp/shim_process_test.rs:127": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "tests/mcp/shim_process_test.rs:130": {
+    "tests/mcp/shim_process_test.rs:131": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "tests/mcp/shim_process_test.rs:134": {
+    "tests/mcp/shim_process_test.rs:135": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "tests/mcp/shim_process_test.rs:144": {
+    "tests/mcp/shim_process_test.rs:145": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "tests/mcp/shim_process_test.rs:159": {
+    "tests/mcp/shim_process_test.rs:160": {
       "eligible": true,
       "rule": null,
       "stratum": "U-method"
     },
-    "tests/mcp/shim_process_test.rs:178": {
+    "tests/mcp/shim_process_test.rs:179": {
       "eligible": true,
       "rule": null,
       "stratum": "C-method"
     },
-    "tests/mcp/shim_process_test.rs:183": {
+    "tests/mcp/shim_process_test.rs:184": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "tests/mcp/shim_process_test.rs:198": {
+    "tests/mcp/shim_process_test.rs:199": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:204": {
+    "tests/mcp/shim_process_test.rs:205": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:210": {
+    "tests/mcp/shim_process_test.rs:211": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:238": {
+    "tests/mcp/shim_process_test.rs:239": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:257": {
+    "tests/mcp/shim_process_test.rs:258": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
     },
-    "tests/mcp/shim_process_test.rs:264": {
+    "tests/mcp/shim_process_test.rs:265": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:298": {
+    "tests/mcp/shim_process_test.rs:299": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -63123,7 +63668,7 @@
       "rule": null,
       "stratum": "C-method"
     },
-    "tests/mcp/shim_process_test.rs:338": {
+    "tests/mcp/shim_process_test.rs:339": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -63133,7 +63678,7 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "tests/mcp/shim_process_test.rs:378": {
+    "tests/mcp/shim_process_test.rs:379": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -63143,22 +63688,22 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:432": {
+    "tests/mcp/shim_process_test.rs:433": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:450": {
+    "tests/mcp/shim_process_test.rs:451": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:466": {
+    "tests/mcp/shim_process_test.rs:467": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:514": {
+    "tests/mcp/shim_process_test.rs:515": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -63168,27 +63713,32 @@
       "rule": null,
       "stratum": "C-name"
     },
-    "tests/mcp/shim_process_test.rs:534": {
+    "tests/mcp/shim_process_test.rs:535": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:576": {
+    "tests/mcp/shim_process_test.rs:577": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:598": {
+    "tests/mcp/shim_process_test.rs:599": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:648": {
+    "tests/mcp/shim_process_test.rs:618": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/shim_process_test.rs:662": {
+    "tests/mcp/shim_process_test.rs:668": {
+      "eligible": true,
+      "rule": null,
+      "stratum": "Q-scoped"
+    },
+    "tests/mcp/shim_process_test.rs:682": {
       "eligible": true,
       "rule": null,
       "stratum": "C-name"
@@ -63213,52 +63763,52 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/smoke_test.rs:172": {
+    "tests/mcp/smoke_test.rs:173": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/smoke_test.rs:227": {
+    "tests/mcp/smoke_test.rs:228": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/smoke_test.rs:291": {
+    "tests/mcp/smoke_test.rs:292": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/smoke_test.rs:297": {
+    "tests/mcp/smoke_test.rs:298": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/smoke_test.rs:301": {
+    "tests/mcp/smoke_test.rs:302": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/smoke_test.rs:305": {
+    "tests/mcp/smoke_test.rs:306": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/smoke_test.rs:309": {
+    "tests/mcp/smoke_test.rs:310": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/smoke_test.rs:321": {
+    "tests/mcp/smoke_test.rs:322": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/smoke_test.rs:338": {
+    "tests/mcp/smoke_test.rs:339": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/smoke_test.rs:345": {
+    "tests/mcp/smoke_test.rs:346": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -63298,7 +63848,7 @@
       "rule": null,
       "stratum": "Q-scoped"
     },
-    "tests/mcp/transcript.rs:235": {
+    "tests/mcp/transcript.rs:236": {
       "eligible": true,
       "rule": null,
       "stratum": "Q-scoped"
@@ -64011,7 +64561,7 @@
     "tests/name_resolution/resolve_test.rs:55": {
       "eligible": true,
       "rule": null,
-      "stratum": "Q-scoped"
+      "stratum": "C-name"
     },
     "tests/name_resolution/resolve_test.rs:604": {
       "eligible": true,

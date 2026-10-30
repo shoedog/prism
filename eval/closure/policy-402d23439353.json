@@ -323,17 +323,17 @@
   "modules": {
     "tier_a/accounting.py": "sha256:807c4a1360d723f08329a80f8f686a112c013d3c4e80f7a6f03c7b60763e6875",
     "tier_a/adjudication.py": "sha256:a85509048d1e3520b58ee113eaef1f5464bc875ac98a87ccbe53ddfdc7170491",
-    "tier_a/admission.py": "sha256:d75094d5a1d95ddf6dcbe4b8caa78488ddb8ad3db1b2ce644d1e07614bf33bda",
+    "tier_a/admission.py": "sha256:273ba2b2e85b2d8ff81a9341630b04afd3813de77a815a59733007c30cadb438",
     "tier_a/artifacts.py": "sha256:ddb92ff3fccac0f19da751ba436fd348c08e097712979cb4bdecc52afc94fda7",
-    "tier_a/bootstrap.py": "sha256:0bef1fd0f85100da36f1c462d381876c192747f8644dd4ef7dd0aa0b94f381f8",
-    "tier_a/boundary.py": "sha256:24e63b2b0b98dca37cfd531898488b95287e5d94b9df2b754add2a856ab80a1f",
-    "tier_a/closure.py": "sha256:166050374f6feac6f5588565de88b401c434b84614c327ef1aedc48651d0ebd6",
+    "tier_a/bootstrap.py": "sha256:71f97560e936b62013ab86e594393e52a913e8b818767961eb7aff2819037e60",
+    "tier_a/boundary.py": "sha256:a68acc76551fff11e0a40166c396b820a03709c9faa69681640e87886cc5cf58",
+    "tier_a/closure.py": "sha256:e14edfd31b9a48b6bdb9708a0f3431a328ab59606c1b41754e6150f1375b0d3c",
     "tier_a/compare.py": "sha256:57708215ef24c7b680041f310e216ef01bb0272a852de1cbfd66034849097950",
     "tier_a/compare_render.py": "sha256:42ba0c376dbd3783d41c0d1b51e550e1856cabed9447cbfb5510d8a9cfb5550e",
-    "tier_a/compare_report.py": "sha256:9c2f9b22b2801103983168fdab89eff9484d81e964d08912adf4174f300874ee",
-    "tier_a/corpus.py": "sha256:3a5cc9951bff17f581a3ca1ea62c301db94dcab4202bd4e4a6a573947f72d9a9",
+    "tier_a/compare_report.py": "sha256:b60605e30c4004163bcac55ed6124deacc51fd261bba46595cf71a6c81483585",
+    "tier_a/corpus.py": "sha256:2ac84b798d9da40e4fbaf0f1a10cc2bce3034458c5b7d16d5f4f23e8c3b9c279",
     "tier_a/launch.py": "sha256:03e2d5fa8e7e2ee3885407cd3e18dade968950cb771c80233ff4f860f8f1ceb2",
-    "tier_a/lock.py": "sha256:41abd95b83fa477d89b84c3dfca2b4d148a95d02c8a2ef6a4846806ea076ce38",
+    "tier_a/lock.py": "sha256:c4628c3fc4dade630060efd42b1c76448cf1d31e65e8e8819cfe42ec50d9779a",
     "tier_a/lsp_client.py": "sha256:a37ee5dc6c48be678c52f1f2aa519c500b223897cb2fd1ad0dfc956d3c23f220",
     "tier_a/materialize.py": "sha256:4107036ea9cf0471b7a81cfd8572da48decfa180d2a445d3a0c938a08654677e",
     "tier_a/matrix.py": "sha256:0195849d9a5e1b16341d8ccfd126ccabcb5625a6f6d727332346db70bcb63330",
@@ -343,13 +343,30 @@
     "tier_a/oracles.py": "sha256:c3e09825256e35047f480778cece098cbde1b028d825bf876b38858879ef24a2",
     "tier_a/pinned.py": "sha256:7bf76644bd62a7e5dfdf92fee0a0696943bc6a790c91dba83150486d9ff24437",
     "tier_a/policy.py": "sha256:bdec54a9ea8951c9b28780106341d93dc3e84fd933d47363a2ed674aa3e520e2",
-    "tier_a/record_schema.py": "sha256:790d4f00e641c9f18a315970ab6332655c170c7576ef50e33691d634b67142de",
+    "tier_a/record_schema.py": "sha256:ff8a5a1966b1691611e215985ba4814d0b7b716653d00c6966261700e733adf8",
     "tier_a/report.py": "sha256:0a0a5537384a15fe7ab2fe0f2bccc10fd4c9c260b1e9c6689980a7b77958cff4",
-    "tier_a/runner.py": "sha256:2a972d353147e59b45e9f420ebeb5f5c7311083a47b19a8e4fa28f80408b8b34",
+    "tier_a/runner.py": "sha256:252b567d4797cf6e676177df5c086a8eb03e07452343b4ab9d65bc3aafccf825",
     "tier_a/spotcheck.py": "sha256:32d7db5179dbc01ad23a726473246e458d3b94f2dbd7a5aa76d5add3966bfd87",
     "tier_a/strata.py": "sha256:774d5f3af32b431d3097b01a8054f253ef95aba9f41f6a4202bf386ea78a9a5d",
     "tier_a/sut.py": "sha256:04b34c4bd7fc8d4615176d8e2da0736931056b6f2b658253f1f1b71b14c5c36f",
+    "tier_a/ts_syntax.cjs": "sha256:2d3f8ccd8dfc7f1a9bf25d0c8451e2ac97a6ee89dfc40799ae35b5cb87bac016",
     "tier_a/tsserver.py": "sha256:42788abc5c63f6da929c792fe6a51962c7c8c8ddbaed3c353d6cc6fdab7af737"
+  },
+  "native_manifest_predicate": {
+    "basenames": [
+      "Cargo.toml",
+      "go.mod",
+      "go.work"
+    ],
+    "path": "src/repo_loader.rs",
+    "text": "fn is_manifest_name(name: &str) -> bool {\n    matches!(name, \"Cargo.toml\" | \"go.mod\" | \"go.work\")\n}"
+  },
+  "policy_exclusions": {
+    "__init__.py": "package marker with no measurement behavior",
+    "cli.py": "argument parsing, dispatch, printing, and paths only",
+    "commands.py": "compatibility alias for unhashed command plumbing",
+    "interfaces.py": "unused protocol declarations; measurement imports concrete adapters",
+    "manifest.py": "separate interface-dispatch study not imported by Tier-A measurement"
   },
   "sampling": {
     "full_per_stratum": 8,
