@@ -91,11 +91,27 @@ def test_lock_bound_instances_use_prisms_default_nav_store(tmp_path, monkeypatch
         assert sut.lock_bound  # pinned.py probe-error accounting keys on this, not on the cache
 
 
-def test_prism_corpus_query_timeout_fits_full_corpus_call_hierarchy():
+def test_prism_corpus_budgets_fit_full_corpus_with_all_features():
     import tomllib
     config = tomllib.loads((Path(__file__).parents[1] / "corpora.toml").read_text())
     assert config["corpus"]["prism"]["query_timeout_s"] == 30.0
+    assert config["corpus"]["prism"]["startup_timeout_s"] == 300.0
+    assert config["corpus"]["prism"]["oracle_budget_s"] == 3600.0
     assert config["defaults"]["query_timeout_s"] == 10.0  # main's default for other corpora
+
+
+def test_prism_corpus_population_is_only_cargo_target_sources():
+    """Every Rust file in the prism corpus population belongs to a cargo target of the
+    root package (or its vendored grammar crate); fixture crates and doc probes outside
+    the workspace are excluded because rust-analyzer cannot answer for them."""
+    import tomllib
+    from tier_a.corpus import universe
+    repo = Path(__file__).parents[2]
+    cfg = tomllib.loads((repo / "eval/corpora.toml").read_text())["corpus"]["prism"]
+    population = universe(str(repo), cfg["lang"], cfg["excludes"], tracked_only=True)
+    allowed = ("src/", "tests/", "benches/", "examples/", "vendor/")
+    stray = sorted(p for p in population if not (p == "build.rs" or p.startswith(allowed)))
+    assert stray == []
 
 
 def test_extract_functions_inventory_records():
