@@ -626,15 +626,20 @@ def run_corpus(
         if manifest_files is not None
         else corpus_sha(cfg["path"])
     )
-    if corpus_identity is not None or (
-        getattr(args, "quick", False) and getattr(args, "live", False)
-    ):
+    if corpus_identity is not None:
         pinned_ok, pinned_reason = True, ""
     else:
         pinned_ok, pinned_reason = check_pinned(
             cfg, sha, getattr(args, "allow_drift", False)
         )
-    initial_invalid_reasons = ([] if pinned_ok else [pinned_reason]) + source_drift
+    live_tree = bool(getattr(args, "live", False)) or (
+        name == "prism" and corpus_identity is None and manifest_files is None
+    )
+    initial_invalid_reasons = (
+        ([] if pinned_ok else [pinned_reason])
+        + source_drift
+        + (["live_corpus"] if live_tree else [])
+    )
     untracked = (
         corpus_identity.untracked
         if corpus_identity is not None
@@ -696,7 +701,7 @@ def run_corpus(
             "oracle": cfg["oracle"],
             "oracle_error_rate": 0.0,
             "sut_error_rate": 0.0,
-            "baseline_invalid": not pinned_ok,
+            "baseline_invalid": bool(initial_invalid_reasons),
             "invalid_reasons": initial_invalid_reasons,
             "stale_adjudications": 0,
             "wall_s": {},
@@ -704,6 +709,8 @@ def run_corpus(
         "probes": {"_corpus": name},
         "failures": {},
     }
+    if live_tree:
+        run["meta"]["corpus_mode"] = "live"
     if env is not None:
         run["meta"]["env_values"] = dict(env)
     if not compute_metrics:

@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -20,6 +21,7 @@ from tier_a.closure import manifest_digest, raw_digest, read_tsv, write_tsv
 from tier_a.commands import preflight_quick
 from tier_a.lock import corpus_check, integrity_check, save_lock
 from tier_a.materialize import materialize
+from tier_a.model import FunctionDef, Location
 from tier_a.sut import PrismCli
 
 
@@ -249,7 +251,7 @@ def test_quick_run_id_and_sut_archive_name_both_output_pairs(tmp_path, monkeypat
     assert report.with_suffix(".md").exists()
 
 
-def test_live_quick_drift_reports_only_live_corpus(tmp_path, monkeypatch):
+def test_live_quick_drift_reports_pin_drift_and_live_corpus(tmp_path, monkeypatch):
     lock, ev, repo = anchored_repo(tmp_path)
     monkeypatch.setattr(cli, "EVAL_DIR", ev)
     monkeypatch.setattr(cli, "PrismCli", FakeSut)
@@ -276,10 +278,125 @@ def test_live_quick_drift_reports_only_live_corpus(tmp_path, monkeypatch):
         "callees:src/a.rs:1": "inventory_miss",
     }
     assert "live_corpus" in run["meta"]["invalid_reasons"]
-    assert not any(
+    assert any(
         reason.startswith("corpus_sha_drift")
         for reason in run["meta"]["invalid_reasons"]
     )
+
+
+@pytest.mark.parametrize(
+    ("name", "quick", "live", "pinned_sha", "expected_reasons", "expected_mode"),
+    [
+        (
+            "ruff",
+            True,
+            True,
+            "a" * 12,
+            ["corpus_sha_drift: bbbbbbbbbbbb != pinned aaaaaaaaaaaa", "live_corpus"],
+            "live",
+        ),
+        (
+            "ruff",
+            False,
+            False,
+            "a" * 12,
+            ["corpus_sha_drift: bbbbbbbbbbbb != pinned aaaaaaaaaaaa"],
+            None,
+        ),
+        ("prism", False, False, "b" * 12, ["live_corpus"], "live"),
+    ],
+)
+def test_ordinary_live_tree_runs_keep_pin_validation_and_invalidate(
+    tmp_path,
+    monkeypatch,
+    name,
+    quick,
+    live,
+    pinned_sha,
+    expected_reasons,
+    expected_mode,
+):
+    seeds = [
+        FunctionDef(
+            f"f{index}",
+            "function",
+            None,
+            Location("src/lib.rs", index + 1, index + 1),
+            index + 1,
+        )
+        for index in range(8)
+    ]
+
+    class Oracle(FakeOracle):
+        def document_symbols(self, _file):
+            return seeds
+
+    class Sut(FakeSut):
+        def inventory(self, _root):
+            return seeds
+
+    cfg = {
+        "path": str(tmp_path),
+        "lang": "rust",
+        "oracle": "rust-analyzer",
+        "pinned_sha": pinned_sha,
+    }
+    defaults = {
+        "seed": 42,
+        "per_stratum": 8,
+        "oracle_error_floor": {"rust": 0.10},
+        "sut_error_floor": 0.05,
+    }
+    args = SimpleNamespace(
+        sut_bin=None,
+        allow_stale_sut=True,
+        quick=quick,
+        live=live,
+        date="review",
+        sample=None,
+    )
+    monkeypatch.setattr(cli, "EVAL_DIR", tmp_path / "eval")
+    monkeypatch.setattr(cli, "PrismCli", lambda *_a, **_k: Sut())
+    monkeypatch.setattr(cli, "make_oracle", lambda *_a, **_k: Oracle())
+    monkeypatch.setattr(cli, "corpus_sha", lambda _path: "b" * 12)
+    monkeypatch.setattr(cli, "corpus_dirty", lambda _path: False)
+    monkeypatch.setattr(cli, "untracked_sources", lambda *_a: [])
+    monkeypatch.setattr(cli, "universe", lambda *_a, **_k: ["src/lib.rs"])
+    monkeypatch.setattr(commands, "_harness_sha", lambda _ev: "c" * 40)
+
+    run = cli.run_corpus(name, cfg, defaults, args)
+
+    assert run["meta"]["baseline_invalid"] is True
+    assert run["meta"]["invalid_reasons"] == expected_reasons
+    assert run["meta"].get("corpus_mode") == expected_mode
+
+
+def test_lock_bound_sample_override_refuses_before_execution(tmp_path, monkeypatch):
+    lock, ev, _repo = anchored_repo(tmp_path)
+    args = SimpleNamespace(quick=True, sample=1)
+    called = False
+
+    def execute(*_args, **_kwargs):
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr(cli, "run_corpus", execute)
+
+    with pytest.raises(commands.BoundaryViolation) as caught:
+        commands._validate_lock_sample(lock, args)
+
+    assert caught.value.reasons == ["sample_override_mismatch: quick: 1 != 3"]
+    assert called is False
+
+
+def test_lockless_quick_is_a_named_refusal(tmp_path):
+    ev = tmp_path / "eval"
+    ev.mkdir()
+
+    with pytest.raises(commands.BoundaryViolation) as caught:
+        preflight_quick(ev, live=False)
+
+    assert caught.value.reasons == ["no_lock"]
 
 
 def test_published_anchor_at_descendant_head_admits_and_reports_execution_head(
