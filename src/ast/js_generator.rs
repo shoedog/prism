@@ -4,7 +4,7 @@ use tree_sitter::Node;
 
 impl ParsedFile {
     pub(super) fn js_ts_generator_formals_refused(&self, owner: &Node<'_>) -> bool {
-        if owner.kind() != "generator_function" {
+        if !self.js_ts_binding_enabled() || owner.kind() != "generator_function" {
             return false;
         }
         let Some(params) = self.parameter_binding_region(owner) else {

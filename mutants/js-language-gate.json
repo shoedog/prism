@@ -1,0 +1,38 @@
+{
+  "lane": "JS-family binding admission",
+  "lib_test_prefixes": [
+    "ast::js_language_gate::"
+  ],
+  "mutations": {
+    "JG-admit-all": [
+      "src/ast/js_language_gate.rs",
+      "let enabled = self.language.is_js_family();",
+      "let enabled = true;",
+      "ast::js_language_gate::tests::non_js_helpers_are_neutral"
+    ],
+    "JG-refuse-all": [
+      "src/ast/js_language_gate.rs",
+      "let enabled = self.language.is_js_family();",
+      "let enabled = false;",
+      "ast::js_language_gate::tests::js_fixtures_match_legacy"
+    ],
+    "JG-drop-JavaScript": [
+      "src/languages/mod.rs",
+      "matches!(self, Self::JavaScript | Self::TypeScript | Self::Tsx)",
+      "matches!(self, Self::TypeScript | Self::Tsx)",
+      "ast::js_language_gate::tests::family_and_extensions"
+    ],
+    "JG-drop-TypeScript": [
+      "src/languages/mod.rs",
+      "matches!(self, Self::JavaScript | Self::TypeScript | Self::Tsx)",
+      "matches!(self, Self::JavaScript | Self::Tsx)",
+      "ast::js_language_gate::tests::family_and_extensions"
+    ],
+    "JG-drop-Tsx": [
+      "src/languages/mod.rs",
+      "matches!(self, Self::JavaScript | Self::TypeScript | Self::Tsx)",
+      "matches!(self, Self::JavaScript | Self::TypeScript)",
+      "ast::js_language_gate::tests::family_and_extensions"
+    ]
+  }
+}

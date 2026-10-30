@@ -234,6 +234,9 @@ impl ParsedFile {
     }
 
     pub(super) fn js_ts_binding_scope_at(&self, byte: usize, name: &str) -> Binding {
+        if !self.js_ts_binding_enabled() {
+            return None;
+        }
         match cached(
             self,
             name,
@@ -246,6 +249,9 @@ impl ParsedFile {
     }
 
     pub(crate) fn js_ts_seam_binding(&self, owner: &Node<'_>, name: &str) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         boolean(cached(
             self,
             name,

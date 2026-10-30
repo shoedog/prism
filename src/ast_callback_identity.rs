@@ -219,6 +219,9 @@ impl ParsedFile {
         start_byte: usize,
         end_byte: usize,
     ) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         if start_byte < func_node.start_byte() || func_node.end_byte() < end_byte {
             return false;
         }
@@ -684,6 +687,9 @@ impl ParsedFile {
         name: &str,
         byte: usize,
     ) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         if self.js_ts_binding_scope_at(byte, name).map(|s| s.0) != Some(owner.id()) {
             return false;
         }
@@ -1028,6 +1034,9 @@ impl ParsedFile {
     /// names, method names). Shorthand `{x}` stays a reference. Applied to
     /// synthetic passes only; legacy passes keep base parity (SPEC-prB D9).
     pub(crate) fn js_ts_span_is_non_reference(&self, start_byte: usize, end_byte: usize) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         self.tree
             .root_node()
             .descendant_for_byte_range(start_byte, end_byte)
@@ -1068,6 +1077,9 @@ impl ParsedFile {
     /// (`return x = f() || x` collects the LHS `x` too) must not become the
     /// line's preferred Use when the same line also reads `x`.
     pub(crate) fn js_ts_span_is_not_a_read(&self, start_byte: usize, end_byte: usize) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         self.tree
             .root_node()
             .descendant_for_byte_range(start_byte, end_byte)
@@ -1085,6 +1097,9 @@ impl ParsedFile {
         start_byte: usize,
         end_byte: usize,
     ) -> Option<String> {
+        if !self.js_ts_binding_enabled() {
+            return None;
+        }
         let ident = self
             .tree
             .root_node()
@@ -1149,6 +1164,9 @@ impl ParsedFile {
     /// PR-B (E4 must not grow in new passes): an identifier occurrence that
     /// only introduces a binding or is only written is not a read.
     pub(crate) fn js_ts_identifier_is_not_a_read(&self, ident: Node<'_>) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         if self.js_ts_node_is_non_reference(ident) || self.language.is_in_erased_type_context(ident)
         {
             return true;
@@ -1233,6 +1251,9 @@ impl ParsedFile {
         name: &str,
         def_start: usize,
     ) -> Option<(usize, usize)> {
+        if !self.js_ts_binding_enabled() {
+            return None;
+        }
         if self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {
             return None;
         }
@@ -1255,6 +1276,9 @@ impl ParsedFile {
         reference: &Node<'_>,
         owner: &Node<'_>,
     ) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         let mut current = reference.parent();
         while let Some(scope) = current {
             if scope.id() == owner.id() {
@@ -1297,6 +1321,9 @@ impl ParsedFile {
         end: usize,
         owner: &Node<'_>,
     ) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         self.tree
             .root_node()
             .descendant_for_byte_range(start, end)
@@ -1339,6 +1366,9 @@ impl ParsedFile {
     /// Includes captured references in callbacks created inside a with body.
     /// The with expression itself evaluates in the enclosing environment.
     pub(crate) fn js_ts_span_in_with_body(&self, start: usize, end: usize) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         self.tree
             .root_node()
             .descendant_for_byte_range(start, end)
@@ -1346,6 +1376,9 @@ impl ParsedFile {
     }
 
     pub(super) fn js_ts_reference_in_with_body(&self, reference: Node<'_>) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         let byte = reference.start_byte();
         let mut current = reference.parent();
         while let Some(node) = current {
