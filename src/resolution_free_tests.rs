@@ -383,13 +383,12 @@ fn go_same_directory_mixed_pool_does_not_promote() {
         ("a/lib.py", "def helper():\n    pass\n"),
     ]);
     let result = outcome(&cg, "a/caller.go", "helper");
-    assert!(
-        result
-            .resolved
-            .iter()
-            .all(|r| r.confidence == ResolutionConfidence::NameOnly),
-        "{result:?}"
+    assert_eq!(result.resolved.len(), 1, "{result:?}");
+    assert_eq!(
+        result.resolved[0].confidence,
+        ResolutionConfidence::NameOnly
     );
+    assert_eq!(result.resolved[0].target.file, "a/lib.go");
 }
 
 #[test]
