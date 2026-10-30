@@ -76,7 +76,7 @@
       "src/ast/singleton_rvalue_spans.rs",
       "if self.is_augmented_assignment(&node) {",
       "if false {",
-      "ast::singleton_rvalue_spans::tests::manual_singletons_match_frozen_manual_walk"
+      "cpg::reaching::scope::use_byte_tests::singleton_origin_and_order"
     ],
     "UB15-reverse-span-order": [
       "src/ast/singleton_rvalue_spans.rs",

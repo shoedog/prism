@@ -319,10 +319,10 @@ fn batches_are_per_invocation_not_per_line_or_path() {
 
 fn fixtures() -> Vec<(Language, &'static str)> {
     vec![
-        (Language::Go, "package p\nfunc f(x int, obj T) int {\ny := x\nconsume(x, x)\nconsume(obj.a, obj.b)\nconsume(\nconsume(x))\nfallback := 1\nreturn y\n}\n"),
-        (Language::Python, "moduleOnly = 1\nconsume(moduleOnly)\ndef f(x, obj):\n    y = x\n    consume(x, x)\n    consume(obj.a, obj.b)\n    consume(\n        consume(x))\n    fallback = 1\n    return y\n"),
+        (Language::Go, "package p\nfunc f(x int, obj T) int {\ny := x\nconsume(x, x)\nconsume(obj.a, obj.b)\nconsume(\nconsume(x))\nx += x\nfallback := 1\nreturn y\n}\n"),
+        (Language::Python, "moduleOnly = 1\nconsume(moduleOnly)\ndef f(x, obj):\n    y = x\n    consume(x, x)\n    consume(obj.a, obj.b)\n    consume(\n        consume(x))\n    x += x\n    fallback = 1\n    return y\n"),
         (Language::JavaScript, "let moduleOnly=1;\nconsume(moduleOnly);\nfunction f(x, obj) { const inner = () => {\nconsume(x);\n};\nlet y=x;\nconsume(x,x);\nconsume(obj.a,obj.b);\nconsume(\nconsume(x));\nlet fallback=1;\nreturn y;\n}\n"),
-        (Language::TypeScript, "let moduleOnly=1;\nconsume(moduleOnly);\nfunction f(x: number, obj: T) { const inner = () => {\nconsume(x);\n};\nlet y=x;\nconsume(x,x);\nconsume(obj.a,obj.b);\nconsume(\nconsume(x));\nlet fallback=1;\nreturn y;\n}\n"),
+        (Language::TypeScript, "let moduleOnly=1;\nconsume(moduleOnly);\nfunction f(x: number, obj: T) { const inner = () => {\nconsume(x);\n};\nlet y=x;\nconsume(x,x);\nconsume(obj.a,obj.b);\nconsume(\nconsume(x));\nx += x;\nlet fallback=1;\nreturn y;\n}\n"),
         (Language::Rust, "fn f(x: i32, obj: T) -> i32 {\nlet y=x;\nconsume(x,x);\nconsume(obj.a,obj.b);\nconsume(\nconsume(x));\nlet fallback=1;\nreturn y;\n}\n"),
         // Exercise the language with no Returns query too.
         (Language::Bash, "f() {\nx=$y\necho $x $x\n}\n"),
