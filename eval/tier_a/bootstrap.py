@@ -23,7 +23,8 @@ from .closure import sut_inputs_manifest, write_tsv
 from .corpus import load_snapshot, save_snapshot, universe
 from .lock import IDENTITY_KEYS, Lock, load_lock
 from .lock import integrity_check, lock_identities
-from .lock import report_bindable, save_lock
+from .lock import save_lock
+from .record_schema import validate_run_record
 from .report import render_markdown
 from .sut import PrismCli, verified_binary_identity
 
@@ -390,13 +391,9 @@ def publish_anchor_v1(
     previous_paths: set[Path] | None = None,
 ) -> Lock:
     meta = run.get("meta", {})
-    if meta.get("admitted") is not True:
-        raise ValueError("not publishable: not admitted")
-    if meta.get("baseline_invalid") is not False:
-        raise ValueError("not publishable: baseline_invalid")
-    missing = report_bindable(meta)
-    if missing:
-        raise ValueError(f"not bindable: {','.join(missing)}")
+    record_invalid = validate_run_record(run, purpose="publication")
+    if record_invalid:
+        raise ValueError(f"not publishable: record_invalid: {','.join(record_invalid)}")
     expected = lock_identities(cand.lock)
     mismatches = [key for key in IDENTITY_KEYS if meta[key] != expected[key]]
     if mismatches:

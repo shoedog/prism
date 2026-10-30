@@ -338,10 +338,18 @@ def test_matrix_only_dfg_launcher_uses_exact_scrubbed_env(tmp_path, monkeypatch)
     )
     monkeypatch.setattr(cli, "EVAL_DIR", ev)
     monkeypatch.setattr(cli, "PrismCli", FakeSut)
+    real_run = subprocess.run
+
+    def capture_matrix_run(cmd, **kwargs):
+        if Path(cmd[0]).name == "git":
+            return real_run(cmd, **kwargs)
+        seen.append(kwargs.get("env"))
+        return next(completed)
+
     monkeypatch.setattr(
         matrix.subprocess,
         "run",
-        lambda cmd, **kw: seen.append(kw.get("env")) or next(completed),
+        capture_matrix_run,
     )
     monkeypatch.setattr(matrix, "_dfg_expectation_matches", lambda *args: True)
     monkeypatch.setattr(

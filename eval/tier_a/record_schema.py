@@ -2,13 +2,20 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 
 from .launch import PROTOCOL
-from .policy import ORACLE_ANSWER_STATUSES, PROBE_STATUS_VOCABULARY
+from .strata import STRATA
 
 
 _SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
+ORACLE_ANSWER_STATUSES = frozenset({"ok", "inventory_miss", "sut_error"})
+PROBE_STATUS_VOCABULARY = ORACLE_ANSWER_STATUSES | {
+    "oracle_error",
+    "oracle_timeout",
+    "seed_unaddressable",
+}
 
 
 def _sha(value) -> bool:
@@ -74,16 +81,69 @@ def _list(value) -> bool:
 def _site_list(value) -> bool:
     return isinstance(value, list) and all(
         isinstance(site, list)
-        and len(site) >= 3
+        and len(site) in {3, 4}
         and _nonempty_string(site[0])
         and _nonnegative_int(site[1])
         and _nonnegative_int(site[2])
+        and (
+            len(site) == 3
+            or (
+                isinstance(site[3], dict)
+                and (
+                    "resolution_kind" not in site[3]
+                    or site[3]["resolution_kind"] is None
+                    or _nonempty_string(site[3]["resolution_kind"])
+                )
+                and (
+                    "dispatch_kind" not in site[3]
+                    or site[3]["dispatch_kind"] is None
+                    or _nonempty_string(site[3]["dispatch_kind"])
+                )
+                and (
+                    "score" not in site[3]
+                    or site[3]["score"] is None
+                    or (
+                        isinstance(site[3]["score"], (int, float))
+                        and not isinstance(site[3]["score"], bool)
+                    )
+                )
+            )
+        )
         for site in value
     )
 
 
 def _function_list(value) -> bool:
-    return isinstance(value, list) and all(isinstance(row, list) for row in value)
+    return isinstance(value, list) and all(
+        isinstance(row, list)
+        and len(row) == 2
+        and all(_nonempty_string(item) for item in row)
+        for row in value
+    )
+
+
+def _string_values_map(value) -> bool:
+    return isinstance(value, dict) and all(
+        _nonempty_string(key) and _nonempty_string(item)
+        for key, item in value.items()
+    )
+
+
+_PINNED_OUTCOMES = {
+    "ok",
+    "flip_candidate",
+    "known_fail",
+    "regression",
+    "missing",
+    "unsupported_expected",
+    "seed_missing",
+    "error",
+    "sut_error",
+    "sut_timeout",
+    "oracle_error",
+    "oracle_timeout",
+}
+_MATRIX_OUTCOMES = {"ok", "regression", "expected_gap", "flip_candidate"}
 
 
 _COMMON_IDENTITY_SCHEMA = {
@@ -177,6 +237,7 @@ def record_schema(record: dict) -> dict:
             "admitted": _true,
             "baseline_invalid": _boolean,
             "invalid_reasons": _string_list,
+            "sample_per_stratum": _nonnegative_int,
             "launch": {
                 "isolated": _true,
                 "prefix_fresh": _true,
@@ -185,7 +246,15 @@ def record_schema(record: dict) -> dict:
         },
         "probes": _mapping,
         "probe_status": _mapping,
-        "site_fingerprints": _mapping,
+        "site_fingerprints": _string_values_map,
+        "pinned": _list,
+        "matrix": _list,
+        "failures": _mapping,
+        "m1": _mapping,
+        "m2": _mapping,
+        "m3": _mapping,
+        "oracle_filtered": _list,
+        "pending": _list,
     }
 
 
@@ -228,7 +297,12 @@ def required_record_leaf_paths(record: dict) -> list[tuple]:
             for stratum in sorted(strata):
                 paths.extend(
                     ("probes", "_strata", stratum, field)
-                    for field in ("eligible_symbols", "eligible_probes", "target")
+                    for field in (
+                        "population_symbols",
+                        "eligible_symbols",
+                        "eligible_probes",
+                        "target",
+                    )
                 )
         for pid in sorted(key for key in probes if not key.startswith("_")):
             status = statuses.get(pid) if isinstance(statuses, dict) else None
@@ -236,6 +310,21 @@ def required_record_leaf_paths(record: dict) -> list[tuple]:
                 ("probes", pid, field) for field in _probe_schema(status)
             )
             paths.append(("probe_status", pid))
+    pinned = record.get("pinned", [])
+    if isinstance(pinned, list):
+        for index, row in enumerate(pinned):
+            if isinstance(row, dict):
+                paths.extend(("pinned", index, field) for field in ("id", "outcome"))
+                if row.get("error_side") != "oracle":
+                    paths.append(("pinned", index, "oracle_sites"))
+    matrix = record.get("matrix", [])
+    if isinstance(matrix, list):
+        for index, row in enumerate(matrix):
+            if isinstance(row, dict):
+                paths.extend(
+                    ("matrix", index, field)
+                    for field in ("id", "language", "capability", "outcome")
+                )
     return paths
 
 
@@ -258,7 +347,9 @@ def _invalid_schema_paths(value, schema, path=()) -> list[tuple]:
     return invalid
 
 
-def record_refusals(record: dict) -> list[str]:
+def validate_run_record(record: dict, *, purpose: str) -> list[str]:
+    if purpose not in {"admission", "compare", "lock", "publication"}:
+        raise ValueError(f"unknown record validation purpose: {purpose}")
     invalid = _invalid_schema_paths(record, record_schema(record))
     refusals = [".".join(map(str, path)) for path in invalid]
     if not isinstance(record, dict):
@@ -270,6 +361,10 @@ def record_refusals(record: dict) -> list[str]:
         if isinstance(invalid_flag, bool) and isinstance(reasons, list):
             if invalid_flag != bool(reasons):
                 refusals.append("meta.invalid_reasons: inconsistent")
+        if purpose in {"compare", "lock", "publication"} and invalid_flag is True:
+            refusals.append(
+                "meta.baseline_invalid: " + ", ".join(map(str, reasons or ["unspecified"]))
+            )
     probes = record.get("probes")
     statuses = record.get("probe_status")
     if not isinstance(probes, dict) or not isinstance(statuses, dict):
@@ -285,6 +380,8 @@ def record_refusals(record: dict) -> list[str]:
         probe = probes.get(pid)
         for path in _invalid_schema_paths(probe, _probe_schema(status), ("probes", pid)):
             refusals.append(".".join(map(str, path)))
+        if isinstance(probe, dict) and probe.get("outcome") != status:
+            refusals.append(f"probes.{pid}.outcome_status_mismatch")
     strata = probes.get("_strata")
     if not _nonempty_string(probes.get("_corpus")):
         refusals.append("probes._corpus")
@@ -292,6 +389,7 @@ def record_refusals(record: dict) -> list[str]:
         refusals.append("probes._strata")
     else:
         stratum_schema = {
+            "population_symbols": _nonnegative_int,
             "eligible_symbols": _nonnegative_int,
             "eligible_probes": _nonnegative_int,
             "target": _nonnegative_int,
@@ -301,4 +399,97 @@ def record_refusals(record: dict) -> list[str]:
                 row, stratum_schema, ("probes", "_strata", stratum)
             ):
                 refusals.append(".".join(map(str, path)))
+        if set(strata) != set(STRATA):
+            refusals.append("probes._strata: stratum_set_mismatch")
+        counts = Counter(
+            probe.get("stratum")
+            for pid, probe in probes.items()
+            if not pid.startswith("_") and isinstance(probe, dict)
+        )
+        sample_per_stratum = meta.get("sample_per_stratum") if isinstance(meta, dict) else None
+        for stratum, row in strata.items():
+            if not isinstance(row, dict):
+                continue
+            eligible_symbols = row.get("eligible_symbols")
+            eligible_probes = row.get("eligible_probes")
+            target = row.get("target")
+            if (
+                _nonnegative_int(eligible_symbols)
+                and _nonnegative_int(eligible_probes)
+                and (
+                    eligible_probes != eligible_symbols * 2
+                    or counts[stratum] != eligible_probes
+                )
+            ):
+                refusals.append(f"probes._strata.{stratum}: count_mismatch")
+            if _nonnegative_int(sample_per_stratum) and target != sample_per_stratum:
+                refusals.append(f"probes._strata.{stratum}: target_mismatch")
+
+    pinned = record.get("pinned")
+    if isinstance(pinned, list):
+        pinned_ids = []
+        for index, row in enumerate(pinned):
+            prefix = f"pinned.{index}"
+            if not isinstance(row, dict):
+                refusals.append(prefix)
+                continue
+            pid = row.get("id")
+            outcome = row.get("outcome")
+            if not _nonempty_string(pid):
+                refusals.append(f"{prefix}.id")
+            else:
+                pinned_ids.append(pid)
+            if outcome not in _PINNED_OUTCOMES:
+                refusals.append(f"{prefix}.outcome")
+            error_side = row.get("error_side")
+            if error_side is not None and error_side not in {"oracle", "sut"}:
+                refusals.append(f"{prefix}.error_side")
+            if error_side != "oracle" and not _site_list(row.get("oracle_sites")):
+                refusals.append(f"{prefix}.oracle_sites")
+        if len(pinned_ids) != len(set(pinned_ids)):
+            refusals.append("pinned: duplicate_ids")
+
+    matrix = record.get("matrix")
+    if isinstance(matrix, list):
+        matrix_ids = []
+        for index, row in enumerate(matrix):
+            prefix = f"matrix.{index}"
+            if not isinstance(row, dict):
+                refusals.append(prefix)
+                continue
+            for field in ("id", "language", "capability"):
+                if not _nonempty_string(row.get(field)):
+                    refusals.append(f"{prefix}.{field}")
+            if row.get("outcome") not in _MATRIX_OUTCOMES:
+                refusals.append(f"{prefix}.outcome")
+            if _nonempty_string(row.get("id")):
+                matrix_ids.append(row["id"])
+        if len(matrix_ids) != len(set(matrix_ids)):
+            refusals.append("matrix: duplicate_ids")
     return sorted(set(refusals))
+
+
+def record_refusals(record: dict) -> list[str]:
+    """Compatibility wrapper; new consumers call validate_run_record directly."""
+    return validate_run_record(record, purpose="admission")
+
+
+def schema_covers_path(record: dict, path: tuple) -> bool:
+    """Return whether an accessed record path is constrained by this schema."""
+    if not path:
+        return False
+    required = set(required_record_leaf_paths(record))
+    if any(
+        path[: len(leaf)] == leaf or leaf[: len(path)] == path
+        for leaf in required
+    ):
+        return True
+    if path[0] in {"failures", "m1", "m2", "m3", "oracle_filtered", "pending"}:
+        return len(path) == 1
+    if path[0] == "site_fingerprints":
+        return len(path) <= 2
+    if path[0] == "pinned" and len(path) >= 3:
+        return path[2] in {"id", "outcome", "error_side", "oracle_sites"}
+    if path[0] == "matrix" and len(path) >= 3:
+        return path[2] in {"id", "language", "capability", "name", "outcome"}
+    return False

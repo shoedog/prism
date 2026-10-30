@@ -21,6 +21,7 @@ from .closure import (
     read_tsv,
 )
 from .corpus import EXTENSIONS, load_snapshot
+from .record_schema import validate_run_record
 
 
 IDENTITY_KEYS = (
@@ -241,13 +242,14 @@ def integrity_check(
             reasons.append("baseline_report_digest_moved")
         else:
             try:
-                meta = json.loads(path.read_text())["meta"]
-                missing = report_bindable(meta)
-                if missing:
+                record = json.loads(path.read_text())
+                record_invalid = validate_run_record(record, purpose="lock")
+                if record_invalid:
                     reasons.append(
-                        f"baseline_report_missing_identities: {','.join(missing)}"
+                        "baseline_report_record_invalid: " + ",".join(record_invalid)
                     )
                 else:
+                    meta = record["meta"]
                     identities = lock_identities(lock)
                     if any(meta[key] != value for key, value in identities.items()):
                         reasons.append("baseline_report_identity_mismatch")

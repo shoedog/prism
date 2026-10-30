@@ -225,7 +225,10 @@ def test_bootstrap_refuses_identity_inequality_and_publishes_nothing(tmp_path, k
     run = fake_run({**ids, key: mismatch})
     with pytest.raises(ValueError) as exc:
         publish_anchor_v1(cand, run, *OUT(ev, tmp_path))
-    assert str(exc.value) == f"identity mismatch: {key}"
+    if key == "data":
+        assert str(exc.value).startswith("not publishable: record_invalid:")
+    else:
+        assert str(exc.value) == f"identity mismatch: {key}"
     assert not (ev / "tier-a.lock.toml").exists() and not any(
         p for p in (ev / "closure").iterdir() if not p.name.startswith(".staging")
     )
@@ -477,7 +480,7 @@ def test_bootstrap_refuses_report_without_identities(tmp_path):
             },
             *OUT(ev, tmp_path),
         )
-    assert str(exc.value) == f"not bindable: {','.join(IDENTITY_KEYS)}"
+    assert str(exc.value).startswith("not publishable: record_invalid:")
 
 
 def test_bootstrap_refuses_unadmitted_or_invalid_runs_with_matching_identities(
@@ -493,12 +496,14 @@ def test_bootstrap_refuses_unadmitted_or_invalid_runs_with_matching_identities(
     ]
     with pytest.raises(ValueError) as exc:
         publish_anchor_v1(cand, bad1, *OUT(ev, tmp_path))
-    assert str(exc.value) == "not publishable: baseline_invalid"
+    assert str(exc.value).startswith(
+        "not publishable: record_invalid: meta.baseline_invalid:"
+    )
     bad2 = fake_run(ids)
     bad2["meta"]["admitted"] = False
     with pytest.raises(ValueError) as exc:
         publish_anchor_v1(cand, bad2, *OUT(ev, tmp_path))
-    assert str(exc.value) == "not publishable: not admitted"
+    assert str(exc.value) == "not publishable: record_invalid: meta.admitted"
     assert not (ev / "tier-a.lock.toml").exists()
 
 
@@ -586,7 +591,7 @@ def _install_end_to_end_bootstrap_doubles(monkeypatch, ev, root):
     monkeypatch.setenv("TIER_A_ROOT", str(root))
     monkeypatch.setattr(cli, "make_oracle", lambda *_a, **_k: EndToEndOracle())
     monkeypatch.setattr(cli, "run_matrix", lambda *_a, **_k: [])
-    monkeypatch.setattr(cli.pinned_mod, "run_pinned", lambda *_a, **_k: {})
+    monkeypatch.setattr(cli.pinned_mod, "run_pinned", lambda *_a, **_k: [])
     monkeypatch.setattr(PrismCli, "from_verified", classmethod(from_verified))
 
 

@@ -6,12 +6,11 @@ from collections import Counter
 
 from .adjudication import Adjudication
 from .compare import match_oracle_sites
-from .launch import launch_refusal_reason
 from .policy import ORACLE_ANSWER_STATUSES, SCORED_PROBE_STATUSES
 from .record_schema import (
     identity_refusals,
-    record_refusals,
     required_identity_leaf_paths,
+    validate_run_record,
 )
 from .strata import STRATA
 
@@ -419,6 +418,18 @@ def _baseline_refusals(base_meta: dict, cand_meta: dict) -> list[str]:
     return refusals
 
 
+def _identity_validation_reason(meta: dict, reason: str) -> str | None:
+    path = reason.partition(":")[0]
+    if not path.startswith("meta."):
+        return None
+    relative = path.removeprefix("meta.")
+    identity_paths = {
+        ".".join(map(str, identity_path))
+        for identity_path in required_identity_leaf_paths(meta)
+    }
+    return relative if relative in identity_paths else None
+
+
 def compare_runs(
     base_run: dict,
     cand_run: dict,
@@ -431,35 +442,31 @@ def compare_runs(
     cand_meta = cand_run.get("meta", {})
     report = _empty_report(base_run, cand_run, policy)
 
-    launch_refusals = []
-    for side, meta in (("base", base_meta), ("candidate", cand_meta)):
-        reason = launch_refusal_reason(meta.get("launch"))
-        if reason is not None:
-            launch_refusals.append(f"{side}: {reason}")
-    if launch_refusals:
-        report["verdict"] = f"NOT_COMPARABLE(launch_invalid: {', '.join(launch_refusals)})"
-        return report
-
-    invalid_identities = _invalid_identities("base", base_meta)
-    invalid_identities.extend(_invalid_identities("candidate", cand_meta))
-    if invalid_identities:
-        report["verdict"] = (
-            f"NOT_COMPARABLE(identity_invalid: {', '.join(invalid_identities)})"
-        )
-        return report
-
-    if base_meta.get("admitted") is not True or cand_meta.get("admitted") is not True:
-        report["verdict"] = "NOT_COMPARABLE(admitted)"
-        return report
-
-    invalid_records = [f"base.{reason}" for reason in record_refusals(base_run)]
-    invalid_records.extend(
-        f"candidate.{reason}" for reason in record_refusals(cand_run)
-    )
+    validation = {
+        "base": validate_run_record(base_run, purpose="compare"),
+        "candidate": validate_run_record(cand_run, purpose="compare"),
+    }
+    invalid_records = [
+        f"{side}.{reason}"
+        for side, reasons in validation.items()
+        for reason in reasons
+    ]
     if invalid_records:
-        report["verdict"] = (
-            f"NOT_COMPARABLE(record_invalid: {', '.join(invalid_records)})"
+        identity_invalid = [
+            f"{side}.{identity_reason}"
+            for side, reasons in validation.items()
+            for reason in reasons
+            if (identity_reason := _identity_validation_reason(
+                base_meta if side == "base" else cand_meta, reason
+            ))
+        ]
+        category = (
+            "identity_invalid"
+            if len(identity_invalid) == len(invalid_records)
+            else "record_invalid"
         )
+        rendered = identity_invalid if category == "identity_invalid" else invalid_records
+        report["verdict"] = f"NOT_COMPARABLE({category}: {', '.join(rendered)})"
         return report
 
     identities_equal = all(
@@ -504,9 +511,6 @@ def compare_runs(
         for key in COMPARE_IDENTITIES
         if _compare_identity(base_meta, key) != _compare_identity(cand_meta, key)
     ]
-    if not both_admitted:
-        refusal.append("admitted")
-    refusal.extend(_baseline_refusals(base_meta, cand_meta))
     if not probe_sets_equal:
         refusal.append("probe_set")
     if not adjudications_match:

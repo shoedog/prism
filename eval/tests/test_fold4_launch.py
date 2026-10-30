@@ -47,4 +47,6 @@ def test_compare_refuses_record_without_valid_launch_provenance():
     candidate = fake_run(ids)
     base["meta"].pop("launch", None)
     result = compare_runs(base, candidate, DECLARED_ADJ)
-    assert result["verdict"].startswith("NOT_COMPARABLE(launch_invalid: base")
+    assert result["verdict"].startswith(
+        "NOT_COMPARABLE(record_invalid: base.meta.launch."
+    )

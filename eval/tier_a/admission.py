@@ -37,8 +37,7 @@ from .lock import (
     resolve_corpus_identity,
 )
 from .materialize import materialize, tier_a_root
-from .launch import launch_refusal_reason
-from .record_schema import record_refusals
+from .record_schema import validate_run_record
 from . import policy as run_policy
 
 
@@ -559,10 +558,6 @@ def run_quick_admitted(
         if sut_state_after != sut_state_before:
             raise BoundaryViolation(["sut_inputs_changed_during_run"])
 
-    launch_reason = launch_refusal_reason(run.get("meta", {}).get("launch"))
-    if launch_reason is not None:
-        raise BoundaryViolation([launch_reason])
-
     sut_owner = run.pop("_sut_owner", sut)
     sut_bin = Path(
         run.pop("_sut_bin", args.sut_bin or eval_dir.parent / "target/release/prism")
@@ -655,12 +650,11 @@ def run_quick_admitted(
         assert artifacts is not None
         run["meta"]["snapshot_digest"] = raw_digest(artifacts.snapshot())
         run["meta"]["admitted"] = True
-        if not getattr(args, "live", False):
-            schema_reasons = record_refusals(run)
-            if schema_reasons:
-                raise BoundaryViolation(
-                    [f"run_record_schema_invalid: {reason}" for reason in schema_reasons]
-                )
+        schema_reasons = validate_run_record(run, purpose="admission")
+        if schema_reasons:
+            raise BoundaryViolation(
+                [f"run_record_schema_invalid: {reason}" for reason in schema_reasons]
+            )
     return run, overlay
 
 

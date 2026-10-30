@@ -284,7 +284,12 @@ def fake_run(
         }
     normalized["_corpus"] = "prism"
     normalized["_strata"] = {
-        stratum: {"eligible_symbols": 3, "eligible_probes": 6, "target": 3}
+        stratum: {
+            "population_symbols": 3,
+            "eligible_symbols": 3,
+            "eligible_probes": 6,
+            "target": 3,
+        }
         for stratum in STRATA
     }
     normalized_pinned = copy.deepcopy(pinned or [])
@@ -301,6 +306,7 @@ def fake_run(
             "admitted": True,
             "baseline_invalid": False,
             "invalid_reasons": [],
+            "sample_per_stratum": 3,
             "launch": copy.deepcopy(VALID_LAUNCH),
             **ids,
         },
@@ -309,6 +315,12 @@ def fake_run(
         "site_fingerprints": {},
         "pinned": normalized_pinned,
         "matrix": [],
+        "failures": {},
+        "m1": {},
+        "m2": {},
+        "m3": {},
+        "oracle_filtered": [],
+        "pending": [],
     }
 
 

@@ -46,22 +46,19 @@ def test_oracle_answer_is_oracle_only_and_canonical():                          
 
 def test_oracle_changed_is_excluded_never_attributed_to_prism():                                   # owner ruling 2026-09-12
     ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
-    p = {"outcome": "ok", "direction": "callers", "stratum": "U-free", "seed_def": "src/a.rs:1", "prism_sites": [], "oracle_sites": [["src/a.rs", 3, 3]], "prism_functions": [], "oracle_functions": []}
-    b = fake_run(ids, probes={"callers:x:1": p, "callers:y:1": p}); c = fake_run(cand, probes={"callers:x:1": {**p, "oracle_sites": [["src/a.rs", 4, 4]], "prism_sites": [["src/a.rs", 4, 4]]}, "callers:y:1": p})
+    probes = quick_probes(); pid = "callers:src/U-free.rs:1"
+    b = fake_run(ids, probes=probes); c = fake_run(cand, probes={**probes, pid: {**probes[pid], "oracle_sites": [["src/a.rs", 4, 4]], "prism_sites": [["src/a.rs", 4, 4]]}})
     comparable, changed = partition_by_oracle(join_probes(b, c))
-    assert set(changed) == {"callers:x:1"} and set(comparable) == {"callers:y:1"}                    # the oracle moved on x ⇒ excluded, whatever prism did there
+    assert set(changed) == {pid} and len(comparable) == 29
     cmp = compare_runs(b, c, DECLARED_ADJ)
-    assert cmp["oracle_changed"] == {"count": 1, "fraction": 0.5, "ids": ["callers:x:1"]} and "callers:x:1" not in cmp["classes"]
-    assert cmp["verdict"] == "NOT_COMPARABLE(oracle_changed: 1/2 > 0.10; stratum U-free: 1 comparable < 4)"      # Ruling 13: every failing reason, fraction first
-    probes = {f"callers:p{i}:1": p for i in range(30)}; b30 = fake_run(ids, probes=probes)
-    c30 = fake_run(cand, probes={**probes, "callers:p0:1": {**p, "oracle_sites": [["src/a.rs", 9, 9]]}})
-    cmp30 = compare_runs(b30, c30, DECLARED_ADJ); assert cmp30["oracle_changed"]["count"] == 1 and cmp30["criteria"]["oracle_changed_within_threshold"] is True and cmp30["verdict"] == "NO_REGRESSION"
-    c30b = fake_run(cand, probes={**probes, **{f"callers:p{i}:1": {**p, "oracle_sites": [["src/a.rs", 9, 9]]} for i in range(4)}})
-    assert compare_runs(b30, c30b, DECLARED_ADJ)["verdict"] == "NOT_COMPARABLE(oracle_changed: 4/30 > 0.10)"
-    err = {k: v for k, v in probes.items() if k != "callers:p0:1"}                                    # R5-W2: an oracle_error leg has NO probe record (cli.py:658-660) but IS in probe_status
-    c_err = fake_run(cand, probes=err, status={**{k: "ok" for k in probes}, "callers:p0:1": "oracle_error"})
-    cmp_err = compare_runs(b30, c_err, DECLARED_ADJ)
-    assert cmp_err["oracle_changed"]["ids"] == ["callers:p0:1"] and cmp_err["criteria"]["probe_sets_equal"] is True and cmp_err["verdict"] == "NO_REGRESSION"   # the oracle failed on one leg ⇒ oracle_changed, never probe_set
+    assert cmp["oracle_changed"] == {"count": 1, "fraction": 1 / 30, "ids": [pid]} and pid not in cmp["classes"] and cmp["verdict"] == "NO_REGRESSION"
+    moved = ["callers:src/U-free.rs:1", "callers:src/C-name.rs:1", "callers:src/C-method.rs:1", "callers:src/Q-scoped.rs:1"]
+    c30b = fake_run(cand, probes={**probes, **{key: {**probes[key], "oracle_sites": [["src/a.rs", 9, 9]]} for key in moved}})
+    assert compare_runs(b, c30b, DECLARED_ADJ)["verdict"] == "NOT_COMPARABLE(oracle_changed: 4/30 > 0.10)"
+    err = {k: v for k, v in probes.items() if k != pid}
+    c_err = fake_run(cand, probes=err, status={**{k: "ok" for k in probes}, pid: "oracle_error"})
+    cmp_err = compare_runs(b, c_err, DECLARED_ADJ)
+    assert cmp_err["oracle_changed"]["ids"] == [pid] and cmp_err["criteria"]["probe_sets_equal"] is True and cmp_err["verdict"] == "NO_REGRESSION"   # the oracle failed on one leg ⇒ oracle_changed, never probe_set
 
 
 def test_every_non_scored_non_sut_status_is_an_oracle_failure():
@@ -111,8 +108,8 @@ def test_comparison_floor_is_per_stratum_over_both_directions_and_passable_under
 def test_candidate_sut_error_on_a_comparable_probe_is_a_regression():                            # Ruling 16, R6-W5
     ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     pid = "callees:src/C-name.rs:2"
-    b = fake_run(ids); probes = quick_probes(); del probes[pid]
-    c = fake_run(cand, probes=probes, status={**{k: "ok" for k in quick_probes()}, pid: "sut_error"})
+    b = fake_run(ids); probes = quick_probes(); probes[pid] = {**probes[pid], "outcome": "sut_error"}
+    c = fake_run(cand, probes=probes)
     assert partition_by_oracle(join_probes(b, c))[1] == {}                                          # a sut_error leg is comparable against any oracle answer
     cmp = compare_runs(b, c, DECLARED_ADJ)
     assert cmp["classes"][pid] == "carried_changed/sut_change" and cmp["criteria"]["no_new_sut_errors"] is False and cmp["verdict"] == "REGRESSION(no_new_sut_errors)" and cmp["status_transitions"] == {pid: ["ok", "sut_error"]}
@@ -261,6 +258,11 @@ def test_exact_m6_mutation_losing_unadjudicated_matched_sites_is_a_regression():
     base["meta"]["launch"] = copy.deepcopy(VALID_LAUNCH)
     candidate["meta"]["launch"] = copy.deepcopy(VALID_LAUNCH)
     for run in (base, candidate):
+        run["meta"]["sample_per_stratum"] = 3
+        run["failures"] = {}
+        run["oracle_filtered"] = []
+        for row in run["probes"]["_strata"].values():
+            row["population_symbols"] = row["eligible_symbols"]
         for row in run["pinned"]:
             row["oracle_sites"] = [
                 [
@@ -428,7 +430,7 @@ def test_real_m6_pair_without_launch_provenance_is_refused():
     assert candidate["meta"]["sut_digest"] == base["meta"]["sut_digest"]
 
     cmp = compare_runs(base, candidate, ([], digest))
-    assert cmp["verdict"].startswith("NOT_COMPARABLE(launch_invalid:")
+    assert cmp["verdict"].startswith("NOT_COMPARABLE(record_invalid:")
 
 
 def test_pinned_probes_are_partitioned_by_oracle_answer_and_ranked_by_contract():                 # R5-W6, R6-W3, R6-W4, R7-W1
@@ -467,7 +469,9 @@ def test_missing_probe_and_identity_mismatch_are_not_comparable():              
     ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     b = fake_run(ids, probes={"callers:x:1": {"outcome": "ok", "stratum": "U-free", "prism_sites": [], "oracle_sites": []}})
     c = fake_run(cand, probes={})
-    assert compare_runs(b, c, DECLARED_ADJ)["verdict"] == "NOT_COMPARABLE(probe_set)"
+    assert compare_runs(b, c, DECLARED_ADJ)["verdict"].startswith(
+        "NOT_COMPARABLE(record_invalid:"
+    )
     different = {
         "sha_aliases": ["c" * 40],
         "harness_sha": "c" * 40,
@@ -477,7 +481,7 @@ def test_missing_probe_and_identity_mismatch_are_not_comparable():              
     }
     for k, value in different.items():        # astra W11; observation_coverage no longer exists (owner ruling)
         assert compare_runs(fake_run(ids), fake_run({**cand, k: value}), DECLARED_ADJ)["verdict"] == f"NOT_COMPARABLE({k})"
-    assert compare_runs(fake_run(ids), fake_run({**cand, "admitted": False}), DECLARED_ADJ)["verdict"] == "NOT_COMPARABLE(admitted)"
+    assert compare_runs(fake_run(ids), fake_run({**cand, "admitted": False}), DECLARED_ADJ)["verdict"].startswith("NOT_COMPARABLE(record_invalid:")
 
 
 @pytest.mark.parametrize(
@@ -516,16 +520,15 @@ def test_invalid_baseline_leg_refuses_before_regression_classification():
 
     cmp = compare_runs(base, candidate, DECLARED_ADJ)
 
-    assert cmp["criteria"]["both_baseline_valid"] is False
     assert cmp["verdict"] == (
-        "NOT_COMPARABLE(baseline_invalid: candidate: oracle_timeout, live_corpus)"
+        "NOT_COMPARABLE(record_invalid: candidate.meta.baseline_invalid: oracle_timeout, live_corpus)"
     )
 
 
 def test_unexplained_nondeterminism_fails_the_gate():                                      # astra W11, re-scoped by the owner ruling
-    ids = base_ids(); p = {"outcome": "ok", "stratum": "U-free", "prism_sites": [], "oracle_sites": [["src/a.rs", 3, 3]]}
-    probes = {f"callers:p{i}:1": p for i in range(30)}
-    b = fake_run(ids, probes=probes); c = fake_run(ids, probes={**probes, "callers:p0:1": {**p, "prism_sites": [["src/a.rs", 3, 3]]}})   # SAME sut_digest, same oracle, prism differs ⇒ unexplained
+    ids = base_ids(); probes = quick_probes(); pid = "callers:src/U-free.rs:1"
+    probes[pid] = {**probes[pid], "prism_sites": [], "oracle_sites": []}
+    b = fake_run(ids, probes=probes); c = fake_run(ids, probes={**probes, pid: {**probes[pid], "prism_sites": [["src/a.rs", 3, 3]]}})   # SAME sut_digest, same oracle, prism differs ⇒ unexplained
     cmp = compare_runs(b, c, DECLARED_ADJ); assert cmp["counts"]["unexplained"] == 1 and cmp["criteria"]["unexplained_zero"] is False and cmp["verdict"] == "REGRESSION(unexplained)"
 
 
