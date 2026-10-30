@@ -8,6 +8,7 @@ import pytest
 from tier_a import cli
 from tier_a.model import FunctionDef, Location
 from tier_a.closure import (
+    _POLICY_MODULES,
     canonical_path,
     corpus_manifest,
     manifest_digest,
@@ -27,14 +28,7 @@ from tests.helpers import (
 )
 
 
-POLICY_MODULES = {
-    "tier_a/accounting.py",
-    "tier_a/corpus.py",
-    "tier_a/pinned.py",
-    "tier_a/policy.py",
-    "tier_a/spotcheck.py",
-    "tier_a/strata.py",
-}
+POLICY_MODULES = {f"tier_a/{name}" for name in _POLICY_MODULES}
 
 CLI_POLICY_DEFINITIONS = (
     "seed_id",
