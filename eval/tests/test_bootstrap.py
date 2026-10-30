@@ -561,12 +561,7 @@ def _install_end_to_end_bootstrap_doubles(monkeypatch, ev, root):
 
     class EndToEndOracle(FakeOracle):
         def version(self):
-            return subprocess.run(
-                ["rust-analyzer", "--version"],
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
+            return self.VERSION
 
         def document_symbols(self, path):
             return [expected]

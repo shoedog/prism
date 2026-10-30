@@ -170,6 +170,19 @@ def test_anchored_repo_uses_mode_specific_sample_digests(tmp_path):
     assert quick_digest != full_digest
 
 
+def test_anchored_repo_never_probes_host_tool_versions(tmp_path, monkeypatch):
+    from tests import helpers
+
+    def host_probe(*command):
+        raise AssertionError(f"host version probe: {command}")
+
+    monkeypatch.setattr(helpers, "_command_version", host_probe)
+
+    lock, _ev, _repo = helpers.anchored_repo(tmp_path)
+
+    assert lock.prism["oracle"]["version"] == helpers.FakeOracle.VERSION
+
+
 def test_anchored_repo_pins_its_corpus_independent_of_live_policy_state(
     tmp_path, monkeypatch
 ):

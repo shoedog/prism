@@ -46,6 +46,8 @@ __all__ = [
     "admitted_fake_run",
     "FakeSut",
     "FakeOracle",
+    "FAKE_RUSTC_VERSION",
+    "FAKE_CARGO_VERSION",
     "EchoCapture",
     "stub_binary",
     "anchored_repo",
@@ -56,6 +58,8 @@ __all__ = [
 
 EVAL_DIR = Path(__file__).parents[1]
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
+FAKE_RUSTC_VERSION = "rustc 1.94.0 (4a4ef493e 2026-03-02)"
+FAKE_CARGO_VERSION = "cargo 1.94.0 (85eff7c80 2026-01-15)"
 
 
 def git_repo(root: Path, files: dict[str, str]) -> Path:
@@ -328,6 +332,7 @@ ARGS = argparse.Namespace(
 
 
 class FakeOracle:
+    VERSION = "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)"
     not_quiescent = False
 
     def start(self):
@@ -337,7 +342,7 @@ class FakeOracle:
         pass
 
     def version(self):
-        return "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)"
+        return self.VERSION
 
     def capability_probe(self):
         return True
@@ -524,7 +529,7 @@ def anchored_repo(tmp: Path, publish: bool = True) -> tuple[Lock, Path, Path]:
                 "digest": sample_digests,
             },
             "oracle": {
-                "version": _command_version("rust-analyzer", "--version"),
+                "version": FakeOracle.VERSION,
                 "init": {"cargo": {"features": "all"}},
             },
             "sut": {
@@ -542,8 +547,8 @@ def anchored_repo(tmp: Path, publish: bool = True) -> tuple[Lock, Path, Path]:
                 "python": sys.version.split()[0],
                 "python_version_file": raw_digest(ev / ".python-version"),
                 "uv_lock": raw_digest(ev / "uv.lock"),
-                "rustc": _command_version("rustc", "--version"),
-                "cargo": _command_version("cargo", "--version"),
+                "rustc": FAKE_RUSTC_VERSION,
+                "cargo": FAKE_CARGO_VERSION,
                 "rust_toolchain": "absent",
                 "cargo_config": "absent",
             },
