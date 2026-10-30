@@ -14,6 +14,10 @@ use crate::resolution::GoOwnerIdentity;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[cfg(test)]
+mod import_memo_tests;
+#[cfg(test)]
+mod import_reference;
 mod interface_profiles;
 mod selector_resolution;
 
@@ -221,31 +225,26 @@ pub(crate) fn build(
     recover_error_structs(files, profiles, &mut recovered_structs);
     let structs = &recovered_structs;
     let local_import_paths = interface_profiles::local_import_paths(package_import_paths, profiles);
-    let aliases = crate::go_type_alias::GoAliasResolver::build(
+    let imports = crate::go_type_alias::SignatureImportMemo::new(files, &local_import_paths);
+    let aliases = crate::go_type_alias::GoAliasResolver::build_with_import_memo(
         files,
         package_import_paths,
         &local_import_paths,
         profiles,
+        &imports,
     );
     let mut raw = BTreeMap::<GoOwnerIdentity, Vec<RawProfile>>::new();
     for (owner, declarations) in structs {
         for declaration in declarations {
             let mut embedded_fields = BTreeSet::new();
             let mut unresolved_embedded_fields = declaration.unresolved_embedded_fields.clone();
-            let imports = files
-                .get(&declaration.defining_file)
-                .map(|parsed| {
-                    crate::go_type_alias::signature_imports(
-                        parsed,
-                        local_import_paths
-                            .get(&declaration.defining_file)
-                            .map(String::as_str),
-                    )
-                })
-                .unwrap_or_default();
+            let file_imports = imports.get(&declaration.defining_file);
             for (selector, raw_type) in &declaration.embedded_fields {
-                match aliases.resolve_embedded_owner(raw_type, &declaration.defining_file, &imports)
-                {
+                match aliases.resolve_embedded_owner(
+                    raw_type,
+                    &declaration.defining_file,
+                    file_imports,
+                ) {
                     Ok((pointer, target))
                         if structs.contains_key(&target)
                             || interfaces.contains_key(&target)
@@ -314,8 +313,7 @@ pub(crate) fn build(
 
     interface_profiles::extend(
         &mut raw,
-        files,
-        &local_import_paths,
+        &imports,
         interfaces,
         structs,
         type_declarations,

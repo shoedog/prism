@@ -9,9 +9,12 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod canon;
+pub(crate) mod import_memo;
 mod types;
 pub(crate) use canon::signature_imports;
 use canon::{alias_parameters, parse_expr, predeclared};
+pub(crate) use import_memo::SignatureImportMemo;
+use import_memo::SignatureImportSource;
 use types::{
     AliasDeclaration, AliasDeclarationKind, AliasExpr, AliasUnresolvedReason, NameIdentity,
     NamedType, OwnerHint,
@@ -71,6 +74,7 @@ pub(crate) struct GoAliasResolver {
 }
 
 impl GoAliasResolver {
+    #[cfg(test)]
     pub(crate) fn build(
         files: &BTreeMap<String, ParsedFile>,
         package_import_paths: &BTreeMap<String, String>,
@@ -98,7 +102,23 @@ impl GoAliasResolver {
             package_import_paths,
             local_import_paths,
             profiles,
-            Some(signature_imports),
+            Some(SignatureImportSource::Maps(signature_imports)),
+        )
+    }
+
+    pub(crate) fn build_with_import_memo(
+        files: &BTreeMap<String, ParsedFile>,
+        package_import_paths: &BTreeMap<String, String>,
+        local_import_paths: &BTreeMap<String, String>,
+        profiles: &BTreeMap<String, GoBuildProfile>,
+        imports: &SignatureImportMemo<'_>,
+    ) -> Self {
+        Self::build_inner(
+            files,
+            package_import_paths,
+            local_import_paths,
+            profiles,
+            Some(SignatureImportSource::Memo(imports)),
         )
     }
 
@@ -107,7 +127,7 @@ impl GoAliasResolver {
         package_import_paths: &BTreeMap<String, String>,
         local_import_paths: &BTreeMap<String, String>,
         profiles: &BTreeMap<String, GoBuildProfile>,
-        signature_imports: Option<&BTreeMap<String, BTreeMap<String, String>>>,
+        signature_imports: Option<SignatureImportSource<'_>>,
     ) -> Self {
         let mut resolver = Self {
             declarations: BTreeMap::new(),
@@ -138,7 +158,9 @@ impl GoAliasResolver {
                 path,
                 parsed,
                 local_import_paths.get(path).map(String::as_str),
-                signature_imports.and_then(|imports| imports.get(path)),
+                signature_imports
+                    .as_ref()
+                    .and_then(|imports| imports.get(path)),
             );
         }
         resolver

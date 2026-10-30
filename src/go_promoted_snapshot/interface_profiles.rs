@@ -1,13 +1,11 @@
 use super::{ComparisonKey, GoPromotedEmbeddedField, GoPromotedProfileSnapshot, RawProfile};
-use crate::ast::ParsedFile;
 use crate::go_owner_partition::{GoInterfaceDeclarations, GoStructDeclarations};
 use crate::resolution::GoOwnerIdentity;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) fn extend(
     raw: &mut BTreeMap<GoOwnerIdentity, Vec<RawProfile>>,
-    files: &BTreeMap<String, ParsedFile>,
-    local_import_paths: &BTreeMap<String, String>,
+    imports: &crate::go_type_alias::SignatureImportMemo<'_>,
     interfaces: &GoInterfaceDeclarations,
     structs: &GoStructDeclarations,
     type_declarations: &BTreeMap<GoOwnerIdentity, BTreeSet<String>>,
@@ -15,22 +13,15 @@ pub(super) fn extend(
 ) {
     for (owner, declarations) in interfaces {
         for declaration in declarations {
-            let imports = files
-                .get(&declaration.defining_file)
-                .map(|parsed| {
-                    crate::go_type_alias::signature_imports(
-                        parsed,
-                        local_import_paths
-                            .get(&declaration.defining_file)
-                            .map(String::as_str),
-                    )
-                })
-                .unwrap_or_default();
+            let file_imports = imports.get(&declaration.defining_file);
             let mut embedded_fields = BTreeSet::new();
             let mut unresolved_embedded_fields = BTreeSet::new();
             for raw_type in &declaration.embedded_types {
-                let resolved =
-                    aliases.resolve_embedded_owner(raw_type, &declaration.defining_file, &imports);
+                let resolved = aliases.resolve_embedded_owner(
+                    raw_type,
+                    &declaration.defining_file,
+                    file_imports,
+                );
                 match resolved {
                     Ok((false, target)) if interfaces.contains_key(&target) => {
                         embedded_fields.insert(GoPromotedEmbeddedField {
@@ -94,6 +85,7 @@ fn selector(raw_type: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::ParsedFile;
     use crate::languages::Language;
 
     #[test]
