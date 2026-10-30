@@ -349,3 +349,22 @@ fn every_scanning_branch_collects_once() {
         assert!(seen.contains(kind), "uncovered collector branch: {kind}");
     }
 }
+
+/// The per-name fence predicate still serves formal-pattern rechecks, catch
+/// parameters and self-names after the scope sets moved off it: an escaped
+/// binder matches its decoded name only (pins PD-62).
+#[test]
+fn fence_predicate_matches_escaped_binders_by_decoded_name() {
+    let p = ParsedFile::parse(
+        "escaped.js",
+        "function f(\\u0061, {k: \\u{62}}, ...\\u0063) {}",
+        Language::JavaScript,
+    )
+    .unwrap();
+    let params = p.all_functions()[0]
+        .child_by_field_name("parameters")
+        .unwrap();
+    for (name, expected) in [("a", true), ("b", true), ("c", true), ("d", false), ("k", false)] {
+        assert_eq!(p.js_ts_fence_pattern_binds(params, name), expected, "{name}");
+    }
+}

@@ -511,7 +511,8 @@
    "Self::js_ts_decoded_identifier(text).is_some_and(|decoded| decoded == name)",
    "text.contains('\\\\')",
    [
-    "cpg::callback_identity_tests::r1_decoded_escaped_binders_preserve_unrelated_captures"
+    "cpg::callback_identity_tests::r1_decoded_escaped_binders_preserve_unrelated_captures",
+    "ast::callback_identity::js_block_scope_bindings_tests::fence_predicate_matches_escaped_binders_by_decoded_name"
    ]
   ],
   "PD-63-r1-static-block-scope-off": [
