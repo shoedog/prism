@@ -283,9 +283,9 @@
    ]
   ],
   "PD-34-lexical-def-scope-off": [
-   "src/ast_callback_identity.rs",
-   "            \"statement_block\" | \"switch_body\" => {",
-   "            \"never_statement_block\" | \"never_switch_body\" => {",
+   "src/ast/js_block_scope_bindings.rs",
+   "\"statement_block\" | \"switch_body\" => {",
+   "\"never_statement_block\" | \"never_switch_body\" => {",
    [
     "cpg::callback_identity_tests::synthetic_lexical_def_stays_in_its_block"
    ]
@@ -315,9 +315,9 @@
    ]
   ],
   "PD-38-e3-nested-formal-binder-off": [
-   "src/ast_callback_identity.rs",
-   "if self.js_ts_fence_pattern_binds(params, name) {",
-   "if false && self.js_ts_fence_pattern_binds(params, name) {",
+   "src/ast/js_block_scope_bindings.rs",
+   "pattern(p, params, &mut names);",
+   "/* parameter bindings omitted */",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
@@ -347,41 +347,41 @@
    ]
   ],
   "PD-42-e3-catch-binder-off": [
-   "src/ast_callback_identity.rs",
-   "            \"catch_clause\" => scope",
-   "            \"never_catch_clause\" => scope",
+   "src/ast/js_block_scope_bindings.rs",
+   "\"catch_clause\" => {",
+   "\"never_catch_clause\" => {",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
   ],
   "PD-43-e3-for-in-binder-off": [
-   "src/ast_callback_identity.rs",
-   "            \"for_in_statement\" => {\n                scope",
-   "            \"never_for_in_statement\" => {\n                scope",
+   "src/ast/js_block_scope_bindings.rs",
+   "\"for_in_statement\" => {",
+   "\"never_for_in_statement\" => {",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
   ],
   "PD-44-e3-var-for-head-fenced": [
-   "src/ast_callback_identity.rs",
-   "matches!(self.node_text(&k), \"let\" | \"const\")",
-   "matches!(self.node_text(&k), \"let\" | \"const\" | \"var\")",
+   "src/ast/js_block_scope_bindings.rs",
+   "matches!(p.node_text(&k), \"let\" | \"const\")",
+   "matches!(p.node_text(&k), \"let\" | \"const\" | \"var\")",
    [
     "cpg::callback_identity_tests::enclosing_walk_keeps_captured_reads_and_var_redeclarations"
    ]
   ],
   "PD-45-e3-for-statement-binder-off": [
-   "src/ast_callback_identity.rs",
-   "            \"for_statement\" => scope",
-   "            \"never_for_statement\" => scope",
+   "src/ast/js_block_scope_bindings.rs",
+   "\"for_statement\" => {",
+   "\"never_for_statement\" => {",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
   ],
   "PD-46-e3-block-declaration-binder-off": [
-   "src/ast_callback_identity.rs",
-   "            \"statement_block\" | \"switch_body\" => {",
-   "            \"never_statement_block\" | \"switch_body\" => {",
+   "src/ast/js_block_scope_bindings.rs",
+   "\"statement_block\" | \"switch_body\" => {",
+   "\"never_statement_block\" | \"switch_body\" => {",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
@@ -403,9 +403,9 @@
    ]
   ],
   "PD-49-for-head-def-scope-off": [
-   "src/ast_callback_identity.rs",
-   "            \"for_in_statement\" => {\n                scope",
-   "            \"never_for_in_statement\" => {\n                scope",
+   "src/ast/js_block_scope_bindings.rs",
+   "\"for_in_statement\" => {",
+   "\"never_for_in_statement\" => {",
    [
     "cpg::callback_identity_tests::synthetic_for_head_def_stays_in_its_loop"
    ]
@@ -483,9 +483,9 @@
    ]
   ],
   "PD-59-r1-enum-binder-off": [
-   "src/ast_callback_identity.rs",
-   "            | \"enum_declaration\" => stmt",
-   "            | \"never_enum_declaration\" => stmt",
+   "src/ast/js_scope_bindings.rs",
+   "| \"enum_declaration\" => {",
+   "| \"never_enum_declaration\" => {",
    [
     "cpg::callback_identity_tests::r1_runtime_enums_fence_only_matching_bindings"
    ]
@@ -576,9 +576,9 @@
    ]
   ],
   "PD-70-r2-body-hoisting-off": [
-   "src/ast_callback_identity.rs",
-   "!callable_body\n",
-   "true\n",
+   "src/ast/js_block_scope_bindings.rs",
+   "if callable_body\n",
+   "if false\n",
    "cpg::callback_identity_tests::r2_body_function_hoisting_shares_simple_parameters"
   ],
   "PD-71-r2-parameter-body-separation-off": [
@@ -792,9 +792,9 @@
    ]
   ],
   "PD-107-r9-enum-scope-off": [
-   "src/ast_callback_identity.rs",
-   "\"enum_body\" => {",
-   "\"enum_body\" if false => {",
+   "src/ast/js_block_scope_bindings.rs",
+   "\"enum_body\" => enum_names(p, scope, &mut names),",
+   "\"enum_body\" => {},",
    [
     "cpg::callback_identity_tests::r9_enum_member_reads_stay_in_the_enum_environment"
    ]
@@ -816,9 +816,9 @@
    ]
   ],
   "PD-110-r10-labelled-body-exclusion-off": [
-   "src/ast_callback_identity.rs",
-   "while declaration.kind() == \"labeled_statement\" {",
-   "while false && declaration.kind() == \"labeled_statement\" {",
+   "src/ast/js_block_scope_bindings.rs",
+   "while unlabelled.kind() == \"labeled_statement\" {",
+   "while false && unlabelled.kind() == \"labeled_statement\" {",
    [
     "cpg::callback_identity_tests::r10_labelled_callable_body_rows_survive_without_a_seam"
    ]
@@ -832,15 +832,15 @@
    ]
   ],
   "PD-112-r10-enum-string-value-off": [
-   "src/ast_callback_identity.rs",
-   "\"string\" => self.js_ts_module_export_name(key),",
+   "src/ast/js_block_scope_bindings.rs",
+   "\"string\" => p.js_ts_module_export_name(key),",
    "\"string\" => None,",
    [
     "cpg::callback_identity_tests::r10_enum_string_and_merged_members_fence_rows"
    ]
   ],
   "PD-113-r10-enum-merge-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/js_block_scope_bindings.rs",
    "sibling.kind() == \"enum_declaration\"",
    "false && sibling.kind() == \"enum_declaration\"",
    [
@@ -989,11 +989,6 @@
   ],
   "PD-105-r9-labelled-seam-off": [
    [
-    "src/ast_callback_identity.rs",
-    "\"labeled_statement\" => stmt",
-    "\"labeled_statement\" if false => stmt"
-   ],
-   [
     "src/ast/js_scope_bindings.rs",
     "\"labeled_statement\" => {",
     "\"labeled_statement\" if false => {"
@@ -1015,7 +1010,63 @@
   },
   "PD-105-r9-labelled-seam-off": {
    "disposition": "rebound",
-   "reason": "Function-body binding sets mirror the legacy labeled-statement helper. Frozen-main control kills the original mutant; current round 1 enumerated this sole survivor. Retain both original edits and also disable the collector label arm, using the unchanged killing test."
+   "reason": "Slice H moves the old per-name helper to cfg(test); retain the live seam edit and shared production label-collector edit, with the unchanged killing fixture."
+  },
+  "PD-34-lexical-def-scope-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-38-e3-nested-formal-binder-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-42-e3-catch-binder-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-43-e3-for-in-binder-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-44-e3-var-for-head-fenced": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-45-e3-for-statement-binder-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-46-e3-block-declaration-binder-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-49-for-head-def-scope-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-59-r1-enum-binder-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-70-r2-body-hoisting-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-107-r9-enum-scope-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-110-r10-labelled-body-exclusion-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-112-r10-enum-string-value-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
+  },
+  "PD-113-r10-enum-merge-off": {
+   "disposition": "rebound",
+   "reason": "Slice H moves child-scanning binding predicates to production scope-name sets; preserve the existing obligation and unchanged killing fixture."
   }
  }
 }

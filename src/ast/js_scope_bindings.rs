@@ -43,7 +43,7 @@ pub(super) fn collect(p: &ParsedFile, body: Node<'_>, boundaries: &[&str]) -> Ha
     names
 }
 
-fn declaration(p: &ParsedFile, node: Node<'_>, names: &mut HashSet<String>) {
+pub(super) fn declaration(p: &ParsedFile, node: Node<'_>, names: &mut HashSet<String>) {
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
         if child.kind() == "variable_declarator" {
@@ -54,7 +54,7 @@ fn declaration(p: &ParsedFile, node: Node<'_>, names: &mut HashSet<String>) {
     }
 }
 
-fn block_statement(p: &ParsedFile, node: Node<'_>, names: &mut HashSet<String>) {
+pub(super) fn block_statement(p: &ParsedFile, node: Node<'_>, names: &mut HashSet<String>) {
     match node.kind() {
         "labeled_statement" => {
             if let Some(body) = node.child_by_field_name("body") {
@@ -81,7 +81,7 @@ fn block_statement(p: &ParsedFile, node: Node<'_>, names: &mut HashSet<String>) 
     }
 }
 
-fn pattern(p: &ParsedFile, node: Node<'_>, names: &mut HashSet<String>) {
+pub(super) fn pattern(p: &ParsedFile, node: Node<'_>, names: &mut HashSet<String>) {
     match node.kind() {
         "identifier"
         | "undefined"
