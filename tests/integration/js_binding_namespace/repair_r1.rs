@@ -176,10 +176,11 @@ fn r1_rule7_e7_only_regrades_all_candidates() {
                     ("app", &APP.replace("'./lib'", "'lib'")),
                 ],
             );
-            let expected = base_rows(&cg, "f")
-                .into_iter()
-                .map(|r| r.replace("Exact/", "NameOnly/"))
-                .collect::<Vec<_>>();
+            // #450 filters private names from Exact spelling fallback only;
+            // the NameOnly pool must still contain all three original identities.
+            let expected = vec![["lib/helpers", "lib/index", "lib/other"]
+                .map(|file| format!("{file}.{ext}:f@1-1 NameOnly/import_qualified"))
+                .join(", ")];
             assert_eq!(rows(&cg, "run", "f"), expected);
         }
     }

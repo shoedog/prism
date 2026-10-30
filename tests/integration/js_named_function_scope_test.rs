@@ -1,4 +1,4 @@
-//! A function expression's explicit name is local to its body, not its property.
+//! A function expression's explicit name is local to its parameters and body.
 use prism::ast::ParsedFile;
 use prism::call_graph::CallGraph;
 use prism::languages::Language;
@@ -103,16 +103,19 @@ fn outside_body_never_binds_expression_name() {
             None,
         ),
         (
+            // Guard: already refused on main.
             "no-outer",
             "const o = { f: function f7() {}, n() { return /*site*/f7(); } };",
             None,
         ),
         (
+            // Guard: already refused on main.
             "different-const",
             "const g = function f7() {}; g(); /*site*/f7();",
             None,
         ),
         (
+            // Guard: already refused on main.
             "same-line-before",
             "function run() { /*site*/f7(); const g = function f7() {}; }",
             None,
@@ -123,6 +126,7 @@ fn outside_body_never_binds_expression_name() {
             None,
         ),
         (
+            // Future-proofing guard: named generators are not currently indexed.
             "generator-expression",
             "var f7 = make(); const o = { f: function* f7() {}, n() { return /*site*/f7(); } };",
             None,
@@ -181,8 +185,163 @@ fn distinct_outer_bindings_and_inferred_names_keep_their_targets() {
         ("import", "import { f7 } from './dep';\nconst o = { f: function f7() {}, n() { return /*site*/f7(); } };", Some(("dep", "f7", 1))),
         ("different-const-control", "const g = function f7() {}; /*site*/g(); f7();", Some(("a", "f7", 1))),
         ("inferred-declarator", "const g = function () {}; /*site*/g();", Some(("a", "g", 1))),
+        ("inferred-assignment-fallback-guard", "let s7; s7 = function () {}; function getS() { return /*site*/s7(); }", Some(("a", "s7", 1))),
+        ("named-assignment-refusal-guard", "let t7; t7 = function t7() {}; function getT() { return /*site*/t7(); }", None),
         ("inferred-property", "const o = { f7: function () {}, n() { return /*site*/f7(); } };", None),
     ]);
+}
+
+#[test]
+fn parameter_defaults_see_self_but_not_shadowed_or_enclosing_names() {
+    check(&[
+        (
+            "default-fallback",
+            "const g = function f(a = /*site*/f(0)) { f = 1; };",
+            Some(("a", "f", 1)),
+        ),
+        // Guards: positive binding proof and lexical shadowing already work.
+        (
+            "default-proven-guard",
+            "const g = function f(a = /*site*/f(0)) {};",
+            Some(("a", "f", 1)),
+        ),
+        (
+            "parameter-shadow-guard",
+            "const g = function f(f, a = /*site*/f(0)) { f = 1; };",
+            None,
+        ),
+        (
+            "enclosing-default-guard",
+            "function outer(a = /*site*/f(0)) { const g = function f() { f = 1; }; }",
+            None,
+        ),
+    ]);
+}
+
+#[test]
+fn imports_do_not_expose_private_expression_names() {
+    use prism::resolution::ResolutionKind::{ImportMember, ImportQualified};
+    let mut failures = Vec::new();
+    for ext in ["js", "ts", "tsx"] {
+        for (label, caller, barrel, kind) in [
+            (
+                "direct",
+                "import { f7 } from './dep'; function run() { /*site*/f7(); }",
+                None,
+                ImportMember,
+            ),
+            (
+                "barrel",
+                "import { f7 } from './barrel'; function run() { /*site*/f7(); }",
+                Some("export { f7 } from './dep';"),
+                ImportMember,
+            ),
+            (
+                "star-barrel",
+                "import { f7 } from './barrel'; function run() { /*site*/f7(); }",
+                Some("export * from './dep';"),
+                ImportMember,
+            ),
+            (
+                "namespace",
+                "import * as A from './dep'; function run() { /*site*/A.f7(); }",
+                None,
+                ImportQualified,
+            ),
+            (
+                "cjs-member",
+                "const { f7 } = require('./dep'); function run() { /*site*/f7(); }",
+                None,
+                ImportMember,
+            ),
+        ] {
+            for (control, dep, want) in [
+                (
+                    "private",
+                    "let f7; f7 = make(); const g = function f7() {}; export { f7 };",
+                    false,
+                ),
+                // Guards: a callable span proves the exported binding, even when
+                // its local name happens to equal the expression's private name.
+                ("verified", "export const f7 = function f7() {};", true),
+                ("declaration", "function f7() {} export { f7 };", true),
+            ] {
+                let mut parsed = files(caller, ext);
+                for (stem, source) in [("dep", Some(dep)), ("barrel", barrel)] {
+                    if let Some(source) = source {
+                        let path = format!("{stem}.{ext}");
+                        let file =
+                            ParsedFile::parse(&path, source, Language::from_path(&path).unwrap())
+                                .unwrap();
+                        assert!(!file.tree.root_node().has_error());
+                        parsed.insert(path, file);
+                    }
+                }
+                let graph = CallGraph::build(&parsed);
+                let got = exact_targets(&graph, caller);
+                let expected = if want {
+                    vec![(format!("dep.{ext}"), "f7".into(), 1)]
+                } else {
+                    vec![]
+                };
+                if got != expected {
+                    failures.push(format!(
+                        "{label}/{control}/{ext}: got {got:?}, want {expected:?}"
+                    ));
+                }
+                if want && !got.is_empty() {
+                    let start = caller.find("/*site*/").unwrap() + "/*site*/".len();
+                    let site = graph
+                        .calls
+                        .values()
+                        .flatten()
+                        .find(|s| s.caller.file == format!("a.{ext}") && s.start_byte == start)
+                        .unwrap();
+                    assert!(graph
+                        .resolve_call_site_full(site)
+                        .resolved
+                        .iter()
+                        .all(|r| r.kind == kind));
+                }
+            }
+        }
+        // Guard against indiscriminately excluding verified renamed exports.
+        for (caller, barrel) in [
+            (
+                "import { g } from './dep'; function run() { /*site*/g(); }",
+                None,
+            ),
+            (
+                "import { g } from './barrel'; function run() { /*site*/g(); }",
+                Some("export { g } from './dep';"),
+            ),
+        ] {
+            let mut parsed = files(caller, ext);
+            for (stem, source) in [
+                ("dep", Some("export const g = function f7() {};")),
+                ("barrel", barrel),
+            ] {
+                if let Some(source) = source {
+                    let path = format!("{stem}.{ext}");
+                    parsed.insert(
+                        path.clone(),
+                        ParsedFile::parse(&path, source, Language::from_path(&path).unwrap())
+                            .unwrap(),
+                    );
+                }
+            }
+            assert_eq!(
+                exact_targets(&CallGraph::build(&parsed), caller),
+                vec![(format!("dep.{ext}"), "f7".into(), 1)]
+            );
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} failures:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
 }
 
 #[test]
@@ -246,6 +405,11 @@ fn expression_scope_survives_full_and_partial_cache_hits() {
             panic!("full hit required")
         };
         assert!(exact_targets(&warm.call_graph, source).is_empty());
+        let bytes = bincode::serialize(&warm.call_graph).unwrap();
+        let mut restored: CallGraph = bincode::deserialize(&bytes).unwrap();
+        // MB-15: assert before incremental rebuilding can reconstruct all proofs.
+        restored.remove_files(&[other.clone()].into_iter().collect());
+        assert!(exact_targets(&restored, source).is_empty());
         for (path, replacement) in [
             (other, "function changed() {}"),
             (

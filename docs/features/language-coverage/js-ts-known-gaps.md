@@ -24,12 +24,14 @@ its lexical target; only parentheses are transparent for this exemption.
 Regression shapes are in
 `tests/integration/js_method_name_binding_test.rs` for JS, TS and TSX.
 
-An explicit function-expression name is visible only within its own body (#450).
+An explicit function-expression name is visible only within its own parameters and body (#450).
 For example, `var f = make(); const o = { p: function f() {}, n() { f(); } };`
 cannot gain Exact to the expression from the outer call. Recursive calls and
-nested callables within the expression retain the self binding; a distinct
-outer declaration or import keeps its existing resolution route. Inferred names
-are unchanged. Body spans survive full and partial CPG cache hits; regressions
+nested callables within the expression retain the self binding; a proven
+outer callable declaration or import keeps its existing resolution route.
+Spanless import/re-export and namespace spelling fallbacks exclude private expression names; span-verified exports still expose their callable value.
+`let t7; t7 = function t7() {}; t7()` drops, while its anonymous twin stays Exact via the inferred name.
+Inferred names are unchanged. Parameter/body spans survive full and partial CPG cache hits; regressions
 are in `tests/integration/js_named_function_scope_test.rs` for JS, TS and TSX.
 
 ## Anonymous callers (lane A2 S2a)
@@ -181,7 +183,7 @@ A note in `CLAUDE.md` saying such code is out of model was considered and reject
 - **Packages.** Bare specifiers resolve only through tsconfig `paths`. Workspace packages (`package.json` `exports`/`main`/`types`), npm packages and `node:` builtins are external: no edge. Lane PKG, parked: #352.
 - **Imported classes and objects as qualifiers.** `import { C } from './m'; C.m()` and `new C()` get no Exact edge. Lane S2, parked: #353.
 - **Relative import resolution** (all recorded in #371):
-  - wrong: when the namespace export proof fails, the fallback matches files by stem and grades every match Exact, so `N.f()` can bind `other/x.ts:f`;
+  - wrong: when the namespace export proof fails, the fallback matches files by stem and grades eligible spelling matches Exact (private function-expression names excluded), so `N.f()` can bind `other/x.ts:f`;
   - missing:
     - a barrel conflict check that counts a forwarded type-only import;
     - an inherited method reached through an imported props type;
@@ -193,7 +195,8 @@ A note in `CLAUDE.md` saying such code is out of model was considered and reject
     - with both `x.js` and `x.ts` present, `./x.js` binds `x.js`, whereas TypeScript binds `x.ts`.
 - **CommonJS.**
   - `module.exports = …` and `exports.x = …` are modeled as the construction idiom (`src/ast/js_cjs_export_barriers.rs`). A CommonJS export has no source span, so an alias of a CommonJS import is not proven by the alias route; such a site keeps the base result. Tracked: #376 item 2.
-  - The direct routes (`w()`, `N.w()`) bind a span-less export to any same-named function in the exporting file, including a nested one. Tracked: #376 item 5.
+  - The direct routes (`w()`, `N.w()`) bind a span-less export to any same-named function in the exporting file except private function-expression names, including nested declarations. Tracked: #376 item 5.
+  - A named expression exported through CommonJS can therefore drop even when its anonymous twin resolves: recovery needs a callable-span proof rather than its private name (#450).
   - A direct call to an import is dropped when the caller declares another binding of that name in a nested scope. Tracked: #376 item 4.
 - **Runtime mutation is out of model** for every route: monkey-patching, reflective writes, `eval`, host globals, re-acquisition through `require`/`import()`. See `CLAUDE.md`.
 

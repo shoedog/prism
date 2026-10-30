@@ -116,6 +116,24 @@
       "id.file == site.caller.file",
       "false",
       "js_named_function_scope_test::recursion_and_nested_callables_keep_expression_binding"
+    ],
+    "MB-18-exclude-expression-parameters": [
+      "src/js_anonymous/function_expression.rs",
+      "regions.push((parameters.start_byte(), body.end_byte()));",
+      "regions.push((body.start_byte(), body.end_byte()));",
+      "js_named_function_scope_test::parameter_defaults_see_self_but_not_shadowed_or_enclosing_names"
+    ],
+    "MB-19-allow-private-spanless-export": [
+      "src/js_anonymous/function_expression.rs",
+      "None => !self.expression_private_name(id),",
+      "None => true,",
+      "js_named_function_scope_test::imports_do_not_expose_private_expression_names"
+    ],
+    "MB-20-allow-private-namespace-spelling": [
+      "src/js_anonymous/function_expression.rs",
+      ".filter(|id| !self.expression_private_name(id))",
+      ".filter(|_| true)",
+      "js_named_function_scope_test::imports_do_not_expose_private_expression_names"
     ]
   }
 }

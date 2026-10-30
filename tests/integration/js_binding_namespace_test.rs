@@ -303,11 +303,13 @@ fn d11_incomplete_exports_and_depth_keep_base() {
             ),
         ] {
             let cg = graph(ext, &[("lib", lib), ("app", APP)]);
-            assert_eq!(
-                rows(&cg, "run", "f"),
-                [exact(ext, "lib", "f", line)],
-                "{ext}: {lib}"
-            );
+            // #450: this spanless CJS row only offers the expression's private name.
+            let expected = if lib == "exports.f=function f(){};" {
+                "drop ImportExternal".into()
+            } else {
+                exact(ext, "lib", "f", line)
+            };
+            assert_eq!(rows(&cg, "run", "f"), [expected], "{ext}: {lib}");
         }
         let cg = graph(
             ext,
@@ -345,18 +347,22 @@ fn d11_incomplete_exports_and_depth_keep_base() {
 #[test]
 fn d12_pattern_alias_and_skipped_maycall_and_bare_alias() {
     for ext in ["jsx", "tsx"] {
-        for lib in [
-            "const o={ f(){return 1;} };\nexport const {f}=o;",
-            "const arr=[function f(){}];\nexport const [f]=arr;",
-            "function wrap(x){return x;}\nexport const f=wrap(function f(){});",
+        for (lib, private_expression) in [
+            ("const o={ f(){return 1;} };\nexport const {f}=o;", false),
+            ("const arr=[function f(){}];\nexport const [f]=arr;", true),
+            (
+                "function wrap(x){return x;}\nexport const f=wrap(function f(){});",
+                true,
+            ),
         ] {
             let cg = graph(ext, &[("lib", lib), ("app", APP)]);
-            let line = if lib.contains("wrap") { 2 } else { 1 };
-            assert_eq!(
-                rows(&cg, "run", "f"),
-                [exact(ext, "lib", "f", line)],
-                "{ext}: {lib}"
-            );
+            // #450: array/wrapper exports cannot borrow a private expression identity.
+            let expected = if private_expression {
+                "drop ImportExternal".into()
+            } else {
+                exact(ext, "lib", "f", 1)
+            };
+            assert_eq!(rows(&cg, "run", "f"), [expected], "{ext}: {lib}");
         }
         let lib = "function make(){\n function f(){}\n return f;\n}\nexport const f=make();";
         for lib in [lib, RENAME] {

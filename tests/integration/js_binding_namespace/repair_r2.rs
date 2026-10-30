@@ -11,33 +11,33 @@ fn r2_collision_rows(ext: &str, lib: &str, lines: &[usize]) {
         .map(|line| exact(ext, "lib/index", "f", *line))
         .collect::<Vec<_>>()
         .join(", ")];
-    // Pin the exact target identities, spans, grades and kinds from base,
-    // independently of the namespace projection's keep-base implementation.
+    // Pin identities independently of the namespace projection: #450 excludes
+    // g's private expression at line 1 from every Exact spelling fallback.
     assert_eq!(base_rows(&cg, "f"), expected);
     assert_eq!(rows(&cg, "run", "f"), expected);
 }
 
 #[test]
 fn r2_n1_written_declarator_jsx() {
-    r2_collision_rows("jsx", R2_N1, &[1, 2]);
+    r2_collision_rows("jsx", R2_N1, &[2]);
 }
 #[test]
 fn r2_n1_written_declarator_tsx() {
-    r2_collision_rows("tsx", R2_N1, &[1, 2]);
+    r2_collision_rows("tsx", R2_N1, &[2]);
 }
 #[test]
 fn r2_n5_class_terminal_jsx() {
-    r2_collision_rows("jsx", R2_N5, &[1, 2]);
+    r2_collision_rows("jsx", R2_N5, &[2]);
 }
 #[test]
 fn r2_n5_class_terminal_tsx() {
-    r2_collision_rows("tsx", R2_N5, &[1, 2]);
+    r2_collision_rows("tsx", R2_N5, &[2]);
 }
 #[test]
 fn r2_n6_written_declaration_jsx() {
-    r2_collision_rows("jsx", R2_N6, &[1, 2, 3]);
+    r2_collision_rows("jsx", R2_N6, &[2, 3]);
 }
 #[test]
 fn r2_n6_written_declaration_tsx() {
-    r2_collision_rows("tsx", R2_N6, &[1, 2, 3]);
+    r2_collision_rows("tsx", R2_N6, &[2, 3]);
 }

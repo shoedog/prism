@@ -2565,10 +2565,10 @@ impl CallGraph {
                                     return outcome;
                                 }
                             }
-                            return ResolutionOutcome::hit(exact(
+                            return self.js_ts_import_spelling_exact(
                                 matched,
                                 ResolutionKind::ImportQualified,
-                            ));
+                            );
                         }
                     }
                 }
@@ -3762,18 +3762,7 @@ impl CallGraph {
         if !binding.module_path.trim().starts_with('.') && resolved.span.is_none() {
             return Ok(Vec::new());
         }
-        let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
-            Some(ids) => ids
-                .iter()
-                .filter(|fid| fid.file == resolved.file && !self.method_owners.contains_key(*fid))
-                .filter(|fid| {
-                    resolved
-                        .span
-                        .is_none_or(|(s, e)| fid.start_line == s && fid.end_line == e)
-                })
-                .collect(),
-            None => Vec::new(),
-        };
+        let ids = self.js_ts_export_candidates(resolved);
         if resolved.span.is_some() && ids.len() > 1 {
             return Ok(Vec::new());
         }
