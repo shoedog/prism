@@ -21,6 +21,7 @@ __all__ = [
     "raw_digest",
     "corpus_manifest",
     "checkout_corpus_manifest",
+    "corpus_control_paths",
     "manifest_digest",
     "write_tsv",
     "read_tsv",
@@ -53,6 +54,33 @@ _CORPUS_CONTROL_FILES = {
     "rust-toolchain",
     "rust-toolchain.toml",
 }
+
+
+def _is_corpus_control_path(path: str) -> bool:
+    return path in _CORPUS_CONTROL_FILES or PurePosixPath(path).name == "Cargo.toml"
+
+
+def corpus_control_paths(root: Path, *, tracked_only: bool) -> list[str]:
+    """Enumerate control files consumed by corpus/native loading."""
+    if tracked_only:
+        result = subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+        )
+        candidates = [
+            entry.decode("utf-8")
+            for entry in result.stdout.split(b"\0")
+            if entry
+        ]
+    else:
+        candidates = [
+            path.relative_to(root).as_posix()
+            for path in root.rglob("*")
+            if path.is_file()
+        ]
+    return sorted(path for path in candidates if _is_corpus_control_path(path))
 
 
 def canonical_path(root: Path, p: Path) -> str:
@@ -108,7 +136,7 @@ def checkout_corpus_manifest(
         path = canonical_path(root, disk_path)
         if (
             lexical_path in expected_paths
-            or lexical_path in _CORPUS_CONTROL_FILES
+            or _is_corpus_control_path(lexical_path)
             or (
                 lexical_path.endswith(extensions)
                 and not any(

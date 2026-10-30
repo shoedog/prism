@@ -23,7 +23,7 @@ from .boundary import (
     observe_cargo,
     scrubbed_env,
 )
-from .closure import raw_digest
+from .closure import corpus_control_paths, raw_digest
 from .adjudication import load_records
 from .corpus import universe
 from .lock import (
@@ -434,17 +434,7 @@ def _lockless_closure_paths(cfg: dict) -> set[str]:
             tracked_only=True,
         )
     )
-    paths.update(
-        name
-        for name in (
-            "Cargo.lock",
-            "Cargo.toml",
-            "build.rs",
-            "rust-toolchain",
-            "rust-toolchain.toml",
-        )
-        if (root / name).is_file()
-    )
+    paths.update(corpus_control_paths(root, tracked_only=False))
     return paths
 
 

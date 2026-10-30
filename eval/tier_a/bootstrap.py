@@ -16,7 +16,8 @@ from pathlib import Path
 
 from .artifacts import ArtifactPaths
 from .boundary import DEFAULT_ENV_ALLOW, scrubbed_env
-from .closure import canonical_path, corpus_manifest, manifest_digest, policy_digest
+from .closure import canonical_path, corpus_control_paths, corpus_manifest
+from .closure import manifest_digest, policy_digest
 from .closure import policy_manifest, population_manifest, raw_digest
 from .closure import sut_inputs_manifest, write_tsv
 from .corpus import load_snapshot, save_snapshot, universe
@@ -226,11 +227,7 @@ def stage_candidate(
     closure_paths = set(
         universe(str(repo), cfg["lang"], cfg.get("excludes", []), tracked_only=True)
     )
-    closure_paths.update(
-        name
-        for name in ("Cargo.lock", "Cargo.toml", "build.rs", "rust-toolchain", "rust-toolchain.toml")
-        if (repo / name).is_file()
-    )
+    closure_paths.update(corpus_control_paths(repo, tracked_only=True))
     closure_rows = corpus_manifest(repo, sorted(closure_paths))
     sut_rows = sut_inputs_manifest(repo, binary)
     snapshot_final = eval_dir / "snapshots" / f"prism-{sut_sha[:12]}.json"
