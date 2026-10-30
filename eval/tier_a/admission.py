@@ -496,8 +496,14 @@ def run_quick_admitted(
     _validate_lock_sample(lock, args)
     sut_state_before = None
     if lock is not None and artifacts is not None:
-        sut_rows = authenticate_sut_inputs(lock, artifacts)
-        sut_state_before = _sut_input_state(eval_dir.parent, sut_rows)
+        try:
+            sut_rows = authenticate_sut_inputs(lock, artifacts)
+            sut_state_before = _sut_input_state(eval_dir.parent, sut_rows)
+        except OSError as exc:
+            location = exc.filename or "sut_input_state"
+            raise BoundaryViolation(
+                [f"sut_observation_unavailable: {location}"]
+            ) from exc
     corpus_cfg = {**cfg, "path": str(corpus_path)}
     env = scrubbed_env(lock)
     if sut is None and getattr(args, "sut_archive", None):
