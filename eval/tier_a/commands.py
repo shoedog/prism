@@ -331,7 +331,7 @@ def preflight_quick(
             None,
         )
     if lock is None:
-        return None, eval_dir.parent, {}, None
+        raise BoundaryViolation(["no_lock"])
 
     try:
         checkout = materialize(lock, tier_a_root(), str(eval_dir.parent))
@@ -363,6 +363,18 @@ def preflight_quick(
         },
         identity,
     )
+
+
+def _validate_lock_sample(lock: Lock | None, args) -> None:
+    if lock is None or getattr(args, "sample", None) is None:
+        return
+    mode = "quick" if getattr(args, "quick", False) else "full"
+    expected = lock.prism["sample"]["per_stratum"][mode]
+    actual = args.sample
+    if actual != expected:
+        raise BoundaryViolation(
+            [f"sample_override_mismatch: {mode}: {actual} != {expected}"]
+        )
 
 
 def finalize_metrics(run: dict, declared, defaults: dict, cfg: dict) -> dict:
@@ -463,6 +475,7 @@ def run_quick_admitted(
             raise
         except Exception as exc:
             raise BoundaryViolation([f"corpus_mismatch: {exc}"]) from exc
+    _validate_lock_sample(lock, args)
     if lock is not None and artifacts is not None:
         authenticate_sut_inputs(lock, artifacts)
     corpus_cfg = {**cfg, "path": str(corpus_path)}
