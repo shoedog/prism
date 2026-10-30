@@ -71,7 +71,14 @@ fn one_lifecycle_state_lasts_the_whole_connection_and_starts_before_initialize()
     };
     let input = format!("{LIST}\n{INIT}\n{INITED}\n{LIST}\n");
     let (outcome, responses) = run(input.as_bytes(), |message, state| {
-        let control = handle_control(message, state, &registry, StartupMode::Lazy, &settings);
+        let control = handle_control(
+            message,
+            state,
+            &registry,
+            StartupMode::Lazy,
+            false,
+            &settings,
+        );
         Ok(match control {
             Control::Response(response) => Some(response),
             Control::NoResponse | Control::ToolCall(_) => None,

@@ -133,18 +133,10 @@ pub(super) fn serve_events(
                     &mut lifecycle,
                     registry,
                     rt.startup_mode(),
+                    true,
                     settings,
                 ) {
-                    Control::Response(mut value) => {
-                        if rt.startup_mode() == super::StartupMode::Background {
-                            if let Some(Value::String(text)) =
-                                value.pointer_mut("/result/instructions")
-                            {
-                                *text = text.replace("started at server startup", "started at server startup or by the first tool call after an idle unload");
-                            }
-                        }
-                        Some(value)
-                    }
+                    Control::Response(value) => Some(value),
                     Control::NoResponse => None,
                     Control::ToolCall(call) => {
                         let lease = rt.activity();

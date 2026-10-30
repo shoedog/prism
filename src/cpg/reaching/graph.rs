@@ -1,5 +1,6 @@
 //! Small graph primitives used by the reaching-definitions fixed point.
 
+#[cfg(test)]
 use std::collections::VecDeque;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -63,12 +64,14 @@ pub(super) fn reverse_postorder(successors: &[Vec<(usize, bool)>], entry: usize)
     postorder
 }
 
+#[cfg(test)]
 pub(super) fn path_exists(
     successors: &[Vec<(usize, bool)>],
     from: usize,
     to: usize,
     allow_incomplete: bool,
 ) -> bool {
+    super::reach_memo_tests::walk();
     let mut seen = vec![false; successors.len()];
     let mut queue = VecDeque::from([from]);
     while let Some(node) = queue.pop_front() {
@@ -88,6 +91,7 @@ pub(super) fn path_exists(
     false
 }
 
+#[cfg(test)]
 pub(super) fn definition_reaches_unflagged(
     def_index: usize,
     from: usize,
@@ -95,6 +99,7 @@ pub(super) fn definition_reaches_unflagged(
     kill: &[BitSet],
     successors: &[Vec<(usize, bool)>],
 ) -> bool {
+    super::reach_memo_tests::walk();
     let mut seen = vec![false; successors.len()];
     let mut queue = VecDeque::from([from]);
     while let Some(node) = queue.pop_front() {

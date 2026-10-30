@@ -184,7 +184,9 @@ fn shim_command(setup: &Setup) -> Command {
 #[test]
 fn shared_idle_cli_resolution_process() {
     for (flag, env, relief, expected) in [
-        (None, None, false, 0),
+        (None, None, false, 600),
+        (None, Some("0"), false, 0),
+        (Some("0"), None, false, 0),
         (None, Some("2"), false, 2),
         (Some("3"), Some("2"), false, 3),
         (Some("0"), Some("2"), false, 0),
@@ -272,7 +274,7 @@ fn shared_idle_fail_closed_suggestion_preserves_request() {
             (None, Some("600"), true, "600"),
             (Some("7"), Some("600"), true, "7"),
             (Some("0"), Some("bad"), true, "0"),
-            (None, None, false, "0"),
+            (None, None, false, "600"),
         ] {
             let setup = setup();
             let mut command = shim_command(&setup);

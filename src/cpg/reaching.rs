@@ -18,11 +18,18 @@ mod compact_wire;
 mod def_buckets;
 mod graph;
 mod join_kind;
+#[cfg(test)]
+mod legacy_classify;
+mod reach_memo;
+#[cfg(test)]
+mod reach_memo_tests;
 mod scope;
 mod statement_lookup;
+mod use_bytes;
 
 pub(crate) use cfg_edge_index::FileCfgEdgeIndex;
-use graph::{definition_reaches_unflagged, path_exists, reverse_postorder, BitSet};
+use graph::{reverse_postorder, BitSet};
+use reach_memo::{DefinitionReachability, Reachability};
 
 /// Hard caps from the authorised measurement pass
 /// (~/code/tools/logs/item2-census/REPORT.md §2.3, 92,338 functions).
@@ -166,6 +173,8 @@ pub(crate) fn reaching_definitions_with_exact(
     statement_lookup_tests::record_outcome(&outcome);
     #[cfg(test)]
     def_bucket_tests::record_outcome(&outcome);
+    #[cfg(test)]
+    scope::use_byte_tests::record_outcome(&outcome);
     outcome
 }
 
@@ -258,7 +267,12 @@ fn reaching_definitions_impl(
             }
         })
         .collect();
-    let binding_facts = scope::BindingFacts::new(parsed, func_node, &defs);
+    let binding_facts = scope::BindingFacts::new(
+        parsed,
+        func_node,
+        &defs,
+        dfg_edges.iter().chain(exact_edges),
+    );
 
     let mut gen = vec![BitSet::new(defs.len()); node_count];
     for (index, mapped) in mapped_defs.iter().enumerate() {
@@ -291,6 +305,9 @@ fn reaching_definitions_impl(
     let mut exact_labels = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
     let mut reaching_edges = BTreeSet::new();
+    let mut paths = Reachability::new(&successors);
+    let mut bound_reach = DefinitionReachability::new(&successors, &kill, &mapped_defs);
+    let mut flat_reach = DefinitionReachability::new(&successors, &flat_kill, &mapped_defs);
     for edge in dfg_edges {
         let key = (edge.from.clone(), edge.to.clone());
         let candidates = buckets.matching_defs(edge);
@@ -317,7 +334,9 @@ fn reaching_definitions_impl(
             &kill,
             &flat_in_sets,
             &flat_kill,
-            &successors,
+            &mut paths,
+            &mut bound_reach,
+            &mut flat_reach,
             &collapsed,
             &capture_facts,
             &binding_facts,
@@ -346,7 +365,9 @@ fn reaching_definitions_impl(
             &kill,
             &flat_in_sets,
             &flat_kill,
-            &successors,
+            &mut paths,
+            &mut bound_reach,
+            &mut flat_reach,
             &collapsed,
             &capture_facts,
             &binding_facts,
@@ -434,12 +455,35 @@ fn classify_edge(
     kill: &[BitSet],
     flat_in_sets: &[BitSet],
     flat_kill: &[BitSet],
-    successors: &[Vec<(usize, bool)>],
+    paths: &mut Reachability<'_>,
+    bound_reach: &mut DefinitionReachability<'_>,
+    flat_reach: &mut DefinitionReachability<'_>,
     collapsed: &BTreeSet<(AccessPath, Line)>,
     capture_facts: &capture::CaptureFacts,
     binding_facts: &scope::BindingFacts,
     function_start: Line,
 ) -> FlowConfidence {
+    #[cfg(test)]
+    if reach_memo_tests::legacy_enabled() {
+        return legacy_classify::classify_edge(
+            edge,
+            parsed,
+            defs,
+            candidates,
+            mapped_defs,
+            line_index,
+            statements,
+            in_sets,
+            kill,
+            flat_in_sets,
+            flat_kill,
+            paths.successors,
+            collapsed,
+            capture_facts,
+            binding_facts,
+            function_start,
+        );
+    }
     if capture::is_capture(edge, capture_facts) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
@@ -474,8 +518,7 @@ fn classify_edge(
     // def-to-use query has an unflagged CFG route. Kills are checked separately
     // below and must also reach this use through unflagged edges.
     if !candidates.iter().any(|index| {
-        mapped_defs[*index]
-            .is_some_and(|def_node| path_exists(successors, def_node, use_node, false))
+        mapped_defs[*index].is_some_and(|def_node| paths.path_exists(def_node, use_node))
     }) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
@@ -500,8 +543,8 @@ fn classify_edge(
         .any(|construct_node| {
             candidates.iter().any(|index| {
                 mapped_defs[*index].is_some_and(|def_node| {
-                    path_exists(successors, def_node, construct_node, false)
-                        && path_exists(successors, construct_node, use_node, false)
+                    paths.path_exists(def_node, construct_node)
+                        && paths.reaches_target(construct_node, use_node)
                 })
             })
         });
@@ -512,7 +555,8 @@ fn classify_edge(
             mapped_defs,
             flat_in_sets,
             flat_kill,
-            successors,
+            paths,
+            flat_reach,
             line_index,
         );
     }
@@ -541,18 +585,21 @@ fn classify_edge(
         mapped_defs,
         in_sets,
         kill,
-        successors,
+        paths,
+        bound_reach,
         line_index,
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn classify_by_reaching_sets(
     candidates: &[usize],
     use_node: usize,
     mapped_defs: &[Option<usize>],
     in_sets: &[BitSet],
     kill: &[BitSet],
-    successors: &[Vec<(usize, bool)>],
+    paths: &mut Reachability<'_>,
+    def_reach: &mut DefinitionReachability<'_>,
     line_index: &BTreeMap<Line, usize>,
 ) -> FlowConfidence {
     let reaching_candidates: Vec<usize> = candidates
@@ -561,11 +608,9 @@ fn classify_by_reaching_sets(
         .filter(|index| in_sets[use_node].contains(*index))
         .collect();
     if !reaching_candidates.is_empty()
-        && !reaching_candidates.iter().any(|index| {
-            mapped_defs[*index].is_some_and(|def_node| {
-                definition_reaches_unflagged(*index, def_node, use_node, kill, successors)
-            })
-        })
+        && !reaching_candidates
+            .iter()
+            .any(|index| def_reach.reaches(*index, use_node))
     {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
@@ -581,7 +626,7 @@ fn classify_by_reaching_sets(
                 mapped_defs[*index],
                 use_node,
                 kill,
-                successors,
+                paths,
                 line_index,
             )
         })
@@ -632,7 +677,7 @@ fn lowest_reachable_kill(
     def_node: Option<usize>,
     use_node: usize,
     kill: &[BitSet],
-    successors: &[Vec<(usize, bool)>],
+    paths: &mut Reachability<'_>,
     line_index: &BTreeMap<Line, usize>,
 ) -> Option<Line> {
     let def_node = def_node?;
@@ -640,8 +685,8 @@ fn lowest_reachable_kill(
         .iter()
         .filter_map(|(line, node)| {
             (kill[*node].contains(def_index)
-                && path_exists(successors, def_node, *node, false)
-                && path_exists(successors, *node, use_node, false))
+                && paths.path_exists(def_node, *node)
+                && paths.reaches_target(*node, use_node))
             .then_some(*line)
         })
         .min()

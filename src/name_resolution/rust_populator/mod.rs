@@ -243,6 +243,16 @@ pub fn path_for_file(files: &BTreeMap<String, ParsedFile>, id: FileId) -> Option
 /// after parents). Returns `None` when no scope covers the byte (e.g. an
 /// Unmodeled file).
 pub fn enclosing_scope(graph: &ScopeGraph, file: FileId, byte: usize) -> Option<ScopeId> {
+    graph.indexed_enclosing_scope(file, byte)
+}
+
+/// Original whole-graph scan, retained independently as the test oracle.
+#[cfg(test)]
+pub(crate) fn enclosing_scope_reference(
+    graph: &ScopeGraph,
+    file: FileId,
+    byte: usize,
+) -> Option<ScopeId> {
     let mut best: Option<(ScopeId, usize)> = None; // (id, extent width)
     for (id, scope) in &graph.scopes {
         for ext in &scope.extents {

@@ -36,8 +36,11 @@ fn concurrent_idle_reload_single_build() {
     assert_eq!(warming["result"]["structuredContent"]["status"], "warming");
     old.send(CALLEES);
     wait_until("old client joins reload", || status(&state).waiting == 1);
-    close(new, new_worker); // disconnect cannot cancel the shared reload
-    assert_eq!(builds.load(Ordering::SeqCst), 2);
+    // A disconnect cannot cancel the shared reload.
+    close(new, new_worker);
+    // The reload's builder runs on the build thread: wait for it, don't race it.
+    let reload_started = || builds.load(Ordering::SeqCst) == 2;
+    wait_until("reload build started", reload_started);
     gate.open();
     let ready = old.recv();
     assert_eq!(ready["id"], 7);

@@ -169,7 +169,8 @@ fn socket_policy(extra: &[&str], expected: u64, relief: bool) {
     let old = UnixStream::connect(&path).unwrap();
     old.set_read_timeout(Some(Duration::from_secs(20))).unwrap();
     assert!(line(&old, "STATUS {\"control\":1}\n").is_empty());
-    if expected != 0 {
+    // Exercise timed unload only for the one-second cases, not the 600-second default.
+    if expected == 1 {
         line(&stream, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},\"clientInfo\":{\"name\":\"t\",\"version\":\"0\"}}}\n");
         (&stream)
             .write_all(b"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n")
@@ -209,7 +210,7 @@ fn socket_policy(extra: &[&str], expected: u64, relief: bool) {
 
 #[test]
 fn daemon_idle_wire_policy_default() {
-    socket_policy(&[], 0, false);
+    socket_policy(&[], 600, false);
 }
 #[test]
 fn daemon_idle_wire_policy_zero() {

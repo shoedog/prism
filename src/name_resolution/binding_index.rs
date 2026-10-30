@@ -200,9 +200,10 @@ fn assert_lookup_indices(
 impl ScopeGraph {
     /// Drop all derived lookup indexes after editing public storage in place,
     /// removing or reordering entries, or changing file paths. Call this before
-    /// the next lookup; add_binding/add_edge/add_macro_wildcard already invalidate
+    /// the next lookup; add_scope/add_binding/add_edge/add_macro_wildcard invalidate
     /// their own indexes. Debug builds check indexed results against linear scans.
     pub fn invalidate_lookup_indexes(&mut self) {
+        self.scope_extent_index.invalidate();
         self.binding_index.invalidate();
         self.binding_index.invalidate_edges();
         self.binding_index.invalidate_wildcards();

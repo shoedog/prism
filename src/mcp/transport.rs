@@ -341,7 +341,14 @@ fn handle_message_with(
     state: &mut Lifecycle,
     settings: &ConnectionSettings,
 ) -> Dispatch {
-    match handle_control(message, state, registry, runtime.startup_mode(), settings) {
+    match handle_control(
+        message,
+        state,
+        registry,
+        runtime.startup_mode(),
+        false,
+        settings,
+    ) {
         Control::Response(response) => Dispatch::Response(response),
         Control::NoResponse => Dispatch::NoResponse,
         Control::ToolCall(call) => Dispatch::Response(dispatch_tool(&call, runtime, settings)),
@@ -374,6 +381,7 @@ pub(super) fn handle_control<'r>(
     state: &mut Lifecycle,
     registry: &'r ToolRegistry,
     startup_mode: StartupMode,
+    idle_enabled: bool,
     settings: &ConnectionSettings,
 ) -> Control<'r> {
     if message.is_array() {
@@ -437,7 +445,7 @@ pub(super) fn handle_control<'r>(
 
     match method {
         "initialize" => {
-            let response = initialize_response(obj, id, startup_mode);
+            let response = initialize_response(obj, id, startup_mode, idle_enabled);
             // Advance ONLY from PreInit, and only on a *successful* initialize. A repeat initialize once
             // negotiated responds but never downgrades the state (lifecycle is monotonic — re-review MAJOR).
             if *state == Lifecycle::PreInit && response.get("result").is_some() {
@@ -452,7 +460,12 @@ pub(super) fn handle_control<'r>(
     }
 }
 
-fn initialize_response(obj: &Map<String, Value>, id: Value, startup_mode: StartupMode) -> Value {
+fn initialize_response(
+    obj: &Map<String, Value>,
+    id: Value,
+    startup_mode: StartupMode,
+    idle_enabled: bool,
+) -> Value {
     let Some(params) = obj.get("params").and_then(Value::as_object) else {
         return error_response(id, -32602, "Invalid params");
     };
@@ -479,7 +492,7 @@ fn initialize_response(obj: &Map<String, Value>, id: Value, startup_mode: Startu
                 "name": "prism-mcp",
                 "version": env!("CARGO_PKG_VERSION")
             },
-            "instructions": server_instructions(startup_mode)
+            "instructions": server_instructions(startup_mode, idle_enabled)
         }),
     )
 }
@@ -490,10 +503,11 @@ fn initialize_response(obj: &Map<String, Value>, id: Value, startup_mode: Startu
 /// `tools_reasoning`'s equivalent) pointing back here, since client ingestion of `instructions`
 /// is unverified (codex MAJOR) — the hedge preserves discoverability even for a client that never
 /// surfaces it.
-fn server_instructions(startup_mode: StartupMode) -> String {
+fn server_instructions(startup_mode: StartupMode, idle_enabled: bool) -> String {
     let snapshot_notice = match startup_mode {
         StartupMode::Eager => crate::mcp::tools::SNAPSHOT_NOTICE,
         StartupMode::Lazy => "The repository snapshot is loaded by a background build started by the first tool call; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot.",
+        StartupMode::Background if idle_enabled => "The repository snapshot is loaded by a background build started at server startup or by the first tool call after an idle unload; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot.",
         StartupMode::Background => "The repository snapshot is loaded by a background build started at server startup; until it completes, tool calls return an `index warming` result — retry shortly. Freshness warnings compare the working tree against the most recently completed build or refresh snapshot.",
     };
     format!("{snapshot_notice} {}", crate::mcp::tools::VIEW_NOTICE)

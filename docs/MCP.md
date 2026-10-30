@@ -65,7 +65,8 @@ prism-mcp --repo /abs/path/to/repo --eager < /dev/null               # build syn
 | `--cache-dir <PATH>` | no | Where to store the per-repo navigation CPG cache (default: an OS cache dir, keyed by the canonical repo path). |
 | `--no-cache` | no | Don't read/write the nav cache (rebuild from source whenever an index build runs). Conflicts with `--cache-dir`. |
 | `--eager` | no | Build the repository index before answering `initialize`, preserving the historical synchronous startup. Use for explicit pre-warming; normally leave it off. |
-| `--warm-at-startup` | no | Start the background index build when the process starts instead of on the first valid `tools/call`. Trades memory for a warm first call; every process that uses it holds the full index whether or not a tool is ever called. Conflicts with `--eager`. |
+| `--warm-at-startup` | no | Start the background index build when the process starts instead of on the first valid `tools/call`. Trades memory for a warm first call; the index stays loaded until 600 tool-idle seconds pass, then unloads; the next tool call reloads it (see `--index-idle-secs`). Conflicts with `--eager`. |
+| `--index-idle-secs <SECS>` | no | Unload the index after tool-idle seconds (default `600`); the next tool call reloads it. `0` keeps it resident. Flag overrides `PRISM_MCP_INDEX_IDLE_SECS`, then the default. Eager/owner modes keep it off and reject a nonzero flag. |
 | `--first-call-wait <SECS>` | no | Maximum wait for the first valid `tools/call` while the background build finishes (default `20`, range `0`–`600`). `0` returns a warming result immediately. Accepted but ignored with `--eager`. |
 | `--shared` | no | Serve through the shared per-repository daemon (a shim of a few MB) instead of an index of this process's own; opt-in. See [Shared daemon](#shared-daemon---shared-opt-in-macos-and-linux). |
 | `--standalone` | no | An index of this process's own (the default). |
@@ -203,11 +204,14 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span` 
   navigates) stays at a few MB instead of holding the whole index. The first valid `tools/call` starts
   the background build and waits up to `--first-call-wait` (20 seconds by default), then returns an
   error-marked `index warming` JSON result if the build is still running. Retry that same call shortly;
-  no other action is needed, and later calls are fast. On a mid-size repo a warm nav cache loads in a
-  second or two, so the first call completes inside the wait; very large repos can take 15–20 s even
+  no other action is needed, and later calls are fast while the index remains loaded. On a mid-size
+  repo a warm nav cache loads in a second or two, so the first call completes inside the wait; very large repos can take 15–20 s even
   warm, so raise `--first-call-wait` or use `--warm-at-startup` there. `--warm-at-startup` starts the
   build at process start instead; use `--eager` only when a synchronous build is desirable, such as
-  pre-warming a shared cache.
+  pre-warming a shared cache. After 600 seconds without tool calls, ordinary stdio/shared sessions
+  unload the index; the next call reloads it. On very large repos, or with `--no-cache`, this can
+  exceed `--first-call-wait` and return `index warming` again. Raise that wait for reloads too, or
+  use `--index-idle-secs 0` to keep the index resident.
 
 ---
 
@@ -216,6 +220,7 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span` 
 | Variable | Default | Meaning |
 |---|---|---|
 | `PRISM_MCP_MALLOC_SPACE_EFFICIENT` | `1` on macOS | On macOS, when `MallocSpaceEfficient` is absent, this variable being unset, empty or `1` re-execs `prism-mcp` with `MallocSpaceEfficient=1` before subcommand dispatch or threads start. `0` opts out; any other value warns once and keeps the default allocator settings. A caller's `MallocSpaceEfficient` always wins, even when empty. No allocator policy change on other operating systems. |
+| `PRISM_MCP_INDEX_IDLE_SECS` | `600` | Tool-idle seconds before unloading; the next tool call reloads the index. `0` keeps it resident. `--index-idle-secs` overrides this value. Ignored in Eager/owner modes. |
 | `PRISM_MCP_MAX_RESULT_CHARS` | `80000` | Wire byte cap per tool result (floor `12000`). |
 | `PRISM_MCP_STRUCTURED_CONTENT` | `omit-default-path` | `omit-default-path` (the default) drops `structuredContent` from the wire on the default (`canonical_json`) path — `content[0].text` already carries the identical JSON, so nothing is lost, only a redundant second copy (~31% of the result). Agent views (`format: agent_markdown` / `agent_json`) always keep `structuredContent`; it is their only canonical-Evidence carrier once `content_text` has been rewritten into prose. `always` opts back into repeating canonical Evidence in both `content[0].text` and `structuredContent` (the pre-2026-07-03 shape) for clients that read only `structuredContent`. |
 | `PRISM_MCP_CONCISE_SHAPE` | `slim` | Shape of items in `Verbosity::Concise` results (Concise is the MCP default when a tool call omits `verbosity`). `slim` (the default) drops each item's `symbol` byte-offset/`ordinal` fields, drops the separate `location` field when it duplicates the symbol's file/line span, and omits `snippet` when null (instead of serializing `"snippet": null`). `Verbosity::Detailed` and agent views are never affected. `legacy` opts back into the pre-2026-07-03 item shape, byte-identical to historical output. |
@@ -230,6 +235,11 @@ daemon keeps the allocator mode of its first spawner, like its idle policy; late
 change it. If restart fails, one stderr warning is attempted and startup continues.
 Serving startup events report `malloc_space_efficient=1`, `0`, `unset` or `other` from the current
 process environment.
+
+The `macos-footprint` CI job guards the idle-unloaded footprint on macOS using this
+checkout and an allocator opt-out control, and runs the macOS allocator tests. Run the
+footprint guard locally with `cargo test --release --features mcp --test mcp footprint_guard -- --ignored --nocapture --test-threads=1`;
+ordinary test runs ignore this measurement.
 
 The `slim` transform only touches `items`; it never reaches graph-carried results —
 `nav_ego_graph` / `nav_repo_map` payloads live under `graph`, untouched by design.
@@ -248,8 +258,8 @@ only a one-line pointer to it.
 ## Shared daemon (`--shared`, opt-in; macOS and Linux)
 
 Every MCP client process starts its own `prism-mcp`, and every one that answers a tool call holds the
-whole index (1–3 GiB on a mid-size repository). Codex starts one per thread and the a2a-bridge fans out
-reviewers, so a busy host can hold dozens of copies of one index. With `--shared` the process is
+whole index (1–3 GiB on a mid-size repository) until 600 tool-idle seconds pass. It then unloads
+and reloads on the next tool call. Codex starts one per thread and the a2a-bridge fans out reviewers, so a busy host can hold dozens of copies of one index. With `--shared` the process is
 instead a **shim** of a few MB: it connects to one **daemon** per repository checkout (more exactly, per
 checkout, prism build, cache directory and refresh policy), starting it if none is running, and passes
 the MCP session through byte for byte. The daemon builds the index on the first tool call from any
@@ -354,16 +364,18 @@ The socket path must fit in 103 bytes; a long `PRISM_MCP_RUNTIME_DIR` fails clos
 | `--idle-ttl <SECS>` | `900` (1–86400) | Idle time before a daemon retires. **Only for a daemon this shim starts**; a shim that reaches a running daemon ignores it, silently. |
 | `--max-clients <N>` | `64` (1–4096) | Connections a daemon admits at once. Same rule as `--idle-ttl`. |
 | `--warm-at-startup` | off | Passed to a daemon this shim starts (it builds at once); otherwise ignored. |
-| `--index-idle-secs <SECS>` | `0` (off) | Unload the whole index after tool-idle seconds, even with clients connected. Flag overrides `PRISM_MCP_INDEX_IDLE_SECS`, which overrides off. First-spawner policy, outside the daemon key. |
+| `--index-idle-secs <SECS>` | `600` | Unload the whole index after tool-idle seconds, even with clients connected; `0` disables. Flag overrides `PRISM_MCP_INDEX_IDLE_SECS`, which overrides the default. First-spawner policy, outside the daemon key. |
 | `--index-idle-pressure-relief` (hidden) | off | Measurement A+C intent, forwarded to the daemon. Effective only with nonzero index idle on macOS; other cases report it unused. |
 | `--first-call-wait`, `PRISM_MCP_STRUCTURED_CONTENT`, `PRISM_MCP_CONCISE_SHAPE`, `PRISM_MCP_MAX_RESULT_CHARS` | as standalone | Per connection: each shim's own values apply to its own session. |
 
-Index idle stays **off by default** in both stdio and shared mode. Measurement runs explicitly
-pass `--index-idle-secs 600`; default activation remains an owner decision at a measured readout.
+Index idle unload is **on by default after 600 seconds** in both stdio and shared mode.
+Opt out with `--index-idle-secs 0` or `PRISM_MCP_INDEX_IDLE_SECS=0`.
+Eager and `--owner-*` modes keep idle unload off: explicit nonzero values are rejected, and
+ambient values are ignored with a note. Allocator pressure relief stays hidden and off by default.
 Values must be unsigned integer seconds that fit the monotonic clock; invalid or overflowing
 flag/env values fail before a daemon is started or reached. Explicit `0` overrides even an invalid
 ambient value. The shim resolves once and always passes `--index-idle-secs S`, including zero,
-to its child. Direct `prism-mcp daemon` accepts explicit options only and reads no idle env.
+to its child. Direct `prism-mcp daemon` also defaults to 600 seconds and reads no idle env.
 
 Index idle measures inactivity of tool work, separately from `--idle-ttl` (time with no clients
 before the daemon exits). Unload preserves connected MCP sessions; the next tool call reloads

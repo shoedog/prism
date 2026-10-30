@@ -1,0 +1,63 @@
+{
+  "lane": "Go phase-owned signature import memo",
+  "lib_test_prefixes": [
+    "go_type_alias::import_memo::",
+    "go_promoted_snapshot::import_memo_tests::"
+  ],
+  "mutations": {
+    "GSI-file-key": [
+      "src/go_type_alias/import_memo.rs",
+      "self.entries.get(file)",
+      "self.entries.values().next()",
+      "go_type_alias::import_memo::tests::maps_match_frozen_reference_for_each_file_and_local_path"
+    ],
+    "GSI-local-path": [
+      "src/go_type_alias/import_memo.rs",
+      "self.local_paths.get(file).map(String::as_str)",
+      "None",
+      "go_type_alias::import_memo::tests::maps_match_frozen_reference_for_each_file_and_local_path"
+    ],
+    "GSI-no-repeated-scan": [
+      "src/go_type_alias/import_memo.rs",
+      "entry.get_or_init(|| self.scan(file))",
+      "{ let _ = self.scan(file); entry.get_or_init(|| self.scan(file)) }",
+      "go_type_alias::import_memo::tests::empty_and_missing_maps_are_lazy_and_reused"
+    ],
+    "GSI-missing-file": [
+      "src/go_type_alias/import_memo.rs",
+      "return &self.missing;",
+      "return self.get(self.files.keys().next().unwrap());",
+      "go_promoted_snapshot::import_memo_tests::missing_declaration_files_match_the_old_empty_map_fallback"
+    ],
+    "GSI-alias-sharing": [
+      "src/go_type_alias/import_memo.rs",
+      "Self::Memo(memo) => Some(memo.get(path)),",
+      "Self::Memo(_memo) => None,",
+      "go_promoted_snapshot::import_memo_tests::promoted_snapshot_matches_reference_and_scans_once_across_aliases_structs_and_interfaces"
+    ],
+    "GSI-strict-file-key": [
+      "src/go_type_alias/import_memo.rs",
+      "Self::Maps(maps) => maps.get(path),",
+      "Self::Maps(maps) => maps.values().next(),",
+      "go_type_alias::import_memo::tests::strict_override_maps_preserve_file_keys_and_missing_fallback"
+    ],
+    "GSI-provider-sharing": [
+      "src/type_providers/go/signature_inputs.rs",
+      "Some((memo, path)) => memo.get(path),",
+      "Some((_memo, _path)) => self.cached.get_or_init(|| self.scan()),",
+      "go_promoted_snapshot::import_memo_tests::promoted_snapshot_matches_reference_and_scans_once_across_aliases_structs_and_interfaces"
+    ],
+    "GSI-struct-imports": [
+      "src/go_promoted_snapshot.rs",
+      "let file_imports = imports.get(&declaration.defining_file);",
+      "let file_imports = &BTreeMap::new();",
+      "go_promoted_snapshot::import_memo_tests::promoted_snapshot_matches_reference_and_scans_once_across_aliases_structs_and_interfaces"
+    ],
+    "GSI-interface-imports": [
+      "src/go_promoted_snapshot/interface_profiles.rs",
+      "let file_imports = imports.get(&declaration.defining_file);",
+      "let file_imports = &BTreeMap::new();",
+      "go_promoted_snapshot::import_memo_tests::promoted_snapshot_matches_reference_and_scans_once_across_aliases_structs_and_interfaces"
+    ]
+  }
+}

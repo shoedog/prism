@@ -1,5 +1,7 @@
 # I0 freshness prerequisite, I0b daemon, I0c shim/operator
 
+**Activation update 2026-10-29 (owner decision):** ordinary stdio/shared idle unload now defaults to 600 s, including `--no-cache`; explicit flag or env `0` opts out. Eager/owner remain unsupported and A+C remains hidden/off. This supersedes earlier absent-means-off wording below; see [MCP settings](../../MCP.md#flags).
+
 Design written 2026-10-18; dispatch/fold dated 2026-10-19. Checkout `prism-i0b-plan`, branch `plan/i0b-freshness`; original design base **`1d01b0a72daa2297d90529676f542ebcd4ada401`**, round-1 fold starts clean at committed plan `3748fc39`. Existing-file anchors refer to the original base; **NEW** paths have no base line. Controller commits. No cargo, builds, tests, index loads or measurements ran for this plan; weighted-size figures are inherited static counts.
 
 Goal: a2a-bridge fan-out on a **24 GiB host without swap exhaustion**, retaining the **<1 GiB per cache-hit index / 12–16 checkout** goal. I0 returns idle sessions' memory; it does not establish the active-index or host-capacity target by itself. I0a shipped stdio-only in #491 (`6abab1e5`); S0 #487 is merged. **Absent flag/env means OFF**, including after I0c. Default activation remains an owner decision at the measured readout. Measurement commands explicitly pass **`--index-idle-secs 600`**.

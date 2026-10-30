@@ -89,7 +89,8 @@ def build_isolated_codex_home(
         # Deliberately omitting: skill_dirs, model, approvals_reviewer, projects, notify.
         # --warm-at-startup keeps the at-spawn build the adoption baselines ran under (the
         # prism-mcp default became build-on-first-call on 2026-10-09).
-        mcp_args = ["--repo", mcp_repo, "--warm-at-startup"]
+        # --index-idle-secs 0 pins their resident index; idle unload became default on 2026-10-29.
+        mcp_args = ["--repo", mcp_repo, "--warm-at-startup", "--index-idle-secs", "0"]
         if cache_dir:
             # Codex spawns the MCP server with cwd = the SESSION cwd (the checkout), not the
             # harness cwd — a relative cache path would resolve inside the checkout and miss the

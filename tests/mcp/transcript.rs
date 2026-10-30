@@ -223,6 +223,7 @@ pub fn run_transcript_with_timeout(
         "PRISM_MCP_STRUCTURED_CONTENT",
         "PRISM_MCP_CONCISE_SHAPE",
         "PRISM_MCP_MAX_RESULT_CHARS",
+        "PRISM_MCP_INDEX_IDLE_SECS",
     ] {
         command.env_remove(key);
     }

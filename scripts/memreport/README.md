@@ -300,7 +300,8 @@ The comparison decides nothing about what ships: it reports the numbers and the 
 ## Idle lifecycle collection (I0c-2)
 
 `idle` is a separate normal-serving path. Existing `run` stays eager and unchanged.
-I0 remains off by default; these commands explicitly request a policy and never activate it globally.
+I0 defaults to 600 seconds in ordinary stdio/shared sessions; these commands explicitly request
+their measurement policy (including `0` for a resident match). A+C pressure relief stays off by default.
 Python 3.9+, standard library only. Live ledger/clock sampling requires macOS; other hosts retain UNKNOWN
 readings. The portable fixture/injection tests run there; only the live Apple ABI test skips.
 

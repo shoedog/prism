@@ -537,22 +537,24 @@ impl GoTypeProvider {
 
         let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
         let local_import_paths = Self::local_import_paths(package_import_paths, &go_file_profiles);
-        let alias_resolver = crate::go_type_alias::GoAliasResolver::build(
+        let imports = crate::go_type_alias::SignatureImportMemo::new(files, &local_import_paths);
+        let alias_resolver = crate::go_type_alias::GoAliasResolver::build_with_import_memo(
             files,
             package_import_paths,
             &local_import_paths,
             &go_file_profiles,
+            &imports,
         );
 
         for (path, parsed) in files {
             if parsed.language != Language::Go {
                 continue;
             }
-            Self::extract_from_file(
+            signature_inputs::extract_file(
                 &mut inner,
                 path,
                 parsed,
-                local_import_paths.get(path).map(String::as_str),
+                &imports,
                 &alias_resolver,
                 import_scan,
             );
@@ -784,11 +786,9 @@ impl GoTypeProvider {
         data: &mut GoTypeData,
         path: &str,
         parsed: &ParsedFile,
-        local_import_path: Option<&str>,
+        signature_imports: &FileSignatureImports<'_>,
         alias_resolver: &crate::go_type_alias::GoAliasResolver,
-        import_scan: ImportScan,
     ) {
-        let signature_imports = FileSignatureImports::new(parsed, local_import_path, import_scan);
         let root = parsed.tree.root_node();
         let mut cursor = root.walk();
 
@@ -800,7 +800,7 @@ impl GoTypeProvider {
                         &child,
                         path,
                         parsed,
-                        &signature_imports,
+                        signature_imports,
                         alias_resolver,
                     );
                 }
@@ -810,7 +810,7 @@ impl GoTypeProvider {
                         &child,
                         path,
                         parsed,
-                        &signature_imports,
+                        signature_imports,
                         alias_resolver,
                     );
                 }

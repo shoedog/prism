@@ -32,7 +32,7 @@ pub struct ShimOptions {
     /// `--idle-ttl` and `--max-clients` for a daemon this shim starts.
     pub idle_ttl: Option<u64>,
     pub max_clients: Option<u32>,
-    /// Explicit idle setting, overriding PRISM_MCP_INDEX_IDLE_SECS; absent means env or off.
+    /// Explicit idle setting, overriding PRISM_MCP_INDEX_IDLE_SECS; absent means env or default.
     pub index_idle_secs: Option<String>,
     /// Hidden A+C intent, forwarded even when this platform cannot apply it.
     pub index_idle_pressure_relief: bool,
@@ -63,11 +63,12 @@ fn shim(options: &ShimOptions) -> Result<(), String> {
     let ambient = ambient.as_deref().map(|value| value.to_string_lossy());
     // Pin the selected seconds even before validation, so early failures reproduce the request
     // and invalid requests stay invalid rather than silently inheriting a different policy.
+    let default_idle_secs = crate::mcp::idle::DEFAULT_IDLE_SECS.to_string();
     let idle_secs = options
         .index_idle_secs
         .as_deref()
         .or(ambient.as_deref())
-        .unwrap_or("0");
+        .unwrap_or(&default_idle_secs);
     let standalone = standalone_invocation(
         &exe,
         &ServerConfig {
