@@ -238,7 +238,7 @@ def _stratum(legs: tuple) -> str | None:
 
 
 def _common_m2(run: dict, ids: set[str], records: list[Adjudication]) -> dict:
-    from .cli import _compute_m2_and_pending
+    from .policy import _compute_m2_and_pending
 
     probes = {
         pid: run["probes"][pid]

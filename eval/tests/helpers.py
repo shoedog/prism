@@ -13,6 +13,7 @@ from pathlib import Path
 
 from tier_a.adjudication import Adjudication, validate
 from tier_a.closure import (
+    _POLICY_MODULES,
     canonical_path,
     corpus_manifest,
     manifest_digest,
@@ -105,14 +106,7 @@ def copy_eval_policy_files(tmp: Path) -> Path:
     tier_a = destination / "tier_a"
     tier_a.mkdir(parents=True)
     shutil.copy2(EVAL_DIR / "corpora.toml", destination / "corpora.toml")
-    for name in (
-        "corpus.py",
-        "strata.py",
-        "accounting.py",
-        "spotcheck.py",
-        "pinned.py",
-        "policy.py",
-    ):
+    for name in _POLICY_MODULES:
         shutil.copy2(EVAL_DIR / "tier_a" / name, tier_a / name)
     return destination
 

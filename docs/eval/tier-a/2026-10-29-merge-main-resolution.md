@@ -83,3 +83,18 @@ run-record assignments within the retained orchestration functions:
 | M1, sampling-frame/snapshot, eligibility, successful-probe, frame/member, accounting, and probe-status measurements | `policy.py`: `m1_measurements`; `sampling_frame_source`; `sampling_inventory_measurements`; `should_save_snapshot`; `snapshot_prism_missing`; `stratum_measurements`; `record_success`; `frame_measurements`; `member_site_measurements`; `accounting_measurements`; `probe_status_measurement` | Retains iteration, process calls, and record placement only. |
 | Floors, invalid reasons, deferred boundary, M2/pending/stale, and lockless refusal | `policy.py`: `combined_invalid_reasons`; `final_validity_measurements`; `boundary_metric_state`; `finalize_deferred_metrics`; `stale_adjudication_measurement`; `apply_lockless_refusal` | `commands.py` also delegates post-admission finalization and lockless refusal to the same authority. |
 | Guard coverage | `tests/test_fold3_policy.py` | AST inspection rejects arithmetic, comparisons, thresholds, counters, or literal values feeding guarded run keys in `cli.py`; four mutations in `policy.py` must move `policy_digest`. |
+
+### Fold 4 structural measurement boundary
+
+Fold 4 replaces the hand census with the AST-derived transitive in-package import
+closure rooted at `runner.py`, `admission.py`, and `compare_report.py`. The complete
+closure is the `_POLICY_MODULES` tuple in `closure.py`; imports inside functions and
+literal `importlib.import_module` calls participate. `test_fold4_policy_boundary.py`
+proves equality with the derived closure, prohibits a hashed module from importing
+unhashed plumbing, and makes `cli.py` an absolute argparse/dispatch/path-only seam.
+
+The only excluded package files are: `__init__.py` (package marker with no
+measurement behavior), `cli.py` (argument parsing, dispatch, printing, and paths),
+`commands.py` (compatibility alias for command plumbing), `interfaces.py` (unused
+protocol declarations; measurement imports concrete adapters), and `manifest.py`
+(the separate interface-dispatch study, never imported by Tier-A measurement).

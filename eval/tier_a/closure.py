@@ -34,13 +34,42 @@ __all__ = [
 
 
 _POLICY_MODULES = (
-    "corpus.py",
-    "strata.py",
     "accounting.py",
-    "spotcheck.py",
+    "adjudication.py",
+    "admission.py",
+    "artifacts.py",
+    "bootstrap.py",
+    "boundary.py",
+    "closure.py",
+    "compare.py",
+    "compare_render.py",
+    "compare_report.py",
+    "corpus.py",
+    "lock.py",
+    "lsp_client.py",
+    "materialize.py",
+    "matrix.py",
+    "member_sample.py",
+    "metrics.py",
+    "model.py",
+    "oracles.py",
     "pinned.py",
     "policy.py",
+    "report.py",
+    "runner.py",
+    "spotcheck.py",
+    "strata.py",
+    "sut.py",
+    "tsserver.py",
 )
+
+_POLICY_EXCLUSIONS = {
+    "__init__.py": "package marker with no measurement behavior",
+    "cli.py": "argument parsing, dispatch, printing, and paths only",
+    "commands.py": "compatibility alias for unhashed command plumbing",
+    "interfaces.py": "unused protocol declarations; measurement imports concrete adapters",
+    "manifest.py": "separate interface-dispatch study not imported by Tier-A measurement",
+}
 
 _CORPUS_CONTROL_FILES = {
     "Cargo.lock",

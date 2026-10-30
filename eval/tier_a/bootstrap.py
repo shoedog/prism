@@ -117,7 +117,8 @@ def prepare_snapshot_only(
     files = universe(
         str(repo), cfg["lang"], cfg.get("excludes", []), tracked_only=True
     )
-    from .cli import make_oracle, oracle_inventory
+    from .policy import oracle_inventory
+    from .runner import make_oracle
 
     oracle = make_oracle(oracle_cfg, init_options=init_options)
     try:
@@ -238,7 +239,7 @@ def stage_candidate(
     )
     package_dirs = set()
     if cfg["lang"] == "python":
-        from .cli import package_dirs as find_package_dirs
+        from .policy import package_dirs as find_package_dirs
 
         package_dirs = find_package_dirs(str(repo))
     population = population_manifest(

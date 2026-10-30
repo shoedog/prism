@@ -263,7 +263,7 @@ class LspOracle:
                 if rebuilt != inventory:
                     raise OracleError("inventory drift during oracle recovery")
                 # Use the original overlay/real-symbol policy on the new session.
-                from .cli import resolve_capability
+                from .policy import resolve_capability
                 if not resolve_capability(self, self.capability_probe(), rebuilt):
                     raise OracleError("capability unsupported during oracle recovery")
         raise AssertionError("unreachable")
