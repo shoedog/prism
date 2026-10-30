@@ -236,6 +236,11 @@ change it. If restart fails, one stderr warning is attempted and startup continu
 Serving startup events report `malloc_space_efficient=1`, `0`, `unset` or `other` from the current
 process environment.
 
+The `macos-footprint` CI job guards the idle-unloaded footprint on macOS using this
+checkout and an allocator opt-out control, and runs the macOS allocator tests. Run the
+footprint guard locally with `cargo test --release --features mcp --test mcp footprint_guard -- --ignored --nocapture --test-threads=1`;
+ordinary test runs ignore this measurement.
+
 The `slim` transform only touches `items`; it never reaches graph-carried results —
 `nav_ego_graph` / `nav_repo_map` payloads live under `graph`, untouched by design.
 
