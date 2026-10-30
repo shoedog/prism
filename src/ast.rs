@@ -36,6 +36,7 @@ mod js_generator;
 mod js_module_forwarding;
 mod js_return_facts;
 mod js_wrapped_export;
+mod shadow_walk;
 mod statement_traversal;
 mod tree_access;
 
@@ -8516,7 +8517,7 @@ impl ParsedFile {
     }
 
     /// Check whether a reference node is shadowed by a re-declaration in an inner scope.
-    /// Walks bottom-up from the identifier node to the function boundary.
+    /// Tests ancestors bottom-up, collecting them with a single top-down descent.
     pub(crate) fn is_shadowed_at(
         &self,
         node: &Node<'_>,
@@ -8524,23 +8525,7 @@ impl ParsedFile {
         var_name: &str,
         def_line: usize,
     ) -> bool {
-        let func_id = func_node.id();
-        let mut current = node.parent();
-        while let Some(parent) = current {
-            if parent.id() == func_id {
-                break;
-            }
-            if self.language.is_scope_block(parent.kind()) {
-                let scope_start = parent.start_position().row + 1;
-                let scope_end = parent.end_position().row + 1;
-                let def_in_scope = def_line >= scope_start && def_line <= scope_end;
-                if !def_in_scope && self.scope_has_declaration(parent, var_name) {
-                    return true;
-                }
-            }
-            current = parent.parent();
-        }
-        false
+        shadow_walk::is_shadowed_at(self, *node, *func_node, var_name, def_line)
     }
 
     /// Manual recursive scoped variable ref collection (pre-query fallback).
