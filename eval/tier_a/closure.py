@@ -1,6 +1,7 @@
 """Declared-input closure manifests for Tier-A anchors."""
 from __future__ import annotations
 
+import ast
 import fnmatch
 import hashlib
 import json
@@ -30,40 +31,10 @@ __all__ = [
     "policy_manifest",
     "policy_digest",
     "population_manifest",
+    "in_package_imports_from_source",
+    "measurement_import_closure",
 ]
 
-
-_POLICY_MODULES = (
-    "accounting.py",
-    "adjudication.py",
-    "admission.py",
-    "artifacts.py",
-    "bootstrap.py",
-    "boundary.py",
-    "closure.py",
-    "compare.py",
-    "compare_render.py",
-    "compare_report.py",
-    "corpus.py",
-    "lock.py",
-    "lsp_client.py",
-    "launch.py",
-    "materialize.py",
-    "matrix.py",
-    "member_sample.py",
-    "metrics.py",
-    "model.py",
-    "oracles.py",
-    "pinned.py",
-    "policy.py",
-    "report.py",
-    "record_schema.py",
-    "runner.py",
-    "spotcheck.py",
-    "strata.py",
-    "sut.py",
-    "tsserver.py",
-)
 
 _POLICY_EXCLUSIONS = {
     "__init__.py": "package marker with no measurement behavior",
@@ -72,6 +43,127 @@ _POLICY_EXCLUSIONS = {
     "interfaces.py": "unused protocol declarations; measurement imports concrete adapters",
     "manifest.py": "separate interface-dispatch study not imported by Tier-A measurement",
 }
+
+
+def _git_policy_paths(eval_dir: Path) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+    """Return tracked and untracked package paths, or None outside a worktree."""
+    repo = eval_dir.parent
+    package = (eval_dir / "tier_a").relative_to(repo).as_posix()
+    try:
+        top = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if Path(top).resolve() != repo.resolve():
+            return None
+        tracked_raw = subprocess.run(
+            ["git", "ls-files", "-z", "--", package],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        ).stdout
+        untracked_raw = subprocess.run(
+            ["git", "ls-files", "--others", "-z", "--", package],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+    def relative_entries(raw: bytes) -> tuple[str, ...]:
+        prefix = f"{package}/"
+        return tuple(
+            sorted(
+                entry.decode("utf-8").removeprefix(prefix)
+                for entry in raw.split(b"\0")
+                if entry
+            )
+        )
+
+    return relative_entries(tracked_raw), relative_entries(untracked_raw)
+
+
+def _policy_input_names(eval_dir: Path) -> tuple[str, ...]:
+    package = eval_dir / "tier_a"
+    git_paths = _git_policy_paths(eval_dir)
+    if git_paths is None:
+        tracked = tuple(
+            sorted(
+                path.relative_to(package).as_posix()
+                for path in package.rglob("*")
+                if path.is_file() and "__pycache__" not in path.parts
+            )
+        )
+        untracked = ()
+    else:
+        tracked, untracked = git_paths
+    dirty = [path for path in untracked if "__pycache__" not in Path(path).parts]
+    if dirty:
+        raise ValueError(f"untracked_policy_input: {', '.join(dirty)}")
+    return tuple(path for path in tracked if path not in _POLICY_EXCLUSIONS)
+
+
+_POLICY_MODULES = _policy_input_names(Path(__file__).resolve().parents[1])
+
+
+def in_package_imports_from_source(source: str) -> set[str]:
+    """Derive direct tier_a imports across normal and importlib spellings."""
+    tree = ast.parse(source)
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                parts = alias.name.split(".")
+                if len(parts) >= 2 and parts[0] == "tier_a":
+                    found.add(parts[1])
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                if node.module:
+                    found.add(node.module.split(".")[0])
+                else:
+                    found.update(alias.name.split(".")[0] for alias in node.names)
+            elif node.module and node.module.startswith("tier_a."):
+                found.add(node.module.split(".")[1])
+        elif isinstance(node, ast.Call):
+            is_import_module = (
+                isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "importlib"
+                and node.func.attr == "import_module"
+            )
+            if not is_import_module or not node.args:
+                continue
+            raw = node.args[0]
+            if not isinstance(raw, ast.Constant) or not isinstance(raw.value, str):
+                continue
+            name = raw.value
+            if name.startswith("tier_a."):
+                found.add(name.split(".")[1])
+            elif name.startswith("."):
+                relative = name.lstrip(".").split(".")[0]
+                if relative:
+                    found.add(relative)
+    return found
+
+
+def measurement_import_closure(package: Path) -> set[str]:
+    """Return the derived Python import closure of measurement entry modules."""
+    pending = ["runner", "admission", "compare_report"]
+    seen: set[str] = set()
+    while pending:
+        module = pending.pop()
+        if module in seen:
+            continue
+        path = package / f"{module}.py"
+        if not path.is_file():
+            continue
+        seen.add(module)
+        pending.extend(in_package_imports_from_source(path.read_text()) - seen)
+    return {f"{module}.py" for module in seen}
 
 _CORPUS_CONTROL_FILES = {
     "Cargo.lock",
@@ -84,8 +176,10 @@ _CORPUS_CONTROL_FILES = {
 }
 
 
-def _native_loader_manifest_basenames(source_path: Path | None = None) -> frozenset[str]:
-    """Derive the recursive manifest topology from the native loader predicate."""
+def _native_loader_manifest_predicate(
+    source_path: Path | None = None,
+) -> tuple[str, frozenset[str]]:
+    """Extract the exact native manifest predicate and its accepted basenames."""
     if source_path is None:
         source_path = Path(__file__).resolve().parents[2] / "src/repo_loader.rs"
     source = source_path.read_text()
@@ -97,7 +191,12 @@ def _native_loader_manifest_basenames(source_path: Path | None = None) -> frozen
     names = frozenset(re.findall(r'"([^"]+)"', predicate.group(1)))
     if not names:
         raise ValueError("native_manifest_predicate_empty")
-    return names
+    return predicate.group(0), names
+
+
+def _native_loader_manifest_basenames(source_path: Path | None = None) -> frozenset[str]:
+    """Derive the recursive manifest topology from the native loader predicate."""
+    return _native_loader_manifest_predicate(source_path)[1]
 
 
 _NATIVE_MANIFEST_BASENAMES = _native_loader_manifest_basenames()
@@ -473,12 +572,23 @@ def sut_inputs_manifest(repo: Path, binary: Path) -> list[tuple[str, str]]:
 def policy_manifest(eval_dir: Path) -> dict:
     config = tomllib.loads((eval_dir / "corpora.toml").read_text())
     defaults = config["defaults"]
+    policy_inputs = _policy_input_names(eval_dir)
+    loader_path = eval_dir.parent / "src/repo_loader.rs"
+    if not loader_path.is_file():
+        loader_path = Path(__file__).resolve().parents[2] / "src/repo_loader.rs"
+    predicate, manifest_names = _native_loader_manifest_predicate(loader_path)
     return {
         "corpora": config,
         "modules": {
             f"tier_a/{name}": raw_digest(eval_dir / "tier_a" / name)
-            for name in _POLICY_MODULES
+            for name in policy_inputs
         },
+        "native_manifest_predicate": {
+            "path": "src/repo_loader.rs",
+            "text": predicate,
+            "basenames": sorted(manifest_names),
+        },
+        "policy_exclusions": dict(sorted(_POLICY_EXCLUSIONS.items())),
         "extensions": EXTENSIONS,
         "strata": list(STRATA),
         "sampling": {

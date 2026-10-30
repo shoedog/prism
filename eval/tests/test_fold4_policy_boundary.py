@@ -56,11 +56,16 @@ def _closure(entries: set[str]) -> set[str]:
 
 
 def test_measurement_import_closure_equals_policy_modules():
-    assert {Path(name).stem for name in _POLICY_MODULES} == _closure(ENTRY_MODULES)
+    hashed_python = {
+        Path(name).stem for name in _POLICY_MODULES if Path(name).suffix == ".py"
+    }
+    assert hashed_python == _closure(ENTRY_MODULES)
 
 
 def test_hashed_modules_never_import_plumbing_or_unhashed_modules():
-    hashed = {Path(name).stem for name in _POLICY_MODULES}
+    hashed = {
+        Path(name).stem for name in _POLICY_MODULES if Path(name).suffix == ".py"
+    }
     for module in sorted(hashed):
         imports = _imports(PACKAGE / f"{module}.py")
         assert not imports & PLUMBING_MODULES, module
