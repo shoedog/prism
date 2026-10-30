@@ -14,6 +14,8 @@ use crate::name_resolution::types::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "resolution_free.rs"]
+mod free;
 #[path = "resolution_go_satisfiers.rs"]
 pub(crate) mod go_satisfiers;
 use go_satisfiers::{GoCallerScopedSatisfiers, GoSatisfierMemo};
@@ -443,60 +445,7 @@ pub(crate) fn go_import_path_dir_key(import_path: &str) -> String {
     format!("@go-import:{import_path}")
 }
 
-/// P5 (Go func-value callbacks, S2): resolve a bare identifier used as a
-/// VALUE (not a call) to the unique in-repo free function it names, using the
-/// SAME same-package/import conventions as ordinary Go name resolution
-/// (R4/R4.5) — same-file wins, else a single same-directory (package) free
-/// function. Deliberately stops there: "NEVER bare cross-package name
-/// matching" (spec-review MAJOR) means we do not fall through to a
-/// repo-wide/FreeMulti search the way R5 does for calls.
-pub fn resolve_go_bare_value_ref(
-    functions: &BTreeMap<String, Vec<FunctionId>>,
-    method_owners: &BTreeMap<FunctionId, String>,
-    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-    ambiguous_counter: &mut usize,
-    caller_file: &str,
-    name: &str,
-) -> Option<FunctionId> {
-    let ids = functions.get(name)?;
-    let free: Vec<&FunctionId> = ids
-        .iter()
-        .filter(|fid| !method_owners.contains_key(*fid))
-        .collect();
-    let local: Vec<&FunctionId> = free
-        .iter()
-        .copied()
-        .filter(|f| f.file == caller_file)
-        .collect();
-    if local.len() == 1 {
-        return Some(local[0].clone());
-    }
-    if !local.is_empty() {
-        return None; // >1 same-file free fn of this name: ambiguous, not our problem to disambiguate
-    }
-    let dir = dir_of(caller_file);
-    let same_pkg: Vec<&FunctionId> = free
-        .iter()
-        .copied()
-        .filter(|f| dir_of(&f.file) == dir)
-        .collect();
-    let raw_ambiguous = same_pkg.len() > 1;
-    if raw_ambiguous {
-        *ambiguous_counter += 1;
-    }
-    let same_pkg = go_visible_value_candidates(caller_file, &same_pkg, go_file_profiles);
-    if same_pkg.len() == 1 {
-        let (target, exact_allowed) = same_pkg[0];
-        if !exact_allowed {
-            if !raw_ambiguous {
-                *ambiguous_counter += 1;
-            }
-            return None;
-        }
-        return Some(target.clone());
-    }
-    None
-}
+pub use free::resolve_go_bare_value_ref;
 
 fn go_visible_value_candidates<'a>(
     caller_file: &str,
@@ -2316,7 +2265,8 @@ impl CallGraph {
                         0 => ResolutionOutcome::dropped(DropReason::UnknownName),
                         1 => ResolutionOutcome::hit(exact(matched, ResolutionKind::StemSingle)),
                         _ => ResolutionOutcome::hit(demoted(matched, ResolutionKind::StemMulti)),
-                    };
+                    }
+                    .retain_family(&caller.file);
                 }
             }
 
@@ -2460,13 +2410,14 @@ impl CallGraph {
                                 if let Some(outcome) =
                                     self.js_ts_namespace_outcome(module_path, name, site, &matched)
                                 {
-                                    return outcome;
+                                    return outcome.retain_family(&caller.file);
                                 }
                             }
                             return ResolutionOutcome::hit(exact(
                                 matched,
                                 ResolutionKind::ImportQualified,
-                            ));
+                            ))
+                            .retain_family(&caller.file);
                         }
                     }
                 }
@@ -3177,7 +3128,8 @@ impl CallGraph {
                                 return ResolutionOutcome::hit(demoted(
                                     free,
                                     ResolutionKind::R6SingleOwner,
-                                ));
+                                ))
+                                .retain_family(&caller.file);
                             }
                         }
                     }
@@ -3305,12 +3257,14 @@ impl CallGraph {
                                             matched,
                                             ResolutionKind::ImportMember,
                                         ))
+                                        .retain_family(&caller.file)
                                     }
                                     n if n > 1 => {
                                         return ResolutionOutcome::hit(demoted(
                                             matched,
                                             ResolutionKind::ImportMember,
                                         ))
+                                        .retain_family(&caller.file)
                                     }
                                     _ => {} // Python retains its existing R5 route.
                                 }
@@ -3324,10 +3278,7 @@ impl CallGraph {
                     None => return ResolutionOutcome::dropped(DropReason::UnknownName),
                 };
 
-                let free: Vec<&FunctionId> = ids
-                    .iter()
-                    .filter(|fid| !self.method_owners.contains_key(*fid))
-                    .collect();
+                let free = free::candidates(ids, &self.method_owners);
 
                 // R4: local free definition wins alone.
                 let local: Vec<&FunctionId> = free
@@ -3371,14 +3322,16 @@ impl CallGraph {
                                 return ResolutionOutcome::dropped_with_telemetry(
                                     DropReason::GoSamePkgAllFiltered,
                                     telemetry,
-                                );
+                                )
+                                .retain_family(&caller.file);
                             }
                             1 => {
                                 if !exact_allowed {
                                     return ResolutionOutcome::hit_with_telemetry(
                                         demoted(survivors, ResolutionKind::SamePackage),
                                         telemetry,
-                                    );
+                                    )
+                                    .retain_family(&caller.file);
                                 }
                                 match partition {
                                     GoSamePackagePartition::Build => {
@@ -3392,13 +3345,15 @@ impl CallGraph {
                                 return ResolutionOutcome::hit_with_telemetry(
                                     exact(survivors, ResolutionKind::SamePackage),
                                     telemetry,
-                                );
+                                )
+                                .retain_family(&caller.file);
                             }
                             _ => {
                                 return ResolutionOutcome::hit_with_telemetry(
                                     demoted(survivors, ResolutionKind::SamePackage),
                                     telemetry,
-                                );
+                                )
+                                .retain_family(&caller.file);
                             }
                         }
                     }
@@ -3468,6 +3423,7 @@ impl CallGraph {
                     1 => self.bare_name_exact(nonstatic, ResolutionKind::FreeSingle),
                     _ => ResolutionOutcome::hit(demoted(nonstatic, ResolutionKind::FreeMulti)),
                 }
+                .retain_family(&caller.file)
             }
         }
     }
