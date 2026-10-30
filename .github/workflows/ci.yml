@@ -114,6 +114,29 @@ jobs:
           tail -n 3 coverage-summary.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+  macos-footprint:
+    name: macOS unloaded footprint
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and build
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: macos-footprint
+
+      - name: Test macOS allocator policy
+        run: cargo test --release --features mcp --test mcp malloc_test::
+
+      - name: Guard idle-unloaded footprint
+        run: cargo test --release --features mcp --test mcp footprint_guard -- --ignored --nocapture --test-threads=1
+
   build-checks:
     name: Default-feature check + doctests
     needs: changes
