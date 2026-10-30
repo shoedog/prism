@@ -324,7 +324,7 @@
     "tier_a/accounting.py": "sha256:807c4a1360d723f08329a80f8f686a112c013d3c4e80f7a6f03c7b60763e6875",
     "tier_a/corpus.py": "sha256:3a5cc9951bff17f581a3ca1ea62c301db94dcab4202bd4e4a6a573947f72d9a9",
     "tier_a/pinned.py": "sha256:c03b7180a7d95bc9b9f20f38a1a1d5f7c790403bc8f8c06c3c1afbe8feec1fa7",
-    "tier_a/policy.py": "sha256:cc04c81d03871f018e802b1c9a4928aecbd2c3b5b86f77c42fc9b9e44c8c96a9",
+    "tier_a/policy.py": "sha256:bdec54a9ea8951c9b28780106341d93dc3e84fd933d47363a2ed674aa3e520e2",
     "tier_a/spotcheck.py": "sha256:32d7db5179dbc01ad23a726473246e458d3b94f2dbd7a5aa76d5add3966bfd87",
     "tier_a/strata.py": "sha256:774d5f3af32b431d3097b01a8054f253ef95aba9f41f6a4202bf386ea78a9a5d"
   },
