@@ -135,6 +135,26 @@ def _repo_run(path: Path, repo_root: Path) -> tuple[Path, dict]:
     }
 
 
+def _paths_alias(left: Path, right: Path) -> bool:
+    try:
+        if left.exists() and right.exists() and left.samefile(right):
+            return True
+    except OSError:
+        pass
+    return left.resolve(strict=False) == right.resolve(strict=False)
+
+
+def _refuse_compare_output_aliases(
+    outputs: tuple[Path, ...], inputs: tuple[Path, ...]
+) -> None:
+    for output in outputs:
+        for source in inputs:
+            if _paths_alias(output, source):
+                raise ValueError(
+                    f"compare_output_aliases_input: {output} -> {source}"
+                )
+
+
 def compare(
     base: Path,
     candidate: Path,
@@ -147,6 +167,9 @@ def compare(
 
     base, base_record = _repo_run(base, repo_root)
     candidate, candidate_record = _repo_run(candidate, repo_root)
+    adjudications = adjudications.resolve(strict=True)
+    outputs = (Path(f"{out}.json"), Path(f"{out}.md"))
+    _refuse_compare_output_aliases(outputs, (base, candidate, adjudications))
     run_b = json.loads(base.read_text())
     run_c = json.loads(candidate.read_text())
     records = load_records(adjudications)
@@ -162,10 +185,10 @@ def compare(
     }
     if "adjudications_digest" not in result["verdict"]:
         out.parent.mkdir(parents=True, exist_ok=True)
-        Path(f"{out}.json").write_text(
+        outputs[0].write_text(
             json.dumps(result, indent=1, sort_keys=True, allow_nan=False)
         )
-        Path(f"{out}.md").write_text(render_compare_md(result))
+        outputs[1].write_text(render_compare_md(result))
     return result
 
 
