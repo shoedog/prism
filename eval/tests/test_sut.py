@@ -1,5 +1,7 @@
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -467,3 +469,42 @@ def test_taint_reaches_and_module_deps_wire_flags_to_run(monkeypatch):
         ["taint-reaches", "--repo", "/repo", "--source", "app.py:2"],
         ["module-deps", "--repo", "/repo", "--file", "a.py"],
     ]
+
+
+def test_console_entrypoint_rejects_timestamp_valid_stale_tier_a_bytecode(tmp_path):
+    eval_dir = Path(__file__).parents[1]
+    entrypoint = eval_dir / "tier_a_entrypoint.py"
+    assert entrypoint.is_file()
+    (tmp_path / "tier_a").mkdir()
+    (tmp_path / "tier_a/__init__.py").write_text("")
+    cli_source = tmp_path / "tier_a/cli.py"
+    old = 'def main():\n    print("stale")\n    return 0\n'
+    fresh = 'def main():\n    print("fresh")\n    return 0\n'
+    assert len(old) == len(fresh)
+    cli_source.write_text(old)
+    fixed_time = 1_700_000_000
+    os.utime(cli_source, (fixed_time, fixed_time))
+    compile_env = dict(os.environ)
+    compile_env.pop("PYTHONPYCACHEPREFIX", None)
+    subprocess.run(
+        [sys.executable, "-m", "py_compile", str(cli_source)],
+        check=True,
+        env=compile_env,
+    )
+    cli_source.write_text(fresh)
+    os.utime(cli_source, (fixed_time, fixed_time))
+    env = dict(os.environ)
+    env.pop("PYTHONPYCACHEPREFIX", None)
+    env.pop("TIER_A_PRIVATE_PYCACHE", None)
+    env["PYTHONPATH"] = os.pathsep.join((str(tmp_path), str(eval_dir)))
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import tier_a_entrypoint; tier_a_entrypoint.main()"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=tmp_path,
+    )
+
+    assert result.stdout.strip() == "fresh"
