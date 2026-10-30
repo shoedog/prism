@@ -1,0 +1,74 @@
+{
+  "lane": "Shadow ancestor descent identity, boundaries, recovery and bounded work",
+  "lib_test_prefixes": [
+    "ast::shadow_walk::tests::"
+  ],
+  "mutations": {
+    "SW-legacy-parent-walk": [
+      "src/ast/shadow_walk.rs",
+      "    let path = (node.id() != func_node.id())",
+      "    return legacy(parsed, node, func_node, var_name, def_line);\n    let path = (node.id() != func_node.id())",
+      "ast::shadow_walk::tests::wide_switch_every_reference_and_one_descent_per_ancestor"
+    ],
+    "SW-tree-identity": [
+      "src/ast/shadow_walk.rs",
+      "    if root.into_raw().tree != node.into_raw().tree {\n        return None;\n    }",
+      "",
+      "ast::shadow_walk::tests::outside_boundary_and_foreign_tree_preserve_legacy"
+    ],
+    "SW-range-not-id": [
+      "src/ast/shadow_walk.rs",
+      "while root.id() != node.id() {",
+      "while root.byte_range() != node.byte_range() {",
+      "ast::shadow_walk::tests::recovery_missing_empty_equal_ranges_and_extras"
+    ],
+    "SW-same-node-boundary": [
+      "src/ast/shadow_walk.rs",
+      "(node.id() != func_node.id())",
+      "true",
+      "ast::shadow_walk::tests::inclusive_rows_stop_boundary_and_node_itself"
+    ],
+    "SW-no-root-descent": [
+      "src/ast/shadow_walk.rs",
+      ".or_else(|| ancestors(parsed.tree.root_node(), node))",
+      ".or(None)",
+      "ast::shadow_walk::tests::outside_boundary_and_foreign_tree_preserve_legacy"
+    ],
+    "SW-boundary-tested": [
+      "src/ast/shadow_walk.rs",
+      "fn shadowed_in<'tree>(\n    parsed: &ParsedFile,\n    ancestors: impl Iterator<Item = Node<'tree>>,\n    func_node: Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> bool {\n    for parent in ancestors {\n        if parent.id() == func_node.id() {\n            break;\n        }\n        if parsed.language.is_scope_block(parent.kind()) {\n            let scope_start = parent.start_position().row + 1;\n            let scope_end = parent.end_position().row + 1;\n            let def_in_scope = def_line >= scope_start && def_line <= scope_end;\n            if !def_in_scope && parsed.scope_has_declaration(parent, var_name) {\n                return true;\n            }\n        }\n    }\n    false\n}",
+      "fn shadowed_in<'tree>(\n    parsed: &ParsedFile,\n    ancestors: impl Iterator<Item = Node<'tree>>,\n    func_node: Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> bool {\n    for parent in ancestors {\n        if false && parent.id() == func_node.id() {\n            break;\n        }\n        if parsed.language.is_scope_block(parent.kind()) {\n            let scope_start = parent.start_position().row + 1;\n            let scope_end = parent.end_position().row + 1;\n            let def_in_scope = def_line >= scope_start && def_line <= scope_end;\n            if !def_in_scope && parsed.scope_has_declaration(parent, var_name) {\n                return true;\n            }\n        }\n    }\n    false\n}",
+      "ast::shadow_walk::tests::inclusive_rows_stop_boundary_and_node_itself"
+    ],
+    "SW-exclusive-first-row": [
+      "src/ast/shadow_walk.rs",
+      "fn shadowed_in<'tree>(\n    parsed: &ParsedFile,\n    ancestors: impl Iterator<Item = Node<'tree>>,\n    func_node: Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> bool {\n    for parent in ancestors {\n        if parent.id() == func_node.id() {\n            break;\n        }\n        if parsed.language.is_scope_block(parent.kind()) {\n            let scope_start = parent.start_position().row + 1;\n            let scope_end = parent.end_position().row + 1;\n            let def_in_scope = def_line >= scope_start && def_line <= scope_end;\n            if !def_in_scope && parsed.scope_has_declaration(parent, var_name) {\n                return true;\n            }\n        }\n    }\n    false\n}",
+      "fn shadowed_in<'tree>(\n    parsed: &ParsedFile,\n    ancestors: impl Iterator<Item = Node<'tree>>,\n    func_node: Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> bool {\n    for parent in ancestors {\n        if parent.id() == func_node.id() {\n            break;\n        }\n        if parsed.language.is_scope_block(parent.kind()) {\n            let scope_start = parent.start_position().row + 1;\n            let scope_end = parent.end_position().row + 1;\n            let def_in_scope = def_line > scope_start && def_line <= scope_end;\n            if !def_in_scope && parsed.scope_has_declaration(parent, var_name) {\n                return true;\n            }\n        }\n    }\n    false\n}",
+      "ast::shadow_walk::tests::inclusive_rows_stop_boundary_and_node_itself"
+    ],
+    "SW-exclusive-last-row": [
+      "src/ast/shadow_walk.rs",
+      "fn shadowed_in<'tree>(\n    parsed: &ParsedFile,\n    ancestors: impl Iterator<Item = Node<'tree>>,\n    func_node: Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> bool {\n    for parent in ancestors {\n        if parent.id() == func_node.id() {\n            break;\n        }\n        if parsed.language.is_scope_block(parent.kind()) {\n            let scope_start = parent.start_position().row + 1;\n            let scope_end = parent.end_position().row + 1;\n            let def_in_scope = def_line >= scope_start && def_line <= scope_end;\n            if !def_in_scope && parsed.scope_has_declaration(parent, var_name) {\n                return true;\n            }\n        }\n    }\n    false\n}",
+      "fn shadowed_in<'tree>(\n    parsed: &ParsedFile,\n    ancestors: impl Iterator<Item = Node<'tree>>,\n    func_node: Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> bool {\n    for parent in ancestors {\n        if parent.id() == func_node.id() {\n            break;\n        }\n        if parsed.language.is_scope_block(parent.kind()) {\n            let scope_start = parent.start_position().row + 1;\n            let scope_end = parent.end_position().row + 1;\n            let def_in_scope = def_line >= scope_start && def_line < scope_end;\n            if !def_in_scope && parsed.scope_has_declaration(parent, var_name) {\n                return true;\n            }\n        }\n    }\n    false\n}",
+      "ast::shadow_walk::tests::inclusive_rows_stop_boundary_and_node_itself"
+    ],
+    "SW-no-declaration-check": [
+      "src/ast/shadow_walk.rs",
+      "fn shadowed_in<'tree>(\n    parsed: &ParsedFile,\n    ancestors: impl Iterator<Item = Node<'tree>>,\n    func_node: Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> bool {\n    for parent in ancestors {\n        if parent.id() == func_node.id() {\n            break;\n        }\n        if parsed.language.is_scope_block(parent.kind()) {\n            let scope_start = parent.start_position().row + 1;\n            let scope_end = parent.end_position().row + 1;\n            let def_in_scope = def_line >= scope_start && def_line <= scope_end;\n            if !def_in_scope && parsed.scope_has_declaration(parent, var_name) {\n                return true;\n            }\n        }\n    }\n    false\n}",
+      "fn shadowed_in<'tree>(\n    parsed: &ParsedFile,\n    ancestors: impl Iterator<Item = Node<'tree>>,\n    func_node: Node<'_>,\n    var_name: &str,\n    def_line: usize,\n) -> bool {\n    for parent in ancestors {\n        if parent.id() == func_node.id() {\n            break;\n        }\n        if parsed.language.is_scope_block(parent.kind()) {\n            let scope_start = parent.start_position().row + 1;\n            let scope_end = parent.end_position().row + 1;\n            let def_in_scope = def_line >= scope_start && def_line <= scope_end;\n            if !def_in_scope {\n                return true;\n            }\n        }\n    }\n    false\n}",
+      "ast::shadow_walk::tests::inclusive_rows_stop_boundary_and_node_itself"
+    ],
+    "SW-target-tested": [
+      "src/ast/shadow_walk.rs",
+      "    Some(path)\n",
+      "    path.push(node);\n    Some(path)\n",
+      "ast::shadow_walk::tests::inclusive_rows_stop_boundary_and_node_itself"
+    ],
+    "SW-foreign-fallback-dropped": [
+      "src/ast/shadow_walk.rs",
+      "std::iter::successors(node.parent(), |parent| parent.parent()),",
+      "std::iter::empty(),",
+      "ast::shadow_walk::tests::outside_boundary_and_foreign_tree_preserve_legacy"
+    ]
+  }
+}

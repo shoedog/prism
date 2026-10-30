@@ -1383,10 +1383,11 @@ impl CodePropertyGraph {
     ) -> Vec<PendingEdge> {
         use rayon::prelude::*;
 
+        let go_satisfiers = crate::resolution::go_satisfiers::GoSatisfierMemo::new(cg);
         let ordered: Vec<_> = cg.calls.iter().collect();
         crate::build_pool::per_item(&ordered)
             .map(|(caller_id, sites)| {
-                Self::step5_edges_for_caller(caller_id, sites, cg, func_index)
+                Self::step5_edges_for_caller(caller_id, sites, &go_satisfiers, func_index)
             })
             .collect::<Vec<Vec<PendingEdge>>>()
             .into_iter()
@@ -1399,7 +1400,7 @@ impl CodePropertyGraph {
     fn step5_edges_for_caller(
         caller_id: &FunctionId,
         sites: &BTreeSet<CallSite>,
-        cg: &CallGraph,
+        cg: &impl crate::resolution::go_satisfiers::CpgCallResolver,
         func_index: &BTreeMap<(String, String, usize), NodeIndex>,
     ) -> Vec<PendingEdge> {
         let mut out: Vec<PendingEdge> = Vec::new();
@@ -1495,6 +1496,7 @@ impl CodePropertyGraph {
         if callee_legacy::enabled() {
             return callee_legacy::collect(cg, var_index, exact_var_index, graph, files);
         }
+        let go_satisfiers = crate::resolution::go_satisfiers::GoSatisfierMemo::new(cg);
         let shared_params = ParamCache::new(files);
 
         crate::build_pool::per_item(files.iter().collect::<Vec<_>>()).for_each(|(_, p)| {
@@ -1506,7 +1508,7 @@ impl CodePropertyGraph {
                 Self::step5b_edges_for_caller_with_exact(
                     caller_id,
                     sites,
-                    cg,
+                    &go_satisfiers,
                     var_index,
                     exact_var_index,
                     graph,
@@ -1548,7 +1550,7 @@ impl CodePropertyGraph {
     fn step5b_edges_for_caller_with_exact(
         caller_id: &FunctionId,
         sites: &BTreeSet<CallSite>,
-        cg: &CallGraph,
+        cg: &impl crate::resolution::go_satisfiers::CpgCallResolver,
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,

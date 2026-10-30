@@ -29,6 +29,7 @@ impl CodePropertyGraph {
         }
         // Step 5c adds only ReturnValue nodes: Variable Use identities stay fixed.
         let uses = uses::UseIndex::new(graph);
+        let go_satisfiers = crate::resolution::go_satisfiers::GoSatisfierMemo::new(cg);
         let shared_returns = callee_returns::ReturnCache::new(files);
         let mut stats = ReturnFlowStats::default();
         let mut return_value_index: BTreeMap<
@@ -47,7 +48,7 @@ impl CodePropertyGraph {
                     continue;
                 };
 
-                let outcome = cg.resolve_call_site_full(site);
+                let outcome = go_satisfiers.resolve_call_site_full(site);
                 let Some(resolved) = singleton_exact(&outcome) else {
                     let has_exact = outcome
                         .resolved

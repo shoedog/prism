@@ -353,6 +353,8 @@ cargo run --bin prism-mcp --features mcp -- --repo /path/to/repo
 
 On macOS it re-execs before dispatch with `MallocSpaceEfficient=1` unless the caller already set it or `PRISM_MCP_MALLOC_SPACE_EFFICIENT=0` opts out; see the environment table in `docs/MCP.md`.
 
+The `macos-footprint` CI job runs allocator tests and an ignored idle-unloaded footprint guard; see `docs/MCP.md` for the local command.
+
 Startup modes: by default the repository index is built on the first valid `tools/call`
 (`initialize`, `ping`, and `tools/list` never start it, so a client that only handshakes costs
 a few MB); `--warm-at-startup` starts the background build at process start; `--eager` builds

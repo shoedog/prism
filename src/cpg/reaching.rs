@@ -25,6 +25,7 @@ mod reach_memo;
 mod reach_memo_tests;
 mod scope;
 mod statement_lookup;
+mod use_bytes;
 
 pub(crate) use cfg_edge_index::FileCfgEdgeIndex;
 use graph::{reverse_postorder, BitSet};
@@ -172,6 +173,8 @@ pub(crate) fn reaching_definitions_with_exact(
     statement_lookup_tests::record_outcome(&outcome);
     #[cfg(test)]
     def_bucket_tests::record_outcome(&outcome);
+    #[cfg(test)]
+    scope::use_byte_tests::record_outcome(&outcome);
     outcome
 }
 
@@ -264,7 +267,12 @@ fn reaching_definitions_impl(
             }
         })
         .collect();
-    let binding_facts = scope::BindingFacts::new(parsed, func_node, &defs);
+    let binding_facts = scope::BindingFacts::new(
+        parsed,
+        func_node,
+        &defs,
+        dfg_edges.iter().chain(exact_edges),
+    );
 
     let mut gen = vec![BitSet::new(defs.len()); node_count];
     for (index, mapped) in mapped_defs.iter().enumerate() {

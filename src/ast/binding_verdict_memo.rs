@@ -6,7 +6,7 @@
 //! register independent sessions. See the lane DESIGN.md for key completeness.
 use super::ParsedFile;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 use tree_sitter::Node;
 
@@ -26,6 +26,12 @@ enum Value {
 #[derive(Default)]
 struct Memo {
     names: HashMap<String, HashMap<Key, Value>>,
+    bodies: HashMap<usize, Vec<BodyNames>>,
+    scopes: HashMap<usize, Vec<BodyNames>>,
+}
+struct BodyNames {
+    boundaries: Vec<String>,
+    names: HashSet<String>,
 }
 struct Registration {
     file: usize,
@@ -66,6 +72,97 @@ impl Drop for Session<'_> {
                 .retain(|entry| !Weak::ptr_eq(&entry.memo, &weak))
         });
     }
+}
+
+/// No AST nodes survive the immutable session borrow. Boundaries are part of
+/// the key even for callers with a nonstandard boundary list.
+pub(super) fn function_scope_binds(
+    p: &ParsedFile,
+    body: Node<'_>,
+    boundaries: &[&str],
+    name: &str,
+    collect: impl FnOnce() -> HashSet<String>,
+) -> bool {
+    let memo = ACTIVE.with(|slot| {
+        slot.borrow()
+            .iter()
+            .rev()
+            .find(|entry| {
+                entry.file == p as *const ParsedFile as usize
+                    && entry.root == p.tree.root_node().id()
+            })
+            .and_then(|entry| entry.memo.upgrade())
+    });
+    let Some(memo) = memo else {
+        return collect().contains(name);
+    };
+    if let Some(verdict) = memo.borrow().bodies.get(&body.id()).and_then(|entries| {
+        entries
+            .iter()
+            .find(|entry| entry.boundaries == boundaries)
+            .map(|entry| entry.names.contains(name))
+    }) {
+        return verdict;
+    }
+    let names = collect();
+    let verdict = names.contains(name);
+    memo.borrow_mut()
+        .bodies
+        .entry(body.id())
+        .or_default()
+        .push(BodyNames {
+            boundaries: boundaries.iter().map(|s| (*s).to_owned()).collect(),
+            names,
+        });
+    verdict
+}
+
+/// No AST nodes survive the immutable session borrow. Boundaries are part of
+/// the key even for callers with a nonstandard boundary list.
+pub(super) fn scope_binds(
+    p: &ParsedFile,
+    scope: Node<'_>,
+    boundaries: &[&str],
+    name: &str,
+    collect: impl FnOnce() -> HashSet<String>,
+) -> bool {
+    let memo = ACTIVE.with(|slot| {
+        slot.borrow()
+            .iter()
+            .rev()
+            .find(|entry| {
+                entry.file == p as *const ParsedFile as usize
+                    && entry.root == p.tree.root_node().id()
+            })
+            .and_then(|entry| entry.memo.upgrade())
+    });
+    let Some(memo) = memo else {
+        return collect().contains(name);
+    };
+    if let Some(verdict) = memo.borrow().scopes.get(&scope.id()).and_then(|entries| {
+        entries
+            .iter()
+            .find(|entry| entry.boundaries == boundaries)
+            .map(|entry| entry.names.contains(name))
+    }) {
+        return verdict;
+    }
+    let names = collect();
+    let verdict = names.contains(name);
+    memo.borrow_mut()
+        .scopes
+        .entry(scope.id())
+        .or_default()
+        .push(BodyNames {
+            boundaries: boundaries.iter().map(|s| (*s).to_owned()).collect(),
+            names,
+        });
+    verdict
+}
+
+#[cfg(test)]
+pub(super) fn bypassed() -> bool {
+    BYPASS.with(|b| b.get())
 }
 
 fn cached(
@@ -181,6 +278,9 @@ impl ParsedFile {
     }
 
     pub(super) fn js_ts_binding_scope_at(&self, byte: usize, name: &str) -> Binding {
+        if !self.js_ts_binding_enabled() {
+            return None;
+        }
         match cached(
             self,
             name,
@@ -193,6 +293,9 @@ impl ParsedFile {
     }
 
     pub(crate) fn js_ts_seam_binding(&self, owner: &Node<'_>, name: &str) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         boolean(cached(
             self,
             name,

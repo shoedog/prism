@@ -8,6 +8,18 @@
 
 use super::*;
 
+#[path = "ast/js_block_scope_bindings.rs"]
+mod js_block_scope_bindings;
+#[cfg(test)]
+#[path = "ast/js_block_scope_reference.rs"]
+mod js_block_scope_reference;
+#[path = "ast/js_scope_bindings.rs"]
+mod js_scope_bindings;
+
+#[cfg(test)]
+#[path = "ast/js_block_scope_bindings_tests.rs"]
+mod js_block_scope_bindings_tests;
+
 impl ParsedFile {
     /// Owner name of a callable's DFG pass: the inferred/declared name when
     /// one exists (name inference always wins), else the synthetic
@@ -216,6 +228,9 @@ impl ParsedFile {
         start_byte: usize,
         end_byte: usize,
     ) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         if start_byte < func_node.start_byte() || func_node.end_byte() < end_byte {
             return false;
         }
@@ -681,6 +696,9 @@ impl ParsedFile {
         name: &str,
         byte: usize,
     ) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         if self.js_ts_binding_scope_at(byte, name).map(|s| s.0) != Some(owner.id()) {
             return false;
         }
@@ -699,6 +717,10 @@ impl ParsedFile {
     ) -> bool {
         #[cfg(test)]
         binding_verdict_memo::probe::scope(self, scope, boundaries, name, byte);
+        #[cfg(test)]
+        if binding_verdict_memo::bypassed() {
+            return self.js_ts_scope_binds_reference(scope, boundaries, name, byte);
+        }
         if boundaries.contains(&scope.kind()) {
             let body = scope.child_by_field_name("body");
             let params = self.parameter_binding_region(&scope);
@@ -715,13 +737,8 @@ impl ParsedFile {
             {
                 return false; // computed method key executes in the enclosing environment
             }
-            if let Some(params) = self
-                .find_parameters_node(&scope)
-                .or_else(|| scope.child_by_field_name("parameter"))
-            {
-                if self.js_ts_fence_pattern_binds(params, name) {
-                    return true;
-                }
+            if js_block_scope_bindings::binds(self, scope, boundaries, name) {
+                return true;
             }
             if matches!(scope.kind(), "function_expression" | "generator_function")
                 && scope
@@ -739,140 +756,38 @@ impl ParsedFile {
             "class" | "class_declaration" | "abstract_class_declaration" => scope
                 .child_by_field_name("name")
                 .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name)),
-            "enum_body" => {
-                let member_binds = |body: Node<'_>| {
-                    let mut cursor = body.walk();
-                    let found = body.named_children(&mut cursor).any(|member| {
-                        let key = if member.kind() == "enum_assignment" {
-                            member.child_by_field_name("name")
-                        } else {
-                            Some(member)
-                        };
-                        key.is_some_and(|key| {
-                            let decoded = match key.kind() {
-                                "string" => self.js_ts_module_export_name(key),
-                                "identifier" | "property_identifier" | "type_identifier" => {
-                                    Self::js_ts_decoded_identifier(self.node_text(&key))
-                                }
-                                _ => None,
-                            };
-                            decoded.as_deref() == Some(name)
-                        })
-                    });
-                    found
-                };
-                if member_binds(scope) {
-                    return true;
-                }
-                // Same-file declarations merge only within this lexical scope.
-                // Namespace and cross-file merging are outside this model.
-                let Some(declaration) = scope.parent() else {
-                    return false;
-                };
-                let enum_name = declaration.child_by_field_name("name");
-                let Some(parent) = declaration.parent() else {
-                    return false;
-                };
-                let mut cursor = parent.walk();
-                let found = parent.named_children(&mut cursor).any(|sibling| {
-                    sibling.kind() == "enum_declaration"
-                        && sibling.child_by_field_name("name").is_some_and(|n| {
-                            enum_name.is_some_and(|own| {
-                                Self::js_ts_decoded_identifier(self.node_text(&n))
-                                    == Self::js_ts_decoded_identifier(self.node_text(&own))
-                            })
-                        })
-                        && sibling
-                            .child_by_field_name("body")
-                            .is_some_and(member_binds)
-                });
-                found
-            }
-            "catch_clause" => scope
-                .child_by_field_name("parameter")
-                .is_some_and(|p| self.js_ts_fence_pattern_binds(p, name)),
             "class_static_block" => scope
                 .child_by_field_name("body")
                 .is_some_and(|body| self.js_ts_function_scope_binds(body, boundaries, name)),
-            "for_in_statement" => {
-                scope
-                    .child_by_field_name("kind")
-                    .is_some_and(|k| matches!(self.node_text(&k), "let" | "const"))
-                    && scope
-                        .child_by_field_name("left")
-                        .is_some_and(|l| self.js_ts_fence_pattern_binds(l, name))
-            }
-            "for_statement" => scope
-                .child_by_field_name("initializer")
-                .filter(|init| init.kind() == "lexical_declaration")
-                .is_some_and(|init| self.js_ts_declaration_binds(init, name)),
-            "statement_block" | "switch_body" => {
-                let callable_body = scope.parent().is_some_and(|p| {
-                    boundaries.contains(&p.kind())
-                        && p.child_by_field_name("body").map(|b| b.id()) == Some(scope.id())
-                });
-                let mut cursor = scope.walk();
-                let found = scope
-                    .named_children(&mut cursor)
-                    .filter(|stmt| {
-                        let mut declaration = *stmt;
-                        while declaration.kind() == "labeled_statement" {
-                            let Some(body) = declaration.child_by_field_name("body") else {
-                                break;
-                            };
-                            declaration = body;
-                        }
-                        !callable_body
-                            || !matches!(
-                                declaration.kind(),
-                                "function_declaration" | "generator_function_declaration"
-                            )
-                    })
-                    .any(|stmt| self.js_ts_block_statement_binds(stmt, name));
-                found
+            "enum_body" | "catch_clause" | "for_in_statement" | "for_statement"
+            | "statement_block" | "switch_body" => {
+                js_block_scope_bindings::binds(self, scope, boundaries, name)
             }
             _ => false,
         }
-    }
-
-    fn js_ts_block_statement_binds(&self, stmt: Node<'_>, name: &str) -> bool {
-        match stmt.kind() {
-            "labeled_statement" => stmt
-                .child_by_field_name("body")
-                .is_some_and(|body| self.js_ts_block_statement_binds(body, name)),
-            "lexical_declaration" => self.js_ts_declaration_binds(stmt, name),
-            "function_declaration"
-            | "generator_function_declaration"
-            | "class_declaration"
-            | "abstract_class_declaration"
-            | "enum_declaration" => stmt
-                .child_by_field_name("name")
-                .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name)),
-            "switch_case" | "switch_default" => {
-                let mut cursor = stmt.walk();
-                let found = stmt
-                    .named_children(&mut cursor)
-                    .any(|s| self.js_ts_block_statement_binds(s, name));
-                found
-            }
-            _ => false,
-        }
-    }
-
-    fn js_ts_declaration_binds(&self, decl: Node<'_>, name: &str) -> bool {
-        let mut cursor = decl.walk();
-        let found = decl.named_children(&mut cursor).any(|d| {
-            d.kind() == "variable_declarator"
-                && d.child_by_field_name("name")
-                    .is_some_and(|n| self.js_ts_fence_pattern_binds(n, name))
-        });
-        found
     }
 
     /// Whether a nested callable's function scope binds `name`: `var`
     /// declarators anywhere in its body outside further nested callables, and
     /// its body-level lexical/function/class declarations.
     fn js_ts_function_scope_binds(&self, body: Node<'_>, boundaries: &[&str], name: &str) -> bool {
+        #[cfg(test)]
+        if binding_verdict_memo::bypassed() {
+            return self.js_ts_function_scope_binds_reference(body, boundaries, name);
+        }
+        binding_verdict_memo::function_scope_binds(self, body, boundaries, name, || {
+            js_scope_bindings::collect(self, body, boundaries)
+        })
+    }
+
+    #[cfg(test)]
+    fn js_ts_function_scope_binds_reference(
+        &self,
+        body: Node<'_>,
+        boundaries: &[&str],
+        name: &str,
+    ) -> bool {
+        binding_verdict_memo::probe::observe("function_body", body.id(), 0, name);
         let mut stack = vec![body];
         while let Some(node) = stack.pop() {
             if node.id() != body.id()
@@ -1008,6 +923,9 @@ impl ParsedFile {
     /// names, method names). Shorthand `{x}` stays a reference. Applied to
     /// synthetic passes only; legacy passes keep base parity (SPEC-prB D9).
     pub(crate) fn js_ts_span_is_non_reference(&self, start_byte: usize, end_byte: usize) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         self.tree
             .root_node()
             .descendant_for_byte_range(start_byte, end_byte)
@@ -1048,6 +966,9 @@ impl ParsedFile {
     /// (`return x = f() || x` collects the LHS `x` too) must not become the
     /// line's preferred Use when the same line also reads `x`.
     pub(crate) fn js_ts_span_is_not_a_read(&self, start_byte: usize, end_byte: usize) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         self.tree
             .root_node()
             .descendant_for_byte_range(start_byte, end_byte)
@@ -1065,6 +986,9 @@ impl ParsedFile {
         start_byte: usize,
         end_byte: usize,
     ) -> Option<String> {
+        if !self.js_ts_binding_enabled() {
+            return None;
+        }
         let ident = self
             .tree
             .root_node()
@@ -1129,6 +1053,9 @@ impl ParsedFile {
     /// PR-B (E4 must not grow in new passes): an identifier occurrence that
     /// only introduces a binding or is only written is not a read.
     pub(crate) fn js_ts_identifier_is_not_a_read(&self, ident: Node<'_>) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         if self.js_ts_node_is_non_reference(ident) || self.language.is_in_erased_type_context(ident)
         {
             return true;
@@ -1213,6 +1140,9 @@ impl ParsedFile {
         name: &str,
         def_start: usize,
     ) -> Option<(usize, usize)> {
+        if !self.js_ts_binding_enabled() {
+            return None;
+        }
         if self.language.function_name(owner).is_some() && self.js_ts_seam_binding(owner, name) {
             return None;
         }
@@ -1235,6 +1165,9 @@ impl ParsedFile {
         reference: &Node<'_>,
         owner: &Node<'_>,
     ) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         let mut current = reference.parent();
         while let Some(scope) = current {
             if scope.id() == owner.id() {
@@ -1277,6 +1210,9 @@ impl ParsedFile {
         end: usize,
         owner: &Node<'_>,
     ) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         self.tree
             .root_node()
             .descendant_for_byte_range(start, end)
@@ -1319,6 +1255,9 @@ impl ParsedFile {
     /// Includes captured references in callbacks created inside a with body.
     /// The with expression itself evaluates in the enclosing environment.
     pub(crate) fn js_ts_span_in_with_body(&self, start: usize, end: usize) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         self.tree
             .root_node()
             .descendant_for_byte_range(start, end)
@@ -1326,6 +1265,9 @@ impl ParsedFile {
     }
 
     pub(super) fn js_ts_reference_in_with_body(&self, reference: Node<'_>) -> bool {
+        if !self.js_ts_binding_enabled() {
+            return false;
+        }
         let byte = reference.start_byte();
         let mut current = reference.parent();
         while let Some(node) = current {
