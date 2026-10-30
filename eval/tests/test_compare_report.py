@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 import pytest
-from tests.helpers import ADJ, ADJ_DIGEST, ADJ_RECORDS, DECLARED_ADJ, FakeOracle, FakeSut, base_ids, edit, fake_run, quick_probes
+from tests.helpers import ADJ, ADJ_DIGEST, ADJ_RECORDS, DECLARED_ADJ, VALID_LAUNCH, FakeOracle, FakeSut, base_ids, edit, fake_run, quick_probes
 from tier_a import pinned as pinned_mod
 from tier_a import cli
 from tier_a.adjudication import Adjudication
@@ -258,8 +258,8 @@ def test_exact_m6_mutation_losing_unadjudicated_matched_sites_is_a_regression():
     candidate = json.loads(
         (records_dir / "2026-10-29-prism-candidate2.json").read_text()
     )
-    base["meta"]["launch"] = base_ids()["launch"]
-    candidate["meta"]["launch"] = base_ids()["launch"]
+    base["meta"]["launch"] = copy.deepcopy(VALID_LAUNCH)
+    candidate["meta"]["launch"] = copy.deepcopy(VALID_LAUNCH)
     for run in (base, candidate):
         for row in run["pinned"]:
             row["oracle_sites"] = [

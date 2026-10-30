@@ -191,6 +191,11 @@ ADJ_RECORDS = [
 ADJ = [validate(Adjudication(**record)) for record in ADJ_RECORDS]
 ADJ_DIGEST = _raw_digest("".join(json.dumps(record) + "\n" for record in ADJ_RECORDS))
 DECLARED_ADJ = (ADJ, ADJ_DIGEST)
+VALID_LAUNCH = {
+    "isolated": True,
+    "prefix_fresh": True,
+    "protocol": "tier-a-isolated-launch-v2",
+}
 
 
 def base_ids() -> dict:
@@ -211,11 +216,6 @@ def base_ids() -> dict:
         "env_allow": ["PATH", "HOME"],
         "env_values": {"PATH": "/usr/bin", "HOME": "/test/home"},
         "harness_sha": "b" * 40,
-        "launch": {
-            "isolated": True,
-            "prefix_fresh": True,
-            "protocol": "tier-a-isolated-launch-v2",
-        },
         "seed": 42,
     }
 
@@ -301,6 +301,7 @@ def fake_run(
             "admitted": True,
             "baseline_invalid": False,
             "invalid_reasons": [],
+            "launch": copy.deepcopy(VALID_LAUNCH),
             **ids,
         },
         "probes": normalized,
