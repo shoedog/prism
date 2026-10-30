@@ -425,6 +425,17 @@ def _lockless_closure_paths(cfg: dict) -> set[str]:
     return paths
 
 
+def _sut_input_state(repo: Path, rows: list[tuple]) -> tuple[tuple[str, str], ...]:
+    state = []
+    for row in rows:
+        path = row[0]
+        disk_path = repo / path
+        state.append(
+            (path, raw_digest(disk_path) if disk_path.is_file() else "absent")
+        )
+    return tuple(sorted(state))
+
+
 def run_quick_admitted(
     name: str,
     cfg: dict,
@@ -477,8 +488,10 @@ def run_quick_admitted(
         except Exception as exc:
             raise BoundaryViolation([f"corpus_mismatch: {exc}"]) from exc
     _validate_lock_sample(lock, args)
+    sut_state_before = None
     if lock is not None and artifacts is not None:
-        authenticate_sut_inputs(lock, artifacts)
+        sut_rows = authenticate_sut_inputs(lock, artifacts)
+        sut_state_before = _sut_input_state(eval_dir.parent, sut_rows)
     corpus_cfg = {**cfg, "path": str(corpus_path)}
     env = scrubbed_env(lock)
     if sut is None and getattr(args, "sut_archive", None):
@@ -518,6 +531,21 @@ def run_quick_admitted(
         )
         run["meta"]["corpus"] = name
         run["meta"]["date"] = args.date
+
+    if lock is not None and identity is not None:
+        try:
+            identity_after = resolve_corpus_identity(lock, corpus_path)
+        except Exception as exc:
+            raise BoundaryViolation(["corpus_changed_during_run"]) from exc
+        if identity_after != identity:
+            raise BoundaryViolation(["corpus_changed_during_run"])
+        assert sut_state_before is not None
+        try:
+            sut_state_after = _sut_input_state(eval_dir.parent, sut_rows)
+        except OSError as exc:
+            raise BoundaryViolation(["sut_inputs_changed_during_run"]) from exc
+        if sut_state_after != sut_state_before:
+            raise BoundaryViolation(["sut_inputs_changed_during_run"])
 
     launch_reason = launch_refusal_reason(run.get("meta", {}).get("launch"))
     if launch_reason is not None:

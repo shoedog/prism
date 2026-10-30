@@ -128,7 +128,7 @@ def test_missing_executable_is_a_named_observation_refusal(tmp_path):
         )
 
 
-def test_absent_observed_identities_are_null_not_lock_values(tmp_path, monkeypatch):
+def test_absent_observed_identities_refuse_shared_record_schema(tmp_path, monkeypatch):
     lock, ev, repo = anchored_repo(tmp_path)
     monkeypatch.setenv("TIER_A_ROOT", str(tmp_path / "root"))
     missing = {"sut_sha_full", "oracle", "oracle_init", "harness_sha"}
@@ -143,13 +143,13 @@ def test_absent_observed_identities_are_null_not_lock_values(tmp_path, monkeypat
     monkeypatch.setattr(cli, "run_corpus", run_without_observed_identities)
     config = tomllib.loads((ev / "corpora.toml").read_text())
     args = copy.copy(ARGS)
-    run, _overlay = commands.run_quick_admitted(
-        "prism", config["corpus"]["prism"], config["defaults"], args, ev
-    )
-
-    assert all(run["meta"][key] is None for key in missing)
-    assert run["meta"]["sut_digest"] == raw_digest(repo / "target/release/prism")
-    assert run["meta"]["sut_digest"] == lock.prism["sut"]["digest"]
+    with pytest.raises(commands.BoundaryViolation) as caught:
+        commands.run_quick_admitted(
+            "prism", config["corpus"]["prism"], config["defaults"], args, ev
+        )
+    assert caught.value.reasons == [
+        f"run_record_schema_invalid: meta.{key}" for key in sorted(missing)
+    ]
 
 
 def test_sut_error_transitions_use_closure_then_digest_then_unexplained():
