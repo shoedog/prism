@@ -273,6 +273,9 @@ def test_quick_and_matrix_version_launches_use_exact_scrubbed_env(
     class VersionSeen(Exception):
         pass
 
+    binary = tmp_path / "prism"
+    binary.write_bytes(b"authenticated prism")
+    binary.chmod(0o755)
     real_run = PrismCli._run
 
     def spy_run(self, args):
@@ -280,14 +283,15 @@ def test_quick_and_matrix_version_launches_use_exact_scrubbed_env(
         return real_run(self, args)
 
     def stop_at_version(argv, **kwargs):
-        assert argv == ["/sut/prism", "--version"]
+        assert argv[1:] == ["--version"]
+        assert Path(argv[0]) != binary
+        assert Path(argv[0]).read_bytes() == binary.read_bytes()
         launched.append(kwargs.get("env"))
         raise VersionSeen
 
     monkeypatch.setattr(PrismCli, "_run", spy_run)
-    monkeypatch.setattr(sut_mod, "_resolve_executable", lambda command, _env: command)
     monkeypatch.setattr(subprocess, "run", stop_at_version)
-    args = types.SimpleNamespace(sut_bin="/sut/prism", allow_stale_sut=True)
+    args = types.SimpleNamespace(sut_bin=str(binary), allow_stale_sut=True)
 
     with pytest.raises(VersionSeen):
         cli.run_corpus("prism", {}, DEFAULTS, args, env=expected)
@@ -295,7 +299,7 @@ def test_quick_and_matrix_version_launches_use_exact_scrubbed_env(
     monkeypatch.setattr(cli, "EVAL_DIR", ev)
     monkeypatch.setattr(commands, "preflight_matrix", lambda _eval_dir: lock)
     monkeypatch.setattr(
-        sys, "argv", ["tier-a", "--matrix-only", "--sut-bin", "/sut/prism"]
+        sys, "argv", ["tier-a", "--matrix-only", "--sut-bin", str(binary)]
     )
     with pytest.raises(VersionSeen):
         cli.main()
