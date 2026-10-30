@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -286,6 +287,15 @@ def fake_run(
         stratum: {"eligible_symbols": 3, "eligible_probes": 6, "target": 3}
         for stratum in STRATA
     }
+    normalized_pinned = copy.deepcopy(pinned or [])
+    for row in normalized_pinned:
+        if "oracle_sites" in row:
+            row["oracle_sites"] = [
+                [site.rsplit(":", 1)[0], int(site.rsplit(":", 1)[1]), int(site.rsplit(":", 1)[1])]
+                if isinstance(site, str)
+                else site
+                for site in row["oracle_sites"]
+            ]
     return {
         "meta": {
             "admitted": True,
@@ -296,7 +306,7 @@ def fake_run(
         "probes": normalized,
         "probe_status": status_map,
         "site_fingerprints": {},
-        "pinned": pinned or [],
+        "pinned": normalized_pinned,
         "matrix": [],
     }
 

@@ -260,6 +260,16 @@ def test_exact_m6_mutation_losing_unadjudicated_matched_sites_is_a_regression():
     )
     base["meta"]["launch"] = base_ids()["launch"]
     candidate["meta"]["launch"] = base_ids()["launch"]
+    for run in (base, candidate):
+        for row in run["pinned"]:
+            row["oracle_sites"] = [
+                [
+                    site.rsplit(":", 1)[0],
+                    int(site.rsplit(":", 1)[1]),
+                    int(site.rsplit(":", 1)[1]),
+                ]
+                for site in row.get("oracle_sites", [])
+            ]
     pid = "callees:src/ast.rs:2914"
     candidate["probes"][pid]["prism_sites"] = []
     adjudications = EVAL_DIR / "adjudications.jsonl"

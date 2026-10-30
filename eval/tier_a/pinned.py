@@ -28,8 +28,11 @@ def _site(site: str) -> tuple[str, int]:
     return (file, int(line))
 
 
-def _sites(edges: list[CallEdge]) -> list[str]:
-    return [f"{e.call_site.file}:{e.call_site.start_line}" for e in edges]
+def _sites(edges: list[CallEdge]) -> list[list]:
+    return [
+        [e.call_site.file, e.call_site.start_line, e.call_site.end_line]
+        for e in edges
+    ]
 
 
 def evaluate_pinned(

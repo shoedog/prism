@@ -294,15 +294,37 @@ def _canonical_pinned_sites(row: dict) -> tuple:
     return tuple(sorted(sites, key=lambda site: json.dumps(site, sort_keys=True)))
 
 
-def _pinned_result(base_run: dict, cand_run: dict) -> tuple[list[str], dict, bool]:
+def _complete_pinned_windows(row: dict | None) -> bool:
+    if row is None or row.get("error_side") == "oracle":
+        return True
+    sites = row.get("oracle_sites")
+    return isinstance(sites, list) and all(
+        isinstance(site, (list, tuple))
+        and len(site) >= 3
+        and isinstance(site[0], str)
+        and isinstance(site[1], int)
+        and not isinstance(site[1], bool)
+        and isinstance(site[2], int)
+        and not isinstance(site[2], bool)
+        for site in sites
+    )
+
+
+def _pinned_result(
+    base_run: dict, cand_run: dict
+) -> tuple[list[str], dict, bool, list[str]]:
     base = {row["id"]: row for row in base_run.get("pinned", [])}
     cand = {row["id"]: row for row in cand_run.get("pinned", [])}
     changed = []
     diffs = {}
     no_regression = True
+    missing_windows = []
     for pid in sorted(set(base) | set(cand)):
         b = base.get(pid)
         c = cand.get(pid)
+        if not _complete_pinned_windows(b) or not _complete_pinned_windows(c):
+            missing_windows.append(pid)
+            continue
         oracle_moved = (
             (b or {}).get("error_side") == "oracle"
             or (c or {}).get("error_side") == "oracle"
@@ -323,7 +345,7 @@ def _pinned_result(base_run: dict, cand_run: dict) -> tuple[list[str], dict, boo
             diffs[pid] = [base_outcome, cand_outcome]
         if PINNED_RANK.get(cand_outcome, 0) < PINNED_RANK.get(base_outcome, 0):
             no_regression = False
-    return changed, diffs, no_regression
+    return changed, diffs, no_regression, missing_windows
 
 
 def _matrix_result(base_run: dict, cand_run: dict) -> tuple[dict, bool]:
@@ -566,7 +588,16 @@ def compare_runs(
         "lost_matched_oracle_sites"
     ]
 
-    pinned_changed, pinned_diffs, pinned_ok = _pinned_result(base_run, cand_run)
+    pinned_changed, pinned_diffs, pinned_ok, missing_windows = _pinned_result(
+        base_run, cand_run
+    )
+    if missing_windows:
+        report["verdict"] = (
+            "NOT_COMPARABLE(pinned_oracle_window_missing: "
+            + ", ".join(missing_windows)
+            + ")"
+        )
+        return report
     report["pinned_oracle_changed"] = pinned_changed
     report["pinned_diffs"] = pinned_diffs
     criteria["pinned_no_regression"] = pinned_ok
