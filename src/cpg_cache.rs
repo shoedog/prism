@@ -272,7 +272,8 @@ mod stream;
 /// - v128: Self syntax evidence retains the declared self-type path (#521).
 /// - v129: Self proofs persist repository-wide non-ASCII identifier refusal (#521).
 /// - v130: Self proofs persist identifier file membership; crate scope, new edges only.
-const CACHE_VERSION: u32 = 130;
+/// - v131: explicit JS/TS function-expression names retain their body scope (#450).
+const CACHE_VERSION: u32 = 131;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -823,7 +824,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 130);
+        assert_eq!(super::CACHE_VERSION, 131);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

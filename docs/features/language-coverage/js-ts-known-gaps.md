@@ -1,6 +1,6 @@
 # JS/TS, React and Node: known gaps and edge cases
 
-**Status:** living list, last updated 2026-10-17 (#443 property-name fallback).
+**Status:** living list, last updated 2026-10-30 (#450 expression-name scope).
 
 Each entry says:
 - what prism does today, with a small example;
@@ -23,6 +23,14 @@ is the member assignment, such as `var f = (Module.f = function() {})`, retains
 its lexical target; only parentheses are transparent for this exemption.
 Regression shapes are in
 `tests/integration/js_method_name_binding_test.rs` for JS, TS and TSX.
+
+An explicit function-expression name is visible only within its own body (#450).
+For example, `var f = make(); const o = { p: function f() {}, n() { f(); } };`
+cannot gain Exact to the expression from the outer call. Recursive calls and
+nested callables within the expression retain the self binding; a distinct
+outer declaration or import keeps its existing resolution route. Inferred names
+are unchanged. Body spans survive full and partial CPG cache hits; regressions
+are in `tests/integration/js_named_function_scope_test.rs` for JS, TS and TSX.
 
 ## Anonymous callers (lane A2 S2a)
 

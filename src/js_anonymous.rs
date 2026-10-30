@@ -7,6 +7,8 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod function_expression;
+
 #[cfg(test)]
 #[path = "js_anonymous/sequential.rs"]
 mod sequential;
@@ -57,6 +59,7 @@ struct FileProofs {
     program_supported: bool,
     // Negative syntax evidence, independent of callable/import proof support.
     property_methods: BTreeSet<FunctionId>,
+    expression_scopes: function_expression::ExpressionScopes,
     owners: BTreeMap<FunctionId, bool>,
     sites: BTreeMap<Span, BindingEvidence>,
     returns: BTreeMap<FunctionId, (bool, Vec<ImportEvidence>)>,
@@ -81,8 +84,10 @@ impl ProofIndex {
             self.0.retain(|file, _| !files.contains(file));
             for proof in self.0.values_mut() {
                 let property_methods = std::mem::take(&mut proof.property_methods);
+                let expression_scopes = std::mem::take(&mut proof.expression_scopes);
                 *proof = FileProofs {
                     property_methods,
+                    expression_scopes,
                     ..Default::default()
                 };
             }
@@ -167,6 +172,7 @@ fn build_file(file: &str, parsed: &ParsedFile) -> Option<FileProofs> {
         {
             proof.property_methods.insert(id.clone());
         }
+        proof.expression_scopes.record(owner, &id);
         let supported = file_supported && parsed.anonymous_evaluation_supported(owner);
         proof.owners.insert(id.clone(), supported);
         cache.proof_trace = Some(Vec::new());
@@ -259,17 +265,24 @@ fn anonymous(site: &CallSite) -> bool {
     crate::anon_owner::is_anonymous_owner_name(&site.caller.name)
 }
 impl CallGraph {
-    /// R4/R5 spelling fallback cannot prove a property name's lexical identity.
+    /// R4/R5 spelling fallback requires a lexical name visible at this site.
     /// Keep existing NameOnly pools intact; proven binding routes bypass this helper.
     pub(crate) fn bare_name_exact<'a>(
         &self,
         candidates: Vec<&'a FunctionId>,
         kind: crate::resolution::ResolutionKind,
+        site: &CallSite,
     ) -> ResolutionOutcome<'a> {
         let resolved = candidates
             .into_iter()
             // `super()` is a constructor keyword, never a lexical identifier lookup.
             .filter(|id| id.name == "super" || !self.js_anonymous.is_property_method(id))
+            .filter(|id| {
+                self.js_anonymous
+                    .0
+                    .get(&id.file)
+                    .is_none_or(|proof| proof.expression_scopes.visible_at(id, site))
+            })
             .map(|target| crate::resolution::ResolvedCallee {
                 target,
                 confidence: ResolutionConfidence::Exact,
