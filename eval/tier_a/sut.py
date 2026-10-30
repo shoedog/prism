@@ -259,7 +259,8 @@ class PrismCli:
         instance.bin = path
         instance.allow_stale = False
         instance.env = None
-        instance.no_cache = True
+        instance.no_cache = False
+        instance.lock_bound = True
         instance.sha, instance.sha_full, instance.dirty = sha, sha_full, False
         return instance
 
@@ -284,7 +285,8 @@ class PrismCli:
         instance.bin = path
         instance.allow_stale = False
         instance.env = env
-        instance.no_cache = True
+        instance.no_cache = False
+        instance.lock_bound = True
         instance.sha, instance.sha_full, instance.dirty = sha, sha_full, False
         return instance
 
@@ -303,9 +305,11 @@ class PrismCli:
         self.allow_stale = allow_stale
         self.env = env
         self.bin = _resolve_executable(selected, env)
-        # Lock-bound invocations carry a scrubbed environment. Their cache is
-        # disabled because Prism's content key does not bind the observed SUT
-        # digest. Ordinary runs retain main's writable cache location.
+        # Lock-bound invocations carry a scrubbed environment and keep Prism's
+        # default nav store, as on tier-a-reanchor before the merge: Prism rejects
+        # a store whose cache build identity (a fingerprint of the binary's source
+        # inputs) or CACHE_VERSION differs, so a different build never serves it.
+        # Ordinary runs use main's writable cache location.
         self.cache_dir = (
             None if env is not None else os.path.join(prism_repo, "target", "tier-a-nav-cache")
         )
@@ -313,7 +317,10 @@ class PrismCli:
         # bypassed. The matrix runner sets this for deterministic fixture eval —
         # a stale fixture cache silently served pre-S3 results and produced false
         # regressions (S3 Task 13). Corpus measurements leave it False for speed.
-        self.no_cache = env is not None
+        self.no_cache = False
+        # Lock-bound = archived/verified identity or a scrubbed lock environment;
+        # pinned.py keeps tier-a-reanchor's probe-error accounting for these legs.
+        self.lock_bound = env is not None
         self.sha, self.dirty = self._check_freshness()
 
     def _check_freshness(self) -> tuple[str, bool]:

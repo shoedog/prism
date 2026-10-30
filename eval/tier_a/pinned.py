@@ -92,7 +92,7 @@ def run_pinned(oracle, sut, snapshot: list[FunctionDef], corpus_root: str,
                 compatibility_error = isinstance(exc, AttributeError) or (
                     isinstance(exc, SutError)
                     and not isinstance(exc, SutTimeout)
-                    and getattr(sut, "no_cache", False)
+                    and getattr(sut, "lock_bound", False)
                 )
                 if not compatibility_error:
                     out.append({

@@ -62,6 +62,42 @@ def test_from_archive_binds_bytes_and_full_sha_without_head_freshness(
         PrismCli.from_archive("/repo", str(binary), sha_full, raw_digest(binary))
 
 
+def test_lock_bound_instances_use_prisms_default_nav_store(tmp_path, monkeypatch):
+    """Archived and verified (lock-bound) legs keep Prism's own nav store, as before
+    the main merge: neither `--no-cache` (14x slower M2, budget exhaustion) nor
+    main's writable `--cache-dir`. Prism itself rejects a store built by a binary
+    with a different cache build identity."""
+    binary = tmp_path / "prism"
+    binary.write_bytes(b"lock-bound prism")
+    binary.chmod(0o755)
+    sha_full = "c" * 40
+    calls = []
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        out = f"slicing 3.1.2 ({sha_full[:12]})\n" if cmd[1:] == ["--version"] else "[]"
+        return FakeRun(stdout=out)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(sut_mod, "verified_binary_identity", lambda *_a: (sha_full[:12], sha_full))
+    archived = PrismCli.from_archive("/repo", str(binary), sha_full, raw_digest(binary))
+    verified = PrismCli.from_verified(
+        "/repo", str(binary), sha_full, raw_digest(binary), env={"PATH": "/usr/bin"}
+    )
+    for sut in (archived, verified):
+        sut._run(["functions"])
+        assert "--no-cache" not in calls[-1]
+        assert "--cache-dir" not in calls[-1]
+        assert sut.lock_bound  # pinned.py probe-error accounting keys on this, not on the cache
+
+
+def test_prism_corpus_query_timeout_fits_full_corpus_call_hierarchy():
+    import tomllib
+    config = tomllib.loads((Path(__file__).parents[1] / "corpora.toml").read_text())
+    assert config["corpus"]["prism"]["query_timeout_s"] == 30.0
+    assert config["defaults"]["query_timeout_s"] == 10.0  # main's default for other corpora
+
+
 def test_extract_functions_inventory_records():
     recs = extract_functions(json.loads((FIX / "wire_functions_sample.json").read_text()))
     assert recs, "sample must be non-empty"

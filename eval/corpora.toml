@@ -70,6 +70,7 @@ path = "."                       # the prism repo itself (dogfood)
 oracle = "rust-analyzer"
 excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*"]
 # Corpus identity is stored in eval/tier-a.lock.toml; bootstrap snapshot: prism-20c8490591a3.json.
+query_timeout_s = 30.0           # tier-a-reanchor's pre-merge LSP default; callHierarchy on the full corpus with features=all exceeds main's 10 s
 
 [corpus.ruff]
 lang = "rust"
