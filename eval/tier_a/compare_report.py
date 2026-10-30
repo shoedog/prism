@@ -253,21 +253,26 @@ def _lost_matched_oracle_sites(comparable: dict) -> dict[str, list[list]]:
         if base_status not in _SCORED or cand_status not in _SCORED:
             continue
         oracle_sites = set(_canonical_sites(base or {}, "oracle_sites"))
-        base_matches = set(
-            match_oracle_sites(
+        representative = {}
+        for window in sorted(oracle_sites):
+            representative.setdefault(window[:2], window)
+        base_matches = {
+            window[:2]
+            for window in match_oracle_sites(
                 {site[:2] for site in _canonical_sites(base or {}, "prism_sites")},
                 oracle_sites,
             ).values()
-        )
-        candidate_matches = set(
-            match_oracle_sites(
+        }
+        candidate_matches = {
+            window[:2]
+            for window in match_oracle_sites(
                 {site[:2] for site in _canonical_sites(cand or {}, "prism_sites")},
                 oracle_sites,
             ).values()
-        )
-        lost = sorted(base_matches - candidate_matches)
-        if lost:
-            losses[pid] = [list(site) for site in lost]
+        }
+        lost_identities = sorted(base_matches - candidate_matches)
+        if lost_identities:
+            losses[pid] = [list(representative[site]) for site in lost_identities]
     return losses
 
 
