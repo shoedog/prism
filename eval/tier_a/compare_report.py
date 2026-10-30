@@ -353,6 +353,18 @@ def _compare_identity(meta: dict, key: str):
     }
 
 
+def _baseline_refusals(base_meta: dict, cand_meta: dict) -> list[str]:
+    refusals = []
+    for side, meta in (("base", base_meta), ("candidate", cand_meta)):
+        if not meta.get("baseline_invalid"):
+            continue
+        reasons = meta.get("invalid_reasons")
+        if not isinstance(reasons, list) or not reasons:
+            reasons = ["unspecified"]
+        refusals.append(f"baseline_invalid: {side}: {', '.join(map(str, reasons))}")
+    return refusals
+
+
 def compare_runs(
     base_run: dict,
     cand_run: dict,
@@ -409,6 +421,7 @@ def compare_runs(
     ]
     if not both_admitted:
         refusal.append("admitted")
+    refusal.extend(_baseline_refusals(base_meta, cand_meta))
     if not probe_sets_equal:
         refusal.append("probe_set")
     if not adjudications_match:
@@ -500,7 +513,6 @@ def compare_runs(
 
     regressions = []
     for criterion, label in (
-        ("both_baseline_valid", "both_baseline_valid"),
         ("no_new_sut_errors", "no_new_sut_errors"),
         ("unexplained_zero", "unexplained"),
         ("no_recall_loss", "no_recall_loss"),
