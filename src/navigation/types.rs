@@ -183,6 +183,7 @@ pub enum QueryError {
     SymbolNotFound { seed: String },
     LocationOutOfRange { file: String, line: usize },
     NoEnclosingCallable { file: String, line: usize },
+    NoNamedEnclosingCallable { file: String, line: usize },
     UnsupportedFile { file: String },
     UnknownEdge { edge: String },
 }

@@ -21,6 +21,9 @@ fn error_text(e: &QueryError) -> String {
         QueryError::NoEnclosingCallable { file, line } => {
             format!("no enclosing callable: {file}:{line}")
         }
+        QueryError::NoNamedEnclosingCallable { file, line } => {
+            format!("no named enclosing callable: {file}:{line}")
+        }
         QueryError::UnsupportedFile { file } => format!("unsupported file: {file}"),
         QueryError::UnknownEdge { edge } => format!("unknown edge: {edge}"),
     }

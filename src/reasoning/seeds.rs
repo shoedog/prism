@@ -190,6 +190,7 @@ fn resolve_loc(
             .index
             .enclosing_function_including_anonymous(file, line)
             .is_none()
+            && !crate::navigation::seed::has_syntax_callable_enclosure(parsed, line)
         {
             return Err(QueryError::NoEnclosingCallable {
                 file: file.into(),

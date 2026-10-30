@@ -49,13 +49,43 @@ pub(crate) fn location_in_range(source: &str, line: usize) -> bool {
     line > 0 && source.lines().nth(line - 1).is_some()
 }
 
+/// Recognize lexical callables even when they have no CPG Function identity (e.g. Go
+/// func literals). Walk only nodes spanning the line, including whitespace between children.
+/// A module evaluation region is deliberately not a lexical callable.
+pub(crate) fn has_syntax_callable_enclosure(parsed: &crate::ast::ParsedFile, line: usize) -> bool {
+    let kinds = parsed.language.callable_boundary_node_types();
+    let mut pending = vec![parsed.tree.root_node()];
+    while let Some(node) = pending.pop() {
+        let (start, end) = parsed.node_line_range(&node);
+        if line < start || line > end {
+            continue;
+        }
+        if kinds.contains(&node.kind()) {
+            return true;
+        }
+        pending.extend(node.named_children(&mut node.walk()));
+    }
+    false
+}
+
 /// Classify a failed callable lookup against the indexed source, never the live file.
 pub(crate) fn missing_callable_error(s: &NavigationSession, file: &str, line: usize) -> QueryError {
-    if s.repo
+    if let Some(parsed) = s
+        .repo
         .files
         .get(file)
-        .is_some_and(|parsed| location_in_range(&parsed.source, line))
+        .filter(|parsed| location_in_range(&parsed.source, line))
     {
+        if s.index
+            .enclosing_function_including_anonymous(file, line)
+            .is_some_and(|(_, name)| !crate::anon_owner::is_module_owner_name(&name))
+            || has_syntax_callable_enclosure(parsed, line)
+        {
+            return QueryError::NoNamedEnclosingCallable {
+                file: file.into(),
+                line,
+            };
+        }
         QueryError::NoEnclosingCallable {
             file: file.into(),
             line,

@@ -157,3 +157,74 @@ fn location_seed_reasoning_reports_no_callable_for_unusable_module_lines() {
         ));
     }
 }
+
+#[test]
+fn location_seed_reasoning_anonymous_go_is_not_outside_a_callable() {
+    let s = session(
+        "a.go",
+        "package sample\nvar h = func() int {\n  // inside\n\n  return 1\n}\n",
+    );
+    for role in [SeedRole::Source, SeedRole::Sink] {
+        for line in [3, 4, 5] {
+            let spec = SeedSpec::Loc {
+                file: "a.go".into(),
+                line,
+            };
+            assert!(matches!(
+                seeds::resolve(&s, &[spec], role),
+                Err(QueryError::SymbolNotFound { .. })
+            ));
+        }
+    }
+}
+
+#[test]
+fn location_seed_reasoning_js_ts_module_and_callback_are_taint_regions() {
+    for file in ["a.js", "a.ts", "a.tsx"] {
+        let s = session(
+            file,
+            "// module\nsetTimeout(function () {\n  // inside\n\n  return 1;\n}, 10);\n",
+        );
+        for role in [SeedRole::Source, SeedRole::Sink] {
+            for line in [1, 3, 4, 5] {
+                let spec = SeedSpec::Loc {
+                    file: file.into(),
+                    line,
+                };
+                assert!(matches!(
+                    seeds::resolve(&s, &[spec], role),
+                    Err(QueryError::SymbolNotFound { .. })
+                ));
+            }
+        }
+    }
+}
+
+#[test]
+fn location_seed_parse_failure_and_named_outer_controls() {
+    let s = session("a.py", "# module\nvalue = 1\ndef broken(:\n    ???\n");
+    for line in [3, 4] {
+        assert_error(
+            seed::resolve_fn(&s, None, None, Some(&format!("a.py:{line}"))).unwrap_err(),
+            "NoEnclosingCallable",
+            "a.py",
+            line,
+        );
+    }
+    // Tree-sitter can recover the same malformed signature when the body is valid.
+    let recovered = session("a.py", "# module\nvalue = 1\ndef broken(:\n    pass\n");
+    assert!(
+        matches!(seed::resolve_fn(&recovered, None, None, Some("a.py:4")).unwrap().symbol,
+        SymbolRef::Function { ref name, .. } if name == "broken")
+    );
+    let s = session(
+        "a.js",
+        "function outer() {\n  setTimeout(() => {\n    // inside\n\n    return 1;\n  }, 10);\n}\n",
+    );
+    for line in [3, 4, 5] {
+        assert!(
+            matches!(seed::resolve_fn(&s, None, None, Some(&format!("a.js:{line}"))).unwrap().symbol,
+            SymbolRef::Function { ref name, .. } if name == "outer")
+        );
+    }
+}
