@@ -8,12 +8,12 @@
 {
   "base": {
     "digest": "sha256:38361d2f7304ffaf35776829ef694eb5a4220409ed35961b62d9b82ce4b737ab",
-    "path": "eval/runs/2026-10-30-prism-mbase.json",
+    "path": "docs/eval/tier-a/2026-10-30-prism-mbase.json",
     "path_base": "repo_root"
   },
   "candidate": {
     "digest": "sha256:1aeaac8cd7832f0398440bbd213ab7b71506aaeaf52579d5a6daf7102c51f641",
-    "path": "eval/runs/2026-10-30-prism-mcand.json",
+    "path": "docs/eval/tier-a/2026-10-30-prism-mcand.json",
     "path_base": "repo_root"
   }
 }
@@ -23,8 +23,8 @@
 
 ```json
 {
-  "generated_at": "2026-10-30T08:07:01.620132+00:00",
-  "harness_sha": "84383d0ff077ee58b63e16401c3be2fe0805b003"
+  "generated_at": "2026-10-30T08:39:18.467853+00:00",
+  "harness_sha": "8f8b60b96c71628eb082e95410f7906b59636879"
 }
 ```
 
