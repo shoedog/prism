@@ -8,6 +8,9 @@
 
 use super::*;
 
+#[path = "ast/js_scope_bindings.rs"]
+mod js_scope_bindings;
+
 impl ParsedFile {
     /// Owner name of a callable's DFG pass: the inferred/declared name when
     /// one exists (name inference always wins), else the synthetic
@@ -873,6 +876,23 @@ impl ParsedFile {
     /// declarators anywhere in its body outside further nested callables, and
     /// its body-level lexical/function/class declarations.
     fn js_ts_function_scope_binds(&self, body: Node<'_>, boundaries: &[&str], name: &str) -> bool {
+        #[cfg(test)]
+        if binding_verdict_memo::bypassed() {
+            return self.js_ts_function_scope_binds_reference(body, boundaries, name);
+        }
+        binding_verdict_memo::function_scope_binds(self, body, boundaries, name, || {
+            js_scope_bindings::collect(self, body, boundaries)
+        })
+    }
+
+    #[cfg(test)]
+    fn js_ts_function_scope_binds_reference(
+        &self,
+        body: Node<'_>,
+        boundaries: &[&str],
+        name: &str,
+    ) -> bool {
+        binding_verdict_memo::probe::observe("function_body", body.id(), 0, name);
         let mut stack = vec![body];
         while let Some(node) = stack.pop() {
             if node.id() != body.id()

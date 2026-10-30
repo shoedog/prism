@@ -443,9 +443,9 @@
    ]
   ],
   "PD-54-for-in-var-function-scope-off": [
-   "src/ast_callback_identity.rs",
-   "            if node.kind() == \"for_in_statement\"\n                && node\n                    .child_by_field_name(\"kind\")\n                    .is_some_and(|k| self.node_text(&k) == \"var\")",
-   "            if node.kind() == \"never_for_in_statement\"\n                && node\n                    .child_by_field_name(\"kind\")\n                    .is_some_and(|k| self.node_text(&k) == \"var\")",
+   "src/ast/js_scope_bindings.rs",
+   "        if node.kind() == \"for_in_statement\"\n            && node\n                .child_by_field_name(\"kind\")\n                .is_some_and(|k| p.node_text(&k) == \"var\")",
+   "        if node.kind() == \"never_for_in_statement\"\n            && node\n                .child_by_field_name(\"kind\")\n                .is_some_and(|k| p.node_text(&k) == \"var\")",
    [
     "cpg::callback_identity_tests::enclosing_walk_never_reaches_nested_binders"
    ]
@@ -992,6 +992,11 @@
     "src/ast_callback_identity.rs",
     "\"labeled_statement\" => stmt",
     "\"labeled_statement\" if false => stmt"
+   ],
+   [
+    "src/ast/js_scope_bindings.rs",
+    "\"labeled_statement\" => {",
+    "\"labeled_statement\" if false => {"
    ]
   ]
  },
@@ -1003,6 +1008,14 @@
   "PD-94-r7-positive-non-simple-inversion": {
    "disposition": "rebound",
    "reason": "First R7 authoritative gate enumerated one survivor: inversion now equivalent on corrected known kinds. Mutate unknown branch of positive proof to true, directly reproducing unknown-kind refusal; grammar matrix plus direct unknown-node negative control kill it."
+  },
+  "PD-54-for-in-var-function-scope-off": {
+   "disposition": "rebound",
+   "reason": "Function-body var collection moved to js_scope_bindings.rs; target the production collector rather than the cfg(test) per-name reference. Original killing fixture unchanged."
+  },
+  "PD-105-r9-labelled-seam-off": {
+   "disposition": "rebound",
+   "reason": "Function-body binding sets mirror the legacy labeled-statement helper. Frozen-main control kills the original mutant; current round 1 enumerated this sole survivor. Retain both original edits and also disable the collector label arm, using the unchanged killing test."
   }
  }
 }
