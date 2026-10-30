@@ -18,10 +18,11 @@ from tier_a.compare_report import COMPARE_IDENTITIES, COMPARE_POLICY, PINNED_RAN
 
 
 EVAL_DIR = Path(__file__).resolve().parents[1]
+CANDIDATE_DIGEST = "sha256:" + "b" * 64
 
 
 def test_classes_on_the_sut_axis():
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     same = {"outcome": "ok", "prism_sites": [["src/a.rs", 3, 3]], "oracle_sites": [["src/a.rs", 3, 3]]}
     assert classify_probe("callers:src/a.rs:1", "ok", same, "ok", same, ids, cand) == "carried_same"
     assert classify_probe("callers:src/a.rs:1", "ok", same, "ok", {**same, "prism_sites": []}, ids, cand) == "carried_changed/sut_change"
@@ -44,7 +45,7 @@ def test_oracle_answer_is_oracle_only_and_canonical():                          
 
 
 def test_oracle_changed_is_excluded_never_attributed_to_prism():                                   # owner ruling 2026-09-12
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     p = {"outcome": "ok", "direction": "callers", "stratum": "U-free", "seed_def": "src/a.rs:1", "prism_sites": [], "oracle_sites": [["src/a.rs", 3, 3]], "prism_functions": [], "oracle_functions": []}
     b = fake_run(ids, probes={"callers:x:1": p, "callers:y:1": p}); c = fake_run(cand, probes={"callers:x:1": {**p, "oracle_sites": [["src/a.rs", 4, 4]], "prism_sites": [["src/a.rs", 4, 4]]}, "callers:y:1": p})
     comparable, changed = partition_by_oracle(join_probes(b, c))
@@ -94,7 +95,7 @@ def test_every_non_scored_non_sut_status_is_an_oracle_failure():
 
 
 def test_comparison_floor_is_per_stratum_over_both_directions_and_passable_under_quick():     # R5-W3, R6-W6
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     b = fake_run(ids)                                                                              # the default quick_probes() sample: 5 strata × 2 directions × 3 = 30 (cli.py:627) plus the "_corpus"/"_strata" entries the scorer reads
     assert {p["stratum"] for k, p in b["probes"].items() if not k.startswith("_")} == set(STRATA) and len(b["probe_status"]) == 30 and set(b["probes"]["_strata"]) == set(STRATA)
     moved = lambda k: {k: {**quick_probes()[k], "oracle_sites": [["src/a.rs", 9, 9]]}}
@@ -108,7 +109,7 @@ def test_comparison_floor_is_per_stratum_over_both_directions_and_passable_under
 
 
 def test_candidate_sut_error_on_a_comparable_probe_is_a_regression():                            # Ruling 16, R6-W5
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     pid = "callees:src/C-name.rs:2"
     b = fake_run(ids); probes = quick_probes(); del probes[pid]
     c = fake_run(cand, probes=probes, status={**{k: "ok" for k in quick_probes()}, pid: "sut_error"})
@@ -121,7 +122,7 @@ def test_candidate_sut_error_on_a_comparable_probe_is_a_regression():           
 
 
 def test_adjudications_must_be_the_runs_declared_copy(tmp_path, monkeypatch):                      # R5-W5, R5-W7
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     b = fake_run(ids); c = fake_run(cand)
     assert compare_runs(b, c, (ADJ, "sha256:" + "0"*64))["verdict"] == "NOT_COMPARABLE(adjudications_digest)"   # records whose digest is not the legs' meta.data digest are refused
     adj = tmp_path / "adjudications.jsonl"; adj.write_text("".join(json.dumps(r) + "\n" for r in ADJ_RECORDS)); assert raw_digest(adj) == ADJ_DIGEST
@@ -153,7 +154,7 @@ def test_compare_refuses_input_resolving_outside_repo_root(tmp_path):
 
 def test_adjudications_digest_accepts_lock_shape_and_legacy_but_refuses_drift():
     ids = base_ids()
-    cand = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    cand = {**ids, "sut_sha_full": "b" * 40, "sut_digest": CANDIDATE_DIGEST}
     base = fake_run(ids)
     candidate = fake_run(cand)
     lock_data = {
@@ -193,24 +194,25 @@ def test_adjudications_digest_accepts_lock_shape_and_legacy_but_refuses_drift():
 def test_adjudications_digest_refuses_missing_wrong_path_and_ambiguous_shapes():
     ids = base_ids()
     base = fake_run(ids)
-    for data in (
-        {},
-        {"adjudications": {"path": "other.jsonl", "digest": ADJ_DIGEST}},
-        {
+    cases = (
+        ({}, "NOT_COMPARABLE(identity_invalid: base.data, candidate.data)"),
+        (
+            {"adjudications": {"path": "other.jsonl", "digest": ADJ_DIGEST}},
+            "NOT_COMPARABLE(adjudications_digest)",
+        ),
+        ({
             "adjudications": {
                 "path": "eval/adjudications.jsonl",
                 "digest": ADJ_DIGEST,
             },
             "eval/adjudications.jsonl": {"digest": ADJ_DIGEST},
-        },
-    ):
+        }, "NOT_COMPARABLE(adjudications_digest)"),
+    )
+    for data, expected in cases:
         base["meta"]["data"] = copy.deepcopy(data)
         candidate = fake_run(ids)
         candidate["meta"]["data"] = copy.deepcopy(data)
-        assert (
-            compare_runs(base, candidate, DECLARED_ADJ)["verdict"]
-            == "NOT_COMPARABLE(adjudications_digest)"
-        )
+        assert compare_runs(base, candidate, DECLARED_ADJ)["verdict"] == expected
 
 
 def test_compare_uses_observed_sut_digest_for_changed_answers():
@@ -222,7 +224,7 @@ def test_compare_uses_observed_sut_digest_for_changed_answers():
     different_sut = {
         **ids,
         "sut_sha_full": "b" * 40,
-        "sut_digest": "sha256:different-binary",
+        "sut_digest": "sha256:" + "d" * 64,
     }
     cmp = compare_runs(fake_run(ids), fake_run(different_sut, probes=changed), DECLARED_ADJ)
     assert cmp["classes"][pid] == "carried_changed/sut_change"
@@ -260,7 +262,7 @@ def test_exact_m6_mutation_losing_unadjudicated_matched_sites_is_a_regression():
 
 def test_lost_match_guard_uses_the_scorers_tolerated_one_to_one_matches():
     ids = base_ids()
-    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": CANDIDATE_DIGEST}
     pid = "callers:src/U-method.rs:1"
     base_probes = quick_probes()
     base_probes[pid] = {
@@ -285,7 +287,7 @@ def test_lost_match_guard_uses_the_scorers_tolerated_one_to_one_matches():
 
 def test_equivalent_coordinate_movement_does_not_create_a_lost_match():
     ids = base_ids()
-    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": CANDIDATE_DIGEST}
     pid = "callers:src/U-method.rs:1"
     base_probes = quick_probes()
     base_probes[pid] = {
@@ -308,7 +310,7 @@ def test_equivalent_coordinate_movement_does_not_create_a_lost_match():
 
 def test_pending_change_without_lost_match_remains_no_regression():
     ids = base_ids()
-    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": CANDIDATE_DIGEST}
     pid = "callers:src/U-method.rs:1"
     base_probes = quick_probes()
     base_probes[pid] = {
@@ -332,7 +334,7 @@ def test_pending_change_without_lost_match_remains_no_regression():
 
 def test_added_prism_only_site_is_precision_only_not_a_matched_site_loss():
     ids = base_ids()
-    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": CANDIDATE_DIGEST}
     pid = "callers:src/U-method.rs:1"
     candidate_probes = quick_probes()
     candidate_probes[pid] = {
@@ -355,7 +357,7 @@ def test_added_prism_only_site_is_precision_only_not_a_matched_site_loss():
 def test_adjudicated_lost_matched_site_keeps_existing_recall_regression():
     ids = base_ids()
     digest = "sha256:adjudicated-matched-site-loss"
-    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": CANDIDATE_DIGEST}
     for leg in (ids, candidate_ids):
         leg["data"] = {"eval/adjudications.jsonl": {"digest": digest}}
     pid = "callers:src/U-method.rs:1"
@@ -403,7 +405,7 @@ def test_real_m6_lock_bound_pair_is_comparable():
 
 def test_pinned_probes_are_partitioned_by_oracle_answer_and_ranked_by_contract():                 # R5-W6, R6-W3, R6-W4, R7-W1
     # Rows are hand-built but PRODUCER-COHERENT with evaluate_pinned (pinned.py:34-70): an oracle_miss_site pin is "ok" iff the configured miss site is in prism_only (prism reports it, the oracle does not), else "missing"; a known_fail pin is "known_fail" iff P <= 0.2 and R <= 0.2 (prism sites disjoint from the oracle's), else "flip_candidate". compare_report reads only id/outcome/oracle_sites/error_side. (The implementer may build these rows through evaluate_pinned with CallEdge fixtures instead; the transitions below are the ones it can emit.)
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     ok = {"id": "pin-1", "expected": "oracle_miss_site", "oracle_miss_site": "src/mcp/x.rs:9", "outcome": "ok", "prism_sites": ["src/a.rs:3", "src/mcp/x.rs:9"], "oracle_sites": ["src/a.rs:3"], "prism_only": ["src/mcp/x.rs:9"], "oracle_only": [], "oracle_miss_site_found": True}
     missing = {**ok, "outcome": "missing", "prism_sites": ["src/a.rs:3"], "prism_only": [], "oracle_miss_site_found": False}        # same oracle answer; prism no longer reports the miss site
     b = fake_run(ids, pinned=[ok])
@@ -434,12 +436,19 @@ def test_run_pinned_records_which_side_failed(monkeypatch):                     
 
 
 def test_missing_probe_and_identity_mismatch_are_not_comparable():                    # W11
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     b = fake_run(ids, probes={"callers:x:1": {"outcome": "ok", "stratum": "U-free", "prism_sites": [], "oracle_sites": []}})
     c = fake_run(cand, probes={})
     assert compare_runs(b, c, DECLARED_ADJ)["verdict"] == "NOT_COMPARABLE(probe_set)"
-    for k in ("sha_aliases", "harness_sha", "env_values", "policy_digest", "snapshot_digest"):        # astra W11; observation_coverage no longer exists (owner ruling)
-        assert compare_runs(fake_run(ids), fake_run({**cand, k: "other"}), DECLARED_ADJ)["verdict"] == f"NOT_COMPARABLE({k})"
+    different = {
+        "sha_aliases": ["c" * 40],
+        "harness_sha": "c" * 40,
+        "env_values": {"PATH": "/other"},
+        "policy_digest": "sha256:" + "c" * 64,
+        "snapshot_digest": "sha256:" + "c" * 64,
+    }
+    for k, value in different.items():        # astra W11; observation_coverage no longer exists (owner ruling)
+        assert compare_runs(fake_run(ids), fake_run({**cand, k: value}), DECLARED_ADJ)["verdict"] == f"NOT_COMPARABLE({k})"
     assert compare_runs(fake_run(ids), fake_run({**cand, "admitted": False}), DECLARED_ADJ)["verdict"] == "NOT_COMPARABLE(admitted)"
 
 
@@ -510,7 +519,7 @@ def test_wilson_is_descriptive_and_recall_gate_is_nondecreasing():              
 
 
 def test_report_carries_e5_contract():
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     cmp = compare_runs(fake_run(ids), fake_run(cand), DECLARED_ADJ)
     for k in ("base_sha", "candidate_sha", "base_sut_digest", "candidate_sut_digest", *COMPARE_IDENTITIES): assert k in cmp["identities"]
     assert len(cmp["identities"]["base_sha"]) == 40 and len(cmp["identities"]["candidate_sha"]) == 40                   # full SHAs (astra W5)
@@ -566,7 +575,7 @@ def test_matrix_fixture_identity_preserves_colliding_rows(bad_name, language):
         load_case(EVAL_DIR / "fixtures" / language / name / "expected.toml")
         for name in names
     ]
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     base = fake_run(ids); candidate = fake_run(cand)
     base["matrix"] = [
         cli.matrix_result_to_json(_run_callers_case(case, language, FixtureSut(False)))
@@ -599,7 +608,7 @@ def test_pinned_oracle_sites_use_sets_for_improvements_and_real_changes():
     a, b, miss = _pinned_edge("src/a.rs", 3), _pinned_edge("src/b.rs", 8), _pinned_edge("src/miss.rs", 9)
     known = pinned_mod.evaluate_pinned(cfg, [miss], [a, b], False)
     flip = pinned_mod.evaluate_pinned(cfg, [b, a], [b, a, a], False)
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     cmp = compare_runs(fake_run(ids, pinned=[known]), fake_run(cand, pinned=[flip]), DECLARED_ADJ)
     assert cmp["pinned_oracle_changed"] == []
     assert cmp["criteria"]["pinned_no_regression"] is True
@@ -616,7 +625,7 @@ def test_pinned_oracle_site_duplicates_do_not_hide_regression():
     a, b, miss = _pinned_edge("src/a.rs", 3), _pinned_edge("src/b.rs", 8), _pinned_edge("src/miss.rs", 9)
     flip = pinned_mod.evaluate_pinned(cfg, [a, b], [b, a, a], False)
     known = pinned_mod.evaluate_pinned(cfg, [miss], [a, b], False)
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     cmp = compare_runs(fake_run(ids, pinned=[flip]), fake_run(cand, pinned=[known]), DECLARED_ADJ)
     assert cmp["pinned_oracle_changed"] == []
     assert cmp["pinned_diffs"] == {"pin-duplicates": ["flip_candidate", "known_fail"]}
@@ -624,7 +633,7 @@ def test_pinned_oracle_site_duplicates_do_not_hide_regression():
 
 
 def test_markdown_renders_complete_comparison_contract():
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     cmp = compare_runs(fake_run(ids), fake_run(cand), DECLARED_ADJ)
     cmp["runs"] = {
         "base": {"path_base": "REPO-ROOT-BASE", "path": "BASE-RUN-PATH", "digest": "BASE-RUN-DIGEST"},
@@ -659,7 +668,7 @@ def test_markdown_renders_complete_comparison_contract():
 
 
 def test_not_comparable_reports_identity_churn_and_floor_reasons_in_order():
-    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
+    ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": CANDIDATE_DIGEST}
     base = fake_run(ids); candidate = fake_run(cand)
     candidate["meta"]["harness_sha"] = "d" * 40
     for i in range(1, 4):

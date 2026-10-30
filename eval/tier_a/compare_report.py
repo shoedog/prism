@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 
 from .adjudication import Adjudication
@@ -38,6 +39,9 @@ COMPARE_POLICY = {
     "oracle_changed_max_fraction": 0.10,
     "min_comparable_per_stratum": 4,
 }
+REQUIRED_IDENTITIES = ("sut_sha_full", "sut_digest", *COMPARE_IDENTITIES)
+_SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
+_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 SUT_ERROR_LEG = ("sut_error",)
 PINNED_RANK = {
     "ok": 2,
@@ -362,6 +366,55 @@ def _compare_identity(meta: dict, key: str):
     }
 
 
+def _identity_has_valid_shape(key: str, value) -> bool:
+    if key in {"corpus_sha_full", "sut_sha_full", "harness_sha"}:
+        return isinstance(value, str) and _SHA_PATTERN.fullmatch(value) is not None
+    if key == "sha_aliases":
+        return (
+            isinstance(value, list)
+            and bool(value)
+            and all(isinstance(item, str) and _SHA_PATTERN.fullmatch(item) for item in value)
+        )
+    if key in {
+        "closure_digest",
+        "sut_digest",
+        "policy_digest",
+        "population_digest",
+        "snapshot_digest",
+    }:
+        return isinstance(value, str) and _DIGEST_PATTERN.fullmatch(value) is not None
+    if key == "sample_digest":
+        return (
+            isinstance(value, dict)
+            and bool(value)
+            and all(
+                isinstance(digest, str) and _DIGEST_PATTERN.fullmatch(digest)
+                for digest in value.values()
+            )
+        ) or (isinstance(value, str) and _DIGEST_PATTERN.fullmatch(value) is not None)
+    if key == "oracle":
+        return isinstance(value, str) and bool(value.strip())
+    if key in {"oracle_init", "runtime", "data", "env_values"}:
+        return isinstance(value, dict) and bool(value)
+    if key == "env_allow":
+        return (
+            isinstance(value, list)
+            and bool(value)
+            and all(isinstance(item, str) and bool(item) for item in value)
+        )
+    if key == "seed":
+        return isinstance(value, int) and not isinstance(value, bool)
+    return False
+
+
+def _invalid_identities(side: str, meta: dict) -> list[str]:
+    return [
+        f"{side}.{key}"
+        for key in REQUIRED_IDENTITIES
+        if key not in meta or not _identity_has_valid_shape(key, meta[key])
+    ]
+
+
 def _baseline_refusals(base_meta: dict, cand_meta: dict) -> list[str]:
     refusals = []
     for side, meta in (("base", base_meta), ("candidate", cand_meta)):
@@ -385,6 +438,14 @@ def compare_runs(
     base_meta = base_run.get("meta", {})
     cand_meta = cand_run.get("meta", {})
     report = _empty_report(base_run, cand_run, policy)
+
+    invalid_identities = _invalid_identities("base", base_meta)
+    invalid_identities.extend(_invalid_identities("candidate", cand_meta))
+    if invalid_identities:
+        report["verdict"] = (
+            f"NOT_COMPARABLE(identity_invalid: {', '.join(invalid_identities)})"
+        )
+        return report
 
     identities_equal = all(
         _compare_identity(base_meta, key) == _compare_identity(cand_meta, key)
