@@ -1,0 +1,36 @@
+{
+  "lane": "Go dispatch ordered parallel signature imports",
+  "lib_test_prefixes": ["go_type_alias::import_memo::parallel::tests::"],
+  "mutations": {
+    "GDE-no-prime": [
+      "src/go_type_alias/import_memo.rs",
+      "let rows = parallel::prepare(files, local_paths);",
+      "let rows: Vec<(&str, Imports)> = Vec::new();",
+      "go_type_alias::import_memo::parallel::tests::ordered_preparation_matches_frozen_maps_and_primes_only_go"
+    ],
+    "GDE-local-path": [
+      "src/go_type_alias/import_memo/parallel.rs",
+      "local_paths.get(path).map(String::as_str)",
+      "None",
+      "go_type_alias::import_memo::parallel::tests::ordered_preparation_matches_frozen_maps_and_primes_only_go"
+    ],
+    "GDE-source-file": [
+      "src/go_type_alias/import_memo/parallel.rs",
+      "                        parsed,",
+      "                        &files[files.keys().next().unwrap()],",
+      "go_type_alias::import_memo::parallel::tests::ordered_preparation_matches_frozen_maps_and_primes_only_go"
+    ],
+    "GDE-order": [
+      "src/go_type_alias/import_memo/parallel.rs",
+      "crate::build_pool::per_item(jobs)",
+      "crate::build_pool::per_item(jobs.into_iter().rev().collect::<Vec<_>>())",
+      "go_type_alias::import_memo::parallel::tests::ordered_preparation_matches_frozen_maps_and_primes_only_go"
+    ],
+    "GDE-non-go": [
+      "src/go_type_alias/import_memo/parallel.rs",
+      "parsed.language == Language::Go",
+      "parsed.language != Language::Go",
+      "go_type_alias::import_memo::parallel::tests::ordered_preparation_matches_frozen_maps_and_primes_only_go"
+    ]
+  }
+}

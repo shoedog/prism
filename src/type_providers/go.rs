@@ -536,12 +536,12 @@ impl GoTypeProvider {
         };
 
         let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
-        let local_import_paths = Self::local_import_paths(package_import_paths, &go_file_profiles);
-        let imports = crate::go_type_alias::SignatureImportMemo::new(files, &local_import_paths);
+        let local_paths = Self::local_import_paths(package_import_paths, &go_file_profiles);
+        let imports = crate::go_type_alias::SignatureImportMemo::parallel(files, &local_paths);
         let alias_resolver = crate::go_type_alias::GoAliasResolver::build_with_import_memo(
             files,
             package_import_paths,
-            &local_import_paths,
+            &local_paths,
             &go_file_profiles,
             &imports,
         );

@@ -13,6 +13,26 @@ pub(crate) struct SignatureImportMemo<'a> {
 }
 
 impl<'a> SignatureImportMemo<'a> {
+    /// Alias extraction visits every Go file. Prepare those independent maps
+    /// before that serial pass, retaining file order and the lazy non-Go path.
+    pub(crate) fn parallel(
+        files: &'a BTreeMap<String, ParsedFile>,
+        local_paths: &'a BTreeMap<String, String>,
+    ) -> Self {
+        #[cfg(test)]
+        if parallel::serial_reference_enabled() {
+            return Self::new(files, local_paths);
+        }
+        let rows = parallel::prepare(files, local_paths);
+        let memo = Self::new(files, local_paths);
+        for (path, imports) in rows {
+            #[cfg(test)]
+            record_scan(); // Attribute completed worker scans to the measuring caller.
+            memo.entries[path].set(imports).expect("uninitialized file");
+        }
+        memo
+    }
+
     pub(crate) fn new(
         files: &'a BTreeMap<String, ParsedFile>,
         local_paths: &'a BTreeMap<String, String>,
@@ -42,6 +62,8 @@ impl<'a> SignatureImportMemo<'a> {
         )
     }
 }
+
+mod parallel;
 
 pub(super) enum SignatureImportSource<'a> {
     Maps(&'a BTreeMap<String, Imports>),
