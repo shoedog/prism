@@ -37,6 +37,7 @@ where
             {
                 proof.property_methods.insert(id.clone());
             }
+            proof.expression_scopes.record(owner, &id);
             let supported = file_supported && parsed.anonymous_evaluation_supported(owner);
             proof.owners.insert(id.clone(), supported);
             cache.proof_trace = Some(Vec::new());

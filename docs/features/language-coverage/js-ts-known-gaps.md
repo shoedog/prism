@@ -1,6 +1,6 @@
 # JS/TS, React and Node: known gaps and edge cases
 
-**Status:** living list, last updated 2026-10-17 (#443 property-name fallback).
+**Status:** living list, last updated 2026-10-30 (#450 expression-name scope).
 
 Each entry says:
 - what prism does today, with a small example;
@@ -23,6 +23,16 @@ is the member assignment, such as `var f = (Module.f = function() {})`, retains
 its lexical target; only parentheses are transparent for this exemption.
 Regression shapes are in
 `tests/integration/js_method_name_binding_test.rs` for JS, TS and TSX.
+
+An explicit function-expression name is visible only within its own parameters and body (#450).
+For example, `var f = make(); const o = { p: function f() {}, n() { f(); } };`
+cannot gain Exact to the expression from the outer call. Recursive calls and
+nested callables within the expression retain the self binding; a proven
+outer callable declaration or import keeps its existing resolution route.
+Spanless import/re-export and namespace spelling fallbacks exclude private expression names; span-verified exports still expose their callable value.
+`let t7; t7 = function t7() {}; t7()` drops, while its anonymous twin stays Exact via the inferred name.
+Inferred names are unchanged. Parameter/body spans survive full and partial CPG cache hits; regressions
+are in `tests/integration/js_named_function_scope_test.rs` for JS, TS and TSX.
 
 ## Anonymous callers (lane A2 S2a)
 
@@ -173,7 +183,7 @@ A note in `CLAUDE.md` saying such code is out of model was considered and reject
 - **Packages.** Bare specifiers resolve only through tsconfig `paths`. Workspace packages (`package.json` `exports`/`main`/`types`), npm packages and `node:` builtins are external: no edge. Lane PKG, parked: #352.
 - **Imported classes and objects as qualifiers.** `import { C } from './m'; C.m()` and `new C()` get no Exact edge. Lane S2, parked: #353.
 - **Relative import resolution** (all recorded in #371):
-  - wrong: when the namespace export proof fails, the fallback matches files by stem and grades every match Exact, so `N.f()` can bind `other/x.ts:f`;
+  - wrong: when the namespace export proof fails, the fallback matches files by stem and grades eligible spelling matches Exact (private function-expression names excluded), so `N.f()` can bind `other/x.ts:f`;
   - missing:
     - a barrel conflict check that counts a forwarded type-only import;
     - an inherited method reached through an imported props type;
@@ -184,8 +194,9 @@ A note in `CLAUDE.md` saying such code is out of model was considered and reject
     - a directory specifier always resolves to `index.*`, not to `package.json` `main`;
     - with both `x.js` and `x.ts` present, `./x.js` binds `x.js`, whereas TypeScript binds `x.ts`.
 - **CommonJS.**
-  - `module.exports = …` and `exports.x = …` are modeled as the construction idiom (`src/ast/js_cjs_export_barriers.rs`). A CommonJS export has no source span, so an alias of a CommonJS import is not proven by the alias route; such a site keeps the base result. Tracked: #376 item 2.
-  - The direct routes (`w()`, `N.w()`) bind a span-less export to any same-named function in the exporting file, including a nested one. Tracked: #376 item 5.
+  - `module.exports = …` and `exports.x = …` are modeled as the construction idiom (`src/ast/js_cjs_export_barriers.rs`). Most CommonJS exports remain spanless, so an alias of a CommonJS import generally keeps the base result. Named function expressions with a proved same-name declarator or direct same-name member assignment retain their callable span (#450). Tracked: #376 item 2.
+  - The direct routes (`w()`, `N.w()`) bind a span-less export to any same-named function in the exporting file except private function-expression names, including nested declarations. Tracked: #376 item 5.
+  - A private function-expression name never proves an export by spelling alone. Direct same-name declarator values and `exports.N = function N(){}` / `module.exports.N = function N(){}` values retain source-backed identity; array-element and identity-wrapper values remain refused pending a separate policy decision (#450).
   - A direct call to an import is dropped when the caller declares another binding of that name in a nested scope. Tracked: #376 item 4.
 - **Runtime mutation is out of model** for every route: monkey-patching, reflective writes, `eval`, host globals, re-acquisition through `require`/`import()`. See `CLAUDE.md`.
 

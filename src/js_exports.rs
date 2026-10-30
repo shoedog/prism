@@ -44,8 +44,8 @@ pub enum JsExportTarget {
         start_line: usize,
         end_line: usize,
     },
-    /// S1b: an ESM local export whose module-scope binding holds exactly this plain
-    /// callable (SPEC §3.2); R4c binds it by span from any site.
+    /// A source-proven local callable: ESM module binding (S1b) or a CJS
+    /// terminal/direct member value. R4c binds it by span from any site.
     VerifiedLocal {
         local: String,
         start_line: usize,

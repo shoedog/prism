@@ -148,7 +148,7 @@ mod tests {
                     property,
                     "{ext}: {source}; full resolution: {full:?}"
                 );
-                let fallback = graph.bare_name_exact(vec![&id], ResolutionKind::LocalDef);
+                let fallback = graph.bare_name_exact(vec![&id], ResolutionKind::LocalDef, site);
                 assert_eq!(
                     fallback
                         .resolved

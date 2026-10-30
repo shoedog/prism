@@ -2413,11 +2413,12 @@ impl CallGraph {
                                     return outcome.retain_family(&caller.file);
                                 }
                             }
-                            return ResolutionOutcome::hit(exact(
-                                matched,
-                                ResolutionKind::ImportQualified,
-                            ))
-                            .retain_family(&caller.file);
+                            return self
+                                .js_ts_import_spelling_exact(
+                                    matched,
+                                    ResolutionKind::ImportQualified,
+                                )
+                                .retain_family(&caller.file);
                         }
                     }
                 }
@@ -3292,7 +3293,7 @@ impl CallGraph {
                     if matches!(site.local_binding, JsLocalBinding::Unproven(_)) {
                         return ResolutionOutcome::dropped(DropReason::LocalBindingUnproven);
                     }
-                    return self.bare_name_exact(local, ResolutionKind::LocalDef);
+                    return self.bare_name_exact(local, ResolutionKind::LocalDef, site);
                 }
 
                 // R4.5: a Go unqualified call resolves within its own package
@@ -3420,7 +3421,7 @@ impl CallGraph {
                 }
                 match nonstatic.len() {
                     0 => ResolutionOutcome::dropped(DropReason::UnknownName),
-                    1 => self.bare_name_exact(nonstatic, ResolutionKind::FreeSingle),
+                    1 => self.bare_name_exact(nonstatic, ResolutionKind::FreeSingle, site),
                     _ => ResolutionOutcome::hit(demoted(nonstatic, ResolutionKind::FreeMulti)),
                 }
                 .retain_family(&caller.file)
@@ -3607,18 +3608,7 @@ impl CallGraph {
         if !binding.module_path.trim().starts_with('.') && resolved.span.is_none() {
             return Ok(Vec::new());
         }
-        let ids: Vec<&FunctionId> = match self.functions.get(&resolved.local_name) {
-            Some(ids) => ids
-                .iter()
-                .filter(|fid| fid.file == resolved.file && !self.method_owners.contains_key(*fid))
-                .filter(|fid| {
-                    resolved
-                        .span
-                        .is_none_or(|(s, e)| fid.start_line == s && fid.end_line == e)
-                })
-                .collect(),
-            None => Vec::new(),
-        };
+        let ids = self.js_ts_export_candidates(resolved);
         if resolved.span.is_some() && ids.len() > 1 {
             return Ok(Vec::new());
         }

@@ -101,13 +101,13 @@
     ],
     "RS-14-cpg-generation": [
       "src/cpg_cache.rs",
-      "const CACHE_VERSION: u32 = 131;",
+      "const CACHE_VERSION: u32 = 132;",
       "const CACHE_VERSION: u32 = 124;",
       "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
     ],
     "RS-15-nav-generation": [
       "src/navigation/call_edge_cache.rs",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 75;",
+      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 76;",
       "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
       "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
     ],
