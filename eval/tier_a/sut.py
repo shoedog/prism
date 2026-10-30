@@ -278,6 +278,7 @@ class PrismCli:
         temporary, path, observed_digest = _snapshot_executable(resolved_path, digest)
         instance = cls.__new__(cls)
         instance.repo = prism_repo
+        instance.source_bin = resolved_path
         instance.bin = path
         instance.allow_stale = False
         instance.env = env
@@ -316,6 +317,7 @@ class PrismCli:
             raise SutStale("binary SHA does not match the staged identity")
         instance = cls.__new__(cls)
         instance.repo = prism_repo
+        instance.source_bin = resolved_path
         instance.bin = path
         instance.allow_stale = False
         instance.env = env
@@ -342,6 +344,7 @@ class PrismCli:
         self.allow_stale = allow_stale
         self.env = env
         resolved_path = _resolve_executable(selected, env)
+        self.source_bin = resolved_path
         if env is not None:
             temporary, self.bin, self.sut_digest = _snapshot_executable(resolved_path)
             self._snapshot_dir = temporary

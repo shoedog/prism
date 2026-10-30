@@ -731,6 +731,9 @@ def run_corpus(
         run["_sut_bin"] = getattr(
             sut, "bin", args.sut_bin or EVAL_DIR.parent / "target/release/prism"
         )
+        # Keep the private executable snapshot alive through admission's
+        # post-run digest and provenance observation.
+        run["_sut_owner"] = sut
     if oracle_init is not None:
         run["meta"]["oracle_init"] = oracle_init
     if initial_invalid_reasons and manifest_files is not None:

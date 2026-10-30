@@ -516,6 +516,7 @@ def run_quick_admitted(
         run["meta"]["corpus"] = name
         run["meta"]["date"] = args.date
 
+    sut_owner = run.pop("_sut_owner", sut)
     sut_bin = Path(
         run.pop("_sut_bin", args.sut_bin or eval_dir.parent / "target/release/prism")
     )
@@ -533,13 +534,25 @@ def run_quick_admitted(
                 lock, eval_dir.parent, env, artifacts
             )
         else:
+            source_bin = Path(getattr(sut_owner, "source_bin", sut_bin))
+            if getattr(sut_owner, "sut_digest", None) is not None:
+                try:
+                    source_digest = raw_digest(source_bin)
+                except OSError as exc:
+                    raise ValueError(
+                        f"sut_observation_unavailable: executable_digest: {source_bin}"
+                    ) from exc
+                if source_digest != sut_owner.sut_digest:
+                    raise ValueError(
+                        "sut_observation_unavailable: executable_drift_after_snapshot"
+                    )
             build_dir = (
-                sut_bin.parent
-                if sut_bin.parent != Path(".")
+                source_bin.parent
+                if source_bin.parent != Path(".")
                 else eval_dir.parent / "target/release"
             )
             env_reads, dep_paths = observe_cargo(
-                build_dir, eval_dir.parent, env, sut_bin.stem
+                build_dir, eval_dir.parent, env, source_bin.stem
             )
     except ValueError as exc:
         reason = str(exc)
