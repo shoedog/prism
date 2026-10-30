@@ -27,28 +27,42 @@ class SiteResult:
 CHAIN_TOLERANCE = 2
 
 
+def match_oracle_sites(
+    prism_sites: set[tuple[str, int]],
+    oracle_windows: set[tuple[str, int, int]],
+) -> dict[tuple[str, int], tuple[str, int, int]]:
+    """Apply the scorer's deterministic one-to-one site matching policy."""
+    matches = {}
+    consumed = set()
+    for file, line in sorted(prism_sites):
+        hit = next(
+            (
+                (oracle_file, start, end)
+                for oracle_file, start, end in sorted(oracle_windows)
+                if (oracle_file, start) not in consumed
+                and oracle_file == file
+                and start - CHAIN_TOLERANCE <= line <= end
+            ),
+            None,
+        )
+        if hit is not None:
+            matches[(file, line)] = hit
+            consumed.add(hit[:2])
+    return matches
+
+
 def site_compare(prism: list[CallEdge], oracle: list[CallEdge]) -> SiteResult:
     r = SiteResult()
     psites, c1 = collapse_sites(prism)
     r.collapsed = c1
-    oracle_windows = sorted({
+    oracle_windows = {
         (o.call_site.file, o.call_site.start_line, o.call_site.end_line)
         for o in oracle
-    })
-    matched_oracle_sites = set()
-    for f, line in sorted(psites):
-        hit = next((
-            (of, start, end) for of, start, end in oracle_windows
-            if (of, start) not in matched_oracle_sites
-            and of == f
-            and start - CHAIN_TOLERANCE <= line <= end
-        ), None)
-        if hit is not None:
-            r.tp.add((f, line))
-            of, start, _end = hit
-            matched_oracle_sites.add((of, start))
-        else:
-            r.fp.add((f, line))
+    }
+    matches = match_oracle_sites(psites, oracle_windows)
+    r.tp = set(matches)
+    r.fp = psites - r.tp
+    matched_oracle_sites = {window[:2] for window in matches.values()}
     osites, _ = collapse_sites(oracle)
     r.fn = {s for s in osites if s not in matched_oracle_sites}
     return r

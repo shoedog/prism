@@ -195,6 +195,7 @@ def _runner(monkeypatch,tmp_path,*,pin_failure=None,sut_failure=False,lang='rust
     monkeypatch.setattr(cli,'PrismCli',lambda *a,**k:sut)
     monkeypatch.setattr(cli,'make_oracle',lambda c:Oracle())
     monkeypatch.setattr(cli,'corpus_sha',lambda p:'abc')
+    monkeypatch.setattr(cli,'corpus_sha_full',lambda p:'a' * 40)
     monkeypatch.setattr(cli,'corpus_dirty',lambda p:False)
     monkeypatch.setattr(cli,'untracked_sources',lambda *a:[])
     monkeypatch.setattr(cli,'universe',lambda *a,**k:[seeds[0].location.file])

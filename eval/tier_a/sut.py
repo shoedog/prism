@@ -9,9 +9,15 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
+import tempfile
+from pathlib import Path
 import time
 
+from .closure import raw_digest
+from .lock import resolve_prefix
+from .materialize import tier_a_root
 from .model import CallEdge, FunctionDef, Location
 
 
@@ -48,6 +54,82 @@ def parse_version(out: str) -> tuple[str, bool]:
     if sha is None:
         raise SutStale("gitless build -- rebuild from a git checkout")
     return sha, bool(m.group(2))
+
+
+def _resolve_executable(command: str, env: dict[str, str] | None) -> str:
+    search_path = os.pathsep.join(os.get_exec_path(env))
+    selected = shutil.which(command, path=search_path)
+    if selected is None:
+        raise SutStale(
+            f"sut_observation_unavailable: executable_not_found: {command}"
+        )
+    try:
+        return str(Path(selected).resolve(strict=True))
+    except OSError as exc:
+        raise SutStale(
+            f"sut_observation_unavailable: executable_unresolvable: {selected}"
+        ) from exc
+
+
+def _resolve_binary_commit(prism_repo: str, sha: str) -> str:
+    try:
+        resolved = subprocess.run(
+            ["git", "-C", prism_repo, "rev-parse", "--verify", f"{sha}^{{commit}}"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if resolve_prefix(sha, [resolved]) != resolved:
+            raise ValueError("prefix mismatch")
+        return resolved
+    except (subprocess.CalledProcessError, ValueError) as exc:
+        raise SutStale(f"binary_commit_unresolvable: {sha}") from exc
+
+
+def _snapshot_executable(
+    path: str, expected_digest: str | None = None
+) -> tuple[tempfile.TemporaryDirectory, str, str]:
+    source = Path(path)
+    before = raw_digest(source)
+    temporary = tempfile.TemporaryDirectory(prefix="tier-a-sut-")
+    snapshot = Path(temporary.name) / source.name
+    try:
+        shutil.copy2(source, snapshot)
+        snapshot_digest = raw_digest(snapshot)
+        after = raw_digest(source)
+    except Exception:
+        temporary.cleanup()
+        raise
+    if before != after or snapshot_digest != before:
+        temporary.cleanup()
+        raise SutStale("sut_observation_unavailable: executable_drift_during_snapshot")
+    if expected_digest is not None and snapshot_digest != expected_digest:
+        temporary.cleanup()
+        raise SutStale("binary digest does not match the authenticated identity")
+    return temporary, str(snapshot), snapshot_digest
+
+
+def _lock_cache_dir(digest: str) -> str:
+    return str(tier_a_root() / "nav-cache" / digest.removeprefix("sha256:"))
+
+
+def verified_binary_identity(
+    prism_repo: str, path: str, env: dict[str, str] | None
+) -> tuple[str, str]:
+    path = _resolve_executable(path, env)
+    out = subprocess.run(
+        [path, "--version"], check=True, capture_output=True, text=True, env=env
+    ).stdout
+    sha, dirty = parse_version(out)
+    if dirty:
+        raise SutStale("binary was built from a dirty tree")
+    resolved = _resolve_binary_commit(prism_repo, sha)
+    if subprocess.run(
+        ["git", "-C", prism_repo, "merge-base", "--is-ancestor", resolved, "HEAD"],
+        capture_output=True,
+    ).returncode:
+        raise SutStale(f"binary commit is not an ancestor of HEAD: {resolved}")
+    return sha, resolved
 
 
 def extract_functions(arr: list[dict]) -> list[FunctionDef]:
@@ -163,56 +245,147 @@ def configure_seed_addresses(sut, inventory):
             sut.unaddressable_seeds.add(fd)
 
 
-def run_bounded(sut, command):
+def run_bounded(sut, command, *, check=False):
     """One deadline policy for JSON, JSONL and matrix subprocesses."""
     timeout = getattr(sut, "query_timeout_s", 120.0)
     if getattr(sut, "deadline", None) is not None:
         timeout = min(timeout, sut.deadline - time.monotonic())
     if timeout <= 0:
         raise SutTimeout("sut_timeout: corpus budget exhausted")
+    kwargs = {"capture_output": True, "text": True, "timeout": timeout}
+    if hasattr(sut, "env"):
+        kwargs["env"] = sut.env
+    if check:
+        kwargs["check"] = True
     try:
-        return subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+        return subprocess.run(command, **kwargs)
     except subprocess.TimeoutExpired as exc:
         raise SutTimeout(f"sut_timeout: {command} exceeded {timeout:.3f}s") from exc
 
 
 class PrismCli:
+    @classmethod
+    def from_archive(
+        cls,
+        prism_repo: str,
+        path: str,
+        sha_full: str,
+        digest: str,
+        *,
+        env: dict[str, str] | None = None,
+    ) -> "PrismCli":
+        resolved_path = _resolve_executable(path, env)
+        temporary, path, observed_digest = _snapshot_executable(resolved_path, digest)
+        instance = cls.__new__(cls)
+        instance.repo = prism_repo
+        instance.source_bin = resolved_path
+        instance.bin = path
+        instance.allow_stale = False
+        instance.env = env
+        instance.no_cache = False
+        instance.lock_bound = True
+        instance._snapshot_dir = temporary
+        instance.sut_digest = observed_digest
+        instance.cache_dir = _lock_cache_dir(observed_digest)
+        out = instance._run(["--version"])
+        sha, dirty = parse_version(out)
+        if dirty:
+            raise SutStale("archived binary was built from a dirty tree")
+        try:
+            resolved = resolve_prefix(sha, [sha_full])
+        except ValueError as exc:
+            raise SutStale("binary SHA does not match the archived identity") from exc
+        if resolved != sha_full:
+            raise SutStale("binary SHA does not match the archived identity")
+        instance.sha, instance.sha_full, instance.dirty = sha, sha_full, False
+        return instance
+
+    @classmethod
+    def from_verified(
+        cls,
+        prism_repo: str,
+        path: str,
+        sha_full: str,
+        digest: str,
+        *,
+        env: dict[str, str] | None = None,
+    ) -> "PrismCli":
+        resolved_path = _resolve_executable(path, env)
+        temporary, path, observed_digest = _snapshot_executable(resolved_path, digest)
+        sha, resolved = verified_binary_identity(prism_repo, path, env)
+        if resolved != sha_full:
+            raise SutStale("binary SHA does not match the staged identity")
+        instance = cls.__new__(cls)
+        instance.repo = prism_repo
+        instance.source_bin = resolved_path
+        instance.bin = path
+        instance.allow_stale = False
+        instance.env = env
+        instance.no_cache = False
+        instance.lock_bound = True
+        instance._snapshot_dir = temporary
+        instance.sut_digest = observed_digest
+        instance.cache_dir = _lock_cache_dir(observed_digest)
+        instance.sha, instance.sha_full, instance.dirty = sha, sha_full, False
+        return instance
+
     def __init__(
         self,
         prism_repo: str,
         sut_bin: str | None = None,
         allow_stale: bool = False,
+        *,
+        env: dict[str, str] | None = None,
     ):
         self.repo = prism_repo
-        self.bin = sut_bin or os.environ.get("PRISM_BIN") or os.path.join(
-            prism_repo, "target/release/prism"
-        )
+        selected = sut_bin or (
+            os.environ.get("PRISM_BIN") if env is None else None
+        ) or os.path.join(prism_repo, "target/release/prism")
         self.allow_stale = allow_stale
-        # The platform default (~/Library/Caches on macOS) is outside managed
-        # workspace roots. A writable cache prevents a cold CPG rebuild on EVERY
-        # sampled call while preserving Prism's existing content-based keys.
-        self.cache_dir = os.path.join(prism_repo, "target", "tier-a-nav-cache")
+        self.env = env
+        resolved_path = _resolve_executable(selected, env)
+        self.source_bin = resolved_path
+        if env is not None:
+            temporary, self.bin, self.sut_digest = _snapshot_executable(resolved_path)
+            self._snapshot_dir = temporary
+        else:
+            self.bin = resolved_path
+            self.sut_digest = None
+        # Lock-bound invocations partition the reusable nav store by authenticated
+        # executable bytes. Ordinary runs retain main's writable cache location.
+        self.cache_dir = (
+            _lock_cache_dir(self.sut_digest)
+            if env is not None
+            else os.path.join(prism_repo, "target", "tier-a-nav-cache")
+        )
         # When True, nav calls pass `--no-cache` so the per-repo nav store is
         # bypassed. The matrix runner sets this for deterministic fixture eval —
         # a stale fixture cache silently served pre-S3 results and produced false
         # regressions (S3 Task 13). Corpus measurements leave it False for speed.
         self.no_cache = False
+        # Lock-bound = archived/verified identity or a scrubbed lock environment;
+        # pinned.py keeps tier-a-reanchor's probe-error accounting for these legs.
+        self.lock_bound = env is not None
         self.sha, self.dirty = self._check_freshness()
 
     def _check_freshness(self) -> tuple[str, bool]:
-        out = subprocess.run(
-            [self.bin, "--version"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout
+        out = self._run(["--version"])
+        assert isinstance(out, str)
         sha, dirty = parse_version(out)
+        try:
+            binary_sha_full = _resolve_binary_commit(self.repo, sha)
+        except SutStale:
+            if not self.allow_stale:
+                raise
+            binary_sha_full = sha
+            self.identity_note = "binary_commit_unresolvable"
         head = subprocess.run(
             ["git", "-C", self.repo, "rev-parse", "HEAD"],
             capture_output=True,
             text=True,
             check=True,
         ).stdout.strip()
+        self.sha_full = binary_sha_full
         status = subprocess.run(
             ["git", "-C", self.repo, "status", "--porcelain", "-uno"],
             capture_output=True,
@@ -220,9 +393,9 @@ class PrismCli:
             check=True,
         ).stdout
         repo_dirty = bool(status)
-        if (not head.startswith(sha) or dirty or repo_dirty) and not self.allow_stale:
+        if (binary_sha_full != head or dirty or repo_dirty) and not self.allow_stale:
             flags = []
-            if not head.startswith(sha):
+            if binary_sha_full != head:
                 flags.append(f"binary {sha} != HEAD {head}")
             if dirty:
                 flags.append("binary was built from a dirty tree")
@@ -232,10 +405,12 @@ class PrismCli:
             raise SutStale(f"{reason}; rebuild (cargo build --release) or pass allow_stale=True")
         return sha, dirty
 
-    def _run(self, args: list[str]) -> dict | list:
+    def _run(self, args: list[str]) -> dict | list | str:
         # getattr default keeps objects built via __new__ in tests working
         # (and defaults to cache-on, the safe behavior).
         cache_args = ["--no-cache"] if getattr(self, "no_cache", False) else []
+        if args == ["--version"]:
+            return run_bounded(self, [self.bin, *args], check=True).stdout
         if not cache_args and getattr(self, "cache_dir", None):
             cache_args = ["--cache-dir", self.cache_dir]
         p = run_bounded(self, [self.bin, "nav", *cache_args, *args, "--format", "json"])

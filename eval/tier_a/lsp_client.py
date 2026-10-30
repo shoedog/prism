@@ -28,16 +28,21 @@ class LspClient:
     def __init__(self, cmd: list[str], cwd: str, default_timeout: float = 30.0,
                  root_uri: str | None = None, session_timeout: float = 600.0,
                  initialization_options: dict | None = None,
-                 server_status: bool = False):
+                 server_status: bool = False, init_options=None):
         # root_uri: live LSP servers (rust-analyzer/gopls/pyright) need workspace
         # context for documentSymbol/callHierarchy; the echo-server tests pass None.
         self._cmd, self._cwd, self._timeout = cmd, cwd, default_timeout
         self._root_uri = root_uri
+        if initialization_options is not None and init_options is not None:
+            raise ValueError("initialization options supplied twice")
+        if initialization_options is None:
+            initialization_options = init_options
         self._initialization_options = initialization_options
         self._server_status = server_status
         self._session_timeout = session_timeout
         self.deadline: float | None = None
         self._dead = threading.Event()
+        self.initialize_result = {}
         self._proc: subprocess.Popen | None = None
         self._next_id = 0
         self._id_lock = threading.Lock()
@@ -60,7 +65,8 @@ class LspClient:
             params["workspaceFolders"] = [{"uri": self._root_uri, "name": "corpus"}]
         if self._initialization_options is not None:
             params["initializationOptions"] = self._initialization_options
-        self.server_info = self.request("initialize", params).get("serverInfo", {})
+        self.initialize_result = self.request("initialize", params)
+        self.server_info = self.initialize_result.get("serverInfo", {})
         self.notify("initialized", {})
 
     def _spawn(self) -> None:

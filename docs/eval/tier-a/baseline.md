@@ -1,3 +1,5 @@
+# Tier-A Baseline — anchor v1 (2026-10-24) — prior sections superseded (pre-boundary, not comparable)
+
 # Tier-A Baseline — 2026-07-04 (plan complete: P13+P14 in the SUT)
 
 Re-baseline at prism `fb81481d` — the first run containing the COMPLETE ranked plan

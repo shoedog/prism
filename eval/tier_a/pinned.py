@@ -4,8 +4,8 @@ from __future__ import annotations
 from .compare import site_compare
 from .metrics import precision_recall
 from .model import CallEdge, FunctionDef
-from .oracles import OracleError, OracleTimeout
-from .sut import SutAmbiguous, SutTimeout
+from .oracles import OracleTimeout
+from .sut import SutAmbiguous, SutError, SutTimeout
 
 PINNED = [
     {"id": "target-c-method", "symbol": "target", "file": "src/algorithms/taint.rs",
@@ -28,8 +28,11 @@ def _site(site: str) -> tuple[str, int]:
     return (file, int(line))
 
 
-def _sites(edges: list[CallEdge]) -> list[str]:
-    return [f"{e.call_site.file}:{e.call_site.start_line}" for e in edges]
+def _sites(edges: list[CallEdge]) -> list[list]:
+    return [
+        [e.call_site.file, e.call_site.start_line, e.call_site.end_line]
+        for e in edges
+    ]
 
 
 def evaluate_pinned(
@@ -89,13 +92,26 @@ def run_pinned(oracle, sut, snapshot: list[FunctionDef], corpus_root: str,
             except SutAmbiguous:
                 ambiguous_raised = True
             except Exception as exc:
-                out.append({"id": probe["id"], "expected": probe["expected"],
-                            "outcome": "sut_timeout" if isinstance(exc, SutTimeout) else "sut_error",
-                            "error": str(exc)})
-                continue
+                compatibility_error = isinstance(exc, AttributeError) or (
+                    isinstance(exc, SutError)
+                    and not isinstance(exc, SutTimeout)
+                    and getattr(sut, "lock_bound", False)
+                )
+                if not compatibility_error:
+                    out.append({
+                        "id": probe["id"],
+                        "expected": probe["expected"],
+                        "outcome": (
+                            "sut_timeout" if isinstance(exc, SutTimeout) else "sut_error"
+                        ),
+                        "error": str(exc),
+                    })
+                    continue
+                error = str(exc)
             result = evaluate_pinned(probe, [], [], ambiguous_raised)
             if error is not None:
                 result["error"] = error
+                result["error_side"] = "sut"
             out.append(result)
             continue
 
@@ -113,14 +129,24 @@ def run_pinned(oracle, sut, snapshot: list[FunctionDef], corpus_root: str,
         pfd = (prism_by_oracle or {}).get(fd, fd)
         try:
             oracle_edges = oracle.callers(fd)
+        except Exception as exc:
+            out.append({
+                "id": probe["id"],
+                "expected": probe["expected"],
+                "outcome": "oracle_timeout" if isinstance(exc, OracleTimeout) else "error",
+                "error_side": "oracle",
+                "error": str(exc),
+            })
+            continue
+        try:
             prism_edges = sut.callers(corpus_root, pfd)
         except Exception as exc:
             out.append({
                 "id": probe["id"],
                 "expected": probe["expected"],
-                "outcome": ("oracle_timeout" if isinstance(exc, OracleTimeout) else
-                            "sut_timeout" if isinstance(exc, SutTimeout) else
-                            "oracle_error" if isinstance(exc, OracleError) else "sut_error"),
+                "outcome": "sut_timeout" if isinstance(exc, SutTimeout) else "error",
+                "error_side": "sut",
+                "oracle_sites": _sites(oracle_edges),
                 "error": str(exc),
             })
             continue

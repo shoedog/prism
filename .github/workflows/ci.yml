@@ -213,8 +213,9 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-  # Hermetic tests of the eval harness: no network, API keys, LSP servers, prism binary or
-  # downloaded corpora. Runs unless the classifier positively reports `eval=false`.
+  # Hermetic tests of the eval harness: host rust-analyzer/rustc/cargo version probes are
+  # faked; no network, API keys, LSP servers, prism binary or downloaded corpora are used.
+  # Runs unless the classifier positively reports `eval=false`.
   eval-python:
     name: Eval harness tests (Python)
     needs: changes

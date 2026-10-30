@@ -1,0 +1,3814 @@
+{
+ "classes": {
+  "callees:src/ast.rs:2914": "carried_same",
+  "callees:src/call_graph.rs:2197": "carried_same",
+  "callees:src/call_graph.rs:7918": "carried_same",
+  "callees:src/cpg/optional_parameter_tests.rs:28": "carried_same",
+  "callees:src/executable_owner/admission.rs:63": "carried_same",
+  "callees:src/go_callback.rs:888": "carried_same",
+  "callees:src/js_ts_props.rs:106": "carried_same",
+  "callees:src/main.rs:1031": "carried_same",
+  "callees:src/main.rs:20": "carried_same",
+  "callees:src/main.rs:987": "carried_same",
+  "callees:src/mcp/session.rs:189": "carried_same",
+  "callees:src/mcp/transport.rs:273": "carried_same",
+  "callees:src/name_resolution/rust_populator/builder.rs:255": "carried_same",
+  "callees:tests/lang/go/advanced_test.rs:51": "carried_same",
+  "callees:tests/lang/python/span_test.rs:4": "carried_same",
+  "callers:src/ast.rs:2914": "carried_same",
+  "callers:src/call_graph.rs:2197": "carried_same",
+  "callers:src/call_graph.rs:7918": "carried_same",
+  "callers:src/cpg/optional_parameter_tests.rs:28": "carried_same",
+  "callers:src/executable_owner/admission.rs:63": "carried_same",
+  "callers:src/go_callback.rs:888": "carried_same",
+  "callers:src/js_ts_props.rs:106": "carried_same",
+  "callers:src/main.rs:1031": "carried_same",
+  "callers:src/main.rs:20": "carried_same",
+  "callers:src/main.rs:987": "carried_same",
+  "callers:src/mcp/session.rs:189": "carried_same",
+  "callers:src/mcp/transport.rs:273": "carried_same",
+  "callers:src/name_resolution/rust_populator/builder.rs:255": "carried_same",
+  "callers:tests/lang/go/advanced_test.rs:51": "carried_same",
+  "callers:tests/lang/python/span_test.rs:4": "carried_same"
+ },
+ "counts": {
+  "carried_changed/content_change": 0,
+  "carried_changed/sut_change": 0,
+  "carried_same": 30,
+  "oracle_changed": 0,
+  "resampled": 0,
+  "unexplained": 0
+ },
+ "criteria": {
+  "adjudications_digest_keys": {
+   "base": "data.adjudications.digest",
+   "candidate": "data.adjudications.digest"
+  },
+  "adjudications_match": true,
+  "both_admitted": true,
+  "both_baseline_valid": true,
+  "identities_equal": true,
+  "matrix_no_regression": true,
+  "no_lost_matched_oracle_sites": true,
+  "no_new_sut_errors": true,
+  "no_recall_loss": true,
+  "oracle_answers_joined": true,
+  "oracle_changed_within_threshold": true,
+  "pinned_no_regression": true,
+  "probe_sets_equal": true,
+  "unexplained_zero": true
+ },
+ "full_sample_m2": {
+  "base": {
+   "callees": {
+    "C-method": {
+     "candidate_tier": {
+      "count": 1,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "tp": 10
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 1,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.7224671969739421,
+        0.9999999999999999
+       ],
+       "recall": [
+        0.9090909090909091,
+        0.6226415608917041,
+        0.9837678272946745
+       ],
+       "tp": 10
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.9090909090909091,
+       0.6226415608917041,
+       0.9837678272946745
+      ],
+      "tp": 10
+     },
+     "shortfall": 0
+    },
+    "C-name": {
+     "candidate_tier": {
+      "count": 7,
+      "oracle_confirmed": 5,
+      "oracle_unconfirmed": 2
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 4,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "recall": [
+        0.6666666666666666,
+        0.3906220869404939,
+        0.86187990987514
+       ],
+       "tp": 8
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 3,
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.8,
+       0.5481455107594471,
+       0.9295245070826608
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     },
+     "shortfall": 0
+    },
+    "Q-scoped": {
+     "candidate_tier": {
+      "count": 4,
+      "oracle_confirmed": 4,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 3,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6096657083436265,
+        1.0
+       ],
+       "recall": [
+        0.6666666666666666,
+        0.35420213352505864,
+        0.8794161825659264
+       ],
+       "tp": 6
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "tp": 8
+     },
+     "shortfall": 0
+    },
+    "U-free": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "shortfall": 0
+    },
+    "U-method": {
+     "candidate_tier": {
+      "count": 1,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 2,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.5655175313406071,
+        1.0
+       ],
+       "recall": [
+        0.7142857142857143,
+        0.3589344495310541,
+        0.9177810767507166
+       ],
+       "tp": 5
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "tp": 6
+     },
+     "shortfall": 0
+    }
+   },
+   "callers": {
+    "C-method": {
+     "candidate_tier": {
+      "count": 2,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 1
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 18,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.5101091596030786,
+        0.9999999999999999
+       ],
+       "recall": [
+        0.18181818181818182,
+        0.07306884532528965,
+        0.3851660761507122
+       ],
+       "tp": 4
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 15,
+       "fp": 1,
+       "precision": [
+        0.8333333333333334,
+        0.4364971749742326,
+        0.969946630588185
+       ],
+       "recall": [
+        0.25,
+        0.11186170069997625,
+        0.46870087939258864
+       ],
+       "tp": 5
+      },
+      "raw": {
+       "fn": 15,
+       "fp": 1,
+       "precision": [
+        0.8333333333333334,
+        0.4364971749742326,
+        0.969946630588185
+       ],
+       "recall": [
+        0.25,
+        0.11186170069997625,
+        0.46870087939258864
+       ],
+       "tp": 5
+      }
+     },
+     "pending": 18,
+     "raw": {
+      "fn": 17,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       0.22727272727272727,
+       0.10123039921206697,
+       0.4343995334816487
+      ],
+      "tp": 5
+     },
+     "shortfall": 0
+    },
+    "C-name": {
+     "candidate_tier": {
+      "count": 3,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 3
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 2,
+       "precision": [
+        0.8,
+        0.4901624691221323,
+        0.9433178490622331
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 2,
+       "precision": [
+        0.8,
+        0.4901624691221323,
+        0.9433178490622331
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      }
+     },
+     "pending": 3,
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.7272727272727273,
+       0.4343546966810743,
+       0.9025394078669138
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "shortfall": 0
+    },
+    "Q-scoped": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "shortfall": 0
+    },
+    "U-free": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.3423802239546494,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.3423802239546494,
+        1.0
+       ],
+       "tp": 2
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "shortfall": 0
+    },
+    "U-method": {
+     "candidate_tier": {
+      "count": 8,
+      "oracle_confirmed": 8,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 8,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6096657083436265,
+        1.0
+       ],
+       "recall": [
+        0.42857142857142855,
+        0.21380798780428648,
+        0.6740935558247106
+       ],
+       "tp": 6
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "tp": 9
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "tp": 9
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "shortfall": 0
+    }
+   }
+  },
+  "candidate": {
+   "callees": {
+    "C-method": {
+     "candidate_tier": {
+      "count": 1,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "tp": 10
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 1,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.7224671969739421,
+        0.9999999999999999
+       ],
+       "recall": [
+        0.9090909090909091,
+        0.6226415608917041,
+        0.9837678272946745
+       ],
+       "tp": 10
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.9090909090909091,
+       0.6226415608917041,
+       0.9837678272946745
+      ],
+      "tp": 10
+     },
+     "shortfall": 0
+    },
+    "C-name": {
+     "candidate_tier": {
+      "count": 7,
+      "oracle_confirmed": 5,
+      "oracle_unconfirmed": 2
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 4,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "recall": [
+        0.6666666666666666,
+        0.3906220869404939,
+        0.86187990987514
+       ],
+       "tp": 8
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 3,
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.8,
+       0.5481455107594471,
+       0.9295245070826608
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     },
+     "shortfall": 0
+    },
+    "Q-scoped": {
+     "candidate_tier": {
+      "count": 4,
+      "oracle_confirmed": 4,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 3,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6096657083436265,
+        1.0
+       ],
+       "recall": [
+        0.6666666666666666,
+        0.35420213352505864,
+        0.8794161825659264
+       ],
+       "tp": 6
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "tp": 8
+     },
+     "shortfall": 0
+    },
+    "U-free": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "shortfall": 0
+    },
+    "U-method": {
+     "candidate_tier": {
+      "count": 1,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 2,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.5655175313406071,
+        1.0
+       ],
+       "recall": [
+        0.7142857142857143,
+        0.3589344495310541,
+        0.9177810767507166
+       ],
+       "tp": 5
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "tp": 6
+     },
+     "shortfall": 0
+    }
+   },
+   "callers": {
+    "C-method": {
+     "candidate_tier": {
+      "count": 2,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 1
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 18,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.5101091596030786,
+        0.9999999999999999
+       ],
+       "recall": [
+        0.18181818181818182,
+        0.07306884532528965,
+        0.3851660761507122
+       ],
+       "tp": 4
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 15,
+       "fp": 1,
+       "precision": [
+        0.8333333333333334,
+        0.4364971749742326,
+        0.969946630588185
+       ],
+       "recall": [
+        0.25,
+        0.11186170069997625,
+        0.46870087939258864
+       ],
+       "tp": 5
+      },
+      "raw": {
+       "fn": 15,
+       "fp": 1,
+       "precision": [
+        0.8333333333333334,
+        0.4364971749742326,
+        0.969946630588185
+       ],
+       "recall": [
+        0.25,
+        0.11186170069997625,
+        0.46870087939258864
+       ],
+       "tp": 5
+      }
+     },
+     "pending": 18,
+     "raw": {
+      "fn": 17,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       0.22727272727272727,
+       0.10123039921206697,
+       0.4343995334816487
+      ],
+      "tp": 5
+     },
+     "shortfall": 0
+    },
+    "C-name": {
+     "candidate_tier": {
+      "count": 3,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 3
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 2,
+       "precision": [
+        0.8,
+        0.4901624691221323,
+        0.9433178490622331
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 2,
+       "precision": [
+        0.8,
+        0.4901624691221323,
+        0.9433178490622331
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      }
+     },
+     "pending": 3,
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.7272727272727273,
+       0.4343546966810743,
+       0.9025394078669138
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "shortfall": 0
+    },
+    "Q-scoped": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "shortfall": 0
+    },
+    "U-free": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.3423802239546494,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.3423802239546494,
+        1.0
+       ],
+       "tp": 2
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "shortfall": 0
+    },
+    "U-method": {
+     "candidate_tier": {
+      "count": 8,
+      "oracle_confirmed": 8,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 8,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6096657083436265,
+        1.0
+       ],
+       "recall": [
+        0.42857142857142855,
+        0.21380798780428648,
+        0.6740935558247106
+       ],
+       "tp": 6
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "tp": 9
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "tp": 9
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "shortfall": 0
+    }
+   }
+  }
+ },
+ "identities": {
+  "base_sha": "8651b57803cf2f28fc00c70b86ef939dd761d168",
+  "base_sut_digest": "sha256:9822f6fb1601509bb78f40db24604da8a77f8a4f659c64fa71e45f0f5e152c8a",
+  "candidate_sha": "3c6bda3bec8a4193654007c41a22cab5674cb90f",
+  "candidate_sut_digest": "sha256:2b70508bfc41758b03eb1e8646888ad0eca08f89a8c2575fb61cc9f106e0fb32",
+  "closure_digest": "sha256:082f0265186c54aa5d1bc73aa43fbfec10940df736613810f1f6d75bfbf07b69",
+  "corpus_sha_full": "8651b57803cf2f28fc00c70b86ef939dd761d168",
+  "data": {
+   "adjudications": {
+    "digest": "sha256:d58c21ff834352d3bdd098564ce46c7298d5dfeb93ee77cc74a1f805a7371f45",
+    "path": "eval/adjudications.jsonl",
+    "records": 2324
+   },
+   "fixtures": "sha256:c6c749ac4c6d06341fca0580d764fa30fcf1955bbeee707087b869d3a0b73245",
+   "pinned_probes": "sha256:ddac64f09034b4b646732c248ae6ea606800e7cb0df2bc132b94cfa28f450699"
+  },
+  "env_allow": [
+   "PATH",
+   "HOME",
+   "CARGO_HOME",
+   "RUSTUP_HOME",
+   "TMPDIR",
+   "LANG",
+   "TIER_A_ROOT"
+  ],
+  "env_values": {
+   "HOME": "/Users/wesleyjinks",
+   "LANG": "C.UTF-8",
+   "PATH": "/Users/wesleyjinks/code/slicing-tiera/eval/.venv/bin:/Users/wesleyjinks/.local/share/mise/installs/node/lts/bin:/Users/wesleyjinks/.local/share/mise/installs/go/1.26.2/bin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/Users/wesleyjinks/.cargo/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin",
+   "TMPDIR": "/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/"
+  },
+  "harness_sha": "3c6bda3bec8a4193654007c41a22cab5674cb90f",
+  "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+  "oracle_init": {
+   "cargo": {
+    "features": "all"
+   }
+  },
+  "policy_digest": "sha256:aba4cb86c0e11f9642f72651f69df403653c2c18bf730580d8cccbe43a3938f1",
+  "population_digest": "sha256:1588c41ab72777809b56b7bca949b4f03b368b7114eb1d382d0cd4b2ad2daa39",
+  "runtime": {
+   "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+   "cargo_config": "absent",
+   "python": "3.12.13",
+   "python_version_file": "sha256:7b55f8e67b5623c4bef3fa691288da9437d79d3aba156de48d481db32ac7d16d",
+   "rust_toolchain": "absent",
+   "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+   "uv_lock": "sha256:81a456c78e9970513959a341e711e989ab92b633af871a495a90fec1579ae085"
+  },
+  "sample_digest": {
+   "full": "sha256:855512232fd6f3bf0b65dca9b6055d8f375742fb565e49ddb5e361b17459e36f",
+   "quick": "sha256:07334dcd56d8cf203e868f5ee3ceafc545fe31c4a9fc35976d6ceabc3452b003"
+  },
+  "seed": 42,
+  "sha_aliases": [
+   "8651b57803cf2f28fc00c70b86ef939dd761d168"
+  ],
+  "snapshot_digest": "sha256:722ec0b4554d26e420662cc82310c2ecb76af7da3c9a86e2a569cdd58d632180"
+ },
+ "identity_legs": {
+  "base": {
+   "closure_digest": "sha256:082f0265186c54aa5d1bc73aa43fbfec10940df736613810f1f6d75bfbf07b69",
+   "corpus_sha_full": "8651b57803cf2f28fc00c70b86ef939dd761d168",
+   "data": {
+    "adjudications": {
+     "digest": "sha256:d58c21ff834352d3bdd098564ce46c7298d5dfeb93ee77cc74a1f805a7371f45",
+     "path": "eval/adjudications.jsonl",
+     "records": 2324
+    },
+    "fixtures": "sha256:c6c749ac4c6d06341fca0580d764fa30fcf1955bbeee707087b869d3a0b73245",
+    "pinned_probes": "sha256:ddac64f09034b4b646732c248ae6ea606800e7cb0df2bc132b94cfa28f450699"
+   },
+   "env_allow": [
+    "PATH",
+    "HOME",
+    "CARGO_HOME",
+    "RUSTUP_HOME",
+    "TMPDIR",
+    "LANG",
+    "TIER_A_ROOT"
+   ],
+   "env_values": {
+    "HOME": "/Users/wesleyjinks",
+    "LANG": "C.UTF-8",
+    "PATH": "/Users/wesleyjinks/code/slicing-tiera/eval/.venv/bin:/Users/wesleyjinks/.local/share/mise/installs/node/lts/bin:/Users/wesleyjinks/.local/share/mise/installs/go/1.26.2/bin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/Users/wesleyjinks/.cargo/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin",
+    "TMPDIR": "/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/"
+   },
+   "harness_sha": "3c6bda3bec8a4193654007c41a22cab5674cb90f",
+   "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+   "oracle_init": {
+    "cargo": {
+     "features": "all"
+    }
+   },
+   "policy_digest": "sha256:aba4cb86c0e11f9642f72651f69df403653c2c18bf730580d8cccbe43a3938f1",
+   "population_digest": "sha256:1588c41ab72777809b56b7bca949b4f03b368b7114eb1d382d0cd4b2ad2daa39",
+   "runtime": {
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "cargo_config": "absent",
+    "python": "3.12.13",
+    "python_version_file": "sha256:7b55f8e67b5623c4bef3fa691288da9437d79d3aba156de48d481db32ac7d16d",
+    "rust_toolchain": "absent",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "uv_lock": "sha256:81a456c78e9970513959a341e711e989ab92b633af871a495a90fec1579ae085"
+   },
+   "sample_digest": {
+    "full": "sha256:855512232fd6f3bf0b65dca9b6055d8f375742fb565e49ddb5e361b17459e36f",
+    "quick": "sha256:07334dcd56d8cf203e868f5ee3ceafc545fe31c4a9fc35976d6ceabc3452b003"
+   },
+   "seed": 42,
+   "sha_aliases": [
+    "8651b57803cf2f28fc00c70b86ef939dd761d168"
+   ],
+   "snapshot_digest": "sha256:722ec0b4554d26e420662cc82310c2ecb76af7da3c9a86e2a569cdd58d632180"
+  },
+  "candidate": {
+   "closure_digest": "sha256:082f0265186c54aa5d1bc73aa43fbfec10940df736613810f1f6d75bfbf07b69",
+   "corpus_sha_full": "8651b57803cf2f28fc00c70b86ef939dd761d168",
+   "data": {
+    "adjudications": {
+     "digest": "sha256:d58c21ff834352d3bdd098564ce46c7298d5dfeb93ee77cc74a1f805a7371f45",
+     "path": "eval/adjudications.jsonl",
+     "records": 2324
+    },
+    "fixtures": "sha256:c6c749ac4c6d06341fca0580d764fa30fcf1955bbeee707087b869d3a0b73245",
+    "pinned_probes": "sha256:ddac64f09034b4b646732c248ae6ea606800e7cb0df2bc132b94cfa28f450699"
+   },
+   "env_allow": [
+    "PATH",
+    "HOME",
+    "CARGO_HOME",
+    "RUSTUP_HOME",
+    "TMPDIR",
+    "LANG",
+    "TIER_A_ROOT"
+   ],
+   "env_values": {
+    "HOME": "/Users/wesleyjinks",
+    "LANG": "C.UTF-8",
+    "PATH": "/Users/wesleyjinks/code/slicing-tiera/eval/.venv/bin:/Users/wesleyjinks/.local/share/mise/installs/node/lts/bin:/Users/wesleyjinks/.local/share/mise/installs/go/1.26.2/bin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/Users/wesleyjinks/.cargo/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin",
+    "TMPDIR": "/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/"
+   },
+   "harness_sha": "3c6bda3bec8a4193654007c41a22cab5674cb90f",
+   "oracle": "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)",
+   "oracle_init": {
+    "cargo": {
+     "features": "all"
+    }
+   },
+   "policy_digest": "sha256:aba4cb86c0e11f9642f72651f69df403653c2c18bf730580d8cccbe43a3938f1",
+   "population_digest": "sha256:1588c41ab72777809b56b7bca949b4f03b368b7114eb1d382d0cd4b2ad2daa39",
+   "runtime": {
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "cargo_config": "absent",
+    "python": "3.12.13",
+    "python_version_file": "sha256:7b55f8e67b5623c4bef3fa691288da9437d79d3aba156de48d481db32ac7d16d",
+    "rust_toolchain": "absent",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "uv_lock": "sha256:81a456c78e9970513959a341e711e989ab92b633af871a495a90fec1579ae085"
+   },
+   "sample_digest": {
+    "full": "sha256:855512232fd6f3bf0b65dca9b6055d8f375742fb565e49ddb5e361b17459e36f",
+    "quick": "sha256:07334dcd56d8cf203e868f5ee3ceafc545fe31c4a9fc35976d6ceabc3452b003"
+   },
+   "seed": 42,
+   "sha_aliases": [
+    "8651b57803cf2f28fc00c70b86ef939dd761d168"
+   ],
+   "snapshot_digest": "sha256:722ec0b4554d26e420662cc82310c2ecb76af7da3c9a86e2a569cdd58d632180"
+  }
+ },
+ "lost_matched_oracle_sites": {},
+ "m2": {
+  "base": {
+   "callees": {
+    "C-method": {
+     "candidate_tier": {
+      "count": 1,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "tp": 10
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 1,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.7224671969739421,
+        0.9999999999999999
+       ],
+       "recall": [
+        0.9090909090909091,
+        0.6226415608917041,
+        0.9837678272946745
+       ],
+       "tp": 10
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.9090909090909091,
+       0.6226415608917041,
+       0.9837678272946745
+      ],
+      "tp": 10
+     },
+     "shortfall": 0
+    },
+    "C-name": {
+     "candidate_tier": {
+      "count": 7,
+      "oracle_confirmed": 5,
+      "oracle_unconfirmed": 2
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 4,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "recall": [
+        0.6666666666666666,
+        0.3906220869404939,
+        0.86187990987514
+       ],
+       "tp": 8
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 3,
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.8,
+       0.5481455107594471,
+       0.9295245070826608
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     },
+     "shortfall": 0
+    },
+    "Q-scoped": {
+     "candidate_tier": {
+      "count": 4,
+      "oracle_confirmed": 4,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 3,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6096657083436265,
+        1.0
+       ],
+       "recall": [
+        0.6666666666666666,
+        0.35420213352505864,
+        0.8794161825659264
+       ],
+       "tp": 6
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "tp": 8
+     },
+     "shortfall": 0
+    },
+    "U-free": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "shortfall": 0
+    },
+    "U-method": {
+     "candidate_tier": {
+      "count": 1,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 2,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.5655175313406071,
+        1.0
+       ],
+       "recall": [
+        0.7142857142857143,
+        0.3589344495310541,
+        0.9177810767507166
+       ],
+       "tp": 5
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "tp": 6
+     },
+     "shortfall": 0
+    }
+   },
+   "callers": {
+    "C-method": {
+     "candidate_tier": {
+      "count": 2,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 1
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 18,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.5101091596030786,
+        0.9999999999999999
+       ],
+       "recall": [
+        0.18181818181818182,
+        0.07306884532528965,
+        0.3851660761507122
+       ],
+       "tp": 4
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 15,
+       "fp": 1,
+       "precision": [
+        0.8333333333333334,
+        0.4364971749742326,
+        0.969946630588185
+       ],
+       "recall": [
+        0.25,
+        0.11186170069997625,
+        0.46870087939258864
+       ],
+       "tp": 5
+      },
+      "raw": {
+       "fn": 15,
+       "fp": 1,
+       "precision": [
+        0.8333333333333334,
+        0.4364971749742326,
+        0.969946630588185
+       ],
+       "recall": [
+        0.25,
+        0.11186170069997625,
+        0.46870087939258864
+       ],
+       "tp": 5
+      }
+     },
+     "pending": 18,
+     "raw": {
+      "fn": 17,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       0.22727272727272727,
+       0.10123039921206697,
+       0.4343995334816487
+      ],
+      "tp": 5
+     },
+     "shortfall": 0
+    },
+    "C-name": {
+     "candidate_tier": {
+      "count": 3,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 3
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 2,
+       "precision": [
+        0.8,
+        0.4901624691221323,
+        0.9433178490622331
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 2,
+       "precision": [
+        0.8,
+        0.4901624691221323,
+        0.9433178490622331
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      }
+     },
+     "pending": 3,
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.7272727272727273,
+       0.4343546966810743,
+       0.9025394078669138
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "shortfall": 0
+    },
+    "Q-scoped": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "shortfall": 0
+    },
+    "U-free": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.3423802239546494,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.3423802239546494,
+        1.0
+       ],
+       "tp": 2
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "shortfall": 0
+    },
+    "U-method": {
+     "candidate_tier": {
+      "count": 8,
+      "oracle_confirmed": 8,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 8,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6096657083436265,
+        1.0
+       ],
+       "recall": [
+        0.42857142857142855,
+        0.21380798780428648,
+        0.6740935558247106
+       ],
+       "tp": 6
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "tp": 9
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "tp": 9
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "shortfall": 0
+    }
+   }
+  },
+  "candidate": {
+   "callees": {
+    "C-method": {
+     "candidate_tier": {
+      "count": 1,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "tp": 10
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 1,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.7224671969739421,
+        0.9999999999999999
+       ],
+       "recall": [
+        0.9090909090909091,
+        0.6226415608917041,
+        0.9837678272946745
+       ],
+       "tp": 10
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7224671969739421,
+       0.9999999999999999
+      ],
+      "recall": [
+       0.9090909090909091,
+       0.6226415608917041,
+       0.9837678272946745
+      ],
+      "tp": 10
+     },
+     "shortfall": 0
+    },
+    "C-name": {
+     "candidate_tier": {
+      "count": 7,
+      "oracle_confirmed": 5,
+      "oracle_unconfirmed": 2
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 4,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "recall": [
+        0.6666666666666666,
+        0.3906220869404939,
+        0.86187990987514
+       ],
+       "tp": 8
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 3,
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.8,
+       0.5481455107594471,
+       0.9295245070826608
+      ],
+      "recall": [
+       1.0,
+       0.7575059904469021,
+       1.0
+      ],
+      "tp": 12
+     },
+     "shortfall": 0
+    },
+    "Q-scoped": {
+     "candidate_tier": {
+      "count": 4,
+      "oracle_confirmed": 4,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 3,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6096657083436265,
+        1.0
+       ],
+       "recall": [
+        0.6666666666666666,
+        0.35420213352505864,
+        0.8794161825659264
+       ],
+       "tp": 6
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       0.8888888888888888,
+       0.565000291629209,
+       0.9801091125830901
+      ],
+      "tp": 8
+     },
+     "shortfall": 0
+    },
+    "U-free": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 1,
+       "precision": [
+        0.5,
+        0.09453120463920084,
+        0.9054687953607992
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 0,
+      "fp": 1,
+      "precision": [
+       0.5,
+       0.09453120463920084,
+       0.9054687953607992
+      ],
+      "recall": [
+       1.0,
+       0.2065493117918027,
+       1.0
+      ],
+      "tp": 1
+     },
+     "shortfall": 0
+    },
+    "U-method": {
+     "candidate_tier": {
+      "count": 1,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "tp": 6
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 2,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.5655175313406071,
+        1.0
+       ],
+       "recall": [
+        0.7142857142857143,
+        0.3589344495310541,
+        0.9177810767507166
+       ],
+       "tp": 5
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.43850296436068037,
+        1.0
+       ],
+       "tp": 3
+      }
+     },
+     "pending": 1,
+     "raw": {
+      "fn": 1,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6096657083436265,
+       1.0
+      ],
+      "recall": [
+       0.8571428571428571,
+       0.486872167860775,
+       0.9743203759421759
+      ],
+      "tp": 6
+     },
+     "shortfall": 0
+    }
+   },
+   "callers": {
+    "C-method": {
+     "candidate_tier": {
+      "count": 2,
+      "oracle_confirmed": 1,
+      "oracle_unconfirmed": 1
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.5655175313406071,
+       1.0
+      ],
+      "tp": 5
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 18,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.5101091596030786,
+        0.9999999999999999
+       ],
+       "recall": [
+        0.18181818181818182,
+        0.07306884532528965,
+        0.3851660761507122
+       ],
+       "tp": 4
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 15,
+       "fp": 1,
+       "precision": [
+        0.8333333333333334,
+        0.4364971749742326,
+        0.969946630588185
+       ],
+       "recall": [
+        0.25,
+        0.11186170069997625,
+        0.46870087939258864
+       ],
+       "tp": 5
+      },
+      "raw": {
+       "fn": 15,
+       "fp": 1,
+       "precision": [
+        0.8333333333333334,
+        0.4364971749742326,
+        0.969946630588185
+       ],
+       "recall": [
+        0.25,
+        0.11186170069997625,
+        0.46870087939258864
+       ],
+       "tp": 5
+      }
+     },
+     "pending": 18,
+     "raw": {
+      "fn": 17,
+      "fp": 1,
+      "precision": [
+       0.8333333333333334,
+       0.4364971749742326,
+       0.969946630588185
+      ],
+      "recall": [
+       0.22727272727272727,
+       0.10123039921206697,
+       0.4343995334816487
+      ],
+      "tp": 5
+     },
+     "shortfall": 0
+    },
+    "C-name": {
+     "candidate_tier": {
+      "count": 3,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 3
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 2,
+       "precision": [
+        0.8,
+        0.4901624691221323,
+        0.9433178490622331
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 2,
+       "precision": [
+        0.8,
+        0.4901624691221323,
+        0.9433178490622331
+       ],
+       "recall": [
+        1.0,
+        0.6755924316585924,
+        1.0
+       ],
+       "tp": 8
+      }
+     },
+     "pending": 3,
+     "raw": {
+      "fn": 0,
+      "fp": 3,
+      "precision": [
+       0.7272727272727273,
+       0.4343546966810743,
+       0.9025394078669138
+      ],
+      "recall": [
+       1.0,
+       0.6755924316585924,
+       1.0
+      ],
+      "tp": 8
+     },
+     "shortfall": 0
+    },
+    "Q-scoped": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "recall": [
+        0.0,
+        0.0,
+        1.0
+       ],
+       "tp": 0
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "recall": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "tp": 0
+     },
+     "shortfall": 0
+    },
+    "U-free": {
+     "candidate_tier": {
+      "count": 0,
+      "oracle_confirmed": 0,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.3423802239546494,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.3423802239546494,
+        1.0
+       ],
+       "tp": 2
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.2065493117918027,
+        1.0
+       ],
+       "tp": 1
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "recall": [
+       1.0,
+       0.3423802239546494,
+       1.0
+      ],
+      "tp": 2
+     },
+     "shortfall": 0
+    },
+    "U-method": {
+     "candidate_tier": {
+      "count": 8,
+      "oracle_confirmed": 8,
+      "oracle_unconfirmed": 0
+     },
+     "corrected": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "exact_tier": {
+      "raw": {
+       "fn": 8,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.6096657083436265,
+        1.0
+       ],
+       "recall": [
+        0.42857142857142855,
+        0.21380798780428648,
+        0.6740935558247106
+       ],
+       "tp": 6
+      }
+     },
+     "function": {
+      "corrected": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "tp": 9
+      },
+      "raw": {
+       "fn": 0,
+       "fp": 0,
+       "precision": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "recall": [
+        1.0,
+        0.700854948272956,
+        1.0
+       ],
+       "tp": 9
+      }
+     },
+     "pending": 0,
+     "raw": {
+      "fn": 0,
+      "fp": 0,
+      "precision": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "recall": [
+       1.0,
+       0.7846891945970195,
+       0.9999999999999999
+      ],
+      "tp": 14
+     },
+     "shortfall": 0
+    }
+   }
+  }
+ },
+ "matrix_diffs": {},
+ "meta": {
+  "generated_at": "2026-10-29T10:31:57.069124+00:00",
+  "harness_sha": "ffa6f5aaefb888a9be1c7bdaec95569482800842"
+ },
+ "oracle_changed": {
+  "count": 0,
+  "fraction": 0.0,
+  "ids": []
+ },
+ "oracle_changed_answers": {},
+ "pinned_diffs": {},
+ "pinned_oracle_changed": [],
+ "policy": {
+  "min_comparable_per_stratum": 4,
+  "oracle_changed_max_fraction": 0.1
+ },
+ "recall_regressions": [],
+ "runs": {
+  "base": {
+   "digest": "sha256:6b805ea3c62ab0d1274b93868ac2cc65182a16bb1c37886d993f7c698aef7a68",
+   "path": "docs/eval/tier-a/2026-10-29-prism-base3.json",
+   "path_base": "repo_root"
+  },
+  "candidate": {
+   "digest": "sha256:0b0c4c58708ad63cb888febc3bac80651b8014096e9f40109fd895e34dfb39da",
+   "path": "docs/eval/tier-a/2026-10-29-prism-candidate2.json",
+   "path_base": "repo_root"
+  }
+ },
+ "status_transitions": {},
+ "verdict": "NO_REGRESSION",
+ "wilson_flags": []
+}

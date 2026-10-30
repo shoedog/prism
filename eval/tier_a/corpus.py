@@ -48,6 +48,15 @@ def corpus_sha(root: str) -> str:
                           capture_output=True, text=True, check=True).stdout.strip()
 
 
+def corpus_sha_full(root: str) -> str:
+    return subprocess.run(
+        ["git", "-C", root, "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
 def corpus_dirty(root: str) -> bool:
     p = subprocess.run(["git", "-C", root, "status", "--porcelain", "-uno"],
                        capture_output=True, text=True, check=True)

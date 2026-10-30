@@ -312,6 +312,7 @@ def test_runner_retains_timeout_failure_and_partial_inventory_is_not_saved(monke
     monkeypatch.setattr(cli, "PrismCli", lambda *args, **kwargs: sut)
     monkeypatch.setattr(cli, "make_oracle", lambda cfg: oracle)
     monkeypatch.setattr(cli, "corpus_sha", lambda path: "abc")
+    monkeypatch.setattr(cli, "corpus_sha_full", lambda path: "a" * 40)
     monkeypatch.setattr(cli, "corpus_dirty", lambda path: False)
     monkeypatch.setattr(cli, "untracked_sources", lambda *args: [])
     monkeypatch.setattr(cli, "universe", lambda *args, **kwargs: ["a.rs"])
@@ -422,6 +423,7 @@ def snapshot_runner(monkeypatch, tmp_path):
                           callers=lambda *args: [], callees=lambda *args: [])
     monkeypatch.setattr(cli, "PrismCli", lambda *args, **kwargs: sut)
     monkeypatch.setattr(cli, "corpus_sha", lambda path: "abc")
+    monkeypatch.setattr(cli, "corpus_sha_full", lambda path: "a" * 40)
     monkeypatch.setattr(cli, "corpus_dirty", lambda path: False)
     monkeypatch.setattr(cli, "untracked_sources", lambda *args: [])
     monkeypatch.setattr(cli, "universe", lambda *args, **kwargs: ["a.rs"])
@@ -525,7 +527,7 @@ def test_out_dir_honored_without_writing_baseline_reports(monkeypatch, tmp_path)
     out = tmp_path / "separate"
     monkeypatch.setattr(cli, "EVAL_DIR", tmp_path)
     monkeypatch.setattr(cli, "load_corpora", lambda: {"corpus": {"tiny": {"lang": "ts"}}, "defaults": {}})
-    monkeypatch.setattr(cli, "run_corpus", lambda *args: {
+    monkeypatch.setattr(cli, "run_corpus", lambda *_args, **_kwargs: {
         "meta": {"corpus": "tiny", "date": "test", "baseline_invalid": False}})
     destinations = []
     monkeypatch.setattr(cli, "write_reports", lambda run, path: destinations.append(path))

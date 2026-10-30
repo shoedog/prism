@@ -154,18 +154,20 @@ class LspOracle:
 
     def __init__(self, cmd, root, lang, settle_s=2.0, quiescence_cap_s=300.0,
                  query_timeout_s=10.0, startup_timeout_s=60.0, oracle_budget_s=600.0,
-                 cargo_features=None):
+                 cargo_features=None, init_options=None):
         from .lsp_client import LspClient
 
         self.root, self.lang = os.path.abspath(root), lang
         self.not_quiescent = False
         self._cmd = cmd
         root_uri = "file://" + urllib.parse.quote(self.root)
+        initialization_options = init_options
+        if initialization_options is None and cargo_features is not None:
+            initialization_options = {"cargo": {"features": cargo_features}}
         self.client = LspClient(cmd, cwd=self.root, root_uri=root_uri,
                                 default_timeout=query_timeout_s,
                                 session_timeout=oracle_budget_s,
-                                initialization_options=({"cargo": {"features": cargo_features}}
-                                    if cargo_features is not None else None),
+                                initialization_options=initialization_options,
                                 server_status=lang == "rust")
         self._settle, self._cap = settle_s, quiescence_cap_s
         self._startup_timeout = startup_timeout_s
@@ -261,7 +263,7 @@ class LspOracle:
                 if rebuilt != inventory:
                     raise OracleError("inventory drift during oracle recovery")
                 # Use the original overlay/real-symbol policy on the new session.
-                from .cli import resolve_capability
+                from .policy import resolve_capability
                 if not resolve_capability(self, self.capability_probe(), rebuilt):
                     raise OracleError("capability unsupported during oracle recovery")
         raise AssertionError("unreachable")

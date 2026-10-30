@@ -1,0 +1,383 @@
+{
+  "corpora": {
+    "corpus": {
+      "axum": {
+        "lang": "rust",
+        "oracle": "rust-analyzer",
+        "path": "~/code/bench-repos/axum",
+        "pinned_sha": "485c603dddce",
+        "quiescence_cap_s": 600,
+        "settle_s": 20.0
+      },
+      "black": {
+        "excludes": [
+          "tests/*",
+          "docs/*",
+          "scripts/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/black",
+        "pinned_sha": "b74b23013fe6"
+      },
+      "caddy": {
+        "excludes": [],
+        "lang": "go",
+        "oracle": "gopls",
+        "path": "~/code/bench-repos/caddy",
+        "pinned_sha": "77e9ce7404c4"
+      },
+      "clap": {
+        "lang": "rust",
+        "oracle": "rust-analyzer",
+        "path": "~/code/bench-repos/clap",
+        "pinned_sha": "8387c812c4b9",
+        "quiescence_cap_s": 600,
+        "settle_s": 20.0
+      },
+      "click": {
+        "excludes": [
+          "examples/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/click",
+        "pinned_sha": "8a1b1a33d739"
+      },
+      "cobra": {
+        "lang": "go",
+        "oracle": "gopls",
+        "path": "~/code/bench-repos/cobra",
+        "pinned_sha": "ad460ea8f249"
+      },
+      "etcd": {
+        "lang": "go",
+        "oracle": "gopls",
+        "path": "~/code/bench-repos/etcd",
+        "pinned_sha": "61d518f55eff",
+        "quiescence_cap_s": 600
+      },
+      "excalidraw-js": {
+        "lang": "js",
+        "oracle": "tsserver",
+        "oracle_version": "tsserver 6.0.3",
+        "path": "~/prism-evidence/inputs/excalidraw-0642e72c/source",
+        "pinned_sha": "0642e72cfa2d",
+        "reject_node_modules": true,
+        "source_manifest": "~/prism-evidence/inputs/excalidraw-0642e72c/source-file-manifest.sha256",
+        "source_manifest_sha256": "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0"
+      },
+      "excalidraw-ts": {
+        "excludes": [
+          "*.d.ts"
+        ],
+        "lang": "ts",
+        "oracle": "tsserver",
+        "oracle_version": "tsserver 6.0.3",
+        "path": "~/prism-evidence/inputs/excalidraw-0642e72c/source",
+        "pinned_sha": "0642e72cfa2d",
+        "reject_node_modules": true,
+        "source_manifest": "~/prism-evidence/inputs/excalidraw-0642e72c/source-file-manifest.sha256",
+        "source_manifest_sha256": "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0"
+      },
+      "fastapi": {
+        "excludes": [
+          "tests/*",
+          "docs_src/*",
+          "scripts/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/fastapi",
+        "pinned_sha": "0cb4a8e284b4"
+      },
+      "flask": {
+        "excludes": [
+          "examples/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/flask",
+        "pinned_sha": "36e4a824f340"
+      },
+      "gin": {
+        "lang": "go",
+        "oracle": "gopls",
+        "path": "~/code/bench-repos/gin",
+        "pinned_sha": "d75fcd4c9ab2"
+      },
+      "go-redis": {
+        "lang": "go",
+        "oracle": "gopls",
+        "path": "~/code/bench-repos/go-redis",
+        "pinned_sha": "1cfa927b89e6"
+      },
+      "httpx": {
+        "excludes": [
+          "tests/*",
+          "docs/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/httpx",
+        "pinned_sha": "b5addb64f016"
+      },
+      "hugo": {
+        "lang": "go",
+        "oracle": "gopls",
+        "path": "~/code/bench-repos/hugo",
+        "pinned_sha": "a00b5c72ac57",
+        "quiescence_cap_s": 600
+      },
+      "mypy": {
+        "excludes": [
+          "test-data/*",
+          "mypyc/test/*",
+          "mypy/test/*",
+          "docs/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/mypy",
+        "pinned_sha": "5ef090270579"
+      },
+      "packaging": {
+        "excludes": [
+          "tests/*",
+          "docs/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/packaging",
+        "pinned_sha": "b61e85eafa19"
+      },
+      "prism": {
+        "excludes": [
+          "tests/fixtures/*",
+          "eval/fixtures/*",
+          "target/*",
+          "eval/tests/fixtures/*",
+          "scripts/mutgate/fixtures/*",
+          "docs/*"
+        ],
+        "lang": "rust",
+        "oracle": "rust-analyzer",
+        "oracle_budget_s": 3600.0,
+        "path": ".",
+        "query_timeout_s": 30.0,
+        "startup_timeout_s": 300.0
+      },
+      "prometheus": {
+        "lang": "go",
+        "oracle": "gopls",
+        "path": "~/code/bench-repos/prometheus",
+        "pinned_sha": "505095b64b43",
+        "quiescence_cap_s": 600
+      },
+      "pydantic": {
+        "excludes": [
+          "tests/*",
+          "docs/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/pydantic",
+        "pinned_sha": "363728fe0b35"
+      },
+      "rich": {
+        "excludes": [
+          "tests/*",
+          "docs/*",
+          "examples/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/rich",
+        "pinned_sha": "46cebbb032f9"
+      },
+      "ripgrep": {
+        "lang": "rust",
+        "oracle": "rust-analyzer",
+        "path": "~/code/bench-repos/ripgrep",
+        "pinned_sha": "82313cf95849",
+        "quiescence_cap_s": 600
+      },
+      "ruff": {
+        "lang": "rust",
+        "oracle": "rust-analyzer",
+        "path": "~/code/bench-repos/ruff",
+        "pinned_sha": "44f6d1865fd2",
+        "quiescence_cap_s": 600
+      },
+      "secbench-node": {
+        "excludes": [
+          "*/scripts/*",
+          "*/dist/*"
+        ],
+        "lang": "js",
+        "oracle": "tsserver",
+        "oracle_version": "tsserver 6.0.3",
+        "path": "~/.local/share/prism/corpora/secbench-node-r1/source",
+        "pinned_sha": "secbench-node-r1",
+        "reject_node_modules": true,
+        "source_manifest": "eval/manifests/secbench-node-r1.sha256",
+        "source_manifest_sha256": "6c9e7e9252d173b60f083dff36734e597b8121943fba0e1d6946a315e4b812d0"
+      },
+      "starlette": {
+        "excludes": [
+          "tests/*",
+          "docs/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/starlette",
+        "pinned_sha": "de970d7b3fac"
+      },
+      "tokio": {
+        "excludes": [],
+        "lang": "rust",
+        "oracle": "rust-analyzer",
+        "path": "~/code/bench-repos/tokio",
+        "pinned_sha": "ecb5125a6787"
+      },
+      "typer": {
+        "excludes": [
+          "tests/*",
+          "docs_src/*",
+          "docs/*",
+          ".venv/*"
+        ],
+        "lang": "python",
+        "oracle": "pyright",
+        "path": "~/code/bench-repos/typer",
+        "pinned_sha": "5ec6501a3c3b"
+      },
+      "uv": {
+        "lang": "rust",
+        "oracle": "rust-analyzer",
+        "path": "~/code/bench-repos/uv",
+        "pinned_sha": "3cdf50e0924f",
+        "quiescence_cap_s": 600
+      },
+      "zap": {
+        "lang": "go",
+        "oracle": "gopls",
+        "path": "~/code/bench-repos/zap",
+        "pinned_sha": "5b81b37b81b8"
+      }
+    },
+    "defaults": {
+      "oracle_budget_s": 600.0,
+      "oracle_error_floor": {
+        "go": 0.1,
+        "js": 0.1,
+        "python": 0.25,
+        "rust": 0.1,
+        "ts": 0.1
+      },
+      "per_stratum": 8,
+      "query_timeout_s": 10.0,
+      "quiescence_cap_s": 300,
+      "seed": 42,
+      "settle_s": 5.0,
+      "startup_timeout_s": 60.0,
+      "sut_error_floor": 0.05
+    },
+    "quick": {
+      "corpora": [
+        "prism",
+        "excalidraw-ts",
+        "secbench-node"
+      ]
+    }
+  },
+  "extensions": {
+    "go": [
+      ".go"
+    ],
+    "js": [
+      ".js",
+      ".jsx"
+    ],
+    "python": [
+      ".py"
+    ],
+    "rust": [
+      ".rs"
+    ],
+    "ts": [
+      ".ts",
+      ".tsx"
+    ]
+  },
+  "modules": {
+    "tier_a/accounting.py": "sha256:807c4a1360d723f08329a80f8f686a112c013d3c4e80f7a6f03c7b60763e6875",
+    "tier_a/adjudication.py": "sha256:a85509048d1e3520b58ee113eaef1f5464bc875ac98a87ccbe53ddfdc7170491",
+    "tier_a/admission.py": "sha256:273ba2b2e85b2d8ff81a9341630b04afd3813de77a815a59733007c30cadb438",
+    "tier_a/artifacts.py": "sha256:ddb92ff3fccac0f19da751ba436fd348c08e097712979cb4bdecc52afc94fda7",
+    "tier_a/bootstrap.py": "sha256:71f97560e936b62013ab86e594393e52a913e8b818767961eb7aff2819037e60",
+    "tier_a/boundary.py": "sha256:a68acc76551fff11e0a40166c396b820a03709c9faa69681640e87886cc5cf58",
+    "tier_a/closure.py": "sha256:e14edfd31b9a48b6bdb9708a0f3431a328ab59606c1b41754e6150f1375b0d3c",
+    "tier_a/compare.py": "sha256:57708215ef24c7b680041f310e216ef01bb0272a852de1cbfd66034849097950",
+    "tier_a/compare_render.py": "sha256:42ba0c376dbd3783d41c0d1b51e550e1856cabed9447cbfb5510d8a9cfb5550e",
+    "tier_a/compare_report.py": "sha256:b60605e30c4004163bcac55ed6124deacc51fd261bba46595cf71a6c81483585",
+    "tier_a/corpus.py": "sha256:2ac84b798d9da40e4fbaf0f1a10cc2bce3034458c5b7d16d5f4f23e8c3b9c279",
+    "tier_a/launch.py": "sha256:03e2d5fa8e7e2ee3885407cd3e18dade968950cb771c80233ff4f860f8f1ceb2",
+    "tier_a/lock.py": "sha256:c4628c3fc4dade630060efd42b1c76448cf1d31e65e8e8819cfe42ec50d9779a",
+    "tier_a/lsp_client.py": "sha256:a37ee5dc6c48be678c52f1f2aa519c500b223897cb2fd1ad0dfc956d3c23f220",
+    "tier_a/materialize.py": "sha256:4107036ea9cf0471b7a81cfd8572da48decfa180d2a445d3a0c938a08654677e",
+    "tier_a/matrix.py": "sha256:0195849d9a5e1b16341d8ccfd126ccabcb5625a6f6d727332346db70bcb63330",
+    "tier_a/member_sample.py": "sha256:de81f75e3557a760e3a906fbab49f99dec4420466f5d8e4cbe140929a4181a79",
+    "tier_a/metrics.py": "sha256:d276a03bc49c65caed8320751d05802ff1ba841c71ef3d52f73aec03ad963d82",
+    "tier_a/model.py": "sha256:a5c1f81fe63d2fd5548246637d8abd6483ec6fa69d2193a521af8d9b2d3c4664",
+    "tier_a/oracles.py": "sha256:c3e09825256e35047f480778cece098cbde1b028d825bf876b38858879ef24a2",
+    "tier_a/pinned.py": "sha256:7bf76644bd62a7e5dfdf92fee0a0696943bc6a790c91dba83150486d9ff24437",
+    "tier_a/policy.py": "sha256:bdec54a9ea8951c9b28780106341d93dc3e84fd933d47363a2ed674aa3e520e2",
+    "tier_a/record_schema.py": "sha256:ff8a5a1966b1691611e215985ba4814d0b7b716653d00c6966261700e733adf8",
+    "tier_a/report.py": "sha256:0a0a5537384a15fe7ab2fe0f2bccc10fd4c9c260b1e9c6689980a7b77958cff4",
+    "tier_a/runner.py": "sha256:252b567d4797cf6e676177df5c086a8eb03e07452343b4ab9d65bc3aafccf825",
+    "tier_a/spotcheck.py": "sha256:32d7db5179dbc01ad23a726473246e458d3b94f2dbd7a5aa76d5add3966bfd87",
+    "tier_a/strata.py": "sha256:774d5f3af32b431d3097b01a8054f253ef95aba9f41f6a4202bf386ea78a9a5d",
+    "tier_a/sut.py": "sha256:04b34c4bd7fc8d4615176d8e2da0736931056b6f2b658253f1f1b71b14c5c36f",
+    "tier_a/ts_syntax.cjs": "sha256:2d3f8ccd8dfc7f1a9bf25d0c8451e2ac97a6ee89dfc40799ae35b5cb87bac016",
+    "tier_a/tsserver.py": "sha256:42788abc5c63f6da929c792fe6a51962c7c8c8ddbaed3c353d6cc6fdab7af737"
+  },
+  "native_manifest_predicate": {
+    "basenames": [
+      "Cargo.toml",
+      "go.mod",
+      "go.work"
+    ],
+    "path": "src/repo_loader.rs",
+    "text": "fn is_manifest_name(name: &str) -> bool {\n    matches!(name, \"Cargo.toml\" | \"go.mod\" | \"go.work\")\n}"
+  },
+  "policy_exclusions": {
+    "__init__.py": "package marker with no measurement behavior",
+    "cli.py": "argument parsing, dispatch, printing, and paths only",
+    "commands.py": "compatibility alias for unhashed command plumbing",
+    "interfaces.py": "unused protocol declarations; measurement imports concrete adapters",
+    "manifest.py": "separate interface-dispatch study not imported by Tier-A measurement"
+  },
+  "sampling": {
+    "full_per_stratum": 8,
+    "quick_per_stratum": 3,
+    "sampling_schema": 1
+  },
+  "strata": [
+    "C-method",
+    "C-name",
+    "Q-scoped",
+    "U-method",
+    "U-free"
+  ]
+}
