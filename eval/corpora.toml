@@ -70,7 +70,7 @@ path = "."                       # the prism repo itself (dogfood)
 oracle = "rust-analyzer"
 # excludes: Rust files outside every cargo target (fixture crates, doc probes) are excluded; rust-analyzer cannot answer for them
 excludes = ["tests/fixtures/*", "eval/fixtures/*", "target/*", "eval/tests/fixtures/*", "scripts/mutgate/fixtures/*", "docs/*"]
-# Corpus identity is stored in eval/tier-a.lock.toml; bootstrap snapshot: prism-20c8490591a3.json.
+# Corpus identity is stored in eval/tier-a.lock.toml; current snapshot: prism-289e4c1fa4c2.json.
 query_timeout_s = 30.0           # tier-a-reanchor's pre-merge LSP default; callHierarchy on the full corpus with features=all exceeds main's 10 s
 startup_timeout_s = 300.0        # = quiescence_cap_s, the pre-merge readiness bound; main's 60 s is exceeded at cold start
 oracle_budget_s = 3600.0         # pre-merge legs had no session budget; bounded by the bootstrap phase budget (3600 s)

@@ -39,3 +39,17 @@ The enumeration below was completed before any conflict was resolved. Hunk names
 `uv.lock` did not move in this merge, so it has no auto-merged hunk to classify.
 
 Resolution totals: **U 4 / C 13 / D 9**.
+
+## Post-merge folds
+
+The pre-resolution table is retained as the decision record. These later folds
+supersede or refine its operational resolutions:
+
+| Commit | Follow-up resolution |
+|---|---|
+| `7a5f3016` | Superseded rows 19–20: lock-bound legs restored Prism's reusable nav store after `--no-cache` made M2 14x slower and exhausted the budget. |
+| `24c75fc9`, `14e2063e` | Restored the Prism readiness/session budgets and cargo-target-only exclusions, then repaired the TOML shape. |
+| `289e4c1f` | Eagerly imported `tsserver` before boundary observation so a legitimate harness-module read could not become an undeclared late read. |
+| `895bd9a0`, `c29580de`, `03205571`, `48168664` | Fold round 1 hardened oracle-failure partitioning, invalid-leg refusal, scorer-consistent lost-match detection, and identity-shape admission. |
+| `0de8fdcb`, `26655b67`, `d405c46c` | Made test tool versions hermetic, invalidated all live-tree measurements, refused lock sample overrides, and refused lockless quick runs. |
+| `6d439882`, `8f8b60b9`, `5be1589c` | Bound every lock leg to a private executable snapshot and digest-partitioned cache, isolated harness bytecode before imports, and rebound the committed comparison to committed leg records. |

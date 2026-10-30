@@ -1,4 +1,5 @@
 from tier_a.accounting import CorpusAccounting, evaluate_floors
+from tier_a.cli import _pinned_accounting_outcome
 
 
 def test_probe_outcomes_and_rates():
@@ -11,6 +12,11 @@ def test_probe_outcomes_and_rates():
     assert acc.sut_error_rate() == 0.25
     assert acc.successful() == 1
     assert acc.inventory_misses == ["s4"]
+
+
+def test_side_labeled_pinned_errors_feed_the_correct_error_rate():
+    assert _pinned_accounting_outcome({"outcome": "error", "error_side": "oracle"}) == "oracle_error"
+    assert _pinned_accounting_outcome({"outcome": "error", "error_side": "sut"}) == "sut_error"
 
 
 def test_inventory_miss_scores_all_oracle_edges_as_fn():

@@ -156,6 +156,18 @@ def check_pinned(cfg: dict, sha: str, allow: bool) -> tuple[bool, str | None]:
     return False, f"corpus_sha_drift: {sha} != pinned {pinned}"
 
 
+def _pinned_accounting_outcome(row: dict) -> str | None:
+    outcome = row.get("outcome")
+    if outcome == "error":
+        side = row.get("error_side")
+        return f"{side}_error" if side in {"oracle", "sut"} else None
+    if outcome in {"sut_error", "sut_timeout"}:
+        return "sut_error"
+    if outcome in {"oracle_error", "oracle_timeout"}:
+        return outcome
+    return None
+
+
 def _pending_for_probe(
     probe: dict, corpus: str, adjudications: list, site_fps: dict | None = None
 ) -> list[dict]:
@@ -959,8 +971,9 @@ def run_corpus(
             run["pinned"] = pinned_mod.run_pinned(oracle, sut, snap, cfg["path"],
                                                   prism_by_oracle=snapshot_matches)
             for p in run["pinned"]:
-                if p.get("outcome") in ("oracle_error", "oracle_timeout", "sut_error", "sut_timeout"):
-                    acc.record("pinned:" + p["id"], "sut_error" if p["outcome"].startswith("sut") else p["outcome"])
+                accounting_outcome = _pinned_accounting_outcome(p)
+                if accounting_outcome is not None:
+                    acc.record("pinned:" + p["id"], accounting_outcome)
             run["meta"]["wall_s"]["pinned"] = round(time.monotonic() - t0, 3)
             t0 = time.monotonic()
             run["matrix"] = [
