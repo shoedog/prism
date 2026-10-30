@@ -124,6 +124,9 @@ prism **`slicing` CLI**. You want *literal* text, comments, strings, or config â
   synthetic `<module>` symbol (not independently navigable); it never appears in `nav_callees`.
 - **Lines are 1-indexed; `nav_nodes_at` matches the exact line.** Empty result â‡’ aim at the definition
   or a call line, not a blank/comment/brace line.
+- **`NoEnclosingCallable` means the line exists outside a callable.** Seed a function-body line or
+  a callable symbol; retrying the same declaration/comment line will not help. `LocationOutOfRange`
+  means the line is outside the indexed file's bounds. These errors also apply to CLI location seeds.
 - **`nav_symbol_spans` is callable-only and coordinate-only.** Offsets are end-exclusive UTF-8 bytes;
   its raw `body_span` may include braces/delimiters, and null fields explain themselves in
   `unavailable`. It never returns body text or edits source.

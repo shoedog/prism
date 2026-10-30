@@ -182,6 +182,7 @@ pub enum QueryError {
     AmbiguousSymbol { candidates: Vec<SymbolRef> },
     SymbolNotFound { seed: String },
     LocationOutOfRange { file: String, line: usize },
+    NoEnclosingCallable { file: String, line: usize },
     UnsupportedFile { file: String },
     UnknownEdge { edge: String },
 }

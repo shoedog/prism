@@ -101,6 +101,10 @@ fn bound_query_error(error: QueryError) -> QueryError {
             file: output::clamp_user_text(&file),
             line,
         },
+        QueryError::NoEnclosingCallable { file, line } => QueryError::NoEnclosingCallable {
+            file: output::clamp_user_text(&file),
+            line,
+        },
         QueryError::UnsupportedFile { file } => QueryError::UnsupportedFile {
             file: output::clamp_user_text(&file),
         },
@@ -161,6 +165,9 @@ fn actionable_sentence(error: &QueryError) -> &'static str {
         }
         QueryError::LocationOutOfRange { .. } => {
             "Choose a line that exists in the indexed file and retry."
+        }
+        QueryError::NoEnclosingCallable { .. } => {
+            "This line is outside any callable; seed a line inside a function body, or use a symbol seed."
         }
         QueryError::UnsupportedFile { .. } => {
             "Use a supported source file from the indexed repository."

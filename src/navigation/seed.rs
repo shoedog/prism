@@ -44,6 +44,30 @@ pub(crate) fn reject_anonymous_symbol(name: &str) -> Result<(), QueryError> {
     Ok(())
 }
 
+/// A trailing newline terminates the last line; it does not add a seedable line.
+pub(crate) fn location_in_range(source: &str, line: usize) -> bool {
+    line > 0 && source.lines().nth(line - 1).is_some()
+}
+
+/// Classify a failed callable lookup against the indexed source, never the live file.
+pub(crate) fn missing_callable_error(s: &NavigationSession, file: &str, line: usize) -> QueryError {
+    if s.repo
+        .files
+        .get(file)
+        .is_some_and(|parsed| location_in_range(&parsed.source, line))
+    {
+        QueryError::NoEnclosingCallable {
+            file: file.into(),
+            line,
+        }
+    } else {
+        QueryError::LocationOutOfRange {
+            file: file.into(),
+            line,
+        }
+    }
+}
+
 /// Resolve a seed to exactly one function node. Precedence: location > symbol.
 pub fn resolve_fn(
     s: &NavigationSession,
@@ -58,13 +82,10 @@ pub fn resolve_fn(
             .ok_or_else(|| QueryError::SymbolNotFound {
                 seed: format!("loc:{loc}"),
             })?;
-        let (idx, _) =
-            s.index
-                .enclosing_function(&f, line)
-                .ok_or(QueryError::LocationOutOfRange {
-                    file: f.clone(),
-                    line,
-                })?;
+        let (idx, _) = s
+            .index
+            .enclosing_function(&f, line)
+            .ok_or_else(|| missing_callable_error(s, &f, line))?;
         let symbol = fn_symbol(s, idx).ok_or(QueryError::LocationOutOfRange { file: f, line })?;
         return Ok(ResolvedFn { idx, symbol });
     }

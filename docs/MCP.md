@@ -199,6 +199,13 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span` 
 - **Read-only.** The server never modifies the repo. It also never executes code.
 - **Coordinates are snapshot-relative.** Apply `nav_symbol_spans` offsets only to the indexed snapshot;
   stale-session responses carry the same `StaleIndex` warning and metadata as other navigation tools.
+- **Location seed errors distinguish bounds from callables.** `NoEnclosingCallable { file, line }`
+  means the indexed line exists but cannot resolve to an enclosing callable. Seed a line inside a
+  function body, or use a callable symbol seed. `LocationOutOfRange { file, line }` means line zero
+  or a line past EOF; choose a line that exists in the indexed file. These errors also appear in
+  `prism nav` JSON output; text output says `no enclosing callable` or `location out of range`
+  (exit code 3). Ego and taint queries retain usable non-callable CPG nodes; a taint seed inside a
+  callable with no usable variable evidence still returns `SymbolNotFound`.
 - **Cold first call.** `initialize`, `ping`, and `tools/list` answer immediately and do not start the
   repository index build; a process that only handshakes and lists tools (an agent thread that never
   navigates) stays at a few MB instead of holding the whole index. The first valid `tools/call` starts

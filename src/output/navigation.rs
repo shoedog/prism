@@ -18,6 +18,9 @@ fn error_text(e: &QueryError) -> String {
         QueryError::LocationOutOfRange { file, line } => {
             format!("location out of range: {file}:{line}")
         }
+        QueryError::NoEnclosingCallable { file, line } => {
+            format!("no enclosing callable: {file}:{line}")
+        }
         QueryError::UnsupportedFile { file } => format!("unsupported file: {file}"),
         QueryError::UnknownEdge { edge } => format!("unknown edge: {edge}"),
     }

@@ -5,6 +5,7 @@ mod call_stats_test;
 mod call_stats_wrapped_export_test;
 mod confidence_test;
 mod diagram_e2e_test;
+mod location_seed_test;
 mod member_only_param_test;
 mod min_confidence_admission_test;
 mod min_confidence_test;
