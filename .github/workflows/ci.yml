@@ -132,7 +132,7 @@ jobs:
           shared-key: macos-footprint
 
       - name: Test macOS allocator policy
-        run: cargo test --release --features mcp --test mcp malloc_test::
+        run: "cargo test --release --features mcp --test mcp malloc_test::"
 
       - name: Guard idle-unloaded footprint
         run: cargo test --release --features mcp --test mcp footprint_guard -- --ignored --nocapture --test-threads=1
