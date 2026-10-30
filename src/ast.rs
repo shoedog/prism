@@ -37,6 +37,7 @@ mod js_module_forwarding;
 mod js_return_facts;
 mod js_wrapped_export;
 mod shadow_walk;
+mod singleton_rvalue_spans;
 mod statement_traversal;
 mod tree_access;
 
