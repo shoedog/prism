@@ -208,7 +208,12 @@ def test_adjudications_digest_refuses_missing_wrong_path_and_ambiguous_shapes():
     ids = base_ids()
     base = fake_run(ids)
     cases = (
-        ({}, "NOT_COMPARABLE(identity_invalid: base.data, candidate.data)"),
+        (
+            {},
+            "NOT_COMPARABLE(identity_invalid: "
+            "base.data.eval/adjudications.jsonl.digest, "
+            "candidate.data.eval/adjudications.jsonl.digest)",
+        ),
         (
             {"adjudications": {"path": "other.jsonl", "digest": ADJ_DIGEST}},
             "NOT_COMPARABLE(adjudications_digest)",

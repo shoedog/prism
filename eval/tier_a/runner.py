@@ -474,7 +474,16 @@ def run_corpus(
                                 "outcome": sut_failure_outcome(exc),
                                 "error": str(exc),
                             }
-                            run["probes"][pid] = {**run["failures"][pid], "direction": direction, "stratum": stratum, "seed_def": sd}
+                            run["probes"][pid] = {
+                                **run["failures"][pid],
+                                "direction": direction,
+                                "stratum": stratum,
+                                "seed_def": sd,
+                                "prism_sites": [],
+                                "oracle_sites": _stored_sites(osites, direction),
+                                "prism_functions": [],
+                                "oracle_functions": _stored_functions(osites, snap),
+                            }
                             progress(f"{run['failures'][pid]['outcome']} {pid}: {exc}")
                             continue
                         acc.record(pid, outcome)

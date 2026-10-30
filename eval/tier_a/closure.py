@@ -57,6 +57,7 @@ _POLICY_MODULES = (
     "pinned.py",
     "policy.py",
     "report.py",
+    "record_schema.py",
     "runner.py",
     "spotcheck.py",
     "strata.py",

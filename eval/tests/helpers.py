@@ -259,16 +259,42 @@ def fake_run(
             "oracle_functions": [],
         }
         normalized[pid] = defaults | fields
+    status_map = status or {
+        pid: probe["outcome"] for pid, probe in normalized.items()
+    }
+    for pid, outcome in status_map.items():
+        if pid in normalized:
+            continue
+        normalized[pid] = {
+            "outcome": outcome,
+            "direction": pid.split(":")[0],
+            "stratum": "U-free",
+            "seed_def": pid.split(":", 1)[1],
+            **(
+                {
+                    "prism_sites": [],
+                    "oracle_sites": [],
+                    "prism_functions": [],
+                    "oracle_functions": [],
+                }
+                if outcome in {"ok", "inventory_miss", "sut_error"}
+                else {}
+            ),
+        }
     normalized["_corpus"] = "prism"
     normalized["_strata"] = {
         stratum: {"eligible_symbols": 3, "eligible_probes": 6, "target": 3}
         for stratum in STRATA
     }
     return {
-        "meta": {"admitted": True, "baseline_invalid": False, **ids},
+        "meta": {
+            "admitted": True,
+            "baseline_invalid": False,
+            "invalid_reasons": [],
+            **ids,
+        },
         "probes": normalized,
-        "probe_status": status
-        or {pid: probe["outcome"] for pid, probe in normalized.items() if not pid.startswith("_")},
+        "probe_status": status_map,
         "site_fingerprints": {},
         "pinned": pinned or [],
         "matrix": [],

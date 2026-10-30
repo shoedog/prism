@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter
 
 from .adjudication import Adjudication
 from .compare import match_oracle_sites
 from .launch import launch_refusal_reason
 from .policy import ORACLE_ANSWER_STATUSES, SCORED_PROBE_STATUSES
+from .record_schema import (
+    identity_refusals,
+    record_refusals,
+    required_identity_leaf_paths,
+)
 from .strata import STRATA
 
 
@@ -42,8 +46,6 @@ COMPARE_POLICY = {
     "min_comparable_per_stratum": 4,
 }
 REQUIRED_IDENTITIES = ("sut_sha_full", "sut_digest", *COMPARE_IDENTITIES)
-_SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
-_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 SUT_ERROR_LEG = ("sut_error",)
 PINNED_RANK = {
     "ok": 2,
@@ -379,152 +381,8 @@ def _compare_identity(meta: dict, key: str):
     }
 
 
-def _sha(value) -> bool:
-    return isinstance(value, str) and _SHA_PATTERN.fullmatch(value) is not None
-
-
-def _digest(value) -> bool:
-    return isinstance(value, str) and _DIGEST_PATTERN.fullmatch(value) is not None
-
-
-def _digest_or_absent(value) -> bool:
-    return value == "absent" or _digest(value)
-
-
-def _nonempty_string(value) -> bool:
-    return isinstance(value, str) and bool(value.strip())
-
-
-def _nonnegative_int(value) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
-
-
-def _sha_list(value) -> bool:
-    return isinstance(value, list) and bool(value) and all(_sha(item) for item in value)
-
-
-def _string_list(value) -> bool:
-    return (
-        isinstance(value, list)
-        and bool(value)
-        and all(_nonempty_string(item) for item in value)
-    )
-
-
-def _string_map(value) -> bool:
-    return (
-        isinstance(value, dict)
-        and bool(value)
-        and all(_nonempty_string(key) and isinstance(item, str) for key, item in value.items())
-    )
-
-
-_COMMON_IDENTITY_SCHEMA = {
-    "corpus_sha_full": _sha,
-    "sha_aliases": _sha_list,
-    "closure_digest": _digest,
-    "sut_sha_full": _sha,
-    "sut_digest": _digest,
-    "oracle": _nonempty_string,
-    "oracle_init": {"cargo": {"features": _nonempty_string}},
-    "policy_digest": _digest,
-    "population_digest": _digest,
-    "snapshot_digest": _digest,
-    "env_allow": _string_list,
-    "env_values": _string_map,
-    "harness_sha": _sha,
-    "seed": lambda value: isinstance(value, int) and not isinstance(value, bool),
-}
-_IDENTITY_SCHEMAS = {
-    "legacy": {
-        **_COMMON_IDENTITY_SCHEMA,
-        "sample_digest": _digest,
-        "runtime": {"python": _nonempty_string, "uv_lock": _digest},
-        "data": {"eval/adjudications.jsonl": {"digest": _digest}},
-    },
-    "legacy_lock_data": {
-        **_COMMON_IDENTITY_SCHEMA,
-        "sample_digest": _digest,
-        "runtime": {"python": _nonempty_string, "uv_lock": _digest},
-        "data": {
-            "adjudications": {
-                "path": _nonempty_string,
-                "digest": _digest,
-            }
-        },
-    },
-    "lock_v1": {
-        **_COMMON_IDENTITY_SCHEMA,
-        "sample_digest": {"full": _digest, "quick": _digest},
-        "runtime": {
-            "python": _nonempty_string,
-            "python_version_file": _digest,
-            "uv_lock": _digest,
-            "rustc": _nonempty_string,
-            "cargo": _nonempty_string,
-            "rust_toolchain": _digest_or_absent,
-            "cargo_config": _digest_or_absent,
-        },
-        "data": {
-            "adjudications": {
-                "path": lambda value: value == "eval/adjudications.jsonl",
-                "digest": _digest,
-                "records": _nonnegative_int,
-            },
-            "fixtures": _digest,
-            "pinned_probes": _digest,
-        },
-    },
-}
-
-
-def _identity_schema(meta: dict) -> dict:
-    data = meta.get("data")
-    if isinstance(meta.get("sample_digest"), dict):
-        version = "lock_v1"
-    elif isinstance(data, dict) and "adjudications" in data:
-        version = "legacy_lock_data"
-    else:
-        version = "legacy"
-    return _IDENTITY_SCHEMAS[version]
-
-
-def _schema_leaf_paths(schema: dict, prefix=()) -> list[tuple[str, ...]]:
-    paths = []
-    for key, expected in schema.items():
-        path = (*prefix, key)
-        if isinstance(expected, dict):
-            paths.extend(_schema_leaf_paths(expected, path))
-        else:
-            paths.append(path)
-    return paths
-
-
-def required_identity_leaf_paths(meta: dict) -> list[tuple[str, ...]]:
-    """Return the required leaf paths for the run record's supported schema."""
-    return _schema_leaf_paths(_identity_schema(meta))
-
-
-def _invalid_schema_paths(value, schema, path=()) -> list[tuple[str, ...]]:
-    if not isinstance(schema, dict):
-        return [] if schema(value) else [path]
-    if not isinstance(value, dict) or (not value and len(path) == 1):
-        return [path]
-    invalid = []
-    for key, expected in schema.items():
-        child_path = (*path, key)
-        if key not in value:
-            invalid.extend(_schema_leaf_paths(expected, child_path) if isinstance(expected, dict) else [child_path])
-        else:
-            invalid.extend(_invalid_schema_paths(value[key], expected, child_path))
-    return invalid
-
-
 def _invalid_identities(side: str, meta: dict) -> list[str]:
-    return [
-        f"{side}.{'.'.join(path)}"
-        for path in _invalid_schema_paths(meta, _identity_schema(meta))
-    ]
+    return [f"{side}.{reason}" for reason in identity_refusals(meta)]
 
 
 def _baseline_refusals(base_meta: dict, cand_meta: dict) -> list[str]:
@@ -565,6 +423,20 @@ def compare_runs(
     if invalid_identities:
         report["verdict"] = (
             f"NOT_COMPARABLE(identity_invalid: {', '.join(invalid_identities)})"
+        )
+        return report
+
+    if base_meta.get("admitted") is not True or cand_meta.get("admitted") is not True:
+        report["verdict"] = "NOT_COMPARABLE(admitted)"
+        return report
+
+    invalid_records = [f"base.{reason}" for reason in record_refusals(base_run)]
+    invalid_records.extend(
+        f"candidate.{reason}" for reason in record_refusals(cand_run)
+    )
+    if invalid_records:
+        report["verdict"] = (
+            f"NOT_COMPARABLE(record_invalid: {', '.join(invalid_records)})"
         )
         return report
 

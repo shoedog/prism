@@ -38,6 +38,7 @@ from .lock import (
 )
 from .materialize import materialize, tier_a_root
 from .launch import launch_refusal_reason
+from .record_schema import record_refusals
 from . import policy as run_policy
 
 
@@ -614,6 +615,12 @@ def run_quick_admitted(
         assert artifacts is not None
         run["meta"]["snapshot_digest"] = raw_digest(artifacts.snapshot())
         run["meta"]["admitted"] = True
+        if not getattr(args, "live", False):
+            schema_reasons = record_refusals(run)
+            if schema_reasons:
+                raise BoundaryViolation(
+                    [f"run_record_schema_invalid: {reason}" for reason in schema_reasons]
+                )
     return run, overlay
 
 
