@@ -1,0 +1,106 @@
+{
+  "lane": "Rust scope extent index",
+  "lib_test_prefixes": [
+    "name_resolution::scope_extent_index::tests::"
+  ],
+  "mutations": {
+    "SCOPE-EXTENT-sort": [
+      "src/name_resolution/scope_extent_index.rs",
+      "extents.sort_unstable_by_key(|e| e.lo);",
+      "extents.reverse();",
+      "name_resolution::scope_extent_index::tests::crossing_extents_ties_boundaries_and_map_keys"
+    ],
+    "SCOPE-EXTENT-lower-inclusive": [
+      "src/name_resolution/scope_extent_index.rs",
+      "e.lo <= byte",
+      "e.lo < byte",
+      "name_resolution::scope_extent_index::tests::crossing_extents_ties_boundaries_and_map_keys"
+    ],
+    "SCOPE-EXTENT-upper-exclusive": [
+      "src/name_resolution/scope_extent_index.rs",
+      "byte < e.hi",
+      "byte <= e.hi",
+      "name_resolution::scope_extent_index::tests::crossing_extents_ties_boundaries_and_map_keys"
+    ],
+    "SCOPE-EXTENT-tie": [
+      "src/name_resolution/scope_extent_index.rs",
+      "Reverse(e.scope)",
+      "Reverse(ScopeId(u32::MAX - e.scope.0))",
+      "name_resolution::scope_extent_index::tests::crossing_extents_ties_boundaries_and_map_keys"
+    ],
+    "SCOPE-EXTENT-width": [
+      "src/name_resolution/scope_extent_index.rs",
+      "e.hi - e.lo, Reverse(e.scope)",
+      "e.hi, Reverse(e.scope)",
+      "name_resolution::scope_extent_index::tests::crossing_extents_ties_boundaries_and_map_keys"
+    ],
+    "SCOPE-EXTENT-file": [
+      "src/name_resolution/scope_extent_index.rs",
+      "self.by_file.get(&file)?",
+      "self.by_file.values().next()?",
+      "name_resolution::scope_extent_index::tests::crossing_extents_ties_boundaries_and_map_keys"
+    ],
+    "SCOPE-EXTENT-map-key": [
+      "src/name_resolution/scope_extent_index.rs",
+      "scope,\n                });",
+      "scope: record.id,\n                });",
+      "name_resolution::scope_extent_index::tests::crossing_extents_ties_boundaries_and_map_keys"
+    ],
+    "SCOPE-EXTENT-fallback": [
+      "src/name_resolution/scope_extent_index.rs",
+      "return scan(self, file, byte);",
+      "return index.enclosing(file, byte);",
+      "name_resolution::scope_extent_index::tests::mutation_invalidation_and_stale_count_fallback"
+    ],
+    "SCOPE-EXTENT-add-scope-invalidate": [
+      "src/name_resolution/graph.rs",
+      "self.scope_extent_index.invalidate();",
+      "// dropped scope invalidation",
+      "name_resolution::scope_extent_index::tests::mutation_invalidation_and_stale_count_fallback"
+    ],
+    "SCOPE-EXTENT-explicit-invalidate": [
+      "src/name_resolution/binding_index.rs",
+      "self.scope_extent_index.invalidate();",
+      "// dropped extent invalidation",
+      "name_resolution::scope_extent_index::tests::mutation_invalidation_and_stale_count_fallback"
+    ],
+    "SCOPE-EXTENT-debug-check": [
+      "src/name_resolution/scope_extent_index.rs",
+      "assert_eq!(\n                found,\n                scan(self, file, byte),",
+      "assert_eq!(\n                found,\n                found,",
+      "name_resolution::scope_extent_index::tests::debug_check_detects_uninvalidated_extent_edit"
+    ],
+    "SCOPE-EXTENT-debug-cap": [
+      "src/name_resolution/scope_extent_index.rs",
+      "self.scopes.len() <= 4096",
+      "self.scopes.len() <= 4095",
+      "name_resolution::scope_extent_index::tests::debug_cross_check_is_bounded"
+    ],
+    "SCOPE-EXTENT-clone": [
+      "src/name_resolution/scope_extent_index.rs",
+      "fn clone(&self) -> Self {\n        Self::default()\n    }",
+      "fn clone(&self) -> Self {\n        Self(self.0.clone())\n    }",
+      "name_resolution::scope_extent_index::tests::serde_identity_clone_and_parallel_initialization"
+    ],
+    "SCOPE-EXTENT-old-scan": [
+      "src/name_resolution/rust_populator/mod.rs",
+      "graph.indexed_enclosing_scope(file, byte)",
+      "let mut best: Option<(ScopeId, usize)> = None; // (id, extent width)\n    for (id, scope) in &graph.scopes {\n        for ext in &scope.extents {\n            if ext.file != file {\n                continue;\n            }\n            let (lo, hi) = (ext.range.lo.byte, ext.range.hi.byte);\n            if byte >= lo && byte < hi {\n                let width = hi - lo;\n                let take = match best {\n                    None => true,\n                    Some((bid, bw)) => width < bw || (width == bw && *id > bid),\n                };\n                if take {\n                    best = Some((*id, width));\n                }\n            }\n        }\n    }\n    best.map(|(id, _)| id)",
+      "name_resolution::scope_extent_index::tests::rust_repos_match_reference_and_build_file_index"
+    ]
+  },
+  "extra": {
+    "SCOPE-EXTENT-clone": [
+      [
+        "src/name_resolution/scope_extent_index.rs",
+        "#[derive(Debug)]\nstruct Extent {",
+        "#[derive(Debug, Clone)]\nstruct Extent {"
+      ],
+      [
+        "src/name_resolution/scope_extent_index.rs",
+        "#[derive(Debug)]\nstruct ExtentIndex {",
+        "#[derive(Debug, Clone)]\nstruct ExtentIndex {"
+      ]
+    ]
+  }
+}

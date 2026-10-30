@@ -17,4 +17,5 @@ pub mod glob_stats;
 pub mod graph;
 pub mod rust_policy;
 pub mod rust_populator;
+pub mod scope_extent_index;
 pub mod types;
