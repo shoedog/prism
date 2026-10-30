@@ -59,11 +59,12 @@ impl CallGraph {
                 .into_iter()
                 .flatten()
             {
-                let (visible, exact) = crate::go_owner_partition::exact_cross_package_visibility(
-                    caller_file,
-                    &declaration.defining_file,
-                    &self.go_file_profiles,
-                );
+                let (visible, exact) =
+                    crate::go_owner_partition::reference_cross_package_visibility(
+                        caller_file,
+                        &declaration.defining_file,
+                        &self.go_file_profiles,
+                    );
                 if !visible {
                     continue;
                 }

@@ -9,13 +9,16 @@ mod uses;
 
 impl CodePropertyGraph {
     pub(super) fn assemble_step5c_return_flow(
-        cg: &CallGraph,
+        go_satisfiers: &crate::resolution::go_satisfiers::GoSatisfierMemo<'_>,
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
         func_index: &BTreeMap<(String, String, usize), NodeIndex>,
         graph: &mut DiGraph<CpgNode, CpgEdge>,
         location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> ReturnFlowStats {
+        let cg = go_satisfiers.graph();
+        #[cfg(test)]
+        go_satisfiers.set_phase(2);
         #[cfg(test)]
         if step5c_reference::enabled() {
             return Self::assemble_step5c_return_flow_reference(
@@ -29,7 +32,6 @@ impl CodePropertyGraph {
         }
         // Step 5c adds only ReturnValue nodes: Variable Use identities stay fixed.
         let uses = uses::UseIndex::new(graph);
-        let go_satisfiers = crate::resolution::go_satisfiers::GoSatisfierMemo::new(cg);
         let shared_returns = callee_returns::ReturnCache::new(files);
         let mut stats = ReturnFlowStats::default();
         let mut return_value_index: BTreeMap<

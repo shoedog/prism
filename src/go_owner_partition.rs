@@ -4,6 +4,8 @@
 //! snapshot retains its defining file so consumers can apply the caller's
 //! package/build visibility and certainty floor at consult time.
 
+pub(crate) mod visibility;
+
 use crate::resolution::GoOwnerIdentity;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -213,24 +215,7 @@ pub(crate) fn exact_cross_package_visibility(
     defining_file: &str,
     profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> (bool, bool) {
-    let (Some(caller), Some(defining)) = (profiles.get(caller_file), profiles.get(defining_file))
-    else {
-        return (true, false);
-    };
-    let caller_owns_test_namespace = crate::resolution::dir_of(caller_file)
-        == crate::resolution::dir_of(defining_file)
-        && caller.package_clause == defining.package_clause;
-    if defining.is_test_file && !caller_owns_test_namespace {
-        return (false, true);
-    }
-    let mut target_caller = caller.clone();
-    target_caller.package_clause = defining.package_clause.clone();
-    let visibility =
-        crate::go_build_profile::go_same_package_visible_detailed(&target_caller, defining);
-    let exact = visibility.visible
-        && crate::go_build_profile::profile_allows_exact(Some(caller))
-        && crate::go_build_profile::visibility_allows_exact(Some(defining), &visibility);
-    (visibility.visible, exact)
+    visibility::uncached(caller_file, defining_file, profiles)
 }
 
 /// Exact build/test visibility for a P5 registration site. Registration
@@ -241,27 +226,7 @@ fn exact_registration_visibility(
     registration_file: &str,
     profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
 ) -> (bool, bool) {
-    let (Some(caller), Some(registration)) =
-        (profiles.get(caller_file), profiles.get(registration_file))
-    else {
-        return (true, false);
-    };
-    let caller_owns_test_namespace = crate::resolution::dir_of(caller_file)
-        == crate::resolution::dir_of(registration_file)
-        && caller.package_clause == registration.package_clause;
-    if registration.is_test_file && !caller_owns_test_namespace {
-        return (false, true);
-    }
-    let mut registration_caller = caller.clone();
-    registration_caller.package_clause = registration.package_clause.clone();
-    let visibility = crate::go_build_profile::go_same_package_visible_detailed(
-        &registration_caller,
-        registration,
-    );
-    let exact = visibility.visible
-        && crate::go_build_profile::profile_allows_exact(Some(caller))
-        && crate::go_build_profile::visibility_allows_exact(Some(registration), &visibility);
-    (visibility.visible, exact)
+    visibility::uncached(caller_file, registration_file, profiles)
 }
 
 /// Filter provenance-bearing values, union target sets from compatible profile
@@ -489,3 +454,31 @@ pub use crate::go_owner_partition_s4::{
     select_interface_presence_with_mode, select_interface_signatures,
     select_interface_signatures_with_mode, select_own_method, select_own_method_with_mode,
 };
+
+/// Frozen clone-and-override implementation, shared by the two originally
+/// identical helpers. Production caching must match this independent oracle.
+#[cfg(test)]
+pub(crate) fn reference_cross_package_visibility(
+    caller_file: &str,
+    defining_file: &str,
+    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+) -> (bool, bool) {
+    let (Some(caller), Some(defining)) = (profiles.get(caller_file), profiles.get(defining_file))
+    else {
+        return (true, false);
+    };
+    let caller_owns_test_namespace = crate::resolution::dir_of(caller_file)
+        == crate::resolution::dir_of(defining_file)
+        && caller.package_clause == defining.package_clause;
+    if defining.is_test_file && !caller_owns_test_namespace {
+        return (false, true);
+    }
+    let mut target_caller = caller.clone();
+    target_caller.package_clause = defining.package_clause.clone();
+    let visibility =
+        crate::go_build_profile::go_same_package_visible_detailed(&target_caller, defining);
+    let exact = visibility.visible
+        && crate::go_build_profile::profile_allows_exact(Some(caller))
+        && crate::go_build_profile::visibility_allows_exact(Some(defining), &visibility);
+    (visibility.visible, exact)
+}

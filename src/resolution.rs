@@ -1514,6 +1514,7 @@ impl CallGraph {
                 method_name,
                 caller_file,
                 include_promoted,
+                None,
             ),
         }
     }
