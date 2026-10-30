@@ -78,17 +78,17 @@
       "if false {",
       "ast::singleton_rvalue_spans::tests::manual_singletons_match_frozen_manual_walk"
     ],
-    "UB14-drop-manual-origin": [
-      "src/ast/singleton_rvalue_spans.rs",
-      "retain_origin(out, begin, line);",
-      "",
-      "ast::singleton_rvalue_spans::tests::manual_singletons_match_frozen_manual_walk"
-    ],
     "UB15-reverse-span-order": [
       "src/ast/singleton_rvalue_spans.rs",
       "spans.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));",
       "spans.sort_by_key(|span| std::cmp::Reverse((span.line, span.start_byte, span.end_byte)));",
       "cpg::reaching::scope::use_byte_tests::singleton_origin_and_order"
+    ],
+    "UB16-manual-keep-other-lines": [
+      "src/ast/singleton_rvalue_spans.rs",
+      "out.extend(spans.into_iter().filter(|span| span.line == line));",
+      "out.extend(spans);",
+      "ast::singleton_rvalue_spans::tests::manual_singletons_match_frozen_manual_walk"
     ]
   },
   "extra": {

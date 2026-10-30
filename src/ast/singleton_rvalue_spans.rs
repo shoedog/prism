@@ -15,7 +15,7 @@ impl ParsedFile {
         let scope = self.rvalue_query_scope(owner);
         let mut spans = Vec::new();
         if get_query(self.language, QueryKind::Assignments).is_none() {
-            self.singleton_spans_manual(*owner, lines, &scope, true, &mut spans);
+            self.singleton_spans_manual(*owner, lines, &mut spans);
         } else {
             for (kind, capture_name) in [
                 (QueryKind::Assignments, "assign"),
@@ -96,61 +96,21 @@ impl ParsedFile {
         }
     }
 
+    /// Pre-query fallback (no Assignments query for the language): one frozen
+    /// manual walk per requested line, keeping that line's spans, exactly as
+    /// the old per-request lookup did. Batching this walk is not equivalent: a
+    /// selected `return` stops the walk before captures starting on a later
+    /// requested line inside it.
     fn singleton_spans_manual(
         &self,
-        node: Node<'_>,
+        owner: Node<'_>,
         lines: &BTreeSet<usize>,
-        scope: &RvalueQueryScope,
-        root: bool,
         out: &mut Vec<PathSpan>,
     ) {
-        if !self.rvalue_scope_allows_node(scope, node, root) {
-            return;
-        }
-        if !root && matches!(scope, RvalueQueryScope::CallableBody { .. }) {
-            if Self::is_rvalue_class_node(node.kind()) {
-                self.singleton_spans_manual(
-                    node,
-                    lines,
-                    &RvalueQueryScope::LegacyInventory,
-                    false,
-                    out,
-                );
-                return;
-            }
-            if self.rvalue_is_nested_callable(scope, node) {
-                if node.kind() == "method_definition" {
-                    if let Some(name) = node.child_by_field_name("name") {
-                        let line = name.start_position().row + 1;
-                        if name.kind() == "computed_property_name" && lines.contains(&line) {
-                            let begin = out.len();
-                            self.collect_identifier_path_spans_scoped(name, scope, out);
-                            retain_origin(out, begin, line);
-                        }
-                    }
-                }
-                return;
-            }
-        }
-        let line = node.start_position().row + 1;
-        if lines.contains(&line) {
-            let begin = out.len();
-            if self.language.is_assignment_node(node.kind()) {
-                self.singleton_assignment_spans(node, scope, out);
-            }
-            if self.language.is_call_node(node.kind()) {
-                self.singleton_call_spans(node, scope, out);
-            }
-            if self.language.is_return_node(node.kind()) {
-                self.collect_return_node_value_spans_scoped(node, scope, out);
-                retain_origin(out, begin, line);
-                return;
-            }
-            retain_origin(out, begin, line);
-        }
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            self.singleton_spans_manual(child, lines, scope, false, out);
+        for &line in lines {
+            let mut spans = Vec::new();
+            self.collect_rvalue_spans_manual(owner, &BTreeSet::from([line]), &mut spans);
+            out.extend(spans.into_iter().filter(|span| span.line == line));
         }
     }
 
@@ -214,13 +174,15 @@ mod tests {
             (Language::TypeScript, "function f(x,obj) {\nobj.a += x;\nconsume(\nconsume(x));\nfunction nested() { consume(x); }\nclass C { [obj.a]() { return x; } }\nreturn x;\n}\n"),
             (Language::Python, "def f(x):\n    x += x\n    consume(\n        consume(x))\n    def nested():\n        return x\n    return x\n"),
             (Language::Bash, "f() {\nx=$y\necho $x $x\n}\n"),
+            // Review witnesses: a capture on a later requested line inside a multiline return.
+            (Language::TypeScript, "function f(x) {\nreturn consume(\nconsume(x), x);\n}\n"),
+            (Language::Python, "def f(x, h):\n    return (x,\n        g(x, h.x))\n"),
         ] {
             let parsed = ParsedFile::parse("manual", source, language).unwrap();
             let lines: BTreeSet<_> = (0..=source.lines().count() + 1).collect();
             for owner in parsed.all_functions().into_iter().chain([parsed.tree.root_node()]) {
-                let scope = parsed.rvalue_query_scope(&owner);
                 let mut actual = Vec::new();
-                parsed.singleton_spans_manual(owner, &lines, &scope, true, &mut actual);
+                parsed.singleton_spans_manual(owner, &lines, &mut actual);
                 actual.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));
                 let mut expected: Vec<_> = lines.iter().flat_map(|line| {
                     let mut spans = Vec::new();
