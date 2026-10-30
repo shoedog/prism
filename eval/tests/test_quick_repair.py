@@ -525,7 +525,7 @@ def test_out_dir_honored_without_writing_baseline_reports(monkeypatch, tmp_path)
     out = tmp_path / "separate"
     monkeypatch.setattr(cli, "EVAL_DIR", tmp_path)
     monkeypatch.setattr(cli, "load_corpora", lambda: {"corpus": {"tiny": {"lang": "ts"}}, "defaults": {}})
-    monkeypatch.setattr(cli, "run_corpus", lambda *args: {
+    monkeypatch.setattr(cli, "run_corpus", lambda *_args, **_kwargs: {
         "meta": {"corpus": "tiny", "date": "test", "baseline_invalid": False}})
     destinations = []
     monkeypatch.setattr(cli, "write_reports", lambda run, path: destinations.append(path))

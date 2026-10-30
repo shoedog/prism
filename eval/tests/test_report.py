@@ -468,7 +468,7 @@ def test_run_corpus_matches_snapshot_symbols_not_drifting_live_inventory(
 def test_main_continues_after_corpus_error(monkeypatch, tmp_path):
     from tier_a import cli
 
-    def fail_corpus(*_args):
+    def fail_corpus(*_args, **_kwargs):
         raise RuntimeError("missing gopls")
 
     monkeypatch.setattr(cli, "EVAL_DIR", tmp_path)
