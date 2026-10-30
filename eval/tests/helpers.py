@@ -111,7 +111,7 @@ def copy_eval_policy_files(tmp: Path) -> Path:
         "accounting.py",
         "spotcheck.py",
         "pinned.py",
-        "cli.py",
+        "policy.py",
     ):
         shutil.copy2(EVAL_DIR / "tier_a" / name, tier_a / name)
     return destination

@@ -38,7 +38,7 @@ _POLICY_MODULES = (
     "accounting.py",
     "spotcheck.py",
     "pinned.py",
-    "cli.py",
+    "policy.py",
 )
 
 _CORPUS_CONTROL_FILES = {

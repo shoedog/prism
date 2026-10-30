@@ -5,6 +5,7 @@ import unicodedata
 
 import pytest
 
+from tier_a import cli
 from tier_a.model import FunctionDef, Location
 from tier_a.closure import (
     canonical_path,
@@ -16,11 +17,51 @@ from tier_a.closure import (
     raw_digest,
     sut_inputs_manifest,
 )
+from tier_a.lock import integrity_check
 from tests.helpers import (
     _write_stub_cargo_metadata,
     copy_eval_policy_files,
     edit,
     git_repo,
+    anchored_repo,
+)
+
+
+POLICY_MODULES = {
+    "tier_a/accounting.py",
+    "tier_a/corpus.py",
+    "tier_a/pinned.py",
+    "tier_a/policy.py",
+    "tier_a/spotcheck.py",
+    "tier_a/strata.py",
+}
+
+CLI_POLICY_DEFINITIONS = (
+    "seed_id",
+    "_site_parts",
+    "_edges",
+    "_dispatch_kind_for_site",
+    "_tier_for_site",
+    "_site_key",
+    "_pair_metrics",
+    "_site_fingerprints_for_probes",
+    "check_pinned",
+    "_pinned_accounting_outcome",
+    "_pending_for_probe",
+    "_compute_m2_and_pending",
+    "compute_m2_from_probes",
+    "recompute_metrics_from_stored",
+    "resolve_capability",
+    "OracleInventoryResult",
+    "oracle_inventory",
+    "_stored_sites",
+    "_stored_functions",
+    "package_dirs",
+    "match_snapshot_to_prism",
+    "matrix_result_to_json",
+    "run_m3_spotcheck",
+    "summarize_m2",
+    "select_corpora",
 )
 
 
@@ -76,6 +117,35 @@ def test_policy_digest_catches_floor_and_minimum_edits(tmp_path):        # T-aâ€
     after_minimum = policy_digest(policy_manifest(ev2))
     assert before_minimum == before_floor
     assert after_minimum != before_minimum
+
+
+def test_policy_digest_ignores_cli_orchestration_edits(tmp_path):
+    lock, ev, _repo = anchored_repo(tmp_path)
+    assert integrity_check(lock, ev) == []
+
+    with (ev / "tier_a/cli.py").open("a") as f:
+        f.write("\n# unrelated orchestration-only helper comment\n")
+
+    assert integrity_check(lock, ev) == []
+
+
+def test_policy_digest_tracks_every_policy_module(tmp_path):
+    lock, ev, _repo = anchored_repo(tmp_path)
+    manifest = policy_manifest(ev)
+    assert set(manifest["modules"]) == POLICY_MODULES
+
+    for relative in sorted(POLICY_MODULES):
+        path = ev / relative
+        original = path.read_bytes()
+        path.write_bytes(original + b"\n# policy mutation\n")
+        assert "policy_digest_moved" in integrity_check(lock, ev), relative
+        path.write_bytes(original)
+        assert integrity_check(lock, ev) == [], relative
+
+
+def test_cli_policy_definitions_originate_in_policy_module():
+    for name in CLI_POLICY_DEFINITIONS:
+        assert getattr(cli, name).__module__ == "tier_a.policy", name
 
 
 def test_population_manifest_records_package_dirs_and_rule():           # T-lâ€²

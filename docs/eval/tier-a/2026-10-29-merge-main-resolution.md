@@ -53,3 +53,20 @@ supersede or refine its operational resolutions:
 | `895bd9a0`, `c29580de`, `03205571`, `48168664` | Fold round 1 hardened oracle-failure partitioning, invalid-leg refusal, scorer-consistent lost-match detection, and identity-shape admission. |
 | `0de8fdcb`, `26655b67`, `d405c46c` | Made test tool versions hermetic, invalidated all live-tree measurements, refused lock sample overrides, and refused lockless quick runs. |
 | `6d439882`, `8f8b60b9`, `5be1589c` | Bound every lock leg to a private executable snapshot and digest-partitioned cache, isolated harness bytecode before imports, and rebound the committed comparison to committed leg records. |
+| fold 2 (this commit) | Replaced the whole-`cli.py` policy digest with `policy.py`, so orchestration-only CLI edits do not un-admit the anchor while every measured-definition edit remains bound. |
+
+### Fold 2 policy-source census (DECISIONS §P.6, item 38 option A)
+
+This is the exhaustive pre-move census of top-level functions and constants in
+`cli.py`. Names grouped in one row have the same disposition and evidence.
+
+| Classification | `cli.py` names | Disposition and evidence |
+|---|---|---|
+| Policy: site identity and stored-site semantics | `seed_id`; `_site_parts`; `_edges`; `_dispatch_kind_for_site`; `_tier_for_site`; `_site_key`; `_site_fingerprints_for_probes`; `_stored_sites`; `_stored_functions` | Moved to `policy.py`: these define probe identity, replayed sites/functions, candidate tier, dispatch kind, and adjudication fingerprints consumed by M2/M3. |
+| Policy: scoring, correction, pending, and report metrics | `_pair_metrics`; `_pending_for_probe`; `_compute_m2_and_pending`; `compute_m2_from_probes`; `recompute_metrics_from_stored`; `summarize_m2` | Moved to `policy.py`: their outputs are TP/FP/FN, corrected metrics, pending/stale counts, and aggregate report metrics. |
+| Policy: errors and baseline validity | `check_pinned`; `_pinned_accounting_outcome` | Moved to `policy.py`: these decide corpus-pin invalidity and which pinned outcomes enter oracle/SUT error rates. The inline `run_corpus` classifications for live inputs, failures, seed eligibility, scored outcomes, and invalid reasons were also extracted into policy helpers. |
+| Policy: universe, eligibility, and sample selection | `resolve_capability`; `OracleInventoryResult`; `oracle_inventory`; `package_dirs`; `match_snapshot_to_prism`; `select_corpora` | Moved to `policy.py`: these decide supported inventory, document-symbol errors, Python package scope, snapshot/SUT eligibility, and the corpus universe selected for measurement. |
+| Policy: M3 and matrix report semantics | `matrix_result_to_json`; `run_m3_spotcheck` | Moved to `policy.py`: these define persisted matrix outcomes and M3 sampled classifications/counts. |
+| Orchestration constant | `EVAL_DIR` | Retained in `cli.py`: it locates config, inputs, and output directories but defines no measured quantity. |
+| Orchestration functions | `load_corpora`; `make_oracle` | Retained in `cli.py`: configuration/path loading and adapter/subprocess construction; policy-bearing config values and classifications are supplied by digest-bound inputs/helpers. |
+| Orchestration functions after policy extraction | `run_corpus`; `invalid_corpus_run`; `main` | Retained in `cli.py`: process lifecycle, timing/progress, dispatch, I/O, and record assembly. Metric/error/validity choices are delegated to `policy.py`, `accounting.py`, `corpus.py`, `strata.py`, `spotcheck.py`, and `pinned.py`. |

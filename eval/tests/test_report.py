@@ -174,7 +174,7 @@ def test_replay_reports_function_level_metrics_and_pending_records():
 
 
 def test_replay_reports_stale_adjudication_count(monkeypatch):
-    from tier_a import cli
+    from tier_a import cli, policy
     from tier_a.adjudication import Adjudication
 
     probes = {
@@ -199,7 +199,7 @@ def test_replay_reports_stale_adjudication_count(monkeypatch):
         adjudicated_by="t",
         date="2026-06-11",
     )
-    monkeypatch.setattr(cli, "load_records", lambda _path: [stale])
+    monkeypatch.setattr(policy, "load_records", lambda _path: [stale])
 
     run = cli.recompute_metrics_from_stored({"meta": {"corpus": "prism"}, "probes": probes})
     assert run["meta"]["stale_adjudications"] == 1
