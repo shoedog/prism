@@ -14,7 +14,6 @@ from pathlib import Path
 
 from tier_a.adjudication import Adjudication, validate
 from tier_a.closure import (
-    _POLICY_MODULES,
     canonical_path,
     corpus_manifest,
     manifest_digest,
@@ -105,10 +104,12 @@ def copy_fixture(name: str, tmp: Path) -> Path:
 def copy_eval_policy_files(tmp: Path) -> Path:
     destination = tmp / "eval"
     tier_a = destination / "tier_a"
-    tier_a.mkdir(parents=True)
+    shutil.copytree(
+        EVAL_DIR / "tier_a",
+        tier_a,
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
     shutil.copy2(EVAL_DIR / "corpora.toml", destination / "corpora.toml")
-    for name in _POLICY_MODULES:
-        shutil.copy2(EVAL_DIR / "tier_a" / name, tier_a / name)
     return destination
 
 

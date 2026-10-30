@@ -488,6 +488,23 @@ def test_open_audit_installs_one_dispatcher_and_scopes_collectors(tmp_path, monk
     assert second.opens == {"eval/second.json"}
 
 
+def test_open_audit_records_subprocess_argv(tmp_path, monkeypatch):
+    hooks = []
+    monkeypatch.setattr(boundary.sys, "addaudithook", hooks.append)
+    monkeypatch.setattr(boundary, "_AUDIT_DISPATCHER_INSTALLED", False, raising=False)
+    monkeypatch.setattr(boundary, "_ACTIVE_OPEN_AUDITS", [], raising=False)
+    eval_dir = tmp_path / "eval"
+    eval_dir.mkdir()
+
+    with OpenAudit(eval_dir) as audit:
+        hooks[0](
+            "subprocess.Popen",
+            ("git", ["git", "-C", str(tmp_path), "status"], None, None),
+        )
+
+    assert audit.processes == [("git", "-C", str(tmp_path), "status")]
+
+
 def test_tracked_sut_input_is_verified_from_sut_commit_not_worktree(tmp_path):
     from tier_a.closure import read_tsv, write_tsv
 

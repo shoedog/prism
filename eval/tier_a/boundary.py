@@ -87,8 +87,14 @@ class OpenAudit:
         self.repo = self.eval_dir.parent
         self.artifacts = artifacts
         self.opens: set[str] = set()
+        self.processes: list[tuple[str, ...]] = []
 
     def _record(self, event: str, args: tuple) -> None:
+        if event == "subprocess.Popen" and len(args) >= 2:
+            argv = args[1]
+            if isinstance(argv, (list, tuple)):
+                self.processes.append(tuple(os.fsdecode(item) for item in argv))
+            return
         if event != "open" or not args:
             return
         raw = args[0]

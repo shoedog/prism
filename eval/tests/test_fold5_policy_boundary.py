@@ -1,15 +1,19 @@
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from tests.helpers import edit
+from tier_a.boundary import load_declared_inputs
 from tier_a.closure import (
     _POLICY_EXCLUSIONS,
     policy_digest,
     policy_manifest,
 )
+from tier_a.lock import load_lock
 
 
 EVAL_DIR = Path(__file__).resolve().parents[1]
@@ -95,3 +99,56 @@ def test_only_justified_plumbing_modules_are_outside_measurement_import_closure(
         "interfaces.py",
         "manifest.py",
     }
+
+
+def test_audit_hook_every_repo_read_or_execution_is_bound_or_justified():
+    allowlist = {
+        "eval/tier-a.lock.toml": "anchor authority record cannot digest itself",
+    }
+    active = True
+    opens = set()
+    processes = []
+
+    def audit_hook(event, args):
+        if not active:
+            return
+        if event == "open" and args and isinstance(args[0], (str, bytes, os.PathLike)):
+            try:
+                opens.add(
+                    Path(os.fsdecode(args[0])).resolve().relative_to(REPO).as_posix()
+                )
+            except (OSError, ValueError):
+                pass
+        elif event == "subprocess.Popen" and len(args) >= 2:
+            processes.append(tuple(os.fsdecode(item) for item in args[1]))
+
+    sys.addaudithook(audit_hook)
+    try:
+        policy = policy_manifest(EVAL_DIR)
+        lock = load_lock(EVAL_DIR / "tier-a.lock.toml")
+        declared = load_declared_inputs(lock, EVAL_DIR)
+    finally:
+        active = False
+
+    policy_paths = {
+        f"eval/{path}" for path in policy["modules"]
+    } | {
+        "eval/corpora.toml",
+        "src/repo_loader.rs",
+    }
+    data_paths = set(declared.digests)
+    assert opens - policy_paths - data_paths == set(allowlist)
+    assert allowlist == {
+        "eval/tier-a.lock.toml": "anchor authority record cannot digest itself",
+    }
+
+    repo_argv = {
+        argument
+        for argv in processes
+        for argument in argv
+        if str(REPO) in argument
+    }
+    assert repo_argv == set()
+    assert processes
+    assert {argv[0] for argv in processes} == {"git"}
+    assert {argv[1] for argv in processes} == {"rev-parse", "ls-files"}
