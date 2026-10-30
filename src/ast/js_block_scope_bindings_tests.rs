@@ -364,7 +364,17 @@ fn fence_predicate_matches_escaped_binders_by_decoded_name() {
     let params = p.all_functions()[0]
         .child_by_field_name("parameters")
         .unwrap();
-    for (name, expected) in [("a", true), ("b", true), ("c", true), ("d", false), ("k", false)] {
-        assert_eq!(p.js_ts_fence_pattern_binds(params, name), expected, "{name}");
+    for (name, expected) in [
+        ("a", true),
+        ("b", true),
+        ("c", true),
+        ("d", false),
+        ("k", false),
+    ] {
+        assert_eq!(
+            p.js_ts_fence_pattern_binds(params, name),
+            expected,
+            "{name}"
+        );
     }
 }
