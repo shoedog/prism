@@ -75,11 +75,8 @@ _POLICY_EXCLUSIONS = {
 
 _CORPUS_CONTROL_FILES = {
     "Cargo.lock",
-    "Cargo.toml",
     "build.rs",
-    "go.mod",
     "go.sum",
-    "go.work",
     "pyproject.toml",
     "rust-project.json",
     "rust-toolchain",
@@ -87,8 +84,30 @@ _CORPUS_CONTROL_FILES = {
 }
 
 
+def _native_loader_manifest_basenames(source_path: Path | None = None) -> frozenset[str]:
+    """Derive the recursive manifest topology from the native loader predicate."""
+    if source_path is None:
+        source_path = Path(__file__).resolve().parents[2] / "src/repo_loader.rs"
+    source = source_path.read_text()
+    predicate = re.search(
+        r"fn is_manifest_name\(name: &str\) -> bool \{(.*?)\n\}", source, re.S
+    )
+    if predicate is None:
+        raise ValueError("native_manifest_predicate_unreadable")
+    names = frozenset(re.findall(r'"([^"]+)"', predicate.group(1)))
+    if not names:
+        raise ValueError("native_manifest_predicate_empty")
+    return names
+
+
+_NATIVE_MANIFEST_BASENAMES = _native_loader_manifest_basenames()
+
+
 def _is_corpus_control_path(path: str) -> bool:
-    return path in _CORPUS_CONTROL_FILES or PurePosixPath(path).name == "Cargo.toml"
+    return (
+        path in _CORPUS_CONTROL_FILES
+        or PurePosixPath(path).name in _NATIVE_MANIFEST_BASENAMES
+    )
 
 
 def corpus_control_paths(root: Path, *, tracked_only: bool) -> list[str]:
@@ -164,10 +183,11 @@ def checkout_corpus_manifest(
         if not disk_path.is_file():
             continue
         lexical_path = disk_path.relative_to(root).as_posix()
-        path = canonical_path(root, disk_path)
+        is_control = _is_corpus_control_path(lexical_path)
+        path = lexical_path if is_control else canonical_path(root, disk_path)
         if (
             lexical_path in expected_paths
-            or _is_corpus_control_path(lexical_path)
+            or is_control
             or (
                 lexical_path.endswith(extensions)
                 and not any(

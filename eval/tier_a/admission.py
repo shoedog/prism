@@ -151,6 +151,12 @@ def _paths_alias(left: Path, right: Path) -> bool:
 def _refuse_compare_output_aliases(
     outputs: tuple[Path, ...], inputs: tuple[Path, ...]
 ) -> None:
+    for index, output in enumerate(outputs):
+        for peer in outputs[index + 1 :]:
+            if _paths_alias(output, peer):
+                raise ValueError(
+                    f"compare_outputs_alias_each_other: {output} -> {peer}"
+                )
     for output in outputs:
         for source in inputs:
             if _paths_alias(output, source):
