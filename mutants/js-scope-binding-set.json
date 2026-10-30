@@ -1,0 +1,122 @@
+{
+  "lane": "JS/TS function body binding-name sets",
+  "lib_test_prefixes": [
+    "ast::callback_identity::js_scope_bindings::tests::"
+  ],
+  "mutations": {
+    "JSSET-drop-callable-skip": [
+      "src/ast/js_scope_bindings.rs",
+      "boundaries.contains(&node.kind())",
+      "false && boundaries.contains(&node.kind())",
+      "ast::callback_identity::js_scope_bindings::tests::differential_js_ts_tsx"
+    ],
+    "JSSET-drop-class-skip": [
+      "src/ast/js_scope_bindings.rs",
+      "\"class_static_block\" | \"class\" | \"class_declaration\"",
+      "\"never_class\"",
+      "ast::callback_identity::js_scope_bindings::tests::differential_js_ts_tsx"
+    ],
+    "JSSET-drop-root-exception": [
+      "src/ast/js_scope_bindings.rs",
+      "if node.id() != body.id()",
+      "if true",
+      "ast::callback_identity::js_scope_bindings::tests::differential_js_ts_tsx"
+    ],
+    "JSSET-drop-var": [
+      "src/ast/js_scope_bindings.rs",
+      "if node.kind() == \"variable_declaration\"",
+      "if node.kind() == \"never_variable_declaration\"",
+      "ast::callback_identity::js_scope_bindings::tests::differential_js_ts_tsx"
+    ],
+    "JSSET-drop-var-loop": [
+      "src/ast/js_scope_bindings.rs",
+      "p.node_text(&k) == \"var\"",
+      "p.node_text(&k) == \"never_var\"",
+      "ast::callback_identity::js_scope_bindings::tests::differential_js_ts_tsx"
+    ],
+    "JSSET-accept-lexical-loop": [
+      "src/ast/js_scope_bindings.rs",
+      "p.node_text(&k) == \"var\"",
+      "matches!(p.node_text(&k), \"var\" | \"let\" | \"const\")",
+      "ast::callback_identity::js_scope_bindings::tests::differential_js_ts_tsx"
+    ],
+    "JSSET-drop-body-statements": [
+      "src/ast/js_scope_bindings.rs",
+      "if node.id() == body.id() && node.kind() == \"statement_block\"",
+      "if false && node.id() == body.id() && node.kind() == \"statement_block\"",
+      "ast::callback_identity::js_scope_bindings::tests::differential_js_ts_tsx"
+    ],
+    "JSSET-leak-block-statements": [
+      "src/ast/js_scope_bindings.rs",
+      "if node.id() == body.id() && node.kind() == \"statement_block\"",
+      "if node.kind() == \"statement_block\"",
+      "ast::callback_identity::js_scope_bindings::tests::differential_js_ts_tsx"
+    ],
+    "JSSET-decode-off": [
+      "src/ast/js_scope_bindings.rs",
+      "names.insert(decoded);",
+      "names.insert(text.to_owned());",
+      "ast::callback_identity::js_scope_bindings::tests::differential_js_ts_tsx"
+    ],
+    "JSSET-decode-refusal": [
+      "src/ast/js_scope_bindings.rs",
+      "} else if let Some(decoded) = ParsedFile::js_ts_decoded_identifier(text) {\n                names.insert(decoded);",
+      "} else {\n                names.insert(text.to_owned());",
+      "ast::callback_identity::js_scope_bindings::tests::differential_recovery_and_decoder_refusals"
+    ],
+    "JSSET-pair-key": [
+      "src/ast/js_scope_bindings.rs",
+      "child_by_field_name(\"value\")",
+      "child_by_field_name(\"key\")",
+      "ast::callback_identity::js_scope_bindings::tests::leaf_and_pattern_predicates_are_exact"
+    ],
+    "JSSET-assignment-right": [
+      "src/ast/js_scope_bindings.rs",
+      "child_by_field_name(\"left\")",
+      "child_by_field_name(\"right\")",
+      "ast::callback_identity::js_scope_bindings::tests::leaf_and_pattern_predicates_are_exact"
+    ],
+    "JSSET-parameter-type": [
+      "src/ast/js_scope_bindings.rs",
+      "child_by_field_name(\"pattern\")",
+      "child_by_field_name(\"type\")",
+      "ast::callback_identity::js_scope_bindings::tests::leaf_and_pattern_predicates_are_exact"
+    ],
+    "JSSET-unknown-pattern-binds": [
+      "src/ast/js_scope_bindings.rs",
+      "        _ => {}\n    }\n}\n\n#[cfg(test)]",
+      "        _ => { names.insert(\"absent\".to_owned()); }\n    }\n}\n\n#[cfg(test)]",
+      "ast::callback_identity::js_scope_bindings::tests::leaf_and_pattern_predicates_are_exact"
+    ],
+    "JSSET-body-key": [
+      "src/ast/binding_verdict_memo.rs",
+      "memo.borrow().bodies.get(&body.id())",
+      "memo.borrow().bodies.values().next()",
+      "ast::callback_identity::js_scope_bindings::tests::cache_file_body_and_boundary_keys"
+    ],
+    "JSSET-boundary-key": [
+      "src/ast/binding_verdict_memo.rs",
+      ".find(|entry| entry.boundaries == boundaries)",
+      ".find(|_| true)",
+      "ast::callback_identity::js_scope_bindings::tests::one_walk_per_body_and_boundaries_with_epoch_isolation"
+    ],
+    "JSSET-ignore-hits": [
+      "src/ast/binding_verdict_memo.rs",
+      "        return verdict;\n    }\n    let names = collect();",
+      "        let _ = verdict;\n    }\n    let names = collect();",
+      "ast::callback_identity::js_scope_bindings::tests::one_walk_per_body_and_boundaries_with_epoch_isolation"
+    ],
+    "JSSET-bypass-off": [
+      "src/ast_callback_identity.rs",
+      "if binding_verdict_memo::bypassed() {",
+      "if false && binding_verdict_memo::bypassed() {",
+      "ast::callback_identity::js_scope_bindings::tests::one_walk_per_body_and_boundaries_with_epoch_isolation"
+    ],
+    "JSSET-prechange-walk": [
+      "src/ast_callback_identity.rs",
+      "        binding_verdict_memo::function_scope_binds(self, body, boundaries, name, || {\n            js_scope_bindings::collect(self, body, boundaries)\n        })",
+      "        self.js_ts_function_scope_binds_reference(body, boundaries, name)",
+      "ast::callback_identity::js_scope_bindings::tests::one_walk_per_body_and_boundaries_with_epoch_isolation"
+    ]
+  }
+}

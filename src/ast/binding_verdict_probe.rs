@@ -27,6 +27,22 @@ pub(crate) fn observe(kind: &'static str, node: usize, region: u8, name: &str) {
 pub(crate) fn active() -> bool {
     COUNTS.with(|slot| slot.borrow().is_some())
 }
+pub(crate) fn count_body_walks(run: impl FnOnce()) -> usize {
+    struct Restore(Option<HashMap<&'static str, Counts>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            COUNTS.with(|slot| *slot.borrow_mut() = self.0.take());
+        }
+    }
+    let _restore = Restore(COUNTS.with(|slot| slot.replace(Some(HashMap::new()))));
+    run();
+    COUNTS.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .and_then(|counts| counts.get("function_body"))
+            .map_or(0, |counts| counts.total)
+    })
+}
 pub(crate) fn gate(kind: &'static str, node: usize, name: impl FnOnce() -> String) {
     if active() {
         observe(kind, node, 0, &name());
