@@ -192,7 +192,7 @@ def test_adjudications_digest_accepts_lock_shape_and_legacy_but_refuses_drift():
     candidate["meta"]["data"]["adjudications"]["digest"] = "sha256:different"
     assert (
         compare_runs(base, candidate, DECLARED_ADJ)["verdict"]
-        == "NOT_COMPARABLE(adjudications_digest)"
+        == "NOT_COMPARABLE(identity_invalid: candidate.data.adjudications.digest)"
     )
 
     legacy = fake_run(cand)
@@ -369,7 +369,7 @@ def test_added_prism_only_site_is_precision_only_not_a_matched_site_loss():
 
 def test_adjudicated_lost_matched_site_keeps_existing_recall_regression():
     ids = base_ids()
-    digest = "sha256:adjudicated-matched-site-loss"
+    digest = "sha256:" + "d" * 64
     candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": CANDIDATE_DIGEST}
     for leg in (ids, candidate_ids):
         leg["data"] = {"eval/adjudications.jsonl": {"digest": digest}}
