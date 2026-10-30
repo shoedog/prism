@@ -5,6 +5,7 @@ import json
 from collections import Counter
 
 from .adjudication import Adjudication
+from .compare import match_oracle_sites
 from .strata import STRATA
 
 
@@ -248,9 +249,17 @@ def _lost_matched_oracle_sites(comparable: dict) -> dict[str, list[list]]:
         if base_status not in _SCORED or cand_status not in _SCORED:
             continue
         oracle_sites = set(_canonical_sites(base or {}, "oracle_sites"))
-        base_matches = oracle_sites & set(_canonical_sites(base or {}, "prism_sites"))
-        candidate_matches = oracle_sites & set(
-            _canonical_sites(cand or {}, "prism_sites")
+        base_matches = set(
+            match_oracle_sites(
+                {site[:2] for site in _canonical_sites(base or {}, "prism_sites")},
+                oracle_sites,
+            ).values()
+        )
+        candidate_matches = set(
+            match_oracle_sites(
+                {site[:2] for site in _canonical_sites(cand or {}, "prism_sites")},
+                oracle_sites,
+            ).values()
         )
         lost = sorted(base_matches - candidate_matches)
         if lost:

@@ -280,7 +280,7 @@ def test_lost_match_guard_uses_the_scorers_tolerated_one_to_one_matches():
     assert cmp["lost_matched_oracle_sites"] == {
         pid: [["src/tolerated.rs", 11, 11]]
     }
-    assert cmp["verdict"] == "REGRESSION(no_recall_loss; no_lost_matched_oracle_sites)"
+    assert cmp["verdict"] == "REGRESSION(no_lost_matched_oracle_sites)"
 
 
 def test_equivalent_coordinate_movement_does_not_create_a_lost_match():
