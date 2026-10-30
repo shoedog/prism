@@ -322,7 +322,7 @@
   },
   "modules": {
     "tier_a/accounting.py": "sha256:807c4a1360d723f08329a80f8f686a112c013d3c4e80f7a6f03c7b60763e6875",
-    "tier_a/cli.py": "sha256:ae212334e14d6e59894da0178a5ddabaae4346a3c54a6a30d5d0c6fe6c2152a1",
+    "tier_a/cli.py": "sha256:292ed46e096d6f94f737dd5410738b0512a67b289eae62e7f8a9d1f14c3e7d76",
     "tier_a/corpus.py": "sha256:3a5cc9951bff17f581a3ca1ea62c301db94dcab4202bd4e4a6a573947f72d9a9",
     "tier_a/pinned.py": "sha256:c03b7180a7d95bc9b9f20f38a1a1d5f7c790403bc8f8c06c3c1afbe8feec1fa7",
     "tier_a/spotcheck.py": "sha256:32d7db5179dbc01ad23a726473246e458d3b94f2dbd7a5aa76d5add3966bfd87",

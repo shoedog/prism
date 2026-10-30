@@ -1,23 +1,23 @@
 [prism]
 sha_aliases = [
-    "289e4c1fa4c2406bd687091cda8f6938033aef0e",
+    "02d7c3787162d552e249f0fa76494bd4a8f9ba41",
 ]
-harness_sha = "289e4c1fa4c2406bd687091cda8f6938033aef0e"
+harness_sha = "02d7c3787162d552e249f0fa76494bd4a8f9ba41"
 
 [prism.closure]
 digest = "sha256:eb4125caabc455dbdaf3213f621ae16f53220e262ec7046303aa06cc735b02df"
 manifest = "eval/closure/prism-corpus-eb4125caabc4.tsv"
 
 [prism.policy]
-digest = "sha256:52c1f89b5310a480d050ba590e70f98a8a7a9e1dda270c2225f28b74abeca685"
-manifest = "eval/closure/policy-52c1f89b5310.json"
+digest = "sha256:e5221e63479f558ac724f4de1ca0c8147c098242cf367964369221847230dc64"
+manifest = "eval/closure/policy-e5221e63479f.json"
 
 [prism.population]
-digest = "sha256:921dca8858bc6a7e13eab0b54ec75e7301035dcba19ac41750ce4fd1645dce45"
-manifest = "eval/closure/prism-population-921dca8858bc.json"
+digest = "sha256:23e9c6a23bd5ad01d0e70e2745b022fa0b4919005b1bece7f7b1fa98f6a63349"
+manifest = "eval/closure/prism-population-23e9c6a23bd5.json"
 
 [prism.snapshot]
-path = "eval/snapshots/prism-289e4c1fa4c2.json"
+path = "eval/snapshots/prism-02d7c3787162.json"
 digest = "sha256:a64826a869c1dd5d68c384976a1318c057ef238312d804f0a4646f249cec9ea0"
 
 [prism.sample]
@@ -39,10 +39,10 @@ version = "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)"
 features = "all"
 
 [prism.sut]
-sha = "289e4c1fa4c2406bd687091cda8f6938033aef0e"
-digest = "sha256:1f5a79e1699df8f4e575cc79acb95e33235bd94945ee34d96e674b4f3264732b"
-inputs = "eval/closure/sut-inputs-51dc57ce5f77.tsv"
-archive = "/Users/wesleyjinks/Library/Caches/prism/tier-a/sut/1f5a79e1699df8f4e575cc79acb95e33235bd94945ee34d96e674b4f3264732b/prism"
+sha = "02d7c3787162d552e249f0fa76494bd4a8f9ba41"
+digest = "sha256:d67af4d7fffd284894626989a2bd309fa45aad5724f92c13277ba55d6d729d1c"
+inputs = "eval/closure/sut-inputs-680c7ce366d6.tsv"
+archive = "/Users/wesleyjinks/Library/Caches/prism/tier-a/sut/d67af4d7fffd284894626989a2bd309fa45aad5724f92c13277ba55d6d729d1c/prism"
 
 [prism.runtime]
 python = "3.12.13"
@@ -81,10 +81,10 @@ TMPDIR = "/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/"
 LANG = "C.UTF-8"
 
 [prism.baseline_report]
-path = "docs/eval/tier-a/2026-10-30-prism-289e4c1fa4c2406bd687091cda8f6938033aef0e-289e4c1fa4c2406bd687091cda8f6938033aef0e.json"
-digest = "sha256:2956b8e9755edb06b497640c645447f74ff89babbbb55ca981ba78be99f98e36"
+path = "docs/eval/tier-a/2026-10-30-prism-02d7c3787162d552e249f0fa76494bd4a8f9ba41-02d7c3787162d552e249f0fa76494bd4a8f9ba41.json"
+digest = "sha256:77034ab327075c24df41668a1cb25371636b6ba7124a52ce7283b318d05f7b4a"
 
 [prism.blessed]
 by = "bootstrap"
 at = "2026-10-30"
-sut_sha = "289e4c1fa4c2406bd687091cda8f6938033aef0e"
+sut_sha = "02d7c3787162d552e249f0fa76494bd4a8f9ba41"
