@@ -1,10 +1,33 @@
-# Handoff — shared per-repo prism daemon lane; S6 merged and the soak running (Phase 1 tonight, Phase 3 to 2026-10-20); DFG compaction complete; optimization round 2 being planned
+# Handoff — shared per-repo prism daemon and memory lane: CLOSED 2026-10-30 (I0 idle unload active by default, deployed and checked in real use)
 
 **Written:** 2026-10-17T22:45-06:00 · **By:** Claude Code session `fd583811-fdc5-4426-9c4a-55872d2ecc1c` (Opus 5.5, controller) · **Provider:** claude
 **Workspace:** `~/code/prism-handoff` · `docs/daemon-lane-handoff-s6` (this docs PR, from `origin/main` `45f155c6`) · **Measured state:** `[MEASURED]` HEAD = the commit that adds this revision · Tree CLEAN after that commit · Probe `git log origin/main 61c2a9e5..origin/main`, `gh pr view` on #417, #422, #424, #439, #440, #442, #446, #451; `ps`, `ls`, `shasum` on the soak deployment · Output inline in the session
 **Predecessor:** this session's handoff of 2026-10-16T13:35-06:00 (same file, previous revision, #421)
 **Truth ordering:** measured live state > explicit owner/contract authority within its scope > this handoff for current operational state > earlier handoffs and non-authoritative summaries. A conflict between tiers stays OPEN in §0 — never resolved by document class alone.
 **Provenance:** written live by the controller. `[MEASURED]` claims were probed by this writer this session (git, `gh`, `ps`, file reads); `[INHERITED]` claims were not, and name their source.
+
+## Lane closed — 2026-10-30 (supersedes every section below; they are kept as the 2026-10-17 record)
+
+`[MEASURED]` Written by the controller session `fd583811` (Opus 5.5) at closing. Everything below this section is the
+2026-10-17 revision and is historical.
+
+- **Soak:** closed on Phase 1 (#497 → `85bf9ca2`); Phase 3 inadmissible; decision B (default flip of `--shared`) deferred by the owner.
+- **Idle unload (I0):** freshness binding #500 (`ef18437f`); daemon lifecycle I0b-1 #508 (`6c46a465`) and options I0b-2 #512
+  (`ef5c15fb`); O-lite lifecycle facts #516 (`ae49d937`); shim forwarding I0c-1 #517 (`8e994fb4`); memreport collector I0c-2
+  #518 (`194d50e3`); `MallocSpaceEfficient=1` re-exec on macOS #537 (`af1675f9`); **activation #555 (`e71e3670`): the index
+  unloads after 600 s idle by default in stdio and shared mode.** Confirmation run: unloaded footprint 5–19 MiB in all six
+  cells, against about 1.9 GiB resident.
+- **Guards:** the `macos-footprint` CI job #566 (`f2eb3bbe`); test fixes #525, #564, #565.
+- **Deployed** 2026-10-29 from main `c84f3769` (prism-mcp sha256 prefix `8363c1b8b836`). **Real-use check** 2026-10-30: since the
+  redeploy, 17 idle unloads all fired at 600 s, with disposal taking 0.4–6.4 s. There were 3 reloads: 3.1 s on a CPG cache hit
+  and 14–19 s on a changed snapshot. The logs show no panics, errors or blocked-stderr symptoms. New-build processes sit at
+  1.5–1.7 MB when unloaded or unused. The one ~2 GiB process is an old-build standalone server from a client session that
+  predates the redeploy; it changes build when that session restarts.
+- **Recorded follow-ups (issues or review records; none in flight in this lane):** #501; #538; #537's unfolded review items; the
+  A+C relief readout returning 0 reload pairs; a more robust host-quiet ledger (#526 option 2); a host-quiet marker check in
+  the bridge launcher; the 2026-10-17 rows 11, 16, 17, 20, 21 and 25 below. #507 is handled as PR #570 outside this lane.
+- **Resume:** nothing to resume. A new memory or daemon slice starts from an owner decision; read `docs/MCP.md` (idle unload,
+  environment table) and the specs and plans in this directory first.
 
 ## 0. Gating facts — settle these before starting anything below
 
