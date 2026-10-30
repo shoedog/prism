@@ -33,6 +33,7 @@ mod js_binding_writes;
 mod js_cjs_export_barriers;
 mod js_cjs_terminal;
 mod js_generator;
+pub(crate) mod js_language_gate;
 mod js_module_forwarding;
 mod js_return_facts;
 mod js_wrapped_export;
