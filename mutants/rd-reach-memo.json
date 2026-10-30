@@ -1,0 +1,73 @@
+{
+  "mutations": {
+    "RM01-drop-identity": [
+      "src/cpg/reaching/reach_memo.rs",
+      "seen.insert(root);",
+      "// identity path omitted",
+      "cpg::reaching::reach_memo_tests::endpoints_filters_and_kill_domains"
+    ],
+    "RM02-allow-incomplete": [
+      "src/cpg/reaching/reach_memo.rs",
+      "if !incomplete && !seen.contains(next) {",
+      "if !seen.contains(next) {",
+      "cpg::reaching::reach_memo_tests::endpoints_filters_and_kill_domains"
+    ],
+    "RM03-wrong-reverse": [
+      "src/cpg/reaching/reach_memo.rs",
+      "reverse[to].push((from, incomplete));",
+      "reverse[from].push((to, incomplete));",
+      "cpg::reaching::reach_memo_tests::endpoints_filters_and_kill_domains"
+    ],
+    "RM04-drop-kill-barrier": [
+      "src/cpg/reaching/reach_memo.rs",
+      "if !self.kill[next].contains(def_index) {",
+      "if true {",
+      "cpg::reaching::reach_memo_tests::endpoints_filters_and_kill_domains"
+    ],
+    "RM05-drop-killed-endpoint": [
+      "src/cpg/reaching/reach_memo.rs",
+      "seen.insert(next);\n                            if !self.kill[next].contains(def_index) {",
+      "if !self.kill[next].contains(def_index) {\n                                seen.insert(next);",
+      "cpg::reaching::reach_memo_tests::endpoints_filters_and_kill_domains"
+    ],
+    "RM06-drop-definition-identity": [
+      "src/cpg/reaching/reach_memo.rs",
+      "seen.insert(from);",
+      "// definition identity omitted",
+      "cpg::reaching::reach_memo_tests::random_graph_and_classification_equivalence"
+    ],
+    "RM07-wrong-unmapped": [
+      "src/cpg/reaching/reach_memo.rs",
+      "let Some(from) = self.mapped_defs[def_index] else {\n            return false;",
+      "let Some(from) = self.mapped_defs[def_index] else {\n            return true;",
+      "cpg::reaching::reach_memo_tests::endpoints_filters_and_kill_domains"
+    ],
+    "RM08-repeat-forward-bfs": [
+      "src/cpg/reaching/reach_memo.rs",
+      "self.forward[from]\n            .get_or_insert_with(|| reachable(self.successors, from))\n            .contains(to)",
+      "super::graph::path_exists(self.successors, from, to, false)",
+      "cpg::reaching::reach_memo_tests::repeated_queries_build_only_one_row_per_key"
+    ],
+    "RM09-repeat-backward-bfs": [
+      "src/cpg/reaching/reach_memo.rs",
+      "self.backward[to]\n            .get_or_insert_with(|| reachable(&self.reverse, to))\n            .contains(from)",
+      "super::graph::path_exists(self.successors, from, to, false)",
+      "cpg::reaching::reach_memo_tests::repeated_queries_build_only_one_row_per_key"
+    ],
+    "RM10-repeat-definition-bfs": [
+      "src/cpg/reaching/reach_memo.rs",
+      "self.rows[def_index]\n            .get_or_insert_with(|| {",
+      "return super::graph::definition_reaches_unflagged(def_index, from, to, self.kill, self.successors);\n        self.rows[def_index]\n            .get_or_insert_with(|| {",
+      "cpg::reaching::reach_memo_tests::repeated_queries_build_only_one_row_per_key"
+    ],
+    "RM11-drop-kill-use-route": [
+      "src/cpg/reaching.rs",
+      "&& paths.reaches_target(*node, use_node)",
+      "&& true",
+      "cpg::reaching::reach_memo_tests::random_graph_and_classification_equivalence"
+    ]
+  },
+  "lib_test_prefixes": [
+    "cpg::reaching::"
+  ]
+}
