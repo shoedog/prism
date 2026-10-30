@@ -132,9 +132,17 @@ def check_pinned(cfg: dict, sha: str, allow: bool) -> tuple[bool, str | None]:
 
 
 def is_live_corpus(
-    name: str, requested_live: bool, has_identity: bool, has_manifest: bool
+    name: str,
+    requested_live: bool,
+    has_identity: bool,
+    has_manifest: bool,
+    *,
+    canonical_name: str | None = None,
 ) -> bool:
-    return requested_live or (name == "prism" and not has_identity and not has_manifest)
+    corpus = canonical_name or name
+    return requested_live or (
+        corpus == "prism" and not has_identity and not has_manifest
+    )
 
 
 def initial_run_invalid_reasons(

@@ -455,6 +455,7 @@ def run_quick_admitted(
     args,
     eval_dir: Path,
     *,
+    canonical_name: str | None = None,
     candidate=None,
     sut=None,
     re_anchor: bool = False,
@@ -513,11 +514,12 @@ def run_quick_admitted(
             lock.prism["sut"]["digest"],
             env=env,
         )
+    measurement_name = canonical_name or name
     with OpenAudit(eval_dir, artifacts) as audit:
         declared = load_declared_inputs(
             lock,
             eval_dir,
-            corpus=name,
+            corpus=measurement_name,
             cfg=corpus_cfg,
             artifacts=artifacts,
         )
@@ -526,6 +528,7 @@ def run_quick_admitted(
             corpus_cfg,
             defaults,
             args,
+            canonical_name=measurement_name,
             oracle_init=(lock.prism["oracle"]["init"] if lock is not None else None),
             lock_oracle_version=(
                 lock.prism["oracle"]["version"] if lock is not None else None

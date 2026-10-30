@@ -120,6 +120,7 @@ def run_corpus(
     defaults: dict,
     args,
     *,
+    canonical_name=None,
     corpus_identity=None,
     oracle_init=None,
     lock_oracle_version=None,
@@ -169,6 +170,7 @@ def run_corpus(
         bool(getattr(args, "live", False)),
         corpus_identity is not None,
         manifest_files is not None,
+        canonical_name=canonical_name,
     )
     initial_invalid_reasons = initial_run_invalid_reasons(
         pinned_ok, pinned_reason, source_drift, live_tree
@@ -742,9 +744,16 @@ def main() -> int:
                     cfg["defaults"],
                     args,
                     EVAL_DIR,
+                    canonical_name=name,
                 )
             else:
-                run = run_corpus(run_name, corpus_cfg, cfg["defaults"], args)
+                run = run_corpus(
+                    run_name,
+                    corpus_cfg,
+                    cfg["defaults"],
+                    args,
+                    canonical_name=name,
+                )
         except commands.BoundaryViolation as exc:
             print(f"FATAL boundary_violation: {exc}", file=sys.stderr)
             return 3
