@@ -1,0 +1,80 @@
+{
+  "lane": "Go caller-scoped satisfier memo",
+  "lib_test_prefixes": [
+    "resolution::go_satisfiers::"
+  ],
+  "mutations": {
+    "GCS-caller-file": [
+      "src/resolution_go_satisfiers.rs",
+      "caller_file.to_string(),",
+      "String::new(),",
+      "resolution::go_satisfiers::tests::caller_file_and_promoted_and_method_and_owner_are_discriminators"
+    ],
+    "GCS-promoted-key": [
+      "src/resolution_go_satisfiers.rs",
+      "            include_promoted,\n        );",
+      "            false,\n        );",
+      "resolution::go_satisfiers::tests::caller_file_and_promoted_and_method_and_owner_are_discriminators"
+    ],
+    "GCS-method-key": [
+      "src/resolution_go_satisfiers.rs",
+      "method.to_string(),",
+      "String::new(),",
+      "resolution::go_satisfiers::tests::caller_file_and_promoted_and_method_and_owner_are_discriminators"
+    ],
+    "GCS-owner-key": [
+      "src/resolution_go_satisfiers.rs",
+      "owner.clone(),",
+      "GoOwnerIdentity { package_dir: String::new(), package_clause: String::new(), name: String::new() },",
+      "resolution::go_satisfiers::tests::caller_file_and_promoted_and_method_and_owner_are_discriminators"
+    ],
+    "GCS-reuse": [
+      "src/resolution_go_satisfiers.rs",
+      ".entry(key)\n            .or_default()",
+      ".entry(key)\n            .and_modify(|entry| *entry = Arc::default())\n            .or_default()",
+      "resolution::go_satisfiers::tests::concurrent_hits_share_initialization_and_graph_lifetimes_do_not_leak"
+    ],
+    "GCS-evidence-replay": [
+      "src/resolution_go_satisfiers.rs",
+      "result.clone()",
+      "{ let mut result = result.clone(); result.selection.evidence = Default::default(); result }",
+      "resolution::go_satisfiers::tests::full_values_match_reference_and_repeated_queries_compute_once"
+    ],
+    "GCS-telemetry-replay": [
+      "src/resolution_go_satisfiers.rs",
+      "result.clone()",
+      "{ let mut result = result.clone(); result.promoted = Default::default(); result }",
+      "resolution::go_satisfiers::tests::full_values_match_reference_and_repeated_queries_compute_once"
+    ],
+    "GCS-promoted-signature": [
+      "src/resolution_go_satisfiers/compute.rs",
+      "promoted_telemetry.signature_drop += 1;",
+      "promoted_telemetry.signature_drop += 0;",
+      "resolution::go_satisfiers::tests::full_values_match_reference_and_repeated_queries_compute_once"
+    ],
+    "GCS-step5-reuse": [
+      "src/cpg/build.rs",
+      "Self::step5_edges_for_caller(caller_id, sites, &go_satisfiers, func_index)",
+      "Self::step5_edges_for_caller(caller_id, sites, cg, func_index)",
+      "resolution::go_satisfiers::tests::resolved_edges_telemetry_and_call_stats_json_match_reference"
+    ],
+    "GCS-step5b-reuse": [
+      "src/cpg/build.rs",
+      "                    &go_satisfiers,",
+      "                    cg,",
+      "resolution::go_satisfiers::tests::resolved_edges_telemetry_and_call_stats_json_match_reference"
+    ],
+    "GCS-step5c-reuse": [
+      "src/cpg/step5c.rs",
+      "let outcome = go_satisfiers.resolve_call_site_full(site);",
+      "let outcome = cg.resolve_call_site_full(site);",
+      "resolution::go_satisfiers::tests::resolved_edges_telemetry_and_call_stats_json_match_reference"
+    ],
+    "GCS-observer-scope": [
+      "src/resolution_go_satisfiers.rs",
+      "if observation\n                    .files\n                    .iter()\n                    .eq(self.graph.go_file_profiles.keys())\n                {",
+      "if true {",
+      "resolution::go_satisfiers::tests::phase_observation_excludes_unrelated_graphs"
+    ]
+  }
+}
