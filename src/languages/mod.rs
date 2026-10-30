@@ -1,5 +1,7 @@
 use tree_sitter::Node;
+mod family;
 pub(crate) mod js_inferred_name;
+pub use family::same_language_family;
 
 /// Supported programming languages for slicing analysis.
 #[derive(

@@ -14,6 +14,8 @@ use crate::name_resolution::types::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "resolution_free.rs"]
+mod free;
 #[path = "resolution_js_alias.rs"]
 mod js_alias;
 #[path = "resolution_js_namespace.rs"]
@@ -455,10 +457,7 @@ pub fn resolve_go_bare_value_ref(
     name: &str,
 ) -> Option<FunctionId> {
     let ids = functions.get(name)?;
-    let free: Vec<&FunctionId> = ids
-        .iter()
-        .filter(|fid| !method_owners.contains_key(*fid))
-        .collect();
+    let free = free::candidates(ids, method_owners, caller_file);
     let local: Vec<&FunctionId> = free
         .iter()
         .copied()
@@ -2403,6 +2402,7 @@ impl CallGraph {
                 if let Some(ids) = self.functions.get(fn_name) {
                     let matched: Vec<&FunctionId> = ids
                         .iter()
+                        .filter(|fid| free::same_family(&caller.file, fid))
                         .filter(|fid| file_stem(&fid.file) == head)
                         // Static-linkage preservation (matches the legacy
                         // resolver's final filter): a `static` C/C++ function
@@ -2536,10 +2536,7 @@ impl CallGraph {
                             let module_stem = module_last.rsplit('.').last().unwrap_or(module_last);
                             let matched: Vec<&FunctionId> = ids
                                 .iter()
-                                // `pkg.f()` names a module-level function, never a method
-                                // on a class defined in that module — exclude methods so
-                                // an imported module with a same-named method can't forge
-                                // a false package-function edge.
+                                .filter(|fid| free::same_family(&caller.file, fid))
                                 .filter(|fid| !self.method_owners.contains_key(*fid))
                                 .filter(|fid| {
                                     let stem_hit = file_stem(&fid.file) == module_stem;
@@ -3277,6 +3274,7 @@ impl CallGraph {
                         if let Some(ids) = self.functions.get(name) {
                             let free: Vec<&FunctionId> = ids
                                 .iter()
+                                .filter(|fid| free::same_family(&caller.file, fid))
                                 .filter(|fid| {
                                     fid.file == caller.file
                                         || !self
@@ -3387,7 +3385,8 @@ impl CallGraph {
                                     // functions in matching files.
                                     ids.iter()
                                         .filter(|fid| {
-                                            !self.method_owners.contains_key(*fid)
+                                            free::same_family(&caller.file, fid)
+                                                && !self.method_owners.contains_key(*fid)
                                                 && crate::call_graph::file_matches_module(
                                                     &fid.file,
                                                     &binding.module_path,
@@ -3435,10 +3434,7 @@ impl CallGraph {
                     None => return ResolutionOutcome::dropped(DropReason::UnknownName),
                 };
 
-                let free: Vec<&FunctionId> = ids
-                    .iter()
-                    .filter(|fid| !self.method_owners.contains_key(*fid))
-                    .collect();
+                let free = free::candidates(ids, &self.method_owners, &caller.file);
 
                 // R4: local free definition wins alone.
                 let local: Vec<&FunctionId> = free
