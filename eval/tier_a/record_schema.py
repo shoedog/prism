@@ -444,7 +444,17 @@ def validate_run_record(record: dict, *, purpose: str) -> list[str]:
             error_side = row.get("error_side")
             if error_side is not None and error_side not in {"oracle", "sut"}:
                 refusals.append(f"{prefix}.error_side")
-            if error_side != "oracle" and not _site_list(row.get("oracle_sites")):
+            oracle_unavailable = outcome in {
+                "seed_missing",
+                "unsupported_expected",
+                "oracle_error",
+                "oracle_timeout",
+            }
+            if (
+                error_side != "oracle"
+                and not oracle_unavailable
+                and not _site_list(row.get("oracle_sites"))
+            ):
                 refusals.append(f"{prefix}.oracle_sites")
         if len(pinned_ids) != len(set(pinned_ids)):
             refusals.append("pinned: duplicate_ids")

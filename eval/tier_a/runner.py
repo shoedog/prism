@@ -20,6 +20,7 @@ from .adjudication import load_records
 from .corpus import (
     corpus_dirty,
     corpus_sha,
+    corpus_sha_full,
     load_snapshot,
     save_snapshot,
     snapshot_path,
@@ -127,6 +128,7 @@ def run_corpus(
     data_inputs=None,
     sut=None,
     compute_metrics=True,
+    corpus_guard=None,
 ) -> dict:
     started = time.monotonic()
 
@@ -157,6 +159,13 @@ def run_corpus(
         else cfg["pinned_sha"]
         if manifest_files is not None
         else corpus_sha(cfg["path"])
+    )
+    sha_full = (
+        corpus_identity.sha_full
+        if corpus_identity is not None
+        else cfg["pinned_sha"]
+        if manifest_files is not None
+        else corpus_sha_full(cfg["path"])
     )
     if corpus_identity is not None:
         pinned_ok, pinned_reason = True, ""
@@ -192,9 +201,7 @@ def run_corpus(
         "meta": {
             "corpus": name,
             "corpus_sha": sha,
-            "corpus_sha_full": (
-                corpus_identity.sha_full if corpus_identity is not None else sha
-            ),
+            "corpus_sha_full": sha_full,
             "corpus_dirty": (
                 corpus_identity.dirty
                 if corpus_identity is not None
@@ -335,7 +342,11 @@ def run_corpus(
             if i % 25 == 0:
                 progress(f"M1 {i}/{len(files)} {f}")
             try:
+                if corpus_guard is not None:
+                    corpus_guard(f"oracle_inventory_read:{f}")
                 oracle_inv.extend(oracle.document_symbols(f))
+                if corpus_guard is not None:
+                    corpus_guard(f"oracle_inventory_read:{f}")
             except OracleError as exc:
                 failure(f"docsym:{f}", exc)
                 if isinstance(exc, OracleTimeout) and "budget" in str(exc):
@@ -358,7 +369,11 @@ def run_corpus(
             return run
 
         progress(f"M1 SUT inventory and indexed matching: {len(oracle_inv)} oracle definitions")
+        if corpus_guard is not None:
+            corpus_guard("sut_inventory_read")
         prism_inv = filter_to_universe(sut.inventory(cfg["path"]), set(files))
+        if corpus_guard is not None:
+            corpus_guard("sut_inventory_read")
         diff = inventory_diff(oracle_inv, prism_inv)
         run["m1"] = run_policy.m1_measurements(diff)
         sp = snapshot_path(str(EVAL_DIR / "snapshots"), name, sha)
@@ -629,7 +644,7 @@ def invalid_corpus_run(
     else:
         try:
             csha = corpus_sha(cfg["path"])
-            csha_full = csha
+            csha_full = corpus_sha_full(cfg["path"])
             cdirty = corpus_dirty(cfg["path"])
         except Exception:
             csha = "unknown"

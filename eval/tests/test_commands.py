@@ -361,6 +361,7 @@ def test_ordinary_live_tree_runs_keep_pin_validation_and_invalidate(
     monkeypatch.setattr(cli, "PrismCli", lambda *_a, **_k: Sut())
     monkeypatch.setattr(cli, "make_oracle", lambda *_a, **_k: Oracle())
     monkeypatch.setattr(cli, "corpus_sha", lambda _path: "b" * 12)
+    monkeypatch.setattr(cli, "corpus_sha_full", lambda _path: "b" * 40)
     monkeypatch.setattr(cli, "corpus_dirty", lambda _path: False)
     monkeypatch.setattr(cli, "untracked_sources", lambda *_a: [])
     monkeypatch.setattr(cli, "universe", lambda *_a, **_k: ["src/lib.rs"])

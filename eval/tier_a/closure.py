@@ -20,6 +20,7 @@ from .strata import STRATA, classify
 __all__ = [
     "canonical_path",
     "raw_digest",
+    "path_identity",
     "corpus_manifest",
     "checkout_corpus_manifest",
     "corpus_control_paths",
@@ -227,7 +228,7 @@ def corpus_control_paths(root: Path, *, tracked_only: bool) -> list[str]:
         candidates = [
             path.relative_to(root).as_posix()
             for path in root.rglob("*")
-            if path.is_file()
+            if path.is_file() or path.is_symlink()
         ]
     return sorted(path for path in candidates if _is_corpus_control_path(path))
 
@@ -240,6 +241,15 @@ def canonical_path(root: Path, p: Path) -> str:
 
 def raw_digest(p: Path) -> str:
     return "sha256:" + hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def path_identity(path: Path) -> str:
+    """Bind lexical file kind and symlink target, preserving regular digests."""
+    if path.is_symlink():
+        return "symlink:" + path.readlink().as_posix()
+    if path.is_file():
+        return raw_digest(path)
+    return "non_regular"
 
 
 def corpus_manifest(
@@ -262,7 +272,7 @@ def corpus_manifest(
         fields = metadata.split()
         if len(fields) != 3 or fields[2] != b"0":
             raise ValueError(f"unexpected git index entry for {path}")
-        rows.append((path, raw_digest(disk_path), fields[1].decode("ascii")))
+        rows.append((path, path_identity(disk_path), fields[1].decode("ascii")))
     return sorted(rows)
 
 
@@ -279,7 +289,7 @@ def checkout_corpus_manifest(
     if git_entry.exists():
         applicable.add(".git")
     for disk_path in root.rglob("*"):
-        if not disk_path.is_file():
+        if not disk_path.is_file() and not disk_path.is_symlink():
             continue
         lexical_path = disk_path.relative_to(root).as_posix()
         is_control = _is_corpus_control_path(lexical_path)
@@ -296,7 +306,7 @@ def checkout_corpus_manifest(
         ):
             applicable.add(path)
     rows = [
-        (path, raw_digest(root / path))
+        (path, path_identity(root / path))
         for path in applicable
         if path != ".git"
     ]

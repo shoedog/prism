@@ -24,7 +24,7 @@ from .boundary import (
     observe_cargo,
     scrubbed_env,
 )
-from .closure import corpus_control_paths, raw_digest
+from .closure import corpus_control_paths, path_identity, raw_digest
 from .adjudication import load_records
 from .corpus import universe
 from .lock import (
@@ -436,9 +436,33 @@ def _sut_input_state(repo: Path, rows: list[tuple]) -> tuple[tuple[str, str], ..
         path = row[0]
         disk_path = repo / path
         state.append(
-            (path, raw_digest(disk_path) if disk_path.is_file() else "absent")
+            (path, path_identity(disk_path) if disk_path.exists() or disk_path.is_symlink() else "absent")
         )
     return tuple(sorted(state))
+
+
+def _corpus_read_guard(lock: Lock, corpus_path: Path, identity: CorpusIdentity):
+    expected = {row[0]: row[1] for row in getattr(lock, "_corpus_rows", [])}
+
+    def guard(boundary: str) -> None:
+        try:
+            _kind, separator, relative = boundary.partition(":")
+            if separator and relative in expected:
+                path = corpus_path / relative
+                actual = (
+                    path_identity(path)
+                    if path.exists() or path.is_symlink()
+                    else "absent"
+                )
+                changed = actual != expected[relative]
+            else:
+                changed = resolve_corpus_identity(lock, corpus_path) != identity
+        except Exception as exc:
+            raise BoundaryViolation(["corpus_changed_during_run"]) from exc
+        if changed:
+            raise BoundaryViolation(["corpus_changed_during_run"])
+
+    return guard
 
 
 def run_quick_admitted(
@@ -516,6 +540,11 @@ def run_quick_admitted(
             env=env,
         )
     measurement_name = canonical_name or name
+    corpus_guard = (
+        _corpus_read_guard(lock, corpus_path, identity)
+        if lock is not None and identity is not None
+        else None
+    )
     with OpenAudit(eval_dir, artifacts) as audit:
         declared = load_declared_inputs(
             lock,
@@ -539,6 +568,7 @@ def run_quick_admitted(
             corpus_identity=identity,
             sut=sut,
             compute_metrics=False,
+            corpus_guard=corpus_guard,
         )
         run["meta"]["corpus"] = name
         run["meta"]["date"] = args.date

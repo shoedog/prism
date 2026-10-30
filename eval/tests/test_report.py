@@ -349,6 +349,7 @@ def test_run_corpus_counts_inventory_miss_as_floor_success(monkeypatch, tmp_path
     monkeypatch.setattr(cli, "PrismCli", lambda *_args, **_kwargs: FakeSut())
     monkeypatch.setattr(cli, "make_oracle", lambda _cfg: FakeOracle())
     monkeypatch.setattr(cli, "corpus_sha", lambda _root: "abc123def456")
+    monkeypatch.setattr(cli, "corpus_sha_full", lambda _root: "a" * 40)
     monkeypatch.setattr(cli, "corpus_dirty", lambda _root: False)
     monkeypatch.setattr(cli, "untracked_sources", lambda *_args: [])
     monkeypatch.setattr(cli, "universe", lambda *_args, **_kwargs: ["src/lib.rs"])
@@ -431,6 +432,7 @@ def test_run_corpus_matches_snapshot_symbols_not_drifting_live_inventory(
     monkeypatch.setattr(cli, "PrismCli", lambda *_args, **_kwargs: MatchingSut())
     monkeypatch.setattr(cli, "make_oracle", lambda _cfg: DriftOracle())
     monkeypatch.setattr(cli, "corpus_sha", lambda _root: "abc123def456")
+    monkeypatch.setattr(cli, "corpus_sha_full", lambda _root: "a" * 40)
     monkeypatch.setattr(cli, "corpus_dirty", lambda _root: False)
     monkeypatch.setattr(cli, "untracked_sources", lambda *_args: [])
     monkeypatch.setattr(cli, "universe", lambda *_args, **_kwargs: ["src/lib.rs"])
@@ -481,6 +483,7 @@ def test_main_continues_after_corpus_error(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "run_corpus", fail_corpus)
     monkeypatch.setattr(cli, "write_reports", lambda *_args: None)
     monkeypatch.setattr(cli, "corpus_sha", lambda _root: "abc123def456")
+    monkeypatch.setattr(cli, "corpus_sha_full", lambda _root: "a" * 40)
     monkeypatch.setattr(cli, "corpus_dirty", lambda _root: False)
     monkeypatch.setattr("sys.argv", ["tier-a", "--corpus", "all", "--date", "2026-06-11"])
 

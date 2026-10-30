@@ -56,6 +56,12 @@ PINNED_RANK = {
     "seed_missing": 0,
     "error": 0,
 }
+MATRIX_RANK = {
+    "ok": 2,
+    "flip_candidate": 2,
+    "expected_gap": 1,
+    "regression": 0,
+}
 
 _ORACLE_ERROR = ("oracle_error",)
 _SCORED = SCORED_PROBE_STATUSES
@@ -364,7 +370,7 @@ def _matrix_result(base_run: dict, cand_run: dict) -> tuple[dict, bool]:
         after = cand.get(mid, {}).get("outcome")
         if before != after:
             diffs[mid] = [before, after]
-        if after == "regression" and before != "regression":
+        if MATRIX_RANK.get(after, -1) < MATRIX_RANK.get(before, -1):
             no_regression = False
     return diffs, no_regression
 

@@ -157,12 +157,8 @@ def test_sut_error_transitions_use_closure_then_digest_then_unexplained():
     pid = "callees:src/C-name.rs:2"
     answered = fake_run(ids)
     error_probes = quick_probes()
-    del error_probes[pid]
-    errored = fake_run(
-        ids,
-        probes=error_probes,
-        status={**{key: "ok" for key in quick_probes()}, pid: "sut_error"},
-    )
+    error_probes[pid] = {**error_probes[pid], "outcome": "sut_error"}
+    errored = fake_run(ids, probes=error_probes)
 
     recovery = compare_runs(errored, answered, ([], ids["data"]["eval/adjudications.jsonl"]["digest"]))
     assert recovery["classes"][pid] == "unexplained"
