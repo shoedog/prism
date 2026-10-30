@@ -306,7 +306,7 @@ def test_main_returns_nonzero_for_embedded_matrix_regression(monkeypatch, tmp_pa
         "load_corpora",
         lambda: {"corpus": {"prism": {}}, "defaults": {}},
     )
-    monkeypatch.setattr(cli, "run_corpus", lambda *_args: run)
+    monkeypatch.setattr(cli, "run_corpus", lambda *_args, **_kwargs: run)
     monkeypatch.setattr(cli, "write_reports", lambda *_args: None)
     monkeypatch.setattr("sys.argv", ["tier-a", "--date", "2026-06-11"])
     assert cli.main() == 1

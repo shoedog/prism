@@ -7,7 +7,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-from .accounting import CorpusAccounting
+from .accounting import CorpusAccounting, evaluate_floors
 from .adjudication import apply_verdicts, load_records, reanchor_map
 from .boundary import readmit_stored
 from .compare import caller_fn_sets, site_compare
@@ -16,6 +16,7 @@ from .metrics import precision_recall
 from .model import CallEdge, FunctionDef, Location, SelectionMatcher, edge_tier
 from .oracles import OracleError, OracleTimeout
 from .spotcheck import classify_site, find_call_position, utf16_column
+from .strata import classify
 from .sut import SutAmbiguous, SutError, SutTimeout
 
 
@@ -194,6 +195,335 @@ def seed_is_unaddressable(
 
 def probe_outcome(prism_function) -> str:
     return "inventory_miss" if prism_function is None else "ok"
+
+
+def initial_run_measurements(invalid_reasons: list[str]) -> dict:
+    return {
+        "oracle_error_rate": 0.0,
+        "sut_error_rate": 0.0,
+        "baseline_invalid": bool(invalid_reasons),
+        "invalid_reasons": invalid_reasons,
+        "stale_adjudications": 0,
+    }
+
+
+def oracle_version_invalid_reasons(
+    lock_oracle_version: str | None,
+    oracle_version: str,
+    oracle_name: str,
+    configured_oracle_version: str | None,
+) -> list[str]:
+    reasons = []
+    if (
+        lock_oracle_version is not None
+        and oracle_version != lock_oracle_version
+    ):
+        reasons.append(
+            f"oracle_version_mismatch: {oracle_version} != {lock_oracle_version}"
+        )
+    if oracle_name == "tsserver" and oracle_version != configured_oracle_version:
+        reasons.append("oracle_version_drift")
+    return reasons
+
+
+def unsupported_oracle_measurements(
+    capable: bool, initial_invalid_reasons: list[str]
+) -> dict | None:
+    if capable:
+        return None
+    return {
+        "baseline_invalid": True,
+        "invalid_reasons": initial_invalid_reasons + ["oracle_unsupported"],
+        "oracle_error_rate": 1.0,
+        "sut_error_rate": 0.0,
+    }
+
+
+def m1_measurements(diff) -> dict:
+    return {
+        "matched": len(diff.matched),
+        "prism_missing": len(diff.prism_missing),
+        "prism_extra": len(diff.prism_extra),
+        "anon_oracle": diff.anon_oracle,
+        "anon_prism": diff.anon_prism,
+    }
+
+
+def sampling_frame_source(
+    has_declared_snapshot: bool, language: str, stored_snapshot_exists: bool
+) -> str:
+    if has_declared_snapshot:
+        return "declared"
+    if language in ("ts", "js"):
+        return "live"
+    return "stored" if stored_snapshot_exists else "new"
+
+
+def sampling_inventory_measurements(source: str) -> dict:
+    return {"sampling_inventory": "live"} if source == "live" else {}
+
+
+def sample_per_stratum_measurements(per: int) -> dict:
+    return {"sample_per_stratum": per}
+
+
+def should_save_snapshot(source: str, failures: dict) -> bool:
+    return source == "new" and not failures
+
+
+def snapshot_prism_missing(snapshot: list, matches: dict) -> int:
+    return len(snapshot) - len(matches)
+
+
+def definition_counts(snapshot: list) -> dict:
+    counts = {}
+    for function in snapshot:
+        if function.name:
+            counts[function.name] = counts.get(function.name, 0) + 1
+    return counts
+
+
+def shared_line_measurements(oracle_lines: Counter, sut_lines: Counter) -> tuple[set, dict]:
+    ambiguous = {line for line, count in oracle_lines.items() if count > 1}
+    return ambiguous, {
+        "shared_oracle_selection_lines": len(ambiguous),
+        "shared_sut_start_lines": sum(count > 1 for count in sut_lines.values()),
+    }
+
+
+def empty_strata_counts() -> dict:
+    return {}
+
+
+def empty_strata_records() -> dict:
+    return {}
+
+
+def stratum_measurements(
+    stratum: str,
+    fds: list,
+    snapshot: list,
+    definitions_per_name: dict,
+    language: str,
+    package_directories,
+    target: int,
+) -> tuple[dict, dict]:
+    eligible_probes = len(fds) * 2
+    return (
+        {"eligible": eligible_probes, "successful": 0},
+        {
+            "population_symbols": sum(
+                classify(
+                    function,
+                    definitions_per_name,
+                    language,
+                    package_directories,
+                )
+                == stratum
+                for function in snapshot
+                if function.name
+            ),
+            "eligible_symbols": len(fds),
+            "eligible_probes": eligible_probes,
+            "target": target,
+        },
+    )
+
+
+def record_success(strata_counts: dict, stratum: str) -> None:
+    strata_counts[stratum]["successful"] += 1
+
+
+def frame_measurements(oracle_inventory: list, prism_inventory: list, diff, census) -> dict:
+    return {
+        "hierarchy_named": len([function for function in oracle_inventory if function.name]),
+        "prism_named": len([function for function in prism_inventory if function.name]),
+        "prism_outside_hierarchy": len(diff.prism_extra),
+        "outside_by_kind": dict(Counter(function.kind for function in diff.prism_extra)),
+        "syntax_callable_by_shape": dict(
+            Counter(declaration["shape"] for declaration in census["declarations"])
+        ),
+        "policy": "native hierarchy inventory plus independent property/getter site sampling",
+    }
+
+
+def member_site_measurements(
+    oracle, sut, prism_inventory: list, census: dict, per: int, seed: int
+) -> dict:
+    from .member_sample import sample_members
+
+    return sample_members(oracle, sut, prism_inventory, census, per, seed)
+
+
+def accounting_measurements(accounting: CorpusAccounting) -> dict:
+    return {
+        "oracle_error_rate": accounting.oracle_error_rate(),
+        "sut_error_rate": accounting.sut_error_rate(),
+    }
+
+
+def probe_status_measurement(accounting: CorpusAccounting) -> dict:
+    return {
+        pid: outcome
+        for pid, outcome in accounting.probes.items()
+        if not pid.startswith("docsym:")
+    }
+
+
+def combined_invalid_reasons(initial: list[str], errors: list[str]) -> list[str]:
+    return list(dict.fromkeys(initial + errors))
+
+
+def final_validity_measurements(
+    ok: bool, initial_reasons: list[str], floor_reasons: list[str]
+) -> dict:
+    return {
+        "baseline_invalid": (not ok) or bool(initial_reasons),
+        "invalid_reasons": initial_reasons + floor_reasons,
+    }
+
+
+def boundary_metric_state(strata_counts: dict, initial_reasons: list[str]) -> dict:
+    return {
+        "strata_counts": strata_counts,
+        "initial_invalid_reasons": initial_reasons,
+    }
+
+
+def stale_adjudication_measurement(stale: int) -> dict:
+    return {"stale_adjudications": stale}
+
+
+def oracle_timeout_measurements(
+    initial_reasons: list[str], oracle_not_quiescent: bool
+) -> dict:
+    return {
+        "baseline_invalid": True,
+        "oracle_error_rate": 1.0,
+        "oracle_not_quiescent": oracle_not_quiescent,
+        "invalid_reasons": initial_reasons + ["oracle_timeout"],
+    }
+
+
+def sut_timeout_measurements(initial_reasons: list[str]) -> dict:
+    return {
+        "baseline_invalid": True,
+        "sut_error_rate": 1.0,
+        "invalid_reasons": initial_reasons + ["sut_timeout"],
+    }
+
+
+def final_drift_measurements(meta: dict, final_drift: list[str]) -> dict:
+    if not final_drift:
+        return {}
+    return {
+        "baseline_invalid": True,
+        "invalid_reasons": meta.get("invalid_reasons", [])
+        + [f"final:{reason}" for reason in final_drift],
+    }
+
+
+def invalid_corpus_record(
+    name: str,
+    corpus_sha: str,
+    corpus_sha_full: str,
+    corpus_dirty: bool,
+    seed,
+    date: str,
+    harness_sha: str,
+    oracle: str,
+    exc: Exception,
+) -> dict:
+    oracle_error_rate, sut_error_rate, invalid_reason = invalid_exception_metrics(exc)
+    return {
+        "meta": {
+            "corpus": name,
+            "corpus_sha": corpus_sha,
+            "corpus_sha_full": corpus_sha_full,
+            "corpus_dirty": corpus_dirty,
+            "prism_sha": "unknown",
+            "seed": seed,
+            "date": date,
+            "harness_sha": harness_sha,
+            "oracle": oracle,
+            "oracle_not_quiescent": False,
+            "oracle_error_rate": oracle_error_rate,
+            "sut_error_rate": sut_error_rate,
+            "baseline_invalid": True,
+            "invalid_reasons": [invalid_reason],
+            "error": str(exc),
+            "wall_s": {},
+        },
+        "probes": {"_corpus": name},
+        "m2": {},
+        "pending": [],
+    }
+
+
+def apply_run_overlay(run: dict, overlay: dict) -> None:
+    if overlay.get("baseline_invalid"):
+        run["meta"].update(
+            {
+                "baseline_invalid": True,
+                "invalid_reasons": list(
+                    dict.fromkeys(
+                        run["meta"].get("invalid_reasons", [])
+                        + overlay.get("invalid_reasons", [])
+                    )
+                ),
+            }
+        )
+    run["meta"].update(
+        {
+            key: value
+            for key, value in overlay.items()
+            if key not in {"baseline_invalid", "invalid_reasons"}
+        }
+    )
+
+
+def ensure_run_measurement_defaults(run: dict) -> None:
+    for key, value in (
+        ("oracle_error_rate", 0.0),
+        ("sut_error_rate", 0.0),
+        ("oracle_not_quiescent", False),
+        ("wall_s", {}),
+    ):
+        run["meta"].setdefault(key, value)
+
+
+def finalize_deferred_metrics(
+    run: dict, adjudications: list, defaults: dict, cfg: dict
+) -> dict:
+    state = run.pop("_boundary_state", None)
+    if state is not None:
+        initial = state["initial_invalid_reasons"]
+        ok, reasons = evaluate_floors(
+            state["strata_counts"],
+            run["meta"].get("oracle_error_rate", 0.0),
+            run["meta"].get("sut_error_rate", 0.0),
+            defaults["oracle_error_floor"][cfg["lang"]],
+            defaults["sut_error_floor"],
+        )
+        run["meta"].update(final_validity_measurements(ok, initial, reasons))
+    if "probes" in run:
+        run["m2"], run["pending"], stale = _compute_m2_and_pending(
+            run["probes"], adjudications, run.get("site_fingerprints", {})
+        )
+        run["meta"].update(stale_adjudication_measurement(stale))
+    return run
+
+
+def apply_lockless_refusal(run: dict) -> None:
+    run["meta"].update(
+        {
+            "baseline_invalid": True,
+            "invalid_reasons": list(
+                dict.fromkeys(run["meta"].get("invalid_reasons", []) + ["no_lock"])
+            ),
+            "admitted": False,
+        }
+    )
 
 
 def baseline_error_reasons(

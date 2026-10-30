@@ -15,8 +15,8 @@ import time
 import tomllib
 from pathlib import Path
 
-from . import commands, pinned as pinned_mod
-from .accounting import CorpusAccounting, evaluate_floors
+from . import commands, pinned as pinned_mod, policy as run_policy
+from .accounting import CorpusAccounting
 from .adjudication import load_records
 from .corpus import (
     corpus_dirty,
@@ -49,7 +49,6 @@ from .policy import (
     check_pinned,
     compute_m2_from_probes,
     initial_run_invalid_reasons,
-    invalid_exception_metrics,
     is_live_corpus,
     match_snapshot_to_prism,
     matrix_result_to_json,
@@ -69,7 +68,7 @@ from .policy import (
     summarize_m2,
 )
 from .report import write_reports
-from .strata import classify, filter_to_universe, inventory_diff, sample_strata
+from .strata import filter_to_universe, inventory_diff, sample_strata
 from .sut import PrismCli, SutAmbiguous, SutError, SutStale, SutTimeout, configure_seed_addresses
 from .tsserver import TsserverOracle  # imported with the harness, not mid-run: a lazy import is an undeclared read under the boundary
 
@@ -234,11 +233,7 @@ def run_corpus(
             "harness_sha": commands._harness_sha(EVAL_DIR),
             "oracle_not_quiescent": False,
             "oracle": cfg["oracle"],
-            "oracle_error_rate": 0.0,
-            "sut_error_rate": 0.0,
-            "baseline_invalid": bool(initial_invalid_reasons),
-            "invalid_reasons": initial_invalid_reasons,
-            "stale_adjudications": 0,
+            **run_policy.initial_run_measurements(initial_invalid_reasons),
             "wall_s": {},
         },
         "probes": {"_corpus": name},
@@ -260,8 +255,6 @@ def run_corpus(
     if oracle_init is not None:
         run["meta"]["oracle_init"] = oracle_init
     if initial_invalid_reasons and manifest_files is not None:
-        run["meta"]["baseline_invalid"] = True
-        run["meta"]["invalid_reasons"] = initial_invalid_reasons
         progress(f"INVALID source drift: {initial_invalid_reasons}")
         return run
     oracle_cfg = {
@@ -295,14 +288,14 @@ def run_corpus(
         run["meta"]["wall_s"]["oracle_start"] = round(time.monotonic() - t0, 3)
         oracle_version = oracle.version()
         run["meta"]["oracle"] = oracle_version
-        if (
-            lock_oracle_version is not None
-            and oracle_version != lock_oracle_version
-        ):
-            initial_invalid_reasons.append(
-                f"oracle_version_mismatch: {oracle_version} != "
-                f"{lock_oracle_version}"
+        initial_invalid_reasons.extend(
+            run_policy.oracle_version_invalid_reasons(
+                lock_oracle_version,
+                oracle_version,
+                cfg["oracle"],
+                cfg.get("oracle_version"),
             )
+        )
         if cfg["oracle"] == "tsserver":
             environment = {
                 "oracle": oracle_version,
@@ -311,8 +304,6 @@ def run_corpus(
             run["meta"]["oracle_environment"] = environment
             run["meta"]["corpus_identity"]["oracle_environment_sha256"] = hashlib.sha256(
                 json.dumps(environment, sort_keys=True).encode()).hexdigest()
-            if environment["oracle"] != cfg.get("oracle_version"):
-                initial_invalid_reasons.append("oracle_version_drift")
         run["meta"]["oracle_not_quiescent"] = oracle.not_quiescent
         # §2.2 capability probe, two-stage: the overlay probe is the fast path, but
         # servers that only analyze workspace-member files (rust-analyzer: an overlay
@@ -353,51 +344,48 @@ def run_corpus(
             progress("waiting for post-inventory rust-analyzer quiescence")
             oracle.wait_ready()
 
-        if not resolve_capability(oracle, overlay_probe_ok, oracle_inv):
-            run["meta"].update(
-                baseline_invalid=True,
-                invalid_reasons=initial_invalid_reasons + ["oracle_unsupported"],
-                oracle_error_rate=1.0,
-                sut_error_rate=0.0,
-            )
+        unsupported = run_policy.unsupported_oracle_measurements(
+            resolve_capability(oracle, overlay_probe_ok, oracle_inv),
+            initial_invalid_reasons,
+        )
+        if unsupported is not None:
+            run["meta"].update(unsupported)
             return run
 
         progress(f"M1 SUT inventory and indexed matching: {len(oracle_inv)} oracle definitions")
         prism_inv = filter_to_universe(sut.inventory(cfg["path"]), set(files))
         diff = inventory_diff(oracle_inv, prism_inv)
-        run["m1"] = {
-            "matched": len(diff.matched),
-            "prism_missing": len(diff.prism_missing),
-            "prism_extra": len(diff.prism_extra),
-            "anon_oracle": diff.anon_oracle,
-            "anon_prism": diff.anon_prism,
-        }
+        run["m1"] = run_policy.m1_measurements(diff)
         sp = snapshot_path(str(EVAL_DIR / "snapshots"), name, sha)
-        if data_inputs is not None:
+        sampling_source = run_policy.sampling_frame_source(
+            data_inputs is not None, cfg["lang"], sp.exists()
+        )
+        if sampling_source == "declared":
             snap = data_inputs.snapshot
-        elif cfg["lang"] in ("ts", "js"):
+        elif sampling_source == "live":
             # A fresh native inventory preserves newly supported quoted methods.
             # Historical snapshots and anchors remain unchanged.
             snap = oracle_inv
-            run["meta"]["sampling_inventory"] = "live"
-        elif sp.exists():
+        elif sampling_source == "stored":
             snap = load_snapshot(sp)
         else:
             snap = oracle_inv
-            if not run["failures"]:
-                save_snapshot(sp, snap)
+        run["meta"].update(
+            run_policy.sampling_inventory_measurements(sampling_source)
+        )
+        if run_policy.should_save_snapshot(sampling_source, run["failures"]):
+            save_snapshot(sp, snap)
 
         snapshot_matches = match_snapshot_to_prism(snap, prism_inv)
-        run["m1"]["snapshot_prism_missing"] = len(snap) - len(snapshot_matches)
+        run["m1"]["snapshot_prism_missing"] = run_policy.snapshot_prism_missing(
+            snap, snapshot_matches
+        )
 
-        n_defs: dict = {}
-        for fd in snap:
-            if fd.name:
-                n_defs[fd.name] = n_defs.get(fd.name, 0) + 1
+        n_defs = run_policy.definition_counts(snap)
         per = sample_per_stratum(
             getattr(args, "sample", None), args.quick, defaults["per_stratum"]
         )
-        run["meta"]["sample_per_stratum"] = per
+        run["meta"].update(run_policy.sample_per_stratum_measurements(per))
         pkg_dirs = package_dirs(cfg["path"]) if cfg["lang"] == "python" else None
         sample = sample_strata(
             snap,
@@ -412,25 +400,25 @@ def run_corpus(
         oracle_named_lines = Counter((fd.location.file, fd.selection_line, fd.name) for fd in snap)
         sut_lines = Counter((fd.location.file, fd.location.start_line) for fd in prism_inv)
         configure_seed_addresses(sut, prism_inv)
-        ambiguous_lines = {line for line, count in oracle_lines.items() if count > 1}
-        run["m1"]["shared_oracle_selection_lines"] = len(ambiguous_lines)
-        run["m1"]["shared_sut_start_lines"] = sum(count > 1 for count in sut_lines.values())
+        ambiguous_lines, line_measurements = run_policy.shared_line_measurements(
+            oracle_lines, sut_lines
+        )
+        run["m1"].update(line_measurements)
         primed = {}
         if cfg["lang"] == "rust" and hasattr(oracle, "prime_hierarchy"):
             progress("validating complete Rust hierarchy sample; one bounded session recovery allowed")
             primed = oracle.prime_hierarchy([fd for fds in sample.values() for fd in fds], files, oracle_inv)
-        strata_counts: dict = {}
-        run["probes"]["_strata"] = {}
+        strata_counts = run_policy.empty_strata_counts()
+        run["probes"]["_strata"] = run_policy.empty_strata_records()
         t0 = time.monotonic()
         for stratum, fds in sample.items():
             progress(f"M2 {stratum}: {len(fds)} symbols")
-            strata_counts[stratum] = {"eligible": len(fds) * 2, "successful": 0}
-            run["probes"]["_strata"][stratum] = {
-                "population_symbols": sum(classify(f, n_defs, cfg["lang"], pkg_dirs) == stratum for f in snap if f.name),
-                "eligible_symbols": len(fds),
-                "eligible_probes": len(fds) * 2,
-                "target": per,
-            }
+            (
+                strata_counts[stratum],
+                run["probes"]["_strata"][stratum],
+            ) = run_policy.stratum_measurements(
+                stratum, fds, snap, n_defs, cfg["lang"], pkg_dirs, per
+            )
             for fd in fds:
                 sd = seed_id(fd, oracle_lines)
                 pfd = snapshot_matches.get(fd)
@@ -485,7 +473,7 @@ def run_corpus(
                             progress(f"{run['failures'][pid]['outcome']} {pid}: {exc}")
                             continue
                         acc.record(pid, outcome)
-                    strata_counts[stratum]["successful"] += 1
+                    run_policy.record_success(strata_counts, stratum)
                     run["probes"][pid] = {
                         "outcome": outcome,
                         "direction": direction,
@@ -529,47 +517,43 @@ def run_corpus(
         run["meta"]["wall_s"]["m3"] = round(time.monotonic() - t0, 3)
 
         if cfg["oracle"] == "tsserver":
-            from collections import Counter
-            from .member_sample import syntax_census, sample_members
+            from .member_sample import syntax_census
             progress("independent syntax census and property/getter definition sample")
             census = syntax_census(oracle, files)
-            run["frame"] = {
-                "hierarchy_named": len([f for f in oracle_inv if f.name]),
-                "prism_named": len([f for f in prism_inv if f.name]),
-                "prism_outside_hierarchy": len(diff.prism_extra),
-                "outside_by_kind": dict(Counter(f.kind for f in diff.prism_extra)),
-                "syntax_callable_by_shape": dict(Counter(d["shape"] for d in census["declarations"])),
-                "policy": "native hierarchy inventory plus independent property/getter site sampling",
-            }
-            run["member_sites"] = sample_members(oracle, sut, prism_inv, census, per, defaults["seed"])
+            run["frame"] = run_policy.frame_measurements(
+                oracle_inv, prism_inv, diff, census
+            )
+            run["member_sites"] = run_policy.member_site_measurements(
+                oracle, sut, prism_inv, census, per, defaults["seed"]
+            )
             for shape, measurement in run["member_sites"]["shapes"].items():
                 for i, row in enumerate(measurement["rows"]):
                     if row["outcome"] in ("oracle_error", "oracle_timeout", "sut_error", "sut_timeout"):
                         run["failures"][f"member:{shape}:{i}"] = row
 
-        run["meta"]["oracle_error_rate"] = acc.oracle_error_rate()
-        run["meta"]["sut_error_rate"] = acc.sut_error_rate()
-        run["probe_status"] = {
-            pid: outcome
-            for pid, outcome in acc.probes.items()
-            if not pid.startswith("docsym:")
-        }
+        run["meta"].update(run_policy.accounting_measurements(acc))
+        run["probe_status"] = run_policy.probe_status_measurement(acc)
         run["site_fingerprints"] = _site_fingerprints_for_probes(run["probes"], cfg["path"])
         error_reasons, pinned_failures = baseline_error_reasons(
             run["failures"], run["m3"], run.get("pinned", []), run["probes"]
         )
         run["failures"].update(pinned_failures)
-        metric_initial_reasons = list(dict.fromkeys(initial_invalid_reasons + error_reasons))
+        metric_initial_reasons = run_policy.combined_invalid_reasons(
+            initial_invalid_reasons, error_reasons
+        )
         if compute_metrics:
-            ok, reasons = evaluate_floors(
+            ok, reasons = run_policy.evaluate_floors(
                 strata_counts,
                 acc.oracle_error_rate(),
                 acc.sut_error_rate(),
                 defaults["oracle_error_floor"][cfg["lang"]],
                 defaults["sut_error_floor"],
             )
-            run["meta"]["baseline_invalid"] = (not ok) or bool(metric_initial_reasons)
-            run["meta"]["invalid_reasons"] = metric_initial_reasons + reasons
+            run["meta"].update(
+                run_policy.final_validity_measurements(
+                    ok, metric_initial_reasons, reasons
+                )
+            )
             adj = (
                 data_inputs.adjudications
                 if data_inputs is not None
@@ -578,24 +562,24 @@ def run_corpus(
             run["m2"], run["pending"], stale = _compute_m2_and_pending(
                 run["probes"], adj, run["site_fingerprints"]
             )
-            run["meta"]["stale_adjudications"] = stale
+            run["meta"].update(run_policy.stale_adjudication_measurement(stale))
             run["summary"] = summarize_m2(run["m2"])
         else:
-            run["_boundary_state"] = {
-                "strata_counts": strata_counts,
-                "initial_invalid_reasons": metric_initial_reasons,
-            }
+            run["_boundary_state"] = run_policy.boundary_metric_state(
+                strata_counts, metric_initial_reasons
+            )
         return run
     except OracleTimeout as exc:
         failure("lifecycle", exc)
-        run["meta"].update(baseline_invalid=True, oracle_error_rate=1.0,
-                             oracle_not_quiescent=oracle.not_quiescent,
-                             invalid_reasons=initial_invalid_reasons + ["oracle_timeout"])
+        run["meta"].update(
+            run_policy.oracle_timeout_measurements(
+                initial_invalid_reasons, oracle.not_quiescent
+            )
+        )
         return run
     except SutTimeout as exc:
         run["failures"]["lifecycle"] = {"outcome": "sut_timeout", "error": str(exc)}
-        run["meta"].update(baseline_invalid=True, sut_error_rate=1.0,
-                             invalid_reasons=initial_invalid_reasons + ["sut_timeout"])
+        run["meta"].update(run_policy.sut_timeout_measurements(initial_invalid_reasons))
         return run
     finally:
         run["meta"]["oracle_retries"] = getattr(oracle, "retries", [])
@@ -610,9 +594,9 @@ def run_corpus(
                 _, final_drift = verify_source_manifest(cfg)
             except (OSError, ValueError) as exc:
                 final_drift = [f"source_manifest_unavailable:{exc}"]
-            if final_drift:
-                run["meta"]["baseline_invalid"] = True
-                run["meta"]["invalid_reasons"].extend(f"final:{d}" for d in final_drift)
+            run["meta"].update(
+                run_policy.final_drift_measurements(run["meta"], final_drift)
+            )
         run["meta"]["wall_s"]["total"] = round(time.monotonic() - started, 3)
 
 
@@ -641,30 +625,17 @@ def invalid_corpus_run(
         hsha = commands._harness_sha(EVAL_DIR)
     except Exception:
         hsha = "unknown"
-    oracle_error_rate, sut_error_rate, invalid_reason = invalid_exception_metrics(exc)
-    return {
-        "meta": {
-            "corpus": name,
-            "corpus_sha": csha,
-            "corpus_sha_full": csha_full,
-            "corpus_dirty": cdirty,
-            "prism_sha": "unknown",
-            "seed": defaults.get("seed"),
-            "date": args.date,
-            "harness_sha": hsha,
-            "oracle": cfg.get("oracle", "unknown"),
-            "oracle_not_quiescent": False,
-            "oracle_error_rate": oracle_error_rate,
-            "sut_error_rate": sut_error_rate,
-            "baseline_invalid": True,
-            "invalid_reasons": [invalid_reason],
-            "error": str(exc),
-            "wall_s": {},
-        },
-        "probes": {"_corpus": name},
-        "m2": {},
-        "pending": [],
-    }
+    return run_policy.invalid_corpus_record(
+        name,
+        csha,
+        csha_full,
+        cdirty,
+        defaults.get("seed"),
+        args.date,
+        hsha,
+        cfg.get("oracle", "unknown"),
+        exc,
+    )
 
 
 def main() -> int:
@@ -775,28 +746,8 @@ def main() -> int:
         run["meta"].setdefault("date", args.date)
         if args.run_id:
             run["meta"]["corpus"] = f"{run_name}-{args.run_id}"
-        if overlay.get("baseline_invalid"):
-            run["meta"]["baseline_invalid"] = True
-            run["meta"]["invalid_reasons"] = list(
-                dict.fromkeys(
-                    run["meta"].get("invalid_reasons", [])
-                    + overlay.get("invalid_reasons", [])
-                )
-            )
-        run["meta"].update(
-            {
-                key: value
-                for key, value in overlay.items()
-                if key not in {"baseline_invalid", "invalid_reasons"}
-            }
-        )
-        for key, value in (
-            ("oracle_error_rate", 0.0),
-            ("sut_error_rate", 0.0),
-            ("oracle_not_quiescent", False),
-            ("wall_s", {}),
-        ):
-            run["meta"].setdefault(key, value)
+        run_policy.apply_run_overlay(run, overlay)
+        run_policy.ensure_run_measurement_defaults(run)
         (EVAL_DIR / "runs").mkdir(exist_ok=True)
         artifact_name = run["meta"]["corpus"]
         (EVAL_DIR / "runs" / f"{args.date}-{artifact_name}.json").write_text(

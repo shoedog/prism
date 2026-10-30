@@ -54,6 +54,7 @@ supersede or refine its operational resolutions:
 | `0de8fdcb`, `26655b67`, `d405c46c` | Made test tool versions hermetic, invalidated all live-tree measurements, refused lock sample overrides, and refused lockless quick runs. |
 | `6d439882`, `8f8b60b9`, `5be1589c` | Bound every lock leg to a private executable snapshot and digest-partitioned cache, isolated harness bytecode before imports, and rebound the committed comparison to committed leg records. |
 | fold 2 (this commit) | Replaced the whole-`cli.py` policy digest with `policy.py`, so orchestration-only CLI edits do not un-admit the anchor while every measured-definition edit remains bound. |
+| fold 3 P | Completed the extraction mechanically: every run-record measurement and validity decision assembled by `cli.py` now comes from a digest-bound policy helper; an AST guard rejects inline policy and four semantic mutation controls prove digest movement. |
 
 ### Fold 2 policy-source census (DECISIONS §P.6, item 38 option A)
 
@@ -70,3 +71,15 @@ This is the exhaustive pre-move census of top-level functions and constants in
 | Orchestration constant | `EVAL_DIR` | Retained in `cli.py`: it locates config, inputs, and output directories but defines no measured quantity. |
 | Orchestration functions | `load_corpora`; `make_oracle` | Retained in `cli.py`: configuration/path loading and adapter/subprocess construction; policy-bearing config values and classifications are supplied by digest-bound inputs/helpers. |
 | Orchestration functions after policy extraction | `run_corpus`; `invalid_corpus_run`; `main` | Retained in `cli.py`: process lifecycle, timing/progress, dispatch, I/O, and record assembly. Metric/error/validity choices are delegated to `policy.py`, `accounting.py`, `corpus.py`, `strata.py`, `spotcheck.py`, and `pinned.py`. |
+
+### Fold 3 P mechanical-completion census
+
+The fold-2 function census remains exhaustive. Fold 3 closes the residual inline
+run-record assignments within the retained orchestration functions:
+
+| Run-record class | Digest-bound authority after fold 3 | `cli.py` disposition |
+|---|---|---|
+| Initial, unsupported-oracle, oracle-version, lifecycle-timeout, final-drift, overlay, and invalid-run validity | `policy.py`: `initial_run_measurements`; `unsupported_oracle_measurements`; `oracle_version_invalid_reasons`; `oracle_timeout_measurements`; `sut_timeout_measurements`; `final_drift_measurements`; `apply_run_overlay`; `invalid_corpus_record` | Calls the helper and stores or merges its result. |
+| M1, sampling-frame/snapshot, eligibility, successful-probe, frame/member, accounting, and probe-status measurements | `policy.py`: `m1_measurements`; `sampling_frame_source`; `sampling_inventory_measurements`; `should_save_snapshot`; `snapshot_prism_missing`; `stratum_measurements`; `record_success`; `frame_measurements`; `member_site_measurements`; `accounting_measurements`; `probe_status_measurement` | Retains iteration, process calls, and record placement only. |
+| Floors, invalid reasons, deferred boundary, M2/pending/stale, and lockless refusal | `policy.py`: `combined_invalid_reasons`; `final_validity_measurements`; `boundary_metric_state`; `finalize_deferred_metrics`; `stale_adjudication_measurement`; `apply_lockless_refusal` | `commands.py` also delegates post-admission finalization and lockless refusal to the same authority. |
+| Guard coverage | `tests/test_fold3_policy.py` | AST inspection rejects arithmetic, comparisons, thresholds, counters, or literal values feeding guarded run keys in `cli.py`; four mutations in `policy.py` must move `policy_digest`. |

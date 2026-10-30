@@ -36,6 +36,7 @@ from .lock import (
     resolve_corpus_identity,
 )
 from .materialize import materialize, tier_a_root
+from . import policy as run_policy
 
 
 EVAL_DIR = Path(__file__).resolve().parents[1]
@@ -402,26 +403,9 @@ def _validate_lock_sample(lock: Lock | None, args) -> None:
 
 def finalize_metrics(run: dict, declared, defaults: dict, cfg: dict) -> dict:
     """Compute verdict-bearing metrics only after boundary admission."""
-    from . import cli
-
-    state = run.pop("_boundary_state", None)
-    if state is not None:
-        initial = state["initial_invalid_reasons"]
-        ok, reasons = cli.evaluate_floors(
-            state["strata_counts"],
-            run["meta"].get("oracle_error_rate", 0.0),
-            run["meta"].get("sut_error_rate", 0.0),
-            defaults["oracle_error_floor"][cfg["lang"]],
-            defaults["sut_error_floor"],
-        )
-        run["meta"]["baseline_invalid"] = (not ok) or bool(initial)
-        run["meta"]["invalid_reasons"] = initial + reasons
-    if "probes" in run:
-        run["m2"], run["pending"], stale = cli._compute_m2_and_pending(
-            run["probes"], declared.adjudications, run.get("site_fingerprints", {})
-        )
-        run["meta"]["stale_adjudications"] = stale
-    return run
+    return run_policy.finalize_deferred_metrics(
+        run, declared.adjudications, defaults, cfg
+    )
 
 
 def _lockless_closure_paths(cfg: dict) -> set[str]:
@@ -609,11 +593,7 @@ def run_quick_admitted(
         "digest": declared.fixtures_digest
     }
     if lock is None:
-        run["meta"]["baseline_invalid"] = True
-        run["meta"]["invalid_reasons"] = list(
-            dict.fromkeys(run["meta"].get("invalid_reasons", []) + ["no_lock"])
-        )
-        run["meta"]["admitted"] = False
+        run_policy.apply_lockless_refusal(run)
     else:
         observed = {
             key: run["meta"].get(key) for key in OBSERVED_RUN_IDENTITIES
