@@ -65,6 +65,12 @@
       "&& paths.reaches_target(*node, use_node)",
       "&& true",
       "cpg::reaching::reach_memo_tests::random_graph_and_classification_equivalence"
+    ],
+    "RM12-flat-uses-bound-kill": [
+      "src/cpg/reaching.rs",
+      "let mut flat_reach = DefinitionReachability::new(&successors, &flat_kill, &mapped_defs);",
+      "let mut flat_reach = DefinitionReachability::new(&successors, &kill, &mapped_defs);",
+      "cpg::reaching::join_kind_tests::differential_all_fixtures"
     ]
   },
   "lib_test_prefixes": [
