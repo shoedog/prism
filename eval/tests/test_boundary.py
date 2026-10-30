@@ -408,8 +408,8 @@ def test_each_refusal_writes_no_artifacts_and_exact_stderr(
     _assert_no_run_or_report(ev)
 
 
-def test_lockless_quick_stays_inside_boundary_and_is_not_admitted(
-    tmp_path, monkeypatch
+def test_lockless_quick_is_named_refusal_without_artifacts(
+    tmp_path, monkeypatch, capsys
 ):
     lock, ev, repo = anchored_repo(tmp_path)
     (ev / "tier-a.lock.toml").unlink()
@@ -453,21 +453,10 @@ def test_lockless_quick_stays_inside_boundary_and_is_not_admitted(
         ["tier-a", "--quick", "--allow-stale-sut", "--date", REFUSAL_DATE],
     )
 
-    assert cli.main() == 2
-    run = json.loads((ev / f"runs/{REFUSAL_DATE}-prism.json").read_text())
-
-    assert seen["sut_env"] == {"PATH": "/usr/bin"}
-    assert seen["compute_metrics"] is False
-    assert seen["declared"].digests == {
-        "eval/adjudications.jsonl": raw_digest(ev / "adjudications.jsonl"),
-        lock.prism["snapshot"]["path"]: raw_digest(
-            repo / lock.prism["snapshot"]["path"]
-        ),
-        "eval/tier_a/pinned.py": raw_digest(ev / "tier_a/pinned.py"),
-    }
-    assert run["meta"]["admitted"] is False
-    assert run["meta"]["baseline_invalid"] is True
-    assert run["meta"]["invalid_reasons"] == ["no_lock"]
+    assert cli.main() == 3
+    assert capsys.readouterr().err == "FATAL boundary_violation: no_lock\n"
+    assert seen == {}
+    _assert_no_run_or_report(ev)
 
 
 def test_open_audit_installs_one_dispatcher_and_scopes_collectors(tmp_path, monkeypatch):
