@@ -131,9 +131,24 @@
     ],
     "MB-20-allow-private-namespace-spelling": [
       "src/js_anonymous/function_expression.rs",
-      ".filter(|id| !self.expression_private_name(id))",
+      ".filter(|id| self.import_expression_name_admitted(id))",
       ".filter(|_| true)",
-      "js_named_function_scope_test::imports_do_not_expose_private_expression_names"
+      [
+        "js_named_function_scope_test::imports_do_not_expose_private_expression_names",
+        "js_named_function_scope_test::cjs_different_values_do_not_expose_private_names"
+      ]
+    ],
+    "MB-21-refuse-proven-cjs-expression-value": [
+      "src/ast/js_cjs_terminal.rs",
+      "Some(JsExportTarget::VerifiedLocal {\n            local: exported.to_owned(),\n            start_line: callable.start_line,\n            end_line: callable.end_line,\n        })",
+      "None",
+      "js_named_function_scope_test::cjs_direct_expression_values_keep_exact"
+    ],
+    "MB-22-refuse-proven-namespace-expression-value": [
+      "src/js_anonymous/function_expression.rs",
+      "|| self\n                .js_ts_resolved_exports\n                .get(&id.file)\n                .and_then(|exports| exports.get(&id.name))",
+      "|| false && self\n                .js_ts_resolved_exports\n                .get(&id.file)\n                .and_then(|exports| exports.get(&id.name))",
+      "js_named_function_scope_test::cjs_direct_expression_values_keep_exact"
     ]
   }
 }

@@ -303,12 +303,7 @@ fn d11_incomplete_exports_and_depth_keep_base() {
             ),
         ] {
             let cg = graph(ext, &[("lib", lib), ("app", APP)]);
-            // #450: this spanless CJS row only offers the expression's private name.
-            let expected = if lib == "exports.f=function f(){};" {
-                "drop ImportExternal".into()
-            } else {
-                exact(ext, "lib", "f", line)
-            };
+            let expected = exact(ext, "lib", "f", line);
             assert_eq!(rows(&cg, "run", "f"), [expected], "{ext}: {lib}");
         }
         let cg = graph(

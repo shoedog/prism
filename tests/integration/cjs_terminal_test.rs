@@ -62,8 +62,7 @@ case!(
 );
 case!(
     terminal_named_expression_same_name,
-    // #450: this real callable needs a source-backed CJS export span.
-    Gap,
+    Supported,
     "const origin = function origin(input) { return input; };\nexports.item = origin;"
 );
 case!(terminal_comments, Supported, "const /*a*/ origin /*b*/ = /*c*/ (input) => input;\nmodule.exports = { /*d*/ item: /*e*/ origin };");
@@ -342,5 +341,5 @@ fn terminal_rejected_forwarding_class_claim() {
 
 case!(terminal_declaration_self_write, Refused, "function origin(input) { origin = other; return input; }\nfunction other() {} origin(); exports.item = origin;");
 case!(terminal_generator_self_write, Refused, "function* origin(input) { origin = other; yield input; }\nfunction other() {} origin().next(); exports.item = origin;");
-case!(terminal_expression_self_write, Gap, "const origin = function origin(input) { origin = other; return input; };\nfunction other() {} origin(); exports.item = origin;");
+case!(terminal_expression_self_write, Supported, "const origin = function origin(input) { origin = other; return input; };\nfunction other() {} origin(); exports.item = origin;");
 case!(terminal_parameter_self_shadow_write, Supported, "function origin(origin) { origin = other; return origin; }\nfunction other() {} exports.item = origin;");

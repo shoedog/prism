@@ -194,9 +194,9 @@ A note in `CLAUDE.md` saying such code is out of model was considered and reject
     - a directory specifier always resolves to `index.*`, not to `package.json` `main`;
     - with both `x.js` and `x.ts` present, `./x.js` binds `x.js`, whereas TypeScript binds `x.ts`.
 - **CommonJS.**
-  - `module.exports = …` and `exports.x = …` are modeled as the construction idiom (`src/ast/js_cjs_export_barriers.rs`). A CommonJS export has no source span, so an alias of a CommonJS import is not proven by the alias route; such a site keeps the base result. Tracked: #376 item 2.
+  - `module.exports = …` and `exports.x = …` are modeled as the construction idiom (`src/ast/js_cjs_export_barriers.rs`). Most CommonJS exports remain spanless, so an alias of a CommonJS import generally keeps the base result. Named function expressions with a proved same-name declarator or direct same-name member assignment retain their callable span (#450). Tracked: #376 item 2.
   - The direct routes (`w()`, `N.w()`) bind a span-less export to any same-named function in the exporting file except private function-expression names, including nested declarations. Tracked: #376 item 5.
-  - A named expression exported through CommonJS can therefore drop even when its anonymous twin resolves: recovery needs a callable-span proof rather than its private name (#450).
+  - A private function-expression name never proves an export by spelling alone. Direct same-name declarator values and `exports.N = function N(){}` / `module.exports.N = function N(){}` values retain source-backed identity; array-element and identity-wrapper values remain refused pending a separate policy decision (#450).
   - A direct call to an import is dropped when the caller declares another binding of that name in a nested scope. Tracked: #376 item 4.
 - **Runtime mutation is out of model** for every route: monkey-patching, reflective writes, `eval`, host globals, re-acquisition through `require`/`import()`. See `CLAUDE.md`.
 

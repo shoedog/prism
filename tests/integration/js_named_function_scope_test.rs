@@ -452,3 +452,83 @@ fn expression_scope_survives_full_and_partial_cache_hits() {
         }
     }
 }
+
+// Each positive has a private-name twin with the same export syntax. Namespace
+// importers also exercise the legacy stem fallback when terminal proof refuses.
+fn cjs_expression_values(want: bool) {
+    let mut failures = Vec::new();
+    for ext in ["js", "ts", "tsx"] {
+        for (label, positive, negative) in [
+            (
+                "const-member",
+                "const origin = function origin(input) { return input; }; exports.origin = origin;",
+                "const value = function origin() {}; exports.origin = value;",
+            ),
+            (
+                "const-object",
+                "const origin = function origin() {}; module.exports = { origin: origin };",
+                "const value = function origin() {}; module.exports = { origin: value };",
+            ),
+            (
+                "var-module-member",
+                "var origin = function origin() {}; module.exports.origin = origin;",
+                "var value = function origin() {}; module.exports.origin = value;",
+            ),
+            (
+                "direct-member",
+                "exports.origin = function origin() {};",
+                "exports.value = function origin() {};",
+            ),
+            (
+                "let-member",
+                "let origin = function origin() {}; exports.origin = origin;",
+                "let value = function origin() {}; exports.origin = value;",
+            ),
+            (
+                "direct-module-member",
+                "module.exports.origin = function origin() {};",
+                "module.exports.value = function origin() {};",
+            ),
+        ] {
+            for caller in [
+                "const { origin: invoke } = require('./dep'); function run() { /*site*/invoke(); }",
+                "import * as ns from './dep'; function run() { /*site*/ns.origin(); }",
+            ] {
+                let source = if want { positive } else { negative };
+                let path = format!("dep.{ext}");
+                let mut parsed = files(caller, ext);
+                let file =
+                    ParsedFile::parse(&path, source, Language::from_path(&path).unwrap()).unwrap();
+                assert!(!file.tree.root_node().has_error());
+                parsed.insert(path.clone(), file);
+                let got = exact_targets(&CallGraph::build(&parsed), caller);
+                let expected = if want {
+                    vec![(path, "origin".into(), 1)]
+                } else {
+                    vec![]
+                };
+                if got != expected {
+                    failures.push(format!(
+                        "{label}/{ext}/{caller}: got {got:?}, want {expected:?}"
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} failures:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn cjs_direct_expression_values_keep_exact() {
+    cjs_expression_values(true);
+}
+
+#[test]
+fn cjs_different_values_do_not_expose_private_names() {
+    cjs_expression_values(false);
+}

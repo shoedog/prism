@@ -202,8 +202,8 @@ cjs_scope!(
     Supported,
     "const origin = function(origin) { origin = other; return origin; };\nexports.item = origin;"
 );
-// #450: spanless CJS facts cannot prove a private expression name as an export.
-cjs_scope!(cjs_refusal_scope_named_expression,Gap,"const origin = function origin(input) { origin = other; return input; };\nexports.item = origin;");
+// The terminal proof identifies the outer binding; self-writes stay private.
+cjs_scope!(cjs_refusal_scope_named_expression,Supported,"const origin = function origin(input) { origin = other; return input; };\nexports.item = origin;");
 cjs_scope!(
     cjs_refusal_scope_plain_anonymous,
     Supported,

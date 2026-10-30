@@ -67,8 +67,21 @@ impl CallGraph {
             .collect()
     }
 
-    /// The namespace stem fallback has no callable-span authority. Keep its
-    /// existing candidates except for expression-local names, even within the file.
+    fn import_expression_name_admitted(&self, id: &FunctionId) -> bool {
+        !self.expression_private_name(id)
+            || self
+                .js_ts_resolved_exports
+                .get(&id.file)
+                .and_then(|exports| exports.get(&id.name))
+                .is_some_and(|export| {
+                    export.file == id.file
+                        && export.local_name == id.name
+                        && export.span == Some((id.start_line, id.end_line))
+                })
+    }
+
+    /// A private name needs the matching export's callable-span proof even on
+    /// the namespace stem fallback; unrelated exported values supply no authority.
     pub(crate) fn js_ts_import_spelling_exact<'a>(
         &self,
         candidates: Vec<&'a FunctionId>,
@@ -76,7 +89,7 @@ impl CallGraph {
     ) -> ResolutionOutcome<'a> {
         let resolved: Vec<_> = candidates
             .into_iter()
-            .filter(|id| !self.expression_private_name(id))
+            .filter(|id| self.import_expression_name_admitted(id))
             .map(|target| ResolvedCallee {
                 target,
                 confidence: ResolutionConfidence::Exact,

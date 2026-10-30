@@ -2814,12 +2814,7 @@ impl ParsedFile {
             && !self.js_ts_module_exports_replaced(self.tree.root_node());
 
         if is_module_exports_member || is_exports_member {
-            // `module.exports.f = f;` or `exports.f = f;`
-            if right.kind() == "identifier" {
-                facts.insert_named(property_name, self.js_ts_cjs_local_target(right));
-            } else {
-                facts.skipped_expr_count += 1;
-            }
+            self.collect_js_ts_cjs_member_value(property_name, right, facts);
         }
     }
 

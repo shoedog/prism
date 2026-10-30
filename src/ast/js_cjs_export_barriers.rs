@@ -50,7 +50,12 @@ impl ParsedFile {
                 members += 1;
                 // Unsupported expression writes must not silently disappear
                 // while a previous identifier assignment remains authoritative.
-                if right.kind() != "identifier" {
+                let property = left.child_by_field_name("property").unwrap();
+                if right.kind() != "identifier"
+                    && self
+                        .js_ts_cjs_direct_target(right, self.node_text(&property))
+                        .is_none()
+                {
                     return false;
                 }
             }
