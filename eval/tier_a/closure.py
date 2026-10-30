@@ -47,6 +47,7 @@ _POLICY_MODULES = (
     "corpus.py",
     "lock.py",
     "lsp_client.py",
+    "launch.py",
     "materialize.py",
     "matrix.py",
     "member_sample.py",

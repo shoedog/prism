@@ -253,6 +253,8 @@ def test_exact_m6_mutation_losing_unadjudicated_matched_sites_is_a_regression():
     candidate = json.loads(
         (records_dir / "2026-10-29-prism-candidate2.json").read_text()
     )
+    base["meta"]["launch"] = base_ids()["launch"]
+    candidate["meta"]["launch"] = base_ids()["launch"]
     pid = "callees:src/ast.rs:2914"
     candidate["probes"][pid]["prism_sites"] = []
     adjudications = EVAL_DIR / "adjudications.jsonl"
@@ -401,7 +403,7 @@ def test_adjudicated_lost_matched_site_keeps_existing_recall_regression():
     )
 
 
-def test_real_m6_lock_bound_pair_is_comparable():
+def test_real_m6_pair_without_launch_provenance_is_refused():
     fixtures = Path(__file__).parent / "fixtures/m6pre2"
     base = json.loads((fixtures / "2026-10-29-prism-base.json").read_text())
     candidate = json.loads(
@@ -411,9 +413,7 @@ def test_real_m6_lock_bound_pair_is_comparable():
     assert candidate["meta"]["sut_digest"] == base["meta"]["sut_digest"]
 
     cmp = compare_runs(base, candidate, ([], digest))
-    assert cmp["verdict"] == "NO_REGRESSION"
-    assert cmp["counts"]["carried_same"] == 30
-    assert set(cmp["classes"].values()) == {"carried_same"}
+    assert cmp["verdict"].startswith("NOT_COMPARABLE(launch_invalid:")
 
 
 def test_pinned_probes_are_partitioned_by_oracle_answer_and_ranked_by_contract():                 # R5-W6, R6-W3, R6-W4, R7-W1

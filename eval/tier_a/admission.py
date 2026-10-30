@@ -37,6 +37,7 @@ from .lock import (
     resolve_corpus_identity,
 )
 from .materialize import materialize, tier_a_root
+from .launch import launch_refusal_reason
 from . import policy as run_policy
 
 
@@ -516,6 +517,10 @@ def run_quick_admitted(
         )
         run["meta"]["corpus"] = name
         run["meta"]["date"] = args.date
+
+    launch_reason = launch_refusal_reason(run.get("meta", {}).get("launch"))
+    if launch_reason is not None:
+        raise BoundaryViolation([launch_reason])
 
     sut_owner = run.pop("_sut_owner", sut)
     sut_bin = Path(

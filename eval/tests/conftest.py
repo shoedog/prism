@@ -4,11 +4,18 @@ from __future__ import annotations
 import pytest
 
 from tests import helpers
-from tier_a import bootstrap, commands
+from tier_a import bootstrap, commands, launch
 
 
 @pytest.fixture(autouse=True)
 def hermetic_host_tool_versions(monkeypatch):
+    launch.authorize(
+        {
+            "isolated": True,
+            "prefix_fresh": True,
+            "protocol": launch.PROTOCOL,
+        }
+    )
     real_commands_version = commands._version
     real_bootstrap_run = bootstrap._run
 

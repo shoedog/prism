@@ -7,6 +7,7 @@ from collections import Counter
 
 from .adjudication import Adjudication
 from .compare import match_oracle_sites
+from .launch import launch_refusal_reason
 from .policy import ORACLE_ANSWER_STATUSES, SCORED_PROBE_STATUSES
 from .strata import STRATA
 
@@ -549,6 +550,15 @@ def compare_runs(
     base_meta = base_run.get("meta", {})
     cand_meta = cand_run.get("meta", {})
     report = _empty_report(base_run, cand_run, policy)
+
+    launch_refusals = []
+    for side, meta in (("base", base_meta), ("candidate", cand_meta)):
+        reason = launch_refusal_reason(meta.get("launch"))
+        if reason is not None:
+            launch_refusals.append(f"{side}: {reason}")
+    if launch_refusals:
+        report["verdict"] = f"NOT_COMPARABLE(launch_invalid: {', '.join(launch_refusals)})"
+        return report
 
     invalid_identities = _invalid_identities("base", base_meta)
     invalid_identities.extend(_invalid_identities("candidate", cand_meta))

@@ -210,6 +210,11 @@ def base_ids() -> dict:
         "env_allow": ["PATH", "HOME"],
         "env_values": {"PATH": "/usr/bin", "HOME": "/test/home"},
         "harness_sha": "b" * 40,
+        "launch": {
+            "isolated": True,
+            "prefix_fresh": True,
+            "protocol": "tier-a-isolated-launch-v2",
+        },
         "seed": 42,
     }
 

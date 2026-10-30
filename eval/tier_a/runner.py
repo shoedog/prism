@@ -29,6 +29,7 @@ from .corpus import (
     node_modules_environment,
 )
 from .matrix import MATRIX_LANGUAGES, run_matrix
+from .launch import launch_provenance, launch_refusal_reason
 from .oracles import OracleError, OracleTimeout
 from .policy import (
     OracleInventoryResult,
@@ -173,6 +174,10 @@ def run_corpus(
     initial_invalid_reasons = initial_run_invalid_reasons(
         pinned_ok, pinned_reason, source_drift, live_tree
     )
+    launch = launch_provenance()
+    launch_reason = launch_refusal_reason(launch)
+    if launch_reason is not None:
+        initial_invalid_reasons.append(launch_reason)
     untracked = (
         corpus_identity.untracked
         if corpus_identity is not None
@@ -230,6 +235,7 @@ def run_corpus(
             "seed": defaults["seed"],
             "date": args.date,
             "harness_sha": admission._harness_sha(EVAL_DIR),
+            "launch": launch,
             "oracle_not_quiescent": False,
             "oracle": cfg["oracle"],
             **run_policy.initial_run_measurements(initial_invalid_reasons),
@@ -624,7 +630,7 @@ def invalid_corpus_run(
         hsha = admission._harness_sha(EVAL_DIR)
     except Exception:
         hsha = "unknown"
-    return run_policy.invalid_corpus_record(
+    run = run_policy.invalid_corpus_record(
         name,
         csha,
         csha_full,
@@ -635,6 +641,8 @@ def invalid_corpus_run(
         cfg.get("oracle", "unknown"),
         exc,
     )
+    run["meta"]["launch"] = launch_provenance()
+    return run
 
 
 def run(args) -> int:
