@@ -63,10 +63,10 @@ def _canonical_functions(probe: dict, key: str) -> tuple:
 
 def oracle_answer(status: str, probe: dict | None) -> tuple:
     """Return the canonical oracle-only answer recorded for one probe leg."""
-    if status == "oracle_error":
-        return _ORACLE_ERROR
     if status == "sut_error":
         return SUT_ERROR_LEG
+    if status not in _SCORED:
+        return _ORACLE_ERROR
     probe = probe or {}
     return (
         _canonical_functions(probe, "oracle_functions"),

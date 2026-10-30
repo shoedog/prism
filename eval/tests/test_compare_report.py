@@ -63,6 +63,36 @@ def test_oracle_changed_is_excluded_never_attributed_to_prism():                
     assert cmp_err["oracle_changed"]["ids"] == ["callers:p0:1"] and cmp_err["criteria"]["probe_sets_equal"] is True and cmp_err["verdict"] == "NO_REGRESSION"   # the oracle failed on one leg ⇒ oracle_changed, never probe_set
 
 
+def test_every_non_scored_non_sut_status_is_an_oracle_failure():
+    ids = base_ids()
+    cand = {
+        **ids,
+        "sut_sha_full": "b" * 40,
+        "sut_digest": "sha256:" + "b" * 64,
+    }
+    pid = "callers:src/U-free.rs:1"
+    base_probes = quick_probes()
+    base_probes[pid] = {
+        **base_probes[pid],
+        "oracle_sites": [],
+        "prism_sites": [["src/prism-only.rs", 9, 9]],
+    }
+    base = fake_run(ids, probes=base_probes)
+    candidate_probes = quick_probes()
+    del candidate_probes[pid]
+    candidate = fake_run(
+        cand,
+        probes=candidate_probes,
+        status={**{key: "ok" for key in quick_probes()}, pid: "oracle_timeout"},
+    )
+
+    cmp = compare_runs(base, candidate, DECLARED_ADJ)
+
+    assert cmp["oracle_changed"]["ids"] == [pid]
+    assert pid not in cmp["classes"]
+    assert cmp["counts"]["carried_changed/sut_change"] == 0
+
+
 def test_comparison_floor_is_per_stratum_over_both_directions_and_passable_under_quick():     # R5-W3, R6-W6
     ids = base_ids(); cand = {**ids, "sut_sha_full": "b"*40, "sut_digest": "sha256:b"}
     b = fake_run(ids)                                                                              # the default quick_probes() sample: 5 strata × 2 directions × 3 = 30 (cli.py:627) plus the "_corpus"/"_strata" entries the scorer reads
@@ -228,6 +258,54 @@ def test_exact_m6_mutation_losing_unadjudicated_matched_sites_is_a_regression():
     assert cmp["verdict"] == "REGRESSION(no_lost_matched_oracle_sites)"
 
 
+def test_lost_match_guard_uses_the_scorers_tolerated_one_to_one_matches():
+    ids = base_ids()
+    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    pid = "callers:src/U-method.rs:1"
+    base_probes = quick_probes()
+    base_probes[pid] = {
+        **base_probes[pid],
+        "prism_sites": [["src/tolerated.rs", 10, 10]],
+        "oracle_sites": [["src/tolerated.rs", 11, 11]],
+    }
+    candidate_probes = copy.deepcopy(base_probes)
+    candidate_probes[pid]["prism_sites"] = []
+
+    cmp = compare_runs(
+        fake_run(ids, probes=base_probes),
+        fake_run(candidate_ids, probes=candidate_probes),
+        DECLARED_ADJ,
+    )
+
+    assert cmp["lost_matched_oracle_sites"] == {
+        pid: [["src/tolerated.rs", 11, 11]]
+    }
+    assert cmp["verdict"] == "REGRESSION(no_recall_loss; no_lost_matched_oracle_sites)"
+
+
+def test_equivalent_coordinate_movement_does_not_create_a_lost_match():
+    ids = base_ids()
+    candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
+    pid = "callers:src/U-method.rs:1"
+    base_probes = quick_probes()
+    base_probes[pid] = {
+        **base_probes[pid],
+        "prism_sites": [["src/tolerated.rs", 11, 11]],
+        "oracle_sites": [["src/tolerated.rs", 11, 11]],
+    }
+    candidate_probes = copy.deepcopy(base_probes)
+    candidate_probes[pid]["prism_sites"] = [["src/tolerated.rs", 10, 10]]
+
+    cmp = compare_runs(
+        fake_run(ids, probes=base_probes),
+        fake_run(candidate_ids, probes=candidate_probes),
+        DECLARED_ADJ,
+    )
+
+    assert cmp["lost_matched_oracle_sites"] == {}
+    assert cmp["verdict"] == "NO_REGRESSION"
+
+
 def test_pending_change_without_lost_match_remains_no_regression():
     ids = base_ids()
     candidate_ids = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:b"}
@@ -363,6 +441,48 @@ def test_missing_probe_and_identity_mismatch_are_not_comparable():              
     for k in ("sha_aliases", "harness_sha", "env_values", "policy_digest", "snapshot_digest"):        # astra W11; observation_coverage no longer exists (owner ruling)
         assert compare_runs(fake_run(ids), fake_run({**cand, k: "other"}), DECLARED_ADJ)["verdict"] == f"NOT_COMPARABLE({k})"
     assert compare_runs(fake_run(ids), fake_run({**cand, "admitted": False}), DECLARED_ADJ)["verdict"] == "NOT_COMPARABLE(admitted)"
+
+
+@pytest.mark.parametrize(
+    ("side", "key", "value"),
+    [
+        ("base", "sut_digest", None),
+        ("candidate", "sut_digest", None),
+        ("base", "harness_sha", "not-a-sha"),
+        ("candidate", "sut_sha_full", "abc"),
+        ("candidate", "env_allow", "PATH"),
+    ],
+)
+def test_missing_null_or_malformed_required_identity_refuses(side, key, value):
+    ids = base_ids()
+    cand = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:" + "b" * 64}
+    base = fake_run(ids)
+    candidate = fake_run(cand)
+    leg = base if side == "base" else candidate
+    if value is None:
+        leg["meta"].pop(key)
+    else:
+        leg["meta"][key] = value
+
+    cmp = compare_runs(base, candidate, DECLARED_ADJ)
+
+    assert cmp["verdict"] == f"NOT_COMPARABLE(identity_invalid: {side}.{key})"
+
+
+def test_invalid_baseline_leg_refuses_before_regression_classification():
+    ids = base_ids()
+    cand = {**ids, "sut_sha_full": "b" * 40, "sut_digest": "sha256:" + "b" * 64}
+    base = fake_run(ids)
+    candidate = fake_run(cand)
+    candidate["meta"]["baseline_invalid"] = True
+    candidate["meta"]["invalid_reasons"] = ["oracle_timeout", "live_corpus"]
+
+    cmp = compare_runs(base, candidate, DECLARED_ADJ)
+
+    assert cmp["criteria"]["both_baseline_valid"] is False
+    assert cmp["verdict"] == (
+        "NOT_COMPARABLE(baseline_invalid: candidate: oracle_timeout, live_corpus)"
+    )
 
 
 def test_unexplained_nondeterminism_fails_the_gate():                                      # astra W11, re-scoped by the owner ruling
