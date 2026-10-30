@@ -170,7 +170,7 @@ fn resolve_loc(
     let Some(parsed) = session.repo.files.get(file) else {
         return Err(QueryError::UnsupportedFile { file: file.into() });
     };
-    if line == 0 || line > line_count(&parsed.source) {
+    if !crate::navigation::seed::location_in_range(&parsed.source, line) {
         return Err(QueryError::LocationOutOfRange {
             file: file.into(),
             line,
@@ -186,6 +186,17 @@ fn resolve_loc(
         }
     }
     if nodes.is_empty() {
+        if session
+            .index
+            .enclosing_function_including_anonymous(file, line)
+            .is_none()
+            && !crate::navigation::seed::has_syntax_callable_enclosure(parsed, line)
+        {
+            return Err(QueryError::NoEnclosingCallable {
+                file: file.into(),
+                line,
+            });
+        }
         return Err(QueryError::SymbolNotFound {
             seed: seed_label(&origin),
         });
@@ -442,10 +453,6 @@ pub fn seed_label(seed: &SeedSpec) -> String {
             None => name.clone(),
         },
     }
-}
-
-fn line_count(source: &str) -> usize {
-    source.as_bytes().iter().filter(|&&b| b == b'\n').count() + 1
 }
 
 #[cfg(test)]

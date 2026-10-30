@@ -243,7 +243,10 @@ class PrismCli:
             blob = p.stdout or p.stderr
             if "AmbiguousSymbol" in blob:
                 raise SutAmbiguous(blob)
-            if "SymbolNotFound" in blob or "LocationOutOfRange" in blob:
+            if any(kind in blob for kind in (
+                "SymbolNotFound", "LocationOutOfRange",
+                "NoEnclosingCallable", "NoNamedEnclosingCallable",
+            )):
                 raise SutSeedMiss(blob)
             raise SutError(f"prism nav {args[0]} failed ({p.returncode}): {blob}")
         try:

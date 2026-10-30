@@ -2507,13 +2507,10 @@ fn resolve_ego_seed(
         nodes.sort_by_key(|i| i.index());
         nodes.dedup();
         if nodes.is_empty() {
-            let (idx, _) =
-                s.index
-                    .enclosing_function(&f, line)
-                    .ok_or(QueryError::LocationOutOfRange {
-                        file: f.clone(),
-                        line,
-                    })?;
+            let (idx, _) = s
+                .index
+                .enclosing_function(&f, line)
+                .ok_or_else(|| seed::missing_callable_error(s, &f, line))?;
             nodes.push(idx);
         }
         return Ok(EgoSeed {

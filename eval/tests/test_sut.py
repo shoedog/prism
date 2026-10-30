@@ -78,9 +78,15 @@ def test_run_classifies_ambiguous_symbol(monkeypatch):
         cli._run(["callers", "--repo", "/repo", "--symbol", "dup"])
 
 
-def test_run_classifies_seed_miss(monkeypatch):
+@pytest.mark.parametrize("kind,payload", [
+    ("SymbolNotFound", {"seed": "loc:x.py:1"}),
+    ("LocationOutOfRange", {"file": "x.py", "line": 1}),
+    ("NoEnclosingCallable", {"file": "x.py", "line": 1}),
+    ("NoNamedEnclosingCallable", {"file": "x.js", "line": 1}),
+])
+def test_run_classifies_seed_miss(monkeypatch, kind, payload):
     def fake_run(*_args, **_kwargs):
-        return FakeRun(3, '{"error":{"SymbolNotFound":{"seed":"loc:x.py:1"}}}\n')
+        return FakeRun(3, json.dumps({"error": {kind: payload}}) + "\n")
 
     cli = PrismCli.__new__(PrismCli)
     cli.bin = "/tmp/prism"

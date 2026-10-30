@@ -5,6 +5,7 @@ mod footprint_guard_test;
 mod golden_transcript_test;
 mod idle_process_test;
 mod launcher_test;
+mod location_seed_test;
 mod malloc_test;
 mod mem_report_test;
 mod member_only_param_test;
