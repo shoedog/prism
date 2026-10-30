@@ -11,11 +11,13 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 import time
 
 from .closure import raw_digest
 from .lock import resolve_prefix
+from .materialize import tier_a_root
 from .model import CallEdge, FunctionDef, Location
 
 
@@ -82,6 +84,33 @@ def _resolve_binary_commit(prism_repo: str, sha: str) -> str:
         return resolved
     except (subprocess.CalledProcessError, ValueError) as exc:
         raise SutStale(f"binary_commit_unresolvable: {sha}") from exc
+
+
+def _snapshot_executable(
+    path: str, expected_digest: str | None = None
+) -> tuple[tempfile.TemporaryDirectory, str, str]:
+    source = Path(path)
+    before = raw_digest(source)
+    temporary = tempfile.TemporaryDirectory(prefix="tier-a-sut-")
+    snapshot = Path(temporary.name) / source.name
+    try:
+        shutil.copy2(source, snapshot)
+        snapshot_digest = raw_digest(snapshot)
+        after = raw_digest(source)
+    except Exception:
+        temporary.cleanup()
+        raise
+    if before != after or snapshot_digest != before:
+        temporary.cleanup()
+        raise SutStale("sut_observation_unavailable: executable_drift_during_snapshot")
+    if expected_digest is not None and snapshot_digest != expected_digest:
+        temporary.cleanup()
+        raise SutStale("binary digest does not match the authenticated identity")
+    return temporary, str(snapshot), snapshot_digest
+
+
+def _lock_cache_dir(digest: str) -> str:
+    return str(tier_a_root() / "nav-cache" / digest.removeprefix("sha256:"))
 
 
 def verified_binary_identity(
@@ -237,14 +266,27 @@ def run_bounded(sut, command, *, check=False):
 class PrismCli:
     @classmethod
     def from_archive(
-        cls, prism_repo: str, path: str, sha_full: str, digest: str
+        cls,
+        prism_repo: str,
+        path: str,
+        sha_full: str,
+        digest: str,
+        *,
+        env: dict[str, str] | None = None,
     ) -> "PrismCli":
-        path = _resolve_executable(path, None)
-        if raw_digest(Path(path)) != digest:
-            raise SutStale("binary digest does not match the archived identity")
-        out = subprocess.run(
-            [path, "--version"], check=True, capture_output=True, text=True
-        ).stdout
+        resolved_path = _resolve_executable(path, env)
+        temporary, path, observed_digest = _snapshot_executable(resolved_path, digest)
+        instance = cls.__new__(cls)
+        instance.repo = prism_repo
+        instance.bin = path
+        instance.allow_stale = False
+        instance.env = env
+        instance.no_cache = False
+        instance.lock_bound = True
+        instance._snapshot_dir = temporary
+        instance.sut_digest = observed_digest
+        instance.cache_dir = _lock_cache_dir(observed_digest)
+        out = instance._run(["--version"])
         sha, dirty = parse_version(out)
         if dirty:
             raise SutStale("archived binary was built from a dirty tree")
@@ -254,13 +296,6 @@ class PrismCli:
             raise SutStale("binary SHA does not match the archived identity") from exc
         if resolved != sha_full:
             raise SutStale("binary SHA does not match the archived identity")
-        instance = cls.__new__(cls)
-        instance.repo = prism_repo
-        instance.bin = path
-        instance.allow_stale = False
-        instance.env = None
-        instance.no_cache = False
-        instance.lock_bound = True
         instance.sha, instance.sha_full, instance.dirty = sha, sha_full, False
         return instance
 
@@ -274,9 +309,8 @@ class PrismCli:
         *,
         env: dict[str, str] | None = None,
     ) -> "PrismCli":
-        path = _resolve_executable(path, env)
-        if raw_digest(Path(path)) != digest:
-            raise SutStale("binary digest does not match the staged identity")
+        resolved_path = _resolve_executable(path, env)
+        temporary, path, observed_digest = _snapshot_executable(resolved_path, digest)
         sha, resolved = verified_binary_identity(prism_repo, path, env)
         if resolved != sha_full:
             raise SutStale("binary SHA does not match the staged identity")
@@ -287,6 +321,9 @@ class PrismCli:
         instance.env = env
         instance.no_cache = False
         instance.lock_bound = True
+        instance._snapshot_dir = temporary
+        instance.sut_digest = observed_digest
+        instance.cache_dir = _lock_cache_dir(observed_digest)
         instance.sha, instance.sha_full, instance.dirty = sha, sha_full, False
         return instance
 
@@ -299,19 +336,24 @@ class PrismCli:
         env: dict[str, str] | None = None,
     ):
         self.repo = prism_repo
-        selected = sut_bin or os.environ.get("PRISM_BIN") or os.path.join(
-            prism_repo, "target/release/prism"
-        )
+        selected = sut_bin or (
+            os.environ.get("PRISM_BIN") if env is None else None
+        ) or os.path.join(prism_repo, "target/release/prism")
         self.allow_stale = allow_stale
         self.env = env
-        self.bin = _resolve_executable(selected, env)
-        # Lock-bound invocations carry a scrubbed environment and keep Prism's
-        # default nav store, as on tier-a-reanchor before the merge: Prism rejects
-        # a store whose cache build identity (a fingerprint of the binary's source
-        # inputs) or CACHE_VERSION differs, so a different build never serves it.
-        # Ordinary runs use main's writable cache location.
+        resolved_path = _resolve_executable(selected, env)
+        if env is not None:
+            temporary, self.bin, self.sut_digest = _snapshot_executable(resolved_path)
+            self._snapshot_dir = temporary
+        else:
+            self.bin = resolved_path
+            self.sut_digest = None
+        # Lock-bound invocations partition the reusable nav store by authenticated
+        # executable bytes. Ordinary runs retain main's writable cache location.
         self.cache_dir = (
-            None if env is not None else os.path.join(prism_repo, "target", "tier-a-nav-cache")
+            _lock_cache_dir(self.sut_digest)
+            if env is not None
+            else os.path.join(prism_repo, "target", "tier-a-nav-cache")
         )
         # When True, nav calls pass `--no-cache` so the per-repo nav store is
         # bypassed. The matrix runner sets this for deterministic fixture eval —
@@ -327,7 +369,13 @@ class PrismCli:
         out = self._run(["--version"])
         assert isinstance(out, str)
         sha, dirty = parse_version(out)
-        binary_sha_full = _resolve_binary_commit(self.repo, sha)
+        try:
+            binary_sha_full = _resolve_binary_commit(self.repo, sha)
+        except SutStale:
+            if not self.allow_stale:
+                raise
+            binary_sha_full = sha
+            self.identity_note = "binary_commit_unresolvable"
         head = subprocess.run(
             ["git", "-C", self.repo, "rev-parse", "HEAD"],
             capture_output=True,

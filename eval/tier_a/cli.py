@@ -709,6 +709,8 @@ def run_corpus(
         "probes": {"_corpus": name},
         "failures": {},
     }
+    if getattr(sut, "identity_note", None):
+        run["meta"]["sut_identity_note"] = sut.identity_note
     if live_tree:
         run["meta"]["corpus_mode"] = "live"
     if env is not None:

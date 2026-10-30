@@ -488,8 +488,8 @@ def run_quick_admitted(
             args.sut_archive,
             lock.prism["sut"]["sha"],
             lock.prism["sut"]["digest"],
+            env=env,
         )
-        sut.env = env
     with OpenAudit(eval_dir, artifacts) as audit:
         declared = load_declared_inputs(
             lock,

@@ -210,12 +210,13 @@ def test_quick_run_id_and_sut_archive_name_both_output_pairs(tmp_path, monkeypat
     monkeypatch.setattr(cli, "EVAL_DIR", ev)
     seen = {}
 
-    def from_archive(cls, prism_repo, path, sha_full, digest):
+    def from_archive(cls, prism_repo, path, sha_full, digest, *, env=None):
         seen.update(
             prism_repo=prism_repo,
             path=path,
             sha_full=sha_full,
             digest=digest,
+            env=env,
         )
         return FakeSut(prism_repo, path)
 
@@ -244,6 +245,7 @@ def test_quick_run_id_and_sut_archive_name_both_output_pairs(tmp_path, monkeypat
         "path": str(archive),
         "sha_full": lock.prism["sut"]["sha"],
         "digest": lock.prism["sut"]["digest"],
+        "env": commands.scrubbed_env(lock),
     }
     assert (ev / f"runs/{REFUSAL_DATE}-prism-base.json").exists()
     report = ev.parent / f"docs/eval/tier-a/{REFUSAL_DATE}-prism-base"

@@ -62,16 +62,14 @@ def test_from_archive_binds_bytes_and_full_sha_without_head_freshness(
         PrismCli.from_archive("/repo", str(binary), sha_full, raw_digest(binary))
 
 
-def test_lock_bound_instances_use_prisms_default_nav_store(tmp_path, monkeypatch):
-    """Archived and verified (lock-bound) legs keep Prism's own nav store, as before
-    the main merge: neither `--no-cache` (14x slower M2, budget exhaustion) nor
-    main's writable `--cache-dir`. Prism itself rejects a store built by a binary
-    with a different cache build identity."""
+def test_lock_bound_instances_use_digest_partitioned_nav_store(tmp_path, monkeypatch):
     binary = tmp_path / "prism"
     binary.write_bytes(b"lock-bound prism")
     binary.chmod(0o755)
     sha_full = "c" * 40
     calls = []
+    cache_root = tmp_path / "tier-a-root"
+    monkeypatch.setenv("TIER_A_ROOT", str(cache_root))
 
     def run(cmd, **kwargs):
         calls.append(cmd)
@@ -87,8 +85,63 @@ def test_lock_bound_instances_use_prisms_default_nav_store(tmp_path, monkeypatch
     for sut in (archived, verified):
         sut._run(["functions"])
         assert "--no-cache" not in calls[-1]
-        assert "--cache-dir" not in calls[-1]
+        cache_index = calls[-1].index("--cache-dir")
+        assert calls[-1][cache_index + 1] == str(
+            cache_root / "nav-cache" / sut.sut_digest.removeprefix("sha256:")
+        )
         assert sut.lock_bound  # pinned.py probe-error accounting keys on this, not on the cache
+
+
+def test_archive_runs_from_authenticated_private_snapshot(tmp_path, monkeypatch):
+    binary = tmp_path / "prism"
+    binary.write_bytes(b"binary-a")
+    binary.chmod(0o755)
+    sha_full = "a" * 40
+    launched = []
+
+    def run(command, **_kwargs):
+        launched.append(command)
+        return FakeRun(
+            stdout=(
+                f"slicing 3.1.2 ({sha_full[:12]})\n"
+                if command[1:] == ["--version"]
+                else "[]"
+            )
+        )
+
+    monkeypatch.setattr(subprocess, "run", run)
+    sut = PrismCli.from_archive(
+        "/repo", str(binary), sha_full, raw_digest(binary), env={"PATH": "/usr/bin"}
+    )
+    binary.write_bytes(b"binary-b")
+
+    assert sut._run(["functions"]) == []
+    assert Path(sut.bin) != binary
+    assert Path(sut.bin).read_bytes() == b"binary-a"
+    assert launched[-1][0] == sut.bin
+    assert sut.sut_digest == raw_digest(Path(sut.bin))
+
+
+def test_archive_version_uses_scrubbed_environment_and_bounded_launcher(
+    tmp_path, monkeypatch
+):
+    binary = tmp_path / "prism"
+    binary.write_bytes(b"archive")
+    binary.chmod(0o755)
+    sha_full = "a" * 40
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return FakeRun(stdout=f"slicing 3.1.2 ({sha_full[:12]})\n")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    PrismCli.from_archive(
+        "/repo", str(binary), sha_full, raw_digest(binary), env={"PATH": "/clean"}
+    )
+
+    assert calls[-1][1]["env"] == {"PATH": "/clean"}
+    assert calls[-1][1]["timeout"] == 120.0
 
 
 def test_prism_corpus_budgets_fit_full_corpus_with_all_features():
@@ -239,10 +292,16 @@ def test_run_invalid_json_and_non_ambiguous_error(monkeypatch):
 def test_constructor_discovers_binary_in_contract_order(monkeypatch):
     monkeypatch.setattr(PrismCli, "_check_freshness", lambda self: ("abcdef123456", False))
     monkeypatch.setattr(sut_mod, "_resolve_executable", lambda command, _env: command)
+    monkeypatch.setattr(
+        sut_mod,
+        "_snapshot_executable",
+        lambda path, _digest=None: (None, path, "sha256:" + "a" * 64),
+    )
     monkeypatch.setenv("PRISM_BIN", "/env/prism")
 
     assert PrismCli("/repo", sut_bin="/arg/prism").bin == "/arg/prism"
     assert PrismCli("/repo").bin == "/env/prism"
+    assert PrismCli("/repo", env={"PATH": "/clean"}).bin == "/repo/target/release/prism"
 
     monkeypatch.delenv("PRISM_BIN")
     assert PrismCli("/repo").bin == "/repo/target/release/prism"
@@ -262,6 +321,25 @@ def test_check_freshness_accepts_sha_prefix_and_clean_repo(monkeypatch):
     cli.repo = "/repo"
     cli.allow_stale = False
     assert cli._check_freshness() == ("abcdef1234567", False)
+
+
+def test_allow_stale_records_unresolvable_binary_commit_without_raising(monkeypatch):
+    monkeypatch.setattr(
+        sut_mod,
+        "_resolve_binary_commit",
+        lambda *_args: (_ for _ in ()).throw(SutStale("binary_commit_unresolvable")),
+    )
+    calls = iter([FakeRun(stdout="f" * 40 + "\n"), FakeRun(stdout="")])
+    monkeypatch.setattr(subprocess, "run", lambda *_a, **_k: next(calls))
+    cli = PrismCli.__new__(PrismCli)
+    cli.bin = "/tmp/prism"
+    cli.repo = "/repo"
+    cli.allow_stale = True
+    cli._run = lambda _args: "slicing 3.1.2 (abcdef123456)\n"
+
+    assert cli._check_freshness() == ("abcdef123456", False)
+    assert cli.sha_full == "abcdef123456"
+    assert cli.identity_note == "binary_commit_unresolvable"
 
 
 def test_check_freshness_rejects_dirty_repo_even_if_binary_clean(monkeypatch):
