@@ -18,6 +18,8 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 
+mod go_parallel;
+
 /// Collect all live (instantiated) types from parsed files across all languages.
 ///
 /// This is the generalized version of `TypeDatabase::collect_live_classes()`,
@@ -53,13 +55,7 @@ pub fn collect_live_types(
 pub fn go_admission_live_set(
     files: &std::collections::BTreeMap<String, crate::ast::ParsedFile>,
 ) -> std::collections::BTreeSet<String> {
-    let mut live = std::collections::BTreeSet::new();
-    for parsed in files.values() {
-        if parsed.language == crate::languages::Language::Go {
-            scan_go(parsed, &mut live);
-        }
-    }
-    live
+    go_parallel::collect(files)
 }
 
 // ---------------------------------------------------------------------------

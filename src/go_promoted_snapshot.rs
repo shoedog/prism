@@ -225,7 +225,7 @@ pub(crate) fn build(
     recover_error_structs(files, profiles, &mut recovered_structs);
     let structs = &recovered_structs;
     let local_import_paths = interface_profiles::local_import_paths(package_import_paths, profiles);
-    let imports = crate::go_type_alias::SignatureImportMemo::new(files, &local_import_paths);
+    let imports = crate::go_type_alias::SignatureImportMemo::parallel(files, &local_import_paths);
     let aliases = crate::go_type_alias::GoAliasResolver::build_with_import_memo(
         files,
         package_import_paths,

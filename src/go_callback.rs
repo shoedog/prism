@@ -10,6 +10,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 
+mod recovery;
+use recovery::RecoveryFacts;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub(crate) struct GoCallbackParameterFact {
     pub slot: usize,
@@ -31,7 +34,8 @@ pub(crate) fn extract_go_callback_indices(
     package_import_paths: &BTreeMap<String, String>,
 ) -> GoCallbackIndices {
     let (profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
-    let clean_package_dirs = clean_package_dirs(files, &profiles);
+    let recovery = RecoveryFacts::new(files, &profiles);
+    let clean_package_dirs = clean_package_dirs(files, &profiles, &recovery);
     let packages_by_import_path =
         packages_by_import_path(package_import_paths, &profiles, &clean_package_dirs);
     let imports = strict_signature_imports(
@@ -40,6 +44,7 @@ pub(crate) fn extract_go_callback_indices(
         &profiles,
         &packages_by_import_path,
         &clean_package_dirs,
+        &recovery,
     );
     let alias_resolver = crate::go_type_alias::GoAliasResolver::build_callback_strict(
         files,
@@ -48,7 +53,7 @@ pub(crate) fn extract_go_callback_indices(
         &profiles,
         &imports,
     );
-    let declarations = named_type_declarations(files, &profiles, &clean_package_dirs);
+    let declarations = named_type_declarations(files, &profiles, &clean_package_dirs, &recovery);
     let context = CallbackExtractionContext {
         files,
         profiles: &profiles,
@@ -60,7 +65,9 @@ pub(crate) fn extract_go_callback_indices(
     let mut indices = GoCallbackIndices::default();
 
     for (path, parsed) in files {
-        if !admissible_file(path, parsed, &profiles) || !clean_package_dirs.contains(dir_of(path)) {
+        if !admissible_file(path, parsed, &profiles, &recovery)
+            || !clean_package_dirs.contains(dir_of(path))
+        {
             continue;
         }
         let file_imports = imports.get(path).cloned().unwrap_or_default();
@@ -266,26 +273,34 @@ fn admissible_file(
     path: &str,
     parsed: &ParsedFile,
     profiles: &BTreeMap<String, GoBuildProfile>,
+    recovery: &RecoveryFacts<'_>,
 ) -> bool {
     parsed.language == Language::Go
         && profiles
             .get(path)
             .is_some_and(|profile| !profile.is_test_file && !profile.package_clause.is_empty())
-        && !contains_recovery(parsed.tree.root_node())
+        && !recovery.contains(path, parsed)
 }
 
+#[cfg(test)]
 fn contains_recovery(node: tree_sitter::Node<'_>) -> bool {
+    recovery::record_scans(1);
+    contains_recovery_unmeasured(node)
+}
+
+fn contains_recovery_unmeasured(node: tree_sitter::Node<'_>) -> bool {
     if node.is_error() || node.is_missing() {
         return true;
     }
     let mut cursor = node.walk();
-    let found = node.children(&mut cursor).any(contains_recovery);
+    let found = node.children(&mut cursor).any(contains_recovery_unmeasured);
     found
 }
 
 fn clean_package_dirs(
     files: &BTreeMap<String, ParsedFile>,
     profiles: &BTreeMap<String, GoBuildProfile>,
+    recovery: &RecoveryFacts<'_>,
 ) -> BTreeSet<String> {
     let mut clauses: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut poisoned = BTreeSet::new();
@@ -300,7 +315,7 @@ fn clean_package_dirs(
         };
         if profile.package_clause.is_empty()
             || profile.build_unparsed
-            || contains_recovery(parsed.tree.root_node())
+            || recovery.contains(path, parsed)
         {
             poisoned.insert(dir);
             continue;
@@ -422,7 +437,8 @@ impl<'a> GoCallbackProofContext<'a> {
         dot_import_files: &'a BTreeSet<String>,
         package_import_paths: &'a BTreeMap<String, String>,
     ) -> Self {
-        let clean_package_dirs = clean_package_dirs(files, profiles);
+        let recovery = RecoveryFacts::new(files, profiles);
+        let clean_package_dirs = clean_package_dirs(files, profiles, &recovery);
         let packages_by_import_path =
             packages_by_import_path(package_import_paths, profiles, &clean_package_dirs);
         let strict_imports = strict_signature_imports(
@@ -431,6 +447,7 @@ impl<'a> GoCallbackProofContext<'a> {
             profiles,
             &packages_by_import_path,
             &clean_package_dirs,
+            &recovery,
         );
         let unproven_default_import_files = files
             .iter()
@@ -965,11 +982,13 @@ fn strict_signature_imports(
     profiles: &BTreeMap<String, GoBuildProfile>,
     packages_by_import_path: &BTreeMap<String, BTreeSet<(String, String)>>,
     clean_package_dirs: &BTreeSet<String>,
+    recovery: &RecoveryFacts<'_>,
 ) -> BTreeMap<String, BTreeMap<String, String>> {
     files
         .iter()
         .filter(|(path, parsed)| {
-            admissible_file(path, parsed, profiles) && clean_package_dirs.contains(dir_of(path))
+            admissible_file(path, parsed, profiles, recovery)
+                && clean_package_dirs.contains(dir_of(path))
         })
         .map(|(path, parsed)| {
             let mut imports = BTreeMap::new();
@@ -1092,10 +1111,13 @@ fn named_type_declarations(
     files: &BTreeMap<String, ParsedFile>,
     profiles: &BTreeMap<String, GoBuildProfile>,
     clean_package_dirs: &BTreeSet<String>,
+    recovery: &RecoveryFacts<'_>,
 ) -> BTreeMap<GoOwnerIdentity, Vec<NamedTypeDeclaration>> {
     let mut declarations = BTreeMap::new();
     for (path, parsed) in files {
-        if !admissible_file(path, parsed, profiles) || !clean_package_dirs.contains(dir_of(path)) {
+        if !admissible_file(path, parsed, profiles, recovery)
+            || !clean_package_dirs.contains(dir_of(path))
+        {
             continue;
         }
         let profile = &profiles[path];

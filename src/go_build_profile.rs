@@ -103,9 +103,18 @@ pub fn go_same_package_visible_detailed(
     caller: &GoBuildProfile,
     candidate: &GoBuildProfile,
 ) -> GoBuildVisibility {
-    if !caller.package_clause.is_empty()
+    go_visible_with_package(caller, candidate, &caller.package_clause)
+}
+
+/// Override only the caller's namespace, without cloning its build expression.
+pub(crate) fn go_visible_with_package(
+    caller: &GoBuildProfile,
+    candidate: &GoBuildProfile,
+    caller_package: &str,
+) -> GoBuildVisibility {
+    if !caller_package.is_empty()
         && !candidate.package_clause.is_empty()
-        && caller.package_clause != candidate.package_clause
+        && caller_package != candidate.package_clause
     {
         return GoBuildVisibility {
             visible: false,

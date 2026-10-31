@@ -14,6 +14,7 @@ use crate::type_provider::{
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
+mod selector_fields;
 mod signature_inputs;
 use signature_inputs::{FileSignatureImports, ImportScan};
 #[cfg(test)]
@@ -536,12 +537,12 @@ impl GoTypeProvider {
         };
 
         let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
-        let local_import_paths = Self::local_import_paths(package_import_paths, &go_file_profiles);
-        let imports = crate::go_type_alias::SignatureImportMemo::new(files, &local_import_paths);
+        let local_paths = Self::local_import_paths(package_import_paths, &go_file_profiles);
+        let imports = crate::go_type_alias::SignatureImportMemo::parallel(files, &local_paths);
         let alias_resolver = crate::go_type_alias::GoAliasResolver::build_with_import_memo(
             files,
             package_import_paths,
-            &local_import_paths,
+            &local_paths,
             &go_file_profiles,
             &imports,
         );
@@ -1405,18 +1406,7 @@ impl GoTypeProvider {
         data: &GoTypeData,
         owner: &crate::resolution::GoOwnerIdentity,
     ) -> BTreeSet<String> {
-        data.field_types
-            .keys()
-            .filter(|(field_owner, _)| field_owner == owner)
-            .map(|(_, field)| field.clone())
-            .chain(
-                data.struct_embeds
-                    .get(owner)
-                    .into_iter()
-                    .flatten()
-                    .map(|embedded| embedded.name.clone()),
-            )
-            .collect()
+        selector_fields::names(data, owner)
     }
 
     /// Extract method signatures from an interface_type node.

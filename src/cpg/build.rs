@@ -1140,17 +1140,24 @@ impl CodePropertyGraph {
         dfg_label_stats.record_rd_stats(&dfg);
 
         profile.next("cpg.step5");
+        // These phases mutate only the CPG. Keep a shared borrow of the fixed
+        // CallGraph until all three have finished, then release derived state.
+        let go_satisfiers = crate::resolution::go_satisfiers::GoSatisfierMemo::new(&cg);
         // --- Step 5: Call edges ---
-        for (from, to, w) in Self::collect_step5_edges(&cg, &func_index) {
+        for (from, to, w) in Self::collect_step5_edges_with_memo(&go_satisfiers, &func_index) {
             graph.add_edge(from, to, w);
         }
 
         profile.next("cpg.step5b");
         // --- Step 5b: Interprocedural data flow edges ---
         let mut argument_seeds = Vec::new();
-        for flow in
-            Self::collect_step5b_edges_with_exact(&cg, &var_index, &exact_var_index, &graph, files)
-        {
+        for flow in Self::collect_step5b_edges_with_exact(
+            &go_satisfiers,
+            &var_index,
+            &exact_var_index,
+            &graph,
+            files,
+        ) {
             let (from, to, w) = flow.edge;
             if flow.cross_file_free_single_exact {
                 argument_seeds.push(from);
@@ -1164,13 +1171,14 @@ impl CodePropertyGraph {
         profile.next("cpg.step5c");
         // --- Step 5c: callee-return → exact caller-LHS flow ---
         let return_flow_stats = Self::assemble_step5c_return_flow(
-            &cg,
+            &go_satisfiers,
             &var_index,
             &func_index,
             &mut graph,
             &mut location_index,
             files,
         );
+        drop(go_satisfiers);
 
         // D12 incoming holes do not isolate outgoing E5 paths. After all flow
         // construction, refuse only outgoing edges of new sources that can
@@ -1377,17 +1385,29 @@ impl CodePropertyGraph {
 
     /// Step 5: Function->Function Call + Return edges. Parallel collect over
     /// ordered caller units (`par_iter`, order-preserving), then serial `add_edge`.
+    #[cfg(test)]
     pub(crate) fn collect_step5_edges(
         cg: &CallGraph,
         func_index: &BTreeMap<(String, String, usize), NodeIndex>,
     ) -> Vec<PendingEdge> {
-        use rayon::prelude::*;
+        Self::collect_step5_edges_with_memo(
+            &crate::resolution::go_satisfiers::GoSatisfierMemo::new(cg),
+            func_index,
+        )
+    }
 
-        let go_satisfiers = crate::resolution::go_satisfiers::GoSatisfierMemo::new(cg);
+    fn collect_step5_edges_with_memo(
+        go_satisfiers: &crate::resolution::go_satisfiers::GoSatisfierMemo<'_>,
+        func_index: &BTreeMap<(String, String, usize), NodeIndex>,
+    ) -> Vec<PendingEdge> {
+        use rayon::prelude::*;
+        #[cfg(test)]
+        go_satisfiers.set_phase(0);
+        let cg = go_satisfiers.graph();
         let ordered: Vec<_> = cg.calls.iter().collect();
         crate::build_pool::per_item(&ordered)
             .map(|(caller_id, sites)| {
-                Self::step5_edges_for_caller(caller_id, sites, &go_satisfiers, func_index)
+                Self::step5_edges_for_caller(caller_id, sites, go_satisfiers, func_index)
             })
             .collect::<Vec<Vec<PendingEdge>>>()
             .into_iter()
@@ -1478,25 +1498,33 @@ impl CodePropertyGraph {
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
         let exact_var_index = Self::exact_var_index_from_graph(graph);
-        Self::collect_step5b_edges_with_exact(cg, var_index, &exact_var_index, graph, files)
-            .into_iter()
-            .map(|flow| flow.edge)
-            .collect()
+        Self::collect_step5b_edges_with_exact(
+            &crate::resolution::go_satisfiers::GoSatisfierMemo::new(cg),
+            var_index,
+            &exact_var_index,
+            graph,
+            files,
+        )
+        .into_iter()
+        .map(|flow| flow.edge)
+        .collect()
     }
 
     fn collect_step5b_edges_with_exact(
-        cg: &CallGraph,
+        go_satisfiers: &crate::resolution::go_satisfiers::GoSatisfierMemo<'_>,
         var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingArgumentFlow> {
         use rayon::prelude::*;
+        let cg = go_satisfiers.graph();
+        #[cfg(test)]
+        go_satisfiers.set_phase(1);
         #[cfg(test)]
         if callee_legacy::enabled() {
             return callee_legacy::collect(cg, var_index, exact_var_index, graph, files);
         }
-        let go_satisfiers = crate::resolution::go_satisfiers::GoSatisfierMemo::new(cg);
         let shared_params = ParamCache::new(files);
 
         crate::build_pool::per_item(files.iter().collect::<Vec<_>>()).for_each(|(_, p)| {
@@ -1508,7 +1536,7 @@ impl CodePropertyGraph {
                 Self::step5b_edges_for_caller_with_exact(
                     caller_id,
                     sites,
-                    &go_satisfiers,
+                    go_satisfiers,
                     var_index,
                     exact_var_index,
                     graph,

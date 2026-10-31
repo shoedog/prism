@@ -1,0 +1,44 @@
+{
+  "lane": "Clone-free Go visibility",
+  "lib_test_prefixes": [
+    "go_owner_partition::visibility::"
+  ],
+  "mutations": {
+    "VIS-test-directory": [
+      "src/go_owner_partition/visibility.rs",
+      "crate::resolution::dir_of(caller_file)\n        == crate::resolution::dir_of(defining_file)",
+      "true",
+      "go_owner_partition::visibility::tests::profiles_and_test_namespace_preserve_visibility_and_exactness"
+    ],
+    "VIS-test-package": [
+      "src/go_owner_partition/visibility.rs",
+      "caller.package_clause == defining.package_clause",
+      "true",
+      "go_owner_partition::visibility::tests::profiles_and_test_namespace_preserve_visibility_and_exactness"
+    ],
+    "VIS-missing-profile": [
+      "src/go_owner_partition/visibility.rs",
+      "return (true, false);",
+      "return (true, true);",
+      "go_owner_partition::visibility::tests::every_pair_matches_frozen_clone_and_override_helpers"
+    ],
+    "VIS-test-declaration": [
+      "src/go_owner_partition/visibility.rs",
+      "if defining.is_test_file && !owns_test_namespace {",
+      "if false {",
+      "go_owner_partition::visibility::tests::profiles_and_test_namespace_preserve_visibility_and_exactness"
+    ],
+    "VIS-caller-exactness": [
+      "src/go_owner_partition/visibility.rs",
+      "&& go_build_profile::profile_allows_exact(Some(caller))",
+      "&& true",
+      "go_owner_partition::visibility::tests::every_pair_matches_frozen_clone_and_override_helpers"
+    ],
+    "VIS-package-override": [
+      "src/go_build_profile.rs",
+      "&& caller_package != candidate.package_clause",
+      "&& caller.package_clause != candidate.package_clause",
+      "go_owner_partition::visibility::tests::every_pair_matches_frozen_clone_and_override_helpers"
+    ]
+  }
+}
