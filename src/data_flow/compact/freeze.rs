@@ -2,7 +2,53 @@
 use super::*;
 #[derive(Default)]
 pub(super) struct Intern {
-    rows: BTreeMap<ExactVarLocation, OccId>,
+    /// Looked up once per edge and label endpoint (millions on a giant owner),
+    /// so a hash map; `finish` restores the sorted order the arena needs.
+    rows: std::collections::HashMap<ExactVarLocation, OccId, FxBuild>,
+}
+
+/// Multiply-rotate hasher (the FxHash scheme): the keys are this process's own
+/// locations, SipHash's flooding resistance buys nothing here and it was half
+/// of `put`. Iteration order is never observed (`finish` sorts).
+#[derive(Default, Clone, Copy)]
+pub(super) struct Fx(u64);
+type FxBuild = std::hash::BuildHasherDefault<Fx>;
+impl Fx {
+    #[inline]
+    fn add(&mut self, word: u64) {
+        self.0 = (self.0.rotate_left(5) ^ word).wrapping_mul(0x517c_c1b7_2722_0a95);
+    }
+}
+impl std::hash::Hasher for Fx {
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) {
+        let mut chunks = bytes.chunks_exact(8);
+        for chunk in &mut chunks {
+            self.add(u64::from_le_bytes(chunk.try_into().unwrap()));
+        }
+        let rest = chunks.remainder();
+        if !rest.is_empty() {
+            let mut tail = [0u8; 8];
+            tail[..rest.len()].copy_from_slice(rest);
+            self.add(u64::from_le_bytes(tail) ^ ((rest.len() as u64) << 56));
+        }
+    }
+    #[inline]
+    fn write_u8(&mut self, i: u8) {
+        self.add(u64::from(i));
+    }
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.add(i);
+    }
+    #[inline]
+    fn write_usize(&mut self, i: usize) {
+        self.add(i as u64);
+    }
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
 }
 fn own_exact(v: VarLocation) -> ExactVarLocation {
     ExactVarLocation {
@@ -47,7 +93,10 @@ impl Intern {
     pub(super) fn finish(self) -> Result<(Arena, Vec<OccId>), &'static str> {
         let mut remap = vec![OccId(0); self.rows.len()];
         let mut rows = Vec::with_capacity(self.rows.len());
-        for (key, old) in self.rows {
+        let mut ordered: Vec<(ExactVarLocation, OccId)> = self.rows.into_iter().collect();
+        // Keys are unique, so the unstable sort is deterministic.
+        ordered.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        for (key, old) in ordered {
             remap[old.0 as usize] = OccId(checked_id(rows.len())?);
             rows.push(own_legacy(key));
         }
@@ -187,3 +236,6 @@ impl CompactDfg {
 
 #[cfg(test)]
 thread_local! { pub(in crate::data_flow) static FROM_PARTS_CALLS: std::cell::Cell<u32> = const { std::cell::Cell::new(0) }; }
+
+#[cfg(test)]
+mod intern_tests;

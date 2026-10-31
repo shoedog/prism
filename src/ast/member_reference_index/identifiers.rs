@@ -11,6 +11,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Range;
 use tree_sitter::{Node, Query, QueryCursor, StreamingIterator};
 
+pub(crate) mod shadow_index;
+
 struct Candidate<'a> {
     node: Node<'a>,
     bytes: Range<usize>,
@@ -92,6 +94,7 @@ impl<'a> Index<'a> {
 pub(crate) struct IdentifierReferenceSearch<'a> {
     parsed: &'a ParsedFile,
     index: OnceCell<Option<Index<'a>>>,
+    shadow: shadow_index::ShadowIndex<'a>,
 }
 
 impl<'a> IdentifierReferenceSearch<'a> {
@@ -99,6 +102,7 @@ impl<'a> IdentifierReferenceSearch<'a> {
         Self {
             parsed,
             index: OnceCell::new(),
+            shadow: shadow_index::ShadowIndex::default(),
         }
     }
 
@@ -113,12 +117,19 @@ impl<'a> IdentifierReferenceSearch<'a> {
 
     pub(crate) fn scoped<const COUNT: bool>(
         &self,
-        owner: &Node<'_>,
+        owner: &Node<'a>,
         name: &str,
         def_line: usize,
     ) -> BTreeSet<usize> {
         let mut lines = BTreeSet::new();
         if let Some(index) = self.index() {
+            if shadow_index::enabled_for(self.parsed, owner) {
+                return self
+                    .shadow
+                    .lines::<COUNT>(self.parsed, owner, name, def_line, || {
+                        index.matching(name, owner.byte_range()).collect()
+                    });
+            }
             for node in index.matching(name, owner.byte_range()) {
                 if !shadow::<COUNT>(self.parsed, &node, owner, name, def_line) {
                     lines.insert(node.start_position().row + 1);
@@ -135,7 +146,7 @@ impl<'a> IdentifierReferenceSearch<'a> {
     pub(super) fn collect_fenced<const COUNT: bool>(
         &self,
         root: Node<'_>,
-        owner: &Node<'_>,
+        owner: &Node<'a>,
         name: &str,
         def_line: usize,
         def_byte: usize,

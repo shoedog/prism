@@ -149,6 +149,59 @@ impl Producer {
         legacy_labels: &BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
         classified: BTreeMap<ExactFlowEdge, FlowConfidence>,
     ) {
+        // Nothing classified: no conflict can arise and nothing is stored, so
+        // the whole-owner `legacy_exact` map below would be built for nothing.
+        if classified.is_empty() {
+            return;
+        }
+        let legacy_exact: BTreeMap<_, _> = legacy_edges
+            .iter()
+            .map(|edge| {
+                let label = legacy_labels
+                    .get(&(edge.from.clone(), edge.to.clone()))
+                    .copied()
+                    .unwrap_or(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
+                (ExactFlowEdge::from_legacy(edge), label)
+            })
+            .collect();
+        let conflicting_bindings: BTreeSet<_> = classified
+            .iter()
+            .filter_map(|(edge, label)| {
+                legacy_exact
+                    .get(edge)
+                    .is_some_and(|legacy| legacy != label)
+                    .then(|| edge.binding_key())
+            })
+            .collect();
+        if !conflicting_bindings.is_empty() {
+            eprintln!(
+                "prism: refused {} conflicting exact producer binding(s)",
+                conflicting_bindings.len()
+            );
+        }
+
+        for (edge, label) in classified {
+            if legacy_exact.contains_key(&edge)
+                || conflicting_bindings.contains(&edge.binding_key())
+            {
+                continue;
+            }
+            destination
+                .entry(edge)
+                .and_modify(|stored| *stored = stored.worst(label))
+                .or_insert(label);
+        }
+    }
+
+    /// Unmodified pre-short-circuit body; test-only differential oracle.
+    #[cfg(test)]
+    #[allow(clippy::filter_map_bool_then)]
+    pub(super) fn store_supplemental_exact_frozen(
+        destination: &mut BTreeMap<ExactFlowEdge, FlowConfidence>,
+        legacy_edges: &[FlowEdge],
+        legacy_labels: &BTreeMap<(VarLocation, VarLocation), FlowConfidence>,
+        classified: BTreeMap<ExactFlowEdge, FlowConfidence>,
+    ) {
         let legacy_exact: BTreeMap<_, _> = legacy_edges
             .iter()
             .map(|edge| {

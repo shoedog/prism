@@ -123,6 +123,11 @@ Short-circuit refusals do not count gates that never execute. Counters are owner
 const-specialized search hooks do no per-node counter work when disabled.
 The manual no-query fallback in `scoped_refs` calls the recursive walker directly;
 its shadow checks are not included in `shadow_check_calls`.
+For non-JS-family owners of at least 8 KiB, simple-name searches decide shadowing from
+a per-owner scope index (`shadow_index.rs`) instead of one ancestor walk per candidate
+and definition, so `shadow_check_calls` there counts only the walks that still run
+(candidates the index cannot prove) and is zero for most such owners. `searched_bytes`
+is unaffected: it remains the requested scope size, not candidate work.
 
 Command totals expose unprofiled work (hashing, registry, queries, algorithms and
 normal output) as the remainder after non-overlapping top-level intervals. Do not
