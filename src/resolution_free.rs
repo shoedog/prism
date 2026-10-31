@@ -38,8 +38,16 @@ pub(super) fn candidates<'a>(
 // Admission runs after the legacy rung has selected targets and confidence.
 // A removed candidate is neither evidence of uniqueness nor permission to try
 // a broader rung. This also preserves Go profile partitions and telemetry.
+//
+// Method rungs (R1 `T::m`, R3b qualifier owner, R4b implicit-this, the
+// self/receiver-variable and recovered-receiver owner lookups, R6) pool owners
+// from `CallGraph::methods`/`functions` without a language key, so they are
+// admitted once, on the public full-resolution result (`resolve_call_site_full`
+// in `js_anonymous.rs` and its Go-memo twin): the rung, kind and confidence are
+// the unfiltered pool's, foreign-family targets are then removed, and a pool
+// left empty refuses with no later rung consulted (#585).
 impl super::ResolutionOutcome<'_> {
-    pub(super) fn retain_family(mut self, caller_file: &str) -> Self {
+    pub(crate) fn retain_family(mut self, caller_file: &str) -> Self {
         if !self.resolved.is_empty() {
             self.resolved.retain(|r| same_family(caller_file, r.target));
             if self.resolved.is_empty() {

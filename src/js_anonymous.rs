@@ -299,6 +299,7 @@ impl CallGraph {
     pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
         let outcome = self.resolve_call_site_candidates(site);
         self.admit_anonymous_exact(site, outcome)
+            .retain_family(&site.caller.file)
     }
     pub(crate) fn admit_anonymous_exact<'a>(
         &self,

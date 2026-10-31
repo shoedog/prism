@@ -264,6 +264,15 @@ path that is not indexed finds the same-stem `.ts` then `.tsx`, `.`/`..` find th
 `//`, `/./`, `/../` segments are normalized within the repo root. Import-forwarding uses it for
 `./`-spelled specifiers and refuses the bare `.`/`..` forms; the tsconfig `paths` lane keeps its own
 rules; a namespace import whose module only this fallback finds and whose proof fails stays NameOnly.
+Language-family admission (`src/languages/family.rs`, `ResolutionOutcome::retain_family` in
+`src/resolution_free.rs`; {C, C++}, {JS, TS, TSX}, every other language its own family) is
+removal-only: the rung, kind and confidence come from the unfiltered pool, then targets in another
+family than the caller are dropped, a pool left empty refuses with no later rung consulted, and a
+filter never promotes (a multi-owner NameOnly pool left with one target stays NameOnly with the
+same kind). Free-function pools filter inside their rungs; method rungs (R1, R3b, R4b, self and
+receiver-variable owner lookups, recovered receivers, R6) share one admission on the public full
+resolution (`resolve_call_site_full`). `resolve_call_site_candidates` is the unfiltered view.
+
 Navigation maps confidence to `score` (Exact 1.0 / NameOnly 0.6) with a
 `Reason::Resolution` and a `Collision` warning when same-name receiver sites are
 dropped. Phase-IP type-confirmed dispatch has **shipped** Go embedding promotion
@@ -318,7 +327,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v132) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v133) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
