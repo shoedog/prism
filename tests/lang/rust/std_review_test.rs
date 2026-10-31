@@ -9,6 +9,17 @@ fn graph(sources: &[(&str, &str)]) -> CallGraph {
 }
 
 fn graph_edition(sources: &[(&str, &str)], edition: u16) -> CallGraph {
+    graph_with(sources, edition, true, &[])
+}
+
+// A workspace mixing anchoring classes records edition_uniform == false and
+// keeps one graph-wide edition; leading `::` cannot be read with it.
+fn graph_with(
+    sources: &[(&str, &str)],
+    edition: u16,
+    uniform: bool,
+    extra_roots: &[&str],
+) -> CallGraph {
     let files = sources
         .iter()
         .map(|(path, text)| {
@@ -20,9 +31,10 @@ fn graph_edition(sources: &[(&str, &str)], edition: u16) -> CallGraph {
         .collect::<BTreeMap<_, _>>();
     let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
     inputs.cfg.edition = edition;
+    inputs.cfg.edition_uniform = uniform;
     inputs.cfg.crate_roots = files
         .keys()
-        .filter(|p| p.ends_with("src/lib.rs"))
+        .filter(|p| p.ends_with("src/lib.rs") || extra_roots.contains(&p.as_str()))
         .cloned()
         .collect();
     inputs.cfg.workspace_members = inputs
@@ -317,4 +329,119 @@ fn std_review_2015_absolute_local_root_keeps_main() {
             None,
         );
     }
+}
+
+const LOCAL_ENGINE: &str = "pub struct Engine; impl Engine { pub fn new() {} }";
+
+#[test]
+fn std_review_mixed_edition_keeps_absolute_local_root() {
+    // Edition-2015 crate-root `mod core`/`mod std` is selected by `::core`; the
+    // graph's single edition (2021 here) is not authoritative when mixed.
+    for root in ["core", "std", "alloc"] {
+        let source =
+            format!("mod {root} {{ {LOCAL_ENGINE} }} fn invoke() {{ ::{root}::Engine::new(); }}");
+        let cg = graph_with(&[("a/src/lib.rs", &source)], 2021, false, &[]);
+        check(
+            &cg,
+            &format!("::{root}::Engine::new"),
+            &[("a/src/lib.rs", Kind::QualifiedOwner, Confidence::Exact)],
+            None,
+        );
+    }
+}
+
+#[test]
+fn std_review_uniform_2021_absolute_roots_refuse() {
+    for root in ["core", "std", "alloc"] {
+        let source =
+            format!("mod {root} {{ {LOCAL_ENGINE} }} fn invoke() {{ ::{root}::Engine::new(); }}");
+        let cg = graph_with(&[("a/src/lib.rs", &source)], 2021, true, &[]);
+        check(
+            &cg,
+            &format!("::{root}::Engine::new"),
+            &[],
+            Some(DropReason::ImportExternal),
+        );
+    }
+}
+
+#[test]
+fn std_review_extern_crate_self_is_not_external() {
+    for body in [
+        "selfcrate::m::Thing::new();",
+        "use selfcrate::m::Thing; Thing::new();",
+    ] {
+        let source = format!("extern crate self as selfcrate; pub mod m {{ pub struct Thing; impl Thing {{ pub fn new() {{}} }} }} fn invoke() {{ {body} }}");
+        let cg = graph(&[("a/src/lib.rs", &source)]);
+        let call = if body.starts_with("use") {
+            "Thing::new"
+        } else {
+            "selfcrate::m::Thing::new"
+        };
+        check(
+            &cg,
+            call,
+            &[("a/src/lib.rs", Kind::QualifiedOwner, Confidence::Exact)],
+            None,
+        );
+    }
+}
+
+#[test]
+fn std_review_poisoned_std_root_keeps_main() {
+    // An unexpanded external glob could supply `std`, so the lookup is
+    // Poisoned and gives no external proof. Without the glob the call refuses.
+    let look_alike = "mod mine { pub struct Instant; impl Instant { pub fn now() {} } }";
+    let call = "std::time::Instant::now";
+    let cg = graph(&[(
+        "a/src/lib.rs",
+        &format!("{look_alike} use ext::*; fn invoke() {{ {call}(); }}"),
+    )]);
+    check(
+        &cg,
+        call,
+        &[("a/src/lib.rs", Kind::QualifiedOwner, Confidence::Exact)],
+        None,
+    );
+    let cg = graph(&[(
+        "a/src/lib.rs",
+        &format!("{look_alike} fn invoke() {{ {call}(); }}"),
+    )]);
+    check(&cg, call, &[], Some(DropReason::ImportExternal));
+}
+
+#[test]
+fn std_review_multi_root_target_file_keeps_main() {
+    // A file attributed to two crate roots has no single owning crate, so the
+    // target is kept; attributed to one root it is refused.
+    let shared = "pub struct Instant; impl Instant { pub fn now() {} }";
+    let app = (
+        "app/src/lib.rs",
+        "fn invoke() { std::time::Instant::now(); }",
+    );
+    let call = "std::time::Instant::now";
+    let one = graph_with(
+        &[app, ("a/src/lib.rs", "mod x;"), ("a/src/x.rs", shared)],
+        2021,
+        true,
+        &[],
+    );
+    check(&one, call, &[], Some(DropReason::ImportExternal));
+    let two = graph_with(
+        &[
+            app,
+            ("a/src/lib.rs", "mod x;"),
+            ("a/src/other.rs", "mod x;"),
+            ("a/src/x.rs", shared),
+        ],
+        2021,
+        true,
+        &["a/src/other.rs"],
+    );
+    check(
+        &two,
+        call,
+        &[("a/src/x.rs", Kind::QualifiedOwner, Confidence::Exact)],
+        None,
+    );
 }

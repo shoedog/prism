@@ -154,7 +154,12 @@ fn external_owners(cg: &CallGraph, site: &CallSite) -> Option<(Vec<String>, Drop
     {
         return None;
     }
-    let graph = cg.scope_graph.as_ref().filter(|g| g.complete)?;
+    // Leading `::` and `use` anchoring depend on the edition; a mixed-edition
+    // graph keeps one value that is not authoritative for every crate.
+    let graph = cg
+        .scope_graph
+        .as_ref()
+        .filter(|g| g.complete && g.edition_uniform)?;
     let file = *graph.file_paths.get(&site.caller.file)?;
     if let Some((owner, byte)) = constructor_owner(graph, file, site) {
         let from = enclosing_scope(graph, file, byte)?;
@@ -220,9 +225,6 @@ fn external_path(
     at: &SourceLoc,
     path: &str,
 ) -> Option<Vec<String>> {
-    if !graph.complete {
-        return None;
-    }
     let absolute = path.trim().starts_with("::");
     let first = path
         .trim()
@@ -281,6 +283,9 @@ fn external_path(
         let Target::External(ext) = candidate.target else {
             return None;
         };
+        if is_self_crate(&ext) {
+            return None;
+        }
         let canonical = path.split_once("::").map_or(ext.name.clone(), |(_, tail)| {
             format!("{}::{tail}", ext.name)
         });
@@ -289,6 +294,11 @@ fn external_path(
     owners.sort();
     owners.dedup();
     Some(owners)
+}
+
+// `extern crate self as name;` binds the current crate, not an external one.
+fn is_self_crate(ext: &ExternRef) -> bool {
+    ext.name == "self" || ext.name.starts_with("self::")
 }
 
 struct ExternalImports<'g> {
@@ -382,9 +392,9 @@ impl ResolutionPolicy for ExternalImports<'_> {
                     && matches!(
                         res.candidates.as_slice(),
                         [Candidate {
-                            target: Target::External(_),
+                            target: Target::External(ext),
                             ..
-                        }]
+                        }] if !is_self_crate(ext)
                     ))
         };
         external.then(|| {

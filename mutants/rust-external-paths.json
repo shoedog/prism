@@ -26,8 +26,8 @@
     ],
     "REP05-incomplete-proof": [
       "src/rust_external_paths.rs",
-      "let graph = cg.scope_graph.as_ref().filter(|g| g.complete)?;",
-      "let graph = cg.scope_graph.as_ref()?;",
+      ".filter(|g| g.complete && g.edition_uniform)?",
+      ".filter(|g| g.edition_uniform)?",
       "std_review_test::std_review_incomplete_keeps_main"
     ],
     "REP06-ignore-annotation-precedence": [
@@ -59,16 +59,33 @@
       "if std_root(path) && absolute && graph.edition >= 2018 {",
       "if false {",
       "std_review_test::std_review_absolute_std_bypasses_local_root"
+    ],
+    "REP11-poisoned-root-is-proof": [
+      "src/rust_external_paths.rs",
+      "if std_root(path) && res.status == ResStatus::Unresolved {",
+      "if std_root(path) && res.status != ResStatus::Resolved {",
+      "std_review_test::std_review_poisoned_std_root_keeps_main"
+    ],
+    "REP12-multi-root-target-removed": [
+      "src/rust_external_paths.rs",
+      "if roots.len() != 1 {",
+      "if roots.is_empty() {",
+      "std_review_test::std_review_multi_root_target_file_keeps_main"
+    ],
+    "REP13-mixed-edition-proof": [
+      "src/rust_external_paths.rs",
+      ".filter(|g| g.complete && g.edition_uniform)?",
+      ".filter(|g| g.complete)?",
+      "std_review_test::std_review_mixed_edition_keeps_absolute_local_root"
+    ],
+    "REP14-self-crate-is-external": [
+      "src/rust_external_paths.rs",
+      "ext.name == \"self\" || ext.name.starts_with(\"self::\")",
+      "ext.name.is_empty()",
+      "std_review_test::std_review_extern_crate_self_is_not_external"
     ]
   },
   "extra": {
-    "REP05-incomplete-proof": [
-      [
-        "src/rust_external_paths.rs",
-        "    if !graph.complete {\n        return None;\n    }",
-        ""
-      ]
-    ],
     "REP06-ignore-annotation-precedence": [
       [
         "src/rust_external_paths.rs",
