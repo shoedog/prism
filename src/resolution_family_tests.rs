@@ -76,6 +76,17 @@ fn case(
         owned(filtered),
         "family-filtered result: {after:?}"
     );
+    // The CPG build resolves through the memoized twin; it must return the same result.
+    let memo = crate::resolution::GoSatisfierMemo::new(&cg).resolve_call_site_full(site);
+    assert_eq!(
+        edges(&memo),
+        owned(filtered),
+        "memo (CPG build path) family-filtered result: {memo:?}"
+    );
+    assert_eq!(
+        memo.drop, after.drop,
+        "memo drop reason: {memo:?} vs {after:?}"
+    );
     if filtered.is_empty() {
         assert_eq!(after.drop, Some(DropReason::UnknownName), "{after:?}");
     } else {
@@ -356,7 +367,8 @@ fn self_receiver_java_this_does_not_bind_rust_impl() {
 }
 
 #[test]
-fn self_receiver_python_self_does_not_bind_rust_impl() {
+fn control_self_receiver_python_self_refused_on_main() {
+    // Control, not a witness: main already refuses this site, so the filter has nothing to remove.
     case(
         &[
             (
@@ -580,5 +592,59 @@ fn typed_param_typescript_caller_falls_to_r6_and_drops_foreign_owner() {
         "load",
         &[("rs/src/lib.rs", N, ResolutionKind::R6SingleOwner)],
         &[],
+    );
+}
+
+// ---- Tail order: anonymous admission runs before the family filter ----
+
+#[test]
+fn anonymous_admission_runs_before_the_family_filter() {
+    // An anonymous callable (`() => ...`) calls `Config.load()`. R3b pools the same-family JS
+    // class and the Rust impl as a multi-target NameOnly pool. Admission cannot prove the site,
+    // so it clears the multi-target pool (`LocalBindingUnproven`), which is main's result.
+    // Filtering first would narrow the pool to the JS class alone, and admission would then keep
+    // that single target as a NameOnly edge that main drops: an addition.
+    let cg = graph(&[
+        (
+            "app.js",
+            "function run(items) {\n  items.forEach(() => {\n    Config.load();\n  });\n}\n",
+        ),
+        ("models.js", "class Config {\n  static load() {}\n}\n"),
+        ("rs/src/lib.rs", RS_CONFIG),
+    ]);
+    let site = site(&cg, "app.js", "load");
+    let pool = cg.resolve_call_site_candidates(site);
+    assert_eq!(
+        edges(&pool),
+        owned(&[
+            ("models.js", N, ResolutionKind::QualifierOwner),
+            ("rs/src/lib.rs", N, ResolutionKind::QualifierOwner),
+        ]),
+        "fixture calibration: mixed pool at an anonymous site: {pool:?}"
+    );
+    for (label, outcome) in [
+        ("CallGraph", cg.resolve_call_site_full(site)),
+        (
+            "memo",
+            crate::resolution::GoSatisfierMemo::new(&cg).resolve_call_site_full(site),
+        ),
+    ] {
+        assert!(outcome.resolved.is_empty(), "{label}: {outcome:?}");
+        assert_eq!(
+            outcome.drop,
+            Some(DropReason::LocalBindingUnproven),
+            "{label}"
+        );
+    }
+    // The swapped order is the addition the real order prevents.
+    let swapped = cg.admit_anonymous_exact(
+        site,
+        cg.resolve_call_site_candidates(site)
+            .retain_family(&site.caller.file),
+    );
+    assert_eq!(
+        edges(&swapped),
+        owned(&[("models.js", N, ResolutionKind::QualifierOwner)]),
+        "fixture must distinguish the orders: {swapped:?}"
     );
 }
