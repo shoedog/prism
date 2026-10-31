@@ -1,0 +1,94 @@
+{
+  "lane": "Go dispatch round 2 recovery live sets selector ranges",
+  "lib_test_prefixes": [
+    "go_callback::recovery::tests::",
+    "live_types::go_parallel::tests::",
+    "type_providers::go::selector_fields::tests::"
+  ],
+  "mutations": {
+    "GDR-no-cache": [
+      "src/go_callback/recovery.rs",
+      "if self.serial {",
+      "if true {",
+      "go_callback::recovery::tests::callback_indices_match_serial_and_scan_once_per_go_file"
+    ],
+    "GDR-no-recovery": [
+      "src/go_callback/recovery.rs",
+      "contains_recovery_unmeasured(parsed.tree.root_node()),",
+      "false,",
+      "go_callback::recovery::tests::recovery_facts_match_recursive_reference_and_do_not_rescan"
+    ],
+    "GDR-all-recovery": [
+      "src/go_callback/recovery.rs",
+      "contains_recovery_unmeasured(parsed.tree.root_node()),",
+      "true,",
+      "go_callback::recovery::tests::recovery_facts_match_recursive_reference_and_do_not_rescan"
+    ],
+    "GDR-source-file": [
+      "src/go_callback/recovery.rs",
+      "contains_recovery_unmeasured(parsed.tree.root_node()),",
+      "contains_recovery_unmeasured(files[\"ok/a.go\"].tree.root_node()),",
+      "go_callback::recovery::tests::recovery_facts_match_recursive_reference_and_do_not_rescan"
+    ],
+    "GDR-non-go": [
+      "src/go_callback/recovery.rs",
+      "parsed.language == Language::Go",
+      "parsed.language != Language::Go",
+      "go_callback::recovery::tests::recovery_facts_match_recursive_reference_and_do_not_rescan"
+    ],
+    "GDR-no-live-scan": [
+      "src/live_types/go_parallel.rs",
+      "scan_go(parsed, &mut live);",
+      "let _ = parsed;",
+      "live_types::go_parallel::tests::ordered_go_scans_match_serial_with_pointer_and_negative_cases"
+    ],
+    "GDR-live-filter": [
+      "src/live_types/go_parallel.rs",
+      ".filter(|parsed| parsed.language == Language::Go)",
+      ".filter(|parsed| parsed.language != Language::Go)",
+      "live_types::go_parallel::tests::ordered_go_scans_match_serial_with_pointer_and_negative_cases"
+    ],
+    "GDR-live-order": [
+      "src/live_types/go_parallel.rs",
+      "crate::build_pool::per_item(jobs)",
+      "crate::build_pool::per_item(jobs.into_iter().rev().collect::<Vec<_>>())",
+      "live_types::go_parallel::tests::ordered_go_scans_match_serial_with_pointer_and_negative_cases"
+    ],
+    "GDR-owner-end": [
+      "src/type_providers/go/selector_fields.rs",
+      ".take_while(|((field_owner, _), _)| field_owner == owner)",
+      ".take_while(|_| true)",
+      "type_providers::go::selector_fields::tests::owner_range_matches_full_scan_with_empty_fields_and_unproven_embeds"
+    ],
+    "GDR-owner-start": [
+      "src/type_providers/go/selector_fields.rs",
+      ".range((owner.clone(), String::new())..)",
+      ".range((owner.clone(), \"Own\".to_string())..)",
+      "type_providers::go::selector_fields::tests::owner_range_matches_full_scan_with_empty_fields_and_unproven_embeds"
+    ],
+    "GDR-shadow-embed": [
+      "src/type_providers/go/selector_fields.rs",
+      ".map(|embedded| embedded.name.clone()),",
+      ".filter(|embedded| !embedded.is_pointer).map(|embedded| embedded.name.clone()),",
+      "type_providers::go::selector_fields::tests::owner_range_matches_full_scan_with_empty_fields_and_unproven_embeds"
+    ],
+    "GDR-eligibility": [
+      "src/go_callback/recovery.rs",
+      "!profile.package_clause.is_empty()",
+      "true",
+      "go_callback::recovery::tests::recovery_facts_match_recursive_reference_and_do_not_rescan"
+    ],
+    "GDR-path-profile": [
+      "src/go_callback/recovery.rs",
+      "(!profile.is_test_file\n                            || (!path.ends_with(\"_test.go\") && !profile.build_unparsed))",
+      "!profile.is_test_file",
+      "go_callback::recovery::tests::preparation_keeps_both_path_and_profile_admission_routes"
+    ],
+    "GDR-missing-key": [
+      "src/go_callback/recovery.rs",
+      ".copied().unwrap_or(true)",
+      ".copied().unwrap_or(false)",
+      "go_callback::recovery::tests::recovery_facts_match_recursive_reference_and_do_not_rescan"
+    ]
+  }
+}
