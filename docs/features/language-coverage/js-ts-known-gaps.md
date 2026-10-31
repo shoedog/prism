@@ -1,6 +1,6 @@
 # JS/TS, React and Node: known gaps and edge cases
 
-**Status:** living list, last updated 2026-10-30 (#450 expression-name scope).
+**Status:** living list, last updated 2026-10-31 (coverage pass against the defect/CVE taxonomy; plan and order in #604).
 
 Each entry says:
 - what prism does today, with a small example;
@@ -198,6 +198,8 @@ A note in `CLAUDE.md` saying such code is out of model was considered and reject
   - The direct routes (`w()`, `N.w()`) bind a span-less export to any same-named function in the exporting file except private function-expression names, including nested declarations. Tracked: #376 item 5.
   - A private function-expression name never proves an export by spelling alone. Direct same-name declarator values and `exports.N = function N(){}` / `module.exports.N = function N(){}` values retain source-backed identity; array-element and identity-wrapper values remain refused pending a separate policy decision (#450).
   - A direct call to an import is dropped when the caller declares another binding of that name in a nested scope. Tracked: #376 item 4.
+  - missing: a destructured `require` binding called inside an anonymous callable (`app.post('/', (req, res) => runCmd(req.body.cmd))`) drops with `LocalBindingUnproven`; the same call from a named function is Exact. The anonymous-callable barrier does not admit the module-scope CommonJS binding. Tracked: #597.
+  - missing: module-as-function (`const merge = require('./merge'); merge(a, b)` with `module.exports = merge`) and member calls through a required module (`const m = require('./m'); m.f()`) resolve as `UnknownName`. Tracked: #598; `require` inside functions: #436.
 - **Runtime mutation is out of model** for every route: monkey-patching, reflective writes, `eval`, host globals, re-acquisition through `require`/`import()`. See `CLAUDE.md`.
 
 ## 3. Consumers that still look calls up by spelling
@@ -205,11 +207,13 @@ A note in `CLAUDE.md` saying such code is out of model was considered and reject
 A call through a followed alias is filed under the alias's spelling. The resolver, the navigation callers index (`nav callers`, MCP `nav_callers`) and `--format callers` all handle it. Two kinds of consumer do not:
 
 - **Taint descent** (`nav taint-reaches`, MCP `taint_reaches`) stops at `const h = sink; h(x)`, where the direct call `sink(x)` reaches. `--algorithm taint` does cross it. Tracked: #376 item 1.
+- **Review `taint` scope.** On small fixtures, review-CLI `--algorithm taint` findings stayed in the diff file where `nav taint-reaches` from the same seed found a cross-file witness. Mechanism not yet investigated (sink scoping or descent). Tracked: #602.
 - **Name-keyed lookups.** `CallGraph::callers_of`, `callers_of_in_file`, `resolve_callers` and the diff-scope skeleton do not see followed-alias callers. Tracked: #376 item 3.
 
 ## 4. React
 
 - The resolver treats a lowercase JSX tag (`<div />`, and `<h />` where `h` aliases a component) as an intrinsic element and gives it no target. The older textual alias path (§1.2), which scans source line by line, can still emit an edge for `const h = Comp;` on its own line followed by `<h />` in the same function. That edge is wrong, since `<h>` is a DOM element; it exists on main and is kept unchanged.
+- Missing: a JSX attribute value has no data-flow edge into the component's parameter, destructured or not (`<Html html={text} />` → `Html({ html })`), so a `dangerouslySetInnerHTML` sink is not reached from the caller's value. The element → component call edge exists. Tracked: #596.
 - A wrapped component export (`memo`, `forwardRef`, …) binds from JSX element sites only. Called as a function, it drops with `WrappedExportNonJsx`.
 - Hook results: see §1.1. These are not followed:
   - an object built inside `useMemo(() => ({ … }))`;
@@ -228,6 +232,16 @@ A call through a followed alias is filed under the alias's spelling. The resolve
 
 ## 6. Data flow
 
+- Missing: an object-literal argument does not bind the callee's parameter (`run({ cmd: x })` → `run(opts) { exec(opts.cmd) }` has no edge; `run(req.body)` does). Tracked: #594.
+- Missing: rest formals (`function f(...args)`) and unparenthesized arrow formals (`x => …`) get a Def but no call-site binding; `(x) => …` binds. Tracked: #595.
+- Label precision: a function whose body is a single statement gets no CFG, so every DataFlow edge in it is `NameOnly(CfgIncomplete)` (26–29% of labelled edges on two measured corpora). Edges are present; the grade is too low. Tracked: #599.
+- Missing: a dynamic-key write `t[k] = s[k]` is recorded as Uses only, not as a path Def, so the prototype-pollution write in a recursive merge is invisible to data flow; there is no prototype-pollution sink. Tracked: #603.
 - Spread field provenance (`{ ...a, ...b }`) is not tracked per field: [`language-analysis-gaps.md`](language-analysis-gaps.md), gap 6.
 - Reads of a captured variable inside a deferred or nested callable are graded `NameOnly(CfgIncomplete)`. This rule is provisional pending callable-timing work; see `CLAUDE.md`.
 - A parameter used only through member reads (`p.x`, `p?.x`) gets a base Def and projection edges to each evaluated read (cache v118). The walk covers the callable body by bytes: declaration-line body reads (`function h(p) { sink(p.x); }`, `p => p.x`) are projected; the parameter list is not, so a default that reads another formal (`q = p.x`) gets no edge, on any layout. Erased TS type positions (`typeof p.x` in a type, interface members) are not reads and never make a formal member-only; a callable containing any `with` statement (nested callables included) is never member-only and keeps the old behaviour (no Def), fail-closed, so its other member reads lose their edges too; reads of a callable nested inside a `with` body are also refused. A bare read inside a member object (`wrap(p).x`, `(p as any).x`, `p!.x`) makes the formal Bare, and a callable containing any `\`-escaped identifier keeps the old behaviour (no Def), fail-closed. Narrowings: a member write bound to the formal (assignment, compound or logical assignment, `++`/`--`, `delete`, array/object/rest pattern targets, `for (p.x of/in ...)`, also inside nested callables) suppresses that path, its prefixes and its extensions for the whole callable, so reads before the write lose the edge (flow-insensitive); a write is recognised through transparent wrappers anywhere in its receiver chain (`(p.x).y = 0`, `p.x!.y = 0`, `(p.x as any).y = 0`, `delete p.x!.y`), using the same normalizer as reads; a write through a subscript (`p.x[k] = 1`) or a mutating call (`Object.assign(p.x, ...)`) is not seen; `this.x`, destructured formals (`{ a }`) and `arguments` are not handled; a callable containing a parse error gets no Def. When one line holds several reads of the same path, the first admitted read carries the edge. The classifier is syntactic, so a formal whose only member accesses are writes (`p.x = 1`) gets a Def with no outgoing edges. A seed on the whole parameter reaches every `p.<field>` read (accepted cost), and a diff on the parameter's own line fans out through FullFlow and LeftFlow; a diff on a field read does not reach siblings in FullFlow by any route (directly, through an upstream argument Use/Def, or through a same-file caller): its forward leg seeds only from locations reached before the base Def, while the upstream lines stay included. A diff on a field condition (`if (p.x)`) in LeftFlow, FullFlow and ConditionedSlice also never forward-expands out of the base Def, so their condition walk does not reach a local derived from a sibling field (`const v = p.y; ... sink(v)`); RelevantSlice and SpiralSlice still include such a line through their own branch and ring expansion, as before #390. A condition variable whose every Use on the diff's condition lines is a projection read of its own callable's member-only formal (`if (p.x)`, `!p.x`, `p.x === 1`; such Uses did not exist before #390) keeps the pre-projection name-based inclusion of every textual `p` line, siblings included, and a local derived from the condition's own field is no longer reached either (the pre-#390 behaviour); a condition with any other Use of the variable (a call argument `if (ok(p.x))`, an assignment `if (w = p.x)`, which existed before #390), or on an ordinary formal fed by a field argument (`g(p.x)`), keeps its bounded DFG answer, as before #390. Wrong caller-to-callee argument edges inherited from call resolution now also reach these parameters at the same base rate. A named-owner formal that newly counts as Bare through a bare read inside a member object (`file: isString(file) ? file : file.path`) can emit a Use at an object-literal key span on its line (the legacy bare pass picks the line's first identifier span, main's existing E7 class, now reached for more formals; the line still holds a real read).
+
+## 7. Node sources and sinks
+
+- Framework request sources apply per file: a handler defined in a module that does not import the framework (express, koa, fastify, nest) gets no `req` source, even when it is registered as a route elsewhere. Tracked: #600.
+- The bare `query` sink pattern fires on `req.query` member reads, which are a source (false sink hits). Tracked: #601.
+- Missing: `res.redirect` open-redirect sink (#590) and `process.env` as a source (#604 item 2).
