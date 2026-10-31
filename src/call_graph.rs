@@ -1657,11 +1657,7 @@ impl CallGraph {
         let mut js_ts_unproven_instance_methods = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
-        // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
-        // from the full `files` map, mirroring the existing per-build
-        // whole-program-fact pattern (e.g. `extract_js_ts_resolution_facts`
-        // below). `BTreeSet<String>` is `Sync`, so it can be captured by
-        // reference into the `par_iter` closure below.
+        // P8 F1 BLOCKER: full-files macro shadow set; Sync BTreeSet shared by parallel jobs.
         let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) =
             Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
@@ -1810,8 +1806,7 @@ impl CallGraph {
         }
 
         profile.next("call_graph.calls");
-        // Phase 2: Find all call sites within each function in parallel, then
-        // flatten serially in file order to preserve insertion order.
+        // Collect parallel call sites in file order.
         let per_file_calls: Vec<FileCallSites> = crate::build_pool::per_item(&ordered_files)
             .map(|entry| {
                 let (file_path, parsed) = *entry;
@@ -1842,6 +1837,7 @@ impl CallGraph {
                         continue;
                     }
 
+                    let _go_walk = crate::ast::go_receiver_walk::Session::new(parsed, func_node);
                     let all_lines: BTreeSet<usize> = (start..=end).collect();
                     let (call_sites, facts) = parsed
                         .function_calls_with_qualifier_and_spans_on_lines(
@@ -4617,8 +4613,7 @@ impl CallGraph {
         }
     }
 
-    /// Parallel per-caller recompute, mirroring `compute_rust_receiver_updates`'s
-    /// shape exactly (rayon over the `self.calls`-ordered caller list).
+    /// Parallel per-caller recompute, mirroring compute_rust_receiver_updates in calls order.
     pub(crate) fn compute_go_receiver_updates(
         &self,
         files: &BTreeMap<String, ParsedFile>,
@@ -4678,6 +4673,7 @@ impl CallGraph {
         let Some(fn_node) = crate::anon_owner::node_for_id(parsed, caller) else {
             return out;
         };
+        let _go_walk = crate::ast::go_receiver_walk::Session::new(parsed, fn_node);
         let all_lines: BTreeSet<usize> = (caller.start_line..=caller.end_line).collect();
         let macro_shadow: BTreeSet<String> = BTreeSet::new(); // Go has no macro-arg extraction.
         let (ast_calls, _facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
@@ -5237,6 +5233,7 @@ impl CallGraph {
                 )) {
                     continue;
                 }
+                let _go_walk = crate::ast::go_receiver_walk::Session::new(parsed, func_node);
                 let all_lines: BTreeSet<usize> = (start..=end).collect();
                 let (call_sites, facts) = parsed.function_calls_with_qualifier_and_spans_on_lines(
                     &func_node,

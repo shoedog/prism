@@ -10,6 +10,7 @@ pub(crate) mod call_membership_tests;
 pub(crate) mod binding_verdict_memo;
 mod call_membership;
 pub(crate) mod call_names;
+pub(crate) mod go_receiver_walk;
 pub(crate) mod member_reference_index;
 
 mod js_binding;
@@ -631,9 +632,7 @@ impl ParsedFile {
         (found, bindings)
     }
 
-    /// P17 fix wave 2: the ordinary scan result plus the first recoverable
-    /// binding. Go on-demand receiver proof uses the first fact only to retain
-    /// the legacy ladder input when a later lexical rebinding forces R3.
+    /// Ordinary evidence plus the first recoverable binding for Go's R3 ladder.
     pub(crate) fn receiver_type_evidence_in_fn(
         &self,
         func_node: &Node<'_>,
@@ -656,8 +655,7 @@ impl ParsedFile {
         )
     }
 
-    /// Wave-3 exception used only by the post-merge direct-route proof. The
-    /// ordinary classifier above deliberately retains f16663e's projection.
+    /// Same-scope reuse exception for the post-merge direct-route proof.
     pub(crate) fn go_same_scope_reuse_receiver_type_evidence_in_fn(
         &self,
         func_node: &Node<'_>,
@@ -680,11 +678,7 @@ impl ParsedFile {
         )
     }
 
-    /// P17 wave 5 provenance: true when the call is inside a Go function
-    /// literal whose parameter list binds `receiver`. Main deliberately treated
-    /// this parameter as unrecoverable; P17 wave 2 began recovering its declared
-    /// type, so callers use this fact to keep that new path out of the legacy
-    /// bare-interface ladder when the qualified type is external.
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     pub(crate) fn go_func_literal_parameter_binds_receiver(
         &self,
         func_node: &Node<'_>,
@@ -693,6 +687,11 @@ impl ParsedFile {
     ) -> bool {
         if self.language != Language::Go {
             return false;
+        }
+        if let Some(answer) =
+            go_receiver_walk::auxiliary(self, *func_node, receiver, call_start_byte, true)
+        {
+            return answer;
         }
 
         fn walk(
@@ -727,6 +726,7 @@ impl ParsedFile {
         walk(self, *func_node, receiver, call_start_byte)
     }
 
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     fn receiver_type_evidence_in_fn_mode(
         &self,
         func_node: &Node<'_>,
@@ -742,6 +742,18 @@ impl ParsedFile {
     ) {
         use crate::languages::Language;
         use crate::resolution::ReceiverRecovery;
+
+        if let Some(answer) = go_receiver_walk::evidence(
+            self,
+            *func_node,
+            receiver,
+            call_line,
+            call_start_byte,
+            recover_var,
+            enable_go_same_scope_reuse,
+        ) {
+            return answer;
+        }
 
         if !matches!(
             self.language,
@@ -854,10 +866,7 @@ impl ParsedFile {
             }
         }
 
-        // Go declarations shadow only within their lexical binding scope. Keep
-        // this visibility rule independent of the narrow same-scope `:=` reuse
-        // exception: ordinary classification needs scope filtering too, but
-        // must not silently enable reuse recovery.
+        // Go declaration visibility is independent of same-scope reuse recovery.
         let go_filter_declarations_to_call_scope = matches!(self.language, Language::Go);
         self.walk_receiver_bindings(
             *func_node,
@@ -1022,9 +1031,7 @@ impl ParsedFile {
         receiver_args_bind(self, receiver, receiver_type)
     }
 
-    /// Whether a same-named function-local Go type declaration is lexically
-    /// visible at this call. Package-qualified types cannot be shadowed by a
-    /// local declaration and are rejected up front.
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     pub(crate) fn go_local_type_shadows(
         &self,
         func_node: &Node<'_>,
@@ -1041,6 +1048,11 @@ impl ParsedFile {
             .trim();
         if type_name.is_empty() || type_name.contains('.') || type_name.contains('[') {
             return false;
+        }
+        if let Some(answer) =
+            go_receiver_walk::auxiliary(self, *func_node, type_name, call_start_byte, false)
+        {
+            return answer;
         }
 
         fn scope_contains_call(node: Node<'_>, call_start_byte: usize) -> bool {
@@ -1085,21 +1097,7 @@ impl ParsedFile {
         walk(self, *func_node, type_name, call_start_byte)
     }
 
-    /// P11 S1: locate the (at most one, per `receiver_type_in_fn`'s own
-    /// `bindings <= 1` shadow-safety gate) Go `short_var_declaration`
-    /// statement that binds `receiver` at the FIRST LHS position with a
-    /// single-call RHS, and return that call's raw callee text (`newDemux`,
-    /// `pkg.New` — resolution to a static type is the caller's job,
-    /// `go_receiver_index::resolve_go_return_type_call`). Returns `None` for
-    /// every other shape: `receiver` at a non-first LHS position (`_, err :=
-    /// f()` when probing `err`), a multi-expression RHS (`a, b := f(), g()`),
-    /// or a non-call RHS.
-    ///
-    /// Callers MUST already have confirmed there is exactly one unshadowed
-    /// receiver binding for this `(receiver, call_line, call_start_byte)`.
-    /// This helper does not itself re-derive that count; it only relocates the
-    /// single qualifying statement's RHS shape. The binding may be untyped or
-    /// provisionally typed by Go's name-based `NewX` constructor heuristic.
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     pub(crate) fn go_short_var_call_rhs(
         &self,
         func_node: &Node<'_>,
@@ -1107,6 +1105,11 @@ impl ParsedFile {
         call_line: usize,
         call_start_byte: usize,
     ) -> Option<String> {
+        if let Some(answer) =
+            go_receiver_walk::rhs(self, *func_node, receiver, call_line, call_start_byte)
+        {
+            return answer;
+        }
         fn walk(
             this: &ParsedFile,
             node: Node<'_>,
@@ -1124,15 +1127,7 @@ impl ParsedFile {
             if !is_root && this.language.function_node_types().contains(&node.kind()) {
                 return None; // same convention as walk_receiver_bindings.
             }
-            // B1 (codex impl-review BLOCKER): `Language::function_node_types()`
-            // omits Go function literals (closures), so the check above never
-            // fences a closure body. Without this, a sibling closure's OWN
-            // `x := newT()` binding — already closed by the time an unrelated
-            // later call executes — would still be found here and misreported
-            // as this call's qualifying statement. Same lexical-scope fence as
-            // `walk_receiver_bindings`'s `func_literal` arm: skip this
-            // closure's entire subtree unless the call site actually lies
-            // within its span.
+            // Skip a literal's entire subtree unless it contains the call.
             if !is_root && node.kind() == "func_literal" {
                 let call_inside =
                     call_start_byte >= node.start_byte() && call_start_byte < node.end_byte();
@@ -1176,18 +1171,17 @@ impl ParsedFile {
         walk(self, *func_node, true, receiver, call_line, call_start_byte)
     }
 
-    /// P17 fix wave 3: collect every same-scope multi-name `:=` that REUSES
-    /// `receiver` before the call. Go requires at least one other LHS name to be
-    /// new in that block. Each reuse must assign the receiver from the first
-    /// result of one call so the post-merge return-type index can prove that the
-    /// static type did not change. `Err(())` is fail-closed evidence: a reuse was
-    /// visible, but its RHS could not be compared.
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     pub(crate) fn go_same_scope_short_var_reuse_calls(
         &self,
         func_node: &Node<'_>,
         receiver: &str,
         call_start_byte: usize,
     ) -> Result<Vec<String>, ()> {
+        if let Some(answer) = go_receiver_walk::reuses(self, *func_node, receiver, call_start_byte)
+        {
+            return answer;
+        }
         fn walk(
             this: &ParsedFile,
             node: Node<'_>,
@@ -10150,6 +10144,7 @@ impl ParsedFile {
         None
     }
 
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     fn go_scope_declares_name_before(
         &self,
         func_node: &Node<'_>,
@@ -10235,6 +10230,7 @@ impl ParsedFile {
         walk(self, scope, true, name, before_byte)
     }
 
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     fn go_short_decl_reuses_in_scope(
         &self,
         node: Node<'_>,
@@ -10265,6 +10261,7 @@ impl ParsedFile {
         })
     }
 
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     fn walk_receiver_bindings(
         &self,
         node: Node<'_>,
@@ -10568,35 +10565,6 @@ impl ParsedFile {
                     }
                 }
             }
-            // P11 (S2 fail-closed requirement, the P9 lesson in Go form):
-            // `Language::function_node_types()` omits Go function literals
-            // (closures), so without a lexical-scope fence the walk scans
-            // straight through EVERY closure body in the enclosing function
-            // as if it were still that function's own scope. Two distinct
-            // hazards follow from that, both fixed here (B1, codex
-            // impl-review BLOCKER):
-            //   1. a closure PARAMETER of the same name would silently
-            //      shadow-and-vanish (invisible to `bindings`), letting a
-            //      stale outer recovery leak into the closure's own call
-            //      sites — the call is INSIDE this closure;
-            //   2. a closure-LOCAL `:=`/`var` binding (e.g. `x := newT()`)
-            //      would be visible to a call OUTSIDE this closure entirely
-            //      (a sibling closure, already closed by the time an
-            //      unrelated later statement runs) and could mint a false
-            //      Exact edge for that unrelated call — the call is OUTSIDE
-            //      this closure.
-            //
-            // Fence by lexical scope: when the call site does not lie
-            // within this literal's own byte span, this closure's ENTIRE
-            // subtree is out of scope for `receiver` — `return` immediately,
-            // skipping the generic recursion below (never `continue`/fall
-            // through, or a sibling-closure local would still leak via that
-            // trailing walk). Only when the call IS inside do we record the
-            // closure parameter's declared type. It is recoverable when this
-            // is the only same-name binding; if an outer binding was already
-            // seen, P17's first-fact evidence marks the receiver proof
-            // shadowed and routes through R3. The generic recursion then scans
-            // ONLY this literal's body for later local rebindings.
             (Language::Go, "func_literal") if !is_root => {
                 let call_inside =
                     call_start_byte >= node.start_byte() && call_start_byte < node.end_byte();
