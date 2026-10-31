@@ -1,37 +1,170 @@
-//! Removal-only Rust external-prefix proof. No source scanning or new facts:
-//! imports, visibility, shadowing and module boundaries use the scope engine.
-use crate::call_graph::{CallGraph, CallSite};
+//! Removal-only Rust external-prefix proof over existing scope facts.
+use crate::call_graph::{CallGraph, CallSite, FunctionId};
 use crate::name_resolution::engine::{resolve, resolve_path};
 use crate::name_resolution::graph::ScopeGraph;
-use crate::name_resolution::rust_policy::{RustPolicy, NS_TYPE};
+use crate::name_resolution::rust_policy::{crate_root_of, RustPolicy, NS_TYPE};
 use crate::name_resolution::rust_populator::enclosing_scope;
 use crate::name_resolution::types::*;
-use crate::resolution::{DropReason, ResolutionOutcome};
+use crate::resolution::{DropReason, ReceiverRecovery, ResolutionOutcome};
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::OnceLock;
 
-pub(crate) fn resolve_call<'a>(
-    cg: &'a CallGraph,
-    site: &CallSite,
-) -> Option<ResolutionOutcome<'a>> {
-    refuse_call(cg, site).or_else(|| cg.rust_authoritative_resolution(site))
+impl CallGraph {
+    // Generate main's candidates first. Filtering whole sites before this point
+    // loses impl-for-std targets; rebuilding a reduced pool would promote it.
+    pub(crate) fn resolve_call_site_candidates_with_go_memo<'a>(
+        &'a self,
+        site: &CallSite,
+        memo: Option<&crate::resolution::go_satisfiers::GoSatisfierMemo<'a>>,
+    ) -> ResolutionOutcome<'a> {
+        let mut out = self.resolve_call_site_candidates_unfiltered(site, memo);
+        let Some((owners, reason)) = external_owners(self, site) else {
+            return out;
+        };
+        let graph = self
+            .scope_graph
+            .as_ref()
+            .expect("external proof has scope graph");
+        let index = graph.declared_owners.get(graph);
+        let before = out.resolved.len();
+        out.resolved
+            .retain(|r| !index.target_declares(graph, r.target, &owners));
+        if out.resolved.is_empty()
+            && (before != 0 || owners.iter().any(|owner| index.names.contains(owner)))
+        {
+            out.drop = Some(reason);
+        }
+        out
+    }
 }
 
-pub(crate) fn refuse_call<'a>(cg: &'a CallGraph, site: &CallSite) -> Option<ResolutionOutcome<'a>> {
+// Cached once per immutable graph; clones and deserialization start cold.
+#[derive(Debug, Default)]
+pub struct GraphDeclaredOwners(OnceLock<DeclaredOwners>);
+impl Clone for GraphDeclaredOwners {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+impl PartialEq for GraphDeclaredOwners {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+impl Eq for GraphDeclaredOwners {}
+impl GraphDeclaredOwners {
+    pub(crate) fn invalidate(&mut self) {
+        self.0.take();
+    }
+    fn get<'a>(&'a self, graph: &ScopeGraph) -> &'a DeclaredOwners {
+        self.0.get_or_init(|| DeclaredOwners::build(graph))
+    }
+}
+
+#[derive(Debug, Default)]
+struct DeclaredOwners {
+    by_root: BTreeMap<ScopeId, BTreeSet<String>>,
+    roots_by_file: BTreeMap<FileId, BTreeSet<ScopeId>>,
+    names: BTreeSet<String>,
+    binding_count: usize,
+    scope_count: usize,
+}
+impl DeclaredOwners {
+    fn build(graph: &ScopeGraph) -> Self {
+        let mut index = Self {
+            binding_count: graph.bindings.len(),
+            scope_count: graph.scopes.len(),
+            ..Self::default()
+        };
+        for scope in graph.scopes.values() {
+            if let Some(root) = crate_root_of(graph, scope.id) {
+                for extent in &scope.extents {
+                    index
+                        .roots_by_file
+                        .entry(extent.range.lo.file)
+                        .or_default()
+                        .insert(root);
+                }
+            }
+        }
+        for b in &graph.bindings {
+            if b.ns != NS_TYPE {
+                continue;
+            }
+            let declaration = match &b.target {
+                BindTarget::Resolved(Target::Item {
+                    callable: false,
+                    owns,
+                    ..
+                }) => {
+                    // Generic barriers have no owned type scope and live in
+                    // Callable ribs. Actual local structs/traits still count.
+                    owns.is_some()
+                        || graph
+                            .scopes
+                            .get(&b.scope)
+                            .is_some_and(|s| s.kind != ScopeKind::Callable)
+                }
+                BindTarget::Resolved(Target::Scope(id)) => graph
+                    .scopes
+                    .get(id)
+                    .is_some_and(|s| matches!(s.kind, ScopeKind::Module | ScopeKind::Root)),
+                _ => false,
+            };
+            if declaration {
+                if let Some(root) = crate_root_of(graph, b.scope) {
+                    index
+                        .by_root
+                        .entry(root)
+                        .or_default()
+                        .insert(b.name.clone());
+                    index.names.insert(b.name.clone());
+                }
+            }
+        }
+        index
+    }
+    fn target_declares(&self, graph: &ScopeGraph, target: &FunctionId, owners: &[String]) -> bool {
+        // Direct public appends bypass invalidation. Fail open on drift; normal
+        // builders invalidate on every add, and in-place edits use the graph API.
+        if self.binding_count != graph.bindings.len() || self.scope_count != graph.scopes.len() {
+            return false;
+        }
+        let Some(roots) = graph
+            .file_paths
+            .get(&target.file)
+            .and_then(|f| self.roots_by_file.get(f))
+        else {
+            return false;
+        };
+        if roots.len() != 1 {
+            return false;
+        }
+        roots.iter().any(|root| {
+            self.by_root
+                .get(root)
+                .is_some_and(|names| owners.iter().any(|owner| names.contains(owner)))
+        })
+    }
+}
+
+fn external_owners(cg: &CallGraph, site: &CallSite) -> Option<(Vec<String>, DropReason)> {
     if crate::languages::Language::from_path(&site.caller.file)
         != Some(crate::languages::Language::Rust)
     {
         return None;
     }
-    if external_constructor_receiver(cg, site) {
-        return Some(ResolutionOutcome::dropped(DropReason::ExternalReceiver));
-    }
-    if !site.callee_name.contains("::") {
-        return None;
-    }
     let graph = cg.scope_graph.as_ref().filter(|g| g.complete)?;
     let file = *graph.file_paths.get(&site.caller.file)?;
-    let from = enclosing_scope(graph, file, site.start_byte)?;
+    if let Some((owner, byte)) = constructor_owner(graph, file, site) {
+        let from = enclosing_scope(graph, file, byte)?;
+        if let Some(owners) = external_path(graph, from, &SourceLoc { file, byte }, &owner) {
+            return Some((owners, DropReason::ExternalReceiver));
+        }
+    }
     let owner = site.callee_name.rsplit_once("::")?.0;
-    let external = external_path(
+    let from = enclosing_scope(graph, file, site.start_byte)?;
+    external_path(
         graph,
         from,
         &SourceLoc {
@@ -39,38 +172,32 @@ pub(crate) fn refuse_call<'a>(cg: &'a CallGraph, site: &CallSite) -> Option<Reso
             byte: site.start_byte,
         },
         owner,
-    );
-    external.then(|| ResolutionOutcome::dropped(DropReason::ImportExternal))
+    )
+    .map(|owners| (owners, DropReason::ImportExternal))
 }
 
-// A recovered constructor must not acquire a new extension-method edge merely
-// because its identity changed from Bare/InRepo to External. Refuse at the same
-// routing boundary, using the local fact at its definition (not the use site).
-fn external_constructor_receiver(cg: &CallGraph, site: &CallSite) -> bool {
-    use crate::name_resolution::binding_lookup::{lookup_visible_binding, InitExpr};
-    let check = || {
-        let graph = cg.scope_graph.as_ref().filter(|g| g.complete)?;
-        let file = *graph.file_paths.get(&site.caller.file)?;
-        let binding =
-            lookup_visible_binding(graph, file, site.start_byte, site.qualifier.as_deref()?)?;
-        let byte = binding.vis_extents.first()?.lo.byte;
-        let InitExpr::Ctor(expr) = graph.local_facts.get(&(file, byte))?.init.as_ref()? else {
-            return None;
-        };
-        let syntax = if let Some(function) = expr.strip_suffix("()") {
-            function.rsplit_once("::")?.0
-        } else {
-            expr.strip_suffix("{}")?
-        };
-        let from = enclosing_scope(graph, file, byte)?;
-        Some(external_path(
-            graph,
-            from,
-            &SourceLoc { file, byte },
-            syntax,
-        ))
+// This is the only constructor refusal rule. Annotation precedence and pattern
+// binding semantics remain those of the receiver typer; do not change its key.
+fn constructor_owner(graph: &ScopeGraph, file: FileId, site: &CallSite) -> Option<(String, usize)> {
+    use crate::name_resolution::binding_lookup::{lookup_visible_binding, BindingKind, InitExpr};
+    if site.receiver_outcome.as_ref()?.recovery != ReceiverRecovery::ConstructorLocal {
+        return None;
+    }
+    let binding = lookup_visible_binding(graph, file, site.start_byte, site.qualifier.as_deref()?)?;
+    let byte = binding.vis_extents.first()?.lo.byte;
+    let fact = graph.local_facts.get(&(file, byte))?;
+    if fact.kind != BindingKind::Let || fact.annotation.is_some() {
+        return None;
+    }
+    let InitExpr::Ctor(expr) = fact.init.as_ref()? else {
+        return None;
     };
-    check().unwrap_or(false)
+    let owner = if let Some(function) = expr.strip_suffix("()") {
+        function.rsplit_once("::")?.0
+    } else {
+        expr.strip_suffix("{}")?
+    };
+    Some((owner.to_string(), byte))
 }
 
 fn std_root(path: &str) -> bool {
@@ -85,70 +212,83 @@ fn std_root(path: &str) -> bool {
     )
 }
 
-// Impl scopes/owner keys are insufficient: only a declaration binding proves
-// that the selected external owner has an in-repo look-alike. Incomplete graphs
-// deliberately retain main's behavior; do not extract missing declarations.
-fn declared_owner(graph: &ScopeGraph, path: &str) -> bool {
-    let owner = crate::resolution::owner_key(path);
-    graph.bindings.iter().any(|b| {
-        b.ns == NS_TYPE
-            && b.name == owner
-            && match &b.target {
-                BindTarget::Resolved(Target::Item {
-                    callable: false, ..
-                }) => true,
-                BindTarget::Resolved(Target::Scope(id)) => graph
-                    .scopes
-                    .get(id)
-                    .is_some_and(|s| matches!(s.kind, ScopeKind::Module | ScopeKind::Root)),
-                _ => false,
-            }
-    })
-}
-
-/// Is this owner path external and also declared in-repo?
-/// A specialized policy gives already-extracted std imports an external target;
-/// the ordinary engine still chooses the rib and combines conflicts. This probe
-/// never supplies candidates to call resolution, so it cannot promote an edge.
-pub(crate) fn external_path(graph: &ScopeGraph, from: ScopeId, at: &SourceLoc, path: &str) -> bool {
+// Return both canonical and source-selected owner keys. Aliases select the
+// latter in main's fallback pool, including aliases of std types.
+fn external_path(
+    graph: &ScopeGraph,
+    from: ScopeId,
+    at: &SourceLoc,
+    path: &str,
+) -> Option<Vec<String>> {
     if !graph.complete {
-        return false;
+        return None;
     }
-    if std_root(path) {
-        return declared_owner(graph, path);
-    }
-    let first = path.split("::").next().unwrap_or("").trim();
+    let absolute = path.trim().starts_with("::");
+    let first = path
+        .trim()
+        .trim_start_matches("::")
+        .split("::")
+        .next()?
+        .trim();
     if first.is_empty() || matches!(first, "crate" | "self" | "super" | "Self") {
-        return false;
+        return None;
     }
-    let q = ResolveQuery {
-        name: first.to_string(),
-        ns: NS_TYPE,
-        from,
-        at: at.clone(),
-        cfg: CfgCtx::default(),
-        ctx: PolicyQueryCtx::default(),
+    if std_root(path) && absolute && graph.edition >= 2018 {
+        return Some(vec![crate::resolution::owner_key(path)]);
+    }
+    let rust = RustPolicy::new(graph, graph.edition);
+    let policy = ExternalImports { graph, rust };
+    let res = if absolute {
+        resolve_path(
+            graph,
+            &RawPath(vec![first.to_string()]),
+            NS_TYPE,
+            &Anchor {
+                kind: AnchorKind::LeadingColon,
+                prelude: None,
+            },
+            from,
+            NS_TYPE,
+            at,
+            &policy,
+        )
+    } else {
+        resolve(
+            graph,
+            &ResolveQuery {
+                name: first.to_string(),
+                ns: NS_TYPE,
+                from,
+                at: at.clone(),
+                cfg: CfgCtx::default(),
+                ctx: PolicyQueryCtx::default(),
+            },
+            &policy,
+        )
     };
-    let policy = ExternalImports {
-        graph,
-        rust: RustPolicy::new(graph, graph.edition),
-    };
-    let res = resolve(graph, &q, &policy);
-    matches!(res.status, ResStatus::Resolved | ResStatus::ResolvedSet)
-        && !res.candidates.is_empty()
-        && res.candidates.iter().all(|c| match &c.target {
-            Target::External(ext) => {
-                let suffix = path.split_once("::").map(|(_, tail)| tail);
-                let owner =
-                    suffix.map_or_else(|| ext.name.clone(), |tail| format!("{}::{tail}", ext.name));
-                // An extern-crate alias can itself be the selected owner key
-                // (`use outside as CliTest; CliTest::m()`), unlike a renamed
-                // std type whose canonical name supplies declaration evidence.
-                declared_owner(graph, &owner)
-                    || (!std_root(&ext.name) && declared_owner(graph, path))
-            }
-            _ => false,
-        })
+    // A local root wins over the standard-library extern prelude. Ambiguous or
+    // poisoned roots are not proof of an external selection either.
+    if std_root(path) && res.status == ResStatus::Unresolved {
+        return Some(vec![crate::resolution::owner_key(path)]);
+    }
+    if !matches!(res.status, ResStatus::Resolved | ResStatus::ResolvedSet)
+        || res.candidates.is_empty()
+    {
+        return None;
+    }
+    let mut owners = vec![crate::resolution::owner_key(path)];
+    for candidate in res.candidates {
+        let Target::External(ext) = candidate.target else {
+            return None;
+        };
+        let canonical = path.split_once("::").map_or(ext.name.clone(), |(_, tail)| {
+            format!("{}::{tail}", ext.name)
+        });
+        owners.push(crate::resolution::owner_key(&canonical));
+    }
+    owners.sort();
+    owners.dedup();
+    Some(owners)
 }
 
 struct ExternalImports<'g> {
@@ -211,7 +351,7 @@ impl ResolutionPolicy for ExternalImports<'_> {
             return None;
         }
         let first = path.0.first()?;
-        let external = std_root(first) || {
+        let external = {
             // Existing explicit `extern crate` targets are authoritative. Cargo
             // registry/git dependency names are not recorded by this model.
             let prefix = RawPath(vec![first.clone()]);
@@ -233,14 +373,19 @@ impl ResolutionPolicy for ExternalImports<'_> {
                     self.graph, &prefix, NS_TYPE, anchor, b.scope, NS_TYPE, at, &self.rust,
                 )
             };
-            matches!(res.status, ResStatus::Resolved)
-                && matches!(
-                    res.candidates.as_slice(),
-                    [Candidate {
-                        target: Target::External(_),
-                        ..
-                    }]
-                )
+            // 2015 use/absolute paths are crate-root anchored; 2018+ use
+            // paths are lexical, while leading :: selects the extern prelude.
+            let absolute_extern =
+                matches!(anchor.kind, AnchorKind::LeadingColon) && self.graph.edition >= 2018;
+            (std_root(first) && (absolute_extern || res.status == ResStatus::Unresolved))
+                || (res.status == ResStatus::Resolved
+                    && matches!(
+                        res.candidates.as_slice(),
+                        [Candidate {
+                            target: Target::External(_),
+                            ..
+                        }]
+                    ))
         };
         external.then(|| {
             Target::External(ExternRef {
@@ -248,23 +393,4 @@ impl ResolutionPolicy for ExternalImports<'_> {
             })
         })
     }
-}
-
-/// Constructor typing must retain external identity, rather than using a bare
-/// same-name owner. Routing will drop unless an existing extension route applies.
-pub(crate) fn constructor_type(
-    graph: &ScopeGraph,
-    file: FileId,
-    byte: usize,
-    syntax: &str,
-) -> Option<crate::resolution_identity::ReceiverOutcome> {
-    let from = enclosing_scope(graph, file, byte)?;
-    external_path(graph, from, &SourceLoc { file, byte }, syntax).then(|| {
-        let bare = crate::resolution::owner_key(syntax);
-        crate::resolution_identity::ReceiverOutcome {
-            key: crate::resolution_identity::ReceiverTypeKey::External(bare.clone()),
-            bare,
-            recovery: crate::resolution::ReceiverRecovery::ConstructorLocal,
-        }
-    })
 }

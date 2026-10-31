@@ -95,7 +95,7 @@
   ],
   "PD-11-cache-version-not-bumped": [
    "src/cpg_cache.rs",
-    "const CACHE_VERSION: u32 = 133;",
+    "const CACHE_VERSION: u32 = 134;",
    "const CACHE_VERSION: u32 = 124;",
    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
   ],

@@ -244,7 +244,7 @@ Trait-impl callers may still call inherent targets.
 Ambiguous impl metadata and macro-token calls without a parsed call expression
 also refuse.
 External, std, derive and macro-generated impls remain outside the existing owner
-index model. Rust std/core/alloc paths, scope-bound imports of them and known external crate paths refuse owner/function collisions (including constructor receivers) only when complete scope facts at the site show an in-repo declaration of the selected owner name; missing facts keep main's behavior. Impl-only external owners retain main's edges. A repo with both `struct ExitCode` and an impl for `std::process::ExitCode` refuses the qualified call too, at the accepted cost of a possibly correct edge.
+index model. Rust std/core/alloc paths, scope-selected imports/aliases and known external crate paths filter each owner/function candidate against declarations in that target's own crate using a graph-cached lookup that excludes generic barriers, only with complete scope facts and external-prefix proof; lexical in-repo roots and receiver annotations take precedence, surviving targets retain main's kind/confidence, and missing facts, poisoned roots, macro-hidden declarations, facade re-exports, chained imports and external globs keep main's behavior; the eight-corpus audit identifies no correct-edge losses among 88 Exact/204 total removals, while the tested same-crate declaration/impl ambiguity still refuses the correct `ExitCode` fixture edge.
 Import-qualified `pkg.f()` narrows by file
 stem or Go package directory with no permissive fall-through; `Class.m()` binds
 when the qualifier is itself an owner key; unqualified calls prefer a local free

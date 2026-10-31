@@ -2153,7 +2153,7 @@ impl CallGraph {
         self.resolve_call_site_candidates_with_go_memo(site, None)
     }
 
-    pub(crate) fn resolve_call_site_candidates_with_go_memo<'a>(
+    pub(crate) fn resolve_call_site_candidates_unfiltered<'a>(
         &'a self,
         site: &CallSite,
         memo: Option<&GoSatisfierMemo<'a>>,
@@ -2197,7 +2197,7 @@ impl CallGraph {
 
         let name = site.callee_name.as_str();
         let caller = &site.caller;
-        if let Some(outcome) = crate::rust_external_paths::resolve_call(self, site) {
+        if let Some(outcome) = self.rust_authoritative_resolution(site) {
             return outcome;
         }
 
