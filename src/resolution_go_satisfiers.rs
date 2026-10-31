@@ -29,7 +29,6 @@ const SHARDS: usize = 16;
 pub(crate) struct GoSatisfierMemo<'a> {
     graph: &'a CallGraph,
     entries: [Shard<'a>; SHARDS],
-    visibility: crate::go_owner_partition::visibility::VisibilityMemo<'a>,
     #[cfg(test)]
     computations: std::sync::atomic::AtomicUsize,
     #[cfg(test)]
@@ -45,9 +44,6 @@ impl<'a> GoSatisfierMemo<'a> {
         Self {
             graph,
             entries: std::array::from_fn(|_| Mutex::new(BTreeMap::new())),
-            visibility: crate::go_owner_partition::visibility::VisibilityMemo::new(
-                &graph.go_file_profiles,
-            ),
             #[cfg(test)]
             computations: std::sync::atomic::AtomicUsize::new(0),
             #[cfg(test)]
@@ -113,7 +109,6 @@ impl<'a> GoSatisfierMemo<'a> {
                 method,
                 caller_file,
                 include_promoted,
-                Some(&self.visibility),
             )
         });
         result.clone()

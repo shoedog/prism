@@ -4,7 +4,7 @@
 //! snapshot retains its defining file so consumers can apply the caller's
 //! package/build visibility and certainty floor at consult time.
 
-pub(crate) mod visibility;
+mod visibility;
 
 use crate::resolution::GoOwnerIdentity;
 use serde::{Deserialize, Serialize};

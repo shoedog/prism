@@ -8,7 +8,6 @@ impl CallGraph {
         method_name: &str,
         caller_file: &str,
         include_promoted: bool,
-        visibility: Option<&crate::go_owner_partition::visibility::VisibilityMemo<'_>>,
     ) -> GoCallerScopedSatisfiers<'a> {
         let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
         let mut promoted_telemetry = GoProvenPromotedSupplyTelemetry::default();
@@ -39,7 +38,6 @@ impl CallGraph {
         let mut uncertain_owners = 0usize;
         let mut concrete_owners: BTreeSet<&GoOwnerIdentity> =
             self.go_method_declarations.keys().collect();
-        let caller_visibility = visibility.map(|memo| memo.for_caller(caller_file));
         if include_promoted {
             concrete_owners.extend(self.go_promoted_selector_snapshot().owners.keys());
         }
@@ -61,14 +59,11 @@ impl CallGraph {
                 .into_iter()
                 .flatten()
             {
-                let (visible, exact) = match &caller_visibility {
-                    Some(visibility) => visibility.get(&declaration.defining_file),
-                    None => crate::go_owner_partition::exact_cross_package_visibility(
-                        caller_file,
-                        &declaration.defining_file,
-                        &self.go_file_profiles,
-                    ),
-                };
+                let (visible, exact) = crate::go_owner_partition::exact_cross_package_visibility(
+                    caller_file,
+                    &declaration.defining_file,
+                    &self.go_file_profiles,
+                );
                 if !visible {
                     continue;
                 }

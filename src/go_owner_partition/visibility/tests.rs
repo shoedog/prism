@@ -1,7 +1,6 @@
 use super::*;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
-use std::sync::atomic::Ordering;
 
 fn profiles() -> BTreeMap<String, GoBuildProfile> {
     let rows = [
@@ -46,11 +45,8 @@ fn profiles() -> BTreeMap<String, GoBuildProfile> {
 }
 
 #[test]
-fn every_pair_matches_frozen_helpers_including_missing_and_fallback() {
+fn every_pair_matches_frozen_clone_and_override_helpers() {
     let profiles = profiles();
-    let memo = VisibilityMemo::new(&profiles);
-    let mut uncached = VisibilityMemo::new(&profiles);
-    uncached.capacity = 0;
     let files: Vec<_> = profiles
         .keys()
         .map(String::as_str)
@@ -60,22 +56,17 @@ fn every_pair_matches_frozen_helpers_including_missing_and_fallback() {
         for defining in &files {
             let expected =
                 super::super::reference_cross_package_visibility(caller, defining, &profiles);
-            for _ in 0..2 {
-                assert_eq!(
-                    memo.for_caller(caller).get(defining),
-                    expected,
-                    "{caller}/{defining}"
-                );
-                assert_eq!(uncached.for_caller(caller).get(defining), expected);
-                assert_eq!(
-                    super::super::exact_cross_package_visibility(caller, defining, &profiles),
-                    expected
-                );
-                assert_eq!(
-                    super::super::exact_registration_visibility(caller, defining, &profiles),
-                    expected
-                );
-            }
+            assert_eq!(uncached(caller, defining, &profiles), expected);
+            assert_eq!(
+                super::super::exact_cross_package_visibility(caller, defining, &profiles),
+                expected,
+                "{caller}/{defining}"
+            );
+            assert_eq!(
+                super::super::exact_registration_visibility(caller, defining, &profiles),
+                expected,
+                "{caller}/{defining}"
+            );
             // The new package-override entry point must preserve every detail,
             // including diagnostics and decisive flags (not just the bools).
             if let (Some(caller), Some(defining)) = (profiles.get(*caller), profiles.get(*defining))
@@ -93,35 +84,27 @@ fn every_pair_matches_frozen_helpers_including_missing_and_fallback() {
             }
         }
     }
-    assert!(uncached
-        .entries
-        .iter()
-        .all(|shard| shard.lock().unwrap().is_empty()));
-    assert!(
-        memo.computations.load(Ordering::Relaxed) < uncached.computations.load(Ordering::Relaxed)
-    );
     assert_eq!(
-        memo.for_caller("missing.go").get("p/plain.go"),
+        uncached("missing.go", "p/plain.go", &profiles),
         (true, false)
     );
     assert_eq!(
-        memo.for_caller("p/plain.go").get("missing.go"),
+        uncached("p/plain.go", "missing.go", &profiles),
         (true, false)
     );
     assert_eq!(
-        memo.for_caller("p/broken.go").get("p/plain.go"),
+        uncached("p/broken.go", "p/plain.go", &profiles),
         (true, false)
     );
     assert_eq!(
-        memo.for_caller("p/plain.go").get("p/capped.go"),
+        uncached("p/plain.go", "p/capped.go", &profiles),
         (true, false)
     );
 }
 
 #[test]
-fn keys_retain_both_profiles_and_test_namespace_and_share_equal_profiles() {
+fn profiles_and_test_namespace_preserve_visibility_and_exactness() {
     let profiles = profiles();
-    let memo = VisibilityMemo::new(&profiles);
     for (caller, defining, expected) in [
         ("p/use_linux.go", "p/use_linux.go", (true, true)),
         ("p/use_windows.go", "p/use_linux.go", (false, false)),
@@ -137,70 +120,9 @@ fn keys_retain_both_profiles_and_test_namespace_and_share_equal_profiles() {
         ("missing_package.go", "p/plain.go", (true, false)),
     ] {
         assert_eq!(
-            memo.for_caller(caller).get(defining),
+            uncached(caller, defining, &profiles),
             expected,
             "{caller}/{defining}"
         );
     }
-    let before = memo.computations.load(Ordering::Relaxed);
-    assert_eq!(
-        memo.for_caller("p/plain.go").get("vendor/v/plain.go"),
-        (true, true)
-    );
-    assert_eq!(
-        memo.for_caller("p/other.go").get("vendor/v/plain.go"),
-        (true, true)
-    );
-    assert_eq!(
-        memo.for_caller("q/plain.go").get("vendor/v/plain.go"),
-        (true, true)
-    );
-    assert_eq!(memo.computations.load(Ordering::Relaxed), before + 1);
-}
-
-#[test]
-fn concurrent_pairs_initialize_once_and_saturation_preserves_existing_hits() {
-    let profiles = profiles();
-    let memo = VisibilityMemo::new(&profiles);
-    std::thread::scope(|scope| {
-        for _ in 0..8 {
-            let memo = &memo;
-            scope.spawn(move || {
-                for _ in 0..10 {
-                    assert_eq!(
-                        memo.for_caller("p/local_test.go").get("p/local_test.go"),
-                        (true, true)
-                    );
-                    assert_eq!(
-                        memo.for_caller("p/local_test.go").get("q/local_test.go"),
-                        (false, true)
-                    );
-                }
-            });
-        }
-    });
-    assert_eq!(memo.computations.load(Ordering::Relaxed), 2);
-    let mut bounded = VisibilityMemo::new(&profiles);
-    bounded.capacity = 1;
-    for caller in profiles.keys() {
-        for defining in profiles.keys() {
-            assert_eq!(
-                bounded.for_caller(caller).get(defining),
-                super::super::reference_cross_package_visibility(caller, defining, &profiles)
-            );
-        }
-    }
-    assert!(bounded
-        .entries
-        .iter()
-        .all(|shard| shard.lock().unwrap().len() <= 1));
-    // A full shard still serves retained entries, without recomputing.
-    let before = bounded.computations.load(Ordering::Relaxed);
-    assert_eq!(
-        bounded
-            .for_caller("missing_package.go")
-            .get("missing_package.go"),
-        (true, false)
-    );
-    assert_eq!(bounded.computations.load(Ordering::Relaxed), before);
 }
