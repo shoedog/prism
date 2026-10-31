@@ -19,25 +19,33 @@ cargo test --features mcp                   # Run tests with MCP enabled
 ```
 
 ### Mutation gate
-Mutgate waits for live host-quiet markers before starting; `--plan-only`, `--no-quiet-wait` or `HOST_QUIET_IGNORE=1` skips waiting (see `scripts/hostquiet/README.md`).
+Locally, mutgate waits for live host-quiet markers before starting; `--plan-only`, `--no-quiet-wait` or `HOST_QUIET_IGNORE=1` skips waiting (see `scripts/hostquiet/README.md`).
 ```bash
 python3 scripts/mutgate/mutgate.py --since main --scope fn    # fast ADVISORY check each review round
-python3 scripts/mutgate/mutgate.py --since main --scope fn --authoritative  # pre-merge default, plus touched lanes
-python3 scripts/mutgate/mutgate.py --lane mutants/<lane>.json # a lane the PR adds or edits, or a dependent lane
+python3 scripts/mutgate/mutgate.py --since main --scope fn --authoritative  # pre-merge default, plus lanes the PR adds
+python3 scripts/mutgate/mutgate.py --lane mutants/<lane>.json # a lane the PR adds or changes in substance, or a dependent lane
 python3 scripts/mutgate/mutgate.py                            # full authoritative gate (tier 3 only); default 4 workers
 ```
 Pre-merge gate, on the final head (tiered):
-1. **Every code PR:** `--since main --scope fn --authoritative`, plus each lane the PR adds or edits. The
-   `--since` run also selects registered mutants whose anchors no longer match, even outside the diff, so it
-   catches anchors broken by moved code.
+1. **Every code PR:** `--since <merge-base> --scope fn --authoritative` (a stale local `main` ref selects
+   extra mutants), plus each lane the PR adds. The `--since` run also selects registered mutants whose anchors
+   no longer match, even outside the diff. A lane the PR re-anchors onto code the PR itself moved needs no run
+   of its own when `--since <merge-base> --scope fn --only <ids> --plan-only` selects every re-anchored id;
+   otherwise (e.g. repairing an anchor broken earlier on main) run those ids. A lane edit that only removes
+   mutants needs no run. A lane whose mutant snippets or tests the PR changes in substance (anything beyond
+   re-anchoring or removal) still runs.
 2. **Dependent lanes, on a named trigger:** a change to resolution results that other tests rely on
    (especially removing Exacts), or a change to where code executes or to test oracles, thread-local
-   switches or `cfg(test)` seams. Add the lanes of the dependent code (find it with callers/grep) and name the
-   trigger in the PR.
+   switches or `cfg(test)` seams. Add only the lanes of dependent code that covers the changed language or
+   subsystem (find it with callers/grep) and name the trigger in the PR. A change counts as one language only
+   when the changed code runs only for that language; shared code (the resolution ladder, free-function
+   pools, cache format) counts as every language that reaches it.
 3. **Full gate:** only for cross-cutting infrastructure whose dependents cannot be listed (build pool and
    execution context, shared test helpers, the mutgate driver, CPG cache format, wide `cfg(test)` plumbing,
    PRs spanning many subsystems), plus a periodic sweep of main in a quiet window.
 Scopes do not trace dependency effects; tier 2 and the periodic full sweep cover that gap.
+Gates run by default in a Claude Code cloud session, and its verdicts count for every tier; a local run is
+the fallback when the cloud route is unavailable (host-quiet waits and quiet windows apply to local runs only).
 Full and authoritative scoped verdicts use isolated text builds with only each
 mutant's own edits and green source baselines in the shared and worker contexts;
 TIMEOUT/INADMISSIBLE fail.
@@ -244,7 +252,8 @@ Trait-impl callers may still call inherent targets.
 Ambiguous impl metadata and macro-token calls without a parsed call expression
 also refuse.
 External, std, derive and macro-generated impls remain outside the existing owner
-index model. Import-qualified `pkg.f()` narrows by file
+index model. Rust std/core/alloc paths, scope-selected imports/aliases and known external crate paths filter each owner/function candidate against declarations in that target's own crate using a graph-cached lookup that excludes generic barriers, only with complete scope facts and external-prefix proof; lexical in-repo roots and receiver annotations take precedence, surviving targets retain main's kind/confidence, and missing facts, poisoned roots, macro-hidden declarations, facade re-exports, chained imports and external globs keep main's behavior; the eight-corpus audit identifies no correct-edge losses among 88 Exact/204 total removals. Accepted cost: a crate that declares a type or trait with the std name loses correct edges to its own impls of or for the std item (for example `std::error::Error::source(e)` in a crate that declares `enum Error` and implements `std::error::Error` loses its correct NameOnly candidates; the `ExitCode` fixture is one instance). The filter also fails open, keeping wrong edges, when the `std` root lookup is Poisoned by an unexpanded glob or macro, or when the target file is attached to no crate because its `mod` is macro-hidden. Mixed-edition workspaces and `extern crate self` supply no external proof.
+Import-qualified `pkg.f()` narrows by file
 stem or Go package directory with no permissive fall-through; `Class.m()` binds
 when the qualifier is itself an owner key; unqualified calls prefer a local free
 definition, then Java/C++ implicit-`this`, then cross-file free functions
@@ -327,7 +336,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v133) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v135) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

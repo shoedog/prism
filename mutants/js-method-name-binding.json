@@ -33,18 +33,6 @@
       "let property_methods = BTreeSet::new();",
       "js_method_name_binding_test::property_exclusion_survives_cache_hits_and_unrelated_partial_rebuilds"
     ],
-    "MB-06-cpg-version": [
-      "src/cpg_cache.rs",
-      "const CACHE_VERSION: u32 = 133;",
-      "const CACHE_VERSION: u32 = 124;",
-      "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
-    ],
-    "MB-07-nav-version": [
-      "src/navigation/call_edge_cache.rs",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 76;",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
-      "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
-    ],
     "MB-04-skip-proven-alias-route": [
       "src/resolution.rs",
       "if let Some(mut outcome) = self.js_ts_alias_route(caller, name, site) {",

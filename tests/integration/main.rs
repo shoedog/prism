@@ -81,6 +81,8 @@ mod receiver_self_binding_test;
 mod resolution_test;
 mod rust_self_calls_test;
 mod scoped_cpg_test;
+#[path = "../lang/rust/std_review_test.rs"]
+mod std_review_test;
 mod targets_dependency_hint_test;
 mod targets_evidence_test;
 mod targets_mapping_test;
