@@ -1,0 +1,92 @@
+{
+  "lane": "Go receiver function facts",
+  "lib_test_prefixes": [
+    "ast::go_receiver_walk::tests::"
+  ],
+  "mutations": {
+    "GRW-cutoff": [
+      "src/ast/go_receiver_walk/collect.rs",
+      "lo: span.0.max(n.start_byte() + 1),",
+      "lo: span.0.max(n.start_byte()),",
+      "ast::go_receiver_walk::tests::semantic_boundaries"
+    ],
+    "GRW-scope": [
+      "src/ast/go_receiver_walk/collect.rs",
+      "intersect(span, (s.start_byte(), s.end_byte()))",
+      "span",
+      "ast::go_receiver_walk::tests::semantic_boundaries"
+    ],
+    "GRW-literal": [
+      "src/ast/go_receiver_walk/collect.rs",
+      "span = intersect(span, (n.start_byte(), n.end_byte()));",
+      "span = (0, usize::MAX);",
+      "ast::go_receiver_walk::tests::semantic_boundaries"
+    ],
+    "GRW-err-ok": [
+      "src/ast/go_receiver_walk/collect.rs",
+      "return Err(());",
+      "return Ok(String::new());",
+      "ast::go_receiver_walk::tests::semantic_boundaries"
+    ],
+    "GRW-new-name": [
+      "src/ast/go_receiver_walk/collect.rs",
+      "name != *receiver && name != \"_\" && !declared(name)",
+      "name != *receiver && name != \"_\"",
+      "ast::go_receiver_walk::tests::semantic_boundaries"
+    ],
+    "GRW-existing-name": [
+      "src/ast/go_receiver_walk/collect.rs",
+      "&& declared(receiver)",
+      "&& true",
+      "ast::go_receiver_walk::tests::semantic_boundaries"
+    ],
+    "GRW-nested-function": [
+      "src/ast/go_receiver_walk/collect.rs",
+      "if !root && p.language.function_node_types().contains(&n.kind()) {",
+      "if false && !root && p.language.function_node_types().contains(&n.kind()) {",
+      "ast::go_receiver_walk::tests::malformed_and_nested_declarations_equivalence"
+    ],
+    "GRW-reuse-binding": [
+      "src/ast/go_receiver_walk/timeline.rs",
+      "(event.reuse && reuse)",
+      "(false && event.reuse && reuse)",
+      "ast::go_receiver_walk::tests::semantic_boundaries"
+    ],
+    "GRW-var-disabled": [
+      "src/ast/go_receiver_walk/timeline.rs",
+      "(event.var && !var)",
+      "(false && event.var && !var)",
+      "ast::go_receiver_walk::tests::semantic_boundaries"
+    ],
+    "GRW-rhs-pruning": [
+      "src/ast/go_receiver_walk/collect.rs",
+      "if !blocked_rhs.contains(&name) {",
+      "if true {",
+      "ast::go_receiver_walk::tests::malformed_and_nested_declarations_equivalence"
+    ],
+    "GRW-first-binding": [
+      "src/ast/go_receiver_walk/timeline.rs",
+      "first: self.first.clone(),",
+      "first: rhs.first.clone(),",
+      "ast::go_receiver_walk::tests::semantic_boundaries"
+    ],
+    "GRW-later-lexical": [
+      "src/ast/go_receiver_walk/timeline.rs",
+      "later_lexical: self.later_lexical || rhs.later_lexical || rhs.lexical,",
+      "later_lexical: false,",
+      "ast::go_receiver_walk::tests::semantic_boundaries"
+    ],
+    "GRW-auxiliary-fences": [
+      "src/ast/go_receiver_walk/auxiliary.rs",
+      "hi: scope.end_byte(),",
+      "hi: usize::MAX,",
+      "ast::go_receiver_walk::tests::auxiliary_walks_keep_their_distinct_fences"
+    ],
+    "GRW-production-memo": [
+      "src/ast/go_receiver_walk.rs",
+      "if bypassed() {",
+      "if true || bypassed() {",
+      "ast::go_receiver_walk::tests::one_scan_and_phase_custody"
+    ]
+  }
+}
