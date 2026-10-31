@@ -8,6 +8,9 @@ use std::collections::{BTreeMap, BTreeSet};
 mod aliases;
 mod exact_reads;
 pub(super) mod file;
+#[cfg(test)]
+mod giant_owner_tests;
+mod owner_labels;
 
 pub(super) struct Producer;
 pub(super) struct FileRefs {

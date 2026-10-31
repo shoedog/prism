@@ -598,9 +598,9 @@ fn identifier_index_fallback_lifetime_and_gate_counts() {
     for count in [false, true] {
         let owner = parsed.all_functions()[0];
         let search = IdentifierReferenceSearch::new(&parsed);
-        fn run<const C: bool>(
-            search: &IdentifierReferenceSearch<'_>,
-            owner: &Node<'_>,
+        fn run<'a, const C: bool>(
+            search: &IdentifierReferenceSearch<'a>,
+            owner: &Node<'a>,
         ) -> BTreeMap<usize, (usize, usize)> {
             let mut out = BTreeMap::new();
             search.collect_fenced::<C>(*owner, owner, "x", 2, 16, true, &mut out);

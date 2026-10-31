@@ -663,14 +663,25 @@ impl Producer {
                 cfg_index,
             ) {
                 RdOutcome::Available(result) => {
-                    Self::store_supplemental_exact(
-                        &mut exact_labels,
-                        function_edges,
-                        &result.labels,
-                        result.exact_labels,
-                    );
-                    for (key, label) in result.labels {
-                        Self::insert_label(&mut labels, key, label);
+                    if super::owner_labels::reference_paths() {
+                        #[cfg(test)]
+                        Self::store_supplemental_exact_frozen(
+                            &mut exact_labels,
+                            function_edges,
+                            &result.labels,
+                            result.exact_labels,
+                        );
+                        for (key, label) in result.labels {
+                            Self::insert_label(&mut labels, key, label);
+                        }
+                    } else {
+                        Self::store_supplemental_exact(
+                            &mut exact_labels,
+                            function_edges,
+                            &result.labels,
+                            result.exact_labels,
+                        );
+                        Self::merge_owner_labels(&mut labels, result.labels, owner_is_unique);
                     }
                     // Task 5 owns loop-carried telemetry. Consume the
                     // classified set here without changing edge shape.
@@ -683,27 +694,50 @@ impl Producer {
                         rd_function_stats.record_without_cfg(func_name.clone(), start);
                     }
                     let fallback = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
-                    for edge in function_edges {
-                        Self::insert_label(
+                    let reference = super::owner_labels::reference_paths();
+                    if !reference && function_edges.len() >= super::owner_labels::BULK_MIN {
+                        Self::merge_owner_labels(
                             &mut labels,
-                            (edge.from.clone(), edge.to.clone()),
-                            fallback,
+                            Self::fallback_owner_labels(function_edges, fallback),
+                            owner_is_unique,
                         );
+                    } else {
+                        for edge in function_edges {
+                            Self::insert_label(
+                                &mut labels,
+                                (edge.from.clone(), edge.to.clone()),
+                                fallback,
+                            );
+                        }
                     }
-                    let classified = exact_candidates
+                    let classified: BTreeMap<_, _> = exact_candidates
                         .iter()
                         .map(|edge| (ExactFlowEdge::from_legacy(edge), fallback))
                         .collect();
-                    let fallback_labels: BTreeMap<_, _> = function_edges
-                        .iter()
-                        .map(|edge| ((edge.from.clone(), edge.to.clone()), fallback))
-                        .collect();
-                    Self::store_supplemental_exact(
-                        &mut exact_labels,
-                        function_edges,
-                        &fallback_labels,
-                        classified,
-                    );
+                    // Without exact candidates nothing is stored, so the
+                    // per-edge label map below is built only when needed.
+                    if reference || !classified.is_empty() {
+                        let fallback_labels: BTreeMap<_, _> = function_edges
+                            .iter()
+                            .map(|edge| ((edge.from.clone(), edge.to.clone()), fallback))
+                            .collect();
+                        if reference {
+                            #[cfg(test)]
+                            Self::store_supplemental_exact_frozen(
+                                &mut exact_labels,
+                                function_edges,
+                                &fallback_labels,
+                                classified,
+                            );
+                        } else {
+                            Self::store_supplemental_exact(
+                                &mut exact_labels,
+                                function_edges,
+                                &fallback_labels,
+                                classified,
+                            );
+                        }
+                    }
                 }
             }
         }

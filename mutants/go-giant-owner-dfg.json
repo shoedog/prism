@@ -1,0 +1,172 @@
+{
+  "lane": "Giant-owner DFG: per-owner shadow index, shortened supplemental exact store, bulk owner labels, hashed location interning",
+  "lib_test_prefixes": [
+    "ast::member_reference_index::identifiers::shadow_index::tests::",
+    "data_flow::build::giant_owner_tests::",
+    "data_flow::compact::freeze::intern_tests::"
+  ],
+  "mutations": {
+    "GO-S1-inside-owner-always": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "            let inside_owner = start < end\n                && owner_start <= start\n                && end <= owner_end\n                && (start, end) != (owner_start, owner_end);",
+      "            let inside_owner = true;",
+      "ast::member_reference_index::identifiers::shadow_index::tests::candidates_the_index_cannot_prove_keep_the_original_walk"
+    ],
+    "GO-S2-equal-range-not-slow": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "if (scope.start, scope.end) == (start, end) {",
+      "if false {",
+      "ast::member_reference_index::identifiers::shadow_index::tests::python_block_with_the_range_of_its_only_candidate_takes_the_walk"
+    ],
+    "GO-S3-guard-dropped": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "                if tree.declares(index, name) {\n                    guard_rows.push(scope.rows);\n                }",
+      "                if false {\n                    guard_rows.push(scope.rows);\n                }",
+      "ast::member_reference_index::identifiers::shadow_index::tests::shadowed_candidates_depend_on_the_definition_line"
+    ],
+    "GO-S4-first-row-exclusive": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      ".any(|&(lo, hi)| !(def_line >= lo && def_line <= hi));",
+      ".any(|&(lo, hi)| !(def_line > lo && def_line <= hi));",
+      "ast::member_reference_index::identifiers::shadow_index::tests::definition_on_the_first_and_last_row_of_a_redeclaring_block_is_inside_it"
+    ],
+    "GO-S5-last-row-exclusive": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      ".any(|&(lo, hi)| !(def_line >= lo && def_line <= hi));",
+      ".any(|&(lo, hi)| !(def_line >= lo && def_line < hi));",
+      "ast::member_reference_index::identifiers::shadow_index::tests::definition_on_the_first_and_last_row_of_a_redeclaring_block_is_inside_it"
+    ],
+    "GO-S6-owner-cache-never-rebuilt": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "cached.key != key",
+      "false",
+      "ast::member_reference_index::identifiers::shadow_index::tests::index_matches_the_walk_for_every_name_and_definition_line"
+    ],
+    "GO-S7-slow-always-kept": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "if !shadow::<COUNT>(parsed, node, owner, name, def_line) {",
+      "if true {",
+      "ast::member_reference_index::identifiers::shadow_index::tests::candidates_the_index_cannot_prove_keep_the_original_walk"
+    ],
+    "GO-S8-size-gate-dropped": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "!is_js_family(parsed) && owner.byte_range().len() >= MIN_OWNER_BYTES",
+      "!is_js_family(parsed)",
+      "ast::member_reference_index::identifiers::shadow_index::tests::small_owners_and_the_javascript_family_keep_the_walk"
+    ],
+    "GO-S9-force-includes-js": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "Mode::Force => return !is_js_family(parsed),",
+      "Mode::Force => return true,",
+      "ast::member_reference_index::identifiers::shadow_index::tests::small_owners_and_the_javascript_family_keep_the_walk"
+    ],
+    "GO-S10-innermost-no-parent-walk": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "            current = scope.parent;\n        }\n        None",
+      "            current = None;\n        }\n        None",
+      "ast::member_reference_index::identifiers::shadow_index::tests::index_matches_the_walk_for_every_name_and_definition_line"
+    ],
+    "GO-S11-only-innermost-guard": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "                current = scope.parent;\n            }\n            if guard_rows.len() == first_guard {",
+      "                current = None;\n            }\n            if guard_rows.len() == first_guard {",
+      "ast::member_reference_index::identifiers::shadow_index::tests::index_matches_the_walk_for_every_name_and_definition_line"
+    ],
+    "GO-S12-scope-parent-lost": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "                    parent: visible,",
+      "                    parent: None,",
+      "ast::member_reference_index::identifiers::shadow_index::tests::index_matches_the_walk_for_every_name_and_definition_line"
+    ],
+    "GO-S13-plain-rows-lost": [
+      "src/ast/member_reference_index/identifiers/shadow_index.rs",
+      "let mut rows = shadow_for.plain_rows.clone();",
+      "let mut rows = Vec::new();",
+      "ast::member_reference_index::identifiers::shadow_index::tests::index_matches_the_walk_for_every_name_and_definition_line"
+    ],
+    "GO-S14-index-gate-off": [
+      "src/ast/member_reference_index/identifiers.rs",
+      "if shadow_index::enabled_for(self.parsed, owner) {",
+      "if false {",
+      "ast::member_reference_index::identifiers::shadow_index::tests::index_matches_the_walk_for_every_name_and_definition_line"
+    ],
+    "GO-L1-tail-cmp-without-kind": [
+      "src/data_flow/build/owner_labels.rs",
+      "        .then_with(|| a.kind.cmp(&b.kind))\n",
+      "\n",
+      "data_flow::build::giant_owner_tests::fallback_labels_equal_per_edge_insertion_for_every_edge_order"
+    ],
+    "GO-L2-shared-prefix-assumed": [
+      "src/data_flow/build/owner_labels.rs",
+      "        let shared = edges\n            .iter()\n            .all(|e| same_owner_prefix(&e.from, anchor) && same_owner_prefix(&e.to, anchor));",
+      "        let shared = true;",
+      "data_flow::build::giant_owner_tests::fallback_labels_equal_per_edge_insertion_for_every_edge_order"
+    ],
+    "GO-L3-no-dedup": [
+      "src/data_flow/build/owner_labels.rs",
+      "if previous.is_some_and(|p| compare(p, edge) == Ordering::Equal) {",
+      "if false {",
+      "data_flow::build::giant_owner_tests::fallback_labels_equal_per_edge_insertion_for_every_edge_order"
+    ],
+    "GO-L4-always-ascending": [
+      "src/data_flow/build/owner_labels.rs",
+      ".all(|pair| compare(&pair[0], &pair[1]) != Ordering::Greater);",
+      ".all(|_| true);",
+      "data_flow::build::giant_owner_tests::fallback_labels_equal_per_edge_insertion_for_every_edge_order"
+    ],
+    "GO-L5-ties-latest-first": [
+      "src/data_flow/build/owner_labels.rs",
+      "order.sort_by(|&a, &b| compare(&edges[a], &edges[b]));",
+      "order.sort_by(|&a, &b| compare(&edges[a], &edges[b]).then(b.cmp(&a)));",
+      "data_flow::build::giant_owner_tests::fallback_labels_equal_per_edge_insertion_for_every_edge_order"
+    ],
+    "GO-L6-append-without-unique-owner": [
+      "src/data_flow/build/owner_labels.rs",
+      "        } else if owner_unique\n            && batch.len() >= BULK_MIN",
+      "        } else if batch.len() >= BULK_MIN",
+      "data_flow::build::giant_owner_tests::merging_owner_labels_equals_per_key_insertion"
+    ],
+    "GO-E1-exact-store-never-runs": [
+      "src/data_flow/build/exact_reads.rs",
+      "if classified.is_empty() {",
+      "if true {",
+      "data_flow::build::giant_owner_tests::supplemental_exact_matches_the_unshortened_body"
+    ],
+    "GO-F1-fallback-exact-store-skipped": [
+      "src/data_flow/build/file.rs",
+      "if reference || !classified.is_empty() {",
+      "if reference {",
+      "data_flow::build::giant_owner_tests::js_exact_side_table_matches_the_old_paths"
+    ],
+    "GO-F2-fallback-labels-per-edge": [
+      "src/data_flow/build/file.rs",
+      "if !reference && function_edges.len() >= super::owner_labels::BULK_MIN {",
+      "if false {",
+      "data_flow::build::giant_owner_tests::over_cap_graph_matches_the_old_paths"
+    ],
+    "GO-F3-available-labels-per-edge": [
+      "src/data_flow/build/file.rs",
+      "Self::merge_owner_labels(&mut labels, result.labels, owner_is_unique);",
+      "for (key, label) in result.labels {\n                            Self::insert_label(&mut labels, key, label);\n                        }",
+      "data_flow::build::giant_owner_tests::straight_line_graph_matches_the_old_paths"
+    ],
+    "GO-C1-arena-unsorted": [
+      "src/data_flow/compact/freeze.rs",
+      "        ordered.sort_unstable_by(|a, b| a.0.cmp(&b.0));\n",
+      "",
+      "data_flow::compact::freeze::intern_tests::hashed_intern_ids_remap_and_arena_order_match_the_ordered_model"
+    ],
+    "GO-C2-hash-tail-length-dropped": [
+      "src/data_flow/compact/freeze.rs",
+      "self.add(u64::from_le_bytes(tail) ^ ((rest.len() as u64) << 56));",
+      "self.add(u64::from_le_bytes(tail));",
+      "data_flow::compact::freeze::intern_tests::hasher_separates_inputs_that_differ_only_in_tail_or_length"
+    ],
+    "GO-C3-hash-chunks-dropped": [
+      "src/data_flow/compact/freeze.rs",
+      "            self.add(u64::from_le_bytes(chunk.try_into().unwrap()));",
+      "            let _ = chunk;",
+      "data_flow::compact::freeze::intern_tests::hasher_separates_inputs_that_differ_only_in_tail_or_length"
+    ]
+  }
+}

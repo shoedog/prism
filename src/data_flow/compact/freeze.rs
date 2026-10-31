@@ -1,8 +1,108 @@
 //! Consuming exact interning, canonical freeze and reference remap.
 use super::*;
+/// Storage behind `Intern`: ids are the table's length at first insertion, and
+/// `into_sorted` yields the unique keys in `ExactVarLocation` order.
+pub(super) trait Table: Default {
+    type Sorted: Iterator<Item = (ExactVarLocation, OccId)>;
+    fn get(&self, key: &ExactVarLocation) -> Option<OccId>;
+    fn len(&self) -> usize;
+    fn insert(&mut self, key: ExactVarLocation, id: OccId);
+    fn into_sorted(self) -> Self::Sorted;
+}
+
+/// Per-file `from_parts`: looked up once per edge and label endpoint (millions
+/// on a giant owner), so a hash map; `into_sorted` restores the arena order.
 #[derive(Default)]
-pub(super) struct Intern {
-    rows: BTreeMap<ExactVarLocation, OccId>,
+pub(super) struct HashTable(std::collections::HashMap<ExactVarLocation, OccId, FxBuild>);
+impl Table for HashTable {
+    type Sorted = std::vec::IntoIter<(ExactVarLocation, OccId)>;
+    fn get(&self, key: &ExactVarLocation) -> Option<OccId> {
+        self.0.get(key).copied()
+    }
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+    fn insert(&mut self, key: ExactVarLocation, id: OccId) {
+        self.0.insert(key, id);
+    }
+    fn into_sorted(self) -> Self::Sorted {
+        let mut ordered: Vec<(ExactVarLocation, OccId)> = self.0.into_iter().collect();
+        // Keys are unique, so the unstable sort is deterministic.
+        ordered.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        ordered.into_iter()
+    }
+}
+
+/// Whole-repository `combine`: one table holds every live row of the repo, so
+/// the ordered map is kept (nodes are freed as `finish` consumes them, and no
+/// hash table is alive next to a full sorted copy).
+#[derive(Default)]
+pub(super) struct OrderedTable(BTreeMap<ExactVarLocation, OccId>);
+impl Table for OrderedTable {
+    type Sorted = std::collections::btree_map::IntoIter<ExactVarLocation, OccId>;
+    fn get(&self, key: &ExactVarLocation) -> Option<OccId> {
+        self.0.get(key).copied()
+    }
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+    fn insert(&mut self, key: ExactVarLocation, id: OccId) {
+        self.0.insert(key, id);
+    }
+    fn into_sorted(self) -> Self::Sorted {
+        self.0.into_iter()
+    }
+}
+
+#[derive(Default)]
+pub(super) struct Intern<T: Table> {
+    rows: T,
+}
+pub(super) type HashedIntern = Intern<HashTable>;
+pub(super) type OrderedIntern = Intern<OrderedTable>;
+
+/// Multiply-rotate hasher (the FxHash scheme): the keys are this process's own
+/// locations, SipHash's flooding resistance buys nothing here and it was half
+/// of `put`. Iteration order is never observed (`finish` sorts).
+#[derive(Default, Clone, Copy)]
+pub(super) struct Fx(u64);
+type FxBuild = std::hash::BuildHasherDefault<Fx>;
+impl Fx {
+    #[inline]
+    fn add(&mut self, word: u64) {
+        self.0 = (self.0.rotate_left(5) ^ word).wrapping_mul(0x517c_c1b7_2722_0a95);
+    }
+}
+impl std::hash::Hasher for Fx {
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) {
+        let mut chunks = bytes.chunks_exact(8);
+        for chunk in &mut chunks {
+            self.add(u64::from_le_bytes(chunk.try_into().unwrap()));
+        }
+        let rest = chunks.remainder();
+        if !rest.is_empty() {
+            let mut tail = [0u8; 8];
+            tail[..rest.len()].copy_from_slice(rest);
+            self.add(u64::from_le_bytes(tail) ^ ((rest.len() as u64) << 56));
+        }
+    }
+    #[inline]
+    fn write_u8(&mut self, i: u8) {
+        self.add(u64::from(i));
+    }
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.add(i);
+    }
+    #[inline]
+    fn write_usize(&mut self, i: usize) {
+        self.add(i as u64);
+    }
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
 }
 fn own_exact(v: VarLocation) -> ExactVarLocation {
     ExactVarLocation {
@@ -28,10 +128,10 @@ fn own_legacy(v: ExactVarLocation) -> VarLocation {
         kind: v.kind,
     }
 }
-impl Intern {
+impl<T: Table> Intern<T> {
     pub(super) fn put(&mut self, v: VarLocation) -> Result<OccId, &'static str> {
         let key = own_exact(v);
-        if let Some(&id) = self.rows.get(&key) {
+        if let Some(id) = self.rows.get(&key) {
             return Ok(id);
         }
         let next = self
@@ -47,7 +147,7 @@ impl Intern {
     pub(super) fn finish(self) -> Result<(Arena, Vec<OccId>), &'static str> {
         let mut remap = vec![OccId(0); self.rows.len()];
         let mut rows = Vec::with_capacity(self.rows.len());
-        for (key, old) in self.rows {
+        for (key, old) in self.rows.into_sorted() {
             remap[old.0 as usize] = OccId(checked_id(rows.len())?);
             rows.push(own_legacy(key));
         }
@@ -56,7 +156,7 @@ impl Intern {
 }
 fn intern_bindings(
     m: BTreeMap<BindingKey, Vec<VarLocation>>,
-    i: &mut Intern,
+    i: &mut HashedIntern,
 ) -> Result<BTreeMap<BindingKey, Vec<OccId>>, &'static str> {
     m.into_iter()
         .map(|(k, vs)| {
@@ -69,7 +169,7 @@ fn intern_bindings(
 }
 fn intern_adj(
     m: BTreeMap<VarLocation, Vec<VarLocation>>,
-    i: &mut Intern,
+    i: &mut HashedIntern,
 ) -> Result<Vec<Adj>, &'static str> {
     m.into_iter()
         .map(|(k, vs)| {
@@ -102,7 +202,7 @@ impl CompactDfg {
     pub(in crate::data_flow) fn from_parts(p: Parts) -> Result<Self, &'static str> {
         #[cfg(test)]
         FROM_PARTS_CALLS.with(|n| n.set(n.get() + 1));
-        let mut i = Intern::default();
+        let mut i = HashedIntern::default();
         let mut edges: Vec<IdEdge> = p
             .edges
             .into_iter()
@@ -187,3 +287,6 @@ impl CompactDfg {
 
 #[cfg(test)]
 thread_local! { pub(in crate::data_flow) static FROM_PARTS_CALLS: std::cell::Cell<u32> = const { std::cell::Cell::new(0) }; }
+
+#[cfg(test)]
+mod intern_tests;
