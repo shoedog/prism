@@ -100,6 +100,7 @@ pub mod resolution;
 pub mod resolution_disproof;
 pub mod resolution_identity;
 pub mod resolution_receiver;
+mod rust_external_paths;
 pub mod rust_macro_args;
 pub mod sanitizers;
 pub mod slice;

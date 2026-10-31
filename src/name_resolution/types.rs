@@ -565,6 +565,12 @@ pub trait ResolutionPolicy {
     /// - conflicting items under compatible cfg → `Ambiguous`
     fn combine(&self, candidates: Vec<Candidate>) -> Resolution;
 
+    /// Optional interpretation of a pending import for a specialized query.
+    /// Ordinary policies chase the structured path through the engine.
+    fn pending_target(&self, _binding: &Binding, _at: &SourceLoc) -> Option<Target> {
+        None
+    }
+
     /// Decides whether `binding` is accessible from query `q` during a traversal
     /// described by `trav`.
     ///

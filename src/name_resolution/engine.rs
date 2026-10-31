@@ -419,9 +419,16 @@ fn resolve_rib_probed(
                 // Prefix segments resolve in the policy's first scope-bearing
                 // namespace (Rust: Type), NOT the final-segment ns of the query.
                 let prefix_ns = policy.namespaces().first().copied().unwrap_or(b.ns);
-                let sub = resolve_path_guarded(
-                    graph, path, b.ns, anchor, b.scope, prefix_ns, &q.at, policy, guard,
-                );
+                let sub = match policy.pending_target(b, &q.at) {
+                    Some(target) => policy.combine(vec![Candidate {
+                        target,
+                        cond: CfgCond::True,
+                        provenance: Default::default(),
+                    }]),
+                    None => resolve_path_guarded(
+                        graph, path, b.ns, anchor, b.scope, prefix_ns, &q.at, policy, guard,
+                    ),
+                };
                 guard.leave(bidx);
                 match sub.status {
                     // A resolved (or legit set) chained target is folded in,

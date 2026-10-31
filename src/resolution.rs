@@ -2197,8 +2197,7 @@ impl CallGraph {
 
         let name = site.callee_name.as_str();
         let caller = &site.caller;
-
-        if let Some(outcome) = self.rust_authoritative_resolution(site) {
+        if let Some(outcome) = crate::rust_external_paths::resolve_call(self, site) {
             return outcome;
         }
 

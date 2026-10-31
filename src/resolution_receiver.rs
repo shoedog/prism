@@ -238,6 +238,16 @@ fn type_from_annotation(
     if type_syntax.is_empty() {
         return None;
     }
+    if default_recovery == ReceiverRecovery::ConstructorLocal {
+        if let Some(external) = crate::rust_external_paths::constructor_type(
+            ctx.graph,
+            ctx.file,
+            ctx.at_byte,
+            &type_syntax,
+        ) {
+            return Some(external);
+        }
+    }
     let recovery = if std_wrapper_was_peeled(annotation) {
         ReceiverRecovery::StdWrapperPeel
     } else {

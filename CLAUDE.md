@@ -244,7 +244,8 @@ Trait-impl callers may still call inherent targets.
 Ambiguous impl metadata and macro-token calls without a parsed call expression
 also refuse.
 External, std, derive and macro-generated impls remain outside the existing owner
-index model. Import-qualified `pkg.f()` narrows by file
+index model. Rust std/core/alloc paths, scope-bound imports of them and known external crate paths refuse owner/function collisions (including constructor receivers) only when complete scope facts at the site show an in-repo declaration of the selected owner name; missing facts keep main's behavior. Impl-only external owners retain main's edges. A repo with both `struct ExitCode` and an impl for `std::process::ExitCode` refuses the qualified call too, at the accepted cost of a possibly correct edge.
+Import-qualified `pkg.f()` narrows by file
 stem or Go package directory with no permissive fall-through; `Class.m()` binds
 when the qualifier is itself an owner key; unqualified calls prefer a local free
 definition, then Java/C++ implicit-`this`, then cross-file free functions
@@ -318,7 +319,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v132) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v133) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
