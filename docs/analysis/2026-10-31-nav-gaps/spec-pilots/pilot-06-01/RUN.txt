@@ -1,0 +1,44 @@
+Pilot for specs 06 (ranked repo map) and 01 (find-symbol), 2026-10-31.
+Binary: the release build of the slicing repo (target/release/prism) built 2026-10-30 22:00, `slicing 3.2.0 (533f061a942a)` (main at or near 533f061a). No cargo run.
+Corpora (bench-repos, trial pins): httpx b5addb64, ripgrep 82313cf9, cobra ad460ea8, excalidraw 0642e72c. secbench-node-r1 not run.
+
+Inputs, regenerated per corpus C into one scratch directory (large; not kept; caches deleted). The scripts read them from
+$PRISM_PILOT_INPUTS (default: the current directory):
+  rm-C.json   = prism nav --cache-dir <tmp> repo-map   --repo <bench-repos>/C --format json
+  cs-C.jsonl  = prism nav --cache-dir <tmp> call-stats --repo <bench-repos>/C --dump-sites   (scripts keep record_kind == call_site)
+  fn-C.json   = prism nav --cache-dir <tmp> functions  --repo <bench-repos>/C --format json
+  symbol-spans: prism nav --cache-dir <tmp> symbol-spans --repo <bench-repos>/C --symbol S [--file F] --format json
+The four scripts that rank files (rank.py library, rank2.py, rank3.py, atbudget.py) and budget.py need rm-C.json, cs-C.jsonl and fn-C.json;
+findsim2.py needs fn-C.json, cs-C.jsonl and the corpus checkouts. Re-running these inputs on the pinned SHAs with the binary above reproduced
+every output in RESULTS.md byte for byte (re-checked 2026-10-31 after the scripts were made path-independent).
+
+Environment (see the top-level README; gold, questions and the trial harness are in the private evidence store):
+  PRISM_BENCH_REPOS   findsim2.py: directory with httpx/ ripgrep/ cobra/ excalidraw/ (required)
+  PRISM_PILOT_INPUTS  directory holding the regenerated inputs above (default: current directory)
+  PRISM_TRIAL_DIR     rank2.py, atbudget.py, goldfiles.py: private tracing-trial directory (questions.jsonl, gold/v2)
+  PRISM_GOLDFILES     rank.py, rank2.py, rank3.py, atbudget.py: path of the goldfiles.json that goldfiles.py wrote (private; never commit it)
+  PRISM_OUT_DIR       optional: running rank.py directly also writes per_question.json there
+Scripts exec each other by path relative to their own directory, so they can be run from the scratch directory by absolute path.
+Write all outputs to a scratch directory; never into this directory.
+
+Scripts: goldfiles.py <out-dir> (gold v2 -> files, written outside the repo), rank*.py / atbudget.py (file rankings, hit rates), budget.py (token fit),
+findsim2.py (simulated find_symbol ranking; crude regex owner parse), seeds.tsv + seeds-today.tsv (today's seed resolution).
+Outputs are recorded in RESULTS.md, one section per output file.
+
+seeds-today.tsv (the exact command line was not recorded; this reading is inferred from the file's shape and spot-checked): one row per seed,
+columns: question id, spelled symbol, target file:line, then the classified result of `symbol-spans --symbol <spelled>` and, when seeds.tsv
+names a file, of `symbol-spans --symbol <spelled> --file <file>` ('-' when it names none). Each result is the stdin filter below
+(`classify`): `AmbiguousSymbol N` is the error variant with N candidates, `OK file:line` a unique callable.
+
+prism nav --cache-dir <tmp> symbol-spans --repo <bench-repos>/C --symbol S --format json | python3 -I -c '
+import sys,json
+d=json.load(sys.stdin)
+if "error" in d:
+    e=d["error"]; k=list(e)[0]; n=len(e[k].get("candidates",[])) if isinstance(e[k],dict) else 0; print(k,n)
+else:
+    f=d["symbol"]["Function"]; print("OK",f["file"]+":"+str(f["start_line"]))'
+
+Extra probes (2026-10-31): symbol-spans --location httpx/_client.py:879 -> OK httpx/_client.py:879.
+click symbol-spans --symbol main --file src/click/core.py -> AmbiguousSymbol, candidates (1416-1424), (1426-1434) [@t.overload stubs], (1436-1547) [implementation].
+httpx symbol-spans --symbol Client.send -> SymbolNotFound {seed: symbol:Client.send}.
+Probe note: an earlier run piped JSON through zsh `echo`, which expands "\t" and produced invalid JSON; that observation was discarded (inadmissible) and the probe rerun with direct pipes.
