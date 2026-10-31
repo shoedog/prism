@@ -1,4 +1,4 @@
-//! Immutable, phase-owned Go satisfier memo. No graph-persistent derived state.
+//! Immutable, assembly-owned Go satisfier memo. No graph-persistent derived state.
 use super::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -33,6 +33,10 @@ pub(crate) struct GoSatisfierMemo<'a> {
     computations: std::sync::atomic::AtomicUsize,
     #[cfg(test)]
     reference: bool,
+    #[cfg(test)]
+    phase: std::sync::atomic::AtomicUsize,
+    #[cfg(test)]
+    requests: [std::sync::atomic::AtomicUsize; 3],
 }
 
 impl<'a> GoSatisfierMemo<'a> {
@@ -44,11 +48,21 @@ impl<'a> GoSatisfierMemo<'a> {
             computations: std::sync::atomic::AtomicUsize::new(0),
             #[cfg(test)]
             reference: reference_enabled(),
+            #[cfg(test)]
+            phase: std::sync::atomic::AtomicUsize::new(0),
+            #[cfg(test)]
+            requests: std::array::from_fn(|_| std::sync::atomic::AtomicUsize::new(0)),
         }
     }
 
-    pub(super) fn graph(&self) -> &'a CallGraph {
+    pub(crate) fn graph(&self) -> &'a CallGraph {
         self.graph
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_phase(&self, phase: usize) {
+        self.phase
+            .store(phase, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub(super) fn get(
@@ -58,6 +72,9 @@ impl<'a> GoSatisfierMemo<'a> {
         caller_file: &str,
         include_promoted: bool,
     ) -> GoCallerScopedSatisfiers<'a> {
+        #[cfg(test)]
+        self.requests[self.phase.load(std::sync::atomic::Ordering::Relaxed)]
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let key = (
             owner.clone(),
             method.to_string(),
@@ -150,9 +167,16 @@ impl CpgCallResolver for GoSatisfierMemo<'_> {
 }
 
 #[cfg(test)]
+#[derive(Debug, PartialEq, Eq)]
+struct MemoObservation {
+    computations: usize,
+    requests: [usize; 3],
+}
+
+#[cfg(test)]
 struct PhaseObservation {
     files: Vec<String>,
-    counts: Vec<usize>,
+    counts: Vec<MemoObservation>,
 }
 
 #[cfg(test)]
@@ -161,7 +185,7 @@ thread_local! {
 }
 
 #[cfg(test)]
-fn observe_phases<T>(files: Vec<String>, f: impl FnOnce() -> T) -> (T, Vec<usize>) {
+fn observe_phases<T>(files: Vec<String>, f: impl FnOnce() -> T) -> (T, Vec<MemoObservation>) {
     struct Reset(Option<PhaseObservation>);
     impl Drop for Reset {
         fn drop(&mut self) {
@@ -189,9 +213,12 @@ impl Drop for GoSatisfierMemo<'_> {
                     .iter()
                     .eq(self.graph.go_file_profiles.keys())
                 {
-                    observation
-                        .counts
-                        .push(self.computations.load(std::sync::atomic::Ordering::Relaxed));
+                    observation.counts.push(MemoObservation {
+                        computations: self.computations.load(std::sync::atomic::Ordering::Relaxed),
+                        requests: std::array::from_fn(|i| {
+                            self.requests[i].load(std::sync::atomic::Ordering::Relaxed)
+                        }),
+                    });
                 }
             }
         });

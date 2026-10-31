@@ -243,9 +243,16 @@ fn resolved_edges_telemetry_and_call_stats_json_match_reference() {
         let (candidate, counts) = observe_phases(files.keys().cloned().collect(), || {
             crate::cpg::CodePropertyGraph::build(&files)
         });
-        assert_eq!(counts.len(), 3, "steps 5, 5b, 5c each own a memo");
+        assert_eq!(counts.len(), 1, "steps 5, 5b, 5c share one immutable memo");
+        assert_eq!(
+            counts[0].computations,
+            memo.computations.load(Ordering::Relaxed),
+            "the whole assembly computes exactly the keys of one all-site pass"
+        );
         assert!(
-            counts.iter().all(|count| *count > 0 && *count < 40),
+            counts.iter().all(|count| count.computations > 0
+                && count.computations < 40
+                && count.requests.iter().all(|requests| *requests > 0)),
             "phase computations: {counts:?}"
         );
         let (reference, counts) = observe_phases(files.keys().cloned().collect(), || {
@@ -253,7 +260,10 @@ fn resolved_edges_telemetry_and_call_stats_json_match_reference() {
         });
         assert_eq!(
             counts,
-            vec![0, 0, 0],
+            vec![MemoObservation {
+                computations: 0,
+                requests: [0; 3]
+            }],
             "reference must bypass every phase memo, including Rayon workers"
         );
         assert_eq!(candidate.call_graph.calls, reference.call_graph.calls);
@@ -282,12 +292,21 @@ fn phase_observation_excludes_unrelated_graphs() {
         let (_, counts) = observe_phases(files.keys().cloned().collect(), || {
             drop(GoSatisfierMemo::new(&other));
             let (_, nested) = observe_phases(Vec::new(), || drop(GoSatisfierMemo::new(&other)));
-            assert_eq!(nested, vec![0]);
+            assert_eq!(
+                nested,
+                vec![MemoObservation {
+                    computations: 0,
+                    requests: [0; 3]
+                }]
+            );
             drop(GoSatisfierMemo::new(&graph));
         });
         assert_eq!(
             counts,
-            vec![0],
+            vec![MemoObservation {
+                computations: 0,
+                requests: [0; 3]
+            }],
             "only the fixture graph belongs to this observer"
         );
         let _ =

@@ -54,13 +54,13 @@
     ],
     "GCS-step5-reuse": [
       "src/cpg/build.rs",
-      "Self::step5_edges_for_caller(caller_id, sites, &go_satisfiers, func_index)",
+      "Self::step5_edges_for_caller(caller_id, sites, go_satisfiers, func_index)",
       "Self::step5_edges_for_caller(caller_id, sites, cg, func_index)",
       "resolution::go_satisfiers::tests::resolved_edges_telemetry_and_call_stats_json_match_reference"
     ],
     "GCS-step5b-reuse": [
       "src/cpg/build.rs",
-      "                    &go_satisfiers,",
+      "                    go_satisfiers,",
       "                    cg,",
       "resolution::go_satisfiers::tests::resolved_edges_telemetry_and_call_stats_json_match_reference"
     ],
