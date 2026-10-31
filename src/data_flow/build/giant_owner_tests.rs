@@ -458,3 +458,31 @@ fn supplemental_exact_matches_the_unshortened_body() {
     );
     assert_eq!(stored.get(&fresh), Some(&FlowConfidence::Exact));
 }
+
+/// Two owners sharing (name, start line) whose labels together pass `BULK_MIN`:
+/// the bulk label paths must see the collision and keep the legacy graph.
+#[test]
+fn owners_sharing_name_and_start_line_keep_the_legacy_graph() {
+    let mut source = String::from("fn f() { fn f() {\n let mut x = 0;\n");
+    for i in 0..75 {
+        source += &format!(" x = {i};\n consume(x);\n");
+    }
+    source += " }\n let mut x = 1;\n consume(x);\n }\n";
+    let parsed = ParsedFile::parse("a.rs", &source, Language::Rust).unwrap();
+    let owners = parsed.all_functions();
+    assert_eq!(owners.len(), 2);
+    assert_eq!(
+        parsed.dfg_owner_name(&owners[0]),
+        parsed.dfg_owner_name(&owners[1])
+    );
+    assert_eq!(
+        parsed.node_line_range(&owners[0]).0,
+        parsed.node_line_range(&owners[1]).0
+    );
+    for threads in [1, 4] {
+        let old = build_as(&source, "a.rs", Language::Rust, true, threads);
+        let new = build_as(&source, "a.rs", Language::Rust, false, threads);
+        assert!(new.labels >= owner_labels::BULK_MIN, "{}", new.labels);
+        assert_eq!(new.bytes, old.bytes, "colliding owners threads={threads}");
+    }
+}

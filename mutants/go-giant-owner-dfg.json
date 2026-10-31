@@ -20,7 +20,7 @@
     ],
     "GO-S3-guard-dropped": [
       "src/ast/member_reference_index/identifiers/shadow_index.rs",
-      "                if has {\n                    guard_rows.push(scope.rows);\n                }",
+      "                if tree.declares(index, name) {\n                    guard_rows.push(scope.rows);\n                }",
       "                if false {\n                    guard_rows.push(scope.rows);\n                }",
       "ast::member_reference_index::identifiers::shadow_index::tests::shadowed_candidates_depend_on_the_definition_line"
     ],
@@ -154,7 +154,7 @@
       "src/data_flow/compact/freeze.rs",
       "        ordered.sort_unstable_by(|a, b| a.0.cmp(&b.0));\n",
       "",
-      "data_flow::compact::freeze::intern_tests::intern_ids_remap_and_arena_order_match_the_ordered_model"
+      "data_flow::compact::freeze::intern_tests::hashed_intern_ids_remap_and_arena_order_match_the_ordered_model"
     ],
     "GO-C2-hash-tail-length-dropped": [
       "src/data_flow/compact/freeze.rs",

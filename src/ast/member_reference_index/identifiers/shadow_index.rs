@@ -20,7 +20,7 @@
 use crate::ast::ParsedFile;
 use crate::profile::gates::shadow;
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use tree_sitter::Node;
 
 /// Owners smaller than this keep the per-candidate walk: the index costs one
@@ -91,8 +91,7 @@ fn is_js_family(parsed: &ParsedFile) -> bool {
     )
 }
 
-struct Scope<'a> {
-    node: Node<'a>,
+struct Scope {
     start: usize,
     end: usize,
     parent: Option<u32>,
@@ -102,27 +101,49 @@ struct Scope<'a> {
 
 /// Every scope block strictly below the owner, in document (pre)order.
 struct ScopeTree<'a> {
-    scopes: Vec<Scope<'a>>,
+    scopes: Vec<Scope>,
+    /// `(scope index, name)` for every declaration node whose nearest scope-block
+    /// ancestor is that scope: exactly the nodes `scope_has_declaration_uncached`
+    /// reaches from it (direct children, and descendants not behind a nested
+    /// scope block; a declaration that is itself a scope block counts for its
+    /// parent scope). Filled in the same walk, so `declares` is a set lookup.
+    declared: HashSet<(u32, &'a str)>,
 }
 
 impl<'a> ScopeTree<'a> {
-    fn build(parsed: &ParsedFile, owner: Node<'a>) -> Self {
+    fn build(parsed: &'a ParsedFile, owner: Node<'a>) -> Self {
         #[cfg(test)]
         STATS.with(|s| {
             let mut v = s.get();
             v.tree_builds += 1;
             s.set(v)
         });
-        let mut scopes: Vec<Scope<'a>> = Vec::new();
+        let mut scopes: Vec<Scope> = Vec::new();
+        let mut declared: HashSet<(u32, &'a str)> = HashSet::new();
         // stack[d]: innermost scope visible to the children of the node at depth d.
         let mut stack: Vec<Option<u32>> = Vec::new();
         let mut cursor = owner.walk();
         loop {
             let node = cursor.node();
             let mut visible = stack.last().copied().flatten();
+            // Attributed before this node can open a scope of its own. The owner
+            // sees no scope (`visible` is `None`), so nothing is recorded for it.
+            if let Some(scope) = visible {
+                if parsed.language.is_declaration_node(node.kind()) {
+                    #[cfg(test)]
+                    crate::ast::binding_verdict_memo::probe::observe(
+                        "declaration",
+                        node.id(),
+                        1,
+                        "",
+                    );
+                    if let Some(name) = parsed.language.declaration_name(&node) {
+                        declared.insert((scope, parsed.node_text(&name)));
+                    }
+                }
+            }
             if node.id() != owner.id() && parsed.language.is_scope_block(node.kind()) {
                 scopes.push(Scope {
-                    node,
                     start: node.start_byte(),
                     end: node.end_byte(),
                     parent: visible,
@@ -140,10 +161,16 @@ impl<'a> ScopeTree<'a> {
                     break;
                 }
                 if !cursor.goto_parent() {
-                    return Self { scopes };
+                    return Self { scopes, declared };
                 }
             }
         }
+    }
+
+    /// Whether `scope` directly declares `name`; the predicate of
+    /// `ParsedFile::scope_has_declaration`.
+    fn declares(&self, scope: u32, name: &str) -> bool {
+        self.declared.contains(&(scope, name))
     }
 
     /// Innermost scope whose range starts at or before `start` and ends at or
@@ -211,7 +238,7 @@ impl<'a> ShadowIndex<'a> {
         }
         let cached = slot.as_mut().unwrap();
         if !cached.names.contains_key(name) {
-            let built = NameShadow::build(parsed, owner, &cached.tree, name, candidates());
+            let built = NameShadow::build(owner, &cached.tree, name, candidates());
             cached.names.insert(name.to_owned(), built);
         }
         let shadow_for = &cached.names[name];
@@ -256,13 +283,11 @@ fn bump(update: impl FnOnce(&mut Stats)) {
 
 impl<'a> NameShadow<'a> {
     fn build(
-        parsed: &ParsedFile,
         owner: &Node<'a>,
         tree: &ScopeTree<'a>,
         name: &str,
         candidates: Vec<Node<'a>>,
     ) -> Self {
-        let mut declares: HashMap<u32, bool> = HashMap::new();
         let (owner_start, owner_end) = (owner.start_byte(), owner.end_byte());
         let mut plain = Vec::new();
         let mut guarded = Vec::new();
@@ -289,10 +314,7 @@ impl<'a> NameShadow<'a> {
                     slow.push((row, node));
                     continue 'candidates;
                 }
-                let has = *declares
-                    .entry(index)
-                    .or_insert_with(|| parsed.scope_has_declaration(scope.node, name));
-                if has {
+                if tree.declares(index, name) {
                     guard_rows.push(scope.rows);
                 }
                 current = scope.parent;

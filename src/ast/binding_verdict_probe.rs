@@ -33,6 +33,11 @@ pub(crate) fn count_body_walks(run: impl FnOnce()) -> usize {
 pub(crate) fn count_scope_walks(run: impl FnOnce()) -> usize {
     count_walks("scope_names", run)
 }
+/// Declaration-node visits: one per node `scope_has_declaration_uncached`
+/// examines, plus one per declaration node the shadow index's tree walk reads.
+pub(crate) fn count_declaration_visits(run: impl FnOnce()) -> usize {
+    count_walks("declaration", run)
+}
 fn count_walks(kind: &'static str, run: impl FnOnce()) -> usize {
     struct Restore(Option<HashMap<&'static str, Counts>>);
     impl Drop for Restore {

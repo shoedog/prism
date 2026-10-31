@@ -431,3 +431,169 @@ fn python_block_with_the_range_of_its_only_candidate_takes_the_walk() {
     let stats = STATS.with(|s| s.get());
     assert_eq!(stats.slow, 1, "{stats:?}");
 }
+
+#[test]
+fn gate_is_pinned_at_the_size_boundary_and_excludes_every_js_family_language() {
+    let _guard = set(Mode::Auto);
+    for (size, expected) in [
+        (MIN_OWNER_BYTES - 1, false),
+        (MIN_OWNER_BYTES, true),
+        (MIN_OWNER_BYTES + 1, true),
+    ] {
+        let fixed = "func f() {/* */}";
+        let source = format!(
+            "package p\nfunc f() {{/*{} */}}",
+            "a".repeat(size - fixed.len())
+        );
+        let parsed = ParsedFile::parse("a.go", &source, Language::Go).unwrap();
+        let owner = parsed.all_functions()[0];
+        assert_eq!(owner.byte_range().len(), size);
+        assert_eq!(enabled_for(&parsed, &owner), expected, "owner bytes={size}");
+    }
+    for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
+        let source = format!(
+            "function f() {{/*{}*/ let x=1; return x;}}",
+            "a".repeat(MIN_OWNER_BYTES)
+        );
+        let parsed = ParsedFile::parse("a", &source, language).unwrap();
+        let owner = parsed.all_functions()[0];
+        assert!(owner.byte_range().len() > MIN_OWNER_BYTES);
+        for mode in [Mode::Auto, Mode::Force] {
+            MODE.with(|m| m.set(mode));
+            assert!(!enabled_for(&parsed, &owner), "{language:?}");
+        }
+    }
+}
+
+/// A flat owner (n distinct `vI = I; use(vI)` locals, all declared directly in
+/// the body block) per language: `(language, file, header, local, footer)`.
+fn flat_owner(language: Language, n: usize) -> (&'static str, String) {
+    match language {
+        Language::Go => (
+            "a.go",
+            (0..n).fold(
+                String::from("package p\nfunc use(a ...int) {}\nfunc big() {\n"),
+                |s, i| s + &format!("\tv{i} := {i}\n\tuse(v{i})\n"),
+            ) + "}\n",
+        ),
+        Language::C => (
+            "a.c",
+            (0..n).fold(
+                String::from("void use(int);\nvoid big(void) {\n"),
+                |s, i| s + &format!("    int v{i} = {i};\n    use(v{i});\n"),
+            ) + "}\n",
+        ),
+        other => unreachable!("{other:?}"),
+    }
+}
+
+/// Declaration-node visits needed to answer one `scoped` search per local, as
+/// the data-flow build asks it (once per definition), through the production
+/// gate. Also returns the lines found, checked against the frozen walk.
+fn flat_owner_visits(language: Language, n: usize) -> usize {
+    let (file, source) = flat_owner(language, n);
+    let parsed = ParsedFile::parse(file, &source, language).unwrap();
+    let owner = *parsed
+        .all_functions()
+        .iter()
+        .max_by_key(|f| f.byte_range().len())
+        .unwrap();
+    assert!(
+        owner.byte_range().len() >= MIN_OWNER_BYTES,
+        "{language:?} n={n}"
+    );
+    let first = if language == Language::Go { 4 } else { 3 };
+    let answers = |mode: Mode| {
+        let _guard = set(mode);
+        let search = IdentifierReferenceSearch::new(&parsed);
+        (0..n)
+            .map(|i| search.scoped::<false>(&owner, &format!("v{i}"), first + 2 * i))
+            .collect::<Vec<_>>()
+    };
+    let mut indexed = Vec::new();
+    let visits = crate::ast::binding_verdict_memo::probe::count_declaration_visits(|| {
+        indexed = answers(Mode::Auto)
+    });
+    assert_eq!(indexed, answers(Mode::Reference), "{language:?} n={n}");
+    assert_eq!(indexed[7], BTreeSet::from([first + 14, first + 15]));
+    visits
+}
+
+#[test]
+fn declaration_work_on_a_flat_owner_grows_linearly_in_the_number_of_locals() {
+    // The index used to ask `scope_has_declaration` of the function body for
+    // every local: n names x n body declarations (6.5M visits at n=1000).
+    for language in [Language::Go, Language::C] {
+        let small = flat_owner_visits(language, 500);
+        let large = flat_owner_visits(language, 1000);
+        assert!(
+            small >= 500,
+            "{language:?}: counter must see the declarations: {small}"
+        );
+        assert!(
+            large * 2 <= small * 5,
+            "{language:?}: doubling the locals took {small} -> {large} visits"
+        );
+        assert!(
+            large <= 4 * 1000,
+            "{language:?}: {large} visits for 1000 locals"
+        );
+    }
+}
+
+/// The declaration table is the frozen `scope_has_declaration_uncached`
+/// predicate, for every scope of every owner (the file root included) and every
+/// name of the fixture, in all nine languages.
+#[test]
+fn declares_equals_scope_has_declaration_for_every_scope_and_name() {
+    fn scope_blocks<'a>(
+        parsed: &ParsedFile,
+        node: Node<'a>,
+        owner: Node<'a>,
+        out: &mut Vec<Node<'a>>,
+    ) {
+        if node.id() != owner.id() && parsed.language.is_scope_block(node.kind()) {
+            out.push(node);
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            scope_blocks(parsed, child, owner, out);
+        }
+    }
+    let mut compared = 0;
+    for (language, file, source) in [
+        (Language::Go, "a.go", GO),
+        (Language::Python, "a.py", PY),
+        (Language::C, "a.c", C),
+        (Language::Cpp, "a.cpp", CPP),
+        (Language::Rust, "a.rs", RS),
+        (Language::Java, "A.java", JAVA),
+        (Language::Lua, "a.lua", LUA),
+        (Language::Bash, "a.sh", BASH),
+        (Language::Terraform, "a.tf", TF),
+    ] {
+        let parsed = ParsedFile::parse(file, source, language).unwrap();
+        let mut owners = parsed.all_functions();
+        owners.push(parsed.tree.root_node());
+        let mut names = identifiers(source);
+        names.insert("absent".to_string());
+        for owner in owners {
+            let tree = ScopeTree::build(&parsed, owner);
+            let mut nodes = Vec::new();
+            scope_blocks(&parsed, owner, owner, &mut nodes);
+            assert_eq!(tree.scopes.len(), nodes.len(), "{file}");
+            for (index, node) in nodes.iter().enumerate() {
+                for name in &names {
+                    assert_eq!(
+                        tree.declares(index as u32, name),
+                        parsed.scope_has_declaration_uncached(*node, name),
+                        "{file}: scope {index} ({}) name={name}",
+                        node.kind()
+                    );
+                    compared += 1;
+                }
+            }
+        }
+    }
+    assert!(compared > 1000, "{compared}");
+}

@@ -1,5 +1,5 @@
 //! Filter primary IDs, reclaim dead rows and remap ordered parts.
-use super::freeze::{remap_bindings, Intern};
+use super::freeze::{remap_bindings, OrderedIntern};
 use super::*;
 fn filter_primary(g: &mut CompactDfg, excluded: &BTreeSet<String>) {
     let a = &g.arena;
@@ -18,7 +18,7 @@ fn filter_primary(g: &mut CompactDfg, excluded: &BTreeSet<String>) {
     g.backward.clear();
 }
 pub(in crate::data_flow) fn combine(parts: Vec<CompactDfg>) -> Result<CompactDfg, &'static str> {
-    let mut i = Intern::default();
+    let mut i = OrderedIntern::default();
     let mut edges = Vec::new();
     let mut defs: BTreeMap<BindingKey, Vec<OccId>> = BTreeMap::new();
     let mut uses: BTreeMap<BindingKey, Vec<OccId>> = BTreeMap::new();

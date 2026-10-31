@@ -45,18 +45,17 @@ impl Model {
     }
 }
 
-#[test]
-fn intern_ids_remap_and_arena_order_match_the_ordered_model() {
+fn ids_remap_and_arena_order_match_the_ordered_model<T: Table>() {
     // Identity is bytes-inclusive here: same line/path with other bytes is a
     // distinct row. Keys differ in length-8 chunk boundaries and tails.
     let mut sequence = Vec::new();
-    for round in 0..3 {
+    for _ in 0..3 {
         for file in ["a.go", "sql_parser_file.go"] {
             for function in ["Parse", "P"] {
                 for line in [9, 2, 400] {
                     for name in ["x", "yyDollar", "yyDollars", "a_name_of_16chr"] {
                         for byte in [0usize, 1, 7, 8, 65] {
-                            sequence.push(loc(file, function, line, name, byte + round * 0));
+                            sequence.push(loc(file, function, line, name, byte));
                         }
                     }
                 }
@@ -65,7 +64,7 @@ fn intern_ids_remap_and_arena_order_match_the_ordered_model() {
     }
     sequence.reverse();
     let mut model = Model::default();
-    let mut intern = Intern::default();
+    let mut intern = Intern::<T>::default();
     for v in &sequence {
         assert_eq!(intern.put(v.clone()).unwrap(), model.put(v.clone()));
     }
@@ -80,6 +79,17 @@ fn intern_ids_remap_and_arena_order_match_the_ordered_model() {
     }
     let sorted: Vec<_> = arena.rows().iter().cloned().map(own_exact).collect();
     assert!(sorted.windows(2).all(|w| w[0] < w[1]), "arena rows sorted");
+}
+
+#[test]
+fn hashed_intern_ids_remap_and_arena_order_match_the_ordered_model() {
+    ids_remap_and_arena_order_match_the_ordered_model::<HashTable>();
+}
+
+/// `combine` interns the whole repository through this table.
+#[test]
+fn ordered_intern_ids_remap_and_arena_order_match_the_ordered_model() {
+    ids_remap_and_arena_order_match_the_ordered_model::<OrderedTable>();
 }
 
 #[test]
