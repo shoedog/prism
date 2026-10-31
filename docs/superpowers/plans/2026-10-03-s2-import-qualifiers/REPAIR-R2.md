@@ -1,0 +1,21 @@
+**R4 supersession:** **STOP: R4 yield 0/0/0/0; X shortfall 132 from132 exceeds10; selection NONE.** Current source/tool/gate state is REPAIR-R4/VERIFICATION/HANDOFF. Historical evidence below does not certifyR4.
+
+**R3b supersession (2026-10-04):** current measurements i0/0/0/0 and ii0/0/0/0 (NEW ACCEPTED COST, unadopted); STOP loss132, selectionNONE. Historical evidence below does not certify current bytes. See REPAIR-R3b/VERIFICATION/HANDOFF.
+
+> Historical artifact. Current R3 fixes static F4 namespace/content and unavailable refusal joins;yield0/0/0/0 triggersSTOP,selectionNONE. Read REPAIR-R3/VERIFICATION/HANDOFF. These historical gates,yields,dispatch/model and blanket F4 exclusion claims do not certify current bytes.
+
+> R3 current-state reconciliation: this body is historical R2/R1 evidence. Committed source parent is75a35a5e; committed planning parent isecdb6b0f. R3 static namespace content and unavailable-refusal joins are in model; full F4 exclusion does not transfer. R3 X0 loses132 and triggersSTOP;selectionNONE. Remaining already-running replay evidence is pending; earlier yield/gate/adoption assertions do not certify current R3 bytes. See REPAIR-R3.md.
+
+# S2 repair R2 — static-binding candidate built and measured
+
+Owner **S2-O7**, verbatim “Static-binding contract”, supersedes S2-O6's runtime-mutation scope. Candidate is c35719e1 + original whitelist, F1 own-member/heritage, F2 every construction refusal, F5 new.target/super, F6 all plausible this carriers, corrected F8 incomplete-file retention/global refusal/legacy opacity. Epochs118/74. F3/F4/F7 blanket runtime cuts excluded. Visible static aliases/member writes remain base. SPEC §2a records every channel and its rule/test or CLAUDE static-binding citation; six both-grammar *_out_of_model_* test functions pin disclosed Exact behavior.
+
+**Combined yield: X132 /installed-X132 /R0 /T0.** Cost against reference132/132/0/0: zero; X cutoff122 satisfied. Every changed row CORRECT_STATIC_BINDING with module/owner/full-span agreement; zero losses/unproven rows. All49,220 populated-base comparisons preserved; X snapshots are not additive. Primary complete replay: `/Users/wesleyjinks/prism-evidence/s2/repair-r2/public/summary.json`; lane-p.json and per-corpus input/binary/native receipts bind it.
+
+Full MCP nextest **5,168 pass/0 fail/1 existing skip**; doctests2; fmt/clippy PASS (371 warnings, no attribution); advisory **15/16 killed**,16 admissible of22 registered, S2-02 survives/six omissions; all8 selected new guard mutants killed; matrix182 OK; S1b411 controls/639 sites/822 byte comparisons. Both-grammar new-cut F1/F2/F5/F6/F8 tests RED on Git-exact c357, original alias and legacy opacity preservation controls GREEN; candidate31/31 and full suite GREEN. First assembly F8 omission corrected in place; first full-suite spawn failure inadmissible, c357 C control passed, serial full retry passed. Probe-log/VERIFICATION give all commands and caveats.
+
+R1 review F3/F4/F7 and R1b reflected-codegen WRONG are **out of model by S2-O7**; old same-C mutation evidence remains preserved and is not a runtime-safety proof. No mechanism-based downgrade is claimed. No new whole-project runtime revocations, private F read, Git writes, restart, independent review dispatch or adoption. Actual transcript confirms gpt-6.1-sol in model-attestation.json.
+
+Patches: R2-src.patch, seven src/tests files relative c357; R2-docs.patch, registry relative c357 plus planning packet relative b8f5b2f3 (the tree after prototype cherry-pick). Exact application checks retained. Suggested commits: `fix(resolution): retain S2 static-binding guards under S2-O7`; `docs(plan): bind S2-O7 R2 yield, tests and controller replay`. Controller cherry-picks c357 then applies both; rebuilds source tools, rebinds manifest and replays after a commit changes build identity. Immutable main tools remain preserved.
+
+Not verified: Tier-A quick (skip by brief) /full; private F; authoritative all22 mutgate and surviving positional-proof gap; independent R2/adoption; runtime excluded channels; fresh Clippy attribution; full legacy controls/platform/performance/fuzzing; commit/push/merge. No memory update. Final source/evidence snapshots and custody receipt retained in repair-r2.
