@@ -99,18 +99,6 @@
       "Language::Rust => {\n            r#\"[\n                (call_expression) @call\n                (macro_invocation) @call\n                (scoped_identifier) @call\n            ]\"#\n        }",
       "rust_self_calls_test::constant_is_not_a_call"
     ],
-    "RS-14-cpg-generation": [
-      "src/cpg_cache.rs",
-      "const CACHE_VERSION: u32 = 134;",
-      "const CACHE_VERSION: u32 = 124;",
-      "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
-    ],
-    "RS-15-nav-generation": [
-      "src/navigation/call_edge_cache.rs",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 78;",
-      "const NAV_CALL_EDGE_CACHE_VERSION: u32 = 69;",
-      "navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority"
-    ],
     "RS-16-ambiguous-nameonly-fanout": [
       "src/resolution_rust_self.rs",
       "// Type ownership alone cannot distinguish trait overloads.\n                None",

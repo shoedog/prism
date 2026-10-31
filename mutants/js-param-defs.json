@@ -93,12 +93,6 @@
     "cpg::js_param_defs_tests::bare_arrow_labels_match_the_parenthesised_control"
    ]
   ],
-  "PD-11-cache-version-not-bumped": [
-   "src/cpg_cache.rs",
-    "const CACHE_VERSION: u32 = 134;",
-   "const CACHE_VERSION: u32 = 124;",
-   "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
-  ],
   "PD-12-rest-not-last-admitted": [
    "src/parameter_slots.rs",
    "pub(crate) fn js_ts_is_last_parameter(params: Node<'_>, parameter: Node<'_>) -> bool {\n    named_children(params)\n        .into_iter()\n        .rev()\n        .find(|child| child.kind() != \"comment\")\n        .is_some_and(|last| last.id() == parameter.id())\n        && {\n            let mut cursor = params.walk();\n            let clear = !params\n                .children(&mut cursor)\n                .any(|child| child.start_byte() >= parameter.end_byte() && child.kind() == \",\");\n            clear\n        }\n}",
@@ -866,11 +860,6 @@
   ]
  },
  "intent_revisions": {
-  "PD-11-cache-version-not-bumped": {
-   "disposition": "rebound",
-   "reason": "R5 option(b) keeps the non-copy obligation and cache112, anchored to current source.",
-   "killing_fixture": "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
-  },
   "PD-34-lexical-def-scope-off": {
    "disposition": "rebound",
    "intent": "Preserve the original guard obligation through the R1 binding environment and lvalue occurrence model.",

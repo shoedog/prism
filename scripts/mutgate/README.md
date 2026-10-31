@@ -1,9 +1,15 @@
 # mutgate: authoritative text gate and advisory scoped checks
 
 Before merge, run the tiered pre-merge gate described in `CLAUDE.md` ("Mutation
-gate"): an authoritative scoped run plus the PR's lanes by default, dependent
-lanes on a named trigger, and the full gate for cross-cutting infrastructure and a
-periodic sweep of main. Every authoritative verdict comes from an
+gate"): an authoritative scoped run plus the lanes the PR adds by default (a lane
+the PR re-anchors onto code it moved needs no own run when `--since <merge-base>
+--scope fn --only <ids> --plan-only` selects every re-anchored id; a removal-only
+lane edit needs no run; a lane whose snippets or tests change in substance still
+runs), dependent lanes on a named trigger and only for the changed language or
+subsystem (shared code counts as every language that reaches it), and the full gate for
+cross-cutting infrastructure and a periodic sweep of main. Gates run by default in
+a Claude Code cloud session whose verdicts count for every tier; a local run is the
+fallback (host-quiet waits apply to local runs only). Every authoritative verdict comes from an
 isolated text mutant containing only its own main and `extra` edits. Source
 baseline preflight must pass first. Schema mode never decides an authoritative
 verdict. Production `src/` is never edited.
@@ -37,6 +43,14 @@ Each `mutants/<lane>.json` has a flat `mutations` map:
 - `lib_test_prefixes` routes a selector to the `--lib` test binary when its
   name starts with one of these prefixes; everything else runs against the
   lane's `--test integration` binary. There is no per-mutant target override.
+- Lanes must not mutate a version constant's definition (`const CACHE_VERSION:
+  u32 = N;`, `NAV_CALL_EDGE_CACHE_VERSION`, sidecar or protocol versions); mutants
+  of code that *compares* against the constant (load-path version checks) are fine.
+  The pin tests
+  (`cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics`,
+  `navigation::call_edge_cache::tests::sidecar_version_is_pinned_for_receiver_authority`)
+  already fail on any change to them, and a version literal in a lane makes every
+  bump edit that lane.
 - `intent_revisions[id]` records a deliberate change to a historical mutant's
   obligation and its reason. R4-04 retains its ID but now disables UTF-16 BOM
   decoding, with the existing native-decoding fixture, because r5's lossy
