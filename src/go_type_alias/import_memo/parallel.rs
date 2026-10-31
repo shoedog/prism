@@ -56,3 +56,5 @@ pub(crate) fn with_serial_reference<R>(op: impl FnOnce() -> R) -> R {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub(crate) mod work_sites;

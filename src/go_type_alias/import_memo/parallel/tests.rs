@@ -21,6 +21,8 @@ func recovery() {defer func(){recover()}()}
 func live() { _ = Outer{}; _ = new(Inner); _ = &Inner{} }
 "#),
         ("q/types.go", "package q\ntype T struct{}\nfunc (T) M(x int) {}\n"),
+        ("q/z.go", "package q\ntype T struct{Last int}\nfunc (T) M(x int) {}\ntype Alias = T\n"),
+        ("p/z.go", "package p\ntype Inner struct{Callback func(string)}\nfunc (Inner) M(x int) {}\n"),
         ("dot/types.go", "package dot\nimport . \"example/q\"\ntype S struct {T}\nfunc f(x T) {}\n"),
         ("versions/types.go", "package versions\nimport (\"example/widget/v2\"; \"gopkg.in/yaml.v3\")\ntype S struct{widget.T; yaml.T}\n"),
         ("tag/types_linux.go", "//go:build linux\n\npackage tag\ntype S struct{X int}\n"),

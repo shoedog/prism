@@ -9,6 +9,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod canon;
+mod declarations;
 pub(crate) mod import_memo;
 mod types;
 pub(crate) use canon::signature_imports;
@@ -150,18 +151,40 @@ impl GoAliasResolver {
                     .insert((dir_of(path).to_string(), profile.package_clause.clone()));
             }
         }
-        for (path, parsed) in files {
-            if parsed.language != Language::Go {
-                continue;
+        #[cfg(test)]
+        if import_memo::parallel::serial_reference_enabled() {
+            for (path, parsed) in files {
+                if parsed.language == Language::Go {
+                    import_memo::parallel::work_sites::record_file(
+                        crate::build_pool::build_pool()
+                            .current_thread_index()
+                            .is_some(),
+                    );
+                    resolver.extract_file_reference(
+                        path,
+                        parsed,
+                        local_import_paths.get(path).map(String::as_str),
+                        signature_imports
+                            .as_ref()
+                            .and_then(|imports| imports.get(path)),
+                    );
+                }
             }
-            resolver.extract_file(
-                path,
-                parsed,
-                local_import_paths.get(path).map(String::as_str),
-                signature_imports
-                    .as_ref()
-                    .and_then(|imports| imports.get(path)),
-            );
+            return resolver;
+        }
+        for records in declarations::prepare(
+            files,
+            profiles,
+            local_import_paths,
+            signature_imports.as_ref(),
+        ) {
+            for (owner, declaration) in records {
+                resolver
+                    .declarations
+                    .entry(owner)
+                    .or_default()
+                    .push(declaration);
+            }
         }
         resolver
     }
@@ -293,89 +316,6 @@ impl GoAliasResolver {
                     .entry(reason.telemetry_key().to_string())
                     .or_default() += 1;
                 Err(CanonTypeError::Alias(reason))
-            }
-        }
-    }
-
-    fn extract_file(
-        &mut self,
-        path: &str,
-        parsed: &ParsedFile,
-        local_path: Option<&str>,
-        signature_imports_override: Option<&BTreeMap<String, String>>,
-    ) {
-        let Some(profile) = self.profiles.get(path).cloned() else {
-            return;
-        };
-        if profile.package_clause.is_empty() {
-            return;
-        }
-        let imports = signature_imports_override
-            .cloned()
-            .unwrap_or_else(|| signature_imports(parsed, local_path));
-        let root = parsed.tree.root_node();
-        let mut root_cursor = root.walk();
-        for declaration in root.children(&mut root_cursor) {
-            if declaration.kind() != "type_declaration" {
-                continue;
-            }
-            let mut cursor = declaration.walk();
-            for child in declaration.children(&mut cursor) {
-                if !matches!(child.kind(), "type_alias" | "type_spec") {
-                    continue;
-                }
-                let Some(name_node) = child.child_by_field_name("name") else {
-                    continue;
-                };
-                let name = parsed.node_text(&name_node).trim().to_string();
-                if name.is_empty() {
-                    continue;
-                }
-                let owner = GoOwnerIdentity {
-                    package_dir: dir_of(path).to_string(),
-                    package_clause: profile.package_clause.clone(),
-                    name: name.clone(),
-                };
-                let syntax = classify_alias_syntax(&child);
-                let kind = if syntax != AliasSyntax::Defined {
-                    let (param_names, constraints_supported) = alias_parameters(parsed, &child);
-                    let type_params: BTreeSet<String> = param_names.iter().cloned().collect();
-                    let rhs = if syntax == AliasSyntax::Unresolved {
-                        Err(AliasUnresolvedReason::Unresolvable)
-                    } else {
-                        child
-                            .child_by_field_name("type")
-                            .ok_or(AliasUnresolvedReason::Unresolvable)
-                            .and_then(|node| {
-                                parse_expr(
-                                    &node,
-                                    parsed,
-                                    &imports,
-                                    path,
-                                    Some(&profile),
-                                    &type_params,
-                                )
-                                .map_err(|_| AliasUnresolvedReason::Unresolvable)
-                            })
-                    };
-                    AliasDeclarationKind::Alias {
-                        params: param_names,
-                        rhs: if constraints_supported {
-                            rhs
-                        } else {
-                            Err(AliasUnresolvedReason::Unresolvable)
-                        },
-                    }
-                } else {
-                    AliasDeclarationKind::Defined
-                };
-                self.declarations
-                    .entry(owner)
-                    .or_default()
-                    .push(AliasDeclaration {
-                        defining_file: path.to_string(),
-                        kind,
-                    });
             }
         }
     }

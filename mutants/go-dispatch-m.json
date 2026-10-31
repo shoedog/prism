@@ -1,0 +1,117 @@
+{
+  "lane": "Go dispatch M ordered alias declarations and interface satisfaction",
+  "lib_test_prefixes": [
+    "go_type_alias::declarations::tests::",
+    "type_providers::go::satisfaction::tests::"
+  ],
+  "mutations": {
+    "GDM-alias-file-order": [
+      "src/go_type_alias/declarations.rs",
+      "crate::build_pool::per_item(jobs)",
+      "crate::build_pool::per_item(jobs.into_iter().rev().collect::<Vec<_>>())",
+      "go_type_alias::declarations::tests::declarations_preserve_duplicates_source_order_profiles_and_imports"
+    ],
+    "GDM-alias-source-order": [
+      "src/go_type_alias/declarations.rs",
+      "    records\n}",
+      "    records.into_iter().rev().collect()\n}",
+      "go_type_alias::declarations::tests::declarations_preserve_duplicates_source_order_profiles_and_imports"
+    ],
+    "GDM-alias-overwrite": [
+      "src/go_type_alias.rs",
+      "resolver\n                    .declarations\n                    .entry(owner)\n                    .or_default()\n                    .push(declaration);",
+      "resolver.declarations.insert(owner, vec![declaration]);",
+      "go_type_alias::declarations::tests::declarations_preserve_duplicates_source_order_profiles_and_imports"
+    ],
+    "GDM-alias-local-path": [
+      "src/go_type_alias/declarations.rs",
+      "local_paths.get(path).map(String::as_str)",
+      "None",
+      "go_type_alias::declarations::tests::declarations_preserve_duplicates_source_order_profiles_and_imports"
+    ],
+    "GDM-alias-override": [
+      "src/go_type_alias/declarations.rs",
+      "imports.and_then(|source| source.get(path))",
+      "None",
+      "go_type_alias::declarations::tests::declarations_preserve_duplicates_source_order_profiles_and_imports"
+    ],
+    "GDM-alias-non-go": [
+      "src/go_type_alias/declarations.rs",
+      "parsed.language == Language::Go",
+      "parsed.language != Language::Go",
+      "go_type_alias::declarations::tests::declarations_preserve_duplicates_source_order_profiles_and_imports"
+    ],
+    "GDM-alias-missing-profile": [
+      "src/go_type_alias/declarations.rs",
+      "profiles.get(path)",
+      "profiles.values().next()",
+      "go_type_alias::declarations::tests::missing_and_empty_profiles_non_go_and_rebuilds_do_not_leak"
+    ],
+    "GDM-generic-interface": [
+      "src/type_providers/go/satisfaction.rs",
+      "if generic {",
+      "if false {",
+      "type_providers::go::satisfaction::tests::ordered_satisfaction_matches_serial_for_value_pointer_gaps_and_embedding"
+    ],
+    "GDM-gap-interface": [
+      "src/type_providers/go/satisfaction.rs",
+      "if !result.gaps.is_empty() {",
+      "if false {",
+      "type_providers::go::satisfaction::tests::ordered_satisfaction_matches_serial_for_value_pointer_gaps_and_embedding"
+    ],
+    "GDM-gap-order": [
+      "src/type_providers/go/satisfaction.rs",
+      "data.dispatch_gaps.extend(row.gaps);",
+      "data.dispatch_gaps.extend(row.gaps.into_iter().rev());",
+      "type_providers::go::satisfaction::tests::ordered_satisfaction_matches_serial_for_value_pointer_gaps_and_embedding"
+    ],
+    "GDM-value-match": [
+      "src/type_providers/go/satisfaction.rs",
+      "GoTypeProvider::method_set_satisfies_with_embedded(\n                    &set.value, embedded, &canonical,\n                )",
+      "false",
+      "type_providers::go::satisfaction::tests::ordered_satisfaction_matches_serial_for_value_pointer_gaps_and_embedding"
+    ],
+    "GDM-pointer-match": [
+      "src/type_providers/go/satisfaction.rs",
+      "GoTypeProvider::method_set_satisfies_with_embedded(\n                    &set.pointer,\n                    embedded,\n                    &canonical,\n                )",
+      "false",
+      "type_providers::go::satisfaction::tests::ordered_satisfaction_matches_serial_for_value_pointer_gaps_and_embedding"
+    ],
+    "GDM-admission-pointer": [
+      "src/type_providers/go/satisfaction.rs",
+      "crate::resolution::admission_key(name, pointer)",
+      "crate::resolution::admission_key(name, false)",
+      "type_providers::go::satisfaction::tests::ordered_satisfaction_matches_serial_for_value_pointer_gaps_and_embedding"
+    ],
+    "GDM-satisfier-order": [
+      "src/type_providers/go/satisfaction.rs",
+      "types.iter().zip(matches)",
+      "types.iter().rev().zip(matches.into_iter().rev())",
+      "type_providers::go::satisfaction::tests::ordered_satisfaction_matches_serial_for_value_pointer_gaps_and_embedding"
+    ],
+    "GDM-empty-interface": [
+      "src/type_providers/go/satisfaction.rs",
+      "    let matches: Vec<_> =",
+      "    if canonical.is_empty() { return result; }\n    let matches: Vec<_> =",
+      "type_providers::go::satisfaction::tests::empty_inputs_empty_interfaces_and_no_concrete_types_match_serial"
+    ],
+    "GDM-fallback-accounting": [
+      "src/go_type_alias/declarations.rs",
+      "for _ in 0..fallback_scans {",
+      "for _ in 0..0 {",
+      "go_type_alias::declarations::tests::declarations_preserve_duplicates_source_order_profiles_and_imports"
+    ],
+    "GDM-old-alias-route": [
+      "src/go_type_alias.rs",
+      "if import_memo::parallel::serial_reference_enabled() {",
+      "if true {",
+      "go_type_alias::declarations::tests::extraction_jobs_use_build_pool_and_serial_control_does_not"
+    ],
+    "GDM-old-satisfaction-route": [
+      "src/type_providers/go/satisfaction.rs",
+      "if crate::go_type_alias::import_memo::parallel::serial_reference_enabled() {",
+      "if true {",
+      "type_providers::go::satisfaction::tests::matching_jobs_use_build_pool_and_serial_control_does_not"
+    ]
+  }
+}
