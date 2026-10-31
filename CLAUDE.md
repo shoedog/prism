@@ -27,17 +27,21 @@ python3 scripts/mutgate/mutgate.py --lane mutants/<lane>.json # a lane the PR ad
 python3 scripts/mutgate/mutgate.py                            # full authoritative gate (tier 3 only); default 4 workers
 ```
 Pre-merge gate, on the final head (tiered):
-1. **Every code PR:** `--since main --scope fn --authoritative`, plus each lane the PR adds or edits. The
-   `--since` run also selects registered mutants whose anchors no longer match, even outside the diff, so it
-   catches anchors broken by moved code.
+1. **Every code PR:** `--since main --scope fn --authoritative`, plus each lane the PR adds. The
+   `--since` run also selects registered mutants whose anchors no longer match, even outside the diff, so a
+   lane the PR edits only to re-anchor moved code needs no run of its own. A lane whose mutant snippets or
+   tests the PR changes in substance still runs.
 2. **Dependent lanes, on a named trigger:** a change to resolution results that other tests rely on
    (especially removing Exacts), or a change to where code executes or to test oracles, thread-local
-   switches or `cfg(test)` seams. Add the lanes of the dependent code (find it with callers/grep) and name the
+   switches or `cfg(test)` seams. Add only the lanes of dependent code that covers the changed language or
+   subsystem (find it with callers/grep; a Rust-only resolution change runs no JS lanes) and name the
    trigger in the PR.
 3. **Full gate:** only for cross-cutting infrastructure whose dependents cannot be listed (build pool and
    execution context, shared test helpers, the mutgate driver, CPG cache format, wide `cfg(test)` plumbing,
    PRs spanning many subsystems), plus a periodic sweep of main in a quiet window.
 Scopes do not trace dependency effects; tier 2 and the periodic full sweep cover that gap.
+Gates run by default in a Claude Code cloud session, and its verdicts count for every tier; a local run is
+the fallback when the cloud route is unavailable.
 Full and authoritative scoped verdicts use isolated text builds with only each
 mutant's own edits and green source baselines in the shared and worker contexts;
 TIMEOUT/INADMISSIBLE fail.

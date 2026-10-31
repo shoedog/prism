@@ -89,14 +89,6 @@
     "reasoning::seeds::tests::symbol_seed_resolves_member_only_js_ts_formals_but_not_unused_or_non_js"
    ]
   ],
-  "MO-18-cache-version-unbumped": [
-   "src/cpg_cache.rs",
-    "const CACHE_VERSION: u32 = 134;",
-   "const CACHE_VERSION: u32 = 124;",
-   [
-    "cpg_cache::tests::cache_versions_are_pinned_for_cpg_semantics"
-   ]
-  ],
   "MO-19-escape-gate-off": [
    "src/ast.rs",
    "            || self.callable_has_escaped_identifier(*func_node)\n",
