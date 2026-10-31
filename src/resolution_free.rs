@@ -9,6 +9,10 @@ use std::collections::BTreeMap;
 #[path = "resolution_free_tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "resolution_family_tests.rs"]
+mod family_tests;
+
 pub(super) fn same_family(caller_file: &str, candidate: &FunctionId) -> bool {
     // Same-file lookup retains its existing behavior, including explicit-language
     // ParsedFile callers whose paths have no recognized extension.
