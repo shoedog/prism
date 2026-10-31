@@ -63,7 +63,7 @@ impl<'a> SignatureImportMemo<'a> {
     }
 }
 
-mod parallel;
+pub(crate) mod parallel;
 
 pub(super) enum SignatureImportSource<'a> {
     Maps(&'a BTreeMap<String, Imports>),

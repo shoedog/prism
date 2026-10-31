@@ -38,12 +38,12 @@ thread_local! {
 }
 
 #[cfg(test)]
-pub(super) fn serial_reference_enabled() -> bool {
+pub(crate) fn serial_reference_enabled() -> bool {
     SERIAL_REFERENCE.with(std::cell::Cell::get)
 }
 
 #[cfg(test)]
-fn with_serial_reference<R>(op: impl FnOnce() -> R) -> R {
+pub(crate) fn with_serial_reference<R>(op: impl FnOnce() -> R) -> R {
     struct Reset(bool);
     impl Drop for Reset {
         fn drop(&mut self) {

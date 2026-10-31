@@ -18,6 +18,7 @@ func recovering(x int) {recover()}
 func run(i I, o Outer) {i.M(1); o.M(2); invoke(target); invoke(recovering); o.Callback(3)}
 func register(o *Inner) {o.Callback = target; o.Callback = recovering}
 func recovery() {defer func(){recover()}()}
+func live() { _ = Outer{}; _ = new(Inner); _ = &Inner{} }
 "#),
         ("q/types.go", "package q\ntype T struct{}\nfunc (T) M(x int) {}\n"),
         ("dot/types.go", "package dot\nimport . \"example/q\"\ntype S struct {T}\nfunc f(x T) {}\n"),

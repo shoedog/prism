@@ -14,6 +14,7 @@ use crate::type_provider::{
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
+mod selector_fields;
 mod signature_inputs;
 use signature_inputs::{FileSignatureImports, ImportScan};
 #[cfg(test)]
@@ -1405,18 +1406,7 @@ impl GoTypeProvider {
         data: &GoTypeData,
         owner: &crate::resolution::GoOwnerIdentity,
     ) -> BTreeSet<String> {
-        data.field_types
-            .keys()
-            .filter(|(field_owner, _)| field_owner == owner)
-            .map(|(_, field)| field.clone())
-            .chain(
-                data.struct_embeds
-                    .get(owner)
-                    .into_iter()
-                    .flatten()
-                    .map(|embedded| embedded.name.clone()),
-            )
-            .collect()
+        selector_fields::names(data, owner)
     }
 
     /// Extract method signatures from an interface_type node.
