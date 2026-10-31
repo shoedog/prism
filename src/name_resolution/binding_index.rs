@@ -203,6 +203,7 @@ impl ScopeGraph {
     /// the next lookup; add_scope/add_binding/add_edge/add_macro_wildcard invalidate
     /// their own indexes. Debug builds check indexed results against linear scans.
     pub fn invalidate_lookup_indexes(&mut self) {
+        self.declared_owners.invalidate();
         self.scope_extent_index.invalidate();
         self.binding_index.invalidate();
         self.binding_index.invalidate_edges();

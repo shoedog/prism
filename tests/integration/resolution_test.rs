@@ -2383,14 +2383,13 @@ fn scope_graph_pending_cross_crate_use_keeps_all() {
 }
 
 #[test]
-fn scope_graph_pending_extern_crate_alias_keeps_all() {
+fn scope_graph_pending_extern_crate_alias_refuses_repo_owners() {
     use prism::languages::Language::Rust;
     // A SINGLE visible `Pending` (`use some_external as CliTest;`) whose own path is
     // the single segment `some_external`, bound by `extern crate some_external;` to a
     // `Target::External` candidate at the crate root (not an in-repo crate). The
-    // helper re-resolves that path to `ResStatus::Resolved` with one `Target::External`
-    // candidate -> not a `Target::Item` -> declines -> keep-all. This is the fixture
-    // that genuinely exercises the `Target::External` candidate branch.
+    // external-prefix proof resolves that path to `Target::External` and refuses
+    // the same-name repo pool, including its old NameOnly fall-through (#540).
     let sources = [
         (
             "src/lib.rs",
@@ -2418,16 +2417,13 @@ fn scope_graph_pending_extern_crate_alias_keeps_all() {
     );
     let out = cg.resolve_call_site_full(&site_in(&cg, "drive", "CliTest::m"));
     assert_eq!(
-        out.drop, None,
-        "an `extern crate` external alias must not drop"
+        out.drop,
+        Some(DropReason::ImportExternal),
+        "a known external alias must refuse the in-repo owner collision"
     );
     assert!(
-        out.resolved.len() == 2
-            && out
-                .resolved
-                .iter()
-                .all(|c| c.confidence == ResolutionConfidence::NameOnly),
-        "a `Target::External` candidate declines -> keep the full colliding pool at NameOnly",
+        out.resolved.is_empty(),
+        "a `Target::External` prefix must not retain any in-repo target",
     );
 }
 

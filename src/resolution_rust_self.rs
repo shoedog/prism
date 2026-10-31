@@ -4,7 +4,7 @@ use crate::name_resolution::types::ScopeKind;
 
 impl CallGraph {
     /// `Self` has no lexical module binding. Let its dedicated rung run.
-    pub(super) fn rust_authoritative_resolution(
+    pub(crate) fn rust_authoritative_resolution(
         &self,
         site: &CallSite,
     ) -> Option<ResolutionOutcome<'_>> {

@@ -118,7 +118,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v74: repository-wide non-ASCII Rust identifier refusal (CPG v129).
 // v75: crate-scoped identifier refusal on new Self edges only (CPG v130).
 // v76: named JS/TS function expressions cannot bind outside their bodies (#450).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 76;
+// v77: Rust external paths/imports and constructor receivers refuse repo collisions (#540).
+// v78: per-target external-path filtering and annotation precedence (#540, CPG v134).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 78;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 pub(crate) const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -758,7 +760,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 76);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 78);
     }
 
     #[test]

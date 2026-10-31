@@ -1,0 +1,104 @@
+{
+  "mutations": {
+    "REP01-no-target-filter": [
+      "src/rust_external_paths.rs",
+      ".retain(|r| !index.target_declares(graph, r.target, &owners));",
+      ".retain(|_| true);",
+      "std_review_test::std_review_per_target_subset_never_promotes"
+    ],
+    "REP02-repo-wide-declaration": [
+      "src/rust_external_paths.rs",
+      ".is_some_and(|names| owners.iter().any(|owner| names.contains(owner)))",
+      ".is_some_and(|_| owners.iter().any(|owner| self.names.contains(owner)))",
+      "std_review_test::std_review_unrelated_crate_keeps_std_impl"
+    ],
+    "REP03-std-lexical-bypass": [
+      "src/rust_external_paths.rs",
+      "if std_root(path) && absolute && graph.edition >= 2018 {",
+      "if std_root(path) {",
+      "std_review_test::std_review_local_roots_keep_literal_import_and_constructor"
+    ],
+    "REP04-ignore-source-alias": [
+      "src/rust_external_paths.rs",
+      "let mut owners = vec![crate::resolution::owner_key(path)];",
+      "let mut owners = Vec::new();",
+      "std_review_test::std_review_renamed_alias_collisions_refuse"
+    ],
+    "REP05-incomplete-proof": [
+      "src/rust_external_paths.rs",
+      ".filter(|g| g.complete && g.edition_uniform)?",
+      ".filter(|g| g.edition_uniform)?",
+      "std_review_test::std_review_incomplete_keeps_main"
+    ],
+    "REP06-ignore-annotation-precedence": [
+      "src/rust_external_paths.rs",
+      "if site.receiver_outcome.as_ref()?.recovery != ReceiverRecovery::ConstructorLocal {",
+      "if false {",
+      "std_review_test::std_review_annotation_precedes_constructor_refusal"
+    ],
+    "REP07-generics-are-declarations": [
+      "src/rust_external_paths.rs",
+      "owns.is_some()\n                        || graph\n                            .scopes\n                            .get(&b.scope)\n                            .is_some_and(|s| s.kind != ScopeKind::Callable)",
+      "true",
+      "std_review_test::std_review_generic_names_are_not_declarations"
+    ],
+    "REP08-no-pending-external": [
+      "src/rust_external_paths.rs",
+      "external.then(|| {",
+      "false.then(|| {",
+      "std_review_test::std_review_renamed_alias_collisions_refuse"
+    ],
+    "REP09-only-std-root": [
+      "src/rust_external_paths.rs",
+      "Some(\"std\" | \"core\" | \"alloc\")",
+      "Some(\"std\")",
+      "std_review_test::std_review_all_external_roots_refuse"
+    ],
+    "REP10-absolute-lexical": [
+      "src/rust_external_paths.rs",
+      "if std_root(path) && absolute && graph.edition >= 2018 {",
+      "if false {",
+      "std_review_test::std_review_absolute_std_bypasses_local_root"
+    ],
+    "REP11-poisoned-root-is-proof": [
+      "src/rust_external_paths.rs",
+      "if std_root(path) && res.status == ResStatus::Unresolved {",
+      "if std_root(path) && res.status != ResStatus::Resolved {",
+      "std_review_test::std_review_poisoned_std_root_keeps_main"
+    ],
+    "REP12-multi-root-target-removed": [
+      "src/rust_external_paths.rs",
+      "if roots.len() != 1 {",
+      "if roots.is_empty() {",
+      "std_review_test::std_review_multi_root_target_file_keeps_main"
+    ],
+    "REP13-mixed-edition-proof": [
+      "src/rust_external_paths.rs",
+      ".filter(|g| g.complete && g.edition_uniform)?",
+      ".filter(|g| g.complete)?",
+      "std_review_test::std_review_mixed_edition_keeps_absolute_local_root"
+    ],
+    "REP14-self-crate-is-external": [
+      "src/rust_external_paths.rs",
+      "ext.name == \"self\" || ext.name.starts_with(\"self::\")",
+      "ext.name.is_empty()",
+      "std_review_test::std_review_extern_crate_self_is_not_external"
+    ]
+  },
+  "extra": {
+    "REP06-ignore-annotation-precedence": [
+      [
+        "src/rust_external_paths.rs",
+        "if fact.kind != BindingKind::Let || fact.annotation.is_some() {",
+        "if false {"
+      ]
+    ],
+    "REP10-absolute-lexical": [
+      [
+        "src/rust_external_paths.rs",
+        "let res = if absolute {",
+        "let res = if false {"
+      ]
+    ]
+  }
+}

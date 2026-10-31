@@ -5,3 +5,6 @@ mod algo_test;
 mod common;
 mod rust_test;
 mod span_test;
+mod std_impl_paths_test;
+mod std_paths_test;
+mod std_review_test;

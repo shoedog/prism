@@ -146,6 +146,9 @@ pub struct ScopeGraph {
     /// Per-file scope extents, excluded from serialization and graph identity.
     #[serde(skip)]
     pub scope_extent_index: crate::name_resolution::scope_extent_index::GraphScopeExtentIndex,
+    /// Per-crate declaration evidence; derived, never serialized or compared.
+    #[serde(skip)]
+    pub declared_owners: crate::rust_external_paths::GraphDeclaredOwners,
 }
 
 impl ScopeGraph {
@@ -161,12 +164,14 @@ impl ScopeGraph {
 
     /// Insert a scope (keyed by its `id`).
     pub fn add_scope(&mut self, s: Scope) {
+        self.declared_owners.invalidate();
         self.scope_extent_index.invalidate();
         self.scopes.insert(s.id, s);
     }
 
     /// Append a binding (its index becomes its scope-relative ordinal source).
     pub fn add_binding(&mut self, b: Binding) {
+        self.declared_owners.invalidate();
         self.binding_index.invalidate();
         self.bindings.push(b);
     }
