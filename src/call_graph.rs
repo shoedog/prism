@@ -1657,7 +1657,7 @@ impl CallGraph {
         let mut js_ts_unproven_instance_methods = BTreeSet::new();
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
-        // Repo-wide macro-name shadow set, shared by parallel file jobs.
+        // P8 F1 BLOCKER: full-files macro shadow set; Sync BTreeSet shared by parallel jobs.
         let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) =
             Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
@@ -4613,6 +4613,7 @@ impl CallGraph {
         }
     }
 
+    /// Parallel per-caller recompute, mirroring compute_rust_receiver_updates in calls order.
     pub(crate) fn compute_go_receiver_updates(
         &self,
         files: &BTreeMap<String, ParsedFile>,

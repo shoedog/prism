@@ -1,6 +1,35 @@
 //! Go receiver facts for one immutable function in a classification phase.
 //! Registrations are weak and thread-local; guards own all storage and borrow
 //! the parsed file. No AST nodes, locks, or facts survive the guard.
+//!
+//! Closure fences (P11 S2 / B1 review blockers): Go's function_node_types
+//! omits func_literal, so the ordinary named-function fence is insufficient.
+//! Two different leaks must stay closed in walk_receiver_bindings and here:
+//! (1) ignoring a containing literal's parameter lets stale outer recovery
+//! reach its own call; (2) visiting a sibling literal's local :=/var binding
+//! can mint a false Exact edge for a call outside that literal. Exclude the
+//! ENTIRE subtree unless the call is within its half-open byte span. Count
+//! parameters only inside; an earlier outer binding keeps the first fact for
+//! the shadowed R3 route. Then inspect that literal's body for later bindings.
+//! Parameter lists are one transaction: first evidence is set after the list,
+//! including malformed separate declarations of the same name.
+//!
+//! go_short_var_call_rhs has the same B1 fence: a sibling closure's x := newT()
+//! must not become an unrelated later call's qualifying statement. This helper
+//! relocates a FIRST-LHS receiver's single-call RHS and returns raw callee text
+//! (newDemux or pkg.New); go_receiver_index::resolve_go_return_type_call owns
+//! static return-type resolution. A non-first receiver (_, err := f()),
+//! multi-expression RHS (a, b := f(), g()), or non-call RHS does not qualify.
+//! Callers MUST already prove exactly one unshadowed receiver binding for the
+//! same (receiver, call_line, call_start_byte); this helper does not recount it.
+//! The binding can be untyped or provisionally typed by the NewX heuristic.
+//! A receiver-first statement prunes its subtree even for a nonqualifying RHS;
+//! later siblings remain searchable. Unlike binding evidence, no scope filter
+//! is applied beyond the literal fence. Preserve these distinct contracts.
+//!
+//! Recovery text is interned during collection and shared with Rc through
+//! seeds, events, segment-tree nodes and checkpoints. Only returned evidence
+//! owns String copies; retained payload bytes follow distinct type text.
 use super::ParsedFile;
 use crate::languages::Language;
 use crate::resolution::ReceiverRecovery;
@@ -16,8 +45,9 @@ mod intervals;
 mod tests;
 mod timeline;
 
-type Recovery = (String, ReceiverRecovery);
-type Evidence = (Option<Recovery>, usize, Option<Recovery>);
+type Recovery = (Rc<str>, ReceiverRecovery);
+type OwnedRecovery = (String, ReceiverRecovery);
+type Evidence = (Option<OwnedRecovery>, usize, Option<OwnedRecovery>);
 
 struct SpanValue<T> {
     lo: usize,

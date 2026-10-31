@@ -678,8 +678,7 @@ impl ParsedFile {
         )
     }
 
-    /// True inside a Go literal whose parameters bind the receiver; keeps an
-    /// external qualified type out of the legacy bare-interface ladder.
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     pub(crate) fn go_func_literal_parameter_binds_receiver(
         &self,
         func_node: &Node<'_>,
@@ -727,6 +726,7 @@ impl ParsedFile {
         walk(self, *func_node, receiver, call_start_byte)
     }
 
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     fn receiver_type_evidence_in_fn_mode(
         &self,
         func_node: &Node<'_>,
@@ -1031,7 +1031,7 @@ impl ParsedFile {
         receiver_args_bind(self, receiver, receiver_type)
     }
 
-    /// Whether a local Go type shadows this unqualified receiver type at the call.
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     pub(crate) fn go_local_type_shadows(
         &self,
         func_node: &Node<'_>,
@@ -1097,9 +1097,7 @@ impl ParsedFile {
         walk(self, *func_node, type_name, call_start_byte)
     }
 
-    /// Relocate a receiver-first short declaration's single-call RHS callee.
-    /// Callers must first prove exactly one unshadowed receiver binding;
-    /// return-type resolution belongs to go_receiver_index.
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     pub(crate) fn go_short_var_call_rhs(
         &self,
         func_node: &Node<'_>,
@@ -1173,7 +1171,7 @@ impl ParsedFile {
         walk(self, *func_node, true, receiver, call_line, call_start_byte)
     }
 
-    /// Prior same-scope reuse calls; Err means the first-result RHS cannot be compared.
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     pub(crate) fn go_same_scope_short_var_reuse_calls(
         &self,
         func_node: &Node<'_>,
@@ -10146,6 +10144,7 @@ impl ParsedFile {
         None
     }
 
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     fn go_scope_declares_name_before(
         &self,
         func_node: &Node<'_>,
@@ -10231,6 +10230,7 @@ impl ParsedFile {
         walk(self, scope, true, name, before_byte)
     }
 
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     fn go_short_decl_reuses_in_scope(
         &self,
         node: Node<'_>,
@@ -10261,6 +10261,7 @@ impl ParsedFile {
         })
     }
 
+    // Mirrored in go_receiver_walk; change both and extend its tests.
     fn walk_receiver_bindings(
         &self,
         node: Node<'_>,
@@ -10564,9 +10565,6 @@ impl ParsedFile {
                     }
                 }
             }
-            // Go literals are absent from function_node_types. Fence the whole
-            // subtree to its call span; count its parameters only inside it.
-            // A preceding outer binding keeps first-fact evidence for R3.
             (Language::Go, "func_literal") if !is_root => {
                 let call_inside =
                     call_start_byte >= node.start_byte() && call_start_byte < node.end_byte();

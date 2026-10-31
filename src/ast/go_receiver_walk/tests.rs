@@ -183,6 +183,178 @@ fn semantic_boundaries() {
 }
 
 #[test]
+fn range_assignment_preserves_binding() {
+    check("package p\nfunc run() { x := makeT(); for x = range xs { x.M() }; x.M(); for x := range xs { x.M() }; x.M() }", true);
+}
+
+fn duplicate_literal_source(count: usize, outer: bool) -> String {
+    let params = ["x *T", "x *U", "x *V"][..count].join(", ");
+    let binding = if outer { "x := &T{}; " } else { "" };
+    let extra = if count == 3 {
+        "type V struct{}\nfunc (v *V) M() {}\n"
+    } else {
+        ""
+    };
+    format!("package p\ntype T struct{{}}\ntype U struct{{}}\nfunc (t *T) M() {{}}\nfunc (u *U) M() {{}}\n{extra}func run() {{ {binding}_ = func({params}) {{ x.M() }} }}")
+}
+
+#[test]
+fn duplicate_literal_parameter_transactions() {
+    for count in [2, 3] {
+        for outer in [false, true] {
+            check(&duplicate_literal_source(count, outer), true);
+        }
+    }
+    // Grouped duplicates count once per declaration; separate declarations
+    // count individually, including when nested lists enter and leave scope.
+    check("package p\nfunc run() { _ = func(x, x *T, x *U) { _ = func(x *V, x *T) { x.M() }; x.M() }; x.M() }", true);
+}
+
+#[test]
+fn grouped_parameter_payload_is_shared_before_collection() {
+    let ty = format!("interface {{ M(); /*{}*/ }}", " ".repeat(256));
+    for count in [1, 4] {
+        let names = (0..count)
+            .map(|i| format!("x{i}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let p = parsed(&format!("package p\nfunc run({names} {ty}) {{}}"));
+        for plain in [false, true] {
+            let parameters = collect::parameters(&p, root(&p), plain);
+            assert_eq!(parameters.len(), count);
+            let pointers: BTreeSet<_> = parameters
+                .iter()
+                .map(|(_, (text, _))| text.as_ptr())
+                .collect();
+            assert_eq!(
+                pointers.len(),
+                1,
+                "grouped names must share the temporary parameter payload"
+            );
+            assert!(parameters.iter().all(|(_, (text, _))| {
+                let text: &str = text;
+                text == ty.as_str()
+            }));
+        }
+    }
+}
+
+#[test]
+fn retained_payload_bytes_follow_distinct_types() {
+    let ty = format!("interface {{ M(); /*{}*/ }}", " ".repeat(4096));
+    let mut retained = Vec::new();
+    for assignments in [8, 128] {
+        let source = format!("package p\nfunc run(x {ty}, t *T) {{ {} {{ var y, z {ty}; y.M(); z.M() }} _ = func(y {ty}, z {ty}) {{ y.M(); z.M() }}; {{ q := &T{{}}; q.M() }}; x.M() }}", "x = nil; ".repeat(assignments));
+        let p = parsed(&source);
+        let function = root(&p);
+        let _session = Session::new(&p, function);
+        // Include scope activation/deactivation and every lazy mode.
+        check(&source, false);
+        let byte = source.rfind("x.M()").unwrap();
+        let line = p.line_offsets.partition_point(|start| *start <= byte);
+        for var in [false, true] {
+            for reuse in [false, true] {
+                assert_eq!(
+                    evidence(&p, function, "x", line, byte, var, reuse),
+                    Some((None, assignments + 1, None))
+                );
+            }
+        }
+        let bytes = with_facts(&p, function, |facts| {
+            let mut payloads = BTreeMap::new();
+            for row in facts.names.values() {
+                row.seed.record_payloads(&mut payloads);
+                for event in &row.events {
+                    event.value.record_payloads(&mut payloads);
+                }
+                for timeline in row.timelines.iter().filter_map(OnceCell::get) {
+                    timeline.record_payloads(&mut payloads);
+                }
+            }
+            assert!(payloads.contains_key(&ty));
+            assert!(payloads.len() >= 2, "exercise distinct types");
+            let allocated: usize = payloads
+                .iter()
+                .map(|(text, pointers)| text.len() * pointers.len())
+                .sum();
+            let distinct: usize = payloads.keys().map(String::len).sum();
+            assert_eq!(
+                allocated, distinct,
+                "retained recovery payload allocations must be shared: {assignments} assignments"
+            );
+            println!(
+                "assignments={assignments} distinct_types={} retained_payload_bytes={allocated}",
+                payloads.len()
+            );
+            allocated
+        })
+        .unwrap();
+        retained.push(bytes);
+    }
+    assert_eq!(
+        retained[0], retained[1],
+        "assignment count must not multiply retained payload bytes"
+    );
+}
+
+#[test]
+fn duplicate_literal_graph_equivalence() {
+    const CHILD: &str = "PRISM_TEST_GO_DUPLICATE_SNAPSHOT";
+    if let Some(path) = std::env::var_os(CHILD) {
+        let graphs: Vec<_> = [2, 3]
+            .into_iter()
+            .flat_map(|count| {
+                [false, true].into_iter().map(move |outer| {
+                    let files = BTreeMap::from([(
+                        "p.go".to_owned(),
+                        parsed(&duplicate_literal_source(count, outer)),
+                    )]);
+                    let graph = CallGraph::build(&files);
+                    let sites: Vec<_> = graph.calls.iter().collect();
+                    (
+                        serde_json::to_value(&sites).unwrap(),
+                        bincode::serialize(&graph).unwrap(),
+                        crate::navigation::queries::call_stats(&graph),
+                    )
+                })
+            })
+            .collect();
+        std::fs::write(path, serde_json::to_vec(&graphs).unwrap()).unwrap();
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut snapshots = Vec::new();
+    for threads in ["1", "4"] {
+        for old in [false, true] {
+            let path = dir.path().join(format!("{threads}-{old}"));
+            let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+            command
+                .args([
+                    "--exact",
+                    "ast::go_receiver_walk::tests::duplicate_literal_graph_equivalence",
+                    "--nocapture",
+                ])
+                .env("RAYON_NUM_THREADS", threads)
+                .env(CHILD, &path)
+                .env_remove("PRISM_TEST_GO_WALK_REFERENCE");
+            if old {
+                command.env("PRISM_TEST_GO_WALK_REFERENCE", "1");
+            }
+            let output = command.output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            snapshots.push(std::fs::read(path).unwrap());
+        }
+    }
+    for snapshot in &snapshots[1..] {
+        assert!(snapshot == &snapshots[0], "duplicate literal graph differs");
+    }
+}
+
+#[test]
 fn auxiliary_walks_keep_their_distinct_fences() {
     let source = "package p\nfunc run() { type T struct{}; x.M(); _ = func(x *T) { type U = T; x.M() }; x.M(); func inner() { type V = T; _ = func(y *V) { y.M() } } }";
     let p = parsed(source);

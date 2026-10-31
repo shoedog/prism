@@ -45,18 +45,31 @@ impl Summary {
         self
     }
     pub(super) fn evidence(&self) -> Evidence {
+        let owned =
+            |value: &Option<Recovery>| value.as_ref().map(|(text, kind)| (text.to_string(), *kind));
         if self.count > 1 {
             (
                 None,
                 self.count,
                 if self.later_lexical {
-                    self.first.clone()
+                    owned(&self.first)
                 } else {
                     None
                 },
             )
         } else {
-            (self.last.clone(), self.count, self.first.clone())
+            (owned(&self.last), self.count, owned(&self.first))
+        }
+    }
+    #[cfg(test)]
+    pub(super) fn record_payloads(
+        &self,
+        out: &mut BTreeMap<String, std::collections::BTreeSet<usize>>,
+    ) {
+        for (text, _) in self.first.iter().chain(self.last.iter()) {
+            out.entry(text.to_string())
+                .or_default()
+                .insert(text.as_ptr() as usize);
         }
     }
 }
@@ -107,5 +120,14 @@ impl Timeline {
         self.0[self.0.partition_point(|(start, _)| *start <= byte) - 1]
             .1
             .evidence()
+    }
+    #[cfg(test)]
+    pub(super) fn record_payloads(
+        &self,
+        out: &mut BTreeMap<String, std::collections::BTreeSet<usize>>,
+    ) {
+        for (_, summary) in &self.0 {
+            summary.record_payloads(out);
+        }
     }
 }

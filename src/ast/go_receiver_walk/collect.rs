@@ -127,6 +127,9 @@ pub(super) fn parameters(
             let Some(ty) = param.child_by_field_name("type") else {
                 continue;
             };
+            // Share before building the temporary name vector: one grouped
+            // declaration can bind many names to a very large type.
+            let value: Recovery = (p.node_text(&ty).into(), ReceiverRecovery::TypedParam);
             let mut pc = param.walk();
             let mut seen = BTreeSet::new();
             for name in param.children(&mut pc) {
@@ -134,10 +137,7 @@ pub(super) fn parameters(
                     && name.kind() == "identifier"
                     && seen.insert(p.node_text(&name).to_owned())
                 {
-                    out.push((
-                        p.node_text(&name).to_owned(),
-                        (p.node_text(&ty).to_owned(), ReceiverRecovery::TypedParam),
-                    ));
+                    out.push((p.node_text(&name).to_owned(), value.clone()));
                 }
             }
         }
@@ -188,8 +188,28 @@ struct Collector<'p> {
     p: &'p ParsedFile,
     scopes: Scopes,
     names: BTreeMap<String, NameFacts>,
+    payloads: BTreeSet<std::rc::Rc<str>>,
 }
 impl Collector<'_> {
+    fn share(&mut self, (text, kind): Recovery) -> Recovery {
+        if let Some(shared) = self.payloads.get(text.as_ref()) {
+            (shared.clone(), kind)
+        } else {
+            self.payloads.insert(text.clone());
+            (text, kind)
+        }
+    }
+    fn parameter_summaries(&mut self, owner: Node<'_>, lexical: bool) -> BTreeMap<String, Summary> {
+        let mut rows: BTreeMap<String, Summary> = BTreeMap::new();
+        for (name, ty) in parameters(self.p, owner, true) {
+            let value = self.share(ty);
+            let summary = rows.entry(name).or_default();
+            *summary = summary.join(&Summary::binding(Some(value), lexical));
+        }
+        rows.into_iter()
+            .map(|(name, summary)| (name, summary.parameters()))
+            .collect()
+    }
     fn event(
         &mut self,
         name: String,
@@ -199,6 +219,7 @@ impl Collector<'_> {
         flags: (bool, bool, bool),
     ) {
         let (lexical, var, reuse) = flags;
+        let value = value.map(|value| self.share(value));
         self.names.entry(name).or_default().events.push(Event {
             lo: span.0.max(n.start_byte() + 1),
             hi: span.1,
@@ -220,8 +241,14 @@ impl Collector<'_> {
         }
         if !root && n.kind() == "func_literal" {
             span = intersect(span, (n.start_byte(), n.end_byte()));
-            for (name, ty) in parameters(p, n, true) {
-                self.event(name, n, span, Some(ty), (true, false, false));
+            for (name, value) in self.parameter_summaries(n, true) {
+                self.names.entry(name).or_default().events.push(Event {
+                    lo: span.0.max(n.start_byte() + 1),
+                    hi: span.1,
+                    value,
+                    var: false,
+                    reuse: false,
+                });
             }
         }
         let scoped = || {
@@ -287,7 +314,7 @@ impl Collector<'_> {
                             p.constructor_type(&r)
                                 .or_else(|| p.first_constructor_type_child(&r))
                         })
-                        .map(|ty| (ty, ReceiverRecovery::ConstructorLocal));
+                        .map(|ty| (ty.into(), ReceiverRecovery::ConstructorLocal));
                     for name in binding_names(p, left) {
                         let ty = if simple.as_ref() == Some(&name) {
                             value.clone()
@@ -312,7 +339,7 @@ impl Collector<'_> {
                 } else {
                     None
                 }
-                .map(|ty| (ty, ReceiverRecovery::VarDecl));
+                .map(|ty| (ty.into(), ReceiverRecovery::VarDecl));
                 let names: BTreeSet<_> = names
                     .iter()
                     .filter_map(|v| p.simple_binding_text(v))
@@ -388,13 +415,10 @@ pub(super) fn collect(p: &ParsedFile, root: Node<'_>) -> BTreeMap<String, NameFa
         p,
         scopes: Scopes::new(p, root),
         names: BTreeMap::new(),
+        payloads: BTreeSet::new(),
     };
-    for (name, ty) in parameters(p, root, true) {
-        let seed = &mut collector.names.entry(name).or_default().seed;
-        *seed = seed.join(&Summary::binding(Some(ty), false));
-    }
-    for row in collector.names.values_mut() {
-        row.seed = row.seed.clone().parameters();
+    for (name, seed) in collector.parameter_summaries(root, false) {
+        collector.names.entry(name).or_default().seed = seed;
     }
     collector.walk(root, true, (0, usize::MAX), &mut Vec::new());
     collector.names

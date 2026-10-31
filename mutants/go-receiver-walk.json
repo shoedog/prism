@@ -82,6 +82,24 @@
       "hi: usize::MAX,",
       "ast::go_receiver_walk::tests::auxiliary_walks_keep_their_distinct_fences"
     ],
+    "GRW-range-define": [
+      "src/ast/go_receiver_walk/collect.rs",
+      "\"range_clause\" if p.node_text(&n).contains(\":=\") => {",
+      "\"range_clause\" => {",
+      "ast::go_receiver_walk::tests::range_assignment_preserves_binding"
+    ],
+    "GRW-literal-parameter-transaction": [
+      "src/ast/go_receiver_walk/collect.rs",
+      "(name, summary.parameters())",
+      "(name, summary)",
+      "ast::go_receiver_walk::tests::duplicate_literal_parameter_transactions"
+    ],
+    "GRW-shared-payload": [
+      "src/ast/go_receiver_walk/timeline.rs",
+      "first: self.first.clone(),",
+      "first: self.first.as_ref().map(|(t, k)| (std::rc::Rc::from(t.as_ref()), *k)),",
+      "ast::go_receiver_walk::tests::retained_payload_bytes_follow_distinct_types"
+    ],
     "GRW-production-memo": [
       "src/ast/go_receiver_walk.rs",
       "if bypassed() {",
