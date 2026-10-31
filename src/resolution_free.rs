@@ -9,6 +9,10 @@ use std::collections::BTreeMap;
 #[path = "resolution_free_tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "resolution_family_tests.rs"]
+mod family_tests;
+
 pub(super) fn same_family(caller_file: &str, candidate: &FunctionId) -> bool {
     // Same-file lookup retains its existing behavior, including explicit-language
     // ParsedFile callers whose paths have no recognized extension.
@@ -34,8 +38,33 @@ pub(super) fn candidates<'a>(
 // Admission runs after the legacy rung has selected targets and confidence.
 // A removed candidate is neither evidence of uniqueness nor permission to try
 // a broader rung. This also preserves Go profile partitions and telemetry.
+//
+// Method rungs (R1 `T::m`, R3b qualifier owner, R4b implicit-this, the
+// self/receiver-variable and recovered-receiver owner lookups, R6) pool owners
+// from `CallGraph::methods`/`functions` without a language key, so they are
+// admitted once, on the public full-resolution result (`admit_and_filter_family`,
+// called by `resolve_call_site_full` in `js_anonymous.rs` and its Go-memo twin): the rung, kind and confidence are
+// the unfiltered pool's, foreign-family targets are then removed, and a pool
+// left empty refuses with no later rung consulted (#585).
+impl super::CallGraph {
+    /// The one tail every public full resolution ends with: anonymous-callable admission
+    /// first, then the language-family filter. The order is load-bearing. Admission clears a
+    /// multi-target pool at a site it cannot prove, so filtering first could narrow
+    /// `{same-family, foreign}` to one target that admission would then keep as a NameOnly edge
+    /// main drops (an addition). Both `CallGraph::resolve_call_site_full` and
+    /// `GoSatisfierMemo::resolve_call_site_full` call this, so they cannot drift.
+    pub(crate) fn admit_and_filter_family<'a>(
+        &self,
+        site: &super::CallSite,
+        outcome: super::ResolutionOutcome<'a>,
+    ) -> super::ResolutionOutcome<'a> {
+        self.admit_anonymous_exact(site, outcome)
+            .retain_family(&site.caller.file)
+    }
+}
+
 impl super::ResolutionOutcome<'_> {
-    pub(super) fn retain_family(mut self, caller_file: &str) -> Self {
+    pub(crate) fn retain_family(mut self, caller_file: &str) -> Self {
         if !self.resolved.is_empty() {
             self.resolved.retain(|r| same_family(caller_file, r.target));
             if self.resolved.is_empty() {

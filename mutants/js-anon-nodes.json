@@ -85,7 +85,7 @@
       "call_graph::anon_prep_tests::anonymous_source_is_exact_and_legacy_indirect_declines"
     ],
     "ANON-PREP-15-binder-authority-off": [
-      "src/js_anonymous.rs",
+      "src/resolution_free.rs",
       "self.admit_anonymous_exact(site, outcome)",
       "outcome",
       "call_graph::anon_prep_tests::barrier_tests::census_w1_through_w6_and_disclosed_receiver_recall"
@@ -157,9 +157,9 @@
       "call_graph::anon_prep_tests::barrier_tests::namespace_export_proof_never_admits_stem_fallback"
     ],
     "ANON-BARRIER-27-boundary-bypass-owner-route": [
-      "src/js_anonymous.rs",
+      "src/resolution_free.rs",
       "self.admit_anonymous_exact(site, outcome)",
-      "if outcome.resolved.iter().any(|r| r.kind == crate::resolution::ResolutionKind::QualifierOwner) { outcome } else { self.admit_anonymous_exact(site, outcome) }",
+      "(if outcome.resolved.iter().any(|r| r.kind == crate::resolution::ResolutionKind::QualifierOwner) { outcome } else { self.admit_anonymous_exact(site, outcome) })",
       "call_graph::anon_prep_tests::barrier_tests::census_w1_through_w6_and_disclosed_receiver_recall"
     ],
     "ANON-BARRIER-28-B0-internal_module-off": [

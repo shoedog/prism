@@ -122,7 +122,7 @@ impl<'a> GoSatisfierMemo<'a> {
         let outcome = self
             .graph
             .resolve_call_site_candidates_with_go_memo(site, Some(self));
-        self.graph.admit_anonymous_exact(site, outcome)
+        self.graph.admit_and_filter_family(site, outcome)
     }
 }
 

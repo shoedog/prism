@@ -298,7 +298,7 @@ impl CallGraph {
     /// The only public full-resolution entry. Future candidate returns also pass this tail.
     pub fn resolve_call_site_full(&self, site: &CallSite) -> ResolutionOutcome<'_> {
         let outcome = self.resolve_call_site_candidates(site);
-        self.admit_anonymous_exact(site, outcome)
+        self.admit_and_filter_family(site, outcome)
     }
     pub(crate) fn admit_anonymous_exact<'a>(
         &self,

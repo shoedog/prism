@@ -276,7 +276,8 @@ mod stream;
 /// - v132: explicit JS/TS function-expression names retain their body scope (#450).
 /// - v133: Rust external paths/imports and constructor receivers refuse repo collisions (#540).
 /// - v134: external-path refusal filters target crates and preserves receiver annotations (#540).
-const CACHE_VERSION: u32 = 134;
+/// - v135: method-rung pools refuse cross-language-family targets (#585).
+const CACHE_VERSION: u32 = 135;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -827,7 +828,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 134);
+        assert_eq!(super::CACHE_VERSION, 135);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
