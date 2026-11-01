@@ -20,6 +20,7 @@ mod boundary;
 #[path = "call_graph_profile_initializers.rs"]
 mod init_profile;
 mod js_ts_facts;
+mod level4;
 mod python_import_proofs;
 pub(crate) use python_import_proofs::{
     python_imported_class_proof_keys, python_imported_class_route,
@@ -2792,26 +2793,7 @@ impl CallGraph {
         }
 
         // Level 4: struct field callback resolution (interprocedural).
-        type Level4Index = BTreeMap<String, BTreeMap<String, BTreeSet<String>>>;
-        let mut level4_index: Level4Index = BTreeMap::new();
-        for (path, parsed) in files {
-            let mut per_field: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-            for line in parsed.source.lines() {
-                let trimmed = line.trim();
-                for field in crate::ast::candidate_fields_on_line(trimmed) {
-                    let targets = per_field.entry(field.clone()).or_default();
-                    crate::ast::line_field_targets(trimmed, &field, &known_fn_names, targets);
-                }
-            }
-            for (field, targets) in per_field {
-                if !targets.is_empty() {
-                    level4_index
-                        .entry(field)
-                        .or_default()
-                        .insert(path.clone(), targets);
-                }
-            }
-        }
+        let level4_index = level4::build(files, &known_fn_names);
 
         let mut level4_sites: Vec<(FunctionId, CallSite)> = Vec::new();
         for (caller_id, sites) in self
@@ -7980,28 +7962,12 @@ mod tests {
         }
 
         // Build the index exactly as CallGraph::build does.
-        let mut index: std::collections::BTreeMap<
-            String,
-            std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
-        > = Default::default();
-        for (path, src) in &sources {
-            let mut per_field: std::collections::BTreeMap<
-                String,
-                std::collections::BTreeSet<String>,
-            > = Default::default();
-            for line in src.lines() {
-                let trimmed = line.trim();
-                for field in crate::ast::candidate_fields_on_line(trimmed) {
-                    let t = per_field.entry(field.clone()).or_default();
-                    crate::ast::line_field_targets(trimmed, &field, &known, t);
-                }
-            }
-            for (field, t) in per_field {
-                if !t.is_empty() {
-                    index.entry(field).or_default().insert(path.clone(), t);
-                }
-            }
-        }
+        let inputs: Vec<_> = sources
+            .iter()
+            .map(|(p, s)| (p.as_str(), s.as_str()))
+            .collect();
+        let index = super::level4::build_sources(&inputs, &known);
+        assert_eq!(index, super::level4::reference(&inputs, &known));
 
         // Half 1 — EXCESS: every (field, file) the index claims must equal the legacy scan.
         for (field, by_file) in &index {

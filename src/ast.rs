@@ -11518,14 +11518,13 @@ pub(crate) fn line_field_targets(
 /// Every maximal identifier immediately preceded by `->` or `.` on the line,
 /// under the PINNED predicate: char::is_alphanumeric(c) || c == '_' — the same
 /// Unicode-aware class the Level-4 call-site filter applies to callee names —
-/// scanned over RAW source lines including comments and string literals
-/// (reproduces legacy text-scan semantics).
+/// scanned over RAW source, including comments and strings (legacy semantics).
 ///
 /// Completeness: a field can only produce a target when the accessor occurrence
 /// is followed (after optional whitespace) by `=`, which terminates the
-/// identifier run — so every PRODUCTIVE field is a maximal run here. Prefix
-/// occurrences (`->cbx` while querying `cb`) never produce targets; their
-/// consumption side-effects are reproduced by running the legacy core.
+/// identifier run. Prefix occurrences (`->cbx` when querying `cb`) produce no
+/// targets; the legacy core retains their consumption side-effects.
+#[cfg(test)]
 pub(crate) fn candidate_fields_on_line(trimmed: &str) -> BTreeSet<String> {
     fn ident_char(c: char) -> bool {
         c.is_alphanumeric() || c == '_'
