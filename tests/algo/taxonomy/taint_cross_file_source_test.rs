@@ -19,6 +19,18 @@ function runCmd(c) {
 module.exports = { runCmd };
 ";
 
+// CMD_JS plus a local caller placed AFTER the sink line.
+const CMD_WITH_LOCAL_CALLER_JS: &str = "const { exec } = require('child_process');
+function runCmd(c) {
+  const full = 'ls ' + c;
+  exec(full);
+}
+module.exports = { runCmd };
+function viaLocal(req, res) {
+  runCmd(req.body.c);
+}
+";
+
 const APP_PY: &str = "from flask import request
 from lib import run_cmd
 
@@ -159,6 +171,69 @@ fn same_file_sink_keeps_nearest_preceding_line_description() {
     assert!(
         sources.iter().any(|s| s.file == "app.js" && s.line == 7),
         "same-file source still reported: {:?}",
+        summary(&r)
+    );
+}
+
+#[test]
+fn same_file_path_source_wins_over_cross_file_source() {
+    // lib/cmd.js:3 (same file, before the sink) and named.js:3 (cross file)
+    // both reach the sink at lib/cmd.js:4. The same-file source must win, in
+    // the plain `line N` form, even though a cross-file source exists.
+    let r = run_taint(&[
+        ("named.js", NAMED_JS, Language::JavaScript, &[3]),
+        ("lib/cmd.js", CMD_JS, Language::JavaScript, &[3]),
+    ]);
+    let sinks = by_category(&r, "taint_sink");
+    assert_eq!(sinks.len(), 1, "findings: {:?}", summary(&r));
+    assert_eq!(sinks[0].file, "lib/cmd.js");
+    assert_eq!(sinks[0].line, 4);
+    assert_eq!(
+        sinks[0].description,
+        "tainted value from line 3 reaches sink at line 4",
+        "findings: {:?}",
+        summary(&r)
+    );
+}
+
+#[test]
+fn cross_file_source_is_named_when_same_file_source_is_after_the_sink() {
+    // Declared behaviour change (#602): the only same-file path source
+    // (`runCmd(req.body.c)`, line 8) is AFTER the sink at line 4, so it
+    // is not eligible; the sink names the cross-file source named.js:3.
+    // "lib/cmd.js" sorts before "named.js", so a pick that ignored the
+    // same-file/cross-file distinction would print `line N` instead.
+    let r = run_taint(&[
+        ("named.js", NAMED_JS, Language::JavaScript, &[3]),
+        (
+            "lib/cmd.js",
+            CMD_WITH_LOCAL_CALLER_JS,
+            Language::JavaScript,
+            &[1, 8],
+        ),
+    ]);
+    let sinks = by_category(&r, "taint_sink");
+    assert_eq!(sinks.len(), 1, "findings: {:?}", summary(&r));
+    assert_eq!(sinks[0].file, "lib/cmd.js");
+    assert_eq!(sinks[0].line, 4);
+    assert!(
+        sinks[0].description.contains("named.js:3"),
+        "sink must name cross-file source named.js:3, got: {:?}",
+        sinks[0].description
+    );
+    let sources = by_category(&r, "taint_source");
+    assert!(
+        !sources
+            .iter()
+            .any(|s| s.file == "lib/cmd.js" && s.line == 1),
+        "no taint_source at the unrelated diffed line 1: {:?}",
+        summary(&r)
+    );
+    assert!(
+        sources
+            .iter()
+            .any(|s| s.file == "lib/cmd.js" && s.line == 8),
+        "local caller line 8 still emitted as taint_source: {:?}",
         summary(&r)
     );
 }
