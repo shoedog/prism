@@ -80,6 +80,10 @@ fn fixtures() -> Vec<String> {
         "const C = class exports { [exports.run()] = require('./m'); }; exports.run = target;".into(),
         "module.exports.run = target; ({module} = other); [exports] = other; require++;".into(),
         "module.exports.run = target; const f = function module() { module++; };".into(),
+        // Opus #612 S1: a switch-discriminant receiver, a namespace-name identifier and destructured shadows.
+        "switch (exports.x) { case 1: let exports; exports.run(); } exports.run = target;".into(),
+        "const {exports} = o; exports.run = target; function g() { const [module] = o; module.exports.run = target; }".into(),
+        "namespace a.exports { var exports; } exports.run = target;".into(),
         "module.exports.run = target; function module() { module++; }".into(),
         "function f() { for (let exports of xs) { require('./m'); } require('./m'); }".into(),
     ];
