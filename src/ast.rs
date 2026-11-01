@@ -33,6 +33,9 @@ mod js_binding_walk;
 mod js_binding_writes;
 mod js_cjs_export_barriers;
 mod js_cjs_terminal;
+mod js_export_memo;
+#[cfg(test)]
+mod js_export_work_tests;
 mod js_generator;
 pub(crate) mod js_language_gate;
 mod js_module_forwarding;
@@ -2232,6 +2235,7 @@ impl ParsedFile {
             return facts;
         }
 
+        let _session = js_export_memo::Session::new(self);
         let root = self.tree.root_node();
         let mut cjs = crate::js_exports::JsExportFacts::default();
         // A local export of an imported binding is not an in-file callable.
@@ -2320,36 +2324,6 @@ impl ParsedFile {
             }
         }
         facts
-    }
-
-    /// Only a refusal guard: lexical declarations or writes revoke recognition
-    /// of the CommonJS ambient spelling. No ambient module existence is proven.
-    fn js_ts_unshadowed_ambient(&self, identifier: Node<'_>) -> bool {
-        !self.js_ts_receiver_lexically_bound_at_call(&self.tree.root_node(), Some(identifier))
-            && !self.js_ts_module_value_written(self.node_text(&identifier))
-    }
-
-    /// Replacing module.exports may detach the original exports object. Refuse
-    /// exports.* throughout the file, including possible reattachment; no heap
-    /// alias or execution-order proof is available in this export-fact model.
-    fn js_ts_module_exports_replaced(&self, node: Node<'_>) -> bool {
-        if let Some(left) = self.js_ts_write_target(node) {
-            if left.kind() == "member_expression"
-                && left
-                    .child_by_field_name("object")
-                    .is_some_and(|n| self.node_text(&n) == "module")
-                && left
-                    .child_by_field_name("property")
-                    .is_some_and(|n| self.node_text(&n) == "exports")
-            {
-                return true;
-            }
-        }
-        let mut cursor = node.walk();
-        let found = node
-            .named_children(&mut cursor)
-            .any(|n| self.js_ts_module_exports_replaced(n));
-        found
     }
 
     fn js_ts_type_only_imports(&self) -> BTreeMap<String, Option<(String, String)>> {
@@ -4455,57 +4429,6 @@ impl ParsedFile {
             )
         });
         found
-    }
-
-    /// A module class/import is a live binding. Any visible write, including in
-    /// an escaping callable, revokes the whole-file owner proof. Shadow writes
-    /// are separated by the same lexical predicate used for receiver mutations.
-    pub(crate) fn js_ts_module_value_written(&self, name: &str) -> bool {
-        self.js_ts_module_written(name, false)
-    }
-
-    /// The module write scan; with `skip_using`, a TS `using` declaration declares and is
-    /// never a W1 write (S1b SPEC §3.1 D4, W1).
-    pub(crate) fn js_ts_module_written(&self, name: &str, skip_using: bool) -> bool {
-        if !matches!(
-            self.language,
-            Language::JavaScript | Language::TypeScript | Language::Tsx
-        ) {
-            return false;
-        }
-        fn walk(parsed: &ParsedFile, node: Node<'_>, root_id: usize, name: &str, u: bool) -> bool {
-            #[cfg(test)]
-            js_module_forwarding::tests::visit();
-            if matches!(
-                node.kind(),
-                "assignment_expression"
-                    | "augmented_assignment_expression"
-                    | "update_expression"
-                    | "for_in_statement"
-                    | "for_of_statement"
-                    | "for_await_statement"
-            ) && !(u && js_binding_decls::js_ts_is_using(node))
-            {
-                if let Some(target) = node
-                    .child_by_field_name("left")
-                    .or_else(|| node.child_by_field_name("argument"))
-                    .or_else(|| node.named_child(0))
-                {
-                    let mut names = BTreeSet::new();
-                    parsed.collect_js_ts_binding_pattern_names(target, &mut names);
-                    if names.contains(name)
-                        && !parsed.js_ts_has_closer_binding(&target, name, root_id, true)
-                    {
-                        return true;
-                    }
-                }
-            }
-            let mut cursor = node.walk();
-            let mut children = node.named_children(&mut cursor);
-            children.any(|child| walk(parsed, child, root_id, name, u))
-        }
-        let root = self.tree.root_node();
-        walk(self, root, root.id(), name, skip_using)
     }
 
     fn js_ts_receiver_has_closer_binding(
