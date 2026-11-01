@@ -1,0 +1,104 @@
+{
+  "lane": "Import-target attribution for review diff-file call sites (#602)",
+  "lib_test_prefixes": [
+    "review_context::"
+  ],
+  "mutations": {
+    "IT01-bare-package-not-external": [
+      "src/review_context/import_targets.rs",
+      "            None => Attribution::External,\n        }\n    }\n}",
+      "            None => Attribution::Unresolvable {\n                spec: spec.to_string(),\n            },\n        }\n    }\n}",
+      "review_context::import_targets_tests::js_bare_package_is_external"
+    ],
+    "IT02-alias-miss-reads-as-package": [
+      "src/review_context/import_targets.rs",
+      "None if self.js_resolver.declares_alias(file, spec) =>",
+      "None if false =>",
+      "review_context::import_targets_tests::js_alias_with_missing_target_is_unresolvable_not_external"
+    ],
+    "IT03-loaded-target-kept": [
+      "src/review_context/import_targets.rs",
+      ".filter(|t| t != file && !self.loaded.contains(t))",
+      ".filter(|t| t != file)",
+      "review_context::import_targets_tests::js_target_in_loaded_set_is_local"
+    ],
+    "IT04-order-reversed": [
+      "src/review_context/import_targets.rs",
+      "Attribution::InRepo(outside.into_iter().collect())",
+      "Attribution::InRepo(outside.into_iter().rev().collect())",
+      "review_context::import_targets_tests::js_ambiguous_candidates_are_all_returned_sorted"
+    ],
+    "IT05-ambiguity-bound-lifted": [
+      "src/review_context/import_targets.rs",
+      "found.len() > MAX_AMBIGUOUS",
+      "found.len() > MAX_AMBIGUOUS + 8",
+      "review_context::import_targets_tests::js_too_many_candidates_are_unresolvable"
+    ],
+    "IT06-qualified-call-treated-as-local": [
+      "src/review_context/import_targets.rs",
+      "call.qualifier.is_none() && parsed.find_function_by_name",
+      "parsed.find_function_by_name",
+      "review_context::import_targets_tests::js_unbound_calls_are_unknown"
+    ],
+    "IT07-node-modules-listed": [
+      "src/repo_loader.rs",
+      "const BUILTIN_SKIP_DIRS: &[&str] = &[\".git\", \"target\", \"node_modules\", \"vendor\", \"dist\", \"build\"];",
+      "const BUILTIN_SKIP_DIRS: &[&str] = &[\".git\", \"target\", \"vendor\", \"dist\", \"build\"];",
+      "review_context::import_targets_tests::js_skipped_directories_are_never_targets"
+    ],
+    "IT08-listing-walked-again": [
+      "src/repo_loader.rs",
+      "source_listing: std::sync::OnceLock::from(listing),",
+      "source_listing: Default::default(),",
+      "review_context::import_targets_tests::listing_is_memoized_on_scope_graph_inputs"
+    ],
+    "IT09-catch-all-paths-key-is-alias": [
+      "src/js_paths.rs",
+      "!(pre.is_empty() && post.is_empty())",
+      "true",
+      "review_context::import_targets_tests::js_catch_all_paths_key_does_not_turn_packages_into_aliases"
+    ],
+    "IT10-go-test-files-included": [
+      "src/review_context/import_targets/go.rs",
+      "!path.ends_with(\"_test.go\")",
+      "true",
+      "review_context::import_targets_py_go_tests::go_qualified_call_names_every_non_test_file_of_the_package"
+    ],
+    "IT11-go-std-not-external": [
+      "src/review_context/import_targets/go.rs",
+      "None => Attribution::External,",
+      "None => Attribution::Unknown,",
+      "review_context::import_targets_py_go_tests::go_std_and_third_party_imports_are_external"
+    ],
+    "IT12-py-farthest-ancestor-wins": [
+      "src/review_context/import_targets/python.rs",
+      "if !hits.is_empty() || dir.is_empty() {",
+      "if dir.is_empty() {",
+      "review_context::import_targets_py_go_tests::py_absolute_import_prefers_nearest_ancestor"
+    ],
+    "IT13-py-ancestor-jumps-to-root": [
+      "src/review_context/import_targets/python.rs",
+      "dir = dir\n                .rsplit_once('/')\n                .map_or(\"\", |(parent, _)| parent)\n                .to_string();",
+      "dir = String::new();",
+      "review_context::import_targets_py_go_tests::py_absolute_import_prefers_nearest_ancestor"
+    ],
+    "IT14-py-relative-dots-off-by-one": [
+      "src/review_context/import_targets/python.rs",
+      "for _ in 1..dots {",
+      "for _ in 0..dots {",
+      "review_context::import_targets_py_go_tests::py_relative_two_dots"
+    ],
+    "IT15-py-missing-absolute-not-external": [
+      "src/review_context/import_targets/python.rs",
+      "if files.is_empty() && !module.starts_with('.') {",
+      "if files.is_empty() && false {",
+      "review_context::import_targets_py_go_tests::py_stdlib_and_third_party_are_external"
+    ],
+    "IT16-py-missing-relative-reads-as-package": [
+      "src/review_context/import_targets/python.rs",
+      "if files.is_empty() && !module.starts_with('.') {",
+      "if files.is_empty() {",
+      "review_context::import_targets_py_go_tests::py_relative_import_of_missing_module_is_unresolvable"
+    ]
+  }
+}

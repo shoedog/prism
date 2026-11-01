@@ -295,7 +295,8 @@ fn scope_graph_build_inputs_from_snapshot(
     manifest_hashes.extend(js_paths_snapshot.topology());
     let cfg = parse_rust_crate_config(files, &manifest_snapshot)
         .unwrap_or_else(|| RustCrateConfig::from_convention(files));
-    let complete = has_complete_rust_coverage(root, files);
+    let listing = collect_supported_source_paths(root).map(std::sync::Arc::new);
+    let complete = has_complete_rust_coverage(listing.as_deref(), files);
     ScopeGraphBuildInputs {
         repo_root: root.to_path_buf(),
         all_file_paths: files.keys().cloned().collect(),
@@ -305,6 +306,7 @@ fn scope_graph_build_inputs_from_snapshot(
         js_paths_snapshot,
         cfg,
         complete,
+        source_listing: std::sync::OnceLock::from(listing),
     }
 }
 
@@ -441,12 +443,15 @@ fn is_manifest_name(name: &str) -> bool {
     matches!(name, "Cargo.toml" | "go.mod" | "go.work")
 }
 
-fn has_complete_rust_coverage(root: &Path, files: &BTreeMap<String, ParsedFile>) -> bool {
-    let Some(expected) = collect_supported_source_paths(root) else {
+fn has_complete_rust_coverage(
+    expected: Option<&BTreeSet<String>>,
+    files: &BTreeMap<String, ParsedFile>,
+) -> bool {
+    let Some(expected) = expected else {
         return false;
     };
     let is_rust = |p: &String| Language::from_path(p) == Some(Language::Rust);
-    let expected_rust: BTreeSet<String> = expected.into_iter().filter(is_rust).collect();
+    let expected_rust: BTreeSet<String> = expected.iter().filter(|p| is_rust(p)).cloned().collect();
     let actual_rust: BTreeSet<String> = files.keys().filter(|k| is_rust(k)).cloned().collect();
     actual_rust == expected_rust
 }
@@ -457,7 +462,7 @@ mod freshness_paths;
 #[cfg(feature = "mcp")]
 pub(crate) use freshness_paths::collect_freshness_source_paths;
 
-fn collect_supported_source_paths(root: &Path) -> Option<BTreeSet<String>> {
+pub(crate) fn collect_supported_source_paths(root: &Path) -> Option<BTreeSet<String>> {
     let mut out = BTreeSet::new();
     collect_supported_source_paths_inner(root, root, &mut out).ok()?;
     Some(out)
