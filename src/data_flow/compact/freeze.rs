@@ -145,9 +145,14 @@ impl<T: Table> Intern<T> {
         Ok(id)
     }
     pub(super) fn finish(self) -> Result<(Arena, Vec<OccId>), &'static str> {
-        let mut remap = vec![OccId(0); self.rows.len()];
-        let mut rows = Vec::with_capacity(self.rows.len());
-        for (key, old) in self.rows.into_sorted() {
+        let len = self.rows.len();
+        // Drain the table before allocating the outputs: the hashed table is
+        // freed once its sorted copy exists, so the two never sit beside
+        // `rows` and `remap` (#610). The ordered table drains lazily as before.
+        let sorted = self.rows.into_sorted();
+        let mut remap = vec![OccId(0); len];
+        let mut rows = Vec::with_capacity(len);
+        for (key, old) in sorted {
             remap[old.0 as usize] = OccId(checked_id(rows.len())?);
             rows.push(own_legacy(key));
         }
