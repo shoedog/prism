@@ -26,9 +26,20 @@
 //! `p.b`. A nested literal contributes its leaf paths (`{ a: { b: x } }` is `L = [a, b]`),
 //! so `p.a` (the container) sees `x` while `p.a.c` does not.
 //!
+//! Member writes. A member-only formal's reads already honour the callee's member writes
+//! (the DFG drops a suppressed path). A mixed formal's reads are base `p` Uses that
+//! assignment to `p.a` does not redefine, so the pass applies the member-only lane's own
+//! flow-insensitive suppression itself (`ParsedFile::formal_member_facts_at`): a read whose
+//! path is written, has a written prefix or has a deeper write below it is not fed, and a
+//! leaf at or below a written path is not fed to any read (the write replaced that key).
+//! Cost: a read that would have run before the write loses its edge. Not modelled, as in
+//! the member-only lane: `p[k] = v` and aliases of `p`.
+//!
 //! Label. The shortcut replaces the two hops `Use(v) -> Def(p) -> Use(p.<read>)`, so its
 //! label is the worse of the call's label (`Exact` here) and the definition edge's own
-//! label (for example `CfgIncomplete` in a one-statement callee).
+//! label (for example `CfgIncomplete` in a one-statement callee). A `NameOnly(Killed)`
+//! label keeps the definition edge's `kill_line`, which is a line of the *callee*, the
+//! function the edge ends in; the argument's own function is the edge's `from`.
 //!
 //! Key decisions (each pinned by a test in `object_literal_arg_tests.rs`):
 //! * A leaf is an identifier, a member path or a shorthand property, parenthesised or
@@ -52,12 +63,9 @@ pub(super) struct SiteInputs<'a> {
     pub caller_parsed: &'a ParsedFile,
     pub callee_parsed: &'a ParsedFile,
     pub args: &'a [(String, std::ops::Range<usize>)],
-    /// Resolved definition node per positional formal; holes are unsupported slots.
-    pub defs: &'a [Option<NodeIndex>],
     pub var_index: &'a BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
     pub exact_var_index: &'a ExactVarIndex,
     pub graph: &'a DiGraph<CpgNode, CpgEdge>,
-    pub label: FlowConfidence,
     pub cross_file_free_single_exact: bool,
 }
 
@@ -292,28 +300,9 @@ fn read_chain(parsed: &ParsedFile, start: usize, end: usize) -> Option<Vec<Strin
         }
         break;
     }
-    if !chain.is_empty() && is_write_target(current) {
-        return None;
-    }
+    // A write target is not special-cased here: its Use is refused through the callee's
+    // member writes (`FormalInfo`), which classify with the member-only lane's own rules.
     Some(chain)
-}
-
-/// Whether the member expression is assigned to, updated, deleted or destructured into.
-fn is_write_target(node: Node<'_>) -> bool {
-    let Some(parent) = node.parent() else {
-        return false;
-    };
-    let is_left = || parent.child_by_field_name("left").map(|n| n.id()) == Some(node.id());
-    match parent.kind() {
-        "assignment_expression" | "augmented_assignment_expression" | "for_in_statement" => {
-            is_left()
-        }
-        "update_expression" | "array_pattern" | "object_pattern" => true,
-        "unary_expression" => parent
-            .child_by_field_name("operator")
-            .is_some_and(|op| op.kind() == "delete"),
-        _ => false,
-    }
 }
 
 /// The expression a transparent wrapper wraps, one level.
@@ -335,21 +324,59 @@ fn comparable(leaf: &[String], read: &[String]) -> bool {
     leaf[..n] == read[..n]
 }
 
-/// Reads of the formal that its definition node reaches: node, chain, definition-edge label.
-fn formal_reads(
+/// One read of the formal that its definition node reaches.
+struct Read {
+    node: NodeIndex,
+    chain: Vec<String>,
+    /// The definition edge's own label.
+    label: FlowConfidence,
+}
+
+/// The reads of a formal and, for a mixed formal, the callee's member writes to it.
+struct FormalInfo {
+    reads: Vec<Read>,
+    base: String,
+    /// Present exactly when the reads are base `p` Uses (a mixed formal).
+    facts: Option<crate::ast::FormalMemberFacts>,
+}
+
+impl FormalInfo {
+    /// The read is not fed: its path is written, has a written prefix or a deeper write.
+    fn read_suppressed(&self, read: &Read) -> bool {
+        self.facts.as_ref().is_some_and(|facts| {
+            facts.is_killed(&AccessPath::with_fields(
+                self.base.clone(),
+                read.chain.clone(),
+            ))
+        })
+    }
+
+    /// The leaf's key was replaced by a write at it or above it.
+    fn leaf_overwritten(&self, leaf: &Leaf) -> bool {
+        self.facts
+            .as_ref()
+            .is_some_and(|facts| facts.overwrites_at_or_above(&self.base, &leaf.keys))
+    }
+}
+
+/// Reads of the formal that its definition node reaches.
+fn formal_info(
     graph: &DiGraph<CpgNode, CpgEdge>,
     callee_parsed: &ParsedFile,
     def: NodeIndex,
-) -> Vec<(NodeIndex, Vec<String>, FlowConfidence)> {
+) -> Option<FormalInfo> {
     let CpgNode::Variable {
         path: formal,
         access: VarAccess::Def,
+        start_byte: def_start,
+        end_byte: def_end,
         ..
     } = &graph[def]
     else {
-        return Vec::new();
+        return None;
     };
-    let mut reads: BTreeMap<NodeIndex, (Vec<String>, FlowConfidence)> = BTreeMap::new();
+    let mut reads: BTreeMap<NodeIndex, Read> = BTreeMap::new();
+    let mut mixed = false;
     for edge in graph.edges(def) {
         let CpgEdge::DataFlow(label) = *edge.weight() else {
             continue;
@@ -368,6 +395,7 @@ fn formal_reads(
             continue;
         }
         let chain = if path.fields.is_empty() {
+            mixed = true;
             match read_chain(callee_parsed, *start_byte, *end_byte) {
                 Some(chain) => chain,
                 None => continue,
@@ -377,35 +405,64 @@ fn formal_reads(
         };
         reads
             .entry(edge.target())
-            .and_modify(|(_, kept)| *kept = kept.worst(label))
-            .or_insert((chain, label));
+            .and_modify(|read| read.label = read.label.worst(label))
+            .or_insert(Read {
+                node: edge.target(),
+                chain,
+                label,
+            });
     }
-    reads
-        .into_iter()
-        .map(|(node, (chain, label))| (node, chain, label))
-        .collect()
+    // A mixed formal's member reads are not field-aware in the DFG: take the callee's member
+    // writes from the same walk the member-only lane uses, and fail closed without them.
+    let facts = if mixed {
+        Some(callee_parsed.formal_member_facts_at(*def_start, *def_end, &formal.base)?)
+    } else {
+        None
+    };
+    Some(FormalInfo {
+        reads: reads.into_values().collect(),
+        base: formal.base.clone(),
+        facts,
+    })
 }
 
-/// Cheap pre-filter: some argument may be an object literal.
-pub(super) fn has_candidate(args: &[(String, std::ops::Range<usize>)]) -> bool {
-    args.iter()
-        .any(|(text, _)| text.starts_with('{') || text.starts_with('('))
+fn may_be_literal(text: &str, language: crate::languages::Language) -> bool {
+    text.starts_with(['{', '('])
+        || (text.starts_with('<') && language == crate::languages::Language::TypeScript)
 }
 
-/// Emit the literal edges for one Exact-singleton call site.
-pub(super) fn collect(out: &mut Vec<PendingArgumentFlow>, site: &SiteInputs<'_>) {
-    if !is_js_family(site.caller_parsed.language) || !is_js_family(site.callee_parsed.language) {
+/// A call site binds object literals only when it resolves to one Exact callee.
+pub(super) fn exact_singleton(resolved: &[ResolvedCallee<'_>]) -> bool {
+    resolved.len() == 1 && resolved[0].confidence == ResolutionConfidence::Exact
+}
+
+/// Emit the literal edges for one Exact-singleton call site. `params` is the callee's
+/// positional formals; `resolve` turns one into its definition node (holes stay holes).
+pub(super) fn collect<T>(
+    out: &mut Vec<PendingArgumentFlow>,
+    site: &SiteInputs<'_>,
+    params: &[Option<T>],
+    resolve: impl Fn(&T) -> Option<NodeIndex>,
+) {
+    let language = site.caller_parsed.language;
+    if !is_js_family(language)
+        || !is_js_family(site.callee_parsed.language)
+        || !site
+            .args
+            .iter()
+            .any(|(text, _)| may_be_literal(text, language))
+    {
         return;
     }
     let mut seen: BTreeSet<(NodeIndex, NodeIndex)> = BTreeSet::new();
-    for (i, def) in site.defs.iter().enumerate() {
+    for (i, param) in params.iter().enumerate() {
         let Some((arg_text, arg_span)) = site.args.get(i) else {
             break;
         };
-        if !(arg_text.starts_with('{') || arg_text.starts_with('(')) {
+        if !may_be_literal(arg_text, language) {
             continue;
         }
-        let Some(def) = *def else {
+        let Some(def) = param.as_ref().and_then(&resolve) else {
             continue;
         };
         let Some(leaves) = argument_leaves(site.caller_parsed, arg_span) else {
@@ -414,8 +471,13 @@ pub(super) fn collect(out: &mut Vec<PendingArgumentFlow>, site: &SiteInputs<'_>)
         if leaves.is_empty() {
             continue;
         }
-        let reads = formal_reads(site.graph, site.callee_parsed, def);
+        let Some(info) = formal_info(site.graph, site.callee_parsed, def) else {
+            continue;
+        };
         for leaf in &leaves {
+            if info.leaf_overwritten(leaf) {
+                continue;
+            }
             let value_text = site
                 .caller_parsed
                 .source
@@ -446,17 +508,17 @@ pub(super) fn collect(out: &mut Vec<PendingArgumentFlow>, site: &SiteInputs<'_>)
                     )
                 })
                 .collect();
-            for (read, chain, read_label) in &reads {
-                if !comparable(&leaf.keys, chain) {
+            for read in &info.reads {
+                if !comparable(&leaf.keys, &read.chain) || info.read_suppressed(read) {
                     continue;
                 }
                 for &from in &sources {
-                    if seen.insert((from, *read)) {
+                    if seen.insert((from, read.node)) {
                         out.push(PendingArgumentFlow {
                             edge: (
                                 from,
-                                *read,
-                                CpgEdge::DataFlow(site.label.worst(*read_label)),
+                                read.node,
+                                CpgEdge::DataFlow(FlowConfidence::Exact.worst(read.label)),
                             ),
                             cross_file_free_single_exact: site.cross_file_free_single_exact,
                         });
@@ -466,3 +528,7 @@ pub(super) fn collect(out: &mut Vec<PendingArgumentFlow>, site: &SiteInputs<'_>)
         }
     }
 }
+
+#[cfg(test)]
+#[path = "object_literal_parity_tests.rs"]
+mod parity_tests;

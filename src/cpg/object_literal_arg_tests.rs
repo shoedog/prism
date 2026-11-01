@@ -13,13 +13,13 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 
-const LANGS: [(Language, &str); 3] = [
+pub(super) const LANGS: [(Language, &str); 3] = [
     (Language::JavaScript, "js"),
     (Language::TypeScript, "ts"),
     (Language::Tsx, "tsx"),
 ];
 
-fn build(language: Language, files: &[(&str, &str)], ext: &str) -> CodePropertyGraph {
+pub(super) fn build(language: Language, files: &[(&str, &str)], ext: &str) -> CodePropertyGraph {
     let mut parsed = BTreeMap::new();
     for (stem, source) in files {
         let name = format!("{stem}.{ext}");
@@ -30,7 +30,10 @@ fn build(language: Language, files: &[(&str, &str)], ext: &str) -> CodePropertyG
     CodePropertyGraph::build(&parsed)
 }
 
-fn spell(cpg: &CodePropertyGraph, idx: petgraph::graph::NodeIndex) -> Option<(String, bool)> {
+pub(super) fn spell(
+    cpg: &CodePropertyGraph,
+    idx: petgraph::graph::NodeIndex,
+) -> Option<(String, bool)> {
     match cpg.node(idx) {
         CpgNode::Variable {
             path,
@@ -47,7 +50,7 @@ fn spell(cpg: &CodePropertyGraph, idx: petgraph::graph::NodeIndex) -> Option<(St
 }
 
 /// Cross-function DataFlow edges that end at a Use node, with their label.
-fn literal_edges(cpg: &CodePropertyGraph) -> BTreeMap<String, FlowConfidence> {
+pub(super) fn literal_edges(cpg: &CodePropertyGraph) -> BTreeMap<String, FlowConfidence> {
     let mut out = BTreeMap::new();
     for edge in cpg.graph.edge_indices() {
         let CpgEdge::DataFlow(label) = cpg.graph[edge] else {
@@ -69,12 +72,12 @@ fn literal_edges(cpg: &CodePropertyGraph) -> BTreeMap<String, FlowConfidence> {
     out
 }
 
-fn edge_set(cpg: &CodePropertyGraph) -> BTreeSet<String> {
+pub(super) fn edge_set(cpg: &CodePropertyGraph) -> BTreeSet<String> {
     literal_edges(cpg).into_keys().collect()
 }
 
 /// All three JS-family languages must produce exactly `expected`.
-fn check_files(name: &str, files: &[(&str, &str)], expected: &[&str]) {
+pub(super) fn check_files(name: &str, files: &[(&str, &str)], expected: &[&str]) {
     let want: BTreeSet<String> = expected.iter().map(|s| s.to_string()).collect();
     for (language, ext) in LANGS {
         let cpg = build(language, files, ext);
@@ -83,7 +86,7 @@ fn check_files(name: &str, files: &[(&str, &str)], expected: &[&str]) {
     }
 }
 
-fn check(name: &str, source: &str, expected: &[&str]) {
+pub(super) fn check(name: &str, source: &str, expected: &[&str]) {
     check_files(name, &[("m", source)], expected);
 }
 
@@ -294,8 +297,9 @@ fn computed_key_refuses_itself_and_every_key_before_it() {
         after,
         &["h:a@6 -> f:p.a@2", "h:b@6 -> f:p.b@3"],
     );
-    let only = "function f(p) {\n  sinkA(p.a);\n}\nfunction h(k, v) {\n  f({ [k]: v });\n}\n";
-    check("computed-only", only, &[]);
+    // Only a computed key: nothing binds. The second call is the control that the pass runs.
+    let only = "function f(p) {\n  sinkA(p.a);\n}\nfunction h(k, v, a) {\n  f({ [k]: v });\n  f({ a });\n}\n";
+    check("computed-only", only, &["h:a@6 -> f:p.a@2"]);
 }
 
 #[test]
@@ -320,10 +324,10 @@ fn spread_refuses_keys_before_it_and_keeps_keys_after_it() {
 
 #[test]
 fn spread_source_is_not_bound_to_the_formal() {
-    // `...o` carries unknown keys: documented gap, no edge from `o` anywhere.
-    let src =
-        "function f(p) {\n  sinkA(p.a);\n  sinkP(p);\n}\nfunction h(o) {\n  f({ ...o });\n}\n";
-    check("spread-source", src, &[]);
+    // `...o` carries unknown keys: documented gap, no edge from `o` anywhere. The key
+    // after it (`a`) is the control that the pass ran: it feeds both reads.
+    let src = "function f(p) {\n  sinkA(p.a);\n  sinkP(p);\n}\nfunction h(o, a) {\n  f({ ...o, a });\n}\n";
+    check("spread-source", src, &["h:a@6 -> f:p@2", "h:a@6 -> f:p@3"]);
 }
 
 #[test]
@@ -351,14 +355,17 @@ fn proto_key_is_never_an_own_property() {
 #[test]
 fn non_data_values_bind_nothing() {
     // Same carrier rule as plain arguments: only identifiers and member paths.
-    let src = "function f(p) {\n  sinkA(p.a);\n  sinkB(p.b);\n  sinkC(p.c);\n  sinkD(p.d);\n  sinkE(p.e);\n}\nfunction h(x, o) {\n  f({ a: 1, b: g(x), c: x + 1, d: [x], e: o.m(x) });\n}\n";
-    check("non-data", src, &[]);
+    // Numbers, calls, arithmetic, arrays, subscripts and a method call bind nothing; `z`
+    // is the bound control that the pass ran.
+    let src = "function f(p) {\n  sinkA(p.a);\n  sinkB(p.b);\n  sinkC(p.c);\n  sinkD(p.d);\n  sinkE(p.e);\n  sinkF(p.f);\n  sinkZ(p.z);\n}\nfunction h(x, o, z) {\n  f({ a: 1, b: g(x), c: x + 1, d: [x], e: o.m(x), f: x[0], z });\n}\n";
+    check("non-data", src, &["h:z@11 -> f:p.z@8"]);
 }
 
 #[test]
 fn key_mismatch_with_the_callee_reads_binds_nothing() {
-    let src = "function f(p) {\n  sinkA(p.other);\n}\nfunction h(x) {\n  f({ a: x });\n}\n";
-    check("mismatch", src, &[]);
+    // `p.other` is never written by the literal; `p.a` is the bound control.
+    let src = "function f(p) {\n  sinkOther(p.other);\n  sinkA(p.a);\n}\nfunction h(x) {\n  f({ a: x });\n}\n";
+    check("mismatch", src, &["h:x@6 -> f:p.a@3"]);
 }
 
 #[test]
@@ -372,25 +379,30 @@ fn spread_argument_before_the_literal_shifts_the_slot_and_refuses() {
 
 #[test]
 fn extra_literal_beyond_the_formals_binds_nothing() {
-    let src = "function f(p) {\n  sinkA(p.a);\n}\nfunction h(a) {\n  f(a, { a });\n}\n";
-    check("extra", src, &[]);
+    // The first call's literal is in slot 1 of a one-formal callee; the second call is the
+    // control (slot 0).
+    let src =
+        "function f(p) {\n  sinkA(p.a);\n}\nfunction h(a) {\n  f(a, { a });\n  f({ a });\n}\n";
+    check("extra", src, &["h:a@6 -> f:p.a@2"]);
 }
 
 #[test]
 fn destructured_rest_and_bare_arrow_formals_are_out_of_scope() {
-    let destructured = "function f({ a }) {\n  sinkA(a);\n}\nfunction h(x) {\n  f({ a: x });\n}\n";
-    check("destructured", destructured, &[]);
-    let rest = "function f(...p) {\n  sinkA(p[0]);\n  sinkB(p.a);\n}\nfunction h(x) {\n  f({ a: x });\n}\n";
-    check("rest", rest, &[]);
-    let bare =
-        "const f = p => {\n  sinkA(p.a);\n  sinkB(p.b);\n};\nfunction h(x) {\n  f({ a: x });\n}\n";
-    check("bare-arrow", bare, &[]);
+    // Each source pairs the unsupported slot with a supported one (`q`, `g`): the control
+    // edge shows the pass ran and refused only the hole.
+    let destructured = "function f(q, { a }) {\n  sinkQ(q.b);\n  sinkA(a);\n}\nfunction h(x, y) {\n  f({ b: y }, { a: x });\n}\n";
+    check("destructured", destructured, &["h:y@6 -> f:q.b@2"]);
+    let rest = "function f(q, ...p) {\n  sinkQ(q.a);\n  sinkA(p[0]);\n  sinkB(p.a);\n}\nfunction h(x, y) {\n  f({ a: y }, { a: x });\n}\n";
+    check("rest", rest, &["h:y@7 -> f:q.a@2"]);
+    let bare = "const f = p => {\n  sinkA(p.a);\n  sinkB(p.b);\n};\nfunction g(q) {\n  sinkQ(q.a);\n}\nfunction h(x) {\n  f({ a: x });\n  g({ a: x });\n}\n";
+    check("bare-arrow", bare, &["h:x@10 -> g:q.a@6"]);
 }
 
 #[test]
 fn unused_formal_has_no_target() {
-    let src = "function f(p) {\n  return 1;\n}\nfunction h(x) {\n  f({ a: x });\n}\n";
-    check("unused", src, &[]);
+    // `f`'s formal is never read; `g`'s is (the control).
+    let src = "function f(p) {\n  return 1;\n}\nfunction g(q) {\n  sinkQ(q.a);\n}\nfunction h(x) {\n  f({ a: x });\n  g({ a: x });\n}\n";
+    check("unused", src, &["h:x@9 -> g:q.a@5"]);
 }
 
 #[test]
@@ -616,21 +628,19 @@ fn flow_continues_through_the_bound_read_into_callee_locals() {
 #[test]
 fn real_shape_options_object_with_bare_and_member_reads() {
     // newElement({ type: element.type, x: element.x + o.x, ... }) with `opts.type` read
-    // and `opts` passed on whole.
+    // and `opts` passed on whole. The exact set: `type` feeds the bare read (line 3) and
+    // its base `element` does too; `x` is a binary expression and binds nothing. The
+    // initialiser read `const t = opts.type` (line 2) has a zero-width base Use, so it is
+    // unfed today (a documented gap: js-ts-known-gaps.md, #594).
     let src = "function newElement(opts) {\n  const t = opts.type;\n  return base(t, opts);\n}\nfunction flow(element, offsets) {\n  const next = newElement({\n    type: element.type,\n    x: element.x + offsets.x,\n  });\n  return next;\n}\n";
-    for (language, ext) in LANGS {
-        let cpg = build(language, &[("m", src)], ext);
-        let edges = edge_set(&cpg);
-        // `type` feeds the bare read; `x` is a binary expression and binds nothing.
-        assert!(
-            edges.contains("flow:element.type@7 -> newElement:opts@3"),
-            "{language:?}: {edges:?}"
-        );
-        assert!(
-            !edges.iter().any(|e| e.starts_with("flow:offsets")),
-            "{language:?}: {edges:?}"
-        );
-    }
+    check(
+        "options-object",
+        src,
+        &[
+            "flow:element.type@7 -> newElement:opts@3",
+            "flow:element@7 -> newElement:opts@3",
+        ],
+    );
 }
 
 #[test]

@@ -43,6 +43,17 @@ impl FormalMemberFacts {
         })
     }
 
+    /// Whether a write lands on `base.<fields>` or on a proper prefix of it: the value an
+    /// object literal put at that key path was replaced (flow-insensitive, like `is_killed`).
+    pub(crate) fn overwrites_at_or_above(&self, base: &str, fields: &[String]) -> bool {
+        (1..=fields.len()).any(|k| {
+            self.writes.contains(&AccessPath::with_fields(
+                base.to_string(),
+                fields[..k].to_vec(),
+            ))
+        })
+    }
+
     fn record_write(&mut self, path: AccessPath) {
         for k in 1..path.fields.len() {
             self.write_ancestors.insert(AccessPath::with_fields(
@@ -109,6 +120,24 @@ impl ParsedFile {
         self.collect_member_facts(body, &walk, false, &mut facts);
         facts.scope_verdicts = walk.memo.computed();
         facts
+    }
+
+    /// The member facts of the formal `name` whose identifier occupies `[start, end)`,
+    /// for the callable that declares it. `None` when no callable encloses the span.
+    pub(crate) fn formal_member_facts_at(
+        &self,
+        start: usize,
+        end: usize,
+        name: &str,
+    ) -> Option<FormalMemberFacts> {
+        let mut node = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start, end)?;
+        while !is_js_ts_function_like(node.kind()) {
+            node = node.parent()?;
+        }
+        Some(self.formal_member_facts(&node, name, start))
     }
 
     fn collect_member_facts(
@@ -196,7 +225,7 @@ impl ParsedFile {
     /// Whether this member expression is the target of a write: assignment (plain,
     /// compound, logical) left side, `++`/`--`, `delete`, an array/object pattern target
     /// (including rest and nested patterns), or a `for (… in/of …)` head.
-    fn member_is_write_target(&self, node: Node<'_>) -> bool {
+    pub(crate) fn member_is_write_target(&self, node: Node<'_>) -> bool {
         let mut child = node;
         let mut parent = node.parent();
         while let Some(p) = parent {

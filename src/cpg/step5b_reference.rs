@@ -19,7 +19,9 @@ impl CodePropertyGraph {
         let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
         for (caller_id, sites) in &cg.calls {
             for site in sites {
-                for resolved in cg.resolve_call_site(site) {
+                let resolved_site = cg.resolve_call_site(site);
+                let literal_ok = object_literal_args::exact_singleton(&resolved_site);
+                for resolved in resolved_site {
                     // P3 (F1): mirrors step5b_edges_for_caller's skip so this serial
                     // oracle stays byte-identical to the parallel production path.
                     if resolved.kind == ResolutionKind::R6MultiOwnerCandidate {
@@ -48,6 +50,25 @@ impl CodePropertyGraph {
                             Some(nodes) => nodes.as_slice(),
                             None => continue,
                         };
+                    // #594: the object-literal edges, at the position the production loop
+                    // emits them (before the positional edges of the same call site).
+                    if literal_ok {
+                        let inputs = object_literal_args::SiteInputs {
+                            caller_id,
+                            caller_parsed,
+                            callee_parsed,
+                            args: &args,
+                            var_index,
+                            exact_var_index: &exact_var_index,
+                            graph,
+                            cross_file_free_single_exact: false,
+                        };
+                        let mut literal = Vec::new();
+                        object_literal_args::collect(&mut literal, &inputs, param_nodes, |&n| {
+                            Some(n)
+                        });
+                        out.extend(literal.into_iter().map(|flow| flow.edge));
+                    }
                     for (i, &param_idx) in param_nodes.iter().enumerate() {
                         if i >= args.len() {
                             break;

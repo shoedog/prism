@@ -1596,9 +1596,7 @@ impl CodePropertyGraph {
         let mut param_cache: BTreeMap<FunctionId, callee_params::FactCell> = BTreeMap::new();
         for site in sites {
             let resolved_site = cg.resolve_call_site(site);
-            // #594: object-literal arguments bind only through an Exact singleton.
-            let literal_ok = resolved_site.len() == 1
-                && resolved_site[0].confidence == ResolutionConfidence::Exact;
+            let literal_ok = object_literal_args::exact_singleton(&resolved_site); // #594
             for resolved in resolved_site {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
                 // maybe-edge (nav-only). DataFlow carries no confidence/kind and
@@ -1633,26 +1631,19 @@ impl CodePropertyGraph {
                 let Some(param_nodes) = cell.get().expect("initialized parameter facts") else {
                     continue;
                 };
-                if literal_ok && object_literal_args::has_candidate(&args) {
-                    let defs: Vec<Option<NodeIndex>> = param_nodes
-                        .iter()
-                        .map(|target| target.as_ref().and_then(|t| t.resolve(var_index, graph)))
-                        .collect();
-                    object_literal_args::collect(
-                        &mut out,
-                        &object_literal_args::SiteInputs {
-                            caller_id,
-                            caller_parsed,
-                            callee_parsed,
-                            args: &args,
-                            defs: &defs,
-                            var_index,
-                            exact_var_index,
-                            graph,
-                            label: FlowConfidence::from(resolved.confidence),
-                            cross_file_free_single_exact,
-                        },
-                    );
+                if literal_ok {
+                    let inputs = object_literal_args::SiteInputs {
+                        caller_id,
+                        caller_parsed,
+                        callee_parsed,
+                        args: &args,
+                        var_index,
+                        exact_var_index,
+                        graph,
+                        cross_file_free_single_exact,
+                    };
+                    let resolve = |t: &callee_params::ParamTarget| t.resolve(var_index, graph);
+                    object_literal_args::collect(&mut out, &inputs, param_nodes, resolve);
                 }
                 for (i, param_target) in param_nodes.iter().enumerate() {
                     if i >= args.len() {
