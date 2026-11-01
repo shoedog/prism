@@ -327,8 +327,8 @@ fn serialized_call_graphs_match_reference_at_one_and_four_threads() {
     for threads in ["1", "4"] {
         for old in [true, false] {
             let output = dir.path().join(format!("{threads}-{old}"));
-            let mut command = Command::new("/Users/wesleyjinks/prism-evidence/tools/memguard.sh");
-            command.arg("8").arg(std::env::current_exe().unwrap())
+            let mut command = Command::new(std::env::current_exe().unwrap());
+            command
                 .args(["--exact", "ast::js_export_memo::tests::serialized_call_graphs_match_reference_at_one_and_four_threads", "--nocapture"])
                 .env("RAYON_NUM_THREADS", threads).env(OUTPUT, &output);
             if old {
