@@ -178,10 +178,10 @@ pub(super) mod tests {
     pub(in crate::ast) fn visit() {
         VISITS.with(|v| v.set(v.get() + 1));
     }
-    pub(super) fn reset_visits() {
+    pub(in crate::ast) fn reset_visits() {
         VISITS.with(|v| v.set(0));
     }
-    pub(super) fn visits() -> usize {
+    pub(in crate::ast) fn visits() -> usize {
         VISITS.with(|v| v.get())
     }
 
