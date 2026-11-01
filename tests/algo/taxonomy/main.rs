@@ -7,6 +7,7 @@ mod misc_test;
 mod sanitizers_js_ts_test;
 mod sanitizers_python_test;
 mod sanitizers_test;
+mod taint_cross_file_source_test;
 mod taint_cve_test;
 mod taint_interprocedural_test;
 mod taint_lang_test;

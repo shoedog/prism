@@ -11389,6 +11389,8 @@ pub fn slice(
                 set.iter()
                     .filter(|(sf, sl)| sf == file && *sl <= *line)
                     .max_by_key(|(_, sl)| *sl)
+                    // #602: no same-file path source -> name a cross-file one.
+                    .or_else(|| set.iter().find(|(sf, _)| sf != file))
                     .map(|(sf, sl)| (sf.as_str(), *sl))
             });
 
@@ -11459,7 +11461,13 @@ pub fn slice(
         }
 
         let source_desc = source_location
-            .map(|(_, sl)| format!("line {}", sl))
+            .map(|(sf, sl)| {
+                if sf == file.as_str() {
+                    format!("line {}", sl)
+                } else {
+                    format!("{}:{}", sf, sl)
+                }
+            })
             .unwrap_or_else(|| "diff lines".to_string());
 
         // Build a Chain diagram for this sink finding.
