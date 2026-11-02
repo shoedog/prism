@@ -19,7 +19,7 @@
 //! member write), and the new edge inherits that decision. A member-only formal's reads
 //! carry their field path (`p.a.b`); a mixed formal's member reads are base `p` Uses, so
 //! the static member chain is read back from the syntax (`p.a.b` -> `[a, b]`; any other
-//! use of `p`, including `p[k]`, is a bare read with an empty chain).
+//! use of `p`, including a `p[k]` read, is a bare read with an empty chain).
 //!
 //! Pairing. A leaf at key path `L` (a chain of static keys) feeds a read with chain `R`
 //! when one is a prefix of the other: `L = [a]` feeds `p.a`, `p.a.x` and bare `p`, never
@@ -32,8 +32,12 @@
 //! flow-insensitive suppression itself (`ParsedFile::formal_member_facts_at`): a read whose
 //! path is written, has a written prefix or has a deeper write below it is not fed, and a
 //! leaf at or below a written path is not fed to any read (the write replaced that key).
-//! Cost: a read that would have run before the write loses its edge. Not modelled, as in
-//! the member-only lane: `p[k] = v` and aliases of `p`.
+//! Cost: a read that would have run before the write loses its edge. A computed-member
+//! write to the formal itself (`p[k] = v`, `p["a"] = v`, `delete p[k]`, a pattern or
+//! `for-in/of` target, wrappers and nested callables included) may replace any key, so it
+//! is a wildcard write: no leaf of the literal feeds any read of that formal (fail closed;
+//! `FormalMemberFacts::has_computed_write`, read by this pass only). A write below a key
+//! (`p.a[k] = v`) and aliases of `p` are not modelled, as in the member-only lane.
 //!
 //! Label. The shortcut replaces the two hops `Use(v) -> Def(p) -> Use(p.<read>)`, so its
 //! label is the worse of the call's label (`Exact` here) and the definition edge's own
@@ -412,13 +416,15 @@ fn formal_info(
                 label,
             });
     }
-    // A mixed formal's member reads are not field-aware in the DFG: take the callee's member
-    // writes from the same walk the member-only lane uses, and fail closed without them.
-    let facts = if mixed {
-        Some(callee_parsed.formal_member_facts_at(*def_start, *def_end, &formal.base)?)
-    } else {
-        None
-    };
+    // The callee's member writes come from the same walk the member-only lane uses; fail
+    // closed without them. A mixed formal's reads are not field-aware in the DFG, so those
+    // facts also drive the per-read suppression; a member-only formal's DFG already has it.
+    let all_facts = callee_parsed.formal_member_facts_at(*def_start, *def_end, &formal.base)?;
+    // A computed write (`p[k] = v`) may replace any key: a wildcard writer, fail closed.
+    if all_facts.has_computed_write() {
+        return None;
+    }
+    let facts = mixed.then_some(all_facts);
     Some(FormalInfo {
         reads: reads.into_values().collect(),
         base: formal.base.clone(),

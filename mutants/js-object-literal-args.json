@@ -180,10 +180,51 @@
     ],
     "OL27-write-classifier-off": [
       "src/ast_member_projection.rs",
-      "    pub(crate) fn member_is_write_target(&self, node: Node<'_>) -> bool {\n",
-      "    pub(crate) fn member_is_write_target(&self, node: Node<'_>) -> bool {\n        if node.id() != usize::MAX {\n            return false;\n        }\n",
+      "    fn member_is_write_target(&self, node: Node<'_>) -> bool {\n",
+      "    fn member_is_write_target(&self, node: Node<'_>) -> bool {\n        if node.id() != usize::MAX {\n            return false;\n        }\n",
       [
         "cpg::object_literal_arg_r1_tests::expression_position_write_targets_are_not_reads"
+      ]
+    ],
+    "OL28-computed-write-wildcard-ignored": [
+      "src/cpg/object_literal_args.rs",
+      "    if all_facts.has_computed_write() {",
+      "    if false && all_facts.has_computed_write() {",
+      [
+        "cpg::object_literal_arg_r2_tests::a_computed_write_to_the_formal_stops_every_leaf_reaching_any_read",
+        "cpg::object_literal_arg_r2_tests::a_computed_write_in_a_member_only_formal_also_stops_the_literal"
+      ]
+    ],
+    "OL29-subscript-arm-dropped": [
+      "src/ast_member_projection.rs",
+      "        if node.kind() == \"subscript_expression\"\n",
+      "        if node.kind() == \"subscript_expression_off\"\n",
+      [
+        "cpg::object_literal_arg_r2_tests::a_computed_write_to_the_formal_stops_every_leaf_reaching_any_read"
+      ]
+    ],
+    "OL30-computed-write-wrapper-not-stripped": [
+      "src/ast_member_projection.rs",
+      "        let Some(object) = strip_transparent_wrappers(object) else {\n            return false;\n        };\n",
+      "",
+      [
+        "cpg::object_literal_arg_r2_tests::ts_wrapped_computed_write_targets_stop_every_leaf"
+      ]
+    ],
+    "OL31-computed-read-counts-as-write": [
+      "src/ast_member_projection.rs",
+      "            && self.member_is_write_target(node)\n            && !self.js_ts_reference_fenced_memo(",
+      "            && !self.js_ts_reference_fenced_memo(",
+      [
+        "cpg::object_literal_arg_r2_tests::a_computed_read_of_the_formal_does_not_suppress"
+      ]
+    ],
+    "OL32-computed-write-binder-fence-dropped": [
+      "src/ast_member_projection.rs",
+      "            && !self.js_ts_reference_fenced_memo(\n                &node,\n                walk.name,\n                walk.def_scope,\n                walk.seam_open,\n                &walk.memo,\n            )\n    }",
+      "    }",
+      [
+        "cpg::object_literal_arg_r2_tests::a_computed_write_to_another_base_or_a_shadowed_p_keeps_binding"
       ]
     ]
   }
