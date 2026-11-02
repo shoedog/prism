@@ -1,0 +1,153 @@
+{
+  "lane": "Review taint sink rules: call position and receiver, not name fragments (#622 S1)",
+  "source": "src/algorithms/taint_sinks/mod.rs",
+  "lib_test_prefixes": [
+    "algorithms::taint_sinks::"
+  ],
+  "mutations": {
+    "SR01-js-eval-any-receiver": [
+      "src/algorithms/taint_sinks/js.rs",
+      "let ok = !c.is_new && c.receiver.is_none_or(|r| is_global(p, r));",
+      "let ok = !c.is_new;",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR02-js-sequence-callee-not-climbed": [
+      "src/algorithms/taint_sinks/callee.rs",
+      "\"parenthesized_expression\" => true,",
+      "\"parenthesized_expression\" => false,",
+      "algorithms::taint_sinks::tests::js_rules_carry_cwe_tags"
+    ],
+    "SR03-js-any-identifier-receiver-is-child-process": [
+      "src/algorithms/taint_sinks/js.rs",
+      "receiver.kind() == \"identifier\" && facts.is_namespace(p.node_text(&receiver))",
+      "receiver.kind() == \"identifier\"",
+      "algorithms::taint_sinks::tests::js_child_process_binding_forms_are_tagged"
+    ],
+    "SR04-js-require-namespace-not-collected": [
+      "src/algorithms/taint_sinks/js.rs",
+      "\"identifier\" => self.namespaces.push(p.node_text(&name).to_string()),",
+      "\"identifier\" => {}",
+      "algorithms::taint_sinks::tests::js_child_process_binding_forms_are_tagged"
+    ],
+    "SR05-js-bare-runner-never-sink": [
+      "src/algorithms/taint_sinks/js.rs",
+      "const BARE_UNBOUND: &[&str] = &[\"exec\", \"execSync\", \"execFile\", \"execFileSync\", \"spawnSync\"];",
+      "const BARE_UNBOUND: &[&str] = &[];",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR06-js-innerhtml-read-is-sink": [
+      "src/algorithms/taint_sinks/js.rs",
+      "is_assignment_target(member).then(|| SinkHit::new(\"js-dom-html\", \"CWE-79\"))",
+      "Some(SinkHit::new(\"js-dom-html\", \"CWE-79\"))",
+      "algorithms::taint_sinks::tests::js_rules_carry_cwe_tags"
+    ],
+    "SR07-js-send-any-receiver": [
+      "src/algorithms/taint_sinks/js.rs",
+      ".is_some_and(|r| is_response(p, r) || text == \"respond\");",
+      ".is_some();",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR08-js-location-read-is-sink": [
+      "src/algorithms/taint_sinks/js.rs",
+      "is_assignment_target(node).then(|| SinkHit::new(\"js-location\", \"CWE-601\"))",
+      "Some(SinkHit::new(\"js-location\", \"CWE-601\"))",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR09-js-location-any-receiver": [
+      "src/algorithms/taint_sinks/js.rs",
+      "if !is_global(p, parent.child_by_field_name(\"object\")?) {",
+      "if false {",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR10-js-any-first-header-is-location": [
+      "src/algorithms/taint_sinks/js.rs",
+      ".and_then(|a| literal_string(p, *a))\n        .is_some_and(|s| s.eq_ignore_ascii_case(\"location\"))",
+      ".and_then(|a| literal_string(p, *a))\n        .is_some()",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR11-member-callee-property-unchecked": [
+      "src/algorithms/taint_sinks/callee.rs",
+      "if !is_field(parent, name_field, id) {",
+      "if false {",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR12-py-getattr-literal-name-is-sink": [
+      "src/algorithms/taint_sinks/python.rs",
+      "(c.receiver.is_none() && !is_literal(p, name_arg))",
+      "c.receiver.is_none()",
+      "algorithms::taint_sinks::tests::python_and_go_rules_carry_cwe_tags"
+    ],
+    "SR13-py-run-any-receiver": [
+      "src/algorithms/taint_sinks/python.rs",
+      "(t == \"subprocess\" || facts.subprocess.contains(t))",
+      "true",
+      "algorithms::taint_sinks::tests::python_rule_guards"
+    ],
+    "SR14-py-text-literal-is-sink": [
+      "src/algorithms/taint_sinks/python.rs",
+      "(module && args(c.call).first().is_some_and(|a| !is_literal(p, *a)))",
+      "module",
+      "algorithms::taint_sinks::tests::python_rule_guards"
+    ],
+    "SR15-legacy-get-user-substring": [
+      "src/algorithms/taint_sinks/mod.rs",
+      "\"get_user\" => c_family && text == \"get_user\",",
+      "\"get_user\" => c_family && text.contains(\"get_user\"),",
+      "algorithms::taint_sinks::tests::legacy_languages_gate_bash_names_and_get_user"
+    ],
+    "SR16-legacy-bash-names-everywhere": [
+      "src/algorithms/taint_sinks/mod.rs",
+      ".filter(|p| language == Language::Bash || !BASH_ONLY.contains(p))",
+      ".filter(|_| true)",
+      "algorithms::taint_sinks::tests::legacy_languages_gate_bash_names_and_get_user"
+    ],
+    "SR17-go-const-format-not-constant": [
+      "src/algorithms/taint_sinks/go.rs",
+      "\"identifier\" => facts.consts.contains(p.node_text(&node)),",
+      "\"identifier\" => false,",
+      "algorithms::taint_sinks::tests::go_rule_guards"
+    ],
+    "SR18-go-any-typed-param-is-writer": [
+      "src/algorithms/taint_sinks/go.rs",
+      ".is_some_and(|t| p.node_text(&t).ends_with(\"Writer\"));",
+      ".is_some();",
+      "algorithms::taint_sinks::tests::go_rule_guards"
+    ],
+    "SR19-go-any-receiver-is-db": [
+      "src/algorithms/taint_sinks/go.rs",
+      "\"Exec\" | \"Query\" | \"QueryRow\" => tail\n            .is_some_and(is_db_handle)",
+      "\"Exec\" | \"Query\" | \"QueryRow\" => tail\n            .is_some()",
+      "algorithms::taint_sinks::tests::go_rule_guards"
+    ],
+    "SR20-go-html-any-receiver": [
+      "src/algorithms/taint_sinks/go.rs",
+      "(tail == Some(\"template\"))",
+      "(true)",
+      "algorithms::taint_sinks::tests::go_rule_guards"
+    ],
+    "SR21-go-sprintf-constant-format-is-sink": [
+      "src/algorithms/taint_sinks/go.rs",
+      "(tail == Some(\"fmt\") && !is_constant_format(p, facts, *format))",
+      "(tail == Some(\"fmt\"))",
+      "algorithms::taint_sinks::tests::python_and_go_rules_carry_cwe_tags"
+    ],
+    "SR22-structured-exec-check-passes-all": [
+      "src/algorithms/taint_sinks/js.rs",
+      "classify(src, &facts, name, src.node_text(&name)).is_some()",
+      "true",
+      "algorithms::taint_sinks::tests::structured_js_exec_check_rejects_regex_receivers"
+    ],
+    "SR23-py-keyword-lookup-is-clause": [
+      "src/algorithms/taint_sinks/python.rs",
+      "!matches!(a.kind(), \"keyword_argument\" | \"dictionary_splat\")",
+      "true",
+      "algorithms::taint_sinks::tests::python_rule_guards"
+    ],
+    "SR24-go-any-selector-is-constant-format": [
+      "src/algorithms/taint_sinks/go.rs",
+      ".is_some_and(|o| o.kind() == \"identifier\" && facts.packages.contains(p.node_text(&o))),",
+      ".is_some_and(|_| true),",
+      "algorithms::taint_sinks::tests::go_rule_guards"
+    ]
+  }
+}

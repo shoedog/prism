@@ -163,7 +163,7 @@ Standard program-slicing types. Use these when you have a specific question (sec
 
 **Question.** "Does any tainted value (diff line, IPC accessor, or explicit source) reach a known sink?"
 
-**Mechanism.** **CPG-required.** Forward DFG propagation from taint sources, intersected with CFG reachability to prune dead code. Sources = diff lines (default) + GLib/D-Bus IPC accessors auto-detected in C/C++ files + explicit `--taint-source` locations. Sinks = a flat 200-entry list of patterns covering Python/JS/Go/Rust/Lua/Bash/C/C++/HCL plus dynamically-detected variadic format-string wrappers (1-hop only).
+**Mechanism.** **CPG-required.** Forward DFG propagation from taint sources, intersected with CFG reachability to prune dead code. Sources = diff lines (default) + GLib/D-Bus IPC accessors auto-detected in C/C++ files + explicit `--taint-source` locations. Sinks = the structured Go/Python/JS registries plus a flat list. For JS/TS, Python and Go the flat list is decided from the AST by call position and receiver (`src/algorithms/taint_sinks/`; each rule carries a CWE tag: a `db.query(..)` call is a sink, a variable named `sanitizedQuery` or `get_user_id()` is not). Rust/Lua/Bash/C/C++/HCL/Java keep name patterns (Bash command names fire only in Bash, `get_user` only in C/C++). Dynamically-detected variadic format-string wrappers (1-hop only) are added.
 
 **When to use.** Security review of a diff that touches input handling, network IO, IPC, or anywhere user-controlled data might originate.
 

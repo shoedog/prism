@@ -244,5 +244,5 @@ A call through a followed alias is filed under the alias's spelling. The resolve
 ## 7. Node sources and sinks
 
 - Framework request sources apply per file: a handler defined in a module that does not import the framework (express, koa, fastify, nest) gets no `req` source, even when it is registered as a route elsewhere. Tracked: #600.
-- The bare `query` sink pattern fires on `req.query` member reads, which are a source (false sink hits). Tracked: #601.
-- Missing: `res.redirect` open-redirect sink (#590) and `process.env` as a source (#604 item 2).
+- Review-taint flat sinks match by call position and receiver (`src/algorithms/taint_sinks/`, #622 S1), not by name fragment: `req.query` reads, `sanitizedQuery`, `revalidate`, `Array.find` and `RegExp.exec` are no longer sinks (closes the false hits tracked in #601). `eval` (direct, `(0, eval)(..)`, `window`/`globalThis`), `new Function`, `exec`/`execSync`/`execFile`/`spawn`/`fork` on a receiver bound to `child_process` (require, import, destructuring, `promisify`), `.query`/`.raw`/`.execute` calls, `res.send`/`res.write`/`res.redirect`, and `location` assignment, `res.location(..)` and `Location` headers (open redirect, #590) are sinks. Not covered: a command runner reached through a receiver this file does not bind to `child_process` (injected or imported from another module), unless the call is a bare `exec`/`execSync`/`execFile`/`execFileSync`/`spawnSync`.
+- Missing: `process.env` as a source (#604 item 2).

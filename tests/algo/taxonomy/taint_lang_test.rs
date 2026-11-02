@@ -651,10 +651,10 @@ function mergeConfig(userInput) {
     return config;
 }
 
-function handler(req) {
+function handler(req, res) {
     const body = req.body;
     const result = mergeConfig(body);
-    send(result);
+    res.send(result);
 }
 "#;
     let path = "src/merge.js";
@@ -681,7 +681,7 @@ function handler(req) {
     // Taint should trace: req.body → body → mergeConfig(body) → send(result)
     assert!(
         !result.findings.is_empty(),
-        "Taint should detect user input flowing through Object.assign to send()"
+        "Taint should detect user input flowing through Object.assign to res.send()"
     );
 }
 
