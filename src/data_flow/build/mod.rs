@@ -7,6 +7,9 @@ use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 mod aliases;
 mod exact_reads;
+mod fallback_cap;
+#[cfg(test)]
+mod fallback_cap_tests;
 pub(super) mod file;
 #[cfg(test)]
 mod giant_owner_tests;

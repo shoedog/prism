@@ -280,7 +280,7 @@ mod stream;
 /// - v136: object-literal arguments bind field-selectively to callee reads (#594).
 /// - v137: CommonJS module-as-function and member calls bind to proven exports (#598): `CallSite.local_binding`
 ///   gains `RequireModule`, and `JsExportFacts` gains the proven CommonJS callables.
-const CACHE_VERSION: u32 = 137;
+const CACHE_VERSION: u32 = 138;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -831,7 +831,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 137);
+        assert_eq!(super::CACHE_VERSION, 138);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -6,11 +6,14 @@ use super::identity::{arena, loc};
 type Stats = (
     usize,
     usize,
+    usize,
+    usize,
     Vec<(&'static str, usize)>,
     Vec<(&'static str, usize)>,
+    Vec<((&'static str, usize, usize), usize)>,
 );
 fn stats(keys: Vec<(&'static str, usize)>) -> Stats {
-    (0, keys.len(), vec![], keys)
+    (0, keys.len(), 0, 0, vec![], keys, vec![])
 }
 fn raw_rd(rows: Vec<(&str, Stats)>) -> Vec<u8> {
     // Ten empty sequence fields followed by RD filename/stat rows. Encoding the
@@ -49,9 +52,9 @@ macro_rules! set_case {
         fn $name() {
             let mut s = stats($keys);
             // Match the post-dedup count so the old count guard cannot mask this.
-            s.1 = s.3.iter().collect::<BTreeSet<_>>().len();
+            s.1 = s.5.iter().collect::<BTreeSet<_>>().len();
             if $over {
-                s = (s.1, 0, s.3, vec![]);
+                s = (s.1, 0, 0, 0, s.5, vec![], vec![]);
             }
             reject_raw(vec![("a.py", s)], "DFG RD set order/duplicate");
         }
@@ -82,7 +85,15 @@ fn rd_unique_keys_raw_roundtrip_bytes() {
     let rows = vec![
         (
             "a.py",
-            (2, 2, vec![("f", 1), ("f", 2)], vec![("f", 1), ("g", 1)]),
+            (
+                2,
+                2,
+                0,
+                0,
+                vec![("f", 1), ("f", 2)],
+                vec![("f", 1), ("g", 1)],
+                vec![],
+            ),
         ),
         ("b.py", stats(vec![])),
     ];
@@ -204,5 +215,34 @@ fn decoded_access_path_vecs_have_no_spare_capacity() {
     ];
     for path in paths {
         assert_eq!(path.fields.capacity(), path.fields.len());
+    }
+}
+
+#[test]
+fn rd_fallback_cap_duplicate_and_reversed_keys_raw() {
+    for keys in [
+        vec![(("f", 1, 0), 3), (("f", 1, 0), 4)],
+        vec![(("g", 1, 0), 3), (("f", 1, 0), 4)],
+    ] {
+        let mut s = stats(vec![]);
+        s.2 = 2;
+        s.3 = 7;
+        s.6 = keys;
+        reject_raw(vec![("a.py", s)], "DFG RD cap map order/duplicate");
+    }
+}
+
+#[test]
+fn rd_fallback_cap_count_corruption_and_overflow_raw() {
+    for (functions, edges, keys) in [
+        (2, 3, vec![(("f", 1, 0), 3)]),
+        (1, 4, vec![(("f", 1, 0), 3)]),
+        (2, 0, vec![(("f", 1, 0), usize::MAX), (("g", 1, 0), 1)]),
+    ] {
+        let mut s = stats(vec![]);
+        s.2 = functions;
+        s.3 = edges;
+        s.6 = keys;
+        reject_raw(vec![("a.py", s)], "DFG RD");
     }
 }
