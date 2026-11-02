@@ -65,9 +65,9 @@
       "resolution::go_satisfiers::tests::resolved_edges_telemetry_and_call_stats_json_match_reference"
     ],
     "GCS-step5c-reuse": [
-      "src/cpg/step5c.rs",
-      "let outcome = go_satisfiers.resolve_call_site_full(site);",
-      "let outcome = cg.resolve_call_site_full(site);",
+      "src/cpg/step5c_facts.rs",
+      "let outcome = resolver.resolve_call_site_full(site);",
+      "let outcome = resolver.graph().resolve_call_site_full(site);",
       "resolution::go_satisfiers::tests::resolved_edges_telemetry_and_call_stats_json_match_reference"
     ],
     "GCS-observer-scope": [

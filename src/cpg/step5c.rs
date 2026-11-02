@@ -1,6 +1,8 @@
 //! Return flow: owner-local read selection, with the original serial mutations.
 use super::*;
 
+#[path = "step5c_facts.rs"]
+mod facts;
 #[cfg(test)]
 #[path = "step5c_tests.rs"]
 pub(super) mod tests;
@@ -16,13 +18,12 @@ impl CodePropertyGraph {
         location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> ReturnFlowStats {
-        let cg = go_satisfiers.graph();
         #[cfg(test)]
         go_satisfiers.set_phase(2);
         #[cfg(test)]
         if step5c_reference::enabled() {
             return Self::assemble_step5c_return_flow_reference(
-                cg,
+                go_satisfiers.graph(),
                 var_index,
                 func_index,
                 graph,
@@ -32,6 +33,7 @@ impl CodePropertyGraph {
         }
         // Step 5c adds only ReturnValue nodes: Variable Use identities stay fixed.
         let uses = uses::UseIndex::new(graph);
+        let callers = facts::collect(go_satisfiers, files, &uses);
         let shared_returns = callee_returns::ReturnCache::new(files);
         let mut stats = ReturnFlowStats::default();
         let mut return_value_index: BTreeMap<
@@ -39,30 +41,23 @@ impl CodePropertyGraph {
             NodeIndex,
         > = BTreeMap::new();
 
-        for (caller_id, sites) in &cg.calls {
-            let Some(caller_parsed) = files.get(&caller_id.file) else {
-                continue;
-            };
-            for site in sites {
-                let Some(assignment) =
-                    caller_parsed.assignment_for_exact_call(site.start_byte, site.end_byte)
-                else {
-                    continue;
-                };
-
-                let outcome = go_satisfiers.resolve_call_site_full(site);
-                let Some(resolved) = singleton_exact(&outcome) else {
-                    let has_exact = outcome
-                        .resolved
+        for (caller_id, facts) in callers {
+            for facts in facts {
+                let facts::SiteFacts {
+                    lvalues,
+                    resolved: candidates,
+                    rhs_uses,
+                } = facts;
+                let Some(resolved) = facts::singleton_exact(&candidates) else {
+                    let has_exact = candidates
                         .iter()
                         .any(|item| item.confidence == ResolutionConfidence::Exact);
-                    let has_nameonly = outcome
-                        .resolved
+                    let has_nameonly = candidates
                         .iter()
                         .any(|item| item.confidence == ResolutionConfidence::NameOnly);
                     if has_exact && has_nameonly {
                         stats.return_flow_skipped_mixed += 1;
-                    } else if has_exact && outcome.resolved.len() > 1 {
+                    } else if has_exact && candidates.len() > 1 {
                         stats.return_flow_skipped_multi += 1;
                     } else {
                         stats.return_flow_skipped_nameonly += 1;
@@ -70,12 +65,7 @@ impl CodePropertyGraph {
                     continue;
                 };
 
-                if assignment.lvalues.is_empty()
-                    || assignment
-                        .lvalues
-                        .iter()
-                        .any(|lhs| !lhs.path.fields.is_empty())
-                {
+                if lvalues.is_empty() || lvalues.iter().any(|lhs| !lhs.path.fields.is_empty()) {
                     stats.return_flow_skipped_non_simple_lhs += 1;
                     continue;
                 }
@@ -88,8 +78,7 @@ impl CodePropertyGraph {
                     continue;
                 };
 
-                let targets: Vec<NodeIndex> = assignment
-                    .lvalues
+                let targets: Vec<NodeIndex> = lvalues
                     .iter()
                     .filter_map(|lhs| {
                         var_index
@@ -111,7 +100,7 @@ impl CodePropertyGraph {
                             })
                     })
                     .collect();
-                if targets.len() != assignment.lvalues.len() {
+                if targets.len() != lvalues.len() {
                     stats.return_flow_skipped_non_simple_lhs += 1;
                     continue;
                 }
@@ -235,8 +224,6 @@ impl CodePropertyGraph {
                     }
                 }
 
-                let rhs_uses =
-                    uses.within(caller_id, site.start_byte, site.end_byte, caller_parsed);
                 let all_rhs_uses_bound = rhs_uses.iter().all(|&use_idx| {
                     graph.edges(use_idx).any(|edge| {
                         matches!(edge.weight(), CpgEdge::DataFlow(_))

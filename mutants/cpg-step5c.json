@@ -20,19 +20,19 @@
     ],
     "C5C-04-lower-bound": [
       "src/cpg/step5c_uses.rs",
-      "start <= use_start",
+      "start <= *use_start",
       "true",
       "cpg::build::step5c::tests::owner_partition_keeps_order_duplicates_and_span_boundaries"
     ],
     "C5C-05-upper-bound": [
       "src/cpg/step5c_uses.rs",
-      "use_end <= end",
+      "*use_end <= end",
       "true",
       "cpg::build::step5c::tests::owner_partition_keeps_order_duplicates_and_span_boundaries"
     ],
     "C5C-06-callee-label": [
       "src/cpg/step5c_uses.rs",
-      "parsed.is_semantic_value_use(use_start, use_end)",
+      "parsed.is_semantic_value_use(*use_start, *use_end)",
       "true",
       "cpg::build::step5c::tests::owner_partition_keeps_order_duplicates_and_span_boundaries"
     ],

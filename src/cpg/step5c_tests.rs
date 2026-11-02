@@ -3,16 +3,45 @@ use super::*;
 use crate::cpg::dfg_observation::{fieldwise_payload, lookup_indexes};
 use crate::languages::Language;
 use std::cell::Cell;
+use std::cell::RefCell;
 use std::path::Path;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
-thread_local! { static WORK: Cell<usize> = const { Cell::new(0) }; }
+#[path = "step5c_perf_tests.rs"]
+mod perf;
+
+thread_local! { static WORK: RefCell<Option<Arc<AtomicUsize>>> = const { RefCell::new(None) }; }
+pub(super) fn current_work() -> Option<Arc<AtomicUsize>> {
+    WORK.with(|slot| slot.borrow().clone())
+}
+pub(super) struct WorkScope(Option<Arc<AtomicUsize>>);
+impl Drop for WorkScope {
+    fn drop(&mut self) {
+        WORK.with(|slot| slot.replace(self.0.take()));
+    }
+}
+pub(super) fn inherit_work(work: Option<Arc<AtomicUsize>>) -> WorkScope {
+    WorkScope(WORK.with(|slot| slot.replace(work)))
+}
+thread_local! { static SEMANTIC: Cell<usize> = const { Cell::new(0) }; }
+pub(super) fn record_semantic() {
+    SEMANTIC.with(|c| c.set(c.get() + 1));
+}
 pub(crate) fn record_work(n: usize) {
-    WORK.with(|c| c.set(c.get() + n));
+    WORK.with(|slot| {
+        if let Some(work) = &*slot.borrow() {
+            work.fetch_add(n, Ordering::Relaxed);
+        }
+    });
 }
 fn measured<T>(f: impl FnOnce() -> T) -> (T, usize) {
-    WORK.with(|c| c.set(0));
+    let work = Arc::new(AtomicUsize::new(0));
+    let _scope = inherit_work(Some(work.clone()));
     let result = f();
-    (result, WORK.with(Cell::get))
+    (result, work.load(Ordering::Relaxed))
 }
 
 fn cli_bytes(cpg: &CodePropertyGraph) -> Vec<u8> {
