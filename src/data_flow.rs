@@ -14,6 +14,7 @@ mod queries;
 mod storage;
 mod types;
 mod views;
+pub(crate) use compact::assembly::{AssemblyId, AssemblyView};
 pub use compact::views::{IdIter, Locations};
 pub use storage::DataFlowGraph;
 pub(crate) use types::{ExactFlowEdge, ExactVarLocation};

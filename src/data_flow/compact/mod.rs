@@ -2,6 +2,7 @@
 use super::*;
 pub(super) mod arena;
 pub(super) use arena::*;
+pub(crate) mod assembly;
 mod freeze;
 #[cfg(test)]
 pub(super) use freeze::FROM_PARTS_CALLS;

@@ -133,3 +133,34 @@ pub(crate) fn corrupt_production_dfg(g: &DataFlowGraph) -> Vec<u8> {
 pub(crate) fn assert_native_production_decode() {
     super::tests::activation::production_codec_shares_one_location_per_exact_identity();
 }
+
+/// Small hand-authored Step 4 fixtures, including deliberately absent endpoints.
+#[cfg(test)]
+pub(crate) fn step4_graph(
+    edges: Vec<super::FlowEdge>,
+    exact: Vec<(super::FlowEdge, crate::cpg::FlowConfidence)>,
+    locations: Vec<VarLocation>,
+) -> DataFlowGraph {
+    let mut p = parts::empty();
+    p.edges = edges;
+    for (edge, confidence) in exact {
+        p.exact_labels
+            .insert(super::ExactFlowEdge::from_legacy(&edge), confidence);
+    }
+    for loc in locations {
+        let key = (
+            loc.file.clone(),
+            loc.function.clone(),
+            loc.function_start_line,
+            loc.path.clone(),
+        );
+        match loc.kind {
+            super::VarAccessKind::Def => &mut p.defs,
+            super::VarAccessKind::Use => &mut p.uses,
+        }
+        .entry(key)
+        .or_default()
+        .push(loc);
+    }
+    parts::graph(p)
+}
