@@ -179,6 +179,14 @@ impl GoModuleGraph {
         &self.telemetry
     }
 
+    /// Module paths (the left-hand side of a `replace`) whose replacement the
+    /// graph could not prove. An import under one of them may live in a repo
+    /// directory whose identity is `ReplaceUnproven`; it is not known to be
+    /// external.
+    pub(crate) fn unproven_replace_paths(&self) -> &BTreeSet<String> {
+        &self.replace_unproven
+    }
+
     #[cfg(test)]
     fn active_dirs(&self) -> &BTreeSet<String> {
         &self.active

@@ -12,7 +12,8 @@ use std::path::{Path, PathBuf};
 
 const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
 const SEVERE_PARSE_ERROR_RATE: f64 = 0.3;
-const BUILTIN_SKIP_DIRS: &[&str] = &[".git", "target", "node_modules", "vendor", "dist", "build"];
+pub(crate) const BUILTIN_SKIP_DIRS: &[&str] =
+    &[".git", "target", "node_modules", "vendor", "dist", "build"];
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum SkipReason {
@@ -188,7 +189,7 @@ fn merge_walk_items(
         .iter()
         .filter(|skip| skip.reason == SkipReason::GoTestdata)
         .count();
-    let mut scope_graph_inputs = scope_graph_build_inputs_from_snapshot(
+    let (mut scope_graph_inputs, _listing) = scope_graph_build_inputs_from_snapshot(
         root,
         &files,
         manifest_snapshot.clone(),
@@ -213,6 +214,20 @@ pub fn scope_graph_build_inputs(
     root: &Path,
     files: &BTreeMap<String, ParsedFile>,
 ) -> ScopeGraphBuildInputs {
+    scope_graph_build_inputs_with_listing(root, files).0
+}
+
+/// The repo's supported-source listing, or why it could not be built. The
+/// review path keeps it next to the scope-graph inputs (never on them, so the
+/// public inputs struct is unchanged) for import-target attribution (#602).
+pub(crate) type SourceListing = std::result::Result<std::sync::Arc<BTreeSet<String>>, ListingError>;
+
+/// Like `scope_graph_build_inputs`, and also returns the listing the Rust
+/// coverage check walked, so review does not walk the tree a second time.
+pub(crate) fn scope_graph_build_inputs_with_listing(
+    root: &Path,
+    files: &BTreeMap<String, ParsedFile>,
+) -> (ScopeGraphBuildInputs, SourceListing) {
     scope_graph_build_inputs_from_snapshot(
         root,
         files,
@@ -226,7 +241,7 @@ fn scope_graph_build_inputs_from_snapshot(
     files: &BTreeMap<String, ParsedFile>,
     manifest_snapshot: ManifestSnapshot,
     js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
-) -> ScopeGraphBuildInputs {
+) -> (ScopeGraphBuildInputs, SourceListing) {
     let mut manifest_hashes = manifest_snapshot.topology_hashes();
     // Prime every production proof/refusal dependency, including absent paths.
     if !js_paths_snapshot.configs.is_empty() {
@@ -295,8 +310,9 @@ fn scope_graph_build_inputs_from_snapshot(
     manifest_hashes.extend(js_paths_snapshot.topology());
     let cfg = parse_rust_crate_config(files, &manifest_snapshot)
         .unwrap_or_else(|| RustCrateConfig::from_convention(files));
-    let complete = has_complete_rust_coverage(root, files);
-    ScopeGraphBuildInputs {
+    let listing = collect_supported_source_paths(root).map(std::sync::Arc::new);
+    let complete = has_complete_rust_coverage(listing.as_deref().ok(), files);
+    let inputs = ScopeGraphBuildInputs {
         repo_root: root.to_path_buf(),
         all_file_paths: files.keys().cloned().collect(),
         manifest_hashes,
@@ -305,7 +321,8 @@ fn scope_graph_build_inputs_from_snapshot(
         js_paths_snapshot,
         cfg,
         complete,
-    }
+    };
+    (inputs, listing)
 }
 
 #[cfg(test)]
@@ -441,12 +458,15 @@ fn is_manifest_name(name: &str) -> bool {
     matches!(name, "Cargo.toml" | "go.mod" | "go.work")
 }
 
-fn has_complete_rust_coverage(root: &Path, files: &BTreeMap<String, ParsedFile>) -> bool {
-    let Some(expected) = collect_supported_source_paths(root) else {
+fn has_complete_rust_coverage(
+    expected: Option<&BTreeSet<String>>,
+    files: &BTreeMap<String, ParsedFile>,
+) -> bool {
+    let Some(expected) = expected else {
         return false;
     };
     let is_rust = |p: &String| Language::from_path(p) == Some(Language::Rust);
-    let expected_rust: BTreeSet<String> = expected.into_iter().filter(is_rust).collect();
+    let expected_rust: BTreeSet<String> = expected.iter().filter(|p| is_rust(p)).cloned().collect();
     let actual_rust: BTreeSet<String> = files.keys().filter(|k| is_rust(k)).cloned().collect();
     actual_rust == expected_rust
 }
@@ -457,22 +477,43 @@ mod freshness_paths;
 #[cfg(feature = "mcp")]
 pub(crate) use freshness_paths::collect_freshness_source_paths;
 
-fn collect_supported_source_paths(root: &Path) -> Option<BTreeSet<String>> {
+/// Why the repo's source listing could not be built: the directory the walk
+/// could not read (repo-relative; empty for the root) and the I/O error.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ListingError {
+    pub(crate) dir: String,
+    pub(crate) message: String,
+}
+
+impl std::fmt::Display for ListingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let dir = if self.dir.is_empty() { "." } else { &self.dir };
+        write!(f, "cannot list {dir}: {}", self.message)
+    }
+}
+
+fn collect_supported_source_paths(
+    root: &Path,
+) -> std::result::Result<BTreeSet<String>, ListingError> {
     let mut out = BTreeSet::new();
-    collect_supported_source_paths_inner(root, root, &mut out).ok()?;
-    Some(out)
+    collect_supported_source_paths_inner(root, root, &mut out)?;
+    Ok(out)
 }
 
 fn collect_supported_source_paths_inner(
     root: &Path,
     dir: &Path,
     out: &mut BTreeSet<String>,
-) -> std::io::Result<()> {
-    for entry in std::fs::read_dir(dir)? {
-        let entry = entry?;
+) -> std::result::Result<(), ListingError> {
+    let fail = |e: std::io::Error| ListingError {
+        dir: rel(root, dir).trim_end_matches('/').to_string(),
+        message: e.to_string(),
+    };
+    for entry in std::fs::read_dir(dir).map_err(fail)? {
+        let entry = entry.map_err(fail)?;
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
-        let file_type = entry.file_type()?;
+        let file_type = entry.file_type().map_err(fail)?;
 
         if BUILTIN_SKIP_DIRS.contains(&name.as_str())
             && (file_type.is_dir() || file_type.is_symlink())
@@ -496,7 +537,7 @@ fn collect_supported_source_paths_inner(
         if Language::from_path(&relp).is_none() {
             continue;
         }
-        if entry.metadata()?.len() <= MAX_FILE_BYTES {
+        if entry.metadata().map_err(fail)?.len() <= MAX_FILE_BYTES {
             out.insert(relp);
         }
     }

@@ -6240,7 +6240,7 @@ pub(crate) fn python_qualified_receiver_parts(receiver_type: &str) -> Option<(&s
         .then_some((qualifier, owner))
 }
 
-fn python_identifier(part: &str) -> bool {
+pub(crate) fn python_identifier(part: &str) -> bool {
     let mut chars = part.chars();
     chars
         .next()

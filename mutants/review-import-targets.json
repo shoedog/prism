@@ -1,0 +1,512 @@
+{
+  "lane": "Import-target attribution for review diff-file call sites (#602)",
+  "lib_test_prefixes": [
+    "review_context::"
+  ],
+  "mutations": {
+    "IT01-bare-package-not-external": [
+      "src/review_context/import_targets/js.rs",
+      "Alias::NotAlias => Attribution::External,",
+      "Alias::NotAlias => unresolvable(spec, Why::NoFile),",
+      "review_context::import_targets_tests::js_bare_package_is_external"
+    ],
+    "IT02-declared-alias-reads-as-package": [
+      "src/review_context/import_targets/js.rs",
+      "Alias::Declared => unresolvable(spec, Why::NoFile),",
+      "Alias::Declared => Attribution::External,",
+      "review_context::import_targets_js_tests::alias_with_missing_target_is_unresolvable_not_external"
+    ],
+    "IT03-loaded-target-kept": [
+      "src/review_context/import_targets.rs",
+      "} else if self.loaded.contains(path) {",
+      "} else if false {",
+      "review_context::import_targets_tests::js_target_in_loaded_set_is_loaded"
+    ],
+    "IT04-self-target-kept": [
+      "src/review_context/import_targets.rs",
+      "if path == file {",
+      "if false {",
+      "review_context::import_targets_api_tests::caller_and_loaded_targets_are_split_into_same_file_and_loaded"
+    ],
+    "IT05-fallback-order-reversed": [
+      "src/review_context/import_targets/js_alias.rs",
+      "found.extend(probed.iter().flatten().filter_map(|p| winner(p, listing)));",
+      "found.extend(probed.iter().flatten().rev().filter_map(|p| winner(p, listing)));",
+      "review_context::import_targets_js_tests::fallback_target_arrays_are_candidates_in_target_order"
+    ],
+    "IT06-qualified-call-treated-as-same-file": [
+      "src/review_context/import_targets.rs",
+      "call.qualifier.is_none() && parsed.find_function_by_name",
+      "parsed.find_function_by_name",
+      "review_context::import_targets_tests::js_method_on_a_module_level_object_is_not_the_same_named_function"
+    ],
+    "IT07-node-modules-listed": [
+      "src/repo_loader.rs",
+      "&[\".git\", \"target\", \"node_modules\", \"vendor\", \"dist\", \"build\"];",
+      "&[\".git\", \"target\", \"vendor\", \"dist\", \"build\"];",
+      "review_context::import_targets_tests::js_skipped_directories_are_never_targets"
+    ],
+    "IT08-listing-not-the-inputs-walk": [
+      "src/repo_loader.rs",
+      "    (inputs, listing)\n}",
+      "    (inputs, Ok(std::sync::Arc::new(BTreeSet::new())))\n}",
+      "review_context::import_targets_api_tests::the_listing_comes_from_the_single_inputs_walk"
+    ],
+    "IT09-catch-all-paths-key-is-alias": [
+      "src/review_context/import_targets/js_alias.rs",
+      "declared = key != \"*\";",
+      "declared = true;",
+      "review_context::import_targets_js_tests::catch_all_paths_key_does_not_turn_packages_into_aliases"
+    ],
+    "IT10-go-test-files-included": [
+      "src/review_context/import_targets/go.rs",
+      "!path.ends_with(\"_test.go\")",
+      "true",
+      "review_context::import_targets_go_tests::qualified_call_names_every_non_test_file_of_the_package"
+    ],
+    "IT11-go-testdata-included": [
+      "src/review_context/import_targets/go.rs",
+      "&& !in_testdata",
+      "&& true",
+      "review_context::import_targets_go_tests::testdata_directories_are_not_package_files_or_targets"
+    ],
+    "IT12-go-std-not-external": [
+      "src/review_context/import_targets/go.rs",
+      "            } else {\n                Attribution::External\n            };",
+      "            } else {\n                Attribution::Unknown\n            };",
+      "review_context::import_targets_go_tests::std_and_third_party_imports_are_external"
+    ],
+    "IT13-py-import-root-is-caller-dir": [
+      "src/review_context/import_targets/python.rs",
+      "while !dir.is_empty() && self.listing.contains(&join(dir, \"__init__.py\")) {",
+      "while false && self.listing.contains(&join(dir, \"__init__.py\")) {",
+      "review_context::import_targets_py_tests::package_caller_does_not_search_its_own_directory"
+    ],
+    "IT14-py-stdlib-list-ignored": [
+      "src/review_context/import_targets/python.rs",
+      "|| (is_stdlib_module(top) && self.py_winner(&root, top).is_none())",
+      "|| (false && self.py_winner(&root, top).is_none())",
+      "review_context::import_targets_py_tests::stdlib_name_is_external_unless_the_import_root_holds_it"
+    ],
+    "IT15-py-stdlib-beats-the-import-root": [
+      "src/review_context/import_targets/python.rs",
+      "|| (is_stdlib_module(top) && self.py_winner(&root, top).is_none())",
+      "|| is_stdlib_module(top)",
+      "review_context::import_targets_py_tests::stdlib_name_is_external_unless_the_import_root_holds_it"
+    ],
+    "IT16-py-module-before-package": [
+      "src/review_context/import_targets/python.rs",
+      "vec![\n                join(base, &format!(\"{rel}/__init__.py\")),\n                join(base, &format!(\"{rel}.py\")),\n            ]",
+      "vec![\n                join(base, &format!(\"{rel}.py\")),\n                join(base, &format!(\"{rel}/__init__.py\")),\n            ]",
+      "review_context::import_targets_py_tests::package_wins_over_module_of_the_same_name"
+    ],
+    "IT17-py-farthest-ancestor-wins": [
+      "src/review_context/import_targets/python.rs",
+      "if let Some(found) = self.py_winner(&dir, &relative) {",
+      "if let Some(found) = self.py_winner(&dir, &relative).filter(|_| dir.is_empty()) {",
+      "review_context::import_targets_py_tests::script_directory_prefers_nearest_ancestor_then_falls_back"
+    ],
+    "IT18-py-relative-dots-off-by-one": [
+      "src/review_context/import_targets/python.rs",
+      "for _ in 1..dots {",
+      "for _ in 0..dots {",
+      "review_context::import_targets_py_tests::relative_two_dots"
+    ],
+    "IT19-py-missing-in-repo-name-reads-as-package": [
+      "src/review_context/import_targets/python.rs",
+      "        if in_repo_name {\n            Lookup::Missing",
+      "        if false {\n            Lookup::Missing",
+      "review_context::import_targets_py_tests::missing_module_under_an_in_repo_package_is_unresolvable"
+    ],
+    "IT20-py-missing-relative-reads-as-package": [
+      "src/review_context/import_targets/python.rs",
+      ".map_or(Lookup::Missing, Lookup::File);",
+      ".map_or(Lookup::External, Lookup::File);",
+      "review_context::import_targets_py_tests::relative_import_of_missing_module_is_unresolvable"
+    ],
+    "IT21-py-shortest-dotted-prefix": [
+      "src/review_context/import_targets/python.rs",
+      "                    .max();",
+      "                    .min();",
+      "review_context::import_targets_py_tests::several_dotted_imports_of_one_package_both_stay_usable"
+    ],
+    "IT22-py-initializer-wins-silently": [
+      "src/review_context/import_targets/python.rs",
+      "(Lookup::File(init), Lookup::File(sub)) if *init != sub => {",
+      "(Lookup::File(init), Lookup::File(sub)) if false && *init != sub => {",
+      "review_context::import_targets_py_tests::package_attribute_against_submodule_is_a_candidate_pair"
+    ],
+    "IT23-py-namespace-submodule-dropped": [
+      "src/review_context/import_targets/python.rs",
+      "(Lookup::Missing, Lookup::File(sub)) => owner = Lookup::File(sub),",
+      "(Lookup::Missing, Lookup::File(_)) => break,",
+      "review_context::import_targets_py_tests::namespace_package_submodule_and_initializer_only_are_bound"
+    ],
+    "IT24-py-function-scope-ignored": [
+      "src/review_context/import_targets/shadow.rs",
+      ".is_none_or(|names| names.contains(name))",
+      ".is_none_or(|names| false && names.contains(name))",
+      "review_context::import_targets_py_tests::function_scope_bindings_shadow_imports"
+    ],
+    "IT26-py-module-rebinding-ignored": [
+      "src/review_context/import_targets/shadow.rs",
+      "\"assignment\" | \"augmented_assignment\" | \"for_statement\" if binds(\"left\") => return true,",
+      "\"assignment\" | \"augmented_assignment\" | \"for_statement\" if false && binds(\"left\") => return true,",
+      "review_context::import_targets_py_tests::module_level_rebinding_of_an_import_is_unknown"
+    ],
+    "IT27-py-module-def-rebinding-ignored": [
+      "src/review_context/import_targets/shadow.rs",
+      "\"function_definition\" | \"class_definition\" => {\n            return node",
+      "\"function_definition\" | \"class_definition\" if false => {\n            return node",
+      "review_context::import_targets_py_tests::module_level_rebinding_of_an_import_is_unknown"
+    ],
+    "IT28-js-nearer-scope-ignored": [
+      "src/review_context/import_targets/js.rs",
+      "JsRootScope::Nearer { .. } | JsRootScope::Unproven => return Attribution::Unknown,",
+      "JsRootScope::Nearer { .. } | JsRootScope::Unproven => {}",
+      "review_context::import_targets_js_tests::shadowed_namespace_is_unknown_and_unshadowed_is_attributed"
+    ],
+    "IT29-js-nested-function-not-same-file": [
+      "src/review_context/import_targets/js.rs",
+      "JsRootScope::Nearer { callable: true } if call.qualifier.is_none() => {",
+      "JsRootScope::Nearer { callable: true } if false => {",
+      "review_context::import_targets_js_tests::shadowed_same_file_function_is_unknown_and_nested_function_is_same_file"
+    ],
+    "IT30-js-scope-walk-always-program": [
+      "src/ast/js_binding_root.rs",
+      "Walk::Found(scope, _) if scope.kind() == \"program\" => JsRootScope::Program,",
+      "Walk::Found(scope, _) if scope.kind() == \"program\" || true => JsRootScope::Program,",
+      "review_context::import_targets_js_tests::local_declarations_shadow_imports"
+    ],
+    "IT31-js-relative-loser-wins": [
+      "src/review_context/import_targets/js.rs",
+      ".and_then(|found| found.into_iter().next());",
+      ".and_then(|found| found.into_iter().last());",
+      "review_context::import_targets_js_tests::relative_specifier_takes_the_extension_precedence_winner"
+    ],
+    "IT32-js-base-url-ignored": [
+      "src/review_context/import_targets/js_alias.rs",
+      "found.extend(winner(&path, listing));",
+      "found.extend(None::<String>);",
+      "review_context::import_targets_js_tests::base_url_without_paths_resolves_bare_specifiers"
+    ],
+    "IT33-js-skipped-key-is-alias": [
+      "src/review_context/import_targets/js_alias.rs",
+      "if probed.iter().flatten().any(|p| !in_skipped_dir(p)) {",
+      "if true {",
+      "review_context::import_targets_js_tests::key_targeting_only_skipped_directories_is_not_an_alias"
+    ],
+    "IT34-js-shortest-prefix-key": [
+      "src/review_context/import_targets/js_alias.rs",
+      "Some((prefix, ..)) if pre.len() < prefix => {}",
+      "Some((prefix, ..)) if pre.len() > prefix => {}",
+      "review_context::import_targets_js_tests::suffix_pattern_and_longest_prefix_and_exact_keys"
+    ],
+    "IT35-js-extends-ignored": [
+      "src/review_context/import_targets/js_alias.rs",
+      "for parent in extends.into_iter().filter(|e| e.starts_with('.')) {",
+      "for parent in extends.into_iter().filter(|e| e.starts_with('.') && false) {",
+      "review_context::import_targets_js_tests::extended_config_supplies_paths_and_the_nearest_config_owns"
+    ],
+    "IT36-go-block-comment-scanned": [
+      "src/review_context/import_targets/go_scan.rs",
+      "b'/' if bytes.get(i + 1) == Some(&b'*') => {\n                i += 2;\n                while i < bytes.len() && !(bytes[i] == b'*' && bytes.get(i + 1) == Some(&b'/')) {\n                    i += 1;\n                }",
+      "b'/' if false && bytes.get(i + 1) == Some(&b'*') => {\n                i += 2;\n                while i < bytes.len() && !(bytes[i] == b'*' && bytes.get(i + 1) == Some(&b'/')) {\n                    i += 1;\n                }",
+      "review_context::import_targets_go_tests::comments_and_strings_do_not_declare_functions"
+    ],
+    "IT37-go-line-comment-scanned": [
+      "src/review_context/import_targets/go_scan.rs",
+      "match bytes[i] {\n            b'/' if bytes.get(i + 1) == Some(&b'/') => {",
+      "match bytes[i] {\n            b'/' if false && bytes.get(i + 1) == Some(&b'/') => {",
+      "review_context::import_targets_go_tests::comments_and_strings_do_not_declare_functions"
+    ],
+    "IT38-go-string-scanned": [
+      "src/review_context/import_targets/go_scan.rs",
+      "b'\"' | b'\\'' => {",
+      "b'\\'' => {",
+      "review_context::import_targets_go_tests::comments_and_strings_do_not_declare_functions"
+    ],
+    "IT39-go-raw-string-scanned": [
+      "src/review_context/import_targets/go_scan.rs",
+      "b'`' => {",
+      "b'`' if false => {",
+      "review_context::import_targets_go_tests::comments_and_strings_do_not_declare_functions"
+    ],
+    "IT40-go-no-space-after-name": [
+      "src/review_context/import_targets/go_scan.rs",
+      "let (next, crossed_newline) = skip_trivia(bytes, i);",
+      "let (next, crossed_newline) = (i, false);",
+      "review_context::import_targets_go_tests::legal_whitespace_and_generics_still_declare"
+    ],
+    "IT41-go-no-space-after-func": [
+      "src/review_context/import_targets/go_scan.rs",
+      "(i, _) = skip_trivia(bytes, i);",
+      "(i, _) = (i, false);",
+      "review_context::import_targets_go_tests::legal_whitespace_and_generics_still_declare"
+    ],
+    "IT42-go-replace-unproven-reads-external": [
+      "src/review_context/import_targets/go.rs",
+      "return if unproven {",
+      "return if false {",
+      "review_context::import_targets_go_tests::unproven_versioned_local_replace_is_unresolvable_not_external"
+    ],
+    "IT43-go-own-module-miss-reads-external": [
+      "src/review_context/import_targets/go.rs",
+      "} else if own {",
+      "} else if false {",
+      "review_context::import_targets_go_tests::own_module_path_with_no_directory_is_unresolvable"
+    ],
+    "IT44-go-declaring-not-scanned": [
+      "src/review_context/import_targets/go.rs",
+      ".filter(|f| self.go_declared_funcs(f).contains(&call.callee_name))",
+      ".filter(|_| false)",
+      "review_context::import_targets_api_tests::go_qualified_call_names_the_declaring_files"
+    ],
+    "IT45-go-loaded-declarer-ignored": [
+      "src/review_context/import_targets.rs",
+      "if !hit.declaring.is_empty() && declared_out.is_empty() {",
+      "if false && !hit.declaring.is_empty() && declared_out.is_empty() {",
+      "review_context::import_targets_go_tests::a_loaded_declarer_is_not_a_boundary_but_an_unloaded_one_is"
+    ],
+    "IT46-go-local-binding-ignored": [
+      "src/review_context/import_targets/go.rs",
+      "if go_scope_binds(parsed, call, root) {",
+      "if false && go_scope_binds(parsed, call, root) {",
+      "review_context::import_targets_go_tests::local_bindings_shadow_the_qualifier_and_the_sibling"
+    ],
+    "IT47-go-build-tag-variants-bound": [
+      "src/review_context/import_targets/go.rs",
+      "basis: if n == 1 {",
+      "basis: if true || n == 1 {",
+      "review_context::import_targets_api_tests::go_build_tag_siblings_are_candidates"
+    ],
+    "IT48-alias-fallbacks-bound": [
+      "src/review_context/import_targets/js.rs",
+      "let basis = if files.len() == 1 {",
+      "let basis = if true || files.len() == 1 {",
+      "review_context::import_targets_api_tests::alias_fallbacks_are_candidates_and_a_single_target_is_bound"
+    ],
+    "IT49-listing-error-loses-dir": [
+      "src/repo_loader.rs",
+      "dir: rel(root, dir).trim_end_matches('/').to_string(),",
+      "dir: String::new(),",
+      "review_context::import_targets_api_tests::an_unreadable_directory_is_a_reported_reason_not_a_silent_none"
+    ],
+    "IT50-js-namespace-member-dropped": [
+      "src/review_context/import_targets/js.rs",
+      "(Some(q), _) if q == key => Some(call.callee_name.clone()),",
+      "(Some(q), _) if false && q == key => Some(call.callee_name.clone()),",
+      "review_context::import_targets_api_tests::js_provenance_names_the_specifier_and_the_exported_member"
+    ],
+    "IT51-js-default-property-as-member": [
+      "src/review_context/import_targets/js.rs",
+      "(Some(_), Some(b)) if b.kind == ImportBindingKind::MemberImport => None,",
+      "(Some(_), Some(b)) if false && b.kind == ImportBindingKind::MemberImport => None,",
+      "review_context::import_targets_api_tests::js_provenance_names_the_specifier_and_the_exported_member"
+    ],
+    "IT52-too-many-alias-candidates-bound": [
+      "src/review_context/import_targets/js.rs",
+      "Alias::Files(files) if files.len() > MAX_AMBIGUOUS => unresolvable(spec, Why::TooMany),",
+      "Alias::Files(files) if files.len() > MAX_AMBIGUOUS + 8 => unresolvable(spec, Why::TooMany),",
+      "review_context::import_targets_api_tests::unresolvable_carries_why"
+    ],
+    "IT53-stdlib-name-prefix-match": [
+      "src/review_context/import_targets/stdlib_names.rs",
+      "STDLIB_TOP_LEVEL.split_whitespace().any(|name| name == top)",
+      "STDLIB_TOP_LEVEL.split_whitespace().any(|name| name.starts_with(top))",
+      "review_context::import_targets::stdlib_names::tests::matches_whole_top_level_names_only"
+    ],
+    "IT54-go-func-keyword-prefix": [
+      "src/review_context/import_targets/go_scan.rs",
+      "&& (i == 0 || !is_ident_byte(bytes[i - 1]))",
+      "&& true",
+      "review_context::import_targets::go_scan::tests::requires_a_whole_func_keyword"
+    ],
+    "IT55-py-builtin-shadowable": [
+      "src/review_context/import_targets/python.rs",
+      "if is_builtin_or_frozen_module(top)\n            ||",
+      "if false\n            ||",
+      "review_context::import_targets_py_tests::builtin_modules_are_external_even_beside_a_same_named_file"
+    ],
+    "IT56-py-namespace-dir-shadows-stdlib": [
+      "src/review_context/import_targets/python.rs",
+      "|| (is_stdlib_module(top) && self.py_winner(&root, top).is_none())",
+      "|| (is_stdlib_module(top) && !self.py_dir_holds(&root, top))",
+      "review_context::import_targets_py_tests::a_namespace_only_directory_does_not_shadow_the_stdlib"
+    ],
+    "IT57-py-dir-holds-counts-any-file": [
+      "src/review_context/import_targets/python.rs",
+      ".any(|p| p.ends_with(\".py\"))",
+      ".any(|_| true)",
+      "review_context::import_targets_py_tests::a_directory_without_python_files_is_not_an_in_repo_name"
+    ],
+    "IT58-py-builtin-prefix-match": [
+      "src/review_context/import_targets/stdlib_names.rs",
+      "BUILTIN_OR_FROZEN.split_whitespace().any(|name| name == top)",
+      "BUILTIN_OR_FROZEN.split_whitespace().any(|name| name.starts_with(top))",
+      "review_context::import_targets::stdlib_names::tests::builtin_names_are_a_subset_of_the_stdlib_names"
+    ],
+    "IT59-py-chain-one-component": [
+      "src/review_context/import_targets/python.rs",
+      "for next in rest {",
+      "for next in rest.iter().take(1) {",
+      "review_context::import_targets_py_tests::member_chains_walk_every_existing_submodule"
+    ],
+    "IT60-py-attribute-chain-keeps-member": [
+      "src/review_context/import_targets/python.rs",
+      "let member = if walked == rest.len() { member } else { None };",
+      "let member = member;",
+      "review_context::import_targets_py_tests::a_package_attribute_chain_names_the_owner_without_a_wrong_member"
+    ],
+    "IT61-py-candidates-carry-member": [
+      "src/review_context/import_targets/python.rs",
+      "spec: module.to_string(),\n                    member: None,",
+      "spec: module.to_string(),\n                    member: Some(\"x\".to_string()),",
+      "review_context::import_targets_py_tests::a_candidate_pair_names_no_member"
+    ],
+    "IT62-py-comprehension-target-function-wide": [
+      "src/review_context/import_targets/shadow.rs",
+      ".function_local_value_bindings_at(&node, Some((call.start_byte, call.end_byte)))",
+      ".function_local_value_bindings_at(&node, None)",
+      "review_context::import_targets_py_tests::comprehension_targets_bind_only_inside_the_comprehension"
+    ],
+    "IT63-py-comprehension-never-binds-at-site": [
+      "src/ast.rs",
+      "|| site.is_none_or(|(start, end)| {\n                        node.parent()\n                            .is_none_or(|c| c.start_byte() <= start && end <= c.end_byte())",
+      "|| site.is_none_or(|(start, end)| {\n                        node.parent()\n                            .is_none_or(|c| false && c.start_byte() <= start && end <= c.end_byte())",
+      "review_context::import_targets_py_tests::comprehension_targets_bind_only_inside_the_comprehension"
+    ],
+    "IT64-go-type-switch-alias-ignored": [
+      "src/review_context/import_targets/shadow.rs",
+      "if node.kind() == \"type_switch_statement\"",
+      "if false && node.kind() == \"type_switch_statement\"",
+      "review_context::import_targets_go_tests::type_switch_alias_shadows_the_imported_package"
+    ],
+    "IT65-js-nested-require-overwrites": [
+      "src/review_context/import_targets.rs",
+      "parsed.js_ts_program_imports()",
+      "parsed.extract_imports()",
+      "review_context::import_targets_js_tests::nested_require_does_not_rebind_the_program_import"
+    ],
+    "IT66-js-export-wrapper-ignored": [
+      "src/ast/js_binding_root.rs",
+      "statement.child_by_field_name(\"declaration\")",
+      "None",
+      "review_context::import_targets_js_tests::an_exported_require_is_a_program_import"
+    ],
+    "IT67-go-longer-selector-keeps-declaring": [
+      "src/review_context/import_targets/go.rs",
+      "if qualifier != root {",
+      "if false {",
+      "review_context::import_targets_go_tests::a_longer_selector_does_not_borrow_the_package_function_declarer"
+    ],
+    "IT68-go-undeclared-with-loaded-file-kept": [
+      "src/review_context/import_targets/go.rs",
+      "if declaring.is_empty() && files.iter().any(|f| self.loaded.contains(f)) {",
+      "if false {",
+      "review_context::import_targets_go_tests::a_function_value_or_conversion_has_no_declaring_file"
+    ],
+    "IT69-go-build-tag-declarers-bound": [
+      "src/review_context/import_targets/go.rs",
+      "let basis = if declaring.len() > 1 || (declaring.is_empty() && files.len() > 1) {",
+      "let basis = if declaring.is_empty() && files.len() > 1 {",
+      "review_context::import_targets_go_tests::build_tag_declarers_of_a_package_function_are_candidates"
+    ],
+    "IT70-go-undeclared-multi-file-bound": [
+      "src/review_context/import_targets/go.rs",
+      "|| (declaring.is_empty() && files.len() > 1) {",
+      "|| false {",
+      "review_context::import_targets_go_tests::a_function_value_or_conversion_has_no_declaring_file"
+    ],
+    "IT71-go-undeclared-single-file-candidates": [
+      "src/review_context/import_targets/go.rs",
+      "|| (declaring.is_empty() && files.len() > 1) {",
+      "|| declaring.is_empty() {",
+      "review_context::import_targets_go_tests::a_function_value_or_conversion_has_no_declaring_file"
+    ],
+    "IT72-go-newline-after-name-declares": [
+      "src/review_context/import_targets/go_scan.rs",
+      "if !crossed_newline && matches!",
+      "if matches!",
+      "review_context::import_targets::go_scan::tests::a_newline_after_the_name_ends_the_declaration"
+    ],
+    "IT73-go-block-comment-trivia-ends-input": [
+      "src/review_context/import_targets/go_scan.rs",
+      "i = (i + 2).min(bytes.len());",
+      "i = bytes.len();",
+      "review_context::import_targets::go_scan::tests::comments_between_declaration_tokens_are_trivia"
+    ],
+    "IT74-go-line-comment-not-trivia": [
+      "src/review_context/import_targets/go_scan.rs",
+      "b' ' | b'\\t' | b'\\r' => i += 1,\n            b'/' if bytes.get(i + 1) == Some(&b'/') => {",
+      "b' ' | b'\\t' | b'\\r' => i += 1,\n            b'/' if false && bytes.get(i + 1) == Some(&b'/') => {",
+      "review_context::import_targets::go_scan::tests::comments_between_declaration_tokens_are_trivia"
+    ],
+    "IT75-go-block-comment-newline-ignored": [
+      "src/review_context/import_targets/go_scan.rs",
+      "newline |= bytes[i] == b'\\n';",
+      "newline |= false;",
+      "review_context::import_targets::go_scan::tests::a_newline_after_the_name_ends_the_declaration"
+    ],
+    "IT76-go-func-keyword-needs-boundary": [
+      "src/review_context/import_targets/go_scan.rs",
+      "&& !bytes.get(i + 4).is_some_and(|b| is_ident_byte(*b))",
+      "&& true",
+      "review_context::import_targets::go_scan::tests::requires_a_whole_func_keyword"
+    ],
+    "IT77-js-unavailable-config-reads-external": [
+      "src/review_context/import_targets/js.rs",
+      "Alias::Unavailable => Attribution::Unknown,",
+      "Alias::Unavailable => Attribution::External,",
+      "review_context::import_targets_js_tests::unavailable_config_is_unknown_never_external"
+    ],
+    "IT78-js-extends-later-parent-clobbers-paths": [
+      "src/review_context/import_targets/js_alias.rs",
+      "if inherited.paths.is_some() {",
+      "if true {",
+      "review_context::import_targets_js_tests::extends_array_merges_parents_field_by_field"
+    ],
+    "IT79-js-extends-later-parent-clobbers-base": [
+      "src/review_context/import_targets/js_alias.rs",
+      "if inherited.base != BaseUrl::Absent {",
+      "if true {",
+      "review_context::import_targets_js_tests::extends_array_merges_parents_field_by_field"
+    ],
+    "IT80-js-extends-cycle-accepted": [
+      "src/review_context/import_targets/js_alias.rs",
+      "if visiting.iter().any(|p| p == path) {\n            return None;",
+      "if visiting.iter().any(|p| p == path) {\n            return Some(Rc::new(AliasConfig::default()));",
+      "review_context::import_targets_js_tests::unavailable_config_is_unknown_never_external"
+    ],
+    "IT81-js-uncaptured-parent-ignored": [
+      "src/review_context/import_targets/js_alias.rs",
+      "let inherited = self.load(snapshot, &parent_path, visiting)?;",
+      "let Some(inherited) = self.load(snapshot, &parent_path, visiting) else {\n                continue;\n            };",
+      "review_context::import_targets_js_tests::unavailable_config_is_unknown_never_external"
+    ],
+    "IT82-js-unusable-base-reads-absent": [
+      "src/review_context/import_targets/js_alias.rs",
+      ".map_or(BaseUrl::Unusable, BaseUrl::Usable)",
+      ".map_or(BaseUrl::Absent, BaseUrl::Usable)",
+      "review_context::import_targets_js_tests::explicit_base_url_outside_the_repo_does_not_fall_back_to_the_config_directory"
+    ],
+    "IT83-js-unusable-base-probes-origin": [
+      "src/review_context/import_targets/js_alias.rs",
+      "BaseUrl::Unusable => return Alias::Unavailable,",
+      "BaseUrl::Unusable => origin.as_str(),",
+      "review_context::import_targets_js_tests::explicit_base_url_outside_the_repo_does_not_fall_back_to_the_config_directory"
+    ],
+    "IT84-js-paths-tie-guessed": [
+      "src/review_context/import_targets/js_alias.rs",
+      "Some(_) if tied => KeyMatch::Tied,",
+      "Some(_) if false => KeyMatch::Tied,",
+      "review_context::import_targets_js_tests::paths_longest_prefix_tie_is_unknown_in_either_source_order"
+    ],
+    "IT85-js-longer-prefix-not-preferred": [
+      "src/review_context/import_targets/js_alias.rs",
+      "Some((prefix, ..)) if pre.len() == prefix => tied = true,",
+      "Some((_prefix, ..)) if true => tied = true,",
+      "review_context::import_targets_js_tests::a_strictly_longer_paths_prefix_still_wins"
+    ]
+  }
+}
