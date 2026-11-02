@@ -88,7 +88,12 @@ impl AliasConfigs {
         let mut found: Vec<String> = Vec::new();
         let mut declared = false;
         if let Some((origin, entries)) = &config.paths {
-            if let Some((key, targets, capture)) = matching_key(entries, spec) {
+            let matched = match matching_key(entries, spec) {
+                KeyMatch::Tied => return Alias::Unavailable,
+                KeyMatch::None => None,
+                KeyMatch::One(key, targets, capture) => Some((key, targets, capture)),
+            };
+            if let Some((key, targets, capture)) = matched {
                 let base = match &config.base {
                     BaseUrl::Absent => origin.as_str(),
                     BaseUrl::Usable(base) => base.as_str(),
@@ -241,27 +246,46 @@ impl AliasConfigs {
 /// entries are in parser order (sorted by key: the JSON reader keeps no file
 /// order), so a tie is broken by key order, not file order. Returns the key,
 /// its targets and the text its `*` captured.
-fn matching_key<'a>(
-    entries: &'a [(String, Vec<String>)],
-    spec: &'a str,
-) -> Option<(&'a str, &'a [String], &'a str)> {
+/// The `paths` key a specifier matches: an exact key, else the wildcard key
+/// with the longest literal prefix. Two wildcard keys tied on that prefix are
+/// `Tied`: TypeScript takes the first in source order, which the sorted JSON
+/// reader does not keep, so the lookup refuses rather than guess.
+enum KeyMatch<'a> {
+    None,
+    One(&'a str, &'a [String], &'a str),
+    Tied,
+}
+
+fn matching_key<'a>(entries: &'a [(String, Vec<String>)], spec: &'a str) -> KeyMatch<'a> {
     if let Some((key, targets)) = entries.iter().find(|(k, _)| k == spec) {
-        return Some((key, targets, ""));
+        return KeyMatch::One(key, targets, "");
     }
     let mut best: Option<(usize, &str, &[String], &str)> = None;
+    let mut tied = false;
     for (key, targets) in entries {
         let Some((pre, post)) = key.split_once('*') else {
             continue;
         };
         let fits =
             spec.len() >= pre.len() + post.len() && spec.starts_with(pre) && spec.ends_with(post);
-        // Strictly longer: an equal prefix keeps the earlier key.
-        if fits && best.is_none_or(|(prefix, ..)| pre.len() > prefix) {
-            let capture = &spec[pre.len()..spec.len() - post.len()];
-            best = Some((pre.len(), key.as_str(), targets.as_slice(), capture));
+        if !fits {
+            continue;
+        }
+        match best {
+            Some((prefix, ..)) if pre.len() == prefix => tied = true,
+            Some((prefix, ..)) if pre.len() < prefix => {}
+            _ => {
+                let capture = &spec[pre.len()..spec.len() - post.len()];
+                best = Some((pre.len(), key.as_str(), targets.as_slice(), capture));
+                tied = false;
+            }
         }
     }
-    best.map(|(_, key, targets, capture)| (key, targets, capture))
+    match best {
+        Some(_) if tied => KeyMatch::Tied,
+        Some((_, key, targets, capture)) => KeyMatch::One(key, targets, capture),
+        None => KeyMatch::None,
+    }
 }
 
 /// The file TS probing picks for repo path `path` (extensions, then index

@@ -198,8 +198,8 @@
     ],
     "IT34-js-shortest-prefix-key": [
       "src/review_context/import_targets/js_alias.rs",
-      "if fits && best.is_none_or(|(prefix, ..)| pre.len() > prefix) {",
-      "if fits && best.is_none_or(|(prefix, ..)| pre.len() < prefix) {",
+      "Some((prefix, ..)) if pre.len() < prefix => {}",
+      "Some((prefix, ..)) if pre.len() > prefix => {}",
       "review_context::import_targets_js_tests::suffix_pattern_and_longest_prefix_and_exact_keys"
     ],
     "IT35-js-extends-ignored": [
@@ -496,11 +496,17 @@
       "BaseUrl::Unusable => origin.as_str(),",
       "review_context::import_targets_js_tests::explicit_base_url_outside_the_repo_does_not_fall_back_to_the_config_directory"
     ],
-    "IT84-js-paths-tie-takes-last-key": [
+    "IT84-js-paths-tie-guessed": [
       "src/review_context/import_targets/js_alias.rs",
-      "best.is_none_or(|(prefix, ..)| pre.len() > prefix)",
-      "best.is_none_or(|(prefix, ..)| pre.len() >= prefix)",
-      "review_context::import_targets_js_tests::paths_longest_prefix_tie_takes_the_first_key"
+      "Some(_) if tied => KeyMatch::Tied,",
+      "Some(_) if false => KeyMatch::Tied,",
+      "review_context::import_targets_js_tests::paths_longest_prefix_tie_is_unknown_in_either_source_order"
+    ],
+    "IT85-js-longer-prefix-not-preferred": [
+      "src/review_context/import_targets/js_alias.rs",
+      "Some((prefix, ..)) if pre.len() == prefix => tied = true,",
+      "Some((_prefix, ..)) if true => tied = true,",
+      "review_context::import_targets_js_tests::a_strictly_longer_paths_prefix_still_wins"
     ]
   }
 }

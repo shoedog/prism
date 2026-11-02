@@ -508,10 +508,34 @@ fn explicit_base_url_outside_the_repo_does_not_fall_back_to_the_config_directory
 }
 
 #[test]
-fn paths_longest_prefix_tie_takes_the_first_key() {
-    // `@/*` and `@/*cmd` both match with a two-byte literal prefix.
+fn paths_longest_prefix_tie_is_unknown_in_either_source_order() {
+    // `@/*` and `@/*cmd` both match `@/lib/cmd` with a two-byte literal prefix.
+    // TypeScript takes the first in source order; the sorted JSON reader loses
+    // that order, so both orders refuse, even with one target already loaded.
+    for paths in [
+        r#"{"@/*":["src/*"],"@/*cmd":["alt/*cmd"]}"#,
+        r#"{"@/*cmd":["alt/*cmd"],"@/*":["src/*"]}"#,
+    ] {
+        let config = format!(r#"{{"compilerOptions":{{"baseUrl":".","paths":{paths}}}}}"#);
+        let dir = write_repo(&[
+            ("tsconfig.json", config.as_str()),
+            (
+                "app.ts",
+                "import { f } from '@/lib/cmd';\nexport function h(x: string) { f(x); }\n",
+            ),
+            ("src/lib/cmd.ts", ""),
+            ("alt/lib/cmd.ts", "export function f(x: string) {}\n"),
+        ]);
+        assert_unknown(attribute(&dir, "app.ts", "f"));
+        // With the decoy loaded: still Unknown, never Loaded(decoy).
+        assert_unknown(attribute_loaded(&dir, "app.ts", "f", &["src/lib/cmd.ts"]));
+    }
+}
+
+#[test]
+fn a_strictly_longer_paths_prefix_still_wins() {
     let config =
-        r#"{"compilerOptions":{"baseUrl":".","paths":{"@/*":["src/*"],"@/*cmd":["alt/*cmd"]}}}"#;
+        r#"{"compilerOptions":{"baseUrl":".","paths":{"@/*":["src/*"],"@/lib/*":["alt/lib/*"]}}}"#;
     let dir = write_repo(&[
         ("tsconfig.json", config),
         (
@@ -521,5 +545,5 @@ fn paths_longest_prefix_tie_takes_the_first_key() {
         ("src/lib/cmd.ts", ""),
         ("alt/lib/cmd.ts", ""),
     ]);
-    assert_files(attribute(&dir, "app.ts", "f"), &["src/lib/cmd.ts"]);
+    assert_files(attribute(&dir, "app.ts", "f"), &["alt/lib/cmd.ts"]);
 }

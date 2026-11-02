@@ -53,10 +53,11 @@
 //! Python wildcard imports and class-body calls, Go packages whose name
 //! differs from the last import-path element, a `_test.go` caller reaching a
 //! helper in a sibling `_test.go` (test files are not scanned: `Unknown`), and
-//! Rust/C/C++ (later PR). tsconfig `paths` fallbacks are always `Candidates`
-//! with the first fallback's file preferred, even when the first one exists;
-//! a `paths` tie between equal-length prefixes is broken by key order (the
-//! JSON reader sorts keys), not file order; a package `extends` is ignored. A
+//! Rust/C/C++ (later PR). tsconfig `paths` fallbacks with more than one
+//! surviving target are `Candidates` with the first fallback's file preferred,
+//! even when the first one exists; two wildcard `paths` keys tied on their
+//! literal prefix are `Unknown` (TypeScript takes the first in source order,
+//! which the JSON reader does not keep); a package `extends` is ignored. A
 //! barrel (`index.js` re-export) is attributed to the barrel file itself;
 //! `follow_barrel` takes the one extra hop when the caller already holds the
 //! barrel's parse.
