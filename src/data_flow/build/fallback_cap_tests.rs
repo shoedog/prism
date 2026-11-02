@@ -62,6 +62,8 @@ fn fallback_cap_unavailable_keeps_locations_and_other_owner() {
     );
     assert_eq!(new.rd_function_stats.fallback_functions_capped, 1);
     assert_eq!(new.rd_function_stats.fallback_edges_capped, count);
+    assert_eq!(new.rd_function_stats.functions_over_cap, 0);
+    assert_eq!(new.rd_function_stats.functions_without_cfg, 1);
 }
 
 #[test]
@@ -115,6 +117,8 @@ fn fallback_cap_defs_and_statement_limits_keep_locations() {
         assert_eq!(new.uses, old.uses);
         assert_eq!(new.rd_function_stats.fallback_functions_capped, 1);
         assert_eq!(new.rd_function_stats.fallback_edges_capped, old.edges.len());
+        assert_eq!(new.rd_function_stats.functions_over_cap, 1);
+        assert_eq!(new.rd_function_stats.functions_without_cfg, 0);
     }
 }
 
@@ -258,6 +262,17 @@ fn fallback_cap_projection_and_synthetic_replay_keep_every_location() {
         assert_eq!(capped.defs, old.defs, "{source}");
         assert_eq!(capped.uses, old.uses, "{source}");
         assert_eq!(
+            (
+                capped.rd_function_stats.functions_over_cap,
+                capped.rd_function_stats.functions_without_cfg,
+            ),
+            (
+                old.rd_function_stats.functions_over_cap,
+                old.rd_function_stats.functions_without_cfg,
+            ),
+            "{source}"
+        );
+        assert_eq!(
             capped.rd_function_stats.fallback_functions_capped,
             usize::from(!old.edges.is_empty())
         );
@@ -266,4 +281,128 @@ fn fallback_cap_projection_and_synthetic_replay_keep_every_location() {
             old.edges.len()
         );
     }
+}
+
+fn assert_anchor(refs: &FileRefs, parsed: &ParsedFile, line: usize) {
+    use crate::data_flow::VarAccessKind;
+    let uses: Vec<_> = refs
+        .uses
+        .values()
+        .flatten()
+        .filter(|loc| loc.function == "f" && loc.path.to_string() == "x" && loc.line == line)
+        .collect();
+    assert_eq!(uses.len(), 1, "exactly one assertion Use: {uses:?}");
+    let loc = uses[0];
+    assert_eq!(loc.kind, VarAccessKind::Use);
+    assert_eq!(loc.function_start_line, 1);
+    assert_eq!(loc.start_byte, parsed.line_start_byte(line));
+    assert_eq!(loc.end_byte, loc.start_byte);
+    assert!(refs.edges.iter().any(|edge| {
+        edge.to.line == line && edge.to.path == loc.path && edge.to.kind == VarAccessKind::Use
+    }));
+}
+
+#[test]
+fn fallback_cap_available_owner_registers_assertion_use() {
+    let source = "def f(x):\n    assert x\n    return 0\n";
+    let parsed = ParsedFile::parse("a.py", source, Language::Python).unwrap();
+    for cap in [None, Some(0)] {
+        let result = Producer::file_refs_with_cap(&parsed.path, &parsed, cap);
+        assert_eq!(result.rd_function_stats.functions_without_cfg, 0);
+        assert_eq!(result.rd_function_stats.functions_over_cap, 0);
+        assert_eq!(result.rd_function_stats.fallback_functions_capped, 0);
+        assert_anchor(&result, &parsed, 2);
+    }
+}
+
+#[test]
+fn fallback_cap_unavailable_replay_registers_assertion_use_once() {
+    let source = "def f(x):\n    assert x\n";
+    let parsed = ParsedFile::parse("a.py", source, Language::Python).unwrap();
+    let old = Producer::file_refs_with_cap(&parsed.path, &parsed, None);
+    assert_anchor(&old, &parsed, 2);
+    assert_eq!(old.edges.len(), 1);
+    for cap in [1, usize::MAX] {
+        let replay = Producer::file_refs_with_cap(&parsed.path, &parsed, Some(cap));
+        assert_eq!(replay.rd_function_stats.functions_without_cfg, 1);
+        assert_eq!(replay.rd_function_stats.fallback_functions_capped, 0);
+        assert_anchor(&replay, &parsed, 2);
+        assert_eq!(
+            bytes(replay),
+            bytes(refs(source, "a.py", Language::Python, None))
+        );
+    }
+    let capped = Producer::file_refs_with_cap(&parsed.path, &parsed, Some(0));
+    assert_eq!(capped.uses, old.uses);
+    assert!(capped.edges.is_empty());
+    assert_eq!(capped.rd_function_stats.functions_over_cap, 0);
+    assert_eq!(capped.rd_function_stats.functions_without_cfg, 1);
+}
+
+fn accepted_at_zero_cap(parsed: &ParsedFile) {
+    let old = Producer::file_refs_with_cap(&parsed.path, parsed, None);
+    assert!(
+        !old.edges.is_empty(),
+        "cap mutation must have something to omit"
+    );
+    assert_eq!(old.rd_function_stats.functions_over_cap, 0);
+    assert_eq!(old.rd_function_stats.functions_without_cfg, 0);
+    let new = Producer::file_refs_with_cap(&parsed.path, parsed, Some(0));
+    assert_eq!(new.rd_function_stats.fallback_functions_capped, 0);
+    assert_eq!(new.rd_function_stats.functions_over_cap, 0);
+    assert_eq!(new.rd_function_stats.functions_without_cfg, 0);
+    assert_eq!(bytes(new), bytes(old));
+}
+
+#[test]
+fn fallback_cap_accepts_exact_rd_definition_limit() {
+    use crate::cpg::RD_MAX_DEFS;
+    let mut source = String::from("def f():\n");
+    for i in 0..RD_MAX_DEFS {
+        source += &format!("    v{i} = {i}\n");
+    }
+    source += "    return v0\n";
+    let parsed = ParsedFile::parse("a.py", &source, Language::Python).unwrap();
+    let old = Producer::file_refs_with_cap(&parsed.path, &parsed, None);
+    assert_eq!(old.defs.values().map(Vec::len).sum::<usize>(), RD_MAX_DEFS);
+    accepted_at_zero_cap(&parsed);
+}
+
+#[test]
+fn fallback_cap_accepts_exact_rd_statement_limit() {
+    use crate::cpg::RD_MAX_LINES;
+    let source = format!(
+        "def f(x):\n    consume(x)\n{}",
+        "    g()\n".repeat(RD_MAX_LINES - 1)
+    );
+    let parsed = ParsedFile::parse("a.py", &source, Language::Python).unwrap();
+    assert_eq!(
+        parsed
+            .statements_in_function(&parsed.all_functions()[0])
+            .len(),
+        RD_MAX_LINES
+    );
+    accepted_at_zero_cap(&parsed);
+}
+
+#[test]
+fn fallback_cap_deduplicates_raw_definitions_before_limit() {
+    use crate::cpg::RD_MAX_DEFS;
+    use std::collections::BTreeSet;
+    let mut source = String::from("package p\nfunc f() {\n");
+    for i in 0..(RD_MAX_DEFS / 2 + 1) {
+        source += &format!("v{i} := {i}\n");
+    }
+    source += "consume(v0)\n}\n";
+    let parsed = ParsedFile::parse("a.go", &source, Language::Go).unwrap();
+    let old = Producer::file_refs_with_cap(&parsed.path, &parsed, None);
+    let raw: Vec<_> = old.defs.values().flatten().collect();
+    let unique: BTreeSet<_> = raw
+        .iter()
+        .map(|loc| (&loc.path, loc.line, loc.start_byte))
+        .collect();
+    // Go short declarations are observed by overlapping assignment captures.
+    assert!(raw.len() > RD_MAX_DEFS, "raw definitions: {}", raw.len());
+    assert_eq!(unique.len(), RD_MAX_DEFS / 2 + 1);
+    accepted_at_zero_cap(&parsed);
 }

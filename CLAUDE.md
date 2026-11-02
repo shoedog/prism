@@ -294,7 +294,12 @@ interface-dispatch manifest (the §8a denominator for the precision gate report)
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
-two reaching-definition availability counters. RD-unavailable functions with more than 1,000,000 prospective legacy edges emit no local edges while retaining defs/uses; `dfg_fallback_functions_capped` and `dfg_fallback_edges_capped` report the omitted functions and edges. Loop-carried is a subset of Exact, so labeled-edge
+two reaching-definition availability counters. RD-unavailable functions with more than
+1,000,000 prospective raw legacy emissions emit no local edges while retaining defs/uses;
+`dfg_fallback_functions_capped` counts omitted functions and `dfg_fallback_edges_capped`
+counts their raw emissions, duplicates included. Omission also removes the capped owner's
+contribution to shared label keys of same-name/same-start-line owners and derived edges,
+such as the #594 object-literal shortcut into a capped callee. Loop-carried is a subset of Exact, so labeled-edge
 count is Exact plus the five NameOnly counters. `--edges` emits sorted JSONL with the doubt
 vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_nameonly`;
 `kill_line` is present only for `killed`; on an object-literal shortcut edge (below) it is a line of the

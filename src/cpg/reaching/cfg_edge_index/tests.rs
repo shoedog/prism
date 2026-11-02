@@ -254,3 +254,45 @@ fn complete_rd_differential_nested_disjoint_and_same_line() {
         assert!(!observation.outcomes.is_empty());
     }
 }
+
+#[test]
+fn preflight_rejects_owner_edges_with_only_outside_destinations() {
+    use crate::cpg::reaching::{
+        reaching_definitions_with_exact, unavailable_before_edges, RdUnavailable,
+    };
+    let parsed = ParsedFile::parse(
+        "a.py",
+        "def f():\n    first()\n    second()\n\ndef g():\n    outside()\n",
+        Language::Python,
+    )
+    .unwrap();
+    let owner = parsed.all_functions()[0];
+    let statements = parsed.statements_in_function(&owner);
+    assert_eq!(
+        statements.iter().map(|(line, _)| *line).collect::<Vec<_>>(),
+        vec![2, 3]
+    );
+    let edges = vec![
+        tuple(2, 6, EdgeOrigin::Structured, false),
+        tuple(3, 99, EdgeOrigin::Sequential, false),
+        tuple(6, 2, EdgeOrigin::Structured, false),
+    ];
+    let index = FileCfgEdgeIndex::new(&edges);
+    assert_eq!(
+        reaching_definitions_with_exact(&parsed, &owner, &[], &[], &[], &index),
+        RdOutcome::Unavailable(RdUnavailable::NoCfgEdges)
+    );
+    assert_eq!(
+        unavailable_before_edges(&parsed, &owner, &[], &index),
+        Some(RdUnavailable::NoCfgEdges)
+    );
+    // A destination in the owner's statement set changes both decisions.
+    let mut edges = edges;
+    edges.push(tuple(2, 3, EdgeOrigin::Structured, false));
+    let index = FileCfgEdgeIndex::new(&edges);
+    assert!(matches!(
+        reaching_definitions_with_exact(&parsed, &owner, &[], &[], &[], &index),
+        RdOutcome::Available(_)
+    ));
+    assert_eq!(unavailable_before_edges(&parsed, &owner, &[], &index), None);
+}

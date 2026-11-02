@@ -89,6 +89,8 @@ pub(crate) use reaching::{
     reaching_definitions_with_exact, unavailable_before_edges, DefId, DefSite, FileCfgEdgeIndex,
     RdOutcome,
 };
+#[cfg(test)]
+pub(crate) use reaching::{RD_MAX_DEFS, RD_MAX_LINES};
 pub use trace::{
     BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
     Relation, ReturnFlowMode, SameLineOrderView, Trace,
