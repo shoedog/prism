@@ -432,30 +432,6 @@ impl<'a> Resolver<'a> {
             .and_then(Option::as_ref)
             .is_some_and(|c| c.options.get("allowJs").and_then(Value::as_bool) == Some(true))
     }
-    /// True when `spec` matches a key of the `paths` table of the config that
-    /// owns `file` (exact key, or a `pre*post` pattern with a non-empty literal
-    /// part). Says nothing about whether the alias resolves; review attribution
-    /// uses it to tell an in-repo-looking alias from a bare package.
-    pub(crate) fn declares_alias(&mut self, file: &str, spec: &str) -> bool {
-        if spec.starts_with('.') || spec.starts_with('/') {
-            return false;
-        }
-        let Some(c) = self.select(file) else {
-            return false;
-        };
-        let Some((_, paths)) = c.paths.as_ref() else {
-            return false;
-        };
-        paths.contains_key(spec)
-            || paths.keys().any(|k| {
-                k.split_once('*').is_some_and(|(pre, post)| {
-                    !(pre.is_empty() && post.is_empty())
-                        && spec.len() >= pre.len() + post.len()
-                        && spec.starts_with(pre)
-                        && spec.ends_with(post)
-                })
-            })
-    }
     pub(crate) fn project(&mut self, file: &str) -> Option<String> {
         Some(self.select(file)?.config_path.clone())
     }

@@ -58,6 +58,10 @@ pub struct ReviewInputs {
     pub load_warnings: Vec<String>,
     pub parse_quality: BTreeMap<String, FileParseQuality>,
     pub scope_graph_inputs: ScopeGraphBuildInputs,
+    /// The repo source listing the inputs' Rust coverage check walked, kept for
+    /// review-time import-target attribution (#602); never read by the CPG.
+    #[allow(dead_code)]
+    pub(crate) source_listing: crate::repo_loader::SourceListing,
     pub min_confidence: MinConfidence,
     pub resolution: ResolutionMode,
     build_warnings: Vec<String>,
@@ -162,7 +166,8 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
         // Check parse quality for all files and collect warnings + structured data.
         let (parse_warnings, parse_quality) = algorithms::check_parse_quality(&files);
         drop(profile_load);
-        let scope_graph_inputs = crate::repo_loader::scope_graph_build_inputs(&opts.repo, &files);
+        let (scope_graph_inputs, source_listing) =
+            crate::repo_loader::scope_graph_build_inputs_with_listing(&opts.repo, &files);
         let diff_text_sha256 = format!("{:x}", Sha256::digest(diff_text.as_bytes()));
 
         Ok(ReviewInputs {
@@ -175,6 +180,7 @@ pub fn load_review_inputs(opts: &ReviewOptions, diff_text: &str) -> Result<Revie
             load_warnings,
             parse_quality,
             scope_graph_inputs,
+            source_listing,
             min_confidence: opts.min_confidence,
             resolution: opts.resolution,
             build_warnings,

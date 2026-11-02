@@ -7,6 +7,12 @@
 pub(crate) mod import_targets;
 
 #[cfg(test)]
-mod import_targets_py_go_tests;
+mod import_targets_api_tests;
+#[cfg(test)]
+mod import_targets_go_tests;
+#[cfg(test)]
+mod import_targets_js_tests;
+#[cfg(test)]
+mod import_targets_py_tests;
 #[cfg(test)]
 mod import_targets_tests;

@@ -1,5 +1,7 @@
 //! JS/TS attribution tests on tempdir repos, plus the shared fixture helpers.
-use super::import_targets::{Attribution, ImportTargets};
+//! The helpers are the whole interface the language test files use, so a
+//! control run against an older `Attribution` shape only swaps this module.
+use super::import_targets::{Attribution, ImportTargets, InRepo};
 use crate::ast::ParsedFile;
 use crate::call_graph::CallGraph;
 use crate::languages::Language;
@@ -23,53 +25,98 @@ fn parse(root: &Path, rel: &str) -> ParsedFile {
     ParsedFile::parse(rel, &source, language).unwrap()
 }
 
-/// Attribute the first call to `callee` found in `caller`, with `extra_loaded`
-/// files counted as already analysed next to the caller itself.
+/// Attribute the `nth` (by source position, from 0) call to `callee` in
+/// `caller`. `loaded` files count as already analysed; the caller does too
+/// unless `caller_loaded` is false (a self-import then reaches `finish` with a
+/// target that is the caller but not in the loaded set).
+pub(super) fn attribute_with(
+    dir: &TempDir,
+    caller: &str,
+    callee: &str,
+    nth: usize,
+    loaded: &[&str],
+    caller_loaded: bool,
+) -> Attribution {
+    let parsed = parse(dir.path(), caller);
+    let mut files = BTreeMap::new();
+    files.insert(caller.to_string(), parsed);
+    let graph = CallGraph::build(&files);
+    let mut sites: Vec<_> = graph
+        .calls
+        .values()
+        .flatten()
+        .filter(|site| site.callee_name == callee)
+        .collect();
+    sites.sort_by_key(|site| site.start_byte);
+    let site = (*sites
+        .get(nth)
+        .unwrap_or_else(|| panic!("no call #{nth} to {callee} in {caller}")))
+    .clone();
+    let (inputs, listing) =
+        crate::repo_loader::scope_graph_build_inputs_with_listing(dir.path(), &files);
+    let mut loaded: BTreeSet<String> = loaded.iter().map(|s| s.to_string()).collect();
+    if caller_loaded {
+        loaded.insert(caller.to_string());
+    }
+    let mut targets = ImportTargets::new(&inputs, &listing, loaded).expect("repo listing");
+    targets.targets_for_call(caller, &files[caller], &site)
+}
+
 pub(super) fn attribute_loaded(
     dir: &TempDir,
     caller: &str,
     callee: &str,
     extra_loaded: &[&str],
 ) -> Attribution {
-    let parsed = parse(dir.path(), caller);
-    let mut files = BTreeMap::new();
-    files.insert(caller.to_string(), parsed);
-    let graph = CallGraph::build(&files);
-    let site = graph
-        .calls
-        .values()
-        .flatten()
-        .find(|site| site.callee_name == callee)
-        .unwrap_or_else(|| panic!("no call to {callee} in {caller}"))
-        .clone();
-    let inputs = crate::repo_loader::scope_graph_build_inputs(dir.path(), &files);
-    let mut loaded: BTreeSet<String> = extra_loaded.iter().map(|s| s.to_string()).collect();
-    loaded.insert(caller.to_string());
-    let mut targets = ImportTargets::new(&inputs, loaded).expect("repo listing");
-    targets.targets_for_call(caller, &files[caller], &site)
+    attribute_with(dir, caller, callee, 0, extra_loaded, true)
 }
 
 pub(super) fn attribute(dir: &TempDir, caller: &str, callee: &str) -> Attribution {
     attribute_loaded(dir, caller, callee, &[])
 }
 
-pub(super) fn in_repo(paths: &[&str]) -> Attribution {
-    Attribution::InRepo(paths.iter().map(|p| p.to_string()).collect())
+/// The nth call to `callee`, nothing else loaded.
+pub(super) fn attribute_nth(dir: &TempDir, caller: &str, callee: &str, nth: usize) -> Attribution {
+    attribute_with(dir, caller, callee, nth, &[], true)
 }
 
-fn unresolvable(spec: &str) -> Attribution {
-    Attribution::Unresolvable { spec: spec.into() }
+/// The `InRepo` payload, or a panic naming what came back.
+pub(super) fn in_repo(found: &Attribution) -> &InRepo {
+    match found {
+        Attribution::InRepo(hit) => hit,
+        other => panic!("expected InRepo, got {other:?}"),
+    }
 }
 
-#[test]
-fn listing_is_memoized_on_scope_graph_inputs() {
-    let dir = write_repo(&[("a.js", "export function f(){}")]);
-    let inputs = crate::repo_loader::scope_graph_build_inputs(dir.path(), &BTreeMap::new());
-    assert!(inputs.source_listing.get().is_some(), "walked by the build");
-    let first = inputs.source_listing().unwrap();
-    let second = inputs.source_listing().unwrap();
-    assert!(std::sync::Arc::ptr_eq(&first, &second));
-    assert!(first.contains("a.js"));
+pub(super) fn assert_files(found: Attribution, expected: &[&str]) {
+    assert_eq!(in_repo(&found).files, expected, "{found:?}");
+}
+
+pub(super) fn assert_unknown(found: Attribution) {
+    assert_eq!(found, Attribution::Unknown);
+}
+
+pub(super) fn assert_external(found: Attribution) {
+    assert_eq!(found, Attribution::External);
+}
+
+pub(super) fn assert_same_file(found: Attribution) {
+    assert_eq!(found, Attribution::SameFile);
+}
+
+pub(super) fn assert_loaded(found: Attribution) {
+    assert!(matches!(found, Attribution::Loaded(_)), "{found:?}");
+}
+
+pub(super) fn assert_unresolvable(found: Attribution, expected_spec: &str) {
+    match found {
+        Attribution::Unresolvable { spec, .. } => assert_eq!(spec, expected_spec),
+        other => panic!("expected Unresolvable({expected_spec}), got {other:?}"),
+    }
+}
+
+fn app(import: &str, call: &str) -> String {
+    format!("{import}\nexport function h(x) {{ {call} }}\n")
 }
 
 #[test]
@@ -77,38 +124,29 @@ fn js_esm_named_relative_import() {
     let dir = write_repo(&[
         (
             "app.js",
-            "import { runCmd } from './lib/cmd.js';\nexport function h(x) { runCmd(x); }\n",
+            &app("import { runCmd } from './lib/cmd.js';", "runCmd(x);"),
         ),
         ("lib/cmd.js", "export function runCmd(c) {}\n"),
     ]);
-    assert_eq!(
-        attribute(&dir, "app.js", "runCmd"),
-        in_repo(&["lib/cmd.js"])
-    );
+    assert_files(attribute(&dir, "app.js", "runCmd"), &["lib/cmd.js"]);
 }
 
 #[test]
 fn js_spelling_maps_to_ts_source() {
     let dir = write_repo(&[
-        (
-            "app.ts",
-            "import { f } from './util.js';\nexport function h(x: string) { f(x); }\n",
-        ),
+        ("app.ts", &app("import { f } from './util.js';", "f(x);")),
         ("util.ts", "export function f(x: string) {}\n"),
     ]);
-    assert_eq!(attribute(&dir, "app.ts", "f"), in_repo(&["util.ts"]));
+    assert_files(attribute(&dir, "app.ts", "f"), &["util.ts"]);
 }
 
 #[test]
 fn js_directory_specifier_finds_index_file() {
     let dir = write_repo(&[
-        (
-            "app.js",
-            "import { f } from './lib';\nexport function h(x) { f(x); }\n",
-        ),
+        ("app.js", &app("import { f } from './lib';", "f(x);")),
         ("lib/index.js", "export function f(x) {}\n"),
     ]);
-    assert_eq!(attribute(&dir, "app.js", "f"), in_repo(&["lib/index.js"]));
+    assert_files(attribute(&dir, "app.js", "f"), &["lib/index.js"]);
 }
 
 #[test]
@@ -116,38 +154,29 @@ fn js_parent_directory_specifier() {
     let dir = write_repo(&[
         (
             "src/app/h.js",
-            "import { f } from '../shared/x';\nexport function h(v) { f(v); }\n",
+            &app("import { f } from '../shared/x';", "f(x);"),
         ),
         ("src/shared/x.js", "export function f(v) {}\n"),
     ]);
-    assert_eq!(
-        attribute(&dir, "src/app/h.js", "f"),
-        in_repo(&["src/shared/x.js"])
-    );
+    assert_files(attribute(&dir, "src/app/h.js", "f"), &["src/shared/x.js"]);
 }
 
 #[test]
 fn js_default_import_call() {
     let dir = write_repo(&[
-        (
-            "app.js",
-            "import run from './run';\nexport function h(x) { run(x); }\n",
-        ),
+        ("app.js", &app("import run from './run';", "run(x);")),
         ("run.js", "export default function run(x) {}\n"),
     ]);
-    assert_eq!(attribute(&dir, "app.js", "run"), in_repo(&["run.js"]));
+    assert_files(attribute(&dir, "app.js", "run"), &["run.js"]);
 }
 
 #[test]
 fn js_namespace_member_call() {
     let dir = write_repo(&[
-        (
-            "app.js",
-            "import * as ns from './lib';\nexport function h(x) { ns.f(x); }\n",
-        ),
+        ("app.js", &app("import * as ns from './lib';", "ns.f(x);")),
         ("lib.js", "export function f(x) {}\n"),
     ]);
-    assert_eq!(attribute(&dir, "app.js", "f"), in_repo(&["lib.js"]));
+    assert_files(attribute(&dir, "app.js", "f"), &["lib.js"]);
 }
 
 #[test]
@@ -155,61 +184,20 @@ fn js_cjs_destructured_require() {
     let dir = write_repo(&[
         (
             "app.js",
-            "const { runCmd: go } = require('./lib/cmd');\nfunction h(x) { go(x); }\n",
+            &app("const { runCmd: go } = require('./lib/cmd');", "go(x);"),
         ),
         ("lib/cmd.js", "exports.runCmd = function (c) {};\n"),
     ]);
-    assert_eq!(attribute(&dir, "app.js", "go"), in_repo(&["lib/cmd.js"]));
+    assert_files(attribute(&dir, "app.js", "go"), &["lib/cmd.js"]);
 }
 
 #[test]
 fn js_cjs_alias_member_call() {
     let dir = write_repo(&[
-        (
-            "app.js",
-            "const lib = require('./lib');\nfunction h(x) { lib.f(x); }\n",
-        ),
+        ("app.js", &app("const lib = require('./lib');", "lib.f(x);")),
         ("lib.js", "exports.f = function (x) {};\n"),
     ]);
-    assert_eq!(attribute(&dir, "app.js", "f"), in_repo(&["lib.js"]));
-}
-
-#[test]
-fn js_tsconfig_paths_alias() {
-    let dir = write_repo(&[
-        (
-            "tsconfig.json",
-            r#"{"compilerOptions":{"moduleResolution":"node10","baseUrl":".","paths":{"@lib/*":["src/lib/*"]}},"include":["**/*"]}"#,
-        ),
-        (
-            "src/app.ts",
-            "import { f } from '@lib/cmd';\nexport function h(x: string) { f(x); }\n",
-        ),
-        ("src/lib/cmd.ts", "export function f(x: string) {}\n"),
-    ]);
-    assert_eq!(
-        attribute(&dir, "src/app.ts", "f"),
-        in_repo(&["src/lib/cmd.ts"])
-    );
-}
-
-#[test]
-fn js_alias_with_missing_target_is_unresolvable_not_external() {
-    let dir = write_repo(&[
-        (
-            "tsconfig.json",
-            r#"{"compilerOptions":{"moduleResolution":"node10","baseUrl":".","paths":{"@lib/*":["src/lib/*"]}},"include":["**/*"]}"#,
-        ),
-        (
-            "src/app.ts",
-            "import { f } from '@lib/gone';\nimport { g } from 'express';\nexport function h(x: string) { f(x); g(x); }\n",
-        ),
-    ]);
-    assert_eq!(
-        attribute(&dir, "src/app.ts", "f"),
-        unresolvable("@lib/gone")
-    );
-    assert_eq!(attribute(&dir, "src/app.ts", "g"), Attribution::External);
+    assert_files(attribute(&dir, "app.js", "f"), &["lib.js"]);
 }
 
 #[test]
@@ -218,17 +206,14 @@ fn js_bare_package_is_external() {
         "app.js",
         "import { exec } from 'child_process';\nconst sh = require('shelljs');\nexport function h(x) { exec(x); sh.run(x); }\n",
     )]);
-    assert_eq!(attribute(&dir, "app.js", "exec"), Attribution::External);
-    assert_eq!(attribute(&dir, "app.js", "run"), Attribution::External);
+    assert_external(attribute(&dir, "app.js", "exec"));
+    assert_external(attribute(&dir, "app.js", "run"));
 }
 
 #[test]
 fn js_missing_relative_file_is_unresolvable() {
-    let dir = write_repo(&[(
-        "app.js",
-        "import { f } from './nope';\nexport function h(x) { f(x); }\n",
-    )]);
-    assert_eq!(attribute(&dir, "app.js", "f"), unresolvable("./nope"));
+    let dir = write_repo(&[("app.js", &app("import { f } from './nope';", "f(x);"))]);
+    assert_unresolvable(attribute(&dir, "app.js", "f"), "./nope");
 }
 
 #[test]
@@ -242,41 +227,23 @@ fn js_skipped_directories_are_never_targets() {
         ("dist/out.js", "export function b(x) {}\n"),
         ("vendor/v.js", "export function c(x) {}\n"),
     ]);
-    for callee in ["a", "b", "c"] {
-        assert!(
-            matches!(
-                attribute(&dir, "app.js", callee),
-                Attribution::Unresolvable { .. }
-            ),
-            "{callee} must not attribute into a skipped directory"
-        );
+    for (callee, spec) in [
+        ("a", "./node_modules/pkg/index"),
+        ("b", "./dist/out"),
+        ("c", "./vendor/v"),
+    ] {
+        assert_unresolvable(attribute(&dir, "app.js", callee), spec);
     }
-}
-
-#[test]
-fn js_ambiguous_candidates_are_all_returned_sorted() {
-    let dir = write_repo(&[
-        (
-            "app.js",
-            "import { f } from './x';\nexport function h(v) { f(v); }\n",
-        ),
-        ("x.ts", "export function f(v) {}\n"),
-        ("x.js", "export function f(v) {}\n"),
-    ]);
-    assert_eq!(attribute(&dir, "app.js", "f"), in_repo(&["x.js", "x.ts"]));
 }
 
 #[test]
 fn js_barrel_attributes_to_the_barrel_file() {
     let dir = write_repo(&[
-        (
-            "app.js",
-            "import { f } from './lib';\nexport function h(x) { f(x); }\n",
-        ),
+        ("app.js", &app("import { f } from './lib';", "f(x);")),
         ("lib/index.js", "export { f } from './impl';\n"),
         ("lib/impl.js", "export function f(x) {}\n"),
     ]);
-    assert_eq!(attribute(&dir, "app.js", "f"), in_repo(&["lib/index.js"]));
+    assert_files(attribute(&dir, "app.js", "f"), &["lib/index.js"]);
 }
 
 #[test]
@@ -288,8 +255,9 @@ fn js_barrel_one_hop_follows_the_reexport() {
     let barrel = parse(dir.path(), "lib/index.js");
     let mut files = BTreeMap::new();
     files.insert("lib/index.js".to_string(), barrel);
-    let inputs = crate::repo_loader::scope_graph_build_inputs(dir.path(), &files);
-    let mut targets = ImportTargets::new(&inputs, BTreeSet::new()).unwrap();
+    let (inputs, listing) =
+        crate::repo_loader::scope_graph_build_inputs_with_listing(dir.path(), &files);
+    let mut targets = ImportTargets::new(&inputs, &listing, BTreeSet::new()).unwrap();
     let hop = targets
         .follow_barrel("lib/index.js", &files["lib/index.js"], "g")
         .expect("re-export hop");
@@ -303,12 +271,12 @@ fn js_barrel_one_hop_follows_the_reexport() {
 }
 
 #[test]
-fn js_same_file_function_is_local() {
+fn js_same_file_function_is_same_file() {
     let dir = write_repo(&[(
         "app.js",
         "function helper(x) {}\nexport function h(x) { helper(x); }\n",
     )]);
-    assert_eq!(attribute(&dir, "app.js", "helper"), Attribution::Local);
+    assert_same_file(attribute(&dir, "app.js", "helper"));
 }
 
 #[test]
@@ -317,52 +285,51 @@ fn js_unbound_calls_are_unknown() {
         "app.js",
         "function run(v) {}\nexport function h(obj, x) { obj.run(x); mystery(x); }\n",
     )]);
-    assert_eq!(attribute(&dir, "app.js", "run"), Attribution::Unknown);
-    assert_eq!(attribute(&dir, "app.js", "mystery"), Attribution::Unknown);
+    assert_unknown(attribute(&dir, "app.js", "run"));
+    assert_unknown(attribute(&dir, "app.js", "mystery"));
 }
 
 #[test]
-fn js_target_in_loaded_set_is_local() {
+fn js_method_on_a_module_level_object_is_not_the_same_named_function() {
+    let dir = write_repo(&[(
+        "app.js",
+        "const obj = make();\nfunction run(v) {}\nexport function h(x) { obj.run(x); }\n",
+    )]);
+    assert_unknown(attribute(&dir, "app.js", "run"));
+}
+
+#[test]
+fn js_target_in_loaded_set_is_loaded() {
     let dir = write_repo(&[
         (
             "app.js",
-            "import { runCmd } from './lib/cmd.js';\nexport function h(x) { runCmd(x); }\n",
+            &app("import { runCmd } from './lib/cmd.js';", "runCmd(x);"),
         ),
         ("lib/cmd.js", "export function runCmd(c) {}\n"),
     ]);
-    assert_eq!(
-        attribute_loaded(&dir, "app.js", "runCmd", &["lib/cmd.js"]),
-        Attribution::Local
-    );
+    assert_loaded(attribute_loaded(&dir, "app.js", "runCmd", &["lib/cmd.js"]));
 }
 
 #[test]
-fn js_catch_all_paths_key_does_not_turn_packages_into_aliases() {
-    let dir = write_repo(&[
-        (
-            "tsconfig.json",
-            r#"{"compilerOptions":{"moduleResolution":"node10","baseUrl":".","paths":{"*":["types/*"]}},"include":["**/*"]}"#,
-        ),
-        (
-            "src/app.ts",
-            "import { g } from 'express';\nexport function h(x: string) { g(x); }\n",
-        ),
-    ]);
-    assert_eq!(attribute(&dir, "src/app.ts", "g"), Attribution::External);
+fn root_identifier_takes_only_plain_dotted_paths() {
+    use super::import_targets::root_identifier;
+    assert_eq!(root_identifier("ns"), Some("ns"));
+    assert_eq!(root_identifier("ns.sub"), Some("ns"));
+    assert_eq!(root_identifier("ns?.sub"), Some("ns"));
+    assert_eq!(root_identifier("a[0]"), None);
+    assert_eq!(root_identifier("f().x"), None);
+    assert_eq!(root_identifier(".x"), None);
 }
 
 #[test]
-fn js_too_many_candidates_are_unresolvable() {
+fn js_subscripted_receiver_is_unknown_and_plain_one_is_attributed() {
     let dir = write_repo(&[
         (
             "app.js",
-            "import { f } from './x';\nexport function h(v) { f(v); }\n",
+            "import * as ns from './lib';\nexport function a(x) { ns[0].f(x); }\nexport function b(x) { ns.f(x); }\n",
         ),
-        ("x.js", ""),
-        ("x.jsx", ""),
-        ("x.mjs", ""),
-        ("x.cjs", ""),
-        ("x.ts", ""),
+        ("lib.js", "export function f(x) {}\n"),
     ]);
-    assert_eq!(attribute(&dir, "app.js", "f"), unresolvable("./x"));
+    assert_unknown(attribute_nth(&dir, "app.js", "f", 0));
+    assert_files(attribute_nth(&dir, "app.js", "f", 1), &["lib.js"]);
 }

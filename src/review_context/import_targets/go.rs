@@ -1,7 +1,20 @@
 //! Go attribution: a qualified call goes to its import path's package
-//! directory (every non-test file), an unqualified call to the same-package
-//! sibling that declares it.
-use super::{is_same_file_function, root_identifier, Attribution, ImportTargets};
+//! directory (every non-test file, so same-package name pools stay complete),
+//! with the files whose text declares the callee named in `declaring`; an
+//! unqualified call goes to the same-package sibling that declares it.
+//!
+//! An import path with no matching directory is `External`, except that one
+//! under the repo's own module path (`Unresolvable`: a generated or deleted
+//! package) or under a `replace` the module graph could not prove
+//! (`Unresolvable`, `ReplaceUnproven`: the replacement may be a repo
+//! directory) is not claimed to be a third-party package. A local variable or
+//! parameter named like the qualifier or the callee makes the site `Unknown`.
+use super::go_scan::declared_funcs;
+use super::shadow::go_scope_binds;
+use super::{
+    is_same_file_function, root_identifier, unresolvable, Attribution, Basis, ImportTargets,
+    InRepo, Why,
+};
 use crate::ast::ParsedFile;
 use crate::call_graph::CallSite;
 use crate::go_module_graph::GoModuleGraph;
@@ -14,6 +27,10 @@ pub(super) struct GoPackages {
     by_import_path: BTreeMap<String, Vec<String>>,
     /// Directory -> its non-test `.go` files, sorted.
     files_by_dir: BTreeMap<String, Vec<String>>,
+    /// Module paths of every `go.mod` the graph can name an identity for.
+    own_modules: Vec<String>,
+    /// Module paths with a `replace` the graph could not prove.
+    unproven_replaces: BTreeSet<String>,
 }
 
 impl GoPackages {
@@ -42,10 +59,31 @@ impl GoPackages {
                     .push(dir.clone());
             }
         }
+        let mut own_modules = Vec::new();
+        for (path, _) in inputs.manifest_snapshot.entries() {
+            let dir = match path.strip_suffix("go.mod") {
+                Some("") => Some(""),
+                Some(rest) => rest.strip_suffix('/'),
+                None => None,
+            };
+            if let Some(Ok(module)) = dir.map(|d| graph.import_path_for_dir(d)) {
+                own_modules.push(module);
+            }
+        }
         Self {
             by_import_path,
             files_by_dir,
+            own_modules,
+            unproven_replaces: graph.unproven_replace_paths().clone(),
         }
+    }
+
+    /// Whether `import_path` is `prefix` or below it.
+    fn under(import_path: &str, prefix: &str) -> bool {
+        import_path == prefix
+            || import_path
+                .strip_prefix(prefix)
+                .is_some_and(|rest| rest.starts_with('/'))
     }
 }
 
@@ -56,29 +94,62 @@ impl ImportTargets<'_> {
         parsed: &ParsedFile,
         call: &CallSite,
     ) -> Attribution {
-        let Some(qualifier) = call.qualifier.as_deref() else {
+        let root = match call.qualifier.as_deref() {
+            Some(qualifier) => match root_identifier(qualifier) {
+                Some(root) => root,
+                None => return Attribution::Unknown,
+            },
+            None => call.callee_name.as_str(),
+        };
+        if go_scope_binds(parsed, call, root) {
+            return Attribution::Unknown;
+        }
+        if call.qualifier.is_none() {
             if is_same_file_function(parsed, call) {
-                return Attribution::Local;
+                return Attribution::SameFile;
             }
             return self.go_sibling(file, &call.callee_name);
-        };
-        let Some(root) = root_identifier(qualifier) else {
-            return Attribution::Unknown;
-        };
+        }
         let imports = self.imports_of(file, parsed);
         let Some(import_path) = imports.map.get(root) else {
             return Attribution::Unknown;
         };
         let packages = self.go_packages();
-        match packages.by_import_path.get(import_path.as_str()) {
-            None => Attribution::External,
-            Some(dirs) if dirs.len() == 1 => {
-                Attribution::InRepo(packages.files_by_dir[&dirs[0]].clone())
-            }
-            Some(_) => Attribution::Unresolvable {
-                spec: import_path.clone(),
-            },
+        let Some(dirs) = packages.by_import_path.get(import_path.as_str()) else {
+            let (own, unproven) = (
+                packages
+                    .own_modules
+                    .iter()
+                    .any(|m| GoPackages::under(import_path, m)),
+                packages
+                    .unproven_replaces
+                    .iter()
+                    .any(|m| GoPackages::under(import_path, m)),
+            );
+            return if unproven {
+                unresolvable(import_path, Why::ReplaceUnproven)
+            } else if own {
+                unresolvable(import_path, Why::NoFile)
+            } else {
+                Attribution::External
+            };
+        };
+        if dirs.len() != 1 {
+            return unresolvable(import_path, Why::TooMany);
         }
+        let files = packages.files_by_dir[&dirs[0]].clone();
+        let declaring = files
+            .iter()
+            .filter(|f| self.go_declared_funcs(f).contains(&call.callee_name))
+            .cloned()
+            .collect();
+        Attribution::InRepo(InRepo {
+            files,
+            spec: import_path.clone(),
+            member: Some(call.callee_name.clone()),
+            declaring,
+            basis: Basis::Bound,
+        })
     }
 
     fn go_packages(&mut self) -> &GoPackages {
@@ -107,10 +178,20 @@ impl ImportTargets<'_> {
             .into_iter()
             .filter(|sibling| self.go_declared_funcs(sibling).contains(name))
             .collect();
-        if declaring.is_empty() {
-            Attribution::Unknown
-        } else {
-            Attribution::InRepo(declaring)
+        match declaring.len() {
+            0 => Attribution::Unknown,
+            n => Attribution::InRepo(InRepo {
+                files: declaring.clone(),
+                spec: String::new(),
+                member: Some(name.to_string()),
+                declaring,
+                // Several files declaring one name are build-tag variants.
+                basis: if n == 1 {
+                    Basis::Bound
+                } else {
+                    Basis::Candidates
+                },
+            }),
         }
     }
 
@@ -119,21 +200,7 @@ impl ImportTargets<'_> {
             return found.clone();
         }
         let text = std::fs::read_to_string(self.inputs.repo_root.join(path)).unwrap_or_default();
-        let mut names = BTreeSet::new();
-        for line in text.lines() {
-            // Top-level function declarations start at column 0 (`func (r R) m(` has no name here).
-            let Some(rest) = line.strip_prefix("func ") else {
-                continue;
-            };
-            let name: String = rest
-                .chars()
-                .take_while(|c| c.is_alphanumeric() || *c == '_')
-                .collect();
-            if !name.is_empty() && rest[name.len()..].starts_with(['(', '[']) {
-                names.insert(name);
-            }
-        }
-        let names = Rc::new(names);
+        let names = Rc::new(declared_funcs(&text));
         self.go_decls.insert(path.to_string(), names.clone());
         names
     }

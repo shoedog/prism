@@ -676,24 +676,9 @@ pub struct ScopeGraphBuildInputs {
     pub skipped_go_testdata_files: usize,
     pub cfg: RustCrateConfig,
     pub complete: bool,
-    /// Supported-source listing of the repo, walked at most once per inputs
-    /// value (review reuses it for import-target attribution). Never persisted.
-    #[serde(skip)]
-    pub(crate) source_listing: std::sync::OnceLock<Option<std::sync::Arc<BTreeSet<String>>>>,
 }
 
 impl ScopeGraphBuildInputs {
-    /// The memoized repo source listing; `None` when the walk failed or there
-    /// is no repo root.
-    pub(crate) fn source_listing(&self) -> Option<std::sync::Arc<BTreeSet<String>>> {
-        self.source_listing
-            .get_or_init(|| {
-                crate::repo_loader::collect_supported_source_paths(&self.repo_root)
-                    .map(std::sync::Arc::new)
-            })
-            .clone()
-    }
-
     pub fn from_files_convention(files: &BTreeMap<String, ParsedFile>) -> Self {
         ScopeGraphBuildInputs {
             repo_root: PathBuf::new(),
@@ -704,7 +689,6 @@ impl ScopeGraphBuildInputs {
             skipped_go_testdata_files: 0,
             cfg: RustCrateConfig::from_convention(files),
             complete: true,
-            source_listing: Default::default(),
         }
     }
 }

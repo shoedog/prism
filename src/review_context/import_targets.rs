@@ -1,44 +1,110 @@
 //! Attribute a call site in a loaded file to the repo files its callee lives in
-//! (#602, Layer A). Uses import bindings and the memoized repo file listing
-//! only: no file outside the caller's own is parsed. Language rules live in the
-//! `python` and `go` children; JS/TS is here because it is the shared shape.
+//! (#602, Layer A). Uses import bindings and the repo file listing only: no
+//! file outside the caller's own is parsed (Go reads sibling files as text).
+//! Language rules live in the `js`, `python` and `go` children.
+//!
+//! Three things are kept apart, never inferred from one another:
+//! - a *candidate* attribution (`InRepo` with `Basis::Candidates`): several
+//!   files could own the name and the import statement does not decide;
+//! - a *proven binding* (`InRepo` with `Basis::Bound`): the import binds the
+//!   callee name to exactly those files (it does not assert runtime truth);
+//! - *unavailable proof* (`Unresolvable`): the specifier looks in-repo but no
+//!   resolver result exists. A strict resolver's refusal is never `External`.
+//!
+//! A call whose root name is declared in a nearer scope than the import (a
+//! parameter, a local, a nested function) is `Unknown`: the import spelling is
+//! not what the site calls.
 //!
 //! Known limits, kept as documented false negatives rather than guessed:
 //! method calls on instances of imported classes, callbacks passed as values,
-//! dynamic `require(expr)`, Python wildcard imports, and Rust/C/C++ (later PR).
-//! A barrel (`index.js` re-export) is attributed to the barrel file itself;
-//! `follow_barrel` takes the one extra hop when the caller already holds the
-//! barrel's parse.
+//! dynamic `require(expr)`, a JS/TS `require` declared inside a function (a
+//! nearer scope), Python wildcard imports and class-body calls, Go packages
+//! whose name differs from the last import-path element, and Rust/C/C++ (later
+//! PR). A barrel (`index.js` re-export) is attributed to the barrel file
+//! itself; `follow_barrel` takes the one extra hop when the caller already
+//! holds the barrel's parse.
 use crate::ast::ParsedFile;
-use crate::call_graph::{
-    is_js_ts_relative_specifier, js_ts_relative_module_candidates, CallSite, ImportBinding,
-    ScopeGraphBuildInputs,
-};
+use crate::call_graph::{CallSite, ImportBinding};
 use crate::js_exports::JsExportTarget;
 use crate::languages::Language;
+use crate::repo_loader::{ListingError, SourceListing};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
 mod go;
+mod go_scan;
+mod js;
+mod js_alias;
 mod python;
+mod shadow;
+mod stdlib_names;
 
 /// More candidate files than this for one specifier is treated as unresolvable.
-const MAX_AMBIGUOUS: usize = 4;
+pub(super) const MAX_AMBIGUOUS: usize = 4;
+
+/// How firmly the import statement pins the files of an `InRepo` result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Basis {
+    /// The binding names these files (an exact module, or a whole Go package).
+    Bound,
+    /// Several files could own the name and the statement does not decide
+    /// (a Python package attribute against a same-named submodule, tsconfig
+    /// `paths` fallbacks, Go build-tag variants). `files` is in the order the
+    /// language itself tries them.
+    Candidates,
+}
+
+/// Why a looks-in-repo specifier has no usable file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Why {
+    /// Nothing in the repo listing matches (or only a skipped directory does).
+    NoFile,
+    /// More candidate files or directories than `MAX_AMBIGUOUS`.
+    TooMany,
+    /// A Go `replace` the module graph could not prove: the import may live in
+    /// a repo directory whose identity is unknown.
+    ReplaceUnproven,
+}
+
+/// Repo files outside the analysed set that may hold a call's callee.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct InRepo {
+    /// Files none of which is loaded or the caller. For one specifier: the
+    /// precedence winner (JS/TS, Python), the per-fallback winners in order
+    /// (tsconfig `paths`), or every non-test file of the package, sorted (Go).
+    pub files: Vec<String>,
+    /// The import specifier, Python module or Go import path ("" for a Go
+    /// same-package call, which has none).
+    pub spec: String,
+    /// The exported name the call reaches (`f` of `import { f as g }`, `ns.f`,
+    /// `default`), when the binding says.
+    pub member: Option<String>,
+    /// Go: the files among `files` whose text declares `member` as a top-level
+    /// function. Empty when not known.
+    pub declaring: Vec<String>,
+    pub basis: Basis,
+}
 
 /// Where a call's callee lives, judged from import bindings and the repo file
 /// listing alone.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Attribution {
-    /// Repo files, sorted, none of them loaded.
-    InRepo(Vec<String>),
+    InRepo(InRepo),
     /// A bare package, std, or third-party import.
     External,
-    /// An in-repo-looking specifier that matches no file or too many.
-    Unresolvable { spec: String },
-    /// The callee is defined in the caller's file or only in loaded files.
-    Local,
-    /// No binding explains the call.
+    /// A specifier that looks in-repo (relative, a declared tsconfig alias, an
+    /// in-repo top-level Python package, the repo's own Go module path) for
+    /// which no single file (or a bounded few) can be named.
+    Unresolvable {
+        spec: String,
+        why: Why,
+    },
+    /// The callee is defined in the caller's own file.
+    SameFile,
+    /// The callee's files are all already analysed (loaded diff files).
+    Loaded(Vec<String>),
+    /// No binding explains the call, or a nearer scope shadows the import.
     Unknown,
 }
 
@@ -53,15 +119,15 @@ pub(crate) struct BarrelHop {
 struct FileImports {
     /// Local name -> module path (JS/TS specifier, Python module, Go import path).
     map: BTreeMap<String, String>,
-    /// Python only: the typed bindings (module vs member vs alias).
+    /// Typed bindings (module vs member vs alias), JS/TS and Python.
     bindings: Vec<ImportBinding>,
 }
 
 pub(crate) struct ImportTargets<'a> {
-    inputs: &'a ScopeGraphBuildInputs,
+    inputs: &'a crate::call_graph::ScopeGraphBuildInputs,
     listing: Arc<BTreeSet<String>>,
     loaded: BTreeSet<String>,
-    js_resolver: crate::js_paths::Resolver<'a>,
+    js_alias: js_alias::AliasConfigs,
     imports: BTreeMap<String, Rc<FileImports>>,
     go_packages: Option<go::GoPackages>,
     go_decls: BTreeMap<String, Rc<BTreeSet<String>>>,
@@ -69,11 +135,16 @@ pub(crate) struct ImportTargets<'a> {
 
 impl<'a> ImportTargets<'a> {
     /// `loaded` is the set of files already analysed; targets inside it are
-    /// not boundaries. `None` when the repo listing is unavailable.
-    pub(crate) fn new(inputs: &'a ScopeGraphBuildInputs, loaded: BTreeSet<String>) -> Option<Self> {
-        Some(Self {
-            listing: inputs.source_listing()?,
-            js_resolver: crate::js_paths::Resolver::new(&inputs.js_paths_snapshot),
+    /// not boundaries. Fails with the reason when the repo listing could not
+    /// be built, so the caller can surface a warning instead of silence.
+    pub(crate) fn new(
+        inputs: &'a crate::call_graph::ScopeGraphBuildInputs,
+        listing: &SourceListing,
+        loaded: BTreeSet<String>,
+    ) -> Result<Self, ListingError> {
+        Ok(Self {
+            listing: listing.clone()?,
+            js_alias: js_alias::AliasConfigs::default(),
             inputs,
             loaded,
             imports: BTreeMap::new(),
@@ -123,30 +194,55 @@ impl<'a> ImportTargets<'a> {
         else {
             return None;
         };
-        match self.js_spec(barrel, module_path) {
-            Attribution::InRepo(files) if files.len() == 1 => Some(BarrelHop {
-                file: files.into_iter().next()?,
+        match self.js_spec(barrel, module_path, None) {
+            Attribution::InRepo(hit) if hit.files.len() == 1 => Some(BarrelHop {
+                file: hit.files.into_iter().next()?,
                 member: imported.clone(),
             }),
             _ => None,
         }
     }
 
-    /// Drop targets that are already analysed (or the caller itself); a call
-    /// whose every target is analysed is `Local`. Order is sorted and unique.
+    /// Separate targets that are already analysed (or the caller itself) from
+    /// those that are not. Where a declaring file is known (Go) it decides:
+    /// every declarer analysed means the callee is not a boundary. Order is
+    /// preserved.
     fn finish(&self, file: &str, raw: Attribution) -> Attribution {
-        let Attribution::InRepo(targets) = raw else {
+        let Attribution::InRepo(mut hit) = raw else {
             return raw;
         };
-        let outside: BTreeSet<String> = targets
-            .into_iter()
-            .filter(|t| t != file && !self.loaded.contains(t))
-            .collect();
-        if outside.is_empty() {
-            Attribution::Local
-        } else {
-            Attribution::InRepo(outside.into_iter().collect())
+        let partition = |paths: &[String]| {
+            let (mut outside, mut loaded, mut own) = (Vec::new(), Vec::new(), false);
+            for path in paths {
+                if path == file {
+                    own = true;
+                } else if self.loaded.contains(path) {
+                    loaded.push(path.clone());
+                } else {
+                    outside.push(path.clone());
+                }
+            }
+            (outside, loaded, own)
+        };
+        let (declared_out, declared_loaded, declared_own) = partition(&hit.declaring);
+        if !hit.declaring.is_empty() && declared_out.is_empty() {
+            return if declared_loaded.is_empty() && declared_own {
+                Attribution::SameFile
+            } else {
+                Attribution::Loaded(declared_loaded)
+            };
         }
+        let (outside, loaded, own) = partition(&hit.files);
+        if outside.is_empty() {
+            return if loaded.is_empty() && own {
+                Attribution::SameFile
+            } else {
+                Attribution::Loaded(loaded)
+            };
+        }
+        hit.files = outside;
+        hit.declaring = declared_out;
+        Attribution::InRepo(hit)
     }
 
     fn imports_of(&mut self, file: &str, parsed: &ParsedFile) -> Rc<FileImports> {
@@ -155,7 +251,10 @@ impl<'a> ImportTargets<'a> {
         }
         let built = Rc::new(FileImports {
             map: parsed.extract_imports(),
-            bindings: if parsed.language == Language::Python {
+            bindings: if matches!(
+                parsed.language,
+                Language::Python | Language::JavaScript | Language::TypeScript | Language::Tsx
+            ) {
                 parsed.extract_import_bindings()
             } else {
                 Vec::new()
@@ -164,62 +263,34 @@ impl<'a> ImportTargets<'a> {
         self.imports.insert(file.to_string(), built.clone());
         built
     }
+}
 
-    fn js_attribution(&mut self, file: &str, parsed: &ParsedFile, call: &CallSite) -> Attribution {
-        let imports = self.imports_of(file, parsed);
-        let key = match call.qualifier.as_deref() {
-            Some(qualifier) => match root_identifier(qualifier) {
-                Some(root) => root,
-                None => return Attribution::Unknown,
-            },
-            None => call.callee_name.as_str(),
-        };
-        match imports.map.get(key) {
-            Some(spec) => self.js_spec(file, spec),
-            None if is_same_file_function(parsed, call) => Attribution::Local,
-            None => Attribution::Unknown,
-        }
-    }
+/// A proven single-file result.
+pub(super) fn bound(files: Vec<String>, spec: &str, member: Option<String>) -> Attribution {
+    Attribution::InRepo(InRepo {
+        files,
+        spec: spec.to_string(),
+        member,
+        declaring: Vec::new(),
+        basis: Basis::Bound,
+    })
+}
 
-    /// A JS/TS specifier from `file`: relative via the shared candidate list,
-    /// non-relative via tsconfig `paths`, else a package.
-    fn js_spec(&mut self, file: &str, spec: &str) -> Attribution {
-        let spec = spec.trim();
-        if is_js_ts_relative_specifier(spec) {
-            let found =
-                js_ts_relative_module_candidates(spec, file, &self.listing).unwrap_or_default();
-            return bounded(found, spec);
-        }
-        match self.js_resolver.resolve(file, spec, &self.listing) {
-            Some(target) => Attribution::InRepo(vec![target]),
-            None if self.js_resolver.declares_alias(file, spec) => Attribution::Unresolvable {
-                spec: spec.to_string(),
-            },
-            None => Attribution::External,
-        }
+pub(super) fn unresolvable(spec: &str, why: Why) -> Attribution {
+    Attribution::Unresolvable {
+        spec: spec.to_string(),
+        why,
     }
 }
 
 /// An unqualified call to a function the caller's own file defines.
-fn is_same_file_function(parsed: &ParsedFile, call: &CallSite) -> bool {
+pub(super) fn is_same_file_function(parsed: &ParsedFile, call: &CallSite) -> bool {
     call.qualifier.is_none() && parsed.find_function_by_name(&call.callee_name).is_some()
-}
-
-/// Candidate files for one specifier: none, or more than the bound, is
-/// unresolvable.
-fn bounded(found: Vec<String>, spec: &str) -> Attribution {
-    if found.is_empty() || found.len() > MAX_AMBIGUOUS {
-        Attribution::Unresolvable {
-            spec: spec.to_string(),
-        }
-    } else {
-        Attribution::InRepo(found)
-    }
 }
 
 /// The leading identifier of a qualifier expression when it is a plain dotted
 /// (or optional-chained) path: `ns` of `ns.sub`; `None` for `f().x`, `a[0].y`.
-fn root_identifier(qualifier: &str) -> Option<&str> {
+pub(super) fn root_identifier(qualifier: &str) -> Option<&str> {
     let end = qualifier
         .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
         .unwrap_or(qualifier.len());
