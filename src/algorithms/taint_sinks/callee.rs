@@ -120,8 +120,29 @@ pub(super) fn args(call: Node<'_>) -> Vec<Node<'_>> {
         .collect()
 }
 
+/// Peel wrappers that do not change what a value is: parentheses, `!`, `await`,
+/// and the TS `as` / `satisfies` casts.
+pub(super) fn peel(node: Node<'_>) -> Node<'_> {
+    let mut n = node;
+    while matches!(
+        n.kind(),
+        "parenthesized_expression"
+            | "non_null_expression"
+            | "await_expression"
+            | "as_expression"
+            | "satisfies_expression"
+    ) {
+        match n.named_child(0) {
+            Some(inner) => n = inner,
+            None => break,
+        }
+    }
+    n
+}
+
 /// Text of the last segment of a receiver chain (`s.db` -> `db`, `res` -> `res`).
 pub(super) fn chain_tail<'p>(p: Src<'p>, node: Node<'_>) -> Option<&'p str> {
+    let node = peel(node);
     match node.kind() {
         "identifier" | "property_identifier" | "field_identifier" | "this" => {
             Some(p.node_text(&node))
@@ -129,11 +150,47 @@ pub(super) fn chain_tail<'p>(p: Src<'p>, node: Node<'_>) -> Option<&'p str> {
         "member_expression" => chain_tail(p, node.child_by_field_name("property")?),
         "attribute" => chain_tail(p, node.child_by_field_name("attribute")?),
         "selector_expression" => chain_tail(p, node.child_by_field_name("field")?),
-        "parenthesized_expression" | "non_null_expression" | "await_expression" => {
-            chain_tail(p, node.named_child(0)?)
-        }
         _ => None,
     }
+}
+
+/// Every name along a receiver chain, root first, looking through calls
+/// (`res.status(400)` -> `res`, `status`; `Path(x)` -> `Path`;
+/// `new RegExp(a)` -> `RegExp`) and subscripts.
+pub(super) fn chain_names<'p>(p: Src<'p>, node: Node<'_>) -> Vec<&'p str> {
+    fn go<'p>(p: Src<'p>, node: Node<'_>, out: &mut Vec<&'p str>, depth: usize) {
+        if depth > 24 {
+            return;
+        }
+        let node = peel(node);
+        let field = |name: &str, out: &mut Vec<&'p str>| {
+            if let Some(inner) = node.child_by_field_name(name) {
+                go(p, inner, out, depth + 1);
+            }
+        };
+        match node.kind() {
+            "identifier" | "property_identifier" | "field_identifier" | "this" | "super" => {
+                out.push(p.node_text(&node));
+            }
+            "member_expression" | "attribute" | "selector_expression" => {
+                let (object, name) = match node.kind() {
+                    "member_expression" => ("object", "property"),
+                    "attribute" => ("object", "attribute"),
+                    _ => ("operand", "field"),
+                };
+                field(object, out);
+                field(name, out);
+            }
+            "subscript_expression" => field("object", out),
+            "subscript" => field("value", out),
+            "call_expression" | "call" => field("function", out),
+            "new_expression" => field("constructor", out),
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    go(p, node, &mut out, 0);
+    out
 }
 
 /// Content of a string literal that has no interpolation, without its quotes.

@@ -1,21 +1,100 @@
-//! Python sink rules (#622 S1): call position and receiver, never a name fragment.
+//! Python sink rules (#622 S1): call position first, receiver second.
+//!
+//! Same hybrid policy as the JS rules: the identifier must be the callee of a
+//! call; an unknown receiver keeps firing for the high-severity names; only a
+//! proven non-sink suppresses (a logger or channel receiver, a receiver bound to
+//! a collection or file object, a `def` of the same name in this file, a call
+//! with no argument such as `model.eval()` / `platform.system()`).
 
-use super::callee::{args, callee_of, chain_tail, literal_string, walk, Src};
+use super::callee::{args, callee_of, chain_names, literal_string, walk, Callee, Src};
+use super::py_scope::{resolve, PyBind};
 use super::SinkHit;
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use tree_sitter::Node;
 
-/// Names a file binds to `subprocess`, `sqlalchemy` and their `run` / `text`.
+/// `os.exec*` / `os.spawn*` and the process-launching names with no ambiguity.
+const PROCESS_NAMES: &[&str] = &[
+    "execl",
+    "execle",
+    "execlp",
+    "execlpe",
+    "execv",
+    "execve",
+    "execvp",
+    "execvpe",
+    "spawnl",
+    "spawnle",
+    "spawnlp",
+    "spawnlpe",
+    "spawnv",
+    "spawnve",
+    "spawnvp",
+    "spawnvpe",
+    "posix_spawn",
+    "posix_spawnp",
+    "startfile",
+    "create_subprocess_exec",
+    "create_subprocess_shell",
+    "getoutput",
+    "getstatusoutput",
+];
+const SQL_METHODS: &[&str] = &["execute", "executemany", "executescript", "exec_driver_sql"];
+const PANDAS_SQL: &[&str] = &["read_sql", "read_sql_query", "read_sql_table"];
+const TEMPLATE_MODULES: &[&str] = &[
+    "jinja2",
+    "mako.template",
+    "tornado.template",
+    "django.template",
+];
+/// Proven non-sink receivers (M0: `logger.warning(source)`).
+const LOGGERS: &[&str] = &["logger", "log", "logging", "_logger", "_log"];
+/// Message channels and stdio for `send` / `write`.
+const CHANNELS: &[&str] = &[
+    "sock",
+    "socket",
+    "ws",
+    "websocket",
+    "emitter",
+    "queue",
+    "pipe",
+    "channel",
+    "stdout",
+    "stderr",
+    "sys",
+    "buf",
+    "buffer",
+];
+/// Callables that build a file object or an in-memory stream.
+const FILE_MAKERS: &[&str] = &[
+    "open",
+    "StringIO",
+    "BytesIO",
+    "NamedTemporaryFile",
+    "TemporaryFile",
+    "SpooledTemporaryFile",
+];
+const COLLECTION_MAKERS: &[&str] = &[
+    "list",
+    "set",
+    "dict",
+    "deque",
+    "frozenset",
+    "defaultdict",
+    "OrderedDict",
+    "Counter",
+    "sorted",
+];
+const COLLECTION_HINTS: &[&str] = &[
+    "list", "set", "dict", "sequence", "deque", "iterable", "tuple",
+];
+
+/// Import aliases: `import os as o` and `from os import system as sh`.
 #[derive(Default)]
 pub(super) struct Facts {
-    /// Local names of the `subprocess` module.
-    subprocess: BTreeSet<String>,
-    /// Local names bound to `subprocess.run`.
-    run: BTreeSet<String>,
-    /// Local names of the `sqlalchemy` module.
-    sqlalchemy: BTreeSet<String>,
-    /// Local names bound to `sqlalchemy.text`.
-    text: BTreeSet<String>,
+    /// Local name -> module (`o` -> `os`).
+    modules: BTreeMap<String, String>,
+    /// Local name -> (module, original name).
+    names: BTreeMap<String, (String, String)>,
 }
 
 impl Facts {
@@ -29,20 +108,19 @@ impl Facts {
         facts
     }
 
-    /// `import subprocess [as sp]`
     fn import(&mut self, p: Src<'_>, node: Node<'_>) {
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
             let (module, local) = module_and_local(p, child);
-            match module {
-                "subprocess" => self.subprocess.insert(local.to_string()),
-                "sqlalchemy" => self.sqlalchemy.insert(local.to_string()),
-                _ => false,
+            let local = if module == local {
+                local.split('.').next().unwrap_or(local)
+            } else {
+                local
             };
+            self.modules.insert(local.to_string(), module.to_string());
         }
     }
 
-    /// `from subprocess import run [as r]`
     fn import_from(&mut self, p: Src<'_>, node: Node<'_>) {
         let module = node
             .child_by_field_name("module_name")
@@ -51,12 +129,14 @@ impl Facts {
         let mut cursor = node.walk();
         for name in node.children_by_field_name("name", &mut cursor) {
             let (orig, local) = module_and_local(p, name);
-            match (module, orig) {
-                ("subprocess", "run") => self.run.insert(local.to_string()),
-                ("sqlalchemy", "text") => self.text.insert(local.to_string()),
-                _ => false,
-            };
+            self.names
+                .insert(local.to_string(), (module.to_string(), orig.to_string()));
         }
+    }
+
+    /// Module a single-identifier receiver stands for (`o` -> `os`, else its own name).
+    fn module_of<'a>(&'a self, name: &'a str) -> &'a str {
+        self.modules.get(name).map(String::as_str).unwrap_or(name)
     }
 }
 
@@ -87,82 +167,195 @@ fn is_literal(p: Src<'_>, node: Node<'_>) -> bool {
     }
 }
 
-pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> Option<SinkHit> {
-    // Bare callees bound by `from subprocess import run [as r]` /
-    // `from sqlalchemy import text [as t]`.
-    if facts.run.contains(text) || facts.text.contains(text) {
-        let c = callee_of(id)?;
-        if c.receiver.is_none() {
-            if facts.run.contains(text) {
-                return Some(SinkHit::new("py-subprocess", "CWE-78"));
-            }
-            if args(c.call).first().is_some_and(|a| !is_literal(p, *a)) {
-                return Some(SinkHit::new("py-sql-clause", "CWE-89"));
-            }
+/// An argument that builds SQL text rather than naming a model: an f-string, a
+/// `+` / `%` / `.format` composition with a string, or a lowercase variable
+/// (`session.query(Model)` and `session.query(Model.id)` are ORM builders).
+fn is_sql_text(p: Src<'_>, node: Node<'_>) -> bool {
+    match node.kind() {
+        "string" | "concatenated_string" => !is_literal(p, node),
+        "binary_operator" => {
+            let op = node
+                .child_by_field_name("operator")
+                .map(|o| p.node_text(&o));
+            let strings = ["left", "right"].iter().any(|f| {
+                node.child_by_field_name(f)
+                    .is_some_and(|c| matches!(c.kind(), "string" | "concatenated_string"))
+            });
+            matches!(op, Some("+" | "%")) && strings
         }
+        "call" => node
+            .child_by_field_name("function")
+            .is_some_and(|f| f.kind() == "attribute" && p.node_text(&f).ends_with(".format")),
+        "identifier" => p
+            .node_text(&node)
+            .chars()
+            .next()
+            .is_some_and(|c| !c.is_ascii_uppercase()),
+        _ => false,
     }
-    let tail = |c: &super::callee::Callee<'_>| c.receiver.and_then(|r| chain_tail(p, r));
-    match text {
+}
+
+fn lower(s: &str) -> String {
+    s.to_ascii_lowercase()
+}
+
+fn any_name(names: &[&str], set: &[&str]) -> bool {
+    names.iter().any(|n| set.contains(&lower(n).as_str()))
+}
+
+/// Last segment of a callee's text (`io.StringIO` -> `StringIO`).
+fn last_segment(text: &str) -> &str {
+    text.rsplit('.').next().unwrap_or(text)
+}
+
+/// A receiver bound (in its function or module) to a file object or an in-memory stream.
+fn is_file_like(p: Src<'_>, r: Node<'_>) -> bool {
+    if r.kind() != "identifier" {
+        return false;
+    }
+    match resolve(p, r, p.node_text(&r)) {
+        PyBind::WithAs(v) | PyBind::Assigned(v) => {
+            v.kind() == "call"
+                && v.child_by_field_name("function")
+                    .is_some_and(|f| FILE_MAKERS.contains(&last_segment(p.node_text(&f))))
+        }
+        _ => false,
+    }
+}
+
+/// A receiver bound to a list/set/dict (literal, comprehension, constructor) or
+/// annotated as a collection: `items.remove(x)` is not a file removal.
+fn is_collection(p: Src<'_>, r: Node<'_>) -> bool {
+    if r.kind() != "identifier" {
+        return false;
+    }
+    match resolve(p, r, p.node_text(&r)) {
+        PyBind::Assigned(v) => {
+            matches!(
+                v.kind(),
+                "list"
+                    | "set"
+                    | "dictionary"
+                    | "tuple"
+                    | "list_comprehension"
+                    | "set_comprehension"
+                    | "dictionary_comprehension"
+            ) || (v.kind() == "call"
+                && v.child_by_field_name("function")
+                    .is_some_and(|f| COLLECTION_MAKERS.contains(&last_segment(p.node_text(&f)))))
+        }
+        PyBind::Param {
+            annotation: Some(a),
+        } => {
+            let t = lower(p.node_text(&a));
+            COLLECTION_HINTS.iter().any(|h| t.contains(h))
+        }
+        _ => false,
+    }
+}
+
+fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
+    Some(SinkHit::new(rule, cwe))
+}
+
+pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> Option<SinkHit> {
+    let c = callee_of(id)?;
+    // A bare callee imported under another name dispatches on its original name.
+    let imported = if c.receiver.is_none() {
+        facts.names.get(text)
+    } else {
+        None
+    };
+    let name = imported.map(|(_, orig)| orig.as_str()).unwrap_or(text);
+    let from_module = imported.map(|(m, _)| m.as_str());
+    let nargs = args(c.call).len();
+    let names = c.receiver.map(|r| chain_names(p, r)).unwrap_or_default();
+    // Module a single-identifier receiver or an import stands for.
+    let module = match (from_module, c.receiver) {
+        (Some(m), _) => Some(m),
+        (None, Some(r)) if r.kind() == "identifier" => Some(facts.module_of(p.node_text(&r))),
+        _ => None,
+    };
+    let logger = any_name(&names, LOGGERS);
+    let local_def =
+        c.receiver.is_none() && imported.is_none() && matches!(resolve(p, id, text), PyBind::Def);
+    match name {
         "eval" | "exec" => {
-            let c = callee_of(id)?;
-            (c.receiver.is_none() || tail(&c) == Some("builtins"))
-                .then(|| SinkHit::new("py-eval", "CWE-95"))
+            (nargs > 0 && !logger && !local_def).then(|| SinkHit::new("py-eval", "CWE-95"))
         }
         "system" | "popen" => {
-            let c = callee_of(id)?;
-            (tail(&c) == Some("os") || (c.receiver.is_none() && text == "system"))
-                .then(|| SinkHit::new("py-os-command", "CWE-78"))
+            (nargs > 0 && !local_def).then(|| SinkHit::new("py-os-command", "CWE-78"))
         }
-        "Popen" | "check_call" | "check_output" => {
-            callee_of(id).map(|_| SinkHit::new("py-subprocess", "CWE-78"))
+        n if PROCESS_NAMES.contains(&n) => {
+            (nargs > 0).then(|| SinkHit::new("py-os-command", "CWE-78"))
         }
-        "run" => {
-            let c = callee_of(id)?;
-            let t = tail(&c)?;
-            (t == "subprocess" || facts.subprocess.contains(t))
-                .then(|| SinkHit::new("py-subprocess", "CWE-78"))
+        "spawn" => (module == Some("pty")).then(|| SinkHit::new("py-os-command", "CWE-78")),
+        "Popen" | "check_call" | "check_output" => hit("py-subprocess", "CWE-78"),
+        "run" | "call" => {
+            (module == Some("subprocess")).then(|| SinkHit::new("py-subprocess", "CWE-78"))
         }
-        "execute" | "executemany" | "raw" => {
-            let c = callee_of(id)?;
-            c.receiver.map(|_| SinkHit::new("py-db-call", "CWE-89"))
+        n if SQL_METHODS.contains(&n) || n == "raw" => {
+            (nargs > 0 && !logger && !local_def).then(|| SinkHit::new("py-db-call", "CWE-89"))
         }
+        n if PANDAS_SQL.contains(&n) => hit("py-db-call", "CWE-89"),
+        "query" => args(c.call)
+            .first()
+            .is_some_and(|a| is_sql_text(p, *a))
+            .then(|| SinkHit::new("py-db-call", "CWE-89")),
         // ORM clause entry points: the clause argument is where raw SQL can enter.
         // Keyword-only calls (`Model.objects.filter(pk=x)`, `filter_by(id=x)`) are
-        // parameterised lookups, not clauses.
+        // parameterised lookups, not clauses. A positional expression such as
+        // `User.id == x` is reported too (owner decision 2026-11-02: weak TP).
         "where" | "filter" | "filter_by" => {
-            let c = callee_of(id)?;
             let clause = args(c.call)
                 .iter()
                 .any(|a| !matches!(a.kind(), "keyword_argument" | "dictionary_splat"));
-            (c.receiver.is_some() && clause).then(|| SinkHit::new("py-sql-clause", "CWE-89"))
-        }
-        "text" => {
-            let c = callee_of(id)?;
-            let t = tail(&c)?;
-            let module = t == "sqlalchemy" || facts.sqlalchemy.contains(t);
-            (module && args(c.call).first().is_some_and(|a| !is_literal(p, *a)))
+            (c.receiver.is_some() && clause && !logger)
                 .then(|| SinkHit::new("py-sql-clause", "CWE-89"))
         }
-        "mark_safe" | "Markup" => callee_of(id).map(|_| SinkHit::new("py-html", "CWE-79")),
-        "render_template_string" => callee_of(id).map(|_| SinkHit::new("py-template", "CWE-1336")),
+        "text" => {
+            let from_sqlalchemy = module == Some("sqlalchemy");
+            (from_sqlalchemy && args(c.call).first().is_some_and(|a| !is_literal(p, *a)))
+                .then(|| SinkHit::new("py-sql-clause", "CWE-89"))
+        }
+        "Template" => {
+            let known = module.is_some_and(|m| TEMPLATE_MODULES.contains(&m));
+            (known && args(c.call).first().is_some_and(|a| !is_literal(p, *a)))
+                .then(|| SinkHit::new("py-template", "CWE-1336"))
+        }
+        "mark_safe" | "Markup" => hit("py-html", "CWE-79"),
+        "render_template_string" => hit("py-template", "CWE-1336"),
         "getattr" | "setattr" => {
-            let c = callee_of(id)?;
             let name_arg = args(c.call).into_iter().nth(1)?;
             (c.receiver.is_none() && !is_literal(p, name_arg))
                 .then(|| SinkHit::new("py-dynamic-attr", "CWE-470"))
         }
-        "redirect" | "HttpResponseRedirect" => {
-            callee_of(id).map(|_| SinkHit::new("py-redirect", "CWE-601"))
-        }
+        "redirect" | "HttpResponseRedirect" => hit("py-redirect", "CWE-601"),
         "open" => {
-            let c = callee_of(id)?;
-            (c.receiver.is_none() || matches!(tail(&c), Some("io" | "os")))
+            let pil = names.iter().any(|n| *n == "Image");
+            ((nargs > 0 || c.receiver.is_some_and(|r| r.kind() == "call")) && !pil)
                 .then(|| SinkHit::new("py-file-open", "CWE-22"))
         }
-        "remove" | "unlink" | "rmdir" | "removedirs" => {
-            let c = callee_of(id)?;
-            (tail(&c) == Some("os")).then(|| SinkHit::new("py-file-remove", "CWE-22"))
+        "remove" => remove_hit(p, &c, nargs, logger, local_def),
+        "unlink" | "rmdir" | "removedirs" | "rmtree" => hit("py-file-remove", "CWE-22"),
+        "send" | "write" => {
+            let channel = any_name(&names, CHANNELS);
+            let file = c.receiver.is_some_and(|r| is_file_like(p, r));
+            (nargs > 0 && !logger && !channel && !file && !local_def)
+                .then(|| SinkHit::new("py-output", "CWE-79"))
         }
         _ => None,
     }
+}
+
+fn remove_hit(
+    p: Src<'_>,
+    c: &Callee<'_>,
+    nargs: usize,
+    logger: bool,
+    local_def: bool,
+) -> Option<SinkHit> {
+    let collection = c.receiver.is_some_and(|r| is_collection(p, r));
+    (nargs > 0 && !logger && !collection && !local_def)
+        .then(|| SinkHit::new("py-file-remove", "CWE-22"))
 }

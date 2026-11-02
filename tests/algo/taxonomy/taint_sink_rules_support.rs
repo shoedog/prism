@@ -73,3 +73,27 @@ pub fn assert_no_sinks(path: &str, language: Language, cases: &[Case]) {
         "name-fragment shapes reported as sinks: {wrong:?}"
     );
 }
+
+/// One matrix row with its own path and language.
+pub struct Row {
+    pub sink: bool,
+    pub label: &'static str,
+    pub path: &'static str,
+    pub lang: Language,
+    pub source: &'static str,
+}
+
+/// Rows whose result differs from their `sink` expectation.
+pub fn assert_rows(rows: &[Row]) {
+    let wrong: Vec<String> = rows
+        .iter()
+        .filter(|r| sink_on_marker(r.path, r.lang, r.source) != r.sink)
+        .map(|r| format!("{} (expected sink={})", r.label, r.sink))
+        .collect();
+    assert!(
+        wrong.is_empty(),
+        "{} rows differ:\n{}",
+        wrong.len(),
+        wrong.join("\n")
+    );
+}
