@@ -297,7 +297,8 @@ interface-dispatch manifest (the §8a denominator for the precision gate report)
 two reaching-definition availability counters. Loop-carried is a subset of Exact, so labeled-edge
 count is Exact plus the five NameOnly counters. `--edges` emits sorted JSONL with the doubt
 vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_nameonly`;
-`kill_line` is present only for `killed`. The same counters are nested under `call-stats.dfg_labels`.
+`kill_line` is present only for `killed`; on an object-literal shortcut edge (below) it is a line of the
+`to` endpoint's function, the callee. The same counters are nested under `call-stats.dfg_labels`.
 
 Finding confidence is `exact | nameonly | unlabeled`; tier is `asserted` only for Exact evidence
 whose evidence-bearing files all parse cleanly, otherwise `candidate`. `asserted` grades the
@@ -336,7 +337,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v135) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v136) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -356,6 +357,21 @@ logical assignment, `++`/`--`, `delete`, array/object/rest pattern targets, `for
 the same inside nested callables; a write to `p`, to a prefix of the path, or below it (`p.x.y = 1`
 also suppresses `p.x`) all count. `p[k]` counts as a bare read; `this.x`, destructured formals and
 `arguments` are not handled. See `docs/features/language-coverage/js-ts-known-gaps.md` §6.
+
+An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
+(`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals
+flatten to `k.j`) gets `Use(v) -> Use(p.<read>)` edges to the formal's reads that the definition
+already reaches, for reads whose static chain is a prefix of, or extends, the leaf's key path (so
+`{ a: x }` feeds `p.a`, `p.a.b` and bare `p`, never `p.b`; a mixed formal's member reads are base `p`
+Uses and are classified from the syntax, with the member-only lane's flow-insensitive write
+suppression applied: a read whose path is written, or has a written prefix or a deeper write, is not
+fed, and a leaf at or below a written path feeds no read). The label is the call's label joined with
+the definition edge's. A spread or computed key refuses every key written before it; for duplicate keys the last
+property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
+non-data values (calls, arithmetic, arrays), a spread argument before the literal, NameOnly or
+multi-target calls, and destructured, rest or bare-arrow formals bind nothing. A mixed formal's reads
+in a declarator initialiser, a condition, a `for-in` head or an `in` test have zero-width base Uses and
+are not fed (known gap).
 
 ### MCP Adapter
 

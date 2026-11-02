@@ -42,7 +42,9 @@ impl CodePropertyGraph {
         let mut out = Vec::new();
         let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
         for site in sites {
-            for resolved in cg.resolve_call_site(site) {
+            let resolved_site = cg.resolve_call_site(site);
+            let literal_ok = object_literal_args::exact_singleton(&resolved_site);
+            for resolved in resolved_site {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
                 // maybe-edge (nav-only). DataFlow carries no confidence/kind and
                 // taint consumes it directly, so wiring an arg->param edge here
@@ -76,6 +78,19 @@ impl CodePropertyGraph {
                     Some(nodes) => nodes.as_slice(),
                     None => continue,
                 };
+                if literal_ok {
+                    let inputs = object_literal_args::SiteInputs {
+                        caller_id,
+                        caller_parsed,
+                        callee_parsed,
+                        args: &args,
+                        var_index,
+                        exact_var_index,
+                        graph,
+                        cross_file_free_single_exact,
+                    };
+                    object_literal_args::collect(&mut out, &inputs, param_nodes, |&n| Some(n));
+                }
                 for (i, &param_idx) in param_nodes.iter().enumerate() {
                     if i >= args.len() {
                         break;

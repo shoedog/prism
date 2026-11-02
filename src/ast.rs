@@ -11537,7 +11537,6 @@ mod callback_identity;
 #[path = "ast_member_projection.rs"]
 mod member_projection;
 pub use crate::anon_owner::is_anonymous_owner_name as is_synthetic_owner;
-#[cfg(test)]
 pub(crate) use member_projection::FormalMemberFacts;
 
 #[cfg(test)]

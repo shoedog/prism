@@ -53,6 +53,12 @@ mod multiline_call_arg_parity_tests;
 #[cfg(test)]
 mod multiline_call_arg_tests;
 #[cfg(test)]
+mod object_literal_arg_r1_tests;
+#[cfg(test)]
+mod object_literal_arg_r2_tests;
+#[cfg(test)]
+mod object_literal_arg_tests;
+#[cfg(test)]
 mod optional_parameter_tests;
 #[cfg(test)]
 mod parameter_slots_parity_tests;

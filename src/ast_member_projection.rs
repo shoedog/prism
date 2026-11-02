@@ -23,6 +23,11 @@ pub(crate) struct FormalMemberFacts {
     writes: BTreeSet<AccessPath>,
     /// Every proper prefix of a write path (non-empty), for the deeper-write kill.
     write_ancestors: BTreeSet<AccessPath>,
+    /// A computed-member write bound to the formal itself (`p[k] = v`, `delete p[k]`, a
+    /// pattern or `for` target `p[k]`, wrappers included): it may replace any key. Only the
+    /// object-literal argument pass reads this; the member-only lane keeps its documented
+    /// `p[k]` limit and never consults it.
+    computed_write: bool,
     /// Distinct scope-binding verdicts the walk computed (cost witness: bounded by the
     /// number of scopes, not by the number of member occurrences).
     pub scope_verdicts: usize,
@@ -41,6 +46,22 @@ impl FormalMemberFacts {
                 path.fields[..k].to_vec(),
             ))
         })
+    }
+
+    /// Whether a write lands on `base.<fields>` or on a proper prefix of it: the value an
+    /// object literal put at that key path was replaced (flow-insensitive, like `is_killed`).
+    pub(crate) fn overwrites_at_or_above(&self, base: &str, fields: &[String]) -> bool {
+        (1..=fields.len()).any(|k| {
+            self.writes.contains(&AccessPath::with_fields(
+                base.to_string(),
+                fields[..k].to_vec(),
+            ))
+        })
+    }
+
+    /// Whether the callable writes through a computed member of the formal (see the field).
+    pub(crate) fn has_computed_write(&self) -> bool {
+        self.computed_write
     }
 
     fn record_write(&mut self, path: AccessPath) {
@@ -111,6 +132,24 @@ impl ParsedFile {
         facts
     }
 
+    /// The member facts of the formal `name` whose identifier occupies `[start, end)`,
+    /// for the callable that declares it. `None` when no callable encloses the span.
+    pub(crate) fn formal_member_facts_at(
+        &self,
+        start: usize,
+        end: usize,
+        name: &str,
+    ) -> Option<FormalMemberFacts> {
+        let mut node = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start, end)?;
+        while !is_js_ts_function_like(node.kind()) {
+            node = node.parent()?;
+        }
+        Some(self.formal_member_facts(&node, name, start))
+    }
+
     fn collect_member_facts(
         &self,
         node: Node<'_>,
@@ -162,10 +201,38 @@ impl ParsedFile {
                 }
             }
         }
+        if node.kind() == "subscript_expression"
+            && !facts.computed_write
+            && self.is_computed_write_to_formal(node, walk)
+        {
+            facts.computed_write = true;
+        }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             self.collect_member_facts(child, walk, in_chain, facts);
         }
+    }
+
+    /// `p[<anything>]` as a write target, `p` (through transparent wrappers) being the
+    /// formal as bound at this occurrence. Only the formal itself counts: `p.a[k] = v` and
+    /// `p[k].a = v` are writes below a key, as in the member-only lane.
+    fn is_computed_write_to_formal(&self, node: Node<'_>, walk: &FactsWalk<'_>) -> bool {
+        let Some(object) = node.child_by_field_name("object") else {
+            return false;
+        };
+        let Some(object) = strip_transparent_wrappers(object) else {
+            return false;
+        };
+        object.kind() == "identifier"
+            && self.node_text(&object) == walk.name
+            && self.member_is_write_target(node)
+            && !self.js_ts_reference_fenced_memo(
+                &node,
+                walk.name,
+                walk.def_scope,
+                walk.seam_open,
+                &walk.memo,
+            )
     }
 
     /// The one normalizer for member chains, used for reads and writes alike: the static

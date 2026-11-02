@@ -1,0 +1,231 @@
+{
+  "lane": "JS/TS object-literal call arguments bind field-selectively to the callee formal (#594)",
+  "source": "src/cpg/object_literal_args.rs",
+  "lib_test_prefixes": [
+    "cpg::"
+  ],
+  "mutations": {
+    "OL01-exact-confidence-gate-off": [
+      "src/cpg/object_literal_args.rs",
+      "    resolved.len() == 1 && resolved[0].confidence == ResolutionConfidence::Exact",
+      "    resolved.len() == 1",
+      "cpg::object_literal_arg_tests::nameonly_singleton_call_gets_no_literal_edges_while_plain_arguments_do"
+    ],
+    "OL02-singleton-gate-off": [
+      "src/cpg/object_literal_args.rs",
+      "    resolved.len() == 1 && resolved[0].confidence == ResolutionConfidence::Exact",
+      "    !resolved.is_empty() && resolved[0].confidence == ResolutionConfidence::Exact",
+      "cpg::object_literal_arg_tests::exact_multi_target_pool_gets_no_literal_edges_while_plain_arguments_bind_both"
+    ],
+    "OL03-sibling-reads-bound": [
+      "src/cpg/object_literal_args.rs",
+      "    leaf[..n] == read[..n]",
+      "    leaf[..n] == leaf[..n]",
+      [
+        "cpg::object_literal_arg_tests::member_only_formal_binds_key_to_its_own_reads_only",
+        "cpg::object_literal_arg_tests::issue_example_taint_reaches_the_sink_read_and_not_the_sibling"
+      ]
+    ],
+    "OL04-container-and-bare-reads-dropped": [
+      "src/cpg/object_literal_args.rs",
+      "    leaf[..n] == read[..n]",
+      "    read.len() >= leaf.len() && leaf[..n] == read[..n]",
+      [
+        "cpg::object_literal_arg_tests::mixed_formal_bare_reads_take_every_key_member_reads_only_their_own",
+        "cpg::object_literal_arg_tests::nested_literal_container_read_sees_the_leaf"
+      ]
+    ],
+    "OL05-wildcard-ignored": [
+      "src/cpg/object_literal_args.rs",
+      "            || last_wildcard.is_some_and(|wild| wild > i)\n",
+      "            || (false && last_wildcard.is_some_and(|wild| wild > i))\n",
+      [
+        "cpg::object_literal_arg_tests::computed_key_refuses_itself_and_every_key_before_it",
+        "cpg::object_literal_arg_tests::spread_refuses_keys_before_it_and_keeps_keys_after_it"
+      ]
+    ],
+    "OL06-duplicate-first-wins": [
+      "src/cpg/object_literal_args.rs",
+      "        if last_for_key.get(name) != Some(&i)\n",
+      "        if false && last_for_key.get(name) != Some(&i)\n",
+      "cpg::object_literal_arg_tests::duplicate_keys_bind_only_the_last_value"
+    ],
+    "OL07-accessor-does-not-shadow-key": [
+      "src/cpg/object_literal_args.rs",
+      "            Write::Value(name) | Write::Opaque(Some(name)) => {",
+      "            Write::Value(name) => {",
+      "cpg::object_literal_arg_tests::accessors_and_methods_are_refused_and_last_property_wins"
+    ],
+    "OL08-proto-bound": [
+      "src/cpg/object_literal_args.rs",
+      "            || name == \"__proto__\"\n",
+      "            || false\n",
+      "cpg::object_literal_arg_tests::proto_key_is_never_an_own_property"
+    ],
+    "OL09-spread-argument-slot-shift": [
+      "src/cpg/object_literal_args.rs",
+      "        if sibling.kind() == \"spread_element\" {",
+      "        if false && sibling.kind() == \"spread_element\" {",
+      "cpg::object_literal_arg_tests::spread_argument_before_the_literal_shifts_the_slot_and_refuses"
+    ],
+    "OL10-label-not-composed": [
+      "src/cpg/object_literal_args.rs",
+      "CpgEdge::DataFlow(FlowConfidence::Exact.worst(read.label)),",
+      "CpgEdge::DataFlow(FlowConfidence::Exact),",
+      "cpg::object_literal_arg_tests::label_composes_with_the_definition_edge_doubt"
+    ],
+    "OL11-computed-key-not-wildcard": [
+      "src/cpg/object_literal_args.rs",
+      "        \"computed_property_name\" => None,",
+      "        \"computed_property_name\" => Some(None),",
+      [
+        "cpg::object_literal_arg_tests::computed_key_refuses_itself_and_every_key_before_it",
+        "cpg::object_literal_arg_tests::computed_method_is_also_a_wildcard_writer"
+      ]
+    ],
+    "OL12-nested-literal-dropped": [
+      "src/cpg/object_literal_args.rs",
+      "            \"object\" => collect_leaves(parsed, value, &keys, out)?,",
+      "            \"object\" => {}",
+      "cpg::object_literal_arg_tests::nested_literal_binds_its_leaf_path_never_the_container_key_alone"
+    ],
+    "OL13-member-chain-ignored": [
+      "src/cpg/object_literal_args.rs",
+      "            chain.push(parsed.node_text(&property).to_string());",
+      "            let _ = parsed.node_text(&property);",
+      "cpg::object_literal_arg_tests::mixed_formal_bare_reads_take_every_key_member_reads_only_their_own"
+    ],
+    "OL14-call-value-carries-data": [
+      "src/cpg/object_literal_args.rs",
+      "            \"identifier\" | \"member_expression\" => out.push(Leaf {",
+      "            \"identifier\" | \"member_expression\" | \"call_expression\" | \"binary_expression\" => out.push(Leaf {",
+      "cpg::object_literal_arg_tests::non_data_values_bind_nothing"
+    ],
+    "OL15-parenthesised-literal-prefilter": [
+      "src/cpg/object_literal_args.rs",
+      "text.starts_with(['{', '('])",
+      "text.starts_with('{')",
+      "cpg::object_literal_arg_tests::parentheses_around_the_literal_are_transparent"
+    ],
+    "OL16-type-assertion-not-transparent": [
+      "src/cpg/object_literal_args.rs",
+      "            | \"as_expression\"\n",
+      "",
+      "cpg::object_literal_arg_tests::type_assertions_around_the_literal_are_transparent_in_ts"
+    ],
+    "OL17-escaped-string-key-definite": [
+      "src/cpg/object_literal_args.rs",
+      "            if !text.is_ascii() || text.contains('\\\\') {\n                return None;\n            }",
+      "",
+      "cpg::object_literal_arg_tests::escaped_or_non_ascii_keys_may_alias_any_key_and_act_as_wildcards"
+    ],
+    "OL18-base-literal-supplement-lost": [
+      "src/cpg/object_literal_args.rs",
+      "            let mut paths = vec![full.clone()];\n            let base = AccessPath::simple(&full.base);\n            if base != full {\n                paths.push(base);\n            }",
+      "            let paths = vec![full.clone()];",
+      "cpg::object_literal_arg_tests::member_path_value_binds_to_the_key"
+    ],
+    "OL19-read-suppression-ignored": [
+      "src/cpg/object_literal_args.rs",
+      "                if !comparable(&leaf.keys, &read.chain) || info.read_suppressed(read) {",
+      "                if !comparable(&leaf.keys, &read.chain) {",
+      "cpg::object_literal_arg_r1_tests::a_write_below_the_key_stops_reads_at_or_above_the_written_path_only"
+    ],
+    "OL20-leaf-overwrite-ignored": [
+      "src/cpg/object_literal_args.rs",
+      "            if info.leaf_overwritten(leaf) {",
+      "            if false && info.leaf_overwritten(leaf) {",
+      "cpg::object_literal_arg_r1_tests::overwritten_field_with_a_bare_read_before_the_write_is_the_issue_example"
+    ],
+    "OL21-write-on-the-leaf-path-not-an-overwrite": [
+      "src/ast_member_projection.rs",
+      "        (1..=fields.len()).any(|k| {",
+      "        (1..fields.len()).any(|k| {",
+      "cpg::object_literal_arg_r1_tests::overwritten_field_with_a_bare_read_before_the_write_is_the_issue_example"
+    ],
+    "OL23-angle-bracket-prefilter-dropped": [
+      "src/cpg/object_literal_args.rs",
+      "        || (text.starts_with('<') && language == crate::languages::Language::TypeScript)",
+      "        || false",
+      "cpg::object_literal_arg_r1_tests::ts_angle_bracket_assertion_around_the_literal_is_transparent"
+    ],
+    "OL24-array-and-subscript-carry-data": [
+      "src/cpg/object_literal_args.rs",
+      "            \"identifier\" | \"member_expression\" => out.push(Leaf {",
+      "            \"identifier\" | \"member_expression\" | \"array\" | \"subscript_expression\" | \"number\" => out.push(Leaf {",
+      "cpg::object_literal_arg_tests::non_data_values_bind_nothing"
+    ],
+    "OL25-reference-oracle-skips-literals": [
+      "src/cpg/step5b_reference.rs",
+      "                    if literal_ok {",
+      "                    if false && literal_ok {",
+      "cpg::build::object_literal_args::parity_tests::literal_bearing_graph_is_identical_across_every_route"
+    ],
+    "OL22-pair-pattern-target-not-a-write": [
+      "src/ast_member_projection.rs",
+      "                \"pair_pattern\" => {}\n",
+      "",
+      [
+        "cpg::object_literal_arg_r1_tests::expression_position_write_targets_are_not_reads",
+        "cpg::object_literal_arg_r1_tests::every_member_write_form_stops_the_overwritten_key_reaching_the_formal"
+      ]
+    ],
+    "OL26-rest-pattern-target-not-a-write": [
+      "src/ast_member_projection.rs",
+      "                | \"type_assertion\"\n                | \"rest_pattern\" => {}",
+      "                | \"type_assertion\" => {}",
+      [
+        "cpg::object_literal_arg_r1_tests::expression_position_write_targets_are_not_reads"
+      ]
+    ],
+    "OL27-write-classifier-off": [
+      "src/ast_member_projection.rs",
+      "    fn member_is_write_target(&self, node: Node<'_>) -> bool {\n",
+      "    fn member_is_write_target(&self, node: Node<'_>) -> bool {\n        if node.id() != usize::MAX {\n            return false;\n        }\n",
+      [
+        "cpg::object_literal_arg_r1_tests::expression_position_write_targets_are_not_reads"
+      ]
+    ],
+    "OL28-computed-write-wildcard-ignored": [
+      "src/cpg/object_literal_args.rs",
+      "    if all_facts.has_computed_write() {",
+      "    if false && all_facts.has_computed_write() {",
+      [
+        "cpg::object_literal_arg_r2_tests::a_computed_write_to_the_formal_stops_every_leaf_reaching_any_read",
+        "cpg::object_literal_arg_r2_tests::a_computed_write_in_a_member_only_formal_also_stops_the_literal"
+      ]
+    ],
+    "OL29-subscript-arm-dropped": [
+      "src/ast_member_projection.rs",
+      "        if node.kind() == \"subscript_expression\"\n",
+      "        if node.kind() == \"subscript_expression_off\"\n",
+      [
+        "cpg::object_literal_arg_r2_tests::a_computed_write_to_the_formal_stops_every_leaf_reaching_any_read"
+      ]
+    ],
+    "OL30-computed-write-wrapper-not-stripped": [
+      "src/ast_member_projection.rs",
+      "        let Some(object) = strip_transparent_wrappers(object) else {\n            return false;\n        };\n",
+      "",
+      [
+        "cpg::object_literal_arg_r2_tests::ts_wrapped_computed_write_targets_stop_every_leaf"
+      ]
+    ],
+    "OL31-computed-read-counts-as-write": [
+      "src/ast_member_projection.rs",
+      "            && self.member_is_write_target(node)\n            && !self.js_ts_reference_fenced_memo(",
+      "            && !self.js_ts_reference_fenced_memo(",
+      [
+        "cpg::object_literal_arg_r2_tests::a_computed_read_of_the_formal_does_not_suppress"
+      ]
+    ],
+    "OL32-computed-write-binder-fence-dropped": [
+      "src/ast_member_projection.rs",
+      "            && !self.js_ts_reference_fenced_memo(\n                &node,\n                walk.name,\n                walk.def_scope,\n                walk.seam_open,\n                &walk.memo,\n            )\n    }",
+      "    }",
+      [
+        "cpg::object_literal_arg_r2_tests::a_computed_write_to_another_base_or_a_shadowed_p_keeps_binding"
+      ]
+    ]
+  }
+}
