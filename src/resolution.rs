@@ -22,6 +22,8 @@ use go_satisfiers::{GoCallerScopedSatisfiers, GoSatisfierMemo};
 
 #[path = "resolution_js_alias.rs"]
 mod js_alias;
+#[path = "resolution_js_cjs.rs"]
+mod js_cjs;
 #[path = "resolution_js_namespace.rs"]
 mod js_namespace;
 #[path = "resolution_js_returns.rs"]
@@ -2198,6 +2200,9 @@ impl CallGraph {
         let name = site.callee_name.as_str();
         let caller = &site.caller;
         if let Some(outcome) = self.rust_authoritative_resolution(site) {
+            return outcome;
+        }
+        if let Some(outcome) = self.js_ts_cjs_route(site) {
             return outcome;
         }
 

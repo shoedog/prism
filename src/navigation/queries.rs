@@ -411,6 +411,16 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                     let kind = match followed {
                         crate::call_graph::JsLocalBinding::AliasCallable(_) => "callable",
                         crate::call_graph::JsLocalBinding::AliasImport { .. } => "import",
+                        crate::call_graph::JsLocalBinding::RequireModule { .. } => {
+                            // #598: an unproven bare callee still counts under the `MayCall`
+                            // reason it had before the binding existed.
+                            if !hit && site.qualifier.is_none() {
+                                *local_binding_may_call
+                                    .entry("alias".to_string())
+                                    .or_default() += 1;
+                            }
+                            "cjs_module"
+                        }
                         crate::call_graph::JsLocalBinding::Returned { kept, .. } => {
                             // Slice V: a returned-value site the fact does not prove still
                             // counts under the base reason it always did.

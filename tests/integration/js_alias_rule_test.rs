@@ -40,6 +40,9 @@ struct Tally {
     returned_sites: usize,
     returned_true: usize,
     returned_compared: usize,
+    cjs_member_true: usize,
+    cjs_member_compared: usize,
+    cjs_bare_compared: usize,
     indirect_with: usize,
     indirect_suppressed: usize,
     violations: Vec<String>,
@@ -68,7 +71,42 @@ fn review_inputs() -> Vec<Fixture> {
     let comp = "function Comp() { return null; }\n";
     let lib = "export function target() { return null; }\n";
     let cb_lib = "export function target() { return 1; }\nexport function cbImpl() { return 2; }\n";
+    let fg = "function f() {}\nfunction g() {}\n";
     vec![
+        // #598: CommonJS module calls. Proven member sites (`m.f()`, inline) are predicate-true;
+        // an unproven member site (`m.zzz()`) must equal the `Unchecked` twin main gives a member
+        // callee, an unproven bare site (`m()`, producer not a module function) the
+        // `MayCall("alias")` twin.
+        fx(
+            "r1-cjs-member-proven-and-unproven",
+            &[
+                ("m.js", &format!("{fg}module.exports = {{ f, g }};\n")),
+                (
+                    "app.js",
+                    "const m = require('./m');\nconst a = require('./m').g;\nexport function run() {\n  m.f(); m.zzz(); require('./m').g(); require('./m').zzz(); a(); m();\n}\n",
+                ),
+            ],
+        ),
+        fx(
+            "r1-cjs-module-function",
+            &[
+                ("m.js", &format!("{fg}module.exports = f;\n")),
+                (
+                    "app.js",
+                    "const m = require('./m');\nexport function run() {\n  m(); m.f();\n}\n",
+                ),
+            ],
+        ),
+        fx(
+            "r1-cjs-unproven-producer",
+            &[
+                ("m.js", &format!("{fg}if (env) {{ exports.f = f; }}\n")),
+                (
+                    "app.js",
+                    "const m = require('./m');\nexport function run() {\n  m.f(); m();\n}\n",
+                ),
+            ],
+        ),
         fx(
             "r3-jsx-intrinsic-same-function",
             &[(
@@ -167,10 +205,15 @@ fn is_alias(binding: &JsLocalBinding) -> bool {
 }
 
 /// The binding main gives the same site: `MayCall("alias")` for an alias (the binder's `Alias`
-/// class), and for a returned-value site the base reason it recorded in `kept`.
-fn main_binding(binding: &JsLocalBinding) -> JsLocalBinding {
-    match binding {
+/// class), for a returned-value site the base reason it recorded in `kept`, and for a #598
+/// `RequireModule` member callee (`m.f()`, `require('./x').f()`: a site with a qualifier) the
+/// `Unchecked` a member callee has on main.
+fn main_binding(site: &CallSite) -> JsLocalBinding {
+    match &site.local_binding {
         JsLocalBinding::Returned { kept, .. } => JsLocalBinding::MayCall(kept.clone()),
+        JsLocalBinding::RequireModule { .. } if site.qualifier.is_some() => {
+            JsLocalBinding::Unchecked
+        }
         _ => JsLocalBinding::MayCall("alias".to_string()),
     }
 }
@@ -216,10 +259,13 @@ fn check_fixture(f: &Fixture) -> Tally {
             }
             t.alias_sites += 1;
             let returned = matches!(site.local_binding, JsLocalBinding::Returned { .. });
+            let cjs = matches!(site.local_binding, JsLocalBinding::RequireModule { .. });
+            let member = site.qualifier.is_some();
             t.returned_sites += usize::from(returned);
             if cg.js_ts_alias_route_hit(site) {
                 t.predicate_true += 1;
                 t.returned_true += usize::from(returned);
+                t.cjs_member_true += usize::from(cjs && member);
                 true_sites.insert((site.caller.clone(), site.start_byte, site.end_byte));
                 // The predicate is the resolver's own answer: the public outcome is exactly one
                 // Exact target, equal to the route's, with no drop.
@@ -249,9 +295,11 @@ fn check_fixture(f: &Fixture) -> Tally {
                 continue;
             }
             let mut as_main = site.clone();
-            as_main.local_binding = main_binding(&site.local_binding);
+            as_main.local_binding = main_binding(site);
             t.compared += 1;
             t.returned_compared += usize::from(returned);
+            t.cjs_member_compared += usize::from(cjs && member);
+            t.cjs_bare_compared += usize::from(cjs && !member);
             let (got, want) = (outcome_of(&cg, site), outcome_of(&cg, &as_main));
             if got != want {
                 t.violations.push(format!(
@@ -320,6 +368,9 @@ fn the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_si
         total.returned_sites += t.returned_sites;
         total.returned_true += t.returned_true;
         total.returned_compared += t.returned_compared;
+        total.cjs_member_true += t.cjs_member_true;
+        total.cjs_member_compared += t.cjs_member_compared;
+        total.cjs_bare_compared += t.cjs_bare_compared;
         total.indirect_with += t.indirect_with;
         total.indirect_suppressed += t.indirect_suppressed;
     }
@@ -363,6 +414,16 @@ fn the_alias_route_predicate_is_the_only_divergence_from_main_on_every_matrix_si
         "returned-value sites: {} true, {} compared",
         total.returned_true,
         total.returned_compared
+    );
+    // The #598 `RequireModule` member and bare mapping is exercised on both sides.
+    assert!(
+        total.cjs_member_true >= 2
+            && total.cjs_member_compared >= 3
+            && total.cjs_bare_compared >= 2,
+        "cjs sites: {} member true, {} member compared, {} bare compared",
+        total.cjs_member_true,
+        total.cjs_member_compared,
+        total.cjs_bare_compared
     );
     assert!(
         total.indirect_suppressed >= 4,

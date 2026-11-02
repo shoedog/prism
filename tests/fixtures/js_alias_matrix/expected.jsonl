@@ -935,11 +935,11 @@
 {"id":"local.require-destructure.fn.call.fresh.cjs","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.require-destructure.module.call.fresh.cjs","verdict":"CORRECT","record":true,"exact":[{"file":"callee.js","name":"f","line":1,"kind":"import_member"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"local.require-inline-member.fn.call.same.cjs","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
-{"id":"local.require-inline-member.module.call.same.cjs","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.require-inline-member.module.call.same.cjs","verdict":"CORRECT","record":true,"exact":[{"file":"callee.js","name":"f","line":1,"kind":"import_member"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"local.require-inline-member.fn.call.trap.cjs","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
-{"id":"local.require-inline-member.module.call.trap.cjs","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.require-inline-member.module.call.trap.cjs","verdict":"CORRECT","record":true,"exact":[{"file":"callee.js","name":"f","line":1,"kind":"import_member"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"local.require-inline-member.fn.call.fresh.cjs","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
-{"id":"local.require-inline-member.module.call.fresh.cjs","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
+{"id":"local.require-inline-member.module.call.fresh.cjs","verdict":"CORRECT","record":true,"exact":[{"file":"callee.js","name":"f","line":1,"kind":"import_member"}],"nameonly":[],"drop":null,"origins":["Source"]}
 {"id":"local.require-assign.fn.call.same.cjs","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.require-assign.module.call.same.cjs","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}
 {"id":"local.require-assign.fn.call.trap.cjs","verdict":"MISSING","record":true,"exact":[],"nameonly":[],"drop":"UnknownName","origins":["Source"]}

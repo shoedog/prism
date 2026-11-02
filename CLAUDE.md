@@ -331,13 +331,32 @@ or array literal (spread-after-key, computed key, accessor, duplicate key, async
 call result all refuse), the site binds that callable as seen from `H`'s file; a site the fact does not
 prove (not exactly one Exact target) has exactly the earlier records, and no edge is removed.
 
+A JS/TS call through a top-level relative `require` binds Exact (kind `import_member`, a followed binding) when it names a
+callable the producer's CommonJS exports prove: `m(..)` for `const|let|var m = require('./x')` with `module.exports = f`
+(`f` a declared function, or a `const|let|var` arrow or function expression), `m.f(..)` and `require('./x').f(..)` for
+`module.exports = { f }`, `{ f: g }`, `module.exports.f = f`, `exports.f = f` (or a same-name function expression member),
+and `f(..)` for `const|let|var f = require('./x').f`. The proof is `JsExportFacts::cjs_callables`/`cjs_module_callable`
+(`src/ast/js_cjs_terminal.rs`), recorded only behind the export-object barrier and the terminal proof, in a file with no
+ESM export; the route is `src/resolution_js_cjs.rs`, the binder `src/ast/js_cjs_module_calls.rs`. The declaration must be
+a direct statement of the program, unwritten and unshadowed, with one plain relative string literal and a `require`
+proved unshadowed at its own occurrence (no declaration, no write, no enclosing `with` body); a member site `m.f(..)` is
+also refused when the consumer file writes `m.f`, any `m[..]`, or passes `m` first to `Object.assign`/`defineProperty`/
+`defineProperties`/`setPrototypeOf` or `Reflect.set`/`defineProperty`/`deleteProperty`/`setPrototypeOf` (file-wide, by
+spelling: a consumer-side stub; this is a partial guard, and other mutation routes such as an alias `n = m; n.f = …`,
+`with (m)`, re-acquisition through `require`, reflective or computed mutator calls, or passing `m` to a function stay
+under the runtime-mutation rule above); anything else, anonymous or module-level callers (#597), anonymous exports, class
+exports, `exports.default` (not the module value), ESM producers and `new m()` keeps the earlier outcome with no new
+edge. A proven site replaces earlier NameOnly or indirect records at that site, as slice L does (an R6 single-owner
+method of an unrelated class becomes the Exact export; textual indirect records for the same member stand down for the one
+Source record).
+
 `--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
 `--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact
 findings. Its default, `nameonly`, retains all three confidence values, including ungraded Unlabeled
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v136) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v137) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

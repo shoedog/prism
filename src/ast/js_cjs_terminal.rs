@@ -1,19 +1,62 @@
 //! Per-occurrence proof for direct CommonJS callable values, not live bindings.
 use super::ParsedFile;
-use crate::js_exports::JsExportTarget;
+use crate::js_exports::{CjsCallable, JsExportFacts, JsExportTarget};
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
 impl ParsedFile {
-    pub(super) fn js_ts_cjs_local_target(&self, rhs: Node<'_>) -> JsExportTarget {
+    /// The raw export claim for an identifier value, plus (#598) the callable the terminal proof
+    /// found when there is one. The claim is unchanged by the second element.
+    pub(super) fn js_ts_cjs_local_target(
+        &self,
+        rhs: Node<'_>,
+    ) -> (JsExportTarget, Option<CjsCallable>) {
         let name = self.node_text(&rhs);
         if let Some(callable) = self.js_ts_cjs_terminal_proven(rhs, name) {
-            self.js_ts_cjs_direct_target(callable, name)
-                .unwrap_or_else(|| JsExportTarget::Local(name.to_owned()))
+            let target = self
+                .js_ts_cjs_direct_target(callable, name)
+                .unwrap_or_else(|| JsExportTarget::Local(name.to_owned()));
+            (target, self.js_ts_cjs_callable_span(callable, name))
         } else {
             // Keep the claim: dropping it could erase duplicate or star conflicts.
-            JsExportTarget::UnprovenLocal(name.to_owned())
+            (JsExportTarget::UnprovenLocal(name.to_owned()), None)
         }
+    }
+
+    /// Records `exported` for an identifier value, and the proven callable under `exported`
+    /// (`None`: the whole-module replacement `module.exports = f`).
+    pub(super) fn insert_js_ts_cjs_local(
+        &self,
+        facts: &mut JsExportFacts,
+        exported: Option<String>,
+        rhs: Node<'_>,
+    ) {
+        let (target, callable) = self.js_ts_cjs_local_target(rhs);
+        match (&exported, callable) {
+            (Some(name), Some(c)) => {
+                facts.cjs_callables.insert(name.clone(), c);
+            }
+            (None, Some(c)) => facts.cjs_module_callable = Some(c),
+            _ => {}
+        }
+        facts.insert_named(exported.unwrap_or_else(|| "default".to_owned()), target);
+    }
+
+    /// The indexed callable the terminal proof already matched by bytes, as its line span.
+    fn js_ts_cjs_callable_span(&self, callable: Node<'_>, name: &str) -> Option<CjsCallable> {
+        let mut indexed = self
+            .functions()
+            .iter()
+            .filter(|f| f.name.as_deref() == Some(name));
+        let found = indexed.next()?;
+        (indexed.next().is_none()
+            && found.start_byte == callable.start_byte()
+            && found.end_byte == callable.end_byte())
+        .then(|| CjsCallable {
+            local: name.to_owned(),
+            start_line: found.start_line,
+            end_line: found.end_line,
+        })
     }
 
     /// Reuse the terminal's exact indexed callable, never a same-spelled node.
@@ -56,8 +99,23 @@ impl ParsedFile {
         facts: &mut crate::js_exports::JsExportFacts,
     ) {
         if rhs.kind() == "identifier" {
-            facts.insert_named(name, self.js_ts_cjs_local_target(rhs));
+            self.insert_js_ts_cjs_local(facts, Some(name), rhs);
         } else if let Some(target) = self.js_ts_cjs_direct_target(rhs, &name) {
+            if let JsExportTarget::VerifiedLocal {
+                local,
+                start_line,
+                end_line,
+            } = &target
+            {
+                facts.cjs_callables.insert(
+                    name.clone(),
+                    CjsCallable {
+                        local: local.clone(),
+                        start_line: *start_line,
+                        end_line: *end_line,
+                    },
+                );
+            }
             facts.insert_named(name, target);
         } else {
             facts.skipped_expr_count += 1;
