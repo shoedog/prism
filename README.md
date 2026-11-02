@@ -169,8 +169,9 @@ for deterministic JSONL with one row per labeled DataFlow edge, including `confi
 `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_nameonly`.
 
 The counters are `dfg_label_exact`, `dfg_label_loop_carried`, the five
-`dfg_label_nameonly_*` doubt counters, `dfg_rd_functions_over_cap`, and
-`dfg_rd_functions_without_cfg`. `dfg_label_loop_carried` is a subset of
+`dfg_label_nameonly_*` doubt counters, `dfg_rd_functions_over_cap`,
+`dfg_rd_functions_without_cfg`, `dfg_fallback_functions_capped`, and
+`dfg_fallback_edges_capped`. `dfg_label_loop_carried` is a subset of
 `dfg_label_exact`; labeled edges therefore equal `dfg_label_exact` plus the five mutually
 exclusive NameOnly counters. The same object appears as `dfg_labels` in `prism nav call-stats`.
 

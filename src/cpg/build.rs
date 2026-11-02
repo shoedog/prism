@@ -118,6 +118,8 @@ pub struct DfgLabelStats {
     pub dfg_label_nameonly_call: usize,
     pub dfg_rd_functions_over_cap: usize,
     pub dfg_rd_functions_without_cfg: usize,
+    pub dfg_fallback_functions_capped: usize,
+    pub dfg_fallback_edges_capped: usize,
 }
 
 impl DfgLabelStats {
@@ -143,6 +145,16 @@ impl DfgLabelStats {
     }
 
     fn record_rd_stats(&mut self, dfg: &DataFlowGraph) {
+        self.dfg_fallback_functions_capped = dfg
+            .rd_function_stats()
+            .values()
+            .map(|s| s.fallback_functions_capped)
+            .sum();
+        self.dfg_fallback_edges_capped = dfg
+            .rd_function_stats()
+            .values()
+            .map(|s| s.fallback_edges_capped)
+            .sum();
         self.dfg_rd_functions_over_cap = dfg
             .rd_function_stats()
             .values()

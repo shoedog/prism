@@ -13,6 +13,20 @@ impl Producer {
     // Preserve the extracted closure's line breaks for the indentation-only byte control.
     #[rustfmt::skip]
     pub(super) fn file_refs(file_path: &String, parsed: &ParsedFile) -> FileRefs {
+        Self::file_refs_impl(file_path, parsed, Some(super::fallback_cap::FALLBACK_EDGE_CAP))
+    }
+
+    #[cfg(test)]
+    pub(super) fn file_refs_with_cap(
+        file_path: &String,
+        parsed: &ParsedFile,
+        cap: Option<usize>,
+    ) -> FileRefs {
+        Self::file_refs_impl(file_path, parsed, cap)
+    }
+
+    #[rustfmt::skip]
+    fn file_refs_impl(file_path: &String, parsed: &ParsedFile, cap: Option<usize>) -> FileRefs {
         let _profile_file = crate::profile::Phase::file("dfg.file_extract", file_path);
         let mut defs: BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>> =
             BTreeMap::new();
@@ -38,7 +52,7 @@ impl Producer {
                 *owner_counts.entry(key).or_insert(0usize) += 1;
             }
         }
-        for func_node in function_nodes {
+        'functions: for func_node in function_nodes {
             let func_name = match parsed.dfg_owner_name(&func_node) {
                 Some(n) => n,
                 None => continue,
@@ -366,235 +380,6 @@ impl Producer {
                 .push(use_loc);
             }
 
-            let mut get_use =
-                |path: &AccessPath,
-                 ref_line: usize,
-                 allow: bool,
-                 admitted: (usize, usize)| {
-                    if synthetic {
-                        if refused_occurrence(path, admitted.0) {
-                            return None;
-                        }
-                        // The reference walk has already proved this occurrence's
-                        // binding and read role for the current Def.
-                        let use_loc = VarLocation {
-                            file: file_path.clone(),
-                            function: func_name.clone(),
-                            function_start_line: start,
-                            line: ref_line,
-                            path: path.clone(),
-                            start_byte: admitted.0,
-                            end_byte: admitted.1,
-                            kind: VarAccessKind::Use,
-                        };
-                        uses.entry((
-                            file_path.clone(),
-                            func_name.clone(),
-                            start,
-                            path.clone(),
-                        ))
-                        .or_default()
-                        .push(use_loc.clone());
-                        return Some(use_loc);
-                    }
-                    if let Some(existing) =
-                        preferred_use_locs.get(&(path.clone(), ref_line))
-                    {
-                        return Some(existing.clone());
-                    }
-                    if !allow {
-                        return None;
-                    }
-                    let anchor = parsed.line_start_byte(ref_line);
-                    let use_loc = VarLocation {
-                        file: file_path.clone(),
-                        function: func_name.clone(),
-                        function_start_line: start,
-                        line: ref_line,
-                        path: path.clone(),
-                        start_byte: anchor,
-                        end_byte: anchor,
-                        kind: VarAccessKind::Use,
-                    };
-                    debug_assert_eq!(use_loc.start_byte, use_loc.end_byte);
-                    uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
-                        .or_default()
-                        .push(use_loc.clone());
-                    preferred_use_locs.insert((path.clone(), ref_line), use_loc.clone());
-                    Some(use_loc)
-                };
-
-            // Create edges from param def to all uses in the function body.
-            for (path, loc, refs, param_decl_line) in &param_ref_jobs {
-                for (ref_line, admitted) in refs {
-                    let in_signature_line =
-                        *ref_line >= start && *ref_line <= *param_decl_line;
-                    if let Some(use_loc) =
-                        get_use(path, *ref_line, !in_signature_line, *admitted)
-                    {
-                        edges.push(FlowEdge {
-                            from: loc.clone(),
-                            to: use_loc,
-                        });
-                    }
-                }
-            }
-
-            // Find all uses of each defined variable/path.
-            // Cross-line references remain line-anchored unless a real
-            // rvalue span already exists for the same identity key.
-            for span in &lvalue_spans {
-                let path = &span.path;
-                let def_line = span.line;
-                // R1: every JS/TS Def, including writes, stays in its
-                // binding environment; body vars cannot reach defaults.
-                let def_scope =
-                    crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte);
-                let refs = crate::profile::search_refs(parsed, &member_refs,
-                    &func_node,
-                    path,
-                    def_line,
-                    span.start_byte,
-                    def_scope,
-                    synthetic,
-                );
-                for (ref_line, admitted) in &refs {
-                    if *ref_line == def_line
-                        || (synthetic
-                            && parsed.js_ts_seam_binding(&func_node, &path.base)
-                            && admitted.0 < span.start_byte)
-                    {
-                        continue; // Skip self-reference
-                    }
-                    let Some(use_loc) = get_use(path, *ref_line, true, *admitted) else {
-                        continue;
-                    };
-                    let def_loc = def_locs_by_occurrence
-                        .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
-                        .cloned()
-                        .unwrap_or_else(|| VarLocation {
-                            file: file_path.clone(),
-                            function: func_name.clone(),
-                            function_start_line: start,
-                            line: def_line,
-                            path: path.clone(),
-                            start_byte: span.start_byte,
-                            end_byte: span.end_byte,
-                            kind: VarAccessKind::Def,
-                        });
-                    edges.push(FlowEdge {
-                        from: def_loc,
-                        to: use_loc,
-                    });
-                }
-
-                // Phase 3: Also create edges for the alias-resolved path.
-                let twin = if synthetic {
-                    Self::resolve_on_alias_span(
-                        &alias_targets_by_byte,
-                        path,
-                        span.start_byte,
-                    )
-                } else {
-                    Self::resolve_path(&alias_map, path)
-                };
-                if let Some(resolved) = twin {
-                    if resolved != *path {
-                        let resolved_refs = crate::profile::search_refs(parsed, &member_refs,
-                            &func_node,
-                            &resolved,
-                            def_line,
-                            span.start_byte,
-                            crate::profile::gates::def_scope(parsed,
-                                &func_node,
-                                &resolved.base,
-                                span.start_byte,
-                            ),
-                            synthetic,
-                        );
-                        for (ref_line, admitted) in &resolved_refs {
-                            if *ref_line == def_line {
-                                continue;
-                            }
-                            let Some(use_loc) =
-                                get_use(&resolved, *ref_line, true, *admitted)
-                            else {
-                                continue;
-                            };
-                            let def_loc = resolved_def_locs_by_occurrence
-                                .get(&(
-                                    resolved.clone(),
-                                    def_line,
-                                    occurrence_byte(span.start_byte),
-                                ))
-                                .cloned()
-                                .unwrap_or_else(|| VarLocation {
-                                    file: file_path.clone(),
-                                    function: func_name.clone(),
-                                    function_start_line: start,
-                                    line: def_line,
-                                    path: resolved.clone(),
-                                    start_byte: span.start_byte,
-                                    end_byte: span.end_byte,
-                                    kind: VarAccessKind::Def,
-                                });
-                            edges.push(FlowEdge {
-                                from: def_loc,
-                                to: use_loc,
-                            });
-                        }
-                    }
-                }
-            }
-
-            drop(get_use);
-            // PR-C: projection edges Def(p) -> Use(p.<path>) for
-            // member-only formals. Never between two different field
-            // paths. One body walk per formal collects the admitted read
-            // occurrences and the binding-proved member writes; a write to
-            // a prefix of a path, to the path, or below it suppresses it
-            // (narrow choice, flow-insensitive). Every Use is built at the
-            // exact admitted span, for named and synthetic owners alike.
-            for (base_path, base_loc) in &member_only_params {
-                let facts = parsed.formal_member_facts(
-                    &func_node,
-                    &base_path.base,
-                    base_loc.start_byte,
-                );
-                for field_path in &facts.outermost {
-                    if facts.is_killed(field_path) {
-                        continue;
-                    }
-                    let Some(occurrences) = facts.reads.get(field_path) else {
-                        continue;
-                    };
-                    for (ref_line, (start_byte, end_byte)) in occurrences {
-                        let use_loc = VarLocation {
-                            file: file_path.clone(),
-                            function: func_name.clone(),
-                            function_start_line: start,
-                            line: *ref_line,
-                            path: field_path.clone(),
-                            start_byte: *start_byte,
-                            end_byte: *end_byte,
-                            kind: VarAccessKind::Use,
-                        };
-                        uses.entry((
-                            file_path.clone(),
-                            func_name.clone(),
-                            start,
-                            field_path.clone(),
-                        ))
-                        .or_default()
-                        .push(use_loc.clone());
-                        edges.push(FlowEdge {
-                            from: base_loc.clone(),
-                            to: use_loc,
-                        });
-                    }
-                }
-            }
-
             // F1: captured writes inside nested callables contribute to
             // RD kills, but never become emitted Defs or edge sources.
             for span in &nested_write_spans {
@@ -636,6 +421,256 @@ impl Producer {
                     false,
                 );
             }
+            let cfg_index = file_cfg_edge_index.get_or_init(|| {
+                crate::profile::file_cfg(&mut profile_owner, file_path, || {
+                    let cfg = file_cfg_edges.get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed));
+                    FileCfgEdgeIndex::new(cfg)
+                })
+            });
+            let unavailable = cap.and_then(|_| crate::cpg::unavailable_before_edges(
+                parsed, &func_node, &rd_defs, cfg_index,
+            ));
+            let original_preferred = unavailable.map(|_| preferred_use_locs.clone());
+            // Pass 0 counts with the real admission/use logic, but constructs no edges.
+            // Pass 1 emits only after the complete prospective count passed the cap.
+            for pass in 0..2 {
+                let counting = pass == 0;
+                if counting && unavailable.is_none() { continue; }
+                let register_uses = counting || unavailable.is_none();
+                if !counting {
+                    if let Some(original) = &original_preferred {
+                        preferred_use_locs = original.clone();
+                    }
+                }
+                let mut emission = super::fallback_cap::Emission::new(&mut edges, counting);
+                let mut get_use =
+                    |path: &AccessPath, ref_line: usize, allow: bool, admitted: (usize, usize)| {
+                        if synthetic {
+                            if refused_occurrence(path, admitted.0) {
+                                return None;
+                            }
+                            // The reference walk has already proved this occurrence's
+                            // binding and read role for the current Def.
+                            let use_loc = VarLocation {
+                                file: file_path.clone(),
+                                function: func_name.clone(),
+                                function_start_line: start,
+                                line: ref_line,
+                                path: path.clone(),
+                                start_byte: admitted.0,
+                                end_byte: admitted.1,
+                                kind: VarAccessKind::Use,
+                            };
+                            if register_uses {
+                                uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
+                                    .or_default()
+                                    .push(use_loc.clone());
+                            }
+                            return Some(use_loc);
+                        }
+                        if let Some(existing) = preferred_use_locs.get(&(path.clone(), ref_line)) {
+                            return Some(existing.clone());
+                        }
+                        if !allow {
+                            return None;
+                        }
+                        let anchor = parsed.line_start_byte(ref_line);
+                        let use_loc = VarLocation {
+                            file: file_path.clone(),
+                            function: func_name.clone(),
+                            function_start_line: start,
+                            line: ref_line,
+                            path: path.clone(),
+                            start_byte: anchor,
+                            end_byte: anchor,
+                            kind: VarAccessKind::Use,
+                        };
+                        debug_assert_eq!(use_loc.start_byte, use_loc.end_byte);
+                        if register_uses {
+                            uses.entry((file_path.clone(), func_name.clone(), start, path.clone()))
+                                .or_default()
+                                .push(use_loc.clone());
+                        }
+                        preferred_use_locs.insert((path.clone(), ref_line), use_loc.clone());
+                        Some(use_loc)
+                    };
+
+                // Create edges from param def to all uses in the function body.
+                for (path, loc, refs, param_decl_line) in &param_ref_jobs {
+                    for (ref_line, admitted) in refs {
+                        let in_signature_line = *ref_line >= start && *ref_line <= *param_decl_line;
+                        if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted) {
+                            emission.push(|| FlowEdge {
+                                from: loc.clone(),
+                                to: use_loc,
+                            });
+                        }
+                    }
+                }
+
+                // Find all uses of each defined variable/path.
+                // Cross-line references remain line-anchored unless a real
+                // rvalue span already exists for the same identity key.
+                for span in &lvalue_spans {
+                    let path = &span.path;
+                    let def_line = span.line;
+                    // R1: every JS/TS Def, including writes, stays in its
+                    // binding environment; body vars cannot reach defaults.
+                    let def_scope =
+                        crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte);
+                    let refs = crate::profile::search_refs(
+                        parsed,
+                        &member_refs,
+                        &func_node,
+                        path,
+                        def_line,
+                        span.start_byte,
+                        def_scope,
+                        synthetic,
+                    );
+                    for (ref_line, admitted) in &refs {
+                        if *ref_line == def_line
+                            || (synthetic
+                                && parsed.js_ts_seam_binding(&func_node, &path.base)
+                                && admitted.0 < span.start_byte)
+                        {
+                            continue; // Skip self-reference
+                        }
+                        let Some(use_loc) = get_use(path, *ref_line, true, *admitted) else {
+                            continue;
+                        };
+                        emission.push(|| {
+                            let def_loc = def_locs_by_occurrence
+                                .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
+                                .cloned()
+                                .unwrap_or_else(|| VarLocation {
+                                    file: file_path.clone(),
+                                    function: func_name.clone(),
+                                    function_start_line: start,
+                                    line: def_line,
+                                    path: path.clone(),
+                                    start_byte: span.start_byte,
+                                    end_byte: span.end_byte,
+                                    kind: VarAccessKind::Def,
+                                });
+                            FlowEdge {
+                                from: def_loc,
+                                to: use_loc,
+                            }
+                        });
+                    }
+
+                    // Phase 3: Also create edges for the alias-resolved path.
+                    let twin = if synthetic {
+                        Self::resolve_on_alias_span(&alias_targets_by_byte, path, span.start_byte)
+                    } else {
+                        Self::resolve_path(&alias_map, path)
+                    };
+                    if let Some(resolved) = twin {
+                        if resolved != *path {
+                            let resolved_refs = crate::profile::search_refs(
+                                parsed,
+                                &member_refs,
+                                &func_node,
+                                &resolved,
+                                def_line,
+                                span.start_byte,
+                                crate::profile::gates::def_scope(
+                                    parsed,
+                                    &func_node,
+                                    &resolved.base,
+                                    span.start_byte,
+                                ),
+                                synthetic,
+                            );
+                            for (ref_line, admitted) in &resolved_refs {
+                                if *ref_line == def_line {
+                                    continue;
+                                }
+                                let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted) else {
+                                    continue;
+                                };
+                                emission.push(|| {
+                                    let def_loc = resolved_def_locs_by_occurrence
+                                        .get(&(resolved.clone(), def_line, occurrence_byte(span.start_byte)))
+                                        .cloned()
+                                        .unwrap_or_else(|| VarLocation {
+                                            file: file_path.clone(),
+                                            function: func_name.clone(),
+                                            function_start_line: start,
+                                            line: def_line,
+                                            path: resolved.clone(),
+                                            start_byte: span.start_byte,
+                                            end_byte: span.end_byte,
+                                            kind: VarAccessKind::Def,
+                                        });
+                                    FlowEdge {
+                                        from: def_loc,
+                                        to: use_loc,
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+
+                drop(get_use);
+                // PR-C: projection edges Def(p) -> Use(p.<path>) for
+                // member-only formals. Never between two different field
+                // paths. One body walk per formal collects the admitted read
+                // occurrences and the binding-proved member writes; a write to
+                // a prefix of a path, to the path, or below it suppresses it
+                // (narrow choice, flow-insensitive). Every Use is built at the
+                // exact admitted span, for named and synthetic owners alike.
+                for (base_path, base_loc) in &member_only_params {
+                    let facts = parsed.formal_member_facts(&func_node, &base_path.base, base_loc.start_byte);
+                    for field_path in &facts.outermost {
+                        if facts.is_killed(field_path) {
+                            continue;
+                        }
+                        let Some(occurrences) = facts.reads.get(field_path) else {
+                            continue;
+                        };
+                        for (ref_line, (start_byte, end_byte)) in occurrences {
+                            let use_loc = VarLocation {
+                                file: file_path.clone(),
+                                function: func_name.clone(),
+                                function_start_line: start,
+                                line: *ref_line,
+                                path: field_path.clone(),
+                                start_byte: *start_byte,
+                                end_byte: *end_byte,
+                                kind: VarAccessKind::Use,
+                            };
+                            if register_uses {
+                                uses.entry((
+                                    file_path.clone(),
+                                    func_name.clone(),
+                                    start,
+                                    field_path.clone(),
+                                ))
+                                .or_default()
+                                .push(use_loc.clone());
+                            }
+                            emission.push(|| FlowEdge {
+                                from: base_loc.clone(),
+                                to: use_loc,
+                            });
+                        }
+                    }
+                }
+
+                if counting && emission.count() > cap.unwrap() {
+                    let reason = unavailable.unwrap();
+                    if reason.is_def_cap() || reason.is_line_cap() {
+                        rd_function_stats.record_over_cap(func_name.clone(), start);
+                    } else {
+                        rd_function_stats.record_without_cfg(func_name.clone(), start);
+                    }
+                    rd_function_stats.record_fallback_capped(func_name.clone(), start, func_node.start_byte(), emission.count());
+                    continue 'functions;
+                }
+            }
             let function_edges = &edges[function_edge_start..];
             let exact_candidates = Self::exact_read_candidates(
                 parsed,
@@ -647,12 +682,6 @@ impl Producer {
                 &rvalue_spans,
                 function_edges,
             );
-            let cfg_index = file_cfg_edge_index.get_or_init(|| {
-                crate::profile::file_cfg(&mut profile_owner, file_path, || {
-                    let cfg = file_cfg_edges.get_or_init(|| crate::cfg::build_cfg_edges_with_arms(parsed));
-                    FileCfgEdgeIndex::new(cfg)
-                })
-            });
             crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());
             match reaching_definitions_with_exact(
                 parsed,

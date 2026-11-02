@@ -13,6 +13,8 @@ use tree_sitter::Node;
 use super::{FlowConfidence, FlowDoubt};
 
 mod capture;
+mod preflight;
+pub(crate) use preflight::unavailable_before_edges;
 mod cfg_edge_index;
 mod compact_wire;
 mod def_buckets;
@@ -88,15 +90,21 @@ pub(crate) struct RdResult {
 }
 
 type RdFunctionKey = (String, usize);
+// Byte identity distinguishes different callables sharing a name and start line.
+type FallbackFunctionKey = (String, usize, usize);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RdFileStats {
     pub functions_over_cap: usize,
     pub functions_without_cfg: usize,
+    pub fallback_functions_capped: usize,
+    pub fallback_edges_capped: usize,
     // These identity sets are the persisted source of truth. The public counts
     // remain derived mirrors for the approved Task 2 interface.
     over_cap_function_keys: BTreeSet<RdFunctionKey>,
     without_cfg_function_keys: BTreeSet<RdFunctionKey>,
+    #[serde(with = "compact_wire::cap_counts")]
+    fallback_capped_function_counts: BTreeMap<FallbackFunctionKey, usize>,
 }
 
 impl RdFileStats {
@@ -104,6 +112,12 @@ impl RdFileStats {
     pub(crate) fn counts_match_keys(&self) -> bool {
         self.functions_over_cap == self.over_cap_function_keys.len()
             && self.functions_without_cfg == self.without_cfg_function_keys.len()
+            && self.fallback_functions_capped == self.fallback_capped_function_counts.len()
+            && Some(self.fallback_edges_capped)
+                == self
+                    .fallback_capped_function_counts
+                    .values()
+                    .try_fold(0usize, |sum, n| sum.checked_add(*n))
     }
 
     pub(crate) fn record_over_cap(&mut self, function: String, start_line: usize) {
@@ -117,7 +131,24 @@ impl RdFileStats {
         self.refresh_counts();
     }
 
+    pub(crate) fn record_fallback_capped(
+        &mut self,
+        function: String,
+        start_line: usize,
+        start_byte: usize,
+        count: usize,
+    ) {
+        self.fallback_capped_function_counts
+            .entry((function, start_line, start_byte))
+            .and_modify(|old| *old = (*old).max(count))
+            .or_insert(count);
+        self.refresh_counts();
+    }
+
     pub(crate) fn merge(&mut self, other: Self) {
+        for ((function, line, byte), count) in other.fallback_capped_function_counts {
+            self.record_fallback_capped(function, line, byte, count);
+        }
         self.over_cap_function_keys
             .extend(other.over_cap_function_keys);
         self.without_cfg_function_keys
@@ -126,6 +157,8 @@ impl RdFileStats {
     }
 
     fn refresh_counts(&mut self) {
+        self.fallback_functions_capped = self.fallback_capped_function_counts.len();
+        self.fallback_edges_capped = self.fallback_capped_function_counts.values().sum::<usize>();
         self.functions_over_cap = self.over_cap_function_keys.len();
         self.functions_without_cfg = self.without_cfg_function_keys.len();
     }

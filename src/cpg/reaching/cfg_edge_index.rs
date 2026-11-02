@@ -25,6 +25,17 @@ impl<'a> FileCfgEdgeIndex<'a> {
         self.edges.len()
     }
 
+    /// Same endpoint admission as `for_owner`, without clones or test telemetry.
+    pub(super) fn has_owner_edges(&self, lines: &BTreeMap<Line, usize>) -> bool {
+        lines.keys().any(|line| {
+            self.by_source.get(line).is_some_and(|bucket| {
+                bucket
+                    .iter()
+                    .any(|&i| lines.contains_key(&self.edges[i].0.to_line))
+            })
+        })
+    }
+
     pub(super) fn for_owner(&self, line_index: &BTreeMap<Line, usize>) -> Vec<SelectedEdge> {
         #[cfg(test)]
         super::work_tests::bump(|counts| counts.cfg_statement_lines = line_index.len());
