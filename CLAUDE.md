@@ -338,14 +338,17 @@ callable the producer's CommonJS exports prove: `m(..)` for `const|let|var m = r
 and `f(..)` for `const|let|var f = require('./x').f`. The proof is `JsExportFacts::cjs_callables`/`cjs_module_callable`
 (`src/ast/js_cjs_terminal.rs`), recorded only behind the export-object barrier and the terminal proof, in a file with no
 ESM export; the route is `src/resolution_js_cjs.rs`, the binder `src/ast/js_cjs_module_calls.rs`. The declaration must be
-a direct statement of the program, unwritten and unshadowed, with one plain relative string literal and an `require`
+a direct statement of the program, unwritten and unshadowed, with one plain relative string literal and a `require`
 proved unshadowed at its own occurrence (no declaration, no write, no enclosing `with` body); a member site `m.f(..)` is
 also refused when the consumer file writes `m.f`, any `m[..]`, or passes `m` first to `Object.assign`/`defineProperty`/
 `defineProperties`/`setPrototypeOf` or `Reflect.set`/`defineProperty`/`deleteProperty`/`setPrototypeOf` (file-wide, by
-spelling: a consumer-side stub); anything else, anonymous or module-level callers (#597), anonymous exports, class
+spelling: a consumer-side stub; this is a partial guard, and other mutation routes such as an alias `n = m; n.f = …`,
+`with (m)`, re-acquisition through `require`, reflective or computed mutator calls, or passing `m` to a function stay
+under the runtime-mutation rule above); anything else, anonymous or module-level callers (#597), anonymous exports, class
 exports, `exports.default` (not the module value), ESM producers and `new m()` keeps the earlier outcome with no new
 edge. A proven site replaces earlier NameOnly or indirect records at that site, as slice L does (an R6 single-owner
-`K.f` becomes the Exact export; the textual `exports.g = h` and `obj.g = z` records stand down for the one Source record).
+method of an unrelated class becomes the Exact export; textual indirect records for the same member stand down for the one
+Source record).
 
 `--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
 `--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact

@@ -10,6 +10,11 @@
 //! pattern targets, `for (m.f of ..)`); a computed or string-keyed member write, and a first
 //! argument `m` of an `Object.*`/`Reflect.*` mutator, may replace any key. Passing `m` to an
 //! arbitrary function stays out of model, as for every other module object.
+//!
+//! This is a partial, spelling-based guard, not a mutation model: an alias (`n = m; n.f = …`),
+//! `with (m)`, re-acquisition through `require('./x').f = …`, `(0, m).f = …`, and reflective or
+//! computed mutator calls (`Object['assign'](m, …)`, `Object.assign.call(null, m, …)`) are not
+//! seen and stay under CLAUDE.md's runtime-mutation rule.
 use super::js_binding::JsBindingCache;
 use super::member_projection::strip_transparent_wrappers;
 use super::ParsedFile;
