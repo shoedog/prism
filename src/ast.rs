@@ -4508,6 +4508,18 @@ impl ParsedFile {
     /// resolution. `None` means this language or syntax is not modeled strongly
     /// enough to prove that a plain identifier is free.
     pub fn function_local_value_bindings(&self, func_node: &Node<'_>) -> Option<BTreeSet<String>> {
+        self.function_local_value_bindings_at(func_node, None)
+    }
+
+    /// As `function_local_value_bindings`, but with `site` (a byte range) a
+    /// Python comprehension target counts only when its comprehension contains
+    /// the site: the target is local to the comprehension, not to the function.
+    /// `None` keeps the function-wide over-collection.
+    pub(crate) fn function_local_value_bindings_at(
+        &self,
+        func_node: &Node<'_>,
+        site: Option<(usize, usize)>,
+    ) -> Option<BTreeSet<String>> {
         fn contains_recovery(node: Node<'_>) -> bool {
             if node.is_error() || node.is_missing() {
                 return true;
@@ -4540,7 +4552,7 @@ impl ParsedFile {
             func_node.end_byte(),
             func_node.kind_id(),
         );
-        self.collect_python_go_local_value_bindings(*func_node, root_key, &mut out);
+        self.collect_python_go_local_value_bindings(*func_node, root_key, site, &mut out);
         Some(out)
     }
 
@@ -4548,6 +4560,7 @@ impl ParsedFile {
         &self,
         node: Node<'_>,
         root_key: (usize, usize, u16),
+        site: Option<(usize, usize)>,
         out: &mut BTreeSet<String>,
     ) {
         let is_root = (node.start_byte(), node.end_byte(), node.kind_id()) == root_key;
@@ -4581,7 +4594,13 @@ impl ParsedFile {
                 }
             }
             (Language::Python, "for_statement" | "for_in_clause") => {
-                if let Some(left) = node.child_by_field_name("left") {
+                // A comprehension target is local to its comprehension.
+                let visible = node.kind() != "for_in_clause"
+                    || site.is_none_or(|(start, end)| {
+                        node.parent()
+                            .is_none_or(|c| c.start_byte() <= start && end <= c.end_byte())
+                    });
+                if let Some(left) = node.child_by_field_name("left").filter(|_| visible) {
                     self.collect_local_binding_pattern(left, out);
                 }
             }
@@ -4682,7 +4701,7 @@ impl ParsedFile {
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_python_go_local_value_bindings(child, root_key, out);
+            self.collect_python_go_local_value_bindings(child, root_key, site, out);
         }
     }
 

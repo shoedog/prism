@@ -4,6 +4,12 @@
 //! (`None`) on a function with parse errors; both read as "bound", so a
 //! doubtful site is `Unknown` rather than a misattributed import.
 //! JS/TS uses `ParsedFile::js_ts_call_root_scope` instead.
+//!
+//! Python comprehension targets are site-aware: a `for f in xs` target binds
+//! `f` only inside its own comprehension, while the function-wide collector
+//! would let it hide an import called after the comprehension. A Go type-switch
+//! alias (`switch util := v.(type)`) is collected here because the shared
+//! collector does not model it.
 use crate::ast::ParsedFile;
 use crate::call_graph::CallSite;
 use std::collections::BTreeSet;
@@ -28,7 +34,7 @@ pub(super) fn py_scope_binds(parsed: &ParsedFile, call: &CallSite, name: &str) -
         match node.kind() {
             "function_definition" | "lambda"
                 if parsed
-                    .function_local_value_bindings(&node)
+                    .function_local_value_bindings_at(&node, Some((call.start_byte, call.end_byte)))
                     .is_none_or(|names| names.contains(name)) =>
             {
                 return true;
@@ -105,12 +111,26 @@ fn pattern_binds(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
 }
 
 /// True when a function, method or function literal enclosing the call binds
-/// `name` (a parameter, receiver, `:=`, `var`, or range variable).
+/// `name` (a parameter, receiver, `:=`, `var`, or range variable), or a type
+/// switch whose case clause holds the call names it as its alias.
 pub(super) fn go_scope_binds(parsed: &ParsedFile, call: &CallSite, name: &str) -> bool {
     let Some(mut node) = call_node(parsed, call) else {
         return true;
     };
+    let mut child = node;
     loop {
+        if node.kind() == "type_switch_statement"
+            && matches!(child.kind(), "type_case" | "default_case")
+            && node.child_by_field_name("alias").is_some_and(|alias| {
+                let mut cursor = alias.walk();
+                let found = alias
+                    .named_children(&mut cursor)
+                    .any(|n| n.kind() == "identifier" && parsed.node_text(&n) == name);
+                found
+            })
+        {
+            return true;
+        }
         if matches!(
             node.kind(),
             "function_declaration" | "method_declaration" | "func_literal"
@@ -120,6 +140,7 @@ pub(super) fn go_scope_binds(parsed: &ParsedFile, call: &CallSite, name: &str) -
         {
             return true;
         }
+        child = node;
         match node.parent() {
             Some(parent) => node = parent,
             None => return false,

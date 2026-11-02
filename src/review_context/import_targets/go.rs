@@ -7,8 +7,16 @@
 //! under the repo's own module path (`Unresolvable`: a generated or deleted
 //! package) or under a `replace` the module graph could not prove
 //! (`Unresolvable`, `ReplaceUnproven`: the replacement may be a repo
-//! directory) is not claimed to be a third-party package. A local variable or
-//! parameter named like the qualifier or the callee makes the site `Unknown`.
+//! directory) is not claimed to be a third-party package. A local variable,
+//! parameter or type-switch alias named like the qualifier or the callee makes
+//! the site `Unknown`.
+//!
+//! Declaring evidence applies only to a direct package selector (`util.Run`).
+//! A longer selector (`util.Obj.Run`) names the package files as `Candidates`
+//! with no declaring file. A direct selector no scan places (a `var` function
+//! value, a type conversion) is `Candidates` over the package files, and
+//! `Unknown` once any package file is already loaded (that file may hold it).
+//! Several declarers (build tags) are `Candidates`.
 use super::go_scan::declared_funcs;
 use super::shadow::go_scope_binds;
 use super::{
@@ -138,17 +146,49 @@ impl ImportTargets<'_> {
             return unresolvable(import_path, Why::TooMany);
         }
         let files = packages.files_by_dir[&dirs[0]].clone();
-        let declaring = files
+        let qualifier = call.qualifier.as_deref().unwrap_or_default();
+        if qualifier != root {
+            // `util.Obj.Run`: a method or field of a package-level value. The
+            // top-level function scan says nothing about it, so no declaring
+            // file is named and the first selector after the package is the
+            // export the call reaches.
+            let export = qualifier[root.len()..]
+                .trim_start_matches('.')
+                .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .next()
+                .filter(|name| !name.is_empty())
+                .map(str::to_string);
+            return Attribution::InRepo(InRepo {
+                files,
+                spec: import_path.clone(),
+                member: export,
+                declaring: Vec::new(),
+                basis: Basis::Candidates,
+            });
+        }
+        let declaring: Vec<String> = files
             .iter()
             .filter(|f| self.go_declared_funcs(f).contains(&call.callee_name))
             .cloned()
             .collect();
+        if declaring.is_empty() && files.iter().any(|f| self.loaded.contains(f)) {
+            // A `var Run = func...`, a type conversion `pkg.T(x)`, a generated
+            // declaration: no scanned declarer, and a loaded package file may
+            // be the one that holds it, so no boundary is claimed.
+            return Attribution::Unknown;
+        }
+        let basis = if declaring.len() > 1 || (declaring.is_empty() && files.len() > 1) {
+            // Build-tag variants, or a callee no scan placed in one file.
+            Basis::Candidates
+        } else {
+            Basis::Bound
+        };
         Attribution::InRepo(InRepo {
             files,
             spec: import_path.clone(),
             member: Some(call.callee_name.clone()),
             declaring,
-            basis: Basis::Bound,
+            basis,
         })
     }
 

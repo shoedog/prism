@@ -1,7 +1,8 @@
 //! Go attribution tests on tempdir repos.
+use super::import_targets::{Attribution, Basis};
 use super::import_targets_tests::{
     assert_external, assert_files, assert_loaded, assert_same_file, assert_unknown,
-    assert_unresolvable, attribute, attribute_loaded, attribute_nth, write_repo,
+    assert_unresolvable, attribute, attribute_loaded, attribute_nth, in_repo, write_repo,
 };
 
 const GO_MOD: &str = "module example.com/app\n\ngo 1.21\n";
@@ -293,4 +294,122 @@ fn a_loaded_declarer_is_not_a_boundary_but_an_unloaded_one_is() {
         attribute_loaded(&dir, "main.go", "Run", &["util/b.go"]),
         &["util/a.go"],
     );
+}
+
+// ---- post-cap fold: type switches, declaring evidence, comments ----
+
+#[test]
+fn type_switch_alias_shadows_the_imported_package() {
+    let dir = write_repo(&[
+        ("go.mod", GO_MOD),
+        (
+            "main.go",
+            "package main\n\nimport \"example.com/app/util\"\n\n\
+             func a(v any, x string) {\n\tswitch util := v.(type) {\n\tcase interface{ Run(string) }:\n\t\tutil.Run(x)\n\t}\n}\n\n\
+             func b(x string) {\n\tutil.Run(x)\n}\n",
+        ),
+        ("util/a.go", "package util\n\nfunc Run(x string) {}\n"),
+    ]);
+    assert_unknown(attribute_nth(&dir, "main.go", "Run", 0));
+    assert_files(attribute_nth(&dir, "main.go", "Run", 1), &["util/a.go"]);
+}
+
+fn util_repo(call: &str, util_files: &[(&str, &str)]) -> tempfile::TempDir {
+    let main = main_go("\"example.com/app/util\"", call);
+    let mut files = vec![("go.mod", GO_MOD), ("main.go", main.as_str())];
+    files.extend_from_slice(util_files);
+    write_repo(&files)
+}
+
+#[test]
+fn a_longer_selector_does_not_borrow_the_package_function_declarer() {
+    // `util.Obj.Run` is a method of `Obj`, not the package function `Run`.
+    let files = [
+        ("util/a.go", "package util\n\nfunc Run(x string) {}\n"),
+        (
+            "util/b.go",
+            "package util\n\ntype T struct{}\n\nfunc (T) Run(x string) {}\n\nvar Obj T\n",
+        ),
+    ];
+    let dir = util_repo("util.Obj.Run(x)", &files);
+    let found = attribute_loaded(&dir, "main.go", "Run", &["util/a.go"]);
+    let hit = in_repo(&found);
+    assert_eq!(hit.files, ["util/b.go"], "{found:?}");
+    assert!(hit.declaring.is_empty());
+    assert_eq!(hit.member.as_deref(), Some("Obj"));
+    // Control: the direct selector keeps the loaded-declarer optimisation.
+    let direct = util_repo("util.Run(x)", &files);
+    assert_loaded(attribute_loaded(&direct, "main.go", "Run", &["util/a.go"]));
+}
+
+#[test]
+fn a_function_value_or_conversion_has_no_declaring_file() {
+    for decl in ["var Run = func(x string) {}\n", "type Run string\n"] {
+        let a = format!("package util\n\n{decl}");
+        let files = [
+            ("util/a.go", a.as_str()),
+            ("util/b.go", "package util\n\nfunc Other() {}\n"),
+        ];
+        let dir = util_repo("util.Run(x)", &files);
+        // Nothing loaded: the callee is somewhere in the package.
+        let found = attribute(&dir, "main.go", "Run");
+        let hit = in_repo(&found);
+        assert_eq!(hit.files, ["util/a.go", "util/b.go"], "{decl}");
+        assert!(hit.declaring.is_empty());
+        assert_eq!(hit.basis, Basis::Candidates);
+        // A loaded package file may be the one that holds it: not a boundary.
+        assert_unknown(attribute_loaded(&dir, "main.go", "Run", &["util/a.go"]));
+    }
+    // A one-file package is a bound answer even without a declarer.
+    let single = util_repo(
+        "util.Run(x)",
+        &[("util/a.go", "package util\n\nvar Run = f\n")],
+    );
+    assert_eq!(
+        in_repo(&attribute(&single, "main.go", "Run")).basis,
+        Basis::Bound
+    );
+}
+
+#[test]
+fn build_tag_declarers_of_a_package_function_are_candidates() {
+    let files = [
+        (
+            "util/run_linux.go",
+            "package util\n\nfunc Run(x string) {}\n",
+        ),
+        (
+            "util/run_windows.go",
+            "package util\n\nfunc Run(x string) {}\n",
+        ),
+        ("util/b.go", "package util\n\nfunc Other() {}\n"),
+    ];
+    let dir = util_repo("util.Run(x)", &files);
+    let found = attribute(&dir, "main.go", "Run");
+    let hit = in_repo(&found);
+    assert_eq!(hit.basis, Basis::Candidates, "{found:?}");
+    assert_eq!(hit.declaring, ["util/run_linux.go", "util/run_windows.go"]);
+    // One variant loaded: the other is still a boundary.
+    let partial = attribute_loaded(&dir, "main.go", "Run", &["util/run_linux.go"]);
+    assert_eq!(in_repo(&partial).declaring, ["util/run_windows.go"]);
+    assert!(matches!(partial, Attribution::InRepo(_)));
+}
+
+#[test]
+fn comments_between_declaration_tokens_do_not_hide_functions() {
+    let dir = write_repo(&[
+        ("go.mod", GO_MOD),
+        (
+            "main.go",
+            "package main\n\nfunc h(x string) {\n\tbefore(x)\n\tafter(x)\n\tboth(x)\n\tfake(x)\n}\n",
+        ),
+        (
+            "other.go",
+            "package main\n\nfunc/* c */ before(x string) {}\n\nfunc after /* c */ (x string) {}\n\nfunc /* c */ both /* d */ [T any](x T) {}\n\n/* func fake(x string) {} */\n",
+        ),
+    ]);
+    for callee in ["before", "after", "both"] {
+        assert_files(attribute(&dir, "main.go", callee), &["other.go"]);
+    }
+    assert_unknown(attribute(&dir, "main.go", "fake"));
 }

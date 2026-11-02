@@ -18,11 +18,14 @@
 //!
 //! *Attributes.* `from pkg import m` and `import pkg; pkg.sub.k()` name either
 //! a package attribute (set by `pkg/__init__.py`, which is not read) or a
-//! submodule. When both exist they are returned as candidates, the initializer
-//! first (Python tries the attribute first); a lone submodule of a package
-//! without an initializer is bound.
+//! submodule, and the chain continues through every further submodule
+//! (`pkg.a.b.f` reaches `pkg/a/b.py`). When an initializer and a submodule both
+//! exist they are returned as candidates, the initializers first (Python tries
+//! the attribute first) and the deepest submodule last, with no `member`; a
+//! lone submodule of a package without an initializer is bound. A name that is
+//! only an attribute of the file reached leaves `member` empty.
 use super::shadow::{py_module_rebinds, py_scope_binds};
-use super::stdlib_names::is_stdlib_module;
+use super::stdlib_names::{is_builtin_or_frozen_module, is_stdlib_module};
 use super::{
     bound, is_same_file_function, root_identifier, unresolvable, Attribution, Basis, ImportTargets,
     InRepo, Why,
@@ -131,8 +134,15 @@ impl ImportTargets<'_> {
         }
     }
 
-    /// The module `module`, then (when `rest` is not empty) its next component:
-    /// a package attribute or a submodule.
+    /// The module `module`, then each component of `rest` while it names an
+    /// existing submodule (`pkg.a.b.f` reaches `pkg/a/b.py`). A component that
+    /// is not a submodule is an attribute of the file reached so far, so the
+    /// result is that file, with no `member`: the callee is a property of an
+    /// attribute, not an export (as for a JS `obj.f()` on an imported `obj`).
+    /// Every package initializer passed on the way is returned beside the final
+    /// file as a candidate, because the initializer may set the attribute
+    /// itself (Python tries the attribute before the submodule); a candidate
+    /// list has no `member` (the callee name belongs to the last file only).
     fn py_chain(
         &self,
         file: &str,
@@ -140,27 +150,41 @@ impl ImportTargets<'_> {
         rest: &[&str],
         member: Option<String>,
     ) -> Attribution {
-        let owner = self.py_lookup(file, module);
-        let Some(next) = rest.first() else {
-            return self.py_attribution_of(owner, module, member);
-        };
-        let submodule = if module.chars().all(|c| c == '.') {
-            format!("{module}{next}")
-        } else {
-            format!("{module}.{next}")
-        };
-        match (&owner, self.py_lookup(file, &submodule)) {
-            (Lookup::File(init), Lookup::File(sub)) if *init != *sub => {
+        let mut current = module.to_string();
+        let mut owner = self.py_lookup(file, module);
+        let mut initializers: Vec<String> = Vec::new();
+        let mut walked = 0;
+        for next in rest {
+            let submodule = if current.chars().all(|c| c == '.') {
+                format!("{current}{next}")
+            } else {
+                format!("{current}.{next}")
+            };
+            match (&owner, self.py_lookup(file, &submodule)) {
+                (Lookup::File(init), Lookup::File(sub)) if *init != sub => {
+                    initializers.push(init.clone());
+                    owner = Lookup::File(sub);
+                }
+                (Lookup::Missing, Lookup::File(sub)) => owner = Lookup::File(sub),
+                _ => break,
+            }
+            current = submodule;
+            walked += 1;
+        }
+        let member = if walked == rest.len() { member } else { None };
+        let reached = self.py_attribution_of(owner, &current, member);
+        match reached {
+            Attribution::InRepo(mut hit) if !initializers.is_empty() => {
+                initializers.append(&mut hit.files);
                 Attribution::InRepo(InRepo {
-                    files: vec![init.clone(), sub],
+                    files: initializers,
                     spec: module.to_string(),
-                    member,
+                    member: None,
                     declaring: Vec::new(),
                     basis: Basis::Candidates,
                 })
             }
-            (Lookup::Missing, Lookup::File(sub)) => bound(vec![sub], &submodule, member),
-            _ => self.py_attribution_of(owner, module, member),
+            other => other,
         }
     }
 
@@ -201,7 +225,12 @@ impl ImportTargets<'_> {
         let top = module.split('.').next().unwrap_or(module);
         let relative = module.replace('.', "/");
         let root = self.py_import_root(caller_dir);
-        if is_stdlib_module(top) && !self.py_dir_holds(&root, top) {
+        // Built-in and frozen modules precede every path entry. Another
+        // standard-library name yields only to a module or package at the
+        // import root; a namespace-only directory (no `__init__.py`) does not.
+        if is_builtin_or_frozen_module(top)
+            || (is_stdlib_module(top) && self.py_winner(&root, top).is_none())
+        {
             return Lookup::External;
         }
         let mut dir = root;
@@ -245,8 +274,8 @@ impl ImportTargets<'_> {
             || self
                 .listing
                 .range(prefix.clone()..)
-                .next()
-                .is_some_and(|p| p.starts_with(&prefix))
+                .take_while(|p| p.starts_with(&prefix))
+                .any(|p| p.ends_with(".py"))
     }
 
     /// `base/rel/__init__.py` (or `base/__init__.py` for an empty `rel`), else

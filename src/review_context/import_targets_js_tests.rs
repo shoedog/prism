@@ -2,7 +2,7 @@
 //! tsconfig alias lookup (attribution mode, not the strict resolver).
 use super::import_targets_tests::{
     assert_external, assert_files, assert_loaded, assert_same_file, assert_unknown,
-    assert_unresolvable, attribute, attribute_loaded, attribute_nth, write_repo,
+    assert_unresolvable, attribute, attribute_loaded, attribute_nth, in_repo, write_repo,
 };
 
 const NODE10: &str = r#"{"compilerOptions":{"moduleResolution":"node10","baseUrl":".","paths":{"@lib/*":["src/lib/*"]}},"include":["**/*"]}"#;
@@ -313,4 +313,213 @@ fn catch_all_paths_key_does_not_turn_packages_into_aliases() {
         ),
     ]);
     assert_external(attribute(&dir, "src/app.ts", "g"));
+}
+
+// ---- post-cap fold: scope-correct imports, extends merging, unusable bases ----
+
+#[test]
+fn nested_require_does_not_rebind_the_program_import() {
+    let dir = write_repo(&[
+        (
+            "app.js",
+            "import { f } from './good';\n\
+             function other() { const f = require('./bad'); return f; }\n\
+             export function h(x) { f(x); }\n",
+        ),
+        ("good.js", "export function f(x) {}\n"),
+        ("bad.js", "module.exports = function f(x) {};\n"),
+    ]);
+    let found = attribute(&dir, "app.js", "f");
+    assert_files(found.clone(), &["good.js"]);
+    assert_eq!(in_repo(&found).spec, "./good");
+    // Control: the site inside `other` does see its own `require`.
+    let inner = write_repo(&[
+        (
+            "app.js",
+            "import { f } from './good';\n\
+             function other() { const f = require('./bad'); return f(1); }\n",
+        ),
+        ("good.js", ""),
+        ("bad.js", ""),
+    ]);
+    assert_unknown(attribute(&inner, "app.js", "f"));
+}
+
+#[test]
+fn nested_require_with_a_different_name_does_not_leak_either() {
+    let dir = write_repo(&[
+        (
+            "app.js",
+            "const lib = require('./cjs');\n\
+             function other() { const lib = require('./decoy'); return lib; }\n\
+             export function h(x) { lib.k(x); }\n",
+        ),
+        ("cjs.js", ""),
+        ("decoy.js", ""),
+    ]);
+    assert_files(attribute(&dir, "app.js", "k"), &["cjs.js"]);
+}
+
+#[test]
+fn an_exported_require_is_a_program_import() {
+    let dir = write_repo(&[
+        (
+            "app.js",
+            "export const lib = require('./cjs');\nexport function h(x) { lib.k(x); }\n",
+        ),
+        ("cjs.js", ""),
+    ]);
+    assert_files(attribute(&dir, "app.js", "k"), &["cjs.js"]);
+}
+
+const PATHS_PARENT: &str = r#"{"compilerOptions":{"baseUrl":"src","paths":{"@lib/*":["lib/*"]}}}"#;
+
+#[test]
+fn extends_array_merges_parents_field_by_field() {
+    for order in [
+        r#"["./tsconfig.paths.json","./tsconfig.strict.json"]"#,
+        r#"["./tsconfig.strict.json","./tsconfig.paths.json"]"#,
+    ] {
+        let dir = write_repo(&[
+            ("tsconfig.json", &format!(r#"{{"extends":{order}}}"#)),
+            ("tsconfig.paths.json", PATHS_PARENT),
+            (
+                "tsconfig.strict.json",
+                r#"{"compilerOptions":{"strict":true}}"#,
+            ),
+            (
+                "app.ts",
+                "import { f } from '@lib/cmd';\nexport function h(x: string) { f(x); }\n",
+            ),
+            ("src/lib/cmd.ts", ""),
+        ]);
+        assert_files(attribute(&dir, "app.ts", "f"), &["src/lib/cmd.ts"]);
+    }
+    // A later parent overrides only the fields it sets: its `paths` win, the
+    // earlier parent's `baseUrl` stays.
+    let dir = write_repo(&[
+        (
+            "tsconfig.json",
+            r#"{"extends":["./tsconfig.paths.json","./tsconfig.over.json"]}"#,
+        ),
+        ("tsconfig.paths.json", PATHS_PARENT),
+        (
+            "tsconfig.over.json",
+            r#"{"compilerOptions":{"paths":{"@lib/*":["util/*"]}}}"#,
+        ),
+        (
+            "app.ts",
+            "import { f } from '@lib/cmd';\nexport function h(x: string) { f(x); }\n",
+        ),
+        ("src/util/cmd.ts", ""),
+        ("util/cmd.ts", ""),
+        ("src/lib/cmd.ts", ""),
+    ]);
+    assert_files(attribute(&dir, "app.ts", "f"), &["src/util/cmd.ts"]);
+}
+
+#[test]
+fn unavailable_config_is_unknown_never_external() {
+    let app = "import { f } from '@lib/cmd';\nimport { g } from 'express';\nexport function h(x: string) { f(x); g(x); }\n";
+    let cases: [(&str, &[(&str, &str)]); 5] = [
+        // A parent the snapshot did not capture (its name is not a tsconfig name).
+        (
+            r#"{"extends":"./configs/base.json"}"#,
+            &[("configs/base.json", PATHS_PARENT)],
+        ),
+        // A parent outside the repository.
+        (r#"{"extends":"../shared/tsconfig.json"}"#, &[]),
+        // An unparseable owning config.
+        (r#"{"compilerOptions": {"#, &[]),
+        // A cycle.
+        (
+            r#"{"extends":"./tsconfig.a.json"}"#,
+            &[
+                ("tsconfig.a.json", r#"{"extends":"./tsconfig.b.json"}"#),
+                ("tsconfig.b.json", r#"{"extends":"./tsconfig.a.json"}"#),
+            ],
+        ),
+        // A listed parent that is itself unparseable.
+        (
+            r#"{"extends":"./tsconfig.a.json"}"#,
+            &[("tsconfig.a.json", "not json")],
+        ),
+    ];
+    for (config, extra) in cases {
+        let mut files = vec![("tsconfig.json", config), ("app.ts", app)];
+        files.extend_from_slice(extra);
+        files.push(("src/lib/cmd.ts", ""));
+        let dir = write_repo(&files);
+        assert_unknown(attribute(&dir, "app.ts", "f"));
+        assert_unknown(attribute(&dir, "app.ts", "g"));
+    }
+}
+
+#[test]
+fn extends_of_a_package_and_a_self_contained_config_stay_usable() {
+    // A package parent (`@tsconfig/...`) is not in the repository and sets no
+    // `paths`: ignored, not "unavailable".
+    let dir = write_repo(&[
+        (
+            "tsconfig.json",
+            r#"{"extends":"@tsconfig/node18/tsconfig.json","compilerOptions":{"baseUrl":"src","paths":{"@lib/*":["lib/*"]}}}"#,
+        ),
+        (
+            "app.ts",
+            "import { f } from '@lib/cmd';\nimport { g } from 'express';\nexport function h(x: string) { f(x); g(x); }\n",
+        ),
+        ("src/lib/cmd.ts", ""),
+    ]);
+    assert_files(attribute(&dir, "app.ts", "f"), &["src/lib/cmd.ts"]);
+    assert_external(attribute(&dir, "app.ts", "g"));
+}
+
+#[test]
+fn explicit_base_url_outside_the_repo_does_not_fall_back_to_the_config_directory() {
+    let app = "import { f } from '@lib/cmd';\nimport { g } from 'express';\nimport { k } from 'lib/cmd';\n\
+               export function h(x: string) { f(x); g(x); k(x); }\n";
+    let decoy = write_repo(&[
+        (
+            "tsconfig.json",
+            r#"{"compilerOptions":{"baseUrl":"../shared","paths":{"@lib/*":["lib/*"]}}}"#,
+        ),
+        ("app.ts", app),
+        ("lib/cmd.ts", "export function f() {}\n"),
+    ]);
+    // `paths` targets hang off the unusable base: no repo file, no guess.
+    assert_unknown(attribute(&decoy, "app.ts", "f"));
+    // A specifier no key matches is probed under the base, outside the repo:
+    // the decoy `lib/cmd.ts` is not it, and `express` stays a package.
+    assert_external(attribute(&decoy, "app.ts", "g"));
+    assert_external(attribute(&decoy, "app.ts", "k"));
+    // Control: a base that normalises inside the repo is used.
+    let inside = write_repo(&[
+        (
+            "tsconfig.json",
+            r#"{"compilerOptions":{"baseUrl":"./src/../root","paths":{"@lib/*":["lib/*"]}}}"#,
+        ),
+        ("app.ts", app),
+        ("root/lib/cmd.ts", "export function f() {}\n"),
+        ("lib/cmd.ts", "export function f() {}\n"),
+    ]);
+    let found = attribute(&inside, "app.ts", "f");
+    assert_eq!(in_repo(&found).files, ["root/lib/cmd.ts"]);
+    assert_files(attribute(&inside, "app.ts", "k"), &["root/lib/cmd.ts"]);
+}
+
+#[test]
+fn paths_longest_prefix_tie_takes_the_first_key() {
+    // `@/*` and `@/*cmd` both match with a two-byte literal prefix.
+    let config =
+        r#"{"compilerOptions":{"baseUrl":".","paths":{"@/*":["src/*"],"@/*cmd":["alt/*cmd"]}}}"#;
+    let dir = write_repo(&[
+        ("tsconfig.json", config),
+        (
+            "app.ts",
+            "import { f } from '@/lib/cmd';\nexport function h(x: string) { f(x); }\n",
+        ),
+        ("src/lib/cmd.ts", ""),
+        ("alt/lib/cmd.ts", ""),
+    ]);
+    assert_files(attribute(&dir, "app.ts", "f"), &["src/lib/cmd.ts"]);
 }

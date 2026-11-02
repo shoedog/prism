@@ -1,7 +1,8 @@
 //! Python attribution tests on tempdir repos.
+use super::import_targets::Basis;
 use super::import_targets_tests::{
     assert_external, assert_files, assert_same_file, assert_unknown, assert_unresolvable,
-    attribute, attribute_nth, write_repo,
+    attribute, attribute_loaded, attribute_nth, in_repo, write_repo,
 };
 
 const CALL: &str = "\n\ndef h(x):\n    ";
@@ -311,4 +312,158 @@ fn parameter_shadows_a_same_file_function() {
     )]);
     assert_unknown(attribute_nth(&dir, "app.py", "helper", 0));
     assert_same_file(attribute_nth(&dir, "app.py", "helper", 1));
+}
+
+// ---- post-cap fold: member chains, built-ins, comprehension scope ----
+
+#[test]
+fn member_chains_walk_every_existing_submodule() {
+    let dir = write_repo(&[
+        ("pkg/__init__.py", ""),
+        ("pkg/sub/__init__.py", "from . import inner\n"),
+        ("pkg/sub/inner.py", "def f(x):\n    pass\n"),
+        ("pkg/a/__init__.py", ""),
+        ("pkg/a/b.py", "def g(x):\n    pass\n"),
+        ("one.py", &py("from pkg import sub", "sub.inner.f(x)")),
+        ("two.py", &py("import pkg", "pkg.a.b.g(x)")),
+        // Control: the fully dotted import binds the module itself.
+        ("three.py", &py("import pkg.a.b", "pkg.a.b.g(x)")),
+    ]);
+    let found = attribute(&dir, "one.py", "f");
+    assert!(
+        in_repo(&found)
+            .files
+            .ends_with(&["pkg/sub/inner.py".to_string()]),
+        "{found:?}"
+    );
+    let found = attribute(&dir, "two.py", "g");
+    assert!(
+        in_repo(&found).files.ends_with(&["pkg/a/b.py".to_string()]),
+        "{found:?}"
+    );
+    assert_files(attribute(&dir, "three.py", "g"), &["pkg/a/b.py"]);
+    // The package initializers loaded: the submodule that holds the callee is
+    // still outside (not `Loaded` of the wrong files).
+    let found = attribute_loaded(
+        &dir,
+        "one.py",
+        "f",
+        &["pkg/__init__.py", "pkg/sub/__init__.py"],
+    );
+    assert_files(found, &["pkg/sub/inner.py"]);
+    let found = attribute_loaded(
+        &dir,
+        "two.py",
+        "g",
+        &["pkg/__init__.py", "pkg/a/__init__.py"],
+    );
+    assert_files(found, &["pkg/a/b.py"]);
+}
+
+#[test]
+fn a_package_attribute_chain_names_the_owner_without_a_wrong_member() {
+    let dir = write_repo(&[
+        ("m.py", "obj = Thing()\n"),
+        ("pkg/__init__.py", "sub = make()\n"),
+        ("a.py", &py("from m import obj", "obj.f(x)")),
+        ("b.py", &py("import pkg", "pkg.sub.k(x)")),
+        ("c.py", &py("from m import f", "f(x)")),
+    ]);
+    // `f` is a property of `obj`, not an export of `m`.
+    let found = attribute(&dir, "a.py", "f");
+    assert_eq!(in_repo(&found).files, ["m.py"]);
+    assert_eq!(in_repo(&found).member, None);
+    let found = attribute(&dir, "b.py", "k");
+    assert_eq!(in_repo(&found).files, ["pkg/__init__.py"]);
+    assert_eq!(in_repo(&found).member, None);
+    // Control: a directly imported function keeps its member.
+    let found = attribute(&dir, "c.py", "f");
+    assert_eq!(in_repo(&found).member.as_deref(), Some("f"));
+}
+
+#[test]
+fn a_candidate_pair_names_no_member() {
+    let dir = write_repo(&[
+        ("pkg/__init__.py", "import os as m\n"),
+        ("pkg/m.py", "def f(x):\n    pass\n"),
+        ("app.py", &py("from pkg import m", "m.f(x)")),
+    ]);
+    let found = attribute(&dir, "app.py", "f");
+    assert_eq!(in_repo(&found).basis, Basis::Candidates);
+    // The callee name belongs to the submodule candidate only.
+    assert_eq!(in_repo(&found).member, None);
+}
+
+#[test]
+fn builtin_modules_are_external_even_beside_a_same_named_file() {
+    let dir = write_repo(&[
+        ("sys.py", "def exit(x):\n    pass\n"),
+        ("builtins.py", "def print(x):\n    pass\n"),
+        (
+            "app.py",
+            &py(
+                "import sys\nimport builtins",
+                "sys.exit(x)\n    builtins.print(x)",
+            ),
+        ),
+        // Control: a non-built-in stdlib name is shadowed by the import root.
+        ("json.py", "def dumps(x):\n    pass\n"),
+        ("c.py", &py("import json", "json.dumps(x)")),
+    ]);
+    assert_external(attribute(&dir, "app.py", "exit"));
+    assert_external(attribute(&dir, "app.py", "print"));
+    assert_files(attribute(&dir, "c.py", "dumps"), &["json.py"]);
+}
+
+#[test]
+fn a_namespace_only_directory_does_not_shadow_the_stdlib() {
+    let dir = write_repo(&[
+        ("json/helpers.py", "def dumps(x):\n    pass\n"),
+        ("types/index.ts", ""),
+        (
+            "app.py",
+            &py("import json\nimport types", "json.dumps(x)\n    types.f(x)"),
+        ),
+        // Control: a regular package at the import root does shadow it.
+        ("other/json/__init__.py", "def dumps(x):\n    pass\n"),
+        ("other/app.py", &py("import json", "json.dumps(x)")),
+    ]);
+    assert_external(attribute(&dir, "app.py", "dumps"));
+    assert_external(attribute(&dir, "app.py", "f"));
+    assert_files(
+        attribute(&dir, "other/app.py", "dumps"),
+        &["other/json/__init__.py"],
+    );
+}
+
+#[test]
+fn comprehension_targets_bind_only_inside_the_comprehension() {
+    let dir = write_repo(&[
+        ("m.py", "def f(x):\n    pass\n"),
+        (
+            "app.py",
+            "from m import f\n\n\
+             def h(xs, x):\n    inside = [f(y) for f in xs]\n    values = [f for f in xs]\n    f(x)\n\n\
+             def g(x):\n    f = pick()\n    f(x)\n",
+        ),
+    ]);
+    // Inside the comprehension `f` is its loop variable.
+    assert_unknown(attribute_nth(&dir, "app.py", "f", 0));
+    // After it, `f` is the import again.
+    assert_files(attribute_nth(&dir, "app.py", "f", 1), &["m.py"]);
+    // Control: a plain assignment still shadows for the whole function.
+    assert_unknown(attribute_nth(&dir, "app.py", "f", 2));
+}
+
+#[test]
+fn a_directory_without_python_files_is_not_an_in_repo_name() {
+    let dir = write_repo(&[
+        ("assets/index.ts", ""),
+        ("app.py", &py("import assets", "assets.load(x)")),
+        // Control: a directory with a Python file below it is an in-repo name.
+        ("data/helpers.py", ""),
+        ("b.py", &py("import data", "data.load(x)")),
+    ]);
+    assert_external(attribute(&dir, "app.py", "load"));
+    assert_unresolvable(attribute(&dir, "b.py", "load"), "data");
 }

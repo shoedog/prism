@@ -3,26 +3,63 @@
 //! file outside the caller's own is parsed (Go reads sibling files as text).
 //! Language rules live in the `js`, `python` and `go` children.
 //!
+//! # Contract: a best-effort loading hint, not a proof
+//!
+//! An attribution says where a callee *probably* lives so the review can load
+//! those files (Layer A notes, Layer B loading). It is never evidence. A wrong
+//! attribution costs an extra loaded file (time), a file not loaded (a catch
+//! that is not reported today either), or the wording of a note; it can never
+//! produce a wrong finding, because every finding comes from prism's own
+//! resolution over the files that end up loaded. Consumers must not treat a
+//! result as a binding proof, and must word it as a hint (PR-2):
+//! - `InRepo` with `Basis::Bound`: "likely in X";
+//! - `InRepo` with `Basis::Candidates`: "one of X, Y"; `files[0]` is the
+//!   preferred candidate (the file the language itself tries first), and
+//!   `member` is `None` whenever the list mixes files the callee name does not
+//!   apply to;
+//! - after `finish` drops entries that are already loaded, a `Candidates` list
+//!   may hold a single file: the others were loaded. Word it like `Bound`;
+//! - `Unresolvable`: "looks in-repo, file unknown"; `Unknown`: say nothing;
+//!   `External`: "outside the repository".
+//!
+//! Option 2 (attribution backed by the navigation index, for MR-stage and
+//! preloaded reviews that have no import-only view) is tracked separately as
+//! #623 and is not implemented here.
+//!
 //! Three things are kept apart, never inferred from one another:
 //! - a *candidate* attribution (`InRepo` with `Basis::Candidates`): several
 //!   files could own the name and the import statement does not decide;
-//! - a *proven binding* (`InRepo` with `Basis::Bound`): the import binds the
-//!   callee name to exactly those files (it does not assert runtime truth);
+//! - a *bound* attribution (`InRepo` with `Basis::Bound`): the import binds the
+//!   callee name to exactly those files, by static reading (it does not assert
+//!   runtime truth);
 //! - *unavailable proof* (`Unresolvable`): the specifier looks in-repo but no
-//!   resolver result exists. A strict resolver's refusal is never `External`.
+//!   resolver result exists. A strict resolver's refusal is never `External`;
+//!   a config that cannot be read in full (tsconfig `extends` chain) is
+//!   `Unknown`, never `External`.
 //!
 //! A call whose root name is declared in a nearer scope than the import (a
-//! parameter, a local, a nested function) is `Unknown`: the import spelling is
-//! not what the site calls.
+//! parameter, a local, a nested function, a Go type-switch alias, a Python
+//! comprehension target at the site) is `Unknown`: the import spelling is not
+//! what the site calls. JS/TS reads the spelling from the program-scope import
+//! index only, so a nested `require` of the same name cannot rebind it.
+//!
+//! PR-2 should keep one `JsBindingCache` per file across the sites it
+//! attributes; each `targets_for_call` builds one per site today.
 //!
 //! Known limits, kept as documented false negatives rather than guessed:
 //! method calls on instances of imported classes, callbacks passed as values,
-//! dynamic `require(expr)`, a JS/TS `require` declared inside a function (a
-//! nearer scope), Python wildcard imports and class-body calls, Go packages
-//! whose name differs from the last import-path element, and Rust/C/C++ (later
-//! PR). A barrel (`index.js` re-export) is attributed to the barrel file
-//! itself; `follow_barrel` takes the one extra hop when the caller already
-//! holds the barrel's parse.
+//! dynamic `require(expr)`, a JS/TS `require` declared inside a function or
+//! block (a nearer scope; a top-level `var` inside a block is not indexed),
+//! Python wildcard imports and class-body calls, Go packages whose name
+//! differs from the last import-path element, a `_test.go` caller reaching a
+//! helper in a sibling `_test.go` (test files are not scanned: `Unknown`), and
+//! Rust/C/C++ (later PR). tsconfig `paths` fallbacks are always `Candidates`
+//! with the first fallback's file preferred, even when the first one exists;
+//! a `paths` tie between equal-length prefixes is broken by key order (the
+//! JSON reader sorts keys), not file order; a package `extends` is ignored. A
+//! barrel (`index.js` re-export) is attributed to the barrel file itself;
+//! `follow_barrel` takes the one extra hop when the caller already holds the
+//! barrel's parse.
 use crate::ast::ParsedFile;
 use crate::call_graph::{CallSite, ImportBinding};
 use crate::js_exports::JsExportTarget;
@@ -46,12 +83,14 @@ pub(super) const MAX_AMBIGUOUS: usize = 4;
 /// How firmly the import statement pins the files of an `InRepo` result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Basis {
-    /// The binding names these files (an exact module, or a whole Go package).
+    /// The binding names these files (an exact module, or a whole Go package):
+    /// "likely in X".
     Bound,
     /// Several files could own the name and the statement does not decide
-    /// (a Python package attribute against a same-named submodule, tsconfig
-    /// `paths` fallbacks, Go build-tag variants). `files` is in the order the
-    /// language itself tries them.
+    /// (a Python package attribute against a same-named submodule or a deeper
+    /// chain, tsconfig `paths` fallbacks, Go build-tag variants, a Go callee no
+    /// scan placed in one file): "one of X, Y". `files` is in the order the
+    /// language itself tries them, so `files[0]` is the preferred candidate.
     Candidates,
 }
 
@@ -250,7 +289,16 @@ impl<'a> ImportTargets<'a> {
             return found.clone();
         }
         let built = Rc::new(FileImports {
-            map: parsed.extract_imports(),
+            map: if matches!(
+                parsed.language,
+                Language::JavaScript | Language::TypeScript | Language::Tsx
+            ) {
+                // Program scope only: a nested `require` must not overwrite the
+                // spelling of the import the site walk found.
+                parsed.js_ts_program_imports()
+            } else {
+                parsed.extract_imports()
+            },
             bindings: if matches!(
                 parsed.language,
                 Language::Python | Language::JavaScript | Language::TypeScript | Language::Tsx

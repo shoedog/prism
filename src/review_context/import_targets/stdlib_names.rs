@@ -36,6 +36,23 @@ const STDLIB_TOP_LEVEL: &str = "
     zipapp zipfile zipimport zlib zoneinfo
 ";
 
+/// Modules CPython 3.12 compiles into the interpreter (`sys.builtin_module_names`,
+/// the union over platforms) or freezes (`_frozen_importlib`,
+/// `_frozen_importlib_external`, `zipimport`). The finders consult them before
+/// any path entry, so no repo file shadows them.
+const BUILTIN_OR_FROZEN: &str = "
+    _abc _ast _codecs _collections _frozen_importlib _frozen_importlib_external _functools
+    _imp _io _locale _operator _overlapped _signal _sre _stat _string _symtable _thread
+    _tokenize _tracemalloc _typing _warnings _weakref _winapi atexit builtins errno
+    faulthandler gc itertools marshal msvcrt nt posix pwd sys time winreg xxsubtype zipimport
+";
+
+/// Whether `top` is a built-in or frozen module: always the interpreter's own,
+/// whatever sits on `sys.path`.
+pub(super) fn is_builtin_or_frozen_module(top: &str) -> bool {
+    BUILTIN_OR_FROZEN.split_whitespace().any(|name| name == top)
+}
+
 /// Whether `top` (the first dotted component of an absolute import) names a
 /// standard-library module.
 pub(super) fn is_stdlib_module(top: &str) -> bool {
@@ -44,7 +61,26 @@ pub(super) fn is_stdlib_module(top: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_stdlib_module;
+    use super::{is_builtin_or_frozen_module, is_stdlib_module};
+
+    #[test]
+    fn builtin_names_are_a_subset_of_the_stdlib_names() {
+        for name in [
+            "sys",
+            "builtins",
+            "_io",
+            "marshal",
+            "posix",
+            "_frozen_importlib",
+            "zipimport",
+        ] {
+            assert!(is_builtin_or_frozen_module(name), "{name}");
+            assert!(is_stdlib_module(name), "{name}");
+        }
+        for name in ["json", "os", "re", "sy", "pkg", ""] {
+            assert!(!is_builtin_or_frozen_module(name), "{name}");
+        }
+    }
 
     #[test]
     fn matches_whole_top_level_names_only() {

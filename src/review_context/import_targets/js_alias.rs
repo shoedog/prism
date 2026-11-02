@@ -5,6 +5,13 @@
 //! wants candidates, not a proof, so this lookup accepts every shape TypeScript
 //! accepts and reads only the captured config bytes (no probe is recorded in
 //! the topology). `js_paths::Resolver` itself is unchanged.
+//!
+//! A config chain this lookup cannot read in full is `Alias::Unavailable`, not
+//! "no alias": a relative `extends` parent the snapshot did not capture (it
+//! keeps only tsconfig/jsconfig-named files), one outside the repo, an
+//! unparseable file or an `extends` cycle. Parents merge field by field (a
+//! later parent overrides only the fields it sets). A package `extends`
+//! (`@tsconfig/...`) is outside the repo and ignored.
 use crate::call_graph::js_ts_relative_module_candidates;
 use crate::js_paths_snapshot::JsPathsSnapshot;
 use crate::js_paths_syntax::{dir, jsonc, norm};
@@ -21,20 +28,45 @@ pub(super) enum Alias {
     Declared,
     /// Candidate files, in `paths` target order, then the `baseUrl` file.
     Files(Vec<String>),
+    /// The owning config (or an `extends` parent) cannot be read in full, or an
+    /// explicit `baseUrl` that `paths` targets hang off lies outside the repo.
+    Unavailable,
+}
+
+/// The `baseUrl` an effective config has.
+#[derive(Clone, Default, PartialEq, Eq)]
+enum BaseUrl {
+    /// No config in the chain sets one.
+    #[default]
+    Absent,
+    /// A repo directory.
+    Usable(String),
+    /// Set, but it does not normalise to a repo directory (outside the root,
+    /// absolute): no repo file lives there and nothing may stand in for it.
+    Unusable,
 }
 
 #[derive(Clone, Default)]
 struct AliasConfig {
-    /// Repo directory `baseUrl` names, relative to its own config.
-    base: Option<String>,
-    /// Directory of the config that defined `paths`, and the entries in file order.
+    base: BaseUrl,
+    /// Directory of the config that defined `paths`, and the entries in the
+    /// order the JSON parser yields them (sorted by key: it keeps no file order).
     paths: Option<(String, Vec<(String, Vec<String>)>)>,
+}
+
+/// An owning-config lookup result.
+#[derive(Clone)]
+enum Owner {
+    /// No tsconfig/jsconfig at or above the file.
+    None,
+    Config(Rc<AliasConfig>),
+    Unavailable,
 }
 
 #[derive(Default)]
 pub(super) struct AliasConfigs {
     loaded: BTreeMap<String, Option<Rc<AliasConfig>>>,
-    owner: BTreeMap<String, Option<Rc<AliasConfig>>>,
+    owner: BTreeMap<String, Owner>,
 }
 
 impl AliasConfigs {
@@ -48,14 +80,21 @@ impl AliasConfigs {
         if spec.is_empty() || spec.starts_with(['.', '/']) || spec.contains(['\\', ':']) {
             return Alias::NotAlias;
         }
-        let Some(config) = self.owner_of(snapshot, file) else {
-            return Alias::NotAlias;
+        let config = match self.owner_of(snapshot, file) {
+            Owner::None => return Alias::NotAlias,
+            Owner::Unavailable => return Alias::Unavailable,
+            Owner::Config(config) => config,
         };
         let mut found: Vec<String> = Vec::new();
         let mut declared = false;
         if let Some((origin, entries)) = &config.paths {
             if let Some((key, targets, capture)) = matching_key(entries, spec) {
-                let base = config.base.as_deref().unwrap_or(origin);
+                let base = match &config.base {
+                    BaseUrl::Absent => origin.as_str(),
+                    BaseUrl::Usable(base) => base.as_str(),
+                    // The targets hang off a directory outside the repo.
+                    BaseUrl::Unusable => return Alias::Unavailable,
+                };
                 let probed: Vec<Option<String>> = targets
                     .iter()
                     .map(|target| norm(base, &target.replacen('*', capture, 1)))
@@ -68,7 +107,7 @@ impl AliasConfigs {
                 }
             }
         }
-        if let Some(base) = &config.base {
+        if let BaseUrl::Usable(base) = &config.base {
             if let Some(path) = norm(base, spec).filter(|p| !in_skipped_dir(p)) {
                 found.extend(winner(&path, listing));
             }
@@ -88,9 +127,9 @@ impl AliasConfigs {
     /// directory, with relative `extends` followed. No `include` check: this is
     /// candidate attribution, so a nearer config that lists the file elsewhere
     /// still owns it.
-    fn owner_of(&mut self, snapshot: &JsPathsSnapshot, file: &str) -> Option<Rc<AliasConfig>> {
+    fn owner_of(&mut self, snapshot: &JsPathsSnapshot, file: &str) -> Owner {
         if snapshot.configs.is_empty() {
-            return None;
+            return Owner::None;
         }
         let start = dir(file).to_string();
         if let Some(found) = self.owner.get(&start) {
@@ -108,10 +147,13 @@ impl AliasConfigs {
                 Some(path)
             });
             if let Some(path) = found {
-                break self.load(snapshot, &path, 0);
+                break match self.load(snapshot, &path, &mut Vec::new()) {
+                    Some(config) => Owner::Config(config),
+                    None => Owner::Unavailable,
+                };
             }
             if directory.is_empty() {
-                break None;
+                break Owner::None;
             }
             directory = dir(directory);
         };
@@ -119,18 +161,34 @@ impl AliasConfigs {
         result
     }
 
+    /// The effective config at `path`, or `None` when it or any relative
+    /// `extends` ancestor cannot be read (not captured, unparseable, outside
+    /// the repo, or a cycle: `visiting` is the chain being loaded).
     fn load(
         &mut self,
         snapshot: &JsPathsSnapshot,
         path: &str,
-        depth: usize,
+        visiting: &mut Vec<String>,
     ) -> Option<Rc<AliasConfig>> {
         if let Some(found) = self.loaded.get(path) {
             return found.clone();
         }
-        if depth > 16 {
+        if visiting.iter().any(|p| p == path) {
             return None;
         }
+        visiting.push(path.to_string());
+        let result = self.load_uncached(snapshot, path, visiting);
+        visiting.pop();
+        self.loaded.insert(path.to_string(), result.clone());
+        result
+    }
+
+    fn load_uncached(
+        &mut self,
+        snapshot: &JsPathsSnapshot,
+        path: &str,
+        visiting: &mut Vec<String>,
+    ) -> Option<Rc<AliasConfig>> {
         let value = jsonc(snapshot.configs.get(path)?.as_ref()?)?;
         let object = value.as_object()?;
         let mut config = AliasConfig::default();
@@ -142,19 +200,22 @@ impl AliasConfigs {
             _ => Vec::new(),
         };
         for parent in extends.into_iter().filter(|e| e.starts_with('.')) {
-            let Some(mut parent_path) = norm(dir(path), parent) else {
-                continue;
-            };
+            let mut parent_path = norm(dir(path), parent)?;
             if !parent_path.ends_with(".json") {
                 parent_path.push_str(".json");
             }
-            if let Some(inherited) = self.load(snapshot, &parent_path, depth + 1) {
-                config = (*inherited).clone();
+            let inherited = self.load(snapshot, &parent_path, visiting)?;
+            // A later parent overrides only the fields it sets.
+            if inherited.base != BaseUrl::Absent {
+                config.base = inherited.base.clone();
+            }
+            if inherited.paths.is_some() {
+                config.paths = inherited.paths.clone();
             }
         }
         if let Some(options) = object.get("compilerOptions").and_then(|v| v.as_object()) {
             if let Some(base) = options.get("baseUrl").and_then(|v| v.as_str()) {
-                config.base = norm(dir(path), base);
+                config.base = norm(dir(path), base).map_or(BaseUrl::Unusable, BaseUrl::Usable);
             }
             if let Some(paths) = options.get("paths").and_then(|v| v.as_object()) {
                 let entries = paths
@@ -171,14 +232,15 @@ impl AliasConfigs {
                 config.paths = Some((dir(path).to_string(), entries));
             }
         }
-        let loaded = Some(Rc::new(config));
-        self.loaded.insert(path.to_string(), loaded.clone());
-        loaded
+        Some(Rc::new(config))
     }
 }
 
 /// TypeScript's key choice: an exact key, else the pattern with the longest
-/// literal prefix. Returns the key, its targets and the text its `*` captured.
+/// literal prefix; of equal prefixes the first key wins, as in TypeScript. The
+/// entries are in parser order (sorted by key: the JSON reader keeps no file
+/// order), so a tie is broken by key order, not file order. Returns the key,
+/// its targets and the text its `*` captured.
 fn matching_key<'a>(
     entries: &'a [(String, Vec<String>)],
     spec: &'a str,
@@ -186,24 +248,20 @@ fn matching_key<'a>(
     if let Some((key, targets)) = entries.iter().find(|(k, _)| k == spec) {
         return Some((key, targets, ""));
     }
-    entries
-        .iter()
-        .filter_map(|(key, targets)| {
-            let (pre, post) = key.split_once('*')?;
-            let fits = spec.len() >= pre.len() + post.len()
-                && spec.starts_with(pre)
-                && spec.ends_with(post);
-            fits.then(|| {
-                (
-                    pre.len(),
-                    key.as_str(),
-                    targets.as_slice(),
-                    &spec[pre.len()..spec.len() - post.len()],
-                )
-            })
-        })
-        .max_by_key(|(prefix, ..)| *prefix)
-        .map(|(_, key, targets, capture)| (key, targets, capture))
+    let mut best: Option<(usize, &str, &[String], &str)> = None;
+    for (key, targets) in entries {
+        let Some((pre, post)) = key.split_once('*') else {
+            continue;
+        };
+        let fits =
+            spec.len() >= pre.len() + post.len() && spec.starts_with(pre) && spec.ends_with(post);
+        // Strictly longer: an equal prefix keeps the earlier key.
+        if fits && best.is_none_or(|(prefix, ..)| pre.len() > prefix) {
+            let capture = &spec[pre.len()..spec.len() - post.len()];
+            best = Some((pre.len(), key.as_str(), targets.as_slice(), capture));
+        }
+    }
+    best.map(|(_, key, targets, capture)| (key, targets, capture))
 }
 
 /// The file TS probing picks for repo path `path` (extensions, then index

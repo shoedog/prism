@@ -2,7 +2,8 @@
 //! its member chain) must still be the program-scope import at the site; a
 //! relative specifier takes the precedence winner of the shared candidate
 //! list; a bare specifier goes to the tsconfig alias lookup (`js_alias`) or is
-//! a package.
+//! a package. The specifier comes from the program-scope import index
+//! (`js_ts_program_imports`), never from a nested `require` of the same name.
 use super::js_alias::Alias;
 use super::{
     bound, is_same_file_function, root_identifier, unresolvable, Attribution, Basis, ImportTargets,
@@ -80,6 +81,7 @@ impl ImportTargets<'_> {
         {
             Alias::NotAlias => Attribution::External,
             Alias::Declared => unresolvable(spec, Why::NoFile),
+            Alias::Unavailable => Attribution::Unknown,
             Alias::Files(files) if files.len() > MAX_AMBIGUOUS => unresolvable(spec, Why::TooMany),
             Alias::Files(files) => {
                 let basis = if files.len() == 1 {

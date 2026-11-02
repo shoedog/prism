@@ -159,7 +159,8 @@ fn python_provenance_and_candidate_basis() {
     let found = attribute(&dir, "app.py", "f");
     let both = in_repo(&found);
     assert_eq!(both.basis, Basis::Candidates);
-    assert_eq!(both.member.as_deref(), Some("f"));
+    // The callee name belongs to the submodule candidate only.
+    assert_eq!(both.member, None);
     let found = attribute(&dir, "app.py", "gg");
     let one = in_repo(&found);
     assert_eq!(
@@ -211,9 +212,16 @@ fn an_unreadable_directory_is_a_reported_reason_not_a_silent_none() {
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
     let (inputs, listing) =
         crate::repo_loader::scope_graph_build_inputs_with_listing(dir.path(), &BTreeMap::new());
-    let readable = std::fs::read_dir(&locked).is_ok(); // running as root ignores the mode
+    let readable = std::fs::read_dir(&locked).is_ok();
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
+    // The mode binds every user but root; only root may skip the assertions.
+    // SAFETY: `geteuid` has no preconditions and does not touch memory.
+    let is_root = unsafe { libc::geteuid() } == 0;
     if readable {
+        assert!(
+            is_root,
+            "chmod 000 left the directory readable for a non-root user"
+        );
         return;
     }
     let reason = listing.clone().expect_err("walk must fail");

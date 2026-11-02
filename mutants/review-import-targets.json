@@ -84,14 +84,14 @@
     ],
     "IT14-py-stdlib-list-ignored": [
       "src/review_context/import_targets/python.rs",
-      "if is_stdlib_module(top) && !self.py_dir_holds(&root, top) {",
-      "if false && !self.py_dir_holds(&root, top) {",
+      "|| (is_stdlib_module(top) && self.py_winner(&root, top).is_none())",
+      "|| (false && self.py_winner(&root, top).is_none())",
       "review_context::import_targets_py_tests::stdlib_name_is_external_unless_the_import_root_holds_it"
     ],
     "IT15-py-stdlib-beats-the-import-root": [
       "src/review_context/import_targets/python.rs",
-      "if is_stdlib_module(top) && !self.py_dir_holds(&root, top) {",
-      "if is_stdlib_module(top) {",
+      "|| (is_stdlib_module(top) && self.py_winner(&root, top).is_none())",
+      "|| is_stdlib_module(top)",
       "review_context::import_targets_py_tests::stdlib_name_is_external_unless_the_import_root_holds_it"
     ],
     "IT16-py-module-before-package": [
@@ -132,14 +132,14 @@
     ],
     "IT22-py-initializer-wins-silently": [
       "src/review_context/import_targets/python.rs",
-      "(Lookup::File(init), Lookup::File(sub)) if *init != *sub => {",
-      "(Lookup::File(init), Lookup::File(sub)) if false && *init != *sub => {",
+      "(Lookup::File(init), Lookup::File(sub)) if *init != sub => {",
+      "(Lookup::File(init), Lookup::File(sub)) if false && *init != sub => {",
       "review_context::import_targets_py_tests::package_attribute_against_submodule_is_a_candidate_pair"
     ],
     "IT23-py-namespace-submodule-dropped": [
       "src/review_context/import_targets/python.rs",
-      "(Lookup::Missing, Lookup::File(sub)) => bound(vec![sub], &submodule, member),",
-      "(Lookup::Missing, Lookup::File(_)) => self.py_attribution_of(Lookup::Missing, module, member),",
+      "(Lookup::Missing, Lookup::File(sub)) => owner = Lookup::File(sub),",
+      "(Lookup::Missing, Lookup::File(_)) => break,",
       "review_context::import_targets_py_tests::namespace_package_submodule_and_initializer_only_are_bound"
     ],
     "IT24-py-function-scope-ignored": [
@@ -198,8 +198,8 @@
     ],
     "IT34-js-shortest-prefix-key": [
       "src/review_context/import_targets/js_alias.rs",
-      ".max_by_key(|(prefix, ..)| *prefix)",
-      ".min_by_key(|(prefix, ..)| *prefix)",
+      "if fits && best.is_none_or(|(prefix, ..)| pre.len() > prefix) {",
+      "if fits && best.is_none_or(|(prefix, ..)| pre.len() < prefix) {",
       "review_context::import_targets_js_tests::suffix_pattern_and_longest_prefix_and_exact_keys"
     ],
     "IT35-js-extends-ignored": [
@@ -210,14 +210,14 @@
     ],
     "IT36-go-block-comment-scanned": [
       "src/review_context/import_targets/go_scan.rs",
-      "b'/' if bytes.get(i + 1) == Some(&b'*') => {",
-      "b'/' if false && bytes.get(i + 1) == Some(&b'*') => {",
+      "b'/' if bytes.get(i + 1) == Some(&b'*') => {\n                i += 2;\n                while i < bytes.len() && !(bytes[i] == b'*' && bytes.get(i + 1) == Some(&b'/')) {\n                    i += 1;\n                }",
+      "b'/' if false && bytes.get(i + 1) == Some(&b'*') => {\n                i += 2;\n                while i < bytes.len() && !(bytes[i] == b'*' && bytes.get(i + 1) == Some(&b'/')) {\n                    i += 1;\n                }",
       "review_context::import_targets_go_tests::comments_and_strings_do_not_declare_functions"
     ],
     "IT37-go-line-comment-scanned": [
       "src/review_context/import_targets/go_scan.rs",
-      "b'/' if bytes.get(i + 1) == Some(&b'/') => {",
-      "b'/' if false && bytes.get(i + 1) == Some(&b'/') => {",
+      "match bytes[i] {\n            b'/' if bytes.get(i + 1) == Some(&b'/') => {",
+      "match bytes[i] {\n            b'/' if false && bytes.get(i + 1) == Some(&b'/') => {",
       "review_context::import_targets_go_tests::comments_and_strings_do_not_declare_functions"
     ],
     "IT38-go-string-scanned": [
@@ -234,14 +234,14 @@
     ],
     "IT40-go-no-space-after-name": [
       "src/review_context/import_targets/go_scan.rs",
-      "let name_end = i;\n                    i = skip_space(bytes, i);",
-      "let name_end = i;",
+      "let (next, crossed_newline) = skip_trivia(bytes, i);",
+      "let (next, crossed_newline) = (i, false);",
       "review_context::import_targets_go_tests::legal_whitespace_and_generics_still_declare"
     ],
     "IT41-go-no-space-after-func": [
       "src/review_context/import_targets/go_scan.rs",
-      "i += 4;\n                i = skip_space(bytes, i);",
-      "i += 4;",
+      "(i, _) = skip_trivia(bytes, i);",
+      "(i, _) = (i, false);",
       "review_context::import_targets_go_tests::legal_whitespace_and_generics_still_declare"
     ],
     "IT42-go-replace-unproven-reads-external": [
@@ -312,8 +312,8 @@
     ],
     "IT53-stdlib-name-prefix-match": [
       "src/review_context/import_targets/stdlib_names.rs",
-      ".any(|name| name == top)",
-      ".any(|name| name.starts_with(top))",
+      "STDLIB_TOP_LEVEL.split_whitespace().any(|name| name == top)",
+      "STDLIB_TOP_LEVEL.split_whitespace().any(|name| name.starts_with(top))",
       "review_context::import_targets::stdlib_names::tests::matches_whole_top_level_names_only"
     ],
     "IT54-go-func-keyword-prefix": [
@@ -321,6 +321,186 @@
       "&& (i == 0 || !is_ident_byte(bytes[i - 1]))",
       "&& true",
       "review_context::import_targets::go_scan::tests::requires_a_whole_func_keyword"
+    ],
+    "IT55-py-builtin-shadowable": [
+      "src/review_context/import_targets/python.rs",
+      "if is_builtin_or_frozen_module(top)\n            ||",
+      "if false\n            ||",
+      "review_context::import_targets_py_tests::builtin_modules_are_external_even_beside_a_same_named_file"
+    ],
+    "IT56-py-namespace-dir-shadows-stdlib": [
+      "src/review_context/import_targets/python.rs",
+      "|| (is_stdlib_module(top) && self.py_winner(&root, top).is_none())",
+      "|| (is_stdlib_module(top) && !self.py_dir_holds(&root, top))",
+      "review_context::import_targets_py_tests::a_namespace_only_directory_does_not_shadow_the_stdlib"
+    ],
+    "IT57-py-dir-holds-counts-any-file": [
+      "src/review_context/import_targets/python.rs",
+      ".any(|p| p.ends_with(\".py\"))",
+      ".any(|_| true)",
+      "review_context::import_targets_py_tests::a_directory_without_python_files_is_not_an_in_repo_name"
+    ],
+    "IT58-py-builtin-prefix-match": [
+      "src/review_context/import_targets/stdlib_names.rs",
+      "BUILTIN_OR_FROZEN.split_whitespace().any(|name| name == top)",
+      "BUILTIN_OR_FROZEN.split_whitespace().any(|name| name.starts_with(top))",
+      "review_context::import_targets::stdlib_names::tests::builtin_names_are_a_subset_of_the_stdlib_names"
+    ],
+    "IT59-py-chain-one-component": [
+      "src/review_context/import_targets/python.rs",
+      "for next in rest {",
+      "for next in rest.iter().take(1) {",
+      "review_context::import_targets_py_tests::member_chains_walk_every_existing_submodule"
+    ],
+    "IT60-py-attribute-chain-keeps-member": [
+      "src/review_context/import_targets/python.rs",
+      "let member = if walked == rest.len() { member } else { None };",
+      "let member = member;",
+      "review_context::import_targets_py_tests::a_package_attribute_chain_names_the_owner_without_a_wrong_member"
+    ],
+    "IT61-py-candidates-carry-member": [
+      "src/review_context/import_targets/python.rs",
+      "spec: module.to_string(),\n                    member: None,",
+      "spec: module.to_string(),\n                    member: Some(\"x\".to_string()),",
+      "review_context::import_targets_py_tests::a_candidate_pair_names_no_member"
+    ],
+    "IT62-py-comprehension-target-function-wide": [
+      "src/review_context/import_targets/shadow.rs",
+      ".function_local_value_bindings_at(&node, Some((call.start_byte, call.end_byte)))",
+      ".function_local_value_bindings_at(&node, None)",
+      "review_context::import_targets_py_tests::comprehension_targets_bind_only_inside_the_comprehension"
+    ],
+    "IT63-py-comprehension-never-binds-at-site": [
+      "src/ast.rs",
+      "|| site.is_none_or(|(start, end)| {\n                        node.parent()\n                            .is_none_or(|c| c.start_byte() <= start && end <= c.end_byte())",
+      "|| site.is_none_or(|(start, end)| {\n                        node.parent()\n                            .is_none_or(|c| false && c.start_byte() <= start && end <= c.end_byte())",
+      "review_context::import_targets_py_tests::comprehension_targets_bind_only_inside_the_comprehension"
+    ],
+    "IT64-go-type-switch-alias-ignored": [
+      "src/review_context/import_targets/shadow.rs",
+      "if node.kind() == \"type_switch_statement\"",
+      "if false && node.kind() == \"type_switch_statement\"",
+      "review_context::import_targets_go_tests::type_switch_alias_shadows_the_imported_package"
+    ],
+    "IT65-js-nested-require-overwrites": [
+      "src/review_context/import_targets.rs",
+      "parsed.js_ts_program_imports()",
+      "parsed.extract_imports()",
+      "review_context::import_targets_js_tests::nested_require_does_not_rebind_the_program_import"
+    ],
+    "IT66-js-export-wrapper-ignored": [
+      "src/ast/js_binding_root.rs",
+      "statement.child_by_field_name(\"declaration\")",
+      "None",
+      "review_context::import_targets_js_tests::an_exported_require_is_a_program_import"
+    ],
+    "IT67-go-longer-selector-keeps-declaring": [
+      "src/review_context/import_targets/go.rs",
+      "if qualifier != root {",
+      "if false {",
+      "review_context::import_targets_go_tests::a_longer_selector_does_not_borrow_the_package_function_declarer"
+    ],
+    "IT68-go-undeclared-with-loaded-file-kept": [
+      "src/review_context/import_targets/go.rs",
+      "if declaring.is_empty() && files.iter().any(|f| self.loaded.contains(f)) {",
+      "if false {",
+      "review_context::import_targets_go_tests::a_function_value_or_conversion_has_no_declaring_file"
+    ],
+    "IT69-go-build-tag-declarers-bound": [
+      "src/review_context/import_targets/go.rs",
+      "let basis = if declaring.len() > 1 || (declaring.is_empty() && files.len() > 1) {",
+      "let basis = if declaring.is_empty() && files.len() > 1 {",
+      "review_context::import_targets_go_tests::build_tag_declarers_of_a_package_function_are_candidates"
+    ],
+    "IT70-go-undeclared-multi-file-bound": [
+      "src/review_context/import_targets/go.rs",
+      "|| (declaring.is_empty() && files.len() > 1) {",
+      "|| false {",
+      "review_context::import_targets_go_tests::a_function_value_or_conversion_has_no_declaring_file"
+    ],
+    "IT71-go-undeclared-single-file-candidates": [
+      "src/review_context/import_targets/go.rs",
+      "|| (declaring.is_empty() && files.len() > 1) {",
+      "|| declaring.is_empty() {",
+      "review_context::import_targets_go_tests::a_function_value_or_conversion_has_no_declaring_file"
+    ],
+    "IT72-go-newline-after-name-declares": [
+      "src/review_context/import_targets/go_scan.rs",
+      "if !crossed_newline && matches!",
+      "if matches!",
+      "review_context::import_targets::go_scan::tests::a_newline_after_the_name_ends_the_declaration"
+    ],
+    "IT73-go-block-comment-trivia-ends-input": [
+      "src/review_context/import_targets/go_scan.rs",
+      "i = (i + 2).min(bytes.len());",
+      "i = bytes.len();",
+      "review_context::import_targets::go_scan::tests::comments_between_declaration_tokens_are_trivia"
+    ],
+    "IT74-go-line-comment-not-trivia": [
+      "src/review_context/import_targets/go_scan.rs",
+      "b' ' | b'\\t' | b'\\r' => i += 1,\n            b'/' if bytes.get(i + 1) == Some(&b'/') => {",
+      "b' ' | b'\\t' | b'\\r' => i += 1,\n            b'/' if false && bytes.get(i + 1) == Some(&b'/') => {",
+      "review_context::import_targets::go_scan::tests::comments_between_declaration_tokens_are_trivia"
+    ],
+    "IT75-go-block-comment-newline-ignored": [
+      "src/review_context/import_targets/go_scan.rs",
+      "newline |= bytes[i] == b'\\n';",
+      "newline |= false;",
+      "review_context::import_targets::go_scan::tests::a_newline_after_the_name_ends_the_declaration"
+    ],
+    "IT76-go-func-keyword-needs-boundary": [
+      "src/review_context/import_targets/go_scan.rs",
+      "&& !bytes.get(i + 4).is_some_and(|b| is_ident_byte(*b))",
+      "&& true",
+      "review_context::import_targets::go_scan::tests::requires_a_whole_func_keyword"
+    ],
+    "IT77-js-unavailable-config-reads-external": [
+      "src/review_context/import_targets/js.rs",
+      "Alias::Unavailable => Attribution::Unknown,",
+      "Alias::Unavailable => Attribution::External,",
+      "review_context::import_targets_js_tests::unavailable_config_is_unknown_never_external"
+    ],
+    "IT78-js-extends-later-parent-clobbers-paths": [
+      "src/review_context/import_targets/js_alias.rs",
+      "if inherited.paths.is_some() {",
+      "if true {",
+      "review_context::import_targets_js_tests::extends_array_merges_parents_field_by_field"
+    ],
+    "IT79-js-extends-later-parent-clobbers-base": [
+      "src/review_context/import_targets/js_alias.rs",
+      "if inherited.base != BaseUrl::Absent {",
+      "if true {",
+      "review_context::import_targets_js_tests::extends_array_merges_parents_field_by_field"
+    ],
+    "IT80-js-extends-cycle-accepted": [
+      "src/review_context/import_targets/js_alias.rs",
+      "if visiting.iter().any(|p| p == path) {\n            return None;",
+      "if visiting.iter().any(|p| p == path) {\n            return Some(Rc::new(AliasConfig::default()));",
+      "review_context::import_targets_js_tests::unavailable_config_is_unknown_never_external"
+    ],
+    "IT81-js-uncaptured-parent-ignored": [
+      "src/review_context/import_targets/js_alias.rs",
+      "let inherited = self.load(snapshot, &parent_path, visiting)?;",
+      "let Some(inherited) = self.load(snapshot, &parent_path, visiting) else {\n                continue;\n            };",
+      "review_context::import_targets_js_tests::unavailable_config_is_unknown_never_external"
+    ],
+    "IT82-js-unusable-base-reads-absent": [
+      "src/review_context/import_targets/js_alias.rs",
+      ".map_or(BaseUrl::Unusable, BaseUrl::Usable)",
+      ".map_or(BaseUrl::Absent, BaseUrl::Usable)",
+      "review_context::import_targets_js_tests::explicit_base_url_outside_the_repo_does_not_fall_back_to_the_config_directory"
+    ],
+    "IT83-js-unusable-base-probes-origin": [
+      "src/review_context/import_targets/js_alias.rs",
+      "BaseUrl::Unusable => return Alias::Unavailable,",
+      "BaseUrl::Unusable => origin.as_str(),",
+      "review_context::import_targets_js_tests::explicit_base_url_outside_the_repo_does_not_fall_back_to_the_config_directory"
+    ],
+    "IT84-js-paths-tie-takes-last-key": [
+      "src/review_context/import_targets/js_alias.rs",
+      "best.is_none_or(|(prefix, ..)| pre.len() > prefix)",
+      "best.is_none_or(|(prefix, ..)| pre.len() >= prefix)",
+      "review_context::import_targets_js_tests::paths_longest_prefix_tie_takes_the_first_key"
     ]
   }
 }

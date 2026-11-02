@@ -6,6 +6,7 @@
 use super::js_binding::{JsBinding, JsBindingCache};
 use super::js_binding_walk::Walk;
 use super::ParsedFile;
+use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 /// Which scope declares a call's root identifier.
@@ -58,6 +59,33 @@ impl ParsedFile {
             },
             Walk::Unbound | Walk::Unchecked(_) => JsRootScope::Unproven,
         }
+    }
+
+    /// The file's program-scope import spellings: local name -> specifier, from
+    /// top-level `import` statements and top-level `require` declarations
+    /// (also under `export`). Unlike `extract_imports`, a `require` inside a
+    /// function or block is not read, so a nested declaration cannot overwrite
+    /// the spelling the program-scope binding has.
+    pub(crate) fn js_ts_program_imports(&self) -> BTreeMap<String, String> {
+        let mut out = BTreeMap::new();
+        let root = self.tree.root_node();
+        let mut cursor = root.walk();
+        for statement in root.children(&mut cursor) {
+            let declaration = if statement.kind() == "export_statement" {
+                statement.child_by_field_name("declaration")
+            } else {
+                Some(statement)
+            };
+            if let Some(node) = declaration.filter(|n| {
+                matches!(
+                    n.kind(),
+                    "import_statement" | "lexical_declaration" | "variable_declaration"
+                )
+            }) {
+                self.collect_js_imports(node, &mut out);
+            }
+        }
+        out
     }
 
     fn js_ts_call_root_identifier<'a>(&self, call: Node<'a>) -> Option<Node<'a>> {
