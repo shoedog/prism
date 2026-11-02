@@ -99,6 +99,12 @@ pub struct RdFileStats {
     pub functions_without_cfg: usize,
     pub fallback_functions_capped: usize,
     pub fallback_edges_capped: usize,
+    // Skipped producer candidates, before edge compaction/deduplication.
+    pub dfg_pruned_write_only: usize,
+    pub dfg_pruned_scope: usize,
+    pub dfg_pruned_dominated: usize,
+    pub dfg_pruned_order: usize,
+
     // These identity sets are the persisted source of truth. The public counts
     // remain derived mirrors for the approved Task 2 interface.
     over_cap_function_keys: BTreeSet<RdFunctionKey>,
@@ -149,6 +155,11 @@ impl RdFileStats {
         for ((function, line, byte), count) in other.fallback_capped_function_counts {
             self.record_fallback_capped(function, line, byte, count);
         }
+        self.dfg_pruned_write_only += other.dfg_pruned_write_only;
+        self.dfg_pruned_scope += other.dfg_pruned_scope;
+        self.dfg_pruned_dominated += other.dfg_pruned_dominated;
+        self.dfg_pruned_order += other.dfg_pruned_order;
+
         self.over_cap_function_keys
             .extend(other.over_cap_function_keys);
         self.without_cfg_function_keys

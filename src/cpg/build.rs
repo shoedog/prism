@@ -120,6 +120,10 @@ pub struct DfgLabelStats {
     pub dfg_rd_functions_without_cfg: usize,
     pub dfg_fallback_functions_capped: usize,
     pub dfg_fallback_edges_capped: usize,
+    pub dfg_pruned_write_only: usize,
+    pub dfg_pruned_scope: usize,
+    pub dfg_pruned_dominated: usize,
+    pub dfg_pruned_order: usize,
 }
 
 impl DfgLabelStats {
@@ -164,6 +168,26 @@ impl DfgLabelStats {
             .rd_function_stats()
             .values()
             .map(|stats| stats.functions_without_cfg)
+            .sum();
+        self.dfg_pruned_write_only = dfg
+            .rd_function_stats()
+            .values()
+            .map(|stats| stats.dfg_pruned_write_only)
+            .sum();
+        self.dfg_pruned_scope = dfg
+            .rd_function_stats()
+            .values()
+            .map(|stats| stats.dfg_pruned_scope)
+            .sum();
+        self.dfg_pruned_dominated = dfg
+            .rd_function_stats()
+            .values()
+            .map(|stats| stats.dfg_pruned_dominated)
+            .sum();
+        self.dfg_pruned_order = dfg
+            .rd_function_stats()
+            .values()
+            .map(|stats| stats.dfg_pruned_order)
             .sum();
     }
 }

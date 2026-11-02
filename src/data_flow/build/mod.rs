@@ -1,4 +1,4 @@
-//! Shared unchanged per-file producer and production ordered aggregation.
+//! Shared per-file producer and production ordered aggregation.
 use super::{
     AccessPath, DataFlowGraph, ExactFlowEdge, FlowConfidence, FlowEdge, ParsedFile, RdFileStats,
     VarLocation,
@@ -13,7 +13,14 @@ mod fallback_cap_tests;
 pub(super) mod file;
 #[cfg(test)]
 mod giant_owner_tests;
+#[cfg(test)]
+mod legacy_producer;
+mod lexical_prune;
+#[cfg(test)]
+mod lexical_prune_tests;
 mod owner_labels;
+#[cfg(test)]
+mod prune_cap_tests;
 
 pub(super) struct Producer;
 pub(super) struct FileRefs {

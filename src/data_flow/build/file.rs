@@ -430,6 +430,7 @@ impl Producer {
             let unavailable = cap.and_then(|_| crate::cpg::unavailable_before_edges(
                 parsed, &func_node, &rd_defs, cfg_index,
             ));
+            let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans);
             let original_preferred = unavailable.map(|_| preferred_use_locs.clone());
             // Pass 0 counts with the real admission/use logic, but constructs no edges.
             // Pass 1 emits only after the complete prospective count passed the cap.
@@ -437,6 +438,8 @@ impl Producer {
                 let counting = pass == 0;
                 if counting && unavailable.is_none() { continue; }
                 let register_uses = counting || unavailable.is_none();
+                // Evaluate pruning in both passes; retain counters only from the first.
+                let mut prune_stats = RdFileStats::default();
                 if !counting {
                     if let Some(original) = &original_preferred {
                         preferred_use_locs = original.clone();
@@ -499,7 +502,9 @@ impl Producer {
                 for (path, loc, refs, param_decl_line) in &param_ref_jobs {
                     for (ref_line, admitted) in refs {
                         let in_signature_line = *ref_line >= start && *ref_line <= *param_decl_line;
+                        if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
                         if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted) {
+                            if !lexical.keep_def(path, loc.start_byte, loc.end_byte, *ref_line, &mut prune_stats) { continue; }
                             emission.push(|| FlowEdge {
                                 from: loc.clone(),
                                 to: use_loc,
@@ -536,9 +541,14 @@ impl Producer {
                         {
                             continue; // Skip self-reference
                         }
+                        if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
                         let Some(use_loc) = get_use(path, *ref_line, true, *admitted) else {
                             continue;
                         };
+                        let (def_start, def_end) = def_locs_by_occurrence
+                            .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
+                            .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));
+                        if !lexical.keep_def(path, def_start, def_end, *ref_line, &mut prune_stats) { continue; }
                         emission.push(|| {
                             let def_loc = def_locs_by_occurrence
                                 .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
@@ -587,9 +597,14 @@ impl Producer {
                                 if *ref_line == def_line {
                                     continue;
                                 }
+                                if lexical.drop_write_only(&resolved, *ref_line, &mut prune_stats) { continue; }
                                 let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted) else {
                                     continue;
                                 };
+                                let (def_start, def_end) = resolved_def_locs_by_occurrence
+                                    .get(&(resolved.clone(), def_line, occurrence_byte(span.start_byte)))
+                                    .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));
+                                if !lexical.keep_def(&resolved, def_start, def_end, *ref_line, &mut prune_stats) { continue; }
                                 emission.push(|| {
                                     let def_loc = resolved_def_locs_by_occurrence
                                         .get(&(resolved.clone(), def_line, occurrence_byte(span.start_byte)))
@@ -660,6 +675,9 @@ impl Producer {
                     }
                 }
 
+                if register_uses {
+                    rd_function_stats.merge(prune_stats);
+                }
                 if counting && emission.count() > cap.unwrap() {
                     let reason = unavailable.unwrap();
                     if reason.is_def_cap() || reason.is_line_cap() {
