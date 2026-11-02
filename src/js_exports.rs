@@ -121,6 +121,25 @@ pub struct JsExportFacts {
     /// S1b: ESM local exports kept at base `Local` because the binding is may-call (E5).
     #[serde(default)]
     pub local_export_may_call: usize,
+    /// #598: callables a CommonJS producer proved by source (terminal proof or a direct named
+    /// function-expression member), by exported member name. Recorded only for a producer the
+    /// export-object barrier admitted, in a file with no ESM export. Never authority by itself:
+    /// the consumer also requires the name to be present and unconflicted in `named`.
+    #[serde(default)]
+    pub cjs_callables: BTreeMap<String, CjsCallable>,
+    /// #598: the callable proven for a whole-module replacement, `module.exports = f`. Distinct
+    /// from the member `default` (`exports.default = f` leaves `require()` an object).
+    #[serde(default)]
+    pub cjs_module_callable: Option<CjsCallable>,
+}
+
+/// A CommonJS export value proven to be one declared callable: its registered name and exact
+/// line span, the identity `FunctionId` matching uses.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CjsCallable {
+    pub local: String,
+    pub start_line: usize,
+    pub end_line: usize,
 }
 
 impl JsExportFacts {
@@ -139,6 +158,8 @@ impl JsExportFacts {
             && self.skipped_decl_reasons.is_empty()
             && self.local_export_refusals.is_empty()
             && self.local_export_may_call == 0
+            && self.cjs_callables.is_empty()
+            && self.cjs_module_callable.is_none()
     }
 
     /// Record a named-export raw fact, poisoning (marking conflicted) a name
@@ -660,6 +681,8 @@ mod tests {
             skipped_decl_reasons: BTreeMap::new(),
             local_export_refusals: BTreeMap::new(),
             local_export_may_call: 0,
+            cjs_callables: BTreeMap::new(),
+            cjs_module_callable: None,
         }
     }
 

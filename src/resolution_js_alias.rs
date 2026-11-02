@@ -61,6 +61,7 @@ impl CallGraph {
             JsLocalBinding::Returned { hook, path, .. } => {
                 self.js_ts_returned_route(hook, path, site)
             }
+            JsLocalBinding::RequireModule { .. } => self.js_ts_cjs_module_outcome(site),
             _ => None,
         }?;
         (outcome.drop.is_none()

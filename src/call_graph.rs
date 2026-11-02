@@ -551,6 +551,14 @@ pub enum JsLocalBinding {
         path: crate::js_returns::JsReturnPath,
         kept: String,
     },
+    /// #598: a callee that names an export of an in-repo module by relative `require`: `member`
+    /// is the exported member, or `None` for the module value itself (`m(..)`). The export
+    /// facts decide the target; where they prove none, the site behaves as it did without this
+    /// variant (`MayCall("alias")` for a bare callee, `Unchecked` for a member callee).
+    RequireModule {
+        module_path: String,
+        member: Option<String>,
+    },
 }
 
 impl JsLocalBinding {
@@ -563,6 +571,7 @@ impl JsLocalBinding {
                 | JsLocalBinding::AliasImport { .. }
                 | JsLocalBinding::AliasNamespaceMember { .. }
                 | JsLocalBinding::Returned { .. }
+                | JsLocalBinding::RequireModule { .. }
         )
     }
 }
@@ -5747,6 +5756,14 @@ impl CallGraph {
                     }
                     None => {}
                 }
+                // #598: a top-level `require` of a relative module, or of a member of one.
+                if let Some((module_path, member)) = parsed.js_ts_cjs_require_binding(ident, cache)
+                {
+                    return JsLocalBinding::RequireModule {
+                        module_path,
+                        member,
+                    };
+                }
             }
             // Slice V: a `const` taking its value from a call to one in-repo function `H` is
             // followed to `H`'s returned-value fact. A site the fact does not prove resolves
@@ -5767,6 +5784,9 @@ impl CallGraph {
             }
             binding
         } else if ident.kind() == "member_expression" {
+            if let Some(binding) = parsed.js_ts_cjs_member_binding(ident, callee, cache) {
+                return binding;
+            }
             let qualifier = ident
                 .child_by_field_name("object")
                 .filter(|n| n.kind() == "identifier");

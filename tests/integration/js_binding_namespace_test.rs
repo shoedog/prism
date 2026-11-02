@@ -208,11 +208,18 @@ fn d6_non_namespace_imports_keep_base() {
                 .flatten()
                 .find(|s| s.caller.name == "run" && s.callee_name == "f")
                 .unwrap();
-            assert_eq!(
-                site.local_binding,
-                JsLocalBinding::Unchecked,
-                "{ext}: {import}"
-            );
+            // #598: a top-level `require` of a relative module is a CommonJS module binding,
+            // never a namespace import; against this ESM producer it proves no target.
+            let expected = if import.starts_with("const ns = require") {
+                JsLocalBinding::RequireModule {
+                    module_path: "./lib".to_owned(),
+                    member: Some("f".to_owned()),
+                }
+            } else {
+                JsLocalBinding::Unchecked
+            };
+            assert_eq!(site.local_binding, expected, "{ext}: {import}");
+            assert!(!cg.js_ts_alias_route_hit(site), "{ext}: {import}");
         }
     }
 }

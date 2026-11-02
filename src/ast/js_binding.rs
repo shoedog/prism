@@ -74,6 +74,8 @@ pub(crate) struct JsBindingCache<'a> {
     pub(super) write_targets: Option<BTreeMap<String, Vec<Node<'a>>>>,
     pub(super) written: BTreeMap<(usize, String), bool>,
     pub(super) namespace_imports: Option<NamespaceImports<'a>>,
+    /// #598: names a top-level declarator binds to a `require(..)` call or a member of one.
+    pub(super) require_locals: Option<BTreeSet<String>>,
 }
 
 impl<'a> JsBindingCache<'a> {

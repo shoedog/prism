@@ -32,6 +32,7 @@ mod js_binding_values;
 mod js_binding_walk;
 mod js_binding_writes;
 mod js_cjs_export_barriers;
+mod js_cjs_module_calls;
 mod js_cjs_terminal;
 mod js_export_memo;
 #[cfg(test)]
@@ -2280,6 +2281,11 @@ impl ParsedFile {
             for (name, target) in cjs.named {
                 facts.insert_named(name, target);
             }
+            // #598: an ESM export beside CJS assignments is not a CommonJS module value.
+            if !has_esm_exports {
+                facts.cjs_callables = cjs.cjs_callables;
+                facts.cjs_module_callable = cjs.cjs_module_callable;
+            }
         } else {
             // Unsafe producers revoke the whole CJS set, including disjoint
             // siblings. Retain already-enumerated names as refusal claims so a
@@ -2799,7 +2805,7 @@ impl ParsedFile {
     ) {
         match rhs.kind() {
             "identifier" => {
-                facts.insert_named("default".to_string(), self.js_ts_cjs_local_target(rhs));
+                self.insert_js_ts_cjs_local(facts, None, rhs);
             }
             "object" => {
                 // F2 (review-fix wave, codex BLOCKER 2): a spread can shadow
@@ -2823,7 +2829,7 @@ impl ParsedFile {
                     match prop.kind() {
                         "shorthand_property_identifier" => {
                             let name = self.node_text(&prop).to_string();
-                            facts.insert_named(name, self.js_ts_cjs_local_target(prop));
+                            self.insert_js_ts_cjs_local(facts, Some(name), prop);
                         }
                         "pair" => {
                             let key = prop.child_by_field_name("key").map(|k| {
@@ -2834,7 +2840,7 @@ impl ParsedFile {
                             let value = prop.child_by_field_name("value");
                             match (key, value) {
                                 (Some(key), Some(value)) if value.kind() == "identifier" => {
-                                    facts.insert_named(key, self.js_ts_cjs_local_target(value));
+                                    self.insert_js_ts_cjs_local(facts, Some(key), value);
                                 }
                                 (Some(_), Some(_)) => facts.skipped_expr_count += 1,
                                 _ => {}

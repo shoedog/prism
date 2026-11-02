@@ -1,0 +1,130 @@
+{
+ "lane": "CommonJS module-as-function and member calls bind to proven exports (#598)",
+ "source": "src/ast/js_cjs_module_calls.rs",
+ "lib_test_prefixes": [],
+ "mutations": {
+  "CJS01-default-read-from-members": [
+   "src/resolution_js_cjs.rs",
+   "None => (\"default\", facts.cjs_module_callable.as_ref()?),",
+   "None => (\"default\", facts.cjs_callables.get(\"default\")?),",
+   "js_cjs_module_calls_refusal_test::producer_refusals_keep_main"
+  ],
+  "CJS02-member-reads-module-value": [
+   "src/resolution_js_cjs.rs",
+   "Some(member) => (member.as_str(), facts.cjs_callables.get(member)?),",
+   "Some(member) => (\"default\", facts.cjs_module_callable.as_ref()?),",
+   "js_cjs_module_calls_refusal_test::producer_refusals_keep_main"
+  ],
+  "CJS03-anonymous-caller-admitted": [
+   "src/resolution_js_cjs.rs",
+   "if crate::anon_owner::is_anonymous_owner_name(&site.caller.name) {\n            return None;\n        }",
+   "if false {\n            return None;\n        }",
+   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+  ],
+  "CJS04-no-export-object-barrier": [
+   "src/ast.rs",
+   "if cjs.conflicted.is_empty() && cjs_safe {",
+   "if cjs.conflicted.is_empty() {",
+   "js_cjs_module_calls_refusal_test::producer_refusals_keep_main"
+  ],
+  "CJS05-esm-beside-cjs-admitted": [
+   "src/ast.rs",
+   "if !has_esm_exports {\n                facts.cjs_callables = cjs.cjs_callables;",
+   "if true {\n                facts.cjs_callables = cjs.cjs_callables;",
+   "js_cjs_module_calls_refusal_test::producer_refusals_keep_main"
+  ],
+  "CJS06-declaration-not-a-top-level-statement": [
+   "src/ast/js_cjs_module_calls.rs",
+   "&& list.parent().is_some_and(|p| p.id() == program.id())",
+   "&& true",
+   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+  ],
+  "CJS07-function-scope-declaration": [
+   "src/ast/js_cjs_module_calls.rs",
+   "if scope.kind() != \"program\" {\n            return None;\n        }",
+   "if false {\n            return None;\n        }",
+   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+  ],
+  "CJS08-written-binding-admitted": [
+   "src/ast/js_cjs_module_calls.rs",
+   "if self.js_ts_site_binding(ident, name, cache) != JsBinding::Alias {\n            return None;\n        }",
+   "if false {\n            return None;\n        }",
+   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+  ],
+  "CJS09-shadowed-require-admitted": [
+   "src/ast/js_cjs_module_calls.rs",
+   "            || self.node_text(&function) != \"require\"\n            || !self.js_ts_unshadowed_ambient(function)\n",
+   "            || self.node_text(&function) != \"require\"\n",
+   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+  ],
+  "CJS10-second-argument-ignored": [
+   "src/ast/js_cjs_module_calls.rs",
+   "if named.next().is_some() {\n            return None;\n        }",
+   "if false {\n            return None;\n        }",
+   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+  ],
+  "CJS11-optional-member-call-admitted": [
+   "src/ast/js_cjs_module_calls.rs",
+   "            || self.node_text(&property) != member\n            || self.js_ts_has_optional_chain(callee)\n",
+   "            || self.node_text(&property) != member\n",
+   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+  ],
+  "CJS12-optional-require-call-admitted": [
+   "src/ast/js_cjs_module_calls.rs",
+   "if call.kind() != \"call_expression\" || self.js_ts_has_optional_chain(call) {",
+   "if call.kind() != \"call_expression\" {",
+   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+  ],
+  "CJS13-member-of-member-admitted": [
+   "src/ast/js_cjs_module_calls.rs",
+   "(_, Some(_)) => return None,",
+   "(module_path, Some(_)) => module_path,",
+   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+  ],
+  "CJS14-var-and-let-refused": [
+   "src/ast/js_cjs_module_calls.rs",
+   ".is_some_and(|k| matches!(k.kind(), \"const\" | \"let\" | \"var\"));",
+   ".is_some_and(|k| matches!(k.kind(), \"const\"));",
+   "js_cjs_module_calls_test::admitted_shapes_bind_exact"
+  ],
+  "CJS15-template-specifier-admitted": [
+   "src/ast/js_cjs_module_calls.rs",
+   "let literal = named.next().filter(|n| n.kind() == \"string\")?;",
+   "let literal = named.next()?;",
+   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+  ],
+  "CJS16-route-not-followed": [
+   "src/resolution_js_cjs.rs",
+   "outcome.via_alias_route = true;",
+   "",
+   "js_cjs_module_calls_test::proven_sites_are_followed_and_counted_once"
+  ],
+  "CJS17-not-a-followed-binding": [
+   "src/call_graph.rs",
+   "                | JsLocalBinding::RequireModule { .. }\n        )",
+   "        )",
+   "js_cjs_module_calls_test::proven_sites_are_followed_and_counted_once"
+  ]
+ },
+ "extra": {
+  "CJS07-function-scope-declaration": [
+   [
+    "src/ast/js_cjs_module_calls.rs",
+    "&& list.parent().is_some_and(|p| p.id() == program.id())",
+    "&& true"
+   ]
+  ],
+  "CJS06-declaration-not-a-top-level-statement": [
+   [
+    "src/ast/js_cjs_module_calls.rs",
+    "let locals = cache.require_locals.get_or_insert_with(|| {",
+    "let _ = cache.require_locals.get_or_insert_with(|| {"
+   ],
+   [
+    "src/ast/js_cjs_module_calls.rs",
+    "        locals.contains(name)\n",
+    "        true\n"
+   ]
+  ]
+ }
+}

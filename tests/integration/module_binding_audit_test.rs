@@ -422,14 +422,14 @@ case!(
 );
 case!(
     require_member_direct,
-    Gap,
+    Supported,
     CJS,
     "",
     "const invoke = require('./origin').item;\nfunction run() { invoke(); }"
 );
 case!(
     cjs_whole_value_direct,
-    Gap,
+    Supported,
     "function origin() {}\nmodule.exports = origin;",
     "",
     "const invoke = require('./origin');\nfunction run() { invoke(); }"
