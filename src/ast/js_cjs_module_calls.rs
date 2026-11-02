@@ -12,7 +12,8 @@
 //! not a direct top-level statement (a block, a function, an `export`), a destructuring pattern
 //! (the member-import route already owns it), a binding the base classifies as anything but an
 //! unwritten value-flow alias (a write, a duplicate declaration, a shadowing parameter or inner
-//! declaration), an ambient `require` that is shadowed or written, and any specifier that is not
+//! declaration), an ambient `require` that is shadowed, written or inside a `with` body,
+//! a member the file writes through the module object (`m.f = ..`), and any specifier that is not
 //! one plain relative string literal.
 use super::js_binding::{JsBinding, JsBindingCache};
 use super::js_binding_walk::Walk;
@@ -39,11 +40,16 @@ impl ParsedFile {
             return None;
         }
         let module_path = match object.kind() {
-            "call_expression" => self.js_ts_cjs_require_literal(object)?,
+            "call_expression" => self.js_ts_cjs_require_literal(object, cache)?,
             "identifier" => match self.js_ts_cjs_require_binding(object, cache)? {
-                (module_path, None) => module_path,
-                // `q` is itself a member of a module: `q.f` is not a module export.
-                (_, Some(_)) => return None,
+                (module_path, None)
+                    if !self.js_ts_cjs_member_written(self.node_text(&object), member, cache) =>
+                {
+                    module_path
+                }
+                // `q` is itself a member of a module (`q.f` is not a module export), or the
+                // file writes `q.f` (a consumer-side stub).
+                _ => return None,
             },
             _ => return None,
         };
@@ -83,7 +89,7 @@ impl ParsedFile {
         };
         let declarator = self.js_ts_top_level_declarator(*decl, scope, name)?;
         let value = declarator.child_by_field_name("value")?;
-        self.js_ts_require_value(value)
+        self.js_ts_require_value(value, cache)
     }
 
     /// `decl` is a `variable_declarator` of identifier `name` whose declaration is a statement of
@@ -108,9 +114,13 @@ impl ParsedFile {
     }
 
     /// `require('<relative>')` or `require('<relative>').m`, nothing wrapped around it.
-    fn js_ts_require_value(&self, value: Node<'_>) -> Option<(String, Option<String>)> {
+    fn js_ts_require_value<'a>(
+        &'a self,
+        value: Node<'a>,
+        cache: &mut JsBindingCache<'a>,
+    ) -> Option<(String, Option<String>)> {
         match value.kind() {
-            "call_expression" => Some((self.js_ts_cjs_require_literal(value)?, None)),
+            "call_expression" => Some((self.js_ts_cjs_require_literal(value, cache)?, None)),
             "member_expression" => {
                 let object = value.child_by_field_name("object")?;
                 let property = value.child_by_field_name("property")?;
@@ -119,7 +129,7 @@ impl ParsedFile {
                     return None;
                 }
                 Some((
-                    self.js_ts_cjs_require_literal(object)?,
+                    self.js_ts_cjs_require_literal(object, cache)?,
                     Some(self.node_text(&property).to_owned()),
                 ))
             }
@@ -129,7 +139,14 @@ impl ParsedFile {
 
     /// The specifier of an unshadowed `require("<relative>")` with exactly one plain string
     /// argument: no template, no escape, no spread, no second argument, no optional call.
-    pub(super) fn js_ts_cjs_require_literal(&self, call: Node<'_>) -> Option<String> {
+    /// Unshadowed is proved at this occurrence: no declaration of `require` binds it, no `with`
+    /// body encloses it (an object environment may supply the name), the position is one the
+    /// binding walk proves, and the file never writes `require`.
+    pub(super) fn js_ts_cjs_require_literal<'a>(
+        &'a self,
+        call: Node<'a>,
+        cache: &mut JsBindingCache<'a>,
+    ) -> Option<String> {
         if call.kind() != "call_expression" || self.js_ts_has_optional_chain(call) {
             return None;
         }
@@ -137,6 +154,10 @@ impl ParsedFile {
         if function.kind() != "identifier"
             || self.node_text(&function) != "require"
             || !self.js_ts_unshadowed_ambient(function)
+            || !matches!(
+                self.js_ts_binding_walk(function, "require", cache),
+                Walk::Unbound
+            )
         {
             return None;
         }

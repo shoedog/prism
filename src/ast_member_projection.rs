@@ -263,7 +263,7 @@ impl ParsedFile {
     /// Whether this member expression is the target of a write: assignment (plain,
     /// compound, logical) left side, `++`/`--`, `delete`, an array/object pattern target
     /// (including rest and nested patterns), or a `for (… in/of …)` head.
-    fn member_is_write_target(&self, node: Node<'_>) -> bool {
+    pub(in crate::ast) fn member_is_write_target(&self, node: Node<'_>) -> bool {
         let mut child = node;
         let mut parent = node.parent();
         while let Some(p) = parent {
@@ -326,7 +326,7 @@ fn is_transparent_wrapper(kind: &str) -> bool {
 
 /// Peel transparent wrappers off an expression. `None` when a wrapper has no inner
 /// expression. A `type_assertion` (`<T>e`) carries its expression last; the others first.
-fn strip_transparent_wrappers(mut node: Node<'_>) -> Option<Node<'_>> {
+pub(in crate::ast) fn strip_transparent_wrappers(mut node: Node<'_>) -> Option<Node<'_>> {
     while is_transparent_wrapper(node.kind()) {
         let mut cursor = node.walk();
         let mut inner = node.named_children(&mut cursor).filter(|c| !c.is_extra());

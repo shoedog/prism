@@ -48,6 +48,7 @@ mod js_binding_scope_resolution_fold_test;
 mod js_binding_scope_resolution_r2_test;
 mod js_binding_scope_resolution_test;
 mod js_binding_shorthand_test;
+mod js_cjs_module_calls_fold_test;
 mod js_cjs_module_calls_refusal_test;
 mod js_cjs_module_calls_state_test;
 mod js_cjs_module_calls_test;

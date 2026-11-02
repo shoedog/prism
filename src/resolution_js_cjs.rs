@@ -50,6 +50,10 @@ impl CallGraph {
         if facts.conflicted.contains(claimed) || !facts.named.contains_key(claimed) {
             return None;
         }
+        // The producer recorded the span only for the file's one function of that name
+        // (`js_ts_cjs_callable_span`), so the span and count checks below hold by construction;
+        // they stay as defence in depth. A mutant of either is equivalent (it survives
+        // `same_name_functions_in_the_producer_file`, which pins the producer's refusal).
         let ids: Vec<&FunctionId> = self
             .functions
             .get(&callable.local)?

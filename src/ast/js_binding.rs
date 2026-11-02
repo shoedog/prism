@@ -76,6 +76,8 @@ pub(crate) struct JsBindingCache<'a> {
     pub(super) namespace_imports: Option<NamespaceImports<'a>>,
     /// #598: names a top-level declarator binds to a `require(..)` call or a member of one.
     pub(super) require_locals: Option<BTreeSet<String>>,
+    /// #598: member writes through each identifier of the file, by spelling.
+    pub(super) member_writes: Option<BTreeMap<String, super::js_cjs_member_writes::MemberWrites>>,
 }
 
 impl<'a> JsBindingCache<'a> {

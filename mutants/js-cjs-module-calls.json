@@ -77,9 +77,9 @@
   ],
   "CJS13-member-of-member-admitted": [
    "src/ast/js_cjs_module_calls.rs",
-   "(_, Some(_)) => return None,",
-   "(module_path, Some(_)) => module_path,",
-   "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
+   "                // file writes `q.f` (a consumer-side stub).\n                _ => return None,",
+   "                // file writes `q.f` (a consumer-side stub).\n                (module_path, Some(_)) => module_path,\n                _ => return None,",
+   "js_cjs_module_calls_fold_test::member_of_a_member_alias_is_no_module"
   ],
   "CJS14-var-and-let-refused": [
    "src/ast/js_cjs_module_calls.rs",
@@ -104,6 +104,48 @@
    "                | JsLocalBinding::RequireModule { .. }\n        )",
    "        )",
    "js_cjs_module_calls_test::proven_sites_are_followed_and_counted_once"
+  ],
+  "CJS18-require-in-with-body-admitted": [
+   "src/ast/js_cjs_module_calls.rs",
+   "            || !matches!(\n                self.js_ts_binding_walk(function, \"require\", cache),\n                Walk::Unbound\n            )\n",
+   "",
+   "js_cjs_module_calls_fold_test::with_bodies_do_not_prove_an_inline_require"
+  ],
+  "CJS19-consumer-member-write-ignored": [
+   "src/ast/js_cjs_module_calls.rs",
+   "                    if !self.js_ts_cjs_member_written(self.node_text(&object), member, cache) =>",
+   "                    if true =>",
+   "js_cjs_module_calls_fold_test::consumer_member_writes_refuse_the_member_site"
+  ],
+  "CJS20-unnamed-key-writes-ignored": [
+   "src/ast/js_cjs_member_writes.rs",
+   ".is_some_and(|w| w.any || w.named.contains(member))",
+   ".is_some_and(|w| w.named.contains(member))",
+   "js_cjs_module_calls_fold_test::consumer_member_writes_refuse_the_member_site"
+  ],
+  "CJS21-named-member-writes-ignored": [
+   "src/ast/js_cjs_member_writes.rs",
+   ".is_some_and(|w| w.any || w.named.contains(member))",
+   ".is_some_and(|w| w.any)",
+   "js_cjs_module_calls_fold_test::consumer_member_writes_refuse_the_member_site"
+  ],
+  "CJS22-object-mutator-calls-ignored": [
+   "src/ast/js_cjs_member_writes.rs",
+   "(first.kind() == \"identifier\").then_some(first)",
+   "None",
+   "js_cjs_module_calls_fold_test::consumer_member_writes_refuse_the_member_site"
+  ],
+  "CJS23-member-read-counted-as-write": [
+   "src/ast/js_cjs_member_writes.rs",
+   "                    if !self.member_is_write_target(node) {\n                        continue;\n                    }\n",
+   "",
+   "js_cjs_module_calls_fold_test::consumer_member_writes_refuse_the_member_site"
+  ],
+  "CJS24-computed-key-write-names-nothing": [
+   "src/ast/js_cjs_member_writes.rs",
+   "None => entry.any = true,",
+   "None => {}",
+   "js_cjs_module_calls_fold_test::consumer_member_writes_refuse_the_member_site"
   ]
  },
  "extra": {

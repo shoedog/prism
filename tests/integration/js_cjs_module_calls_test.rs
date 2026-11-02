@@ -444,10 +444,8 @@ fn proven_sites_are_followed_and_counted_once() {
     // The renamed export is a caller edge of `g`, though the site is spelled `h`.
     let g = targets[0].clone();
     let edges = cg.resolved_caller_edges(&g);
-    assert!(
-        edges.iter().any(|e| e.caller.name == "run"),
-        "edges into g: {edges:?}"
-    );
+    let from_run = edges.iter().filter(|e| e.caller.name == "run").count();
+    assert_eq!(from_run, 1, "edges into g: {edges:?}");
 }
 
 /// `call-stats` counts an unproven bare callee under the `MayCall("alias")` reason it always had;
