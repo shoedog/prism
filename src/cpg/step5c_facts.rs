@@ -1,15 +1,24 @@
 //! Immutable caller-file work; collection order is also serial emission order.
 use super::*;
-use crate::ast::AssignmentCallInfo;
+use crate::ast::PathSpan;
+use crate::resolution::ResolvedCallee;
 use rayon::prelude::*;
 
 pub(super) struct SiteFacts<'a> {
-    pub(super) assignment: AssignmentCallInfo,
-    pub(super) outcome: ResolutionOutcome<'a>,
+    pub(super) lvalues: Vec<PathSpan>,
+    pub(super) resolved: Vec<ResolvedCallee<'a>>,
     pub(super) rhs_uses: Vec<NodeIndex>,
 }
 
-pub(super) type CallerFacts<'a> = (&'a FunctionId, Vec<Option<SiteFacts<'a>>>);
+pub(super) type CallerFacts<'a> = (&'a FunctionId, Vec<SiteFacts<'a>>);
+
+/// Slice-taking twin of build::singleton_exact; replay needs no other outcome facts.
+pub(super) fn singleton_exact<'a>(
+    resolved: &'a [ResolvedCallee<'a>],
+) -> Option<&'a ResolvedCallee<'a>> {
+    (resolved.len() == 1 && resolved[0].confidence == ResolutionConfidence::Exact)
+        .then(|| &resolved[0])
+}
 
 pub(super) fn collect<'a>(
     resolver: &crate::resolution::go_satisfiers::GoSatisfierMemo<'a>,
@@ -41,14 +50,14 @@ pub(super) fn collect<'a>(
                         let parsed = files.get(&caller.file);
                         let facts = sites
                             .iter()
-                            .map(|site| {
+                            .filter_map(|site| {
                                 let assignment = parsed?
                                     .assignment_for_exact_call(site.start_byte, site.end_byte)?;
                                 let outcome = resolver.resolve_call_site_full(site);
                                 // The old path queried these reads only after admitting a
                                 // singleton exact callee and simple LHS. Keep that gate so
                                 // unresolved calls never trigger semantic-use walks.
-                                let rhs_uses = if singleton_exact(&outcome).is_some()
+                                let rhs_uses = if singleton_exact(&outcome.resolved).is_some()
                                     && !assignment.lvalues.is_empty()
                                     && assignment
                                         .lvalues
@@ -65,8 +74,8 @@ pub(super) fn collect<'a>(
                                     Vec::new()
                                 };
                                 Some(SiteFacts {
-                                    assignment,
-                                    outcome,
+                                    lvalues: assignment.lvalues,
+                                    resolved: outcome.resolved,
                                     rhs_uses,
                                 })
                             })

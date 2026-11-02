@@ -43,26 +43,21 @@ impl CodePropertyGraph {
 
         for (caller_id, facts) in callers {
             for facts in facts {
-                let Some(facts::SiteFacts {
-                    assignment,
-                    outcome,
+                let facts::SiteFacts {
+                    lvalues,
+                    resolved: candidates,
                     rhs_uses,
-                }) = facts
-                else {
-                    continue;
-                };
-                let Some(resolved) = singleton_exact(&outcome) else {
-                    let has_exact = outcome
-                        .resolved
+                } = facts;
+                let Some(resolved) = facts::singleton_exact(&candidates) else {
+                    let has_exact = candidates
                         .iter()
                         .any(|item| item.confidence == ResolutionConfidence::Exact);
-                    let has_nameonly = outcome
-                        .resolved
+                    let has_nameonly = candidates
                         .iter()
                         .any(|item| item.confidence == ResolutionConfidence::NameOnly);
                     if has_exact && has_nameonly {
                         stats.return_flow_skipped_mixed += 1;
-                    } else if has_exact && outcome.resolved.len() > 1 {
+                    } else if has_exact && candidates.len() > 1 {
                         stats.return_flow_skipped_multi += 1;
                     } else {
                         stats.return_flow_skipped_nameonly += 1;
@@ -70,12 +65,7 @@ impl CodePropertyGraph {
                     continue;
                 };
 
-                if assignment.lvalues.is_empty()
-                    || assignment
-                        .lvalues
-                        .iter()
-                        .any(|lhs| !lhs.path.fields.is_empty())
-                {
+                if lvalues.is_empty() || lvalues.iter().any(|lhs| !lhs.path.fields.is_empty()) {
                     stats.return_flow_skipped_non_simple_lhs += 1;
                     continue;
                 }
@@ -88,8 +78,7 @@ impl CodePropertyGraph {
                     continue;
                 };
 
-                let targets: Vec<NodeIndex> = assignment
-                    .lvalues
+                let targets: Vec<NodeIndex> = lvalues
                     .iter()
                     .filter_map(|lhs| {
                         var_index
@@ -111,7 +100,7 @@ impl CodePropertyGraph {
                             })
                     })
                     .collect();
-                if targets.len() != assignment.lvalues.len() {
+                if targets.len() != lvalues.len() {
                     stats.return_flow_skipped_non_simple_lhs += 1;
                     continue;
                 }

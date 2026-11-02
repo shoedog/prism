@@ -213,3 +213,55 @@ fn whole_graph_is_identical_at_one_and_four_threads() {
     }
     assert_eq!(outputs[0], outputs[1]);
 }
+
+#[test]
+fn retained_site_layout_excludes_unused_resolution_evidence() {
+    let bytes = std::mem::size_of::<facts::SiteFacts<'_>>();
+    let compact = std::mem::size_of::<Vec<crate::ast::PathSpan>>()
+        + std::mem::size_of::<Vec<crate::resolution::ResolvedCallee<'_>>>()
+        + std::mem::size_of::<Vec<NodeIndex>>();
+    eprintln!(
+        "retained site: {bytes} B; compact budget: {compact} B; outcome: {} B; callee: {} B; LHS: {} B",
+        std::mem::size_of::<ResolutionOutcome<'_>>(),
+        std::mem::size_of::<crate::resolution::ResolvedCallee<'_>>(),
+        std::mem::size_of::<crate::ast::PathSpan>(),
+    );
+    assert!(bytes <= compact, "unused resolution evidence is retained");
+}
+
+#[test]
+fn retained_sites_exclude_assignment_rejections() {
+    let files = callee_cases::parsed(
+        "go",
+        Language::Go,
+        "package p\nfunc f(x int) int { return x }\nfunc empty(x int) { f(x) }\n\
+         func run(x int) int {\n f(x)\n a := f(f(x))\n b := unknown(x)\n return f(a+b)\n}\n",
+    );
+    let cg = CallGraph::build(&files);
+    let resolver = crate::resolution::go_satisfiers::GoSatisfierMemo::new(&cg);
+    let index = uses::UseIndex::new(&DiGraph::new());
+    let mut rejected = 0;
+    for (caller, facts) in facts::collect(&resolver, &files, &index) {
+        let parsed = &files[&caller.file];
+        let sites = &cg.calls[caller];
+        let expected = sites
+            .iter()
+            .filter(|site| {
+                parsed
+                    .assignment_for_exact_call(site.start_byte, site.end_byte)
+                    .is_some()
+            })
+            .count();
+        rejected += sites.len() - expected;
+        assert_eq!(
+            facts.len(),
+            expected,
+            "rejected sites retained for {caller:?}"
+        );
+    }
+    assert!(rejected >= 4, "fixture must exercise rejected call sites");
+    // Missing parsed files reject every site without resolution or replay work.
+    assert!(facts::collect(&resolver, &BTreeMap::new(), &index)
+        .iter()
+        .all(|(_, facts)| facts.is_empty()));
+}
