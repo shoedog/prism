@@ -7,6 +7,39 @@ use crate::languages::Language;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+/// Method receiver arguments declare names, unlike generic-type uses elsewhere.
+/// Shared with receiver resolution so pointer receivers and `type_elem` wrappers
+/// have the same interpretation in both compatibility views.
+pub(super) fn receiver_type_parameters(method: Node<'_>) -> Vec<Node<'_>> {
+    fn collect<'t>(node: Node<'t>, out: &mut Vec<Node<'t>>) {
+        let mut cursor = node.walk();
+        if node.kind() == "type_arguments" {
+            for arg in node.named_children(&mut cursor) {
+                if matches!(arg.kind(), "type_identifier" | "identifier") {
+                    out.push(arg);
+                } else if arg.kind() == "type_elem" {
+                    let mut cursor = arg.walk();
+                    out.extend(
+                        arg.named_children(&mut cursor)
+                            .filter(|n| matches!(n.kind(), "type_identifier" | "identifier")),
+                    );
+                }
+            }
+        } else {
+            for child in node.named_children(&mut cursor) {
+                collect(child, out);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    if method.kind() == "method_declaration" {
+        if let Some(receiver) = method.child_by_field_name("receiver") {
+            collect(receiver, &mut out);
+        }
+    }
+    out
+}
+
 #[derive(Clone, Default)]
 pub(super) struct Facts {
     values: BTreeMap<String, Vec<Binding>>,
@@ -65,6 +98,13 @@ impl Facts {
             n
         }
         fn walk(p: &ParsedFile, n: Node<'_>, facts: &mut Facts) {
+            for name in receiver_type_parameters(n) {
+                facts
+                    .types
+                    .entry(p.node_text(&name).to_owned())
+                    .or_default()
+                    .push(Binding::new(n, name.start_byte()));
+            }
             if n.kind() == "function_declaration"
                 && n.child_by_field_name("type_parameters").is_some()
             {
@@ -216,7 +256,7 @@ impl ParsedFile {
         if !matches!(base.kind(), "identifier" | "selector_expression") {
             return None;
         }
-        let facts = self.go_call_facts.get_or_init(|| Facts::new(self));
+        let facts = self.go_compat.calls.get_or_init(|| Facts::new(self));
         // A known value (including a slice/map of funcs) cannot be instantiated.
         if base.kind() == "identifier" && facts.is_value(self.node_text(&base), n.start_byte()) {
             return None;

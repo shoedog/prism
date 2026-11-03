@@ -146,7 +146,7 @@ fn prune_subset_and_labels_across_fixture_tree() {
                 let name = path.file_name().unwrap().to_str().unwrap();
                 if name.starts_with("f-")
                     || name.starts_with("F-private")
-                    || name == "frontend-portal"
+                    || name == "private-corpus"
                     || name == "secbench"
                 {
                     continue;

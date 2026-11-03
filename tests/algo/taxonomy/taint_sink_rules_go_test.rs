@@ -84,3 +84,13 @@ fn go_real_sink_named_container_indices_stay_indices() {
         source: "package p\nfunc h(Query []func(string), ReadFile map[int]func(string), i int, in Input) {\n x := in.V // SEED\n Query[i](x); ReadFile[i](x) // SINK\n}\n",
     }]);
 }
+
+#[test]
+fn go_generic_enclosing_sink_restores_continuation_severity() {
+    use super::taint_sink_strength_test::{assert_severities, go, S, W};
+    assert_severities(&[
+        go("generic enclosing Exec is strong", "package p\nimport dbx \"example/dbx\"\nfunc h(db *sql.DB, q, name string, in Input) {\n x := in.V // SEED\n res := dbx.Exec[Res](q + name,\n  db.QueryRow(\"SELECT 1\", x)) // SINK\n _ = res\n}\n", W),
+        go("non-generic enclosing Exec is strong", "package p\nimport dbx \"example/dbx\"\nfunc h(db *sql.DB, q, name string, in Input) {\n x := in.V // SEED\n res := dbx.Exec(q + name,\n  db.QueryRow(\"SELECT 1\", x)) // SINK\n _ = res\n}\n", W),
+        go("generic constant query stays weak", "package p\nimport dbx \"example/dbx\"\nfunc h(db *sql.DB, in Input) {\n x := in.V // SEED\n res := dbx.Exec[Res](\"SELECT 1\",\n  db.QueryRow(\"SELECT 1\", x)) // SINK\n _ = res\n}\n", S),
+    ]);
+}

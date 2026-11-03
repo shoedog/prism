@@ -52,7 +52,7 @@ impl SinkClassifier {
         // A line inside a multi-line call is judged with the calls that enclose it.
         let mut ids = parsed.identifiers_on_line(line);
         if let Some(first) = ids.first().copied() {
-            ids.extend(enclosing_callees(first));
+            ids.extend(enclosing_callees(parsed, first));
         }
         for id in ids {
             let text = parsed.node_text(&id);
@@ -78,20 +78,18 @@ impl SinkClassifier {
 }
 
 /// The callee identifier of every call that encloses `node`.
-fn enclosing_callees(node: Node<'_>) -> Vec<Node<'_>> {
+fn enclosing_callees<'t>(parsed: &ParsedFile, node: Node<'t>) -> Vec<Node<'t>> {
     let mut out = Vec::new();
     let mut cur = node.parent();
     while let Some(n) = cur {
         if matches!(n.kind(), "call_expression" | "call") {
-            let callee = n
-                .child_by_field_name("function")
-                .and_then(|f| match f.kind() {
-                    "identifier" => Some(f),
-                    "member_expression" => f.child_by_field_name("property"),
-                    "attribute" => f.child_by_field_name("attribute"),
-                    "selector_expression" => f.child_by_field_name("field"),
-                    _ => None,
-                });
+            let callee = parsed.call_function_node(&n).and_then(|f| match f.kind() {
+                "identifier" => Some(f),
+                "member_expression" => f.child_by_field_name("property"),
+                "attribute" => f.child_by_field_name("attribute"),
+                "selector_expression" => f.child_by_field_name("field"),
+                _ => None,
+            });
             out.extend(callee);
         }
         cur = n.parent();

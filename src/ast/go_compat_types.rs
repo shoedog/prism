@@ -5,7 +5,18 @@
 //! promoting the expression to a generic call or rewriting the raw parse tree.
 use super::ParsedFile;
 use crate::languages::Language;
+use std::sync::OnceLock;
 use tree_sitter::Node;
+
+mod index;
+#[cfg(test)]
+mod tests;
+
+#[derive(Clone, Default)]
+pub(super) struct Cache {
+    pub(super) calls: OnceLock<super::go_calls::Facts>,
+    contexts: OnceLock<index::TypeContexts>,
+}
 
 fn type_shape(p: &ParsedFile, n: Node<'_>) -> bool {
     match n.kind() {
@@ -33,6 +44,7 @@ fn type_shape(p: &ParsedFile, n: Node<'_>) -> bool {
     }
 }
 
+#[cfg(test)]
 fn contains_generic_type(n: Node<'_>) -> bool {
     match n.kind() {
         "index_expression" => true,
@@ -43,6 +55,7 @@ fn contains_generic_type(n: Node<'_>) -> bool {
     }
 }
 
+#[cfg(test)]
 fn nested_instantiation(p: &ParsedFile, n: Node<'_>) -> bool {
     // In call position the old parser split off the final bracket as
     // type_arguments, retaining the preceding expression as a value callee.
@@ -80,6 +93,17 @@ fn call_type_argument(p: &ParsedFile, n: Node<'_>) -> bool {
 
 impl ParsedFile {
     pub(crate) fn is_go_legacy_type_context(&self, n: Node<'_>) -> bool {
+        self.language == Language::Go
+            && self
+                .go_compat
+                .contexts
+                .get_or_init(|| index::TypeContexts::build(self))
+                .contains(n)
+    }
+
+    /// Frozen ancestor-walk oracle, deliberately independent of the file index.
+    #[cfg(test)]
+    pub(crate) fn legacy_go_type_context(&self, n: Node<'_>) -> bool {
         if self.language != Language::Go {
             return false;
         }

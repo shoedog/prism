@@ -30,5 +30,6 @@ mod proven_interface_post_provenance_test;
 mod receiver_origin_prereq_test;
 mod receiver_owner_carrying_test;
 mod review_r1_test;
+mod review_r2_test;
 mod span_test;
 mod test_support;

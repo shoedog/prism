@@ -31,7 +31,7 @@ pub(crate) fn legacy_scoped_refs<const COUNT: bool>(
             for capture in m.captures {
                 super::record_capture();
                 if capture.index == ident_idx
-                    && !parsed.is_go_legacy_type_context(capture.node)
+                    && !parsed.legacy_go_type_context(capture.node)
                     && parsed.node_text(&capture.node) == var_name
                 {
                     // Bottom-up scope check: walk from the capture node up to the
@@ -91,7 +91,7 @@ impl ParsedFile {
             for capture in m.captures {
                 super::record_capture();
                 if capture.index == ident_idx
-                    && !self.is_go_legacy_type_context(capture.node)
+                    && !self.legacy_go_type_context(capture.node)
                     && self.node_text(&capture.node) == name
                     && !shadow::<COUNT>(self, &capture.node, owner, name, def_line)
                     && !fence::<COUNT>(self, &capture.node, owner, name, def_byte)

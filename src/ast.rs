@@ -470,7 +470,7 @@ pub struct ParsedFile {
     /// Lazy framework detection, populated on first call to `framework()`.
     pub framework: std::sync::OnceLock<Option<&'static crate::frameworks::FrameworkSpec>>,
     functions: Vec<FunctionInfo>,
-    go_call_facts: std::sync::OnceLock<go_calls::Facts>,
+    go_compat: go_compat_types::Cache,
     /// Lazily-built call-argument index (Task S1.5). Lazy so warm nav-cache loads,
     /// AST-only consumers, and callers with no resolved-call args pay nothing; the
     /// cold CPG/nav build that runs Step 5b builds it on demand.
@@ -517,7 +517,7 @@ impl ParsedFile {
             line_offsets,
             framework: std::sync::OnceLock::new(),
             functions: Vec::new(),
-            go_call_facts: std::sync::OnceLock::new(),
+            go_compat: go_compat_types::Cache::default(),
             call_args: std::sync::OnceLock::new(),
             js_export_facts: std::sync::OnceLock::new(),
         };
@@ -1007,39 +1007,9 @@ impl ParsedFile {
             }
         }
 
-        if func_node.kind() != "method_declaration" {
-            return false;
-        }
-        let Some(receiver) = func_node.child_by_field_name("receiver") else {
-            return false;
-        };
-
-        fn receiver_args_bind(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
-            if node.kind() == "type_arguments" {
-                let mut cursor = node.walk();
-                return node.named_children(&mut cursor).any(|arg| {
-                    if matches!(arg.kind(), "type_identifier" | "identifier") {
-                        return parsed.node_text(&arg).trim() == name;
-                    }
-                    if arg.kind() != "type_elem" {
-                        return false;
-                    }
-                    let mut elem_cursor = arg.walk();
-                    let found = arg.named_children(&mut elem_cursor).any(|elem| {
-                        matches!(elem.kind(), "type_identifier" | "identifier")
-                            && parsed.node_text(&elem).trim() == name
-                    });
-                    found
-                });
-            }
-            let mut cursor = node.walk();
-            let found = node
-                .named_children(&mut cursor)
-                .any(|child| receiver_args_bind(parsed, child, name));
-            found
-        }
-
-        receiver_args_bind(self, receiver, receiver_type)
+        go_calls::receiver_type_parameters(*func_node)
+            .into_iter()
+            .any(|name| self.node_text(&name).trim() == receiver_type)
     }
 
     // Mirrored in go_receiver_walk; change both and extend its tests.
