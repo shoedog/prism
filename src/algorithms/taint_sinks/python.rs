@@ -369,6 +369,9 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
     };
     let name = imported.map(|(_, orig)| orig.as_str()).unwrap_or(text);
     let from_module = imported.map(|(m, _)| m.as_str());
+    if let Some(hit) = super::py_modules::classify(p, facts, &c) {
+        return Some(hit);
+    }
     let nargs = args(c.call).len();
     let names = c.receiver.map(|r| chain_names(p, r)).unwrap_or_default();
     // Module a single-identifier receiver or an import stands for.

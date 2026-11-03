@@ -238,6 +238,72 @@
       "let render = list.len() == 3 && matches!(recv, Recv::Value);",
       "let render = list.len() == 4 && matches!(recv, Recv::Value);",
       "algorithms::taint_sinks::tests::go_context_html_rule_names"
+    ],
+    "SR42-pymod-pexpect-table-dropped": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(\"pexpect\", \"spawn\" | \"spawnu\" | \"run\" | \"runu\") => true,",
+      "(\"pexpect\", \"spawn\" | \"spawnu\" | \"run\" | \"runu\") => false,",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR43-pymod-paramiko-method-dropped": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(Kind::Ssh, \"exec_command\") => Some((COMMAND, false)),",
+      "(Kind::Ssh, \"exec_command\") => None,",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR44-pymod-sandbox-not-weak": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(Kind::Sandbox, \"from_string\") => Some((TEMPLATE, true)),",
+      "(Kind::Sandbox, \"from_string\") => Some((TEMPLATE, false)),",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR45-pymod-import-member-path-inverted": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "Some(if member.is_empty() {",
+      "Some(if !member.is_empty() {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR46-pymod-task-param-without-task": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "is_task_param(p, f, recv, name).then_some(Kind::Conn)",
+      "Some(Kind::Conn)",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR47-pymod-task-first-param-unchecked": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "&& names.first() == Some(&name)",
+      "&& true",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR48-pymod-lambda-param-counts-as-task": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "return n.kind() == \"function_definition\"",
+      "return true",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR49-pymod-any-decorator-is-task": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "found |= path_of(p, f, e).is_some_and(|path| TASK_PATHS.contains(&path.as_str()));",
+      "found |= path_of(p, f, e).is_some();",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR50-pymod-for-target-counts-as-with-as": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "a.kind() == \"as_pattern\" && a.parent().is_some_and(|w| w.kind() == \"with_item\")",
+      "true",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR51-pymod-zero-arg-call-fires": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if args(c.call).is_empty() {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR52-pymod-hook-dropped": [
+      "src/algorithms/taint_sinks/python.rs",
+      "if let Some(hit) = super::py_modules::classify(p, facts, &c) {",
+      "if let Some(hit) = None::<SinkHit> {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
     ]
   }
 }
