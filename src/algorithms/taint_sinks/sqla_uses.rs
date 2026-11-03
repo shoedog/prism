@@ -3,7 +3,8 @@
 //! A local container (a display, a comprehension or a call result) is data only when every
 //! occurrence of its name in the scope that binds it is on a short allow-list; any other
 //! occurrence (an alias, another call, another method, a store, `del`, a nested scope) refuses.
-//! Chain roots that are same-file helpers prove only through their returns (depth 2).
+//! A container that holds a mutable element (a nested display or comprehension) refuses, and an
+//! adder counts only as a whole statement, so no element can be reached and mutated.
 
 use super::callee::args;
 use super::py_scope::{Bound, Local};
@@ -23,10 +24,66 @@ const ADDERS: &[&str] = &[
 ];
 /// Builtins that only read their argument.
 const READERS: &[&str] = &["len", "list", "tuple", "set", "sorted", "str"];
-/// Helper roots resolve through at most this many same-file functions.
-const MAX_HELPERS: usize = 2;
 
 /// Callees that build a mutable container.
+const MUTABLE: &[&str] = &[
+    "list",
+    "dictionary",
+    "set",
+    "list_comprehension",
+    "set_comprehension",
+    "dictionary_comprehension",
+];
+
+/// Any strict descendant of `n` is a mutable display or comprehension.
+fn descendant_mutable(n: Node<'_>) -> bool {
+    let mut stack = vec![n];
+    while let Some(x) = stack.pop() {
+        let mut c = x.walk();
+        for k in x.children(&mut c) {
+            if MUTABLE.contains(&k.kind()) {
+                return true;
+            }
+            stack.push(k);
+        }
+    }
+    false
+}
+
+/// The elements of the container `n` builds hold a mutable object: a nested display or
+/// comprehension (operands of `+`, branches of a conditional and a sliced value are the
+/// container itself, not its elements).
+fn elements_mutable(n: Node<'_>) -> bool {
+    let n = peel(n);
+    match n.kind() {
+        "binary_operator" => ["left", "right"]
+            .iter()
+            .filter_map(|f| n.child_by_field_name(f))
+            .any(elements_mutable),
+        "conditional_expression" => [0, 2]
+            .iter()
+            .filter_map(|i| n.named_child(*i))
+            .any(elements_mutable),
+        "subscript" => n.child_by_field_name("value").is_some_and(elements_mutable),
+        _ => descendant_mutable(n),
+    }
+}
+
+/// An adder argument that would store a mutable object in the container (for `extend`-like
+/// adders the argument's own elements are stored, not the argument).
+fn arg_mutable(a: Node<'_>, spreads: bool) -> bool {
+    let a = if a.kind() == "keyword_argument" {
+        a.child_by_field_name("value").unwrap_or(a)
+    } else {
+        a
+    };
+    if spreads {
+        elements_mutable(a)
+    } else {
+        MUTABLE.contains(&peel(a).kind()) || descendant_mutable(a)
+    }
+}
+
 const CONSTRUCTORS: &[&str] = &[
     "list",
     "dict",
@@ -68,9 +125,33 @@ impl<'a> Proof<'a> {
     /// read many times.
     fn container_init(&self, init: Node<'_>) -> bool {
         let init = peel(init);
-        if init.kind() != "call" {
-            return display_init(init);
+        match init.kind() {
+            // `a + [..]`: a list built from a display operand.
+            "binary_operator" => {
+                init.child_by_field_name("operator")
+                    .is_some_and(|o| self.text(o) == "+")
+                    && ["left", "right"]
+                        .iter()
+                        .filter_map(|f| init.child_by_field_name(f))
+                        .any(|o| self.container_init(o))
+            }
+            "conditional_expression" => [0, 2]
+                .iter()
+                .all(|i| init.named_child(*i).is_some_and(|b| self.container_init(b))),
+            // `[..][:]`: a slice of a display.
+            "subscript" => {
+                init.child_by_field_name("subscript")
+                    .is_some_and(|s| s.kind() == "slice")
+                    && init
+                        .child_by_field_name("value")
+                        .is_some_and(|v| self.container_init(v))
+            }
+            "call" => self.container_call(init),
+            _ => display_init(init),
         }
+    }
+
+    fn container_call(&self, init: Node<'_>) -> bool {
         let Some(f) = init.child_by_field_name("function") else {
             return false;
         };
@@ -102,6 +183,10 @@ impl<'a> Proof<'a> {
     }
 
     fn occurrences_refuse(&self, ident: Node<'_>, init: Node<'_>) -> bool {
+        // A container of mutable elements can be mutated through an element.
+        if elements_mutable(init) {
+            return true;
+        }
         let name = self.text(ident);
         // The scope that binds the name: the function around its `name = init`, else the file.
         let mut scope = init;
@@ -170,7 +255,18 @@ impl<'a> Proof<'a> {
             let adder = attr
                 .child_by_field_name("attribute")
                 .is_some_and(|m| ADDERS.contains(&self.text(m)));
-            return adder && call.is_some_and(|c| args(c).into_iter().all(|a| self.value_arg(a)));
+            let name = attr.child_by_field_name("attribute").map(|m| self.text(m));
+            let spreads = matches!(name, Some("extend" | "extendleft" | "update"));
+            // A whole expression statement: its result (`setdefault` returns an element) is
+            // discarded.
+            return adder
+                && call.is_some_and(|c| {
+                    c.parent()
+                        .is_some_and(|p| p.kind() == "expression_statement")
+                        && args(c)
+                            .into_iter()
+                            .all(|a| self.value_arg(a) && !arg_mutable(a, spreads))
+                });
         }
         // The iterable of a `for` statement or comprehension, or a reader builtin's argument.
         let mut top = n;
@@ -183,6 +279,9 @@ impl<'a> Proof<'a> {
         let Some(p) = top.parent() else {
             return false;
         };
+        if self.truth_test(top) {
+            return true;
+        }
         match p.kind() {
             "for_statement" | "for_in_clause" => p.child_by_field_name("right") == Some(top),
             "argument_list" => p
@@ -198,84 +297,30 @@ impl<'a> Proof<'a> {
         }
     }
 
-    // ---- same-file helpers as chain roots ---------------------------------------------------
-
-    /// `Some(proof)` when the call's callee is a same-file helper (a bare name of one `def`, or
-    /// `self.m`/`cls.m` of a method defined once in the class): it proves only through its
-    /// returns. `None` for any other callee, which stays an opaque root.
-    pub(super) fn helper_root(&self, f: Node<'_>) -> Option<bool> {
-        let def = match f.kind() {
-            "identifier" => {
-                let name = self.text(f);
-                if self.f.sites.funcs(name) == 0 {
-                    return None;
+    /// A read-only truth test: the name (through `not`, `and`, `or` and parentheses) as the
+    /// condition of `if`/`elif`/`while`/`assert` or the test of a conditional expression, or the
+    /// right operand of `in`/`not in`.
+    fn truth_test(&self, start: Node<'_>) -> bool {
+        let mut cur = start;
+        while let Some(p) = cur.parent() {
+            match p.kind() {
+                "parenthesized_expression" | "not_operator" | "boolean_operator" => cur = p,
+                "if_statement" | "elif_clause" | "while_statement" => {
+                    return p.child_by_field_name("condition") == Some(cur)
                 }
-                match self.local(f, name) {
-                    Local::One(Bound::Def(d))
-                        if d.kind() == "function_definition" && self.f.sites.total(name) == 1 =>
-                    {
-                        d
-                    }
-                    // A function name bound again, or ambiguous: unproven.
-                    _ => return Some(false),
+                "assert_statement" => return p.named_child(0) == Some(cur),
+                "conditional_expression" => return p.named_child(1) == Some(cur),
+                "comparison_operator" => {
+                    let mut c = p.walk();
+                    let ops_in = p
+                        .children(&mut c)
+                        .filter(|k| !k.is_named())
+                        .all(|k| matches!(self.text(k), "in" | "not in"));
+                    return ops_in && p.named_child(0) != Some(cur);
                 }
+                _ => return false,
             }
-            "attribute" => {
-                let obj = f.child_by_field_name("object")?;
-                let m = f.child_by_field_name("attribute")?;
-                if obj.kind() != "identifier" || !matches!(self.text(obj), "self" | "cls") {
-                    return None;
-                }
-                self.enclosing_method(f, self.text(m))?
-            }
-            _ => return None,
-        };
-        Some(self.helper_returns(def))
-    }
-
-    fn helper_returns(&self, def: Node<'_>) -> bool {
-        let mut stack = self.helpers.borrow_mut();
-        if def
-            .parent()
-            .is_some_and(|p| p.kind() == "decorated_definition")
-            || stack.len() >= MAX_HELPERS
-            || stack.contains(&def.start_byte())
-        {
-            return false;
         }
-        stack.push(def.start_byte());
-        drop(stack);
-        let ok = self.returns_chain(def);
-        self.helpers.borrow_mut().pop();
-        ok
-    }
-
-    fn returns_chain(&self, def: Node<'_>) -> bool {
-        let Some(body) = def.child_by_field_name("body") else {
-            return false;
-        };
-        let mut rets = Vec::new();
-        let mut stack = vec![body];
-        while let Some(n) = stack.pop() {
-            if !self.tick() {
-                return false;
-            }
-            if n.kind() == "return_statement" {
-                rets.push(n);
-            }
-            if matches!(
-                n.kind(),
-                "function_definition" | "lambda" | "class_definition"
-            ) {
-                continue;
-            }
-            let mut c = n.walk();
-            stack.extend(n.named_children(&mut c));
-        }
-        !rets.is_empty()
-            && rets.iter().all(|r| {
-                r.named_child(0)
-                    .is_some_and(|v| self.hop(|| self.inner_chain(v)))
-            })
+        false
     }
 }

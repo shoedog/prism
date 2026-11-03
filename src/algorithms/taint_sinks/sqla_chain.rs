@@ -51,7 +51,7 @@ impl<'a> Proof<'a> {
                 if self.lib_of(f).is_some() {
                     return self.stmt(n);
                 }
-                if let Some(ok) = self.helper_root(f) {
+                if let Some(ok) = self.helper_root(n, f) {
                     return ok;
                 }
                 if f.kind() != "attribute" {

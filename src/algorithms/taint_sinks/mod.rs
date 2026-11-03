@@ -28,6 +28,7 @@ mod py_scope;
 mod python;
 mod sqla;
 mod sqla_chain;
+mod sqla_helpers;
 mod sqla_tables;
 mod sqla_uses;
 mod sqla_value;
