@@ -696,6 +696,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                         )
                     })
                     .collect();
+                let findings_below_floor = output::count_below_floor(&all_findings, min_rank);
                 let mut filtered_all_findings: Vec<_> = all_findings
                     .iter()
                     .filter(|f| output::severity_rank(&f.severity) >= min_rank)
@@ -713,6 +714,7 @@ fn run_review(cli: &ReviewArgs) -> Result<()> {
                     algorithms_run,
                     results: review_results,
                     all_findings: filtered_all_findings,
+                    findings_below_floor,
                     errors: all_errors,
                     warnings: inputs.parse_warnings.clone(),
                     parse_quality: inputs.parse_quality.clone(),

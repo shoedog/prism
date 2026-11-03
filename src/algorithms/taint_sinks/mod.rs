@@ -26,8 +26,10 @@ mod js_scope;
 mod legacy;
 mod py_scope;
 mod python;
+mod strength;
 
 pub(crate) use js::exec_call_is_command as js_exec_call_is_command;
+pub(crate) use strength::Strength;
 
 use self::callee::Src;
 use crate::ast::ParsedFile;
@@ -37,11 +39,11 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 use tree_sitter::Node;
 
-/// A matched sink rule and its weakness class.
+/// A matched sink rule and its strength (#636).
 ///
-/// The finding structure has no slot for the tag (`category` stays `taint_sink`
+/// The finding structure has no slot for the rule tag (`category` stays `taint_sink`
 /// and the description is pinned by consumers), so the tag lives here for the
-/// unit tests and the SARIF/targets follow-ups (#590) to consume.
+/// unit tests; `strength` drives the finding severity (`strength::line_strength`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SinkHit {
@@ -49,6 +51,8 @@ pub(crate) struct SinkHit {
     pub rule: &'static str,
     /// CWE tag, absent for the legacy substring list.
     pub cwe: Option<&'static str>,
+    /// `Weak` when the rule recognised the call but its argument shape defuses it.
+    pub strength: Strength,
 }
 
 impl SinkHit {
@@ -56,7 +60,16 @@ impl SinkHit {
         Self {
             rule,
             cwe: Some(cwe),
+            strength: Strength::Strong,
         }
+    }
+
+    /// The same hit, graded weak when `weak` holds.
+    fn weak_if(mut self, weak: bool) -> Self {
+        if weak {
+            self.strength = Strength::Weak;
+        }
+        self
     }
 }
 

@@ -342,6 +342,21 @@ fn split_top(text: &str, sep: char) -> Vec<&str> {
     out
 }
 
+/// A `py-db-call` hit, weak when the query is constant text (#636): a string literal without
+/// interpolation, or a name bound once to one.
+fn db_hit(p: Src<'_>, from: Node<'_>, query: Option<Node<'_>>) -> SinkHit {
+    let constant = query.is_some_and(|q| {
+        is_literal(p, q)
+            || (q.kind() == "identifier"
+                && matches!(
+                    resolve(p, from, p.node_text(&q)),
+                    PyBind::Assigned(v) if is_literal(p, v)
+                )
+                && !is_rebound(p, from, p.node_text(&q), 1))
+    });
+    SinkHit::new("py-db-call", "CWE-89").weak_if(constant)
+}
+
 fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
     Some(SinkHit::new(rule, cwe))
 }
@@ -383,12 +398,12 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
             (module == Some("subprocess")).then(|| SinkHit::new("py-subprocess", "CWE-78"))
         }
         n if SQL_METHODS.contains(&n) || n == "raw" => {
-            (nargs > 0 && !logger && !local_def).then(|| SinkHit::new("py-db-call", "CWE-89"))
+            (nargs > 0 && !logger && !local_def).then(|| db_hit(p, id, query_sql_arg(p, c.call)))
         }
         n if PANDAS_SQL.contains(&n) => hit("py-db-call", "CWE-89"),
         "query" => query_sql_arg(p, c.call)
             .is_some_and(|a| is_sql_text(p, a))
-            .then(|| SinkHit::new("py-db-call", "CWE-89")),
+            .then(|| db_hit(p, id, query_sql_arg(p, c.call))),
         // ORM clause entry points: the clause argument is where raw SQL can enter.
         // Keyword-only calls (`Model.objects.filter(pk=x)`, `filter_by(id=x)`) are
         // parameterised lookups, not clauses. A positional expression such as
@@ -397,8 +412,9 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
             let clause = args(c.call)
                 .iter()
                 .any(|a| !matches!(a.kind(), "keyword_argument" | "dictionary_splat"));
+            // Weak (#636): the owner scores the positional ORM clause as a defused TP.
             (c.receiver.is_some() && clause && !logger)
-                .then(|| SinkHit::new("py-sql-clause", "CWE-89"))
+                .then(|| SinkHit::new("py-sql-clause", "CWE-89").weak_if(true))
         }
         "text" => {
             let from_sqlalchemy = module == Some("sqlalchemy");

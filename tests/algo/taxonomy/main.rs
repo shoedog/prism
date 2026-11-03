@@ -24,4 +24,5 @@ mod taint_sink_rules_js_test;
 mod taint_sink_rules_other_test;
 mod taint_sink_rules_py_test;
 mod taint_sink_rules_support;
+mod taint_sink_strength_test;
 mod taint_sink_test;

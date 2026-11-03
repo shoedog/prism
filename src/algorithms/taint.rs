@@ -11498,11 +11498,22 @@ pub fn slice(
             build_taint_chain_diagram(file, *line, &sink_text, file, *line, &sink_text, &[])
         };
 
+        // #636: a sink whose argument shape defuses it is reported at `suggestion`.
+        let severity = ctx.files.get(file.as_str()).map_or("warning", |parsed| {
+            let structured_sql = match structured_sink_outcome(parsed, *line, None) {
+                SinkMatchOutcome::Match(p) => Some(p.category == SanitizerCategory::Sqli),
+                _ => None,
+            };
+            let is_extra = |t: &str| extra_sinks.iter().any(|s| matches_sink(t, s));
+            sink_classifier
+                .line_strength(file, parsed, *line, structured_sql, &is_extra)
+                .severity()
+        });
         let mut finding = SliceFinding {
             algorithm: "taint".to_string(),
             file: file.clone(),
             line: *line,
-            severity: "warning".to_string(),
+            severity: severity.to_string(),
             description: format!(
                 "tainted value from {} reaches sink at line {}",
                 source_desc, line

@@ -10,7 +10,7 @@
 //! the high-severity names. Bindings are resolved lexically (`js_scope`), so a
 //! parameter that shadows a module name never inherits the module's meaning.
 
-use super::callee::{args, callee_of, chain_names, chain_tail, literal_string, peel, Src};
+use super::callee::{args, callee_of, chain_names, chain_tail, literal_string, peel, Callee, Src};
 use super::js_scope::{is_reassigned, resolve, Binding};
 use super::SinkHit;
 use crate::frameworks::CallSite;
@@ -247,6 +247,30 @@ fn is_global(p: Src<'_>, receiver: Node<'_>) -> bool {
     chain_tail(p, receiver).is_some_and(|t| GLOBALS.contains(&t))
 }
 
+/// A `js-db-call` hit, weak when the query argument is constant text (#636).
+fn db_hit(p: Src<'_>, from: Node<'_>, c: &Callee<'_>) -> Option<SinkHit> {
+    let constant = args(c.call)
+        .first()
+        .is_some_and(|q| is_constant_query(p, from, *q));
+    Some(SinkHit::new("js-db-call", "CWE-89").weak_if(constant))
+}
+
+/// True when `q` is a string literal (a template without `${}` counts) or an identifier whose
+/// only binding is a declaration initialised with one and never reassigned.
+fn is_constant_query(p: Src<'_>, from: Node<'_>, q: Node<'_>) -> bool {
+    if literal_string(p, q).is_some() {
+        return true;
+    }
+    if q.kind() != "identifier" {
+        return false;
+    }
+    let name = p.node_text(&q);
+    matches!(
+        resolve(p, from, name),
+        Binding::Var { init: Some(i) } if literal_string(p, i).is_some()
+    ) && !is_reassigned(p, from, name)
+}
+
 fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
     Some(SinkHit::new(rule, cwe))
 }
@@ -302,7 +326,7 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
                     .last()
                     .is_some_and(|n| DB_HANDLES.contains(&lower(n).as_str()))
             {
-                return hit("js-db-call", "CWE-89");
+                return db_hit(p, id, &c);
             }
             hit("js-exec-call", "CWE-78")
         }
@@ -319,10 +343,10 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
                     if string_raw || any_name(&names, LOGGERS) {
                         None
                     } else {
-                        hit("js-db-call", "CWE-89")
+                        db_hit(p, id, &c)
                     }
                 }
-                None => hit("js-db-call", "CWE-89"),
+                None => db_hit(p, id, &c),
             }
         }
         "redirect" => {

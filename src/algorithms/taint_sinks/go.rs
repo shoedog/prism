@@ -164,6 +164,14 @@ fn is_constant_format(p: Src<'_>, facts: &Facts, node: Node<'_>) -> bool {
     }
 }
 
+/// True when a SQL query argument is constant text: a literal (or literal concatenation) or a
+/// `const` that is not shadowed. Taint then reaches the call only as a bound parameter (#636).
+fn is_constant_query(p: Src<'_>, node: Node<'_>) -> bool {
+    is_literal_concat(p, node)
+        || (node.kind() == "identifier"
+            && matches!(resolve(p, node, p.node_text(&node)), GoBind::Const))
+}
+
 /// True when `arg` is a writer: `c.Writer`, or a parameter typed `...Writer`
 /// (`http.ResponseWriter`, `io.Writer`) of an enclosing function.
 fn is_writer(p: Src<'_>, arg: Node<'_>) -> bool {
@@ -206,8 +214,12 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
             let request = recv_node
                 .and_then(|r| declared_type(p, r))
                 .is_some_and(|t| REQUEST_TYPES.iter().any(|q| t.contains(q)));
-            (!list.is_empty() && !request && !local_func)
-                .then(|| SinkHit::new("go-db-call", "CWE-89"))
+            (!list.is_empty() && !request && !local_func).then(|| {
+                // The query text sits after the context argument of the `...Context` forms.
+                let query = list.get(usize::from(n.ends_with("Context")));
+                SinkHit::new("go-db-call", "CWE-89")
+                    .weak_if(query.is_some_and(|q| is_constant_query(p, *q)))
+            })
         }
         "Command" | "CommandContext" => {
             let ok = match recv {
@@ -237,8 +249,7 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
         "HTML" => {
             // Framework contexts fire too: echo `c.HTML(code, s)` and iris `ctx.HTML(s)` write a
             // raw string. A 3-argument call on a value receiver, not a package (`c.HTML(code, name, data)`, gin)
-            // renders an auto-escaping template: tagged `go-html-render` so a later tier can
-            // grade it weak. Everything else keeps `go-template-html`.
+            // renders an auto-escaping template: tagged `go-html-render` and graded weak (#636). Everything else keeps `go-template-html`.
             let ok = !matches!(recv, Recv::Bare) && !list.is_empty();
             let render = list.len() == 3 && matches!(recv, Recv::Value);
             ok.then(|| {
@@ -250,6 +261,7 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
                     },
                     "CWE-79",
                 )
+                .weak_if(render)
             })
         }
         "WriteFile" | "Rename" | "Chmod" | "Chown" | "Remove" | "RemoveAll" => {
