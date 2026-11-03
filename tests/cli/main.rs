@@ -18,6 +18,7 @@ mod sarif_shape_test;
 mod sarif_test;
 mod skills_test;
 mod taint_reaches_test;
+mod taint_sink_strength_view_test;
 mod targets_test;
 mod validation_test;
 mod version_test;

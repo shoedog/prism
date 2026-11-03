@@ -7,7 +7,8 @@
 //! with no argument such as `model.eval()` / `platform.system()`).
 
 use super::callee::{args, callee_of, chain_names, literal_string, walk, Callee, Src};
-use super::py_scope::{is_rebound, resolve, PyBind};
+use super::py_scope::{is_rebound, resolve, PyBind, Sites};
+use super::sqla;
 use super::SinkHit;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
@@ -94,12 +95,17 @@ pub(super) struct Facts {
     /// Local name -> module (`o` -> `os`).
     modules: BTreeMap<String, String>,
     /// Local name -> (module, original name).
-    names: BTreeMap<String, (String, String)>,
+    pub(super) names: BTreeMap<String, (String, String)>,
+    /// Binding-site census of the file (library identity and local resolution).
+    pub(super) sites: Sites,
 }
 
 impl Facts {
     pub(super) fn collect(p: Src<'_>, root: Node<'_>) -> Self {
-        let mut facts = Facts::default();
+        let mut facts = Facts {
+            sites: Sites::collect(p, root),
+            ..Facts::default()
+        };
         walk(root, &mut |node| match node.kind() {
             "import_statement" => facts.import(p, node),
             "import_from_statement" => facts.import_from(p, node),
@@ -342,6 +348,13 @@ fn split_top(text: &str, sep: char) -> Vec<&str> {
     out
 }
 
+/// A `py-db-call` hit, weak only on proof (#636 design A): the query is a string literal
+/// without interpolation, or proves as a statement by the closed allow-list in `sqla`.
+fn db_hit(p: Src<'_>, facts: &Facts, query: Option<Node<'_>>) -> SinkHit {
+    let weak = query.is_some_and(|q| sqla::stmt_weak(p, facts, q));
+    SinkHit::new("py-db-call", "CWE-89").weak_if(weak)
+}
+
 fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
     Some(SinkHit::new(rule, cwe))
 }
@@ -383,12 +396,14 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
             (module == Some("subprocess")).then(|| SinkHit::new("py-subprocess", "CWE-78"))
         }
         n if SQL_METHODS.contains(&n) || n == "raw" => {
-            (nargs > 0 && !logger && !local_def).then(|| SinkHit::new("py-db-call", "CWE-89"))
+            (nargs > 0 && !logger && !local_def).then(|| db_hit(p, facts, query_sql_arg(p, c.call)))
         }
         n if PANDAS_SQL.contains(&n) => hit("py-db-call", "CWE-89"),
-        "query" => query_sql_arg(p, c.call)
-            .is_some_and(|a| is_sql_text(p, a))
-            .then(|| SinkHit::new("py-db-call", "CWE-89")),
+        "query" => {
+            let arg = query_sql_arg(p, c.call).filter(|a| is_sql_text(p, *a))?;
+            let weak = sqla::query_weak(p, facts, arg);
+            Some(SinkHit::new("py-db-call", "CWE-89").weak_if(weak))
+        }
         // ORM clause entry points: the clause argument is where raw SQL can enter.
         // Keyword-only calls (`Model.objects.filter(pk=x)`, `filter_by(id=x)`) are
         // parameterised lookups, not clauses. A positional expression such as
@@ -397,8 +412,11 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
             let clause = args(c.call)
                 .iter()
                 .any(|a| !matches!(a.kind(), "keyword_argument" | "dictionary_splat"));
-            (c.receiver.is_some() && clause && !logger)
-                .then(|| SinkHit::new("py-sql-clause", "CWE-89"))
+            // Weak (#636): the owner scores the positional ORM clause as a defused TP, when
+            // the whole chain proves by the allow-list.
+            (c.receiver.is_some() && clause && !logger).then(|| {
+                SinkHit::new("py-sql-clause", "CWE-89").weak_if(sqla::clause_weak(p, facts, c.call))
+            })
         }
         "text" => {
             let from_sqlalchemy = module == Some("sqlalchemy");

@@ -10,7 +10,10 @@
 //! the high-severity names. Bindings are resolved lexically (`js_scope`), so a
 //! parameter that shadows a module name never inherits the module's meaning.
 
-use super::callee::{args, callee_of, chain_names, chain_tail, literal_string, peel, Src};
+use super::callee::{
+    args, binding_scope, callee_of, chain_names, chain_tail, count_idents, literal_string, peel,
+    walk, Callee, Src,
+};
 use super::js_scope::{is_reassigned, resolve, Binding};
 use super::SinkHit;
 use crate::frameworks::CallSite;
@@ -247,6 +250,58 @@ fn is_global(p: Src<'_>, receiver: Node<'_>) -> bool {
     chain_tail(p, receiver).is_some_and(|t| GLOBALS.contains(&t))
 }
 
+/// A `js-db-call` hit, weak when the query argument is constant text (#636).
+fn db_hit(p: Src<'_>, from: Node<'_>, c: &Callee<'_>) -> Option<SinkHit> {
+    // `createQueryBuilder('alias')` takes an entity alias as argument 0, not SQL text.
+    let text_arg0 = p.node_text(&from) != "createQueryBuilder";
+    let constant = text_arg0
+        && args(c.call)
+            .first()
+            .is_some_and(|q| is_constant_query(p, from, *q));
+    Some(SinkHit::new("js-db-call", "CWE-89").weak_if(constant))
+}
+
+/// True when `q` is a string literal (a template without `${}` counts) or an identifier whose
+/// only binding is a declaration initialised with one and never reassigned.
+fn is_constant_query(p: Src<'_>, from: Node<'_>, q: Node<'_>) -> bool {
+    if literal_string(p, q).is_some() {
+        return true;
+    }
+    if q.kind() != "identifier" {
+        return false;
+    }
+    let name = p.node_text(&q);
+    let Binding::Var { init: Some(i) } = resolve(p, from, name) else {
+        return false;
+    };
+    if literal_string(p, i).is_none() || is_reassigned(p, from, name) {
+        return false;
+    }
+    // Exactly one declarator of the name in scope: a later `var` redeclaration is a write.
+    // Parameters count too: a parameter read before a later `var q = 'lit'` is the caller's.
+    let mut declarators = 0;
+    walk(binding_scope(from, i), &mut |n| match n.kind() {
+        "variable_declarator" => {
+            if let Some(target) = n.child_by_field_name("name") {
+                declarators += count_idents(p, target, name);
+            }
+        }
+        "formal_parameters" => declarators += count_idents(p, n, name),
+        "catch_clause" => {
+            if let Some(param) = n.child_by_field_name("parameter") {
+                declarators += count_idents(p, param, name);
+            }
+        }
+        "arrow_function" => {
+            if let Some(single) = n.child_by_field_name("parameter") {
+                declarators += count_idents(p, single, name);
+            }
+        }
+        _ => {}
+    });
+    declarators == 1
+}
+
 fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
     Some(SinkHit::new(rule, cwe))
 }
@@ -302,7 +357,7 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
                     .last()
                     .is_some_and(|n| DB_HANDLES.contains(&lower(n).as_str()))
             {
-                return hit("js-db-call", "CWE-89");
+                return db_hit(p, id, &c);
             }
             hit("js-exec-call", "CWE-78")
         }
@@ -319,10 +374,10 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
                     if string_raw || any_name(&names, LOGGERS) {
                         None
                     } else {
-                        hit("js-db-call", "CWE-89")
+                        db_hit(p, id, &c)
                     }
                 }
-                None => hit("js-db-call", "CWE-89"),
+                None => db_hit(p, id, &c),
             }
         }
         "redirect" => {

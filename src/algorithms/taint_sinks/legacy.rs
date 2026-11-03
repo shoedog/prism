@@ -65,5 +65,6 @@ pub(super) fn legacy_hit(
         .then_some(super::SinkHit {
             rule: "legacy",
             cwe: None,
+            strength: super::Strength::Strong,
         })
 }

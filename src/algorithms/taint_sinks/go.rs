@@ -7,7 +7,10 @@
 //! such as `u.Query()`, a receiver declared as an HTTP request or framework
 //! context, a container receiver for `Remove`, a lexically shadowed binding).
 
-use super::callee::{args, callee_of, chain_names, chain_tail, is_literal_concat, peel, walk, Src};
+use super::callee::{
+    args, binding_scope, callee_of, chain_names, chain_tail, count_idents, is_literal_concat, peel,
+    walk, Src,
+};
 use super::go_scope::{resolve, GoBind};
 use super::SinkHit;
 use std::collections::BTreeMap;
@@ -144,6 +147,11 @@ fn declared_type<'a>(p: Src<'a>, r: Node<'_>) -> Option<&'a str> {
     }
 }
 
+/// True when a declared type is exactly `gin.Context` or `*gin.Context` (not `plugin.Context`).
+fn is_gin_context(ty: &str) -> bool {
+    ty.trim().trim_start_matches('*').trim() == "gin.Context"
+}
+
 /// True when the format argument is a literal, a literal concatenation, a `const`
 /// that is not shadowed, or a name qualified by an imported package
 /// (`constant.Prompt`; a package-level name is a constant in practice, unlike a
@@ -162,6 +170,74 @@ fn is_constant_format(p: Src<'_>, facts: &Facts, node: Node<'_>) -> bool {
         }),
         _ => false,
     }
+}
+
+/// True when a SQL query argument is constant text: a literal (or literal concatenation) or a
+/// `const` that is not shadowed. Taint then reaches the call only as a bound parameter (#636).
+fn is_constant_query(p: Src<'_>, node: Node<'_>) -> bool {
+    if is_literal_concat(p, node) {
+        return true;
+    }
+    if node.kind() != "identifier" {
+        return false;
+    }
+    let name = p.node_text(&node);
+    match resolve(p, node, name) {
+        // A package or local constant is proof only with no binding or write of the name in
+        // the enclosing function (shadowing and escapes included).
+        GoBind::Const => binding_count(p, outer_function(node), name) == 0,
+        // `query := "..."` / `var query = "..."`, never written again in the file.
+        GoBind::Var {
+            own_init: Some(i), ..
+        } => is_literal_concat(p, i) && binding_count(p, binding_scope(node, i), name) == 1,
+        _ => false,
+    }
+}
+
+/// The outermost function around `node`, else the file.
+fn outer_function(node: Node<'_>) -> Node<'_> {
+    let (mut root, mut func) = (node, None);
+    while let Some(parent) = root.parent() {
+        if matches!(
+            parent.kind(),
+            "function_declaration" | "method_declaration" | "func_literal"
+        ) {
+            func = Some(parent);
+        }
+        root = parent;
+    }
+    func.unwrap_or(root)
+}
+
+/// Number of bindings of `name` in `scope`: every tree-sitter-go node that declares or writes a
+/// name (declarations, parameters, assignments, `++`/`--`, `range`, `case q = <-ch` / `case q :=
+/// <-ch`, a type-switch alias) plus `&name`, which lets a callee write through the pointer. A query is constant only when its one declaration is the whole story.
+fn binding_count(p: Src<'_>, scope: Node<'_>, name: &str) -> usize {
+    let mut count = 0;
+    walk(scope, &mut |n| {
+        let targets: Vec<Node<'_>> = match n.kind() {
+            "short_var_declaration"
+            | "assignment_statement"
+            | "range_clause"
+            | "receive_statement" => n.child_by_field_name("left").into_iter().collect(),
+            "type_switch_statement" => n.child_by_field_name("alias").into_iter().collect(),
+            "unary_expression"
+                if n.child_by_field_name("operator").map(|o| p.node_text(&o)) == Some("&") =>
+            {
+                n.child_by_field_name("operand").into_iter().collect()
+            }
+            "inc_dec_statement" => n.named_child(0).into_iter().collect(),
+            "var_spec" | "parameter_declaration" | "variadic_parameter_declaration" => {
+                let mut c = n.walk();
+                n.children_by_field_name("name", &mut c).collect()
+            }
+            _ => Vec::new(),
+        };
+        for t in targets {
+            count += count_idents(p, t, name);
+        }
+    });
+    count
 }
 
 /// True when `arg` is a writer: `c.Writer`, or a parameter typed `...Writer`
@@ -206,8 +282,12 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
             let request = recv_node
                 .and_then(|r| declared_type(p, r))
                 .is_some_and(|t| REQUEST_TYPES.iter().any(|q| t.contains(q)));
-            (!list.is_empty() && !request && !local_func)
-                .then(|| SinkHit::new("go-db-call", "CWE-89"))
+            (!list.is_empty() && !request && !local_func).then(|| {
+                // The query text sits after the context argument of the `...Context` forms.
+                let query = list.get(usize::from(n.ends_with("Context")));
+                SinkHit::new("go-db-call", "CWE-89")
+                    .weak_if(query.is_some_and(|q| is_constant_query(p, *q)))
+            })
         }
         "Command" | "CommandContext" => {
             let ok = match recv {
@@ -237,10 +317,15 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
         "HTML" => {
             // Framework contexts fire too: echo `c.HTML(code, s)` and iris `ctx.HTML(s)` write a
             // raw string. A 3-argument call on a value receiver, not a package (`c.HTML(code, name, data)`, gin)
-            // renders an auto-escaping template: tagged `go-html-render` so a later tier can
-            // grade it weak. Everything else keeps `go-template-html`.
+            // renders an auto-escaping template: tagged `go-html-render` and graded weak (#636). Everything else keeps `go-template-html`.
             let ok = !matches!(recv, Recv::Bare) && !list.is_empty();
             let render = list.len() == 3 && matches!(recv, Recv::Value);
+            // Weak only for the gin shape (#636): a receiver declared exactly `gin.Context` or
+            // `*gin.Context` (package-qualified identity). A status code argument is no proof of
+            // an escaping renderer, and iris `HTML(format, a, b)` writes raw formatted HTML.
+            let gin = recv_node
+                .and_then(|r| declared_type(p, r))
+                .is_some_and(is_gin_context);
             ok.then(|| {
                 SinkHit::new(
                     if render {
@@ -250,6 +335,7 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
                     },
                     "CWE-79",
                 )
+                .weak_if(render && gin)
             })
         }
         "WriteFile" | "Rename" | "Chmod" | "Chown" | "Remove" | "RemoveAll" => {

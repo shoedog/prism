@@ -91,6 +91,10 @@ pub struct CompactReviewOutput {
     pub algorithm: String,
     pub slices: Vec<CompactReviewBlock>,
     pub findings: Vec<SliceFinding>,
+    /// Findings the severity floor hid, `suggestion` and above (see [`count_below_floor`]).
+    /// Omitted when zero, so output that hides nothing is unchanged.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub findings_below_floor: usize,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -107,6 +111,9 @@ pub struct CompactMultiReviewOutput {
     pub algorithms_run: Vec<String>,
     pub results: Vec<CompactReviewOutput>,
     pub all_findings: Vec<SliceFinding>,
+    /// See [`CompactReviewOutput::findings_below_floor`].
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub findings_below_floor: usize,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<AlgorithmError>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -115,6 +122,23 @@ pub struct CompactMultiReviewOutput {
     pub parse_quality: BTreeMap<String, FileParseQuality>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagram_warnings: Vec<DiagramWarning>,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
+}
+
+/// Findings of severity `suggestion` or above that the floor `min_severity_rank` hides (#636).
+/// `info` findings (a `taint_source` accompanying each sink) are context, not a view tier, so
+/// they are never counted.
+pub fn count_below_floor(findings: &[SliceFinding], min_severity_rank: u8) -> usize {
+    findings
+        .iter()
+        .filter(|f| {
+            let rank = severity_rank(&f.severity);
+            rank >= 1 && rank < min_severity_rank
+        })
+        .count()
 }
 
 /// Clear `diagrams` from every finding in place, leaving every other field
@@ -198,6 +222,7 @@ pub fn to_compact_review_output(
         algorithm: result.algorithm.name().to_string(),
         slices,
         findings: retained_findings,
+        findings_below_floor: count_below_floor(&result.findings, min_severity_rank),
         warnings: result.warnings.clone(),
         parse_quality: BTreeMap::new(),
         diagrams: if no_diagrams {

@@ -22,6 +22,6 @@ pub use review::{
     ReviewBlock, ReviewOutput,
 };
 pub use review_compact::{
-    severity_rank, strip_finding_diagrams, to_compact_review_output, CompactMultiReviewOutput,
-    CompactReviewBlock, CompactReviewOutput,
+    count_below_floor, severity_rank, strip_finding_diagrams, to_compact_review_output,
+    CompactMultiReviewOutput, CompactReviewBlock, CompactReviewOutput,
 };
