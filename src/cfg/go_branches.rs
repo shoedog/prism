@@ -3,7 +3,7 @@
 //! In particular, completing an arm never enters its sibling. Case anchors
 //! represent value/communication evaluation; fallthrough skips that evaluation.
 //! Jumps and normal completion use the same structural successor lookup.
-use super::go_jumps::{successor, Successor};
+use super::go_jumps::{entry, successor, Successor};
 use super::{CfgEdge, EdgeSink};
 use crate::{ast::ParsedFile, go_statements, languages::Language};
 use tree_sitter::Node;
@@ -39,34 +39,14 @@ impl<'tree> Builder<'_, 'tree> {
     fn after(&self, node: Node<'_>) -> Option<usize> {
         match successor(node, self.owner, self.lines) {
             Successor::Line(line) => Some(line),
-            Successor::Exit => None,
-            Successor::Unknown => {
-                // Preserve ordinary fall-through across non-anchor syntax
-                // (e.g. x++) and into bare blocks. Jumps deliberately keep
-                // the strict lookup: they may not guess across such syntax.
-                let mut next = go_statements::next_named_sibling(node);
-                let mut last = None;
-                while let Some(sibling) = next {
-                    if sibling.kind() != "comment" {
-                        if let Some(line) = self.entry(sibling) {
-                            return Some(line);
-                        }
-                        last = Some(sibling);
-                    }
-                    next = go_statements::next_named_sibling(sibling);
-                }
-                last.and_then(|last| self.after(last))
-            }
+            Successor::Exit | Successor::Unknown => None,
         }
     }
     fn entry(&self, node: Node<'_>) -> Option<usize> {
-        if node.kind() == "block" {
-            return go_statements::children(node, Language::Go)
-                .filter(|n| n.is_named() && n.kind() != "comment")
-                .find_map(|child| self.entry(child));
+        match entry(node, self.owner, self.lines) {
+            Successor::Line(line) => Some(line),
+            Successor::Exit | Successor::Unknown => None,
         }
-        let line = node.start_position().row + 1;
-        self.lines.binary_search(&line).ok().map(|_| line)
     }
     fn sequence(&mut self, node: Node<'tree>) {
         for child in go_statements::children(node, Language::Go)

@@ -1,0 +1,15 @@
+package p
+func f(a, b bool, i int, v interface{}, ch chan int, xs []int) int {
+x := seed() // def
+if a {
+g() // probe
+i++
+// intervening comment
+;
+type T int
+i--
+} else {
+g() // arm
+}
+return x // use
+}

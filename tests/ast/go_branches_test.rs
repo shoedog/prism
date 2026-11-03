@@ -32,7 +32,7 @@ fn parsed(name: &str) -> ParsedFile {
     )
     .unwrap()
 }
-fn snapshot(path: &Path) -> Value {
+pub(super) fn snapshot(path: &Path) -> Value {
     let file = path.file_name().unwrap().to_str().unwrap();
     let source = std::fs::read_to_string(path).unwrap();
     let parsed = ParsedFile::parse(file, &source, Language::Go).unwrap();
