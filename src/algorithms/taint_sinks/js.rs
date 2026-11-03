@@ -287,6 +287,11 @@ fn is_constant_query(p: Src<'_>, from: Node<'_>, q: Node<'_>) -> bool {
             }
         }
         "formal_parameters" => declarators += count_idents(p, n, name),
+        "catch_clause" => {
+            if let Some(param) = n.child_by_field_name("parameter") {
+                declarators += count_idents(p, param, name);
+            }
+        }
         "arrow_function" => {
             if let Some(single) = n.child_by_field_name("parameter") {
                 declarators += count_idents(p, single, name);

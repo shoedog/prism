@@ -68,10 +68,6 @@ pub(super) fn line_has_raw(p: Src<'_>, f: &Facts, id: Node<'_>) -> bool {
     } else {
         None
     };
-    // A bare callee imported from another library is that library's function (D1).
-    if bare_import.is_some_and(|(m, x)| lib_path(m, x).is_none()) {
-        return false;
-    }
     let orig = bare_import.map_or(name, |(_, o)| o.as_str());
     orig != "raw"
         && t::BELT.contains(&orig)
@@ -117,6 +113,7 @@ pub(super) struct Proof<'a> {
     pub(super) f: &'a Facts,
     hops: Cell<u8>,
     pub(super) defs: Cell<u8>,
+    pub(super) storing: Cell<u8>,
     fuel: Cell<u32>,
     /// Proofs that held, by (initializer start, class): a name used many times is proven once.
     proven: RefCell<BTreeSet<(usize, u8)>>,
@@ -131,6 +128,7 @@ impl<'a> Proof<'a> {
             f,
             hops: Cell::new(0),
             defs: Cell::new(0),
+            storing: Cell::new(0),
             fuel: Cell::new(FUEL),
             proven: RefCell::default(),
         }

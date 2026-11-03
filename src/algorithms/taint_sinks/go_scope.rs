@@ -12,6 +12,10 @@ pub(super) enum GoBind<'t> {
     /// `name := init` / `var name T`.
     Var {
         init: Option<Node<'t>>,
+        /// The initializer paired with this very name (`None` when the value count differs):
+        /// read only by the constant-query proof. `init` keeps its historical meaning (the first
+        /// value) so rule presence is unchanged.
+        own_init: Option<Node<'t>>,
         /// The declared type of `var name T`.
         ty: Option<Node<'t>>,
     },
@@ -78,7 +82,11 @@ fn in_init<'t>(p: Src<'_>, stmt: Node<'t>, name: &str) -> Option<GoBind<'t>> {
                 } else {
                     right.and_then(|r| r.named_child(i))
                 };
-                return Some(GoBind::Var { init, ty: None });
+                return Some(GoBind::Var {
+                    init,
+                    own_init: init,
+                    ty: None,
+                });
             }
         }
     }
@@ -89,8 +97,10 @@ fn in_init<'t>(p: Src<'_>, stmt: Node<'t>, name: &str) -> Option<GoBind<'t>> {
             let mut ids = left.walk();
             for (i, l) in left.named_children(&mut ids).enumerate() {
                 if l.kind() == "identifier" && p.node_text(&l) == name {
+                    let init = right.and_then(|r| r.named_child(i));
                     return Some(GoBind::Var {
-                        init: right.and_then(|r| r.named_child(i)),
+                        init,
+                        own_init: init,
                         ty: None,
                     });
                 }
@@ -146,8 +156,10 @@ fn in_statements<'t>(
                 let mut ids = left.walk();
                 for (i, l) in left.named_children(&mut ids).enumerate() {
                     if l.kind() == "identifier" && p.node_text(&l) == name {
+                        let init = right.and_then(|r| r.named_child(i));
                         return Some(GoBind::Var {
-                            init: right.and_then(|r| r.named_child(i)),
+                            init,
+                            own_init: init,
                             ty: None,
                         });
                     }
@@ -191,12 +203,13 @@ fn in_specs<'t>(p: Src<'_>, decl: Node<'t>, name: &str, is_const: bool) -> Optio
             return Some(if is_const {
                 GoBind::Const
             } else {
-                // Each name pairs with its own initializer; a multi-name spec whose value
-                // count differs (`var a, b = f()`) gives no initializer to any of them.
+                // `init` is the first value (rule presence is unchanged); `own_init` pairs each
+                // name with its own value and is `None` when the counts differ.
                 let values = s.child_by_field_name("value");
-                let init = values.filter(|v| v.named_child_count() == declared.len());
+                let own = values.filter(|v| v.named_child_count() == declared.len());
                 GoBind::Var {
-                    init: init.and_then(|v| v.named_child(at)),
+                    init: values.and_then(|v| v.named_child(0)),
+                    own_init: own.and_then(|v| v.named_child(at)),
                     ty: s.child_by_field_name("type"),
                 }
             });

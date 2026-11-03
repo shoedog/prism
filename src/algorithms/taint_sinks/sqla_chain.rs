@@ -72,11 +72,22 @@ impl<'a> Proof<'a> {
             }
             "identifier" => match self.local(n, self.text(n)) {
                 Local::Multi => false,
-                Local::One(Bound::Assign(v)) if peel(v).kind() == "call" => {
-                    self.hop(|| self.inner_chain(v))
-                }
+                // A local root is proven whatever its initializer form; unpacking and walrus
+                // bindings refuse.
+                Local::One(Bound::Assign(v)) => self.hop(|| self.inner_chain(v)),
+                Local::One(Bound::Opaque | Bound::Declared) => false,
                 _ => true,
             },
+            "conditional_expression" => {
+                n.named_child(0).is_none_or(|b| self.inner_chain(b))
+                    && n.named_child(2).is_none_or(|e| self.inner_chain(e))
+            }
+            "boolean_operator" => {
+                n.child_by_field_name("left")
+                    .is_none_or(|l| self.inner_chain(l))
+                    && n.child_by_field_name("right")
+                        .is_none_or(|r| self.inner_chain(r))
+            }
             _ => true,
         }
     }

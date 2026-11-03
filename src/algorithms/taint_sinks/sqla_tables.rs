@@ -294,6 +294,10 @@ pub(super) const BELT: &[&str] = &[
     "custom_op",
     "prefix_with",
     "suffix_with",
+    "with_hint",
+    "with_statement_hint",
+    "from_statement",
+    "with_dialect_options",
 ];
 
 /// A statement-typed annotation (`stmt: sa.Select`).

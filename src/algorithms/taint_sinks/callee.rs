@@ -306,7 +306,11 @@ pub(super) fn binding_scope<'a>(from: Node<'a>, decl: Node<'a>) -> Node<'a> {
 pub(super) fn count_idents(p: Src<'_>, node: Node<'_>, name: &str) -> usize {
     let mut n = 0;
     walk(node, &mut |m| {
-        if m.kind() == "identifier" && p.node_text(&m) == name {
+        if matches!(
+            m.kind(),
+            "identifier" | "shorthand_property_identifier_pattern"
+        ) && p.node_text(&m) == name
+        {
             n += 1;
         }
     });

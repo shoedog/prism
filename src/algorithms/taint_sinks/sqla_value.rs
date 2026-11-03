@@ -12,6 +12,15 @@ use super::sqla_tables as t;
 use tree_sitter::Node;
 
 const MAX_DEFS: u8 = 2;
+const MUTATORS: &[&str] = &[
+    "append",
+    "extend",
+    "insert",
+    "update",
+    "setdefault",
+    "add",
+    "__setitem__",
+];
 
 impl<'a> Proof<'a> {
     // ---- values ----------------------------------------------------------------------------
@@ -80,7 +89,8 @@ impl<'a> Proof<'a> {
                 Bound::Param(_) => !self.stores_to(n),
                 Bound::Loop(it) => {
                     // D1: a loop target is data. An iterable built in place (a display or a
-                    // comprehension) is still checked, so `for c in [literal_column(s)]` is Strong.
+                    // comprehension), directly or through one local name, is still checked, so
+                    // `for c in [literal_column(s)]` is Strong.
                     let built_here = |e: Node<'_>| {
                         matches!(
                             peel(e).kind(),
@@ -94,7 +104,17 @@ impl<'a> Proof<'a> {
                                 | "generator_expression"
                         )
                     };
-                    !self.stores_to(n) && it.is_none_or(|e| !built_here(e) || self.value(e))
+                    let iterable_ok = |e: Node<'_>| {
+                        let e = peel(e);
+                        if e.kind() == "identifier" {
+                            if let Local::One(Bound::Assign(v)) = self.local(e, self.text(e)) {
+                                return !built_here(v) || self.hop_memo(b'v', v, || self.value(v));
+                            }
+                            return true;
+                        }
+                        !built_here(e) || self.value(e)
+                    };
+                    !self.stores_to(n) && it.is_none_or(iterable_ok)
                 }
                 Bound::Import(..) | Bound::Def(_) => true,
                 Bound::Opaque | Bound::Declared => false,
@@ -105,7 +125,11 @@ impl<'a> Proof<'a> {
     /// `req.args["q"]`, `row.id`, `foo().bar`: data rooted at a name or a call.
     pub(super) fn chain_value(&self, n: Node<'_>) -> bool {
         let mut cur = n;
+        let mut near_root = None;
         while matches!(cur.kind(), "attribute" | "subscript") {
+            if cur.kind() == "attribute" {
+                near_root = cur.child_by_field_name("attribute");
+            }
             if cur.kind() == "subscript" {
                 let mut c = cur.walk();
                 let ok = cur
@@ -125,7 +149,57 @@ impl<'a> Proof<'a> {
                 None => return false,
             }
         }
+        if cur.kind() == "identifier" && matches!(self.text(cur), "self" | "cls") {
+            if let Some(a) = near_root {
+                if !self.self_attr_ok(cur, self.text(a)) {
+                    return false;
+                }
+            }
+        }
         self.value(cur)
+    }
+
+    /// D1a: an attribute of `self`/`cls` is built by the class itself: every assignment to it in
+    /// the enclosing class must be a value, and a method of that name (a property) must return one.
+    pub(super) fn self_attr_ok(&self, at: Node<'_>, attr: &str) -> bool {
+        let mut cur = at.parent();
+        while let Some(c) = cur.filter(|c| c.kind() != "class_definition") {
+            cur = c.parent();
+        }
+        let Some(class) = cur else {
+            return true;
+        };
+        let mut rhs = Vec::new();
+        walk(class, &mut |n| {
+            if matches!(n.kind(), "assignment" | "augmented_assignment") {
+                let left = n.child_by_field_name("left");
+                let hit = left.is_some_and(|l| {
+                    l.kind() == "attribute"
+                        && l.child_by_field_name("object")
+                            .is_some_and(|o| matches!(self.text(o), "self" | "cls"))
+                        && l.child_by_field_name("attribute")
+                            .is_some_and(|x| self.text(x) == attr)
+                });
+                if hit {
+                    rhs.push(n.child_by_field_name("right"));
+                }
+            }
+        });
+        rhs.into_iter()
+            .all(|r| r.is_none_or(|r| self.hop_memo(b'v', r, || self.value(r))))
+            && self
+                .enclosing_method(at, attr)
+                .is_none_or(|d| self.def_returns(d))
+    }
+
+    /// One call argument (positional or keyword) as a value.
+    pub(super) fn value_arg(&self, a: Node<'_>) -> bool {
+        match a.kind() {
+            "keyword_argument" => a
+                .child_by_field_name("value")
+                .is_some_and(|x| self.value(x)),
+            _ => self.value(a),
+        }
     }
 
     pub(super) fn args_value(&self, call: Node<'_>) -> bool {
@@ -172,7 +246,14 @@ impl<'a> Proof<'a> {
                 !t::BELT.contains(&name) && self.args_value(call)
             }
             // Another module's function: its return is out of model (D1).
-            Local::One(Bound::Import(..)) => self.args_value(call),
+            // A belt name or a SQL-library member is never data, even when file-wide identity
+            // trust failed (another binding of the spelling).
+            Local::One(Bound::Import(m, x)) => {
+                !t::BELT.contains(&x.as_str())
+                    && !t::BELT.contains(&name)
+                    && t::lib_path(&m, &x).is_none()
+                    && self.args_value(call)
+            }
             Local::One(Bound::Def(d)) => {
                 (d.kind() == "class_definition" || self.def_returns(d)) && self.args_value(call)
             }
@@ -208,8 +289,12 @@ impl<'a> Proof<'a> {
         if builder {
             return self.expr_call(call);
         }
-        if t::find(t::COLUMN_METHODS, m).is_some() && self.expr_call(call) {
-            return true;
+        // A receiver that proves as a clause admits only listed column methods, with their
+        // argument classes: never the generic data rule (`User.name.collate(c)`).
+        if let Some(en) = t::find(t::COLUMN_METHODS, m) {
+            if self.clause(obj) {
+                return self.args_ok(call, en);
+            }
         }
         if obj.kind() == "identifier" && matches!(self.text(obj), "self" | "cls") {
             if let Some(d) = self.enclosing_method(call, m) {
@@ -283,6 +368,18 @@ impl<'a> Proof<'a> {
     /// The function around `ident` (or the file) stores to the object `ident` names:
     /// `o.x = ..`, `o[k] = ..`, `setattr(o, ..)`.
     pub(super) fn stores_to(&self, ident: Node<'_>) -> bool {
+        // A mutator store checks its own arguments, which may name the object again.
+        let depth = self.storing.get();
+        if depth >= 3 {
+            return true;
+        }
+        self.storing.set(depth + 1);
+        let found = self.stores_scan(ident);
+        self.storing.set(depth);
+        found
+    }
+
+    fn stores_scan(&self, ident: Node<'_>) -> bool {
         let name = self.text(ident);
         let (mut func, mut root, mut cur) = (None, ident, ident.parent());
         while let Some(n) = cur {
@@ -317,6 +414,17 @@ impl<'a> Proof<'a> {
                 }
             }
             "call" => {
+                let mutates = n.child_by_field_name("function").is_some_and(|f| {
+                    f.kind() == "attribute"
+                        && f.child_by_field_name("attribute")
+                            .is_some_and(|m| MUTATORS.contains(&self.text(m)))
+                        && f.child_by_field_name("object").is_some_and(rooted)
+                });
+                // A mutator store matters only when what it stores is not a value
+                // (`ids.append(row.id)` leaves `ids` data).
+                if mutates && !args(n).iter().all(|a| self.value_arg(*a)) {
+                    found = true;
+                }
                 let is_setattr = n
                     .child_by_field_name("function")
                     .is_some_and(|f| self.text(f) == "setattr");

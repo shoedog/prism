@@ -61,6 +61,11 @@ fn declared_in<'t>(p: Src<'_>, scope: Node<'t>, name: &str) -> Option<Binding<'t
         | "generator_function"
         | "generator_function_declaration" => in_params(p, scope, name),
         "statement_block" | "program" => in_block(p, scope, name),
+        // `catch (q)` binds the error object for the whole clause.
+        "catch_clause" => scope
+            .child_by_field_name("parameter")
+            .filter(|param| contains_ident(p, *param, name))
+            .map(|_| Binding::Other),
         _ => None,
     }
 }

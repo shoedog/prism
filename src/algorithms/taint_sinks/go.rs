@@ -183,13 +183,42 @@ fn is_constant_query(p: Src<'_>, node: Node<'_>) -> bool {
     }
     let name = p.node_text(&node);
     match resolve(p, node, name) {
-        GoBind::Const => true,
+        GoBind::Const => !receive_binds(p, node, name),
         // `query := "..."` / `var query = "..."`, never written again in the file.
-        GoBind::Var { init: Some(i), .. } => {
-            is_literal_concat(p, i) && binding_count(p, binding_scope(node, i), name) == 1
+        GoBind::Var {
+            own_init: Some(i), ..
+        } => {
+            is_literal_concat(p, i)
+                && binding_count(p, binding_scope(node, i), name) == 1
+                && !receive_binds(p, node, name)
         }
         _ => false,
     }
+}
+
+/// A `case name = <-ch` or `case name := <-ch` receive in the enclosing function writes or
+/// shadows `name`.
+fn receive_binds(p: Src<'_>, node: Node<'_>, name: &str) -> bool {
+    let mut root = node;
+    let mut func = None;
+    while let Some(parent) = root.parent() {
+        if matches!(
+            parent.kind(),
+            "function_declaration" | "method_declaration" | "func_literal"
+        ) {
+            func = Some(parent);
+        }
+        root = parent;
+    }
+    let mut found = false;
+    walk(func.unwrap_or(root), &mut |n| {
+        if n.kind() == "receive_statement" {
+            if let Some(left) = n.child_by_field_name("left") {
+                found |= count_idents(p, left, name) > 0;
+            }
+        }
+    });
+    found
 }
 
 /// Number of bindings of `name` in `scope` (declarations of every form, parameters, and writes
