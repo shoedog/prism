@@ -190,6 +190,11 @@ impl ParsedFile {
                 } else {
                     Self::legacy_open_arm(&child, alloc, arms)
                 };
+                if go_anchor(self.language, kind) {
+                    arms.of_line
+                        .entry(child.start_position().row + 1)
+                        .or_insert(child_arm);
+                }
                 self.legacy_collect_statement_arms(child, child_arm, alloc, arms);
                 self.legacy_collect_nested_statement_arms(child, child_arm, alloc, arms);
                 if newly_opened {
@@ -290,6 +295,9 @@ impl ParsedFile {
                 || kind == "match_arm"
                 || self.language.statement_wrapper_kinds().contains(&kind)
             {
+                if go_anchor(self.language, kind) {
+                    out.push((child.start_position().row + 1, kind.to_string()));
+                }
                 self.legacy_collect_statements(child, out);
                 self.legacy_collect_nested_statements(child, out);
             } else if self.language.is_control_flow_node(kind) {
@@ -322,6 +330,14 @@ impl ParsedFile {
                 || kind == "match_arm"
                 || self.language.statement_wrapper_kinds().contains(&kind)
             {
+                if go_anchor(self.language, kind) {
+                    out.push(StatementSpan {
+                        line: child.start_position().row + 1,
+                        kind: kind.to_string(),
+                        start_byte: child.start_byte(),
+                        end_byte: child.end_byte(),
+                    });
+                }
                 self.legacy_collect_statement_spans(child, out);
                 self.legacy_collect_nested_statement_spans(child, out);
             } else if self.language.is_control_flow_node(kind) {
@@ -357,4 +373,20 @@ fn legacy_children(node: Node<'_>, language: crate::languages::Language) -> Vec<
         }
     }
     out
+}
+
+// #645 intentionally adds these anchors; retain the independent recursive
+// traversal/adapter as the oracle for visitation, order, spans and arm IDs.
+fn go_anchor(language: crate::languages::Language, kind: &str) -> bool {
+    language == crate::languages::Language::Go
+        && matches!(
+            kind,
+            "expression_switch_statement"
+                | "type_switch_statement"
+                | "select_statement"
+                | "expression_case"
+                | "type_case"
+                | "communication_case"
+                | "default_case"
+        )
 }

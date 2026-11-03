@@ -411,6 +411,19 @@ fn declaration_seed(
         }
         let rule = binding_scope_rule(parsed.language, node.kind());
         if let Some(kind) = rule.declaration {
+            // A header alias twin keeps t's span but names x in `t := x`.
+            // Dispatch must not make it a new switch/if-scoped x binding.
+            if parsed.language == Language::Go
+                && def.alias_derived
+                && node.parent().is_some_and(|p| {
+                    matches!(
+                        p.kind(),
+                        "if_statement" | "expression_switch_statement" | "type_switch_statement"
+                    )
+                })
+            {
+                return None;
+            }
             let value = if kind == DeclarationKind::PythonAssignment {
                 parsed.language.assignment_value(&node)
             } else {

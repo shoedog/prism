@@ -103,7 +103,7 @@ fn go_jump_labels_and_edge_keys() {
     let changes = read("label_changes.jsonl");
     let changed_stats = read("expected_stats.jsonl");
     assert_eq!(actual.len(), base.len());
-    assert_eq!(changes.len(), 35, "audit every expected label change");
+    assert_eq!(changes.len(), 53, "audit every expected label change");
     let mut failures = Vec::new();
     for (a, b) in actual.iter().zip(&base) {
         assert_eq!(a["file"], b["file"]);

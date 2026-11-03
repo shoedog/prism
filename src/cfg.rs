@@ -14,6 +14,7 @@ use crate::languages::Language;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+mod go_branches;
 mod go_jumps;
 
 /// A control flow edge between two source lines within a function.
@@ -209,6 +210,13 @@ fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Edge
     let stmt_map: BTreeMap<usize, &str> = stmts.iter().map(|(l, k)| (*l, k.as_str())).collect();
     let stmt_lines: Vec<usize> = stmts.iter().map(|(l, _)| *l).collect();
 
+    if parsed.language == Language::Go {
+        go_branches::build(func_node, parsed, &stmt_lines, edges);
+        build_go_edges(func_node, parsed, edges);
+        go_jumps::build(func_node, parsed, &stmt_lines, edges);
+        return;
+    }
+
     // Sequential fall-through: connect consecutive statements unless the
     // predecessor is a terminator
     for i in 0..stmt_lines.len().saturating_sub(1) {
@@ -246,12 +254,6 @@ fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Edge
     // Python: for/else, while/else, try/except/finally
     if matches!(parsed.language, Language::Python) {
         build_python_edges(func_node, parsed, &stmt_lines, edges);
-    }
-
-    // Go: defer, select
-    if matches!(parsed.language, Language::Go) {
-        build_go_edges(func_node, parsed, &stmt_lines, edges);
-        go_jumps::build(func_node, parsed, &stmt_lines, edges);
     }
 
     // Rust: match arms, ? operator early-return
@@ -537,12 +539,11 @@ fn build_python_edges(
     }
 }
 
-/// Go: defer edges (return → deferred stmts), select statement.
+/// Go: defer edges (return → deferred stmts).
 ///
 /// `defer` statements execute at function exit. We add edges from each
 /// return point to each defer statement in the function.
-/// `select` is similar to switch — each case is a branch target.
-fn build_go_edges(node: Node<'_>, parsed: &ParsedFile, stmt_lines: &[usize], edges: &mut EdgeSink) {
+fn build_go_edges(node: Node<'_>, parsed: &ParsedFile, edges: &mut EdgeSink) {
     // Only process at function level — collect all defers and returns
     let func_types = parsed.language.function_node_types();
     if !func_types.contains(&node.kind()) {
@@ -563,9 +564,6 @@ fn build_go_edges(node: Node<'_>, parsed: &ParsedFile, stmt_lines: &[usize], edg
             });
         }
     }
-
-    // select statement: like switch, condition → each case
-    collect_go_select_edges(node, parsed, stmt_lines, edges);
 }
 
 fn collect_go_defer_return(
@@ -583,42 +581,6 @@ fn collect_go_defer_return(
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         collect_go_defer_return(child, parsed, defer_lines, return_lines);
-    }
-}
-
-fn collect_go_select_edges(
-    node: Node<'_>,
-    parsed: &ParsedFile,
-    stmt_lines: &[usize],
-    edges: &mut EdgeSink,
-) {
-    if node.kind() == "select_statement" {
-        let select_line = node.start_position().row + 1;
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            if child.kind() == "communication_case" || child.kind() == "default_case" {
-                if let Some(first) = first_statement_line(&child, parsed) {
-                    edges.push(CfgEdge {
-                        file: parsed.path.clone(),
-                        from_line: select_line,
-                        to_line: first,
-                    });
-                }
-            }
-        }
-        // select exit → next statement
-        let select_end = node.end_position().row + 1;
-        if let Some(&next) = stmt_lines.iter().find(|&&l| l > select_end) {
-            edges.push(CfgEdge {
-                file: parsed.path.clone(),
-                from_line: select_line,
-                to_line: next,
-            });
-        }
-    }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        collect_go_select_edges(child, parsed, stmt_lines, edges);
     }
 }
 

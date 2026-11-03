@@ -124,7 +124,7 @@ fn construct<'tree>(
     None
 }
 
-enum Successor {
+pub(super) enum Successor {
     Line(usize),
     Exit,
     Unknown,
@@ -132,7 +132,7 @@ enum Successor {
 
 /// Leave syntax, not a globally sorted line range: a terminal statement may
 /// resume a loop or leave an arm without ever entering the alternative arm.
-fn successor(mut node: Node<'_>, owner: Node<'_>, lines: &[usize]) -> Successor {
+pub(super) fn successor(mut node: Node<'_>, owner: Node<'_>, lines: &[usize]) -> Successor {
     loop {
         let Some(parent) = go_statements::parent(node) else {
             return Successor::Unknown;

@@ -53,21 +53,21 @@
 {"case": "00_write_only_lines", "def_line": 16, "function": "f", "keep": true, "path": "v", "reason": "keep", "use_line": 18}
 {"case": "00_write_only_lines", "def_line": 16, "function": "f", "keep": true, "path": "v", "reason": "keep", "use_line": 19}
 {"case": "00_write_only_lines", "def_line": 17, "function": "f", "keep": false, "path": "v.f", "reason": "write_only", "use_line": 18}
-{"case": "01_case_scoped_var", "def_line": 5, "function": "parse", "keep": true, "path": "n", "reason": "keep", "use_line": 8}
-{"case": "01_case_scoped_var", "def_line": 5, "function": "parse", "keep": true, "path": "yyS", "reason": "keep", "use_line": 10}
-{"case": "01_case_scoped_var", "def_line": 5, "function": "parse", "keep": true, "path": "yyS", "reason": "keep", "use_line": 15}
-{"case": "01_case_scoped_var", "def_line": 5, "function": "parse", "keep": true, "path": "yyS", "reason": "keep", "use_line": 20}
-{"case": "01_case_scoped_var", "def_line": 6, "function": "parse", "keep": true, "path": "yyVAL", "reason": "keep", "use_line": 13}
-{"case": "01_case_scoped_var", "def_line": 6, "function": "parse", "keep": true, "path": "yyVAL", "reason": "keep", "use_line": 18}
-{"case": "01_case_scoped_var", "def_line": 6, "function": "parse", "keep": true, "path": "yyVAL", "reason": "keep", "use_line": 23}
-{"case": "01_case_scoped_var", "def_line": 6, "function": "parse", "keep": true, "path": "yyVAL", "reason": "keep", "use_line": 25}
+{"case": "01_case_scoped_var", "def_line": 5, "function": "parse", "keep": true, "label": "Exact", "path": "n", "reason": "keep", "use_line": 8}
+{"case": "01_case_scoped_var", "def_line": 5, "function": "parse", "keep": true, "label": "Exact", "path": "yyS", "reason": "keep", "use_line": 10}
+{"case": "01_case_scoped_var", "def_line": 5, "function": "parse", "keep": true, "label": "Exact", "path": "yyS", "reason": "keep", "use_line": 15}
+{"case": "01_case_scoped_var", "def_line": 5, "function": "parse", "keep": true, "label": "Exact", "path": "yyS", "reason": "keep", "use_line": 20}
+{"case": "01_case_scoped_var", "def_line": 6, "function": "parse", "keep": true, "label": "Exact", "path": "yyVAL", "reason": "keep", "use_line": 13}
+{"case": "01_case_scoped_var", "def_line": 6, "function": "parse", "keep": true, "label": "Exact", "path": "yyVAL", "reason": "keep", "use_line": 18}
+{"case": "01_case_scoped_var", "def_line": 6, "function": "parse", "keep": true, "label": "Exact", "path": "yyVAL", "reason": "keep", "use_line": 23}
+{"case": "01_case_scoped_var", "def_line": 6, "function": "parse", "keep": true, "label": "Exact", "path": "yyVAL", "reason": "keep", "use_line": 25}
 {"case": "01_case_scoped_var", "def_line": 7, "function": "parse", "keep": false, "path": "yyDollar", "reason": "write_only", "use_line": 10}
 {"case": "01_case_scoped_var", "def_line": 7, "function": "parse", "keep": false, "path": "yyDollar", "reason": "dominated", "use_line": 12}
 {"case": "01_case_scoped_var", "def_line": 7, "function": "parse", "keep": false, "path": "yyDollar", "reason": "write_only", "use_line": 15}
 {"case": "01_case_scoped_var", "def_line": 7, "function": "parse", "keep": false, "path": "yyDollar", "reason": "write_only", "use_line": 20}
 {"case": "01_case_scoped_var", "def_line": 7, "function": "parse", "keep": false, "path": "yyDollar", "reason": "dominated", "use_line": 22}
 {"case": "01_case_scoped_var", "def_line": 10, "function": "parse", "keep": false, "path": "yyDollar", "reason": "write_only", "use_line": 7}
-{"case": "01_case_scoped_var", "def_line": 10, "function": "parse", "keep": true, "path": "yyDollar", "reason": "keep", "use_line": 12}
+{"case": "01_case_scoped_var", "def_line": 10, "function": "parse", "keep": true, "label": "Exact", "path": "yyDollar", "reason": "keep", "use_line": 12}
 {"case": "01_case_scoped_var", "def_line": 10, "function": "parse", "keep": false, "path": "yyDollar", "reason": "write_only", "use_line": 15}
 {"case": "01_case_scoped_var", "def_line": 10, "function": "parse", "keep": false, "path": "yyDollar", "reason": "write_only", "use_line": 20}
 {"case": "01_case_scoped_var", "def_line": 10, "function": "parse", "keep": false, "path": "yyDollar", "reason": "dominated", "use_line": 22}
@@ -80,7 +80,7 @@
 {"case": "01_case_scoped_var", "def_line": 11, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "dominated", "use_line": 22}
 {"case": "01_case_scoped_var", "def_line": 11, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "dominated", "use_line": 23}
 {"case": "01_case_scoped_var", "def_line": 12, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 11}
-{"case": "01_case_scoped_var", "def_line": 12, "function": "parse", "keep": true, "path": "yyLOCAL", "reason": "keep", "use_line": 13}
+{"case": "01_case_scoped_var", "def_line": 12, "function": "parse", "keep": true, "label": "Exact", "path": "yyLOCAL", "reason": "keep", "use_line": 13}
 {"case": "01_case_scoped_var", "def_line": 12, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 16}
 {"case": "01_case_scoped_var", "def_line": 12, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 17}
 {"case": "01_case_scoped_var", "def_line": 12, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "dominated", "use_line": 18}
@@ -106,7 +106,7 @@
 {"case": "01_case_scoped_var", "def_line": 17, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 12}
 {"case": "01_case_scoped_var", "def_line": 17, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "dominated", "use_line": 13}
 {"case": "01_case_scoped_var", "def_line": 17, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 16}
-{"case": "01_case_scoped_var", "def_line": 17, "function": "parse", "keep": true, "path": "yyLOCAL", "reason": "keep", "use_line": 18}
+{"case": "01_case_scoped_var", "def_line": 17, "function": "parse", "keep": true, "label": "Exact", "path": "yyLOCAL", "reason": "keep", "use_line": 18}
 {"case": "01_case_scoped_var", "def_line": 17, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 21}
 {"case": "01_case_scoped_var", "def_line": 17, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "dominated", "use_line": 22}
 {"case": "01_case_scoped_var", "def_line": 17, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "dominated", "use_line": 23}
@@ -115,14 +115,14 @@
 {"case": "01_case_scoped_var", "def_line": 20, "function": "parse", "keep": false, "path": "yyDollar", "reason": "write_only", "use_line": 10}
 {"case": "01_case_scoped_var", "def_line": 20, "function": "parse", "keep": false, "path": "yyDollar", "reason": "dominated", "use_line": 12}
 {"case": "01_case_scoped_var", "def_line": 20, "function": "parse", "keep": false, "path": "yyDollar", "reason": "write_only", "use_line": 15}
-{"case": "01_case_scoped_var", "def_line": 20, "function": "parse", "keep": true, "path": "yyDollar", "reason": "keep", "use_line": 22}
+{"case": "01_case_scoped_var", "def_line": 20, "function": "parse", "keep": true, "label": "Exact", "path": "yyDollar", "reason": "keep", "use_line": 22}
 {"case": "01_case_scoped_var", "def_line": 21, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 11}
 {"case": "01_case_scoped_var", "def_line": 21, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 12}
 {"case": "01_case_scoped_var", "def_line": 21, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "dominated", "use_line": 13}
 {"case": "01_case_scoped_var", "def_line": 21, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 16}
 {"case": "01_case_scoped_var", "def_line": 21, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 17}
 {"case": "01_case_scoped_var", "def_line": 21, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "dominated", "use_line": 18}
-{"case": "01_case_scoped_var", "def_line": 21, "function": "parse", "keep": true, "path": "yyLOCAL", "reason": "keep", "use_line": 22}
+{"case": "01_case_scoped_var", "def_line": 21, "function": "parse", "keep": true, "label": "Exact", "path": "yyLOCAL", "reason": "keep", "use_line": 22}
 {"case": "01_case_scoped_var", "def_line": 21, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "dominated", "use_line": 23}
 {"case": "01_case_scoped_var", "def_line": 22, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 11}
 {"case": "01_case_scoped_var", "def_line": 22, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 12}
@@ -131,20 +131,20 @@
 {"case": "01_case_scoped_var", "def_line": 22, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 17}
 {"case": "01_case_scoped_var", "def_line": 22, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "dominated", "use_line": 18}
 {"case": "01_case_scoped_var", "def_line": 22, "function": "parse", "keep": false, "path": "yyLOCAL", "reason": "write_only", "use_line": 21}
-{"case": "01_case_scoped_var", "def_line": 22, "function": "parse", "keep": true, "path": "yyLOCAL", "reason": "keep", "use_line": 23}
-{"case": "02_case_dollar_only", "def_line": 4, "function": "f", "keep": true, "path": "n", "reason": "keep", "use_line": 5}
+{"case": "01_case_scoped_var", "def_line": 22, "function": "parse", "keep": true, "label": "Exact", "path": "yyLOCAL", "reason": "keep", "use_line": 23}
+{"case": "02_case_dollar_only", "def_line": 4, "function": "f", "keep": true, "label": "Exact", "path": "n", "reason": "keep", "use_line": 5}
 {"case": "02_case_dollar_only", "def_line": 4, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 7}
 {"case": "02_case_dollar_only", "def_line": 4, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 8}
 {"case": "02_case_dollar_only", "def_line": 4, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 10}
 {"case": "02_case_dollar_only", "def_line": 4, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 11}
-{"case": "02_case_dollar_only", "def_line": 7, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 4}
-{"case": "02_case_dollar_only", "def_line": 7, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 8}
+{"case": "02_case_dollar_only", "def_line": 7, "function": "f", "keep": true, "label": {"NameOnly": "CfgIncomplete"}, "path": "x", "reason": "keep", "use_line": 4}
+{"case": "02_case_dollar_only", "def_line": 7, "function": "f", "keep": true, "label": "Exact", "path": "x", "reason": "keep", "use_line": 8}
 {"case": "02_case_dollar_only", "def_line": 7, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 10}
 {"case": "02_case_dollar_only", "def_line": 7, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 11}
-{"case": "02_case_dollar_only", "def_line": 10, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 4}
+{"case": "02_case_dollar_only", "def_line": 10, "function": "f", "keep": true, "label": {"NameOnly": "CfgIncomplete"}, "path": "x", "reason": "keep", "use_line": 4}
 {"case": "02_case_dollar_only", "def_line": 10, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 7}
 {"case": "02_case_dollar_only", "def_line": 10, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 8}
-{"case": "02_case_dollar_only", "def_line": 10, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 11}
+{"case": "02_case_dollar_only", "def_line": 10, "function": "f", "keep": true, "label": "Exact", "path": "x", "reason": "keep", "use_line": 11}
 {"case": "03_switch_in_goto_loop", "def_line": 5, "function": "parse", "keep": true, "path": "n", "reason": "keep", "use_line": 9}
 {"case": "03_switch_in_goto_loop", "def_line": 5, "function": "parse", "keep": true, "path": "n", "reason": "keep", "use_line": 26}
 {"case": "03_switch_in_goto_loop", "def_line": 5, "function": "parse", "keep": true, "path": "yyS", "reason": "keep", "use_line": 11}
@@ -312,22 +312,22 @@
 {"case": "17_select_case_regions", "def_line": 13, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 10}
 {"case": "17_select_case_regions", "def_line": 13, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 11}
 {"case": "17_select_case_regions", "def_line": 13, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 14}
-{"case": "17_type_switch_case_regions", "def_line": 4, "function": "f", "keep": true, "path": "v", "reason": "keep", "use_line": 5}
-{"case": "17_type_switch_case_regions", "def_line": 7, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 8}
+{"case": "17_type_switch_case_regions", "def_line": 4, "function": "f", "keep": true, "label": "Exact", "path": "v", "reason": "keep", "use_line": 5}
+{"case": "17_type_switch_case_regions", "def_line": 7, "function": "f", "keep": true, "label": "Exact", "path": "x", "reason": "keep", "use_line": 8}
 {"case": "17_type_switch_case_regions", "def_line": 7, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 10}
 {"case": "17_type_switch_case_regions", "def_line": 7, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 11}
 {"case": "17_type_switch_case_regions", "def_line": 7, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 13}
 {"case": "17_type_switch_case_regions", "def_line": 7, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 14}
 {"case": "17_type_switch_case_regions", "def_line": 10, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 7}
 {"case": "17_type_switch_case_regions", "def_line": 10, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 8}
-{"case": "17_type_switch_case_regions", "def_line": 10, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 11}
+{"case": "17_type_switch_case_regions", "def_line": 10, "function": "f", "keep": true, "label": "Exact", "path": "x", "reason": "keep", "use_line": 11}
 {"case": "17_type_switch_case_regions", "def_line": 10, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 13}
 {"case": "17_type_switch_case_regions", "def_line": 10, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 14}
 {"case": "17_type_switch_case_regions", "def_line": 13, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 7}
 {"case": "17_type_switch_case_regions", "def_line": 13, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 8}
 {"case": "17_type_switch_case_regions", "def_line": 13, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 10}
 {"case": "17_type_switch_case_regions", "def_line": 13, "function": "f", "keep": false, "path": "x", "reason": "dominated", "use_line": 11}
-{"case": "17_type_switch_case_regions", "def_line": 13, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 14}
+{"case": "17_type_switch_case_regions", "def_line": 13, "function": "f", "keep": true, "label": "Exact", "path": "x", "reason": "keep", "use_line": 14}
 {"case": "18_assignment_in_if_init", "def_line": 5, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 6}
 {"case": "19_loop_carried_child_window", "def_line": 2, "function": "f", "keep": true, "path": "c", "reason": "keep", "use_line": 4}
 {"case": "19_loop_carried_child_window", "def_line": 2, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 3}
@@ -339,21 +339,21 @@
 {"case": "19_loop_carried_child_window", "def_line": 6, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 2}
 {"case": "19_loop_carried_child_window", "def_line": 6, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 3}
 {"case": "19_loop_carried_child_window", "def_line": 6, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 5}
-{"case": "20_fallthrough", "def_line": 2, "function": "keep", "keep": true, "path": "n", "reason": "keep", "use_line": 3}
+{"case": "20_fallthrough", "def_line": 2, "function": "keep", "keep": true, "label": "Exact", "path": "n", "reason": "keep", "use_line": 3}
 {"case": "20_fallthrough", "def_line": 2, "function": "keep", "keep": false, "path": "x", "reason": "write_only", "use_line": 5}
-{"case": "20_fallthrough", "def_line": 2, "function": "keep", "keep": true, "path": "x", "reason": "keep", "use_line": 8}
-{"case": "20_fallthrough", "def_line": 5, "function": "keep", "keep": true, "path": "x", "reason": "keep", "use_line": 2}
-{"case": "20_fallthrough", "def_line": 5, "function": "keep", "keep": true, "path": "x", "reason": "keep", "use_line": 8}
-{"case": "20_fallthrough", "def_line": 11, "function": "overwrite", "keep": true, "path": "n", "reason": "keep", "use_line": 12}
+{"case": "20_fallthrough", "def_line": 2, "function": "keep", "keep": true, "label": "Exact", "path": "x", "reason": "keep", "use_line": 8}
+{"case": "20_fallthrough", "def_line": 5, "function": "keep", "keep": true, "label": {"NameOnly": "CfgIncomplete"}, "path": "x", "reason": "keep", "use_line": 2}
+{"case": "20_fallthrough", "def_line": 5, "function": "keep", "keep": true, "label": "Exact", "path": "x", "reason": "keep", "use_line": 8}
+{"case": "20_fallthrough", "def_line": 11, "function": "overwrite", "keep": true, "label": "Exact", "path": "n", "reason": "keep", "use_line": 12}
 {"case": "20_fallthrough", "def_line": 11, "function": "overwrite", "keep": false, "path": "x", "reason": "write_only", "use_line": 14}
 {"case": "20_fallthrough", "def_line": 11, "function": "overwrite", "keep": false, "path": "x", "reason": "write_only", "use_line": 17}
 {"case": "20_fallthrough", "def_line": 11, "function": "overwrite", "keep": false, "path": "x", "reason": "dominated", "use_line": 18}
-{"case": "20_fallthrough", "def_line": 14, "function": "overwrite", "keep": true, "path": "x", "reason": "keep", "use_line": 11}
+{"case": "20_fallthrough", "def_line": 14, "function": "overwrite", "keep": true, "label": {"NameOnly": "CfgIncomplete"}, "path": "x", "reason": "keep", "use_line": 11}
 {"case": "20_fallthrough", "def_line": 14, "function": "overwrite", "keep": false, "path": "x", "reason": "write_only", "use_line": 17}
 {"case": "20_fallthrough", "def_line": 14, "function": "overwrite", "keep": false, "path": "x", "reason": "dominated", "use_line": 18}
-{"case": "20_fallthrough", "def_line": 17, "function": "overwrite", "keep": true, "path": "x", "reason": "keep", "use_line": 11}
+{"case": "20_fallthrough", "def_line": 17, "function": "overwrite", "keep": true, "label": {"NameOnly": "CfgIncomplete"}, "path": "x", "reason": "keep", "use_line": 11}
 {"case": "20_fallthrough", "def_line": 17, "function": "overwrite", "keep": false, "path": "x", "reason": "write_only", "use_line": 14}
-{"case": "20_fallthrough", "def_line": 17, "function": "overwrite", "keep": true, "path": "x", "reason": "keep", "use_line": 18}
+{"case": "20_fallthrough", "def_line": 17, "function": "overwrite", "keep": true, "label": "Exact", "path": "x", "reason": "keep", "use_line": 18}
 {"case": "21_field_base_reassigned_out_of_model", "def_line": 4, "function": "f", "keep": true, "path": "a", "reason": "keep", "use_line": 5}
 {"case": "21_field_base_reassigned_out_of_model", "def_line": 4, "function": "f", "keep": true, "path": "a", "reason": "keep", "use_line": 9}
 {"case": "21_field_base_reassigned_out_of_model", "def_line": 4, "function": "f", "keep": true, "path": "b", "reason": "keep", "use_line": 7}

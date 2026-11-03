@@ -283,7 +283,8 @@ mod stream;
 /// - v138: cap RD-unavailable fallback emissions and persist cap counters (#633).
 /// - v139: Go lexical U/D edge pruning and four persisted prune counters.
 /// - v140: Go goto and labeled/unlabeled break/continue CFG reaching labels.
-const CACHE_VERSION: u32 = 140;
+/// - v141: Go switch/select dispatch, case-value anchors and else-if entry.
+const CACHE_VERSION: u32 = 141;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -834,7 +835,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 140);
+        assert_eq!(super::CACHE_VERSION, 141);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

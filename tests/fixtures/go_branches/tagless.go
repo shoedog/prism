@@ -1,0 +1,10 @@
+package p
+func f(x int, n int, a bool, b bool, v interface{}, ch chan int) int {
+switch {
+case a:
+x = 1 // def
+default:
+x = 2 // sibling kill
+}
+return x // use
+}

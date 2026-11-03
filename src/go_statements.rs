@@ -2,6 +2,20 @@
 use crate::languages::Language;
 use tree_sitter::{Node, TreeCursor};
 
+/// Branch evaluation needs its own RD projection, including case-value reads.
+pub(crate) fn is_branch_anchor(kind: &str) -> bool {
+    matches!(
+        kind,
+        "expression_switch_statement"
+            | "type_switch_statement"
+            | "select_statement"
+            | "expression_case"
+            | "type_case"
+            | "communication_case"
+            | "default_case"
+    )
+}
+
 /// All direct children, with Go's `statement_list` replaced by its children.
 /// Keep case headers, comments and anonymous tokens in their original order.
 /// Other languages keep their native tree shape.

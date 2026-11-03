@@ -236,6 +236,13 @@ impl ParsedFile {
                 } else {
                     Self::open_arm(&child, alloc, arms)
                 };
+                if self.language == crate::languages::Language::Go
+                    && crate::go_statements::is_branch_anchor(kind)
+                {
+                    arms.of_line
+                        .entry(child.start_position().row + 1)
+                        .or_insert(child_arm);
+                }
                 self.collect_statement_arms(child, visits, child_arm, alloc, arms);
                 self.collect_nested_statement_arms(child, visits, child_arm, alloc, arms);
                 if newly_opened {
@@ -366,6 +373,11 @@ impl ParsedFile {
                 || kind == "match_arm"
                 || self.language.statement_wrapper_kinds().contains(&kind)
             {
+                if self.language == crate::languages::Language::Go
+                    && crate::go_statements::is_branch_anchor(kind)
+                {
+                    out.push((child.start_position().row + 1, kind.to_string()));
+                }
                 self.collect_statements(child, visits, out);
                 self.collect_nested_statements(child, visits, out);
             } else if self.language.is_control_flow_node(kind) {
@@ -408,6 +420,16 @@ impl ParsedFile {
                 || kind == "match_arm"
                 || self.language.statement_wrapper_kinds().contains(&kind)
             {
+                if self.language == crate::languages::Language::Go
+                    && crate::go_statements::is_branch_anchor(kind)
+                {
+                    out.push(StatementSpan {
+                        line: child.start_position().row + 1,
+                        kind: kind.to_string(),
+                        start_byte: child.start_byte(),
+                        end_byte: child.end_byte(),
+                    });
+                }
                 self.collect_statement_spans(child, visits, out);
                 self.collect_nested_statement_spans(child, visits, out);
             } else if self.language.is_control_flow_node(kind) {

@@ -31,9 +31,7 @@
         }
       }
     },
-    "new": {
-      "NameOnly": "CfgIncomplete"
-    }
+    "new": "Exact"
   },
   {
     "function": "missingCase",
@@ -47,9 +45,7 @@
         }
       }
     },
-    "new": {
-      "NameOnly": "CfgIncomplete"
-    }
+    "new": "Exact"
   },
   {
     "function": "missingCase",
@@ -63,9 +59,17 @@
         }
       }
     },
-    "new": {
+    "new": "Exact"
+  },
+  {
+    "function": "elseIf",
+    "path": "b",
+    "d": 108,
+    "u": 113,
+    "old": {
       "NameOnly": "CfgIncomplete"
-    }
+    },
+    "new": "Exact"
   },
   {
     "function": "elseIf",
@@ -79,9 +83,7 @@
         }
       }
     },
-    "new": {
-      "NameOnly": "CfgIncomplete"
-    }
+    "new": "Exact"
   },
   {
     "function": "elseRead",

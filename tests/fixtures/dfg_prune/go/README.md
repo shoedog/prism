@@ -29,3 +29,10 @@ is unchanged by this slice.
 Slice 2 pins row 07 `x:5→8` as Exact: `goto L` at 6 bypasses the kill at 7.
 Rows 03 and 08 retain all surviving labels; the complete main-bound label and
 edge-key comparison lives in `go_jumps_test` and `../../go_jumps`.
+
+Slice #645 adds explicit label expectations for branch survivors; keep/drop decisions and edge keys are unchanged:
+- Row 01: switch dispatch makes later case reads and the final yyVAL read reachable.
+- Row 02: the switch header now anchors its tag read.
+- Row 17 type switch: the switch header now anchors the interface read.
+- Row 20: explicit fallthrough reaches the next body; normal arms leave the switch.
+The full base-ea82911c endpoint and label receipts, including all other rows, are in `../../go_branches`.
