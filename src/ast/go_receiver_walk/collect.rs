@@ -177,7 +177,7 @@ fn call_rhs(p: &ParsedFile, n: Node<'_>) -> Result<String, ()> {
     if rhs.len() != 1 || rhs[0].kind() != "call_expression" {
         return Err(());
     }
-    let func = rhs[0].child_by_field_name("function").ok_or(())?;
+    let func = p.call_function_node(&rhs[0]).ok_or(())?;
     if !matches!(func.kind(), "identifier" | "selector_expression") {
         return Err(());
     }

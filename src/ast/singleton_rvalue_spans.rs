@@ -91,7 +91,7 @@ impl ParsedFile {
         if let Some(args) = self.language.call_arguments(&node) {
             self.collect_identifier_path_spans_scoped(args, scope, out);
         }
-        if let Some(name) = self.language.call_function_name(&node) {
+        if let Some(name) = self.call_value_name(&node) {
             self.push_identifier_path_span(name, out);
         }
     }

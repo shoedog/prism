@@ -7797,7 +7797,7 @@ fn js_ts_require_call_module(parsed: &ParsedFile, node: &Node<'_>) -> Option<Str
     if !parsed.language.is_call_node(node.kind()) {
         return None;
     }
-    let function = parsed.language.call_function_name(&node)?;
+    let function = parsed.call_function_name(&node)?;
     if parsed.node_text(&function) != "require" {
         return None;
     }

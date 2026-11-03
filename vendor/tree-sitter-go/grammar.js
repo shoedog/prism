@@ -692,7 +692,6 @@ module.exports = grammar({
     call_expression: $ => prec(PREC.primary, choice(
       seq(
         field('function', alias(choice('new', 'make'), $.identifier)),
-        field('type_arguments', optional($.type_arguments)),
         field('arguments', alias($.special_argument_list, $.argument_list)),
       ),
       seq(

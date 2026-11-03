@@ -58,37 +58,27 @@ fn generic_alias_preserves_name_type_and_new_parameter_field() {
 }
 
 #[test]
-fn shadowed_generic_new_and_make_retain_call_fields() {
-    clean(SHADOWED);
+fn shadowed_generic_new_and_make_are_documented_unsupported() {
+    // PR #193's special-call type_arguments hunk breaks ordinary new[i].
+    // The indexed fallback may parse, but the special builtin branch has no
+    // type_arguments field. Do not mistake a clean fallback for #189 support.
     let parsed = ParsedFile::parse("new.go", SHADOWED, Language::Go).unwrap();
+    assert_eq!(parsed.parse_error_count, 0);
     let mut pending = vec![parsed.tree.root_node()];
-    let mut calls = BTreeMap::new();
+    let mut indexed_new = 0;
     while let Some(node) = pending.pop() {
         if node.kind() == "call_expression" {
             let function = node.child_by_field_name("function").unwrap();
-            let types = node.child_by_field_name("type_arguments").unwrap();
-            let args = node.child_by_field_name("arguments").unwrap();
-            calls.insert(
-                parsed.node_text(&function).to_owned(),
-                (
-                    parsed.node_text(&types).to_owned(),
-                    parsed.node_text(&args).to_owned(),
-                ),
-            );
+            if parsed.node_text(&function) == "new[int]" {
+                assert_eq!(function.kind(), "index_expression");
+                assert!(node.child_by_field_name("type_arguments").is_none());
+                indexed_new += 1;
+            }
         }
         let mut cursor = node.walk();
-        pending.extend(node.children(&mut cursor));
+        pending.extend(node.named_children(&mut cursor));
     }
-    assert_eq!(
-        calls,
-        BTreeMap::from([
-            ("new".to_owned(), ("[int]".to_owned(), "(3)".to_owned())),
-            (
-                "make".to_owned(),
-                ("[[]int]".to_owned(), "([]int{})".to_owned())
-            ),
-        ])
-    );
+    assert_eq!(indexed_new, 1);
 }
 
 #[test]

@@ -25,8 +25,7 @@ impl ParsedFile {
                     if capture.index == call_idx {
                         let line = capture.node.start_position().row + 1;
                         if line_set.contains(&line) {
-                            if let Some(name_node) = self.language.call_function_name(&capture.node)
-                            {
+                            if let Some(name_node) = self.call_function_name(&capture.node) {
                                 let name = self.node_text(&name_node).to_string();
                                 result.entry(line).or_default().push(name);
                             }
@@ -50,7 +49,7 @@ impl ParsedFile {
     ) {
         let line = node.start_position().row + 1;
         if self.language.is_call_node(node.kind()) && lines.contains(&line) {
-            if let Some(name_node) = self.language.call_function_name(&node) {
+            if let Some(name_node) = self.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 out.entry(line).or_default().push(name);
             }

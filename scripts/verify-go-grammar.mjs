@@ -57,7 +57,14 @@ assert.equal(sha(readFileSync(join(baseline, 'grammar.js'))), sha(readFileSync(j
 const original = inventory(join(baseline, 'src'));
 run(cli, ['generate', '--abi', '15', '--js-runtime', process.execPath], baseline);
 assert.deepEqual(inventory(join(baseline, 'src')), original, 'unchanged published src/ generation drift');
-assert.equal(sha(readFileSync(join(vendor, 'grammar.js'))), sha(readFileSync(join(pr, 'grammar.js'))), 'authored grammar must be exactly PR #193');
+const originalGrammar = readFileSync(join(baseline, 'grammar.js'), 'utf8');
+const typeArgumentAnchor = "        $._type,\n        repeat(seq(',', $._expression)),";
+assert.equal(originalGrammar.split(typeArgumentAnchor).length, 2, 'unique special-argument anchor');
+const authoredGrammar = originalGrammar.replace(typeArgumentAnchor,
+  "        choice(\n          prec.dynamic(PREC.primary, $._type),\n          $._expression,\n        ),\n" +
+  "        repeat(seq(',', $._expression)),");
+assert.equal(readFileSync(join(vendor, 'grammar.js'), 'utf8'), authoredGrammar,
+  'authored grammar is published 0.25.0 plus only PR #193 special_argument_list');
 copyFileSync(join(vendor, 'grammar.js'), join(baseline, 'grammar.js'));
 run(cli, ['generate', '--abi', '15', '--js-runtime', process.execPath], baseline);
 const patched = inventory(join(baseline, 'src'));
