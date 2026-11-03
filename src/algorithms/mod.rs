@@ -25,6 +25,7 @@ pub mod resonance_slice;
 pub mod spiral_slice;
 pub mod symmetry_slice;
 pub mod taint;
+pub(crate) mod taint_sinks;
 pub mod thin_slice;
 pub mod threed_slice;
 pub mod vertical_slice;

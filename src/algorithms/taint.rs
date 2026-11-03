@@ -4,6 +4,7 @@
 //! propagates taint forward through assignments and function calls. Reports all
 //! paths from taint sources to potential sinks (SQL, exec, file ops, HTTP responses).
 
+use super::taint_sinks;
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cpg::{CodePropertyGraph, CpgContext};
@@ -1084,13 +1085,13 @@ pub const JS_CWE78_SINKS: &[SinkPattern] = &[
         call_path: "exec",
         category: SanitizerCategory::OsCommand,
         tainted_arg_indices: &[0],
-        semantic_check: None,
+        semantic_check: Some(taint_sinks::js_exec_call_is_command),
     },
     SinkPattern {
         call_path: "execSync",
         category: SanitizerCategory::OsCommand,
         tainted_arg_indices: &[0],
-        semantic_check: None,
+        semantic_check: Some(taint_sinks::js_exec_call_is_command),
     },
     SinkPattern {
         call_path: "spawn",
@@ -1225,7 +1226,7 @@ fn detect_ipc_sources(ctx: &CpgContext, diff: &DiffInput) -> Vec<(String, usize)
 /// Most patterns use substring matching (e.g. "exec" matches "execFile").
 /// Patterns prefixed with '=' require an exact identifier match
 /// (e.g. "=raw" matches "raw" but not "rawData" or "withdrawal").
-fn matches_sink(identifier: &str, pattern: &str) -> bool {
+pub(super) fn matches_sink(identifier: &str, pattern: &str) -> bool {
     if let Some(exact) = pattern.strip_prefix('=') {
         identifier == exact
     } else {
@@ -11101,10 +11102,13 @@ pub fn slice(
     // display text.
     let mut sink_to_path_evidence: BTreeMap<(String, usize), EvidencePath> = BTreeMap::new();
 
-    let all_sinks: Vec<&str> = SINK_PATTERNS
+    // Flat built-in sinks are decided by `taint_sinks` (call position and
+    // receiver, #622 S1); caller-supplied and wrapper sinks keep name matching.
+    let sink_classifier = taint_sinks::SinkClassifier::default();
+    let extra_sinks: Vec<&str> = taint_config
+        .extra_sinks
         .iter()
-        .copied()
-        .chain(taint_config.extra_sinks.iter().map(|s| s.as_str()))
+        .map(|s| s.as_str())
         .chain(wrapper_sinks.iter().map(|s| s.as_str()))
         .collect();
 
@@ -11180,7 +11184,10 @@ pub fn slice(
                     {
                         continue;
                     }
-                    if !all_sinks.iter().any(|s| matches_sink(text, s)) {
+                    let flat_sink = sink_classifier
+                        .classify(&edge.to.file, parsed, *id, text, SINK_PATTERNS)
+                        .is_some();
+                    if !flat_sink && !extra_sinks.iter().any(|s| matches_sink(text, s)) {
                         continue;
                     }
                     if is_js_ts_framework_source_line

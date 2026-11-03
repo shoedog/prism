@@ -1,0 +1,243 @@
+{
+  "lane": "Review taint sink rules: call position first, hybrid receivers (#622 S1)",
+  "source": "src/algorithms/taint_sinks/mod.rs",
+  "lib_test_prefixes": [
+    "algorithms::taint_sinks::"
+  ],
+  "mutations": {
+    "SR01-js-eval-logger-receiver-fires": [
+      "src/algorithms/taint_sinks/js.rs",
+      "Some(r) if any_name(&chain_names(p, r), LOGGERS) => None,",
+      "Some(_) if false => None,",
+      "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
+    ],
+    "SR02-js-regex-literal-not-proven": [
+      "src/algorithms/taint_sinks/js.rs",
+      "\"regex\" => true,",
+      "\"regex\" => false,",
+      "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
+    ],
+    "SR03-js-new-regexp-not-proven": [
+      "src/algorithms/taint_sinks/js.rs",
+      ".is_some_and(|c| p.node_text(&c) == \"RegExp\"),",
+      ".is_some_and(|c| p.node_text(&c) == \"RegExpX\"),",
+      "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
+    ],
+    "SR04-js-regex-binding-not-followed": [
+      "src/algorithms/taint_sinks/js.rs",
+      "Binding::Var { init: Some(i) } => depth < 3 && is_regexish(p, i, depth + 1),",
+      "Binding::Var { init: Some(_) } => false,",
+      "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
+    ],
+    "SR05-js-ts-regexp-annotation-ignored": [
+      "src/algorithms/taint_sinks/js.rs",
+      "} => p.node_text(&a).contains(\"RegExp\"),",
+      "} => false,",
+      "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
+    ],
+    "SR06-js-local-binding-not-followed-to-cp": [
+      "src/algorithms/taint_sinks/js.rs",
+      "Binding::Var { init: Some(i) } => is_cp_expr(p, i, depth + 1),",
+      "Binding::Var { .. } => true,",
+      "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
+    ],
+    "SR07-js-param-shadow-ignored": [
+      "src/algorithms/taint_sinks/js_scope.rs",
+      "        | \"generator_function_declaration\" => in_params(p, scope, name),",
+      "        | \"generator_function_declaration\" => None,",
+      "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
+    ],
+    "SR08-js-local-helper-still-sink": [
+      "src/algorithms/taint_sinks/js.rs",
+      "matches!(resolve(p, id, text), Binding::Function)",
+      "false",
+      "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
+    ],
+    "SR09-js-document-write-not-dom": [
+      "src/algorithms/taint_sinks/js.rs",
+      "if any_name(&names, &[\"document\"]) {",
+      "if false {",
+      "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
+    ],
+    "SR10-js-send-channel-fires": [
+      "src/algorithms/taint_sinks/js.rs",
+      "} else if any_name(&names, CHANNELS) || any_name(&names, LOGGERS) {",
+      "} else if false {",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR11-js-chain-through-call-lost": [
+      "src/algorithms/taint_sinks/callee.rs",
+      "\"call_expression\" | \"call\" => field(\"function\", out),",
+      "\"call_expression\" | \"call\" => {}",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR13-js-innerhtml-read-is-sink": [
+      "src/algorithms/taint_sinks/js.rs",
+      "is_assignment_target(member).then(|| SinkHit::new(\"js-dom-html\", \"CWE-79\"))",
+      "Some(SinkHit::new(\"js-dom-html\", \"CWE-79\"))",
+      "algorithms::taint_sinks::tests::js_rules_carry_cwe_tags"
+    ],
+    "SR14-js-location-read-is-sink": [
+      "src/algorithms/taint_sinks/js.rs",
+      "is_assignment_target(node).then(|| SinkHit::new(\"js-location\", \"CWE-601\"))",
+      "Some(SinkHit::new(\"js-location\", \"CWE-601\"))",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR15-js-set-needs-no-response": [
+      "src/algorithms/taint_sinks/js.rs",
+      "if !distinctive && !is_response(p, r) {",
+      "if false {",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR16-js-member-callee-property-unchecked": [
+      "src/algorithms/taint_sinks/callee.rs",
+      "if !is_field(parent, name_field, id) {",
+      "if false {",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR17-js-promisified-member-not-resolved": [
+      "src/algorithms/taint_sinks/js.rs",
+      "if t == \"promisify\" || t.ends_with(\".promisify\") {",
+      "if false {",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR18-js-dynamic-import-not-module-load": [
+      "src/algorithms/taint_sinks/js.rs",
+      ".is_some_and(|f| f.kind() == \"import\" || p.node_text(&f) == \"require\");",
+      ".is_some_and(|f| p.node_text(&f) == \"require\");",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR19-js-as-cast-not-peeled": [
+      "src/algorithms/taint_sinks/callee.rs",
+      "| \"as_expression\"\n            | \"satisfies_expression\"",
+      "| \"satisfies_expression\"",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR20-js-zero-arg-eval-is-sink": [
+      "src/algorithms/taint_sinks/js.rs",
+      "            if c.is_new || args(c.call).is_empty() {\n                return None;\n            }\n            match c.receiver {\n                None if is_local_helper(p, id, text) => None,\n                Some(r) if any_name",
+      "            if c.is_new {\n                return None;\n            }\n            match c.receiver {\n                None if is_local_helper(p, id, text) => None,\n                Some(r) if any_name",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR21-js-fs-remove-any-receiver": [
+      "src/algorithms/taint_sinks/js.rs",
+      "if any_name(&names, FS_LIKE) {",
+      "if true {",
+      "algorithms::taint_sinks::tests::js_receiver_and_position_rules"
+    ],
+    "SR22-py-getattr-literal-name-is-sink": [
+      "src/algorithms/taint_sinks/python.rs",
+      "(c.receiver.is_none() && !is_literal(p, name_arg))",
+      "c.receiver.is_none()",
+      "algorithms::taint_sinks::tests::python_and_go_rules_carry_cwe_tags"
+    ],
+    "SR23-py-run-any-receiver": [
+      "src/algorithms/taint_sinks/python.rs",
+      "(module == Some(\"subprocess\")).then(|| SinkHit::new(\"py-subprocess\", \"CWE-78\"))",
+      "true.then(|| SinkHit::new(\"py-subprocess\", \"CWE-78\"))",
+      "algorithms::taint_sinks::tests::python_rule_guards"
+    ],
+    "SR24-py-text-literal-is-sink": [
+      "src/algorithms/taint_sinks/python.rs",
+      "let from_sqlalchemy = module == Some(\"sqlalchemy\");\n            (from_sqlalchemy && args(c.call).first().is_some_and(|a| !is_literal(p, *a)))",
+      "let from_sqlalchemy = module == Some(\"sqlalchemy\");\n            (from_sqlalchemy)",
+      "algorithms::taint_sinks::tests::python_rule_guards"
+    ],
+    "SR25-py-zero-arg-eval-is-sink": [
+      "src/algorithms/taint_sinks/python.rs",
+      "(nargs > 0 && !logger && !local_def).then(|| SinkHit::new(\"py-eval\", \"CWE-95\"))",
+      "(!logger && !local_def).then(|| SinkHit::new(\"py-eval\", \"CWE-95\"))",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR26-py-import-alias-not-dispatched": [
+      "src/algorithms/taint_sinks/python.rs",
+      "let name = imported.map(|(_, orig)| orig.as_str()).unwrap_or(text);",
+      "let name = text;",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR27-py-local-def-still-sink": [
+      "src/algorithms/taint_sinks/python.rs",
+      "&& matches!(resolve(p, id, text), PyBind::Def);",
+      "&& false;",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR28-py-collection-binding-ignored": [
+      "src/algorithms/taint_sinks/python.rs",
+      "let collection = c.receiver.is_some_and(|r| is_collection(p, r));",
+      "let collection = false;",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR29-py-query-model-arg-is-sink": [
+      "src/algorithms/taint_sinks/python.rs",
+      "        \"identifier\" => p\n            .node_text(&node)\n            .chars()\n            .next()\n            .is_some_and(|c| !c.is_ascii_uppercase()),",
+      "        \"identifier\" => true,",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR30-py-file-object-write-is-sink": [
+      "src/algorithms/taint_sinks/python.rs",
+      "let file = c.receiver.is_some_and(|r| is_file_like(p, r));",
+      "let file = false;",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR31-go-shadowed-const-still-constant": [
+      "src/algorithms/taint_sinks/go.rs",
+      "\"identifier\" => matches!(resolve(p, node, p.node_text(&node)), GoBind::Const),",
+      "\"identifier\" => facts.imports.len() < 99,",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR32-go-any-typed-param-is-writer": [
+      "src/algorithms/taint_sinks/go.rs",
+      "GoBind::Param { ty: Some(t) } if p.node_text(&t).ends_with(\"Writer\")",
+      "GoBind::Param { ty: Some(_) }",
+      "algorithms::taint_sinks::tests::go_rule_guards"
+    ],
+    "SR33-go-import-alias-ignored": [
+      "src/algorithms/taint_sinks/go.rs",
+      "        if let Some(alias) = spec.child_by_field_name(\"name\") {",
+      "        if let Some(alias) = spec.child_by_field_name(\"name\").filter(|_| false) {",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR34-go-other-package-command-fires": [
+      "src/algorithms/taint_sinks/go.rs",
+      "Recv::Package(path) => EXEC_PATHS.contains(&path),",
+      "Recv::Package(_) => true,",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR36-go-request-typed-query-fires": [
+      "src/algorithms/taint_sinks/go.rs",
+      "REQUEST_TYPES.iter().any(|q| t.contains(q))",
+      "false",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR37-go-method-value-alias-ignored": [
+      "src/algorithms/taint_sinks/go.rs",
+      "(None, GoBind::Var { init: Some(i) }) if i.kind() == \"selector_expression\" =>",
+      "(None, GoBind::Var { init: Some(i) }) if false && i.kind() == \"selector_expression\" =>",
+      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+    ],
+    "SR38-legacy-get-user-substring": [
+      "src/algorithms/taint_sinks/legacy.rs",
+      "\"get_user\" => c_family && text == \"get_user\",",
+      "\"get_user\" => c_family && text.contains(\"get_user\"),",
+      "algorithms::taint_sinks::tests::legacy_languages_gate_bash_names_and_get_user"
+    ],
+    "SR39-legacy-shell-names-everywhere": [
+      "src/algorithms/taint_sinks/legacy.rs",
+      ".filter(|p| language == Language::Bash || !SHELL_ONLY.contains(p))",
+      ".filter(|_| true)",
+      "algorithms::taint_sinks::tests::legacy_languages_keep_library_names"
+    ],
+    "SR40-legacy-library-name-gated": [
+      "src/algorithms/taint_sinks/legacy.rs",
+      "    \"=sudo\",\n",
+      "    \"=sudo\",\n    \"sqlite3\",\n",
+      "algorithms::taint_sinks::tests::legacy_languages_keep_library_names"
+    ],
+    "SR41-go-framework-context-html-fires": [
+      "src/algorithms/taint_sinks/go.rs",
+      "let render = list.len() == 3 && matches!(recv, Recv::Value);",
+      "let render = list.len() == 4 && matches!(recv, Recv::Value);",
+      "algorithms::taint_sinks::tests::go_context_html_rule_names"
+    ]
+  }
+}

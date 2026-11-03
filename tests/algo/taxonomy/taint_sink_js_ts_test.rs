@@ -1175,14 +1175,14 @@ app.get("/search", function(req, res) {
 }
 
 #[test]
-fn test_express_request_alias_mixed_access_line_does_not_taint_render_method_arg() {
+fn test_express_request_alias_mixed_access_line_does_not_taint_send_method_arg() {
     let source = r#"import express from "express";
 
 const app = express();
 
 app.get("/search", function(req, res) {
   const request = req;
-  console.log(request.query.term); return res.render(request.method);
+  console.log(request.query.term); return res.send(request.method);
 });
 "#;
     let result =
@@ -1194,14 +1194,14 @@ app.get("/search", function(req, res) {
 }
 
 #[test]
-fn test_express_request_alias_mixed_access_line_render_query_arg_still_fires() {
+fn test_express_request_alias_mixed_access_line_send_query_arg_still_fires() {
     let source = r#"import express from "express";
 
 const app = express();
 
 app.get("/search", function(req, res) {
   const request = req;
-  console.log(request.method); return res.render(request.query.term);
+  console.log(request.method); return res.send(request.query.term);
 });
 "#;
     let result =
