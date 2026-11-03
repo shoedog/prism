@@ -14,6 +14,7 @@ mod taint_lang_test;
 mod taint_member_only_param_test;
 mod taint_sink_go_test;
 mod taint_sink_js_ts_test;
+mod taint_sink_modules_py_test;
 mod taint_sink_python_test;
 mod taint_sink_rules_go_test;
 mod taint_sink_rules_hybrid_go_test;

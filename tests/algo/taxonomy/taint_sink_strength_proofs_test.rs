@@ -3,7 +3,6 @@
 //! and the Go HTML render shape. Anything unproven stays `warning`.
 
 use super::taint_sink_strength_test::*;
-use crate::common::*;
 
 #[test]
 fn go_weak_needs_proof() {

@@ -98,6 +98,8 @@ pub(super) struct Facts {
     pub(super) names: BTreeMap<String, (String, String)>,
     /// Binding-site census of the file (library identity and local resolution).
     pub(super) sites: Sites,
+    /// Modules named by a `from M import *` (their names are not in the census).
+    pub(super) wildcards: Vec<String>,
 }
 
 impl Facts {
@@ -133,6 +135,13 @@ impl Facts {
             .map(|m| p.node_text(&m))
             .unwrap_or("");
         let mut cursor = node.walk();
+        if node
+            .named_children(&mut cursor)
+            .any(|c| c.kind() == "wildcard_import")
+        {
+            self.wildcards.push(module.to_string());
+        }
+        let mut cursor = node.walk();
         for name in node.children_by_field_name("name", &mut cursor) {
             let (orig, local) = module_and_local(p, name);
             self.names
@@ -159,7 +168,7 @@ fn module_and_local<'p>(p: Src<'p>, node: Node<'_>) -> (&'p str, &'p str) {
     (t, t)
 }
 
-fn is_literal(p: Src<'_>, node: Node<'_>) -> bool {
+pub(super) fn is_literal(p: Src<'_>, node: Node<'_>) -> bool {
     match node.kind() {
         "string" => literal_string(p, node).is_some(),
         "concatenated_string" => {
@@ -369,6 +378,9 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
     };
     let name = imported.map(|(_, orig)| orig.as_str()).unwrap_or(text);
     let from_module = imported.map(|(m, _)| m.as_str());
+    if let Some(hit) = super::py_modules::classify(p, facts, &c) {
+        return Some(hit);
+    }
     let nargs = args(c.call).len();
     let names = c.receiver.map(|r| chain_names(p, r)).unwrap_or_default();
     // Module a single-identifier receiver or an import stands for.

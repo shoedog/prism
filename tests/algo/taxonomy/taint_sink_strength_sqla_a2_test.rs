@@ -1,7 +1,6 @@
 //! #636 design A, review round 2 (post-cap closed folds): each Strong row fails on bda2b9cc.
 
 use super::taint_sink_strength_test::*;
-use crate::common::*;
 
 #[test]
 fn python_round_2_folds() {

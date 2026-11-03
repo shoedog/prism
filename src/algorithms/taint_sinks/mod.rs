@@ -24,6 +24,7 @@ mod go_scope;
 mod js;
 mod js_scope;
 mod legacy;
+mod py_modules;
 mod py_scope;
 mod python;
 mod sqla;
@@ -147,3 +148,5 @@ impl SinkClassifier {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_py_modules;

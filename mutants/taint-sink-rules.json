@@ -238,6 +238,120 @@
       "let render = list.len() == 3 && matches!(recv, Recv::Value);",
       "let render = list.len() == 4 && matches!(recv, Recv::Value);",
       "algorithms::taint_sinks::tests::go_context_html_rule_names"
+    ],
+    "SR53-pymod-pexpect-table-dropped": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(\"pexpect\", \"spawn\" | \"spawnu\" | \"run\" | \"runu\") => true,",
+      "(\"pexpect\", \"spawn\" | \"spawnu\" | \"run\" | \"runu\") => false,",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR54-pymod-paramiko-method-dropped": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(Kind::Ssh, \"exec_command\") => Some((COMMAND, false)),",
+      "(Kind::Ssh, \"exec_command\") => None,",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR55-pymod-sandbox-not-weak": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(Kind::Sandbox, \"from_string\") => Some((TEMPLATE, true)),",
+      "(Kind::Sandbox, \"from_string\") => Some((TEMPLATE, false)),",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR56-pymod-import-member-path-inverted": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "Some(if member.is_empty() {",
+      "Some(if !member.is_empty() {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR57-pymod-task-param-without-task": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "is_task_param(p, f, recv, name).then_some(Kind::Conn)",
+      "Some(Kind::Conn)",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR58-pymod-task-first-param-unchecked": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "&& names.first() == Some(&name)",
+      "&& true",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR59-pymod-lambda-not-searched-as-enclosing-scope": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if matches!(n.kind(), \"lambda\" | \"function_definition\") {",
+      "if matches!(n.kind(), \"function_definition\") {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR60-pymod-any-decorator-is-task": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "found |= path_of(p, f, e).is_some_and(|path| TASK_PATHS.contains(&path.as_str()));",
+      "found |= path_of(p, f, e).is_some();",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR61-pymod-for-target-counts-as-with-as": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "a.kind() == \"as_pattern\" && a.parent().is_some_and(|w| w.kind() == \"with_item\")",
+      "true",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR62-pymod-zero-arg-call-fires": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if args(c.call).is_empty() {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR63-pymod-hook-dropped": [
+      "src/algorithms/taint_sinks/python.rs",
+      "if let Some(hit) = super::py_modules::classify(p, facts, &c) {",
+      "if let Some(hit) = None::<SinkHit> {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR64-pymod-star-import-ignored-for-names": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if scope.kind() == \"module\" && f.wildcards.iter().any(|w| w != m) {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR65-pymod-star-import-ignored-for-locals": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(scope.kind() == \"module\" && !f.wildcards.is_empty())",
+      "false",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR66-pymod-comprehension-reaches-class-body": [
+      "src/algorithms/taint_sinks/py_scope.rs",
+      "if s.kind() == \"class_definition\" && in_comp && !crossed {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR67-pymod-literal-template-fires": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if (rule, cwe) == TEMPLATE && !template_source_is_dynamic(p, c) {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR68-pymod-constructor-receiver-dropped": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if recv.kind() == \"call\" {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR69-pymod-fabric1-task-is-a-task": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "\"fabric.task\",",
+      "\"fabric.task\", \"fabric.api.task\",",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR70-pymod-conflicting-imports-accepted": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if first.is_some_and(|(fm, fx)| (fm, fx) != (m, x)) {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR71-pymod-scope-agnostic-import": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "let Bound::Import(m, x) = b else { return None };",
+      "let Bound::Import(m, x) = b else { continue };",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
     ]
   }
 }
