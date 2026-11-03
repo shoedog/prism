@@ -147,6 +147,11 @@ fn declared_type<'a>(p: Src<'a>, r: Node<'_>) -> Option<&'a str> {
     }
 }
 
+/// True when a declared type is exactly `gin.Context` or `*gin.Context` (not `plugin.Context`).
+fn is_gin_context(ty: &str) -> bool {
+    ty.trim().trim_start_matches('*').trim() == "gin.Context"
+}
+
 /// True when the format argument is a literal, a literal concatenation, a `const`
 /// that is not shadowed, or a name qualified by an imported package
 /// (`constant.Prompt`; a package-level name is a constant in practice, unlike a
@@ -290,16 +295,12 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
             // renders an auto-escaping template: tagged `go-html-render` and graded weak (#636). Everything else keeps `go-template-html`.
             let ok = !matches!(recv, Recv::Bare) && !list.is_empty();
             let render = list.len() == 3 && matches!(recv, Recv::Value);
-            // Weak only for the gin/hertz shape (#636): a `gin.Context` receiver, or a status code
-            // first argument. iris `HTML(format, a, b)` writes raw formatted HTML.
+            // Weak only for the gin shape (#636): a receiver declared exactly `gin.Context` or
+            // `*gin.Context` (package-qualified identity). A status code argument is no proof of
+            // an escaping renderer, and iris `HTML(format, a, b)` writes raw formatted HTML.
             let gin = recv_node
                 .and_then(|r| declared_type(p, r))
-                .is_some_and(|t| t.contains("gin.Context"));
-            let status = list.first().is_some_and(|a| {
-                a.kind() == "int_literal"
-                    || (a.kind() == "selector_expression"
-                        && p.node_text(a).starts_with("http.Status"))
-            });
+                .is_some_and(is_gin_context);
             ok.then(|| {
                 SinkHit::new(
                     if render {
@@ -309,7 +310,7 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
                     },
                     "CWE-79",
                 )
-                .weak_if(render && (gin || status))
+                .weak_if(render && gin)
             })
         }
         "WriteFile" | "Rename" | "Chmod" | "Chown" | "Remove" | "RemoveAll" => {

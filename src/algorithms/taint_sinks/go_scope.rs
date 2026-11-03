@@ -184,21 +184,22 @@ fn in_specs<'t>(p: Src<'_>, decl: Node<'t>, name: &str, is_const: bool) -> Optio
         };
         for s in specs {
             let mut names = s.walk();
-            let declares = s
-                .children_by_field_name("name", &mut names)
-                .any(|n| p.node_text(&n) == name);
-            if declares {
-                return Some(if is_const {
-                    GoBind::Const
-                } else {
-                    GoBind::Var {
-                        init: s
-                            .child_by_field_name("value")
-                            .and_then(|v| v.named_child(0)),
-                        ty: s.child_by_field_name("type"),
-                    }
-                });
-            }
+            let declared: Vec<Node<'t>> = s.children_by_field_name("name", &mut names).collect();
+            let Some(at) = declared.iter().position(|n| p.node_text(n) == name) else {
+                continue;
+            };
+            return Some(if is_const {
+                GoBind::Const
+            } else {
+                // Each name pairs with its own initializer; a multi-name spec whose value
+                // count differs (`var a, b = f()`) gives no initializer to any of them.
+                let values = s.child_by_field_name("value");
+                let init = values.filter(|v| v.named_child_count() == declared.len());
+                GoBind::Var {
+                    init: init.and_then(|v| v.named_child(at)),
+                    ty: s.child_by_field_name("type"),
+                }
+            });
         }
     }
     None

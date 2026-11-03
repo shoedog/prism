@@ -278,13 +278,21 @@ fn is_constant_query(p: Src<'_>, from: Node<'_>, q: Node<'_>) -> bool {
         return false;
     }
     // Exactly one declarator of the name in scope: a later `var` redeclaration is a write.
+    // Parameters count too: a parameter read before a later `var q = 'lit'` is the caller's.
     let mut declarators = 0;
-    walk(binding_scope(from, i), &mut |n| {
-        if n.kind() == "variable_declarator" {
+    walk(binding_scope(from, i), &mut |n| match n.kind() {
+        "variable_declarator" => {
             if let Some(target) = n.child_by_field_name("name") {
                 declarators += count_idents(p, target, name);
             }
         }
+        "formal_parameters" => declarators += count_idents(p, n, name),
+        "arrow_function" => {
+            if let Some(single) = n.child_by_field_name("parameter") {
+                declarators += count_idents(p, single, name);
+            }
+        }
+        _ => {}
     });
     declarators == 1
 }

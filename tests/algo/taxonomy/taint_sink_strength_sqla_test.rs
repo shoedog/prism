@@ -74,7 +74,7 @@ fn closure_probes_stay_strong() {
         py("label with a non-literal name", "from sqlalchemy import select\nfrom app.models import User\ndef h(session, req):\n    n = req.args.get('n')  # SEED\n    return session.execute(select(User.a.label(n)))  # SINK\n", W),
         py("execute of an unannotated parameter", "def h(session, stmt, req):\n    x = req.args.get('x')  # SEED\n    return session.execute(stmt, {'a': x})  # SINK\n", W),
         py("D2 pin: select(t) with an unannotated parameter t", "from sqlalchemy import select\ndef h(session, t, req):\n    x = req.args.get('x')  # SEED\n    return session.execute(select(t).where(t.c.a == x))  # SINK\n", W),
-        py("D3 pin: identifier chain of 9 hops", "import sqlalchemy as sa\nfrom app.models import User\ndef h(session, req):\n    x = req.args.get('x')  # SEED\n    v0 = sa.select(User).where(User.a == x)\n    v1 = v0\n    v2 = v1\n    v3 = v2\n    v4 = v3\n    v5 = v4\n    v6 = v5\n    v7 = v6\n    v8 = v7\n    return session.execute(v8)  # SINK\n", W),
+        py("D3 pin: identifier chain of 9 names", "import sqlalchemy as sa\nfrom app.models import User\ndef h(session, req):\n    x = req.args.get('x')  # SEED\n    v0 = sa.select(User).where(User.a == x)\n    v1 = v0\n    v2 = v1\n    v3 = v2\n    v4 = v3\n    v5 = v4\n    v6 = v5\n    v7 = v6\n    v8 = v7\n    return session.execute(v8)  # SINK\n", W),
         py("Django RawSQL", "from django.db.models.expressions import RawSQL\ndef h(req):\n    s = req.GET['s']  # SEED\n    return M.objects.filter(RawSQL(s, []))  # SINK\n", W),
         py("Django .extra in the chain", "from django.db.models import Q\ndef h(req):\n    s = req.GET['s']  # SEED\n    return M.objects.extra(where=[s]).filter(Q(a=1))  # SINK\n", W),
         py("peewee getattr(fn, name)", "from peewee import fn\ndef h(req):\n    n = req.GET['n']  # SEED\n    return User.select().where(getattr(fn, n)(User.a) == 1)  # SINK\n", W),
@@ -104,7 +104,7 @@ fn recall_pins_stay_weak() {
         py("existing row, t imported: multi-line limit", "import sqlalchemy as sa\nfrom app.models import t\ndef h(session, inp):\n    x = inp.v  # SEED\n    session.execute(\n        sa.select(t.c.id).order_by(t.c.id).limit(x)  # SINK\n    )\n", S),
         py("Django Q | Q", "from django.db.models import Q\ndef h(req):\n    x = req.GET['x']  # SEED\n    return M.objects.filter(Q(a=x) | Q(b=x))  # SINK\n", S),
         py("Django Exists with OuterRef", "from django.db.models import Exists, OuterRef\ndef h(req):\n    x = req.GET['x']  # SEED\n    return M.objects.filter(Exists(M.objects.filter(pk=OuterRef(\"pk\"), a=x)))  # SINK\n", S),
-        py("D3 pin: identifier chain of 8 hops", "import sqlalchemy as sa\nfrom app.models import User\ndef h(session, req):\n    x = req.args.get('x')  # SEED\n    v0 = sa.select(User).where(User.a == x)\n    v1 = v0\n    v2 = v1\n    v3 = v2\n    v4 = v3\n    v5 = v4\n    v6 = v5\n    v7 = v6\n    return session.execute(v7)  # SINK\n", S),
+        py("D3 pin: identifier chain of 7 names (8 hops with the request value)", "import sqlalchemy as sa\nfrom app.models import User\ndef h(session, req):\n    x = req.args.get('x')  # SEED\n    v0 = sa.select(User).where(User.a == x)\n    v1 = v0\n    v2 = v1\n    v3 = v2\n    v4 = v3\n    v5 = v4\n    v6 = v5\n    return session.execute(v6)  # SINK\n", S),
     ]);
 }
 
@@ -114,7 +114,7 @@ fn recall_pins_stay_weak() {
 fn contract_rows_d1_assert_weak() {
     assert_severities(&[
         py("D1: a construct passed in as a parameter", "from sqlalchemy import select\nfrom app.models import User\ndef h(s, ob, req):\n    x = req.args.get('x')  # SEED\n    return s.execute(select(User).where(User.a == ob, User.b == x))  # SINK\n", S),
-        py("D1: cross-module helper return", "from sqlalchemy import select\nfrom helpers import raw\nfrom app.models import User\ndef h(session, req):\n    x = req.args.get('x')  # SEED\n    return session.execute(select(User).where(User.a == raw(x)))  # SINK\n", S),
+        py("D1: cross-module helper return", "from sqlalchemy import select\nfrom helpers import make_expr\nfrom app.models import User\ndef h(session, req):\n    x = req.args.get('x')  # SEED\n    return session.execute(select(User).where(User.a == make_expr(x)))  # SINK\n", S),
         py("D1: attribute of an imported module", "from sqlalchemy import select\nimport cfg\nfrom app.models import User\ndef h(session, req):\n    x = req.args.get('x')  # SEED\n    return session.execute(select(User).where(User.a == cfg.value, User.b == x))  # SINK\n", S),
     ]);
 }

@@ -26,6 +26,10 @@ mod js_scope;
 mod legacy;
 mod py_scope;
 mod python;
+mod sqla;
+mod sqla_chain;
+mod sqla_tables;
+mod sqla_value;
 mod strength;
 mod structured;
 
@@ -121,6 +125,21 @@ impl SinkClassifier {
             }
             _ => js::classify(src, id, text),
         }
+    }
+}
+
+impl SinkClassifier {
+    /// A Python call on the line (or enclosing it) puts a non-literal argument into SQL text:
+    /// the line belt of the weak-SQL proof (strength only, never a finding).
+    pub(crate) fn py_line_has_raw(&self, file: &str, parsed: &ParsedFile, id: Node<'_>) -> bool {
+        let facts = {
+            let mut map = self.facts.borrow_mut();
+            map.entry(file.to_string()).or_default().clone()
+        };
+        let f = facts
+            .py
+            .get_or_init(|| python::Facts::collect(Src::of(parsed), parsed.tree.root_node()));
+        sqla::line_has_raw(Src::of(parsed), f, id)
     }
 }
 

@@ -59,6 +59,9 @@ impl SinkClassifier {
             if is_extra(text) {
                 return Strength::Strong;
             }
+            if language == Language::Python && self.py_line_has_raw(file, parsed, id) {
+                return Strength::Strong;
+            }
             // No legacy list: these languages have call-position rules only.
             match self.classify(file, parsed, id, text, &[]) {
                 Some(hit) if hit.strength == Strength::Weak => weak_seen = true,
