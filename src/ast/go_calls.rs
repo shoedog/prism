@@ -9,12 +9,37 @@ use tree_sitter::Node;
 
 #[derive(Clone, Default)]
 pub(super) struct Facts {
-    values: BTreeMap<String, Vec<(usize, usize)>>,
+    values: BTreeMap<String, Vec<Binding>>,
+    types: BTreeMap<String, Vec<Binding>>,
     generics: BTreeMap<String, ()>,
 }
+
+#[derive(Clone)]
+struct Binding {
+    lo: usize,
+    hi: usize,
+    depth: usize,
+}
+
+impl Binding {
+    fn new(scope: Node<'_>, lo: usize) -> Self {
+        let mut depth = 0;
+        let mut parent = scope.parent();
+        while let Some(node) = parent {
+            depth += 1;
+            parent = node.parent();
+        }
+        Self {
+            lo,
+            hi: scope.end_byte(),
+            depth,
+        }
+    }
+}
+
 impl Facts {
     fn new(p: &ParsedFile) -> Self {
-        fn scope(n: Node<'_>) -> (usize, usize) {
+        fn scope(n: Node<'_>) -> Node<'_> {
             let mut parent = n.parent();
             while let Some(s) = parent {
                 if matches!(
@@ -29,12 +54,15 @@ impl Facts {
                         | "expression_case"
                         | "type_case"
                         | "communication_case"
+                        | "default_case"
+                        | "expression_switch_statement"
+                        | "type_switch_statement"
                 ) {
-                    return (s.start_byte(), s.end_byte());
+                    return s;
                 }
                 parent = s.parent();
             }
-            (0, usize::MAX)
+            n
         }
         fn walk(p: &ParsedFile, n: Node<'_>, facts: &mut Facts) {
             if n.kind() == "function_declaration"
@@ -44,25 +72,39 @@ impl Facts {
                     facts.generics.insert(p.node_text(&name).to_owned(), ());
                 }
             }
+            let parameter = matches!(
+                n.kind(),
+                "parameter_declaration" | "variadic_parameter_declaration"
+            );
+            // Only parameters/results/receivers directly owned by a callable
+            // bind values. Function types and interface signatures do not.
+            let callable_parameter = parameter
+                && n.parent()
+                    .and_then(|list| list.parent())
+                    .is_some_and(|owner| {
+                        matches!(
+                            owner.kind(),
+                            "function_declaration" | "method_declaration" | "func_literal"
+                        )
+                    });
             let field = match n.kind() {
-                "parameter_declaration"
-                | "variadic_parameter_declaration"
-                | "var_spec"
-                | "const_spec" => Some("name"),
+                "parameter_declaration" | "variadic_parameter_declaration"
+                    if callable_parameter =>
+                {
+                    Some("name")
+                }
+                "var_spec" | "const_spec" => Some("name"),
                 "short_var_declaration" | "range_clause" => Some("left"),
                 _ => None,
             };
             if let Some(field) = field {
-                let (lo, hi) = scope(n);
-                let lo = if matches!(
-                    n.kind(),
-                    "parameter_declaration" | "variadic_parameter_declaration"
-                ) || n
-                    .parent()
-                    .and_then(|s| s.parent())
-                    .is_some_and(|s| s.kind() == "source_file")
+                let scope = scope(n);
+                let lo = if parameter
+                    || n.parent()
+                        .and_then(|s| s.parent())
+                        .is_some_and(|s| s.kind() == "source_file")
                 {
-                    lo
+                    scope.start_byte()
                 } else {
                     n.end_byte()
                 };
@@ -79,8 +121,30 @@ impl Facts {
                             .values
                             .entry(p.node_text(&name).to_owned())
                             .or_default()
-                            .push((lo, hi));
+                            .push(Binding::new(scope, lo));
                     }
+                }
+            }
+            let type_scope = match n.kind() {
+                "type_parameter_declaration" => {
+                    n.parent().and_then(|list| list.parent()).filter(|owner| {
+                        matches!(
+                            owner.kind(),
+                            "function_declaration" | "type_spec" | "type_alias"
+                        )
+                    })
+                }
+                "type_spec" | "type_alias" => Some(scope(n)),
+                _ => None,
+            };
+            if let Some(scope) = type_scope {
+                let mut cursor = n.walk();
+                for name in n.children_by_field_name("name", &mut cursor) {
+                    facts
+                        .types
+                        .entry(p.node_text(&name).to_owned())
+                        .or_default()
+                        .push(Binding::new(scope, n.start_byte()));
                 }
             }
             let mut cursor = n.walk();
@@ -93,9 +157,18 @@ impl Facts {
         facts
     }
     fn is_value(&self, name: &str, at: usize) -> bool {
-        self.values
-            .get(name)
-            .is_some_and(|spans| spans.iter().any(|&(lo, hi)| lo <= at && at < hi))
+        let nearest = |bindings: &BTreeMap<String, Vec<Binding>>| {
+            bindings
+                .get(name)
+                .into_iter()
+                .flatten()
+                .filter(|b| b.lo <= at && at < b.hi)
+                .map(|b| b.depth)
+                .max()
+        };
+        // Go shares one namespace: an inner type hides an outer value, and
+        // an inner value still vetoes a type argument. Ties stay conservative.
+        nearest(&self.values).is_some_and(|value| nearest(&self.types).is_none_or(|ty| value >= ty))
     }
 }
 

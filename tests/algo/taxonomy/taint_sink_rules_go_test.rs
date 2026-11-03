@@ -52,3 +52,35 @@ fn go_genuine_call_sinks_are_reported() {
 fn go_name_fragments_are_not_sinks() {
     assert_no_sinks("a.go", Language::Go, NEGATIVES);
 }
+
+#[test]
+fn go_generic_structured_sink_keeps_main_path() {
+    assert_all_sinks("a.go", Language::Go, &[Case {
+        label: "generic structured path",
+        source: "package p\nfunc h(in Input) {\n x := in.V // SEED\n os.ReadFile[T](x,0) // SINK\n}\n",
+    }]);
+}
+
+#[test]
+fn go_generic_flat_sink_keeps_callee_position() {
+    assert_all_sinks("a.go", Language::Go, &[Case {
+        label: "generic flat callee",
+        source: "package p\nfunc h(db Handle, in Input) {\n x := in.V // SEED\n db.Queryx[T](x,0) // SINK\n}\n",
+    }]);
+}
+
+#[test]
+fn go_generic_file_constructor_is_not_a_collection() {
+    assert_all_sinks("a.go", Language::Go, &[Case {
+        label: "generic file constructor",
+        source: "package p\nimport \"github.com/spf13/afero\"\nfunc h(in Input) {\n cache := afero.NewFs[T](0,0)\n x := in.V // SEED\n cache.Remove(x) // SINK\n}\n",
+    }]);
+}
+
+#[test]
+fn go_real_sink_named_container_indices_stay_indices() {
+    assert_no_sinks("a.go", Language::Go, &[Case {
+        label: "slice and map of sink-named functions",
+        source: "package p\nfunc h(Query []func(string), ReadFile map[int]func(string), i int, in Input) {\n x := in.V // SEED\n Query[i](x); ReadFile[i](x) // SINK\n}\n",
+    }]);
+}

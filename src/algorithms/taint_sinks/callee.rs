@@ -15,6 +15,7 @@ use tree_sitter::Node;
 pub(super) struct Src<'a> {
     text: &'a str,
     python: bool,
+    parsed: Option<&'a ParsedFile>,
 }
 
 impl<'a> Src<'a> {
@@ -22,11 +23,22 @@ impl<'a> Src<'a> {
         Self {
             text,
             python: language == Language::Python,
+            parsed: None,
         }
     }
 
     pub(super) fn of(parsed: &'a ParsedFile) -> Self {
-        Self::new(&parsed.source, parsed.language)
+        Self {
+            parsed: Some(parsed),
+            ..Self::new(&parsed.source, parsed.language)
+        }
+    }
+
+    pub(super) fn call_function_node<'t>(&self, call: &Node<'t>) -> Option<Node<'t>> {
+        self.parsed.map_or_else(
+            || call.child_by_field_name("function"),
+            |p| p.call_function_node(call),
+        )
     }
 
     pub(super) fn node_text(&self, node: &Node<'_>) -> &'a str {
@@ -70,7 +82,7 @@ fn climb_wrappers(id: Node<'_>) -> Node<'_> {
 
 /// Returns the call whose callee `id` names, or `None` when `id` is not in
 /// callee position (a variable, a property read, a signature, a type).
-pub(super) fn callee_of(id: Node<'_>) -> Option<Callee<'_>> {
+pub(super) fn callee_of<'t>(p: Src<'_>, id: Node<'t>) -> Option<Callee<'t>> {
     let parent = id.parent()?;
     let (callee, receiver) = match parent.kind() {
         "member_expression" | "attribute" | "selector_expression" => {
@@ -86,10 +98,13 @@ pub(super) fn callee_of(id: Node<'_>) -> Option<Callee<'_>> {
         }
         _ => (climb_wrappers(id), None),
     };
-    let call = callee.parent()?;
+    let mut call = callee.parent()?;
+    if call.kind() == "index_expression" {
+        call = call.parent()?;
+    }
     let is_new = match call.kind() {
         "call_expression" | "call" => {
-            if !is_field(call, "function", callee) {
+            if p.call_function_node(&call) != Some(callee) {
                 return None;
             }
             false

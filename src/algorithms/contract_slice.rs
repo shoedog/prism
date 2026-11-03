@@ -388,8 +388,7 @@ fn extract_preconditions(
     };
 
     // Walk top-level statements in the function body
-    let mut cursor = body_node.walk();
-    for child in body_node.children(&mut cursor) {
+    for child in crate::go_statements::children(body_node, parsed.language) {
         let child_line = child.start_position().row + 1;
 
         // Only consider statements in the guard zone

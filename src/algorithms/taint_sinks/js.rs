@@ -308,14 +308,14 @@ fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
 
 pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> {
     // A bare callee bound to a child_process function under any local name.
-    if let Some(c) = callee_of(id) {
+    if let Some(c) = callee_of(p, id) {
         if c.receiver.is_none() && !c.is_new && cp_function_of(p, id, 0).is_some() {
             return hit("js-child-process", "CWE-78");
         }
     }
     match text {
         "eval" => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             if c.is_new || args(c.call).is_empty() {
                 return None;
             }
@@ -326,14 +326,14 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
             }
         }
         "Function" => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             if args(c.call).is_empty() {
                 return None;
             }
             hit("js-function-ctor", "CWE-95")
         }
         t if CP_FUNCTIONS.contains(&t) || EXECA.contains(&t) => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             if c.is_new || args(c.call).is_empty() {
                 return None;
             }
@@ -362,7 +362,7 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
             hit("js-exec-call", "CWE-78")
         }
         t if SQL_NAMES.contains(&t) => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             if c.is_new || (args(c.call).is_empty() && t != "createQueryBuilder") {
                 return None;
             }
@@ -381,7 +381,7 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
             }
         }
         "redirect" => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             if c.is_new || args(c.call).is_empty() {
                 return None;
             }
@@ -391,7 +391,7 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
             hit("js-redirect", "CWE-601")
         }
         "send" | "respond" => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             if c.is_new || args(c.call).is_empty() {
                 return None;
             }
@@ -411,7 +411,7 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
             }
         }
         "write" | "writeln" => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             if c.is_new || args(c.call).is_empty() {
                 return None;
             }
@@ -443,12 +443,12 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
         }
         "writeFile" | "writeFileSync" | "appendFile" | "appendFileSync" | "unlink"
         | "unlinkSync" | "rmdir" | "rmdirSync" | "rmSync" => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             (!c.is_new).then(|| SinkHit::new("js-fs", "CWE-22"))
         }
         // Names that are DOM or collection methods elsewhere: only on a file-system receiver.
         "remove" | "removeSync" | "emptyDir" | "emptyDirSync" | "rm" | "open" | "openSync" => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             if c.is_new {
                 return None;
             }
@@ -473,18 +473,18 @@ pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> 
         }
         "dangerouslySetInnerHTML" => hit("js-dom-html", "CWE-79"),
         "insertAdjacentHTML" => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             (!c.is_new).then(|| SinkHit::new("js-dom-html", "CWE-79"))
         }
         "location" => location(p, id),
         "assign" | "replace" => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             let r = c.receiver?;
             (chain_tail(p, r) == Some("location") && !c.is_new)
                 .then(|| SinkHit::new("js-location", "CWE-601"))
         }
         "setHeader" | "header" | "set" | "append" | "writeHead" => {
-            let c = callee_of(id)?;
+            let c = callee_of(p, id)?;
             let r = c.receiver?;
             if c.is_new {
                 return None;
@@ -511,7 +511,7 @@ fn is_assignment_target(node: Node<'_>) -> bool {
 
 /// `location = x`, `window.location = x`, `location.href = x`, `res.location(x)`.
 fn location(p: Src<'_>, id: Node<'_>) -> Option<SinkHit> {
-    if let Some(c) = callee_of(id) {
+    if let Some(c) = callee_of(p, id) {
         // `res.location(x)`
         return (!c.is_new && c.receiver.is_some_and(|r| is_response(p, r)))
             .then(|| SinkHit::new("js-location", "CWE-601"));

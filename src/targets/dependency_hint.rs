@@ -166,20 +166,20 @@ fn last_segment(callee: &str) -> &str {
 
 /// The callee exactly as written, from the receiver through the method name.
 ///
-/// Most grammars expose the whole callee expression as the call's `function`
-/// field, so its span is the answer. Java's `method_invocation` does not: it
+/// Use the semantic callee view (Go generic arguments retain main's omission).
+/// Java's `method_invocation` does not expose a `function` field: it
 /// carries `object` and `name` as siblings, and taking `name` alone (what
 /// `Language::call_function_name` deliberately does, so calls bind to
 /// definitions) drops the receiver and violates the schema's "callee text as
 /// written". For that shape the span runs from the receiver's first byte to
 /// the method name's last.
 fn callee_text(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
-    let (start, end) = callee_span(node)?;
+    let (start, end) = callee_span(parsed, node)?;
     parsed.source.get(start..end).map(str::to_string)
 }
 
-fn callee_span(node: &Node<'_>) -> Option<(usize, usize)> {
-    if let Some(function) = node.child_by_field_name("function") {
+fn callee_span(parsed: &ParsedFile, node: &Node<'_>) -> Option<(usize, usize)> {
+    if let Some(function) = parsed.call_function_node(node) {
         return Some((function.start_byte(), function.end_byte()));
     }
     let name = node.child_by_field_name("name");

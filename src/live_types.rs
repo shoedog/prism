@@ -214,7 +214,7 @@ fn scan_go_node(node: &tree_sitter::Node, parsed: &ParsedFile, live: &mut BTreeS
         }
         "call_expression" => {
             // new(T) builtin -> T and *T
-            if let Some(func) = node.child_by_field_name("function") {
+            if let Some(func) = parsed.call_function_node(node) {
                 if parsed.node_text(&func).trim() == "new" {
                     if let Some(args) = node.child_by_field_name("arguments") {
                         if let Some(arg) = args.named_child(0) {

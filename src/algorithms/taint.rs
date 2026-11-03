@@ -1637,7 +1637,7 @@ fn collect_request_param_names(
 /// returns `Some("r.URL.Query")`; for Python `request.args.get()`, returns
 /// `Some("request.args.get")`.
 fn call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
-    let func = call_node.child_by_field_name("function")?;
+    let func = parsed.call_function_node(call_node)?;
     Some(parsed.node_text(&func).to_string())
 }
 
