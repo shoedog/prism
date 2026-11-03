@@ -183,24 +183,20 @@ fn is_constant_query(p: Src<'_>, node: Node<'_>) -> bool {
     }
     let name = p.node_text(&node);
     match resolve(p, node, name) {
-        GoBind::Const => !receive_binds(p, node, name),
+        // A package or local constant is proof only with no binding or write of the name in
+        // the enclosing function (shadowing and escapes included).
+        GoBind::Const => binding_count(p, outer_function(node), name) == 0,
         // `query := "..."` / `var query = "..."`, never written again in the file.
         GoBind::Var {
             own_init: Some(i), ..
-        } => {
-            is_literal_concat(p, i)
-                && binding_count(p, binding_scope(node, i), name) == 1
-                && !receive_binds(p, node, name)
-        }
+        } => is_literal_concat(p, i) && binding_count(p, binding_scope(node, i), name) == 1,
         _ => false,
     }
 }
 
-/// A `case name = <-ch` or `case name := <-ch` receive in the enclosing function writes or
-/// shadows `name`.
-fn receive_binds(p: Src<'_>, node: Node<'_>, name: &str) -> bool {
-    let mut root = node;
-    let mut func = None;
+/// The outermost function around `node`, else the file.
+fn outer_function(node: Node<'_>) -> Node<'_> {
+    let (mut root, mut func) = (node, None);
     while let Some(parent) = root.parent() {
         if matches!(
             parent.kind(),
@@ -210,25 +206,25 @@ fn receive_binds(p: Src<'_>, node: Node<'_>, name: &str) -> bool {
         }
         root = parent;
     }
-    let mut found = false;
-    walk(func.unwrap_or(root), &mut |n| {
-        if n.kind() == "receive_statement" {
-            if let Some(left) = n.child_by_field_name("left") {
-                found |= count_idents(p, left, name) > 0;
-            }
-        }
-    });
-    found
+    func.unwrap_or(root)
 }
 
-/// Number of bindings of `name` in `scope` (declarations of every form, parameters, and writes
-/// of every form). A query is constant only when its one declaration is the whole story.
+/// Number of bindings of `name` in `scope`: every tree-sitter-go node that declares or writes a
+/// name (declarations, parameters, assignments, `++`/`--`, `range`, `case q = <-ch` / `case q :=
+/// <-ch`, a type-switch alias) plus `&name`, which lets a callee write through the pointer. A query is constant only when its one declaration is the whole story.
 fn binding_count(p: Src<'_>, scope: Node<'_>, name: &str) -> usize {
     let mut count = 0;
     walk(scope, &mut |n| {
         let targets: Vec<Node<'_>> = match n.kind() {
-            "short_var_declaration" | "assignment_statement" | "range_clause" => {
-                n.child_by_field_name("left").into_iter().collect()
+            "short_var_declaration"
+            | "assignment_statement"
+            | "range_clause"
+            | "receive_statement" => n.child_by_field_name("left").into_iter().collect(),
+            "type_switch_statement" => n.child_by_field_name("alias").into_iter().collect(),
+            "unary_expression"
+                if n.child_by_field_name("operator").map(|o| p.node_text(&o)) == Some("&") =>
+            {
+                n.child_by_field_name("operand").into_iter().collect()
             }
             "inc_dec_statement" => n.named_child(0).into_iter().collect(),
             "var_spec" | "parameter_declaration" | "variadic_parameter_declaration" => {

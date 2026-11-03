@@ -5,7 +5,7 @@
 //! callee and arguments are values. A raw-SQL constructor is never a value, whatever its
 //! receiver; a same-file function proves by its returns.
 
-use super::callee::{args, walk};
+use super::callee::{args, literal_string, walk};
 use super::py_scope::{Bound, Local};
 use super::sqla::{peel, plain_literal, Proof};
 use super::sqla_tables as t;
@@ -108,7 +108,9 @@ impl<'a> Proof<'a> {
                         let e = peel(e);
                         if e.kind() == "identifier" {
                             if let Local::One(Bound::Assign(v)) = self.local(e, self.text(e)) {
-                                return !built_here(v) || self.hop_memo(b'v', v, || self.value(v));
+                                return !self.stores_to(e)
+                                    && (!built_here(v)
+                                        || self.hop_memo(b'v', v, || self.value(v)));
                             }
                             return true;
                         }
@@ -169,24 +171,54 @@ impl<'a> Proof<'a> {
         let Some(class) = cur else {
             return true;
         };
+        let is_self =
+            |o: Node<'_>| o.kind() == "identifier" && matches!(self.text(o), "self" | "cls");
+        let names_attr = |l: Node<'_>| {
+            l.kind() == "attribute"
+                && l.child_by_field_name("object").is_some_and(is_self)
+                && l.child_by_field_name("attribute")
+                    .is_some_and(|x| self.text(x) == attr)
+        };
         let mut rhs = Vec::new();
-        walk(class, &mut |n| {
-            if matches!(n.kind(), "assignment" | "augmented_assignment") {
-                let left = n.child_by_field_name("left");
-                let hit = left.is_some_and(|l| {
-                    l.kind() == "attribute"
-                        && l.child_by_field_name("object")
-                            .is_some_and(|o| matches!(self.text(o), "self" | "cls"))
-                        && l.child_by_field_name("attribute")
-                            .is_some_and(|x| self.text(x) == attr)
-                });
+        let mut refused = false;
+        walk(class, &mut |n| match n.kind() {
+            "assignment" | "augmented_assignment" => {
+                let mut hit = false;
+                if let Some(l) = n.child_by_field_name("left") {
+                    walk(l, &mut |x| hit |= names_attr(x));
+                }
                 if hit {
                     rhs.push(n.child_by_field_name("right"));
                 }
             }
+            "call" => {
+                let f = n.child_by_field_name("function");
+                let a = args(n);
+                if f.is_some_and(|f| self.text(f) == "setattr")
+                    && a.first().is_some_and(|o| is_self(*o))
+                {
+                    match a.get(1).and_then(|k| literal_string(self.p, *k)) {
+                        Some(k) if k == attr => rhs.push(a.get(2).copied()),
+                        Some(_) => {}
+                        None => refused = true,
+                    }
+                }
+                let mutates = f.is_some_and(|f| {
+                    f.kind() == "attribute"
+                        && f.child_by_field_name("attribute")
+                            .is_some_and(|m| MUTATORS.contains(&self.text(m)))
+                        && f.child_by_field_name("object").is_some_and(names_attr)
+                });
+                if mutates && !a.iter().all(|x| self.value_arg(*x)) {
+                    refused = true;
+                }
+            }
+            _ => {}
         });
-        rhs.into_iter()
-            .all(|r| r.is_none_or(|r| self.hop_memo(b'v', r, || self.value(r))))
+        !refused
+            && rhs
+                .into_iter()
+                .all(|r| r.is_none_or(|r| self.hop_memo(b'v', r, || self.value(r))))
             && self
                 .enclosing_method(at, attr)
                 .is_none_or(|d| self.def_returns(d))
@@ -218,11 +250,31 @@ impl<'a> Proof<'a> {
         if self.lib_of(f).is_some() {
             return self.expr_call(call);
         }
+        // A module-qualified call rooted at a SQL-library import whose identity proof failed
+        // (another binding of the spelling) is never data.
+        if self.untrusted_lib_root(f) {
+            return false;
+        }
         match f.kind() {
             "identifier" => self.bare_value(call, f),
             "attribute" => self.method_value(call, f),
             _ => false,
         }
+    }
+
+    pub(super) fn untrusted_lib_root(&self, f: Node<'_>) -> bool {
+        let mut cur = f;
+        while cur.kind() == "attribute" {
+            match cur.child_by_field_name("object") {
+                Some(o) => cur = o,
+                None => return false,
+            }
+        }
+        cur.kind() == "identifier"
+            && matches!(
+                self.local(cur, self.text(cur)),
+                Local::One(Bound::Import(m, x)) if t::lib_path(&m, &x).is_some()
+            )
     }
 
     pub(super) fn typing_cast(&self, call: Node<'_>) -> bool {
@@ -292,7 +344,7 @@ impl<'a> Proof<'a> {
         // A receiver that proves as a clause admits only listed column methods, with their
         // argument classes: never the generic data rule (`User.name.collate(c)`).
         if let Some(en) = t::find(t::COLUMN_METHODS, m) {
-            if self.clause(obj) {
+            if self.clause(obj) || !self.args_ok(call, en) {
                 return self.args_ok(call, en);
             }
         }

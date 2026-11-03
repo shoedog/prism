@@ -67,7 +67,7 @@ impl<'a> Proof<'a> {
                 match t::find(t::CHAIN, m) {
                     Some(en) => self.args_ok(n, en) && self.inner_chain(obj),
                     // An unknown method in the middle of a chain hides what is below it.
-                    None => obj.kind() != "call",
+                    None => !t::BELT.contains(&m) && obj.kind() != "call",
                 }
             }
             "identifier" => match self.local(n, self.text(n)) {
