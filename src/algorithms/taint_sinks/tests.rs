@@ -254,6 +254,27 @@ fn go_rule_guards() {
     );
 }
 
+/// Context `HTML` fires: a 3-argument value call is a template render (`go-html-render`, to be
+/// graded weak later); echo/iris raw-string forms stay `go-template-html`.
+#[test]
+fn go_context_html_rule_names() {
+    let go = Language::Go;
+    let src = "package p\nfunc h(ctx *gin.Context, c echo.Context, i iris.Context) {\n\tctx.HTML(200, tpl, x)\n\tc.HTML(200, x)\n\ti.HTML(x)\n\ty := ctx.HTML + x\n}\n";
+    assert_eq!(
+        tag(hit(go, src, 3, "HTML")),
+        Some(("go-html-render", "CWE-79"))
+    );
+    assert_eq!(
+        tag(hit(go, src, 4, "HTML")),
+        Some(("go-template-html", "CWE-79"))
+    );
+    assert_eq!(
+        tag(hit(go, src, 5, "HTML")),
+        Some(("go-template-html", "CWE-79"))
+    );
+    assert_eq!(tag(hit(go, src, 6, "HTML")), None);
+}
+
 /// The structured `exec`/`execSync` sinks match any receiver by tail name; the
 /// semantic check lets only command runs through.
 #[test]
@@ -372,7 +393,10 @@ fn hybrid_policy_python_and_go() {
         Some(("go-db-call", "CWE-89"))
     );
     let gin = "package p\nfunc h(ctx *gin.Context) {\n\tctx.HTML(200, tpl, x)\n}\n";
-    assert_eq!(tag(hit(go, gin, 3, "HTML")), None);
+    assert_eq!(
+        tag(hit(go, gin, 3, "HTML")),
+        Some(("go-html-render", "CWE-79"))
+    );
     let ginq = "package p\nfunc h(ctx *gin.Context) {\n\tctx.Query(\"state\")\n}\n";
     assert_eq!(tag(hit(go, ginq, 3, "Query")), None);
     let aliased =

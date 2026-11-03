@@ -230,13 +230,22 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
                 .then(|| SinkHit::new("go-format-string", "CWE-134"))
         }
         "HTML" => {
-            // `ctx.HTML(code, tpl, data)` on a framework context renders a template; any
-            // other receiver (an imported helper such as `response.HTML`) keeps firing.
-            let renders = recv_node
-                .and_then(|r| declared_type(p, r))
-                .is_some_and(|t| REQUEST_TYPES.iter().any(|q| t.contains(q)));
-            let ok = !matches!(recv, Recv::Bare) && !renders;
-            (ok && !list.is_empty()).then(|| SinkHit::new("go-template-html", "CWE-79"))
+            // Framework contexts fire too: echo `c.HTML(code, s)` and iris `ctx.HTML(s)` write a
+            // raw string. A 3-argument call on a value receiver, not a package (`c.HTML(code, name, data)`, gin)
+            // renders an auto-escaping template: tagged `go-html-render` so a later tier can
+            // grade it weak. Everything else keeps `go-template-html`.
+            let ok = !matches!(recv, Recv::Bare) && !list.is_empty();
+            let render = list.len() == 3 && matches!(recv, Recv::Value);
+            ok.then(|| {
+                SinkHit::new(
+                    if render {
+                        "go-html-render"
+                    } else {
+                        "go-template-html"
+                    },
+                    "CWE-79",
+                )
+            })
         }
         "WriteFile" | "Rename" | "Chmod" | "Chown" | "Remove" | "RemoveAll" => {
             let ok = match recv {
