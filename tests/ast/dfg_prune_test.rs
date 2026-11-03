@@ -49,6 +49,23 @@ fn go_prune_complete_edge_sets() {
             })
             .collect();
         assert!(!wanted.is_empty(), "{name}: empty golden is not a test");
+        for row in expected
+            .iter()
+            .filter(|r| r["case"] == name && r.get("label").is_some())
+        {
+            let labels: Vec<_> = cpg
+                .dfg
+                .labels()
+                .filter(|(e, _)| {
+                    e.from.function == row["function"].as_str().unwrap()
+                        && e.from.path.to_string() == row["path"].as_str().unwrap()
+                        && e.from.line == row["def_line"].as_u64().unwrap() as usize
+                        && e.to.line == row["use_line"].as_u64().unwrap() as usize
+                })
+                .map(|(_, label)| serde_json::to_value(label).unwrap())
+                .collect();
+            assert_eq!(labels, vec![row["label"].clone()], "RD label: {row}");
+        }
         if actual != wanted {
             failures.push(format!(
                 "{name}: extra={}, missing={}",

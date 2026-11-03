@@ -25,3 +25,7 @@ post-R main producer at cc78c2b1. Row 01 is exactly 79 to 14 pairs; row 03 adds 
 Row 15 uses `s *S; ptr := s` to construct the pointer alias twin supported by the existing
 plain-identifier alias extractor. `ptr := &s` does not construct that twin today. Alias extraction
 is unchanged by this slice.
+
+Slice 2 pins row 07 `x:5→8` as Exact: `goto L` at 6 bypasses the kill at 7.
+Rows 03 and 08 retain all surviving labels; the complete main-bound label and
+edge-key comparison lives in `go_jumps_test` and `../../go_jumps`.

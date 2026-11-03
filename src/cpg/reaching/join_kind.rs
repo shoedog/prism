@@ -42,7 +42,7 @@ pub(super) fn is_incomplete_join(
     if super::join_kind_tests::legacy_enabled() {
         return super::join_kind_tests::legacy_join(parsed, kinds.statements, edge, provenance);
     }
-    if provenance.crosses_lexical_arm() {
+    if provenance.crosses_lexical_arm() || provenance.origin == EdgeOrigin::GoDeferExit {
         return true;
     }
     if !matches!(provenance.origin, EdgeOrigin::Structured) {

@@ -131,7 +131,9 @@ pub(super) fn legacy_join(
     edge: &CfgEdge,
     provenance: ArmProvenance,
 ) -> bool {
-    if provenance.crosses_lexical_arm() {
+    // The new exit class has no frozen-main counterpart; its explicit doubt
+    // precedes the unchanged historical structured/sequential lookup below.
+    if provenance.crosses_lexical_arm() || provenance.origin == EdgeOrigin::GoDeferExit {
         return true;
     }
     if !matches!(provenance.origin, EdgeOrigin::Structured) {
@@ -384,10 +386,15 @@ fn duplicate_missing_lines_and_language_rules() {
                 from_line: from,
                 to_line: to,
             };
-            for origin in [EdgeOrigin::Sequential, EdgeOrigin::Structured] {
+            for origin in [
+                EdgeOrigin::Sequential,
+                EdgeOrigin::Structured,
+                EdgeOrigin::GoDeferExit,
+            ] {
                 for cross in [false, true] {
                     let prov = provenance(origin, cross);
                     let want = (cross && origin == EdgeOrigin::Sequential)
+                        || origin == EdgeOrigin::GoDeferExit
                         || (origin == EdgeOrigin::Structured && expected);
                     assert_eq!(
                         legacy_join(&parsed, &statements, &edge, prov),

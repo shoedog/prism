@@ -234,7 +234,7 @@
 {"case": "06_conditional_def_not_dominating", "def_line": 7, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 9}
 {"case": "07_label_between", "def_line": 4, "function": "f", "keep": true, "path": "c", "reason": "keep", "use_line": 6}
 {"case": "07_label_between", "def_line": 5, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 7}
-{"case": "07_label_between", "def_line": 5, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 8}
+{"case": "07_label_between", "def_line": 5, "function": "f", "keep": true, "label": "Exact", "path": "x", "reason": "keep", "use_line": 8}
 {"case": "07_label_between", "def_line": 7, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 5}
 {"case": "07_label_between", "def_line": 7, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 8}
 {"case": "08_label_before_dominator", "def_line": 5, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 6}
