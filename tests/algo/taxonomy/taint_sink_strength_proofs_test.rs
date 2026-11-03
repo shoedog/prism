@@ -14,7 +14,7 @@ fn go_weak_needs_proof() {
         go("multi-assign", "package p\nfunc h(db *sql.DB, in Input) {\n\tx := in.V // SEED\n\tq := \"SELECT a FROM t\"\n\tq, y = \"z\"+x, 1\n\tdb.Query(q) // SINK\n}\n", W),
         go("same name literal in two functions is still one binding each", "package p\nfunc other(db *sql.DB) {\n\tq := \"SELECT 1\"\n\tdb.Query(q)\n}\nfunc h(db *sql.DB, in Input) {\n\tx := in.V // SEED\n\tq := \"SELECT a FROM t WHERE id = $1\"\n\tdb.Query(q, x) // SINK\n}\n", S),
         go("iris printf-form HTML", "package p\nimport \"github.com/kataras/iris/v12\"\nfunc h(ctx iris.Context, in Input) {\n\tx := in.V // SEED\n\tctx.HTML(\"<b>%s</b> %s\", x, \"!\") // SINK\n}\n", W),
-        go("HTML with http.Status first arg", "package p\nfunc h(c Ctx, in Input) {\n\tx := in.V // SEED\n\tc.HTML(http.StatusOK, \"t.tmpl\", x) // SINK\n}\n", S),
+        go("HTML with http.Status first arg on an unknown receiver", "package p\nfunc h(c Ctx, in Input) {\n\tx := in.V // SEED\n\tc.HTML(http.StatusOK, \"t.tmpl\", x) // SINK\n}\n", W),
         go("HTML with unknown first arg and receiver", "package p\nfunc h(c Ctx, code int, in Input) {\n\tx := in.V // SEED\n\tc.HTML(code, \"t.tmpl\", x) // SINK\n}\n", W),
     ]);
 }
@@ -50,7 +50,7 @@ fn python_weak_needs_proof() {
         py("sa parameter shadows the import", "import sqlalchemy as sa\ndef h(cur, sa, req):\n    x = req.GET[\"x\"]  # SEED\n    cur.execute(sa.select(x))  # SINK\n", W),
         py("select parameter shadows the imported constructor", "from sqlalchemy import select\ndef h(cur, select, req):\n    x = req.GET[\"x\"]  # SEED\n    cur.execute(select(x))  # SINK\n", W),
         py("percent string bound once", "def h(cur, inp):\n    x = inp.v  # SEED\n    q = \"SELECT a FROM t WHERE id = %s\" % x\n    cur.execute(q)  # SINK\n", W),
-        py("safe chain with filter and order_by", "import sqlalchemy as sa\ndef h(session, t, inp):\n    x = inp.v  # SEED\n    session.execute(sa.select(t).filter(t.c.a == x).order_by(t.c.id).limit(5))  # SINK\n", S),
+        py("safe chain with filter and order_by", "import sqlalchemy as sa\nfrom app.models import t\ndef h(session, inp):\n    x = inp.v  # SEED\n    session.execute(sa.select(t).filter(t.c.a == x).order_by(t.c.id).limit(5))  # SINK\n", S),
         py("text literal with bindparams is cleansed (no finding)", "from sqlalchemy import text\ndef h(session, inp):\n    x = inp.v  # SEED\n    session.execute(text(\"select 1 where a = :a\").bindparams(a=x))  # SINK\n", NONE),
         py("requests.get inside a weak execute (same line)", "import requests\nQ = \"INSERT INTO t VALUES (%s)\"\ndef h(cur, inp):\n    u = inp.v  # SEED\n    cur.execute(Q, (requests.get(u).text,))  # SINK\n", W),
         py("requests.get interior of a weak execute", "import requests\nQ = \"INSERT INTO t VALUES (%s)\"\ndef h(cur, inp):\n    u = inp.v  # SEED\n    cur.execute(Q, (\n        requests.get(u).text,  # SINK\n    ))\n", W),
