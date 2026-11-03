@@ -284,3 +284,71 @@ fn literal_backslash_vendor_names_do_not_alias_directory_separators() {
         assert_restored(&baseline, &identity(root));
     }
 }
+
+#[test]
+fn go_vendor_gitless_inputs_change_and_restore_both_identities() {
+    let dir = fixture();
+    let root = dir.path();
+    let baseline = identity(root);
+    assert!(baseline.lines().any(|line| line
+        == format!(
+            "cargo:rerun-if-changed={}/vendor/tree-sitter-go",
+            root.display()
+        )));
+    for rel in [
+        "grammar.js",
+        "src/parser.c",
+        "src/tree_sitter/parser.h",
+        "src/node-types.json",
+        "bindings/rust/build.rs",
+        "PRISM.md",
+        "added-input",
+    ] {
+        let path = format!("vendor/tree-sitter-go/{rel}");
+        write(root, &path, b"original");
+        let added = identity(root);
+        assert_changed(&baseline, &added);
+        write(root, &path, b"changed");
+        assert_changed(&added, &identity(root));
+        write(root, &path, b"original");
+        assert_restored(&added, &identity(root));
+        std::fs::remove_file(root.join(path)).unwrap();
+        assert_restored(&baseline, &identity(root));
+    }
+    write(root, "docs/go-grammar.md", b"outside inputs");
+    assert_restored(&baseline, &identity(root));
+}
+
+#[test]
+fn go_vendor_tracked_untracked_and_ignored_inputs_are_dirty() {
+    let dir = fixture();
+    let root = dir.path();
+    write(root, ".gitignore", b"vendor/tree-sitter-go/ignored/\n");
+    git(root, &["init", "-q"]);
+    commit(root);
+    let baseline = identity(root);
+    assert_eq!(value(&baseline, "PRISM_BINARY_INPUT_DIRTY"), "0");
+    for rel in ["src/parser.c", "ignored/parser.c"] {
+        let path = format!("vendor/tree-sitter-go/{rel}");
+        write(root, &path, b"untracked parser");
+        let added = identity(root);
+        assert_changed(&baseline, &added);
+        assert_eq!(value(&added, "PRISM_BINARY_INPUT_DIRTY"), "1");
+        assert!(value(&added, "GIT_SHA").ends_with("-dirty"));
+        std::fs::remove_file(root.join(path)).unwrap();
+        assert_restored(&baseline, &identity(root));
+    }
+    let path = "vendor/tree-sitter-go/src/parser.c";
+    write(root, path, b"tracked parser");
+    commit(root);
+    let tracked = identity(root);
+    assert_eq!(value(&tracked, "PRISM_BINARY_INPUT_DIRTY"), "0");
+    write(root, path, b"changed tracked parser");
+    let changed = identity(root);
+    assert_changed(&tracked, &changed);
+    assert_eq!(value(&changed, "PRISM_BINARY_INPUT_DIRTY"), "1");
+    write(root, path, b"tracked parser");
+    let restored = identity(root);
+    assert_restored(&tracked, &restored);
+    assert_eq!(value(&restored, "PRISM_BINARY_INPUT_DIRTY"), "0");
+}

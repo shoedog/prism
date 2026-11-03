@@ -18,6 +18,7 @@ mod concrete_receiver_unproven_test;
 mod lang_test;
 mod loader_hygiene_test;
 mod module_graph_fix2_test;
+mod new_expr_grammar_test;
 mod owner_partition_fix_wave_test;
 mod owner_partition_telemetry_test;
 mod owner_partition_test;

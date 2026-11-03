@@ -1,4 +1,4 @@
-//! Unchanged pre-Perf-F collectors; test-only differential oracle.
+//! Pre-Perf-F collectors with an independent Go grammar-view adapter.
 use super::{ArmAllocator, LexicalArms, ParsedFile, StatementSpan};
 use std::collections::BTreeMap;
 use tree_sitter::Node;
@@ -96,8 +96,7 @@ impl ParsedFile {
         alloc: &mut ArmAllocator,
         arms: &mut LexicalArms,
     ) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in legacy_children(node, self.language) {
             let kind = child.kind();
             let line = child.start_position().row + 1;
 
@@ -139,8 +138,7 @@ impl ParsedFile {
         alloc: &mut ArmAllocator,
         arms: &mut LexicalArms,
     ) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in legacy_children(node, self.language) {
             let kind = child.kind();
             if kind == "compound_statement"
                 || kind == "block"
@@ -227,8 +225,7 @@ impl ParsedFile {
     }
 
     fn legacy_collect_statements(&self, node: Node<'_>, out: &mut Vec<(usize, String)>) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in legacy_children(node, self.language) {
             let kind = child.kind();
             let line = child.start_position().row + 1;
 
@@ -252,8 +249,7 @@ impl ParsedFile {
     }
 
     fn legacy_collect_statement_spans(&self, node: Node<'_>, out: &mut Vec<StatementSpan>) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in legacy_children(node, self.language) {
             let kind = child.kind();
             let line = child.start_position().row + 1;
 
@@ -279,8 +275,7 @@ impl ParsedFile {
     }
 
     fn legacy_collect_nested_statements(&self, node: Node<'_>, out: &mut Vec<(usize, String)>) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in legacy_children(node, self.language) {
             let kind = child.kind();
             if kind == "compound_statement"
                 || kind == "block"
@@ -312,8 +307,7 @@ impl ParsedFile {
     }
 
     fn legacy_collect_nested_statement_spans(&self, node: Node<'_>, out: &mut Vec<StatementSpan>) {
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in legacy_children(node, self.language) {
             let kind = child.kind();
             if kind == "compound_statement"
                 || kind == "block"
@@ -348,4 +342,19 @@ impl ParsedFile {
             }
         }
     }
+}
+
+// The reference uses eager expansion, independently of the production cursor.
+fn legacy_children(node: Node<'_>, language: crate::languages::Language) -> Vec<Node<'_>> {
+    let mut cursor = node.walk();
+    let mut out = Vec::new();
+    for child in node.children(&mut cursor) {
+        if language == crate::languages::Language::Go && child.kind() == "statement_list" {
+            let mut inner = child.walk();
+            out.extend(child.children(&mut inner));
+        } else {
+            out.push(child);
+        }
+    }
+    out
 }

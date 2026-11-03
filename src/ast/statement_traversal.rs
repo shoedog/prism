@@ -136,8 +136,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(4, node.id(), node.child_count());
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
             let line = child.start_position().row + 1;
 
@@ -185,8 +184,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(5, node.id(), node.child_count());
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
             if kind == "compound_statement"
                 || kind == "block"
@@ -283,8 +281,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(0, node.id(), node.child_count());
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
             let line = child.start_position().row + 1;
 
@@ -318,8 +315,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(2, node.id(), node.child_count());
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
             let line = child.start_position().row + 1;
 
@@ -355,8 +351,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(1, node.id(), node.child_count());
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
             if kind == "compound_statement"
                 || kind == "block"
@@ -398,8 +393,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(3, node.id(), node.child_count());
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
+        for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
             if kind == "compound_statement"
                 || kind == "block"

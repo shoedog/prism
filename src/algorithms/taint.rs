@@ -6695,8 +6695,7 @@ fn first_statement_line(parsed: &ParsedFile, node: &Node<'_>) -> Option<usize> {
     if parsed.language.is_statement_node(node.kind()) {
         return Some(node.start_position().row + 1);
     }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
+    for child in crate::go_statements::children(*node, parsed.language) {
         if parsed.language.is_statement_node(child.kind()) {
             return Some(child.start_position().row + 1);
         }
@@ -6715,8 +6714,7 @@ fn block_ends_with_return(parsed: &ParsedFile, node: &Node<'_>) -> bool {
 
 fn last_statement_node<'a>(parsed: &ParsedFile, node: &Node<'a>) -> Option<Node<'a>> {
     let mut last = None;
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
+    for child in crate::go_statements::children(*node, parsed.language) {
         if parsed.language.is_statement_node(child.kind()) {
             last = Some(child);
         } else if parsed.language.is_scope_block(child.kind()) {

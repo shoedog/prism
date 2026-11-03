@@ -67,6 +67,7 @@ pub mod go_promoted_snapshot;
 mod go_receiver_index;
 mod go_receiver_index_visibility;
 mod go_selector_supply;
+mod go_statements;
 mod go_type_alias;
 mod js_anonymous;
 pub mod js_exports;

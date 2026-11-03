@@ -5,7 +5,7 @@ use std::process::Command;
 
 // All files in this bounded, source-controlled package are identity inputs,
 // including generated artifacts and provenance. Keep bootstrap scratch outside it.
-const VENDORED_GRAMMAR: &str = "vendor/tree-sitter-typescript";
+const VENDORED_GRAMMARS: &[&str] = &["vendor/tree-sitter-typescript", "vendor/tree-sitter-go"];
 
 fn main() {
     println!("cargo:rerun-if-changed=Cargo.lock");
@@ -42,7 +42,7 @@ fn main() {
     let manifest_path = Path::new(&manifest);
     let vendor_inputs = vendor_input_paths(manifest_path);
     if !vendor_inputs.is_empty() {
-        joined.push_str(";vendored-typescript-sha256:");
+        joined.push_str(";vendored-grammars-sha256:");
         joined.push_str(&vendor_input_fingerprint(manifest_path, &vendor_inputs));
     }
     let mut h: u64 = 0xcbf29ce484222325;
@@ -69,7 +69,9 @@ fn main() {
     println!("cargo:rerun-if-changed={manifest}/Cargo.toml");
     // Cargo recursively watches directories, including additions and removals.
     // Emit this even before the vendored package exists (gitless/bootstrap builds).
-    println!("cargo:rerun-if-changed={manifest}/{VENDORED_GRAMMAR}");
+    for vendor in VENDORED_GRAMMARS {
+        println!("cargo:rerun-if-changed={manifest}/{vendor}");
+    }
     let git = |args: &[&str]| {
         Command::new("git")
             .args(args)
@@ -213,7 +215,8 @@ fn git_vendor_input_dirty(manifest: &str) -> Option<bool> {
             "--untracked-files=all",
             "--ignored",
             "--",
-            VENDORED_GRAMMAR,
+            VENDORED_GRAMMARS[0],
+            VENDORED_GRAMMARS[1],
         ],
     )
     .map(|s| !s.is_empty())
@@ -221,8 +224,7 @@ fn git_vendor_input_dirty(manifest: &str) -> Option<bool> {
 
 fn vendor_input_paths(root: &Path) -> Vec<String> {
     let mut paths = BTreeSet::new();
-    let vendor = root.join(VENDORED_GRAMMAR);
-    match std::fs::symlink_metadata(vendor.parent().unwrap()) {
+    match std::fs::symlink_metadata(root.join("vendor")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
         Err(error) => panic!("cannot inspect vendored grammar parent: {error}"),
         Ok(metadata) => assert!(
@@ -230,10 +232,13 @@ fn vendor_input_paths(root: &Path) -> Vec<String> {
             "vendored grammar parent must be a real directory"
         ),
     }
-    match std::fs::symlink_metadata(&vendor) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
-        Err(error) => panic!("cannot inspect vendored grammar inputs: {error}"),
-        Ok(_) => collect_vendor_tree(root, &vendor, &mut paths),
+    for vendor in VENDORED_GRAMMARS {
+        let vendor = root.join(vendor);
+        match std::fs::symlink_metadata(&vendor) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => panic!("cannot inspect vendored grammar inputs: {error}"),
+            Ok(_) => collect_vendor_tree(root, &vendor, &mut paths),
+        }
     }
     paths.into_iter().collect()
 }
@@ -279,7 +284,10 @@ fn binary_input_fingerprint(manifest: &Path, paths: &[String]) -> String {
     let mut hasher = Sha256::new();
     let mut vendor = Vec::new();
     for rel in paths {
-        if rel.starts_with(&format!("{VENDORED_GRAMMAR}/")) {
+        if VENDORED_GRAMMARS.iter().any(|root| {
+            rel.strip_prefix(root)
+                .is_some_and(|rest| rest.starts_with('/'))
+        }) {
             vendor.push(rel.clone());
             continue;
         }
@@ -293,7 +301,7 @@ fn binary_input_fingerprint(manifest: &Path, paths: &[String]) -> String {
         hasher.update([0xff]);
     }
     if !vendor.is_empty() {
-        hasher.update(b"\0vendored-typescript-sha256:");
+        hasher.update(b"\0vendored-grammars-sha256:");
         hasher.update(vendor_input_fingerprint(manifest, &vendor));
     }
     format!("{:x}", hasher.finalize())

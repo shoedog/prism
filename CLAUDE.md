@@ -777,12 +777,12 @@ Key algorithm-specific flags:
 
 ## Dependencies
 
-- `tree-sitter` + 11 language grammar crates (12 parsed language variants) for AST parsing
+- `tree-sitter` + 11 language grammar crates (12 parsed language variants) for AST parsing; TypeScript 0.23.2 and Go 0.25.0 + PR #193 are source-vendored (see each `vendor/tree-sitter-*/PRISM.md`)
 - `petgraph` for graph data structures (CFG, CPG)
 - `clap` for CLI
 - `dirs` for prism-owned cache directory discovery
 - rayon for parallel file parsing/extraction in the CPG build
 - `serde`/`serde_json` for serialization
 - `anyhow`/`thiserror` for error handling
-- `build.rs` emits `GRAMMAR_FINGERPRINT` from `Cargo.lock` tree-sitter grammar versions for cache invalidation
+- `build.rs` emits `GRAMMAR_FINGERPRINT` from `Cargo.lock` tree-sitter grammar versions and all vendored grammar inputs for cache invalidation
 - `tempfile`, `assert_cmd`, `predicates` (dev-dependencies for testing)
