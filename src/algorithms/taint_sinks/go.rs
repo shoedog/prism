@@ -167,9 +167,44 @@ fn is_constant_format(p: Src<'_>, facts: &Facts, node: Node<'_>) -> bool {
 /// True when a SQL query argument is constant text: a literal (or literal concatenation) or a
 /// `const` that is not shadowed. Taint then reaches the call only as a bound parameter (#636).
 fn is_constant_query(p: Src<'_>, node: Node<'_>) -> bool {
-    is_literal_concat(p, node)
-        || (node.kind() == "identifier"
-            && matches!(resolve(p, node, p.node_text(&node)), GoBind::Const))
+    if is_literal_concat(p, node) {
+        return true;
+    }
+    if node.kind() != "identifier" {
+        return false;
+    }
+    let name = p.node_text(&node);
+    match resolve(p, node, name) {
+        GoBind::Const => true,
+        // `query := "..."` / `var query = "..."`, never written again in the file.
+        GoBind::Var { init: Some(i), .. } => is_literal_concat(p, i) && !is_written(p, node, name),
+        _ => false,
+    }
+}
+
+/// True when `name` is assigned (`=`, `+=`, `++`) anywhere in the file after its declaration.
+/// Conservative by spelling, like the JS and Python rebinding checks.
+fn is_written(p: Src<'_>, from: Node<'_>, name: &str) -> bool {
+    let mut root = from;
+    while let Some(parent) = root.parent() {
+        root = parent;
+    }
+    let mut found = false;
+    walk(root, &mut |n| {
+        let target = match n.kind() {
+            "assignment_statement" => n.child_by_field_name("left"),
+            "inc_dec_statement" => n.named_child(0),
+            _ => None,
+        };
+        if let Some(t) = target {
+            walk(t, &mut |m| {
+                if m.kind() == "identifier" && p.node_text(&m) == name {
+                    found = true;
+                }
+            });
+        }
+    });
+    found
 }
 
 /// True when `arg` is a writer: `c.Writer`, or a parameter typed `...Writer`

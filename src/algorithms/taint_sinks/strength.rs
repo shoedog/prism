@@ -11,6 +11,7 @@
 use super::SinkClassifier;
 use crate::ast::ParsedFile;
 use crate::languages::Language;
+use tree_sitter::Node;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Strength {
@@ -50,7 +51,12 @@ impl SinkClassifier {
             return Strength::Strong;
         }
         let mut weak_seen = false;
-        for id in parsed.identifiers_on_line(line) {
+        // A line inside a multi-line call is judged with the calls that enclose it.
+        let mut ids = parsed.identifiers_on_line(line);
+        if let Some(first) = ids.first().copied() {
+            ids.extend(enclosing_callees(first));
+        }
+        for id in ids {
             let text = parsed.node_text(&id);
             if is_extra(text) {
                 return Strength::Strong;
@@ -68,4 +74,26 @@ impl SinkClassifier {
             Strength::Strong
         }
     }
+}
+
+/// The callee identifier of every call that encloses `node`.
+fn enclosing_callees(node: Node<'_>) -> Vec<Node<'_>> {
+    let mut out = Vec::new();
+    let mut cur = node.parent();
+    while let Some(n) = cur {
+        if matches!(n.kind(), "call_expression" | "call") {
+            let callee = n
+                .child_by_field_name("function")
+                .and_then(|f| match f.kind() {
+                    "identifier" => Some(f),
+                    "member_expression" => f.child_by_field_name("property"),
+                    "attribute" => f.child_by_field_name("attribute"),
+                    "selector_expression" => f.child_by_field_name("field"),
+                    _ => None,
+                });
+            out.extend(callee);
+        }
+        cur = n.parent();
+    }
+    out
 }

@@ -342,19 +342,93 @@ fn split_top(text: &str, sep: char) -> Vec<&str> {
     out
 }
 
-/// A `py-db-call` hit, weak when the query is constant text (#636): a string literal without
-/// interpolation, or a name bound once to one.
-fn db_hit(p: Src<'_>, from: Node<'_>, query: Option<Node<'_>>) -> SinkHit {
+/// A `py-db-call` hit, weak when the query cannot carry the tainted value as text (#636): a
+/// string literal without interpolation, a SQLAlchemy construct, or a name bound once to either.
+fn db_hit(p: Src<'_>, facts: &Facts, from: Node<'_>, query: Option<Node<'_>>) -> SinkHit {
     let constant = query.is_some_and(|q| {
-        is_literal(p, q)
-            || (q.kind() == "identifier"
-                && matches!(
-                    resolve(p, from, p.node_text(&q)),
-                    PyBind::Assigned(v) if is_literal(p, v)
+        if is_defused_query(p, facts, q) {
+            return true;
+        }
+        if q.kind() != "identifier" {
+            return false;
+        }
+        let name = p.node_text(&q);
+        match resolve(p, from, name) {
+            PyBind::Assigned(v) => is_defused_query(p, facts, v) && !is_rebound(p, from, name, 1),
+            PyBind::Param {
+                annotation: Some(a),
+            } => {
+                let t = p.node_text(&a);
+                matches!(
+                    t.rsplit('.').next().unwrap_or(t),
+                    "Select" | "Executable" | "Insert" | "Update" | "Delete" | "CompoundSelect"
                 )
-                && !is_rebound(p, from, p.node_text(&q), 1))
+            }
+            _ => false,
+        }
     });
     SinkHit::new("py-db-call", "CWE-89").weak_if(constant)
+}
+
+const SA_CONSTRUCTORS: &[&str] = &["select", "insert", "update", "delete", "union", "exists"];
+
+fn is_defused_query(p: Src<'_>, facts: &Facts, node: Node<'_>) -> bool {
+    is_literal(p, node) || is_sqlalchemy_construct(p, facts, node)
+}
+
+/// The SQLAlchemy member a callee names (`select` / `sa.select` / `sqlalchemy.sql.select`),
+/// proven by the file's imports.
+fn sqlalchemy_member(p: Src<'_>, facts: &Facts, f: Node<'_>) -> Option<&'static str> {
+    let pick = |name: &str| {
+        SA_CONSTRUCTORS
+            .iter()
+            .chain(["text"].iter())
+            .find(|k| **k == name)
+            .copied()
+    };
+    match f.kind() {
+        "identifier" => {
+            let (module, orig) = facts.names.get(p.node_text(&f))?;
+            module.starts_with("sqlalchemy").then(|| pick(orig))?
+        }
+        "attribute" => {
+            let text = p.node_text(&f);
+            let plain = text
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.');
+            let first = text.split('.').next()?;
+            (plain && facts.module_of(first).starts_with("sqlalchemy"))
+                .then(|| pick(text.rsplit('.').next()?))?
+        }
+        _ => None,
+    }
+}
+
+/// A call or method chain rooted at a SQLAlchemy statement constructor, or `text(<literal>)`.
+fn is_sqlalchemy_construct(p: Src<'_>, facts: &Facts, node: Node<'_>) -> bool {
+    let mut n = peel_parens(node);
+    for _ in 0..64 {
+        match n.kind() {
+            "call" => {
+                let Some(f) = n.child_by_field_name("function") else {
+                    return false;
+                };
+                match sqlalchemy_member(p, facts, f) {
+                    Some("text") => {
+                        return args(n).first().is_some_and(|a| is_literal(p, *a));
+                    }
+                    Some(_) => return true,
+                    None => n = f,
+                }
+            }
+            "attribute" => match n.child_by_field_name("object") {
+                Some(o) => n = o,
+                None => return false,
+            },
+            _ => return false,
+        }
+    }
+    false
 }
 
 fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
@@ -397,13 +471,12 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
         "run" | "call" => {
             (module == Some("subprocess")).then(|| SinkHit::new("py-subprocess", "CWE-78"))
         }
-        n if SQL_METHODS.contains(&n) || n == "raw" => {
-            (nargs > 0 && !logger && !local_def).then(|| db_hit(p, id, query_sql_arg(p, c.call)))
-        }
+        n if SQL_METHODS.contains(&n) || n == "raw" => (nargs > 0 && !logger && !local_def)
+            .then(|| db_hit(p, facts, id, query_sql_arg(p, c.call))),
         n if PANDAS_SQL.contains(&n) => hit("py-db-call", "CWE-89"),
         "query" => query_sql_arg(p, c.call)
             .is_some_and(|a| is_sql_text(p, a))
-            .then(|| db_hit(p, id, query_sql_arg(p, c.call))),
+            .then(|| db_hit(p, facts, id, query_sql_arg(p, c.call))),
         // ORM clause entry points: the clause argument is where raw SQL can enter.
         // Keyword-only calls (`Model.objects.filter(pk=x)`, `filter_by(id=x)`) are
         // parameterised lookups, not clauses. A positional expression such as
