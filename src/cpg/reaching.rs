@@ -19,7 +19,7 @@ mod cfg_edge_index;
 mod compact_wire;
 mod def_buckets;
 mod graph;
-mod join_kind;
+pub(super) mod join_kind;
 #[cfg(test)]
 mod legacy_classify;
 mod reach_memo;
@@ -327,8 +327,9 @@ fn reaching_definitions_impl(
     let buckets = def_buckets::DefinitionBuckets::new(&defs);
     let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts);
 
-    let in_sets = solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
-    let flat_in_sets = solve_reaching_sets(
+    let (in_sets, entry_reachable) =
+        solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
+    let (flat_in_sets, _) = solve_reaching_sets(
         &gen,
         &flat_kill,
         &predecessors,
@@ -343,6 +344,8 @@ fn reaching_definitions_impl(
     statement_lookup_tests::record_sets(&in_sets, &flat_in_sets);
     #[cfg(test)]
     def_bucket_tests::record_sets(&in_sets, &flat_in_sets, &kill, &flat_kill);
+    let go_reachable = (parsed.language == Language::Go).then_some(&entry_reachable);
+    let mut go_components = None;
     let collapsed = collapsed_groups(&defs);
     let capture_facts = capture::capture_facts(parsed, *func_node);
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
@@ -374,6 +377,7 @@ fn reaching_definitions_impl(
             &mapped_defs,
             &line_index,
             &mut statements,
+            go_reachable,
             &in_sets,
             &kill,
             &flat_in_sets,
@@ -386,7 +390,23 @@ fn reaching_definitions_impl(
             &binding_facts,
             function_start,
         );
-        if label.is_exact() && edge.to.line < edge.from.line {
+        if label.is_exact()
+            && edge.to.line < edge.from.line
+            && (parsed.language != Language::Go || {
+                let components = go_components
+                    .get_or_insert_with(|| super::go_loop_cycles::components(&successors));
+                statements
+                    .get(edge.to.line)
+                    .and_then(|line| line_index.get(&line))
+                    .is_some_and(|&to| {
+                        candidates.iter().any(|&index| {
+                            mapped_defs[index].is_some_and(|from| {
+                                components[from].is_some() && components[from] == components[to]
+                            })
+                        })
+                    })
+            })
+        {
             loop_carried_edges.insert(key.clone());
         }
         labels
@@ -405,6 +425,7 @@ fn reaching_definitions_impl(
             &mapped_defs,
             &line_index,
             &mut statements,
+            go_reachable,
             &in_sets,
             &kill,
             &flat_in_sets,
@@ -438,14 +459,16 @@ fn solve_reaching_sets(
     successors: &[Vec<(usize, bool)>],
     entry: usize,
     def_count: usize,
-) -> Vec<BitSet> {
+) -> (Vec<BitSet>, BitSet) {
     let mut in_sets = vec![BitSet::new(def_count); gen.len()];
     let mut out_sets = vec![BitSet::new(def_count); gen.len()];
     let order = reverse_postorder(successors, entry);
     let mut worklist: VecDeque<usize> = order.iter().copied().collect();
     let mut queued = vec![false; gen.len()];
+    let mut reachable = BitSet::new(gen.len());
     for node in &order {
         queued[*node] = true;
+        reachable.insert(*node);
     }
     while let Some(node) = worklist.pop_front() {
         queued[node] = false;
@@ -468,7 +491,7 @@ fn solve_reaching_sets(
         }
     }
 
-    in_sets
+    (in_sets, reachable)
 }
 
 fn deduplicate_definitions(defs: &[DefSite]) -> Vec<DefSite> {
@@ -495,6 +518,7 @@ fn classify_edge(
     mapped_defs: &[Option<usize>],
     line_index: &BTreeMap<Line, usize>,
     statements: &mut statement_lookup::StatementLookup<'_>,
+    go_reachable: Option<&BitSet>,
     in_sets: &[BitSet],
     kill: &[BitSet],
     flat_in_sets: &[BitSet],
@@ -602,6 +626,7 @@ fn classify_edge(
             paths,
             flat_reach,
             line_index,
+            go_reachable,
         );
     }
 
@@ -632,6 +657,7 @@ fn classify_edge(
         paths,
         bound_reach,
         line_index,
+        go_reachable,
     )
 }
 
@@ -645,6 +671,7 @@ fn classify_by_reaching_sets(
     paths: &mut Reachability<'_>,
     def_reach: &mut DefinitionReachability<'_>,
     line_index: &BTreeMap<Line, usize>,
+    go_reachable: Option<&BitSet>,
 ) -> FlowConfidence {
     let reaching_candidates: Vec<usize> = candidates
         .iter()
@@ -662,6 +689,15 @@ fn classify_by_reaching_sets(
         return FlowConfidence::Exact;
     }
 
+    // An absent reaching fact is not an overwrite proof if the CFG never
+    // seeded the definition. Retain Go doubt for missing-entry shapes.
+    if go_reachable.is_some_and(|reachable| {
+        candidates
+            .iter()
+            .any(|&index| mapped_defs[index].is_none_or(|node| !reachable.contains(node)))
+    }) {
+        return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
     let Some(kill_line) = candidates
         .iter()
         .filter_map(|index| {

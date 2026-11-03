@@ -153,7 +153,8 @@ fn random_graph_and_classification_equivalence() {
                 for candidates in [&[][..], &[0][..], &[1, 2][..], &[0, 1, 2, 3][..]] {
                     assert_eq!(
                         classify_by_reaching_sets(
-                            candidates, to, &mapped, &in_sets, &kill, &mut paths, &mut defs, &lines
+                            candidates, to, &mapped, &in_sets, &kill, &mut paths, &mut defs,
+                            &lines, None
                         ),
                         legacy_classify::classify_by_reaching_sets(
                             candidates, to, &mapped, &in_sets, &kill, &graph, &lines

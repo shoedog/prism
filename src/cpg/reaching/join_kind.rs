@@ -3,13 +3,13 @@ use super::{ArmProvenance, CfgEdge, EdgeOrigin, Language, Line, ParsedFile};
 use std::cell::OnceCell;
 use std::collections::BTreeMap;
 
-pub(super) struct StatementKinds<'a> {
+pub(in crate::cpg) struct StatementKinds<'a> {
     statements: &'a [(Line, String)],
     kinds: OnceCell<BTreeMap<Line, &'a str>>,
 }
 
 impl<'a> StatementKinds<'a> {
-    pub(super) fn new(statements: &'a [(Line, String)]) -> Self {
+    pub(in crate::cpg) fn new(statements: &'a [(Line, String)]) -> Self {
         Self {
             statements,
             kinds: OnceCell::new(),
@@ -32,7 +32,7 @@ impl<'a> StatementKinds<'a> {
     }
 }
 
-pub(super) fn is_incomplete_join(
+pub(in crate::cpg) fn is_incomplete_join(
     parsed: &ParsedFile,
     kinds: &StatementKinds<'_>,
     edge: &CfgEdge,
@@ -42,7 +42,7 @@ pub(super) fn is_incomplete_join(
     if super::join_kind_tests::legacy_enabled() {
         return super::join_kind_tests::legacy_join(parsed, kinds.statements, edge, provenance);
     }
-    if provenance.crosses_lexical_arm() {
+    if provenance.crosses_lexical_arm() || provenance.origin == EdgeOrigin::GoDeferExit {
         return true;
     }
     if !matches!(provenance.origin, EdgeOrigin::Structured) {

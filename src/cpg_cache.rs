@@ -282,7 +282,8 @@ mod stream;
 ///   gains `RequireModule`, and `JsExportFacts` gains the proven CommonJS callables.
 /// - v138: cap RD-unavailable fallback emissions and persist cap counters (#633).
 /// - v139: Go lexical U/D edge pruning and four persisted prune counters.
-const CACHE_VERSION: u32 = 139;
+/// - v140: Go goto and labeled/unlabeled break/continue CFG reaching labels.
+const CACHE_VERSION: u32 = 140;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -833,7 +834,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 139);
+        assert_eq!(super::CACHE_VERSION, 140);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

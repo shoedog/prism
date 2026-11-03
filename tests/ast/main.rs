@@ -10,6 +10,8 @@ mod dfg_label_test;
 mod dfg_prune_test;
 mod dfg_test;
 mod field_test;
+mod go_jumps_round2_test;
+mod go_jumps_test;
 mod go_package_basename_lifecycle_test;
 mod import_test;
 mod java_type_provider_test;

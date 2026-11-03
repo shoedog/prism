@@ -59,6 +59,7 @@ impl CodePropertyGraph {
             return Self::assemble_step4_reference(dfg, files, var_index, exact_var_index, graph);
         }
         let mut stats = DfgLabelStats::default();
+        let mut go_cycles = super::super::go_loop_cycles::GoLoopCycles::default();
         let mut without_cfg = BTreeSet::new();
         {
             let view = dfg.assembly_view();
@@ -108,7 +109,15 @@ impl CodePropertyGraph {
                             })
                             .or_insert(confidence);
                         stats.record_label(confidence);
-                        if confidence.is_exact() && view.location(t).line < from_loc.line {
+                        if confidence.is_exact()
+                            && go_cycles.is_loop_carried(
+                                files,
+                                &from_loc.file,
+                                from_loc.function_start_line,
+                                from_loc.line,
+                                view.location(t).line,
+                            )
+                        {
                             stats.dfg_label_loop_carried += 1;
                         }
                         graph.add_edge(from, to, CpgEdge::DataFlow(confidence));
@@ -144,7 +153,15 @@ impl CodePropertyGraph {
                 }
                 if materialized.insert((from, to, confidence)) {
                     stats.record_label(confidence);
-                    if confidence.is_exact() && to_loc.line < from_loc.line {
+                    if confidence.is_exact()
+                        && go_cycles.is_loop_carried(
+                            files,
+                            &from_loc.file,
+                            from_loc.function_start_line,
+                            from_loc.line,
+                            to_loc.line,
+                        )
+                    {
                         stats.dfg_label_loop_carried += 1;
                     }
                     graph.add_edge(from, to, CpgEdge::DataFlow(confidence));

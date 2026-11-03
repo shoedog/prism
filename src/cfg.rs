@@ -14,6 +14,8 @@ use crate::languages::Language;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+mod go_jumps;
+
 /// A control flow edge between two source lines within a function.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CfgEdge {
@@ -46,6 +48,8 @@ pub(crate) enum EdgeOrigin {
     /// from the construct itself, so they are real control flow whatever arms
     /// their endpoints are in.
     Structured,
+    /// Synthetic function-exit dispatch, not a re-evaluation of defer arguments.
+    GoDeferExit,
 }
 
 /// One lexical arm, as a preorder interval: `id` is the arm and `subtree_last`
@@ -247,6 +251,7 @@ fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Edge
     // Go: defer, select
     if matches!(parsed.language, Language::Go) {
         build_go_edges(func_node, parsed, &stmt_lines, edges);
+        go_jumps::build(func_node, parsed, &stmt_lines, edges);
     }
 
     // Rust: match arms, ? operator early-return
