@@ -12,7 +12,8 @@ use super::callee::{args, callee_of, literal_string, Src};
 use super::py_scope::{local_binding, Bound, Local};
 use super::python::Facts;
 use super::sqla_tables::{self as t, lib_path, Entry, Kw, Lib};
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::BTreeSet;
 use tree_sitter::Node;
 
 const MAX_HOPS: u8 = 8;
@@ -117,6 +118,8 @@ pub(super) struct Proof<'a> {
     hops: Cell<u8>,
     pub(super) defs: Cell<u8>,
     fuel: Cell<u32>,
+    /// Proofs that held, by (initializer start, class): a name used many times is proven once.
+    proven: RefCell<BTreeSet<(usize, u8)>>,
 }
 
 pub(super) type LibRef = (Lib, Vec<String>);
@@ -129,6 +132,7 @@ impl<'a> Proof<'a> {
             hops: Cell::new(0),
             defs: Cell::new(0),
             fuel: Cell::new(FUEL),
+            proven: RefCell::default(),
         }
     }
 
@@ -140,6 +144,20 @@ impl<'a> Proof<'a> {
         let left = self.fuel.get();
         self.fuel.set(left.saturating_sub(1));
         left > 0
+    }
+
+    /// [`Self::hop`] with a memo of successes: a failure may be a depth or fuel refusal, so only
+    /// a proof that held is reused.
+    pub(super) fn hop_memo(&self, class: u8, init: Node<'_>, run: impl FnOnce() -> bool) -> bool {
+        let key = (init.start_byte(), class);
+        if self.proven.borrow().contains(&key) {
+            return true;
+        }
+        let ok = self.hop(run);
+        if ok {
+            self.proven.borrow_mut().insert(key);
+        }
+        ok
     }
 
     /// Resolve one name to its initializer: at most [`MAX_HOPS`] deep, so a cycle refuses.
@@ -270,7 +288,7 @@ impl<'a> Proof<'a> {
         match n.kind() {
             "string" | "concatenated_string" => plain_literal(self.p, n),
             "identifier" => match self.local(n, self.text(n)) {
-                Local::One(Bound::Assign(v)) => self.hop(|| self.stmt(v)),
+                Local::One(Bound::Assign(v)) => self.hop_memo(b's', v, || self.stmt(v)),
                 Local::One(Bound::Param(Some(a))) => self.annotation_in(a, t::STMT_ANNOTATIONS),
                 _ => false,
             },
@@ -342,7 +360,7 @@ impl<'a> Proof<'a> {
     pub(super) fn root_name(&self, n: Node<'_>) -> bool {
         let name = self.text(n);
         match self.local(n, name) {
-            Local::One(Bound::Assign(v)) => self.hop(|| self.from_(v)),
+            Local::One(Bound::Assign(v)) => self.hop_memo(b'f', v, || self.from_(v)),
             // D2: a never-rebound parameter annotated as a table or statement.
             Local::One(Bound::Param(Some(a))) => self.annotation_in(a, t::ROOT_ANNOTATIONS),
             Local::Unbound | Local::One(Bound::Import(..) | Bound::Def(_)) => {
@@ -399,7 +417,7 @@ impl<'a> Proof<'a> {
             "identifier" => {
                 let name = self.text(n);
                 match self.local(n, name) {
-                    Local::One(Bound::Assign(v)) => self.hop(|| self.clause(v)),
+                    Local::One(Bound::Assign(v)) => self.hop_memo(b'c', v, || self.clause(v)),
                     Local::One(Bound::Param(Some(a))) => self.annotation_in(a, t::ROOT_ANNOTATIONS),
                     Local::Unbound | Local::One(Bound::Import(..) | Bound::Def(_)) => {
                         self.schema_name(name)

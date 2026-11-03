@@ -76,10 +76,25 @@ impl<'a> Proof<'a> {
             Local::Unbound => true,
             Local::Multi => false,
             Local::One(b) => match b {
-                Bound::Assign(v) => !self.stores_to(n) && self.hop(|| self.value(v)),
+                Bound::Assign(v) => !self.stores_to(n) && self.hop_memo(b'v', v, || self.value(v)),
                 Bound::Param(_) => !self.stores_to(n),
                 Bound::Loop(it) => {
-                    !self.stores_to(n) && it.is_none_or(|e| self.hop(|| self.value(e)))
+                    // D1: a loop target is data. An iterable built in place (a display or a
+                    // comprehension) is still checked, so `for c in [literal_column(s)]` is Strong.
+                    let built_here = |e: Node<'_>| {
+                        matches!(
+                            peel(e).kind(),
+                            "list"
+                                | "tuple"
+                                | "set"
+                                | "dictionary"
+                                | "list_comprehension"
+                                | "set_comprehension"
+                                | "dictionary_comprehension"
+                                | "generator_expression"
+                        )
+                    };
+                    !self.stores_to(n) && it.is_none_or(|e| !built_here(e) || self.value(e))
                 }
                 Bound::Import(..) | Bound::Def(_) => true,
                 Bound::Opaque | Bound::Declared => false,
