@@ -20,27 +20,48 @@ fn type_shape(p: &ParsedFile, n: Node<'_>) -> bool {
                     .is_some_and(|b| type_shape(p, b))
         }
         "parenthesized_expression" => n.named_child(0).is_some_and(|b| type_shape(p, b)),
+        // The old generic_type is a single bracket on an identifier or a
+        // qualified type. Its arguments can themselves be generic types.
+        "index_expression" => {
+            n.child_by_field_name("operand").is_some_and(|b| {
+                matches!(b.kind(), "identifier" | "selector_expression") && type_shape(p, b)
+            }) && n
+                .child_by_field_name("index")
+                .is_some_and(|b| type_shape(p, b))
+        }
+        _ => false,
+    }
+}
+
+fn contains_generic_type(n: Node<'_>) -> bool {
+    match n.kind() {
+        "index_expression" => true,
+        "unary_expression" | "parenthesized_expression" => {
+            n.named_child(0).is_some_and(contains_generic_type)
+        }
         _ => false,
     }
 }
 
 fn nested_instantiation(p: &ParsedFile, n: Node<'_>) -> bool {
-    if n.kind() != "index_expression" {
+    // In call position the old parser split off the final bracket as
+    // type_arguments, retaining the preceding expression as a value callee.
+    if n.kind() != "index_expression"
+        || n.parent().is_some_and(|call| {
+            call.kind() == "call_expression" && call.child_by_field_name("function") == Some(n)
+        })
+    {
         return false;
     }
-    let Some(inner) = n
-        .child_by_field_name("operand")
-        .filter(|n| n.kind() == "index_expression")
-    else {
+    let (Some(base), Some(index)) = (
+        n.child_by_field_name("operand"),
+        n.child_by_field_name("index"),
+    ) else {
         return false;
     };
-    inner.child_by_field_name("operand").is_some_and(|b| {
-        matches!(b.kind(), "identifier" | "selector_expression") && type_shape(p, b)
-    }) && inner
-        .child_by_field_name("index")
-        .is_some_and(|b| type_shape(p, b))
-        && n.child_by_field_name("index")
-            .is_some_and(|b| type_shape(p, b))
+    type_shape(p, base)
+        && type_shape(p, index)
+        && (contains_generic_type(base) || contains_generic_type(index))
 }
 
 // The old parser chose type_arguments syntactically even for handlers[i]().
@@ -50,9 +71,6 @@ fn call_type_argument(p: &ParsedFile, n: Node<'_>) -> bool {
         index.kind() == "index_expression"
             && index.child_by_field_name("index") == Some(n)
             && type_shape(p, n)
-            && index
-                .child_by_field_name("operand")
-                .is_some_and(|base| matches!(base.kind(), "identifier" | "selector_expression"))
             && index.parent().is_some_and(|call| {
                 call.kind() == "call_expression"
                     && call.child_by_field_name("function") == Some(index)

@@ -17,6 +17,7 @@ mod concrete_receiver_route_test;
 mod concrete_receiver_unproven_test;
 mod generic_call_shapes_test;
 mod indexed_builtin_grammar_test;
+mod indexed_value_compat_test;
 mod lang_test;
 mod loader_hygiene_test;
 mod module_graph_fix2_test;
