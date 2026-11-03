@@ -4,14 +4,15 @@
 //! strong sink with a CWE when the callee is proven by a lexically resolved binding, and
 //! otherwise says nothing (positive evidence only: nothing is ever suppressed here).
 //! Identity comes from an import of a listed module under any local name (every binding of
-//! the spelling is that one import), or one hop from it: a local whose only binding is a call
+//! the spelling in the scope the use resolves to is that one import, and no star import can
+//! replace it), or one hop from it: a local whose only binding is a call
 //! of a listed class, a `with Class(..) as v` target, or the first parameter of a function
 //! decorated with a `task` imported from fabric / invoke. A rebinding, a second binding, a
 //! shadowing parameter, a field receiver or an annotation proves nothing.
 
 use super::callee::{args, Callee, Src};
-use super::py_scope::{local_binding, Bound, Local};
-use super::python::Facts;
+use super::py_scope::{scope_bindings, Bound, Scoped};
+use super::python::{is_literal, Facts};
 use super::SinkHit;
 use tree_sitter::Node;
 
@@ -38,14 +39,9 @@ fn class_kind(path: &str) -> Option<Kind> {
     }
 }
 
-/// `task` decorators of fabric and invoke.
-const TASK_PATHS: &[&str] = &[
-    "fabric.task",
-    "fabric.api.task",
-    "fabric.decorators.task",
-    "invoke.task",
-    "invoke.tasks.task",
-];
+/// `task` decorators whose first parameter is a connection or context (Fabric 2 and invoke;
+/// Fabric 1 tasks take command-line strings).
+const TASK_PATHS: &[&str] = &["fabric.task", "invoke.task", "invoke.tasks.task"];
 
 const COMMAND: (&str, &str) = ("py-module-command", "CWE-78");
 const TEMPLATE: (&str, &str) = ("py-module-template", "CWE-1336");
@@ -73,14 +69,35 @@ fn method_rule(kind: Kind, method: &str) -> Option<((&'static str, &'static str)
     }
 }
 
-/// The dotted path a name or attribute chain stands for through imports alone: every binding of
-/// the root spelling in the file is the same import (`import m [as a]`, `from m import x [as a]`).
+/// The `(module, member)` import a bare name stands for at its use: every binding in the
+/// nearest scope that binds it is the same import, and no star import can replace it.
+fn import_at(p: Src<'_>, f: &Facts, ident: Node<'_>) -> Option<(String, String)> {
+    let Scoped::Found(scope, bound) = scope_bindings(p, &f.sites, ident, p.node_text(&ident))
+    else {
+        return None;
+    };
+    let mut first: Option<(&String, &String)> = None;
+    for b in &bound {
+        let Bound::Import(m, x) = b else { return None };
+        if first.is_some_and(|(fm, fx)| (fm, fx) != (m, x)) {
+            return None;
+        }
+        first = Some((m, x));
+    }
+    let (m, x) = first?;
+    if scope.kind() == "module" && f.wildcards.iter().any(|w| w != m) {
+        return None;
+    }
+    Some((m.clone(), x.clone()))
+}
+
+/// The dotted path a name or attribute chain stands for through imports alone.
 fn path_of(p: Src<'_>, f: &Facts, expr: Node<'_>) -> Option<String> {
     match expr.kind() {
         "identifier" => {
-            let (module, member) = f.sites.trusted_import(p.node_text(&expr))?;
+            let (module, member) = import_at(p, f, expr)?;
             Some(if member.is_empty() {
-                module.clone()
+                module
             } else {
                 format!("{module}.{member}")
             })
@@ -102,22 +119,32 @@ fn constructed(p: Src<'_>, f: &Facts, value: Node<'_>) -> Option<Kind> {
     class_kind(&path_of(p, f, p.call_function_node(&value)?)?)
 }
 
-/// The kind of instance a receiver identifier holds, one hop from an import.
+/// The kind of instance a receiver holds: a call of a listed class, or one hop from an import.
 fn instance_kind(p: Src<'_>, f: &Facts, recv: Node<'_>) -> Option<Kind> {
+    if recv.kind() == "call" {
+        return constructed(p, f, recv);
+    }
     if recv.kind() != "identifier" {
         return None;
     }
     let name = p.node_text(&recv);
-    match local_binding(p, &f.sites, recv, name) {
-        Local::One(Bound::Assign(v)) => constructed(p, f, v),
-        Local::One(Bound::Loop(Some(v)))
+    let Scoped::Found(scope, bound) = scope_bindings(p, &f.sites, recv, name) else {
+        return None;
+    };
+    // A star import can replace a module-level name.
+    if bound.len() != 1 || (scope.kind() == "module" && !f.wildcards.is_empty()) {
+        return None;
+    }
+    match &bound[0] {
+        Bound::Assign(v) => constructed(p, f, *v),
+        Bound::Loop(Some(v))
             if v.parent().is_some_and(|a| {
                 a.kind() == "as_pattern" && a.parent().is_some_and(|w| w.kind() == "with_item")
             }) =>
         {
-            constructed(p, f, v)
+            constructed(p, f, *v)
         }
-        Local::One(Bound::Param(_)) => is_task_param(p, f, recv, name).then_some(Kind::Conn),
+        Bound::Param(_) => is_task_param(p, f, recv, name).then_some(Kind::Conn),
         _ => None,
     }
 }
@@ -200,5 +227,25 @@ pub(super) fn classify(p: Src<'_>, f: &Facts, c: &Callee<'_>) -> Option<SinkHit>
     let attr = func.child_by_field_name("attribute")?;
     let kind = instance_kind(p, f, func.child_by_field_name("object")?)?;
     let ((rule, cwe), sandboxed) = method_rule(kind, p.node_text(&attr))?;
+    // Like main's `Template(..)` rule, a constant template text is no injection.
+    if (rule, cwe) == TEMPLATE && !template_source_is_dynamic(p, c) {
+        return None;
+    }
     Some(SinkHit::new(rule, cwe).weak_if(sandboxed))
+}
+
+/// The template source (first positional argument, or `source=`) is not a string literal.
+fn template_source_is_dynamic(p: Src<'_>, c: &Callee<'_>) -> bool {
+    let all = args(c.call);
+    let keyword = all.iter().find_map(|a| {
+        (a.kind() == "keyword_argument"
+            && a.child_by_field_name("name")
+                .is_some_and(|n| p.node_text(&n) == "source"))
+        .then(|| a.child_by_field_name("value"))
+        .flatten()
+    });
+    let positional = all.iter().copied().find(|a| a.kind() != "keyword_argument");
+    keyword
+        .or(positional)
+        .is_some_and(|src| !is_literal(p, src))
 }

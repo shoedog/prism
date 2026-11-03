@@ -100,3 +100,91 @@ fn table_hit_on_a_line_main_reports_stays_one_strong_finding() {
     let src = "import pexpect\ndef h(inp):\n    x = inp.v  # SEED\n    pexpect.spawn(x)  # SINK\n";
     assert_eq!(sink_count(src, "SINK"), vec!["warning".to_string()]);
 }
+
+#[test]
+fn fold_r1_lexical_identity() {
+    assert_severities(&[
+        py("R1a class-body import bound to a builtin name", "class Helpers:\n    from invoke import run as len\ndef h(inp):\n    x = inp.v  # SEED\n    return len(x)  # SINK\n", NONE),
+        py("R1b import inside another function", "def setup():\n    import pexpect\ndef h(inp):\n    x = inp.v  # SEED\n    pexpect.spawn(x)  # SINK\n", NONE),
+        py("R1c import inside a class body", "class K:\n    import pexpect\ndef h(inp):\n    x = inp.v  # SEED\n    pexpect.spawn(x)  # SINK\n", NONE),
+        py("R1d unrelated parameter of the same name elsewhere", "from invoke import run\ndef adapter(run, v):\n    return run(v)\ndef h(inp):\n    x = inp.v  # SEED\n    run(x)  # SINK\n", W),
+        py("R1e function-local import used in that function", "def h(inp):\n    import pexpect\n    x = inp.v  # SEED\n    pexpect.spawn(x)  # SINK\n", W),
+        py("R1f function-local import shadowed by a parameter of the use", "import pexpect\ndef h(pexpect, inp):\n    x = inp.v  # SEED\n    pexpect.spawn(x)  # SINK\n", NONE),
+        py("R1g conflicting imports in one scope", "from pexpect import spawn\nfrom ptyx import spawn\ndef h(inp):\n    x = inp.v  # SEED\n    spawn(x)  # SINK\n", NONE),
+    ]);
+}
+
+#[test]
+fn fold_r1_star_imports() {
+    assert_severities(&[
+        py("S12 star import can replace the name", "import pexpect\nfrom fake import *\ndef h(inp):\n    x = inp.v  # SEED\n    pexpect.spawn(x)  # SINK\n", NONE),
+        py("R2a star import after the proving import (direct call)", "from invoke import run\nfrom safe_helpers import *\ndef h(inp):\n    x = inp.v  # SEED\n    run(x)  # SINK\n", NONE),
+        py("R2b star import of the proving module is harmless", "from invoke import *\nfrom invoke import run\ndef h(inp):\n    x = inp.v  # SEED\n    run(x)  # SINK\n", W),
+        py("R2c star import can replace a module-level one-hop local", "import paramiko\nfrom paramiko import *\nssh = paramiko.SSHClient()\ndef h(inp):\n    x = inp.v  # SEED\n    ssh.exec_command(x)  # SINK\n", NONE),
+        py("R2d function-local binding is out of the star import's reach", "from fake import *\ndef h(inp):\n    import paramiko\n    ssh = paramiko.SSHClient()\n    x = inp.v  # SEED\n    ssh.exec_command(x)  # SINK\n", W),
+    ]);
+}
+
+#[test]
+// Class-body taint does not reach the sink end to end, so the class-comprehension rows live in the
+// classifier unit tests (`tests_py_modules`); this row pins the function-scope control.
+fn fold_r1_class_comprehension() {
+    assert_severities(&[
+        py("R3c comprehension in a function sees the function local", "from jinja2.sandbox import SandboxedEnvironment\ndef h(inp):\n    env = SandboxedEnvironment()\n    x = inp.v  # SEED\n    return [env.from_string(x) for _ in range(2)]  # SINK\n", S),
+    ]);
+}
+
+#[test]
+fn fold_r1_jinja_literal_template() {
+    assert_severities(&[
+        py("L1 literal template text", "import jinja2\nenv = jinja2.Environment()\ndef h(inp):\n    x = inp.v  # SEED\n    return env.from_string('Hi {{ n }}').render(n=x)  # SINK\n", NONE),
+        py("L1b literal template text, sandboxed", "from jinja2.sandbox import SandboxedEnvironment\nenv = SandboxedEnvironment()\ndef h(inp):\n    x = inp.v  # SEED\n    return env.from_string('Hi {{ n }}').render(n=x)  # SINK\n", NONE),
+        py("L1c literal text with a tainted globals keyword", "import jinja2\nenv = jinja2.Environment()\ndef h(inp):\n    x = inp.v  # SEED\n    t = env.from_string('Hi {{ n }}', globals={'n': x})  # SINK\n", NONE),
+        py("L1d literal source= keyword", "import jinja2\nenv = jinja2.Environment()\ndef h(inp):\n    x = inp.v  # SEED\n    t = env.from_string(source='Hi {{ n }}', globals={'n': x})  # SINK\n", NONE),
+        py("L4 template text held in a constant name stays reported", "import jinja2\nT = 'Hi {{ n }}'\nenv = jinja2.Environment()\ndef h(inp):\n    x = inp.v  # SEED\n    return env.from_string(T).render(n=x)  # SINK\n", W),
+        py("L4b tainted source= keyword", "import jinja2\nenv = jinja2.Environment()\ndef h(inp):\n    x = inp.v  # SEED\n    t = env.from_string(source=x)  # SINK\n", W),
+        py("L4c interpolated f-string template text", "import jinja2\nenv = jinja2.Environment()\ndef h(inp):\n    x = inp.v  # SEED\n    t = env.from_string(f'Hi {x}')  # SINK\n", W),
+    ]);
+}
+
+#[test]
+fn fold_r1_constructor_call_receiver() {
+    assert_severities(&[
+        py("Z1 Connection(host).run", "from fabric import Connection\ndef h(host, inp):\n    x = inp.v  # SEED\n    Connection(host).run(x)  # SINK\n", W),
+        py("Z2 jinja2.Environment().from_string", "import jinja2\ndef h(inp):\n    x = inp.v  # SEED\n    return jinja2.Environment().from_string(x).render()  # SINK\n", W),
+        py("Z3 SandboxedEnvironment().from_string: weak", "from jinja2.sandbox import SandboxedEnvironment\ndef h(inp):\n    x = inp.v  # SEED\n    return SandboxedEnvironment().from_string(x).render()  # SINK\n", S),
+        py("Z4 paramiko.SSHClient().exec_command", "import paramiko\ndef h(inp):\n    x = inp.v  # SEED\n    paramiko.SSHClient().exec_command(x)  # SINK\n", W),
+        py("Z5 unknown constructor receiver", "def h(inp):\n    x = inp.v  # SEED\n    make().run(x)  # SINK\n", NONE),
+        py("Z6 listed class, method not in the table", "from fabric import Connection\ndef h(host, inp):\n    x = inp.v  # SEED\n    Connection(host).put(x)  # SINK\n", NONE),
+        py("Z7 constructor of an unlisted class of a listed module", "import paramiko\ndef h(inp):\n    x = inp.v  # SEED\n    paramiko.Transport().exec_command(x)  # SINK\n", NONE),
+    ]);
+}
+
+#[test]
+fn fold_r1_fabric1_task_paths() {
+    assert_severities(&[
+        py("T4 Fabric 1 task parameter is a CLI string", "from fabric.api import task\n@task\ndef deploy(branch, inp):\n    x = inp.v  # SEED\n    branch.local(x)  # SINK\n", NONE),
+        py("T4b fabric.decorators.task", "from fabric.decorators import task\n@task\ndef deploy(branch, inp):\n    x = inp.v  # SEED\n    branch.run(x)  # SINK\n", NONE),
+        py("T6 stacked decorators keep the invoke task", "from invoke import task\nimport functools\n@functools.lru_cache\n@task(help={})\ndef build(ctx, inp):\n    x = inp.v  # SEED\n    ctx.sudo(x)  # SINK\n", W),
+    ]);
+}
+
+#[test]
+fn fold_r1_scope_variants() {
+    assert_severities(&[
+        py("S1 global rebind elsewhere", "import paramiko\nssh = paramiko.SSHClient()\ndef reset():\n    global ssh\n    ssh = object()\ndef h(inp):\n    x = inp.v  # SEED\n    ssh.exec_command(x)  # SINK\n", NONE),
+        py("S2 nonlocal rebind", "import paramiko\ndef outer(inp):\n    ssh = paramiko.SSHClient()\n    def inner():\n        nonlocal ssh\n        ssh = object()\n    x = inp.v  # SEED\n    ssh.exec_command(x)  # SINK\n", NONE),
+        py("S3 except-as on the instance name", "import paramiko\ndef h(inp):\n    ssh = paramiko.SSHClient()\n    try:\n        pass\n    except Exception as ssh:\n        pass\n    x = inp.v  # SEED\n    ssh.exec_command(x)  # SINK\n", NONE),
+        py("S4 del then use", "import paramiko\ndef h(inp):\n    ssh = paramiko.SSHClient()\n    del ssh\n    x = inp.v  # SEED\n    ssh.exec_command(x)  # SINK\n", NONE),
+        py("S5 walrus rebind", "import paramiko\ndef h(inp):\n    ssh = paramiko.SSHClient()\n    if (ssh := other()):\n        pass\n    x = inp.v  # SEED\n    ssh.exec_command(x)  # SINK\n", NONE),
+        py("S6 class-body local is not visible to a method", "import paramiko\nssh = object()\nclass R:\n    ssh = paramiko.SSHClient()\n    def h(self, inp):\n        x = inp.v  # SEED\n        ssh.exec_command(x)  # SINK\n", NONE),
+        py("S7 positive: closure over the @task parameter", "from invoke import task\n@task\ndef deploy(c, inp):\n    def go():\n        x = inp.v  # SEED\n        c.run(x)  # SINK\n    go()\n", W),
+        py("S8 comprehension variable of the instance name", "import paramiko\ndef h(inp, hosts):\n    x = inp.v  # SEED\n    [ssh.exec_command(x) for ssh in hosts]  # SINK\n", NONE),
+        py("S10 with target rebound by a for loop", "from fabric import Connection\ndef h(host, hosts, inp):\n    x = inp.v  # SEED\n    with Connection(host) as c:\n        for c in hosts:\n            pass\n        c.run(x)  # SINK\n", NONE),
+        py("S11 except-as on the module name", "import pexpect\ndef h(inp):\n    try:\n        pass\n    except Exception as pexpect:\n        pass\n    x = inp.v  # SEED\n    pexpect.spawn(x)  # SINK\n", NONE),
+        py("S13 match capture rebinds the instance", "import paramiko\ndef h(inp, v):\n    ssh = paramiko.SSHClient()\n    match v:\n        case ssh:\n            pass\n    x = inp.v  # SEED\n    ssh.exec_command(x)  # SINK\n", NONE),
+        py("X5 @task on a method: self is the first parameter", "from invoke import task\nclass K:\n    @task\n    def m(self, c, inp):\n        x = inp.v  # SEED\n        c.run(x)  # SINK\n", NONE),
+        py("T1 try/except import of the same class from two paths is no proof", "try:\n    from fabric import Connection\nexcept ImportError:\n    from fabric.connection import Connection\ndef h(host, inp):\n    x = inp.v  # SEED\n    c = Connection(host)\n    c.run(x)  # SINK\n", NONE),
+        py("T9 paramiko.client.SSHClient", "from paramiko.client import SSHClient\ndef h(inp):\n    x = inp.v  # SEED\n    c = SSHClient()\n    c.exec_command(x)  # SINK\n", W),
+    ]);
+}
