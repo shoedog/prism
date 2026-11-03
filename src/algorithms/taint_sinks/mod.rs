@@ -29,6 +29,7 @@ mod python;
 mod sqla;
 mod sqla_chain;
 mod sqla_tables;
+mod sqla_uses;
 mod sqla_value;
 mod strength;
 mod structured;

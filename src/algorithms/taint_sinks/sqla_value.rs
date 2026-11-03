@@ -85,7 +85,7 @@ impl<'a> Proof<'a> {
             Local::Unbound => true,
             Local::Multi => false,
             Local::One(b) => match b {
-                Bound::Assign(v) => !self.stores_to(n) && self.hop_memo(b'v', v, || self.value(v)),
+                Bound::Assign(v) => !self.stored(n, v) && self.hop_memo(b'v', v, || self.value(v)),
                 Bound::Param(_) => !self.stores_to(n),
                 Bound::Loop(it) => {
                     // D1: a loop target is data. An iterable built in place (a display or a
@@ -108,7 +108,7 @@ impl<'a> Proof<'a> {
                         let e = peel(e);
                         if e.kind() == "identifier" {
                             if let Local::One(Bound::Assign(v)) = self.local(e, self.text(e)) {
-                                return !self.stores_to(e)
+                                return !self.stored(e, v)
                                     && (!built_here(v)
                                         || self.hop_memo(b'v', v, || self.value(v)));
                             }

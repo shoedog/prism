@@ -399,6 +399,8 @@ pub(super) struct Site {
     pub total: usize,
     pub imports: Vec<(String, String)>,
     pub classes: usize,
+    /// `def` (not class) sites.
+    pub funcs: usize,
     /// Named by a `global` or `nonlocal` statement.
     pub declared: bool,
 }
@@ -419,12 +421,23 @@ impl Sites {
                 match b {
                     Bound::Import(m, x) => s.imports.push((m, x)),
                     Bound::Def(d) if d.kind() == "class_definition" => s.classes += 1,
+                    Bound::Def(_) => s.funcs += 1,
                     Bound::Declared => s.declared = true,
                     _ => {}
                 }
             }
         });
         sites
+    }
+
+    /// File-wide count of every binding site of `name`.
+    pub(super) fn total(&self, name: &str) -> usize {
+        self.0.get(name).map_or(0, |s| s.total)
+    }
+
+    /// File-wide count of `def` sites of `name`.
+    pub(super) fn funcs(&self, name: &str) -> usize {
+        self.0.get(name).map_or(0, |s| s.funcs)
     }
 
     /// Some binding of `name` is `import module` (a module object, never a model class).

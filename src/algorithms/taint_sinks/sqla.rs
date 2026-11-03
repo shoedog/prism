@@ -114,6 +114,8 @@ pub(super) struct Proof<'a> {
     hops: Cell<u8>,
     pub(super) defs: Cell<u8>,
     pub(super) storing: Cell<u8>,
+    /// Same-file helpers being proven as chain roots (start bytes), innermost last.
+    pub(super) helpers: RefCell<Vec<usize>>,
     fuel: Cell<u32>,
     /// Proofs that held, by (initializer start, class): a name used many times is proven once.
     proven: RefCell<BTreeSet<(usize, u8)>>,
@@ -129,6 +131,7 @@ impl<'a> Proof<'a> {
             hops: Cell::new(0),
             defs: Cell::new(0),
             storing: Cell::new(0),
+            helpers: RefCell::default(),
             fuel: Cell::new(FUEL),
             proven: RefCell::default(),
         }

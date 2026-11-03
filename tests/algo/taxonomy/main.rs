@@ -27,6 +27,7 @@ mod taint_sink_rules_support;
 mod taint_sink_strength_proofs_test;
 mod taint_sink_strength_sqla_a1_test;
 mod taint_sink_strength_sqla_a2_test;
+mod taint_sink_strength_sqla_a3_test;
 mod taint_sink_strength_sqla_test;
 mod taint_sink_strength_test;
 mod taint_sink_test;
