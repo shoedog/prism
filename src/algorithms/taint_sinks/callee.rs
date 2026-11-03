@@ -270,3 +270,45 @@ pub(super) fn walk<'a>(node: Node<'a>, visit: &mut impl FnMut(Node<'a>)) {
         walk(child, visit);
     }
 }
+
+/// The scope in which every binding of a name that `decl` declares must be counted: the
+/// outermost function-like ancestor of `from` that also holds `decl`, else the whole file
+/// (a package- or module-level declaration).
+pub(super) fn binding_scope<'a>(from: Node<'a>, decl: Node<'a>) -> Node<'a> {
+    let mut outer = None;
+    let mut root = from;
+    let mut cur = from.parent();
+    while let Some(n) = cur {
+        if matches!(
+            n.kind(),
+            "function_declaration"
+                | "method_declaration"
+                | "func_literal"
+                | "function_expression"
+                | "arrow_function"
+                | "function"
+                | "method_definition"
+                | "generator_function"
+                | "generator_function_declaration"
+        ) {
+            outer = Some(n);
+        }
+        root = n;
+        cur = n.parent();
+    }
+    match outer {
+        Some(f) if f.start_byte() <= decl.start_byte() && decl.end_byte() <= f.end_byte() => f,
+        _ => root,
+    }
+}
+
+/// Number of identifiers spelled `name` under `node`.
+pub(super) fn count_idents(p: Src<'_>, node: Node<'_>, name: &str) -> usize {
+    let mut n = 0;
+    walk(node, &mut |m| {
+        if m.kind() == "identifier" && p.node_text(&m) == name {
+            n += 1;
+        }
+    });
+    n
+}

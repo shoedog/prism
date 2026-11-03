@@ -27,6 +27,7 @@ mod legacy;
 mod py_scope;
 mod python;
 mod strength;
+mod structured;
 
 pub(crate) use js::exec_call_is_command as js_exec_call_is_command;
 pub(crate) use strength::Strength;

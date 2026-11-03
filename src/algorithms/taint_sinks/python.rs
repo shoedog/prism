@@ -342,8 +342,9 @@ fn split_top(text: &str, sep: char) -> Vec<&str> {
     out
 }
 
-/// A `py-db-call` hit, weak when the query cannot carry the tainted value as text (#636): a
-/// string literal without interpolation, a SQLAlchemy construct, or a name bound once to either.
+/// A `py-db-call` hit, weak only on proof (#636): the query is a string literal without
+/// interpolation, a SQLAlchemy statement built from bound-value methods, or a name that is
+/// bound exactly once to either (or a never-rebound parameter annotated as a statement).
 fn db_hit(p: Src<'_>, facts: &Facts, from: Node<'_>, query: Option<Node<'_>>) -> SinkHit {
     let constant = query.is_some_and(|q| {
         if is_defused_query(p, facts, q) {
@@ -353,16 +354,20 @@ fn db_hit(p: Src<'_>, facts: &Facts, from: Node<'_>, query: Option<Node<'_>>) ->
             return false;
         }
         let name = p.node_text(&q);
+        if is_rebound(p, from, name, 1) {
+            return false;
+        }
         match resolve(p, from, name) {
-            PyBind::Assigned(v) => is_defused_query(p, facts, v) && !is_rebound(p, from, name, 1),
+            PyBind::Assigned(v) => is_defused_query(p, facts, v),
             PyBind::Param {
                 annotation: Some(a),
             } => {
-                let t = p.node_text(&a);
-                matches!(
-                    t.rsplit('.').next().unwrap_or(t),
-                    "Select" | "Executable" | "Insert" | "Update" | "Delete" | "CompoundSelect"
-                )
+                // Never assigned in the file (the parameter is its only binding).
+                !is_rebound(p, from, name, 0)
+                    && matches!(
+                        p.node_text(&a).rsplit('.').next().unwrap_or(""),
+                        "Select" | "Insert" | "Update" | "Delete" | "CompoundSelect"
+                    )
             }
             _ => false,
         }
@@ -371,13 +376,103 @@ fn db_hit(p: Src<'_>, facts: &Facts, from: Node<'_>, query: Option<Node<'_>>) ->
 }
 
 const SA_CONSTRUCTORS: &[&str] = &["select", "insert", "update", "delete", "union", "exists"];
+/// Methods that take bound-value expressions only. Anything else (`suffix_with`, `prefix_with`,
+/// unknown methods) leaves the statement unproven.
+const SA_BOUND_METHODS: &[&str] = &[
+    "select",
+    "where",
+    "filter",
+    "filter_by",
+    "order_by",
+    "group_by",
+    "having",
+    "join",
+    "outerjoin",
+    "limit",
+    "offset",
+    "distinct",
+    "subquery",
+    "values",
+    "returning",
+    "scalars",
+    "bindparams",
+    "params",
+    "all",
+    "first",
+    "one",
+    "one_or_none",
+    "scalar",
+    "scalar_one",
+    "scalar_one_or_none",
+    "label",
+    "alias",
+    "cte",
+    "select_from",
+    "add_columns",
+    "columns",
+    "with_only_columns",
+    "execution_options",
+    "union",
+    "union_all",
+    "unique",
+    "mappings",
+    "fetchall",
+    "fetchone",
+    "exists",
+    "where_in",
+    "isouter",
+];
+/// Constructors that put their argument into the SQL text.
+const RAW_SQL_CONSTRUCTORS: &[&str] = &["text", "literal_column", "column", "table", "SQL"];
 
 fn is_defused_query(p: Src<'_>, facts: &Facts, node: Node<'_>) -> bool {
     is_literal(p, node) || is_sqlalchemy_construct(p, facts, node)
 }
 
+/// True when `node` contains a raw-SQL constructor with a non-literal argument or a string that
+/// is not a plain literal (an f-string, a `%` / `+` / `.format` composition).
+fn has_raw_sql(p: Src<'_>, node: Node<'_>) -> bool {
+    let mut found = false;
+    walk(node, &mut |n| match n.kind() {
+        "call" => {
+            let Some(f) = n.child_by_field_name("function") else {
+                return;
+            };
+            let name = p.node_text(&f);
+            let last = name.rsplit('.').next().unwrap_or(name);
+            if RAW_SQL_CONSTRUCTORS.contains(&last)
+                && !args(n).first().is_some_and(|a| is_literal(p, *a))
+            {
+                found = true;
+            }
+            if f.kind() == "attribute" && last == "format" {
+                found = true;
+            }
+        }
+        "string" if !is_literal(p, n) => found = true,
+        "binary_operator" => {
+            let op = n.child_by_field_name("operator").map(|o| p.node_text(&o));
+            let has_string = ["left", "right"]
+                .iter()
+                .filter_map(|f| n.child_by_field_name(f))
+                .any(|c| matches!(c.kind(), "string" | "concatenated_string"));
+            if matches!(op, Some("%" | "+")) && has_string {
+                found = true;
+            }
+        }
+        _ => {}
+    });
+    found
+}
+
+/// True when `name` (the first segment of a dotted callee, or a bare name) is the file's import
+/// at this use: not a parameter, local, def or rebinding.
+fn is_unshadowed(p: Src<'_>, from: Node<'_>, name: &str) -> bool {
+    matches!(resolve(p, from, name), PyBind::Unresolved) && !is_rebound(p, from, name, 0)
+}
+
 /// The SQLAlchemy member a callee names (`select` / `sa.select` / `sqlalchemy.sql.select`),
-/// proven by the file's imports.
+/// proven by the file's imports and by the import not being shadowed at the call.
 fn sqlalchemy_member(p: Src<'_>, facts: &Facts, f: Node<'_>) -> Option<&'static str> {
     let pick = |name: &str| {
         SA_CONSTRUCTORS
@@ -389,7 +484,8 @@ fn sqlalchemy_member(p: Src<'_>, facts: &Facts, f: Node<'_>) -> Option<&'static 
     match f.kind() {
         "identifier" => {
             let (module, orig) = facts.names.get(p.node_text(&f))?;
-            module.starts_with("sqlalchemy").then(|| pick(orig))?
+            (module.starts_with("sqlalchemy") && is_unshadowed(p, f, p.node_text(&f)))
+                .then(|| pick(orig))?
         }
         "attribute" => {
             let text = p.node_text(&f);
@@ -397,38 +493,63 @@ fn sqlalchemy_member(p: Src<'_>, facts: &Facts, f: Node<'_>) -> Option<&'static 
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.');
             let first = text.split('.').next()?;
-            (plain && facts.module_of(first).starts_with("sqlalchemy"))
-                .then(|| pick(text.rsplit('.').next()?))?
+            (plain
+                && facts.module_of(first).starts_with("sqlalchemy")
+                && is_unshadowed(p, f, first))
+            .then(|| pick(text.rsplit('.').next()?))?
         }
         _ => None,
     }
 }
 
-/// A call or method chain rooted at a SQLAlchemy statement constructor, or `text(<literal>)`.
+/// A call chain rooted at a SQLAlchemy statement constructor (or `text(<literal>)`) in which
+/// every method is a bound-value builder and no argument carries raw SQL text.
 fn is_sqlalchemy_construct(p: Src<'_>, facts: &Facts, node: Node<'_>) -> bool {
     let mut n = peel_parens(node);
     for _ in 0..64 {
-        match n.kind() {
-            "call" => {
-                let Some(f) = n.child_by_field_name("function") else {
+        if n.kind() != "call" {
+            return false;
+        }
+        let Some(f) = n.child_by_field_name("function") else {
+            return false;
+        };
+        if n.child_by_field_name("arguments")
+            .is_some_and(|a| has_raw_sql(p, a))
+        {
+            return false;
+        }
+        match sqlalchemy_member(p, facts, f) {
+            Some("text") => return args(n).first().is_some_and(|a| is_literal(p, *a)),
+            Some(_) => return true,
+            None => {
+                if f.kind() != "attribute" {
                     return false;
-                };
-                match sqlalchemy_member(p, facts, f) {
-                    Some("text") => {
-                        return args(n).first().is_some_and(|a| is_literal(p, *a));
-                    }
-                    Some(_) => return true,
-                    None => n = f,
+                }
+                let method = f
+                    .child_by_field_name("attribute")
+                    .map(|m| p.node_text(&m))
+                    .unwrap_or("");
+                if !SA_BOUND_METHODS.contains(&method) {
+                    return false;
+                }
+                match f.child_by_field_name("object") {
+                    Some(o) => n = peel_parens(o),
+                    None => return false,
                 }
             }
-            "attribute" => match n.child_by_field_name("object") {
-                Some(o) => n = o,
-                None => return false,
-            },
-            _ => return false,
         }
     }
     false
+}
+
+/// A positional ORM clause argument proven to be an expression with bound-value semantics: a
+/// comparison, boolean combination, column attribute or call, free of raw SQL text.
+fn is_proven_clause(p: Src<'_>, arg: Node<'_>) -> bool {
+    let arg = peel_parens(arg);
+    matches!(
+        arg.kind(),
+        "comparison_operator" | "boolean_operator" | "not_operator" | "attribute" | "call"
+    ) && !has_raw_sql(p, arg)
 }
 
 fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
@@ -486,8 +607,12 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
                 .iter()
                 .any(|a| !matches!(a.kind(), "keyword_argument" | "dictionary_splat"));
             // Weak (#636): the owner scores the positional ORM clause as a defused TP.
+            let proven = args(c.call)
+                .iter()
+                .filter(|a| !matches!(a.kind(), "keyword_argument" | "dictionary_splat"))
+                .all(|a| is_proven_clause(p, *a));
             (c.receiver.is_some() && clause && !logger)
-                .then(|| SinkHit::new("py-sql-clause", "CWE-89").weak_if(true))
+                .then(|| SinkHit::new("py-sql-clause", "CWE-89").weak_if(proven))
         }
         "text" => {
             let from_sqlalchemy = module == Some("sqlalchemy");

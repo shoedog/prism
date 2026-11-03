@@ -32,21 +32,19 @@ impl Strength {
 impl SinkClassifier {
     /// Strength of the `taint_sink` finding on `line`.
     ///
-    /// `structured_sql` is the structured-sink registry's opinion for the line: `None` when it
-    /// has no match, `Some(true)` for a SQL match (graded by the flat rule's argument shape),
-    /// `Some(false)` for any other category (always strong). `is_extra` tells whether an
-    /// identifier is a caller-supplied or wrapper sink name (always strong).
+    /// A non-SQL structured-registry match on the line (SSRF, path, command, ...) keeps it
+    /// strong. `is_extra` tells whether an identifier is a caller-supplied or wrapper sink name
+    /// (always strong).
     pub(crate) fn line_strength(
         &self,
         file: &str,
         parsed: &ParsedFile,
         line: usize,
-        structured_sql: Option<bool>,
         is_extra: &dyn Fn(&str) -> bool,
     ) -> Strength {
         let language = parsed.language;
         if !(language.is_js_family() || matches!(language, Language::Python | Language::Go))
-            || structured_sql == Some(false)
+            || super::structured::non_sql_match_on_line(parsed, line)
         {
             return Strength::Strong;
         }

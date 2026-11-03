@@ -5,15 +5,15 @@
 use super::taint_sink_rules_support::*;
 use crate::common::*;
 
-struct Sev {
-    label: &'static str,
-    path: &'static str,
-    lang: Language,
-    source: &'static str,
-    severity: &'static str,
+pub struct Sev {
+    pub label: &'static str,
+    pub path: &'static str,
+    pub lang: Language,
+    pub source: &'static str,
+    pub severity: &'static str,
 }
 
-fn sink_severity(path: &str, lang: Language, source: &str) -> Option<String> {
+pub fn sink_severity(path: &str, lang: Language, source: &str) -> Option<String> {
     let sink = marker_line(source, "SINK");
     findings(path, lang, source)
         .findings
@@ -22,7 +22,7 @@ fn sink_severity(path: &str, lang: Language, source: &str) -> Option<String> {
         .map(|f| f.severity.clone())
 }
 
-fn assert_severities(rows: &[Sev]) {
+pub fn assert_severities(rows: &[Sev]) {
     let wrong: Vec<String> = rows
         .iter()
         .filter_map(|r| {
@@ -40,12 +40,12 @@ fn assert_severities(rows: &[Sev]) {
     );
 }
 
-const W: &str = "warning";
-const S: &str = "suggestion";
+pub const W: &str = "warning";
+pub const S: &str = "suggestion";
 /// No finding: the tier is a view, so a shape main never reports stays unreported.
-const NONE: &str = "none";
+pub const NONE: &str = "none";
 
-fn go(label: &'static str, source: &'static str, severity: &'static str) -> Sev {
+pub fn go(label: &'static str, source: &'static str, severity: &'static str) -> Sev {
     Sev {
         label,
         path: "a.go",
@@ -54,7 +54,7 @@ fn go(label: &'static str, source: &'static str, severity: &'static str) -> Sev 
         severity,
     }
 }
-fn py(label: &'static str, source: &'static str, severity: &'static str) -> Sev {
+pub fn py(label: &'static str, source: &'static str, severity: &'static str) -> Sev {
     Sev {
         label,
         path: "a.py",
@@ -63,7 +63,7 @@ fn py(label: &'static str, source: &'static str, severity: &'static str) -> Sev 
         severity,
     }
 }
-fn js(label: &'static str, source: &'static str, severity: &'static str) -> Sev {
+pub fn js(label: &'static str, source: &'static str, severity: &'static str) -> Sev {
     Sev {
         label,
         path: "a.js",

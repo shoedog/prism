@@ -5687,7 +5687,7 @@ fn reachable_multiline_node_contains_line(
 /// - `NoMatch` — no pattern's `call_path` matched. The structured layer has no
 ///   opinion; flat-pattern catch-all proceeds normally.
 #[derive(Clone, Copy)]
-enum SinkMatchOutcome {
+pub(crate) enum SinkMatchOutcome {
     Match(&'static SinkPattern),
     SemanticallyExcluded,
     NoMatch,
@@ -6776,7 +6776,7 @@ fn node_contains_line(node: &Node<'_>, line: usize) -> bool {
 ///
 /// Caller is responsible for confirming `parsed.language == Language::Go`
 /// (the function returns `NoMatch` for non-Go files).
-fn line_matches_structured_sink(
+pub(crate) fn line_matches_structured_sink(
     parsed: &ParsedFile,
     line: usize,
     sink_pat: &'static SinkPattern,
@@ -11500,13 +11500,9 @@ pub fn slice(
 
         // #636: a sink whose argument shape defuses it is reported at `suggestion`.
         let severity = ctx.files.get(file.as_str()).map_or("warning", |parsed| {
-            let structured_sql = match structured_sink_outcome(parsed, *line, None) {
-                SinkMatchOutcome::Match(p) => Some(p.category == SanitizerCategory::Sqli),
-                _ => None,
-            };
             let is_extra = |t: &str| extra_sinks.iter().any(|s| matches_sink(t, s));
             sink_classifier
-                .line_strength(file, parsed, *line, structured_sql, &is_extra)
+                .line_strength(file, parsed, *line, &is_extra)
                 .severity()
         });
         let mut finding = SliceFinding {

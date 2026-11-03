@@ -10,7 +10,10 @@
 //! the high-severity names. Bindings are resolved lexically (`js_scope`), so a
 //! parameter that shadows a module name never inherits the module's meaning.
 
-use super::callee::{args, callee_of, chain_names, chain_tail, literal_string, peel, Callee, Src};
+use super::callee::{
+    args, binding_scope, callee_of, chain_names, chain_tail, count_idents, literal_string, peel,
+    walk, Callee, Src,
+};
 use super::js_scope::{is_reassigned, resolve, Binding};
 use super::SinkHit;
 use crate::frameworks::CallSite;
@@ -249,9 +252,12 @@ fn is_global(p: Src<'_>, receiver: Node<'_>) -> bool {
 
 /// A `js-db-call` hit, weak when the query argument is constant text (#636).
 fn db_hit(p: Src<'_>, from: Node<'_>, c: &Callee<'_>) -> Option<SinkHit> {
-    let constant = args(c.call)
-        .first()
-        .is_some_and(|q| is_constant_query(p, from, *q));
+    // `createQueryBuilder('alias')` takes an entity alias as argument 0, not SQL text.
+    let text_arg0 = p.node_text(&from) != "createQueryBuilder";
+    let constant = text_arg0
+        && args(c.call)
+            .first()
+            .is_some_and(|q| is_constant_query(p, from, *q));
     Some(SinkHit::new("js-db-call", "CWE-89").weak_if(constant))
 }
 
@@ -265,10 +271,22 @@ fn is_constant_query(p: Src<'_>, from: Node<'_>, q: Node<'_>) -> bool {
         return false;
     }
     let name = p.node_text(&q);
-    matches!(
-        resolve(p, from, name),
-        Binding::Var { init: Some(i) } if literal_string(p, i).is_some()
-    ) && !is_reassigned(p, from, name)
+    let Binding::Var { init: Some(i) } = resolve(p, from, name) else {
+        return false;
+    };
+    if literal_string(p, i).is_none() || is_reassigned(p, from, name) {
+        return false;
+    }
+    // Exactly one declarator of the name in scope: a later `var` redeclaration is a write.
+    let mut declarators = 0;
+    walk(binding_scope(from, i), &mut |n| {
+        if n.kind() == "variable_declarator" {
+            if let Some(target) = n.child_by_field_name("name") {
+                declarators += count_idents(p, target, name);
+            }
+        }
+    });
+    declarators == 1
 }
 
 fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {

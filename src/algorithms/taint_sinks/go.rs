@@ -7,7 +7,10 @@
 //! such as `u.Query()`, a receiver declared as an HTTP request or framework
 //! context, a container receiver for `Remove`, a lexically shadowed binding).
 
-use super::callee::{args, callee_of, chain_names, chain_tail, is_literal_concat, peel, walk, Src};
+use super::callee::{
+    args, binding_scope, callee_of, chain_names, chain_tail, count_idents, is_literal_concat, peel,
+    walk, Src,
+};
 use super::go_scope::{resolve, GoBind};
 use super::SinkHit;
 use std::collections::BTreeMap;
@@ -177,34 +180,34 @@ fn is_constant_query(p: Src<'_>, node: Node<'_>) -> bool {
     match resolve(p, node, name) {
         GoBind::Const => true,
         // `query := "..."` / `var query = "..."`, never written again in the file.
-        GoBind::Var { init: Some(i), .. } => is_literal_concat(p, i) && !is_written(p, node, name),
+        GoBind::Var { init: Some(i), .. } => {
+            is_literal_concat(p, i) && binding_count(p, binding_scope(node, i), name) == 1
+        }
         _ => false,
     }
 }
 
-/// True when `name` is assigned (`=`, `+=`, `++`) anywhere in the file after its declaration.
-/// Conservative by spelling, like the JS and Python rebinding checks.
-fn is_written(p: Src<'_>, from: Node<'_>, name: &str) -> bool {
-    let mut root = from;
-    while let Some(parent) = root.parent() {
-        root = parent;
-    }
-    let mut found = false;
-    walk(root, &mut |n| {
-        let target = match n.kind() {
-            "assignment_statement" => n.child_by_field_name("left"),
-            "inc_dec_statement" => n.named_child(0),
-            _ => None,
+/// Number of bindings of `name` in `scope` (declarations of every form, parameters, and writes
+/// of every form). A query is constant only when its one declaration is the whole story.
+fn binding_count(p: Src<'_>, scope: Node<'_>, name: &str) -> usize {
+    let mut count = 0;
+    walk(scope, &mut |n| {
+        let targets: Vec<Node<'_>> = match n.kind() {
+            "short_var_declaration" | "assignment_statement" | "range_clause" => {
+                n.child_by_field_name("left").into_iter().collect()
+            }
+            "inc_dec_statement" => n.named_child(0).into_iter().collect(),
+            "var_spec" | "parameter_declaration" | "variadic_parameter_declaration" => {
+                let mut c = n.walk();
+                n.children_by_field_name("name", &mut c).collect()
+            }
+            _ => Vec::new(),
         };
-        if let Some(t) = target {
-            walk(t, &mut |m| {
-                if m.kind() == "identifier" && p.node_text(&m) == name {
-                    found = true;
-                }
-            });
+        for t in targets {
+            count += count_idents(p, t, name);
         }
     });
-    found
+    count
 }
 
 /// True when `arg` is a writer: `c.Writer`, or a parameter typed `...Writer`
@@ -287,6 +290,16 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
             // renders an auto-escaping template: tagged `go-html-render` and graded weak (#636). Everything else keeps `go-template-html`.
             let ok = !matches!(recv, Recv::Bare) && !list.is_empty();
             let render = list.len() == 3 && matches!(recv, Recv::Value);
+            // Weak only for the gin/hertz shape (#636): a `gin.Context` receiver, or a status code
+            // first argument. iris `HTML(format, a, b)` writes raw formatted HTML.
+            let gin = recv_node
+                .and_then(|r| declared_type(p, r))
+                .is_some_and(|t| t.contains("gin.Context"));
+            let status = list.first().is_some_and(|a| {
+                a.kind() == "int_literal"
+                    || (a.kind() == "selector_expression"
+                        && p.node_text(a).starts_with("http.Status"))
+            });
             ok.then(|| {
                 SinkHit::new(
                     if render {
@@ -296,7 +309,7 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
                     },
                     "CWE-79",
                 )
-                .weak_if(render)
+                .weak_if(render && (gin || status))
             })
         }
         "WriteFile" | "Rename" | "Chmod" | "Chown" | "Remove" | "RemoveAll" => {
