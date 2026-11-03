@@ -8,12 +8,16 @@ type Stats = (
     usize,
     usize,
     usize,
+    usize,
+    usize,
+    usize,
+    usize,
     Vec<(&'static str, usize)>,
     Vec<(&'static str, usize)>,
     Vec<((&'static str, usize, usize), usize)>,
 );
 fn stats(keys: Vec<(&'static str, usize)>) -> Stats {
-    (0, keys.len(), 0, 0, vec![], keys, vec![])
+    (0, keys.len(), 0, 0, 0, 0, 0, 0, vec![], keys, vec![])
 }
 fn raw_rd(rows: Vec<(&str, Stats)>) -> Vec<u8> {
     // Ten empty sequence fields followed by RD filename/stat rows. Encoding the
@@ -52,9 +56,9 @@ macro_rules! set_case {
         fn $name() {
             let mut s = stats($keys);
             // Match the post-dedup count so the old count guard cannot mask this.
-            s.1 = s.5.iter().collect::<BTreeSet<_>>().len();
+            s.1 = s.9.iter().collect::<BTreeSet<_>>().len();
             if $over {
-                s = (s.1, 0, 0, 0, s.5, vec![], vec![]);
+                s = (s.1, 0, 0, 0, 0, 0, 0, 0, s.9, vec![], vec![]);
             }
             reject_raw(vec![("a.py", s)], "DFG RD set order/duplicate");
         }
@@ -88,11 +92,15 @@ fn rd_unique_keys_raw_roundtrip_bytes() {
             (
                 2,
                 2,
+                1,
+                23,
+                11,
                 0,
+                17,
                 0,
                 vec![("f", 1), ("f", 2)],
                 vec![("f", 1), ("g", 1)],
-                vec![],
+                vec![(("f", 1, 0), 23)],
             ),
         ),
         ("b.py", stats(vec![])),
@@ -100,6 +108,11 @@ fn rd_unique_keys_raw_roundtrip_bytes() {
     let bytes = raw_rd(rows);
     let decoded: CompactDfg = bincode::deserialize(&bytes).unwrap();
     assert_eq!(decoded.rd_function_stats()["a.py"].functions_without_cfg, 2);
+    let stats = &decoded.rd_function_stats()["a.py"];
+    assert_eq!(stats.fallback_functions_capped, 1);
+    assert_eq!(stats.fallback_edges_capped, 23);
+    assert_eq!(stats.dfg_pruned_write_only, 11);
+    assert_eq!(stats.dfg_pruned_dominated, 17);
     assert_eq!(bytes, bincode::serialize(&decoded).unwrap());
 }
 #[test]
@@ -227,7 +240,7 @@ fn rd_fallback_cap_duplicate_and_reversed_keys_raw() {
         let mut s = stats(vec![]);
         s.2 = 2;
         s.3 = 7;
-        s.6 = keys;
+        s.10 = keys;
         reject_raw(vec![("a.py", s)], "DFG RD cap map order/duplicate");
     }
 }
@@ -242,7 +255,7 @@ fn rd_fallback_cap_count_corruption_and_overflow_raw() {
         let mut s = stats(vec![]);
         s.2 = functions;
         s.3 = edges;
-        s.6 = keys;
+        s.10 = keys;
         reject_raw(vec![("a.py", s)], "DFG RD");
     }
 }

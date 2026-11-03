@@ -8,6 +8,11 @@ struct WireRdFileStats {
     functions_without_cfg: usize,
     fallback_functions_capped: usize,
     fallback_edges_capped: usize,
+    dfg_pruned_write_only: usize,
+    dfg_pruned_scope: usize,
+    dfg_pruned_dominated: usize,
+    dfg_pruned_order: usize,
+
     over_cap_function_keys: Vec<RdFunctionKey>,
     without_cfg_function_keys: Vec<RdFunctionKey>,
     fallback_capped_function_counts: Vec<(FallbackFunctionKey, usize)>,
@@ -41,6 +46,11 @@ impl RdFileStats {
                             .fallback_capped_function_counts
                             .into_iter()
                             .collect(),
+                        dfg_pruned_write_only: s.dfg_pruned_write_only,
+                        dfg_pruned_scope: s.dfg_pruned_scope,
+                        dfg_pruned_dominated: s.dfg_pruned_dominated,
+                        dfg_pruned_order: s.dfg_pruned_order,
+
                         over_cap_function_keys: s.over_cap_function_keys.into_iter().collect(),
                         without_cfg_function_keys: s
                             .without_cfg_function_keys

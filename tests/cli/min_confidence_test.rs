@@ -369,6 +369,10 @@ fn dfg_stats_empty_repo_emits_all_zero_counters() {
             "dfg_rd_functions_without_cfg": 0,
             "dfg_fallback_functions_capped": 0,
             "dfg_fallback_edges_capped": 0,
+            "dfg_pruned_write_only": 0,
+            "dfg_pruned_scope": 0,
+            "dfg_pruned_dominated": 0,
+            "dfg_pruned_order": 0,
         })
     );
 }

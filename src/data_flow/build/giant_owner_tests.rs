@@ -60,6 +60,31 @@ fn straight(repeats: usize) -> String {
     s + "\treturn x\n}\n"
 }
 
+/// U/D deliberately shrinks the old cross-product witnesses. Read-only
+/// parameters keep these *bulk label* controls above BULK_MIN without disabling
+/// pruning, raising RD caps, or weakening the branch-coverage assertions.
+fn bulk_control(source: String, signature: &str, read_marker: &str) -> String {
+    let names: Vec<_> = (0..32).map(|i| format!("pad{i}")).collect();
+    let params = names
+        .iter()
+        .map(|n| format!("{n} int"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let (name, args) = signature.split_once('(').unwrap();
+    let args = args.strip_suffix(')').unwrap();
+    let params = if args.is_empty() {
+        params
+    } else {
+        format!("{args}, {params}")
+    };
+    source
+        .replacen(signature, &format!("{name}({params})"), 1)
+        .replace(
+            read_marker,
+            &format!("if {} > 0 {{}}\n{read_marker}", names.join(" + ")),
+        )
+}
+
 struct Built {
     bytes: Vec<u8>,
     labels: usize,
@@ -137,7 +162,7 @@ fn assert_same(name: &str, source: &str) -> (usize, usize, usize) {
 fn switch_giant_graph_matches_the_old_paths() {
     // 90 cases stay under the definition cap, so RD runs on `Parse` and its
     // labels take the available-path merge (`mk` is the one owner without CFG).
-    let source = switch_giant(90);
+    let source = bulk_control(switch_giant(90), "Parse(l int)", "\t\t}\n");
     assert!(source.len() > shadow_index_min());
     let (labels, over_cap, without_cfg) = assert_same("switch", &source);
     assert!(labels >= owner_labels::BULK_MIN, "labels={labels}");
@@ -152,7 +177,7 @@ fn switch_giant_graph_matches_the_old_paths() {
 
 #[test]
 fn over_cap_graph_matches_the_old_paths() {
-    let source = over_cap(2100, 70);
+    let source = bulk_control(over_cap(2100, 70), "big()", "\tuse(x)\n");
     assert!(source.len() > shadow_index_min());
     let (labels, over_cap, _) = assert_same("over-cap", &source);
     assert!(labels >= owner_labels::BULK_MIN, "labels={labels}");
@@ -165,7 +190,7 @@ fn over_cap_graph_matches_the_old_paths() {
 
 #[test]
 fn straight_line_graph_matches_the_old_paths() {
-    let source = straight(200);
+    let source = bulk_control(straight(200), "line()", "\tuse(x, x) // padding padding\n");
     assert!(source.len() > shadow_index_min());
     let (labels, over_cap, _) = assert_same("straight", &source);
     assert_eq!(over_cap, 0);

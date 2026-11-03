@@ -295,15 +295,30 @@ interface-dispatch manifest (the §8a denominator for the precision gate report)
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
 two reaching-definition availability counters. RD-unavailable functions with more than
-1,000,000 prospective raw legacy emissions emit no local edges while retaining defs/uses;
+1,000,000 prospective raw legacy emissions surviving U/D emit no local edges while retaining defs/uses;
 `dfg_fallback_functions_capped` counts omitted functions and `dfg_fallback_edges_capped`
-counts their raw emissions, duplicates included. Omission also removes the capped owner's
+counts their surviving raw emissions, duplicates included. Omission also removes the capped owner's
 contribution to shared label keys of same-name/same-start-line owners and derived edges,
 such as the #594 object-literal shortcut into a capped callee. Loop-carried is a subset of Exact, so labeled-edge
 count is Exact plus the five NameOnly counters. `--edges` emits sorted JSONL with the doubt
 vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_nameonly`;
 `kill_line` is present only for `killed`; on an object-literal shortcut edge (below) it is a line of the
 `to` endpoint's function, the callee. The same counters are nested under `call-stats.dfg_labels`.
+
+For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
+write-only use (U) or a dominating unconditional write in a single-entry region (D).
+U removes even `exact` pairs into pure writes and mints no anchor Use on a write-only line.
+A Go statement label between that write and the use disables that D proof. D preserves
+nested callable definitions and reads. Field paths are compared as fixed storage; pointer identity
+across reassignment of a path's base is out of model (design §2.2).
+Uncertain cases keep the pair. RD labels only the surviving edges.
+The fallback cap counts U/D survivors, including duplicates. Per the owner decision, an owner
+formerly capped before pruning can regain its surviving edges when pruning brings it within the cap.
+The additive `dfg_pruned_write_only`, `dfg_pruned_scope`, `dfg_pruned_dominated`, and
+`dfg_pruned_order` counters persist through cache hits and appear in both stats commands;
+scope and order remain zero until their later slices ship. Prune counters count skipped
+producer candidates before edge compaction and deduplication, counted once from the
+first pass even when the owner is capped; replay does not count them again.
 
 Finding confidence is `exact | nameonly | unlabeled`; tier is `asserted` only for Exact evidence
 whose evidence-bearing files all parse cleanly, otherwise `candidate`. `asserted` grades the
@@ -361,7 +376,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v138) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v139) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

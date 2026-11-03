@@ -1,0 +1,51 @@
+{"case": "00_write_only_lines", "path": "x", "def_line": 5, "use_line": 6, "keep": false, "reason": "write_only"}
+{"case": "00_write_only_lines", "path": "x", "def_line": 6, "use_line": 7, "keep": true, "reason": "augmented_read"}
+{"case": "00_write_only_lines", "path": "x", "def_line": 7, "use_line": 8, "keep": true, "reason": "increment_read"}
+{"case": "00_write_only_lines", "path": "p.f", "def_line": 12, "use_line": 13, "keep": false, "reason": "write_only"}
+{"case": "02_case_dollar_only", "path": "x", "def_line": 7, "use_line": 8, "keep": true, "reason": "own_case"}
+{"case": "02_case_dollar_only", "path": "x", "def_line": 7, "use_line": 11, "keep": false, "reason": "dominated"}
+{"case": "02_case_dollar_only", "path": "x", "def_line": 10, "use_line": 8, "keep": false, "reason": "dominated"}
+{"case": "02_case_dollar_only", "path": "x", "def_line": 10, "use_line": 11, "keep": true, "reason": "own_case"}
+{"case": "17_select_case_regions", "path": "x", "def_line": 7, "use_line": 8, "keep": true, "reason": "own_case"}
+{"case": "17_select_case_regions", "path": "x", "def_line": 7, "use_line": 11, "keep": false, "reason": "dominated"}
+{"case": "17_select_case_regions", "path": "x", "def_line": 10, "use_line": 8, "keep": false, "reason": "dominated"}
+{"case": "17_select_case_regions", "path": "x", "def_line": 10, "use_line": 11, "keep": true, "reason": "own_case"}
+{"case": "17_type_switch_case_regions", "path": "x", "def_line": 7, "use_line": 8, "keep": true, "reason": "own_case"}
+{"case": "17_type_switch_case_regions", "path": "x", "def_line": 7, "use_line": 11, "keep": false, "reason": "dominated"}
+{"case": "17_type_switch_case_regions", "path": "x", "def_line": 10, "use_line": 8, "keep": false, "reason": "dominated"}
+{"case": "17_type_switch_case_regions", "path": "x", "def_line": 10, "use_line": 11, "keep": true, "reason": "own_case"}
+{"case": "04_def_after_use_no_loop", "path": "x", "def_line": 6, "use_line": 5, "keep": true, "reason": "order_deferred"}
+{"case": "05_def_after_use_in_for", "path": "x", "def_line": 7, "use_line": 6, "keep": true, "reason": "order_deferred"}
+{"case": "06_conditional_def_not_dominating", "path": "x", "def_line": 5, "use_line": 9, "keep": true, "reason": "conservative_control"}
+{"case": "06_conditional_def_not_dominating", "path": "x", "def_line": 7, "use_line": 9, "keep": true, "reason": "conservative_control"}
+{"case": "07_label_between", "path": "x", "def_line": 5, "use_line": 8, "keep": true, "reason": "conservative_control"}
+{"case": "07_label_between", "path": "x", "def_line": 7, "use_line": 8, "keep": true, "reason": "conservative_control"}
+{"case": "09_closure_writer_before", "path": "x", "def_line": 6, "use_line": 10, "keep": true, "reason": "conservative_control"}
+{"case": "09_closure_writer_before", "path": "x", "def_line": 8, "use_line": 10, "keep": true, "reason": "conservative_control"}
+{"case": "10_closure_reader", "path": "x", "def_line": 5, "use_line": 7, "keep": true, "reason": "conservative_control"}
+{"case": "10_closure_reader", "path": "x", "def_line": 9, "use_line": 7, "keep": true, "reason": "conservative_control"}
+{"case": "16_defer_closure", "path": "x", "def_line": 5, "use_line": 7, "keep": true, "reason": "conservative_control"}
+{"case": "16_defer_closure", "path": "x", "def_line": 9, "use_line": 7, "keep": true, "reason": "conservative_control"}
+{"case": "08_label_before_dominator", "path": "x", "def_line": 5, "use_line": 7, "keep": false, "reason": "dominated"}
+{"case": "08_label_before_dominator", "path": "x", "def_line": 6, "use_line": 7, "keep": true, "reason": "dominator"}
+{"case": "11_short_redecl_reuse", "path": "err", "def_line": 5, "use_line": 7, "keep": false, "reason": "dominated"}
+{"case": "11_short_redecl_reuse", "path": "err", "def_line": 6, "use_line": 7, "keep": true, "reason": "dominator"}
+{"case": "13_var_zero_value_dominates", "path": "x", "def_line": 7, "use_line": 8, "keep": true, "reason": "dominator"}
+{"case": "12_inner_block_shadow_after_use", "path": "x", "def_line": 5, "use_line": 11, "keep": true, "reason": "scope_deferred"}
+{"case": "14_field_path_not_dominating", "path": "p.f", "def_line": 5, "use_line": 7, "keep": true, "reason": "different_path"}
+{"case": "15_alias_twin_kept_in_range", "path": "s.f", "def_line": 6, "use_line": 8, "keep": true, "reason": "range"}
+{"case": "15_alias_twin_kept_in_range", "path": "s.f", "def_line": 7, "use_line": 8, "keep": true, "reason": "alias_twin"}
+{"case": "18_assignment_in_if_init", "path": "x", "def_line": 5, "use_line": 6, "keep": true, "reason": "init_excluded"}
+{"case": "13_var_zero_value_dominates", "path": "x", "def_line": 9, "use_line": 8, "keep": false, "reason": "dominated"}
+{"case": "03_switch_in_goto_loop", "path": "yyDollar", "def_line": 11, "use_line": 23, "keep": false, "reason": "dominated"}
+{"case": "03_switch_in_goto_loop", "path": "yyDollar", "def_line": 21, "use_line": 23, "keep": true, "reason": "own_case"}
+{"case": "00_write_only_lines", "path": "z", "def_line": 11, "use_line": 10, "keep": false, "reason": "write_only"}
+{"case": "00_write_only_lines", "path": "v", "def_line": 16, "use_line": 17, "keep": true, "reason": "receiver_read"}
+{"case":"19_loop_carried_child_window","path":"x","def_line":6,"use_line":5,"keep":true,"reason":"loop_carried_inside_child"}
+{"case":"19_loop_carried_child_window","path":"x","def_line":3,"use_line":5,"keep":true,"reason":"dominator"}
+{"case":"19_loop_carried_child_window","path":"x","def_line":2,"use_line":5,"keep":false,"reason":"dominated"}
+{"case":"20_fallthrough","path":"x","def_line":5,"use_line":8,"keep":true,"reason":"fallthrough_no_case_write"}
+{"case":"20_fallthrough","path":"x","def_line":14,"use_line":18,"keep":false,"reason":"dominated"}
+{"case":"20_fallthrough","path":"x","def_line":17,"use_line":18,"keep":true,"reason":"dominator"}
+{"case":"21_field_base_reassigned_out_of_model","path":"p.f","def_line":6,"use_line":10,"keep":false,"reason":"fixed_storage_pointer_identity_out_of_model"}
+{"case":"21_field_base_reassigned_out_of_model","path":"p.f","def_line":8,"use_line":10,"keep":true,"reason":"fixed_storage_pointer_identity_out_of_model"}
