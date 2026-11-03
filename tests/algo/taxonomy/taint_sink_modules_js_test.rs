@@ -139,3 +139,106 @@ fn table_hit_on_a_main_strong_line_is_one_finding() {
     let src2 = "import { rm } from 'fs/promises';\nasync function h(input) {\n  const x = input.v; // SEED\n  await rm(x); // SINK\n}\n";
     assert_eq!(sink_findings("a.js", Language::JavaScript, src2), 1);
 }
+
+// ---- round 1: lexically correct sole-binding, constructor forms, type-only, case, literal paths
+
+#[rustfmt::skip]
+#[test]
+fn shadowing_scopes_give_no_identity() {
+    assert_severities(&[
+        js("W1 for-of head shadows the import", "import * as files from 'fs';\nfunction h(stores, input) {\n  for (const files of stores) {\n    const x = input.v; // SEED\n    files.mkdir(x); // SINK\n  }\n}\n", NONE),
+        js("W1b catch parameter shadows the import", "import * as files from 'fs';\nfunction h(input) {\n  try { run(); } catch (files) {\n    const x = input.v; // SEED\n    files.mkdir(x); // SINK\n  }\n}\n", NONE),
+        js("W1c destructured default parameter shadows", "import * as files from 'fs';\nfunction h({ files } = {}, input) {\n  const x = input.v; // SEED\n  files.mkdir(x); // SINK\n}\n", NONE),
+        js("W1d arrow destructured default value parameter", "import * as files from 'fs';\nconst h = ({ files = fake } = {}, input) => {\n  const x = input.v; // SEED\n  return files.mkdir(x); // SINK\n};\n", NONE),
+        js("W1e var in a nested block hoists over the import", "import { mkdir } from 'fs/promises';\nfunction h(c, input) {\n  if (c) { var mkdir = noop; }\n  const x = input.v; // SEED\n  mkdir(x); // SINK\n}\n", NONE),
+        js("W1f var in a nested block hoists over a destructured require", "const { ensureDir } = require('fs-extra');\nfunction h(c, input) {\n  if (c) { var ensureDir = noop; }\n  const x = input.v; // SEED\n  ensureDir(x); // SINK\n}\n", NONE),
+        js("W1g switch case const shadows the import", "import * as files from 'fs';\nfunction h(k, input) {\n  switch (k) {\n    case 1:\n      const files = makeStore();\n      const x = input.v; // SEED\n      files.mkdir(x); // SINK\n  }\n}\n", NONE),
+        js("W1h for-let head shadows the import", "import * as files from 'fs';\nfunction h(stores, input) {\n  for (let files = stores[0]; files; files = null) {\n    const x = input.v; // SEED\n    files.mkdir(x); // SINK\n  }\n}\n", NONE),
+        js("W1i for-of class shadows NodeSSH", "import { NodeSSH } from 'node-ssh';\nfunction h(classes, input) {\n  for (const NodeSSH of classes) {\n    const ssh = new NodeSSH();\n    const x = input.v; // SEED\n    ssh.execCommand(x); // SINK\n  }\n}\n", NONE),
+        js("W1j for-in var head hoists over the import", "import * as files from 'fs';\nfunction h(o, input) {\n  for (var files in o) {}\n  const x = input.v; // SEED\n  files.mkdir(x); // SINK\n}\n", NONE),
+        js("W1k local document shadows the global", "function h(docs, input) {\n  for (const document of docs) {\n    const x = input.v; // SEED\n    document.execCommand('insertHTML', false, x); // SINK\n  }\n}\n", NONE),
+        js("W1l function-local const shadows an outer CJS alias", "const files = require('fs');\nfunction h(input) {\n  const files = makeStore();\n  const x = input.v; // SEED\n  files.mkdir(x); // SINK\n}\n", NONE),
+        js("W1m increment writes the alias", "let n = require('fs');\nn++;\nfunction h(input) {\n  const x = input.v; // SEED\n  n.mkdir(x); // SINK\n}\n", NONE),
+        js("W1n destructuring assignment writes the alias", "let n = require('fs');\n[n] = [fake];\nfunction h(input) {\n  const x = input.v; // SEED\n  n.mkdir(x); // SINK\n}\n", NONE),
+    ]);
+}
+
+#[rustfmt::skip]
+#[test]
+fn second_binding_of_destructured_fs() {
+    assert_severities(&[
+        js("W2 destructured require then var redeclared", "function h(input, fake) {\n  var { mkdir: mk } = require('fs');\n  var mk = fake;\n  const x = input.v; // SEED\n  mk(x); // SINK\n}\n", NONE),
+        js("W2b destructured promises then var redeclared", "var { promises: fsp } = require('fs');\nvar fsp = fake;\nfunction h(input) {\n  const x = input.v; // SEED\n  fsp.mkdir(x); // SINK\n}\n", NONE),
+        js("W2c single destructured declaration control", "function h(input) {\n  var { mkdir: mk } = require('fs');\n  const x = input.v; // SEED\n  mk(x); // SINK\n}\n", W),
+        js("W2d single destructured promises control", "var { promises: fsp } = require('fs');\nfunction h(input) {\n  const x = input.v; // SEED\n  fsp.mkdir(x); // SINK\n}\n", W),
+    ]);
+}
+
+#[rustfmt::skip]
+#[test]
+fn unrelated_same_name_scopes_keep_identity() {
+    assert_severities(&[
+        js("W3 unrelated function parameter of the same name", "const files = require('fs');\nfunction unrelated(files) {}\nfunction h(input) {\n  const x = input.v; // SEED\n  files.mkdir(x); // SINK\n}\n", W),
+        js("W3b callback parameter elsewhere", "const files = require('fs');\n[1].map((files) => files);\nfunction h(input) {\n  const x = input.v; // SEED\n  files.mkdir(x); // SINK\n}\n", W),
+        js("W3c another function's own local of the same name", "const fse = require('fs-extra');\nfunction other() { const fse = make(); return fse; }\nfunction h(input) {\n  const x = input.v; // SEED\n  fse.remove(x); // SINK\n}\n", W),
+        js("W3d module-level NodeSSH local plus an unrelated helper parameter", "import { NodeSSH } from 'node-ssh';\nconst ssh = new NodeSSH();\nfunction close(ssh) {}\nasync function h(input) {\n  const x = input.v; // SEED\n  await ssh.execCommand(x); // SINK\n}\n", W),
+        js("W3e two functions each with their own NodeSSH local", "import { NodeSSH } from 'node-ssh';\nfunction a() { const ssh = new NodeSSH(); return ssh; }\nasync function h(input) {\n  const ssh = new NodeSSH();\n  const x = input.v; // SEED\n  await ssh.execCommand(x); // SINK\n}\n", W),
+        js("W3f genuine same-scope redeclaration still refuses", "const files = require('fs');\nvar files = fake;\nfunction h(input) {\n  const x = input.v; // SEED\n  files.mkdir(x); // SINK\n}\n", NONE),
+    ]);
+}
+
+#[rustfmt::skip]
+#[test]
+fn node_ssh_constructor_forms() {
+    assert_severities(&[
+        js("W4 member extracted constructor", "const N = require('node-ssh').NodeSSH;\nfunction h(input) {\n  const x = input.v; // SEED\n  const c = new N();\n  c.execCommand(x); // SINK\n}\n", W),
+        js("W4b legacy default export require", "const NodeSSH = require('node-ssh');\nfunction h(input) {\n  const x = input.v; // SEED\n  const ssh = new NodeSSH();\n  ssh.execCommand(x); // SINK\n}\n", W),
+        js("W4c default import", "import Client from 'node-ssh';\nfunction h(input) {\n  const x = input.v; // SEED\n  const ssh = new Client();\n  ssh.exec(x, []); // SINK\n}\n", W),
+        js("W4d namespace member constructor", "import * as m from 'node-ssh';\nfunction h(input) {\n  const x = input.v; // SEED\n  const ssh = new m.NodeSSH();\n  ssh.execCommand(x); // SINK\n}\n", W),
+        js("W4e wrong module for the member form", "const N = require('other-ssh').NodeSSH;\nfunction h(input) {\n  const x = input.v; // SEED\n  const c = new N();\n  c.execCommand(x); // SINK\n}\n", NONE),
+        js("W4f wrong member", "const N = require('node-ssh').Other;\nfunction h(input) {\n  const x = input.v; // SEED\n  const c = new N();\n  c.execCommand(x); // SINK\n}\n", NONE),
+        js("W4g rebound constructor", "let N = require('node-ssh').NodeSSH;\nN = Fake;\nfunction h(input) {\n  const x = input.v; // SEED\n  const c = new N();\n  c.execCommand(x); // SINK\n}\n", NONE),
+        js("W4h default require from another module", "const NodeSSH = require('other-ssh');\nfunction h(input) {\n  const x = input.v; // SEED\n  const ssh = new NodeSSH();\n  ssh.execCommand(x); // SINK\n}\n", NONE),
+    ]);
+}
+
+#[rustfmt::skip]
+#[test]
+fn type_only_imports_give_no_identity() {
+    assert_severities(&[
+        ts("W5 import type namespace", "import type * as files from 'fs';\nfunction h(input: any) {\n  const x = input.v; // SEED\n  files.mkdir(x); // SINK\n}\n", NONE),
+        ts("W5b import type named", "import type { mkdir } from 'fs';\nfunction h(input: any) {\n  const x = input.v; // SEED\n  mkdir(x); // SINK\n}\n", NONE),
+        ts("W5c inline type specifier", "import { type mkdir } from 'fs';\nfunction h(input: any) {\n  const x = input.v; // SEED\n  mkdir(x); // SINK\n}\n", NONE),
+        ts("W5d type-only NodeSSH", "import type { NodeSSH } from 'node-ssh';\nfunction h(input: any) {\n  const ssh = new NodeSSH();\n  const x = input.v; // SEED\n  ssh.execCommand(x); // SINK\n}\n", NONE),
+        ts("W5e type-only default", "import type files from 'fs-extra';\nfunction h(input: any) {\n  const x = input.v; // SEED\n  files.remove(x); // SINK\n}\n", NONE),
+        ts("W5f value import control", "import * as files from 'fs';\nfunction h(input: any) {\n  const x = input.v; // SEED\n  files.mkdir(x); // SINK\n}\n", W),
+        ts("W5g value named import control next to a type specifier", "import { type Stats, mkdir } from 'fs';\nfunction h(input: any) {\n  const x = input.v; // SEED\n  mkdir(x); // SINK\n}\n", W),
+    ]);
+}
+
+#[rustfmt::skip]
+#[test]
+fn exec_command_case_insensitive() {
+    assert_severities(&[
+        js("F2 lowercase command id", "function h(input) {\n  const x = input.v; // SEED\n  document.execCommand('inserthtml', false, x); // SINK\n}\n", W),
+        js("F2b mixed case command id", "function h(input) {\n  const x = input.v; // SEED\n  document.execCommand('InsertHTML', false, x); // SINK\n}\n", W),
+        js("F2c other command stays none", "function h(input) {\n  const x = input.v; // SEED\n  document.execCommand('InsertText', false, x); // SINK\n}\n", NONE),
+    ]);
+}
+
+#[rustfmt::skip]
+#[test]
+fn fs_literal_path_with_tainted_data() {
+    assert_severities(&[
+        js("S1 outputJson fixed path, tainted data", "const fse = require('fs-extra');\nfunction h(req) {\n  const x = req.body; // SEED\n  fse.outputJson('settings.json', x); // SINK\n}\n", NONE),
+        js("S1b outputFile fixed path, tainted data", "import fse from 'fs-extra';\nfunction h(req) {\n  const x = req.body; // SEED\n  fse.outputFile('/var/app/message.txt', x); // SINK\n}\n", NONE),
+        js("S1c named writeJson fixed path", "import { writeJson } from 'fs-extra';\nfunction h(req) {\n  const x = req.body; // SEED\n  writeJson('db.json', x); // SINK\n}\n", NONE),
+        js("S1d chmodSync fixed path, tainted mode", "import * as fs from 'fs';\nfunction h(req) {\n  const x = req.body; // SEED\n  fs.chmodSync('/srv/app.sock', x); // SINK\n}\n", NONE),
+        js("S1e template without substitution is literal", "import * as fs from 'fs';\nfunction h(req) {\n  const x = req.body; // SEED\n  fs.mkdirSync(`/srv/app`, x); // SINK\n}\n", NONE),
+        js("S1f tainted path stays strong", "const fse = require('fs-extra');\nfunction h(req) {\n  const x = req.body; // SEED\n  fse.outputFile(x, 'data'); // SINK\n}\n", W),
+        js("S1g concatenated path stays strong", "const fse = require('fs-extra');\nfunction h(req) {\n  const x = req.body; // SEED\n  fse.outputFile('/srv/' + x, 'data'); // SINK\n}\n", W),
+        js("S1h two-path API: tainted destination", "import * as fs from 'fs';\nfunction h(req) {\n  const x = req.body; // SEED\n  fs.copyFileSync('/srv/a', x); // SINK\n}\n", W),
+        js("S1i two-path API: both literal", "import * as fs from 'fs';\nfunction h(req) {\n  const x = req.body; // SEED\n  fs.copyFileSync('/srv/a', '/srv/b', x); // SINK\n}\n", NONE),
+        js("S1j no arguments", "import * as fs from 'fs';\nfunction h(req) {\n  const x = req.body; // SEED\n  fs.readdirSync(); // SINK\n}\n", NONE),
+    ]);
+}

@@ -241,31 +241,31 @@
     ],
     "SR42-js-module-member-api-gate-dropped": [
       "src/algorithms/taint_sinks/js_modules.rs",
-      "Some(r) => FS_API.contains(&text) && is_module(p, r, FS_MODULES, 0),",
-      "Some(r) => is_module(p, r, FS_MODULES, 0),",
+      "Some(r) => (FS_API.contains(&text) && is_module(p, r, FS_MODULES, 0)).then_some(text),",
+      "Some(r) => is_module(p, r, FS_MODULES, 0).then_some(text),",
       "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
     ],
     "SR43-js-module-alias-hop-dropped": [
       "src/algorithms/taint_sinks/js_modules.rs",
-      "_ => one_hop(p, n, name).is_some_and(|i| is_module(p, i, mods, depth + 1)),",
-      "_ => false,",
+      "Some(Binding::Var { init: Some(i) }) => is_module(p, i, mods, depth + 1),",
+      "Some(Binding::Var { init: Some(_) }) => false,",
       "algorithms::taint_sinks::tests::js_module_fs_namespace_and_named_identity"
     ],
     "SR44-js-module-reassignment-ignored": [
-      "src/algorithms/taint_sinks/js_modules.rs",
-      "if !is_reassigned(p, id, name) && declarator_count(p, id, i, name) == 1 =>",
-      "if declarator_count(p, id, i, name) == 1 =>",
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "Binding::Var { .. } | Binding::Destructured { .. } if !is_written(p, scope, name) => {",
+      "Binding::Var { .. } | Binding::Destructured { .. } => {",
       "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
     ],
     "SR45-js-module-second-binding-ignored": [
-      "src/algorithms/taint_sinks/js_modules.rs",
-      "if !is_reassigned(p, id, name) && declarator_count(p, id, i, name) == 1 =>",
-      "if !is_reassigned(p, id, name) =>",
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "            1 => {",
+      "            n if n >= 1 => {",
       "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
     ],
     "SR46-js-module-require-shadow-ignored": [
       "src/algorithms/taint_sinks/js_modules.rs",
-      "&& matches!(resolve(p, f, \"require\"), Binding::Unresolved));",
+      "&& matches!(lookup(p, f, \"require\"), Lookup::Unbound));",
       "&& true);",
       "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
     ],
@@ -277,33 +277,171 @@
     ],
     "SR48-js-module-node-ssh-class-unchecked": [
       "src/algorithms/taint_sinks/js_modules.rs",
-      "p.node_text(&orig) == \"NodeSSH\"\n                        && literal_string",
-      "p.node_text(&orig) != \"\"\n                        && literal_string",
+      "imported.is_none_or(|o| p.node_text(&o) == \"NodeSSH\")",
+      "true",
       "algorithms::taint_sinks::tests::js_module_node_ssh_identity"
     ],
     "SR49-js-module-node-ssh-module-unchecked": [
       "src/algorithms/taint_sinks/js_modules.rs",
-      "literal_string(p, module).is_some_and(|m| NODE_SSH.contains(&m))",
-      "literal_string(p, module).is_some()",
+      "&& in_mods(p, module, NODE_SSH)",
+      "&& true",
       "algorithms::taint_sinks::tests::js_module_node_ssh_identity"
     ],
     "SR50-js-module-document-shadow-ignored": [
       "src/algorithms/taint_sinks/js_modules.rs",
-      "|| !matches!(resolve(p, root, p.node_text(&root)), Binding::Unresolved)",
+      "|| !matches!(lookup(p, root, p.node_text(&root)), Lookup::Unbound)",
       "|| false",
-      "algorithms::taint_sinks::tests::js_module_document_exec_command_gate"
+      "algorithms::taint_sinks::tests_js_modules::js_module_document_chain_and_case"
     ],
     "SR51-js-module-insert-html-gate-dropped": [
       "src/algorithms/taint_sinks/js_modules.rs",
-      "literal_string(p, cmd).is_none_or(|s| s == \"insertHTML\")",
-      "literal_string(p, cmd).is_none_or(|_| true)",
+      "s.eq_ignore_ascii_case(\"insertHTML\")",
+      "true",
       "algorithms::taint_sinks::tests::js_module_document_exec_command_gate"
     ],
     "SR52-js-module-destructured-key-unchecked": [
       "src/algorithms/taint_sinks/js_modules.rs",
-      "key.is_some_and(|k| FS_API.contains(&p.node_text(&k)))",
-      "key.is_some()",
+      "FS_API.contains(&api).then_some(api)",
+      "Some(api)",
       "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
+    ],
+    "SR64-js-binding-hoisting-dropped": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "hoisted(p, body, name, out);",
+      "let _ = body;",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
+    ],
+    "SR65-js-binding-catch-param-dropped": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "\"catch_clause\" => {",
+      "\"catch_clause_x\" => {",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
+    ],
+    "SR66-js-binding-for-in-head-dropped": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "matches!(p.node_text(&k), \"let\" | \"const\")",
+      "matches!(p.node_text(&k), \"never\")",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
+    ],
+    "SR67-js-binding-for-head-dropped": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "if init.kind() == \"lexical_declaration\" {",
+      "if false {",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
+    ],
+    "SR68-js-binding-switch-case-dropped": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "\"switch_body\" => {",
+      "\"switch_body_x\" => {",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
+    ],
+    "SR69-js-binding-param-default-pattern-dropped": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "\"assignment_pattern\" | \"object_assignment_pattern\" => n",
+      "\"assignment_pattern_x\" | \"object_assignment_pattern_x\" => n",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
+    ],
+    "SR70-js-binding-write-scope-ignored": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "Lookup::Sole { scope: s, .. } => s.id() == scope.id(),",
+      "Lookup::Sole { .. } => true,",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_sole_binding_and_writes"
+    ],
+    "SR71-js-binding-type-specifier-ignored": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "s.kind() == \"import_specifier\" && has_type(s)",
+      "false",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_type_only_imports"
+    ],
+    "SR72-js-binding-type-statement-ignored": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "return has_type(n);",
+      "return false;",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_type_only_imports"
+    ],
+    "SR73-js-module-promises-import-unchecked": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "p.node_text(&orig) == \"promises\"\n                    &&",
+      "true\n                    &&",
+      "algorithms::taint_sinks::tests_js_modules::js_module_promises_branches"
+    ],
+    "SR74-js-module-promises-destructured-unchecked": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "key.is_some_and(|k| p.node_text(&k) == \"promises\")",
+      "key.is_some()",
+      "algorithms::taint_sinks::tests_js_modules::js_module_promises_branches"
+    ],
+    "SR75-js-module-promises-member-unchecked": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      ".is_some_and(|prop| p.node_text(&prop) == \"promises\")",
+      ".is_some()",
+      "algorithms::taint_sinks::tests_js_modules::js_module_promises_branches"
+    ],
+    "SR76-js-module-node-ssh-destructured-key-unchecked": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "key.is_some_and(|k| p.node_text(&k) == \"NodeSSH\")",
+      "key.is_some()",
+      "algorithms::taint_sinks::tests_js_modules::js_module_node_ssh_constructors"
+    ],
+    "SR77-js-module-document-chain-any-root": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "[\"document\"] | [\"window\" | \"globalThis\", \"document\"]",
+      "[\"document\"] | [_, \"document\"]",
+      "algorithms::taint_sinks::tests_js_modules::js_module_document_chain_and_case"
+    ],
+    "SR78-js-module-fs-new-call-fires": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "    if c.is_new {\n        return None;\n    }\n    let api",
+      "    let api",
+      "algorithms::taint_sinks::tests_js_modules::js_module_fs_call_shape_gates"
+    ],
+    "SR79-js-module-insert-html-case-exact": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "s.eq_ignore_ascii_case(\"insertHTML\")",
+      "s == \"insertHTML\"",
+      "algorithms::taint_sinks::tests_js_modules::js_module_document_chain_and_case"
+    ],
+    "SR80-js-module-literal-path-fires": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      ".any(|a| literal_string(p, *a).is_none())",
+      ".any(|_| true)",
+      "algorithms::taint_sinks::tests_js_modules::js_module_fs_call_shape_gates"
+    ],
+    "SR81-js-module-two-path-ignored": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "let n = if TWO_PATH_API.contains(&api) { 2 } else { 1 };",
+      "let n = 1;",
+      "algorithms::taint_sinks::tests_js_modules::js_module_fs_call_shape_gates"
+    ],
+    "SR82-js-module-node-ssh-member-name-unchecked": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      ".is_some_and(|prop| p.node_text(&prop) == \"NodeSSH\")",
+      ".is_some()",
+      "algorithms::taint_sinks::tests_js_modules::js_module_node_ssh_constructors"
+    ],
+    "SR83-js-module-node-ssh-default-require-dropped": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "load_of(p, i).is_some_and(|m| NODE_SSH.contains(&m))",
+      "false",
+      "algorithms::taint_sinks::tests_js_modules::js_module_node_ssh_constructors"
+    ],
+    "SR84-js-binding-increment-write-ignored": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "\"update_expression\" => n.child_by_field_name(\"argument\"),",
+      "\"update_expression\" => None,",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_sole_binding_and_writes"
+    ],
+    "SR85-js-binding-for-of-write-ignored": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "\"for_in_statement\" if n.child_by_field_name(\"kind\").is_none() => {",
+      "\"for_in_statement\" if false => {",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_sole_binding_and_writes"
+    ],
+    "SR86-js-binding-function-param-dropped": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "out.push(Binding::Param { annotation: None });",
+      "let _ = &out;",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
     ]
   }
 }

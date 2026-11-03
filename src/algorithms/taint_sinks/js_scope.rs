@@ -199,7 +199,7 @@ fn in_block<'t>(p: Src<'_>, block: Node<'t>, name: &str) -> Option<Binding<'t>> 
     None
 }
 
-fn in_declarator<'t>(p: Src<'_>, decl: Node<'t>, name: &str) -> Option<Binding<'t>> {
+pub(super) fn in_declarator<'t>(p: Src<'_>, decl: Node<'t>, name: &str) -> Option<Binding<'t>> {
     let target = decl.child_by_field_name("name")?;
     let value = decl.child_by_field_name("value");
     match target.kind() {
@@ -236,7 +236,7 @@ fn in_declarator<'t>(p: Src<'_>, decl: Node<'t>, name: &str) -> Option<Binding<'
     }
 }
 
-fn in_import<'t>(p: Src<'_>, stmt: Node<'t>, name: &str) -> Option<Binding<'t>> {
+pub(super) fn in_import<'t>(p: Src<'_>, stmt: Node<'t>, name: &str) -> Option<Binding<'t>> {
     let mut cursor = stmt.walk();
     let children: Vec<Node<'t>> = stmt.named_children(&mut cursor).collect();
     let source = stmt

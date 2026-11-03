@@ -3,7 +3,7 @@
 use super::*;
 
 /// Classify the first identifier named `name` on `line` of `source`.
-fn hit(language: Language, source: &str, line: usize, name: &str) -> Option<SinkHit> {
+pub(super) fn hit(language: Language, source: &str, line: usize, name: &str) -> Option<SinkHit> {
     let parsed = ParsedFile::parse("t", source, language).unwrap();
     let ids = parsed.identifiers_on_line(line);
     let id = ids
@@ -13,7 +13,7 @@ fn hit(language: Language, source: &str, line: usize, name: &str) -> Option<Sink
     SinkClassifier::default().classify("t", &parsed, *id, name, &["exec", "get_user"])
 }
 
-fn tag(h: Option<SinkHit>) -> Option<(&'static str, &'static str)> {
+pub(super) fn tag(h: Option<SinkHit>) -> Option<(&'static str, &'static str)> {
     h.map(|h| (h.rule, h.cwe.unwrap_or("none")))
 }
 
@@ -460,12 +460,12 @@ fn legacy_languages_keep_library_names() {
     ));
 }
 
-fn js_hit(source: &str, name: &str) -> Option<(&'static str, &'static str)> {
+pub(super) fn js_hit(source: &str, name: &str) -> Option<(&'static str, &'static str)> {
     let line = source.lines().position(|l| l.contains("// SINK")).unwrap() + 1;
     tag(hit(Language::JavaScript, source, line, name))
 }
 
-const FS_CWE: Option<(&str, &str)> = Some(("js-fs", "CWE-22"));
+pub(super) const FS_CWE: Option<(&str, &str)> = Some(("js-fs", "CWE-22"));
 
 #[test]
 fn js_module_fs_namespace_and_named_identity() {
