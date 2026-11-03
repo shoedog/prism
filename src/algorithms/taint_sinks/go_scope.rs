@@ -12,6 +12,8 @@ pub(super) enum GoBind<'t> {
     /// `name := init` / `var name T`.
     Var {
         init: Option<Node<'t>>,
+        /// The declared type of `var name T`.
+        ty: Option<Node<'t>>,
     },
     /// A parameter or receiver, with its declared type.
     Param {
@@ -76,7 +78,7 @@ fn in_init<'t>(p: Src<'_>, stmt: Node<'t>, name: &str) -> Option<GoBind<'t>> {
                 } else {
                     right.and_then(|r| r.named_child(i))
                 };
-                return Some(GoBind::Var { init });
+                return Some(GoBind::Var { init, ty: None });
             }
         }
     }
@@ -89,6 +91,7 @@ fn in_init<'t>(p: Src<'_>, stmt: Node<'t>, name: &str) -> Option<GoBind<'t>> {
                 if l.kind() == "identifier" && p.node_text(&l) == name {
                     return Some(GoBind::Var {
                         init: right.and_then(|r| r.named_child(i)),
+                        ty: None,
                     });
                 }
             }
@@ -145,6 +148,7 @@ fn in_statements<'t>(
                     if l.kind() == "identifier" && p.node_text(&l) == name {
                         return Some(GoBind::Var {
                             init: right.and_then(|r| r.named_child(i)),
+                            ty: None,
                         });
                     }
                 }
@@ -191,6 +195,7 @@ fn in_specs<'t>(p: Src<'_>, decl: Node<'t>, name: &str, is_const: bool) -> Optio
                         init: s
                             .child_by_field_name("value")
                             .and_then(|v| v.named_child(0)),
+                        ty: s.child_by_field_name("type"),
                     }
                 });
             }

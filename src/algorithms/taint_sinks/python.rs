@@ -171,6 +171,7 @@ fn is_literal(p: Src<'_>, node: Node<'_>) -> bool {
 /// `+` / `%` / `.format` composition with a string, or a lowercase variable
 /// (`session.query(Model)` and `session.query(Model.id)` are ORM builders).
 fn is_sql_text(p: Src<'_>, node: Node<'_>) -> bool {
+    let node = peel_parens(node);
     match node.kind() {
         "string" | "concatenated_string" => !is_literal(p, node),
         "binary_operator" => {
@@ -178,10 +179,12 @@ fn is_sql_text(p: Src<'_>, node: Node<'_>) -> bool {
                 .child_by_field_name("operator")
                 .map(|o| p.node_text(&o));
             let operand_text = |f: &str| {
-                node.child_by_field_name(f).is_some_and(|c| {
-                    matches!(c.kind(), "string" | "concatenated_string" | "identifier")
-                        || (c.kind() == "binary_operator" && is_sql_text(p, c))
-                })
+                node.child_by_field_name(f)
+                    .map(peel_parens)
+                    .is_some_and(|c| {
+                        matches!(c.kind(), "string" | "concatenated_string" | "identifier")
+                            || (c.kind() == "binary_operator" && is_sql_text(p, c))
+                    })
             };
             match op {
                 // `template % args` is the DB-API injection shape, whatever the template is.
@@ -201,6 +204,16 @@ fn is_sql_text(p: Src<'_>, node: Node<'_>) -> bool {
             .is_some_and(|c| !c.is_ascii_uppercase()),
         _ => false,
     }
+}
+
+fn peel_parens(mut n: Node<'_>) -> Node<'_> {
+    while n.kind() == "parenthesized_expression" {
+        match n.named_child(0) {
+            Some(c) => n = c,
+            None => break,
+        }
+    }
+    n
 }
 
 /// The SQL argument of `query(..)`: the first positional argument, or the value of a
@@ -278,14 +291,55 @@ fn is_collection(p: Src<'_>, r: Node<'_>) -> bool {
     }
 }
 
-/// An annotation names a collection when one of its identifiers (a generic's base or an
-/// alternative of a union) is a collection type: `set[str]`, `typing.Set[str]`,
-/// `Optional[list]`. `AssetStore` does not match (no substring matching).
+/// An annotation names a collection when its base identifier is a collection type
+/// (`set[str]`, `typing.Set[str]`); generic arguments are ignored (`Storage[list]` is not one).
+/// For a union (`A | B`, `Optional[A]`, `Union[A, B]`) every non-`None` alternative must be.
+/// `AssetStore` does not match (no substring matching).
 fn annotation_is_collection(text: &str) -> bool {
-    lower(text)
-        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '.'))
-        .filter(|t| !t.is_empty())
-        .any(|t| COLLECTION_HINTS.contains(&last_segment(t)))
+    let t = text.trim();
+    let t = t
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .unwrap_or(t);
+    let alts = split_top(t, '|');
+    if alts.len() > 1 {
+        return alts_are_collections(&alts);
+    }
+    if let Some((base, inner)) = t.split_once('[') {
+        let base = last_segment(base.trim()).to_ascii_lowercase();
+        let inner = inner.strip_suffix(']').unwrap_or(inner);
+        if base == "optional" {
+            return alts_are_collections(&[inner]);
+        }
+        if base == "union" {
+            return alts_are_collections(&split_top(inner, ','));
+        }
+        return COLLECTION_HINTS.contains(&base.as_str());
+    }
+    COLLECTION_HINTS.contains(&lower(last_segment(t)).as_str())
+}
+
+fn alts_are_collections(alts: &[&str]) -> bool {
+    let real: Vec<&&str> = alts.iter().filter(|a| a.trim() != "None").collect();
+    !real.is_empty() && real.iter().all(|a| annotation_is_collection(a))
+}
+
+/// Split `text` at `sep` outside brackets.
+fn split_top(text: &str, sep: char) -> Vec<&str> {
+    let (mut depth, mut start, mut out) = (0i32, 0usize, Vec::new());
+    for (i, c) in text.char_indices() {
+        match c {
+            '[' | '(' => depth += 1,
+            ']' | ')' => depth -= 1,
+            c if c == sep && depth == 0 => {
+                out.push(&text[start..i]);
+                start = i + c.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    out.push(&text[start..]);
+    out
 }
 
 fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {

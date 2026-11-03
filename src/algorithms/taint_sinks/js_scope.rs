@@ -66,7 +66,7 @@ fn declared_in<'t>(p: Src<'_>, scope: Node<'t>, name: &str) -> Option<Binding<'t
 }
 
 /// True when `name` is assigned anywhere in the file after its declaration (`name = v`,
-/// `name += v`, `name ||= v`, `[name] = ..`): a fact proved from the declaration alone
+/// `name += v`, `name ||= v`, `[name] = ..`, `for (name of ..)`): a fact proved from the declaration alone
 /// no longer holds, so the caller treats the name as unknown. Conservative by design
 /// (any same-named write in the file counts).
 pub(super) fn is_reassigned(p: Src<'_>, from: Node<'_>, name: &str) -> bool {
@@ -78,7 +78,7 @@ pub(super) fn is_reassigned(p: Src<'_>, from: Node<'_>, name: &str) -> bool {
     super::callee::walk(root, &mut |n| {
         if matches!(
             n.kind(),
-            "assignment_expression" | "augmented_assignment_expression"
+            "assignment_expression" | "augmented_assignment_expression" | "for_in_statement"
         ) {
             if let Some(left) = n.child_by_field_name("left") {
                 if (left.kind() == "identifier" && p.node_text(&left) == name)

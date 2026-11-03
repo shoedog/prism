@@ -46,32 +46,51 @@ pub(super) fn resolve<'t>(p: Src<'_>, from: Node<'t>, name: &str) -> PyBind<'t> 
     PyBind::Unresolved
 }
 
-/// True when `name` is assigned more than `allowed` times in the file or updated in place
-/// (`name = ..` twice, `name += ..`, `for name in ..`, `with .. as name`): a fact proved from
-/// the first binding alone no longer holds, so the caller treats the name as unknown.
+/// True when `name` is bound more than `allowed` times in the file. Every binding form counts
+/// toward one total: plain, annotated and tuple/list-unpacking assignment targets, `with .. as
+/// name`, `for` targets, walrus and augmented assignment. A fact proved from the first binding
+/// alone no longer holds once the total passes `allowed`, so the caller treats the name as
+/// unknown. Conservative by design: the count is file-wide, by spelling.
 pub(super) fn is_rebound(p: Src<'_>, from: Node<'_>, name: &str, allowed: usize) -> bool {
     let mut root = from;
     while let Some(parent) = root.parent() {
         root = parent;
     }
     let mut count = 0usize;
-    let mut other = false;
     super::callee::walk(root, &mut |n| {
-        let is_name = |l: Option<Node<'_>>| {
-            l.is_some_and(|l| l.kind() == "identifier" && p.node_text(&l) == name)
-        };
-        match n.kind() {
-            "assignment" if is_name(n.child_by_field_name("left")) => count += 1,
-            "augmented_assignment" | "for_statement" | "named_expression"
-                if is_name(n.child_by_field_name("left"))
-                    || is_name(n.child_by_field_name("name")) =>
-            {
-                other = true
+        let target = match n.kind() {
+            "assignment" | "augmented_assignment" | "for_statement" | "for_in_clause" => {
+                n.child_by_field_name("left")
             }
-            _ => {}
+            "named_expression" => n.child_by_field_name("name"),
+            "as_pattern_target" => n.named_child(0),
+            _ => None,
+        };
+        if target.is_some_and(|t| binds_name(p, t, name)) {
+            count += 1;
         }
     });
-    count > allowed || other
+    count > allowed
+}
+
+/// True when the assignment target `t` binds `name` (directly or inside an unpacking pattern;
+/// attribute and subscript targets bind nothing).
+fn binds_name(p: Src<'_>, t: Node<'_>, name: &str) -> bool {
+    match t.kind() {
+        "identifier" => p.node_text(&t) == name,
+        "pattern_list"
+        | "tuple_pattern"
+        | "list_pattern"
+        | "list_splat_pattern"
+        | "parenthesized_expression"
+        | "tuple"
+        | "list" => {
+            let mut cursor = t.walk();
+            let mut kids = t.named_children(&mut cursor);
+            kids.any(|c| binds_name(p, c, name))
+        }
+        _ => false,
+    }
 }
 
 fn in_params<'t>(p: Src<'_>, func: Node<'t>, name: &str) -> Option<PyBind<'t>> {

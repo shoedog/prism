@@ -132,6 +132,7 @@ const JS_ROWS: &[Row] = &[
     Row { sink: true, label: "probe: ctx.response.redirect koa", path: "a.js", lang: Language::JavaScript, source: "function h(ctx) {\n  const x = ctx.query.next; // SEED\n  ctx.redirect(x); // SINK\n}\n" },
     Row { sink: true, label: "r2: reassigned regex receiver to child_process", path: "a.js", lang: Language::JavaScript, source: "const cp = require('child_process');\nfunction h(input) {\n  let runner = /x/;\n  runner = cp;\n  const x = input.v; // SEED\n  runner.exec(x); // SINK\n}\n" },
     Row { sink: true, label: "r2: conditionally reassigned regex receiver", path: "a.js", lang: Language::JavaScript, source: "const cp = require('child_process');\nfunction h(input, c) {\n  let runner = /x/;\n  if (c) { runner = cp; }\n  const x = input.v; // SEED\n  runner.exec(x); // SINK\n}\n" },
+    Row { sink: true, label: "r2d: for-of rebinds a regex receiver", path: "a.js", lang: Language::JavaScript, source: "const cp = require('child_process');\nfunction h(input, mods) {\n  let runner = /x/;\n  for (runner of mods) {}\n  const x = input.v; // SEED\n  runner.exec(x); // SINK\n}\n" },
     Row { sink: false, label: "r2: unchanged let regex receiver", path: "a.js", lang: Language::JavaScript, source: "function h(input) {\n  let runner = /x/;\n  const x = input.v; // SEED\n  runner.exec(x); // SINK\n}\n" },
 ];
 
