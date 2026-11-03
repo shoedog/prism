@@ -19,7 +19,7 @@ mod cfg_edge_index;
 mod compact_wire;
 mod def_buckets;
 mod graph;
-mod join_kind;
+pub(super) mod join_kind;
 #[cfg(test)]
 mod legacy_classify;
 mod reach_memo;

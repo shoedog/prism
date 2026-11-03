@@ -1,6 +1,7 @@
 //! Go-only cycle membership for RD and public loop-carried telemetry.
+use super::reaching::join_kind::{is_incomplete_join, StatementKinds};
 use crate::ast::ParsedFile;
-use crate::cfg::{self, CfgEdge};
+use crate::cfg::{self, ArmProvenance, CfgEdge};
 use crate::languages::Language;
 use petgraph::{algo::kosaraju_scc, graph::DiGraph};
 use std::collections::BTreeMap;
@@ -9,8 +10,11 @@ pub(super) fn components(successors: &[Vec<(usize, bool)>]) -> Vec<Option<usize>
     let mut graph = DiGraph::<(), ()>::new();
     let nodes: Vec<_> = successors.iter().map(|_| graph.add_node(())).collect();
     for (from, edges) in successors.iter().enumerate() {
-        for &(to, _) in edges {
-            graph.add_edge(nodes[from], nodes[to], ());
+        for &(to, incomplete) in edges {
+            // Incomplete joins may carry may-reaching facts, but cannot prove a cycle.
+            if !incomplete {
+                graph.add_edge(nodes[from], nodes[to], ());
+            }
         }
     }
     let mut result = vec![None; nodes.len()];
@@ -49,7 +53,7 @@ impl Owner {
 
 #[derive(Default)]
 pub(super) struct GoLoopCycles {
-    edges: BTreeMap<String, Vec<CfgEdge>>,
+    edges: BTreeMap<String, Vec<(CfgEdge, ArmProvenance)>>,
     owners: BTreeMap<(String, usize), Option<Owner>>,
 }
 impl GoLoopCycles {
@@ -82,22 +86,24 @@ impl GoLoopCycles {
                 if candidates.next().is_some() {
                     return None;
                 }
-                let lines: BTreeMap<_, _> = parsed
-                    .statements_in_function(&function)
-                    .into_iter()
+                let statements = parsed.statements_in_function(&function);
+                let kinds = StatementKinds::new(&statements);
+                let lines: BTreeMap<_, _> = statements
+                    .iter()
                     .enumerate()
-                    .map(|(index, (line, _))| (line, index))
+                    .map(|(index, (line, _))| (*line, index))
                     .collect();
                 let mut successors = vec![Vec::new(); lines.len()];
                 let edges = self
                     .edges
                     .entry(file.to_owned())
-                    .or_insert_with(|| cfg::build_cfg_edges(parsed));
-                for edge in edges {
+                    .or_insert_with(|| cfg::build_cfg_edges_with_arms(parsed));
+                for (edge, provenance) in edges {
                     if let (Some(&from), Some(&to)) =
                         (lines.get(&edge.from_line), lines.get(&edge.to_line))
                     {
-                        successors[from].push((to, false));
+                        successors[from]
+                            .push((to, is_incomplete_join(parsed, &kinds, edge, *provenance)));
                     }
                 }
                 let spans = parsed
@@ -119,5 +125,36 @@ impl GoLoopCycles {
                 })
             });
         owner.as_ref().is_some_and(|o| o.same_cycle(from, to))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::components;
+
+    #[test]
+    fn go_fold_incomplete_edge_cannot_close_cycle() {
+        assert_eq!(
+            components(&[vec![(1, false)], vec![(0, true)]]),
+            vec![None, None]
+        );
+    }
+
+    #[test]
+    fn go_fold_incomplete_self_edge_is_not_cycle() {
+        assert_eq!(components(&[vec![(0, true)]]), vec![None]);
+    }
+
+    #[test]
+    fn go_fold_admissible_cycles_survive_extra_incomplete_edges() {
+        let groups = components(&[
+            vec![(1, false), (2, true)],
+            vec![(0, false)],
+            vec![(2, false)],
+        ]);
+        assert!(groups[0].is_some());
+        assert_eq!(groups[0], groups[1]);
+        assert!(groups[2].is_some());
+        assert_ne!(groups[0], groups[2]);
     }
 }

@@ -4,6 +4,54 @@ use prism::cpg::{FlowConfidence, FlowDoubt};
 
 const SOURCE: &str = include_str!("../fixtures/go_jumps_round2/round2.go");
 
+fn check_fold_cycle(source: &str, carried: usize) {
+    let parsed = ParsedFile::parse("cycle.go", source, Language::Go).unwrap();
+    let graph = CodePropertyGraph::build(&BTreeMap::from([("cycle.go".to_owned(), parsed)]));
+    let line = |marker| source.lines().position(|l| l.contains(marker)).unwrap() + 1;
+    let labels: Vec<_> = graph
+        .dfg
+        .labels()
+        .filter(|(e, _)| e.from.line == line("// def") && e.to.line == line("// use"))
+        .map(|(_, l)| l)
+        .collect();
+    assert_eq!(labels, vec![FlowConfidence::Exact]);
+    if std::env::var_os("PRISM_EXPORT_GO_JUMPS").is_some() {
+        let mut edges: Vec<_> = graph
+            .dfg
+            .edges()
+            .iter()
+            .map(|e| serde_json::json!([e.from, e.to]))
+            .collect();
+        edges.sort_by_key(serde_json::Value::to_string);
+        println!(
+            "GO_FOLD_SNAPSHOT {}",
+            serde_json::json!({"source":source,"edges":edges,"stats":graph.dfg_label_stats,"availability":graph.dfg.rd_function_stats()})
+        );
+    }
+    assert_eq!(graph.dfg_label_stats.dfg_label_loop_carried, carried);
+}
+
+#[test]
+fn go_fold_public_acyclic_defer() {
+    check_fold_cycle(
+        include_str!("../fixtures/go_loop_cycles/acyclic_defer.go"),
+        0,
+    );
+}
+
+#[test]
+fn go_fold_public_cyclic_goto() {
+    check_fold_cycle(include_str!("../fixtures/go_loop_cycles/cyclic_goto.go"), 1);
+}
+
+#[test]
+fn go_fold_public_cyclic_defer() {
+    check_fold_cycle(
+        include_str!("../fixtures/go_loop_cycles/cyclic_defer.go"),
+        1,
+    );
+}
+
 fn line(marker: &str) -> usize {
     SOURCE.lines().position(|l| l.contains(marker)).unwrap() + 1
 }
