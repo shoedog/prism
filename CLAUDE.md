@@ -307,8 +307,13 @@ vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_n
 
 For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
 write-only use (U) or a dominating unconditional write in a single-entry region (D).
+U removes even `exact` pairs into pure writes and mints no anchor Use on a write-only line.
 A Go statement label between that write and the use disables that D proof. D preserves
-nested callable definitions and reads. Uncertain cases keep the pair. RD labels only the surviving edges.
+nested callable definitions and reads. Field paths are compared as fixed storage; pointer identity
+across reassignment of a path's base is out of model (design §2.2).
+Uncertain cases keep the pair. RD labels only the surviving edges.
+The fallback cap counts U/D survivors, including duplicates. Per the owner decision, an owner
+formerly capped before pruning can regain its surviving edges when pruning brings it within the cap.
 The additive `dfg_pruned_write_only`, `dfg_pruned_scope`, `dfg_pruned_dominated`, and
 `dfg_pruned_order` counters persist through cache hits and appear in both stats commands;
 scope and order remain zero until their later slices ship. Prune counters count skipped

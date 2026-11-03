@@ -17,6 +17,8 @@ mod giant_owner_tests;
 mod legacy_producer;
 mod lexical_prune;
 #[cfg(test)]
+mod lexical_prune_round2_tests;
+#[cfg(test)]
 mod lexical_prune_tests;
 mod owner_labels;
 #[cfg(test)]

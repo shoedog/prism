@@ -135,3 +135,102 @@ fn prune_cap_alias_twin_write_only_and_dominated_pairs_are_pruned_in_both_passes
         );
     }
 }
+
+#[test]
+fn prune_cap_frozen_and_current_same_cap_transition_matrix() {
+    for (name, body) in [
+        (
+            "survivors",
+            "func f(x int) {\nx = 1\nconsume(x)\nx = 2\nconsume(x)\n",
+        ),
+        ("zero", "func f() {\nx := 1\nx = 2\n"),
+    ] {
+        // No additional def/ref candidates: force RD refusal on the statement cap.
+        let source = format!("package p\n{body}{}}}\n", "g()\n".repeat(4100));
+        let parsed = ParsedFile::parse("transition.go", &source, Language::Go).unwrap();
+        let frozen = Producer::file_refs_frozen_with_cap(&parsed.path, &parsed, None);
+        let current = Producer::file_refs_with_cap(&parsed.path, &parsed, None);
+        let raw = frozen.edges.len();
+        let survivors = current.edges.len();
+        assert_eq!(frozen.rd_function_stats.functions_over_cap, 1);
+        assert_eq!(current.rd_function_stats.functions_over_cap, 1);
+        assert!(raw > survivors);
+        if name == "zero" {
+            assert_eq!(survivors, 0);
+            assert!(raw > 1);
+        } else {
+            assert!(survivors > 1);
+        }
+        // Label and expanded-edge subset is relative to uncapped frozen output.
+        // At the same finite cap the frozen owner may have no edges at all.
+        for edge in &current.edges {
+            assert!(frozen.edges.contains(edge));
+        }
+        for (key, label) in &current.labels {
+            assert_eq!(frozen.labels.get(key), Some(label));
+        }
+        for (key, label) in &current.exact_labels {
+            assert_eq!(frozen.exact_labels.get(key), Some(label));
+        }
+        let caps = if survivors == 0 {
+            vec![raw, 1]
+        } else {
+            vec![raw, survivors, survivors - 1]
+        };
+        for cap in caps {
+            let old = Producer::file_refs_frozen_with_cap(&parsed.path, &parsed, Some(cap));
+            let new = Producer::file_refs_with_cap(&parsed.path, &parsed, Some(cap));
+            let old_capped = raw > cap;
+            let new_capped = survivors > cap;
+            println!("transition {name}: raw={raw} survivors={survivors} cap={cap} frozen_capped={old_capped} current_capped={new_capped}");
+            assert_eq!(
+                old.rd_function_stats.fallback_functions_capped,
+                usize::from(old_capped)
+            );
+            assert_eq!(
+                old.rd_function_stats.fallback_edges_capped,
+                if old_capped { raw } else { 0 }
+            );
+            assert_eq!(
+                new.rd_function_stats.fallback_functions_capped,
+                usize::from(new_capped)
+            );
+            assert_eq!(
+                new.rd_function_stats.fallback_edges_capped,
+                if new_capped { survivors } else { 0 }
+            );
+            assert_eq!(
+                prune_counts(&new.rd_function_stats),
+                prune_counts(&current.rd_function_stats)
+            );
+            assert_eq!(old.defs, frozen.defs);
+            assert_eq!(old.uses, frozen.uses);
+            assert_eq!(new.defs, current.defs);
+            assert_eq!(new.uses, current.uses);
+            if old_capped {
+                assert!(
+                    old.edges.is_empty() && old.labels.is_empty() && old.exact_labels.is_empty()
+                );
+            } else {
+                assert_eq!(
+                    bytes(old),
+                    bytes(Producer::file_refs_frozen_with_cap(
+                        &parsed.path,
+                        &parsed,
+                        None
+                    ))
+                );
+            }
+            if new_capped {
+                assert!(
+                    new.edges.is_empty() && new.labels.is_empty() && new.exact_labels.is_empty()
+                );
+            } else {
+                assert_eq!(
+                    bytes(new),
+                    bytes(Producer::file_refs_with_cap(&parsed.path, &parsed, None))
+                );
+            }
+        }
+    }
+}

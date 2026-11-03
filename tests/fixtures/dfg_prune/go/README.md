@@ -3,6 +3,13 @@
 Rows 00–18 implement the slice-1 U/D contract; row 17 has separate select and type-switch inputs.
 These sources are parsed as static fixtures, never executed as Go programs.
 
+Round 2 adds row 19 (a loop-carried definition inside D's containing child, with a preceding
+dominator), row 20 (fallthrough with and without a write in the destination case), and row 21
+(field-base reassignment). Row 21 pins current fixed-storage path comparison: `p.f = 1` does
+not reach the final read in the graph, while `p.f = 2` does. At runtime the pointers can refer
+to different objects; that pointer identity is out of model under design §2.2. This is a
+documented boundary, not a claim that the graph models that runtime flow.
+
 `obligations.jsonl` identifies independently marked pairs. Changed U/D obligations are RED with
 the original producer; preservation obligations retain the base pair. In particular row 04 keeps
 its backward pair until O. Row 12 protects the outer binding's final read, while its
