@@ -31,6 +31,12 @@ pub(super) fn resolve<'t>(p: Src<'_>, from: Node<'t>, name: &str) -> GoBind<'t> 
             }
             "block" | "statement_list" => in_statements(p, scope, name, Some(use_at)),
             "source_file" => in_statements(p, scope, name, None),
+            // `if v := x; ..`, `switch v := x; ..`, `for v := ..; ..`, `for k, v := range ..`:
+            // the init statement or range clause binds for the whole statement.
+            "if_statement"
+            | "for_statement"
+            | "expression_switch_statement"
+            | "type_switch_statement" => in_init(p, scope, name),
             _ => None,
         };
         if let Some(b) = found {
@@ -39,6 +45,56 @@ pub(super) fn resolve<'t>(p: Src<'_>, from: Node<'t>, name: &str) -> GoBind<'t> 
         cur = scope.parent();
     }
     GoBind::Unresolved
+}
+
+fn in_init<'t>(p: Src<'_>, stmt: Node<'t>, name: &str) -> Option<GoBind<'t>> {
+    let mut cursor = stmt.walk();
+    let children: Vec<Node<'t>> = stmt.named_children(&mut cursor).collect();
+    for child in children {
+        let (left, right) = match child.kind() {
+            // `if`/`switch` initializer is a field; `for` holds the clause as a child.
+            "short_var_declaration" | "range_clause" => (
+                child.child_by_field_name("left"),
+                child.child_by_field_name("right"),
+            ),
+            "for_clause" => {
+                let init = child.child_by_field_name("initializer")?;
+                (
+                    init.child_by_field_name("left"),
+                    init.child_by_field_name("right"),
+                )
+            }
+            _ => continue,
+        };
+        let Some(left) = left else { continue };
+        let mut ids = left.walk();
+        for (i, l) in left.named_children(&mut ids).enumerate() {
+            if l.kind() == "identifier" && p.node_text(&l) == name {
+                // Range clauses bind elements, not the right operand itself.
+                let init = if child.kind() == "range_clause" {
+                    None
+                } else {
+                    right.and_then(|r| r.named_child(i))
+                };
+                return Some(GoBind::Var { init });
+            }
+        }
+    }
+    if let Some(init) = stmt.child_by_field_name("initializer") {
+        if init.kind() == "short_var_declaration" {
+            let left = init.child_by_field_name("left")?;
+            let right = init.child_by_field_name("right");
+            let mut ids = left.walk();
+            for (i, l) in left.named_children(&mut ids).enumerate() {
+                if l.kind() == "identifier" && p.node_text(&l) == name {
+                    return Some(GoBind::Var {
+                        init: right.and_then(|r| r.named_child(i)),
+                    });
+                }
+            }
+        }
+    }
+    None
 }
 
 fn in_params<'t>(p: Src<'_>, func: Node<'t>, name: &str) -> Option<GoBind<'t>> {

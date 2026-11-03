@@ -66,6 +66,13 @@ const GO_ROWS: &[Row] = &[
     Row { sink: false, label: "probe: go io.WriteString(w,x)", path: "a.go", lang: Language::Go, source: "package a\nimport (\"io\"; \"net/http\")\nfunc h(w http.ResponseWriter, r *http.Request) {\n	x := r.FormValue(\"q\") // SEED\n	io.WriteString(w, x) // SINK\n}\n" },
     Row { sink: false, label: "probe: go c.String gin", path: "a.go", lang: Language::Go, source: "package a\nfunc h(c *gin.Context) {\n	x := c.Query(\"q\") // SEED\n	c.Data(200, \"text/html\", []byte(x)) // SINK\n}\n" },
     Row { sink: true, label: "probe: go template.HTML via alias htmpl", path: "a.go", lang: Language::Go, source: "package a\nimport htmpl \"html/template\"\nfunc h(in Input) {\n	x := in.V // SEED\n	_ = htmpl.HTML(x) // SINK\n}\n" },
+    Row { sink: true, label: "r2: afero.Fs Remove named cache", path: "a.go", lang: Language::Go, source: "package p\nfunc h(cache afero.Fs, in Input) error {\n\tx := in.V // SEED\n\treturn cache.Remove(x) // SINK\n}\n" },
+    Row { sink: true, label: "r2: afero.Fs Rename named cache", path: "a.go", lang: Language::Go, source: "package p\nfunc h(cache afero.Fs, in Input) error {\n\tx := in.V // SEED\n\treturn cache.Rename(x, \"b\") // SINK\n}\n" },
+    Row { sink: true, label: "r2: os.File typed named list", path: "a.go", lang: Language::Go, source: "package p\nfunc h(list *os.File, in Input) error {\n\tx := in.V // SEED\n\treturn list.Chmod(x) // SINK\n}\n" },
+    Row { sink: false, label: "r2: untyped-name container Remove", path: "a.go", lang: Language::Go, source: "package p\nfunc h(in Input) {\n\tx := in.V // SEED\n\tcache.Remove(x) // SINK\n}\n" },
+    Row { sink: true, label: "r2: init-stmt shadows package const format", path: "a.go", lang: Language::Go, source: "package p\nconst format = \"%s\"\nfunc h(in Input) {\n\tx := in.V // SEED\n\tif format := x; format != \"\" {\n\t\tfmt.Sprintf(format) // SINK\n\t}\n}\n" },
+    Row { sink: true, label: "r2: range var shadows package const format", path: "a.go", lang: Language::Go, source: "package p\nconst format = \"%s\"\nfunc h(in Input, names []string) {\n\tx := in.V // SEED\n\tfor _, format := range names {\n\t\tfmt.Sprintf(format, x) // SINK\n\t}\n}\n" },
+    Row { sink: false, label: "r2: unshadowed package const format", path: "a.go", lang: Language::Go, source: "package p\nconst format = \"%s\"\nfunc h(in Input) {\n\tx := in.V // SEED\n\tfmt.Sprintf(format, x) // SINK\n}\n" },
 ];
 
 #[test]

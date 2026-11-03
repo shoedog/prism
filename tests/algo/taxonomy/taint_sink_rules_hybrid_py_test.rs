@@ -82,6 +82,21 @@ const PY_ROWS: &[Row] = &[
     Row { sink: true, label: "probe: py pandas df.filter(items) FP check", path: "a.py", lang: Language::Python, source: "def h(df, inp):\n    x = inp.v  # SEED\n    df.filter(x)  # SINK\n" },
     Row { sink: false, label: "probe: py logging Filter: logger.filter(record) FP", path: "a.py", lang: Language::Python, source: "def h(logger, inp):\n    x = inp.v  # SEED\n    logger.filter(x)  # SINK\n" },
     Row { sink: false, label: "probe: py re.compile(x).search FP?", path: "a.py", lang: Language::Python, source: "import re\ndef h(inp):\n    x = inp.v  # SEED\n    re.compile(x)  # SINK\n" },
+    Row { sink: true, label: "r2: reassigned list to os", path: "a.py", lang: Language::Python, source: "import os\ndef h(inp):\n    target = []\n    target = os\n    x = inp.v  # SEED\n    target.remove(x)  # SINK\n" },
+    Row { sink: true, label: "r2: conditionally reassigned list", path: "a.py", lang: Language::Python, source: "import os\ndef h(inp, c):\n    target = []\n    if c:\n        target = os\n    x = inp.v  # SEED\n    target.remove(x)  # SINK\n" },
+    Row { sink: true, label: "r2: reassigned file-like to a socket-less client", path: "a.py", lang: Language::Python, source: "def h(inp, c):\n    out = io.StringIO()\n    if c:\n        out = c\n    x = inp.v  # SEED\n    out.write(x)  # SINK\n" },
+    Row { sink: false, label: "r2: unchanged list remove (single binding)", path: "a.py", lang: Language::Python, source: "def h(inp):\n    x = inp.v  # SEED\n    target = []\n    target.remove(x)  # SINK\n" },
+    Row { sink: true, label: "r2: query keyword f-string", path: "a.py", lang: Language::Python, source: "def h(client, inp):\n    x = inp.v  # SEED\n    client.query(query=f\"SELECT * FROM users WHERE name = '{x}'\")  # SINK\n" },
+    Row { sink: true, label: "r2: query reordered keywords", path: "a.py", lang: Language::Python, source: "def h(client, inp):\n    x = inp.v  # SEED\n    client.query(job_config=None, query=f\"SELECT {x}\")  # SINK\n" },
+    Row { sink: true, label: "r2: query sql= keyword percent", path: "a.py", lang: Language::Python, source: "def h(client, inp):\n    x = inp.v  # SEED\n    client.query(sql='SELECT %s' % x)  # SINK\n" },
+    Row { sink: true, label: "r2: query lower var percent", path: "a.py", lang: Language::Python, source: "def h(db, inp):\n    x = inp.v  # SEED\n    db.query(sql % x)  # SINK\n" },
+    Row { sink: true, label: "r2: query CONST percent", path: "a.py", lang: Language::Python, source: "def h(client, inp):\n    x = inp.v  # SEED\n    client.query(QUERY % x)  # SINK\n" },
+    Row { sink: true, label: "r2: query CONST plus var", path: "a.py", lang: Language::Python, source: "def h(db, inp):\n    x = inp.v  # SEED\n    db.query(SQL_PREFIX + x)  # SINK\n" },
+    Row { sink: false, label: "r2: query keyword literal only", path: "a.py", lang: Language::Python, source: "def h(client, inp):\n    x = inp.v  # SEED\n    client.query(query='SELECT 1')  # SINK\n" },
+    Row { sink: false, label: "r2: query attribute arithmetic", path: "a.py", lang: Language::Python, source: "def h(session, inp):\n    x = inp.v  # SEED\n    session.query(User.a + User.b)  # SINK\n" },
+    Row { sink: true, label: "r2: AssetStore annotation remove", path: "a.py", lang: Language::Python, source: "def h(store: AssetStore, inp):\n    x = inp.v  # SEED\n    store.remove(x)  # SINK\n" },
+    Row { sink: false, label: "r2: set[str] annotation remove", path: "a.py", lang: Language::Python, source: "def h(s: set[str], inp):\n    x = inp.v  # SEED\n    s.remove(x)  # SINK\n" },
+    Row { sink: false, label: "r2: typing Set[str] annotation remove", path: "a.py", lang: Language::Python, source: "def h(s: Set[str], inp):\n    x = inp.v  # SEED\n    s.remove(x)  # SINK\n" },
 ];
 
 #[test]

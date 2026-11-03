@@ -46,6 +46,34 @@ pub(super) fn resolve<'t>(p: Src<'_>, from: Node<'t>, name: &str) -> PyBind<'t> 
     PyBind::Unresolved
 }
 
+/// True when `name` is assigned more than `allowed` times in the file or updated in place
+/// (`name = ..` twice, `name += ..`, `for name in ..`, `with .. as name`): a fact proved from
+/// the first binding alone no longer holds, so the caller treats the name as unknown.
+pub(super) fn is_rebound(p: Src<'_>, from: Node<'_>, name: &str, allowed: usize) -> bool {
+    let mut root = from;
+    while let Some(parent) = root.parent() {
+        root = parent;
+    }
+    let mut count = 0usize;
+    let mut other = false;
+    super::callee::walk(root, &mut |n| {
+        let is_name = |l: Option<Node<'_>>| {
+            l.is_some_and(|l| l.kind() == "identifier" && p.node_text(&l) == name)
+        };
+        match n.kind() {
+            "assignment" if is_name(n.child_by_field_name("left")) => count += 1,
+            "augmented_assignment" | "for_statement" | "named_expression"
+                if is_name(n.child_by_field_name("left"))
+                    || is_name(n.child_by_field_name("name")) =>
+            {
+                other = true
+            }
+            _ => {}
+        }
+    });
+    count > allowed || other
+}
+
 fn in_params<'t>(p: Src<'_>, func: Node<'t>, name: &str) -> Option<PyBind<'t>> {
     let params = func.child_by_field_name("parameters")?;
     let mut cursor = params.walk();

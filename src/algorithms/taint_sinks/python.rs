@@ -7,7 +7,7 @@
 //! with no argument such as `model.eval()` / `platform.system()`).
 
 use super::callee::{args, callee_of, chain_names, literal_string, walk, Callee, Src};
-use super::py_scope::{resolve, PyBind};
+use super::py_scope::{is_rebound, resolve, PyBind};
 use super::SinkHit;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
@@ -177,11 +177,19 @@ fn is_sql_text(p: Src<'_>, node: Node<'_>) -> bool {
             let op = node
                 .child_by_field_name("operator")
                 .map(|o| p.node_text(&o));
-            let strings = ["left", "right"].iter().any(|f| {
-                node.child_by_field_name(f)
-                    .is_some_and(|c| matches!(c.kind(), "string" | "concatenated_string"))
-            });
-            matches!(op, Some("+" | "%")) && strings
+            let operand_text = |f: &str| {
+                node.child_by_field_name(f).is_some_and(|c| {
+                    matches!(c.kind(), "string" | "concatenated_string" | "identifier")
+                        || (c.kind() == "binary_operator" && is_sql_text(p, c))
+                })
+            };
+            match op {
+                // `template % args` is the DB-API injection shape, whatever the template is.
+                Some("%") => true,
+                // Attribute-only arithmetic (`User.a + User.b`) is an ORM column expression.
+                Some("+") => operand_text("left") || operand_text("right"),
+                _ => false,
+            }
         }
         "call" => node
             .child_by_field_name("function")
@@ -193,6 +201,22 @@ fn is_sql_text(p: Src<'_>, node: Node<'_>) -> bool {
             .is_some_and(|c| !c.is_ascii_uppercase()),
         _ => false,
     }
+}
+
+/// The SQL argument of `query(..)`: the first positional argument, or the value of a
+/// `query=` / `sql=` / `statement=` keyword.
+fn query_sql_arg<'t>(p: Src<'_>, call: Node<'t>) -> Option<Node<'t>> {
+    let all = args(call);
+    for a in &all {
+        if a.kind() == "keyword_argument" {
+            let named = a.child_by_field_name("name").map(|n| p.node_text(&n));
+            if matches!(named, Some("query" | "sql" | "statement")) {
+                return a.child_by_field_name("value");
+            }
+        }
+    }
+    all.into_iter()
+        .find(|a| !matches!(a.kind(), "keyword_argument" | "dictionary_splat"))
 }
 
 fn lower(s: &str) -> String {
@@ -215,7 +239,8 @@ fn is_file_like(p: Src<'_>, r: Node<'_>) -> bool {
     }
     match resolve(p, r, p.node_text(&r)) {
         PyBind::WithAs(v) | PyBind::Assigned(v) => {
-            v.kind() == "call"
+            !is_rebound(p, r, p.node_text(&r), 1)
+                && v.kind() == "call"
                 && v.child_by_field_name("function")
                     .is_some_and(|f| FILE_MAKERS.contains(&last_segment(p.node_text(&f))))
         }
@@ -230,6 +255,8 @@ fn is_collection(p: Src<'_>, r: Node<'_>) -> bool {
         return false;
     }
     match resolve(p, r, p.node_text(&r)) {
+        PyBind::Assigned(_) if is_rebound(p, r, p.node_text(&r), 1) => false,
+        PyBind::Param { .. } if is_rebound(p, r, p.node_text(&r), 0) => false,
         PyBind::Assigned(v) => {
             matches!(
                 v.kind(),
@@ -246,12 +273,19 @@ fn is_collection(p: Src<'_>, r: Node<'_>) -> bool {
         }
         PyBind::Param {
             annotation: Some(a),
-        } => {
-            let t = lower(p.node_text(&a));
-            COLLECTION_HINTS.iter().any(|h| t.contains(h))
-        }
+        } => annotation_is_collection(p.node_text(&a)),
         _ => false,
     }
+}
+
+/// An annotation names a collection when one of its identifiers (a generic's base or an
+/// alternative of a union) is a collection type: `set[str]`, `typing.Set[str]`,
+/// `Optional[list]`. `AssetStore` does not match (no substring matching).
+fn annotation_is_collection(text: &str) -> bool {
+    lower(text)
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '.'))
+        .filter(|t| !t.is_empty())
+        .any(|t| COLLECTION_HINTS.contains(&last_segment(t)))
 }
 
 fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
@@ -298,9 +332,8 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
             (nargs > 0 && !logger && !local_def).then(|| SinkHit::new("py-db-call", "CWE-89"))
         }
         n if PANDAS_SQL.contains(&n) => hit("py-db-call", "CWE-89"),
-        "query" => args(c.call)
-            .first()
-            .is_some_and(|a| is_sql_text(p, *a))
+        "query" => query_sql_arg(p, c.call)
+            .is_some_and(|a| is_sql_text(p, a))
             .then(|| SinkHit::new("py-db-call", "CWE-89")),
         // ORM clause entry points: the clause argument is where raw SQL can enter.
         // Keyword-only calls (`Model.objects.filter(pk=x)`, `filter_by(id=x)`) are

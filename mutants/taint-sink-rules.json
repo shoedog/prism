@@ -235,9 +235,9 @@
     ],
     "SR41-go-framework-context-html-fires": [
       "src/algorithms/taint_sinks/go.rs",
-      "let ok = !matches!(recv, Recv::Bare) && !renders;",
-      "let ok = !matches!(recv, Recv::Bare);",
-      "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
+      "let render = list.len() == 3 && matches!(recv, Recv::Value);",
+      "let render = list.len() == 4 && matches!(recv, Recv::Value);",
+      "algorithms::taint_sinks::tests::go_context_html_rule_names"
     ]
   }
 }

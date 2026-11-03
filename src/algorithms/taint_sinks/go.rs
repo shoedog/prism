@@ -51,6 +51,11 @@ const CONTAINERS: &[&str] = &[
     "l", "ll", "list", "lst", "heap", "cache", "lru", "set", "queue", "stack", "items",
 ];
 
+/// Declared type fragments that make a receiver a container.
+const CONTAINER_TYPES: &[&str] = &[
+    "list", "lru", "cache", "heap", "set", "queue", "stack", "ring", "items",
+];
+
 /// Import paths by local package name.
 #[derive(Default)]
 pub(super) struct Facts {
@@ -251,8 +256,8 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
             let ok = match recv {
                 Recv::Package(path) => FILE_PATHS.contains(&path),
                 Recv::Bare => false,
-                Recv::Named(n) => FILE_NAMES.contains(&n) || !is_container(&names),
-                Recv::Value => !is_container(&names),
+                Recv::Named(n) => FILE_NAMES.contains(&n) || !is_container(p, recv_node, &names),
+                Recv::Value => !is_container(p, recv_node, &names),
             };
             (ok && !list.is_empty()).then(|| SinkHit::new("go-file-op", "CWE-22"))
         }
@@ -262,8 +267,22 @@ pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> O
     }
 }
 
-fn is_container(names: &[&str]) -> bool {
-    names
+/// Container receivers whose `Remove(e)` is not a file removal. The name alone is a hint
+/// only when the receiver has no declared type; a declared type must itself be a container
+/// type, and a file-system type (`afero.Fs`, `*os.File`, `fs.FS`) never is.
+fn is_container(p: Src<'_>, recv: Option<Node<'_>>, names: &[&str]) -> bool {
+    let named = names
         .last()
-        .is_some_and(|n| CONTAINERS.contains(&n.to_ascii_lowercase().as_str()))
+        .is_some_and(|n| CONTAINERS.contains(&n.to_ascii_lowercase().as_str()));
+    if !named {
+        return false;
+    }
+    match recv.and_then(|r| declared_type(p, r)) {
+        None => true,
+        Some(t) => {
+            let t = t.to_ascii_lowercase();
+            let file_like = ["fs", "afero", "file"].iter().any(|w| t.contains(w));
+            !file_like && CONTAINER_TYPES.iter().any(|w| t.contains(w))
+        }
+    }
 }

@@ -11,7 +11,7 @@
 //! parameter that shadows a module name never inherits the module's meaning.
 
 use super::callee::{args, callee_of, chain_names, chain_tail, literal_string, peel, Src};
-use super::js_scope::{resolve, Binding};
+use super::js_scope::{is_reassigned, resolve, Binding};
 use super::SinkHit;
 use crate::frameworks::CallSite;
 use crate::languages::Language;
@@ -222,10 +222,12 @@ fn is_regexish(p: Src<'_>, node: Node<'_>, depth: usize) -> bool {
             .child_by_field_name("function")
             .is_some_and(|f| p.node_text(&f) == "RegExp"),
         "identifier" => match resolve(p, n, p.node_text(&n)) {
-            Binding::Var { init: Some(i) } => depth < 3 && is_regexish(p, i, depth + 1),
+            Binding::Var { init: Some(i) } => {
+                depth < 3 && !is_reassigned(p, n, p.node_text(&n)) && is_regexish(p, i, depth + 1)
+            }
             Binding::Param {
                 annotation: Some(a),
-            } => p.node_text(&a).contains("RegExp"),
+            } => p.node_text(&a).contains("RegExp") && !is_reassigned(p, n, p.node_text(&n)),
             _ => false,
         },
         _ => false,
