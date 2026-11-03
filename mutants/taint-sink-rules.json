@@ -238,6 +238,72 @@
       "let render = list.len() == 3 && matches!(recv, Recv::Value);",
       "let render = list.len() == 4 && matches!(recv, Recv::Value);",
       "algorithms::taint_sinks::tests::go_context_html_rule_names"
+    ],
+    "SR42-js-module-member-api-gate-dropped": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "Some(r) => FS_API.contains(&text) && is_module(p, r, FS_MODULES, 0),",
+      "Some(r) => is_module(p, r, FS_MODULES, 0),",
+      "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
+    ],
+    "SR43-js-module-alias-hop-dropped": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "_ => one_hop(p, n, name).is_some_and(|i| is_module(p, i, mods, depth + 1)),",
+      "_ => false,",
+      "algorithms::taint_sinks::tests::js_module_fs_namespace_and_named_identity"
+    ],
+    "SR44-js-module-reassignment-ignored": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "if !is_reassigned(p, id, name) && declarator_count(p, id, i, name) == 1 =>",
+      "if declarator_count(p, id, i, name) == 1 =>",
+      "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
+    ],
+    "SR45-js-module-second-binding-ignored": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "if !is_reassigned(p, id, name) && declarator_count(p, id, i, name) == 1 =>",
+      "if !is_reassigned(p, id, name) =>",
+      "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
+    ],
+    "SR46-js-module-require-shadow-ignored": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "&& matches!(resolve(p, f, \"require\"), Binding::Unresolved));",
+      "&& true);",
+      "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
+    ],
+    "SR47-js-module-graceful-fs-missing": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "    \"graceful-fs\",\n];",
+      "];",
+      "algorithms::taint_sinks::tests::js_module_fs_namespace_and_named_identity"
+    ],
+    "SR48-js-module-node-ssh-class-unchecked": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "p.node_text(&orig) == \"NodeSSH\"\n                        && literal_string",
+      "p.node_text(&orig) != \"\"\n                        && literal_string",
+      "algorithms::taint_sinks::tests::js_module_node_ssh_identity"
+    ],
+    "SR49-js-module-node-ssh-module-unchecked": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "literal_string(p, module).is_some_and(|m| NODE_SSH.contains(&m))",
+      "literal_string(p, module).is_some()",
+      "algorithms::taint_sinks::tests::js_module_node_ssh_identity"
+    ],
+    "SR50-js-module-document-shadow-ignored": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "|| !matches!(resolve(p, root, p.node_text(&root)), Binding::Unresolved)",
+      "|| false",
+      "algorithms::taint_sinks::tests::js_module_document_exec_command_gate"
+    ],
+    "SR51-js-module-insert-html-gate-dropped": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "literal_string(p, cmd).is_none_or(|s| s == \"insertHTML\")",
+      "literal_string(p, cmd).is_none_or(|_| true)",
+      "algorithms::taint_sinks::tests::js_module_document_exec_command_gate"
+    ],
+    "SR52-js-module-destructured-key-unchecked": [
+      "src/algorithms/taint_sinks/js_modules.rs",
+      "key.is_some_and(|k| FS_API.contains(&p.node_text(&k)))",
+      "key.is_some()",
+      "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
     ]
   }
 }

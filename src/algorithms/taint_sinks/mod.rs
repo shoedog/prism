@@ -22,6 +22,7 @@ mod callee;
 mod go;
 mod go_scope;
 mod js;
+mod js_modules;
 mod js_scope;
 mod legacy;
 mod py_scope;

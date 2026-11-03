@@ -10,11 +10,8 @@
 //! the high-severity names. Bindings are resolved lexically (`js_scope`), so a
 //! parameter that shadows a module name never inherits the module's meaning.
 
-use super::callee::{
-    args, binding_scope, callee_of, chain_names, chain_tail, count_idents, literal_string, peel,
-    walk, Callee, Src,
-};
-use super::js_scope::{is_reassigned, resolve, Binding};
+use super::callee::{args, callee_of, chain_names, chain_tail, literal_string, peel, Callee, Src};
+use super::js_scope::{declarator_count, is_reassigned, resolve, Binding};
 use super::SinkHit;
 use crate::frameworks::CallSite;
 use crate::languages::Language;
@@ -279,27 +276,7 @@ fn is_constant_query(p: Src<'_>, from: Node<'_>, q: Node<'_>) -> bool {
     }
     // Exactly one declarator of the name in scope: a later `var` redeclaration is a write.
     // Parameters count too: a parameter read before a later `var q = 'lit'` is the caller's.
-    let mut declarators = 0;
-    walk(binding_scope(from, i), &mut |n| match n.kind() {
-        "variable_declarator" => {
-            if let Some(target) = n.child_by_field_name("name") {
-                declarators += count_idents(p, target, name);
-            }
-        }
-        "formal_parameters" => declarators += count_idents(p, n, name),
-        "catch_clause" => {
-            if let Some(param) = n.child_by_field_name("parameter") {
-                declarators += count_idents(p, param, name);
-            }
-        }
-        "arrow_function" => {
-            if let Some(single) = n.child_by_field_name("parameter") {
-                declarators += count_idents(p, single, name);
-            }
-        }
-        _ => {}
-    });
-    declarators == 1
+    declarator_count(p, from, i, name) == 1
 }
 
 fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
@@ -307,6 +284,10 @@ fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
 }
 
 pub(super) fn classify(p: Src<'_>, id: Node<'_>, text: &str) -> Option<SinkHit> {
+    // Import-resolved module identity (#637 A1) is positive evidence and wins over the name rules.
+    if let Some(h) = super::js_modules::classify(p, id, text) {
+        return Some(h);
+    }
     // A bare callee bound to a child_process function under any local name.
     if let Some(c) = callee_of(p, id) {
         if c.receiver.is_none() && !c.is_new && cp_function_of(p, id, 0).is_some() {

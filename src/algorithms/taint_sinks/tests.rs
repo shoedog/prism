@@ -459,3 +459,113 @@ fn legacy_languages_keep_library_names() {
         Language::C
     ));
 }
+
+fn js_hit(source: &str, name: &str) -> Option<(&'static str, &'static str)> {
+    let line = source.lines().position(|l| l.contains("// SINK")).unwrap() + 1;
+    tag(hit(Language::JavaScript, source, line, name))
+}
+
+const FS_CWE: Option<(&str, &str)> = Some(("js-fs", "CWE-22"));
+
+#[test]
+fn js_module_fs_namespace_and_named_identity() {
+    // namespace, default, require, destructured, renamed and `.promises` forms all resolve.
+    let ns = "import * as f from 'node:fs/promises';\nf.mkdir(x); // SINK\n";
+    assert_eq!(js_hit(ns, "mkdir"), FS_CWE);
+    let promises = "import * as f from 'fs';\nf.promises.mkdir(x); // SINK\n";
+    assert_eq!(js_hit(promises, "mkdir"), FS_CWE);
+    let renamed = "import { mkdir as mk } from 'graceful-fs';\nmk(x); // SINK\n";
+    assert_eq!(js_hit(renamed, "mk"), FS_CWE);
+    let destructured = "const { ensureDir } = require('fs-extra');\nensureDir(x); // SINK\n";
+    assert_eq!(js_hit(destructured, "ensureDir"), FS_CWE);
+    let alias = "const g = require('fs');\nconst f = g;\nf.mkdir(x); // SINK\n";
+    assert_eq!(js_hit(alias, "mkdir"), FS_CWE);
+}
+
+#[test]
+fn js_module_fs_requires_proof() {
+    // not a listed module, shadowed, rebound, doubly bound, non-path API, no import at all.
+    let other = "import * as f from 'other';\nf.mkdir(x); // SINK\n";
+    assert_eq!(js_hit(other, "mkdir"), None);
+    let shadow = "import * as f from 'fs';\nfunction h(f) {\n  f.mkdir(x); // SINK\n}\n";
+    assert_eq!(js_hit(shadow, "mkdir"), None);
+    let rebound = "let f = require('fs');\nf = fake();\nf.mkdir(x); // SINK\n";
+    assert_eq!(js_hit(rebound, "mkdir"), None);
+    let twice = "var f = require('fs');\nvar f = fake();\nf.mkdir(x); // SINK\n";
+    assert_eq!(js_hit(twice, "mkdir"), None);
+    let non_path = "import { watch } from 'fs';\nwatch(x); // SINK\n";
+    assert_eq!(js_hit(non_path, "watch"), None);
+    let destructured_non_path = "const { watch } = require('fs');\nwatch(x); // SINK\n";
+    assert_eq!(js_hit(destructured_non_path, "watch"), None);
+    let member_non_path = "import * as f from 'fs';\nf.constants(x); // SINK\n";
+    assert_eq!(js_hit(member_non_path, "constants"), None);
+    assert_eq!(js_hit("store.mkdir(x); // SINK\n", "mkdir"), None);
+    let shadow_require =
+        "function h(require) {\n  const f = require('fs');\n  f.mkdir(x); // SINK\n}\n";
+    assert_eq!(js_hit(shadow_require, "mkdir"), None);
+}
+
+#[test]
+fn js_module_node_ssh_identity() {
+    let ssh = Some(("js-exec-call", "CWE-78"));
+    let ok =
+        "import { NodeSSH as N } from 'node-ssh';\nconst s = new N();\ns.execCommand(x); // SINK\n";
+    assert_eq!(js_hit(ok, "execCommand"), ssh);
+    let req =
+        "const { NodeSSH } = require('node-ssh');\nconst s = new NodeSSH();\ns.exec(x); // SINK\n";
+    assert_eq!(js_hit(req, "exec"), ssh);
+    let ns = "import * as m from 'node-ssh';\nconst s = new m.NodeSSH();\ns.exec(x); // SINK\n";
+    assert_eq!(js_hit(ns, "exec"), ssh);
+    let wrong_module =
+        "import { NodeSSH } from './x';\nconst s = new NodeSSH();\ns.execCommand(x); // SINK\n";
+    assert_eq!(js_hit(wrong_module, "execCommand"), None);
+    let wrong_class =
+        "import { Other } from 'node-ssh';\nconst s = new Other();\ns.execCommand(x); // SINK\n";
+    assert_eq!(js_hit(wrong_class, "execCommand"), None);
+    let no_new =
+        "import { NodeSSH } from 'node-ssh';\nconst s = NodeSSH();\ns.execCommand(x); // SINK\n";
+    assert_eq!(js_hit(no_new, "execCommand"), None);
+    let reassigned = "import { NodeSSH } from 'node-ssh';\nlet s = new NodeSSH();\ns = fake();\ns.execCommand(x); // SINK\n";
+    assert_eq!(js_hit(reassigned, "execCommand"), None);
+    assert_eq!(js_hit("s.execCommand(x); // SINK\n", "execCommand"), None);
+}
+
+#[test]
+fn js_module_document_exec_command_gate() {
+    let dom = Some(("js-dom-html", "CWE-79"));
+    assert_eq!(
+        js_hit(
+            "document.execCommand('insertHTML', false, x); // SINK\n",
+            "execCommand"
+        ),
+        dom
+    );
+    assert_eq!(
+        js_hit(
+            "window.document.execCommand(cmd, false, x); // SINK\n",
+            "execCommand"
+        ),
+        dom
+    );
+    assert_eq!(
+        js_hit(
+            "document.execCommand('bold', false, x); // SINK\n",
+            "execCommand"
+        ),
+        None
+    );
+    assert_eq!(
+        js_hit("document.execCommand(); // SINK\n", "execCommand"),
+        None
+    );
+    let shadow =
+        "function h(document) {\n  document.execCommand('insertHTML', false, x); // SINK\n}\n";
+    assert_eq!(js_hit(shadow, "execCommand"), None);
+    assert_eq!(
+        js_hit(
+            "editor.execCommand('insertHTML', false, x); // SINK\n",
+            "execCommand"
+        ),
+        None
+    );
+}
