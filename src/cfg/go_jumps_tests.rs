@@ -70,3 +70,57 @@ fn go_jump_edges_have_structural_provenance_across_arms() {
     assert_eq!(exit.0.to_line, 153);
     assert_eq!(*exit.1, EdgeOrigin::GoDeferExit);
 }
+
+#[test]
+fn go_round2_successor_shapes() {
+    // The first statement after the wrapper is the successor, even when the
+    // textual next statement is in an exclusive arm or a sibling case.
+    let wrappers = [
+        ("if c {", "} else {\nwrong()\n}"),
+        ("if c {\nwrong()\n} else {", "}"),
+        ("switch c {\ncase true:", "case false:\nwrong()\n}"),
+        ("switch v.(type) {\ncase int:", "default:\nwrong()\n}"),
+        ("select {\ncase <-ch:", "default:\nwrong()\n}"),
+        ("select {\ndefault:", "}"),
+        ("{", "}"),
+        ("L: {", "}"),
+    ];
+    let mut failures = Vec::new();
+    for (prefix, suffix) in wrappers {
+        let source = format!("package p\nfunc f(c bool, v interface{{}}, ch chan int) {{\n{prefix}\nfor {{\nbreak\n}}\n{suffix}\nafter()\n}}\n");
+        let from = source.lines().position(|l| l == "break").unwrap() + 1;
+        let to = source.lines().position(|l| l == "after()").unwrap() + 1;
+        let sink = added(&source);
+        let actual: Vec<_> = sink
+            .edges
+            .iter()
+            .filter(|e| e.from_line == from)
+            .map(|e| e.to_line)
+            .collect();
+        if actual != [to] {
+            failures.push(format!("{prefix}: {actual:?} != {to}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn go_round2_terminal_switch_resumes_loop_instead_of_dispatching_defer() {
+    let source = "package p\nfunc f() {\ndefer use()\nfor {\nswitch {\ndefault:\nbreak\n}\n}\n}\n";
+    let sink = added(source);
+    let rows: Vec<_> = sink
+        .edges
+        .iter()
+        .zip(&sink.origins)
+        .map(|(e, o)| (e.from_line, e.to_line, *o))
+        .collect();
+    assert_eq!(rows, [(7, 4, EdgeOrigin::Structured)]);
+}
+
+#[test]
+fn go_round2_unknown_successor_is_not_a_guessed_edge_or_function_exit() {
+    // Inc/dec are absent from the statement universe. Do not skip across one
+    // to invent a proof edge, or mistake an unmappable successor for exit.
+    let source = "package p\nfunc f(x int) {\ndefer use(x)\nfor {\nbreak\n}\nx++\nuse(x)\n}\n";
+    assert!(added(source).is_empty());
+}

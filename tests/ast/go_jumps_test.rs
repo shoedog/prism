@@ -103,7 +103,7 @@ fn go_jump_labels_and_edge_keys() {
     let changes = read("label_changes.jsonl");
     let changed_stats = read("expected_stats.jsonl");
     assert_eq!(actual.len(), base.len());
-    assert_eq!(changes.len(), 47, "audit every expected label change");
+    assert_eq!(changes.len(), 35, "audit every expected label change");
     let mut failures = Vec::new();
     for (a, b) in actual.iter().zip(&base) {
         assert_eq!(a["file"], b["file"]);
@@ -185,4 +185,37 @@ fn go_jump_defer_arguments_are_not_reads_at_function_exit() {
     );
     // A following defer is reached normally: its argument really reads x=1.
     assert_eq!(label("nextDefer", 11, 14), FlowConfidence::Exact);
+}
+
+#[test]
+fn go_round2_dead_defs_retain_doubt() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/go_jumps");
+    let rows: Vec<Value> = include_str!("../fixtures/go_jumps/restored_doubt.jsonl")
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(rows.len(), 21);
+    let snapshots: Vec<_> = ["edge_cases.go", "jumps.go"]
+        .iter()
+        .map(|f| snapshot(&root.join(f)))
+        .collect();
+    let mut failures = Vec::new();
+    for row in rows {
+        let actual = snapshots.iter().find(|s| s["file"] == row["file"]).unwrap()["labels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| {
+                l[0]["function"] == row["function"]
+                    && l[0]["path"]["base"] == row["path"]
+                    && l[0]["line"] == row["d"]
+                    && l[1]["line"] == row["u"]
+            })
+            .unwrap();
+        assert_eq!(row["new"], json!({"NameOnly":"CfgIncomplete"}));
+        if actual[2] != row["new"] {
+            failures.push(format!("{row}: actual {}", actual[2]));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

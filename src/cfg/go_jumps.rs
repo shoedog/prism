@@ -13,7 +13,8 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, lines: &[usize], edges
         return;
     };
     let mut nodes = Vec::new();
-    collect(body, parsed, &mut nodes);
+    let boundaries = parsed.language.callable_boundary_node_types();
+    collect(body, &boundaries, &mut nodes);
     let mut labels = BTreeMap::new();
     let mut defers = Vec::new();
     for &node in &nodes {
@@ -39,15 +40,18 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, lines: &[usize], edges
                 if is_continue {
                     Some(target.start_position().row + 1)
                 } else {
-                    let next = after(target, lines);
-                    if next.is_none() {
-                        // Return has no explicit exit node. Like return, an
-                        // exiting break only has edges to this owner's defers.
-                        for &to in &defers {
-                            push(node, to, parsed, edges, EdgeOrigin::GoDeferExit);
+                    match successor(target, owner, lines) {
+                        Successor::Line(line) => Some(line),
+                        Successor::Exit => {
+                            // Return has no explicit exit node. Exiting break
+                            // uses the same incomplete dispatch to owner defers.
+                            for &to in &defers {
+                                push(node, to, parsed, edges, EdgeOrigin::GoDeferExit);
+                            }
+                            None
                         }
+                        Successor::Unknown => None,
                     }
-                    next
                 }
             }
             _ => continue,
@@ -58,18 +62,14 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, lines: &[usize], edges
     }
 }
 
-fn collect<'tree>(node: Node<'tree>, parsed: &ParsedFile, out: &mut Vec<Node<'tree>>) {
-    if parsed
-        .language
-        .callable_boundary_node_types()
-        .contains(&node.kind())
-    {
+fn collect<'tree>(node: Node<'tree>, boundaries: &[&str], out: &mut Vec<Node<'tree>>) {
+    if boundaries.contains(&node.kind()) {
         return;
     }
     out.push(node);
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
-        collect(child, parsed, out);
+        collect(child, boundaries, out);
     }
 }
 
@@ -126,11 +126,55 @@ fn construct<'tree>(
     None
 }
 
-fn after(node: Node<'_>, lines: &[usize]) -> Option<usize> {
-    let end = node.end_position().row + 1;
-    lines
-        .get(lines.partition_point(|&line| line <= end))
-        .copied()
+enum Successor {
+    Line(usize),
+    Exit,
+    Unknown,
+}
+
+/// Leave syntax, not a globally sorted line range: a terminal statement may
+/// resume a loop or leave an arm without ever entering the alternative arm.
+fn successor(mut node: Node<'_>, owner: Node<'_>, lines: &[usize]) -> Successor {
+    loop {
+        let Some(parent) = node.parent() else {
+            return Successor::Unknown;
+        };
+        if parent.id() == owner.id() {
+            return if node.kind() == "block" {
+                Successor::Exit
+            } else {
+                Successor::Unknown
+            };
+        }
+        match parent.kind() {
+            "block" | "expression_case" | "type_case" | "communication_case" | "default_case" => {
+                let mut next = node.next_named_sibling();
+                while let Some(sibling) = next {
+                    if sibling.kind() != "comment" {
+                        let line = sibling.start_position().row + 1;
+                        return if lines.binary_search(&line).is_ok() {
+                            Successor::Line(line)
+                        } else {
+                            Successor::Unknown
+                        };
+                    }
+                    next = sibling.next_named_sibling();
+                }
+            }
+            "for_statement" if node.kind() == "block" => {
+                return Successor::Line(parent.start_position().row + 1);
+            }
+            "if_statement" if matches!(node.kind(), "block" | "if_statement") => {}
+            "labeled_statement" => {}
+            "expression_switch_statement" | "type_switch_statement" | "select_statement"
+                if matches!(
+                    node.kind(),
+                    "expression_case" | "type_case" | "communication_case" | "default_case"
+                ) => {}
+            _ => return Successor::Unknown,
+        }
+        node = parent;
+    }
 }
 
 fn push(jump: Node<'_>, to: usize, parsed: &ParsedFile, edges: &mut EdgeSink, origin: EdgeOrigin) {

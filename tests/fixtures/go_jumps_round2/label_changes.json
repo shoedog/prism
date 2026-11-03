@@ -1,0 +1,166 @@
+[
+  {
+    "function": "switchTail",
+    "path": "x",
+    "d": 8,
+    "u": 5,
+    "old": {
+      "NameOnly": "CfgIncomplete"
+    },
+    "new": "Exact"
+  },
+  {
+    "function": "switchTail",
+    "path": "x",
+    "d": 8,
+    "u": 6,
+    "old": {
+      "NameOnly": "CfgIncomplete"
+    },
+    "new": "Exact"
+  },
+  {
+    "function": "missingCase",
+    "path": "x",
+    "d": 82,
+    "u": 76,
+    "old": {
+      "NameOnly": {
+        "Killed": {
+          "kill_line": 79
+        }
+      }
+    },
+    "new": {
+      "NameOnly": "CfgIncomplete"
+    }
+  },
+  {
+    "function": "missingCase",
+    "path": "x",
+    "d": 82,
+    "u": 77,
+    "old": {
+      "NameOnly": {
+        "Killed": {
+          "kill_line": 79
+        }
+      }
+    },
+    "new": {
+      "NameOnly": "CfgIncomplete"
+    }
+  },
+  {
+    "function": "missingCase",
+    "path": "x",
+    "d": 82,
+    "u": 86,
+    "old": {
+      "NameOnly": {
+        "Killed": {
+          "kill_line": 79
+        }
+      }
+    },
+    "new": {
+      "NameOnly": "CfgIncomplete"
+    }
+  },
+  {
+    "function": "elseIf",
+    "path": "x",
+    "d": 116,
+    "u": 120,
+    "old": {
+      "NameOnly": {
+        "Killed": {
+          "kill_line": 110
+        }
+      }
+    },
+    "new": {
+      "NameOnly": "CfgIncomplete"
+    }
+  },
+  {
+    "function": "elseRead",
+    "path": "x",
+    "d": 126,
+    "u": 130,
+    "old": "Exact",
+    "new": {
+      "NameOnly": "CfgIncomplete"
+    }
+  },
+  {
+    "function": "thenTail",
+    "path": "x",
+    "d": 18,
+    "u": 24,
+    "old": {
+      "NameOnly": {
+        "Killed": {
+          "kill_line": 22
+        }
+      }
+    },
+    "new": "Exact"
+  },
+  {
+    "function": "nestedTail",
+    "path": "x",
+    "d": 33,
+    "u": 30,
+    "old": {
+      "NameOnly": {
+        "Killed": {
+          "kill_line": 37
+        }
+      }
+    },
+    "new": "Exact"
+  },
+  {
+    "function": "nestedTail",
+    "path": "x",
+    "d": 33,
+    "u": 31,
+    "old": {
+      "NameOnly": {
+        "Killed": {
+          "kill_line": 37
+        }
+      }
+    },
+    "new": "Exact"
+  },
+  {
+    "function": "printer",
+    "path": "value",
+    "d": 47,
+    "u": 54,
+    "old": {
+      "NameOnly": {
+        "Killed": {
+          "kill_line": 52
+        }
+      }
+    },
+    "new": "Exact"
+  },
+  {
+    "function": "printer",
+    "path": "value",
+    "d": 47,
+    "u": 55,
+    "old": {
+      "NameOnly": {
+        "Killed": {
+          "kill_line": 52
+        }
+      }
+    },
+    "new": "Exact"
+  }
+]

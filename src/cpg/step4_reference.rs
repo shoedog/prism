@@ -1,4 +1,4 @@
-//! Frozen Step 4 from main 2453933f, kept as the output oracle.
+//! Frozen Step 4 from main 2453933f, except Go's cycle-aware telemetry.
 use super::*;
 use std::cell::Cell;
 thread_local! { static REFERENCE: Cell<bool> = const { Cell::new(false) }; }
@@ -25,6 +25,7 @@ impl CodePropertyGraph {
     ) -> DfgLabelStats {
         // --- Step 4: DataFlow edges ---
         let mut dfg_label_stats = DfgLabelStats::default();
+        let mut go_cycles = super::super::go_loop_cycles::GoLoopCycles::default();
         let mut dfg_rd_functions_without_cfg = BTreeSet::new();
         let mut materialized_dfg_edges = BTreeSet::new();
         let mut legacy_materialized_labels = BTreeMap::new();
@@ -99,7 +100,15 @@ impl CodePropertyGraph {
                         })
                         .or_insert(confidence);
                     dfg_label_stats.record_label(confidence);
-                    if confidence.is_exact() && edge.to.line < edge.from.line {
+                    if confidence.is_exact()
+                        && go_cycles.is_loop_carried(
+                            files,
+                            &edge.from.file,
+                            edge.from.function_start_line,
+                            edge.from.line,
+                            edge.to.line,
+                        )
+                    {
                         dfg_label_stats.dfg_label_loop_carried += 1;
                     }
                     graph.add_edge(from_idx, to_idx, CpgEdge::DataFlow(confidence));
@@ -136,7 +145,15 @@ impl CodePropertyGraph {
             }
             if materialized_dfg_edges.insert((from_idx, to_idx, confidence)) {
                 dfg_label_stats.record_label(confidence);
-                if confidence.is_exact() && edge.to.line < edge.from.line {
+                if confidence.is_exact()
+                    && go_cycles.is_loop_carried(
+                        files,
+                        &edge.from.file,
+                        edge.from.function_start_line,
+                        edge.from.line,
+                        edge.to.line,
+                    )
+                {
                     dfg_label_stats.dfg_label_loop_carried += 1;
                 }
                 graph.add_edge(from_idx, to_idx, CpgEdge::DataFlow(confidence));

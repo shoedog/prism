@@ -34,6 +34,7 @@ mod exact_parameter_binding_tests;
 #[cfg(test)]
 pub(crate) mod fallback_lifetime_tests;
 mod flow_confidence;
+mod go_loop_cycles;
 #[cfg(test)]
 mod inert_default_parameter_tests;
 #[cfg(test)]
