@@ -5,6 +5,8 @@
 //! their named and unnamed forms. Nested callables have separate label scopes.
 use super::{CfgEdge, EdgeOrigin, EdgeSink};
 use crate::ast::ParsedFile;
+use crate::go_statements;
+use crate::languages::Language;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
@@ -67,19 +69,15 @@ fn collect<'tree>(node: Node<'tree>, boundaries: &[&str], out: &mut Vec<Node<'tr
         return;
     }
     out.push(node);
-    let mut cursor = node.walk();
-    for child in node.named_children(&mut cursor) {
+    for child in go_statements::children(node, Language::Go).filter(Node::is_named) {
         collect(child, boundaries, out);
     }
 }
 
 fn label_name<'a>(node: Node<'_>, parsed: &'a ParsedFile) -> Option<&'a str> {
-    let mut cursor = node.walk();
-    let name = node
-        .named_children(&mut cursor)
+    go_statements::children(node, Language::Go)
         .find(|child| child.kind() == "label_name")
-        .map(|name| parsed.node_text(&name));
-    name
+        .map(|name| parsed.node_text(&name))
 }
 
 fn is_construct(kind: &str, is_continue: bool) -> bool {
@@ -101,7 +99,7 @@ fn construct<'tree>(
     is_continue: bool,
 ) -> Option<Node<'tree>> {
     let name = label_name(jump, parsed);
-    let mut at = jump.parent();
+    let mut at = go_statements::parent(jump);
     while let Some(node) = at {
         if node.id() == owner.id() {
             break;
@@ -110,7 +108,7 @@ fn construct<'tree>(
             match name {
                 None => return Some(node),
                 Some(name) => {
-                    if node.parent().is_some_and(|parent| {
+                    if go_statements::parent(node).is_some_and(|parent| {
                         parent.kind() == "labeled_statement"
                             && parent
                                 .child_by_field_name("label")
@@ -121,7 +119,7 @@ fn construct<'tree>(
                 }
             }
         }
-        at = node.parent();
+        at = go_statements::parent(node);
     }
     None
 }
@@ -136,7 +134,7 @@ enum Successor {
 /// resume a loop or leave an arm without ever entering the alternative arm.
 fn successor(mut node: Node<'_>, owner: Node<'_>, lines: &[usize]) -> Successor {
     loop {
-        let Some(parent) = node.parent() else {
+        let Some(parent) = go_statements::parent(node) else {
             return Successor::Unknown;
         };
         if parent.id() == owner.id() {
@@ -148,7 +146,7 @@ fn successor(mut node: Node<'_>, owner: Node<'_>, lines: &[usize]) -> Successor 
         }
         match parent.kind() {
             "block" | "expression_case" | "type_case" | "communication_case" | "default_case" => {
-                let mut next = node.next_named_sibling();
+                let mut next = go_statements::next_named_sibling(node);
                 while let Some(sibling) = next {
                     if sibling.kind() != "comment" {
                         let line = sibling.start_position().row + 1;
@@ -158,7 +156,7 @@ fn successor(mut node: Node<'_>, owner: Node<'_>, lines: &[usize]) -> Successor 
                             Successor::Unknown
                         };
                     }
-                    next = sibling.next_named_sibling();
+                    next = go_statements::next_named_sibling(sibling);
                 }
             }
             "for_statement" if node.kind() == "block" => {

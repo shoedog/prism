@@ -69,3 +69,24 @@ pub(crate) fn parent(node: Node<'_>) -> Option<Node<'_>> {
         Some(parent)
     }
 }
+
+/// Go-only next named child in the flattened statement view. Do not leave the
+/// semantic parent when the current statement is last in its list.
+pub(crate) fn next_named_sibling(node: Node<'_>) -> Option<Node<'_>> {
+    let mut next = node.next_named_sibling();
+    if next.is_none() {
+        if let Some(list) = node.parent().filter(|p| p.kind() == "statement_list") {
+            next = list.next_named_sibling();
+        }
+    }
+    while let Some(sibling) = next {
+        if sibling.kind() != "statement_list" {
+            return Some(sibling);
+        }
+        if let Some(first) = sibling.named_child(0) {
+            return Some(first);
+        }
+        next = sibling.next_named_sibling();
+    }
+    None
+}
