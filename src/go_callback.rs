@@ -560,8 +560,8 @@ impl<'a> GoCallbackProofContext<'a> {
             .ok_or(GoLevel3DropReason::NonGoOrTest)?;
         let call = call_node_at(parsed, site.start_byte, &site.callee_name)
             .ok_or(GoLevel3DropReason::MissingOccurrence)?;
-        let function = call
-            .child_by_field_name("function")
+        let function = parsed
+            .call_function_node(&call)
             .ok_or(GoLevel3DropReason::MissingOccurrence)?;
         if site.qualifier.is_none() {
             return self.bare_free_function_at(
@@ -909,7 +909,7 @@ fn call_node_at<'a>(
         callee_name: &str,
     ) -> Option<tree_sitter::Node<'a>> {
         if node.kind() == "call_expression" && node.start_byte() == start_byte {
-            let name = parsed.language.call_function_name(&node)?;
+            let name = parsed.call_function_name(&node)?;
             if parsed.node_text(&name).trim() == callee_name {
                 return Some(node);
             }

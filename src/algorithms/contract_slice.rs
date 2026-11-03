@@ -388,8 +388,7 @@ fn extract_preconditions(
     };
 
     // Walk top-level statements in the function body
-    let mut cursor = body_node.walk();
-    for child in body_node.children(&mut cursor) {
+    for child in crate::go_statements::children(body_node, parsed.language) {
         let child_line = child.start_position().row + 1;
 
         // Only consider statements in the guard zone
@@ -517,7 +516,7 @@ fn has_exit_node(parsed: &ParsedFile, node: &Node<'_>) -> bool {
 
     // Call expressions: match known exit functions (panic, exit, abort)
     if kind == "call_expression" || kind == "call" || kind == "function_call" {
-        if let Some(func_name) = parsed.language.call_function_name(node) {
+        if let Some(func_name) = parsed.call_function_name(node) {
             let name = parsed.node_text(&func_name);
             if matches!(name, "panic" | "exit" | "abort" | "unreachable" | "error") {
                 return true;
@@ -577,7 +576,7 @@ fn check_assert_call(parsed: &ParsedFile, node: &Node<'_>) -> bool {
     if !parsed.language.is_call_node(node.kind()) {
         return false;
     }
-    if let Some(name_node) = parsed.language.call_function_name(node) {
+    if let Some(name_node) = parsed.call_function_name(node) {
         let name = parsed.node_text(&name_node);
         return matches!(name, "assert" | "require");
     }

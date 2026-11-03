@@ -59,7 +59,7 @@ pub(super) fn clause_weak(p: Src<'_>, f: &Facts, call: Node<'_>) -> bool {
 /// The line belt: a callee on the line is a raw-SQL constructor (resolved through imports) or a
 /// belt-named method, called with a non-literal argument. Strength only, never a finding.
 pub(super) fn line_has_raw(p: Src<'_>, f: &Facts, id: Node<'_>) -> bool {
-    let Some(c) = callee_of(id) else {
+    let Some(c) = callee_of(p, id) else {
         return false;
     };
     let name = p.node_text(&id);

@@ -443,7 +443,9 @@ fn recover_error_structs(
                     ) else {
                         continue;
                     };
-                    if type_node.kind() != "struct_type" || !type_node.has_error() {
+                    // 0.25 can recover the bad embed as a sibling ERROR of the
+                    // struct_type, inside the same recovered type_spec.
+                    if type_node.kind() != "struct_type" || !spec.has_error() {
                         continue;
                     }
                     let name = parsed.node_text(&name_node).trim();

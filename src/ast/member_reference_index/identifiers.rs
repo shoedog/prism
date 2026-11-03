@@ -38,7 +38,7 @@ impl<'a> Index<'a> {
             for capture in m.captures {
                 #[cfg(test)]
                 record_capture();
-                if capture.index == ident {
+                if capture.index == ident && !parsed.is_go_legacy_type_context(capture.node) {
                     index
                         .by_name
                         .entry(parsed.node_text(&capture.node))
@@ -222,6 +222,7 @@ pub(super) fn one_shot_fenced(
             #[cfg(test)]
             crate::profile::gates::SCOPED_QUERY_WORK.with(|n| n.set((n.get().0, n.get().1 + 1)));
             if c.index == ident
+                && !parsed.is_go_legacy_type_context(c.node)
                 && parsed.node_text(&c.node) == name
                 && !shadow::<false>(parsed, &c.node, owner, name, def_line)
                 && !fence::<false>(parsed, &c.node, owner, name, def_byte)

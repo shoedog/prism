@@ -174,7 +174,7 @@ fn try_extract_hook(
     file: &str,
     func_name: &str,
 ) -> Option<HookCall> {
-    let func_name_node = parsed.language.call_function_name(call_node)?;
+    let func_name_node = parsed.call_function_name(call_node)?;
     let callee_name = parsed.node_text(&func_name_node);
 
     let hook_type = HookType::from_name(callee_name)?;

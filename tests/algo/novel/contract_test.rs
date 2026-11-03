@@ -314,8 +314,20 @@ func readConfig(path string) ([]byte, error) {
     }
     return data, nil
 }
+
 "#;
     let result = run_contract(source, "config.go", Language::Go, BTreeSet::from([7]));
+
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.category.as_deref() == Some("contract_violation")
+                && f.line == 7
+                && f.related_lines == [7]),
+        "guard_line must be 7: {:?}",
+        result.findings
+    );
 
     let contract_findings: Vec<_> = result
         .findings
@@ -335,6 +347,36 @@ func readConfig(path string) ([]byte, error) {
     assert!(
         has_nil_check,
         "Go err != nil guard should be classified as nil-check"
+    );
+}
+
+#[test]
+fn test_contract_go_two_guards_keep_own_lines() {
+    let source = "package p\nfunc run(x,y *int) int {\n _ = x\n if x == nil { return 0 }\n _ = y\n _ = y\n if y == nil { return 0 }\n _ = x\n _ = y\n _ = x\n return 1\n}\n";
+    let result = run_contract(source, "p.go", Language::Go, BTreeSet::from([4, 7]));
+    let lines: BTreeSet<_> = result
+        .findings
+        .iter()
+        .filter(|f| {
+            f.category.as_deref() == Some("contract_violation")
+                && f.description.contains("Guard clause modified")
+        })
+        .map(|f| f.line)
+        .collect();
+    assert_eq!(lines, BTreeSet::from([4, 7]), "{:?}", result.findings);
+}
+
+#[test]
+fn test_contract_go_late_if_is_not_a_guard() {
+    let source = "package p\nfunc run(x *int) int {\n _ = x\n _ = x\n _ = x\n _ = x\n _ = x\n _ = x\n _ = x\n _ = x\n if x == nil { return 0 }\n return 1\n}\n";
+    let result = run_contract(source, "p.go", Language::Go, BTreeSet::from([11]));
+    assert!(
+        !result
+            .findings
+            .iter()
+            .any(|f| f.category.as_deref() == Some("contract")),
+        "{:?}",
+        result.findings
     );
 }
 

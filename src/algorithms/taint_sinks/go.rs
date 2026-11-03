@@ -260,7 +260,7 @@ fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
 }
 
 pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> Option<SinkHit> {
-    let c = callee_of(id)?;
+    let c = callee_of(p, id)?;
     // `query := db.Query; query(x)`: a bare callee bound to a method value.
     let (name, recv_node) = match (c.receiver, resolve(p, id, text)) {
         (None, GoBind::Var { init: Some(i), .. }) if i.kind() == "selector_expression" => (
@@ -394,7 +394,7 @@ fn is_file_constructed(p: Src<'_>, facts: &Facts, r: Node<'_>) -> bool {
     if init.kind() != "call_expression" {
         return false;
     }
-    let Some(f) = init.child_by_field_name("function") else {
+    let Some(f) = p.call_function_node(&init) else {
         return false;
     };
     let Some(op) = (f.kind() == "selector_expression")

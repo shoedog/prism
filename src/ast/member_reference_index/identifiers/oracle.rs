@@ -1,4 +1,9 @@
 //! Frozen pre-index query searches; test-only differential oracle.
+//!
+//! Apply the Go grammar compatibility view before the frozen scope/read gates.
+//! Main 72025b3e parsed call type arguments as type_identifier, outside @ident;
+//! Go 0.25 can expose them as identifier nodes in index_expression instead.
+//! Keep the query walk independent of the index, with the same capture inventory.
 use crate::ast::*;
 
 pub(crate) fn legacy_scoped_refs<const COUNT: bool>(
@@ -25,7 +30,10 @@ pub(crate) fn legacy_scoped_refs<const COUNT: bool>(
         while let Some(m) = matches.next() {
             for capture in m.captures {
                 super::record_capture();
-                if capture.index == ident_idx && parsed.node_text(&capture.node) == var_name {
+                if capture.index == ident_idx
+                    && !parsed.legacy_go_type_context(capture.node)
+                    && parsed.node_text(&capture.node) == var_name
+                {
                     // Bottom-up scope check: walk from the capture node up to the
                     // function boundary. If any enclosing scope block re-declares
                     // var_name and doesn't contain def_line, skip this reference.
@@ -83,6 +91,7 @@ impl ParsedFile {
             for capture in m.captures {
                 super::record_capture();
                 if capture.index == ident_idx
+                    && !self.legacy_go_type_context(capture.node)
                     && self.node_text(&capture.node) == name
                     && !shadow::<COUNT>(self, &capture.node, owner, name, def_line)
                     && !fence::<COUNT>(self, &capture.node, owner, name, def_byte)

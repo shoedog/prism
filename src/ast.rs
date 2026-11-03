@@ -10,6 +10,8 @@ pub(crate) mod call_membership_tests;
 pub(crate) mod binding_verdict_memo;
 mod call_membership;
 pub(crate) mod call_names;
+mod go_calls;
+mod go_compat_types;
 pub(crate) mod go_receiver_walk;
 pub(crate) mod member_reference_index;
 
@@ -468,6 +470,7 @@ pub struct ParsedFile {
     /// Lazy framework detection, populated on first call to `framework()`.
     pub framework: std::sync::OnceLock<Option<&'static crate::frameworks::FrameworkSpec>>,
     functions: Vec<FunctionInfo>,
+    go_compat: go_compat_types::Cache,
     /// Lazily-built call-argument index (Task S1.5). Lazy so warm nav-cache loads,
     /// AST-only consumers, and callers with no resolved-call args pay nothing; the
     /// cold CPG/nav build that runs Step 5b builds it on demand.
@@ -514,6 +517,7 @@ impl ParsedFile {
             line_offsets,
             framework: std::sync::OnceLock::new(),
             functions: Vec::new(),
+            go_compat: go_compat_types::Cache::default(),
             call_args: std::sync::OnceLock::new(),
             js_export_facts: std::sync::OnceLock::new(),
         };
@@ -555,7 +559,7 @@ impl ParsedFile {
 
     fn index_call_args(&self, node: Node<'_>, out: &mut BTreeMap<(usize, String), Vec<CallArg>>) {
         if self.language.is_call_node(node.kind()) {
-            if let Some(name_node) = self.language.call_function_name(&node) {
+            if let Some(name_node) = self.call_function_name(&node) {
                 let key = (node.start_byte(), self.node_text(&name_node).to_string());
                 // First pre-order occurrence wins — mirrors the legacy first-match.
                 out.entry(key)
@@ -1003,39 +1007,9 @@ impl ParsedFile {
             }
         }
 
-        if func_node.kind() != "method_declaration" {
-            return false;
-        }
-        let Some(receiver) = func_node.child_by_field_name("receiver") else {
-            return false;
-        };
-
-        fn receiver_args_bind(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
-            if node.kind() == "type_arguments" {
-                let mut cursor = node.walk();
-                return node.named_children(&mut cursor).any(|arg| {
-                    if matches!(arg.kind(), "type_identifier" | "identifier") {
-                        return parsed.node_text(&arg).trim() == name;
-                    }
-                    if arg.kind() != "type_elem" {
-                        return false;
-                    }
-                    let mut elem_cursor = arg.walk();
-                    let found = arg.named_children(&mut elem_cursor).any(|elem| {
-                        matches!(elem.kind(), "type_identifier" | "identifier")
-                            && parsed.node_text(&elem).trim() == name
-                    });
-                    found
-                });
-            }
-            let mut cursor = node.walk();
-            let found = node
-                .named_children(&mut cursor)
-                .any(|child| receiver_args_bind(parsed, child, name));
-            found
-        }
-
-        receiver_args_bind(self, receiver, receiver_type)
+        go_calls::receiver_type_parameters(*func_node)
+            .into_iter()
+            .any(|name| self.node_text(&name).trim() == receiver_type)
     }
 
     // Mirrored in go_receiver_walk; change both and extend its tests.
@@ -1157,7 +1131,7 @@ impl ParsedFile {
                         let mut rcur = right.walk();
                         let rhs: Vec<Node> = right.named_children(&mut rcur).collect();
                         if rhs.len() == 1 && rhs[0].kind() == "call_expression" {
-                            if let Some(func) = rhs[0].child_by_field_name("function") {
+                            if let Some(func) = this.call_function_node(&rhs[0]) {
                                 if matches!(func.kind(), "identifier" | "selector_expression") {
                                     return Some(this.node_text(&func).trim().to_string());
                                 }
@@ -1225,7 +1199,7 @@ impl ParsedFile {
                 if rhs.len() != 1 || rhs[0].kind() != "call_expression" {
                     return Err(());
                 }
-                let func = rhs[0].child_by_field_name("function").ok_or(())?;
+                let func = this.call_function_node(&rhs[0]).ok_or(())?;
                 if !matches!(func.kind(), "identifier" | "selector_expression") {
                     return Err(());
                 }
@@ -1595,7 +1569,7 @@ impl ParsedFile {
             }
             // Check if value is a require() call
             if self.language.is_call_node(val.kind()) {
-                if let Some(func_name) = self.language.call_function_name(&val) {
+                if let Some(func_name) = self.call_function_name(&val) {
                     if self.node_text(&func_name) == "require"
                         && self.js_ts_unshadowed_ambient(func_name)
                     {
@@ -1644,7 +1618,7 @@ impl ParsedFile {
         if !self.language.is_call_node(node.kind()) {
             return None;
         }
-        let func_name = self.language.call_function_name(node)?;
+        let func_name = self.call_function_name(node)?;
         if self.node_text(&func_name) != "require" || !self.js_ts_unshadowed_ambient(func_name) {
             return None;
         }
@@ -6125,7 +6099,7 @@ impl ParsedFile {
                 }
             }
             if self.language.is_call_node(node.kind()) {
-                if self.language.call_function_name(&node).is_some_and(|name| {
+                if self.call_function_name(&node).is_some_and(|name| {
                     name.start_byte() <= start_byte && end_byte <= name.end_byte()
                 }) {
                     return false;
@@ -7199,9 +7173,7 @@ impl ParsedFile {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
                                     self.collect_identifier_paths_scoped(args, &scope, &mut paths);
                                 }
-                                if let Some(func_name_node) =
-                                    self.language.call_function_name(&capture.node)
-                                {
+                                if let Some(func_name_node) = self.call_value_name(&capture.node) {
                                     let name = self.node_text(&func_name_node).to_string();
                                     paths.push((AccessPath::simple(name), line));
                                 }
@@ -7598,9 +7570,7 @@ impl ParsedFile {
                                         args, &scope, &mut spans,
                                     );
                                 }
-                                if let Some(func_name_node) =
-                                    self.language.call_function_name(&capture.node)
-                                {
+                                if let Some(func_name_node) = self.call_value_name(&capture.node) {
                                     self.push_identifier_path_span(func_name_node, &mut spans);
                                 }
                             }
@@ -7678,7 +7648,7 @@ impl ParsedFile {
             if let Some(args) = self.language.call_arguments(&node) {
                 self.collect_identifier_paths_scoped(args, scope, out);
             }
-            if let Some(func_name_node) = self.language.call_function_name(&node) {
+            if let Some(func_name_node) = self.call_value_name(&node) {
                 let name = self.node_text(&func_name_node).to_string();
                 out.push((AccessPath::simple(name), line));
             }
@@ -7753,7 +7723,7 @@ impl ParsedFile {
             if let Some(args) = self.language.call_arguments(&node) {
                 self.collect_identifier_path_spans_scoped(args, scope, out);
             }
-            if let Some(func_name_node) = self.language.call_function_name(&node) {
+            if let Some(func_name_node) = self.call_value_name(&node) {
                 self.push_identifier_path_span(func_name_node, out);
             }
         }
@@ -7827,9 +7797,9 @@ impl ParsedFile {
         node: Node<'_>,
         out: &mut Vec<(AccessPath, usize)>,
     ) {
-        if self.language.is_erased_type_boundary(node) {
+        let Some(node) = self.compat_value_node(node) else {
             return;
-        }
+        };
         // Check for field/member access expressions — emit the full qualified
         // path instead of individual identifiers.
         if Self::is_field_access_node(node.kind()) {
@@ -7897,9 +7867,9 @@ impl ParsedFile {
         scope: &RvalueQueryScope,
         out: &mut Vec<(AccessPath, usize)>,
     ) {
-        if self.language.is_erased_type_boundary(node) {
+        let Some(node) = self.compat_value_node(node) else {
             return;
-        }
+        };
         if Self::is_rvalue_class_node(node.kind()) {
             self.collect_identifier_paths_in_value_context(node, out);
             return;
@@ -7960,9 +7930,9 @@ impl ParsedFile {
     }
 
     fn collect_identifier_spans_in_value_context(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
-        if self.language.is_erased_type_boundary(node) {
+        let Some(node) = self.compat_value_node(node) else {
             return;
-        }
+        };
         if Self::is_field_access_node(node.kind()) {
             if let Some(member) = self.bounded_member_path(node) {
                 out.push(PathSpan {
@@ -8022,9 +7992,9 @@ impl ParsedFile {
         scope: &RvalueQueryScope,
         out: &mut Vec<PathSpan>,
     ) {
-        if self.language.is_erased_type_boundary(node) {
+        let Some(node) = self.compat_value_node(node) else {
             return;
-        }
+        };
         if Self::is_rvalue_class_node(node.kind()) {
             self.collect_identifier_spans_in_value_context(node, out);
             return;
@@ -8230,9 +8200,7 @@ impl ParsedFile {
                                 if let Some(args) = self.language.call_arguments(&capture.node) {
                                     self.collect_all_identifiers_scoped(args, &scope, &mut rvalues);
                                 }
-                                if let Some(func_name_node) =
-                                    self.language.call_function_name(&capture.node)
-                                {
+                                if let Some(func_name_node) = self.call_value_name(&capture.node) {
                                     let name = self.node_text(&func_name_node).to_string();
                                     rvalues.push((name, line));
                                 }
@@ -8308,7 +8276,7 @@ impl ParsedFile {
             if let Some(args) = self.language.call_arguments(&node) {
                 self.collect_all_identifiers_scoped(args, scope, out);
             }
-            if let Some(func_name_node) = self.language.call_function_name(&node) {
+            if let Some(func_name_node) = self.call_value_name(&node) {
                 let name = self.node_text(&func_name_node).to_string();
                 out.push((name, line));
             }
@@ -8329,9 +8297,9 @@ impl ParsedFile {
     fn collect_identifiers_in_value_context(&self, node: Node<'_>, out: &mut Vec<(String, usize)>) {
         // Descendants need only a local boundary check: scanning every ancestor
         // at every recursive step would turn deep value walks quadratic.
-        if self.language.is_erased_type_boundary(node) {
+        let Some(node) = self.compat_value_node(node) else {
             return;
-        }
+        };
         if self.language.is_identifier_node(node.kind()) {
             let name = self.node_text(&node).to_string();
             let line = node.start_position().row + 1;
@@ -8367,9 +8335,9 @@ impl ParsedFile {
         scope: &RvalueQueryScope,
         out: &mut Vec<(String, usize)>,
     ) {
-        if self.language.is_erased_type_boundary(node) {
+        let Some(node) = self.compat_value_node(node) else {
             return;
-        }
+        };
         if Self::is_rvalue_class_node(node.kind()) {
             self.collect_identifiers_in_value_context(node, out);
             return;
@@ -8415,7 +8383,10 @@ impl ParsedFile {
             let mut lines = BTreeSet::new();
             while let Some(m) = matches.next() {
                 for capture in m.captures {
-                    if capture.index == ident_idx && self.node_text(&capture.node) == var_name {
+                    if capture.index == ident_idx
+                        && self.node_text(&capture.node) == var_name
+                        && !self.is_go_legacy_type_context(capture.node)
+                    {
                         lines.insert(capture.node.start_position().row + 1);
                     }
                 }
@@ -9357,8 +9328,7 @@ impl ParsedFile {
                     if capture.index == call_idx && membership.is_owned(capture.node) {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line) {
-                            if let Some(name_node) = self.language.call_function_name(&capture.node)
-                            {
+                            if let Some(name_node) = self.call_function_name(&capture.node) {
                                 let name = self.node_text(&name_node).to_string();
                                 calls.push((name, line));
                             }
@@ -9422,7 +9392,7 @@ impl ParsedFile {
                         calls.extend(sites);
                         continue;
                     }
-                    if let Some(name_node) = self.language.call_function_name(&capture.node) {
+                    if let Some(name_node) = self.call_function_name(&capture.node) {
                         let name = self.node_text(&name_node).to_string();
                         calls.push(CallSiteMeta {
                             callee_name: name,
@@ -9471,11 +9441,9 @@ impl ParsedFile {
                     if capture.index == call_idx && membership.is_owned(capture.node) {
                         let line = capture.node.start_position().row + 1;
                         if lines.contains(&line) {
-                            if let Some(name_node) = self.language.call_function_name(&capture.node)
-                            {
+                            if let Some(name_node) = self.call_function_name(&capture.node) {
                                 let name = self.node_text(&name_node).to_string();
                                 let qualifier = self
-                                    .language
                                     .call_function_qualifier(&capture.node)
                                     .map(|q| self.node_text(&q).to_string());
                                 calls.push((name, line, qualifier));
@@ -9551,9 +9519,9 @@ impl ParsedFile {
                         facts.ctor_skips += site_facts.ctor_skips;
                         continue;
                     }
-                    if let Some(name_node) = self.language.call_function_name(&capture.node) {
+                    if let Some(name_node) = self.call_function_name(&capture.node) {
                         let name = self.node_text(&name_node).to_string();
-                        let qualifier_node = self.language.call_function_qualifier(&capture.node);
+                        let qualifier_node = self.call_function_qualifier(&capture.node);
                         let qualifier = qualifier_node.map(|q| self.node_text(&q).to_string());
                         let (arg_count, arg_spread) = self
                             .language
@@ -9619,10 +9587,9 @@ impl ParsedFile {
             && self.language.is_call_node(node.kind())
             && self.call_capture_is_owned(&owner, node)
         {
-            if let Some(name_node) = self.language.call_function_name(&node) {
+            if let Some(name_node) = self.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 let qualifier = self
-                    .language
                     .call_function_qualifier(&node)
                     .map(|q| self.node_text(&q).to_string());
                 // Manual fallback surfaces no receiver node (None); type-assertion
@@ -9671,10 +9638,9 @@ impl ParsedFile {
             && self.language.is_call_node(node.kind())
             && self.call_capture_is_owned(&owner, node)
         {
-            if let Some(name_node) = self.language.call_function_name(&node) {
+            if let Some(name_node) = self.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 let qualifier = self
-                    .language
                     .call_function_qualifier(&node)
                     .map(|q| self.node_text(&q).to_string());
                 out.push((name, line, qualifier));
@@ -9709,7 +9675,7 @@ impl ParsedFile {
             && self.language.is_call_node(node.kind())
             && self.call_capture_is_owned(&owner, node)
         {
-            if let Some(name_node) = self.language.call_function_name(&node) {
+            if let Some(name_node) = self.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 out.push(CallSiteMeta {
                     callee_name: name,
@@ -9756,7 +9722,7 @@ impl ParsedFile {
             && self.language.is_call_node(node.kind())
             && self.call_capture_is_owned(&owner, node)
         {
-            if let Some(name_node) = self.language.call_function_name(&node) {
+            if let Some(name_node) = self.call_function_name(&node) {
                 let name = self.node_text(&name_node).to_string();
                 out.push((name, line));
             }
@@ -10591,8 +10557,8 @@ impl ParsedFile {
 
         match node.kind() {
             "call_expression" => {
-                let function = node
-                    .child_by_field_name("function")
+                let function = self
+                    .call_function_node(node)
                     .or_else(|| node.child_by_field_name("name"))?;
                 let text = self.node_text(&function).trim();
                 if let (Language::Rust, Some((ty, constructor))) =
@@ -10902,7 +10868,7 @@ impl ParsedFile {
         let node_line = node.start_position().row + 1;
 
         if node_line == line && self.language.is_call_node(node.kind()) {
-            if let Some(name_node) = self.language.call_function_name(&node) {
+            if let Some(name_node) = self.call_function_name(&node) {
                 let name = self.node_text(&name_node);
                 if name == callee_name {
                     if let Some(args_node) = self.language.call_arguments(&node) {
@@ -10999,7 +10965,7 @@ impl ParsedFile {
         let node_line = node.start_position().row + 1;
 
         if node_line == line && self.language.is_call_node(node.kind()) {
-            if let Some(name_node) = self.language.call_function_name(&node) {
+            if let Some(name_node) = self.call_function_name(&node) {
                 let name = self.node_text(&name_node);
                 if name == callee_name {
                     if let Some(args_node) = self.language.call_arguments(&node) {
@@ -11035,7 +11001,7 @@ impl ParsedFile {
         out: &mut Vec<String>,
     ) {
         if node.start_byte() == start_byte && self.language.is_call_node(node.kind()) {
-            if let Some(name_node) = self.language.call_function_name(&node) {
+            if let Some(name_node) = self.call_function_name(&node) {
                 let name = self.node_text(&name_node);
                 if name == callee_name {
                     if let Some(args_node) = self.language.call_arguments(&node) {
@@ -11095,7 +11061,7 @@ impl ParsedFile {
             while let Some(m) = matches.next() {
                 for capture in m.captures {
                     if capture.index == call_idx {
-                        if let Some(name_node) = self.language.call_function_name(&capture.node) {
+                        if let Some(name_node) = self.call_function_name(&capture.node) {
                             names.insert(self.node_text(&name_node).to_string());
                         }
                     }
@@ -11111,7 +11077,7 @@ impl ParsedFile {
 
     fn collect_all_callees_manual(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
         if self.language.is_call_node(node.kind()) {
-            if let Some(name_node) = self.language.call_function_name(&node) {
+            if let Some(name_node) = self.call_function_name(&node) {
                 out.insert(self.node_text(&name_node).to_string());
             }
         }
@@ -11971,7 +11937,7 @@ mod tests {
         // Every call node's (start_byte, callee_name), pre-order — the keys the index must serve.
         fn walk(pf: &ParsedFile, node: tree_sitter::Node<'_>, out: &mut Vec<(usize, String)>) {
             if pf.language.is_call_node(node.kind()) {
-                if let Some(name_node) = pf.language.call_function_name(&node) {
+                if let Some(name_node) = pf.call_function_name(&node) {
                     out.push((node.start_byte(), pf.node_text(&name_node).to_string()));
                 }
             }

@@ -211,17 +211,14 @@ impl<'a> LexicalFacts<'a> {
         }
         let writes = self.writes.get(path)?;
         let mut child = occurrence;
-        while let Some(region) = child.parent() {
+        while let Some(region) = crate::go_statements::parent(child) {
             if is_region(region.kind()) {
                 if let Some(write) = writes.iter().rev().find(|write| {
                     write.statement.end_byte() <= child.start_byte()
-                        && write
-                            .statement
-                            .parent()
+                        && crate::go_statements::parent(write.statement)
                             .is_some_and(|p| p.id() == region.id())
                 }) {
-                    let mut cursor = region.walk();
-                    let broken = region.named_children(&mut cursor).any(|n| {
+                    let broken = crate::go_statements::children(region, Language::Go).any(|n| {
                         n.kind() == "labeled_statement"
                             && write.statement.end_byte() <= n.start_byte()
                             && n.start_byte() < child.end_byte()

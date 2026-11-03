@@ -443,7 +443,10 @@ fn differential(parsed: &ParsedFile, exhaustive: bool) -> usize {
             let path = AccessPath::simple(name);
             assert_eq!(
                 search.simple.scoped::<false>(&owner, name, line),
-                oracle::legacy_scoped_refs::<false>(parsed, &owner, name, line)
+                oracle::legacy_scoped_refs::<false>(parsed, &owner, name, line),
+                "{} owner={} name={name} line={line}",
+                parsed.path,
+                owner.start_byte()
             );
             for reads in [false, true] {
                 for root in &roots {
@@ -476,6 +479,88 @@ fn differential(parsed: &ParsedFile, exhaustive: bool) -> usize {
         }
     }
     comparisons
+}
+
+#[test]
+fn identifier_oracle_preserves_main_go_type_argument_inventory() {
+    // Main 72025b3e's Prism APIs exclude int (a type_identifier), but retain
+    // new and make. Go 0.25 exposes int as an identifier under an index call.
+    let parsed = ParsedFile::parse(
+        "shadowed.go",
+        include_str!("../../../../tests/fixtures/go_new_expr/shadowed.go"),
+        Language::Go,
+    )
+    .unwrap();
+    let owner = parsed
+        .all_functions()
+        .into_iter()
+        .find(|n| parsed.node_text(n).starts_with("func shadowed"))
+        .unwrap();
+    assert!(raw(
+        &parsed,
+        get_query(Language::Go, QueryKind::Identifiers).unwrap(),
+        owner.byte_range()
+    )
+    .iter()
+    .any(|n| parsed.node_text(n) == "int" && n.start_position().row == 6));
+    let mut mismatches = Vec::new();
+    for (name, expected) in [
+        ("int", BTreeSet::new()),
+        ("new", BTreeSet::from([7])),
+        ("make", BTreeSet::from([8])),
+    ] {
+        assert_eq!(
+            IdentifierReferenceSearch::new(&parsed).scoped::<false>(&owner, name, 7),
+            expected
+        );
+        let scoped = oracle::legacy_scoped_refs::<false>(&parsed, &owner, name, 7);
+        if scoped != expected {
+            mismatches.push(format!("scoped {name}: {scoped:?} != {expected:?}"));
+        }
+        for reads in [false, true] {
+            let mut spans = BTreeMap::new();
+            parsed.legacy_collect_fenced_simple_refs::<false>(
+                owner, &owner, name, 7, 0, reads, &mut spans,
+            );
+            let lines: BTreeSet<_> = spans.into_keys().collect();
+            if lines != expected {
+                mismatches.push(format!(
+                    "fenced {name} reads={reads}: {lines:?} != {expected:?}"
+                ));
+            }
+        }
+    }
+    assert!(mismatches.is_empty(), "{}", mismatches.join("\n"));
+}
+
+#[test]
+fn identifier_oracle_keeps_go_value_index_references() {
+    let parsed = ParsedFile::parse(
+        "index.go",
+        "package fixture\nfunc plain(i int, values []int) {\n _ = values[i]\n}\n",
+        Language::Go,
+    )
+    .unwrap();
+    assert_eq!(parsed.parse_error_count, 0);
+    let owner = parsed.all_functions()[0];
+    for name in ["i", "values"] {
+        let expected = BTreeSet::from([2, 3]);
+        assert_eq!(
+            IdentifierReferenceSearch::new(&parsed).scoped::<false>(&owner, name, 2),
+            expected
+        );
+        assert_eq!(
+            oracle::legacy_scoped_refs::<false>(&parsed, &owner, name, 2),
+            expected
+        );
+        for reads in [false, true] {
+            let mut spans = BTreeMap::new();
+            parsed.legacy_collect_fenced_simple_refs::<false>(
+                owner, &owner, name, 2, 0, reads, &mut spans,
+            );
+            assert_eq!(spans.into_keys().collect::<BTreeSet<_>>(), expected);
+        }
+    }
 }
 
 #[test]

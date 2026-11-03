@@ -629,11 +629,11 @@ mod tests {
         )
         .expect("parse parameterized alias");
         let root = parsed.tree.root_node();
-        let alias = named_descendant(root, "type_spec")
+        let alias = named_descendant(root, "type_alias")
             .find(|node| node.child_by_field_name("type_parameters").is_some())
-            .expect("current grammar parameterized alias type_spec");
+            .expect("current grammar parameterized type_alias");
         assert!(node_has_token(&alias, "="));
-        assert!(node_has_kind(&alias, "ERROR"));
+        assert!(!root.has_error());
         assert_eq!(classify_alias_syntax(&alias), AliasSyntax::Alias);
     }
 

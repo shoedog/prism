@@ -330,6 +330,36 @@ fn external_call_dependency_hint_covers_receiver_go_and_negative_shapes() {
     assert_eq!(hint.kind, None, "unmapped root must never invent a kind");
 }
 
+#[test]
+fn go_generic_dependency_hint_keeps_main_callee() {
+    for statement in [
+        "cfgpkg.Load[Config](\"x\",0)",
+        "use(cfgpkg.Load[Config](\"x\",0))",
+    ] {
+        let source = format!("package p\nimport cfgpkg \"example/config\"\ntype Config struct{{}}\nfunc run() {{ {statement} }}\n");
+        let (_, callee, warnings) = hint_for(
+            &[("svc.go", &source)],
+            "svc.go",
+            4,
+            echo_finding_naming("svc.go", 4, "Load"),
+        );
+        assert_eq!(callee.as_deref(), Some("cfgpkg.Load"));
+        assert!(warnings.is_empty(), "{warnings:?}");
+    }
+}
+
+#[test]
+fn go_index_dependency_hint_keeps_value_index() {
+    let source = "package p\nfunc run(handlers []func(int,int), i int) { handlers[i](0,0) }\n";
+    let (_, callee, _) = hint_for(
+        &[("svc.go", source)],
+        "svc.go",
+        2,
+        echo_finding("svc.go", 2),
+    );
+    assert_eq!(callee.as_deref(), Some("handlers[i]"));
+}
+
 /// A site with no call node at all keeps whatever hint the mapping produced —
 /// the AST path may only improve a hint, never delete one.
 #[test]

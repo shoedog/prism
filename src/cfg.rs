@@ -804,8 +804,7 @@ fn build_switch_fallthrough_edges(node: Node<'_>, parsed: &ParsedFile, edges: &m
 
 /// Find the first statement line inside a block/body node.
 fn first_statement_line(node: &Node<'_>, parsed: &ParsedFile) -> Option<usize> {
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
+    for child in crate::go_statements::children(*node, parsed.language) {
         if parsed.language.is_statement_node(child.kind()) {
             return Some(child.start_position().row + 1);
         }
@@ -825,8 +824,7 @@ fn first_statement_line(node: &Node<'_>, parsed: &ParsedFile) -> Option<usize> {
 /// Find the last statement line inside a block/body node.
 fn last_statement_line(node: &Node<'_>, parsed: &ParsedFile) -> Option<usize> {
     let mut last = None;
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
+    for child in crate::go_statements::children(*node, parsed.language) {
         if parsed.language.is_statement_node(child.kind()) {
             last = Some(child.start_position().row + 1);
         }
@@ -844,9 +842,8 @@ fn last_statement_line(node: &Node<'_>, parsed: &ParsedFile) -> Option<usize> {
 
 /// Check whether a block ends with a terminator (return, break, continue, goto).
 fn ends_with_terminator(node: &Node<'_>, parsed: &ParsedFile) -> bool {
-    let mut cursor = node.walk();
     let mut last_kind = None;
-    for child in node.children(&mut cursor) {
+    for child in crate::go_statements::children(*node, parsed.language) {
         if parsed.language.is_statement_node(child.kind()) {
             last_kind = Some(child.kind().to_string());
         }

@@ -1637,7 +1637,7 @@ fn collect_request_param_names(
 /// returns `Some("r.URL.Query")`; for Python `request.args.get()`, returns
 /// `Some("request.args.get")`.
 fn call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
-    let func = call_node.child_by_field_name("function")?;
+    let func = parsed.call_function_node(call_node)?;
     Some(parsed.node_text(&func).to_string())
 }
 
@@ -6695,8 +6695,7 @@ fn first_statement_line(parsed: &ParsedFile, node: &Node<'_>) -> Option<usize> {
     if parsed.language.is_statement_node(node.kind()) {
         return Some(node.start_position().row + 1);
     }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
+    for child in crate::go_statements::children(*node, parsed.language) {
         if parsed.language.is_statement_node(child.kind()) {
             return Some(child.start_position().row + 1);
         }
@@ -6715,8 +6714,7 @@ fn block_ends_with_return(parsed: &ParsedFile, node: &Node<'_>) -> bool {
 
 fn last_statement_node<'a>(parsed: &ParsedFile, node: &Node<'a>) -> Option<Node<'a>> {
     let mut last = None;
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
+    for child in crate::go_statements::children(*node, parsed.language) {
         if parsed.language.is_statement_node(child.kind()) {
             last = Some(child);
         } else if parsed.language.is_scope_block(child.kind()) {
@@ -7799,7 +7797,7 @@ fn js_ts_require_call_module(parsed: &ParsedFile, node: &Node<'_>) -> Option<Str
     if !parsed.language.is_call_node(node.kind()) {
         return None;
     }
-    let function = parsed.language.call_function_name(&node)?;
+    let function = parsed.call_function_name(&node)?;
     if parsed.node_text(&function) != "require" {
         return None;
     }

@@ -360,7 +360,7 @@ fn hit(rule: &'static str, cwe: &'static str) -> Option<SinkHit> {
 }
 
 pub(super) fn classify(p: Src<'_>, facts: &Facts, id: Node<'_>, text: &str) -> Option<SinkHit> {
-    let c = callee_of(id)?;
+    let c = callee_of(p, id)?;
     // A bare callee imported under another name dispatches on its original name.
     let imported = if c.receiver.is_none() {
         facts.names.get(text)
