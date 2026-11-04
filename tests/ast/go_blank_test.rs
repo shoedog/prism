@@ -20,7 +20,15 @@ fn graph(case: &Value) -> DataFlowGraph {
     DataFlowGraph::build(&BTreeMap::from([(file.to_owned(), parsed)]))
 }
 
+// Field-write recall (#639) adds `Def(p.f) -> Use(prefix)` edges and a per-owner `recall` stats row after this
+// population was captured; compare the pre-recall view, as the other frozen Go receipts do (`recall_frozen.rs`).
 fn snapshot(dfg: &DataFlowGraph) -> Value {
+    let kept =
+        |e: &prism::data_flow::FlowEdgeRef<'_>| !super::recall_frozen::is_recall(&e.from, &e.to);
+    let mut stats = serde_json::to_value(dfg.rd_function_stats()).unwrap();
+    for file in stats.as_object_mut().unwrap().values_mut() {
+        file.as_object_mut().unwrap().remove("recall");
+    }
     let locations = |defs: bool| -> Vec<VarLocation> {
         if defs {
             dfg.defs().flat_map(|(_, v)| v.to_vec()).collect()
@@ -31,9 +39,9 @@ fn snapshot(dfg: &DataFlowGraph) -> Value {
     json!({
         "defs": locations(true),
         "uses": locations(false),
-        "edges": dfg.edges().iter().map(|e| e.to_owned()).collect::<Vec<_>>(),
-        "labels": dfg.labels().map(|(e, label)| (e.to_owned(), label)).collect::<Vec<_>>(),
-        "stats": dfg.rd_function_stats(),
+        "edges": dfg.edges().iter().filter(|e| kept(e)).map(|e| e.to_owned()).collect::<Vec<_>>(),
+        "labels": dfg.labels().filter(|(e, _)| kept(e)).map(|(e, label)| (e.to_owned(), label)).collect::<Vec<_>>(),
+        "stats": stats,
     })
 }
 
@@ -114,12 +122,26 @@ fn check(name: &str) {
         assert!(failures.is_empty(), "{name}: {}", failures.join(", "));
     } else {
         assert_eq!(actual, baseline[name], "{name}: language control changed");
-        let encoded: Vec<u8> =
-            serde_json::from_value(baseline[format!("{name}_bytes")].clone()).unwrap();
+        // The stored bincode bytes predate the recall stats row (#639); recall is Go-only, so a non-Go
+        // control must have no recall edge and only empty recall rows, and must round-trip.
+        assert!(!dfg
+            .edges()
+            .iter()
+            .any(|e| super::recall_frozen::is_recall(&e.from, &e.to)));
+        let stats = serde_json::to_value(dfg.rd_function_stats()).unwrap();
+        for file in stats.as_object().unwrap().values() {
+            assert_eq!(
+                file["recall"],
+                serde_json::json!([]),
+                "{name}: non-Go recall row"
+            );
+        }
+        let encoded = bincode::serialize(&dfg).unwrap();
+        let decoded: DataFlowGraph = bincode::deserialize(&encoded).unwrap();
         assert_eq!(
-            bincode::serialize(&dfg).unwrap(),
-            encoded,
-            "{name}: serialized graph changed"
+            snapshot(&decoded),
+            actual,
+            "{name}: serialized graph round trip"
         );
         assert!(!dfg
             .all_defs_of(case["file"].as_str().unwrap(), "_")
