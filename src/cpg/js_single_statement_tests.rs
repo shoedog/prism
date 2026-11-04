@@ -303,3 +303,28 @@ fn closure_and_member_writes_on_the_formal_keep_the_fallback() {
         "function f(a) {\n  return (a.x = 1, sink(a));\n}\n",
     );
 }
+
+// Probe survivors R657-OPUS-1 and R657-OPUS-4 (round 1).
+
+#[test]
+fn multi_line_expression_body_maps_every_body_line() {
+    // Kills `end_line: span.line` in `line_span`: the read on the 4th line of the
+    // body maps to the body's first line only through the span's end line.
+    for (language, ext) in LANGS {
+        let (rows, _) = labels(
+            language,
+            ext,
+            "const f = (c) =>\n  exec(\n    1,\n    c,\n  );\n",
+        );
+        assert_eq!(rows, [exact("f:c@1->c@4")], "{language:?}");
+    }
+}
+
+#[test]
+fn member_path_write_on_the_formal_keeps_the_fallback() {
+    // Kills a gate that stops counting member-path defs (`o.x = ..` shares base `o`).
+    assert_no_exact(
+        "member write then member read",
+        "function f(o) {\n  return (\n    o.x = evil(),\n    sink(o.x),\n    sink(o)\n  );\n}\n",
+    );
+}
