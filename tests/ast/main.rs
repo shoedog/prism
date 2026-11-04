@@ -25,6 +25,7 @@ mod owner_test;
 mod parameter_slots_test;
 mod parse_quality_test;
 mod python_type_provider_test;
+mod recall_frozen;
 mod rust_type_provider_test;
 mod ts_type_provider_test;
 mod type_provider_test;

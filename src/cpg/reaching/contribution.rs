@@ -147,7 +147,7 @@ struct Lane<'a> {
     reachable: &'a BitSet,
     exact: super::DefinitionReachability<'a>,
 }
-impl Lane<'_> {
+impl<'l> Lane<'l> {
     fn classify(&mut self, d: usize, u: usize) -> Option<FlowConfidence> {
         let def = &self.defs[d];
         let read = &self.reads[u];
@@ -190,7 +190,10 @@ impl Lane<'_> {
     fn survivors<'a>(
         &'a mut self,
         jobs: &'a [(usize, usize, &[usize])],
-    ) -> impl Iterator<Item = (usize, usize, FlowConfidence)> + 'a {
+    ) -> impl Iterator<Item = (usize, usize, FlowConfidence)> + use<'a, 'l>
+    where
+        'l: 'a,
+    {
         let (mut job, mut occurrence, mut duplicate) = (0, 0, 0);
         std::iter::from_fn(move || loop {
             let &(d, multiplicity, targets) = jobs.get(job)?;

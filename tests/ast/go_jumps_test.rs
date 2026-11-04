@@ -64,21 +64,9 @@ fn snapshot(path: &Path) -> Value {
     let source = std::fs::read_to_string(path).unwrap();
     let parsed = ParsedFile::parse(file, &source, Language::Go).unwrap();
     let cpg = CodePropertyGraph::build(&BTreeMap::from([(file.to_owned(), parsed)]));
-    let mut edges: Vec<_> = cpg
-        .dfg
-        .edges()
-        .iter()
-        .map(|e| json!([e.from, e.to]))
-        .collect();
-    edges.sort_by_key(Value::to_string);
-    let mut labels: Vec<_> = cpg
-        .dfg
-        .labels()
-        .map(|(e, l)| json!([e.from, e.to, l]))
-        .collect();
-    labels.sort_by_key(Value::to_string);
-    json!({"file":file,"edges":edges,"labels":labels,
-        "availability":cpg.dfg.rd_function_stats()[file],"stats":cpg.dfg_label_stats})
+    use super::recall_frozen as frozen;
+    json!({"file":file,"edges":frozen::edges(&cpg),"labels":frozen::labels(&cpg),
+        "availability":frozen::availability(&cpg)[file],"stats":frozen::stats(&cpg)})
 }
 
 #[test]

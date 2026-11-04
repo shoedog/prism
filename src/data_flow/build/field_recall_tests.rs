@@ -135,11 +135,22 @@ fn go_field_recall_answer_taint() {
 
 #[test]
 fn go_field_recall_answer_chop() {
+    use crate::cpg::{CpgEdge, CpgNode};
     let graph = answer();
-    let chop = graph.dfg_cfg_chop("answer.go", 6, "answer.go", 13);
-    for line in [6, 8, 9, 13] {
-        assert!(chop.contains(&("answer.go".into(), line)), "{chop:?}");
-    }
+    let at = |line: usize, path: &str| -> Vec<_> {
+        graph
+            .nodes_at("answer.go", line)
+            .into_iter()
+            .filter(|&i| matches!(&graph.graph[i], CpgNode::Variable { path: p, .. } if p.to_string() == path))
+            .collect()
+    };
+    let (src, sink) = (at(8, "req.Username"), at(9, "req"));
+    assert!(!src.is_empty() && !sink.is_empty());
+    let on_path = graph.chop(&src, &sink, &|e| matches!(e, CpgEdge::DataFlow(_)));
+    assert!(
+        src.iter().all(|n| on_path.contains(n)) && sink.iter().all(|n| on_path.contains(n)),
+        "the new field->ancestor edge must connect the chop endpoints"
+    );
 }
 
 #[test]

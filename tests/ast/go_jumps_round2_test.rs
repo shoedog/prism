@@ -170,20 +170,8 @@ fn go_round2_backward_goto_requires_cycle() {
 #[test]
 fn go_round2_edge_receipt() {
     let graph = cpg();
-    let mut edges: Vec<_> = graph
-        .dfg
-        .edges()
-        .iter()
-        .map(|e| serde_json::json!([e.from, e.to]))
-        .collect();
-    edges.sort_by_key(serde_json::Value::to_string);
-    let mut labels: Vec<_> = graph
-        .dfg
-        .labels()
-        .map(|(e, l)| serde_json::json!([e.from, e.to, l]))
-        .collect();
-    labels.sort_by_key(serde_json::Value::to_string);
-    let actual = serde_json::json!({"edges":edges,"labels":labels,"stats":graph.dfg_label_stats,"availability":graph.dfg.rd_function_stats()});
+    use super::recall_frozen as frozen;
+    let actual = serde_json::json!({"edges":frozen::edges(&graph),"labels":frozen::labels(&graph),"stats":frozen::stats(&graph),"availability":frozen::availability(&graph)});
     if std::env::var_os("PRISM_EXPORT_GO_JUMPS").is_some() {
         println!("GO_ROUND2_SNAPSHOT {actual}");
         return;

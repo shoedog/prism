@@ -47,43 +47,10 @@ pub(super) fn snapshot(path: &Path) -> Value {
         .map(|e| json!([e.from_line, e.to_line]))
         .collect();
     let graph = CodePropertyGraph::build(&BTreeMap::from([(file.to_owned(), parsed)]));
-    let mut edges: Vec<_> = graph
-        .dfg
-        .edges()
-        .iter()
-        .map(|e| json!([e.from, e.to]))
-        .collect();
-    edges.sort_by_key(Value::to_string);
-    let mut labels: Vec<_> = graph
-        .dfg
-        .labels()
-        .map(|(e, l)| json!([e.from, e.to, l]))
-        .collect();
-    labels.sort_by_key(Value::to_string);
-    let mut row = json!({"file":file,"edges":edges,"labels":labels,"stats":graph.dfg_label_stats,
-        "availability":graph.dfg.rd_function_stats()[file],"statements":statements,"cfg":cfg});
-    // Compare the frozen pre-recall schema. New lane counters have their own
-    // budget/cache tests; none of these existing populations adds recall edges.
-    let stats = row["stats"].as_object_mut().unwrap();
-    for key in [
-        "dfg_recall_candidates",
-        "dfg_recall_max_candidates",
-        "dfg_recall_functions_capped",
-        "dfg_recall_candidates_capped",
-        "dfg_recall_functions_over_rd_cap",
-        "dfg_recall_functions_without_cfg",
-    ] {
-        assert_eq!(stats.remove(key).unwrap(), json!(0), "{file}: {key}");
-    }
-    assert_eq!(
-        row["availability"]
-            .as_object_mut()
-            .unwrap()
-            .remove("recall")
-            .unwrap(),
-        json!([])
-    );
-    row
+    use super::recall_frozen as frozen;
+    json!({"file":file,"edges":frozen::edges(&graph),"labels":frozen::labels(&graph),
+        "stats":frozen::stats(&graph),
+        "availability":frozen::availability(&graph)[file],"statements":statements,"cfg":cfg})
 }
 #[test]
 fn go_branches_receipts() {
