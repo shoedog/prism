@@ -1,8 +1,9 @@
 //! #597: the consumer half of a CommonJS module call made from an anonymous callable. The
 //! barrier is narrower than the named-owner binder's (`js_cjs_module_calls.rs`): the name must
-//! be declared by a direct top-level `const` statement of the program, never written, and the
+//! be declared by a direct top-level `const` or `var` statement of the program (owner 2026-11-04;
+//! `let` stays out), never written, declared exactly once in the file, and the
 //! binding walk from the call site must reach the program scope without meeting another
-//! declaration of the name. `let` and `var` bindings, inline `require('./x').f(..)` and every
+//! declaration of the name. `let` bindings, inline `require('./x').f(..)` and every
 //! declaration the binder does not prove keep the earlier outcome.
 //!
 //! Shapes: `m(..)` and `m.f(..)` with `const m = require('./x')`, `f(..)` with
@@ -31,7 +32,7 @@ impl ParsedFile {
                 let name = self.node_text(&callee);
                 match self.js_ts_cjs_require_binding(callee, cache) {
                     Some(found) => self
-                        .js_ts_cjs_declared_const(callee, name, cache)
+                        .js_ts_cjs_declared_const_or_var(callee, name, cache)
                         .then_some(found),
                     None => self.js_ts_cjs_destructured(callee, name, cache),
                 }
@@ -47,7 +48,12 @@ impl ParsedFile {
                     JsLocalBinding::RequireModule {
                         module_path,
                         member: Some(member),
-                    } if self.js_ts_cjs_declared_const(object, self.node_text(&object), cache) => {
+                    } if self.js_ts_cjs_declared_const_or_var(
+                        object,
+                        self.node_text(&object),
+                        cache,
+                    ) =>
+                    {
                         Some((module_path, Some(member)))
                     }
                     _ => None,
@@ -57,20 +63,19 @@ impl ParsedFile {
         }
     }
 
-    /// The program-scope declaration `name` resolves to from `ident` is `const` (not `let`).
-    fn js_ts_cjs_declared_const<'a>(
+    /// The program-scope declaration `name` resolves to from `ident` is `const` or `var`, not
+    /// `let` (owner 2026-11-04). One declaration of the name in the whole file and no write to it
+    /// are the binder's `Alias` proof: a second declaration (a hoisted `var` in a nested block
+    /// included) is `duplicate_declaration`, any write makes the binding `MayCall`.
+    fn js_ts_cjs_declared_const_or_var<'a>(
         &'a self,
         ident: Node<'a>,
         name: &str,
         cache: &mut JsBindingCache<'a>,
     ) -> bool {
         self.js_ts_cjs_program_declarator(ident, name, cache)
-            .is_some_and(|decl| {
-                decl.parent().is_some_and(|list| {
-                    list.kind() == "lexical_declaration"
-                        && list.child(0).is_some_and(|k| k.kind() == "const")
-                })
-            })
+            .and_then(|decl| decl.parent())
+            .is_some_and(js_ts_cjs_const_or_var)
     }
 
     /// The one `variable_declarator` of a direct top-level statement of the program that the
@@ -114,9 +119,7 @@ impl ParsedFile {
         }
         let decl = self.js_ts_cjs_program_declarator(ident, name, cache)?;
         let list = decl.parent()?;
-        if list.kind() != "lexical_declaration"
-            || !list.child(0).is_some_and(|k| k.kind() == "const")
-        {
+        if !js_ts_cjs_const_or_var(list) {
             return None;
         }
         let pattern = decl
@@ -151,4 +154,11 @@ impl ParsedFile {
         }
         key.map(|k| (module_path, Some(k)))
     }
+}
+
+/// A `var` statement, or a `const` one (never `let`).
+fn js_ts_cjs_const_or_var(list: Node<'_>) -> bool {
+    list.kind() == "variable_declaration"
+        || (list.kind() == "lexical_declaration"
+            && list.child(0).is_some_and(|k| k.kind() == "const"))
 }

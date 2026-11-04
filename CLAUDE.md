@@ -376,13 +376,17 @@ edge. A proven site replaces earlier NameOnly or indirect records at that site, 
 method of an unrelated class becomes the Exact export; textual indirect records for the same member stand down for the one
 Source record).
 An anonymous or module-level caller (#597) is admitted by its own route (`src/js_anonymous/cjs.rs`, evidence
-`src/ast/js_cjs_anonymous.rs`, recorded in the proof index) only for a binding that is a direct top-level `const` statement
-of the program, never written, with the binding walk from the site reaching the program scope without another declaration
-of the name; the shapes are `m(..)`, `m.f(..)`, `f(..)` for `const f = require('./x').f`, and `f(..)` for
-`const { f } = require('./x')` / `{ k: f }` (a flat object pattern: no rest, default or nested entry). The producer proof
-is the one above, plus the anonymous boundary's supported-file-environment check. `let`/`var`, inline
-`require('./x').f(..)` and everything else keep the earlier outcome. Named callers are untouched, including the
-destructured route through the ESM-style member-import ladder.
+`src/ast/js_cjs_anonymous.rs`, recorded in the proof index) only for a binding that is a direct top-level `const` or
+`var` statement of the program (owner 2026-11-04 admitted `var`; `let` stays out), declared exactly once in the file (a
+second declaration of the name at program scope, or a `var` of it in a nested block, loop or `try` that hoists to program
+scope, is the binder's `duplicate_declaration`), never written anywhere in the file (compound assignment, `++`/`--`,
+destructuring targets, `for (m in/of ..)` heads and writes in nested functions make the binder answer `MayCall`), with the
+binding walk from the site reaching the program scope without another declaration of the name; a declarator in a
+multi-declarator statement (`var a = 1, m = require('./x')`) is judged on its own. The shapes are `m(..)`, `m.f(..)`,
+`f(..)` for `const f = require('./x').f`, and `f(..)` for `const { f } = require('./x')` / `{ k: f }` (a flat object
+pattern: no rest, default or nested entry). The producer proof is the one above, plus the anonymous boundary's
+supported-file-environment check. `let`, inline `require('./x').f(..)` and everything else keep the earlier outcome.
+Named callers are untouched, including the destructured route through the ESM-style member-import ladder.
 
 `--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
 `--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact

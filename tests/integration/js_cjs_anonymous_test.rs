@@ -5,7 +5,7 @@
 //!
 //! Row kinds: `admit` rows must resolve to the one Exact `import_member` edge the row names (they
 //! fail on main 40acf5e9); `refuse` rows pin main's literal outcome and must not carry an Exact
-//! `import_member` edge (the barrier: direct top-level `const`, never written, never shadowed,
+//! `import_member` edge (the barrier: direct top-level `const` or `var`, declared once, never written, never shadowed,
 //! unsupported file environments refuse); `control` rows pin main's outcome, which already holds
 //! (named owners, module-level shapes main binds).
 use super::js_relative_extension_test::graph;
