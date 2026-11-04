@@ -36,6 +36,11 @@ impl Producer {
         let mut labels = BTreeMap::new();
         let mut exact_labels = BTreeMap::new();
         let mut rd_function_stats = RdFileStats::default();
+        // Go's blank identifier has no stored value. Keep raw syntax for aliases
+        // and U/D proofs; admit only nonblank paths into DFG and RD collections.
+        let keep_path = |path: &AccessPath| {
+            parsed.language != crate::languages::Language::Go || path.base != "_"
+        };
 
         let function_nodes = parsed.all_functions();
         let member_refs = crate::ast::member_reference_index::MemberReferenceSearch::new(parsed);
@@ -174,10 +179,10 @@ impl Producer {
             // to preserve field isolation — a base-only Def would let taint on
             // `dev.name` leak to unrelated fields like `dev.id`.
             for (param_name, param_start_byte, param_end_byte) in &param_occurrences {
-                if refused_formals.contains(param_name.as_str()) {
+                let path = AccessPath::simple(param_name.clone());
+                if !keep_path(&path) || refused_formals.contains(param_name.as_str()) {
                     continue;
                 }
-                let path = AccessPath::simple(param_name.clone());
                 // Skip parameters only used via field access (e.g. `dev.name`)
                 // to preserve field isolation.
                 let use_kind = parsed.classify_parameter_use(&func_node, param_name);
@@ -235,22 +240,24 @@ impl Producer {
                     end_byte: span.end_byte,
                     kind: VarAccessKind::Def,
                 };
-                Self::push_rd_def(&mut rd_defs, &loc, false);
-                defs.entry((
-                    file_path.clone(),
-                    func_name.clone(),
-                    start,
-                    span.path.clone(),
-                ))
-                .or_default()
-                .push(loc.clone());
-                def_locs_by_occurrence
-                    .entry((
+                if keep_path(&span.path) {
+                    Self::push_rd_def(&mut rd_defs, &loc, false);
+                    defs.entry((
+                        file_path.clone(),
+                        func_name.clone(),
+                        start,
                         span.path.clone(),
-                        span.line,
-                        occurrence_byte(span.start_byte),
                     ))
-                    .or_insert(loc.clone());
+                    .or_default()
+                    .push(loc.clone());
+                    def_locs_by_occurrence
+                        .entry((
+                            span.path.clone(),
+                            span.line,
+                            occurrence_byte(span.start_byte),
+                        ))
+                        .or_insert(loc.clone());
+                }
 
                 // Phase 3: If this path's base is aliased, also register a def under
                 // the resolved path so edges connect through aliases.
@@ -271,7 +278,7 @@ impl Producer {
                     Self::resolve_path(&alias_map, &span.path)
                 };
                 if let Some(resolved) = twin {
-                    if resolved != span.path.clone() {
+                    if resolved != span.path.clone() && keep_path(&span.path) && keep_path(&resolved) {
                         let resolved_loc = VarLocation {
                             file: file_path.clone(),
                             function: func_name.clone(),
@@ -311,7 +318,7 @@ impl Producer {
                 }
                 if let Some(resolved_str) = alias_map.get(alias) {
                     let resolved_ap = AccessPath::from_expr(resolved_str);
-                    if resolved_ap.has_fields() {
+                    if resolved_ap.has_fields() && keep_path(&resolved_ap) {
                         let anchor = parsed.line_start_byte(*alias_line);
                         let loc = VarLocation {
                             file: file_path.clone(),
@@ -344,6 +351,7 @@ impl Producer {
             // anchors so CPG var-node dedup keeps the real span.
             let mut rvalue_spans =
                 parsed.rvalue_identifier_spans_on_lines(&func_node, &all_lines);
+            rvalue_spans.retain(|span| keep_path(&span.path));
             if synthetic {
                 // PR-B D9: new passes never count non-reference
                 // positions (keys, attribute/property names) as Uses.
@@ -448,6 +456,9 @@ impl Producer {
                 let mut emission = super::fallback_cap::Emission::new(&mut edges, counting);
                 let mut get_use =
                     |path: &AccessPath, ref_line: usize, allow: bool, admitted: (usize, usize)| {
+                        if !keep_path(path) {
+                            return None;
+                        }
                         if synthetic {
                             if refused_occurrence(path, admitted.0) {
                                 return None;
@@ -601,6 +612,9 @@ impl Producer {
                                 let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted) else {
                                     continue;
                                 };
+                                // Keep RHS reads and their legacy anchors, but a Go
+                                // blank write cannot define its alias target.
+                                if !keep_path(path) { continue; }
                                 let (def_start, def_end) = resolved_def_locs_by_occurrence
                                     .get(&(resolved.clone(), def_line, occurrence_byte(span.start_byte)))
                                     .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));

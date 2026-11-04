@@ -83,11 +83,21 @@ impl CodePropertyGraph {
                     continue;
                 };
 
-                let targets: Vec<NodeIndex> = assignment
+                let go_blank = |lhs: &crate::ast::PathSpan| {
+                    files
+                        .get(&caller_id.file)
+                        .is_some_and(|f| f.language == crate::languages::Language::Go)
+                        && lhs.path.base == "_"
+                };
+                let mut missing = false;
+                let targets: Vec<Option<NodeIndex>> = assignment
                     .lvalues
                     .iter()
-                    .filter_map(|lhs| {
-                        var_index
+                    .map(|lhs| {
+                        if go_blank(lhs) {
+                            return None;
+                        }
+                        let found = var_index
                             .get(&(
                                 caller_id.file.clone(),
                                 caller_id.name.clone(),
@@ -103,11 +113,17 @@ impl CodePropertyGraph {
                                     CpgNode::Variable { start_byte, end_byte, .. }
                                         if *start_byte == lhs.start_byte && *end_byte == lhs.end_byte
                                 )
-                            })
+                            });
+                        missing |= found.is_none();
+                        found
                     })
                     .collect();
-                if targets.len() != assignment.lvalues.len() {
+                if missing {
                     stats.return_flow_skipped_non_simple_lhs += 1;
+                    continue;
+                }
+                if targets.iter().all(|slot| slot.is_none()) {
+                    stats.return_flow_skipped_blank_lhs += 1;
                     continue;
                 }
 
@@ -135,7 +151,10 @@ impl CodePropertyGraph {
                         continue;
                     }
 
-                    for (value, &target) in ret.values.iter().zip(&targets) {
+                    for (value, target) in ret.values.iter().zip(&targets) {
+                        let Some(target) = *target else {
+                            continue;
+                        };
                         let simple_path = matches!(
                             value.kind.as_str(),
                             "identifier"

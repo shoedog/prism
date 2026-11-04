@@ -99,6 +99,7 @@ pub struct ReturnFlowStats {
     pub return_flow_skipped_multi: usize,
     pub return_flow_skipped_mixed: usize,
     pub return_flow_skipped_non_simple_lhs: usize,
+    pub return_flow_skipped_blank_lhs: usize,
     pub return_flow_skipped_arity_mismatch: usize,
     pub return_flow_skipped_named_return: usize,
     pub return_flow_skipped_forwarded_return: usize,

@@ -190,6 +190,8 @@ fn go_fold_r1_complete_receipts() {
     assert_eq!(expected.len(), base.len());
     let mut failures = Vec::new();
     for (before, expected) in base.iter().zip(expected) {
+        let before = super::go_blank_test::expected_without_blank_twins(before.clone());
+        let expected = super::go_blank_test::expected_without_blank_twins(expected);
         let file = before["file"].as_str().unwrap();
         let actual = super::go_branches_test::snapshot(&root().join(file));
         for key in ["edges", "statements", "availability"] {

@@ -308,6 +308,7 @@ vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_n
 
 For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
 write-only use (U) or a dominating unconditional write in a single-entry region (D).
+Go paths whose base is exactly `_` contribute no DataFlow definitions, uses, edges or alias-twin definitions; RHS reads remain, and other languages retain `_` as an ordinary name. Kept edges can change label where a removed blank twin had collapsed a line (`r, _, err := f()` with `_ = err` elsewhere), besides RD availability; where that line is an `if`/`switch` header whose initializer declares the name, the restored label can be a false `exact` (line-granular header RD, #662). Step 5c treats a Go `_` lvalue as a positional hole: no ReturnFlow into it, the other slots keep theirs, and an all-blank site counts in `return_flow_skipped_blank_lhs`.
 U removes even `exact` pairs into pure writes and mints no anchor Use on a write-only line.
 A Go statement label between that write and the use disables that D proof. D preserves
 nested callable definitions and reads. Field paths are compared as fixed storage; pointer identity
@@ -318,7 +319,7 @@ unlabeled Go break/continue edges. Go expression/type switches and selects dispa
 through case-value/communication anchors, normal arms exit without sibling fallthrough,
 and else-if false branches enter the nested condition. Blocking selects have no unselected exit.
 The fallback cap counts U/D survivors, including duplicates. Per the owner decision, an owner
-formerly capped before pruning can regain its surviving edges when pruning brings it within the cap.
+formerly capped before pruning can regain its surviving edges when pruning brings it within the cap; this includes a function just over 1,000,000 candidates that falls under it once Go blank candidates are gone and then emits its real edges (the same rule as #634: the cap counts survivors, owner-accepted).
 The additive `dfg_pruned_write_only`, `dfg_pruned_scope`, `dfg_pruned_dominated`, and
 `dfg_pruned_order` counters persist through cache hits and appear in both stats commands;
 scope and order remain zero until their later slices ship. Prune counters count skipped
@@ -381,7 +382,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v139) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v142) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

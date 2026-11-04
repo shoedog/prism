@@ -10,6 +10,7 @@ mod dfg_label_test;
 mod dfg_prune_test;
 mod dfg_test;
 mod field_test;
+mod go_blank_test;
 mod go_branches_test;
 mod go_fold_r1_test;
 mod go_fold_r2_test;
