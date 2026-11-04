@@ -742,6 +742,7 @@ fn call_stats_emits_one_return_flow_subobject_with_all_custody_counters() {
             "return_flow_skipped_multi": 0,
             "return_flow_skipped_mixed": 0,
             "return_flow_skipped_non_simple_lhs": 0,
+            "return_flow_skipped_blank_lhs": 0,
             "return_flow_skipped_arity_mismatch": 0,
             "return_flow_skipped_named_return": 0,
             "return_flow_skipped_forwarded_return": 0,

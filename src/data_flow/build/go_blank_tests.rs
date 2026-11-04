@@ -141,3 +141,23 @@ fn go_blank_fallback_survivor_boundary() {
     );
     assert_eq!(admitted.labels, actual.labels);
 }
+
+/// A removed blank-write alias twin of `err` had put a second RD def on the line that
+/// defines `err`, collapsing that line to `NameOnly(SameLine)`; the kept edge is Exact now.
+#[test]
+fn go_blank_twin_no_longer_collapses_defining_line() {
+    let source = "package p\nfunc f() (int, int, error) { return 0, 0, nil }\n\
+func g() {\n r, _, err := f()\n _ = err\n use(r)\n use(err)\n}\n";
+    let parts = refs(source, None);
+    let mut seen = 0;
+    for ((from, to), label) in &parts.labels {
+        if from.path.base == "err" && from.line == 4 && to.line == 7 {
+            seen += 1;
+            assert_eq!(*label, FlowConfidence::Exact, "{from:?} {to:?}");
+        }
+        if from.path.base == "r" && from.line == 4 {
+            assert_eq!(*label, FlowConfidence::Exact, "{from:?} {to:?}");
+        }
+    }
+    assert!(seen >= 1, "expected an err def->use edge");
+}
