@@ -285,7 +285,8 @@ mod stream;
 /// - v140: Go goto and labeled/unlabeled break/continue CFG reaching labels.
 /// - v141: Go switch/select dispatch, case-value anchors and else-if entry.
 /// - v142: Go blank identifier paths contribute no DFG definitions, uses or edges.
-const CACHE_VERSION: u32 = 142;
+/// - v143: anonymous-site CommonJS `require` evidence in the proof index (#597); admits `var` bindings and the flat-pattern helper's unique-name rule.
+const CACHE_VERSION: u32 = 143;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -836,7 +837,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 142);
+        assert_eq!(super::CACHE_VERSION, 143);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

@@ -370,11 +370,19 @@ also refused when the consumer file writes `m.f`, any `m[..]`, or passes `m` fir
 `defineProperties`/`setPrototypeOf` or `Reflect.set`/`defineProperty`/`deleteProperty`/`setPrototypeOf` (file-wide, by
 spelling: a consumer-side stub; this is a partial guard, and other mutation routes such as an alias `n = m; n.f = …`,
 `with (m)`, re-acquisition through `require`, reflective or computed mutator calls, or passing `m` to a function stay
-under the runtime-mutation rule above); anything else, anonymous or module-level callers (#597), anonymous exports, class
+under the runtime-mutation rule above); anything else, anonymous exports, class
 exports, `exports.default` (not the module value), ESM producers and `new m()` keeps the earlier outcome with no new
 edge. A proven site replaces earlier NameOnly or indirect records at that site, as slice L does (an R6 single-owner
 method of an unrelated class becomes the Exact export; textual indirect records for the same member stand down for the one
 Source record).
+An anonymous or module-level caller (#597) is admitted by its own route (`src/js_anonymous/cjs.rs`, evidence
+`src/ast/js_cjs_anonymous.rs`, recorded in the proof index) only for a binding that is a direct top-level `const` statement
+of the program, never written, with the binding walk from the site reaching the program scope without another declaration
+of the name; the shapes are `m(..)`, `m.f(..)`, `f(..)` for `const f = require('./x').f`, and `f(..)` for
+`const { f } = require('./x')` / `{ k: f }` (a flat object pattern: no rest, default or nested entry). The producer proof
+is the one above, plus the anonymous boundary's supported-file-environment check. `let`/`var`, inline
+`require('./x').f(..)` and everything else keep the earlier outcome. Named callers are untouched, including the
+destructured route through the ESM-style member-import ladder.
 
 `--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
 `--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact
@@ -382,7 +390,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v142) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v143) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

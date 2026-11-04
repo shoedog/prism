@@ -35,6 +35,7 @@ mod js_binding_site;
 mod js_binding_values;
 mod js_binding_walk;
 mod js_binding_writes;
+mod js_cjs_anonymous;
 mod js_cjs_export_barriers;
 mod js_cjs_member_writes;
 mod js_cjs_module_calls;
