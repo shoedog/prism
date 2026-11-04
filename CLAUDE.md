@@ -308,7 +308,7 @@ vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_n
 
 For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
 write-only use (U) or a dominating unconditional write in a single-entry region (D).
-Go paths whose base is exactly `_` contribute no DataFlow definitions, uses, edges or alias-twin definitions; RHS reads remain, and other languages retain `_` as an ordinary name. Kept edges can change label where a removed blank twin had collapsed a line (`r, _, err := f()` with `_ = err` elsewhere), besides RD availability. Step 5c treats a Go `_` lvalue as a positional hole: no ReturnFlow into it, the other slots keep theirs, and an all-blank site counts in `return_flow_skipped_blank_lhs`.
+Go paths whose base is exactly `_` contribute no DataFlow definitions, uses, edges or alias-twin definitions; RHS reads remain, and other languages retain `_` as an ordinary name. Kept edges can change label where a removed blank twin had collapsed a line (`r, _, err := f()` with `_ = err` elsewhere), besides RD availability; where that line is an `if`/`switch` header whose initializer declares the name, the restored label can be a false `exact` (line-granular header RD, #662). Step 5c treats a Go `_` lvalue as a positional hole: no ReturnFlow into it, the other slots keep theirs, and an all-blank site counts in `return_flow_skipped_blank_lhs`.
 U removes even `exact` pairs into pure writes and mints no anchor Use on a write-only line.
 A Go statement label between that write and the use disables that D proof. D preserves
 nested callable definitions and reads. Field paths are compared as fixed storage; pointer identity
