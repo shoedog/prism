@@ -1,12 +1,12 @@
 //! #597: a module-scope CommonJS `require` binding called from an anonymous callable. The variant
 //! matrix lives in `tests/fixtures/js_cjs_anonymous/matrix.jsonl`, one row per line: the producer
-//! (`m.js`), the consumer (`app.js` unless `consumer_file` says otherwise), the callee spelling and
+//! (`m.js` unless `producer_file` says otherwise), the consumer (`app.js` unless `consumer_file` says otherwise), the callee spelling and
 //! the outcome of the call sites of that callee in the consumer.
 //!
 //! Row kinds: `admit` rows must resolve to the one Exact `import_member` edge the row names (they
-//! fail on main 40acf5e9); `refuse` rows pin main's literal outcome and must not carry an Exact
-//! `import_member` edge (the barrier: direct top-level `const` or `var`, declared once, never written, never shadowed,
-//! unsupported file environments refuse); `control` rows pin main's outcome, which already holds
+//! fail on the base fec901a4); `refuse` rows pin main's literal outcome and must not carry an Exact
+//! `import_member` edge (the barrier: direct top-level `const` or `var`, declared once in the resolved
+//! program scope, no write resolving to it, never shadowed, unsupported file environments refuse); `control` rows pin main's outcome, which already holds
 //! (named owners, module-level shapes main binds).
 use super::js_relative_extension_test::graph;
 use prism::call_graph::CallGraph;
@@ -21,6 +21,7 @@ struct Row {
     callee: String,
     expect: Vec<String>,
     consumer_file: Option<String>,
+    producer_file: Option<String>,
     extra: Option<Vec<(String, String)>>,
 }
 
@@ -68,8 +69,9 @@ fn variant_matrix_holds() {
     assert!(all.len() >= 300, "matrix shrank to {} rows", all.len());
     for row in &all {
         let file = row.consumer_file.as_deref().unwrap_or("app.js");
+        let producer = row.producer_file.as_deref().unwrap_or("m.js");
         let mut files: Vec<(&str, &str)> = vec![
-            ("m.js", row.producer.as_str()),
+            (producer, row.producer.as_str()),
             (file, row.consumer.as_str()),
         ];
         for (path, src) in row.extra.iter().flatten() {

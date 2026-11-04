@@ -19,7 +19,7 @@ use tree_sitter::Node;
 
 impl ParsedFile {
     /// For the `call_expression` `call`: the module and member its callee takes from a
-    /// top-level `const` CommonJS `require`, or `None` wherever the barrier does not hold.
+    /// top-level `const` or `var` CommonJS `require`, or `None` wherever the barrier does not hold.
     /// (`member`: `None` is the module value itself.)
     pub(crate) fn js_ts_cjs_anonymous_require<'a>(
         &'a self,
@@ -127,32 +127,10 @@ impl ParsedFile {
             .filter(|p| p.kind() == "object_pattern")?;
         let module_path =
             self.js_ts_cjs_require_literal(decl.child_by_field_name("value")?, cache)?;
-        let mut key = None;
-        let mut cursor = pattern.walk();
-        for entry in pattern.named_children(&mut cursor) {
-            let (local, entry_key) = match entry.kind() {
-                "comment" => continue,
-                "shorthand_property_identifier_pattern" => {
-                    (self.node_text(&entry), self.node_text(&entry))
-                }
-                "pair_pattern" => {
-                    let k = entry.child_by_field_name("key")?;
-                    let v = entry.child_by_field_name("value")?;
-                    if k.kind() != "property_identifier" || v.kind() != "identifier" {
-                        return None;
-                    }
-                    (self.node_text(&v), self.node_text(&k))
-                }
-                // A rest element, a default or a nested pattern: not a flat member import.
-                _ => return None,
-            };
-            if local == name {
-                if key.replace(entry_key.to_owned()).is_some() {
-                    return None;
-                }
-            }
-        }
-        key.map(|k| (module_path, Some(k)))
+        // The existing whole-pattern admission (`js_binding_alias.rs`): flat entries only, every
+        // bound name unique in the pattern, exactly one entry binds `name`.
+        let key = self.js_ts_object_pattern_key(pattern, name)?;
+        Some((module_path, Some(key)))
     }
 }
 

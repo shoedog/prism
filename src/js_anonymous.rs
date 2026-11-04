@@ -54,7 +54,7 @@ struct BindingEvidence {
     binding: JsLocalBinding,
     dependencies_supported: bool,
     imports: Vec<ImportEvidence>,
-    /// #597: the site's callee is a top-level `const` CommonJS `require` binding.
+    /// #597: the site's callee is a top-level `const` or `var` CommonJS `require` binding.
     cjs: Option<cjs::CjsRequire>,
 }
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

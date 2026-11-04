@@ -1,15 +1,23 @@
 //! #597: anonymous callables calling a module-scope CommonJS `require` binding.
 //!
 //! The consumer half is evidence recorded with the site (`js_ts_cjs_anonymous_require`: a direct
-//! top-level `const`, never written, not shadowed between the site and the program scope, one
-//! plain relative literal). The producer half is the proof `resolution_js_cjs.rs` gives named
-//! callers (export-object barrier, terminal proof, no ESM export). The anonymous boundary adds
-//! its own requirement that the producer's file environment is supported (no `with`, `eval`,
-//! escaped identifiers or parse errors, and the same for the files it re-exports through).
-//! Anything short of that returns `None` and the site resolves exactly as before this route.
+//! top-level `const` or `var`, declared once in the resolved program scope, with no write
+//! resolving to that binding, not shadowed between the site and the program scope, one plain
+//! relative literal). The producer half is the proof `resolution_js_cjs.rs` gives named callers
+//! (export-object barrier, terminal proof, no ESM export). The anonymous boundary adds its own
+//! requirement that the producer's file environment is supported (no `with`, `eval`, escaped
+//! identifiers or parse errors, nested `import =`, and the same for the files it re-exports
+//! through).
+//!
+//! The route answers only with a certificate: whenever one cannot be issued it returns `None`,
+//! so the site continues down the existing ladder and keeps its earlier outcome. Returning the
+//! uncertified producer outcome would make `admit_anonymous_exact` demote it to a NameOnly
+//! `import_member` edge, a grade the earlier ladder never gave the site. The producer-environment
+//! check below is therefore redundant with the target-owner check (`anonymous_target_supported`)
+//! and is kept as defence in depth.
 use super::*;
 
-/// What an anonymous site takes from a top-level `const` CommonJS `require`.
+/// What an anonymous site takes from a top-level `const` or `var` CommonJS `require`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct CjsRequire {
     module_path: String,
@@ -48,18 +56,20 @@ impl CallGraph {
             &site.caller.file,
         )?;
         outcome.via_alias_route = true;
-        if let [one] = outcome.resolved.as_slice() {
-            if one.confidence == ResolutionConfidence::Exact
-                && self.anonymous_target_supported(one.target)
-            {
-                outcome.anonymous_certificate = Some(Certificate {
-                    site: site.clone(),
-                    target: one.target.clone(),
-                    evidence: proof.clone(),
-                    export: None,
-                });
-            }
+        let [one] = outcome.resolved.as_slice() else {
+            return None;
+        };
+        if one.confidence != ResolutionConfidence::Exact
+            || !self.anonymous_target_supported(one.target)
+        {
+            return None;
         }
+        outcome.anonymous_certificate = Some(Certificate {
+            site: site.clone(),
+            target: one.target.clone(),
+            evidence: proof.clone(),
+            export: None,
+        });
         Some(outcome)
     }
 }
