@@ -2,7 +2,6 @@
 //! requires proof; the finding set never changes.
 
 use super::taint_sink_strength_test::*;
-use crate::common::*;
 
 #[test]
 fn python_round_1_folds() {

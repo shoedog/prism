@@ -239,6 +239,120 @@
       "let render = list.len() == 4 && matches!(recv, Recv::Value);",
       "algorithms::taint_sinks::tests::go_context_html_rule_names"
     ],
+    "SR53-pymod-pexpect-table-dropped": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(\"pexpect\", \"spawn\" | \"spawnu\" | \"run\" | \"runu\") => true,",
+      "(\"pexpect\", \"spawn\" | \"spawnu\" | \"run\" | \"runu\") => false,",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR54-pymod-paramiko-method-dropped": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(Kind::Ssh, \"exec_command\") => Some((COMMAND, false)),",
+      "(Kind::Ssh, \"exec_command\") => None,",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR55-pymod-sandbox-not-weak": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(Kind::Sandbox, \"from_string\") => Some((TEMPLATE, true)),",
+      "(Kind::Sandbox, \"from_string\") => Some((TEMPLATE, false)),",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR56-pymod-import-member-path-inverted": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "Some(if member.is_empty() {",
+      "Some(if !member.is_empty() {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR57-pymod-task-param-without-task": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "is_task_param(p, f, recv, name).then_some(Kind::Conn)",
+      "Some(Kind::Conn)",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR58-pymod-task-first-param-unchecked": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "&& names.first() == Some(&name)",
+      "&& true",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR59-pymod-lambda-not-searched-as-enclosing-scope": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if matches!(n.kind(), \"lambda\" | \"function_definition\") {",
+      "if matches!(n.kind(), \"function_definition\") {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR60-pymod-any-decorator-is-task": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "found |= path_of(p, f, e).is_some_and(|path| TASK_PATHS.contains(&path.as_str()));",
+      "found |= path_of(p, f, e).is_some();",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR61-pymod-for-target-counts-as-with-as": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "a.kind() == \"as_pattern\" && a.parent().is_some_and(|w| w.kind() == \"with_item\")",
+      "true",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR62-pymod-zero-arg-call-fires": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if args(c.call).is_empty() {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR63-pymod-hook-dropped": [
+      "src/algorithms/taint_sinks/python.rs",
+      "if let Some(hit) = super::py_modules::classify(p, facts, &c) {",
+      "if let Some(hit) = None::<SinkHit> {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR64-pymod-star-import-ignored-for-names": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if scope.kind() == \"module\" && f.wildcards.iter().any(|w| w != m) {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR65-pymod-star-import-ignored-for-locals": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "(scope.kind() == \"module\" && !f.wildcards.is_empty())",
+      "false",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR66-pymod-comprehension-reaches-class-body": [
+      "src/algorithms/taint_sinks/py_scope.rs",
+      "if s.kind() == \"class_definition\" && in_comp && !crossed {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR67-pymod-literal-template-fires": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if (rule, cwe) == TEMPLATE && !template_source_is_dynamic(p, c) {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR68-pymod-constructor-receiver-dropped": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if recv.kind() == \"call\" {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_fire_on_proven_identity"
+    ],
+    "SR69-pymod-fabric1-task-is-a-task": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "\"fabric.task\",",
+      "\"fabric.task\", \"fabric.api.task\",",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR70-pymod-conflicting-imports-accepted": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "if first.is_some_and(|(fm, fx)| (fm, fx) != (m, x)) {",
+      "if false {",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
+    "SR71-pymod-scope-agnostic-import": [
+      "src/algorithms/taint_sinks/py_modules.rs",
+      "let Bound::Import(m, x) = b else { return None };",
+      "let Bound::Import(m, x) = b else { continue };",
+      "algorithms::taint_sinks::tests_py_modules::python_module_tables_stay_silent_without_proof"
+    ],
     "SR42-js-module-member-api-gate-dropped": [
       "src/algorithms/taint_sinks/js_modules.rs",
       "Some(r) => (FS_API.contains(&text) && is_module(p, r, FS_MODULES, 0)).then_some(text),",
@@ -305,143 +419,155 @@
       "Some(api)",
       "algorithms::taint_sinks::tests::js_module_fs_requires_proof"
     ],
-    "SR64-js-binding-hoisting-dropped": [
+    "SR72-js-binding-hoisting-dropped": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "hoisted(p, body, name, out);",
       "let _ = body;",
       "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
     ],
-    "SR65-js-binding-catch-param-dropped": [
+    "SR73-js-binding-catch-param-dropped": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "\"catch_clause\" => {",
       "\"catch_clause_x\" => {",
       "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
     ],
-    "SR66-js-binding-for-in-head-dropped": [
+    "SR74-js-binding-for-in-head-dropped": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "matches!(p.node_text(&k), \"let\" | \"const\")",
       "matches!(p.node_text(&k), \"never\")",
       "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
     ],
-    "SR67-js-binding-for-head-dropped": [
+    "SR75-js-binding-for-head-dropped": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "if init.kind() == \"lexical_declaration\" {",
       "if false {",
       "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
     ],
-    "SR68-js-binding-switch-case-dropped": [
+    "SR76-js-binding-switch-case-dropped": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "\"switch_body\" => {",
       "\"switch_body_x\" => {",
       "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
     ],
-    "SR69-js-binding-param-default-pattern-dropped": [
+    "SR77-js-binding-param-default-pattern-dropped": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "\"assignment_pattern\" | \"object_assignment_pattern\" => n",
       "\"assignment_pattern_x\" | \"object_assignment_pattern_x\" => n",
       "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
     ],
-    "SR70-js-binding-write-scope-ignored": [
+    "SR78-js-binding-write-scope-ignored": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "Lookup::Sole { scope: s, .. } => s.id() == scope.id(),",
       "Lookup::Sole { .. } => true,",
       "algorithms::taint_sinks::tests_js_modules::js_binding_sole_binding_and_writes"
     ],
-    "SR71-js-binding-type-specifier-ignored": [
+    "SR79-js-binding-type-specifier-ignored": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "s.kind() == \"import_specifier\" && has_type(s)",
       "false",
       "algorithms::taint_sinks::tests_js_modules::js_binding_type_only_imports"
     ],
-    "SR72-js-binding-type-statement-ignored": [
+    "SR80-js-binding-type-statement-ignored": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "return has_type(n);",
       "return false;",
       "algorithms::taint_sinks::tests_js_modules::js_binding_type_only_imports"
     ],
-    "SR73-js-module-promises-import-unchecked": [
+    "SR81-js-module-promises-import-unchecked": [
       "src/algorithms/taint_sinks/js_modules.rs",
       "p.node_text(&orig) == \"promises\"\n                    &&",
       "true\n                    &&",
       "algorithms::taint_sinks::tests_js_modules::js_module_promises_branches"
     ],
-    "SR74-js-module-promises-destructured-unchecked": [
+    "SR82-js-module-promises-destructured-unchecked": [
       "src/algorithms/taint_sinks/js_modules.rs",
       "key.is_some_and(|k| p.node_text(&k) == \"promises\")",
       "key.is_some()",
       "algorithms::taint_sinks::tests_js_modules::js_module_promises_branches"
     ],
-    "SR75-js-module-promises-member-unchecked": [
+    "SR83-js-module-promises-member-unchecked": [
       "src/algorithms/taint_sinks/js_modules.rs",
       ".is_some_and(|prop| p.node_text(&prop) == \"promises\")",
       ".is_some()",
       "algorithms::taint_sinks::tests_js_modules::js_module_promises_branches"
     ],
-    "SR76-js-module-node-ssh-destructured-key-unchecked": [
+    "SR84-js-module-node-ssh-destructured-key-unchecked": [
       "src/algorithms/taint_sinks/js_modules.rs",
       "key.is_some_and(|k| p.node_text(&k) == \"NodeSSH\")",
       "key.is_some()",
       "algorithms::taint_sinks::tests_js_modules::js_module_node_ssh_constructors"
     ],
-    "SR77-js-module-document-chain-any-root": [
+    "SR85-js-module-document-chain-any-root": [
       "src/algorithms/taint_sinks/js_modules.rs",
       "[\"document\"] | [\"window\" | \"globalThis\", \"document\"]",
       "[\"document\"] | [_, \"document\"]",
       "algorithms::taint_sinks::tests_js_modules::js_module_document_chain_and_case"
     ],
-    "SR78-js-module-fs-new-call-fires": [
+    "SR86-js-module-fs-new-call-fires": [
       "src/algorithms/taint_sinks/js_modules.rs",
       "    if c.is_new {\n        return None;\n    }\n    let api",
       "    let api",
       "algorithms::taint_sinks::tests_js_modules::js_module_fs_call_shape_gates"
     ],
-    "SR79-js-module-insert-html-case-exact": [
+    "SR87-js-module-insert-html-case-exact": [
       "src/algorithms/taint_sinks/js_modules.rs",
       "s.eq_ignore_ascii_case(\"insertHTML\")",
       "s == \"insertHTML\"",
       "algorithms::taint_sinks::tests_js_modules::js_module_document_chain_and_case"
     ],
-    "SR80-js-module-literal-path-fires": [
+    "SR88-js-module-literal-path-fires": [
       "src/algorithms/taint_sinks/js_modules.rs",
       ".any(|a| literal_string(p, *a).is_none())",
       ".any(|_| true)",
       "algorithms::taint_sinks::tests_js_modules::js_module_fs_call_shape_gates"
     ],
-    "SR81-js-module-two-path-ignored": [
+    "SR89-js-module-two-path-ignored": [
       "src/algorithms/taint_sinks/js_modules.rs",
       "let n = if TWO_PATH_API.contains(&api) { 2 } else { 1 };",
       "let n = 1;",
       "algorithms::taint_sinks::tests_js_modules::js_module_fs_call_shape_gates"
     ],
-    "SR82-js-module-node-ssh-member-name-unchecked": [
+    "SR90-js-module-node-ssh-member-name-unchecked": [
       "src/algorithms/taint_sinks/js_modules.rs",
       ".is_some_and(|prop| p.node_text(&prop) == \"NodeSSH\")",
       ".is_some()",
       "algorithms::taint_sinks::tests_js_modules::js_module_node_ssh_constructors"
     ],
-    "SR83-js-module-node-ssh-default-require-dropped": [
+    "SR91-js-module-node-ssh-default-require-dropped": [
       "src/algorithms/taint_sinks/js_modules.rs",
       "load_of(p, i).is_some_and(|m| NODE_SSH.contains(&m))",
       "false",
       "algorithms::taint_sinks::tests_js_modules::js_module_node_ssh_constructors"
     ],
-    "SR84-js-binding-increment-write-ignored": [
+    "SR92-js-binding-increment-write-ignored": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "\"update_expression\" => n.child_by_field_name(\"argument\"),",
       "\"update_expression\" => None,",
       "algorithms::taint_sinks::tests_js_modules::js_binding_sole_binding_and_writes"
     ],
-    "SR85-js-binding-for-of-write-ignored": [
+    "SR93-js-binding-for-of-write-ignored": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "\"for_in_statement\" if n.child_by_field_name(\"kind\").is_none() => {",
       "\"for_in_statement\" if false => {",
       "algorithms::taint_sinks::tests_js_modules::js_binding_sole_binding_and_writes"
     ],
-    "SR86-js-binding-function-param-dropped": [
+    "SR94-js-binding-function-param-dropped": [
       "src/algorithms/taint_sinks/js_binding.rs",
       "out.push(Binding::Param { annotation: None });",
       "let _ = &out;",
       "algorithms::taint_sinks::tests_js_modules::js_binding_scopes_shadow_the_module"
+    ],
+    "SR95-js-binding-class-expression-name-dropped": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "\"class\" => {",
+      "\"class_x\" => {",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_class_name_with_and_first_impostor"
+    ],
+    "SR96-js-binding-with-body-ignored": [
+      "src/algorithms/taint_sinks/js_binding.rs",
+      "if scope.kind() == \"with_statement\"",
+      "if false && scope.kind() == \"with_statement\"",
+      "algorithms::taint_sinks::tests_js_modules::js_binding_class_name_with_and_first_impostor"
     ]
   }
 }

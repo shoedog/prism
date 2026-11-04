@@ -11,7 +11,6 @@
 //! D3: local name resolution is capped at 8 hops.
 
 use super::taint_sink_strength_test::*;
-use crate::common::*;
 
 #[test]
 fn reviewer_rows_round_1_and_2() {

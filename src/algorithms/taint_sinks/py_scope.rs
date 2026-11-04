@@ -554,3 +554,57 @@ pub(super) fn local_binding<'t>(
     }
     Local::Unbound
 }
+
+/// Every binding of `name` in the nearest enclosing scope that binds it, with that scope (#637 A2).
+pub(super) enum Scoped<'t> {
+    /// Bound in no enclosing scope visible from the use.
+    Unbound,
+    /// The lookup cannot be decided: a `global` / `nonlocal` name, or a comprehension reaching
+    /// into a class body (class scope is not visible to the comprehension's own body).
+    Refused,
+    Found(Node<'t>, Vec<Bound<'t>>),
+}
+
+/// Like `local_binding`, but returns all bindings of the selected scope and refuses a lookup
+/// that crosses a comprehension into a class body.
+pub(super) fn scope_bindings<'t>(
+    p: Src<'_>,
+    sites: &Sites,
+    from: Node<'t>,
+    name: &str,
+) -> Scoped<'t> {
+    if sites.0.get(name).is_some_and(|s| s.declared) {
+        return Scoped::Refused;
+    }
+    let (mut crossed, mut in_comp) = (false, false);
+    let mut cur = from.parent();
+    while let Some(s) = cur {
+        let scoped = match s.kind() {
+            "function_definition" | "lambda" => Some(true),
+            "class_definition" | "module" => Some(false),
+            "list_comprehension"
+            | "set_comprehension"
+            | "dictionary_comprehension"
+            | "generator_expression" => {
+                in_comp = true;
+                Some(false)
+            }
+            _ => None,
+        };
+        if let Some(is_fn) = scoped {
+            let hidden_class = s.kind() == "class_definition" && crossed;
+            if s.kind() == "class_definition" && in_comp && !crossed {
+                return Scoped::Refused;
+            }
+            if !hidden_class {
+                let found = scan_scope(p, s, name);
+                if !found.is_empty() {
+                    return Scoped::Found(s, found);
+                }
+            }
+            crossed |= is_fn;
+        }
+        cur = s.parent();
+    }
+    Scoped::Unbound
+}
