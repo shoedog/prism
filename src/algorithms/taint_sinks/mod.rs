@@ -22,6 +22,8 @@ mod callee;
 mod go;
 mod go_scope;
 mod js;
+mod js_binding;
+mod js_modules;
 mod js_scope;
 mod legacy;
 mod py_modules;
@@ -149,4 +151,5 @@ impl SinkClassifier {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_js_modules;
 mod tests_py_modules;

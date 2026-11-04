@@ -5,7 +5,7 @@
 //! nearest enclosing declaration, so a parameter or inner `const` that shadows a
 //! file-level binding wins, instead of a file-wide name table.
 
-use super::callee::{peel, Src};
+use super::callee::{binding_scope, count_idents, peel, walk, Src};
 use tree_sitter::Node;
 
 /// What the nearest declaration of a name is.
@@ -199,7 +199,7 @@ fn in_block<'t>(p: Src<'_>, block: Node<'t>, name: &str) -> Option<Binding<'t>> 
     None
 }
 
-fn in_declarator<'t>(p: Src<'_>, decl: Node<'t>, name: &str) -> Option<Binding<'t>> {
+pub(super) fn in_declarator<'t>(p: Src<'_>, decl: Node<'t>, name: &str) -> Option<Binding<'t>> {
     let target = decl.child_by_field_name("name")?;
     let value = decl.child_by_field_name("value");
     match target.kind() {
@@ -236,7 +236,7 @@ fn in_declarator<'t>(p: Src<'_>, decl: Node<'t>, name: &str) -> Option<Binding<'
     }
 }
 
-fn in_import<'t>(p: Src<'_>, stmt: Node<'t>, name: &str) -> Option<Binding<'t>> {
+pub(super) fn in_import<'t>(p: Src<'_>, stmt: Node<'t>, name: &str) -> Option<Binding<'t>> {
     let mut cursor = stmt.walk();
     let children: Vec<Node<'t>> = stmt.named_children(&mut cursor).collect();
     let source = stmt
@@ -297,4 +297,30 @@ fn in_import<'t>(p: Src<'_>, stmt: Node<'t>, name: &str) -> Option<Binding<'t>> 
         }
     }
     None
+}
+
+/// How many declarations of `name` (declarators, parameters, catch parameters) the scope that holds
+/// `decl` contains; 1 means the declaration read from `from` is the only binding of the name.
+pub(super) fn declarator_count(p: Src<'_>, from: Node<'_>, decl: Node<'_>, name: &str) -> usize {
+    let mut declarators = 0;
+    walk(binding_scope(from, decl), &mut |n| match n.kind() {
+        "variable_declarator" => {
+            if let Some(target) = n.child_by_field_name("name") {
+                declarators += count_idents(p, target, name);
+            }
+        }
+        "formal_parameters" => declarators += count_idents(p, n, name),
+        "catch_clause" => {
+            if let Some(param) = n.child_by_field_name("parameter") {
+                declarators += count_idents(p, param, name);
+            }
+        }
+        "arrow_function" => {
+            if let Some(single) = n.child_by_field_name("parameter") {
+                declarators += count_idents(p, single, name);
+            }
+        }
+        _ => {}
+    });
+    declarators
 }
