@@ -152,4 +152,5 @@ impl SinkClassifier {
 mod tests;
 #[cfg(test)]
 mod tests_js_modules;
+#[cfg(test)]
 mod tests_py_modules;
