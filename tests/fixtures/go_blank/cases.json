@@ -1,0 +1,230 @@
+[
+  {
+    "name": "discard_call",
+    "file": "discard_call.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\n_ = f()\n_ = f()\n}\n"
+  },
+  {
+    "name": "short_declaration",
+    "file": "short_declaration.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\n_, err := f()\n_, err = f()\nsink(err)\n}\n"
+  },
+  {
+    "name": "multi_assignment",
+    "file": "multi_assignment.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\nx, _ = f()\nx, _ = f()\nsink(x)\n}\n"
+  },
+  {
+    "name": "range_value",
+    "file": "range_value.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(xs []int) {\nfor _, v := range xs {\nsink(v)\n}\n}\n"
+  },
+  {
+    "name": "range_assignment",
+    "file": "range_assignment.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(xs []int) {\nfor _ = range xs {\nsink(xs)\n}\n}\n"
+  },
+  {
+    "name": "range_map",
+    "file": "range_map.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(m map[int]int) {\nfor k, _ := range m {\nsink(k)\n}\n}\n"
+  },
+  {
+    "name": "range_both_assignment",
+    "file": "range_both_assignment.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(xs []int) {\nfor _, _ = range xs {\nsink(xs)\n}\n}\n"
+  },
+  {
+    "name": "select_assignment",
+    "file": "select_assignment.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(ch chan int) {\nselect {\ncase _ = <-ch:\nsink(ch)\ncase _ = <-ch:\nsink(ch)\n}\n}\n"
+  },
+  {
+    "name": "select_declaration",
+    "file": "select_declaration.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(ch chan int) {\nselect {\ncase _, ok := <-ch:\nsink(ok)\ncase _, ok := <-ch:\nsink(ok)\n}\n}\n"
+  },
+  {
+    "name": "var_inferred",
+    "file": "var_inferred.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\nvar _ = x\nvar _ = x\nsink(x)\n}\n"
+  },
+  {
+    "name": "var_typed",
+    "file": "var_typed.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\nvar _ int = x\nvar _ int = x\nsink(x)\n}\n"
+  },
+  {
+    "name": "var_grouped",
+    "file": "var_grouped.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\nvar (\n_ = x\na, _ = f()\n)\nsink(a)\n}\n"
+  },
+  {
+    "name": "const_iota",
+    "file": "const_iota.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\nconst (\n_ = iota\na\n_\nb\n)\nsink(a, b)\n}\n"
+  },
+  {
+    "name": "package_assertion",
+    "file": "package_assertion.go",
+    "language": "Go",
+    "source": "package p\ntype I interface { M() }\ntype T struct{}\nvar _ I = (*T)(nil)\nvar _ = x\nconst _ = iota\nfunc sample(x int) {\nsink(x)\n}\n"
+  },
+  {
+    "name": "parameter",
+    "file": "parameter.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(_ int, x int) {\nsink(x)\n_ = x\n}\n"
+  },
+  {
+    "name": "grouped_parameter",
+    "file": "grouped_parameter.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(_, x int) {\nsink(x)\n_ = x\n}\n"
+  },
+  {
+    "name": "variadic_parameter",
+    "file": "variadic_parameter.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int, _ ...int) {\nsink(x)\n_ = x\n}\n"
+  },
+  {
+    "name": "receiver",
+    "file": "receiver.go",
+    "language": "Go",
+    "source": "package p\ntype T int\nfunc (_ T) sample(x int) {\n_ = x\n_ = x\nsink(x)\n}\n"
+  },
+  {
+    "name": "pointer_receiver",
+    "file": "pointer_receiver.go",
+    "language": "Go",
+    "source": "package p\ntype T int\nfunc (_ *T) sample(x int) {\n_ = x\nsink(x)\n}\n"
+  },
+  {
+    "name": "named_results",
+    "file": "named_results.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) (_ int, err error) {\n_, err = f()\n_, err = f()\nreturn x, err\n}\n"
+  },
+  {
+    "name": "multi_swap",
+    "file": "multi_swap.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\ny := x\nx, _, y = y, x, x\nx, _, y = y, x, x\nsink(x, y)\n}\n"
+  },
+  {
+    "name": "literal_parameter",
+    "file": "literal_parameter.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\ng := func(_ int, y int) {\n_ = y\n_ = y\nsink(y)\n}\ng(x, x)\n}\n"
+  },
+  {
+    "name": "literal_body",
+    "file": "literal_body.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\ng := func() {\n_ = x\n_ = x\nsink(x)\n}\ng()\n}\n"
+  },
+  {
+    "name": "field_rhs",
+    "file": "field_rhs.go",
+    "language": "Go",
+    "source": "package p\ntype T struct { f int }\nfunc sample(x T) {\n_ = x.f\n_ = x.f\nsink(x.f)\n}\n"
+  },
+  {
+    "name": "plain_rhs",
+    "file": "plain_rhs.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\n_ = x\n_ = x\nsink(x)\n}\n"
+  },
+  {
+    "name": "if_initializer",
+    "file": "if_initializer.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\nif _, ok := f(); ok {\nsink(x)\n}\n}\n"
+  },
+  {
+    "name": "switch_initializer",
+    "file": "switch_initializer.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\nswitch _, err := f(); err {\ndefault:\nsink(x)\n}\n}\n"
+  },
+  {
+    "name": "loop_init_post",
+    "file": "loop_init_post.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\nfor _ = f(); x > 0; _ = f() {\nx--\n}\nsink(x)\n}\n"
+  },
+  {
+    "name": "comma_ok",
+    "file": "comma_ok.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(m map[int]int, x int) {\n_, ok := m[x]\n_, ok = m[x]\nsink(ok, x)\n}\n"
+  },
+  {
+    "name": "type_assertion",
+    "file": "type_assertion.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x interface{}) {\n_, ok := x.(int)\n_, ok = x.(int)\nsink(ok)\n}\n"
+  },
+  {
+    "name": "named_controls",
+    "file": "named_controls.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\n_value := x\nvalue_ := _value\n_ = value_\nsink(_value, value_)\n}\n"
+  },
+  {
+    "name": "blank_field_control",
+    "file": "blank_field_control.go",
+    "language": "Go",
+    "source": "package p\ntype T struct { _ int; f int }\nfunc sample(x T) {\nsink(x.f)\n}\n"
+  },
+  {
+    "name": "blank_import_control",
+    "file": "blank_import_control.go",
+    "language": "Go",
+    "source": "package p\nimport _ \"synthetic/sideeffect\"\nfunc sample(x int) {\n_ = x\nsink(x)\n}\n"
+  },
+  {
+    "name": "invalid_blank_read",
+    "file": "invalid_blank_read.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\n_ = x\ny := _\nsink(_, y)\n}\n"
+  },
+  {
+    "name": "invalid_blank_field",
+    "file": "invalid_blank_field.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\n_ = x\n_.f = x\nsink(_.f)\n}\n"
+  },
+  {
+    "name": "invalid_blank_update",
+    "file": "invalid_blank_update.go",
+    "language": "Go",
+    "source": "package p\nfunc sample(x int) {\n_ = x\n_++\n_ += x\nsink(_)\n}\n"
+  },
+  {
+    "name": "python_underscore",
+    "file": "underscore.py",
+    "language": "Python",
+    "source": "def sample(x):\n    _ = x\n    y = _\n    _(y)\n    return _\n"
+  },
+  {
+    "name": "javascript_underscore",
+    "file": "underscore.js",
+    "language": "JavaScript",
+    "source": "function sample(x) {\nlet _ = x;\nlet y = _;\n_(y);\nreturn _;\n}\n"
+  }
+]
