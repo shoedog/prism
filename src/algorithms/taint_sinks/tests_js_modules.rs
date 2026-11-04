@@ -227,3 +227,21 @@ fn js_module_document_chain_and_case() {
         "for (const document of ds) {\n  document.execCommand('insertHTML', 0, x); // SINK\n}\n";
     assert_eq!(js_hit(loop_shadow, "execCommand"), None);
 }
+
+#[test]
+fn js_binding_class_name_with_and_first_impostor() {
+    let class_expr =
+        "const f = require('fs');\nconst C = class f {\n  static r() { f.mkdir(x); } // SINK\n};\n";
+    assert_eq!(js_hit(class_expr, "mkdir"), None);
+    let outside = "const f = require('fs');\nconst C = class f {};\nf.mkdir(x); // SINK\n";
+    assert_eq!(js_hit(outside, "mkdir"), FS_CWE);
+    let with_body = "const f = require('fs');\nwith (o) {\n  f.mkdir(x); // SINK\n}\n";
+    assert_eq!(js_hit(with_body, "mkdir"), None);
+    let with_doc = "with (o) {\n  document.execCommand('insertHTML', 0, x); // SINK\n}\n";
+    assert_eq!(js_hit(with_doc, "execCommand"), None);
+    let after_with = "const f = require('fs');\nwith (o) { r(); }\nf.mkdir(x); // SINK\n";
+    assert_eq!(js_hit(after_with, "mkdir"), FS_CWE);
+    // the proving binding comes last: the first (impostor) must not decide
+    let impostor_first = "var f = z;\nvar f = require('fs');\nf.mkdir(x); // SINK\n";
+    assert_eq!(js_hit(impostor_first, "mkdir"), None);
+}

@@ -242,3 +242,19 @@ fn fs_literal_path_with_tainted_data() {
         js("S1j no arguments", "import * as fs from 'fs';\nfunction h(req) {\n  const x = req.body; // SEED\n  fs.readdirSync(); // SINK\n}\n", NONE),
     ]);
 }
+
+// ---- round 2: class-expression name, `with` bodies, impostor declared first
+
+#[rustfmt::skip]
+#[test]
+fn class_expression_and_with_refuse() {
+    assert_severities(&[
+        js("R2-W1 class expression's own name shadows the import in its body", "import * as files from 'fs';\nconst C = class files {\n  static run(input) {\n    const x = input.v; // SEED\n    files.mkdir(x); // SINK\n  }\n  static mkdir() {}\n};\n", NONE),
+        js("R2-W1b class expression returned from a function", "const fs = require('fs');\nfunction outer() {\n  return class fs {\n    static run(input) {\n      const x = input.v; // SEED\n      fs.mkdir(x); // SINK\n    }\n  };\n}\n", NONE),
+        js("R2-W1c control: use outside the class body still fires", "const fs = require('fs');\nconst C = class fs { static run() {} };\nfunction h(input) {\n  const x = input.v; // SEED\n  fs.mkdir(x); // SINK\n}\n", W),
+        js("R2-W2 with body makes the alias unprovable", "const fs = require('fs');\nfunction h(o, input) {\n  with (o) {\n    const x = input.v; // SEED\n    fs.mkdir(x); // SINK\n  }\n}\n", NONE),
+        js("R2-W2b with body makes document unprovable", "function h(o, input) {\n  with (o) {\n    const x = input.v; // SEED\n    document.execCommand('insertHTML', false, x); // SINK\n  }\n}\n", NONE),
+        js("R2-W2c control: just outside the with still fires", "const fs = require('fs');\nfunction h(o, input) {\n  with (o) { run(); }\n  const x = input.v; // SEED\n  fs.mkdir(x); // SINK\n}\n", W),
+        js("R2-S1 impostor declared first, module binding last", "var files = fake();\nvar files = require('fs');\nfunction h(input) {\n  const x = input.v; // SEED\n  files.mkdir(x); // SINK\n}\n", NONE),
+    ]);
+}

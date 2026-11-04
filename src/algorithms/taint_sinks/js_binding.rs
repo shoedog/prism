@@ -26,6 +26,14 @@ pub(super) enum Lookup<'t> {
 pub(super) fn lookup<'t>(p: Src<'_>, from: Node<'t>, name: &str) -> Lookup<'t> {
     let mut cur = from.parent();
     while let Some(scope) = cur {
+        // Inside `with (o) { .. }` any name may resolve to a property of `o`: nothing is provable.
+        if scope.kind() == "with_statement"
+            && scope.child_by_field_name("body").is_some_and(|b| {
+                b.start_byte() <= from.start_byte() && from.end_byte() <= b.end_byte()
+            })
+        {
+            return Lookup::Ambiguous;
+        }
         let mut found = Vec::new();
         collect(p, scope, name, &mut found);
         match found.len() {
@@ -213,6 +221,15 @@ fn collect<'t>(p: Src<'_>, scope: Node<'t>, name: &str, out: &mut Vec<Binding<'t
             hoisted(p, scope, name, out);
         }
         "statement_block" => lexical(p, scope, name, out),
+        // A class expression's own name is bound inside its body.
+        "class" => {
+            if scope
+                .child_by_field_name("name")
+                .is_some_and(|n| p.node_text(&n) == name)
+            {
+                out.push(Binding::Other);
+            }
+        }
         "switch_body" => {
             let mut c = scope.walk();
             for case in scope.named_children(&mut c) {
