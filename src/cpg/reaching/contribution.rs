@@ -44,6 +44,7 @@ fn cap() -> usize {
 }
 
 type Locations = BTreeMap<(String, String, usize, AccessPath), Vec<VarLocation>>;
+type LaneGraph = (Vec<Vec<(usize, bool)>>, Vec<Vec<usize>>);
 type Labels = BTreeMap<(VarLocation, VarLocation), FlowConfidence>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -155,18 +156,22 @@ impl<'l> Lane<'l> {
         if def.line == read.line {
             return None;
         }
+        let mapped = (self.mapped_defs[d], self.mapped_reads[u]);
+        // Cheapest test first: no contribution reaches the use node at all.
+        if let (Some(_), Some(to)) = mapped {
+            if !self.incoming[to].contains(d) {
+                return None;
+            }
+        }
         let binding_uncertain = match self.bindings.relation_at(&read.path.base, read.start, d) {
             BindingRelation::KilledAt(_) => return None,
             BindingRelation::Unresolved => true,
             BindingRelation::Same => false,
         };
-        let (Some(from), Some(to)) = (self.mapped_defs[d], self.mapped_reads[u]) else {
+        let (Some(from), Some(to)) = mapped else {
             return (def.line < read.line)
                 .then_some(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
         };
-        if !self.incoming[to].contains(d) {
-            return None;
-        }
         let exact = !binding_uncertain
             && !self
                 .bindings
@@ -178,11 +183,15 @@ impl<'l> Lane<'l> {
                 .bindings
                 .unclassified_binding_lines(&read.path.base)
                 .is_empty();
-        Some(if exact {
-            FlowConfidence::Exact
+        if exact {
+            Some(FlowConfidence::Exact)
+        } else if read.line < def.line {
+            // A use that precedes its def needs a proven cyclic route (a loop
+            // back edge); an uncertain route proves nothing.
+            None
         } else {
-            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
-        })
+            Some(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete))
+        }
     }
 
     /// The only survivor iterator, used unchanged for counting and replay.
@@ -315,12 +324,81 @@ pub(super) fn analyze(
         }
         if let (Some(node), Some(killed)) = (mapped_defs[k], descendants.get(&write.path)) {
             for &d in killed {
-                if bindings.proven_same_def_binding(d, k) {
+                if bindings.proven_same_def_binding(d, k) || bindings.same_fallback_binding(d, k) {
                     kill[node].insert(d);
                 }
             }
         }
     }
+    // Range, receive and type-switch rebindings carry no DefSite. Each kills
+    // every contribution of the binding it (re)writes, at its own node; a
+    // range assignment applies on iteration entry only, so it gets a virtual
+    // node on the header's body-entry edges and the zero-iteration exit keeps
+    // the old value.
+    let mut ext: Option<LaneGraph> = None;
+    if !owner.has_error() {
+        if let Some(body) = owner.child_by_field_name("body") {
+            let headers = super::go_header_writes::collect(parsed, body);
+            let mut node_line = vec![0usize; nodes];
+            for (&line, &n) in line_index {
+                if n < nodes {
+                    node_line[n] = line;
+                }
+            }
+            for h in headers {
+                let Some(node) = statements
+                    .get(h.line)
+                    .and_then(|line| line_index.get(&line).copied())
+                else {
+                    continue;
+                };
+                let killed: Vec<usize> = sources
+                    .values()
+                    .flatten()
+                    .copied()
+                    .filter(|&d| {
+                        defs[d].path.base == h.name
+                            && bindings.relation_at(&h.name, h.probe, d) == BindingRelation::Same
+                    })
+                    .collect();
+                if killed.is_empty() {
+                    continue;
+                }
+                let mut at = node;
+                if let super::go_header_writes::Entry::Range { last_line } = h.entry {
+                    let body_edges: Vec<(usize, bool)> = successors[node]
+                        .iter()
+                        .copied()
+                        .filter(|&(t, _)| node_line[t] > h.line && node_line[t] <= last_line)
+                        .collect();
+                    if !body_edges.is_empty() {
+                        let (es, ep) =
+                            ext.get_or_insert_with(|| (successors.to_vec(), predecessors.to_vec()));
+                        let v = es.len();
+                        es.push(Vec::new());
+                        ep.push(vec![node]);
+                        gen.push(BitSet::new(defs.len()));
+                        kill.push(BitSet::new(defs.len()));
+                        for (t, flag) in body_edges {
+                            es[node].retain(|e| e.0 != t);
+                            ep[t].retain(|&q| q != node);
+                            es[v].push((t, false));
+                            ep[t].push(v);
+                            es[node].push((v, flag));
+                        }
+                        at = v;
+                    }
+                }
+                for d in killed {
+                    kill[at].insert(d);
+                }
+            }
+        }
+    }
+    let (successors, predecessors) = match &ext {
+        Some((s, p)) => (s.as_slice(), p.as_slice()),
+        None => (successors, predecessors),
+    };
     let (incoming, _) = solve_reaching_sets(&gen, &kill, predecessors, successors, 0, defs.len());
     drop(gen);
     let mapped_reads = facts

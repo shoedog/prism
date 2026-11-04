@@ -32,6 +32,29 @@ impl<'a> StatementKinds<'a> {
     }
 }
 
+impl<'a> StatementKinds<'a> {
+    fn kind_at(&self, line: Line) -> &str {
+        self.get().get(&line).copied().unwrap_or("")
+    }
+}
+
+/// Go's synthetic function-exit dispatch (return -> defer). Defer arguments
+/// are evaluated at the defer statement, so no data route runs through it.
+pub(in crate::cpg) fn is_go_defer_dispatch(
+    parsed: &ParsedFile,
+    kinds: &StatementKinds<'_>,
+    edge: &CfgEdge,
+    provenance: ArmProvenance,
+) -> bool {
+    parsed.language == Language::Go
+        && (provenance.origin == EdgeOrigin::GoDeferExit
+            || (matches!(provenance.origin, EdgeOrigin::Structured)
+                && parsed
+                    .language
+                    .is_return_node(kinds.kind_at(edge.from_line))
+                && kinds.kind_at(edge.to_line) == "defer_statement"))
+}
+
 pub(in crate::cpg) fn is_incomplete_join(
     parsed: &ParsedFile,
     kinds: &StatementKinds<'_>,

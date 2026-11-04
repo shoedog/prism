@@ -19,6 +19,7 @@ mod cfg_edge_index;
 mod compact_wire;
 mod contribution;
 mod go_aggregate;
+mod go_header_writes;
 mod recall_stats;
 pub(crate) use contribution::record_skip as record_go_recall_skip;
 #[cfg(test)]
@@ -274,6 +275,7 @@ fn reaching_definitions_impl(
             from,
             to,
             join_kind::is_incomplete_join(parsed, &kinds, &edge, provenance),
+            join_kind::is_go_defer_dispatch(parsed, &kinds, &edge, provenance),
         ));
     }
     if cfg_edges.is_empty() {
@@ -297,13 +299,30 @@ fn reaching_definitions_impl(
     let entry = 0;
     let mut successors = vec![Vec::new(); node_count];
     let mut predecessors = vec![Vec::new(); node_count];
-    for (from, to, incomplete) in cfg_edges {
+    // The field-contribution lane never routes through Go's synthetic
+    // return -> defer exit dispatch: defer arguments are evaluated eagerly at
+    // the defer statement, and dispatch does not re-enter the body.
+    let mut lane_graph = cfg_edges.iter().any(|e| e.3).then(|| {
+        (
+            vec![Vec::<(usize, bool)>::new(); node_count],
+            vec![Vec::<usize>::new(); node_count],
+        )
+    });
+    for &(from, to, incomplete, dispatch) in &cfg_edges {
+        if let (Some((s, p)), false) = (lane_graph.as_mut(), dispatch) {
+            s[from].push((to, incomplete));
+            p[to].push(from);
+        }
         successors[from].push((to, incomplete));
         predecessors[to].push(from);
     }
     if let Some(first) = lines.first().and_then(|line| line_index.get(line)) {
         successors[entry].push((*first, false));
         predecessors[*first].push(entry);
+        if let Some((s, p)) = lane_graph.as_mut() {
+            s[entry].push((*first, false));
+            p[*first].push(entry);
+        }
     }
 
     let spans = statement_line_spans(parsed, func_node);
@@ -464,8 +483,8 @@ fn reaching_definitions_impl(
         &mapped_defs,
         &line_index,
         &mut statements,
-        &successors,
-        &predecessors,
+        lane_graph.as_ref().map_or(&successors, |g| &g.0),
+        lane_graph.as_ref().map_or(&predecessors, |g| &g.1),
         &entry_reachable,
         &binding_facts,
     );

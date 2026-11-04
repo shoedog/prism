@@ -186,6 +186,13 @@ impl Facts {
                 // syntactically proven map literal admits its key as a value.
                 let mut parent = node.parent();
                 while let Some(p) = parent {
+                    // An elided literal (`{Name: "v"}` as a map element) has no
+                    // type of its own here: its keys are never proven values.
+                    if p.kind() == "literal_value"
+                        && p.parent().is_some_and(|q| q.kind() == "literal_element")
+                    {
+                        break;
+                    }
                     if p.kind() == "composite_literal" {
                         if p.child_by_field_name("type")
                             .is_some_and(|t| t.kind() == "map_type")

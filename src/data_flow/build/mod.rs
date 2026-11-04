@@ -11,6 +11,8 @@ mod fallback_cap;
 #[cfg(test)]
 mod fallback_cap_tests;
 #[cfg(test)]
+mod field_recall_fold1_tests;
+#[cfg(test)]
 mod field_recall_limits_tests;
 #[cfg(test)]
 mod field_recall_tests;

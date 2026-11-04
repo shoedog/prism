@@ -298,6 +298,16 @@ impl BindingFacts {
             && !matches!(self.def_bindings[left].id, BindingId::FlatFallback(_))
     }
 
+    /// Two defs that both resolve to the same unresolved (package-level or
+    /// otherwise undeclared) spelling. The contribution lane treats a write
+    /// through one as killing the other: fewer edges, never more.
+    pub(super) fn same_fallback_binding(&self, left: usize, right: usize) -> bool {
+        matches!(
+            (&self.def_bindings[left].id, &self.def_bindings[right].id),
+            (BindingId::FlatFallback(a), BindingId::FlatFallback(b)) if a == b
+        )
+    }
+
     pub(super) fn lookup_at_requires_flat_fallback(
         &self,
         base: &str,
