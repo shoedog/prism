@@ -36,3 +36,5 @@ Slice #645 adds explicit label expectations for branch survivors; keep/drop deci
 - Row 17 type switch: the switch header now anchors the interface read.
 - Row 20: explicit fallthrough reaches the next body; normal arms leave the switch.
 The full base-ea82911c endpoint and label receipts, including all other rows, are in `../../go_branches`.
+
+Fold r1: row 00 x7→11 is Exact: `var z` at10 is not a declaration of x; the alias twin from `z = x` cannot kill the source binding. Standalone increment modeling is unchanged.

@@ -51,3 +51,4 @@
 {"file": "jumps.go", "function": "breakType", "path": "x", "d": 55, "u": 62, "old": {"NameOnly": "CfgIncomplete"}, "new": {"NameOnly": {"Killed": {"kill_line": 58}}}}
 {"file": "jumps.go", "function": "breakType", "path": "v", "d": 55, "u": 56, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
 {"file": "jumps.go", "function": "breakType", "path": "x", "d": 58, "u": 62, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "00_write_only_lines.go", "function": "f", "path": "x", "d": 7, "u": 11, "old": {"NameOnly": {"Killed": {"kill_line": 10}}}, "new": "Exact"}

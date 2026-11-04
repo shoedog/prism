@@ -55,3 +55,5 @@ languages retain the prior rule.
 The original base endpoint multiset is retained. `label_changes.jsonl` lists every base-to-current label delta;
 `expected_stats.jsonl` carries the corresponding counters. `go_branches/base.jsonl` independently binds this
 PR's immediate base, so the historical control is not treated as evidence of a new base run.
+
+Fold r1 adds the 54th historical delta, row00 x7→11 killed10→Exact: the alias twin at `var z` is not an x declaration. Only its two label counters change; original base bytes and endpoints are retained.

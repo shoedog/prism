@@ -11,6 +11,7 @@ mod dfg_prune_test;
 mod dfg_test;
 mod field_test;
 mod go_branches_test;
+mod go_fold_r1_test;
 mod go_join_test;
 mod go_jumps_round2_test;
 mod go_jumps_test;

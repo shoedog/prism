@@ -18,6 +18,7 @@ pub(crate) use preflight::unavailable_before_edges;
 mod cfg_edge_index;
 mod compact_wire;
 mod def_buckets;
+mod go_header;
 mod graph;
 pub(super) mod join_kind;
 #[cfg(test)]
@@ -796,7 +797,7 @@ fn statement_line_spans(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<Statem
         .statement_spans_in_function(func_node)
         .into_iter()
         .map(|span| StatementLineSpan {
-            start_line: span.line,
+            start_line: go_header::anchor(parsed, &span),
             end_line: parsed.line_for_byte(span.end_byte.saturating_sub(1)),
             start_byte: span.start_byte,
             end_byte: span.end_byte,

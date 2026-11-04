@@ -48,6 +48,19 @@ impl<'tree> Builder<'_, 'tree> {
             Successor::Exit | Successor::Unknown => None,
         }
     }
+    fn dispatch(&mut self, node: Node<'tree>) -> Node<'tree> {
+        if let Some(init) = node.child_by_field_name("initializer") {
+            let line = init.start_position().row + 1;
+            if line != node.start_position().row + 1 && self.lines.binary_search(&line).is_ok() {
+                // The keyword is the entry, then the mandatory initializer
+                // executes before either condition outcome or case dispatch.
+                self.emit(node, Some(line));
+                return init;
+            }
+        }
+        // Unanchored inc/dec initializers share the existing header anchor.
+        node
+    }
     fn sequence(&mut self, node: Node<'tree>) {
         for child in go_statements::children(node, Language::Go)
             .filter(|n| n.is_named() && n.kind() != "comment")
@@ -59,6 +72,7 @@ impl<'tree> Builder<'_, 'tree> {
         match node.kind() {
             "block" => self.sequence(node),
             "if_statement" => {
+                let dispatch = self.dispatch(node);
                 let after = self.after(node);
                 for field in ["consequence", "alternative"] {
                     let child = node.child_by_field_name(field);
@@ -69,7 +83,7 @@ impl<'tree> Builder<'_, 'tree> {
                         Some(n) => self.entry(n),
                         None => after,
                     };
-                    self.emit(node, target);
+                    self.emit(dispatch, target);
                     if let Some(child) = child {
                         self.statement(child);
                     }
@@ -90,6 +104,7 @@ impl<'tree> Builder<'_, 'tree> {
                 self.emit(node, self.after(node));
             }
             "expression_switch_statement" | "type_switch_statement" | "select_statement" => {
+                let dispatch = self.dispatch(node);
                 let cases: Vec<_> = go_statements::children(node, Language::Go)
                     .filter(|n| is_case(n.kind()))
                     .collect();
@@ -97,10 +112,10 @@ impl<'tree> Builder<'_, 'tree> {
                 if node.kind() != "select_statement"
                     && !cases.iter().any(|c| c.kind() == "default_case")
                 {
-                    self.emit(node, after);
+                    self.emit(dispatch, after);
                 }
                 for case in cases {
-                    self.emit(node, self.entry(case));
+                    self.emit(dispatch, self.entry(case));
                     self.emit(
                         case,
                         first_body(case).and_then(|n| self.entry(n)).or_else(|| {

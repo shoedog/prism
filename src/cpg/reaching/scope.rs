@@ -367,6 +367,11 @@ fn declaration_seed(
     def: &DefSite,
     function_scope: ScopeSpan,
 ) -> Option<(ScopeSpan, DeclarationKind, usize)> {
+    // Twins name the alias source at another identifier's bytes. Real defs
+    // are registered separately; a twin never introduces a Go binding.
+    if parsed.language == Language::Go && def.alias_derived {
+        return None;
+    }
     // js-param-defs PR-A: the bare arrow formal (`x => …`) has no
     // `parameters` list; without its region the Def is seeded as a non-
     // parameter binding and its labels diverge from the `(x) => …` control.
@@ -411,19 +416,6 @@ fn declaration_seed(
         }
         let rule = binding_scope_rule(parsed.language, node.kind());
         if let Some(kind) = rule.declaration {
-            // A header alias twin keeps t's span but names x in `t := x`.
-            // Dispatch must not make it a new switch/if-scoped x binding.
-            if parsed.language == Language::Go
-                && def.alias_derived
-                && node.parent().is_some_and(|p| {
-                    matches!(
-                        p.kind(),
-                        "if_statement" | "expression_switch_statement" | "type_switch_statement"
-                    )
-                })
-            {
-                return None;
-            }
             let value = if kind == DeclarationKind::PythonAssignment {
                 parsed.language.assignment_value(&node)
             } else {
@@ -519,6 +511,10 @@ fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {
                     | "type_switch_statement"
                     | "switch_statement"
                     | "select_statement"
+                    | "expression_case"
+                    | "type_case"
+                    | "communication_case"
+                    | "default_case"
             ),
             match kind {
                 "short_var_declaration" => Some(DeclarationKind::GoShort),

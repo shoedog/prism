@@ -21,3 +21,5 @@ fixtures so historical receipt updates cannot hide an endpoint change.
 All source fixtures are unchanged between the paired base/head captures. The evidence report
 contains the full population, label/path and RD-availability tables; the boundary test separately
 checks 4096 versus 4097 statement lines after dispatch anchors are added.
+
+Fold r1 changes only row 00 x7→11 from killed10 to Exact (and its label counters): `var z` is not a declaration of x. Endpoints, availability, CFG and statement universe are unchanged.
