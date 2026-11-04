@@ -268,9 +268,13 @@ fn reaching_definitions_impl(
     }
     if cfg_edges.is_empty()
         && !cfg::js_single::single_node_cfg_is_complete(
-            parsed.language,
+            parsed,
+            func_node,
             lines.len(),
-            defs.iter().map(|def| def.path.base.as_str()),
+            &defs
+                .iter()
+                .map(|def| def.path.base.as_str())
+                .collect::<Vec<_>>(),
         )
     {
         return RdOutcome::Unavailable(RdUnavailable::NoCfgEdges);

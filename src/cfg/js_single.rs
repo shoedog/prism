@@ -58,23 +58,106 @@ pub(crate) fn expression_body_statement(
 
 /// Whether an owner with no CFG edge has a complete, edge-free CFG.
 ///
-/// True for a JS-family owner whose statement universe is exactly one node and
-/// whose definitions all bind distinct names. The second condition is what
-/// keeps the result sound: a node cannot order two definitions of one name
-/// that it contains, so reaching-definitions over it could not see one kill
-/// the other. With distinct names no definition kills another, and every
-/// definition of a parameter reaches every read in the node. An owner with
-/// zero statements (an empty body) has nothing to flow and keeps the refusal.
-pub(crate) fn single_node_cfg_is_complete<'a>(
-    language: Language,
+/// True for a JS-family owner whose statement universe is exactly one node,
+/// whose definitions all bind distinct names, and that holds no hazard. The
+/// second condition keeps the result sound for the definitions RD extracts: a
+/// node cannot order two definitions of one name that it contains, so RD over
+/// it could not see one kill the other. The hazards are the writes and deferred
+/// reads the definition census does not record (see [`first_hazard`]); each one
+/// keeps today's refusal. An owner with zero statements (an empty body) has
+/// nothing to flow and keeps the refusal. Both the solver and the cap preflight
+/// call this one function, so they cannot disagree.
+pub(crate) fn single_node_cfg_is_complete(
+    parsed: &ParsedFile,
+    owner: &Node<'_>,
     statement_lines: usize,
-    def_bases: impl IntoIterator<Item = &'a str>,
+    def_bases: &[&str],
 ) -> bool {
-    if !is_js_family(language) || statement_lines != 1 {
+    if !is_js_family(parsed.language) || statement_lines != 1 {
         return false;
     }
     let mut seen = BTreeSet::new();
-    def_bases.into_iter().all(|base| seen.insert(base))
+    def_bases.iter().all(|base| seen.insert(*base))
+        && first_hazard(parsed, owner, def_bases).is_none()
+}
+
+/// Conservative hazards for the one-node path. The def census records no def
+/// for these, so distinct bases would admit an owner whose formal is
+/// overwritten or whose read is deferred. Refusing too much only keeps main's
+/// label. Pre-existing multi-statement owners are not touched (#660).
+///
+/// - (a) an update expression (`x++`, `--x`), anywhere in the owner;
+/// - (b) a default inside an assignment pattern (`[a = 1] = ..`,
+///   `({ a = 1 } = ..)`), anywhere outside the owner's own parameter list;
+/// - (c) a function declaration in the owner's own scope named like a def
+///   (hoisted: it replaces the formal at entry);
+/// - (d) `arguments` in the owner or in an arrow nested in it (sloppy-mode
+///   mapped arguments alias the formals);
+/// - (e) a direct `eval(..)` call (it can write any local);
+/// - (f) a nested callable with a parameter default (the default is a read
+///   that runs when the callable runs: a deferred capture the B8 metadata
+///   does not collect, which only walks nested bodies).
+pub(crate) fn first_hazard(
+    parsed: &ParsedFile,
+    owner: &Node<'_>,
+    def_bases: &[&str],
+) -> Option<char> {
+    let boundaries = parsed.language.callable_boundary_node_types();
+    let own_params = owner
+        .child_by_field_name("parameters")
+        .or_else(|| owner.child_by_field_name("parameter"))
+        .map(|node| node.byte_range());
+    let mut stack = vec![(*owner, false, true)];
+    while let Some((node, nested, own_args)) = stack.pop() {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if node.id() == owner.id()
+                && own_params
+                    .as_ref()
+                    .is_some_and(|range| range.contains(&child.start_byte()))
+            {
+                continue;
+            }
+            let kind = child.kind();
+            match kind {
+                "update_expression" => return Some('a'),
+                "assignment_pattern" | "object_assignment_pattern" => {
+                    return Some(if nested { 'f' } else { 'b' })
+                }
+                "required_parameter" | "optional_parameter"
+                    if child.child_by_field_name("value").is_some() =>
+                {
+                    return Some('f');
+                }
+                "identifier" if own_args && parsed.node_text(&child) == "arguments" => {
+                    return Some('d');
+                }
+                "call_expression"
+                    if child.child_by_field_name("function").is_some_and(|callee| {
+                        callee.kind() == "identifier" && parsed.node_text(&callee) == "eval"
+                    }) =>
+                {
+                    return Some('e');
+                }
+                "function_declaration" | "generator_function_declaration"
+                    if !nested
+                        && child
+                            .child_by_field_name("name")
+                            .is_some_and(|name| def_bases.contains(&parsed.node_text(&name))) =>
+                {
+                    return Some('c');
+                }
+                _ => {}
+            }
+            let boundary = boundaries.contains(&kind);
+            stack.push((
+                child,
+                nested || boundary,
+                own_args && (!boundary || kind == "arrow_function"),
+            ));
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -84,14 +167,23 @@ mod tests {
     #[test]
     fn complete_only_for_one_node_with_distinct_names_in_the_js_family() {
         for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
-            assert!(single_node_cfg_is_complete(language, 1, ["a", "b"]));
-            assert!(single_node_cfg_is_complete(language, 1, []));
-            assert!(!single_node_cfg_is_complete(language, 0, ["a"]));
-            assert!(!single_node_cfg_is_complete(language, 2, ["a"]));
-            assert!(!single_node_cfg_is_complete(language, 1, ["a", "a"]));
+            let parsed =
+                ParsedFile::parse("a.js", "function f(a, b) { g(a, b); }", language).unwrap();
+            let owner = parsed.all_functions().into_iter().next().unwrap();
+            assert!(single_node_cfg_is_complete(&parsed, &owner, 1, &["a", "b"]));
+            assert!(single_node_cfg_is_complete(&parsed, &owner, 1, &[]));
+            assert!(!single_node_cfg_is_complete(&parsed, &owner, 0, &["a"]));
+            assert!(!single_node_cfg_is_complete(&parsed, &owner, 2, &["a"]));
+            assert!(!single_node_cfg_is_complete(
+                &parsed,
+                &owner,
+                1,
+                &["a", "a"]
+            ));
         }
-        assert!(!single_node_cfg_is_complete(Language::Python, 1, ["a"]));
-        assert!(!single_node_cfg_is_complete(Language::Go, 1, ["a"]));
+        let py = ParsedFile::parse("a.py", "def f(a):\n    g(a)\n", Language::Python).unwrap();
+        let owner = py.all_functions().into_iter().next().unwrap();
+        assert!(!single_node_cfg_is_complete(&py, &owner, 1, &["a"]));
     }
 
     fn arrow_span(source: &str, located: usize) -> Option<StatementSpan> {

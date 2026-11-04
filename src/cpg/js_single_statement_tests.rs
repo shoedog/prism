@@ -161,3 +161,145 @@ fn the_edge_set_does_not_move() {
         assert!(rows.is_empty(), "{language:?}: {rows:?}");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Round-1 fold: the one-node path refuses owners with a write the def census
+// does not record (hazards a-e) or a deferred read it does not see (hazard f).
+// Each hazard input was Exact on 873a6d42 and is NameOnly(CfgIncomplete) on
+// fec901a4. Multi-statement owners with the same shapes are unchanged by
+// this PR; they are the pre-existing gaps tracked by #660.
+// ---------------------------------------------------------------------------
+
+fn assert_no_exact(name: &str, source: &str) {
+    for (language, ext) in LANGS {
+        let (rows, without_cfg) = labels(language, ext, source);
+        assert!(!rows.is_empty(), "{name}/{language:?}: no edge in {source}");
+        assert!(
+            rows.iter().all(|row| !row.ends_with(":Exact")),
+            "{name}/{language:?}: {rows:?} for {source}"
+        );
+        let _ = without_cfg;
+    }
+}
+
+#[test]
+fn hazard_a_update_expressions_keep_the_fallback() {
+    assert_no_exact(
+        "postfix",
+        "function f(x) {\n  return (\n    x++,\n    sink(x)\n  );\n}\n",
+    );
+    assert_no_exact(
+        "prefix",
+        "function f(x) {\n  return (\n    --x,\n    sink(x)\n  );\n}\n",
+    );
+    assert_no_exact(
+        "closure update",
+        "function f(x) {\n  return g(\n    () => x++,\n    sink(x)\n  );\n}\n",
+    );
+}
+
+#[test]
+fn hazard_b_pattern_defaults_keep_the_fallback() {
+    assert_no_exact(
+        "array",
+        "function f(a) {\n  return ([a = 1] = src(), sink(a));\n}\n",
+    );
+    assert_no_exact(
+        "shorthand",
+        "function f(a) {\n  return ({ a = 1 } = src(), sink(a));\n}\n",
+    );
+    assert_no_exact(
+        "expression arrow",
+        "const f = (a) =>\n  ([a = 1] = src(), sink(a));\n",
+    );
+}
+
+#[test]
+fn hazard_c_hoisted_function_declarations_keep_the_fallback() {
+    assert_no_exact(
+        "shares param",
+        "function h(x) {\n  function x() {}\n  use(x);\n}\n",
+    );
+    assert_no_exact(
+        "after use",
+        "function f(a) {\n  return sink(a); function a() {}\n}\n",
+    );
+    assert_no_exact(
+        "non-simple params",
+        "function h(f, o, fn = null) {\n  function f() {}\n  use(f);\n}\n",
+    );
+    // Control: a differently named declaration is not a rebinding.
+    for (language, ext) in LANGS {
+        let (rows, _) = labels(
+            language,
+            ext,
+            "function h(x) {\n  function q() {}\n  use(x);\n}\n",
+        );
+        assert_eq!(rows, [exact("h:x@1->x@3")], "{language:?}");
+    }
+}
+
+#[test]
+fn hazard_d_mapped_arguments_keep_the_fallback() {
+    assert_no_exact(
+        "write",
+        "function f(a) {\n  return (\n    arguments[0] = 0,\n    sink(a)\n  );\n}\n",
+    );
+    assert_no_exact(
+        "arrow inherits",
+        "function f(a) {\n  return g(() => arguments[0] = 0, sink(a));\n}\n",
+    );
+    // Control: a nested non-arrow function has its own `arguments`.
+    for (language, ext) in LANGS {
+        let src =
+            "function f(a) {\n  return g(function () { return arguments[0]; }, sink(a));\n}\n";
+        let (rows, _) = labels(language, ext, src);
+        assert!(
+            rows.contains(&exact("f:a@1->a@2")),
+            "{language:?}: {rows:?}"
+        );
+    }
+}
+
+#[test]
+fn hazard_e_direct_eval_keeps_the_fallback() {
+    assert_no_exact(
+        "eval",
+        "function f(a) {\n  return (eval('a = 1'), sink(a));\n}\n",
+    );
+}
+
+#[test]
+fn hazard_f_nested_callable_defaults_are_deferred_reads() {
+    assert_no_exact(
+        "function expression default",
+        "function h(y) {\n  g(function (z = y) {\n    use(z);\n  });\n}\n",
+    );
+    assert_no_exact(
+        "arrow default",
+        "function h(y) {\n  g((z = y) => {\n    use(z);\n  });\n}\n",
+    );
+    // Control: a nested callable without a parameter default.
+    for (language, ext) in LANGS {
+        let src = "function h(y) {\n  g(function (z) {\n    use(z);\n  }, y);\n}\n";
+        let (rows, _) = labels(language, ext, src);
+        assert!(
+            rows.contains(&exact("h:y@1->y@4")),
+            "{language:?}: {rows:?}"
+        );
+    }
+}
+
+#[test]
+fn closure_and_member_writes_on_the_formal_keep_the_fallback() {
+    // A `for (a of ..)` head is not on the one-node path: its loop edge gives
+    // the owner a CFG, so main already runs RD on it.
+    assert_no_exact(
+        "closure write",
+        "function f(a) {\n  return g(() => { a = evil(); }, sink(a));\n}\n",
+    );
+    assert_no_exact(
+        "member write",
+        "function f(a) {\n  return (a.x = 1, sink(a));\n}\n",
+    );
+}

@@ -31,9 +31,13 @@ pub(crate) fn unavailable_before_edges(
     // Join classification changes labels only; it never removes selected edges.
     if !cfg.has_owner_edges(&lines)
         && !crate::cfg::js_single::single_node_cfg_is_complete(
-            parsed.language,
+            parsed,
+            owner,
             lines.len(),
-            defs.iter().map(|def| def.path.base.as_str()),
+            &defs
+                .iter()
+                .map(|def| def.path.base.as_str())
+                .collect::<Vec<_>>(),
         )
     {
         return Some(RdUnavailable::NoCfgEdges);
@@ -98,6 +102,70 @@ mod tests {
                     "preflight: {name}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn preflight_matches_solver_for_one_node_js_owners() {
+        let cases = [
+            (
+                "available",
+                "function f(c) {\n  exec(c);\n}\n",
+                &["c"][..],
+                None,
+            ),
+            (
+                "expression arrow",
+                "const f = (c) =>\n  exec(c);\n",
+                &["c"],
+                None,
+            ),
+            (
+                "duplicate base",
+                "function f(c) {\n  exec(c);\n}\n",
+                &["c", "c"],
+                Some(RdUnavailable::NoCfgEdges),
+            ),
+            (
+                "update hazard",
+                "function f(c) {\n  return (c++, exec(c));\n}\n",
+                &["c"],
+                Some(RdUnavailable::NoCfgEdges),
+            ),
+            (
+                "empty body",
+                "function f(c) { }\n",
+                &["c"],
+                Some(RdUnavailable::NoCfgEdges),
+            ),
+        ];
+        for (name, source, bases, expected) in cases {
+            let parsed = ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+            let cfg = build_cfg_edges_with_arms(&parsed);
+            let index = FileCfgEdgeIndex::new(&cfg);
+            let defs: Vec<_> = bases
+                .iter()
+                .enumerate()
+                .map(|(i, base)| DefSite {
+                    id: DefId(i as u32),
+                    path: AccessPath::simple(*base),
+                    line: 1,
+                    start_byte: i,
+                    alias_derived: false,
+                })
+                .collect();
+            let owner = parsed.all_functions().into_iter().next().unwrap();
+            let outcome = reaching_definitions_with_exact(&parsed, &owner, &defs, &[], &[], &index);
+            let reason = match outcome {
+                RdOutcome::Available(_) => None,
+                RdOutcome::Unavailable(reason) => Some(reason),
+            };
+            assert_eq!(reason, expected, "solver: {name}");
+            assert_eq!(
+                unavailable_before_edges(&parsed, &owner, &defs, &index),
+                reason,
+                "preflight: {name}"
+            );
         }
     }
 }

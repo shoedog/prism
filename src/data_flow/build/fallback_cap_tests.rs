@@ -234,9 +234,8 @@ fn fallback_cap_projection_and_synthetic_replay_keep_every_location() {
             Language::Python,
             "def projected(obj): return obj.a + obj.b\n",
         ),
-        // #599: a one-statement owner with distinct names now runs reaching
-        // definitions, so only owners that define a name twice (here a
-        // member write to the formal) are still RD-unavailable and cap-eligible.
+        // #599: a one-node owner with distinct names and no hazard now runs reaching
+        // definitions; owners that overwrite a name stay RD-unavailable and cap-eligible.
         (
             "a.js",
             Language::JavaScript,
@@ -250,7 +249,17 @@ fn fallback_cap_projection_and_synthetic_replay_keep_every_location() {
         (
             "a.js",
             Language::JavaScript,
-            "const read = (x) => { x = 1; };\n",
+            "const projected = (obj) => (obj.c = 1, obj.a + obj.b);\n",
+        ),
+        (
+            "a.js",
+            Language::JavaScript,
+            "const read = (x) => (x = x + x);\n",
+        ),
+        (
+            "a.js",
+            Language::JavaScript,
+            "function read(x) { x = 1; return x + x; }\n",
         ),
     ];
     for (file, lang, source) in cases {

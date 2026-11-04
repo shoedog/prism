@@ -967,16 +967,10 @@ fn r1_defaults_and_computed_keys_keep_outer_captures() {
                 )),
                 "{language:?}: {r:?}"
             );
-            // #599: h has one statement line, so reaching definitions now runs
-            // on it (was the NoCfgEdges fallback, CfgIncomplete for all three).
-            let expected = if declaration == "var q" {
-                super::FlowConfidence::Exact
-            } else {
-                // The nested `var y`/`let y` is a second def of the name in the
-                // node, so the owner keeps the fallback label.
+            assert_eq!(
+                r1_label(&cpg, "h", "y", 1, 2),
                 super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)
-            };
-            assert_eq!(r1_label(&cpg, "h", "y", 1, 2), expected, "{declaration}");
+            );
             assert!(!edge(&r, "<anon@2:5>", "y", 3, 2), "{language:?}: {r:?}");
         }
         let key = "function h(y) {\n  const o = {\n    [\n      y\n    ](y) {\n      use(y);\n    }\n  };\n}\n";
@@ -994,8 +988,6 @@ fn r1_defaults_and_computed_keys_keep_outer_captures() {
             "{language:?}: {r:?}"
         );
         assert!(!edge(&r, "h", "y", 1, 6), "{language:?}: {r:?}");
-        // #599: the computed key is read when the object is built, in h's one
-        // statement; reaching definitions now runs on it (was the fallback).
         assert_eq!(r1_label(&cpg, "h", "y", 1, 4), super::FlowConfidence::Exact);
     }
     for language in [Language::TypeScript, Language::Tsx] {
@@ -1176,10 +1168,13 @@ fn r2_body_function_hoisting_shares_simple_parameters() {
                 rows(&cpg)
             );
             if declaration.starts_with("function") {
-                // #599: one statement line now runs reaching definitions (was the
-                // NoCfgEdges fallback); a multi-statement owner already labels this
-                // hoisted-declaration read Exact on main.
-                assert_eq!(r1_label(&cpg, "h", "x", 1, 3), super::FlowConfidence::Exact);
+                // Same-name declaration replaces the formal (multi-statement: #660).
+                if declaration == "function x() {}" {
+                    assert_eq!(
+                        r1_label(&cpg, "h", "x", 1, 3),
+                        super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)
+                    );
+                }
             }
         }
         let src = "function h(x) {\n  { function x() {}\n    use(x);\n  }\n  use(x);\n}\n";
