@@ -12,11 +12,12 @@ pub(crate) fn unavailable_before_edges(
     defs: &[DefSite],
     cfg: &FileCfgEdgeIndex<'_>,
 ) -> Option<RdUnavailable> {
-    let count = deduplicate_definitions(defs).len();
+    let defs = deduplicate_definitions(defs);
+    let count = defs.len();
     if count > RD_MAX_DEFS {
         return Some(RdUnavailable::DefinitionsCapExceeded { actual: count });
     }
-    let statements = parsed.statements_in_function(owner);
+    let (statements, _) = super::rd_statements(parsed, owner);
     if statements.len() > RD_MAX_LINES {
         return Some(RdUnavailable::StatementLinesCapExceeded {
             actual: statements.len(),
@@ -28,7 +29,13 @@ pub(crate) fn unavailable_before_edges(
         .map(|(i, (line, _))| (*line, i + 1))
         .collect();
     // Join classification changes labels only; it never removes selected edges.
-    if !cfg.has_owner_edges(&lines) {
+    if !cfg.has_owner_edges(&lines)
+        && !crate::cfg::js_single::single_node_cfg_is_complete(
+            parsed.language,
+            lines.len(),
+            defs.iter().map(|def| def.path.base.as_str()),
+        )
+    {
         return Some(RdUnavailable::NoCfgEdges);
     }
     None

@@ -234,17 +234,24 @@ fn fallback_cap_projection_and_synthetic_replay_keep_every_location() {
             Language::Python,
             "def projected(obj): return obj.a + obj.b\n",
         ),
+        // #599: a one-statement owner with distinct names now runs reaching
+        // definitions, so only owners that define a name twice (here a
+        // member write to the formal) are still RD-unavailable and cap-eligible.
         (
             "a.js",
             Language::JavaScript,
-            "function projected(obj) { return obj.a + obj.b; }\n",
+            "function projected(obj) { obj.c = 1; return obj.a + obj.b; }\n",
         ),
         (
             "a.js",
             Language::JavaScript,
-            "const projected = (obj) => obj.a + obj.b;\n",
+            "const projected = (obj) => { obj.c = 1; return obj.a + obj.b; };\n",
         ),
-        ("a.js", Language::JavaScript, "const read = (x) => x + x;\n"),
+        (
+            "a.js",
+            Language::JavaScript,
+            "const read = (x) => { x = 1; };\n",
+        ),
     ];
     for (file, lang, source) in cases {
         let old = refs(source, file, lang, None);
@@ -405,4 +412,19 @@ fn fallback_cap_deduplicates_raw_definitions_before_limit() {
     assert!(raw.len() > RD_MAX_DEFS, "raw definitions: {}", raw.len());
     assert_eq!(unique.len(), RD_MAX_DEFS / 2 + 1);
     accepted_at_zero_cap(&parsed);
+}
+
+#[test]
+fn fallback_cap_never_applies_to_one_node_owners_that_run_reaching_definitions() {
+    // #599: these owners were RD-unavailable (and so cap-eligible) before.
+    for source in [
+        "function projected(obj) { return obj.a + obj.b; }\n",
+        "const projected = (obj) => obj.a + obj.b;\n",
+    ] {
+        let old = refs(source, "a.js", Language::JavaScript, None);
+        assert_eq!(old.rd_function_stats.functions_without_cfg, 0, "{source}");
+        assert!(!old.edges.is_empty(), "{source}");
+        let capped = refs(source, "a.js", Language::JavaScript, Some(0));
+        assert_eq!(bytes(capped), bytes(old), "{source}");
+    }
 }

@@ -242,7 +242,7 @@ fn reaching_definitions_impl(
         });
     }
 
-    let statements = parsed.statements_in_function(func_node);
+    let (statements, expression_body) = rd_statements(parsed, func_node);
     if statements.len() > RD_MAX_LINES {
         return RdOutcome::Unavailable(RdUnavailable::StatementLinesCapExceeded {
             actual: statements.len(),
@@ -266,7 +266,13 @@ fn reaching_definitions_impl(
             join_kind::is_incomplete_join(parsed, &kinds, &edge, provenance),
         ));
     }
-    if cfg_edges.is_empty() {
+    if cfg_edges.is_empty()
+        && !cfg::js_single::single_node_cfg_is_complete(
+            parsed.language,
+            lines.len(),
+            defs.iter().map(|def| def.path.base.as_str()),
+        )
+    {
         return RdOutcome::Unavailable(RdUnavailable::NoCfgEdges);
     }
 
@@ -295,7 +301,10 @@ fn reaching_definitions_impl(
         predecessors[*first].push(entry);
     }
 
-    let spans = statement_line_spans(parsed, func_node);
+    let spans = match &expression_body {
+        Some(span) => vec![line_span(parsed, span)],
+        None => statement_line_spans(parsed, func_node),
+    };
     #[cfg(test)]
     work_tests::bump(|counts| counts.statement_span_entries = spans.len());
     let mut statements = statement_lookup::StatementLookup::new(&spans);
@@ -792,6 +801,15 @@ struct StatementLineSpan {
     end_byte: usize,
 }
 
+fn line_span(parsed: &ParsedFile, span: &crate::ast::StatementSpan) -> StatementLineSpan {
+    StatementLineSpan {
+        start_line: span.line,
+        end_line: parsed.line_for_byte(span.end_byte.saturating_sub(1)),
+        start_byte: span.start_byte,
+        end_byte: span.end_byte,
+    }
+}
+
 fn statement_line_spans(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<StatementLineSpan> {
     parsed
         .statement_spans_in_function(func_node)
@@ -803,6 +821,19 @@ fn statement_line_spans(parsed: &ParsedFile, func_node: &Node<'_>) -> Vec<Statem
             end_byte: span.end_byte,
         })
         .collect()
+}
+
+/// The statement universe reaching definitions runs over, and the synthetic
+/// whole-body statement when it replaces the parser's (#599).
+fn rd_statements(
+    parsed: &ParsedFile,
+    func_node: &Node<'_>,
+) -> (Vec<(usize, String)>, Option<crate::ast::StatementSpan>) {
+    let located = parsed.statements_in_function(func_node);
+    match cfg::js_single::expression_body_statement(parsed, func_node, located.len()) {
+        Some(span) => (vec![(span.line, span.kind.clone())], Some(span)),
+        None => (located, None),
+    }
 }
 
 // Frozen pre-memo scanner: independent differential oracle.

@@ -484,7 +484,7 @@ fn call_execution_owner_complete_site_and_edge_metadata() {
             vec![
                 format!("Call(Exact)|F:{app}:inner:1-1:39-76|F:{origin}:item:1-1:7-42"),
                 format!("DataFlow(Exact)|V:{app}:inner:1:1:token:Use:68-73|V:{origin}:item:1:1:input:Def:21-26"),
-                format!("DataFlow(NameOnly(CfgIncomplete))|V:{origin}:item:1:1:input:Def:21-26|V:{origin}:item:1:1:input:Use:35-40"),
+                format!("DataFlow(NameOnly(SameLine))|V:{origin}:item:1:1:input:Def:21-26|V:{origin}:item:1:1:input:Use:35-40"),
                 format!("Return(Exact)|F:{origin}:item:1-1:7-42|F:{app}:inner:1-1:39-76"),
             ],
             "{ext}/CPG edges"
