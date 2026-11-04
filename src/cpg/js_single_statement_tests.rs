@@ -328,3 +328,81 @@ fn member_path_write_on_the_formal_keeps_the_fallback() {
         "function f(o) {\n  return (\n    o.x = evil(),\n    sink(o.x),\n    sink(o)\n  );\n}\n",
     );
 }
+
+// ---------------------------------------------------------------------------
+// Round-2 fold: the hazard walk covers the owner's own default values, and a
+// direct eval is found by the shared detector (parentheses, comments).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn hazards_inside_the_owners_own_default_values_keep_the_fallback() {
+    assert_no_exact("update", "function f(a, b = a++) {\n  sink(a);\n}\n");
+    assert_no_exact("update arrow", "const f = (a, b = a++) =>\n  sink(a);\n");
+    assert_no_exact(
+        "array pattern default",
+        "function f(a, b = ([a = 1] = src())) {\n  return sink(a);\n}\n",
+    );
+    assert_no_exact(
+        "object pattern default",
+        "function f(a, b = ({ a = 1 } = src())) {\n  return sink(a);\n}\n",
+    );
+    assert_no_exact(
+        "eval",
+        "function f(a, b = eval(\"a = 1\")) {\n  sink(a);\n}\n",
+    );
+}
+
+#[test]
+fn inert_defaults_and_unmapped_arguments_in_defaults_stay_exact() {
+    // A non-simple parameter list makes `arguments` unmapped: it cannot alias `a`.
+    for (language, ext) in LANGS {
+        for src in [
+            "function f(a, b = 1) {\n  sink(a);\n}\n",
+            "function f(a, b = a + 1) {\n  sink(a);\n}\n",
+            "function f(a, b = (arguments[0] = 9)) {\n  return sink(a);\n}\n",
+        ] {
+            let (rows, _) = labels(language, ext, src);
+            assert!(
+                rows.contains(&exact("f:a@1->a@2")),
+                "{language:?}: {rows:?} for {src}"
+            );
+        }
+    }
+}
+
+#[test]
+fn parenthesised_and_commented_direct_eval_keep_the_fallback() {
+    assert_no_exact(
+        "parenthesised",
+        "function f(a) {\n  return ((eval)(\"a = 1\"), sink(a));\n}\n",
+    );
+    assert_no_exact(
+        "commented",
+        "function f(a) {\n  return ((/* c */ eval /* d */)(\"a = 1\"), sink(a));\n}\n",
+    );
+}
+
+#[test]
+fn indirect_and_optional_eval_are_not_direct_eval() {
+    // The shared detector decides: neither can write a local.
+    for (language, ext) in LANGS {
+        for src in [
+            "function f(a) {\n  return ((0, eval)(\"a = 1\"), sink(a));\n}\n",
+            "function f(a) {\n  return (eval?.(\"a = 1\"), sink(a));\n}\n",
+        ] {
+            let (rows, _) = labels(language, ext, src);
+            assert!(
+                rows.contains(&exact("f:a@1->a@2")),
+                "{language:?}: {rows:?} for {src}"
+            );
+        }
+    }
+}
+
+#[test]
+fn hoisted_generator_declaration_named_like_the_formal_keeps_the_fallback() {
+    assert_no_exact(
+        "generator",
+        "function h(x) {\n  function* x() {}\n  use(x);\n}\n",
+    );
+}
