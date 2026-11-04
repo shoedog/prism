@@ -1,0 +1,18 @@
+P2	httpx._api.request	httpx/_api.py:39	AmbiguousSymbol 7	OK httpx/_api.py:39
+P3	Client.request	httpx/_client.py:771	AmbiguousSymbol 7	-
+P4	Client.send	httpx/_client.py:879	AmbiguousSymbol 3	AmbiguousSymbol 2
+P5	BaseTransport.handle_request	httpx/_transports/base.py:26	AmbiguousSymbol 5	-
+R1	grep_searcher::Searcher::search_path	crates/searcher/src/searcher/mod.rs:643	AmbiguousSymbol 3	OK crates/searcher/src/searcher/mod.rs:643
+R2	run	crates/core/main.rs:77	AmbiguousSymbol 6	OK crates/core/main.rs:77
+R3	SearchWorker::search	crates/core/search.rs:245	AmbiguousSymbol 3	-
+R5	Sink::matched	crates/searcher/src/sink.rs:0	AmbiguousSymbol 15	-
+G1a	ExactValidArgs	args.go:142	OK args.go:142	OK args.go:142
+G1b	OnlyValidArgs	args.go:51	OK args.go:51	-
+G1c	Command.ValidateArgs	command.go:1172	OK command.go:1172	OK command.go:1172
+G2	GenMarkdownTree	doc/md_docs.go:125	OK doc/md_docs.go:125	OK doc/md_docs.go:125
+G3a	Command.SetArgs	command.go:281	OK command.go:281	-
+G3b	ExecuteC	command.go:1084	OK command.go:1084	-
+G4	Command.execute	command.go:905	OK command.go:905	OK command.go:905
+G5	(*Command).Context	command.go:269	OK command.go:269	-
+J3	onChange	excalidraw-app/App.tsx:677	AmbiguousSymbol 3	OK excalidraw-app/App.tsx:677
+J5	getRenderableElements	packages/excalidraw/scene/Renderer.ts:208	OK packages/excalidraw/scene/Renderer.ts:208	-
