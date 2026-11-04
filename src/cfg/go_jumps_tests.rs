@@ -119,8 +119,13 @@ fn go_round2_terminal_switch_resumes_loop_instead_of_dispatching_defer() {
 
 #[test]
 fn go_round2_unknown_successor_is_not_a_guessed_edge_or_function_exit() {
-    // Inc/dec are absent from the statement universe. Do not skip across one
-    // to invent a proof edge, or mistake an unmappable successor for exit.
+    // Known unanchored statements are transparent, but an admitted statement
+    // missing from the supplied line universe must still refuse a target.
     let source = "package p\nfunc f(x int) {\ndefer use(x)\nfor {\nbreak\n}\nx++\nuse(x)\n}\n";
-    assert!(added(source).is_empty());
+    let parsed = ParsedFile::parse("jump.go", source, Language::Go).unwrap();
+    let owner = parsed.all_functions()[0];
+    let mut sink = EdgeSink::new();
+    build(owner, &parsed, &[3, 4, 5], &mut sink);
+    assert!(sink.is_empty());
+    assert_eq!(added(source).edges[0].to_line, 8);
 }

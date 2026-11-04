@@ -10,6 +10,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 use tree_sitter::Node;
 
+#[path = "go_bindings.rs"]
+mod go_bindings;
+
 #[derive(serde::Deserialize)]
 struct NodeTypeSchema {
     #[serde(rename = "type")]
@@ -169,7 +172,11 @@ impl BindingFacts {
         let function_scope = function_scope(parsed, func_node);
         let seeds: Vec<Option<(ScopeSpan, DeclarationKind, usize)>> = defs
             .iter()
-            .map(|def| declaration_seed(parsed, func_node, def, function_scope))
+            .map(|def| {
+                (parsed.language != Language::Go)
+                    .then(|| declaration_seed(parsed, func_node, def, function_scope))
+                    .flatten()
+            })
             .collect();
 
         let mut declarations = Vec::<Declaration>::new();
@@ -231,6 +238,10 @@ impl BindingFacts {
                 declaration_index
             };
             declaration_for_def[index] = Some(declaration_index);
+        }
+
+        if parsed.language == Language::Go {
+            (declarations, declaration_for_def) = go_bindings::collect(parsed, *func_node, defs);
         }
 
         let mut facts = Self {
@@ -367,6 +378,11 @@ fn declaration_seed(
     def: &DefSite,
     function_scope: ScopeSpan,
 ) -> Option<(ScopeSpan, DeclarationKind, usize)> {
+    // Twins name the alias source at another identifier's bytes. Real defs
+    // are registered separately; a twin never introduces a Go binding.
+    if parsed.language == Language::Go && def.alias_derived {
+        return None;
+    }
     // js-param-defs PR-A: the bare arrow formal (`x => …`) has no
     // `parameters` list; without its region the Def is seeded as a non-
     // parameter binding and its labels diverge from the `(x) => …` control.
@@ -506,6 +522,10 @@ fn binding_scope_rule(language: Language, kind: &str) -> BindingScopeRule {
                     | "type_switch_statement"
                     | "switch_statement"
                     | "select_statement"
+                    | "expression_case"
+                    | "type_case"
+                    | "communication_case"
+                    | "default_case"
             ),
             match kind {
                 "short_var_declaration" => Some(DeclarationKind::GoShort),
@@ -646,6 +666,9 @@ fn introduction_is_classified(
 ) -> bool {
     #[cfg(test)]
     super::work_tests::bump(|counts| counts.introductions += 1);
+    if parsed.language == Language::Go && go_bindings::classified(node.kind()) {
+        return true;
+    }
     let parameters = root.parameters(parsed);
     #[cfg(test)]
     let parameters = super::work_tests::parameters(parsed, root.function, parameters);
@@ -951,6 +974,10 @@ pub(super) fn use_byte(parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
 #[cfg(test)]
 #[path = "scope_reuse_tests.rs"]
 mod reuse_tests;
+
+#[cfg(test)]
+#[path = "go_binding_tests.rs"]
+mod go_binding_tests;
 
 #[cfg(test)]
 #[path = "use_byte_tests.rs"]

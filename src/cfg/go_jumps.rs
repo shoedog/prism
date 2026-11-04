@@ -124,7 +124,7 @@ fn construct<'tree>(
     None
 }
 
-enum Successor {
+pub(super) enum Successor {
     Line(usize),
     Exit,
     Unknown,
@@ -132,8 +132,41 @@ enum Successor {
 
 /// Leave syntax, not a globally sorted line range: a terminal statement may
 /// resume a loop or leave an arm without ever entering the alternative arm.
-fn successor(mut node: Node<'_>, owner: Node<'_>, lines: &[usize]) -> Successor {
+pub(super) fn successor(node: Node<'_>, owner: Node<'_>, lines: &[usize]) -> Successor {
+    target(node, owner, lines, false)
+}
+
+pub(super) fn entry(node: Node<'_>, owner: Node<'_>, lines: &[usize]) -> Successor {
+    target(node, owner, lines, true)
+}
+
+/// Project syntax onto the existing statement universe. The four non-anchor
+/// leaf statement kinds are transparent; blocks are entered structurally.
+/// Never scan past an unrecognized node or into a sibling arm. Iteration keeps
+/// a long sequence of unanchored statements from consuming the call stack.
+fn target(mut node: Node<'_>, owner: Node<'_>, lines: &[usize], mut enter: bool) -> Successor {
     loop {
+        if enter {
+            if node.kind() == "block" {
+                if let Some(child) = go_statements::children(node, Language::Go)
+                    .find(|n| n.is_named() && n.kind() != "comment")
+                {
+                    node = child;
+                    continue;
+                }
+            } else if lines
+                .binary_search(&(node.start_position().row + 1))
+                .is_ok()
+            {
+                return Successor::Line(node.start_position().row + 1);
+            } else if !matches!(
+                node.kind(),
+                "inc_statement" | "dec_statement" | "empty_statement" | "type_declaration"
+            ) {
+                return Successor::Unknown;
+            }
+            enter = false;
+        }
         let Some(parent) = go_statements::parent(node) else {
             return Successor::Unknown;
         };
@@ -147,16 +180,13 @@ fn successor(mut node: Node<'_>, owner: Node<'_>, lines: &[usize]) -> Successor 
         match parent.kind() {
             "block" | "expression_case" | "type_case" | "communication_case" | "default_case" => {
                 let mut next = go_statements::next_named_sibling(node);
-                while let Some(sibling) = next {
-                    if sibling.kind() != "comment" {
-                        let line = sibling.start_position().row + 1;
-                        return if lines.binary_search(&line).is_ok() {
-                            Successor::Line(line)
-                        } else {
-                            Successor::Unknown
-                        };
-                    }
-                    next = go_statements::next_named_sibling(sibling);
+                while next.is_some_and(|n| n.kind() == "comment") {
+                    next = next.and_then(go_statements::next_named_sibling);
+                }
+                if let Some(sibling) = next {
+                    node = sibling;
+                    enter = true;
+                    continue;
                 }
             }
             "for_statement" if node.kind() == "block" => {

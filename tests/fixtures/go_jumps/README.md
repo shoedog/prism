@@ -50,3 +50,10 @@ loop-tail switches, then/else separation, nested loops, a synthetic ToPrinter
 shape, final exits, missing case/else-if entry and acyclic/cyclic backward goto.
 Go `loop_carried` additionally requires a shared cyclic CFG component; other
 languages retain the prior rule.
+
+#645 extends this slice-2 receipt to the now-reachable switch/case anchors and fixes blocking select dispatch.
+The original base endpoint multiset is retained. `label_changes.jsonl` lists every base-to-current label delta;
+`expected_stats.jsonl` carries the corresponding counters. `go_branches/base.jsonl` independently binds this
+PR's immediate base, so the historical control is not treated as evidence of a new base run.
+
+Fold r1 adds the 54th historical delta, row00 x7→11 killed10→Exact: the alias twin at `var z` is not an x declaration. Only its two label counters change; original base bytes and endpoints are retained.

@@ -1,35 +1,54 @@
-{"file":"07_label_between.go","function":"f","path":"x","d":5,"u":8,"old":{"NameOnly":{"Killed":{"kill_line":7}}},"new":"Exact"}
-{"file":"defer_exit.go","function":"nextDefer","path":"x","d":11,"u":14,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"edge_cases.go","function":"directContinue","path":"x","d":18,"u":16,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"edge_cases.go","function":"directContinue","path":"x","d":18,"u":17,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"edge_cases.go","function":"directContinue","path":"x","d":18,"u":22,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"edge_cases.go","function":"directContinue","path":"x","d":20,"u":18,"old":{"NameOnly":{"Killed":{"kill_line":18}}},"new":{"NameOnly":"CfgIncomplete"}}
-{"file":"edge_cases.go","function":"rangeBreak","path":"x","d":27,"u":31,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"edge_cases.go","function":"labeledType","path":"x","d":39,"u":44,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"outerBreak","path":"x","d":69,"u":75,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"outerBreak","path":"x","d":71,"u":68,"old":{"NameOnly":{"Killed":{"kill_line":73}}},"new":{"NameOnly":"CfgIncomplete"}}
-{"file":"jumps.go","function":"outerBreak","path":"x","d":71,"u":75,"old":{"NameOnly":{"Killed":{"kill_line":73}}},"new":{"NameOnly":"CfgIncomplete"}}
-{"file":"jumps.go","function":"outerBreak","path":"x","d":71,"u":67,"old":{"NameOnly":{"Killed":{"kill_line":73}}},"new":{"NameOnly":"CfgIncomplete"}}
-{"file":"jumps.go","function":"switchBreak","path":"x","d":83,"u":88,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"selectBreak","path":"x","d":96,"u":101,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"continueSwitch","path":"x","d":109,"u":105,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"continueSwitch","path":"x","d":109,"u":106,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"continueSwitch","path":"x","d":109,"u":107,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"continueSwitch","path":"x","d":109,"u":114,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"outerContinue","path":"x","d":122,"u":119,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"outerContinue","path":"x","d":122,"u":120,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"outerContinue","path":"x","d":122,"u":121,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"outerContinue","path":"x","d":122,"u":127,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"outerContinue","path":"x","d":124,"u":122,"old":{"NameOnly":{"Killed":{"kill_line":122}}},"new":{"NameOnly":"CfgIncomplete"}}
-{"file":"jumps.go","function":"enclosing","path":"x","d":131,"u":136,"old":{"NameOnly":{"Killed":{"kill_line":135}}},"new":"Exact"}
-{"file":"jumps.go","function":"backward","path":"x","d":16,"u":15,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"breakFor","path":"x","d":25,"u":29,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"breakSwitch","path":"x","d":32,"u":40,"old":{"NameOnly":"CfgIncomplete"},"new":{"NameOnly":{"Killed":{"kill_line":36}}}}
-{"file":"jumps.go","function":"breakSwitch","path":"x","d":36,"u":33,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"breakSwitch","path":"x","d":36,"u":34,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"breakSwitch","path":"x","d":36,"u":40,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"breakSwitch","path":"x","d":36,"u":42,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"forward","path":"x","d":4,"u":10,"old":{"NameOnly":{"Killed":{"kill_line":8}}},"new":"Exact"}
-{"file":"jumps.go","function":"breakSelect","path":"x","d":48,"u":52,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
-{"file":"jumps.go","function":"breakType","path":"x","d":55,"u":62,"old":{"NameOnly":"CfgIncomplete"},"new":{"NameOnly":{"Killed":{"kill_line":58}}}}
-{"file":"jumps.go","function":"breakType","path":"x","d":58,"u":62,"old":{"NameOnly":"CfgIncomplete"},"new":"Exact"}
+{"file": "01_case_scoped_var.go", "function": "parse", "path": "yyS", "d": 5, "u": 15, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "01_case_scoped_var.go", "function": "parse", "path": "yyS", "d": 5, "u": 20, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "01_case_scoped_var.go", "function": "parse", "path": "n", "d": 5, "u": 8, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "01_case_scoped_var.go", "function": "parse", "path": "yyVAL", "d": 6, "u": 18, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "01_case_scoped_var.go", "function": "parse", "path": "yyVAL", "d": 6, "u": 23, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "01_case_scoped_var.go", "function": "parse", "path": "yyVAL", "d": 6, "u": 25, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "02_case_dollar_only.go", "function": "f", "path": "n", "d": 4, "u": 5, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "07_label_between.go", "function": "f", "path": "x", "d": 5, "u": 8, "old": {"NameOnly": {"Killed": {"kill_line": 7}}}, "new": "Exact"}
+{"file": "17_type_switch_case_regions.go", "function": "f", "path": "v", "d": 4, "u": 5, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "20_fallthrough.go", "function": "overwrite", "path": "n", "d": 11, "u": 12, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "20_fallthrough.go", "function": "keep", "path": "x", "d": 2, "u": 8, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "20_fallthrough.go", "function": "keep", "path": "n", "d": 2, "u": 3, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "20_fallthrough.go", "function": "keep", "path": "x", "d": 5, "u": 8, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "defer_exit.go", "function": "nextDefer", "path": "x", "d": 11, "u": 14, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "edge_cases.go", "function": "flagged", "path": "x", "d": 4, "u": 12, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "edge_cases.go", "function": "flagged", "path": "n", "d": 4, "u": 5, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "edge_cases.go", "function": "flagged", "path": "x", "d": 7, "u": 12, "old": {"NameOnly": "CfgIncomplete"}, "new": {"NameOnly": {"Killed": {"kill_line": 11}}}}
+{"file": "edge_cases.go", "function": "flagged", "path": "x", "d": 11, "u": 12, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "edge_cases.go", "function": "directContinue", "path": "x", "d": 18, "u": 16, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "edge_cases.go", "function": "directContinue", "path": "x", "d": 18, "u": 17, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "edge_cases.go", "function": "directContinue", "path": "x", "d": 18, "u": 22, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "edge_cases.go", "function": "directContinue", "path": "x", "d": 20, "u": 18, "old": {"NameOnly": {"Killed": {"kill_line": 18}}}, "new": {"NameOnly": "CfgIncomplete"}}
+{"file": "edge_cases.go", "function": "rangeBreak", "path": "x", "d": 27, "u": 31, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "edge_cases.go", "function": "labeledType", "path": "x", "d": 39, "u": 44, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "outerBreak", "path": "x", "d": 69, "u": 75, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "outerBreak", "path": "x", "d": 71, "u": 68, "old": {"NameOnly": {"Killed": {"kill_line": 73}}}, "new": {"NameOnly": "CfgIncomplete"}}
+{"file": "jumps.go", "function": "outerBreak", "path": "x", "d": 71, "u": 75, "old": {"NameOnly": {"Killed": {"kill_line": 73}}}, "new": {"NameOnly": "CfgIncomplete"}}
+{"file": "jumps.go", "function": "outerBreak", "path": "x", "d": 71, "u": 67, "old": {"NameOnly": {"Killed": {"kill_line": 73}}}, "new": {"NameOnly": "CfgIncomplete"}}
+{"file": "jumps.go", "function": "switchBreak", "path": "x", "d": 83, "u": 88, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "selectBreak", "path": "x", "d": 96, "u": 101, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "continueSwitch", "path": "x", "d": 109, "u": 105, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "continueSwitch", "path": "x", "d": 109, "u": 106, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "continueSwitch", "path": "x", "d": 109, "u": 107, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "continueSwitch", "path": "x", "d": 109, "u": 114, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "outerContinue", "path": "x", "d": 122, "u": 119, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "outerContinue", "path": "x", "d": 122, "u": 120, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "outerContinue", "path": "x", "d": 122, "u": 121, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "outerContinue", "path": "x", "d": 122, "u": 127, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "outerContinue", "path": "x", "d": 124, "u": 122, "old": {"NameOnly": {"Killed": {"kill_line": 122}}}, "new": {"NameOnly": "CfgIncomplete"}}
+{"file": "jumps.go", "function": "enclosing", "path": "x", "d": 131, "u": 136, "old": {"NameOnly": {"Killed": {"kill_line": 135}}}, "new": "Exact"}
+{"file": "jumps.go", "function": "backward", "path": "x", "d": 16, "u": 15, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "breakFor", "path": "x", "d": 25, "u": 29, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "breakSwitch", "path": "x", "d": 32, "u": 40, "old": {"NameOnly": "CfgIncomplete"}, "new": {"NameOnly": {"Killed": {"kill_line": 36}}}}
+{"file": "jumps.go", "function": "breakSwitch", "path": "x", "d": 36, "u": 33, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "breakSwitch", "path": "x", "d": 36, "u": 34, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "breakSwitch", "path": "x", "d": 36, "u": 40, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "breakSwitch", "path": "x", "d": 36, "u": 42, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "forward", "path": "x", "d": 4, "u": 10, "old": {"NameOnly": {"Killed": {"kill_line": 8}}}, "new": "Exact"}
+{"file": "jumps.go", "function": "breakSelect", "path": "x", "d": 45, "u": 52, "old": "Exact", "new": {"NameOnly": {"Killed": {"kill_line": 48}}}}
+{"file": "jumps.go", "function": "breakSelect", "path": "x", "d": 48, "u": 52, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "breakType", "path": "x", "d": 55, "u": 62, "old": {"NameOnly": "CfgIncomplete"}, "new": {"NameOnly": {"Killed": {"kill_line": 58}}}}
+{"file": "jumps.go", "function": "breakType", "path": "v", "d": 55, "u": 56, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "jumps.go", "function": "breakType", "path": "x", "d": 58, "u": 62, "old": {"NameOnly": "CfgIncomplete"}, "new": "Exact"}
+{"file": "00_write_only_lines.go", "function": "f", "path": "x", "d": 7, "u": 11, "old": {"NameOnly": {"Killed": {"kill_line": 10}}}, "new": "Exact"}

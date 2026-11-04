@@ -130,18 +130,10 @@ fn go_round2_break_labels() {
 }
 
 #[test]
-fn go_round2_entry_unreachable_keeps_doubt() {
+fn go_round2_missing_entries_are_now_reachable() {
     check_labels(&[
-        (
-            "missingCase",
-            "case",
-            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
-        ),
-        (
-            "elseIf",
-            "elseif",
-            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
-        ),
+        ("missingCase", "case", FlowConfidence::Exact),
+        ("elseIf", "elseif", FlowConfidence::Exact),
     ]);
 }
 
@@ -203,7 +195,7 @@ fn go_round2_edge_receipt() {
         "../fixtures/go_jumps_round2/label_changes.json"
     ))
     .unwrap();
-    assert_eq!(changes.len(), 12);
+    assert_eq!(changes.len(), 13);
     let mut wanted = base;
     let mut failures = Vec::new();
     for row in changes {
@@ -235,9 +227,9 @@ fn go_round2_edge_receipt() {
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
-    wanted["stats"]["dfg_label_exact"] = serde_json::json!(51);
-    wanted["stats"]["dfg_label_loop_carried"] = serde_json::json!(9);
-    wanted["stats"]["dfg_label_nameonly_cfg_incomplete"] = serde_json::json!(24);
+    wanted["stats"]["dfg_label_exact"] = serde_json::json!(56);
+    wanted["stats"]["dfg_label_loop_carried"] = serde_json::json!(11);
+    wanted["stats"]["dfg_label_nameonly_cfg_incomplete"] = serde_json::json!(19);
     wanted["stats"]["dfg_label_nameonly_killed"] = serde_json::json!(2);
     assert!(
         actual == wanted,

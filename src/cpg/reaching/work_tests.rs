@@ -406,7 +406,9 @@ fn compare(source: &str, path: &str, language: Language) -> Vec<Counts> {
         let old = DataFlowGraph::build_on_current_pool(&files);
         LEGACY.with(|mode| mode.set(false));
         let old_counts = take_records();
-        if old_counts.iter().any(|counts| counts.introductions > 0) {
+        // Go's syntax inventory classifies introductions without consulting
+        // parameters. Require legacy discovery only when it was requested.
+        if old_counts.iter().any(|counts| counts.parameter_queries > 0) {
             assert!(old_counts.iter().map(|counts| counts.all_functions).sum::<usize>() > 0,
                 "legacy lookup must execute: {path}");
         }

@@ -314,7 +314,9 @@ nested callable definitions and reads. Field paths are compared as fixed storage
 across reassignment of a path's base is out of model (design §2.2).
 Uncertain cases keep the pair. RD labels only the surviving edges.
 Go goto, labeled break and continue now have CFG edges; this also closes the missing
-unlabeled Go break/continue edges, while switch header-to-case edges remain incomplete.
+unlabeled Go break/continue edges. Go expression/type switches and selects dispatch
+through case-value/communication anchors, normal arms exit without sibling fallthrough,
+and else-if false branches enter the nested condition. Blocking selects have no unselected exit.
 The fallback cap counts U/D survivors, including duplicates. Per the owner decision, an owner
 formerly capped before pruning can regain its surviving edges when pruning brings it within the cap.
 The additive `dfg_pruned_write_only`, `dfg_pruned_scope`, `dfg_pruned_dominated`, and

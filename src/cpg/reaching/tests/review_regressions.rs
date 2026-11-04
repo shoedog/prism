@@ -450,7 +450,7 @@ fn unclassified_language_binding_construct_uses_flat_path_fallback() {
 }
 
 #[test]
-fn go_range_target_uncertainty_uses_flat_path_fallback() {
+fn go_range_target_masks_outer_binding_without_a_def_endpoint() {
     let parsed = parsed(
         "func f(items []int) {\n\tvalue := source()\n\tfor _, value := range items {\n\t\t{\n\t\t\tvalue := clean()\n\t\t\tconsume(value)\n\t\t}\n\t\tsink(value)\n\t}\n\tconsume(value)\n}\n",
         Language::Go,
@@ -467,7 +467,7 @@ fn go_range_target_uncertainty_uses_flat_path_fallback() {
     assert_label(
         &outcome,
         &range_use,
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }),
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }),
     );
 }
 
