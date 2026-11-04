@@ -77,6 +77,19 @@ fn go_fold_r1_initializer_entry() {
 #[test]
 fn go_fold_r1_real_binding_controls() {
     check("control");
+    let snapshot = super::go_branches_test::snapshot(&root().join("control_receive.go"));
+    let labels: Vec<_> = snapshot["labels"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|l| l[0]["path"]["base"] == "v" && l[0]["line"] == 9 && l[1]["line"] == 7)
+        .map(|l| &l[2])
+        .collect();
+    assert_eq!(labels.len(), 1, "receive control must retain its endpoint");
+    assert_ne!(
+        labels[0], "Exact",
+        "outer v@9 cannot define receive-local v@7"
+    );
 }
 #[test]
 fn go_fold_r1_other_simple_initializers() {

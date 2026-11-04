@@ -1,0 +1,40 @@
+{"file": "receive_one_declare.go", "form": "receive v :=", "check": "distinct"}
+{"file": "receive_one_assign.go", "form": "receive v =", "check": "existing"}
+{"file": "receive_two_declare.go", "form": "receive v, ok :=", "check": "distinct"}
+{"file": "receive_two_assign.go", "form": "receive v, ok =", "check": "existing"}
+{"file": "range_key.go", "form": "range v :=", "check": "distinct"}
+{"file": "range_pair.go", "form": "range i, v :=", "check": "distinct"}
+{"file": "range_blank.go", "form": "range _, v :=", "check": "distinct"}
+{"file": "range_assign.go", "form": "range v =", "check": "existing"}
+{"file": "type_alias_outer.go", "form": "type-switch clause alias", "check": "distinct"}
+{"file": "type_alias_multi.go", "form": "type-switch clause alias", "check": "distinct"}
+{"file": "type_alias_default.go", "form": "type-switch clause alias", "check": "distinct"}
+{"file": "type_alias_header.go", "form": "type-switch clause alias", "check": "distinct"}
+{"file": "type_alias_same_init.go", "form": "type-switch clause alias", "check": "distinct"}
+{"file": "type_alias_no_outer.go", "form": "type-switch alias without outer", "check": "distinct"}
+{"file": "type_alias_arm_write.go", "form": "type-switch alias arm identity", "check": "distinct"}
+{"file": "short.go", "form": "short", "check": "distinct"}
+{"file": "short_multi.go", "form": "short_multi", "check": "distinct"}
+{"file": "var.go", "form": "var", "check": "distinct"}
+{"file": "var_zero.go", "form": "var_zero", "check": "distinct"}
+{"file": "var_group.go", "form": "var_group", "check": "distinct"}
+{"file": "const.go", "form": "const", "check": "distinct"}
+{"file": "const_group.go", "form": "const_group", "check": "distinct"}
+{"file": "const_implicit.go", "form": "const_implicit", "check": "distinct"}
+{"file": "header_if.go", "form": "header short if", "check": "distinct"}
+{"file": "header_expr.go", "form": "header short expr", "check": "distinct"}
+{"file": "header_type.go", "form": "header short type", "check": "distinct"}
+{"file": "header_for.go", "form": "header short for", "check": "distinct"}
+{"file": "header_for_no_post.go", "form": "header short for_no_post", "check": "distinct"}
+{"file": "literal_parameter.go", "form": "literal parameter", "check": "distinct"}
+{"file": "literal_variadic.go", "form": "literal variadic", "check": "distinct"}
+{"file": "literal_result.go", "form": "literal result", "check": "distinct"}
+{"file": "literal_parameters_result.go", "form": "literal parameters_result", "check": "distinct"}
+{"file": "literal_capture.go", "form": "literal captured outer", "check": "unmodeled"}
+{"file": "local_type.go", "form": "local type", "check": "distinct"}
+{"file": "local_alias.go", "form": "local alias", "check": "distinct"}
+{"file": "label_control.go", "form": "labels are not bindings", "check": "existing"}
+{"file": "receive_ok.go", "form": "two-name receive status", "check": "distinct"}
+{"file": "short_reuse.go", "form": "short declaration new block shadows", "check": "unmodeled"}
+{"file": "parameter_reuse.go", "form": "parameter reuse by short declaration", "check": "existing"}
+{"file": "group_visibility.go", "form": "group spec visibility", "check": "distinct"}

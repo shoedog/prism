@@ -11,7 +11,7 @@ Every endpoint, statement universe and availability object is compared against b
 -18 assignment/short initializer fixtures: if/expression switch/type switch, alternative/default present or absent, plus a separate condition/tag line.
 -12 other simple initializer controls: call, send, increment and decrement for each construct. Inc/dec retain the existing header projection and definition limitation.
 
-`absent` checks identify producer-pruned or unmodeled declaration endpoints; they are not RD labels. In these sources the producer does not emit defs for receive `:=` or type-switch aliases. Those controls pin endpoint preservation and exact grammar shapes, not complete binding semantics for those missing defs. Existing enclosing-variable reads can remain falsely exact in those forms; no producer repair is claimed by this labels-only fold.
+`absent` checks identify producer-pruned or unmodeled declaration endpoints; they are not RD labels. In these sources the producer does not emit defs for receive `:=` or type-switch aliases. Fold r2 now represents these lexical bindings independently of endpoints. The two outer-v→inner-v receive labels in expected.jsonl become killed(6), and an explicit v@9→v@7 assertion rejects Exact. The other r1 labels stay unchanged; no producer endpoint is added.
 
 Separate initializer and condition/tag share a dispatch anchor, so initializer→condition can remain SameLine. The existing within-header ordering limitation (including outer-parameter→condition false exact after an assignment) remains; the fold corrects initializer-before-body/case ordering and reachability, not within-anchor occurrence order. The evidence report lists these boundaries explicitly.
 
