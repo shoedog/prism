@@ -1,5 +1,6 @@
 //! Lexical introductions without producer endpoints; static Go inputs only.
 use crate::common::*;
+use prism::cpg::FlowConfidence;
 use serde_json::Value;
 
 fn root() -> std::path::PathBuf {
@@ -109,4 +110,63 @@ fn go_fold_r2_complete_receipts() {
         failures.len(),
         failures.join("\n")
     );
+}
+
+// The case's type list reads the enclosing constant; only its body reads the alias.
+fn type_switch_visibility(case: &str, alias: bool, body_exact: bool) {
+    let guard = if alias { "n := x.(type)" } else { "x.(type)" };
+    let source = format!(
+        "package p\nfunc f(x any) {{\nconst n = 1 // def\nswitch {guard} {{\n{case}\nprintln(n) // body\n}}\n}}\n"
+    );
+    let parsed = ParsedFile::parse("type_switch.go", &source, Language::Go).unwrap();
+    assert!(!parsed.tree.root_node().has_error(), "{source}");
+    let graph = CodePropertyGraph::build(&BTreeMap::from([("type_switch.go".into(), parsed)]));
+    let mut failures = Vec::new();
+    for (index, text) in source.lines().enumerate() {
+        if !text.contains("// type") && !text.contains("// body") {
+            continue;
+        }
+        let line = index + 1;
+        let exact = text.contains("// type") || body_exact;
+        let labels: Vec<_> = graph
+            .dfg
+            .labels()
+            .filter(|(edge, _)| {
+                edge.from.path.base == "n" && edge.from.line == 3 && edge.to.line == line
+            })
+            .map(|(_, label)| label)
+            .collect();
+        let pass = labels.len() == 1 && (labels[0] == FlowConfidence::Exact) == exact;
+        println!("type-switch {case:?} alias={alias}: n@3 -> n@{line}, exact={exact}, actual={labels:?}, pass={pass}");
+        if !pass {
+            failures.push(format!("n@3 -> n@{line}: exact={exact}, actual={labels:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{source}\n{}", failures.join("\n"));
+}
+
+#[test]
+fn go_fold_r3_type_switch_single_line() {
+    type_switch_visibility("case [n]int: // type", true, false);
+}
+
+#[test]
+fn go_fold_r3_type_switch_multiline_comment() {
+    type_switch_visibility(
+        "case []string, // between types\n[n]int: // type",
+        true,
+        false,
+    );
+}
+
+#[test]
+fn go_fold_r3_type_switch_multiple_types() {
+    type_switch_visibility("case [n]int, []string: // type", true, false);
+}
+
+#[test]
+fn go_fold_r3_type_switch_controls() {
+    type_switch_visibility("case int:", true, false);
+    type_switch_visibility("default:", true, false);
+    type_switch_visibility("case [n]int: // type", false, true);
 }

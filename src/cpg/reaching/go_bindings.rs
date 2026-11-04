@@ -223,14 +223,14 @@ impl Inventory<'_> {
                     for clause in node.named_children(&mut cursor) {
                         if matches!(clause.kind(), "type_case" | "default_case") {
                             // The header declares a distinct variable in each
-                            // clause. It is not visible in the guard or sibling.
-                            self.names(
-                                alias,
-                                scope_span(clause),
-                                clause.start_byte(),
-                                false,
-                                false,
-                            );
+                            // clause, visible only after its type list's colon.
+                            let mut cursor = clause.walk();
+                            let visible_from = clause
+                                .children(&mut cursor)
+                                .find(|child| child.kind() == ":")
+                                .map(|colon| colon.end_byte())
+                                .unwrap_or(clause.start_byte());
+                            self.names(alias, scope_span(clause), visible_from, false, false);
                         }
                     }
                 }
