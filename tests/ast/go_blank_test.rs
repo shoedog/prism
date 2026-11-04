@@ -81,7 +81,34 @@ fn check(name: &str) {
                 failures.push(format!("blank {field}"));
             }
         }
-        if filtered != nonblank(&baseline[name]) {
+        // Explicit base-captured twins are the only additional allowed removals.
+        // Match the full location value so a real def on the same line survives.
+        let twins: Value =
+            serde_json::from_str(include_str!("../fixtures/go_blank/twin_defs.json")).unwrap();
+        let removed = twins[name].as_array().cloned().unwrap_or_default();
+        let mut expected = nonblank(&baseline[name]);
+        for def in &removed {
+            assert!(expected["defs"].as_array().unwrap().contains(def));
+            if actual["defs"].as_array().unwrap().contains(def) {
+                failures.push(format!("blank-derived twin def at {}", def["line"]));
+            }
+        }
+        for field in ["defs", "edges", "labels"] {
+            let twin_row = |row: &Value| match field {
+                "defs" => removed.contains(row),
+                "edges" => removed.contains(&row["from"]) || removed.contains(&row["to"]),
+                "labels" => removed.contains(&row[0]["from"]) || removed.contains(&row[0]["to"]),
+                _ => unreachable!(),
+            };
+            if actual[field].as_array().unwrap().iter().any(twin_row) {
+                failures.push(format!("blank-derived twin {field}"));
+            }
+            expected[field]
+                .as_array_mut()
+                .unwrap()
+                .retain(|row| !twin_row(row));
+        }
+        if filtered != expected {
             failures.push("nonblank population changed".to_owned());
         }
         assert!(failures.is_empty(), "{name}: {}", failures.join(", "));
@@ -174,4 +201,39 @@ fn cpg_dataflow_endpoints() {
         failures.is_empty(),
         "blank CPG DataFlow endpoints: {failures:?}"
     );
+}
+
+// Preserve the historical branch/join receipts. Subtract only six pinned blank
+// twins from expectations; actual output is always compared without filtering.
+pub(super) fn expected_without_blank_twins(mut receipt: Value) -> Value {
+    let twins: Value =
+        serde_json::from_str(include_str!("../fixtures/go_blank/receipt_twins.json")).unwrap();
+    let Some(defs) = twins[receipt["file"].as_str().unwrap()].as_array() else {
+        return receipt;
+    };
+    let twin_row = |row: &Value| defs.contains(&row[0]) || defs.contains(&row[1]);
+    let removed_labels: Vec<_> = receipt["labels"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|row| twin_row(row))
+        .cloned()
+        .collect();
+    for field in ["edges", "labels"] {
+        if let Some(rows) = receipt[field].as_array_mut() {
+            rows.retain(|row| !twin_row(row));
+        }
+    }
+    if let Some(stats) = receipt["stats"].as_object_mut() {
+        for row in removed_labels {
+            let counter = match row[2]["NameOnly"].as_str() {
+                Some("CfgIncomplete") => "dfg_label_nameonly_cfg_incomplete",
+                Some("AliasUnstable") => "dfg_label_nameonly_alias_unstable",
+                other => panic!("unexpected pinned twin label: {other:?}"),
+            };
+            let count = stats[counter].as_u64().unwrap();
+            stats[counter] = json!(count.checked_sub(1).unwrap());
+        }
+    }
+    receipt
 }

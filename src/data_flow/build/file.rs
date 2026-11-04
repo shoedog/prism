@@ -278,7 +278,7 @@ impl Producer {
                     Self::resolve_path(&alias_map, &span.path)
                 };
                 if let Some(resolved) = twin {
-                    if resolved != span.path.clone() && keep_path(&resolved) {
+                    if resolved != span.path.clone() && keep_path(&span.path) && keep_path(&resolved) {
                         let resolved_loc = VarLocation {
                             file: file_path.clone(),
                             function: func_name.clone(),
@@ -612,6 +612,9 @@ impl Producer {
                                 let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted) else {
                                     continue;
                                 };
+                                // Keep RHS reads and their legacy anchors, but a Go
+                                // blank write cannot define its alias target.
+                                if !keep_path(path) { continue; }
                                 let (def_start, def_end) = resolved_def_locs_by_occurrence
                                     .get(&(resolved.clone(), def_line, occurrence_byte(span.start_byte)))
                                     .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));

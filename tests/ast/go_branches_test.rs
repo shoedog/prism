@@ -87,6 +87,8 @@ fn go_branches_receipts() {
     assert_eq!(actual.len(), head.len());
     let mut failures = Vec::new();
     for ((a, b), h) in actual.iter().zip(base).zip(head) {
+        let b = super::go_blank_test::expected_without_blank_twins(b);
+        let h = super::go_blank_test::expected_without_blank_twins(h);
         assert_eq!(a["file"], b["file"]);
         assert_eq!(
             a["edges"], b["edges"],

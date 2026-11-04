@@ -1,0 +1,8 @@
+{
+"select_receive_declaration.go":[{"end_byte":107,"file":"select_receive_declaration.go","function":"f","function_start_line":2,"kind":"Def","line":5,"path":{"base":"t","fields":[]},"start_byte":106}],
+"type_alias.go":[{"end_byte":115,"file":"type_alias.go","function":"f","function_start_line":2,"kind":"Def","line":5,"path":{"base":"t","fields":[]},"start_byte":114}],
+"type_init.go":[{"end_byte":118,"file":"type_init.go","function":"f","function_start_line":2,"kind":"Def","line":5,"path":{"base":"n","fields":[]},"start_byte":117}],
+"alias_header_type.go":[{"end_byte":94,"file":"alias_header_type.go","function":"f","function_start_line":2,"kind":"Def","line":5,"path":{"base":"x","fields":[]},"start_byte":93}],
+"control_header_type.go":[{"end_byte":103,"file":"control_header_type.go","function":"f","function_start_line":2,"kind":"Def","line":5,"path":{"base":"x","fields":[]},"start_byte":102}],
+"vitess_shape.go":[{"end_byte":65,"file":"vitess_shape.go","function":"f","function_start_line":3,"kind":"Def","line":5,"path":{"base":"i","fields":[]},"start_byte":64}]
+}

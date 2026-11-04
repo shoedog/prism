@@ -308,7 +308,7 @@ vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_n
 
 For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
 write-only use (U) or a dominating unconditional write in a single-entry region (D).
-Go paths whose base is exactly `_` contribute no DataFlow definitions, uses or edges; other languages retain `_` as an ordinary name.
+Go paths whose base is exactly `_` contribute no DataFlow definitions, uses, edges or alias-twin definitions; RHS reads remain, and other languages retain `_` as an ordinary name.
 U removes even `exact` pairs into pure writes and mints no anchor Use on a write-only line.
 A Go statement label between that write and the use disables that D proof. D preserves
 nested callable definitions and reads. Field paths are compared as fixed storage; pointer identity

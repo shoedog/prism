@@ -266,6 +266,7 @@ fn go_join_complete_label_and_auxiliary_endpoint_receipts() {
     let mut failures = Vec::new();
     for line in include_str!("../fixtures/go_join/labels.jsonl").lines() {
         let expected: Value = serde_json::from_str(line).unwrap();
+        let expected = super::go_blank_test::expected_without_blank_twins(expected);
         let file = expected["file"].as_str().unwrap();
         let actual = super::go_branches_test::snapshot(
             &root.join(expected["dir"].as_str().unwrap()).join(file),
@@ -279,6 +280,7 @@ fn go_join_complete_label_and_auxiliary_endpoint_receipts() {
             }
         }
         if let Some(before) = extra.iter().find(|r| r["file"] == file) {
+            let before = super::go_blank_test::expected_without_blank_twins(before.clone());
             for key in ["edges", "statements", "availability"] {
                 assert_eq!(actual[key], before[key], "{file}: {key}");
             }
