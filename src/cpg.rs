@@ -86,9 +86,12 @@ pub use build::{CodePropertyGraph, DfgLabelStats, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
 pub use reaching::RdFileStats;
+mod recall_telemetry;
+#[cfg(test)]
+pub(crate) use reaching::with_recall_cap;
 pub(crate) use reaching::{
-    reaching_definitions_with_exact, unavailable_before_edges, DefId, DefSite, FileCfgEdgeIndex,
-    RdOutcome,
+    reaching_definitions_with_exact, record_go_recall_skip, unavailable_before_edges, DefId,
+    DefSite, FileCfgEdgeIndex, RdOutcome,
 };
 #[cfg(test)]
 pub(crate) use reaching::{RD_MAX_DEFS, RD_MAX_LINES};

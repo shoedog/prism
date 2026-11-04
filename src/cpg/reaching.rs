@@ -17,6 +17,12 @@ mod preflight;
 pub(crate) use preflight::unavailable_before_edges;
 mod cfg_edge_index;
 mod compact_wire;
+mod contribution;
+mod go_aggregate;
+mod recall_stats;
+pub(crate) use contribution::record_skip as record_go_recall_skip;
+#[cfg(test)]
+pub(crate) use contribution::with_cap as with_recall_cap;
 mod def_buckets;
 mod go_header;
 mod graph;
@@ -88,6 +94,7 @@ pub(crate) struct RdResult {
     /// May-reaching facts, independent of confidence (including flagged CFG
     /// routes). Used only to admit implicit parameter-to-body entry copies.
     pub(crate) reaching_edges: BTreeSet<(VarLocation, VarLocation)>,
+    pub(crate) recall: Option<contribution::RecallResult>,
 }
 
 type RdFunctionKey = (String, usize);
@@ -112,6 +119,7 @@ pub struct RdFileStats {
     without_cfg_function_keys: BTreeSet<RdFunctionKey>,
     #[serde(with = "compact_wire::cap_counts")]
     fallback_capped_function_counts: BTreeMap<FallbackFunctionKey, usize>,
+    pub recall: recall_stats::RecallStats,
 }
 
 impl RdFileStats {
@@ -153,6 +161,7 @@ impl RdFileStats {
     }
 
     pub(crate) fn merge(&mut self, other: Self) {
+        self.recall.merge(other.recall);
         for ((function, line, byte), count) in other.fallback_capped_function_counts {
             self.record_fallback_capped(function, line, byte, count);
         }
@@ -235,6 +244,7 @@ fn reaching_definitions_impl(
     let _work = work_tests::Pass::begin(parsed, func_node);
     #[cfg(test)]
     work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
+    let raw_defs = defs;
     let defs = deduplicate_definitions(defs);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
@@ -279,6 +289,7 @@ fn reaching_definitions_impl(
             exact_labels: BTreeMap::new(),
             loop_carried_edges: BTreeSet::new(),
             reaching_edges: BTreeSet::new(),
+            recall: None,
         });
     }
 
@@ -445,11 +456,25 @@ fn reaching_definitions_impl(
             .or_insert(label);
     }
 
+    let recall = contribution::analyze(
+        parsed,
+        *func_node,
+        raw_defs,
+        &defs,
+        &mapped_defs,
+        &line_index,
+        &mut statements,
+        &successors,
+        &predecessors,
+        &entry_reachable,
+        &binding_facts,
+    );
     RdOutcome::Available(RdResult {
         labels,
         exact_labels,
         loop_carried_edges,
         reaching_edges,
+        recall,
     })
 }
 

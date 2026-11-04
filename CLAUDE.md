@@ -306,6 +306,21 @@ vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_n
 `kill_line` is present only for `killed`; on an object-literal shortcut edge (below) it is a line of the
 `to` endpoint's function, the callee. The same counters are nested under `call-stats.dfg_labels`.
 
+Go eager aggregate reads also receive genuine field-write Def → ancestor Use edges.
+This separate contribution pass shares the owner's CFG, binding facts and DefIds;
+only its own lane applies root/prefix/same-field kills. Sibling fields stay independent.
+Receivers, captures, same-line pairs, nested-callable writes, indices and alias twins
+are excluded. Available RD is required. `dfg_recall_functions_over_rd_cap` and
+`dfg_recall_functions_without_cfg` count affected owners skipped for RD refusal.
+Available owners count raw surviving candidates, including duplicates, before allocating
+edges or supplemental Uses. Over 1,000,000 omits the entire addition while keeping ordinary
+edges; `dfg_recall_functions_capped` and `dfg_recall_candidates_capped` count these omissions.
+`dfg_recall_candidates` includes admitted and addition-capped candidates, and
+`dfg_recall_max_candidates` is the largest per-owner count. RD-unavailable survivors
+cannot be counted, so they contribute only to their owner skip counter.
+These counters appear in dfg-stats and call-stats.dfg_labels and persist through cache hits.
+Proven-killed/no-route pairs are omitted; uncertain routes carry cfg_incomplete.
+
 For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
 write-only use (U) or a dominating unconditional write in a single-entry region (D).
 Go paths whose base is exactly `_` contribute no DataFlow definitions, uses, edges or alias-twin definitions; RHS reads remain, and other languages retain `_` as an ordinary name. Kept edges can change label where a removed blank twin had collapsed a line (`r, _, err := f()` with `_ = err` elsewhere), besides RD availability; where that line is an `if`/`switch` header whose initializer declares the name, the restored label can be a false `exact` (line-granular header RD, #662). Step 5c treats a Go `_` lvalue as a positional hole: no ReturnFlow into it, the other slots keep theirs, and an all-blank site counts in `return_flow_skipped_blank_lhs`.
@@ -382,7 +397,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v142) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v143) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

@@ -125,6 +125,12 @@ pub struct DfgLabelStats {
     pub dfg_pruned_scope: usize,
     pub dfg_pruned_dominated: usize,
     pub dfg_pruned_order: usize,
+    pub dfg_recall_candidates: usize,
+    pub dfg_recall_max_candidates: usize,
+    pub dfg_recall_functions_capped: usize,
+    pub dfg_recall_candidates_capped: usize,
+    pub dfg_recall_functions_over_rd_cap: usize,
+    pub dfg_recall_functions_without_cfg: usize,
 }
 
 impl DfgLabelStats {
@@ -150,6 +156,7 @@ impl DfgLabelStats {
     }
 
     fn record_rd_stats(&mut self, dfg: &DataFlowGraph) {
+        self.record_recall_stats(dfg);
         self.dfg_fallback_functions_capped = dfg
             .rd_function_stats()
             .values()

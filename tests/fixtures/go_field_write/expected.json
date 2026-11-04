@@ -1,0 +1,440 @@
+[
+  {
+    "case": "01_call_arg",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "02_return",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "03_short_copy",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "04_assign_copy",
+    "edges": [
+      [
+        "p.f",
+        8,
+        "p",
+        9,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "05_composite",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "06_address",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "07_receiver",
+    "edges": []
+  },
+  {
+    "case": "08_channel",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "09_defer",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "10_go",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "11_capture",
+    "edges": []
+  },
+  {
+    "case": "12_sibling",
+    "edges": []
+  },
+  {
+    "case": "13_nested",
+    "edges": [
+      [
+        "p.a.b",
+        7,
+        "p.a",
+        8,
+        "Exact"
+      ],
+      [
+        "p.a.b",
+        7,
+        "p",
+        9,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "14_value",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "15_pointer",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "16_root_kill",
+    "edges": []
+  },
+  {
+    "case": "17_shadow",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        12,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "18_deref_kill",
+    "edges": []
+  },
+  {
+    "case": "19_field_kill",
+    "edges": [
+      [
+        "p.f",
+        8,
+        "p",
+        9,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "20_branch",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        11,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "21_loop_carried",
+    "edges": [
+      [
+        "p.f",
+        9,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "22_loop_exit",
+    "edges": [
+      [
+        "p.f",
+        8,
+        "p",
+        10,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "23_map",
+    "edges": []
+  },
+  {
+    "case": "24_slice",
+    "edges": []
+  },
+  {
+    "case": "25_alias",
+    "edges": []
+  },
+  {
+    "case": "26_nested_kill",
+    "edges": [
+      [
+        "p.a",
+        8,
+        "p",
+        10,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "27_sibling_write",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        9,
+        "Exact"
+      ],
+      [
+        "p.g",
+        8,
+        "p",
+        9,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "28_same_line",
+    "edges": []
+  },
+  {
+    "case": "29_capture_write",
+    "edges": []
+  },
+  {
+    "case": "30_both_branches_kill",
+    "edges": []
+  },
+  {
+    "case": "31_pointer_copy",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "32_answer_shape",
+    "edges": [
+      [
+        "req.Username",
+        8,
+        "req",
+        9,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "33_map_key_use",
+    "edges": [
+      [
+        "p.f",
+        4,
+        "p",
+        5,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "34_deref_read",
+    "edges": [
+      [
+        "p.f",
+        4,
+        "p",
+        5,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "35_python",
+    "edges": []
+  },
+  {
+    "case": "36_javascript",
+    "edges": []
+  },
+  {
+    "case": "37_field_control",
+    "edges": []
+  },
+  {
+    "case": "38_index_controls",
+    "edges": []
+  },
+  {
+    "case": "39_sibling_with_bare",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "40_independent_fields",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        9,
+        "Exact"
+      ],
+      [
+        "p.g",
+        8,
+        "p",
+        9,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "41_nested_sibling",
+    "edges": []
+  },
+  {
+    "case": "42_reused_short_binding",
+    "edges": []
+  },
+  {
+    "case": "43_nested_sibling_write",
+    "edges": [
+      [
+        "p.a.b",
+        7,
+        "p.a",
+        9,
+        "Exact"
+      ],
+      [
+        "p.a.c",
+        8,
+        "p.a",
+        9,
+        "Exact"
+      ],
+      [
+        "p.a.b",
+        7,
+        "p",
+        10,
+        "Exact"
+      ],
+      [
+        "p.a.c",
+        8,
+        "p",
+        10,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "44_compound_write",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "45_answer_literal_control",
+    "edges": []
+  }
+]

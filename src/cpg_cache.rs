@@ -285,7 +285,8 @@ mod stream;
 /// - v140: Go goto and labeled/unlabeled break/continue CFG reaching labels.
 /// - v141: Go switch/select dispatch, case-value anchors and else-if entry.
 /// - v142: Go blank identifier paths contribute no DFG definitions, uses or edges.
-const CACHE_VERSION: u32 = 142;
+/// - v143: Go eager field contributions and independent recall owner counters.
+const CACHE_VERSION: u32 = 143;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 

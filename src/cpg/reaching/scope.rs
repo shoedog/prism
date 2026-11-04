@@ -290,14 +290,26 @@ impl BindingFacts {
         let Some(use_byte) = self.use_byte(parsed, edge) else {
             return true;
         };
-        self.visible_declaration(&edge.to.path.base, use_byte)
+        self.lookup_at_requires_flat_fallback(&edge.to.path.base, use_byte, def_index)
+    }
+
+    pub(super) fn proven_same_def_binding(&self, left: usize, right: usize) -> bool {
+        self.def_bindings[left].id == self.def_bindings[right].id
+            && !matches!(self.def_bindings[left].id, BindingId::FlatFallback(_))
+    }
+
+    pub(super) fn lookup_at_requires_flat_fallback(
+        &self,
+        base: &str,
+        use_byte: usize,
+        def_index: usize,
+    ) -> bool {
+        if matches!(self.def_bindings[def_index].id, BindingId::FlatFallback(_)) {
+            return true;
+        }
+        self.visible_declaration(base, use_byte)
             .map(|binding| matches!(binding.id, BindingId::FlatFallback(_)))
-            .unwrap_or_else(|| {
-                matches!(
-                    self.implicit_binding(&edge.to.path.base).id,
-                    BindingId::FlatFallback(_)
-                )
-            })
+            .unwrap_or_else(|| matches!(self.implicit_binding(base).id, BindingId::FlatFallback(_)))
     }
 
     pub(super) fn unclassified_binding_lines(&self, name: &str) -> Vec<Line> {
@@ -324,9 +336,21 @@ impl BindingFacts {
                 BindingRelation::KilledAt(definition.scope.end_line)
             };
         };
+        self.relation_at(&edge.to.path.base, use_byte, def_index)
+    }
+
+    /// Explicit-byte admission for the contribution lane, without allocating
+    /// prospective FlowEdges just to ask about the root binding.
+    pub(super) fn relation_at(
+        &self,
+        base: &str,
+        use_byte: usize,
+        def_index: usize,
+    ) -> BindingRelation {
+        let definition = &self.def_bindings[def_index];
         let use_binding = self
-            .visible_declaration(&edge.to.path.base, use_byte)
-            .unwrap_or_else(|| self.implicit_binding(&edge.to.path.base));
+            .visible_declaration(base, use_byte)
+            .unwrap_or_else(|| self.implicit_binding(base));
         if definition.id == use_binding.id {
             return BindingRelation::Same;
         }

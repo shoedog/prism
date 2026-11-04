@@ -60,8 +60,30 @@ pub(super) fn snapshot(path: &Path) -> Value {
         .map(|(e, l)| json!([e.from, e.to, l]))
         .collect();
     labels.sort_by_key(Value::to_string);
-    json!({"file":file,"edges":edges,"labels":labels,"stats":graph.dfg_label_stats,
-        "availability":graph.dfg.rd_function_stats()[file],"statements":statements,"cfg":cfg})
+    let mut row = json!({"file":file,"edges":edges,"labels":labels,"stats":graph.dfg_label_stats,
+        "availability":graph.dfg.rd_function_stats()[file],"statements":statements,"cfg":cfg});
+    // Compare the frozen pre-recall schema. New lane counters have their own
+    // budget/cache tests; none of these existing populations adds recall edges.
+    let stats = row["stats"].as_object_mut().unwrap();
+    for key in [
+        "dfg_recall_candidates",
+        "dfg_recall_max_candidates",
+        "dfg_recall_functions_capped",
+        "dfg_recall_candidates_capped",
+        "dfg_recall_functions_over_rd_cap",
+        "dfg_recall_functions_without_cfg",
+    ] {
+        assert_eq!(stats.remove(key).unwrap(), json!(0), "{file}: {key}");
+    }
+    assert_eq!(
+        row["availability"]
+            .as_object_mut()
+            .unwrap()
+            .remove("recall")
+            .unwrap(),
+        json!([])
+    );
+    row
 }
 #[test]
 fn go_branches_receipts() {

@@ -10,6 +10,10 @@ mod exact_reads;
 mod fallback_cap;
 #[cfg(test)]
 mod fallback_cap_tests;
+#[cfg(test)]
+mod field_recall_limits_tests;
+#[cfg(test)]
+mod field_recall_tests;
 pub(super) mod file;
 #[cfg(test)]
 mod giant_owner_tests;
