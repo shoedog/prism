@@ -4,7 +4,7 @@ use super::*;
 
 impl CodePropertyGraph {
     /// Assemble from a complete file set (every package fact is in `files`).
-    pub(super) fn assemble_graph(
+    pub(in crate::cpg) fn assemble_graph(
         cg: CallGraph,
         dfg: DataFlowGraph,
         files: &BTreeMap<String, ParsedFile>,
