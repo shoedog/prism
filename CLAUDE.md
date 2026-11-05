@@ -370,11 +370,30 @@ also refused when the consumer file writes `m.f`, any `m[..]`, or passes `m` fir
 `defineProperties`/`setPrototypeOf` or `Reflect.set`/`defineProperty`/`deleteProperty`/`setPrototypeOf` (file-wide, by
 spelling: a consumer-side stub; this is a partial guard, and other mutation routes such as an alias `n = m; n.f = …`,
 `with (m)`, re-acquisition through `require`, reflective or computed mutator calls, or passing `m` to a function stay
-under the runtime-mutation rule above); anything else, anonymous or module-level callers (#597), anonymous exports, class
+under the runtime-mutation rule above); anything else, anonymous exports, class
 exports, `exports.default` (not the module value), ESM producers and `new m()` keeps the earlier outcome with no new
 edge. A proven site replaces earlier NameOnly or indirect records at that site, as slice L does (an R6 single-owner
 method of an unrelated class becomes the Exact export; textual indirect records for the same member stand down for the one
 Source record).
+An anonymous or module-level caller (#597) is admitted by its own route (`src/js_anonymous/cjs.rs`, evidence
+`src/ast/js_cjs_anonymous.rs`, recorded in the proof index) only for a binding that is a direct top-level `const` or
+`var` statement of the program (owner 2026-11-04 admitted `var`; `let` stays out), declared once in the resolved
+program scope (hoisted declarations count: a second declaration of the name at program scope, or a `var` of it in a
+nested block, loop, `try`, `switch` or labeled statement, is the binder's `duplicate_declaration`; a declaration inside
+a nested function does not), with no write resolving to that binding (compound assignment, `++`/`--`, destructuring
+targets, bare `delete`, `for (m in/of ..)` heads and writes in nested functions make the binder answer `MayCall`; a
+write to a different binding of the same spelling does not count), and with the binding walk from the site reaching
+the program scope without another declaration of the name. This is the binder's per-binding proof, distinct from the
+file-wide consumer-stub guard on `m.f(..)` above. A declarator in a multi-declarator statement
+(`var a = 1, m = require('./x')`) is judged on its own. The shapes are `m(..)`, `m.f(..)`, `f(..)` for
+`const f = require('./x').f`, and `f(..)` for `const { f } = require('./x')` / `{ k: f }` (the existing flat-pattern
+admission, `js_ts_object_pattern_key`: no rest, default, nested or string-key entry, and every bound name unique in
+the pattern). The producer proof is the one above, plus the anonymous boundary's supported-file-environment check. The
+route answers only with a certificate; whenever it cannot issue one it returns nothing and the site keeps its earlier
+outcome. `let`, inline `require('./x').f(..)` and everything else keep the earlier outcome. Named callers' resolution
+route and outcomes are unchanged (the proof index does extract the evidence for every JS/TS site). A module-level call
+that runs before its declaration (`var a = m(1), m = require('./x')`) is Exact under the static-binding contract: the
+binding never holds another callable.
 
 `--resolution nominal` is the default and reports CPG-derived findings as `unlabeled/candidate`;
 `--resolution scoped` reports retained evidence labels. `--min-confidence exact` keeps only Exact
@@ -382,7 +401,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v142) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v143) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
