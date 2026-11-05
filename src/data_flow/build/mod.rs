@@ -17,6 +17,8 @@ mod field_recall_fold2_tests;
 #[cfg(test)]
 mod field_recall_limits_tests;
 #[cfg(test)]
+mod field_recall_s2_tests;
+#[cfg(test)]
 mod field_recall_tests;
 pub(super) mod file;
 #[cfg(test)]

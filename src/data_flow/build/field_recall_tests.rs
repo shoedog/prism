@@ -5,7 +5,7 @@ use crate::cpg::FlowConfidence;
 use crate::languages::Language;
 use std::collections::BTreeSet;
 
-fn matrix(case: &str) {
+pub(super) fn matrix(case: &str) {
     let root =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/go_field_write");
     let language = match &case[..2] {
@@ -42,6 +42,7 @@ fn matrix(case: &str) {
                 e[1].as_u64().unwrap() as usize,
                 e[2].as_str().unwrap().to_string(),
                 e[3].as_u64().unwrap() as usize,
+                e[4].as_str().unwrap().to_string(),
             )
         })
         .collect();
@@ -50,12 +51,21 @@ fn matrix(case: &str) {
         let d = &edge.from.path;
         let u = &edge.to.path;
         if d.base == u.base && d.fields.len() > u.fields.len() && d.fields.starts_with(&u.fields) {
-            actual.insert((d.to_string(), edge.from.line, u.to_string(), edge.to.line));
-            assert_eq!(
-                parts.labels.get(&(edge.from.clone(), edge.to.clone())),
-                Some(&FlowConfidence::Exact),
-                "{case}: {edge:?}"
-            );
+            let label = match parts.labels.get(&(edge.from.clone(), edge.to.clone())) {
+                Some(FlowConfidence::Exact) => "Exact",
+                Some(FlowConfidence::NameOnly(crate::cpg::FlowDoubt::CfgIncomplete)) => {
+                    "CfgIncomplete"
+                }
+                Some(FlowConfidence::NameOnly(crate::cpg::FlowDoubt::SameLine)) => "SameLine",
+                other => panic!("{case}: {edge:?}: {other:?}"),
+            };
+            actual.insert((
+                d.to_string(),
+                edge.from.line,
+                u.to_string(),
+                edge.to.line,
+                label.to_string(),
+            ));
             assert!(edge.from.start_byte < edge.from.end_byte);
             assert!(edge.to.start_byte < edge.to.end_byte);
             assert!(parts.defs.values().flatten().any(|d| d == &edge.from

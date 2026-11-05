@@ -73,7 +73,15 @@
   },
   {
     "case": "07_receiver",
-    "edges": []
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
   },
   {
     "case": "08_channel",
@@ -113,7 +121,15 @@
   },
   {
     "case": "11_capture",
-    "edges": []
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        9,
+        "CfgIncomplete"
+      ]
+    ]
   },
   {
     "case": "12_sibling",
@@ -275,7 +291,15 @@
   },
   {
     "case": "28_same_line",
-    "edges": []
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        7,
+        "SameLine"
+      ]
+    ]
   },
   {
     "case": "29_capture_write",
@@ -436,5 +460,353 @@
   {
     "case": "45_answer_literal_control",
     "edges": []
+  },
+  {
+    "case": "46_recv_prefix",
+    "edges": [
+      [
+        "p.a.b",
+        7,
+        "p.a",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "47_recv_deref_paren",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ],
+      [
+        "p.f",
+        7,
+        "p",
+        10,
+        "Exact"
+      ],
+      [
+        "p.g",
+        9,
+        "p",
+        10,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "48_recv_value_var",
+    "edges": [
+      [
+        "v.f",
+        8,
+        "v",
+        9,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "49_recv_defer_go",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ],
+      [
+        "p.f",
+        7,
+        "p",
+        9,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "50_recv_chain",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "51_recv_root_killed",
+    "edges": []
+  },
+  {
+    "case": "52_recv_branch",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        11,
+        "Exact"
+      ],
+      [
+        "p.f",
+        9,
+        "p",
+        11,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "53_recv_loop_carried",
+    "edges": [
+      [
+        "p.f",
+        9,
+        "p",
+        8,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "54_recv_field_call",
+    "edges": []
+  },
+  {
+    "case": "55_recv_method_value",
+    "edges": []
+  },
+  {
+    "case": "56_recv_import_qualifier",
+    "edges": []
+  },
+  {
+    "case": "57_recv_unresolved_root",
+    "edges": []
+  },
+  {
+    "case": "58_recv_sibling",
+    "edges": []
+  },
+  {
+    "case": "59_recv_same_path",
+    "edges": []
+  },
+  {
+    "case": "60_exec_cmd",
+    "edges": [
+      [
+        "cmd.Dir",
+        9,
+        "cmd",
+        10,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "61_cap_defer",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        9,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "62_cap_go",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        9,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "63_cap_write_after",
+    "edges": [
+      [
+        "p.f",
+        10,
+        "p",
+        8,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "64_cap_killed_before",
+    "edges": []
+  },
+  {
+    "case": "65_cap_sibling",
+    "edges": []
+  },
+  {
+    "case": "66_cap_shadow_param",
+    "edges": []
+  },
+  {
+    "case": "67_cap_shadow_local",
+    "edges": []
+  },
+  {
+    "case": "68_cap_writes_root",
+    "edges": []
+  },
+  {
+    "case": "69_cap_writes_prefix",
+    "edges": []
+  },
+  {
+    "case": "70_cap_writes_sibling",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        10,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "71_cap_nested",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        10,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "72_cap_loop",
+    "edges": [
+      [
+        "p.f",
+        8,
+        "p",
+        10,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "73_cap_prefix",
+    "edges": [
+      [
+        "p.a.b",
+        7,
+        "p.a",
+        9,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "74_sl_reverse",
+    "edges": []
+  },
+  {
+    "case": "75_sl_reverse_loop",
+    "edges": []
+  },
+  {
+    "case": "76_sl_sibling",
+    "edges": []
+  },
+  {
+    "case": "77_sl_kill",
+    "edges": []
+  },
+  {
+    "case": "78_sl_rhs",
+    "edges": []
+  },
+  {
+    "case": "79_sl_tuple",
+    "edges": []
+  },
+  {
+    "case": "80_sl_if_header",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        7,
+        "SameLine"
+      ]
+    ]
+  },
+  {
+    "case": "81_sl_switch_header",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        7,
+        "SameLine"
+      ]
+    ]
+  },
+  {
+    "case": "82_sl_for_init",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        7,
+        "SameLine"
+      ]
+    ]
+  },
+  {
+    "case": "83_sl_for_post",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        7,
+        "SameLine"
+      ]
+    ]
+  },
+  {
+    "case": "84_sl_for_post_acyclic",
+    "edges": []
+  },
+  {
+    "case": "85_sl_write_after_root",
+    "edges": [
+      [
+        "p.f",
+        7,
+        "p",
+        7,
+        "SameLine"
+      ]
+    ]
   }
 ]
