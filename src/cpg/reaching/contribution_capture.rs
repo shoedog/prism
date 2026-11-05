@@ -49,10 +49,9 @@ impl Lane<'_> {
             if self.pos(d).is_some_and(|p| order(p, at).is_before())
                 && !before.iter().any(|&k| {
                     self.overwrites(k, d)
-                        && self
-                            .pos(d)
-                            .zip(self.pos(k))
-                            .is_some_and(|(pd, pk)| matches!(order(pd, pk), Order::Before | Order::Same))
+                        && self.pos(d).zip(self.pos(k)).is_some_and(|(pd, pk)| {
+                            matches!(order(pd, pk), Order::Before | Order::Same)
+                        })
                 })
             {
                 set.insert(d);
@@ -64,7 +63,8 @@ impl Lane<'_> {
     /// Reached from `n` (not through `n`), and what flows back into `n`.
     fn beyond(&mut self, n: usize) -> &(BitSet, BitSet) {
         if !self.beyond.contains_key(&n) {
-            let (mut after, mut back) = (BitSet::new(self.defs.len()), BitSet::new(self.defs.len()));
+            let (mut after, mut back) =
+                (BitSet::new(self.defs.len()), BitSet::new(self.defs.len()));
             let out = |this: &Self, p: usize| {
                 let mut set = this.incoming[p].clone();
                 set.subtract(&this.kill[p]);
@@ -98,9 +98,9 @@ impl Lane<'_> {
         let mut set = self.live_at(n, at);
         // Written later in the node, unless a later write of the node kills it.
         for &d in self.node_sources.get(&n).into_iter().flatten() {
-            let later = self.pos(d).is_some_and(|p| {
-                !matches!(order(p, at), Order::Before | Order::Exclusive)
-            });
+            let later = self
+                .pos(d)
+                .is_some_and(|p| !matches!(order(p, at), Order::Before | Order::Exclusive));
             if later && self.gen[n].contains(d) {
                 set.insert(d);
             }
@@ -247,7 +247,9 @@ impl Lane<'_> {
             if !self.overwrites(k, d) {
                 continue;
             }
-            let killer = facts.write_meta.get(&(defs[k].path.clone(), defs[k].start_byte))?;
+            let killer = facts
+                .write_meta
+                .get(&(defs[k].path.clone(), defs[k].start_byte))?;
             if !forward
                 || (matches!(order(&meta.pos, &killer.pos), Order::Before | Order::Same)
                     && order(&killer.pos, &read.pos).is_before())

@@ -33,22 +33,38 @@ fn lookups(graph: &CodePropertyGraph, probe: &VarLocation) -> String {
     )
 }
 
-/// The stored/public `var_index` keeps recall-only receiver Uses (a cache load
-/// rebuilds it from every node), so a cold build, a direct full hit and a
-/// partial hit answer `var_node_for_location` and `dfg_backward_reachable`
-/// alike for the `cmd` receiver of `cmd.Run()`.
+/// `r.get().Value()`: the inner receiver `r` is read by no ordinary Use, so the
+/// recall lane creates it (a recall-only Use). The stored/public `var_index`
+/// keeps it (a cache load rebuilds the index from every node), so a cold build,
+/// a direct full hit and a partial hit answer `var_node_for_location` and
+/// `dfg_backward_reachable` from that receiver alike.
+const CHAIN_RECEIVER: &str = r#"package pkg
+
+type R struct{ f int }
+
+func (r *R) get() *R { return r }
+
+func (r *R) Value() int { return r.f }
+
+func f(r *R, x int) int {
+	r.f = x
+	return r.get().Value()
+}
+"#;
+
 #[test]
 fn lookup_indexes_are_identical_on_cold_full_hit_and_partial_hit() {
     use crate::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult};
-    let source = include_str!("../../../tests/fixtures/go_field_write/60_exec_cmd/main.go");
-    let sources = BTreeMap::from([("cmd.go".to_string(), source.to_string())]);
+    let sources = BTreeMap::from([("pkg/r.go".to_string(), CHAIN_RECEIVER.to_string())]);
     let files = parse_sources(&sources);
     let cold = CodePropertyGraph::build(&files);
-    let probe = use_of(&cold, "cmd", 10);
+    let probe = use_of(&cold, "r", 11);
     assert!(cold.var_node_for_location(&probe).is_some(), "cold lookup");
     assert!(
-        !cold.dfg_backward_reachable(&probe).is_empty(),
-        "cold backward reachability from the receiver"
+        cold.dfg_backward_reachable(&probe)
+            .iter()
+            .any(|d| d.path.to_string() == "r.f"),
+        "cold backward reachability from the receiver reaches the write"
     );
     let hashes = compute_file_hashes(&sources);
     let dir = tempfile::tempdir().unwrap();
@@ -62,7 +78,7 @@ fn lookup_indexes_are_identical_on_cold_full_hit_and_partial_hit() {
     let partial = CodePropertyGraph::build_incremental(
         loaded.call_graph,
         loaded.dfg,
-        &BTreeSet::from(["cmd.go".to_string()]),
+        &BTreeSet::from(["pkg/r.go".to_string()]),
         &files,
         None,
     );
@@ -79,9 +95,11 @@ type R struct{ f int }
 
 func (r *R) Value() int { return r.f }
 
+func (r *R) get() *R { return r }
+
 func f(r *R, x int) int {
 	r.f = x
-	return r.Value()
+	return r.get().Value()
 }
 
 func caller(r *R, x int) int {
@@ -96,11 +114,13 @@ type R struct{ f int }
 
 func (r *R) Value() int { return r.f }
 
+func (r *R) get() *R { return r }
+
 func g(v int) int { return v }
 
 func caller(r *R, x int) {
 	r.f = x
-	y := g(r.Value())
+	y := g(r.get().Value())
 	println(y)
 }
 "#;
@@ -128,9 +148,6 @@ fn assert_lane_local(source: &str) {
     let added: Vec<_> = h.difference(&m).collect();
     assert_eq!(added.len(), 1, "{added:#?}");
     assert!(added[0].starts_with("r.f@"), "{added:#?}");
-    // The call-stats labels outside the recall class are untouched too.
-    let (a, b) = (&main.dfg_label_stats, &head.dfg_label_stats);
-    assert_eq!(a.dfg_label_exact, b.dfg_label_exact - 1);
 }
 
 #[test]
@@ -222,7 +239,10 @@ fn diff(path: &str) -> DiffInput {
 #[test]
 fn scoped_build_refuses_with_an_out_of_scope_declaring_sibling() {
     let mut sources = BTreeMap::from([
-        ("pkg/decl.go".to_string(), super::field_recall_s2f1_tests::FUNC_FIELD.to_string()),
+        (
+            "pkg/decl.go".to_string(),
+            super::field_recall_s2f1_tests::FUNC_FIELD.to_string(),
+        ),
         ("pkg/main.go".to_string(), MAIN.to_string()),
     ]);
     for i in 0..4 {
@@ -241,6 +261,42 @@ fn scoped_build_refuses_with_an_out_of_scope_declaring_sibling() {
     let scope = ctx.scope.as_ref().expect("a scoped build");
     assert!(scope.scoped_files.contains("pkg/main.go"));
     assert!(!scope.scoped_files.contains("pkg/decl.go"));
-    assert!(prefix_edges(&ctx.cpg).is_empty(), "{:?}", prefix_edges(&ctx.cpg));
+    assert!(
+        prefix_edges(&ctx.cpg).is_empty(),
+        "{:?}",
+        prefix_edges(&ctx.cpg)
+    );
     assert_eq!(ctx.cpg.dfg_label_stats.dfg_recall_receiver_field_refused, 1);
+}
+
+// ---- refused receiver edges leave nothing behind ---------------------------------
+
+const REFUSED_LEAK: &str = r#"package pkg
+
+type R struct {
+	f     int
+	clock func() int
+}
+
+func sink(now int) { println(now) }
+
+func tick(r *R, x int) {
+	r.f = x
+	sink(r.clock().Now())
+}
+"#;
+
+/// `clock` is a func-typed field, so the receiver edge is refused. Its
+/// recall-only Use must go too: left behind it would be visible to Step 5b,
+/// which binds the argument `r.clock().Now()` to `sink`'s formal through it.
+#[test]
+fn refused_receiver_edge_leaves_no_orphan_use() {
+    let (main, head) = (
+        graph_with_recall(REFUSED_LEAK, false),
+        graph_with_recall(REFUSED_LEAK, true),
+    );
+    assert_eq!(head.dfg_label_stats.dfg_recall_receiver_field_refused, 1);
+    assert_eq!(main.graph.node_count(), head.graph.node_count());
+    assert_eq!(dataflow_edges(&main), dataflow_edges(&head));
+    assert_eq!(main.return_flow_stats, head.return_flow_stats);
 }

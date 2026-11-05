@@ -103,12 +103,41 @@ fn transitions(mut files: BTreeMap<String, ParsedFile>) {
             );
         }
         let actual_edges: Vec<_> = current.dfg.edges().iter().map(|e| e.to_owned()).collect();
+        // Per-file singleton builds cannot see sibling files, so they keep Go
+        // receiver edges that the assembled repository refuses (a func-typed
+        // field of the package, `go_package_fields`). The oracle is therefore
+        // the singleton concatenation with only those edges removed, in place:
+        // every other edge keeps its bytes and its order.
+        let (mut kept, mut removed, mut at) = (vec![], vec![], 0);
+        for edge in &expected_edges {
+            if actual_edges.get(at) == Some(edge) {
+                kept.push(edge.clone());
+                at += 1;
+            } else {
+                removed.push(edge);
+            }
+        }
         assert_eq!(
-            bincode::serialize(&expected_edges).unwrap(),
+            at,
+            actual_edges.len(),
+            "actual is not a subsequence of the singleton edges {path} delete={delete}"
+        );
+        assert_eq!(
+            removed.len(),
+            current.dfg_label_stats.dfg_recall_receiver_field_refused,
+            "only refused receiver edges are removed {path} delete={delete}"
+        );
+        assert!(
+            removed.iter().all(|e| e.to.file.ends_with(".go")),
+            "only Go edges are refused {path} delete={delete}"
+        );
+        assert_eq!(
+            bincode::serialize(&kept).unwrap(),
             bincode::serialize(&actual_edges).unwrap(),
             "incremental ordered edge bytes {path} delete={delete}"
         );
-        let cold = DataFlowGraph::build(&files);
+        // The cold reference goes through the same assembly (and refusals).
+        let cold = CodePropertyGraph::build(&files).dfg;
         let bindings = |g: &DataFlowGraph| {
             bincode::serialize(&(
                 g.defs().map(|(k, v)| (k, v.to_vec())).collect::<Vec<_>>(),

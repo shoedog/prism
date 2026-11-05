@@ -145,6 +145,8 @@ cases! {
         body!("p.f, p = x, q; use(p)"), []),
     s2f2_post_with_same_line_kill_is_dropped => (
         body!("for ; ok(p); p.f, p = x, q {", "done()", "}"), []),
+    s2f2_for_post_never_reaches_the_init_read => (
+        body!("for use(p); c; p.f = x {", "done()", "}"), []),
     s2f2_post_read_in_rhs_is_not_the_condition => (
         body!("for ; ok(q); p.f = g(p) {", "done()", "}"), []),
 }

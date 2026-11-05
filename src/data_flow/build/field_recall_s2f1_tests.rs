@@ -210,7 +210,8 @@ pub(super) fn parse_sources(sources: &BTreeMap<String, String>) -> BTreeMap<Stri
         .collect()
 }
 
-pub(super) const MAIN: &str = "package pkg\n\nfunc use(p *B, x string) {\n\tp.f = x\n\tp.run()\n}\n";
+pub(super) const MAIN: &str =
+    "package pkg\n\nfunc use(p *B, x string) {\n\tp.f = x\n\tp.run()\n}\n";
 pub(super) const FUNC_FIELD: &str = "package pkg\n\ntype A struct{ run func() }\n";
 pub(super) const INT_FIELD: &str = "package pkg\n\ntype A struct{ run int }\n";
 

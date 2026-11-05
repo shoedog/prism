@@ -77,7 +77,9 @@ pub(super) fn order(a: &Pos, b: &Pos) -> Order {
         }
         return match x.arm.cmp(&y.arm) {
             Ordering::Less => Order::Before,
-            _ if x.kind == Kind::For && x.arm == POST => Order::LoopBack(x.id),
+            // The post reaches the condition and the body again only around
+            // the loop; the init runs once, before it.
+            _ if x.kind == Kind::For && x.arm == POST && y.arm != 0 => Order::LoopBack(x.id),
             _ => Order::After,
         };
     }

@@ -123,8 +123,10 @@ impl Facts {
             match self.cur_closure {
                 Some(c) => self.closures[c].writes.push(p),
                 None => {
-                    self.write_meta
-                        .insert((p.clone(), node.start_byte()), WriteMeta { pos: self.pos() });
+                    self.write_meta.insert(
+                        (p.clone(), node.start_byte()),
+                        WriteMeta { pos: self.pos() },
+                    );
                     self.writes.insert((p, node.start_byte()), node.end_byte());
                 }
             }
@@ -249,7 +251,11 @@ impl Facts {
     }
 
     fn for_clause(&mut self, parsed: &ParsedFile, id: usize, clause: Node<'_>) {
-        for (field, arm) in [("initializer", 0), ("condition", 1), ("update", super::route::POST)] {
+        for (field, arm) in [
+            ("initializer", 0),
+            ("condition", 1),
+            ("update", super::route::POST),
+        ] {
             if let Some(part) = clause.child_by_field_name(field) {
                 self.route.push(Step {
                     id,
@@ -558,7 +564,12 @@ impl Facts {
                 .or_else(|| actual.named_child(0))
                 .unwrap();
         }
-        self.read(p, actual, Some(parsed.node_text(&field).to_owned()), deferred);
+        self.read(
+            p,
+            actual,
+            Some(parsed.node_text(&field).to_owned()),
+            deferred,
+        );
     }
 
     fn walk_children(&mut self, parsed: &ParsedFile, node: Node<'_>) {

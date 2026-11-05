@@ -2,8 +2,8 @@
 use super::{
     go_aggregate::{Facts, Occurrence},
     graph::BitSet,
-    route::{order, Order, Pos},
     recall_stats::{ReceiverEdge, ReceiverKey, Status},
+    route::{order, Order, Pos},
     scope::{BindingFacts, BindingRelation},
     solve_reaching_sets,
     statement_lookup::StatementLookup,
