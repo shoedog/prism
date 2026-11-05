@@ -9,10 +9,13 @@ use super::js_cjs_named_fn_expr_test::{outcome, Row};
 use super::js_relative_extension_test::graph;
 
 const MATRIX: &str = include_str!("../fixtures/js_mixed_esm_cjs/matrix.jsonl");
+/// Round 1 fold: focused consumer-route (barrel, alias chain, returned value) and ESM-spelling rows.
+const FOCUS: &str = include_str!("../fixtures/js_mixed_esm_cjs/focus.jsonl");
 
 fn rows() -> Vec<Row> {
     MATRIX
         .lines()
+        .chain(FOCUS.lines())
         .map(|l| serde_json::from_str(l).expect("matrix row"))
         .collect()
 }
@@ -85,4 +88,46 @@ fn matrix_has_refuse_and_exact_controls() {
     }
     assert!(all.iter().any(|r| r.id.starts_with("m664-pure-esm/")
         && r.expect.iter().any(|e| e.contains("Exact/import_member"))));
+    // Round 1 fold: consumer routes and ESM-spelling controls must stay present. Alias-chain and returned-value
+    // rows have no Exact edge for a CommonJS producer even on base (spanless CJS exports), so they pin "unchanged".
+    for needle in [
+        "s1-barrel/star/mixed",
+        "s1-barrel/named/mixed",
+        "s1-barrel/default-reexport/mixed",
+        "s1-alias/import-const-alias/mixed",
+        "s1-alias/require-chain/mixed",
+        "s1-returned/imported-helper-destructured/mixed",
+        "s1-spelling/empty-export-braces/mixed",
+        "s1-spelling/export-as-namespace/mixed",
+        "s1-spelling/dts-producer/mixed",
+        "s1-spelling/module-block-nested/control",
+        "s1-spelling/import-only-producer/control",
+    ] {
+        assert!(all.iter().any(|r| r.id == needle), "missing row {needle}");
+    }
+    for group in [
+        "s1-barrel/star",
+        "s1-barrel/named",
+        "s1-barrel/default-reexport",
+    ] {
+        let refused = all
+            .iter()
+            .any(|r| r.id == format!("{group}/mixed") && r.kind == "refuse");
+        let control = all.iter().any(|r| {
+            r.id == format!("{group}/pure-cjs")
+                && r.expect.iter().any(|e| e.contains("Exact/import_member"))
+        });
+        assert!(
+            refused && control,
+            "{group}: refuse row or pure-CJS Exact control missing"
+        );
+    }
+    for spelling in ["module-block-nested", "import-only-producer"] {
+        assert!(
+            all.iter()
+                .any(|r| r.id.starts_with(&format!("s1-spelling/{spelling}/"))
+                    && r.expect.iter().any(|e| e.contains("Exact/import_member"))),
+            "{spelling} must stay an Exact control"
+        );
+    }
 }
