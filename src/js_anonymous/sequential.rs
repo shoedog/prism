@@ -73,6 +73,7 @@ where
                             name,
                             &mut cache,
                         );
+                        let cjs = cjs::evidence(parsed, node, &mut cache);
                         let (safe, imports) = dependencies(parsed, &mut cache);
                         proof.sites.insert(
                             (node.start_byte(), node.end_byte()),
@@ -80,6 +81,7 @@ where
                                 binding,
                                 dependencies_supported: file_supported && safe,
                                 imports,
+                                cjs,
                             },
                         );
                     }

@@ -7,6 +7,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod cjs;
 mod function_expression;
 
 #[cfg(test)]
@@ -53,6 +54,8 @@ struct BindingEvidence {
     binding: JsLocalBinding,
     dependencies_supported: bool,
     imports: Vec<ImportEvidence>,
+    /// #597: the site's callee is a top-level `const` or `var` CommonJS `require` binding.
+    cjs: Option<cjs::CjsRequire>,
 }
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct FileProofs {
@@ -208,6 +211,7 @@ fn build_file(file: &str, parsed: &ParsedFile) -> Option<FileProofs> {
                         name,
                         &mut cache,
                     );
+                    let cjs = cjs::evidence(parsed, node, &mut cache);
                     let (safe, imports) = dependencies(parsed, &mut cache);
                     proof.sites.insert(
                         (node.start_byte(), node.end_byte()),
@@ -215,6 +219,7 @@ fn build_file(file: &str, parsed: &ParsedFile) -> Option<FileProofs> {
                             binding,
                             dependencies_supported: file_supported && safe,
                             imports,
+                            cjs,
                         },
                     );
                 }

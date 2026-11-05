@@ -16,6 +16,7 @@ use tree_sitter::Node;
 
 mod go_branches;
 mod go_jumps;
+pub(crate) mod js_single;
 
 /// A control flow edge between two source lines within a function.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

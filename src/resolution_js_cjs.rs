@@ -9,8 +9,8 @@
 //! and unconflicted in the file's raw export claims, and exactly one non-method function in that
 //! file has the recorded name and line span. Anything short of that proves nothing (`None`) and
 //! the site continues as it did before this route existed. A caller that is itself an anonymous
-//! or module-level owner is not admitted: its Exact needs the anonymous certificate, which this
-//! route does not issue.
+//! or module-level owner is not admitted here: its Exact needs the anonymous certificate, which
+//! `js_anonymous/cjs.rs` issues (#597) after the same producer proof.
 use super::{exact, CallGraph, CallSite, FunctionId, ResolutionKind, ResolutionOutcome};
 use crate::call_graph::JsLocalBinding;
 
@@ -18,6 +18,9 @@ impl CallGraph {
     /// The route for a site bound `RequireModule`, as a followed-binding hit (`via_alias_route`).
     /// `None` for every other site and wherever the proof fails.
     pub(super) fn js_ts_cjs_route(&self, site: &CallSite) -> Option<ResolutionOutcome<'_>> {
+        if crate::anon_owner::is_anonymous_owner_name(&site.caller.name) {
+            return self.anonymous_cjs_route(site);
+        }
         if !matches!(site.local_binding, JsLocalBinding::RequireModule { .. }) {
             return None;
         }
@@ -41,10 +44,21 @@ impl CallGraph {
         if crate::anon_owner::is_anonymous_owner_name(&site.caller.name) {
             return None;
         }
-        let file = self.resolve_js_ts_member_module(module_path, &site.caller.file)?;
+        self.js_ts_cjs_producer_outcome(module_path, member.as_deref(), &site.caller.file)
+    }
+
+    /// The producer half of the proof: the one callable the required module's CommonJS facts
+    /// hold for `member` (`None`: the module value), resolved from a consumer in `caller_file`.
+    pub(crate) fn js_ts_cjs_producer_outcome(
+        &self,
+        module_path: &str,
+        member: Option<&str>,
+        caller_file: &str,
+    ) -> Option<ResolutionOutcome<'_>> {
+        let file = self.resolve_js_ts_member_module(module_path, caller_file)?;
         let facts = self.js_ts_exports.get(&file)?;
         let (claimed, callable) = match member {
-            Some(member) => (member.as_str(), facts.cjs_callables.get(member)?),
+            Some(member) => (member, facts.cjs_callables.get(member)?),
             None => ("default", facts.cjs_module_callable.as_ref()?),
         };
         if facts.conflicted.contains(claimed) || !facts.named.contains_key(claimed) {

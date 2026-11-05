@@ -408,14 +408,15 @@ fn consumer_refusals_keep_main() {
             "g",
             NONE,
         ),
-        // A caller that is an anonymous or module-level owner keeps its outcome.
+        // #597: an anonymous or module-level owner is admitted for a top-level `const` binding
+        // (the barrier and its refusals are pinned by `js_cjs_anonymous_test`).
         Case {
             caller: "*",
             ..mk(
                 "anonymous-callback-caller",
                 "const m = require('./m');\n[1].forEach(() => { m.f(1); });\n",
                 "f",
-                NONE,
+                &["m.js:f@1-1 Exact/import_member"],
             )
         },
         Case {
@@ -424,7 +425,7 @@ fn consumer_refusals_keep_main() {
                 "module-level-caller",
                 "const m = require('./m');\nm.f(1);\n",
                 "f",
-                NONE,
+                &["m.js:f@1-1 Exact/import_member"],
             )
         },
         Case {
@@ -432,7 +433,7 @@ fn consumer_refusals_keep_main() {
             ..mk_fn(
                 "anonymous-callback-caller-module-value",
                 "const m = require('./m');\n[1].forEach(() => { m(1); });\n",
-                &["drop LocalBindingUnproven"],
+                &["m.js:f@1-1 Exact/import_member"],
             )
         },
     ]);

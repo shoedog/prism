@@ -40,6 +40,8 @@ mod inert_default_parameter_tests;
 #[cfg(test)]
 mod js_param_defs_tests;
 #[cfg(test)]
+mod js_single_statement_tests;
+#[cfg(test)]
 mod loop_header_def_tests;
 #[cfg(test)]
 mod member_only_param_leftflow_tests;
