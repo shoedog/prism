@@ -20,6 +20,9 @@ mod step4_reference;
 #[path = "step4_tests.rs"]
 mod step4_tests;
 
+#[path = "recall_hidden.rs"]
+mod recall_hidden;
+
 #[path = "step5c.rs"]
 mod step5c;
 
@@ -516,11 +519,27 @@ impl CodePropertyGraph {
         Self::build_impl(files, type_db.cloned(), scope_inputs)
     }
 
+    #[cfg(test)]
     pub(crate) fn build_enriched_without_scope_graph(
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<&TypeDatabase>,
     ) -> Self {
         Self::build_impl(files, type_db.cloned(), None)
+    }
+
+    /// A CPG over a diff-scoped subset whose Go package facts (func-typed
+    /// fields declared in out-of-scope siblings) come from the whole repository.
+    pub(crate) fn build_scoped_subset(
+        subset: &BTreeMap<String, ParsedFile>,
+        all_files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<&TypeDatabase>,
+    ) -> Self {
+        let type_db = type_db.cloned();
+        crate::build_pool::install(|| {
+            let dfg = DataFlowGraph::build(subset);
+            let cg = CallGraph::build_with_scope_graph_inputs(subset, None);
+            Self::assemble_graph_in(cg, dfg, subset, type_db, Some(all_files))
+        })
     }
 
     fn build_impl(
@@ -990,15 +1009,27 @@ impl CodePropertyGraph {
     /// Runs Steps 1–9 of graph construction.
     pub(super) fn assemble_graph(
         cg: CallGraph,
+        dfg: DataFlowGraph,
+        files: &BTreeMap<String, ParsedFile>,
+        type_db: Option<TypeDatabase>,
+    ) -> Self {
+        Self::assemble_graph_in(cg, dfg, files, type_db, None)
+    }
+
+    /// `package_files`: the whole repository's file map when `files` is a
+    /// scoped subset (see `go_package_fields::refusals`).
+    pub(super) fn assemble_graph_in(
+        cg: CallGraph,
         mut dfg: DataFlowGraph,
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<TypeDatabase>,
+        package_files: Option<&BTreeMap<String, ParsedFile>>,
     ) -> Self {
         let mut profile = crate::profile::Stages::new("cpg_assembly", "cpg.init");
         // Go receiver recall edges whose selector is a func-typed field of the
         // package are removed (or restored) against the whole repository here,
         // so cold, full-hit and partial-hit builds agree.
-        if let Some(refuse) = super::go_package_fields::refusals(&dfg, files) {
+        if let Some(refuse) = super::go_package_fields::refusals(&dfg, files, package_files) {
             dfg.apply_receiver_refusals(&refuse);
         }
         let ephemeral_owner = cg.owner_ephemeral;
@@ -1063,42 +1094,8 @@ impl CodePropertyGraph {
                 );
             }
         }
-        // Receiver Uses that exist only as recall-lane endpoints are lane-local:
-        // they get a graph node for the recall edge but no entry in the
-        // argument/return lookup indexes, so Step 5b/5c never bind them to a
-        // callee (#639 S2 fold 1, defect 2). A key shared with an ordinary Use
-        // is one node (Go merges same-line same-path Uses) and stays visible.
-        let recall_only = dfg.recall_only_use_spans();
-        let mut recall_keys = BTreeSet::new();
-        let mut hidden: Vec<(LegacyVarKey, NodeIndex)> = Vec::new();
-        if !recall_only.is_empty() {
-            for locs in dfg.uses().map(|(_, v)| v) {
-                for loc in locs {
-                    if recall_only
-                        .get(loc.file.as_str())
-                        .is_some_and(|s| s.contains(&(loc.start_byte, loc.end_byte)))
-                    {
-                        recall_keys.insert(Self::legacy_var_key(loc, VarAccess::Use));
-                    }
-                }
-            }
-            let mut ordinary = BTreeSet::new();
-            for locs in dfg.uses().map(|(_, v)| v) {
-                for loc in locs {
-                    if recall_only
-                        .get(loc.file.as_str())
-                        .is_some_and(|s| s.contains(&(loc.start_byte, loc.end_byte)))
-                    {
-                        continue;
-                    }
-                    let key = Self::legacy_var_key(loc, VarAccess::Use);
-                    if recall_keys.contains(&key) {
-                        ordinary.insert(key);
-                    }
-                }
-            }
-            recall_keys.retain(|k| !ordinary.contains(k));
-        }
+        // Lane-local receiver Uses: see `recall_hidden`.
+        let mut hidden = recall_hidden::HiddenUses::new(&dfg);
         for locs in dfg.uses().map(|(_, v)| v) {
             for loc in locs {
                 let before = graph.node_count();
@@ -1111,36 +1108,21 @@ impl CodePropertyGraph {
                     &mut exact_var_index,
                     &mut location_index,
                 );
-                if graph.node_count() > before
-                    && recall_only
-                        .get(loc.file.as_str())
-                        .is_some_and(|s| s.contains(&(loc.start_byte, loc.end_byte)))
-                {
-                    let key = Self::legacy_var_key(loc, VarAccess::Use);
-                    if recall_keys.contains(&key) {
-                        hidden.push((key, idx));
-                    }
-                }
+                hidden.note(loc, graph.node_count() > before, idx);
             }
         }
 
         profile.next("cpg.step4");
         let mut dfg_label_stats =
             Self::assemble_step4(&mut dfg, files, &var_index, &exact_var_index, &mut graph);
-        for (key, idx) in hidden {
-            if var_index.get(&key) == Some(&idx) {
-                var_index.remove(&key);
-            }
-            if let Some(spans) = exact_var_index.get_mut(&key) {
-                for nodes in spans.values_mut() {
-                    nodes.retain(|n| *n != idx);
-                }
-                spans.retain(|_, nodes| !nodes.is_empty());
-                if spans.is_empty() {
-                    exact_var_index.remove(&key);
-                }
-            }
-        }
+        // Step 5b/5c see a view without the lane-local Uses; the stored
+        // indexes stay complete, as a cache load rebuilds them.
+        let hidden_nodes = hidden.node_set();
+        let filtered = (!hidden.is_empty()).then(|| hidden.view(&var_index, &exact_var_index));
+        let (lookup, exact_lookup) = match &filtered {
+            Some((v, e)) => (v, e),
+            None => (&var_index, &exact_var_index),
+        };
 
         profile.next("cpg.step5");
         // These phases mutate only the CPG. Keep a shared borrow of the fixed
@@ -1156,8 +1138,8 @@ impl CodePropertyGraph {
         let mut argument_seeds = Vec::new();
         for flow in Self::collect_step5b_edges_with_exact(
             &go_satisfiers,
-            &var_index,
-            &exact_var_index,
+            lookup,
+            exact_lookup,
             &graph,
             files,
         ) {
@@ -1175,7 +1157,8 @@ impl CodePropertyGraph {
         // --- Step 5c: callee-return → exact caller-LHS flow ---
         let return_flow_stats = Self::assemble_step5c_return_flow(
             &go_satisfiers,
-            &var_index,
+            lookup,
+            &hidden_nodes,
             &func_index,
             &mut graph,
             &mut location_index,

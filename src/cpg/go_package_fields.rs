@@ -16,7 +16,10 @@
 //! classified (undeclared, a type parameter, a cycle). Basic, slice, map, chan,
 //! array, pointer, struct and interface types do not refuse. Embedded fields
 //! count under their type's name, but an embedded type's own fields are not
-//! followed (a recorded gap).
+//! followed (a recorded gap). Every `field_declaration` of the package files
+//! counts, wherever it sits: named top-level types, anonymous struct types and
+//! function-local type declarations (fail closed: a local table-struct field
+//! named like a method also refuses that method's receiver edges).
 use crate::ast::ParsedFile;
 use crate::data_flow::DataFlowGraph;
 use crate::languages::Language;
@@ -159,9 +162,14 @@ fn callable_possible(ty: &Ty, types: &BTreeMap<String, Vec<Ty>>, depth: usize) -
 
 /// The refusal predicate `(file, selector) -> refused` for the receiver edges
 /// the graph recorded, or `None` when it recorded none.
+///
+/// `package_files` is the file map the package scan reads: a scoped build
+/// assembles only its in-scope files but must refuse exactly what a full build
+/// refuses, so it passes the whole repository's map here (`None`: `files`).
 pub(crate) fn refusals<'a>(
     dfg: &DataFlowGraph,
     files: &'a BTreeMap<String, ParsedFile>,
+    package_files: Option<&'a BTreeMap<String, ParsedFile>>,
 ) -> Option<impl Fn(&str, &str) -> bool + 'a> {
     let ledger_files = dfg.receiver_recall_files();
     if ledger_files.is_empty() {
@@ -179,21 +187,18 @@ pub(crate) fn refusals<'a>(
     }
     let needed: BTreeSet<&PackageKey> = of_file.values().collect();
     let mut packages = BTreeMap::<PackageKey, Package>::new();
-    for (path, parsed) in files {
+    for (path, parsed) in package_files.unwrap_or(files) {
         if parsed.language != Language::Go {
             continue;
         }
         let Some(key) = package_key(path, parsed).filter(|k| needed.contains(k)) else {
             continue;
         };
-        let root = parsed.tree.root_node();
-        let pkg = packages.entry(key).or_default();
-        let mut cursor = root.walk();
-        for decl in root.named_children(&mut cursor) {
-            if decl.kind() == "type_declaration" {
-                scan(parsed, decl, pkg);
-            }
-        }
+        scan(
+            parsed,
+            parsed.tree.root_node(),
+            packages.entry(key).or_default(),
+        );
     }
     let callable: BTreeMap<PackageKey, BTreeSet<String>> = packages
         .into_iter()

@@ -250,7 +250,7 @@ impl<'a> CpgContext<'a> {
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
 
-        let mut cpg = CodePropertyGraph::build_enriched_without_scope_graph(&filtered, type_db);
+        let mut cpg = CodePropertyGraph::build_scoped_subset(&filtered, files, type_db);
         // P15a-fix2: the filtered CPG was built from `filtered`, but this
         // context's registry is built over ALL `files` — a different file set.
         // Its stashed provider must NOT be reused; drop it so the scoped CPG
