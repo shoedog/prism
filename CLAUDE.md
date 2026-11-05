@@ -319,7 +319,7 @@ edges; `dfg_recall_functions_capped` and `dfg_recall_candidates_capped` count th
 `dfg_recall_max_candidates` is the largest per-owner count. RD-unavailable survivors
 cannot be counted, so they contribute only to their owner skip counter.
 These counters appear in dfg-stats and call-stats.dfg_labels and persist through cache hits.
-Proven-killed/no-route pairs are omitted; uncertain routes carry cfg_incomplete.
+The lane ignores Go return/break to defer dispatch. Range, select-receive and type-switch rebinding, including selector and dereference header targets, kill the comparable contributions of the root (range on iteration entry only). Package-level roots apply overwrite kills. A use before its def is emitted only with an Exact cyclic route; uncertain backward pairs are dropped (a recall loss, e.g. loop-carried flow of package-level roots). Other uncertain routes carry cfg_incomplete.
 
 For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
 write-only use (U) or a dominating unconditional write in a single-entry region (D).

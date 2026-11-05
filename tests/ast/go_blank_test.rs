@@ -122,8 +122,7 @@ fn check(name: &str) {
         assert!(failures.is_empty(), "{name}: {}", failures.join(", "));
     } else {
         assert_eq!(actual, baseline[name], "{name}: language control changed");
-        // The stored bincode bytes predate the recall stats row (#639); recall is Go-only, so a non-Go
-        // control must have no recall edge and only empty recall rows, and must round-trip.
+        // Recall (#639) is Go-only: a non-Go control has no recall edge and only empty recall rows.
         assert!(!dfg
             .edges()
             .iter()
@@ -136,7 +135,11 @@ fn check(name: &str) {
                 "{name}: non-Go recall row"
             );
         }
+        // The stored bytes were re-captured with the recall stats row present (empty for non-Go).
         let encoded = bincode::serialize(&dfg).unwrap();
+        let expected: Vec<u8> =
+            serde_json::from_value(baseline[format!("{name}_bytes")].clone()).unwrap();
+        assert_eq!(encoded, expected, "{name}: serialized graph changed");
         let decoded: DataFlowGraph = bincode::deserialize(&encoded).unwrap();
         assert_eq!(
             snapshot(&decoded),

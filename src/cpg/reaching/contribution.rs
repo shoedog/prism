@@ -345,6 +345,10 @@ pub(super) fn analyze(
                     node_line[n] = line;
                 }
             }
+            // One virtual node per header node, carrying the union of every
+            // written name's kills: parallel nodes would let each name's
+            // contributions bypass the other's kill.
+            let mut groups = BTreeMap::<(usize, Option<usize>), (usize, Vec<usize>)>::new();
             for h in headers {
                 let Some(node) = statements
                     .get(h.line)
@@ -352,24 +356,32 @@ pub(super) fn analyze(
                 else {
                     continue;
                 };
-                let killed: Vec<usize> = sources
-                    .values()
-                    .flatten()
-                    .copied()
-                    .filter(|&d| {
-                        defs[d].path.base == h.name
-                            && bindings.relation_at(&h.name, h.probe, d) == BindingRelation::Same
-                    })
-                    .collect();
+                // Same kill as an ordinary assignment to this path: the same
+                // path, a prefix of the contribution, the root, `*root`.
+                let killed = sources.values().flatten().copied().filter(|&d| {
+                    defs[d].path.base == h.path.base
+                        && defs[d].path.fields.starts_with(&h.path.fields)
+                        && bindings.relation_at(&h.path.base, h.probe, d) == BindingRelation::Same
+                });
+                let last_line = match h.entry {
+                    super::go_header_writes::Entry::Range { last_line } => Some(last_line),
+                    super::go_header_writes::Entry::Anchor => None,
+                };
+                let slot = groups.entry((node, last_line)).or_insert((h.line, vec![]));
+                slot.1.extend(killed);
+            }
+            for ((node, last_line), (line, mut killed)) in groups {
+                killed.sort_unstable();
+                killed.dedup();
                 if killed.is_empty() {
                     continue;
                 }
                 let mut at = node;
-                if let super::go_header_writes::Entry::Range { last_line } = h.entry {
+                if let Some(last_line) = last_line {
                     let body_edges: Vec<(usize, bool)> = successors[node]
                         .iter()
                         .copied()
-                        .filter(|&(t, _)| node_line[t] > h.line && node_line[t] <= last_line)
+                        .filter(|&(t, _)| node_line[t] > line && node_line[t] <= last_line)
                         .collect();
                     if !body_edges.is_empty() {
                         let (es, ep) =

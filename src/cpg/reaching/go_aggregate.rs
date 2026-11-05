@@ -20,7 +20,7 @@ pub(super) struct Facts {
 
 /// Parse the entire path, refusing indices and depth truncation. Dereference
 /// normalizes storage exactly as the owner's existing DefSites do.
-fn path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
+pub(super) fn path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
     match node.kind() {
         "identifier" => Some(AccessPath::simple(parsed.node_text(&node))),
         "selector_expression" => {
