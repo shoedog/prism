@@ -2,7 +2,7 @@
 use super::{
     go_aggregate::{Facts, Occurrence},
     graph::BitSet,
-    recall_stats::Status,
+    recall_stats::{ReceiverEdge, ReceiverKey, Status},
     scope::{BindingFacts, BindingRelation},
     solve_reaching_sets,
     statement_lookup::StatementLookup,
@@ -50,7 +50,7 @@ type Labels = BTreeMap<(VarLocation, VarLocation), FlowConfidence>;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RecallResult {
     status: Status,
-    edges: Vec<(FlowEdge, FlowConfidence)>,
+    edges: Vec<(FlowEdge, FlowConfidence, Option<String>)>,
 }
 impl RecallResult {
     /// Admission already succeeded before either edges or supplemental Uses
@@ -72,7 +72,8 @@ impl RecallResult {
             ),
             self.status,
         );
-        for (mut edge, label) in self.edges {
+        let mut created = BTreeSet::new();
+        for (mut edge, label, selector) in self.edges {
             let to = &edge.to;
             let locations = uses
                 .entry((
@@ -88,6 +89,24 @@ impl RecallResult {
                 edge.to = existing.clone();
             } else {
                 locations.push(to.clone());
+                created.insert((to.start_byte, to.end_byte));
+            }
+            if let Some(selector) = selector {
+                stats.recall.record_receiver(
+                    ReceiverKey {
+                        from_start: edge.from.start_byte,
+                        from_end: edge.from.end_byte,
+                        from_path: edge.from.path.clone(),
+                        to_start: edge.to.start_byte,
+                        to_end: edge.to.end_byte,
+                    },
+                    ReceiverEdge {
+                        selector,
+                        label,
+                        new_use: created.contains(&(edge.to.start_byte, edge.to.end_byte)),
+                        refused: None,
+                    },
+                );
             }
             labels
                 .entry((edge.from.clone(), edge.to.clone()))
@@ -191,7 +210,7 @@ impl<'l> Lane<'l> {
     /// different binding or a kill).
     fn binding_uncertain(&self, d: usize, u: usize) -> Option<bool> {
         let read = &self.reads[u];
-        if read.receiver
+        if read.receiver.is_some()
             && self
                 .bindings
                 .lookup_at_requires_flat_fallback(&read.path.base, read.start, d)
@@ -201,7 +220,7 @@ impl<'l> Lane<'l> {
         match self.bindings.relation_at(&read.path.base, read.start, d) {
             BindingRelation::KilledAt(_) => None,
             // A receiver must be a proven variable binding.
-            BindingRelation::Unresolved if read.receiver => None,
+            BindingRelation::Unresolved if read.receiver.is_some() => None,
             BindingRelation::Unresolved => Some(true),
             BindingRelation::Same => Some(false),
         }
@@ -629,6 +648,7 @@ pub(super) fn analyze(
                     ),
                 },
                 label,
+                read.receiver.clone(),
             )
         })
         .collect();

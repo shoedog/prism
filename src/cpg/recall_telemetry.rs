@@ -10,6 +10,7 @@ impl DfgLabelStats {
         self.dfg_recall_candidates_capped = 0;
         self.dfg_recall_functions_over_rd_cap = 0;
         self.dfg_recall_functions_without_cfg = 0;
+        self.dfg_recall_receiver_field_refused = 0;
         for stats in dfg.rd_function_stats().values() {
             let r = &stats.recall;
             self.dfg_recall_candidates += r.candidates();
@@ -18,6 +19,7 @@ impl DfgLabelStats {
             self.dfg_recall_candidates_capped += r.candidates_capped();
             self.dfg_recall_functions_over_rd_cap += r.functions_over_cap();
             self.dfg_recall_functions_without_cfg += r.functions_without_cfg();
+            self.dfg_recall_receiver_field_refused += r.receivers_refused();
         }
     }
 }

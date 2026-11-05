@@ -6,6 +6,9 @@ use crate::languages::Language;
 use std::collections::BTreeSet;
 
 pub(super) fn matrix(case: &str) {
+    if super::field_recall_s2f1_tests::PACKAGE_ROWS.contains(&case) {
+        return super::field_recall_s2f1_tests::package_matrix(case);
+    }
     let root =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/go_field_write");
     let language = match &case[..2] {

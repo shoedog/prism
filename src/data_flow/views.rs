@@ -79,4 +79,20 @@ impl DataFlowGraph {
     ) -> &mut std::collections::BTreeMap<String, crate::cpg::RdFileStats> {
         &mut self.storage.rd_function_stats
     }
+    /// Files whose recall ledger holds receiver edges (Go, #639 S2).
+    pub(crate) fn receiver_recall_files(&self) -> Vec<String> {
+        self.storage.receiver_files()
+    }
+    /// Per file, the `(start, end)` spans of receiver Uses that exist only as
+    /// endpoints of a present recall edge.
+    pub(crate) fn recall_only_use_spans(
+        &self,
+    ) -> std::collections::HashMap<String, std::collections::HashSet<(usize, usize)>> {
+        self.storage.recall_only_use_spans()
+    }
+    /// Remove or restore receiver recall edges so each agrees with
+    /// `refuse(file, selector)`; see `compact::receiver_refusal`.
+    pub(crate) fn apply_receiver_refusals(&mut self, refuse: &dyn Fn(&str, &str) -> bool) {
+        self.storage.apply_receiver_refusals(refuse);
+    }
 }

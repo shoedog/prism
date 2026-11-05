@@ -61,13 +61,12 @@ fn scan(parsed: &ParsedFile, root: Node<'_>, node: Node<'_>, out: &mut BTreeSet<
     }
 }
 
-/// File-level facts that refuse a receiver call: field names declared by
-/// this file's struct types, and its import qualifiers. A per-file producer
-/// cannot see sibling files of the package (their edits would also leave a
-/// cached file stale), so a field declared only elsewhere is not refused.
+/// File-level facts that refuse a receiver call: its import qualifiers.
+/// Struct fields are not consulted here: a per-file producer cannot see the
+/// package's other files (and a cached file would go stale when they change),
+/// so func-typed fields are refused later over the whole repository.
 #[derive(Default)]
 pub(super) struct FileScope {
-    pub fields: BTreeSet<String>,
     pub imports: BTreeSet<String>,
 }
 
@@ -76,10 +75,8 @@ pub(super) fn file_scope(parsed: &ParsedFile) -> FileScope {
     let root = parsed.tree.root_node();
     let mut cursor = root.walk();
     for decl in root.named_children(&mut cursor) {
-        match decl.kind() {
-            "import_declaration" => imports(parsed, decl, &mut scope.imports),
-            "type_declaration" => fields(parsed, decl, &mut scope.fields),
-            _ => {}
+        if decl.kind() == "import_declaration" {
+            imports(parsed, decl, &mut scope.imports);
         }
     }
     scope
@@ -108,33 +105,5 @@ fn imports(parsed: &ParsedFile, node: Node<'_>, out: &mut BTreeSet<String>) {
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
         imports(parsed, child, out);
-    }
-}
-
-fn fields(parsed: &ParsedFile, node: Node<'_>, out: &mut BTreeSet<String>) {
-    if node.kind() == "field_declaration" {
-        let mut cursor = node.walk();
-        let named: Vec<_> = node.children_by_field_name("name", &mut cursor).collect();
-        if named.is_empty() {
-            // Embedded field: its name is the type's last identifier.
-            if let Some(t) = node.child_by_field_name("type") {
-                let mut t = t;
-                while let Some(inner) = t.child_by_field_name("name").or_else(|| {
-                    (t.kind() == "pointer_type")
-                        .then(|| t.named_child(0))
-                        .flatten()
-                }) {
-                    t = inner;
-                }
-                out.insert(parsed.node_text(&t).to_owned());
-            }
-        }
-        for n in named {
-            out.insert(parsed.node_text(&n).to_owned());
-        }
-    }
-    let mut cursor = node.walk();
-    for child in node.named_children(&mut cursor) {
-        fields(parsed, child, out);
     }
 }

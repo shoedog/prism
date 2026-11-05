@@ -322,11 +322,22 @@ These counters appear in dfg-stats and call-stats.dfg_labels and persist through
 The lane ignores Go return/break to defer dispatch. Range, select-receive and type-switch rebinding, including selector and dereference header targets, kill the comparable contributions of the root (range on iteration entry only). Package-level roots apply overwrite kills. A use before its def is emitted only with an Exact cyclic route; uncertain backward pairs are dropped (a recall loss, e.g. loop-carried flow of package-level roots). Other uncertain routes carry cfg_incomplete.
 
 Go recall S2 (#639) adds three consumer shapes to the same lane, still `Def(p.f…) → Use(strict prefix)`, counted in the same per-owner
-1,000,000 budget (one survivor iterator; no new counters). Receiver: `R.M(..)` with a static path `R` (`p`, `p.a`, `*p`,
+1,000,000 budget (one survivor iterator). Receiver: `R.M(..)` with a static path `R` (`p`, `p.a`, `*p`,
 parenthesized) is a consumer of `R`, a real Use is created at the receiver span only when an edge is admitted into it; eager
-`defer`/`go` receivers count, in `R.M().N()` only `M`'s receiver does. Refused: `M` is a struct field name declared in the same
-file (a func-typed field call is a field read; sibling files of the package are not visible to the per-file producer, so a field
-declared only there does not refuse), a method value without a call, an import-qualifier root the owner does not redeclare, a
+`defer`/`go` receivers count, in `R.M().N()` only `M`'s receiver does. Refused: `M` is a func-typed struct field of the same Go
+package (a func-typed field call is a field read; fold 1 moved this from a same-file name check to a repository-wide one: each
+admitted receiver edge is recorded with its selector in the file's recall ledger (`RecallStats`, cached with the file's DFG), and
+at graph assembly `cpg/go_package_fields.rs` removes or restores edges against the package's fields, so cold, full-hit and
+partial-hit builds agree, including when only the declaring sibling file changes; counter `dfg_recall_receiver_field_refused`,
+in dfg-stats and call-stats `dfg_labels`). Package = directory + `package` clause, so an external `foo_test` package does not see
+`foo`'s fields while internal `_test.go` files do. A field refuses its name when its type may be callable: `func(..)`, a qualified
+`pkg.T`, a package-local type resolving (through aliases, depth 8) to a func type, or one that cannot be classified; basic, slice,
+map, chan, array, pointer, struct and interface types do not refuse, and a method with the same name does not matter (a field
+and a method of that name in one package refuse, failing closed). Gap: an embedded type's own fields are not followed. Receiver
+Uses that exist only as recall endpoints are lane-local: they get a graph node for the recall edge but are left out of the
+Step 5b/5c lookup indexes (`var_index`, `exact_var_index`), so the argument-to-formal pass never binds them to a callee (real
+receiver-to-method flow is a possible later slice); a Use shared with an ordinary same-line same-path Use is one node and stays
+visible. Also refused: a method value without a call, an import-qualifier root the owner does not redeclare, a
 root without a proven binding (flat fallback or unresolved), a sibling receiver (`p.g = x; p.f.M()`), and the same path
 (`p.f = x; p.f.M()`, left to main). Capture read: a consumer of `p` or a strict static prefix inside a function literal at any depth
 is admitted, always `cfg_incomplete`, when the contribution is live at the outermost literal's creation node or any node reachable

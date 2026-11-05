@@ -25,6 +25,7 @@ mod recall_stats;
 pub(crate) use contribution::record_skip as record_go_recall_skip;
 #[cfg(test)]
 pub(crate) use contribution::with_cap as with_recall_cap;
+pub(crate) use recall_stats::{ReceiverEdge, ReceiverKey};
 mod def_buckets;
 mod go_header;
 mod graph;

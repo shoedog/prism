@@ -131,6 +131,7 @@ pub struct DfgLabelStats {
     pub dfg_recall_candidates_capped: usize,
     pub dfg_recall_functions_over_rd_cap: usize,
     pub dfg_recall_functions_without_cfg: usize,
+    pub dfg_recall_receiver_field_refused: usize,
 }
 
 impl DfgLabelStats {
@@ -994,6 +995,12 @@ impl CodePropertyGraph {
         type_db: Option<TypeDatabase>,
     ) -> Self {
         let mut profile = crate::profile::Stages::new("cpg_assembly", "cpg.init");
+        // Go receiver recall edges whose selector is a func-typed field of the
+        // package are removed (or restored) against the whole repository here,
+        // so cold, full-hit and partial-hit builds agree.
+        if let Some(refuse) = super::go_package_fields::refusals(&dfg, files) {
+            dfg.apply_receiver_refusals(&refuse);
+        }
         let ephemeral_owner = cg.owner_ephemeral;
         let mut graph = DiGraph::new();
         let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
@@ -1056,9 +1063,46 @@ impl CodePropertyGraph {
                 );
             }
         }
+        // Receiver Uses that exist only as recall-lane endpoints are lane-local:
+        // they get a graph node for the recall edge but no entry in the
+        // argument/return lookup indexes, so Step 5b/5c never bind them to a
+        // callee (#639 S2 fold 1, defect 2). A key shared with an ordinary Use
+        // is one node (Go merges same-line same-path Uses) and stays visible.
+        let recall_only = dfg.recall_only_use_spans();
+        let mut recall_keys = BTreeSet::new();
+        let mut hidden: Vec<(LegacyVarKey, NodeIndex)> = Vec::new();
+        if !recall_only.is_empty() {
+            for locs in dfg.uses().map(|(_, v)| v) {
+                for loc in locs {
+                    if recall_only
+                        .get(loc.file.as_str())
+                        .is_some_and(|s| s.contains(&(loc.start_byte, loc.end_byte)))
+                    {
+                        recall_keys.insert(Self::legacy_var_key(loc, VarAccess::Use));
+                    }
+                }
+            }
+            let mut ordinary = BTreeSet::new();
+            for locs in dfg.uses().map(|(_, v)| v) {
+                for loc in locs {
+                    if recall_only
+                        .get(loc.file.as_str())
+                        .is_some_and(|s| s.contains(&(loc.start_byte, loc.end_byte)))
+                    {
+                        continue;
+                    }
+                    let key = Self::legacy_var_key(loc, VarAccess::Use);
+                    if recall_keys.contains(&key) {
+                        ordinary.insert(key);
+                    }
+                }
+            }
+            recall_keys.retain(|k| !ordinary.contains(k));
+        }
         for locs in dfg.uses().map(|(_, v)| v) {
             for loc in locs {
-                Self::materialize_var_location(
+                let before = graph.node_count();
+                let idx = Self::materialize_var_location(
                     loc,
                     VarAccess::Use,
                     files,
@@ -1067,12 +1111,36 @@ impl CodePropertyGraph {
                     &mut exact_var_index,
                     &mut location_index,
                 );
+                if graph.node_count() > before
+                    && recall_only
+                        .get(loc.file.as_str())
+                        .is_some_and(|s| s.contains(&(loc.start_byte, loc.end_byte)))
+                {
+                    let key = Self::legacy_var_key(loc, VarAccess::Use);
+                    if recall_keys.contains(&key) {
+                        hidden.push((key, idx));
+                    }
+                }
             }
         }
 
         profile.next("cpg.step4");
         let mut dfg_label_stats =
             Self::assemble_step4(&mut dfg, files, &var_index, &exact_var_index, &mut graph);
+        for (key, idx) in hidden {
+            if var_index.get(&key) == Some(&idx) {
+                var_index.remove(&key);
+            }
+            if let Some(spans) = exact_var_index.get_mut(&key) {
+                for nodes in spans.values_mut() {
+                    nodes.retain(|n| *n != idx);
+                }
+                spans.retain(|_, nodes| !nodes.is_empty());
+                if spans.is_empty() {
+                    exact_var_index.remove(&key);
+                }
+            }
+        }
 
         profile.next("cpg.step5");
         // These phases mutate only the CPG. Keep a shared borrow of the fixed

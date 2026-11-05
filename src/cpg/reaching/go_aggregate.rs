@@ -10,8 +10,8 @@ pub(super) struct Occurrence {
     pub line: usize,
     pub start: usize,
     pub end: usize,
-    /// The read is the receiver of a call `R.M(..)` (S2).
-    pub receiver: bool,
+    /// The read is the receiver of a call `R.M(..)` (S2): the selector `M`.
+    pub receiver: Option<String>,
     /// Index into `Facts::closures` when the read sits in a function literal.
     pub closure: Option<usize>,
     /// Start byte of the simple statement (or header clause) evaluating it.
@@ -252,7 +252,7 @@ impl Facts {
                     .or_else(|| actual.named_child(0))
                     .unwrap();
             }
-            self.read(p, actual, false);
+            self.read(p, actual, None);
             return;
         }
         match node.kind() {
@@ -339,7 +339,7 @@ impl Facts {
 
     /// Record a read; inside a function literal it is a capture read, unless
     /// the literal (or one enclosing it) declares the root name itself.
-    fn read(&mut self, path: AccessPath, actual: Node<'_>, receiver: bool) {
+    fn read(&mut self, path: AccessPath, actual: Node<'_>, receiver: Option<String>) {
         if self.cur_closure.is_some() && self.shadow.iter().any(|s| s.contains(&path.base)) {
             return;
         }
@@ -356,9 +356,10 @@ impl Facts {
     }
 
     /// `R.M(..)` with a static path `R`: a receiver read of `R`. Refused when
-    /// `M` is a field name of a struct declared in this file (a func-typed
-    /// field call is a field read) or `R` is rooted at an import qualifier
-    /// that the owner does not shadow. Method values are never calls.
+    /// `R` is rooted at an import qualifier that the owner does not shadow.
+    /// The selector travels with the edge: a func-typed field named `M`
+    /// anywhere in the package is refused later, over the whole repository
+    /// (`cpg::go_package_fields`). Method values are never calls.
     fn receiver(&mut self, parsed: &ParsedFile, call: Node<'_>) {
         // In `R.M().N()` only `M`'s receiver counts; walk down the chain.
         let mut call = call;
@@ -395,10 +396,9 @@ impl Facts {
         let scope = self
             .scope
             .get_or_insert_with(|| super::go_recall_scope::file_scope(parsed));
-        if scope.fields.contains(parsed.node_text(&field))
-            || (scope.imports.contains(&p.base)
-                && !self.owner_names.contains(&p.base)
-                && !self.shadow.iter().any(|s| s.contains(&p.base)))
+        if scope.imports.contains(&p.base)
+            && !self.owner_names.contains(&p.base)
+            && !self.shadow.iter().any(|s| s.contains(&p.base))
         {
             return;
         }
@@ -412,7 +412,7 @@ impl Facts {
                 .or_else(|| actual.named_child(0))
                 .unwrap();
         }
-        self.read(p, actual, true);
+        self.read(p, actual, Some(parsed.node_text(&field).to_owned()));
     }
 
     fn walk_children(&mut self, parsed: &ParsedFile, node: Node<'_>) {

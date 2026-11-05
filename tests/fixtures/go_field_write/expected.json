@@ -812,5 +812,137 @@
   {
     "case": "86_sl_for_post_inc",
     "edges": []
+  },
+  {
+    "case": "87_xfile_type_func",
+    "edges": []
+  },
+  {
+    "case": "88_xfile_func_lit",
+    "edges": []
+  },
+  {
+    "case": "89_xfile_qualified",
+    "edges": []
+  },
+  {
+    "case": "90_local_struct_admitted",
+    "edges": [
+      [
+        "p.f",
+        10,
+        "p",
+        11,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "91_field_and_method_refused",
+    "edges": []
+  },
+  {
+    "case": "92_external_test_package",
+    "edges": [
+      [
+        "p.f",
+        4,
+        "p",
+        5,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "93_internal_test_package",
+    "edges": []
+  },
+  {
+    "case": "94_noncallable_fields",
+    "edges": [
+      [
+        "p.f",
+        4,
+        "p",
+        5,
+        "Exact"
+      ],
+      [
+        "p.f",
+        4,
+        "p",
+        6,
+        "Exact"
+      ],
+      [
+        "p.f",
+        4,
+        "p",
+        7,
+        "Exact"
+      ],
+      [
+        "p.f",
+        4,
+        "p",
+        8,
+        "Exact"
+      ],
+      [
+        "p.f",
+        4,
+        "p",
+        9,
+        "Exact"
+      ],
+      [
+        "p.f",
+        4,
+        "p",
+        10,
+        "Exact"
+      ],
+      [
+        "p.f",
+        4,
+        "p",
+        11,
+        "Exact"
+      ],
+      [
+        "p.f",
+        4,
+        "p",
+        12,
+        "Exact"
+      ],
+      [
+        "p.f",
+        4,
+        "p",
+        13,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "95_alias_func",
+    "edges": []
+  },
+  {
+    "case": "96_unclassified_type",
+    "edges": []
+  },
+  {
+    "case": "97_embedded_foreign",
+    "edges": [
+      [
+        "p.f",
+        4,
+        "p",
+        5,
+        "Exact"
+      ]
+    ]
   }
 ]
