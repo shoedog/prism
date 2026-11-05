@@ -172,8 +172,8 @@ fn exact_caller_reads_r01_r02_all_dialects() {
             2,
             2,
             vec![
-                (2, (58, 63), FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)),
-                (2, (77, 82), FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)),
+                (2, (58, 63), FlowConfidence::NameOnly(FlowDoubt::SameLine)),
+                (2, (77, 82), FlowConfidence::NameOnly(FlowDoubt::SameLine)),
             ],
         ),
         (
@@ -526,7 +526,7 @@ fn exact_caller_reads_persist_only_supplemental_and_keep_legacy_identity() {
     let (edge, label) = exact_labels.iter().next().unwrap();
     assert_eq!((edge.from.start_byte, edge.from.end_byte), (46, 51));
     assert_eq!((edge.to.start_byte, edge.to.end_byte), (77, 82));
-    assert_eq!(*label, FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
+    assert_eq!(*label, FlowConfidence::NameOnly(FlowDoubt::SameLine));
 
     let legacy: Vec<_> = cpg
         .dfg
@@ -555,7 +555,7 @@ fn exact_caller_reads_persist_only_supplemental_and_keep_legacy_identity() {
             51,
             58,
             63,
-            Some(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete))
+            Some(FlowConfidence::NameOnly(FlowDoubt::SameLine))
         )]
     );
     let legacy_edge = cpg

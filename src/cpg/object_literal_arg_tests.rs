@@ -525,7 +525,8 @@ fn label_is_exact_when_call_and_definition_edge_are_exact() {
 
 #[test]
 fn label_composes_with_the_definition_edge_doubt() {
-    // One-statement callees have no CFG: the Def->Use edge is NameOnly(CfgIncomplete),
+    // The one-line callee's Def->Use edge is NameOnly(SameLine) (the parameter and its
+    // read share a line; it was CfgIncomplete before #599 gave one-node owners a CFG),
     // and the shortcut over it must not be stronger than the two hops it replaces.
     let src = "function f(p) { sinkA(p.a); }\nfunction h(a) {\n  f({ a });\n}\n";
     for (language, ext) in LANGS {
@@ -533,7 +534,7 @@ fn label_composes_with_the_definition_edge_doubt() {
         let edges = literal_edges(&cpg);
         assert_eq!(
             edges.get("h:a@3 -> f:p.a@1"),
-            Some(&FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)),
+            Some(&FlowConfidence::NameOnly(FlowDoubt::SameLine)),
             "{language:?}: {edges:?}"
         );
     }

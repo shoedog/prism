@@ -323,7 +323,7 @@ fn same_line_occurrence_o01_recovers_later_argument_and_boundary() {
                 anchors[0].1,
                 anchors[1].0,
                 anchors[1].1,
-                Some(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)),
+                Some(FlowConfidence::NameOnly(FlowDoubt::SameLine)),
             )]
         {
             failures.push(format!(
@@ -389,19 +389,19 @@ fn same_line_occurrence_o01_recovers_later_argument_and_boundary() {
         };
         assert_eq!(
             edge_labels(caller_def, earlier),
-            [FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)],
+            [FlowConfidence::NameOnly(FlowDoubt::SameLine)],
             "O01/{ext}/earlier producer edge"
         );
         assert_eq!(
             edge_labels(caller_def, later),
-            [FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)],
+            [FlowConfidence::NameOnly(FlowDoubt::SameLine)],
             "O01/{ext}: later caller producer edge"
         );
         assert_eq!(edge_labels(later, param), [FlowConfidence::Exact]);
         assert!(edge_labels(earlier, param).is_empty());
         assert_eq!(
             edge_labels(param, body),
-            [FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)]
+            [FlowConfidence::NameOnly(FlowDoubt::SameLine)]
         );
         let reachable = cpg.reachable_forward(later, &|edge| matches!(edge, CpgEdge::DataFlow(_)));
         assert!(reachable.contains(&param) && reachable.contains(&body));
@@ -1606,8 +1606,8 @@ fn same_line_occurrence_o13_step5c_return_input_and_legacy_queries_match_warm() 
             input_dfg.sort();
             if input_dfg
                 != vec![
-                    "Def:21-26->Use:33-38:NameOnly(CfgIncomplete)".to_string(),
-                    "Def:21-26->Use:47-52:NameOnly(CfgIncomplete)".to_string(),
+                    "Def:21-26->Use:33-38:NameOnly(SameLine)".to_string(),
+                    "Def:21-26->Use:47-52:NameOnly(SameLine)".to_string(),
                 ]
             {
                 failures.push(format!(

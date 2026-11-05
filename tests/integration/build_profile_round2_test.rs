@@ -72,7 +72,9 @@ fn captured_write_admission_counts_admitted_and_refused_fences() {
 #[test]
 fn rss_intervals_exclude_cfg_in_both_owner_orders() {
     let dir = tempfile::tempdir().unwrap();
-    let tiny = "function tiny() { return 0; }\n";
+    // An empty body keeps `tiny` out of reaching definitions (#599: a one-statement
+    // body now runs it, and its first-use init would be charged to the first owner).
+    let tiny = "function tiny() { }\n";
     let big: String = (0..10)
         .map(|i| {
             format!(

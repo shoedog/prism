@@ -12,11 +12,12 @@ pub(crate) fn unavailable_before_edges(
     defs: &[DefSite],
     cfg: &FileCfgEdgeIndex<'_>,
 ) -> Option<RdUnavailable> {
-    let count = deduplicate_definitions(defs).len();
+    let defs = deduplicate_definitions(defs);
+    let count = defs.len();
     if count > RD_MAX_DEFS {
         return Some(RdUnavailable::DefinitionsCapExceeded { actual: count });
     }
-    let statements = parsed.statements_in_function(owner);
+    let (statements, _) = super::rd_statements(parsed, owner);
     if statements.len() > RD_MAX_LINES {
         return Some(RdUnavailable::StatementLinesCapExceeded {
             actual: statements.len(),
@@ -28,7 +29,17 @@ pub(crate) fn unavailable_before_edges(
         .map(|(i, (line, _))| (*line, i + 1))
         .collect();
     // Join classification changes labels only; it never removes selected edges.
-    if !cfg.has_owner_edges(&lines) {
+    if !cfg.has_owner_edges(&lines)
+        && !crate::cfg::js_single::single_node_cfg_is_complete(
+            parsed,
+            owner,
+            lines.len(),
+            &defs
+                .iter()
+                .map(|def| def.path.base.as_str())
+                .collect::<Vec<_>>(),
+        )
+    {
         return Some(RdUnavailable::NoCfgEdges);
     }
     None
@@ -91,6 +102,70 @@ mod tests {
                     "preflight: {name}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn preflight_matches_solver_for_one_node_js_owners() {
+        let cases = [
+            (
+                "available",
+                "function f(c) {\n  exec(c);\n}\n",
+                &["c"][..],
+                None,
+            ),
+            (
+                "expression arrow",
+                "const f = (c) =>\n  exec(c);\n",
+                &["c"],
+                None,
+            ),
+            (
+                "duplicate base",
+                "function f(c) {\n  exec(c);\n}\n",
+                &["c", "c"],
+                Some(RdUnavailable::NoCfgEdges),
+            ),
+            (
+                "update hazard",
+                "function f(c) {\n  return (c++, exec(c));\n}\n",
+                &["c"],
+                Some(RdUnavailable::NoCfgEdges),
+            ),
+            (
+                "empty body",
+                "function f(c) { }\n",
+                &["c"],
+                Some(RdUnavailable::NoCfgEdges),
+            ),
+        ];
+        for (name, source, bases, expected) in cases {
+            let parsed = ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+            let cfg = build_cfg_edges_with_arms(&parsed);
+            let index = FileCfgEdgeIndex::new(&cfg);
+            let defs: Vec<_> = bases
+                .iter()
+                .enumerate()
+                .map(|(i, base)| DefSite {
+                    id: DefId(i as u32),
+                    path: AccessPath::simple(*base),
+                    line: 1,
+                    start_byte: i,
+                    alias_derived: false,
+                })
+                .collect();
+            let owner = parsed.all_functions().into_iter().next().unwrap();
+            let outcome = reaching_definitions_with_exact(&parsed, &owner, &defs, &[], &[], &index);
+            let reason = match outcome {
+                RdOutcome::Available(_) => None,
+                RdOutcome::Unavailable(reason) => Some(reason),
+            };
+            assert_eq!(reason, expected, "solver: {name}");
+            assert_eq!(
+                unavailable_before_edges(&parsed, &owner, &defs, &index),
+                reason,
+                "preflight: {name}"
+            );
         }
     }
 }
