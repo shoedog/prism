@@ -1,7 +1,6 @@
 //! Refusal-only custody of the producer's syntactic export-object uses.
 //! This does not prove callable-local identity or require-time snapshots.
 use super::ParsedFile;
-use crate::js_exports::JsExportTarget;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
@@ -63,10 +62,15 @@ impl ParsedFile {
                 // Unsupported expression writes must not silently disappear
                 // while a previous identifier assignment remains authoritative.
                 let property = left.child_by_field_name("property").unwrap();
-                let expr_ok = self.js_ts_cjs_named_expr_target(right).is_some_and(|t| {
-                    !esm || matches!(&t, JsExportTarget::VerifiedLocal { local, .. }
-                        if local == self.node_text(&property))
-                });
+                // Beside an ESM export the predicate is exactly main's (`js_ts_cjs_direct_target`:
+                // same-name expression, one indexed function of that name); otherwise the
+                // byte-identified helper decides.
+                let expr_ok = if esm {
+                    self.js_ts_cjs_direct_target(right, self.node_text(&property))
+                        .is_some()
+                } else {
+                    self.js_ts_cjs_named_expr_target(right).is_some()
+                };
                 if right.kind() != "identifier" && !expr_ok {
                     return false;
                 }
