@@ -2,6 +2,9 @@
 //! walker and the same-node order relation. No production caller yet (S1b-1 wires it in), so this
 //! slice changes no label, edge, counter, cache format or output. See
 //! `docs/superpowers/plans/2026-11-05-660-js-def-census/DESIGN.md`, sections 4, 7 and 18.
+//!
+//! The module is registered at the crate root (`#[path]` in `src/lib.rs`, because `src/ast.rs` is off limits for
+//! this slice): use `crate::js_write_census`, and test names are `js_write_census::...` (mutation lane selectors).
 #![allow(dead_code)]
 
 #[cfg(test)]
@@ -16,10 +19,16 @@ mod harness;
 #[path = "js_write_census/identity.rs"]
 pub(crate) mod identity;
 #[cfg(test)]
+#[path = "js_write_census/mapping_tests.rs"]
+mod mapping_tests;
+#[cfg(test)]
 #[path = "js_write_census/matrix_tests.rs"]
 mod matrix_tests;
 #[path = "js_write_census/order.rs"]
 pub(crate) mod order;
+#[cfg(test)]
+#[path = "js_write_census/region_tests.rs"]
+mod region_tests;
 #[path = "js_write_census/schema.rs"]
 pub(crate) mod schema;
 #[cfg(test)]

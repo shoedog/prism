@@ -7,20 +7,6 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use tree_sitter::Node;
 
-/// Parse with JavaScript, then TypeScript, then TSX, taking the first grammar without errors
-/// (the last one tried, TSX, when none is clean).
-pub(super) fn parse_any(src: &str) -> ParsedFile {
-    let mut last = None;
-    for lang in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
-        let p = ParsedFile::parse("fixture", src, lang).expect("parses");
-        if !p.tree.root_node().has_error() {
-            return p;
-        }
-        last = Some(p);
-    }
-    last.expect("tried three grammars")
-}
-
 /// Outermost callables in source order.
 pub(super) fn owners<'p>(parsed: &'p ParsedFile, t: &Tables) -> Vec<Node<'p>> {
     let mut out = Vec::new();
@@ -37,22 +23,36 @@ pub(super) fn owners<'p>(parsed: &'p ParsedFile, t: &Tables) -> Vec<Node<'p>> {
     out
 }
 
+/// Parse `src` with exactly `lang` (cross-grammar rows name their grammar).
+pub(super) fn parse_in(src: &str, lang: Language) -> ParsedFile {
+    ParsedFile::parse("fixture", src, lang).expect("parses")
+}
+
 pub(super) struct Fx {
     pub parsed: ParsedFile,
     pub t: Tables,
 }
 
 impl Fx {
+    /// JavaScript, explicitly (no grammar guessing).
     pub(super) fn new(src: &str) -> Fx {
+        Fx::in_lang(src, Language::JavaScript)
+    }
+
+    pub(super) fn in_lang(src: &str, lang: Language) -> Fx {
         Fx {
-            parsed: parse_any(src),
+            parsed: parse_in(src, lang),
             t: Tables::embedded(),
         }
     }
 
     /// `function f(a) { log(); <line> }` with the statement on its own line 3.
     pub(super) fn line(line: &str) -> Fx {
-        Fx::new(&format!("function f(a) {{\n  log();\n  {line}\n}}"))
+        Fx::line_in(Language::JavaScript, line)
+    }
+
+    pub(super) fn line_in(lang: Language, line: &str) -> Fx {
+        Fx::in_lang(&format!("function f(a) {{\n  log();\n  {line}\n}}"), lang)
     }
 
     pub(super) fn first_census(&self) -> Census {

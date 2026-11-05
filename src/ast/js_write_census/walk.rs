@@ -127,6 +127,15 @@ pub(crate) fn precondition(t: &Tables, owner: Node<'_>, src: &[u8]) -> Option<Re
     let mut descended = true;
     loop {
         let n = cursor.node();
+        // Assignment-form `using` (TS grammars) is a declaration this census does not model.
+        if descended
+            && !n.is_named()
+            && n.kind() == "using"
+            && n.parent()
+                .is_some_and(|p| p.kind() == "assignment_expression")
+        {
+            return Some(Refusal::Target("using".to_string()));
+        }
         if descended
             && n.child_count() == 0
             && n.is_named()
@@ -173,6 +182,7 @@ pub(crate) fn census(parsed: &ParsedFile, t: &Tables, owner: Node<'_>) -> Census
         owner,
         spans,
         out,
+        param_outer: Vec::new(),
     };
     w.children(owner, Ctx::Read, Region::default(), None);
     w.out
@@ -192,6 +202,8 @@ struct Walker<'a, 't> {
     owner: Node<'t>,
     spans: Vec<StatementSpan>,
     out: Census,
+    /// Regions enclosing the callables whose parameter lists are being walked (innermost last).
+    param_outer: Vec<Region>,
 }
 
 /// The operand of a wrapper: the child a target context flows into.
@@ -257,7 +269,8 @@ impl<'a, 't> Walker<'a, 't> {
                 self.children(n, ctx, rg, cons)
             }
             Some("TYPE" | "NONE") => {}
-            _ if deleting => {}
+            // A refused or unclassified `delete` operand writes nothing, but it is still evaluated.
+            _ if deleting => self.children(n, Ctx::Read, rg, cons),
             _ => self.refuse(kind.to_string()),
         }
     }
@@ -302,14 +315,31 @@ impl<'a, 't> Walker<'a, 't> {
             // `function g() {}` declares g in the enclosing region; the owner's own hoisted name is
             // outside the owner; everything else of a nested callable belongs to the callable.
             let outer_name = field == Some("name") && role == Some("DECL:fn-hoist");
-            if callable && !outer_name {
+            // A callable's deferred region is entered by child position: its parameters, its body and
+            // a function expression's own name. A method's computed key and decorators are eager and
+            // keep the enclosing region.
+            let enters = is_params
+                || field == Some("body")
+                || (field == Some("name") && role == Some("DECL:fn-inner"));
+            if callable && enters {
                 crg.nested = true;
                 crg.nested_params |= is_params;
+            }
+            // TS parameter decorators are eager and run in the scope enclosing the callable.
+            let param_decorator = matches!(kind, "required_parameter" | "optional_parameter")
+                && field == Some("decorator");
+            if param_decorator {
+                if rg.own_params {
+                    continue; // the owner's own parameter decorators belong to the enclosing owner
+                }
+                crg = *self.param_outer.last().unwrap_or(&rg);
             }
             if kind == "with_statement" && slot == "body" {
                 crg.with_body = true;
             }
-            if is_owner && outer_name {
+            let owner_eager =
+                kind == "method_definition" && matches!(field, Some("name" | "decorator"));
+            if is_owner && (outer_name || owner_eager) {
                 continue;
             }
             let mut ccons = cons;
@@ -363,12 +393,24 @@ impl<'a, 't> Walker<'a, 't> {
                     if let Some(d) = r.strip_prefix("DECL:") {
                         let declarator = d == "declarator" && kind == "variable_declarator";
                         ccons = declarator.then(|| Self::construct(n));
-                        let initialized = !declarator || n.child_by_field_name("value").is_some();
+                        // Only `var` without an initializer stores nothing; `let b;` stores undefined.
+                        let is_var = n
+                            .parent()
+                            .is_some_and(|p| p.kind() == "variable_declaration");
+                        let initialized =
+                            !declarator || !is_var || n.child_by_field_name("value").is_some();
                         cctx = Ctx::Bind(d, initialized);
                     }
                 }
             }
+            let outer = (callable || is_owner) && is_params;
+            if outer {
+                self.param_outer.push(rg);
+            }
             self.visit(c, cctx, crg, ccons);
+            if outer {
+                self.param_outer.pop();
+            }
         }
     }
 

@@ -4,6 +4,7 @@
 
 use super::harness::{owners, Fx};
 use super::walk::{census, Census, Site};
+use crate::languages::Language;
 use std::collections::BTreeSet;
 
 const MATRIX: &str = include_str!("../../../tests/fixtures/js_write_census/variant-matrix.tsv");
@@ -25,6 +26,33 @@ fn fixtures() -> Vec<(String, String, String)> {
         }
     }
     out
+}
+
+/// The grammar each fixture is parsed with. Everything not listed is JavaScript; the listed rows use
+/// TypeScript (types, `as`, `!`, `enum`, parameter properties, assignment-form `using`) or TSX (JSX
+/// next to types). No fixture is parsed by guessing.
+fn lang_of(fixture: &str) -> Language {
+    match fixture.split('_').next().unwrap_or("") {
+        "t05" | "t01" | "t02" | "t03" | "t04" | "o20" | "o22" | "o23" | "o24" | "o25" | "o26" => {
+            Language::TypeScript
+        }
+        "t26" | "o34" => Language::Tsx,
+        _ => Language::JavaScript,
+    }
+}
+
+fn parse_fixture(name: &str, src: &str) -> Fx {
+    let fx = Fx::in_lang(src, lang_of(name));
+    assert!(
+        !fx.parsed.tree.root_node().has_error(),
+        "{name} parses cleanly as {:?}",
+        lang_of(name)
+    );
+    fx
+}
+
+pub(super) fn fixture(name: &str) -> Fx {
+    parse_fixture(name, &source_of(name))
 }
 
 pub(super) fn source_of(fixture: &str) -> String {
@@ -54,9 +82,19 @@ fn flags(s: &Site) -> String {
     f.join(",")
 }
 
-fn site_line(s: &Site) -> String {
+/// 1-indexed line of a byte offset.
+fn line_of(src: &str, byte: usize) -> usize {
+    src[..byte].matches('\n').count() + 1
+}
+
+fn site_line(s: &Site, src: &str) -> String {
+    let node = match s.span {
+        Some((a, _)) => format!("node@{}", line_of(src, a)),
+        None => "node@-".to_string(),
+    };
+    let chain = s.chain.as_ref().map_or("-".to_string(), |c| c.join(">"));
     format!(
-        "{}@{}:{} {:?}{}/{} m{} [{}]",
+        "{}@{}:{} {:?}{}/{} m{} [{}] {node} {chain}",
         s.path.render(),
         s.line,
         s.target_start,
@@ -76,7 +114,7 @@ fn site_line(s: &Site) -> String {
     )
 }
 
-fn describe(c: &Census) -> String {
+fn describe(c: &Census, src: &str) -> String {
     let refusal = c
         .refusals
         .iter()
@@ -86,7 +124,7 @@ fn describe(c: &Census) -> String {
     let sites = c
         .sites
         .iter()
-        .map(site_line)
+        .map(|s| site_line(s, src))
         .collect::<Vec<_>>()
         .join(" ; ");
     format!(
@@ -97,16 +135,16 @@ fn describe(c: &Census) -> String {
 }
 
 fn render() -> String {
-    let mut out = String::from("# fixture\towner\trefusal\tsites (path@line:start_byte form/construct moment [region flags])\n");
+    let mut out = String::from("# fixture\towner\trefusal\tsites (path@line:start_byte form/construct moment [region flags] E18 node line, chain of kinds up to the mapped statement)\n");
     for (name, _slice, src) in fixtures() {
-        let fx = Fx::new(&src);
+        let fx = parse_fixture(&name, &src);
         for o in owners(&fx.parsed, &fx.t) {
             let c = census(&fx.parsed, &fx.t, o);
             out.push_str(&format!(
                 "{name}\t{}@{}\t{}\n",
                 o.kind(),
                 o.start_position().row + 1,
-                describe(&c)
+                describe(&c, &src)
             ));
         }
     }

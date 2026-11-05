@@ -17,11 +17,10 @@ pub(crate) struct TypeRef {
 
 #[derive(Deserialize)]
 pub(crate) struct Members {
-    #[serde(default)]
+    // Required, unlike `check.py` (which prints `None` for an omitted key and so reports signature
+    // drift): omitted slot metadata is rejected at deserialization, so it can never read as false.
     pub multiple: bool,
-    #[serde(default)]
     pub required: bool,
-    #[serde(default)]
     pub types: Vec<TypeRef>,
 }
 
@@ -29,7 +28,6 @@ pub(crate) struct Members {
 pub(crate) struct NodeType {
     #[serde(rename = "type")]
     pub kind: String,
-    #[serde(default)]
     pub named: bool,
     #[serde(default)]
     pub subtypes: Option<Vec<TypeRef>>,

@@ -423,3 +423,55 @@ fn each_remaining_diagnostic_fires_on_its_own_mutation() {
     );
     assert!(run(None, true, &t).has("STALE-LEAF bogus_leaf"));
 }
+
+#[test]
+fn missing_slot_metadata_is_rejected_not_defaulted() {
+    // check.py prints `multiple=None` for an omitted key (SIGNATURE drift); here omission fails closed.
+    let ok = r#"[{"type":"x","named":true,"fields":{"f":{"multiple":false,"required":true,"types":[]}}}]"#;
+    assert!(schema::parse(ok).is_ok());
+    let no_multiple = r#"[{"type":"x","named":true,"fields":{"f":{"required":true,"types":[]}}}]"#;
+    let no_required = r#"[{"type":"x","named":true,"fields":{"f":{"multiple":false,"types":[]}}}]"#;
+    let no_types =
+        r#"[{"type":"x","named":true,"fields":{"f":{"multiple":false,"required":true}}}]"#;
+    let no_named = r#"[{"type":"x"}]"#;
+    let no_children_flag = r#"[{"type":"x","named":true,"children":{"required":true,"types":[]}}]"#;
+    for (name, j) in [
+        ("multiple", no_multiple),
+        ("required", no_required),
+        ("types", no_types),
+        ("named", no_named),
+        ("children.multiple", no_children_flag),
+    ] {
+        assert!(schema::parse(j).is_err(), "omitted {name} must be rejected");
+    }
+}
+
+#[test]
+fn escape_name_token_kinds_are_pinned_as_a_set() {
+    let t = embedded();
+    let name: std::collections::BTreeSet<&str> = t
+        .leaves
+        .iter()
+        .filter(|(_, l)| l.name_token)
+        .map(|(k, _)| k.as_str())
+        .collect();
+    let want: std::collections::BTreeSet<&str> = [
+        "identifier",
+        "private_property_identifier",
+        "property_identifier",
+        "shorthand_property_identifier",
+        "shorthand_property_identifier_pattern",
+        "statement_identifier",
+        "type_identifier",
+        "undefined",
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(
+        name, want,
+        "the escape refusal scans exactly these NAME kinds"
+    );
+    for (k, l) in &t.leaves {
+        assert!(!l.bind || l.name_token, "BIND kind {k} must be a NAME kind");
+    }
+}

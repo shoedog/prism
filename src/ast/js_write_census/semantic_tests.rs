@@ -5,9 +5,21 @@ use super::harness::{writes, Fx};
 use super::identity::{ident, Comp, Ident};
 use super::order::{precedes, single_site_operand, Position};
 use super::walk::{Form, Refusal};
+use crate::languages::Language;
 
-fn pos_pair(src_line: &str) -> (Fx, Position, Position) {
-    let fx = Fx::line(src_line);
+const LANGS: [Language; 3] = [Language::JavaScript, Language::TypeScript, Language::Tsx];
+
+/// The row's read and its single counting write, parsed with exactly `lang`. `None` only for the one
+/// JSX row under the TypeScript grammar, which does not parse JSX.
+fn pos_pair_in(lang: Language, src_line: &str) -> Option<(Fx, Position, Position)> {
+    let fx = Fx::line_in(lang, src_line);
+    if fx.parsed.tree.root_node().has_error() {
+        assert!(
+            lang == Language::TypeScript && src_line.contains("<div"),
+            "{lang:?} must parse {src_line}"
+        );
+        return None;
+    }
     let c = fx.first_census();
     assert!(!c.refused(), "{src_line}: {:?}", c.refusals);
     let w = writes(&c, "a");
@@ -21,13 +33,25 @@ fn pos_pair(src_line: &str) -> (Fx, Position, Position) {
     let reads = fx.reads(&c, "a");
     assert_eq!(reads.len(), 1, "{src_line}: one read of a");
     let rp = reads[0].1.clone();
-    (fx, rp, wp)
+    Some((fx, rp, wp))
+}
+
+fn pos_pair(src_line: &str) -> (Fx, Position, Position) {
+    pos_pair_in(Language::JavaScript, src_line).expect("JavaScript parses every row")
 }
 
 /// seq rows: a read-before-write source proves read -> write only; a write-before-read source
 /// proves write -> read only.
 fn seq_row(kind: &str, read_first: &str, write_first: &str) {
-    let (fx, r, w) = pos_pair(read_first);
+    for lang in LANGS {
+        seq_row_in(lang, kind, read_first, write_first);
+    }
+}
+
+fn seq_row_in(lang: Language, kind: &str, read_first: &str, write_first: &str) {
+    let Some((fx, r, w)) = pos_pair_in(lang, read_first) else {
+        return;
+    };
     let on = |p: &Position| p.chain.as_ref().unwrap().contains(&kind);
     assert!(
         on(&r) || on(&w),
@@ -43,7 +67,7 @@ fn seq_row(kind: &str, read_first: &str, write_first: &str) {
         !precedes(&fx.t, &w, &r),
         "{kind}: write is not before the read: {read_first}"
     );
-    let (fx, r, w) = pos_pair(write_first);
+    let (fx, r, w) = pos_pair_in(lang, write_first).unwrap();
     assert!(
         !precedes(&fx.t, &r, &w),
         "{kind}: write-before-read is not a read-before-write proof: {write_first}"
@@ -136,70 +160,108 @@ fn seq_rows_prove_source_order() {
     }
 }
 
-/// `unknown` and `loop` rows: a pair with a position under the kind is not proven in either direction.
-fn unproven(kind: &str, line: &str) {
-    let (fx, r, w) = pos_pair(line);
-    // A wrapper kind (`with_statement`, `switch_case`, ...) is not a statement span: a position
-    // under it is either mapped through an inner statement (the kind is on its chain) or unmapped
-    // (E18); both refuse.
-    let in_chain = [&r, &w]
-        .iter()
-        .any(|p| p.chain.as_ref().is_none_or(|c| c.contains(&kind)));
+const MAPPED_ROWS: &[(&str, &str)] = &[
+    ("array_pattern", "const [b = sink(a)] = (a++, []);"),
+    ("assignment_pattern", "const [b = sink(a)] = (a++, []);"),
+    ("object_pattern", "const { b = sink(a) } = (a++, {});"),
+    (
+        "object_assignment_pattern",
+        "const { b = sink(a) } = (a++, {});",
+    ),
+    ("pair_pattern", "({ [sink(a)]: b } = (a++, {}));"),
+    ("rest_pattern", "const [...[b = sink(a)]] = (a++, []);"),
+    (
+        "switch_case",
+        "switch (k) { case 1: sink(a); case a++: break; }",
+    ),
+    (
+        "switch_default",
+        "switch (999) { default: sink(a); break; case a++: break; }",
+    ),
+    (
+        "switch_body",
+        "switch (k) { case 1: a++; case 2: sink(a); }",
+    ),
+    (
+        "class_body",
+        "const C = class { static x = sink(a); static y = a++; };",
+    ),
+    (
+        "class_static_block",
+        "const C = class { static { sink(a); a++; } };",
+    ),
+    ("for_statement", "for (sink(a); c(); a++) g();"),
+    ("for_in_statement", "for (const b of (sink(a), xs)) a++;"),
+    ("while_statement", "while (sink(a)) a++;"),
+    ("do_statement", "do { sink(a); } while (a++ < 3);"),
+    ("decorator", "const C = @dec(sink(a)) @dec2(a++) class {};"),
+];
+
+/// Mapping-refusal rows: `with` is a statement wrapper (not a span) and a class declaration with
+/// decorators is not a CFG statement, so these have no mapped variant. The mapped decorator row is the
+/// class-expression form in `MAPPED_ROWS`.
+const UNMAPPED_ROWS: &[&str] = &[
+    "with (o) { sink(a); a++; }",
+    "@dec(sink(a)) @dec2(a++) class C {}",
+];
+
+/// A mapped row: both positions sit in a statement span and `kind` is on a chain, so the refusal is
+/// the order class's, not a mapping failure. Not proven in either direction.
+fn unproven_mapped(lang: Language, kind: &str, line: &str) {
+    let Some((fx, r, w)) = pos_pair_in(lang, line) else {
+        return;
+    };
+    let (rc, wc) = (r.chain.as_ref(), w.chain.as_ref());
     assert!(
-        in_chain,
-        "{kind} is on a chain or the position is unmapped: {line}: {:?} / {:?}",
-        r.chain, w.chain
+        rc.is_some() && wc.is_some(),
+        "{lang:?} {kind}: both positions mapped: {line}: {rc:?} / {wc:?}"
+    );
+    assert!(
+        rc.unwrap().contains(&kind) || wc.unwrap().contains(&kind),
+        "{lang:?} {kind} is on a chain: {line}: {rc:?} / {wc:?}"
     );
     assert!(
         !precedes(&fx.t, &r, &w),
-        "{kind}: read -> write not proven: {line}"
+        "{lang:?} {kind}: read -> write not proven: {line}"
     );
     assert!(
         !precedes(&fx.t, &w, &r),
-        "{kind}: write -> read not proven: {line}"
+        "{lang:?} {kind}: write -> read not proven: {line}"
+    );
+}
+
+/// A mapping-refusal row: a position is outside every statement span (E18), so nothing is proven
+/// whatever the order class says. These forms carry no mapped variant: the kind is a statement
+/// wrapper (`with_statement`) or sits in a class or decorator that is not a CFG statement.
+fn unmapped_refuses(lang: Language, line: &str) {
+    let Some((fx, r, w)) = pos_pair_in(lang, line) else {
+        return;
+    };
+    assert!(
+        r.chain.is_none() || w.chain.is_none(),
+        "{lang:?}: a position is unmapped: {line}"
+    );
+    assert!(
+        !precedes(&fx.t, &r, &w) && !precedes(&fx.t, &w, &r),
+        "{lang:?}: {line}"
     );
 }
 
 #[test]
 fn unknown_and_loop_rows_prove_nothing() {
-    for (kind, line) in [
-        ("array_pattern", "const [b = sink(a)] = (a++, []);"),
-        ("assignment_pattern", "const [b = sink(a)] = (a++, []);"),
-        ("object_pattern", "const { b = sink(a) } = (a++, {});"),
-        (
-            "object_assignment_pattern",
-            "const { b = sink(a) } = (a++, {});",
-        ),
-        ("pair_pattern", "({ [sink(a)]: b } = (a++, {}));"),
-        ("rest_pattern", "const [...[b = sink(a)]] = (a++, []);"),
-        (
-            "switch_case",
-            "switch (k) { case 1: sink(a); case a++: break; }",
-        ),
-        (
-            "switch_default",
-            "switch (999) { default: sink(a); break; case a++: break; }",
-        ),
-        (
-            "switch_body",
-            "switch (k) { case 1: a++; case 2: sink(a); }",
-        ),
-        (
-            "class_body",
-            "const C = class { static x = sink(a); static y = a++; };",
-        ),
-        (
-            "class_static_block",
-            "const C = class { static { sink(a); a++; } };",
-        ),
-        ("decorator", "@dec(sink(a)) @dec2(a++) class C {}"),
-        ("with_statement", "with (o) { sink(a); a++; }"),
-        ("for_statement", "for (sink(a); c(); a++) g();"),
-        ("for_in_statement", "for (const b of (sink(a), xs)) a++;"),
-        ("while_statement", "while (sink(a)) a++;"),
-        ("do_statement", "do { sink(a); } while (a++ < 3);"),
-    ] {
-        unproven(kind, line);
+    for lang in LANGS {
+        for (kind, line) in MAPPED_ROWS {
+            unproven_mapped(lang, kind, line);
+        }
+    }
+}
+
+#[test]
+fn mapping_refusal_rows_prove_nothing() {
+    for lang in LANGS {
+        for line in UNMAPPED_ROWS {
+            unmapped_refuses(lang, line);
+        }
     }
 }
 
@@ -470,9 +532,8 @@ fn site_forms_and_constructs() {
     );
 }
 
-fn target_ident(src: &str, lang_ts: bool) -> Ident {
-    let _ = lang_ts;
-    let fx = Fx::new(src);
+fn target_ident(src: &str, lang: Language) -> Ident {
+    let fx = Fx::in_lang(src, lang);
     let o = super::harness::owners(&fx.parsed, &fx.t)[0];
     let mut stack = vec![o];
     while let Some(n) = stack.pop() {
@@ -507,7 +568,12 @@ fn name(s: &str) -> Comp {
 
 #[test]
 fn ident_on_every_target_shape() {
-    let w = |s: &str| target_ident(&format!("function f(o, a, k) {{ {s} }}"), true);
+    let w = |s: &str| {
+        target_ident(
+            &format!("function f(o, a, k) {{ {s} }}"),
+            Language::TypeScript,
+        )
+    };
     assert_eq!(w("a = 1;"), path("a", &[]));
     assert_eq!(w("o.x.y = 1;"), path("o", &[name("x"), name("y")]));
     assert_eq!(w("o[k] = 1;"), path("o", &[Comp::Index]));
@@ -549,7 +615,10 @@ fn ident_on_every_target_shape() {
     // REFUSE kinds in a write position refuse; an unclassified wrapper shape refuses too.
     assert_eq!(w("(f()) = 1;"), Ident::Refuse("call_expression".into()));
     assert_eq!(w("(a + k) = 1;"), Ident::Refuse("binary_expression".into()));
-    let s = target_ident("class C extends B { m() { super.x = 1; } }", false);
+    let s = target_ident(
+        "class C extends B { m() { super.x = 1; } }",
+        Language::JavaScript,
+    );
     assert_eq!(s, path("this", &[name("x")]), "super.x writes the receiver");
 }
 
@@ -577,7 +646,10 @@ fn affects_and_eq_relations() {
 }
 
 fn w_path(s: &str) -> Ident {
-    target_ident(&format!("function f(o, a, k) {{ {s} = 1; }}"), true)
+    target_ident(
+        &format!("function f(o, a, k) {{ {s} = 1; }}"),
+        Language::TypeScript,
+    )
 }
 
 fn line_source(fixture: &str) -> String {
@@ -587,7 +659,7 @@ fn line_source(fixture: &str) -> String {
 #[test]
 fn owner_preconditions_refuse_whole_owner() {
     let refusal = |name: &str| {
-        let fx = Fx::new(&line_source(name));
+        let fx = super::matrix_tests::fixture(name);
         fx.first_census().refusals
     };
     // Escaped NAME tokens anywhere in the owner (writes, reads, members, labels, hoisted names).
@@ -608,18 +680,21 @@ fn owner_preconditions_refuse_whole_owner() {
     ] {
         assert_eq!(refusal(n), vec![Refusal::Escape], "{n}");
         assert!(
-            Fx::new(&line_source(n)).first_census().sites.is_empty(),
+            super::matrix_tests::fixture(n)
+                .first_census()
+                .sites
+                .is_empty(),
             "{n}: refused as a whole"
         );
     }
-    // o26: `using` parses, so the owner is not refused and `a++` is a site.
-    let fx = Fx::new(&line_source("o26_using_declaration_update"));
-    let c = fx.first_census();
-    assert!(
-        c.refusals.is_empty()
-            && c.sites
-                .iter()
-                .any(|s| s.path.base == "a" && s.form == Form::ReadWrite)
+    // o26: assignment-form `using` (TS grammars) is refused; region_tests holds the keyword control.
+    let fx = Fx::in_lang(
+        &line_source("o26_using_declaration_update"),
+        crate::languages::Language::TypeScript,
+    );
+    assert_eq!(
+        fx.first_census().refusals,
+        vec![Refusal::Target("using".into())]
     );
     // Controls: no escape and no parse error.
     for n in ["m01_update_post", "c01_plain_control", "t26_tsx_update"] {

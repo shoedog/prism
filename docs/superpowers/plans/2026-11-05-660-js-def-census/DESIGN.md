@@ -151,6 +151,17 @@ sites: they run at class evaluation and are mapped by E18 (a class or enum decla
 usually unmapped and refuses its base, trace `site-unmapped`; inside a statement span, `const C = class { ... }`, it kills at
 that node). For order proofs every one of them is under an `unknown` kind.
 
+*Round-1 fold (S0 review, PR #676).* Region flags are assigned **by child position**, not by the parent's callable class: a
+callable's deferred region is entered only through its parameter list(s), its body and a function expression's own name. A
+method's `name`/computed key and its decorators (JS: the `decorator` field of `method_definition`; TS: `class_body` decorators)
+keep the enclosing region, under both grammars; "eager" never clears an enclosing deferred flag (a key inside an already
+deferred callable stays deferred through its ancestor). A method that is itself the owner does not walk its own key or
+decorators (they are sites of the enclosing owner). TS **parameter decorators** (`constructor(@dec(a = 1) a)`) are eager and
+run in the scope enclosing the callable: a write inside one is a site of the enclosing region, not a parameter-region write,
+and §6.2's parameter-list inner-binding rule does not apply to it (it writes the outer `a`). A `delete` whose operand is not a
+written reference (a call, assignment, sequence or other refused kind) writes nothing but is still evaluated: its children
+are walked as reads, so writes nested in the operand (including closure writes) remain census sites.
+
 **Relations on paths.** Two, and every comparison in the design is one of them:
 - `eq(p, q)`: same base, same component sequence, components compared as raw strings (`[]` equals `[]` only). This is the
   relation main already uses for recorded defs (kill buckets, candidate matching, collapse, capture references) and the census
@@ -519,7 +530,7 @@ Each attempt is a probe run on main (`probes/cases5.txt`, labels in `variant-mat
 | RHS read before a pattern write; read and write both in the RHS | `exact` and right | o08, o11 |
 | logical assignment then read; try/finally both orders; labelled block; generator; async closure across `await` | refused or killed as expected; o13 is a control | o12-o17 |
 | class static block, static field, decorator, enum initializer (eager) | `exact` on main; kill-only at the class node | o18-o20, o24 |
-| `delete o?.x`, `(a as any)++`, `o!.x = 2`, parameter property default, `using`, `accessor` fields | kill, kill, kill via A7 (G3), D2-c; `using r = ..` and `accessor x = ..` are `ERROR` nodes in the pinned grammars (checked with tree-sitter-javascript 0.23.1), so the owner is refused by the parse precondition | o21-o26 |
+| `delete o?.x`, `(a as any)++`, `o!.x = 2`, parameter property default, `using`, `accessor` fields | kill, kill, kill via A7 (G3), D2-c; `using r = ..` is an `ERROR` node in tree-sitter-javascript 0.23.1 and an assignment-form `using` token in the TS/TSX grammars: the owner is refused (parse precondition, or the `using` token refusal); `accessor` fields parse and are handled by the instance/static split | o21-o26 |
 | subscript write vs dot read, prefix write (recorded) | `exact` on main: inherited G1/G2, unchanged, issues proposed | o27, o29 |
 | subscript update, prefix update (kill-only) | `affects` kills | o28, o30 |
 | TSX handler write | `exact` on main; D2-c | o34 |
@@ -559,6 +570,10 @@ and changes o06, o07, o18-o20, o24, o35, o37 (§0.1); the R4 fixes add a20 (`pro
 3. **`super.x = v`** is a may-write to `this.x` (`NoWrite` would be unsound: `[[Set]]` with `this` as receiver).
 4. **Grammar-unsupported syntax** (`using`, `accessor`): ERROR/MISSING refuses the owner; a grammar bump fails the signature
    and the order check and re-opens classification; newly parseable syntax is never admitted silently.
+   *Round-1 fold:* the TS/TSX grammars (0.23.2) do parse assignment-form `using r = ..` (an anonymous `using` token on an
+   `assignment_expression`; the JS grammar 0.23.1 still gives ERROR). That binding is not modelled, so the walker refuses the
+   owner when it finds that token (`owner-refuse:target:using`, keyword position only). o26 is therefore `cfg_incomplete`
+   under every grammar. `accessor` fields parse and are handled by the instance/static split.
 
 ## 17. Issue text for the controller: inherited recorded-def identity gaps (label-only, out of #660)
 
@@ -602,8 +617,8 @@ to base by construction. An implementer needs this section, `census/` and `varia
 
 The data files are embedded with `include_str!` from `src/ast/js_write_census/data/` so the certificate test needs no file
 system. `src/ast/js_write_census.rs` (the module; aim under 600 weighted lines) holds: the TSV loaders with duplicate rejection
-(18.2 check 0), the schema reader (reuse `NodeTypeSchema`, `src/cpg/reaching/scope.rs:17-38`, over
-`Language::node_types_json()`, `src/languages/mod.rs:78`), the table-driven walk producing census sites (path by `ident` §4.4,
+(18.2 check 0), the schema reader (its own serde structs over
+`Language::node_types_json()`, `src/languages/mod.rs:78`: `NodeTypeSchema`, `src/cpg/reaching/scope.rs:17-38`, is private and lacks the `named` flag; omitted `multiple`/`required`/`types`/`named` is rejected at deserialization, stricter than `check.py`, which would print `None`), the table-driven walk producing census sites (path by `ident` §4.4,
 target start byte, write construct and moment §7.1, region flags, node chain), and `precedes` (§7.1). Everything is
 `pub(crate)` and `#[allow(dead_code)]` until S1b-1 calls it. New code only: no file over 1,000 weighted lines grows.
 
