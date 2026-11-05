@@ -422,10 +422,10 @@ prove (not exactly one Exact target) has exactly the earlier records, and no edg
 A JS/TS call through a top-level relative `require` binds Exact (kind `import_member`, a followed binding) when it names a
 callable the producer's CommonJS exports prove: `m(..)` for `const|let|var m = require('./x')` with `module.exports = f`
 (`f` a declared function, or a `const|let|var` arrow or function expression), `m.f(..)` and `require('./x').f(..)` for
-`module.exports = { f }`, `{ f: g }`, `module.exports.f = f`, `exports.f = f` (or a function expression member, named `g` with any `f`: #627), `module.exports = function g() {}` and `{ f: function g() {} }` (a named function expression written in place; the target is the indexed callable with the expression's own bytes, never a same-spelled declaration; anonymous, arrow, parenthesized and generator values, a duplicate or mutated export object, and any producer with an ESM export refuse these new forms; ESM importers of a CJS producer gain these facts too, as they have for declared exports),
+`module.exports = { f }`, `{ f: g }`, `module.exports.f = f`, `exports.f = f` (or a function expression member, named `g` with any `f`: #627), `module.exports = function g() {}` and `{ f: function g() {} }` (a named function expression written in place; the target is the indexed callable with the expression's own bytes, never a same-spelled declaration; anonymous, arrow, parenthesized and generator values, a duplicate or mutated export object, and any producer with an ESM export refuse these forms; ESM importers of a CJS producer gain these facts too, as they have for declared exports),
 and `f(..)` for `const|let|var f = require('./x').f`. The proof is `JsExportFacts::cjs_callables`/`cjs_module_callable`
 (`src/ast/js_cjs_terminal.rs`), recorded only behind the export-object barrier and the terminal proof, in a file with no
-ESM export; the route is `src/resolution_js_cjs.rs`, the binder `src/ast/js_cjs_module_calls.rs`. The declaration must be
+ESM export (a file with a program-level `export`, TS `export =` included, is an ES module: its `exports`/`module` writes are no export claim for any consumer form, require, destructured, `.f`, ESM import or namespace, #664; an `export` only inside a namespace does not count); the route is `src/resolution_js_cjs.rs`, the binder `src/ast/js_cjs_module_calls.rs`. The declaration must be
 a direct statement of the program, unwritten and unshadowed, with one plain relative string literal and a `require`
 proved unshadowed at its own occurrence (no declaration, no write, no enclosing `with` body); a member site `m.f(..)` is
 also refused when the consumer file writes `m.f`, any `m[..]`, or passes `m` first to `Object.assign`/`defineProperty`/
@@ -463,7 +463,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v147) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v148) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

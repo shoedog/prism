@@ -2255,16 +2255,25 @@ impl ParsedFile {
             && facts.skipped_expr_count == 0
             && facts.local_export_refusals.is_empty();
         facts.skipped_expr_count += cjs.skipped_expr_count;
-        if cjs.conflicted.is_empty() && cjs_safe {
+        // #664: in a file with an ESM export `exports`/`module` do not exist, so its CommonJS
+        // writes are no authoritative export claim (#598). A name an ESM export also claims still
+        // meets it in the conflict-aware insertion (cross-form duplicates stay conflicted); every
+        // other CJS name takes the refusal path below, as an unsafe producer's does.
+        let cjs_trusted = cjs.conflicted.is_empty() && cjs_safe;
+        if cjs_trusted && !has_esm_exports {
             for (name, target) in cjs.named {
                 facts.insert_named(name, target);
             }
-            // #598: an ESM export beside CJS assignments is not a CommonJS module value.
-            if !has_esm_exports {
-                facts.cjs_callables = cjs.cjs_callables;
-                facts.cjs_module_callable = cjs.cjs_module_callable;
-            }
+            facts.cjs_callables = cjs.cjs_callables;
+            facts.cjs_module_callable = cjs.cjs_module_callable;
         } else {
+            if cjs_trusted {
+                for (name, target) in &cjs.named {
+                    if facts.named.contains_key(name) || facts.conflicted.contains(name) {
+                        facts.insert_named(name.clone(), target.clone());
+                    }
+                }
+            }
             // Unsafe producers revoke the whole CJS set, including disjoint
             // siblings. Retain already-enumerated names as refusal claims so a
             // barrel cannot mistake them for absence. Independent ESM wins.

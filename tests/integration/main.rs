@@ -57,6 +57,7 @@ mod js_cjs_named_fn_expr_test;
 mod js_export_reexport_test;
 mod js_export_test;
 mod js_method_name_binding_test;
+mod js_mixed_esm_cjs_test;
 mod js_module_owner_test;
 mod js_named_function_scope_test;
 mod js_paths_cap_test;
