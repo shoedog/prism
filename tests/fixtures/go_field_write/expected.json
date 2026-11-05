@@ -1006,14 +1006,6 @@
   },
   {
     "case": "103_recv_defer_write_after",
-    "edges": [
-      [
-        "p.f",
-        8,
-        "p",
-        7,
-        "CfgIncomplete"
-      ]
-    ]
+    "edges": []
   }
 ]

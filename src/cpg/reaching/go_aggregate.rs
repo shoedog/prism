@@ -203,7 +203,7 @@ impl Facts {
     /// A branching construct: each child is walked under its arm.
     fn construct(&mut self, parsed: &ParsedFile, node: Node<'_>, kind: Kind) {
         let id = node.start_byte();
-        let mut cases = 0u8;
+        let mut cases = 0u64;
         for i in 0..node.child_count() {
             let Some(child) = node.child(i).filter(|c| c.is_named()) else {
                 continue;
@@ -220,7 +220,7 @@ impl Facts {
                     if field == Some("initializer") {
                         0
                     } else if child.kind().ends_with("_case") {
-                        cases = cases.saturating_add(1);
+                        cases += 1;
                         1 + cases
                     } else {
                         1

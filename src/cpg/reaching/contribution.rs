@@ -192,7 +192,6 @@ struct Lane<'a> {
     call_nodes: Vec<Vec<Option<usize>>>,
     capture_live: BTreeMap<usize, BitSet>,
     deferred_live: BTreeMap<usize, BitSet>,
-    beyond: BTreeMap<usize, (BitSet, BitSet)>,
 }
 impl<'l> Lane<'l> {
     /// Whether the read's root is the binding the source wrote (`None`: a
@@ -561,7 +560,6 @@ pub(super) fn analyze(
         call_nodes,
         capture_live: BTreeMap::new(),
         deferred_live: BTreeMap::new(),
-        beyond: BTreeMap::new(),
         reads: &facts.reads,
         mapped_defs,
         mapped_reads,

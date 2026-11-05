@@ -1,7 +1,7 @@
 //! Capture, deferred-receiver and same-line classification of the contribution
 //! lane (#639 S2 fold 2). Liveness is computed at an evaluation point inside a
 //! collapsed node (`route::Pos`), not from the node's incoming set.
-use super::{BTreeSet, BitSet, FlowConfidence, FlowDoubt, Lane};
+use super::{BTreeMap, BTreeSet, BitSet, FlowConfidence, FlowDoubt, Lane};
 use crate::cpg::reaching::go_aggregate::Mode;
 use crate::cpg::reaching::route::{order, Order, Pos};
 
@@ -60,57 +60,65 @@ impl Lane<'_> {
         set
     }
 
-    /// Reached from `n` (not through `n`), and what flows back into `n`.
-    fn beyond(&mut self, n: usize) -> &(BitSet, BitSet) {
-        if !self.beyond.contains_key(&n) {
-            let (mut after, mut back) =
-                (BitSet::new(self.defs.len()), BitSet::new(self.defs.len()));
-            let out = |this: &Self, p: usize| {
-                let mut set = this.incoming[p].clone();
-                set.subtract(&this.kill[p]);
-                set.union_with(&this.gen[p]);
-                set
-            };
-            if self.successors[n].iter().any(|&(t, _)| t == n) {
-                back.union_with(&out(self, n));
-            }
-            let mut seen = vec![false; self.successors.len()];
-            let mut stack: Vec<usize> = self.successors[n].iter().map(|&(t, _)| t).collect();
-            while let Some(m) = stack.pop() {
-                if m == n || std::mem::replace(&mut seen[m], true) {
-                    continue;
-                }
-                after.union_with(&self.incoming[m]);
-                after.union_with(&self.gen[m]);
-                if self.successors[m].iter().any(|&(t, _)| t == n) {
-                    back.union_with(&out(self, m));
-                }
-                stack.extend(self.successors[m].iter().map(|&(t, _)| t));
-            }
-            self.beyond.insert(n, (after, back));
-        }
-        &self.beyond[&n]
-    }
-
     /// Contributions live at evaluation point `at` of node `n` or at any later
-    /// point: the creation rule of an escaping literal and a deferred receiver.
+    /// point on a path that passes through the point: the creation rule of an
+    /// escaping literal. Propagated forward from the point, so a contribution
+    /// that reaches a later node only on a path bypassing the point is not
+    /// admitted.
     fn live_from_point(&mut self, n: usize, at: &Pos) -> BitSet {
+        let width = self.defs.len();
         let mut set = self.live_at(n, at);
-        // Written later in the node, unless a later write of the node kills it.
+        // What leaves `n` after the point: survivors of the node's later
+        // writes, plus those later writes themselves.
+        let mut leaving = set.clone();
+        leaving.subtract(&self.kill[n]);
         for &d in self.node_sources.get(&n).into_iter().flatten() {
             let later = self
                 .pos(d)
                 .is_some_and(|p| !matches!(order(p, at), Order::Before | Order::Exclusive));
             if later && self.gen[n].contains(d) {
                 set.insert(d);
+                leaving.insert(d);
             }
         }
         let before = self.writes_before(n, at);
-        let (after, back) = self.beyond(n).clone();
-        set.union_with(&after);
-        for d in back.members() {
-            if !before.iter().any(|&k| self.overwrites(k, d)) {
-                set.insert(d);
+        let mut incoming: BTreeMap<usize, BitSet> = BTreeMap::new();
+        let mut work: Vec<usize> = Vec::new();
+        // A node is queued the first time it is reached and again whenever its
+        // incoming set grows.
+        let push = |incoming: &mut BTreeMap<usize, BitSet>,
+                    work: &mut Vec<usize>,
+                    from: &BitSet,
+                    node: usize| {
+            let first = !incoming.contains_key(&node);
+            let entry = incoming.entry(node).or_insert_with(|| BitSet::new(width));
+            if entry.union_changed(from) || first {
+                work.push(node);
+            }
+        };
+        for &(t, _) in &self.successors[n] {
+            push(&mut incoming, &mut work, &leaving, t);
+        }
+        while let Some(m) = work.pop() {
+            let mut input = incoming[&m].clone();
+            if m == n {
+                // Round the loop back to the creation node: only what the
+                // point's own earlier writes do not overwrite is live there.
+                let mut kept = BitSet::new(width);
+                for d in input.members() {
+                    if !before.iter().any(|&k| self.overwrites(k, d)) {
+                        kept.insert(d);
+                    }
+                }
+                input = kept;
+            }
+            set.union_with(&input);
+            set.union_with(&self.gen[m]);
+            let mut out = input;
+            out.subtract(&self.kill[m]);
+            out.union_with(&self.gen[m]);
+            for &(t, _) in &self.successors[m] {
+                push(&mut incoming, &mut work, &out, t);
             }
         }
         set
@@ -175,15 +183,16 @@ impl Lane<'_> {
             .then_some(CFG_INCOMPLETE)
     }
 
-    /// Receiver of `defer R.M()` / `go R.M()`: `M` reads `R`'s fields at exit
-    /// or concurrently, so a write after the statement may be what it sees.
+    /// Receiver of `defer R.M()` / `go R.M()`: Go evaluates the receiver at
+    /// the statement, so only contributions that reach the statement count
+    /// (owner decision, #639 S2 fold 3; later writes are issue #675).
     pub(super) fn classify_deferred(&mut self, d: usize, u: usize) -> Option<FlowConfidence> {
         self.binding_uncertain(d, u)?;
         self.mapped_defs[d]?;
         let n = self.mapped_reads[u]?;
         if !self.deferred_live.contains_key(&u) {
             let facts = self.facts;
-            let set = self.live_from_point(n, &facts.reads[u].pos);
+            let set = self.live_at(n, &facts.reads[u].pos);
             self.deferred_live.insert(u, set);
         }
         self.deferred_live[&u].contains(d).then_some(CFG_INCOMPLETE)

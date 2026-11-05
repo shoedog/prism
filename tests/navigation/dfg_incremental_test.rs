@@ -127,10 +127,46 @@ fn transitions(mut files: BTreeMap<String, ParsedFile>) {
             current.dfg_label_stats.dfg_recall_receiver_field_refused,
             "only refused receiver edges are removed {path} delete={delete}"
         );
-        assert!(
-            removed.iter().all(|e| e.to.file.ends_with(".go")),
-            "only Go edges are refused {path} delete={delete}"
-        );
+        // Independent of the producer: each removed edge is a field write
+        // reaching a whole-object use that is the receiver of `<use>.<name>(`
+        // on its line, with `<name> func` declared in some Go file.
+        for e in &removed {
+            let go = |f: &str| f.ends_with(".go");
+            assert!(go(&e.from.file) && go(&e.to.file), "{e:?} is not a Go edge");
+            let (from, to) = (e.from.path.to_string(), e.to.path.to_string());
+            assert!(
+                from.len() > to.len() && from.starts_with(&format!("{to}.")),
+                "removed edge is not field-write -> whole object: {from} -> {to}"
+            );
+            let source = &files[&e.to.file].source;
+            let line = source.lines().nth(e.to.line - 1).unwrap_or_default();
+            let call = format!("{to}.");
+            let declared = line.match_indices(&call).any(|(i, _)| {
+                let rest = &line[i + call.len()..];
+                let name: String = rest
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_')
+                    .collect();
+                !name.is_empty()
+                    && rest[name.len()..].starts_with('(')
+                    && files.iter().filter(|(f, _)| go(f)).any(|(_, f)| {
+                        f.source.match_indices(name.as_str()).any(|(j, _)| {
+                            let word_start = f.source[..j]
+                                .chars()
+                                .next_back()
+                                .is_none_or(|c| !(c.is_alphanumeric() || c == '_'));
+                            let after = &f.source[j + name.len()..];
+                            let spaced = after.trim_start_matches([' ', '\t']);
+                            word_start && spaced.len() < after.len() && spaced.starts_with("func")
+                        })
+                    })
+            });
+            assert!(
+                declared,
+                "removed edge {from} -> {to} at {}:{} is not a func-field receiver pair",
+                e.to.file, e.to.line
+            );
+        }
         assert_eq!(
             bincode::serialize(&kept).unwrap(),
             bincode::serialize(&actual_edges).unwrap(),

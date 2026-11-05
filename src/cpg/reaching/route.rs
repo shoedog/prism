@@ -24,10 +24,10 @@ pub(super) struct Step {
     /// Start byte of the construct.
     pub id: usize,
     pub kind: Kind,
-    pub arm: u8,
+    pub arm: u64,
 }
 
-pub(super) const POST: u8 = 3;
+pub(super) const POST: u64 = 3;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) struct Pos {
@@ -70,7 +70,7 @@ pub(super) fn order(a: &Pos, b: &Pos) -> Order {
         }
         let exclusive_from = match x.kind {
             Kind::If | Kind::Switch => 2,
-            Kind::For => u8::MAX,
+            Kind::For => u64::MAX,
         };
         if x.arm >= exclusive_from && y.arm >= exclusive_from {
             return Order::Exclusive;

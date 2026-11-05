@@ -12,11 +12,11 @@ const HEAD: &str = "package p\ntype A struct{ b int }\ntype T struct{ f, g int; 
 
 type Row = (usize, usize, &'static str);
 
-fn base() -> usize {
+pub(super) fn base() -> usize {
     HEAD.matches('\n').count() + 1
 }
 
-fn rows(body: &str) -> BTreeSet<Row> {
+pub(super) fn rows(body: &str) -> BTreeSet<Row> {
     let source = format!("{HEAD}{body}");
     let parsed = ParsedFile::parse("a.go", &source, Language::Go).unwrap();
     let parts = Producer::file_refs(&parsed.path, &parsed);
@@ -40,7 +40,7 @@ fn rows(body: &str) -> BTreeSet<Row> {
         .collect()
 }
 
-fn check(name: &str, body: &str, expected: &[Row]) {
+pub(super) fn check(name: &str, body: &str, expected: &[Row]) {
     let want: BTreeSet<Row> = expected.iter().copied().collect();
     assert_eq!(rows(body), want, "{name}");
 }
@@ -156,12 +156,14 @@ cases! {
 cases! {
     s2f2_defer_receiver_write_before_is_cfg_incomplete => (
         body!("p.f = x", "defer p.M()"), [(2, 3, "cfg")]),
-    s2f2_defer_receiver_write_after_edge => (
-        body!("defer p.M()", "p.f = x"), [(3, 2, "cfg")]),
-    s2f2_go_receiver_write_after_edge => (
-        body!("go p.M()", "p.f = x"), [(3, 2, "cfg")]),
-    s2f2_defer_receiver_overwritten_is_not_exact => (
-        body!("p.f = x", "defer p.M()", "p.f = 0"), [(2, 3, "cfg"), (4, 3, "cfg")]),
+    // Fold 3 (owner decision): the receiver is evaluated at the statement, so
+    // a write after it reaches nothing (later writes: issue #675).
+    s2f2_defer_receiver_write_after_no_edge => (
+        body!("defer p.M()", "p.f = x"), []),
+    s2f2_go_receiver_write_after_no_edge => (
+        body!("go p.M()", "p.f = x"), []),
+    s2f2_defer_receiver_overwritten_after_no_edge => (
+        body!("p.f = x", "defer p.M()", "p.f = 0"), [(2, 3, "cfg")]),
     s2f2_defer_chain_inner_receiver_is_eager => (
         body!("p.f = x", "defer p.M().N()", "p.f = 0"), [(2, 3, "exact")]),
     s2f2_plain_receiver_stays_exact => (

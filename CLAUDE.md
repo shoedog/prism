@@ -324,9 +324,10 @@ The lane ignores Go return/break to defer dispatch. Range, select-receive and ty
 Go recall S2 (#639) adds three consumer shapes to the same lane, still `Def(p.f…) → Use(strict prefix)`, counted in the same per-owner
 1,000,000 budget (one survivor iterator). Receiver: `R.M(..)` with a static path `R` (`p`, `p.a`, `*p`,
 parenthesized) is a consumer of `R`, a real Use is created at the receiver span only when an edge is admitted into it; in
-`R.M().N()` only `M`'s receiver counts. The receiver of an outermost `defer R.M()` / `go R.M()` call reads `R`'s fields at exit or
-concurrently, so its edges are `cfg_incomplete` and admitted by the escaping-literal rule (a contribution live at or after the
-statement, a later overwrite included); an inner call of a chain is evaluated at the statement and keeps the ordinary rule. Refused: `M` is a func-typed struct field of the same Go
+`R.M().N()` only `M`'s receiver counts. The receiver of an outermost `defer R.M()` / `go R.M()` call is evaluated at the statement
+(Go copies a value receiver and fixes a pointer there) and may read `R`'s fields at exit or concurrently, so it sees only
+contributions that reach the statement (evaluation point within its node), graded `cfg_incomplete`; writes after the
+statement give no edge (owner decision, fold 3; recovering them for proven pointer receivers is issue #675); an inner call of a chain is evaluated at the statement and keeps the ordinary rule. Refused: `M` is a func-typed struct field of the same Go
 package (a func-typed field call is a field read; fold 1 moved this from a same-file name check to a repository-wide one: each
 admitted receiver edge is recorded with its selector in the file's recall ledger (`RecallStats`, cached with the file's DFG), and
 at graph assembly `cpg/go_package_fields.rs` removes or restores edges against the package's fields, so cold, full-hit and
@@ -352,7 +353,7 @@ root without a proven binding (flat fallback or unresolved), a sibling receiver 
 directly as a call argument outside `go`/`defer` see only contributions that reach the creation point; a literal bound once by
 `f := func..` / `var f = func..` whose name is only ever called as `f(..)` (outside any literal and `go`/`defer`) sees those that
 reach some call; an escaping literal (stored, returned, sent, assigned elsewhere, under `go`/`defer`, or `f` used other than as a
-callee) keeps live-at-or-after-creation. Liveness is computed at the literal's evaluation point inside its collapsed node
+callee) keeps live-at-or-after-creation, propagated forward from the creation point so only contributions on paths through it count (a write on a branch bypassing the literal that joins after it gives no edge). Liveness is computed at the literal's evaluation point inside its collapsed node
 (`reaching/route.rs`), not from the node's incoming set, so a root, prefix or same-field write earlier on the creation line kills
 the contribution while one after creation does not. Cost: real flow into a callback a callee stores and runs later is lost.
 Refused when a closure parameter or local declares the root name (flow-insensitive), or when the outermost literal writes the

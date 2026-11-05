@@ -33,6 +33,17 @@ impl BitSet {
         }
     }
 
+    /// Union; whether any bit was added.
+    pub(super) fn union_changed(&mut self, other: &Self) -> bool {
+        let mut changed = false;
+        for (left, right) in self.0.iter_mut().zip(&other.0) {
+            let merged = *left | right;
+            changed |= merged != *left;
+            *left = merged;
+        }
+        changed
+    }
+
     pub(super) fn subtract(&mut self, other: &Self) {
         for (left, right) in self.0.iter_mut().zip(&other.0) {
             *left &= !right;
