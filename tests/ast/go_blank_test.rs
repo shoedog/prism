@@ -131,7 +131,7 @@ fn check(name: &str) {
         for file in stats.as_object().unwrap().values() {
             assert_eq!(
                 file["recall"],
-                serde_json::json!([]),
+                serde_json::json!([[], []]),
                 "{name}: non-Go recall row"
             );
         }

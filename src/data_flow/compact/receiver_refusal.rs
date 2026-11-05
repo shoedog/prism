@@ -41,13 +41,6 @@ impl CompactDfg {
         out
     }
 
-    pub(in crate::data_flow) fn receivers_refused(&self) -> usize {
-        self.rd_function_stats
-            .values()
-            .map(|s| s.recall.receivers_refused())
-            .sum()
-    }
-
     /// Bring every ledger entry in line with `refuse(file, selector)`.
     pub(in crate::data_flow) fn apply_receiver_refusals(
         &mut self,
