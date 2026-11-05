@@ -66,8 +66,11 @@ impl CallGraph {
         }
         // The producer recorded the callable's line span (`js_ts_cjs_callable_span`, or since #627
         // `js_ts_cjs_named_expr_target`, which identifies a function expression by its bytes). The
-        // span filter separates same-name functions on different lines; the count check refuses
-        // same-line `FunctionId` collisions, which a line span cannot tell apart.
+        // span filter separates same-name functions on different lines. Two same-name functions
+        // on one line (equal line span) both survive it; the count check below is defence in
+        // depth for that case: both callers of this function also refuse anything but exactly one
+        // Exact target (`js_ts_alias_route`'s `[one]` arm, `anonymous_cjs_route`'s `let [one]`),
+        // so removing the check changes no outcome (mutant OP1 is equivalent, probed).
         let ids: Vec<&FunctionId> = self
             .functions
             .get(&callable.local)?
