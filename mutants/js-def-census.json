@@ -231,6 +231,18 @@
       "    pub multiple: bool,",
       "    #[serde(default)]\n    pub multiple: bool,",
       "js_write_census::certificate_tests::missing_slot_metadata_is_rejected_not_defaulted"
+    ],
+    "WK-owner-param-decorator-any-own-params": [
+      "src/ast/js_write_census/walk.rs",
+      ".is_some_and(|g| g.id() == self.owner.id());",
+      ".is_some_and(|_| rg.own_params);",
+      "js_write_census::region_tests::nested_parameter_decorators_inside_the_owner_parameter_list_are_walked"
+    ],
+    "WK-none-class-walked": [
+      "src/ast/js_write_census/walk.rs",
+      "if self.t.order_class(kind) == Some(\"none\") {",
+      "if false {",
+      "js_write_census::region_tests::signatures_that_never_run_declare_nothing"
     ]
   }
 }

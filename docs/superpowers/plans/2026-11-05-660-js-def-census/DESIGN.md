@@ -162,6 +162,12 @@ and §6.2's parameter-list inner-binding rule does not apply to it (it writes th
 written reference (a call, assignment, sequence or other refused kind) writes nothing but is still evaluated: its children
 are walked as reads, so writes nested in the operand (including closure writes) remain census sites.
 
+*Round-2 fold.* Only the **owner's own** parameter decorators are sites of the enclosing owner and skipped; a nested
+callable's parameter decorators (including a class defined inside the owner's parameter defaults) are walked in the region
+enclosing that callable. The walk does not descend into kinds that `order.tsv` classes `none` (no runtime evaluation: function,
+method, abstract-method, call and construct signatures, interface members, type positions), so the parameters of an overload,
+an abstract method or an interface signature are not census sites; a real implementation's parameters are.
+
 **Relations on paths.** Two, and every comparison in the design is one of them:
 - `eq(p, q)`: same base, same component sequence, components compared as raw strings (`[]` equals `[]` only). This is the
   relation main already uses for recorded defs (kill buckets, candidate matching, collapse, capture references) and the census

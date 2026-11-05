@@ -285,6 +285,11 @@ impl<'a, 't> Walker<'a, 't> {
     /// Visit the named children of `n`; `ctx` is `n`'s own context (flowing through `INHERIT`/`WRAP`).
     fn children(&mut self, n: Node<'t>, ctx: Ctx<'a>, rg: Region, cons: Option<Construct<'t>>) {
         let kind = n.kind();
+        // No runtime evaluation (type positions, signatures that never run): nothing to census.
+        // `order.tsv` classes these `none`, and the certificate pins that table.
+        if self.t.order_class(kind) == Some("none") {
+            return;
+        }
         let is_owner = n.id() == self.owner.id();
         let callable = !is_owner && is_callable(self.t, kind);
         let mut kids: Vec<(Node<'t>, Option<&'static str>)> = Vec::new();
@@ -329,8 +334,14 @@ impl<'a, 't> Walker<'a, 't> {
             let param_decorator = matches!(kind, "required_parameter" | "optional_parameter")
                 && field == Some("decorator");
             if param_decorator {
-                if rg.own_params {
-                    continue; // the owner's own parameter decorators belong to the enclosing owner
+                // Only the owner's own parameter decorators belong to the enclosing owner; a nested
+                // callable's (even one inside the owner's parameter defaults) keep its enclosing region.
+                let of_owner = n
+                    .parent()
+                    .and_then(|p| p.parent())
+                    .is_some_and(|g| g.id() == self.owner.id());
+                if of_owner {
+                    continue;
                 }
                 crg = *self.param_outer.last().unwrap_or(&rg);
             }
@@ -403,7 +414,7 @@ impl<'a, 't> Walker<'a, 't> {
                     }
                 }
             }
-            let outer = (callable || is_owner) && is_params;
+            let outer = callable && is_params;
             if outer {
                 self.param_outer.push(rg);
             }
