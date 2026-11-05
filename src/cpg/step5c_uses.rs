@@ -15,11 +15,20 @@ struct OwnerUses {
 pub(super) struct UseIndex(BTreeMap<Owner, OwnerUses>);
 
 impl UseIndex {
+    /// `hidden`: lane-local recall receiver Uses, never an input of return flow.
+    #[cfg(test)]
     pub(super) fn new(graph: &DiGraph<CpgNode, CpgEdge>) -> Self {
+        Self::without(graph, &BTreeSet::new())
+    }
+
+    pub(super) fn without(graph: &DiGraph<CpgNode, CpgEdge>, hidden: &BTreeSet<NodeIndex>) -> Self {
         let mut owners = BTreeMap::<Owner, OwnerUses>::new();
         for idx in graph.node_indices() {
             #[cfg(test)]
             tests::record_work(1);
+            if hidden.contains(&idx) {
+                continue;
+            }
             if let CpgNode::Variable {
                 file,
                 function,

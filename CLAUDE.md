@@ -321,6 +321,53 @@ cannot be counted, so they contribute only to their owner skip counter.
 These counters appear in dfg-stats and call-stats.dfg_labels and persist through cache hits.
 The lane ignores Go return/break to defer dispatch. Range, select-receive and type-switch rebinding, including selector and dereference header targets, kill the comparable contributions of the root (range on iteration entry only). Package-level roots apply overwrite kills. A use before its def is emitted only with an Exact cyclic route; uncertain backward pairs are dropped (a recall loss, e.g. loop-carried flow of package-level roots). Other uncertain routes carry cfg_incomplete.
 
+Go recall S2 (#639) adds three consumer shapes to the same lane, still `Def(p.f…) → Use(strict prefix)`, counted in the same per-owner
+1,000,000 budget (one survivor iterator). Receiver: `R.M(..)` with a static path `R` (`p`, `p.a`, `*p`,
+parenthesized) is a consumer of `R`, a real Use is created at the receiver span only when an edge is admitted into it; in
+`R.M().N()` only `M`'s receiver counts. The receiver of an outermost `defer R.M()` / `go R.M()` call is evaluated at the statement
+(Go copies a value receiver and fixes a pointer there) and may read `R`'s fields at exit or concurrently, so it sees only
+contributions that reach the statement (evaluation point within its node), graded `cfg_incomplete`; writes after the
+statement give no edge (owner decision, fold 3; recovering them for proven pointer receivers is issue #675); an inner call of a chain is evaluated at the statement and keeps the ordinary rule. Refused: `M` is a func-typed struct field of the same Go
+package (a func-typed field call is a field read; fold 1 moved this from a same-file name check to a repository-wide one: each
+admitted receiver edge is recorded with its selector in the file's recall ledger (`RecallStats`, cached with the file's DFG), and
+at graph assembly `cpg/go_package_fields.rs` removes or restores edges against the package's fields, so cold, full-hit and
+partial-hit builds agree, including when only the declaring sibling file changes; counter `dfg_recall_receiver_field_refused`,
+in dfg-stats and call-stats `dfg_labels`). Every `field_declaration` of the package files counts, wherever it sits: named
+top-level types, anonymous struct types and function-local type declarations (fail closed: a local table-struct func field named
+like a method refuses that method's receiver edges too). A scoped review build assembles only its in-scope files but reads the
+package fields from the whole repository's file map (`CodePropertyGraph::build_scoped_subset`), so its refusals equal a full build's. Package = directory + `package` clause, so an external `foo_test` package does not see
+`foo`'s fields while internal `_test.go` files do. A field refuses its name when its type may be callable: `func(..)`, a qualified
+`pkg.T`, a package-local type resolving (through aliases, depth 8) to a func type, or one that cannot be classified; basic, slice,
+map, chan, array, pointer, struct and interface types do not refuse, and a method with the same name does not matter (a field
+and a method of that name in one package refuse, failing closed). Gap: an embedded type's own fields are not followed. Receiver
+Uses that exist only as recall endpoints are lane-local: they get a graph node for the recall edge but are left out of the
+Step 5b/5c lookup views (`cpg/recall_hidden.rs`; the stored, public `var_index` stays complete because a cache load rebuilds it from every
+node, so cold, full-hit and partial-hit builds answer lookups alike) and Step 5c's input selection skips them (return-expression
+inputs and caller-RHS suppression), so no pass binds them to a callee; the call-stats counters outside `dfg_labels` equal a
+recall-disabled build (real
+receiver-to-method flow is a possible later slice); a Use shared with an ordinary same-line same-path Use is one node and stays
+visible. Also refused: a method value without a call, an import-qualifier root the owner does not redeclare, a
+root without a proven binding (flat fallback or unresolved), a sibling receiver (`p.g = x; p.f.M()`), and the same path
+(`p.f = x; p.f.M()`, left to main). Capture read: a consumer of `p` or a strict static prefix inside a function literal at any depth is admitted, always
+`cfg_incomplete`, by the run-site rule (owner decision, `go_literal_mode.rs`): an immediately invoked literal and a literal passed
+directly as a call argument outside `go`/`defer` see only contributions that reach the creation point; a literal bound once by
+`f := func..` / `var f = func..` whose name is only ever called as `f(..)` (outside any literal and `go`/`defer`) sees those that
+reach some call; an escaping literal (stored, returned, sent, assigned elsewhere, under `go`/`defer`, or `f` used other than as a
+callee) keeps live-at-or-after-creation, propagated forward from the creation point so only contributions on paths through it count (a write on a branch bypassing the literal that joins after it gives no edge). Liveness is computed at the literal's evaluation point inside its collapsed node
+(`reaching/route.rs`), not from the node's incoming set, so a root, prefix or same-field write earlier on the creation line kills
+the contribution while one after creation does not. Cost: real flow into a callback a callee stores and runs later is lost.
+Refused when a closure parameter or local declares the root name (flow-insensitive), or when the outermost literal writes the
+root, `*root` or any prefix of the path, by assignment, `:=`, `var`, `++`, or `range`/select-receive rebinding.
+Writes inside literals are never sources. Same-line: order is evaluation order, not bytes, from each item's statement and its chain of
+enclosing branches and arms (`route::order`): the right side of a simple statement runs before its write (`p.f = g(p)` and
+`p.f, y = x, p` give nothing); across `;` statements and header init → condition → body the earlier one writes first, label
+`sameline`; arms of one `if`/`switch`/`select` never both run (`if c { p.f = x } else { use(p) }` gives nothing); a reverse read
+gives nothing, even in a loop, except a `for` post assignment reaching its own condition or body, only when THIS loop's post can
+run and return to its header through nodes of the loop's own lines (an enclosing loop's cycle does not count, and a loop whose
+header, body and back edge share one node proves nothing; `inc_statement` `p.f++` is not a Def in main, so it is no source); a
+comparable write between them (or in the same statement) kills; a kill strictly earlier than the source on its node (`p = q; p.f = x`) no longer hides the source.
+A single-statement owner has no CFG edges and so no recall (existing NoCfg rule).
+
 For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
 write-only use (U) or a dominating unconditional write in a single-entry region (D).
 Go paths whose base is exactly `_` contribute no DataFlow definitions, uses, edges or alias-twin definitions; RHS reads remain, and other languages retain `_` as an ordinary name. Kept edges can change label where a removed blank twin had collapsed a line (`r, _, err := f()` with `_ = err` elsewhere), besides RD availability; where that line is an `if`/`switch` header whose initializer declares the name, the restored label can be a false `exact` (line-granular header RD, #662). Step 5c treats a Go `_` lvalue as a positional hole: no ReturnFlow into it, the other slots keep theirs, and an all-blank site counts in `return_flow_skipped_blank_lhs`.
@@ -416,7 +463,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v146) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v147) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

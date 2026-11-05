@@ -74,18 +74,21 @@ fn run_raw(flagged: bool, no_route: bool, unmapped: bool, duplicate: bool) -> Op
 fn go_field_recall_flagged_route_is_uncertain_and_no_route_is_absent() {
     let exact = run(false, false, false).unwrap();
     assert!(!exact.edges.is_empty());
-    assert!(exact.edges.iter().all(|(_, l)| *l == FlowConfidence::Exact));
+    assert!(exact
+        .edges
+        .iter()
+        .all(|(_, l, _)| *l == FlowConfidence::Exact));
     let uncertain = run(true, false, false).unwrap();
     assert!(uncertain
         .edges
         .iter()
-        .all(|(_, l)| *l == FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)));
+        .all(|(_, l, _)| *l == FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)));
     assert!(run(false, true, false).is_none());
     let missing = run(false, false, true).unwrap();
     assert!(missing
         .edges
         .iter()
-        .all(|(_, l)| *l == FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)));
+        .all(|(_, l, _)| *l == FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)));
 }
 
 #[test]
@@ -240,7 +243,7 @@ fn go_field_recall_unmapped_backward_pair_is_omitted_and_forward_is_uncertain() 
     assert!(forward
         .edges
         .iter()
-        .all(|(_, l)| *l == FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)));
+        .all(|(_, l, _)| *l == FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)));
     assert!(!forward.edges.is_empty());
 }
 

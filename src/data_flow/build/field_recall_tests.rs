@@ -5,7 +5,10 @@ use crate::cpg::FlowConfidence;
 use crate::languages::Language;
 use std::collections::BTreeSet;
 
-fn matrix(case: &str) {
+pub(super) fn matrix(case: &str) {
+    if super::field_recall_s2f1_tests::PACKAGE_ROWS.contains(&case) {
+        return super::field_recall_s2f1_tests::package_matrix(case);
+    }
     let root =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/go_field_write");
     let language = match &case[..2] {
@@ -42,6 +45,7 @@ fn matrix(case: &str) {
                 e[1].as_u64().unwrap() as usize,
                 e[2].as_str().unwrap().to_string(),
                 e[3].as_u64().unwrap() as usize,
+                e[4].as_str().unwrap().to_string(),
             )
         })
         .collect();
@@ -50,12 +54,21 @@ fn matrix(case: &str) {
         let d = &edge.from.path;
         let u = &edge.to.path;
         if d.base == u.base && d.fields.len() > u.fields.len() && d.fields.starts_with(&u.fields) {
-            actual.insert((d.to_string(), edge.from.line, u.to_string(), edge.to.line));
-            assert_eq!(
-                parts.labels.get(&(edge.from.clone(), edge.to.clone())),
-                Some(&FlowConfidence::Exact),
-                "{case}: {edge:?}"
-            );
+            let label = match parts.labels.get(&(edge.from.clone(), edge.to.clone())) {
+                Some(FlowConfidence::Exact) => "Exact",
+                Some(FlowConfidence::NameOnly(crate::cpg::FlowDoubt::CfgIncomplete)) => {
+                    "CfgIncomplete"
+                }
+                Some(FlowConfidence::NameOnly(crate::cpg::FlowDoubt::SameLine)) => "SameLine",
+                other => panic!("{case}: {edge:?}: {other:?}"),
+            };
+            actual.insert((
+                d.to_string(),
+                edge.from.line,
+                u.to_string(),
+                edge.to.line,
+                label.to_string(),
+            ));
             assert!(edge.from.start_byte < edge.from.end_byte);
             assert!(edge.to.start_byte < edge.to.end_byte);
             assert!(parts.defs.values().flatten().any(|d| d == &edge.from
@@ -221,7 +234,6 @@ fn go_field_recall_syntax_refusals_and_nested_eager_argument() {
         "package p\nfunc f(p T) {\np.a.b.c.d.e.f = 1\nuse(p)\n}\n",
         "package p\nfunc f(p T) {\np.a[0].b = 1\nuse(p)\n}\n",
         "package p\nfunc f(p T) {\np.f = 1; p = T{}\nuse(p)\n}\n",
-        "package p\nfunc f(p T) {\np.f = 1\nuse(func() { use(p) })\n}\n",
     ] {
         let parsed = ParsedFile::parse("a.go", source, Language::Go).unwrap();
         let refs = Producer::file_refs(&parsed.path, &parsed);
@@ -244,6 +256,29 @@ fn go_field_recall_syntax_refusals_and_nested_eager_argument() {
         && e.from.line == 3
         && e.to.path.to_string() == "p"
         && e.to.line == 4));
+}
+
+/// S2 admits the closure read S1 refused, as a provisional capture edge.
+#[test]
+fn go_field_recall_s2_closure_argument_is_capture() {
+    let parsed = ParsedFile::parse(
+        "a.go",
+        "package p\nfunc f(p T) {\np.f = 1\nuse(func() { use(p) })\n}\n",
+        Language::Go,
+    )
+    .unwrap();
+    let refs = Producer::file_refs(&parsed.path, &parsed);
+    let edge = refs
+        .edges
+        .iter()
+        .find(|e| e.from.path.has_fields() && e.to.path.is_simple())
+        .expect("capture edge");
+    assert_eq!(
+        refs.labels.get(&(edge.from.clone(), edge.to.clone())),
+        Some(&FlowConfidence::NameOnly(
+            crate::cpg::FlowDoubt::CfgIncomplete
+        ))
+    );
 }
 
 #[test]

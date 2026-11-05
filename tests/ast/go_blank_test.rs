@@ -33,7 +33,7 @@ fn snapshot(dfg: &DataFlowGraph) -> Value {
         if defs {
             dfg.defs().flat_map(|(_, v)| v.to_vec()).collect()
         } else {
-            dfg.uses().flat_map(|(_, v)| v.to_vec()).collect()
+            super::recall_frozen::recall_only_uses(dfg)
         }
     };
     json!({
@@ -131,7 +131,7 @@ fn check(name: &str) {
         for file in stats.as_object().unwrap().values() {
             assert_eq!(
                 file["recall"],
-                serde_json::json!([]),
+                serde_json::json!([[], []]),
                 "{name}: non-Go recall row"
             );
         }

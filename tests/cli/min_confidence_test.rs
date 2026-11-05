@@ -379,6 +379,7 @@ fn dfg_stats_empty_repo_emits_all_zero_counters() {
             "dfg_recall_functions_over_rd_cap": 0,
             "dfg_recall_functions_without_cfg": 0,
             "dfg_recall_max_candidates": 0,
+            "dfg_recall_receiver_field_refused": 0,
         })
     );
 }

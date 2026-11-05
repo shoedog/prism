@@ -20,6 +20,11 @@ mod step4_reference;
 #[path = "step4_tests.rs"]
 mod step4_tests;
 
+#[path = "recall_hidden.rs"]
+mod recall_hidden;
+#[path = "scoped_build.rs"]
+mod scoped_build;
+
 #[path = "step5c.rs"]
 mod step5c;
 
@@ -131,6 +136,7 @@ pub struct DfgLabelStats {
     pub dfg_recall_candidates_capped: usize,
     pub dfg_recall_functions_over_rd_cap: usize,
     pub dfg_recall_functions_without_cfg: usize,
+    pub dfg_recall_receiver_field_refused: usize,
 }
 
 impl DfgLabelStats {
@@ -513,13 +519,6 @@ impl CodePropertyGraph {
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
         Self::build_impl(files, type_db.cloned(), scope_inputs)
-    }
-
-    pub(crate) fn build_enriched_without_scope_graph(
-        files: &BTreeMap<String, ParsedFile>,
-        type_db: Option<&TypeDatabase>,
-    ) -> Self {
-        Self::build_impl(files, type_db.cloned(), None)
     }
 
     fn build_impl(
@@ -984,16 +983,18 @@ impl CodePropertyGraph {
     }
 
     /// Assemble a CPG petgraph from pre-built CG and DFG.
-    ///
     /// Shared by `build_impl` (full build) and `build_incremental` (partial).
-    /// Runs Steps 1–9 of graph construction.
-    pub(super) fn assemble_graph(
+    /// Runs Steps 1–9 of graph construction. `package_files`: the whole
+    /// repository when `files` is a scoped subset (`go_package_fields`).
+    pub(super) fn assemble_graph_in(
         cg: CallGraph,
         mut dfg: DataFlowGraph,
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<TypeDatabase>,
+        package_files: Option<&BTreeMap<String, ParsedFile>>,
     ) -> Self {
         let mut profile = crate::profile::Stages::new("cpg_assembly", "cpg.init");
+        recall_hidden::refuse_func_fields(&mut dfg, files, package_files);
         let ephemeral_owner = cg.owner_ephemeral;
         let mut graph = DiGraph::new();
         let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
@@ -1056,23 +1057,21 @@ impl CodePropertyGraph {
                 );
             }
         }
-        for locs in dfg.uses().map(|(_, v)| v) {
-            for loc in locs {
-                Self::materialize_var_location(
-                    loc,
-                    VarAccess::Use,
-                    files,
-                    &mut graph,
-                    &mut var_index,
-                    &mut exact_var_index,
-                    &mut location_index,
-                );
-            }
-        }
+        let hidden = Self::materialize_uses(
+            &dfg,
+            files,
+            &mut graph,
+            &mut var_index,
+            &mut exact_var_index,
+            &mut location_index,
+        );
 
         profile.next("cpg.step4");
         let mut dfg_label_stats =
             Self::assemble_step4(&mut dfg, files, &var_index, &exact_var_index, &mut graph);
+        let hidden_nodes = hidden.node_set();
+        let filtered = hidden.view(&var_index, &exact_var_index);
+        let (lookup, exact_lookup) = recall_hidden::pick(&filtered, &var_index, &exact_var_index);
 
         profile.next("cpg.step5");
         // These phases mutate only the CPG. Keep a shared borrow of the fixed
@@ -1088,8 +1087,8 @@ impl CodePropertyGraph {
         let mut argument_seeds = Vec::new();
         for flow in Self::collect_step5b_edges_with_exact(
             &go_satisfiers,
-            &var_index,
-            &exact_var_index,
+            lookup,
+            exact_lookup,
             &graph,
             files,
         ) {
@@ -1107,7 +1106,8 @@ impl CodePropertyGraph {
         // --- Step 5c: callee-return → exact caller-LHS flow ---
         let return_flow_stats = Self::assemble_step5c_return_flow(
             &go_satisfiers,
-            &var_index,
+            lookup,
+            &hidden_nodes,
             &func_index,
             &mut graph,
             &mut location_index,

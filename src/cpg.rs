@@ -35,6 +35,7 @@ mod exact_parameter_binding_tests;
 pub(crate) mod fallback_lifetime_tests;
 mod flow_confidence;
 mod go_loop_cycles;
+mod go_package_fields;
 #[cfg(test)]
 mod inert_default_parameter_tests;
 #[cfg(test)]
@@ -88,6 +89,7 @@ pub use build::{CodePropertyGraph, DfgLabelStats, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
 pub use reaching::RdFileStats;
+pub(crate) use reaching::{ReceiverEdge, ReceiverKey};
 mod recall_telemetry;
 #[cfg(test)]
 pub(crate) use reaching::with_recall_cap;

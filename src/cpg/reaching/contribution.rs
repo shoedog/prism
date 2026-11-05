@@ -2,7 +2,8 @@
 use super::{
     go_aggregate::{Facts, Occurrence},
     graph::BitSet,
-    recall_stats::Status,
+    recall_stats::{ReceiverEdge, ReceiverKey, Status},
+    route::{order, Order, Pos},
     scope::{BindingFacts, BindingRelation},
     solve_reaching_sets,
     statement_lookup::StatementLookup,
@@ -15,8 +16,11 @@ use crate::{
     data_flow::{FlowEdge, VarAccessKind, VarLocation},
     languages::Language,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
+
+#[path = "contribution_capture.rs"]
+mod capture;
 
 const ADDITION_CAP: usize = 1_000_000;
 #[cfg(test)]
@@ -50,7 +54,7 @@ type Labels = BTreeMap<(VarLocation, VarLocation), FlowConfidence>;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RecallResult {
     status: Status,
-    edges: Vec<(FlowEdge, FlowConfidence)>,
+    edges: Vec<(FlowEdge, FlowConfidence, Option<String>)>,
 }
 impl RecallResult {
     /// Admission already succeeded before either edges or supplemental Uses
@@ -72,7 +76,8 @@ impl RecallResult {
             ),
             self.status,
         );
-        for (mut edge, label) in self.edges {
+        let mut created = BTreeSet::new();
+        for (mut edge, label, selector) in self.edges {
             let to = &edge.to;
             let locations = uses
                 .entry((
@@ -88,6 +93,24 @@ impl RecallResult {
                 edge.to = existing.clone();
             } else {
                 locations.push(to.clone());
+                created.insert((to.start_byte, to.end_byte));
+            }
+            if let Some(selector) = selector {
+                stats.recall.record_receiver(
+                    ReceiverKey {
+                        from_start: edge.from.start_byte,
+                        from_end: edge.from.end_byte,
+                        from_path: edge.from.path.clone(),
+                        to_start: edge.to.start_byte,
+                        to_end: edge.to.end_byte,
+                    },
+                    ReceiverEdge {
+                        selector,
+                        label,
+                        new_use: created.contains(&(edge.to.start_byte, edge.to.end_byte)),
+                        refused: None,
+                    },
+                );
             }
             labels
                 .entry((edge.from.clone(), edge.to.clone()))
@@ -140,6 +163,7 @@ pub(crate) fn record_skip(
 
 struct Lane<'a> {
     defs: &'a [DefSite],
+    facts: &'a Facts,
     reads: &'a [Occurrence],
     mapped_defs: &'a [Option<usize>],
     mapped_reads: Vec<Option<usize>>,
@@ -147,13 +171,62 @@ struct Lane<'a> {
     incoming: Vec<BitSet>,
     reachable: &'a BitSet,
     exact: super::DefinitionReachability<'a>,
+    gen: &'a [BitSet],
+    kill: &'a [BitSet],
+    successors: &'a [Vec<(usize, bool)>],
+    /// Sources a later write of the same node kills: never regenerated at
+    /// their node, so only a read of the same node can still see them.
+    later_killed: BTreeSet<usize>,
+    /// Genuine write definitions per line, for same-line kills.
+    line_writes: BTreeMap<usize, Vec<usize>>,
+    /// Evaluation position of each genuine write.
+    def_pos: Vec<Option<&'a Pos>>,
+    /// Genuine writes and field-write sources by CFG node.
+    node_writes: BTreeMap<usize, Vec<usize>>,
+    node_sources: BTreeMap<usize, Vec<usize>>,
+    /// Source line of each CFG node.
+    node_line: Vec<usize>,
+    /// CFG node where each outermost function literal is created, and where
+    /// each call of a locally bound literal happens.
+    closure_nodes: Vec<Option<usize>>,
+    call_nodes: Vec<Vec<Option<usize>>>,
+    capture_live: BTreeMap<usize, BitSet>,
+    deferred_live: BTreeMap<usize, BitSet>,
 }
 impl<'l> Lane<'l> {
+    /// Whether the read's root is the binding the source wrote (`None`: a
+    /// different binding or a kill).
+    fn binding_uncertain(&self, d: usize, u: usize) -> Option<bool> {
+        let read = &self.reads[u];
+        if read.receiver.is_some()
+            && self
+                .bindings
+                .lookup_at_requires_flat_fallback(&read.path.base, read.start, d)
+        {
+            return None;
+        }
+        match self.bindings.relation_at(&read.path.base, read.start, d) {
+            BindingRelation::KilledAt(_) => None,
+            // A receiver must be a proven variable binding.
+            BindingRelation::Unresolved if read.receiver.is_some() => None,
+            BindingRelation::Unresolved => Some(true),
+            BindingRelation::Same => Some(false),
+        }
+    }
+
     fn classify(&mut self, d: usize, u: usize) -> Option<FlowConfidence> {
+        if let Some(closure) = self.reads[u].closure {
+            return self.classify_capture(d, u, closure);
+        }
+        if self.reads[u].deferred {
+            return self.classify_deferred(d, u);
+        }
         let def = &self.defs[d];
         let read = &self.reads[u];
-        // S2 owns same-line ordering. No capture facts enter this lane.
         if def.line == read.line {
+            return self.classify_same_line(d, u);
+        }
+        if self.later_killed.contains(&d) {
             return None;
         }
         let mapped = (self.mapped_defs[d], self.mapped_reads[u]);
@@ -163,11 +236,7 @@ impl<'l> Lane<'l> {
                 return None;
             }
         }
-        let binding_uncertain = match self.bindings.relation_at(&read.path.base, read.start, d) {
-            BindingRelation::KilledAt(_) => return None,
-            BindingRelation::Unresolved => true,
-            BindingRelation::Same => false,
-        };
+        let binding_uncertain = self.binding_uncertain(d, u)?;
         let (Some(from), Some(to)) = mapped else {
             return (def.line < read.line)
                 .then_some(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
@@ -252,18 +321,33 @@ pub(super) fn analyze(
             .entry((&raw.path, raw.start_byte))
             .or_insert(0usize) += 1;
     }
+    let mut later_killed = BTreeSet::new();
+    let pos_of = |path: &AccessPath, start: usize| &facts.write_meta[&(path.clone(), start)].pos;
     for (i, d) in defs.iter().enumerate() {
         if !d.alias_derived
             && d.path.has_fields()
             && facts.writes.contains_key(&(d.path.clone(), d.start_byte))
-            // S2 owns ordering within collapsed CFG nodes. In particular,
-            // never regenerate a field killed later on its own source line.
-            && !defs.iter().enumerate().any(|(k, w)| k != i && !w.alias_derived
-                && mapped_defs[i].is_some() && mapped_defs[k] == mapped_defs[i] && w.path.base == d.path.base
-                && d.path.fields.starts_with(&w.path.fields)
-                && facts.writes.contains_key(&(w.path.clone(), w.start_byte))
-                && bindings.same_def_binding(i, k))
         {
+            // A write of the same node that runs after (or in the statement
+            // of) this one kills this field before the node ends (never
+            // regenerate it past its own line); an earlier one
+            // (`p = q; p.f = x`) or one in another arm leaves it live.
+            if defs.iter().enumerate().any(|(k, w)| {
+                k != i
+                    && !w.alias_derived
+                    && mapped_defs[i].is_some()
+                    && mapped_defs[k] == mapped_defs[i]
+                    && w.path.base == d.path.base
+                    && d.path.fields.starts_with(&w.path.fields)
+                    && facts.writes.contains_key(&(w.path.clone(), w.start_byte))
+                    && matches!(
+                        order(pos_of(&d.path, d.start_byte), pos_of(&w.path, w.start_byte)),
+                        Order::Before | Order::Same
+                    )
+                    && bindings.same_def_binding(i, k)
+            }) {
+                later_killed.insert(i);
+            }
             sources.entry(d.path.clone()).or_default().push(i);
         }
     }
@@ -300,7 +384,7 @@ pub(super) fn analyze(
     let mut descendants = BTreeMap::<AccessPath, Vec<usize>>::new();
     for (path, indices) in &sources {
         for &d in indices {
-            if let Some(node) = mapped_defs[d] {
+            if let (Some(node), false) = (mapped_defs[d], later_killed.contains(&d)) {
                 gen[node].insert(d);
             }
         }
@@ -412,7 +496,6 @@ pub(super) fn analyze(
         None => (successors, predecessors),
     };
     let (incoming, _) = solve_reaching_sets(&gen, &kill, predecessors, successors, 0, defs.len());
-    drop(gen);
     let mapped_reads = facts
         .reads
         .iter()
@@ -422,8 +505,61 @@ pub(super) fn analyze(
                 .and_then(|line| line_index.get(&line).copied())
         })
         .collect();
+    let mut line_writes = BTreeMap::<usize, Vec<usize>>::new();
+    for (i, d) in defs.iter().enumerate() {
+        if !d.alias_derived && facts.writes.contains_key(&(d.path.clone(), d.start_byte)) {
+            line_writes.entry(d.line).or_default().push(i);
+        }
+    }
+    let mut node_of = |line: usize| {
+        statements
+            .get(line)
+            .and_then(|line| line_index.get(&line).copied())
+    };
+    let closure_nodes: Vec<_> = facts.closures.iter().map(|c| node_of(c.line)).collect();
+    let call_nodes: Vec<Vec<_>> = facts
+        .closures
+        .iter()
+        .map(|c| c.calls.iter().map(|call| node_of(call.line)).collect())
+        .collect();
+    let mut node_line = vec![0usize; successors.len()];
+    for (&line, &n) in line_index {
+        if n < node_line.len() {
+            node_line[n] = line;
+        }
+    }
+    let mut def_pos = vec![None; defs.len()];
+    let (mut node_writes, mut node_sources) = (BTreeMap::new(), BTreeMap::new());
+    for (i, d) in defs.iter().enumerate() {
+        if d.alias_derived {
+            continue;
+        }
+        if let Some(meta) = facts.write_meta.get(&(d.path.clone(), d.start_byte)) {
+            def_pos[i] = Some(&meta.pos);
+            if let Some(n) = mapped_defs[i] {
+                node_writes.entry(n).or_insert_with(Vec::new).push(i);
+                if d.path.has_fields() {
+                    node_sources.entry(n).or_insert_with(Vec::new).push(i);
+                }
+            }
+        }
+    }
     let mut lane = Lane {
         defs,
+        facts: &facts,
+        gen: &gen,
+        kill: &kill,
+        successors,
+        later_killed,
+        line_writes,
+        def_pos,
+        node_writes,
+        node_sources,
+        node_line,
+        closure_nodes,
+        call_nodes,
+        capture_live: BTreeMap::new(),
+        deferred_live: BTreeMap::new(),
         reads: &facts.reads,
         mapped_defs,
         mapped_reads,
@@ -479,6 +615,7 @@ pub(super) fn analyze(
                     ),
                 },
                 label,
+                read.receiver.clone(),
             )
         })
         .collect();

@@ -28,6 +28,8 @@ fn raw_rd(rows: Vec<(&str, Stats)>) -> Vec<u8> {
         bytes.extend(bincode::serialize(&(file, stats)).unwrap());
         // Independent recall owner rows, added in the current cache schema.
         bytes.extend(bincode::serialize(&0usize).unwrap());
+        // Receiver-edge ledger (fold 1): empty.
+        bytes.extend(bincode::serialize(&0usize).unwrap());
     }
     bytes
 }
@@ -285,8 +287,9 @@ fn go_field_recall_codec_rejects_raw_duplicates_order_and_overflow() {
         ),
     ] {
         let mut raw = raw_rd(vec![("a.go", stats(vec![]))]);
-        raw.truncate(raw.len() - 8);
+        raw.truncate(raw.len() - 16);
         raw.extend(bincode::serialize(&keys).unwrap());
+        raw.extend(bincode::serialize(&0usize).unwrap());
         let error = bincode::deserialize::<CompactDfg>(&raw)
             .unwrap_err()
             .to_string();
