@@ -10,6 +10,17 @@ impl ParsedFile {
         if root.has_error() {
             return false;
         }
+        // #627: a named function expression is a producer-side export claim only in a file with
+        // no ESM export; beside one it stays refused (the shared export table would otherwise make
+        // it authoritative for ESM and destructured consumers). The pre-existing same-name member
+        // form keeps main's behaviour (#664).
+        let esm = {
+            let mut c = root.walk();
+            let found = root
+                .named_children(&mut c)
+                .any(|n| n.kind() == "export_statement");
+            found
+        };
         let mut allowed = BTreeSet::new();
         let mut replacements = 0;
         let mut members = 0;
@@ -43,7 +54,7 @@ impl ParsedFile {
             allowed.insert(ambient.id());
             if whole {
                 replacements += 1;
-                if !self.js_ts_cjs_replacement_safe(right) {
+                if !self.js_ts_cjs_replacement_safe(right, esm) {
                     return false;
                 }
             } else {
@@ -51,11 +62,16 @@ impl ParsedFile {
                 // Unsupported expression writes must not silently disappear
                 // while a previous identifier assignment remains authoritative.
                 let property = left.child_by_field_name("property").unwrap();
-                if right.kind() != "identifier"
-                    && self
-                        .js_ts_cjs_direct_target(right, self.node_text(&property))
-                        .is_none()
-                {
+                // Beside an ESM export the predicate is exactly main's (`js_ts_cjs_direct_target`:
+                // same-name expression, one indexed function of that name); otherwise the
+                // byte-identified helper decides.
+                let expr_ok = if esm {
+                    self.js_ts_cjs_direct_target(right, self.node_text(&property))
+                        .is_some()
+                } else {
+                    self.js_ts_cjs_named_expr_target(right).is_some()
+                };
+                if right.kind() != "identifier" && !expr_ok {
                     return false;
                 }
             }
@@ -86,8 +102,9 @@ impl ParsedFile {
         whole.then_some((ambient, false))
     }
 
-    fn js_ts_cjs_replacement_safe(&self, rhs: Node<'_>) -> bool {
-        if rhs.kind() == "identifier" {
+    fn js_ts_cjs_replacement_safe(&self, rhs: Node<'_>, esm: bool) -> bool {
+        let expr_ok = |v: Node<'_>| !esm && self.js_ts_cjs_named_expr_target(v).is_some();
+        if rhs.kind() == "identifier" || expr_ok(rhs) {
             return true;
         }
         if rhs.kind() != "object" {
@@ -107,7 +124,7 @@ impl ParsedFile {
                         return false;
                     };
                     if !matches!(key.kind(), "property_identifier" | "string")
-                        || value.kind() != "identifier"
+                        || (value.kind() != "identifier" && !expr_ok(value))
                     {
                         return false;
                     }
