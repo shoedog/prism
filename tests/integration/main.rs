@@ -53,6 +53,7 @@ mod js_cjs_module_calls_fold_test;
 mod js_cjs_module_calls_refusal_test;
 mod js_cjs_module_calls_state_test;
 mod js_cjs_module_calls_test;
+mod js_cjs_named_fn_expr_test;
 mod js_export_reexport_test;
 mod js_export_test;
 mod js_method_name_binding_test;

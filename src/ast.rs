@@ -2785,6 +2785,10 @@ impl ParsedFile {
             "identifier" => {
                 self.insert_js_ts_cjs_local(facts, None, rhs);
             }
+            "function_expression" => match self.js_ts_cjs_named_expr_target(rhs) {
+                Some(target) => self.insert_js_ts_cjs_verified(facts, None, target),
+                None => facts.skipped_expr_count += 1,
+            },
             "object" => {
                 // F2 (review-fix wave, codex BLOCKER 2): a spread can shadow
                 // any named member with a value prism cannot see (`{ f,
@@ -2820,7 +2824,14 @@ impl ParsedFile {
                                 (Some(key), Some(value)) if value.kind() == "identifier" => {
                                     self.insert_js_ts_cjs_local(facts, Some(key), value);
                                 }
-                                (Some(_), Some(_)) => facts.skipped_expr_count += 1,
+                                (Some(key), Some(value)) => {
+                                    match self.js_ts_cjs_named_expr_target(value) {
+                                        Some(t) => {
+                                            self.insert_js_ts_cjs_verified(facts, Some(key), t)
+                                        }
+                                        None => facts.skipped_expr_count += 1,
+                                    }
+                                }
                                 _ => {}
                             }
                         }
