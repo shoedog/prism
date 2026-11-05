@@ -371,7 +371,7 @@ fn small_scope_and_early_full_build_have_no_discard_fallback() {
     let scoped = CpgContext::build_scoped(&repo.files, &diff("app.py"), None);
     assert_eq!(scoped.scope.as_ref().unwrap().scoped_files.len(), 1);
     let single = BTreeMap::from([("app.py".into(), repo.files["app.py"].clone())]);
-    let expected = CodePropertyGraph::build_enriched_without_scope_graph(&single, None);
+    let expected = CodePropertyGraph::build_scoped_subset(&single, &single, None);
     assert!(
         super::dfg_observation::fieldwise_payload(&scoped.cpg)
             == super::dfg_observation::fieldwise_payload(&expected),

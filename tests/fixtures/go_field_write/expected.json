@@ -944,5 +944,76 @@
         "Exact"
       ]
     ]
+  },
+  {
+    "case": "98_run_iife",
+    "edges": [
+      [
+        "p.f",
+        8,
+        "p",
+        10,
+        "CfgIncomplete"
+      ],
+      [
+        "p.f",
+        11,
+        "p",
+        10,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "99_run_callback",
+    "edges": [
+      [
+        "p.f",
+        8,
+        "p",
+        9,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "100_run_local_f",
+    "edges": [
+      [
+        "p.f",
+        11,
+        "p",
+        10,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "101_sl_if_else_arms",
+    "edges": []
+  },
+  {
+    "case": "102_sl_kill_before_creation",
+    "edges": [
+      [
+        "p.f",
+        8,
+        "p",
+        8,
+        "CfgIncomplete"
+      ]
+    ]
+  },
+  {
+    "case": "103_recv_defer_write_after",
+    "edges": [
+      [
+        "p.f",
+        8,
+        "p",
+        7,
+        "CfgIncomplete"
+      ]
+    ]
   }
 ]

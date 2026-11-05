@@ -62,20 +62,19 @@ impl HiddenUses {
         }
     }
 
-    pub(super) fn is_empty(&self) -> bool {
-        self.nodes.is_empty()
-    }
-
     pub(super) fn node_set(&self) -> BTreeSet<NodeIndex> {
         self.nodes.iter().map(|(_, n)| *n).collect()
     }
 
-    /// The lookup indexes without the hidden nodes.
+    /// The lookup indexes without the hidden nodes (`None`: nothing hidden).
     pub(super) fn view(
         &self,
         var_index: &BTreeMap<LegacyVarKey, NodeIndex>,
         exact_var_index: &ExactVarIndex,
-    ) -> (BTreeMap<LegacyVarKey, NodeIndex>, ExactVarIndex) {
+    ) -> Option<(BTreeMap<LegacyVarKey, NodeIndex>, ExactVarIndex)> {
+        if self.nodes.is_empty() {
+            return None;
+        }
         let mut var_index = var_index.clone();
         let mut exact_var_index = exact_var_index.clone();
         for (key, idx) in &self.nodes {
@@ -92,6 +91,61 @@ impl HiddenUses {
                 }
             }
         }
-        (var_index, exact_var_index)
+        Some((var_index, exact_var_index))
+    }
+}
+
+/// The filtered view if there is one, else the stored indexes.
+pub(super) fn pick<'a>(
+    filtered: &'a Option<(BTreeMap<LegacyVarKey, NodeIndex>, ExactVarIndex)>,
+    var_index: &'a BTreeMap<LegacyVarKey, NodeIndex>,
+    exact_var_index: &'a ExactVarIndex,
+) -> (&'a BTreeMap<LegacyVarKey, NodeIndex>, &'a ExactVarIndex) {
+    match filtered {
+        Some((v, e)) => (v, e),
+        None => (var_index, exact_var_index),
+    }
+}
+
+/// Go receiver recall edges whose selector is a func-typed field of the
+/// package are removed (or restored) against the whole repository here, so
+/// cold, full-hit and partial-hit builds agree.
+pub(super) fn refuse_func_fields(
+    dfg: &mut DataFlowGraph,
+    files: &BTreeMap<String, ParsedFile>,
+    package_files: Option<&BTreeMap<String, ParsedFile>>,
+) {
+    if let Some(refuse) = crate::cpg::go_package_fields::refusals(dfg, files, package_files) {
+        dfg.apply_receiver_refusals(&refuse);
+    }
+}
+
+impl CodePropertyGraph {
+    /// Step 4's Use nodes, noting the lane-local ones.
+    pub(super) fn materialize_uses(
+        dfg: &DataFlowGraph,
+        files: &BTreeMap<String, ParsedFile>,
+        graph: &mut DiGraph<CpgNode, CpgEdge>,
+        var_index: &mut BTreeMap<LegacyVarKey, NodeIndex>,
+        exact_var_index: &mut ExactVarIndex,
+        location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
+    ) -> HiddenUses {
+        let mut hidden = HiddenUses::new(dfg);
+        for locs in dfg.uses().map(|(_, v)| v) {
+            for loc in locs {
+                let before = graph.node_count();
+                let idx = Self::materialize_var_location(
+                    loc,
+                    VarAccess::Use,
+                    files,
+                    graph,
+                    var_index,
+                    exact_var_index,
+                    location_index,
+                );
+                hidden.note(loc, graph.node_count() > before, idx);
+            }
+        }
+        hidden
     }
 }

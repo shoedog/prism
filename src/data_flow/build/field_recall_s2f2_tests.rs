@@ -180,3 +180,16 @@ cases! {
     s2f2_closure_define_range_is_shadowing => (
         body!("p.f = x", "s.cb = func() { for p := range []*T{} { use(p) } }"), []),
 }
+
+// ---- fixture rows (tests/fixtures/go_field_write) ---------------------------------
+
+macro_rules! rows {
+    ($($test:ident => $case:literal),* $(,)?) => { $(
+        #[test] fn $test() { super::field_recall_tests::matrix($case); }
+    )* };
+}
+rows! {
+    s2f2_row_98 => "98_run_iife", s2f2_row_99 => "99_run_callback",
+    s2f2_row_100 => "100_run_local_f", s2f2_row_101 => "101_sl_if_else_arms",
+    s2f2_row_102 => "102_sl_kill_before_creation", s2f2_row_103 => "103_recv_defer_write_after",
+}
