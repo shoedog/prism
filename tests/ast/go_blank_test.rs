@@ -33,7 +33,7 @@ fn snapshot(dfg: &DataFlowGraph) -> Value {
         if defs {
             dfg.defs().flat_map(|(_, v)| v.to_vec()).collect()
         } else {
-            dfg.uses().flat_map(|(_, v)| v.to_vec()).collect()
+            super::recall_frozen::recall_only_uses(dfg)
         }
     };
     json!({

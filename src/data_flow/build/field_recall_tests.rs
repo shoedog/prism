@@ -231,7 +231,6 @@ fn go_field_recall_syntax_refusals_and_nested_eager_argument() {
         "package p\nfunc f(p T) {\np.a.b.c.d.e.f = 1\nuse(p)\n}\n",
         "package p\nfunc f(p T) {\np.a[0].b = 1\nuse(p)\n}\n",
         "package p\nfunc f(p T) {\np.f = 1; p = T{}\nuse(p)\n}\n",
-        "package p\nfunc f(p T) {\np.f = 1\nuse(func() { use(p) })\n}\n",
     ] {
         let parsed = ParsedFile::parse("a.go", source, Language::Go).unwrap();
         let refs = Producer::file_refs(&parsed.path, &parsed);
@@ -254,6 +253,29 @@ fn go_field_recall_syntax_refusals_and_nested_eager_argument() {
         && e.from.line == 3
         && e.to.path.to_string() == "p"
         && e.to.line == 4));
+}
+
+/// S2 admits the closure read S1 refused, as a provisional capture edge.
+#[test]
+fn go_field_recall_s2_closure_argument_is_capture() {
+    let parsed = ParsedFile::parse(
+        "a.go",
+        "package p\nfunc f(p T) {\np.f = 1\nuse(func() { use(p) })\n}\n",
+        Language::Go,
+    )
+    .unwrap();
+    let refs = Producer::file_refs(&parsed.path, &parsed);
+    let edge = refs
+        .edges
+        .iter()
+        .find(|e| e.from.path.has_fields() && e.to.path.is_simple())
+        .expect("capture edge");
+    assert_eq!(
+        refs.labels.get(&(edge.from.clone(), edge.to.clone())),
+        Some(&FlowConfidence::NameOnly(
+            crate::cpg::FlowDoubt::CfgIncomplete
+        ))
+    );
 }
 
 #[test]

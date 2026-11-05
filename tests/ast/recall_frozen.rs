@@ -5,7 +5,7 @@
 //! compare everything else, so each pre-existing edge, label, counter and
 //! availability row stays byte-identical. The recall lane itself is pinned in
 //! `src/data_flow/build/field_recall*_tests.rs`.
-use prism::cpg::CodePropertyGraph;
+use prism::cpg::{CodePropertyGraph, FlowConfidence, FlowDoubt};
 use prism::data_flow::VarLocation;
 use serde_json::{json, Value};
 
@@ -54,6 +54,8 @@ pub(super) fn stats(graph: &CodePropertyGraph) -> Value {
             if e.to.line <= e.from.line {
                 sub("dfg_label_loop_carried", 1);
             }
+        } else if l == FlowConfidence::NameOnly(FlowDoubt::SameLine) {
+            sub("dfg_label_nameonly_sameline", 1);
         } else {
             sub("dfg_label_nameonly_cfg_incomplete", 1);
         }
@@ -68,4 +70,30 @@ pub(super) fn availability(graph: &CodePropertyGraph) -> Value {
         file.as_object_mut().unwrap().remove("recall");
     }
     all
+}
+
+/// Uses that exist only as recall endpoints: S2 creates a Use at a call
+/// receiver's span (`cmd.Run()`) when, and only when, a recall edge is
+/// admitted into it. A Use that also ends a non-recall edge is pre-existing
+/// and stays. Compare existing populations with these removed.
+pub(super) fn recall_only_uses(dfg: &prism::data_flow::DataFlowGraph) -> Vec<VarLocation> {
+    let ordinary: std::collections::BTreeSet<_> = dfg
+        .edges()
+        .iter()
+        .filter(|e| !is_recall(&e.from, &e.to))
+        .map(|e| (e.to.line, e.to.start_byte, e.to.path.clone()))
+        .collect();
+    let recall: std::collections::BTreeSet<_> = dfg
+        .edges()
+        .iter()
+        .filter(|e| is_recall(&e.from, &e.to))
+        .map(|e| (e.to.line, e.to.start_byte, e.to.path.clone()))
+        .collect();
+    dfg.uses()
+        .flat_map(|(_, v)| v.to_vec())
+        .filter(|u| {
+            let key = (u.line, u.start_byte, u.path.clone());
+            !(recall.contains(&key) && !ordinary.contains(&key))
+        })
+        .collect()
 }

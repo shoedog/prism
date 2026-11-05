@@ -5,5 +5,6 @@ type S struct { f, g string; a A }
 
 func scenario(p *S, q *S, x string, y string, r A, c bool) {
 	if p.f = x; ok(p) {
+	done()
 	}
 }

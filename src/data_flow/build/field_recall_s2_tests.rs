@@ -31,7 +31,7 @@ cases! {
     go_field_recall_s2_79 => "79_sl_tuple", go_field_recall_s2_80 => "80_sl_if_header",
     go_field_recall_s2_81 => "81_sl_switch_header", go_field_recall_s2_82 => "82_sl_for_init",
     go_field_recall_s2_83 => "83_sl_for_post", go_field_recall_s2_84 => "84_sl_for_post_acyclic",
-    go_field_recall_s2_85 => "85_sl_write_after_root",
+    go_field_recall_s2_85 => "85_sl_write_after_root", go_field_recall_s2_86 => "86_sl_for_post_inc",
 }
 
 fn exec_cmd() -> crate::cpg::CodePropertyGraph {

@@ -321,6 +321,24 @@ cannot be counted, so they contribute only to their owner skip counter.
 These counters appear in dfg-stats and call-stats.dfg_labels and persist through cache hits.
 The lane ignores Go return/break to defer dispatch. Range, select-receive and type-switch rebinding, including selector and dereference header targets, kill the comparable contributions of the root (range on iteration entry only). Package-level roots apply overwrite kills. A use before its def is emitted only with an Exact cyclic route; uncertain backward pairs are dropped (a recall loss, e.g. loop-carried flow of package-level roots). Other uncertain routes carry cfg_incomplete.
 
+Go recall S2 (#639) adds three consumer shapes to the same lane, still `Def(p.f…) → Use(strict prefix)`, counted in the same per-owner
+1,000,000 budget (one survivor iterator; no new counters). Receiver: `R.M(..)` with a static path `R` (`p`, `p.a`, `*p`,
+parenthesized) is a consumer of `R`, a real Use is created at the receiver span only when an edge is admitted into it; eager
+`defer`/`go` receivers count, in `R.M().N()` only `M`'s receiver does. Refused: `M` is a struct field name declared in the same
+file (a func-typed field call is a field read; sibling files of the package are not visible to the per-file producer, so a field
+declared only there does not refuse), a method value without a call, an import-qualifier root the owner does not redeclare, a
+root without a proven binding (flat fallback or unresolved), a sibling receiver (`p.g = x; p.f.M()`), and the same path
+(`p.f = x; p.f.M()`, left to main). Capture read: a consumer of `p` or a strict static prefix inside a function literal at any depth
+is admitted, always `cfg_incomplete`, when the contribution is live at the outermost literal's creation node or any node reachable
+from it (so a write after creation counts and a write killed before it does not); refused when a closure parameter or local
+declares the root name (flow-insensitive), or when the outermost literal writes the root, `*root` or any prefix of the path.
+Writes inside literals are never sources. Same-line: order is evaluation order, not bytes (the right side of a simple statement
+runs before its write: `p.f = g(p)` and `p.f, y = x, p` give nothing); across `;` statements and header init → condition the
+earlier statement writes first, label `sameline`; a reverse read gives nothing, even in a loop, except a `for` post assignment
+reaching its own condition over a proven cycle (`inc_statement` `p.f++` is not a Def in main, so it is no source); a comparable
+write between them kills; a kill strictly earlier than the source on its node (`p = q; p.f = x`) no longer hides the source.
+A single-statement owner has no CFG edges and so no recall (existing NoCfg rule).
+
 For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
 write-only use (U) or a dominating unconditional write in a single-entry region (D).
 Go paths whose base is exactly `_` contribute no DataFlow definitions, uses, edges or alias-twin definitions; RHS reads remain, and other languages retain `_` as an ordinary name. Kept edges can change label where a removed blank twin had collapsed a line (`r, _, err := f()` with `_ = err` elsewhere), besides RD availability; where that line is an `if`/`switch` header whose initializer declares the name, the restored label can be a false `exact` (line-granular header RD, #662). Step 5c treats a Go `_` lvalue as a positional hole: no ReturnFlow into it, the other slots keep theirs, and an all-blank site counts in `return_flow_skipped_blank_lhs`.
@@ -416,7 +434,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v145) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v146) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
