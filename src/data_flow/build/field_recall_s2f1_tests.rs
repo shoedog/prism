@@ -127,7 +127,7 @@ fn describe(graph: &CodePropertyGraph, i: petgraph::graph::NodeIndex) -> String 
     }
 }
 
-fn dataflow_edges(graph: &CodePropertyGraph) -> BTreeSet<String> {
+pub(super) fn dataflow_edges(graph: &CodePropertyGraph) -> BTreeSet<String> {
     use petgraph::visit::EdgeRef;
     graph
         .graph
@@ -158,9 +158,15 @@ func tick(r *R, x int) {
 "#;
 
 fn leak_graph(recall: bool) -> CodePropertyGraph {
+    graph_with_recall(LEAK, recall)
+}
+
+/// The assembled CPG of one source, with the recall lane on, or off (a zero
+/// budget: no recall edge, no receiver Use), standing in for main.
+pub(super) fn graph_with_recall(source: &str, recall: bool) -> CodePropertyGraph {
     let files = BTreeMap::from([(
         "pkg/tick.go".to_string(),
-        ParsedFile::parse("pkg/tick.go", LEAK, Language::Go).unwrap(),
+        ParsedFile::parse("pkg/tick.go", source, Language::Go).unwrap(),
     )]);
     if recall {
         CodePropertyGraph::build(&files)
@@ -197,22 +203,27 @@ fn recall_only_receiver_use_is_lane_local() {
     assert_eq!(main.graph.node_count() + 1, head.graph.node_count());
 }
 
-fn parse_sources(sources: &BTreeMap<String, String>) -> BTreeMap<String, ParsedFile> {
+pub(super) fn parse_sources(sources: &BTreeMap<String, String>) -> BTreeMap<String, ParsedFile> {
     sources
         .iter()
         .map(|(p, s)| (p.clone(), ParsedFile::parse(p, s, Language::Go).unwrap()))
         .collect()
 }
 
-const MAIN: &str = "package pkg\n\nfunc use(p *B, x string) {\n\tp.f = x\n\tp.run()\n}\n";
-const FUNC_FIELD: &str = "package pkg\n\ntype A struct{ run func() }\n";
-const INT_FIELD: &str = "package pkg\n\ntype A struct{ run int }\n";
+pub(super) const MAIN: &str = "package pkg\n\nfunc use(p *B, x string) {\n\tp.f = x\n\tp.run()\n}\n";
+pub(super) const FUNC_FIELD: &str = "package pkg\n\ntype A struct{ run func() }\n";
+pub(super) const INT_FIELD: &str = "package pkg\n\ntype A struct{ run int }\n";
 
 /// Cold, full-hit and partial-hit builds agree, including when only the
 /// sibling file that declares the field changes (the receiver file's cached
 /// DFG is reused and its edge flips), in both directions.
 #[test]
 fn receiver_refusal_is_identical_across_cold_full_hit_and_partial_hit() {
+    flip_matrix(FUNC_FIELD, INT_FIELD);
+}
+
+/// `refusing` declares a callable-possible field named `run`; `plain` does not.
+pub(super) fn flip_matrix(refusing: &str, plain: &str) {
     use crate::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult};
     let sources = |decl: &str, main: &str| {
         BTreeMap::from([
@@ -236,8 +247,8 @@ fn receiver_refusal_is_identical_across_cold_full_hit_and_partial_hit() {
         "Exact".to_string(),
     )]);
     for (before_decl, after_decl, before_edge, after_edge) in [
-        (FUNC_FIELD, INT_FIELD, false, true),
-        (INT_FIELD, FUNC_FIELD, true, false),
+        (refusing, plain, false, true),
+        (plain, refusing, true, false),
     ] {
         let before = sources(before_decl, MAIN);
         let after = sources(after_decl, MAIN);

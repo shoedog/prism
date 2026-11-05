@@ -21,6 +21,10 @@ mod field_recall_s2_tests;
 #[cfg(test)]
 mod field_recall_s2f1_tests;
 #[cfg(test)]
+mod field_recall_s2f2_cpg_tests;
+#[cfg(test)]
+mod field_recall_s2f2_tests;
+#[cfg(test)]
 mod field_recall_tests;
 pub(super) mod file;
 #[cfg(test)]

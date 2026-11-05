@@ -198,9 +198,12 @@ impl Lane<'_> {
         };
         let inside = |m: usize| (lo..=hi).contains(&self.node_line[m]);
         let mut seen = BTreeSet::new();
+        // A loop whose header, body and back edge share this one node leaves
+        // no route to follow (a body that returns looks the same), so a direct
+        // self edge proves nothing.
         let mut stack: Vec<usize> = self.successors[node]
             .iter()
-            .filter(|&&(t, incomplete)| !incomplete && inside(t))
+            .filter(|&&(t, incomplete)| !incomplete && t != node && inside(t))
             .map(|&(t, _)| t)
             .collect();
         while let Some(m) = stack.pop() {
