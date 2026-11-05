@@ -59,8 +59,9 @@ impl ParsedFile {
         })
     }
 
-    /// Reuse the terminal's exact indexed callable, never a same-spelled node.
-    /// Direct member assignments use this proof only after ambient-object checks.
+    /// Reuse the terminal's exact indexed callable, never a same-spelled node: the proven
+    /// callable of an identifier export whose function expression carries that same name.
+    /// (Direct member and module-value function expressions use `js_ts_cjs_named_expr_target`.)
     pub(super) fn js_ts_cjs_direct_target(
         &self,
         rhs: Node<'_>,
