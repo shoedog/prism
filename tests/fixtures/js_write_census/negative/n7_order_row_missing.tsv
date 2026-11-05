@@ -1,0 +1,192 @@
+# kind	order	reason
+# Evaluation-order class of every named, non-supertype kind of the three grammars (W4-R2, DESIGN.md §6). Within one CFG node an
+# occurrence is positioned at itself (a read) or at its write construct (a write); the chain of kinds from the node's statement
+# root down to that position must be all `seq` (the root may be `for`) for the position to take part in an order proof.
+# seq = children evaluated left to right in source order, a write construct performs its write at its end byte |
+# loop = a repeated context: no order proof through it (the for initializer exception of §7.1 aside) | unknown = any comparison involving a position under it is unproven (refuse) |
+# deferred = a region (runs later; never proves) | none = no runtime evaluation | leaf = no children.
+abstract_class_declaration	seq	children evaluated in source order; a write construct writes at its end
+abstract_method_signature	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+accessibility_modifier	leaf	no children: never an ancestor
+adding_type_annotation	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+ambient_declaration	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+arguments	seq	children evaluated in source order; a write construct writes at its end
+array	seq	children evaluated in source order; a write construct writes at its end
+array_pattern	unknown	destructuring target: evaluated after the RHS, element steps interleave defaults and writes
+array_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+arrow_function	deferred	callable: a region, runs at an unknown time; never proves an order
+as_expression	seq	children evaluated in source order; a write construct writes at its end
+asserts	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+asserts_annotation	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+assignment_expression	seq	children evaluated in source order; a write construct writes at its end
+assignment_pattern	unknown	pattern element with default: default evaluated during pattern evaluation
+augmented_assignment_expression	seq	children evaluated in source order; a write construct writes at its end
+await_expression	seq	children evaluated in source order; a write construct writes at its end
+binary_expression	seq	children evaluated in source order; a write construct writes at its end
+break_statement	seq	children evaluated in source order; a write construct writes at its end
+call_expression	seq	children evaluated in source order; a write construct writes at its end
+call_signature	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+catch_clause	seq	children evaluated in source order; a write construct writes at its end
+class	seq	children evaluated in source order; a write construct writes at its end
+class_body	unknown	member phases (computed keys, member decorators, static fields and blocks) are not source order; refuse (Fable S1)
+class_declaration	seq	children evaluated in source order; a write construct writes at its end
+class_heritage	seq	children evaluated in source order; a write construct writes at its end
+class_static_block	unknown	under class_body; refuse
+comment	leaf	no children: never an ancestor
+computed_property_name	seq	children evaluated in source order; a write construct writes at its end
+conditional_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+constraint	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+construct_signature	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+constructor_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+continue_statement	seq	children evaluated in source order; a write construct writes at its end
+debugger_statement	leaf	no children: never an ancestor
+decorator	unknown	legacy decorators run after the class body, stage-3 before it; prism cannot see the option (Fable S1)
+default_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+do_statement	loop	repeated context: no order proof
+else_clause	seq	children evaluated in source order; a write construct writes at its end
+empty_statement	leaf	no children: never an ancestor
+enum_assignment	seq	children evaluated in source order; a write construct writes at its end
+enum_body	seq	children evaluated in source order; a write construct writes at its end
+enum_declaration	seq	children evaluated in source order; a write construct writes at its end
+escape_sequence	leaf	no children: never an ancestor
+existential_type	leaf	no children: never an ancestor
+export_clause	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+export_specifier	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+export_statement	unknown	module level (never inside an owner)
+expression_statement	seq	children evaluated in source order; a write construct writes at its end
+extends_clause	seq	children evaluated in source order; a write construct writes at its end
+extends_type_clause	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+false	leaf	no children: never an ancestor
+field_definition	unknown	see public_field_definition
+finally_clause	seq	children evaluated in source order; a write construct writes at its end
+flow_maybe_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+for_statement	loop	repeated context: no order proof, except the initializer exception of §7.1 (runs once, first; the condition follows it; the increment runs only after a body execution)
+formal_parameters	unknown	the owner's own list runs at entry (dead-formal rule); a nested list is a deferred region
+function_declaration	deferred	callable: a region, runs at an unknown time; never proves an order
+function_expression	deferred	callable: a region, runs at an unknown time; never proves an order
+function_signature	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+function_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+generator_function	deferred	callable: a region, runs at an unknown time; never proves an order
+generator_function_declaration	deferred	callable: a region, runs at an unknown time; never proves an order
+generic_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+hash_bang_line	leaf	no children: never an ancestor
+html_character_reference	leaf	no children: never an ancestor
+html_comment	leaf	no children: never an ancestor
+identifier	leaf	no children: never an ancestor
+if_statement	seq	children evaluated in source order; a write construct writes at its end
+implements_clause	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+import	leaf	no children: never an ancestor
+import_alias	unknown	TS import x = A.B (module/namespace level; never inside an owner)
+import_attribute	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+import_clause	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+import_require_clause	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+import_specifier	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+import_statement	unknown	module level
+index_signature	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+index_type_query	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+infer_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+instantiation_expression	seq	children evaluated in source order; a write construct writes at its end
+interface_body	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+interface_declaration	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+internal_module	unknown	TS namespace (never inside an owner)
+intersection_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+jsx_attribute	seq	children evaluated in source order; a write construct writes at its end
+jsx_closing_element	seq	children evaluated in source order; a write construct writes at its end
+jsx_element	seq	children evaluated in source order; a write construct writes at its end
+jsx_expression	seq	children evaluated in source order; a write construct writes at its end
+jsx_namespace_name	seq	children evaluated in source order; a write construct writes at its end
+jsx_opening_element	seq	children evaluated in source order; a write construct writes at its end
+jsx_self_closing_element	seq	children evaluated in source order; a write construct writes at its end
+jsx_text	leaf	no children: never an ancestor
+labeled_statement	seq	children evaluated in source order; a write construct writes at its end
+lexical_declaration	seq	children evaluated in source order; a write construct writes at its end
+literal_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+lookup_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+mapped_type_clause	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+member_expression	seq	children evaluated in source order; a write construct writes at its end
+meta_property	leaf	no children: never an ancestor
+method_definition	deferred	callable: a region, runs at an unknown time; never proves an order
+method_signature	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+module	unknown	TS module declaration (never inside an owner)
+named_imports	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+namespace_export	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+namespace_import	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+nested_identifier	seq	children evaluated in source order; a write construct writes at its end
+nested_type_identifier	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+new_expression	seq	children evaluated in source order; a write construct writes at its end
+non_null_expression	seq	children evaluated in source order; a write construct writes at its end
+null	leaf	no children: never an ancestor
+number	leaf	no children: never an ancestor
+object	seq	children evaluated in source order; a write construct writes at its end
+object_assignment_pattern	unknown	shorthand pattern element with default
+object_pattern	unknown	destructuring target: evaluated after the RHS
+object_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+omitting_type_annotation	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+opting_type_annotation	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+optional_chain	leaf	no children: never an ancestor
+optional_parameter	unknown	TS optional parameter (see formal_parameters)
+optional_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+override_modifier	leaf	no children: never an ancestor
+pair	seq	children evaluated in source order; a write construct writes at its end
+pair_pattern	unknown	keyed pattern element (computed keys run during pattern evaluation)
+parenthesized_expression	seq	children evaluated in source order; a write construct writes at its end
+parenthesized_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+predefined_type	leaf	no children: never an ancestor
+private_property_identifier	leaf	no children: never an ancestor
+program	unknown	the module itself is not an owner
+property_identifier	leaf	no children: never an ancestor
+property_signature	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+public_field_definition	unknown	instance initializer deferred; static eager (region rule decides, order never proves)
+readonly_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+regex	seq	children evaluated in source order; a write construct writes at its end
+regex_flags	leaf	no children: never an ancestor
+regex_pattern	leaf	no children: never an ancestor
+required_parameter	unknown	TS parameter (see formal_parameters)
+rest_pattern	unknown	rest element of a pattern
+rest_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+return_statement	seq	children evaluated in source order; a write construct writes at its end
+satisfies_expression	seq	children evaluated in source order; a write construct writes at its end
+sequence_expression	seq	children evaluated in source order; a write construct writes at its end
+shorthand_property_identifier	leaf	no children: never an ancestor
+shorthand_property_identifier_pattern	leaf	no children: never an ancestor
+spread_element	seq	children evaluated in source order; a write construct writes at its end
+statement_block	seq	children evaluated in source order; a write construct writes at its end
+statement_identifier	leaf	no children: never an ancestor
+string	seq	children evaluated in source order; a write construct writes at its end
+string_fragment	leaf	no children: never an ancestor
+subscript_expression	seq	children evaluated in source order; a write construct writes at its end
+super	leaf	no children: never an ancestor
+switch_body	unknown	case values are evaluated before a default body that precedes them textually (astra W1, Fable F2)
+switch_case	unknown	see switch_body
+switch_default	unknown	see switch_body
+switch_statement	seq	the discriminant is evaluated first; every clause position is under switch_body (unknown)
+template_literal_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+template_string	seq	children evaluated in source order; a write construct writes at its end
+template_substitution	seq	children evaluated in source order; a write construct writes at its end
+template_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+ternary_expression	seq	children evaluated in source order; a write construct writes at its end
+this	leaf	no children: never an ancestor
+this_type	leaf	no children: never an ancestor
+throw_statement	seq	children evaluated in source order; a write construct writes at its end
+true	leaf	no children: never an ancestor
+try_statement	seq	children evaluated in source order; a write construct writes at its end
+tuple_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+type_alias_declaration	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+type_annotation	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+type_arguments	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+type_assertion	seq	TS <T>x wrapper: children evaluated in source order; a write construct writes at its end
+type_identifier	leaf	no children: never an ancestor
+type_parameter	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+type_parameters	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+type_predicate	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+type_predicate_annotation	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+type_query	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+unary_expression	seq	children evaluated in source order; a write construct writes at its end
+undefined	leaf	no children: never an ancestor
+union_type	none	no runtime evaluation (type position, declaration-only, trivia or module-level syntax)
+update_expression	seq	children evaluated in source order; a write construct writes at its end
+variable_declaration	seq	children evaluated in source order; a write construct writes at its end
+variable_declarator	seq	children evaluated in source order; a write construct writes at its end
+while_statement	loop	repeated context: no order proof
+with_statement	unknown	object environment: refused (5.3)
+yield_expression	seq	children evaluated in source order; a write construct writes at its end

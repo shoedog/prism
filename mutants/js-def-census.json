@@ -1,0 +1,188 @@
+{
+  "lane": "JS/TS/TSX write census certificate, walker and order relation (#660 S0)",
+  "lib_test_prefixes": [
+    "ast::js_write_census::"
+  ],
+  "mutations": {
+    "CE-drop-SIGNATURE-ADDED": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"SIGNATURE-ADDED {} {l}\", g.name));",
+      "();",
+      "ast::js_write_census::certificate_tests::n2_widened_target_slot_existing_kind"
+    ],
+    "CE-drop-SIGNATURE-REMOVED": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"SIGNATURE-REMOVED {} {l}\", g.name));",
+      "();",
+      "ast::js_write_census::certificate_tests::n4_field_rename_drops_target_role"
+    ],
+    "CE-drop-BAD-ROLE": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"BAD-ROLE {} {} {}\", key.0, key.1, row.role));",
+      "();",
+      "ast::js_write_census::certificate_tests::each_remaining_diagnostic_fires_on_its_own_mutation"
+    ],
+    "CE-drop-BAD-ORDER": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"BAD-ORDER {} {} {}\", key.0, key.1, row.order));",
+      "();",
+      "ast::js_write_census::certificate_tests::each_remaining_diagnostic_fires_on_its_own_mutation"
+    ],
+    "CE-drop-UNCLASSIFIED": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"UNCLASSIFIED {} {} {langs:?}\", key.0, key.1));",
+      "();",
+      "ast::js_write_census::certificate_tests::n3_widened_slot_gains_identifier"
+    ],
+    "CE-drop-STALE": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"STALE {} {}\", key.0, key.1));",
+      "();",
+      "ast::js_write_census::certificate_tests::each_remaining_diagnostic_fires_on_its_own_mutation"
+    ],
+    "CE-drop-UNCLASSIFIED-LEAF": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"UNCLASSIFIED-LEAF {k}\"));",
+      "();",
+      "ast::js_write_census::certificate_tests::each_remaining_diagnostic_fires_on_its_own_mutation"
+    ],
+    "CE-drop-STALE-LEAF": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"STALE-LEAF {k}\"));",
+      "();",
+      "ast::js_write_census::certificate_tests::each_remaining_diagnostic_fires_on_its_own_mutation"
+    ],
+    "CE-drop-BIND-SET-DRIFT": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"BIND-SET-DRIFT {bind:?}\"));",
+      "();",
+      "ast::js_write_census::certificate_tests::each_remaining_diagnostic_fires_on_its_own_mutation"
+    ],
+    "CE-drop-STALE-TARGET": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"STALE-TARGET {k}\"));",
+      "();",
+      "ast::js_write_census::certificate_tests::each_remaining_diagnostic_fires_on_its_own_mutation"
+    ],
+    "CE-drop-BAD-ORDER-CLASS": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"BAD-ORDER-CLASS {k} {cls}\"));",
+      "();",
+      "ast::js_write_census::certificate_tests::n8_order_class_invalid"
+    ],
+    "CE-drop-UNCLASSIFIED-ORDER": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"UNCLASSIFIED-ORDER {k}\"));",
+      "();",
+      "ast::js_write_census::certificate_tests::n7_order_row_missing"
+    ],
+    "CE-drop-STALE-ORDER": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"STALE-ORDER {k}\"));",
+      "();",
+      "ast::js_write_census::certificate_tests::each_remaining_diagnostic_fires_on_its_own_mutation"
+    ],
+    "CE-drop-ORDER-LEAF-MISMATCH": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"ORDER-LEAF-MISMATCH {k} {cls}\"));",
+      "();",
+      "ast::js_write_census::certificate_tests::each_remaining_diagnostic_fires_on_its_own_mutation"
+    ],
+    "CE-drop-TARGET-KIND-UNCLASSIFIED": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\n                \"TARGET-KIND-UNCLASSIFIED {lang} {kind} via {} {}\",\n                via.0, via.1\n            ));",
+      "();",
+      "ast::js_write_census::certificate_tests::n1_new_composite_in_target"
+    ],
+    "CE-drop-CARRYING-SLOT-MISSING": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\"CARRYING-SLOT-MISSING {lang} {kind} {slot}\"));",
+      "();",
+      "ast::js_write_census::certificate_tests::n4_field_rename_drops_target_role"
+    ],
+    "CE-drop-TARGET-ROLE-LOSS": [
+      "src/ast/js_write_census/certificate.rs",
+      "bad.push(format!(\n                    \"TARGET-ROLE-LOSS {lang} {kind} {slot} role {} action {}\",\n                    role.unwrap_or(\"None\"),\n                    row.action\n                ));",
+      "();",
+      "ast::js_write_census::certificate_tests::n6_table_role_loss_in_all_three_languages"
+    ],
+    "TB-drop-MALFORMED-ROW": [
+      "src/ast/js_write_census/tables.rs",
+      "diagnostics.push(format!(\"MALFORMED-ROW {label} {}\", line.trim()));",
+      "();",
+      "ast::js_write_census::certificate_tests::each_remaining_diagnostic_fires_on_its_own_mutation"
+    ],
+    "TB-drop-DUPLICATE-ROW": [
+      "src/ast/js_write_census/tables.rs",
+      "diagnostics.push(format!(\"DUPLICATE-ROW {label} {}\", key.join(\" \")));",
+      "();",
+      "ast::js_write_census::certificate_tests::n9_duplicate_row_with_valid_class"
+    ],
+    "TB-dup-overwrites": [
+      "src/ast/js_write_census/tables.rs",
+      "if out.contains_key(&key) {",
+      "if false {",
+      "ast::js_write_census::certificate_tests::n9_duplicate_row_with_valid_class"
+    ],
+    "OR-ignore-non-seq": [
+      "src/ast/js_write_census/order.rs",
+      "if !cx.iter().all(&seq) || !cy.iter().all(&seq) {",
+      "if false {",
+      "ast::js_write_census::semantic_tests::unknown_and_loop_rows_prove_nothing"
+    ],
+    "OR-flip-time": [
+      "src/ast/js_write_census/order.rs",
+      "return x.time < y.time;",
+      "return x.time > y.time;",
+      "ast::js_write_census::semantic_tests::seq_rows_prove_source_order"
+    ],
+    "OR-ignore-span": [
+      "src/ast/js_write_census/order.rs",
+      "if x.span != y.span || x.span.is_none() {",
+      "if x.span.is_none() {",
+      "ast::js_write_census::semantic_tests::unmapped_or_cross_span_positions_prove_nothing"
+    ],
+    "OR-tie-le": [
+      "src/ast/js_write_census/order.rs",
+      "(Some(a), Some(b)) if a < b",
+      "(Some(a), Some(b)) if a <= b",
+      "ast::js_write_census::semantic_tests::equal_moment_writes_order_the_larger_construct_later"
+    ],
+    "OR-single-any-form": [
+      "src/ast/js_write_census/order.rs",
+      "matches!(w.form, Form::ReadWrite | Form::Delete)",
+      "true",
+      "ast::js_write_census::semantic_tests::single_site_exception_needs_exactly_one_counting_write"
+    ],
+    "OR-single-any-operand": [
+      "src/ast/js_write_census/order.rs",
+      "&& w.target_start == use_start",
+      "",
+      "ast::js_write_census::semantic_tests::single_site_exception_needs_exactly_one_counting_write"
+    ],
+    "ID-affects-any-length": [
+      "src/ast/js_write_census/identity.rs",
+      "&& self.comps.len() <= other.comps.len()",
+      "",
+      "ast::js_write_census::semantic_tests::affects_and_eq_relations"
+    ],
+    "WK-static-field-deferred": [
+      "src/ast/js_write_census/walk.rs",
+      "crg.instance_field |= !is_static",
+      "crg.instance_field |= true",
+      "ast::js_write_census::semantic_tests::site_forms_and_constructs"
+    ],
+    "WK-with-body-off": [
+      "src/ast/js_write_census/walk.rs",
+      "if kind == \"with_statement\" && slot == \"body\" {",
+      "if false {",
+      "ast::js_write_census::semantic_tests::site_forms_and_constructs"
+    ],
+    "WK-escape-off": [
+      "src/ast/js_write_census/walk.rs",
+      ".contains('\\\\')",
+      ".contains('\\u{0}')",
+      "ast::js_write_census::semantic_tests::owner_preconditions_refuse_whole_owner"
+    ]
+  }
+}

@@ -1,0 +1,182 @@
+fixture	edge	main_105599ee	prototype	expected	slice	note	source
+m01_update_post	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	x++	function f(a) {\n  log();\n  a++;\n  sink(a);\n}
+m02_update_pre	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	--x	function f(a) {\n  log();\n  --a;\n  sink(a);\n}
+m03_arr_pat_default	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	#657 probe [a = 1] = src()	function f(a) {\n  log();\n  [a = 1] = src();\n  sink(a);\n}
+m04_obj_short_default	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	({a = 1} = ..)	function f(a) {\n  log();\n  ({ a = 1 } = src());\n  sink(a);\n}
+t17_nested_arr_default	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	[[a = 1]] = ..	function f(a) {\n  log();\n  [[a = 1]] = src();\n  sink(a);\n}
+m13_for_of_paren	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	for ((a) of ..)	function f(a) {\n  log();\n  for ((a) of xs) g();\n  sink(a);\n}
+m14_for_of_arr_default	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	for ([a = 1] of ..)	function f(a) {\n  log();\n  for ([a = 1] of xs) g();\n  sink(a);\n}
+m15_for_of_obj_default	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	for ({a = 1} of ..)	function f(a) {\n  log();\n  for ({ a = 1 } of xs) g();\n  sink(a);\n}
+m16_for_in_member	o.x@2->o.x@4	exact	nameonly/killed	nameonly/killed	S1b-1	for (o.x in ..)	function f(o) {\n  o.x = 1;\n  for (o.x in xs) g();\n  sink(o.x);\n}
+m26_member_update	o.x@2->o.x@4	exact	nameonly/killed	nameonly/killed	S1b-1	o.x++	function f(o) {\n  o.x = 1;\n  o.x++;\n  sink(o.x);\n}
+m35_member_pat	o.x@2->o.x@4	exact	nameonly/killed	nameonly/killed	S1b-1	[o.x] = ..	function f(o) {\n  o.x = 1;\n  [o.x] = src();\n  sink(o.x);\n}
+t15_rest_member	o.x@2->o.x@4	exact	nameonly/killed	nameonly/killed	S1b-1	[...o.x] = ..	function f(o) {\n  o.x = 1;\n  [...o.x] = src();\n  sink(o.x);\n}
+t13_delete_member	o.x@2->o.x@4	exact	nameonly/killed	nameonly/killed	S1b-1	delete o.x	function f(o) {\n  o.x = 1;\n  delete o.x;\n  sink(o.x);\n}
+m27_decl_default_update	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	update in a declarator default	function f(a) {\n  log();\n  const { k = a++ } = o;\n  sink(a);\n}
+t18_for_of_decl_default	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	update in a for-of declaration default	function f(a) {\n  log();\n  for (const [b = a++] of xs) g(b);\n  sink(a);\n}
+m30_template_update	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	update in a template	function f(a) {\n  log();\n  g(`${a++}`);\n  sink(a);\n}
+m36_for_update	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	update in a for clause	function f(a) {\n  log();\n  for (; c(); a++) g();\n  sink(a);\n}
+t05_nonnull_update	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	TS a!++	function f(a: any) {\n  log();\n  a!++;\n  sink(a);\n}
+t26_tsx_update	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	TSX a++	function f(a: number) {\n  log();\n  a++;\n  return <div>{a}</div>;\n}
+t10_anon_update	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	synthetic owner a++	g(function (a) {\n  log();\n  a++;\n  sink(a);\n});
+c13_while_pre_decrement	k@2->k@4	exact	nameonly/killed	nameonly/killed	S1b-1	while (--k)	function f(n) {\n  let k = n;\n  while (--k) {\n    sink(k);\n  }\n}
+c14_post_update_in_cond	k@2->k@4	exact	nameonly/killed	nameonly/killed	S1b-1	while (k--)	function f(n) {\n  let k = n;\n  while (k--) {\n    sink(k);\n  }\n}
+c13_while_pre_decrement	k@2->k@3	exact	exact	exact	S1b-1	control: the operand read precedes the write	function f(n) {\n  let k = n;\n  while (--k) {\n    sink(k);\n  }\n}
+c04_conditional_update_control	a@1->a@4	exact	nameonly/killed	nameonly/killed	S1b-1	one-line if: line-granular over-kill (same as a recorded def)	function f(a) {\n  log();\n  if (c()) a++;\n  sink(a);\n}
+t14_param_default_writes_formal	a@1->a@3	exact	exact	nameonly/killed	S1d	#657 probe b = a++ (dead formal)	function f(a, b = a++) {\n  log();\n  sink(a);\n}
+m17_hoisted_fn_after	a@1->a@3	exact	exact	nameonly/killed	S1d	#657 probe hoisted function x (dead formal)	function f(a) {\n  log();\n  sink(a);\n  function a() {}\n}
+m18_hoisted_gen	a@1->a@3	exact	exact	nameonly/killed	S1d	hoisted generator (dead formal)	function f(a) {\n  log();\n  sink(a);\n  function* a() {}\n}
+c08_hoisted_other_name_control	a@1->a@3	exact	exact	exact	S1d	control: other name	function f(a) {\n  log();\n  sink(a);\n  function b() {}\n}
+m19_arguments	a@1->a@4	exact	exact	nameonly/cfg_incomplete	S1d	sloppy mapped arguments	function f(a) {\n  log();\n  arguments[0] = src();\n  sink(a);\n}
+m20_arguments_arrow	a@1->a@4	exact	exact	nameonly/cfg_incomplete	S1d	arguments via nested arrow	function f(a) {\n  log();\n  (() => { arguments[0] = src(); })();\n  sink(a);\n}
+c05_strict_arguments_control	a@2->a@5	exact	exact	exact	S1d	control: strict file	'use strict';\nfunction f(a) {\n  log();\n  arguments[0] = src();\n  sink(a);\n}
+t25_arguments_strict_module	a@2->a@5	exact	exact	exact	S1d	control: ES module	import x from 'y';\nfunction f(a) {\n  log();\n  arguments[0] = src();\n  sink(a);\n}
+c06_nonsimple_arguments_control	a@1->a@4	exact	exact	exact	S1d	control: non-simple parameters (unmapped)	function f(a, b = 1) {\n  log();\n  arguments[0] = src();\n  sink(a);\n}
+m21_eval	a@1->a@4	exact	exact	nameonly/cfg_incomplete	S1d	direct eval	function f(a) {\n  log();\n  eval("a = 1");\n  sink(a);\n}
+m22_eval_paren	a@1->a@4	exact	exact	nameonly/cfg_incomplete	S1d	#657 probe (eval)("a = 1")	function f(a) {\n  log();\n  (eval)("a = 1");\n  sink(a);\n}
+s08_indirect_eval_control	a@1->a@2	exact	exact	exact	S1d	control: indirect eval	function f(a) {\n  return ((0, eval)("a = 1"), sink(a));\n}
+t11_anon_with	a@1->a@4	exact	exact	nameonly/killed	S1d	synthetic owner: with-body write is a may-write (W4 drops it today)	g(function (a) {\n  log();\n  with (o) { a = src(); }\n  sink(a);\n});
+c07_with_read	a@1->a@3	exact	exact	nameonly/cfg_incomplete	S1d	use inside a with body	function f(a) {\n  log();\n  with (o) { sink(a); }\n}
+m25_annexb_var	a@2->a@4	exact	exact	nameonly/cfg_incomplete	S1d	sloppy Annex B block function	function f() {\n  var a = src();\n  { function a() {} }\n  sink(a);\n}
+m32_nested_default_read	y@1->y@3	exact	exact	nameonly/cfg_incomplete	S1a	#657 probe g(function(z = y){})	function f(y) {\n  log();\n  g(function (z = y) { return z; });\n}
+m24_closure_write	a@3->a@4	exact	exact	nameonly/cfg_incomplete	S1c (D2-c)	nested-sourced edge into an outer use	function f(a) {\n  log();\n  g(() => { a = src(); });\n  sink(a);\n}
+m31_nested_default_write	a@3->a@4	exact	exact	nameonly/cfg_incomplete	S1c (D2-c)	write in a nested default, outer use	function f(a) {\n  log();\n  g((z = (a = src())) => z);\n  sink(a);\n}
+c10_closure_before_def	a@3->a@5	exact	exact	nameonly/cfg_incomplete	S1c (D2-c)	closure defined before the def, called after (sol W3)	function f() {\n  const set = () => { a = 2; };\n  let a = 1;\n  set();\n  sink(a);\n}
+m28_same_line_write_then_read	a@1->a@3	exact	exact	nameonly/sameline	S1b-2 (D3)	same node: write then read	function f(a) {\n  log();\n  a = src(), sink(a);\n}
+m29_same_line_update_then_read	a@1->a@3	exact	exact	nameonly/sameline	S1b-2 (D3)	same node: update then read (sol W4)	function f(a) {\n  log();\n  a++, sink(a);\n}
+t23_loop_same_line	a@1->a@3	exact	exact	nameonly/sameline	S1b-2 (D3)	same node inside a one-line loop	function f(a) {\n  log();\n  while (c()) { a = src(); sink(a); }\n}
+c12_var_noinit_over_record	a@3->a@4	exact	exact	exact	#668	var a; is recorded as a def that writes nothing (WRONG, issue #668)	function f(a) {\n  log();\n  var a;\n  sink(a);\n}
+s01_update	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node a++: refused by census+distinct bases	function f(a) {\n  return (a++, sink(a));\n}
+s02_arr_default	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node [a = 1] =	function f(a) {\n  return ([a = 1] = src(), sink(a));\n}
+s03_obj_default	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node ({a = 1} =)	function f(a) {\n  return ({ a = 1 } = src(), sink(a));\n}
+s04_hoisted	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node hoisted (dead formal; killed acceptable)	function f(a) {\n  return sink(a); function a() {}\n}
+s05_arguments_sloppy	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node mapped arguments	function f(a) {\n  return (arguments[0] = src(), sink(a));\n}
+s06_arguments_strict	a@2->a@3	nameonly/cfg_incomplete	nameonly/cfg_incomplete	exact	S1d (guard deleted)	GAIN: strict arguments no longer refused	'use strict';\nfunction f(a) {\n  return (arguments[0] = src(), sink(a));\n}
+s07_eval_paren	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node (eval)(..)	function f(a) {\n  return ((eval)("a = 1"), sink(a));\n}
+s09_own_default_update	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node b = a++ (killed acceptable)	function f(a, b = a++) {\n  return sink(a);\n}
+s10_own_default_eval	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node eval in own default	function f(a, b = eval("a = 1")) {\n  return sink(a);\n}
+s11_nested_default_read	y@1->y@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1a + S1d	one-node nested default read	function h(y) {\n  return g(function (z = y) { return z; });\n}
+s12_arrow_expr_update	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	expression arrow a++	const f = (a) =>\n  (a++, sink(a));
+s13_unrelated_update_control	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	exact	S1d (guard deleted)	GAIN: unrelated n++ no longer refuses	function f(a) {\n  return (n++, sink(a));\n}
+s14_other_name_fn_control	a@1->a@2	exact	exact	exact	S1d (guard deleted)	control	function f(a) {\n  return sink(a); function b() {}\n}
+c01_plain_control	a@1->a@3	exact	exact	exact	all	control	function f(a) {\n  log();\n  sink(a);\n}
+c02_x_eq_f_x_control	a@1->a@3	exact	exact	exact	all	control: a = g(a), RHS read	function f(a) {\n  log();\n  a = g(a);\n  sink(a);\n}
+c02_x_eq_f_x_control	a@3->a@4	exact	exact	exact	all	control	function f(a) {\n  log();\n  a = g(a);\n  sink(a);\n}
+c03_for_header_control	i@3->i@4	exact	exact	nameonly/sameline	S1b-2 (D3)	cost: header def with a same-node increment; the for-initializer exception is withdrawn (astra R4-W1, recovery #670)	function f(xs) {\n  log();\n  for (let i = 0; i < xs.length; i++) {\n    sink(xs[i], i);\n  }\n}
+c11_member_read_after_update_control	o.y@2->o.y@4	exact	exact	exact	S1b-1	control: o.x++ does not kill o.y	function f(o) {\n  o.y = 1;\n  o.x++;\n  sink(o.y);\n}
+m40_block_let_shadow	a@1->a@4	exact	exact	exact	all	control: block let shadow	function f(a) {\n  log();\n  { let a = 1; }\n  sink(a);\n}
+m06_arr_pat	a@3->a@4	exact	exact	exact	all	recorded form	function f(a) {\n  log();\n  [a] = src();\n  sink(a);\n}
+m09_paren_lhs	a@3->a@4	exact	exact	exact	all	recorded form	function f(a) {\n  log();\n  (a) = src();\n  sink(a);\n}
+t01_as_lhs	a@3->a@4	exact	exact	exact	all	recorded TS wrapper	function f(a: any) {\n  log();\n  (a as any) = src();\n  sink(a);\n}
+t02_nonnull_lhs	a@3->a@4	exact	exact	exact	all	recorded TS wrapper	function f(a: any) {\n  log();\n  a! = src();\n  sink(a);\n}
+t03_angle_lhs	a@3->a@4	exact	exact	exact	all	recorded TS wrapper	function f(a: any) {\n  log();\n  (<any>a) = src();\n  sink(a);\n}
+t04_satisfies_lhs	a@3->a@4	exact	exact	exact	all	recorded TS wrapper	function f(a: any) {\n  log();\n  (a satisfies any) = src();\n  sink(a);\n}
+m05_obj_pair_default	a@3->a@4	exact	exact	exact	all	recorded {k: a = 1}	function f(a) {\n  log();\n  ({ k: a = 1 } = src());\n  sink(a);\n}
+t16_obj_pair_member	o.x@3->o.x@4	exact	exact	exact	all	recorded {k: o.x}	function f(o) {\n  o.x = 1;\n  ({ k: o.x } = src());\n  sink(o.x);\n}
+w01_escaped_update_multi	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	\u0061++ refuses the decoded name a	function f(a) {\n  log();\n  \u0061++;\n  sink(a);\n}
+w02_escaped_braced_assign_multi	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	\u{61} = .. refuses a	function f(a) {\n  log();\n  \u{61} = src();\n  sink(a);\n}
+w03_escaped_update_one_node	a@1->a@2	nameonly/cfg_incomplete	-	nameonly/cfg_incomplete	S1b-1 (W1) + S1d	one-node; stays NameOnly after the guard is deleted	function f(a) {\n  return (\u0061++, sink(a));\n}
+w04_escaped_braced_one_node	a@1->a@2	nameonly/cfg_incomplete	-	nameonly/cfg_incomplete	S1b-1 (W1) + S1d	one-node \u{61}++	function f(a) {\n  return (\u{61}++, sink(a));\n}
+w05_escaped_unrelated_control	a@1->a@4	exact	-	exact	S1b-1 (W1)	control: \u0062++ refuses b only	function f(a) {\n  log();\n  \u0062++;\n  sink(a);\n}
+w06_escaped_read_multi	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	cost: an escaped read of a refuses a	function f(a) {\n  log();\n  a = src();\n  sink(\u0061);\n}
+d01_write_before_read_same_line	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	write then read in one node	function f(a) {\n  log();\n  a = src(), sink(a);\n}
+d02_read_before_write_same_line	a@1->a@3	exact	-	exact	S1b-2 (D3)	control: read before write	function f(a) {\n  log();\n  sink(a), a++;\n}
+d03_x_eq_g_x_same_node	a@1->a@3	exact	-	exact	S1b-2 (D3)	control: a = g(a), the read is in the value	function f(a) {\n  log();\n  a = g(a);\n}
+d04_def_side_then_update	a@2->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	use side: the a++ operand follows a = 1	function f(b) {\n  let a = b;\n  a = 1, a++;\n  sink(a);\n}
+d04_def_side_then_update	a@3->a@4	exact	-	nameonly/sameline	S1b-2 (D3)	def side: a = 1 is overwritten by a++ in its node	function f(b) {\n  let a = b;\n  a = 1, a++;\n  sink(a);\n}
+d05_outer_decl_for_header	i@2->i@3	exact	-	nameonly/sameline	S1b-2 (D3)	let i; for (i = 0; i < n; i++): the header reads follow i = 0	function f(n) {\n  let i;\n  for (i = 0; i < n; i++)\n    g(i);\n}
+d05_outer_decl_for_header	i@3->i@4	exact	-	nameonly/sameline	S1b-2 (D3)	cost: for header to body, refused with the initializer exception withdrawn (recovery #670)	function f(n) {\n  let i;\n  for (i = 0; i < n; i++)\n    g(i);\n}
+d06_read_before_write_one_node	a@1->a@2	nameonly/cfg_incomplete	-	nameonly/cfg_incomplete	S1b-2 (D3)	one-node; distinct bases still refuses (recovery #670)	function f(a) {\n  return (sink(a), a++);\n}
+d07_x_eq_x_plus_one_node	a@1->a@2	nameonly/cfg_incomplete	-	nameonly/cfg_incomplete	S1b-2 (D3)	one-node; distinct bases still refuses (recovery #670)	function f(a) {\n  return (a = a + 1);\n}
+b01_c10_closure_before_def	a@3->a@5	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	sol W3	function f() {\n  const set = () => { a = 2; };\n  let a = 1;\n  set();\n  sink(a);\n}
+b02_shadowed_inner_binding	a@1->a@4	exact	-	exact	S1c (D2-c)	control: the nested write targets its own let a	function f(a) {\n  log();\n  g(() => { let a = 2; a = 3; });\n  sink(a);\n}
+b03_read_before_creation	a@1->a@2	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	cost: the read precedes the callable creation, but the creation exception is dropped (recovery #667)	function f(a) {\n  sink(a);\n  g(() => { a = 2; });\n  log();\n}
+b04_read_before_creation_in_loop	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	the loop lets the creation reach the read	function f(a) {\n  while (c()) {\n    sink(a);\n    g(() => { a = 2; });\n  }\n}
+b04_read_before_creation_in_loop	a@4->a@3	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	nested-sourced edge through the loop	function f(a) {\n  while (c()) {\n    sink(a);\n    g(() => { a = 2; });\n  }\n}
+b05_nested_param_shadow	a@1->a@4	nameonly/killed	-	nameonly/killed	S1c (D2-c)	control: nested formal a (main already over-kills with a recorded def)	function f(a) {\n  log();\n  g((a) => { a = 3; });\n  sink(a);\n}
+f01_instance_field_after_write	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1a	instance field read runs at new C(), after a = 2	function f(a) {\n  const C = class {\n    x = a;\n  };\n  a = 2;\n  return new C();\n}
+f02_static_field_eager	a@1->a@3	exact	-	exact	S1a	control: static field runs at class evaluation	function f(a) {\n  const C = class {\n    static x = a;\n  };\n  a = 2;\n  return C;\n}
+f03_instance_field_no_write	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1a	cost: deferred read (B8) even without a later write	function f(a) {\n  const C = class {\n    x = a;\n  };\n  return new C();\n}
+k01_strict_enclosing_fn	a@3->a@6	exact	-	exact	S1d	control: enclosing function prologue	function outer() {\n  'use strict';\n  function f(a) {\n    log();\n    arguments[0] = src();\n    sink(a);\n  }\n}
+k02_class_method_arguments	a@2->a@5	exact	-	exact	S1d	control: class body is strict	class C {\n  m(a) {\n    log();\n    arguments[0] = src();\n    sink(a);\n  }\n}
+k03_nested_nonarrow_own_arguments	a@1->a@4	exact	-	exact	S1d	control: a nested non-arrow has its own arguments	function f(a) {\n  log();\n  (function () { arguments[0] = src(); })();\n  sink(a);\n}
+k04_sloppy_alias_escape	a@1->a@5	exact	-	nameonly/cfg_incomplete	S1d	const args = arguments; args[0] = v	function f(a) {\n  const args = arguments;\n  log();\n  args[0] = src();\n  sink(a);\n}
+k05_prologue_after_comment	a@3->a@6	exact	-	exact	S1d	control: prologue after a comment	// header\n'use strict';\nfunction f(a) {\n  log();\n  arguments[0] = src();\n  sink(a);\n}
+w07_escaped_member_update	o.x@2->o.x@4	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	o.\u0078++ writes o.x: the owner holds an escaped NAME token and is refused	function f(o) {\n  o.x = 1;\n  o.\u0078++;\n  sink(o.x);\n}
+w08_escaped_intermediate_component	o.a.x@2->o.a.x@4	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	escaped intermediate component	function f(o) {\n  o.a.x = 1;\n  o.\u0061.x = 2;\n  sink(o.a.x);\n}
+w09_escaped_braced_member	o.x@2->o.x@4	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	\u{78} braced escape in a member component	function f(o) {\n  o.x = 1;\n  o.\u{78} = 2;\n  sink(o.x);\n}
+w10_escaped_other_object_cost	o.x@2->o.x@4	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	cost: an escape on another object still refuses the owner (owner-wide rule)	function f(o, p) {\n  o.x = 1;\n  p.\u0078++;\n  sink(o.x);\n}
+w11_escaped_property_read	-	-	-	-	S1b-1 (W1)	no edge on main: an escaped read is not matched to the raw def (recall gap, not a label)	function f(o) {\n  o.x = 1;\n  log();\n  sink(o.\u0078);\n}
+w12_escaped_hoisted_name	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	function \u0061() {} hoists over the formal; main misses the name (exact); the escape refuses the owner	function f(a) {\n  log();\n  sink(a);\n  function \u0061() {}\n}
+w13_escaped_label_cost	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	cost: an escaped label is a NAME token; owner refused	function f(a) {\n  log();\n  \u006cbl: { sink(a); }\n}
+h01_hoisted_fn_write_after_read_shared_line	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	sol W3-R2: hoisted set() writes a before sink(a); declaration shares a line with log()	function f(a) {\n  set();\n  sink(a);\n  function set() { a++; } log();\n}
+h02_hoisted_fn_write_own_line	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	hoisted declaration on its own line	function f(a) {\n  set();\n  sink(a);\n  function set() { a++; }\n}
+h03_hoisted_generator_write	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	hoisted generator declaration	function f(a) {\n  set().next();\n  sink(a);\n  function* set() { a++; }\n}
+h05_cross_region_def_use	a@3->a@4	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	def in one nested callable, use in another: is_capture does not fire on main	function f(a) {\n  log();\n  g(() => { a = 2; });\n  h(() => { sink(a); });\n}
+h06_class_method_write	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	a method body is a region; its a++ also kills (S1b) and D2-c refuses	function f(a) {\n  log();\n  class C { m() { a++; } }\n  sink(a);\n}
+h09_inner_block_decl_not_shadowing	a@1->a@4	nameonly/killed	-	nameonly/killed	S1c (D2-c)	an inner-block let a does not bind the nested write (binding scope rule); main already kills through the recorded nested def	function f(a) {\n  log();\n  g(() => { { let a = 0; } a = 2; });\n  sink(a);\n}
+h10_inner_var_shadows_control	a@1->a@4	nameonly/killed	-	nameonly/killed	S1c (D2-c)	control: var a in a nested block hoists to the arrow: inner binding, no D2-c refusal; main's recorded-def kill stands	function f(a) {\n  log();\n  g(() => { { var a = 0; } a = 2; });\n  sink(a);\n}
+h11_field_initializer_write	a@3->a@4	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	instance field initializer writes a at construction time (never here): the exact a@3->a@4 is wrong on main	function f(a) {\n  log();\n  const C = class { x = (a = 2); };\n  sink(a);\n}
+o01_arr_default_rhs_update	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	sol W4-R2: array-pattern default read runs after the RHS a++	function f(a) {\n  log();\n  const [b = sink(a)] = (a++, []);\n}
+o02_obj_default_rhs_update	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	object-pattern default read after the RHS a++	function f(a) {\n  log();\n  const { b = sink(a) } = (a++, {});\n}
+o03_computed_key_rhs_update	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	computed key in an assignment pattern runs after the RHS a++	function f(a) {\n  let b;\n  ({ [sink(a)]: b } = (a++, {}));\n}
+o04_for_of_default_iterable_update	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	for-of head default read after the iterable a++	function f(a) {\n  log();\n  for (const [b = sink(a)] of (a++, [])) g(b);\n}
+o05_for_of_body_read_iterable_update	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	for-of body read after the iterable a++ (source order already refuses)	function f(a, xs) {\n  log();\n  for (const b of (a++, xs)) sink(a);\n}
+o06_switch_case_value_cost	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	cost: switch clauses are unknown-order positions (astra W1, Fable F2); the label was right here	function f(a, k) {\n  log();\n  switch (k) { case 1: sink(a); case a++: break; }\n}
+o07_do_while_body_first_cost	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	cost: a loop in the node chain refuses (astra W2); the label was right here	function f(a) {\n  log();\n  do { sink(a); } while (a++ < 3);\n}
+o08_pattern_other_name_rhs_control	a@1->a@3	exact	-	exact	S1b-2 (D3)	control: read and write both in the RHS, read first; the pattern binds b only	function f(a) {\n  let b;\n  [b] = [sink(a), (a = 2)];\n}
+o11_pattern_target_rhs_read_control	a@1->a@3	exact	-	exact	S1b-2 (D3)	control: [a] = [sink(a)]: the RHS read precedes the pattern write (write positioned at the assignment end)	function f(a) {\n  log();\n  [a] = [sink(a)];\n}
+o12_logical_assign_then_read	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	a ||= src(), sink(a): a recorded may-write before the read in one node	function f(a) {\n  log();\n  a ||= src(), sink(a);\n}
+o13_try_finally_read_first_control	a@1->a@3	exact	-	exact	S1b-2 (D3)	control: try { sink(a) } finally { a++ } in one node, read first (no loop, seq chains)	function f(a) {\n  log();\n  try { sink(a); } finally { a++; }\n}
+o14_try_finally_write_first	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	try { a++ } finally { sink(a) } in one node	function f(a) {\n  log();\n  try { a++; } finally { sink(a); }\n}
+o15_labeled_block_update	a@1->a@4	exact	-	nameonly/killed	S1b-1	update inside a labelled block	function f(a) {\n  log();\n  outer: { a++; break outer; }\n  sink(a);\n}
+o16_generator_update_yield	a@1->a@4	exact	-	nameonly/killed	S1b-1	generator owner: ordinary kill	function* f(a) {\n  log();\n  a++;\n  yield sink(a);\n}
+o17_async_closure_write_await	a@2->a@4	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	async owner: a closure write before an await, read after	async function f(a) {\n  const p = g(() => { a = 2; });\n  await p;\n  sink(a);\n}
+o18_class_static_block_update	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1	class static block is eager, but a class declaration line is not a CFG node: site-unmapped refuses the base (Fable S2)	function f(a) {\n  log();\n  class C { static { a++; } }\n  sink(a);\n}
+o19_static_field_update	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1	static field initializer is eager; unmapped site refuses the base (Fable S2)	function f(a) {\n  log();\n  class C { static x = a++; }\n  sink(a);\n}
+o20_decorator_update	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1	decorator expression: unmapped site refuses the base (Fable S2)	function f(a: number) {\n  log();\n  @dec(a++) class C {}\n  sink(a);\n}
+o21_optional_chain_delete	o.x@2->o.x@4	exact	-	nameonly/killed	S1b-1	delete o?.x is a may-delete of o.x (identity normalises ?. as the extractor does)	function f(o) {\n  o.x = 1;\n  delete o?.x;\n  sink(o.x);\n}
+o22_as_wrapped_update	a@1->a@4	exact	-	nameonly/killed	S1b-1	TS (a as any)++ through the WRAP table	function f(a: any) {\n  log();\n  (a as any)++;\n  sink(a);\n}
+o23_nonnull_member_assign_identity	o.x@2->o.x@4	exact	-	nameonly/killed	S1b-1	o!.x = 2 is recorded with another spelling on main (inherited identity gap); the census identity unwraps ! and adds a kill-only o.x	function f(o: any) {\n  o.x = 1;\n  o!.x = 2;\n  sink(o.x);\n}
+o24_enum_initializer_update	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1	TS enum member initializer is eager; an enum declaration line is not a CFG node: site-unmapped (Fable S2)	function f(a: number) {\n  log();\n  enum E { A = a++ }\n  sink(a);\n}
+o25_param_property_default_update	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	TS parameter property default lives in a nested parameter list (region)	function f(a: number) {\n  log();\n  class C { constructor(public x = a++) {} }\n  sink(a);\n}
+o26_using_declaration_update	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1	using declaration is an ERROR node in tree-sitter-javascript 0.23.1: the owner is refused (parse precondition)	function f(a) {\n  log();\n  using r = (a++, res());\n  sink(a);\n}
+o27_subscript_write_dot_read_inherited	o.x@2->o.x@4	exact	-	exact	inherited	INHERITED GAP, unchanged: the recorded o["x"] = 2 has identity o.[] and does not kill o.x on main (issue to file, out of #660)	function f(o) {\n  o.x = 1;\n  o["x"] = 2;\n  sink(o.x);\n}
+o28_subscript_update_dot_read	o.x@2->o.x@4	exact	-	nameonly/killed	S1b-1	o[k]++ is a kill-only write of o.[]; the [] component is a wildcard in the kill-only relation	function f(o, k) {\n  o.x = 1;\n  o[k]++;\n  sink(o.x);\n}
+o29_prefix_write_inherited	o.x@2->o.x@4	exact	-	exact	inherited	INHERITED GAP, unchanged: the recorded o = {} does not kill o.x on main (issue to file, out of #660)	function f(o) {\n  o.x = 1;\n  o = {};\n  sink(o.x);\n}
+o30_prefix_update_kill_only	o.x@2->o.x@4	exact	-	nameonly/killed	S1b-1	o++ is a kill-only write of o; a kill-only write kills every def it is a prefix of	function f(o) {\n  o.x = 1;\n  o++;\n  sink(o.x);\n}
+o34_jsx_handler_write	a@3->a@4	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	TSX: an arrow in a JSX attribute is a region	function f(a: number) {\n  log();\n  const el = <div onClick={() => { a = 2; }} />;\n  return sink(a);\n}
+o35_for_body_read_before_increment_control	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	cost: a one-line for is a repeated context; no use-side proof (astra W2)	function f(a) {\n  log();\n  for (; c(); a++) sink(a);\n}
+o36_for_cond_write_body_read	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	for condition writes a before the same-node body reads it (first pass)	function f(a) {\n  log();\n  for (; (a = next()) != null; ) sink(a);\n}
+o37_for_increment_read_first_visit	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	cost: repeated context (astra W2)	function f(a) {\n  log();\n  for (; c(); sink(a), a++) g();\n}
+o38_nested_for_same_line_cost	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	cost: repeated context	function f(a) {\n  log();\n  for (;;) for (; c(); a++) sink(a);\n}
+o39_with_body_write_sameline	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1d	a read inside a with body is refused	function f(a, o) {\n  log();\n  with (o) { sink(a); a = 2; }\n}
+a01_switch_default_before_case	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	astra W1: the case value a++ runs before the default body; switch clauses are unknown	function f(a) {\n  log();\n  switch (999) { default: sink(a); break; case a++: break; }\n}
+a02_switch_default_between_cases	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	default between cases	function f(a, k) {\n  log();\n  switch (k) { case 1: g(); default: sink(a); break; case a++: break; }\n}
+a03_switch_fallthrough	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	fall-through: write in case 1, read in case 2	function f(a, k) {\n  log();\n  switch (k) { case 1: a++; case 2: sink(a); }\n}
+a04_for_body_def_cond_update	a@3->a@4	exact	-	nameonly/sameline	S1b-2 (D3)	astra W2: body def a = 10 is followed by the condition a++ before any exit; loop -> no def-side proof	function f(a) {\n  log();\n  for (let i = 0; (a++, i < 1); i++) { a = 10; }\n  sink(a);\n}
+a05_do_while_conditional_first_eval	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	astra W2: the first evaluation of sink(a) is in iteration 2, after a++; loop -> no use-side proof	function f(a) {\n  let k = 0;\n  do { if (k++) sink(a); a++; } while (k < 2);\n}
+a06_loop_break_after_other_write	a@3->a@4	exact	-	nameonly/sameline	S1b-2 (D3)	break after a++: no def-side proof in a loop with another write	function f(a) {\n  log();\n  while (true) { a++; if (y()) break; a = g(); }\n  sink(a);\n}
+a07_loop_continue_before_use	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	continue before the use: loop -> refused (cost; the label is right)	function f(a) {\n  log();\n  for (; c(); ) { if (y()) continue; sink(a); a++; }\n}
+a08_loop_single_write_def_control	a@3->a@4	exact	-	exact	S1b-2 (D3)	control: the only write of a in the loop is D; zero iterations never emit this def	function f(a) {\n  log();\n  while (c()) { a = g(); }\n  sink(a);\n}
+a10_param_default_body_var	a@1->a@3	nameonly/cfg_incomplete	-	nameonly/cfg_incomplete	S1c (D2-c)	astra W4: a body var a does not bind a parameter-default write; main is cfg_incomplete only by line-granular capture	function f(a) {\n  log();\n  (function (z = a++) { var a; })(); sink(a);\n}
+a11_param_default_body_fn	a@1->a@3	nameonly/cfg_incomplete	-	nameonly/cfg_incomplete	S1c (D2-c)	body function a does not bind a parameter-default write	function f(a) {\n  log();\n  (function (z = a++) { function a() {} })(); sink(a);\n}
+a12_param_default_inner_param_control	a@1->a@3	exact	-	exact	S1c (D2-c)	control: a parameter of the same list binds the default write	function f(a) {\n  log();\n  (function (a, z = a++) {})(); sink(a);\n}
+a13_body_local_write_control	a@1->a@3	nameonly/cfg_incomplete	-	nameonly/cfg_incomplete	S1a	control for D2-c (inner let, no refusal); the label stays cfg_incomplete through line-granular capture (B8), not D2-c	function f(a) {\n  log();\n  (function () { let a = 0; a++; })(); sink(a);\n}
+a14_strict_block_fn_outer_write	a@4->a@5	exact	-	nameonly/cfg_incomplete	S1c (D2-c)	strict block function is block-scoped: the write after the block is outer	'use strict';\nfunction f(a) {\n  log();\n  g(() => { { function a() {} } a = 2; });\n  sink(a);\n}
+a15_labelled_fn_decl_strict	a@2->a@4	exact	-	nameonly/killed	S1d	labelled top-level function declaration in strict code (a syntax error the grammar accepts): dead formal by position	'use strict';\nfunction f(a) {\n  log();\n  sink(a);\n  l: function a() {}\n}
+a17_while_read_then_write_one_line	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	cost: one-line while, read before write; repeated context refuses	function f(a) {\n  log();\n  while (c()) { sink(a); a = src(); }\n}
+a18_for_init_def_body_other_line_control	i@3->i@4	exact	-	nameonly/sameline	S1b-2 (D3)	cost: was the initializer-exception control; refused now (recovery #670)	function f(n) {\n  log();\n  for (let i = 0; i < n; i++)\n    g(i);\n}
+a19_for_init_def_cond_write	i@3->i@4	nameonly/sameline	-	nameonly/sameline	S1b-2 (D3)	condition write in the header (main already collapses two recorded defs)	function f(n) {\n  log();\n  for (let i = 0; (i = n) > 0; i++)\n    g(i);\n}
+a20_for_init_inside_do_while_cond_write	a@3->a@6	exact	-	nameonly/sameline	S1b-2 (D3)	astra R4-W1: an initializer def inside a do-while whose condition writes a on the same node; mandatory refusal	function f(a) {\n  log();\n  do { for (a = 10; false;)\n    noop();\n  } while ((a++, false));\n  sink(a);\n}
+fb01_for_body_def_inc	a@3->a@4	exact	-	nameonly/sameline	S1b-2 (D3)	Fable F1: body def followed by the increment; loop -> no def-side proof	function f(a) {\n  log();\n  for (; c(); a++) a = g();\n  sink(a);\n}
+fb02_switch_default_first_one_line	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	Fable F2: default body runs after every case value	function f(a, k) {\n  log();\n  switch (k) { default: sink(a); break; case (a++, 2): g(); }\n}
+fb03_switch_default_first_multi_line	a@1->a@4	exact	-	nameonly/killed	S1b-1	Fable F2 multi-line: the case-value site maps to the switch header node (E18) and kills there	function f(a, k) {\n  log();\n  switch (k) {\n    default: sink(a); break;\n    case (a++, 2): g();\n  }\n}
+fb05_labelled_fn_decl_dead_formal	a@1->a@3	exact	-	nameonly/killed	S1d	Fable F3: a labelled top-level function declaration is hoisted at entry: dead formal by position	function f(a) {\n  log();\n  sink(a);\n  l: function a() {}\n}
+fb06_if_clause_fn_decl_annexb	a@2->a@4	exact	-	nameonly/cfg_incomplete	S1d	Fable F3 cost: if-clause function declaration (B.3.4) is Annex B; the label was right when c is false	function f() {\n  var a = src();\n  if (c) function a() {}\n  sink(a);\n}
+fb07_for_of_head_write_one_line	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	Fable S4: for-of head write on one line; loop -> refused	function f(a, xs) {\n  log();\n  for (a of xs) sink(a);\n}
+fb08_try_finally_header_route	a@1->a@6	exact	-	exact	inherited	INHERITED GAP G5 (#673): the try-header exception edge bypasses the body write; unchanged	function f(a) {\n  log();\n  try {\n    a++;\n  } finally {\n    sink(a);\n  }\n}
+fb09_do_while_cond_write_one_line	a@3->a@4	exact	-	nameonly/sameline	S1b-2 (D3)	Fable S4: do-while def side, condition write after the body def	function f(a) {\n  log();\n  do { a = g(); } while (a++ < 3);\n  sink(a);\n}
+fb11_switch_case_value_multi_line	a@1->a@7	exact	-	nameonly/killed	S1b-1	Fable S4: multi-line switch, case-value write maps to the header node and kills	function f(a, k) {\n  log();\n  switch (k) {\n    case (a++, 1):\n      g();\n    case 2:\n      sink(a);\n  }\n}
+fb12_var_in_block_update	a@1->a@4	nameonly/killed	-	nameonly/killed	S1b-1	Fable S4: block var hoists to the function scope (scope.rs); the recorded var a already kills on main	function f(a) {\n  log();\n  { var a; a++; }\n  sink(a);\n}
+fb15_class_static_field_update_then_read	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1	Fable S2: eager static field on a class line that is not a CFG node: site-unmapped refuses the base	function f(a) {\n  log();\n  class C { static x = a++; }\n  sink(a);\n}
