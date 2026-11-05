@@ -593,7 +593,8 @@ fn census_reduced_shapes() {
             "shell",
             &["lib/utils.js:shell@1-1 Exact/import_member"],
         ),
-        // Two function expressions share one name: the terminal is not unique, nothing binds.
+        // Two function expressions share one name: each export binds its own expression by bytes
+        // (#627; the name is only the lookup key), so `escape` is the first, never the second.
         case(
             "census-duplicate-expression-names",
             "lib/utils.js",
@@ -601,7 +602,7 @@ fn census_reduced_shapes() {
             "lib/compare.js",
             "var utils = require('./utils');\nfunction run(orig) { return utils.escape(orig); }\n",
             "escape",
-            NONE,
+            &["lib/utils.js:escape@1-1 Exact/import_member"],
         ),
         // A function used as the module value and also given static members.
         case(
@@ -643,7 +644,7 @@ fn census_reduced_shapes() {
             "require",
             &["drop UnknownName"],
         ),
-        // A named function expression assigned to `module.exports` is not an identifier export.
+        // A named function expression assigned to `module.exports` is the module value (#627).
         case(
             "census-module-exports-named-function-expression",
             "helper/makeString.js",
@@ -651,7 +652,7 @@ fn census_reduced_shapes() {
             "levenshtein.js",
             "var makeString = require('./helper/makeString');\nfunction run(str1) { return makeString(str1); }\n",
             "makeString",
-            NONE,
+            &["helper/makeString.js:makeString@1-1 Exact/import_member"],
         ),
     ]);
 }

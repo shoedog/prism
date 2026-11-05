@@ -92,6 +92,61 @@ impl ParsedFile {
         })
     }
 
+    /// #627: a named function expression used directly as an export value
+    /// (`module.exports = function g() {}`, `exports.f = function g() {}`). The target is the
+    /// indexed callable with the expression's own bytes, so a same-spelled declaration elsewhere
+    /// is never bound; the name is only the lookup key of the index entry. Anonymous
+    /// expressions, arrows, classes and parenthesized values have no such identity and refuse.
+    pub(super) fn js_ts_cjs_named_expr_target(&self, rhs: Node<'_>) -> Option<JsExportTarget> {
+        if rhs.kind() != "function_expression" || self.tree.root_node().has_error() {
+            return None;
+        }
+        let name = self.node_text(&rhs.child_by_field_name("name")?);
+        let mut indexed = self.functions().iter().filter(|f| {
+            f.name.as_deref() == Some(name)
+                && f.start_byte == rhs.start_byte()
+                && f.end_byte == rhs.end_byte()
+        });
+        let callable = indexed.next()?;
+        indexed
+            .next()
+            .is_none()
+            .then(|| JsExportTarget::VerifiedLocal {
+                local: name.to_owned(),
+                start_line: callable.start_line,
+                end_line: callable.end_line,
+            })
+    }
+
+    /// Records a `VerifiedLocal` target under `exported` as the proven callable (`None`: the
+    /// whole-module replacement) and as the export claim.
+    pub(super) fn insert_js_ts_cjs_verified(
+        &self,
+        facts: &mut JsExportFacts,
+        exported: Option<String>,
+        target: JsExportTarget,
+    ) {
+        if let JsExportTarget::VerifiedLocal {
+            local,
+            start_line,
+            end_line,
+        } = &target
+        {
+            let callable = CjsCallable {
+                local: local.clone(),
+                start_line: *start_line,
+                end_line: *end_line,
+            };
+            match &exported {
+                Some(name) => {
+                    facts.cjs_callables.insert(name.clone(), callable);
+                }
+                None => facts.cjs_module_callable = Some(callable),
+            }
+        }
+        facts.insert_named(exported.unwrap_or_else(|| "default".to_owned()), target);
+    }
+
     pub(super) fn collect_js_ts_cjs_member_value(
         &self,
         name: String,
@@ -100,23 +155,8 @@ impl ParsedFile {
     ) {
         if rhs.kind() == "identifier" {
             self.insert_js_ts_cjs_local(facts, Some(name), rhs);
-        } else if let Some(target) = self.js_ts_cjs_direct_target(rhs, &name) {
-            if let JsExportTarget::VerifiedLocal {
-                local,
-                start_line,
-                end_line,
-            } = &target
-            {
-                facts.cjs_callables.insert(
-                    name.clone(),
-                    CjsCallable {
-                        local: local.clone(),
-                        start_line: *start_line,
-                        end_line: *end_line,
-                    },
-                );
-            }
-            facts.insert_named(name, target);
+        } else if let Some(target) = self.js_ts_cjs_named_expr_target(rhs) {
+            self.insert_js_ts_cjs_verified(facts, Some(name), target);
         } else {
             facts.skipped_expr_count += 1;
         }
