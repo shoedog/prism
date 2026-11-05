@@ -2,6 +2,7 @@
 use super::{
     go_aggregate::{Facts, Occurrence},
     graph::BitSet,
+    route::{order, Order, Pos},
     recall_stats::{ReceiverEdge, ReceiverKey, Status},
     scope::{BindingFacts, BindingRelation},
     solve_reaching_sets,
@@ -17,6 +18,9 @@ use crate::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
+
+#[path = "contribution_capture.rs"]
+mod capture;
 
 const ADDITION_CAP: usize = 1_000_000;
 #[cfg(test)]
@@ -168,44 +172,29 @@ struct Lane<'a> {
     reachable: &'a BitSet,
     exact: super::DefinitionReachability<'a>,
     gen: &'a [BitSet],
+    kill: &'a [BitSet],
     successors: &'a [Vec<(usize, bool)>],
     /// Sources a later write of the same node kills: never regenerated at
-    /// their node, so only a same-line read can still see them.
+    /// their node, so only a read of the same node can still see them.
     later_killed: BTreeSet<usize>,
     /// Genuine write definitions per line, for same-line kills.
     line_writes: BTreeMap<usize, Vec<usize>>,
-    /// CFG node where each outermost function literal is created.
+    /// Evaluation position of each genuine write.
+    def_pos: Vec<Option<&'a Pos>>,
+    /// Genuine writes and field-write sources by CFG node.
+    node_writes: BTreeMap<usize, Vec<usize>>,
+    node_sources: BTreeMap<usize, Vec<usize>>,
+    /// Source line of each CFG node.
+    node_line: Vec<usize>,
+    /// CFG node where each outermost function literal is created, and where
+    /// each call of a locally bound literal happens.
     closure_nodes: Vec<Option<usize>>,
-    live: BTreeMap<usize, BitSet>,
-    components: Option<Vec<Option<usize>>>,
+    call_nodes: Vec<Vec<Option<usize>>>,
+    capture_live: BTreeMap<usize, BitSet>,
+    deferred_live: BTreeMap<usize, BitSet>,
+    beyond: BTreeMap<usize, (BitSet, BitSet)>,
 }
 impl<'l> Lane<'l> {
-    /// Defs live at, or at any node reachable from, `node` (inclusive).
-    fn live_from(&mut self, node: usize) -> &BitSet {
-        if !self.live.contains_key(&node) {
-            let mut set = BitSet::new(self.defs.len());
-            let mut seen = vec![false; self.successors.len()];
-            let mut stack = vec![node];
-            while let Some(m) = stack.pop() {
-                if std::mem::replace(&mut seen[m], true) {
-                    continue;
-                }
-                set.union_with(&self.incoming[m]);
-                set.union_with(&self.gen[m]);
-                stack.extend(self.successors[m].iter().map(|&(t, _)| t));
-            }
-            self.live.insert(node, set);
-        }
-        &self.live[&node]
-    }
-
-    fn in_cycle(&mut self, node: usize) -> bool {
-        let successors = self.successors;
-        self.components
-            .get_or_insert_with(|| super::super::go_loop_cycles::components(successors))[node]
-            .is_some()
-    }
-
     /// Whether the read's root is the binding the source wrote (`None`: a
     /// different binding or a kill).
     fn binding_uncertain(&self, d: usize, u: usize) -> Option<bool> {
@@ -226,67 +215,12 @@ impl<'l> Lane<'l> {
         }
     }
 
-    /// Read inside a function literal: provisional timing, always
-    /// `cfg_incomplete`. Admitted when the contribution is live at the
-    /// literal's creation node or any node reachable from it.
-    fn classify_capture(&mut self, d: usize, u: usize, closure: usize) -> Option<FlowConfidence> {
-        let (defs, facts) = (self.defs, self.facts);
-        let path = &defs[d].path;
-        if facts.closures[closure]
-            .writes
-            .iter()
-            .any(|w| w.base == path.base && path.fields.starts_with(&w.fields))
-        {
-            return None;
-        }
-        self.binding_uncertain(d, u)?;
-        let node = self.closure_nodes[closure]?;
-        self.mapped_defs[d]?;
-        self.live_from(node)
-            .contains(d)
-            .then_some(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete))
-    }
-
-    /// Same CFG line: order is evaluation order, not byte order. Within one
-    /// simple statement the right side runs before the write; across `;`
-    /// statements and header clauses the earlier statement writes first.
-    fn classify_same_line(&mut self, d: usize, u: usize) -> Option<FlowConfidence> {
-        let (defs, facts) = (self.defs, self.facts);
-        let (def, read) = (&defs[d], &facts.reads[u]);
-        let meta = facts.write_meta.get(&(def.path.clone(), def.start_byte))?;
-        self.binding_uncertain(d, u)?;
-        let forward = meta.stmt < read.stmt;
-        if !forward {
-            // Only a `for` post statement reaches its own condition, and only
-            // over a proven cycle.
-            let cyclic = meta.post_of.is_some()
-                && meta.post_of == read.cond_of
-                && self.mapped_defs[d].is_some_and(|n| self.in_cycle(n));
-            if !cyclic {
-                return None;
-            }
-        }
-        for &k in self.line_writes.get(&def.line).into_iter().flatten() {
-            let w = &defs[k];
-            if k == d
-                || w.path.base != def.path.base
-                || !def.path.fields.starts_with(&w.path.fields)
-                || !(self.bindings.proven_same_def_binding(d, k)
-                    || self.bindings.same_fallback_binding(d, k))
-            {
-                continue;
-            }
-            let killer = facts.write_meta.get(&(w.path.clone(), w.start_byte))?;
-            if !forward || (killer.stmt >= meta.stmt && killer.stmt < read.stmt) {
-                return None;
-            }
-        }
-        Some(FlowConfidence::NameOnly(FlowDoubt::SameLine))
-    }
-
     fn classify(&mut self, d: usize, u: usize) -> Option<FlowConfidence> {
         if let Some(closure) = self.reads[u].closure {
             return self.classify_capture(d, u, closure);
+        }
+        if self.reads[u].deferred {
+            return self.classify_deferred(d, u);
         }
         let def = &self.defs[d];
         let read = &self.reads[u];
@@ -389,15 +323,16 @@ pub(super) fn analyze(
             .or_insert(0usize) += 1;
     }
     let mut later_killed = BTreeSet::new();
-    let order = |path: &AccessPath, start: usize| facts.write_meta[&(path.clone(), start)].stmt;
+    let pos_of = |path: &AccessPath, start: usize| &facts.write_meta[&(path.clone(), start)].pos;
     for (i, d) in defs.iter().enumerate() {
         if !d.alias_derived
             && d.path.has_fields()
             && facts.writes.contains_key(&(d.path.clone(), d.start_byte))
         {
-            // A write of the same node that is not strictly earlier kills this
-            // field before the node ends (never regenerate it past its own
-            // line); an earlier one (`p = q; p.f = x`) leaves it live.
+            // A write of the same node that runs after (or in the statement
+            // of) this one kills this field before the node ends (never
+            // regenerate it past its own line); an earlier one
+            // (`p = q; p.f = x`) or one in another arm leaves it live.
             if defs.iter().enumerate().any(|(k, w)| {
                 k != i
                     && !w.alias_derived
@@ -406,7 +341,10 @@ pub(super) fn analyze(
                     && w.path.base == d.path.base
                     && d.path.fields.starts_with(&w.path.fields)
                     && facts.writes.contains_key(&(w.path.clone(), w.start_byte))
-                    && order(&w.path, w.start_byte) >= order(&d.path, d.start_byte)
+                    && matches!(
+                        order(pos_of(&d.path, d.start_byte), pos_of(&w.path, w.start_byte)),
+                        Order::Before | Order::Same
+                    )
                     && bindings.same_def_binding(i, k)
             }) {
                 later_killed.insert(i);
@@ -574,25 +512,56 @@ pub(super) fn analyze(
             line_writes.entry(d.line).or_default().push(i);
         }
     }
-    let closure_nodes = facts
+    let mut node_of = |line: usize| {
+        statements
+            .get(line)
+            .and_then(|line| line_index.get(&line).copied())
+    };
+    let closure_nodes: Vec<_> = facts.closures.iter().map(|c| node_of(c.line)).collect();
+    let call_nodes: Vec<Vec<_>> = facts
         .closures
         .iter()
-        .map(|c| {
-            statements
-                .get(c.line)
-                .and_then(|line| line_index.get(&line).copied())
-        })
+        .map(|c| c.calls.iter().map(|call| node_of(call.line)).collect())
         .collect();
+    let mut node_line = vec![0usize; successors.len()];
+    for (&line, &n) in line_index {
+        if n < node_line.len() {
+            node_line[n] = line;
+        }
+    }
+    let mut def_pos = vec![None; defs.len()];
+    let (mut node_writes, mut node_sources) = (BTreeMap::new(), BTreeMap::new());
+    for (i, d) in defs.iter().enumerate() {
+        if d.alias_derived {
+            continue;
+        }
+        if let Some(meta) = facts.write_meta.get(&(d.path.clone(), d.start_byte)) {
+            def_pos[i] = Some(&meta.pos);
+            if let Some(n) = mapped_defs[i] {
+                node_writes.entry(n).or_insert_with(Vec::new).push(i);
+                if d.path.has_fields() {
+                    node_sources.entry(n).or_insert_with(Vec::new).push(i);
+                }
+            }
+        }
+    }
     let mut lane = Lane {
         defs,
         facts: &facts,
         gen: &gen,
+        kill: &kill,
         successors,
         later_killed,
         line_writes,
+        def_pos,
+        node_writes,
+        node_sources,
+        node_line,
         closure_nodes,
-        live: BTreeMap::new(),
-        components: None,
+        call_nodes,
+        capture_live: BTreeMap::new(),
+        deferred_live: BTreeMap::new(),
+        beyond: BTreeMap::new(),
         reads: &facts.reads,
         mapped_defs,
         mapped_reads,

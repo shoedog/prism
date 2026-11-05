@@ -20,8 +20,10 @@ mod compact_wire;
 mod contribution;
 mod go_aggregate;
 mod go_header_writes;
+mod go_literal_mode;
 mod go_recall_scope;
 mod recall_stats;
+mod route;
 pub(crate) use contribution::record_skip as record_go_recall_skip;
 #[cfg(test)]
 pub(crate) use contribution::with_cap as with_recall_cap;

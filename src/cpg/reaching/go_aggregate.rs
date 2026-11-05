@@ -1,4 +1,5 @@
 //! S1 Go syntax certificates: genuine writes and maximal eager value reads.
+use super::route::{Kind, Pos, Step};
 use crate::access_path::{AccessPath, DEFAULT_K_LIMIT};
 use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
@@ -14,18 +15,38 @@ pub(super) struct Occurrence {
     pub receiver: Option<String>,
     /// Index into `Facts::closures` when the read sits in a function literal.
     pub closure: Option<usize>,
-    /// Start byte of the simple statement (or header clause) evaluating it.
-    pub stmt: usize,
-    /// Start byte of the `for` clause whose condition holds this read.
-    pub cond_of: Option<usize>,
+    /// Where in the node's evaluation order it happens.
+    pub pos: Pos,
+    /// The read is the receiver of an outermost `defer R.M()` / `go R.M()`
+    /// call: `M` runs, and reads `R`'s fields, later than the statement.
+    pub deferred: bool,
 }
 
 /// Evaluation-order facts of one genuine write.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub(super) struct WriteMeta {
-    pub stmt: usize,
-    /// Start byte of the `for` clause whose post statement holds this write.
-    pub post_of: Option<usize>,
+    pub pos: Pos,
+}
+
+/// When an outermost function literal's body can run, by its syntax alone.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Mode {
+    /// Stored, returned, sent, assigned, or passed under `go`/`defer`: it may
+    /// run at any time after creation.
+    Escaping,
+    /// Immediately invoked, or passed directly as a call argument: it runs
+    /// at its creation point.
+    AtCreation,
+    /// Bound once by `f := func..` and only ever called as `f(..)`: it runs at
+    /// those calls.
+    AtCalls,
+}
+
+/// A call `f(..)` of a locally bound function literal.
+#[derive(Debug)]
+pub(super) struct CallSite {
+    pub line: usize,
+    pub pos: Pos,
 }
 
 /// An outermost function literal of the owner and every path written
@@ -34,6 +55,11 @@ pub(super) struct WriteMeta {
 pub(super) struct Closure {
     pub line: usize,
     pub writes: Vec<AccessPath>,
+    /// Where the literal is created.
+    pub pos: Pos,
+    pub mode: Mode,
+    /// For `Mode::AtCalls`: every call of the bound name.
+    pub calls: Vec<CallSite>,
 }
 
 #[derive(Default)]
@@ -42,10 +68,16 @@ pub(super) struct Facts {
     pub write_meta: BTreeMap<(AccessPath, usize), WriteMeta>,
     pub reads: Vec<Occurrence>,
     pub closures: Vec<Closure>,
+    /// Line span of each `for` statement, by start byte.
+    pub loops: BTreeMap<usize, (usize, usize)>,
     stmt: usize,
     depth: usize,
-    clause: Option<(usize, bool)>,
+    route: Vec<Step>,
     cur_closure: Option<usize>,
+    /// Names bound to an `AtCalls` literal, with its closure index.
+    locals: BTreeMap<String, usize>,
+    body_id: Option<usize>,
+    idents: Option<super::go_literal_mode::Idents>,
     shadow: Vec<BTreeSet<String>>,
     owner_names: BTreeSet<String>,
     scope: Option<super::go_recall_scope::FileScope>,
@@ -79,6 +111,7 @@ impl Facts {
         if !owner.has_error() {
             facts.owner_names = super::go_recall_scope::declared_names(parsed, owner);
             if let Some(body) = owner.child_by_field_name("body") {
+                facts.body_id = Some(body.id());
                 facts.walk(parsed, body);
             }
         }
@@ -90,13 +123,8 @@ impl Facts {
             match self.cur_closure {
                 Some(c) => self.closures[c].writes.push(p),
                 None => {
-                    self.write_meta.insert(
-                        (p.clone(), node.start_byte()),
-                        WriteMeta {
-                            stmt: self.stmt,
-                            post_of: self.clause.filter(|c| c.1).map(|c| c.0),
-                        },
-                    );
+                    self.write_meta
+                        .insert((p.clone(), node.start_byte()), WriteMeta { pos: self.pos() });
                     self.writes.insert((p, node.start_byte()), node.end_byte());
                 }
             }
@@ -106,6 +134,13 @@ impl Facts {
             if let Some(index) = node.child_by_field_name("index") {
                 self.value(parsed, index);
             }
+        }
+    }
+
+    fn pos(&self) -> Pos {
+        Pos {
+            stmt: self.stmt,
+            route: self.route.clone(),
         }
     }
 
@@ -130,23 +165,101 @@ impl Facts {
     fn closure(&mut self, parsed: &ParsedFile, literal: Node<'_>) {
         let saved = self.cur_closure;
         let index = saved.unwrap_or_else(|| {
+            let (mode, name) =
+                super::go_literal_mode::mode(parsed, literal, self.body_id, &mut self.idents);
             self.closures.push(Closure {
                 line: literal.start_position().row + 1,
                 writes: Vec::new(),
+                pos: self.pos(),
+                mode,
+                calls: Vec::new(),
             });
-            self.closures.len() - 1
+            let index = self.closures.len() - 1;
+            if let Some(name) = name {
+                self.locals.insert(name, index);
+            }
+            index
         });
         self.cur_closure = Some(index);
         self.shadow
             .push(super::go_recall_scope::declared_names(parsed, literal));
-        let (stmt, depth, clause) = (self.stmt, self.depth, self.clause.take());
+        let (stmt, depth, route) = (self.stmt, self.depth, std::mem::take(&mut self.route));
         self.depth = 0;
         if let Some(body) = literal.child_by_field_name("body") {
+            // A closure-level `range`/receive rebinding writes the root too.
+            let rebound = super::go_header_writes::collect(parsed, body);
+            self.closures[index]
+                .writes
+                .extend(rebound.into_iter().map(|h| h.path));
             self.walk(parsed, body);
         }
-        (self.stmt, self.depth, self.clause) = (stmt, depth, clause);
+        (self.stmt, self.depth, self.route) = (stmt, depth, route);
         self.shadow.pop();
         self.cur_closure = saved;
+    }
+
+    /// A branching construct: each child is walked under its arm.
+    fn construct(&mut self, parsed: &ParsedFile, node: Node<'_>, kind: Kind) {
+        let id = node.start_byte();
+        let mut cases = 0u8;
+        for i in 0..node.child_count() {
+            let Some(child) = node.child(i).filter(|c| c.is_named()) else {
+                continue;
+            };
+            let field = node.field_name_for_child(i as u32);
+            let arm = match kind {
+                Kind::If => match field {
+                    Some("initializer") => 0,
+                    Some("consequence") => 2,
+                    Some("alternative") => 3,
+                    _ => 1,
+                },
+                Kind::Switch => {
+                    if field == Some("initializer") {
+                        0
+                    } else if child.kind().ends_with("_case") {
+                        cases = cases.saturating_add(1);
+                        1 + cases
+                    } else {
+                        1
+                    }
+                }
+                Kind::For => {
+                    if field == Some("body") {
+                        2
+                    } else {
+                        0
+                    }
+                }
+            };
+            self.route.push(Step { id, kind, arm });
+            if kind == Kind::For && child.kind() == "for_clause" {
+                // The clause pushes its own init / condition / post arms.
+                self.route.pop();
+                self.for_clause(parsed, id, child);
+            } else {
+                if kind == Kind::For && arm == 0 && child.kind() != "range_clause" {
+                    // `for cond { .. }`: the bare child is the condition.
+                    self.route.last_mut().unwrap().arm = 1;
+                }
+                self.walk(parsed, child);
+                self.route.pop();
+            }
+        }
+    }
+
+    fn for_clause(&mut self, parsed: &ParsedFile, id: usize, clause: Node<'_>) {
+        for (field, arm) in [("initializer", 0), ("condition", 1), ("update", super::route::POST)] {
+            if let Some(part) = clause.child_by_field_name(field) {
+                self.route.push(Step {
+                    id,
+                    kind: Kind::For,
+                    arm,
+                });
+                self.walk(parsed, part);
+                self.route.pop();
+            }
+        }
     }
 
     fn walk(&mut self, parsed: &ParsedFile, node: Node<'_>) {
@@ -156,20 +269,20 @@ impl Facts {
                 return;
             }
             "function_declaration" | "method_declaration" => return,
-            "for_clause" => {
-                let id = node.start_byte();
-                if let Some(init) = node.child_by_field_name("initializer") {
-                    self.walk(parsed, init);
-                }
-                if let Some(cond) = node.child_by_field_name("condition") {
-                    self.clause = Some((id, false));
-                    self.walk(parsed, cond);
-                }
-                if let Some(update) = node.child_by_field_name("update") {
-                    self.clause = Some((id, true));
-                    self.walk(parsed, update);
-                }
-                self.clause = None;
+            "if_statement" => {
+                self.construct(parsed, node, Kind::If);
+                return;
+            }
+            "expression_switch_statement" | "type_switch_statement" | "select_statement" => {
+                self.construct(parsed, node, Kind::Switch);
+                return;
+            }
+            "for_statement" => {
+                self.loops.insert(
+                    node.start_byte(),
+                    (node.start_position().row + 1, node.end_position().row + 1),
+                );
+                self.construct(parsed, node, Kind::For);
                 return;
             }
             "assignment_statement" | "short_var_declaration" => {
@@ -252,13 +365,14 @@ impl Facts {
                     .or_else(|| actual.named_child(0))
                     .unwrap();
             }
-            self.read(p, actual, None);
+            self.read(p, actual, None, false);
             return;
         }
         match node.kind() {
             "func_literal" => self.closure(parsed, node),
             "call_expression" => {
                 self.receiver(parsed, node);
+                self.local_call(parsed, node);
                 if let Some(f) = node
                     .child_by_field_name("function")
                     .filter(|f| f.kind() == "func_literal")
@@ -337,9 +451,35 @@ impl Facts {
         }
     }
 
+    /// A call `f(..)` of a name bound to an `AtCalls` literal.
+    fn local_call(&mut self, parsed: &ParsedFile, call: Node<'_>) {
+        if self.cur_closure.is_some() || self.locals.is_empty() {
+            return;
+        }
+        let Some(callee) = call
+            .child_by_field_name("function")
+            .filter(|f| f.kind() == "identifier")
+        else {
+            return;
+        };
+        if let Some(&index) = self.locals.get(parsed.node_text(&callee)) {
+            let site = CallSite {
+                line: call.start_position().row + 1,
+                pos: self.pos(),
+            };
+            self.closures[index].calls.push(site);
+        }
+    }
+
     /// Record a read; inside a function literal it is a capture read, unless
     /// the literal (or one enclosing it) declares the root name itself.
-    fn read(&mut self, path: AccessPath, actual: Node<'_>, receiver: Option<String>) {
+    fn read(
+        &mut self,
+        path: AccessPath,
+        actual: Node<'_>,
+        receiver: Option<String>,
+        deferred: bool,
+    ) {
         if self.cur_closure.is_some() && self.shadow.iter().any(|s| s.contains(&path.base)) {
             return;
         }
@@ -350,8 +490,8 @@ impl Facts {
             end: actual.end_byte(),
             receiver,
             closure: self.cur_closure,
-            stmt: self.stmt,
-            cond_of: self.clause.filter(|c| !c.1).map(|c| c.0),
+            pos: self.pos(),
+            deferred,
         });
     }
 
@@ -363,8 +503,14 @@ impl Facts {
     fn receiver(&mut self, parsed: &ParsedFile, call: Node<'_>) {
         // In `R.M().N()` only `M`'s receiver counts; walk down the chain.
         let mut call = call;
+        // Only the outermost call of a `go`/`defer` statement runs later; an
+        // inner call of a chain is evaluated at the statement.
+        let mut deferred = call
+            .parent()
+            .is_some_and(|p| matches!(p.kind(), "go_statement" | "defer_statement"));
         loop {
-            self.receiver_of(parsed, call);
+            self.receiver_of(parsed, call, deferred);
+            deferred = false;
             match call
                 .child_by_field_name("function")
                 .filter(|f| f.kind() == "selector_expression")
@@ -377,7 +523,7 @@ impl Facts {
         }
     }
 
-    fn receiver_of(&mut self, parsed: &ParsedFile, call: Node<'_>) {
+    fn receiver_of(&mut self, parsed: &ParsedFile, call: Node<'_>, deferred: bool) {
         let Some(function) = call
             .child_by_field_name("function")
             .filter(|f| f.kind() == "selector_expression")
@@ -412,7 +558,7 @@ impl Facts {
                 .or_else(|| actual.named_child(0))
                 .unwrap();
         }
-        self.read(p, actual, Some(parsed.node_text(&field).to_owned()));
+        self.read(p, actual, Some(parsed.node_text(&field).to_owned()), deferred);
     }
 
     fn walk_children(&mut self, parsed: &ParsedFile, node: Node<'_>) {
