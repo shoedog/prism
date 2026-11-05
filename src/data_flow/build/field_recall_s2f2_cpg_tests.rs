@@ -129,7 +129,8 @@ fn non_dataflow_edges(graph: &CodePropertyGraph) -> usize {
     graph
         .graph
         .edge_references()
-        .filter(|e| !matches!(e.weight(), CpgEdge::DataFlow(_)))
+        // The new Use node gets its one `Contains` edge from its function.
+        .filter(|e| !matches!(e.weight(), CpgEdge::DataFlow(_) | CpgEdge::Contains))
         .count()
 }
 
