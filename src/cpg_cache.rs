@@ -288,7 +288,8 @@ mod stream;
 /// - v143: anonymous-site CommonJS `require` evidence in the proof index (#597); admits `var` bindings and the flat-pattern helper's unique-name rule.
 /// - v144: JS/TS/TSX one-node owners (one statement line, expression-bodied arrows) run reaching
 ///   definitions instead of the NoCfgEdges fallback (#599); labels and `functions_without_cfg` move.
-const CACHE_VERSION: u32 = 144;
+/// - v145: Go eager field contributions and independent recall owner counters (#639).
+const CACHE_VERSION: u32 = 145;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -839,7 +840,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 144);
+        assert_eq!(super::CACHE_VERSION, 145);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

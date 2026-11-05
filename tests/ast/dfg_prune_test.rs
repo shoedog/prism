@@ -27,6 +27,7 @@ fn go_prune_complete_edge_sets() {
             .dfg
             .edges()
             .iter()
+            .filter(|edge| !super::recall_frozen::is_recall(&edge.from, &edge.to))
             .map(|edge| {
                 (
                     edge.from.function.clone(),

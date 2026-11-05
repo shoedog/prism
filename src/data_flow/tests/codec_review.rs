@@ -23,7 +23,12 @@ fn raw_rd(rows: Vec<(&str, Stats)>) -> Vec<u8> {
     // Ten empty sequence fields followed by RD filename/stat rows. Encoding the
     // raw sequences preserves duplicates and order through the serde boundary.
     let mut bytes = vec![0; 10 * 8];
-    bytes.extend(bincode::serialize(&rows).unwrap());
+    bytes.extend(bincode::serialize(&rows.len()).unwrap());
+    for (file, stats) in rows {
+        bytes.extend(bincode::serialize(&(file, stats)).unwrap());
+        // Independent recall owner rows, added in the current cache schema.
+        bytes.extend(bincode::serialize(&0usize).unwrap());
+    }
     bytes
 }
 fn reject_raw(rows: Vec<(&str, Stats)>, expected: &str) {
@@ -257,5 +262,34 @@ fn rd_fallback_cap_count_corruption_and_overflow_raw() {
         s.3 = edges;
         s.10 = keys;
         reject_raw(vec![("a.py", s)], "DFG RD");
+    }
+}
+
+#[test]
+fn go_field_recall_codec_rejects_raw_duplicates_order_and_overflow() {
+    for (keys, expected) in [
+        (
+            vec![
+                (("f", 1usize, 0usize), (0u32, 2usize)),
+                (("f", 1, 0), (0, 2)),
+            ],
+            "DFG recall map order/duplicate",
+        ),
+        (
+            vec![(("g", 1, 0), (0, 2)), (("f", 1, 0), (0, 2))],
+            "DFG recall map order/duplicate",
+        ),
+        (
+            vec![(("f", 1, 0), (0, usize::MAX)), (("g", 1, 0), (0, 1))],
+            "DFG recall count overflow",
+        ),
+    ] {
+        let mut raw = raw_rd(vec![("a.go", stats(vec![]))]);
+        raw.truncate(raw.len() - 8);
+        raw.extend(bincode::serialize(&keys).unwrap());
+        let error = bincode::deserialize::<CompactDfg>(&raw)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains(expected), "{error}");
     }
 }

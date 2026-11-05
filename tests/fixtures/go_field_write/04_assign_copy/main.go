@@ -1,0 +1,11 @@
+package fixture
+
+type A struct { b, c string }
+type S struct { f, g string; a A }
+
+func scenario(p S, x string) {
+	var q S
+	p.f = x
+	q = p
+	useValue(q)
+}

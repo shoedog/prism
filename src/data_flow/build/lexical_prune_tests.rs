@@ -4,6 +4,17 @@ use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::path::PathBuf;
 
+/// The S1 recall lane adds `Def(p.f) -> Use(ancestor)` edges that the frozen
+/// reference never had; this differential compares everything else.
+fn without_recall(mut refs: super::FileRefs) -> super::FileRefs {
+    let recall = |from: &crate::data_flow::VarLocation, to: &crate::data_flow::VarLocation| {
+        to.path != from.path && to.path.is_prefix_of(&from.path)
+    };
+    refs.edges.retain(|e| !recall(&e.from, &e.to));
+    refs.labels.retain(|(from, to), _| !recall(from, to));
+    refs
+}
+
 fn fixtures() -> Vec<PathBuf> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/dfg_prune/go");
     let mut paths: Vec<_> = std::fs::read_dir(root)
@@ -29,7 +40,7 @@ fn go_prune_matrix() {
         let source = std::fs::read_to_string(&path).unwrap();
         let parsed = ParsedFile::parse(&file, &source, Language::Go).unwrap();
         let before = Producer::file_refs_frozen(&file, &parsed);
-        let after = Producer::file_refs(&file, &parsed);
+        let after = without_recall(Producer::file_refs(&file, &parsed));
         assert_eq!(
             before.edges.len() - after.edges.len(),
             after.rd_function_stats.dfg_pruned_write_only
@@ -177,7 +188,7 @@ fn prune_subset_and_labels_across_fixture_tree() {
             let language = Language::from_path(&file).unwrap();
             let parsed = ParsedFile::parse(&file, &source, language).unwrap();
             let before = Producer::file_refs_frozen(&file, &parsed);
-            let after = Producer::file_refs(&file, &parsed);
+            let after = without_recall(Producer::file_refs(&file, &parsed));
             for edge in &after.edges {
                 assert!(
                     before.edges.contains(edge),

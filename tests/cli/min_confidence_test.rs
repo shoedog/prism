@@ -373,6 +373,12 @@ fn dfg_stats_empty_repo_emits_all_zero_counters() {
             "dfg_pruned_scope": 0,
             "dfg_pruned_dominated": 0,
             "dfg_pruned_order": 0,
+            "dfg_recall_candidates": 0,
+            "dfg_recall_candidates_capped": 0,
+            "dfg_recall_functions_capped": 0,
+            "dfg_recall_functions_over_rd_cap": 0,
+            "dfg_recall_functions_without_cfg": 0,
+            "dfg_recall_max_candidates": 0,
         })
     );
 }

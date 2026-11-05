@@ -49,7 +49,7 @@ fn go_join_population() {
         );
         assert_eq!(
             before["availability"],
-            json!(graph.dfg.rd_function_stats()),
+            super::recall_frozen::availability(&graph),
             "{file}: availability"
         );
         let labels: Vec<_> = graph

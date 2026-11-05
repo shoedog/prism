@@ -17,6 +17,13 @@ mod preflight;
 pub(crate) use preflight::unavailable_before_edges;
 mod cfg_edge_index;
 mod compact_wire;
+mod contribution;
+mod go_aggregate;
+mod go_header_writes;
+mod recall_stats;
+pub(crate) use contribution::record_skip as record_go_recall_skip;
+#[cfg(test)]
+pub(crate) use contribution::with_cap as with_recall_cap;
 mod def_buckets;
 mod go_header;
 mod graph;
@@ -88,6 +95,7 @@ pub(crate) struct RdResult {
     /// May-reaching facts, independent of confidence (including flagged CFG
     /// routes). Used only to admit implicit parameter-to-body entry copies.
     pub(crate) reaching_edges: BTreeSet<(VarLocation, VarLocation)>,
+    pub(crate) recall: Option<contribution::RecallResult>,
 }
 
 type RdFunctionKey = (String, usize);
@@ -112,6 +120,7 @@ pub struct RdFileStats {
     without_cfg_function_keys: BTreeSet<RdFunctionKey>,
     #[serde(with = "compact_wire::cap_counts")]
     fallback_capped_function_counts: BTreeMap<FallbackFunctionKey, usize>,
+    pub recall: recall_stats::RecallStats,
 }
 
 impl RdFileStats {
@@ -153,6 +162,7 @@ impl RdFileStats {
     }
 
     pub(crate) fn merge(&mut self, other: Self) {
+        self.recall.merge(other.recall);
         for ((function, line, byte), count) in other.fallback_capped_function_counts {
             self.record_fallback_capped(function, line, byte, count);
         }
@@ -235,6 +245,7 @@ fn reaching_definitions_impl(
     let _work = work_tests::Pass::begin(parsed, func_node);
     #[cfg(test)]
     work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
+    let raw_defs = defs;
     let defs = deduplicate_definitions(defs);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
@@ -264,6 +275,7 @@ fn reaching_definitions_impl(
             from,
             to,
             join_kind::is_incomplete_join(parsed, &kinds, &edge, provenance),
+            join_kind::is_go_defer_dispatch(parsed, &kinds, &edge, provenance),
         ));
     }
     if cfg_edges.is_empty()
@@ -289,6 +301,7 @@ fn reaching_definitions_impl(
             exact_labels: BTreeMap::new(),
             loop_carried_edges: BTreeSet::new(),
             reaching_edges: BTreeSet::new(),
+            recall: None,
         });
     }
 
@@ -296,13 +309,30 @@ fn reaching_definitions_impl(
     let entry = 0;
     let mut successors = vec![Vec::new(); node_count];
     let mut predecessors = vec![Vec::new(); node_count];
-    for (from, to, incomplete) in cfg_edges {
+    // The field-contribution lane never routes through Go's synthetic
+    // return -> defer exit dispatch: defer arguments are evaluated eagerly at
+    // the defer statement, and dispatch does not re-enter the body.
+    let mut lane_graph = cfg_edges.iter().any(|e| e.3).then(|| {
+        (
+            vec![Vec::<(usize, bool)>::new(); node_count],
+            vec![Vec::<usize>::new(); node_count],
+        )
+    });
+    for &(from, to, incomplete, dispatch) in &cfg_edges {
+        if let (Some((s, p)), false) = (lane_graph.as_mut(), dispatch) {
+            s[from].push((to, incomplete));
+            p[to].push(from);
+        }
         successors[from].push((to, incomplete));
         predecessors[to].push(from);
     }
     if let Some(first) = lines.first().and_then(|line| line_index.get(line)) {
         successors[entry].push((*first, false));
         predecessors[*first].push(entry);
+        if let Some((s, p)) = lane_graph.as_mut() {
+            s[entry].push((*first, false));
+            p[*first].push(entry);
+        }
     }
 
     let spans = match &expression_body {
@@ -458,11 +488,25 @@ fn reaching_definitions_impl(
             .or_insert(label);
     }
 
+    let recall = contribution::analyze(
+        parsed,
+        *func_node,
+        raw_defs,
+        &defs,
+        &mapped_defs,
+        &line_index,
+        &mut statements,
+        lane_graph.as_ref().map_or(&successors, |g| &g.0),
+        lane_graph.as_ref().map_or(&predecessors, |g| &g.1),
+        &entry_reachable,
+        &binding_facts,
+    );
     RdOutcome::Available(RdResult {
         labels,
         exact_labels,
         loop_carried_edges,
         reaching_edges,
+        recall,
     })
 }
 

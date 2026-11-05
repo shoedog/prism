@@ -700,6 +700,7 @@ impl Producer {
                         rd_function_stats.record_without_cfg(func_name.clone(), start);
                     }
                     rd_function_stats.record_fallback_capped(func_name.clone(), start, func_node.start_byte(), emission.count());
+                    crate::cpg::record_go_recall_skip(parsed, func_node, &rd_defs, reason, &mut rd_function_stats);
                     continue 'functions;
                 }
             }
@@ -747,8 +748,12 @@ impl Producer {
                     // Task 5 owns loop-carried telemetry. Consume the
                     // classified set here without changing edge shape.
                     drop(result.loop_carried_edges);
+                    if let Some(recall) = result.recall {
+                        recall.emit(&mut uses, &mut edges, &mut labels, &mut rd_function_stats, func_node, &func_name);
+                    }
                 }
                 RdOutcome::Unavailable(reason) => {
+                    crate::cpg::record_go_recall_skip(parsed, func_node, &rd_defs, reason, &mut rd_function_stats);
                     if reason.is_def_cap() || reason.is_line_cap() {
                         rd_function_stats.record_over_cap(func_name.clone(), start);
                     } else {
