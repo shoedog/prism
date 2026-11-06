@@ -5,8 +5,9 @@
 //! statement node. The result is small (most owners have none of the three), so the two
 //! deduplication seams share it through a per-file memo instead of walking twice.
 
+use super::counting::{self, Counts};
 use super::tables::Tables;
-use super::walk::{census_with, Census, Form, Refusal, Site};
+use super::walk::{census_mapped, Census, Form, Mapping, Refusal, Site};
 use crate::access_path::{AccessPath, ARRAY_FIELD};
 use crate::ast::ParsedFile;
 use crate::js_write_census::identity::{Comp, Path};
@@ -31,6 +32,8 @@ pub(crate) struct Completion {
     pub kill_only: Vec<KillOnly>,
     /// Bases with an eager site that maps to no statement node (`site-unmapped`).
     pub refused_bases: BTreeSet<String>,
+    /// The writes D3 counts per node (#660 S1b-2).
+    pub counting: Counts,
 }
 
 /// `ident`'s path in the producer's representation (`[]` for a subscript).
@@ -58,12 +61,13 @@ pub(crate) fn completion(
     recorded: &[Recorded<'_>],
 ) -> Completion {
     let mut out = Completion::default();
-    let c = census_with(parsed, Tables::shared(), owner, false);
+    let bases: BTreeSet<&str> = recorded.iter().map(|(p, _, _)| p.base.as_str()).collect();
+    // D3 positions the writes of the owner's recorded bases (the only edges it can refuse).
+    let mut c = census_mapped(parsed, Tables::shared(), owner, Mapping::Bases(&bases));
     if let Some(r) = c.refusals.first() {
         out.refusal = Some(r.clone());
         return out;
     }
-    let bases: BTreeSet<&str> = recorded.iter().map(|(p, _, _)| p.base.as_str()).collect();
     let mut by_start: BTreeMap<usize, Vec<&AccessPath>> = BTreeMap::new();
     for (path, byte, twin) in recorded {
         if !twin {
@@ -71,6 +75,27 @@ pub(crate) fn completion(
         }
     }
     for site in &c.sites {
+        // E18 placement, once per site: the kill-only def and D3's counting write share it.
+        let placed = bases
+            .contains(site.path.base.as_str())
+            .then(|| node_line(parsed, &c, site));
+        // `this` inside a class body (static field, static block) or a nested non-arrow callable is
+        // another object: not a write of the owner's `this`.
+        let rebound = site.path.base == "this" && this_is_rebound(parsed, owner, site);
+        if let Some(node) = placed {
+            out.counting.note_target(site);
+            if counting::counts(site) && !rebound {
+                match node {
+                    Some(n) => {
+                        let probe = binding_probe(parsed, site);
+                        out.counting.push(site, access_path(&site.path), n, probe)
+                    }
+                    None => {
+                        out.counting.unplaced.insert(site.path.base.clone());
+                    }
+                }
+            }
+        }
         // Declarations are the refusal classes of S1d (hoisting, Annex B, dead formals), not writes
         // the producer fails to record. Writes in a deferred region or the owner's own parameter list
         // need the scope rules of S1c (inner bindings: a shadowing parameter is not the owner's
@@ -86,7 +111,7 @@ pub(crate) fn completion(
         }
         // `this` inside a class body (static field, static block) or a nested non-arrow callable is
         // another object: the producer's rule for the same question.
-        if site.path.base == "this" && this_is_rebound(parsed, owner, site) {
+        if rebound {
             continue;
         }
         let path = access_path(&site.path);
@@ -96,7 +121,7 @@ pub(crate) fn completion(
         if covered {
             continue;
         }
-        match node_line(parsed, &c, site) {
+        match placed.flatten() {
             Some(line) => out.kill_only.push(KillOnly {
                 path,
                 line,
@@ -108,7 +133,36 @@ pub(crate) fn completion(
             }
         }
     }
+    if !out.counting.is_empty() {
+        out.counting.spans = std::mem::take(&mut c.spans);
+    }
     out
+}
+
+/// The byte at which a counting write's binding is looked up. A declaration's name is not visible
+/// at its own bytes (a `let` is visible from the end of its declaration, a `for`-in head's from the
+/// end of its left side), so it is probed there; any other write at its target.
+fn binding_probe(parsed: &ParsedFile, site: &Site) -> usize {
+    if site.form != Form::Declare {
+        return site.target_start;
+    }
+    let mut cur = parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(site.target_start, site.target_start);
+    while let Some(n) = cur {
+        match n.kind() {
+            "lexical_declaration" | "variable_declaration" => return n.end_byte(),
+            "for_in_statement" => {
+                return n
+                    .child_by_field_name("left")
+                    .map_or(n.end_byte(), |l| l.end_byte())
+            }
+            _ => {}
+        }
+        cur = n.parent();
+    }
+    site.target_start
 }
 
 /// Whether `this` at the site is another object than the owner's. Follows S0's child positions: a
@@ -188,36 +242,54 @@ const COMPOUND: [&str; 10] = [
 /// is unmapped (the caller refuses the base). A header site (case value, `for` head) has no
 /// statement between it and the span and keeps the span's node.
 fn node_line(parsed: &ParsedFile, c: &Census, site: &Site) -> Option<usize> {
-    let start = site.construct_start.unwrap_or(site.target_start);
-    let end = site.moment;
-    // Only a statement that starts at or before the write can execute it: one that starts later on
+    place(
+        parsed,
+        &c.spans,
+        site.construct_start.unwrap_or(site.target_start),
+        site.moment,
+        site.target_start,
+        site.line,
+    )
+}
+
+/// E18 for any position: the node of the bytes `start..end`, given the statement `spans`, the byte
+/// `at` the position's syntax starts at and its `line`. One rule for writes (`node_line`) and for the
+/// reads D3 orders against them (#660 S1b-2), so the two cannot drift.
+pub(crate) fn place(
+    parsed: &ParsedFile,
+    spans: &[(usize, usize)],
+    start: usize,
+    end: usize,
+    at: usize,
+    line: usize,
+) -> Option<usize> {
+    // Only a statement that starts at or before the position can execute it: one that starts later on
     // the line (a loop body after a header write) is a node a route may bypass.
     let on_line = || {
-        c.spans
+        spans
             .iter()
-            .any(|(a, _)| *a <= start && parsed.line_for_byte(*a) == site.line)
-            .then_some(site.line)
+            .any(|(a, _)| *a <= start && parsed.line_for_byte(*a) == line)
+            .then_some(line)
     };
-    let contained = c
-        .spans
+    let contained = spans
         .iter()
         .filter(|(a, b)| *a <= start && end <= *b)
         .min_by_key(|(a, b)| (b - a, std::cmp::Reverse(*a)));
     let Some(&(a, b)) = contained else {
         return on_line();
     };
-    let line = parsed.line_for_byte(a);
-    if line == site.line || !lost_statement_under_compound(parsed, site, a, b) {
-        return Some(line);
+    let span_line = parsed.line_for_byte(a);
+    if span_line == line || !lost_statement_under_compound(parsed, at, a, b) {
+        return Some(span_line);
     }
     on_line()
 }
 
 /// The span `(a, b)` is a compound statement and an un-retained statement or declaration lies between
 /// the site and it.
-fn lost_statement_under_compound(parsed: &ParsedFile, site: &Site, a: usize, b: usize) -> bool {
+fn lost_statement_under_compound(parsed: &ParsedFile, at: usize, a: usize, b: usize) -> bool {
     let root = parsed.tree.root_node();
-    let Some(mut n) = root.descendant_for_byte_range(site.target_start, site.target_start) else {
+    let Some(mut n) = root.descendant_for_byte_range(at, at) else {
         return false;
     };
     let mut lost = false;

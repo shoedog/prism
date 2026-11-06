@@ -4,7 +4,7 @@ use crate::cpg::CodePropertyGraph;
 use crate::data_flow::test_support::label_snapshot;
 use crate::js_write_census::matrix_tests::{fixtures, lang_of};
 
-fn parse(language: Language, src: &str) -> ParsedFile {
+pub(super) fn parse(language: Language, src: &str) -> ParsedFile {
     let ext = match language {
         Language::TypeScript => "ts",
         Language::Tsx => "tsx",
@@ -15,7 +15,7 @@ fn parse(language: Language, src: &str) -> ParsedFile {
 
 /// The producer's recorded defs of `owner`, read back from the DataFlow graph the CPG built for the
 /// file: every distinct edge source of the owner (path, line, start byte).
-fn recorded(parsed: &ParsedFile, owner: &Node<'_>) -> (Vec<DefSite>, Vec<FlowEdge>) {
+pub(super) fn recorded(parsed: &ParsedFile, owner: &Node<'_>) -> (Vec<DefSite>, Vec<FlowEdge>) {
     let name = parsed.dfg_owner_name(owner).unwrap_or_default();
     let cpg = CodePropertyGraph::build(&BTreeMap::from([(parsed.path.clone(), parsed.clone())]));
     let edges: Vec<FlowEdge> = label_snapshot(&cpg.dfg)
@@ -179,8 +179,13 @@ fn labels(src: &str, language: Language, edge: &str) -> Vec<String> {
 
 #[test]
 fn a_for_header_increment_does_not_collapse_the_header_def() {
+    // S1b-1 kept this edge `exact` (the increment is a kill-only def and collapses nothing). S1b-2's
+    // D3 refuses it by the `for` loop on the header's chain (c03, a18, d05: cost, recovery #670).
     let src = "function f(n) {\n  for (let i = 0; i < n; i++) {\n    use(i);\n  }\n}\n";
-    assert_eq!(labels(src, Language::JavaScript, "i@2->i@3"), ["exact"]);
+    assert_eq!(
+        labels(src, Language::JavaScript, "i@2->i@3"),
+        ["nameonly/sameline"]
+    );
 }
 
 #[test]
@@ -195,7 +200,7 @@ fn a_for_increment_kills_an_outer_def_on_every_successor() {
 
 // ---- The trace --------------------------------------------------------------------------------------
 
-fn trace_lines(language: Language, src: &str) -> Vec<String> {
+pub(super) fn trace_lines(language: Language, src: &str) -> Vec<String> {
     let parsed = parse(language, src);
     let mut out = Vec::new();
     for owner in parsed.all_functions() {
@@ -214,10 +219,12 @@ fn trace_lines(language: Language, src: &str) -> Vec<String> {
         .collect()
 }
 
+/// The S1b-1 census mechanisms of the trace; D3's `d3-*` lines are S1b-2's (`d3_tests`).
 fn mechanisms(language: Language, src: &str) -> Vec<String> {
     trace_lines(language, src)
         .iter()
         .map(|l| l.split('\t').nth(1).unwrap().to_string())
+        .filter(|m| !m.starts_with("d3-"))
         .collect()
 }
 

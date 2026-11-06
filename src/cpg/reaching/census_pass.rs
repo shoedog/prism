@@ -6,8 +6,17 @@ use super::*;
 pub(super) enum Pass {
     /// Production: kill-only defs and refusals.
     Census,
+    /// Production labels, and D3 records the mechanism of each edge it refuses (the trace's join).
+    CensusLogged,
     /// The trace's control: main's rules plus S1a, no census.
     NoCensus,
+}
+
+impl Pass {
+    /// Whether the census mechanisms apply (every pass but the control).
+    pub(super) fn census(self) -> bool {
+        self != Pass::NoCensus
+    }
 }
 
 /// The production pass; with the trace on, `traced` to stderr.
@@ -63,7 +72,7 @@ pub(super) fn traced(
         dfg_edges,
         exact_edges,
         file_cfg_edges,
-        Pass::Census,
+        Pass::CensusLogged,
         &mut facts,
     );
     let Some(census) = facts.filter(|c| !c.is_inert()) else {

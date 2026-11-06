@@ -8,7 +8,7 @@ use super::walk::{Form, Site};
 use tree_sitter::Node;
 
 /// A read or write positioned inside one statement span.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Position {
     /// A read is at its start byte; a write is at its construct's end byte.
     pub time: usize,
@@ -58,33 +58,72 @@ impl Position {
     }
 }
 
-/// `x` is proven to execute before `y` on every execution of their shared node.
-pub(crate) fn precedes(t: &Tables, x: &Position, y: &Position) -> bool {
+/// Why `precedes(x, y)` is not proven (the trace's `d3-*` split), or `Proven`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Order {
+    Proven,
+    /// Both chains are all `seq` and the byte order is not x before y.
+    Byte,
+    /// A `loop` kind on a chain (and no `unknown` or `deferred` kind): a repeated context.
+    Loop,
+    /// An unmapped position, positions of different spans, or an `unknown`, `deferred` or other
+    /// non-`seq` kind on a chain.
+    Unknown,
+}
+
+/// The order of `x` and `y` with the reason it is not proven (`precedes` is `Proven`).
+pub(crate) fn order(t: &Tables, x: &Position, y: &Position) -> Order {
     let (Some(cx), Some(cy)) = (&x.chain, &y.chain) else {
-        return false;
+        return Order::Unknown;
     };
     if x.span != y.span || x.span.is_none() {
-        return false;
+        return Order::Unknown;
     }
-    let seq = |k: &&'static str| t.order_class(k) == Some("seq");
-    if !cx.iter().all(&seq) || !cy.iter().all(&seq) {
-        return false;
+    let class = |k: &&'static str| t.order_class(k);
+    let kinds = || cx.iter().chain(cy.iter());
+    if kinds().any(|k| !matches!(class(k), Some("seq" | "loop"))) {
+        return Order::Unknown;
     }
-    if x.time != y.time {
-        return x.time < y.time;
+    if kinds().any(|k| class(k) == Some("loop")) {
+        return Order::Loop;
     }
-    matches!((x.rank, y.rank), (Some(a), Some(b)) if a < b)
+    let before = if x.time != y.time {
+        x.time < y.time
+    } else {
+        matches!((x.rank, y.rank), (Some(a), Some(b)) if a < b)
+    };
+    if before {
+        Order::Proven
+    } else {
+        Order::Byte
+    }
+}
+
+/// `x` is proven to execute before `y` on every execution of their shared node.
+pub(crate) fn precedes(t: &Tables, x: &Position, y: &Position) -> bool {
+    order(t, x, y) == Order::Proven
 }
 
 /// The single-site exception (E2): the counting writes of the node are exactly one `RW`, update or
 /// `delete` site and the use is that site's own operand read.
 pub(crate) fn single_site_operand(counting: &[&Site], use_start: usize) -> bool {
     match counting {
-        [w] => {
-            matches!(w.form, Form::ReadWrite | Form::Delete)
-                && w.construct_kind.is_some()
-                && w.target_start == use_start
-        }
+        [w] => operand_exception(
+            w.form,
+            w.construct_kind.is_some(),
+            w.target_start,
+            use_start,
+        ),
         _ => false,
     }
+}
+
+/// The per-site test of the exception: an `RW` or `delete` construct whose target is the use.
+pub(crate) fn operand_exception(
+    form: Form,
+    has_construct: bool,
+    target_start: usize,
+    use_start: usize,
+) -> bool {
+    matches!(form, Form::ReadWrite | Form::Delete) && has_construct && target_start == use_start
 }

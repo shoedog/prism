@@ -75,6 +75,8 @@ pub(crate) struct Site {
     pub line: usize,
     /// Start byte of the target node (wrappers peeled).
     pub target_start: usize,
+    /// End byte of the target node.
+    pub target_end: usize,
     pub form: Form,
     /// `DECL:` kind for `Form::Declare` sites, empty otherwise.
     pub decl: String,
@@ -171,6 +173,30 @@ pub(crate) fn census(parsed: &ParsedFile, t: &Tables, owner: Node<'_>) -> Census
 /// The walk with site mapping optional: `map == false` leaves every site's `chain` and `span` unset
 /// (production wiring maps only the few sites it needs, from `Census::spans`).
 pub(crate) fn census_with(parsed: &ParsedFile, t: &Tables, owner: Node<'_>, map: bool) -> Census {
+    census_mapped(
+        parsed,
+        t,
+        owner,
+        if map { Mapping::All } else { Mapping::None },
+    )
+}
+
+/// Which sites the walk maps (E18 `chain` and `span`).
+#[derive(Clone, Copy)]
+pub(crate) enum Mapping<'b> {
+    None,
+    All,
+    /// Only sites whose base is in the set (#660 S1b-2: D3 positions the writes of bases the owner
+    /// records a def for, not every write of the owner).
+    Bases(&'b std::collections::BTreeSet<&'b str>),
+}
+
+pub(crate) fn census_mapped(
+    parsed: &ParsedFile,
+    t: &Tables,
+    owner: Node<'_>,
+    mapping: Mapping<'_>,
+) -> Census {
     let src = parsed.source.as_bytes();
     let mut out = Census::default();
     if let Some(r) = precondition(t, owner, src) {
@@ -189,7 +215,7 @@ pub(crate) fn census_with(parsed: &ParsedFile, t: &Tables, owner: Node<'_>, map:
         spans,
         out,
         param_outer: Vec::new(),
-        mapping: map,
+        mapping,
     };
     w.children(owner, Ctx::Read, Region::default(), None);
     w.out
@@ -203,7 +229,7 @@ enum Ctx<'a> {
     Skip,
 }
 
-struct Walker<'a, 't> {
+struct Walker<'a, 't, 'b> {
     t: &'a Tables,
     src: &'a [u8],
     owner: Node<'t>,
@@ -212,7 +238,7 @@ struct Walker<'a, 't> {
     /// Regions enclosing the callables whose parameter lists are being walked (innermost last).
     param_outer: Vec<Region>,
     /// Compute each site's E18 mapping (`chain`, `span`) as it is emitted.
-    mapping: bool,
+    mapping: Mapping<'b>,
 }
 
 /// The operand of a wrapper: the child a target context flows into.
@@ -230,7 +256,7 @@ pub(super) fn wrap_operand<'t>(n: Node<'t>) -> Option<Node<'t>> {
     }
 }
 
-impl<'a, 't> Walker<'a, 't> {
+impl<'a, 't, 'b> Walker<'a, 't, 'b> {
     fn construct(n: Node<'t>) -> Construct<'t> {
         Construct {
             kind: n.kind(),
@@ -454,7 +480,12 @@ impl<'a, 't> Walker<'a, 't> {
             _ => return,
         };
         let anchor = cons.map_or(n, |c| c.node);
-        let (chain, span) = if self.mapping {
+        let mapped = match self.mapping {
+            Mapping::None => false,
+            Mapping::All => true,
+            Mapping::Bases(bases) => bases.contains(path.base.as_str()),
+        };
+        let (chain, span) = if mapped {
             self.map(anchor)
         } else {
             (None, None)
@@ -464,6 +495,7 @@ impl<'a, 't> Walker<'a, 't> {
             path,
             line: n.start_position().row + 1,
             target_start: n.start_byte(),
+            target_end: n.end_byte(),
             form,
             decl: decl.to_string(),
             initialized,

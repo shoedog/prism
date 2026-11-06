@@ -275,6 +275,17 @@ impl BindingFacts {
         }
     }
 
+    /// `name` at the two bytes resolves to two different declared bindings (#660 S1b-2, A10). An
+    /// unresolved or flat-fallback side proves nothing, so the pair is treated as the same binding.
+    pub(super) fn proven_distinct_at(&self, name: &str, a: usize, b: usize) -> bool {
+        let declared = |byte: usize| {
+            self.visible_declaration(name, byte)
+                .map(|binding| binding.id)
+                .filter(|id| !matches!(id, BindingId::FlatFallback(_)))
+        };
+        matches!((declared(a), declared(b)), (Some(x), Some(y)) if x != y)
+    }
+
     fn use_byte(&self, parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
         #[cfg(test)]
         if super::reaching::scope::use_byte_tests::legacy_enabled() {

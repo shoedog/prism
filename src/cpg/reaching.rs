@@ -17,7 +17,9 @@ mod capture_regions;
 mod census_defs;
 mod census_pass;
 mod census_trace;
+mod d3;
 mod preflight;
+mod read_index;
 pub(crate) use preflight::unavailable_before_edges;
 mod cfg_edge_index;
 mod compact_wire;
@@ -259,7 +261,8 @@ fn reaching_definitions_impl(
     work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
     let raw_defs = defs;
     let (mut defs, mut census) = census_defs::complete_for(
-        pass == census_pass::Pass::Census,
+        pass.census(),
+        pass == census_pass::Pass::CensusLogged,
         parsed,
         func_node,
         deduplicate_definitions(defs),
@@ -411,11 +414,8 @@ fn reaching_definitions_impl(
     // Kill-only defs are never edge sources, so they never make a line's recorded defs ambiguous (E1).
     let collapsed = collapsed_groups(&defs[..n_recorded]);
     // The trace's control pass must not repeat S1a's capture lines.
-    let capture_facts = capture::capture_facts_with(
-        parsed,
-        *func_node,
-        pass == census_pass::Pass::Census && census_trace::enabled(),
-    );
+    let capture_facts =
+        capture::capture_facts_with(parsed, *func_node, pass.census() && census_trace::enabled());
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
     let mut exact_labels = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
@@ -458,6 +458,17 @@ fn reaching_definitions_impl(
             &census,
             &binding_facts,
             function_start,
+        );
+        let label = d3::D3::refine(
+            census.d3.as_ref(),
+            label,
+            parsed,
+            edge,
+            &candidates,
+            &mut statements,
+            &line_index,
+            function_start,
+            &binding_facts,
         );
         if label.is_exact()
             && edge.to.line < edge.from.line
@@ -507,6 +518,17 @@ fn reaching_definitions_impl(
             &census,
             &binding_facts,
             function_start,
+        );
+        let label = d3::D3::refine(
+            census.d3.as_ref(),
+            label,
+            parsed,
+            edge,
+            &candidates,
+            &mut statements,
+            &line_index,
+            function_start,
+            &binding_facts,
         );
         exact_labels
             .entry(key)
@@ -952,3 +974,6 @@ mod def_bucket_tests;
 
 #[cfg(test)]
 mod census_defs_tests;
+
+#[cfg(test)]
+mod d3_tests;

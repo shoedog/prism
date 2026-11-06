@@ -66,7 +66,7 @@ pub(super) struct JsRegions<'p> {
 }
 
 /// A read candidate: (1-indexed line, start byte, end byte, is a member expression).
-type Candidate = (usize, usize, usize, bool);
+pub(super) type Candidate = (usize, usize, usize, bool);
 
 #[derive(Clone, Copy)]
 struct Ctx {
@@ -259,16 +259,11 @@ impl JsRegions<'_> {
         let placements = lines
             .entry(line)
             .or_insert_with(|| self.line_placements(line));
-        let find = |wanted: &AccessPath| {
+        resolve_key(path, |wanted| {
             placements
                 .iter()
                 .find(|(p, _)| p == wanted)
                 .map(|(_, v)| *v)
-        };
-        find(path).or_else(|| {
-            (!path.is_simple())
-                .then(|| find(&AccessPath::simple(&path.base)))
-                .flatten()
         })
     }
 
@@ -337,6 +332,19 @@ impl JsRegions<'_> {
     }
 }
 
+/// The line-keyed identity lookup S1a and D3 share: the use's full path first, its base name only
+/// when no read on the line spells the full path (a member read of `o` is found by the token `o`).
+pub(super) fn resolve_key<T>(
+    path: &AccessPath,
+    find: impl Fn(&AccessPath) -> Option<T>,
+) -> Option<T> {
+    find(path).or_else(|| {
+        (!path.is_simple())
+            .then(|| find(&AccessPath::simple(&path.base)))
+            .flatten()
+    })
+}
+
 fn is_field_definition(kind: &str) -> bool {
     matches!(kind, "field_definition" | "public_field_definition")
 }
@@ -357,7 +365,10 @@ fn candidate(node: Node<'_>) -> Option<Candidate> {
 
 /// A member read as the path the DFG gives it (`ParsedFile::bounded_member_path_at`, the bounded
 /// normalizer the member index uses, so `(o as any).x` keys as `o.x`); an identifier as a simple path.
-fn candidate_path(parsed: &ParsedFile, &(_, start, end, member): &Candidate) -> AccessPath {
+pub(super) fn candidate_path(
+    parsed: &ParsedFile,
+    &(_, start, end, member): &Candidate,
+) -> AccessPath {
     if member {
         parsed
             .bounded_member_path_at(start, end)
@@ -386,16 +397,16 @@ fn children_with_fields(node: Node<'_>) -> Vec<(Node<'_>, Option<&'static str>)>
 /// positions, and the names a callable binds (its formals, a lone
 /// arrow parameter, a function's own name); default values and computed keys inside parameter
 /// patterns are reads.
-struct Collector<'c> {
+pub(super) struct Collector<'c> {
     out: &'c mut Vec<Candidate>,
 }
 
 impl<'c> Collector<'c> {
-    fn new(out: &'c mut Vec<Candidate>) -> Self {
+    pub(super) fn new(out: &'c mut Vec<Candidate>) -> Self {
         Self { out }
     }
 
-    fn walk_children(&mut self, node: Node<'_>) {
+    pub(super) fn walk_children(&mut self, node: Node<'_>) {
         let kind = node.kind();
         // After the `as` / `satisfies` operator the child is a type: erased (what
         // `Language::is_erased_type_boundary` decides per node, without its parent walk).

@@ -413,6 +413,23 @@ distinct (A10). A write in a deferred region on line N is D2-c's and is not orde
 - **Controls that stay `exact`.** d02, d03, c02, c13 `k@2->k@3`, a08 (the only write in the loop is D), o08, o11, o13.
 - **One-node owners.** The distinct-bases belt stays (E12): d06, d07 stay `NameOnly`; recovery #670.
 
+**S1b-2 implementation decisions** (`reaching/d3.rs`, `js_write_census/counting.rs`): D3 refines a finished `exact` label (a
+`Killed`, `CfgIncomplete` or collapsed label is never rewritten) and runs on both the production and the frozen-oracle paths.
+(1) The DFG keeps one use per path and line, at its first occurrence, so U stands for every read of its path on the line
+(S1a's full-path-then-base lookup, `capture_regions::resolve_key`, over the same read collector): all occurrences must be proven,
+write-only targets (plain writes, declarators, `delete`) are not reads, and an occurrence of another binding of the name is not
+D's use (`relation_at`). A use anchored only at a write's own target (`value = other`, `var [f] = ..`) has no read to order and
+keeps its label (only when no read of the path exists on the line); a use with no occurrence at all is `d3-unknown`. Reads are placed with
+the write rule (`completion::place`, E18 incl. `on_line`): a read in a later statement of the line has no span of its own, so its
+position is unknown and the edge refuses (`a = 2; sink(a);`; `sink(a); a = 2;` is refused too, cost). (2) A counting declaration is a
+`let`/`const` declarator (`let a;` stores `undefined`), a `var` declarator with a value, or a `for` head's: hoisted functions, parameters, imports and class names are placed by scope (S1d). A write whose
+binding is proven distinct from the use's (or D's) is not counted (A10), probed at the declaration's end for a declarator. (3)
+`this` rebound by a static block or field value is not the owner's `this` (the kill-only rule). (4) A counting write whose node
+the E18 mapping cannot name makes its base `d3-unknown` for every query, beside placed writes too (over-refusal when the read
+provably runs first is accepted). The two sides always both run and the strongest reason wins. Recovery with statement spans kept
+per statement (siblings on one line ordered properly) fits #670. (5) The trace names the mechanism of each refused edge (`d3-use`, `d3-def`
+for a plain byte order, else `d3-loop` or `d3-unknown`; a plain byte order wins over a loop when both occur).
+
 ### 7.3 Expected cost
 Heuristic candidate counts (`corpus/*.analyze_r3.txt`, final rules): use side 68 edges on excalidraw (60 of them refused only
 by a `loop` or `unknown` chain, `D3u`; the pre-fold relation selected 8), 1 on express; def side 164 / 12 (1 / 0 while the
