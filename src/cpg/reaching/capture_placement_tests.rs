@@ -54,3 +54,47 @@ fn a_zero_width_anchor_is_placed_by_its_line() {
     );
     assert!(!capture(SRC, "zzz", 2, line_start, 0), "named by nothing");
 }
+
+// The base-name fallback: a member path that no read on the line spells is found by its base name.
+// (Full path first; a key seen both eagerly and in a region on the line fails toward capture.)
+fn capture_path(src: &str, path: &str) -> bool {
+    let line_start = src.find("  use").or_else(|| src.find("  g(")).unwrap();
+    capture(src, path, 2, line_start, 0)
+}
+
+#[test]
+fn base_name_fallback_places_an_unspelled_member_path_in_the_region_that_reads_the_base() {
+    assert!(capture_path(
+        "function f(o) {\n  g((z = o) => 1);\n}\n",
+        "o.k"
+    ));
+}
+
+#[test]
+fn base_name_fallback_leaves_an_unspelled_member_path_eager_when_only_eager_code_reads_the_base() {
+    assert!(!capture_path(
+        "function f(o) {\n  use(o); g(() => q);\n}\n",
+        "o.k"
+    ));
+}
+
+#[test]
+fn base_name_read_eagerly_and_in_a_region_fails_toward_capture() {
+    assert!(capture_path(
+        "function f(o) {\n  use(o); g(() => o);\n}\n",
+        "o.k"
+    ));
+}
+
+#[test]
+fn a_spelled_member_path_is_placed_by_its_full_path_not_its_base() {
+    // `o.x` is read eagerly; the arrow reads `o.y`. The base `o` is in both, the full path only eager.
+    assert!(!capture_path(
+        "function f(o) {\n  use(o.x); g(() => o.y);\n}\n",
+        "o.x"
+    ));
+    assert!(capture_path(
+        "function f(o) {\n  use(o.x); g(() => o.y);\n}\n",
+        "o.y"
+    ));
+}

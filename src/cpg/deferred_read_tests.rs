@@ -532,3 +532,135 @@ row!(
     "f:o@1->o@3",
     "exact"
 );
+
+// ---- Post-cap fix: formal bindings are not reads; a member use is placed by its full path first ----
+// Hand-check of cloud r2 (PR #683 head 7a6766f8): an eager read beside a nested formal of the same
+// name was refused (`a.then((a) => ..)`), and an eager `this.installer` beside an arrow reading
+// `this.handle` was placed in the arrow by the base name `this`.
+row!(
+    shadowing_formal_is_not_a_read,
+    ALL_JS,
+    "function f(a) {\n  log();\n  a.then((a) => {\n    use(1);\n  });\n}\n",
+    "f:a@1->a@3",
+    "exact"
+);
+row!(
+    lone_arrow_parameter_is_not_a_read,
+    ALL_JS,
+    "function f(x) {\n  log();\n  x.then(x => 1);\n}\n",
+    "f:x@1->x@3",
+    "exact"
+);
+row!(
+    shadowing_formal_after_an_assignment_target,
+    ALL_JS,
+    "function f(host) {\n  log();\n  host.createProgram = (n, host) => {\n    use(n);\n  };\n}\n",
+    "f:host@1->host@3",
+    "exact"
+);
+row!(
+    shadowing_formal_after_an_optional_receiver,
+    ALL_JS,
+    "function f(a) {\n  log();\n  a?.forEach(a => {\n    use(a);\n  });\n}\n",
+    "f:a@1->a@3",
+    "exact"
+);
+row!(
+    shadowing_formal_beside_another_formal,
+    ALL_JS,
+    "function f(p) {\n  log();\n  p.forEach((p, k) => {\n    use(k);\n  });\n}\n",
+    "f:p@1->p@3",
+    "exact"
+);
+row!(
+    function_expression_formal_and_own_name,
+    ALL_JS,
+    "function f(n) {\n  log();\n  n.forEachChild(function cb(n) {\n    use(1);\n  });\n}\n",
+    "f:n@1->n@3",
+    "exact"
+);
+row!(
+    function_expression_own_name_is_not_a_read,
+    ALL_JS,
+    "function f(n) {\n  log();\n  n.go(function n() {\n    use(1);\n  });\n}\n",
+    "f:n@1->n@3",
+    "exact"
+);
+row!(
+    rest_formal_is_not_a_read,
+    ALL_JS,
+    "function f(a) {\n  log();\n  a.go((...a) => {\n    use(1);\n  });\n}\n",
+    "f:a@1->a@3",
+    "exact"
+);
+row!(
+    destructured_formals_are_not_reads,
+    ALL_JS,
+    "function f(a) {\n  log();\n  a.go(({ a, k: [b] }, { c = 1 }) => {\n    use(1);\n  });\n}\n",
+    "f:a@1->a.go@3",
+    "exact"
+);
+row!(
+    typed_and_optional_formals_are_not_reads,
+    TS_ONLY,
+    "function f(a: any) {\n  log();\n  a.go((a: number, b?: string) => {\n    use(1);\n  });\n}\n",
+    "f:a@1->a@3",
+    "exact"
+);
+// Controls: a default value and a computed key inside a parameter pattern stay reads.
+row!(
+    default_value_still_refused_beside_a_shadowing_formal,
+    ALL_JS,
+    "function f(x, y) {\n  log();\n  x.then((x = y) => 1);\n}\n",
+    "f:y@1->y@3",
+    "cfg_incomplete"
+);
+row!(
+    computed_key_in_a_parameter_pattern_is_still_a_read,
+    ALL_JS,
+    "function f(y) {\n  log();\n  g(({ [y]: v }) => 1);\n}\n",
+    "f:y@1->y@3",
+    "cfg_incomplete"
+);
+// C7. Hypothesis (written before the first run on 7a6766f8): the eager use `this.installer` is a
+// composite path no region spells on line 4, so the base-name fallback finds the token `this` in the
+// arrow and places the use in the arrow's region; the def on line 3 is not in it, so the edge is
+// cfg_incomplete on 7a6766f8 and exact on main. It is falsified if the first row is exact on
+// 7a6766f8, or if the second (the arrow does not mention `this`) is also cfg_incomplete there.
+const C7_THIS: &str = "class A {\n  start() {\n    this.installer = fork();\n    this.installer.on(\"message\", m => this.handle(m));\n  }\n}\n";
+const C7_NO_THIS: &str = "class A {\n  start() {\n    this.installer = fork();\n    this.installer.on(\"message\", m => handle(m));\n  }\n}\n";
+row!(
+    c7_eager_this_member_beside_an_arrow_reading_another_member,
+    ALL_JS,
+    C7_THIS,
+    "start:this.installer@3->this.installer@4",
+    "exact"
+);
+row!(
+    c7_arrow_that_does_not_mention_this,
+    ALL_JS,
+    C7_NO_THIS,
+    "start:this.installer@3->this.installer@4",
+    "exact"
+);
+row!(
+    eager_member_beside_an_arrow_reading_its_base,
+    ALL_JS,
+    "function f(o) {\n  log();\n  o.inst = 1;\n  o.inst.on(1, m => o.go(m));\n}\n",
+    "f:o.inst@3->o.inst@4",
+    "exact"
+);
+row!(
+    eager_member_beside_a_region_read_of_its_bare_base,
+    ALL_JS,
+    "function f(o) {\n  log();\n  o.x = 1;\n  use(o.x); g(() => o);\n}\n",
+    "f:o.x@3->o.x@4",
+    "exact"
+);
+row!(
+    same_name_eager_and_in_a_region_on_one_line_fails_toward_capture,
+    ALL_JS,
+    "function f(o) {\n  log();\n  use(o); g(() => o);\n}\n",
+    "f:o@1->o@3",
+    "cfg_incomplete"
+);
