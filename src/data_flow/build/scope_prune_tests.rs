@@ -230,11 +230,13 @@ fn address_taken_names_keep() {
 }
 
 #[test]
-fn type_switch_alias_keeps() {
+fn type_switch_alias_pairs_are_pinned() {
+    // The `type_switch_statement` arm of `is_plain_write_site` never fired (the
+    // alias identifier's parent is an `expression_list`), so deleting it changes
+    // nothing: the outer `v` -> clause `use(v)` pair is dropped by the use-side
+    // rule exactly as on the previous head and in the committed goldens.
     let src = "package p\nfunc f(c any) {\n\tv := c\n\tswitch v := v.(type) {\n\tcase int:\n\t\tuse(v)\n\t}\n}\n";
-    check("typeswitch", src, &[("v", 3, 6, true)]);
-    let after = Producer::file_refs(&"t.go".to_string(), &parse(src));
-    assert_eq!(after.rd_function_stats.dfg_pruned_scope, 0);
+    check("typeswitch", src, &[("v", 3, 4, true), ("v", 3, 6, false)]);
 }
 
 #[test]

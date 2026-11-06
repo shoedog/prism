@@ -36,8 +36,7 @@ pub(super) struct ScopeFacts<'a> {
     /// be dropped for such a name, so nothing else is ever built for others.
     multi: BTreeSet<&'a str>,
     /// Names whose address is taken anywhere in the owner (`&x`, `&(x)`,
-    /// `&x.f`, `&x[i]`; a different declaration may share their storage) and
-    /// type-switch aliases: never pruned.
+    /// `&x.f`, `&x[i]`; a different declaration may share their storage).
     address_taken: BTreeSet<&'a str>,
     built: OnceCell<Built<'a>>,
     defs: &'a [DefSite],
@@ -376,8 +375,7 @@ fn is_plain_write_site(node: Node<'_>) -> bool {
     }
 }
 
-/// Names among `multi` that rule S never prunes: type-switch aliases, and
-/// those whose address is taken in `owner`: the operand of a
+/// Names among `multi` whose address is taken in `owner`: the operand of a
 /// unary `&`, through parentheses, selectors, indexing and slicing, is rooted
 /// at the identifier. By name, so it covers the def's and the use's binding.
 fn address_taken_names<'a>(
@@ -406,23 +404,6 @@ fn address_taken_names<'a>(
         multi: &BTreeSet<&'a str>,
         out: &mut BTreeSet<&'a str>,
     ) {
-        // A type-switch alias is a declaration per clause that the inventory
-        // does not tie to the switch's operand: the producer's pair into the
-        // clause stands for that flow, so such a name is never pruned.
-        if node.kind() == "type_switch_statement" {
-            if let Some(alias) = node.child_by_field_name("alias") {
-                let mut stack = vec![alias];
-                while let Some(n) = stack.pop() {
-                    if n.kind() == "identifier" {
-                        if let Some(found) = multi.get(parsed.node_text(&n)) {
-                            out.insert(*found);
-                        }
-                    }
-                    let mut c = n.walk();
-                    stack.extend(n.named_children(&mut c));
-                }
-            }
-        }
         if node.kind() == "unary_expression"
             && node
                 .child_by_field_name("operator")
