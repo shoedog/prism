@@ -293,7 +293,8 @@ struct PendingArgumentFlow {
 pub struct CodePropertyGraph {
     /// Sticky cache refusal: clearing the call-graph sidecar cannot erase edges.
     pub(crate) ephemeral_owner: bool,
-    /// The underlying petgraph directed graph.
+    /// The underlying petgraph directed graph. Indexed `Variable` nodes must
+    /// not be mutated after the build (see `cpg::var_index`).
     pub graph: DiGraph<CpgNode, CpgEdge>,
 
     /// Index: (file, function_name, start_line) → function node index

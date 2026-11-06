@@ -224,3 +224,56 @@ fn hidden_uses_detach_and_restore_round_trip() {
         assert_eq!(cpg.var_index.to_map(&cpg.graph), before, "{name}: restored");
     }
 }
+
+#[test]
+fn a_mutated_or_replaced_node_misses_without_panicking() {
+    // Contract (#689): indexed nodes are not mutated after indexing. A caller
+    // that does so through the public graph gets a miss, never a panic.
+    let mut graph = DiGraph::new();
+    let a = graph.add_node(variable("x.rs", 2, 10));
+    let b = graph.add_node(variable("x.rs", 3, 20));
+    let mut index = VarIndex::new();
+    index.insert_first_wins(&graph, a);
+    index.insert_first_wins(&graph, b);
+    let keys: Vec<LegacyVarKey> = reference_map(&graph).into_keys().collect();
+    if let CpgNode::Variable { line, .. } = &mut graph[a] {
+        *line = 99;
+    }
+    graph[b] = CpgNode::Statement {
+        file: "x.rs".into(),
+        line: 3,
+        kind: StmtKind::Other,
+        start_byte: 20,
+        end_byte: 21,
+    };
+    assert_eq!(index.get(&graph, &keys[0]), None, "mutated key misses");
+    assert_eq!(index.get(&graph, &keys[1]), None, "replaced node misses");
+}
+
+#[test]
+fn all_defs_of_returns_several_defs_in_the_old_key_order() {
+    // Several defs of one name across functions and lines: the order must be
+    // the old map's key order whatever the table's (seeded) iteration order.
+    let src =
+        "def f(a):\n    x = a\n    x = x + 1\n    return x\n\ndef e(b):\n    x = b\n    return x\n";
+    let files = BTreeMap::from([(
+        "m.py".to_string(),
+        ParsedFile::parse("m.py", src, Language::Python).unwrap(),
+    )]);
+    let cpg = CodePropertyGraph::build(&files);
+    let expected: Vec<(String, usize)> = reference_map(&cpg.graph)
+        .into_keys()
+        .filter(|k| k.0 == "m.py" && k.4.base == "x" && k.5 == VarAccess::Def)
+        .map(|k| (k.1, k.3))
+        .collect();
+    assert!(
+        expected.len() >= 3,
+        "fixture has several defs: {expected:?}"
+    );
+    let got: Vec<(String, usize)> = cpg
+        .all_defs_of("m.py", "x")
+        .into_iter()
+        .map(|loc| (loc.function, loc.line))
+        .collect();
+    assert_eq!(got, expected);
+}

@@ -5,7 +5,15 @@
 //! `CpgNode::Variable` node already holds. `VarIndex` stores only the
 //! `NodeIndex` (4 bytes) in a `hashbrown::HashTable`; the hash and the equality
 //! test are derived from `graph[idx]`, so every operation takes the graph the
-//! indexed nodes live in. Nodes are never mutated after they are indexed.
+//! indexed nodes live in.
+//!
+//! Contract (#689): an indexed `Variable` node's key fields (file, function,
+//! function start line, line, path, access) must not change after indexing, and
+//! the node must stay a `Variable`. No prism code mutates indexed nodes; a
+//! caller that writes through the public `CodePropertyGraph::graph` field gets
+//! lookup misses for the changed node (the old map kept answering with its
+//! frozen key), never a panic: lookups treat a node that is no longer a
+//! `Variable` as a non-match.
 //!
 //! Semantics preserved from the map: first-wins on duplicate keys, and the
 //! `HiddenUses` rule (a hidden node's entry answers `None`, a later duplicate
@@ -187,7 +195,12 @@ impl VarIndex {
         }
         let hash = hash_key(&self.hasher, &key);
         self.table
-            .find(hash, |&n| key_of(graph, n).matches(&key))
+            .find(hash, |&n| {
+                graph
+                    .node_weight(n)
+                    .and_then(VarKeyRef::of_node)
+                    .is_some_and(|k| k.matches(&key))
+            })
             .copied()
             .filter(|n| self.hidden.is_empty() || !self.hidden.contains(n))
     }
@@ -212,6 +225,8 @@ impl VarIndex {
     /// `or_insert`: index `idx` under its own key unless the key is taken.
     /// Returns the node the key now points at.
     pub(crate) fn insert_first_wins(&mut self, graph: &Graph, idx: NodeIndex) -> NodeIndex {
+        #[cfg(test)]
+        debug_assert!(self.overlay.is_none(), "the test overlay is read-only");
         let key = key_of(graph, idx);
         let hash = hash_key(&self.hasher, &key);
         if let Some(&existing) = self.table.find(hash, |&n| key_of(graph, n).matches(&key)) {
@@ -247,6 +262,8 @@ impl VarIndex {
     }
 
     pub(crate) fn nodes(&self) -> impl Iterator<Item = NodeIndex> + '_ {
+        #[cfg(test)]
+        debug_assert!(self.overlay.is_none(), "the test overlay has no table");
         self.table.iter().copied()
     }
 
