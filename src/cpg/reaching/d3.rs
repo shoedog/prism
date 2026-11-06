@@ -11,21 +11,31 @@
 //! no real bytes is placed on its read occurrences by the line-keyed lookup S1a uses (`read_index`);
 //! one that cannot be placed on any occurrence, or whose occurrences disagree, refuses.
 use super::read_index::{read_node, ReadIndex};
+use super::statement_lookup::StatementLookup;
+use super::{FlowConfidence, FlowDoubt, Line};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingRelation};
 use crate::data_flow::{FlowEdge, VarLocation};
+use crate::js_write_census::completion::place;
 use crate::js_write_census::counting::{Counting, Counts};
 use crate::js_write_census::order::{order, Order, Position};
 use crate::js_write_census::tables::Tables;
 use std::cell::{OnceCell, RefCell};
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 /// Trace mechanisms (DESIGN.md 10).
 pub(super) const D3_USE: &str = "d3-use";
 pub(super) const D3_DEF: &str = "d3-def";
 pub(super) const D3_LOOP: &str = "d3-loop";
 pub(super) const D3_UNKNOWN: &str = "d3-unknown";
+
+#[cfg(test)]
+thread_local! {
+    /// Test seam: D3 off, to compare the solver with and without it.
+    pub(super) static OFF: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 
 type EdgeKey = (VarLocation, VarLocation);
 
@@ -43,34 +53,44 @@ pub(super) struct D3 {
 /// chain, anything else.
 #[derive(Default)]
 struct Failures {
-    byte: bool,
+    /// A plain byte-order failure on the use side / the def side.
+    byte_use: bool,
+    byte_def: bool,
     repeated: bool,
     unknown: bool,
 }
 
 impl Failures {
-    fn note(&mut self, o: Order) {
-        match o {
-            Order::Proven => {}
-            Order::Byte => self.byte = true,
-            Order::Loop => self.repeated = true,
-            Order::Unknown => self.unknown = true,
+    fn note(&mut self, o: Order, side: Side) {
+        match (o, side) {
+            (Order::Proven, _) => {}
+            (Order::Byte, Side::Use) => self.byte_use = true,
+            (Order::Byte, Side::Def) => self.byte_def = true,
+            (Order::Loop, _) => self.repeated = true,
+            (Order::Unknown, _) => self.unknown = true,
         }
     }
 
-    fn any(&self) -> bool {
-        self.byte || self.repeated || self.unknown
-    }
-
-    fn mechanism(&self, byte: &'static str) -> &'static str {
-        if self.byte {
-            byte
+    /// The strongest reason across both sides: a wrong byte order, a loop, anything else.
+    fn mechanism(&self) -> Option<&'static str> {
+        if self.byte_use {
+            Some(D3_USE)
+        } else if self.byte_def {
+            Some(D3_DEF)
         } else if self.repeated {
-            D3_LOOP
+            Some(D3_LOOP)
+        } else if self.unknown {
+            Some(D3_UNKNOWN)
         } else {
-            D3_UNKNOWN
+            None
         }
     }
+}
+
+#[derive(Clone, Copy)]
+enum Side {
+    Use,
+    Def,
 }
 
 impl D3 {
@@ -86,6 +106,42 @@ impl D3 {
     #[cfg(test)]
     pub(super) fn counts(&self) -> &Counts {
         &self.counts
+    }
+
+    /// The edge's finished label, then D3: an `exact` label that is not proven ordered inside its node
+    /// becomes `NameOnly(SameLine)`. Applied by the two `classify_edge` call sites, so it covers the
+    /// production and the frozen-oracle classifier alike.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn refine(
+        d3: Option<&Rc<D3>>,
+        label: FlowConfidence,
+        parsed: &ParsedFile,
+        edge: &FlowEdge,
+        candidates: &[usize],
+        statements: &mut StatementLookup<'_>,
+        line_index: &BTreeMap<Line, usize>,
+        function_start: Line,
+        facts: &BindingFacts,
+    ) -> FlowConfidence {
+        #[cfg(test)]
+        if OFF.with(|off| off.get()) {
+            return label;
+        }
+        let Some(d3) = d3.filter(|_| label.is_exact()) else {
+            return label;
+        };
+        let def_line =
+            if edge.from.line == function_start && !line_index.contains_key(&function_start) {
+                Some(function_start)
+            } else {
+                statements.get(edge.from.line)
+            };
+        match (statements.get(edge.to.line), def_line) {
+            (Some(u), Some(d)) if d3.refuse(parsed, edge, u, d, candidates, facts).is_some() => {
+                FlowConfidence::NameOnly(FlowDoubt::SameLine)
+            }
+            _ => label,
+        }
     }
 
     /// The mechanism D3 recorded for an edge it refused (trace on).
@@ -111,9 +167,15 @@ impl D3 {
         if use_line == def_line {
             return None; // one node: main's collapse and same-line rules own it
         }
-        let hit = self
-            .use_side(parsed, edge, use_line, candidates, facts)
-            .or_else(|| self.def_side(edge, def_line, facts))?;
+        // Both sides always run: the reason is the strongest of them, and a counting write whose
+        // node the mapping cannot name refuses its base whatever else the nodes hold.
+        let mut failures = Failures::default();
+        if self.counts.unplaced.contains(&edge.to.path.base) {
+            failures.unknown = true;
+        }
+        self.use_side(parsed, edge, use_line, candidates, facts, &mut failures);
+        self.def_side(edge, def_line, facts, &mut failures);
+        let hit = failures.mechanism()?;
         if let Some(log) = &self.log {
             log.borrow_mut()
                 .insert((edge.from.clone(), edge.to.clone()), hit);
@@ -141,25 +203,23 @@ impl D3 {
         use_line: usize,
         candidates: &[usize],
         facts: &BindingFacts,
-    ) -> Option<&'static str> {
+        failures: &mut Failures,
+    ) {
         let writes: Vec<&Counting> = self.affecting(use_line, &edge.to.path).collect();
-        if writes.is_empty() && !self.counts.unplaced.contains(&edge.to.path.base) {
-            return None;
-        }
         if writes.is_empty() {
-            return Some(D3_UNKNOWN);
+            return;
         }
         let Some(occurrences) = self.occurrences(parsed, edge, use_line) else {
-            return None; // anchored at a write's own target: no read to order
+            return; // anchored at a write's own target and no read spells the path: nothing to order
         };
         if occurrences.is_empty() {
-            return Some(D3_UNKNOWN);
+            failures.unknown = true;
+            return;
         }
         let t = Tables::shared();
-        let mut failures = Failures::default();
+        let base = &edge.to.path.base;
         for (start, end) in occurrences {
             // A read of another binding of the name (an inner `let` shadowing D's) is not D's use.
-            let base = &edge.to.path.base;
             if !candidates.is_empty()
                 && candidates.iter().all(|&c| {
                     matches!(
@@ -177,7 +237,7 @@ impl D3 {
             let place = Position::of_read(node, &self.counts.spans);
             let counting: Vec<&&Counting> = writes
                 .iter()
-                .filter(|w| !facts.proven_distinct_at(&edge.to.path.base, w.probe, start))
+                .filter(|w| !facts.proven_distinct_at(base, w.probe, start))
                 .collect();
             if let [only] = counting[..] {
                 if only.is_operand_of(start) {
@@ -185,10 +245,9 @@ impl D3 {
                 }
             }
             for w in counting {
-                failures.note(order(t, &place, &w.pos));
+                failures.note(order(t, &place, &w.pos), Side::Use);
             }
         }
-        failures.any().then(|| failures.mechanism(D3_USE))
     }
 
     fn def_side(
@@ -196,7 +255,8 @@ impl D3 {
         edge: &FlowEdge,
         def_line: usize,
         facts: &BindingFacts,
-    ) -> Option<&'static str> {
+        failures: &mut Failures,
+    ) {
         let writes: Vec<&Counting> = self.affecting(def_line, &edge.from.path).collect();
         let d_start = edge.from.start_byte;
         // D's own site: a recorded def (a declarator, a plain write) is positioned at its construct.
@@ -208,18 +268,17 @@ impl D3 {
             .filter(|w| !facts.proven_distinct_at(&edge.from.path.base, w.probe, d_probe))
             .collect();
         if others.is_empty() {
-            return None;
+            return;
         }
         // A def with no census site in this node (a formal on the node's line) is unplaced.
         let Some(d) = d else {
-            return Some(D3_UNKNOWN);
+            failures.unknown = true;
+            return;
         };
         let t = Tables::shared();
-        let mut failures = Failures::default();
         for w in others {
-            failures.note(order(t, &w.pos, &d.pos));
+            failures.note(order(t, &w.pos, &d.pos), Side::Def);
         }
-        failures.any().then(|| failures.mechanism(D3_DEF))
     }
 
     /// The read occurrences of the edge's use: every read on its line that spells its path (a write
@@ -247,33 +306,37 @@ impl D3 {
             }
             ReadIndex::build(parsed.tree.root_node())
         });
-        // Only reads of this node: its innermost statement span starts on the node's line.
+        // The reads of this node, placed the way a write is (`completion::place`, E18): a read in a
+        // later statement on the line has no span of its own and is the line's node; one that cannot
+        // be placed at all stays (its position is unknown, so it refuses).
         let on_line: Vec<(usize, usize)> = reads
             .on_line(parsed, &to.path, to.line)
             .into_iter()
-            .filter(|(start, _)| self.span_line_of(parsed, *start) == Some(use_line))
+            .filter(|&(start, end)| {
+                place(
+                    parsed,
+                    &self.counts.spans,
+                    start,
+                    end,
+                    start,
+                    parsed.line_for_byte(start),
+                )
+                .is_none_or(|node| node == use_line)
+            })
             .collect();
         let (targets, mut found): (Vec<_>, Vec<_>) = on_line
             .into_iter()
             .partition(|r| self.counts.write_only.contains(r));
+        let own = (to.start_byte, to.end_byte);
+        let real = to.end_byte > to.start_byte && !self.counts.write_only.contains(&own);
+        if real && !found.contains(&own) {
+            found.push(own);
+        }
         if found.is_empty() && !targets.is_empty() {
             // The DFG also anchors a use at a write's own target (`value = other`, `var [f] = ..`):
             // no read of the line spells the path, so there is nothing to order.
             return None;
         }
-        let own = (to.start_byte, to.end_byte);
-        if to.end_byte > to.start_byte && !found.contains(&own) {
-            found.push(own);
-        }
         Some(found)
-    }
-
-    fn span_line_of(&self, parsed: &ParsedFile, byte: usize) -> Option<usize> {
-        self.counts
-            .spans
-            .iter()
-            .filter(|(a, b)| *a <= byte && byte < *b)
-            .min_by_key(|(a, b)| (b - a, std::cmp::Reverse(*a)))
-            .map(|(a, _)| parsed.line_for_byte(*a))
     }
 }

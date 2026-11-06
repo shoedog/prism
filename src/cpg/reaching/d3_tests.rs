@@ -1,4 +1,5 @@
-//! #660 S1b-2: D3's trace mechanisms, its trace-off neutrality, and its availability neutrality.
+//! #660 S1b-2: D3's trace mechanisms, trace neutrality (`trace_lines` asserts the traced outcome equals
+//! the plain one) and availability neutrality (D3 on vs off), over every matrix fixture.
 use super::census_defs_tests::trace_lines;
 use crate::languages::Language;
 
@@ -141,4 +142,105 @@ fn a_counting_write_with_no_node_marks_its_base_unplaced() {
     let src = "function f(a) {\n  log();\n  class C { static x = (a = 5); }\n  sink(a);\n}\n";
     let (by, unplaced) = counting(JS, src);
     assert!(by.is_empty() && unplaced == ["a"], "{by:?} {unplaced:?}");
+}
+
+#[test]
+fn the_trace_never_changes_an_outcome_on_any_matrix_fixture() {
+    use crate::js_write_census::matrix_tests::{fixtures, lang_of};
+    for (name, _, src) in fixtures() {
+        // `trace_lines` asserts, per owner, that the traced outcome equals the plain one.
+        let _ = trace_lines(lang_of(&name), &src);
+    }
+}
+
+/// The plain outcome of every owner of `src`, with D3 on or off.
+fn outcomes(language: Language, src: &str, d3_off: bool) -> Vec<super::RdOutcome> {
+    use super::census_defs_tests::{parse, recorded};
+    use super::{cfg, reaching_definitions_with_exact, FileCfgEdgeIndex};
+    super::d3::OFF.with(|off| off.set(d3_off));
+    let parsed = parse(language, src);
+    let mut out = Vec::new();
+    for owner in parsed.all_functions() {
+        let (defs, edges) = recorded(&parsed, &owner);
+        let cfg = cfg::build_cfg_edges_with_arms(&parsed);
+        let index = FileCfgEdgeIndex::new(&cfg);
+        out.push(reaching_definitions_with_exact(
+            &parsed,
+            &owner,
+            &defs,
+            &edges,
+            &[],
+            &index,
+        ));
+    }
+    super::d3::OFF.with(|off| off.set(false));
+    out
+}
+
+#[test]
+fn d3_moves_labels_only_never_availability_edges_or_recall() {
+    use super::RdOutcome::{Available, Unavailable};
+    use super::{FlowConfidence, FlowConfidence::Exact, FlowDoubt::SameLine};
+    use crate::js_write_census::matrix_tests::{fixtures, lang_of};
+    let mut moved = 0;
+    for (name, _, src) in fixtures() {
+        let language = lang_of(&name);
+        let (on, off) = (
+            outcomes(language, &src, false),
+            outcomes(language, &src, true),
+        );
+        assert_eq!(on.len(), off.len(), "{name}");
+        for (a, b) in on.iter().zip(&off) {
+            match (a, b) {
+                (Available(a), Available(b)) => {
+                    assert!(a.labels.keys().eq(b.labels.keys()), "{name}: edge sets");
+                    assert!(a.exact_labels.keys().eq(b.exact_labels.keys()), "{name}");
+                    assert_eq!(a.reaching_edges, b.reaching_edges, "{name}");
+                    assert_eq!(a.recall, b.recall, "{name}");
+                    assert!(
+                        a.loop_carried_edges.is_subset(&b.loop_carried_edges),
+                        "{name}"
+                    );
+                    for (k, label) in &a.labels {
+                        let before = b.labels[k];
+                        if *label != before {
+                            assert_eq!(
+                                (before, *label),
+                                (Exact, FlowConfidence::NameOnly(SameLine)),
+                                "{name}: only exact moves, only to sameline"
+                            );
+                            moved += 1;
+                        }
+                    }
+                }
+                (Unavailable(a), Unavailable(b)) => assert_eq!(a, b, "{name}"),
+                _ => panic!("{name}: availability moved"),
+            }
+        }
+    }
+    assert!(moved >= 30, "D3 moved {moved} edges over the matrix");
+}
+
+#[test]
+fn the_def_side_reason_outranks_a_use_side_loop() {
+    // Use side: a loop on U's chain (`d3-loop`); def side: `a = 1` then `a++` in D's node (`d3-def`).
+    let src = "function f(b) {\n  let a = b;\n  a = 1, a++;\n  while (c()) { sink(a); a++; }\n}\n";
+    let lines = d3_lines(src);
+    let hit = lines
+        .iter()
+        .find(|l| l.contains("\ta@3:") && l.contains("\ta@4:"))
+        .unwrap_or_else(|| panic!("no d3 line for a@3->a@4: {lines:?}"));
+    assert_eq!(hit.split('\t').nth(1), Some("d3-def"), "{hit}");
+}
+
+#[test]
+fn an_unplaced_formal_on_the_write_line_is_d3_unknown() {
+    let got = mechanisms("function f(a) { a++;\n  sink(a);\n}\n");
+    assert!(got.iter().any(|m| m == "d3-unknown"), "{got:?}");
+}
+
+#[test]
+fn a_read_in_a_later_statement_refuses_as_unknown_not_as_exact() {
+    let got = mechanisms("function f(a) {\n  log();\n  a = 2; sink(a);\n}\n");
+    assert!(got.iter().any(|m| m == "d3-unknown"), "{got:?}");
 }

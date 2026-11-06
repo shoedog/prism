@@ -485,7 +485,7 @@ Same-node order (D3, #660 S1b-2, `reaching/d3.rs`): an `exact` edge D->U whose u
 an `affects`-related path that the S0 `precedes` relation does not prove after U (before D) is `NameOnly(SameLine)`; any
 loop, `unknown` or deferred kind on a chain, an unplaced position or two occurrences that disagree refuses, and only a node's
 single `RW`/`delete` operand read is excused. The DFG keeps one use per path and line, so every read of the path on the line
-counts (found as S1a places a region read). Label-only; a header def with a same-node increment (`for (let i..; i++)`) and a
+counts (found as S1a places a region read, placed on its node as a write is: a read in a later statement of the line refuses; an unmappable counting write refuses its base). Label-only; a header def with a same-node increment (`for (let i..; i++)`) and a
 repeated context are the accepted cost (recovery #670).
 
 JS/TS/TSX parameter Defs: a formal that is read bare gets a Def at its identifier. A *member-only*

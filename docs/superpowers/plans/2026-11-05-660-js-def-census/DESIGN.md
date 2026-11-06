@@ -419,11 +419,15 @@ distinct (A10). A write in a deferred region on line N is D2-c's and is not orde
 (S1a's full-path-then-base lookup, `capture_regions::resolve_key`, over the same read collector): all occurrences must be proven,
 write-only targets (plain writes, declarators, `delete`) are not reads, and an occurrence of another binding of the name is not
 D's use (`relation_at`). A use anchored only at a write's own target (`value = other`, `var [f] = ..`) has no read to order and
-keeps its label; a use with no occurrence at all is `d3-unknown`. (2) A counting declaration is a `let`/`const`/`var` declarator
-with a value (or a `for` head's): hoisted functions, parameters, imports and class names are placed by scope (S1d). A write whose
+keeps its label (only when no read of the path exists on the line); a use with no occurrence at all is `d3-unknown`. Reads are placed with
+the write rule (`completion::place`, E18 incl. `on_line`): a read in a later statement of the line has no span of its own, so its
+position is unknown and the edge refuses (`a = 2; sink(a);`; `sink(a); a = 2;` is refused too, cost). (2) A counting declaration is a
+`let`/`const` declarator (`let a;` stores `undefined`), a `var` declarator with a value, or a `for` head's: hoisted functions, parameters, imports and class names are placed by scope (S1d). A write whose
 binding is proven distinct from the use's (or D's) is not counted (A10), probed at the declaration's end for a declarator. (3)
 `this` rebound by a static block or field value is not the owner's `this` (the kill-only rule). (4) A counting write whose node
-the E18 mapping cannot name makes its base `d3-unknown`. (5) The trace names the mechanism of each refused edge (`d3-use`, `d3-def`
+the E18 mapping cannot name makes its base `d3-unknown` for every query, beside placed writes too (over-refusal when the read
+provably runs first is accepted). The two sides always both run and the strongest reason wins. Recovery with statement spans kept
+per statement (siblings on one line ordered properly) fits #670. (5) The trace names the mechanism of each refused edge (`d3-use`, `d3-def`
 for a plain byte order, else `d3-loop` or `d3-unknown`; a plain byte order wins over a loop when both occur).
 
 ### 7.3 Expected cost

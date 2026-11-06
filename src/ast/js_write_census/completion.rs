@@ -242,36 +242,54 @@ const COMPOUND: [&str; 10] = [
 /// is unmapped (the caller refuses the base). A header site (case value, `for` head) has no
 /// statement between it and the span and keeps the span's node.
 fn node_line(parsed: &ParsedFile, c: &Census, site: &Site) -> Option<usize> {
-    let start = site.construct_start.unwrap_or(site.target_start);
-    let end = site.moment;
-    // Only a statement that starts at or before the write can execute it: one that starts later on
+    place(
+        parsed,
+        &c.spans,
+        site.construct_start.unwrap_or(site.target_start),
+        site.moment,
+        site.target_start,
+        site.line,
+    )
+}
+
+/// E18 for any position: the node of the bytes `start..end`, given the statement `spans`, the byte
+/// `at` the position's syntax starts at and its `line`. One rule for writes (`node_line`) and for the
+/// reads D3 orders against them (#660 S1b-2), so the two cannot drift.
+pub(crate) fn place(
+    parsed: &ParsedFile,
+    spans: &[(usize, usize)],
+    start: usize,
+    end: usize,
+    at: usize,
+    line: usize,
+) -> Option<usize> {
+    // Only a statement that starts at or before the position can execute it: one that starts later on
     // the line (a loop body after a header write) is a node a route may bypass.
     let on_line = || {
-        c.spans
+        spans
             .iter()
-            .any(|(a, _)| *a <= start && parsed.line_for_byte(*a) == site.line)
-            .then_some(site.line)
+            .any(|(a, _)| *a <= start && parsed.line_for_byte(*a) == line)
+            .then_some(line)
     };
-    let contained = c
-        .spans
+    let contained = spans
         .iter()
         .filter(|(a, b)| *a <= start && end <= *b)
         .min_by_key(|(a, b)| (b - a, std::cmp::Reverse(*a)));
     let Some(&(a, b)) = contained else {
         return on_line();
     };
-    let line = parsed.line_for_byte(a);
-    if line == site.line || !lost_statement_under_compound(parsed, site, a, b) {
-        return Some(line);
+    let span_line = parsed.line_for_byte(a);
+    if span_line == line || !lost_statement_under_compound(parsed, at, a, b) {
+        return Some(span_line);
     }
     on_line()
 }
 
 /// The span `(a, b)` is a compound statement and an un-retained statement or declaration lies between
 /// the site and it.
-fn lost_statement_under_compound(parsed: &ParsedFile, site: &Site, a: usize, b: usize) -> bool {
+fn lost_statement_under_compound(parsed: &ParsedFile, at: usize, a: usize, b: usize) -> bool {
     let root = parsed.tree.root_node();
-    let Some(mut n) = root.descendant_for_byte_range(site.target_start, site.target_start) else {
+    let Some(mut n) = root.descendant_for_byte_range(at, at) else {
         return false;
     };
     let mut lost = false;

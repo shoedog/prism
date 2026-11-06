@@ -459,6 +459,17 @@ fn reaching_definitions_impl(
             &binding_facts,
             function_start,
         );
+        let label = d3::D3::refine(
+            census.d3.as_ref(),
+            label,
+            parsed,
+            edge,
+            &candidates,
+            &mut statements,
+            &line_index,
+            function_start,
+            &binding_facts,
+        );
         if label.is_exact()
             && edge.to.line < edge.from.line
             && (parsed.language != Language::Go || {
@@ -507,6 +518,17 @@ fn reaching_definitions_impl(
             &census,
             &binding_facts,
             function_start,
+        );
+        let label = d3::D3::refine(
+            census.d3.as_ref(),
+            label,
+            parsed,
+            edge,
+            &candidates,
+            &mut statements,
+            &line_index,
+            function_start,
+            &binding_facts,
         );
         exact_labels
             .entry(key)
@@ -593,78 +615,8 @@ fn deduplicate_definitions(defs: &[DefSite]) -> Vec<DefSite> {
     unique
 }
 
-/// The edge's label, then #660 S1b-2's D3 (DESIGN.md 8, the last step): an `exact` edge whose use or
-/// def node holds a write not proven ordered against it becomes `NameOnly(SameLine)`. It is applied
-/// to the finished label so it moves only `exact` edges, and to both the production and the frozen
-/// oracle paths, so parity compares like with like.
 #[allow(clippy::too_many_arguments)]
 fn classify_edge(
-    edge: &FlowEdge,
-    parsed: &ParsedFile,
-    defs: &[DefSite],
-    candidates: &[usize],
-    mapped_defs: &[Option<usize>],
-    line_index: &BTreeMap<Line, usize>,
-    statements: &mut statement_lookup::StatementLookup<'_>,
-    go_reachable: Option<&BitSet>,
-    in_sets: &[BitSet],
-    kill: &[BitSet],
-    flat_in_sets: &[BitSet],
-    flat_kill: &[BitSet],
-    paths: &mut Reachability<'_>,
-    bound_reach: &mut DefinitionReachability<'_>,
-    flat_reach: &mut DefinitionReachability<'_>,
-    collapsed: &BTreeSet<(AccessPath, Line)>,
-    capture_facts: &capture::CaptureFacts,
-    census: &census_defs::CensusFacts,
-    binding_facts: &crate::cpg::binding_facts::BindingFacts,
-    function_start: Line,
-) -> FlowConfidence {
-    let label = classify_edge_before_d3(
-        edge,
-        parsed,
-        defs,
-        candidates,
-        mapped_defs,
-        line_index,
-        statements,
-        go_reachable,
-        in_sets,
-        kill,
-        flat_in_sets,
-        flat_kill,
-        paths,
-        bound_reach,
-        flat_reach,
-        collapsed,
-        capture_facts,
-        census,
-        binding_facts,
-        function_start,
-    );
-    let Some(d3) = census.d3.as_ref().filter(|_| label.is_exact()) else {
-        return label;
-    };
-    let def_line = if edge.from.line == function_start && !line_index.contains_key(&function_start)
-    {
-        Some(function_start)
-    } else {
-        statements.get(edge.from.line)
-    };
-    match (statements.get(edge.to.line), def_line) {
-        (Some(use_line), Some(def_line))
-            if d3
-                .refuse(parsed, edge, use_line, def_line, candidates, binding_facts)
-                .is_some() =>
-        {
-            FlowConfidence::NameOnly(FlowDoubt::SameLine)
-        }
-        _ => label,
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn classify_edge_before_d3(
     edge: &FlowEdge,
     parsed: &ParsedFile,
     defs: &[DefSite],

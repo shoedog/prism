@@ -29,7 +29,7 @@ impl Counting {
 }
 
 /// Whether a site is a write D3 orders: eager, and storing a value at its position. A declaration
-/// counts only as a `let`, `const` or `var` declarator with a value (or a `for` head's): a hoisted
+/// counts only as a `let`/`const` declarator (`let a;` stores `undefined`), a `var` declarator with a value, or a `for` head's: a hoisted
 /// function, a parameter, an import or a class name is placed by scope, not by source order (S1d).
 pub(crate) fn counts(site: &Site) -> bool {
     let r = site.region;

@@ -146,6 +146,45 @@ const CASES: &[Case] = &[
     // (decorators refuse on main already: pinned unchanged.)
     Case { name: "decorator_pair", lang: Language::TypeScript, edge: "a@1->a@3", expected: CFG,
         source: "function f(a: number) {\n  log();\n  @dec(sink(a)) @dec2(a++) class C {}\n}" },
+    // Round 1 (Opus W1): reads in a later statement on the line are placed like writes, not dropped.
+    Case { name: "later_stmt_write_then_read", lang: JS, edge: "a@1->a@3", expected: SAME,
+        source: "function f(a) {\n  log();\n  a = 2; sink(a);\n}" },
+    Case { name: "later_stmt_def_line2", lang: JS, edge: "a@2->a@4", expected: SAME,
+        source: "function f() {\n  let a = 1;\n  log();\n  a = 2; sink(a);\n}" },
+    Case { name: "later_stmt_in_block", lang: JS, edge: "a@1->a@3", expected: SAME,
+        source: "function f(a) {\n  log();\n  { a = 2; sink(a); }\n}" },
+    Case { name: "later_stmt_after_block", lang: JS, edge: "a@1->a@3", expected: SAME,
+        source: "function f(a) {\n  log();\n  { a = 2; } sink(a);\n}" },
+    Case { name: "later_stmt_if_read", lang: JS, edge: "a@1->a@3", expected: SAME,
+        source: "function f(a) {\n  log();\n  a = src(); if (a) sink(a);\n}" },
+    Case { name: "later_stmt_third", lang: JS, edge: "a@1->a@3", expected: SAME,
+        source: "function f(a) {\n  log();\n  a = 2; g(); sink(a);\n}" },
+    Case { name: "later_stmt_member", lang: JS, edge: "o.x@2->o.x@3", expected: SAME,
+        source: "function f(o) {\n  o.x = 0;\n  o.x = 1; sink(o.x);\n}" },
+    Case { name: "later_stmt_delete", lang: JS, edge: "o.x@2->o.x@3", expected: SAME,
+        source: "function f(o) {\n  o.x = 0;\n  delete o.x; sink(o.x);\n}" },
+    // Read first: one statement proves it; two statements cannot be ordered (cost, recovery #670).
+    Case { name: "read_first_one_statement_control", lang: JS, edge: "a@1->a@3", expected: EXACT,
+        source: "function f(a) {\n  log();\n  sink(a), a = 2;\n}" },
+    Case { name: "read_first_two_statements_cost", lang: JS, edge: "a@1->a@3", expected: SAME,
+        source: "function f(a) {\n  log();\n  sink(a); a = 2;\n}" },
+    // Round 1 (sol W1, Opus OR1/OR4): an unplaced counting write refuses beside placed ones. (Here
+    // main's binding facts already kill the edge, and D3 never rewrites a non-`exact` label.)
+    Case { name: "unplaced_beside_placed_write", lang: JS, edge: "a@1->a@4", expected: "nameonly/killed",
+        source: "function f(a) {\n  log();\n  class C { static x = (a = 5); }\n  sink(a), a++;\n}" },
+    Case { name: "placed_write_only_control", lang: JS, edge: "a@1->a@3", expected: EXACT,
+        source: "function f(a) {\n  log();\n  sink(a), a++;\n}" },
+    Case { name: "unplaced_read_provably_first_cost", lang: JS, edge: "a@1->a@3", expected: SAME,
+        source: "function f(a) {\n  log();\n  sink(a);\n  class C { static x = (a = 5); }\n}" },
+    Case { name: "def_unplaced_formal_on_write_line", lang: JS, edge: "a@1->a@2", expected: SAME,
+        source: "function f(a) { a++;\n  sink(a);\n}" },
+    // Round 1 (Opus S4): binding checks on the use side.
+    Case { name: "shadowed_read_is_not_ds_use", lang: JS, edge: "a@1->a@3", expected: EXACT,
+        source: "function f(a, c) {\n  log();\n  if (c) { sink(a); } else { let a = 1; g(a); }\n}" },
+    Case { name: "distinct_write_binding_not_counted", lang: JS, edge: "a@1->a@3", expected: EXACT,
+        source: "function f(a) {\n  log();\n  if (sink(a)) { let a = 1; g(a); } else h(a);\n}" },
+    Case { name: "inner_block_declarator_not_counted", lang: JS, edge: "b@2->b@3", expected: EXACT,
+        source: "f(function() {\n let b = 1;\n {let b = 2; use(b);} use(b);\n});\n" },
 ];
 
 #[test]
