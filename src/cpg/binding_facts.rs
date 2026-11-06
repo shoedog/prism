@@ -57,7 +57,7 @@ impl ScopeSpan {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum BindingId {
+pub(crate) enum BindingId {
     Declaration(usize),
     ImplicitFunction(String),
     FlatFallback(String),
@@ -151,7 +151,7 @@ impl<'a> RootFunction<'a> {
     }
 }
 
-pub(super) struct BindingFacts {
+pub(crate) struct BindingFacts {
     def_bindings: Vec<Binding>,
     declarations: Vec<Declaration>,
     unclassified_binding_lines: BTreeMap<String, BTreeSet<Line>>,
@@ -161,7 +161,7 @@ pub(super) struct BindingFacts {
 }
 
 impl BindingFacts {
-    pub(super) fn new<'a>(
+    pub(crate) fn new<'a>(
         parsed: &ParsedFile,
         func_node: &Node<'_>,
         defs: &[DefSite],
@@ -322,7 +322,7 @@ impl BindingFacts {
             .unwrap_or_else(|| matches!(self.implicit_binding(base).id, BindingId::FlatFallback(_)))
     }
 
-    pub(super) fn unclassified_binding_lines(&self, name: &str) -> Vec<Line> {
+    pub(crate) fn unclassified_binding_lines(&self, name: &str) -> Vec<Line> {
         self.unclassified_binding_lines
             .get(name)
             .map(|lines| lines.iter().copied().collect())
@@ -373,6 +373,19 @@ impl BindingFacts {
             }
         }
         BindingRelation::Unresolved
+    }
+
+    /// The binding the definition at `defs[index]` resolves to.
+    pub(crate) fn binding_of_def(&self, index: usize) -> &BindingId {
+        &self.def_bindings[index].id
+    }
+
+    /// The binding a name occurrence at `byte` resolves to: the innermost
+    /// visible explicit declaration, else the language's implicit binding.
+    pub(crate) fn binding_at(&self, name: &str, byte: usize) -> BindingId {
+        self.visible_declaration(name, byte)
+            .unwrap_or_else(|| self.implicit_binding(name))
+            .id
     }
 
     fn visible_declaration(&self, name: &str, byte: usize) -> Option<Binding> {

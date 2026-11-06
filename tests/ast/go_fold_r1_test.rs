@@ -85,9 +85,9 @@ fn go_fold_r1_real_binding_controls() {
         .filter(|l| l[0]["path"]["base"] == "v" && l[0]["line"] == 9 && l[1]["line"] == 7)
         .map(|l| &l[2])
         .collect();
-    assert_eq!(labels.len(), 1, "receive control must retain its endpoint");
-    assert_ne!(
-        labels[0], "Exact",
+    // Rule S (#630): outer v@9 cannot define receive-local v@7, so the pair is gone.
+    assert!(
+        labels.is_empty(),
         "outer v@9 cannot define receive-local v@7"
     );
 }

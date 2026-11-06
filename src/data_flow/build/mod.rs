@@ -45,6 +45,7 @@ mod lexical_prune_tests;
 mod owner_labels;
 #[cfg(test)]
 mod prune_cap_tests;
+mod scope_prune;
 #[cfg(test)]
 mod scope_prune_tests;
 

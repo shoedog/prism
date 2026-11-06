@@ -382,9 +382,11 @@ through case-value/communication anchors, normal arms exit without sibling fallt
 and else-if false branches enter the nested condition. Blocking selects have no unselected exit.
 The fallback cap counts U/D survivors, including duplicates. Per the owner decision, an owner
 formerly capped before pruning can regain its surviving edges when pruning brings it within the cap; this includes a function just over 1,000,000 candidates that falls under it once Go blank candidates are gone and then emits its real edges (the same rule as #634: the cap counts survivors, owner-accepted).
+Go rule S (#630 slice 3, `src/data_flow/build/scope_prune.rs`) drops a (def, use) pair when the def and every read of the name on the use line resolve to different explicit declarations (`BindingFacts::binding_of_def`/`binding_at`, built once per Go owner in the producer from `rd_defs`; RD keeps its own instance because its use-byte table is built from the emitted edges). It runs before D and counts `dfg_pruned_scope`; non-Go languages are untouched. Everything unproven keeps the pair: a `FlatFallback`/non-declaration binding, any unclassified binding construct for the name in the function (`unclassified_binding_lines`), an alias twin, a def with fields, an owner with parse errors. A different declaration is not different storage (#687), so S drops only when the def writes the variable itself (its span is a plain identifier in an `=`/`:=`/`var`/parameter/range/receive/type-switch-alias position, not an operand of `*`, indexing, slicing or selection), no occurrence of the name on the def's line is such an operand and all coalesced same-line defs of that path bind the same declaration, and no use-line occurrence that resolves elsewhere is itself a storage access (`*x`, `x[i]`, `x.f`, `x.M()`, `(x)`). Names introduced by `:=`/`var`/`const`/parameters are writes, not reads; a line with no read keeps the pair (U's job). Two occurrences in different scopes keep the pair if either keeps it. Header-line pairs that RD labelled a false `exact` (#662) are dropped when no read of the def's binding exists on the line.
+
 The additive `dfg_pruned_write_only`, `dfg_pruned_scope`, `dfg_pruned_dominated`, and
 `dfg_pruned_order` counters persist through cache hits and appear in both stats commands;
-scope and order remain zero until their later slices ship. Prune counters count skipped
+order remains zero until its later slice ships (scope counts Go rule S, below). Prune counters count skipped
 producer candidates before edge compaction and deduplication, counted once from the
 first pass even when the owner is capped; replay does not count them again.
 
@@ -465,7 +467,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v149) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v150) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

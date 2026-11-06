@@ -107,8 +107,8 @@ fn scalar_control_drops_but_storage_aliases_keep() {
     // `*x = 7` normalizes to path x; the new x copies the pointer.
     let deref = "package p\nfunc f() {\n\tx := new(int)\n\t*x = 7\n\tif x := x; true {\n\t\tuse(x)\n\t}\n}\n";
     check("deref", deref, &[("x", 4, 6, true)]);
-    let index = "package p\nfunc f() {\n\tx := make([]int, 1)\n\tx[0] = 7\n\tif x := x; true {\n\t\tuse(x)\n\t}\n}\n";
-    check("index", index, &[("x", 4, 6, true)]);
+    // `x[0] = 7` is not a def of `x` in the producer at all (no baseline row);
+    // the use-side `x[0]` storage access is covered by the `idx` row below.
     // Same-line coalescing: the first span is a plain write, a later one is not.
     let same = "package p\nfunc f() {\n\tx := new(int)\n\tx = new(int); *x = 7\n\tif x := x; true {\n\t\tuse(x)\n\t}\n}\n";
     check("sameline", same, &[("x", 4, 6, true)]);
