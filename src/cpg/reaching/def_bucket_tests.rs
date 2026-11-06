@@ -421,3 +421,28 @@ fn differential_direct_rd_alias_twins_and_fallback() {
         }
     }
 }
+
+/// #660 S1b-1: the frozen all-pairs scanner and the bucketed kill sets agree on every matrix fixture,
+/// kill-only census defs included (`affects` kills, never killed, never candidates).
+#[test]
+fn differential_census_matrix() {
+    use crate::js_write_census::matrix_tests::{fixtures, lang_of};
+    let mut with_census = 0;
+    for (name, _slice, source) in fixtures() {
+        let path = match lang_of(&name) {
+            Language::TypeScript => format!("{name}.ts"),
+            Language::Tsx => format!("{name}.tsx"),
+            _ => format!("{name}.js"),
+        };
+        let (_, doubts) = compare(&path, &source.replace("\\n", "\n"));
+        with_census += doubts
+            .iter()
+            .filter(|d| matches!(d, FlowDoubt::Killed { .. }))
+            .count()
+            .min(1);
+    }
+    assert!(
+        with_census > 40,
+        "census fixtures reach a Killed label: {with_census}"
+    );
+}

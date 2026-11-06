@@ -294,8 +294,10 @@ mod stream;
 /// - v149: C/C++ unlabeled break/continue, switch dispatch and do-while condition CFG edges (#645).
 /// - v150: JS/TS/TSX reads in a nested parameter list or an instance field initializer, and reads whose def
 ///   lies in another region, are `NameOnly(CfgIncomplete)` (#660 S1a); labels only.
-/// - v151: Go rule S, a pair between different explicit declarations of one name is dropped (#630 slice 3).
-const CACHE_VERSION: u32 = 151;
+/// - v151: JS/TS/TSX write-census kill-only defs and owner/base refusals in reaching definitions (#660 S1b-1);
+///   labels only.
+/// - v152: Go rule S, a pair between different explicit declarations of one name is dropped (#630 slice 3).
+const CACHE_VERSION: u32 = 152;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -828,7 +830,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 151);
+        assert_eq!(super::CACHE_VERSION, 152);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

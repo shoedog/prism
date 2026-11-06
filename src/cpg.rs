@@ -23,6 +23,8 @@ pub(crate) mod binding_facts;
 mod build;
 #[cfg(test)]
 mod callback_identity_tests;
+#[cfg(test)]
+mod census_label_tests;
 mod cfg_queries;
 mod context;
 #[cfg(test)]

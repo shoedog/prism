@@ -18,11 +18,16 @@ pub(super) fn classify_edge(
     successors: &[Vec<(usize, bool)>],
     collapsed: &BTreeSet<(AccessPath, Line)>,
     capture_facts: &capture::CaptureFacts,
+    census: &census_defs::CensusFacts,
     binding_facts: &crate::cpg::binding_facts::BindingFacts,
     function_start: Line,
 ) -> FlowConfidence {
     if capture::is_capture(edge, capture_facts) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
+    // The census refusals are shared with production, so both sides label them identically (#660).
+    if census.refuses(edge).is_some() {
+        return census_defs::CensusFacts::refused_label();
     }
 
     let use_statement = statements.get(edge.to.line);

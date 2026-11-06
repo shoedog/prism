@@ -223,6 +223,7 @@ fn synthetic_source_every_edge_matches_reference() {
         ("memo.go", "package p\nfunc f(flag bool) int {\nx := 0\nx = 1\nif flag {\nx = 2\n}\nfor x < 4 {\nx = x + 1\n}\nreturn x\n}\n"),
         ("memo.py", "def f(flag):\n    x = 0\n    x = 1\n    if flag:\n        x = 2\n    try:\n        x = x + 1\n    except Exception:\n        x = 3\n    return x\n"),
         ("memo.js", "function f(flag) {\nlet x = 0;\nx = 1;\nif (flag) {\nx = 2;\n}\nwhile (x < 4) {\nx = x + 1;\n}\n{ let x = 9; consume(x); }\nreturn x;\n}\n"),
+        ("census.js", "function f(a, o) {\nlet x = a;\nx++;\nconsume(x);\no.k = 1;\ndelete o.k;\nconsume(o.k);\nfor (let i = 0; i < 3; i++) {\nuse(i);\n}\n}\nfunction g(a) {\nlog();\n\\u0061++;\nsink(a);\n}\n"),
         ("memo.rs", "fn f(flag: bool) -> i32 {\nlet mut x = 0;\nx = 1;\nif flag {\nx = 2;\n}\nwhile x < 4 {\nx = x + 1;\n}\nx\n}\n"),
     ];
     rayon::ThreadPoolBuilder::new()

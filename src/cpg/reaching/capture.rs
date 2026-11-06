@@ -17,11 +17,7 @@ pub(super) struct CaptureFacts<'p> {
     trace: bool,
 }
 
-pub(super) fn capture_facts<'p>(parsed: &'p ParsedFile, func_node: Node<'_>) -> CaptureFacts<'p> {
-    capture_facts_with(parsed, func_node, census_trace::enabled())
-}
-
-/// `capture_facts` with the trace switch injected (tests do not race on the process environment).
+/// The capture facts, with the trace switch injected (tests do not race on the process environment).
 pub(super) fn capture_facts_with<'p>(
     parsed: &'p ParsedFile,
     func_node: Node<'_>,
