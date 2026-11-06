@@ -39,6 +39,7 @@ mod go_blank_tests;
 mod go_header_scope_tests;
 #[cfg(test)]
 mod legacy_producer;
+mod lexical_header;
 mod lexical_prune;
 #[cfg(test)]
 mod lexical_prune_round2_tests;

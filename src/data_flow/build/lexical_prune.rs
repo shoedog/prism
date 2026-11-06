@@ -251,6 +251,28 @@ impl<'a> LexicalFacts<'a> {
         drop
     }
 
+    /// #662: every occurrence of the name on the use line is bound to the declaration
+    /// of one `if`/`switch`/`for` header, and the def lies outside all those headers.
+    fn header_scoped(&self, path: &AccessPath, start: usize, line: usize) -> bool {
+        let Some(occurrences) = self.occurrences.get(&(path.base.clone(), line)) else {
+            return false;
+        };
+        let mut bound = false;
+        for node in occurrences {
+            match super::lexical_header::classify(self.parsed, *node) {
+                super::lexical_header::Occurrence::Declaration => {}
+                super::lexical_header::Occurrence::Bound(from, to) => {
+                    if from <= start && start < to {
+                        return false;
+                    }
+                    bound = true;
+                }
+                super::lexical_header::Occurrence::Other => return false,
+            }
+        }
+        bound
+    }
+
     /// D runs after get_use; edge-less real use locations remain in the graph.
     pub(super) fn keep_def(
         &self,
@@ -262,6 +284,10 @@ impl<'a> LexicalFacts<'a> {
     ) -> bool {
         if !self.enabled || self.nested_at(start) {
             return true;
+        }
+        if self.header_scoped(path, start, line) {
+            stats.dfg_pruned_scope += 1;
+            return false;
         }
         let drop = self
             .proof(path, line)

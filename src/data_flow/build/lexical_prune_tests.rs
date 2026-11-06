@@ -44,7 +44,8 @@ fn go_prune_matrix() {
         assert_eq!(
             before.edges.len() - after.edges.len(),
             after.rd_function_stats.dfg_pruned_write_only
-                + after.rd_function_stats.dfg_pruned_dominated,
+                + after.rd_function_stats.dfg_pruned_dominated
+                + after.rd_function_stats.dfg_pruned_scope,
             "{name}: prune counters must count removed expanded edges"
         );
         for (key, label) in &after.labels {

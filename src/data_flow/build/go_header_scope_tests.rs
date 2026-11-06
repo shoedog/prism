@@ -110,3 +110,9 @@ fn init_rhs_still_reads_the_outer_name() {
     // separate by line, so main's edge must stay.
     assert!(edge(s, "err", "@outer", "@hdr"));
 }
+
+#[test]
+fn body_that_redeclares_the_name_keeps_main_edge() {
+    let s = "package p\nfunc f() {\n\terr := a() // @outer\n\tif err := g(); err != nil {\n\t\tif ok { err := h(); use(err) }\n\t\tuse(err) // @body\n\t}\n}\n";
+    assert!(edge(s, "err", "@outer", "@body"));
+}
