@@ -292,7 +292,9 @@ mod stream;
 /// - v146: CJS named function expressions are export callable facts (`module.exports = function g(){}`, `exports.f = function g(){}`) (#627).
 /// - v147: Go receiver, closure-capture and same-line field contributions (#639 S2).
 /// - v148: CommonJS export writes beside a program-level ESM export are no export claim (#664).
-const CACHE_VERSION: u32 = 148;
+/// - v149: JS/TS/TSX reads in a nested parameter list or an instance field initializer, and reads whose def
+///   lies in another region, are `NameOnly(CfgIncomplete)` (#660 S1a); labels only.
+const CACHE_VERSION: u32 = 149;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -843,7 +845,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 148);
+        assert_eq!(super::CACHE_VERSION, 149);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

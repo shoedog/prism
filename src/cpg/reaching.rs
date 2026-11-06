@@ -13,6 +13,8 @@ use tree_sitter::Node;
 use super::{FlowConfidence, FlowDoubt};
 
 mod capture;
+mod capture_regions;
+mod census_trace;
 mod preflight;
 pub(crate) use preflight::unavailable_before_edges;
 mod cfg_edge_index;
@@ -614,7 +616,7 @@ fn classify_edge(
             function_start,
         );
     }
-    if capture::is_capture(edge, capture_facts) {
+    if capture::is_capture_traced(edge, capture_facts) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
     }
 
