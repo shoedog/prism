@@ -517,3 +517,18 @@ row!(
     "f:a@1->a@4",
     "cfg_incomplete"
 );
+// Not reads: an object key, and a name in a type position. An eager read of the same name on the line stays exact.
+row!(
+    object_key_in_a_field_is_not_a_read,
+    ALL_JS,
+    "function f(x) {\n  log();\n  const C = class { v = { x: 1 }; }; use(x);\n}\n",
+    "f:x@1->x@3",
+    "exact"
+);
+row!(
+    type_query_in_a_parameter_is_not_a_read,
+    TS_ONLY,
+    "function f(o) {\n  log();\n  use(o); g((z: typeof o) => 1);\n}\n",
+    "f:o@1->o@3",
+    "exact"
+);

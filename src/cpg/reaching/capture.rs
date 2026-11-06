@@ -72,16 +72,16 @@ fn main_capture(edge: &FlowEdge, facts: &CaptureFacts) -> bool {
 
 /// The innermost-region belt (JS family): the use lies in a region and the def does not lie in the
 /// use's innermost region (directly, or inside a region nested in it). Returns the use's region
-/// (`Some(None)`: it cannot be placed, which is a capture). The reference identity is line-keyed
-/// and an owner's use endpoint is usually a zero-width line anchor, so the line names the region;
-/// occurrences of one (path, line) in different regions cannot be placed. A use with real bytes
-/// outside every region is eager and keeps main's rule.
+/// (`Some(None)`: it cannot be placed, which is a capture). An owner's use endpoint is usually a
+/// zero-width line anchor, so the line-keyed reference identity names the region; occurrences in
+/// different regions cannot be placed. A use with real bytes is placed by them, and outside every
+/// region it is eager and keeps main's rule.
 fn region_belt(edge: &FlowEdge, js: &JsRegions) -> Option<Option<usize>> {
-    let by_line = js.line_region(&edge.to.path, edge.to.line)?;
     let use_region = if edge.to.end_byte > edge.to.start_byte {
+        // Real bytes place the use before any line lookup; outside every region it is eager.
         Some(js.innermost(edge.to.start_byte)?)
     } else {
-        by_line
+        js.line_region(&edge.to.path, edge.to.line)?
     };
     match use_region {
         Some(region) if js.within(edge.from.start_byte, region) => None,
@@ -107,6 +107,14 @@ pub(super) fn new_mechanism(edge: &FlowEdge, facts: &CaptureFacts) -> Option<&'s
     Some(match use_region.map(|region| js.kind(region)) {
         Some(RegionKind::Param) => census_trace::CAPTURE_PARAM,
         Some(RegionKind::Field) => census_trace::CAPTURE_FIELD,
+        // A read in a nested body that main's collector did not place at all (a wrapped receiver).
+        Some(RegionKind::Body)
+            if !facts
+                .references
+                .contains(&(edge.to.path.clone(), edge.to.line)) =>
+        {
+            census_trace::CAPTURE_BODY
+        }
         Some(RegionKind::Body) | None => census_trace::CAPTURE_REGION,
     })
 }
@@ -165,10 +173,7 @@ fn collect_reference_identities(
     }
 }
 
-pub(super) fn leftmost_receiver_identifier<'a>(
-    parsed: &ParsedFile,
-    mut node: Node<'a>,
-) -> Option<Node<'a>> {
+fn leftmost_receiver_identifier<'a>(parsed: &ParsedFile, mut node: Node<'a>) -> Option<Node<'a>> {
     loop {
         let receiver = node
             .child_by_field_name("argument")
@@ -186,7 +191,7 @@ pub(super) fn leftmost_receiver_identifier<'a>(
     }
 }
 
-pub(super) fn is_field_access_kind(kind: &str) -> bool {
+fn is_field_access_kind(kind: &str) -> bool {
     matches!(
         kind,
         "field_expression"

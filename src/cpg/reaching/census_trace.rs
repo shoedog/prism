@@ -12,6 +12,8 @@ use std::sync::OnceLock;
 pub(super) const CAPTURE_PARAM: &str = "capture-param";
 /// A use in an instance field initializer.
 pub(super) const CAPTURE_FIELD: &str = "capture-field";
+/// A use in a nested body that main's collector did not place (a read behind a wrapped receiver).
+pub(super) const CAPTURE_BODY: &str = "capture-body";
 /// The innermost-region belt: the def lies in a different region than the use.
 pub(super) const CAPTURE_REGION: &str = "capture-region";
 

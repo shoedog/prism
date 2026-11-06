@@ -77,3 +77,19 @@ fn other_languages_are_never_traced() {
     let py = "def f(y):\n    log()\n    g(lambda z=y: z)\n    h(lambda: y)\n";
     assert!(trace_lines(Language::Python, "py", py, true).is_empty());
 }
+
+#[test]
+fn a_nested_body_read_main_did_not_place_is_capture_body() {
+    // Main's collector stops at the member expression and never sees the receiver `o`.
+    let src = "function f(o) {\n  log();\n  g(() => (o).x);\n}\n";
+    for (language, ext) in [(Language::JavaScript, "js"), (Language::TypeScript, "ts")] {
+        let lines = trace_lines(language, ext, src, true);
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert_eq!(fields(&lines[0])[1], CAPTURE_BODY);
+    }
+    // A wrapped receiver in a parameter default is still a parameter capture.
+    let param = "function f(y) {\n  log();\n  g(function (z = box(y).x) { return z; });\n}\n";
+    let lines = trace_lines(Language::JavaScript, "js", param, true);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert_eq!(fields(&lines[0])[1], CAPTURE_PARAM);
+}

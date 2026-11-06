@@ -8,7 +8,6 @@
 //! own region. Regions nest; `innermost` answers which one holds a byte.
 //!
 //! Only JS-family owners build this: Python evaluates parameter defaults eagerly at definition time.
-use super::capture::{is_field_access_kind, leftmost_receiver_identifier};
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use std::collections::BTreeMap;
@@ -257,11 +256,24 @@ impl<'a, 'p> Builder<'a, 'p> {
 }
 
 impl JsRegions {
-    /// The line-keyed reference identity: `None` when no identifier of a region spells (path, line);
+    /// The line-keyed reference identity of a use, by its full path and by its base name (a member
+    /// read of `o` is found by the token `o` whatever wraps it): `None` when no read of a region
+    /// spells either on that line;
     /// otherwise the one innermost region holding every such occurrence, `Some(None)` when they lie
     /// in different regions (the use cannot be placed).
     pub(super) fn line_region(&self, path: &AccessPath, line: usize) -> Option<Option<usize>> {
-        self.references.get(&(path.clone(), line)).copied()
+        let full = self.references.get(&(path.clone(), line)).copied();
+        let base = if path.is_simple() {
+            None
+        } else {
+            let key = (AccessPath::simple(&path.base), line);
+            self.references.get(&key).copied()
+        };
+        match (full, base) {
+            (None, None) => None,
+            (Some(only), None) | (None, Some(only)) => Some(only),
+            (Some(a), Some(b)) => Some(if a == b { a } else { None }),
+        }
     }
 
     /// The innermost region holding `byte`, if any.
@@ -305,8 +317,11 @@ fn is_field_definition(kind: &str) -> bool {
     matches!(kind, "field_definition" | "public_field_definition")
 }
 
-/// The identifier reference identities below `node` with their start bytes, as
-/// `capture::collect_reference_identities` spells them, skipping any subtree that is exactly a hole.
+/// Every runtime identifier read below `node` with its start byte, and every member read as the
+/// path the DFG gives it (`ParsedFile::bounded_member_path_at`, the bounded normalizer the member
+/// index uses, so `(o as any).x` keys as `o.x`). The walk goes through every evaluated child:
+/// receivers, call arguments, indices, wrappers. Property names, type positions and any subtree that
+/// is exactly a hole are not reads.
 fn collect_occurrences(
     parsed: &ParsedFile,
     node: Node<'_>,
@@ -316,28 +331,25 @@ fn collect_occurrences(
     if !holes.is_empty() && holes.contains(&(node.start_byte(), node.end_byte())) {
         return;
     }
-    let line = |n: &Node<'_>| n.start_position().row + 1;
-    if is_field_access_kind(node.kind()) {
-        out.push((
-            AccessPath::from_expr(parsed.node_text(&node)),
-            line(&node),
-            node.start_byte(),
-        ));
-        if let Some(base) = leftmost_receiver_identifier(parsed, node) {
-            out.push((
-                AccessPath::simple(parsed.node_text(&base)),
-                line(&base),
-                base.start_byte(),
-            ));
-        }
+    if parsed.language.is_erased_type_boundary(node) {
         return;
     }
-    if parsed.language.is_identifier_node(node.kind()) {
-        out.push((
-            AccessPath::simple(parsed.node_text(&node)),
-            line(&node),
-            node.start_byte(),
-        ));
+    let line = node.start_position().row + 1;
+    match node.kind() {
+        "identifier" | "shorthand_property_identifier" | "this" => {
+            out.push((
+                AccessPath::simple(parsed.node_text(&node)),
+                line,
+                node.start_byte(),
+            ));
+        }
+        "member_expression" => {
+            let path = parsed
+                .bounded_member_path_at(node.start_byte(), node.end_byte())
+                .unwrap_or_else(|| AccessPath::from_expr(parsed.node_text(&node)));
+            out.push((path, line, node.start_byte()));
+        }
+        _ => {}
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
