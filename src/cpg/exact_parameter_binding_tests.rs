@@ -239,7 +239,7 @@ fn exact_parameter_missing_entry_def_never_searches_the_body() {
     for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
         let (cpg, files) = fixture(language, source);
         assert_eq!(argument_targets(&cpg, "run", "input", "take").len(), 1);
-        let mut index = cpg.var_index.clone();
+        let mut index = cpg.var_index.to_map(&cpg.graph);
         index.retain(|(_, name, _, line, path, access), _| {
             !(name == "take" && *line == 1 && path.base == "value" && *access == VarAccess::Def)
         });
@@ -249,8 +249,12 @@ fn exact_parameter_missing_entry_def_never_searches_the_body() {
                 && *line > 1
                 && path.base == "value"
                 && *access == VarAccess::Def));
-        let edges =
-            CodePropertyGraph::collect_step5b_edges(&cpg.call_graph, &index, &cpg.graph, &files);
+        let edges = CodePropertyGraph::collect_step5b_edges(
+            &cpg.call_graph,
+            &crate::cpg::var_index::VarIndex::from_map(index.clone()),
+            &cpg.graph,
+            &files,
+        );
         if !edges.is_empty() {
             failures.push(format!("{language:?}: body fallback survived: {edges:?}"));
         }
@@ -295,15 +299,14 @@ fn exact_parameter_node_fields_and_genuine_other_owner_cannot_be_substituted() {
     let mut failures = Vec::new();
     for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
         let (cpg, files) = fixture(language, source);
-        let (key, &target) = cpg
-            .var_index
+        let var_map = cpg.var_index.to_map(&cpg.graph);
+        let (key, &target) = var_map
             .iter()
             .find(|((_, owner, _, _, path, access), _)| {
                 owner == "take" && path.base == "value" && *access == VarAccess::Def
             })
             .unwrap();
-        let other = *cpg
-            .var_index
+        let other = *var_map
             .iter()
             .find(|((_, owner, _, _, path, access), _)| {
                 owner == "other" && path.base == "value" && *access == VarAccess::Def
@@ -330,7 +333,7 @@ fn exact_parameter_node_fields_and_genuine_other_owner_cannot_be_substituted() {
             "genuine_other",
         ] {
             let mut graph = cpg.graph.clone();
-            let mut index = cpg.var_index.clone();
+            let mut index = cpg.var_index.to_map(&cpg.graph);
             if field == "genuine_other" {
                 index.insert(key.clone(), other);
             } else if let CpgNode::Variable {
@@ -358,11 +361,15 @@ fn exact_parameter_node_fields_and_genuine_other_owner_cannot_be_substituted() {
             } else {
                 panic!("parameter control is not a variable");
             }
-            let parallel =
-                CodePropertyGraph::collect_step5b_edges(&cpg.call_graph, &index, &graph, &files);
+            let parallel = CodePropertyGraph::collect_step5b_edges(
+                &cpg.call_graph,
+                &crate::cpg::var_index::VarIndex::from_map(index.clone()),
+                &graph,
+                &files,
+            );
             let serial = CodePropertyGraph::collect_step5b_edges_reference(
                 &cpg.call_graph,
-                &index,
+                &crate::cpg::var_index::VarIndex::from_map(index.clone()),
                 &graph,
                 &files,
             );

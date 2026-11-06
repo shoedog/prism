@@ -5,7 +5,7 @@ use super::*;
 impl CodePropertyGraph {
     pub(crate) fn collect_step5b_edges_reference(
         cg: &CallGraph,
-        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: &VarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {

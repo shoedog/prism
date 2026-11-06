@@ -16,10 +16,10 @@ pub(super) struct ParamTarget {
 impl ParamTarget {
     pub(super) fn resolve(
         &self,
-        index: &BTreeMap<LegacyVarKey, NodeIndex>,
+        index: &VarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
     ) -> Option<NodeIndex> {
-        let idx = *index.get(&self.key)?;
+        let idx = index.get(graph, &self.key)?;
         matches!(graph.node_weight(idx), Some(CpgNode::Variable { start_byte, end_byte, .. })
             if (*start_byte, *end_byte) == self.bytes)
         .then_some(idx)
@@ -46,7 +46,7 @@ impl<'a> ParamCache<'a> {
         &self,
         callee: &FunctionId,
         parsed: &ParsedFile,
-        index: &BTreeMap<LegacyVarKey, NodeIndex>,
+        index: &VarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
     ) -> FactCell {
         let cell = self
@@ -102,7 +102,7 @@ impl<'a> ParamCache<'a> {
 pub(super) fn compute_param_def_nodes(
     parsed: &ParsedFile,
     callee: &FunctionId,
-    var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+    var_index: &VarIndex,
     graph: &DiGraph<CpgNode, CpgEdge>,
 ) -> Option<Vec<Option<NodeIndex>>> {
     #[cfg(test)]
@@ -120,16 +120,17 @@ pub(super) fn compute_param_def_nodes(
                 .map(|name| {
                     let path = AccessPath::simple(name);
                     (callee.start_line..=callee.end_line).find_map(|line| {
-                        var_index
-                            .get(&(
-                                callee.file.clone(),
-                                callee.name.clone(),
-                                callee.start_line,
+                        var_index.get_ref(
+                            graph,
+                            VarKeyRef {
+                                file: &callee.file,
+                                function: &callee.name,
+                                function_start_line: callee.start_line,
                                 line,
-                                path.clone(),
-                                VarAccess::Def,
-                            ))
-                            .copied()
+                                path: &path,
+                                access: VarAccess::Def,
+                            },
+                        )
                     })
                 })
                 .collect(),
@@ -172,14 +173,17 @@ pub(super) fn compute_param_def_nodes(
                     return None;
                 }
                 let path = AccessPath::simple(&slot.0);
-                let idx = *var_index.get(&(
-                    callee.file.clone(),
-                    callee.name.clone(),
-                    callee.start_line,
-                    callee.start_line,
-                    path.clone(),
-                    VarAccess::Def,
-                ))?;
+                let idx = var_index.get_ref(
+                    graph,
+                    VarKeyRef {
+                        file: &callee.file,
+                        function: &callee.name,
+                        function_start_line: callee.start_line,
+                        line: callee.start_line,
+                        path: &path,
+                        access: VarAccess::Def,
+                    },
+                )?;
                 matches!(graph.node_weight(idx), Some(CpgNode::Variable {
                     file, function, function_start_line, line, path: actual_path,
                     access: VarAccess::Def, start_byte, end_byte,

@@ -91,7 +91,7 @@ fn census(files: &BTreeMap<String, ParsedFile>) -> serde_json::Value {
                         let _ = compute_param_def_nodes(
                             cp,
                             r.target,
-                            &BTreeMap::new(),
+                            &VarIndex::new(),
                             &DiGraph::new(),
                         );
                     }
@@ -202,7 +202,7 @@ fn shared_parameter_demand_replay() {
         }
         super::callee_cost_tests::take_counts();
         let cache = ParamCache::new(&files);
-        let index = BTreeMap::new();
+        let index = VarIndex::new();
         let graph = DiGraph::new();
         // Repeat exactly the main caller/callee demand population. Empty graph
         // inputs suffice for discovery counts; full graph identity is tested

@@ -608,6 +608,7 @@ dependencies = [
  "bincode",
  "clap",
  "dirs",
+ "hashbrown 0.15.5",
  "hcl-rs",
  "libc",
  "memmap2",

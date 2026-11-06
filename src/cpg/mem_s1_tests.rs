@@ -75,7 +75,7 @@ fn assert_var_index_complete(files: &BTreeMap<String, ParsedFile>) -> usize {
                 .or_insert(idx);
         }
     }
-    assert_eq!(cpg.var_index, reference);
+    assert_eq!(cpg.var_index.to_map(&cpg.graph), reference);
     reference.len()
 }
 

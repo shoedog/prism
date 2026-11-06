@@ -204,7 +204,7 @@ fn missing_optional_entry_def_never_searches_the_body() {
     for language in [Language::TypeScript, Language::Tsx] {
         let (cpg, files) = build(language, source);
         assert_eq!(argument_edges(&cpg, "take").len(), 1);
-        let mut index = cpg.var_index.clone();
+        let mut index = cpg.var_index.to_map(&cpg.graph);
         index.retain(|(_, name, _, line, path, access), _| {
             !(name == "take" && *line == 1 && path.base == "value" && *access == VarAccess::Def)
         });
@@ -214,8 +214,12 @@ fn missing_optional_entry_def_never_searches_the_body() {
                 && *line > 1
                 && path.base == "value"
                 && *access == VarAccess::Def));
-        let edges =
-            CodePropertyGraph::collect_step5b_edges(&cpg.call_graph, &index, &cpg.graph, &files);
+        let edges = CodePropertyGraph::collect_step5b_edges(
+            &cpg.call_graph,
+            &crate::cpg::var_index::VarIndex::from_map(index.clone()),
+            &cpg.graph,
+            &files,
+        );
         if !edges.is_empty() {
             failures.push(format!("{language:?}: body fallback survived: {edges:?}"));
         }
@@ -844,7 +848,7 @@ fn reviewer_optional_inert_revokes_and_restores_without_body_fallback() {
                     assert_eq!(first_inert.as_ref(), Some(&normalized));
                 }
             } else {
-                let mut index = cpg.var_index.clone();
+                let mut index = cpg.var_index.to_map(&cpg.graph);
                 index.retain(|(_, name, _, line, path, access), _| {
                     !(name == "take"
                         && *line == 1
@@ -857,7 +861,7 @@ fn reviewer_optional_inert_revokes_and_restores_without_body_fallback() {
                 assert!(
                     CodePropertyGraph::collect_step5b_edges(
                         &cpg.call_graph,
-                        &index,
+                        &crate::cpg::var_index::VarIndex::from_map(index.clone()),
                         &cpg.graph,
                         &files
                     )
@@ -1282,7 +1286,7 @@ fn optional_inert_exact_body_and_wrong_owner_never_replace_entry() {
                 )],
                 "{language:?}/{case}"
             );
-            let mut index = cpg.var_index.clone();
+            let mut index = cpg.var_index.to_map(&cpg.graph);
             let before = index.len();
             index.retain(|(_, owner, start_line, line, path, access), _| {
                 !(owner == "take"
@@ -1314,13 +1318,13 @@ fn optional_inert_exact_body_and_wrong_owner_never_replace_entry() {
             for rows in [
                 CodePropertyGraph::collect_step5b_edges(
                     &cpg.call_graph,
-                    &index,
+                    &crate::cpg::var_index::VarIndex::from_map(index.clone()),
                     &cpg.graph,
                     &files,
                 ),
                 CodePropertyGraph::collect_step5b_edges_reference(
                     &cpg.call_graph,
-                    &index,
+                    &crate::cpg::var_index::VarIndex::from_map(index.clone()),
                     &cpg.graph,
                     &files,
                 ),

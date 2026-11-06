@@ -15,7 +15,7 @@ mod uses;
 impl CodePropertyGraph {
     pub(super) fn assemble_step5c_return_flow(
         go_satisfiers: &crate::resolution::go_satisfiers::GoSatisfierMemo<'_>,
-        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: &VarIndex,
         hidden: &BTreeSet<NodeIndex>,
         func_index: &BTreeMap<(String, String, usize), NodeIndex>,
         graph: &mut DiGraph<CpgNode, CpgEdge>,
@@ -96,15 +96,17 @@ impl CodePropertyGraph {
                             return None;
                         }
                         let found = var_index
-                            .get(&(
-                                caller_id.file.clone(),
-                                caller_id.name.clone(),
-                                caller_id.start_line,
-                                lhs.line,
-                                lhs.path.clone(),
-                                VarAccess::Def,
-                            ))
-                            .copied()
+                            .get_ref(
+                                graph,
+                                VarKeyRef {
+                                    file: &caller_id.file,
+                                    function: &caller_id.name,
+                                    function_start_line: caller_id.start_line,
+                                    line: lhs.line,
+                                    path: &lhs.path,
+                                    access: VarAccess::Def,
+                                },
+                            )
                             .filter(|&idx| {
                                 matches!(
                                     &graph[idx],
@@ -172,15 +174,17 @@ impl CodePropertyGraph {
 
                         let endpoint = simple_path.and_then(|path| {
                             var_index
-                                .get(&(
-                                    resolved.target.file.clone(),
-                                    resolved.target.name.clone(),
-                                    resolved.target.start_line,
-                                    value.line,
-                                    path,
-                                    VarAccess::Use,
-                                ))
-                                .copied()
+                                .get_ref(
+                                    graph,
+                                    VarKeyRef {
+                                        file: &resolved.target.file,
+                                        function: &resolved.target.name,
+                                        function_start_line: resolved.target.start_line,
+                                        line: value.line,
+                                        path: &path,
+                                        access: VarAccess::Use,
+                                    },
+                                )
                                 .filter(|&idx| {
                                     matches!(
                                         &graph[idx],

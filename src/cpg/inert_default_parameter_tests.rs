@@ -360,7 +360,7 @@ fn inert_default_missing_entry_def_never_searches_the_body() {
         let source = format!("{callee}function run(input) {{\n take(input);\n}}\n");
         let (cpg, files) = build(language, &source);
         assert_eq!(argument_edges(&cpg, "run", "take").len(), 1, "{language:?}");
-        let mut index = cpg.var_index.clone();
+        let mut index = cpg.var_index.to_map(&cpg.graph);
         index.retain(|(_, name, _, line, path, access), _| {
             !(name == "take" && *line == 1 && path.base == "value" && *access == VarAccess::Def)
         });
@@ -373,8 +373,12 @@ fn inert_default_missing_entry_def_never_searches_the_body() {
                     && *access == VarAccess::Def),
             "{language:?}: fixture must retain a same-name body Def to prove no substitution"
         );
-        let edges =
-            CodePropertyGraph::collect_step5b_edges(&cpg.call_graph, &index, &cpg.graph, &files);
+        let edges = CodePropertyGraph::collect_step5b_edges(
+            &cpg.call_graph,
+            &crate::cpg::var_index::VarIndex::from_map(index.clone()),
+            &cpg.graph,
+            &files,
+        );
         assert!(
             edges.is_empty(),
             "{language:?}: body fallback survived: {edges:?}"

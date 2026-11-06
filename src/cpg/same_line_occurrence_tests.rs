@@ -1157,7 +1157,7 @@ fn same_line_occurrence_o11_zero_width_rows_never_become_exact_candidates() {
         start_byte: 0,
         end_byte: 0,
     });
-    let legacy = BTreeMap::from([(
+    let legacy = VarIndex::from_map(BTreeMap::from([(
         (
             "app.js".to_string(),
             "outer".to_string(),
@@ -1167,7 +1167,7 @@ fn same_line_occurrence_o11_zero_width_rows_never_become_exact_candidates() {
             VarAccess::Use,
         ),
         zero_use,
-    )]);
+    )]));
     let exact = CodePropertyGraph::exact_var_index_from_graph(&graph);
     assert!(
         exact.is_empty(),

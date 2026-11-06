@@ -67,7 +67,7 @@ pub(super) struct SiteInputs<'a> {
     pub caller_parsed: &'a ParsedFile,
     pub callee_parsed: &'a ParsedFile,
     pub args: &'a [(String, std::ops::Range<usize>)],
-    pub var_index: &'a BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+    pub var_index: &'a VarIndex,
     pub exact_var_index: &'a ExactVarIndex,
     pub graph: &'a DiGraph<CpgNode, CpgEdge>,
     pub cross_file_free_single_exact: bool,

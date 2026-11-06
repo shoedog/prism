@@ -10,6 +10,7 @@ use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+use super::var_index::VarKeyRef;
 use super::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, VarAccess};
 
 /// Confidence filter for node-seeded traversal.
@@ -90,16 +91,17 @@ impl CodePropertyGraph {
         path: &AccessPath,
         access: VarAccess,
     ) -> Option<NodeIndex> {
-        self.var_index
-            .get(&(
-                file.to_string(),
-                function.to_string(),
+        self.var_index.get_ref(
+            &self.graph,
+            VarKeyRef {
+                file,
+                function,
                 function_start_line,
                 line,
-                path.clone(),
+                path,
                 access,
-            ))
-            .copied()
+            },
+        )
     }
 
     pub fn var_node_for_location(&self, loc: &VarLocation) -> Option<NodeIndex> {
@@ -662,11 +664,22 @@ impl CodePropertyGraph {
     /// Equivalent to `DataFlowGraph::all_defs_of()`.
     pub fn all_defs_of(&self, file: &str, var_name: &str) -> Vec<VarLocation> {
         let mut result = Vec::new();
-        for (&(ref f, ref _func, _fsl, ref _line, ref path, ref access), &_idx) in &self.var_index {
-            if f == file && path.base == var_name && *access == VarAccess::Def {
-                if let Some(loc) = self.to_var_location(_idx) {
-                    result.push(loc);
-                }
+        // Unordered scan, then the old key order over the matches only.
+        let mut matching: Vec<NodeIndex> = self
+            .var_index
+            .nodes()
+            .filter(|&idx| {
+                matches!(
+                    self.graph.node_weight(idx),
+                    Some(CpgNode::Variable { file: f, path, access, .. })
+                        if f == file && path.base == var_name && *access == VarAccess::Def
+                )
+            })
+            .collect();
+        self.var_index.sort_by_key_order(&self.graph, &mut matching);
+        for idx in matching {
+            if let Some(loc) = self.to_var_location(idx) {
+                result.push(loc);
             }
         }
         result
