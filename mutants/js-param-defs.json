@@ -86,7 +86,7 @@
    ]
   ],
   "PD-10-rd-seed-bare-arrow-region-off": [
-   "src/cpg/reaching/scope.rs",
+   "src/cpg/binding_facts/lexical.rs",
    ".parameter_binding_region(func_node)",
    ".find_parameters_node(func_node)",
    [

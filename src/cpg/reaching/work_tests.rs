@@ -2,7 +2,7 @@
 //! The differential compares stored DFG output plus the old parameter lookup,
 //! not complete per-owner RdOutcome/RdResult values or an independent scanner.
 //! Parameter rows on the signature line do not map to CFG statements, so this
-//! differential cannot guard the parameter-region step; scope::reuse_tests does.
+//! differential cannot guard the parameter-region step; binding_facts::reuse_tests does.
 use super::*;
 use crate::ast::call_membership_tests::inventory_count;
 use crate::data_flow::DataFlowGraph;
