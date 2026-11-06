@@ -375,9 +375,12 @@ fn is_plain_write_site(node: Node<'_>) -> bool {
     }
 }
 
-/// Names among `multi` whose address is taken in `owner`: the operand of a
-/// unary `&`, through parentheses, selectors, indexing and slicing, is rooted
-/// at the identifier. By name, so it covers the def's and the use's binding.
+/// Names among `multi` that rule S must keep: those whose address is taken in
+/// `owner` (the operand of a unary `&`, through parentheses, selectors, indexing
+/// and slicing, is rooted at the identifier) and names a range/receive `:=` or
+/// type-switch alias declares from a right-hand side that reads the same name
+/// (no emitted def, so outer def -> body use is the only value path).
+/// By name, so it covers the def's and the use's binding.
 fn address_taken_names<'a>(
     parsed: &'a ParsedFile,
     owner: Node<'a>,
@@ -404,6 +407,17 @@ fn address_taken_names<'a>(
         multi: &BTreeSet<&'a str>,
         out: &mut BTreeSet<&'a str>,
     ) {
+        // Slicing an array (`x[:]`) shares its storage as `&x` does.
+        if node.kind() == "slice_expression" {
+            if let Some(operand) = node.child_by_field_name("operand") {
+                let base = root(operand);
+                if base.kind() == "identifier" {
+                    if let Some(found) = multi.get(parsed.node_text(&base)) {
+                        out.insert(*found);
+                    }
+                }
+            }
+        }
         if node.kind() == "unary_expression"
             && node
                 .child_by_field_name("operator")
@@ -419,6 +433,35 @@ fn address_taken_names<'a>(
                 }
             }
         }
+        // Range `:=`, receive `:=` and type-switch alias declarations have no
+        // emitted def of their own. When the right-hand side reads the same name
+        // (`for _, v := range v`, `case v := <-v`, `switch v := v.(type)`), the
+        // outer def -> body use pair is the only value path: keep the name.
+        let declared = match node.kind() {
+            "type_switch_statement" => node
+                .child_by_field_name("alias")
+                .zip(node.child_by_field_name("value")),
+            "range_clause" | "receive_statement" if has_define_token(node) => node
+                .child_by_field_name("left")
+                .zip(node.child_by_field_name("right")),
+            _ => None,
+        };
+        if let Some((left, right)) = declared {
+            let mut names = left.walk();
+            let ids: Vec<Node<'a>> = if left.kind() == "identifier" {
+                vec![left]
+            } else {
+                left.named_children(&mut names).collect()
+            };
+            for id in ids.into_iter().filter(|n| n.kind() == "identifier") {
+                let name = parsed.node_text(&id);
+                if let Some(found) = multi.get(name) {
+                    if mentions(parsed, right, name) {
+                        out.insert(*found);
+                    }
+                }
+            }
+        }
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
             walk(parsed, child, multi, out);
@@ -427,6 +470,23 @@ fn address_taken_names<'a>(
     let mut out = BTreeSet::new();
     walk(parsed, owner, multi, &mut out);
     out
+}
+
+fn has_define_token(node: Node<'_>) -> bool {
+    let mut cursor = node.walk();
+    let found = node.children(&mut cursor).any(|c| c.kind() == ":=");
+    found
+}
+
+fn mentions(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
+    if node.kind() == "identifier" && parsed.node_text(&node) == name {
+        return true;
+    }
+    let mut cursor = node.walk();
+    let found = node
+        .named_children(&mut cursor)
+        .any(|c| mentions(parsed, c, name));
+    found
 }
 
 /// Names with at least two declaration sites in `owner`. This is a syntactic

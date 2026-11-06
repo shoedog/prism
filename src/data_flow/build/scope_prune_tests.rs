@@ -223,6 +223,9 @@ fn address_taken_names_keep() {
         );
         check(n, &src, &[("x", 4, 7, true)]);
     }
+    // Slicing an array shares its storage like `&x`.
+    let sl = "package p\nfunc f() {\n\tx := [1]int{}\n\ts := x[:]\n\tx = [1]int{7}\n\tif x := s; true {\n\t\tg(x)\n\t}\n}\n";
+    check("slice", sl, &[("x", 5, 7, true)]);
     // Control: another name's address does not stop the drop.
     let other = "package p\nfunc f() {\n\tz := 1\n\tq := &z\n\tx := 0\n\tx = 7\n\tif x := x; true {\n\t\tuse(x, q)\n\t}\n}\n";
     check("otheraddr", other, &[("x", 6, 8, false)]);
@@ -230,13 +233,19 @@ fn address_taken_names_keep() {
 }
 
 #[test]
-fn type_switch_alias_pairs_are_pinned() {
-    // The `type_switch_statement` arm of `is_plain_write_site` never fired (the
-    // alias identifier's parent is an `expression_list`), so deleting it changes
-    // nothing: the outer `v` -> clause `use(v)` pair is dropped by the use-side
-    // rule exactly as on the previous head and in the committed goldens.
-    let src = "package p\nfunc f(c any) {\n\tv := c\n\tswitch v := v.(type) {\n\tcase int:\n\t\tuse(v)\n\t}\n}\n";
-    check("typeswitch", src, &[("v", 3, 4, true), ("v", 3, 6, false)]);
+fn self_reading_declarations_without_a_def_keep_the_outer_pair() {
+    // The producer emits no def for a type-switch alias or a range/receive `:=`
+    // target, so when the right-hand side reads the same name, outer def -> body
+    // use is the only path carrying the value: S keeps it.
+    let ts = "package p\nfunc f(c any) {\n\tv := c\n\tswitch v := v.(type) {\n\tcase int:\n\t\tuse(v)\n\t}\n}\n";
+    check("typeswitch", ts, &[("v", 3, 4, true), ("v", 3, 6, true)]);
+    let rg =
+        "package p\nfunc f(c []int) {\n\tv := c\n\tfor _, v := range v {\n\t\tuse(v)\n\t}\n}\n";
+    check("range", rg, &[("v", 3, 5, true)]);
+    let ctl = "package p\nfunc f(c any) {\n\tv := 1\n\tuse(v)\n\tswitch v := c.(type) {\n\tcase int:\n\t\tuse(v)\n\t}\n}\n";
+    check("typeswitch-other-guard", ctl, &[("v", 3, 7, false)]);
+    let rc = "package p\nfunc f(c chan int) {\n\tv := c\n\tselect {\n\tcase v := <-v:\n\t\tuse(v)\n\t}\n}\n";
+    check("receive", rc, &[("v", 3, 6, true)]);
 }
 
 #[test]
