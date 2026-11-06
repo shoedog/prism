@@ -38,6 +38,21 @@ pub fn census_cg(cg: &CallGraph) {
     if !crate::census::enabled() {
         return;
     }
+    {
+        use std::mem::size_of;
+        eprintln!(
+            "CENSUS_SIZES {{\"CallSite\":{},\"FunctionId\":{},\"JsLocalBinding\":{},\"Option<ReceiverOutcome>\":{},\"Option<GoOwnerIdentity>\":{},\"Option<FunctionId>\":{},\"CallKind\":{},\"Option<ReceiverRecovery>\":{},\"Option<String>\":{}}}",
+            size_of::<CallSite>(),
+            size_of::<FunctionId>(),
+            size_of::<crate::call_graph::JsLocalBinding>(),
+            size_of::<Option<crate::resolution_identity::ReceiverOutcome>>(),
+            size_of::<Option<crate::resolution::GoOwnerIdentity>>(),
+            size_of::<Option<FunctionId>>(),
+            size_of::<crate::call_graph::CallKind>(),
+            size_of::<Option<crate::resolution::ReceiverRecovery>>(),
+            size_of::<Option<String>>()
+        );
+    }
     let (mut files, mut names, mut callee, mut qual, mut rtype, mut srcname) =
         (Dup::new(), Dup::new(), Dup::new(), Dup::new(), Dup::new(), Dup::new());
     let mut n_calls = 0usize;

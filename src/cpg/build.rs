@@ -552,7 +552,7 @@ impl CodePropertyGraph {
         let mut dfg = DataFlowGraph::build(files);
         crate::census::mark("dfg:end");
         if crate::census::drop_point().as_deref() == Some("after_dfg") {
-            crate::census::drop_measure("dfg", dfg);
+            dfg.census_drop();
             std::process::exit(0);
         }
         let mut cg = CallGraph::build_with_scope_graph_inputs(files, scope_inputs);
