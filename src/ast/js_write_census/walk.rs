@@ -163,8 +163,14 @@ pub(crate) fn precondition(t: &Tables, owner: Node<'_>, src: &[u8]) -> Option<Re
     }
 }
 
-/// Run the walk over `owner` (a callable node of `parsed`).
+/// Run the walk over `owner` (a callable node of `parsed`), every site mapped (E18, node chains).
 pub(crate) fn census(parsed: &ParsedFile, t: &Tables, owner: Node<'_>) -> Census {
+    census_with(parsed, t, owner, true)
+}
+
+/// The walk with site mapping optional: `map == false` leaves every site's `chain` and `span` unset
+/// (production wiring maps only the few sites it needs, from `Census::spans`).
+pub(crate) fn census_with(parsed: &ParsedFile, t: &Tables, owner: Node<'_>, map: bool) -> Census {
     let src = parsed.source.as_bytes();
     let mut out = Census::default();
     if let Some(r) = precondition(t, owner, src) {
@@ -183,6 +189,7 @@ pub(crate) fn census(parsed: &ParsedFile, t: &Tables, owner: Node<'_>) -> Census
         spans,
         out,
         param_outer: Vec::new(),
+        mapping: map,
     };
     w.children(owner, Ctx::Read, Region::default(), None);
     w.out
@@ -204,6 +211,8 @@ struct Walker<'a, 't> {
     out: Census,
     /// Regions enclosing the callables whose parameter lists are being walked (innermost last).
     param_outer: Vec<Region>,
+    /// Compute each site's E18 mapping (`chain`, `span`) as it is emitted.
+    mapping: bool,
 }
 
 /// The operand of a wrapper: the child a target context flows into.
@@ -439,7 +448,11 @@ impl<'a, 't> Walker<'a, 't> {
             _ => return,
         };
         let anchor = cons.map_or(n, |c| c.node);
-        let (chain, span) = self.map(anchor);
+        let (chain, span) = if self.mapping {
+            self.map(anchor)
+        } else {
+            (None, None)
+        };
         let for_head = cons.is_none() && matches!(ctx, Ctx::Target(Form::Write));
         self.out.sites.push(Site {
             path,

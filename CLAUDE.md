@@ -465,9 +465,21 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v150) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v151) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
+
+JS/TS/TSX write census (#660 S1b-1, `src/cpg/reaching/census_defs.rs` over `src/ast/js_write_census/`; design
+`docs/superpowers/plans/2026-11-05-660-js-def-census/DESIGN.md`): a write in the owner's body that the producer records no
+def for (update, pattern default, member target in a pattern, `delete`, wrapped or member `for` head, eager class position)
+is a kill-only def at its statement node, for bases the owner defines. It gens and kills by `affects` (a prefix write kills
+the paths below it), never emits an edge, is never a candidate and never counts in a collapse group; label-only. Both
+deduplication seams (solver and cap preflight) see the same completed list through a per-file memo (one walk per owner), so
+the one-node distinct-bases belt counts kill-only defs. Refused: an owner with an escaped identifier spelling, a parse error
+or a refused target kind labels every edge `NameOnly(CfgIncomplete)` and adds no def (availability untouched); a base whose
+eager site maps to no statement node (class or enum declaration lines) is refused the same way. Writes in a nested callable,
+an instance field initializer or the owner's own parameter list, declarations and `first_hazard` stay with S1c/S1d.
+`PRISM_RD_CENSUS_TRACE=1` names each moved edge (`kill:<form>`, `owner-refuse:..`, `site-unmapped`) from a census-free control pass.
 
 JS/TS/TSX parameter Defs: a formal that is read bare gets a Def at its identifier. A *member-only*
 formal (no bare read, including a bare read inside a member object such as `wrap(p).x`; at least one
