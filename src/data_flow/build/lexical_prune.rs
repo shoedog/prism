@@ -7,6 +7,9 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
+/// Byte spans of the headers a line's name is bound to; `None` = not provable.
+type HeaderSpans = Option<Vec<(usize, usize)>>;
+
 struct Write<'a> {
     span: (usize, usize),
     statement: Node<'a>,
@@ -41,7 +44,7 @@ pub(super) struct LexicalFacts<'a> {
     nested: Vec<(usize, usize)>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
     /// #662: def-independent header spans per (base, line); `None` = not provable.
-    header_cache: RefCell<BTreeMap<(String, usize), Option<Vec<(usize, usize)>>>>,
+    header_cache: RefCell<BTreeMap<(String, usize), HeaderSpans>>,
 }
 impl<'a> LexicalFacts<'a> {
     pub(super) fn new(
@@ -277,7 +280,7 @@ impl<'a> LexicalFacts<'a> {
             })
     }
 
-    fn header_spans(&self, key: &(String, usize)) -> Option<Vec<(usize, usize)>> {
+    fn header_spans(&self, key: &(String, usize)) -> HeaderSpans {
         let mut spans = Vec::new();
         for node in self.occurrences.get(key)? {
             match super::lexical_header::classify(self.parsed, *node) {
