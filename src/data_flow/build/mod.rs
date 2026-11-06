@@ -36,6 +36,8 @@ mod giant_owner_tests;
 #[cfg(test)]
 mod go_blank_tests;
 #[cfg(test)]
+mod go_header_scope_tests;
+#[cfg(test)]
 mod legacy_producer;
 mod lexical_prune;
 #[cfg(test)]
