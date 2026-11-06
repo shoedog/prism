@@ -7,6 +7,13 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
 
+// #437: the `prism` CLI uses jemalloc on Linux; glibc arenas retain several GiB
+// under the parallel CPG build. `prism-mcp` deliberately stays on the system
+// allocator (its Linux memory sampler reads glibc `mallinfo2`).
+#[cfg(target_os = "linux")]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 /// Parse `file:line` CLI seed specs into `SeedSpec::Loc`, delegating to
 /// `reasoning::seeds::parse_file_line_spec` for the actual normalization and
 /// minimum-line validation. This stays a small wrapper here (rather than
