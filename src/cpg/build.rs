@@ -11,6 +11,9 @@ mod callee_returns;
 #[path = "object_literal_args.rs"]
 mod object_literal_args;
 
+#[cfg(test)]
+#[path = "mem_s1_tests.rs"]
+mod mem_s1_tests;
 #[path = "step4.rs"]
 mod step4;
 #[cfg(test)]
@@ -1070,8 +1073,9 @@ impl CodePropertyGraph {
         let mut dfg_label_stats =
             Self::assemble_step4(&mut dfg, files, &var_index, &exact_var_index, &mut graph);
         let hidden_nodes = hidden.node_set();
-        let filtered = hidden.view(&var_index, &exact_var_index);
-        let (lookup, exact_lookup) = recall_hidden::pick(&filtered, &var_index, &exact_var_index);
+        let detached = hidden.detach(&mut var_index, &mut exact_var_index);
+        let lookup: &BTreeMap<LegacyVarKey, NodeIndex> = &detached;
+        let exact_lookup = &exact_var_index;
 
         profile.next("cpg.step5");
         // These phases mutate only the CPG. Keep a shared borrow of the fixed
@@ -1102,6 +1106,9 @@ impl CodePropertyGraph {
             graph.add_edge(from, to, w);
         }
 
+        // Nothing reads the build-local exact index after Step 5b.
+        drop(exact_var_index);
+
         profile.next("cpg.step5c");
         // --- Step 5c: callee-return → exact caller-LHS flow ---
         let return_flow_stats = Self::assemble_step5c_return_flow(
@@ -1113,6 +1120,8 @@ impl CodePropertyGraph {
             &mut location_index,
             files,
         );
+        // Put the hidden entries back before anything reads `var_index` again.
+        drop(detached);
         drop(go_satisfiers);
 
         // D12 incoming holes do not isolate outgoing E5 paths. After all flow
@@ -1257,6 +1266,10 @@ impl CodePropertyGraph {
                 _ => (1u8, 0, 0, 0, i.index()),
             });
         }
+
+        // Vec doubling leaves up to ~50% slack in node/edge storage that the
+        // finished graph never uses.
+        graph.shrink_to_fit();
 
         CodePropertyGraph {
             graph,
