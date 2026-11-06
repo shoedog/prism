@@ -204,8 +204,13 @@ mod tests {
     #[test]
     fn detach_hides_only_hidden_entries_and_drop_restores_them() {
         let g = DiGraph::new();
-        let (a, b, c) = (NodeIndex::new(0), NodeIndex::new(1), NodeIndex::new(2));
-        let mut var_index = index_of(&[(key(1), a), (key(2), b), (key(3), c)]);
+        let (a, b, c, d) = (
+            NodeIndex::new(0),
+            NodeIndex::new(1),
+            NodeIndex::new(2),
+            NodeIndex::new(3),
+        );
+        let mut var_index = index_of(&[(key(1), a), (key(2), b), (key(3), d)]);
         let original = var_index.to_map(&g);
         let mut exact = exact_of(&[(1, 0, 10), (2, 1, 20)]);
         // key(1) -> node a hidden; key(2) is *shared*: the entry holds the
@@ -215,7 +220,7 @@ mod tests {
             let view = h.detach(&mut var_index, &mut exact);
             assert_eq!(view.get(&g, &key(1)), None, "hidden entry is detached");
             assert_eq!(view.get(&g, &key(2)), Some(b), "shared entry stays visible");
-            assert_eq!(view.get(&g, &key(3)), Some(c));
+            assert_eq!(view.get(&g, &key(3)), Some(d));
         }
         assert_eq!(
             var_index.to_map(&g),
