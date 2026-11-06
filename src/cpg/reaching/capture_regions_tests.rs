@@ -118,7 +118,7 @@ fn one_line_key_in_two_regions_is_ambiguous() {
     let owner = file.tree.root_node().child(0).unwrap();
     let regions = js_regions(&file, owner);
     let a = AccessPath::simple("a");
-    assert_eq!(regions.line_region(&a, 2), Some(None));
+    assert_eq!(regions.line_region(&a, 2), Some(Placement::Ambiguous));
     assert_eq!(
         regions.line_region(&a, 1),
         None,
@@ -128,5 +128,60 @@ fn one_line_key_in_two_regions_is_ambiguous() {
     let file = ParsedFile::parse("a.js", one, JS).unwrap();
     let owner = file.tree.root_node().child(0).unwrap();
     let regions = js_regions(&file, owner);
-    assert!(matches!(regions.line_region(&a, 2), Some(Some(_))));
+    assert!(matches!(
+        regions.line_region(&a, 2),
+        Some(Placement::Region(_))
+    ));
+}
+
+fn placement(src: &str, name: &str, line: usize) -> Option<Placement> {
+    let file = ParsedFile::parse("a.ts", src, TS).unwrap();
+    assert_eq!(file.parse_error_count, 0, "{src}");
+    let owner = file.tree.root_node().child(0).unwrap();
+    js_regions(&file, owner).line_region(&AccessPath::simple(name), line)
+}
+
+#[test]
+fn names_a_callable_binds_are_not_reads() {
+    for src in [
+        "function f(a) {\n  a.then((a) => 1);\n}\n",
+        "function f(a) {\n  a.then(a => 1);\n}\n",
+        "function f(a) {\n  a.then((...a) => 1);\n}\n",
+        "function f(a) {\n  a.then(({ a, k: [a] }, { a: a }) => 1);\n}\n",
+        "function f(a) {\n  a.then((a: number, a?: string) => 1);\n}\n",
+        "function f(a) {\n  a.then(function a(a = 1) { return 1; });\n}\n",
+        // A function's own name inside a region body.
+        "function f(a) {\n  g(() => { h(function a() {}); });\n}\n",
+    ] {
+        // Line 1 (the owner's own formal) and line 2 (an eager read beside a nested formal): no region read.
+        assert_eq!(placement(src, "a", 1), None, "{src}");
+        assert_eq!(placement(src, "a", 2), None, "{src}");
+    }
+}
+
+#[test]
+fn defaults_and_computed_keys_in_parameter_patterns_are_reads() {
+    for src in [
+        "function f(y) {\n  g((a = y) => 1);\n}\n",
+        "function f(y) {\n  g(({ a = y }) => 1);\n}\n",
+        "function f(y) {\n  g(({ [y]: a }) => 1);\n}\n",
+        "function f(y) {\n  g(([a = y]) => 1);\n}\n",
+        "function f(y) {\n  g((a: number = y) => 1);\n}\n",
+    ] {
+        assert!(
+            matches!(placement(src, "y", 2), Some(Placement::Region(_))),
+            "{src}"
+        );
+    }
+}
+
+#[test]
+fn eager_reads_on_a_region_line_are_recorded_as_eager_and_mixed_keys_are_ambiguous() {
+    let eager_only = "function f(o) {\n  use(o); g(() => q);\n}\n";
+    assert_eq!(placement(eager_only, "o", 2), Some(Placement::Eager));
+    let mixed = "function f(o) {\n  use(o); g(() => o);\n}\n";
+    assert_eq!(placement(mixed, "o", 2), Some(Placement::Ambiguous));
+    // A line with no region read records nothing.
+    let none = "function f(o) {\n  use(o);\n}\n";
+    assert_eq!(placement(none, "o", 2), None);
 }

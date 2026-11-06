@@ -10,7 +10,7 @@
 //! Only JS-family owners build this: Python evaluates parameter defaults eagerly at definition time.
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -31,17 +31,38 @@ struct Span {
     parent: Option<usize>,
 }
 
+/// Where the reads of one line-keyed reference identity lie.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Placement {
+    /// Every read lies outside every region.
+    Eager,
+    /// Every read lies in this innermost region.
+    Region(usize),
+    /// Reads in different regions, or both eagerly and in a region: the use cannot be placed.
+    Ambiguous,
+}
+
+impl Placement {
+    fn merge(self, other: Placement) -> Placement {
+        if self == other {
+            self
+        } else {
+            Placement::Ambiguous
+        }
+    }
+}
+
 pub(super) struct JsRegions {
     kinds: Vec<RegionKind>,
     /// Sorted by start ascending, then end descending, then depth: ancestors precede descendants.
     spans: Vec<Span>,
-    /// The line-keyed reference identity (path, 1-indexed line) of every identifier in a region, with
-    /// the innermost region of its occurrences: `None` when occurrences lie in different regions.
-    references: BTreeMap<(AccessPath, usize), Option<usize>>,
+    /// The line-keyed reference identity (path, 1-indexed line) of every read on a line that holds a
+    /// region read, eager reads of those lines included, with where its occurrences lie.
+    references: BTreeMap<(AccessPath, usize), Placement>,
 }
 
-/// An identifier occurrence in a region: (path, 1-indexed line, start byte).
-type Occurrence = (AccessPath, usize, usize);
+/// A read candidate: (1-indexed line, start byte, end byte, is a member expression).
+type Candidate = (usize, usize, usize, bool);
 
 #[derive(Clone, Copy)]
 struct Ctx {
@@ -50,16 +71,17 @@ struct Ctx {
     covered: bool,
 }
 
-struct Builder<'a, 'p> {
+struct Builder<'a, 'p, 't> {
     parsed: &'p ParsedFile,
     boundary: &'a [&'a str],
     kinds: Vec<RegionKind>,
     /// (start, end, region id, depth)
     raw: Vec<(usize, usize, usize, usize)>,
-    occurrences: Vec<Occurrence>,
+    occurrences: Vec<Candidate>,
+    owner: Node<'t>,
 }
 
-pub(super) fn js_regions(parsed: &ParsedFile, func_node: Node<'_>) -> JsRegions {
+pub(super) fn js_regions<'t>(parsed: &ParsedFile, func_node: Node<'t>) -> JsRegions {
     let boundary = parsed.language.callable_boundary_node_types();
     let mut b = Builder {
         parsed,
@@ -67,6 +89,7 @@ pub(super) fn js_regions(parsed: &ParsedFile, func_node: Node<'_>) -> JsRegions 
         kinds: Vec::new(),
         raw: Vec::new(),
         occurrences: Vec::new(),
+        owner: func_node,
     };
     b.children(
         func_node,
@@ -78,7 +101,7 @@ pub(super) fn js_regions(parsed: &ParsedFile, func_node: Node<'_>) -> JsRegions 
     b.finish()
 }
 
-impl<'a, 'p> Builder<'a, 'p> {
+impl<'a, 'p, 't> Builder<'a, 'p, 't> {
     fn finish(self) -> JsRegions {
         let mut raw = self.raw;
         raw.sort_by_key(|&(start, end, _, depth)| (start, std::cmp::Reverse(end), depth));
@@ -102,17 +125,25 @@ impl<'a, 'p> Builder<'a, 'p> {
             spans,
             references: BTreeMap::new(),
         };
-        for (path, line, byte) in self.occurrences {
-            let region = regions.innermost(byte);
-            regions
-                .references
-                .entry((path, line))
-                .and_modify(|seen| {
-                    if *seen != region {
-                        *seen = None;
-                    }
-                })
-                .or_insert(region);
+        let mut region_lines = BTreeSet::new();
+        for candidate in &self.occurrences {
+            let placement = match regions.innermost(candidate.1) {
+                Some(region) => Placement::Region(region),
+                None => Placement::Eager,
+            };
+            region_lines.insert(candidate.0);
+            regions.note(self.parsed, candidate, placement);
+        }
+        // The same lines' eager reads: a use of an eager read must not be placed in a region by a
+        // name a region also spells.
+        if !region_lines.is_empty() {
+            let mut eager = Vec::new();
+            let mut collector = Collector::new(self.parsed, &[], &mut eager);
+            collector.prune = Some(&regions);
+            collector.walk_children(self.owner);
+            for candidate in eager.iter().filter(|c| region_lines.contains(&c.0)) {
+                regions.note(self.parsed, candidate, Placement::Eager);
+            }
         }
         regions
     }
@@ -151,7 +182,7 @@ impl<'a, 'p> Builder<'a, 'p> {
         }
         if !ctx.covered {
             for node in collect {
-                collect_occurrences(self.parsed, *node, holes, &mut self.occurrences);
+                Collector::new(self.parsed, holes, &mut self.occurrences).walk(*node);
             }
         }
         Ctx {
@@ -213,7 +244,13 @@ impl<'a, 'p> Builder<'a, 'p> {
             at = end;
         }
         ranges.push((at, list.end_byte()));
-        let inner = self.enter(RegionKind::Param, &ranges, ctx, &[list], &holes);
+        // A lone arrow parameter (`x => ..`) is a binding, not a read.
+        let collect: &[Node<'_>] = if list.kind() == "formal_parameters" {
+            &[list]
+        } else {
+            &[]
+        };
+        let inner = self.enter(RegionKind::Param, &ranges, ctx, collect, &holes);
         let mut cursor = list.walk();
         for param in list.children(&mut cursor) {
             let mut parts = param.walk();
@@ -256,24 +293,44 @@ impl<'a, 'p> Builder<'a, 'p> {
 }
 
 impl JsRegions {
-    /// The line-keyed reference identity of a use, by its full path and by its base name (a member
-    /// read of `o` is found by the token `o` whatever wraps it): `None` when no read of a region
-    /// spells either on that line;
-    /// otherwise the one innermost region holding every such occurrence, `Some(None)` when they lie
-    /// in different regions (the use cannot be placed).
-    pub(super) fn line_region(&self, path: &AccessPath, line: usize) -> Option<Option<usize>> {
-        let full = self.references.get(&(path.clone(), line)).copied();
-        let base = if path.is_simple() {
-            None
-        } else {
-            let key = (AccessPath::simple(&path.base), line);
-            self.references.get(&key).copied()
-        };
-        match (full, base) {
-            (None, None) => None,
-            (Some(only), None) | (None, Some(only)) => Some(only),
-            (Some(a), Some(b)) => Some(if a == b { a } else { None }),
+    fn note(&mut self, parsed: &ParsedFile, candidate: &Candidate, placement: Placement) {
+        let key = (candidate_path(parsed, candidate), candidate.0);
+        self.references
+            .entry(key)
+            .and_modify(|seen| *seen = seen.merge(placement))
+            .or_insert(placement);
+    }
+
+    /// The line-keyed reference identity of a use: by its full path when any read on the line (eager
+    /// or in a region) spells it, otherwise by its base name (a member read of `o` is found by the
+    /// token `o` whatever wraps it). `None` when no read on a line that holds a region read spells
+    /// either. Reads of one key both eagerly and in a region are `Placement::Ambiguous`.
+    pub(super) fn line_region(&self, path: &AccessPath, line: usize) -> Option<Placement> {
+        if let Some(found) = self.references.get(&(path.clone(), line)) {
+            return Some(*found);
         }
+        if path.is_simple() {
+            return None;
+        }
+        self.references
+            .get(&(AccessPath::simple(&path.base), line))
+            .copied()
+    }
+
+    /// End byte of the innermost span holding `byte`.
+    fn containing_end(&self, byte: usize) -> Option<usize> {
+        let mut at = self
+            .spans
+            .partition_point(|s| s.start <= byte)
+            .checked_sub(1);
+        while let Some(i) = at {
+            let span = &self.spans[i];
+            if byte < span.end {
+                return Some(span.end);
+            }
+            at = span.parent;
+        }
+        None
     }
 
     /// The innermost region holding `byte`, if any.
@@ -317,44 +374,167 @@ fn is_field_definition(kind: &str) -> bool {
     matches!(kind, "field_definition" | "public_field_definition")
 }
 
-/// Every runtime identifier read below `node` with its start byte, and every member read as the
-/// path the DFG gives it (`ParsedFile::bounded_member_path_at`, the bounded normalizer the member
-/// index uses, so `(o as any).x` keys as `o.x`). The walk goes through every evaluated child:
-/// receivers, call arguments, indices, wrappers. Property names, type positions and any subtree that
-/// is exactly a hole are not reads.
-fn collect_occurrences(
-    parsed: &ParsedFile,
-    node: Node<'_>,
-    holes: &[(usize, usize)],
-    out: &mut Vec<Occurrence>,
-) {
-    if !holes.is_empty() && holes.contains(&(node.start_byte(), node.end_byte())) {
-        return;
+fn candidate(node: Node<'_>) -> Option<Candidate> {
+    let member = match node.kind() {
+        "identifier" | "shorthand_property_identifier" | "this" => false,
+        "member_expression" => true,
+        _ => return None,
+    };
+    Some((
+        node.start_position().row + 1,
+        node.start_byte(),
+        node.end_byte(),
+        member,
+    ))
+}
+
+/// A member read as the path the DFG gives it (`ParsedFile::bounded_member_path_at`, the bounded
+/// normalizer the member index uses, so `(o as any).x` keys as `o.x`); an identifier as a simple path.
+fn candidate_path(parsed: &ParsedFile, &(_, start, end, member): &Candidate) -> AccessPath {
+    if member {
+        parsed
+            .bounded_member_path_at(start, end)
+            .unwrap_or_else(|| AccessPath::from_expr(&parsed.source[start..end]))
+    } else {
+        AccessPath::simple(&parsed.source[start..end])
     }
-    if parsed.language.is_erased_type_boundary(node) {
-        return;
-    }
-    let line = node.start_position().row + 1;
-    match node.kind() {
-        "identifier" | "shorthand_property_identifier" | "this" => {
-            out.push((
-                AccessPath::simple(parsed.node_text(&node)),
-                line,
-                node.start_byte(),
-            ));
-        }
-        "member_expression" => {
-            let path = parsed
-                .bounded_member_path_at(node.start_byte(), node.end_byte())
-                .unwrap_or_else(|| AccessPath::from_expr(parsed.node_text(&node)));
-            out.push((path, line, node.start_byte()));
-        }
-        _ => {}
-    }
+}
+
+fn children_with_fields(node: Node<'_>) -> Vec<(Node<'_>, Option<&'static str>)> {
+    let mut kids = Vec::new();
     let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        collect_occurrences(parsed, child, holes, out);
+    if cursor.goto_first_child() {
+        loop {
+            kids.push((cursor.node(), cursor.field_name()));
+            if !cursor.goto_next_sibling() {
+                break;
+            }
+        }
     }
+    kids
+}
+
+/// Collects the runtime reads below a node: every identifier and member read, through every
+/// evaluated child (receivers, call arguments, indices, wrappers). Not reads: property names, type
+/// positions, a subtree that is exactly a hole, and the names a callable binds (its formals, a lone
+/// arrow parameter, a function's own name); default values and computed keys inside parameter
+/// patterns are reads.
+struct Collector<'c, 'r> {
+    parsed: &'c ParsedFile,
+    holes: &'c [(usize, usize)],
+    out: &'c mut Vec<Candidate>,
+    /// When set, a subtree lying wholly inside a region is skipped (the eager walk).
+    prune: Option<&'r JsRegions>,
+}
+
+impl<'c, 'r> Collector<'c, 'r> {
+    fn new(
+        parsed: &'c ParsedFile,
+        holes: &'c [(usize, usize)],
+        out: &'c mut Vec<Candidate>,
+    ) -> Self {
+        Self {
+            parsed,
+            holes,
+            out,
+            prune: None,
+        }
+    }
+
+    fn walk_children(&mut self, node: Node<'_>) {
+        for (child, field) in children_with_fields(node) {
+            if skip_binding_field(node.kind(), field) {
+                continue;
+            }
+            self.walk(child);
+        }
+    }
+
+    fn walk(&mut self, node: Node<'_>) {
+        if !self.holes.is_empty() && self.holes.contains(&(node.start_byte(), node.end_byte())) {
+            return;
+        }
+        if self.parsed.language.is_erased_type_boundary(node) {
+            return;
+        }
+        if let Some(regions) = self.prune {
+            if regions
+                .containing_end(node.start_byte())
+                .is_some_and(|end| node.end_byte() <= end)
+            {
+                return;
+            }
+        }
+        if node.kind() == "formal_parameters" {
+            self.formals(node);
+            return;
+        }
+        if let Some(c) = candidate(node) {
+            self.out.push(c);
+        }
+        self.walk_children(node);
+    }
+
+    /// A parameter list: the names it binds are not reads, its defaults and computed keys are.
+    fn formals(&mut self, list: Node<'_>) {
+        for param in list.children(&mut list.walk()) {
+            if matches!(param.kind(), "required_parameter" | "optional_parameter") {
+                for (part, field) in children_with_fields(param) {
+                    match field {
+                        Some("pattern") => self.binding(part),
+                        _ => self.walk(part),
+                    }
+                }
+            } else {
+                self.binding(param);
+            }
+        }
+    }
+
+    /// A binding pattern: only default values and computed keys inside it are reads.
+    fn binding(&mut self, node: Node<'_>) {
+        match node.kind() {
+            "identifier" | "shorthand_property_identifier_pattern" | "this" => {}
+            "assignment_pattern" | "object_assignment_pattern" => {
+                for (part, field) in children_with_fields(node) {
+                    match field {
+                        Some("right") => self.walk(part),
+                        _ => self.binding(part),
+                    }
+                }
+            }
+            "pair_pattern" => {
+                for (part, field) in children_with_fields(node) {
+                    match field {
+                        Some("key") if part.kind() == "computed_property_name" => self.walk(part),
+                        Some("key") => {}
+                        _ => self.binding(part),
+                    }
+                }
+            }
+            "object_pattern" | "array_pattern" | "rest_pattern" => {
+                for (part, _) in children_with_fields(node) {
+                    self.binding(part);
+                }
+            }
+            _ => self.walk(node),
+        }
+    }
+}
+
+/// Fields that hold a name the callable binds: a lone arrow parameter, a function's own name.
+fn skip_binding_field(kind: &str, field: Option<&str>) -> bool {
+    matches!(
+        (kind, field),
+        ("arrow_function", Some("parameter"))
+            | (
+                "function_expression"
+                    | "generator_function"
+                    | "function_declaration"
+                    | "generator_function_declaration",
+                Some("name")
+            )
+    )
 }
 
 #[cfg(test)]

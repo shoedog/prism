@@ -1,4 +1,4 @@
-use super::capture_regions::{self, JsRegions, RegionKind};
+use super::capture_regions::{self, JsRegions, Placement, RegionKind};
 use super::census_trace;
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
@@ -73,15 +73,20 @@ fn main_capture(edge: &FlowEdge, facts: &CaptureFacts) -> bool {
 /// The innermost-region belt (JS family): the use lies in a region and the def does not lie in the
 /// use's innermost region (directly, or inside a region nested in it). Returns the use's region
 /// (`Some(None)`: it cannot be placed, which is a capture). An owner's use endpoint is usually a
-/// zero-width line anchor, so the line-keyed reference identity names the region; occurrences in
-/// different regions cannot be placed. A use with real bytes is placed by them, and outside every
+/// zero-width line anchor, so the line-keyed reference identity names the region (full path first,
+/// base name only when no read on the line spells the full path); a key read both eagerly and in a
+/// region, or in different regions, cannot be placed. A use with real bytes is placed by them, and outside every
 /// region it is eager and keeps main's rule.
 fn region_belt(edge: &FlowEdge, js: &JsRegions) -> Option<Option<usize>> {
     let use_region = if edge.to.end_byte > edge.to.start_byte {
         // Real bytes place the use before any line lookup; outside every region it is eager.
         Some(js.innermost(edge.to.start_byte)?)
     } else {
-        js.line_region(&edge.to.path, edge.to.line)?
+        match js.line_region(&edge.to.path, edge.to.line)? {
+            Placement::Eager => return None,
+            Placement::Ambiguous => None,
+            Placement::Region(region) => Some(region),
+        }
     };
     match use_region {
         Some(region) if js.within(edge.from.start_byte, region) => None,
