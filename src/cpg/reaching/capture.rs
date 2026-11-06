@@ -221,3 +221,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "capture_placement_tests.rs"]
+mod placement_tests;

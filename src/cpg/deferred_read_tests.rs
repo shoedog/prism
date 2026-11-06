@@ -367,3 +367,153 @@ const EDGES: [&str; 12] = [
     "f:y@9->y@3",
     "f:y@9->y@5",
 ];
+
+// ---- Round 1 fold: one identity for region reads, whatever wraps the receiver ------------------------
+// A DFG use is found by its identifier whatever expression carries it (`box(y).x`, `(o).x`, `o!.x`,
+// `o[0].x`, `(o as any).x`), so the region map must find the same read.
+const BOX_PARAM: &str =
+    "function f(y) {\n  log();\n  g(function (z = box(y).x) { return z; });\n}\n";
+const BOX_FIELD: &str =
+    "function f(y) {\n  log();\n  const C = class {\n    x = box(y).value;\n  };\n  return C;\n}\n";
+const AS_FIELD_AFTER_WRITE: &str = "function f(o) {\n  log();\n  o.x = 1;\n  const C = class {\n    x = (o as any).x;\n  };\n  return C;\n}\n";
+const AS_DEFAULT_AFTER_WRITE: &str =
+    "function f(o) {\n  log();\n  o.x = 1;\n  g((z = (o as any).x) => z);\n}\n";
+row!(
+    call_receiver_in_parameter_default,
+    ALL_JS,
+    BOX_PARAM,
+    "f:y@1->y@3",
+    "cfg_incomplete"
+);
+row!(
+    call_receiver_in_instance_field,
+    ALL_JS,
+    BOX_FIELD,
+    "f:y@1->y@4",
+    "cfg_incomplete"
+);
+row!(
+    asserted_member_composite_edge_in_instance_field,
+    TS_ONLY,
+    AS_FIELD_AFTER_WRITE,
+    "f:o.x@3->o.x@5",
+    "cfg_incomplete"
+);
+row!(
+    asserted_member_base_edge_in_instance_field,
+    TS_ONLY,
+    AS_FIELD_AFTER_WRITE,
+    "f:o@1->o@5",
+    "cfg_incomplete"
+);
+row!(
+    asserted_member_composite_edge_in_parameter_default,
+    TS_ONLY,
+    AS_DEFAULT_AFTER_WRITE,
+    "f:o.x@3->o.x@4",
+    "cfg_incomplete"
+);
+row!(
+    non_null_receiver_in_parameter_default,
+    TS_ONLY,
+    "function f(o) {\n  log();\n  g((z = o!.x) => z);\n}\n",
+    "f:o@1->o@3",
+    "cfg_incomplete"
+);
+row!(
+    asserted_receiver_in_instance_field,
+    TS_ONLY,
+    "function f(o) {\n  log();\n  const C = class {\n    v = (o as any).y;\n  };\n  return C;\n}\n",
+    "f:o@1->o@4",
+    "cfg_incomplete"
+);
+row!(
+    parenthesized_receiver_in_parameter_default,
+    ALL_JS,
+    "function f(o) {\n  log();\n  g((z = (o).x) => z);\n}\n",
+    "f:o@1->o@3",
+    "cfg_incomplete"
+);
+row!(
+    subscript_receiver_in_parameter_default,
+    ALL_JS,
+    "function f(o) {\n  log();\n  g((z = o[0].x) => z);\n}\n",
+    "f:o@1->o@3",
+    "cfg_incomplete"
+);
+row!(
+    parenthesized_receiver_in_instance_field,
+    ALL_JS,
+    "function f(o) {\n  log();\n  const C = class {\n    v = (o).y;\n  };\n  return C;\n}\n",
+    "f:o@1->o@4",
+    "cfg_incomplete"
+);
+// The same gap in nested bodies is inherited from main (capture-body in the trace).
+row!(
+    parenthesized_receiver_in_nested_body,
+    ALL_JS,
+    "function f(o) {\n  log();\n  g(() => (o).x);\n}\n",
+    "f:o@1->o@3",
+    "cfg_incomplete"
+);
+row!(
+    call_receiver_in_nested_body,
+    ALL_JS,
+    "function f(y) {\n  log();\n  g(() => box(y).x);\n}\n",
+    "f:y@1->y@3",
+    "cfg_incomplete"
+);
+// Eager equivalents keep their label.
+row!(
+    static_asserted_member_composite_is_eager,
+    TS_ONLY,
+    "function f(o) {\n  log();\n  o.x = 1;\n  const C = class {\n    static x = (o as any).x;\n  };\n  return C;\n}\n",
+    "f:o.x@3->o.x@5",
+    "exact"
+);
+row!(
+    static_call_receiver_is_eager,
+    ALL_JS,
+    "function f(y) {\n  log();\n  const C = class {\n    static x = box(y).value;\n  };\n  return C;\n}\n",
+    "f:y@1->y@4",
+    "exact"
+);
+row!(
+    no_region_member_chain_is_exact,
+    ALL_JS,
+    "function f(y) {\n  log();\n  return box(y).x;\n}\n",
+    "f:y@1->y@3",
+    "exact"
+);
+// Branches the first round left without a row; already NameOnly on c137b212, pinned.
+row!(
+    callable_inside_a_parameter_decorator,
+    TS_ONLY,
+    "function f(y) {\n  log();\n  const C = class {\n    constructor(@dec(() => y) p) {}\n  };\n  return C;\n}\n",
+    "f:y@1->y@4",
+    "cfg_incomplete"
+);
+row!(
+    member_base_read_in_parameter_default,
+    ALL_JS,
+    "function f(o) {\n  use(o);\n  g((z = o.m()) => z);\n}\n",
+    "f:o@1->o@3",
+    "cfg_incomplete"
+);
+row!(
+    member_base_read_in_instance_field,
+    ALL_JS,
+    "function f(o) {\n  use(o);\n  const C = class {\n    v = o.k;\n  };\n  return C;\n}\n",
+    "f:o@1->o@4",
+    "cfg_incomplete"
+);
+// The capture check precedes every other doubt: a killed pair becomes CfgIncomplete, as main does for
+// bodies. Labels move toward NameOnly(CfgIncomplete) from exact, sameline or another NameOnly doubt;
+// no NameOnly -> Exact move exists.
+row!(
+    killed_pair_into_a_parameter_default_becomes_cfg_incomplete,
+    ALL_JS,
+    "function f(a) {\n  log();\n  a = 2;\n  g((z = a) => z);\n}\n",
+    "f:a@1->a@4",
+    "cfg_incomplete"
+);
