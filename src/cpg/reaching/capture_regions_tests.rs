@@ -185,3 +185,38 @@ fn eager_reads_on_a_region_line_are_recorded_as_eager_and_mixed_keys_are_ambiguo
     let none = "function f(o) {\n  use(o);\n}\n";
     assert_eq!(placement(none, "o", 2), None);
 }
+
+#[test]
+fn a_type_position_name_is_not_a_read() {
+    // `typeof x` in a parameter annotation: main's DFG emits an edge into it (#684), but it is no read.
+    for src in [
+        "function f(x) {\n  g((z: typeof x) => 1);\n}\n",
+        "function f(x) {\n  g(function (z: typeof x) { return 1; });\n}\n",
+        "function f(x) {\n  g(function (z: Array<typeof x>) { return 1; });\n}\n",
+    ] {
+        assert_eq!(placement(src, "x", 2), None, "{src}");
+    }
+}
+
+#[test]
+fn a_callable_in_a_parameter_decorator_is_parented_outside_the_list() {
+    // The decorator is a hole in the parameter list; the callable inside it is its own region whose
+    // parent is the enclosing context, never the list. (The region tree is built from byte containment,
+    // `Ctx` carries only a depth that breaks ties between identical ranges, so walking a decorator part
+    // with the list's context changes no span order: the two spans of a decorator callable cannot share a
+    // range with any other region's span.)
+    let src = "function f(a) { const C = class { constructor(@dec(() => DD) p, q = QQ) {} }; }";
+    let file = ParsedFile::parse("a.ts", src, TS).unwrap();
+    let owner = file.tree.root_node().child(0).unwrap();
+    let regions = js_regions(&file, owner);
+    let at = |needle: &str| src.find(needle).unwrap();
+    let body = regions.innermost(at("DD")).unwrap();
+    let default = regions.innermost(at("QQ")).unwrap();
+    assert_eq!(regions.kind(body), RegionKind::Body);
+    assert_eq!(regions.kind(default), RegionKind::Param);
+    assert!(
+        !regions.within(at("DD"), default),
+        "the decorator callable is not inside the list"
+    );
+    assert!(!regions.within(at("QQ"), body));
+}

@@ -664,3 +664,26 @@ row!(
     "f:o@1->o@3",
     "cfg_incomplete"
 );
+
+// Mutant survivors of the cloud probes (round 3).
+// A type-position read (`typeof x`, issue #684: main's DFG emits an `exact` edge into it, which is #684's to
+// remove) with no other read of the name on the line: a region read only if the collector wrongly treats the
+// type position as a read. Expected on head: the edge keeps main's label, exact.
+row!(
+    typeof_in_a_nested_parameter_annotation_is_not_a_region_read,
+    TS_ONLY,
+    "function f(x) {\n  log();\n  g((z: typeof x) => z);\n}\n",
+    "f:x@1->x@3",
+    "exact"
+);
+// A callable inside a TS parameter decorator, with its def inside it and the use in a default of the same
+// list on its own line. Expected on head: the use is in the list's parameter region, the def is not in it
+// (the callable is a region of its own, parented outside the list), so cfg_incomplete. The probe that walks
+// decorator parts with the parameter context is equivalent (see capture_regions_tests).
+row!(
+    def_in_a_parameter_decorator_callable_use_in_a_default_of_the_same_list,
+    TS_ONLY,
+    "function f(a) {\n  log();\n  const C = class {\n    constructor(\n      @dec(() => { a = 2; }) p,\n      q = a,\n    ) {}\n  };\n  return C;\n}\n",
+    "f:a@5->a@6",
+    "cfg_incomplete"
+);

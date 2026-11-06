@@ -118,7 +118,7 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
         // its byte, so reads in a parameter decorator's hole are eager (or the enclosing region's).
         let mut reads = Vec::new();
         if !spans.is_empty() {
-            Collector::new(self.parsed, &mut reads).walk_children(self.owner);
+            Collector::new(&mut reads).walk_children(self.owner);
             reads.sort_by_key(|c| c.0);
         }
         JsRegions {
@@ -387,13 +387,12 @@ fn children_with_fields(node: Node<'_>) -> Vec<(Node<'_>, Option<&'static str>)>
 /// arrow parameter, a function's own name); default values and computed keys inside parameter
 /// patterns are reads.
 struct Collector<'c> {
-    parsed: &'c ParsedFile,
     out: &'c mut Vec<Candidate>,
 }
 
 impl<'c> Collector<'c> {
-    fn new(parsed: &'c ParsedFile, out: &'c mut Vec<Candidate>) -> Self {
-        Self { parsed, out }
+    fn new(out: &'c mut Vec<Candidate>) -> Self {
+        Self { out }
     }
 
     fn walk_children(&mut self, node: Node<'_>) {
