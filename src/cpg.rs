@@ -25,6 +25,8 @@ mod callback_identity_tests;
 mod cfg_queries;
 mod context;
 #[cfg(test)]
+mod deferred_read_tests;
+#[cfg(test)]
 mod dfg_missing_label_tests;
 #[cfg(test)]
 #[path = "cpg_cache/dfg_observation.rs"]
