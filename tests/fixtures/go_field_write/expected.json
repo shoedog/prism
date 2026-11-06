@@ -1007,5 +1007,53 @@
   {
     "case": "103_recv_defer_write_after",
     "edges": []
+  },
+  {
+    "case": "104_testfield_nontest_call",
+    "edges": [
+      [
+        "n.run.f",
+        4,
+        "n.run",
+        5,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "105_testfield_test_call",
+    "edges": []
+  },
+  {
+    "case": "106_nontest_field_nontest_call",
+    "edges": []
+  },
+  {
+    "case": "107_external_test_field",
+    "edges": [
+      [
+        "n.run.f",
+        4,
+        "n.run",
+        5,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "108_testtype_test_call",
+    "edges": [
+      [
+        "n.run.f",
+        4,
+        "n.run",
+        5,
+        "Exact"
+      ]
+    ]
+  },
+  {
+    "case": "109_testtype_nontest_call",
+    "edges": []
   }
 ]
