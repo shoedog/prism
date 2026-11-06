@@ -16,6 +16,8 @@ mod certificate;
 mod certificate_tests;
 #[path = "js_write_census/completion.rs"]
 pub(crate) mod completion;
+#[path = "js_write_census/counting.rs"]
+pub(crate) mod counting;
 #[cfg(test)]
 #[path = "js_write_census/harness.rs"]
 mod harness;

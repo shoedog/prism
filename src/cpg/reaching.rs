@@ -17,7 +17,9 @@ mod capture_regions;
 mod census_defs;
 mod census_pass;
 mod census_trace;
+mod d3;
 mod preflight;
+mod read_index;
 pub(crate) use preflight::unavailable_before_edges;
 mod cfg_edge_index;
 mod compact_wire;
@@ -259,7 +261,8 @@ fn reaching_definitions_impl(
     work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
     let raw_defs = defs;
     let (mut defs, mut census) = census_defs::complete_for(
-        pass == census_pass::Pass::Census,
+        pass.census(),
+        pass == census_pass::Pass::CensusLogged,
         parsed,
         func_node,
         deduplicate_definitions(defs),
@@ -411,11 +414,8 @@ fn reaching_definitions_impl(
     // Kill-only defs are never edge sources, so they never make a line's recorded defs ambiguous (E1).
     let collapsed = collapsed_groups(&defs[..n_recorded]);
     // The trace's control pass must not repeat S1a's capture lines.
-    let capture_facts = capture::capture_facts_with(
-        parsed,
-        *func_node,
-        pass == census_pass::Pass::Census && census_trace::enabled(),
-    );
+    let capture_facts =
+        capture::capture_facts_with(parsed, *func_node, pass.census() && census_trace::enabled());
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
     let mut exact_labels = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
@@ -593,8 +593,78 @@ fn deduplicate_definitions(defs: &[DefSite]) -> Vec<DefSite> {
     unique
 }
 
+/// The edge's label, then #660 S1b-2's D3 (DESIGN.md 8, the last step): an `exact` edge whose use or
+/// def node holds a write not proven ordered against it becomes `NameOnly(SameLine)`. It is applied
+/// to the finished label so it moves only `exact` edges, and to both the production and the frozen
+/// oracle paths, so parity compares like with like.
 #[allow(clippy::too_many_arguments)]
 fn classify_edge(
+    edge: &FlowEdge,
+    parsed: &ParsedFile,
+    defs: &[DefSite],
+    candidates: &[usize],
+    mapped_defs: &[Option<usize>],
+    line_index: &BTreeMap<Line, usize>,
+    statements: &mut statement_lookup::StatementLookup<'_>,
+    go_reachable: Option<&BitSet>,
+    in_sets: &[BitSet],
+    kill: &[BitSet],
+    flat_in_sets: &[BitSet],
+    flat_kill: &[BitSet],
+    paths: &mut Reachability<'_>,
+    bound_reach: &mut DefinitionReachability<'_>,
+    flat_reach: &mut DefinitionReachability<'_>,
+    collapsed: &BTreeSet<(AccessPath, Line)>,
+    capture_facts: &capture::CaptureFacts,
+    census: &census_defs::CensusFacts,
+    binding_facts: &crate::cpg::binding_facts::BindingFacts,
+    function_start: Line,
+) -> FlowConfidence {
+    let label = classify_edge_before_d3(
+        edge,
+        parsed,
+        defs,
+        candidates,
+        mapped_defs,
+        line_index,
+        statements,
+        go_reachable,
+        in_sets,
+        kill,
+        flat_in_sets,
+        flat_kill,
+        paths,
+        bound_reach,
+        flat_reach,
+        collapsed,
+        capture_facts,
+        census,
+        binding_facts,
+        function_start,
+    );
+    let Some(d3) = census.d3.as_ref().filter(|_| label.is_exact()) else {
+        return label;
+    };
+    let def_line = if edge.from.line == function_start && !line_index.contains_key(&function_start)
+    {
+        Some(function_start)
+    } else {
+        statements.get(edge.from.line)
+    };
+    match (statements.get(edge.to.line), def_line) {
+        (Some(use_line), Some(def_line))
+            if d3
+                .refuse(parsed, edge, use_line, def_line, candidates, binding_facts)
+                .is_some() =>
+        {
+            FlowConfidence::NameOnly(FlowDoubt::SameLine)
+        }
+        _ => label,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn classify_edge_before_d3(
     edge: &FlowEdge,
     parsed: &ParsedFile,
     defs: &[DefSite],
@@ -952,3 +1022,6 @@ mod def_bucket_tests;
 
 #[cfg(test)]
 mod census_defs_tests;
+
+#[cfg(test)]
+mod d3_tests;
