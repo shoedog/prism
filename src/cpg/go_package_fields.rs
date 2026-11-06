@@ -10,7 +10,9 @@
 //! Package identity: the directory plus the `package` clause name. An external
 //! test package (`foo_test`) is therefore its own package and does not see the
 //! fields of the internal `foo`; internal `_test.go` files (`package foo`)
-//! share it. A field refuses its name when its type may be callable: `func(..)`,
+//! share it. A declaration in a `_test.go` file (field or type) is visible only
+//! to call sites in `_test.go` files of the package (#677): a non-test file is
+//! compiled without them. A field refuses its name when its type may be callable: `func(..)`,
 //! a qualified `pkg.T`, a package-local named type that resolves (through
 //! aliases, to depth 8) to a func type, or one whose declaration cannot be
 //! classified (undeclared, a type parameter, a cycle). Basic, slice, map, chan,
@@ -38,8 +40,14 @@ enum Ty {
 
 #[derive(Default)]
 struct Package {
-    types: BTreeMap<String, Vec<Ty>>,
-    fields: Vec<(String, Ty)>,
+    /// Type declarations with the `_test.go` flag of their file.
+    types: BTreeMap<String, Vec<(bool, Ty)>>,
+    /// Fields with the `_test.go` flag of their file.
+    fields: Vec<(bool, String, Ty)>,
+}
+
+fn is_test_file(path: &str) -> bool {
+    path.ends_with("_test.go")
 }
 
 const BUILTIN: &[&str] = &[
@@ -103,7 +111,7 @@ fn classify(parsed: &ParsedFile, node: Node<'_>) -> Ty {
     }
 }
 
-fn scan(parsed: &ParsedFile, node: Node<'_>, pkg: &mut Package) {
+fn scan(parsed: &ParsedFile, node: Node<'_>, test: bool, pkg: &mut Package) {
     match node.kind() {
         "type_spec" | "type_alias" => {
             if let (Some(name), Some(ty)) = (
@@ -113,7 +121,7 @@ fn scan(parsed: &ParsedFile, node: Node<'_>, pkg: &mut Package) {
                 pkg.types
                     .entry(parsed.node_text(&name).to_owned())
                     .or_default()
-                    .push(classify(parsed, ty));
+                    .push((test, classify(parsed, ty)));
             }
         }
         "field_declaration" => {
@@ -131,11 +139,12 @@ fn scan(parsed: &ParsedFile, node: Node<'_>, pkg: &mut Package) {
                     }) {
                         t = inner;
                     }
-                    pkg.fields.push((parsed.node_text(&t).to_owned(), class));
+                    pkg.fields
+                        .push((test, parsed.node_text(&t).to_owned(), class));
                 } else {
                     for n in named {
                         pkg.fields
-                            .push((parsed.node_text(&n).to_owned(), class.clone()));
+                            .push((test, parsed.node_text(&n).to_owned(), class.clone()));
                     }
                 }
             }
@@ -144,7 +153,7 @@ fn scan(parsed: &ParsedFile, node: Node<'_>, pkg: &mut Package) {
     }
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
-        scan(parsed, child, pkg);
+        scan(parsed, child, test, pkg);
     }
 }
 
@@ -197,25 +206,43 @@ pub(crate) fn refusals<'a>(
         scan(
             parsed,
             parsed.tree.root_node(),
+            is_test_file(path),
             packages.entry(key).or_default(),
         );
     }
-    let callable: BTreeMap<PackageKey, BTreeSet<String>> = packages
+    // Per package: the callable-possible names a `_test.go` call site sees
+    // (every declaration) and a non-test call site sees (#677: a non-test file
+    // compiles without the package's `_test.go` files, so neither their fields
+    // nor their type declarations are visible to it).
+    let callable: BTreeMap<PackageKey, [BTreeSet<String>; 2]> = packages
         .into_iter()
         .map(|(key, pkg)| {
-            let names = pkg
-                .fields
-                .iter()
-                .filter(|(_, ty)| callable_possible(ty, &pkg.types, 0))
-                .map(|(name, _)| name.clone())
-                .collect();
-            (key, names)
+            let names = |test_view: bool| {
+                let types: BTreeMap<String, Vec<Ty>> = pkg
+                    .types
+                    .iter()
+                    .filter_map(|(n, ds)| {
+                        let ds: Vec<Ty> = ds
+                            .iter()
+                            .filter(|(t, _)| test_view || !t)
+                            .map(|(_, ty)| ty.clone())
+                            .collect();
+                        (!ds.is_empty()).then(|| (n.clone(), ds))
+                    })
+                    .collect();
+                pkg.fields
+                    .iter()
+                    .filter(|(t, _, ty)| (test_view || !t) && callable_possible(ty, &types, 0))
+                    .map(|(_, name, _)| name.clone())
+                    .collect::<BTreeSet<_>>()
+            };
+            (key, [names(false), names(true)])
         })
         .collect();
     Some(move |file: &str, selector: &str| {
         of_file
             .get(file)
             .and_then(|key| callable.get(key))
-            .is_some_and(|names| names.contains(selector))
+            .is_some_and(|views| views[usize::from(is_test_file(file))].contains(selector))
     })
 }

@@ -19,6 +19,12 @@ pub(super) const PACKAGE_ROWS: &[&str] = &[
     "95_alias_func",
     "96_unclassified_type",
     "97_embedded_foreign",
+    "104_testfield_nontest_call",
+    "105_testfield_test_call",
+    "106_nontest_field_nontest_call",
+    "107_external_test_field",
+    "108_testtype_test_call",
+    "109_testtype_nontest_call",
 ];
 
 pub(super) fn parse_dir(case: &str) -> BTreeMap<String, ParsedFile> {
