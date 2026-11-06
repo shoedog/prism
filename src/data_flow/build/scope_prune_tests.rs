@@ -233,7 +233,7 @@ fn address_taken_names_keep() {
 }
 
 #[test]
-fn self_reading_declarations_without_a_def_keep_the_outer_pair() {
+fn declarations_without_a_def_keep_the_outer_pair() {
     // The producer emits no def for a type-switch alias or a range/receive `:=`
     // target, so when the right-hand side reads the same name, outer def -> body
     // use is the only path carrying the value: S keeps it.
@@ -242,8 +242,9 @@ fn self_reading_declarations_without_a_def_keep_the_outer_pair() {
     let rg =
         "package p\nfunc f(c []int) {\n\tv := c\n\tfor _, v := range v {\n\t\tuse(v)\n\t}\n}\n";
     check("range", rg, &[("v", 3, 5, true)]);
-    let ctl = "package p\nfunc f(c any) {\n\tv := 1\n\tuse(v)\n\tswitch v := c.(type) {\n\tcase int:\n\t\tuse(v)\n\t}\n}\n";
-    check("typeswitch-other-guard", ctl, &[("v", 3, 7, false)]);
+    // A copy with no alias twin (`c := (v)`) leaves the pair as the only path too.
+    let paren = "package p\nfunc f() {\n\tv := any(7)\n\tc := (v)\n\tswitch v := c.(type) {\n\tcase int:\n\t\tprintln(v)\n\t}\n}\n";
+    check("typeswitch-paren-copy", paren, &[("v", 3, 7, true)]);
     let rc = "package p\nfunc f(c chan int) {\n\tv := c\n\tselect {\n\tcase v := <-v:\n\t\tuse(v)\n\t}\n}\n";
     check("receive", rc, &[("v", 3, 6, true)]);
 }

@@ -42,8 +42,7 @@ fn go_fold_r2_outer_writes_do_not_define_inner_bindings() {
                     && l[1]["line"] == line("// inner")
             })
             .collect();
-        // A distinct binding's pair is dropped outright by rule S (#630): count it.
-        observed += labels.len().max(usize::from(row["check"] == "distinct"));
+        observed += labels.len();
         if row["check"] == "existing" && labels.len() != 1 {
             failures.push(format!("{file}: missing assignment/reuse control"));
         }
@@ -137,12 +136,7 @@ fn type_switch_visibility(case: &str, alias: bool, body_exact: bool) {
             })
             .map(|(_, label)| label)
             .collect();
-        // A body read of the alias binds the clause's own `n`: rule S (#630) drops the pair.
-        let pass = if exact {
-            labels.len() == 1 && labels[0] == FlowConfidence::Exact
-        } else {
-            labels.is_empty()
-        };
+        let pass = labels.len() == 1 && (labels[0] == FlowConfidence::Exact) == exact;
         println!("type-switch {case:?} alias={alias}: n@3 -> n@{line}, exact={exact}, actual={labels:?}, pass={pass}");
         if !pass {
             failures.push(format!("n@3 -> n@{line}: exact={exact}, actual={labels:?}"));
