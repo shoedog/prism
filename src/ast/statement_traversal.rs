@@ -186,6 +186,12 @@ impl ParsedFile {
         tests::record(5, node.id(), node.child_count());
         for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
+            if self.is_c_do_condition(&node, &child) {
+                arms.of_line
+                    .entry(child.start_position().row + 1)
+                    .or_insert(arm);
+                continue;
+            }
             if kind == "compound_statement"
                 || kind == "block"
                 || kind == "statement_block"
@@ -360,6 +366,10 @@ impl ParsedFile {
         tests::record(1, node.id(), node.child_count());
         for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
+            if self.is_c_do_condition(&node, &child) {
+                out.push((child.start_position().row + 1, "do_condition".to_string()));
+                continue;
+            }
             if kind == "compound_statement"
                 || kind == "block"
                 || kind == "statement_block"
@@ -407,6 +417,15 @@ impl ParsedFile {
         tests::record(3, node.id(), node.child_count());
         for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
+            if self.is_c_do_condition(&node, &child) {
+                out.push(StatementSpan {
+                    line: child.start_position().row + 1,
+                    kind: "do_condition".to_string(),
+                    start_byte: child.start_byte(),
+                    end_byte: child.end_byte(),
+                });
+                continue;
+            }
             if kind == "compound_statement"
                 || kind == "block"
                 || kind == "statement_block"
@@ -449,6 +468,93 @@ impl ParsedFile {
                 });
             }
         }
+    }
+}
+
+/// A statement-level node as the C/C++ CFG counts statements (not the call
+/// and assignment expressions inside one, not blocks or `case` labels). The one
+/// admitted-statement predicate of the do-condition guard and `c_jumps`.
+pub(crate) fn is_c_cpp_statement_kind(kind: &str) -> bool {
+    (kind.ends_with("_statement") && !matches!(kind, "compound_statement" | "case_statement"))
+        || matches!(kind, "declaration" | "for_range_loop")
+}
+
+impl ParsedFile {
+    /// The line of a C/C++ `do`..`while (cond)` condition that is a CFG
+    /// statement of its own (#645): `continue` targets it, the body falls into
+    /// it and it decides between a second iteration and the loop exit. Admitted
+    /// only when the condition line is past every statement of the body and no
+    /// statement after the `do` starts on it (`} while (c); return r;`).
+    /// Otherwise `None` and main's edges for the loop stand. The single
+    /// predicate of the statement collectors, their oracle copies and
+    /// `c_jumps`.
+    pub(crate) fn c_do_condition_line(&self, do_node: &Node<'_>) -> Option<usize> {
+        if !matches!(
+            self.language,
+            crate::languages::Language::C | crate::languages::Language::Cpp
+        ) || do_node.kind() != "do_statement"
+        {
+            return None;
+        }
+        let row = |n: &Node<'_>| n.start_position().row + 1;
+        let cond = row(&do_node.child_by_field_name("condition")?);
+        let body = do_node.child_by_field_name("body")?;
+        let boundaries = self.language.callable_boundary_node_types();
+        let mut last = row(do_node);
+        let mut stack = vec![body];
+        while let Some(n) = stack.pop() {
+            if boundaries.contains(&n.kind()) {
+                continue;
+            }
+            if is_c_cpp_statement_kind(n.kind()) {
+                last = last.max(row(&n));
+            }
+            let mut cursor = n.walk();
+            stack.extend(n.named_children(&mut cursor));
+        }
+        (cond > last && !self.statement_outside_starts_on(do_node, cond)).then_some(cond)
+    }
+
+    /// Whether a statement of the owning callable, outside `do_node`, starts on
+    /// `line` (`} while (c); return r;`, also behind an unbraced parent or a
+    /// closing brace). The walk skips what ends before the `do` and the `do`
+    /// itself, and never enters a nested callable.
+    fn statement_outside_starts_on(&self, do_node: &Node<'_>, line: usize) -> bool {
+        let boundaries = self.language.callable_boundary_node_types();
+        let mut owner = *do_node;
+        while let Some(parent) = owner.parent() {
+            owner = parent;
+            if boundaries.contains(&owner.kind()) {
+                break;
+            }
+        }
+        let mut stack = vec![owner];
+        while let Some(n) = stack.pop() {
+            if n.id() == do_node.id() || n.end_byte() <= do_node.end_byte() && n.id() != owner.id()
+            {
+                continue;
+            }
+            if n.id() != owner.id() && boundaries.contains(&n.kind()) {
+                continue;
+            }
+            if n.start_byte() >= do_node.end_byte()
+                && is_c_cpp_statement_kind(n.kind())
+                && n.start_position().row + 1 == line
+            {
+                return true;
+            }
+            let mut cursor = n.walk();
+            stack.extend(n.named_children(&mut cursor));
+        }
+        false
+    }
+
+    pub(crate) fn is_c_do_condition(&self, parent: &Node<'_>, child: &Node<'_>) -> bool {
+        parent.kind() == "do_statement"
+            && parent
+                .child_by_field_name("condition")
+                .is_some_and(|c| c.id() == child.id())
+            && self.c_do_condition_line(parent).is_some()
     }
 }
 

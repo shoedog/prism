@@ -388,6 +388,8 @@ scope and order remain zero until their later slices ship. Prune counters count 
 producer candidates before edge compaction and deduplication, counted once from the
 first pass even when the owner is capped; replay does not count them again.
 
+C/C++ unlabeled `break`/`continue` have CFG edges (`src/cfg/c_jumps.rs`, #645): `break` goes to the structural exit of the innermost enclosing loop or `switch` (the next statement, or at the end of an enclosing loop body that loop's continue target; function-final gives none), `continue` to the innermost loop's header line, or a `do`'s condition line, skipping a `switch`; nested callables are never crossed. A `switch` dispatches header → each `case`'s first statement (an empty case reaches the next one) and, without `default`, header → exit, while real fallthrough keeps riding the sequential edge; a switch with a `case` outside the body's direct children (Duff's device) gets no dispatch. A `do`..`while` condition on its own line is a CFG statement (`statement_traversal` admits it for C/C++ only): body end → condition → first body statement (when the body's entry is Unknown, e.g. a leading preprocessor wrapper, condition → the `do` header line when that line holds no other statement, whose sequential edge enters the body; otherwise no edge) or loop exit, and the fabricated `do` header → exit edge and the body-last → `do` header back edge are dropped for EVERY admitted `do` (a kept back edge would bypass the condition's writes). `c_jumps` adds completion edges by an explicit rule list (`Cx::completions`): an expression statement or declaration completes at its own line; a block or case through its last statement; both `if` arms (the `if` itself without `else`); a nested loop header; a nested `do`'s condition; a labeled statement's inner statement; a `switch` through its last case and, only without `default` (and not Duff), through its header; `try`, preprocessor wrappers, attributed statements and unknown kinds supply no completion (a recall loss, never a bypass). The admission is one predicate, `ParsedFile::c_do_condition_line`, shared by the collectors, their oracle copies, `c_jumps` and `cfg.rs`: a one-line `do { .. } while (c);`, a condition sharing a line with any body statement (range-for included), or with ANY statement outside the `do` in the owning callable's statement universe (`} while (c); return r;`, also behind an unbraced parent, a closing brace or a label) keeps main's edges. All edges are `Structured`; statements sharing a line stay deduplicated (#549).
+
 Finding confidence is `exact | nameonly | unlabeled`; tier is `asserted` only for Exact evidence
 whose evidence-bearing files all parse cleanly, otherwise `candidate`. `asserted` grades the
 evidence path, not the heuristic's truth.
@@ -463,7 +465,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v148) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v149) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 

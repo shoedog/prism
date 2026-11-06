@@ -14,6 +14,7 @@ use crate::languages::Language;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+mod c_jumps;
 mod go_branches;
 mod go_jumps;
 pub(crate) mod js_single;
@@ -279,6 +280,11 @@ fn build_function_cfg(func_node: Node<'_>, parsed: &ParsedFile, edges: &mut Edge
     if parsed.language.switch_has_fallthrough() {
         build_switch_fallthrough_edges(func_node, parsed, edges);
     }
+
+    // C/C++ unlabeled break/continue, switch dispatch, do-while condition
+    if matches!(parsed.language, Language::C | Language::Cpp) {
+        c_jumps::build(func_node, parsed, &stmt_lines, edges);
+    }
 }
 
 /// Add edges for branch targets (if/else, switch/case).
@@ -427,7 +433,13 @@ fn collect_loop_back_edges(
             .or_else(|| node.child_by_field_name("consequence"))
         {
             if let Some(last) = last_statement_line(&body, parsed) {
-                if !ends_with_terminator(&body, parsed) {
+                // A rewired C/C++ `do` completes through its condition
+                // (`c_jumps`); the header holds no code, so the edge would only
+                // bypass the condition's writes.
+                let rewired_back = matches!(parsed.language, Language::C | Language::Cpp)
+                    && node.kind() == "do_statement"
+                    && c_jumps::do_back_edge_removed(node, parsed);
+                if !ends_with_terminator(&body, parsed) && !rewired_back {
                     edges.push(CfgEdge {
                         file: parsed.path.clone(),
                         from_line: last,
@@ -436,9 +448,18 @@ fn collect_loop_back_edges(
                 }
             }
         }
-        // Loop condition false → next statement after loop
+        // Loop condition false → next statement after loop. A C/C++ `do` whose
+        // condition is its own statement exits from that line (`c_jumps`); the
+        // header must not reach the code after the loop before the body runs.
         let loop_end = node.end_position().row + 1;
-        if let Some(&next) = stmt_lines.iter().find(|&&l| l > loop_end) {
+        let rewired_do = matches!(parsed.language, Language::C | Language::Cpp)
+            && node.kind() == "do_statement"
+            && c_jumps::do_condition_line(node, parsed).is_some();
+        if let Some(&next) = stmt_lines
+            .iter()
+            .find(|&&l| l > loop_end)
+            .filter(|_| !rewired_do)
+        {
             edges.push(CfgEdge {
                 file: parsed.path.clone(),
                 from_line: loop_line,
