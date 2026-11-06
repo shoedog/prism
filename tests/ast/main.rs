@@ -1,5 +1,6 @@
 mod access_path_test;
 mod binding_test;
+mod c_jumps_test;
 mod comment_string_test;
 #[allow(dead_code)]
 mod common;
