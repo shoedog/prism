@@ -292,8 +292,10 @@ mod stream;
 /// - v147: Go receiver, closure-capture and same-line field contributions (#639 S2).
 /// - v148: CommonJS export writes beside a program-level ESM export are no export claim (#664).
 /// - v149: C/C++ unlabeled break/continue, switch dispatch and do-while condition CFG edges (#645).
-/// - v150: Go rule S, a pair between different explicit declarations of one name is dropped (#630 slice 3).
-const CACHE_VERSION: u32 = 150;
+/// - v150: JS/TS/TSX reads in a nested parameter list or an instance field initializer, and reads whose def
+///   lies in another region, are `NameOnly(CfgIncomplete)` (#660 S1a); labels only.
+/// - v151: Go rule S, a pair between different explicit declarations of one name is dropped (#630 slice 3).
+const CACHE_VERSION: u32 = 151;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -826,7 +828,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 150);
+        assert_eq!(super::CACHE_VERSION, 151);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
