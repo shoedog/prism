@@ -1,0 +1,36 @@
+# kind	bind	name_token	reason
+# bind: BIND = can spell a variable a write or binding targets. name_token: NAME = an identifier-like token whose
+# source spelling may contain \u escapes; an escaped NAME token anywhere in an owner refuses the owner (W1).
+accessibility_modifier	NO	-	keyword
+comment	NO	-	trivia
+debugger_statement	NO	-	statement
+empty_statement	NO	-	statement
+escape_sequence	NO	-	string part
+existential_type	NO	-	type
+false	NO	-	literal
+hash_bang_line	NO	-	trivia
+html_character_reference	NO	-	JSX text
+html_comment	NO	-	trivia
+identifier	BIND	NAME	variable name
+import	NO	-	import() keyword
+jsx_text	NO	-	JSX text
+meta_property	NO	-	new.target / import.meta (not assignable)
+null	NO	-	literal
+number	NO	-	literal
+optional_chain	NO	-	?. token (optional chains are not assignment targets)
+override_modifier	NO	-	keyword
+predefined_type	NO	-	type
+private_property_identifier	NO	NAME	#field: a property, never a variable
+property_identifier	NO	NAME	property name
+regex_flags	NO	-	literal
+regex_pattern	NO	-	literal
+shorthand_property_identifier	NO	NAME	{ a } in an object literal: a read
+shorthand_property_identifier_pattern	BIND	NAME	{ a } in a pattern: binds a
+statement_identifier	NO	NAME	label
+string_fragment	NO	-	string part
+super	NO	-	not assignable
+this	NO	-	not assignable (TS `this` parameter is type-only)
+this_type	NO	-	type
+true	NO	-	literal
+type_identifier	BIND	NAME	TS class names (value binding) in `name` fields; elsewhere a type
+undefined	BIND	NAME	`undefined = v` targets the name undefined (a local may be named undefined)

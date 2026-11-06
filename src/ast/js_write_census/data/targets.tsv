@@ -1,0 +1,88 @@
+# kind	action	carrying_slots	reason
+# What a node kind does when it occupies a target or binding position (a slot whose role is W, RW, DEL,
+# FORHEAD, DECL:* or IMPORTNAME, or a carrying slot reached from one).
+#  NAME: a binding identity (write or declaration of that name) | PATH: member/subscript path write; object/index are reads
+#  PATTERN / PARAM / WRAP / IMPORTS: pass the target context through the listed carrying slots (their rows must keep a
+#  target role: INHERIT/WRAP for PATTERN and WRAP, DECL:*/IMPORTNAME for PARAM and IMPORTS); other slots keep their table role
+#  CONTAINER: passes the context through carrying slots that hold no name directly (each alternative needs an action)
+#  TYPE: a type operand of a wrapper (as/satisfies/<T>): never a target
+#  NONE: no binding (this, module names) | REFUSE: not a valid target; in W/RW context the owner is refused (fail closed),
+#  in DEL context (`delete <expr>`) there is no write
+identifier	NAME	-	variable name
+undefined	NAME	-	the name undefined
+shorthand_property_identifier_pattern	NAME	-	{ a } in a pattern
+type_identifier	NAME	-	TS class declaration name (value binding)
+member_expression	PATH	-	o.x target
+subscript_expression	PATH	-	o[k] target
+array_pattern	PATTERN	<children>	[a, b]
+object_pattern	PATTERN	<children>	{ a, k: b }
+assignment_pattern	PATTERN	left	a = default
+object_assignment_pattern	PATTERN	left	{ a = default }
+rest_pattern	PATTERN	<children>	...rest
+pair_pattern	PATTERN	value	k: target
+parenthesized_expression	WRAP	<children>	(target)
+non_null_expression	WRAP	<children>	target!
+as_expression	WRAP	<children>	target as T
+satisfies_expression	WRAP	<children>	target satisfies T
+type_assertion	WRAP	<children>	<T>target
+required_parameter	PARAM	pattern,name	TS parameter
+optional_parameter	PARAM	pattern,name	TS optional parameter
+named_imports	CONTAINER	<children>	import { .. } (module level): holds import_specifier
+import_specifier	IMPORTS	name,alias	import { a as b }: name binds without alias, alias binds with one
+namespace_import	IMPORTS	<children>	import * as ns (module level)
+this	NONE	-	TS this parameter / delete this
+string	NONE	-	import { "name" as x } / declare module "m"
+nested_identifier	NONE	-	namespace A.B (module or namespace level)
+array	REFUSE	-	not a reference
+arrow_function	REFUSE	-	not a reference
+assignment_expression	REFUSE	-	not a reference
+augmented_assignment_expression	REFUSE	-	not a reference
+await_expression	REFUSE	-	not a reference
+binary_expression	REFUSE	-	not a reference
+call_expression	REFUSE	-	not a reference (f()++ is an early error)
+class	REFUSE	-	not a reference
+false	REFUSE	-	literal
+function_expression	REFUSE	-	not a reference
+generator_function	REFUSE	-	not a reference
+instantiation_expression	REFUSE	-	TS f<T>: not a reference
+internal_module	REFUSE	-	not a reference
+jsx_element	REFUSE	-	not a reference
+jsx_self_closing_element	REFUSE	-	not a reference
+meta_property	REFUSE	-	new.target / import.meta
+new_expression	REFUSE	-	not a reference
+null	REFUSE	-	literal
+number	REFUSE	-	literal
+object	REFUSE	-	not a reference
+regex	REFUSE	-	literal
+super	REFUSE	-	not a reference
+template_string	REFUSE	-	literal
+ternary_expression	REFUSE	-	not a reference
+true	REFUSE	-	literal
+unary_expression	REFUSE	-	not a reference
+update_expression	REFUSE	-	not a reference
+yield_expression	REFUSE	-	not a reference
+sequence_expression	REFUSE	-	(a, b) = v is not a reference
+array_type	TYPE	-	type operand of a wrapper
+parenthesized_type	TYPE	-	type operand of a wrapper
+lookup_type	TYPE	-	type operand of a wrapper
+predefined_type	TYPE	-	type operand of a wrapper
+nested_type_identifier	TYPE	-	type operand of a wrapper
+generic_type	TYPE	-	type operand of a wrapper
+const	TYPE	-	type operand of a wrapper
+conditional_type	TYPE	-	type operand of a wrapper
+existential_type	TYPE	-	type operand of a wrapper
+object_type	TYPE	-	type operand of a wrapper
+union_type	TYPE	-	type operand of a wrapper
+constructor_type	TYPE	-	type operand of a wrapper
+literal_type	TYPE	-	type operand of a wrapper
+this_type	TYPE	-	type operand of a wrapper
+intersection_type	TYPE	-	type operand of a wrapper
+readonly_type	TYPE	-	type operand of a wrapper
+infer_type	TYPE	-	type operand of a wrapper
+flow_maybe_type	TYPE	-	type operand of a wrapper
+index_type_query	TYPE	-	type operand of a wrapper
+tuple_type	TYPE	-	type operand of a wrapper
+type_query	TYPE	-	type operand of a wrapper
+function_type	TYPE	-	type operand of a wrapper
+template_literal_type	TYPE	-	type operand of a wrapper
+type_arguments	TYPE	-	type operand of a wrapper
