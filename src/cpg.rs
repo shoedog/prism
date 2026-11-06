@@ -19,7 +19,7 @@
 pub(crate) mod anon_guard_tests;
 #[cfg(test)]
 mod asserted_member_tests;
-mod binding_facts;
+pub(crate) mod binding_facts;
 mod build;
 #[cfg(test)]
 mod callback_identity_tests;

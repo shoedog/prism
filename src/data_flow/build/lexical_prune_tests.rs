@@ -44,7 +44,8 @@ fn go_prune_matrix() {
         assert_eq!(
             before.edges.len() - after.edges.len(),
             after.rd_function_stats.dfg_pruned_write_only
-                + after.rd_function_stats.dfg_pruned_dominated,
+                + after.rd_function_stats.dfg_pruned_dominated
+                + after.rd_function_stats.dfg_pruned_scope,
             "{name}: prune counters must count removed expanded edges"
         );
         for (key, label) in &after.labels {
@@ -247,7 +248,6 @@ fn prune_stats_cache_and_incremental_custody() {
     let cold = CodePropertyGraph::build(&files);
     assert!(cold.dfg_label_stats.dfg_pruned_write_only > 0);
     assert!(cold.dfg_label_stats.dfg_pruned_dominated > 0);
-    assert_eq!(cold.dfg_label_stats.dfg_pruned_scope, 0);
     assert_eq!(cold.dfg_label_stats.dfg_pruned_order, 0);
     let hashes = cpg_cache::compute_file_hashes(&sources);
     let dir = tempfile::tempdir().unwrap();
