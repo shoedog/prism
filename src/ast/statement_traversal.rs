@@ -186,6 +186,12 @@ impl ParsedFile {
         tests::record(5, node.id(), node.child_count());
         for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
+            if self.is_c_do_condition(&node, &child) {
+                arms.of_line
+                    .entry(child.start_position().row + 1)
+                    .or_insert(arm);
+                continue;
+            }
             if kind == "compound_statement"
                 || kind == "block"
                 || kind == "statement_block"
@@ -360,6 +366,10 @@ impl ParsedFile {
         tests::record(1, node.id(), node.child_count());
         for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
+            if self.is_c_do_condition(&node, &child) {
+                out.push((child.start_position().row + 1, "do_condition".to_string()));
+                continue;
+            }
             if kind == "compound_statement"
                 || kind == "block"
                 || kind == "statement_block"
@@ -407,6 +417,15 @@ impl ParsedFile {
         tests::record(3, node.id(), node.child_count());
         for child in crate::go_statements::children(node, self.language) {
             let kind = child.kind();
+            if self.is_c_do_condition(&node, &child) {
+                out.push(StatementSpan {
+                    line: child.start_position().row + 1,
+                    kind: "do_condition".to_string(),
+                    start_byte: child.start_byte(),
+                    end_byte: child.end_byte(),
+                });
+                continue;
+            }
             if kind == "compound_statement"
                 || kind == "block"
                 || kind == "statement_block"
@@ -449,6 +468,23 @@ impl ParsedFile {
                 });
             }
         }
+    }
+}
+
+impl ParsedFile {
+    /// The C/C++ `while (cond)` of a `do_statement`. Its line is a CFG
+    /// statement of its own (#645): `continue` targets it, the body falls into
+    /// it and it decides between a second iteration and the loop exit. A
+    /// condition sharing a line with the `do` header or the body's last
+    /// statement adds nothing (line deduplication keeps the earlier entry).
+    pub(crate) fn is_c_do_condition(&self, parent: &Node<'_>, child: &Node<'_>) -> bool {
+        matches!(
+            self.language,
+            crate::languages::Language::C | crate::languages::Language::Cpp
+        ) && parent.kind() == "do_statement"
+            && parent
+                .child_by_field_name("condition")
+                .is_some_and(|c| c.id() == child.id())
     }
 }
 

@@ -291,7 +291,8 @@ mod stream;
 /// - v145: Go eager field contributions and independent recall owner counters (#639).
 /// - v146: CJS named function expressions are export callable facts (`module.exports = function g(){}`, `exports.f = function g(){}`) (#627).
 /// - v147: Go receiver, closure-capture and same-line field contributions (#639 S2).
-const CACHE_VERSION: u32 = 147;
+/// - v148: C/C++ unlabeled break/continue, switch dispatch and do-while condition CFG edges (#645).
+const CACHE_VERSION: u32 = 148;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -842,7 +843,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 147);
+        assert_eq!(super::CACHE_VERSION, 148);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
