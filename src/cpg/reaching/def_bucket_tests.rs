@@ -314,7 +314,12 @@ fn kill_alias_gen_binding_and_fields() {
         if alias < defs.len() {
             defs[alias].alias_derived = true;
         }
-        let facts = scope::BindingFacts::new(&parsed, &owner, &defs, std::iter::empty());
+        let facts = crate::cpg::binding_facts::BindingFacts::new(
+            &parsed,
+            &owner,
+            &defs,
+            std::iter::empty(),
+        );
         for together in [false, true] {
             let mut gen = vec![BitSet::new(defs.len()); 15];
             for (index, def) in defs.iter().enumerate() {

@@ -9,13 +9,13 @@ use std::collections::{BTreeMap, BTreeSet};
 type Key = (Line, Line, AccessPath); // legacy owner start line, use line, full path
 
 #[derive(Default)]
-pub(super) struct UseBytes {
+pub(in crate::cpg) struct UseBytes {
     requests: BTreeSet<Key>,
     values: OnceCell<BTreeMap<Key, Option<usize>>>,
 }
 
 impl UseBytes {
-    pub(super) fn new<'a>(edges: impl Iterator<Item = &'a FlowEdge>) -> Self {
+    pub(in crate::cpg) fn new<'a>(edges: impl Iterator<Item = &'a FlowEdge>) -> Self {
         Self {
             requests: edges
                 .filter(|edge| edge.to.start_byte >= edge.to.end_byte)
@@ -25,7 +25,7 @@ impl UseBytes {
         }
     }
 
-    pub(super) fn get(&self, parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
+    pub(in crate::cpg) fn get(&self, parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
         if edge.to.start_byte < edge.to.end_byte {
             return Some(edge.to.start_byte);
         }

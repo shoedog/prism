@@ -37,9 +37,10 @@ mod legacy_classify;
 mod reach_memo;
 #[cfg(test)]
 mod reach_memo_tests;
-mod scope;
+#[cfg(test)]
+pub(super) mod scope;
 mod statement_lookup;
-mod use_bytes;
+pub(super) mod use_bytes;
 
 pub(crate) use cfg_edge_index::FileCfgEdgeIndex;
 use graph::{reverse_postorder, BitSet};
@@ -359,7 +360,7 @@ fn reaching_definitions_impl(
             }
         })
         .collect();
-    let binding_facts = scope::BindingFacts::new(
+    let binding_facts = crate::cpg::binding_facts::BindingFacts::new(
         parsed,
         func_node,
         &defs,
@@ -590,7 +591,7 @@ fn classify_edge(
     flat_reach: &mut DefinitionReachability<'_>,
     collapsed: &BTreeSet<(AccessPath, Line)>,
     capture_facts: &capture::CaptureFacts,
-    binding_facts: &scope::BindingFacts,
+    binding_facts: &crate::cpg::binding_facts::BindingFacts,
     function_start: Line,
 ) -> FlowConfidence {
     #[cfg(test)]
@@ -696,9 +697,9 @@ fn classify_edge(
     let mut boundary_kills = Vec::new();
     for &index in candidates {
         match binding_facts.relation(parsed, edge, index) {
-            scope::BindingRelation::Same => same_binding.push(index),
-            scope::BindingRelation::KilledAt(line) => boundary_kills.push(line),
-            scope::BindingRelation::Unresolved => {}
+            crate::cpg::binding_facts::BindingRelation::Same => same_binding.push(index),
+            crate::cpg::binding_facts::BindingRelation::KilledAt(line) => boundary_kills.push(line),
+            crate::cpg::binding_facts::BindingRelation::Unresolved => {}
         }
     }
     if let Some(kill_line) = boundary_kills.into_iter().min() {
@@ -911,7 +912,7 @@ fn innermost_statement(line: Line, spans: &[StatementLineSpan]) -> Option<Line> 
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
-mod work_tests;
+pub(super) mod work_tests;
 
 #[cfg(test)]
 mod join_kind_tests;

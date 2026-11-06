@@ -1,5 +1,5 @@
 //! Ordered definition indexes, scoped to one admitted RD invocation.
-use super::{scope, AccessPath, BitSet, DefSite, FlowEdge, Line};
+use super::{AccessPath, BitSet, DefSite, FlowEdge, Line};
 use std::collections::BTreeMap;
 
 pub(super) struct DefinitionBuckets<'a> {
@@ -70,7 +70,7 @@ impl<'a> DefinitionBuckets<'a> {
         &self,
         defs: &[DefSite],
         gen: &[BitSet],
-        binding_facts: &scope::BindingFacts,
+        binding_facts: &crate::cpg::binding_facts::BindingFacts,
     ) -> (Vec<BitSet>, Vec<BitSet>) {
         #[cfg(test)]
         if super::def_bucket_tests::legacy_enabled() {
@@ -107,7 +107,7 @@ impl<'a> DefinitionBuckets<'a> {
 pub(super) fn legacy_kill_sets(
     defs: &[DefSite],
     gen: &[BitSet],
-    binding_facts: &scope::BindingFacts,
+    binding_facts: &crate::cpg::binding_facts::BindingFacts,
 ) -> (Vec<BitSet>, Vec<BitSet>) {
     let mut kill = vec![BitSet::new(defs.len()); gen.len()];
     let mut flat_kill = vec![BitSet::new(defs.len()); gen.len()];
