@@ -10,8 +10,8 @@ use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingId};
 use crate::cpg::{DefSite, RdFileStats};
 use crate::languages::Language;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::cell::{OnceCell, RefCell};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 use tree_sitter::Node;
 
@@ -23,78 +23,117 @@ struct Occurrence {
 }
 
 type LineKey = (String, usize);
-type LineCache = RefCell<BTreeMap<LineKey, Rc<Vec<Occurrence>>>>;
+/// Per use line, the classified reads of each name; a hit allocates nothing.
+type LineCache = RefCell<HashMap<usize, Vec<(String, Rc<Vec<Occurrence>>)>>>;
+/// Per def `(start, end, line)`, the plain-def verdict of each base name.
+type DefCache = RefCell<HashMap<(usize, usize, usize), Vec<(String, Option<usize>)>>>;
 
 pub(super) struct ScopeFacts<'a> {
     parsed: &'a ParsedFile,
-    facts: Option<BindingFacts>,
+    owner: Node<'a>,
+    enabled: bool,
+    /// Names with two or more declaration sites in the owner. A pair can only
+    /// be dropped for such a name, so nothing else is ever built for others.
+    multi: BTreeSet<&'a str>,
+    built: OnceCell<Built<'a>>,
     defs: &'a [DefSite],
+    lines: LineCache,
+    plain_defs: DefCache,
+    clean_names: RefCell<HashMap<String, bool>>,
+}
+
+/// The RD-sized state, built on the first pair of a multiply declared name.
+struct Built<'a> {
+    facts: BindingFacts,
     /// `(start byte, path)` of every genuine (not alias-derived) def.
     def_index: BTreeMap<(usize, AccessPath), usize>,
     /// `(name, line)` of every genuine def, for same-line coalescing.
     defs_on_line: BTreeMap<LineKey, Vec<usize>>,
     /// Identifier nodes by `(name, line)`.
     identifiers: BTreeMap<LineKey, Vec<Node<'a>>>,
-    lines: LineCache,
-    clean_names: RefCell<BTreeMap<String, bool>>,
 }
 
 impl<'a> ScopeFacts<'a> {
     pub(super) fn new(parsed: &'a ParsedFile, owner: Node<'a>, defs: &'a [DefSite]) -> Self {
         let enabled = parsed.language == Language::Go && !owner.has_error() && !defs.is_empty();
-        let mut this = Self {
+        let multi = if enabled {
+            multiply_declared(parsed, owner)
+        } else {
+            BTreeSet::new()
+        };
+        Self {
             parsed,
-            facts: None,
+            owner,
+            enabled: enabled && !multi.is_empty(),
+            multi,
+            built: OnceCell::new(),
             defs,
+            lines: RefCell::new(HashMap::new()),
+            plain_defs: RefCell::new(HashMap::new()),
+            clean_names: RefCell::new(HashMap::new()),
+        }
+    }
+
+    fn build(&self) -> Built<'a> {
+        // The producer has no emitted edges yet, so the use-byte table is empty;
+        // RD keeps its own instance because its table is built from the edges.
+        let facts = BindingFacts::new(self.parsed, &self.owner, self.defs, std::iter::empty());
+        let mut built = Built {
+            facts,
             def_index: BTreeMap::new(),
             defs_on_line: BTreeMap::new(),
             identifiers: BTreeMap::new(),
-            lines: RefCell::new(BTreeMap::new()),
-            clean_names: RefCell::new(BTreeMap::new()),
         };
-        if !enabled {
-            return this;
-        }
-        // The producer has no emitted edges yet, so the use-byte table is empty;
-        // RD keeps its own instance because its table is built from the edges.
-        this.facts = Some(BindingFacts::new(parsed, &owner, defs, std::iter::empty()));
-        for (index, def) in defs.iter().enumerate().filter(|(_, d)| !d.alias_derived) {
-            this.def_index
+        for (index, def) in self
+            .defs
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| !d.alias_derived)
+        {
+            built
+                .def_index
                 .insert((def.start_byte, def.path.clone()), index);
-            this.defs_on_line
+            built
+                .defs_on_line
                 .entry((def.path.base.clone(), def.line))
                 .or_default()
                 .push(index);
         }
-        this.collect(owner);
-        this
+        self.collect(self.owner, &mut built);
+        built
     }
 
-    fn collect(&mut self, node: Node<'a>) {
+    fn collect(&self, node: Node<'a>, built: &mut Built<'a>) {
         if node.kind() == "identifier" {
-            self.identifiers
-                .entry((
-                    self.parsed.node_text(&node).to_owned(),
-                    node.start_position().row + 1,
-                ))
-                .or_default()
-                .push(node);
+            let text = self.parsed.node_text(&node);
+            if self.multi.contains(text) {
+                built
+                    .identifiers
+                    .entry((text.to_owned(), node.start_position().row + 1))
+                    .or_default()
+                    .push(node);
+            }
         }
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
-            self.collect(child);
+            self.collect(child, built);
         }
     }
 
     /// Reads on `line`; declaration-introducing names are writes and are omitted.
-    fn occurrences(&self, facts: &BindingFacts, name: &str, line: usize) -> Rc<Vec<Occurrence>> {
-        let key = (name.to_owned(), line);
-        if let Some(found) = self.lines.borrow().get(&key) {
+    fn occurrences(&self, built: &Built<'a>, name: &str, line: usize) -> Rc<Vec<Occurrence>> {
+        if let Some((_, found)) = self
+            .lines
+            .borrow()
+            .get(&line)
+            .and_then(|names| names.iter().find(|(n, _)| n == name))
+        {
             return found.clone();
         }
-        let list: Vec<Occurrence> = self
+        let facts = &built.facts;
+        let list: Vec<Occurrence> = built
             .identifiers
-            .get(&key)
+            .get(&(name.to_owned(), line))
             .into_iter()
             .flatten()
             .filter(|node| !is_declaring_name(**node))
@@ -104,22 +143,27 @@ impl<'a> ScopeFacts<'a> {
             })
             .collect();
         let list = Rc::new(list);
-        self.lines.borrow_mut().insert(key, list.clone());
+        self.lines
+            .borrow_mut()
+            .entry(line)
+            .or_default()
+            .push((name.to_owned(), list.clone()));
         list
     }
 
     fn name_is_clean(&self, facts: &BindingFacts, name: &str) -> bool {
-        *self
-            .clean_names
-            .borrow_mut()
-            .entry(name.to_owned())
-            .or_insert_with(|| facts.unclassified_binding_lines(name).is_empty())
+        if let Some(known) = self.clean_names.borrow().get(name) {
+            return *known;
+        }
+        let clean = facts.unclassified_binding_lines(name).is_empty();
+        self.clean_names.borrow_mut().insert(name.to_owned(), clean);
+        clean
     }
 
     /// The declaration a def binds, only when the def writes the variable itself.
     fn plain_def_binding(
         &self,
-        facts: &BindingFacts,
+        built: &Built<'a>,
         path: &AccessPath,
         start: usize,
         end: usize,
@@ -128,7 +172,8 @@ impl<'a> ScopeFacts<'a> {
         if !path.fields.is_empty() {
             return None;
         }
-        let index = *self.def_index.get(&(start, path.clone()))?;
+        let facts = &built.facts;
+        let index = *built.def_index.get(&(start, path.clone()))?;
         let BindingId::Declaration(declaration) = facts.binding_of_def(index) else {
             return None;
         };
@@ -147,17 +192,17 @@ impl<'a> ScopeFacts<'a> {
         // Same-line defs of one path are coalesced to the first span: each must
         // bind this declaration, and no occurrence on the line may be a storage
         // access (`x, *x = x, 7`, `x = new(int); *x = 7`).
-        let coalesced = self.defs_on_line.get(&(path.base.clone(), line))?;
+        let coalesced = built.defs_on_line.get(&(path.base.clone(), line))?;
         if coalesced.iter().any(|i| {
             self.defs[*i].path == *path && facts.binding_of_def(*i) != facts.binding_of_def(index)
         }) {
             return None;
         }
         if self
-            .occurrences(facts, &path.base, line)
+            .occurrences(built, &path.base, line)
             .iter()
             .any(|o| o.storage)
-            || self
+            || built
                 .identifiers
                 .get(&(path.base.clone(), line))
                 .into_iter()
@@ -180,17 +225,36 @@ impl<'a> ScopeFacts<'a> {
         use_line: usize,
         stats: &mut RdFileStats,
     ) -> bool {
-        let Some(facts) = &self.facts else {
-            return true;
-        };
-        if !self.name_is_clean(facts, &path.base) {
+        if !self.enabled || !self.multi.contains(path.base.as_str()) {
             return true;
         }
-        let Some(declaration) = self.plain_def_binding(facts, path, def_start, def_end, def_line)
-        else {
+        let built = self.built.get_or_init(|| self.build());
+        if !self.name_is_clean(&built.facts, &path.base) {
+            return true;
+        }
+        if !path.fields.is_empty() {
+            return true;
+        }
+        let key = (def_start, def_end, def_line);
+        let cached = self
+            .plain_defs
+            .borrow()
+            .get(&key)
+            .and_then(|names| names.iter().find(|(n, _)| *n == path.base))
+            .map(|(_, verdict)| *verdict);
+        let verdict = cached.unwrap_or_else(|| {
+            let verdict = self.plain_def_binding(built, path, def_start, def_end, def_line);
+            self.plain_defs
+                .borrow_mut()
+                .entry(key)
+                .or_default()
+                .push((path.base.clone(), verdict));
+            verdict
+        });
+        let Some(declaration) = verdict else {
             return true;
         };
-        let reads = self.occurrences(facts, &path.base, use_line);
+        let reads = self.occurrences(built, &path.base, use_line);
         let drop = !reads.is_empty()
             && reads.iter().all(|o| {
                 !o.storage
@@ -274,4 +338,89 @@ fn is_plain_write_site(node: Node<'_>) -> bool {
         }),
         _ => false,
     }
+}
+
+/// Names with at least two declaration sites in `owner`. This is a syntactic
+/// superset of the sites `go_bindings::Inventory` turns into declarations
+/// (`name` fields, `:=`/range/receive left sides, one per type-switch clause,
+/// receiver type arguments): a name outside it has at most one declaration,
+/// so rule S can never see a different one.
+pub(super) fn multiply_declared<'a>(parsed: &'a ParsedFile, owner: Node<'a>) -> BTreeSet<&'a str> {
+    fn bump<'a>(
+        parsed: &'a ParsedFile,
+        node: Node<'a>,
+        by: usize,
+        seen: &mut BTreeMap<&'a str, usize>,
+    ) {
+        if matches!(node.kind(), "identifier" | "type_identifier") {
+            *seen.entry(parsed.node_text(&node)).or_insert(0) += by;
+        }
+    }
+    fn walk<'a>(
+        parsed: &'a ParsedFile,
+        node: Node<'a>,
+        in_receiver: bool,
+        seen: &mut BTreeMap<&'a str, usize>,
+    ) {
+        if in_receiver {
+            bump(parsed, node, 1, seen);
+        }
+        let kind = node.kind();
+        let mut cursor = node.walk();
+        if cursor.goto_first_child() {
+            loop {
+                let child = cursor.node();
+                if child.is_named() {
+                    let field = cursor.field_name();
+                    match field {
+                        Some("name") => bump(parsed, child, 1, seen),
+                        Some("left")
+                            if matches!(
+                                kind,
+                                "short_var_declaration" | "receive_statement" | "range_clause"
+                            ) =>
+                        {
+                            bump(parsed, child, 1, seen);
+                            if child.kind() == "expression_list" {
+                                let mut inner = child.walk();
+                                for name in child.named_children(&mut inner) {
+                                    bump(parsed, name, 1, seen);
+                                }
+                            }
+                        }
+                        Some("alias") if kind == "type_switch_statement" => {
+                            let mut inner = node.walk();
+                            let clauses = node
+                                .named_children(&mut inner)
+                                .filter(|c| matches!(c.kind(), "type_case" | "default_case"))
+                                .count();
+                            let by = clauses.max(1);
+                            bump(parsed, child, by, seen);
+                            if child.kind() == "expression_list" {
+                                let mut inner = child.walk();
+                                for name in child.named_children(&mut inner) {
+                                    bump(parsed, name, by, seen);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                    walk(
+                        parsed,
+                        child,
+                        in_receiver || field == Some("receiver"),
+                        seen,
+                    );
+                }
+                if !cursor.goto_next_sibling() {
+                    break;
+                }
+            }
+        }
+    }
+    let mut seen = BTreeMap::new();
+    walk(parsed, owner, false, &mut seen);
+    seen.into_iter()
+        .filter_map(|(name, count)| (count >= 2).then_some(name))
+        .collect()
 }

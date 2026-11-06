@@ -164,3 +164,36 @@ fn edges_after_are_a_subset_of_edges_before() {
         }
     }
 }
+
+/// The lazy gate admits every name the binding inventory can declare twice.
+#[test]
+fn multiply_declared_prescan_is_a_superset_of_the_inventory() {
+    let src = "package p\n\
+func f(a int, b int, c any) {\n\
+\tvar once int\n\
+\tfor i := range a {\n\
+\t\t_ = i\n\
+\t}\n\
+\tswitch v := c.(type) {\n\
+\tcase int:\n\
+\t\t_ = v\n\
+\tcase string:\n\
+\t\t_ = v\n\
+\t}\n\
+\tif x := b; x > 0 {\n\
+\t\tx := 1\n\
+\t\t_ = x\n\
+\t}\n\
+\t_ = once\n\
+}\n";
+    let parsed = parse(src);
+    let owner = parsed
+        .tree
+        .root_node()
+        .named_child(1)
+        .expect("function_declaration");
+    let names: Vec<&str> = super::scope_prune::multiply_declared(&parsed, owner)
+        .into_iter()
+        .collect();
+    assert_eq!(names, vec!["v", "x"]);
+}
