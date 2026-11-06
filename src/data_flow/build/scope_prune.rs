@@ -35,6 +35,10 @@ pub(super) struct ScopeFacts<'a> {
     /// Names with two or more declaration sites in the owner. A pair can only
     /// be dropped for such a name, so nothing else is ever built for others.
     multi: BTreeSet<&'a str>,
+    /// Names whose address is taken anywhere in the owner (`&x`, `&(x)`,
+    /// `&x.f`, `&x[i]`; a different declaration may share their storage) and
+    /// type-switch aliases: never pruned.
+    address_taken: BTreeSet<&'a str>,
     built: OnceCell<Built<'a>>,
     defs: &'a [DefSite],
     lines: LineCache,
@@ -61,11 +65,17 @@ impl<'a> ScopeFacts<'a> {
         } else {
             BTreeSet::new()
         };
+        let address_taken = if enabled && !multi.is_empty() {
+            address_taken_names(parsed, owner, &multi)
+        } else {
+            BTreeSet::new()
+        };
         Self {
             parsed,
             owner,
             enabled: enabled && !multi.is_empty(),
             multi,
+            address_taken,
             built: OnceCell::new(),
             defs,
             lines: RefCell::new(HashMap::new()),
@@ -198,6 +208,17 @@ impl<'a> ScopeFacts<'a> {
         }) {
             return None;
         }
+        // Every lvalue of the path attributed to this line is classified by its
+        // own span, wherever its identifier sits: `*` and the name may be on
+        // different lines (`x = new(int); *` / `x = 7`), and only the first
+        // span is the coalesced endpoint.
+        if coalesced
+            .iter()
+            .filter(|i| self.defs[**i].path == *path)
+            .any(|i| !self.def_is_plain_variable_write(self.defs[*i].start_byte))
+        {
+            return None;
+        }
         if self
             .occurrences(built, &path.base, line)
             .iter()
@@ -214,6 +235,19 @@ impl<'a> ScopeFacts<'a> {
         Some(*declaration)
     }
 
+    /// The def starts at an identifier that is the written variable itself.
+    fn def_is_plain_variable_write(&self, start: usize) -> bool {
+        self.parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start, start)
+            .is_some_and(|node| {
+                node.kind() == "identifier"
+                    && node.start_byte() == start
+                    && is_plain_write_site(node)
+            })
+    }
+
     /// False (drop the pair) only when every read of the name on `use_line`
     /// resolves to a different explicit declaration without a storage access.
     pub(super) fn keep_pair(
@@ -225,7 +259,10 @@ impl<'a> ScopeFacts<'a> {
         use_line: usize,
         stats: &mut RdFileStats,
     ) -> bool {
-        if !self.enabled || !self.multi.contains(path.base.as_str()) {
+        if !self.enabled
+            || !self.multi.contains(path.base.as_str())
+            || self.address_taken.contains(path.base.as_str())
+        {
             return true;
         }
         let built = self.built.get_or_init(|| self.build());
@@ -326,7 +363,6 @@ fn is_plain_write_site(node: Node<'_>) -> bool {
             within(parent, "name")
         }
         "inc_statement" | "dec_statement" => true,
-        "type_switch_statement" => within(parent, "alias"),
         "expression_list" => parent.parent().is_some_and(|g| {
             matches!(
                 g.kind(),
@@ -338,6 +374,78 @@ fn is_plain_write_site(node: Node<'_>) -> bool {
         }),
         _ => false,
     }
+}
+
+/// Names among `multi` that rule S never prunes: type-switch aliases, and
+/// those whose address is taken in `owner`: the operand of a
+/// unary `&`, through parentheses, selectors, indexing and slicing, is rooted
+/// at the identifier. By name, so it covers the def's and the use's binding.
+fn address_taken_names<'a>(
+    parsed: &'a ParsedFile,
+    owner: Node<'a>,
+    multi: &BTreeSet<&'a str>,
+) -> BTreeSet<&'a str> {
+    fn root<'n>(mut node: Node<'n>) -> Node<'n> {
+        loop {
+            let next = match node.kind() {
+                "parenthesized_expression" => node.named_child(0),
+                "selector_expression" | "index_expression" | "slice_expression" => {
+                    node.child_by_field_name("operand")
+                }
+                _ => None,
+            };
+            match next {
+                Some(n) => node = n,
+                None => return node,
+            }
+        }
+    }
+    fn walk<'a>(
+        parsed: &'a ParsedFile,
+        node: Node<'a>,
+        multi: &BTreeSet<&'a str>,
+        out: &mut BTreeSet<&'a str>,
+    ) {
+        // A type-switch alias is a declaration per clause that the inventory
+        // does not tie to the switch's operand: the producer's pair into the
+        // clause stands for that flow, so such a name is never pruned.
+        if node.kind() == "type_switch_statement" {
+            if let Some(alias) = node.child_by_field_name("alias") {
+                let mut stack = vec![alias];
+                while let Some(n) = stack.pop() {
+                    if n.kind() == "identifier" {
+                        if let Some(found) = multi.get(parsed.node_text(&n)) {
+                            out.insert(*found);
+                        }
+                    }
+                    let mut c = n.walk();
+                    stack.extend(n.named_children(&mut c));
+                }
+            }
+        }
+        if node.kind() == "unary_expression"
+            && node
+                .child_by_field_name("operator")
+                .is_some_and(|op| op.kind() == "&")
+        {
+            if let Some(operand) = node.child_by_field_name("operand") {
+                let base = root(operand);
+                if base.kind() == "identifier" {
+                    let name = parsed.node_text(&base);
+                    if let Some(found) = multi.get(name) {
+                        out.insert(*found);
+                    }
+                }
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.named_children(&mut cursor) {
+            walk(parsed, child, multi, out);
+        }
+    }
+    let mut out = BTreeSet::new();
+    walk(parsed, owner, multi, &mut out);
+    out
 }
 
 /// Names with at least two declaration sites in `owner`. This is a syntactic

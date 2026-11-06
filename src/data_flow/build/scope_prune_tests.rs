@@ -197,3 +197,211 @@ func f(a int, b int, c any) {\n\
         .collect();
     assert_eq!(names, vec!["v", "x"]);
 }
+
+#[test]
+fn multiline_indirect_write_keeps() {
+    // The `*`/newline/`x` lvalue is recorded at the line holding `*`; the first
+    // plain `x` on that line is the coalesced span. The path's other lvalue
+    // sits on the next line, so the line scan alone cannot see it.
+    let multiline = "package p\nfunc f() {\n\tx := new(int)\n\tx = new(int); *\n\tx = 7\n\tif x := x; true {\n\t\tg(x)\n\t}\n}\nfunc g(p *int) { println(*p) }\n";
+    check("multiline", multiline, &[("x", 4, 7, true)]);
+    // Control: the same shape on one line was already kept.
+    let one = "package p\nfunc f() {\n\tx := new(int)\n\tx = new(int); *x = 7\n\tif x := x; true {\n\t\tg(x)\n\t}\n}\nfunc g(p *int) { println(*p) }\n";
+    check("oneline", one, &[("x", 4, 6, true)]);
+}
+
+#[test]
+fn address_taken_names_keep() {
+    // `x := &x` shares storage across the two bindings.
+    let shared = "package p\ntype P *int\nfunc f() {\n\tx := 0\n\tx = 7\n\tif x := &x; true {\n\t\tprintln(*P(x))\n\t}\n}\n";
+    check("addr", shared, &[("x", 5, 7, true)]);
+    let paren = "package p\ntype P *int\nfunc f() {\n\tx := 0\n\tx = 7\n\tif x := &(x); true {\n\t\tprintln(*P(x))\n\t}\n}\n";
+    check("addrparen", paren, &[("x", 5, 7, true)]);
+    for (n, take) in [("field", "q := &x.f"), ("index", "q := &x[0]")] {
+        let src = format!(
+            "package p\nfunc f() {{\n\tx := 0\n\tx = 7\n\t{take}\n\tif x := g(); true {{\n\t\tuse(x)\n\t}}\n\tuse(q)\n}}\n"
+        );
+        check(n, &src, &[("x", 4, 7, true)]);
+    }
+    // Control: another name's address does not stop the drop.
+    let other = "package p\nfunc f() {\n\tz := 1\n\tq := &z\n\tx := 0\n\tx = 7\n\tif x := x; true {\n\t\tuse(x, q)\n\t}\n}\n";
+    check("otheraddr", other, &[("x", 6, 8, false)]);
+    scope_counted("otheraddr", other);
+}
+
+#[test]
+fn type_switch_alias_keeps() {
+    let src = "package p\nfunc f(c any) {\n\tv := c\n\tswitch v := v.(type) {\n\tcase int:\n\t\tuse(v)\n\t}\n}\n";
+    check("typeswitch", src, &[("v", 3, 6, true)]);
+    let after = Producer::file_refs(&"t.go".to_string(), &parse(src));
+    assert_eq!(after.rd_function_stats.dfg_pruned_scope, 0);
+}
+
+#[test]
+fn named_result_reused_by_short_var_keeps() {
+    let src = "package p\nfunc f() (err error) {\n\tdefer func() {\n\t\tuse(err)\n\t}()\n\tx, err := g()\n\tuse(x)\n\treturn\n}\n";
+    check("namedresult", src, &[("err", 6, 4, true)]);
+    let after = Producer::file_refs(&"t.go".to_string(), &parse(src));
+    assert_eq!(after.rd_function_stats.dfg_pruned_scope, 0);
+    let two = "package p\nfunc f() {\n\ta, err := f1()\n\tb, err := f2()\n\tuse(a, b, err)\n}\n";
+    check("tworeuse", two, &[("err", 4, 5, true)]);
+    let after = Producer::file_refs(&"t.go".to_string(), &parse(two));
+    assert_eq!(after.rd_function_stats.dfg_pruned_scope, 0);
+}
+
+/// Over every Go fixture function, each name the inventory declares twice is in
+/// the pre-scan (superset), so the lazy gate never hides a prunable name.
+#[test]
+fn multiply_declared_prescan_covers_inventory_on_all_go_fixtures() {
+    use crate::cpg::binding_facts::BindingFacts;
+    fn go_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                go_files(&path, out);
+            } else if path.extension().is_some_and(|e| e == "go") {
+                out.push(path);
+            }
+        }
+    }
+    fn owners<'a>(node: tree_sitter::Node<'a>, out: &mut Vec<tree_sitter::Node<'a>>) {
+        if matches!(node.kind(), "function_declaration" | "method_declaration") {
+            out.push(node);
+        }
+        let mut cursor = node.walk();
+        for child in node.named_children(&mut cursor) {
+            owners(child, out);
+        }
+    }
+    let mut files = Vec::new();
+    go_files(
+        &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
+        &mut files,
+    );
+    files.sort();
+    let (mut checked, mut multi_names) = (0usize, 0usize);
+    for path in files {
+        let src = std::fs::read_to_string(&path).unwrap();
+        let Ok(parsed) = ParsedFile::parse("t.go", &src, Language::Go) else {
+            continue;
+        };
+        let mut found = Vec::new();
+        owners(parsed.tree.root_node(), &mut found);
+        for owner in found {
+            let facts = BindingFacts::new(&parsed, &owner, &[], std::iter::empty());
+            let scan = super::scope_prune::multiply_declared(&parsed, owner);
+            for (name, count) in facts.declaration_counts() {
+                checked += 1;
+                if count >= 2 {
+                    multi_names += 1;
+                    assert!(
+                        scan.contains(name.as_str()),
+                        "{path:?}: `{name}` ({count}) missing from pre-scan"
+                    );
+                }
+            }
+        }
+    }
+    assert!(checked > 100 && multi_names > 0, "{checked} {multi_names}");
+}
+
+const S_ACTIVE: &str = "func f() {\nx := 1\nx = 2\nif x := g(); x > 0 {\nuse(x)\n}\nuse(x)\n";
+
+#[test]
+fn scope_prune_cache_and_incremental_custody() {
+    use crate::cpg::CodePropertyGraph;
+    use crate::cpg_cache::{self, CacheResult};
+    use std::collections::{BTreeMap, BTreeSet};
+    let active = |n: &str| {
+        format!(
+            "package p\n{}}}\n",
+            S_ACTIVE.replace("func f", &format!("func {n}"))
+        )
+    };
+    let mut sources = BTreeMap::from([
+        ("a.go".to_owned(), active("a")),
+        ("b.go".to_owned(), active("b")),
+    ]);
+    let parse = |sources: &BTreeMap<String, String>| {
+        sources
+            .iter()
+            .map(|(f, s)| (f.clone(), ParsedFile::parse(f, s, Language::Go).unwrap()))
+            .collect()
+    };
+    let cold = CodePropertyGraph::build(&parse(&sources));
+    assert!(cold.dfg.rd_function_stats()["a.go"].dfg_pruned_scope > 0);
+    assert!(cold.dfg_label_stats.dfg_pruned_scope > 0);
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    let dir = tempfile::tempdir().unwrap();
+    cpg_cache::save_cache(&cold, &hashes, false, dir.path()).unwrap();
+    let CacheResult::Hit(hit) = cpg_cache::load_cache(&hashes, false, dir.path()) else {
+        panic!("expected full hit");
+    };
+    assert_eq!(cold.dfg_label_stats, hit.dfg_label_stats);
+    assert_eq!(cold.dfg.rd_function_stats(), hit.dfg.rd_function_stats());
+    sources.insert(
+        "a.go".into(),
+        "package p\nfunc a(x int) int {\nreturn x\n}\n".into(),
+    );
+    let edited = parse(&sources);
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    let CacheResult::PartialHit {
+        cached_call_graph,
+        cached_dfg,
+        changed_files,
+    } = cpg_cache::load_cache(&hashes, false, dir.path())
+    else {
+        panic!("expected partial hit");
+    };
+    assert_eq!(changed_files, BTreeSet::from(["a.go".into()]));
+    let incremental = CodePropertyGraph::build_incremental(
+        cached_call_graph,
+        cached_dfg,
+        &changed_files,
+        &edited,
+        None,
+    );
+    let rebuilt = CodePropertyGraph::build(&edited);
+    assert_eq!(incremental.dfg_label_stats, rebuilt.dfg_label_stats);
+    assert_eq!(
+        incremental.dfg.rd_function_stats(),
+        rebuilt.dfg.rd_function_stats()
+    );
+    assert_eq!(
+        incremental.dfg.rd_function_stats()["a.go"].dfg_pruned_scope,
+        0
+    );
+    assert!(incremental.dfg.rd_function_stats()["b.go"].dfg_pruned_scope > 0);
+}
+
+#[test]
+fn scope_prune_cap_counts_survivors_and_replays() {
+    let source = format!("package p\n{S_ACTIVE}{}}}\n", "g()\n".repeat(4100));
+    let parsed = ParsedFile::parse("a.go", &source, Language::Go).unwrap();
+    let file = parsed.path.clone();
+    let before = Producer::file_refs_frozen_with_cap(&file, &parsed, None);
+    let single = Producer::file_refs_with_cap(&file, &parsed, None);
+    let s = &single.rd_function_stats;
+    assert_eq!(s.functions_over_cap, 1);
+    assert!(s.dfg_pruned_scope > 0, "{s:?}");
+    let count = single.edges.len();
+    assert!(count > 0);
+    assert_eq!(
+        before.edges.len() - count,
+        s.dfg_pruned_write_only + s.dfg_pruned_scope + s.dfg_pruned_dominated + s.dfg_pruned_order
+    );
+    for cap in [count, count + 1] {
+        let replay = Producer::file_refs_with_cap(&file, &parsed, Some(cap));
+        assert_eq!(replay.edges, single.edges);
+        assert_eq!(replay.labels, single.labels);
+        assert_eq!(replay.rd_function_stats, single.rd_function_stats);
+    }
+    let capped = Producer::file_refs_with_cap(&file, &parsed, Some(count - 1));
+    assert!(capped.edges.is_empty());
+    assert_eq!(
+        capped.rd_function_stats.dfg_pruned_scope,
+        s.dfg_pruned_scope
+    );
+    assert_eq!(capped.rd_function_stats.fallback_functions_capped, 1);
+    assert_eq!(capped.rd_function_stats.fallback_edges_capped, count);
+}

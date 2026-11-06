@@ -380,6 +380,16 @@ impl BindingFacts {
         &self.def_bindings[index].id
     }
 
+    /// Declarations per name; lets a test compare a syntactic pre-scan to the inventory.
+    #[cfg(test)]
+    pub(crate) fn declaration_counts(&self) -> std::collections::BTreeMap<String, usize> {
+        let mut counts = std::collections::BTreeMap::new();
+        for declaration in &self.declarations {
+            *counts.entry(declaration.name.clone()).or_insert(0) += 1;
+        }
+        counts
+    }
+
     /// The binding a name occurrence at `byte` resolves to: the innermost
     /// visible explicit declaration, else the language's implicit binding.
     pub(crate) fn binding_at(&self, name: &str, byte: usize) -> BindingId {
