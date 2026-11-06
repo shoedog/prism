@@ -17,7 +17,7 @@ pub(super) fn with_legacy<T>(f: impl FnOnce() -> T) -> T {
 }
 pub(super) fn collect(
     cg: &CallGraph,
-    index: &BTreeMap<LegacyVarKey, NodeIndex>,
+    index: &VarIndex,
     exact: &ExactVarIndex,
     graph: &DiGraph<CpgNode, CpgEdge>,
     files: &BTreeMap<String, ParsedFile>,
@@ -34,7 +34,7 @@ impl CodePropertyGraph {
         caller_id: &FunctionId,
         sites: &BTreeSet<CallSite>,
         cg: &CallGraph,
-        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: &VarIndex,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,

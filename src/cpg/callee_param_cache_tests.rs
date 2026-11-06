@@ -23,11 +23,13 @@ fn parameter_targets_resolve_coordinates_after_graph_relocation() {
     for node in cpg.graph.node_weights() {
         relocated.add_node(node.clone());
     }
-    let index = cpg
-        .var_index
-        .iter()
-        .map(|(key, idx)| (key.clone(), NodeIndex::new(idx.index() + 1)))
-        .collect();
+    let index = VarIndex::from_map(
+        cpg.var_index
+            .to_map(&cpg.graph)
+            .into_iter()
+            .map(|(key, idx)| (key, NodeIndex::new(idx.index() + 1)))
+            .collect(),
+    );
     let expected = NodeIndex::new(original.index() + 1);
     assert_eq!(target.resolve(&index, &relocated), Some(expected));
     let CpgNode::Variable { end_byte, .. } = &mut relocated[expected] else {
@@ -40,7 +42,7 @@ fn parameter_targets_resolve_coordinates_after_graph_relocation() {
         "wrong Def bytes must refuse"
     );
     assert_eq!(
-        target.resolve(&BTreeMap::new(), &relocated),
+        target.resolve(&VarIndex::new(), &relocated),
         None,
         "missing coordinate must refuse"
     );

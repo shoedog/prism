@@ -76,6 +76,7 @@ mod statement_calls_tests;
 mod tests;
 mod trace;
 mod types;
+pub(crate) mod var_index;
 
 // Items the test module reaches via `use super::*;`. On the original
 // single-file module these were ordinary top-of-file imports; re-export them

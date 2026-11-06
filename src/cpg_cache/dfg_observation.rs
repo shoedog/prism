@@ -55,6 +55,7 @@ pub fn lookup_indexes(cpg: &CodePropertyGraph) -> Vec<u8> {
             .map(|(k, ns)| (k, ns.iter().map(|n| n.index() as u32).collect::<Vec<_>>()))
             .collect::<Vec<_>>(),
         cpg.var_index
+            .to_map(&cpg.graph)
             .iter()
             .map(|(k, n)| (k, n.index() as u32))
             .collect::<Vec<_>>(),

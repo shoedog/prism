@@ -168,7 +168,7 @@ fn observe(
         AccessPath::simple("value"),
         VarAccess::Use,
     );
-    let indexed = cpg.var_index.get(&key).copied();
+    let indexed = cpg.var_index.get(&cpg.graph, &key);
     let indexed_span = indexed.map(|n| match cpg.node(n) {
         CpgNode::Variable {
             start_byte,
@@ -332,13 +332,13 @@ fn observe(
                 end_byte: loc.end_byte,
             })
         });
-        let mut index = cpg.var_index.clone();
+        let mut index = cpg.var_index.to_map(&cpg.graph);
         index.insert(key.clone(), from);
         let pending = CodePropertyGraph::step5b_edges_for_caller(
             &site.caller,
             &BTreeSet::from([site.clone()]),
             &cpg.call_graph,
-            &index,
+            &crate::cpg::var_index::VarIndex::from_map(index.clone()),
             &graph,
             files,
         );
@@ -359,7 +359,7 @@ fn observe(
             parsed,
             &AccessPath::simple("value"),
             span,
-            &index,
+            &crate::cpg::var_index::VarIndex::from_map(index.clone()),
             &graph
         )
         .is_none());

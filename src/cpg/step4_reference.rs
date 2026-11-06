@@ -19,7 +19,7 @@ impl CodePropertyGraph {
     pub(super) fn assemble_step4_reference(
         dfg: &mut DataFlowGraph,
         files: &BTreeMap<String, ParsedFile>,
-        var_index: &BTreeMap<LegacyVarKey, NodeIndex>,
+        var_index: &VarIndex,
         exact_var_index: &ExactVarIndex,
         graph: &mut DiGraph<CpgNode, CpgEdge>,
     ) -> DfgLabelStats {

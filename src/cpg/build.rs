@@ -22,6 +22,9 @@ mod step4_reference;
 #[cfg(test)]
 #[path = "step4_tests.rs"]
 mod step4_tests;
+#[cfg(test)]
+#[path = "var_index_tests.rs"]
+mod var_index_tests;
 
 #[path = "recall_hidden.rs"]
 mod recall_hidden;
@@ -96,7 +99,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use super::{CpgEdge, CpgNode, FlowConfidence, FlowDoubt, StmtKind, VarAccess};
 use crate::ast::ParsedFile;
 
-type LegacyVarKey = (String, String, usize, usize, AccessPath, VarAccess);
+pub(super) use super::var_index::LegacyVarKey;
+use super::var_index::{VarIndex, VarKeyRef};
 type ExactVarIndex = BTreeMap<LegacyVarKey, BTreeMap<(usize, usize), Vec<NodeIndex>>>;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -289,7 +293,8 @@ struct PendingArgumentFlow {
 pub struct CodePropertyGraph {
     /// Sticky cache refusal: clearing the call-graph sidecar cannot erase edges.
     pub(crate) ephemeral_owner: bool,
-    /// The underlying petgraph directed graph.
+    /// The underlying petgraph directed graph. Indexed `Variable` nodes must
+    /// not be mutated after the build (see `cpg::var_index`).
     pub graph: DiGraph<CpgNode, CpgEdge>,
 
     /// Index: (file, function_name, start_line) → function node index
@@ -300,8 +305,7 @@ pub struct CodePropertyGraph {
 
     /// Index: VarLocation-like key → variable node index.
     /// Key: (file, function, function_start_line, line, path, access_kind)
-    pub(crate) var_index:
-        BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+    pub(crate) var_index: VarIndex,
 
     /// Index: (file, line) → all node indices at that location
     pub(crate) location_index: BTreeMap<(String, usize), Vec<NodeIndex>>,
@@ -461,11 +465,11 @@ impl CodePropertyGraph {
     ///
     /// The caller is responsible for ensuring that indexes are consistent
     /// with the graph contents.
-    pub fn from_parts(
+    pub(crate) fn from_parts(
         graph: DiGraph<CpgNode, CpgEdge>,
         func_index: BTreeMap<(String, String, usize), NodeIndex>,
         name_index: BTreeMap<(String, String), Vec<NodeIndex>>,
-        var_index: BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: VarIndex,
         location_index: BTreeMap<(String, usize), Vec<NodeIndex>>,
         call_graph: CallGraph,
         dfg: DataFlowGraph,
@@ -493,7 +497,7 @@ impl CodePropertyGraph {
             graph: DiGraph::new(),
             func_index: BTreeMap::new(),
             name_index: BTreeMap::new(),
-            var_index: BTreeMap::new(),
+            var_index: VarIndex::new(),
             location_index: BTreeMap::new(),
             call_graph: CallGraph::empty(),
             ephemeral_owner: false,
@@ -856,7 +860,7 @@ impl CodePropertyGraph {
         access: VarAccess,
         files: &BTreeMap<String, ParsedFile>,
         graph: &mut DiGraph<CpgNode, CpgEdge>,
-        var_index: &mut BTreeMap<LegacyVarKey, NodeIndex>,
+        var_index: &mut VarIndex,
         exact_var_index: &mut ExactVarIndex,
         location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
     ) -> NodeIndex {
@@ -871,10 +875,10 @@ impl CodePropertyGraph {
                 .and_then(|nodes| nodes.first())
                 .copied()
             {
-                var_index.entry(legacy_key).or_insert(existing);
+                var_index.insert_first_wins(graph, existing);
                 return existing;
             }
-        } else if let Some(&existing) = var_index.get(&legacy_key) {
+        } else if let Some(existing) = var_index.get(graph, &legacy_key) {
             return existing;
         }
 
@@ -888,7 +892,7 @@ impl CodePropertyGraph {
             start_byte: loc.start_byte,
             end_byte: loc.end_byte,
         });
-        var_index.entry(legacy_key.clone()).or_insert(idx);
+        var_index.insert_first_wins(graph, idx);
         if materialize_exact {
             exact_var_index
                 .entry(legacy_key)
@@ -948,7 +952,7 @@ impl CodePropertyGraph {
         loc: &VarLocation,
         access: VarAccess,
         files: &BTreeMap<String, ParsedFile>,
-        var_index: &BTreeMap<LegacyVarKey, NodeIndex>,
+        var_index: &VarIndex,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
     ) -> Option<NodeIndex> {
@@ -958,7 +962,7 @@ impl CodePropertyGraph {
         if loc.start_byte < loc.end_byte && Self::exact_occurrence_language(files, &loc.file) {
             Self::exact_dfg_endpoint_node(loc, access, exact_var_index, graph)
         } else {
-            var_index.get(&key).copied()
+            var_index.get(graph, &key)
         }
     }
 
@@ -1002,10 +1006,7 @@ impl CodePropertyGraph {
         let mut graph = DiGraph::new();
         let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
         let mut name_index: BTreeMap<(String, String), Vec<NodeIndex>> = BTreeMap::new();
-        let mut var_index: BTreeMap<
-            (String, String, usize, usize, AccessPath, VarAccess),
-            NodeIndex,
-        > = BTreeMap::new();
+        let mut var_index = VarIndex::new();
         let mut exact_var_index = ExactVarIndex::new();
         let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
 
@@ -1074,7 +1075,7 @@ impl CodePropertyGraph {
             Self::assemble_step4(&mut dfg, files, &var_index, &exact_var_index, &mut graph);
         let hidden_nodes = hidden.node_set();
         let detached = hidden.detach(&mut var_index, &mut exact_var_index);
-        let lookup: &BTreeMap<LegacyVarKey, NodeIndex> = &detached;
+        let lookup: &VarIndex = &detached;
         let exact_lookup = &exact_var_index;
 
         profile.next("cpg.step5");
@@ -1441,7 +1442,7 @@ impl CodePropertyGraph {
     #[cfg(test)]
     pub(crate) fn collect_step5b_edges(
         cg: &CallGraph,
-        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: &VarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
@@ -1460,7 +1461,7 @@ impl CodePropertyGraph {
 
     fn collect_step5b_edges_with_exact(
         go_satisfiers: &crate::resolution::go_satisfiers::GoSatisfierMemo<'_>,
-        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: &VarIndex,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
@@ -1504,7 +1505,7 @@ impl CodePropertyGraph {
         caller_id: &FunctionId,
         sites: &BTreeSet<CallSite>,
         cg: &CallGraph,
-        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: &VarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
@@ -1527,7 +1528,7 @@ impl CodePropertyGraph {
         caller_id: &FunctionId,
         sites: &BTreeSet<CallSite>,
         cg: &impl crate::resolution::go_satisfiers::CpgCallResolver,
-        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: &VarIndex,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         shared_params: &ParamCache<'_>,
@@ -1652,7 +1653,7 @@ impl CodePropertyGraph {
         caller_parsed: &ParsedFile,
         arg_path: &AccessPath,
         arg_span: &std::ops::Range<usize>,
-        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: &VarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
     ) -> Option<NodeIndex> {
         let exact_var_index = Self::exact_var_index_from_graph(graph);
@@ -1672,7 +1673,7 @@ impl CodePropertyGraph {
         caller_parsed: &ParsedFile,
         arg_path: &AccessPath,
         arg_span: &std::ops::Range<usize>,
-        var_index: &BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex>,
+        var_index: &VarIndex,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
     ) -> Option<NodeIndex> {
@@ -1737,13 +1738,11 @@ impl CodePropertyGraph {
                 )
             };
             let candidate = var_index
-                .get(&key(VarAccess::Use))
-                .copied()
+                .get(graph, &key(VarAccess::Use))
                 .filter(|&idx| contains_arg_occurrence(idx))
                 .or_else(|| {
                     var_index
-                        .get(&key(VarAccess::Def))
-                        .copied()
+                        .get(graph, &key(VarAccess::Def))
                         .filter(|&idx| contains_arg_occurrence(idx))
                 });
             if let Some(idx) = candidate {

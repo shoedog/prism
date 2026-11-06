@@ -173,7 +173,7 @@ fn step4_synthetic_timing() {
         let files = synthetic(80, 64);
         let dfg = DataFlowGraph::build(&files);
         let mut prefix = DiGraph::new();
-        let mut vars = BTreeMap::new();
+        let mut vars = VarIndex::new();
         let mut exact = ExactVarIndex::new();
         let mut locations = BTreeMap::new();
         for (access, rows) in [
@@ -377,7 +377,7 @@ fn step4_exact_endpoint_ambiguity_and_stale_index() {
     let read = location(1, 21, VarAccessKind::Use);
     for ambiguous in [false, true] {
         let mut graph = DiGraph::new();
-        let mut vars = BTreeMap::new();
+        let mut vars = VarIndex::new();
         let mut exact = ExactVarIndex::new();
         let mut locations = BTreeMap::new();
         for loc in [&def, &read] {
@@ -397,7 +397,7 @@ fn step4_exact_endpoint_ambiguity_and_stale_index() {
             );
         }
         let key = CodePropertyGraph::legacy_var_key(&read, VarAccess::Use);
-        let read_node = vars[&key];
+        let read_node = vars.get(&graph, &key).unwrap();
         if ambiguous {
             let duplicate = graph.add_node(graph[read_node].clone());
             exact

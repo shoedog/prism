@@ -21,7 +21,6 @@
 //! time. If the current `type_db` availability differs from the cached state,
 //! the cache is invalidated (Miss).
 
-use crate::access_path::AccessPath;
 use crate::call_graph::CallGraph;
 use crate::cpg::{CodePropertyGraph, CpgEdge, CpgNode, DfgLabelStats, ReturnFlowStats, VarAccess};
 use crate::data_flow::DataFlowGraph;
@@ -691,8 +690,7 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
     // Rebuild indexes by iterating nodes.
     let mut func_index: BTreeMap<(String, String, usize), NodeIndex> = BTreeMap::new();
     let mut name_index: BTreeMap<(String, String), Vec<NodeIndex>> = BTreeMap::new();
-    let mut var_index: BTreeMap<(String, String, usize, usize, AccessPath, VarAccess), NodeIndex> =
-        BTreeMap::new();
+    let mut var_index = crate::cpg::var_index::VarIndex::new();
     let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
 
     for idx in graph.node_indices() {
@@ -714,25 +712,8 @@ fn reconstruct_cpg(ser: SerializedCpg) -> CodePropertyGraph {
                     .or_default()
                     .push(idx);
             }
-            CpgNode::Variable {
-                path,
-                file,
-                function,
-                function_start_line,
-                line,
-                access,
-                ..
-            } => {
-                var_index
-                    .entry((
-                        file.clone(),
-                        function.clone(),
-                        *function_start_line,
-                        *line,
-                        path.clone(),
-                        *access,
-                    ))
-                    .or_insert(idx);
+            CpgNode::Variable { file, line, .. } => {
+                var_index.insert_first_wins(&graph, idx);
                 location_index
                     .entry((file.clone(), *line))
                     .or_default()

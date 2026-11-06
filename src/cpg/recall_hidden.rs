@@ -62,6 +62,15 @@ impl HiddenUses {
         }
     }
 
+    #[cfg(test)]
+    pub(super) fn for_test(nodes: Vec<(LegacyVarKey, NodeIndex)>) -> Self {
+        Self {
+            spans: Default::default(),
+            keys: nodes.iter().map(|(k, _)| k.clone()).collect(),
+            nodes,
+        }
+    }
+
     pub(super) fn node_set(&self) -> BTreeSet<NodeIndex> {
         self.nodes.iter().map(|(_, n)| *n).collect()
     }
@@ -69,20 +78,15 @@ impl HiddenUses {
     /// Hide the lane-local nodes from the lookup indexes in place, no copy.
     /// `exact_var_index` is a build-local that is not read after Step 5b, so
     /// its entries are dropped for good; the stored `var_index` entries are
-    /// put back when the returned guard is dropped, on every path including a
-    /// panic, so the public index stays complete.
+    /// only masked (`VarIndex::hide`) until the returned guard is dropped, on
+    /// every path including a panic, so the public index stays complete.
     pub(super) fn detach<'a>(
         &self,
-        var_index: &'a mut BTreeMap<LegacyVarKey, NodeIndex>,
+        var_index: &'a mut VarIndex,
         exact_var_index: &mut ExactVarIndex,
     ) -> Detached<'a> {
-        let mut removed = Vec::new();
+        var_index.hide(self.nodes.iter().map(|(_, idx)| *idx));
         for (key, idx) in &self.nodes {
-            if var_index.get(key) == Some(idx) {
-                if let Some(entry) = var_index.remove_entry(key) {
-                    removed.push(entry);
-                }
-            }
             if let Some(spans) = exact_var_index.get_mut(key) {
                 for nodes in spans.values_mut() {
                     nodes.retain(|n| n != idx);
@@ -93,18 +97,17 @@ impl HiddenUses {
                 }
             }
         }
-        Detached { var_index, removed }
+        Detached { var_index }
     }
 }
 
-/// `var_index` with the hidden entries removed; reinserts them on drop.
+/// `var_index` with the hidden entries masked; unmasks them on drop.
 pub(super) struct Detached<'a> {
-    var_index: &'a mut BTreeMap<LegacyVarKey, NodeIndex>,
-    removed: Vec<(LegacyVarKey, NodeIndex)>,
+    var_index: &'a mut VarIndex,
 }
 
 impl std::ops::Deref for Detached<'_> {
-    type Target = BTreeMap<LegacyVarKey, NodeIndex>;
+    type Target = VarIndex;
     fn deref(&self) -> &Self::Target {
         self.var_index
     }
@@ -112,9 +115,7 @@ impl std::ops::Deref for Detached<'_> {
 
 impl Drop for Detached<'_> {
     fn drop(&mut self) {
-        for (key, idx) in self.removed.drain(..) {
-            self.var_index.insert(key, idx);
-        }
+        self.var_index.unhide();
     }
 }
 
@@ -137,7 +138,7 @@ impl CodePropertyGraph {
         dfg: &DataFlowGraph,
         files: &BTreeMap<String, ParsedFile>,
         graph: &mut DiGraph<CpgNode, CpgEdge>,
-        var_index: &mut BTreeMap<LegacyVarKey, NodeIndex>,
+        var_index: &mut VarIndex,
         exact_var_index: &mut ExactVarIndex,
         location_index: &mut BTreeMap<(String, usize), Vec<NodeIndex>>,
     ) -> HiddenUses {
@@ -196,22 +197,37 @@ mod tests {
         e
     }
 
+    fn index_of(entries: &[(LegacyVarKey, NodeIndex)]) -> VarIndex {
+        VarIndex::from_map(entries.iter().cloned().collect())
+    }
+
     #[test]
     fn detach_hides_only_hidden_entries_and_drop_restores_them() {
-        let (a, b, c) = (NodeIndex::new(0), NodeIndex::new(1), NodeIndex::new(2));
-        let mut var_index = BTreeMap::from([(key(1), a), (key(2), b), (key(3), c)]);
-        let original = var_index.clone();
+        let g = DiGraph::new();
+        let (a, b, c, d) = (
+            NodeIndex::new(0),
+            NodeIndex::new(1),
+            NodeIndex::new(2),
+            NodeIndex::new(3),
+        );
+        let mut var_index = index_of(&[(key(1), a), (key(2), b), (key(3), d)]);
+        let original = var_index.to_map(&g);
         let mut exact = exact_of(&[(1, 0, 10), (2, 1, 20)]);
         // key(1) -> node a hidden; key(2) is *shared*: the entry holds the
         // visible node b while the hidden node c shares its key, so it stays.
         let h = hidden(vec![(key(1), a), (key(2), c)]);
         {
             let view = h.detach(&mut var_index, &mut exact);
-            assert!(!view.contains_key(&key(1)), "hidden entry is detached");
-            assert_eq!(view.get(&key(2)), Some(&b), "shared entry stays visible");
-            assert_eq!(view.get(&key(3)), Some(&c));
+            assert_eq!(view.get(&g, &key(1)), None, "hidden entry is detached");
+            assert_eq!(view.get(&g, &key(2)), Some(b), "shared entry stays visible");
+            assert_eq!(view.get(&g, &key(3)), Some(d));
         }
-        assert_eq!(var_index, original, "stored var_index is complete again");
+        assert_eq!(
+            var_index.to_map(&g),
+            original,
+            "stored var_index is complete again"
+        );
+        assert_eq!(var_index.get(&g, &key(1)), Some(a));
         assert!(
             !exact.contains_key(&key(1)),
             "exact entry of hidden node gone"
@@ -224,38 +240,41 @@ mod tests {
 
     #[test]
     fn detach_removes_only_the_hidden_node_from_a_shared_exact_entry() {
+        let g = DiGraph::new();
         let (a, b) = (NodeIndex::new(0), NodeIndex::new(1));
-        let mut var_index = BTreeMap::from([(key(1), b)]);
+        let mut var_index = index_of(&[(key(1), b)]);
         let mut exact = exact_of(&[(1, 0, 10), (1, 1, 20)]);
         let h = hidden(vec![(key(1), a)]);
         drop(h.detach(&mut var_index, &mut exact));
         let spans = &exact[&key(1)];
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[&(20, 21)], vec![b]);
-        assert_eq!(var_index[&key(1)], b);
+        assert_eq!(var_index.get(&g, &key(1)), Some(b));
     }
 
     #[test]
     fn detach_with_nothing_hidden_is_a_no_op() {
-        let mut var_index = BTreeMap::from([(key(1), NodeIndex::new(0))]);
+        let g = DiGraph::new();
+        let mut var_index = index_of(&[(key(1), NodeIndex::new(0))]);
         let mut exact = exact_of(&[(1, 0, 10)]);
-        let (v0, e0) = (var_index.clone(), exact.clone());
+        let (v0, e0) = (var_index.to_map(&g), exact.clone());
         drop(hidden(Vec::new()).detach(&mut var_index, &mut exact));
-        assert_eq!((var_index, exact), (v0, e0));
+        assert_eq!((var_index.to_map(&g), exact), (v0, e0));
     }
 
     #[test]
     fn var_index_is_restored_when_the_consumer_panics() {
+        let g = DiGraph::new();
         let a = NodeIndex::new(0);
-        let mut var_index = BTreeMap::from([(key(1), a)]);
+        let mut var_index = index_of(&[(key(1), a)]);
         let mut exact = ExactVarIndex::new();
         let h = hidden(vec![(key(1), a)]);
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let view = h.detach(&mut var_index, &mut exact);
-            assert!(view.is_empty());
+            assert_eq!(view.get(&g, &key(1)), None);
             panic!("consumer failed between detach and restore");
         }));
         assert!(result.is_err());
-        assert_eq!(var_index.get(&key(1)), Some(&a), "restored on unwind");
+        assert_eq!(var_index.get(&g, &key(1)), Some(a), "restored on unwind");
     }
 }

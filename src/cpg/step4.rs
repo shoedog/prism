@@ -24,7 +24,7 @@ impl Endpoints<'_> {
         &mut self,
         id: AssemblyId,
         files: &BTreeMap<String, ParsedFile>,
-        var_index: &BTreeMap<LegacyVarKey, NodeIndex>,
+        var_index: &VarIndex,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
     ) -> Option<NodeIndex> {
@@ -50,7 +50,7 @@ impl CodePropertyGraph {
     pub(super) fn assemble_step4(
         dfg: &mut DataFlowGraph,
         files: &BTreeMap<String, ParsedFile>,
-        var_index: &BTreeMap<LegacyVarKey, NodeIndex>,
+        var_index: &VarIndex,
         exact_var_index: &ExactVarIndex,
         graph: &mut DiGraph<CpgNode, CpgEdge>,
     ) -> DfgLabelStats {
