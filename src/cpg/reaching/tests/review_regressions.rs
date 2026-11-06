@@ -509,7 +509,7 @@ fn python_except_and_with_alias_uncertainty_use_flat_path_fallback() {
     );
     let except_func = function(&except_parsed);
     let except_defs = collect_defs(&except_parsed);
-    let except_facts = scope::BindingFacts::new(
+    let except_facts = crate::cpg::binding_facts::BindingFacts::new(
         &except_parsed,
         &except_func,
         &except_defs,
@@ -523,7 +523,12 @@ fn python_except_and_with_alias_uncertainty_use_flat_path_fallback() {
     );
     let func = function(&with_conditional);
     let defs = collect_defs(&with_conditional);
-    let with_facts = scope::BindingFacts::new(&with_conditional, &func, &defs, std::iter::empty());
+    let with_facts = crate::cpg::binding_facts::BindingFacts::new(
+        &with_conditional,
+        &func,
+        &defs,
+        std::iter::empty(),
+    );
     assert_eq!(
         with_facts.unclassified_binding_lines("value"),
         vec![3, 4, 5, 6]

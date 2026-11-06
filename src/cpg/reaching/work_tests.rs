@@ -2,7 +2,7 @@
 //! The differential compares stored DFG output plus the old parameter lookup,
 //! not complete per-owner RdOutcome/RdResult values or an independent scanner.
 //! Parameter rows on the signature line do not map to CFG statements, so this
-//! differential cannot guard the parameter-region step; scope::reuse_tests does.
+//! differential cannot guard the parameter-region step; binding_facts::reuse_tests does.
 use super::*;
 use crate::ast::call_membership_tests::inventory_count;
 use crate::data_flow::DataFlowGraph;
@@ -10,7 +10,7 @@ use std::cell::{Cell, RefCell};
 use std::path::Path;
 
 #[derive(Default, Debug, Clone, serde::Serialize)]
-pub(super) struct Counts {
+pub(in crate::cpg) struct Counts {
     owner: String,
     start: usize,
     language: String,
@@ -69,7 +69,7 @@ pub(super) fn index_built() {
     }
 }
 
-pub(super) fn bump(f: impl FnOnce(&mut Counts)) {
+pub(in crate::cpg) fn bump(f: impl FnOnce(&mut Counts)) {
     if RECORDING.with(Cell::get) {
         CURRENT.with(|counts| f(&mut counts.borrow_mut()));
     }
@@ -378,7 +378,7 @@ thread_local! {
 
 /// Frozen 433b252c lookup; only the lookup is switched, so both paths run
 /// the actual producer, RD solver, classifiers, kill lines and statistics.
-pub(super) fn parameters<'a>(
+pub(in crate::cpg) fn parameters<'a>(
     parsed: &'a ParsedFile,
     root: Node<'a>,
     cached: Option<Node<'a>>,

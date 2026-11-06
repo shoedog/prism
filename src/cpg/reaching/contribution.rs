@@ -4,7 +4,6 @@ use super::{
     graph::BitSet,
     recall_stats::{ReceiverEdge, ReceiverKey, Status},
     route::{order, Order, Pos},
-    scope::{BindingFacts, BindingRelation},
     solve_reaching_sets,
     statement_lookup::StatementLookup,
     DefSite, Line, RdFileStats, RdUnavailable,
@@ -12,7 +11,10 @@ use super::{
 use crate::{
     access_path::AccessPath,
     ast::ParsedFile,
-    cpg::{FlowConfidence, FlowDoubt},
+    cpg::{
+        binding_facts::{BindingFacts, BindingRelation},
+        FlowConfidence, FlowDoubt,
+    },
     data_flow::{FlowEdge, VarAccessKind, VarLocation},
     languages::Language,
 };

@@ -18,7 +18,7 @@ pub(super) fn classify_edge(
     successors: &[Vec<(usize, bool)>],
     collapsed: &BTreeSet<(AccessPath, Line)>,
     capture_facts: &capture::CaptureFacts,
-    binding_facts: &scope::BindingFacts,
+    binding_facts: &crate::cpg::binding_facts::BindingFacts,
     function_start: Line,
 ) -> FlowConfidence {
     if capture::is_capture(edge, capture_facts) {
@@ -102,9 +102,9 @@ pub(super) fn classify_edge(
     let mut boundary_kills = Vec::new();
     for &index in candidates {
         match binding_facts.relation(parsed, edge, index) {
-            scope::BindingRelation::Same => same_binding.push(index),
-            scope::BindingRelation::KilledAt(line) => boundary_kills.push(line),
-            scope::BindingRelation::Unresolved => {}
+            crate::cpg::binding_facts::BindingRelation::Same => same_binding.push(index),
+            crate::cpg::binding_facts::BindingRelation::KilledAt(line) => boundary_kills.push(line),
+            crate::cpg::binding_facts::BindingRelation::Unresolved => {}
         }
     }
     if let Some(kill_line) = boundary_kills.into_iter().min() {
