@@ -15,6 +15,7 @@ use super::{FlowConfidence, FlowDoubt};
 mod capture;
 mod capture_regions;
 mod census_defs;
+mod census_pass;
 mod census_trace;
 mod preflight;
 pub(crate) use preflight::unavailable_before_edges;
@@ -220,7 +221,7 @@ pub(crate) fn reaching_definitions_with_exact(
     exact_edges: &[FlowEdge],
     file_cfg_edges: &FileCfgEdgeIndex<'_>,
 ) -> RdOutcome {
-    let outcome = reaching_definitions_impl(
+    let outcome = census_pass::run(
         parsed,
         func_node,
         defs,
@@ -241,6 +242,7 @@ pub(crate) fn reaching_definitions_with_exact(
     outcome
 }
 
+#[allow(clippy::too_many_arguments)]
 fn reaching_definitions_impl(
     parsed: &ParsedFile,
     func_node: &Node<'_>,
@@ -248,107 +250,7 @@ fn reaching_definitions_impl(
     dfg_edges: &[FlowEdge],
     exact_edges: &[FlowEdge],
     file_cfg_edges: &FileCfgEdgeIndex<'_>,
-) -> RdOutcome {
-    if census_trace::enabled() {
-        return traced(
-            parsed,
-            func_node,
-            defs,
-            dfg_edges,
-            exact_edges,
-            file_cfg_edges,
-            &mut std::io::stderr().lock(),
-        );
-    }
-    rd_pass(
-        parsed,
-        func_node,
-        defs,
-        dfg_edges,
-        exact_edges,
-        file_cfg_edges,
-        Pass::Census,
-        &mut None,
-    )
-}
-
-/// Which write-census mechanisms a solver pass applies (#660 S1b-1).
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Pass {
-    /// Production: kill-only defs and refusals.
-    Census,
-    /// The trace's control: main's rules plus S1a, no census.
-    NoCensus,
-}
-
-/// The production pass, plus (trace on only) a control pass without the census whose labels name each
-/// edge the census moved. The control never changes the returned outcome.
-fn traced(
-    parsed: &ParsedFile,
-    func_node: &Node<'_>,
-    defs: &[DefSite],
-    dfg_edges: &[FlowEdge],
-    exact_edges: &[FlowEdge],
-    file_cfg_edges: &FileCfgEdgeIndex<'_>,
-    out: &mut impl std::io::Write,
-) -> RdOutcome {
-    let mut facts = None;
-    let outcome = rd_pass(
-        parsed,
-        func_node,
-        defs,
-        dfg_edges,
-        exact_edges,
-        file_cfg_edges,
-        Pass::Census,
-        &mut facts,
-    );
-    let Some(census) = facts.filter(|c| !c.is_inert()) else {
-        return outcome;
-    };
-    let RdOutcome::Available(head) = &outcome else {
-        return outcome;
-    };
-    let RdOutcome::Available(base) = rd_pass(
-        parsed,
-        func_node,
-        defs,
-        dfg_edges,
-        exact_edges,
-        file_cfg_edges,
-        Pass::NoCensus,
-        &mut None,
-    ) else {
-        return outcome;
-    };
-    for edge in dfg_edges {
-        let key = (edge.from.clone(), edge.to.clone());
-        if let (Some(new), old) = (head.labels.get(&key), base.labels.get(&key)) {
-            if old != Some(new) {
-                census_trace::emit(out, &census.mechanism(edge, *new), edge);
-            }
-        }
-    }
-    for edge in exact_edges {
-        let key = ExactFlowEdge::from_legacy(edge);
-        if let (Some(new), old) = (head.exact_labels.get(&key), base.exact_labels.get(&key)) {
-            if old != Some(new) {
-                census_trace::emit(out, &census.mechanism(edge, *new), edge);
-            }
-        }
-    }
-    outcome
-}
-
-#[allow(clippy::too_many_arguments)]
-fn rd_pass(
-    parsed: &ParsedFile,
-    func_node: &Node<'_>,
-    defs: &[DefSite],
-    dfg_edges: &[FlowEdge],
-    exact_edges: &[FlowEdge],
-    file_cfg_edges: &FileCfgEdgeIndex<'_>,
-    pass: Pass,
+    pass: census_pass::Pass,
     facts_out: &mut Option<census_defs::CensusFacts>,
 ) -> RdOutcome {
     #[cfg(test)]
@@ -356,13 +258,16 @@ fn rd_pass(
     #[cfg(test)]
     work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
     let raw_defs = defs;
-    let (defs, mut census) = census_defs::complete_for(
-        pass == Pass::Census,
+    let (mut defs, mut census) = census_defs::complete_for(
+        pass == census_pass::Pass::Census,
         parsed,
         func_node,
         deduplicate_definitions(defs),
     );
     let n_recorded = census.n_recorded;
+    // The census never changes availability or the def cap (#660 S1b-1): a completed list that would
+    // overflow runs RD on the recorded defs as main does, and the owner's edges take a refusal label.
+    census.cap_defs(&mut defs, RD_MAX_DEFS);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
             actual: defs.len(),
@@ -395,15 +300,9 @@ fn rd_pass(
         ));
     }
     if cfg_edges.is_empty()
-        && !cfg::js_single::single_node_cfg_is_complete(
-            parsed,
-            func_node,
-            lines.len(),
-            &defs
-                .iter()
-                .map(|def| def.path.base.as_str())
-                .collect::<Vec<_>>(),
-        )
+        && !census.one_node_admits(&mut defs, |bases| {
+            cfg::js_single::single_node_cfg_is_complete(parsed, func_node, lines.len(), bases)
+        })
     {
         return RdOutcome::Unavailable(RdUnavailable::NoCfgEdges);
     }
@@ -478,12 +377,7 @@ fn rd_pass(
         dfg_edges.iter().chain(exact_edges),
     );
     binding_facts.extend_kill_only(&defs[n_recorded..]);
-    // A kill-only def at a line that is no CFG statement kills nowhere: refuse its base (E18).
-    for (def, mapped) in defs[n_recorded..].iter().zip(&mapped_defs[n_recorded..]) {
-        if mapped.is_none() {
-            census.refuse_unmapped(&def.path.base);
-        }
-    }
+    census.refuse_unmapped(&defs, &mapped_defs);
     *facts_out = Some(census.clone());
 
     let mut gen = vec![BitSet::new(defs.len()); node_count];
@@ -520,7 +414,7 @@ fn rd_pass(
     let capture_facts = capture::capture_facts_with(
         parsed,
         *func_node,
-        pass == Pass::Census && census_trace::enabled(),
+        pass == census_pass::Pass::Census && census_trace::enabled(),
     );
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
     let mut exact_labels = BTreeMap::new();

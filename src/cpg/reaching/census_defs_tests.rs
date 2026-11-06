@@ -55,7 +55,7 @@ fn availability(
 }
 
 #[test]
-fn availability_agrees_at_both_seams_on_every_matrix_fixture() {
+fn preflight_and_solver_agree_on_recorded_defs_for_every_matrix_fixture() {
     let mut owners = 0;
     for (name, _slice, src) in fixtures() {
         let parsed = parse(lang_of(&name), &src.replace("\\n", "\n"));
@@ -69,31 +69,6 @@ fn availability_agrees_at_both_seams_on_every_matrix_fixture() {
     assert!(owners > 150, "{owners}");
 }
 
-#[test]
-fn completed_lists_are_equal_at_both_seams_cold_and_warm() {
-    for (name, _slice, src) in fixtures() {
-        let src = src.replace("\\n", "\n");
-        let language = lang_of(&name);
-        let parsed = parse(language, &src);
-        for owner in parsed.all_functions() {
-            let (defs, _) = recorded(&parsed, &owner);
-            let first = census_defs::complete(&parsed, &owner, defs.clone());
-            let second = census_defs::complete(&parsed, &owner, defs.clone());
-            let cold = parse(language, &src);
-            let cold_owner = cold
-                .all_functions()
-                .into_iter()
-                .find(|o| o.start_byte() == owner.start_byte() && o.end_byte() == owner.end_byte())
-                .unwrap();
-            let fresh = census_defs::complete(&cold, &cold_owner, defs.clone());
-            assert_eq!(first.0, second.0, "{name}: seam 1 vs seam 2");
-            assert_eq!(first.0, fresh.0, "{name}: warm memo vs cold walk");
-            assert_eq!(first.1.n_recorded, defs.len());
-        }
-    }
-}
-
-/// A recorded def of `base` at `byte` on `line`, for tests that need no producer.
 fn def(id: u32, path: &str, line: usize, byte: usize) -> DefSite {
     DefSite {
         id: DefId(id),
@@ -105,108 +80,24 @@ fn def(id: u32, path: &str, line: usize, byte: usize) -> DefSite {
 }
 
 #[test]
-fn census_only_availability_flip_is_the_same_at_both_seams() {
-    // One node: `delete o.x` is a census write of `o`, which the producer records no def for. The
-    // completed list holds two defs of `o`, so the one-node distinct-bases belt refuses the owner.
-    let src = "const f = (o) => (delete o.x, use(o));\n";
-    let parsed = parse(Language::JavaScript, src);
-    let owner = parsed.all_functions().into_iter().next().unwrap();
-    let defs = vec![def(0, "o", 1, src.find("(o)").unwrap() + 1)];
-    let (completed, facts) = census_defs::complete(&parsed, &owner, defs.clone());
-    assert_eq!(completed.len(), 2, "{completed:?}");
-    assert_eq!(facts.n_recorded, 1);
-    assert_eq!(
-        availability(&parsed, &owner, &defs),
-        (
-            Some(RdUnavailable::NoCfgEdges),
-            Some(RdUnavailable::NoCfgEdges)
-        )
-    );
-    // The same owner without the write is available at both seams.
-    let plain = "const f = (o) => (touch(o.x), use(o));\n";
-    let parsed = parse(Language::JavaScript, plain);
-    let owner = parsed.all_functions().into_iter().next().unwrap();
-    let defs = vec![def(0, "o", 1, plain.find("(o)").unwrap() + 1)];
-    assert_eq!(availability(&parsed, &owner, &defs), (None, None));
-}
-
-#[test]
-fn census_defs_count_toward_the_def_cap_at_both_seams() {
-    let mut body = String::from("function f(o) {\n");
-    for i in 0..(RD_MAX_DEFS + 2) {
-        body.push_str(&format!("  delete o.k{i};\n"));
+fn the_census_never_changes_availability() {
+    // `delete o.x` adds a def of base `o` to a one-node owner, and 2,050 updates overflow the def cap:
+    // preflight and solver both run on recorded defs, so both stay available as on main.
+    let one_node = "const f = (o) => (delete o.x, use(o));\n";
+    let mut capped = String::from("function f(x) {\n  x = 0;\n");
+    for _ in 0..(RD_MAX_DEFS + 2) {
+        capped.push_str("  x++;\n");
     }
-    body.push_str("  use(o);\n}\n");
-    let parsed = parse(Language::JavaScript, &body);
-    let owner = parsed.all_functions().into_iter().next().unwrap();
-    let defs = vec![def(0, "o", 1, body.find("(o)").unwrap() + 1)];
-    let (pre, solver) = availability(&parsed, &owner, &defs);
-    assert!(
-        matches!(pre, Some(RdUnavailable::DefinitionsCapExceeded { .. })),
-        "{pre:?}"
-    );
-    assert_eq!(pre, solver);
-    // Recorded defs alone are under the cap: only the census pushes the owner over it.
-    assert_eq!(defs.len(), 1);
-}
-
-/// One-node availability over `defs` as the census-free rule states it (the control).
-fn census_off_availability(
-    parsed: &ParsedFile,
-    owner: &Node<'_>,
-    defs: &[DefSite],
-) -> Option<RdUnavailable> {
-    let bases: Vec<&str> = defs.iter().map(|d| d.path.base.as_str()).collect();
-    (!crate::cfg::js_single::single_node_cfg_is_complete(parsed, owner, 1, &bases))
-        .then_some(RdUnavailable::NoCfgEdges)
-}
-
-#[test]
-fn label_only_refusals_never_move_availability() {
-    // `delete o.x` alone flips a one-node owner (above). Under an escape, a parse error or a refused
-    // target kind the census is refused, adds no def, and availability is exactly the census-free rule.
-    let flips = "const f = (o) => (delete o.x, g(o, b));\n";
-    for (src, language, refused) in [
-        (flips, Language::JavaScript, false),
-        (
-            "const f = (o) => (delete o.x, g(o, \\u0062));\n",
-            Language::JavaScript,
-            true,
-        ),
-        (
-            "const f = (o) => (delete o.x, g(o, @));\n",
-            Language::JavaScript,
-            true,
-        ),
-        (
-            "const f = (o) => (delete o.x, (using a = 1));\n",
-            Language::TypeScript,
-            true,
-        ),
-    ] {
-        let parsed = parse(language, src);
+    capped.push_str("  sink(x);\n}\n");
+    for src in [one_node.to_string(), capped] {
+        let parsed = parse(Language::JavaScript, &src);
         let owner = parsed.all_functions().into_iter().next().unwrap();
-        let defs = vec![def(0, "o", 1, src.find("(o)").unwrap() + 1)];
+        let (defs, _) = recorded(&parsed, &owner);
+        assert!(!defs.is_empty());
+        assert_eq!(availability(&parsed, &owner, &defs), (None, None));
         let (completed, facts) = census_defs::complete(&parsed, &owner, defs.clone());
-        let off = census_off_availability(&parsed, &owner, &defs);
-        assert_eq!(off, None, "{src}: the census-free rule admits the owner");
-        let (pre, solver) = availability(&parsed, &owner, &defs);
-        assert_eq!(pre, solver, "{src}");
-        if refused {
-            assert_eq!(completed, defs, "{src}: a refusal adds no kill-only def");
-            assert!(!facts.is_inert(), "{src}: the refusal is recorded");
-            assert_eq!(
-                pre, off,
-                "{src}: availability untouched by a label-only refusal"
-            );
-        } else {
-            assert_eq!(completed.len(), 2, "{src}");
-            assert_eq!(
-                pre,
-                Some(RdUnavailable::NoCfgEdges),
-                "{src}: the census-only flip"
-            );
-        }
+        assert!(completed.len() > defs.len(), "the completed list is longer");
+        assert_eq!(facts.n_recorded, defs.len());
     }
 }
 
@@ -280,37 +171,6 @@ fn coverage_is_the_stored_path_at_the_same_start_byte() {
     }
 }
 
-#[test]
-fn a_changed_recorded_list_recomputes_the_memoised_completion() {
-    let src = "function f(a) {\n  log();\n  a++;\n  sink(a);\n}\n";
-    let parsed = parse(Language::JavaScript, src);
-    let owner = parsed.all_functions().into_iter().next().unwrap();
-    let bare = vec![def(0, "a", 1, 11)];
-    let (out, _) = census_defs::complete(&parsed, &owner, bare.clone());
-    assert_eq!(out.len(), 2);
-    // A recorded def at the site's own start byte covers it: the stale kill-only def must be gone.
-    let at = src.find("a++").unwrap();
-    let covered = vec![def(0, "a", 1, 11), def(1, "a", 3, at)];
-    let (out, _) = census_defs::complete(&parsed, &owner, covered.clone());
-    assert_eq!(out, covered);
-    let (again, _) = census_defs::complete(&parsed, &owner, bare);
-    assert_eq!(again.len(), 2);
-}
-
-#[test]
-fn the_walk_runs_once_per_owner_across_both_seams() {
-    let src = "function f(a) {\n  log();\n  a++;\n  sink(a);\n}\n";
-    let parsed = parse(Language::JavaScript, src);
-    let owner = parsed.all_functions().into_iter().next().unwrap();
-    let (defs, _) = recorded(&parsed, &owner);
-    let before = crate::js_write_census::completion::walks();
-    let cfg = cfg::build_cfg_edges_with_arms(&parsed);
-    let index = FileCfgEdgeIndex::new(&cfg);
-    let _ = unavailable_before_edges(&parsed, &owner, &defs, &index);
-    let _ = reaching_definitions_with_exact(&parsed, &owner, &defs, &[], &[], &index);
-    assert_eq!(crate::js_write_census::completion::walks() - before, 1);
-}
-
 // ---- E1: kill-only defs never collapse; the header def keeps its edge into the body -----------------
 
 fn labels(src: &str, language: Language, edge: &str) -> Vec<String> {
@@ -342,7 +202,8 @@ fn trace_lines(language: Language, src: &str) -> Vec<String> {
         let (defs, edges) = recorded(&parsed, &owner);
         let cfg = cfg::build_cfg_edges_with_arms(&parsed);
         let index = FileCfgEdgeIndex::new(&cfg);
-        let traced_outcome = traced(&parsed, &owner, &defs, &edges, &[], &index, &mut out);
+        let traced_outcome =
+            census_pass::traced(&parsed, &owner, &defs, &edges, &[], &index, &mut out);
         let plain = reaching_definitions_with_exact(&parsed, &owner, &defs, &edges, &[], &index);
         assert_eq!(traced_outcome, plain, "the trace never changes the outcome");
     }
@@ -457,4 +318,166 @@ fn comments_in_target_positions_do_not_refuse_the_owner() {
         let c = census_with(&parsed, Tables::shared(), owner, false);
         assert!(c.refusals.is_empty(), "{body}: {:?}", c.refusals);
     }
+}
+
+// ---- Round 1 -----------------------------------------------------------------------------------------
+
+fn not_exact(language: Language, src: &str, edge: &str) {
+    let got = labels(src, language, edge);
+    assert!(
+        !got.is_empty() && got.iter().all(|l| l != "exact"),
+        "{edge}: {got:?} for {src}"
+    );
+}
+
+fn exact(language: Language, src: &str, edge: &str) {
+    assert_eq!(labels(src, language, edge), ["exact"], "{edge}: {src}");
+}
+
+#[test]
+fn a_write_lost_behind_another_statement_on_its_line_kills_at_that_line() {
+    // W1: `a++` shares line 4 with `log();`, so no retained span holds it; the enclosing `if` (line 2)
+    // runs earlier than the recorded `let a` on line 3 and must not take the kill.
+    let src =
+        "function f(c) {\n  if (c) {\n    let a = 1;\n    log(); a++;\n    sink(a);\n  }\n}\n";
+    for language in [Language::JavaScript, Language::TypeScript] {
+        not_exact(language, src, "a@3->a@5");
+    }
+    // An eager class position under the same retained ancestor refuses the base instead.
+    let class = "function f(c) {\n  if (c) {\n    let a = 1;\n    class C { static { a++; } }\n    sink(a);\n  }\n}\n";
+    not_exact(Language::JavaScript, class, "a@3->a@5");
+}
+
+#[test]
+fn header_sites_keep_their_header_node() {
+    // Case values, `for` heads and the one-line block stay mapped as before (fb03, fb11, fb12).
+    let sw = "function f(a, k) {\n  log();\n  switch (k) {\n    case a++: break;\n    default: break;\n  }\n  sink(a);\n}\n";
+    not_exact(Language::JavaScript, sw, "a@1->a@7");
+}
+
+#[test]
+fn eager_decorator_writes_keep_the_owners_this() {
+    // W4: parameter decorators, JS method decorators and computed keys run in the enclosing scope.
+    let ts = "function f() {\n  this.x = 1;\n  class C { constructor(@dec(this.x++) p: unknown) {} }\n  sink(this.x);\n}\n";
+    not_exact(Language::TypeScript, ts, "this.x@2->this.x@4");
+    let js =
+        "function f() {\n  this.x = 1;\n  class C { @dec(this.x++) m() {} }\n  sink(this.x);\n}\n";
+    not_exact(Language::JavaScript, js, "this.x@2->this.x@4");
+}
+
+#[test]
+fn this_in_class_bodies_stays_the_classes() {
+    // The rule the census shares with the producer: a static block or field value rebinds `this`.
+    for member in [
+        "static { this.x++; }",
+        "static y = (this.x++);",
+        "static { this.x = 2; }",
+        "m() { this.x++; }",
+    ] {
+        let src = format!(
+            "function f() {{\n  this.x = 1;\n  class C {{ {member} }}\n  sink(this.x);\n}}\n"
+        );
+        exact(Language::JavaScript, &src, "this.x@2->this.x@4");
+    }
+}
+
+#[test]
+fn kills_follow_the_binding() {
+    // A distinct inner binding's update leaves the outer edge exact; an unresolved (flat) binding kills.
+    let inner = "function f(a) {\n  log();\n  {\n    let a = 0;\n    a++;\n    use(a);\n  }\n  sink(a);\n}\n";
+    exact(Language::JavaScript, inner, "a@1->a@8");
+    let flat = "function f() {\n  g = 1;\n  log();\n  g++;\n  use(g);\n}\n";
+    not_exact(Language::JavaScript, flat, "g@2->g@5");
+}
+
+#[test]
+fn own_parameter_writes_and_declarations_are_not_kill_only_defs() {
+    // S1d's classes (dead formals, hoisting): main's label stands in S1b-1.
+    let own = "function f(a, b = a++) {\n  log();\n  use(a);\n}\n";
+    exact(Language::JavaScript, own, "a@1->a@3");
+    let decl = "function f(a) {\n  log();\n  function a() {}\n  sink(a);\n}\n";
+    exact(Language::JavaScript, decl, "a@1->a@4");
+}
+
+#[test]
+fn affects_is_prefix_with_a_wildcard_on_either_side() {
+    // The JS producer records no subscript def, so the def-side `[]` is pinned on the relation itself.
+    use super::def_buckets::affects;
+    let p = |s: &str| AccessPath::from_expr(s);
+    for (w, q, want) in [
+        ("o", "o.x", true),
+        ("o.x", "o.x", true),
+        ("o.x", "o", false),
+        ("o.x", "o.y", false),
+        ("o.[]", "o.x", true),
+        ("o.x", "o.[]", true),
+        ("o.a.x", "o.a.[]", true),
+        ("o.x", "p.x", false),
+    ] {
+        let (w, q) = (
+            if w.contains("[]") {
+                AccessPath::with_fields("o", w.split('.').skip(1).map(String::from).collect())
+            } else {
+                p(w)
+            },
+            if q.contains("[]") {
+                AccessPath::with_fields(
+                    q.split('.').next().unwrap(),
+                    q.split('.').skip(1).map(String::from).collect(),
+                )
+            } else {
+                p(q)
+            },
+        );
+        assert_eq!(affects(&w, &q), want, "{w} affects {q}");
+    }
+}
+
+#[test]
+fn an_alias_twin_does_not_cover_a_census_site() {
+    let src = "function f(a) {\n  log();\n  a++;\n  sink(a);\n}\n";
+    let parsed = parse(Language::JavaScript, src);
+    let owner = parsed.all_functions().into_iter().next().unwrap();
+    let at = src.find("a++").unwrap();
+    let mut twin = def(1, "a", 3, at);
+    twin.alias_derived = true;
+    let defs = vec![def(0, "a", 1, 11), twin];
+    let (out, _) = census_defs::complete(&parsed, &owner, defs);
+    assert_eq!(
+        out.len(),
+        3,
+        "a twin never kills, so it cannot cover: {out:?}"
+    );
+}
+
+#[test]
+fn availability_refusals_are_traced_and_leave_the_outcome_alone() {
+    let mut capped = String::from("function f(x) {\n  x = 0;\n");
+    for _ in 0..(RD_MAX_DEFS + 2) {
+        capped.push_str("  x++;\n");
+    }
+    capped.push_str("  sink(x);\n}\n");
+    for (src, want) in [
+        (
+            "const f = (o) => (delete o.x, use(o));\n".to_string(),
+            "owner-refuse:one-node",
+        ),
+        (capped, "owner-refuse:def-cap"),
+    ] {
+        let got = mechanisms(Language::JavaScript, &src);
+        assert!(!got.is_empty(), "{want}: no trace");
+        assert!(got.iter().all(|m| m == want), "{want}: {got:?}");
+    }
+}
+
+#[test]
+fn a_grammar_gap_inside_the_owner_refuses_it_by_the_parse_precondition() {
+    // The pinned TypeScript grammar does not parse a tuple element labeled with a predefined type name (`symbol:`) as a generic
+    // argument (`new Map<number, [symbol: Symbol, ..]>()`); the ERROR node refuses the whole owner, as DESIGN 4.4 intends (TypeScript `services/exportInfoMap.ts`).
+    let src = "function f(a) {\n  log();\n  a++;\n  const m = new Map<number, [symbol: Symbol, moduleSymbol: Symbol]>();\n  sink(a);\n}\n";
+    let got = mechanisms(Language::TypeScript, src);
+    assert!(
+        !got.is_empty() && got.iter().all(|m| m == "owner-refuse:parse"),
+        "{got:?}"
+    );
 }

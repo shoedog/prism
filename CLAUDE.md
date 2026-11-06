@@ -473,11 +473,12 @@ JS/TS/TSX write census (#660 S1b-1, `src/cpg/reaching/census_defs.rs` over `src/
 `docs/superpowers/plans/2026-11-05-660-js-def-census/DESIGN.md`): a write in the owner's body that the producer records no
 def for (update, pattern default, member target in a pattern, `delete`, wrapped or member `for` head, eager class position)
 is a kill-only def at its statement node, for bases the owner defines. It gens and kills by `affects` (a prefix write kills
-the paths below it), never emits an edge, is never a candidate and never counts in a collapse group; label-only. Both
-deduplication seams (solver and cap preflight) see the same completed list through a per-file memo (one walk per owner), so
-the one-node distinct-bases belt counts kill-only defs. Refused: an owner with an escaped identifier spelling, a parse error
-or a refused target kind labels every edge `NameOnly(CfgIncomplete)` and adds no def (availability untouched); a base whose
-eager site maps to no statement node (class or enum declaration lines) is refused the same way. Writes in a nested callable,
+the paths below it), never emits an edge, is never a candidate and never counts in a collapse group; label-only. Only the
+solver runs it (one walk per owner; the cap preflight is main's, on recorded defs). The census never changes availability, the
+def cap or any counter: a completed list that would trip the one-node distinct-bases belt or the 2,048 cap runs RD on the
+recorded defs and labels the owner `NameOnly(CfgIncomplete)` (`owner-refuse:one-node|def-cap`). Refused the same way: an owner with an escaped identifier spelling, a parse error
+or a refused target kind (no kill-only defs added); a base whose
+eager site maps to no statement node (class or enum declaration lines, or a statement lost behind another on its line under a compound statement) is refused for its own edges. Writes in a nested callable,
 an instance field initializer or the owner's own parameter list, declarations and `first_hazard` stay with S1c/S1d.
 `PRISM_RD_CENSUS_TRACE=1` names each moved edge (`kill:<form>`, `owner-refuse:..`, `site-unmapped`) from a census-free control pass.
 

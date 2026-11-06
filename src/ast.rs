@@ -480,8 +480,6 @@ pub struct ParsedFile {
     /// Lazily-extracted JS/TS export facts: a pure function of the parsed
     /// file, shared by the P1 loader priming and the call-graph build.
     js_export_facts: std::sync::OnceLock<crate::js_exports::JsExportFacts>,
-    /// #660: per-owner write-census completions, shared by RD's two deduplication seams.
-    pub(crate) js_census: crate::js_write_census::completion::CompletionMemo,
 }
 
 /// How a formal parameter is used in its callable body (PR-C).
@@ -524,7 +522,6 @@ impl ParsedFile {
             go_compat: go_compat_types::Cache::default(),
             call_args: std::sync::OnceLock::new(),
             js_export_facts: std::sync::OnceLock::new(),
-            js_census: Default::default(),
         };
         pf.functions = pf.build_function_table();
         Ok(pf)

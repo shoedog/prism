@@ -12,15 +12,6 @@ use std::collections::BTreeMap;
 
 const MATRIX: &str = include_str!("../../tests/fixtures/js_write_census/variant-matrix.tsv");
 
-/// Rows the design expects but S1b-1 cannot reach (needs a later slice), pinned to head's label:
-/// `(fixture, edge, head label, why)`. Empty when every S1b-1 row reaches its expected label.
-const PINNED: &[(&str, &str, &str, &str)] = &[(
-    "w05_escaped_unrelated_control",
-    "a@1->a@4",
-    "nameonly/cfg_incomplete",
-    "stale round-2 row: the round-3 escape rule (DESIGN 4.4, W1) refuses the whole owner, not just b",
-)];
-
 struct Row {
     fixture: String,
     edge: String,
@@ -91,11 +82,7 @@ fn matrix_rows_move_to_the_expected_label() {
     let mut failures = Vec::new();
     for r in &all {
         let language = lang_of(&r.fixture);
-        let pinned = PINNED
-            .iter()
-            .find(|p| p.0 == r.fixture && p.1 == r.edge)
-            .map(|p| p.2);
-        let want = pinned.unwrap_or(&r.expected);
+        let want = &r.expected;
         if want == "-" {
             continue; // no edge on main (w11)
         }

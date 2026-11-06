@@ -77,7 +77,7 @@ w01_escaped_update_multi	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	\u0
 w02_escaped_braced_assign_multi	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	\u{61} = .. refuses a	function f(a) {\n  log();\n  \u{61} = src();\n  sink(a);\n}
 w03_escaped_update_one_node	a@1->a@2	nameonly/cfg_incomplete	-	nameonly/cfg_incomplete	S1b-1 (W1) + S1d	one-node; stays NameOnly after the guard is deleted	function f(a) {\n  return (\u0061++, sink(a));\n}
 w04_escaped_braced_one_node	a@1->a@2	nameonly/cfg_incomplete	-	nameonly/cfg_incomplete	S1b-1 (W1) + S1d	one-node \u{61}++	function f(a) {\n  return (\u{61}++, sink(a));\n}
-w05_escaped_unrelated_control	a@1->a@4	exact	-	exact	S1b-1 (W1)	control: \u0062++ refuses b only [S1b-1: stale round-2 expectation; the round-3 owner-wide escape rule (DESIGN 4.4, W1) refuses the whole owner, so head is nameonly/cfg_incomplete, pinned in census_label_tests]	function f(a) {\n  log();\n  \u0062++;\n  sink(a);\n}
+w05_escaped_unrelated_control	a@1->a@4	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	control: \u0062++ refuses b only [round-3 W1: the escape refuses the whole owner, so head and expected are nameonly/cfg_incomplete]	function f(a) {\n  log();\n  \u0062++;\n  sink(a);\n}
 w06_escaped_read_multi	a@1->a@3	exact	-	nameonly/cfg_incomplete	S1b-1 (W1)	cost: an escaped read of a refuses a	function f(a) {\n  log();\n  a = src();\n  sink(\u0061);\n}
 d01_write_before_read_same_line	a@1->a@3	exact	-	nameonly/sameline	S1b-2 (D3)	write then read in one node	function f(a) {\n  log();\n  a = src(), sink(a);\n}
 d02_read_before_write_same_line	a@1->a@3	exact	-	exact	S1b-2 (D3)	control: read before write	function f(a) {\n  log();\n  sink(a), a++;\n}

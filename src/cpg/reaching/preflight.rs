@@ -12,7 +12,8 @@ pub(crate) fn unavailable_before_edges(
     defs: &[DefSite],
     cfg: &FileCfgEdgeIndex<'_>,
 ) -> Option<RdUnavailable> {
-    let (defs, _) = super::census_defs::complete(parsed, owner, deduplicate_definitions(defs));
+    // The census never changes availability (#660 S1b-1): this is main's preflight on recorded defs.
+    let defs = deduplicate_definitions(defs);
     let count = defs.len();
     if count > RD_MAX_DEFS {
         return Some(RdUnavailable::DefinitionsCapExceeded { actual: count });

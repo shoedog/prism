@@ -10,9 +10,8 @@
 use super::{DefId, DefSite, FlowConfidence, FlowDoubt};
 use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
-use crate::js_write_census::completion::{completion, fingerprint, Completion};
+use crate::js_write_census::completion::{completion, Completion};
 use std::collections::BTreeSet;
-use std::sync::Arc;
 use tree_sitter::Node;
 
 /// Why an edge's label was decided by the census.
@@ -29,7 +28,9 @@ pub(super) enum Refused {
 pub(super) struct CensusFacts {
     /// Defs `..n_recorded` are the producer's; the rest are kill-only.
     pub(super) n_recorded: usize,
-    completion: Option<Arc<Completion>>,
+    completion: Option<Completion>,
+    /// A refusal the census decided on availability grounds (`owner-refuse:one-node|def-cap`).
+    forced: Option<&'static str>,
     /// Bases refused at solve time: a kill-only def whose line is no CFG statement.
     unmapped: BTreeSet<String>,
 }
@@ -45,19 +46,60 @@ impl CensusFacts {
     /// The census changes nothing for this owner (no refusal, no kill-only def, no refused base).
     pub(super) fn is_inert(&self) -> bool {
         self.unmapped.is_empty()
+            && self.forced.is_none()
             && self.completion.as_ref().is_none_or(|c| {
                 c.refusal.is_none() && c.kill_only.is_empty() && c.refused_bases.is_empty()
             })
     }
 
-    /// Record that the kill-only def at `index` maps to no statement node: its base is refused.
-    pub(super) fn refuse_unmapped(&mut self, base: &str) {
-        self.unmapped.insert(base.to_string());
+    /// The def cap on the recorded list only: a completed list that overflows it is cut back to the
+    /// recorded defs and the owner refused by label (`owner-refuse:def-cap`).
+    pub(super) fn cap_defs(&mut self, defs: &mut Vec<DefSite>, cap: usize) {
+        if defs.len() > cap && self.n_recorded <= cap {
+            defs.truncate(self.n_recorded);
+            self.forced = Some("owner-refuse:def-cap");
+        }
+    }
+
+    /// The one-node distinct-bases belt on the recorded bases, as main runs it (`false`: refuse
+    /// availability). When only the completed bases fail it, the list is cut back to the recorded defs
+    /// and the owner refused by label (`owner-refuse:one-node`).
+    pub(super) fn one_node_admits(
+        &mut self,
+        defs: &mut Vec<DefSite>,
+        admits: impl Fn(&[&str]) -> bool,
+    ) -> bool {
+        fn bases(d: &[DefSite]) -> Vec<&str> {
+            d.iter().map(|x| x.path.base.as_str()).collect()
+        }
+        if !admits(&bases(&defs[..self.n_recorded])) {
+            return false;
+        }
+        if defs.len() > self.n_recorded && !admits(&bases(defs)) {
+            defs.truncate(self.n_recorded);
+            self.forced = Some("owner-refuse:one-node");
+        }
+        true
+    }
+
+    /// A kill-only def at a line that is no CFG statement kills nowhere: refuse its base (E18).
+    pub(super) fn refuse_unmapped(&mut self, defs: &[DefSite], mapped: &[Option<usize>]) {
+        for (def, m) in defs[self.n_recorded..]
+            .iter()
+            .zip(&mapped[self.n_recorded..])
+        {
+            if m.is_none() {
+                self.unmapped.insert(def.path.base.clone());
+            }
+        }
     }
 
     /// Owner refusal, then refused base (DESIGN.md 8, `classify_edge` steps 1-2).
     pub(super) fn refuses(&self, edge: &FlowEdge) -> Option<Refused> {
-        let c = self.completion.as_deref();
+        let c = self.completion.as_ref();
+        if let Some(l) = self.forced {
+            return Some(Refused::Owner(l.to_string()));
+        }
         if let Some(r) = c.and_then(|c| c.refusal.as_ref()) {
             return Some(Refused::Owner(r.label()));
         }
@@ -80,7 +122,7 @@ impl CensusFacts {
             Some(Refused::UnmappedSite) => return "site-unmapped".to_string(),
             None => {}
         }
-        let Some(c) = self.completion.as_deref() else {
+        let Some(c) = self.completion.as_ref() else {
             return "kill:other".to_string();
         };
         let kill_line = match label {
@@ -127,12 +169,11 @@ pub(super) fn complete(
     if n_recorded == 0 || !parsed.language.is_js_family() {
         return (recorded, CensusFacts::inert(n_recorded));
     }
-    let pairs: Vec<_> = recorded.iter().map(|d| (&d.path, d.start_byte)).collect();
-    let print = fingerprint(pairs.iter().copied());
-    let key = (owner.start_byte(), owner.end_byte());
-    let done = parsed
-        .js_census
-        .get_or_compute(key, print, || completion(parsed, *owner, &pairs, print));
+    let pairs: Vec<_> = recorded
+        .iter()
+        .map(|d| (&d.path, d.start_byte, d.alias_derived))
+        .collect();
+    let done = completion(parsed, *owner, &pairs);
     drop(pairs);
     let mut next = recorded.iter().map(|d| d.id.0).max().map_or(0, |m| m + 1);
     for k in &done.kill_only {
@@ -148,6 +189,7 @@ pub(super) fn complete(
     let facts = CensusFacts {
         n_recorded,
         completion: Some(done),
+        forced: None,
         unmapped: BTreeSet::new(),
     };
     (recorded, facts)

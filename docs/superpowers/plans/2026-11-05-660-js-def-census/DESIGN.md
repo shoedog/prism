@@ -291,6 +291,18 @@ narrows them; the rows keep main's label as `expected`, and an issue is proposed
   (`(function g(a) { g = 2; sink(g) })`, class-expression names) writes nothing in sloppy mode. Both are recorded defs with the
   extractor's identity, like #668; in the G1/G2 filing (§17).
 
+- **G7 loop body reaches code after the loop without the header (#693; S1b-1 round 1, Opus W2).** The CFG joins a JS loop
+  body to the statement after the loop without passing the header, so a header write (`for (..; ..; a++)`, a `while`
+  condition's `--k`) never kills a def made in the body on that route, on main as well as with the census. This is M3
+  (the CFG's routes are the routes), not a missed write; the rows keep main's label and the fix is the CFG's (#693).
+- **Availability is decided on recorded defs only (S1b-1 round 1; narrows 8 in favour of 10).** The first S1b-1 draft let
+  the completed def list flip the one-node distinct-bases belt and the 2,048 def cap. That changes which owners emit
+  fallback edges and the cap counters (`dfg_rd_functions_without_cfg` +2 on TypeScript `src`), which 10 forbids for a
+  label-only slice. The census never changes availability, cap exemption or any counter: the belt and the cap run on the
+  recorded list as on main, and when only the completed list would trip either, RD runs on the recorded defs and every edge
+  of the owner is `NameOnly(CfgIncomplete)`, traced `owner-refuse:one-node` or `owner-refuse:def-cap`. The census-only
+  availability flip of 8 and its parity test are withdrawn; preflight is unchanged from main.
+
 ## 6. Writes not spelled as a target
 
 | item | model | label effect; corpus cost (excalidraw / express; heuristic) |
