@@ -6,27 +6,27 @@ use crate::data_flow::FlowEdge;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
-pub(super) struct CaptureFacts {
+pub(super) struct CaptureFacts<'p> {
     /// Main's rule, every language: bodies of the outermost nested callables.
     ranges: Vec<(usize, usize)>,
     references: BTreeSet<(AccessPath, usize)>,
     /// #660 S1a, JS/TS/TSX owners only: parameter lists, instance field initializers and the
     /// innermost-region belt. Strictly additive to main's rule (`is_capture` ors the two).
-    js: Option<JsRegions>,
+    js: Option<JsRegions<'p>>,
     /// `PRISM_RD_CENSUS_TRACE` was on when the facts were built.
     trace: bool,
 }
 
-pub(super) fn capture_facts(parsed: &ParsedFile, func_node: Node<'_>) -> CaptureFacts {
+pub(super) fn capture_facts<'p>(parsed: &'p ParsedFile, func_node: Node<'_>) -> CaptureFacts<'p> {
     capture_facts_with(parsed, func_node, census_trace::enabled())
 }
 
 /// `capture_facts` with the trace switch injected (tests do not race on the process environment).
-pub(super) fn capture_facts_with(
-    parsed: &ParsedFile,
+pub(super) fn capture_facts_with<'p>(
+    parsed: &'p ParsedFile,
     func_node: Node<'_>,
     trace: bool,
-) -> CaptureFacts {
+) -> CaptureFacts<'p> {
     fn visit(
         parsed: &ParsedFile,
         node: Node<'_>,
@@ -86,7 +86,7 @@ fn main_capture(edge: &FlowEdge, facts: &CaptureFacts) -> bool {
 /// base name only when no read on the line spells the full path); a key read both eagerly and in a
 /// region, or in different regions, cannot be placed. A use with real bytes is placed by them, and outside every
 /// region it is eager and keeps main's rule.
-fn region_belt(edge: &FlowEdge, js: &JsRegions) -> Option<Option<usize>> {
+fn region_belt(edge: &FlowEdge, js: &JsRegions<'_>) -> Option<Option<usize>> {
     let use_region = if edge.to.end_byte > edge.to.start_byte {
         // Real bytes place the use before any line lookup; outside every region it is eager.
         Some(js.innermost(edge.to.start_byte)?)

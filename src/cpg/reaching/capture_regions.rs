@@ -10,7 +10,8 @@
 //! Only JS-family owners build this: Python evaluates parameter defaults eagerly at definition time.
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
-use std::collections::{BTreeMap, BTreeSet};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use tree_sitter::Node;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -52,13 +53,16 @@ impl Placement {
     }
 }
 
-pub(super) struct JsRegions {
+pub(super) struct JsRegions<'p> {
+    parsed: &'p ParsedFile,
     kinds: Vec<RegionKind>,
     /// Sorted by start ascending, then end descending, then depth: ancestors precede descendants.
     spans: Vec<Span>,
-    /// The line-keyed reference identity (path, 1-indexed line) of every read on a line that holds a
-    /// region read, eager reads of those lines included, with where its occurrences lie.
-    references: BTreeMap<(AccessPath, usize), Placement>,
+    /// Every read of the owner (eager and in regions), sorted by line. Paths are built on demand.
+    reads: Vec<Candidate>,
+    /// Per queried line: the line-keyed reference identity (path, line) of each read on it with where
+    /// its occurrences lie; empty when the line holds no region read.
+    lines: RefCell<HashMap<usize, Vec<(AccessPath, Placement)>>>,
 }
 
 /// A read candidate: (1-indexed line, start byte, end byte, is a member expression).
@@ -67,8 +71,6 @@ type Candidate = (usize, usize, usize, bool);
 #[derive(Clone, Copy)]
 struct Ctx {
     depth: usize,
-    /// Inside a region whose reference identities were already collected.
-    covered: bool,
 }
 
 struct Builder<'a, 'p, 't> {
@@ -77,32 +79,24 @@ struct Builder<'a, 'p, 't> {
     kinds: Vec<RegionKind>,
     /// (start, end, region id, depth)
     raw: Vec<(usize, usize, usize, usize)>,
-    occurrences: Vec<Candidate>,
     owner: Node<'t>,
 }
 
-pub(super) fn js_regions<'t>(parsed: &ParsedFile, func_node: Node<'t>) -> JsRegions {
+pub(super) fn js_regions<'p, 't>(parsed: &'p ParsedFile, func_node: Node<'t>) -> JsRegions<'p> {
     let boundary = parsed.language.callable_boundary_node_types();
     let mut b = Builder {
         parsed,
         boundary: &boundary,
         kinds: Vec::new(),
         raw: Vec::new(),
-        occurrences: Vec::new(),
         owner: func_node,
     };
-    b.children(
-        func_node,
-        Ctx {
-            depth: 0,
-            covered: false,
-        },
-    );
+    b.children(func_node, Ctx { depth: 0 });
     b.finish()
 }
 
 impl<'a, 'p, 't> Builder<'a, 'p, 't> {
-    fn finish(self) -> JsRegions {
+    fn finish(self) -> JsRegions<'p> {
         let mut raw = self.raw;
         raw.sort_by_key(|&(start, end, _, depth)| (start, std::cmp::Reverse(end), depth));
         let mut spans: Vec<Span> = Vec::with_capacity(raw.len());
@@ -120,32 +114,20 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
             });
             stack.push(spans.len() - 1);
         }
-        let mut regions = JsRegions {
+        // One pass over the owner collects every read; a read's region is the innermost span holding
+        // its byte, so reads in a parameter decorator's hole are eager (or the enclosing region's).
+        let mut reads = Vec::new();
+        if !spans.is_empty() {
+            Collector::new(self.parsed, &mut reads).walk_children(self.owner);
+            reads.sort_by_key(|c| c.0);
+        }
+        JsRegions {
+            parsed: self.parsed,
             kinds: self.kinds,
             spans,
-            references: BTreeMap::new(),
-        };
-        let mut region_lines = BTreeSet::new();
-        for candidate in &self.occurrences {
-            let placement = match regions.innermost(candidate.1) {
-                Some(region) => Placement::Region(region),
-                None => Placement::Eager,
-            };
-            region_lines.insert(candidate.0);
-            regions.note(self.parsed, candidate, placement);
+            reads,
+            lines: RefCell::new(HashMap::new()),
         }
-        // The same lines' eager reads: a use of an eager read must not be placed in a region by a
-        // name a region also spells.
-        if !region_lines.is_empty() {
-            let mut eager = Vec::new();
-            let mut collector = Collector::new(self.parsed, &[], &mut eager);
-            collector.prune = Some(&regions);
-            collector.walk_children(self.owner);
-            for candidate in eager.iter().filter(|c| region_lines.contains(&c.0)) {
-                regions.note(self.parsed, candidate, Placement::Eager);
-            }
-        }
-        regions
     }
 
     fn children(&mut self, node: Node<'_>, ctx: Ctx) {
@@ -165,14 +147,7 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
         }
     }
 
-    fn enter(
-        &mut self,
-        kind: RegionKind,
-        ranges: &[(usize, usize)],
-        ctx: Ctx,
-        collect: &[Node<'_>],
-        holes: &[(usize, usize)],
-    ) -> Ctx {
+    fn enter(&mut self, kind: RegionKind, ranges: &[(usize, usize)], ctx: Ctx) -> Ctx {
         let id = self.kinds.len();
         self.kinds.push(kind);
         for &(start, end) in ranges {
@@ -180,14 +155,8 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
                 self.raw.push((start, end, id, ctx.depth + 1));
             }
         }
-        if !ctx.covered {
-            for node in collect {
-                Collector::new(self.parsed, holes, &mut self.occurrences).walk(*node);
-            }
-        }
         Ctx {
             depth: ctx.depth + 1,
-            covered: true,
         }
     }
 
@@ -211,8 +180,6 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
                         RegionKind::Body,
                         &[(child.start_byte(), child.end_byte())],
                         ctx,
-                        &[child],
-                        &[],
                     );
                     self.visit(child, inner);
                 }
@@ -225,14 +192,12 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
     /// walked in the enclosing context.
     fn params(&mut self, list: Node<'_>, ctx: Ctx) {
         let mut holes: Vec<(usize, usize)> = Vec::new();
-        let mut decorators: Vec<Node<'_>> = Vec::new();
         let mut cursor = list.walk();
         for param in list.children(&mut cursor) {
             let mut inner = param.walk();
             for part in param.children(&mut inner) {
                 if part.kind() == "decorator" {
                     holes.push((part.start_byte(), part.end_byte()));
-                    decorators.push(part);
                 }
             }
         }
@@ -244,13 +209,7 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
             at = end;
         }
         ranges.push((at, list.end_byte()));
-        // A lone arrow parameter (`x => ..`) is a binding, not a read.
-        let collect: &[Node<'_>] = if list.kind() == "formal_parameters" {
-            &[list]
-        } else {
-            &[]
-        };
-        let inner = self.enter(RegionKind::Param, &ranges, ctx, collect, &holes);
+        let inner = self.enter(RegionKind::Param, &ranges, ctx);
         let mut cursor = list.walk();
         for param in list.children(&mut cursor) {
             let mut parts = param.walk();
@@ -281,8 +240,6 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
                     RegionKind::Field,
                     &[(child.start_byte(), child.end_byte())],
                     ctx,
-                    &[child],
-                    &[],
                 );
                 self.visit(child, inner);
             } else {
@@ -292,45 +249,55 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
     }
 }
 
-impl JsRegions {
-    fn note(&mut self, parsed: &ParsedFile, candidate: &Candidate, placement: Placement) {
-        let key = (candidate_path(parsed, candidate), candidate.0);
-        self.references
-            .entry(key)
-            .and_modify(|seen| *seen = seen.merge(placement))
-            .or_insert(placement);
-    }
-
+impl JsRegions<'_> {
     /// The line-keyed reference identity of a use: by its full path when any read on the line (eager
     /// or in a region) spells it, otherwise by its base name (a member read of `o` is found by the
-    /// token `o` whatever wraps it). `None` when no read on a line that holds a region read spells
-    /// either. Reads of one key both eagerly and in a region are `Placement::Ambiguous`.
+    /// token `o` whatever wraps it). `None` when the line holds no region read, or no read on it
+    /// spells either. Reads of one key both eagerly and in a region are `Placement::Ambiguous`.
     pub(super) fn line_region(&self, path: &AccessPath, line: usize) -> Option<Placement> {
-        if let Some(found) = self.references.get(&(path.clone(), line)) {
-            return Some(*found);
-        }
-        if path.is_simple() {
-            return None;
-        }
-        self.references
-            .get(&(AccessPath::simple(&path.base), line))
-            .copied()
+        let mut lines = self.lines.borrow_mut();
+        let placements = lines
+            .entry(line)
+            .or_insert_with(|| self.line_placements(line));
+        let find = |wanted: &AccessPath| {
+            placements
+                .iter()
+                .find(|(p, _)| p == wanted)
+                .map(|(_, v)| *v)
+        };
+        find(path).or_else(|| {
+            (!path.is_simple())
+                .then(|| find(&AccessPath::simple(&path.base)))
+                .flatten()
+        })
     }
 
-    /// End byte of the innermost span holding `byte`.
-    fn containing_end(&self, byte: usize) -> Option<usize> {
-        let mut at = self
-            .spans
-            .partition_point(|s| s.start <= byte)
-            .checked_sub(1);
-        while let Some(i) = at {
-            let span = &self.spans[i];
-            if byte < span.end {
-                return Some(span.end);
-            }
-            at = span.parent;
+    /// Every read on `line` keyed by its path, empty when none of them lies in a region.
+    fn line_placements(&self, line: usize) -> Vec<(AccessPath, Placement)> {
+        let start = self.reads.partition_point(|c| c.0 < line);
+        let on_line: Vec<(&Candidate, Placement)> = self.reads[start..]
+            .iter()
+            .take_while(|c| c.0 == line)
+            .map(|c| {
+                let placement = match self.innermost(c.1) {
+                    Some(region) => Placement::Region(region),
+                    None => Placement::Eager,
+                };
+                (c, placement)
+            })
+            .collect();
+        if !on_line.iter().any(|(_, p)| *p != Placement::Eager) {
+            return Vec::new();
         }
-        None
+        let mut out: Vec<(AccessPath, Placement)> = Vec::new();
+        for (candidate, placement) in on_line {
+            let path = candidate_path(self.parsed, candidate);
+            match out.iter_mut().find(|(p, _)| *p == path) {
+                Some((_, seen)) => *seen = seen.merge(placement),
+                None => out.push((path, placement)),
+            }
+        }
+        out
     }
 
     /// The innermost region holding `byte`, if any.
@@ -416,54 +383,47 @@ fn children_with_fields(node: Node<'_>) -> Vec<(Node<'_>, Option<&'static str>)>
 
 /// Collects the runtime reads below a node: every identifier and member read, through every
 /// evaluated child (receivers, call arguments, indices, wrappers). Not reads: property names, type
-/// positions, a subtree that is exactly a hole, and the names a callable binds (its formals, a lone
+/// positions, and the names a callable binds (its formals, a lone
 /// arrow parameter, a function's own name); default values and computed keys inside parameter
 /// patterns are reads.
-struct Collector<'c, 'r> {
+struct Collector<'c> {
     parsed: &'c ParsedFile,
-    holes: &'c [(usize, usize)],
     out: &'c mut Vec<Candidate>,
-    /// When set, a subtree lying wholly inside a region is skipped (the eager walk).
-    prune: Option<&'r JsRegions>,
 }
 
-impl<'c, 'r> Collector<'c, 'r> {
-    fn new(
-        parsed: &'c ParsedFile,
-        holes: &'c [(usize, usize)],
-        out: &'c mut Vec<Candidate>,
-    ) -> Self {
-        Self {
-            parsed,
-            holes,
-            out,
-            prune: None,
-        }
+impl<'c> Collector<'c> {
+    fn new(parsed: &'c ParsedFile, out: &'c mut Vec<Candidate>) -> Self {
+        Self { parsed, out }
     }
 
     fn walk_children(&mut self, node: Node<'_>) {
-        for (child, field) in children_with_fields(node) {
-            if skip_binding_field(node.kind(), field) {
-                continue;
+        let kind = node.kind();
+        // After the `as` / `satisfies` operator the child is a type: erased (what
+        // `Language::is_erased_type_boundary` decides per node, without its parent walk).
+        let mut after_type_operator = false;
+        let mut cursor = node.walk();
+        if !cursor.goto_first_child() {
+            return;
+        }
+        loop {
+            let child = cursor.node();
+            let field = cursor.field_name();
+            if matches!(kind, "as_expression" | "satisfies_expression")
+                && matches!(child.kind(), "as" | "satisfies")
+            {
+                after_type_operator = true;
+            } else if !after_type_operator && !skip_binding_field(kind, field) {
+                self.walk(child);
             }
-            self.walk(child);
+            if !cursor.goto_next_sibling() {
+                break;
+            }
         }
     }
 
     fn walk(&mut self, node: Node<'_>) {
-        if !self.holes.is_empty() && self.holes.contains(&(node.start_byte(), node.end_byte())) {
+        if is_erased_type_kind(node.kind()) {
             return;
-        }
-        if self.parsed.language.is_erased_type_boundary(node) {
-            return;
-        }
-        if let Some(regions) = self.prune {
-            if regions
-                .containing_end(node.start_byte())
-                .is_some_and(|end| node.end_byte() <= end)
-            {
-                return;
-            }
         }
         if node.kind() == "formal_parameters" {
             self.formals(node);
@@ -520,6 +480,18 @@ impl<'c, 'r> Collector<'c, 'r> {
             _ => self.walk(node),
         }
     }
+}
+
+/// The node kinds `Language::is_erased_type_boundary` decides by kind alone (TS/TSX only; JS has none).
+fn is_erased_type_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        "type_query"
+            | "type_annotation"
+            | "type_arguments"
+            | "type_parameters"
+            | "type_alias_declaration"
+    )
 }
 
 /// Fields that hold a name the callable binds: a lone arrow parameter, a function's own name.

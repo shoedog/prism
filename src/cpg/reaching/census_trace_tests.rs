@@ -14,7 +14,8 @@ fn trace_lines(language: Language, ext: &str, src: &str, trace: bool) -> Vec<Str
     assert_eq!(file.parse_error_count, 0, "{src}");
     let owner = file.tree.root_node().child(0).unwrap();
     let facts = capture_facts_with(&file, owner, trace);
-    let cpg = CodePropertyGraph::build(&BTreeMap::from([(name, file)]));
+    let graph_file = ParsedFile::parse(&name, src, language).unwrap();
+    let cpg = CodePropertyGraph::build(&BTreeMap::from([(name, graph_file)]));
     let mut out = Vec::new();
     for (from, to) in label_snapshot(&cpg.dfg).into_keys() {
         is_capture_to(&FlowEdge { from, to }, &facts, &mut out);
