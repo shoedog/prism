@@ -21,3 +21,5 @@ eval/adoption/results/
 eval/.deepeval
 eval/.deepeval-cache/
 eval/temp_test_run_data.json
+__pycache__/
+*.pyc

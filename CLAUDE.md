@@ -864,6 +864,7 @@ Key algorithm-specific flags:
 ## Dependencies
 
 - `tree-sitter` + 11 language grammar crates (12 parsed language variants) for AST parsing; TypeScript 0.23.2 and Go 0.25.0 + PR #193 are source-vendored (see each `vendor/tree-sitter-*/PRISM.md`)
+- `tikv-jemallocator` (Linux only) is the `prism` CLI's global allocator (`src/main.rs`; #437); `prism-mcp` stays on the system allocator because its sampler reads glibc `mallinfo2`
 - `petgraph` for graph data structures (CFG, CPG)
 - `clap` for CLI
 - `dirs` for prism-owned cache directory discovery
