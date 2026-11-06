@@ -53,10 +53,19 @@ pub(super) fn capture_facts_with(
     };
     let boundary_kinds = parsed.language.callable_boundary_node_types();
     visit(parsed, func_node, &boundary_kinds, &mut facts);
-    if parsed.language.is_js_family() {
+    // A region needs a nested callable (main's walk above found none when `ranges` is empty, in any
+    // position) or an instance field, and a field needs a class body, hence the `class` keyword.
+    if parsed.language.is_js_family()
+        && (!facts.ranges.is_empty() || may_hold_class(parsed, func_node))
+    {
         facts.js = Some(capture_regions::js_regions(parsed, func_node));
     }
     facts
+}
+
+/// Whether the owner's source may hold a class body (an over-approximation: any `class` substring).
+fn may_hold_class(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    parsed.source[node.start_byte()..node.end_byte()].contains("class")
 }
 
 /// Main's rule: a use read in a nested body whose def lies in no nested body.
