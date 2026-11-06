@@ -262,6 +262,19 @@ impl BindingFacts {
         facts
     }
 
+    /// Append the bindings of census kill-only defs (#660 S1b-1), which follow the recorded defs in
+    /// the RD def list. They are writes, never declarations: each resolves like a recorded non-
+    /// declaring def, through the declaration visible at its byte, else the flat fallback, so they
+    /// add no declaration and change no other def's binding.
+    pub(super) fn extend_kill_only(&mut self, kill_only: &[DefSite]) {
+        for def in kill_only {
+            let binding = self
+                .visible_declaration(&def.path.base, def.start_byte)
+                .unwrap_or_else(|| self.implicit_binding(&def.path.base));
+            self.def_bindings.push(binding);
+        }
+    }
+
     fn use_byte(&self, parsed: &ParsedFile, edge: &FlowEdge) -> Option<usize> {
         #[cfg(test)]
         if super::reaching::scope::use_byte_tests::legacy_enabled() {

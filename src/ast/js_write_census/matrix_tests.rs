@@ -11,7 +11,7 @@ const MATRIX: &str = include_str!("../../../tests/fixtures/js_write_census/varia
 const EXPECTED: &str = include_str!("../../../tests/fixtures/js_write_census/sites.tsv");
 
 /// (fixture, slice, source) of each distinct fixture, source unescaped (`\n` only).
-fn fixtures() -> Vec<(String, String, String)> {
+pub(crate) fn fixtures() -> Vec<(String, String, String)> {
     let mut seen = BTreeSet::new();
     let mut out = Vec::new();
     for line in MATRIX.lines().skip(1) {
@@ -31,7 +31,7 @@ fn fixtures() -> Vec<(String, String, String)> {
 /// The grammar each fixture is parsed with. Everything not listed is JavaScript; the listed rows use
 /// TypeScript (types, `as`, `!`, `enum`, parameter properties, assignment-form `using`) or TSX (JSX
 /// next to types). No fixture is parsed by guessing.
-fn lang_of(fixture: &str) -> Language {
+pub(crate) fn lang_of(fixture: &str) -> Language {
     match fixture.split('_').next().unwrap_or("") {
         "t05" | "t01" | "t02" | "t03" | "t04" | "o20" | "o22" | "o23" | "o24" | "o25" | "o26" => {
             Language::TypeScript

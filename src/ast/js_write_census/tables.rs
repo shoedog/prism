@@ -109,6 +109,12 @@ fn rows(
 }
 
 impl Tables {
+    /// The embedded tables, loaded once per process (production callers run per owner).
+    pub(crate) fn shared() -> &'static Tables {
+        static SHARED: std::sync::OnceLock<Tables> = std::sync::OnceLock::new();
+        SHARED.get_or_init(Tables::embedded)
+    }
+
     /// The reviewed tables shipped with the crate.
     pub(crate) fn embedded() -> Tables {
         Tables::load(

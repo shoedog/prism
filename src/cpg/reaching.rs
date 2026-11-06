@@ -14,6 +14,8 @@ use super::{FlowConfidence, FlowDoubt};
 
 mod capture;
 mod capture_regions;
+mod census_defs;
+mod census_pass;
 mod census_trace;
 mod preflight;
 pub(crate) use preflight::unavailable_before_edges;
@@ -219,7 +221,7 @@ pub(crate) fn reaching_definitions_with_exact(
     exact_edges: &[FlowEdge],
     file_cfg_edges: &FileCfgEdgeIndex<'_>,
 ) -> RdOutcome {
-    let outcome = reaching_definitions_impl(
+    let outcome = census_pass::run(
         parsed,
         func_node,
         defs,
@@ -240,6 +242,7 @@ pub(crate) fn reaching_definitions_with_exact(
     outcome
 }
 
+#[allow(clippy::too_many_arguments)]
 fn reaching_definitions_impl(
     parsed: &ParsedFile,
     func_node: &Node<'_>,
@@ -247,13 +250,24 @@ fn reaching_definitions_impl(
     dfg_edges: &[FlowEdge],
     exact_edges: &[FlowEdge],
     file_cfg_edges: &FileCfgEdgeIndex<'_>,
+    pass: census_pass::Pass,
+    facts_out: &mut Option<census_defs::CensusFacts>,
 ) -> RdOutcome {
     #[cfg(test)]
     let _work = work_tests::Pass::begin(parsed, func_node);
     #[cfg(test)]
     work_tests::bump(|counts| counts.cfg_file_edges = file_cfg_edges.len());
     let raw_defs = defs;
-    let defs = deduplicate_definitions(defs);
+    let (mut defs, mut census) = census_defs::complete_for(
+        pass == census_pass::Pass::Census,
+        parsed,
+        func_node,
+        deduplicate_definitions(defs),
+    );
+    let n_recorded = census.n_recorded;
+    // The census never changes availability or the def cap (#660 S1b-1): a completed list that would
+    // overflow runs RD on the recorded defs as main does, and the owner's edges take a refusal label.
+    census.cap_defs(&mut defs, RD_MAX_DEFS);
     if defs.len() > RD_MAX_DEFS {
         return RdOutcome::Unavailable(RdUnavailable::DefinitionsCapExceeded {
             actual: defs.len(),
@@ -286,15 +300,9 @@ fn reaching_definitions_impl(
         ));
     }
     if cfg_edges.is_empty()
-        && !cfg::js_single::single_node_cfg_is_complete(
-            parsed,
-            func_node,
-            lines.len(),
-            &defs
-                .iter()
-                .map(|def| def.path.base.as_str())
-                .collect::<Vec<_>>(),
-        )
+        && !census.one_node_admits(&mut defs, |bases| {
+            cfg::js_single::single_node_cfg_is_complete(parsed, func_node, lines.len(), bases)
+        })
     {
         return RdOutcome::Unavailable(RdUnavailable::NoCfgEdges);
     }
@@ -362,12 +370,15 @@ fn reaching_definitions_impl(
             }
         })
         .collect();
-    let binding_facts = crate::cpg::binding_facts::BindingFacts::new(
+    let mut binding_facts = crate::cpg::binding_facts::BindingFacts::new(
         parsed,
         func_node,
-        &defs,
+        &defs[..n_recorded],
         dfg_edges.iter().chain(exact_edges),
     );
+    binding_facts.extend_kill_only(&defs[n_recorded..]);
+    census.refuse_unmapped(&defs, &mapped_defs);
+    *facts_out = Some(census.clone());
 
     let mut gen = vec![BitSet::new(defs.len()); node_count];
     for (index, mapped) in mapped_defs.iter().enumerate() {
@@ -375,7 +386,7 @@ fn reaching_definitions_impl(
             gen[*node].insert(index);
         }
     }
-    let buckets = def_buckets::DefinitionBuckets::new(&defs);
+    let buckets = def_buckets::DefinitionBuckets::with_kill_only(&defs, n_recorded);
     let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts);
 
     let (in_sets, entry_reachable) =
@@ -397,8 +408,14 @@ fn reaching_definitions_impl(
     def_bucket_tests::record_sets(&in_sets, &flat_in_sets, &kill, &flat_kill);
     let go_reachable = (parsed.language == Language::Go).then_some(&entry_reachable);
     let mut go_components = None;
-    let collapsed = collapsed_groups(&defs);
-    let capture_facts = capture::capture_facts(parsed, *func_node);
+    // Kill-only defs are never edge sources, so they never make a line's recorded defs ambiguous (E1).
+    let collapsed = collapsed_groups(&defs[..n_recorded]);
+    // The trace's control pass must not repeat S1a's capture lines.
+    let capture_facts = capture::capture_facts_with(
+        parsed,
+        *func_node,
+        pass == census_pass::Pass::Census && census_trace::enabled(),
+    );
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
     let mut exact_labels = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
@@ -438,6 +455,7 @@ fn reaching_definitions_impl(
             &mut flat_reach,
             &collapsed,
             &capture_facts,
+            &census,
             &binding_facts,
             function_start,
         );
@@ -486,6 +504,7 @@ fn reaching_definitions_impl(
             &mut flat_reach,
             &collapsed,
             &capture_facts,
+            &census,
             &binding_facts,
             function_start,
         );
@@ -593,6 +612,7 @@ fn classify_edge(
     flat_reach: &mut DefinitionReachability<'_>,
     collapsed: &BTreeSet<(AccessPath, Line)>,
     capture_facts: &capture::CaptureFacts,
+    census: &census_defs::CensusFacts,
     binding_facts: &crate::cpg::binding_facts::BindingFacts,
     function_start: Line,
 ) -> FlowConfidence {
@@ -613,12 +633,17 @@ fn classify_edge(
             paths.successors,
             collapsed,
             capture_facts,
+            census,
             binding_facts,
             function_start,
         );
     }
     if capture::is_capture_traced(edge, capture_facts) {
         return FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    }
+    // #660 S1b-1 (DESIGN.md 8): owner refusal, then refused base. Later slices add their steps here.
+    if census.refuses(edge).is_some() {
+        return census_defs::CensusFacts::refused_label();
     }
 
     let use_statement = statements.get(edge.to.line);
@@ -924,3 +949,6 @@ mod statement_lookup_tests;
 
 #[cfg(test)]
 mod def_bucket_tests;
+
+#[cfg(test)]
+mod census_defs_tests;
