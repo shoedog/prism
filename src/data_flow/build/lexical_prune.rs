@@ -40,6 +40,8 @@ pub(super) struct LexicalFacts<'a> {
     real_reads: BTreeSet<(AccessPath, usize)>,
     nested: Vec<(usize, usize)>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
+    /// #662: def-independent header spans per (base, line); `None` = not provable.
+    header_cache: RefCell<BTreeMap<(String, usize), Option<Vec<(usize, usize)>>>>,
 }
 impl<'a> LexicalFacts<'a> {
     pub(super) fn new(
@@ -56,6 +58,7 @@ impl<'a> LexicalFacts<'a> {
             real_reads: BTreeSet::new(),
             nested: Vec::new(),
             cache: RefCell::new(BTreeMap::new()),
+            header_cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
             return facts;
@@ -252,25 +255,38 @@ impl<'a> LexicalFacts<'a> {
     }
 
     /// #662: every occurrence of the name on the use line is bound to the declaration
-    /// of one `if`/`switch`/`for` header, and the def lies outside all those headers.
+    /// of an `if`/`switch`/`for` header, and the def lies outside all those headers.
+    /// Plain variables only: a field path or dereference may alias through a copy.
     fn header_scoped(&self, path: &AccessPath, start: usize, line: usize) -> bool {
-        let Some(occurrences) = self.occurrences.get(&(path.base.clone(), line)) else {
+        if !path.fields.is_empty() {
             return false;
-        };
-        let mut bound = false;
-        for node in occurrences {
+        }
+        let key = (path.base.clone(), line);
+        if !self.header_cache.borrow().contains_key(&key) {
+            let spans = self.header_spans(&key);
+            self.header_cache.borrow_mut().insert(key.clone(), spans);
+        }
+        let cache = self.header_cache.borrow();
+        cache
+            .get(&key)
+            .and_then(|s| s.as_ref())
+            .is_some_and(|spans| {
+                spans
+                    .iter()
+                    .all(|(from, to)| !(*from <= start && start < *to))
+            })
+    }
+
+    fn header_spans(&self, key: &(String, usize)) -> Option<Vec<(usize, usize)>> {
+        let mut spans = Vec::new();
+        for node in self.occurrences.get(key)? {
             match super::lexical_header::classify(self.parsed, *node) {
                 super::lexical_header::Occurrence::Declaration => {}
-                super::lexical_header::Occurrence::Bound(from, to) => {
-                    if from <= start && start < to {
-                        return false;
-                    }
-                    bound = true;
-                }
-                super::lexical_header::Occurrence::Other => return false,
+                super::lexical_header::Occurrence::Bound(from, to) => spans.push((from, to)),
+                super::lexical_header::Occurrence::Other => return None,
             }
         }
-        bound
+        (!spans.is_empty()).then_some(spans)
     }
 
     /// D runs after get_use; edge-less real use locations remain in the graph.

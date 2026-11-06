@@ -18,3 +18,5 @@ Separate initializer and condition/tag share a dispatch anchor, so initializerâ†
 Full population, all163 changed occurrence identities, paths, RED/GREEN logs and guard-reversion evidence are in the lane's REPORT-fold-r1.md and r1-label-table.md. The historical163rd label is `dfg_prune/go/00_write_only_lines.go` x7â†’11 and is tested in its existing receipt/pruning suites.
 
 Six inline terminal-initializer controls cover empty final if/expression/type constructs with assignment and short declarations. Paired main/base/fixed captures preserve9 expanded entries and6 cfg_incomplete labels; all6 NoCfgEdges refusals clear versus4db. terminal-base.jsonl records the actual4db inputs and outputs.
+
+#662 hand-edited eight records in base.jsonl/expected.jsonl (as #652 did).

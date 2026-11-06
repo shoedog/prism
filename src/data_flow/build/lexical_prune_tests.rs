@@ -237,6 +237,11 @@ fn prune_stats_cache_and_incremental_custody() {
             "b.go".to_owned(),
             "package p\nfunc b(y int) int {\ny = 3\ny = 4\nreturn y\n}\n".to_owned(),
         ),
+        (
+            // #662 header scope: the outer `err` def never reaches the header's own `err`.
+            "c.go".to_owned(),
+            "package p\nfunc c() error {\nerr := a()\nif err := g(); err != nil {\nreturn err\n}\nreturn err\n}\n".to_owned(),
+        ),
     ]);
     let parse = |sources: &BTreeMap<String, String>| {
         sources
@@ -248,7 +253,8 @@ fn prune_stats_cache_and_incremental_custody() {
     let cold = CodePropertyGraph::build(&files);
     assert!(cold.dfg_label_stats.dfg_pruned_write_only > 0);
     assert!(cold.dfg_label_stats.dfg_pruned_dominated > 0);
-    assert_eq!(cold.dfg_label_stats.dfg_pruned_scope, 0);
+    let scope = cold.dfg_label_stats.dfg_pruned_scope;
+    assert!(scope > 0, "header case must be counted");
     assert_eq!(cold.dfg_label_stats.dfg_pruned_order, 0);
     let hashes = cpg_cache::compute_file_hashes(&sources);
     let dir = tempfile::tempdir().unwrap();
@@ -258,6 +264,7 @@ fn prune_stats_cache_and_incremental_custody() {
     };
     assert_eq!(cold.dfg_label_stats, hit.dfg_label_stats);
     assert_eq!(cold.dfg.rd_function_stats(), hit.dfg.rd_function_stats());
+    assert_eq!(hit.dfg_label_stats.dfg_pruned_scope, scope);
     sources.insert(
         "a.go".into(),
         "package p\nfunc a(x int) int {\nreturn x\n}\n".into(),
@@ -282,6 +289,8 @@ fn prune_stats_cache_and_incremental_custody() {
     );
     let rebuilt = CodePropertyGraph::build(&edited_files);
     assert_eq!(incremental.dfg_label_stats, rebuilt.dfg_label_stats);
+    assert_eq!(incremental.dfg_label_stats.dfg_pruned_scope, scope);
+    assert_eq!(rebuilt.dfg_label_stats.dfg_pruned_scope, scope);
     assert_eq!(
         incremental.dfg.rd_function_stats(),
         rebuilt.dfg.rd_function_stats()

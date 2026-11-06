@@ -27,6 +27,8 @@ fn prune_cap_count_and_replay_preserve_uses_and_count_prunes_once() {
     for body in [
         "func f(x int) {\nx = 1\nconsume(x)\nx = 2\nconsume(x)\n",
         "type S struct { f int }\nfunc f(s *S, x int) {\nptr := s\ns.f = 1\nptr.f = 2\nuse(s.f)\nx = 1\nx = 2\nconsume(x)\n",
+        // #662 header scope: the outer `err` def never reaches the header's own `err`.
+        "func f(x int) {\nx = 1\nconsume(x)\nx = 2\nconsume(x)\nerr := a()\nif err := g(); err != nil {\nuse(err)\n}\nuse(err)\n",
     ] {
         let source = format!("package p\n{body}{}}}\n", "g()\n".repeat(4100));
         let parsed = ParsedFile::parse("a.go", &source, Language::Go).unwrap();
@@ -36,6 +38,7 @@ fn prune_cap_count_and_replay_preserve_uses_and_count_prunes_once() {
         let expected_prunes = prune_counts(&single.rd_function_stats);
         assert_eq!(single.rd_function_stats.functions_over_cap, 1);
         assert!(expected_prunes[0] > 0 && expected_prunes[2] > 0, "{body}: {expected_prunes:?}");
+        assert_eq!(expected_prunes[1] > 0, body.contains("if err :="), "{body}");
         let count = single.edges.len();
         assert!(count > 0 && count < before.edges.len());
         assert_eq!(

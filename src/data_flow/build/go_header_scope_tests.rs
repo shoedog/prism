@@ -99,6 +99,7 @@ fn closure_in_header_reads_header_variable() {
 
 #[test]
 fn closure_shadowing_the_name_keeps_main_edge() {
+    // Kept on purpose: a false edge, but the proof stays conservative.
     let s = "package p\nfunc f() {\n\terr := a() // @outer\n\tif err := g(); func(err error) bool { return err != nil }(nil) { // @hdr\n\t\tuse(1)\n\t}\n}\n";
     assert!(edge(s, "err", "@outer", "@hdr"));
 }
@@ -113,6 +114,83 @@ fn init_rhs_still_reads_the_outer_name() {
 
 #[test]
 fn body_that_redeclares_the_name_keeps_main_edge() {
+    // Kept on purpose: a false edge, but the proof stays conservative.
     let s = "package p\nfunc f() {\n\terr := a() // @outer\n\tif err := g(); err != nil {\n\t\tif ok { err := h(); use(err) }\n\t\tuse(err) // @body\n\t}\n}\n";
+    assert!(edge(s, "err", "@outer", "@body"));
+}
+
+#[test]
+fn field_path_through_shadowing_copy_keeps_edge() {
+    let s = "package p\ntype S struct{ f int }\nfunc f(s *S) {\n\ts.f = 1 // @outer\n\tif s := s; s != nil {\n\t\tprintln(s.f) // @body\n\t}\n}\n";
+    assert!(edge(s, "s.f", "@outer", "@body"));
+}
+
+#[test]
+fn dereference_through_shadowing_copy_keeps_edge() {
+    let s = "package p\nfunc f(p *int) {\n\t*p = 1 // @outer\n\tif p := p; p != nil {\n\t\tprintln(*p) // @body\n\t}\n}\n";
+    assert!(edge(s, "p", "@outer", "@body"));
+}
+
+#[test]
+fn index_through_shadowing_copy_keeps_edge() {
+    let s = "package p\nfunc f(p []int) {\n\tp = a() // @outer\n\tif p := g(); p != nil {\n\t\tprintln(p[0]) // @body\n\t}\n}\n";
+    assert!(edge(s, "p", "@outer", "@body"));
+}
+
+#[test]
+fn scalar_control_is_still_pruned() {
+    let s = "package p\nfunc f() {\n\terr := a() // @outer\n\tif err := g(); err != nil {\n\t\tprintln(err) // @body\n\t}\n}\n";
+    assert!(!edge(s, "err", "@outer", "@body"));
+}
+
+#[test]
+fn receive_define_in_header_closure_keeps_edge() {
+    let s = "package p\nfunc f(ch chan error) {\n\terr := a() // @outer\n\tif err := g(); func() bool { select { case err := <-ch: return err != nil }; return false }() { // @hdr\n\t\tuse(1)\n\t}\n}\n";
+    assert!(edge(s, "err", "@outer", "@hdr"));
+}
+
+#[test]
+fn receive_assign_in_header_closure_is_still_pruned() {
+    let s = "package p\nfunc f(ch chan error) {\n\terr := a() // @outer\n\tif err := g(); func() bool { select { case err = <-ch: return err != nil }; return false }() { // @hdr\n\t\tuse(1)\n\t}\n}\n";
+    assert!(!edge(s, "err", "@outer", "@hdr"));
+}
+
+#[test]
+fn type_switch_alias_in_header_closure_keeps_edge() {
+    let s = "package p\nfunc f(x any) {\n\tv := a() // @outer\n\tif v := g(); func() bool { switch v := x.(type) { case int: return v > 0 }; return false }() { // @hdr\n\t\tuse(1)\n\t}\n}\n";
+    assert!(edge(s, "v", "@outer", "@hdr"));
+}
+
+#[test]
+fn composite_literal_key_line_keeps_edge() {
+    let s = "package p\ntype S struct{ x int }\nfunc f() {\n\tx := a() // @outer\n\tif x := g(); x != nil {\n\t\tuse(S{x: 1}) // @body\n\t}\n}\n";
+    assert!(edge(s, "x", "@outer", "@body"));
+}
+
+#[test]
+fn map_literal_value_is_still_a_read() {
+    let s = "package p\nfunc f() {\n\tx := a() // @outer\n\tif x := g(); x != nil {\n\t\tuse(map[string]int{\"k\": x}) // @body\n\t}\n}\n";
+    assert!(!edge(s, "x", "@outer", "@body"));
+}
+
+#[test]
+fn else_if_redeclaring_the_name_binds_to_the_inner_header() {
+    let s = "package p\nfunc f() {\n\terr := a() // @outer\n\tif err := g(); err != nil { // @h1\n\t} else if err := h(); err != nil {\n\t\tuse(err) // @body\n\t}\n}\n";
+    assert!(!edge(s, "err", "@outer", "@body"));
+    assert!(
+        !edge(s, "err", "@h1", "@body"),
+        "the first header's err is shadowed"
+    );
+}
+
+#[test]
+fn else_if_with_assignment_header_is_still_pruned_outside() {
+    let s = "package p\nfunc f() {\n\terr := a() // @outer\n\tif err := g(); err != nil {\n\t} else if err = h(); err != nil {\n\t\tuse(err) // @body\n\t}\n}\n";
+    assert!(!edge(s, "err", "@outer", "@body"));
+}
+
+#[test]
+fn select_receive_inside_header_body_keeps_edge() {
+    let s = "package p\nfunc f(ch chan error) {\n\terr := a() // @outer\n\tif err := g(); err != nil {\n\t\tselect { case err := <-ch: use(err) } // @body\n\t}\n}\n";
     assert!(edge(s, "err", "@outer", "@body"));
 }

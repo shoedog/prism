@@ -17,13 +17,16 @@ pub(super) enum Occurrence {
 
 pub(super) fn classify(parsed: &ParsedFile, occ: Node<'_>) -> Occurrence {
     let name = parsed.node_text(&occ);
-    if name == "_" {
+    if name == "_" || is_composite_key(occ) || is_storage_access(occ) {
         return Occurrence::Other;
     }
+    // Closures between the occurrence and the claiming header; scanned only once a
+    // header claims the use.
+    let mut literals: Vec<Node<'_>> = Vec::new();
     let mut child = occ;
     while let Some(parent) = child.parent() {
         match parent.kind() {
-            "func_literal" if declares_name(parsed, parent, name) => return Occurrence::Other,
+            "func_literal" => literals.push(parent),
             "if_statement" | "expression_switch_statement" | "for_statement" => {
                 if let Some(init) = initializer(parent) {
                     if init_declares(parsed, init, name) {
@@ -37,12 +40,19 @@ pub(super) fn classify(parsed: &ParsedFile, occ: Node<'_>) -> Occurrence {
                             };
                         }
                         let span = Occurrence::Bound(parent.start_byte(), parent.end_byte());
-                        return match region(parent, child, occ, init) {
-                            Region::Header => span,
+                        let claimed = match region(parent, child, occ, init) {
+                            Region::Header => true,
                             // The name is in scope in the body, unless something in it
                             // declares the same spelling again.
-                            Region::Body if !declares_name(parsed, child, name) => span,
-                            _ => Occurrence::Other,
+                            Region::Body => !declares_name(parsed, child, name),
+                            Region::Outside => false,
+                        };
+                        return if claimed
+                            && !literals.iter().any(|l| declares_name(parsed, *l, name))
+                        {
+                            span
+                        } else {
+                            Occurrence::Other
                         };
                     }
                 }
@@ -52,6 +62,54 @@ pub(super) fn classify(parsed: &ParsedFile, occ: Node<'_>) -> Occurrence {
         child = parent;
     }
     Occurrence::Other
+}
+
+/// `S{x: 1}`: the key names a field (or is a map key read), never the plain use.
+fn is_composite_key(occ: Node<'_>) -> bool {
+    let Some(element) = occ.parent().filter(|p| p.kind() == "literal_element") else {
+        return false;
+    };
+    element.parent().is_some_and(|k| {
+        k.kind() == "keyed_element"
+            && k.child_by_field_name("key")
+                .is_some_and(|key| key.id() == element.id())
+    })
+}
+
+/// A dereference, index/slice operand or field operand (outside a call's callee) reads
+/// storage reachable through the name, which a shadowing copy can alias: not provable.
+fn is_storage_access(occ: Node<'_>) -> bool {
+    let mut node = occ;
+    while let Some(p) = node.parent() {
+        match p.kind() {
+            "parenthesized_expression" => {}
+            "unary_expression" => {
+                return p
+                    .child_by_field_name("operator")
+                    .is_some_and(|op| op.kind() == "*")
+                    && p.child_by_field_name("operand")
+                        .is_some_and(|o| o.id() == node.id())
+            }
+            "index_expression" | "slice_expression" => {
+                return p
+                    .child_by_field_name("operand")
+                    .is_some_and(|o| o.id() == node.id())
+            }
+            "selector_expression" => {
+                return p
+                    .child_by_field_name("operand")
+                    .is_some_and(|o| o.id() == node.id())
+                    && !p.parent().is_some_and(|c| {
+                        c.kind() == "call_expression"
+                            && c.child_by_field_name("function")
+                                .is_some_and(|f| f.id() == p.id())
+                    })
+            }
+            _ => return false,
+        }
+        node = p;
+    }
+    false
 }
 
 fn initializer(statement: Node<'_>) -> Option<Node<'_>> {
@@ -124,12 +182,22 @@ fn declares_name(parsed: &ParsedFile, literal: Node<'_>, name: &str) -> bool {
                     "parameter_declaration"
                     | "variadic_parameter_declaration"
                     | "var_spec"
-                    | "const_spec"
-                    | "type_switch_statement" => true,
-                    "expression_list" => p.parent().is_some_and(|g| {
-                        matches!(g.kind(), "short_var_declaration" | "range_clause")
-                            && g.child_by_field_name("left")
+                    | "const_spec" => true,
+                    "expression_list" => p.parent().is_some_and(|g| match g.kind() {
+                        "short_var_declaration" | "range_clause" => g
+                            .child_by_field_name("left")
+                            .is_some_and(|l| l.id() == p.id()),
+                        // `case v := <-ch` declares; `case v = <-ch` assigns.
+                        "receive_statement" => {
+                            g.child_by_field_name("left")
                                 .is_some_and(|l| l.id() == p.id())
+                                && has_token(g, ":=")
+                        }
+                        // `switch v := x.(type)`.
+                        "type_switch_statement" => g
+                            .child_by_field_name("alias")
+                            .is_some_and(|a| a.id() == p.id()),
+                        _ => false,
                     }),
                     "short_var_declaration" | "range_clause" => true,
                     _ => false,
@@ -146,4 +214,10 @@ fn declares_name(parsed: &ParsedFile, literal: Node<'_>, name: &str) -> bool {
         found
     }
     walk(parsed, literal, name)
+}
+
+fn has_token(node: Node<'_>, kind: &str) -> bool {
+    let mut cursor = node.walk();
+    let found = node.children(&mut cursor).any(|c| c.kind() == kind);
+    found
 }
