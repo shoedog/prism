@@ -147,12 +147,23 @@ fn scan(owner: Node<'_>, parsed: &ParsedFile, lines: &[usize], edges: &mut EdgeS
             continue;
         };
         stats.rewired_do_loops += 1;
-        if do_back_edge_removed(node, parsed, lines) {
+        if do_back_edge_removed(node, parsed) {
             stats.do_back_edges_removed += 1;
         }
         let cond_node = node.child_by_field_name("condition").unwrap_or(node);
-        if let Some(Next::Line(first)) = node.child_by_field_name("body").map(|b| cx.enter(b)) {
-            emit(cond_node, first, &mut stats, false);
+        // The back edge is gone for every rewired `do`, so the condition must
+        // reach the body: directly when the entry is a line; through the
+        // header line (whose sequential edge enters the body) when the entry
+        // is Unknown and the header holds nothing else; otherwise no edge.
+        match node.child_by_field_name("body").map(|b| cx.enter(b)) {
+            Some(Next::Line(first)) => emit(cond_node, first, &mut stats, false),
+            Some(Next::Unknown)
+                if cx.lines.binary_search(&line(node)).is_ok()
+                    && per_line.get(&line(node)).copied() == Some(1) =>
+            {
+                emit(cond_node, line(node), &mut stats, false)
+            }
+            _ => {}
         }
         // Normal completion of the body reaches the condition: the sorted
         // sequential edge supplies it only for a plain last statement.
@@ -190,24 +201,18 @@ pub(super) fn do_condition_line(node: Node<'_>, parsed: &ParsedFile) -> Option<u
     parsed.c_do_condition_line(&node)
 }
 
-/// Whether the legacy body-last → `do` header back edge must go: the loop is
-/// rewired and the condition → first-statement edge is emitted, so the body
-/// completes through the condition. Without that edge the back edge stays.
-pub(super) fn do_back_edge_removed(node: Node<'_>, parsed: &ParsedFile, lines: &[usize]) -> bool {
-    let Some(body) = node.child_by_field_name("body") else {
-        return false;
-    };
-    if do_condition_line(node, parsed).is_none() {
-        return false;
-    }
-    let boundaries = parsed.language.callable_boundary_node_types();
-    let cx = Cx {
-        parsed,
-        lines,
-        body: node,
-        boundaries: &boundaries,
-    };
-    matches!(cx.enter(body), Next::Line(_))
+/// Whether the legacy body-last → `do` header back edge must go: every
+/// rewired `do` completes through its condition, which re-enters the body
+/// itself (or, where it cannot, leaves no edge): a kept edge would let a
+/// second iteration skip the condition's writes.
+pub(super) fn do_back_edge_removed(node: Node<'_>, parsed: &ParsedFile) -> bool {
+    do_condition_line(node, parsed).is_some()
+}
+
+enum SwitchShape {
+    NoDefault,
+    Default,
+    Unknown,
 }
 
 enum Dispatch {
@@ -324,23 +329,26 @@ impl<'tree> Cx<'_, 'tree> {
         Dispatch::Targets(targets)
     }
 
-    /// Statements whose normal completion ends `node`: the last statement of a
-    /// block, both arms of an `if` (the `if` itself when it has no `else`), a
-    /// loop header (its false exit), the last case of a `switch` and a
-    /// `switch` without `default`. Jumps are not completions.
+    /// Statements whose normal completion ends `node`, by explicit rule: an
+    /// atomic statement (expression, declaration) completes at its own line;
+    /// the last statement of a block or case, both arms of an `if` (the `if`
+    /// itself when it has no `else`), a loop header (its false exit), a nested
+    /// `do`'s condition, a labeled statement's inner statement, the last case
+    /// of a `switch` and, only without `default`, its header. Jumps complete
+    /// nowhere; everything else (`try`, preprocessor wrappers, attributed
+    /// statements, unknown kinds) supplies no completion.
     fn completions(&self, node: Node<'tree>, out: &mut Vec<Node<'tree>>) {
         let last_child = |n: Node<'tree>| {
+            let value = n.child_by_field_name("value").map(|v| v.id());
             let mut cursor = n.walk();
             let children: Vec<_> = n.named_children(&mut cursor).collect();
-            children.into_iter().rev().find(|c| c.kind() != "comment")
+            children
+                .into_iter()
+                .rev()
+                .find(|c| c.kind() != "comment" && Some(c.id()) != value)
         };
         match node.kind() {
-            "compound_statement" | "case_statement" => {
-                if let Some(last) = last_child(node) {
-                    self.completions(last, out);
-                }
-            }
-            "labeled_statement" => {
+            "compound_statement" | "case_statement" | "labeled_statement" => {
                 if let Some(last) = last_child(node) {
                     self.completions(last, out);
                 }
@@ -359,22 +367,59 @@ impl<'tree> Cx<'_, 'tree> {
                 }
             }
             "switch_statement" => {
-                out.push(node);
                 if let Some(body) = node.child_by_field_name("body") {
+                    if matches!(self.switch_shape(body), SwitchShape::NoDefault) {
+                        out.push(node);
+                    }
                     if let Some(last) = last_child(body) {
                         self.completions(last, out);
                     }
                 }
             }
-            "break_statement" | "continue_statement" | "return_statement" | "goto_statement"
-            | "throw_statement" => {}
             "do_statement" => {
                 if let Some(cond) = node.child_by_field_name("condition") {
                     out.push(cond);
                 }
             }
-            _ if self.lines.binary_search(&line(node)).is_ok() => out.push(node),
+            "for_statement"
+            | "while_statement"
+            | "for_range_loop"
+            | "expression_statement"
+            | "declaration"
+                if self.lines.binary_search(&line(node)).is_ok() =>
+            {
+                out.push(node);
+            }
             _ => {}
+        }
+    }
+
+    /// Whether a switch body can be left without entering a case, as far as
+    /// its direct cases show: `Duff` (a case below a direct child) is unknown.
+    fn switch_shape(&self, body: Node<'tree>) -> SwitchShape {
+        let mut default = false;
+        let mut stack = vec![body];
+        while let Some(n) = stack.pop() {
+            let mut cursor = n.walk();
+            for child in n.named_children(&mut cursor) {
+                match child.kind() {
+                    "switch_statement" => {}
+                    k if self.boundaries.contains(&k) => {}
+                    "case_statement" => {
+                        if child.parent().is_none_or(|p| p.id() != body.id()) {
+                            return SwitchShape::Unknown;
+                        }
+                        default |= child.child_by_field_name("value").is_none();
+                        stack.push(child);
+                    }
+                    _ => stack.push(child),
+                }
+            }
+        }
+        if default {
+            SwitchShape::Default
+        } else {
+            SwitchShape::NoDefault
         }
     }
 

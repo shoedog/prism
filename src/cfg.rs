@@ -438,7 +438,7 @@ fn collect_loop_back_edges(
                 // bypass the condition's writes.
                 let rewired_back = matches!(parsed.language, Language::C | Language::Cpp)
                     && node.kind() == "do_statement"
-                    && c_jumps::do_back_edge_removed(node, parsed, stmt_lines);
+                    && c_jumps::do_back_edge_removed(node, parsed);
                 if !ends_with_terminator(&body, parsed) && !rewired_back {
                     edges.push(CfgEdge {
                         file: parsed.path.clone(),

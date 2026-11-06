@@ -512,12 +512,41 @@ impl ParsedFile {
             let mut cursor = n.walk();
             stack.extend(n.named_children(&mut cursor));
         }
-        let mut next = do_node.next_named_sibling();
-        while next.is_some_and(|n| n.kind() == "comment") {
-            next = next.and_then(|n| n.next_named_sibling());
+        (cond > last && !self.statement_outside_starts_on(do_node, cond)).then_some(cond)
+    }
+
+    /// Whether a statement of the owning callable, outside `do_node`, starts on
+    /// `line` (`} while (c); return r;`, also behind an unbraced parent or a
+    /// closing brace). The walk skips what ends before the `do` and the `do`
+    /// itself, and never enters a nested callable.
+    fn statement_outside_starts_on(&self, do_node: &Node<'_>, line: usize) -> bool {
+        let boundaries = self.language.callable_boundary_node_types();
+        let mut owner = *do_node;
+        while let Some(parent) = owner.parent() {
+            owner = parent;
+            if boundaries.contains(&owner.kind()) {
+                break;
+            }
         }
-        let after_on_line = next.is_some_and(|n| row(&n) == cond);
-        (cond > last && !after_on_line).then_some(cond)
+        let mut stack = vec![owner];
+        while let Some(n) = stack.pop() {
+            if n.id() == do_node.id() || n.end_byte() <= do_node.end_byte() && n.id() != owner.id()
+            {
+                continue;
+            }
+            if n.id() != owner.id() && boundaries.contains(&n.kind()) {
+                continue;
+            }
+            if n.start_byte() >= do_node.end_byte()
+                && is_c_cpp_statement_kind(n.kind())
+                && n.start_position().row + 1 == line
+            {
+                return true;
+            }
+            let mut cursor = n.walk();
+            stack.extend(n.named_children(&mut cursor));
+        }
+        false
     }
 
     pub(crate) fn is_c_do_condition(&self, parent: &Node<'_>, child: &Node<'_>) -> bool {
