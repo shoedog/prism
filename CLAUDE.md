@@ -336,7 +336,7 @@ in dfg-stats and call-stats `dfg_labels`). Every `field_declaration` of the pack
 top-level types, anonymous struct types and function-local type declarations (fail closed: a local table-struct func field named
 like a method refuses that method's receiver edges too). A scoped review build assembles only its in-scope files but reads the
 package fields from the whole repository's file map (`CodePropertyGraph::build_scoped_subset`), so its refusals equal a full build's. Package = directory + `package` clause, so an external `foo_test` package does not see
-`foo`'s fields while internal `_test.go` files do. A field refuses its name when its type may be callable: `func(..)`, a qualified
+`foo`'s fields while internal `_test.go` files do, but only for call sites in `_test.go` files (#677): a non-test file is compiled without the package's `_test.go` files, so a field or type declared there refuses and resolves for `_test.go` call sites only, while fields declared in non-test files refuse in every file. A field refuses its name when its type may be callable: `func(..)`, a qualified
 `pkg.T`, a package-local type resolving (through aliases, depth 8) to a func type, or one that cannot be classified; basic, slice,
 map, chan, array, pointer, struct and interface types do not refuse, and a method with the same name does not matter (a field
 and a method of that name in one package refuse, failing closed). Gap: an embedded type's own fields are not followed. Receiver
