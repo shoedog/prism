@@ -10,21 +10,21 @@ use prism::call_graph::CallGraph;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-struct Row {
-    id: String,
-    kind: String,
-    producer: String,
-    consumer: String,
-    callee: String,
-    expect: Vec<String>,
-    consumer_file: Option<String>,
-    producer_file: Option<String>,
-    extra: Option<Vec<(String, String)>>,
+pub(super) struct Row {
+    pub(super) id: String,
+    pub(super) kind: String,
+    pub(super) producer: String,
+    pub(super) consumer: String,
+    pub(super) callee: String,
+    pub(super) expect: Vec<String>,
+    pub(super) consumer_file: Option<String>,
+    pub(super) producer_file: Option<String>,
+    pub(super) extra: Option<Vec<(String, String)>>,
 }
 
 const MATRIX: &str = include_str!("../fixtures/js_cjs_named_fn_expr/matrix.jsonl");
 
-fn outcome(cg: &CallGraph, callee: &str, file: &str) -> Vec<String> {
+pub(super) fn outcome(cg: &CallGraph, callee: &str, file: &str) -> Vec<String> {
     let mut out = Vec::new();
     for site in cg
         .calls
