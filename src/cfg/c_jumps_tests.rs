@@ -64,3 +64,47 @@ fn other_languages_report_nothing() {
     .unwrap();
     assert_eq!(c_jump_stats(&js), CJumpStats::default());
 }
+
+/// Measurement hook, not a regression test: `PRISM_C_JUMPS_CORPUS=<dir> cargo
+/// test --lib c_jumps_tests::corpus_counters -- --ignored --nocapture`.
+/// Parses only; prints the builder's counters over every C/C++ file.
+#[test]
+#[ignore]
+fn corpus_counters() {
+    let Ok(dir) = std::env::var("PRISM_C_JUMPS_CORPUS") else {
+        return;
+    };
+    let mut total = CJumpStats::default();
+    let mut files = 0usize;
+    let mut stack = vec![std::path::PathBuf::from(dir)];
+    while let Some(path) = stack.pop() {
+        if path.is_dir() {
+            if let Ok(read) = std::fs::read_dir(&path) {
+                stack.extend(read.flatten().map(|e| e.path()));
+            }
+            continue;
+        }
+        let Some(name) = path.to_str() else { continue };
+        let Some(language) = Language::from_path(name) else {
+            continue;
+        };
+        if !matches!(language, Language::C | Language::Cpp) {
+            continue;
+        }
+        let Ok(source) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(parsed) = ParsedFile::parse(name, &source, language) else {
+            continue;
+        };
+        files += 1;
+        let s = c_jump_stats(&parsed);
+        total.jump_edges += s.jump_edges;
+        total.jump_edges_on_multi_statement_lines += s.jump_edges_on_multi_statement_lines;
+        total.dispatch_switches += s.dispatch_switches;
+        total.duff_switches += s.duff_switches;
+        total.rewired_do_loops += s.rewired_do_loops;
+        total.one_line_do_loops += s.one_line_do_loops;
+    }
+    println!("CJUMP_COUNTERS files={files} {total:?}");
+}
