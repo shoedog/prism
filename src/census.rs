@@ -49,6 +49,7 @@ pub fn live() -> usize {
 }
 /// Print live bytes and peak since last mark; reset peak.
 pub fn mark(name: &str) {
+    proto_trim();
     if !enabled() {
         return;
     }
@@ -98,4 +99,16 @@ pub fn clone_bytes<T: Clone>(v: &T) -> usize {
     let after = live();
     drop(c);
     after - before
+}
+
+/// PROTOTYPE: `PRISM_PROTO_TRIM=1` returns freed heap pages to the OS at every stage boundary.
+pub fn proto_trim() {
+    use std::sync::OnceLock;
+    static ON: OnceLock<bool> = OnceLock::new();
+    if *ON.get_or_init(|| std::env::var_os("PRISM_PROTO_TRIM").is_some()) {
+        #[cfg(target_os = "linux")]
+        unsafe {
+            libc::malloc_trim(0);
+        }
+    }
 }
