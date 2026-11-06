@@ -40,7 +40,7 @@ pub(super) fn run(
     exact_var_index: &ExactVarIndex,
     location_index: &BTreeMap<(String, usize), Vec<NodeIndex>>,
 ) {
-    if !crate::census::enabled() {
+    if !crate::census::enabled() || std::env::var_os("PRISM_CENSUS_WALK").is_none() {
         return;
     }
     let (mut nf, mut ns, mut nvd, mut nvu, mut nr) = (0usize, 0, 0, 0, 0);
@@ -191,11 +191,11 @@ pub(super) fn run(
         .iter()
         .map(|(k, v)| k.0.capacity() + k.1.capacity() + v.capacity() * size_of::<NodeIndex>())
         .sum();
-    let vi_clone = crate::census::clone_bytes(var_index);
-    let ev_clone = crate::census::clone_bytes(exact_var_index);
-    let li_clone = crate::census::clone_bytes(location_index);
-    let fi_clone = crate::census::clone_bytes(func_index);
-    let ni_clone = crate::census::clone_bytes(name_index);
+    let vi_clone = 0usize;
+    let ev_clone = 0usize;
+    let li_clone = 0usize;
+    let fi_clone = 0usize;
+    let ni_clone = 0usize;
 
     let nodes_total = graph.node_count();
     let edges_total = graph.edge_count();
