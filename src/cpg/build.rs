@@ -76,6 +76,8 @@ mod same_line_occurrence_tests;
 #[path = "exact_caller_read_tests.rs"]
 mod exact_caller_read_tests;
 
+#[path = "census_walk.rs"]
+mod census_walk;
 #[path = "statement_calls.rs"]
 mod statement_calls;
 
@@ -886,7 +888,7 @@ impl CodePropertyGraph {
             end_byte: loc.end_byte,
         });
         var_index.entry(legacy_key.clone()).or_insert(idx);
-        if nonzero {
+        if materialize_exact {
             exact_var_index
                 .entry(legacy_key)
                 .or_default()
@@ -1006,6 +1008,7 @@ impl CodePropertyGraph {
         let mut exact_var_index = ExactVarIndex::new();
         let mut location_index: BTreeMap<(String, usize), Vec<NodeIndex>> = BTreeMap::new();
 
+        crate::census::mark("cpg.init_end");
         profile.next("cpg.step1");
         // --- Step 1: Function nodes ---
         let mut source_indexes = crate::anon_owner::source_index::Step1Sources::new(files);
@@ -1066,12 +1069,37 @@ impl CodePropertyGraph {
             &mut location_index,
         );
 
+        crate::census::mark("cpg.steps2_3_end");
+        census_walk::run(
+            "after_steps2_3",
+            &graph,
+            &func_index,
+            &name_index,
+            &var_index,
+            &exact_var_index,
+            &location_index,
+        );
+        crate::census::mark("cpg.after_census1");
         profile.next("cpg.step4");
         let mut dfg_label_stats =
             Self::assemble_step4(&mut dfg, files, &var_index, &exact_var_index, &mut graph);
+        crate::census::mark("cpg.step4_end");
+        census_walk::run(
+            "after_step4",
+            &graph,
+            &func_index,
+            &name_index,
+            &var_index,
+            &exact_var_index,
+            &location_index,
+        );
+        crate::census::mark("cpg.after_census2");
         let hidden_nodes = hidden.node_set();
-        let filtered = hidden.view(&var_index, &exact_var_index);
-        let (lookup, exact_lookup) = recall_hidden::pick(&filtered, &var_index, &exact_var_index);
+        let detached = hidden.detach(&mut var_index, &mut exact_var_index);
+        crate::census::mark("proto.after_detach");
+        let (lookup, exact_lookup) = (&var_index, &exact_var_index);
+
+        crate::census::mark("before_cpg.step5");
 
         profile.next("cpg.step5");
         // These phases mutate only the CPG. Keep a shared borrow of the fixed
@@ -1081,6 +1109,8 @@ impl CodePropertyGraph {
         for (from, to, w) in Self::collect_step5_edges_with_memo(&go_satisfiers, &func_index) {
             graph.add_edge(from, to, w);
         }
+
+        crate::census::mark("before_cpg.step5b");
 
         profile.next("cpg.step5b");
         // --- Step 5b: Interprocedural data flow edges ---
@@ -1102,6 +1132,8 @@ impl CodePropertyGraph {
             graph.add_edge(from, to, w);
         }
 
+        crate::census::mark("before_cpg.step5c");
+
         profile.next("cpg.step5c");
         // --- Step 5c: callee-return → exact caller-LHS flow ---
         let return_flow_stats = Self::assemble_step5c_return_flow(
@@ -1114,6 +1146,8 @@ impl CodePropertyGraph {
             files,
         );
         drop(go_satisfiers);
+        let _ = (lookup, exact_lookup);
+        detached.restore(&mut var_index);
 
         // D12 incoming holes do not isolate outgoing E5 paths. After all flow
         // construction, refuse only outgoing edges of new sources that can
@@ -1126,6 +1160,8 @@ impl CodePropertyGraph {
             &mut dfg_label_stats,
             &func_index,
         );
+
+        crate::census::mark("before_cpg.step6");
 
         profile.next("cpg.step6");
         // --- Step 6: Contains edges ---
@@ -1152,15 +1188,21 @@ impl CodePropertyGraph {
             }
         }
 
+        crate::census::mark("before_cpg.step7");
+
         profile.next("cpg.step7");
         // --- Step 7: Statement nodes for CFG ---
         let stmt_index = Self::assemble_step7(files, &mut graph, &mut location_index);
+
+        crate::census::mark("before_cpg.step8");
 
         profile.next("cpg.step8");
         // --- Step 8: ControlFlow edges ---
         for (from, to, w) in Self::collect_step8_edges(&stmt_index, files) {
             graph.add_edge(from, to, w);
         }
+
+        crate::census::mark("before_cpg.step9");
 
         profile.next("cpg.step9");
         // --- Step 9: Virtual dispatch enrichment ---
@@ -1258,6 +1300,19 @@ impl CodePropertyGraph {
             });
         }
 
+        crate::census::mark("proto.before_shrink");
+        graph.shrink_to_fit();
+        crate::census::mark("cpg.step9_end");
+        census_walk::run(
+            "end_assembly",
+            &graph,
+            &func_index,
+            &name_index,
+            &var_index,
+            &exact_var_index,
+            &location_index,
+        );
+        crate::census::mark("cpg.after_census3");
         CodePropertyGraph {
             graph,
             func_index,

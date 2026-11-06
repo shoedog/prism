@@ -15,6 +15,17 @@ pub(super) struct HiddenUses {
     nodes: Vec<(LegacyVarKey, NodeIndex)>,
 }
 
+pub(super) struct Detached {
+    removed: Vec<(LegacyVarKey, NodeIndex)>,
+}
+impl Detached {
+    pub(super) fn restore(self, var_index: &mut BTreeMap<LegacyVarKey, NodeIndex>) {
+        for (k, i) in self.removed {
+            var_index.insert(k, i);
+        }
+    }
+}
+
 impl HiddenUses {
     pub(super) fn new(dfg: &DataFlowGraph) -> Self {
         let spans = dfg.recall_only_use_spans();
@@ -64,6 +75,31 @@ impl HiddenUses {
 
     pub(super) fn node_set(&self) -> BTreeSet<NodeIndex> {
         self.nodes.iter().map(|(_, n)| *n).collect()
+    }
+
+    /// PROTOTYPE: remove hidden entries in place; `restore` puts var_index back.
+    pub(super) fn detach(
+        &self,
+        var_index: &mut BTreeMap<LegacyVarKey, NodeIndex>,
+        exact_var_index: &mut ExactVarIndex,
+    ) -> Detached {
+        let mut removed = Vec::new();
+        for (key, idx) in &self.nodes {
+            if var_index.get(key) == Some(idx) {
+                var_index.remove(key);
+                removed.push((key.clone(), *idx));
+            }
+            if let Some(spans) = exact_var_index.get_mut(key) {
+                for nodes in spans.values_mut() {
+                    nodes.retain(|n| n != idx);
+                }
+                spans.retain(|_, nodes| !nodes.is_empty());
+                if spans.is_empty() {
+                    exact_var_index.remove(key);
+                }
+            }
+        }
+        Detached { removed }
     }
 
     /// The lookup indexes without the hidden nodes (`None`: nothing hidden).

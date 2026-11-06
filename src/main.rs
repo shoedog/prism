@@ -26,6 +26,9 @@ fn parse_loc_seeds(
         .collect()
 }
 
+#[global_allocator]
+static ALLOC: prism::census::Counting = prism::census::Counting;
+
 fn main() -> Result<()> {
     let _profile = prism::profile::Session::start();
     let min_confidence_explicit = std::env::args_os().any(|argument| {

@@ -44,6 +44,7 @@ pub mod api;
 pub mod ast;
 pub mod build_pool;
 pub mod call_graph;
+pub mod census;
 pub mod cfg;
 pub mod cli;
 pub mod cpg;

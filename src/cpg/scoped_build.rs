@@ -10,7 +10,9 @@ impl CodePropertyGraph {
         files: &BTreeMap<String, ParsedFile>,
         type_db: Option<TypeDatabase>,
     ) -> Self {
-        Self::assemble_graph_in(cg, dfg, files, type_db, None)
+        let r = Self::assemble_graph_in(cg, dfg, files, type_db, None);
+        crate::census::mark("assemble_graph_returned");
+        r
     }
 
     /// A CPG over a diff-scoped subset whose Go package facts (func-typed
