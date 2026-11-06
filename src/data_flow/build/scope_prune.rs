@@ -22,6 +22,9 @@ struct Occurrence {
     storage: bool,
 }
 
+type LineKey = (String, usize);
+type LineCache = RefCell<BTreeMap<LineKey, Rc<Vec<Occurrence>>>>;
+
 pub(super) struct ScopeFacts<'a> {
     parsed: &'a ParsedFile,
     facts: Option<BindingFacts>,
@@ -29,10 +32,10 @@ pub(super) struct ScopeFacts<'a> {
     /// `(start byte, path)` of every genuine (not alias-derived) def.
     def_index: BTreeMap<(usize, AccessPath), usize>,
     /// `(name, line)` of every genuine def, for same-line coalescing.
-    defs_on_line: BTreeMap<(String, usize), Vec<usize>>,
+    defs_on_line: BTreeMap<LineKey, Vec<usize>>,
     /// Identifier nodes by `(name, line)`.
-    identifiers: BTreeMap<(String, usize), Vec<Node<'a>>>,
-    lines: RefCell<BTreeMap<(String, usize), Rc<Vec<Occurrence>>>>,
+    identifiers: BTreeMap<LineKey, Vec<Node<'a>>>,
+    lines: LineCache,
     clean_names: RefCell<BTreeMap<String, bool>>,
 }
 
