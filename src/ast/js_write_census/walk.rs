@@ -243,6 +243,12 @@ impl<'a, 't> Walker<'a, 't> {
     /// Visit `n` in context `ctx`.
     fn visit(&mut self, n: Node<'t>, ctx: Ctx<'a>, rg: Region, cons: Option<Construct<'t>>) {
         let kind = n.kind();
+        // Trivia (`order.tsv`: `comment`, a leaf) can sit between the children of a pattern, a `for`
+        // head or any other target position; it neither writes nor refuses (S1b-1: 856 excalidraw
+        // edges were refused through `owner-refuse:target:comment` before this).
+        if kind == "comment" {
+            return;
+        }
         let form = match ctx {
             Ctx::Read => None,
             Ctx::Skip => return,

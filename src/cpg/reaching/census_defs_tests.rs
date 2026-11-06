@@ -439,3 +439,22 @@ fn the_trace_line_has_the_s1a_shape() {
     assert!(f[4].starts_with("a@1:11"), "{lines:?}");
     assert!(f[5].starts_with("a@4:"), "{lines:?}");
 }
+
+#[test]
+fn comments_in_target_positions_do_not_refuse_the_owner() {
+    use crate::js_write_census::{tables::Tables, walk::census_with};
+    for body in [
+        "const { x, // note\n    y } = src();",
+        "[a, /* c */ b] = pair();",
+        "for (/* h */ a of xs) {}",
+        "for (const /* c */ [k, v] of xs) {}",
+        "({ a /* c */ = 1 } = o);",
+        "[a = /* c */ 1] = o;",
+    ] {
+        let src = format!("function f(a) {{\n  log();\n  {body}\n  sink(a);\n}}\n");
+        let parsed = parse(Language::JavaScript, &src);
+        let owner = parsed.all_functions().into_iter().next().unwrap();
+        let c = census_with(&parsed, Tables::shared(), owner, false);
+        assert!(c.refusals.is_empty(), "{body}: {:?}", c.refusals);
+    }
+}
