@@ -25,6 +25,8 @@ mod step4_tests;
 
 #[path = "recall_hidden.rs"]
 mod recall_hidden;
+#[path = "census_walk.rs"]
+mod census_walk;
 #[path = "scoped_build.rs"]
 mod scoped_build;
 
@@ -1082,6 +1084,15 @@ impl CodePropertyGraph {
             &mut location_index,
         );
 
+        census_walk::run(
+            "after_steps2_3",
+            &graph,
+            &func_index,
+            &name_index,
+            &var_index,
+            &exact_var_index,
+            &location_index,
+        );
         profile.next("cpg.step4");
         let mut dfg_label_stats =
             Self::assemble_step4(&mut dfg, files, &var_index, &exact_var_index, &mut graph);
@@ -1283,6 +1294,15 @@ impl CodePropertyGraph {
         // Vec doubling leaves up to ~50% slack in node/edge storage that the
         // finished graph never uses.
         graph.shrink_to_fit();
+        census_walk::run(
+            "end_of_assembly",
+            &graph,
+            &func_index,
+            &name_index,
+            &var_index,
+            &ExactVarIndex::new(),
+            &location_index,
+        );
 
         CodePropertyGraph {
             graph,
