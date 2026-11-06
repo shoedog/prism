@@ -132,6 +132,13 @@ fn dereference_through_shadowing_copy_keeps_edge() {
 }
 
 #[test]
+fn method_receiver_through_shadowing_copy_keeps_edge() {
+    // A value-receiver method on `*T` dereferences the copied pointer.
+    let s = "package p\ntype T int\nfunc (v T) M() int { return int(v) }\nfunc f(x *T) {\n\t*x = 7 // @outer\n\tif x := x; x != nil {\n\t\tprintln(x.M()) // @body\n\t}\n}\n";
+    assert!(edge(s, "x", "@outer", "@body"));
+}
+
+#[test]
 fn index_through_shadowing_copy_keeps_edge() {
     let s = "package p\nfunc f(p []int) {\n\tp = a() // @outer\n\tif p := g(); p != nil {\n\t\tprintln(p[0]) // @body\n\t}\n}\n";
     assert!(edge(s, "p", "@outer", "@body"));

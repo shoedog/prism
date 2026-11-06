@@ -76,7 +76,7 @@ fn is_composite_key(occ: Node<'_>) -> bool {
     })
 }
 
-/// A dereference, index/slice operand or field operand (outside a call's callee) reads
+/// A dereference, index/slice operand or selector operand (field or method receiver) reads
 /// storage reachable through the name, which a shadowing copy can alias: not provable.
 fn is_storage_access(occ: Node<'_>) -> bool {
     let mut node = occ;
@@ -95,15 +95,12 @@ fn is_storage_access(occ: Node<'_>) -> bool {
                     .child_by_field_name("operand")
                     .is_some_and(|o| o.id() == node.id())
             }
+            // Also a method call's receiver: `x.M()` with a value receiver
+            // dereferences a pointer `x`, reading storage a `*x = ..` wrote.
             "selector_expression" => {
                 return p
                     .child_by_field_name("operand")
                     .is_some_and(|o| o.id() == node.id())
-                    && !p.parent().is_some_and(|c| {
-                        c.kind() == "call_expression"
-                            && c.child_by_field_name("function")
-                                .is_some_and(|f| f.id() == p.id())
-                    })
             }
             _ => return false,
         }
