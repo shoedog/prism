@@ -10,13 +10,13 @@
 //! are never entered: a jump cannot cross them.
 use super::{CfgEdge, EdgeSink};
 use crate::ast::ParsedFile;
-use crate::languages::Language;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 /// What the builder saw, for the measurement report; `build` ignores it.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct CJumpStats {
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CJumpStats {
     pub jump_edges: usize,
     /// Emitted jump edges whose source line holds more than one statement (#549).
     pub jump_edges_on_multi_statement_lines: usize,
@@ -26,6 +26,8 @@ pub struct CJumpStats {
     pub rewired_do_loops: usize,
     /// `do`..`while` whose condition shares a line with the header or body: left to main.
     pub one_line_do_loops: usize,
+    /// Rewired `do` loops whose legacy body-last → header back edge was dropped.
+    pub do_back_edges_removed: usize,
 }
 
 enum Next {
@@ -39,12 +41,7 @@ fn line(node: Node<'_>) -> usize {
     node.start_position().row + 1
 }
 
-/// A statement-level node as the CFG counts statements (not the call and
-/// assignment expressions inside one, not blocks or `case` labels).
-fn is_statement(kind: &str) -> bool {
-    (kind.ends_with("_statement") && !matches!(kind, "compound_statement" | "case_statement"))
-        || kind == "declaration"
-}
+use crate::ast::is_c_cpp_statement_kind as is_statement;
 
 fn is_loop(kind: &str) -> bool {
     matches!(
@@ -54,7 +51,9 @@ fn is_loop(kind: &str) -> bool {
 }
 
 /// Totals over a file's functions, for the measurement report.
-pub fn c_jump_stats(parsed: &ParsedFile) -> CJumpStats {
+#[cfg(test)]
+pub(crate) fn c_jump_stats(parsed: &ParsedFile) -> CJumpStats {
+    use crate::languages::Language;
     let mut total = CJumpStats::default();
     if !matches!(parsed.language, Language::C | Language::Cpp) {
         return total;
@@ -72,6 +71,7 @@ pub fn c_jump_stats(parsed: &ParsedFile) -> CJumpStats {
         total.duff_switches += s.duff_switches;
         total.rewired_do_loops += s.rewired_do_loops;
         total.one_line_do_loops += s.one_line_do_loops;
+        total.do_back_edges_removed += s.do_back_edges_removed;
     }
     total
 }
@@ -80,6 +80,7 @@ pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, lines: &[usize], edges
     scan(owner, parsed, lines, edges);
 }
 
+#[cfg(test)]
 /// Run the builder into a scratch sink and report what it did.
 pub(super) fn stats(owner: Node<'_>, parsed: &ParsedFile, lines: &[usize]) -> CJumpStats {
     scan(owner, parsed, lines, &mut EdgeSink::new())
@@ -146,9 +147,23 @@ fn scan(owner: Node<'_>, parsed: &ParsedFile, lines: &[usize], edges: &mut EdgeS
             continue;
         };
         stats.rewired_do_loops += 1;
+        if do_back_edge_removed(node, parsed, lines) {
+            stats.do_back_edges_removed += 1;
+        }
         let cond_node = node.child_by_field_name("condition").unwrap_or(node);
         if let Some(Next::Line(first)) = node.child_by_field_name("body").map(|b| cx.enter(b)) {
             emit(cond_node, first, &mut stats, false);
+        }
+        // Normal completion of the body reaches the condition: the sorted
+        // sequential edge supplies it only for a plain last statement.
+        if let Some(body) = node.child_by_field_name("body") {
+            let mut ends = Vec::new();
+            cx.completions(body, &mut ends);
+            for from in ends {
+                if line(from) != cond {
+                    emit(from, cond, &mut stats, false);
+                }
+            }
         }
         if let Next::Line(exit) = cx.after(node) {
             if exit != cond {
@@ -169,26 +184,30 @@ fn do_aware_continue(target: Node<'_>, parsed: &ParsedFile) -> Option<usize> {
     }
 }
 
-/// The condition line of a `do`..`while` that owns a CFG statement of its own:
-/// distinct from the `do` line and from every statement of the body. Otherwise
-/// `None` and main's edges for the loop stand.
+/// The admitted condition line of a `do`..`while` (see
+/// `ParsedFile::c_do_condition_line`); `None` leaves main's edges standing.
 pub(super) fn do_condition_line(node: Node<'_>, parsed: &ParsedFile) -> Option<usize> {
-    let cond = line(node.child_by_field_name("condition")?);
-    let body = node.child_by_field_name("body")?;
-    let boundaries = parsed.language.callable_boundary_node_types();
-    let mut last = line(node);
-    let mut stack = vec![body];
-    while let Some(n) = stack.pop() {
-        if boundaries.contains(&n.kind()) {
-            continue;
-        }
-        if is_statement(n.kind()) {
-            last = last.max(line(n));
-        }
-        let mut cursor = n.walk();
-        stack.extend(n.named_children(&mut cursor));
+    parsed.c_do_condition_line(&node)
+}
+
+/// Whether the legacy body-last → `do` header back edge must go: the loop is
+/// rewired and the condition → first-statement edge is emitted, so the body
+/// completes through the condition. Without that edge the back edge stays.
+pub(super) fn do_back_edge_removed(node: Node<'_>, parsed: &ParsedFile, lines: &[usize]) -> bool {
+    let Some(body) = node.child_by_field_name("body") else {
+        return false;
+    };
+    if do_condition_line(node, parsed).is_none() {
+        return false;
     }
-    (cond > last).then_some(cond)
+    let boundaries = parsed.language.callable_boundary_node_types();
+    let cx = Cx {
+        parsed,
+        lines,
+        body: node,
+        boundaries: &boundaries,
+    };
+    matches!(cx.enter(body), Next::Line(_))
 }
 
 enum Dispatch {
@@ -303,6 +322,60 @@ impl<'tree> Cx<'_, 'tree> {
             }
         }
         Dispatch::Targets(targets)
+    }
+
+    /// Statements whose normal completion ends `node`: the last statement of a
+    /// block, both arms of an `if` (the `if` itself when it has no `else`), a
+    /// loop header (its false exit), the last case of a `switch` and a
+    /// `switch` without `default`. Jumps are not completions.
+    fn completions(&self, node: Node<'tree>, out: &mut Vec<Node<'tree>>) {
+        let last_child = |n: Node<'tree>| {
+            let mut cursor = n.walk();
+            let children: Vec<_> = n.named_children(&mut cursor).collect();
+            children.into_iter().rev().find(|c| c.kind() != "comment")
+        };
+        match node.kind() {
+            "compound_statement" | "case_statement" => {
+                if let Some(last) = last_child(node) {
+                    self.completions(last, out);
+                }
+            }
+            "labeled_statement" => {
+                if let Some(last) = last_child(node) {
+                    self.completions(last, out);
+                }
+            }
+            "if_statement" => {
+                match node.child_by_field_name("alternative") {
+                    Some(alt) => {
+                        if let Some(inner) = last_child(alt) {
+                            self.completions(inner, out);
+                        }
+                    }
+                    None => out.push(node),
+                }
+                if let Some(then) = node.child_by_field_name("consequence") {
+                    self.completions(then, out);
+                }
+            }
+            "switch_statement" => {
+                out.push(node);
+                if let Some(body) = node.child_by_field_name("body") {
+                    if let Some(last) = last_child(body) {
+                        self.completions(last, out);
+                    }
+                }
+            }
+            "break_statement" | "continue_statement" | "return_statement" | "goto_statement"
+            | "throw_statement" => {}
+            "do_statement" => {
+                if let Some(cond) = node.child_by_field_name("condition") {
+                    out.push(cond);
+                }
+            }
+            _ if self.lines.binary_search(&line(node)).is_ok() => out.push(node),
+            _ => {}
+        }
     }
 
     fn next_statement(node: Node<'tree>) -> Option<Node<'tree>> {

@@ -14,8 +14,6 @@ use crate::languages::Language;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
-pub use c_jumps::{c_jump_stats, CJumpStats};
-
 mod c_jumps;
 mod go_branches;
 mod go_jumps;
@@ -435,7 +433,13 @@ fn collect_loop_back_edges(
             .or_else(|| node.child_by_field_name("consequence"))
         {
             if let Some(last) = last_statement_line(&body, parsed) {
-                if !ends_with_terminator(&body, parsed) {
+                // A rewired C/C++ `do` completes through its condition
+                // (`c_jumps`); the header holds no code, so the edge would only
+                // bypass the condition's writes.
+                let rewired_back = matches!(parsed.language, Language::C | Language::Cpp)
+                    && node.kind() == "do_statement"
+                    && c_jumps::do_back_edge_removed(node, parsed, stmt_lines);
+                if !ends_with_terminator(&body, parsed) && !rewired_back {
                     edges.push(CfgEdge {
                         file: parsed.path.clone(),
                         from_line: last,

@@ -108,3 +108,53 @@ fn corpus_counters() {
     }
     println!("CJUMP_COUNTERS files={files} {total:?}");
 }
+
+#[test]
+fn range_for_on_the_condition_line_is_a_shared_line_do() {
+    // sol's fixture: the empty range-for owns line 3, the condition's line.
+    let parsed = parse(
+        "int f(int x, int (&a)[1]) {\ndo {\nfor (int v : a) {} } while (x);\nreturn x;\n}\n",
+        Language::Cpp,
+    );
+    let s = c_jump_stats(&parsed);
+    assert_eq!(
+        (
+            s.one_line_do_loops,
+            s.rewired_do_loops,
+            s.do_back_edges_removed
+        ),
+        (1, 0, 0)
+    );
+    let edges: Vec<_> = crate::cfg::build_cfg_edges(&parsed)
+        .iter()
+        .map(|e| (e.from_line, e.to_line))
+        .collect();
+    assert!(
+        edges.contains(&(2, 4)),
+        "main's header exit stays: {edges:?}"
+    );
+    assert!(edges.contains(&(3, 2)), "main's back edge stays: {edges:?}");
+}
+
+#[test]
+fn do_back_edge_counter_follows_the_rewire() {
+    let rewired = parse(
+        "int f(int x, int n) {\ndo {\nx = 1;\n} while (n);\nreturn x;\n}\n",
+        Language::C,
+    );
+    let s = c_jump_stats(&rewired);
+    assert_eq!((s.rewired_do_loops, s.do_back_edges_removed), (1, 1));
+    let shared = parse(
+        "int f(int x, int n) {\ndo { x = 1; } while (n);\nreturn x;\n}\n",
+        Language::C,
+    );
+    let s = c_jump_stats(&shared);
+    assert_eq!((s.one_line_do_loops, s.do_back_edges_removed), (1, 0));
+    // a statement after the loop on the condition line is not rewired
+    let trailing = parse(
+        "int f(int x, int n) {\ndo {\nx = 1;\n} while (n); return x;\n}\n",
+        Language::C,
+    );
+    let s = c_jump_stats(&trailing);
+    assert_eq!((s.one_line_do_loops, s.rewired_do_loops), (1, 0));
+}
