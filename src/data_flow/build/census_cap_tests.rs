@@ -42,6 +42,7 @@ fn a_one_node_setter_with_a_wrapped_this_member_write_stays_available() {
     let r = refs(src, Language::TypeScript, None);
     assert_eq!(r.rd_function_stats.functions_without_cfg, 0);
     assert_eq!(r.rd_function_stats.fallback_functions_capped, 0);
+    assert!(all_cfg_incomplete(&r), "{:?}", r.labels);
 }
 
 /// The completed list overflows the 2,048 def cap although the recorded list fits: main runs RD and

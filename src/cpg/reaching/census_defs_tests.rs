@@ -481,3 +481,56 @@ fn a_grammar_gap_inside_the_owner_refuses_it_by_the_parse_precondition() {
         "{got:?}"
     );
 }
+
+// ---- Post-cap fix ------------------------------------------------------------------------------------
+
+#[test]
+fn a_write_never_maps_onto_a_statement_that_starts_after_it() {
+    // p1/p6: the retained statement on the write's line is the loop body `{ k = 7; }`, which a
+    // zero-iteration route bypasses; the write is in the header, so the base is refused instead.
+    let p1 = "function f(n) {\n  let k = 0;\n  for (let j = 0,\n           m = k++; j < n; j++) { k = 7; }\n  sink(k);\n}\n";
+    let p6 = "function f(n) {\n  let k = 0;\n  outer: for (let i = 0;\n              k++ < n; i++) { k = 7; }\n  sink(k);\n}\n";
+    for src in [p1, p6] {
+        not_exact(Language::JavaScript, src, "k@2->k@5");
+        let got = mechanisms(Language::JavaScript, src);
+        assert!(got.iter().all(|m| m == "site-unmapped"), "{got:?}");
+    }
+    // p3: no body statement on the line at all: the same refusal (already so before the fix).
+    let p3 = "function f(n) {\n  let k = 0;\n  for (let j = 0,\n           m = k++; j < n; j++) {}\n  sink(k);\n}\n";
+    not_exact(Language::JavaScript, p3, "k@2->k@5");
+}
+
+#[test]
+fn a_lost_statement_under_a_simple_statement_keeps_that_statements_node() {
+    // S4: the class expression's static block runs at its own statement (line 3), not under a compound.
+    let src =
+        "function f() {\n  let a = 1;\n  x = class {\n    static { a++; } };\n  sink(a);\n}\n";
+    assert_eq!(
+        labels(src, Language::JavaScript, "a@2->a@5"),
+        ["nameonly/killed"]
+    );
+}
+
+#[test]
+fn an_owner_over_the_recorded_cap_reports_the_recorded_count_at_both_seams() {
+    let mut src = String::from("function f(x) {\n");
+    for i in 0..(RD_MAX_DEFS + 5) {
+        src.push_str(&format!("  x = {i};\n"));
+    }
+    src.push_str("  x++;\n  sink(x);\n}\n");
+    let parsed = parse(Language::JavaScript, &src);
+    let owner = parsed.all_functions().into_iter().next().unwrap();
+    // The recorded defs: every `x = i` (overwritten defs emit no edge, so no edge-derived helper).
+    let defs: Vec<DefSite> = src
+        .match_indices("  x = ")
+        .enumerate()
+        .map(|(i, (at, _))| def(i as u32, "x", i + 2, at + 2))
+        .collect();
+    assert!(defs.len() > RD_MAX_DEFS);
+    let (pre, solver) = availability(&parsed, &owner, &defs);
+    assert_eq!(
+        pre,
+        Some(RdUnavailable::DefinitionsCapExceeded { actual: defs.len() })
+    );
+    assert_eq!(pre, solver, "the full refusal payload agrees");
+}

@@ -190,10 +190,12 @@ const COMPOUND: [&str; 10] = [
 fn node_line(parsed: &ParsedFile, c: &Census, site: &Site) -> Option<usize> {
     let start = site.construct_start.unwrap_or(site.target_start);
     let end = site.moment;
+    // Only a statement that starts at or before the write can execute it: one that starts later on
+    // the line (a loop body after a header write) is a node a route may bypass.
     let on_line = || {
         c.spans
             .iter()
-            .any(|(a, _)| parsed.line_for_byte(*a) == site.line)
+            .any(|(a, _)| *a <= start && parsed.line_for_byte(*a) == site.line)
             .then_some(site.line)
     };
     let contained = c

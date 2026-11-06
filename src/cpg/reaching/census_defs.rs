@@ -55,9 +55,12 @@ impl CensusFacts {
     /// The def cap on the recorded list only: a completed list that overflows it is cut back to the
     /// recorded defs and the owner refused by label (`owner-refuse:def-cap`).
     pub(super) fn cap_defs(&mut self, defs: &mut Vec<DefSite>, cap: usize) {
-        if defs.len() > cap && self.n_recorded <= cap {
+        if defs.len() > cap {
+            // An owner already over the cap on its recorded defs reports the recorded count, as main.
             defs.truncate(self.n_recorded);
-            self.forced = Some("owner-refuse:def-cap");
+            if self.n_recorded <= cap {
+                self.forced = Some("owner-refuse:def-cap");
+            }
         }
     }
 
