@@ -886,7 +886,7 @@ impl CodePropertyGraph {
             end_byte: loc.end_byte,
         });
         var_index.entry(legacy_key.clone()).or_insert(idx);
-        if nonzero {
+        if materialize_exact {
             exact_var_index
                 .entry(legacy_key)
                 .or_default()
