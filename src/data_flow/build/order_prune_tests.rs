@@ -144,11 +144,8 @@ fn storage_kept() {
         ),
         &[("x", 5, 4)],
     );
-    kept(
-        "field",
-        &head("p *T", "\tuse(p.f)\n\tp.f = 2\n"),
-        &[("p.f", 4, 3)],
-    );
+    // A field def (`p.f = 2`) has no reference edge to a use of `p.f` at all, so
+    // there is no row to pin; `keep_pair` keeps every path with fields anyway.
     kept(
         "deref",
         &head("x *int", "\tuse(x)\n\t*x = 2\n"),

@@ -440,6 +440,7 @@ impl Producer {
             ));
             let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans);
             let scope = super::scope_prune::ScopeFacts::new(parsed, func_node, &rd_defs);
+            let order = super::order_prune::OrderFacts::new(parsed, func_node, &rd_defs);
             let original_preferred = unavailable.map(|_| preferred_use_locs.clone());
             // Pass 0 counts with the real admission/use logic, but constructs no edges.
             // Pass 1 emits only after the complete prospective count passed the cap.
@@ -517,6 +518,7 @@ impl Producer {
                         if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
                         if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted) {
                             if !scope.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
+                            if !order.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
                             if !lexical.keep_def(path, loc.start_byte, loc.end_byte, *ref_line, &mut prune_stats) { continue; }
                             emission.push(|| FlowEdge {
                                 from: loc.clone(),
@@ -562,6 +564,7 @@ impl Producer {
                             .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
                             .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));
                         if !scope.keep_pair(path, def_start, def_end, def_line, *ref_line, &mut prune_stats) { continue; }
+                        if !order.keep_pair(path, def_start, def_end, def_line, *ref_line, &mut prune_stats) { continue; }
                         if !lexical.keep_def(path, def_start, def_end, *ref_line, &mut prune_stats) { continue; }
                         emission.push(|| {
                             let def_loc = def_locs_by_occurrence
