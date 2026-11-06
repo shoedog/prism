@@ -281,7 +281,31 @@ impl<'a> LexicalFacts<'a> {
                     .all(|(from, to)| !(*from <= start && start < *to))
             });
         // Checked last (one tree lookup per def): only when the use is bound.
-        bound && !super::lexical_header::def_writes_through(self.parsed, start, end)
+        bound
+            && !super::lexical_header::def_writes_through(self.parsed, start, end)
+            && !self.line_writes_through(&path.base, start)
+    }
+
+    /// Same-line defs of one path are coalesced to the first span, so `x, *x = x, 7`
+    /// (or `x = p; *x = 7` on one line) reaches us with the plain `x` span: refuse
+    /// when any occurrence of the name on the def's line is a storage access.
+    fn line_writes_through(&self, base: &str, start: usize) -> bool {
+        let Some(node) = self
+            .parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start, start)
+        else {
+            return true;
+        };
+        let line = node.start_position().row + 1;
+        self.occurrences
+            .get(&(base.to_owned(), line))
+            .is_some_and(|nodes| {
+                nodes
+                    .iter()
+                    .any(|n| super::lexical_header::is_storage_access(*n))
+            })
     }
 
     fn header_spans(&self, key: &(String, usize)) -> HeaderSpans {

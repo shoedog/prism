@@ -78,7 +78,7 @@ fn is_composite_key(occ: Node<'_>) -> bool {
 
 /// A dereference, index/slice operand or selector operand (field or method receiver) reads
 /// storage reachable through the name, which a shadowing copy can alias: not provable.
-fn is_storage_access(occ: Node<'_>) -> bool {
+pub(super) fn is_storage_access(occ: Node<'_>) -> bool {
     let mut node = occ;
     while let Some(p) = node.parent() {
         match p.kind() {

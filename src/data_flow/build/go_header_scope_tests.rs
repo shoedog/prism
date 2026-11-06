@@ -155,6 +155,15 @@ fn write_through_the_pointer_keeps_conversion_and_range_uses() {
 }
 
 #[test]
+fn same_line_write_through_keeps_edges() {
+    // Same-line defs of `x` are coalesced to the first (plain) span.
+    let multi = "package p\nfunc g(p *int) int { return *p }\nfunc f(x *int) {\n\tx, *x = x, 7 // @outer\n\tif x := x; x != nil {\n\t\tprintln(g(x)) // @body\n\t}\n}\n";
+    assert!(edge(multi, "x", "@outer", "@body"));
+    let seq = "package p\nfunc g(p *int) int { return *p }\nfunc f(x *int) {\n\tx = new(int); *x = 7 // @outer\n\tif x := x; x != nil {\n\t\tprintln(g(x)) // @body\n\t}\n}\n";
+    assert!(edge(seq, "x", "@outer", "@body"));
+}
+
+#[test]
 fn index_through_shadowing_copy_keeps_edge() {
     let s = "package p\nfunc f(p []int) {\n\tp = a() // @outer\n\tif p := g(); p != nil {\n\t\tprintln(p[0]) // @body\n\t}\n}\n";
     assert!(edge(s, "p", "@outer", "@body"));
