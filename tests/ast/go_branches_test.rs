@@ -124,6 +124,19 @@ fn label(name: &str, d: usize, u: usize, expected: FlowConfidence) {
         .collect();
     assert_eq!(actual, [expected], "{name} {d}->{u}");
 }
+fn absent(name: &str, d: usize, u: usize) {
+    let graph = CodePropertyGraph::build(&BTreeMap::from([(name.to_owned(), parsed(name))]));
+    let actual: Vec<_> = graph
+        .dfg
+        .labels()
+        .filter(|(e, _)| e.from.path.base == "x" && e.from.line == d && e.to.line == u)
+        .collect();
+    assert!(
+        actual.is_empty(),
+        "{name} {d}->{u}: {} labels",
+        actual.len()
+    );
+}
 #[test]
 fn go_branches_k13_k23_case_values_follow_the_loop_kill() {
     label(
@@ -276,17 +289,9 @@ fn go_branches_initializer_alias_does_not_declare_its_source() {
         FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 6 }),
     );
     // A real x declaration in the initializer still owns the body writes.
-    label(
-        "init_shadow.go",
-        5,
-        9,
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 8 }),
-    );
-    label(
-        "init_shadow.go",
-        7,
-        9,
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 8 }),
-    );
+    // The body writes bind the initializer's x; `return x` binds the parameter,
+    // so rule S (#630) drops both pairs.
+    absent("init_shadow.go", 5, 9);
+    absent("init_shadow.go", 7, 9);
     label("init_shadow.go", 2, 9, FlowConfidence::Exact);
 }

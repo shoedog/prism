@@ -21,7 +21,7 @@
 {"case": "00_write_only_lines", "def_line": 7, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 6}
 {"case": "00_write_only_lines", "def_line": 7, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 8}
 {"case": "00_write_only_lines", "def_line": 7, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 9}
-{"case": "00_write_only_lines", "def_line": 7, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 11, "label": "Exact"}
+{"case": "00_write_only_lines", "def_line": 7, "function": "f", "keep": true, "label": "Exact", "path": "x", "reason": "keep", "use_line": 11}
 {"case": "00_write_only_lines", "def_line": 9, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 4}
 {"case": "00_write_only_lines", "def_line": 9, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 5}
 {"case": "00_write_only_lines", "def_line": 9, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 6}
@@ -263,9 +263,9 @@
 {"case": "12_inner_block_shadow_after_use", "def_line": 7, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 11}
 {"case": "12_inner_block_shadow_after_use", "def_line": 7, "function": "f", "keep": true, "path": "y", "reason": "keep", "use_line": 9}
 {"case": "12_inner_block_shadow_after_use", "def_line": 8, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 5}
-{"case": "12_inner_block_shadow_after_use", "def_line": 8, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 7}
+{"case": "12_inner_block_shadow_after_use", "def_line": 8, "function": "f", "keep": false, "path": "x", "reason": "scope", "use_line": 7}
 {"case": "12_inner_block_shadow_after_use", "def_line": 8, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 9}
-{"case": "12_inner_block_shadow_after_use", "def_line": 8, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 11}
+{"case": "12_inner_block_shadow_after_use", "def_line": 8, "function": "f", "keep": false, "path": "x", "reason": "scope", "use_line": 11}
 {"case": "13_var_zero_value_dominates", "def_line": 7, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 5}
 {"case": "13_var_zero_value_dominates", "def_line": 7, "function": "f", "keep": true, "path": "x", "reason": "keep", "use_line": 8}
 {"case": "13_var_zero_value_dominates", "def_line": 7, "function": "f", "keep": false, "path": "x", "reason": "write_only", "use_line": 9}

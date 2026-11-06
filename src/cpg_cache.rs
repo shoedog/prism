@@ -296,9 +296,10 @@ mod stream;
 ///   lies in another region, are `NameOnly(CfgIncomplete)` (#660 S1a); labels only.
 /// - v151: JS/TS/TSX write-census kill-only defs and owner/base refusals in reaching definitions (#660 S1b-1);
 ///   labels only.
-/// - v152: JS/TS/TSX same-node order refusal in reaching definitions (#660 S1b-2): an `exact` edge whose use
+/// - v152: Go rule S, a pair between different explicit declarations of one name is dropped (#630 slice 3).
+/// - v153: JS/TS/TSX same-node order refusal in reaching definitions (#660 S1b-2): an `exact` edge whose use
 ///   or def node holds a write not proven ordered against it is `NameOnly(SameLine)`; labels only.
-const CACHE_VERSION: u32 = 152;
+const CACHE_VERSION: u32 = 153;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -831,7 +832,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 152);
+        assert_eq!(super::CACHE_VERSION, 153);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
