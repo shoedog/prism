@@ -105,6 +105,7 @@ fn corpus_counters() {
         total.duff_switches += s.duff_switches;
         total.rewired_do_loops += s.rewired_do_loops;
         total.one_line_do_loops += s.one_line_do_loops;
+        total.do_back_edges_removed += s.do_back_edges_removed;
     }
     println!("CJUMP_COUNTERS files={files} {total:?}");
 }
