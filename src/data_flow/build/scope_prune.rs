@@ -446,6 +446,71 @@ fn address_taken_names<'a>(
                 .zip(node.child_by_field_name("right")),
             _ => None,
         };
+        // Other declarations without a producer def (sol's binding inventory, #691):
+        // `var`/`const` names beyond the first name of the first direct spec (the
+        // producer reads only that one), function-literal formals, and named
+        // results of any function (a `return` assigns them with no def).
+        let mut keep = |id: Node<'a>| {
+            if id.kind() == "identifier" {
+                if let Some(found) = multi.get(parsed.node_text(&id)) {
+                    out.insert(*found);
+                }
+            }
+        };
+        match node.kind() {
+            "var_declaration" | "const_declaration" => {
+                let mut first = true;
+                let mut specs = Vec::new();
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    match child.kind() {
+                        "var_spec" | "const_spec" => specs.push((child, true)),
+                        "var_spec_list" => {
+                            let mut inner = child.walk();
+                            specs.extend(child.named_children(&mut inner).map(|c| (c, false)));
+                        }
+                        _ => {}
+                    }
+                }
+                for (spec, direct) in specs {
+                    if !matches!(spec.kind(), "var_spec" | "const_spec") {
+                        continue;
+                    }
+                    let mut names = spec.walk();
+                    for (i, name) in spec.children_by_field_name("name", &mut names).enumerate() {
+                        if !(direct && first && i == 0) {
+                            keep(name);
+                        }
+                    }
+                    first = false;
+                }
+            }
+            "func_literal" | "function_declaration" | "method_declaration" => {
+                let mut lists = Vec::new();
+                if node.kind() == "func_literal" {
+                    lists.extend(node.child_by_field_name("parameters"));
+                }
+                lists.extend(
+                    node.child_by_field_name("result")
+                        .filter(|r| r.kind() == "parameter_list"),
+                );
+                for list in lists {
+                    let mut cursor = list.walk();
+                    for param in list.named_children(&mut cursor) {
+                        if matches!(
+                            param.kind(),
+                            "parameter_declaration" | "variadic_parameter_declaration"
+                        ) {
+                            let mut names = param.walk();
+                            for name in param.children_by_field_name("name", &mut names) {
+                                keep(name);
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
         if let Some((left, _right)) = declared {
             let mut names = left.walk();
             let ids: Vec<Node<'a>> = if left.kind() == "identifier" {

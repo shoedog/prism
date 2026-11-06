@@ -250,6 +250,19 @@ fn declarations_without_a_def_keep_the_outer_pair() {
 }
 
 #[test]
+fn other_declarations_without_a_def_keep_the_outer_pair() {
+    // sol's binding inventory (#691): forms `BindingFacts` declares but the producer
+    // emits no def for, so the outer pair may be the only path.
+    let var2 =
+        "package p\nfunc f() {\n\tv := 7\n\t{\n\t\tvar _, v = 0, v\n\t\tprintln(v)\n\t}\n}\n";
+    check("var-second-name", var2, &[("v", 3, 6, true)]);
+    let lit = "package p\nfunc f() {\n\tv := 7\n\tfunc(v int) {\n\t\tprintln(v)\n\t}(v)\n}\n";
+    check("literal-formal", lit, &[("v", 3, 5, true)]);
+    let res = "package p\nfunc f() (v int) {\n\tdefer func() { println(v) }()\n\t{\n\t\tv := 7\n\t\tc := (v)\n\t\treturn c\n\t}\n}\n";
+    check("named-result", res, &[("v", 5, 3, true)]);
+}
+
+#[test]
 fn named_result_reused_by_short_var_keeps() {
     let src = "package p\nfunc f() (err error) {\n\tdefer func() {\n\t\tuse(err)\n\t}()\n\tx, err := g()\n\tuse(x)\n\treturn\n}\n";
     check("namedresult", src, &[("err", 6, 4, true)]);
