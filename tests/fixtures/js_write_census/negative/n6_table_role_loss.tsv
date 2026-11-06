@@ -1,0 +1,154 @@
+# kind	slot	role	order	reason
+# Roles: W write target | RW read-then-write target | DEL delete operand (member/subscript path write; identifier no write)
+#  DECL:<k> binding declaration (k: declarator var/let/const by parent, param, catch, fn-hoist, fn-inner, class, class-inner, import, enum, namespace)
+#  FORHEAD for-in/of left: DECL:declarator when `kind` is present, else W | INHERIT pattern internals (role of the pattern root)
+#  WRAP lvalue-transparent wrapper (R in read context, inherits W/RW/DEL in target context) | R evaluated read
+#  RDEF read evaluated later (instance field initializer) | N non-variable or no runtime binding | T type position
+#  IMPORTNAME import_specifier.name: DECL:import without alias, else N
+# Order (evaluation relative to the enclosing write construct or statement): text = source order |
+#  before-target = evaluated before the construct's targets are written (assignment/declarator value,
+#  for-in/of iterable) | after-body = for-statement update clause, runs after the body and starts each
+#  later visit of the header | deferred = runs at a later, unknown time (callable bodies and parameters,
+#  instance field initializers; a `static` field initializer is eager and is treated as text at runtime)
+adding_type_annotation	<children>	T	text	type
+ambient_declaration	<children>	N	text	declare: no runtime binding or code
+arguments	<children>	R	text	call argument
+array	<children>	R	text	array literal element
+array_pattern	<children>	INHERIT	text	destructuring element
+arrow_function	body	R	text	expression body (owner boundary: nested arrow is its own owner)
+arrow_function	parameter	DECL:param	text	single bare parameter
+as_expression	<children>	WRAP	text	TS `x as T` around a target
+asserts	<children>	T	text	asserts x: type-level
+assignment_expression	left	W	text	assignment target
+assignment_expression	right	R	before-target	value, evaluated before the target is written
+assignment_pattern	left	INHERIT	text	element/parameter with default: bound after the default
+assignment_pattern	right	R	text	default value (evaluated only when undefined)
+augmented_assignment_expression	left	RW	text	compound/logical assignment target (logical forms may skip the write)
+augmented_assignment_expression	right	R	before-target	value
+await_expression	<children>	R	text	operand
+binary_expression	left	R	text	operand
+binary_expression	right	R	text	operand
+call_expression	function	R	text	callee (direct eval detected separately)
+catch_clause	parameter	DECL:catch	text	catch binding (block scope of the handler)
+class	name	DECL:class-inner	text	class expression name, visible only inside the class
+class_declaration	name	DECL:class	text	class binding (lexical, TDZ)
+abstract_class_declaration	name	DECL:class	text	TS abstract class binding (lexical)
+class_heritage	<children>	R	text	extends expression
+computed_property_name	<children>	R	text	computed key, evaluated eagerly
+conditional_type	alternative	T	text	type
+conditional_type	consequence	T	text	type
+conditional_type	left	T	text	type
+conditional_type	right	T	text	type
+constraint	<children>	T	text	type
+constructor_type	type	T	text	type
+decorator	<children>	R	text	decorator expression
+default_type	<children>	T	text	type
+do_statement	condition	R	text	condition
+enum_assignment	value	R	text	enum member initializer
+enum_declaration	name	DECL:enum	text	TS enum binding (var-like, mergeable)
+export_specifier	alias	N	text	exported name
+export_specifier	name	R	text	local read by export { a }
+export_statement	<children>	R	text	TS export = x
+export_statement	value	R	text	export default x
+expression_statement	<children>	R	text	expression statement
+extends_clause	value	R	text	TS extends expression
+field_definition	value	RDEF	deferred	JS class field initializer (runs per construction; static: at class evaluation)
+for_in_statement	left	FORHEAD	text	for-in/of head target
+for_in_statement	right	R	before-target	iterable, evaluated before the first head write
+for_in_statement	value	R	before-target	Annex B `for (var a = v in o)` initializer
+for_statement	condition	R	text	condition
+for_statement	increment	R	after-body	update clause (runs after the body)
+for_statement	initializer	R	text	initializer expression (declarations handled by their own kinds)
+formal_parameters	<children>	DECL:param	text	JS formal parameter
+function_declaration	name	DECL:fn-hoist	text	function declaration binding (hoisted)
+generator_function_declaration	name	DECL:fn-hoist	text	generator declaration binding (hoisted)
+function_expression	name	DECL:fn-inner	text	named function expression, binding visible only inside it
+generator_function	name	DECL:fn-inner	text	named generator expression, binding visible only inside it
+function_signature	name	N	text	TS overload signature: no runtime binding
+function_type	return_type	T	text	type
+generic_type	name	T	text	type
+if_statement	condition	R	text	condition
+implements_clause	<children>	T	text	type
+import_alias	<children>	DECL:import	text	TS import x = A.B (module or namespace level)
+import_clause	<children>	DECL:import	text	default import binding (module level)
+import_require_clause	<children>	DECL:import	text	TS import x = require() (module level)
+import_specifier	alias	DECL:import	text	import { a as b }: b binds
+import_specifier	name	IMPORTNAME	text	import { a }: a binds; with alias it is the exported name
+index_signature	index_type	T	text	type
+index_signature	name	T	text	type-level parameter name
+infer_type	<children>	T	text	type
+instantiation_expression	<children>	R	text	TS f<T> expression
+instantiation_expression	function	R	text	TS f<T> expression
+interface_declaration	name	N	text	type-only binding
+internal_module	name	DECL:namespace	text	TS namespace (module or namespace level only)
+intersection_type	<children>	T	text	type
+jsx_closing_element	name	R	text	element name read
+jsx_expression	<children>	R	text	JSX expression container
+jsx_namespace_name	<children>	N	text	JSX namespaced name
+jsx_opening_element	name	R	text	element name read
+jsx_self_closing_element	name	R	text	element name read
+lookup_type	<children>	T	text	type
+mapped_type_clause	alias	T	text	type
+mapped_type_clause	name	T	text	type-level binding
+mapped_type_clause	type	T	text	type
+member_expression	object	R	text	object is read; the member itself may be a path target
+module	name	DECL:namespace	text	TS module declaration (module or namespace level only)
+namespace_export	<children>	N	text	export * as ns
+namespace_import	<children>	DECL:import	text	import * as ns (module level)
+nested_identifier	object	N	text	qualified namespace name
+nested_type_identifier	module	T	text	type
+nested_type_identifier	name	T	text	type
+new_expression	constructor	R	text	constructor read
+non_null_expression	<children>	WRAP	text	TS x! around a target
+object_assignment_pattern	left	INHERIT	text	shorthand with default: bound after the default
+object_assignment_pattern	right	R	text	default value
+object_pattern	<children>	INHERIT	text	destructuring property
+omitting_type_annotation	<children>	T	text	type
+opting_type_annotation	<children>	T	text	type
+optional_parameter	name	DECL:param	text	TS optional parameter name
+optional_parameter	pattern	DECL:param	text	TS optional parameter pattern
+optional_parameter	value	R	text	default value
+optional_type	<children>	T	text	type
+pair	value	R	text	object literal value
+pair_pattern	value	INHERIT	text	destructuring property value
+parenthesized_expression	<children>	R	text	(x) around a target
+parenthesized_type	<children>	T	text	type
+public_field_definition	value	RDEF	deferred	TS class field initializer (runs per construction; static: at class evaluation)
+readonly_type	<children>	T	text	type
+required_parameter	name	DECL:param	text	TS parameter name
+required_parameter	pattern	DECL:param	text	TS parameter pattern (parameter properties included)
+required_parameter	value	R	text	default value
+rest_pattern	<children>	INHERIT	text	rest element
+rest_type	<children>	T	text	type
+return_statement	<children>	R	text	return value
+satisfies_expression	<children>	WRAP	text	TS x satisfies T around a target
+sequence_expression	<children>	R	text	comma operands
+spread_element	<children>	R	text	spread operand
+subscript_expression	index	R	text	index is read
+subscript_expression	object	R	text	object is read; the subscript itself may be a path target
+switch_case	value	R	text	case value
+switch_statement	value	R	text	discriminant
+template_substitution	<children>	R	text	template expression
+ternary_expression	alternative	R	text	branch
+ternary_expression	condition	R	text	condition
+ternary_expression	consequence	R	text	branch
+throw_statement	<children>	R	text	thrown value
+tuple_type	<children>	T	text	type
+type_alias_declaration	name	N	text	type-only binding
+type_alias_declaration	value	T	text	type
+type_annotation	<children>	T	text	type
+type_arguments	<children>	T	text	type
+type_assertion	<children>	WRAP	text	TS <T>x around a target
+type_parameter	name	T	text	type-level binding
+type_predicate	name	T	text	x is T
+type_predicate	type	T	text	type
+type_query	<children>	T	text	typeof x in a type
+unary_expression	argument	DEL	text	delete o.x writes a path; other operators read
+union_type	<children>	T	text	type
+update_expression	argument	RW	text	x++ / --x target
+variable_declarator	name	DECL:declarator	text	var/let/const binding (var without value: no write)
+variable_declarator	value	R	before-target	initializer, evaluated before the binding is written
+while_statement	condition	R	text	condition
+with_statement	object	R	text	with object (the body is a with region)
+yield_expression	<children>	R	text	operand
+literal_type	<children>	T	text	type literal (undefined as a type)
