@@ -261,12 +261,14 @@ pub(crate) struct Stages {
 }
 impl Stages {
     pub(crate) fn new(total: &'static str, first: &'static str) -> Self {
+        crate::census::mark(&format!("stage_start:{first}"));
         Self {
             _total: Phase::serial(total),
             current: Phase::serial(first),
         }
     }
     pub(crate) fn next(&mut self, name: &'static str) {
+        crate::census::mark(&format!("stage_start:{name}"));
         self.current = None;
         self.current = Phase::serial(name);
     }
@@ -274,6 +276,7 @@ impl Stages {
 // Drop the last child before its parent, so the inclusive parent covers every child.
 impl Drop for Stages {
     fn drop(&mut self) {
+        crate::census::mark("stage_end");
         self.current = None;
     }
 }

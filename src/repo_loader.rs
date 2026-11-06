@@ -68,14 +68,18 @@ pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
     // The ambient scan reads only the filesystem. Taking it before the source
     // parse lets the parse reuse the pages its dropped parse trees freed.
     let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
+    crate::census::mark("load_parse:before_parse");
     let outcomes = parse_candidates_parallel(candidates);
-    Ok(merge_walk_items(
+    crate::census::mark("load_parse:after_parse");
+    let r = Ok(merge_walk_items(
         root,
         items,
         outcomes,
         manifest_snapshot,
         js_paths_snapshot,
-    ))
+    ));
+    crate::census::mark("load_parse:end");
+    r
 }
 
 #[cfg_attr(not(test), allow(dead_code))] // parity twin: used by the in-module loader test

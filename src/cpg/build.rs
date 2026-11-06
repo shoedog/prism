@@ -546,8 +546,21 @@ impl CodePropertyGraph {
         type_db: Option<TypeDatabase>,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
     ) -> Self {
-        let dfg = DataFlowGraph::build(files);
-        let cg = CallGraph::build_with_scope_graph_inputs(files, scope_inputs);
+        crate::census::mark("dfg:start");
+        let mut dfg = DataFlowGraph::build(files);
+        crate::census::mark("dfg:end");
+        if crate::census::drop_point().as_deref() == Some("after_dfg") {
+            crate::census::drop_measure("dfg", dfg);
+            std::process::exit(0);
+        }
+        let mut cg = CallGraph::build_with_scope_graph_inputs(files, scope_inputs);
+        crate::census::mark("call_graph:end");
+        if crate::census::drop_point().as_deref() == Some("after_cg") {
+            crate::census_cg::census_cg(&cg);
+            crate::census_cg::drop_cg(&mut cg);
+            crate::census::drop_measure("dfg", std::mem::replace(&mut dfg, DataFlowGraph::empty()));
+            std::process::exit(0);
+        }
         Self::assemble_graph(cg, dfg, files, type_db)
     }
 

@@ -32,6 +32,29 @@ pub fn nav_session(repo: &Path, opts: &NavOptions) -> Result<NavigationSession> 
                 None => NavigationIndex::build_cached(&repo),
             }
         };
+        crate::census::mark("nav_index_built");
+        if crate::census::drop_point().as_deref() == Some("end") {
+            crate::census_cg::census_cg(&index.cpg.call_graph);
+            let mut index = index;
+            let c = &mut index.cpg;
+            crate::census::drop_measure("cpg.graph", std::mem::take(&mut c.graph));
+            crate::census::drop_measure("cpg.func_index", std::mem::take(&mut c.func_index));
+            crate::census::drop_measure("cpg.name_index", std::mem::take(&mut c.name_index));
+            crate::census::drop_measure("cpg.var_index", std::mem::take(&mut c.var_index));
+            crate::census::drop_measure("cpg.location_index", std::mem::take(&mut c.location_index));
+            crate::census::drop_measure("cpg.dfg", std::mem::replace(&mut c.dfg, crate::data_flow::DataFlowGraph::empty()));
+            crate::census_cg::drop_cg(&mut c.call_graph);
+            crate::census::drop_measure("nav_index_rest", index);
+            if let Ok(r) = Arc::try_unwrap(repo) {
+                let mut r = r;
+                let nfiles = r.files.len();
+                let src: usize = r.files.values().map(|f| f.source.capacity()).sum();
+                eprintln!("CENSUS_FILES {{\"files\":{nfiles},\"source_bytes\":{src}}}");
+                crate::census::drop_measure("repo.files(ParsedFile incl. trees' Rust side)", std::mem::take(&mut r.files));
+                crate::census::drop_measure("repo_rest", r);
+            }
+            std::process::exit(0);
+        }
         let index = Arc::new(index);
         Ok(NavigationSession { repo, index })
     })

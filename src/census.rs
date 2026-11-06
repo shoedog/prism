@@ -54,8 +54,42 @@ pub fn mark(name: &str) {
     }
     let l = live();
     let p = PEAK.swap(l, Relaxed);
-    eprintln!("CENSUS_MARK {{\"mark\":\"{name}\",\"live\":{l},\"peak_since_last\":{p}}}");
+    eprintln!(
+        "CENSUS_MARK {{\"mark\":\"{name}\",\"live\":{l},\"peak_since_last\":{p},\"rss\":{}}}",
+        rss()
+    );
 }
+
+/// VmRSS in bytes (0 if unreadable).
+pub fn rss() -> usize {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("VmRSS:"))
+                .and_then(|l| l.split_whitespace().nth(1)?.parse::<usize>().ok())
+        })
+        .map(|kb| kb * 1024)
+        .unwrap_or(0)
+}
+
+/// Destructive census: drop `v`, print how many live bytes (and RSS) that freed.
+pub fn drop_measure<T>(name: &str, v: T) {
+    let (l0, r0) = (live(), rss());
+    drop(v);
+    let (l1, r1) = (live(), rss());
+    eprintln!(
+        "CENSUS_DROP {{\"item\":\"{name}\",\"freed_live\":{},\"live_after\":{l1},\"rss_freed\":{},\"rss_after\":{r1}}}",
+        l0 - l1,
+        r0 as i64 - r1 as i64
+    );
+}
+
+/// `PRISM_CENSUS_DROP=<point>` selects the destructive point of this run.
+pub fn drop_point() -> Option<String> {
+    std::env::var("PRISM_CENSUS_DROP").ok()
+}
+
 
 /// Measure bytes retained by a clone of `v` (dense rebuild; includes tree overhead).
 pub fn clone_bytes<T: Clone>(v: &T) -> usize {
