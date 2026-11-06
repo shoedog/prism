@@ -139,6 +139,22 @@ fn method_receiver_through_shadowing_copy_keeps_edge() {
 }
 
 #[test]
+fn write_through_the_pointer_keeps_edges_for_any_use_shape() {
+    // `*x = 7` normalizes to path `x`; the header copies the pointer, so a
+    // plain argument `g(x)` can read the 7 (and so can any other use).
+    let s = "package p\nfunc g(p *int) int { return *p }\nfunc f(x *int) {\n\t*x = 7 // @outer\n\tif x := x; x != nil {\n\t\tprintln(g(x)) // @body\n\t}\n}\n";
+    assert!(edge(s, "x", "@outer", "@body"));
+}
+
+#[test]
+fn write_through_the_pointer_keeps_conversion_and_range_uses() {
+    let conv = "package p\ntype P *int\nfunc f(x *int) {\n\t*x = 7 // @outer\n\tif x := x; x != nil {\n\t\tprintln(*P(x)) // @body\n\t}\n}\n";
+    assert!(edge(conv, "x", "@outer", "@body"));
+    let rng = "package p\nfunc f(x *[1]int) {\n\t*x = [1]int{7} // @outer\n\tif x := x; x != nil {\n\t\tfor _, v := range x { // @body\n\t\t\tprintln(v)\n\t\t}\n\t}\n}\n";
+    assert!(edge(rng, "x", "@outer", "@body"));
+}
+
+#[test]
 fn index_through_shadowing_copy_keeps_edge() {
     let s = "package p\nfunc f(p []int) {\n\tp = a() // @outer\n\tif p := g(); p != nil {\n\t\tprintln(p[0]) // @body\n\t}\n}\n";
     assert!(edge(s, "p", "@outer", "@body"));

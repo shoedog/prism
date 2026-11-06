@@ -109,6 +109,23 @@ fn is_storage_access(occ: Node<'_>) -> bool {
     false
 }
 
+/// The def at `start..end` writes through the name (`*x = ..`, `x[i] = ..`, a
+/// selector), or its span is not exactly an identifier: such a write reaches
+/// storage the header's copy may alias, so no use can be proven independent.
+pub(super) fn def_writes_through(parsed: &ParsedFile, start: usize, end: usize) -> bool {
+    let Some(node) = parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(start, end)
+    else {
+        return true;
+    };
+    if node.kind() != "identifier" || node.start_byte() != start || node.end_byte() != end {
+        return true;
+    }
+    is_storage_access(node)
+}
+
 fn initializer(statement: Node<'_>) -> Option<Node<'_>> {
     let holder = if statement.kind() == "for_statement" {
         let mut cursor = statement.walk();

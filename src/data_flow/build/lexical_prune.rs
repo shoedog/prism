@@ -259,8 +259,9 @@ impl<'a> LexicalFacts<'a> {
 
     /// #662: every occurrence of the name on the use line is bound to the declaration
     /// of an `if`/`switch`/`for` header, and the def lies outside all those headers.
-    /// Plain variables only: a field path or dereference may alias through a copy.
-    fn header_scoped(&self, path: &AccessPath, start: usize, line: usize) -> bool {
+    /// Plain variables only: a field path, or a def writing through the name (`*x =`,
+    /// `x[i] =`), may alias the header's copy.
+    fn header_scoped(&self, path: &AccessPath, start: usize, end: usize, line: usize) -> bool {
         if !path.fields.is_empty() {
             return false;
         }
@@ -269,15 +270,18 @@ impl<'a> LexicalFacts<'a> {
             let spans = self.header_spans(&key);
             self.header_cache.borrow_mut().insert(key.clone(), spans);
         }
-        let cache = self.header_cache.borrow();
-        cache
+        let bound = self
+            .header_cache
+            .borrow()
             .get(&key)
             .and_then(|s| s.as_ref())
             .is_some_and(|spans| {
                 spans
                     .iter()
                     .all(|(from, to)| !(*from <= start && start < *to))
-            })
+            });
+        // Checked last (one tree lookup per def): only when the use is bound.
+        bound && !super::lexical_header::def_writes_through(self.parsed, start, end)
     }
 
     fn header_spans(&self, key: &(String, usize)) -> HeaderSpans {
@@ -304,7 +308,7 @@ impl<'a> LexicalFacts<'a> {
         if !self.enabled || self.nested_at(start) {
             return true;
         }
-        if self.header_scoped(path, start, line) {
+        if self.header_scoped(path, start, end, line) {
             stats.dfg_pruned_scope += 1;
             return false;
         }
