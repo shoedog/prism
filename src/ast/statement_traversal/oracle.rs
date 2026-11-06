@@ -140,6 +140,12 @@ impl ParsedFile {
     ) {
         for child in legacy_children(node, self.language) {
             let kind = child.kind();
+            if self.is_c_do_condition(&node, &child) {
+                arms.of_line
+                    .entry(child.start_position().row + 1)
+                    .or_insert(arm);
+                continue;
+            }
             if kind == "compound_statement"
                 || kind == "block"
                 || kind == "statement_block"
@@ -282,6 +288,10 @@ impl ParsedFile {
     fn legacy_collect_nested_statements(&self, node: Node<'_>, out: &mut Vec<(usize, String)>) {
         for child in legacy_children(node, self.language) {
             let kind = child.kind();
+            if self.is_c_do_condition(&node, &child) {
+                out.push((child.start_position().row + 1, "do_condition".to_string()));
+                continue;
+            }
             if kind == "compound_statement"
                 || kind == "block"
                 || kind == "statement_block"
@@ -317,6 +327,15 @@ impl ParsedFile {
     fn legacy_collect_nested_statement_spans(&self, node: Node<'_>, out: &mut Vec<StatementSpan>) {
         for child in legacy_children(node, self.language) {
             let kind = child.kind();
+            if self.is_c_do_condition(&node, &child) {
+                out.push(StatementSpan {
+                    line: child.start_position().row + 1,
+                    kind: "do_condition".to_string(),
+                    start_byte: child.start_byte(),
+                    end_byte: child.end_byte(),
+                });
+                continue;
+            }
             if kind == "compound_statement"
                 || kind == "block"
                 || kind == "statement_block"

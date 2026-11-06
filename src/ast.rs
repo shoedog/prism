@@ -51,6 +51,7 @@ mod js_wrapped_export;
 mod shadow_walk;
 mod singleton_rvalue_spans;
 mod statement_traversal;
+pub(crate) use statement_traversal::is_c_cpp_statement_kind;
 mod tree_access;
 
 /// A parameter binding and the byte span of its identifier token.
