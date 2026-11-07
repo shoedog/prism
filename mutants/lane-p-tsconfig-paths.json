@@ -118,7 +118,7 @@
    "js_paths_r1_test::js_paths_r1_membership_barriers_dot_and_relative"
   ],
   "I11-taint-namespace-terminal": [
-   "src/ast.rs",
+   "src/ast/js_ts/export_facts.rs",
    "                        via_unresolved_star: false,",
    "                        via_unresolved_star: true,",
    "js_paths_test::js_paths_s1b_namespace_star_proof_is_reused"

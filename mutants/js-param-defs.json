@@ -8,7 +8,7 @@
  ],
  "mutations": {
   "PD-01-bare-arrow-helper-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    ".filter(|param| param.kind() == \"identifier\" && !param.is_missing())",
    ".filter(|param| param.kind() == \"identifier\" && !param.is_missing() && false)",
    [
@@ -34,7 +34,7 @@
    ]
   ],
   "PD-04-js-rest-admission-off": [
-   "src/ast.rs",
+   "src/ast/parameters.rs",
    "if let Some(name_node) = (admit_js_rest\n",
    "if let Some(name_node) = (false\n",
    [
@@ -43,7 +43,7 @@
    ]
   ],
   "PD-05-js-rest-duplicate-guard-off": [
-   "src/ast.rs",
+   "src/ast/parameters.rs",
    "            let admit_js_rest = self.language == Language::JavaScript\n                && crate::parameter_slots::js_ts_parameter_list_is_clean(self, params);",
    "            let admit_js_rest = self.language == Language::JavaScript;",
    [
@@ -52,7 +52,7 @@
    ]
   ],
   "PD-06-rest-admits-patterns": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "[only] if only.kind() == \"identifier\" => Some(*only),",
    "[only] => Some(*only),",
    [
@@ -78,7 +78,7 @@
    ]
   ],
   "PD-09-exact-read-bare-arrow-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/exact_reads.rs",
    ".is_some_and(|param| param.id() == node.id())\n        {\n            return true;",
    ".is_some_and(|param| param.id() == node.id() && false)\n        {\n            return true;",
    [
@@ -102,7 +102,7 @@
    ]
   ],
   "PD-13-nested-formal-guard-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "if self.js_ts_binding_pattern_may_bind(params, name) {",
    "if false && self.js_ts_binding_pattern_may_bind(params, name) {",
    [
@@ -110,7 +110,7 @@
    ]
   ],
   "PD-14-js-bare-nested-guard-off": [
-   "src/ast.rs",
+   "src/ast/parameters.rs",
    "            if self.js_ts_nested_callable_binds_formal(func_node, name) {\n                return Vec::new();",
    "            if false && self.js_ts_nested_callable_binds_formal(func_node, name) {\n                return Vec::new();",
    [
@@ -118,7 +118,7 @@
    ]
   ],
   "PD-15-js-rest-nested-guard-off": [
-   "src/ast.rs",
+   "src/ast/parameters.rs",
    "!self.js_ts_nested_callable_binds_formal(func_node, self.node_text(name))",
    "true || !self.js_ts_nested_callable_binds_formal(func_node, self.node_text(name))",
    [
@@ -150,7 +150,7 @@
    ]
   ],
   "PD-19-catch-binding-guard-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "\"catch_clause\" => node.child_by_field_name(\"parameter\"),",
    "\"catch_clause\" => None,",
    [
@@ -158,7 +158,7 @@
    ]
   ],
   "PD-20-for-head-binding-guard-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "\"for_in_statement\" => node.child_by_field_name(\"left\"),",
    "\"for_in_statement\" => None,",
    [
@@ -166,7 +166,7 @@
    ]
   ],
   "PD-21-variable-binding-guard-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "\"variable_declarator\"\n                | \"function_expression\"",
    "\"never_variable_declarator\"\n                | \"function_expression\"",
    [
@@ -174,7 +174,7 @@
    ]
   ],
   "PD-22-function-self-binding-guard-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "| \"function_expression\"\n                | \"function_declaration\"",
    "| \"never_function_expression\"\n                | \"never_function_declaration\"",
    [
@@ -182,7 +182,7 @@
    ]
   ],
   "PD-23-class-binding-guard-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "| \"class\"\n                | \"class_declaration\"",
    "| \"never_class\"\n                | \"never_class_declaration\"",
    [
@@ -190,7 +190,7 @@
    ]
   ],
   "PD-24-escaped-binding-guard-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "text == name || text.contains('\\\\')",
    "text == name",
    [
@@ -214,7 +214,7 @@
    ]
   ],
   "PD-27-ts-class-name-guard-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "\"identifier\" | \"type_identifier\" | \"shorthand_property_identifier_pattern\" => {",
    "\"identifier\" | \"shorthand_property_identifier_pattern\" => {",
    [
@@ -222,7 +222,7 @@
    ]
   ],
   "PD-28-ts-runtime-binding-guard-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "| \"abstract_class_declaration\"\n                | \"enum_declaration\"\n                | \"internal_module\"\n                | \"module\"",
    "| \"never_abstract_class_declaration\"\n                | \"never_enum_declaration\"\n                | \"never_internal_module\"\n                | \"never_module\"",
    [
