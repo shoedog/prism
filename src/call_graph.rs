@@ -1884,7 +1884,8 @@ impl CallGraph {
         let Some(inputs) = inputs else {
             return;
         };
-        let mut resolver = crate::resolution::js_ts::paths::Resolver::new(&inputs.js_paths_snapshot);
+        let mut resolver =
+            crate::resolution::js_ts::paths::Resolver::new(&inputs.js_paths_snapshot);
         for (file, bindings) in &self.import_bindings {
             if !matches!(
                 crate::languages::Language::from_path(file),

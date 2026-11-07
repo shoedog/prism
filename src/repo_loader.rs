@@ -67,7 +67,8 @@ pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
     let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
     // The ambient scan reads only the filesystem. Taking it before the source
     // parse lets the parse reuse the pages its dropped parse trees freed.
-    let js_paths_snapshot = crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot::capture(root);
+    let js_paths_snapshot =
+        crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot::capture(root);
     let outcomes = parse_candidates_parallel(candidates);
     Ok(merge_walk_items(
         root,
@@ -81,7 +82,8 @@ pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
 #[cfg_attr(not(test), allow(dead_code))] // parity twin: used by the in-module loader test
 pub(crate) fn load_repo_serial_reference(root: &Path) -> Result<LoadedRepo> {
     let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
-    let js_paths_snapshot = crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot::capture(root);
+    let js_paths_snapshot =
+        crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot::capture(root);
     let outcomes = parse_candidates_serial(candidates);
     Ok(merge_walk_items(
         root,
