@@ -244,3 +244,52 @@ fn a_read_in_a_later_statement_refuses_as_unknown_not_as_exact() {
     let got = mechanisms("function f(a) {\n  log();\n  a = 2; sink(a);\n}\n");
     assert!(got.iter().any(|m| m == "d3-unknown"), "{got:?}");
 }
+
+/// `NodeIndex`: a counting write on a line that no statement span covers has no RD node, so its base is
+/// `unmapped` (D3 refuses every query of it); a write on a covered line is in the span's start-line node.
+/// No source input reaches this (RD's spans cover every line E18 places), so the branch is pinned directly.
+#[test]
+fn a_write_on_a_line_no_span_covers_is_unmapped() {
+    use super::d3::NodeIndex;
+    use super::statement_lookup::StatementLookup;
+    use super::StatementLineSpan;
+    use crate::access_path::AccessPath;
+    use crate::js_write_census::counting::{Counting, Counts};
+    use crate::js_write_census::order::Position;
+    use crate::js_write_census::walk::Form;
+    let write = |base: &str, line: usize| Counting {
+        path: AccessPath::simple(base),
+        line,
+        target_start: 0,
+        form: Form::Write,
+        probe: 0,
+        has_construct: true,
+        pos: Position {
+            time: 0,
+            rank: None,
+            chain: None,
+            span: None,
+        },
+    };
+    let counts = Counts {
+        writes: vec![write("a", 3), write("b", 99)],
+        ..Counts::default()
+    };
+    let spans = [StatementLineSpan {
+        start_line: 2,
+        end_line: 4,
+        start_byte: 10,
+        end_byte: 40,
+    }];
+    let mut lookup = StatementLookup::new(&spans);
+    let index = NodeIndex::build(&counts, &mut lookup);
+    assert_eq!(index.by_node.get(&2), Some(&vec![0]));
+    assert!(index.unmapped.contains("b") && !index.unmapped.contains("a"));
+    // The refusal predicate D3 uses: an unmapped base is unknown, a mapped one is not, an unplaced one is.
+    assert!(index.base_is_unknown(&counts, "b") && !index.base_is_unknown(&counts, "a"));
+    let unplaced = Counts {
+        unplaced: ["c".to_string()].into(),
+        ..Counts::default()
+    };
+    assert!(index.base_is_unknown(&unplaced, "c"));
+}

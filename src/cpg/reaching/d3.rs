@@ -56,15 +56,15 @@ pub(super) struct D3 {
 }
 
 /// The counting writes of one owner by the node RD maps their line to.
-struct NodeIndex {
+pub(super) struct NodeIndex {
     /// Indices into `Counts::writes`.
-    by_node: HashMap<usize, Vec<usize>>,
+    pub(super) by_node: HashMap<usize, Vec<usize>>,
     /// Bases with a counting write on a line RD maps to no node: unknown, like an unplaced write.
-    unmapped: BTreeSet<String>,
+    pub(super) unmapped: BTreeSet<String>,
 }
 
 impl NodeIndex {
-    fn build(counts: &Counts, statements: &mut StatementLookup<'_>) -> Self {
+    pub(super) fn build(counts: &Counts, statements: &mut StatementLookup<'_>) -> Self {
         let mut by_node: HashMap<usize, Vec<usize>> = HashMap::new();
         let mut unmapped = BTreeSet::new();
         for (i, w) in counts.writes.iter().enumerate() {
@@ -76,6 +76,12 @@ impl NodeIndex {
             }
         }
         Self { by_node, unmapped }
+    }
+
+    /// A counting write of `base` has no node (E18 could not place it, or RD maps its line to none):
+    /// every D3 query of the base is unknown.
+    pub(super) fn base_is_unknown(&self, counts: &Counts, base: &str) -> bool {
+        counts.unplaced.contains(base) || self.unmapped.contains(base)
     }
 }
 
@@ -209,7 +215,7 @@ impl D3 {
         // node the mapping cannot name refuses its base whatever else the nodes hold.
         let mut failures = Failures::default();
         let base = &edge.to.path.base;
-        if self.counts.unplaced.contains(base) || nodes.unmapped.contains(base) {
+        if nodes.base_is_unknown(&self.counts, base) {
             failures.unknown = true;
         }
         self.use_side(

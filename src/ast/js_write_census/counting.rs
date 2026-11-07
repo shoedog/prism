@@ -14,7 +14,7 @@ use std::collections::BTreeSet;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Counting {
     pub path: AccessPath,
-    /// Line of the write's target: RD maps it to the write's CFG node (#696), the only authority.
+    /// The line RD is handed for this write (#696): RD maps it to the write's CFG node, the only authority.
     pub line: usize,
     pub target_start: usize,
     pub form: Form,
@@ -65,10 +65,11 @@ impl Counts {
         }
     }
 
-    pub(crate) fn push(&mut self, site: &Site, path: AccessPath, probe: usize) {
+    /// `line` is the line RD is handed for this write (a kill-only def's E18 line, else the target's).
+    pub(crate) fn push(&mut self, site: &Site, path: AccessPath, line: usize, probe: usize) {
         self.writes.push(Counting {
             path,
-            line: site.line,
+            line,
             target_start: site.target_start,
             form: site.form,
             probe,

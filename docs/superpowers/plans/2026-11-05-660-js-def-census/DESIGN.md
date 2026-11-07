@@ -430,12 +430,17 @@ provably runs first is accepted). The two sides always both run and the stronges
 per statement (siblings on one line ordered properly) fits #670. (5) The trace names the mechanism of each refused edge (`d3-use`, `d3-def`
 for a plain byte order, else `d3-loop` or `d3-unknown`; a plain byte order wins over a loop when both occur).
 
-**Node authority (#696).** Which node a position is in is reaching definitions' answer and nobody else's: a counting write
-is in the node `StatementLookup` gives its line (the rule `mapped_defs` uses for a recorded def; a write on a line RD maps
-to no node refuses its base like an unplaced one), a read is in the node of the line the DFG put the use on. E18 (`place`)
-stays for `site-unmapped`, for the kill-only def's line and for the order inside a node (`Position`, `precedes`); it no longer
-keys D3's writes by node. Known limit (RD's, not D3's): a statement that starts on the last line of a shorter multi-line one
-has no node of its own, and its defs and kills sit at the shorter statement's node, before the defs nested in it.
+**Node authority (#696).** Which node a position is in is reaching definitions' answer and nobody else's: D3 keys a counting
+write by `StatementLookup` of the line RD is actually handed for that write, namely the E18 statement-start line when the
+site becomes a kill-only def (`KillOnly.line`) and the target's own line when a recorded def covers it (`Counting.line`),
+never the node E18 names; a write on a line RD maps to no node refuses its base like an unplaced one. A read is in the node of
+the line the DFG put the use on. E18 (`place`) stays for `site-unmapped`, for the kill-only def's line and for the order inside
+a node (`Position`, `precedes`). Sharing the lookup function is not enough: a kill-only def and a recorded def reach it with
+different lines, which is why the line is chosen where the def is built (#699 round 1, W1). Known limit (RD's own line-to-node
+rule, #700, not D3's): a statement that starts on the last line of a shorter multi-line one has no node of its own, and its
+recorded defs and kills sit at the shorter statement's node, before the defs nested in it. Labels that move toward `exact`
+against c6393854 (E18 keying over-refused them): in `g(a = 1,\n a = 2); x(); sink(a)`, edge `a@3->a@4`, the use is anchored at
+a plain write's own target (nothing to order) or is the operand read of the node's one counting write (`a += 2`, E2).
 
 ### 7.3 Expected cost
 Heuristic candidate counts (`corpus/*.analyze_r3.txt`, final rules): use side 68 edges on excalidraw (60 of them refused only

@@ -125,11 +125,11 @@ fn issue_696_rows() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
-/// Known limit, not D3's: RD maps every line to the smallest statement covering it, so a statement that
-/// starts on the last line of a shorter multi-line one (here the `if`) has no node of its own, and its
-/// defs and kills (`a = 2`, `a++`) land in the `if`'s node, before the `a = 1` inside it. The recorded def
-/// is placed the same way as the kill-only one, so the authority rule does not move it. The head label is
-/// `exact` and is WRONG (`a++` always runs after `a = 1`); a fix is RD's line-to-node rule (follow-up).
+/// Known limit, not D3's (#700): RD maps every line to the smallest statement covering it, so a statement
+/// that starts on the last line of a shorter multi-line one (here the `if`) has no node of its own, and its
+/// defs and kills (`a = 2`, `a++`) land in the `if`'s node, before the `a = 1` inside it. The head label
+/// is `exact` and is WRONG (`a++` always runs after `a = 1`); the fix is RD's line-to-node rule, tracked
+/// as #700, and that issue flips this row.
 #[test]
 fn rd_line_to_node_limit_is_pinned() {
     for update in ["a++", "a = 2"] {
@@ -138,4 +138,97 @@ fn rd_line_to_node_limit_is_pinned() {
         );
         assert_eq!(labels_of(JS, &src, "a@4->a@6"), [EXACT], "{src}");
     }
+}
+
+/// #699 round 1 (W1): a kill-only write enters RD at its E18 statement-start line, a recorded def at the
+/// target's line. D3 keys each write by the line RD is handed for that very site, so the def and the write
+/// meet in one node whenever RD puts them in one. Every row's true answer: the later write always runs
+/// between the def and the sink, so `exact` is wrong. All but `w1_preceding_tail_inherited` (#700's layout,
+/// `exact` on c6393854 too) were already non-exact on c6393854.
+#[rustfmt::skip]
+const W1_ROWS: &[Row] = &[
+    Row { name: "w1_update_in_tail", lang: JS, edge: "a@3->a@5", expected: SAME,
+        source: "function f(a) {\n  log();\n  g(a = 1,\n    a++); x();\n  sink(a);\n}" },
+    Row { name: "w1_update_in_tail_ts", lang: TS, edge: "a@3->a@5", expected: SAME,
+        source: "function f(a: number) {\n  log();\n  g(a = 1,\n    a++); x();\n  sink(a);\n}" },
+    Row { name: "w1_decrement_in_tail", lang: JS, edge: "a@3->a@5", expected: SAME,
+        source: "function f(a) {\n  log();\n  g(a = 1,\n    a--); x();\n  return a;\n}" },
+    Row { name: "w1_pattern_default_in_tail", lang: JS, edge: "a@3->a@5", expected: SAME,
+        source: "function f(a) {\n  log();\n  g(a = 1,\n    [a = 2] = s()); x();\n  sink(a);\n}" },
+    Row { name: "w1_delete_member_in_tail", lang: JS, edge: "o.x@3->o.x@5", expected: SAME,
+        source: "function f(o) {\n  log();\n  g(o.x = 1,\n    delete o.x); y();\n  sink(o.x);\n}" },
+    Row { name: "w1_update_in_declarator_tail", lang: JS, edge: "a@3->a@5", expected: SAME,
+        source: "function f(a) {\n  log();\n  let b = (a = 1,\n    a++, 0); x();\n  sink(a);\n}" },
+    Row { name: "w1_update_after_nested_tail", lang: JS, edge: "a@3->a@5", expected: SAME,
+        source: "function f(a) {\n  log();\n  g(a = 1, h(1,\n    2), a++); x();\n  sink(a);\n}" },
+    Row { name: "w1_sol_update_two_lines_below", lang: JS, edge: "a@4->a@6", expected: SAME,
+        source: "function f() {\n  let a = 0;\n  g(\n    a = 2,\n    a++); q();\n  sink(a);\n}" },
+    Row { name: "w1_sol_padding_changes_the_winner", lang: JS, edge: "a@4->a@6", expected: SAME,
+        source: "function f() {\n  let a = 0;\n  g(\n    a = 2,\n    a++); qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq();\n  sink(a);\n}" },
+    Row { name: "w1_preceding_tail_inherited", lang: JS, edge: "a@4->a@6", expected: SAME,
+        source: "function f(a) {\n  log();\n  p(y,\n    z); g(a = 1,\n    a++); x();\n  sink(a);\n}" },
+    // Reversed order: the update runs first, the plain write last, so the def does reach the sink.
+    Row { name: "w1_sol_reversed_order_control", lang: JS, edge: "a@5->a@6", expected: EXACT,
+        source: "function f() {\n  let a = 0;\n  g(\n    a++,\n    a = 2); q();\n  sink(a);\n}" },
+    // Moves toward `exact` against c6393854 (its E18 keying over-refused them): the use is anchored at a plain
+    // write's own target (no read to order), or is the operand read of the node's one counting write (E2).
+    Row { name: "toward_exact_use_at_write_target", lang: JS, edge: "a@3->a@4", expected: EXACT,
+        source: "function f(a) {\n  log();\n  g(a = 1,\n    a = 2); x();\n  sink(a);\n}" },
+    Row { name: "toward_exact_compound_operand_read", lang: JS, edge: "a@3->a@4", expected: EXACT,
+        source: "function f(a) {\n  log();\n  g(a = 1,\n    a += 2); x();\n  sink(a);\n}" },
+    // r2: without ` x();` no shorter span covers line 4 and base already refused.
+    Row { name: "w1_r2_without_follower_control", lang: JS, edge: "a@3->a@5", expected: SAME,
+        source: "function f(a) {\n  log();\n  g(a = 1,\n    a++);\n  sink(a);\n}" },
+];
+
+#[test]
+fn kill_only_writes_are_keyed_by_the_line_rd_is_given() {
+    let mut failures = Vec::new();
+    for r in W1_ROWS {
+        let got = labels_of(r.lang, r.source, r.edge);
+        if got.is_empty() || got.iter().any(|g| g != r.expected) {
+            failures.push(format!(
+                "{} {}: want {}, got {got:?}",
+                r.name, r.edge, r.expected
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// The def-side axis of the shape matrix: a def and a later write both inside a multi-line tail (the write
+/// kill-only or recorded, on the tail's last line or below it), with the sink after a follower of each
+/// length. The later write always runs after the def, so the def never reaches the sink: not `exact`.
+#[test]
+fn a_def_and_a_later_write_inside_the_tail_never_reach_the_sink_exact() {
+    const WRITES: &[(&str, &str)] = &[
+        ("update", "a++"),
+        ("decrement", "a--"),
+        ("pattern", "[a = 2] = s()"),
+        ("plain", "a = 2"),
+        ("compound", "a += 2"),
+    ];
+    const FOLLOWERS: &[&str] = &["", " x();", " more(1, 2, 3, 4, 5, 6, 7, 8);"];
+    let mut failures = Vec::new();
+    for pre in ["", "  p(y,\n    z);\n"] {
+        for (name, w) in WRITES {
+            for pad in ["", PAD] {
+                for follower in FOLLOWERS {
+                    let src = format!(
+                        "function f(a) {{\n  log();\n{pre}  g(a = 1,{pad}\n    {w});{follower}\n  sink(a);\n}}"
+                    );
+                    let line = src.lines().count() - 1;
+                    let def = if pre.is_empty() { 3 } else { 5 };
+                    let got = labels_of(JS, &src, &format!("a@{def}->a@{line}"));
+                    if got.is_empty() || got.iter().any(|g| g == EXACT) {
+                        failures.push(format!(
+                            "{name}{} {got:?}\n{src}",
+                            if pad.is_empty() { "" } else { "+pad" }
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
