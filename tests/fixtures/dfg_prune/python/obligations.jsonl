@@ -12,7 +12,7 @@
 {"case": "00_u_write_only", "path": "x", "def_line": 9, "use_line": 11, "keep": true, "reason": "own"}
 {"case": "00_u_write_only", "path": "x", "def_line": 5, "use_line": 11, "keep": false, "reason": "dominated"}
 {"case": "00_u_write_only", "path": "p.f", "def_line": 12, "use_line": 13, "keep": false, "reason": "write_only"}
-{"case": "00_u_write_only", "path": "p.f", "def_line": 12, "use_line": 14, "keep": false, "reason": "dominated"}
+{"case": "00_u_write_only", "path": "p.f", "def_line": 12, "use_line": 14, "keep": true, "reason": "attribute_d_off"}
 {"case": "00_u_write_only", "path": "p.f", "def_line": 13, "use_line": 14, "keep": true, "reason": "own"}
 {"case": "00_u_write_only", "path": "y", "def_line": 15, "use_line": 16, "keep": true, "reason": "chained_kept"}
 {"case": "00_u_write_only", "path": "n", "def_line": 17, "use_line": 18, "keep": false, "reason": "write_only"}

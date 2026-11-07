@@ -285,6 +285,26 @@ impl<'a> LexicalFacts<'a> {
         drop
     }
 
+    /// Test seam: the dominating write statements D proved for every occurrence of
+    /// `path` on `line`; `None` when D proves nothing for the line.
+    #[cfg(test)]
+    pub(super) fn dominator_writes(
+        &self,
+        path: &AccessPath,
+        line: usize,
+    ) -> Option<Vec<(usize, usize)>> {
+        if self.parsed.language == Language::Python && !path.fields.is_empty() {
+            return None;
+        }
+        let proof = self.proof(path, line);
+        if proof.write_only {
+            return None;
+        }
+        proof
+            .windows
+            .map(|ws| ws.iter().map(|w| (w.write_start, w.write_end)).collect())
+    }
+
     /// D runs after get_use; edge-less real use locations remain in the graph.
     pub(super) fn keep_def(
         &self,
@@ -295,6 +315,12 @@ impl<'a> LexicalFacts<'a> {
         stats: &mut RdFileStats,
     ) -> bool {
         if !self.enabled || self.nested_at(start) {
+            return true;
+        }
+        // Python attribute paths are not fixed storage: the base may be rebound
+        // between the writes and a property/descriptor/`__setattr__` may ignore a
+        // value. D is identifier-only there (U is unchanged).
+        if self.parsed.language == Language::Python && !path.fields.is_empty() {
             return true;
         }
         let drop = self

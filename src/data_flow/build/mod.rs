@@ -52,6 +52,8 @@ mod owner_labels;
 mod prune_cap_tests;
 mod python_prune;
 #[cfg(test)]
+mod python_prune_fold1_tests;
+#[cfg(test)]
 mod python_prune_tests;
 mod scope_prune;
 #[cfg(test)]
