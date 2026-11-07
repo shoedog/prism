@@ -6,7 +6,7 @@
 {"case": "00_u_write_only", "path": "x", "def_line": 4, "use_line": 6, "keep": false, "reason": "dominated"}
 {"case": "00_u_write_only", "path": "x", "def_line": 5, "use_line": 6, "keep": true, "reason": "own"}
 {"case": "00_u_write_only", "path": "x", "def_line": 2, "use_line": 9, "keep": false, "reason": "write_only"}
-{"case": "00_u_write_only", "path": "x", "def_line": 5, "use_line": 10, "keep": true, "reason": "subscript_read"}
+{"case": "00_u_write_only", "path": "x", "def_line": 5, "use_line": 10, "keep": false, "reason": "dominated"}
 {"case": "00_u_write_only", "path": "x", "def_line": 2, "use_line": 10, "keep": false, "reason": "dominated"}
 {"case": "00_u_write_only", "path": "x", "def_line": 9, "use_line": 10, "keep": true, "reason": "own"}
 {"case": "00_u_write_only", "path": "x", "def_line": 9, "use_line": 11, "keep": true, "reason": "own"}

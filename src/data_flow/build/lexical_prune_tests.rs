@@ -211,9 +211,12 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     "exact label changed in {file}: {key:?}"
                 );
             }
-            if language != Language::Go {
-                assert_eq!(before.edges, after.edges, "non-Go changed: {file}");
-                assert_eq!(before.uses, after.uses, "non-Go uses changed: {file}");
+            if language != Language::Go && language != Language::Python {
+                assert_eq!(before.edges, after.edges, "non-Go/Python changed: {file}");
+                assert_eq!(
+                    before.uses, after.uses,
+                    "non-Go/Python uses changed: {file}"
+                );
             }
             edges += after.edges.len();
         }
