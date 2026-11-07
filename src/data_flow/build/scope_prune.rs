@@ -282,10 +282,7 @@ impl<'a> ScopeFacts<'a> {
         use_line: usize,
         stats: &mut RdFileStats,
     ) -> bool {
-        if !self.enabled
-            || !self.multi.contains(path.base.as_str())
-            || self.address_taken.contains(path.base.as_str())
-        {
+        if !self.enabled || !self.multi.contains(path.base.as_str()) {
             return true;
         }
         let built = self.built.get_or_init(|| self.build());
@@ -314,6 +311,12 @@ impl<'a> ScopeFacts<'a> {
         let Some((_, def_index, declare_only)) = verdict else {
             return true;
         };
+        // A name whose address is taken keeps every pair, except those of a declare-only def (a
+        // formal or named result): it writes only its own fresh variable, which no other
+        // declaration's storage can share (#694 slice B).
+        if self.address_taken.contains(path.base.as_str()) && !declare_only {
+            return true;
+        }
         if built
             .split
             .exempts(&built.facts, &path.base, def_index, def_start)

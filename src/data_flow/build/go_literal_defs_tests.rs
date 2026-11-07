@@ -326,3 +326,25 @@ fn grouped_names_are_all_declared() {
         &[("b", 2, 3, true), ("b", 4, 5, true)],
     );
 }
+
+#[test]
+fn an_address_taken_name_keeps_ordinary_pairs_but_not_a_formals() {
+    // `&oldObj.F` anywhere in the owner marks the name address-taken (rule S keeps its pairs by
+    // name). A literal formal's def writes only its own fresh variable, so it still reaches
+    // only its own body; the ordinary pair keeps.
+    let src = "package p\nfunc f(oldObj *T) {\n\tp := &oldObj.F\n\treg(func(oldObj *T) {\n\t\tuse(oldObj)\n\t})\n\treg(func(oldObj *T) {\n\t\tuse(oldObj)\n\t})\n\tuse(oldObj, p)\n}\n";
+    check(
+        "address-taken",
+        src,
+        &[
+            ("oldObj", 4, 5, true),
+            ("oldObj", 7, 8, true),
+            ("oldObj", 4, 8, false),
+            ("oldObj", 7, 5, false),
+            ("oldObj", 4, 3, false),
+            ("oldObj", 4, 10, false),
+            ("oldObj", 2, 3, true),
+            ("oldObj", 2, 10, true),
+        ],
+    );
+}
