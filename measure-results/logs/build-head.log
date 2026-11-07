@@ -1,0 +1,229 @@
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded colorchoice v1.0.5
+  Downloaded anstyle-query v1.1.5
+  Downloaded anstream v1.0.0
+  Downloaded clap_derive v4.6.0
+  Downloaded cfg-if v1.0.4
+  Downloaded clap_lex v1.1.0
+  Downloaded block-buffer v0.10.4
+  Downloaded cpufeatures v0.2.17
+  Downloaded anstyle v1.0.14
+  Downloaded bincode v1.3.3
+  Downloaded anstyle-parse v1.0.0
+  Downloaded crossbeam-deque v0.8.6
+  Downloaded crossbeam-epoch v0.9.18
+  Downloaded crossbeam-utils v0.8.21
+  Downloaded anyhow v1.0.102
+  Downloaded clap v4.6.0
+  Downloaded crypto-common v0.1.7
+  Downloaded digest v0.10.7
+  Downloaded dirs v6.0.0
+  Downloaded dirs-sys v0.5.0
+  Downloaded cc v1.2.57
+  Downloaded hcl-primitives v0.1.11
+  Downloaded option-ext v0.2.0
+  Downloaded ryu v1.0.23
+  Downloaded serde_spanned v0.6.9
+  Downloaded streaming-iterator v0.1.9
+  Downloaded thiserror v2.0.18
+  Downloaded toml_datetime v0.6.11
+  Downloaded toml_write v0.1.2
+  Downloaded tree-sitter-language v0.1.7
+  Downloaded either v1.15.0
+  Downloaded equivalent v1.0.2
+  Downloaded fnv v1.0.7
+  Downloaded hcl-edit v0.9.6
+  Downloaded heck v0.5.0
+  Downloaded is_terminal_polyfill v1.70.2
+  Downloaded tikv-jemallocator v0.7.0
+  Downloaded generic-array v0.14.7
+  Downloaded pratt v0.4.0
+  Downloaded shlex v1.3.0
+  Downloaded static_assertions v1.1.0
+  Downloaded strsim v0.11.1
+  Downloaded thiserror-impl v2.0.18
+  Downloaded toml v0.8.23
+  Downloaded utf8parse v0.2.2
+  Downloaded version_check v0.9.5
+  Downloaded itoa v1.0.18
+  Downloaded find-msvc-tools v0.1.9
+  Downloaded fixedbitset v0.5.7
+  Downloaded kstring v2.0.2
+  Downloaded proc-macro2 v1.0.106
+  Downloaded serde_core v1.0.228
+  Downloaded sha2 v0.10.9
+  Downloaded zmij v1.0.21
+  Downloaded clap_builder v4.6.0
+  Downloaded foldhash v0.1.5
+  Downloaded memmap2 v0.9.8
+  Downloaded tree-sitter-hcl v1.1.0
+  Downloaded aho-corasick v1.1.4
+  Downloaded toml_edit v0.22.27
+  Downloaded tree-sitter-lua v0.5.0
+  Downloaded vecmap-rs v0.2.4
+  Downloaded hashbrown v0.16.1
+  Downloaded quote v1.0.45
+  Downloaded serde_derive v1.0.228
+  Downloaded typenum v1.19.0
+  Downloaded unicode-ident v1.0.24
+  Downloaded rayon-core v1.13.0
+  Downloaded serde v1.0.228
+  Downloaded indexmap v2.13.0
+  Downloaded memchr v2.8.0
+  Downloaded hcl-rs v0.19.7
+  Downloaded serde_json v1.0.149
+  Downloaded tree-sitter-java v0.23.5
+  Downloaded tree-sitter-javascript v0.23.1
+  Downloaded hashbrown v0.15.5
+  Downloaded rayon v1.12.0
+  Downloaded regex v1.12.3
+  Downloaded tree-sitter-python v0.23.6
+  Downloaded winnow v0.7.15
+  Downloaded winnow v1.0.1
+  Downloaded tree-sitter v0.25.10
+  Downloaded tree-sitter-c v0.24.1
+  Downloaded syn v2.0.117
+  Downloaded regex-syntax v0.8.10
+  Downloaded tree-sitter-rust v0.24.2
+  Downloaded tree-sitter-bash v0.25.1
+  Downloaded regex-automata v0.4.14
+  Downloaded libc v0.2.183
+  Downloaded petgraph v0.7.1
+  Downloaded tree-sitter-cpp v0.23.4
+  Downloaded tikv-jemalloc-sys v0.7.1+5.3.1-0-g81034ce1f1373e37dc865038e1bc8eeecf559ce8
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling tree-sitter-language v0.1.7
+   Compiling proc-macro2 v1.0.106
+   Compiling cc v1.2.57
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling typenum v1.19.0
+   Compiling version_check v0.9.5
+   Compiling serde_core v1.0.228
+   Compiling generic-array v0.14.7
+   Compiling serde v1.0.228
+   Compiling zmij v1.0.21
+   Compiling syn v2.0.117
+   Compiling libc v0.2.183
+   Compiling equivalent v1.0.2
+   Compiling serde_json v1.0.149
+   Compiling crossbeam-utils v0.8.21
+   Compiling hashbrown v0.16.1
+   Compiling indexmap v2.13.0
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.0
+   Compiling serde_derive v1.0.228
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling utf8parse v0.2.2
+   Compiling anstyle-parse v1.0.0
+   Compiling digest v0.10.7
+   Compiling crossbeam-epoch v0.9.18
+   Compiling tree-sitter v0.25.10
+   Compiling aho-corasick v1.1.4
+   Compiling tikv-jemalloc-sys v0.7.1+5.3.1-0-g81034ce1f1373e37dc865038e1bc8eeecf559ce8
+   Compiling ryu v1.0.23
+   Compiling regex-syntax v0.8.10
+   Compiling anstyle-query v1.1.5
+   Compiling cfg-if v1.0.4
+   Compiling cpufeatures v0.2.17
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling colorchoice v1.0.5
+   Compiling rayon-core v1.13.0
+   Compiling anstyle v1.0.14
+   Compiling anstream v1.0.0
+   Compiling hcl-primitives v0.1.11
+   Compiling toml_datetime v0.6.11
+   Compiling serde_spanned v0.6.9
+   Compiling vecmap-rs v0.2.4
+   Compiling sha2 v0.10.9
+   Compiling crossbeam-deque v0.8.6
+   Compiling regex-automata v0.4.14
+   Compiling tree-sitter-lua v0.5.0
+   Compiling tree-sitter-go v0.25.0 (/home/user/prism/vendor/tree-sitter-go)
+   Compiling tree-sitter-c v0.24.1
+   Compiling tree-sitter-python v0.23.6
+   Compiling tree-sitter-typescript v0.23.2 (/home/user/prism/vendor/tree-sitter-typescript)
+   Compiling tree-sitter-cpp v0.23.4
+   Compiling tree-sitter-java v0.23.5
+   Compiling tree-sitter-bash v0.25.1
+   Compiling tree-sitter-rust v0.24.2
+   Compiling tree-sitter-javascript v0.23.1
+   Compiling tree-sitter-hcl v1.1.0
+   Compiling fnv v1.0.7
+   Compiling winnow v1.0.1
+   Compiling strsim v0.11.1
+   Compiling heck v0.5.0
+   Compiling anyhow v1.0.102
+   Compiling winnow v0.7.15
+   Compiling pratt v0.4.0
+   Compiling thiserror v2.0.18
+   Compiling toml_write v0.1.2
+   Compiling clap_lex v1.1.0
+   Compiling option-ext v0.2.0
+   Compiling dirs-sys v0.5.0
+   Compiling clap_builder v4.6.0
+   Compiling toml_edit v0.22.27
+   Compiling hcl-edit v0.9.6
+   Compiling clap_derive v4.6.0
+   Compiling regex v1.12.3
+   Compiling prism v3.2.0 (/home/user/prism)
+   Compiling thiserror-impl v2.0.18
+   Compiling either v1.15.0
+   Compiling fixedbitset v0.5.7
+   Compiling streaming-iterator v0.1.9
+   Compiling foldhash v0.1.5
+   Compiling hashbrown v0.15.5
+   Compiling petgraph v0.7.1
+   Compiling rayon v1.12.0
+   Compiling clap v4.6.0
+   Compiling hcl-rs v0.19.7
+   Compiling toml v0.8.23
+   Compiling dirs v6.0.0
+   Compiling bincode v1.3.3
+   Compiling memmap2 v0.9.8
+   Compiling tikv-jemallocator v0.7.0
+warning: method `exact_labels` is never used
+   --> src/data_flow/compact/views.rs:112:33
+    |
+ 36 | impl CompactDfg {
+    | --------------- method in this implementation
+...
+112 |     pub(in crate::data_flow) fn exact_labels(
+    |                                 ^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `as_legacy` is never used
+   --> src/data_flow/types.rs:108:19
+    |
+ 94 | impl ExactVarLocation {
+    | --------------------- method in this implementation
+...
+108 |     pub(crate) fn as_legacy(&self) -> VarLocation {
+    |                   ^^^^^^^^^
+
+warning: associated items `from_refs` and `as_legacy` are never used
+   --> src/data_flow/types.rs:139:19
+    |
+138 | impl ExactFlowEdge {
+    | ------------------ associated items in this implementation
+139 |     pub(crate) fn from_refs(from: &VarLocation, to: &VarLocation) -> Self {
+    |                   ^^^^^^^^^
+...
+153 |     pub(crate) fn as_legacy(&self) -> FlowEdge {
+    |                   ^^^^^^^^^
+
+warning: method `exact_labels` is never used
+  --> src/data_flow/views.rs:67:19
+   |
+33 | impl DataFlowGraph {
+   | ------------------ method in this implementation
+...
+67 |     pub(crate) fn exact_labels(
+   |                   ^^^^^^^^^^^^
+
+warning: `prism` (lib) generated 4 warnings
+    Finished `release` profile [optimized] target(s) in 2m 49s

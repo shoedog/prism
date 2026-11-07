@@ -1,0 +1,20 @@
+edges base=85588 head=85588
+only in base: 0  only in head: 0
+edge keys whose label multiset changed: 210
+label rows leaving (-) / arriving (+)  [confidence, doubt, has_kill_line]:
+  + ('nameonly', 'cfg_incomplete', False): 231
+  - ('nameonly', 'sameline', False): 124
+  - ('exact', '-', False): 107
+  packages/excalidraw/subset/woff2/woff2-bindings.ts L595 HEAP32 -> L658 HEAP32: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  excalidraw-app/App.tsx L1241 pwaEvent -> L1236 pwaEvent: [('nameonly', 'cfg_incomplete', False), ('nameonly', 'sameline', False)] -> [('nameonly', 'cfg_incomplete', False), ('nameonly', 'cfg_incomplete', False)]
+  packages/excalidraw/actions/actionGroup.tsx L271 nextElements -> L299 nextElements: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  packages/element/src/Scene.ts L261 didChange -> L265 didChange: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  packages/excalidraw/components/TTDDialog/TTDDialogInput.tsx L72 cancelled -> L48 cancelled: [('nameonly', 'sameline', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  packages/excalidraw/components/PublishLibrary.tsx L267 isError -> L272 isError: [('exact', '-', False), ('nameonly', 'sameline', False)] -> [('nameonly', 'cfg_incomplete', False), ('nameonly', 'cfg_incomplete', False)]
+  packages/common/src/utils.ts L143 lastArgs -> L141 lastArgs: [('nameonly', 'cfg_incomplete', False), ('nameonly', 'sameline', False)] -> [('nameonly', 'cfg_incomplete', False), ('nameonly', 'cfg_incomplete', False)]
+  packages/excalidraw/components/TTDDialog/hooks/useMermaidRenderer.ts L131 lastRenderTimeRef -> L132 lastRenderTimeRef.current: [('nameonly', 'sameline', False), ('nameonly', 'sameline', False), ('nameonly', 'sameline', False)] -> [('nameonly', 'cfg_incomplete', False), ('nameonly', 'cfg_incomplete', False), ('nameonly', 'sameline', False)]
+  packages/element/src/zindex.ts L140 rangeStart -> L145 rangeStart: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  packages/element/src/bounds.ts L1022 minX -> L1028 minX: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  packages/element/src/positionElementsOnGrid.ts L55 rowWidth -> L68 rowWidth: [('exact', '-', False), ('nameonly', 'sameline', False)] -> [('nameonly', 'cfg_incomplete', False), ('nameonly', 'cfg_incomplete', False)]
+  packages/common/src/utils.ts L270 frameId -> L327 frameId: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+PASS: identical edge sets, only labels moved

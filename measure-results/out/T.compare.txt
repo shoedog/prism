@@ -1,0 +1,20 @@
+edges base=408762 head=408762
+only in base: 0  only in head: 0
+edge keys whose label multiset changed: 844
+label rows leaving (-) / arriving (+)  [confidence, doubt, has_kill_line]:
+  + ('nameonly', 'cfg_incomplete', False): 846
+  - ('exact', '-', False): 718
+  - ('nameonly', 'sameline', False): 128
+  services/symbolDisplay.ts L274 documentation -> L806 documentation: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  compiler/builderState.ts L444 latestSignature -> L453 latestSignature: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  harness/fourslashImpl.ts L1699 newContent -> L1683 newContent: [('nameonly', 'cfg_incomplete', False), ('nameonly', 'sameline', False)] -> [('nameonly', 'cfg_incomplete', False), ('nameonly', 'cfg_incomplete', False)]
+  compiler/parser.ts L10047 commentDirectives -> L10063 commentDirectives: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  services/codefixes/importFixes.ts L1707 diag -> L1709 diag: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  harness/harnessIO.ts L969 jsCode -> L978 jsCode: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  compiler/emitter.ts L3951 result -> L3952 result: [('exact', '-', False), ('nameonly', 'cfg_incomplete', False)] -> [('nameonly', 'cfg_incomplete', False), ('nameonly', 'cfg_incomplete', False)]
+  services/completions.ts L3614 keywordFilters -> L3650 keywordFilters: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  compiler/watchPublic.ts L488 configFileWatcher -> L490 configFileWatcher: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  compiler/parser.ts L10341 bestResult -> L10353 bestResult: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  compiler/transformers/generators.ts L1098 leadingElement -> L1105 leadingElement: [('exact', '-', False), ('nameonly', 'cfg_incomplete', False)] -> [('nameonly', 'cfg_incomplete', False), ('nameonly', 'cfg_incomplete', False)]
+  compiler/moduleSpecifiers.ts L853 pathsInDirectory -> L859 pathsInDirectory: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+PASS: identical edge sets, only labels moved

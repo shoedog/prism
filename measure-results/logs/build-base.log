@@ -1,0 +1,43 @@
+   Compiling prism v3.2.0 (/home/user/prism)
+warning: method `exact_labels` is never used
+   --> src/data_flow/compact/views.rs:112:33
+    |
+ 36 | impl CompactDfg {
+    | --------------- method in this implementation
+...
+112 |     pub(in crate::data_flow) fn exact_labels(
+    |                                 ^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `as_legacy` is never used
+   --> src/data_flow/types.rs:108:19
+    |
+ 94 | impl ExactVarLocation {
+    | --------------------- method in this implementation
+...
+108 |     pub(crate) fn as_legacy(&self) -> VarLocation {
+    |                   ^^^^^^^^^
+
+warning: associated items `from_refs` and `as_legacy` are never used
+   --> src/data_flow/types.rs:139:19
+    |
+138 | impl ExactFlowEdge {
+    | ------------------ associated items in this implementation
+139 |     pub(crate) fn from_refs(from: &VarLocation, to: &VarLocation) -> Self {
+    |                   ^^^^^^^^^
+...
+153 |     pub(crate) fn as_legacy(&self) -> FlowEdge {
+    |                   ^^^^^^^^^
+
+warning: method `exact_labels` is never used
+  --> src/data_flow/views.rs:67:19
+   |
+33 | impl DataFlowGraph {
+   | ------------------ method in this implementation
+...
+67 |     pub(crate) fn exact_labels(
+   |                   ^^^^^^^^^^^^
+
+warning: `prism` (lib) generated 4 warnings
+    Finished `release` profile [optimized] target(s) in 1m 50s

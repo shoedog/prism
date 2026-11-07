@@ -1,0 +1,17 @@
+edges base=7691 head=7691
+only in base: 0  only in head: 0
+edge keys whose label multiset changed: 9
+label rows leaving (-) / arriving (+)  [confidence, doubt, has_kill_line]:
+  + ('nameonly', 'cfg_incomplete', False): 9
+  - ('exact', '-', False): 8
+  - ('nameonly', 'sameline', False): 1
+  examples/view-constructor/github-view.js L48 buf -> L46 buf: [('nameonly', 'sameline', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  lib/response.js L854 body -> L860 body: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  test/app.router.js L1163 router -> L1165 router: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  lib/response.js L849 body -> L865 body: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  lib/response.js L849 body -> L860 body: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  lib/response.js L854 body -> L865 body: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  lib/response.js L844 body -> L865 body: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  lib/response.js L844 body -> L860 body: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+  test/Router.js L419 count -> L428 count: [('exact', '-', False)] -> [('nameonly', 'cfg_incomplete', False)]
+PASS: identical edge sets, only labels moved

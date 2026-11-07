@@ -1,0 +1,18 @@
+X base stats_exit=0 edges_exit=0 edges=85588 secs=36 wall_rss=Elapsed (wall clock) seconds: 17.90;Maximum resident set size (kbytes): 634016;
+X head stats_exit=0 edges_exit=0 edges=85588 secs=38 wall_rss=Elapsed (wall clock) seconds: 17.78;Maximum resident set size (kbytes): 632832;
+X compare_exit=0 (0 = identical edge sets, only labels move)
+X join_exit=0 (0 = every moved edge carries a mechanism)
+X trace_lines=2005
+X head.err: warning: P1 paths tolerant scan skipped: {"non_source":598}
+X head.err: P1 paths: absent type inputs=14 (distinct origin/input pairs)
+EX base stats_exit=0 edges_exit=0 edges=7691 secs=7 wall_rss=Elapsed (wall clock) seconds: 3.58;Maximum resident set size (kbytes): 133728;
+EX head stats_exit=0 edges_exit=0 edges=7691 secs=8 wall_rss=Elapsed (wall clock) seconds: 3.81;Maximum resident set size (kbytes): 130060;
+EX compare_exit=0 (0 = identical edge sets, only labels move)
+EX join_exit=0 (0 = every moved edge carries a mechanism)
+EX trace_lines=124
+T base stats_exit=0 edges_exit=0 edges=408762 secs=76 wall_rss=Elapsed (wall clock) seconds: 37.82;Maximum resident set size (kbytes): 1464048;
+T head stats_exit=0 edges_exit=0 edges=408762 secs=87 wall_rss=Elapsed (wall clock) seconds: 37.56;Maximum resident set size (kbytes): 1471260;
+T compare_exit=0 (0 = identical edge sets, only labels move)
+T join_exit=0 (0 = every moved edge carries a mechanism)
+T trace_lines=90575
+T head.err: warning: P1 paths tolerant scan skipped: {"non_source":34}

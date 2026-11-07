@@ -1,0 +1,23 @@
+moved edge keys: 9  UNTRACED: 0  PROMOTIONS: 0  OTHER: 0  MISMATCH: 0
+kill:for-increment moved keys: 0   site-unmapped moved keys: 0
+d3-loop/d3-unknown moved keys (listed in full below as D3-FULL): 0
+by move kind: {'sameline->cfg_incomplete': 1, 'exact->cfg_incomplete': 8}
+  d2c: 9
+      exact->cfg_incomplete: 8
+      sameline->cfg_incomplete: 1
+trace-only keys (trace fired, label did not move; NOT moves): 115
+  trace-only sample: ('test/app.listen.js', 'server1', 18, 'server1', 20, 'test/app.listen.js') ['capture-body']
+  trace-only sample: ('lib/view.js', 'args', 145, 'args', 154, 'lib/view.js') ['capture-region']
+  trace-only sample: ('lib/response.js', 'streaming', 987, 'streaming', 974, 'lib/response.js') ['capture-region']
+  trace-only sample: ('test/res.format.js', 'app', 182, 'app', 191, 'test/res.format.js') ['capture-body']
+  trace-only sample: ('lib/response.js', 'done', 941, 'done', 974, 'lib/response.js') ['capture-region']
+moved ['d2c'] ['sameline->cfg_incomplete'] ('examples/view-constructor/github-view.js', 'buf', 48, 'buf', 46, 'examples/view-constructor/github-view.js')
+moved ['d2c'] ['exact->cfg_incomplete'] ('lib/response.js', 'body', 844, 'body', 860, 'lib/response.js')
+moved ['d2c'] ['exact->cfg_incomplete'] ('lib/response.js', 'body', 844, 'body', 865, 'lib/response.js')
+moved ['d2c'] ['exact->cfg_incomplete'] ('lib/response.js', 'body', 849, 'body', 860, 'lib/response.js')
+moved ['d2c'] ['exact->cfg_incomplete'] ('lib/response.js', 'body', 849, 'body', 865, 'lib/response.js')
+moved ['d2c'] ['exact->cfg_incomplete'] ('lib/response.js', 'body', 854, 'body', 860, 'lib/response.js')
+moved ['d2c'] ['exact->cfg_incomplete'] ('lib/response.js', 'body', 854, 'body', 865, 'lib/response.js')
+moved ['d2c'] ['exact->cfg_incomplete'] ('test/Router.js', 'count', 419, 'count', 428, 'test/Router.js')
+moved ['d2c'] ['exact->cfg_incomplete'] ('test/app.router.js', 'router', 1163, 'router', 1165, 'test/app.router.js')
+PASS: every moved edge carries a mechanism, no promotion
