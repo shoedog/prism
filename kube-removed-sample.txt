@@ -1,0 +1,109 @@
+#0 [confidence=nameonly/doubt=sameline] staging/src/k8s.io/client-go/tools/remotecommand/websocket_test.go
+  def  err@623: _, err := io.Copy(conns.stdoutStream, conns.stdinStream)
+  use  @616: if err != nil {
+     616| if err != nil {
+     617| t.Fatalf("error on webSocketServerStreams: %v", err)
+     618| }
+     619| defer conns.conn.Close()
+     620| // Create goroutine to loopback the STDIN stream onto the STDOUT stream.
+     621| wg.Add(1)
+     622| go func() {
+     623| _, err := io.Copy(conns.stdoutStream, conns.stdinStream)
+#1 [confidence=nameonly/doubt=sameline] test/e2e/storage/testsuites/snapshottable.go
+  def  err@195: _, err := cs.CoreV1().PersistentVolumes().Get(ctx, pvc.Spec.VolumeName, metav1.GetOptions{})
+  use  @392: framework.ExpectNoError(err)
+#2 [confidence=exact/doubt=None] cmd/kube-proxy/app/server_test.go
+  def  line@633: line = strings.TrimSpace(line)
+  use  @632: for _, line := range lines {
+     632| for _, line := range lines {
+     633| line = strings.TrimSpace(line)
+#3 [confidence=nameonly/doubt=cfg_incomplete] test/integration/etcd/etcd_storage_path_test.go
+  def  err@163: if err = utiljson.Unmarshal([]byte(testData.Stub), input); err != nil || input.isEmpty() {
+  use  @115: t.Fatal(err)
+#4 [confidence=exact/doubt=None] pkg/controller/volume/selinuxwarning/cache/volumecache_test.go
+  def  podKey@93: podKey := cache.ObjectName{Namespace: namespace, Name: name}
+  use  @109: for _, podKey := range podsToDelete {
+#5 [confidence=nameonly/doubt=cfg_incomplete] staging/src/k8s.io/apiserver/pkg/storage/value/encrypt/envelope/grpc_service_unix_test.go
+  def  encryptErr@223: encryptErr = fmt.Errorf("failed when executing encrypt, error: %v", err)
+  use  @189: encryptErr error
+#6 [confidence=exact/doubt=None] pkg/scheduler/framework/plugins/dynamicresources/dynamicresources_test.go
+  def  claim@3234: claim = addAllocationTimestamp(claim)
+  use  @3554: for _, claim := range tc.inFlightClaims {
+#7 [confidence=nameonly/doubt=cfg_incomplete] cmd/kubeadm/app/cmd/join.go
+  def  err@554: tlsBootstrapCfg, err := discovery.For(client, j.cfg)
+  use  @545: err    error
+     545| err    error
+     546| )
+     547| if j.dryRun {
+     548| client, err = j.Client()
+     549| if err != nil {
+     550| return nil, errors.Wrap(err, "could not create a client for TLS bootstrap")
+     551| }
+     552| }
+     553| klog.V(1).Infoln("[preflight] Discovering cluster-info")
+     554| tlsBootstrapCfg, err := discovery.For(client, j.cfg)
+#8 [confidence=nameonly/doubt=cfg_incomplete] pkg/kubelet/kubelet_getters_test.go
+  def  got@63: got = kubelet.getPodVolumesDir("abc123")
+  use  @38: var exp, got string
+#9 [confidence=nameonly/doubt=cfg_incomplete] staging/src/k8s.io/apiserver/pkg/util/flowcontrol/apf_controller.go
+  def  fs@1032: selectedFlowSchema = fs
+  use  @1030: for _, fs := range cfgCtlr.flowSchemas {
+     1030| for _, fs := range cfgCtlr.flowSchemas {
+     1031| if matchesFlowSchema(rd, fs) {
+     1032| selectedFlowSchema = fs
+#10 [confidence=nameonly/doubt=killed/kill_line=95] test/utils/client-go/ktesting/assert.go
+  def  i@93: for i := 1; i < t.NumIn(); i++ {
+  use  @98: out[i] = t.Out(i)
+     93| for i := 1; i < t.NumIn(); i++ {
+     94| in[i] = t.In(i)
+     95| }
+     96| out := make([]reflect.Type, t.NumOut())
+     97| for i := range t.NumOut() {
+     98| out[i] = t.Out(i)
+#11 [confidence=nameonly/doubt=sameline] pkg/scheduler/framework/runtime/framework_test.go
+  def  pl@1455: tmpPl := pl
+  use  @1453: for _, pl := range tt.plugins {
+     1453| for _, pl := range tt.plugins {
+     1454| // register all plugins
+     1455| tmpPl := pl
+#12 [confidence=nameonly/doubt=killed/kill_line=499] staging/src/k8s.io/apiserver/pkg/util/proxy/streamtranslator_test.go
+  def  err@495: _, err = io.Copy(ctx.stdoutStream, stdinReader)
+  use  @565: t.Errorf("error reading the stream: %v", err)
+#13 [confidence=nameonly/doubt=killed/kill_line=656] test/integration/auth/svcaccttoken_test.go
+  def  sa@612: sa, del := createDeleteSvcAcct(t, cs, sa)
+  use  @992: sa, del := createDeleteSvcAcct(t, cs, sa)
+#14 [confidence=nameonly/doubt=cfg_incomplete] test/integration/kubelet/watch_manager_test.go
+  def  err@90: if _, err := client.CoreV1().Secrets(testNamespace).Create(ctx, &v1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name}}, metav1.CreateOptions{}); err != nil {
+  use  @57: t.Fatal(err)
+#15 [confidence=nameonly/doubt=cfg_incomplete] test/e2e/storage/testsuites/snapshottable_stress.go
+  def  pod@254: pod := stressTest.pods[podIndex]
+  use  @207: for _, pod := range stressTest.pods {
+#16 [confidence=nameonly/doubt=cfg_incomplete] test/e2e/storage/external/external.go
+  def  err@334: sc, err = f.ClientSet.StorageV1().StorageClasses().Get(ctx, d.StorageClass.FromExistingClassName, metav1.GetOptions{})
+  use  @326: err error
+     326| err error
+     327| )
+     328| 
+     329| f := e2econfig.Framework
+     330| switch {
+     331| case d.StorageClass.FromName:
+     332| sc = &storagev1.StorageClass{Provisioner: d.DriverInfo.Name}
+     333| case d.StorageClass.FromExistingClassName != "":
+     334| sc, err = f.ClientSet.StorageV1().StorageClasses().Get(ctx, d.StorageClass.FromExistingClassName, metav1.GetOptions{})
+#17 [confidence=exact/doubt=None] staging/src/k8s.io/component-helpers/node/util/sysctl/namespace.go
+  def  ns@69: if ns, found := nameToNamespace[val]; found {
+  use  @72: for p, ns := range prefixToNamespace {
+     69| if ns, found := nameToNamespace[val]; found {
+     70| return ns
+     71| }
+     72| for p, ns := range prefixToNamespace {
+#18 [confidence=exact/doubt=None] staging/src/k8s.io/apimachinery/pkg/util/strategicpatch/patch.go
+  def  serverOnlyItems@1206: patchItems, serverOnlyItems = partitionPrimitivesByPresentInList(merged, typedSetElementOrderList)
+  use  @1203: var patchItems, serverOnlyItems []interface{}
+     1203| var patchItems, serverOnlyItems []interface{}
+     1204| if len(patchMeta.GetPatchMergeKey()) == 0 {
+     1205| // Primitives doesn't need merge key to do partitioning.
+     1206| patchItems, serverOnlyItems = partitionPrimitivesByPresentInList(merged, typedSetElementOrderList)
+#19 [confidence=nameonly/doubt=cfg_incomplete] staging/src/k8s.io/apiextensions-apiserver/pkg/apiserver/schema/listtype/validation.go
+  def  x@197: x := x.(map[string]interface{})
+  use  @152: for _, x := range obj {

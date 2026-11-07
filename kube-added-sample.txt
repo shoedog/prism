@@ -1,0 +1,123 @@
+#0 [confidence=nameonly/doubt=cfg_incomplete] staging/src/k8s.io/kubectl/pkg/cmd/edit/edit_test.go
+  def  testcase@82: testcase EditTestCase
+  use  @261: if testcase.ExpectedExitCode != code {
+#1 [confidence=exact/doubt=None] staging/src/k8s.io/apimachinery/pkg/labels/selector_test.go
+  def  ssp@709: for _, ssp := range setSelectorParserTests {
+  use  @712: } else if err == nil && !ssp.Valid {
+     709| for _, ssp := range setSelectorParserTests {
+     710| if sel, err := Parse(ssp.In); err != nil && ssp.Valid {
+     711| t.Errorf("Parse(%s) => %v expected no error", ssp.In, err)
+     712| } else if err == nil && !ssp.Valid {
+#2 [confidence=nameonly/doubt=cfg_incomplete] pkg/proxy/topology.go
+  def  ep@100: for _, ep := range endpoints {
+  use  @75: clusterEndpoints = filterEndpoints(endpoints, func(ep Endpoint) bool {
+#3 [confidence=exact/doubt=None] test/e2e/storage/external/external.go
+  def  k@444: for k, v := range params {
+  use  @445: parameters[k] = v.(string)
+     444| for k, v := range params {
+     445| parameters[k] = v.(string)
+#4 [confidence=nameonly/doubt=sameline] staging/src/k8s.io/kubectl/pkg/cmd/clusterinfo/clusterinfo.go
+  def  service@109: for _, service := range services {
+  use  @124: port := service.Spec.Ports[0]
+#5 [confidence=exact/doubt=None] pkg/apis/rbac/validation/validation_test.go
+  def  k@125: for k, v := range errorCases {
+  use  @136: t.Errorf("%s: expected errors to have field %s: %v", k, v.F, errs[i])
+     125| for k, v := range errorCases {
+     126| errs := ValidateClusterRoleBinding(&v.A)
+     127| if len(errs) == 0 {
+     128| t.Errorf("expected failure %s for %v", k, v.A)
+     129| continue
+     130| }
+     131| for i := range errs {
+     132| if errs[i].Type != v.T {
+     133| t.Errorf("%s: expected errors to have type %s: %v", k, v.T, errs[i])
+     134| }
+     135| if errs[i].Field != v.F {
+     136| t.Errorf("%s: expected errors to have field %s: %v", k, v.F, errs[i])
+#6 [confidence=exact/doubt=None] staging/src/k8s.io/apiextensions-apiserver/test/integration/validation_test.go
+  def  v@742: for _, v := range noxuDefinition.Spec.Versions {
+  use  @764: _, err = instantiateVersionedCustomResource(t, instanceToCreate, noxuResourceClient, noxuDefinition, v.Name)
+#7 [confidence=nameonly/doubt=sameline] test/integration/job/job_test.go
+  def  update@3016: for _, update := range tc.jobUpdates {
+  use  @3031: for _, idx := range update.succeedIndexes {
+#8 [confidence=nameonly/doubt=cfg_incomplete] staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/deepcopy.go
+  def  val@220: for key, val := range *in {
+  use  @203: (*out)[key] = *val.DeepCopy()
+#9 [confidence=nameonly/doubt=cfg_incomplete] pkg/registry/core/pod/strategy_test.go
+  def  test@4449: for _, test := range tests {
+  use  @4452: ok := len(warnings) == len(test.warnings)
+     4449| for _, test := range tests {
+     4450| t.Run(test.name, func(t *testing.T) {
+     4451| warnings := StatusStrategy.WarningsOnUpdate(context.Background(), test.pod, test.pod)
+     4452| ok := len(warnings) == len(test.warnings)
+#10 [confidence=nameonly/doubt=cfg_incomplete] pkg/registry/apps/deployment/strategy_test.go
+  def  tc@101: for _, tc := range tests {
+  use  @110: oldDeploy.Status.TerminatingReplicas = tc.terminatingReplicas
+     101| for _, tc := range tests {
+     102| t.Run(tc.name, func(t *testing.T) {
+     103| featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DeploymentReplicaSetTerminatingReplicas, tc.enableDeploymentReplicaSetTerminatingReplicas)
+     104| 
+     105| ctx := genericapirequest.NewDefaultContext()
+     106| validSelector := map[string]string{"a": "b"}
+     107| oldDeploy := newDeploymentWithSelectorLabels(validSelector)
+     108| oldDeploy.Spec.Replicas = 3
+     109| oldDeploy.Status.Replicas = 3
+     110| oldDeploy.Status.TerminatingReplicas = tc.terminatingReplicas
+#11 [confidence=exact/doubt=None] test/integration/auth/auth_test.go
+  def  line@1466: for line := range strings.SplitSeq(string(body), "\n") {
+  use  @1475: line = trimFP.ReplaceAllString(line, "${1}FP")
+     1466| for line := range strings.SplitSeq(string(body), "\n") {
+     1467| if !strings.HasPrefix(line, "apiserver_impersonation_") {
+     1468| continue
+     1469| }
+     1470| // skip histogram bucket lines to keep assertions manageable
+     1471| if strings.Contains(line, "_bucket{") {
+     1472| continue
+     1473| }
+     1474| if strings.Contains(line, "_seconds_sum") {
+     1475| line = trimFP.ReplaceAllString(line, "${1}FP")
+#12 [confidence=exact/doubt=None] pkg/apis/autoscaling/v2/defaults_test.go
+  def  tc@103: for _, tc := range tests {
+  use  @104: t.Run(tc.annotation, func(t *testing.T) {
+     103| for _, tc := range tests {
+     104| t.Run(tc.annotation, func(t *testing.T) {
+#13 [confidence=exact/doubt=None] staging/src/k8s.io/kubectl/pkg/cmd/set/set_test.go
+  def  cmd@37: for _, cmd := range c.Commands() {
+  use  @39: if localFlag := cmd.Flag("local"); localFlag == nil {
+     37| for _, cmd := range c.Commands() {
+     38| name := prefix + cmd.Name()
+     39| if localFlag := cmd.Flag("local"); localFlag == nil {
+#14 [confidence=exact/doubt=None] pkg/api/testing/serialization_proto_test.go
+  def  gvk@65: for gvk, obj := range legacyscheme.Scheme.AllKnownTypes() {
+  use  @66: if gvk.Version == runtime.APIVersionInternal {
+     65| for gvk, obj := range legacyscheme.Scheme.AllKnownTypes() {
+     66| if gvk.Version == runtime.APIVersionInternal {
+#15 [confidence=nameonly/doubt=cfg_incomplete] test/integration/controlplane/kube_apiserver_test.go
+  def  tc@178: for _, tc := range []struct {
+  use  @260: req.SetHeader("Accept", tc.acceptHeader)
+#16 [confidence=exact/doubt=None] pkg/kubelet/util/pod_startup_latency_tracker.go
+  def  session@181: for i, session := range sessions {
+  use  @188: totalTime += session.end.Sub(session.start)
+     181| for i, session := range sessions {
+     182| if session.end.IsZero() {
+     183| continue
+     184| }
+     185| 
+     186| if i == 0 || session.start.After(currentEnd) {
+     187| // First session or no overlap with previous session
+     188| totalTime += session.end.Sub(session.start)
+#17 [confidence=exact/doubt=None] staging/src/k8s.io/kubectl/pkg/polymorphichelpers/canbeexposed_test.go
+  def  test@59: for _, test := range tests {
+  use  @60: err := canBeExposed(test.kind)
+     59| for _, test := range tests {
+     60| err := canBeExposed(test.kind)
+#18 [confidence=exact/doubt=None] pkg/serviceaccount/jwt_test.go
+  def  tc@367: for k, tc := range testCases {
+  use  @419: t.Errorf("%s: Expected error=%v, got %v", k, tc.ExpectedErr, err)
+#19 [confidence=exact/doubt=None] staging/src/k8s.io/apimachinery/pkg/apis/meta/v1/validation/validation_test.go
+  def  i@50: for i := range successCases {
+  use  @53: t.Errorf("case[%d] expected success, got %#v", i, errs)
+     50| for i := range successCases {
+     51| errs := ValidateLabels(successCases[i], field.NewPath("field"))
+     52| if len(errs) != 0 {
+     53| t.Errorf("case[%d] expected success, got %#v", i, errs)
