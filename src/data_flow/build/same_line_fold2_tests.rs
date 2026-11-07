@@ -100,3 +100,20 @@ fn alias_twin_same_line_edge_is_judged_at_its_own_span() {
             .collect::<Vec<_>>()
     );
 }
+
+/// Go same-line row (inline: a fixture file would shift the whole-fixture-tree goldens).
+/// `x := 1; x = 2` then a use: the second def's edge survives, the first is judged at its
+/// own span and dropped.
+#[test]
+fn go_same_line_redefinition_keeps_the_live_def_edge() {
+    let source = "package p\nfunc use(int) {}\nfunc f() {\nx := 1; x = 2\nuse(x)\n}\n";
+    let parsed = ParsedFile::parse("s.go", source, Language::Go).unwrap();
+    let before = Producer::file_refs_frozen(&parsed.path, &parsed);
+    let after = Producer::file_refs(&parsed.path, &parsed);
+    let has = |r: &FileRefs| {
+        r.edges
+            .iter()
+            .any(|e| e.from.path.to_string() == "x" && e.from.line == 4 && e.to.line == 5)
+    };
+    assert!(has(&before) && has(&after), "{:?}", after.edges.len());
+}
