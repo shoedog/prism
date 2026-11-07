@@ -155,18 +155,58 @@ def test_prism_corpus_budgets_fit_full_corpus_with_all_features():
     assert config["defaults"]["query_timeout_s"] == 10.0  # main's default for other corpora
 
 
+def _workspace_member_dirs(repo):
+    """Directories of the root `[workspace].members` (a glob entry such as `crates/*` is
+    expanded against the repo root; only directories holding a Cargo.toml count)."""
+    import glob
+    import tomllib
+    members = tomllib.loads((repo / "Cargo.toml").read_text()).get("workspace", {}).get("members", [])
+    out = []
+    for entry in members:
+        for hit in sorted(glob.glob(str(repo / entry))):
+            hit = Path(hit)
+            if (hit / "Cargo.toml").is_file():
+                out.append(hit.relative_to(repo).as_posix())
+    return out
+
+
+def _stray_paths(population, repo):
+    """Paths in `population` that are not a cargo target of a workspace package."""
+    allowed = ["src/", "tests/", "benches/", "examples/", "vendor/"]
+    exact = {"build.rs"}
+    for m in _workspace_member_dirs(repo):
+        allowed += [f"{m}/src/", f"{m}/tests/", f"{m}/benches/", f"{m}/examples/"]
+        exact.add(f"{m}/build.rs")
+    allowed = tuple(allowed)
+    return sorted(p for p in population if not (p in exact or p.startswith(allowed)))
+
+
 def test_prism_corpus_population_is_only_cargo_target_sources():
-    """Every Rust file in the prism corpus population belongs to a cargo target of the
-    root package (or its vendored grammar crate); fixture crates and doc probes outside
-    the workspace are excluded because rust-analyzer cannot answer for them."""
+    """Every Rust file in the prism corpus population belongs to a cargo target of a
+    workspace package (the root package or a member under `crates/`) or its vendored
+    grammar crate; fixture crates and doc probes outside the workspace are excluded
+    because rust-analyzer cannot answer for them."""
     import tomllib
     from tier_a.corpus import universe
     repo = Path(__file__).parents[2]
     cfg = tomllib.loads((repo / "eval/corpora.toml").read_text())["corpus"]["prism"]
     population = universe(str(repo), cfg["lang"], cfg["excludes"], tracked_only=True)
-    allowed = ("src/", "tests/", "benches/", "examples/", "vendor/")
-    stray = sorted(p for p in population if not (p == "build.rs" or p.startswith(allowed)))
-    assert stray == []
+    assert _stray_paths(population, repo) == []
+
+
+def test_workspace_member_widening_is_not_a_blanket_crates_allow():
+    repo = Path(__file__).parents[2]
+    assert "crates/prism-mcp" in _workspace_member_dirs(repo)
+    fake = [
+        "src/lib.rs", "build.rs", "crates/prism-mcp/src/lib.rs",
+        "crates/prism-mcp/tests/mcp/main.rs", "crates/prism-mcp/build.rs",
+        "crates/not-a-member/src/lib.rs", "crates/prism-mcp/docs/probe.rs",
+        "crates/prism-mcp/other/x.rs", "docs/probe.rs",
+    ]
+    assert _stray_paths(fake, repo) == [
+        "crates/not-a-member/src/lib.rs", "crates/prism-mcp/docs/probe.rs",
+        "crates/prism-mcp/other/x.rs", "docs/probe.rs",
+    ]
 
 
 def test_harness_modules_load_before_the_boundary_observes_reads():
