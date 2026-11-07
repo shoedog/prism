@@ -60,7 +60,7 @@ fn initializer_stage_boundaries_precede_builders() {
     let source = include_str!("../call_graph_profile_initializers.rs");
     let mut previous = 0;
     for (name, builder) in [
-        ("js_ts_props", "let props = crate::js_ts_props::collect(files);"),
+        ("js_ts_props", "let props = crate::call_graph::js_ts::props::collect(files);"),
         ("populate_scope_graph", "let scope = CallGraph::populate_scope_graph(files, scope_inputs);"),
         ("js_anonymous_proofs", "let proofs = crate::resolution::js_ts::anonymous::ProofIndex::build(files);"),
         ("rust_macro_shadow_intersection", "let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);"),

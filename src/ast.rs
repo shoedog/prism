@@ -62,7 +62,7 @@ mod control_flow;
 mod fptr_text;
 mod go;
 mod imports;
-mod js_ts;
+pub mod js_ts;
 mod lvalues;
 mod parameters;
 mod python;
@@ -478,7 +478,7 @@ pub struct ParsedFile {
     call_args: std::sync::OnceLock<CallArgsIndex>,
     /// Lazily-extracted JS/TS export facts: a pure function of the parsed
     /// file, shared by the P1 loader priming and the call-graph build.
-    js_export_facts: std::sync::OnceLock<crate::js_exports::JsExportFacts>,
+    js_export_facts: std::sync::OnceLock<js_ts::exports::JsExportFacts>,
 }
 
 /// How a formal parameter is used in its callable body (PR-C).

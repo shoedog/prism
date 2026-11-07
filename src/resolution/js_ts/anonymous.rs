@@ -252,7 +252,7 @@ pub(crate) struct Certificate {
     site: CallSite,
     target: FunctionId,
     evidence: BindingEvidence,
-    export: Option<(String, crate::js_exports::ResolvedJsExport)>,
+    export: Option<(String, crate::ast::js_ts::exports::ResolvedJsExport)>,
 }
 impl Certificate {
     fn proves(&self, site: &CallSite, target: &FunctionId) -> bool {
@@ -422,7 +422,7 @@ impl CallGraph {
         &self,
         site: &CallSite,
         module: &str,
-        export: &crate::js_exports::ResolvedJsExport,
+        export: &crate::ast::js_ts::exports::ResolvedJsExport,
         mut outcome: ResolutionOutcome<'a>,
     ) -> ResolutionOutcome<'a> {
         if !anonymous(site) {
@@ -475,7 +475,10 @@ fn binding_imports_proven(binding: &JsLocalBinding, imports: &[ImportEvidence]) 
     }
 }
 
-fn export_matches(export: &crate::js_exports::ResolvedJsExport, target: &FunctionId) -> bool {
+fn export_matches(
+    export: &crate::ast::js_ts::exports::ResolvedJsExport,
+    target: &FunctionId,
+) -> bool {
     export.file == target.file
         && export.local_name == target.name
         && export.span == Some((target.start_line, target.end_line))
@@ -494,7 +497,7 @@ impl CallGraph {
         site: &CallSite,
         binding: &ImportBinding,
         target: &FunctionId,
-    ) -> Option<(String, crate::js_exports::ResolvedJsExport)> {
+    ) -> Option<(String, crate::ast::js_ts::exports::ResolvedJsExport)> {
         let file = self.resolve_js_ts_member_module(&binding.module_path, &site.caller.file)?;
         let exports = if binding.module_path.trim().starts_with('.') {
             &self.js_ts_resolved_exports
@@ -525,8 +528,8 @@ impl CallGraph {
             return false;
         };
         let reexports = facts.named.values().filter_map(|v| match v {
-            crate::js_exports::JsExportTarget::ReExport { module_path, .. }
-            | crate::js_exports::JsExportTarget::ImportForward { module_path, .. } => {
+            crate::ast::js_ts::exports::JsExportTarget::ReExport { module_path, .. }
+            | crate::ast::js_ts::exports::JsExportTarget::ImportForward { module_path, .. } => {
                 Some(module_path)
             }
             _ => None,

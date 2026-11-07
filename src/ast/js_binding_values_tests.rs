@@ -178,11 +178,11 @@ fn a_d4_import_alias_and_require_export_stay_unproven_with_a_nested_decoy() {
     ] {
         for path in ["a.ts", "a.tsx"] {
             let p = parse(path, src);
-            let mut facts = crate::js_exports::JsExportFacts::default();
+            let mut facts = crate::ast::js_ts::exports::JsExportFacts::default();
             let mut scope = (std::collections::BTreeSet::new(), JsBindingCache::default());
             let got =
                 p.js_ts_local_export_target("f".into(), p.tree.root_node(), &mut facts, &mut scope);
-            let want = crate::js_exports::JsExportTarget::UnprovenLocal("f".into());
+            let want = crate::ast::js_ts::exports::JsExportTarget::UnprovenLocal("f".into());
             assert_eq!(
                 (&got, facts.local_export_refusals.get("not_callable")),
                 (&want, Some(&1)),
@@ -200,13 +200,13 @@ fn c_m40_d4_keeps_unproven_local_for_an_alias_export() {
     let src = "const t = i18n.t;\nexport { t };\n";
     let p = parse("a.js", src);
     let root = p.tree.root_node();
-    let mut facts = crate::js_exports::JsExportFacts::default();
+    let mut facts = crate::ast::js_ts::exports::JsExportFacts::default();
     let mut scope: (std::collections::BTreeSet<String>, JsBindingCache<'_>) =
         (std::collections::BTreeSet::new(), JsBindingCache::default());
     let got = p.js_ts_local_export_target("t".to_string(), root, &mut facts, &mut scope);
     assert_eq!(
         got,
-        crate::js_exports::JsExportTarget::UnprovenLocal("t".to_string())
+        crate::ast::js_ts::exports::JsExportTarget::UnprovenLocal("t".to_string())
     );
     assert_eq!(facts.local_export_refusals.get("not_callable"), Some(&1));
 }

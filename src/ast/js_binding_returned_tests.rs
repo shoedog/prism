@@ -3,8 +3,8 @@
 //! Every "not followed" row is a condition the contract names.
 use super::JsBindingCache;
 use crate::ast::js_binding_helper_tests::parse;
+use crate::ast::js_ts::returns::JsReturnPath;
 use crate::ast::{JsFollow, JsTerminal};
-use crate::js_returns::JsReturnPath;
 
 const ANY: [&str; 3] = ["a.js", "a.ts", "a.tsx"];
 const TS: [&str; 2] = ["a.ts", "a.tsx"];

@@ -6,9 +6,9 @@
 //! exactly one source-backed target, otherwise the route proves nothing (`None`) and the site
 //! continues as it did before this route existed. The result keeps the kind of the route that
 //! produced it (`LocalDef` or `ImportMember`).
+use crate::ast::js_ts::returns::JsReturnPath;
 use crate::ast::JsFollow;
 use crate::call_graph::JsLocalBinding;
-use crate::js_returns::JsReturnPath;
 use crate::resolution::{CallGraph, CallSite, FunctionId, ResolutionConfidence, ResolutionOutcome};
 
 impl CallGraph {

@@ -5,3 +5,5 @@ pub mod express;
 pub mod fastify;
 pub mod koa;
 pub mod nestjs;
+
+pub mod react_hooks;

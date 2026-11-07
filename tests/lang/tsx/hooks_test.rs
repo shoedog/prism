@@ -1,5 +1,5 @@
 use crate::common::*;
-use prism::react_hooks::{detect_hooks, HookType};
+use prism::frameworks::js_ts::react_hooks::{detect_hooks, HookType};
 
 // ====== React Hook Detection Tests ======
 

@@ -6,8 +6,8 @@
 //! absent, and the resolver then leaves the site as it was.
 use super::js_binding::{JsBinding, JsBindingCache, JsTerminal};
 use super::{is_js_ts_function_like, ParsedFile};
+use crate::ast::js_ts::returns::JsReturnFacts;
 use crate::ast::JsFollow;
-use crate::js_returns::JsReturnFacts;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
