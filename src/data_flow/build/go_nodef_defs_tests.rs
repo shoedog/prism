@@ -147,3 +147,43 @@ fn function_literal_formals_and_named_results_stay_exempt() {
     let res = "package p\nfunc f() (v int) {\n\tdefer func() { println(v) }()\n\t{\n\t\tv := 7\n\t\tc := (v)\n\t\treturn c\n\t}\n}\n";
     check("named-result", res, &[("v", 5, 3, true)]);
 }
+
+#[test]
+fn header_lines_that_only_declare_are_write_only() {
+    // Rule U: a header that merely declares the name is not a use of an earlier clause's def.
+    let sel = "package p\nfunc f(ch chan int) {\n\tselect {\n\tcase _, ok := <-ch:\n\t\tsink(ok)\n\tcase _, ok := <-ch:\n\t\tsink(ok)\n\t}\n}\n";
+    check(
+        "select-two-clauses",
+        sel,
+        &[
+            ("ok", 4, 5, true),
+            ("ok", 4, 6, false),
+            ("ok", 6, 4, false),
+            ("ok", 6, 7, true),
+        ],
+    );
+    let two = "package p\nfunc f(a, b []int) {\n\tfor _, v := range a {\n\t\tuse(v)\n\t}\n\tfor _, v := range b {\n\t\tuse(v)\n\t}\n}\n";
+    check(
+        "range-twice",
+        two,
+        &[
+            ("v", 3, 4, true),
+            ("v", 3, 6, false),
+            ("v", 3, 7, false),
+            ("v", 6, 7, true),
+            ("v", 6, 4, false),
+        ],
+    );
+    let ts = "package p\nfunc f(c, d any) {\n\tswitch t := c.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n\tswitch t := d.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n}\n";
+    check(
+        "typeswitch-twice",
+        ts,
+        &[
+            ("t", 3, 5, true),
+            ("t", 3, 7, false),
+            ("t", 3, 9, false),
+            ("t", 7, 9, true),
+            ("t", 7, 5, false),
+        ],
+    );
+}

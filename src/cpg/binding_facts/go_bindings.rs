@@ -2,16 +2,21 @@
 //! This inventory only assigns ownership; it never produces a value or edge.
 use super::*;
 
-pub(super) fn collect(
-    parsed: &ParsedFile,
-    root: Node<'_>,
-    defs: &[DefSite],
-) -> (Vec<Declaration>, Vec<Option<usize>>) {
+/// Declarations, the declaration each def attaches to, and the type-switch
+/// alias groups (each clause's declaration of one alias, keyed by every member).
+pub(super) type Collected = (
+    Vec<Declaration>,
+    Vec<Option<usize>>,
+    BTreeMap<usize, Vec<usize>>,
+);
+
+pub(super) fn collect(parsed: &ParsedFile, root: Node<'_>, defs: &[DefSite]) -> Collected {
     let mut inventory = Inventory {
         parsed,
         root,
         declarations: Vec::new(),
         occurrences: BTreeMap::new(),
+        groups: BTreeMap::new(),
     };
     inventory.walk(root);
     let attached = defs
@@ -25,7 +30,7 @@ pub(super) fn collect(
                 .filter(|index| inventory.declarations[*index].name == def.path.base)
         })
         .collect();
-    (inventory.declarations, attached)
+    (inventory.declarations, attached, inventory.groups)
 }
 
 /// These introducing fields are fully represented by the inventory below;
@@ -53,6 +58,7 @@ struct Inventory<'a> {
     root: Node<'a>,
     declarations: Vec<Declaration>,
     occurrences: BTreeMap<usize, usize>,
+    groups: BTreeMap<usize, Vec<usize>>,
 }
 
 impl Inventory<'_> {
@@ -97,6 +103,32 @@ impl Inventory<'_> {
         });
         if attach {
             self.occurrences.insert(name.start_byte(), index);
+        }
+    }
+
+    /// The producer's one def per alias name sits at the header identifier; it
+    /// attaches to the first clause's declaration and every clause's declaration
+    /// of that name is a member of its group (the def reaches all of them).
+    fn group_alias(&mut self, alias: Node<'_>, first: usize) {
+        let mut ids = Vec::new();
+        if alias.kind() == "identifier" {
+            ids.push(alias);
+        } else if alias.kind() == "expression_list" {
+            let mut cursor = alias.walk();
+            ids.extend(alias.named_children(&mut cursor));
+        }
+        for id in ids {
+            let text = self.parsed.node_text(&id);
+            let members: Vec<usize> = (first..self.declarations.len())
+                .filter(|i| self.declarations[*i].name == text)
+                .collect();
+            let Some(head) = members.first().copied() else {
+                continue;
+            };
+            self.occurrences.insert(id.start_byte(), head);
+            for member in &members {
+                self.groups.insert(*member, members.clone());
+            }
         }
     }
 
@@ -219,6 +251,7 @@ impl Inventory<'_> {
             }
             "type_switch_statement" => {
                 if let Some(alias) = node.child_by_field_name("alias") {
+                    let first = self.declarations.len();
                     let mut cursor = node.walk();
                     for clause in node.named_children(&mut cursor) {
                         if matches!(clause.kind(), "type_case" | "default_case") {
@@ -233,6 +266,7 @@ impl Inventory<'_> {
                             self.names(alias, scope_span(clause), visible_from, false, false);
                         }
                     }
+                    self.group_alias(alias, first);
                 }
             }
             _ => {}

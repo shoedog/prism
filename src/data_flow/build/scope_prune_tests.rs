@@ -233,33 +233,44 @@ fn address_taken_names_keep() {
 }
 
 #[test]
-fn declarations_without_a_def_keep_the_outer_pair() {
-    // The producer emits no def for a type-switch alias or a range/receive `:=`
-    // target, so when the right-hand side reads the same name, outer def -> body
-    // use is the only path carrying the value: S keeps it.
+fn declarations_with_a_def_drop_the_outer_pair() {
+    // #694 slice A: the producer now emits a def for a type-switch alias and a range/receive
+    // `:=` target, so the value reaches the body through it and S drops the outer pair
+    // (the old categorical keep, when no def existed, is lifted).
     let ts = "package p\nfunc f(c any) {\n\tv := c\n\tswitch v := v.(type) {\n\tcase int:\n\t\tuse(v)\n\t}\n}\n";
-    check("typeswitch", ts, &[("v", 3, 4, true), ("v", 3, 6, true)]);
+    check(
+        "typeswitch",
+        ts,
+        &[("v", 3, 4, true), ("v", 3, 6, false), ("v", 4, 6, true)],
+    );
+    scope_counted("typeswitch", ts);
     let rg =
         "package p\nfunc f(c []int) {\n\tv := c\n\tfor _, v := range v {\n\t\tuse(v)\n\t}\n}\n";
-    check("range", rg, &[("v", 3, 5, true)]);
-    // A copy with no alias twin (`c := (v)`) leaves the pair as the only path too.
+    check("range", rg, &[("v", 3, 4, true), ("v", 4, 5, true)]);
     let paren = "package p\nfunc f() {\n\tv := any(7)\n\tc := (v)\n\tswitch v := c.(type) {\n\tcase int:\n\t\tprintln(v)\n\t}\n}\n";
-    check("typeswitch-paren-copy", paren, &[("v", 3, 7, true)]);
+    check(
+        "typeswitch-paren-copy",
+        paren,
+        &[("v", 3, 7, false), ("v", 5, 7, true)],
+    );
     let rc = "package p\nfunc f(c chan int) {\n\tv := c\n\tselect {\n\tcase v := <-v:\n\t\tuse(v)\n\t}\n}\n";
-    check("receive", rc, &[("v", 3, 6, true)]);
+    check("receive", rc, &[("v", 3, 5, true), ("v", 5, 6, true)]);
 }
 
 #[test]
-fn other_declarations_without_a_def_keep_the_outer_pair() {
-    // sol's binding inventory (#691): forms `BindingFacts` declares but the producer
-    // emits no def for, so the outer pair may be the only path.
-    let var2 =
-        "package p\nfunc f() {\n\tv := 7\n\t{\n\t\tvar _, v = 0, v\n\t\tprintln(v)\n\t}\n}\n";
-    check("var-second-name", var2, &[("v", 3, 6, true)]);
+fn declarations_still_without_a_def_keep_the_outer_pair() {
+    // Function-literal formals and named results keep the categorical keep (#694 slice B).
     let lit = "package p\nfunc f() {\n\tv := 7\n\tfunc(v int) {\n\t\tprintln(v)\n\t}(v)\n}\n";
     check("literal-formal", lit, &[("v", 3, 5, true)]);
     let res = "package p\nfunc f() (v int) {\n\tdefer func() { println(v) }()\n\t{\n\t\tv := 7\n\t\tc := (v)\n\t\treturn c\n\t}\n}\n";
     check("named-result", res, &[("v", 5, 3, true)]);
+    let var2 =
+        "package p\nfunc f() {\n\tv := 7\n\t{\n\t\tvar _, v = 0, v\n\t\tprintln(v)\n\t}\n}\n";
+    check(
+        "var-second-name",
+        var2,
+        &[("v", 3, 6, false), ("v", 5, 6, true)],
+    );
 }
 
 #[test]

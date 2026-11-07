@@ -12,6 +12,7 @@ mod call_membership;
 pub(crate) mod call_names;
 mod go_calls;
 mod go_compat_types;
+mod go_header_defs;
 pub(crate) mod go_receiver_walk;
 pub(crate) mod member_reference_index;
 
@@ -6030,6 +6031,7 @@ impl ParsedFile {
                 }
             }
             self.collect_assignment_span_gaps(*func_node, lines, &mut spans);
+            self.collect_go_header_def_spans(*func_node, lines, &mut spans);
             spans.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));
             return spans;
         }

@@ -294,7 +294,7 @@ impl<'a> ScopeFacts<'a> {
         let drop = !reads.is_empty()
             && reads.iter().all(|o| {
                 !o.storage
-                    && matches!(&o.binding, BindingId::Declaration(other) if *other != declaration)
+                    && matches!(&o.binding, BindingId::Declaration(other) if !built.facts.def_reaches_declaration(&BindingId::Declaration(declaration), *other))
             });
         if drop {
             stats.dfg_pruned_scope += 1;
@@ -317,9 +317,12 @@ pub(super) fn is_declaring_name(node: Node<'_>) -> bool {
     match parent.kind() {
         "var_spec" | "const_spec" => in_field(parent, "name"),
         "parameter_declaration" | "variadic_parameter_declaration" => in_field(parent, "name"),
-        "expression_list" => parent
-            .parent()
-            .is_some_and(|g| g.kind() == "short_var_declaration" && in_field(g, "left")),
+        "expression_list" => parent.parent().is_some_and(|g| match g.kind() {
+            "short_var_declaration" => in_field(g, "left"),
+            "range_clause" | "receive_statement" => has_define_token(g) && in_field(g, "left"),
+            "type_switch_statement" => in_field(g, "alias"),
+            _ => false,
+        }),
         _ => false,
     }
 }
@@ -370,6 +373,7 @@ pub(super) fn is_plain_write_site(node: Node<'_>) -> bool {
                     | "range_clause"
                     | "receive_statement"
             ) && within(g, "left")
+                || g.kind() == "type_switch_statement" && within(g, "alias")
         }),
         _ => false,
     }
@@ -377,9 +381,8 @@ pub(super) fn is_plain_write_site(node: Node<'_>) -> bool {
 
 /// Names among `multi` that rule S must keep: those whose address is taken in
 /// `owner` (the operand of a unary `&`, through parentheses, selectors, indexing
-/// and slicing, is rooted at the identifier) and every name a range/receive `:=`
-/// or type-switch alias declares (no emitted def, so outer def -> body use may
-/// be the only value path).
+/// and slicing, is rooted at the identifier), and the names of declarations the
+/// producer emits no def for (function-literal formals, named results).
 /// By name, so it covers the def's and the use's binding.
 pub(super) fn address_taken_names<'a>(
     parsed: &'a ParsedFile,
@@ -433,23 +436,10 @@ pub(super) fn address_taken_names<'a>(
                 }
             }
         }
-        // Range `:=`, receive `:=` and type-switch alias declarations have no
-        // emitted def of their own, so the outer def -> body use pair may be the
-        // only value path into the body (directly, `switch v := v.(type)`, or via
-        // a copy with no alias twin, `c := (v); switch v := c.(type)`): keep the name.
-        let declared = match node.kind() {
-            "type_switch_statement" => node
-                .child_by_field_name("alias")
-                .zip(node.child_by_field_name("value")),
-            "range_clause" | "receive_statement" if has_define_token(node) => node
-                .child_by_field_name("left")
-                .zip(node.child_by_field_name("right")),
-            _ => None,
-        };
-        // Other declarations without a producer def (sol's binding inventory, #691):
-        // `var`/`const` names beyond the first name of the first direct spec (the
-        // producer reads only that one), function-literal formals, and named
-        // results of any function (a `return` assigns them with no def).
+        // Declarations the producer still emits no def for (#694 slice B): function-literal
+        // formals and named results of any function (a `return` assigns them with
+        // no def). Range/receive `:=` targets, type-switch aliases and every
+        // `var`/`const` name now have producer defs, so S may drop the outer pair.
         let mut keep = |id: Node<'a>| {
             if id.kind() == "identifier" {
                 if let Some(found) = multi.get(parsed.node_text(&id)) {
@@ -458,33 +448,6 @@ pub(super) fn address_taken_names<'a>(
             }
         };
         match node.kind() {
-            "var_declaration" | "const_declaration" => {
-                let mut first = true;
-                let mut specs = Vec::new();
-                let mut cursor = node.walk();
-                for child in node.named_children(&mut cursor) {
-                    match child.kind() {
-                        "var_spec" | "const_spec" => specs.push((child, true)),
-                        "var_spec_list" => {
-                            let mut inner = child.walk();
-                            specs.extend(child.named_children(&mut inner).map(|c| (c, false)));
-                        }
-                        _ => {}
-                    }
-                }
-                for (spec, direct) in specs {
-                    if !matches!(spec.kind(), "var_spec" | "const_spec") {
-                        continue;
-                    }
-                    let mut names = spec.walk();
-                    for (i, name) in spec.children_by_field_name("name", &mut names).enumerate() {
-                        if !(direct && first && i == 0) {
-                            keep(name);
-                        }
-                    }
-                    first = false;
-                }
-            }
             "func_literal" | "function_declaration" | "method_declaration" => {
                 let mut lists = Vec::new();
                 if node.kind() == "func_literal" {
@@ -510,20 +473,6 @@ pub(super) fn address_taken_names<'a>(
                 }
             }
             _ => {}
-        }
-        if let Some((left, _right)) = declared {
-            let mut names = left.walk();
-            let ids: Vec<Node<'a>> = if left.kind() == "identifier" {
-                vec![left]
-            } else {
-                left.named_children(&mut names).collect()
-            };
-            for id in ids.into_iter().filter(|n| n.kind() == "identifier") {
-                let name = parsed.node_text(&id);
-                if let Some(found) = multi.get(name) {
-                    out.insert(*found);
-                }
-            }
         }
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {

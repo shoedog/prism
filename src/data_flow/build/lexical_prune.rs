@@ -159,6 +159,30 @@ impl<'a> LexicalFacts<'a> {
                         plain: true,
                     });
                 }
+                // #694 slice A: range/receive `:=` targets and type-switch aliases are plain
+                // writes of their own declaration, so a header line that only declares the
+                // name is write-only (rule U). They are never dominating writes (rule D).
+                "range_clause" | "receive_statement" | "type_switch_statement" => {
+                    let (field, declares) = if node.kind() == "type_switch_statement" {
+                        ("alias", true)
+                    } else {
+                        let mut cursor = node.walk();
+                        let declares = node.children(&mut cursor).any(|c| c.kind() == ":=");
+                        ("left", declares)
+                    };
+                    let target = node.child_by_field_name(field)?;
+                    if !declares
+                        || !(target.start_byte() <= span.start_byte
+                            && span.end_byte <= target.end_byte())
+                    {
+                        return None;
+                    }
+                    return Some(Write {
+                        span: (span.start_byte, span.end_byte),
+                        statement: node,
+                        plain: true,
+                    });
+                }
                 "inc_statement" | "dec_statement" => {
                     return Some(Write {
                         span: (span.start_byte, span.end_byte),
@@ -214,7 +238,10 @@ impl<'a> LexicalFacts<'a> {
         while let Some(region) = crate::go_statements::parent(child) {
             if is_region(region.kind()) {
                 if let Some(write) = writes.iter().rev().find(|write| {
-                    write.statement.end_byte() <= child.start_byte()
+                    !matches!(
+                        write.statement.kind(),
+                        "range_clause" | "receive_statement" | "type_switch_statement"
+                    ) && write.statement.end_byte() <= child.start_byte()
                         && crate::go_statements::parent(write.statement)
                             .is_some_and(|p| p.id() == region.id())
                 }) {
