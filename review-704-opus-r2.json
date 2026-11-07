@@ -1,0 +1,63 @@
+{
+ "lane": "review-704-opus",
+ "lib_test_prefixes": [
+  "cpg::s1c_label_tests",
+  "cpg::reaching::d2c_tests",
+  "js_write_census::captured_tests"
+ ],
+ "mutations": {
+  "opus-P1-line-placed-use-never-in-a-unit": [
+   "src/cpg/reaching/d2c.rs",
+   "Some(Placement::Region(region)) => js.groups_of(region),",
+   "Some(Placement::Region(_region)) => Vec::new(),",
+   [
+    "cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label",
+    "cpg::s1c_label_tests::binding_shape_rows",
+    "cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write",
+    "cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges"
+   ]
+  ],
+  "opus-P2-declared-target-as-outer": [
+   "src/cpg/reaching/d2c.rs",
+   "Some(d) => Target::Declared(d.scope.clone()),",
+   "Some(_) => Target::Outer(facts.binding_by_scope_at(base, start)),",
+   [
+    "cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label",
+    "cpg::s1c_label_tests::binding_shape_rows",
+    "cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write",
+    "cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges"
+   ]
+  ],
+  "opus-P3-static-block-var-scopes-enclosing-callable": [
+   "src/ast/js_write_census/captured.rs",
+   "is_callable(t, n.kind()) || n.kind() == \"class_static_block\"",
+   "is_callable(t, n.kind())",
+   [
+    "js_write_census::captured_tests::a_parameter_scopes_its_body_and_its_own_list",
+    "js_write_census::captured_tests::a_var_scopes_the_nearest_callable_body"
+   ]
+  ],
+  "opus-P4-flat-fallback-def-not-accepted": [
+   "src/cpg/reaching/d2c.rs",
+   "def == b || matches!(def, BindingId::FlatFallback(_))",
+   "def == b",
+   [
+    "cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label",
+    "cpg::s1c_label_tests::binding_shape_rows",
+    "cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write",
+    "cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges"
+   ]
+  ],
+  "opus-P5-real-use-bytes-ignored": [
+   "src/cpg/reaching/d2c.rs",
+   "if to.end_byte > to.start_byte {",
+   "if false && to.end_byte > to.start_byte {",
+   [
+    "cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label",
+    "cpg::s1c_label_tests::binding_shape_rows",
+    "cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write",
+    "cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges"
+   ]
+  ]
+ }
+}

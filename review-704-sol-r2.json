@@ -1,0 +1,88 @@
+{
+ "lane": "review-704-sol",
+ "lib_test_prefixes": [
+  "cpg::s1c_label_tests",
+  "cpg::reaching::d2c_tests",
+  "js_write_census::captured_tests"
+ ],
+ "mutations": {
+  "sol-r1-instance-field-not-captured": [
+   "src/ast/js_write_census/captured.rs",
+   "site.form != Form::Declare && (site.region.nested || site.region.instance_field)",
+   "site.form != Form::Declare && site.region.nested",
+   [
+    "js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another"
+   ]
+  ],
+  "sol-r1-body-var-scopes-default": [
+   "src/ast/js_write_census/captured.rs",
+   "owner.child_by_field_name(\"body\").map(range)",
+   "Some(range(owner))",
+   [
+    "js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default"
+   ]
+  ],
+  "sol-r1-block-function-hoisted": [
+   "src/ast/js_write_census/captured.rs",
+   "\"fn-hoist\" | \"class\" => block_scope(node.parent()?),",
+   "\"fn-hoist\" | \"class\" => var_scope(t, node),",
+   [
+    "js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block"
+   ]
+  ],
+  "sol-r1-unresolved-binding-ignored": [
+   "src/cpg/reaching/d2c.rs",
+   "Target::Outer(BindingId::FlatFallback(_)) => true,",
+   "Target::Outer(BindingId::FlatFallback(_)) => false,",
+   [
+    "cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label",
+    "cpg::s1c_label_tests::binding_shape_rows"
+   ]
+  ],
+  "sol-r1-affects-reversed": [
+   "src/cpg/reaching/d2c.rs",
+   "!super::def_buckets::affects(&level.path, &to.path)",
+   "!super::def_buckets::affects(&to.path, &level.path)",
+   [
+    "cpg::s1c_label_tests::binding_shape_rows"
+   ]
+  ],
+  "sol-r1-use-membership-ignored": [
+   "src/cpg/reaching/d2c.rs",
+   "!groups.contains(&g)",
+   "true",
+   [
+    "cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write"
+   ]
+  ],
+  "r2-tdz-visible-lookup-restored": [
+   "src/cpg/reaching/d2c.rs",
+   "Target::Outer(facts.binding_by_scope_at(base, start))",
+   "Target::Outer(facts.binding_at(base, start))",
+   [
+    "cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label",
+    "cpg::s1c_label_tests::binding_shape_rows"
+   ]
+  ],
+  "r2-outermost-shadow-instead-of-innermost": [
+   "src/ast/js_write_census/captured.rs",
+   ".min_by_key(|d| d.scope.width())",
+   ".max_by_key(|d| d.scope.width())",
+   [
+    "js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept",
+    "cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label",
+    "cpg::s1c_label_tests::binding_shape_rows"
+   ]
+  ],
+  "r2-decorator-inside-parameter-scope": [
+   "src/ast/js_write_census/captured.rs",
+   "&& !self.holes.iter().any(|&(a, b)| a <= at && at < b)",
+   "&& true",
+   [
+    "js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope",
+    "cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label",
+    "cpg::s1c_label_tests::binding_shape_rows"
+   ]
+  ]
+ }
+}
