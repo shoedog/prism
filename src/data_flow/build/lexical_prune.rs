@@ -53,6 +53,9 @@ pub(super) struct LexicalFacts<'a> {
     nested: Vec<(usize, usize)>,
     /// Python names declared `global`/`nonlocal` in the owner: D keeps them.
     scope_declared: BTreeSet<String>,
+    /// Python `self`/`cls` parameters never rebound in the owner: their attribute paths
+    /// are fixed storage for D (see `python_prune::stable_receivers`).
+    stable_receivers: BTreeSet<String>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
 impl<'a> LexicalFacts<'a> {
@@ -74,10 +77,14 @@ impl<'a> LexicalFacts<'a> {
             real_reads: BTreeMap::new(),
             nested: Vec::new(),
             scope_declared: BTreeSet::new(),
+            stable_receivers: BTreeSet::new(),
             cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
             return facts;
+        }
+        if parsed.language == Language::Python {
+            facts.stable_receivers = super::python_prune::stable_receivers(parsed, owner);
         }
         let mut boundaries = parsed.language.callable_boundary_node_types();
         if parsed.language == Language::Python {
@@ -298,19 +305,34 @@ impl<'a> LexicalFacts<'a> {
         if self.scope_declared.contains(&path.base) {
             return None;
         }
-        let writes = self.writes.get(path)?;
+        let own = self.writes.get(path)?;
+        // A stable receiver's attribute path is fixed storage: a write of the path or of
+        // any prefix of it is a write of it. Every other path compares its own writes only.
+        let mut prefixed: Vec<&Write<'a>> = own.iter().collect();
+        if self.stable_receivers.contains(&path.base) && !path.fields.is_empty() {
+            for len in 1..path.fields.len() {
+                let mut prefix = path.clone();
+                prefix.fields.truncate(len);
+                prefixed.extend(self.writes.get(&prefix).into_iter().flatten());
+            }
+        }
+        let writes = &prefixed;
         let mut child = occurrence;
         while let Some(region) = crate::go_statements::parent(child) {
             if self.is_region(region.kind()) {
-                if let Some(write) = writes.iter().rev().find(|write| {
-                    !matches!(
-                        write.statement.kind(),
-                        "range_clause" | "receive_statement" | "type_switch_statement"
-                    ) && !write.split_spec
-                        && write.statement.end_byte() <= child.start_byte()
-                        && crate::go_statements::parent(write.statement)
-                            .is_some_and(|p| p.id() == region.id())
-                }) {
+                if let Some(write) = writes
+                    .iter()
+                    .filter(|write| {
+                        !matches!(
+                            write.statement.kind(),
+                            "range_clause" | "receive_statement" | "type_switch_statement"
+                        ) && !write.split_spec
+                            && write.statement.end_byte() <= child.start_byte()
+                            && crate::go_statements::parent(write.statement)
+                                .is_some_and(|p| p.id() == region.id())
+                    })
+                    .max_by_key(|w| w.statement.start_byte())
+                {
                     let broken = self.parsed.language == Language::Go
                         && crate::go_statements::children(region, Language::Go).any(|n| {
                             n.kind() == "labeled_statement"
@@ -364,9 +386,12 @@ impl<'a> LexicalFacts<'a> {
         if !self.enabled || self.nested_at(start) {
             return true;
         }
-        // Python attribute paths are not fixed storage (a rebound base, a property
-        // setter or descriptor can intercept a write): D proves plain names only.
-        if self.parsed.language == Language::Python && !path.fields.is_empty() {
+        // Python: D proves plain names and the attribute paths of a stable `self`/`cls`
+        // parameter; any other base (a rebound name, `o.x`) may alias elsewhere.
+        if self.parsed.language == Language::Python
+            && !path.fields.is_empty()
+            && !self.stable_receivers.contains(&path.base)
+        {
             return true;
         }
         let drop = self
