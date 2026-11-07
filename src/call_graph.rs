@@ -869,8 +869,7 @@ pub struct CallGraph {
     /// derived (a package var can be declared in a different file of the
     /// same package); recomputed from scratch by `apply_go_receiver_indices`.
     #[serde(default)]
-    pub go_package_vars:
-        BTreeMap<(String, String), BTreeSet<go::receiver_index::GoTypedFact>>,
+    pub go_package_vars: BTreeMap<(String, String), BTreeSet<go::receiver_index::GoTypedFact>>,
     /// P15a-fix1: the plain (import-path-free) `GoTypeProvider` extracted once
     /// during this build, retained (Arc-backed, cheap clone) so
     /// `CpgContext::build_registry` can reuse it instead of re-extracting.
@@ -2377,10 +2376,7 @@ impl CallGraph {
         &self,
         files: &BTreeMap<String, ParsedFile>,
         stand_down: bool,
-    ) -> (
-        Vec<(FunctionId, CallSite)>,
-        go::callback::GoLevel3Telemetry,
-    ) {
+    ) -> (Vec<(FunctionId, CallSite)>, go::callback::GoLevel3Telemetry) {
         // Resolve indirect call sites (function pointer variables and dispatch
         // tables). Preserve the historical level ordering:
         // 1/2 local function pointer and array dispatch, 4 struct callbacks,
@@ -2575,9 +2571,7 @@ impl CallGraph {
                                 != crate::resolution::ResolutionConfidence::Exact
                             || resolved.resolved[0].target != &hof
                         {
-                            return Err(
-                                go::callback::GoLevel3DropReason::HofNotSingletonExact,
-                            );
+                            return Err(go::callback::GoLevel3DropReason::HofNotSingletonExact);
                         }
                         telemetry.exact_inbound_sites += 1;
                         let parameter = self
@@ -2586,9 +2580,7 @@ impl CallGraph {
                             .and_then(|parameters| {
                                 parameters.iter().find(|parameter| parameter.slot == *slot)
                             })
-                            .ok_or(
-                                go::callback::GoLevel3DropReason::MissingCallbackParameter,
-                            )?;
+                            .ok_or(go::callback::GoLevel3DropReason::MissingCallbackParameter)?;
                         record.callback_parameter = Some(parameter.name.clone());
                         let (argument, span) = arguments.get(*slot).ok_or(
                             go::callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
@@ -2596,10 +2588,10 @@ impl CallGraph {
                         let target =
                             proof.bare_free_function_at(caller, span.clone(), argument.trim())?;
                         record.target = Some(target.clone());
-                        let target_signature =
-                            self.go_free_function_signatures.get(&target).ok_or(
-                                go::callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
-                            )?;
+                        let target_signature = self
+                            .go_free_function_signatures
+                            .get(&target)
+                            .ok_or(go::callback::GoLevel3DropReason::SignatureUnprovenOrMismatch)?;
                         if !go::callback::signatures_match_strict(
                             &parameter.signature,
                             target_signature,

@@ -27,10 +27,10 @@
 //! per-file recovery would create (docs/superpowers/pipeline-lessons.md
 //! doctrine 5).
 
-use crate::ast::ParsedFile;
 use super::receiver_index_visibility::{
     resolve_go_return_type_call, unique_visible_package_var_type,
 };
+use crate::ast::ParsedFile;
 use crate::languages::Language;
 use crate::resolution::{
     dir_of, owner_key, peel_type, resolve_go_receiver_owner_identity, GoOwnerIdentity,
