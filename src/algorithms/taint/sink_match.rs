@@ -4,12 +4,20 @@ use crate::algorithms::taint::cleansing::{node_contains_line, node_in_ranges};
 use crate::algorithms::taint::go::sinks::{go_call_path_text, go_sink_outcome};
 use crate::algorithms::taint::js_ts::imports_ssrf::js_ts_ssrf_sink_call_path_matches;
 use crate::algorithms::taint::js_ts::sink_tables::js_yaml_load_call_uses_unsafe_schema;
-use crate::algorithms::taint::js_ts::sinks::{is_js_yaml_load_sink_pattern, js_ts_js_yaml_bare_load_call_matches, js_ts_sink_call_has_inline_framework_source_arg, js_ts_sink_outcome};
+use crate::algorithms::taint::js_ts::sinks::{
+    is_js_yaml_load_sink_pattern, js_ts_js_yaml_bare_load_call_matches,
+    js_ts_sink_call_has_inline_framework_source_arg, js_ts_sink_outcome,
+};
 use crate::algorithms::taint::js_ts::source_ranges::js_ts_request_source_access_ranges_for_alias_on_line;
-use crate::algorithms::taint::python::clients::{python_is_aiohttp_client_session_method_call, python_is_aiohttp_request_call, python_is_urllib3_pool_manager_request_call};
+use crate::algorithms::taint::python::clients::{
+    python_is_aiohttp_client_session_method_call, python_is_aiohttp_request_call,
+    python_is_urllib3_pool_manager_request_call,
+};
 use crate::algorithms::taint::python::sinks::python_sink_outcome;
+use crate::ast::tree_helpers::{
+    call_arg_node, call_path_matches, collect_calls, is_js_ts_language,
+};
 use crate::ast::ParsedFile;
-use crate::ast::tree_helpers::{call_arg_node, call_path_matches, collect_calls, is_js_ts_language};
 use crate::data_flow::FlowPath;
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use crate::languages::Language;
@@ -51,7 +59,11 @@ pub(crate) enum SinkMatchOutcome {
     NoMatch,
 }
 
-pub(super) fn call_literal_arg(parsed: &ParsedFile, call: &Node<'_>, arg_idx: usize) -> Option<String> {
+pub(super) fn call_literal_arg(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+    arg_idx: usize,
+) -> Option<String> {
     let arg = call_arg_node(call, arg_idx)?;
     let text = parsed.node_text(&arg).trim();
     if matches!(
@@ -129,7 +141,11 @@ pub(super) fn arg_is_tainted_in_path(
 
 /// Walk `arg_node` and any descendants for identifiers that are tainted on `path` at
 /// the identifier's own source line in `parsed`'s file. Returns true on first hit.
-pub(super) fn arg_node_taints_match(parsed: &ParsedFile, arg_node: &Node<'_>, path: &FlowPath) -> bool {
+pub(super) fn arg_node_taints_match(
+    parsed: &ParsedFile,
+    arg_node: &Node<'_>,
+    path: &FlowPath,
+) -> bool {
     match arg_node.kind() {
         // Literal kinds — definitely not tainted.
         "interpreted_string_literal"
@@ -253,7 +269,11 @@ pub(super) fn sink_call_uses_var_in_tainted_arg(
     false
 }
 
-pub(super) fn node_contains_identifier(parsed: &ParsedFile, node: &Node<'_>, var_name: &str) -> bool {
+pub(super) fn node_contains_identifier(
+    parsed: &ParsedFile,
+    node: &Node<'_>,
+    var_name: &str,
+) -> bool {
     if node.kind() == "identifier" && parsed.node_text(node) == var_name {
         return true;
     }
@@ -393,7 +413,11 @@ pub(super) fn structured_sink_outcome(
     }
 }
 
-pub(super) fn collect_assignments<'a>(node: Node<'a>, parsed: &ParsedFile, out: &mut Vec<Node<'a>>) {
+pub(super) fn collect_assignments<'a>(
+    node: Node<'a>,
+    parsed: &ParsedFile,
+    out: &mut Vec<Node<'a>>,
+) {
     if parsed.language.is_assignment_node(node.kind()) {
         out.push(node);
     }

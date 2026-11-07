@@ -1,10 +1,15 @@
 //! JS/TS import/require bindings and SSRF client matching.
 
-use crate::algorithms::taint::js_ts::bindings::{js_ts_assignment_visible_before_context, js_ts_identifier_binds_imported_member_at_call, js_ts_identifier_binds_module_at_call};
+use crate::algorithms::taint::js_ts::bindings::{
+    js_ts_assignment_visible_before_context, js_ts_identifier_binds_imported_member_at_call,
+    js_ts_identifier_binds_module_at_call,
+};
 use crate::algorithms::taint::js_ts::sinks::collect_nodes_of_kind;
-use crate::ast::ParsedFile;
 use crate::ast::tree_helpers::{call_path_matches, unwrap_parenthesized};
-use crate::frameworks::js_ts::call_classify::{collect_js_ts_assignment_like_nodes, js_ts_require_call_module};
+use crate::ast::ParsedFile;
+use crate::frameworks::js_ts::call_classify::{
+    collect_js_ts_assignment_like_nodes, js_ts_require_call_module,
+};
 use tree_sitter::Node;
 
 pub(super) fn js_ts_import_statement_binds_member(

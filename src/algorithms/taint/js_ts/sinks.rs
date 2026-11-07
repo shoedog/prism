@@ -2,17 +2,30 @@
 
 use crate::algorithms::taint::cleansing::{flow_path_cleansed_for_sink_call, node_contains_line};
 use crate::algorithms::taint::js_ts::bindings::js_ts_identifier_binds_imported_member_at_call;
-use crate::algorithms::taint::js_ts::exec_sql::{js_ts_exec_file_is_literal_binary, js_ts_prisma_tagged_template_is_safe, js_ts_sql_call_is_parametrized, js_ts_yaml_load_uses_safe_schema};
-use crate::algorithms::taint::js_ts::framework_params::{js_ts_framework_source_params, js_ts_function_params};
-use crate::algorithms::taint::js_ts::sink_tables::{JS_CWE22_SINKS, JS_CWE502_SINKS, JS_CWE78_SINKS, JS_CWE79_SINKS, JS_CWE89_SINKS, JS_CWE918_SINKS};
+use crate::algorithms::taint::js_ts::exec_sql::{
+    js_ts_exec_file_is_literal_binary, js_ts_prisma_tagged_template_is_safe,
+    js_ts_sql_call_is_parametrized, js_ts_yaml_load_uses_safe_schema,
+};
+use crate::algorithms::taint::js_ts::framework_params::{
+    js_ts_framework_source_params, js_ts_function_params,
+};
+use crate::algorithms::taint::js_ts::sink_tables::{
+    JS_CWE22_SINKS, JS_CWE502_SINKS, JS_CWE78_SINKS, JS_CWE79_SINKS, JS_CWE89_SINKS,
+    JS_CWE918_SINKS,
+};
 use crate::algorithms::taint::js_ts::source_access::node_contains_js_ts_source_access;
-use crate::algorithms::taint::sink_match::{SinkMatchOutcome, arg_node_taints_match, call_passes_sink_semantics, line_matches_structured_sink, sink_call_has_tainted_arg_in_path, sink_call_path_matches};
-use crate::ast::ParsedFile;
+use crate::algorithms::taint::sink_match::{
+    arg_node_taints_match, call_passes_sink_semantics, line_matches_structured_sink,
+    sink_call_has_tainted_arg_in_path, sink_call_path_matches, SinkMatchOutcome,
+};
 use crate::ast::tree_helpers::{call_path_text, collect_calls, is_js_ts_language};
+use crate::ast::ParsedFile;
 use crate::cpg::CodePropertyGraph;
 use crate::data_flow::FlowPath;
+use crate::frameworks::js_ts::call_classify::{
+    js_ts_assignment_target, js_ts_assignment_value, js_ts_framework_receiver_names,
+};
 use crate::frameworks::{SanitizerCategory, SinkPattern};
-use crate::frameworks::js_ts::call_classify::{js_ts_assignment_target, js_ts_assignment_value, js_ts_framework_receiver_names};
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 

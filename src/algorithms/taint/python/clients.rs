@@ -2,8 +2,8 @@
 
 use crate::algorithms::taint::python::sources::python_assignment_items;
 use crate::algorithms::taint::sink_match::collect_assignments;
-use crate::ast::ParsedFile;
 use crate::ast::tree_helpers::unwrap_parenthesized;
+use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 

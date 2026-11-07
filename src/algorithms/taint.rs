@@ -15,10 +15,13 @@ mod seeds;
 mod sink_match;
 
 pub use go::sinks::{GO_CWE22_SINKS, GO_CWE78_SINKS};
-pub use js_ts::sink_tables::{JS_CWE22_SINKS, JS_CWE502_SINKS, JS_CWE78_SINKS, JS_CWE79_SINKS, JS_CWE89_SINKS, JS_CWE918_SINKS};
+pub use js_ts::sink_tables::{
+    JS_CWE22_SINKS, JS_CWE502_SINKS, JS_CWE78_SINKS, JS_CWE79_SINKS, JS_CWE89_SINKS,
+    JS_CWE918_SINKS,
+};
 pub use python::sink_tables::{PY_CWE502_SINKS, PY_CWE79_SINKS, PY_CWE89_SINKS, PY_CWE918_SINKS};
 pub use run::slice;
-pub(crate) use sink_match::{SinkMatchOutcome, line_matches_structured_sink};
+pub(crate) use sink_match::{line_matches_structured_sink, SinkMatchOutcome};
 
 use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
@@ -251,14 +254,14 @@ struct SafeFormatHtmlBinding {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::access_path::AccessPath;
+    use crate::algorithms::taint::go::sinks::go_sink_outcome;
+    use crate::algorithms::taint::report::build_taint_chain_diagram;
     use crate::data_flow::FlowPath;
+    use crate::data_flow::{FlowEdge, VarAccessKind, VarLocation};
+    use crate::frameworks::SanitizerCategory;
     use crate::languages::Language;
     use crate::slice::NodeKind;
-    use crate::frameworks::SanitizerCategory;
-    use crate::algorithms::taint::report::build_taint_chain_diagram;
-    use crate::algorithms::taint::go::sinks::go_sink_outcome;
-    use crate::access_path::AccessPath;
-    use crate::data_flow::{FlowEdge, VarAccessKind, VarLocation};
 
     fn flow_path_to(line: usize, var_name: &str) -> FlowPath {
         let from = VarLocation {

@@ -1,15 +1,29 @@
 //! Language-neutral sanitizer, guard and CFG-reachability plumbing for structured sinks.
 
 use crate::algorithms::taint::go::sanitizers::go_path_traversal_cleansed_for_sink;
-use crate::algorithms::taint::go::sinks::{GO_CWE22_SINKS, GO_CWE78_SINKS, collect_go_calls, go_call_path_text};
-use crate::algorithms::taint::js_ts::exec_sql::{js_ts_exec_file_is_literal_binary, js_ts_sql_call_is_parametrized, js_ts_yaml_load_uses_safe_schema};
-use crate::algorithms::taint::js_ts::sanitizers::{js_ts_path_traversal_cleansed_for_sink, js_ts_ssrf_cleansed_for_sink};
+use crate::algorithms::taint::go::sinks::{
+    collect_go_calls, go_call_path_text, GO_CWE22_SINKS, GO_CWE78_SINKS,
+};
+use crate::algorithms::taint::js_ts::exec_sql::{
+    js_ts_exec_file_is_literal_binary, js_ts_sql_call_is_parametrized,
+    js_ts_yaml_load_uses_safe_schema,
+};
+use crate::algorithms::taint::js_ts::sanitizers::{
+    js_ts_path_traversal_cleansed_for_sink, js_ts_ssrf_cleansed_for_sink,
+};
 use crate::algorithms::taint::js_ts::sinks::js_ts_safe_structured_sink_call_ranges;
-use crate::algorithms::taint::python::sanitizers::{python_safe_structured_sink_call_ranges, python_ssrf_cleansed_for_sink, python_xss_cleansed_for_sink};
-use crate::algorithms::taint::python::sinks::{python_sql_call_is_parametrized, python_yaml_load_uses_safe_loader};
-use crate::algorithms::taint::sink_match::{call_passes_sink_semantics, sink_call_has_tainted_arg_in_path, sink_call_path_matches};
-use crate::ast::ParsedFile;
+use crate::algorithms::taint::python::sanitizers::{
+    python_safe_structured_sink_call_ranges, python_ssrf_cleansed_for_sink,
+    python_xss_cleansed_for_sink,
+};
+use crate::algorithms::taint::python::sinks::{
+    python_sql_call_is_parametrized, python_yaml_load_uses_safe_loader,
+};
+use crate::algorithms::taint::sink_match::{
+    call_passes_sink_semantics, sink_call_has_tainted_arg_in_path, sink_call_path_matches,
+};
 use crate::ast::tree_helpers::{call_path_text, collect_calls, is_js_ts_language};
+use crate::ast::ParsedFile;
 use crate::cpg::CodePropertyGraph;
 use crate::data_flow::FlowPath;
 use crate::frameworks::{SanitizerCategory, SinkPattern};
@@ -453,7 +467,10 @@ pub(super) fn node_in_ranges(node: &Node<'_>, ranges: &[(usize, usize)]) -> bool
 ///
 /// The walk is intraprocedural (cleanser must live in same function as source);
 /// cross-function cleansing is a Phase 1.5+ concern.
-pub(super) fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<String, ParsedFile>) {
+pub(super) fn apply_cleansers(
+    path: &mut crate::data_flow::FlowPath,
+    files: &BTreeMap<String, ParsedFile>,
+) {
     if path.edges.is_empty() {
         return;
     }

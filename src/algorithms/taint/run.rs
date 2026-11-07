@@ -1,18 +1,31 @@
 //! The taint slice entry point.
 
-use anyhow::Result;
-use crate::algorithms::taint_sinks;
-use crate::algorithms::taint::{TaintConfig, TaintSeed, matches_sink};
-use crate::algorithms::taint::cleansing::{apply_cleansers, cleansed_structured_sink_call_ranges, flow_path_cleansed_for_sink, node_in_ranges, source_line_cleansed_for_sink, structured_sink_line_cleansed_for_path};
-use crate::algorithms::taint::flat::{SINK_PATTERNS, detect_format_string_wrappers, detect_ipc_sources, detect_unquoted_expansions};
-use crate::algorithms::taint::go::sinks::{find_sink_with_inline_framework_source, go_sink_outcome};
-use crate::algorithms::taint::js_ts::sinks::{js_ts_flat_sink_identifier_has_tainted_request_source, js_ts_inline_framework_source_yaml_sink_lines};
-use crate::algorithms::taint::js_ts::source_access::{js_ts_framework_source_access_ranges_by_line, js_ts_request_source_identifier};
+use crate::algorithms::taint::cleansing::{
+    apply_cleansers, cleansed_structured_sink_call_ranges, flow_path_cleansed_for_sink,
+    node_in_ranges, source_line_cleansed_for_sink, structured_sink_line_cleansed_for_path,
+};
+use crate::algorithms::taint::flat::{
+    detect_format_string_wrappers, detect_ipc_sources, detect_unquoted_expansions, SINK_PATTERNS,
+};
+use crate::algorithms::taint::go::sinks::{
+    find_sink_with_inline_framework_source, go_sink_outcome,
+};
+use crate::algorithms::taint::js_ts::sinks::{
+    js_ts_flat_sink_identifier_has_tainted_request_source,
+    js_ts_inline_framework_source_yaml_sink_lines,
+};
+use crate::algorithms::taint::js_ts::source_access::{
+    js_ts_framework_source_access_ranges_by_line, js_ts_request_source_identifier,
+};
 use crate::algorithms::taint::js_ts::source_ranges::js_ts_framework_source_target_ranges_by_line;
 use crate::algorithms::taint::python::sinks::python_sink_with_inline_flask_source;
-use crate::algorithms::taint::report::{build_taint_chain_diagram, keep_best_evidence, source_line_text};
+use crate::algorithms::taint::report::{
+    build_taint_chain_diagram, keep_best_evidence, source_line_text,
+};
 use crate::algorithms::taint::seeds::{detect_framework_sources, synthesize_target_seed_paths};
-use crate::algorithms::taint::sink_match::{SinkMatchOutcome, structured_sink_outcome};
+use crate::algorithms::taint::sink_match::{structured_sink_outcome, SinkMatchOutcome};
+use crate::algorithms::taint::{matches_sink, TaintConfig, TaintSeed};
+use crate::algorithms::taint_sinks;
 use crate::ast::tree_helpers::is_js_ts_language;
 use crate::cpg::CpgContext;
 use crate::data_flow::FlowPath;
@@ -20,6 +33,7 @@ use crate::diff::{DiffBlock, DiffInput, ModifyType};
 use crate::finding_confidence::EvidencePath;
 use crate::languages::Language;
 use crate::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
+use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub fn slice(

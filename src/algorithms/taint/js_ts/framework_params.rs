@@ -1,11 +1,15 @@
 //! JS/TS framework route handlers, decorators and request parameters.
 
 use crate::access_path::AccessPath;
-use crate::algorithms::taint::{JsTsAliasDef, JsTsParam, TaintSeed};
 use crate::algorithms::taint::js_ts::request_aliases::js_ts_request_data_assignment_sources;
-use crate::ast::ParsedFile;
+use crate::algorithms::taint::{JsTsAliasDef, JsTsParam, TaintSeed};
 use crate::ast::tree_helpers::unwrap_parenthesized;
-use crate::frameworks::js_ts::call_classify::{collect_js_ts_call_nodes, js_ts_call_or_new_callee, js_ts_framework_receiver_names, js_ts_framework_route_method, js_ts_receiver_expr_is_framework_instance, js_ts_receiver_expr_is_route_builder};
+use crate::ast::ParsedFile;
+use crate::frameworks::js_ts::call_classify::{
+    collect_js_ts_call_nodes, js_ts_call_or_new_callee, js_ts_framework_receiver_names,
+    js_ts_framework_route_method, js_ts_receiver_expr_is_framework_instance,
+    js_ts_receiver_expr_is_route_builder,
+};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 

@@ -107,7 +107,11 @@ fn evidence_rank(evidence: &EvidencePath) -> u8 {
     }
 }
 
-pub(super) fn keep_best_evidence<K: Ord>(map: &mut BTreeMap<K, EvidencePath>, key: K, evidence: EvidencePath) {
+pub(super) fn keep_best_evidence<K: Ord>(
+    map: &mut BTreeMap<K, EvidencePath>,
+    key: K,
+    evidence: EvidencePath,
+) {
     match map.get(&key) {
         Some(current) if evidence_rank(current) >= evidence_rank(&evidence) => {}
         _ => {

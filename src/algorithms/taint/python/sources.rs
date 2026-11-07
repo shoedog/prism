@@ -1,9 +1,11 @@
 //! Python framework request sources (Flask, Django, FastAPI, pydantic).
 
 use crate::access_path::AccessPath;
-use crate::algorithms::taint::{PythonDjangoRequestDataSources, PythonFlaskRequestDataSources, PythonParam, TaintSeed};
-use crate::ast::ParsedFile;
+use crate::algorithms::taint::{
+    PythonDjangoRequestDataSources, PythonFlaskRequestDataSources, PythonParam, TaintSeed,
+};
 use crate::ast::tree_helpers::call_path_text;
+use crate::ast::ParsedFile;
 use crate::languages::Language;
 use std::collections::BTreeSet;
 use tree_sitter::Node;

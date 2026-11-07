@@ -1,17 +1,24 @@
 //! Framework source detection dispatch and target-scoped seed synthesis.
 
 use crate::access_path::AccessPath;
-use crate::algorithms::taint::{TaintSeed, TargetSeedSynthesisContext};
 use crate::algorithms::taint::cleansing::node_contains_line;
 use crate::algorithms::taint::go::sinks::detect_go_framework_sources;
-use crate::algorithms::taint::js_ts::alias_edges::{js_ts_request_source_seed_framework_and_params, js_ts_seed_is_koa_request_object_alias, js_ts_variable_reference_ranges_scoped, synthesize_js_ts_assignment_alias_edges};
+use crate::algorithms::taint::js_ts::alias_edges::{
+    js_ts_request_source_seed_framework_and_params, js_ts_seed_is_koa_request_object_alias,
+    js_ts_variable_reference_ranges_scoped, synthesize_js_ts_assignment_alias_edges,
+};
 use crate::algorithms::taint::js_ts::framework_params::detect_js_ts_framework_sources;
-use crate::algorithms::taint::js_ts::request_aliases::{js_ts_seed_scope_contains, js_ts_seed_scope_contains_range};
+use crate::algorithms::taint::js_ts::request_aliases::{
+    js_ts_seed_scope_contains, js_ts_seed_scope_contains_range,
+};
 use crate::algorithms::taint::js_ts::source_access::node_contains_js_ts_source_access_on_line_with_request_object_aliases;
 use crate::algorithms::taint::js_ts::source_ranges::js_ts_request_source_access_ranges_for_alias_on_line;
-use crate::algorithms::taint::python::sources::{detect_python_framework_sources, python_is_inner_decorated_function};
-use crate::ast::ParsedFile;
+use crate::algorithms::taint::python::sources::{
+    detect_python_framework_sources, python_is_inner_decorated_function,
+};
+use crate::algorithms::taint::{TaintSeed, TargetSeedSynthesisContext};
 use crate::ast::tree_helpers::is_js_ts_language;
+use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
 use crate::data_flow::{FlowEdge, FlowPath, VarAccessKind, VarLocation};
 use crate::languages::Language;
@@ -35,7 +42,11 @@ pub(super) fn detect_framework_sources(ctx: &CpgContext) -> Vec<TaintSeed> {
     sources
 }
 
-pub(super) fn synthesize_target_seed_paths(seeds: &[TaintSeed], ctx: &CpgContext, paths: &mut Vec<FlowPath>) {
+pub(super) fn synthesize_target_seed_paths(
+    seeds: &[TaintSeed],
+    ctx: &CpgContext,
+    paths: &mut Vec<FlowPath>,
+) {
     for seed in seeds {
         let target = match &seed.target {
             Some(t) => t,

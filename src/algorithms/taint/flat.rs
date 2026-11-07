@@ -5,7 +5,6 @@ use crate::cpg::CpgContext;
 use crate::diff::DiffInput;
 use crate::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
-use tree_sitter::Node;
 
 /// Built-in taint sink patterns matched against AST identifier nodes.
 ///
