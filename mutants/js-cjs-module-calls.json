@@ -4,19 +4,19 @@
  "lib_test_prefixes": [],
  "mutations": {
   "CJS01-default-read-from-members": [
-   "src/resolution_js_cjs.rs",
+   "src/resolution/js_ts/cjs.rs",
    "None => (\"default\", facts.cjs_module_callable.as_ref()?),",
    "None => (\"default\", facts.cjs_callables.get(\"default\")?),",
    "js_cjs_module_calls_refusal_test::producer_refusals_keep_main"
   ],
   "CJS02-member-reads-module-value": [
-   "src/resolution_js_cjs.rs",
+   "src/resolution/js_ts/cjs.rs",
    "Some(member) => (member.as_str(), facts.cjs_callables.get(member)?),",
    "Some(member) => (\"default\", facts.cjs_module_callable.as_ref()?),",
    "js_cjs_module_calls_refusal_test::producer_refusals_keep_main"
   ],
   "CJS03-anonymous-caller-admitted": [
-   "src/resolution_js_cjs.rs",
+   "src/resolution/js_ts/cjs.rs",
    "if crate::anon_owner::is_anonymous_owner_name(&site.caller.name) {\n            return None;\n        }",
    "if false {\n            return None;\n        }",
    "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
@@ -94,7 +94,7 @@
    "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
   ],
   "CJS16-route-not-followed": [
-   "src/resolution_js_cjs.rs",
+   "src/resolution/js_ts/cjs.rs",
    "outcome.via_alias_route = true;",
    "",
    "js_cjs_module_calls_test::proven_sites_are_followed_and_counted_once"

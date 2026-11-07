@@ -1,6 +1,6 @@
 //! P1: conservative paths-only module proof for named/default ESM import members.
-use crate::js_paths_snapshot::JsPathsSnapshot;
-use crate::js_paths_syntax::{dir, exclude_matches, jsonc, norm, pattern_matches};
+use super::paths_snapshot::JsPathsSnapshot;
+use super::paths_syntax::{dir, exclude_matches, jsonc, norm, pattern_matches};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -414,7 +414,7 @@ impl<'a> Resolver<'a> {
         let q = self.prove_path(&p, indexed)?;
         if js_family(&q)
             && (c.options.get("allowJs").and_then(Value::as_bool) != Some(true)
-                || !crate::js_paths_first_pass::absent(
+                || !super::paths_first_pass::absent(
                     self.snapshot,
                     file,
                     spec,
@@ -487,7 +487,7 @@ impl<'a> Resolver<'a> {
             self.prove_path(&p, indexed)?
         };
         if js_family(&q)
-            && (!allow_js || !crate::js_paths_first_pass::relative_absent(self.snapshot, &p))
+            && (!allow_js || !super::paths_first_pass::relative_absent(self.snapshot, &p))
         {
             return None;
         }

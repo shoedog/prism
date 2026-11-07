@@ -7,8 +7,8 @@
 //! 46298-46445: ancestor files/directories, @types and paths substitutions;
 //! 44284-44286,46573-46596: custom-root declaration lookup and mangling.
 use crate::{
-    js_paths_snapshot::JsPathsSnapshot,
-    js_paths_syntax::{dir, norm},
+    resolution::js_ts::paths_snapshot::JsPathsSnapshot,
+    resolution::js_ts::paths_syntax::{dir, norm},
 };
 use serde::{
     de::{MapAccess, Visitor},
@@ -536,7 +536,7 @@ mod tests {
     #[test]
     fn native_version_range_parity() {
         let cases: Vec<(String, Option<bool>)> = serde_json::from_str(include_str!(
-            "../tests/integration/fixtures/js_paths_first_pass_ranges.json"
+            "../../../tests/integration/fixtures/js_paths_first_pass_ranges.json"
         ))
         .unwrap();
         for (range, expected) in cases {
@@ -546,7 +546,7 @@ mod tests {
     #[test]
     fn native_whitespace_population() {
         let expected: Vec<u32> = serde_json::from_str(include_str!(
-            "../tests/integration/fixtures/js_paths_version_whitespace.json"
+            "../../../tests/integration/fixtures/js_paths_version_whitespace.json"
         ))
         .unwrap();
         for code in 0..=0x10ffff {

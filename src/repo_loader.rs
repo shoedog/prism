@@ -67,7 +67,8 @@ pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
     let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
     // The ambient scan reads only the filesystem. Taking it before the source
     // parse lets the parse reuse the pages its dropped parse trees freed.
-    let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
+    let js_paths_snapshot =
+        crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot::capture(root);
     let outcomes = parse_candidates_parallel(candidates);
     Ok(merge_walk_items(
         root,
@@ -81,7 +82,8 @@ pub fn load_repo(root: &Path) -> Result<LoadedRepo> {
 #[cfg_attr(not(test), allow(dead_code))] // parity twin: used by the in-module loader test
 pub(crate) fn load_repo_serial_reference(root: &Path) -> Result<LoadedRepo> {
     let (items, candidates, manifest_snapshot) = collect_walk_items(root)?;
-    let js_paths_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(root);
+    let js_paths_snapshot =
+        crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot::capture(root);
     let outcomes = parse_candidates_serial(candidates);
     Ok(merge_walk_items(
         root,
@@ -145,7 +147,7 @@ fn merge_walk_items(
     items: Vec<MergeItem>,
     outcomes: Vec<ParseOutcome>,
     manifest_snapshot: ManifestSnapshot,
-    js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
+    js_paths_snapshot: crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot,
 ) -> LoadedRepo {
     let mut files = BTreeMap::new();
     let mut file_hashes = BTreeMap::new();
@@ -232,7 +234,7 @@ pub(crate) fn scope_graph_build_inputs_with_listing(
         root,
         files,
         collect_manifest_snapshot(root),
-        crate::js_paths_snapshot::JsPathsSnapshot::capture(root),
+        crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot::capture(root),
     )
 }
 
@@ -240,13 +242,13 @@ fn scope_graph_build_inputs_from_snapshot(
     root: &Path,
     files: &BTreeMap<String, ParsedFile>,
     manifest_snapshot: ManifestSnapshot,
-    js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
+    js_paths_snapshot: crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot,
 ) -> (ScopeGraphBuildInputs, SourceListing) {
     let mut manifest_hashes = manifest_snapshot.topology_hashes();
     // Prime every production proof/refusal dependency, including absent paths.
     if !js_paths_snapshot.configs.is_empty() {
         let indexed = files.keys().cloned().collect();
-        let mut resolver = crate::js_paths::Resolver::new(&js_paths_snapshot);
+        let mut resolver = crate::resolution::js_ts::paths::Resolver::new(&js_paths_snapshot);
         let mut pending = BTreeSet::new();
         for (file, parsed) in files {
             if !matches!(

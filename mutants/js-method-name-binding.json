@@ -7,7 +7,7 @@
   ],
   "mutations": {
     "MB-01-allow-property-fallback": [
-      "src/js_anonymous.rs",
+      "src/resolution/js_ts/anonymous.rs",
       "!self.js_anonymous.is_property_method(id)",
       "true",
       [
@@ -16,7 +16,7 @@
       ]
     ],
     "MB-02-forget-method-syntax": [
-      "src/js_anonymous.rs",
+      "src/resolution/js_ts/anonymous.rs",
       "owner.kind() == \"method_definition\"",
       "false",
       "js_method_name_binding_test::supplied_identity_fixtures"
@@ -28,7 +28,7 @@
       "js_method_name_binding_test::unresolved_values_never_bind_property_method_names"
     ],
     "MB-05-lose-unrelated-negative-facts": [
-      "src/js_anonymous.rs",
+      "src/resolution/js_ts/anonymous.rs",
       "let property_methods = std::mem::take(&mut proof.property_methods);",
       "let property_methods = BTreeSet::new();",
       "js_method_name_binding_test::property_exclusion_survives_cache_hits_and_unrelated_partial_rebuilds"
@@ -40,7 +40,7 @@
       "js_method_name_binding_test::proven_outer_bindings_and_named_function_expressions_keep_exact"
     ],
     "MB-08-super-is-not-an-identifier": [
-      "src/js_anonymous.rs",
+      "src/resolution/js_ts/anonymous.rs",
       "id.name == \"super\" || !self.js_anonymous.is_property_method(id)",
       "!self.js_anonymous.is_property_method(id)",
       "js_alias_matrix_test::matrix_matches_pinned_expectations"
@@ -82,43 +82,43 @@
       ]
     ],
     "MB-14-allow-expression-outside-body": [
-      "src/js_anonymous.rs",
+      "src/resolution/js_ts/anonymous.rs",
       ".is_none_or(|proof| proof.expression_scopes.visible_at(id, site))",
       ".is_none_or(|_| true)",
       "js_named_function_scope_test::outside_body_never_binds_expression_name"
     ],
     "MB-15-lose-expression-scope-on-partial-hit": [
-      "src/js_anonymous.rs",
+      "src/resolution/js_ts/anonymous.rs",
       "let expression_scopes = std::mem::take(&mut proof.expression_scopes);",
       "let expression_scopes = Default::default();",
       "js_named_function_scope_test::expression_scope_survives_full_and_partial_cache_hits"
     ],
     "MB-16-forget-expression-scope": [
-      "src/js_anonymous.rs",
+      "src/resolution/js_ts/anonymous.rs",
       "proof.expression_scopes.record(owner, &id);",
       "let _ = owner;",
       "js_named_function_scope_test::expression_name_does_not_escape_to_other_files"
     ],
     "MB-17-refuse-expression-body-fallback": [
-      "src/js_anonymous/function_expression.rs",
+      "src/resolution/js_ts/anonymous/function_expression.rs",
       "id.file == site.caller.file",
       "false",
       "js_named_function_scope_test::recursion_and_nested_callables_keep_expression_binding"
     ],
     "MB-18-exclude-expression-parameters": [
-      "src/js_anonymous/function_expression.rs",
+      "src/resolution/js_ts/anonymous/function_expression.rs",
       "regions.push((parameters.start_byte(), body.end_byte()));",
       "regions.push((body.start_byte(), body.end_byte()));",
       "js_named_function_scope_test::parameter_defaults_see_self_but_not_shadowed_or_enclosing_names"
     ],
     "MB-19-allow-private-spanless-export": [
-      "src/js_anonymous/function_expression.rs",
+      "src/resolution/js_ts/anonymous/function_expression.rs",
       "None => !self.expression_private_name(id),",
       "None => true,",
       "js_named_function_scope_test::imports_do_not_expose_private_expression_names"
     ],
     "MB-20-allow-private-namespace-spelling": [
-      "src/js_anonymous/function_expression.rs",
+      "src/resolution/js_ts/anonymous/function_expression.rs",
       ".filter(|id| self.import_expression_name_admitted(id))",
       ".filter(|_| true)",
       [
@@ -133,7 +133,7 @@
       "js_named_function_scope_test::cjs_direct_expression_values_keep_exact"
     ],
     "MB-22-refuse-proven-namespace-expression-value": [
-      "src/js_anonymous/function_expression.rs",
+      "src/resolution/js_ts/anonymous/function_expression.rs",
       "|| self\n                .js_ts_resolved_exports\n                .get(&id.file)\n                .and_then(|exports| exports.get(&id.name))",
       "|| false && self\n                .js_ts_resolved_exports\n                .get(&id.file)\n                .and_then(|exports| exports.get(&id.name))",
       "js_named_function_scope_test::cjs_direct_expression_values_keep_exact"

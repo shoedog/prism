@@ -11,13 +11,13 @@ mod cjs;
 mod function_expression;
 
 #[cfg(test)]
-#[path = "js_anonymous/sequential.rs"]
+#[path = "anonymous/sequential.rs"]
 mod sequential;
 #[cfg(test)]
-#[path = "js_anonymous/stack_tests.rs"]
+#[path = "anonymous/stack_tests.rs"]
 mod stack_tests;
 #[cfg(test)]
-#[path = "js_anonymous/parallel_tests.rs"]
+#[path = "anonymous/parallel_tests.rs"]
 mod tests;
 
 type Span = (usize, usize);

@@ -11,13 +11,18 @@
 //! the site continues as it did before this route existed. A caller that is itself an anonymous
 //! or module-level owner is not admitted here: its Exact needs the anonymous certificate, which
 //! `js_anonymous/cjs.rs` issues (#597) after the same producer proof.
-use super::{exact, CallGraph, CallSite, FunctionId, ResolutionKind, ResolutionOutcome};
 use crate::call_graph::JsLocalBinding;
+use crate::resolution::{
+    exact, CallGraph, CallSite, FunctionId, ResolutionKind, ResolutionOutcome,
+};
 
 impl CallGraph {
     /// The route for a site bound `RequireModule`, as a followed-binding hit (`via_alias_route`).
     /// `None` for every other site and wherever the proof fails.
-    pub(super) fn js_ts_cjs_route(&self, site: &CallSite) -> Option<ResolutionOutcome<'_>> {
+    pub(in crate::resolution) fn js_ts_cjs_route(
+        &self,
+        site: &CallSite,
+    ) -> Option<ResolutionOutcome<'_>> {
         if crate::anon_owner::is_anonymous_owner_name(&site.caller.name) {
             return self.anonymous_cjs_route(site);
         }
@@ -30,7 +35,7 @@ impl CallGraph {
     }
 
     /// The proof itself; see the module comment. Read by the alias route's `RequireModule` arm.
-    pub(super) fn js_ts_cjs_module_outcome(
+    pub(in crate::resolution) fn js_ts_cjs_module_outcome(
         &self,
         site: &CallSite,
     ) -> Option<ResolutionOutcome<'_>> {

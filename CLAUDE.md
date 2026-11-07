@@ -431,7 +431,7 @@ callable the producer's CommonJS exports prove: `m(..)` for `const|let|var m = r
 `module.exports = { f }`, `{ f: g }`, `module.exports.f = f`, `exports.f = f` (or a function expression member, named `g` with any `f`: #627), `module.exports = function g() {}` and `{ f: function g() {} }` (a named function expression written in place; the target is the indexed callable with the expression's own bytes, never a same-spelled declaration; anonymous, arrow, parenthesized and generator values, a duplicate or mutated export object, and any producer with an ESM export refuse these forms; ESM importers of a CJS producer gain these facts too, as they have for declared exports),
 and `f(..)` for `const|let|var f = require('./x').f`. The proof is `JsExportFacts::cjs_callables`/`cjs_module_callable`
 (`src/ast/js_cjs_terminal.rs`), recorded only behind the export-object barrier and the terminal proof, in a file with no
-ESM export (a file with a program-level `export`, TS `export =` included, is an ES module: its `exports`/`module` writes are no export claim for any consumer form, require, destructured, `.f`, ESM import or namespace, #664; an `export` only inside a namespace does not count); the route is `src/resolution_js_cjs.rs`, the binder `src/ast/js_cjs_module_calls.rs`. The declaration must be
+ESM export (a file with a program-level `export`, TS `export =` included, is an ES module: its `exports`/`module` writes are no export claim for any consumer form, require, destructured, `.f`, ESM import or namespace, #664; an `export` only inside a namespace does not count); the route is `src/resolution/js_ts/cjs.rs`, the binder `src/ast/js_cjs_module_calls.rs`. The declaration must be
 a direct statement of the program, unwritten and unshadowed, with one plain relative string literal and a `require`
 proved unshadowed at its own occurrence (no declaration, no write, no enclosing `with` body); a member site `m.f(..)` is
 also refused when the consumer file writes `m.f`, any `m[..]`, or passes `m` first to `Object.assign`/`defineProperty`/
@@ -443,7 +443,7 @@ exports, `exports.default` (not the module value), ESM producers and `new m()` k
 edge. A proven site replaces earlier NameOnly or indirect records at that site, as slice L does (an R6 single-owner
 method of an unrelated class becomes the Exact export; textual indirect records for the same member stand down for the one
 Source record).
-An anonymous or module-level caller (#597) is admitted by its own route (`src/js_anonymous/cjs.rs`, evidence
+An anonymous or module-level caller (#597) is admitted by its own route (`src/resolution/js_ts/anonymous/cjs.rs`, evidence
 `src/ast/js_cjs_anonymous.rs`, recorded in the proof index) only for a binding that is a direct top-level `const` or
 `var` statement of the program (owner 2026-11-04 admitted `var`; `let` stays out), declared once in the resolved
 program scope (hoisted declarations count: a second declaration of the name at program scope, or a `var` of it in a

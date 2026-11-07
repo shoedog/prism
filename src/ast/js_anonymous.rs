@@ -3,7 +3,7 @@ use super::js_binding::{classified, is_class, JsBindingCache};
 use super::js_binding_walk::{e_rule, field_of, Pos, Walk};
 use super::ParsedFile;
 use crate::call_graph::ImportBinding;
-use crate::js_anonymous::{Environment, ImportEvidence};
+use crate::resolution::js_ts::anonymous::{Environment, ImportEvidence};
 use tree_sitter::Node;
 
 fn anonymous_first_expression(node: Node<'_>) -> Option<Node<'_>> {

@@ -1,5 +1,5 @@
 //! Bounded tolerant ambient scan and configuration/occupancy snapshot for P1.
-#[path = "js_paths_boundary.rs"]
+#[path = "paths_boundary.rs"]
 mod boundary;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -391,7 +391,7 @@ impl JsPathsSnapshot {
         self.external_modules.values().all(|kind| *kind == 0)
     }
     pub(crate) fn input_path(&self, base: &str, path: &str) -> Option<String> {
-        use crate::js_paths_syntax::norm;
+        use super::paths_syntax::norm;
         let p = if path.starts_with('/') {
             // Normalize before checking containment: root/../outside is outside.
             let absolute = norm("", path.trim_start_matches('/'))?;
@@ -481,7 +481,7 @@ impl JsPathsSnapshot {
         if suffix.contains("..") || suffix.contains(':') || suffix.contains('\\') {
             return TypeInput::Unsafe;
         }
-        let directory = crate::js_paths_syntax::dir(prefix);
+        let directory = super::paths_syntax::dir(prefix);
         self.classify_path(base, if directory.is_empty() { "." } else { directory })
     }
     pub(crate) fn covered_type(&self, base: &str, name: &str, roots: Option<&[String]>) -> bool {
@@ -538,7 +538,7 @@ impl JsPathsSnapshot {
                     TypeInput::Unsafe
                 };
             }
-            directory = crate::js_paths_syntax::dir(directory);
+            directory = super::paths_syntax::dir(directory);
         }
     }
     pub(crate) fn reference_covered(
@@ -610,7 +610,7 @@ impl JsPathsSnapshot {
                     continue;
                 };
                 for target in redirects {
-                    let base = crate::js_paths_syntax::dir(file);
+                    let base = super::paths_syntax::dir(file);
                     let input = self.covered_redirect(base, target);
                     self.record_input(base, target, &input);
                     match input {
@@ -644,7 +644,7 @@ impl JsPathsSnapshot {
             };
             for (file, references) in references {
                 for (kind, name) in references {
-                    let base = crate::js_paths_syntax::dir(file);
+                    let base = super::paths_syntax::dir(file);
                     let input = if kind == "path" {
                         self.classify_path(base, name)
                     } else {
@@ -734,7 +734,7 @@ fn keyword<'a>(s: &'a str, word: &str) -> Option<&'a str> {
 }
 // Return decoded name and remaining input. An unsupported or malformed name
 // is skipped by the tolerant ambient scan.
-pub(super) fn literal(s: &str) -> Option<(String, &str)> {
+pub(crate) fn literal(s: &str) -> Option<(String, &str)> {
     let quote = s.chars().next()?;
     if !matches!(quote, '\'' | '"') {
         return None;
@@ -818,7 +818,7 @@ pub(super) fn literal(s: &str) -> Option<(String, &str)> {
 // A `declare` occurrence can only yield a pattern or a skip after passing the
 // identifier, keyword and trivia checks below; the literal exclusion only
 // removes occurrences. Without any such occurrence the parse cannot matter.
-pub(super) fn ambient_candidate(source: &str) -> bool {
+pub(crate) fn ambient_candidate(source: &str) -> bool {
     source.match_indices("declare").any(|(start, _)| {
         !(start > 0 && source[..start].chars().next_back().is_some_and(identifier))
             && keyword(&source[start..], "declare")

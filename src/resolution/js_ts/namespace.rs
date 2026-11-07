@@ -1,12 +1,12 @@
 //! S1b-4 namespace R3 and its scoped E7 module fallback.
-use super::{
+use crate::call_graph::{js_ts_literal_module_candidates, resolve_js_ts_relative_module};
+use crate::resolution::{
     CallGraph, CallSite, ResolutionConfidence, ResolutionKind, ResolutionOutcome, ResolvedCallee,
 };
-use crate::call_graph::{js_ts_literal_module_candidates, resolve_js_ts_relative_module};
 use std::collections::BTreeSet;
 
 impl CallGraph {
-    pub(super) fn js_ts_namespace_outcome<'a>(
+    pub(in crate::resolution) fn js_ts_namespace_outcome<'a>(
         &'a self,
         module: &str,
         member: &str,

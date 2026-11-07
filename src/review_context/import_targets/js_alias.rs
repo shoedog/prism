@@ -13,9 +13,9 @@
 //! later parent overrides only the fields it sets). A package `extends`
 //! (`@tsconfig/...`) is outside the repo and ignored.
 use crate::call_graph::js_ts_relative_module_candidates;
-use crate::js_paths_snapshot::JsPathsSnapshot;
-use crate::js_paths_syntax::{dir, jsonc, norm};
 use crate::repo_loader::BUILTIN_SKIP_DIRS;
+use crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot;
+use crate::resolution::js_ts::paths_syntax::{dir, jsonc, norm};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 

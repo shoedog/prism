@@ -56,12 +56,7 @@ pub mod finding_confidence;
 pub mod framework_entries;
 pub mod frameworks;
 mod go_statements;
-mod js_anonymous;
 pub mod js_exports;
-mod js_paths;
-mod js_paths_first_pass;
-pub mod js_paths_snapshot;
-mod js_paths_syntax;
 pub mod js_returns;
 pub mod js_ts_props;
 #[path = "ast/js_write_census.rs"]

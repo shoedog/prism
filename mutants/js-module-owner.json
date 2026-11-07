@@ -48,7 +48,7 @@
       "js_module_owner_test::exclusions_and_named_claim_precedence"
     ],
     "M08-exact-boundary": [
-      "src/js_anonymous.rs",
+      "src/resolution/js_ts/anonymous.rs",
       "if !anonymous(site) {\n            return outcome;\n        }",
       "if !anonymous(site) || crate::anon_owner::is_module_owner_name(&site.caller.name) {\n            return outcome;\n        }",
       "anon_owner::module_tests::module_exact_needs_unchanged_barrier_certificate"

@@ -66,7 +66,7 @@ fn check(route: &'static str, test: &str) {
 fn proofs_public_constructor_stack_safety() {
     check(
         "proofs",
-        "js_anonymous::stack_tests::proofs_public_constructor_stack_safety",
+        "resolution::js_ts::anonymous::stack_tests::proofs_public_constructor_stack_safety",
     );
 }
 
@@ -74,6 +74,6 @@ fn proofs_public_constructor_stack_safety() {
 fn facts_public_constructor_stack_safety() {
     check(
         "facts",
-        "js_anonymous::stack_tests::facts_public_constructor_stack_safety",
+        "resolution::js_ts::anonymous::stack_tests::facts_public_constructor_stack_safety",
     );
 }
