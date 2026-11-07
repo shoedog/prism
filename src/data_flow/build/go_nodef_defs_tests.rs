@@ -313,16 +313,18 @@ fn single_line_headers_still_drop_the_outer_pair() {
 }
 
 #[test]
-fn multiline_literal_without_reads_is_not_split() {
-    // The right-hand side spans lines but reads no identifier: nothing to connect, S drops.
+fn multiline_literal_range_is_split() {
+    // Any right-hand token on another row splits the header (fold 2): the pair stays as on main.
     let src = "package p\nfunc f(xs []int) {\n\tv := xs\n\tfor _, v := range []int{\n\t\t1,\n\t\t2,\n\t} {\n\t\tuse(v)\n\t}\n}\n";
-    check("lit-range", src, &[("v", 3, 8, false)]);
+    check("lit-range", src, &[("v", 3, 8, true)]);
 }
 
 #[test]
-fn split_header_keeps_only_defs_that_feed_its_right_hand_side() {
-    // The `if`-local `v` (line 5) is a different declaration the header's `v` (line 9) does not
-    // read: dropped as on a one-line header. The outer `v` (line 3) feeds it: kept.
+fn split_header_keeps_every_pair_of_its_name() {
+    // Fold 2: a split header keeps main's categorical exemption, so the `if`-local `v` (line 5)
+    // keeps its pair with the header's use too, as on main; the one-line form drops both.
     let src = "package p\nfunc f(xs []int, c bool) {\n\tv := xs\n\tif c {\n\t\tv := xs\n\t\tuse(v)\n\t}\n\tfor _, v := range\n\t\tv {\n\t\tuse(v)\n\t}\n}\n";
-    check("feeds", src, &[("v", 3, 10, true), ("v", 5, 10, false)]);
+    check("keeps", src, &[("v", 3, 10, true), ("v", 5, 10, true)]);
+    let one = "package p\nfunc f(xs []int, c bool) {\n\tv := xs\n\tif c {\n\t\tv := xs\n\t\tuse(v)\n\t}\n\tfor _, v := range v {\n\t\tuse(v)\n\t}\n}\n";
+    check("one", one, &[("v", 3, 9, false), ("v", 5, 9, false)]);
 }

@@ -54,9 +54,6 @@ struct Built<'a> {
     defs_on_line: BTreeMap<LineKey, Vec<usize>>,
     /// Identifier nodes by `(name, line)`.
     identifiers: BTreeMap<LineKey, Vec<Node<'a>>>,
-    /// Defs at the identifiers of split headers/specs (`scope_split`) with the right-hand
-    /// reads: a def that feeds one of those reads keeps its pair with the declaration's uses.
-    split_defs: Vec<(usize, Vec<(usize, String)>)>,
 }
 
 impl<'a> ScopeFacts<'a> {
@@ -95,21 +92,13 @@ impl<'a> ScopeFacts<'a> {
             def_index: BTreeMap::new(),
             defs_on_line: BTreeMap::new(),
             identifiers: BTreeMap::new(),
-            split_defs: Vec::new(),
         };
-        let split = super::scope_split::split_targets(self.parsed, self.owner);
         for (index, def) in self
             .defs
             .iter()
             .enumerate()
             .filter(|(_, d)| !d.alias_derived)
         {
-            if let Some(reads) = split
-                .get(&def.start_byte)
-                .filter(|_| def.path.fields.is_empty())
-            {
-                built.split_defs.push((index, reads.clone()));
-            }
             built
                 .def_index
                 .insert((def.start_byte, def.path.clone()), index);
@@ -307,15 +296,7 @@ impl<'a> ScopeFacts<'a> {
             && reads.iter().all(|o| {
                 !o.storage
                     && matches!(&o.binding, BindingId::Declaration(other)
-                    if !built.facts.def_reaches_declaration(def_index, *other)
-                        && !built.split_defs.iter().any(|(s, rhs)| {
-                            built.facts.def_reaches_declaration(*s, *other)
-                                && rhs.iter().any(|(byte, name)| {
-                                    *name == path.base
-                                        && built.facts.binding_at(name, *byte)
-                                            == *built.facts.binding_of_def(def_index)
-                                })
-                        }))
+                    if !built.facts.def_reaches_declaration(def_index, *other))
             });
         if drop {
             stats.dfg_pruned_scope += 1;
@@ -460,7 +441,8 @@ pub(super) fn address_taken_names<'a>(
         // Declarations the producer still emits no def for (#694 slice B): function-literal
         // formals and named results of any function (a `return` assigns them with
         // no def). Range/receive `:=` targets, type-switch aliases and every
-        // `var`/`const` name now have producer defs, so S may drop the outer pair.
+        // `var`/`const` name now have producer defs, so S may drop the outer pair, except
+        // for a split header or spec (below).
         let mut keep = |id: Node<'a>| {
             if id.kind() == "identifier" {
                 if let Some(found) = multi.get(parsed.node_text(&id)) {
@@ -468,6 +450,10 @@ pub(super) fn address_taken_names<'a>(
                 }
             }
         };
+        // A split header or spec keeps main's behaviour (`scope_split`, #728).
+        for id in super::scope_split::split_declared(node) {
+            keep(id);
+        }
         match node.kind() {
             "func_literal" | "function_declaration" | "method_declaration" => {
                 let mut lists = Vec::new();

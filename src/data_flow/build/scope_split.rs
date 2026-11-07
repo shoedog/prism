@@ -1,39 +1,27 @@
-//! Rule S exemption for split declaration headers (#694 slice A, fold 1).
+//! Split declaration headers keep main's behaviour (#694 slice A, fold 2; owner decision
+//! 2026-11-07, the real fix is #728).
 //!
-//! Queries and taint connect a Use to a Def only on one line. A range/receive `:=`,
-//! type-switch alias or `var`/`const` spec whose target identifier sits on a different
-//! line than some part of its right-hand side has no connected replacement path
-//! (a right-hand read on line N never reaches the new def on line M), so the outer
-//! def's pair with the body use is the only path left and S must keep it. Only a def that
-//! feeds one of those right-hand reads is that outer def; an unrelated declaration is not.
-use crate::ast::ParsedFile;
-use std::collections::BTreeMap;
+//! Queries and taint connect a Use to a Def only on one line. A range/receive `:=`, a
+//! type-switch alias or a `var`/`const` spec is *split* when any token of its right-hand side
+//! (the range expression, the received channel expression, the asserted expression, the spec's
+//! values) is on a different row from any of its declared names: a right-hand read on row N
+//! never reaches the new def on row M, so no replacement path exists. Such a header keeps
+//! main's categorical exemption: rule S and rule O keep every pair of a name it declares
+//! (`address_taken_names`), and rule D never takes a split spec as a dominating write.
+//! Rule U keeps its declare-only anchor handling: the anchor line holds only the declaration,
+//! and the kept S pair carries the outer value to the body use.
 use tree_sitter::Node;
 
-/// Declared identifier start byte -> the right-hand identifier reads `(start byte, name)`.
-pub(super) type SplitTargets = BTreeMap<usize, Vec<(usize, String)>>;
-
-/// Start bytes of the declared identifiers of every header or spec in `owner` whose right-hand
-/// side reads an identifier on a line other than the declared name's.
-pub(super) fn split_targets(parsed: &ParsedFile, owner: Node<'_>) -> SplitTargets {
-    let mut out = BTreeMap::new();
-    walk(parsed, owner, &mut out);
-    out
-}
-
-fn walk(parsed: &ParsedFile, node: Node<'_>, out: &mut SplitTargets) {
-    let (target, rhs) = match node.kind() {
+/// The declared identifiers of `node` when it is a split header or spec, else empty.
+pub(super) fn split_declared(node: Node<'_>) -> Vec<Node<'_>> {
+    let (names, rhs) = match node.kind() {
         "range_clause" | "receive_statement" => {
             let mut cursor = node.walk();
             let declares = node.children(&mut cursor).any(|c| c.kind() == ":=");
-            if declares {
-                (
-                    node.child_by_field_name("left"),
-                    node.child_by_field_name("right"),
-                )
-            } else {
-                (None, None)
-            }
+            (
+                node.child_by_field_name("left").filter(|_| declares),
+                node.child_by_field_name("right"),
+            )
         }
         "type_switch_statement" => (
             node.child_by_field_name("alias"),
@@ -41,56 +29,46 @@ fn walk(parsed: &ParsedFile, node: Node<'_>, out: &mut SplitTargets) {
         ),
         "var_spec" | "const_spec" => {
             let mut cursor = node.walk();
-            let name = node.children_by_field_name("name", &mut cursor).next();
-            (name, node.child_by_field_name("value"))
+            let first = node.children_by_field_name("name", &mut cursor).next();
+            return match (first, node.child_by_field_name("value")) {
+                (Some(_), Some(rhs)) => {
+                    let mut cursor = node.walk();
+                    let ids: Vec<_> = node
+                        .children_by_field_name("name", &mut cursor)
+                        .filter(|n| n.kind() == "identifier")
+                        .collect();
+                    keep_split(ids, rhs)
+                }
+                _ => Vec::new(),
+            };
         }
         _ => (None, None),
     };
-    if let (Some(rhs), true) = (rhs, target.is_some()) {
-        let mut ids = Vec::new();
-        if node.kind() == "var_spec" || node.kind() == "const_spec" {
-            let mut cursor = node.walk();
-            ids.extend(node.children_by_field_name("name", &mut cursor));
-        } else if let Some(t) = target {
-            if t.kind() == "identifier" {
-                ids.push(t);
-            } else {
-                let mut cursor = t.walk();
-                ids.extend(t.named_children(&mut cursor));
-            }
-        }
-        // Rows of the identifier reads in the right-hand side (literals read nothing).
-        let mut reads = Vec::new();
-        read_idents(parsed, rhs, &mut reads);
-        for id in ids.into_iter().filter(|i| i.kind() == "identifier") {
-            if reads
-                .iter()
-                .any(|(_, _, row)| *row != id.start_position().row)
-            {
-                out.insert(
-                    id.start_byte(),
-                    reads.iter().map(|(b, n, _)| (*b, n.clone())).collect(),
-                );
-            }
-        }
-    }
-    let mut cursor = node.walk();
-    for child in node.named_children(&mut cursor) {
-        walk(parsed, child, out);
-    }
+    let (Some(names), Some(rhs)) = (names, rhs) else {
+        return Vec::new();
+    };
+    let ids: Vec<_> = if names.kind() == "identifier" {
+        vec![names]
+    } else {
+        let mut cursor = names.walk();
+        names
+            .named_children(&mut cursor)
+            .filter(|n| n.kind() == "identifier")
+            .collect()
+    };
+    keep_split(ids, rhs)
 }
 
-/// `(start byte, name, row)` of every identifier in `node`.
-fn read_idents(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<(usize, String, usize)>) {
-    if node.kind() == "identifier" {
-        out.push((
-            node.start_byte(),
-            parsed.node_text(&node).to_owned(),
-            node.start_position().row,
-        ));
-    }
-    let mut cursor = node.walk();
-    for child in node.named_children(&mut cursor) {
-        read_idents(parsed, child, out);
+/// All of `ids` when some token of `rhs` sits on a row other than some name's row. The right-hand
+/// side's first and last tokens bound its rows, so comparing its first and last rows is exact.
+fn keep_split<'a>(ids: Vec<Node<'a>>, rhs: Node<'_>) -> Vec<Node<'a>> {
+    let (first, last) = (rhs.start_position().row, rhs.end_position().row);
+    if ids
+        .iter()
+        .any(|id| id.start_position().row != first || id.start_position().row != last)
+    {
+        ids
+    } else {
+        Vec::new()
     }
 }

@@ -4,13 +4,15 @@ use crate::ast::{ParsedFile, PathSpan};
 use crate::cpg::RdFileStats;
 use crate::languages::Language;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 struct Write<'a> {
     span: (usize, usize),
     statement: Node<'a>,
     plain: bool,
+    /// A split `var`/`const` spec (`scope_split`): never a dominating write (rule D).
+    split_spec: bool,
 }
 impl Write<'_> {
     /// A range/receive `:=` target or a type-switch alias: only ever declares its name, so
@@ -157,6 +159,7 @@ impl<'a> LexicalFacts<'a> {
                         span: (span.start_byte, span.end_byte),
                         statement: node,
                         plain,
+                        split_spec: false,
                     });
                 }
                 "var_spec" => {
@@ -168,6 +171,7 @@ impl<'a> LexicalFacts<'a> {
                     {
                         return None;
                     }
+                    let split_spec = !super::scope_split::split_declared(node).is_empty();
                     let mut statement = node;
                     while statement.kind() != "var_declaration" {
                         statement = statement.parent()?;
@@ -176,6 +180,7 @@ impl<'a> LexicalFacts<'a> {
                         span: (span.start_byte, span.end_byte),
                         statement,
                         plain: true,
+                        split_spec,
                     });
                 }
                 // #694 slice A: range/receive `:=` targets and type-switch aliases are plain
@@ -200,6 +205,7 @@ impl<'a> LexicalFacts<'a> {
                         span: (span.start_byte, span.end_byte),
                         statement: node,
                         plain: true,
+                        split_spec: false,
                     });
                 }
                 "inc_statement" | "dec_statement" => {
@@ -207,6 +213,7 @@ impl<'a> LexicalFacts<'a> {
                         span: (span.start_byte, span.end_byte),
                         statement: node,
                         plain: false,
+                        split_spec: false,
                     })
                 }
                 // Do not cross a larger statement/expression to discover an unrelated write.
@@ -272,7 +279,8 @@ impl<'a> LexicalFacts<'a> {
                     !matches!(
                         write.statement.kind(),
                         "range_clause" | "receive_statement" | "type_switch_statement"
-                    ) && write.statement.end_byte() <= child.start_byte()
+                    ) && !write.split_spec
+                        && write.statement.end_byte() <= child.start_byte()
                         && crate::go_statements::parent(write.statement)
                             .is_some_and(|p| p.id() == region.id())
                 }) {
