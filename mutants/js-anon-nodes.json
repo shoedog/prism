@@ -261,7 +261,7 @@
     "ANON-ENABLE-44-subset-proof-build-off": [
       "src/call_graph.rs",
       "            js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex::build(files),\n            js_ts_return_facts,\n            // P5: whole-program Go func-value state \u2014 left empty here, exactly",
-      "            resolution::js_ts::anonymous: crate::resolution::js_ts::anonymous::ProofIndex::default(),\n            js_ts_return_facts,\n            // P5: whole-program Go func-value state \u2014 left empty here, exactly",
+      "            js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex::default(),\n            js_ts_return_facts,\n            // P5: whole-program Go func-value state \u2014 left empty here, exactly",
       "anon_owner::node_tests::enable_tests::anonymous_cold_full_and_partial_cache_hits_are_byte_identical"
     ],
     "ANON-ENABLE-45-program-host-var-shadowed": [
