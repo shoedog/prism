@@ -4,8 +4,9 @@
 //! between an outer def and an outer read, at a time reaching definitions does not model. For an edge
 //! D->U that would be `exact` (or `sameline`), D2-c refuses it when a write `p` in a region R
 //! - is not provably scoped by a declaration inside R (`census::captured`),
-//! - writes the binding the candidate def belongs to (B, the declaration visible at R's start, or any
-//!   binding when B is unknown or the def's is), with `affects(p, U.path)`, and
+//! - writes the binding the candidate def belongs to (B, the innermost declaration by scope alone, TDZ
+//!   aside: a closure writes the `let` it names even when that is declared later; or any binding when B is
+//!   unknown or the def's is), with `affects(p, U.path)`, and
 //! - U lies outside R.
 //!
 //! There is no order proof and no creation exception (E5 removed, recovery #667): the read may follow any
@@ -18,7 +19,7 @@ use super::{FlowConfidence, FlowDoubt};
 use crate::access_path::AccessPath;
 use crate::cpg::binding_facts::{BindingFacts, BindingId};
 use crate::data_flow::{FlowEdge, VarLocation};
-use crate::js_write_census::captured::Captured;
+use crate::js_write_census::captured::{Captured, Scope};
 use std::cell::{OnceCell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -41,7 +42,7 @@ enum Target {
     Outer(BindingId),
     /// A declaration in an enclosing unit scopes it (the scopes it covers): the binding is that
     /// declaration's, which the facts may not know. A def outside every such scope is another binding.
-    Declared(Vec<(usize, usize)>),
+    Declared(Scope),
 }
 
 /// One write judged against one enclosing region of its own.
@@ -129,17 +130,13 @@ impl D2c {
                 }
                 for group in groups {
                     let (start, end) = js.unit(group);
-                    if c.shadows.iter().any(|d| start <= d.start && d.start < end) {
-                        continue; // a declaration inside the unit scopes the write: not an outer write
-                    }
-                    push(
-                        Some(group),
-                        if c.shadows.is_empty() {
-                            Target::Outer(facts.binding_at(base, start))
-                        } else {
-                            Target::Declared(c.shadows.iter().map(|d| d.scope).collect())
-                        },
-                    );
+                    let target = match &c.shadow {
+                        // the innermost declaration is inside the unit: not an outer write
+                        Some(d) if start <= d.start && d.start < end => continue,
+                        Some(d) => Target::Declared(d.scope.clone()),
+                        None => Target::Outer(facts.binding_by_scope_at(base, start)),
+                    };
+                    push(Some(group), target);
                 }
             }
             out
@@ -168,9 +165,7 @@ impl D2c {
                     let def = facts.binding_of_def(c);
                     def == b || matches!(def, BindingId::FlatFallback(_))
                 }),
-                Target::Declared(scopes) => scopes
-                    .iter()
-                    .any(|&(a, b)| a <= edge.from.start_byte && edge.from.start_byte < b),
+                Target::Declared(scope) => scope.contains(edge.from.start_byte),
             };
             binding_hit
                 && level.group.is_none_or(|g| {

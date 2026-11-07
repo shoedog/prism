@@ -228,7 +228,7 @@ one of these, so the census plus the three refusals see every write P needs.
 | A5 | capture references (`capture.rs:50`) | use (path, line) vs nested-body references | `eq` on raw text (inherited) | — |
 | A6 | `BindingFacts` declarations, `visible_declaration`, `relation` | def base vs declaration names | raw string equality (inherited) | `Unresolved`/`FlatFallback` -> conservative paths already in `classify_edge` |
 | A7 | covered check for a census site (S1b-1) | `ident(site)` vs the **stored** `DefSite.path` of a recorded def whose `start_byte` equals the site's target node start (astra W3) | `eq` on the representation RD's kill buckets key (`def_buckets.rs:26,86`); binding provenance is identical by construction (the same base at the same byte resolves to the same declaration) | any mismatch -> the canonical kill-only def is added (a duplicate at a recorded site is removed by `deduplicate_definitions` when identical, and harmless otherwise: no edges, no collapse) |
-| A8 | D2-c (§6.2): nested write vs edge | write path vs use path; binding B of the write vs the candidate def's binding | `affects`; B from `visible_declaration(base, R.start)` | B not found or `FlatFallback` -> refuse every edge of that base |
+| A8 | D2-c (§6.2): nested write vs edge | write path vs use path; binding B of the write vs the candidate def's binding | `affects`; B = the innermost declaration by scope (§6.2 item 2) | B not found or `FlatFallback` -> refuse every edge of that base |
 | A9 | D2-c inner-binding test | write base vs declarations inside R whose scope contains the site | raw equality + the scope rule (§6.2): parameter-region writes are bound only by a parameter of the same list; a strict block function scopes its block | not proven inner -> outer (refuse) |
 | A10 | D3 (§7.2): writes in the use node / def node | write path vs use path (use side), vs def path (def side); bindings as A2 | `affects` | unknown binding -> treated as the same binding |
 | A11 | dead formals (§6.1) | formal name vs body-top-level `function`/`generator` declaration names, and vs own-parameter-list write bases | raw equality (escape-free owner) | — (refusal) |
@@ -332,10 +332,18 @@ instance field initializer value of a class in O. For each write site s in R who
      goes to the hoisted var binding, which is inside R, so treating it as outer only refuses more: a14).
    Declaration kinds come from the `DECL:*` rows of `table.tsv`, so the list is the certificate's. Any other declaration (a
    sibling block's, h09) proves nothing and s counts as outer.
-2. **Binding B.** `BindingFacts::visible_declaration(x, R.start_byte)`, the same lookup RD uses. `None` or `FlatFallback`
-   (c10: `let a` declared after the closure) refuses every edge of base x.
+2. **Binding B (amended, #704 round 1).** The write targets the **innermost declaration of x whose scope contains the site,
+   by scope alone, with no TDZ visibility**: a closure runs later, so it writes the `let`/`const`/`class`/block function of its
+   scope even when that is declared after the closure (`{ const k = () => { a++ }; let a = 1; .. }` writes the block's `a`, not
+   an outer one). Only the innermost declaration counts, never a union (a write inside `{ let a; h(() => a++) }` does not reach
+   the enclosing callable's `a`). A parameter's scope is its list and the callable's body **minus its parameters' decorators and
+   anything nested in them** (they run in the enclosing scope). When that declaration lies inside R (item 1) the write is
+   ignored; for a declaration outside R compare it to the candidate def's binding; the census's `DECL:*` scopes name it inside
+   regions (nested parameters are not declarations in `BindingFacts`) and `BindingFacts::binding_by_scope_at` outside them, the
+   two agreeing on "narrowest scope wins". No declaration found, or `FlatFallback` (an undeclared name), refuses every edge of x.
 3. **Refused edges.** Every edge D->U classified in O with U outside R, whose candidate def's binding is B (or is `FlatFallback`
-   /unresolved) and with `affects(p, U.path)`. Label `NameOnly(CfgIncomplete)`. There is no order proof: the read may follow any
+   /unresolved) and with `affects(p, U.path)`. An `exact` or `sameline` edge becomes `NameOnly(CfgIncomplete)`; a `killed` or other
+   `NameOnly` label is kept (round 1, accepted). There is no order proof: the read may follow any
    execution of R, and R's creation time is not modelled.
 
 Covered by this one rule: nested-sourced edges into outer uses (m24, m31), the closure-before-def case (b01), reads before

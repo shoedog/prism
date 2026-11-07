@@ -103,7 +103,7 @@ pub(crate) fn completion(
             out.captured.push(Captured {
                 path: path.clone(),
                 start: site.target_start,
-                shadows: shadows.scoping(&site.path.base, site.target_start),
+                shadow: shadows.innermost(&site.path.base, site.target_start),
             });
         }
         let covered = candidate

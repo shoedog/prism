@@ -123,9 +123,7 @@ fn r5_named_seam_rows_equal_frozen_main_goldens() {
             let actual =
                 r5_full_binding_rows(&build(language, c["source"].as_str().unwrap()), "h", "f");
             let mut expected = c["main"][ext].as_array().unwrap().clone();
-            if S1C_MOVED.contains(&c["id"].as_str().unwrap()) {
-                expected = expected.iter().map(s1c_refused).collect();
-            }
+            expected = super::s1c_label_tests::refuse_moved(c["id"].as_str().unwrap(), expected);
             expected.sort_by_key(ToString::to_string);
             if actual != expected {
                 failures.push(format!(
@@ -136,25 +134,6 @@ fn r5_named_seam_rows_equal_frozen_main_goldens() {
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
-
-/// Cases whose frozen main rows D2-c (#660 S1c) moves: a write in a nested callable (a closure, a
-/// parameter default arrow) refuses every `exact` and `sameline` edge into a use outside it. Every
-/// such row of these cases moves to `NameOnly(CfgIncomplete)`; nothing else changes.
-const S1C_MOVED: &[&str] = &[
-    "C1-closure",
-    "E-deferred-default-write-named-sloppy",
-    "E-invoked-default-write-named-sloppy",
-];
-
-fn s1c_refused(row: &serde_json::Value) -> serde_json::Value {
-    let mut row = row.as_array().unwrap().clone();
-    let moves = row[6] == "exact" || row[7] == "sameline";
-    if moves {
-        row[6] = "nameonly".into();
-        row[7] = "cfg_incomplete".into();
-    }
-    row.into()
 }
 
 #[test]

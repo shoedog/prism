@@ -135,7 +135,8 @@ const CASES: &[Case] = &[
         source: "function f(a) {\n  { let a = 1; g(() => { a++; }); }\n  sink(a);\n}" },
     Case { name: "middle_region_let_inner_control", lang: JS, edge: "a@1->a@4", expected: EXACT,
         source: "function f(a) {\n  log();\n  g(() => { let a; h(() => { a++; }); });\n  sink(a);\n}" },
-    // (`var a;` is a recorded nested def: main kills the outer def by name, and D2-c keeps a killed label.)
+    // Pin of MAIN's name-kill, not a D2-c decision: `var a;` is a recorded nested def, main kills the
+    // outer def by name, and D2-c keeps a killed label. (The var rule itself is `captured_tests`'.)
     Case { name: "middle_region_var_inner_pin", lang: JS, edge: "a@1->a@4", expected: KILLED,
         source: "function f(a) {\n  log();\n  g(() => { var a; h(() => { a++; }); });\n  sink(a);\n}" },
     Case { name: "middle_region_parameter_inner_control", lang: JS, edge: "a@1->a@4", expected: EXACT,
@@ -169,6 +170,7 @@ const CASES: &[Case] = &[
     Case { name: "own_parameter_list_scopes_default_control", lang: JS, edge: "a@1->a@4", expected: EXACT,
         source: "function f(a) {\n  log();\n  (function (a, z = (a++)) {})();\n  sink(a);\n}" },
     // A write in a nested callable's parameter list, inside another callable's body that declares it.
+    // Pin of MAIN's name-kill (the recorded `var a`), not a D2-c decision.
     Case { name: "param_default_under_enclosing_body_var_pin", lang: JS, edge: "a@1->a@4", expected: KILLED,
         source: "function f(a) {\n  log();\n  (function () { var a; (function (z = (a++)) {})(); })();\n  sink(a);\n}" },
     // The use shares the line with the closure: main's line-granular capture already refuses it.
@@ -180,6 +182,32 @@ const CASES: &[Case] = &[
     // A killed edge keeps its label (D2-c refuses only `exact` and `sameline`).
     Case { name: "killed_edge_keeps_its_label", lang: JS, edge: "a@1->a@5", expected: KILLED,
         source: "function f(a) {\n  log();\n  g(() => { a++; });\n  a = 3;\n  sink(a);\n}" },
+    // Round 1 (Opus W1): a closure names a binding declared later in its scope (TDZ is no scoping): the
+    // written binding is that later declaration, not the outer one a visibility-based lookup finds.
+    Case { name: "tdz_let_after_closure_written_binding", lang: JS, edge: "a@4->a@6", expected: CFG,
+        source: "function f2(a) {\n  {\n    const k = () => { a++; };\n    let a = 1;\n    k();\n    sink(a);\n  }\n  sink2(a);\n}" },
+    Case { name: "tdz_let_after_closure_outer_edge_untouched", lang: JS, edge: "a@1->a@8", expected: EXACT,
+        source: "function f2(a) {\n  {\n    const k = () => { a++; };\n    let a = 1;\n    k();\n    sink(a);\n  }\n  sink2(a);\n}" },
+    Case { name: "hoisted_block_function_written_binding", lang: JS, edge: "a@4->a@6", expected: CFG,
+        source: "function f2(a) {\n  {\n    function k() { a++; }\n    let a = 1;\n    k();\n    sink(a);\n  }\n  sink2(a);\n}" },
+    Case { name: "hoisted_block_function_outer_edge_untouched", lang: JS, edge: "a@1->a@8", expected: EXACT,
+        source: "function f2(a) {\n  {\n    function k() { a++; }\n    let a = 1;\n    k();\n    sink(a);\n  }\n  sink2(a);\n}" },
+    Case { name: "class_method_before_let_written_binding", lang: JS, edge: "a@4->a@6", expected: CFG,
+        source: "function f2(a) {\n  {\n    class K { m() { a++; } }\n    let a = 1;\n    new K().m();\n    sink(a);\n  }\n  sink2(a);\n}" },
+    Case { name: "class_method_before_let_outer_edge_untouched", lang: JS, edge: "a@1->a@8", expected: EXACT,
+        source: "function f2(a) {\n  {\n    class K { m() { a++; } }\n    let a = 1;\n    new K().m();\n    sink(a);\n  }\n  sink2(a);\n}" },
+    // Round 1 (sol W1): a parameter's scope excludes its own decorators and the callables nested in them.
+    Case { name: "ts_parameter_decorator_callback", lang: Language::TypeScript, edge: "a@1->a@6", expected: CFG,
+        source: "function f(a) {\n  log();\n  const C = class {\n    constructor(@dec(() => { a++; }) a) {}\n  };\n  sink(a);\n}" },
+    Case { name: "tsx_parameter_decorator_callback", lang: Language::Tsx, edge: "a@1->a@6", expected: CFG,
+        source: "function f(a) {\n  log();\n  const C = class {\n    constructor(@dec(() => { a++; }) a) {}\n  };\n  sink(a);\n}" },
+    Case { name: "ts_parameter_decorator_direct_update_in_deferred", lang: Language::TypeScript, edge: "a@1->a@4", expected: CFG,
+        source: "function f(a) {\n  log();\n  g(() => { class C { constructor(@dec(a++) a) {} } });\n  sink(a);\n}" },
+    Case { name: "ts_parameter_default_control", lang: Language::TypeScript, edge: "a@1->a@4", expected: EXACT,
+        source: "function f(a) {\n  log();\n  class C { constructor(a, public x = (a++)) {} }\n  sink(a);\n}" },
+    // Round 1 (sol W2): the innermost declaration is the written binding; an outer one is not a union member.
+    Case { name: "nested_blocks_inner_edge_refused", lang: JS, edge: "a@6->a@8", expected: CFG,
+        source: "function f() {\n  log();\n  g(() => {\n    let a = 1;\n    {\n      let a = 2;\n      h(() => { a++; });\n      sink(a);\n    }\n  });\n}" },
     // TSX / TS.
     Case { name: "tsx_class_property_handler", lang: Language::Tsx, edge: "a@1->a@4", expected: CFG,
         source: "function f(a: number) {\n  log();\n  class C { h = () => { a++; }; }\n  return sink(a);\n}" },
@@ -210,4 +238,41 @@ pub(super) fn sources() -> Vec<(Language, String)> {
         .collect();
     out.extend(rows().into_iter().map(|r| (lang_of(&r.fixture), r.source)));
     out
+}
+
+/// sol W2: the outer `let a` edge is not the written binding's. It keeps the labels the owners give it
+/// (`g` itself sees `exact`, `f` sees `sameline` across the one callable statement), never `cfg_incomplete`.
+#[test]
+fn nested_blocks_outer_edge_is_not_refused() {
+    let src = "function f() {\n  log();\n  g(() => {\n    let a = 1;\n    {\n      let a = 2;\n      h(() => { a++; });\n    }\n    sink(a);\n  });\n}";
+    let got = labels_of(JS, src, "a@4->a@9");
+    assert!(!got.is_empty() && !got.iter().any(|g| g == CFG), "{got:?}");
+}
+
+/// Cases whose frozen main rows D2-c (#660 S1c) moves: a write in a nested callable (a closure, a
+/// parameter default arrow) refuses every `exact` and `sameline` edge into a use outside it. Every
+/// such row of these cases moves to `NameOnly(CfgIncomplete)`; nothing else changes.
+const S1C_MOVED: &[&str] = &[
+    "C1-closure",
+    "E-deferred-default-write-named-sloppy",
+    "E-invoked-default-write-named-sloppy",
+];
+
+fn s1c_refused(row: &serde_json::Value) -> serde_json::Value {
+    let mut row = row.as_array().unwrap().clone();
+    let moves = row[6] == "exact" || row[7] == "sameline";
+    if moves {
+        row[6] = "nameonly".into();
+        row[7] = "cfg_incomplete".into();
+    }
+    row.into()
+}
+
+/// The frozen main rows of case `id`, with D2-c's moves applied when the case is one it moves.
+pub(super) fn refuse_moved(id: &str, rows: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+    if S1C_MOVED.contains(&id) {
+        rows.iter().map(s1c_refused).collect()
+    } else {
+        rows
+    }
 }

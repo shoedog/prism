@@ -16,7 +16,7 @@ fn scoping(lang: Language, src: &str) -> Vec<Vec<String>> {
         .iter()
         .filter(|c| c.path == a)
         .map(|c| {
-            c.shadows
+            c.shadow
                 .iter()
                 .map(|d| {
                     let rest = &src[d.start..];
@@ -185,4 +185,41 @@ fn a_write_of_another_base_or_in_the_owner_is_not_captured() {
     let this = AccessPath::simple("this");
     let done = completion(&fx.parsed, owner, &[(&this, 0, false)]);
     assert_eq!(done.captured.len(), 1, "{:?}", done.captured);
+}
+
+#[test]
+fn a_parameters_decorators_are_outside_its_scope() {
+    // sol W1: a decorator and a callable nested in it run in the enclosing scope.
+    let ts = |src: &str| scoping(TS, &format!("function f(a: number) {{\n  {src}\n}}"));
+    assert_eq!(
+        ts("class C { constructor(@dec(() => { a++; }) a) {} }"),
+        vec![Vec::<String>::new()]
+    );
+    assert_eq!(
+        ts("g(() => { class C { constructor(@dec(a++) a) {} } });"),
+        vec![Vec::<String>::new()]
+    );
+    // another parameter's decorator does not see this one either
+    assert_eq!(
+        ts("class C { constructor(@dec(() => { a++; }) b, a) {} }"),
+        vec![Vec::<String>::new()]
+    );
+    // the body and a default still do
+    assert_eq!(
+        ts("class C { constructor(@dec() a) { a++; } }"),
+        vec![vec!["a".to_string()]]
+    );
+}
+
+#[test]
+fn only_the_innermost_scoping_declaration_is_kept() {
+    // sol W2: the write targets the inner block's `a`; the outer one is shadowed, not a second target.
+    let src = "function f(a) {\n  g(() => { let a = 1; { let a = 2; h(() => { a++; }); } });\n}";
+    let fx = Fx::new(src);
+    let owner = owners(&fx.parsed, &fx.t)[0];
+    let a = AccessPath::simple("a");
+    let done = completion(&fx.parsed, owner, &[(&a, 0, false)]);
+    let write = done.captured.iter().find(|c| c.path == a).unwrap();
+    let inner = src.find("let a = 2").unwrap() + 4;
+    assert_eq!(write.shadow.as_ref().map(|d| d.start), Some(inner));
 }

@@ -22,19 +22,48 @@ use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
-/// A declaration inside a region: where it is and the byte range it scopes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Shadow {
-    pub start: usize,
-    pub scope: (usize, usize),
+/// The bytes a declaration scopes: a range minus holes (a parameter's own decorators, and anything
+/// nested in them, run in the enclosing scope and never see the parameter).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Scope {
+    pub range: (usize, usize),
+    pub holes: Vec<(usize, usize)>,
 }
 
-/// A write in a region: its path, where it is, and the declarations scoping it.
+impl Scope {
+    fn plain(range: (usize, usize)) -> Self {
+        Self {
+            range,
+            holes: Vec::new(),
+        }
+    }
+
+    pub(crate) fn contains(&self, at: usize) -> bool {
+        self.range.0 <= at
+            && at < self.range.1
+            && !self.holes.iter().any(|&(a, b)| a <= at && at < b)
+    }
+
+    fn width(&self) -> usize {
+        self.range.1 - self.range.0
+    }
+}
+
+/// A declaration inside a region: where it is and the bytes it scopes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Shadow {
+    pub start: usize,
+    pub scope: Scope,
+}
+
+/// A write in a region: its path, where it is, and the innermost declaration inside a region whose scope
+/// holds it (round 1: the written binding is the innermost one, never a union of the enclosing ones). A
+/// write no such declaration scopes targets a binding outside every region.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Captured {
     pub path: AccessPath,
     pub start: usize,
-    pub shadows: Vec<Shadow>,
+    pub shadow: Option<Shadow>,
 }
 
 /// Whether a site is a write D2-c judges: a write (not a declaration) in a nested callable or an
@@ -77,14 +106,14 @@ impl Shadows {
         Self { by_base }
     }
 
-    /// The declarations of `base` whose scope holds `at`.
-    pub(crate) fn scoping(&self, base: &str, at: usize) -> Vec<Shadow> {
-        self.by_base.get(base).map_or_else(Vec::new, |all| {
-            all.iter()
-                .filter(|d| d.scope.0 <= at && at < d.scope.1)
-                .copied()
-                .collect()
-        })
+    /// The innermost declaration of `base` whose scope holds `at` (scopes nest, so the narrowest).
+    pub(crate) fn innermost(&self, base: &str, at: usize) -> Option<Shadow> {
+        self.by_base
+            .get(base)?
+            .iter()
+            .filter(|d| d.scope.contains(at))
+            .min_by_key(|d| d.scope.width())
+            .cloned()
     }
 }
 
@@ -93,9 +122,11 @@ fn range(n: Node<'_>) -> (usize, usize) {
 }
 
 /// The byte range a declaration of kind `decl` at `node` scopes, `None` when the design proves nothing.
-fn scope_of(t: &Tables, src: &str, decl: &str, node: Node<'_>) -> Option<(usize, usize)> {
-    match decl {
-        "param" => param_scope(t, node),
+fn scope_of(t: &Tables, src: &str, decl: &str, node: Node<'_>) -> Option<Scope> {
+    if decl == "param" {
+        return param_scope(t, node);
+    }
+    let plain = match decl {
         "declarator" => declarator_scope(t, src, node),
         "fn-hoist" | "class" => block_scope(node.parent()?),
         "fn-inner" => {
@@ -105,7 +136,8 @@ fn scope_of(t: &Tables, src: &str, decl: &str, node: Node<'_>) -> Option<(usize,
         }
         "catch" => ancestor(node, |n| n.kind() == "catch_clause").map(range),
         _ => None,
-    }
+    };
+    plain.map(Scope::plain)
 }
 
 /// The nearest ancestor of `node` (itself excluded) that satisfies `pred`.
@@ -120,20 +152,34 @@ fn ancestor<'t>(node: Node<'t>, pred: impl Fn(Node<'t>) -> bool) -> Option<Node<
     None
 }
 
-/// A parameter: its own list and the callable's body (the callable's end), nothing before the list.
-fn param_scope(t: &Tables, node: Node<'_>) -> Option<(usize, usize)> {
+/// A parameter: its own list and the callable's body (the callable's end), nothing before the list, and
+/// not the decorators of the list's parameters (eager, in the enclosing scope).
+fn param_scope(t: &Tables, node: Node<'_>) -> Option<Scope> {
     let (mut prev, mut cur) = (node, node.parent());
     while let Some(n) = cur {
         if n.kind() == "formal_parameters" {
             let callable = n.parent().filter(|c| is_callable(t, c.kind()))?;
-            return Some((n.start_byte(), callable.end_byte()));
+            let mut holes = Vec::new();
+            let mut cursor = n.walk();
+            for param in n.children(&mut cursor) {
+                let mut inner = param.walk();
+                for part in param.children(&mut inner) {
+                    if part.kind() == "decorator" {
+                        holes.push(range(part));
+                    }
+                }
+            }
+            return Some(Scope {
+                range: (n.start_byte(), callable.end_byte()),
+                holes,
+            });
         }
         if is_callable(t, n.kind()) {
             // A lone arrow parameter is the callable's own `parameter` child.
             let lone = n
                 .child_by_field_name("parameter")
                 .is_some_and(|p| p.id() == prev.id());
-            return lone.then(|| (prev.start_byte(), n.end_byte()));
+            return lone.then(|| Scope::plain((prev.start_byte(), n.end_byte())));
         }
         prev = n;
         cur = n.parent();

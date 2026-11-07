@@ -172,7 +172,7 @@ fn a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges() {
     // The callable's own `var a` reaches its later read, past the closure: refused.
     assert_eq!(first_owner_label(src, "a", 4, 6, true), same);
     assert_eq!(first_owner_label(src, "a", 4, 6, false), CFG);
-    // The owner's parameter is another binding: its edge is untouched (main kills it by name).
+    // The owner's parameter is another binding: its edge is untouched (main kills it by name: this pins main's `killed`, D2-c keeps killed labels).
     assert_eq!(
         first_owner_label(src, "a", 1, 8, false),
         first_owner_label(src, "a", 1, 8, true)
@@ -197,7 +197,7 @@ fn a_captured_write_no_region_holds_refuses_its_base() {
         vec![Captured {
             path: AccessPath::simple("a"),
             start: 0,
-            shadows: Vec::new(),
+            shadow: None,
         }],
         false,
     )
