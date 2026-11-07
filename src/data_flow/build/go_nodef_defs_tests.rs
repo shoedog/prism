@@ -311,3 +311,10 @@ fn single_line_headers_still_drop_the_outer_pair() {
     let tsw = "package p\nfunc f(x any) {\n\tt := 1\n\tswitch t := x.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n}\n";
     check("one-tswitch", tsw, &[("t", 3, 6, false)]);
 }
+
+#[test]
+fn multiline_literal_without_reads_is_not_split() {
+    // The right-hand side spans lines but reads no identifier: nothing to connect, S drops.
+    let src = "package p\nfunc f(xs []int) {\n\tv := xs\n\tfor _, v := range []int{\n\t\t1,\n\t\t2,\n\t} {\n\t\tuse(v)\n\t}\n}\n";
+    check("lit-range", src, &[("v", 3, 8, false)]);
+}

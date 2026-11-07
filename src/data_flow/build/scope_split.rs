@@ -3,12 +3,13 @@
 //! Queries and taint connect a Use to a Def only on one line. A range/receive `:=`,
 //! type-switch alias or `var`/`const` spec whose target identifier sits on a different
 //! line than some part of its right-hand side has no connected replacement path
-//! (the right-hand read on line N never reaches the new def on line M), so the outer
+//! (a right-hand read on line N never reaches the new def on line M), so the outer
 //! def's pair with the body use is the only path left and S must keep it.
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
-/// Start bytes of the declared identifiers of every split header or spec in `owner`.
+/// Start bytes of the declared identifiers of every header or spec in `owner` whose right-hand
+/// side reads an identifier on a line other than the declared name's.
 pub(super) fn split_target_bytes(owner: Node<'_>) -> BTreeSet<usize> {
     let mut out = BTreeSet::new();
     walk(owner, &mut out);
@@ -53,9 +54,11 @@ fn walk(node: Node<'_>, out: &mut BTreeSet<usize>) {
                 ids.extend(t.named_children(&mut cursor));
             }
         }
-        let rhs_one_line = rhs.start_position().row == rhs.end_position().row;
+        // Rows of the identifier reads in the right-hand side (literals read nothing).
+        let mut rows = BTreeSet::new();
+        read_rows(rhs, &mut rows);
         for id in ids.into_iter().filter(|i| i.kind() == "identifier") {
-            if !rhs_one_line || id.start_position().row != rhs.start_position().row {
+            if rows.iter().any(|r| *r != id.start_position().row) {
                 out.insert(id.start_byte());
             }
         }
@@ -63,5 +66,16 @@ fn walk(node: Node<'_>, out: &mut BTreeSet<usize>) {
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
         walk(child, out);
+    }
+}
+
+/// Rows of every identifier in `node` (a call's callee, a selector's operand, a name).
+fn read_rows(node: Node<'_>, rows: &mut BTreeSet<usize>) {
+    if node.kind() == "identifier" {
+        rows.insert(node.start_position().row);
+    }
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        read_rows(child, rows);
     }
 }
