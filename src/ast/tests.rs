@@ -265,8 +265,7 @@ fn decorated_function_field_readers_unwrap() {
         Language::Python,
     )
     .unwrap();
-    let deco =
-        descendant_of_kind(p.tree.root_node(), "decorated_definition").expect("deco node");
+    let deco = descendant_of_kind(p.tree.root_node(), "decorated_definition").expect("deco node");
 
     assert!(p.find_parameters_node(&deco).is_some());
     assert!(p.function_body_node(&deco).is_some());
@@ -287,8 +286,7 @@ fn return_value_nodes_excludes_nested_function_returns() {
         Language::Python,
     )
     .unwrap();
-    let deco =
-        descendant_of_kind(p.tree.root_node(), "decorated_definition").expect("deco node");
+    let deco = descendant_of_kind(p.tree.root_node(), "decorated_definition").expect("deco node");
     let returns = p.return_value_nodes(&deco);
     assert_eq!(
         returns.len(),
@@ -323,8 +321,7 @@ fn return_value_nodes_preserves_go_legacy_expression_list_and_adds_slots() {
 
 #[test]
 fn decorated_function_canonical_single_node() {
-    let p =
-        ParsedFile::parse("a.py", "@deco\ndef f():\n    return 1\n", Language::Python).unwrap();
+    let p = ParsedFile::parse("a.py", "@deco\ndef f():\n    return 1\n", Language::Python).unwrap();
     let fs: Vec<_> = p
         .all_functions()
         .into_iter()
@@ -515,8 +512,7 @@ fn call_args_index_name_mismatch_is_empty() {
 fn call_args_index_same_start_same_name_outer_wins() {
     // a.b().b(d): outer and inner call both start at byte(a) and are named `b`.
     // First-write-wins (pre-order = outer) must match the reference walk.
-    let pf =
-        ParsedFile::parse("s.rs", "fn f(){ a.b().b(outer_arg); }", Language::Rust).unwrap();
+    let pf = ParsedFile::parse("s.rs", "fn f(){ a.b().b(outer_arg); }", Language::Rust).unwrap();
     // The shared start_byte is the byte of `a` inside the body.
     let a_byte = pf.source.find("a.b()").unwrap();
     let got = index_texts(&pf, a_byte, "b");

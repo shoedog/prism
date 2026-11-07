@@ -75,7 +75,10 @@ mod value_bindings;
 #[cfg(test)]
 pub(crate) use fptr_text::candidate_fields_on_line;
 pub(crate) use fptr_text::line_field_targets;
-pub use fptr_text::{find_assignment_eq, resolve_array_dispatch, resolve_fptr_assignment, resolve_struct_field_assignment};
+pub use fptr_text::{
+    find_assignment_eq, resolve_array_dispatch, resolve_fptr_assignment,
+    resolve_struct_field_assignment,
+};
 
 /// A parameter binding and the byte span of its identifier token.
 pub type ParameterOccurrence = (String, usize, usize);
