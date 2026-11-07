@@ -368,6 +368,8 @@ header, body and back edge share one node proves nothing; `inc_statement` `p.f++
 comparable write between them (or in the same statement) kills; a kill strictly earlier than the source on its node (`p = q; p.f = x`) no longer hides the source.
 A single-statement owner has no CFG edges and so no recall (existing NoCfg rule).
 
+Go producer defs (#694 slice A, `src/ast/go_header_defs.rs`): range and receive `:=` targets, type-switch aliases and every `var`/`const` name get a def at their identifier (the first name of the first direct spec always did); function-literal formals and named results do not yet (slice B). Header targets and aliases mint no alias twin, and rules U and D classify them as plain writes that are never dominating ones, so a header that only declares a name is write-only and a use after the loop or select still sees the outer def.
+
 For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
 write-only use (U) or a dominating unconditional write in a single-entry region (D).
 Go paths whose base is exactly `_` contribute no DataFlow definitions, uses, edges or alias-twin definitions; RHS reads remain, and other languages retain `_` as an ordinary name. Kept edges can change label where a removed blank twin had collapsed a line (`r, _, err := f()` with `_ = err` elsewhere), besides RD availability; where that line is an `if`/`switch` header whose initializer declares the name, the restored label can be a false `exact` (line-granular header RD, #662). Step 5c treats a Go `_` lvalue as a positional hole: no ReturnFlow into it, the other slots keep theirs, and an all-blank site counts in `return_flow_skipped_blank_lhs`.

@@ -203,3 +203,49 @@ fn header_targets_mint_no_alias_twin() {
     let src = "package p\nfunc f(q int, xs []int) {\n\tp := q\n\tuse(p)\n\tfor _, p := range xs {\n\t\tuse(p)\n\t}\n\tuse(q)\n}\n";
     check("no-twin", src, &[("p", 5, 6, true), ("q", 5, 8, false)]);
 }
+
+#[test]
+fn header_defs_are_scoped_and_never_dominate_code_after_them() {
+    // Rule D: a range/receive target write does not dominate code after the loop or select, and
+    // the outer variable keeps reaching it; the target's def does not reach past its clause.
+    let rg = "package p\nfunc f(xs []int) {\n\tv := 1\n\tfor _, v := range xs {\n\t\tuse(v)\n\t}\n\tuse(v)\n}\n";
+    check(
+        "range-after",
+        rg,
+        &[
+            ("v", 3, 7, true),
+            ("v", 4, 5, true),
+            ("v", 4, 7, false),
+            ("v", 3, 5, false),
+        ],
+    );
+    let rc = "package p\nfunc f(ch chan int) {\n\tv := 1\n\tselect {\n\tcase v := <-ch:\n\t\tuse(v)\n\t}\n\tuse(v)\n}\n";
+    check(
+        "receive-after",
+        rc,
+        &[
+            ("v", 3, 8, true),
+            ("v", 5, 6, true),
+            ("v", 5, 8, false),
+            ("v", 3, 6, false),
+        ],
+    );
+    let ts = "package p\nfunc f(c any) {\n\tt := 1\n\tswitch t := c.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n\tuse(t)\n}\n";
+    check(
+        "typeswitch-after",
+        ts,
+        &[
+            ("t", 3, 8, true),
+            ("t", 4, 6, true),
+            ("t", 4, 8, false),
+            ("t", 3, 6, false),
+        ],
+    );
+    // Rule U: a header that also reads the name is not write-only.
+    let rd = "package p\nfunc f(v []int) {\n\tfor _, v := range v {\n\t\tuse(v)\n\t}\n}\n";
+    check(
+        "range-self-read",
+        rd,
+        &[("v", 2, 3, true), ("v", 3, 4, true)],
+    );
+}
