@@ -6,11 +6,11 @@ use crate::algorithms::taint::js_ts::bindings::{
     js_ts_enclosing_function_id,
 };
 use crate::algorithms::taint::js_ts::framework_params::{
-    js_ts_alias_def, js_ts_framework_source_params, js_ts_function_params,
+    js_ts_framework_source_params, js_ts_function_params,
 };
 use crate::algorithms::taint::js_ts::request_aliases::{
-    js_ts_active_alias_names_at_range, js_ts_add_alias_def, js_ts_kill_simple_lhs_alias_defs_at,
-    js_ts_line_in_scope, js_ts_seed_scope_contains,
+    js_ts_active_alias_names_at_range, js_ts_add_alias_def, js_ts_alias_def,
+    js_ts_kill_simple_lhs_alias_defs_at, js_ts_line_in_scope, js_ts_seed_scope_contains,
 };
 use crate::algorithms::taint::js_ts::source_access::{
     js_ts_exact_field_access_text_matches,

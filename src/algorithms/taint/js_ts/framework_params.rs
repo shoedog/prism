@@ -2,7 +2,7 @@
 
 use crate::access_path::AccessPath;
 use crate::algorithms::taint::js_ts::request_aliases::js_ts_request_data_assignment_sources;
-use crate::algorithms::taint::{JsTsAliasDef, JsTsParam, TaintSeed};
+use crate::algorithms::taint::{JsTsParam, TaintSeed};
 use crate::ast::tree_helpers::unwrap_parenthesized;
 use crate::ast::ParsedFile;
 use crate::frameworks::js_ts::call_classify::{
@@ -12,21 +12,6 @@ use crate::frameworks::js_ts::call_classify::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
-
-pub(super) fn js_ts_alias_def(
-    line: usize,
-    start_byte: Option<usize>,
-    scope: Option<(usize, usize)>,
-    byte_scope: Option<(usize, usize)>,
-) -> JsTsAliasDef {
-    JsTsAliasDef {
-        line,
-        start_byte,
-        scope,
-        byte_scope,
-        kills: Vec::new(),
-    }
-}
 
 pub(in crate::algorithms::taint) fn detect_js_ts_framework_sources(
     file_path: &str,

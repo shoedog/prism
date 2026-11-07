@@ -2,7 +2,6 @@
 
 use crate::access_path::AccessPath;
 use crate::algorithms::taint::js_ts::bindings::js_ts_assignment_target_byte_scope;
-use crate::algorithms::taint::js_ts::framework_params::js_ts_alias_def;
 use crate::algorithms::taint::js_ts::request_targets::{
     collect_js_ts_request_alias_source_uses, collect_js_ts_request_assignment_targets,
 };
@@ -13,6 +12,21 @@ use crate::algorithms::taint::{
 use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
+
+pub(super) fn js_ts_alias_def(
+    line: usize,
+    start_byte: Option<usize>,
+    scope: Option<(usize, usize)>,
+    byte_scope: Option<(usize, usize)>,
+) -> JsTsAliasDef {
+    JsTsAliasDef {
+        line,
+        start_byte,
+        scope,
+        byte_scope,
+        kills: Vec::new(),
+    }
+}
 
 pub(super) fn js_ts_request_data_assignment_sources(
     parsed: &ParsedFile,

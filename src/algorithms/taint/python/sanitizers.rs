@@ -1,4 +1,4 @@
-//! Python XSS and SSRF sanitizers and guards.
+//! Python XSS and SSRF sanitizers and guards, and the safe structured-sink call ranges.
 
 use crate::algorithms::taint::cleansing::{
     block_ends_with_return, cfg_line_reaches, collect_if_statements, first_statement_line,

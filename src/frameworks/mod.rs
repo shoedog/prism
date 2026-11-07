@@ -62,7 +62,7 @@ pub struct SinkPattern {
     pub category: SanitizerCategory,
     /// 0-indexed argument positions whose taint fires this sink. Any-tainted
     /// semantics: the sink fires if AT LEAST ONE indexed arg is tainted on
-    /// the matching FlowPath (see `taint.rs::arg_is_tainted_in_path`).
+    /// the matching FlowPath (see `taint/sink_match.rs::arg_is_tainted_in_path`).
     ///
     /// Examples:
     /// - `&[0]` for `exec.Command(taintedBin, ...)` — fires when arg[0] is tainted.
