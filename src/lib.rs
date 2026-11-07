@@ -66,8 +66,6 @@ mod manifest_snapshot;
 #[cfg(test)]
 mod nested_execution_owner_audit;
 pub use manifest_snapshot::{ManifestSnapshot, ManifestSnapshotEntry};
-#[cfg(feature = "mcp")]
-pub mod mcp;
 pub mod name_resolution;
 pub mod navigation;
 pub mod output;
