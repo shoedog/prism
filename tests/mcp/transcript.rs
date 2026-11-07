@@ -40,7 +40,7 @@ const FIXTURE: &[(&str, &str)] = &[
     ),
     // `global user` is deliberate: the golden pins the OrderingUnavailable warning, anchored
     // on a zero-width anchor Use on a write-only line (`user = input()`). Python rules U and D
-    // (#630 slice 5) drop exactly that edge for a local name; the shapes tried (a real read on
+    // (#630 slice 5) drop exactly that edge for a local name; the shapes tried (an if/else both-arms kill, a real read on
     // the line, a chained target) lose the anchor or the warning, so the golden keeps the one
     // exemption (U counts the `global` identifier as a non-write occurrence; D skips `global`
     // names). A future change to that exemption must re-derive this fixture.
