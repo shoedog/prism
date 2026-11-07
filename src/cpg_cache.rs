@@ -306,7 +306,8 @@ mod stream;
 /// - v157: JS/TS/TSX captured-write refusal in reaching definitions (#660 S1c, D2-c): an `exact` or `sameline`
 ///   edge whose use lies outside a nested callable or instance field initializer that writes the def's
 ///   binding is `NameOnly(CfgIncomplete)`; labels only.
-const CACHE_VERSION: u32 = 157;
+/// - v158: Python rules U and D (#630 slice 5): write-only lines and dominated defs are dropped, and `self`/`cls` attribute paths join D. The same-line own-span judging is shared with Go: same-line pairs gain edges in both languages and an owner at the survivor cap can cross it.
+const CACHE_VERSION: u32 = 158;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -839,7 +840,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 157);
+        assert_eq!(super::CACHE_VERSION, 158);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

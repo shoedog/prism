@@ -1229,7 +1229,8 @@ pub fn assert_finding_evidence_provenance_cases() {
     use prism::finding_confidence::{EvidenceHop, FindingConfidence};
     let cases = [
         ("def f():\n    query = request.GET['q']\n    cursor.execute(query)\n", 3, FindingConfidence::Exact),
-        ("def f():\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n", 4, FindingConfidence::NameOnly),
+        // Writes in both arms of an `if`/`else`: Python rule D cannot prove this kill, RD labels it.
+        ("def f(c):\n    query = request.GET['q']\n    if c:\n        query = clean(query)\n    else:\n        query = clean(query)\n    cursor.execute(query)\n", 7, FindingConfidence::NameOnly),
     ];
     for (source, line, expected) in cases {
         let files = evidence_parsed_files(&[("p.py", source)]);
@@ -1244,7 +1245,7 @@ pub fn assert_finding_evidence_provenance_cases() {
         let expected_hop = match expected {
             FindingConfidence::Exact => FlowConfidence::Exact,
             FindingConfidence::NameOnly => {
-                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 })
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
             }
             _ => unreachable!(),
         };
@@ -1270,7 +1271,7 @@ pub fn assert_finding_evidence_taint_cases() {
     use prism::finding_confidence::{EvidenceHop, FindingConfidence};
     for (source, sink_line, expected) in [
         ("def f(request):\n    query = request.GET['q']\n    cursor.execute(query)\n", 3, FindingConfidence::Exact),
-        ("def f(request):\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n", 4, FindingConfidence::NameOnly),
+        ("def f(request, c):\n    query = request.GET['q']\n    if c:\n        query = clean(query)\n    else:\n        query = clean(query)\n    cursor.execute(query)\n", 7, FindingConfidence::NameOnly),
     ] {
         let files = evidence_parsed_files(&[("t.py", source)]);
         let result = evidence_run(&files, &evidence_diff("t.py", 2), SlicingAlgorithm::Taint);
@@ -1280,7 +1281,7 @@ pub fn assert_finding_evidence_taint_cases() {
         let expected_hop = match expected {
             FindingConfidence::Exact => FlowConfidence::Exact,
             FindingConfidence::NameOnly => {
-                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 })
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
             }
             _ => unreachable!(),
         };
@@ -1295,7 +1296,7 @@ pub fn assert_finding_evidence_taint_cross_file_case(killed: bool) {
     use prism::finding_confidence::{EvidenceHop, FindingConfidence};
     let (source, expected) = if killed {
         (
-            "def entry(request):\n    query = request.GET['q']\n    query = clean(query)\n    deliver(query)\n",
+            "def entry(request, c):\n    query = request.GET['q']\n    if c:\n        query = clean(query)\n    else:\n        query = clean(query)\n    deliver(query)\n",
             FindingConfidence::NameOnly,
         )
     } else {
@@ -1336,9 +1337,9 @@ pub fn assert_finding_evidence_taint_cross_file_case(killed: bool) {
                 if from.file == "a.py"
                     && from.line == 2
                     && to.file == "a.py"
-                    && to.line == 4
+                    && to.line == 7
                     && *confidence
-                        == FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }))),
+                        == FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }))),
             "selected witness must retain the NameOnly pre-call hop: {evidence:#?}"
         );
     }

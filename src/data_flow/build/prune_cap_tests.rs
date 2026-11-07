@@ -234,3 +234,34 @@ fn prune_cap_frozen_and_current_same_cap_transition_matrix() {
         }
     }
 }
+
+#[test]
+fn python_prune_cap_count_and_replay_count_prunes_once() {
+    // Padding forces RD refusal (fallback producer) without adding edge candidates.
+    let source = format!(
+        "def f(x):\n    x = 1\n    consume(x)\n    x = 2\n    consume(x)\n{}",
+        "    g()\n".repeat(4100)
+    );
+    let parsed = ParsedFile::parse("a.py", &source, Language::Python).unwrap();
+    let file = parsed.path.clone();
+    let before = Producer::file_refs_frozen_with_cap(&file, &parsed, None);
+    let single = Producer::file_refs_with_cap(&file, &parsed, None);
+    let expected = prune_counts(&single.rd_function_stats);
+    assert_eq!(single.rd_function_stats.functions_over_cap, 1);
+    assert!(expected[0] > 0 && expected[2] > 0, "{expected:?}");
+    let count = single.edges.len();
+    assert!(count > 0 && count < before.edges.len());
+    assert_eq!(before.edges.len() - count, expected.iter().sum::<usize>());
+    for cap in [count, count + 1] {
+        let replay = Producer::file_refs_with_cap(&file, &parsed, Some(cap));
+        assert_eq!(replay.edges, single.edges);
+        assert_eq!(replay.uses, single.uses);
+        assert_eq!(replay.rd_function_stats, single.rd_function_stats);
+    }
+    let capped = Producer::file_refs_with_cap(&file, &parsed, Some(count - 1));
+    assert!(capped.edges.is_empty());
+    assert_eq!(capped.uses, single.uses);
+    assert_eq!(prune_counts(&capped.rd_function_stats), expected);
+    assert_eq!(capped.rd_function_stats.fallback_functions_capped, 1);
+    assert_eq!(capped.rd_function_stats.fallback_edges_capped, count);
+}
