@@ -1,6 +1,6 @@
 //! Build-partition-safe S4 embedded-interface routing.
 
-use crate::go_owner_partition::{
+use super::owner_partition::{
     exact_declaration_visibility, GoInterfaceDeclarations, GoMethodDeclarations,
     GoOwnerReferenceMode, GoPartitionEvidence, GoPartitionSelection, GoStructDeclarations,
 };
@@ -23,7 +23,7 @@ pub fn select_own_method(
     method_name: &str,
     struct_declarations: &GoStructDeclarations,
     method_declarations: &GoMethodDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<bool> {
     select_own_method_with_mode(
         owner,
@@ -43,7 +43,7 @@ pub fn select_own_method_with_mode(
     method_name: &str,
     struct_declarations: &GoStructDeclarations,
     method_declarations: &GoMethodDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<bool> {
     let named_methods: Vec<_> = method_declarations
         .get(owner)
@@ -52,7 +52,7 @@ pub fn select_own_method_with_mode(
         .filter(|declaration| declaration.method_name == method_name)
         .collect();
     let Some(structs) = struct_declarations.get(owner) else {
-        let selected = crate::go_owner_partition::select_profiled_values_with_mode(
+        let selected = super::owner_partition::select_profiled_values_with_mode(
             owner,
             caller_file,
             mode,
@@ -149,7 +149,7 @@ fn interface_has_method(
     mode: GoOwnerReferenceMode,
     method_name: &str,
     declarations: &GoInterfaceDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
     evidence: &mut GoPartitionEvidence,
     visiting: &mut BTreeSet<GoOwnerIdentity>,
 ) -> Result<bool, RouteError> {
@@ -243,7 +243,7 @@ fn interface_signatures(
     caller_file: &str,
     mode: GoOwnerReferenceMode,
     declarations: &GoInterfaceDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
     evidence: &mut GoPartitionEvidence,
     visiting: &mut BTreeSet<GoOwnerIdentity>,
 ) -> Result<BTreeMap<String, String>, RouteError> {
@@ -311,7 +311,7 @@ pub fn select_interface_signatures(
     caller_file: &str,
     owner_type_text: &str,
     declarations: &GoInterfaceDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<BTreeMap<String, String>> {
     select_interface_signatures_with_mode(
         owner,
@@ -327,7 +327,7 @@ pub fn select_interface_signatures_with_mode(
     caller_file: &str,
     mode: GoOwnerReferenceMode,
     declarations: &GoInterfaceDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<BTreeMap<String, String>> {
     let mut evidence = GoPartitionEvidence::default();
     let result = interface_signatures(
@@ -377,7 +377,7 @@ pub fn select_interface_presence_with_mode(
     caller_file: &str,
     mode: GoOwnerReferenceMode,
     declarations: &GoInterfaceDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<bool> {
     let mut evidence = GoPartitionEvidence::default();
     let mut visible = false;
@@ -424,7 +424,7 @@ pub fn select_embedded_interface_route(
     struct_declarations: &GoStructDeclarations,
     interface_declarations: &GoInterfaceDeclarations,
     method_declarations: &GoMethodDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<String> {
     select_embedded_interface_route_with_mode(
         owner,
@@ -447,7 +447,7 @@ pub fn select_embedded_interface_route_with_mode(
     struct_declarations: &GoStructDeclarations,
     interface_declarations: &GoInterfaceDeclarations,
     method_declarations: &GoMethodDeclarations,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<String> {
     let Some(declarations) = struct_declarations.get(owner) else {
         return GoPartitionSelection::default();

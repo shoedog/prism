@@ -1,6 +1,6 @@
 use prism::ast::ParsedFile;
 use prism::call_graph::CallGraph;
-use prism::go_promoted_snapshot::{
+use prism::resolution::go::promoted_snapshot::{
     GoPromotedOwnerSnapshot, GoPromotedSelectorSnapshot, GoPromotedSnapshotVerdict,
 };
 use prism::languages::Language;

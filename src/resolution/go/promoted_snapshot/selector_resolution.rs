@@ -1,8 +1,8 @@
 use super::{
     GoPromotedEmbeddedField, GoPromotedMethodSnapshot, GoPromotedProfileSnapshot, RawProfile,
 };
-use crate::go_build_profile::GoBuildProfile;
-use crate::go_owner_partition::{
+use crate::resolution::go::build_profile::GoBuildProfile;
+use crate::resolution::go::owner_partition::{
     exact_declaration_visibility, GoMethodDeclarations, GoOwnerReferenceMode,
 };
 use crate::resolution::GoOwnerIdentity;
@@ -141,7 +141,7 @@ pub(super) fn promoted_for_profile(
         )
         .collect::<BTreeSet<_>>();
     let Some(partitions) =
-        crate::go_build_profile::active_profile_partitions(profiles, &relevant_files)
+        crate::resolution::go::build_profile::active_profile_partitions(profiles, &relevant_files)
     else {
         return (BTreeSet::new(), BTreeSet::new(), true);
     };

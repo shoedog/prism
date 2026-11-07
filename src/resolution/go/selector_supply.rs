@@ -5,7 +5,7 @@
 //! the existing promotion and S4 consumers remain responsible for minting edges.
 
 use crate::call_graph::CallGraph;
-use crate::go_owner_partition::{
+use super::owner_partition::{
     exact_declaration_visibility, GoOwnerReferenceMode, GoPartitionEvidence, GoPartitionSelection,
     GoStructDeclaration,
 };
@@ -55,7 +55,7 @@ impl CallGraph {
             for node in current {
                 if self.go_interface_declarations.contains_key(&node.owner) {
                     let interface =
-                        crate::go_owner_partition::select_interface_signatures_with_mode(
+                        super::owner_partition::select_interface_signatures_with_mode(
                             &node.owner,
                             caller_file,
                             mode,
@@ -80,7 +80,7 @@ impl CallGraph {
                     continue;
                 }
 
-                let own = crate::go_owner_partition::select_own_method_with_mode(
+                let own = super::owner_partition::select_own_method_with_mode(
                     &node.owner,
                     caller_file,
                     mode,
@@ -196,7 +196,7 @@ impl CallGraph {
     }
 
     fn embedded_pointer_interface(&self, owner: &GoOwnerIdentity, pointer_syntax: bool) -> bool {
-        use crate::go_concrete_receiver::GoDeclarationKind;
+        use super::concrete_receiver::GoDeclarationKind;
 
         self.go_declaration_kind_index
             .get(owner)

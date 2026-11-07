@@ -2,7 +2,7 @@
 
 use crate::ast::ParsedFile;
 use crate::call_graph::{CallKind, CallSite, CallSiteOrigin, FunctionId};
-use crate::go_build_profile::GoBuildProfile;
+use crate::resolution::go::build_profile::GoBuildProfile;
 use crate::languages::Language;
 use crate::resolution::{dir_of, GoOwnerIdentity};
 use crate::type_providers::go::GoTypeProvider;
@@ -33,7 +33,7 @@ pub(crate) fn extract_go_callback_indices(
     files: &BTreeMap<String, ParsedFile>,
     package_import_paths: &BTreeMap<String, String>,
 ) -> GoCallbackIndices {
-    let (profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
+    let (profiles, _) = crate::resolution::go::build_profile::extract_go_file_profiles(files);
     let recovery = RecoveryFacts::new(files, &profiles);
     let clean_package_dirs = clean_package_dirs(files, &profiles, &recovery);
     let packages_by_import_path =
@@ -46,7 +46,7 @@ pub(crate) fn extract_go_callback_indices(
         &clean_package_dirs,
         &recovery,
     );
-    let alias_resolver = crate::go_type_alias::GoAliasResolver::build_callback_strict(
+    let alias_resolver = crate::type_providers::go::type_alias::GoAliasResolver::build_callback_strict(
         files,
         package_import_paths,
         package_import_paths,
@@ -154,7 +154,7 @@ struct CallbackExtractionContext<'a> {
     imports: &'a BTreeMap<String, BTreeMap<String, String>>,
     packages_by_import_path: &'a BTreeMap<String, BTreeSet<(String, String)>>,
     declarations: &'a BTreeMap<GoOwnerIdentity, Vec<NamedTypeDeclaration>>,
-    alias_resolver: &'a crate::go_type_alias::GoAliasResolver,
+    alias_resolver: &'a crate::type_providers::go::type_alias::GoAliasResolver,
 }
 
 impl CallbackExtractionContext<'_> {

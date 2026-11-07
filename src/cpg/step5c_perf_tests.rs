@@ -238,7 +238,7 @@ fn retained_sites_exclude_assignment_rejections() {
          func run(x int) int {\n f(x)\n a := f(f(x))\n b := unknown(x)\n return f(a+b)\n}\n",
     );
     let cg = CallGraph::build(&files);
-    let resolver = crate::resolution::go_satisfiers::GoSatisfierMemo::new(&cg);
+    let resolver = crate::resolution::go::satisfiers::GoSatisfierMemo::new(&cg);
     let index = uses::UseIndex::new(&DiGraph::new());
     let mut rejected = 0;
     for (caller, facts) in facts::collect(&resolver, &files, &index) {

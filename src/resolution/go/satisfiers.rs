@@ -1,24 +1,24 @@
 //! Immutable, assembly-owned Go satisfier memo. No graph-persistent derived state.
-use super::*;
+use crate::resolution::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex, OnceLock};
 
-#[path = "resolution_go_satisfiers/compute.rs"]
+#[path = "satisfiers/compute.rs"]
 mod compute;
 #[cfg(test)]
-#[path = "resolution_go_satisfiers/reference.rs"]
+#[path = "satisfiers/reference.rs"]
 mod reference;
 #[cfg(test)]
-#[path = "resolution_go_satisfiers/tests.rs"]
+#[path = "satisfiers/tests.rs"]
 mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct GoCallerScopedSatisfiers<'a> {
-    pub(super) interface_selected: bool,
-    pub(super) selection:
-        crate::go_owner_partition::GoPartitionSelection<Vec<(String, &'a FunctionId)>>,
-    pub(super) promoted: GoProvenPromotedSupplyTelemetry,
+pub(in crate::resolution) struct GoCallerScopedSatisfiers<'a> {
+    pub(in crate::resolution) interface_selected: bool,
+    pub(in crate::resolution) selection:
+        super::owner_partition::GoPartitionSelection<Vec<(String, &'a FunctionId)>>,
+    pub(in crate::resolution) promoted: GoProvenPromotedSupplyTelemetry,
 }
 
 type Key = (GoOwnerIdentity, String, String, bool);
@@ -65,7 +65,7 @@ impl<'a> GoSatisfierMemo<'a> {
             .store(phase, std::sync::atomic::Ordering::Relaxed);
     }
 
-    pub(super) fn get(
+    pub(in crate::resolution) fn get(
         &self,
         owner: &GoOwnerIdentity,
         method: &str,
@@ -132,7 +132,7 @@ thread_local! {
 }
 
 #[cfg(test)]
-pub(super) fn reference_enabled() -> bool {
+pub(in crate::resolution) fn reference_enabled() -> bool {
     REFERENCE.with(std::cell::Cell::get)
 }
 

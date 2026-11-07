@@ -87,7 +87,7 @@ use super::{dir_of, go_visible_value_candidates};
 pub fn resolve_go_bare_value_ref(
     functions: &BTreeMap<String, Vec<FunctionId>>,
     method_owners: &BTreeMap<FunctionId, String>,
-    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
     ambiguous_counter: &mut usize,
     caller_file: &str,
     name: &str,

@@ -1,7 +1,7 @@
 //! Proven resolution of named Go function types used by P5 fields.
 
 use crate::call_graph::CallGraph;
-use crate::go_concrete_receiver::{GoTypeDeclarationForm, GoTypeDeclarations};
+use super::concrete_receiver::{GoTypeDeclarationForm, GoTypeDeclarations};
 use crate::resolution::GoOwnerIdentity;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -10,7 +10,7 @@ pub(crate) fn declaration_resolves_to_func(
     declarations: &GoTypeDeclarations,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
-    file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    file_profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> bool {
     resolves_owner(
         owner,
@@ -27,7 +27,7 @@ fn resolves_owner(
     declarations: &GoTypeDeclarations,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
-    file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    file_profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
     visiting: &mut BTreeSet<GoOwnerIdentity>,
 ) -> bool {
     if !visiting.insert(owner.clone()) {
@@ -68,7 +68,7 @@ fn resolves_text(
     declarations: &GoTypeDeclarations,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
-    file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    file_profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
     visiting: &mut BTreeSet<GoOwnerIdentity>,
 ) -> bool {
     let text = text.trim();

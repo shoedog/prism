@@ -1,5 +1,5 @@
 use prism::ast::ParsedFile;
-use prism::go_build_profile::{
+use prism::resolution::go::build_profile::{
     extract_go_file_profile, go_same_package_visible, go_same_package_visible_detailed, BuildExpr,
     GoBuildProfile,
 };

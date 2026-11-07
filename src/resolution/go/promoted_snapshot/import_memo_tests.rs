@@ -1,5 +1,5 @@
 use super::*;
-use crate::go_type_alias::import_memo::measured;
+use crate::type_providers::go::type_alias::import_memo::measured;
 use crate::languages::Language;
 use crate::type_providers::go::GoTypeProvider;
 
@@ -28,7 +28,7 @@ fn promoted_snapshot_matches_reference_and_scans_once_across_aliases_structs_and
                 )
             })
             .collect();
-        let (profiles, _) = crate::go_build_profile::extract_go_file_profiles(&files);
+        let (profiles, _) = crate::resolution::go::build_profile::extract_go_file_profiles(&files);
         for paths in [
             BTreeMap::new(),
             BTreeMap::from([

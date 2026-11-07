@@ -1,18 +1,18 @@
-//! Caller-dependent selection, unchanged from the pre-memo implementation.
+//! Frozen pre-memo computation; keep independent of the production implementation.
 use super::*;
 
 impl CallGraph {
-    pub(in crate::resolution) fn go_compute_caller_scoped_satisfiers<'a>(
+    pub(in crate::resolution) fn go_reference_caller_scoped_satisfiers<'a>(
         &'a self,
         interface_owner: &GoOwnerIdentity,
         method_name: &str,
         caller_file: &str,
         include_promoted: bool,
     ) -> GoCallerScopedSatisfiers<'a> {
-        let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+        let mut evidence = crate::resolution::go::owner_partition::GoPartitionEvidence::default();
         let mut promoted_telemetry = GoProvenPromotedSupplyTelemetry::default();
         let mode = self.go_owner_reference_mode(interface_owner, caller_file);
-        let interface = crate::go_owner_partition::select_interface_signatures_with_mode(
+        let interface = crate::resolution::go::owner_partition::select_interface_signatures_with_mode(
             interface_owner,
             caller_file,
             mode,
@@ -23,7 +23,7 @@ impl CallGraph {
         let Some(required) = interface.value else {
             return GoCallerScopedSatisfiers {
                 interface_selected: false,
-                selection: crate::go_owner_partition::GoPartitionSelection {
+                selection: crate::resolution::go::owner_partition::GoPartitionSelection {
                     value: None,
                     evidence,
                 },
@@ -50,7 +50,7 @@ impl CallGraph {
             }
             let mut visible_methods: BTreeMap<
                 &str,
-                Vec<&crate::go_owner_partition::GoMethodDeclaration>,
+                Vec<&crate::resolution::go::owner_partition::GoMethodDeclaration>,
             > = BTreeMap::new();
             let mut owner_uncertain = false;
             for declaration in self
@@ -59,11 +59,12 @@ impl CallGraph {
                 .into_iter()
                 .flatten()
             {
-                let (visible, exact) = crate::go_owner_partition::exact_cross_package_visibility(
-                    caller_file,
-                    &declaration.defining_file,
-                    &self.go_file_profiles,
-                );
+                let (visible, exact) =
+                    crate::resolution::go::owner_partition::reference_cross_package_visibility(
+                        caller_file,
+                        &declaration.defining_file,
+                        &self.go_file_profiles,
+                    );
                 if !visible {
                     continue;
                 }
@@ -117,13 +118,13 @@ impl CallGraph {
                 if !include_promoted {
                     continue;
                 }
-                match crate::go_promoted_snapshot::consult_promoted_snapshot_method(
+                match crate::resolution::go::promoted_snapshot::consult_promoted_snapshot_method(
                     self.go_promoted_selector_snapshot(),
                     &self.go_method_declarations,
                     concrete_owner,
                     name,
                 ) {
-                    crate::go_promoted_snapshot::GoPromotedSnapshotMethodConsult::Hit(hit) => {
+                    crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult::Hit(hit) => {
                         if hit.declaration.signature.as_ref().is_some_and(|candidate| {
                             crate::type_providers::go::GoTypeProvider::canon_signatures_match(
                                 candidate, signature,
@@ -137,16 +138,16 @@ impl CallGraph {
                             promoted_telemetry.signature_drop += 1;
                         }
                     }
-                    crate::go_promoted_snapshot::GoPromotedSnapshotMethodConsult::ConflictDrop => {
+                    crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult::ConflictDrop => {
                         promoted_telemetry.conflict_drop += 1;
                     }
-                    crate::go_promoted_snapshot::GoPromotedSnapshotMethodConsult::VariantDrop => {
+                    crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult::VariantDrop => {
                         promoted_telemetry.variant_drop += 1;
                     }
-                    crate::go_promoted_snapshot::GoPromotedSnapshotMethodConsult::InvariantDrop => {
+                    crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult::InvariantDrop => {
                         promoted_telemetry.invariant_drop += 1;
                     }
-                    crate::go_promoted_snapshot::GoPromotedSnapshotMethodConsult::Miss => {}
+                    crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult::Miss => {}
                 }
             }
             let value_matches = required
@@ -169,7 +170,7 @@ impl CallGraph {
             evidence.uncertain |= uncertain_owners > 0;
             return GoCallerScopedSatisfiers {
                 interface_selected: true,
-                selection: crate::go_owner_partition::GoPartitionSelection {
+                selection: crate::resolution::go::owner_partition::GoPartitionSelection {
                     value: None,
                     evidence,
                 },
@@ -179,7 +180,7 @@ impl CallGraph {
         evidence.recovered |= conflicting_owners > 0 || uncertain_owners > 0;
         GoCallerScopedSatisfiers {
             interface_selected: true,
-            selection: crate::go_owner_partition::GoPartitionSelection {
+            selection: crate::resolution::go::owner_partition::GoPartitionSelection {
                 value: Some(all_satisfiers),
                 evidence,
             },

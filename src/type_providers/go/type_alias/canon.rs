@@ -1,6 +1,6 @@
 use super::types::{AliasExpr, CanonTypeError, NameIdentity, NamedType, OwnerHint};
 use crate::ast::ParsedFile;
-use crate::go_build_profile::GoBuildProfile;
+use crate::resolution::go::build_profile::GoBuildProfile;
 use crate::resolution::dir_of;
 use std::collections::{BTreeMap, BTreeSet};
 

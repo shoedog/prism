@@ -1,5 +1,5 @@
 use crate::call_graph::CallSite;
-use crate::go_owner_partition::GoOwnerPartitionTelemetry;
+use crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry;
 use crate::resolution::ResolutionOutcome;
 
 fn partition_site_json(
