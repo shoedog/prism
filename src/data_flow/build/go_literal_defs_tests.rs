@@ -369,3 +369,13 @@ fn a_name_with_an_unclassified_binding_still_drops_formal_pairs_outside_the_lite
         ],
     );
 }
+
+#[test]
+fn names_inside_function_types_declare_nothing() {
+    // `inner func(ctx C, usage string) (n int)` names the parts of a type: no def, and the
+    // owner's `usage` def keeps main's pair into that line (it is not a slice B declaration).
+    let src = "package p\nfunc f(usage string,\n\tinner func(ctx C, usage string) (n int)) {\n\tuse(usage, inner)\n}\n";
+    assert!(!has_def(src, "n", 3));
+    assert!(!has_def(src, "ctx", 3));
+    check("func-type", src, &[("usage", 2, 4, true)]);
+}

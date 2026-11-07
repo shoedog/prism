@@ -214,12 +214,7 @@ impl<'a> ScopeFacts<'a> {
         }
         // A formal or named result declares a fresh variable: it writes no storage, so neither
         // the def's line nor the use's can make it a write through a pointer (#694 slice B).
-        if node.parent().is_some_and(|p| {
-            matches!(
-                p.kind(),
-                "parameter_declaration" | "variadic_parameter_declaration"
-            )
-        }) {
+        if node.parent().is_some_and(is_slice_b_declaration) {
             return Some((*declaration, index, true));
         }
         // Same-line defs of one path are coalesced to the first span: each must
@@ -419,6 +414,34 @@ pub(super) fn is_declaring_name(node: Node<'_>) -> bool {
     }
 }
 
+/// A parameter declaration that #694 slice B gives a producer def: a function-literal formal, or
+/// a named result of any callable. The owner's own formals have always had defs (pinned to the
+/// signature) and keep main's treatment.
+fn is_slice_b_declaration(declaration: Node<'_>) -> bool {
+    if !matches!(
+        declaration.kind(),
+        "parameter_declaration" | "variadic_parameter_declaration"
+    ) {
+        return false;
+    }
+    declaration
+        .parent()
+        .and_then(|list| list.parent().map(|callable| (list, callable)))
+        .is_some_and(|(list, callable)| {
+            let real = matches!(
+                callable.kind(),
+                "func_literal" | "function_declaration" | "method_declaration"
+            );
+            real && (callable.kind() == "func_literal"
+                && callable
+                    .child_by_field_name("parameters")
+                    .is_some_and(|p| p.id() == list.id())
+                || callable
+                    .child_by_field_name("result")
+                    .is_some_and(|r| r.id() == list.id()))
+        })
+}
+
 /// The identifier is a name of a parameter declaration. The grammar's `name` field holds every
 /// name of `a, b T`, which `child_by_field_name` would not (it returns the first). Slice B reads
 /// all of them for function-literal formals and for results of any callable; the owner's own
@@ -426,16 +449,7 @@ pub(super) fn is_declaring_name(node: Node<'_>) -> bool {
 fn is_parameter_name(declaration: Node<'_>, node: Node<'_>) -> bool {
     let contains =
         |n: Node<'_>| n.start_byte() <= node.start_byte() && node.end_byte() <= n.end_byte();
-    let owned_by_slice_b = declaration
-        .parent()
-        .and_then(|list| list.parent().map(|callable| (list, callable)))
-        .is_some_and(|(list, callable)| {
-            callable.kind() == "func_literal"
-                || callable
-                    .child_by_field_name("result")
-                    .is_some_and(|r| r.id() == list.id())
-        });
-    if !owned_by_slice_b {
+    if !is_slice_b_declaration(declaration) {
         return declaration
             .child_by_field_name("name")
             .is_some_and(contains);
