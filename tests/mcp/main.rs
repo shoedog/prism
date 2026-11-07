@@ -9,6 +9,7 @@ mod location_seed_test;
 mod malloc_test;
 mod mem_report_test;
 mod member_only_param_test;
+mod owner_activation_test;
 mod settings_test;
 mod shim_process_test;
 mod shim_session_process_test;
