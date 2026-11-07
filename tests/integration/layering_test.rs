@@ -5,12 +5,12 @@
 //! `src/algorithms/**`, `src/output/**`, `src/targets/**`, `src/api/**`,
 //! `src/cli.rs`, `src/main.rs`, `src/lib.rs` and `src/bin/**`.
 //!
-//! Exempt: files named `*_tests.rs` or `tests.rs`, any path with a `/tests/`
+//! Exempt: files named `*_tests.rs`, `*_test.rs` or `tests.rs`, any path with a `/tests/`
 //! component, and comment lines (`//`, `///`, `//!`). There is deliberately NO
 //! `#[cfg(test)]` exemption, because no line-based heuristic can tell where a
 //! gated item ends. Consequence: a core file's inline `#[cfg(test)]` module
 //! may not import `crate::algorithms`; a test that needs review-layer items
-//! lives in a `*_tests.rs` or `tests.rs` sibling (which the crate split in
+//! lives in a `*_tests.rs`, `*_test.rs` or `tests.rs` sibling (which the crate split in
 //! #701 will make the compiler enforce).
 
 use std::fs;
@@ -46,6 +46,7 @@ fn is_review_layer(rel: &str) -> bool {
 
 fn is_test_file(rel: &str) -> bool {
     rel.ends_with("_tests.rs")
+        || rel.ends_with("_test.rs")
         || rel.rsplit('/').next() == Some("tests.rs")
         || rel.contains("/tests/")
 }
@@ -92,6 +93,9 @@ fn review_layer_and_test_paths_are_classified() {
     assert!(is_review_layer("src/cli.rs"));
     assert!(!is_review_layer("src/frameworks/mod.rs"));
     assert!(is_test_file("src/foo/bar_tests.rs"));
+    assert!(is_test_file(
+        "src/call_graph/js_relative_candidates_test.rs"
+    ));
     assert!(is_test_file("src/foo/tests/x.rs"));
     assert!(!is_test_file("src/foo/bar.rs"));
 }
