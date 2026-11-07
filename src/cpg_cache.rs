@@ -303,7 +303,7 @@ mod stream;
 /// - v155: JS/TS/TSX D3 asks reaching definitions for the node of every position (#696): an `exact` edge on
 ///   a line where a multi-line statement ends and another starts can become `NameOnly(SameLine)`; labels only.
 /// - v156: Go producer defs for range/receive `:=` targets, type-switch aliases and later var/const names; rule S drops their outer pairs (#694 slice A).
-/// - v157: Python rules U and D (#630 slice 5): write-only lines and dominated defs are dropped; Go unchanged.
+/// - v157: Python rules U and D (#630 slice 5): write-only lines and dominated defs are dropped, and `self`/`cls` attribute paths join D. The same-line own-span judging is shared with Go: same-line pairs gain edges in both languages and an owner at the survivor cap can cross it.
 const CACHE_VERSION: u32 = 157;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;

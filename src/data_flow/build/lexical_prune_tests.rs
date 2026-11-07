@@ -220,7 +220,15 @@ fn prune_subset_and_labels_across_fixture_tree() {
                         assert!(
                             after.edges.iter().any(|e| e.to == edge.to
                                 && e.from.path == edge.from.path
-                                && e.from != edge.from),
+                                && e.from != edge.from)
+                                // A prefix-path write (`self.x = b` after `self.x.y = a`) is
+                                // the dominator of a `self`/`cls` attribute path; it reaches
+                                // the same line's use of the prefix.
+                                || (edge.from.path.fields.len() > 1
+                                    && after.edges.iter().any(|e| e.to.line == edge.to.line
+                                        && e.from.path.base == edge.from.path.base
+                                        && e.from.path.fields.len() < edge.from.path.fields.len()
+                                        && edge.from.path.fields.starts_with(&e.from.path.fields))),
                             "removed {edge:?} left no dominator edge in {file}"
                         );
                     }
