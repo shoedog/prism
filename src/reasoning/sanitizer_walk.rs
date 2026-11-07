@@ -35,11 +35,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use petgraph::graph::NodeIndex;
 use tree_sitter::Node;
 
-use crate::algorithms::taint::{sanitizer_call_site, sanitizer_category_str};
 use crate::ast::ParsedFile;
 use crate::cpg::{CodePropertyGraph, Relation, Trace};
 use crate::data_flow::{VarAccessKind, VarLocation};
 use crate::reasoning::types::SanitizerSite;
+use crate::sanitizers::matching::{sanitizer_call_site, sanitizer_category_str};
 
 /// One proven sanitizer transition on a witness chain.
 pub struct SanitizerHit {

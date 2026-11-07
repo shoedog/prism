@@ -16,9 +16,9 @@ pub mod js_ts;
 pub mod nethttp;
 pub mod python;
 
-/// Origin classification matching `provenance_slice.rs::Origin` enum.
-/// Re-exported here for convenience in framework specs.
-pub use crate::algorithms::provenance_slice::Origin;
+mod origin;
+/// Origin classification (defined in `origin.rs`; `provenance_slice` re-exports it).
+pub use origin::Origin;
 
 /// Category that a sink consumes or a sanitizer cleanses.
 ///

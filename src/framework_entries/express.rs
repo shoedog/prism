@@ -70,14 +70,19 @@ pub fn express_route_candidates(parsed: &ParsedFile) -> Vec<ExpressRouteCandidat
         return out;
     }
 
-    let receivers = crate::algorithms::taint::js_ts_framework_receiver_names(parsed, "express");
+    let receivers =
+        crate::frameworks::js_ts::call_classify::js_ts_framework_receiver_names(parsed, "express");
     if receivers.is_empty() {
         return out;
     }
     let imports = parsed.extract_imports();
 
     let mut calls = Vec::new();
-    crate::algorithms::taint::collect_js_ts_call_nodes(parsed.tree.root_node(), parsed, &mut calls);
+    crate::frameworks::js_ts::call_classify::collect_js_ts_call_nodes(
+        parsed.tree.root_node(),
+        parsed,
+        &mut calls,
+    );
     // F6 (opus nit): hoisted out of the per-arg loop below — it's a `Vec`
     // allocated fresh per call, and doesn't depend on anything but
     // `parsed.language`, which is fixed for the whole file.
@@ -161,7 +166,7 @@ fn express_call_match_kind(
     imports: &std::collections::BTreeMap<String, String>,
 ) -> Option<bool> {
     let function = call.child_by_field_name("function")?;
-    let function = crate::algorithms::taint::unwrap_parenthesized(function);
+    let function = crate::ast::tree_helpers::unwrap_parenthesized(function);
     if function.kind() != "member_expression" {
         return None;
     }
@@ -169,16 +174,16 @@ fn express_call_match_kind(
     let method = parsed
         .node_text(&property)
         .trim_matches(|c| c == '\'' || c == '"' || c == '`');
-    if !crate::algorithms::taint::js_ts_framework_route_method("express", method) {
+    if !crate::frameworks::js_ts::call_classify::js_ts_framework_route_method("express", method) {
         return None;
     }
     let receiver = function.child_by_field_name("object")?;
-    if crate::algorithms::taint::js_ts_receiver_expr_is_framework_instance(
+    if crate::frameworks::js_ts::call_classify::js_ts_receiver_expr_is_framework_instance(
         parsed, receiver, "express", receivers, imports,
     ) {
         return Some(false);
     }
-    if crate::algorithms::taint::js_ts_receiver_expr_is_route_builder(
+    if crate::frameworks::js_ts::call_classify::js_ts_receiver_expr_is_route_builder(
         parsed, receiver, "express", receivers, imports,
     ) {
         return Some(true);
@@ -194,7 +199,7 @@ fn express_call_match_kind(
 /// `express_receiver_identifier_name` (F2).
 fn express_call_method_name(parsed: &ParsedFile, call: &tree_sitter::Node<'_>) -> Option<String> {
     let function = call.child_by_field_name("function")?;
-    let function = crate::algorithms::taint::unwrap_parenthesized(function);
+    let function = crate::ast::tree_helpers::unwrap_parenthesized(function);
     if function.kind() != "member_expression" {
         return None;
     }
@@ -240,7 +245,7 @@ fn express_shadow_check_identifier(
     call: &tree_sitter::Node<'_>,
 ) -> Option<String> {
     let function = call.child_by_field_name("function")?;
-    let function = crate::algorithms::taint::unwrap_parenthesized(function);
+    let function = crate::ast::tree_helpers::unwrap_parenthesized(function);
     if function.kind() != "member_expression" {
         return None;
     }
@@ -257,7 +262,7 @@ fn express_receiver_shadow_identifier(
     parsed: &ParsedFile,
     receiver: tree_sitter::Node<'_>,
 ) -> Option<String> {
-    let receiver = crate::algorithms::taint::unwrap_parenthesized(receiver);
+    let receiver = crate::ast::tree_helpers::unwrap_parenthesized(receiver);
     if receiver.kind() == "identifier" {
         return Some(parsed.node_text(&receiver).to_string());
     }
@@ -270,7 +275,7 @@ fn express_receiver_shadow_identifier(
     // `.route()` call itself was invoked on, and recurse.
     if parsed.language.is_call_node(receiver.kind()) {
         let inner_function = receiver.child_by_field_name("function")?;
-        let inner_function = crate::algorithms::taint::unwrap_parenthesized(inner_function);
+        let inner_function = crate::ast::tree_helpers::unwrap_parenthesized(inner_function);
         if inner_function.kind() == "member_expression" {
             let property = inner_function.child_by_field_name("property")?;
             if parsed.node_text(&property) == "route" {
@@ -299,7 +304,7 @@ fn express_constructor_grounding_identifier(
     parsed: &ParsedFile,
     expr: tree_sitter::Node<'_>,
 ) -> Option<String> {
-    let expr = crate::algorithms::taint::unwrap_parenthesized(expr);
+    let expr = crate::ast::tree_helpers::unwrap_parenthesized(expr);
     if !matches!(expr.kind(), "call_expression" | "new_expression") {
         return None;
     }
@@ -308,7 +313,7 @@ fn express_constructor_grounding_identifier(
         .or_else(|| expr.child_by_field_name("constructor"))
         .or_else(|| expr.child_by_field_name("name"))
         .or_else(|| expr.named_child(0))?;
-    let callee = crate::algorithms::taint::unwrap_parenthesized(callee);
+    let callee = crate::ast::tree_helpers::unwrap_parenthesized(callee);
     match callee.kind() {
         // `express()`, or the callee of `new express.Router()`/
         // `express.Router()` once already peeled to `express` below.
@@ -325,7 +330,7 @@ fn express_constructor_grounding_identifier(
         // `None`, treated as "not shadowed") for exactly this shape.
         "member_expression" => {
             let object = callee.child_by_field_name("object")?;
-            let object = crate::algorithms::taint::unwrap_parenthesized(object);
+            let object = crate::ast::tree_helpers::unwrap_parenthesized(object);
             if object.kind() == "identifier" {
                 return Some(parsed.node_text(&object).to_string());
             }
@@ -353,7 +358,7 @@ fn require_call_callee_identifier(
         return None;
     }
     let inner_function = node.child_by_field_name("function")?;
-    let inner_function = crate::algorithms::taint::unwrap_parenthesized(inner_function);
+    let inner_function = crate::ast::tree_helpers::unwrap_parenthesized(inner_function);
     (inner_function.kind() == "identifier").then(|| parsed.node_text(&inner_function).to_string())
 }
 

@@ -22,6 +22,29 @@ use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
+// Items moved out to core modules (#702); re-exported under their old names so
+// existing callers in `algorithms/` keep resolving.
+pub(crate) use crate::ast::tree_helpers::unwrap_parenthesized;
+use crate::ast::tree_helpers::{
+    call_arg_node, call_path_matches, call_path_text, collect_calls, is_js_ts_language,
+};
+use crate::frameworks::js_ts::call_classify::{
+    collect_js_ts_assignment_like_nodes, js_ts_assignment_target,
+    js_ts_assignment_target_and_value, js_ts_assignment_value, js_ts_call_or_new_callee,
+    js_ts_literal_string_value, js_ts_require_call_module,
+};
+pub(crate) use crate::frameworks::js_ts::call_classify::{
+    collect_js_ts_call_nodes, js_ts_framework_receiver_names, js_ts_framework_route_method,
+    js_ts_receiver_expr_is_framework_instance, js_ts_receiver_expr_is_route_builder,
+};
+// Kept for compatibility with the pre-move paths; consumers outside `algorithms/`
+// import from `crate::sanitizers::matching` directly.
+#[allow(unused_imports)]
+pub(crate) use crate::sanitizers::matching::{
+    cleansed_categories_for_source, function_body_cleansed_for, sanitizer_call_site,
+    sanitizer_category_str, SanitizerCallSite,
+};
+
 /// Built-in taint sink patterns matched against AST identifier nodes.
 ///
 /// **Matching convention** (see `matches_sink()`):
@@ -1633,34 +1656,8 @@ fn collect_request_param_names(
     names
 }
 
-/// Compute the textual call path for a call expression. For `r.URL.Query()`,
-/// returns `Some("r.URL.Query")`; for Python `request.args.get()`, returns
-/// `Some("request.args.get")`.
-fn call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
-    let func = parsed.call_function_node(call_node)?;
-    Some(parsed.node_text(&func).to_string())
-}
-
 fn go_call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
     call_path_text(parsed, call_node)
-}
-
-fn is_js_ts_language(language: Language) -> bool {
-    matches!(
-        language,
-        Language::JavaScript | Language::TypeScript | Language::Tsx
-    )
-}
-
-/// Walk `root` collecting every call node for the file's language.
-fn collect_calls<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Vec<Node<'a>>) {
-    if parsed.language.is_call_node(node.kind()) {
-        out.push(node);
-    }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        collect_calls(parsed, child, out);
-    }
 }
 
 /// Walk `root` collecting every Go `call_expression` node.
@@ -1935,32 +1932,6 @@ fn js_ts_framework_source_params(
     out
 }
 
-/// `pub(crate)` (P9): reused as-is by `framework_entries::express_route_candidates`
-/// to compute the express receiver set for registration-first extraction —
-/// no logic change, just visibility.
-pub(crate) fn js_ts_framework_receiver_names(
-    parsed: &ParsedFile,
-    framework: &str,
-) -> BTreeSet<String> {
-    let imports = parsed.extract_imports();
-    let mut receivers = BTreeSet::new();
-    let mut assignments = Vec::new();
-    collect_js_ts_assignment_like_nodes(parsed.tree.root_node(), parsed, &mut assignments);
-
-    for assignment in assignments {
-        let Some((lhs, rhs)) = js_ts_assignment_target_and_value(parsed, &assignment) else {
-            continue;
-        };
-        if lhs.kind() != "identifier" {
-            continue;
-        }
-        if js_ts_expr_constructs_framework_receiver(parsed, rhs, framework, &imports) {
-            receivers.insert(parsed.node_text(&lhs).to_string());
-        }
-    }
-    receivers
-}
-
 fn js_ts_is_framework_route_handler(
     parsed: &ParsedFile,
     func: &Node<'_>,
@@ -2024,23 +1995,6 @@ fn js_ts_registered_route_references_handler(
         js_ts_route_call_matches_framework(parsed, call, framework, framework_receivers, imports)
             && js_ts_call_args_reference_handler_name(parsed, call, binding_names)
     })
-}
-
-/// `pub(crate)` (P9): reused by `framework_entries::express_route_candidates`
-/// to collect every call node in a file before filtering to route
-/// registrations.
-pub(crate) fn collect_js_ts_call_nodes<'a>(
-    node: Node<'a>,
-    parsed: &ParsedFile,
-    out: &mut Vec<Node<'a>>,
-) {
-    if parsed.language.is_call_node(node.kind()) {
-        out.push(node);
-    }
-    let mut cursor = node.walk();
-    for child in node.named_children(&mut cursor) {
-        collect_js_ts_call_nodes(child, parsed, out);
-    }
 }
 
 fn js_ts_call_args_reference_handler_name(
@@ -2138,167 +2092,6 @@ fn js_ts_route_call_matches_framework(
         framework_receivers,
         imports,
     )
-}
-
-/// `pub(crate)` (P9): reused by `framework_entries` to test a call's method
-/// name against the express route-method set.
-pub(crate) fn js_ts_framework_route_method(framework: &str, method: &str) -> bool {
-    match framework {
-        "express" => matches!(
-            method,
-            "get" | "post" | "put" | "patch" | "delete" | "all" | "use"
-        ),
-        "fastify" => matches!(
-            method,
-            "get" | "post" | "put" | "patch" | "delete" | "options" | "head" | "all" | "route"
-        ),
-        "koa" => matches!(
-            method,
-            "use" | "get" | "post" | "put" | "patch" | "delete" | "all"
-        ),
-        _ => false,
-    }
-}
-
-/// `pub(crate)` (P9): reused by `framework_entries` to test whether a route
-/// call's receiver is a direct express instance (vs. a `.route()` builder).
-pub(crate) fn js_ts_receiver_expr_is_framework_instance(
-    parsed: &ParsedFile,
-    receiver: Node<'_>,
-    framework: &str,
-    framework_receivers: &BTreeSet<String>,
-    imports: &BTreeMap<String, String>,
-) -> bool {
-    let receiver = unwrap_parenthesized(receiver);
-    if receiver.kind() == "identifier" {
-        return framework_receivers.contains(parsed.node_text(&receiver));
-    }
-    js_ts_expr_constructs_framework_receiver(parsed, receiver, framework, imports)
-}
-
-/// `pub(crate)` (P9): reused by `framework_entries` to detect the
-/// `.route(path).get(handler)` builder shape (arg positioning differs from
-/// the direct-instance shape — see `framework_entries::express_route_candidates`).
-pub(crate) fn js_ts_receiver_expr_is_route_builder(
-    parsed: &ParsedFile,
-    receiver: Node<'_>,
-    framework: &str,
-    framework_receivers: &BTreeSet<String>,
-    imports: &BTreeMap<String, String>,
-) -> bool {
-    let receiver = unwrap_parenthesized(receiver);
-    if !parsed.language.is_call_node(receiver.kind()) {
-        return false;
-    }
-    let Some(function) = receiver.child_by_field_name("function") else {
-        return false;
-    };
-    let function = unwrap_parenthesized(function);
-    if function.kind() != "member_expression" {
-        return false;
-    }
-    let Some(property) = function.child_by_field_name("property") else {
-        return false;
-    };
-    if parsed.node_text(&property) != "route" {
-        return false;
-    }
-    let Some(object) = function.child_by_field_name("object") else {
-        return false;
-    };
-    js_ts_receiver_expr_is_framework_instance(
-        parsed,
-        object,
-        framework,
-        framework_receivers,
-        imports,
-    )
-}
-
-fn js_ts_expr_constructs_framework_receiver(
-    parsed: &ParsedFile,
-    expr: Node<'_>,
-    framework: &str,
-    imports: &BTreeMap<String, String>,
-) -> bool {
-    let expr = unwrap_parenthesized(expr);
-    if !matches!(expr.kind(), "call_expression" | "new_expression") {
-        return false;
-    }
-    let Some(callee) = js_ts_call_or_new_callee(expr) else {
-        return false;
-    };
-    js_ts_callee_constructs_framework_receiver(parsed, callee, framework, imports)
-}
-
-fn js_ts_call_or_new_callee(node: Node<'_>) -> Option<Node<'_>> {
-    node.child_by_field_name("function")
-        .or_else(|| node.child_by_field_name("constructor"))
-        .or_else(|| node.child_by_field_name("name"))
-        .or_else(|| node.named_child(0))
-}
-
-fn js_ts_callee_constructs_framework_receiver(
-    parsed: &ParsedFile,
-    callee: Node<'_>,
-    framework: &str,
-    imports: &BTreeMap<String, String>,
-) -> bool {
-    let callee = unwrap_parenthesized(callee);
-    if callee.kind() == "identifier" {
-        let local = parsed.node_text(&callee);
-        return imports
-            .get(local)
-            .is_some_and(|module| js_ts_module_matches_framework(module, framework));
-    }
-
-    if parsed.language.is_call_node(callee.kind()) {
-        return js_ts_require_call_module(parsed, &callee)
-            .is_some_and(|module| js_ts_module_matches_framework(&module, framework));
-    }
-
-    if callee.kind() == "member_expression" {
-        let Some(property) = callee.child_by_field_name("property") else {
-            return false;
-        };
-        let Some(object) = callee.child_by_field_name("object") else {
-            return false;
-        };
-        let property_text = parsed.node_text(&property);
-        return (framework == "express" && property_text == "Router")
-            && js_ts_expr_resolves_to_framework_module(parsed, object, framework, imports);
-    }
-
-    false
-}
-
-fn js_ts_expr_resolves_to_framework_module(
-    parsed: &ParsedFile,
-    expr: Node<'_>,
-    framework: &str,
-    imports: &BTreeMap<String, String>,
-) -> bool {
-    let expr = unwrap_parenthesized(expr);
-    if expr.kind() == "identifier" {
-        let local = parsed.node_text(&expr);
-        return imports
-            .get(local)
-            .is_some_and(|module| js_ts_module_matches_framework(module, framework));
-    }
-    if parsed.language.is_call_node(expr.kind()) {
-        return js_ts_require_call_module(parsed, &expr)
-            .is_some_and(|module| js_ts_module_matches_framework(&module, framework));
-    }
-    false
-}
-
-fn js_ts_module_matches_framework(module: &str, framework: &str) -> bool {
-    match framework {
-        "express" => module == "express",
-        "fastify" => module == "fastify",
-        "koa" => matches!(module, "koa" | "@koa/router" | "koa-router"),
-        _ => false,
-    }
 }
 
 fn js_ts_param_has_nest_source_decorator(parsed: &ParsedFile, param: &Node<'_>) -> bool {
@@ -5693,19 +5486,6 @@ pub(crate) enum SinkMatchOutcome {
     NoMatch,
 }
 
-fn call_arg_node<'a>(call: &Node<'a>, arg_idx: usize) -> Option<Node<'a>> {
-    let arguments = call.child_by_field_name("arguments").or_else(|| {
-        let mut cursor = call.walk();
-        let found = call
-            .named_children(&mut cursor)
-            .find(|child| child.kind() == "arguments");
-        found
-    })?;
-    let mut cursor = arguments.walk();
-    let arg = arguments.named_children(&mut cursor).nth(arg_idx);
-    arg
-}
-
 fn call_literal_arg(parsed: &ParsedFile, call: &Node<'_>, arg_idx: usize) -> Option<String> {
     let arg = call_arg_node(call, arg_idx)?;
     let text = parsed.node_text(&arg).trim();
@@ -6613,20 +6393,6 @@ fn classify_guard_control(
     None
 }
 
-/// `pub(crate)` (P9): reused by `framework_entries` for the same
-/// parenthesized-expression unwrapping this module already does.
-pub(crate) fn unwrap_parenthesized(mut node: Node<'_>) -> Node<'_> {
-    loop {
-        if node.kind() != "parenthesized_expression" {
-            return node;
-        }
-        node = match node.named_child(0) {
-            Some(child) => child,
-            None => return node,
-        };
-    }
-}
-
 fn is_negated_hasprefix_condition(
     parsed: &ParsedFile,
     condition: &Node<'_>,
@@ -6905,22 +6671,6 @@ fn js_ts_inline_framework_source_yaml_sink_lines(parsed: &ParsedFile) -> BTreeSe
         }
     }
     lines
-}
-
-fn call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool {
-    actual == expected
-        || (parsed.language == Language::Python
-            && !expected.contains('.')
-            && actual
-                .rsplit('.')
-                .next()
-                .is_some_and(|tail| tail == expected))
-        || (is_js_ts_language(parsed.language)
-            && !expected.contains('.')
-            && actual
-                .rsplit('.')
-                .next()
-                .is_some_and(|tail| tail == expected))
 }
 
 fn sink_call_path_matches(
@@ -7790,19 +7540,6 @@ fn js_ts_require_member_expression(
         .trim_matches(|c| c == '\'' || c == '"' || c == '`')
         .to_string();
     Some((module, member))
-}
-
-fn js_ts_require_call_module(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
-    let node = unwrap_parenthesized(*node);
-    if !parsed.language.is_call_node(node.kind()) {
-        return None;
-    }
-    let function = parsed.call_function_name(&node)?;
-    if parsed.node_text(&function) != "require" {
-        return None;
-    }
-    let arg = call_arg_node(&node, 0)?;
-    js_ts_literal_string_value(parsed, &arg)
 }
 
 fn js_ts_ssrf_sink_call_path_matches(
@@ -9251,26 +8988,6 @@ fn js_ts_interpreter_eval_flag(flag: &str) -> bool {
     )
 }
 
-fn js_ts_literal_string_value(parsed: &ParsedFile, node: &Node<'_>) -> Option<String> {
-    let node = unwrap_parenthesized(*node);
-    let text = parsed.node_text(&node).trim();
-    if !(matches!(node.kind(), "string" | "template_string")
-        || text.starts_with('"')
-        || text.starts_with('\'')
-        || text.starts_with('`'))
-    {
-        return None;
-    }
-    if text.starts_with('`') && text.contains("${") {
-        return None;
-    }
-    text.strip_prefix('"')
-        .and_then(|s| s.strip_suffix('"'))
-        .or_else(|| text.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')))
-        .or_else(|| text.strip_prefix('`').and_then(|s| s.strip_suffix('`')))
-        .map(ToString::to_string)
-}
-
 fn js_ts_yaml_load_uses_safe_schema(parsed: &ParsedFile, call: &Node<'_>) -> bool {
     let actual = match call_path_text(parsed, call) {
         Some(s) => s,
@@ -9469,44 +9186,6 @@ fn collect_js_ts_path_sanitizer_bindings(
         });
     }
     bindings
-}
-
-fn collect_js_ts_assignment_like_nodes<'a>(
-    node: Node<'a>,
-    parsed: &ParsedFile,
-    out: &mut Vec<Node<'a>>,
-) {
-    if node.kind() == "variable_declarator" || parsed.language.is_assignment_node(node.kind()) {
-        out.push(node);
-    }
-    let mut cursor = node.walk();
-    for child in node.named_children(&mut cursor) {
-        collect_js_ts_assignment_like_nodes(child, parsed, out);
-    }
-}
-
-fn js_ts_assignment_target_and_value<'a>(
-    parsed: &ParsedFile,
-    node: &Node<'a>,
-) -> Option<(Node<'a>, Node<'a>)> {
-    Some((
-        js_ts_assignment_target(parsed, node)?,
-        js_ts_assignment_value(parsed, node)?,
-    ))
-}
-
-fn js_ts_assignment_target<'a>(parsed: &ParsedFile, node: &Node<'a>) -> Option<Node<'a>> {
-    if node.kind() == "variable_declarator" {
-        return node.child_by_field_name("name");
-    }
-    parsed.language.assignment_target(node)
-}
-
-fn js_ts_assignment_value<'a>(parsed: &ParsedFile, node: &Node<'a>) -> Option<Node<'a>> {
-    if node.kind() == "variable_declarator" {
-        return node.child_by_field_name("value");
-    }
-    parsed.language.assignment_value(node)
 }
 
 fn js_ts_path_sanitizer_call_path_matches(parsed: &ParsedFile, actual: &str) -> bool {
@@ -10616,78 +10295,6 @@ fn js_ts_flat_sink_identifier_has_tainted_request_source(
     })
 }
 
-/// Returns true if the function body containing `line` in `parsed` has at least one
-/// active sanitizer recognizer call whose category equals `category` AND whose
-/// `languages` admits `parsed.language` (item B / #7: the same predicate
-/// `sanitizer_call_site` applies). Walks the enclosing function for the line, applies
-/// each recognizer's `semantic_check` and textual `paired_check`, and returns on
-/// first match.
-///
-/// Used both by `apply_cleansers` (per-FlowPath, all categories) and by the
-/// source==sink fallback (single-category check when no FlowPath exists for the line);
-/// `cleansed_categories_for_source` also delegates its per-category matching here, so
-/// this is the single place both advisory entry points are gated by language.
-///
-/// The walk is intraprocedural (cleanser must live in same function as `line`);
-/// cross-function cleansing is a Phase 1.5+ concern.
-fn function_body_cleansed_for(
-    parsed: &ParsedFile,
-    line: usize,
-    category: SanitizerCategory,
-) -> bool {
-    let func_node = match parsed.enclosing_function(line) {
-        Some(n) => n,
-        None => return false,
-    };
-    let func_text = func_node.utf8_text(parsed.source.as_bytes()).unwrap_or("");
-
-    let mut calls = Vec::new();
-    collect_calls(parsed, func_node, &mut calls);
-
-    for recognizer in crate::sanitizers::active_recognizers() {
-        if recognizer.category != category {
-            continue;
-        }
-        if !recognizer.languages.contains(&parsed.language) {
-            continue;
-        }
-        // Look for a call to the recognizer's call_path within the function.
-        let mut matched = false;
-        for call in &calls {
-            let actual = match call_path_text(parsed, call) {
-                Some(s) => s,
-                None => continue,
-            };
-            if !call_path_matches(parsed, &actual, recognizer.call_path) {
-                continue;
-            }
-            if let Some(check) = recognizer.semantic_check {
-                let cs = CallSite {
-                    call_node: *call,
-                    source: parsed.source.as_str(),
-                };
-                if !check(&cs) {
-                    continue;
-                }
-            }
-            matched = true;
-            break;
-        }
-        if !matched {
-            continue;
-        }
-        // For paired-check recognizers, the second-half check must also appear
-        // in the function body (textual co-occurrence per §3.4 / §3.8).
-        if let Some(paired) = recognizer.paired_check {
-            if !crate::sanitizers::paired_check_satisfied(func_text, paired) {
-                continue;
-            }
-        }
-        return true;
-    }
-    false
-}
-
 /// Apply cleansers to a `FlowPath`, mutating `cleansed_for` in place per spec §3.6.
 ///
 /// For each active sanitizer recognizer category, calls
@@ -10724,134 +10331,6 @@ fn apply_cleansers(path: &mut crate::data_flow::FlowPath, files: &BTreeMap<Strin
             path.cleansed_for.insert(category);
         }
     }
-}
-
-// [->Phase-IP / A2] TEMPORARY layering inversion: reasoning reaches into taint.rs. Relocate
-// cleansed_categories_for_source + function_body_cleansed_for into src/sanitizers/ when A2 lands.
-// Tracked: docs/superpowers/specs/2026-06-09-prism-tier2-planA-substrate-hardening-design.md §9.
-/// A4: the single reasoning-facing cleansing adapter. Returns the sanitizer categories present
-/// in the SOURCE FUNCTION BODY (NOT path-proof) as lowercase strings. Gated to Go/Python/JS-TS
-/// exactly like apply_cleansers; honest-empty otherwise. Per-recognizer language filtering
-/// (item B / #7) happens one layer down in `function_body_cleansed_for`, which this function
-/// delegates every category check to — there is no independent recognizer-matching logic here
-/// to filter separately.
-pub(crate) fn cleansed_categories_for_source(
-    files: &std::collections::BTreeMap<String, ParsedFile>,
-    source: &crate::data_flow::VarLocation,
-) -> Vec<String> {
-    let parsed = match files.get(&source.file) {
-        Some(p) => p,
-        None => return Vec::new(),
-    };
-    if !crate::sanitizers::sanitizer_supported(parsed.language) {
-        return Vec::new();
-    }
-
-    let mut out = Vec::new();
-    let cats: std::collections::BTreeSet<crate::frameworks::SanitizerCategory> =
-        crate::sanitizers::active_recognizers()
-            .map(|r| r.category)
-            .collect();
-    for category in cats {
-        if function_body_cleansed_for(parsed, source.line, category) {
-            out.push(sanitizer_category_str(category).to_string());
-        }
-    }
-    out
-}
-
-pub(crate) fn sanitizer_category_str(c: crate::frameworks::SanitizerCategory) -> &'static str {
-    use crate::frameworks::SanitizerCategory::*;
-    match c {
-        Xss => "xss",
-        Sqli => "sqli",
-        Ssrf => "ssrf",
-        Deserialization => "deserialization",
-        OsCommand => "os_command",
-        PathTraversal => "path_traversal",
-    }
-}
-
-// P10: node-scoped sanitizer matcher, beside `cleansed_categories_for_source` — same temporary
-// reasoning->taint.rs layering inversion noted above (not relocated this slice).
-/// A candidate call node recognized as an active, non-`paired_check` sanitizer.
-pub(crate) struct SanitizerCallSite {
-    pub category: crate::frameworks::SanitizerCategory,
-    pub callee_text: String,
-    pub file: String,
-    pub line: usize,
-    /// P10 F3: the matched recognizer's `data_param` (see `SanitizerRecognizer::data_param`),
-    /// threaded through so `src/reasoning/sanitizer_walk.rs` can accept a Python
-    /// `keyword_argument`'s VALUE span (name == this) as the sanitizer's data argument, distinct
-    /// from the keyword LABEL identifier or an unrelated tainted kwarg.
-    pub data_param: Option<&'static str>,
-}
-
-/// P10 node-scoped matcher: does `call_node` match an active sanitizer recognizer? Checked across
-/// ALL categories (first match wins by `active_recognizers()` order) — a deliberate divergence from
-/// the CWE engine's PER-CATEGORY sink cut (`path.cleansed_for.contains(&sink_pat.category)` near
-/// :5996): `taint_reaches`'s honesty tier proves "a recognized sanitizer transform sits on this
-/// path" without needing to know the specific sink category, so any-category is the right cut here.
-///
-/// Excludes `paired_check` recognizers (the Go path-traversal family, `src/sanitizers/path.rs`)
-/// entirely: those need the CWE engine's sink-time AST+CFG guard validation (see
-/// `go_path_traversal_cleansed_for_sink` near :5986) to rule out inverted or guard-after-sink
-/// shapes, which this single-call-node check cannot replicate. They stay advisory-only via the
-/// unchanged `Cleansed` warning / `sanitizers_present_in_source_fn` path.
-///
-/// F2 BLOCKER (also filters by `recognizer.languages`): `call_path_matches`'s exact-match branch is
-/// NOT gated by language, and `sanitizer_supported` (the file-language gate one layer up) admits
-/// Go — so an unqualified name shared across tables (bare `escape` is registered by BOTH
-/// `JS_TS_RECOGNIZERS` and `PYTHON_RECOGNIZERS`) would otherwise match a same-named Go call and
-/// produce a false path-proven `Sanitized` verdict.
-///
-/// Item B (#7): `function_body_cleansed_for` (and `cleansed_categories_for_source`, which
-/// delegates to it) — the advisory tier feeding `sanitizers_present_in_source_fn` / the
-/// `Cleansed` warning, and the CWE sink-suppression engine's `FlowPath.cleansed_for` marks —
-/// now applies the identical `recognizer.languages` predicate. Pre-#7 those two entry points
-/// iterated `active_recognizers()` unfiltered by language (the P10 BLOCKER above intentionally
-/// scoped its fix to this verdict-path matcher only, byte-for-byte preserving the advisory
-/// tier's pre-P10 behavior); a same-name cross-table match there could fire a false `Cleansed`
-/// advisory and, worse, a false CWE sink suppression (a hidden vulnerability) — the unsafe
-/// direction. Both entry points now share this exact filter.
-///
-/// Returns the matched category plus the discriminating fact (rendered callee text, call's own
-/// file/line) — NOT proof that this specific call sits on any particular taint path. Chain-window
-/// proof (is this call reached from a specific source and does its result feed a specific def) is
-/// the reasoning layer's job: see `src/reasoning/sanitizer_walk.rs`.
-pub(crate) fn sanitizer_call_site(
-    parsed: &ParsedFile,
-    call_node: &Node<'_>,
-) -> Option<SanitizerCallSite> {
-    let actual = call_path_text(parsed, call_node)?;
-    for recognizer in crate::sanitizers::active_recognizers() {
-        if recognizer.paired_check.is_some() {
-            continue;
-        }
-        if !recognizer.languages.contains(&parsed.language) {
-            continue;
-        }
-        if !call_path_matches(parsed, &actual, recognizer.call_path) {
-            continue;
-        }
-        if let Some(check) = recognizer.semantic_check {
-            let cs = CallSite {
-                call_node: *call_node,
-                source: parsed.source.as_str(),
-            };
-            if !check(&cs) {
-                continue;
-            }
-        }
-        return Some(SanitizerCallSite {
-            category: recognizer.category,
-            callee_text: actual,
-            file: parsed.path.clone(),
-            line: call_node.start_position().row + 1,
-            data_param: recognizer.data_param,
-        });
-    }
-    None
 }
 
 /// Build a Chain-shaped `SliceGraph` representing one source-to-sink taint path.
