@@ -299,3 +299,30 @@ fn storage_accesses_on_the_lines_do_not_keep_a_declare_only_def() {
         &[("t", 3, 5, true), ("t", 4, 5, true)],
     );
 }
+
+#[test]
+fn grouped_names_are_all_declared() {
+    // `func(newNode, parent T)`: the second name of a group is a declaring name too, so its
+    // def's pairs into the owner's reads of `parent` and into sibling bodies drop.
+    let src = "package p\nfunc f(parent T) {\n\tuse(parent)\n\treg(func(newNode, parent T) {\n\t\tparent.(*S).f = newNode\n\t})\n\treg(func(newNode, parent T) {\n\t\tparent.(*S).g = newNode\n\t})\n}\n";
+    check(
+        "grouped",
+        src,
+        &[
+            ("parent", 4, 5, true),
+            ("parent", 7, 8, true),
+            ("parent", 4, 3, false),
+            ("parent", 4, 2, false),
+            ("parent", 4, 8, false),
+            ("parent", 7, 5, false),
+            ("parent", 7, 3, false),
+            ("parent", 2, 3, true),
+        ],
+    );
+    let res = "package p\nfunc f() (a, b int) {\n\tuse(b)\n\tb = 1\n\tuse(b)\n\treturn\n}\n";
+    check(
+        "grouped-result",
+        res,
+        &[("b", 2, 3, true), ("b", 4, 5, true)],
+    );
+}

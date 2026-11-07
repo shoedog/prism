@@ -366,7 +366,9 @@ pub(super) fn is_declaring_name(node: Node<'_>) -> bool {
     };
     match parent.kind() {
         "var_spec" | "const_spec" => in_field(parent, "name"),
-        "parameter_declaration" | "variadic_parameter_declaration" => in_field(parent, "name"),
+        "parameter_declaration" | "variadic_parameter_declaration" => {
+            is_parameter_name(parent, node)
+        }
         "expression_list" => parent.parent().is_some_and(|g| match g.kind() {
             "short_var_declaration" => in_field(g, "left"),
             "range_clause" | "receive_statement" => has_define_token(g) && in_field(g, "left"),
@@ -375,6 +377,34 @@ pub(super) fn is_declaring_name(node: Node<'_>) -> bool {
         }),
         _ => false,
     }
+}
+
+/// The identifier is a name of a parameter declaration. The grammar's `name` field holds every
+/// name of `a, b T`, which `child_by_field_name` would not (it returns the first). Slice B reads
+/// all of them for function-literal formals and for results of any callable; the owner's own
+/// grouped parameters keep main's first-name-only reading (a known limit, `a, b int`).
+fn is_parameter_name(declaration: Node<'_>, node: Node<'_>) -> bool {
+    let contains =
+        |n: Node<'_>| n.start_byte() <= node.start_byte() && node.end_byte() <= n.end_byte();
+    let owned_by_slice_b = declaration
+        .parent()
+        .and_then(|list| list.parent().map(|callable| (list, callable)))
+        .is_some_and(|(list, callable)| {
+            callable.kind() == "func_literal"
+                || callable
+                    .child_by_field_name("result")
+                    .is_some_and(|r| r.id() == list.id())
+        });
+    if !owned_by_slice_b {
+        return declaration
+            .child_by_field_name("name")
+            .is_some_and(contains);
+    }
+    let mut cursor = declaration.walk();
+    let found = declaration
+        .children_by_field_name("name", &mut cursor)
+        .any(contains);
+    found
 }
 
 pub(super) fn is_storage_access(node: Node<'_>) -> bool {
@@ -411,8 +441,9 @@ pub(super) fn is_plain_write_site(node: Node<'_>) -> bool {
             .is_some_and(|f| f.start_byte() <= node.start_byte() && node.end_byte() <= f.end_byte())
     };
     match parent.kind() {
-        "var_spec" | "const_spec" | "parameter_declaration" | "variadic_parameter_declaration" => {
-            within(parent, "name")
+        "var_spec" | "const_spec" => within(parent, "name"),
+        "parameter_declaration" | "variadic_parameter_declaration" => {
+            is_parameter_name(parent, node)
         }
         "inc_statement" | "dec_statement" => true,
         "expression_list" => parent.parent().is_some_and(|g| {
