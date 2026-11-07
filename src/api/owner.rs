@@ -17,7 +17,8 @@ impl OwnerOptions {
         }
     }
 
-    pub(crate) fn validate(&self) -> anyhow::Result<()> {
+    #[doc(hidden)] // prism-mcp owner runtime; outside the api compatibility promise
+    pub fn validate(&self) -> anyhow::Result<()> {
         anyhow::ensure!(
             self.compiler.is_absolute(),
             "owner compiler must be an absolute path"
@@ -29,7 +30,8 @@ impl OwnerOptions {
         Ok(())
     }
 
-    pub(crate) fn replace(
+    #[doc(hidden)] // prism-mcp owner runtime; outside the api compatibility promise
+    pub fn replace(
         &self,
         active: &mut Option<crate::navigation::NavigationSession>,
         root: &std::path::Path,

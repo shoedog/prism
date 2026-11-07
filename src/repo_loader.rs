@@ -476,11 +476,9 @@ fn has_complete_rust_coverage(
     actual_rust == expected_rust
 }
 
-#[cfg(feature = "mcp")]
 #[path = "repo_loader_freshness.rs"]
 mod freshness_paths;
-#[cfg(feature = "mcp")]
-pub(crate) use freshness_paths::collect_freshness_source_paths;
+pub use freshness_paths::collect_freshness_source_paths;
 
 /// Why the repo's source listing could not be built: the directory the walk
 /// could not read (repo-relative; empty for the root) and the I/O error.

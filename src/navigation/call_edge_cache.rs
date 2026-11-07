@@ -124,7 +124,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 const NAV_CALL_EDGE_CACHE_VERSION: u32 = 79;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
-pub(crate) const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
+pub const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
 
 static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -204,12 +204,10 @@ impl NavigationCallEdgeCacheStore {
     }
 
     /// Whether the CPG this store belongs to was an exact cache hit.
-    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
     pub(crate) fn cpg_cache_hit(&self) -> bool {
         self.cpg_cache_hit
     }
 
-    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
     pub(crate) fn outcome(&self) -> &'static str {
         self.outcome.get().copied().unwrap_or("not_attempted")
     }

@@ -8,9 +8,9 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct JsPathsSnapshot {
-    pub(crate) configs: BTreeMap<String, Option<Vec<u8>>>,
+    pub configs: BTreeMap<String, Option<Vec<u8>>>,
     pub(crate) entries: BTreeMap<String, u8>, // 0 regular, 1 directory, 2 opaque
-    pub(crate) complete: bool,
+    pub complete: bool,
     opaque_directories: BTreeSet<String>,
     package_hashes: BTreeMap<String, String>,
     pub(crate) ambient: BTreeMap<String, Vec<String>>,

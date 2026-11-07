@@ -138,7 +138,7 @@ fn is_zero(n: &usize) -> bool {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct SourceWarningKey {
+pub struct SourceWarningKey {
     pub(crate) file: String,
     pub(crate) function: String,
     pub(crate) line: usize,
@@ -157,8 +157,7 @@ impl SourceWarningKey {
         }
     }
 
-    #[cfg(feature = "mcp")]
-    pub(crate) fn from_symbol(symbol: &SymbolRef) -> Option<Self> {
+    pub fn from_symbol(symbol: &SymbolRef) -> Option<Self> {
         match symbol {
             SymbolRef::Variable {
                 file,
@@ -178,8 +177,7 @@ impl SourceWarningKey {
         }
     }
 
-    #[cfg(feature = "mcp")]
-    pub(crate) fn from_warning(source_function: &str, location: &Location) -> Self {
+    pub fn from_warning(source_function: &str, location: &Location) -> Self {
         Self {
             file: location.file.clone(),
             function: source_function.into(),
