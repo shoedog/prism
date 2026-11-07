@@ -1,13 +1,14 @@
 //! JS/TS URL and path sanitizer bindings.
 
+use crate::algorithms::taint::cleansing::{collect_if_statements, GuardControl};
 use crate::algorithms::taint::js_ts::guards::{
     js_ts_allowlist_receiver_is_trusted, js_ts_guard_safely_controls_sink,
     js_ts_node_is_hostname_for_url_binding, js_ts_path_prefix_arg_is_trusted,
 };
-use crate::algorithms::taint::{
-    assignment_lhs_identifiers, collect_if_statements, path_targets_var_at_line,
-    sink_call_uses_var_in_tainted_arg, GuardControl, JsTsPathSanitizerBinding, UrlSanitizerBinding,
+use crate::algorithms::taint::sink_match::{
+    assignment_lhs_identifiers, path_targets_var_at_line, sink_call_uses_var_in_tainted_arg,
 };
+use crate::algorithms::taint::{JsTsPathSanitizerBinding, UrlSanitizerBinding};
 use crate::ast::tree_helpers::{
     call_arg_node, call_path_matches, call_path_text, unwrap_parenthesized,
 };

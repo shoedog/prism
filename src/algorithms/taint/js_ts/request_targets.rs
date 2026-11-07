@@ -7,10 +7,10 @@ use crate::algorithms::taint::js_ts::alias_edges::{
 use crate::algorithms::taint::js_ts::bindings::{
     js_ts_assignment_effective_byte_scope, js_ts_assignment_effective_line_scope,
 };
-use crate::algorithms::taint::js_ts::framework_params::js_ts_alias_def;
 use crate::algorithms::taint::js_ts::request_aliases::{
-    js_ts_active_alias_names_at_range, js_ts_add_alias_def, js_ts_kill_simple_lhs_alias_defs_at,
-    js_ts_request_source, js_ts_shrink_request_sources_after_unconditional_kill,
+    js_ts_active_alias_names_at_range, js_ts_add_alias_def, js_ts_alias_def,
+    js_ts_kill_simple_lhs_alias_defs_at, js_ts_request_source,
+    js_ts_shrink_request_sources_after_unconditional_kill,
 };
 use crate::algorithms::taint::js_ts::source_access::{
     js_ts_normalized_property_key, js_ts_request_field_allowed,

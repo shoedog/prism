@@ -1,12 +1,13 @@
 //! Python sink outcomes: template rendering, SQL parametrisation, YAML loaders.
 
+use crate::algorithms::taint::cleansing::node_contains_line;
 use crate::algorithms::taint::python::sink_tables::{
     PY_CWE502_SINKS, PY_CWE79_SINKS, PY_CWE89_SINKS, PY_CWE918_SINKS,
 };
 use crate::algorithms::taint::python::sources::node_contains_flask_request_data_access;
-use crate::algorithms::taint::{
+use crate::algorithms::taint::sink_match::{
     arg_is_tainted_in_path, arg_node_taints_match, call_literal_arg, call_passes_sink_semantics,
-    line_matches_structured_sink, node_contains_line, sink_call_path_matches, SinkMatchOutcome,
+    line_matches_structured_sink, sink_call_path_matches, SinkMatchOutcome,
 };
 use crate::ast::tree_helpers::{call_arg_node, call_path_matches, call_path_text, collect_calls};
 use crate::ast::ParsedFile;

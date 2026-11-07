@@ -1,5 +1,6 @@
 //! JS/TS sink outcomes and cleansed structured-sink ranges.
 
+use crate::algorithms::taint::cleansing::{flow_path_cleansed_for_sink_call, node_contains_line};
 use crate::algorithms::taint::js_ts::bindings::js_ts_identifier_binds_imported_member_at_call;
 use crate::algorithms::taint::js_ts::exec_sql::{
     js_ts_exec_file_is_literal_binary, js_ts_prisma_tagged_template_is_safe,
@@ -13,10 +14,9 @@ use crate::algorithms::taint::js_ts::sink_tables::{
     JS_CWE918_SINKS,
 };
 use crate::algorithms::taint::js_ts::source_access::node_contains_js_ts_source_access;
-use crate::algorithms::taint::{
-    arg_node_taints_match, call_passes_sink_semantics, flow_path_cleansed_for_sink_call,
-    line_matches_structured_sink, node_contains_line, sink_call_has_tainted_arg_in_path,
-    sink_call_path_matches, SinkMatchOutcome,
+use crate::algorithms::taint::sink_match::{
+    arg_node_taints_match, call_passes_sink_semantics, line_matches_structured_sink,
+    sink_call_has_tainted_arg_in_path, sink_call_path_matches, SinkMatchOutcome,
 };
 use crate::ast::tree_helpers::{call_path_text, collect_calls, is_js_ts_language};
 use crate::ast::ParsedFile;

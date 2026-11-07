@@ -146,9 +146,9 @@ pub(crate) fn sanitizer_category_str(c: crate::frameworks::SanitizerCategory) ->
 ///
 /// Excludes `paired_check` recognizers (the Go path-traversal family, `src/sanitizers/path.rs`)
 /// entirely: those need the CWE engine's sink-time AST+CFG guard validation (see
-/// `go_path_traversal_cleansed_for_sink` near :5986) to rule out inverted or guard-after-sink
-/// shapes, which this single-call-node check cannot replicate. They stay advisory-only via the
-/// unchanged `Cleansed` warning / `sanitizers_present_in_source_fn` path.
+/// `go_path_traversal_cleansed_for_sink` in `taint/go/sanitizers.rs`) to rule out inverted or
+/// guard-after-sink shapes, which this single-call-node check cannot replicate. They stay
+/// advisory-only via the unchanged `Cleansed` warning / `sanitizers_present_in_source_fn` path.
 ///
 /// F2 BLOCKER (also filters by `recognizer.languages`): `call_path_matches`'s exact-match branch is
 /// NOT gated by language, and `sanitizer_supported` (the file-language gate one layer up) admits

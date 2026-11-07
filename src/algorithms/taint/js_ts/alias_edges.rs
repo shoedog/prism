@@ -6,11 +6,11 @@ use crate::algorithms::taint::js_ts::bindings::{
     js_ts_enclosing_function_id,
 };
 use crate::algorithms::taint::js_ts::framework_params::{
-    js_ts_alias_def, js_ts_framework_source_params, js_ts_function_params,
+    js_ts_framework_source_params, js_ts_function_params,
 };
 use crate::algorithms::taint::js_ts::request_aliases::{
-    js_ts_active_alias_names_at_range, js_ts_add_alias_def, js_ts_kill_simple_lhs_alias_defs_at,
-    js_ts_line_in_scope, js_ts_seed_scope_contains,
+    js_ts_active_alias_names_at_range, js_ts_add_alias_def, js_ts_alias_def,
+    js_ts_kill_simple_lhs_alias_defs_at, js_ts_line_in_scope, js_ts_seed_scope_contains,
 };
 use crate::algorithms::taint::js_ts::source_access::{
     js_ts_exact_field_access_text_matches,
@@ -20,10 +20,9 @@ use crate::algorithms::taint::js_ts::source_access::{
     node_contains_js_ts_source_access_with_request_object_aliases,
 };
 use crate::algorithms::taint::js_ts::source_ranges::js_ts_request_source_access_ranges_for_alias_on_line;
-use crate::algorithms::taint::{
-    assignment_lhs_identifiers, node_contains_identifier, reference_line_cfg_reachable,
-    JsTsAliasDefs, TargetSeedSynthesisContext,
-};
+use crate::algorithms::taint::seeds::reference_line_cfg_reachable;
+use crate::algorithms::taint::sink_match::{assignment_lhs_identifiers, node_contains_identifier};
+use crate::algorithms::taint::{JsTsAliasDefs, TargetSeedSynthesisContext};
 use crate::ast::tree_helpers::{is_js_ts_language, unwrap_parenthesized};
 use crate::ast::ParsedFile;
 use crate::data_flow::{FlowEdge, VarAccessKind, VarLocation};

@@ -1,6 +1,5 @@
 //! JS/TS lexical binding and scope visibility at a call.
 
-use crate::algorithms::taint::assignment_lhs_identifiers;
 use crate::algorithms::taint::js_ts::imports_ssrf::{
     js_ts_import_statement_binds_member, js_ts_import_statement_binds_module,
     js_ts_pattern_binds_member, js_ts_require_declarator_binds_member,
@@ -11,6 +10,7 @@ use crate::algorithms::taint::js_ts::request_aliases::{
     js_ts_node_definitely_exits,
 };
 use crate::algorithms::taint::js_ts::sinks::collect_nodes_of_kind;
+use crate::algorithms::taint::sink_match::assignment_lhs_identifiers;
 use crate::ast::ParsedFile;
 use crate::frameworks::js_ts::call_classify::{
     collect_js_ts_assignment_like_nodes, js_ts_assignment_target,

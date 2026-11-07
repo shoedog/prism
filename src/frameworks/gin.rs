@@ -50,7 +50,7 @@ const SOURCES: &[SourcePattern] = &[
 ];
 
 /// Framework-gated CWE-22 sinks (spec §3.3 / §2.7). Cross-cutting Go path
-/// sinks (`os.Open`, etc.) live in `taint.rs::GO_CWE22_SINKS`; this list is
+/// sinks (`os.Open`, etc.) live in `taint/go/sinks.rs::GO_CWE22_SINKS`; this list is
 /// for sinks that are only meaningful in a gin context.
 const SINKS: &[SinkPattern] = &[SinkPattern {
     call_path: "c.File",

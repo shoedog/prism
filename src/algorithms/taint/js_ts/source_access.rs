@@ -1,7 +1,7 @@
 //! JS/TS request-source field-access matching.
 
+use crate::algorithms::taint::cleansing::node_contains_line;
 use crate::algorithms::taint::js_ts::source_ranges::js_ts_request_source_access_ranges_for_line;
-use crate::algorithms::taint::node_contains_line;
 use crate::ast::tree_helpers::is_js_ts_language;
 use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};

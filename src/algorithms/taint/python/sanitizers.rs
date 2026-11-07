@@ -1,5 +1,9 @@
-//! Python XSS and SSRF sanitizers and guards.
+//! Python XSS and SSRF sanitizers and guards, and the safe structured-sink call ranges.
 
+use crate::algorithms::taint::cleansing::{
+    block_ends_with_return, cfg_line_reaches, collect_if_statements, first_statement_line,
+    flow_path_cleansed_for_sink_call, node_contains_line, safe_successor_line, GuardControl,
+};
 use crate::algorithms::taint::python::sink_tables::{
     PY_CWE502_SINKS, PY_CWE79_SINKS, PY_CWE89_SINKS, PY_CWE918_SINKS,
 };
@@ -8,14 +12,12 @@ use crate::algorithms::taint::python::sinks::{
     python_render_unsafe_template_vars, python_sql_call_is_parametrized,
     python_yaml_load_uses_safe_loader,
 };
-use crate::algorithms::taint::{
-    assignment_lhs_identifiers, assignment_rhs_expressions, block_ends_with_return,
-    call_literal_arg, call_passes_sink_semantics, cfg_line_reaches, collect_assignments,
-    collect_if_statements, first_statement_line, flow_path_cleansed_for_sink_call,
-    node_contains_line, path_targets_var_at_line, safe_successor_line,
+use crate::algorithms::taint::sink_match::{
+    assignment_lhs_identifiers, assignment_rhs_expressions, call_literal_arg,
+    call_passes_sink_semantics, collect_assignments, path_targets_var_at_line,
     sink_call_has_tainted_arg_in_path, sink_call_path_matches, sink_call_uses_var_in_tainted_arg,
-    GuardControl, SafeFormatHtmlBinding, UrlSanitizerBinding,
 };
+use crate::algorithms::taint::{SafeFormatHtmlBinding, UrlSanitizerBinding};
 use crate::ast::tree_helpers::{
     call_arg_node, call_path_matches, call_path_text, collect_calls, unwrap_parenthesized,
 };

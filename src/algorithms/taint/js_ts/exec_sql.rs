@@ -11,7 +11,7 @@ use crate::algorithms::taint::js_ts::sink_tables::{
 };
 use crate::algorithms::taint::js_ts::sinks::js_ts_js_yaml_bare_load_call_matches;
 use crate::algorithms::taint::python::sinks::python_sql_literal_has_named_placeholder;
-use crate::algorithms::taint::{assignment_lhs_identifiers, call_literal_arg};
+use crate::algorithms::taint::sink_match::{assignment_lhs_identifiers, call_literal_arg};
 use crate::ast::tree_helpers::{
     call_arg_node, call_path_matches, call_path_text, collect_calls, unwrap_parenthesized,
 };
