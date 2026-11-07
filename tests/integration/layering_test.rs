@@ -4,6 +4,7 @@
 //! `algorithms::` on a non-comment line. The review layer is
 //! `src/algorithms/**`, `src/output/**`, `src/targets/**`, `src/api/**`,
 //! `src/cli.rs`, `src/main.rs`, `src/lib.rs` and `src/bin/**`.
+//! `crates/prism-mcp/src/**` is scanned too, with no review-layer allowlist.
 //!
 //! Exempt: files named `*_tests.rs`, `*_test.rs` or `tests.rs`, any path with a `/tests/`
 //! component, and comment lines (`//`, `///`, `//!`). There is deliberately NO
@@ -65,20 +66,25 @@ fn offending_lines(rel: &str, text: &str) -> Vec<String> {
 #[test]
 fn core_modules_do_not_import_algorithms() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut files = Vec::new();
-    collect_rs(&root.join("src"), &mut files);
     let mut offenders = Vec::new();
-    for path in files {
-        let rel = path
-            .strip_prefix(root)
-            .unwrap()
-            .to_string_lossy()
-            .replace('\\', "/");
-        if is_review_layer(&rel) || is_test_file(&rel) {
-            continue;
+    // `src` is the core crate; `crates/prism-mcp/src` is scanned with no review-layer
+    // allowlist (the crate boundary does not stop it importing the `pub` algorithms
+    // module, #731 S4).
+    for scanned in ["src", "crates/prism-mcp/src"] {
+        let mut files = Vec::new();
+        collect_rs(&root.join(scanned), &mut files);
+        for path in files {
+            let rel = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            if is_review_layer(&rel) || is_test_file(&rel) {
+                continue;
+            }
+            let text = fs::read_to_string(&path).unwrap();
+            offenders.extend(offending_lines(&rel, &text));
         }
-        let text = fs::read_to_string(&path).unwrap();
-        offenders.extend(offending_lines(&rel, &text));
     }
     assert!(
         offenders.is_empty(),
