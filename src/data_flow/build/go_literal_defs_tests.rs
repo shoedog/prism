@@ -167,7 +167,7 @@ fn named_result_def_reaches_direct_uses() {
     check(
         "named-direct",
         src,
-        &[("r", 2, 3, true), ("r", 4, 5, true), ("r", 2, 5, true)],
+        &[("r", 2, 3, true), ("r", 4, 5, true), ("r", 2, 5, false)], // line 4 overwrites
     );
 }
 
@@ -202,7 +202,7 @@ fn nested_literal_result_shadows_the_owner_result() {
             ("r", 2, 4, false), // so is the owner's result
             ("r", 3, 8, false), // the literal's result never reaches the owner's use
             ("r", 7, 8, true),
-            ("r", 2, 8, true),
+            ("r", 2, 8, false), // overwritten by line 7
         ],
     );
 }

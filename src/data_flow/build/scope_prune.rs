@@ -20,6 +20,8 @@ struct Occurrence {
     binding: BindingId,
     /// `*x`, `x[i]`, `x[i:j]`, `x.f`, `x.M()`, `(x)`: an access through the name.
     storage: bool,
+    /// Start byte of the identifier.
+    start: usize,
 }
 
 type LineKey = (String, usize);
@@ -56,6 +58,8 @@ struct Built<'a> {
     identifiers: BTreeMap<LineKey, Vec<Node<'a>>>,
     /// Names declared by split headers or specs: main's keep (`scope_split`, #728).
     split: super::scope_split::SplitFacts,
+    /// Formal and named-result declarations, with the shapes rule S keeps (`scope_params`).
+    params: super::scope_params::ParamFacts,
 }
 
 impl<'a> ScopeFacts<'a> {
@@ -89,8 +93,10 @@ impl<'a> ScopeFacts<'a> {
         // The producer has no emitted edges yet, so the use-byte table is empty;
         // RD keeps its own instance because its table is built from the edges.
         let facts = BindingFacts::new(self.parsed, &self.owner, self.defs, std::iter::empty());
+        let params = super::scope_params::ParamFacts::new(self.parsed, self.owner, &facts);
         let mut built = Built {
             facts,
+            params,
             def_index: BTreeMap::new(),
             defs_on_line: BTreeMap::new(),
             identifiers: BTreeMap::new(),
@@ -152,6 +158,7 @@ impl<'a> ScopeFacts<'a> {
             .map(|node| Occurrence {
                 binding: facts.binding_at(name, node.start_byte()),
                 storage: is_storage_access(*node),
+                start: node.start_byte(),
             })
             .collect();
         let list = Rc::new(list);
@@ -305,7 +312,15 @@ impl<'a> ScopeFacts<'a> {
             && reads.iter().all(|o| {
                 !o.storage
                     && matches!(&o.binding, BindingId::Declaration(other)
-                    if !built.facts.def_reaches_declaration(def_index, *other))
+                    if !built.facts.def_reaches_declaration(def_index, *other)
+                        && !built.params.keeps(
+                            self.parsed,
+                            &built.facts,
+                            &path.base,
+                            def_index,
+                            *other,
+                            o.start,
+                        ))
             });
         if drop {
             stats.dfg_pruned_scope += 1;
@@ -390,11 +405,11 @@ pub(super) fn is_plain_write_site(node: Node<'_>) -> bool {
     }
 }
 
-/// Names among `multi` that rule S must keep: those whose address is taken in
+/// Names among `multi` that rules S and O must keep: those whose address is taken in
 /// `owner` (the operand of a unary `&`, through parentheses, selectors, indexing
-/// and slicing, is rooted at the identifier), and the names of declarations the
-/// producer emits no def for (function-literal formals, named results).
-/// By name, so it covers the def's and the use's binding.
+/// and slicing, is rooted at the identifier). By name, so it covers the def's and the
+/// use's binding. Function-literal formals and named results have producer defs since
+/// #694 slice B; the shapes whose value S cannot see keep per declaration (`scope_params`).
 pub(super) fn address_taken_names<'a>(
     parsed: &'a ParsedFile,
     owner: Node<'a>,
@@ -446,45 +461,6 @@ pub(super) fn address_taken_names<'a>(
                     }
                 }
             }
-        }
-        // Declarations the producer still emits no def for (#694 slice B): function-literal
-        // formals and named results of any function (a `return` assigns them with
-        // no def). Range/receive `:=` targets, type-switch aliases and every
-        // `var`/`const` name now have producer defs, so S may drop the outer pair, except
-        // for a split header or spec (`SplitFacts`).
-        let mut keep = |id: Node<'a>| {
-            if id.kind() == "identifier" {
-                if let Some(found) = multi.get(parsed.node_text(&id)) {
-                    out.insert(*found);
-                }
-            }
-        };
-        match node.kind() {
-            "func_literal" | "function_declaration" | "method_declaration" => {
-                let mut lists = Vec::new();
-                if node.kind() == "func_literal" {
-                    lists.extend(node.child_by_field_name("parameters"));
-                }
-                lists.extend(
-                    node.child_by_field_name("result")
-                        .filter(|r| r.kind() == "parameter_list"),
-                );
-                for list in lists {
-                    let mut cursor = list.walk();
-                    for param in list.named_children(&mut cursor) {
-                        if matches!(
-                            param.kind(),
-                            "parameter_declaration" | "variadic_parameter_declaration"
-                        ) {
-                            let mut names = param.walk();
-                            for name in param.children_by_field_name("name", &mut names) {
-                                keep(name);
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {}
         }
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
