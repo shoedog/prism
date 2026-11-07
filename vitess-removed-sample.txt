@@ -1,0 +1,74 @@
+#0 [confidence=nameonly/doubt=cfg_incomplete] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@1307: err := unlockTables()
+  use  @678: require.NoError(t, err)
+#1 [confidence=nameonly/doubt=killed/kill_line=827] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@821: query, err = sqlparser.ParseAndBind("update _vt.vreplication_log set message=concat(message, repeat('x', 65535 - length(message))) where vrepl_id=(select id from _vt.vreplication where workflow=%a) and state='Error'",
+  use  @974: require.NoError(t, err)
+#2 [confidence=nameonly/doubt=killed/kill_line=2194] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  t1uuid@2179: t1uuid := testOnlineDDLStatement(t, createParams(instantAlterT1Statement, ddlStrategy+" --prefer-instant-ddl --postpone-completion", "vtgate", "", "", true))
+  use  @2528: onlineddl.CheckMigrationStatus(t, &vtParams, shards, t1uuid, schema.OnlineDDLStatusQueued)
+#3 [confidence=nameonly/doubt=cfg_incomplete] go/mysql/icuregex/internal/uset/frozen.go
+  def  limit@258: limit = 0x110000
+  use  @243: if limit > 0x100 {
+#4 [confidence=nameonly/doubt=cfg_incomplete] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@1414: lockConn, err := primaryTablet.VttabletProcess.TabletConn(keyspaceName, true)
+  use  @962: if err != nil || status != schema.OnlineDDLStatusRunning {
+#5 [confidence=nameonly/doubt=killed/kill_line=827] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@825: _, err = primaryTablet.VttabletProcess.QueryTabletWithContext(t.Context(), query, "", true)
+  use  @1339: require.NoError(t, err)
+#6 [confidence=nameonly/doubt=cfg_incomplete] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  t1uuid@2226: t1uuid := testOnlineDDLStatement(t, createParams(trivialAlterT1Statement, "mysql --postpone-completion", "vtgate", "", "", true))
+  use  @1338: rs, err := onlineddl.ReadMigrations(t.Context(), &vtParams, t1uuid)
+#7 [confidence=nameonly/doubt=sameline] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@930: _, err = primaryTablet.VttabletProcess.QueryTabletWithContext(t.Context(), fmt.Sprintf(
+  use  @954: if err != nil || state == "Error" {
+#8 [confidence=nameonly/doubt=cfg_incomplete] go/vt/vttablet/onlineddl/executor.go
+  def  err@1433: if _, err := e.vreplicationExec(ctx, tablet.Tablet, binlogplayer.StopVReplication(s.id, "stopped for online DDL cutover")); err != nil {
+  use  @1057: if err := e.incrementCutoverAttempts(ctx, s.workflow); err != nil {
+#9 [confidence=nameonly/doubt=cfg_incomplete] go/vt/vtgate/evalengine/fn_time.go
+  def  frac@701: frac = int64(ff * 1e9)
+  use  @626: var sec, frac int64
+#10 [confidence=nameonly/doubt=killed/kill_line=15170] go/vt/sqlparser/ast_rewrite.go
+  def  node@15166: func (a *application) rewriteCallable(parent SQLNode, node Callable, replacer replacerFunc) bool {
+  use  @15196: return a.rewriteRefOfFuncExpr(parent, node, replacer)
+#11 [confidence=nameonly/doubt=killed/kill_line=588] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@581: rs, err := onlineddl.ReadMigrations(t.Context(), &vtParams, uuid)
+  use  @2205: require.NoError(t, err)
+#12 [confidence=nameonly/doubt=cfg_incomplete] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@2318: u, err := schema.CreateOnlineDDLUUID()
+  use  @1140: require.NoError(t, err)
+#13 [confidence=nameonly/doubt=killed/kill_line=4612] go/vt/sqlparser/ast_clone.go
+  def  in@4608: func CloneStatement(in Statement) Statement {
+  use  @4628: return CloneRefOfCallProc(in)
+#14 [confidence=nameonly/doubt=killed/kill_line=1279] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@1272: rs, err := onlineddl.ReadMigrations(t.Context(), &vtParams, t1uuid)
+  use  @2156: require.NoError(t, err)
+#15 [confidence=nameonly/doubt=sameline] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@1381: rs, err := primaryTablet.VttabletProcess.QueryTabletWithDB("select @@global.wait_timeout as wait_timeout", "performance_schema")
+  use  @1460: if err != nil {
+#16 [confidence=nameonly/doubt=cfg_incomplete] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@825: _, err = primaryTablet.VttabletProcess.QueryTabletWithContext(t.Context(), query, "", true)
+  use  @689: require.NoError(t, err)
+#17 [confidence=nameonly/doubt=killed/kill_line=1112] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  err@1105: rs, err := onlineddl.ReadMigrations(t.Context(), &vtParams, t1uuid)
+  use  @1355: case err := <-transactionErrorChan:
+#18 [confidence=nameonly/doubt=cfg_incomplete] go/vt/vtctl/workflow/server.go
+  def  i@1900: for i := 0; i < len(qr.Rows); i++ {
+  use  @1887: for i := range workflowTables {
+     1887| for i := range workflowTables {
+     1888| tableList[i] = encodeString(workflowTables[i])
+     1889| }
+     1890| 
+     1891| getTableMetrics := func(tablet *topodatapb.Tablet, query string, rowCounts *map[string]int64, tableSizes *map[string]int64) error {
+     1892| p3qr, err := s.tmc.ExecuteFetchAsDba(ctx, tablet, true, &tabletmanagerdatapb.ExecuteFetchAsDbaRequest{
+     1893| Query:   []byte(query),
+     1894| MaxRows: uint64(len(tableList)),
+     1895| })
+     1896| if err != nil {
+     1897| return err
+     1898| }
+     1899| qr := sqltypes.Proto3ToResult(p3qr)
+     1900| for i := 0; i < len(qr.Rows); i++ {
+#19 [confidence=nameonly/doubt=killed/kill_line=25] go/vt/sqlparser/ast_clone.go
+  def  in@21: func CloneSQLNode(in SQLNode) SQLNode {
+  use  @73: return CloneRefOfBegin(in)

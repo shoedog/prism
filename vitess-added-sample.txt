@@ -1,0 +1,132 @@
+#0 [confidence=nameonly/doubt=sameline] go/vt/vttablet/tabletserver/stream_consolidator_flaky_test.go
+  def  results@400: for _, results := range ct.results {
+  use  @401: require.Len(t, results.items, 10)
+     400| for _, results := range ct.results {
+     401| require.Len(t, results.items, 10)
+#1 [confidence=exact/doubt=None] go/vt/vtctl/workflow/utils.go
+  def  td@89: for _, td := range schema.TableDefinitions {
+  use  @90: sourceTables = append(sourceTables, td.Name)
+     89| for _, td := range schema.TableDefinitions {
+     90| sourceTables = append(sourceTables, td.Name)
+#2 [confidence=exact/doubt=None] go/vt/sqlparser/ast_clone.go
+  def  in@25: switch in := in.(type) {
+  use  @199: return CloneRefOfFromFirstLastClause(in)
+#3 [confidence=exact/doubt=None] go/vt/vttablet/tabletserver/rules/rules.go
+  def  qr@204: for _, qr := range qrs.rules {
+  use  @206: return act, qr.cancelCtx, qr.timeout, qr.Description
+     204| for _, qr := range qrs.rules {
+     205| if act := qr.GetAction(ip, user, bindVars, marginComments); act != QRContinue {
+     206| return act, qr.cancelCtx, qr.timeout, qr.Description
+#4 [confidence=nameonly/doubt=killed/kill_line=1655] go/test/endtoend/onlineddl/scheduler/onlineddl_scheduler_test.go
+  def  row@1652: for _, row := range rs.Named().Rows {
+  use  @2625: assert.EqualValues(t, 0, row.AsFloat64("user_throttle_ratio", 0))
+#5 [confidence=nameonly/doubt=sameline] go/vt/vtctl/workflow/materializer_test.go
+  def  tablet@3551: for _, tablet := range env.tablets {
+  use  @3559: if len(tc.moveTablesReq.SourceShards) > 0 && !slices.Contains(tc.moveTablesReq.SourceShards, tablet.Shard) {
+     3551| for _, tablet := range env.tablets {
+     3552| // Queries will only be executed on primary tablets in the target keyspace.
+     3553| if tablet.Keyspace != targetKs || tablet.Type != topodatapb.TabletType_PRIMARY {
+     3554| continue
+     3555| }
+     3556| env.tmc.expectFetchAsAllPrivsQuery(int(tablet.Alias.Uid), getNonEmptyTable, &sqltypes.Result{})
+     3557| // If we are doing a partial MoveTables, we will only perform the workflow
+     3558| // stream creation / INSERT statment on the shard(s) we're migrating.
+     3559| if len(tc.moveTablesReq.SourceShards) > 0 && !slices.Contains(tc.moveTablesReq.SourceShards, tablet.Shard) {
+#6 [confidence=nameonly/doubt=cfg_incomplete] go/vt/vtctl/grpcvtctldserver/server_test.go
+  def  test@7520: for _, test := range tests {
+  use  @7528: }, len(test.rowsByTablet)),
+     7520| for _, test := range tests {
+     7521| t.Run(test.name, func(t *testing.T) {
+     7522| t.Parallel()
+     7523| 
+     7524| tmc := &testutil.TabletManagerClient{
+     7525| ExecuteFetchAsDbaResults: make(map[string]struct {
+     7526| Response *querypb.QueryResult
+     7527| Error    error
+     7528| }, len(test.rowsByTablet)),
+#7 [confidence=exact/doubt=None] go/vt/sqlparser/ast_copy_on_rewrite.go
+  def  x@2125: for x, el := range n.VarNames {
+  use  @2127: _VarNames[x] = this.(IdentifierCI)
+     2125| for x, el := range n.VarNames {
+     2126| this, changed := c.copyOnRewriteIdentifierCI(el, n)
+     2127| _VarNames[x] = this.(IdentifierCI)
+#8 [confidence=exact/doubt=None] go/vt/sqlparser/ast_clone.go
+  def  in@3942: switch in := in.(type) {
+  use  @4076: return CloneRefOfPolygonPropertyFuncExpr(in)
+#9 [confidence=exact/doubt=None] go/sqltypes/bind_variables.go
+  def  lv@260: for i, lv := range v {
+  use  @262: values[i].Value = strconv.AppendInt(nil, int64(lv), 10)
+     260| for i, lv := range v {
+     261| values[i].Type = querypb.Type_INT32
+     262| values[i].Value = strconv.AppendInt(nil, int64(lv), 10)
+#10 [confidence=nameonly/doubt=cfg_incomplete] go/vt/vttablet/tabletserver/tx_engine_test.go
+  def  tt@944: for _, tt := range testcases {
+  use  @965: require.Equal(t, tt.queryLogWanted, db.QueryLog())
+#11 [confidence=nameonly/doubt=cfg_incomplete] go/mysql/server_test.go
+  def  test@1527: for _, test := range tests {
+  use  @1536: assert.Equal(t, test.sqlState, serr.SQLState(), "error in %s: want sqlState %v got %v", test.text, test.sqlState, serr.SQLState())
+     1527| for _, test := range tests {
+     1528| t.Run(test.err.Error(), func(t *testing.T) {
+     1529| th.SetErr(sqlerror.NewSQLErrorFromError(test.err))
+     1530| rs, err := client.ExecuteFetch("error", 100, false)
+     1531| require.Error(t, err, "mysql should have failed but returned: %v", rs)
+     1532| serr, ok := err.(*sqlerror.SQLError)
+     1533| require.True(t, ok, "mysql should have returned a SQLError")
+     1534| 
+     1535| assert.Equal(t, test.code, serr.Number(), "error in %s: want code %v got %v", test.text, test.code, serr.Number())
+     1536| assert.Equal(t, test.sqlState, serr.SQLState(), "error in %s: want sqlState %v got %v", test.text, test.sqlState, serr.SQLState())
+#12 [confidence=nameonly/doubt=sameline] go/vt/schemadiff/schema.go
+  def  parentDiff@944: switch parentDiff := parentDiff.(type) {
+  use  @975: schemaDiff.addDep(diff, parentDiff, DiffDependencySequentialExecution)
+#13 [confidence=exact/doubt=None] go/vt/vttest/randomdata.go
+  def  rows@94: rows       [][]string
+  use  @118: for i := 0; i < len(rows); i += batchInsertSize {
+#14 [confidence=exact/doubt=None] go/vt/sqlparser/tracked_buffer.go
+  def  v@181: switch v := values[fieldnum].(type) {
+  use  @186: _, _ = buf.literal(v)
+     181| switch v := values[fieldnum].(type) {
+     182| case string:
+     183| if caseSensitive {
+     184| buf.WriteString(v)
+     185| } else {
+     186| _, _ = buf.literal(v)
+#15 [confidence=exact/doubt=None] go/vt/vtctl/workflow/traffic_switcher.go
+  def  rule@980: for _, rule := range bls.Filter.Rules {
+  use  @982: reverseBls.Filter.Rules = append(reverseBls.Filter.Rules, rule)
+     980| for _, rule := range bls.Filter.Rules {
+     981| if rule.Filter == "exclude" {
+     982| reverseBls.Filter.Rules = append(reverseBls.Filter.Rules, rule)
+#16 [confidence=nameonly/doubt=sameline] go/vt/topo/topotests/cell_info_test.go
+  def  tt@195: for _, tt := range tests {
+  use  @196: t.Run(tt.name, func(t *testing.T) {
+     195| for _, tt := range tests {
+     196| t.Run(tt.name, func(t *testing.T) {
+#17 [confidence=exact/doubt=None] go/vt/vtgate/engine/send_test.go
+  def  tc@255: for _, tc := range tests {
+  use  @256: t.Run(tc.testName, func(t *testing.T) {
+     255| for _, tc := range tests {
+     256| t.Run(tc.testName, func(t *testing.T) {
+#18 [confidence=nameonly/doubt=cfg_incomplete] go/mathutil/equivalence_relation_test.go
+  def  tc@158: for _, tc := range tt {
+  use  @166: for _, relation := range tc.relations {
+     158| for _, tc := range tt {
+     159| t.Run(tc.name, func(t *testing.T) {
+     160| r := NewEquivalenceRelation()
+     161| r.AddAll(initialElements)
+     162| trivialM := r.Map()
+     163| assert.Equal(t, trivialExpect, trivialM)
+     164| require.Len(t, trivialM, len(initialElements))
+     165| 
+     166| for _, relation := range tc.relations {
+#19 [confidence=exact/doubt=None] go/vt/vtgate/semantics/typer.go
+  def  node@45: switch node := cursor.Node().(type) {
+  use  @53: name := node.WindowFuncName()
+     45| switch node := cursor.Node().(type) {
+     46| case *sqlparser.Literal:
+     47| t.m[node] = evalengine.NewType(node.SQLType(), collations.CollationForType(node.SQLType(), t.collationEnv.DefaultConnectionCharset()))
+     48| case *sqlparser.Argument:
+     49| if node.Type >= 0 {
+     50| t.m[node] = evalengine.NewTypeEx(node.Type, collations.CollationForType(node.Type, t.collationEnv.DefaultConnectionCharset()), true, node.Size, node.Scale, nil)
+     51| }
+     52| case sqlparser.WindowFunc:
+     53| name := node.WindowFuncName()
