@@ -1,9 +1,11 @@
 //! JS/TS structured sink tables and their text-level semantic checks.
 
+use crate::algorithms::taint::js_ts::bindings::{
+    js_ts_identifier_binds_imported_member_at_call, js_ts_identifier_binds_module_at_call,
+};
 use crate::algorithms::taint_sinks;
-use crate::algorithms::taint::js_ts::bindings::{js_ts_identifier_binds_imported_member_at_call, js_ts_identifier_binds_module_at_call};
-use crate::ast::ParsedFile;
 use crate::ast::tree_helpers::call_arg_node;
+use crate::ast::ParsedFile;
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use tree_sitter::Node;
 
@@ -48,7 +50,10 @@ fn js_yaml_schema_expr_is_exact_safe(expr: &str, yaml_receiver: Option<&str>) ->
         .any(|schema| expr == format!("{yaml_receiver}.{schema}"))
 }
 
-pub(in crate::algorithms::taint) fn js_yaml_load_call_uses_unsafe_schema(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+pub(in crate::algorithms::taint) fn js_yaml_load_call_uses_unsafe_schema(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+) -> bool {
     call_arg_node(call, 1).is_none_or(|arg| !js_yaml_schema_arg_node_is_safe(parsed, call, &arg))
 }
 

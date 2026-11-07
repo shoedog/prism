@@ -1,16 +1,32 @@
 //! JS/TS child_process shell options and SQL parametrisation checks.
 
-use crate::algorithms::taint::{assignment_lhs_identifiers, call_literal_arg, python_sql_literal_has_named_placeholder};
-use crate::algorithms::taint::js_ts::bindings::{js_ts_assignment_visible_before_context, js_ts_enclosing_function_id};
-use crate::algorithms::taint::js_ts::guards::{js_ts_collection_aliases_visible_at_context, js_ts_effect_visible_at_context};
-use crate::algorithms::taint::js_ts::sink_tables::{js_find_top_level_colon, js_split_top_level_commas, js_yaml_load_call_uses_unsafe_schema};
+use crate::algorithms::taint::js_ts::bindings::{
+    js_ts_assignment_visible_before_context, js_ts_enclosing_function_id,
+};
+use crate::algorithms::taint::js_ts::guards::{
+    js_ts_collection_aliases_visible_at_context, js_ts_effect_visible_at_context,
+};
+use crate::algorithms::taint::js_ts::sink_tables::{
+    js_find_top_level_colon, js_split_top_level_commas, js_yaml_load_call_uses_unsafe_schema,
+};
 use crate::algorithms::taint::js_ts::sinks::js_ts_js_yaml_bare_load_call_matches;
+use crate::algorithms::taint::{
+    assignment_lhs_identifiers, call_literal_arg, python_sql_literal_has_named_placeholder,
+};
+use crate::ast::tree_helpers::{
+    call_arg_node, call_path_matches, call_path_text, collect_calls, unwrap_parenthesized,
+};
 use crate::ast::ParsedFile;
-use crate::ast::tree_helpers::{call_arg_node, call_path_matches, call_path_text, collect_calls, unwrap_parenthesized};
-use crate::frameworks::js_ts::call_classify::{collect_js_ts_assignment_like_nodes, js_ts_assignment_target_and_value, js_ts_literal_string_value};
+use crate::frameworks::js_ts::call_classify::{
+    collect_js_ts_assignment_like_nodes, js_ts_assignment_target_and_value,
+    js_ts_literal_string_value,
+};
 use tree_sitter::Node;
 
-pub(in crate::algorithms::taint) fn js_ts_exec_file_is_literal_binary(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+pub(in crate::algorithms::taint) fn js_ts_exec_file_is_literal_binary(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+) -> bool {
     let actual = match call_path_text(parsed, call) {
         Some(s) => s,
         None => return false,
@@ -301,7 +317,10 @@ fn js_ts_interpreter_eval_flag(flag: &str) -> bool {
     )
 }
 
-pub(in crate::algorithms::taint) fn js_ts_yaml_load_uses_safe_schema(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+pub(in crate::algorithms::taint) fn js_ts_yaml_load_uses_safe_schema(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+) -> bool {
     let actual = match call_path_text(parsed, call) {
         Some(s) => s,
         None => return false,
@@ -314,7 +333,10 @@ pub(in crate::algorithms::taint) fn js_ts_yaml_load_uses_safe_schema(parsed: &Pa
     !js_yaml_load_call_uses_unsafe_schema(parsed, call)
 }
 
-pub(in crate::algorithms::taint) fn js_ts_sql_call_is_parametrized(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+pub(in crate::algorithms::taint) fn js_ts_sql_call_is_parametrized(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+) -> bool {
     let actual = match call_path_text(parsed, call) {
         Some(s) => s,
         None => return false,

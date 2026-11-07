@@ -1,12 +1,18 @@
 //! JS/TS request-source access ranges, branch and switch reachability.
 
-use crate::algorithms::taint::{JsTsAliasDef, JsTsAliasDefs, TaintSeed, node_contains_line};
-use crate::algorithms::taint::js_ts::framework_params::{js_ts_alias_def, js_ts_framework_source_params, js_ts_function_params};
-use crate::algorithms::taint::js_ts::request_aliases::{collect_js_ts_request_assignments, js_ts_add_alias_def};
+use crate::algorithms::taint::js_ts::framework_params::{
+    js_ts_alias_def, js_ts_framework_source_params, js_ts_function_params,
+};
+use crate::algorithms::taint::js_ts::request_aliases::{
+    collect_js_ts_request_assignments, js_ts_add_alias_def,
+};
 use crate::algorithms::taint::js_ts::sinks::node_contains_range;
-use crate::algorithms::taint::js_ts::source_access::{JS_TS_REQUEST_DATA_FIELDS, js_ts_field_access_text_matches, js_ts_source_access_text_matches};
-use crate::ast::ParsedFile;
+use crate::algorithms::taint::js_ts::source_access::{
+    js_ts_field_access_text_matches, js_ts_source_access_text_matches, JS_TS_REQUEST_DATA_FIELDS,
+};
+use crate::algorithms::taint::{node_contains_line, JsTsAliasDef, JsTsAliasDefs, TaintSeed};
 use crate::ast::tree_helpers::is_js_ts_language;
+use crate::ast::ParsedFile;
 use crate::frameworks::js_ts::call_classify::js_ts_framework_receiver_names;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;

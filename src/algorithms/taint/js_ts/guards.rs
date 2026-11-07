@@ -1,13 +1,23 @@
 //! JS/TS allowlist and guard checks that control a sink.
 
-use crate::algorithms::taint::{GuardControl, UrlSanitizerBinding, assignment_lhs_identifiers, block_ends_with_return, cfg_line_reaches, first_statement_line, node_contains_line, safe_successor_line};
-use crate::algorithms::taint::js_ts::bindings::{js_ts_assignment_visible_before_context, js_ts_enclosing_function_id};
+use crate::algorithms::taint::js_ts::bindings::{
+    js_ts_assignment_visible_before_context, js_ts_enclosing_function_id,
+};
 use crate::algorithms::taint::js_ts::sanitizers::call_or_constructor_path_text;
+use crate::algorithms::taint::{
+    assignment_lhs_identifiers, block_ends_with_return, cfg_line_reaches, first_statement_line,
+    node_contains_line, safe_successor_line, GuardControl, UrlSanitizerBinding,
+};
+use crate::ast::tree_helpers::{
+    call_arg_node, call_path_matches, call_path_text, collect_calls, unwrap_parenthesized,
+};
 use crate::ast::ParsedFile;
-use crate::ast::tree_helpers::{call_arg_node, call_path_matches, call_path_text, collect_calls, unwrap_parenthesized};
 use crate::cpg::CodePropertyGraph;
 use crate::data_flow::FlowPath;
-use crate::frameworks::js_ts::call_classify::{collect_js_ts_assignment_like_nodes, js_ts_assignment_target_and_value, js_ts_literal_string_value};
+use crate::frameworks::js_ts::call_classify::{
+    collect_js_ts_assignment_like_nodes, js_ts_assignment_target_and_value,
+    js_ts_literal_string_value,
+};
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
