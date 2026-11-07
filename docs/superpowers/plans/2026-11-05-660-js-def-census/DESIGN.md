@@ -345,7 +345,8 @@ instance field initializer value of a class in O. For each write site s in R who
    list, and the narrowest scope wins (a table test pins that the two pick the same declaration). A def binds the written
    declaration exactly when it lies in that declaration's scope minus the narrower same-name declarations nested in it (a def
    there binds those). Known gaps, over-refusal only: a `catch` parameter or `class` declaration outside a region is no
-   `BindingFacts` declaration (no recorded def). No declaration found, or `FlatFallback` (an undeclared name), refuses every edge of x.
+   `BindingFacts` declaration (no recorded def); a nested-callable `var` has the owner's whole scope in `BindingFacts` and ties an owner-level
+   declaration (the later one wins). Residuals are filed as #736. No declaration found, or `FlatFallback` (an undeclared name), refuses every edge of x.
 3. **Refused edges.** Every edge D->U classified in O with U outside R, whose candidate def's binding is B (or is `FlatFallback`
    /unresolved) and with `affects(p, U.path)`. An `exact` or `sameline` edge becomes `NameOnly(CfgIncomplete)`; a `killed` or other
    `NameOnly` label is kept (round 1, accepted). There is no order proof: the read may follow any

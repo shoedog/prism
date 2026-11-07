@@ -296,6 +296,11 @@ const ROUND2: &[(&str, &str, &str, bool)] = &[
     ("outer_write_inner_block_edge_untouched", "a@6->a@7", "function f() {\n  log();\n  g(() => {\n    let a = 1;\n    {\n      let a = 2;\n      sink(a);\n    }\n    h(() => { a++; });\n  });\n}", false),
     ("outer_write_inner_block_after_closure_untouched", "a@7->a@9", "function f() {\n  log();\n  g(() => {\n    let a = 1;\n    h(() => { a++; });\n    {\n      let a = 2;\n      log();\n      sink(a);\n    }\n  });\n}", false),
     ("outer_write_inner_block_outer_read_refused", "a@4->a@10", "function f() {\n  log();\n  g(() => {\n    let a = 1;\n    {\n      let a = 2;\n      log();\n    }\n    h(() => { a++; });\n    sink(a);\n  });\n}", true),
+    // Opus r3: a `var` in a nested callable has the owner's whole scope in `BindingFacts`, so it ties an
+    // owner-level `let`/`const`; the later owner-level declaration is the written binding.
+    ("tie1_nested_var_then_let", "a@3->a@6", "function f() {\n  g(() => { var a = 0; });\n  let a = 1;\n  h(() => { a++; });\n  log();\n  sink(a);\n}", true),
+    ("tie2_nested_var_then_const_member", "a.n@4->a.n@6", "function f() {\n  g(function () { var a = 0; });\n  const a = { n: 1 };\n  h(() => { a.n = 2; });\n  log();\n  sink(a.n);\n}", true),
+    ("tie1ctl_var_after_the_let_merges", "a@2->a@6", "function f() {\n  let a = 1;\n  g(() => { var a = 0; });\n  h(() => { a++; });\n  log();\n  sink(a);\n}", false),
     ("outer_param_inner_block_untouched", "a@6->a@8", "function f(a) {\n  log();\n  g((a) => {\n    h(() => { a++; });\n    {\n      let a = 2;\n      log();\n      sink(a);\n    }\n  });\n}", false),
 ];
 

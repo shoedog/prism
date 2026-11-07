@@ -245,7 +245,7 @@ fn the_census_and_binding_facts_pick_the_same_declaration() {
         ("g(() => { var a; h(() => { a++; }); sink(a); });", false),
         ("g(() => { switch (k) { case 0: let a; h(() => { a++; }); sink(a); } });", false),
         ("g(() => { { let a; sink(a); } h(() => { a++; }); });", true),
-        // known gaps, over-refusal only: a `catch` parameter or a `class` declaration outside a region
+        // known gaps, over-refusal only (residuals filed as #736): a `catch` parameter or a `class` declaration outside a region
         // is no `BindingFacts` declaration (it has no recorded def), so the parameter is named for a
         // write that targets that binding.
         ("{ class a {} g(() => { a++; }); sink(a); }", true),
