@@ -1,6 +1,6 @@
 //! Authoritative Rust call routing and the concrete `Self::` scope proof.
-use super::*;
 use crate::name_resolution::types::ScopeKind;
+use crate::resolution::*;
 
 impl CallGraph {
     /// `Self` has no lexical module binding. Let its dedicated rung run.
@@ -85,7 +85,7 @@ impl CallGraph {
 
     /// Only newly reachable authoritative sites use this proof. Legacy/orphan
     /// sites keep their existing owner-lookup outcome.
-    pub(super) fn rust_self_scope_resolution(
+    pub(in crate::resolution) fn rust_self_scope_resolution(
         &self,
         site: &CallSite,
         name: &str,

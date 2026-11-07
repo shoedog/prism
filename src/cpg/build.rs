@@ -678,8 +678,8 @@ impl CodePropertyGraph {
             // rebuild seam (`build_impl_inner`) is directly reachable from
             // here (same `impl` block), so there is no reason to avoid it.
             let fresh_macro_shadow_intersection =
-                crate::rust_macro_args::transparent_shadow_intersection(
-                    &crate::rust_macro_args::collect_macro_shadow_set(files),
+                crate::call_graph::rust::macro_args::transparent_shadow_intersection(
+                    &crate::call_graph::rust::macro_args::collect_macro_shadow_set(files),
                 );
             if fresh_macro_shadow_intersection != cached_cg.macro_shadow_intersection {
                 drop(p);

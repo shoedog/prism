@@ -24,7 +24,8 @@ pub(super) fn collect(
     profile.next("call_graph.js_anonymous_proofs");
     let proofs = crate::resolution::js_ts::anonymous::ProofIndex::build(files);
     profile.next("call_graph.rust_macro_shadow_intersection");
-    let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);
+    let macro_shadow =
+        crate::call_graph::rust::macro_args::transparent_shadow_intersection(macro_shadow);
     profile.next("call_graph.struct_init");
     Initializers {
         props,

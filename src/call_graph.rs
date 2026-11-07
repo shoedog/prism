@@ -84,7 +84,7 @@ pub enum CallSiteOrigin {
     IndirectResolution,
     /// Minted from a Rust macro argument (transparency-allowlisted, e.g.
     /// `assert!(check(x))`) rather than from the grammar's own call/method
-    /// node. See `crate::rust_macro_args`.
+    /// node. See `crate::call_graph::rust::macro_args`.
     MacroArg,
 }
 
@@ -492,7 +492,7 @@ pub struct CallGraph {
     pub method_owners: BTreeMap<FunctionId, String>,
     /// Rust `Self::f` allow-list proofs (impl syntax, self-type headers, trait defaults).
     #[serde(default)]
-    pub(crate) rust_self_proofs: crate::resolution::rust_self::ProofIndex,
+    pub(crate) rust_self_proofs: crate::resolution::rust::self_calls::ProofIndex,
     /// Method FunctionId -> owner class definition node byte span (start, end).
     /// Py/JS/TS only; the self-receiver class identity.
     #[serde(default)]
@@ -783,7 +783,7 @@ pub struct CallGraph {
     /// `js_export_skipped_exprs` for the same on-demand-sum pattern). Only
     /// files with at least one non-default fact are present.
     #[serde(default)]
-    pub macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts>,
+    pub macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts>,
     /// P8 F1 fix (BLOCKER, codex re-review): the repo-wide macro shadow set
     /// (`rust_macro_args::collect_macro_shadow_set`), narrowed to its
     /// intersection with `TRANSPARENT_ARG_MACROS`
@@ -1040,7 +1040,7 @@ impl CallGraph {
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
         // from the full `files` map, mirroring the existing per-build
         // whole-program-fact pattern (e.g. `extract_js_ts_resolution_facts`).
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) =
             Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
 
@@ -1281,7 +1281,7 @@ impl CallGraph {
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
             macro_arg_facts: BTreeMap::new(),
-            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+            macro_shadow_intersection: rust::macro_args::transparent_shadow_intersection(
                 &macro_shadow,
             ),
             // P9: whole-program framework-entry state — left empty here, same
@@ -1327,7 +1327,7 @@ impl CallGraph {
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
         // P8 F1 BLOCKER: full-files macro shadow set; Sync BTreeSet shared by parallel jobs.
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) =
             Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
 
@@ -1471,7 +1471,7 @@ impl CallGraph {
         struct FileCallSites {
             file_path: String,
             call_sites: Vec<(FunctionId, CallSite)>,
-            macro_arg_facts: crate::rust_macro_args::MacroArgFacts,
+            macro_arg_facts: rust::macro_args::MacroArgFacts,
         }
 
         profile.next("call_graph.calls");
@@ -1480,7 +1480,7 @@ impl CallGraph {
             .map(|entry| {
                 let (file_path, parsed) = *entry;
                 let mut file_call_sites = Vec::new();
-                let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
+                let mut file_macro_arg_facts = rust::macro_args::MacroArgFacts::default();
                 let file_imports_ref = imports.get(file_path);
                 let proven_imported_receiver_types =
                     proven_python_imported_receiver_types.get(file_path);
@@ -1616,10 +1616,10 @@ impl CallGraph {
             .collect();
 
         profile.next("call_graph.merge");
-        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
+        let mut macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts> =
             BTreeMap::new();
         for file_calls in &per_file_calls {
-            if file_calls.macro_arg_facts != crate::rust_macro_args::MacroArgFacts::default() {
+            if file_calls.macro_arg_facts != rust::macro_args::MacroArgFacts::default() {
                 macro_arg_facts.insert(file_calls.file_path.clone(), file_calls.macro_arg_facts);
             }
         }
@@ -3262,7 +3262,7 @@ impl CallGraph {
     }
 
     fn refresh_rust_receiver_state(&mut self, files: &BTreeMap<String, ParsedFile>) {
-        self.rust_self_proofs = crate::resolution::rust_self::ProofIndex::build(files);
+        self.rust_self_proofs = crate::resolution::rust::self_calls::ProofIndex::build(files);
         self.populate_method_identity_indices(files);
         self.rematerialize_rust_receiver_keys(files);
     }
@@ -3323,7 +3323,7 @@ impl CallGraph {
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once,
         // shared (by reference) across every parallel per-caller task below.
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
         crate::build_pool::per_item(&ordered)
             .copied() // (&FunctionId, &BTreeSet) is Copy -> avoid &&-destructuring
@@ -3403,7 +3403,7 @@ impl CallGraph {
     )> {
         let mut updates = Vec::new();
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         for (caller, sites) in &self.calls {
             let Some(parsed) = files.get(&caller.file) else {
                 continue;
@@ -4732,7 +4732,7 @@ impl CallGraph {
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — deliberately
         // scanned over the FULL `files` map (not `only_files`): a
         // `macro_rules!` def outside the changed subset must still shadow.
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) = Self::extract_go_build_profiles(
             files
                 .iter()
@@ -4856,13 +4856,13 @@ impl CallGraph {
 
         p.next("call_graph.direct_subset.calls");
         // Phase 2: Find call sites from subset.
-        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
+        let mut macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts> =
             BTreeMap::new();
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
                 continue;
             }
-            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
+            let mut file_macro_arg_facts = rust::macro_args::MacroArgFacts::default();
             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
             let named_claims =
                 crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);
@@ -4983,7 +4983,7 @@ impl CallGraph {
                     callers.entry(callee_name).or_default().push(site);
                 }
             }
-            if file_macro_arg_facts != crate::rust_macro_args::MacroArgFacts::default() {
+            if file_macro_arg_facts != rust::macro_args::MacroArgFacts::default() {
                 macro_arg_facts.insert(file_path.clone(), file_macro_arg_facts);
             }
         }
@@ -5096,7 +5096,7 @@ impl CallGraph {
             // `macro_shadow` above), so this is always the fresh, correct
             // whole-program value. `merge` overwrites the retained graph's
             // field with this one for exactly that reason.
-            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+            macro_shadow_intersection: rust::macro_args::transparent_shadow_intersection(
                 &macro_shadow,
             ),
             // P9: whole-program framework-entry state — left empty here for
@@ -6452,3 +6452,5 @@ mod framework_entry_tests;
 pub(crate) mod go;
 
 pub mod js_ts;
+
+pub mod rust;

@@ -79,7 +79,7 @@ impl<'f> Builder<'f> {
             .collect();
         let mut graph = ScopeGraph::new();
         graph.file_paths = file_paths;
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = crate::call_graph::rust::macro_args::collect_macro_shadow_set(files);
         Builder {
             graph,
             macro_shadow,
