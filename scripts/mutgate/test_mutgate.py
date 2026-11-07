@@ -797,6 +797,393 @@ class RegistryIntentTests(unittest.TestCase):
         self.assertTrue(revisions[mid]['reason'])
 
 
+def lane_file(tmp, name, mutations=None, **fields):
+    path = Path(tmp) / f'{name}.json'
+    path.write_text(json.dumps(dict({'mutations': mutations or {'m': ['src/lib.rs', 'a', 'b', 't']}}, **fields)))
+    return path
+
+
+class TestTargetsTests(unittest.TestCase):
+    ENTRY = {'prefix': 'cli_test::', 'package': 'prism-review', 'target': 'cli'}
+
+    def test_parse_accepts_a_list_and_defaults_to_empty(self):
+        self.assertEqual(mutgate.parse_test_targets('l', []), ())
+        self.assertEqual(mutgate.parse_test_targets('l', [self.ENTRY]),
+                         (('cli_test::', 'prism-review', 'cli'),))
+        with tempfile.TemporaryDirectory() as tmp:
+            muts = mutgate.load_population([lane_file(tmp, 'plain')])
+            self.assertEqual(muts['m']['test_targets'], ())
+
+    def test_parse_refuses_malformed_entries(self):
+        bad = {
+            'not a list': {'prefix': 'a', 'package': 'p', 'target': 't'},
+            'entry not an object': ['a'],
+            'missing package': [{'prefix': 'a', 'target': 't'}],
+            'unknown key': [dict(self.ENTRY, extra='x')],
+            'empty prefix': [dict(self.ENTRY, prefix='')],
+            'empty package': [dict(self.ENTRY, package='')],
+            'empty target': [dict(self.ENTRY, target='')],
+            'non-string package': [dict(self.ENTRY, package=3)],
+            'duplicate prefix': [self.ENTRY, dict(self.ENTRY, target='lib')],
+        }
+        for label, raw in bad.items():
+            with self.subTest(label), self.assertRaises(ValueError):
+                mutgate.parse_test_targets('l', raw)
+
+    def test_load_population_carries_and_validates_test_targets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            good = lane_file(tmp, 'good', test_targets=[self.ENTRY])
+            self.assertEqual(mutgate.load_population([good])['m']['test_targets'],
+                             (('cli_test::', 'prism-review', 'cli'),))
+            bad = lane_file(tmp, 'bad', test_targets=[self.ENTRY, self.ENTRY])
+            with self.assertRaisesRegex(ValueError, 'bad: test_targets.*duplicate'):
+                mutgate.load_population([bad])
+
+    def test_longest_prefix_wins_then_lib_prefixes_then_integration(self):
+        m = {'lib_prefixes': ('repo_loader::',), 'test_targets': (
+            ('algorithms::', 'prism-review', 'lib'),
+            ('algorithms::taint::', 'prism-review', 'integration'),
+            ('build_profile_test::', 'prism-review', 'cli'))}
+        for test, want in (
+                ('algorithms::thin::t', ('prism-review', 'lib')),
+                ('algorithms::taint::sinks::t', ('prism-review', 'integration')),
+                ('algorithms::taint', ('prism-review', 'lib')),  # shorter prefix does not reach the longer
+                ('build_profile_test::t', ('prism-review', 'cli')),
+                ('repo_loader::t', ('prism', 'lib')),
+                ('core_test::t', ('prism', 'integration'))):
+            with self.subTest(test):
+                self.assertEqual(mutgate.test_target(m, test), want)
+
+    def test_a_test_targets_prefix_beats_lib_test_prefixes_only_when_it_matches(self):
+        m = {'lib_prefixes': ('a::',), 'test_targets': (('a::b::', 'prism-review', 'cli'),)}
+        self.assertEqual(mutgate.test_target(m, 'a::b::t'), ('prism-review', 'cli'))
+        self.assertEqual(mutgate.test_target(m, 'a::c::t'), ('prism', 'lib'))
+        # lanes loaded before this field existed carry no key at all
+        self.assertEqual(mutgate.test_target({'lib_prefixes': ()}, 't'), ('prism', 'integration'))
+
+    def test_every_registered_lane_still_resolves_to_the_root_package(self):
+        lanes = sorted((Path(__file__).resolve().parents[2] / 'mutants').glob('*.json'))
+        for mid, m in mutgate.load_population(lanes).items():
+            if m['test_targets']: continue  # a lane that opts in is allowed to name other packages
+            for t in m['tests']:
+                self.assertEqual(mutgate.test_target(m, t)[0], 'prism', (mid, t))
+
+    def test_main_exits_with_the_lane_name_on_an_invalid_lane(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lane = lane_file(tmp, 'broken', test_targets=[dict(self.ENTRY, prefix='')])
+            with patch.object(sys, 'argv', ['mutgate', '--lane', str(lane), '--plan-only', '--out', str(Path(tmp) / 'o')]), \
+                    patch.object(mutgate, 'ROOT', Path(tmp)), \
+                    patch.dict(os.environ, {'CARGO_TARGET_DIR': str(Path(tmp) / 'target')}):
+                with self.assertRaises(SystemExit) as caught:
+                    mutgate.main()
+            self.assertIn('broken: test_targets[0].prefix', str(caught.exception))
+
+
+def artifact(package_id, kind, name, executable, test=True):
+    return json.dumps({'reason': 'compiler-artifact', 'package_id': package_id,
+                       'target': {'kind': [kind], 'name': name}, 'profile': {'test': test},
+                       'executable': executable})
+
+
+class BuildArgumentTests(unittest.TestCase):
+    ROOT_ID = 'path+file:///w#prism@0.1.0'
+    REV_ID = 'path+file:///w/crates/prism-review#prism-review@0.1.0'
+
+    def fake_cargo(self, outputs, returncodes=None):
+        calls = []
+        def run(args, **kwargs):
+            calls.append(list(args))
+            package = args[args.index('-p') + 1] if '-p' in args else None
+            return subprocess.CompletedProcess(args, (returncodes or {}).get(package, 0),
+                                               '\n'.join(outputs.get(package, [])) + '\n', 'err:' + str(package) + '\n')
+        return calls, run
+
+    def build(self, targets, outputs, returncodes=None):
+        calls, run = self.fake_cargo(outputs, returncodes)
+        with patch.object(mutgate.subprocess, 'run', side_effect=run):
+            return calls, mutgate.build(Path('/t/tree'), Path('/t/target'), targets)
+
+    def test_every_invocation_names_its_package_including_lib(self):
+        outputs = {
+            'prism': [artifact(self.ROOT_ID, 'lib', 'prism', '/x/prism-lib'),
+                      artifact(self.ROOT_ID, 'test', 'integration', '/x/prism-int')],
+            'prism-review': [artifact(self.REV_ID, 'lib', 'prism_review', '/x/rev-lib'),
+                             artifact(self.REV_ID, 'test', 'cli', '/x/rev-cli')]}
+        targets = {('prism', 'lib'), ('prism', 'integration'), ('prism-review', 'lib'), ('prism-review', 'cli')}
+        calls, (rc, exes, _, err) = self.build(targets, outputs)
+        self.assertEqual(rc, 0)
+        self.assertEqual(sorted(calls), sorted([
+            ['cargo', 'test', '--offline', '--manifest-path', '/t/tree/Cargo.toml', '--no-run',
+             '--message-format=json', '-p', 'prism', '--test', 'integration', '--lib'],
+            ['cargo', 'test', '--offline', '--manifest-path', '/t/tree/Cargo.toml', '--no-run',
+             '--message-format=json', '-p', 'prism-review', '--test', 'cli', '--lib']]))
+        for call in calls: self.assertIn('-p', call)
+        self.assertEqual(exes, {('prism', 'lib'): '/x/prism-lib', ('prism', 'integration'): '/x/prism-int',
+                                ('prism-review', 'lib'): '/x/rev-lib', ('prism-review', 'cli'): '/x/rev-cli'})
+        self.assertIn('err:prism', err)
+
+    def test_lib_only_request_still_carries_dash_p(self):
+        calls, (rc, exes, _, _) = self.build({('prism', 'lib')},
+                                             {'prism': [artifact(self.ROOT_ID, 'lib', 'prism', '/x/l')]})
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][calls[0].index('-p'):], ['-p', 'prism', '--lib'])
+        self.assertEqual(exes, {('prism', 'lib'): '/x/l'})
+
+    def test_two_lib_executables_in_one_output_are_told_apart_by_package(self):
+        both = [artifact(self.ROOT_ID, 'lib', 'prism', '/x/prism-lib'),
+                artifact(self.REV_ID, 'lib', 'prism_review', '/x/rev-lib')]
+        _, (rc, exes, _, _) = self.build({('prism-review', 'lib')}, {'prism-review': both})
+        self.assertEqual(exes[('prism-review', 'lib')], '/x/rev-lib')
+        self.assertEqual(exes[('prism', 'lib')], '/x/prism-lib')
+
+    def test_non_test_artifacts_are_ignored(self):
+        out = [artifact(self.ROOT_ID, 'lib', 'prism', '/x/dep', test=False),
+               artifact(self.REV_ID, 'lib', 'prism_review', '/x/rev-lib')]
+        _, (_, exes, _, _) = self.build({('prism-review', 'lib')}, {'prism-review': out})
+        self.assertEqual(exes, {('prism-review', 'lib'): '/x/rev-lib'})
+
+    def test_old_and_name_less_package_ids_are_parsed(self):
+        for package_id in ('prism-review 0.1.0 (path+file:///w/crates/prism-review)',
+                           'path+file:///w/crates/prism-review#0.1.0',
+                           'path+file:///w/crates/prism-review#prism-review@0.1.0'):
+            with self.subTest(package_id):
+                self.assertEqual(mutgate.package_name(package_id), 'prism-review')
+        self.assertIsNone(mutgate.package_name('opaque'))
+
+    def test_failing_package_fails_the_build_and_keeps_every_diagnostic(self):
+        error = json.dumps({'reason': 'compiler-message', 'message': {'level': 'error', 'spans': [
+            {'is_primary': True, 'file_name': 'crates/prism-review/src/a.rs', 'byte_start': 7}]}})
+        outputs = {'prism': [artifact(self.ROOT_ID, 'lib', 'prism', '/x/l')],
+                   'prism-review': [error]}
+        calls, (rc, exes, diags, _) = self.build({('prism', 'lib'), ('prism-review', 'lib')}, outputs,
+                                                 {'prism-review': 101})
+        self.assertEqual(len(calls), 2)  # the second package is built although the first failed
+        self.assertEqual(rc, 101)
+        self.assertEqual(diags, [('crates/prism-review/src/a.rs', 7)])
+        self.assertEqual(exes, {('prism', 'lib'): '/x/l'})
+
+    def test_missing_executable_for_a_requested_target_is_a_build_failure(self):
+        # e.g. cargo succeeded but built nothing for the pair: never an executable-less pass
+        calls, (rc, exes, _, err) = self.build({('prism-review', 'cli')}, {'prism-review': []})
+        self.assertEqual(rc, 1)
+        self.assertEqual(exes, {})
+        self.assertIn("('prism-review', 'cli')", err)
+
+
+class MemberCrateTests(unittest.TestCase):
+    def test_accessor_for_files_in_member_crates_and_roots(self):
+        for file, want in (('crates/x/src/y.rs', 'prism::__mutant'),
+                           ('crates/prism-review/src/lib.rs', 'prism::__mutant'),
+                           ('src/main.rs', 'prism::__mutant'),
+                           ('src/bin/z.rs', 'prism::__mutant'),
+                           ('src/a.rs', 'crate::__mutant'),
+                           ('src/lib.rs', 'crate::__mutant'),
+                           ('scripts/crates/x.rs', 'crate::__mutant')):
+            with self.subTest(file):
+                self.assertEqual(mutgate.accessor_for(file), want)
+
+    def test_allow_goes_on_the_crate_root_of_each_member_crate_with_units(self):
+        rendered = {'src/lib.rs': 'root', 'crates/a/src/lib.rs': 'a-lib', 'crates/a/src/x.rs': 'a-x',
+                    'crates/a/src/main.rs': 'a-main', 'crates/b/src/lib.rs': 'b-lib'}
+        units = {('crates/a/src/x.rs', 1, 2): {}, ('src/lib.rs', 1, 2): {}}
+        mutgate.allow_member_crates(rendered, units)
+        mutgate.allow_member_crates(rendered, units)  # idempotent
+        self.assertEqual(rendered, {'src/lib.rs': 'root', 'crates/a/src/lib.rs': mutgate.ALLOW + 'a-lib',
+                                    'crates/a/src/x.rs': 'a-x', 'crates/a/src/main.rs': mutgate.ALLOW + 'a-main',
+                                    'crates/b/src/lib.rs': 'b-lib'})
+
+    def test_render_uses_the_prism_accessor_in_a_member_crate_file(self):
+        s = 'pub fn add(a: i32, b: i32) -> i32 { a + b }\n'
+        file = 'crates/rev/src/lib.rs'
+        units, static = mutgate.plan_schemata(one_mutant('m1', file, 'a + b', 'a - b'), {file: s})
+        self.assertEqual(static, {})
+        out = mutgate.render({file: s}, units, mutgate.accessor_for)[file]
+        self.assertIn('match prism::__mutant() {', out)
+        self.assertNotIn('crate::__mutant', out)
+
+    def make_root(self, tmp, crates=True):
+        root = Path(tmp) / 'repo'
+        for rel, text in (('src/lib.rs', 'root'), ('Cargo.toml', '[package]'), ('scripts/s.py', 's')) + (
+                (('crates/rev/src/lib.rs', 'rev'), ('crates/rev/Cargo.toml', '[package]'),
+                 ('crates/rev/tests/t.rs', 'test')) if crates else ()):
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(text)
+        return root
+
+    def test_sync_tree_makes_real_copies_of_crates_prunes_and_applies_overrides(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, tree = self.make_root(tmp), Path(tmp) / 'tree'
+            with patch.object(mutgate, 'ROOT', root):
+                mutgate.sync_tree(tree, {'crates/rev/src/lib.rs': 'mutant'})
+                self.assertFalse((tree / 'crates').is_symlink())
+                self.assertEqual((tree / 'crates/rev/src/lib.rs').read_text(), 'mutant')
+                self.assertEqual((root / 'crates/rev/src/lib.rs').read_text(), 'rev')
+                self.assertEqual((tree / 'crates/rev/tests/t.rs').read_text(), 'test')
+                (tree / 'crates/rev/src/stale.rs').write_text('deleted upstream')
+                (root / 'crates/rev/tests/t.rs').unlink()
+                mutgate.sync_tree(tree, {})
+                self.assertEqual((tree / 'crates/rev/src/lib.rs').read_text(), 'rev')
+                self.assertFalse((tree / 'crates/rev/src/stale.rs').exists())
+                self.assertFalse((tree / 'crates/rev/tests/t.rs').exists())
+
+    def test_sync_tree_replaces_an_older_trees_crates_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, tree = self.make_root(tmp), Path(tmp) / 'tree'
+            tree.mkdir()
+            (tree / 'crates').symlink_to(root / 'crates')
+            with patch.object(mutgate, 'ROOT', root):
+                mutgate.sync_tree(tree, {'crates/rev/src/lib.rs': 'mutant'})
+            self.assertFalse((tree / 'crates').is_symlink())
+            self.assertEqual((tree / 'crates/rev/src/lib.rs').read_text(), 'mutant')
+            self.assertEqual((root / 'crates/rev/src/lib.rs').read_text(), 'rev')  # live checkout untouched
+
+    def test_no_copied_entry_is_a_symlink_after_sync_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, tree = self.make_root(tmp), Path(tmp) / 'tree'
+            tree.mkdir()
+            for item in mutgate.COPIED_DIRS: (tree / item).symlink_to(root / item if (root / item).exists() else root)
+            with patch.object(mutgate, 'ROOT', root):
+                mutgate.sync_tree(tree, {})
+            for item in mutgate.COPIED:
+                self.assertFalse((tree / item).is_symlink(), item)
+
+    def test_sync_tree_refuses_to_leave_a_copied_entry_linked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, tree = self.make_root(tmp), Path(tmp) / 'tree'
+            tree.mkdir()
+            real_unlink = Path.unlink
+            def stuck_link(path):  # a link the copy step cannot remove
+                return path.name == 'crates' and path.parent == tree
+            def unlink(path, *args, **kwargs):
+                if not stuck_link(path): return real_unlink(path, *args, **kwargs)
+            with patch.object(mutgate, 'ROOT', root), patch.object(Path, 'is_symlink', stuck_link), \
+                    patch.object(Path, 'unlink', unlink):
+                with self.assertRaisesRegex(RuntimeError, r"\['crates'\]"):
+                    mutgate.sync_tree(tree, {})
+
+    def test_sync_tree_without_crates_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, tree = self.make_root(tmp, crates=False), Path(tmp) / 'tree'
+            with patch.object(mutgate, 'ROOT', root):
+                mutgate.sync_tree(tree, {})
+                mutgate.sync_tree(tree, {'src/lib.rs': 'mutant'})
+            self.assertEqual((tree / 'src/lib.rs').read_text(), 'mutant')
+            self.assertEqual((tree / 'scripts/s.py').read_text(), 's')
+            self.assertFalse((tree / 'crates').exists())
+            self.assertEqual(sorted(p.name for p in tree.iterdir()), ['Cargo.toml', 'scripts', 'src'])
+
+    def test_source_files_and_test_sources_include_member_crates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.make_root(tmp)
+            (root / 'tests').mkdir()
+            (root / 'tests/root_test.rs').write_text('t')
+            self.assertEqual(sorted(mutgate.source_files(root)), ['crates/rev/src/lib.rs', 'src/lib.rs'])
+            self.assertEqual(sorted(mutgate.source_files(root, mutgate.TEST_GLOBS)),
+                             ['crates/rev/tests/t.rs', 'tests/root_test.rs'])
+            bare = self.make_root(Path(tmp) / 'bare', crates=False)
+            self.assertEqual(sorted(mutgate.source_files(bare)), ['src/lib.rs'])
+
+    def test_location_sensitive_tests_sees_a_member_crate_test_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.make_root(tmp)
+            (root / 'crates/rev/tests/t.rs').write_text('#[test] fn crate_test() { assert_eq!(line!(), 1); }')
+            (root / 'crates/rev/tests/u.rs').write_text('#[test] fn plain_test() { assert!(true); }')
+            sources = mutgate.source_files(root)
+            sources.update(mutgate.source_files(root, mutgate.TEST_GLOBS))
+            self.assertEqual(mutgate.location_sensitive_tests(['crate_test', 'plain_test'], sources),
+                             {'crate_test': True, 'plain_test': False})
+
+    def test_changed_lines_diffs_src_crates_and_scripts(self):
+        diff = ('+++ b/crates/rev/src/lib.rs\n@@ -1,0 +2,2 @@\n+a\n+b\n+++ b/src/x.rs\n@@ -5 +5 @@\n-c\n+d\n')
+        with patch.object(mutgate.subprocess, 'run') as run:
+            run.return_value = subprocess.CompletedProcess([], 0, diff, '')
+            out = mutgate.changed_lines('main')
+        args = run.call_args[0][0]
+        self.assertEqual(args[args.index('--') + 1:], ['src', 'crates', 'scripts'])
+        self.assertEqual(out, {'crates/rev/src/lib.rs': {2, 3}, 'src/x.rs': {5}})
+
+    def test_anchor_in_a_member_crate_file_is_found_and_a_missing_one_is_not(self):
+        src_text = {'crates/rev/src/lib.rs': 'pub fn f() -> u8 { 1 }\n'}
+        muts = one_mutant('ok', 'crates/rev/src/lib.rs', '{ 1 }', '{ 2 }')
+        muts.update(one_mutant('gone', 'crates/other/src/lib.rs', '{ 1 }', '{ 2 }'))
+        self.assertEqual(mutgate.invalid_anchors(muts, src_text), {'gone': 'anchor-missing'})
+
+
+class MemberCrateGateTests(unittest.TestCase):
+    """A synthetic two-package workspace, driven through main() with real (offline) cargo."""
+
+    LIB = ('pub fn add(a: i32, b: i32) -> i32 { a + b }\n'
+           '#[cfg(test)] mod tests { #[test] fn adds() { assert_eq!(super::add(1, 2), 3); } }\n')
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix='mutgate-members-')
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        quiet_env = patch.dict(os.environ, {'HOST_QUIET_DIR': str(self.root / 'quiet')})
+        quiet_env.start()
+        self.addCleanup(quiet_env.stop)
+        for rel, text in (
+                ('Cargo.toml', '[package]\nname="prism"\nversion="0.0.0"\nedition="2021"\n'
+                               '[workspace]\nmembers=["crates/rev"]\n'),
+                ('src/lib.rs', '#[cfg(test)] mod tests { #[test] fn root_ok() { assert_eq!(1, 1); } }\n'),
+                ('crates/rev/Cargo.toml', '[package]\nname="prism-rev"\nversion="0.0.0"\nedition="2021"\n'
+                                          '[dependencies]\nprism={path="../.."}\n'),
+                ('crates/rev/src/lib.rs', self.LIB)):
+            (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / rel).write_text(text)
+
+    def gate(self, mode, **lane_fields):
+        lane = self.root / 'lane.json'
+        lane.write_text(json.dumps(dict(
+            {'mutations': {'REV-add': ['crates/rev/src/lib.rs', 'a + b', 'a - b', 'tests::adds']}},
+            **lane_fields)))
+        out = self.root / f'report-{mode}'
+        args = ['mutgate', '--lane', str(lane), '--jobs', '1', '--timeout', '30', '--out', str(out), '--mode', mode]
+        if mode == 'schema': args += ['--since', 'HEAD', '--scope', 'file']
+        output = io.StringIO()
+        with patch.object(mutgate, 'ROOT', self.root), patch.object(sys, 'argv', args), \
+                patch.dict(os.environ, {'CARGO_TARGET_DIR': str(self.root / 'target')}), \
+                patch.object(mutgate, 'changed_lines', return_value={'crates/rev/src/lib.rs': {1}}), \
+                contextlib.redirect_stdout(output):
+            try: status = mutgate.main()
+            except SystemExit as e: status = e.code
+        summary = json.loads((out / 'summary.json').read_text()) if (out / 'summary.json').exists() else {}
+        return status, summary
+
+    def test_member_crate_mutant_is_killed_in_text_and_schema_mode_by_its_own_package(self):
+        for mode in ('text', 'schema'):
+            with self.subTest(mode=mode):
+                status, summary = self.gate(mode, test_targets=[
+                    {'prefix': 'tests::', 'package': 'prism-rev', 'target': 'lib'}])
+                self.assertEqual(status, 0, summary)
+                self.assertEqual(summary['results']['REV-add']['verdict'], 'KILLED')
+                self.assertEqual(summary['results']['REV-add']['mode'], mode)  # schema was not demoted to text
+                self.assertEqual(self.root.joinpath('crates/rev/src/lib.rs').read_text(), self.LIB)
+                tree = self.root / 'target/mutgate/tree'
+                self.assertFalse((tree / 'crates').is_symlink())
+                self.assertEqual((tree / 'crates/rev/src/lib.rs').read_text(), self.LIB)
+
+    def test_without_a_test_targets_entry_the_selector_runs_in_the_root_package_and_is_refused(self):
+        status, summary = self.gate('text')
+        self.assertEqual(status, 1)
+        self.assertEqual(summary['results']['REV-add']['verdict'], 'INADMISSIBLE')
+        self.assertEqual(self.root.joinpath('crates/rev/src/lib.rs').read_text(), self.LIB)
+
+    def test_an_unknown_package_is_a_build_failure_never_a_skipped_mutant(self):
+        status, summary = self.gate('text', test_targets=[
+            {'prefix': 'tests::', 'package': 'no-such-package', 'target': 'lib'}])
+        self.assertEqual(status, 1)
+        self.assertEqual(summary['results']['REV-add']['verdict'], 'INADMISSIBLE')
+        self.assertEqual(summary['results']['REV-add']['error'], 'baseline compile')
+
+    def test_an_unknown_target_is_a_build_failure_never_a_skipped_mutant(self):
+        status, summary = self.gate('text', test_targets=[
+            {'prefix': 'tests::', 'package': 'prism-rev', 'target': 'no_such_target'}])
+        self.assertEqual(status, 1)
+        self.assertEqual(summary['results']['REV-add']['error'], 'baseline compile')
+
+
 if __name__ == '__main__':
     unittest.main()
 
