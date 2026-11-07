@@ -20,7 +20,16 @@ wait_until_free = _quiet_module.wait_until_free
 ROOT = Path(__file__).resolve().parents[2]
 LANES_GLOB = 'mutants/*.json'
 LIB_PREFIXES_DEFAULT = ()
-COPIED = ['src', 'vendor', 'scripts', 'Cargo.toml', 'Cargo.lock', 'build.rs']
+COPIED = ['src', 'vendor', 'scripts', 'crates', 'Cargo.toml', 'Cargo.lock', 'build.rs']
+COPIED_DIRS = ['src', 'vendor', 'scripts', 'crates']  # the COPIED entries that are directories
+# Member crates of the workspace (`crates/<name>/`): their sources are read for anchors, schema
+# units and macro scans, their tests for the location-sensitivity scan, and `crates/` is copied
+# (never linked) into the scratch tree.
+SOURCE_GLOBS = ('src/**/*.rs', 'crates/*/src/**/*.rs')
+TEST_GLOBS = ('tests/**/*.rs', 'crates/*/tests/**/*.rs')
+# The root package. A selector no `test_targets` prefix claims runs here (lanes written before
+# member crates existed name no package).
+ROOT_PACKAGE = 'prism'
 HELPER = '''
 #[doc(hidden)]
 #[inline(never)]
@@ -128,22 +137,61 @@ def occurrences(s, a):
 
 
 # ---------------------------------------------------------------- population
+def parse_test_targets(lane, raw):
+    """Validate a lane's optional `test_targets`; return ((prefix, package, target), ...)."""
+    if not isinstance(raw, list):
+        raise ValueError(f'{lane}: test_targets must be a list')
+    out, seen = [], set()
+    for i, entry in enumerate(raw):
+        where = f'{lane}: test_targets[{i}]'
+        if not isinstance(entry, dict):
+            raise ValueError(f'{where} must be an object')
+        if set(entry) != {'prefix', 'package', 'target'}:
+            raise ValueError(f'{where} must have exactly the keys prefix, package, target (got {sorted(entry)})')
+        for key in ('prefix', 'package', 'target'):
+            if not isinstance(entry[key], str) or not entry[key]:
+                raise ValueError(f'{where}.{key} must be a non-empty string')
+        if entry['prefix'] in seen:
+            raise ValueError(f'{where}: duplicate prefix {entry["prefix"]!r}')
+        seen.add(entry['prefix'])
+        out.append((entry['prefix'], entry['package'], entry['target']))
+    return tuple(out)
+
+
 def load_population(lane_files):
     muts = {}
     for lf in lane_files:
         d = json.loads(Path(lf).read_text())
         extra = d.get('extra', {})
+        targets = parse_test_targets(Path(lf).stem, d.get('test_targets', []))
         for mid, (file, a, b, test) in d['mutations'].items():
             assert mid not in muts, ('duplicate mutant id', mid, lf)
             edits = [(file, a, b)] + [tuple(e) for e in extra.get(mid, [])]
             tests = test if isinstance(test, list) else [test]
             muts[mid] = {'id': mid, 'lane': Path(lf).stem, 'edits': edits, 'tests': tests,
-                         'lib_prefixes': tuple(d.get('lib_test_prefixes', LIB_PREFIXES_DEFAULT))}
+                         'lib_prefixes': tuple(d.get('lib_test_prefixes', LIB_PREFIXES_DEFAULT)),
+                         'test_targets': targets}
     return muts
 
 
 def test_target(m, test):
-    return 'lib' if test.startswith(m['lib_prefixes']) else 'integration'
+    """(package, target) whose test executable runs this selector.
+
+    The longest matching `test_targets` prefix wins; otherwise `lib_test_prefixes` selects the
+    root package's lib test binary and everything else its `integration` binary."""
+    best = None
+    for prefix, package, target in m.get('test_targets', ()):
+        if test.startswith(prefix) and (best is None or len(prefix) > len(best[0])):
+            best = (prefix, package, target)
+    if best: return best[1], best[2]
+    return ROOT_PACKAGE, 'lib' if test.startswith(m['lib_prefixes']) else 'integration'
+
+
+def source_files(root=None, globs=SOURCE_GLOBS):
+    """{relative path: text} of every Rust file matching `globs` under root (default ROOT)."""
+    root = ROOT if root is None else root
+    return {str(p.relative_to(root)): p.read_text() for pattern in globs
+            for p in sorted(root.glob(pattern)) if p.is_file()}
 
 
 def invalid_anchors(muts, src_text):
@@ -316,18 +364,33 @@ def render(src_text, units, accessor):
 
 
 def accessor_for(file):
-    return 'prism::__mutant' if file in ('src/main.rs',) or file.startswith('src/bin/') else 'crate::__mutant'
+    """Path of the mutant selector as written inside `file`. The helper lives in the root package's
+    lib.rs, so the root binaries and every member crate (which links the root package) say `prism::`."""
+    outside_lib = file == 'src/main.rs' or file.startswith(('src/bin/', 'crates/'))
+    return 'prism::__mutant' if outside_lib else 'crate::__mutant'
+
+
+def allow_member_crates(rendered, units):
+    """Prepend ALLOW to the crate root (lib.rs and main.rs) of every member crate with schema units,
+    as the root package's lib.rs gets it: duplicated arms leave unreachable code and unused bindings."""
+    for crate in sorted({'/'.join(file.split('/')[:2]) for file, _, _ in units if file.startswith('crates/')}):
+        for name in ('lib.rs', 'main.rs'):
+            key = f'{crate}/src/{name}'
+            if key in rendered and not rendered[key].startswith(ALLOW): rendered[key] = ALLOW + rendered[key]
 
 
 # ---------------------------------------------------------------- tree sync
 def sync_tree(tree, overrides):
-    """Build the scratch tree: real copies of src/, vendor/, scripts/ and manifests, symlinks
-    to the live repo for every other top-level entry (tests, fixtures, README, eval, docs...).
-    Only files whose bytes differ are written, so mtimes stay stable and cargo stays incremental."""
+    """Build the scratch tree: real copies of src/, vendor/, scripts/, crates/ (when present) and
+    manifests, symlinks to the live repo for every other top-level entry (tests, fixtures, README,
+    eval, docs...). A copied entry is never a symlink, so no mutant is written through to the live
+    checkout. Only files whose bytes differ are written, so mtimes stay stable and cargo stays
+    incremental."""
     tree.mkdir(parents=True, exist_ok=True)
     want = set()
     for item in COPIED:
-        # An older warm tree may still link scripts/ into the live checkout.
+        # An older warm tree may still link scripts/ (or, before crates/ was copied, crates/)
+        # into the live checkout.
         if (tree / item).is_symlink():
             (tree / item).unlink()
         src = ROOT / item
@@ -340,12 +403,14 @@ def sync_tree(tree, overrides):
             if not dst.exists() or dst.read_bytes() != data:
                 dst.parent.mkdir(parents=True, exist_ok=True); dst.write_bytes(data)
             shutil.copymode(p, dst)
-    for p in [q for d in ('src', 'vendor', 'scripts') for q in (tree / d).rglob('*')]:
+    for p in [q for d in COPIED_DIRS for q in (tree / d).rglob('*')]:
         if p.is_file() and str(p.relative_to(tree)) not in want: p.unlink()
     for entry in ROOT.iterdir():
         if entry.name in COPIED or entry.name in ('target', '.git'): continue
         link = tree / entry.name
         if not link.is_symlink(): link.symlink_to(entry)
+    linked = [item for item in COPIED if (tree / item).is_symlink()]
+    if linked: raise RuntimeError(f'scratch tree entries must be real copies, not links: {linked}')
 
 
 def cargo_env(target):
@@ -356,21 +421,50 @@ def cargo_env(target):
     return env
 
 
+def package_name(package_id):
+    """Package name from a cargo JSON `package_id`: the old `name version (source)` form, or the
+    spec form `source#name@version` / `source#version` (the name is then the source path's last
+    segment). None when the id has neither shape."""
+    old = re.match(r'(\S+) \d\S* \(', package_id)
+    if old: return old[1]
+    if '#' not in package_id: return None
+    source, frag = package_id.rsplit('#', 1)
+    if '@' in frag: return frag.split('@', 1)[0] or None
+    if frag[:1].isdigit(): return source.rstrip('/').rsplit('/', 1)[-1] or None
+    return frag or None
+
+
 def build(tree, target, targets):
-    args = ['cargo', 'test', '--offline', '--manifest-path', str(tree / 'Cargo.toml'), '--no-run', '--message-format=json']
-    for t in sorted(targets): args += ['--lib'] if t == 'lib' else ['--test', t]
-    p = subprocess.run(args, capture_output=True, text=True, env=cargo_env(target))
-    exes, diags = {}, []
-    for l in p.stdout.splitlines():
-        try: j = json.loads(l)
-        except ValueError: continue
-        if j.get('reason') == 'compiler-artifact' and j.get('executable') and j.get('profile', {}).get('test'):
-            name = 'lib' if 'lib' in j['target']['kind'] else j['target']['name']
-            exes[name] = j['executable']
-        if j.get('reason') == 'compiler-message' and j['message'].get('level') == 'error':
-            for sp in j['message'].get('spans', []):
-                if sp.get('is_primary'): diags.append((sp['file_name'], sp['byte_start']))
-    return p.returncode, exes, diags, p.stderr
+    """Build the test executables for `targets`, a set of (package, target) pairs.
+
+    One cargo invocation per package, `-p <package>` on every one (also for `--lib`: with
+    default-members a bare `--lib` builds a lib test executable for each member). Returns
+    (returncode, {(package, target): executable}, diagnostics, stderr); the return code is the
+    first failure, and a requested pair that built no executable is a failure too."""
+    by_package = {}
+    for package, t in sorted(targets): by_package.setdefault(package, []).append(t)
+    exes, diags, errs, rc = {}, [], [], 0
+    for package, names in by_package.items():
+        args = ['cargo', 'test', '--offline', '--manifest-path', str(tree / 'Cargo.toml'), '--no-run',
+                '--message-format=json', '-p', package]
+        for t in names: args += ['--lib'] if t == 'lib' else ['--test', t]
+        p = subprocess.run(args, capture_output=True, text=True, env=cargo_env(target))
+        rc = rc or p.returncode; errs.append(p.stderr)
+        for l in p.stdout.splitlines():
+            try: j = json.loads(l)
+            except ValueError: continue
+            if j.get('reason') == 'compiler-artifact' and j.get('executable') and j.get('profile', {}).get('test'):
+                name = 'lib' if 'lib' in j['target']['kind'] else j['target']['name']
+                owner = package_name(j.get('package_id', ''))
+                if owner is None: owner = package  # unparseable id: the one package this call selected
+                exes[owner, name] = j['executable']
+            if j.get('reason') == 'compiler-message' and j['message'].get('level') == 'error':
+                for sp in j['message'].get('spans', []):
+                    if sp.get('is_primary'): diags.append((sp['file_name'], sp['byte_start']))
+    missing = sorted(set(targets) - set(exes))
+    if rc == 0 and missing:
+        rc = 1; errs.append(f'mutgate: cargo built no test executable for {missing}\n')
+    return rc, exes, diags, ''.join(errs)
 
 
 # Test executables share the process working directory and any runtime state reachable from it
@@ -469,7 +563,7 @@ def confirmation_reasons(m, observation, sensitive_tests):
 
 # ---------------------------------------------------------------- scoping
 def changed_lines(since):
-    diff = subprocess.run(['git', '-C', str(ROOT), 'diff', '--no-renames', '-U0', since, '--', 'src', 'scripts'], capture_output=True, text=True, check=True).stdout
+    diff = subprocess.run(['git', '-C', str(ROOT), 'diff', '--no-renames', '-U0', since, '--', 'src', 'crates', 'scripts'], capture_output=True, text=True, check=True).stdout
     out = {}; cur = None
     for l in diff.splitlines():
         if l.startswith('+++ '):
@@ -697,11 +791,12 @@ def main():
     target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target')).resolve()
     out = Path(a.out or target / 'mutgate' / 'report'); out.mkdir(parents=True, exist_ok=True)
     lanes = a.lane or sorted(str(p) for p in ROOT.glob(LANES_GLOB))
-    muts = load_population(lanes)
-    src_text = {str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'src').rglob('*.rs')}
+    try: muts = load_population(lanes)
+    except ValueError as e: sys.exit(f'mutgate: {e}')
+    src_text = source_files()
     for mutant in muts.values():
         for file, _, _ in mutant['edits']:
-            if file.startswith('scripts/') and (ROOT / file).is_file():
+            if file.startswith(('scripts/', 'crates/')) and (ROOT / file).is_file():
                 src_text[file] = (ROOT / file).read_text()
     ids = list(muts)
     if a.since: ids = select_scoped(muts, src_text, a.since, a.scope)
@@ -745,6 +840,7 @@ def main():
         for _ in range(3):
             rendered = render(src_text, units, accessor_for)
             lib = rendered['src/lib.rs']; rendered['src/lib.rs'] = ALLOW + lib + HELPER
+            allow_member_crates(rendered, units)
             log(f'schemata: {len(units)} fn units, {len(eligible) - len(static)} schema mutants, {len(static)} static: {static}')
             sync_tree(tree, {k: v for k, v in rendered.items() if v != src_text.get(k)})
             tgts = {test_target(m, t) for m in eligible.values() for t in m['tests']}
@@ -781,7 +877,7 @@ def main():
         timings['schema_runs'] = round(time.monotonic() - t, 2)
         t = time.monotonic()
         test_sources = dict(src_text)
-        test_sources.update({str(p.relative_to(ROOT)): p.read_text() for p in (ROOT / 'tests').rglob('*.rs')})
+        test_sources.update(source_files(globs=TEST_GLOBS))
         sensitive_tests = location_sensitive_tests({j[2] for j in jobs}, test_sources)
         timings['confirmation_scan'] = round(time.monotonic() - t, 2)
         by_mid = {}
