@@ -142,7 +142,7 @@ pub(crate) enum JsTsReceiverBindingEvidence {
 /// `CallGraph::CallSite` construction (`function_calls_with_spans_on_lines`,
 /// `function_calls_with_qualifier_and_spans_on_lines`) replaces the previous
 /// unlabeled positional tuples and gives a non-grammar extraction path (Rust
-/// macro-argument calls — see `crate::rust_macro_args`) a way to override
+/// macro-argument calls — see `crate::call_graph::rust::macro_args`) a way to override
 /// `kind`/`origin` without going through `CallGraph::call_kind_at`'s ancestor
 /// walk. That walk classifies ANY span nested under a `macro_invocation` as
 /// `CallKind::MacroInvocation` — correct for the macro's own name/args as a

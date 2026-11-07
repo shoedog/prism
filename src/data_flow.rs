@@ -24,3 +24,5 @@ pub use views::{BindingKey, Edges, FlowEdgeRef};
 pub mod test_support;
 #[cfg(test)]
 mod tests;
+
+pub mod terraform;

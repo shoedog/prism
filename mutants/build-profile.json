@@ -232,8 +232,8 @@
     ],
     "PROFILE-late-rust_macro_shadow_intersection": [
       "src/call_graph_profile_initializers.rs",
-      "profile.next(\"call_graph.rust_macro_shadow_intersection\");\n    let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);",
-      "let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);\n    profile.next(\"call_graph.rust_macro_shadow_intersection\");",
+      "profile.next(\"call_graph.rust_macro_shadow_intersection\");\n    let macro_shadow = crate::call_graph::rust::macro_args::transparent_shadow_intersection(macro_shadow);",
+      "let macro_shadow = crate::call_graph::rust::macro_args::transparent_shadow_intersection(macro_shadow);\n    profile.next(\"call_graph.rust_macro_shadow_intersection\");",
       "profile::deferred_tests::initializer_stage_boundaries_precede_builders"
     ],
     "PROFILE-early-struct-init": [
@@ -283,8 +283,8 @@
     "PROFILE-early-struct-init": [
       [
         "src/call_graph_profile_initializers.rs",
-        "    let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);",
-        "    profile.next(\"call_graph.struct_init\");\n    let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);"
+        "    let macro_shadow = crate::call_graph::rust::macro_args::transparent_shadow_intersection(macro_shadow);",
+        "    profile.next(\"call_graph.struct_init\");\n    let macro_shadow = crate::call_graph::rust::macro_args::transparent_shadow_intersection(macro_shadow);"
       ]
     ]
   }

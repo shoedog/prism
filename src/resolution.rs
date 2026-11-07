@@ -18,12 +18,12 @@ use std::collections::{BTreeMap, BTreeSet};
 mod free;
 use go::satisfiers::{GoCallerScopedSatisfiers, GoSatisfierMemo};
 
-#[path = "resolution_rust_self.rs"]
-pub(crate) mod rust_self;
 
 pub mod go;
 
 pub mod js_ts;
+
+pub(crate) mod rust;
 
 pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
 pub use crate::resolution_identity::{
