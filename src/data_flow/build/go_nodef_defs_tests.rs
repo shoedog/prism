@@ -219,7 +219,7 @@ fn header_defs_are_scoped_and_never_dominate_code_after_them() {
             ("v", 3, 5, false),
         ],
     );
-    let rc = "package p\nfunc f(ch chan int) {\n\tv := 1\n\tselect {\n\tcase v := <-ch:\n\t\tuse(v)\n\t}\n\tuse(v)\n}\n";
+    let rc = "package p\nfunc f(ch chan int) {\n\tv := ch\n\tselect {\n\tcase v := <-v:\n\t\tuse(v)\n\t}\n\tuse(v)\n}\n";
     check(
         "receive-after",
         rc,
@@ -291,13 +291,13 @@ fn split_headers_keep_the_outer_pair() {
 
 #[test]
 fn split_receive_keeps_the_outer_pair() {
-    let recv = "package p\nfunc f(ch chan int) {\n\tv := 1\n\tselect {\n\tcase v :=\n\t\t<-ch:\n\t\tuse(v)\n\t}\n}\n";
+    let recv = "package p\nfunc f(ch chan int) {\n\tv := ch\n\tselect {\n\tcase v :=\n\t\t<-v:\n\t\tuse(v)\n\t}\n}\n";
     check("split-recv", recv, &[("v", 3, 7, true)]);
 }
 
 #[test]
 fn split_type_switch_keeps_the_outer_pair() {
-    let tsw = "package p\nfunc f(x any) {\n\tt := 1\n\tswitch t :=\n\t\tx.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n}\n";
+    let tsw = "package p\nfunc f(x any) {\n\tt := x\n\tswitch t :=\n\t\tt.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n}\n";
     check("split-tswitch", tsw, &[("t", 3, 7, true)]);
 }
 
@@ -306,9 +306,9 @@ fn single_line_headers_still_drop_the_outer_pair() {
     let range =
         "package p\nfunc f(xs []int) {\n\tv := xs\n\tfor _, v := range xs {\n\t\tuse(v)\n\t}\n}\n";
     check("one-range", range, &[("v", 3, 5, false)]);
-    let recv = "package p\nfunc f(ch chan int) {\n\tv := 1\n\tselect {\n\tcase v := <-ch:\n\t\tuse(v)\n\t}\n}\n";
+    let recv = "package p\nfunc f(ch chan int) {\n\tv := ch\n\tselect {\n\tcase v := <-v:\n\t\tuse(v)\n\t}\n}\n";
     check("one-recv", recv, &[("v", 3, 6, false)]);
-    let tsw = "package p\nfunc f(x any) {\n\tt := 1\n\tswitch t := x.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n}\n";
+    let tsw = "package p\nfunc f(x any) {\n\tt := x\n\tswitch t := t.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n}\n";
     check("one-tswitch", tsw, &[("t", 3, 6, false)]);
 }
 
@@ -317,4 +317,12 @@ fn multiline_literal_without_reads_is_not_split() {
     // The right-hand side spans lines but reads no identifier: nothing to connect, S drops.
     let src = "package p\nfunc f(xs []int) {\n\tv := xs\n\tfor _, v := range []int{\n\t\t1,\n\t\t2,\n\t} {\n\t\tuse(v)\n\t}\n}\n";
     check("lit-range", src, &[("v", 3, 8, false)]);
+}
+
+#[test]
+fn split_header_keeps_only_defs_that_feed_its_right_hand_side() {
+    // The `if`-local `v` (line 5) is a different declaration the header's `v` (line 9) does not
+    // read: dropped as on a one-line header. The outer `v` (line 3) feeds it: kept.
+    let src = "package p\nfunc f(xs []int, c bool) {\n\tv := xs\n\tif c {\n\t\tv := xs\n\t\tuse(v)\n\t}\n\tfor _, v := range\n\t\tv {\n\t\tuse(v)\n\t}\n}\n";
+    check("feeds", src, &[("v", 3, 10, true), ("v", 5, 10, false)]);
 }

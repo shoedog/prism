@@ -4,19 +4,24 @@
 //! type-switch alias or `var`/`const` spec whose target identifier sits on a different
 //! line than some part of its right-hand side has no connected replacement path
 //! (a right-hand read on line N never reaches the new def on line M), so the outer
-//! def's pair with the body use is the only path left and S must keep it.
-use std::collections::BTreeSet;
+//! def's pair with the body use is the only path left and S must keep it. Only a def that
+//! feeds one of those right-hand reads is that outer def; an unrelated declaration is not.
+use crate::ast::ParsedFile;
+use std::collections::BTreeMap;
 use tree_sitter::Node;
+
+/// Declared identifier start byte -> the right-hand identifier reads `(start byte, name)`.
+pub(super) type SplitTargets = BTreeMap<usize, Vec<(usize, String)>>;
 
 /// Start bytes of the declared identifiers of every header or spec in `owner` whose right-hand
 /// side reads an identifier on a line other than the declared name's.
-pub(super) fn split_target_bytes(owner: Node<'_>) -> BTreeSet<usize> {
-    let mut out = BTreeSet::new();
-    walk(owner, &mut out);
+pub(super) fn split_targets(parsed: &ParsedFile, owner: Node<'_>) -> SplitTargets {
+    let mut out = BTreeMap::new();
+    walk(parsed, owner, &mut out);
     out
 }
 
-fn walk(node: Node<'_>, out: &mut BTreeSet<usize>) {
+fn walk(parsed: &ParsedFile, node: Node<'_>, out: &mut SplitTargets) {
     let (target, rhs) = match node.kind() {
         "range_clause" | "receive_statement" => {
             let mut cursor = node.walk();
@@ -55,27 +60,37 @@ fn walk(node: Node<'_>, out: &mut BTreeSet<usize>) {
             }
         }
         // Rows of the identifier reads in the right-hand side (literals read nothing).
-        let mut rows = BTreeSet::new();
-        read_rows(rhs, &mut rows);
+        let mut reads = Vec::new();
+        read_idents(parsed, rhs, &mut reads);
         for id in ids.into_iter().filter(|i| i.kind() == "identifier") {
-            if rows.iter().any(|r| *r != id.start_position().row) {
-                out.insert(id.start_byte());
+            if reads
+                .iter()
+                .any(|(_, _, row)| *row != id.start_position().row)
+            {
+                out.insert(
+                    id.start_byte(),
+                    reads.iter().map(|(b, n, _)| (*b, n.clone())).collect(),
+                );
             }
         }
     }
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
-        walk(child, out);
+        walk(parsed, child, out);
     }
 }
 
-/// Rows of every identifier in `node` (a call's callee, a selector's operand, a name).
-fn read_rows(node: Node<'_>, rows: &mut BTreeSet<usize>) {
+/// `(start byte, name, row)` of every identifier in `node`.
+fn read_idents(parsed: &ParsedFile, node: Node<'_>, out: &mut Vec<(usize, String, usize)>) {
     if node.kind() == "identifier" {
-        rows.insert(node.start_position().row);
+        out.push((
+            node.start_byte(),
+            parsed.node_text(&node).to_owned(),
+            node.start_position().row,
+        ));
     }
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
-        read_rows(child, rows);
+        read_idents(parsed, child, out);
     }
 }
