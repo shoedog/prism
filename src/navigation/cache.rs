@@ -44,10 +44,7 @@ impl NavigationIndex {
         Self::build_cached_under_observed(repo, base_dir).0
     }
 
-    pub fn build_cached_under_observed(
-        repo: &LoadedRepo,
-        base_dir: &Path,
-    ) -> (Self, &'static str) {
+    pub fn build_cached_under_observed(repo: &LoadedRepo, base_dir: &Path) -> (Self, &'static str) {
         let cache_dir = nav_cache_subdir(base_dir, repo);
         Self::build_cached_at_observed(repo, &cache_dir)
     }

@@ -6,9 +6,9 @@ mod owner;
 mod review;
 mod run;
 
+pub use crate::executable_owner::admission::Failure as OwnerFailure;
 pub use build_info::{build_info, BuildInfo};
 pub use nav::{callees, callers, nav_session, NavOptions, Seed};
-pub use crate::executable_owner::admission::Failure as OwnerFailure;
 pub use owner::OwnerOptions;
 pub use review::{build_context, load_review_inputs, BuiltContext, ReviewInputs, ReviewOptions};
 pub use run::{
