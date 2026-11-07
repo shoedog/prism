@@ -12,7 +12,7 @@ a Claude Code cloud session whose verdicts count for every tier; a local run is 
 fallback (host-quiet waits apply to local runs only). Every authoritative verdict comes from an
 isolated text mutant containing only its own main and `extra` edits. Source
 baseline preflight must pass first. Schema mode never decides an authoritative
-verdict. Production `src/` is never edited.
+verdict. Production `src/` and `crates/` are never edited.
 
 For each review round, use a fast advisory scoped run, or add `--authoritative`
 when that round needs certainty about the selected mutants.
@@ -29,20 +29,32 @@ Each `mutants/<lane>.json` has a flat `mutations` map:
   "extra": {
     "ID-slug": [["src/other_file.rs", "<original>", "<mutated>"]]
   },
-  "lib_test_prefixes": ["resolution::js_ts::paths_snapshot::", "repo_loader::"]
+  "lib_test_prefixes": ["resolution::js_ts::paths_snapshot::", "repo_loader::"],
+  "test_targets": [
+    {"prefix": "build_profile_test::", "package": "prism-review", "target": "cli"},
+    {"prefix": "algorithms::", "package": "prism-review", "target": "lib"}
+  ]
 }
 ```
 
-- `mutations[id]` is `[file, original_snippet, mutated_snippet, test]`. `test`
+- `mutations[id]` is `[file, original_snippet, mutated_snippet, test]`. `file` is a path
+  from the repository root under `src/`, `scripts/` or `crates/<member>/` (a member crate of
+  the workspace, e.g. `crates/prism-review/src/algorithms/taint.rs`). `test`
   may be a single selector string or a nonempty list. Every selector must
   execute exactly one non-ignored test and pass on the unmutated baseline;
   at least one must fail on the mutant, and every mutant run must complete
   admissibly. Anchors are exact snippets; all occurrences are replaced.
 - `extra[id]` lists additional `[file, original, mutated]` edits applied
   alongside the main one (e.g. a struct field plus its initializer).
-- `lib_test_prefixes` routes a selector to the `--lib` test binary when its
-  name starts with one of these prefixes; everything else runs against the
-  lane's `--test integration` binary. There is no per-mutant target override.
+- `test_targets` (optional) maps selector prefixes to the test executable that runs
+  them: each entry has exactly `prefix`, `package` and `target`, all non-empty strings
+  (`target` is `lib` or the name of an integration test target of that package), and no
+  prefix may repeat. The longest matching `prefix` wins. A selector no `test_targets`
+  prefix matches uses the earlier rule, so lanes without the field behave as before:
+  `lib_test_prefixes` routes it to `prism`'s `--lib` test binary, and everything else
+  to `prism`'s `--test integration` binary. A malformed field is an error at load,
+  naming the lane. An unknown package or target is a build failure (the lane's mutants
+  are INADMISSIBLE), never a skipped mutant.
 - Lanes must not mutate a version constant's definition (`const CACHE_VERSION:
   u32 = N;`, `NAV_CALL_EDGE_CACHE_VERSION`, sidecar or protocol versions); mutants
   of code that *compares* against the constant (load-path version checks) are fine.
@@ -125,7 +137,7 @@ as `selected: 0`; it provides no mutation coverage.
 
 Scopes are local filters: line scope selects overlapping anchors, fn scope
 the enclosing Rust function, and file scope all mutants in changed files.
-Changed-line discovery includes both `src/` and `scripts/`. For non-Rust files,
+Changed-line discovery includes `src/`, `crates/` and `scripts/`. For non-Rust files,
 fn scope conservatively selects every registered mutant in the changed file;
 the Rust function parser does not define script function boundaries. They do
 not trace callers/dependencies and can omit effects of helper changes. Missing
@@ -133,6 +145,25 @@ registered paths/anchors are selected even outside the diff and fail visibly.
 A green scoped run therefore does not cover dependency effects: when a change
 alters behaviour that other lanes' tests rely on, add those lanes, and use the
 full gate for cross-cutting changes (tiers in `CLAUDE.md`).
+
+## Workspace packages
+
+The scratch tree holds real copies of `src/`, `vendor/`, `scripts/`, `crates/` (when the
+repository has it) and the manifests; every other top-level entry is a symlink to the live
+checkout. A copied entry is never a link (an older warm tree's `scripts` or `crates` link is
+replaced, and `sync_tree` fails if one remains), so a mutant under `crates/` is never written
+into the live checkout. Anchors, schema planning and the macro scan read `src/**/*.rs` and
+`crates/*/src/**/*.rs`; the location-sensitivity scan also reads `tests/**/*.rs` and
+`crates/*/tests/**/*.rs`.
+
+Every test build is `cargo test -p <package> ...` (one invocation per package, `--lib` included),
+and executables are keyed by `(package, target)`. In advisory schema mode, functions in member
+crates are rendered with `prism::__mutant()` (the helper is appended to the root package's
+`src/lib.rs`), so a member crate whose functions are scheduled for schema mutation must depend on
+the root package under the name `prism`; otherwise its units fail to compile and are demoted to
+isolated text (`schema-compile-error`), which is still sound. The `#![allow(...)]` line that
+silences duplicated-arm warnings is also prepended to the `lib.rs` and `main.rs` of each member
+crate that has schema units.
 
 ## Build state, resources and cleanup
 
