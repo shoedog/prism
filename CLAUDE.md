@@ -762,7 +762,7 @@ Algorithms fall into two categories:
 ### Layering and file layout (#701)
 
 Core modules never import the review layer: `tests/integration/layering_test.rs` fails on any
-`crate::algorithms` reference in a non-test source file outside `src/algorithms/`, `src/output/`,
+`crate::algorithms` or `algorithms::` reference in a non-test source file outside `src/algorithms/`, `src/output/`,
 `src/targets/`, `src/api/`, `src/bin/`, `src/cli.rs`, `src/main.rs`, `src/lib.rs`. It exempts files
 by name only (`*_tests.rs`, `*_test.rs`, `tests.rs`, any `/tests/` component) and `//` comment
 lines; there is deliberately no `#[cfg(test)]` exemption, so a core file's inline test module may
