@@ -12,6 +12,7 @@ mod call_membership;
 pub(crate) mod call_names;
 mod go_calls;
 mod go_compat_types;
+mod go_header_defs;
 pub(crate) mod go_receiver_walk;
 pub(crate) mod member_reference_index;
 

@@ -54,8 +54,12 @@ fn go_fold_r2_outer_writes_do_not_define_inner_bindings() {
             }
         }
     }
+    // 25 pairs on main; 15 `distinct` rows (range/receive `:=`, type-switch aliases including
+    // the arm write, grouped and implicit const/var) no longer produce one: rule S drops the
+    // pair now that the declaration has its own def (#694 slice A). The 10 left are the
+    // `existing` controls and the remaining forms.
     assert!(
-        observed > 15,
+        observed > 8,
         "probe selected too few actual producer pairs: {observed}"
     );
     assert!(
@@ -136,7 +140,14 @@ fn type_switch_visibility(case: &str, alias: bool, body_exact: bool) {
             })
             .map(|(_, label)| label)
             .collect();
-        let pass = labels.len() == 1 && (labels[0] == FlowConfidence::Exact) == exact;
+        // With an alias the body's `n` is the alias, whose own def reaches it: rule S drops the
+        // outer constant's pair (#694 slice A). The case's type list still reads the constant.
+        let dropped = alias && text.contains("// body") && !body_exact;
+        let pass = if dropped {
+            labels.is_empty()
+        } else {
+            labels.len() == 1 && (labels[0] == FlowConfidence::Exact) == exact
+        };
         println!("type-switch {case:?} alias={alias}: n@3 -> n@{line}, exact={exact}, actual={labels:?}, pass={pass}");
         if !pass {
             failures.push(format!("n@3 -> n@{line}: exact={exact}, actual={labels:?}"));

@@ -15,6 +15,7 @@ mod dfg_test;
 mod field_test;
 mod go_blank_test;
 mod go_branches_test;
+mod go_fold694a_test;
 mod go_fold_r1_test;
 mod go_fold_r2_test;
 mod go_join_test;
