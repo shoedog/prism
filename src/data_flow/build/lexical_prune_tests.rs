@@ -211,6 +211,21 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     "exact label changed in {file}: {key:?}"
                 );
             }
+            if language == Language::Python {
+                // Opus F1 invariant: a removed edge into a minted use leaves another
+                // surviving edge from a def of the path into that same use.
+                let minted: std::collections::BTreeSet<_> = after.uses.values().flatten().collect();
+                for edge in before.edges.iter().filter(|e| !after.edges.contains(e)) {
+                    if minted.contains(&edge.to) {
+                        assert!(
+                            after.edges.iter().any(|e| e.to == edge.to
+                                && e.from.path == edge.from.path
+                                && e.from != edge.from),
+                            "removed {edge:?} left no dominator edge in {file}"
+                        );
+                    }
+                }
+            }
             if language != Language::Go && language != Language::Python {
                 assert_eq!(before.edges, after.edges, "non-Go/Python changed: {file}");
                 assert_eq!(

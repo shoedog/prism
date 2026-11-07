@@ -57,6 +57,21 @@ fn python_prune_matrix() {
                 + after.rd_function_stats.dfg_pruned_dominated,
             "{name}: counters must count removed expanded edges"
         );
+        // Invariant (Opus F1): every removed pair that targets a real use keeps another
+        // surviving edge from a def of the path into that same use (the dominating write).
+        for (p, d, u) in b.difference(&a) {
+            let real_use = after
+                .uses
+                .values()
+                .flatten()
+                .any(|l| l.path.to_string() == *p && l.line == *u);
+            if real_use {
+                assert!(
+                    a.iter().any(|(p2, d2, u2)| p2 == p && u2 == u && d2 != d),
+                    "{name}: removed {p} {d}->{u} left no surviving dominator edge into the use"
+                );
+            }
+        }
         for row in obligations.iter().filter(|r| r["case"] == name) {
             let key = (
                 row["path"].as_str().unwrap().to_owned(),

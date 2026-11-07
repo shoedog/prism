@@ -140,7 +140,7 @@ fn collapsed_same_line_and_capture_groups_have_no_exact_occurrence() {
     let sources = BTreeMap::from([
         (
             "same.py".to_string(),
-            "def same():\n    global value\n    value = 1; value = 2\n    use(value)\n".to_string(),
+            "def same():\n    value = 1; value = 2\n    use(value)\n".to_string(),
         ),
         (
             "capture.py".to_string(),
@@ -188,7 +188,7 @@ fn collapsed_same_line_and_capture_groups_have_no_exact_occurrence() {
 fn a_mixed_graph_payload_cannot_hide_behind_the_worst_label() {
     let sources = BTreeMap::from([(
         "same.py".to_string(),
-        "def f():\n    global a\n    a = 1; a = 2\n    use(a)\n".to_string(),
+        "def f():\n    a = 1; a = 2\n    use(a)\n".to_string(),
     )]);
     let files = parse_python_sources(&sources);
     let mut cpg = CodePropertyGraph::build(&files);
