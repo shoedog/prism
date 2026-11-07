@@ -158,8 +158,8 @@ pub(crate) struct BindingFacts {
     function_scope: ScopeSpan,
     language: Language,
     use_bytes: super::reaching::use_bytes::UseBytes,
-    /// Go type-switch aliases (#694): each clause's declaration of one alias,
-    /// keyed by every member. The alias's one header def reaches all of them.
+    /// Go type-switch aliases (#694): by header def index, each clause's declaration of
+    /// the alias. The alias's one header def reaches all of them.
     alias_groups: BTreeMap<usize, Vec<usize>>,
 }
 
@@ -392,7 +392,7 @@ impl BindingFacts {
             .visible_declaration(base, use_byte)
             .unwrap_or_else(|| self.implicit_binding(base));
         if definition.id == use_binding.id
-            || matches!(&use_binding.id, BindingId::Declaration(u) if self.def_reaches_declaration(&definition.id, *u))
+            || matches!(&use_binding.id, BindingId::Declaration(u) if self.def_reaches_declaration(def_index, *u))
         {
             return BindingRelation::Same;
         }
@@ -408,19 +408,15 @@ impl BindingFacts {
     }
 
     /// The binding the definition at `defs[index]` resolves to.
-    /// `use_binding` is the def's own declaration or a sibling clause declaration
-    /// of the same type-switch alias.
-    pub(crate) fn def_reaches_declaration(&self, def_binding: &BindingId, other: usize) -> bool {
-        match def_binding {
-            BindingId::Declaration(d) => {
-                *d == other
-                    || self
-                        .alias_groups
-                        .get(d)
-                        .is_some_and(|group| group.contains(&other))
-            }
-            _ => false,
-        }
+    /// The def at `def_index` writes the declaration `other`: its own, or (a Go
+    /// type-switch alias's one header def) any clause's declaration of the alias.
+    /// An ordinary write inside one clause reaches only that clause's declaration.
+    pub(crate) fn def_reaches_declaration(&self, def_index: usize, other: usize) -> bool {
+        matches!(&self.def_bindings[def_index].id, BindingId::Declaration(d) if *d == other)
+            || self
+                .alias_groups
+                .get(&def_index)
+                .is_some_and(|group| group.contains(&other))
     }
 
     pub(crate) fn binding_of_def(&self, index: usize) -> &BindingId {

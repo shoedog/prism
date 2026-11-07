@@ -187,3 +187,19 @@ fn header_lines_that_only_declare_are_write_only() {
         ],
     );
 }
+
+#[test]
+fn an_arm_write_does_not_reach_a_sibling_clause_alias() {
+    // The alias group belongs to the header def only: `v = 1` writes the default clause's
+    // own declaration, which no other clause reads.
+    let src = "package p\nfunc f(n int, y any) {\n\tfor n > 0 {\n\t\tswitch v := y.(type) {\n\t\tcase int:\n\t\t\tuse(v)\n\t\tdefault:\n\t\t\tv = 1\n\t\t}\n\t}\n}\n";
+    check("arm-write", src, &[("v", 4, 6, true), ("v", 8, 6, false)]);
+}
+
+#[test]
+fn header_targets_mint_no_alias_twin() {
+    // `p := q` aliases `p` flow-insensitively; a later range target named `p` is a new variable,
+    // not a write to `q`.
+    let src = "package p\nfunc f(q int, xs []int) {\n\tp := q\n\tuse(p)\n\tfor _, p := range xs {\n\t\tuse(p)\n\t}\n\tuse(q)\n}\n";
+    check("no-twin", src, &[("p", 5, 6, true), ("q", 5, 8, false)]);
+}

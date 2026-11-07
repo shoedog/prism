@@ -26,7 +26,7 @@ type LineKey = (String, usize);
 /// Per use line, the classified reads of each name; a hit allocates nothing.
 type LineCache = RefCell<HashMap<usize, Vec<(String, Rc<Vec<Occurrence>>)>>>;
 /// Per def `(start, end, line)`, the plain-def verdict of each base name.
-type DefCache = RefCell<HashMap<(usize, usize, usize), Vec<(String, Option<usize>)>>>;
+type DefCache = RefCell<HashMap<(usize, usize, usize), Vec<(String, Option<(usize, usize)>)>>>;
 
 pub(super) struct ScopeFacts<'a> {
     parsed: &'a ParsedFile,
@@ -169,7 +169,8 @@ impl<'a> ScopeFacts<'a> {
         clean
     }
 
-    /// The declaration a def binds, only when the def writes the variable itself.
+    /// The declaration a def binds and the def's index, only when the def writes the
+    /// variable itself.
     fn plain_def_binding(
         &self,
         built: &Built<'a>,
@@ -177,7 +178,7 @@ impl<'a> ScopeFacts<'a> {
         start: usize,
         end: usize,
         line: usize,
-    ) -> Option<usize> {
+    ) -> Option<(usize, usize)> {
         if !path.fields.is_empty() {
             return None;
         }
@@ -231,7 +232,7 @@ impl<'a> ScopeFacts<'a> {
         {
             return None;
         }
-        Some(*declaration)
+        Some((*declaration, index))
     }
 
     /// The def starts at an identifier that is the written variable itself.
@@ -287,14 +288,14 @@ impl<'a> ScopeFacts<'a> {
                 .push((path.base.clone(), verdict));
             verdict
         });
-        let Some(declaration) = verdict else {
+        let Some((_, def_index)) = verdict else {
             return true;
         };
         let reads = self.occurrences(built, &path.base, use_line);
         let drop = !reads.is_empty()
             && reads.iter().all(|o| {
                 !o.storage
-                    && matches!(&o.binding, BindingId::Declaration(other) if !built.facts.def_reaches_declaration(&BindingId::Declaration(declaration), *other))
+                    && matches!(&o.binding, BindingId::Declaration(other) if !built.facts.def_reaches_declaration(def_index, *other))
             });
         if drop {
             stats.dfg_pruned_scope += 1;

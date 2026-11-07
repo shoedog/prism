@@ -33,6 +33,40 @@ impl ParsedFile {
         );
     }
 
+    /// Start bytes of the range/receive `:=` targets and type-switch aliases in `func_node`.
+    /// None of them establishes an alias, so the legacy flow-insensitive alias map of the
+    /// same spelling elsewhere must not mint a twin def at them.
+    pub(crate) fn go_header_target_bytes(&self, func_node: Node<'_>) -> BTreeSet<usize> {
+        let mut out = BTreeSet::new();
+        if self.language != Language::Go {
+            return out;
+        }
+        let mut found = Vec::new();
+        self.walk_go_header_defs(func_node, &mut found);
+        out.extend(
+            found
+                .into_iter()
+                .filter(|s| self.go_span_is_header_target(s))
+                .map(|s| s.start_byte),
+        );
+        out
+    }
+
+    fn go_span_is_header_target(&self, span: &PathSpan) -> bool {
+        let mut node = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(span.start_byte, span.end_byte);
+        while let Some(n) = node {
+            match n.kind() {
+                "range_clause" | "receive_statement" | "type_switch_statement" => return true,
+                "var_spec" | "const_spec" | "block" | "source_file" => return false,
+                _ => node = n.parent(),
+            }
+        }
+        false
+    }
+
     fn walk_go_header_defs(&self, node: Node<'_>, out: &mut Vec<PathSpan>) {
         match node.kind() {
             "range_clause" | "receive_statement" => {
