@@ -1,11 +1,9 @@
 //! JS/TS structured sink tables and their text-level semantic checks.
 
-use crate::algorithms::taint::js_ts::bindings::{
-    js_ts_identifier_binds_imported_member_at_call, js_ts_identifier_binds_module_at_call,
-};
 use crate::algorithms::taint_sinks;
-use crate::ast::tree_helpers::call_arg_node;
+use crate::algorithms::taint::js_ts::bindings::{js_ts_identifier_binds_imported_member_at_call, js_ts_identifier_binds_module_at_call};
 use crate::ast::ParsedFile;
+use crate::ast::tree_helpers::call_arg_node;
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use tree_sitter::Node;
 
