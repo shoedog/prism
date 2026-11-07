@@ -300,8 +300,10 @@ mod stream;
 /// - v153: JS/TS/TSX same-node order refusal in reaching definitions (#660 S1b-2): an `exact` edge whose use
 ///   or def node holds a write not proven ordered against it is `NameOnly(SameLine)`; labels only.
 /// - v154: Go rule O, a def textually after the use with no loop around both is dropped (#630 slice 4).
-/// - v155: Go producer defs for range/receive `:=` targets, type-switch aliases and later var/const names; rule S drops their outer pairs (#694 slice A).
-const CACHE_VERSION: u32 = 155;
+/// - v155: JS/TS/TSX D3 asks reaching definitions for the node of every position (#696): an `exact` edge on
+///   a line where a multi-line statement ends and another starts can become `NameOnly(SameLine)`; labels only.
+/// - v156: Go producer defs for range/receive `:=` targets, type-switch aliases and later var/const names; rule S drops their outer pairs (#694 slice A).
+const CACHE_VERSION: u32 = 156;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -834,7 +836,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 155);
+        assert_eq!(super::CACHE_VERSION, 156);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

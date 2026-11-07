@@ -26,7 +26,7 @@
 //! walk to the nearest enclosing assignment/declaration node), rather than trusting the `Relation`
 //! label on the edge, is what makes this sound against the over-approximating
 //! `AssignmentPropagation` edges. Paired-check recognizers (Go's `Clean`→`HasPrefix` path family,
-//! `src/sanitizers/path.rs`) are excluded by `taint::sanitizer_call_site` itself — see that
+//! `src/sanitizers/path.rs`) are excluded by `sanitizers::matching::sanitizer_call_site` itself — see that
 //! function's doc comment for the any-category-cut, paired-check-exclusion, and
 //! language-applicability divergences from the CWE engine.
 
@@ -35,11 +35,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use petgraph::graph::NodeIndex;
 use tree_sitter::Node;
 
-use crate::algorithms::taint::{sanitizer_call_site, sanitizer_category_str};
 use crate::ast::ParsedFile;
 use crate::cpg::{CodePropertyGraph, Relation, Trace};
 use crate::data_flow::{VarAccessKind, VarLocation};
 use crate::reasoning::types::SanitizerSite;
+use crate::sanitizers::matching::{sanitizer_call_site, sanitizer_category_str};
 
 /// One proven sanitizer transition on a witness chain.
 pub struct SanitizerHit {

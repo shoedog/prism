@@ -420,7 +420,7 @@ distinct (A10). A write in a deferred region on line N is D2-c's and is not orde
 write-only targets (plain writes, declarators, `delete`) are not reads, and an occurrence of another binding of the name is not
 D's use (`relation_at`). A use anchored only at a write's own target (`value = other`, `var [f] = ..`) has no read to order and
 keeps its label (only when no read of the path exists on the line); a use with no occurrence at all is `d3-unknown`. Reads are placed with
-the write rule (`completion::place`, E18 incl. `on_line`): a read in a later statement of the line has no span of its own, so its
+the write rule for ORDER (`completion::place`, E18 incl. `on_line`): a read in a later statement of the line has no span of its own, so its
 position is unknown and the edge refuses (`a = 2; sink(a);`; `sink(a); a = 2;` is refused too, cost). (2) A counting declaration is a
 `let`/`const` declarator (`let a;` stores `undefined`), a `var` declarator with a value, or a `for` head's: hoisted functions, parameters, imports and class names are placed by scope (S1d). A write whose
 binding is proven distinct from the use's (or D's) is not counted (A10), probed at the declaration's end for a declarator. (3)
@@ -429,6 +429,24 @@ the E18 mapping cannot name makes its base `d3-unknown` for every query, beside 
 provably runs first is accepted). The two sides always both run and the strongest reason wins. Recovery with statement spans kept
 per statement (siblings on one line ordered properly) fits #670. (5) The trace names the mechanism of each refused edge (`d3-use`, `d3-def`
 for a plain byte order, else `d3-loop` or `d3-unknown`; a plain byte order wins over a loop when both occur).
+
+**Node authority (#696).** Which node a position is in is reaching definitions' answer and nobody else's: D3 keys a counting
+write by `StatementLookup` of the line RD is actually handed for that write, namely the E18 statement-start line when the
+site becomes a kill-only def (`KillOnly.line`) and the target's own line when a recorded def covers it (`Counting.line`),
+never the node E18 names; a write on a line RD maps to no node refuses its base like an unplaced one. A read is in the node of
+the line the DFG put the use on. E18 (`place`) stays for `site-unmapped`, for the kill-only def's line and for the order inside
+a node (`Position`, `precedes`). Sharing the lookup function is not enough: a kill-only def and a recorded def reach it with
+different lines, which is why the line is chosen where the def is built (#699 round 1, W1). Known limit (RD's own line-to-node
+rule, #700, not D3's): a statement that starts on the last line of a shorter multi-line one has no node of its own, and its
+recorded defs and kills sit at the shorter statement's node, before the defs nested in it. Labels that move toward `exact`
+against c6393854 (E18 keying over-refused them): in `g(a = 1,\n a = 2); x(); sink(a)`, edge `a@3->a@4`, for example the use is anchored at
+a plain write's own target (nothing to order), is the operand read of the node's one counting write (`a += 2`, E2), or is a
+read the node's write provably follows (`g(a = 1,\n a = a + 1)`, the read is ordered before the write): each correct. A third
+class is KNOWN WRONG and owned by #674 (G1/G2, §5.4, §17): a def-side edge on a field path whose intervening write is a
+recorded prefix or subscript write (`g(o.x = 1,\n o = {}); y(); sink(o.x)`, `o.x@3->o.x@5`; also `o += 2`, a declarator tail,
+`o[k] = 2`). c6393854 refused it only because E18 put the prefix write in the def's node; keyed where RD puts it, D3 sees both
+nodes clean and RD's path-equal kill never kills `o.x`, so the label is `exact` although `o = {}` always runs between them
+(the straight-line `o.x = 1; o = {}; sink(o.x)` is already `exact` on main). Pinned by `prefix_write_in_a_shorter_node_is_the_g1_gap`.
 
 ### 7.3 Expected cost
 Heuristic candidate counts (`corpus/*.analyze_r3.txt`, final rules): use side 68 edges on excalidraw (60 of them refused only

@@ -7,6 +7,11 @@
 //! - def side (D in N, U outside): every other counting write W of N that affects D's path must be
 //!   proven before D (`precedes(W, D)`).
 //!
+//! Which node a position is in is RD's answer and nobody else's (#696): a write is in the node
+//! `StatementLookup` gives its line (the rule `mapped_defs` uses for a def), a read is in the node of the
+//! line the DFG put the use on. The census's E18 placement and `Position` only order two positions
+//! inside one node.
+//!
 //! Anything unproven is `NameOnly(SameLine)`: label-only, never availability or an edge. A use with
 //! no real bytes is placed on its read occurrences by the line-keyed lookup S1a uses (`read_index`);
 //! one that cannot be placed on any occurrence, or whose occurrences disagree, refuses.
@@ -17,12 +22,11 @@ use crate::access_path::AccessPath;
 use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingRelation};
 use crate::data_flow::{FlowEdge, VarLocation};
-use crate::js_write_census::completion::place;
 use crate::js_write_census::counting::{Counting, Counts};
 use crate::js_write_census::order::{order, Order, Position};
 use crate::js_write_census::tables::Tables;
 use std::cell::{OnceCell, RefCell};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
 /// Trace mechanisms (DESIGN.md 10).
@@ -45,8 +49,40 @@ pub(super) struct D3 {
     /// The owner callable (`kind`, byte range): found again by bytes when the reads are first needed.
     owner: (&'static str, usize, usize),
     reads: OnceCell<ReadIndex>,
+    /// The counting writes by RD's node, built once per owner on the first edge D3 sees.
+    nodes: OnceCell<NodeIndex>,
     /// The mechanism of each edge D3 refused, kept only while `PRISM_RD_CENSUS_TRACE` is on.
     log: Option<RefCell<BTreeMap<EdgeKey, &'static str>>>,
+}
+
+/// The counting writes of one owner by the node RD maps their line to.
+pub(super) struct NodeIndex {
+    /// Indices into `Counts::writes`.
+    pub(super) by_node: HashMap<usize, Vec<usize>>,
+    /// Bases with a counting write on a line RD maps to no node: unknown, like an unplaced write.
+    pub(super) unmapped: BTreeSet<String>,
+}
+
+impl NodeIndex {
+    pub(super) fn build(counts: &Counts, statements: &mut StatementLookup<'_>) -> Self {
+        let mut by_node: HashMap<usize, Vec<usize>> = HashMap::new();
+        let mut unmapped = BTreeSet::new();
+        for (i, w) in counts.writes.iter().enumerate() {
+            match statements.get(w.line) {
+                Some(node) => by_node.entry(node).or_default().push(i),
+                None => {
+                    unmapped.insert(w.path.base.clone());
+                }
+            }
+        }
+        Self { by_node, unmapped }
+    }
+
+    /// A counting write of `base` has no node (E18 could not place it, or RD maps its line to none):
+    /// every D3 query of the base is unknown.
+    pub(super) fn base_is_unknown(&self, counts: &Counts, base: &str) -> bool {
+        counts.unplaced.contains(base) || self.unmapped.contains(base)
+    }
 }
 
 /// What the unproven positions of one query are, strongest first: a byte order that is wrong, a loop
@@ -99,6 +135,7 @@ impl D3 {
             counts,
             owner: (owner.kind(), owner.start_byte(), owner.end_byte()),
             reads: OnceCell::new(),
+            nodes: OnceCell::new(),
             log: trace.then(|| RefCell::new(BTreeMap::new())),
         })
     }
@@ -130,6 +167,9 @@ impl D3 {
         let Some(d3) = d3.filter(|_| label.is_exact()) else {
             return label;
         };
+        let nodes = d3
+            .nodes
+            .get_or_init(|| NodeIndex::build(&d3.counts, statements));
         let def_line =
             if edge.from.line == function_start && !line_index.contains_key(&function_start) {
                 Some(function_start)
@@ -137,7 +177,11 @@ impl D3 {
                 statements.get(edge.from.line)
             };
         match (statements.get(edge.to.line), def_line) {
-            (Some(u), Some(d)) if d3.refuse(parsed, edge, u, d, candidates, facts).is_some() => {
+            (Some(u), Some(d))
+                if d3
+                    .refuse(parsed, edge, (u, d), nodes, candidates, facts)
+                    .is_some() =>
+            {
                 FlowConfidence::NameOnly(FlowDoubt::SameLine)
             }
             _ => label,
@@ -155,12 +199,12 @@ impl D3 {
 
     /// `Some(mechanism)` when the edge D->U, classified `exact`, is not proven ordered inside its
     /// node. `use_line` and `def_line` are the CFG nodes of U and D.
-    pub(super) fn refuse(
+    fn refuse(
         &self,
         parsed: &ParsedFile,
         edge: &FlowEdge,
-        use_line: usize,
-        def_line: usize,
+        (use_line, def_line): (usize, usize),
+        nodes: &NodeIndex,
         candidates: &[usize],
         facts: &BindingFacts,
     ) -> Option<&'static str> {
@@ -170,11 +214,19 @@ impl D3 {
         // Both sides always run: the reason is the strongest of them, and a counting write whose
         // node the mapping cannot name refuses its base whatever else the nodes hold.
         let mut failures = Failures::default();
-        if self.counts.unplaced.contains(&edge.to.path.base) {
+        let base = &edge.to.path.base;
+        if nodes.base_is_unknown(&self.counts, base) {
             failures.unknown = true;
         }
-        self.use_side(parsed, edge, use_line, candidates, facts, &mut failures);
-        self.def_side(edge, def_line, facts, &mut failures);
+        self.use_side(
+            parsed,
+            edge,
+            use_line,
+            (nodes, candidates),
+            facts,
+            &mut failures,
+        );
+        self.def_side(edge, def_line, nodes, facts, &mut failures);
         let hit = failures.mechanism()?;
         if let Some(log) = &self.log {
             log.borrow_mut()
@@ -185,14 +237,16 @@ impl D3 {
 
     fn affecting<'s>(
         &'s self,
+        nodes: &'s NodeIndex,
         node: usize,
         path: &'s AccessPath,
     ) -> impl Iterator<Item = &'s Counting> {
-        self.counts
+        nodes
             .by_node
             .get(&node)
             .into_iter()
             .flatten()
+            .map(|&i| &self.counts.writes[i])
             .filter(move |w| super::def_buckets::affects(&w.path, path))
     }
 
@@ -201,15 +255,15 @@ impl D3 {
         parsed: &ParsedFile,
         edge: &FlowEdge,
         use_line: usize,
-        candidates: &[usize],
+        (nodes, candidates): (&NodeIndex, &[usize]),
         facts: &BindingFacts,
         failures: &mut Failures,
     ) {
-        let writes: Vec<&Counting> = self.affecting(use_line, &edge.to.path).collect();
+        let writes: Vec<&Counting> = self.affecting(nodes, use_line, &edge.to.path).collect();
         if writes.is_empty() {
             return;
         }
-        let Some(occurrences) = self.occurrences(parsed, edge, use_line) else {
+        let Some(occurrences) = self.occurrences(parsed, edge) else {
             return; // anchored at a write's own target and no read spells the path: nothing to order
         };
         if occurrences.is_empty() {
@@ -254,10 +308,11 @@ impl D3 {
         &self,
         edge: &FlowEdge,
         def_line: usize,
+        nodes: &NodeIndex,
         facts: &BindingFacts,
         failures: &mut Failures,
     ) {
-        let writes: Vec<&Counting> = self.affecting(def_line, &edge.from.path).collect();
+        let writes: Vec<&Counting> = self.affecting(nodes, def_line, &edge.from.path).collect();
         let d_start = edge.from.start_byte;
         // D's own site: a recorded def (a declarator, a plain write) is positioned at its construct.
         let d = writes.iter().find(|w| w.target_start == d_start);
@@ -285,12 +340,7 @@ impl D3 {
     /// target, which is no read, never counts) and the use's own bytes. The DFG keeps one use per
     /// path and line, at its first occurrence, so the edge speaks for the line's reads: a later
     /// occurrence the write precedes makes the whole edge unproven.
-    fn occurrences(
-        &self,
-        parsed: &ParsedFile,
-        edge: &FlowEdge,
-        use_line: usize,
-    ) -> Option<Vec<(usize, usize)>> {
+    fn occurrences(&self, parsed: &ParsedFile, edge: &FlowEdge) -> Option<Vec<(usize, usize)>> {
         let to = &edge.to;
         let reads = self.reads.get_or_init(|| {
             let (kind, start, end) = self.owner;
@@ -306,24 +356,9 @@ impl D3 {
             }
             ReadIndex::build(parsed.tree.root_node())
         });
-        // The reads of this node, placed the way a write is (`completion::place`, E18): a read in a
-        // later statement on the line has no span of its own and is the line's node; one that cannot
-        // be placed at all stays (its position is unknown, so it refuses).
-        let on_line: Vec<(usize, usize)> = reads
-            .on_line(parsed, &to.path, to.line)
-            .into_iter()
-            .filter(|&(start, end)| {
-                place(
-                    parsed,
-                    &self.counts.spans,
-                    start,
-                    end,
-                    start,
-                    parsed.line_for_byte(start),
-                )
-                .is_none_or(|node| node == use_line)
-            })
-            .collect();
+        // Every read of the path on the use's line: RD put them all in the use's node, and the order
+        // against a write is `Position`'s to decide (a read in a span the write is not in is unknown).
+        let on_line = reads.on_line(parsed, &to.path, to.line);
         let (targets, mut found): (Vec<_>, Vec<_>) = on_line
             .into_iter()
             .partition(|r| self.counts.write_only.contains(r));
