@@ -305,7 +305,7 @@ impl<'a> ScopeFacts<'a> {
 
 /// A name introduced by `:=`, `var`/`const` or a parameter list is a write of
 /// that declaration, never a read.
-fn is_declaring_name(node: Node<'_>) -> bool {
+pub(super) fn is_declaring_name(node: Node<'_>) -> bool {
     let Some(parent) = node.parent() else {
         return false;
     };
@@ -324,7 +324,7 @@ fn is_declaring_name(node: Node<'_>) -> bool {
     }
 }
 
-fn is_storage_access(node: Node<'_>) -> bool {
+pub(super) fn is_storage_access(node: Node<'_>) -> bool {
     let Some(parent) = node.parent() else {
         return false;
     };
@@ -348,7 +348,7 @@ fn is_storage_access(node: Node<'_>) -> bool {
 
 /// The identifier is the written variable itself, in a statement position that
 /// is not an operand of `*`, indexing, slicing or selection.
-fn is_plain_write_site(node: Node<'_>) -> bool {
+pub(super) fn is_plain_write_site(node: Node<'_>) -> bool {
     let Some(parent) = node.parent() else {
         return false;
     };
@@ -381,7 +381,7 @@ fn is_plain_write_site(node: Node<'_>) -> bool {
 /// or type-switch alias declares (no emitted def, so outer def -> body use may
 /// be the only value path).
 /// By name, so it covers the def's and the use's binding.
-fn address_taken_names<'a>(
+pub(super) fn address_taken_names<'a>(
     parsed: &'a ParsedFile,
     owner: Node<'a>,
     multi: &BTreeSet<&'a str>,

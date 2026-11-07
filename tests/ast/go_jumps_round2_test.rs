@@ -117,16 +117,22 @@ fn go_round2_break_labels() {
             FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
         ),
         (
-            "finalDefer",
-            "defer",
-            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
-        ),
-        (
             "elseRead",
             "else-read",
             FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete),
         ),
     ]);
+    // `defer use(x)` evaluates its argument before the later in-loop write, which
+    // is a def textually after the use with no loop around both: rule O (#630)
+    // drops the pair, so no label remains.
+    let graph = cpg();
+    let (from, to) = (line("// def:defer"), line("use:defer"));
+    assert!(graph
+        .dfg
+        .labels()
+        .all(|(e, _)| !(e.from.function == "finalDefer"
+            && e.from.line == from
+            && e.to.line == to)));
 }
 
 #[test]
@@ -217,7 +223,7 @@ fn go_round2_edge_receipt() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
     wanted["stats"]["dfg_label_exact"] = serde_json::json!(56);
     wanted["stats"]["dfg_label_loop_carried"] = serde_json::json!(11);
-    wanted["stats"]["dfg_label_nameonly_cfg_incomplete"] = serde_json::json!(19);
+    wanted["stats"]["dfg_label_nameonly_cfg_incomplete"] = serde_json::json!(18);
     wanted["stats"]["dfg_label_nameonly_killed"] = serde_json::json!(2);
     assert!(
         actual == wanted,
