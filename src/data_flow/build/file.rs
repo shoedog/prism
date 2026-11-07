@@ -565,7 +565,7 @@ impl Producer {
                             .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));
                         if !scope.keep_pair(path, def_start, def_end, def_line, *ref_line, &mut prune_stats) { continue; }
                         if !order.keep_pair(path, def_start, def_end, def_line, *ref_line, &mut prune_stats) { continue; }
-                        if !lexical.keep_def(path, def_start, def_end, *ref_line, &mut prune_stats) { continue; }
+                        if !lexical.keep_def(path, span.start_byte, span.end_byte, *ref_line, &mut prune_stats) { continue; }
                         emission.push(|| {
                             let def_loc = def_locs_by_occurrence
                                 .get(&(path.clone(), def_line, occurrence_byte(span.start_byte)))
@@ -621,10 +621,7 @@ impl Producer {
                                 // Keep RHS reads and their legacy anchors, but a Go
                                 // blank write cannot define its alias target.
                                 if !keep_path(path) { continue; }
-                                let (def_start, def_end) = resolved_def_locs_by_occurrence
-                                    .get(&(resolved.clone(), def_line, occurrence_byte(span.start_byte)))
-                                    .map_or((span.start_byte, span.end_byte), |loc| (loc.start_byte, loc.end_byte));
-                                if !lexical.keep_def(&resolved, def_start, def_end, *ref_line, &mut prune_stats) { continue; }
+                                if !lexical.keep_def(&resolved, span.start_byte, span.end_byte, *ref_line, &mut prune_stats) { continue; }
                                 emission.push(|| {
                                     let def_loc = resolved_def_locs_by_occurrence
                                         .get(&(resolved.clone(), def_line, occurrence_byte(span.start_byte)))

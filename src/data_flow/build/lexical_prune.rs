@@ -297,6 +297,11 @@ impl<'a> LexicalFacts<'a> {
         if !self.enabled || self.nested_at(start) {
             return true;
         }
+        // Python attribute paths are not fixed storage (a rebound base, a property
+        // setter or descriptor can intercept a write): D proves plain names only.
+        if self.parsed.language == Language::Python && !path.fields.is_empty() {
+            return true;
+        }
         let drop = self
             .proof(path, line)
             .windows
