@@ -61,7 +61,7 @@ targets under default and MCP features. The accepted migration oracle has been r
 ## Accuracy Harness (Tier-A)
 
 When a change touches call resolution, navigation queries, or CPG construction
-(`src/call_graph.rs`, `src/navigation/`, `src/cpg/`, `src/ast.rs`):
+(`src/call_graph.rs`, `src/call_graph/`, `src/navigation/`, `src/cpg/`, `src/ast.rs`, `src/ast/`):
 
 ```bash
 cargo build --release
@@ -171,7 +171,7 @@ copies must be updated or the matrix will under-report coverage. Run
 - `thin_slice.rs` → Data deps only, no control flow
 - `barrier_slice.rs` → Depth-limited interprocedural (uses `call_graph.rs`)
 - `chop.rs` → Source-to-sink paths (uses `data_flow.rs`)
-- `taint.rs` → Forward taint propagation (uses `data_flow.rs`)
+- `taint.rs` → Forward taint propagation (uses `data_flow.rs`); the entry re-exports `slice` from `taint/run.rs`, and the pipeline lives in `taint/{run,report,flat,seeds,sink_match,cleansing}.rs` with per-language code under `taint/{js_ts,python,go}/` (#707)
 - `relevant_slice.rs` → LeftFlow + alternate branch paths
 - `conditioned_slice.rs` → LeftFlow pruned by value predicate
 - `delta_slice.rs` → Two-version data-flow diff
@@ -759,6 +759,21 @@ Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
 2. **Graph-based** (require the CPG; source of truth `SlicingAlgorithm::needs_cpg()`, src/slice.rs:210): `left_flow`, `full_flow`, `relevant_slice`, `conditioned_slice`, `barrier_slice`, `chop`, `taint`, `delta_slice`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `gradient_slice`, `provenance_slice`, `membrane_slice`, `echo_slice`
 
+### Layering and file layout (#701)
+
+Core modules never import the review layer: `tests/integration/layering_test.rs` fails on any
+`crate::algorithms` reference in a non-test source file outside `src/algorithms/`, `src/output/`,
+`src/targets/`, `src/api/`, `src/bin/`, `src/cli.rs`, `src/main.rs`, `src/lib.rs`. It exempts files
+by name only (`*_tests.rs`, `*_test.rs`, `tests.rs`, any `/tests/` component) and `//` comment
+lines; there is deliberately no `#[cfg(test)]` exemption, so a core file's inline test module may
+not import `algorithms` (put such a test in a `*_tests.rs` sibling). Large files are split by
+generated move-only PRs with byte-identity checks: `src/ast.rs` is the entry (types, `mod` lines,
+re-exports, a few core methods) over `src/ast/{js_ts,go,python}/` and concern files
+(`imports`, `parameters`, `assignments`, `lvalues`, `rvalues`, `calls`, `control_flow`, ...);
+`src/algorithms/taint.rs` likewise over `taint/`; `src/call_graph/*_tests.rs` hold the former
+inline test modules. Language-specific code stays per layer (`<layer>/<lang>/`), never in a
+per-language crate.
+
 ### Algorithm Dispatch
 
 `src/algorithms/mod.rs` contains:
@@ -791,8 +806,8 @@ Algorithms fall into two categories:
    (`--over N` lists only files above N). New files aim for 600 or fewer. Over 1,000 a
    file should be split along a real responsibility boundary, and a PR that leaves a
    file over 1,000 says why. **2,000 is a hard ceiling: no PR may take a file past it.**
-   Files already over 2,000 (13 today, e.g. `src/ast.rs`, `src/call_graph.rs`,
-   `src/algorithms/taint.rs`) must not grow in a feature PR: small edits are fine, new
+   Files already over 2,000 (7 today, e.g. `src/call_graph.rs`, `src/resolution.rs`,
+   `src/type_providers/go.rs`) must not grow in a feature PR: small edits are fine, new
    code goes in new modules. Such a file is split in its own move-only PR (no behaviour
    change, reviewed as a pure move) before the work that needs it, never as a side effect
    of a feature PR. For tests, group by category (e.g., `algo_test.rs`,

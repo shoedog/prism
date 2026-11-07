@@ -3984,7 +3984,7 @@ impl CallGraph {
         // cross-package matching), and must not be shadowed by a local
         // binding in the enclosing function (checked with the SAME Go
         // binding machinery `receiver_type_in_fn` uses for receiver recovery,
-        // src/ast.rs — a real local-binding check, not a same-file/package
+        // src/ast/receiver_typing.rs — a real local-binding check, not a same-file/package
         // substitute; spec-review MAJOR).
         let Some(target) = resolve_go_bare_value_ref(
             &self.functions,

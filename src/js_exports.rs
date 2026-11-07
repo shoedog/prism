@@ -12,7 +12,7 @@
 //! - re-export chains (`export { x } from './y'`, `export * from './y'`),
 //!   depth-bounded and cycle-safe
 //!
-//! Extraction from tree-sitter ASTs lives in `ast.rs` (per repo convention: all
+//! Extraction from tree-sitter ASTs lives in `ast/js_ts/export_facts.rs` (per repo convention: all
 //! tree-sitter interaction goes through `ParsedFile`); this module owns the
 //! typed data model and the whole-program resolution algorithm that follows
 //! re-export chains, so `ast.rs` and `call_graph.rs` stay thin call sites.
