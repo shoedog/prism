@@ -16,7 +16,7 @@ Same three classes as vitess: exact -> killed (the new range/receive def kills o
 
 ## Samples (seed 694)
 Removed 20/20 RIGHT (different declaration - closure/if-scoped err, sa, v - or declare-only header/var-group line, or a twin def into a header).
-Added 17 RIGHT / 2 WRONG (#2 `ep@100` range target -> use@75, the formal of a func literal `func(ep Endpoint)` earlier in the same owner; #8 `val@220` -> use@203, another loop's `val`). Both names are function-literal formals/other-loop names S cannot prove in that owner (slice B). 1 not judged WRONG-or-RIGHT by line only (#0 var-group zero value, RIGHT).
+Added 18 RIGHT / 2 WRONG (#2 `ep@100` range target -> use@75, the formal of a func literal `func(ep Endpoint)` earlier in the same owner; #8 `val@220` -> use@203, another loop's `val`). Both names are function-literal formals/other-loop names S cannot prove in that owner (slice B). (#0, a var-group zero value, is RIGHT: same scope, used later in a closure).
 
 ## call-stats (4 threads)
 Outside dfg_labels only return_flow.return_input_edges 76262 -> 76269 (+7, Step 5c return-expression inputs reading new defs). dfg_labels: exact 1405830 -> 1466320, loop_carried 132864 -> 132479, alias_unstable 40190 -> 39718, cfg_incomplete 367470 -> 397936, killed 236808 -> 239089, sameline 277180 -> 285659.
