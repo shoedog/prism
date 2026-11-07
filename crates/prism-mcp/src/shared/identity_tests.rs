@@ -197,10 +197,10 @@ fn swapping_two_inputs_changes_the_key() {
 fn the_current_build_is_the_three_values_the_spec_names() {
     let build = BuildIdentity::current();
     assert_eq!(build.package_version, env!("CARGO_PKG_VERSION"));
-    assert_eq!(build.grammar_fingerprint, env!("GRAMMAR_FINGERPRINT"));
+    assert_eq!(build.grammar_fingerprint, prism::api::build_info().grammar_fingerprint);
     assert_eq!(
         build.cache_build_identity,
-        env!("PRISM_CACHE_BUILD_IDENTITY")
+        prism::api::build_info().build_identity
     );
     assert!(!build.cache_build_identity.is_empty());
 }
