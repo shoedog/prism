@@ -1,5 +1,7 @@
-def f():
-    global x
+def f(c):
     x = source()
-    x = clean()
+    if c:
+        x = clean()
+    else:
+        x = clean()
     sink(x)

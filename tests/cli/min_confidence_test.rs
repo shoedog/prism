@@ -200,9 +200,8 @@ fn assert_delivery(
 fn flow_source(killed: bool) -> (&'static str, usize) {
     if killed {
         (
-            // `global query` depends on Python rule D's global/nonlocal exemption.
-            "def f(request):\n    global query\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n",
-            5,
+            "def f(request, c):\n    query = request.GET['q']\n    if c:\n        query = clean(query)\n    else:\n        query = clean(query)\n    cursor.execute(query)\n",
+            7,
         )
     } else {
         (
@@ -271,7 +270,7 @@ fn evidence_delivery_taint_reaches_sarif_with_exact_and_nameonly() {
         assert_delivery(
             &[("t.py", source)],
             "t.py",
-            if killed { 3 } else { 2 },
+            2,
             "taint",
             "taint_sink",
             (Some(line), None),
@@ -281,8 +280,8 @@ fn evidence_delivery_taint_reaches_sarif_with_exact_and_nameonly() {
 }
 
 #[test]
-fn evidence_delivery_local_clean_flow_still_reaches_sink_without_global() {
-    // Without `global`, Python rule D proves the straight-line kill and drops the
+fn evidence_delivery_local_clean_flow_still_reaches_sink_when_d_drops_the_shortcut() {
+    // Python rule D proves the straight-line kill and drops the
     // 2->4 witness (the grade becomes unlabeled); the live flow 2->3->4 must remain.
     let source = "def f(request):\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n";
     let output = command_output(
