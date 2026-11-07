@@ -439,8 +439,14 @@ a node (`Position`, `precedes`). Sharing the lookup function is not enough: a ki
 different lines, which is why the line is chosen where the def is built (#699 round 1, W1). Known limit (RD's own line-to-node
 rule, #700, not D3's): a statement that starts on the last line of a shorter multi-line one has no node of its own, and its
 recorded defs and kills sit at the shorter statement's node, before the defs nested in it. Labels that move toward `exact`
-against c6393854 (E18 keying over-refused them): in `g(a = 1,\n a = 2); x(); sink(a)`, edge `a@3->a@4`, the use is anchored at
-a plain write's own target (nothing to order) or is the operand read of the node's one counting write (`a += 2`, E2).
+against c6393854 (E18 keying over-refused them): in `g(a = 1,\n a = 2); x(); sink(a)`, edge `a@3->a@4`, for example the use is anchored at
+a plain write's own target (nothing to order), is the operand read of the node's one counting write (`a += 2`, E2), or is a
+read the node's write provably follows (`g(a = 1,\n a = a + 1)`, the read is ordered before the write): each correct. A third
+class is KNOWN WRONG and owned by #674 (G1/G2, §5.4, §17): a def-side edge on a field path whose intervening write is a
+recorded prefix or subscript write (`g(o.x = 1,\n o = {}); y(); sink(o.x)`, `o.x@3->o.x@5`; also `o += 2`, a declarator tail,
+`o[k] = 2`). c6393854 refused it only because E18 put the prefix write in the def's node; keyed where RD puts it, D3 sees both
+nodes clean and RD's path-equal kill never kills `o.x`, so the label is `exact` although `o = {}` always runs between them
+(the straight-line `o.x = 1; o = {}; sink(o.x)` is already `exact` on main). Pinned by `prefix_write_in_a_shorter_node_is_the_g1_gap`.
 
 ### 7.3 Expected cost
 Heuristic candidate counts (`corpus/*.analyze_r3.txt`, final rules): use side 68 edges on excalidraw (60 of them refused only
