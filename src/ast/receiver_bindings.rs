@@ -1,6 +1,7 @@
 //! The receiver binding walk and constructor-type recovery.
 
 use crate::ast::ParsedFile;
+use crate::languages::Language;
 use tree_sitter::Node;
 
 impl ParsedFile {

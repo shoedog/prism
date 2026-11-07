@@ -1,6 +1,7 @@
 //! Receiver type evidence inside a function (the shared entry points).
 
 use crate::ast::{go_receiver_walk, ParsedFile};
+use crate::languages::Language;
 use tree_sitter::Node;
 
 impl ParsedFile {
