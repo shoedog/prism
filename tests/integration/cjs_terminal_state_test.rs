@@ -86,7 +86,7 @@ fn cjs_terminal_tsx_source_epochs() {
 
 #[test]
 fn cjs_terminal_unproven_claim_serde() {
-    use prism::js_exports::{resolve_js_exports, JsExportFacts, JsExportTarget};
+    use prism::ast::js_ts::exports::{resolve_js_exports, JsExportFacts, JsExportTarget};
     let source = "function origin(input) { return input; } const version = 1; module.exports = { item: origin, version };";
     let parsed = ParsedFile::parse("origin.js", source, Language::JavaScript).unwrap();
     let facts = parsed.extract_js_ts_export_facts();

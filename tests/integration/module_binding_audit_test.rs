@@ -545,9 +545,9 @@ fn module_value_refusal_facts_survive_serialization() {
     let facts = parsed.extract_js_ts_export_facts();
     let json = serde_json::to_value(&facts).unwrap();
     assert_eq!(json["module_value_bindings"], serde_json::json!(["invoke"]));
-    let restored: prism::js_exports::JsExportFacts = serde_json::from_value(json).unwrap();
+    let restored: prism::ast::js_ts::exports::JsExportFacts = serde_json::from_value(json).unwrap();
     assert_eq!(restored, facts);
     let bytes = bincode::serialize(&facts).unwrap();
-    let restored: prism::js_exports::JsExportFacts = bincode::deserialize(&bytes).unwrap();
+    let restored: prism::ast::js_ts::exports::JsExportFacts = bincode::deserialize(&bytes).unwrap();
     assert_eq!(restored, facts);
 }

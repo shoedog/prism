@@ -124,7 +124,7 @@ impl<'a> ExportIndex<'a> {
 impl ParsedFile {
     pub(in crate::ast) fn js_ts_export_imports_and_functions(
         &self,
-        facts: &mut crate::js_exports::JsExportFacts,
+        facts: &mut crate::ast::js_ts::exports::JsExportFacts,
     ) {
         // Both all-name queries share one lazy inventory. Empty/refused queries
         // still avoid building it, and single-name queries keep their raw walk.

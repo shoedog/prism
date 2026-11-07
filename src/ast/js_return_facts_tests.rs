@@ -5,7 +5,7 @@
 use super::JsBindingCache;
 use crate::ast::js_binding_helper_tests::parse;
 use crate::ast::JsFollow;
-use crate::js_returns::JsReturnFacts;
+use crate::ast::js_ts::returns::JsReturnFacts;
 
 const ANY: [&str; 3] = ["a.js", "a.ts", "a.tsx"];
 const TS: [&str; 2] = ["a.ts", "a.tsx"];

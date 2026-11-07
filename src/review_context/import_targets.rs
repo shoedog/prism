@@ -63,7 +63,7 @@
 //! barrel's parse.
 use crate::ast::ParsedFile;
 use crate::call_graph::{CallSite, ImportBinding};
-use crate::js_exports::JsExportTarget;
+use crate::ast::js_ts::exports::JsExportTarget;
 use crate::languages::Language;
 use crate::repo_loader::{ListingError, SourceListing};
 use std::collections::{BTreeMap, BTreeSet};

@@ -9,7 +9,7 @@
 use super::js_binding::{JsBinding, JsBindingCache};
 use super::ParsedFile;
 use crate::ast::JsFollow;
-use crate::js_returns::JsReturnPath;
+use crate::ast::js_ts::returns::JsReturnPath;
 use tree_sitter::Node;
 
 impl ParsedFile {

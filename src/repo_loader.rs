@@ -294,8 +294,8 @@ fn scope_graph_build_inputs_from_snapshot(
                         .star_reexports
                         .iter()
                         .chain(exports.named.values().filter_map(|target| match target {
-                            crate::js_exports::JsExportTarget::ReExport { module_path, .. }
-                            | crate::js_exports::JsExportTarget::ImportForward {
+                            crate::ast::js_ts::exports::JsExportTarget::ReExport { module_path, .. }
+                            | crate::ast::js_ts::exports::JsExportTarget::ImportForward {
                                 module_path,
                                 ..
                             } => Some(module_path),

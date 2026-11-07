@@ -201,7 +201,7 @@ fn forward_type_declarations_and_recovery_refuse() {
             let parsed = ParsedFile::parse(&format!("bridge.{ext}"), &source, lang).unwrap();
             let facts = parsed.extract_js_ts_export_facts();
             let files = BTreeMap::from([(format!("bridge.{ext}"), facts)]);
-            let out = prism::js_exports::resolve_js_exports(&files, &|_, _| {
+            let out = prism::ast::js_ts::exports::resolve_js_exports(&files, &|_, _| {
                 Some(format!("origin.{ext}"))
             });
             assert!(out.resolved.is_empty());
@@ -224,7 +224,7 @@ fn forward_origin_proof_serializes() {
         serde_json::json!(["origin"])
     );
     let bytes = bincode::serialize(&facts).unwrap();
-    let restored: prism::js_exports::JsExportFacts = bincode::deserialize(&bytes).unwrap();
+    let restored: prism::ast::js_ts::exports::JsExportFacts = bincode::deserialize(&bytes).unwrap();
     assert_eq!(restored, facts);
 }
 

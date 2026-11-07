@@ -5,7 +5,7 @@ use super::js_wrapped_export_test::app_sites;
 use prism::ast::ParsedFile;
 use prism::cpg::CodePropertyGraph;
 use prism::cpg_cache::{self, CacheResult};
-use prism::js_exports::{JsExportFacts, JsExportTarget, ResolvedJsExport};
+use prism::ast::js_ts::exports::{JsExportFacts, JsExportTarget, ResolvedJsExport};
 use prism::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 

@@ -204,7 +204,7 @@ pub enum JsLocalBinding {
     /// Anonymous admission also checks the hook and return-proof dependency environments.
     Returned {
         hook: crate::ast::JsFollow,
-        path: crate::js_returns::JsReturnPath,
+        path: crate::ast::js_ts::returns::JsReturnPath,
         kept: String,
     },
     /// #598: a callee that names an export of an in-repo module by relative `require`: `member`
@@ -235,9 +235,9 @@ impl JsLocalBinding {
 /// Per-file JS/TS facts extracted together: export facts by file, parameter/local binding names
 /// and slice V's returned-value facts, each by function.
 type JsTsResolutionFacts = (
-    BTreeMap<String, crate::js_exports::JsExportFacts>,
+    BTreeMap<String, crate::ast::js_ts::exports::JsExportFacts>,
     BTreeMap<FunctionId, BTreeSet<String>>,
-    BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
+    BTreeMap<FunctionId, crate::ast::js_ts::returns::JsReturnFacts>,
 );
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -520,7 +520,7 @@ pub struct CallGraph {
     pub clean_class_spans: BTreeMap<(String, String), (usize, usize)>,
     /// Complete-snapshot imported alias proofs. Replaced, never unioned, on merge.
     #[serde(default)]
-    pub js_ts_imported_props: crate::js_ts_props::ImportedPropsProofs,
+    pub js_ts_imported_props: js_ts::props::ImportedPropsProofs,
     /// Disabled integration: ephemeral authority, absent from ordinary builds.
     #[serde(skip)]
     pub(crate) executable_owner:
@@ -604,13 +604,13 @@ pub struct CallGraph {
     /// the config path partitions callers by their owning project's options.
     #[serde(default)]
     pub js_ts_path_exports:
-        BTreeMap<String, BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>>,
+        BTreeMap<String, BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>>,
     /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
     /// named export lists (incl. renames), exported const-arrow/
     /// function-expression declarations, CommonJS assignments, and re-export
     /// records. Incrementally maintained per file like `import_bindings`.
     #[serde(default)]
-    pub js_ts_exports: BTreeMap<String, crate::js_exports::JsExportFacts>,
+    pub js_ts_exports: BTreeMap<String, crate::ast::js_ts::exports::JsExportFacts>,
     /// P4: whole-program resolved JS/TS export facts — file -> exported name
     /// -> the concrete `(file, local_name)` it refers to after following
     /// re-export chains (depth-bounded, cycle-safe). Derived from
@@ -620,10 +620,10 @@ pub struct CallGraph {
     /// S1b-4 namespace-only export projection (unspanned means keep base).
     #[serde(default)]
     pub js_ts_namespace_exports:
-        BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
+        BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>,
     #[serde(default)]
     pub js_ts_resolved_exports:
-        BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
+        BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>,
     /// P4 telemetry: re-export chains that exceeded the depth bound or hit a
     /// cycle while resolving `js_ts_resolved_exports`. Whole-program derived,
     /// recomputed alongside `js_ts_resolved_exports`.
@@ -641,7 +641,7 @@ pub struct CallGraph {
     #[serde(default)]
     pub(crate) js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex,
     #[serde(default)]
-    pub js_ts_return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
+    pub js_ts_return_facts: BTreeMap<FunctionId, crate::ast::js_ts::returns::JsReturnFacts>,
     /// Go package directory index. Plain keys are legacy directory basenames;
     /// `@go-import:` keys carry effective module import paths proven by the
     /// module graph. Qualified `pkg.T` lookup prefers the exact key and uses a
@@ -1932,7 +1932,7 @@ impl CallGraph {
                 .values()
                 .filter_map(|(file, owner)| (*owner == project).then_some(file))
                 .collect::<BTreeSet<_>>();
-            let resolution = crate::js_exports::resolve_js_exports_for(
+            let resolution = crate::ast::js_ts::exports::resolve_js_exports_for(
                 &self.js_ts_exports,
                 &resolve_module,
                 roots,
@@ -1959,9 +1959,9 @@ impl CallGraph {
             resolve_js_ts_relative_module(module_path, from, indexed_files)
         };
         let resolution =
-            crate::js_exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
+            crate::ast::js_ts::exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
         self.js_ts_namespace_exports =
-            crate::js_exports::resolve_js_namespace_exports(&self.js_ts_exports, &resolve_module);
+            crate::ast::js_ts::exports::resolve_js_namespace_exports(&self.js_ts_exports, &resolve_module);
         self.js_ts_resolved_exports = resolution.resolved;
         self.js_export_chain_unresolved = resolution.chain_unresolved;
         self.js_export_barrel_conflicts = resolution.barrel_conflicts;
@@ -2039,7 +2039,7 @@ impl CallGraph {
         if facts.conflicted.contains(member) {
             return None;
         }
-        let crate::js_exports::JsExportTarget::Class(owner) = facts.named.get(member)? else {
+        let crate::ast::js_ts::exports::JsExportTarget::Class(owner) = facts.named.get(member)? else {
             return None;
         };
         let key = (defining_file.clone(), owner.clone());
@@ -5010,7 +5010,7 @@ impl CallGraph {
             js_ts_unproven_instance_methods,
             class_bases,
             clean_class_spans,
-            js_ts_imported_props: crate::js_ts_props::collect(files),
+            js_ts_imported_props: js_ts::props::collect(files),
             executable_owner: None,
             owner_ephemeral: false,
             python_inert_initializers,
@@ -6445,3 +6445,5 @@ mod python_property_access_tests;
 mod framework_entry_tests;
 
 pub(crate) mod go;
+
+pub mod js_ts;

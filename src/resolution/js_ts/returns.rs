@@ -8,7 +8,7 @@
 //! produced it (`LocalDef` or `ImportMember`).
 use crate::ast::JsFollow;
 use crate::call_graph::JsLocalBinding;
-use crate::js_returns::JsReturnPath;
+use crate::ast::js_ts::returns::JsReturnPath;
 use crate::resolution::{CallGraph, CallSite, FunctionId, ResolutionConfidence, ResolutionOutcome};
 
 impl CallGraph {

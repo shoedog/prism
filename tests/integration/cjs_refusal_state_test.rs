@@ -6,7 +6,7 @@ use super::{
 use prism::{
     ast::ParsedFile,
     cpg::CodePropertyGraph,
-    js_exports::{resolve_js_exports, JsExportFacts, JsExportTarget},
+    ast::js_ts::exports::{resolve_js_exports, JsExportFacts, JsExportTarget},
     languages::Language,
 };
 use std::collections::{BTreeMap, BTreeSet};

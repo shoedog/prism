@@ -195,7 +195,7 @@ fn d18_e5_origin_serde_and_incremental_epochs() {
                 .as_object_mut()
                 .unwrap()
                 .remove("namespace_callable_locals");
-            let defaulted: prism::js_exports::JsExportFacts =
+            let defaulted: prism::ast::js_ts::exports::JsExportFacts =
                 serde_json::from_value(old_facts).unwrap();
             assert!(defaulted.namespace_callable_locals.is_empty());
             previous = Some(current);

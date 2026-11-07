@@ -100,13 +100,13 @@
    "js_paths_r1_test::js_paths_r1_membership_barriers_dot_and_relative"
   ],
   "I08-no-opaque-star-guard": [
-   "src/js_exports.rs",
+   "src/ast/js_ts/exports.rs",
    "facts.skipped_expr_count > facts.skipped_decl_reasons.values().sum::<usize>()",
    "false",
    "js_paths_cap_test::structural_opaque_ts_hop"
   ],
   "I09-ignore-skipped-declaration-name": [
-   "src/js_exports.rs",
+   "src/ast/js_ts/exports.rs",
    "facts.module_value_bindings.contains(name)",
    "false",
    "js_paths_r1_test::js_paths_r1_skipped_star_preserves_base"
@@ -604,7 +604,7 @@
    "js_paths_r2c_test::custom_roots_miss_uses_secondary_package_lookup"
   ],
   "R4-22-project-all-modules": [
-   "src/js_exports/memo.rs",
+   "src/ast/js_ts/exports/memo.rs",
    "for file in roots {",
    "for file in raw.keys() {",
    "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
@@ -616,25 +616,25 @@
    "repo_loader::paths_projection_tests::primes_alias_export_closure_without_unrelated_exports"
   ],
   "W01-drop-blocked-forward": [
-   "src/js_exports.rs",
+   "src/ast/js_ts/exports.rs",
    "                    if nonrelative_forward {\n                        return ExportLookup::BlockedClaim;\n                    }\n                    return ExportLookup::NoTarget;\n                };\n                let result = resolve_one(",
    "                    return ExportLookup::NoTarget;\n                };\n                let result = resolve_one(",
    "js_paths_p2_test::legacy_star_nonrelative_forwards_preserve_complete_main_rows"
   ],
   "W02-block-relative-forward": [
-   "src/js_exports.rs",
+   "src/ast/js_ts/exports.rs",
    "let nonrelative_forward = matches!(target, JsExportTarget::ImportForward { .. })\n                    && !raw_relative_literal(module_path);",
    "let nonrelative_forward = matches!(target, JsExportTarget::ImportForward { .. });",
    "js_paths_p2_test::legacy_star_other_unresolved_claims_keep_existing_behavior"
   ],
   "W03-block-unresolved-reexport": [
-   "src/js_exports.rs",
+   "src/ast/js_ts/exports.rs",
    "let nonrelative_forward = matches!(target, JsExportTarget::ImportForward { .. })\n                    && !raw_relative_literal(module_path);",
    "let nonrelative_forward = true\n                    && !raw_relative_literal(module_path);",
    "js_paths_p2_test::legacy_star_other_unresolved_claims_keep_existing_behavior"
   ],
   "W04-depth-before-blocked-forward": [
-   "src/js_exports.rs",
+   "src/ast/js_ts/exports.rs",
    "                if hops + 1 > MAX_REEXPORT_DEPTH {\n                    telemetry.chain_unresolved += 1;\n                    // Preserve the claim even when the next hop exceeds the bound.\n                    if nonrelative_forward {\n                        return ExportLookup::BlockedClaim;\n                    }\n                    return ExportLookup::NoTarget;\n                }",
    "                if hops + 1 > MAX_REEXPORT_DEPTH {\n                    telemetry.chain_unresolved += 1;\n                    return ExportLookup::NoTarget;\n                }",
    "js_paths_p2_test::legacy_star_nonrelative_forwards_preserve_complete_main_rows"
@@ -742,25 +742,25 @@
    "repo_loader::paths_projection_tests::primes_nonrelative_hop_absence_before_topology_hash"
   ],
   "P2-R1-01-dot-is-relative": [
-   "src/js_exports.rs",
+   "src/ast/js_ts/exports.rs",
    "(spec.starts_with(\"./\") || spec.starts_with(\"../\")) && spec.trim() == spec",
    "spec.starts_with('.')",
    "js_paths_p2_test::legacy_star_nonrelative_forwards_preserve_complete_main_rows"
   ],
   "P2-R1-02-trim-relative-literal": [
-   "src/js_exports.rs",
+   "src/ast/js_ts/exports.rs",
    "(spec.starts_with(\"./\") || spec.starts_with(\"../\")) && spec.trim() == spec",
    "spec.starts_with(\"./\") || spec.starts_with(\"../\")",
    "js_paths_p2_test::legacy_forward_spelling_is_raw"
   ],
   "P2-R1-03-legacy-follows-nonrelative": [
-   "src/js_exports.rs",
+   "src/ast/js_ts/exports.rs",
    "nonrelative_forward && resolver.projection == ExportProjection::Legacy",
    "false",
    "js_paths_p2_test::legacy_forward_spelling_is_raw"
   ],
   "P2-R1-04-drop-recursive-claim": [
-   "src/js_exports.rs",
+   "src/ast/js_ts/exports.rs",
    "if nonrelative_forward && matches!(result, ExportLookup::NoTarget) {",
    "if false && nonrelative_forward && matches!(result, ExportLookup::NoTarget) {",
    "js_paths_p2_test::nonrelative_forward_recursive_no_target_preserves_claim"

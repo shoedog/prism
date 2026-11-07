@@ -1,7 +1,7 @@
 //! Negative scope facts for explicit function-expression names (#450).
 use super::Span;
 use crate::call_graph::{CallGraph, CallSite, FunctionId};
-use crate::js_exports::ResolvedJsExport;
+use crate::ast::js_ts::exports::ResolvedJsExport;
 use crate::resolution::{
     DropReason, ResolutionConfidence, ResolutionKind, ResolutionOutcome, ResolvedCallee,
 };

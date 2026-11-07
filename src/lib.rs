@@ -56,9 +56,6 @@ pub mod finding_confidence;
 pub mod framework_entries;
 pub mod frameworks;
 mod go_statements;
-pub mod js_exports;
-pub mod js_returns;
-pub mod js_ts_props;
 #[path = "ast/js_write_census.rs"]
 pub(crate) mod js_write_census;
 pub mod languages;
@@ -77,7 +74,6 @@ pub mod navigation;
 pub mod output;
 mod parameter_slots;
 pub mod queries;
-pub mod react_hooks;
 pub mod reasoning;
 mod receiver_index;
 pub mod repo_loader;

@@ -102,9 +102,9 @@ where
     I: IntoIterator<Item = (&'a String, &'a ParsedFile)>,
 {
     tests::record_oracle();
-    let mut export_facts: BTreeMap<String, crate::js_exports::JsExportFacts> = BTreeMap::new();
+    let mut export_facts: BTreeMap<String, crate::ast::js_ts::exports::JsExportFacts> = BTreeMap::new();
     let mut function_locals: BTreeMap<FunctionId, BTreeSet<String>> = BTreeMap::new();
-    let mut return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts> = BTreeMap::new();
+    let mut return_facts: BTreeMap<FunctionId, crate::ast::js_ts::returns::JsReturnFacts> = BTreeMap::new();
 
     for (file_path, parsed) in files {
         if !matches!(

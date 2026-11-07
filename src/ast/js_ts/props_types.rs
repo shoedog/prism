@@ -50,7 +50,7 @@ impl ParsedFile {
                 if !matches!(self.language, Language::TypeScript | Language::Tsx)
                     || ty.kind() != "type_identifier"
                     || self.js_ts_type_name_shadowed(self.tree.root_node(), &ty, name)
-                    || crate::js_ts_props::named_import(self, name).is_none()
+                    || crate::call_graph::js_ts::props::named_import(self, name).is_none()
                 {
                     return None;
                 }

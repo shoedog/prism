@@ -25,14 +25,14 @@ impl ParsedFile {
     /// value isn't a plain identifier): dynamic `require(expr)`/`import(expr)`,
     /// TS `export =` CJS interop, anonymous/aliased class exports, anonymous default
     /// function/arrow exports, spread in `module.exports = { ...x }`.
-    pub fn extract_js_ts_export_facts(&self) -> crate::js_exports::JsExportFacts {
+    pub fn extract_js_ts_export_facts(&self) -> super::exports::JsExportFacts {
         self.js_export_facts
             .get_or_init(|| self.extract_js_ts_export_facts_uncached())
             .clone()
     }
 
-    fn extract_js_ts_export_facts_uncached(&self) -> crate::js_exports::JsExportFacts {
-        let mut facts = crate::js_exports::JsExportFacts::default();
+    fn extract_js_ts_export_facts_uncached(&self) -> super::exports::JsExportFacts {
+        let mut facts = super::exports::JsExportFacts::default();
         if !matches!(
             self.language,
             Language::JavaScript | Language::TypeScript | Language::Tsx
@@ -42,7 +42,7 @@ impl ParsedFile {
 
         let _session = js_export_memo::Session::new(self);
         let root = self.tree.root_node();
-        let mut cjs = crate::js_exports::JsExportFacts::default();
+        let mut cjs = super::exports::JsExportFacts::default();
         // A local export of an imported binding is not an in-file callable.
         // Forwarding requires separate proof; do not let a nested same-name
         // declaration satisfy the existing Local(file, name) route.
@@ -108,7 +108,7 @@ impl ParsedFile {
                 if !facts.named.contains_key(name) && !facts.conflicted.contains(name) {
                     facts.insert_named(
                         name.clone(),
-                        crate::js_exports::JsExportTarget::UnprovenLocal(name.clone()),
+                        super::exports::JsExportTarget::UnprovenLocal(name.clone()),
                     );
                 }
             }
@@ -117,7 +117,7 @@ impl ParsedFile {
         facts.type_only_imports = types;
         facts.module_value_bindings = self.js_ts_function_local_bindings(&root);
         for (exported, target) in &facts.named {
-            if let crate::js_exports::JsExportTarget::Local(local) = target {
+            if let super::exports::JsExportTarget::Local(local) = target {
                 if d4.0.contains(local) {
                     facts.conflicted.insert(exported.clone());
                 }
@@ -131,7 +131,7 @@ impl ParsedFile {
                     .namespace_callable_locals
                     .entry(t.local.clone())
                     .or_default()
-                    .push(crate::js_exports::ResolvedJsExport {
+                    .push(super::exports::ResolvedJsExport {
                         file: self.path.clone(),
                         local_name: t.local,
                         span: Some((t.start_line, t.end_line)),
@@ -231,10 +231,10 @@ impl ParsedFile {
     fn collect_js_ts_export_statement<'a>(
         &'a self,
         node: Node<'a>,
-        facts: &mut crate::js_exports::JsExportFacts,
+        facts: &mut super::exports::JsExportFacts,
         d4: &mut js_binding::ExportScope<'a>,
     ) {
-        use crate::js_exports::JsExportTarget;
+        use super::exports::JsExportTarget;
 
         // The grammar uses the same immediate `type` token for type-only
         // import/export statements and specifiers; names named `type` remain
@@ -433,7 +433,7 @@ impl ParsedFile {
     fn collect_js_ts_cjs_export_statement(
         &self,
         node: Node<'_>,
-        facts: &mut crate::js_exports::JsExportFacts,
+        facts: &mut super::exports::JsExportFacts,
     ) {
         let mut cursor = node.walk();
         let Some(assign) = node
@@ -496,7 +496,7 @@ impl ParsedFile {
     fn collect_js_ts_cjs_module_exports_rhs(
         &self,
         rhs: Node<'_>,
-        facts: &mut crate::js_exports::JsExportFacts,
+        facts: &mut super::exports::JsExportFacts,
     ) {
         match rhs.kind() {
             "identifier" => {

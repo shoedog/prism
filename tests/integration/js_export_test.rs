@@ -11,7 +11,7 @@
 
 use prism::ast::ParsedFile;
 use prism::call_graph::CallGraph;
-use prism::js_exports::JsExportTarget;
+use prism::ast::js_ts::exports::JsExportTarget;
 use prism::languages::Language;
 use prism::resolution::{ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeMap;
