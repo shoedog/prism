@@ -37,6 +37,10 @@ pub(super) struct ScopeFacts<'a> {
     parsed: &'a ParsedFile,
     owner: Node<'a>,
     enabled: bool,
+    /// Go, no parse error, at least one def: the lexical proofs that need no `multi` gate.
+    lexical_ok: bool,
+    /// Per name, the start bytes of its identifier nodes by line (built on first use).
+    idents: RefCell<HashMap<String, Rc<HashMap<usize, Vec<usize>>>>>,
     /// Names with two or more declaration sites in the owner. A pair can only
     /// be dropped for such a name, so nothing else is ever built for others.
     multi: BTreeSet<&'a str>,
@@ -82,6 +86,8 @@ impl<'a> ScopeFacts<'a> {
             parsed,
             owner,
             enabled: enabled && !multi.is_empty(),
+            lexical_ok: enabled,
+            idents: RefCell::new(HashMap::new()),
             multi,
             address_taken,
             built: OnceCell::new(),
@@ -254,33 +260,74 @@ impl<'a> ScopeFacts<'a> {
     }
 
     /// The def is a function-literal formal or a named result and no occurrence of its name on
-    /// `use_line` lies in the scope of that declaration (#694 slice B).
+    /// `use_line` lies in its function's body, the scope of that declaration (#694 slice B). The
+    /// scope is lexical, so no binding-resolution proof for the name is needed (and the name may
+    /// have a single declaration site in the owner).
     fn outside_declare_only_scope(
         &self,
-        built: &Built<'a>,
         path: &AccessPath,
         def_start: usize,
         def_end: usize,
-        def_line: usize,
         use_line: usize,
     ) -> bool {
-        if !path.fields.is_empty() {
+        if !self.lexical_ok || !path.fields.is_empty() {
             return false;
         }
-        let Some((_, def_index, true)) =
-            self.plain_def_binding(built, path, def_start, def_end, def_line)
-        else {
+        let Some((body_start, body_end)) = self.declare_only_scope(def_start, def_end) else {
             return false;
         };
-        built
-            .identifiers
-            .get(&(path.base.clone(), use_line))
-            .is_some_and(|ids| {
-                !ids.is_empty()
-                    && ids
-                        .iter()
-                        .all(|n| !built.facts.def_scope_contains(def_index, n.start_byte()))
-            })
+        // No variable read of the name inside the scope on this line (a use the collector
+        // records at a keyed-literal field name has no identifier node in it at all).
+        let idents = self.identifiers_named(&path.base);
+        idents
+            .get(&use_line)
+            .is_none_or(|bytes| bytes.iter().all(|b| !(body_start <= *b && *b < body_end)))
+    }
+
+    /// The body span of the callable that declares the formal or named result whose def is the
+    /// identifier at `start..end`.
+    fn declare_only_scope(&self, start: usize, end: usize) -> Option<(usize, usize)> {
+        let node = self
+            .parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start, end)?;
+        if node.kind() != "identifier" || node.start_byte() != start || node.end_byte() != end {
+            return None;
+        }
+        let declaration = node.parent().filter(|p| is_slice_b_declaration(*p))?;
+        if !is_parameter_name(declaration, node) {
+            return None;
+        }
+        let body = declaration
+            .parent()?
+            .parent()?
+            .child_by_field_name("body")?;
+        Some((body.start_byte(), body.end_byte()))
+    }
+
+    /// Start bytes of the identifier nodes spelled `name`, by line.
+    fn identifiers_named(&self, name: &str) -> Rc<HashMap<usize, Vec<usize>>> {
+        if let Some(found) = self.idents.borrow().get(name) {
+            return found.clone();
+        }
+        let mut by_line: HashMap<usize, Vec<usize>> = HashMap::new();
+        let mut stack = vec![self.owner];
+        while let Some(node) = stack.pop() {
+            if node.kind() == "identifier" && self.parsed.node_text(&node) == name {
+                by_line
+                    .entry(node.start_position().row + 1)
+                    .or_default()
+                    .push(node.start_byte());
+            }
+            let mut cursor = node.walk();
+            stack.extend(node.named_children(&mut cursor));
+        }
+        let found = Rc::new(by_line);
+        self.idents
+            .borrow_mut()
+            .insert(name.to_owned(), found.clone());
+        found
     }
 
     /// The def starts at an identifier that is the written variable itself.
@@ -307,17 +354,16 @@ impl<'a> ScopeFacts<'a> {
         use_line: usize,
         stats: &mut RdFileStats,
     ) -> bool {
+        // A formal or named result is visible only in its function's body: a use line whose
+        // every occurrence of the name lies outside it reads another variable.
+        if self.outside_declare_only_scope(path, def_start, def_end, use_line) {
+            stats.dfg_pruned_scope += 1;
+            return false;
+        }
         if !self.enabled || !self.multi.contains(path.base.as_str()) {
             return true;
         }
         let built = self.built.get_or_init(|| self.build());
-        // A formal or named result is visible only in its function's body: a use line whose
-        // every occurrence of the name lies outside it reads another variable. This is lexical
-        // (the declaration's span), so it needs no resolution proof for the name.
-        if self.outside_declare_only_scope(built, path, def_start, def_end, def_line, use_line) {
-            stats.dfg_pruned_scope += 1;
-            return false;
-        }
         if !self.name_is_clean(&built.facts, &path.base) {
             return true;
         }

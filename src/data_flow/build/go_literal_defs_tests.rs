@@ -379,3 +379,12 @@ fn names_inside_function_types_declare_nothing() {
     assert!(!has_def(src, "ctx", 3));
     check("func-type", src, &[("usage", 2, 4, true)]);
 }
+
+#[test]
+fn a_keyed_literal_field_name_is_no_read_of_a_formal() {
+    // The producer records `ts:` in a composite literal as a use of the name; no variable is
+    // read there, so the formal's def must not reach it, even when the formal is the owner's
+    // only declaration of that spelling (rule S's multiply-declared gate does not apply).
+    let src = "package p\nfunc f() {\n\treg(func(ts T) {\n\t\tuse(ts)\n\t})\n\tx := S{\n\t\tts: 1,\n\t}\n\tuse(x)\n}\n";
+    check("keyed", src, &[("ts", 3, 4, true), ("ts", 3, 7, false)]);
+}
