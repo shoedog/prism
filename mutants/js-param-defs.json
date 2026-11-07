@@ -34,7 +34,7 @@
    ]
   ],
   "PD-04-js-rest-admission-off": [
-   "src/ast.rs",
+   "src/ast/parameters.rs",
    "if let Some(name_node) = (admit_js_rest\n",
    "if let Some(name_node) = (false\n",
    [
@@ -43,7 +43,7 @@
    ]
   ],
   "PD-05-js-rest-duplicate-guard-off": [
-   "src/ast.rs",
+   "src/ast/parameters.rs",
    "            let admit_js_rest = self.language == Language::JavaScript\n                && crate::parameter_slots::js_ts_parameter_list_is_clean(self, params);",
    "            let admit_js_rest = self.language == Language::JavaScript;",
    [
@@ -110,7 +110,7 @@
    ]
   ],
   "PD-14-js-bare-nested-guard-off": [
-   "src/ast.rs",
+   "src/ast/parameters.rs",
    "            if self.js_ts_nested_callable_binds_formal(func_node, name) {\n                return Vec::new();",
    "            if false && self.js_ts_nested_callable_binds_formal(func_node, name) {\n                return Vec::new();",
    [
@@ -118,7 +118,7 @@
    ]
   ],
   "PD-15-js-rest-nested-guard-off": [
-   "src/ast.rs",
+   "src/ast/parameters.rs",
    "!self.js_ts_nested_callable_binds_formal(func_node, self.node_text(name))",
    "true || !self.js_ts_nested_callable_binds_formal(func_node, self.node_text(name))",
    [
