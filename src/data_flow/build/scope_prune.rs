@@ -28,7 +28,10 @@ type LineKey = (String, usize);
 /// Per use line, the classified reads of each name; a hit allocates nothing.
 type LineCache = RefCell<HashMap<usize, Vec<(String, Rc<Vec<Occurrence>>)>>>;
 /// Per def `(start, end, line)`, the plain-def verdict of each base name.
-type DefCache = RefCell<HashMap<(usize, usize, usize), Vec<(String, Option<(usize, usize)>)>>>;
+type DefCache = RefCell<HashMap<(usize, usize, usize), Vec<(String, Option<PlainDef>)>>>;
+/// A plain def's declaration, its index, and whether it only declares the name (a function-literal
+/// formal or a named result: the entry value of a fresh variable, which writes no storage).
+type PlainDef = (usize, usize, bool);
 
 pub(super) struct ScopeFacts<'a> {
     parsed: &'a ParsedFile,
@@ -188,7 +191,7 @@ impl<'a> ScopeFacts<'a> {
         start: usize,
         end: usize,
         line: usize,
-    ) -> Option<(usize, usize)> {
+    ) -> Option<PlainDef> {
         if !path.fields.is_empty() {
             return None;
         }
@@ -208,6 +211,16 @@ impl<'a> ScopeFacts<'a> {
             || !is_plain_write_site(node)
         {
             return None;
+        }
+        // A formal or named result declares a fresh variable: it writes no storage, so neither
+        // the def's line nor the use's can make it a write through a pointer (#694 slice B).
+        if node.parent().is_some_and(|p| {
+            matches!(
+                p.kind(),
+                "parameter_declaration" | "variadic_parameter_declaration"
+            )
+        }) {
+            return Some((*declaration, index, true));
         }
         // Same-line defs of one path are coalesced to the first span: each must
         // bind this declaration, and no occurrence on the line may be a storage
@@ -242,7 +255,7 @@ impl<'a> ScopeFacts<'a> {
         {
             return None;
         }
-        Some((*declaration, index))
+        Some((*declaration, index, false))
     }
 
     /// The def starts at an identifier that is the written variable itself.
@@ -298,7 +311,7 @@ impl<'a> ScopeFacts<'a> {
                 .push((path.base.clone(), verdict));
             verdict
         });
-        let Some((_, def_index)) = verdict else {
+        let Some((_, def_index, declare_only)) = verdict else {
             return true;
         };
         if built
@@ -308,20 +321,31 @@ impl<'a> ScopeFacts<'a> {
             return true;
         }
         let reads = self.occurrences(built, &path.base, use_line);
-        let drop = !reads.is_empty()
-            && reads.iter().all(|o| {
-                !o.storage
-                    && matches!(&o.binding, BindingId::Declaration(other)
-                    if !built.facts.def_reaches_declaration(def_index, *other)
-                        && !built.params.keeps(
-                            self.parsed,
-                            &built.facts,
-                            &path.base,
-                            def_index,
-                            *other,
-                            o.start,
-                        ))
-            });
+        // A line holding only declaring occurrences of the name (a signature) has no read; a
+        // declare-only def of another variable cannot flow into a declaration of its own.
+        let declaring_only = declare_only
+            && reads.is_empty()
+            && built
+                .identifiers
+                .get(&(path.base.clone(), use_line))
+                .is_some_and(|ids| {
+                    !ids.is_empty() && ids.iter().all(|n| n.start_byte() != def_start)
+                });
+        let drop = declaring_only
+            || !reads.is_empty()
+                && reads.iter().all(|o| {
+                    (declare_only || !o.storage)
+                        && matches!(&o.binding, BindingId::Declaration(other)
+                        if !built.facts.def_reaches_declaration(def_index, *other)
+                            && !built.params.keeps(
+                                self.parsed,
+                                &built.facts,
+                                &path.base,
+                                def_index,
+                                *other,
+                                o.start,
+                            ))
+                });
         if drop {
             stats.dfg_pruned_scope += 1;
         }

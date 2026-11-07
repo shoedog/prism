@@ -271,3 +271,31 @@ fn direct_pairs_are_unchanged() {
     check("capture", src, &[("v", 3, 4, true), ("v", 3, 6, true)]);
     assert!(direct(&refs(src), "v", 3, 4));
 }
+
+#[test]
+fn storage_accesses_on_the_lines_do_not_keep_a_declare_only_def() {
+    // `t.Run(.., func(t T) {..})`: the def line reads the outer `t` through a selector, and the
+    // bodies call methods on their own `t`. A formal declares a fresh variable and writes no
+    // storage, so sibling formals never reach each other's bodies.
+    let src = "package p\nfunc f(t T) {\n\tt.Run(\"a\", func(t T) {\n\t\tt.Helper()\n\t})\n\tt.Run(\"b\", func(t T) {\n\t\tt.Helper()\n\t})\n}\n";
+    check(
+        "sibling-run",
+        src,
+        &[
+            ("t", 3, 4, true),
+            ("t", 6, 7, true),
+            ("t", 3, 7, false),
+            ("t", 6, 4, false),
+            ("t", 3, 6, false),
+            ("t", 2, 3, true),
+            ("t", 2, 4, true), // callback: kept, the callee supplies the formal
+        ],
+    );
+    // A nested run receives a value derived from the enclosing formal: kept.
+    let nested = "package p\nfunc f() {\n\treg(func(t T) {\n\t\treg(func(t T) {\n\t\t\tt.Helper()\n\t\t})\n\t})\n}\n";
+    check(
+        "nested-run",
+        nested,
+        &[("t", 3, 5, true), ("t", 4, 5, true)],
+    );
+}
