@@ -12,6 +12,7 @@ use crate::ast::ParsedFile;
 use crate::data_flow::FlowEdge;
 use crate::js_write_census::completion::{completion, Completion};
 use std::collections::BTreeSet;
+use std::rc::Rc;
 use tree_sitter::Node;
 
 /// Why an edge's label was decided by the census.
@@ -33,6 +34,8 @@ pub(super) struct CensusFacts {
     forced: Option<&'static str>,
     /// Bases refused at solve time: a kill-only def whose line is no CFG statement.
     unmapped: BTreeSet<String>,
+    /// #660 S1b-2: the same-node order refusal; shared by clones.
+    pub(super) d3: Option<Rc<super::d3::D3>>,
 }
 
 impl CensusFacts {
@@ -43,9 +46,11 @@ impl CensusFacts {
         }
     }
 
-    /// The census changes nothing for this owner (no refusal, no kill-only def, no refused base).
+    /// The census changes nothing for this owner (no refusal, no kill-only def, no refused base, no
+    /// D3 state to refuse an edge with).
     pub(super) fn is_inert(&self) -> bool {
-        self.unmapped.is_empty()
+        self.d3.is_none()
+            && self.unmapped.is_empty()
             && self.forced.is_none()
             && self.completion.as_ref().is_none_or(|c| {
                 c.refusal.is_none() && c.kill_only.is_empty() && c.refused_bases.is_empty()
@@ -125,6 +130,11 @@ impl CensusFacts {
             Some(Refused::UnmappedSite) => return "site-unmapped".to_string(),
             None => {}
         }
+        if label == FlowConfidence::NameOnly(FlowDoubt::SameLine) {
+            if let Some(m) = self.d3.as_ref().and_then(|d| d.logged(edge)) {
+                return m.to_string();
+            }
+        }
         let Some(c) = self.completion.as_ref() else {
             return "kill:other".to_string();
         };
@@ -151,22 +161,34 @@ impl CensusFacts {
 /// (no edge to label) come back unchanged.
 pub(super) fn complete_for(
     enabled: bool,
+    log: bool,
     parsed: &ParsedFile,
     owner: &Node<'_>,
     recorded: Vec<DefSite>,
 ) -> (Vec<DefSite>, CensusFacts) {
     if enabled {
-        complete(parsed, owner, recorded)
+        complete_with(parsed, owner, recorded, log)
     } else {
         let n = recorded.len();
         (recorded, CensusFacts::inert(n))
     }
 }
 
+#[cfg(test)]
 pub(super) fn complete(
     parsed: &ParsedFile,
     owner: &Node<'_>,
+    recorded: Vec<DefSite>,
+) -> (Vec<DefSite>, CensusFacts) {
+    complete_with(parsed, owner, recorded, false)
+}
+
+/// `complete`, with D3 recording its refusals' mechanisms when `log` (the trace).
+pub(super) fn complete_with(
+    parsed: &ParsedFile,
+    owner: &Node<'_>,
     mut recorded: Vec<DefSite>,
+    log: bool,
 ) -> (Vec<DefSite>, CensusFacts) {
     let n_recorded = recorded.len();
     if n_recorded == 0 || !parsed.language.is_js_family() {
@@ -176,8 +198,9 @@ pub(super) fn complete(
         .iter()
         .map(|d| (&d.path, d.start_byte, d.alias_derived))
         .collect();
-    let done = completion(parsed, *owner, &pairs);
+    let mut done = completion(parsed, *owner, &pairs);
     drop(pairs);
+    let d3 = super::d3::D3::new(std::mem::take(&mut done.counting), owner, log).map(Rc::new);
     let mut next = recorded.iter().map(|d| d.id.0).max().map_or(0, |m| m + 1);
     for k in &done.kill_only {
         recorded.push(DefSite {
@@ -194,6 +217,7 @@ pub(super) fn complete(
         completion: Some(done),
         forced: None,
         unmapped: BTreeSet::new(),
+        d3,
     };
     (recorded, facts)
 }

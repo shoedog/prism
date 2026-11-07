@@ -28,6 +28,8 @@ mod census_label_tests;
 mod cfg_queries;
 mod context;
 #[cfg(test)]
+mod d3_label_tests;
+#[cfg(test)]
 mod deferred_read_tests;
 #[cfg(test)]
 mod dfg_missing_label_tests;
