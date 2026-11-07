@@ -6,8 +6,13 @@
 //! `src/cli.rs`, `src/main.rs`, `src/lib.rs` and `src/bin/**`.
 //!
 //! Exempt test code: any `*_test.rs` / `*_tests.rs` file, any path containing
-//! `/tests/`, and, heuristically, everything after the first line that
-//! matches `^#[cfg(test)]` (a trailing `#[cfg(test)] mod tests` block).
+//! `/tests/`, and each `#[cfg(test)]`-gated ITEM inside a file. Scanning
+//! resumes after the item, so production code after a test module is checked.
+//! The item is found at any indentation: skip the attribute line(s), then the
+//! item line. If the item line ends with `;` (`mod x;`, `use ..;`) or is a
+//! one-line `{ .. }` item, only that line is exempt. Otherwise the item runs
+//! through the first following line that is exactly `}` or `};` at the SAME
+//! indentation as the attribute (rustfmt guarantees this for items).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -44,17 +49,54 @@ fn is_test_file(rel: &str) -> bool {
     rel.ends_with("_test.rs") || rel.ends_with("_tests.rs") || rel.contains("/tests/")
 }
 
-/// Offending `file:line` entries for one file's text. Text from the first
-/// `#[cfg(test)]` line onward is ignored.
+fn indent_of(line: &str) -> usize {
+    line.len() - line.trim_start().len()
+}
+
+/// Index just past the `#[cfg(test)]`-gated item whose attribute is at `attr`.
+fn skip_cfg_test_item(lines: &[&str], attr: usize) -> usize {
+    let indent = indent_of(lines[attr]);
+    let rest = lines[attr].trim_start()["#[cfg(test)]".len()..].trim();
+    let mut item = attr;
+    if rest.is_empty() {
+        item += 1;
+        while item < lines.len() && lines[item].trim_start().starts_with("#[") {
+            item += 1;
+        }
+    }
+    if item >= lines.len() {
+        return lines.len();
+    }
+    let head = lines[item].trim_end();
+    if head.ends_with(';') || (head.ends_with('}') && head.contains('{')) {
+        return item + 1;
+    }
+    let pad = " ".repeat(indent);
+    let (close, close_semi) = (format!("{pad}}}"), format!("{pad}}};"));
+    for (k, line) in lines.iter().enumerate().skip(item + 1) {
+        if *line == close || *line == close_semi {
+            return k + 1;
+        }
+    }
+    lines.len()
+}
+
+/// Offending `file:line` entries for one file's text. Each
+/// `#[cfg(test)]`-gated item is skipped; scanning resumes after it.
 fn offending_lines(rel: &str, text: &str) -> Vec<String> {
+    let lines: Vec<&str> = text.lines().collect();
     let mut hits = Vec::new();
-    for (i, line) in text.lines().enumerate() {
-        if line.starts_with("#[cfg(test)]") {
-            break;
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i];
+        if line.trim_start().starts_with("#[cfg(test)]") {
+            i = skip_cfg_test_item(&lines, i);
+            continue;
         }
         if line.contains("crate::algorithms") || line.contains("algorithms::") {
             hits.push(format!("{rel}:{}: {}", i + 1, line.trim()));
         }
+        i += 1;
     }
     hits
 }
@@ -100,4 +142,38 @@ fn review_layer_and_test_paths_are_classified() {
     assert!(is_test_file("src/foo/bar_tests.rs"));
     assert!(is_test_file("src/foo/tests/x.rs"));
     assert!(!is_test_file("src/foo/bar.rs"));
+}
+
+const PROD: &str = "use crate::algorithms::taint::TaintConfig;\n";
+
+#[test]
+fn production_import_after_cfg_test_module_is_reported() {
+    let text = format!("#[cfg(test)]\nmod tests {{}}\n{PROD}");
+    assert_eq!(offending_lines("src/x.rs", &text).len(), 1);
+    let text = format!("#[cfg(test)]\nmod tests {{\n    fn t() {{}}\n}}\n\n{PROD}");
+    assert_eq!(offending_lines("src/x.rs", &text).len(), 1);
+}
+
+#[test]
+fn production_import_after_cfg_test_fn_is_reported() {
+    let text = format!("#[cfg(test)]\nfn helper() {{\n    let _ = 1;\n}}\n{PROD}");
+    assert_eq!(offending_lines("src/x.rs", &text).len(), 1);
+}
+
+#[test]
+fn imports_inside_cfg_test_module_stay_exempt() {
+    let text = "#[cfg(test)]\nmod tests {\n    use crate::algorithms::taint::TaintConfig;\n    fn t() {\n        algorithms::x();\n    }\n}\n";
+    assert!(offending_lines("src/x.rs", text).is_empty());
+    let nested = "impl A {\n    #[cfg(test)]\n    fn t() {\n        algorithms::x();\n    }\n}\n";
+    assert!(offending_lines("src/x.rs", nested).is_empty());
+}
+
+#[test]
+fn cfg_test_one_liner_exempts_only_that_line() {
+    let text = format!("#[cfg(test)]\nmod x;\n{PROD}");
+    let hits = offending_lines("src/x.rs", &text);
+    assert_eq!(hits.len(), 1);
+    assert!(hits[0].starts_with("src/x.rs:3:"), "{hits:?}");
+    let exempt = "#[cfg(test)]\nuse crate::algorithms::taint::TaintConfig;\nfn a() {}\n";
+    assert!(offending_lines("src/x.rs", exempt).is_empty());
 }
