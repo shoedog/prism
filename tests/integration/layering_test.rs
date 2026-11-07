@@ -5,9 +5,10 @@
 //! `src/algorithms/**`, `src/output/**`, `src/targets/**`, `src/api/**`,
 //! `src/cli.rs`, `src/main.rs`, `src/lib.rs` and `src/bin/**`.
 //!
-//! Exempt test code: any `*_test.rs` / `*_tests.rs` file, any path containing
-//! `/tests/`, and each `#[cfg(test)]`-gated ITEM inside a file. Scanning
-//! resumes after the item, so production code after a test module is checked.
+//! Exempt test code: any `*_test.rs` / `*_tests.rs` / `tests.rs` file, any path
+//! containing `/tests/`, comment lines (`//`, `///`, `//!`), and each
+//! `#[cfg(test)]`-gated ITEM inside a file. Scanning resumes after the item,
+//! so production code after a test module is checked.
 //! The item is found at any indentation: skip the attribute line(s), then the
 //! item line. If the item line ends with `;` (`mod x;`, `use ..;`) or is a
 //! one-line `{ .. }` item, only that line is exempt. Otherwise the item runs
@@ -46,7 +47,10 @@ fn is_review_layer(rel: &str) -> bool {
 }
 
 fn is_test_file(rel: &str) -> bool {
-    rel.ends_with("_test.rs") || rel.ends_with("_tests.rs") || rel.contains("/tests/")
+    rel.ends_with("_test.rs")
+        || rel.ends_with("_tests.rs")
+        || rel.rsplit('/').next() == Some("tests.rs")
+        || rel.contains("/tests/")
 }
 
 fn indent_of(line: &str) -> usize {
@@ -91,6 +95,10 @@ fn offending_lines(rel: &str, text: &str) -> Vec<String> {
         let line = lines[i];
         if line.trim_start().starts_with("#[cfg(test)]") {
             i = skip_cfg_test_item(&lines, i);
+            continue;
+        }
+        if line.trim_start().starts_with("//") {
+            i += 1;
             continue;
         }
         if line.contains("crate::algorithms") || line.contains("algorithms::") {
@@ -176,4 +184,21 @@ fn cfg_test_one_liner_exempts_only_that_line() {
     assert!(hits[0].starts_with("src/x.rs:3:"), "{hits:?}");
     let exempt = "#[cfg(test)]\nuse crate::algorithms::taint::TaintConfig;\nfn a() {}\n";
     assert!(offending_lines("src/x.rs", exempt).is_empty());
+}
+
+#[test]
+fn comment_lines_are_not_scanned() {
+    let text = "/// see `algorithms::check_parse_quality`\n// crate::algorithms::taint\n//! algorithms::x\nfn a() {}\n";
+    assert!(offending_lines("src/x.rs", text).is_empty());
+    let code = "    use crate::algorithms::x; // trailing comment\n";
+    assert_eq!(offending_lines("src/x.rs", code).len(), 1);
+}
+
+#[test]
+fn tests_rs_basename_is_a_test_file() {
+    assert!(is_test_file("src/cpg/tests.rs"));
+    assert!(is_test_file("src/finding_confidence/tests.rs"));
+    assert!(is_test_file("src/tests.rs"));
+    assert!(!is_test_file("src/cpg/attests.rs"));
+    assert!(!is_test_file("src/cpg/tests_helper.rs"));
 }

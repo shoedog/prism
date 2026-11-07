@@ -127,7 +127,7 @@ pub(crate) fn js_ts_receiver_expr_is_route_builder(
     )
 }
 
-pub(crate) fn js_ts_expr_constructs_framework_receiver(
+fn js_ts_expr_constructs_framework_receiver(
     parsed: &ParsedFile,
     expr: Node<'_>,
     framework: &str,
@@ -150,7 +150,7 @@ pub(crate) fn js_ts_call_or_new_callee(node: Node<'_>) -> Option<Node<'_>> {
         .or_else(|| node.named_child(0))
 }
 
-pub(crate) fn js_ts_callee_constructs_framework_receiver(
+fn js_ts_callee_constructs_framework_receiver(
     parsed: &ParsedFile,
     callee: Node<'_>,
     framework: &str,
@@ -184,7 +184,7 @@ pub(crate) fn js_ts_callee_constructs_framework_receiver(
     false
 }
 
-pub(crate) fn js_ts_expr_resolves_to_framework_module(
+fn js_ts_expr_resolves_to_framework_module(
     parsed: &ParsedFile,
     expr: Node<'_>,
     framework: &str,
@@ -204,7 +204,7 @@ pub(crate) fn js_ts_expr_resolves_to_framework_module(
     false
 }
 
-pub(crate) fn js_ts_module_matches_framework(module: &str, framework: &str) -> bool {
+fn js_ts_module_matches_framework(module: &str, framework: &str) -> bool {
     match framework {
         "express" => module == "express",
         "fastify" => module == "fastify",

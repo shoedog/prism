@@ -8,7 +8,7 @@ use crate::languages::Language;
 use tree_sitter::Node;
 
 /// `pub(crate)` (P9): reused by `framework_entries` for the same
-/// parenthesized-expression unwrapping this module already does.
+/// parenthesized-expression unwrapping `algorithms/taint.rs` also does.
 pub(crate) fn unwrap_parenthesized(mut node: Node<'_>) -> Node<'_> {
     loop {
         if node.kind() != "parenthesized_expression" {

@@ -26,7 +26,7 @@
 //! walk to the nearest enclosing assignment/declaration node), rather than trusting the `Relation`
 //! label on the edge, is what makes this sound against the over-approximating
 //! `AssignmentPropagation` edges. Paired-check recognizers (Go's `Clean`→`HasPrefix` path family,
-//! `src/sanitizers/path.rs`) are excluded by `taint::sanitizer_call_site` itself — see that
+//! `src/sanitizers/path.rs`) are excluded by `sanitizers::matching::sanitizer_call_site` itself — see that
 //! function's doc comment for the any-category-cut, paired-check-exclusion, and
 //! language-applicability divergences from the CWE engine.
 

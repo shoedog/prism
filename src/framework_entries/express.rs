@@ -291,10 +291,10 @@ fn express_receiver_shadow_identifier(
 /// `express.Router()`, `new express.Router()`, `require("express")()`) down
 /// to its SHADOWABLE grounding identifier — mirrors the same peel
 /// `js_ts_callee_constructs_framework_receiver`/
-/// `js_ts_expr_resolves_to_framework_module` (taint.rs) use to decide the
+/// `js_ts_expr_resolves_to_framework_module` (`call_classify.rs`) use to decide the
 /// receiver constructs a framework instance, but returns the identifier
 /// itself (rather than a bool) so the caller can shadow-check it. Those
-/// taint.rs functions ground the identifier PURELY against the whole-file
+/// `call_classify.rs` functions ground the identifier PURELY against the whole-file
 /// import map, with no local-shadow awareness at all — this is exactly the
 /// M2 bug (`function setup(express) { express().get(...) }` still minted a
 /// false edge because the direct-constructor exception in
@@ -322,7 +322,7 @@ fn express_constructor_grounding_identifier(
         // grounding identifier is the member expression's OBJECT
         // (`express`), not the property (`Router`). M-B: the object can
         // ALSO be a require-CALL (`require("express").Router()`) rather
-        // than a bare identifier — taint.rs's own
+        // than a bare identifier — `call_classify.rs`'s own
         // `js_ts_expr_resolves_to_framework_module` (the matcher that
         // decided THIS receiver constructs a framework instance in the
         // first place) already accepts that shape, so the grounding-id
@@ -631,7 +631,7 @@ mod express_candidate_tests {
         // M-B: `require("express").Router()` -- the member expression's
         // object is itself the require-CALL, not a bare identifier. The
         // grounding-identifier peel must still extract `require` (mirroring
-        // the require-call shape taint.rs's
+        // the require-call shape `call_classify.rs`'s
         // `js_ts_expr_resolves_to_framework_module` already accepts when
         // deciding this receiver constructs a framework instance), so a
         // local `require` parameter shadow is caught.
