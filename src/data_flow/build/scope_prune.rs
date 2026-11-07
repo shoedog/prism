@@ -54,6 +54,8 @@ struct Built<'a> {
     defs_on_line: BTreeMap<LineKey, Vec<usize>>,
     /// Identifier nodes by `(name, line)`.
     identifiers: BTreeMap<LineKey, Vec<Node<'a>>>,
+    /// Names declared by split headers or specs: main's keep (`scope_split`, #728).
+    split: super::scope_split::SplitFacts,
 }
 
 impl<'a> ScopeFacts<'a> {
@@ -92,6 +94,7 @@ impl<'a> ScopeFacts<'a> {
             def_index: BTreeMap::new(),
             defs_on_line: BTreeMap::new(),
             identifiers: BTreeMap::new(),
+            split: super::scope_split::SplitFacts::new(self.parsed, self.owner),
         };
         for (index, def) in self
             .defs
@@ -291,6 +294,12 @@ impl<'a> ScopeFacts<'a> {
         let Some((_, def_index)) = verdict else {
             return true;
         };
+        if built
+            .split
+            .exempts(self.parsed, &built.facts, &path.base, def_index, def_start)
+        {
+            return true;
+        }
         let reads = self.occurrences(built, &path.base, use_line);
         let drop = !reads.is_empty()
             && reads.iter().all(|o| {
@@ -442,7 +451,7 @@ pub(super) fn address_taken_names<'a>(
         // formals and named results of any function (a `return` assigns them with
         // no def). Range/receive `:=` targets, type-switch aliases and every
         // `var`/`const` name now have producer defs, so S may drop the outer pair, except
-        // for a split header or spec (below).
+        // for a split header or spec (`SplitFacts`).
         let mut keep = |id: Node<'a>| {
             if id.kind() == "identifier" {
                 if let Some(found) = multi.get(parsed.node_text(&id)) {
@@ -450,10 +459,6 @@ pub(super) fn address_taken_names<'a>(
                 }
             }
         };
-        // A split header or spec keeps main's behaviour (`scope_split`, #728).
-        for id in super::scope_split::split_declared(node) {
-            keep(id);
-        }
         match node.kind() {
             "func_literal" | "function_declaration" | "method_declaration" => {
                 let mut lists = Vec::new();

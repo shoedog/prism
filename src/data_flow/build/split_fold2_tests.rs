@@ -100,3 +100,14 @@ fn single_line_controls_still_drop() {
     let tsw = "package p\nfunc f(x any) {\n\tt := x\n\tswitch t := t.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n}\n";
     assert!(!has(&refs(tsw), "t", 3, 6));
 }
+
+#[test]
+fn sibling_split_loops_do_not_cross_connect() {
+    // The corpus rows that a bare name-level keep added over e8d8e2a: a header's own def is new
+    // (main had none), so it is exempt only for the split header that shadows its variable.
+    let src = "package p\nfunc f() {\n\tfor _, a := range []string{\n\t\t\"x\",\n\t} {\n\t\tuse(a)\n\t}\n\tfor _, a := range []string{\n\t\t\"y\",\n\t} {\n\t\tuse(a)\n\t}\n}\n";
+    let r = refs(src);
+    assert!(has(&r, "a", 3, 6) && has(&r, "a", 8, 11));
+    assert!(!has(&r, "a", 3, 11), "forward cross pair");
+    assert!(!has(&r, "a", 8, 6), "backward cross pair");
+}

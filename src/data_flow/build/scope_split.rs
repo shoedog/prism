@@ -7,10 +7,77 @@
 //! values) is on a different row from any of its declared names: a right-hand read on row N
 //! never reaches the new def on row M, so no replacement path exists. Such a header keeps
 //! main's categorical exemption: rule S and rule O keep every pair of a name it declares
-//! (`address_taken_names`), and rule D never takes a split spec as a dominating write.
+//! (`SplitFacts::exempts`), and rule D never takes a split spec as a dominating write.
+//! The exemption covers the defs main had. A def at a header target is new (main emitted none),
+//! so it is exempt only where its variable is the one the split header shadows: sibling loops'
+//! same-named headers are not a path.
 //! Rule U keeps its declare-only anchor handling: the anchor line holds only the declaration,
 //! and the kept S pair carries the outer value to the body use.
+use crate::ast::ParsedFile;
+use crate::cpg::binding_facts::{BindingFacts, BindingId};
+use std::collections::BTreeMap;
 use tree_sitter::Node;
+
+/// Names declared by split headers of one owner, with the start byte of each header.
+pub(super) struct SplitFacts {
+    by_name: BTreeMap<String, Vec<usize>>,
+}
+
+impl SplitFacts {
+    pub(super) fn new(parsed: &ParsedFile, owner: Node<'_>) -> Self {
+        let mut by_name: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+        let mut stack = vec![owner];
+        while let Some(node) = stack.pop() {
+            for id in split_declared(node) {
+                by_name
+                    .entry(parsed.node_text(&id).to_owned())
+                    .or_default()
+                    .push(node.start_byte());
+            }
+            let mut cursor = node.walk();
+            stack.extend(node.named_children(&mut cursor));
+        }
+        Self { by_name }
+    }
+
+    /// Main's categorical keep for the pair of `name` whose def is `defs[def_index]` at `def_start`.
+    pub(super) fn exempts(
+        &self,
+        parsed: &ParsedFile,
+        facts: &BindingFacts,
+        name: &str,
+        def_index: usize,
+        def_start: usize,
+    ) -> bool {
+        let Some(headers) = self.by_name.get(name) else {
+            return false;
+        };
+        let at_target = parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(def_start, def_start)
+            .is_some_and(is_header_target);
+        !at_target
+            || headers.iter().any(|byte| {
+                matches!(facts.binding_at(name, *byte), BindingId::Declaration(d)
+                    if facts.def_reaches_declaration(def_index, d))
+            })
+    }
+}
+
+/// The identifier is declared by a range/receive `:=`, a type-switch alias or a `var`/`const` spec.
+fn is_header_target(node: Node<'_>) -> bool {
+    node.kind() == "identifier"
+        && super::scope_prune::is_declaring_name(node)
+        && !matches!(
+            node.parent().map(|p| p.kind()),
+            Some("parameter_declaration" | "variadic_parameter_declaration")
+        )
+        && node
+            .parent()
+            .and_then(|p| p.parent())
+            .is_none_or(|g| g.kind() != "short_var_declaration")
+}
 
 /// The declared identifiers of `node` when it is a split header or spec, else empty.
 pub(super) fn split_declared(node: Node<'_>) -> Vec<Node<'_>> {
