@@ -55,6 +55,7 @@ mod prune_cap_tests;
 mod scope_prune;
 #[cfg(test)]
 mod scope_prune_tests;
+mod scope_split;
 
 pub(super) struct Producer;
 pub(super) struct FileRefs {

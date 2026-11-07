@@ -441,3 +441,18 @@ fn scope_prune_cap_counts_survivors_and_replays() {
     assert_eq!(capped.rd_function_stats.fallback_functions_capped, 1);
     assert_eq!(capped.rd_function_stats.fallback_edges_capped, count);
 }
+
+#[test]
+fn split_var_spec_keeps_the_outer_pair_and_one_line_drops_it() {
+    // (A label before the use switches rule D off, so only S can drop.) Case 2 declares through a multiline spec: its right-hand `x` is not on the names' line,
+    // so the replacement path is unconnected and the pair stays (#694a fold 1).
+    let split = "package p\nfunc f(n, x int) {\n\tswitch n {\n\tcase 1:\n\t\ta, b := 1, 2\n\t\tuse(a, b)\n\tcase 2:\n\t\tvar a, b = 1,\n\t\t\tx\n\tL:\n\t\tuse(a, b)\n\t}\n}\n";
+    check(
+        "split-var",
+        split,
+        &[("a", 5, 11, true), ("b", 5, 11, true)],
+    );
+    let one = "package p\nfunc f(n, x int) {\n\tswitch n {\n\tcase 1:\n\t\ta, b := 1, 2\n\t\tuse(a, b)\n\tcase 2:\n\t\tvar a, b = 1, x\n\tL:\n\t\tuse(a, b)\n\t}\n}\n";
+    check("one-var", one, &[("a", 5, 10, false), ("b", 5, 10, false)]);
+    scope_counted("one-var", one);
+}

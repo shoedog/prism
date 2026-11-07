@@ -280,3 +280,34 @@ fn declare_only_headers_in_closures_are_write_only_too() {
         ],
     );
 }
+
+// Fold 1 (#694a review): a header or spec split across lines has no connected replacement
+// path, so rule S keeps the outer def's pair with the body use.
+#[test]
+fn split_headers_keep_the_outer_pair() {
+    let range = "package p\nfunc f(xs []int) {\n\tv := xs\n\tfor _, v := range\n\t\tv {\n\t\tuse(v)\n\t}\n}\n";
+    check("split-range", range, &[("v", 3, 6, true)]);
+}
+
+#[test]
+fn split_receive_keeps_the_outer_pair() {
+    let recv = "package p\nfunc f(ch chan int) {\n\tv := 1\n\tselect {\n\tcase v :=\n\t\t<-ch:\n\t\tuse(v)\n\t}\n}\n";
+    check("split-recv", recv, &[("v", 3, 7, true)]);
+}
+
+#[test]
+fn split_type_switch_keeps_the_outer_pair() {
+    let tsw = "package p\nfunc f(x any) {\n\tt := 1\n\tswitch t :=\n\t\tx.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n}\n";
+    check("split-tswitch", tsw, &[("t", 3, 7, true)]);
+}
+
+#[test]
+fn single_line_headers_still_drop_the_outer_pair() {
+    let range =
+        "package p\nfunc f(xs []int) {\n\tv := xs\n\tfor _, v := range xs {\n\t\tuse(v)\n\t}\n}\n";
+    check("one-range", range, &[("v", 3, 5, false)]);
+    let recv = "package p\nfunc f(ch chan int) {\n\tv := 1\n\tselect {\n\tcase v := <-ch:\n\t\tuse(v)\n\t}\n}\n";
+    check("one-recv", recv, &[("v", 3, 6, false)]);
+    let tsw = "package p\nfunc f(x any) {\n\tt := 1\n\tswitch t := x.(type) {\n\tcase int:\n\t\tuse(t)\n\t}\n}\n";
+    check("one-tswitch", tsw, &[("t", 3, 6, false)]);
+}

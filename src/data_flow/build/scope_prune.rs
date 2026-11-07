@@ -54,6 +54,9 @@ struct Built<'a> {
     defs_on_line: BTreeMap<LineKey, Vec<usize>>,
     /// Identifier nodes by `(name, line)`.
     identifiers: BTreeMap<LineKey, Vec<Node<'a>>>,
+    /// Defs at the identifiers of split headers/specs (`scope_split`): their declarations'
+    /// uses keep the outer pair.
+    split_defs: Vec<usize>,
 }
 
 impl<'a> ScopeFacts<'a> {
@@ -92,13 +95,18 @@ impl<'a> ScopeFacts<'a> {
             def_index: BTreeMap::new(),
             defs_on_line: BTreeMap::new(),
             identifiers: BTreeMap::new(),
+            split_defs: Vec::new(),
         };
+        let split = super::scope_split::split_target_bytes(self.owner);
         for (index, def) in self
             .defs
             .iter()
             .enumerate()
             .filter(|(_, d)| !d.alias_derived)
         {
+            if split.contains(&def.start_byte) && def.path.fields.is_empty() {
+                built.split_defs.push(index);
+            }
             built
                 .def_index
                 .insert((def.start_byte, def.path.clone()), index);
@@ -295,7 +303,12 @@ impl<'a> ScopeFacts<'a> {
         let drop = !reads.is_empty()
             && reads.iter().all(|o| {
                 !o.storage
-                    && matches!(&o.binding, BindingId::Declaration(other) if !built.facts.def_reaches_declaration(def_index, *other))
+                    && matches!(&o.binding, BindingId::Declaration(other)
+                        if !built.facts.def_reaches_declaration(def_index, *other)
+                            && !built
+                                .split_defs
+                                .iter()
+                                .any(|s| built.facts.def_reaches_declaration(*s, *other)))
             });
         if drop {
             stats.dfg_pruned_scope += 1;

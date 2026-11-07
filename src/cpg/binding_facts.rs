@@ -301,11 +301,25 @@ impl BindingFacts {
     }
 
     pub(super) fn same_def_binding(&self, left: usize, right: usize) -> bool {
+        let (li, ri) = (left, right);
         let left = &self.def_bindings[left].id;
         let right = &self.def_bindings[right].id;
         left == right
             || matches!(left, BindingId::FlatFallback(_))
             || matches!(right, BindingId::FlatFallback(_))
+            || self.alias_group_related(li, ri)
+    }
+
+    /// One of the two defs is a type-switch alias's header def and the other writes a
+    /// declaration of a member clause: the header def stands for every clause's declaration,
+    /// so each kills the other (fold 1). Ordinary clause writes are never group heads.
+    fn alias_group_related(&self, left: usize, right: usize) -> bool {
+        let declared = |d: usize| match &self.def_bindings[d].id {
+            BindingId::Declaration(x) => Some(*x),
+            _ => None,
+        };
+        declared(right).is_some_and(|r| self.def_reaches_declaration(left, r))
+            || declared(left).is_some_and(|l| self.def_reaches_declaration(right, l))
     }
 
     pub(super) fn lookup_requires_flat_fallback(
@@ -324,8 +338,9 @@ impl BindingFacts {
     }
 
     pub(super) fn proven_same_def_binding(&self, left: usize, right: usize) -> bool {
-        self.def_bindings[left].id == self.def_bindings[right].id
-            && !matches!(self.def_bindings[left].id, BindingId::FlatFallback(_))
+        (self.def_bindings[left].id == self.def_bindings[right].id
+            && !matches!(self.def_bindings[left].id, BindingId::FlatFallback(_)))
+            || self.alias_group_related(left, right)
     }
 
     /// Two defs that both resolve to the same unresolved (package-level or
