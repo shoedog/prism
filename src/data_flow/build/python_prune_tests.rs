@@ -60,11 +60,21 @@ fn python_prune_matrix() {
         // Invariant (Opus F1): every removed pair that targets a real use keeps another
         // surviving edge from a def of the path into that same use (the dominating write).
         for (p, d, u) in b.difference(&a) {
-            let real_use = after
-                .uses
-                .values()
-                .flatten()
-                .any(|l| l.path.to_string() == *p && l.line == *u);
+            // A prefix kill (`self.x.y = a; self.x = b; use(self.x.y)`) is dominated by a
+            // write of a prefix path, which emits no edge into the longer path's use.
+            let prefix_kill = obligations.iter().any(|r| {
+                r["case"] == name
+                    && r["reason"] == "prefix_kill"
+                    && r["path"] == p.as_str()
+                    && r["def_line"] == *d
+                    && r["use_line"] == *u
+            });
+            let real_use = !prefix_kill
+                && after
+                    .uses
+                    .values()
+                    .flatten()
+                    .any(|l| l.path.to_string() == *p && l.line == *u);
             if real_use {
                 assert!(
                     a.iter().any(|(p2, d2, u2)| p2 == p && u2 == u && d2 != d),
