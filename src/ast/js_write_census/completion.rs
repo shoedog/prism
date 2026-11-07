@@ -88,9 +88,9 @@ pub(crate) fn completion(
         // another object: not a write of the owner's `this`.
         let rebound = site.path.base == "this" && this_is_rebound(parsed, owner, site);
         // Declarations are the refusal classes of S1d (hoisting, Annex B, dead formals), not writes
-        // the producer fails to record. Writes in a deferred region or the owner's own parameter list
-        // need the scope rules of S1c (inner bindings: a shadowing parameter is not the owner's
-        // binding) and S1d (dead formals); the producer's own nested-write handling stands until then.
+        // the producer fails to record. A write in a deferred region is no kill-only def either: its
+        // time is unknown, so D2-c (S1c, `captured`) refuses the edges it may reach instead, and the
+        // producer's own nested-write handling stands. The owner's own parameter list is S1d's (dead formals).
         let r = site.region;
         let candidate = !(site.form == Form::Declare
             || r.nested
