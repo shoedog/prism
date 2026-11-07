@@ -1,0 +1,357 @@
+{
+  "authoritative": true,
+  "label": "AUTHORITATIVE",
+  "execution_mode": "text",
+  "jobs": 1,
+  "since": null,
+  "scope": null,
+  "selected": 5,
+  "killed": 2,
+  "admissible": 5,
+  "timings": {
+    "quiet_wait": 0.0,
+    "source_baseline_build": 11.36,
+    "source_baseline": 1.99,
+    "text_mode": 136.64,
+    "total": 150.23
+  },
+  "resources": {
+    "workers": 1,
+    "seed_methods": [
+      "copy"
+    ],
+    "worker_disk_peak_bytes": 2247864320,
+    "disk_measurement": "du -sk; allocated blocks, shared clone extents may be counted repeatedly",
+    "workers_cleaned": true
+  },
+  "baselines": {
+    "source": {
+      "('lib', 'cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.302,
+        "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.30s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.386,
+        "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.38s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'cpg::s1c_label_tests::binding_shape_rows')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.505,
+        "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.50s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.352,
+        "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.35s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'js_write_census::captured_tests::a_parameter_scopes_its_body_and_its_own_list')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.218,
+        "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_parameter_scopes_its_body_and_its_own_list ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.21s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'js_write_census::captured_tests::a_var_scopes_the_nearest_callable_body')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.227,
+        "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_var_scopes_the_nearest_callable_body ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.22s\n\n",
+        "failure_locations": []
+      }
+    },
+    "workers": {
+      "0": {
+        "build_seconds": 59.73,
+        "runs": {
+          "('lib', 'cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.296,
+            "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.29s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.319,
+            "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.31s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'cpg::s1c_label_tests::binding_shape_rows')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.564,
+            "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.56s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.338,
+            "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.33s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'js_write_census::captured_tests::a_parameter_scopes_its_body_and_its_own_list')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.224,
+            "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_parameter_scopes_its_body_and_its_own_list ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.22s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'js_write_census::captured_tests::a_var_scopes_the_nearest_callable_body')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.226,
+            "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_var_scopes_the_nearest_callable_body ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.22s\n\n",
+            "failure_locations": []
+          }
+        }
+      }
+    }
+  },
+  "static": {},
+  "text_confirmations": 0,
+  "results": {
+    "opus-P1-line-placed-use-never-in-a-unit": {
+      "mode": "text",
+      "build_seconds": 11.8,
+      "runs": [
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.353,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.35s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.487,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.48s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.303,
+          "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write ... FAILED\n\nfailures:\n\n---- cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write stdout ----\n\nthread 'cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write' (12961) panicked at src/cpg/reaching/d2c_tests.rs:161:5:\nassertion `left == right` failed\n  left: NameOnly(CfgIncomplete)\n right: NameOnly(SameLine)\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::assert_failed_inner\n   3: core::panicking::assert_failed::<prism::cpg::flow_confidence::FlowConfidence, prism::cpg::flow_confidence::FlowConfidence>\n   4: prism::cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write\n   5: prism::cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write::{closure#0}\n   6: <prism::cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.30s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.331,
+          "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.33s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "opus-P2-declared-target-as-outer": {
+      "mode": "text",
+      "build_seconds": 11.16,
+      "runs": [
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.361,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.36s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.612,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... FAILED\n\nfailures:\n\n---- cpg::s1c_label_tests::binding_shape_rows stdout ----\n\nthread 'cpg::s1c_label_tests::binding_shape_rows' (13323) panicked at src/cpg/s1c_label_tests.rs:230:5:\nmiddle_region_parameter_inner_control a@1->a@4: want exact, got [\"nameonly/cfg_incomplete\"]\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::panic_display::<alloc::string::String>\n   3: prism::cpg::s1c_label_tests::binding_shape_rows\n   4: prism::cpg::s1c_label_tests::binding_shape_rows::{closure#0}\n   5: <prism::cpg::s1c_label_tests::binding_shape_rows::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    cpg::s1c_label_tests::binding_shape_rows\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.61s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.295,
+          "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.29s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.362,
+          "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.36s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "opus-P3-static-block-var-scopes-enclosing-callable": {
+      "mode": "text",
+      "build_seconds": 14.87,
+      "runs": [
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.232,
+          "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_parameter_scopes_its_body_and_its_own_list ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.22s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.228,
+          "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_var_scopes_the_nearest_callable_body ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.22s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": false,
+      "verdict": "SURVIVED"
+    },
+    "opus-P4-flat-fallback-def-not-accepted": {
+      "mode": "text",
+      "build_seconds": 14.89,
+      "runs": [
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.383,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.38s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.493,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.49s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.293,
+          "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.29s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.391,
+          "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.39s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": false,
+      "verdict": "SURVIVED"
+    },
+    "opus-P5-real-use-bytes-ignored": {
+      "mode": "text",
+      "build_seconds": 13.5,
+      "runs": [
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.363,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.36s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.514,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.51s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.301,
+          "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.30s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.331,
+          "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_write_scoped_by_an_enclosing_callable_refuses_only_that_callables_edges ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.32s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": false,
+      "verdict": "SURVIVED"
+    }
+  }
+}

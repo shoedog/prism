@@ -1,0 +1,14 @@
+[    0.5s] AUTHORITATIVE 9 mutants in 1 lane file(s); selected 9
+[  106.5s] AUTHORITATIVE source baseline 8 selectors, 0 inadmissible mutants
+[  107.0s] AUTHORITATIVE text worker 1/1: 9 mutants, seed=copy
+[  171.4s] AUTHORITATIVE text worker 1: baseline 8 selectors, 0 inadmissible mutants
+[  185.1s] AUTHORITATIVE sol-r1-instance-field-not-captured KILLED (text)
+[  198.4s] AUTHORITATIVE sol-r1-body-var-scopes-default KILLED (text)
+[  214.5s] AUTHORITATIVE sol-r1-block-function-hoisted KILLED (text)
+[  231.5s] AUTHORITATIVE sol-r1-unresolved-binding-ignored KILLED (text)
+[  243.7s] AUTHORITATIVE sol-r1-affects-reversed KILLED (text)
+[  257.2s] AUTHORITATIVE sol-r1-use-membership-ignored KILLED (text)
+[  274.1s] AUTHORITATIVE r2-tdz-visible-lookup-restored KILLED (text)
+[  291.4s] AUTHORITATIVE r2-outermost-shadow-instead-of-innermost KILLED (text)
+[  309.4s] AUTHORITATIVE r2-decorator-inside-parameter-scope KILLED (text)
+[  310.5s] AUTHORITATIVE TOTAL killed 9/9 admissible 9 quiet wait 0.0s timings {'quiet_wait': 0.0, 'source_baseline_build': 103.53, 'source_baseline': 2.29, 'text_mode': 203.9, 'total': 310.49}

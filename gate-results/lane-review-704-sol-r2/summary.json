@@ -1,0 +1,402 @@
+{
+  "authoritative": true,
+  "label": "AUTHORITATIVE",
+  "execution_mode": "text",
+  "jobs": 1,
+  "since": null,
+  "scope": null,
+  "selected": 9,
+  "killed": 9,
+  "admissible": 9,
+  "timings": {
+    "quiet_wait": 0.0,
+    "source_baseline_build": 103.53,
+    "source_baseline": 2.29,
+    "text_mode": 203.9,
+    "total": 310.49
+  },
+  "resources": {
+    "workers": 1,
+    "seed_methods": [
+      "copy"
+    ],
+    "worker_disk_peak_bytes": 2228469760,
+    "disk_measurement": "du -sk; allocated blocks, shared clone extents may be counted repeatedly",
+    "workers_cleaned": true
+  },
+  "baselines": {
+    "source": {
+      "('lib', 'cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.294,
+        "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.29s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'cpg::s1c_label_tests::binding_shape_rows')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.521,
+        "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.51s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.357,
+        "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.35s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.219,
+        "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.21s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.216,
+        "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.21s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.239,
+        "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.23s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.224,
+        "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.22s\n\n",
+        "failure_locations": []
+      },
+      "('lib', 'js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept')": {
+        "killed": false,
+        "timeout": false,
+        "admissible": true,
+        "status": 0,
+        "seconds": 0.215,
+        "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.21s\n\n",
+        "failure_locations": []
+      }
+    },
+    "workers": {
+      "0": {
+        "build_seconds": 61.82,
+        "runs": {
+          "('lib', 'cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.299,
+            "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.29s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'cpg::s1c_label_tests::binding_shape_rows')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.519,
+            "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.51s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.38,
+            "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.37s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.251,
+            "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.25s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.237,
+            "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.23s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.26,
+            "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.26s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.225,
+            "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.22s\n\n",
+            "failure_locations": []
+          },
+          "('lib', 'js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept')": {
+            "killed": false,
+            "timeout": false,
+            "admissible": true,
+            "status": 0,
+            "seconds": 0.232,
+            "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.23s\n\n",
+            "failure_locations": []
+          }
+        }
+      }
+    }
+  },
+  "static": {},
+  "text_confirmations": 0,
+  "results": {
+    "sol-r1-instance-field-not-captured": {
+      "mode": "text",
+      "build_seconds": 13.32,
+      "runs": [
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.29,
+          "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another ... FAILED\n\nfailures:\n\n---- js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another stdout ----\n\nthread 'js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another' (8661) panicked at src/ast/js_write_census/captured_tests.rs:151:5:\nassertion `left == right` failed\n  left: []\n right: [[]]\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::assert_failed_inner\n   3: core::panicking::assert_failed::<alloc::vec::Vec<alloc::vec::Vec<alloc::string::String>>, alloc::vec::Vec<alloc::vec::Vec<alloc::string::String>>>\n   4: prism::js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another\n   5: prism::js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another::{closure#0}\n   6: <prism::js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    js_write_census::captured_tests::a_field_initializer_is_a_region_and_its_arrow_is_another\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.28s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "sol-r1-body-var-scopes-default": {
+      "mode": "text",
+      "build_seconds": 13.0,
+      "runs": [
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.276,
+          "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default ... FAILED\n\nfailures:\n\n---- js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default stdout ----\n\nthread 'js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default' (9009) panicked at src/ast/js_write_census/captured_tests.rs:67:5:\nassertion failed: !scoped(\"g(function (z = (a++)) { var a; });\")\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::panic\n   3: prism::js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default\n   4: prism::js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default::{closure#0}\n   5: <prism::js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    js_write_census::captured_tests::a_body_declaration_never_scopes_a_parameter_default\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.27s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "sol-r1-block-function-hoisted": {
+      "mode": "text",
+      "build_seconds": 15.86,
+      "runs": [
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.284,
+          "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block ... FAILED\n\nfailures:\n\n---- js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block stdout ----\n\nthread 'js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block' (9363) panicked at src/ast/js_write_census/captured_tests.rs:107:5:\nassertion failed: scoped(\"g(() => { a++; function a() {} });\")\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::panic\n   3: prism::js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block\n   4: prism::js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block::{closure#0}\n   5: <prism::js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    js_write_census::captured_tests::a_function_or_class_declaration_scopes_its_block\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.27s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "sol-r1-unresolved-binding-ignored": {
+      "mode": "text",
+      "build_seconds": 16.01,
+      "runs": [
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.327,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.32s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.607,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... FAILED\n\nfailures:\n\n---- cpg::s1c_label_tests::binding_shape_rows stdout ----\n\nthread 'cpg::s1c_label_tests::binding_shape_rows' (9722) panicked at src/cpg/s1c_label_tests.rs:230:5:\nthis_in_arrow this.x@2->this.x@4: want nameonly/cfg_incomplete, got [\"exact\"]\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::panic_display::<alloc::string::String>\n   3: prism::cpg::s1c_label_tests::binding_shape_rows\n   4: prism::cpg::s1c_label_tests::binding_shape_rows::{closure#0}\n   5: <prism::cpg::s1c_label_tests::binding_shape_rows::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    cpg::s1c_label_tests::binding_shape_rows\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.60s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "sol-r1-affects-reversed": {
+      "mode": "text",
+      "build_seconds": 11.63,
+      "runs": [
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.581,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... FAILED\n\nfailures:\n\n---- cpg::s1c_label_tests::binding_shape_rows stdout ----\n\nthread 'cpg::s1c_label_tests::binding_shape_rows' (10076) panicked at src/cpg/s1c_label_tests.rs:230:5:\nwhole_object_write_reaches_member_use o.x@2->o.x@4: want nameonly/cfg_incomplete, got [\"exact\"]\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::panic_display::<alloc::string::String>\n   3: prism::cpg::s1c_label_tests::binding_shape_rows\n   4: prism::cpg::s1c_label_tests::binding_shape_rows::{closure#0}\n   5: <prism::cpg::s1c_label_tests::binding_shape_rows::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    cpg::s1c_label_tests::binding_shape_rows\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.57s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "sol-r1-use-membership-ignored": {
+      "mode": "text",
+      "build_seconds": 13.21,
+      "runs": [
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.315,
+          "log_tail": "\nrunning 1 test\ntest cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write ... FAILED\n\nfailures:\n\n---- cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write stdout ----\n\nthread 'cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write' (10429) panicked at src/cpg/reaching/d2c_tests.rs:161:5:\nassertion `left == right` failed\n  left: NameOnly(CfgIncomplete)\n right: NameOnly(SameLine)\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::assert_failed_inner\n   3: core::panicking::assert_failed::<prism::cpg::flow_confidence::FlowConfidence, prism::cpg::flow_confidence::FlowConfidence>\n   4: prism::cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write\n   5: prism::cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write::{closure#0}\n   6: <prism::cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    cpg::reaching::d2c_tests::a_use_inside_the_writing_region_is_not_refused_by_that_write\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.31s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "r2-tdz-visible-lookup-restored": {
+      "mode": "text",
+      "build_seconds": 15.92,
+      "runs": [
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.409,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.40s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.595,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... FAILED\n\nfailures:\n\n---- cpg::s1c_label_tests::binding_shape_rows stdout ----\n\nthread 'cpg::s1c_label_tests::binding_shape_rows' (10794) panicked at src/cpg/s1c_label_tests.rs:230:5:\ntdz_let_after_closure_written_binding a@4->a@6: want nameonly/cfg_incomplete, got [\"exact\"]\ntdz_let_after_closure_outer_edge_untouched a@1->a@8: want exact, got [\"nameonly/cfg_incomplete\"]\nhoisted_block_function_written_binding a@4->a@6: want nameonly/cfg_incomplete, got [\"exact\"]\nhoisted_block_function_outer_edge_untouched a@1->a@8: want exact, got [\"nameonly/cfg_incomplete\"]\nclass_method_before_let_written_binding a@4->a@6: want nameonly/cfg_incomplete, got [\"exact\"]\nclass_method_before_let_outer_edge_untouched a@1->a@8: want exact, got [\"nameonly/cfg_incomplete\"]\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::panic_display::<alloc::string::String>\n   3: prism::cpg::s1c_label_tests::binding_shape_rows\n   4: prism::cpg::s1c_label_tests::binding_shape_rows::{closure#0}\n   5: <prism::cpg::s1c_label_tests::binding_shape_rows::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    cpg::s1c_label_tests::binding_shape_rows\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.59s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "r2-outermost-shadow-instead-of-innermost": {
+      "mode": "text",
+      "build_seconds": 16.16,
+      "runs": [
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.261,
+          "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept ... FAILED\n\nfailures:\n\n---- js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept stdout ----\n\nthread 'js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept' (11150) panicked at src/ast/js_write_census/captured_tests.rs:224:5:\nassertion `left == right` failed\n  left: Some(32)\n right: Some(45)\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::assert_failed_inner\n   3: core::panicking::assert_failed::<core::option::Option<usize>, core::option::Option<usize>>\n   4: prism::js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept\n   5: prism::js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept::{closure#0}\n   6: <prism::js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    js_write_census::captured_tests::only_the_innermost_scoping_declaration_is_kept\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.25s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.379,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.37s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.477,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.47s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    },
+    "r2-decorator-inside-parameter-scope": {
+      "mode": "text",
+      "build_seconds": 16.83,
+      "runs": [
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.274,
+          "log_tail": "\nrunning 1 test\ntest js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope ... FAILED\n\nfailures:\n\n---- js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope stdout ----\n\nthread 'js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope' (11521) panicked at src/ast/js_write_census/captured_tests.rs:194:5:\nassertion `left == right` failed\n  left: [[\"a\"]]\n right: [[]]\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::assert_failed_inner\n   3: core::panicking::assert_failed::<alloc::vec::Vec<alloc::vec::Vec<alloc::string::String>>, alloc::vec::Vec<alloc::vec::Vec<alloc::string::String>>>\n   4: prism::js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope\n   5: prism::js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope::{closure#0}\n   6: <prism::js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    js_write_census::captured_tests::a_parameters_decorators_are_outside_its_scope\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.27s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": false,
+          "timeout": false,
+          "admissible": true,
+          "status": 0,
+          "seconds": 0.329,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::matrix_rows_move_to_the_expected_label ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.32s\n\n",
+          "failure_locations": []
+        },
+        {
+          "killed": true,
+          "timeout": false,
+          "admissible": true,
+          "status": 101,
+          "seconds": 0.597,
+          "log_tail": "\nrunning 1 test\ntest cpg::s1c_label_tests::binding_shape_rows ... FAILED\n\nfailures:\n\n---- cpg::s1c_label_tests::binding_shape_rows stdout ----\n\nthread 'cpg::s1c_label_tests::binding_shape_rows' (11530) panicked at src/cpg/s1c_label_tests.rs:230:5:\nts_parameter_decorator_callback a@1->a@6: want nameonly/cfg_incomplete, got [\"exact\"]\ntsx_parameter_decorator_callback a@1->a@6: want nameonly/cfg_incomplete, got [\"exact\"]\nts_parameter_decorator_direct_update_in_deferred a@1->a@4: want nameonly/cfg_incomplete, got [\"exact\"]\nstack backtrace:\n   0: __rustc::rust_begin_unwind\n   1: core::panicking::panic_fmt\n   2: core::panicking::panic_display::<alloc::string::String>\n   3: prism::cpg::s1c_label_tests::binding_shape_rows\n   4: prism::cpg::s1c_label_tests::binding_shape_rows::{closure#0}\n   5: <prism::cpg::s1c_label_tests::binding_shape_rows::{closure#0} as core::ops::function::FnOnce<()>>::call_once\nnote: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.\n\n\nfailures:\n    cpg::s1c_label_tests::binding_shape_rows\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3029 filtered out; finished in 0.59s\n\n",
+          "failure_locations": []
+        }
+      ],
+      "admissible": true,
+      "killed": true,
+      "verdict": "KILLED"
+    }
+  }
+}

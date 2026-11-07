@@ -1,0 +1,5 @@
+2026-11-07T07:15:12Z head c3bdda6d8929dce59556d4013ab4b98a4b424f24 base - lanes: /tmp/probes/review-704-sol-r2.json /tmp/probes/review-704-opus-r2.json
+2026-11-07T07:15:15Z cargo fetch exit=0 secs=2
+2026-11-07T07:20:26Z lane-review-704-sol-r2 exit=0 wall=311s; [  310.5s] AUTHORITATIVE TOTAL killed 9/9 admissible 9 quiet wait 0.0s timings {'quiet_wait': 0.0, 'source_baseline_build': 103.53, 'source_baseline': 2.29, 'text_mode': 203.9, 'total': 310.49}
+2026-11-07T07:22:56Z lane-review-704-opus-r2 exit=1 wall=150s; [  150.2s] AUTHORITATIVE TOTAL killed 2/5 admissible 5 quiet wait 0.0s timings {'quiet_wait': 0.0, 'source_baseline_build': 11.36, 'source_baseline': 1.99, 'text_mode': 136.64, 'total': 150.23}
+2026-11-07T07:22:56Z peak disk GiB 13; peak mem MiB 2753

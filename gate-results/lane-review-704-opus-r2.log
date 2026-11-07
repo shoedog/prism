@@ -1,0 +1,10 @@
+[    0.0s] AUTHORITATIVE 5 mutants in 1 lane file(s); selected 5
+[   13.5s] AUTHORITATIVE source baseline 6 selectors, 0 inadmissible mutants
+[   14.4s] AUTHORITATIVE text worker 1/1: 5 mutants, seed=copy
+[   76.2s] AUTHORITATIVE text worker 1: baseline 6 selectors, 0 inadmissible mutants
+[   89.6s] AUTHORITATIVE opus-P1-line-placed-use-never-in-a-unit KILLED (text)
+[  102.4s] AUTHORITATIVE opus-P2-declared-target-as-outer KILLED (text)
+[  117.7s] AUTHORITATIVE opus-P3-static-block-var-scopes-enclosing-callable SURVIVED (text)
+[  134.1s] AUTHORITATIVE opus-P4-flat-fallback-def-not-accepted SURVIVED (text)
+[  149.2s] AUTHORITATIVE opus-P5-real-use-bytes-ignored SURVIVED (text)
+[  150.2s] AUTHORITATIVE TOTAL killed 2/5 admissible 5 quiet wait 0.0s timings {'quiet_wait': 0.0, 'source_baseline_build': 11.36, 'source_baseline': 1.99, 'text_mode': 136.64, 'total': 150.23}
