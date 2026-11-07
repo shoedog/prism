@@ -1,4 +1,4 @@
-//! Removal-only Go proofs. No CFG or RD label is used to discard a pair.
+//! Removal-only Go and Python proofs. No CFG or RD label is used to discard a pair.
 use crate::access_path::AccessPath;
 use crate::ast::{ParsedFile, PathSpan};
 use crate::cpg::RdFileStats;
@@ -39,6 +39,8 @@ pub(super) struct LexicalFacts<'a> {
     occurrences: BTreeMap<(String, usize), Vec<Node<'a>>>,
     real_reads: BTreeSet<(AccessPath, usize)>,
     nested: Vec<(usize, usize)>,
+    /// Python names declared `global`/`nonlocal` in the owner: D keeps them.
+    scope_declared: BTreeSet<String>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
 impl<'a> LexicalFacts<'a> {
@@ -50,21 +52,26 @@ impl<'a> LexicalFacts<'a> {
     ) -> Self {
         let mut facts = Self {
             parsed,
-            enabled: parsed.language == Language::Go && !owner.has_error(),
+            enabled: match parsed.language {
+                Language::Go => !owner.has_error(),
+                Language::Python => !owner.has_error() && owner.kind() == "function_definition",
+                _ => false,
+            },
             writes: BTreeMap::new(),
             occurrences: BTreeMap::new(),
             real_reads: BTreeSet::new(),
             nested: Vec::new(),
+            scope_declared: BTreeSet::new(),
             cache: RefCell::new(BTreeMap::new()),
         };
         if !facts.enabled {
             return facts;
         }
-        facts.collect(
-            owner,
-            owner.id(),
-            &parsed.language.callable_boundary_node_types(),
-        );
+        let mut boundaries = parsed.language.callable_boundary_node_types();
+        if parsed.language == Language::Python {
+            boundaries.extend(super::python_prune::NESTED_SCOPES);
+        }
+        facts.collect(owner, owner.id(), &boundaries);
         facts
             .real_reads
             .extend(rvalues.iter().map(|s| (s.path.clone(), s.line)));
@@ -86,6 +93,13 @@ impl<'a> LexicalFacts<'a> {
     fn collect(&mut self, node: Node<'a>, owner_id: usize, boundaries: &[&str]) {
         if node.id() != owner_id && boundaries.contains(&node.kind()) {
             self.nested.push((node.start_byte(), node.end_byte()));
+        }
+        if self.parsed.language == Language::Python {
+            super::python_prune::note_scope_declaration(
+                self.parsed,
+                node,
+                &mut self.scope_declared,
+            );
         }
         if self.parsed.language.is_identifier_node(node.kind()) {
             self.occurrences
@@ -121,6 +135,15 @@ impl<'a> LexicalFacts<'a> {
             || self.nested_at(span.start_byte)
         {
             return None;
+        }
+        if self.parsed.language == Language::Python {
+            let (statement, plain) =
+                super::python_prune::classify_write(node, (span.start_byte, span.end_byte))?;
+            return Some(Write {
+                span: (span.start_byte, span.end_byte),
+                statement,
+                plain,
+            });
         }
         node = node.parent()?;
         loop {
@@ -209,20 +232,24 @@ impl<'a> LexicalFacts<'a> {
         if self.nested_at(occurrence.start_byte()) {
             return None;
         }
+        if self.scope_declared.contains(&path.base) {
+            return None;
+        }
         let writes = self.writes.get(path)?;
         let mut child = occurrence;
         while let Some(region) = crate::go_statements::parent(child) {
-            if is_region(region.kind()) {
+            if self.is_region(region.kind()) {
                 if let Some(write) = writes.iter().rev().find(|write| {
                     write.statement.end_byte() <= child.start_byte()
                         && crate::go_statements::parent(write.statement)
                             .is_some_and(|p| p.id() == region.id())
                 }) {
-                    let broken = crate::go_statements::children(region, Language::Go).any(|n| {
-                        n.kind() == "labeled_statement"
-                            && write.statement.end_byte() <= n.start_byte()
-                            && n.start_byte() < child.end_byte()
-                    });
+                    let broken = self.parsed.language == Language::Go
+                        && crate::go_statements::children(region, Language::Go).any(|n| {
+                            n.kind() == "labeled_statement"
+                                && write.statement.end_byte() <= n.start_byte()
+                                && n.start_byte() < child.end_byte()
+                        });
                     if !broken {
                         return Some(Window {
                             write_start: write.statement.start_byte(),
@@ -235,6 +262,13 @@ impl<'a> LexicalFacts<'a> {
             child = region;
         }
         None
+    }
+
+    fn is_region(&self, kind: &str) -> bool {
+        match self.parsed.language {
+            Language::Python => super::python_prune::is_region(kind),
+            _ => is_region(kind),
+        }
     }
 
     /// U runs before get_use, so a proven write-only anchor is never minted.
@@ -263,6 +297,11 @@ impl<'a> LexicalFacts<'a> {
         if !self.enabled || self.nested_at(start) {
             return true;
         }
+        // Python attribute paths are not fixed storage (a rebound base, a property
+        // setter or descriptor can intercept a write): D proves plain names only.
+        if self.parsed.language == Language::Python && !path.fields.is_empty() {
+            return true;
+        }
         let drop = self
             .proof(path, line)
             .windows
@@ -283,6 +322,15 @@ fn is_region(kind: &str) -> bool {
 fn pure_path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
     match node.kind() {
         "identifier" => Some(AccessPath::simple(parsed.node_text(&node))),
+        "attribute" => {
+            let mut path = pure_path(parsed, node.child_by_field_name("object")?)?;
+            let field = node.child_by_field_name("attribute")?;
+            if field.kind() != "identifier" {
+                return None;
+            }
+            path.fields.push(parsed.node_text(&field).to_owned());
+            Some(path)
+        }
         "selector_expression" => {
             let mut path = pure_path(parsed, node.child_by_field_name("operand")?)?;
             let field = node.child_by_field_name("field")?;

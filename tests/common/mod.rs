@@ -1229,7 +1229,8 @@ pub fn assert_finding_evidence_provenance_cases() {
     use prism::finding_confidence::{EvidenceHop, FindingConfidence};
     let cases = [
         ("def f():\n    query = request.GET['q']\n    cursor.execute(query)\n", 3, FindingConfidence::Exact),
-        ("def f():\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n", 4, FindingConfidence::NameOnly),
+        // `global query` keeps Python rule D from dropping the killed straight-line edge (#630 slice 5).
+        ("def f():\n    global query\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n", 5, FindingConfidence::NameOnly),
     ];
     for (source, line, expected) in cases {
         let files = evidence_parsed_files(&[("p.py", source)]);
@@ -1244,13 +1245,18 @@ pub fn assert_finding_evidence_provenance_cases() {
         let expected_hop = match expected {
             FindingConfidence::Exact => FlowConfidence::Exact,
             FindingConfidence::NameOnly => {
-                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 })
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
             }
             _ => unreachable!(),
         };
+        let seed = if expected == FindingConfidence::NameOnly {
+            3
+        } else {
+            2
+        };
         assert!(evidence.hops.iter().any(|hop| matches!(hop,
             EvidenceHop::DataFlow { from, to, confidence }
-                if from.line == 2 && to.line == line && *confidence == expected_hop)));
+                if from.line == seed && to.line == line && *confidence == expected_hop)));
     }
 
     let source = "def source():\n    query = request.GET['q']\n\ndef consume():\n    cursor.execute(query)\n";
@@ -1270,23 +1276,26 @@ pub fn assert_finding_evidence_taint_cases() {
     use prism::finding_confidence::{EvidenceHop, FindingConfidence};
     for (source, sink_line, expected) in [
         ("def f(request):\n    query = request.GET['q']\n    cursor.execute(query)\n", 3, FindingConfidence::Exact),
-        ("def f(request):\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n", 4, FindingConfidence::NameOnly),
+        // `global query` depends on Python rule D's global/nonlocal exemption (no RD-killed shape
+        // that D cannot prove is used here); if D ever proves globals, rebuild this witness.
+        ("def f(request):\n    global query\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n", 5, FindingConfidence::NameOnly),
     ] {
         let files = evidence_parsed_files(&[("t.py", source)]);
-        let result = evidence_run(&files, &evidence_diff("t.py", 2), SlicingAlgorithm::Taint);
+        let seed = if expected == FindingConfidence::NameOnly { 3 } else { 2 };
+        let result = evidence_run(&files, &evidence_diff("t.py", seed), SlicingAlgorithm::Taint);
         let evidence = evidence_at(&result, "taint_sink", "reaches sink", Some(sink_line));
         assert!(!evidence.hops.is_empty() && !evidence.crossed_unlabeled);
         assert_evidence_grade("taint", evidence, expected);
         let expected_hop = match expected {
             FindingConfidence::Exact => FlowConfidence::Exact,
             FindingConfidence::NameOnly => {
-                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 })
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
             }
             _ => unreachable!(),
         };
         assert!(evidence.hops.iter().any(|hop| matches!(hop,
             EvidenceHop::DataFlow { from, to, confidence }
-                if from.line == 2 && to.line == sink_line && *confidence == expected_hop)));
+                if from.line == seed && to.line == sink_line && *confidence == expected_hop)));
     }
 }
 
@@ -1295,7 +1304,8 @@ pub fn assert_finding_evidence_taint_cross_file_case(killed: bool) {
     use prism::finding_confidence::{EvidenceHop, FindingConfidence};
     let (source, expected) = if killed {
         (
-            "def entry(request):\n    query = request.GET['q']\n    query = clean(query)\n    deliver(query)\n",
+            // `global query`: depends on D's global exemption, as above.
+            "def entry(request):\n    global query\n    query = request.GET['q']\n    query = clean(query)\n    deliver(query)\n",
             FindingConfidence::NameOnly,
         )
     } else {
@@ -1307,7 +1317,12 @@ pub fn assert_finding_evidence_taint_cross_file_case(killed: bool) {
     let callee = "def deliver(query):\n    marker = 0\n    cursor.execute(query)\n";
     let sink_line = 3;
     let files = evidence_parsed_files(&[("a.py", source), ("b.py", callee)]);
-    let result = evidence_run(&files, &evidence_diff("a.py", 2), SlicingAlgorithm::Taint);
+    let seed = if killed { 3 } else { 2 };
+    let result = evidence_run(
+        &files,
+        &evidence_diff("a.py", seed),
+        SlicingAlgorithm::Taint,
+    );
     let evidence = evidence_at_file(&result, "b.py", "taint_sink", "reaches sink", sink_line);
     assert!(
         !evidence.hops.is_empty() && !evidence.crossed_unlabeled,
@@ -1334,11 +1349,11 @@ pub fn assert_finding_evidence_taint_cross_file_case(killed: bool) {
             evidence.hops.iter().any(|hop| matches!(hop,
             EvidenceHop::DataFlow { from, to, confidence }
                 if from.file == "a.py"
-                    && from.line == 2
+                    && from.line == 3
                     && to.file == "a.py"
-                    && to.line == 4
+                    && to.line == 5
                     && *confidence
-                        == FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 }))),
+                        == FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }))),
             "selected witness must retain the NameOnly pre-call hop: {evidence:#?}"
         );
     }

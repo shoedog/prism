@@ -50,6 +50,9 @@ mod order_prune_tests;
 mod owner_labels;
 #[cfg(test)]
 mod prune_cap_tests;
+mod python_prune;
+#[cfg(test)]
+mod python_prune_tests;
 mod scope_prune;
 #[cfg(test)]
 mod scope_prune_tests;
