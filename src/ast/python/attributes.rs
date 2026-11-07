@@ -1,6 +1,9 @@
 //! Python attribute loads, properties and self-instance methods.
 
-use crate::ast::{byte_range_eq, ParsedFile, PythonAttributeLoadCandidate, PythonAttributeLoadScan, PythonPropertyKind};
+use crate::ast::{
+    byte_range_eq, ParsedFile, PythonAttributeLoadCandidate, PythonAttributeLoadScan,
+    PythonPropertyKind,
+};
 use crate::languages::Language;
 use std::collections::BTreeSet;
 use tree_sitter::Node;

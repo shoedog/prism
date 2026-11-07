@@ -378,7 +378,10 @@ impl ParsedFile {
             .collect()
     }
 
-    pub(in crate::ast) fn go_enclosing_binding_scope<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
+    pub(in crate::ast) fn go_enclosing_binding_scope<'a>(
+        &self,
+        node: Node<'a>,
+    ) -> Option<Node<'a>> {
         let mut parent = node.parent();
         while let Some(scope) = parent {
             if matches!(
@@ -516,7 +519,12 @@ impl ParsedFile {
         })
     }
 
-    pub(in crate::ast) fn go_parameter_binds_name(&self, param: Node<'_>, ty: Node<'_>, receiver: &str) -> bool {
+    pub(in crate::ast) fn go_parameter_binds_name(
+        &self,
+        param: Node<'_>,
+        ty: Node<'_>,
+        receiver: &str,
+    ) -> bool {
         let mut cursor = param.walk();
         for child in param.children(&mut cursor) {
             if child.start_byte() >= ty.start_byte() {

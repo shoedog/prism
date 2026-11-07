@@ -6,7 +6,11 @@ use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 impl ParsedFile {
-    pub(in crate::ast) fn collect_python_imports(&self, node: Node<'_>, out: &mut BTreeMap<String, String>) {
+    pub(in crate::ast) fn collect_python_imports(
+        &self,
+        node: Node<'_>,
+        out: &mut BTreeMap<String, String>,
+    ) {
         match node.kind() {
             // `import utils` or `import utils as u`
             "import_statement" => {

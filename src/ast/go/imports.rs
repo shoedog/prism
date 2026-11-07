@@ -5,7 +5,11 @@ use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 impl ParsedFile {
-    pub(in crate::ast) fn collect_go_imports(&self, node: Node<'_>, out: &mut BTreeMap<String, String>) {
+    pub(in crate::ast) fn collect_go_imports(
+        &self,
+        node: Node<'_>,
+        out: &mut BTreeMap<String, String>,
+    ) {
         match node.kind() {
             "import_declaration" => {
                 let mut cursor = node.walk();

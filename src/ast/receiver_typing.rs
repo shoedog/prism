@@ -1,7 +1,6 @@
 //! Receiver type evidence inside a function (the shared entry points).
 
 use crate::ast::{go_receiver_walk, ParsedFile};
-use crate::languages::Language;
 use tree_sitter::Node;
 
 impl ParsedFile {
@@ -263,7 +262,11 @@ impl ParsedFile {
     /// A declaration must finish in a statement list that reaches the call.
     /// Crossing a conditional, loop, exception handler, or callable is not proof
     /// of execution. Ordinary nested blocks are transparent.
-    pub(super) fn receiver_declaration_reaches_call(&self, declaration: Node<'_>, call_byte: usize) -> bool {
+    pub(super) fn receiver_declaration_reaches_call(
+        &self,
+        declaration: Node<'_>,
+        call_byte: usize,
+    ) -> bool {
         if declaration.end_byte() > call_byte {
             return false;
         }
