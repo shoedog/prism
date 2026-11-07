@@ -38,6 +38,8 @@ mod giant_owner_tests;
 #[cfg(test)]
 mod go_blank_tests;
 #[cfg(test)]
+mod go_nodef_defs_tests;
+#[cfg(test)]
 mod legacy_producer;
 mod lexical_prune;
 #[cfg(test)]
@@ -53,6 +55,9 @@ mod prune_cap_tests;
 mod scope_prune;
 #[cfg(test)]
 mod scope_prune_tests;
+mod scope_split;
+#[cfg(test)]
+mod split_fold2_tests;
 
 pub(super) struct Producer;
 pub(super) struct FileRefs {

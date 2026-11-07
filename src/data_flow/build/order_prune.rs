@@ -39,6 +39,7 @@ struct Built<'a> {
     loops: Vec<Span>,
     nested: Vec<Span>,
     address_taken: BTreeSet<&'a str>,
+    split: super::scope_split::SplitFacts,
 }
 
 pub(super) struct OrderFacts<'a> {
@@ -104,6 +105,7 @@ impl<'a> OrderFacts<'a> {
             loops,
             nested,
             address_taken: address_taken_names(self.parsed, self.owner, &names),
+            split: super::scope_split::SplitFacts::new(self.parsed, self.owner),
         };
         for (index, def) in self
             .defs
@@ -265,6 +267,14 @@ impl<'a> OrderFacts<'a> {
         let Some(declaration) = verdict else {
             return true;
         };
+        // A split header or spec keeps main's behaviour (`scope_split`, #728).
+        if built
+            .def_index
+            .get(&(def_start, path.clone()))
+            .is_some_and(|i| built.split.exempts(&built.facts, &path.base, *i, def_start))
+        {
+            return true;
+        }
         let def_nested = *self
             .def_nested
             .borrow_mut()
