@@ -158,6 +158,19 @@ def parse_test_targets(lane, raw):
     return tuple(out)
 
 
+def check_edit_path(lane, mid, file):
+    """A lane edit names a file of the repository the scratch tree copies: `src/`, `scripts/` or
+    `crates/<member>/`, relative, with no `..` (which would leave the copied directory and, in the
+    tree, follow a symlink to the live checkout)."""
+    parts = file.split('/') if isinstance(file, str) else []
+    ok = (bool(parts) and not file.startswith('/') and not {'..', '.', ''}.intersection(parts)
+          and ((parts[0] in ('src', 'scripts') and len(parts) > 1)
+               or (parts[0] == 'crates' and len(parts) > 2)))
+    if not ok:
+        raise ValueError(f'{lane}: {mid}: edit path {file!r} must be relative, free of ".." and ".", and under '
+                         'src/, scripts/ or crates/<member>/')
+
+
 def load_population(lane_files):
     muts = {}
     for lf in lane_files:
@@ -167,6 +180,7 @@ def load_population(lane_files):
         for mid, (file, a, b, test) in d['mutations'].items():
             assert mid not in muts, ('duplicate mutant id', mid, lf)
             edits = [(file, a, b)] + [tuple(e) for e in extra.get(mid, [])]
+            for edit in edits: check_edit_path(Path(lf).stem, mid, edit[0])
             tests = test if isinstance(test, list) else [test]
             muts[mid] = {'id': mid, 'lane': Path(lf).stem, 'edits': edits, 'tests': tests,
                          'lib_prefixes': tuple(d.get('lib_test_prefixes', LIB_PREFIXES_DEFAULT)),
@@ -380,17 +394,34 @@ def allow_member_crates(rendered, units):
 
 
 # ---------------------------------------------------------------- tree sync
+def real_destination(tree, dst, checked):
+    """Make every component from `tree` down to `dst` a real directory (the last one a real path or
+    absent): a symlink found on the way (a stale link into the live checkout) is removed, never
+    followed, so a write to `dst` cannot reach outside the scratch tree. `checked` memoises the
+    directories already verified in this sync."""
+    cur = tree
+    for part in dst.relative_to(tree).parts[:-1]:
+        cur = cur / part
+        if cur in checked: continue
+        if cur.is_symlink(): cur.unlink()
+        cur.mkdir(exist_ok=True)
+        checked.add(cur)
+    if dst.is_symlink(): dst.unlink()
+
+
 def sync_tree(tree, overrides):
     """Build the scratch tree: real copies of src/, vendor/, scripts/, crates/ (when present) and
     manifests, symlinks to the live repo for every other top-level entry (tests, fixtures, README,
-    eval, docs...). A copied entry is never a symlink, so no mutant is written through to the live
-    checkout. Only files whose bytes differ are written, so mtimes stay stable and cargo stays
+    eval, docs...). Nothing under a copied entry is a symlink when a write happens: a link on the
+    destination path (the entry itself, a descendant directory or the file) is replaced first and the
+    prune never follows one, so no mutant is written through to the live checkout. Only files whose bytes differ are written, so mtimes stay stable and cargo stays
     incremental."""
     tree.mkdir(parents=True, exist_ok=True)
-    want = set()
+    want, checked = set(), set()
     for item in COPIED:
         # An older warm tree may still link scripts/ (or, before crates/ was copied, crates/)
-        # into the live checkout.
+        # into the live checkout. Every link on a destination path, this one or a descendant, is
+        # replaced here and in real_destination BEFORE the first write that could follow it.
         if (tree / item).is_symlink():
             (tree / item).unlink()
         src = ROOT / item
@@ -400,11 +431,13 @@ def sync_tree(tree, overrides):
             rel = str(p.relative_to(ROOT)); want.add(rel)
             data = overrides[rel].encode() if rel in overrides else p.read_bytes()
             dst = tree / rel
+            real_destination(tree, dst, checked)
             if not dst.exists() or dst.read_bytes() != data:
                 dst.parent.mkdir(parents=True, exist_ok=True); dst.write_bytes(data)
             shutil.copymode(p, dst)
     for p in [q for d in COPIED_DIRS for q in (tree / d).rglob('*')]:
-        if p.is_file() and str(p.relative_to(tree)) not in want: p.unlink()
+        # A link left here is stale (the ones needed were replaced above); unlink() never follows it.
+        if p.is_symlink() or (p.is_file() and str(p.relative_to(tree)) not in want): p.unlink()
     for entry in ROOT.iterdir():
         if entry.name in COPIED or entry.name in ('target', '.git'): continue
         link = tree / entry.name

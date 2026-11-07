@@ -53,8 +53,11 @@ Each `mutants/<lane>.json` has a flat `mutations` map:
   prefix matches uses the earlier rule, so lanes without the field behave as before:
   `lib_test_prefixes` routes it to `prism`'s `--lib` test binary, and everything else
   to `prism`'s `--test integration` binary. A malformed field is an error at load,
-  naming the lane. An unknown package or target is a build failure (the lane's mutants
-  are INADMISSIBLE), never a skipped mutant.
+  naming the lane. An unknown package or target is a build failure, never a skipped
+  mutant: every mutant whose build includes that pair is INADMISSIBLE `baseline compile`
+  (in a multi-lane run, all selected mutants; in text mode, the affected worker's batch).
+  Edit paths (`mutations` and `extra`) must be relative, free of `..`, and under `src/`,
+  `scripts/` or `crates/<member>/`; anything else is rejected at load.
 - Lanes must not mutate a version constant's definition (`const CACHE_VERSION:
   u32 = N;`, `NAV_CALL_EDGE_CACHE_VERSION`, sidecar or protocol versions); mutants
   of code that *compares* against the constant (load-path version checks) are fine.
@@ -150,9 +153,11 @@ full gate for cross-cutting changes (tiers in `CLAUDE.md`).
 
 The scratch tree holds real copies of `src/`, `vendor/`, `scripts/`, `crates/` (when the
 repository has it) and the manifests; every other top-level entry is a symlink to the live
-checkout. A copied entry is never a link (an older warm tree's `scripts` or `crates` link is
-replaced, and `sync_tree` fails if one remains), so a mutant under `crates/` is never written
-into the live checkout. Anchors, schema planning and the macro scan read `src/**/*.rs` and
+checkout. Symlinks under the copied entries are replaced before any write: the entry itself
+(an older warm tree's `scripts` or `crates` link), a descendant directory or the destination
+file is unlinked and recreated as a real directory or file, and the prune step removes a stale
+link without following it. `sync_tree` fails if a copied top-level entry is still a link
+afterwards. So a mutant under `crates/` is never written into the live checkout. Anchors, schema planning and the macro scan read `src/**/*.rs` and
 `crates/*/src/**/*.rs`; the location-sensitivity scan also reads `tests/**/*.rs` and
 `crates/*/tests/**/*.rs`.
 
