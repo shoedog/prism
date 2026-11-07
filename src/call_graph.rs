@@ -721,11 +721,13 @@ pub struct CallGraph {
     /// Owner/profile-keyed promoted-selector facts, serialized for cache parity
     /// and consulted by deferred concrete promoted-selector routing.
     #[serde(default)]
-    go_promoted_selector_snapshot: crate::resolution::go::promoted_snapshot::GoPromotedSelectorSnapshot,
+    go_promoted_selector_snapshot:
+        crate::resolution::go::promoted_snapshot::GoPromotedSelectorSnapshot,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with
     /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
     #[serde(default)]
-    pub go_owner_identity_partition: crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry,
+    pub go_owner_identity_partition:
+        crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry,
     /// P10 build-time S2 decisions keyed by their source call site. `call-stats`
     /// coalesces this with the same site's runtime S4/P5/direct-method decision
     /// so `affected_sites` is a cardinality, not a count of pipeline stages.
@@ -4693,7 +4695,8 @@ impl CallGraph {
             if parsed.language != crate::languages::Language::Go {
                 continue;
             }
-            let (profile, count) = crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
+            let (profile, count) =
+                crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
             profiles.insert(path.to_string(), profile);
             if count > 0 {
                 unparsed.insert(path.to_string(), count);

@@ -1,6 +1,6 @@
 use super::*;
-use crate::type_providers::go::type_alias::import_memo::measured;
 use crate::languages::Language;
+use crate::type_providers::go::type_alias::import_memo::measured;
 use crate::type_providers::go::GoTypeProvider;
 
 #[test]

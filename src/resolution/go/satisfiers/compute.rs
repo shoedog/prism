@@ -12,13 +12,14 @@ impl CallGraph {
         let mut evidence = crate::resolution::go::owner_partition::GoPartitionEvidence::default();
         let mut promoted_telemetry = GoProvenPromotedSupplyTelemetry::default();
         let mode = self.go_owner_reference_mode(interface_owner, caller_file);
-        let interface = crate::resolution::go::owner_partition::select_interface_signatures_with_mode(
-            interface_owner,
-            caller_file,
-            mode,
-            &self.go_interface_declarations,
-            &self.go_file_profiles,
-        );
+        let interface =
+            crate::resolution::go::owner_partition::select_interface_signatures_with_mode(
+                interface_owner,
+                caller_file,
+                mode,
+                &self.go_interface_declarations,
+                &self.go_file_profiles,
+            );
         evidence.merge(interface.evidence);
         let Some(required) = interface.value else {
             return GoCallerScopedSatisfiers {
@@ -59,11 +60,12 @@ impl CallGraph {
                 .into_iter()
                 .flatten()
             {
-                let (visible, exact) = crate::resolution::go::owner_partition::exact_cross_package_visibility(
-                    caller_file,
-                    &declaration.defining_file,
-                    &self.go_file_profiles,
-                );
+                let (visible, exact) =
+                    crate::resolution::go::owner_partition::exact_cross_package_visibility(
+                        caller_file,
+                        &declaration.defining_file,
+                        &self.go_file_profiles,
+                    );
                 if !visible {
                     continue;
                 }

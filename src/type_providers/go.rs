@@ -538,7 +538,8 @@ impl GoTypeProvider {
             embedded_interface_routes: BTreeMap::new(),
         };
 
-        let (go_file_profiles, _) = crate::resolution::go::build_profile::extract_go_file_profiles(files);
+        let (go_file_profiles, _) =
+            crate::resolution::go::build_profile::extract_go_file_profiles(files);
         let local_paths = Self::local_import_paths(package_import_paths, &go_file_profiles);
         let imports = type_alias::SignatureImportMemo::parallel(files, &local_paths);
         let alias_resolver = type_alias::GoAliasResolver::build_with_import_memo(
@@ -639,15 +640,21 @@ impl GoTypeProvider {
         self.data.field_types.clone()
     }
 
-    pub fn go_struct_declarations(&self) -> crate::resolution::go::owner_partition::GoStructDeclarations {
+    pub fn go_struct_declarations(
+        &self,
+    ) -> crate::resolution::go::owner_partition::GoStructDeclarations {
         self.data.struct_declarations.clone()
     }
 
-    pub fn go_interface_declarations(&self) -> crate::resolution::go::owner_partition::GoInterfaceDeclarations {
+    pub fn go_interface_declarations(
+        &self,
+    ) -> crate::resolution::go::owner_partition::GoInterfaceDeclarations {
         self.data.interface_declarations.clone()
     }
 
-    pub fn go_method_declarations(&self) -> crate::resolution::go::owner_partition::GoMethodDeclarations {
+    pub fn go_method_declarations(
+        &self,
+    ) -> crate::resolution::go::owner_partition::GoMethodDeclarations {
         self.data.method_declarations.clone()
     }
 
@@ -878,8 +885,12 @@ impl GoTypeProvider {
         };
         if let Some(owner) = Self::record_type_declaration(data, path, &name, parsed) {
             let form = match type_node.kind() {
-                "struct_type" => crate::resolution::go::concrete_receiver::GoTypeDeclarationForm::Struct,
-                "interface_type" => crate::resolution::go::concrete_receiver::GoTypeDeclarationForm::Interface,
+                "struct_type" => {
+                    crate::resolution::go::concrete_receiver::GoTypeDeclarationForm::Struct
+                }
+                "interface_type" => {
+                    crate::resolution::go::concrete_receiver::GoTypeDeclarationForm::Interface
+                }
                 _ => crate::resolution::go::concrete_receiver::GoTypeDeclarationForm::Defined {
                     target: parsed.node_text(&type_node).trim().to_string(),
                 },
@@ -900,7 +911,8 @@ impl GoTypeProvider {
                     Self::extract_struct_fields(&type_node, parsed);
                 // P5 S1: package-scoped owner identity, distinct from the bare
                 // `name` key `data.structs` uses (spec-review MAJOR-1).
-                let (profile, _) = crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
+                let (profile, _) =
+                    crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
                 let owner = (!profile.package_clause.trim().is_empty()).then(|| {
                     crate::resolution::GoOwnerIdentity {
                         package_dir: crate::resolution::dir_of(path).to_string(),
@@ -917,20 +929,22 @@ impl GoTypeProvider {
                     data.struct_declarations
                         .entry(owner.clone())
                         .or_default()
-                        .insert(crate::resolution::go::owner_partition::GoStructDeclaration {
-                            defining_file: path.to_string(),
-                            fields: fields.iter().cloned().collect(),
-                            embedded_fields: embedded
-                                .iter()
-                                .map(|e| (e.name.clone(), e.raw_type.clone()))
-                                .collect(),
-                            unresolved_embedded_fields: unresolved_embedded,
-                            embedded_types: embedded
-                                .iter()
-                                .filter(|e| !e.is_pointer && e.local_target_name().is_some())
-                                .map(|e| e.name.clone())
-                                .collect(),
-                        });
+                        .insert(
+                            crate::resolution::go::owner_partition::GoStructDeclaration {
+                                defining_file: path.to_string(),
+                                fields: fields.iter().cloned().collect(),
+                                embedded_fields: embedded
+                                    .iter()
+                                    .map(|e| (e.name.clone(), e.raw_type.clone()))
+                                    .collect(),
+                                unresolved_embedded_fields: unresolved_embedded,
+                                embedded_types: embedded
+                                    .iter()
+                                    .filter(|e| !e.is_pointer && e.local_target_name().is_some())
+                                    .map(|e| e.name.clone())
+                                    .collect(),
+                            },
+                        );
                     for (field_name, field_type) in &fields {
                         if field_type.trim_start().starts_with("func(") {
                             data.func_typed_fields
@@ -999,7 +1013,8 @@ impl GoTypeProvider {
             alias_resolver,
         );
         data.dispatch_overapprox.extend(overapprox);
-        let (profile, _) = crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
+        let (profile, _) =
+            crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
         if !profile.package_clause.trim().is_empty() {
             let owner = crate::resolution::GoOwnerIdentity {
                 package_dir: crate::resolution::dir_of(path).to_string(),
@@ -1009,22 +1024,24 @@ impl GoTypeProvider {
             data.interface_declarations
                 .entry(owner)
                 .or_default()
-                .insert(crate::resolution::go::owner_partition::GoInterfaceDeclaration {
-                    defining_file: path.to_string(),
-                    methods: methods.keys().cloned().collect(),
-                    method_signatures: methods
-                        .iter()
-                        .filter_map(|(method, signature)| {
-                            signature
-                                .as_ref()
-                                .ok()
-                                .map(|signature| (method.clone(), signature.clone()))
-                        })
-                        .collect(),
-                    embedded_types: embedded.iter().cloned().collect(),
-                    generic,
-                    dispatchable: !generic && methods.values().all(Result::is_ok),
-                });
+                .insert(
+                    crate::resolution::go::owner_partition::GoInterfaceDeclaration {
+                        defining_file: path.to_string(),
+                        methods: methods.keys().cloned().collect(),
+                        method_signatures: methods
+                            .iter()
+                            .filter_map(|(method, signature)| {
+                                signature
+                                    .as_ref()
+                                    .ok()
+                                    .map(|signature| (method.clone(), signature.clone()))
+                            })
+                            .collect(),
+                        embedded_types: embedded.iter().cloned().collect(),
+                        generic,
+                        dispatchable: !generic && methods.values().all(Result::is_ok),
+                    },
+                );
         }
         data.interface_name_owners
             .entry(name.clone())
@@ -1048,7 +1065,8 @@ impl GoTypeProvider {
         name: &str,
         parsed: &ParsedFile,
     ) -> Option<crate::resolution::GoOwnerIdentity> {
-        let (profile, _) = crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
+        let (profile, _) =
+            crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
         if profile.package_clause.trim().is_empty() {
             return None;
         }
@@ -1530,15 +1548,11 @@ impl GoTypeProvider {
             .canonicalize(node, parsed, path, imports)
             .map_err(|error| match error {
                 type_alias::CanonTypeError::Generic => GoDispatchGap::Generic,
-                type_alias::CanonTypeError::AnonymousInterface => {
-                    GoDispatchGap::AnonymousInterface
-                }
+                type_alias::CanonTypeError::AnonymousInterface => GoDispatchGap::AnonymousInterface,
                 type_alias::CanonTypeError::QualifiedTypeIdentity => {
                     GoDispatchGap::QualifiedTypeIdentity
                 }
-                type_alias::CanonTypeError::UnknownCanonType => {
-                    GoDispatchGap::UnknownCanonType
-                }
+                type_alias::CanonTypeError::UnknownCanonType => GoDispatchGap::UnknownCanonType,
                 type_alias::CanonTypeError::Alias(_) => GoDispatchGap::AliasUnresolved,
             })
     }
@@ -1811,7 +1825,8 @@ impl GoTypeProvider {
         let end_line = node.end_position().row + 1;
         let (params, variadic) = Self::count_method_params(node);
 
-        let (profile, _) = crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
+        let (profile, _) =
+            crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
         if !profile.package_clause.trim().is_empty() {
             data.method_declarations
                 .entry(crate::resolution::GoOwnerIdentity {
@@ -1820,19 +1835,21 @@ impl GoTypeProvider {
                     name: receiver_type.clone(),
                 })
                 .or_default()
-                .insert(crate::resolution::go::owner_partition::GoMethodDeclaration {
-                    defining_file: path.to_string(),
-                    method_name: name.clone(),
-                    signature: sig.clone().ok(),
-                    generic,
-                    is_pointer_receiver: is_pointer,
-                    function_id: FunctionId {
-                        name: name.clone(),
-                        file: path.to_string(),
-                        start_line,
-                        end_line,
+                .insert(
+                    crate::resolution::go::owner_partition::GoMethodDeclaration {
+                        defining_file: path.to_string(),
+                        method_name: name.clone(),
+                        signature: sig.clone().ok(),
+                        generic,
+                        is_pointer_receiver: is_pointer,
+                        function_id: FunctionId {
+                            name: name.clone(),
+                            file: path.to_string(),
+                            start_line,
+                            end_line,
+                        },
                     },
-                });
+                );
         }
 
         data.methods

@@ -1,7 +1,7 @@
 //! Exact visibility for Go cross-file receiver facts.
 
-use crate::resolution::go::owner_partition::{exact_declaration_visibility, GoOwnerReferenceMode};
 use crate::go_receiver_index::{GoReturnTypes, GoTypedFact};
+use crate::resolution::go::owner_partition::{exact_declaration_visibility, GoOwnerReferenceMode};
 use crate::resolution::resolve_go_receiver_owner_identity;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -16,7 +16,8 @@ pub(crate) fn resolve_go_return_type_call(
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
     return_types: &GoReturnTypes,
     go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
-) -> crate::resolution::go::owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity> {
+) -> crate::resolution::go::owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity>
+{
     let Some(identity) = resolve_go_receiver_owner_identity(
         callee_text,
         caller_file,
@@ -144,7 +145,8 @@ fn unique_visible_return_owner(
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
     go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
-) -> crate::resolution::go::owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity> {
+) -> crate::resolution::go::owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity>
+{
     let all_values: BTreeSet<_> = facts.iter().map(|fact| fact.ty.clone()).collect();
     let mut evidence = crate::resolution::go::owner_partition::GoPartitionEvidence::default();
     let mut owners = BTreeSet::new();
@@ -261,7 +263,10 @@ pub(crate) fn unique_visible_package_var_type(
             continue;
         }
         evidence.visible_declarations += 1;
-        if !crate::resolution::go::build_profile::visibility_allows_exact(Some(defining_profile), &visibility) {
+        if !crate::resolution::go::build_profile::visibility_allows_exact(
+            Some(defining_profile),
+            &visibility,
+        ) {
             evidence.uncertain = true;
             return crate::resolution::go::owner_partition::GoPartitionSelection {
                 value: None,

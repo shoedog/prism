@@ -1,9 +1,11 @@
 //! Profile-aware Go type-alias declaration snapshots and canonical expansion.
 
 use crate::ast::ParsedFile;
-use crate::resolution::go::build_profile::{build_profile_implies, GoBuildImplication, GoBuildProfile};
-use crate::resolution::go::owner_partition::{exact_declaration_visibility, GoOwnerReferenceMode};
 use crate::languages::Language;
+use crate::resolution::go::build_profile::{
+    build_profile_implies, GoBuildImplication, GoBuildProfile,
+};
+use crate::resolution::go::owner_partition::{exact_declaration_visibility, GoOwnerReferenceMode};
 use crate::resolution::{dir_of, GoOwnerIdentity};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};

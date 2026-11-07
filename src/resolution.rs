@@ -2921,13 +2921,14 @@ impl CallGraph {
                                         .flatten()
                                         .filter(|declaration| declaration.method_name == name)
                                         .filter_map(|declaration| {
-                                            let (visible, exact) = go::owner_partition::exact_declaration_visibility(
-                                                owner,
-                                                &caller.file,
-                                                mode,
-                                                &declaration.defining_file,
-                                                &self.go_file_profiles,
-                                            );
+                                            let (visible, exact) =
+                                                go::owner_partition::exact_declaration_visibility(
+                                                    owner,
+                                                    &caller.file,
+                                                    mode,
+                                                    &declaration.defining_file,
+                                                    &self.go_file_profiles,
+                                                );
                                             uncertain |= visible && !exact;
                                             (visible && exact)
                                                 .then_some(declaration.defining_file.as_str())
@@ -3508,8 +3509,7 @@ impl CallGraph {
             );
             telemetry.go_build_expr_unparsed += vis.diagnostics.unparsed;
             if vis.visible {
-                if !go::build_profile::visibility_allows_exact(Some(&candidate_profile), &vis)
-                {
+                if !go::build_profile::visibility_allows_exact(Some(&candidate_profile), &vis) {
                     survivors_allow_exact = false;
                 }
                 survivors.push(*fid);

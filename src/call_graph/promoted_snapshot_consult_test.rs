@@ -1,8 +1,10 @@
 use super::{CallGraph, CallSite, FunctionId};
 use crate::ast::ParsedFile;
-use crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute;
-use crate::resolution::go::promoted_snapshot::{GoPromotedOwnerSnapshot, GoPromotedSnapshotVerdict};
 use crate::languages::Language;
+use crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute;
+use crate::resolution::go::promoted_snapshot::{
+    GoPromotedOwnerSnapshot, GoPromotedSnapshotVerdict,
+};
 use crate::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
 use serde_json::Value;
 use std::collections::BTreeMap;

@@ -2,8 +2,8 @@
 
 use crate::ast::ParsedFile;
 use crate::call_graph::{CallKind, CallSite, CallSiteOrigin, FunctionId};
-use crate::resolution::go::build_profile::GoBuildProfile;
 use crate::languages::Language;
+use crate::resolution::go::build_profile::GoBuildProfile;
 use crate::resolution::{dir_of, GoOwnerIdentity};
 use crate::type_providers::go::GoTypeProvider;
 use serde::{Deserialize, Serialize};
@@ -46,13 +46,14 @@ pub(crate) fn extract_go_callback_indices(
         &clean_package_dirs,
         &recovery,
     );
-    let alias_resolver = crate::type_providers::go::type_alias::GoAliasResolver::build_callback_strict(
-        files,
-        package_import_paths,
-        package_import_paths,
-        &profiles,
-        &imports,
-    );
+    let alias_resolver =
+        crate::type_providers::go::type_alias::GoAliasResolver::build_callback_strict(
+            files,
+            package_import_paths,
+            package_import_paths,
+            &profiles,
+            &imports,
+        );
     let declarations = named_type_declarations(files, &profiles, &clean_package_dirs, &recovery);
     let context = CallbackExtractionContext {
         files,

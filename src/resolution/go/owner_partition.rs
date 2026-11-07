@@ -353,10 +353,7 @@ where
             }
             let overlap =
                 super::build_profile::go_same_package_visible(&left_profile, &right_profile)
-                    || super::build_profile::go_same_package_visible(
-                        &right_profile,
-                        &left_profile,
-                    );
+                    || super::build_profile::go_same_package_visible(&right_profile, &left_profile);
             if !overlap && left_values != right_values {
                 evidence.conflict = true;
                 return GoPartitionSelection {

@@ -16,7 +16,8 @@ impl<'a> RecoveryFacts<'a> {
         profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
     ) -> Self {
         #[cfg(test)]
-        if crate::type_providers::go::type_alias::import_memo::parallel::serial_reference_enabled() {
+        if crate::type_providers::go::type_alias::import_memo::parallel::serial_reference_enabled()
+        {
             return Self {
                 rows: BTreeMap::new(),
                 serial: true,

@@ -1,7 +1,7 @@
 //! Proven resolution of named Go function types used by P5 fields.
 
-use crate::call_graph::CallGraph;
 use super::concrete_receiver::{GoTypeDeclarationForm, GoTypeDeclarations};
+use crate::call_graph::CallGraph;
 use crate::resolution::GoOwnerIdentity;
 use std::collections::{BTreeMap, BTreeSet};
 

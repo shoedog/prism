@@ -1,6 +1,6 @@
 //! Reuse the phase's import scans for both aliases and signatures.
-use crate::ast::ParsedFile;
 use super::type_alias::SignatureImportMemo;
+use crate::ast::ParsedFile;
 use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::collections::BTreeMap;

@@ -1,7 +1,7 @@
 //! Declaration-backed routing for recovered Go receiver types.
 
-use crate::call_graph::CallGraph;
 use super::owner_partition::{GoPartitionEvidence, GoPartitionSelection};
+use crate::call_graph::CallGraph;
 use crate::resolution::GoOwnerIdentity;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -532,13 +532,13 @@ impl CallGraph {
                     GoConcreteReceiverRoute::ConcretePromotedDeferred { owner }
                 }
             }
-            Some(super::selector_supply::GoEmbeddedSelectorSupply::Interface(
-                interface_name,
-            )) => GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
-                owner,
-                interface_name,
-                evidence: supply.evidence,
-            },
+            Some(super::selector_supply::GoEmbeddedSelectorSupply::Interface(interface_name)) => {
+                GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                    owner,
+                    interface_name,
+                    evidence: supply.evidence,
+                }
+            }
             Some(super::selector_supply::GoEmbeddedSelectorSupply::NoSelector) => {
                 GoConcreteReceiverRoute::ConcreteNoSelector {
                     owner,
