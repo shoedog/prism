@@ -249,3 +249,34 @@ fn header_defs_are_scoped_and_never_dominate_code_after_them() {
         &[("v", 2, 3, true), ("v", 3, 4, true)],
     );
 }
+
+#[test]
+fn later_var_names_mint_no_alias_twin() {
+    // `b = a` aliases `b` to `a` flow-insensitively; `var a, b` declares a fresh `b`, which is not
+    // a write to `a`, so no twin def of `a` appears on the declaration line.
+    let src = "package p\nfunc f(x bool) {\n\tvar a, b, c []int\n\tif x {\n\t\tb = a\n\t}\n\tuse(b, c)\n}\n";
+    let r = refs(src);
+    assert!(has(&r, "a", 3, 5));
+    assert!(r.labels.iter().any(|((f, t), l)| f.path.to_string() == "a"
+        && f.line == 3
+        && t.line == 5
+        && *l == crate::cpg::FlowConfidence::Exact));
+}
+
+#[test]
+fn declare_only_headers_in_closures_are_write_only_too() {
+    // Rule U keeps its nested-callable caution for ordinary writes, but a header that only
+    // declares the name holds no read wherever it sits.
+    let src = "package p\nfunc f(xs []int) {\n\tg := func() {\n\t\tfor _, ct := range xs {\n\t\t\tuse(ct)\n\t\t}\n\t}\n\th := func() {\n\t\tfor _, ct := range xs {\n\t\t\tuse(ct)\n\t\t}\n\t}\n\tg()\n\th()\n}\n";
+    check(
+        "closures",
+        src,
+        &[
+            ("ct", 4, 5, true),
+            ("ct", 4, 9, false),
+            ("ct", 9, 10, true),
+            ("ct", 9, 4, false),
+            ("ct", 9, 5, false),
+        ],
+    );
+}

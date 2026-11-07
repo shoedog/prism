@@ -12,6 +12,16 @@ struct Write<'a> {
     statement: Node<'a>,
     plain: bool,
 }
+impl Write<'_> {
+    /// A range/receive `:=` target or a type-switch alias: only ever declares its name, so
+    /// the header line it sits on holds no read of it, wherever it is nested (#694 slice A).
+    fn is_header_target(&self) -> bool {
+        matches!(
+            self.statement.kind(),
+            "range_clause" | "receive_statement" | "type_switch_statement"
+        )
+    }
+}
 #[derive(Clone)]
 struct Window {
     write_start: usize,
@@ -37,7 +47,7 @@ pub(super) struct LexicalFacts<'a> {
     enabled: bool,
     writes: BTreeMap<AccessPath, Vec<Write<'a>>>,
     occurrences: BTreeMap<(String, usize), Vec<Node<'a>>>,
-    real_reads: BTreeSet<(AccessPath, usize)>,
+    real_reads: BTreeMap<(AccessPath, usize), Vec<(usize, usize)>>,
     nested: Vec<(usize, usize)>,
     cache: RefCell<BTreeMap<(AccessPath, usize), UseProof>>,
 }
@@ -53,7 +63,7 @@ impl<'a> LexicalFacts<'a> {
             enabled: parsed.language == Language::Go && !owner.has_error(),
             writes: BTreeMap::new(),
             occurrences: BTreeMap::new(),
-            real_reads: BTreeSet::new(),
+            real_reads: BTreeMap::new(),
             nested: Vec::new(),
             cache: RefCell::new(BTreeMap::new()),
         };
@@ -65,9 +75,13 @@ impl<'a> LexicalFacts<'a> {
             owner.id(),
             &parsed.language.callable_boundary_node_types(),
         );
-        facts
-            .real_reads
-            .extend(rvalues.iter().map(|s| (s.path.clone(), s.line)));
+        for span in rvalues {
+            facts
+                .real_reads
+                .entry((span.path.clone(), span.line))
+                .or_default()
+                .push((span.start_byte, span.end_byte));
+        }
         for span in lvalues {
             if let Some(write) = facts.classify_write(span) {
                 facts
@@ -109,7 +123,7 @@ impl<'a> LexicalFacts<'a> {
     }
 
     fn classify_write(&self, span: &PathSpan) -> Option<Write<'a>> {
-        let mut node = self
+        let node = self
             .parsed
             .tree
             .root_node()
@@ -118,10 +132,15 @@ impl<'a> LexicalFacts<'a> {
         if node.start_byte() != span.start_byte
             || node.end_byte() != span.end_byte
             || pure_path(self.parsed, node).as_ref() != Some(&span.path)
-            || self.nested_at(span.start_byte)
         {
             return None;
         }
+        let write = self.classify_write_in(node, span)?;
+        // A nested callable's write proves nothing, except a header target (see `Write`).
+        (!self.nested_at(span.start_byte) || write.is_header_target()).then_some(write)
+    }
+
+    fn classify_write_in(&self, mut node: Node<'a>, span: &PathSpan) -> Option<Write<'a>> {
         node = node.parent()?;
         loop {
             match node.kind() {
@@ -209,16 +228,28 @@ impl<'a> LexicalFacts<'a> {
         let occurrences = self.occurrences.get(&(path.base.clone(), line));
         let mut proof = UseProof::default();
         if let Some(occurrences) = occurrences.filter(|o| !o.is_empty()) {
-            proof.write_only = !self.real_reads.contains(&key)
+            // A read the rvalue collector records at a header target's own identifier (it
+            // does inside nested callables) is no read.
+            let writes = self.writes.get(path);
+            let own_target = |(start, end): &(usize, usize)| {
+                writes.is_some_and(|ws| {
+                    ws.iter()
+                        .any(|w| w.is_header_target() && w.span == (*start, *end))
+                })
+            };
+            proof.write_only = self
+                .real_reads
+                .get(&key)
+                .is_none_or(|r| r.iter().all(own_target))
                 && occurrences.iter().all(|node| {
-                    !self.nested_at(node.start_byte())
-                        && self.writes.get(path).is_some_and(|writes| {
-                            writes.iter().any(|w| {
-                                w.plain
-                                    && w.span.0 <= node.start_byte()
-                                    && node.end_byte() <= w.span.1
-                            })
+                    self.writes.get(path).is_some_and(|writes| {
+                        writes.iter().any(|w| {
+                            w.plain
+                                && w.span.0 <= node.start_byte()
+                                && node.end_byte() <= w.span.1
+                                && (!self.nested_at(node.start_byte()) || w.is_header_target())
                         })
+                    })
                 });
             proof.windows = occurrences
                 .iter()
