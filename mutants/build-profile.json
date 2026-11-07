@@ -215,7 +215,7 @@
     "PROFILE-late-js_ts_props": [
       "src/call_graph_profile_initializers.rs",
       "profile.next(\"call_graph.js_ts_props\");\n    let props = crate::call_graph::js_ts::props::collect(files);",
-      "let props = crate::call_graph::js_ts::props::collect(files);\n    profile.next(\"call_graph.call_graph::js_ts::props\");",
+      "let props = crate::call_graph::js_ts::props::collect(files);\n    profile.next(\"call_graph.js_ts_props\");",
       "profile::deferred_tests::initializer_stage_boundaries_precede_builders"
     ],
     "PROFILE-late-populate_scope_graph": [
