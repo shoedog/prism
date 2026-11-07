@@ -24,6 +24,13 @@ pub(super) enum RegionKind {
     Field,
 }
 
+/// A callable (parameter lists and body) or an instance field value, as one unit.
+struct Group {
+    start: usize,
+    end: usize,
+    parent: Option<usize>,
+}
+
 /// One byte range of a region. A region owns several when parameter decorators split its list.
 struct Span {
     start: usize,
@@ -56,6 +63,11 @@ impl Placement {
 pub(super) struct JsRegions<'p> {
     parsed: &'p ParsedFile,
     kinds: Vec<RegionKind>,
+    /// Per region, its group: the regions of one callable (parameter list and body) share one, a field
+    /// value has its own (#660 S1c: D2-c treats a callable as one unit).
+    region_group: Vec<usize>,
+    /// Per group: the unit's byte range (the callable node, or the field's value) and the group enclosing it.
+    groups: Vec<Group>,
     /// Sorted by start ascending, then end descending, then depth: ancestors precede descendants.
     spans: Vec<Span>,
     /// Every read of the owner (eager and in regions), sorted by line. Paths are built on demand.
@@ -71,12 +83,16 @@ pub(super) type Candidate = (usize, usize, usize, bool);
 #[derive(Clone, Copy)]
 struct Ctx {
     depth: usize,
+    /// The group enclosing the position.
+    group: Option<usize>,
 }
 
 struct Builder<'a, 'p, 't> {
     parsed: &'p ParsedFile,
     boundary: &'a [&'a str],
     kinds: Vec<RegionKind>,
+    region_group: Vec<usize>,
+    groups: Vec<Group>,
     /// (start, end, region id, depth)
     raw: Vec<(usize, usize, usize, usize)>,
     owner: Node<'t>,
@@ -88,10 +104,18 @@ pub(super) fn js_regions<'p, 't>(parsed: &'p ParsedFile, func_node: Node<'t>) ->
         parsed,
         boundary: &boundary,
         kinds: Vec::new(),
+        region_group: Vec::new(),
+        groups: Vec::new(),
         raw: Vec::new(),
         owner: func_node,
     };
-    b.children(func_node, Ctx { depth: 0 });
+    b.children(
+        func_node,
+        Ctx {
+            depth: 0,
+            group: None,
+        },
+    );
     b.finish()
 }
 
@@ -124,6 +148,8 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
         JsRegions {
             parsed: self.parsed,
             kinds: self.kinds,
+            region_group: self.region_group,
+            groups: self.groups,
             spans,
             reads,
             lines: RefCell::new(HashMap::new()),
@@ -147,9 +173,17 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
         }
     }
 
-    fn enter(&mut self, kind: RegionKind, ranges: &[(usize, usize)], ctx: Ctx) -> Ctx {
+    /// Enter a region of `group` (a unit opened by `open`).
+    fn enter(
+        &mut self,
+        kind: RegionKind,
+        ranges: &[(usize, usize)],
+        ctx: Ctx,
+        group: usize,
+    ) -> Ctx {
         let id = self.kinds.len();
         self.kinds.push(kind);
+        self.region_group.push(group);
         for &(start, end) in ranges {
             if start < end {
                 self.raw.push((start, end, id, ctx.depth + 1));
@@ -157,11 +191,23 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
         }
         Ctx {
             depth: ctx.depth + 1,
+            group: Some(group),
         }
+    }
+
+    /// A new unit over `node`, enclosed by `ctx`'s.
+    fn open(&mut self, node: Node<'_>, ctx: Ctx) -> usize {
+        self.groups.push(Group {
+            start: node.start_byte(),
+            end: node.end_byte(),
+            parent: ctx.group,
+        });
+        self.groups.len() - 1
     }
 
     /// A nested callable: its parameter list(s) and body are regions, the rest is eager.
     fn callable(&mut self, node: Node<'_>, ctx: Ctx) {
+        let group = self.open(node, ctx);
         let mut cursor = node.walk();
         let mut kids = Vec::new();
         if cursor.goto_first_child() {
@@ -174,12 +220,13 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
         }
         for (child, field) in kids {
             match field {
-                Some("parameters" | "parameter") => self.params(child, ctx),
+                Some("parameters" | "parameter") => self.params(child, ctx, group),
                 Some("body") => {
                     let inner = self.enter(
                         RegionKind::Body,
                         &[(child.start_byte(), child.end_byte())],
                         ctx,
+                        group,
                     );
                     self.visit(child, inner);
                 }
@@ -190,7 +237,7 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
 
     /// A parameter list. TS parameter decorators are eager, so they are holes in its range and are
     /// walked in the enclosing context.
-    fn params(&mut self, list: Node<'_>, ctx: Ctx) {
+    fn params(&mut self, list: Node<'_>, ctx: Ctx, group: usize) {
         let mut holes: Vec<(usize, usize)> = Vec::new();
         let mut cursor = list.walk();
         for param in list.children(&mut cursor) {
@@ -209,7 +256,7 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
             at = end;
         }
         ranges.push((at, list.end_byte()));
-        let inner = self.enter(RegionKind::Param, &ranges, ctx);
+        let inner = self.enter(RegionKind::Param, &ranges, ctx, group);
         let mut cursor = list.walk();
         for param in list.children(&mut cursor) {
             let mut parts = param.walk();
@@ -236,10 +283,12 @@ impl<'a, 'p, 't> Builder<'a, 'p, 't> {
         }
         for (child, field) in kids {
             if field == Some("value") && !is_static {
+                let group = self.open(child, ctx);
                 let inner = self.enter(
                     RegionKind::Field,
                     &[(child.start_byte(), child.end_byte())],
                     ctx,
+                    group,
                 );
                 self.visit(child, inner);
             } else {
@@ -329,6 +378,28 @@ impl JsRegions<'_> {
 
     pub(super) fn kind(&self, region: usize) -> RegionKind {
         self.kinds[region]
+    }
+
+    /// The units (callable or field value) holding `byte`, innermost first.
+    pub(super) fn groups_at(&self, byte: usize) -> Vec<usize> {
+        self.innermost(byte)
+            .map_or_else(Vec::new, |region| self.groups_of(region))
+    }
+
+    /// The units holding `region`, innermost first (`region`'s own first).
+    pub(super) fn groups_of(&self, region: usize) -> Vec<usize> {
+        let mut out = Vec::new();
+        let mut at = Some(self.region_group[region]);
+        while let Some(group) = at {
+            out.push(group);
+            at = self.groups[group].parent;
+        }
+        out
+    }
+
+    /// The byte range of a unit: the callable node, or the field's value.
+    pub(super) fn unit(&self, group: usize) -> (usize, usize) {
+        (self.groups[group].start, self.groups[group].end)
     }
 }
 
