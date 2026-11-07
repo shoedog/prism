@@ -488,10 +488,14 @@ recorded defs and labels the owner `NameOnly(CfgIncomplete)` (`owner-refuse:one-
 or a refused target kind (no kill-only defs added); a base whose
 eager site maps to no statement node (class or enum declaration lines, or a statement lost behind another on its line under a compound statement) is refused for its own edges. Writes in the owner's own parameter list, declarations and `first_hazard` stay with S1d.
 `PRISM_RD_CENSUS_TRACE=1` names each moved edge (`kill:<form>`, `owner-refuse:..`, `site-unmapped`, `d3-use|def|loop|unknown`, `d2c`) from a census-free control pass.
-Recorded defs kill by `affects` too in JS/TS/TSX owners (#674 G1/G2, `def_buckets.rs`): a recorded write kills every recorded def
-of its base at or below its own path, `[]` matching any component either way (`o = {}` kills `o.x`; `o["x"] = 2` kills `o.x`), by a
-per-base trie so work follows the affected defs; other languages keep path equality. Same-node writes kill nothing; labels only
-move toward `nameonly/killed`, and `kill:affects` names each such moved edge in the trace (from a control that keeps the census).
+Recorded defs kill by `affects` too in JS/TS/TSX owners (#674 G1/G2, `def_buckets.rs`, flags in `affects_writers.rs`): a recorded
+write kills every recorded def of its base at or below its own path, `[]` matching any component either way (`o = {}` kills `o.x`;
+`o["x"] = 2` kills `o.x`), by a per-base trie so work follows the affected defs. Only a write whose recorded path is its own storage
+and that lies outside every nested callable or instance field initializer kills this way: a truncated subscript writer (`o[k].x = 2`
+is recorded as `o.[]`; the census adds its precise kill-only def) and a recorded write in a nested callable (D2-c owns its outer
+edges) keep path equality, as do other languages. Same-node writes kill nothing. Labels only move toward NameOnly, usually
+`nameonly/killed`, and `exact -> cfg_incomplete` when a new kill removes the last unflagged route; a `kill_line` can move to the
+lowest kill, a `[]` may-kill included. `kill:affects` names each such moved edge in the trace (from a control that keeps the census).
 Captured writes (D2-c, #660 S1c, `reaching/d2c.rs`, `js_write_census/captured.rs`): a write in a nested callable (parameter list or body) or an instance field initializer that no declaration inside that unit provably scopes (`var`/body function/parameter/named-function-expression name of the callable, `let`/`const`/`class`/catch by block, `for` head, `switch` body or clause, a block function its block only; a body declaration never binds a parameter default) turns every `exact` or `sameline` edge into `NameOnly(CfgIncomplete)` when its candidate def is the written binding (the innermost declaration by scope alone, TDZ aside, so a closure writes the later `let` it names, and a parameter's scope excludes its decorators, a switch-local `let` has the switch's scope, and a def binds the written declaration unless a narrower same-name declaration nested in it does; any binding when unresolved), `affects(write, use)` holds and the use lies outside the unit. No order or creation proof (recovery #667); a killed or already incomplete label is kept.
 Same-node order (D3, #660 S1b-2, `reaching/d3.rs`): an `exact` edge D->U whose use node (or def node) holds another write of
 an `affects`-related path that the S0 `precedes` relation does not prove after U (before D) is `NameOnly(SameLine)`; any

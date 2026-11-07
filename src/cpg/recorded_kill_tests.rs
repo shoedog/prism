@@ -105,6 +105,30 @@ const CONTROLS: &[Case] = &[
     // The write is in the def's own statement node: no kill there (`affects` kills from other nodes only).
     Case { name: "prefix_in_the_def_node", lang: JS, edge: "o.x@2->o.x@3", expected: SAME,
         source: "function f(o) {\n  g(o.x = 1, o = {});\n  sink(o.x);\n}" },
+    // W1 (Opus r1): a truncated writer (`AccessPath::from_expr` cuts an lvalue at its first `[`, so `o[k].x` is
+    // recorded as `o.[]`) can never replace `o.n`; it keeps main's equal-path kill. The census adds the precise
+    // kill-only def. Positive controls: a real `o[k] = 2` still kills `o.n`, `o[k].x = 2` still kills `o.a.x`.
+    Case { name: "truncated_subscript_member_writer", lang: JS, edge: "o.n@2->o.n@4", expected: EXACT,
+        source: "function f(o, k) {\n  o.n = 1;\n  o[k].x = 2;\n  sink(o.n);\n}" },
+    Case { name: "truncated_nested_subscript_member_writer", lang: JS, edge: "o.a.n@2->o.a.n@4", expected: EXACT,
+        source: "function f(o, k) {\n  o.a.n = 1;\n  o.a[k].x = 2;\n  sink(o.a.n);\n}" },
+    Case { name: "truncated_double_subscript_writer", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o, k) {\n  o.x = 1;\n  o[k][0] = 2;\n  sink(o.x);\n}" },
+    Case { name: "real_subscript_write_still_kills_dot_def", lang: JS, edge: "o.n@2->o.n@4", expected: KILLED,
+        source: "function f(o, k) {\n  o.n = 1;\n  o[k] = 2;\n  sink(o.n);\n}" },
+    Case { name: "truncated_writer_kills_through_the_census", lang: JS, edge: "o.a.x@2->o.a.x@4", expected: KILLED,
+        source: "function f(o, k) {\n  o.a.x = 1;\n  o[k].x = 2;\n  sink(o.a.x);\n}" },
+    // W2 (Opus r1): a recorded def in a nested callable kills only by path equality (main's rule).
+    Case { name: "closure_local_var_of_the_base", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o) {\n  o.x = 1;\n  g(() => { var o = {}; use(o); });\n  sink(o.x);\n}" },
+    Case { name: "callback_parameter_reassigned", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o) {\n  o.x = 1;\n  g(function (o) { o = {}; use(o); });\n  sink(o.x);\n}" },
+    Case { name: "for_var_of_in_a_callback", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o, xs) {\n  o.x = 1;\n  xs.forEach((y) => { for (var o of y) use(o); });\n  sink(o.x);\n}" },
+    Case { name: "var_in_a_map_callback", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o, xs) {\n  o.x = 1;\n  xs.map((y) => { var o = y; return o; });\n  sink(o.x);\n}" },
+    Case { name: "nested_function_this_write", lang: JS, edge: "this.a.b@2->this.a.b@4", expected: EXACT,
+        source: "function f(xs) {\n  this.a.b = 1;\n  xs.forEach(function () { this.a = {}; });\n  sink(this.a.b);\n}" },
     // Other languages keep main's equal-path kills.
     Case { name: "python_prefix", lang: Language::Python, edge: "o.x@2->o.x@4", expected: EXACT,
         source: "def f(o):\n    o.x = 1\n    o = {}\n    sink(o.x)\n" },
@@ -135,5 +159,62 @@ fn fix_rows_move_to_killed() {
 #[test]
 fn control_rows_hold() {
     let failures = run(CONTROLS);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Full `FlowConfidence` (doubt and `kill_line`), not just the label class.
+fn doubts_of(language: Language, source: &str, edge: &str) -> Vec<String> {
+    use crate::ast::ParsedFile;
+    use crate::data_flow::test_support::label_snapshot;
+    let ext = match language {
+        Language::TypeScript => "ts",
+        Language::Tsx => "tsx",
+        _ => "js",
+    };
+    let name = format!("a.{ext}");
+    let file = ParsedFile::parse(&name, source, language).unwrap();
+    let cpg =
+        crate::cpg::CodePropertyGraph::build(&std::collections::BTreeMap::from([(name, file)]));
+    let (from, to) = edge.split_once("->").unwrap();
+    let split = |s: &str| {
+        let (p, l) = s.rsplit_once('@').unwrap();
+        (p.to_string(), l.parse::<usize>().unwrap())
+    };
+    let (from, to) = (split(from), split(to));
+    label_snapshot(&cpg.dfg)
+        .into_iter()
+        .filter(|((f, t), _)| {
+            (f.path.to_string(), f.line) == from && (t.path.to_string(), t.line) == to
+        })
+        .map(|(_, label)| format!("{label:?}"))
+        .collect()
+}
+
+fn killed_at(line: u32) -> String {
+    format!("NameOnly(Killed {{ kill_line: {line} }})")
+}
+
+/// The kill line moves with the kill (T1/S1 of review r1): the prefix and subscript kills name their own line,
+/// and when an equal-path kill competes the lowest reachable kill line wins, as for main's own kills.
+#[test]
+fn kill_lines_follow_the_new_kills() {
+    #[rustfmt::skip]
+    let rows: &[(&str, &str, &str, u32)] = &[
+        ("g1_prefix", "o.x@2->o.x@4", "function f(o) {\n  o.x = 1;\n  o = {};\n  sink(o.x);\n}", 3),
+        ("g2_subscript", "o.x@2->o.x@4", "function f(o) {\n  o.x = 1;\n  o[\"x\"] = 2;\n  sink(o.x);\n}", 3),
+        ("two_deep_prefix", "o.a.b@2->o.a.b@4", "function f(o) {\n  o.a.b = 1;\n  o.a = {};\n  sink(o.a.b);\n}", 3),
+        // Main's kill is line 4 (`o.x = 2`, equal path); the prefix write at line 3 is the lowest kill now.
+        ("competing_lines", "o.x@2->o.x@5", "function f(o) {\n  o.x = 1;\n  o = {};\n  o.x = 2;\n  sink(o.x);\n}", 3),
+        // Representative target forms.
+        ("destructuring_target", "o.x@2->o.x@4", "function f(o) {\n  o.x = 1;\n  ({ o } = src());\n  sink(o.x, o);\n}", 3),
+        ("logical_assignment_target", "o.a.b@2->o.a.b@4", "function f(o) {\n  o.a.b = 1;\n  o.a ||= {};\n  sink(o.a.b, o.a);\n}", 3),
+    ];
+    let mut failures = Vec::new();
+    for (name, edge, src, line) in rows {
+        let got = doubts_of(JS, src, edge);
+        if got != [killed_at(*line)] {
+            failures.push(format!("{name} {edge}: want kill_line {line}, got {got:?}"));
+        }
+    }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

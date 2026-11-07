@@ -117,10 +117,7 @@ const CASES: &[Case] = &[
         source: "function f(o) {\n  o.x = 1;\n  g(() => { o.x++; });\n  sink(o.x);\n}" },
     Case { name: "sibling_member_update_control", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
         source: "function f(o) {\n  o.x = 1;\n  g(() => { o.y++; });\n  sink(o.x);\n}" },
-    // Pin of the recorded-def name-kill, not a D2-c decision: the recorded `o = {}` in the closure kills the
-    // outer `o.x` def by `affects` (#674, as an equal-path write does, see `middle_region_var_inner_pin`),
-    // and D2-c keeps a killed label. Before #674 this was `cfg_incomplete`.
-    Case { name: "whole_object_write_reaches_member_use_pin", lang: JS, edge: "o.x@2->o.x@4", expected: KILLED,
+    Case { name: "whole_object_write_reaches_member_use", lang: JS, edge: "o.x@2->o.x@4", expected: CFG,
         source: "function f(o) {\n  o.x = 1;\n  g(() => { o = {}; });\n  sink(o.x);\n}" },
     Case { name: "delete_reaches_member_use", lang: JS, edge: "o.x@2->o.x@4", expected: CFG,
         source: "function f(o) {\n  o.x = 1;\n  g(() => { delete o.x; });\n  sink(o.x);\n}" },

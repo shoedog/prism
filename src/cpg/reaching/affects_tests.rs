@@ -1,6 +1,6 @@
-//! #674: recorded defs of a JS/TS/TSX owner kill by `affects`. The ordered range scan is checked against
-//! the frozen all-pairs scanner, the order it relies on is proven, its work is bounded, and the trace
-//! names the kills it adds.
+//! #674: recorded defs of a JS/TS/TSX owner kill by `affects`. The per-base trie is checked against
+//! `affects` itself and against the frozen all-pairs scanner (with the writer flags of
+//! `affects_writers.rs`), its work is bounded, and the trace names the kills it adds.
 use super::def_bucket_tests::site;
 use super::*;
 use crate::access_path::ARRAY_FIELD;
@@ -56,11 +56,11 @@ fn the_trie_yields_exactly_the_affected_defs() {
     }
 }
 
-const SOURCE: &str = "function f(o, k) {\no.a = 1;\no.a.b = 2;\no[k] = 3;\no.a[k] = 4;\no.b = 5;\no.a.b.c = 6;\no = {};\nconsume(o.a);\n}\n";
+const SOURCE: &str = "function f(o, k) {\no.a = 1;\no.a.b = 2;\no[k] = 3;\no.a[k] = 4;\no.b = 5;\no.a.b.c = 6;\no[k].x = 7;\no = {};\nconsume(o.a);\n}\n";
 
 fn owner_defs(parsed: &ParsedFile, owner: &Node<'_>) -> Vec<DefSite> {
     parsed
-        .assignment_lvalue_spans_on_lines(owner, &(1..=9).collect())
+        .assignment_lvalue_spans_on_lines(owner, &(1..=10).collect())
         .into_iter()
         .enumerate()
         .map(|(i, s)| site(i as u32, s.path, s.line, s.start_byte, false))
@@ -88,15 +88,35 @@ fn bucketed_recorded_affects_matches_the_all_pairs_scan() {
             std::iter::empty(),
         );
         for together in [false, true] {
-            let mut gen = vec![BitSet::new(defs.len()); 12];
+            let mut gen = vec![BitSet::new(defs.len()); 13];
             for (index, def) in defs.iter().enumerate() {
                 gen[if together { 1 } else { def.line }].insert(index);
             }
-            let buckets = def_buckets::DefinitionBuckets::with_kill_only(&defs, defs.len(), true);
+            let flagged = affects_writers::affects_writers(&parsed, &defs, None);
+            assert!(
+                flagged.iter().any(|f| !f),
+                "the truncated `o[k].x` writer is unflagged"
+            );
+            for writers in [vec![true; defs.len()], flagged] {
+                let buckets = def_buckets::DefinitionBuckets::with_kill_only(
+                    &defs,
+                    defs.len(),
+                    Some(&writers),
+                );
+                let actual = buckets.kill_sets(&defs, &gen, &facts);
+                let expected = def_buckets::legacy_kill_sets_with(
+                    &defs,
+                    &gen,
+                    &facts,
+                    defs.len(),
+                    Some(&writers),
+                );
+                assert_eq!(actual, expected, "alias {alias}, together {together}");
+            }
+            let every = vec![true; defs.len()];
+            let buckets =
+                def_buckets::DefinitionBuckets::with_kill_only(&defs, defs.len(), Some(&every));
             let actual = buckets.kill_sets(&defs, &gen, &facts);
-            let expected =
-                def_buckets::legacy_kill_sets_with(&defs, &gen, &facts, defs.len(), true);
-            assert_eq!(actual, expected, "alias {alias}, together {together}");
             let equal_only = def_buckets::legacy_kill_sets(&defs, &gen, &facts);
             wider_than_equal |= actual.1 != equal_only.1;
             assert!(
@@ -176,8 +196,11 @@ fn the_trace_names_a_recorded_affects_kill() {
     // The overwritten value is also read bare, so the producer records `o = {}` as an edge source.
     let prefix = "function f(o) {\n  o.x = 1;\n  o = {};\n  sink(o.x, o);\n}\n";
     assert_eq!(mechanisms(js, prefix), ["kill:affects"]);
-    let subscript = "function f(o, k) {\n  o.x = 1;\n  o[k].x = 2;\n  sink(o.x, o[k].x);\n}\n";
+    let subscript = "function f(o, k) {\n  o.x = 1;\n  o[k] = 2;\n  sink(o.x, o[k].x);\n}\n";
     assert_eq!(mechanisms(js, subscript), ["kill:affects"]);
+    // A truncated writer (`o[k].x` is recorded as `o.[]`) and a nested-callable write keep path equality.
+    let truncated = "function f(o, k) {\n  o.n = 1;\n  o[k].x = 2;\n  sink(o.n, o[k].x);\n}\n";
+    assert!(!mechanisms(js, truncated).contains(&"kill:affects".to_string()));
 }
 
 #[test]

@@ -15,8 +15,9 @@ pub(super) struct DefinitionBuckets<'a> {
     kill_paths: BTreeMap<&'a AccessPath, Vec<usize>>,
     /// #674 (JS/TS/TSX owners only): recorded, non-alias defs by base, as a trie over their fields.
     tries: BTreeMap<&'a str, Trie<'a>>,
-    /// JS/TS/TSX owners: a recorded write kills by `affects` (#674). Otherwise main's path equality.
-    recorded_affects: bool,
+    /// JS/TS/TSX owners (#674): per recorded def, whether it kills by `affects` (`affects_writers.rs`);
+    /// the others, and every def of other languages (`None`), keep main's path equality.
+    affects_writers: Option<&'a [bool]>,
     exact: BTreeMap<(&'a AccessPath, Line, usize), Vec<usize>>,
     fallback: BTreeMap<(&'a AccessPath, Line), Vec<usize>>,
 }
@@ -24,13 +25,13 @@ pub(super) struct DefinitionBuckets<'a> {
 impl<'a> DefinitionBuckets<'a> {
     #[cfg(test)]
     pub(super) fn new(defs: &'a [DefSite]) -> Self {
-        Self::with_kill_only(defs, defs.len(), false)
+        Self::with_kill_only(defs, defs.len(), None)
     }
 
     pub(super) fn with_kill_only(
         defs: &'a [DefSite],
         n_recorded: usize,
-        recorded_affects: bool,
+        affects_writers: Option<&'a [bool]>,
     ) -> Self {
         let mut buckets = Self {
             #[cfg(test)]
@@ -39,7 +40,7 @@ impl<'a> DefinitionBuckets<'a> {
             by_base: BTreeMap::new(),
             kill_paths: BTreeMap::new(),
             tries: BTreeMap::new(),
-            recorded_affects,
+            affects_writers,
             exact: BTreeMap::new(),
             fallback: BTreeMap::new(),
         };
@@ -54,7 +55,7 @@ impl<'a> DefinitionBuckets<'a> {
             }
             if !def.alias_derived {
                 buckets.kill_paths.entry(&def.path).or_default().push(index);
-                if recorded_affects {
+                if affects_writers.is_some() {
                     buckets
                         .tries
                         .entry(def.path.base.as_str())
@@ -116,7 +117,7 @@ impl<'a> DefinitionBuckets<'a> {
                 gen,
                 binding_facts,
                 self.n_recorded,
-                self.recorded_affects,
+                self.affects_writers,
             );
         }
         let mut kill = vec![BitSet::new(defs.len()); gen.len()];
@@ -138,7 +139,7 @@ impl<'a> DefinitionBuckets<'a> {
                     );
                     continue;
                 }
-                if self.recorded_affects {
+                if self.affects_writers.is_some_and(|w| w[new_def]) {
                     self.recorded_affects_kills(
                         defs,
                         gen,
@@ -295,11 +296,11 @@ pub(super) fn legacy_kill_sets(
     gen: &[BitSet],
     binding_facts: &crate::cpg::binding_facts::BindingFacts,
 ) -> (Vec<BitSet>, Vec<BitSet>) {
-    legacy_kill_sets_with(defs, gen, binding_facts, defs.len(), false)
+    legacy_kill_sets_with(defs, gen, binding_facts, defs.len(), None)
 }
 
 /// The all-pairs scan with census kill-only defs (`n_recorded..`): equal-path kills among recorded
-/// defs as on main (`affects` kills when `recorded_affects`, #674), `affects` kills from kill-only
+/// defs as on main (`affects` kills for the `affects_writers` flagged, #674), `affects` kills from kill-only
 /// defs, kill-only defs never killed.
 #[cfg(test)]
 pub(super) fn legacy_kill_sets_with(
@@ -307,7 +308,7 @@ pub(super) fn legacy_kill_sets_with(
     gen: &[BitSet],
     binding_facts: &crate::cpg::binding_facts::BindingFacts,
     n_recorded: usize,
-    recorded_affects: bool,
+    affects_writers: Option<&[bool]>,
 ) -> (Vec<BitSet>, Vec<BitSet>) {
     let mut kill = vec![BitSet::new(defs.len()); gen.len()];
     let mut flat_kill = vec![BitSet::new(defs.len()); gen.len()];
@@ -320,11 +321,12 @@ pub(super) fn legacy_kill_sets_with(
             for old_def in 0..n_recorded {
                 #[cfg(test)]
                 super::work_tests::bump(|counts| counts.definition_pair_comparisons += 1);
-                let related = if new_def >= n_recorded || recorded_affects {
-                    affects(&defs[new_def].path, &defs[old_def].path)
-                } else {
-                    defs[old_def].path == defs[new_def].path
-                };
+                let related =
+                    if new_def >= n_recorded || affects_writers.is_some_and(|w| w[new_def]) {
+                        affects(&defs[new_def].path, &defs[old_def].path)
+                    } else {
+                        defs[old_def].path == defs[new_def].path
+                    };
                 #[cfg(test)]
                 if !defs[old_def].alias_derived && related {
                     super::work_tests::bump(|counts| {

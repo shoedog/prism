@@ -35,6 +35,7 @@ pub(crate) use contribution::record_skip as record_go_recall_skip;
 #[cfg(test)]
 pub(crate) use contribution::with_cap as with_recall_cap;
 pub(crate) use recall_stats::{ReceiverEdge, ReceiverKey};
+mod affects_writers;
 mod def_buckets;
 mod go_header;
 mod graph;
@@ -390,11 +391,14 @@ fn reaching_definitions_impl(
             gen[*node].insert(index);
         }
     }
-    let buckets = def_buckets::DefinitionBuckets::with_kill_only(
-        &defs,
-        n_recorded,
-        pass.recorded_affects() && parsed.language.is_js_family(),
-    );
+    // The trace's control must not repeat S1a's capture lines (see `capture_facts_with`).
+    let capture_facts =
+        capture::capture_facts_with(parsed, *func_node, pass.census() && census_trace::enabled());
+    let writers = (pass.recorded_affects() && parsed.language.is_js_family()).then(|| {
+        affects_writers::affects_writers(parsed, &defs[..n_recorded], capture_facts.regions())
+    });
+    let buckets =
+        def_buckets::DefinitionBuckets::with_kill_only(&defs, n_recorded, writers.as_deref());
     let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts);
 
     let (in_sets, entry_reachable) =
@@ -418,9 +422,6 @@ fn reaching_definitions_impl(
     let mut go_components = None;
     // Kill-only defs are never edge sources, so they never make a line's recorded defs ambiguous (E1).
     let collapsed = collapsed_groups(&defs[..n_recorded]);
-    // The trace's control pass must not repeat S1a's capture lines.
-    let capture_facts =
-        capture::capture_facts_with(parsed, *func_node, pass.census() && census_trace::enabled());
     let mut labels: BTreeMap<(VarLocation, VarLocation), FlowConfidence> = BTreeMap::new();
     let mut exact_labels = BTreeMap::new();
     let mut loop_carried_edges = BTreeSet::new();
