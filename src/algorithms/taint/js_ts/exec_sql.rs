@@ -1,14 +1,25 @@
 //! JS/TS child_process shell options and SQL parametrisation checks.
 
-use crate::algorithms::taint::{assignment_lhs_identifiers, call_literal_arg};
-use crate::algorithms::taint::js_ts::bindings::{js_ts_assignment_visible_before_context, js_ts_enclosing_function_id};
-use crate::algorithms::taint::js_ts::guards::{js_ts_collection_aliases_visible_at_context, js_ts_effect_visible_at_context};
-use crate::algorithms::taint::js_ts::sink_tables::{js_find_top_level_colon, js_split_top_level_commas, js_yaml_load_call_uses_unsafe_schema};
+use crate::algorithms::taint::js_ts::bindings::{
+    js_ts_assignment_visible_before_context, js_ts_enclosing_function_id,
+};
+use crate::algorithms::taint::js_ts::guards::{
+    js_ts_collection_aliases_visible_at_context, js_ts_effect_visible_at_context,
+};
+use crate::algorithms::taint::js_ts::sink_tables::{
+    js_find_top_level_colon, js_split_top_level_commas, js_yaml_load_call_uses_unsafe_schema,
+};
 use crate::algorithms::taint::js_ts::sinks::js_ts_js_yaml_bare_load_call_matches;
 use crate::algorithms::taint::python::sinks::python_sql_literal_has_named_placeholder;
+use crate::algorithms::taint::{assignment_lhs_identifiers, call_literal_arg};
+use crate::ast::tree_helpers::{
+    call_arg_node, call_path_matches, call_path_text, collect_calls, unwrap_parenthesized,
+};
 use crate::ast::ParsedFile;
-use crate::ast::tree_helpers::{call_arg_node, call_path_matches, call_path_text, collect_calls, unwrap_parenthesized};
-use crate::frameworks::js_ts::call_classify::{collect_js_ts_assignment_like_nodes, js_ts_assignment_target_and_value, js_ts_literal_string_value};
+use crate::frameworks::js_ts::call_classify::{
+    collect_js_ts_assignment_like_nodes, js_ts_assignment_target_and_value,
+    js_ts_literal_string_value,
+};
 use tree_sitter::Node;
 
 pub(in crate::algorithms::taint) fn js_ts_exec_file_is_literal_binary(

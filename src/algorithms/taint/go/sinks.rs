@@ -1,8 +1,10 @@
 //! Go structured sinks, framework sources and inline source==sink matching.
 
-use crate::algorithms::taint::{SinkMatchOutcome, TaintSeed, call_passes_sink_semantics, line_matches_structured_sink};
-use crate::ast::ParsedFile;
+use crate::algorithms::taint::{
+    call_passes_sink_semantics, line_matches_structured_sink, SinkMatchOutcome, TaintSeed,
+};
 use crate::ast::tree_helpers::call_path_text;
+use crate::ast::ParsedFile;
 use crate::data_flow::FlowPath;
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use std::collections::BTreeSet;
@@ -273,7 +275,10 @@ fn collect_request_param_names(
     names
 }
 
-pub(in crate::algorithms::taint) fn go_call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
+pub(in crate::algorithms::taint) fn go_call_path_text(
+    parsed: &ParsedFile,
+    call_node: &Node<'_>,
+) -> Option<String> {
     call_path_text(parsed, call_node)
 }
 
@@ -288,7 +293,11 @@ pub(in crate::algorithms::taint) fn collect_go_calls<'a>(node: Node<'a>, out: &m
     }
 }
 
-pub(in crate::algorithms::taint) fn detect_go_framework_sources(file_path: &str, parsed: &ParsedFile, sources: &mut Vec<TaintSeed>) {
+pub(in crate::algorithms::taint) fn detect_go_framework_sources(
+    file_path: &str,
+    parsed: &ParsedFile,
+    sources: &mut Vec<TaintSeed>,
+) {
     let spec = match parsed.framework() {
         Some(s) => s,
         None => return,
@@ -488,7 +497,11 @@ fn subtree_has_call_in(parsed: &ParsedFile, node: &Node<'_>, paths: &BTreeSet<St
 /// Note: when multiple patterns share a `call_path` (exec.Command shell-wrapper +
 /// tainted-binary), the shell-wrapper variant is listed first; if it `Match`-es
 /// it wins, otherwise the tainted-binary variant is checked next.
-pub(in crate::algorithms::taint) fn go_sink_outcome(parsed: &ParsedFile, line: usize, path: Option<&FlowPath>) -> SinkMatchOutcome {
+pub(in crate::algorithms::taint) fn go_sink_outcome(
+    parsed: &ParsedFile,
+    line: usize,
+    path: Option<&FlowPath>,
+) -> SinkMatchOutcome {
     let mut any_call_path_match = false;
     for pat in GO_CWE78_SINKS {
         match line_matches_structured_sink(parsed, line, pat, path) {

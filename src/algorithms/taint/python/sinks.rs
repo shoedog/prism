@@ -1,10 +1,15 @@
 //! Python sink outcomes: template rendering, SQL parametrisation, YAML loaders.
 
-use crate::algorithms::taint::{SinkMatchOutcome, arg_is_tainted_in_path, arg_node_taints_match, call_literal_arg, call_passes_sink_semantics, line_matches_structured_sink, node_contains_line, sink_call_path_matches};
-use crate::algorithms::taint::python::sink_tables::{PY_CWE502_SINKS, PY_CWE79_SINKS, PY_CWE89_SINKS, PY_CWE918_SINKS};
+use crate::algorithms::taint::python::sink_tables::{
+    PY_CWE502_SINKS, PY_CWE79_SINKS, PY_CWE89_SINKS, PY_CWE918_SINKS,
+};
 use crate::algorithms::taint::python::sources::node_contains_flask_request_data_access;
-use crate::ast::ParsedFile;
+use crate::algorithms::taint::{
+    arg_is_tainted_in_path, arg_node_taints_match, call_literal_arg, call_passes_sink_semantics,
+    line_matches_structured_sink, node_contains_line, sink_call_path_matches, SinkMatchOutcome,
+};
 use crate::ast::tree_helpers::{call_arg_node, call_path_matches, call_path_text, collect_calls};
+use crate::ast::ParsedFile;
 use crate::data_flow::FlowPath;
 use crate::frameworks::{SanitizerCategory, SinkPattern};
 use crate::languages::Language;
@@ -90,7 +95,10 @@ fn python_render_template_string_outcome(
     }
 }
 
-pub(super) fn python_render_unsafe_template_vars(parsed: &ParsedFile, call: &Node<'_>) -> BTreeSet<String> {
+pub(super) fn python_render_unsafe_template_vars(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+) -> BTreeSet<String> {
     let template = match call_literal_arg(parsed, call, 0) {
         Some(s) => s,
         None => return BTreeSet::new(),
@@ -260,7 +268,10 @@ fn python_render_inline_flask_source_matches(parsed: &ParsedFile, call: &Node<'_
     false
 }
 
-pub(in crate::algorithms::taint) fn python_sql_call_is_parametrized(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+pub(in crate::algorithms::taint) fn python_sql_call_is_parametrized(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+) -> bool {
     let actual = match call_path_text(parsed, call) {
         Some(s) => s,
         None => return false,
@@ -362,7 +373,10 @@ fn first_string_literal_text(parsed: &ParsedFile, node: &Node<'_>) -> Option<Str
     None
 }
 
-pub(in crate::algorithms::taint) fn python_yaml_load_uses_safe_loader(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+pub(in crate::algorithms::taint) fn python_yaml_load_uses_safe_loader(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+) -> bool {
     let actual = match call_path_text(parsed, call) {
         Some(s) => s,
         None => return false,

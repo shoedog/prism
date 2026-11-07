@@ -9,14 +9,18 @@ mod js_ts;
 mod python;
 
 pub use go::sinks::{GO_CWE22_SINKS, GO_CWE78_SINKS};
-pub use js_ts::sink_tables::{JS_CWE22_SINKS, JS_CWE502_SINKS, JS_CWE78_SINKS, JS_CWE79_SINKS, JS_CWE89_SINKS, JS_CWE918_SINKS};
+pub use js_ts::sink_tables::{
+    JS_CWE22_SINKS, JS_CWE502_SINKS, JS_CWE78_SINKS, JS_CWE79_SINKS, JS_CWE89_SINKS,
+    JS_CWE918_SINKS,
+};
 pub use python::sink_tables::{PY_CWE502_SINKS, PY_CWE79_SINKS, PY_CWE89_SINKS, PY_CWE918_SINKS};
 
-use anyhow::Result;
 use crate::access_path::AccessPath;
 use crate::algorithms::taint_sinks;
+use crate::ast::tree_helpers::{
+    call_arg_node, call_path_matches, call_path_text, collect_calls, is_js_ts_language,
+};
 use crate::ast::ParsedFile;
-use crate::ast::tree_helpers::{call_arg_node, call_path_matches, call_path_text, collect_calls, is_js_ts_language};
 use crate::cpg::{CodePropertyGraph, CpgContext};
 use crate::data_flow::{FlowEdge, FlowPath, VarAccessKind, VarLocation};
 use crate::diff::{DiffBlock, DiffInput, ModifyType};
@@ -25,22 +29,55 @@ use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use crate::languages::Language;
 use crate::output::mermaid::safe_node_id;
 use crate::sanitizers::matching::function_body_cleansed_for;
-use crate::slice::{EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceFinding, SliceGraph, SliceResult, SlicingAlgorithm};
-use go::sanitizers::{PathSanitizerKind, go_path_traversal_cleansed_for_sink};
-use go::sinks::{collect_go_calls, detect_go_framework_sources, find_sink_with_inline_framework_source, go_call_path_text, go_sink_outcome};
-use js_ts::alias_edges::{js_ts_request_source_seed_framework_and_params, js_ts_seed_is_koa_request_object_alias, js_ts_variable_reference_ranges_scoped, synthesize_js_ts_assignment_alias_edges};
-use js_ts::exec_sql::{js_ts_exec_file_is_literal_binary, js_ts_sql_call_is_parametrized, js_ts_yaml_load_uses_safe_schema};
+use crate::slice::{
+    EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceFinding, SliceGraph, SliceResult,
+    SlicingAlgorithm,
+};
+use anyhow::Result;
+use go::sanitizers::{go_path_traversal_cleansed_for_sink, PathSanitizerKind};
+use go::sinks::{
+    collect_go_calls, detect_go_framework_sources, find_sink_with_inline_framework_source,
+    go_call_path_text, go_sink_outcome,
+};
+use js_ts::alias_edges::{
+    js_ts_request_source_seed_framework_and_params, js_ts_seed_is_koa_request_object_alias,
+    js_ts_variable_reference_ranges_scoped, synthesize_js_ts_assignment_alias_edges,
+};
+use js_ts::exec_sql::{
+    js_ts_exec_file_is_literal_binary, js_ts_sql_call_is_parametrized,
+    js_ts_yaml_load_uses_safe_schema,
+};
 use js_ts::framework_params::detect_js_ts_framework_sources;
 use js_ts::imports_ssrf::js_ts_ssrf_sink_call_path_matches;
 use js_ts::request_aliases::{js_ts_seed_scope_contains, js_ts_seed_scope_contains_range};
 use js_ts::sanitizers::{js_ts_path_traversal_cleansed_for_sink, js_ts_ssrf_cleansed_for_sink};
 use js_ts::sink_tables::js_yaml_load_call_uses_unsafe_schema;
-use js_ts::sinks::{is_js_yaml_load_sink_pattern, js_ts_flat_sink_identifier_has_tainted_request_source, js_ts_inline_framework_source_yaml_sink_lines, js_ts_js_yaml_bare_load_call_matches, js_ts_safe_structured_sink_call_ranges, js_ts_sink_call_has_inline_framework_source_arg, js_ts_sink_outcome};
-use js_ts::source_access::{js_ts_framework_source_access_ranges_by_line, js_ts_request_source_identifier, node_contains_js_ts_source_access_on_line_with_request_object_aliases};
-use js_ts::source_ranges::{js_ts_framework_source_target_ranges_by_line, js_ts_request_source_access_ranges_for_alias_on_line};
-use python::clients::{python_is_aiohttp_client_session_method_call, python_is_aiohttp_request_call, python_is_urllib3_pool_manager_request_call};
-use python::sanitizers::{python_safe_structured_sink_call_ranges, python_ssrf_cleansed_for_sink, python_xss_cleansed_for_sink};
-use python::sinks::{python_sink_outcome, python_sink_with_inline_flask_source, python_sql_call_is_parametrized, python_yaml_load_uses_safe_loader};
+use js_ts::sinks::{
+    is_js_yaml_load_sink_pattern, js_ts_flat_sink_identifier_has_tainted_request_source,
+    js_ts_inline_framework_source_yaml_sink_lines, js_ts_js_yaml_bare_load_call_matches,
+    js_ts_safe_structured_sink_call_ranges, js_ts_sink_call_has_inline_framework_source_arg,
+    js_ts_sink_outcome,
+};
+use js_ts::source_access::{
+    js_ts_framework_source_access_ranges_by_line, js_ts_request_source_identifier,
+    node_contains_js_ts_source_access_on_line_with_request_object_aliases,
+};
+use js_ts::source_ranges::{
+    js_ts_framework_source_target_ranges_by_line,
+    js_ts_request_source_access_ranges_for_alias_on_line,
+};
+use python::clients::{
+    python_is_aiohttp_client_session_method_call, python_is_aiohttp_request_call,
+    python_is_urllib3_pool_manager_request_call,
+};
+use python::sanitizers::{
+    python_safe_structured_sink_call_ranges, python_ssrf_cleansed_for_sink,
+    python_xss_cleansed_for_sink,
+};
+use python::sinks::{
+    python_sink_outcome, python_sink_with_inline_flask_source, python_sql_call_is_parametrized,
+    python_yaml_load_uses_safe_loader,
+};
 use python::sources::{detect_python_framework_sources, python_is_inner_decorated_function};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;

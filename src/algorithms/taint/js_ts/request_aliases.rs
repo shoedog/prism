@@ -1,11 +1,15 @@
 //! JS/TS request-data alias definitions, kills and scopes.
 
 use crate::access_path::AccessPath;
-use crate::algorithms::taint::{JsTsAliasDef, JsTsAliasDefs, JsTsAliasKill, JsTsRequestDataSource, TaintSeed};
 use crate::algorithms::taint::js_ts::bindings::js_ts_assignment_target_byte_scope;
 use crate::algorithms::taint::js_ts::framework_params::js_ts_alias_def;
-use crate::algorithms::taint::js_ts::request_targets::{collect_js_ts_request_alias_source_uses, collect_js_ts_request_assignment_targets};
+use crate::algorithms::taint::js_ts::request_targets::{
+    collect_js_ts_request_alias_source_uses, collect_js_ts_request_assignment_targets,
+};
 use crate::algorithms::taint::js_ts::source_ranges::js_ts_ranges_are_in_sibling_control_flow_branches;
+use crate::algorithms::taint::{
+    JsTsAliasDef, JsTsAliasDefs, JsTsAliasKill, JsTsRequestDataSource, TaintSeed,
+};
 use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;

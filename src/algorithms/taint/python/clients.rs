@@ -2,12 +2,15 @@
 
 use crate::algorithms::taint::collect_assignments;
 use crate::algorithms::taint::python::sources::python_assignment_items;
-use crate::ast::ParsedFile;
 use crate::ast::tree_helpers::unwrap_parenthesized;
+use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
-pub(in crate::algorithms::taint) fn python_is_aiohttp_request_call(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+pub(in crate::algorithms::taint) fn python_is_aiohttp_request_call(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+) -> bool {
     let Some(function) = call.child_by_field_name("function") else {
         return false;
     };
@@ -64,7 +67,10 @@ pub(in crate::algorithms::taint) fn python_is_aiohttp_client_session_method_call
     python_aiohttp_client_session_vars(parsed, call.start_position().row + 1).contains(receiver)
 }
 
-pub(in crate::algorithms::taint) fn python_is_urllib3_pool_manager_request_call(parsed: &ParsedFile, call: &Node<'_>) -> bool {
+pub(in crate::algorithms::taint) fn python_is_urllib3_pool_manager_request_call(
+    parsed: &ParsedFile,
+    call: &Node<'_>,
+) -> bool {
     let Some(function) = call.child_by_field_name("function") else {
         return false;
     };
