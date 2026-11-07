@@ -364,7 +364,7 @@ resource "aws_lambda_function" "api" {
 fn test_terraform_ref_graph_taint_flow() {
     // Integration test: verify the TerraformRefGraph correctly traces
     // var.allowed_cidrs → local.merged_cidrs → aws_security_group.web
-    use prism::terraform::TerraformRefGraph;
+    use prism::data_flow::terraform::TerraformRefGraph;
 
     let source = r#"
 variable "allowed_cidrs" {
@@ -417,7 +417,7 @@ resource "aws_security_group" "web" {
 #[test]
 fn test_terraform_ref_graph_module_boundary() {
     // Test module boundary detection for MembraneSlice
-    use prism::terraform::TerraformRefGraph;
+    use prism::data_flow::terraform::TerraformRefGraph;
 
     let source = r#"
 variable "vpc_cidr" {

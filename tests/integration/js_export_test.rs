@@ -9,9 +9,9 @@
 //! Companion to `import_binding_test.rs`, which owns the pre-existing R4c
 //! shadow/eligibility guards (left untouched here).
 
+use prism::ast::js_ts::exports::JsExportTarget;
 use prism::ast::ParsedFile;
 use prism::call_graph::CallGraph;
-use prism::js_exports::JsExportTarget;
 use prism::languages::Language;
 use prism::resolution::{ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeMap;
@@ -218,7 +218,7 @@ fn named_export_list_rename_resolves_import_member() {
 // (re-export lists, local named lists, or a mix) poisons that name -- it must
 // resolve to NO binding. The extraction layer preserves the duplicate (marks
 // it conflicted) rather than overwriting, since the conflict decision belongs
-// where both facts are visible (whole-program resolution in `js_exports.rs`).
+// where both facts are visible (whole-program resolution in `ast/js_ts/exports.rs`).
 
 #[test]
 fn duplicate_local_named_export_marks_conflicted() {

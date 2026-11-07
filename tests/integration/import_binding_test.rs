@@ -460,7 +460,7 @@ fn method_not_resolved_via_r4c() {
 
 #[test]
 fn js_commonjs_named_object_export_resolves_import_member() {
-    // P4: `module.exports = { process }` is modeled (js_exports::JsExportFacts),
+    // P4: `module.exports = { process }` is modeled (ast::js_ts::exports::JsExportFacts),
     // so a named ESM-style import of a CJS-exported object member resolves.
     let fs = files(&[
         (

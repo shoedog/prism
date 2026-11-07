@@ -2,9 +2,9 @@
 use super::*;
 
 pub(super) struct Initializers {
-    pub(super) props: crate::js_ts_props::ImportedPropsProofs,
+    pub(super) props: crate::call_graph::js_ts::props::ImportedPropsProofs,
     pub(super) scope: Option<ScopeGraph>,
-    pub(super) proofs: crate::js_anonymous::ProofIndex,
+    pub(super) proofs: crate::resolution::js_ts::anonymous::ProofIndex,
     pub(super) macro_shadow: BTreeSet<String>,
 }
 
@@ -18,13 +18,14 @@ pub(super) fn collect(
     // and owns its output; intervening empty collections/defaults have no effects
     // visible to these builders. Scope construction also emits its nested row.
     profile.next("call_graph.js_ts_props");
-    let props = crate::js_ts_props::collect(files);
+    let props = crate::call_graph::js_ts::props::collect(files);
     profile.next("call_graph.populate_scope_graph");
     let scope = CallGraph::populate_scope_graph(files, scope_inputs);
     profile.next("call_graph.js_anonymous_proofs");
-    let proofs = crate::js_anonymous::ProofIndex::build(files);
+    let proofs = crate::resolution::js_ts::anonymous::ProofIndex::build(files);
     profile.next("call_graph.rust_macro_shadow_intersection");
-    let macro_shadow = crate::rust_macro_args::transparent_shadow_intersection(macro_shadow);
+    let macro_shadow =
+        crate::call_graph::rust::macro_args::transparent_shadow_intersection(macro_shadow);
     profile.next("call_graph.struct_init");
     Initializers {
         props,

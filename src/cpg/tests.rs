@@ -1409,7 +1409,7 @@ fn step5b_param_binding_first_wins_parity() {
 /// P8: a macro-arg-minted CallSite's `start_byte` points at the identifier
 /// inside a `macro_invocation`'s token-soup arguments, not a real
 /// `call_expression`/`call_arguments` node — `call_argument_texts_at`
-/// (`ast.rs`, backed by `build_call_args_index`, which only indexes
+/// (`ast/call_args.rs`, backed by `build_call_args_index`, which only indexes
 /// `is_call_node` kinds and never visits `macro_invocation`'s children as
 /// such) therefore returns `Vec::new()` for it, and `step5b_edges_for_caller`
 /// takes its existing `if arg_texts.is_empty() { continue; }` branch. CPG

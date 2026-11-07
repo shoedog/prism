@@ -1,6 +1,6 @@
 //! Per-occurrence proof for direct CommonJS callable values, not live bindings.
 use super::ParsedFile;
-use crate::js_exports::{CjsCallable, JsExportFacts, JsExportTarget};
+use crate::ast::js_ts::exports::{CjsCallable, JsExportFacts, JsExportTarget};
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
@@ -152,7 +152,7 @@ impl ParsedFile {
         &self,
         name: String,
         rhs: Node<'_>,
-        facts: &mut crate::js_exports::JsExportFacts,
+        facts: &mut crate::ast::js_ts::exports::JsExportFacts,
     ) {
         if rhs.kind() == "identifier" {
             self.insert_js_ts_cjs_local(facts, Some(name), rhs);

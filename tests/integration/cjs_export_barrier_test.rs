@@ -159,7 +159,7 @@ fn parse_recovery_revokes_cjs_only() {
             .get("item")
             .is_none_or(|target| matches!(
                 target,
-                prism::js_exports::JsExportTarget::UnprovenLocal(_)
+                prism::ast::js_ts::exports::JsExportTarget::UnprovenLocal(_)
             )));
     }
 }
@@ -173,7 +173,7 @@ fn unsafe_raw_facts_cannot_authorize_export() {
         facts.conflicted.contains("item")
             || facts.named.get("item").is_none_or(|target| matches!(
                 target,
-                prism::js_exports::JsExportTarget::UnprovenLocal(_)
+                prism::ast::js_ts::exports::JsExportTarget::UnprovenLocal(_)
             )),
         "unsafe raw target: {facts:?}"
     );

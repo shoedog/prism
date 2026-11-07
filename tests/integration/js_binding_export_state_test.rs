@@ -2,10 +2,10 @@
 //! refusal and may-call counts, `ResolvedJsExport.wrapped`) survives serde and the CPG cache,
 //! and full and incremental builds agree across source epochs.
 use super::js_wrapped_export_test::app_sites;
+use prism::ast::js_ts::exports::{JsExportFacts, JsExportTarget, ResolvedJsExport};
 use prism::ast::ParsedFile;
 use prism::cpg::CodePropertyGraph;
 use prism::cpg_cache::{self, CacheResult};
-use prism::js_exports::{JsExportFacts, JsExportTarget, ResolvedJsExport};
 use prism::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 

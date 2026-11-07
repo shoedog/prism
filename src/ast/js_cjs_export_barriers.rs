@@ -13,7 +13,7 @@ impl ParsedFile {
         // #627: a named function expression is a producer-side export claim only in a file with
         // no ESM export; beside one it stays refused (the shared export table would otherwise make
         // it authoritative for ESM and destructured consumers). Since #664 no CommonJS export
-        // claim of any form is authoritative beside an ESM export (`src/ast.rs`).
+        // claim of any form is authoritative beside an ESM export (`src/ast/js_ts/export_facts.rs`).
         let esm = {
             let mut c = root.walk();
             let found = root

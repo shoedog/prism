@@ -1,6 +1,6 @@
 //! Review-taint flat sink matching by call position, with a hybrid receiver policy (#622 S1).
 //!
-//! The flat `SINK_PATTERNS` list in `taint.rs` matched substrings of any
+//! The flat `SINK_PATTERNS` list in `taint/flat.rs` matched substrings of any
 //! identifier on a line (`Query` in `sanitizedQuery`, `eval` in `revalidate`,
 //! `get_user` in `get_user_id()`). For JS/TS/TSX, Python and Go the decision now
 //! comes from the AST: the identifier must be the callee of a call (or the target

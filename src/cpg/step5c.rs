@@ -14,7 +14,7 @@ mod uses;
 
 impl CodePropertyGraph {
     pub(super) fn assemble_step5c_return_flow(
-        go_satisfiers: &crate::resolution::go_satisfiers::GoSatisfierMemo<'_>,
+        go_satisfiers: &crate::resolution::go::satisfiers::GoSatisfierMemo<'_>,
         var_index: &VarIndex,
         hidden: &BTreeSet<NodeIndex>,
         func_index: &BTreeMap<(String, String, usize), NodeIndex>,

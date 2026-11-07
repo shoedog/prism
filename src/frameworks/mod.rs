@@ -16,9 +16,9 @@ pub mod js_ts;
 pub mod nethttp;
 pub mod python;
 
-/// Origin classification matching `provenance_slice.rs::Origin` enum.
-/// Re-exported here for convenience in framework specs.
-pub use crate::algorithms::provenance_slice::Origin;
+mod origin;
+/// Origin classification (defined in `origin.rs`; `provenance_slice` re-exports it).
+pub use origin::Origin;
 
 /// Category that a sink consumes or a sanitizer cleanses.
 ///
@@ -62,7 +62,7 @@ pub struct SinkPattern {
     pub category: SanitizerCategory,
     /// 0-indexed argument positions whose taint fires this sink. Any-tainted
     /// semantics: the sink fires if AT LEAST ONE indexed arg is tainted on
-    /// the matching FlowPath (see `taint.rs::arg_is_tainted_in_path`).
+    /// the matching FlowPath (see `taint/sink_match.rs::arg_is_tainted_in_path`).
     ///
     /// Examples:
     /// - `&[0]` for `exec.Command(taintedBin, ...)` — fires when arg[0] is tainted.
@@ -91,8 +91,8 @@ pub struct SanitizerRecognizer {
     pub paired_check: Option<&'static str>,
     /// P10 F2 / Item B (#7): the language(s) this recognizer's `call_path` is meaningful for (e.g.
     /// bare `escape` means something different in Python vs. JS/TS, and means nothing in Go).
-    /// Consumed by `taint::sanitizer_call_site` (the P10 verdict-path matcher) AND by
-    /// `taint::function_body_cleansed_for` (the advisory tier feeding
+    /// Consumed by `sanitizers::matching::sanitizer_call_site` (the P10 verdict-path matcher) AND by
+    /// `sanitizers::matching::function_body_cleansed_for` (the advisory tier feeding
     /// `cleansed_categories_for_source` / `sanitizers_present_in_source_fn` / the `Cleansed`
     /// warning, and the CWE sink-suppression engine's `FlowPath.cleansed_for` marks) — both apply
     /// the identical `recognizer.languages.contains(&parsed.language)` predicate. Also consulted

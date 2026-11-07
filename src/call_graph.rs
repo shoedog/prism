@@ -8,6 +8,7 @@ use crate::ast::ParsedFile;
 use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::rust_populator::{enclosing_scope, populate_rust, RustCrateConfig};
 use crate::name_resolution::types::{ScopeId, ScopeKind};
+use crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute;
 use crate::resolution_identity::{resolve_type_path_to_type_scope, TypeKey};
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -17,11 +18,14 @@ use std::path::PathBuf;
 #[path = "call_graph_anon_prep_tests.rs"]
 mod anon_prep_tests;
 mod boundary;
+pub(crate) mod go;
 #[path = "call_graph_profile_initializers.rs"]
 mod init_profile;
+pub mod js_ts;
 mod js_ts_facts;
 mod level4;
 mod python_import_proofs;
+pub mod rust;
 pub(crate) use python_import_proofs::{
     python_imported_class_proof_keys, python_imported_class_route,
 };
@@ -38,351 +42,7 @@ pub struct FunctionId {
 }
 
 #[cfg(test)]
-mod go_level3_callback_tests {
-    use super::*;
-    use crate::languages::Language;
-
-    fn build_go(source: &str) -> CallGraph {
-        let files = BTreeMap::from([(
-            "callback.go".to_string(),
-            ParsedFile::parse("callback.go", source, Language::Go).expect("parse Go fixture"),
-        )]);
-        CallGraph::build(&files)
-    }
-
-    fn build_go_module(files: &[(&str, &str)], module: &str) -> CallGraph {
-        let files = files
-            .iter()
-            .map(|(path, source)| {
-                (
-                    (*path).to_string(),
-                    ParsedFile::parse(path, source, Language::Go).expect("parse Go fixture"),
-                )
-            })
-            .collect::<BTreeMap<_, _>>();
-        let root = tempfile::tempdir().expect("temporary Go module");
-        std::fs::write(
-            root.path().join("go.mod"),
-            format!("module {module}\n\ngo 1.24\n"),
-        )
-        .expect("write go.mod fixture");
-        let inputs = crate::repo_loader::scope_graph_build_inputs(root.path(), &files);
-        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
-    }
-
-    fn function<'a>(graph: &'a CallGraph, name: &str) -> &'a FunctionId {
-        graph.functions[name].first().expect("function")
-    }
-
-    #[test]
-    fn level3_literal_callback_mints_exact_target_at_hof_invocation() {
-        let graph = build_go(
-            "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
-        );
-        let invoke = function(&graph, "invoke");
-        let safe = function(&graph, "safe");
-        let sites = graph
-            .calls
-            .get(invoke)
-            .into_iter()
-            .flatten()
-            .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
-            .collect::<Vec<_>>();
-
-        assert_eq!(graph.level3_indirect_resolved, 1);
-        assert_eq!(sites.len(), 1);
-        assert_eq!(sites[0].callee_name, "safe");
-        assert_eq!(sites[0].source_callee_name.as_deref(), Some("cb"));
-        assert_eq!(sites[0].pre_resolved_target.as_ref(), Some(safe));
-        assert_eq!(graph.go_level3_b1_telemetry.candidates, 1);
-        assert_eq!(graph.go_level3_b1_telemetry.exact_inbound_sites, 1);
-        assert_eq!(graph.go_level3_b1_telemetry.accepted_inbound_sites, 1);
-        assert_eq!(graph.go_level3_b1_telemetry.unique_targets, 1);
-        assert_eq!(graph.go_level3_b1_telemetry.edges, 1);
-        assert!(graph.go_level3_b1_telemetry.drops.is_empty());
-        let resolved = graph.resolve_call_site_full(sites[0]);
-        assert_eq!(resolved.resolved.len(), 1);
-        assert_eq!(resolved.resolved[0].target, safe);
-        assert_eq!(
-            resolved.resolved[0].confidence,
-            crate::resolution::ResolutionConfidence::Exact
-        );
-        assert_eq!(
-            resolved.resolved[0].kind,
-            crate::resolution::ResolutionKind::ParameterCallback
-        );
-    }
-
-    #[test]
-    fn level3_named_grouped_callback_uses_nonzero_slot() {
-        let graph = build_go(
-            "package p\ntype Handler func(int)\nfunc invoke(prefix string, cb Handler) { cb(1) }\nfunc safe(value int) {}\nfunc caller() { invoke(\"x\", safe) }\n",
-        );
-        let invoke = function(&graph, "invoke");
-        let safe = function(&graph, "safe");
-
-        assert!(graph.calls[invoke].iter().any(|site| {
-            site.origin == CallSiteOrigin::IndirectResolution
-                && site.pre_resolved_target.as_ref() == Some(safe)
-        }));
-    }
-
-    #[test]
-    fn level3_qualified_hof_requires_exact_import_identity() {
-        let graph = build_go_module(
-            &[
-                (
-                    "lib/hof.go",
-                    "package lib\nfunc Invoke(cb func()) { cb() }\n",
-                ),
-                (
-                    "app/main.go",
-                    "package app\nimport callback \"example.com/project/lib\"\nfunc safe() {}\nfunc caller() { callback.Invoke(safe) }\n",
-                ),
-            ],
-            "example.com/project",
-        );
-        let invoke = graph.functions["Invoke"]
-            .iter()
-            .find(|function| function.file == "lib/hof.go")
-            .expect("Invoke");
-        let safe = graph.functions["safe"]
-            .iter()
-            .find(|function| function.file == "app/main.go")
-            .expect("safe");
-
-        assert!(graph.calls[invoke].iter().any(|site| {
-            site.origin == CallSiteOrigin::IndirectResolution
-                && site.source_callee_name.as_deref() == Some("cb")
-                && site.pre_resolved_target.as_ref() == Some(safe)
-        }));
-    }
-
-    #[test]
-    fn level3_negative_cases_conserve_one_stable_drop() {
-        for (label, source, expected_drop) in [
-            (
-                "target shadow",
-                "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { safe := func() {}; invoke(safe) }\n",
-                "local_binding_or_mutation",
-            ),
-            (
-                "hof shadow",
-                "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { invoke := func(func()) {}; invoke(safe) }\n",
-                "local_binding_or_mutation",
-            ),
-            (
-                "signature mismatch",
-                "package p\nfunc invoke(cb func(int)) { cb(1) }\nfunc safe(string) {}\nfunc caller() { invoke(safe) }\n",
-                "signature_unproven_or_mismatch",
-            ),
-            (
-                "parameter mutation",
-                "package p\nfunc safe() {}\nfunc other() {}\nfunc invoke(cb func()) { cb = other; cb() }\nfunc caller() { invoke(safe) }\n",
-                "callback_parameter_shadow_or_mutation",
-            ),
-            (
-                "address escape",
-                "package p\nfunc mutate(*func()) {}\nfunc safe() {}\nfunc invoke(cb func()) { mutate(&cb); cb() }\nfunc caller() { invoke(safe) }\n",
-                "callback_parameter_address_escape",
-            ),
-            (
-                "nested invocation",
-                "package p\nfunc safe() {}\nfunc invoke(cb func()) { func() { cb() }() }\nfunc caller() { invoke(safe) }\n",
-                "nested_callable_invocation",
-            ),
-            (
-                "non-bare argument",
-                "package p\nfunc invoke(cb func()) { cb() }\nfunc caller() { invoke(func() {}) }\n",
-                "non_bare_argument",
-            ),
-            (
-                "unknown default import",
-                "package p\nimport \"example.com/external\"\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
-                "strict_import_name_unavailable",
-            ),
-            (
-                "dot import",
-                "package p\nimport . \"example.com/external\"\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
-                "dot_import",
-            ),
-            (
-                "no direct invocation",
-                "package p\nfunc invoke(cb func()) {}\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
-                "no_direct_parameter_invocation",
-            ),
-            (
-                "spread argument",
-                "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\nfunc caller() { callbacks := []func(){safe}; invoke(callbacks...) }\n",
-                "missing_slot_or_argument_identity",
-            ),
-        ] {
-            let graph = build_go(source);
-            assert_eq!(graph.level3_indirect_resolved, 0, "{label}");
-            assert_eq!(graph.go_level3_b1_telemetry.candidates, 1, "{label}");
-            assert_eq!(
-                graph.go_level3_b1_telemetry.accepted_inbound_sites,
-                0,
-                "{label}"
-            );
-            assert_eq!(
-                graph
-                    .go_level3_b1_telemetry
-                    .drops
-                    .values()
-                    .sum::<usize>(),
-                1,
-                "{label}"
-            );
-            assert_eq!(
-                graph.go_level3_b1_telemetry.drops.get(expected_drop),
-                Some(&1),
-                "{label}: {:?}",
-                graph.go_level3_b1_telemetry.drops
-            );
-        }
-    }
-
-    #[test]
-    fn level3_variadic_callback_slot_is_not_a_candidate() {
-        let graph = build_go(
-            "package p\nfunc invoke(callbacks ...func()) { callbacks[0]() }\nfunc safe() {}\nfunc caller() { invoke(safe) }\n",
-        );
-
-        assert_eq!(graph.level3_indirect_resolved, 0);
-        assert_eq!(graph.go_level3_b1_telemetry.candidates, 0);
-    }
-
-    #[test]
-    fn level3_preserves_multiple_slots_targets_and_invocation_spans() {
-        let graph = build_go(
-            "package p\nfunc invoke(left, right func()) { left(); right(); left() }\nfunc first() {}\nfunc second() {}\nfunc caller() { invoke(first, second) }\n",
-        );
-        let invoke = function(&graph, "invoke");
-        let indirect = graph.calls[invoke]
-            .iter()
-            .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
-            .collect::<Vec<_>>();
-
-        assert_eq!(graph.go_level3_b1_telemetry.candidates, 2);
-        assert_eq!(graph.go_level3_b1_telemetry.accepted_inbound_sites, 2);
-        assert_eq!(graph.go_level3_b1_telemetry.unique_targets, 2);
-        assert_eq!(graph.go_level3_b1_telemetry.edges, 3);
-        assert_eq!(indirect.len(), 3);
-        assert_eq!(
-            indirect
-                .iter()
-                .filter(|site| site.callee_name == "first")
-                .map(|site| site.start_byte)
-                .collect::<BTreeSet<_>>()
-                .len(),
-            2
-        );
-        assert_eq!(
-            indirect
-                .iter()
-                .filter(|site| site.callee_name == "second")
-                .count(),
-            1
-        );
-    }
-
-    #[test]
-    fn level3_multiple_inbound_targets_share_one_hof_invocation_without_collapsing_identity() {
-        let graph = build_go(
-            "package p\nfunc invoke(cb func()) { cb() }\nfunc first() {}\nfunc second() {}\nfunc caller1() { invoke(first) }\nfunc caller2() { invoke(second) }\n",
-        );
-        let invoke = function(&graph, "invoke");
-        let targets = graph.calls[invoke]
-            .iter()
-            .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
-            .filter_map(|site| site.pre_resolved_target.as_ref())
-            .map(|target| target.name.as_str())
-            .collect::<BTreeSet<_>>();
-
-        assert_eq!(targets, BTreeSet::from(["first", "second"]));
-        assert_eq!(graph.go_level3_b1_telemetry.candidates, 2);
-        assert_eq!(graph.go_level3_b1_telemetry.accepted_inbound_sites, 2);
-        assert_eq!(graph.go_level3_b1_telemetry.edges, 2);
-    }
-
-    #[test]
-    fn level3_same_line_inbound_calls_preserve_distinct_candidate_spans() {
-        let graph = build_go(
-            "package p\nfunc invoke(cb func()) { cb() }\nfunc first() {}\nfunc second() {}\nfunc caller() { invoke(first); invoke(second) }\n",
-        );
-        let starts = graph
-            .go_level3_b1_telemetry
-            .sites
-            .iter()
-            .map(|site| site.inbound_start_byte)
-            .collect::<BTreeSet<_>>();
-
-        assert_eq!(graph.go_level3_b1_telemetry.candidates, 2);
-        assert_eq!(graph.go_level3_b1_telemetry.accepted_inbound_sites, 2);
-        assert_eq!(starts.len(), 2);
-    }
-
-    #[test]
-    fn level3_same_named_targets_in_two_packages_keep_exact_file_identity() {
-        let graph = build_go_module(
-            &[
-                ("hof/hof.go", "package hof\nfunc Invoke(cb func()) { cb() }\n"),
-                (
-                    "left/caller.go",
-                    "package left\nimport h \"example.com/project/hof\"\nfunc safe() {}\nfunc caller() { h.Invoke(safe) }\n",
-                ),
-                (
-                    "right/caller.go",
-                    "package right\nimport h \"example.com/project/hof\"\nfunc safe() {}\nfunc caller() { h.Invoke(safe) }\n",
-                ),
-            ],
-            "example.com/project",
-        );
-        let invoke = graph.functions["Invoke"]
-            .iter()
-            .find(|function| function.file == "hof/hof.go")
-            .expect("Invoke");
-        let target_files = graph.calls[invoke]
-            .iter()
-            .filter(|site| site.origin == CallSiteOrigin::IndirectResolution)
-            .filter_map(|site| site.pre_resolved_target.as_ref())
-            .map(|target| target.file.as_str())
-            .collect::<BTreeSet<_>>();
-
-        assert_eq!(
-            target_files,
-            BTreeSet::from(["left/caller.go", "right/caller.go"])
-        );
-        assert_eq!(graph.go_level3_b1_telemetry.unique_targets, 2);
-        assert_eq!(graph.go_level3_b1_telemetry.edges, 2);
-    }
-
-    #[test]
-    fn level3_test_file_inbound_site_drops_without_an_edge() {
-        let graph = build_go_module(
-            &[
-                (
-                    "p/callback.go",
-                    "package p\nfunc invoke(cb func()) { cb() }\nfunc safe() {}\n",
-                ),
-                (
-                    "p/callback_test.go",
-                    "package p\nfunc testCaller() { invoke(safe) }\n",
-                ),
-            ],
-            "example.com/project",
-        );
-
-        assert_eq!(graph.go_level3_b1_telemetry.candidates, 1);
-        assert_eq!(graph.go_level3_b1_telemetry.accepted_inbound_sites, 0);
-        assert_eq!(
-            graph.go_level3_b1_telemetry.drops.get("non_go_or_test"),
-            Some(&1)
-        );
-        assert_eq!(graph.go_level3_b1_telemetry.edges, 0);
-    }
-}
+mod go_level3_callback_tests;
 
 #[cfg(test)]
 #[path = "call_graph/promoted_snapshot_consult_test.rs"]
@@ -428,7 +88,7 @@ pub enum CallSiteOrigin {
     IndirectResolution,
     /// Minted from a Rust macro argument (transparency-allowlisted, e.g.
     /// `assert!(check(x))`) rather than from the grammar's own call/method
-    /// node. See `crate::rust_macro_args`.
+    /// node. See `crate::call_graph::rust::macro_args`.
     MacroArg,
 }
 
@@ -548,7 +208,7 @@ pub enum JsLocalBinding {
     /// Anonymous admission also checks the hook and return-proof dependency environments.
     Returned {
         hook: crate::ast::JsFollow,
-        path: crate::js_returns::JsReturnPath,
+        path: crate::ast::js_ts::returns::JsReturnPath,
         kept: String,
     },
     /// #598: a callee that names an export of an in-repo module by relative `require`: `member`
@@ -579,9 +239,9 @@ impl JsLocalBinding {
 /// Per-file JS/TS facts extracted together: export facts by file, parameter/local binding names
 /// and slice V's returned-value facts, each by function.
 type JsTsResolutionFacts = (
-    BTreeMap<String, crate::js_exports::JsExportFacts>,
+    BTreeMap<String, crate::ast::js_ts::exports::JsExportFacts>,
     BTreeMap<FunctionId, BTreeSet<String>>,
-    BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
+    BTreeMap<FunctionId, crate::ast::js_ts::returns::JsReturnFacts>,
 );
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -680,7 +340,7 @@ pub struct ScopeGraphBuildInputs {
     #[serde(default)]
     pub manifest_snapshot: crate::ManifestSnapshot,
     #[serde(default)]
-    pub js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
+    pub js_paths_snapshot: crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot,
     #[serde(default)]
     pub skipped_go_testdata_files: usize,
     pub cfg: RustCrateConfig,
@@ -809,15 +469,15 @@ pub struct CallGraph {
     #[serde(default)]
     pub level3_indirect_resolved: usize,
     #[serde(default)]
-    pub(crate) go_level3_b1_telemetry: crate::go_callback::GoLevel3Telemetry,
+    pub(crate) go_level3_b1_telemetry: go::callback::GoLevel3Telemetry,
     /// Strict callable parameter signatures for non-test Go free functions.
     /// Whole-program derived with interface dispatch; direct subsets leave it empty.
     #[serde(default)]
-    pub(crate) go_callback_parameters: crate::go_callback::GoCallbackParameterIndex,
+    pub(crate) go_callback_parameters: go::callback::GoCallbackParameterIndex,
     /// Strict canonical signatures for non-test Go free-function declarations.
     /// Whole-program derived with interface dispatch; direct subsets leave it empty.
     #[serde(default)]
-    pub(crate) go_free_function_signatures: crate::go_callback::GoFreeFunctionSignatureIndex,
+    pub(crate) go_free_function_signatures: go::callback::GoFreeFunctionSignatureIndex,
     /// Exact per-file effective Go import paths retained for Level-3 occurrence proof.
     #[serde(default)]
     pub(crate) go_file_import_paths: BTreeMap<String, String>,
@@ -836,7 +496,7 @@ pub struct CallGraph {
     pub method_owners: BTreeMap<FunctionId, String>,
     /// Rust `Self::f` allow-list proofs (impl syntax, self-type headers, trait defaults).
     #[serde(default)]
-    pub(crate) rust_self_proofs: crate::resolution::rust_self::ProofIndex,
+    pub(crate) rust_self_proofs: crate::resolution::rust::self_calls::ProofIndex,
     /// Method FunctionId -> owner class definition node byte span (start, end).
     /// Py/JS/TS only; the self-receiver class identity.
     #[serde(default)]
@@ -864,7 +524,7 @@ pub struct CallGraph {
     pub clean_class_spans: BTreeMap<(String, String), (usize, usize)>,
     /// Complete-snapshot imported alias proofs. Replaced, never unioned, on merge.
     #[serde(default)]
-    pub js_ts_imported_props: crate::js_ts_props::ImportedPropsProofs,
+    pub js_ts_imported_props: js_ts::props::ImportedPropsProofs,
     /// Disabled integration: ephemeral authority, absent from ordinary builds.
     #[serde(skip)]
     pub(crate) executable_owner:
@@ -947,14 +607,16 @@ pub struct CallGraph {
     /// Alias-only export tables. Every hop uses P1 occupancy/Node10 proof;
     /// the config path partitions callers by their owning project's options.
     #[serde(default)]
-    pub js_ts_path_exports:
-        BTreeMap<String, BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>>,
+    pub js_ts_path_exports: BTreeMap<
+        String,
+        BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>,
+    >,
     /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
     /// named export lists (incl. renames), exported const-arrow/
     /// function-expression declarations, CommonJS assignments, and re-export
     /// records. Incrementally maintained per file like `import_bindings`.
     #[serde(default)]
-    pub js_ts_exports: BTreeMap<String, crate::js_exports::JsExportFacts>,
+    pub js_ts_exports: BTreeMap<String, crate::ast::js_ts::exports::JsExportFacts>,
     /// P4: whole-program resolved JS/TS export facts — file -> exported name
     /// -> the concrete `(file, local_name)` it refers to after following
     /// re-export chains (depth-bounded, cycle-safe). Derived from
@@ -964,10 +626,10 @@ pub struct CallGraph {
     /// S1b-4 namespace-only export projection (unspanned means keep base).
     #[serde(default)]
     pub js_ts_namespace_exports:
-        BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
+        BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>,
     #[serde(default)]
     pub js_ts_resolved_exports:
-        BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
+        BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>,
     /// P4 telemetry: re-export chains that exceeded the depth bound or hit a
     /// cycle while resolving `js_ts_resolved_exports`. Whole-program derived,
     /// recomputed alongside `js_ts_resolved_exports`.
@@ -983,9 +645,9 @@ pub struct CallGraph {
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
     /// Source-backed anonymous proof evidence; partial builds refresh it from all current files.
     #[serde(default)]
-    pub(crate) js_anonymous: crate::js_anonymous::ProofIndex,
+    pub(crate) js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex,
     #[serde(default)]
-    pub js_ts_return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
+    pub js_ts_return_facts: BTreeMap<FunctionId, crate::ast::js_ts::returns::JsReturnFacts>,
     /// Go package directory index. Plain keys are legacy directory basenames;
     /// `@go-import:` keys carry effective module import paths proven by the
     /// module graph. Qualified `pkg.T` lookup prefers the exact key and uses a
@@ -1029,7 +691,7 @@ pub struct CallGraph {
     /// P13: per-Go-file package/build profile facts used only to partition
     /// same-directory same-name candidates at resolution consult sites.
     #[serde(default)]
-    pub go_file_profiles: BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    pub go_file_profiles: BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
     /// P13 telemetry: files whose build expression was unparsed. Stored
     /// per-file so incremental remove/merge preserves exact counts.
     #[serde(default)]
@@ -1046,7 +708,7 @@ pub struct CallGraph {
     pub skipped_go_testdata_files: usize,
     /// Effective Go workspace/module/replacement graph summary for call-stats.
     #[serde(default)]
-    pub(crate) go_module_graph: crate::go_module_graph::GoModuleGraphTelemetry,
+    pub(crate) go_module_graph: go::module_graph::GoModuleGraphTelemetry,
     /// Loaded Go files whose effective import path was proven.
     #[serde(default)]
     pub(crate) go_import_path_proven_files: usize,
@@ -1065,18 +727,20 @@ pub struct CallGraph {
     /// Owner/profile-keyed promoted-selector facts, serialized for cache parity
     /// and consulted by deferred concrete promoted-selector routing.
     #[serde(default)]
-    go_promoted_selector_snapshot: crate::go_promoted_snapshot::GoPromotedSelectorSnapshot,
+    go_promoted_selector_snapshot:
+        crate::resolution::go::promoted_snapshot::GoPromotedSelectorSnapshot,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with
     /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
     #[serde(default)]
-    pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
+    pub go_owner_identity_partition:
+        crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry,
     /// P10 build-time S2 decisions keyed by their source call site. `call-stats`
     /// coalesces this with the same site's runtime S4/P5/direct-method decision
     /// so `affected_sites` is a cardinality, not a count of pipeline stages.
     #[serde(default)]
     pub(crate) go_owner_identity_partition_sites: BTreeMap<
-        crate::go_owner_partition::GoOwnerPartitionSiteKey,
-        crate::go_owner_partition::GoOwnerPartitionTelemetry,
+        crate::resolution::go::owner_partition::GoOwnerPartitionSiteKey,
+        crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry,
     >,
     /// P13 telemetry: `resolve_go_bare_value_ref` saw multiple same-package
     /// value candidates before profile filtering.
@@ -1123,11 +787,11 @@ pub struct CallGraph {
     /// `js_export_skipped_exprs` for the same on-demand-sum pattern). Only
     /// files with at least one non-default fact are present.
     #[serde(default)]
-    pub macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts>,
+    pub macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts>,
     /// P8 F1 fix (BLOCKER, codex re-review): the repo-wide macro shadow set
-    /// (`rust_macro_args::collect_macro_shadow_set`), narrowed to its
+    /// (`call_graph::rust::macro_args::collect_macro_shadow_set`), narrowed to its
     /// intersection with `TRANSPARENT_ARG_MACROS`
-    /// (`rust_macro_args::transparent_shadow_intersection`) — the only part
+    /// (`call_graph::rust::macro_args::transparent_shadow_intersection`) — the only part
     /// of the shadow set that can change macro-arg call-extraction behavior.
     /// Unlike `macro_arg_facts` above, this is whole-program derived (like
     /// `interface_impls`/`js_ts_resolved_exports`): recomputed from scratch
@@ -1168,7 +832,7 @@ pub struct CallGraph {
     /// `apply_go_receiver_indices` in the post-merge rematerialization pass,
     /// never incrementally patched.
     #[serde(default)]
-    pub go_return_types: crate::go_receiver_index::GoReturnTypes,
+    pub go_return_types: go::receiver_index::GoReturnTypes,
     /// Go files containing at least one dot import. Kept separate from
     /// `imports` because `.` is evidence that a bare type may be externally
     /// supplied, not a qualifier that can be resolved by name.
@@ -1182,11 +846,11 @@ pub struct CallGraph {
     /// presence/absence and raw type remain attached to the defining file so
     /// receiver recovery can filter build profiles before requiring one value.
     #[serde(default)]
-    pub go_field_types: crate::go_owner_partition::GoStructDeclarations,
+    pub go_field_types: crate::resolution::go::owner_partition::GoStructDeclarations,
     /// P17: serialized declaration-kind proof used by the shared recovered-Go
     /// receiver route. Exact CPG hits must retain the same R1/R2/R3 verdict.
     #[serde(default)]
-    pub go_declaration_kind_index: crate::go_concrete_receiver::GoDeclarationKindIndex,
+    pub go_declaration_kind_index: crate::resolution::go::concrete_receiver::GoDeclarationKindIndex,
     /// P17 compatibility snapshot showing a concrete selector is supplied by
     /// embedding. The shared route separately checks the existing owner-index
     /// promotion lane before deferring a newly recovered miss.
@@ -1195,9 +859,9 @@ pub struct CallGraph {
     /// P10 S4 interface and method declaration provenance, captured from the
     /// provider alongside `go_field_types` for exact consult-time routing.
     #[serde(default)]
-    pub go_interface_declarations: crate::go_owner_partition::GoInterfaceDeclarations,
+    pub go_interface_declarations: crate::resolution::go::owner_partition::GoInterfaceDeclarations,
     #[serde(default)]
-    pub go_method_declarations: crate::go_owner_partition::GoMethodDeclarations,
+    pub go_method_declarations: crate::resolution::go::owner_partition::GoMethodDeclarations,
     /// P10 S4: RTA admission keys used by snapshot-derived interface dispatch.
     #[serde(default)]
     pub go_interface_live_types: BTreeSet<String>,
@@ -1211,8 +875,7 @@ pub struct CallGraph {
     /// derived (a package var can be declared in a different file of the
     /// same package); recomputed from scratch by `apply_go_receiver_indices`.
     #[serde(default)]
-    pub go_package_vars:
-        BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
+    pub go_package_vars: BTreeMap<(String, String), BTreeSet<go::receiver_index::GoTypedFact>>,
     /// P15a-fix1: the plain (import-path-free) `GoTypeProvider` extracted once
     /// during this build, retained (Arc-backed, cheap clone) so
     /// `CpgContext::build_registry` can reuse it instead of re-extracting.
@@ -1354,7 +1017,7 @@ impl CallGraph {
     /// Read-only access to the serialized promoted-selector foundation facts.
     pub fn go_promoted_selector_snapshot(
         &self,
-    ) -> &crate::go_promoted_snapshot::GoPromotedSelectorSnapshot {
+    ) -> &crate::resolution::go::promoted_snapshot::GoPromotedSelectorSnapshot {
         &self.go_promoted_selector_snapshot
     }
 
@@ -1381,7 +1044,7 @@ impl CallGraph {
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
         // from the full `files` map, mirroring the existing per-build
         // whole-program-fact pattern (e.g. `extract_js_ts_resolution_facts`).
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) =
             Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
 
@@ -1593,7 +1256,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
-            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
+            js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex::build(files),
             js_ts_return_facts: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
@@ -1622,7 +1285,7 @@ impl CallGraph {
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
             macro_arg_facts: BTreeMap::new(),
-            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+            macro_shadow_intersection: rust::macro_args::transparent_shadow_intersection(
                 &macro_shadow,
             ),
             // P9: whole-program framework-entry state — left empty here, same
@@ -1668,7 +1331,7 @@ impl CallGraph {
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
         // P8 F1 BLOCKER: full-files macro shadow set; Sync BTreeSet shared by parallel jobs.
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) =
             Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
 
@@ -1812,7 +1475,7 @@ impl CallGraph {
         struct FileCallSites {
             file_path: String,
             call_sites: Vec<(FunctionId, CallSite)>,
-            macro_arg_facts: crate::rust_macro_args::MacroArgFacts,
+            macro_arg_facts: rust::macro_args::MacroArgFacts,
         }
 
         profile.next("call_graph.calls");
@@ -1821,7 +1484,7 @@ impl CallGraph {
             .map(|entry| {
                 let (file_path, parsed) = *entry;
                 let mut file_call_sites = Vec::new();
-                let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
+                let mut file_macro_arg_facts = rust::macro_args::MacroArgFacts::default();
                 let file_imports_ref = imports.get(file_path);
                 let proven_imported_receiver_types =
                     proven_python_imported_receiver_types.get(file_path);
@@ -1957,10 +1620,10 @@ impl CallGraph {
             .collect();
 
         profile.next("call_graph.merge");
-        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
+        let mut macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts> =
             BTreeMap::new();
         for file_calls in &per_file_calls {
-            if file_calls.macro_arg_facts != crate::rust_macro_args::MacroArgFacts::default() {
+            if file_calls.macro_arg_facts != rust::macro_args::MacroArgFacts::default() {
                 macro_arg_facts.insert(file_calls.file_path.clone(), file_calls.macro_arg_facts);
             }
         }
@@ -2227,7 +1890,8 @@ impl CallGraph {
         let Some(inputs) = inputs else {
             return;
         };
-        let mut resolver = crate::js_paths::Resolver::new(&inputs.js_paths_snapshot);
+        let mut resolver =
+            crate::resolution::js_ts::paths::Resolver::new(&inputs.js_paths_snapshot);
         for (file, bindings) in &self.import_bindings {
             if !matches!(
                 crate::languages::Language::from_path(file),
@@ -2274,7 +1938,7 @@ impl CallGraph {
                 .values()
                 .filter_map(|(file, owner)| (*owner == project).then_some(file))
                 .collect::<BTreeSet<_>>();
-            let resolution = crate::js_exports::resolve_js_exports_for(
+            let resolution = crate::ast::js_ts::exports::resolve_js_exports_for(
                 &self.js_ts_exports,
                 &resolve_module,
                 roots,
@@ -2301,9 +1965,11 @@ impl CallGraph {
             resolve_js_ts_relative_module(module_path, from, indexed_files)
         };
         let resolution =
-            crate::js_exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
-        self.js_ts_namespace_exports =
-            crate::js_exports::resolve_js_namespace_exports(&self.js_ts_exports, &resolve_module);
+            crate::ast::js_ts::exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
+        self.js_ts_namespace_exports = crate::ast::js_ts::exports::resolve_js_namespace_exports(
+            &self.js_ts_exports,
+            &resolve_module,
+        );
         self.js_ts_resolved_exports = resolution.resolved;
         self.js_export_chain_unresolved = resolution.chain_unresolved;
         self.js_export_barrel_conflicts = resolution.barrel_conflicts;
@@ -2381,7 +2047,8 @@ impl CallGraph {
         if facts.conflicted.contains(member) {
             return None;
         }
-        let crate::js_exports::JsExportTarget::Class(owner) = facts.named.get(member)? else {
+        let crate::ast::js_ts::exports::JsExportTarget::Class(owner) = facts.named.get(member)?
+        else {
             return None;
         };
         let key = (defining_file.clone(), owner.clone());
@@ -2719,10 +2386,7 @@ impl CallGraph {
         &self,
         files: &BTreeMap<String, ParsedFile>,
         stand_down: bool,
-    ) -> (
-        Vec<(FunctionId, CallSite)>,
-        crate::go_callback::GoLevel3Telemetry,
-    ) {
+    ) -> (Vec<(FunctionId, CallSite)>, go::callback::GoLevel3Telemetry) {
         // Resolve indirect call sites (function pointer variables and dispatch
         // tables). Preserve the historical level ordering:
         // 1/2 local function pointer and array dispatch, 4 struct callbacks,
@@ -2850,7 +2514,7 @@ impl CallGraph {
 
         // Level 3: Go bare free-function values passed to proven free-function HOFs.
         // Enumerate only original source sites; synthetic sites never donate evidence.
-        let proof = crate::go_callback::GoCallbackProofContext::new(
+        let proof = go::callback::GoCallbackProofContext::new(
             files,
             &self.functions,
             &self.method_owners,
@@ -2865,7 +2529,7 @@ impl CallGraph {
                 .or_default()
                 .extend(parameters.iter().map(|parameter| parameter.slot));
         }
-        let mut telemetry = crate::go_callback::GoLevel3Telemetry::default();
+        let mut telemetry = go::callback::GoLevel3Telemetry::default();
         let mut accepted_targets = BTreeSet::new();
         let mut level3_sites = BTreeSet::new();
         for (caller, sites) in &self.calls {
@@ -2883,7 +2547,7 @@ impl CallGraph {
                     parsed.call_argument_texts_and_spans_at(site.start_byte, &site.callee_name);
                 for slot in candidate_slots {
                     telemetry.candidates += 1;
-                    let mut record = crate::go_callback::GoLevel3SiteRecord {
+                    let mut record = go::callback::GoLevel3SiteRecord {
                         inbound_caller: caller.clone(),
                         inbound_line: site.line,
                         inbound_start_byte: site.start_byte,
@@ -2900,13 +2564,13 @@ impl CallGraph {
                         accepted: false,
                         drop_reason: None,
                     };
-                    let result: Result<_, crate::go_callback::GoLevel3DropReason> = (|| {
+                    let result: Result<_, go::callback::GoLevel3DropReason> = (|| {
                         if parsed.language != crate::languages::Language::Go {
-                            return Err(crate::go_callback::GoLevel3DropReason::NonGoOrTest);
+                            return Err(go::callback::GoLevel3DropReason::NonGoOrTest);
                         }
                         if site.arg_spread {
                             return Err(
-                                crate::go_callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
+                                go::callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
                             );
                         }
                         let hof = proof.hof_at(caller, site)?;
@@ -2917,9 +2581,7 @@ impl CallGraph {
                                 != crate::resolution::ResolutionConfidence::Exact
                             || resolved.resolved[0].target != &hof
                         {
-                            return Err(
-                                crate::go_callback::GoLevel3DropReason::HofNotSingletonExact,
-                            );
+                            return Err(go::callback::GoLevel3DropReason::HofNotSingletonExact);
                         }
                         telemetry.exact_inbound_sites += 1;
                         let parameter = self
@@ -2928,33 +2590,31 @@ impl CallGraph {
                             .and_then(|parameters| {
                                 parameters.iter().find(|parameter| parameter.slot == *slot)
                             })
-                            .ok_or(
-                                crate::go_callback::GoLevel3DropReason::MissingCallbackParameter,
-                            )?;
+                            .ok_or(go::callback::GoLevel3DropReason::MissingCallbackParameter)?;
                         record.callback_parameter = Some(parameter.name.clone());
                         let (argument, span) = arguments.get(*slot).ok_or(
-                            crate::go_callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
+                            go::callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
                         )?;
                         let target =
                             proof.bare_free_function_at(caller, span.clone(), argument.trim())?;
                         record.target = Some(target.clone());
-                        let target_signature =
-                            self.go_free_function_signatures.get(&target).ok_or(
-                                crate::go_callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
-                            )?;
-                        if !crate::go_callback::signatures_match_strict(
+                        let target_signature = self
+                            .go_free_function_signatures
+                            .get(&target)
+                            .ok_or(go::callback::GoLevel3DropReason::SignatureUnprovenOrMismatch)?;
+                        if !go::callback::signatures_match_strict(
                             &parameter.signature,
                             target_signature,
                         ) {
                             return Err(
-                                crate::go_callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
+                                go::callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
                             );
                         }
                         let invocations =
                             proof.direct_parameter_invocations(&self.calls, &hof, parameter)?;
                         record.invocation_spans = invocations
                             .iter()
-                            .map(|invocation| crate::go_callback::GoLevel3InvocationSpan {
+                            .map(|invocation| go::callback::GoLevel3InvocationSpan {
                                 line: invocation.line,
                                 start_byte: invocation.start_byte,
                                 end_byte: invocation.end_byte,
@@ -3606,7 +3266,7 @@ impl CallGraph {
     }
 
     fn refresh_rust_receiver_state(&mut self, files: &BTreeMap<String, ParsedFile>) {
-        self.rust_self_proofs = crate::resolution::rust_self::ProofIndex::build(files);
+        self.rust_self_proofs = crate::resolution::rust::self_calls::ProofIndex::build(files);
         self.populate_method_identity_indices(files);
         self.rematerialize_rust_receiver_keys(files);
     }
@@ -3667,7 +3327,7 @@ impl CallGraph {
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once,
         // shared (by reference) across every parallel per-caller task below.
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
         crate::build_pool::per_item(&ordered)
             .copied() // (&FunctionId, &BTreeSet) is Copy -> avoid &&-destructuring
@@ -3747,7 +3407,7 @@ impl CallGraph {
     )> {
         let mut updates = Vec::new();
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         for (caller, sites) in &self.calls {
             let Some(parsed) = files.get(&caller.file) else {
                 continue;
@@ -4022,7 +3682,7 @@ impl CallGraph {
         self.go_import_path_unproven_reasons = package_import_paths.reasons.clone();
         self.go_file_import_paths = package_import_paths.paths.clone();
         let callback_indices =
-            crate::go_callback::extract_go_callback_indices(files, &package_import_paths.paths);
+            go::callback::extract_go_callback_indices(files, &package_import_paths.paths);
         self.go_callback_parameters = callback_indices.parameters;
         self.go_free_function_signatures = callback_indices.free_functions;
         let provider =
@@ -4053,7 +3713,7 @@ impl CallGraph {
         self.go_method_declarations = provider.go_method_declarations();
         self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
         let go_type_declaration_files = provider.go_type_declaration_files();
-        self.go_promoted_selector_snapshot = crate::go_promoted_snapshot::build(
+        self.go_promoted_selector_snapshot = crate::resolution::go::promoted_snapshot::build(
             files,
             &package_import_paths.paths,
             &self.go_file_profiles,
@@ -4084,19 +3744,19 @@ impl CallGraph {
     fn go_package_import_paths(
         files: &BTreeMap<String, ParsedFile>,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
-    ) -> crate::go_module_graph::GoImportPathResolution {
+    ) -> go::module_graph::GoImportPathResolution {
         let Some(scope_inputs) = scope_inputs else {
             let unproven_files = files
                 .values()
                 .filter(|parsed| parsed.language == crate::languages::Language::Go)
                 .count();
-            let mut resolution = crate::go_module_graph::GoImportPathResolution {
+            let mut resolution = go::module_graph::GoImportPathResolution {
                 unproven_files,
                 ..Default::default()
             };
             if resolution.unproven_files > 0 {
                 resolution.reasons.insert(
-                    crate::go_module_graph::GoImportPathReason::NoGoMod
+                    go::module_graph::GoImportPathReason::NoGoMod
                         .as_str()
                         .to_string(),
                     resolution.unproven_files,
@@ -4104,7 +3764,7 @@ impl CallGraph {
             }
             return resolution;
         };
-        let mut graph = crate::go_module_graph::GoModuleGraph::new(
+        let mut graph = go::module_graph::GoModuleGraph::new(
             &scope_inputs.repo_root,
             &scope_inputs.manifest_snapshot,
         );
@@ -4295,7 +3955,7 @@ impl CallGraph {
         let Some(declarations) = self.go_field_types.get(&owner) else {
             return Err(());
         };
-        let selected = crate::go_owner_partition::select_struct_field(
+        let selected = crate::resolution::go::owner_partition::select_struct_field(
             &owner,
             caller_file,
             owner_type_text,
@@ -4328,7 +3988,7 @@ impl CallGraph {
         // cross-package matching), and must not be shadowed by a local
         // binding in the enclosing function (checked with the SAME Go
         // binding machinery `receiver_type_in_fn` uses for receiver recovery,
-        // src/ast.rs — a real local-binding check, not a same-file/package
+        // src/ast/receiver_typing.rs — a real local-binding check, not a same-file/package
         // substitute; spec-review MAJOR).
         let Some(target) = resolve_go_bare_value_ref(
             &self.functions,
@@ -4467,8 +4127,8 @@ impl CallGraph {
         {
             return;
         }
-        self.go_return_types = crate::go_receiver_index::extract_go_return_types(files);
-        self.go_package_vars = crate::go_receiver_index::extract_go_package_vars(files);
+        self.go_return_types = go::receiver_index::extract_go_return_types(files);
+        self.go_package_vars = go::receiver_index::extract_go_package_vars(files);
         self.go_dot_import_files = files
             .iter()
             .filter(|(_, parsed)| {
@@ -4498,7 +4158,7 @@ impl CallGraph {
         >,
     ) {
         let updates = {
-            let facts = crate::go_receiver_index::GoReceiverFacts {
+            let facts = go::receiver_index::GoReceiverFacts {
                 return_types: &self.go_return_types,
                 package_vars: &self.go_package_vars,
                 field_types: &self.go_field_types,
@@ -4519,12 +4179,12 @@ impl CallGraph {
                     .or_default() += 1;
             }
             let mut site_telemetry =
-                crate::go_owner_partition::GoOwnerPartitionTelemetry::default();
+                crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry::default();
             site_telemetry.observe(evidence, 1);
             self.go_owner_identity_partition.merge(site_telemetry);
             if site_telemetry.affected_sites() > 0 {
                 self.go_owner_identity_partition_sites.insert(
-                    crate::go_owner_partition::site_key(&old_site),
+                    crate::resolution::go::owner_partition::site_key(&old_site),
                     site_telemetry,
                 );
             }
@@ -4608,14 +4268,14 @@ impl CallGraph {
     pub(crate) fn compute_go_receiver_updates(
         &self,
         files: &BTreeMap<String, ParsedFile>,
-        facts: &crate::go_receiver_index::GoReceiverFacts<'_>,
+        facts: &go::receiver_index::GoReceiverFacts<'_>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
     ) -> Vec<(
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
-        crate::go_owner_partition::GoPartitionEvidence,
-        Option<crate::go_receiver_index::GoReceiverPrereqDrop>,
+        crate::resolution::go::owner_partition::GoPartitionEvidence,
+        Option<go::receiver_index::GoReceiverPrereqDrop>,
     )> {
         use rayon::prelude::*;
 
@@ -4645,14 +4305,14 @@ impl CallGraph {
         sites: &BTreeSet<CallSite>,
         files: &BTreeMap<String, ParsedFile>,
         classifier: &dyn crate::resolution::ReceiverClassifier,
-        facts: &crate::go_receiver_index::GoReceiverFacts<'_>,
+        facts: &go::receiver_index::GoReceiverFacts<'_>,
         var_local: bool,
     ) -> Vec<(
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
-        crate::go_owner_partition::GoPartitionEvidence,
-        Option<crate::go_receiver_index::GoReceiverPrereqDrop>,
+        crate::resolution::go::owner_partition::GoPartitionEvidence,
+        Option<go::receiver_index::GoReceiverPrereqDrop>,
     )> {
         let mut out = Vec::new();
         let Some(parsed) = files.get(&caller.file) else {
@@ -4691,7 +4351,7 @@ impl CallGraph {
             let Some(receiver_expr) = meta.receiver_node else {
                 continue;
             };
-            let ctx = crate::go_receiver_index::GoReceiverCtx {
+            let ctx = go::receiver_index::GoReceiverCtx {
                 parsed,
                 fn_node,
                 qualifier,
@@ -4703,11 +4363,11 @@ impl CallGraph {
                 caller_file: &caller.file,
             };
             let (raw_classification, mut evidence, origin) =
-                crate::go_receiver_index::classify_go_receiver_expanded_with_partition(
+                go::receiver_index::classify_go_receiver_expanded_with_partition(
                     &ctx, classifier, facts, var_local,
                 );
             let (classification, screen_evidence, prereq_drop) =
-                crate::go_receiver_index::screen_go_receiver_prerequisites(
+                go::receiver_index::screen_go_receiver_prerequisites(
                     &ctx,
                     raw_classification,
                     origin,
@@ -4728,7 +4388,7 @@ impl CallGraph {
                             &site.callee_name,
                             &caller.file,
                         ),
-                        crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. }
+                        GoConcreteReceiverRoute::ConcreteDirect { .. }
                     )
                 });
                 if !direct {
@@ -5028,7 +4688,7 @@ impl CallGraph {
     fn extract_go_build_profiles<'a>(
         files: impl Iterator<Item = (&'a str, &'a ParsedFile)>,
     ) -> (
-        BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
         BTreeMap<String, usize>,
     ) {
         let mut profiles = BTreeMap::new();
@@ -5037,7 +4697,8 @@ impl CallGraph {
             if parsed.language != crate::languages::Language::Go {
                 continue;
             }
-            let (profile, count) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+            let (profile, count) =
+                crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
             profiles.insert(path.to_string(), profile);
             if count > 0 {
                 unparsed.insert(path.to_string(), count);
@@ -5075,7 +4736,7 @@ impl CallGraph {
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — deliberately
         // scanned over the FULL `files` map (not `only_files`): a
         // `macro_rules!` def outside the changed subset must still shadow.
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) = Self::extract_go_build_profiles(
             files
                 .iter()
@@ -5199,13 +4860,13 @@ impl CallGraph {
 
         p.next("call_graph.direct_subset.calls");
         // Phase 2: Find call sites from subset.
-        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
+        let mut macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts> =
             BTreeMap::new();
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
                 continue;
             }
-            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
+            let mut file_macro_arg_facts = rust::macro_args::MacroArgFacts::default();
             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
             let named_claims =
                 crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);
@@ -5326,7 +4987,7 @@ impl CallGraph {
                     callers.entry(callee_name).or_default().push(site);
                 }
             }
-            if file_macro_arg_facts != crate::rust_macro_args::MacroArgFacts::default() {
+            if file_macro_arg_facts != rust::macro_args::MacroArgFacts::default() {
                 macro_arg_facts.insert(file_path.clone(), file_macro_arg_facts);
             }
         }
@@ -5358,7 +5019,7 @@ impl CallGraph {
             js_ts_unproven_instance_methods,
             class_bases,
             clean_class_spans,
-            js_ts_imported_props: crate::js_ts_props::collect(files),
+            js_ts_imported_props: js_ts::props::collect(files),
             executable_owner: None,
             owner_ephemeral: false,
             python_inert_initializers,
@@ -5394,7 +5055,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
-            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
+            js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex::build(files),
             js_ts_return_facts,
             // P5: whole-program Go func-value state — left empty here, exactly
             // like `interface_impls`/`interface_dispatch_computed: false`
@@ -5439,7 +5100,7 @@ impl CallGraph {
             // `macro_shadow` above), so this is always the fresh, correct
             // whole-program value. `merge` overwrites the retained graph's
             // field with this one for exactly that reason.
-            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+            macro_shadow_intersection: rust::macro_args::transparent_shadow_intersection(
                 &macro_shadow,
             ),
             // P9: whole-program framework-entry state — left empty here for
@@ -6770,4489 +6431,24 @@ fn has_static_specifier(parsed: &ParsedFile, func_node: &tree_sitter::Node<'_>) 
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    // P15a-fix1: the full production build path (CallGraph passes + CpgContext
-    // registry) must perform exactly ONE plain (import-path-free) provider
-    // construction and ONE import-aware construction, with at most ONE full
-    // `GoTypeData` alive at any moment. RED on the pre-fix code, which built
-    // plain providers for promotion AND receiver rematerialization AND the
-    // registry (3 plain constructions; peak live 2 while dispatch's
-    // import-aware extraction coexisted with the retained shared one).
-    // P15a-fix2: generation-keyed drops — a provider built BEFORE the token
-    // but dropped DURING the measurement must not decrement its live count
-    // (RED on the pre-fix global ARMED design, which underflowed LIVE).
-    #[test]
-    fn p15a_fix2_pre_token_drop_does_not_underflow_live() {
-        use crate::languages::Language::Go;
-        use crate::type_providers::go::{test_counters::MeasurementToken, GoTypeProvider};
-
-        let src = "package main\n\ntype S struct{ X int }\n";
-        let mut files = BTreeMap::new();
-        files.insert(
-            "main.go".to_string(),
-            ParsedFile::parse("main.go", src, Go).unwrap(),
-        );
-
-        // Built before any measurement — attributed to generation 0.
-        let stale = GoTypeProvider::from_parsed_files(&files);
-
-        let token = MeasurementToken::acquire();
-        drop(stale);
-        assert_eq!(
-            token.live(),
-            0,
-            "a pre-token extraction's drop must not affect this measurement"
-        );
-    }
-
-    #[test]
-    fn p15a_fix1_single_plain_provider_peak_live_one_through_full_context_path() {
-        use crate::cpg::CpgContext;
-        use crate::languages::Language::Go;
-        use crate::type_providers::go::test_counters::MeasurementToken;
-
-        let src = "package main\n\ntype S struct{ X int }\n\nfunc (s S) Get() int { return s.X }\n\nfunc main() { var s S; _ = s.Get() }\n";
-        let mut files = BTreeMap::new();
-        files.insert(
-            "main.go".to_string(),
-            ParsedFile::parse("main.go", src, Go).unwrap(),
-        );
-
-        let token = MeasurementToken::acquire();
-        let ctx = CpgContext::build(&files, None);
-        assert_eq!(
-            token.plain_constructions(),
-            1,
-            "expected exactly 1 plain construction"
-        );
-        assert_eq!(
-            token.import_aware_constructions(),
-            1,
-            "expected exactly 1 import-aware construction"
-        );
-        assert_eq!(
-            token.peak_live(),
-            1,
-            "at most 1 full GoTypeData may be alive at a time"
-        );
-        // P15a-fix2: the provider was TRANSFERRED into the registry — the
-        // CPG's CallGraph holds NO provider after context construction, so a
-        // long-lived CPG never pins the full Go type data.
-        assert!(
-            ctx.cpg.call_graph.shared_plain_go_provider.is_none(),
-            "CPG must not retain the shared plain Go provider after build"
-        );
-        drop(ctx);
-        assert_eq!(token.live(), 0, "all extractions released");
-    }
-
-    /// P15a-fix3: `build_with_registry` uses a CALLER-SUPPLIED registry, so
-    /// nothing consumes the plain Go provider stashed by the CPG build — the
-    /// stash must be dropped, or this (long-lived) context pins a SECOND full
-    /// Go dataset. RED on pre-fix code (stash was Some).
-    #[test]
-    fn p15a_fix3_build_with_registry_drops_stashed_go_provider() {
-        use crate::cpg::CpgContext;
-        use crate::languages::Language::Go;
-        use crate::type_provider::TypeRegistry;
-
-        let src = "package main\n\ntype S struct{ X int }\n\nfunc (s S) Get() int { return s.X }\n\nfunc main() { var s S; _ = s.Get() }\n";
-        let mut files = BTreeMap::new();
-        files.insert(
-            "main.go".to_string(),
-            ParsedFile::parse("main.go", src, Go).unwrap(),
-        );
-
-        let ctx = CpgContext::build_with_registry(&files, None, TypeRegistry::empty());
-        assert!(
-            ctx.cpg.call_graph.shared_plain_go_provider.is_none(),
-            "build_with_registry must drop the CPG's stashed plain Go provider"
-        );
-    }
-
-    /// P15a-fix4: EVERY CpgContext constructor must leave the CPG's stashed
-    /// plain Go provider as None — transferred into the registry or dropped —
-    /// so no constructor can pin a full Go dataset on a long-lived context.
-    /// Parameterized over all real constructors.
-    #[test]
-    fn p15a_fix4_all_constructors_leave_no_stashed_provider() {
-        use crate::cpg::CpgContext;
-        use crate::languages::Language::Go;
-        use crate::type_provider::TypeRegistry;
-
-        let src = "package main\n\ntype S struct{ X int }\n\nfunc (s S) Get() int { return s.X }\n\nfunc main() { var s S; _ = s.Get() }\n";
-        let mut files = BTreeMap::new();
-        files.insert(
-            "main.go".to_string(),
-            ParsedFile::parse("main.go", src, Go).unwrap(),
-        );
-        let fresh_cpg = || crate::cpg::CodePropertyGraph::build_enriched(&files, None);
-
-        let cases: Vec<(&str, CpgContext)> = vec![
-            ("build", CpgContext::build(&files, None)),
-            (
-                "build_with_scope_graph_inputs",
-                CpgContext::build_with_scope_graph_inputs(&files, None, None),
-            ),
-            (
-                "build_with_fresh_cpg",
-                CpgContext::build_with_fresh_cpg(&files, fresh_cpg(), None),
-            ),
-            // Deserialized-cache-hit constructor with a FRESH CPG input: the
-            // stash would otherwise survive alongside the fresh registry.
-            (
-                "build_with_cached_cpg(fresh cpg)",
-                CpgContext::build_with_cached_cpg(&files, fresh_cpg(), None),
-            ),
-            ("without_cpg", CpgContext::without_cpg(&files, None)),
-        ];
-        for (name, ctx) in cases {
-            assert!(
-                ctx.cpg.call_graph.shared_plain_go_provider.is_none(),
-                "{name} must not retain the shared plain Go provider"
-            );
-        }
-
-        // Scoped FILTERED-SUBSET branch (terra final-confirm): a one-file repo
-        // falls back to the full build, so exercise a 3-file repo whose diff
-        // touches only one file — the filtered branch must also end None.
-        {
-            // Eight files, only a.go changed and nothing references it:
-            // scope = {a.go} = 1/8 ≤ 50%, so the filtered-subset branch runs.
-            let mut multi = BTreeMap::new();
-            multi.insert(
-                "a.go".to_string(),
-                ParsedFile::parse(
-                    "a.go",
-                    "package main\n\ntype A struct{ X int }\n\nfunc (a A) Get() int { return a.X }\n",
-                    Go,
-                )
-                .unwrap(),
-            );
-            for i in 0..7 {
-                let name = format!("b{i}.go");
-                let body = format!(
-                    "package main\n\ntype B{i} struct{{ Y int }}\n\nfunc (b B{i}) Put{i}() int {{ return b.Y }}\n"
-                );
-                multi.insert(name.clone(), ParsedFile::parse(&name, &body, Go).unwrap());
-            }
-            let scoped_subset = CpgContext::build_scoped(
-                &multi,
-                &crate::diff::DiffInput {
-                    files: vec![crate::diff::DiffInfo {
-                        file_path: "a.go".to_string(),
-                        modify_type: crate::diff::ModifyType::Modified,
-                        diff_lines: BTreeSet::from([5]),
-                    }],
-                },
-                None,
-            );
-            assert!(
-                scoped_subset.scope.is_some(),
-                "3-file scoped fixture must take the filtered-subset branch"
-            );
-            assert!(
-                scoped_subset
-                    .cpg
-                    .call_graph
-                    .shared_plain_go_provider
-                    .is_none(),
-                "build_scoped (filtered subset) must not retain the shared plain Go provider"
-            );
-        }
-
-        // build_scoped takes a DiffInput; a one-file repo falls back to the
-        // full build — either way the invariant must hold.
-        let scoped = CpgContext::build_scoped(
-            &files,
-            &crate::diff::DiffInput {
-                files: vec![crate::diff::DiffInfo {
-                    file_path: "main.go".to_string(),
-                    modify_type: crate::diff::ModifyType::Modified,
-                    diff_lines: BTreeSet::from([1]),
-                }],
-            },
-            None,
-        );
-        assert!(
-            scoped.cpg.call_graph.shared_plain_go_provider.is_none(),
-            "build_scoped must not retain the shared plain Go provider"
-        );
-
-        let reg = CpgContext::build_with_registry(&files, None, TypeRegistry::empty());
-        assert!(
-            reg.cpg.call_graph.shared_plain_go_provider.is_none(),
-            "build_with_registry must not retain the shared plain Go provider"
-        );
-    }
-
-    /// P15a-fix3/fix4: a FOREIGN thread constructing Go providers while a
-    /// measurement is live must contribute ZERO attributions to that
-    /// measurement. RED on the fix2 first-draft global CURRENT_GENERATION
-    /// (the foreign construction was counted), which flaked only under
-    /// full-suite parallelism. P15a-fix4: fully deterministic — the foreign
-    /// thread SIGNALS after its first construction (mpsc) and the assertions
-    /// run only after that signal, so the test never depends on a sleep.
-    #[test]
-    fn p15a_fix3_foreign_thread_constructions_not_attributed() {
-        use crate::languages::Language::Go;
-        use crate::type_providers::go::test_counters::MeasurementToken;
-        use crate::type_providers::go::GoTypeProvider;
-        use std::sync::Arc;
-
-        let src = "package main\n\ntype S struct{ X int }\n";
-        let mut files = BTreeMap::new();
-        files.insert(
-            "main.go".to_string(),
-            ParsedFile::parse("main.go", src, Go).unwrap(),
-        );
-
-        let token = MeasurementToken::acquire();
-        let (constructed_tx, constructed_rx) = std::sync::mpsc::channel::<()>();
-        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let files = Arc::new(files);
-        let handle = {
-            let files = files.clone();
-            let stop = stop.clone();
-            // The measurement is LIVE for this whole thread's lifetime —
-            // exactly the window in which the old global-generation design
-            // misattributed.
-            std::thread::spawn(move || loop {
-                let _p = GoTypeProvider::from_parsed_files(&files);
-                let _ = constructed_tx.send(());
-                if stop.load(std::sync::atomic::Ordering::SeqCst) {
-                    break;
-                }
-            })
-        };
-        // Block until the foreign thread has PROVEN at least one construction
-        // inside the live-measurement window (would have inflated the counts
-        // under the pre-fix design).
-        constructed_rx
-            .recv_timeout(std::time::Duration::from_secs(5))
-            .expect("foreign thread did not complete a construction");
-        stop.store(true, std::sync::atomic::Ordering::SeqCst);
-        handle.join().unwrap();
-
-        assert_eq!(
-            token.plain_constructions(),
-            0,
-            "foreign-thread constructions must not be attributed to this measurement"
-        );
-        assert_eq!(token.live(), 0, "nor their drops");
-    }
-
-    #[test]
-    fn method_class_span_populated_for_python_methods() {
-        use crate::languages::Language::Python;
-        use std::collections::BTreeMap;
-
-        let mut files = BTreeMap::new();
-        files.insert(
-            "a.py".to_string(),
-            ParsedFile::parse(
-                "a.py",
-                "class C:\n    def f(self):\n        return 1\n",
-                Python,
-            )
-            .unwrap(),
-        );
-        let cg = CallGraph::build(&files);
-        let fid = cg
-            .functions
-            .get("f")
-            .unwrap()
-            .iter()
-            .find(|f| f.file == "a.py")
-            .unwrap();
-        let span = cg.method_class_span.get(fid).expect("span recorded");
-        assert_eq!(span.0, 0);
-        assert!(span.1 > span.0);
-    }
-
-    #[test]
-    fn python_imported_class_proof_key_ignores_direct_method_body_changes() {
-        use crate::languages::Language::Python;
-
-        let build = |method_body: &str| {
-            let mut files = BTreeMap::new();
-            files.insert(
-                "app.py".to_string(),
-                ParsedFile::parse(
-                    "app.py",
-                    "from pkg.models import Client as ImportedClient\ndef run(client: ImportedClient):\n    client.send()\n",
-                    Python,
-                )
-                .unwrap(),
-            );
-            files.insert(
-                "pkg/models.py".to_string(),
-                ParsedFile::parse(
-                    "pkg/models.py",
-                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
-                    Python,
-                )
-                .unwrap(),
-            );
-            CallGraph::build(&files)
-        };
-        let before = build("pass");
-        let after = build("return 1");
-        let proof_keys = |cg: &CallGraph| {
-            python_imported_class_proof_keys(
-                &cg.import_bindings,
-                &cg.indexed_files,
-                &cg.clean_class_spans,
-                &cg.python_inert_initializers,
-            )
-        };
-
-        let expected = BTreeSet::from([(
-            "app.py".to_string(),
-            "ImportedClient".to_string(),
-            "pkg/models.py".to_string(),
-            "Client".to_string(),
-        )]);
-        assert_eq!(proof_keys(&before), expected);
-        assert_eq!(proof_keys(&after), expected);
-    }
-
-    #[test]
-    fn python_qualified_class_proof_key_ignores_direct_method_body_changes() {
-        use crate::languages::Language::Python;
-
-        let build = |method_body: &str| {
-            let mut files = BTreeMap::new();
-            files.insert(
-                "app.py".to_string(),
-                ParsedFile::parse(
-                    "app.py",
-                    "import pkg.models as models\ndef run(client: models.Client):\n    client.send()\n",
-                    Python,
-                )
-                .unwrap(),
-            );
-            files.insert(
-                "pkg/models.py".to_string(),
-                ParsedFile::parse(
-                    "pkg/models.py",
-                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
-                    Python,
-                )
-                .unwrap(),
-            );
-            CallGraph::build(&files)
-        };
-        let before = build("pass");
-        let after = build("return 1");
-        let proof_keys = |cg: &CallGraph| {
-            python_imported_class_proof_keys(
-                &cg.import_bindings,
-                &cg.indexed_files,
-                &cg.clean_class_spans,
-                &cg.python_inert_initializers,
-            )
-        };
-
-        let expected = BTreeSet::from([(
-            "app.py".to_string(),
-            "models.Client".to_string(),
-            "pkg/models.py".to_string(),
-            "Client".to_string(),
-        )]);
-        assert_eq!(proof_keys(&before), expected);
-        assert_eq!(proof_keys(&after), expected);
-    }
-
-    #[test]
-    fn python_dotted_class_proof_key_ignores_direct_method_body_changes() {
-        use crate::languages::Language::Python;
-
-        let build = |method_body: &str| {
-            let mut files = BTreeMap::new();
-            files.insert(
-                "app.py".to_string(),
-                ParsedFile::parse(
-                    "app.py",
-                    "import pkg.models\ndef run(client: pkg.models.Client):\n    client.send()\n",
-                    Python,
-                )
-                .unwrap(),
-            );
-            files.insert(
-                "pkg/models.py".to_string(),
-                ParsedFile::parse(
-                    "pkg/models.py",
-                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
-                    Python,
-                )
-                .unwrap(),
-            );
-            CallGraph::build(&files)
-        };
-        let before = build("pass");
-        let after = build("return 1");
-        let proof_keys = |cg: &CallGraph| {
-            python_imported_class_proof_keys(
-                &cg.import_bindings,
-                &cg.indexed_files,
-                &cg.clean_class_spans,
-                &cg.python_inert_initializers,
-            )
-        };
-
-        let expected = BTreeSet::from([(
-            "app.py".to_string(),
-            "pkg.models.Client".to_string(),
-            "pkg/models.py".to_string(),
-            "Client".to_string(),
-        )]);
-        assert_eq!(proof_keys(&before), expected);
-        assert_eq!(proof_keys(&after), expected);
-    }
-
-    #[test]
-    fn python_namespace_submodule_class_proof_key_tracks_parent_absence() {
-        use crate::languages::Language::Python;
-
-        let build = |method_body: &str, parent: Option<(&str, &str)>| {
-            let mut files = BTreeMap::new();
-            files.insert(
-                "app.py".to_string(),
-                ParsedFile::parse(
-                    "app.py",
-                    "from pkg import models\ndef run(client: models.Client):\n    client.send()\n",
-                    Python,
-                )
-                .unwrap(),
-            );
-            files.insert(
-                "pkg/models.py".to_string(),
-                ParsedFile::parse(
-                    "pkg/models.py",
-                    &format!("class Client:\n    def send(self):\n        {method_body}\n"),
-                    Python,
-                )
-                .unwrap(),
-            );
-            if let Some((path, source)) = parent {
-                files.insert(
-                    path.to_string(),
-                    ParsedFile::parse(path, source, Python).unwrap(),
-                );
-            }
-            CallGraph::build(&files)
-        };
-        let proof_keys = |cg: &CallGraph| {
-            python_imported_class_proof_keys(
-                &cg.import_bindings,
-                &cg.indexed_files,
-                &cg.clean_class_spans,
-                &cg.python_inert_initializers,
-            )
-        };
-        let expected = BTreeSet::from([(
-            "app.py".to_string(),
-            "models.Client".to_string(),
-            "pkg/models.py".to_string(),
-            "Client".to_string(),
-        )]);
-
-        assert_eq!(proof_keys(&build("pass", None)), expected);
-        assert_eq!(proof_keys(&build("return 1", None)), expected);
-        assert!(proof_keys(&build("pass", Some(("pkg.py", "value = 1\n")))).is_empty());
-        assert!(proof_keys(&build("pass", Some(("pkg/__init__.py", "value = 1\n")))).is_empty());
-    }
-
-    fn build_rust_call_graph(source: &str) -> CallGraph {
-        use crate::ast::ParsedFile;
-        use crate::languages::Language::Rust;
-        use crate::name_resolution::rust_populator::RustCrateConfig;
-
-        let mut files = std::collections::BTreeMap::new();
-        files.insert(
-            "a.rs".into(),
-            ParsedFile::parse("a.rs", source, Rust).unwrap(),
-        );
-        let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
-        inputs.cfg = RustCrateConfig {
-            crate_roots: files.keys().cloned().collect(),
-            ..RustCrateConfig::default()
-        };
-        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
-    }
-
-    fn build_complete(srcs: &[(&str, &str)]) -> CallGraph {
-        use crate::ast::ParsedFile;
-        use crate::languages::Language::Rust;
-        use crate::name_resolution::rust_populator::RustCrateConfig;
-
-        let mut files = std::collections::BTreeMap::new();
-        for (path, source) in srcs {
-            files.insert(
-                path.to_string(),
-                ParsedFile::parse(path, source, Rust).unwrap(),
-            );
-        }
-        let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
-        inputs.cfg = RustCrateConfig {
-            crate_roots: files.keys().cloned().collect(),
-            ..RustCrateConfig::default()
-        };
-        CallGraph::build_with_scope_graph_inputs(&files, Some(&inputs))
-    }
-
-    #[test]
-    fn rust_receiver_updates_parallel_matches_serial_reference() {
-        // Real-dir load -> populated scope_graph (in-memory ad-hoc Rust fixtures have no
-        // crate root, so RustReceiverTyper::new would panic). src/navigation: 397 updates.
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/navigation");
-        let repo = crate::repo_loader::load_repo(&dir).unwrap();
-        let ctx = crate::cpg::CpgContext::build(&repo.files, None);
-        let cg = &ctx.cpg.call_graph;
-        let par = cg.compute_rust_receiver_updates(&repo.files);
-        let serial = cg.compute_rust_receiver_updates_reference(&repo.files);
-        assert_eq!(par, serial, "receiver update sequence diverged");
-        assert!(!par.is_empty(), "fixture produced no receiver updates");
-    }
-
-    #[test]
-    fn rematerialize_corpus_has_rust_receiver_updates() {
-        // Floors the cache-byte gate's corpus (src/cpg) so it actually exercises remat.
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cpg");
-        let repo = crate::repo_loader::load_repo(&dir).unwrap();
-        let ctx = crate::cpg::CpgContext::build(&repo.files, None);
-        let n = ctx
-            .cpg
-            .call_graph
-            .compute_rust_receiver_updates(&repo.files)
-            .len();
-        assert!(
-            n > 50,
-            "too few receiver updates to surface a remat divergence: {n}"
-        ); // measured 1251
-    }
-
-    fn call_graph_type_scope(cg: &CallGraph, path: &str, name: &str) -> ScopeId {
-        let graph = cg.scope_graph.as_ref().expect("scope graph");
-        let file = graph.file_paths.get(path).copied().expect("file id");
-        let scope = CallGraph::module_scope_for_byte(graph, file, 0).expect("module scope");
-        match resolve_type_path_to_type_scope(graph, scope, name) {
-            Some(TypeKey::InRepo(scope)) => scope,
-            other => panic!("expected in-repo type scope for {name}, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn field_and_return_indices_resolved_self_and_def_scope() {
-        let cg = build_complete(&[(
-            "a.rs",
-            "pub struct Inner; impl Inner { fn poke(&self){} pub fn new()->Self{Inner} }\n\
-             pub struct Outer { pub inner: Inner }\npub fn make()->Inner{Inner}\n",
-        )]);
-        let inner = call_graph_type_scope(&cg, "a.rs", "Inner");
-        let outer = call_graph_type_scope(&cg, "a.rs", "Outer");
-        assert_eq!(
-            cg.field_types
-                .get(&(outer, "inner".into()))
-                .and_then(|v| v.first()),
-            Some(&(None, TypeKey::InRepo(inner)))
-        );
-        let fid = |n: &str| {
-            cg.functions
-                .values()
-                .flatten()
-                .find(|f| f.name == n)
-                .cloned()
-                .unwrap()
-        };
-        assert_eq!(
-            cg.return_types.get(&fid("make")).and_then(|v| v.first()),
-            Some(&(None, TypeKey::InRepo(inner)))
-        );
-        assert_eq!(
-            cg.return_types.get(&fid("new")).and_then(|v| v.first()),
-            Some(&(None, TypeKey::InRepo(inner)))
-        );
-    }
-
-    #[test]
-    fn field_and_return_indices_alias_cfg_and_omit_fallthrough_types() {
-        let cg = build_complete(&[(
-            "a.rs",
-            "pub struct Inner;\ntype Alias = Inner;\n\
-             pub struct Outer {\n\
-                 #[cfg(feature = \"a\")]\n\
-                 pub aliased: Alias,\n\
-                 pub missing: Missing,\n\
-                 pub text: String,\n\
-             }\n\
-             #[cfg(feature = \"a\")]\n\
-             pub fn make_alias()->Alias{Inner}\n\
-             pub fn make_text()->String{String::new()}\n",
-        )]);
-        let inner = call_graph_type_scope(&cg, "a.rs", "Inner");
-        let outer = call_graph_type_scope(&cg, "a.rs", "Outer");
-        assert_eq!(
-            cg.field_types
-                .get(&(outer, "aliased".into()))
-                .and_then(|v| v.first()),
-            Some(&(
-                Some("#[cfg(feature = \"a\")]".to_string()),
-                TypeKey::InRepo(inner)
-            ))
-        );
-        assert!(!cg.field_types.contains_key(&(outer, "missing".into())));
-        assert!(!cg.field_types.contains_key(&(outer, "text".into())));
-
-        let fid = |n: &str| {
-            cg.functions
-                .values()
-                .flatten()
-                .find(|f| f.name == n)
-                .cloned()
-                .unwrap()
-        };
-        assert_eq!(
-            cg.return_types
-                .get(&fid("make_alias"))
-                .and_then(|v| v.first()),
-            Some(&(
-                Some("#[cfg(feature = \"a\")]".to_string()),
-                TypeKey::InRepo(inner)
-            ))
-        );
-        assert!(!cg.return_types.contains_key(&fid("make_text")));
-    }
-
-    #[test]
-    fn cfg_gated_alias_does_not_collapse_to_one_unconditional_target() {
-        let cg = build_complete(&[(
-            "a.rs",
-            "pub struct A;\npub struct B;\n\
-             #[cfg(feat_a)]\n\
-             pub type Alias = A;\n\
-             #[cfg(feat_b)]\n\
-             pub type Alias = B;\n\
-             pub struct Holder { pub f: Alias }\n",
-        )]);
-        let holder = call_graph_type_scope(&cg, "a.rs", "Holder");
-        let entries = cg
-            .field_types
-            .get(&(holder, "f".into()))
-            .cloned()
-            .unwrap_or_default();
-
-        assert!(
-            entries.iter().all(|(cfg, _)| cfg.is_some()) || entries.is_empty(),
-            "cfg-gated alias collapsed to unconditional: {entries:?}"
-        );
-        assert!(entries.len() != 1 || entries[0].0.is_some());
-    }
-
-    #[test]
-    fn callsite_derived_receiver_fields_serde_default_and_excluded_from_cmp_key() {
-        let cg = build_rust_call_graph(
-            "struct Engine;\nimpl Engine { fn go(&self) {} }\nfn run(e: Engine) { e.go(); }\n",
-        );
-        let mut a = cg
-            .calls
-            .values()
-            .flat_map(|sites| sites.iter())
-            .find(|site| site.callee_name == "go")
-            .cloned()
-            .expect("go call site");
-        let b = a.clone();
-        a.receiver_outcome = Some(crate::resolution_identity::ReceiverOutcome {
-            key: crate::resolution_identity::ReceiverTypeKey::Bare("Engine".to_string()),
-            bare: "Engine".to_string(),
-            recovery: crate::resolution::ReceiverRecovery::TypedParam,
-        });
-        a.receiver_materialized = true;
-        a.receiver_newly_recovered = true;
-        a.receiver_lexically_bound = true;
-        a.origin = CallSiteOrigin::IndirectResolution;
-
-        assert_eq!(a.cmp_key(), b.cmp_key());
-        let mut legacy_json = serde_json::to_value(&b).unwrap();
-        legacy_json
-            .as_object_mut()
-            .unwrap()
-            .remove("receiver_outcome");
-        legacy_json
-            .as_object_mut()
-            .unwrap()
-            .remove("receiver_materialized");
-        legacy_json
-            .as_object_mut()
-            .unwrap()
-            .remove("receiver_newly_recovered");
-        legacy_json
-            .as_object_mut()
-            .unwrap()
-            .remove("receiver_lexically_bound");
-        legacy_json.as_object_mut().unwrap().remove("origin");
-        let defaulted: CallSite = serde_json::from_value(legacy_json).unwrap();
-        assert_eq!(defaulted.receiver_outcome, None);
-        assert!(!defaulted.receiver_materialized);
-        assert!(!defaulted.receiver_newly_recovered);
-        assert!(!defaulted.receiver_lexically_bound);
-        assert_eq!(defaulted.origin, CallSiteOrigin::Source);
-
-        let back: CallSite = bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();
-        assert_eq!(a, back);
-    }
-
-    /// P8: a macro-arg-minted call site carries `kind: Call` / `origin:
-    /// MacroArg` -- NOT `call_kind_at`'s ancestor-walk classification, which
-    /// would otherwise tag any span nested under a `macro_invocation` as
-    /// `MacroInvocation` (routing it to the wrong NS_MACRO namespace).
-    #[test]
-    fn macro_arg_call_site_carries_call_kind_and_macro_arg_origin() {
-        let cg = build_rust_call_graph(
-            "fn check(x: i32) -> bool { x > 0 }\nfn host() { assert!(check(1)); }\n",
-        );
-        let site = site_in(&cg, "host", "check");
-        assert_eq!(site.kind, CallKind::Call);
-        assert_eq!(site.origin, CallSiteOrigin::MacroArg);
-        assert_eq!(site.arg_count, None);
-        assert!(!site.arg_spread);
-    }
-
-    /// Companion pin: an ordinary (non-macro) call site's `kind`/`origin`
-    /// derivation is byte-for-byte unchanged by the P8 plumbing -- still
-    /// `Call`/`Source` via the pre-existing `call_kind_at` path.
-    #[test]
-    fn ordinary_call_site_kind_and_origin_unchanged() {
-        let cg =
-            build_rust_call_graph("fn check(x: i32) -> bool { x > 0 }\nfn host() { check(1); }\n");
-        let site = site_in(&cg, "host", "check");
-        assert_eq!(site.kind, CallKind::Call);
-        assert_eq!(site.origin, CallSiteOrigin::Source);
-    }
-
-    /// A macro invocation that mints nothing (non-allowlisted, or allowlisted
-    /// but with no call-shaped args) still produces zero `CallSite`s for the
-    /// macro name itself -- `call_kind_at`'s classification of the macro's
-    /// OWN span is never exercised by a real CallSite because no site is ever
-    /// minted at that span (pre-existing PR-2 behavior, unchanged).
-    #[test]
-    fn nonallowlisted_macro_still_mints_nothing_for_its_own_name() {
-        let cg = build_rust_call_graph("fn host() { my_undefined_macro!(check(1)); }\n");
-        assert!(
-            !cg.calls
-                .values()
-                .flat_map(|s| s.iter())
-                .any(|s| s.callee_name == "my_undefined_macro" || s.callee_name == "check"),
-            "non-allowlisted macro must not mint any call site"
-        );
-    }
-
-    fn site_in(cg: &CallGraph, caller: &str, callee: &str) -> CallSite {
-        cg.calls
-            .iter()
-            .find(|(fid, _)| fid.name == caller)
-            .and_then(|(_, sites)| sites.iter().find(|site| site.callee_name == callee))
-            .cloned()
-            .unwrap_or_else(|| panic!("missing call site {caller}->{callee}"))
-    }
-
-    fn c_files(srcs: &[(&str, &str)]) -> BTreeMap<String, ParsedFile> {
-        srcs.iter()
-            .map(|(path, source)| {
-                (
-                    (*path).to_string(),
-                    ParsedFile::parse(path, source, crate::languages::Language::C).unwrap(),
-                )
-            })
-            .collect()
-    }
-
-    fn indirect_call_dump(cg: &CallGraph) -> Vec<String> {
-        let mut out = Vec::new();
-        for (caller, sites) in &cg.calls {
-            for site in sites {
-                if site.origin == CallSiteOrigin::IndirectResolution {
-                    out.push(format!(
-                        "{}:{}:{}:{}:{}-{}",
-                        caller.file,
-                        caller.name,
-                        site.callee_name,
-                        site.line,
-                        site.start_byte,
-                        site.end_byte
-                    ));
-                }
-            }
-        }
-        out.sort();
-        out
-    }
-
-    fn indirect_caller_dump(cg: &CallGraph) -> Vec<String> {
-        let mut out = Vec::new();
-        for (callee, sites) in &cg.callers {
-            for site in sites {
-                if site.origin == CallSiteOrigin::IndirectResolution {
-                    out.push(format!(
-                        "{}:{}:{}:{}:{}-{}",
-                        callee,
-                        site.caller.file,
-                        site.caller.name,
-                        site.line,
-                        site.start_byte,
-                        site.end_byte
-                    ));
-                }
-            }
-        }
-        out.sort();
-        out
-    }
-
-    #[test]
-    fn clear_indirect_calls_removes_only_synthetic_entries_from_calls_and_callers() {
-        let mut cg = CallGraph::build(&c_files(&[(
-            "callbacks.c",
-            "void target() {}\nvoid run() { target(); }\n",
-        )]));
-        let source = site_in(&cg, "run", "target");
-        assert_eq!(source.origin, CallSiteOrigin::Source);
-
-        let mut synthetic = source.clone();
-        synthetic.origin = CallSiteOrigin::IndirectResolution;
-        let original_call_count = cg.calls.get(&source.caller).unwrap().len();
-        let inserted = cg
-            .calls
-            .get_mut(&source.caller)
-            .unwrap()
-            .insert(synthetic.clone());
-        assert!(
-            !inserted,
-            "origin is excluded from CallSite identity so source wins in calls"
-        );
-        assert_eq!(
-            cg.calls.get(&source.caller).unwrap().len(),
-            original_call_count
-        );
-        cg.callers
-            .entry("target".to_string())
-            .or_default()
-            .push(synthetic);
-
-        assert!(cg
-            .callers
-            .get("target")
-            .unwrap()
-            .iter()
-            .any(|site| site.origin == CallSiteOrigin::IndirectResolution));
-
-        cg.clear_indirect_calls();
-
-        let calls = cg.calls.get(&source.caller).unwrap();
-        assert!(calls
-            .iter()
-            .any(|site| site.origin == CallSiteOrigin::Source));
-        assert!(!calls
-            .iter()
-            .any(|site| site.origin == CallSiteOrigin::IndirectResolution));
-        assert!(cg
-            .callers
-            .get("target")
-            .unwrap()
-            .iter()
-            .all(|site| site.origin == CallSiteOrigin::Source));
-    }
-
-    #[test]
-    fn recompute_indirect_calls_is_idempotent_for_unsupported_c_callbacks() {
-        let files_v1 = c_files(&[(
-            "callbacks.c",
-            "void old_handler() {}\nvoid execute(void (*cb)()) { cb(); }\nvoid outer() { execute(old_handler); }\n",
-        )]);
-        let files_v2 = c_files(&[(
-            "callbacks.c",
-            "void new_handler() {}\nvoid execute(void (*cb)()) { cb(); }\nvoid outer() { execute(new_handler); }\n",
-        )]);
-
-        let mut merged = CallGraph::build(&files_v1);
-        let changed = BTreeSet::from(["callbacks.c".to_string()]);
-        merged.remove_files(&changed);
-        merged.merge(CallGraph::build_direct_subset(&files_v2, &changed));
-        merged.recompute_indirect_calls(&files_v2);
-        let once = indirect_call_dump(&merged);
-        let callers_once = indirect_caller_dump(&merged);
-        assert!(!once.iter().any(|entry| entry.contains(":new_handler:")));
-        assert!(!once.iter().any(|entry| entry.contains(":old_handler:")));
-
-        merged.recompute_indirect_calls(&files_v2);
-        assert_eq!(once, indirect_call_dump(&merged));
-        assert_eq!(callers_once, indirect_caller_dump(&merged));
-
-        let full = CallGraph::build(&files_v2);
-        assert_eq!(once, indirect_call_dump(&full));
-        assert_eq!(callers_once, indirect_caller_dump(&full));
-    }
-
-    /// P8: at the CallGraph-internal mechanics level, `remove_files`
-    /// retaining `macro_arg_facts` by file and `merge` extending the map
-    /// (the same `js_ts_exports` pattern) is exactly correct in isolation --
-    /// this test pins that low-level plumbing. It does NOT by itself prove
-    /// the extracted facts stay valid: `macro_arg_facts`' CONTENT depends on
-    /// the repo-wide macro shadow set (F1 fix, codex re-review BLOCKER), so
-    /// the higher-level `build_incremental_with_scope_graph_inputs` caller
-    /// must additionally guard against that set drifting underneath an
-    /// incremental rebuild and fall back to a full rebuild when it does --
-    /// see `macro_shadow_intersection` and the
-    /// `incremental_from_previous_falls_back_to_full_rebuild_on_*_macro_shadow`
-    /// tests in `src/navigation/mod.rs`.
-    #[test]
-    fn macro_arg_facts_remove_files_retains_by_file_and_merge_extends() {
-        let files = build_complete(&[
-            (
-                "a.rs",
-                "fn check(x: i32) -> bool { x > 0 }\nfn host() { assert!(check(1)); }\n",
-            ),
-            ("b.rs", "fn other() {}\n"),
-        ]);
-        let mut files_map: std::collections::BTreeMap<String, ParsedFile> = Default::default();
-        for (path, source) in [
-            (
-                "a.rs",
-                "fn check(x: i32) -> bool { x > 0 }\nfn host() { assert!(check(1)); }\n",
-            ),
-            ("b.rs", "fn other() {}\n"),
-        ] {
-            files_map.insert(
-                path.to_string(),
-                ParsedFile::parse(path, source, crate::languages::Language::Rust).unwrap(),
-            );
-        }
-
-        assert!(files.macro_arg_facts.contains_key("a.rs"));
-        assert!(!files.macro_arg_facts.contains_key("b.rs"));
-        assert_eq!(files.macro_arg_facts["a.rs"].calls_recorded, 1);
-
-        let mut merged = files;
-        let changed = BTreeSet::from(["a.rs".to_string()]);
-        merged.remove_files(&changed);
-        assert!(
-            !merged.macro_arg_facts.contains_key("a.rs"),
-            "remove_files must retain by file, dropping the removed file's facts"
-        );
-
-        merged.merge(CallGraph::build_direct_subset(&files_map, &changed));
-        assert!(
-            merged.macro_arg_facts.contains_key("a.rs"),
-            "merge must extend the map from the rebuilt subset"
-        );
-        assert_eq!(merged.macro_arg_facts["a.rs"].calls_recorded, 1);
-    }
-
-    #[test]
-    fn rematerialize_sets_receiver_outcome_and_keeps_calls_callers_in_sync() {
-        let cg = build_complete(&[(
-            "a.rs",
-            "struct Inner; impl Inner { fn poke(&self){} }\n\
-             struct Outer { inner: Inner }\n\
-             fn run(o: Outer) { let x = o.inner; x.poke(); }\n",
-        )]);
-
-        let site = site_in(&cg, "run", "poke");
-        assert_eq!(site.receiver_type, None);
-        assert_eq!(site.receiver_recovery, None);
-        let outcome = site.receiver_outcome.expect("materialized outcome");
-        assert!(matches!(
-            outcome.key,
-            crate::resolution_identity::ReceiverTypeKey::InRepo(_)
-        ));
-        assert_eq!(
-            outcome.recovery,
-            crate::resolution::ReceiverRecovery::FieldTyped
-        );
-
-        let from_callers = cg
-            .callers
-            .get("poke")
-            .unwrap()
-            .iter()
-            .find(|site| site.caller.name == "run")
-            .unwrap()
-            .receiver_outcome
-            .clone();
-        assert_eq!(Some(outcome), from_callers);
-    }
-
-    #[test]
-    fn rematerialize_unresolved_receiver_falls_back_to_bare_outcome() {
-        let cg = build_complete(&[("a.rs", "fn f(x: Unresolvable) { x.m(); }\n")]);
-        let site = site_in(&cg, "f", "m");
-
-        assert_eq!(site.receiver_type.as_deref(), Some("Unresolvable"));
-        let outcome = site.receiver_outcome.expect("materialized outcome");
-        assert_eq!(
-            outcome.key,
-            crate::resolution_identity::ReceiverTypeKey::Bare("Unresolvable".to_string())
-        );
-        assert_eq!(outcome.bare, "Unresolvable");
-        assert_eq!(
-            outcome.recovery,
-            crate::resolution::ReceiverRecovery::TypedParam
-        );
-    }
-
-    #[test]
-    fn rematerialize_generic_receiver_keeps_none_outcome() {
-        let cg = build_complete(&[("a.rs", "fn g<U>(x: U) { x.m(); }\n")]);
-        let site = site_in(&cg, "g", "m");
-
-        assert_eq!(site.receiver_type.as_deref(), Some("U"));
-        assert_eq!(site.receiver_outcome, None);
-    }
-
-    #[test]
-    fn rematerialize_typed_annotations_use_qualified_identity_not_same_name_decoy() {
-        let cg = build_complete(&[(
-            "a.rs",
-            "mod a { pub struct Inner; impl Inner { pub fn m(&self){} } }\n\
-             mod b { pub struct Inner; impl Inner { pub fn m(&self){} } }\n\
-             fn f(x: crate::a::Inner) { x.m(); }\n\
-             fn l() { let x: crate::a::Inner = crate::a::Inner; x.m(); }\n",
-        )]);
-        let a_inner = call_graph_type_scope(&cg, "a.rs", "crate::a::Inner");
-        let b_inner = call_graph_type_scope(&cg, "a.rs", "crate::b::Inner");
-        assert_ne!(a_inner, b_inner);
-
-        let param_outcome = site_in(&cg, "f", "m")
-            .receiver_outcome
-            .expect("typed-param materialized outcome");
-        assert_eq!(
-            param_outcome.key,
-            crate::resolution_identity::ReceiverTypeKey::InRepo(a_inner)
-        );
-        assert_ne!(
-            param_outcome.key,
-            crate::resolution_identity::ReceiverTypeKey::InRepo(b_inner)
-        );
-        assert_eq!(param_outcome.bare, "Inner");
-        assert_eq!(
-            param_outcome.recovery,
-            crate::resolution::ReceiverRecovery::TypedParam
-        );
-
-        let let_outcome = site_in(&cg, "l", "m")
-            .receiver_outcome
-            .expect("typed-let materialized outcome");
-        assert_eq!(
-            let_outcome.key,
-            crate::resolution_identity::ReceiverTypeKey::InRepo(a_inner)
-        );
-        assert_ne!(
-            let_outcome.key,
-            crate::resolution_identity::ReceiverTypeKey::InRepo(b_inner)
-        );
-        assert_eq!(let_outcome.bare, "Inner");
-        assert_eq!(
-            let_outcome.recovery,
-            crate::resolution::ReceiverRecovery::TypedLet
-        );
-    }
-
-    #[test]
-    fn rematerialize_preserves_call_iteration_order() {
-        use crate::ast::ParsedFile;
-        use crate::languages::Language::Rust;
-        use crate::name_resolution::rust_populator::RustCrateConfig;
-
-        let mut files = std::collections::BTreeMap::new();
-        files.insert(
-            "a.rs".into(),
-            ParsedFile::parse(
-                "a.rs",
-                "struct Inner; impl Inner { fn poke(&self){} fn tap(&self){} }\n\
-                 struct Outer { inner: Inner }\n\
-                 fn run(o: Outer) { let x = o.inner; x.poke(); x.tap(); }\n",
-                Rust,
-            )
-            .unwrap(),
-        );
-        fn order_key(
-            site: &CallSite,
-        ) -> (
-            String,
-            String,
-            usize,
-            CallKind,
-            usize,
-            usize,
-            Option<String>,
-            Option<String>,
-        ) {
-            (
-                site.caller.name.clone(),
-                site.callee_name.clone(),
-                site.line,
-                site.kind,
-                site.start_byte,
-                site.end_byte,
-                site.qualifier.clone(),
-                site.receiver_type.clone(),
-            )
-        }
-        let only = files.keys().cloned().collect();
-        let mut cg = CallGraph::build_direct_subset(&files, &only);
-        let before: Vec<_> = cg
-            .calls
-            .iter()
-            .find(|(fid, _)| fid.name == "run")
-            .unwrap()
-            .1
-            .iter()
-            .map(order_key)
-            .collect();
-
-        let mut inputs = ScopeGraphBuildInputs::from_files_convention(&files);
-        inputs.cfg = RustCrateConfig {
-            crate_roots: files.keys().cloned().collect(),
-            ..RustCrateConfig::default()
-        };
-        cg.rebuild_scope_graph(&files, Some(&inputs));
-
-        let sites: Vec<_> = cg
-            .calls
-            .iter()
-            .find(|(fid, _)| fid.name == "run")
-            .unwrap()
-            .1
-            .iter()
-            .collect();
-        let after: Vec<_> = sites.iter().map(|site| order_key(site)).collect();
-        assert_eq!(before, after);
-
-        let poke = sites
-            .iter()
-            .position(|site| site.callee_name == "poke")
-            .unwrap();
-        let tap = sites
-            .iter()
-            .position(|site| site.callee_name == "tap")
-            .unwrap();
-        assert!(poke < tap);
-        assert!(sites[poke].receiver_outcome.is_some());
-        assert!(sites[tap].receiver_outcome.is_some());
-    }
-
-    #[test]
-    fn level4_index_matches_legacy_oracle_over_full_universe() {
-        // Corpus: quirk fixtures + prism's own top-level src/*.rs sources.
-        let mut sources: Vec<(String, String)> = vec![(
-            "quirks.c".into(),
-            "s.cb = f; t->cb = g;\ns.cb = f; t->cbx = g;\nstatic struct ops o = { .open = do_open, .close = do_close };\na.cb == nope;\nb.cb = &handler;\n".into(),
-        )];
-        let src_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
-        for entry in std::fs::read_dir(&src_dir).unwrap().flatten() {
-            let p = entry.path();
-            if p.extension().and_then(|e| e.to_str()) == Some("rs") {
-                sources.push((
-                    p.display().to_string(),
-                    std::fs::read_to_string(&p).unwrap(),
-                ));
-            }
-        }
-        let known: std::collections::BTreeSet<String> = [
-            "f", "g", "do_open", "do_close", "handler", "build", "new", "slice", "run",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-
-        // Universe: ALL post-accessor identifiers across the corpus (index-independent)
-        // + explicit negatives.
-        let mut universe: std::collections::BTreeSet<String> =
-            ["no_such_field", "cb", "cbx", "open", "close"]
-                .iter()
-                .map(|s| s.to_string())
-                .collect();
-        for (_, src) in &sources {
-            for line in src.lines() {
-                universe.extend(crate::ast::candidate_fields_on_line(line.trim()));
-            }
-        }
-
-        // Build the index exactly as CallGraph::build does.
-        let inputs: Vec<_> = sources
-            .iter()
-            .map(|(p, s)| (p.as_str(), s.as_str()))
-            .collect();
-        let index = super::level4::build_sources(&inputs, &known);
-        assert_eq!(index, super::level4::reference(&inputs, &known));
-
-        // Half 1 — EXCESS: every (field, file) the index claims must equal the legacy scan.
-        for (field, by_file) in &index {
-            for (path, targets) in by_file {
-                let src = &sources.iter().find(|(p, _)| p == path).unwrap().1;
-                let legacy = crate::ast::resolve_struct_field_assignment(src, field, &known);
-                let got: Vec<String> = targets.iter().cloned().collect();
-                assert_eq!(got, legacy, "excess: field={field} file={path}");
-            }
-        }
-        // Half 2 — MISSES: per universe field, legacy-scan ONLY files containing the
-        // ->field / .field substring (the legacy has_field check hoisted to file level —
-        // provably outcome-preserving), and assert the index agrees (absent key == empty).
-        for field in &universe {
-            let arrow = format!("->{field}");
-            let dot = format!(".{field}");
-            for (path, src) in &sources {
-                if !(src.contains(&arrow) || src.contains(&dot)) {
-                    continue; // legacy provably returns empty; index has no entry by construction
-                }
-                let legacy = crate::ast::resolve_struct_field_assignment(src, field, &known);
-                let from_index: Vec<String> = index
-                    .get(field)
-                    .and_then(|m| m.get(path))
-                    .map(|s| s.iter().cloned().collect())
-                    .unwrap_or_default();
-                assert_eq!(from_index, legacy, "miss: field={field} file={path}");
-            }
-        }
-    }
-}
+mod tests;
 
 // ---------------------------------------------------------------------------
 // P5 S2: Go func-value registration index tests
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-mod go_registration_tests {
-    use super::*;
-    use crate::languages::Language::{Go, C};
-    use std::collections::BTreeMap;
-
-    fn build_go(files: &[(&str, &str)]) -> CallGraph {
-        let mut map = BTreeMap::new();
-        for (path, src) in files {
-            map.insert(path.to_string(), ParsedFile::parse(path, src, Go).unwrap());
-        }
-        CallGraph::build(&map)
-    }
-
-    fn fid<'a>(cg: &'a CallGraph, name: &str) -> &'a FunctionId {
-        cg.functions
-            .get(name)
-            .unwrap_or_else(|| panic!("no function named {name}"))
-            .first()
-            .unwrap()
-    }
-
-    #[test]
-    fn form_a_composite_literal_field_recorded_with_field_key() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-type Command struct {\n\tRun func()\n}\n\
-func helper() {}\n\
-func main() {\n\tc := Command{Run: helper}\n\t_ = c\n}\n",
-        )]);
-        let target = fid(&cg, "helper").clone();
-        let enclosing = fid(&cg, "main").clone();
-        let reg = cg
-            .go_registrations
-            .iter()
-            .find(|r| r.target == target && r.enclosing == enclosing)
-            .expect("form (a) registration recorded");
-        assert!(reg.field_key.is_some(), "known struct+field -> field-keyed");
-        assert_eq!(reg.field_key.as_ref().unwrap().1, "Run");
-        assert_eq!(reg.site.line, 7); // `c := Command{Run: helper}` line
-        assert_eq!(cg.go_registration_unknown_owner_recorded, 0);
-    }
-
-    #[test]
-    fn form_b_field_assignment_recorded_with_field_key() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-type Command struct {\n\tRun func()\n}\n\
-func helper() {}\n\
-func register() {\n\tvar cmd Command\n\tcmd.Run = helper\n}\n",
-        )]);
-        let target = fid(&cg, "helper").clone();
-        let enclosing = fid(&cg, "register").clone();
-        let reg = cg
-            .go_registrations
-            .iter()
-            .find(|r| r.target == target && r.enclosing == enclosing)
-            .expect("form (b) registration recorded");
-        assert!(reg.field_key.is_some());
-        assert_eq!(reg.field_key.as_ref().unwrap().1, "Run");
-        assert_eq!(cg.go_registration_ambiguous_owner_skips, 0);
-    }
-
-    #[test]
-    fn form_b_unrecoverable_owner_type_is_skipped_and_counted() {
-        // `cmd := getCommand()` — a short var decl whose RHS is a plain call
-        // (not the `New*` constructor-name heuristic Go recovery uses), so
-        // the owner type is NOT recoverable at all. Form (b) must skip
-        // (never fall back the way form (a) does), and count it.
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-type Command struct {\n\tRun func()\n}\n\
-func helper() {}\n\
-func getCommand() Command { return Command{} }\n\
-func register() {\n\tcmd := getCommand()\n\tcmd.Run = helper\n}\n",
-        )]);
-        let target = fid(&cg, "helper").clone();
-        assert!(
-            !cg.go_registrations.iter().any(|r| r.target == target),
-            "unrecoverable owner type must not be recorded"
-        );
-        assert_eq!(cg.go_registration_ambiguous_owner_skips, 1);
-    }
-
-    #[test]
-    fn form_b_multiple_bindings_before_assignment_is_ambiguous() {
-        // Two `var cmd Command` bindings of the SAME name before the
-        // assignment (tree-sitter doesn't enforce Go's real "no redeclare"
-        // rule) forces `receiver_type_in_fn`'s existing shadow-bail
-        // (`bindings > 1 -> None`) — the owner type is not UNIQUELY
-        // recovered, so form (b) must skip and count, not record.
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-type Command struct {\n\tRun func()\n}\n\
-func helper() {}\n\
-func register() {\n\tvar cmd Command\n\tvar cmd Command\n\tcmd.Run = helper\n}\n",
-        )]);
-        let target = fid(&cg, "helper").clone();
-        assert!(
-            !cg.go_registrations.iter().any(|r| r.target == target),
-            "ambiguous (multiply-bound) owner must not be recorded"
-        );
-        assert_eq!(cg.go_registration_ambiguous_owner_skips, 1);
-    }
-
-    #[test]
-    fn form_c_call_argument_recorded_without_field_key() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-func helper() {}\n\
-func Register(f func()) {}\n\
-func main() {\n\tRegister(helper)\n}\n",
-        )]);
-        let target = fid(&cg, "helper").clone();
-        let enclosing = fid(&cg, "main").clone();
-        let reg = cg
-            .go_registrations
-            .iter()
-            .find(|r| r.target == target && r.enclosing == enclosing)
-            .expect("form (c) registration recorded");
-        assert!(
-            reg.field_key.is_none(),
-            "form (c) never carries a field key"
-        );
-    }
-
-    #[test]
-    fn shadowed_identifier_is_skipped_and_counted() {
-        // `helper` is locally re-bound inside `main`, so the reference at the
-        // call-argument site names the LOCAL, not the free function -> must
-        // be skipped, not recorded.
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-func helper() {}\n\
-func Register(f func()) {}\n\
-func main() {\n\thelper := func() {}\n\t_ = helper\n\tRegister(helper)\n}\n",
-        )]);
-        let target = fid(&cg, "helper").clone();
-        assert!(
-            !cg.go_registrations.iter().any(|r| r.target == target),
-            "shadowed identifier must not be recorded as a registration"
-        );
-        assert_eq!(cg.go_registration_shadowed_skips, 1);
-    }
-
-    #[test]
-    fn cross_package_bare_name_is_never_matched() {
-        // `helper` exists only in package `other` (a different directory);
-        // package `main`'s `Register(helper)` must NOT resolve cross-package
-        // by bare name (spec-review MAJOR: never bare cross-package matching).
-        // Since `helper` isn't in-repo from `main`'s package/file perspective,
-        // no registration should be recorded at all (no false cross-package
-        // hit, and no false-negative panic either).
-        let cg = build_go(&[
-            ("other/helper.go", "package other\nfunc helper() {}\n"),
-            (
-                "main/main.go",
-                "package main\nfunc Register(f func()) {}\nfunc main() {\n\tRegister(helper)\n}\n",
-            ),
-        ]);
-        assert!(
-            cg.go_registrations.is_empty(),
-            "cross-package bare name must never resolve into a registration"
-        );
-    }
-
-    #[test]
-    fn non_go_files_leave_registration_state_empty() {
-        let mut files = BTreeMap::new();
-        files.insert(
-            "main.c".to_string(),
-            ParsedFile::parse(
-                "main.c",
-                "struct Command { void (*run)(); };\nvoid helper() {}\nvoid main() { struct Command c = { .run = helper }; }\n",
-                C,
-            )
-            .unwrap(),
-        );
-        let cg = CallGraph::build(&files);
-        assert!(cg.go_registrations.is_empty());
-        assert_eq!(cg.go_registration_shadowed_skips, 0);
-        assert_eq!(cg.go_registration_ambiguous_owner_skips, 0);
-        assert_eq!(cg.go_registration_unknown_owner_recorded, 0);
-    }
-}
+mod go_registration_tests;
 
 #[cfg(test)]
-mod go_receiver_typing_tests {
-    use super::*;
-    use crate::languages::Language::Go;
-    use crate::resolution::{ReceiverRecovery, ResolutionConfidence, ResolutionKind};
-    use std::collections::BTreeMap;
-
-    fn build_go(files: &[(&str, &str)]) -> CallGraph {
-        let mut map = BTreeMap::new();
-        for (path, src) in files {
-            map.insert(path.to_string(), ParsedFile::parse(path, src, Go).unwrap());
-        }
-        CallGraph::build(&map)
-    }
-
-    fn build_go_module(files: &[(&str, &str)], module: &str) -> CallGraph {
-        let mut map = BTreeMap::new();
-        for (path, src) in files {
-            map.insert(path.to_string(), ParsedFile::parse(path, src, Go).unwrap());
-        }
-        let root = tempfile::tempdir().expect("temporary Go module");
-        std::fs::write(
-            root.path().join("go.mod"),
-            format!("module {module}\n\ngo 1.24\n"),
-        )
-        .expect("write go.mod fixture");
-        let inputs = crate::repo_loader::scope_graph_build_inputs(root.path(), &map);
-        CallGraph::build_with_scope_graph_inputs(&map, Some(&inputs))
-    }
-
-    fn site_in<'a>(cg: &'a CallGraph, caller: &str, callee: &str) -> &'a CallSite {
-        cg.calls
-            .iter()
-            .find(|(fid, _)| fid.name == caller)
-            .and_then(|(_, sites)| sites.iter().find(|s| s.callee_name == callee))
-            .unwrap_or_else(|| panic!("no call site {caller} -> {callee}"))
-    }
-
-    fn main_owner(name: &str) -> crate::resolution::GoOwnerIdentity {
-        crate::resolution::GoOwnerIdentity {
-            package_dir: String::new(),
-            package_clause: "main".to_string(),
-            name: name.to_string(),
-        }
-    }
-
-    // ---- S1: call-RHS return-typed recovery ----------------------------
-
-    #[test]
-    fn s1_call_rhs_bare_name_same_file_recovers_return_typed() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Demux struct{}\n\
-             func (d *Demux) Init(n int) {}\n\
-             func newDemux(a, b int) *Demux { return &Demux{} }\n\
-             func run() {\n\td := newDemux(16, 16)\n\td.Init(1)\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "Init");
-        assert_eq!(site.receiver_type.as_deref(), Some("Demux"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
-        let out = cg.resolve_call_site_full(site);
-        assert!(out.resolved.iter().any(|c| c.target.name == "Init"
-            && c.confidence == ResolutionConfidence::Exact
-            && c.kind == ResolutionKind::ReturnTyped));
-    }
-
-    #[test]
-    fn s1_call_rhs_cross_file_same_package_recovers() {
-        // The adjudicated etcd shape: the constructor and the receiver
-        // methods live in the SAME package (directory) but DIFFERENT files.
-        let cg = build_go(&[
-            (
-                "demux.go",
-                "package demux\n\
-                 type Demux struct{}\n\
-                 func (d *Demux) Init(n int) {}\n\
-                 func (d *Demux) Register(w int, id int) {}\n\
-                 func newDemux(a, b int) *Demux { return &Demux{} }\n",
-            ),
-            (
-                "demux_test.go",
-                "package demux\n\
-                 func run() {\n\td := newDemux(16, 16)\n\td.Init(1)\n\td.Register(2, 0)\n}\n",
-            ),
-        ]);
-        let init_site = site_in(&cg, "run", "Init");
-        assert_eq!(init_site.receiver_type.as_deref(), Some("Demux"));
-        assert_eq!(
-            init_site.receiver_recovery,
-            Some(ReceiverRecovery::ReturnTyped)
-        );
-        let reg_site = site_in(&cg, "run", "Register");
-        assert_eq!(reg_site.receiver_type.as_deref(), Some("Demux"));
-        let out = cg.resolve_call_site_full(reg_site);
-        assert!(out
-            .resolved
-            .iter()
-            .any(|c| c.target.name == "Register" && c.confidence == ResolutionConfidence::Exact));
-    }
-
-    #[test]
-    fn s1_multi_return_beyond_t_error_drops() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Demux struct{}\n\
-             func (d *Demux) Init() {}\n\
-             func newDemux() (*Demux, int, error) { return nil, 0, nil }\n\
-             func run() {\n\td := newDemux()\n\td.Init()\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "Init");
-        assert_eq!(site.receiver_type, None);
-    }
-
-    #[test]
-    fn s1_paired_error_return_type_recovers() {
-        // Opus impl-review Important 1: the mandated `(T, error)` POSITIVE
-        // test — a well-formed 2-tuple return with `error` correctly in the
-        // second position must still recover T (pins the take-T branch of
-        // `extract_one_return_type`'s `parameter_list` match arm; the
-        // existing negative tests only cover the 3-tuple-drop and
-        // wrong-position-drop shapes, never this one actually recovering).
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Demux struct{}\n\
-             func (d *Demux) Init() {}\n\
-             func newDemux() (*Demux, error) { return &Demux{}, nil }\n\
-             func run() {\n\td, err := newDemux()\n\t_ = err\n\td.Init()\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "Init");
-        assert_eq!(site.receiver_type.as_deref(), Some("Demux"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
-    }
-
-    #[test]
-    fn s1_non_first_lhs_position_does_not_recover() {
-        // Opus impl-review minor: strengthened to ISOLATE the first-LHS-
-        // position guard. `newDemux2`'s return is a WELL-FORMED `(*Demux,
-        // error)` pair (error correctly in the second position) -- if it
-        // were instead the wrong-order `(error, *Demux)` shape (the
-        // original fixture), `extract_one_return_type`'s OWN
-        // `second_bare != "error"` gate would already reject it, so the
-        // test would keep passing even if the first-LHS-position check were
-        // weakened/removed (a false sense of coverage). With a
-        // well-formed pair, a weakened guard would flip this to
-        // `Some("Demux")`, so the assertion is now tied directly to the
-        // position check.
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Demux struct{}\n\
-             func (d *Demux) Init() {}\n\
-             func newDemux2() (*Demux, error) { return nil, nil }\n\
-             func run() {\n\terr, d := newDemux2()\n\t_ = err\n\td.Init()\n}\n",
-        )]);
-        // `d` is bound at LHS position 1 (not first) -> S1 must not recover it,
-        // regardless of what the callee returns.
-        let site = site_in(&cg, "run", "Init");
-        assert_eq!(site.receiver_type, None);
-    }
-
-    #[test]
-    fn s1_generic_function_return_drops() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Demux struct{}\n\
-             func (d *Demux) Init() {}\n\
-             func newDemux[T any]() *Demux { return &Demux{} }\n\
-             func run() {\n\td := newDemux[int]()\n\td.Init()\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "Init");
-        assert_eq!(site.receiver_type, None);
-    }
-
-    #[test]
-    fn s1_import_qualified_call_rhs_resolves_via_package_dir() {
-        let cg = build_go_module(
-            &[
-                (
-                    "factory/factory.go",
-                    "package factory\n\
-                 type Widget struct{}\n\
-                 func (w *Widget) Use() {}\n\
-                 func New() *Widget { return &Widget{} }\n",
-                ),
-                (
-                    "main.go",
-                    "package main\n\
-                 import \"example.com/repo/factory\"\n\
-                 func run() {\n\tw := factory.New()\n\tw.Use()\n}\n",
-                ),
-            ],
-            "example.com/repo",
-        );
-        let site = site_in(&cg, "run", "Use");
-        assert_eq!(site.receiver_type.as_deref(), Some("Widget"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
-    }
-
-    #[test]
-    fn s1_cross_package_same_name_constructor_pins_own_package_type() {
-        // Two UNRELATED packages each declare a bare (same-name, unqualified)
-        // `New()` constructor returning their OWN package's type. S1's index
-        // is keyed by clause-bearing package/function identity
-        // (`extract_go_return_types`),
-        // so this must not collide -- each package's `x := New()` recovers
-        // to ITS OWN type, never the other's.
-        let cg = build_go(&[
-            (
-                "pkg1/pkg1.go",
-                "package pkg1\n\
-                 type T1 struct{}\n\
-                 func (t *T1) M() {}\n\
-                 func New() *T1 { return &T1{} }\n\
-                 func run1() {\n\tx := New()\n\tx.M()\n}\n",
-            ),
-            (
-                "pkg2/pkg2.go",
-                "package pkg2\n\
-                 type T2 struct{}\n\
-                 func (t *T2) M() {}\n\
-                 func New() *T2 { return &T2{} }\n\
-                 func run2() {\n\tx := New()\n\tx.M()\n}\n",
-            ),
-        ]);
-        let site1 = site_in(&cg, "run1", "M");
-        assert_eq!(site1.receiver_type.as_deref(), Some("T1"));
-        let site2 = site_in(&cg, "run2", "M");
-        assert_eq!(site2.receiver_type.as_deref(), Some("T2"));
-    }
-
-    // ---- S2: nested-selector field-typed recovery -----------------------
-
-    #[test]
-    fn s2_one_hop_field_selector_recovers_field_typed() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Inner struct{}\n\
-             func (i *Inner) M() {}\n\
-             type Outer struct {\n\tField *Inner\n}\n\
-             func run(o *Outer) {\n\to.Field.M()\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "M");
-        assert_eq!(site.receiver_type.as_deref(), Some("Inner"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-        let out = cg.resolve_call_site_full(site);
-        assert!(out.resolved.iter().any(|c| c.target.name == "M"
-            && c.confidence == ResolutionConfidence::Exact
-            && c.kind == ResolutionKind::FieldTyped));
-    }
-
-    #[test]
-    fn s2_two_hop_field_selector_recovers() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Innermost struct{}\n\
-             func (i *Innermost) M() {}\n\
-             type Middle struct {\n\tLeaf *Innermost\n}\n\
-             type Outer struct {\n\tMid *Middle\n}\n\
-             func run(o *Outer) {\n\to.Mid.Leaf.M()\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "M");
-        assert_eq!(site.receiver_type.as_deref(), Some("Innermost"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-    }
-
-    #[test]
-    fn s2_three_hop_field_selector_drops() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type L4 struct{}\n\
-             func (l *L4) M() {}\n\
-             type L3 struct {\n\tNext *L4\n}\n\
-             type L2 struct {\n\tNext *L3\n}\n\
-             type L1 struct {\n\tNext *L2\n}\n\
-             func run(o *L1) {\n\to.Next.Next.Next.M()\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "M");
-        assert_eq!(site.receiver_type, None, "3-hop chain must not recover");
-    }
-
-    #[test]
-    fn s2_embedded_field_selector_recovers() {
-        // A TRUE anonymous/embedded field (`Listener`, no field name,
-        // non-pointer) — its implicit field name is the bare type name
-        // `Listener` (`GoStruct::extract_one_field`), so
-        // `w.Listener.Accept()` is the correct accessor shape (mirrors the
-        // adjudicated caddy `l.Listener.Accept()` case, but with an IN-REPO
-        // `Listener` so this one DOES flip to a FieldTyped Exact edge).
-        //
-        // Non-pointer embedding deliberately, not `*Listener`: grounding
-        // (tree-sitter dump) found `extract_one_field` does not recognize a
-        // POINTER-embedded field at all (tree-sitter-go represents it as a
-        // bare `*` token sibling, not a `pointer_type` wrapper it expects) —
-        // a PRE-EXISTING gap in the already-shipped struct-embedding
-        // extraction, untouched by P11 and out of scope here; see the task
-        // report.
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Listener struct{}\n\
-             func (l *Listener) Accept() {}\n\
-             type Wrap struct {\n\tListener\n}\n\
-             func run(w *Wrap) {\n\tw.Listener.Accept()\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "Accept");
-        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-    }
-
-    #[test]
-    fn s2_field_miss_at_any_hop_drops_entirely() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Outer struct {\n\tField int\n}\n\
-             func run(o *Outer) {\n\to.Missing.M()\n}\n",
-        )]);
-        // `Missing` is not a field of `Outer` at all -- the field_types
-        // lookup at this hop misses, so the whole chain must drop (no
-        // partial recovery), not panic.
-        let site = site_in(&cg, "run", "M");
-        assert_eq!(site.receiver_type, None);
-    }
-
-    #[test]
-    fn s2_closure_param_shadowing_base_does_not_leak_stale_recovery() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Inner struct{}\n\
-             func (i *Inner) M() {}\n\
-             type Outer struct {\n\tField *Inner\n}\n\
-             func run(o *Outer) {\n\
-             \tfn := func(o int) {\n\t\t_ = o\n\t}\n\
-             \tfn(1)\n\
-             \to.Field.M()\n\
-             }\n",
-        )]);
-        // The closure param `o int` does NOT shadow the OUTER `o.Field.M()`
-        // call (it's a sibling statement, not enclosing it) -- must still
-        // recover normally. This is the companion positive case to the
-        // fail-closed shadow test below (proves the closure fix doesn't
-        // over-suppress unrelated recoveries).
-        let site = site_in(&cg, "run", "M");
-        assert_eq!(site.receiver_type.as_deref(), Some("Inner"));
-    }
-
-    #[test]
-    fn s2_closure_param_rebinding_base_inside_closure_fails_closed() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Inner struct{}\n\
-             func (i *Inner) M() {}\n\
-             type Other struct{}\n\
-             func (x Other) M() {}\n\
-             type Outer struct {\n\tO *Inner\n}\n\
-             func run(o *Outer) {\n\
-             \tfn := func(o Other) {\n\t\to.M()\n\t}\n\
-             \t_ = fn\n\
-             }\n",
-        )]);
-        // The call site `o.M()` is INSIDE the closure, whose OWN parameter
-        // `o Other` shadows the outer `o *Outer`. Without the closure-shadow
-        // fix, the outer-function walk would see only the OUTER `o` binding
-        // (the closure's own param is invisible to `function_node_types()`)
-        // and could leak a stale/wrong R1/R2 proof. P17 retains the first type
-        // only as the legacy R3 input, and marks that proof shadowed so it
-        // cannot mint a direct edge against the outer declaration.
-        let site = site_in(&cg, "run", "M");
-        assert_eq!(site.receiver_type.as_deref(), Some("Outer"));
-        assert!(site.receiver_local_type_shadowed);
-        assert!(cg.resolve_call_site(site).is_empty());
-    }
-
-    // ---- B1 (codex impl-review BLOCKER): func_literal lexical-scope fence -
-
-    #[test]
-    fn b1_s1_sibling_closure_short_var_does_not_leak_across_lexical_scope() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Demux struct{}\n\
-             func (d *Demux) Init(n int) {}\n\
-             func newDemux(a, b int) *Demux { return &Demux{} }\n\
-             func run() {\n\
-             \tfn := func() {\n\t\td := newDemux(16, 16)\n\t\t_ = d\n\t}\n\
-             \t_ = fn\n\
-             \td.Init(1)\n\
-             }\n",
-        )]);
-        // `d` in `run`'s OWN scope has no binding at all -- only the SIBLING
-        // closure's `d := newDemux(...)` does, and that closure does not
-        // contain this call. Without the lexical-scope fence, the walk
-        // descends into the sibling closure anyway and finds `d`'s binding
-        // there, minting a false `ReturnTyped` recovery for an unrelated
-        // (undefined-here) `d`. Must NOT recover.
-        let site = site_in(&cg, "run", "Init");
-        assert_eq!(site.receiver_type, None);
-    }
-
-    #[test]
-    fn b1_s1_call_inside_closure_recovers_from_its_own_binding() {
-        // Positive control: the call IS inside the closure, so the closure's
-        // OWN `d := newDemux(...)` binding is genuinely in scope and must
-        // still recover (proves the fence doesn't over-suppress).
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Demux struct{}\n\
-             func (d *Demux) Init(n int) {}\n\
-             func newDemux(a, b int) *Demux { return &Demux{} }\n\
-             func run() {\n\
-             \tfn := func() {\n\t\td := newDemux(16, 16)\n\t\td.Init(1)\n\t}\n\
-             \tfn()\n\
-             }\n",
-        )]);
-        let site = site_in(&cg, "run", "Init");
-        assert_eq!(site.receiver_type.as_deref(), Some("Demux"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
-    }
-
-    #[test]
-    fn b1_s2_sibling_closure_base_short_var_does_not_leak_across_lexical_scope() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Inner struct{}\n\
-             func (i *Inner) M() {}\n\
-             type Outer struct {\n\tField *Inner\n}\n\
-             func newOuter() *Outer { return &Outer{} }\n\
-             func run() {\n\
-             \tfn := func() {\n\t\to := newOuter()\n\t\t_ = o\n\t}\n\
-             \t_ = fn\n\
-             \to.Field.M()\n\
-             }\n",
-        )]);
-        // Same lexical-scope leak, via S2's base recovery (which recurses
-        // through the SAME S1 machinery for the base identifier `o`).
-        let site = site_in(&cg, "run", "M");
-        assert_eq!(site.receiver_type, None);
-    }
-
-    #[test]
-    fn b1_real_outer_binding_survives_sibling_closure_same_name_binding() {
-        // Pins the 903->939 anomaly mechanism (codex re-review MINOR): pre-fix,
-        // `walk_receiver_bindings`'s unfenced `func_literal` arm counted the
-        // sibling closure's OWN `d := other()` binding as a SECOND binding of
-        // `d` in `run`'s scope (on top of the genuine outer `d :=
-        // newDemux(...)`), inflating `bindings` from the correct 1 to 2.
-        // `go_receiver_index.rs`'s partition-aware classifier then bails
-        // at its `if bindings > 1 { return baseline; }` gate (~line 389)
-        // BEFORE ever attempting the S1 call-RHS retry -- so the outer,
-        // wholly unambiguous `d.Init(1)` lost its recovery entirely, not just
-        // a false one. Post-fix (B1 lexical-scope fence), the sibling
-        // closure's subtree is skipped outright, `bindings` is correctly 1,
-        // and the S1 call-RHS retry recovers `Demux`/`ReturnTyped` as it
-        // should.
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Demux struct{}\n\
-             func (d *Demux) Init(n int) {}\n\
-             func newDemux(a, b int) *Demux { return &Demux{} }\n\
-             func other() *Demux { return &Demux{} }\n\
-             func run() {\n\
-             \td := newDemux(16, 16)\n\
-             \tgo func() {\n\t\td := other()\n\t\t_ = d\n\t}()\n\
-             \td.Init(1)\n\
-             }\n",
-        )]);
-        let site = site_in(&cg, "run", "Init");
-        assert_eq!(
-            site.receiver_type.as_deref(),
-            Some("Demux"),
-            "the real outer `d := newDemux(...)` binding must recover \
-             despite the sibling closure's own same-name `d` binding: {:?}",
-            site
-        );
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
-    }
-
-    // ---- S3: package-level var receivers ---------------------------------
-
-    #[test]
-    fn s3_package_level_var_recovers_var_decl() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Runner interface { Go() }\n\
-             type Impl struct{}\n\
-             func (i Impl) Go() {}\n\
-             var r Runner\n\
-             func run() {\n\tr.Go()\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "Go");
-        assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::VarDecl));
-        let out = cg.resolve_call_site_full(site);
-        assert!(out
-            .resolved
-            .iter()
-            .any(|c| c.target.name == "Go" && c.confidence == ResolutionConfidence::Exact));
-    }
-
-    #[test]
-    fn s3_function_local_binding_shadows_package_var() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Runner interface { Go() }\n\
-             type Impl struct{}\n\
-             func (i Impl) Go() {}\n\
-             type Other struct{}\n\
-             var r Runner\n\
-             func run() {\n\tr := Other{}\n\t_ = r\n}\n\
-             func run2() {\n\tr.Go()\n}\n",
-        )]);
-        // `run2` has no local `r` -- package var recovers.
-        let site2 = site_in(&cg, "run2", "Go");
-        assert_eq!(site2.receiver_type.as_deref(), Some("Runner"));
-    }
-
-    #[test]
-    fn s3_same_function_local_binding_shadows_package_var() {
-        // Minor (both reviews): the test above isn't a REAL shadow test --
-        // `run2` has no local `r` binding AT ALL, so it only proves S3
-        // recovers in the ABSENCE of a local, not that a local correctly
-        // shadows the package var. This is the real same-function case: `r`
-        // is bound locally IN THE SAME function that calls `r.Go()` -- the
-        // local (`Other`) must win, never falling back to the package var's
-        // `Runner` type.
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Runner interface { Go() }\n\
-             type Impl struct{}\n\
-             func (i Impl) Go() {}\n\
-             type Other struct{}\n\
-             func (o Other) Go() {}\n\
-             var r Runner\n\
-             func run() {\n\tr := Other{}\n\tr.Go()\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "Go");
-        assert_eq!(
-            site.receiver_type.as_deref(),
-            Some("Other"),
-            "local `r := Other{{}}` must shadow the package `var r Runner`"
-        );
-    }
-
-    #[test]
-    fn s3_package_var_cross_file_in_same_package() {
-        let cg = build_go(&[
-            (
-                "vars.go",
-                "package main\n\
-                 type Runner interface { Go() }\n\
-                 var r Runner\n",
-            ),
-            (
-                "impl.go",
-                "package main\n\
-                 type Impl struct{}\n\
-                 func (i Impl) Go() {}\n\
-                 func run() {\n\tr.Go()\n}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Go");
-        assert_eq!(site.receiver_type.as_deref(), Some("Runner"));
-    }
-
-    // ---- S4: embedded-interface satisfaction/routing ---------------------
-
-    #[test]
-    fn s4_struct_embeds_interface_routes_to_concrete_implementer() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Doer interface { Do() }\n\
-             type Concrete struct{}\n\
-             func (c Concrete) Do() {}\n\
-             type Holder struct {\n\tDoer\n}\n\
-             func run(h Holder) {\n\th.Do()\n}\n",
-        )]);
-        let site = site_in(&cg, "run", "Do");
-        let out = cg.resolve_call_site_full(site);
-        assert!(
-            out.resolved.iter().any(|c| c.target.name == "Do"
-                && c.confidence == ResolutionConfidence::Exact
-                && c.kind == ResolutionKind::InterfaceDispatch),
-            "expected Exact InterfaceDispatch via embedded interface, got {:?}",
-            out
-        );
-        assert_eq!(
-            cg.go_embedded_interface_route("Holder", None, "Do", "main.go")
-                .value
-                .as_deref(),
-            Some("Doer")
-        );
-    }
-
-    #[test]
-    fn s2_pointer_embedded_field_recovers_nested_selector_receiver() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Listener struct{}\n\
-             func (l *Listener) Serve() {}\n\
-             type Holder struct { *Listener }\n\
-             func run(h Holder) { h.Listener.Serve() }\n",
-        )]);
-        let site = site_in(&cg, "run", "Serve");
-        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-        let out = cg.resolve_call_site_full(site);
-        assert!(out.resolved.iter().any(|candidate| {
-            candidate.target.name == "Serve"
-                && candidate.confidence == ResolutionConfidence::Exact
-                && candidate.kind == ResolutionKind::FieldTyped
-        }));
-    }
-
-    #[test]
-    fn s2_pointer_embedded_field_routes_only_to_its_proven_package() {
-        let cg = build_go(&[
-            (
-                "a/types.go",
-                "package a\n\
-                 type Listener struct{}\n\
-                 func (*Listener) Serve() {}\n\
-                 type Holder struct { *Listener }\n\
-                 func run(h Holder) { h.Listener.Serve() }\n",
-            ),
-            (
-                "b/types.go",
-                "package b\n\
-                 type Listener struct{}\n\
-                 func (*Listener) Serve() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Serve");
-        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-        assert!(
-            site.receiver_outcome.is_some(),
-            "target proof was not carried"
-        );
-        let round_tripped: CallSite =
-            bincode::deserialize(&bincode::serialize(site).unwrap()).unwrap();
-        assert_eq!(round_tripped.receiver_outcome, site.receiver_outcome);
-
-        let out = cg.resolve_call_site_full(&round_tripped);
-        assert_eq!(out.resolved.len(), 1, "package decoy leaked: {out:?}");
-        assert_eq!(out.resolved[0].target.file, "a/types.go");
-        assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
-        assert_eq!(out.resolved[0].kind, ResolutionKind::FieldTyped);
-    }
-
-    #[test]
-    fn s2_value_embedded_field_routes_only_to_its_proven_package() {
-        let cg = build_go(&[
-            (
-                "a/types.go",
-                "package a\n\
-                 type Listener struct{}\n\
-                 func (Listener) Serve() {}\n\
-                 type Holder struct { Listener }\n\
-                 func run(h Holder) { h.Listener.Serve() }\n",
-            ),
-            (
-                "b/types.go",
-                "package b\n\
-                 type Listener struct{}\n\
-                 func (Listener) Serve() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Serve");
-        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-
-        let out = cg.resolve_call_site_full(site);
-        assert_eq!(out.resolved.len(), 1, "package decoy leaked: {out:?}");
-        assert_eq!(out.resolved[0].target.file, "a/types.go");
-        assert_eq!(out.resolved[0].confidence, ResolutionConfidence::Exact);
-        assert_eq!(out.resolved[0].kind, ResolutionKind::FieldTyped);
-    }
-
-    #[test]
-    fn s2_embedded_field_drops_incompatible_target_method_profile() {
-        let cg = build_go(&[
-            (
-                "a/types_linux.go",
-                "package a\n\
-                 type Listener struct{}\n\
-                 type Holder struct { *Listener }\n\
-                 func run(h Holder) { h.Listener.Serve() }\n",
-            ),
-            (
-                "a/method_darwin.go",
-                "package a\nfunc (*Listener) Serve() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Serve");
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-        let out = cg.resolve_call_site_full(site);
-        assert!(
-            out.resolved.is_empty(),
-            "darwin-only method leaked into linux target route: {out:?}"
-        );
-    }
-
-    #[test]
-    fn s2_embedded_field_drops_external_test_package_method_candidate() {
-        let cg = build_go(&[
-            (
-                "p/types.go",
-                "package p\n\
-                 type Listener struct{}\n\
-                 type Holder struct { *Listener }\n\
-                 func run(h Holder) { h.Listener.Serve() }\n",
-            ),
-            (
-                "p/method_test.go",
-                "package p_test\nfunc (*Listener) Serve() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Serve");
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-        let out = cg.resolve_call_site_full(site);
-        assert!(
-            out.resolved.is_empty(),
-            "p_test method leaked into package p target route: {out:?}"
-        );
-    }
-
-    #[test]
-    fn s2_embedded_field_drops_conflicting_compatible_target_methods() {
-        let cg = build_go(&[
-            (
-                "a/types.go",
-                "package a\n\
-                 type Listener struct{}\n\
-                 type Holder struct { Listener }\n\
-                 func run(h Holder) { h.Listener.Serve() }\n",
-            ),
-            ("a/method_one.go", "package a\nfunc (Listener) Serve() {}\n"),
-            ("a/method_two.go", "package a\nfunc (Listener) Serve() {}\n"),
-        ]);
-        let site = site_in(&cg, "run", "Serve");
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-        let out = cg.resolve_call_site_full(site);
-        assert!(
-            out.resolved.is_empty(),
-            "conflicting compatible methods must fail closed: {out:?}"
-        );
-    }
-
-    #[test]
-    fn s2_pointer_embed_struct_in_external_test_package_never_recovers() {
-        let cg = build_go(&[
-            (
-                "p/holder.go",
-                "package p\n\
-                 type Holder struct { *Listener }\n\
-                 func run(h Holder) { h.Listener.Do() }\n",
-            ),
-            (
-                "p/listener_test.go",
-                "package p_test\n\
-                 type Listener struct{}\n\
-                 func (*Listener) Do() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Do");
-        assert_eq!(site.receiver_type, None);
-        assert_eq!(site.receiver_recovery, None);
-        let out = cg.resolve_call_site_full(site);
-        assert!(
-            out.resolved
-                .iter()
-                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
-            "a p_test struct must not prove p.Holder's pointer embed or emit Exact: {out:?}"
-        );
-    }
-
-    #[test]
-    fn s2_pointer_embed_struct_in_incompatible_build_profile_never_recovers() {
-        let cg = build_go(&[
-            (
-                "p/holder_linux.go",
-                "package p\n\
-                 type Holder struct { *Listener }\n\
-                 func run(h Holder) { h.Listener.Do() }\n",
-            ),
-            (
-                "p/listener_darwin.go",
-                "package p\n\
-                 type Listener struct{}\n\
-                 func (*Listener) Do() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Do");
-        assert_eq!(site.receiver_type, None);
-        assert_eq!(site.receiver_recovery, None);
-        let out = cg.resolve_call_site_full(site);
-        assert!(
-            out.resolved
-                .iter()
-                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
-            "a darwin-only struct must not prove a linux holder's pointer embed: {out:?}"
-        );
-    }
-
-    #[test]
-    fn s2_pointer_embed_struct_with_uncertain_embedding_profile_never_recovers() {
-        let cg = build_go(&[
-            (
-                "p/holder.go",
-                "//go:build linux &&\n\n\
-                 package p\n\
-                 type Holder struct { *Listener }\n\
-                 func run(h Holder) { h.Listener.Do() }\n",
-            ),
-            (
-                "p/listener.go",
-                "package p\n\
-                 type Listener struct{}\n\
-                 func (*Listener) Do() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Do");
-        assert_eq!(site.receiver_type, None);
-        assert_eq!(site.receiver_recovery, None);
-        assert!(
-            cg.resolve_call_site_full(site)
-                .resolved
-                .iter()
-                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
-            "an unparsed embedding profile cannot prove pointer-target visibility"
-        );
-    }
-
-    #[test]
-    fn s2_pointer_embed_struct_in_same_build_profile_still_recovers() {
-        let cg = build_go(&[
-            (
-                "p/holder_linux.go",
-                "package p\n\
-                 type Holder struct { *Listener }\n\
-                 func run(h Holder) { h.Listener.Do() }\n",
-            ),
-            (
-                "p/listener_linux.go",
-                "package p\n\
-                 type Listener struct{}\n\
-                 func (*Listener) Do() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Do");
-        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-        assert!(cg
-            .resolve_call_site_full(site)
-            .resolved
-            .iter()
-            .any(|candidate| {
-                candidate.target.name == "Do"
-                    && candidate.confidence == ResolutionConfidence::Exact
-                    && candidate.kind == ResolutionKind::FieldTyped
-            }));
-    }
-
-    #[test]
-    fn s2_pointer_embed_unconstrained_cross_file_struct_still_recovers() {
-        let cg = build_go(&[
-            (
-                "p/holder.go",
-                "package p\n\
-                 type Holder struct { *Listener }\n\
-                 func run(h Holder) { h.Listener.Do() }\n",
-            ),
-            (
-                "p/listener.go",
-                "package p\n\
-                 type Listener struct{}\n\
-                 func (*Listener) Do() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Do");
-        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-        assert!(cg
-            .resolve_call_site_full(site)
-            .resolved
-            .iter()
-            .any(|candidate| {
-                candidate.target.name == "Do"
-                    && candidate.confidence == ResolutionConfidence::Exact
-                    && candidate.kind == ResolutionKind::FieldTyped
-            }));
-    }
-
-    #[test]
-    fn s2_pointer_embed_external_test_clause_does_not_conflict_with_owner() {
-        let cg = build_go(&[
-            (
-                "p/holder.go",
-                "package p\n\
-                 type Holder struct { *Listener }\n\
-                 func run(h Holder) { h.Listener.Do() }\n",
-            ),
-            (
-                "p/listener.go",
-                "package p\n\
-                 type Listener struct{}\n\
-                 func (*Listener) Do() {}\n",
-            ),
-            (
-                "p/listener_test.go",
-                "package p_test\n\
-                 type Listener interface { Do() }\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Do");
-        assert_eq!(site.receiver_type.as_deref(), Some("Listener"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-        let outcome = cg.resolve_call_site_full(site);
-        assert!(
-            outcome.resolved.iter().any(|candidate| {
-                candidate.target.file == "p/listener.go"
-                    && candidate.target.name == "Do"
-                    && candidate.confidence == ResolutionConfidence::Exact
-                    && candidate.kind == ResolutionKind::FieldTyped
-            }),
-            "the p_test clause must not suppress the proven p.Listener target: {outcome:?}"
-        );
-        assert!(
-            outcome
-                .resolved
-                .iter()
-                .all(|candidate| candidate.target.file != "p/listener_test.go"),
-            "the external-test clause must never donate the pointer-embed target: {outcome:?}"
-        );
-    }
-
-    #[test]
-    fn s2_pointer_embed_interface_alias_collision_never_recovers() {
-        let cg = build_go(&[
-            (
-                "a/a.go",
-                "package a\n\
-                 type Alias = interface { Do() }\n\
-                 type Holder struct { *Alias }\n\
-                 func run(h Holder) { h.Alias.Do() }\n",
-            ),
-            (
-                "z/z.go",
-                "package z\n\
-                 type Alias interface { Do() }\n\
-                 type Impl struct{}\n\
-                 func (Impl) Do() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Do");
-        assert_eq!(site.receiver_type, None);
-        assert_eq!(site.receiver_recovery, None);
-        let out = cg.resolve_call_site_full(site);
-        assert!(
-            out.resolved
-                .iter()
-                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
-            "an invalid pointer-to-interface alias must not emit Exact z.Impl.Do: {out:?}"
-        );
-    }
-
-    #[test]
-    fn s2_pointer_embed_struct_alias_fails_closed() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Listener struct{}\n\
-             func (*Listener) Serve() {}\n\
-             type Alias = Listener\n\
-             type Holder struct { *Alias }\n\
-             func run(h Holder) { h.Alias.Serve() }\n",
-        )]);
-        let site = site_in(&cg, "run", "Serve");
-        assert_eq!(site.receiver_type, None);
-        assert_eq!(site.receiver_recovery, None);
-        assert!(
-            cg.resolve_call_site_full(site)
-                .resolved
-                .iter()
-                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
-            "struct aliases intentionally fail closed for S2"
-        );
-    }
-
-    #[test]
-    fn s2_pointer_embed_defined_interface_collision_never_recovers() {
-        let cg = build_go(&[
-            (
-                "a/a.go",
-                "package a\n\
-                 type I interface { Do() }\n\
-                 type I2 I\n\
-                 type Holder struct { *I2 }\n\
-                 func run(h Holder) { h.I2.Do() }\n",
-            ),
-            (
-                "z/z.go",
-                "package z\n\
-                 type I2 interface { Do() }\n\
-                 type Impl struct{}\n\
-                 func (Impl) Do() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Do");
-        assert_eq!(site.receiver_type, None);
-        assert_eq!(site.receiver_recovery, None);
-        let out = cg.resolve_call_site_full(site);
-        assert!(
-            out.resolved
-                .iter()
-                .all(|candidate| candidate.confidence != ResolutionConfidence::Exact),
-            "a defined interface type must not emit an Exact edge through z.I2: {out:?}"
-        );
-    }
-
-    #[test]
-    fn cross_package_unqualified_embed_never_mints_embedded_promotion() {
-        let cg = build_go(&[
-            (
-                "a/types.go",
-                "package a\n\
-                 type Base struct{}\n\
-                 type S struct { *Base }\n",
-            ),
-            (
-                "a/run.go",
-                "package a\n\
-                 func run(s S) { s.Serve() }\n",
-            ),
-            (
-                "b/types.go",
-                "package b\n\
-                 type Base struct{}\n\
-                 func (b *Base) Serve() {}\n",
-            ),
-        ]);
-        assert!(
-            cg.resolve_call_site_full(site_in(&cg, "run", "Serve"))
-                .resolved
-                .iter()
-                .all(|candidate| candidate.kind != ResolutionKind::EmbeddedPromotion),
-            "a.S must not promote b.(*Base).Serve"
-        );
-    }
-
-    #[test]
-    fn s2_unrelated_package_interface_does_not_remove_local_pointer_embed() {
-        let cg = build_go(&[
-            (
-                "a/types.go",
-                "package a\n\
-                 type Base struct{}\n\
-                 func (b *Base) Serve() {}\n\
-                 type S struct { *Base }\n",
-            ),
-            (
-                "a/run.go",
-                "package a\n\
-                 func run(s S) { s.Base.Serve() }\n",
-            ),
-            ("z/types.go", "package z\ntype Base interface { Serve() }\n"),
-        ]);
-        let site = site_in(&cg, "run", "Serve");
-        assert_eq!(site.receiver_type.as_deref(), Some("Base"));
-        assert_eq!(site.receiver_recovery, Some(ReceiverRecovery::FieldTyped));
-        assert!(cg
-            .resolve_call_site_full(site)
-            .resolved
-            .iter()
-            .any(|candidate| {
-                candidate.target.name == "Serve"
-                    && candidate.confidence == ResolutionConfidence::Exact
-                    && candidate.kind == ResolutionKind::FieldTyped
-            }));
-    }
-
-    #[test]
-    fn qualified_pointer_embed_field_shadows_concrete_promotion() {
-        let cg = build_go(&[
-            ("ext/types.go", "package ext\ntype Listener struct{}\n"),
-            (
-                "main.go",
-                "package main\n\
-                 import \"example.com/ext\"\n\
-                 type D struct{}\n\
-                 func (d D) Listener() {}\n\
-                 type S struct { *ext.Listener; D }\n\
-                 func run(s S) { s.Listener() }\n",
-            ),
-        ]);
-        let out = cg.resolve_call_site_full(site_in(&cg, "run", "Listener"));
-        assert!(
-            out.resolved.is_empty(),
-            "the depth-0 ext.Listener field must shadow promoted D.Listener: {out:?}"
-        );
-        assert!(!cg
-            .promoted_aliases
-            .contains_key(&("S".to_string(), "Listener".to_string())));
-    }
-
-    #[test]
-    fn duplicate_outer_struct_name_never_cross_routes_promoted_alias() {
-        let cg = build_go(&[
-            (
-                "a/types.go",
-                "package a\n\
-                 type I interface { Serve(x int) }\n\
-                 type Concrete struct{}\n\
-                 func (c Concrete) Serve(x int) {}\n\
-                 type S struct { I }\n",
-            ),
-            ("a/run.go", "package a\nfunc run(s S) { s.Serve(1) }\n"),
-            (
-                "z/types.go",
-                "package z\n\
-                 type Base struct{}\n\
-                 func (b *Base) Serve(x string) {}\n\
-                 type S struct { *Base }\n",
-            ),
-        ]);
-        let out = cg.resolve_call_site_full(site_in(&cg, "run", "Serve"));
-        assert!(
-            out.resolved.is_empty()
-                || out.resolved.iter().all(|candidate| {
-                    candidate.target.file == "a/types.go"
-                        && candidate.target.name == "Serve"
-                        && candidate.kind == ResolutionKind::InterfaceDispatch
-                }),
-            "a.S may route through its own I or fail closed, but must never reach z.Base.Serve: \
-             {out:?}"
-        );
-    }
-
-    #[test]
-    fn s4_pointer_embedded_interface_never_routes_or_satisfies() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type I interface { Do() }\n\
-             type Concrete struct{}\n\
-             func (c Concrete) Do() {}\n\
-             type Holder struct { *I }\n\
-             func direct(h Holder) { h.Do() }\n\
-             func nested(h Holder) { h.I.Do() }\n",
-        )]);
-        assert!(
-            cg.go_embedded_interface_methods
-                .get(&main_owner("Holder"))
-                .and_then(|methods| methods.get("Do"))
-                .is_none(),
-            "invalid *I embed must not mint an S4 InterfaceDispatch route"
-        );
-        assert!(
-            cg.resolve_call_site_full(site_in(&cg, "direct", "Do"))
-                .resolved
-                .is_empty(),
-            "invalid *I embed must not satisfy I or resolve h.Do()"
-        );
-        let nested = site_in(&cg, "nested", "Do");
-        assert_eq!(nested.receiver_type, None);
-        assert_eq!(nested.receiver_recovery, None);
-        let nested_outcome = cg.resolve_call_site_full(nested);
-        assert!(
-            nested_outcome
-                .resolved
-                .iter()
-                .all(|candidate| candidate.kind != ResolutionKind::InterfaceDispatch),
-            "invalid *I embed must not recover h.I as I and dispatch it: \
-             site={nested:?}, outcome={nested_outcome:?}"
-        );
-    }
-
-    #[test]
-    fn s2_qualified_pointer_embedded_interface_never_recovers() {
-        let cg = build_go(&[
-            (
-                "ext/types.go",
-                "package ext\n\
-                 type I interface { Do() }\n\
-                 type Concrete struct{}\n\
-                 func (c Concrete) Do() {}\n",
-            ),
-            (
-                "main.go",
-                "package main\n\
-                 import \"github.com/x/y/ext\"\n\
-                 type Holder struct { *ext.I }\n\
-                 func nested(h Holder) { h.I.Do() }\n",
-            ),
-        ]);
-        let nested = site_in(&cg, "nested", "Do");
-        assert_eq!(nested.receiver_type, None);
-        assert_eq!(nested.receiver_recovery, None);
-        assert!(
-            cg.resolve_call_site_full(nested)
-                .resolved
-                .iter()
-                .all(|candidate| candidate.kind != ResolutionKind::InterfaceDispatch),
-            "invalid *ext.I embed must not recover h.I for interface dispatch"
-        );
-    }
-
-    #[test]
-    fn qualified_embedded_struct_does_not_promote_unrelated_local_bare_target() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Listener struct{}\n\
-             func (l Listener) Serve() {}\n\
-             type S struct { ext.Listener }\n\
-             func run(s S) { s.Serve() }\n",
-        )]);
-        assert!(
-            cg.resolve_call_site_full(site_in(&cg, "run", "Serve"))
-                .resolved
-                .is_empty(),
-            "qualified ext.Listener must not promote an unrelated local Listener.Serve"
-        );
-    }
-
-    #[test]
-    fn qualified_embedded_interface_does_not_route_local_bare_interface() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type I interface { Do() }\n\
-             type Concrete struct{}\n\
-             func (c Concrete) Do() {}\n\
-             type Holder struct { ext.I }\n\
-             func run(h Holder) { h.Do() }\n",
-        )]);
-        assert!(
-            cg.go_embedded_interface_methods
-                .get(&main_owner("Holder"))
-                .and_then(|methods| methods.get("Do"))
-                .is_none(),
-            "qualified ext.I must not mint an S4 route through unrelated local I"
-        );
-        assert!(
-            cg.resolve_call_site_full(site_in(&cg, "run", "Do"))
-                .resolved
-                .is_empty(),
-            "qualified ext.I must not dispatch h.Do() to local I implementers"
-        );
-    }
-
-    #[test]
-    fn s4_own_method_shadows_embedded_interface_promotion() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Doer interface { Do() }\n\
-             type Concrete struct{}\n\
-             func (c Concrete) Do() {}\n\
-             type Holder struct {\n\tDoer\n}\n\
-             func (h Holder) Do() {}\n\
-             func run(h Holder) {\n\th.Do()\n}\n",
-        )]);
-        // Holder has its OWN direct `Do` -- must NOT appear in the
-        // embedded-interface promotion map (own method wins, ordinary
-        // owner_lookup already resolves it).
-        assert!(cg
-            .go_embedded_interface_route("Holder", None, "Do", "main.go")
-            .value
-            .is_none());
-        let site = site_in(&cg, "run", "Do");
-        let out = cg.resolve_call_site_full(site);
-        assert!(out.resolved.iter().any(|c| c.target.file == "main.go"
-            && c.confidence == ResolutionConfidence::Exact
-            && c.kind != ResolutionKind::InterfaceDispatch));
-    }
-
-    #[test]
-    fn s4_external_embedded_interface_drops_without_wrong_edge() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             import \"net\"\n\
-             type Wrap struct {\n\tnet.Listener\n}\n\
-             func run(w Wrap) {\n\tw.Accept()\n}\n",
-        )]);
-        // `net.Listener` is external (not in `data.interfaces`) -- no in-repo
-        // satisfier set. Must drop cleanly: no panic, no wrong edge, no
-        // Exact flip.
-        let site = site_in(&cg, "run", "Accept");
-        let out = cg.resolve_call_site_full(site);
-        assert!(out.resolved.is_empty());
-        assert!(cg
-            .go_embedded_interface_route("Wrap", None, "Accept", "main.go")
-            .value
-            .is_none());
-    }
-
-    // ---- B2/M1 (codex impl-review): S4 package scoping + gate-failure drop
-
-    #[test]
-    fn b2_embedded_interface_route_is_package_scoped_not_bare_name() {
-        // Two packages each define `Holder`; only the SECOND-inserted one
-        // (by path order -- `BTreeMap<String, ParsedFile>` iterates
-        // lexicographically, and `zzz_embed/...` sorts after
-        // `aaa_plain/...`) embeds `Doer`. Pre-fix, the bare-keyed
-        // `data.structs["Holder"]` extraction collapses to whichever file's
-        // struct is processed LAST, so `zzz_embed`'s embedding data
-        // overwrites `aaa_plain`'s (non-embedding) entry entirely --
-        // `aaa_plain`'s `Holder.Do()` call site then incorrectly inherits
-        // `zzz_embed`'s `Doer` donation and routes to `Concrete.Do`.
-        let cg = build_go(&[
-            (
-                "zzz_embed/holder.go",
-                "package zzzembed\n\
-                 type Doer interface { Do() }\n\
-                 type Concrete struct{}\n\
-                 func (c Concrete) Do() {}\n\
-                 type Holder struct {\n\tDoer\n}\n",
-            ),
-            (
-                "aaa_plain/holder.go",
-                "package aaaplain\n\
-                 type Holder struct{}\n\
-                 func run(h Holder) {\n\th.Do()\n}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Do");
-        let out = cg.resolve_call_site_full(site);
-        assert!(
-            out.resolved.is_empty(),
-            "aaa_plain's non-embedding Holder must not route via zzz_embed's \
-             Doer donation, got {:?}",
-            out
-        );
-    }
-
-    #[test]
-    fn m1_s4_gate_failure_drops_not_falls_through_to_alternate_route() {
-        let cg = build_go(&[
-            (
-                "holder/holder.go",
-                "package holder\n\
-                 type Doer interface { Do(x int) }\n\
-                 type Concrete struct{}\n\
-                 func (c Concrete) Do(x int) {}\n\
-                 type Holder struct {\n\tDoer\n}\n\
-                 func run(h Holder) {\n\th.Do()\n}\n",
-            ),
-            (
-                "other/other.go",
-                "package other\n\
-                 type Holder interface { Do() }\n\
-                 type OtherImpl struct{}\n\
-                 func (o OtherImpl) Do() {}\n",
-            ),
-        ]);
-        let site = site_in(&cg, "run", "Do");
-        let out = cg.resolve_call_site_full(site);
-        // S4 routes `h.Do()` to the embedded `Doer.Do(x int)`, but the call
-        // has 0 args -- arity-rejected. Without the M1 fix this falls
-        // through to the bare `iface_key("Holder")` ladder and picks up the
-        // UNRELATED `other.Holder` interface's `OtherImpl.Do` (a bare-name
-        // collision with the STRUCT `holder.Holder`) -- must drop instead.
-        assert!(
-            out.resolved.is_empty(),
-            "arity-rejected S4 route must drop, not mint an alternate-route edge: {:?}",
-            out
-        );
-    }
-
-    #[test]
-    fn s4_ambiguous_two_embedded_interfaces_supplying_same_method_drops() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type A interface { M() }\n\
-             type B interface { M() }\n\
-             type ImplA struct{}\n\
-             func (c ImplA) M() {}\n\
-             type Holder struct {\n\tA\n\tB\n}\n\
-             func run(h Holder) {\n\th.M()\n}\n",
-        )]);
-        let route = cg.go_embedded_interface_route("Holder", None, "M", "main.go");
-        assert!(route.value.is_none());
-        assert!(route.evidence.conflict);
-    }
-
-    // ---- S5: telemetry ----------------------------------------------------
-
-    #[test]
-    fn s5_resolution_kind_as_str_field_and_return_typed() {
-        assert_eq!(ResolutionKind::FieldTyped.as_str(), "field_typed");
-        assert_eq!(ResolutionKind::ReturnTyped.as_str(), "return_typed");
-    }
-
-    #[test]
-    fn s5_call_stats_reports_dropped_go_receiver_bucket() {
-        let cg = build_go(&[(
-            "main.go",
-            "package main\n\
-             type Outer struct {\n\tField int\n}\n\
-             func run(o *Outer) {\n\to.Field.M()\n}\n",
-        )]);
-        let stats = crate::navigation::queries::call_stats(&cg);
-        let dropped = stats
-            .get("dropped_go_receiver")
-            .and_then(|v| v.as_object())
-            .expect("dropped_go_receiver present");
-        let total: u64 = dropped.values().filter_map(|v| v.as_u64()).sum();
-        assert!(
-            total > 0,
-            "expected at least one attributed Go drop: {stats}"
-        );
-    }
-
-    // ---- incremental parity (bidirectional) -------------------------------
-
-    #[test]
-    fn incremental_parity_edit_type_defining_file_updates_consumer() {
-        use crate::cpg::CodePropertyGraph;
-        use crate::data_flow::DataFlowGraph;
-        use std::collections::BTreeSet;
-
-        let mut files: BTreeMap<String, ParsedFile> = BTreeMap::new();
-        files.insert(
-            "demux.go".to_string(),
-            ParsedFile::parse(
-                "demux.go",
-                "package demux\n\
-                 type Demux struct{}\n\
-                 func (d *Demux) Init() {}\n\
-                 func newDemux() *Demux { return &Demux{} }\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        files.insert(
-            "consumer.go".to_string(),
-            ParsedFile::parse(
-                "consumer.go",
-                "package demux\n\
-                 func run() {\n\td := newDemux()\n\td.Init()\n}\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        let cg0 = CallGraph::build(&files);
-        let site0 = site_in(&cg0, "run", "Init");
-        assert_eq!(site0.receiver_type.as_deref(), Some("Demux"));
-
-        // Edit ONLY the type-defining file: `newDemux` now returns a
-        // DIFFERENT type. `consumer.go` is untouched.
-        files.insert(
-            "demux.go".to_string(),
-            ParsedFile::parse(
-                "demux.go",
-                "package demux\n\
-                 type Demux struct{}\n\
-                 func (d *Demux) Init() {}\n\
-                 type Other struct{}\n\
-                 func newDemux() *Other { return &Other{} }\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        let changed: BTreeSet<String> = ["demux.go".to_string()].into_iter().collect();
-        let cpg = CodePropertyGraph::build_incremental(
-            cg0,
-            DataFlowGraph::build(&BTreeMap::new()),
-            &changed,
-            &files,
-            None,
-        );
-        let cg1 = &cpg.call_graph;
-        let site1 = site_in(cg1, "run", "Init");
-        // `consumer.go` never changed, but its recovery MUST update: `Demux`
-        // no longer has an `Init` method reachable from `d`'s new type.
-        assert_ne!(
-            site1.receiver_type.as_deref(),
-            Some("Demux"),
-            "consumer.go's retained call site kept a stale recovery after \
-             the type-defining file changed"
-        );
-    }
-
-    #[test]
-    fn incremental_parity_edit_pointer_embed_defining_file_updates_retained_consumer() {
-        use crate::cpg::CodePropertyGraph;
-        use crate::data_flow::DataFlowGraph;
-        use std::collections::BTreeSet;
-
-        let mut files = BTreeMap::new();
-        files.insert(
-            "listener.go".to_string(),
-            ParsedFile::parse(
-                "listener.go",
-                "package p\ntype Listener struct{}\nfunc (l *Listener) Serve() {}\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        files.insert(
-            "embed.go".to_string(),
-            ParsedFile::parse("embed.go", "package p\ntype S struct{}\n", Go).unwrap(),
-        );
-        files.insert(
-            "consumer.go".to_string(),
-            ParsedFile::parse(
-                "consumer.go",
-                "package p\nfunc run(s S) { s.Listener.Serve() }\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        files.insert(
-            "b/listener.go".to_string(),
-            ParsedFile::parse(
-                "b/listener.go",
-                "package b\ntype Listener struct{}\nfunc (*Listener) Serve() {}\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        let cg0 = CallGraph::build(&files);
-        let site0 = site_in(&cg0, "run", "Serve");
-        assert_eq!(site0.receiver_type, None);
-        assert_eq!(site0.receiver_recovery, None);
-        assert_eq!(site0.receiver_outcome, None);
-
-        files.insert(
-            "embed.go".to_string(),
-            ParsedFile::parse("embed.go", "package p\ntype S struct { *Listener }\n", Go).unwrap(),
-        );
-        let full = CallGraph::build(&files);
-        let full_out = full.resolve_call_site_full(site_in(&full, "run", "Serve"));
-        assert_eq!(
-            full_out.resolved.len(),
-            1,
-            "full-build decoy leaked: {full_out:?}"
-        );
-        assert_eq!(full_out.resolved[0].target.file, "listener.go");
-        assert_eq!(full_out.resolved[0].confidence, ResolutionConfidence::Exact);
-
-        let changed = BTreeSet::from(["embed.go".to_string()]);
-        let incremental = CodePropertyGraph::build_incremental(
-            cg0,
-            DataFlowGraph::build(&BTreeMap::new()),
-            &changed,
-            &files,
-            None,
-        );
-        let incremental_out = incremental.call_graph.resolve_call_site_full(site_in(
-            &incremental.call_graph,
-            "run",
-            "Serve",
-        ));
-        assert_eq!(
-            incremental_out.resolved.len(),
-            1,
-            "incremental decoy leaked: {incremental_out:?}"
-        );
-        assert_eq!(incremental_out.resolved[0].target.file, "listener.go");
-        assert_eq!(
-            incremental_out.resolved[0].confidence,
-            ResolutionConfidence::Exact
-        );
-    }
-
-    #[test]
-    fn incremental_parity_edit_consuming_file_recomputes() {
-        use crate::cpg::CodePropertyGraph;
-        use crate::data_flow::DataFlowGraph;
-        use std::collections::BTreeSet;
-
-        let mut files: BTreeMap<String, ParsedFile> = BTreeMap::new();
-        files.insert(
-            "demux.go".to_string(),
-            ParsedFile::parse(
-                "demux.go",
-                "package demux\n\
-                 type Demux struct{}\n\
-                 func (d *Demux) Init() {}\n\
-                 func newDemux() *Demux { return &Demux{} }\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        files.insert(
-            "consumer.go".to_string(),
-            ParsedFile::parse("consumer.go", "package demux\nfunc run() {}\n", Go).unwrap(),
-        );
-        let cg0 = CallGraph::build(&files);
-        assert!(cg0
-            .calls
-            .iter()
-            .all(|(fid, sites)| fid.name != "run" || sites.is_empty()));
-
-        // Edit ONLY the consuming file: add the call-RHS receiver usage.
-        files.insert(
-            "consumer.go".to_string(),
-            ParsedFile::parse(
-                "consumer.go",
-                "package demux\n\
-                 func run() {\n\td := newDemux()\n\td.Init()\n}\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        let changed: BTreeSet<String> = ["consumer.go".to_string()].into_iter().collect();
-        let cpg = CodePropertyGraph::build_incremental(
-            cg0,
-            DataFlowGraph::build(&BTreeMap::new()),
-            &changed,
-            &files,
-            None,
-        );
-        let cg1 = &cpg.call_graph;
-        let site1 = site_in(cg1, "run", "Init");
-        assert_eq!(site1.receiver_type.as_deref(), Some("Demux"));
-        assert_eq!(site1.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
-    }
-
-    #[test]
-    fn incremental_parity_edit_unrelated_file_survives() {
-        use crate::cpg::CodePropertyGraph;
-        use crate::data_flow::DataFlowGraph;
-        use std::collections::BTreeSet;
-
-        let mut files: BTreeMap<String, ParsedFile> = BTreeMap::new();
-        files.insert(
-            "demux.go".to_string(),
-            ParsedFile::parse(
-                "demux.go",
-                "package demux\n\
-                 type Demux struct{}\n\
-                 func (d *Demux) Init() {}\n\
-                 func newDemux() *Demux { return &Demux{} }\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        files.insert(
-            "consumer.go".to_string(),
-            ParsedFile::parse(
-                "consumer.go",
-                "package demux\n\
-                 func run() {\n\td := newDemux()\n\td.Init()\n}\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        files.insert(
-            "unrelated.go".to_string(),
-            ParsedFile::parse("unrelated.go", "package other\nfunc noop() {}\n", Go).unwrap(),
-        );
-        let cg0 = CallGraph::build(&files);
-        let site0 = site_in(&cg0, "run", "Init");
-        assert_eq!(site0.receiver_type.as_deref(), Some("Demux"));
-
-        files.insert(
-            "unrelated.go".to_string(),
-            ParsedFile::parse(
-                "unrelated.go",
-                "package other\nfunc noop() {}\nfunc noop2() {}\n",
-                Go,
-            )
-            .unwrap(),
-        );
-        let changed: BTreeSet<String> = ["unrelated.go".to_string()].into_iter().collect();
-        let cpg = CodePropertyGraph::build_incremental(
-            cg0,
-            DataFlowGraph::build(&BTreeMap::new()),
-            &changed,
-            &files,
-            None,
-        );
-        let cg1 = &cpg.call_graph;
-        let site1 = site_in(cg1, "run", "Init");
-        assert_eq!(site1.receiver_type.as_deref(), Some("Demux"));
-        assert_eq!(site1.receiver_recovery, Some(ReceiverRecovery::ReturnTyped));
-    }
-}
+mod go_receiver_typing_tests;
 
 #[cfg(test)]
-mod python_property_access_tests {
-    use super::*;
-    use crate::languages::Language::{JavaScript, Python};
-    use std::collections::BTreeMap;
-
-    fn build_py(files: &[(&str, &str)]) -> CallGraph {
-        let mut map = BTreeMap::new();
-        for (path, src) in files {
-            map.insert(
-                path.to_string(),
-                ParsedFile::parse(path, src, Python).unwrap(),
-            );
-        }
-        CallGraph::build(&map)
-    }
-
-    fn fid_named<'a>(cg: &'a CallGraph, name: &str) -> &'a FunctionId {
-        cg.functions
-            .get(name)
-            .unwrap_or_else(|| panic!("no function named {name}"))
-            .first()
-            .unwrap()
-    }
-
-    // ---- S1: property getter index -----------------------------------
-
-    #[test]
-    fn property_getter_is_recorded_in_index() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n",
-        )]);
-        let getters = cg
-            .property_getters
-            .get(&("Response".to_string(), "text".to_string()))
-            .expect("@property getter recorded");
-        assert_eq!(getters.len(), 1);
-        assert!(cg.cached_property_getters.is_empty());
-    }
-
-    #[test]
-    fn cached_property_getter_is_recorded_and_tracked_separately() {
-        let cg = build_py(&[(
-            "resp.py",
-            "import functools\n\nclass Response:\n    @functools.cached_property\n    def text(self):\n        return self._text\n",
-        )]);
-        let getters = cg
-            .property_getters
-            .get(&("Response".to_string(), "text".to_string()))
-            .expect("@functools.cached_property getter recorded");
-        assert_eq!(getters.len(), 1);
-        assert_eq!(cg.cached_property_getters.len(), 1);
-        assert!(cg.cached_property_getters.contains(&getters[0]));
-    }
-
-    #[test]
-    fn bare_cached_property_decorator_is_recorded_and_tracked_separately() {
-        let cg = build_py(&[(
-            "resp.py",
-            "from functools import cached_property\n\nclass Response:\n    @cached_property\n    def text(self):\n        return self._text\n",
-        )]);
-        let getters = cg
-            .property_getters
-            .get(&("Response".to_string(), "text".to_string()))
-            .expect("@cached_property getter recorded");
-        assert_eq!(cg.cached_property_getters.len(), 1);
-        assert!(cg.cached_property_getters.contains(&getters[0]));
-    }
-
-    #[test]
-    fn setter_decorated_method_never_pollutes_getter_index() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    @text.setter\n    def text(self, value):\n        self._text = value\n",
-        )]);
-        let getters = cg
-            .property_getters
-            .get(&("Response".to_string(), "text".to_string()))
-            .expect("getter recorded");
-        // Exactly the getter, never the `@text.setter`-decorated definition.
-        assert_eq!(getters.len(), 1);
-        assert_eq!(getters[0].start_line, 2);
-    }
-
-    #[test]
-    fn non_decorated_same_name_method_is_not_indexed() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    def text(self):\n        return self._text\n",
-        )]);
-        assert!(cg
-            .property_getters
-            .get(&("Response".to_string(), "text".to_string()))
-            .is_none());
-    }
-
-    #[test]
-    fn non_python_files_leave_property_state_empty() {
-        let mut files = BTreeMap::new();
-        files.insert(
-            "resp.js".to_string(),
-            ParsedFile::parse(
-                "resp.js",
-                "class Response {\n  get text() { return this._text; }\n}\nfunction f(r) {\n  return r.text;\n}\n",
-                JavaScript,
-            )
-            .unwrap(),
-        );
-        let cg = CallGraph::build(&files);
-        assert!(cg.property_getters.is_empty());
-        assert!(cg.cached_property_getters.is_empty());
-        assert!(cg.property_accesses.is_empty());
-        assert_eq!(cg.property_access_fanout_skips, 0);
-        assert_eq!(cg.property_access_store_skips, 0);
-    }
-
-    // ---- S2: access-site extraction ------------------------------------
-
-    #[test]
-    fn self_attr_records_against_own_class_getter() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        return self.text\n",
-        )]);
-        let getter = fid_named(&cg, "text").clone();
-        let enclosing = fid_named(&cg, "dump").clone();
-        assert!(cg
-            .property_accesses
-            .iter()
-            .any(|a| a.getter == getter && a.enclosing == enclosing));
-    }
-
-    #[test]
-    fn unknown_receiver_single_owner_is_recorded() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    return r.text\n",
-        )]);
-        let getter = fid_named(&cg, "text").clone();
-        let enclosing = fid_named(&cg, "f").clone();
-        assert!(cg
-            .property_accesses
-            .iter()
-            .any(|a| a.getter == getter && a.enclosing == enclosing));
-        assert_eq!(cg.property_access_fanout_skips, 0);
-    }
-
-    #[test]
-    fn plain_assignment_target_is_not_recorded() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.text = \"v\"\n",
-        )]);
-        assert!(cg.property_accesses.is_empty());
-    }
-
-    #[test]
-    fn augmented_assignment_target_is_not_recorded() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.text += \"v\"\n",
-        )]);
-        assert!(cg.property_accesses.is_empty());
-    }
-
-    // ---- F5: property_access_store_skips telemetry ---------------------
-
-    #[test]
-    fn store_target_with_indexed_name_increments_store_skip_counter() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.text = \"v\"\n",
-        )]);
-        assert_eq!(cg.property_access_store_skips, 1);
-    }
-
-    #[test]
-    fn store_target_with_non_indexed_name_does_not_increment_store_skip_counter() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    r.other = \"v\"\n",
-        )]);
-        assert_eq!(cg.property_access_store_skips, 0);
-    }
-
-    #[test]
-    fn delete_for_and_with_alias_store_skips_are_all_counted() {
-        // F4 + F5 together: every one of the store/delete contexts F4 fences
-        // (assignment/augmented left, del target, for target, with-alias)
-        // increments the same counter when the name is indexed.
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\n\
-def f(r, xs, cm):\n    r.text = \"v\"\n    r.text += \"v\"\n    del r.text\n    for r.text in xs:\n        pass\n    with cm() as r.text:\n        pass\n",
-        )]);
-        assert_eq!(cg.property_access_store_skips, 5);
-    }
-
-    // ---- F4: delete/for/with-target store contexts ---------------------
-
-    #[test]
-    fn delete_statement_target_is_not_recorded() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    del r.text\n",
-        )]);
-        assert!(cg.property_accesses.is_empty());
-    }
-
-    #[test]
-    fn for_target_attribute_is_not_recorded() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r, xs):\n    for r.text in xs:\n        pass\n",
-        )]);
-        assert!(cg.property_accesses.is_empty());
-    }
-
-    #[test]
-    fn comprehension_for_target_attribute_is_not_recorded() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r, xs):\n    return [x for r.text in xs]\n",
-        )]);
-        assert!(cg.property_accesses.is_empty());
-    }
-
-    #[test]
-    fn for_iterable_attribute_load_is_still_recorded() {
-        // The right-hand/iterable side of a `for` remains LOAD context.
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    for x in r.text:\n        pass\n",
-        )]);
-        let getter = fid_named(&cg, "text").clone();
-        let enclosing = fid_named(&cg, "f").clone();
-        assert!(cg
-            .property_accesses
-            .iter()
-            .any(|a| a.getter == getter && a.enclosing == enclosing));
-    }
-
-    #[test]
-    fn with_alias_target_attribute_is_not_recorded() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r, cm):\n    with cm() as r.text:\n        pass\n",
-        )]);
-        assert!(cg.property_accesses.is_empty());
-    }
-
-    #[test]
-    fn with_item_value_attribute_load_is_still_recorded() {
-        // The context-manager-expression side of `with ... as x:` remains
-        // LOAD context, even though the alias target does not.
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    with r.text as x:\n        pass\n",
-        )]);
-        let getter = fid_named(&cg, "text").clone();
-        let enclosing = fid_named(&cg, "f").clone();
-        assert!(cg
-            .property_accesses
-            .iter()
-            .any(|a| a.getter == getter && a.enclosing == enclosing));
-    }
-
-    #[test]
-    fn call_of_attribute_is_not_double_recorded() {
-        // `r.text()` — the attribute is the function child of a call, not a
-        // load; the property-access table must not record it (the ordinary
-        // call-resolution path, independent of this table, is what handles
-        // `r.text()` syntactically as a method call).
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(r):\n    return r.text()\n",
-        )]);
-        assert!(cg.property_accesses.is_empty());
-    }
-
-    #[test]
-    fn fanout_at_cap_records_all_three() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class A:\n    @property\n    def text(self):\n        return 1\n\n\n\
-class B:\n    @property\n    def text(self):\n        return 2\n\n\n\
-class C:\n    @property\n    def text(self):\n        return 3\n\n\n\
-def f(r):\n    return r.text\n",
-        )]);
-        assert_eq!(cg.property_accesses.len(), 3);
-        assert_eq!(cg.property_access_fanout_skips, 0);
-    }
-
-    #[test]
-    fn fanout_over_cap_is_skipped_and_counted() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class A:\n    @property\n    def text(self):\n        return 1\n\n\n\
-class B:\n    @property\n    def text(self):\n        return 2\n\n\n\
-class C:\n    @property\n    def text(self):\n        return 3\n\n\n\
-class D:\n    @property\n    def text(self):\n        return 4\n\n\n\
-def f(r):\n    return r.text\n",
-        )]);
-        assert!(cg.property_accesses.is_empty());
-        assert_eq!(cg.property_access_fanout_skips, 1);
-    }
-
-    #[test]
-    fn cls_attr_does_not_narrow_to_its_own_class() {
-        // `cls.text` inside a classmethod of `A` must NOT be narrowed to just
-        // A's getter (the self-like shortcut is explicitly excluded) — with
-        // 2 classes defining `text`, it must fan out to BOTH (under cap),
-        // pinning that `cls` gets no special treatment vs. any other
-        // unrecognized receiver.
-        let cg = build_py(&[(
-            "resp.py",
-            "class A:\n    @property\n    def text(self):\n        return 1\n\n    @classmethod\n    def make(cls):\n        return cls.text\n\n\n\
-class B:\n    @property\n    def text(self):\n        return 2\n",
-        )]);
-        let a_getter = cg
-            .property_getters
-            .get(&("A".to_string(), "text".to_string()))
-            .unwrap()[0]
-            .clone();
-        let b_getter = cg
-            .property_getters
-            .get(&("B".to_string(), "text".to_string()))
-            .unwrap()[0]
-            .clone();
-        let enclosing = fid_named(&cg, "make").clone();
-        assert!(cg
-            .property_accesses
-            .iter()
-            .any(|a| a.getter == a_getter && a.enclosing == enclosing));
-        assert!(
-            cg.property_accesses
-                .iter()
-                .any(|a| a.getter == b_getter && a.enclosing == enclosing),
-            "cls.text must fan out to B's getter too, not narrow to A alone"
-        );
-    }
-
-    #[test]
-    fn staticmethod_self_param_does_not_get_same_class_narrowing() {
-        // F2 (codex MAJOR 2): `@staticmethod def make(self)` — Python's
-        // generic `method_owner` marks it as owned by `A` (any
-        // class-contained function), but `self` here is an ordinary
-        // parameter of unknown type, not a receiver. It must NOT get tier-1
-        // same-class narrowing; it must route to tier-3 (unknown-receiver,
-        // capped fanout) like any other unrecognized receiver — so with
-        // A and B both defining `text`, it must fan out to BOTH.
-        let cg = build_py(&[(
-            "resp.py",
-            "class A:\n    @property\n    def text(self):\n        return 1\n\n    @staticmethod\n    def make(self):\n        return self.text\n\n\n\
-class B:\n    @property\n    def text(self):\n        return 2\n",
-        )]);
-        let a_getter = cg
-            .property_getters
-            .get(&("A".to_string(), "text".to_string()))
-            .unwrap()[0]
-            .clone();
-        let b_getter = cg
-            .property_getters
-            .get(&("B".to_string(), "text".to_string()))
-            .unwrap()[0]
-            .clone();
-        let enclosing = fid_named(&cg, "make").clone();
-        assert!(
-            cg.property_accesses
-                .iter()
-                .any(|a| a.getter == a_getter && a.enclosing == enclosing),
-            "staticmethod self.text must still fan out to A's getter"
-        );
-        assert!(
-            cg.property_accesses
-                .iter()
-                .any(|a| a.getter == b_getter && a.enclosing == enclosing),
-            "staticmethod self.text must fan out to B's getter too, not narrow to A alone"
-        );
-    }
-
-    #[test]
-    fn top_level_self_param_routes_to_tier3_fanout_not_drop() {
-        // Item 1 (MAJOR, codex re-review): a top-level `def f(self)` is not
-        // contained in any class, so `method_owners` has no entry for it.
-        // Tier-1 eligibility now requires `method_owners.contains_key`, so
-        // this must NOT enter tier-1 (and then drop when
-        // `self_property_owner_getters` finds no owner) — it must route to
-        // tier-3 unknown-receiver fanout, same as any other unrecognized
-        // receiver. With exactly one class defining `text`, that fanout
-        // yields a single edge, not a drop.
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n\ndef f(self):\n    return self.text\n",
-        )]);
-        let getter = fid_named(&cg, "text").clone();
-        let enclosing = fid_named(&cg, "f").clone();
-        assert!(
-            cg.property_accesses
-                .iter()
-                .any(|a| a.getter == getter && a.enclosing == enclosing),
-            "top-level def f(self) reading self.text must fan out to Response's getter, not drop"
-        );
-        assert_eq!(cg.property_access_fanout_skips, 0);
-    }
-
-    #[test]
-    fn keyword_only_self_param_does_not_narrow_to_owning_class() {
-        // Item 1 (MAJOR): `def make(*, self)` inside class A — `self` is
-        // keyword-only (appears after the bare `*` separator), so it is NOT
-        // the first positional parameter and must fail the instance-method
-        // gate even though `make` IS owned by A (`method_owners` has an
-        // entry). Must NOT narrow to A alone; must fan out to both A and B,
-        // proving the keyword-only receiver gets no special treatment.
-        let cg = build_py(&[(
-            "resp.py",
-            "class A:\n    @property\n    def text(self):\n        return 1\n\n    def make(*, self):\n        return self.text\n\n\n\
-class B:\n    @property\n    def text(self):\n        return 2\n",
-        )]);
-        let a_getter = cg
-            .property_getters
-            .get(&("A".to_string(), "text".to_string()))
-            .unwrap()[0]
-            .clone();
-        let b_getter = cg
-            .property_getters
-            .get(&("B".to_string(), "text".to_string()))
-            .unwrap()[0]
-            .clone();
-        let enclosing = fid_named(&cg, "make").clone();
-        assert!(
-            cg.property_accesses
-                .iter()
-                .any(|a| a.getter == a_getter && a.enclosing == enclosing),
-            "keyword-only self.text must still fan out to A's getter"
-        );
-        assert!(
-            cg.property_accesses
-                .iter()
-                .any(|a| a.getter == b_getter && a.enclosing == enclosing),
-            "keyword-only self.text must fan out to B's getter too, not narrow to A alone"
-        );
-    }
-
-    #[test]
-    fn positional_only_self_param_is_still_tier1_narrowed() {
-        // Item 1 (c): `self` before a bare `/` positional-only separator
-        // still counts as the first positional parameter (`def m(self, /)`)
-        // — must still get tier-1 same-class narrowing, not fan out to an
-        // unrelated class's getter of the same name.
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self, /):\n        return self.text\n\n\n\
-class Other:\n    @property\n    def text(self):\n        return 2\n",
-        )]);
-        let response_getter = cg
-            .property_getters
-            .get(&("Response".to_string(), "text".to_string()))
-            .unwrap()[0]
-            .clone();
-        let other_getter = cg
-            .property_getters
-            .get(&("Other".to_string(), "text".to_string()))
-            .unwrap()[0]
-            .clone();
-        let enclosing = fid_named(&cg, "dump").clone();
-        assert!(
-            cg.property_accesses
-                .iter()
-                .any(|a| a.getter == response_getter && a.enclosing == enclosing),
-            "positional-only self.text must narrow to Response's own getter"
-        );
-        assert!(
-            !cg.property_accesses
-                .iter()
-                .any(|a| a.getter == other_getter && a.enclosing == enclosing),
-            "positional-only self must NOT fan out to Other's unrelated getter"
-        );
-    }
-
-    #[test]
-    fn property_getter_reading_self_other_prop_is_still_tier1_narrowed() {
-        // F2: the enclosing function MAY legitimately carry other
-        // decorators, including `@property` itself — a getter reading
-        // `self.other_prop` is a genuine instance method and must still get
-        // tier-1 same-class narrowing (not fan out to an unrelated class
-        // that also happens to define `other_prop`).
-        let cg = build_py(&[(
-            "resp.py",
-            "class A:\n    @property\n    def other_prop(self):\n        return 1\n\n    @property\n    def text(self):\n        return self.other_prop\n\n\n\
-class B:\n    @property\n    def other_prop(self):\n        return 2\n",
-        )]);
-        let a_other_prop = cg
-            .property_getters
-            .get(&("A".to_string(), "other_prop".to_string()))
-            .unwrap()[0]
-            .clone();
-        let b_other_prop = cg
-            .property_getters
-            .get(&("B".to_string(), "other_prop".to_string()))
-            .unwrap()[0]
-            .clone();
-        let enclosing = fid_named(&cg, "text").clone();
-        assert!(
-            cg.property_accesses
-                .iter()
-                .any(|a| a.getter == a_other_prop && a.enclosing == enclosing),
-            "text() reading self.other_prop must narrow to A's own other_prop getter"
-        );
-        assert!(
-            !cg.property_accesses
-                .iter()
-                .any(|a| a.getter == b_other_prop && a.enclosing == enclosing),
-            "must NOT fan out to B's unrelated other_prop getter"
-        );
-    }
-
-    #[test]
-    fn self_attr_with_no_matching_class_does_not_fan_out() {
-        // `self.text` inside `A` (which does NOT define `text`) must not be
-        // attributed to `B`'s unrelated getter, even though the name is
-        // indexed globally — a known non-matching receiver is a negative
-        // result, not "unknown".
-        let cg = build_py(&[(
-            "resp.py",
-            "class A:\n    def dump(self):\n        return self.text\n\n\n\
-class B:\n    @property\n    def text(self):\n        return 2\n",
-        )]);
-        assert!(cg.property_accesses.is_empty());
-    }
-
-    #[test]
-    fn self_attr_own_class_hit_filtered_by_caller_file_and_span() {
-        // F1 (codex MAJOR 1): two files each define `class Response` with
-        // `@property def text`. The bare `(owner, attr)` index key collides
-        // across files, so an unfiltered own-class hit would fan out to
-        // BOTH getters when a method in file A's Response reads `self.text`.
-        // The own-class hit must be filtered to the caller's own file AND
-        // class span, exactly like the inherited-base fallback already is.
-        let cg = build_py(&[
-            (
-                "resp_a.py",
-                "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        return self.text\n",
-            ),
-            (
-                "resp_b.py",
-                "class Response:\n    @property\n    def text(self):\n        return self._text\n",
-            ),
-        ]);
-        let getter_a = cg
-            .property_getters
-            .get(&("Response".to_string(), "text".to_string()))
-            .expect("text getters indexed")
-            .iter()
-            .find(|fid| fid.file == "resp_a.py")
-            .expect("resp_a.py getter present")
-            .clone();
-        let enclosing = cg
-            .functions
-            .get("dump")
-            .expect("dump indexed")
-            .iter()
-            .find(|fid| fid.file == "resp_a.py")
-            .expect("dump in resp_a.py")
-            .clone();
-        let matches: Vec<_> = cg
-            .property_accesses
-            .iter()
-            .filter(|a| a.enclosing == enclosing)
-            .collect();
-        assert_eq!(
-            matches.len(),
-            1,
-            "self.text in resp_a.py's Response.dump must produce exactly one edge, got {:?}",
-            matches
-        );
-        assert_eq!(matches[0].getter, getter_a);
-    }
-
-    #[test]
-    fn self_attr_narrows_via_same_file_single_base() {
-        let cg = build_py(&[(
-            "resp.py",
-            "class Base:\n    @property\n    def text(self):\n        return self._text\n\n\n\
-class Child(Base):\n    def dump(self):\n        return self.text\n",
-        )]);
-        let getter = fid_named(&cg, "text").clone();
-        let enclosing = fid_named(&cg, "dump").clone();
-        assert!(cg
-            .property_accesses
-            .iter()
-            .any(|a| a.getter == getter && a.enclosing == enclosing));
-    }
-
-    // ---- F3: nested callable/class scope fencing -----------------------
-
-    #[test]
-    fn nested_def_self_attr_not_attributed_to_outer_method() {
-        // F3 (codex MAJOR 3): a nested `def` has the SAME kind as the outer
-        // function but its own scope — `self.text` inside it must not be
-        // recorded against the OUTER method's FunctionId (misattribution +
-        // double-scan, since `all_functions()` visits the nested def
-        // separately anyway).
-        //
-        // Item 2 (MINOR, codex re-review): this pin is only load-bearing if
-        // it also proves the access isn't dropped entirely — the nested
-        // def's OWN walk must record it under the nested FunctionId (via
-        // tier-3: `helper` has no `self` parameter of its own, so it never
-        // qualifies for tier-1 in the first place — this is unaffected by
-        // which routing failure sends it to tier-3). With exactly one class
-        // defining `text`, tier-3 fanout yields a single owner edge.
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        def helper():\n            return self.text\n        return helper()\n",
-        )]);
-        let dump = fid_named(&cg, "dump").clone();
-        let helper = fid_named(&cg, "helper").clone();
-        let getter = fid_named(&cg, "text").clone();
-        assert!(
-            !cg.property_accesses.iter().any(|a| a.enclosing == dump),
-            "self.text inside a nested def must not be attributed to the outer method"
-        );
-        assert!(
-            cg.property_accesses
-                .iter()
-                .any(|a| a.getter == getter && a.enclosing == helper),
-            "self.text inside the nested def must be recorded under the nested function's own FunctionId, not dropped"
-        );
-    }
-
-    #[test]
-    fn lambda_body_self_attr_is_not_scanned() {
-        // F3: lambda bodies are fenced out of the walk entirely (accepted
-        // recall gap — no other scanner covers lambda bodies either, since
-        // lambdas never get their own FunctionId from `all_functions()`).
-        let cg = build_py(&[(
-            "resp.py",
-            "class Response:\n    @property\n    def text(self):\n        return self._text\n\n    def dump(self):\n        f = lambda: self.text\n        return f()\n",
-        )]);
-        assert!(
-            cg.property_accesses.is_empty(),
-            "self.text inside a lambda body must not surface any edge"
-        );
-    }
-
-    /// P8 non-Rust guard: the macro-arg extractor is gated on
-    /// `self.language == Language::Rust` AND a real `macro_invocation` node
-    /// kind (which only tree-sitter-rust ever produces) -- literal
-    /// `assert!(f())`-shaped TEXT sitting inside a JS template literal or a
-    /// Python string must never mint a call for `f`/`assert`/`check`.
-    #[test]
-    fn non_rust_assert_bang_text_in_string_or_template_literal_mints_nothing() {
-        let py = build_py(&[(
-            "notes.py",
-            "def host():\n    s = \"assert!(check(1))\"\n    return s\n",
-        )]);
-        assert!(
-            !py.functions.contains_key("check"),
-            "a Python string literal containing assert!(check(1)) text must not mint a call"
-        );
-        assert!(py
-            .calls
-            .values()
-            .flat_map(|s| s.iter())
-            .all(|s| s.callee_name != "check" && s.callee_name != "assert"));
-
-        let mut js_map = BTreeMap::new();
-        js_map.insert(
-            "notes.js".to_string(),
-            ParsedFile::parse(
-                "notes.js",
-                "function host() {\n    const s = `assert!(check(1))`;\n    return s;\n}\n",
-                JavaScript,
-            )
-            .unwrap(),
-        );
-        let js = CallGraph::build(&js_map);
-        assert!(js
-            .calls
-            .values()
-            .flat_map(|s| s.iter())
-            .all(|s| s.callee_name != "check" && s.callee_name != "assert"));
-    }
-}
+mod python_property_access_tests;
 
 // ---------------------------------------------------------------------------
 // P9: framework-entry (Flask/FastAPI/Express route registration) tests
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-mod framework_entry_tests {
-    use super::*;
-    use crate::framework_entries::MODULE_PSEUDO_CALLER_NAME;
-    use crate::languages::Language::{Go, JavaScript, Python};
-    use std::collections::BTreeMap;
-
-    fn build_py(files: &[(&str, &str)]) -> CallGraph {
-        let mut map = BTreeMap::new();
-        for (path, src) in files {
-            map.insert(
-                path.to_string(),
-                ParsedFile::parse(path, src, Python).unwrap(),
-            );
-        }
-        CallGraph::build(&map)
-    }
-
-    fn build_js(files: &[(&str, &str)]) -> CallGraph {
-        let mut map = BTreeMap::new();
-        for (path, src) in files {
-            map.insert(
-                path.to_string(),
-                ParsedFile::parse(path, src, JavaScript).unwrap(),
-            );
-        }
-        CallGraph::build(&map)
-    }
-
-    fn fid<'a>(cg: &'a CallGraph, name: &str) -> &'a FunctionId {
-        cg.functions
-            .get(name)
-            .unwrap_or_else(|| panic!("no function named {name}"))
-            .first()
-            .unwrap()
-    }
-
-    // ---- Python: Flask / FastAPI ------------------------------------------
-
-    #[test]
-    fn flask_route_recorded_with_decorator_line() {
-        let cg = build_py(&[(
-            "app.py",
-            "from flask import Flask\napp = Flask(__name__)\n\n@app.route(\"/x\")\ndef handler():\n    return \"ok\"\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.handler == handler)
-            .expect("flask route recorded");
-        assert_eq!(rec.site.line, 4);
-        assert_eq!(rec.framework, "flask");
-        assert_eq!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
-        assert_eq!(rec.caller.start_line, 1);
-    }
-
-    #[test]
-    fn fastapi_route_recorded() {
-        let cg = build_py(&[(
-            "app.py",
-            "from fastapi import FastAPI\napp = FastAPI()\n\n@app.get(\"/x\")\ndef handler():\n    return \"ok\"\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.handler == handler)
-            .expect("fastapi route recorded");
-        assert_eq!(rec.framework, "fastapi");
-        assert_eq!(rec.site.line, 4);
-    }
-
-    #[test]
-    fn two_route_decorators_yield_two_records() {
-        let cg = build_py(&[(
-            "app.py",
-            "from flask import Flask\napp = Flask(__name__)\n\n@app.route(\"/a\")\n@app.route(\"/b\")\ndef handler():\n    return \"ok\"\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        let recs: Vec<_> = cg
-            .framework_entries
-            .iter()
-            .filter(|r| r.handler == handler)
-            .collect();
-        assert_eq!(recs.len(), 2, "two route decorators -> two records");
-    }
-
-    #[test]
-    fn non_route_decorator_not_recorded() {
-        let cg = build_py(&[(
-            "app.py",
-            "from flask import Flask\napp = Flask(__name__)\n\nclass Foo:\n    @property\n    def value(self):\n        return 1\n",
-        )]);
-        assert!(cg.framework_entries.is_empty());
-    }
-
-    #[test]
-    fn python_nested_registration_enclosing_is_factory_function() {
-        let cg = build_py(&[(
-            "app.py",
-            "from flask import Flask\n\n\ndef create_app():\n    app = Flask(__name__)\n\n    @app.route(\"/x\")\n    def handler():\n        return \"ok\"\n\n    return app\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.handler == handler)
-            .expect("nested route recorded");
-        assert_eq!(rec.caller.name, "create_app");
-    }
-
-    #[test]
-    fn python_decorated_factory_enclosing_caller_matches_canonical_function_id() {
-        // The factory `make_app` is ITSELF decorated -- `CallGraph::functions`
-        // keys decorated Python functions by the `decorated_definition`
-        // WRAPPER range (the Functions query captures `decorated_definition`;
-        // `all_functions_via_tree` filters out the inner `function_definition`
-        // for a decorated function), so the nested registration's `caller`
-        // FunctionId must match that SAME wrapper range exactly, or
-        // `nav callees(make_app)` can never find the outgoing edge (F4).
-        let cg = build_py(&[(
-            "app.py",
-            "from flask import Flask\n\napp = Flask(__name__)\n\n\n@some_decorator\ndef make_app():\n    @app.route(\"/x\")\n    def handler():\n        return \"ok\"\n    return app\n",
-        )]);
-        let canonical_make_app = cg
-            .functions
-            .get("make_app")
-            .and_then(|v| v.first())
-            .expect("make_app indexed")
-            .clone();
-        let handler = fid(&cg, "handler").clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.handler == handler)
-            .expect("nested route recorded");
-        assert_eq!(
-            rec.caller, canonical_make_app,
-            "caller FunctionId must match the canonical (decorated-wrapper) range"
-        );
-        assert_eq!(rec.caller.start_line, 6);
-    }
-
-    // ---- Express -----------------------------------------------------------
-
-    #[test]
-    fn express_named_handler_recorded_at_module_level() {
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\napp.get(\"/x\", handler);\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.handler == handler)
-            .expect("express handler recorded");
-        assert_eq!(rec.framework, "express");
-        assert_eq!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
-        assert_eq!(rec.caller.start_line, 1);
-        assert_eq!(rec.site.line, 6);
-    }
-
-    #[test]
-    fn express_multi_arg_middleware_and_handler_both_recorded() {
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction mw(req, res, next) {}\nfunction handler(req, res) {}\n\napp.get(\"/x\", mw, handler);\n",
-        )]);
-        let mw = fid(&cg, "mw").clone();
-        let handler = fid(&cg, "handler").clone();
-        assert!(
-            cg.framework_entries.iter().any(|r| r.handler == mw),
-            "middleware arg must be recorded"
-        );
-        assert!(
-            cg.framework_entries.iter().any(|r| r.handler == handler),
-            "handler arg must be recorded"
-        );
-    }
-
-    #[test]
-    fn express_shadowed_identifier_is_skipped_and_counted() {
-        // `handler` is a PARAMETER of `setup`, locally shadowing the
-        // top-level `handler` function -- the reference inside `setup` names
-        // the local, not the free function, so it must be skipped even
-        // though exactly one same-file function named `handler` exists.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup(handler) {\n    app.get(\"/x\", handler);\n}\n",
-        )]);
-        assert!(
-            cg.framework_entries.is_empty(),
-            "shadowed identifier must not be recorded"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    #[test]
-    fn express_inline_arrow_arg_is_skipped_and_counted() {
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\napp.get(\"/x\", (req, res) => {});\n",
-        )]);
-        assert!(cg.framework_entries.is_empty());
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    #[test]
-    fn express_zero_match_identifier_is_skipped_and_counted() {
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\napp.get(\"/x\", missingHandler);\n",
-        )]);
-        assert!(cg.framework_entries.is_empty());
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    #[test]
-    fn express_multi_match_identifier_is_skipped_and_counted() {
-        // Two same-named `handler` function declarations in the same file
-        // (annex-B block-scoped `function` inside `if`) -- ambiguous, must
-        // not record, must count.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nif (true) {\n    function handler() {}\n}\n\napp.get(\"/x\", handler);\n",
-        )]);
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-        assert!(!cg
-            .framework_entries
-            .iter()
-            .any(|r| r.framework == "express"));
-    }
-
-    #[test]
-    fn express_registration_inside_setup_function_has_enclosing_caller() {
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup() {\n    app.get(\"/x\", handler);\n}\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.handler == handler)
-            .expect("recorded");
-        assert_eq!(rec.caller.name, "setup");
-        assert_ne!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
-    }
-
-    // ---- F1: bare-binding-only identifier resolution ------------------------
-
-    #[test]
-    fn express_identifier_matching_method_only_is_unresolved() {
-        // `handler` exists ONLY as a class METHOD in this file -- a bare
-        // identifier reference (`app.get("/x", handler)`) can never mean a
-        // method (methods need a receiver), so this must be unresolved, not
-        // a false edge to `C.handler`.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nclass C {\n    handler() {}\n}\n\napp.get(\"/x\", handler);\n",
-        )]);
-        assert!(
-            !cg.framework_entries
-                .iter()
-                .any(|r| r.framework == "express"),
-            "method-only same-name match must not mint a framework_entry edge"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    #[test]
-    fn express_identifier_matching_prefers_bare_binding_over_same_name_method() {
-        // A top-level function AND a same-name class method both named
-        // `handler` -- the bare-binding filter must exclude the method,
-        // leaving exactly one match (the top-level function) instead of
-        // dropping the identifier for false ambiguity.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nclass C {\n    handler() {}\n}\n\napp.get(\"/x\", handler);\n",
-        )]);
-        let free_handler = cg
-            .functions
-            .get("handler")
-            .expect("handler name indexed")
-            .iter()
-            .find(|f| !cg.method_owners.contains_key(*f))
-            .expect("free function handler must exist")
-            .clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.framework == "express")
-            .expect("express route recorded against the free function");
-        assert_eq!(rec.handler, free_handler);
-        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
-    }
-
-    #[test]
-    fn express_identifier_matching_object_property_arrow_only_is_unresolved() {
-        // M1 (a): `handler` exists ONLY as an object-literal property arrow
-        // (`{ handler: () => {} }`) -- `languages::function_name` Pattern 2
-        // still infers the name `handler` for it (so it enters
-        // `CallGraph::functions`), but a bare `handler` identifier can never
-        // reach a `pair` value (only `api.handler` can), so this must be
-        // unresolved, not a false edge into the object property.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nconst api = { handler: () => {} };\n\napp.get(\"/x\", handler);\n",
-        )]);
-        assert!(
-            !cg.framework_entries
-                .iter()
-                .any(|r| r.framework == "express"),
-            "object-property arrow must not mint a framework_entry edge"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    #[test]
-    fn express_identifier_matching_member_expression_assignment_only_is_unresolved() {
-        // M1 (b): `handler` exists ONLY as `exports.handler = () => {}` --
-        // Pattern 5 name inference (`languages::function_name`) names it
-        // `handler` via the assignment's member-expression LHS property, but
-        // a bare `handler` identifier can never reach `exports.handler`
-        // (only the qualified reference can), so this must be unresolved.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nexports.handler = () => {};\n\napp.get(\"/x\", handler);\n",
-        )]);
-        assert!(
-            !cg.framework_entries
-                .iter()
-                .any(|r| r.framework == "express"),
-            "member-expression-LHS assignment must not mint a framework_entry edge"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    #[test]
-    fn express_identifier_matching_variable_declarator_arrow_resolves() {
-        // M1 (c) positive: `const handler = () => {}` -- Pattern 1 name
-        // inference (bound via a `variable_declarator`) IS a genuine bare
-        // binding (a bare `handler` reference really does reach it), so it
-        // must keep resolving under the rewritten allow-list-based
-        // `is_bare_binding_function`.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nconst handler = (req, res) => {};\n\napp.get(\"/x\", handler);\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        assert!(
-            cg.framework_entries.iter().any(|r| r.handler == handler),
-            "variable-declarator-bound arrow must still resolve"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
-    }
-
-    // ---- F2: Express receiver local-shadow guard ----------------------------
-
-    #[test]
-    fn express_receiver_shadowed_by_enclosing_parameter_is_skipped_and_counted() {
-        // `app` is REBOUND as a parameter of `setup`, shadowing the
-        // module-level `const app = express()` -- the receiver in
-        // `app.get("/x", handler)` inside `setup` names the non-grounded
-        // PARAMETER, not the express instance, so this must not mint an
-        // edge even though `app` is a recognized express receiver name
-        // file-wide.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup(app) {\n    app.get(\"/x\", handler);\n}\n",
-        )]);
-        assert!(
-            cg.framework_entries.is_empty(),
-            "shadowed receiver must not be recorded"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    #[test]
-    fn express_receiver_not_shadowed_when_setup_does_not_rebind_app() {
-        // Non-shadowed control: `setup` does NOT take an `app` parameter, so
-        // the receiver inside it is still the module-level express
-        // instance -- must record normally. (Distinct from the pre-existing
-        // `express_registration_inside_setup_function_has_enclosing_caller`
-        // in that it asserts the unresolved counter stays at 0.)
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup() {\n    app.get(\"/x\", handler);\n}\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        assert!(
-            cg.framework_entries.iter().any(|r| r.handler == handler),
-            "non-shadowed receiver must still record"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
-    }
-
-    // ---- M2: direct-constructor receiver local-shadow guard -----------------
-
-    #[test]
-    fn express_direct_constructor_receiver_shadowed_by_enclosing_parameter_is_skipped_and_counted()
-    {
-        // `express` is REBOUND as a parameter of `setup`, shadowing the
-        // module-level `express` import -- `express()` inside `setup` calls
-        // the non-grounded PARAMETER, not the express factory, so this must
-        // not mint an edge even though the receiver is a direct-constructor
-        // form (`express().get(...)`), which the old
-        // `express_receiver_identifier_name` returned `None` for and so
-        // never shadow-checked at all.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup(express) {\n    express().get(\"/x\", handler);\n}\n",
-        )]);
-        assert!(
-            cg.framework_entries.is_empty(),
-            "direct constructor receiver shadowed by enclosing param must not record"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    #[test]
-    fn express_direct_constructor_receiver_not_shadowed_at_module_level_still_records() {
-        // Non-shadowed control: a module-level direct-constructor receiver
-        // (no enclosing function to shadow `express` at all) must still
-        // record normally.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nexpress().get(\"/x\", handler);\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        assert!(
-            cg.framework_entries.iter().any(|r| r.handler == handler),
-            "non-shadowed module-level direct constructor receiver must still record"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
-    }
-
-    // ---- M3: shadow guard must see anonymous enclosing scopes ---------------
-
-    #[test]
-    fn express_receiver_shadowed_by_anonymous_iife_parameter_is_skipped_and_counted() {
-        // `app` is REBOUND as a parameter of an ANONYMOUS IIFE (no
-        // inferable name, so it can never be a `FunctionId` and is
-        // invisible to the FunctionId-keyed `js_ts_function_locals` index)
-        // -- the old shadow guard walked `enclosing_chain`, which only ever
-        // contains NAMED enclosing functions, so this shadow was missed
-        // entirely and a false edge was recorded.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\n(function (app) {\n    app.get(\"/x\", handler);\n})(express());\n",
-        )]);
-        assert!(
-            cg.framework_entries.is_empty(),
-            "anonymous-scope receiver shadow must not be recorded"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    #[test]
-    fn express_receiver_not_shadowed_by_anonymous_iife_without_param_records_at_module_caller() {
-        // Non-shadowed control: the anonymous IIFE does NOT rebind `app`, so
-        // the receiver inside it is still the module-level express
-        // instance -- must record normally. Because the wrapper is
-        // anonymous, `enclosing` is still `None` for it (name inference
-        // doesn't apply to an un-bound IIFE), so the caller stays the
-        // `<module>` pseudo-caller -- verifies the M3 AST-walk rewrite left
-        // the enclosing-CALLER determination for anonymous wrappers
-        // unchanged, only the shadow/binding collection moved.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\n(function () {\n    app.get(\"/x\", handler);\n})();\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.handler == handler)
-            .expect("non-shadowed anonymous-wrapper registration must still record");
-        assert_eq!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
-        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
-    }
-
-    // ---- M-A (codex re-review of fix wave 2): caller attribution walks past
-    // anonymous scopes to the nearest NAMED enclosing function ---------------
-
-    #[test]
-    fn express_registration_inside_anonymous_iife_nested_in_named_function_attributes_outer_function(
-    ) {
-        // The registration's DEEPEST enclosing function/method node is an
-        // anonymous IIFE with no `FunctionId` -- the pre-fix
-        // `enclosing_function(site_line)` (a top-down smallest-containing-
-        // node search) stopped at that deepest node and returned `None`,
-        // misattributing the caller to `<module>` even though `setup` truly
-        // encloses the registration. The fix walks the call node's ACTUAL
-        // AST ancestor chain and skips past anonymous function-like
-        // ancestors to the nearest one that can be named.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup() {\n    (() => {\n        app.get(\"/x\", handler);\n    })();\n}\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.handler == handler)
-            .expect("registration inside the IIFE nested in setup() must still record");
-        assert_eq!(rec.caller.name, "setup");
-        assert_ne!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
-    }
-
-    #[test]
-    fn express_registration_inside_top_level_iife_with_no_named_ancestor_attributes_module() {
-        // Control: a top-level IIFE with NO named function anywhere in its
-        // ancestor chain must still attribute to the `<module>` pseudo-
-        // caller, unchanged by the M-A ancestor-walk rewrite.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\n(() => {\n    app.get(\"/x\", handler);\n})();\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.handler == handler)
-            .expect("top-level IIFE registration must still record");
-        assert_eq!(rec.caller.name, MODULE_PSEUDO_CALLER_NAME);
-    }
-
-    // ---- M-B (codex re-review of fix wave 2): `require("express").Router()`
-    // constructor grounding-id peel ------------------------------------------
-
-    #[test]
-    fn express_require_dot_router_constructor_receiver_shadowed_by_enclosing_parameter_is_skipped_and_counted(
-    ) {
-        // `require` is REBOUND as a parameter of `setup`, shadowing the
-        // global Node.js `require` -- `require("express").Router()` inside
-        // `setup` calls the non-grounded PARAMETER, not the real module
-        // loader, so this must not mint an edge. The grounding-identifier
-        // peel previously only handled a bare-identifier member-expression
-        // object (`express.Router()`); a require-CALL object
-        // (`require("express").Router()`) fell through and returned `None`,
-        // silently skipping the shadow check entirely (M-B).
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nfunction setup(require) {\n    require(\"express\").Router().get(\"/x\", handler);\n}\n",
-        )]);
-        assert!(
-            cg.framework_entries.is_empty(),
-            "shadowed require-constructor receiver must not be recorded"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    #[test]
-    fn express_require_dot_router_constructor_receiver_not_shadowed_at_module_level_still_records()
-    {
-        // Non-shadowed control: a module-level
-        // `require("express").Router().get(...)` (no enclosing function to
-        // shadow `require` at all) must still record normally.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction handler(req, res) {}\n\nrequire(\"express\").Router().get(\"/x\", handler);\n",
-        )]);
-        let handler = fid(&cg, "handler").clone();
-        assert!(
-            cg.framework_entries.iter().any(|r| r.handler == handler),
-            "non-shadowed module-level require-constructor receiver must still record"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
-    }
-
-    // ---- F3: method-aware arg positioning for `app.use(...)` ----------------
-
-    #[test]
-    fn express_use_single_identifier_arg_is_recorded() {
-        // `app.use(loggerFn)` -- no path argument at all; arg 0 IS the
-        // handler. The uniform "always skip arg 0" rule used to drop this
-        // entirely.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction loggerFn(req, res, next) {}\n\napp.use(loggerFn);\n",
-        )]);
-        let logger_fn = fid(&cg, "loggerFn").clone();
-        let rec = cg
-            .framework_entries
-            .iter()
-            .find(|r| r.handler == logger_fn)
-            .expect("app.use(loggerFn) must record the single identifier arg");
-        assert_eq!(rec.site.line, 6);
-    }
-
-    #[test]
-    fn express_use_with_path_arg_still_skips_the_path() {
-        // `app.use('/api', mw)` -- arg 0 IS a string path, so the existing
-        // skip-arg-0 behavior must still apply; only `mw` is recorded.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\n\nfunction mw(req, res, next) {}\n\napp.use(\"/api\", mw);\n",
-        )]);
-        let mw = fid(&cg, "mw").clone();
-        assert!(
-            cg.framework_entries.iter().any(|r| r.handler == mw),
-            "mw must be recorded"
-        );
-        assert_eq!(
-            cg.framework_entries
-                .iter()
-                .filter(|r| r.framework == "express")
-                .count(),
-            1,
-            "the path argument itself must not be recorded as a handler"
-        );
-    }
-
-    #[test]
-    fn express_use_identifier_router_var_fails_bare_binding_resolution() {
-        // `app.use(routerVar)` where `routerVar` is bound to
-        // `express.Router()` -- arg 0 is method-aware-scanned as a handler
-        // candidate, but `routerVar` is never a function/method definition
-        // at all, so it fails resolution (0 matches) and must not record.
-        let cg = build_js(&[(
-            "app.js",
-            "const express = require(\"express\");\nconst app = express();\nconst routerVar = express.Router();\n\napp.use(routerVar);\n",
-        )]);
-        assert!(
-            !cg.framework_entries
-                .iter()
-                .any(|r| r.framework == "express"),
-            "a router/config identifier must not resolve to a handler"
-        );
-        assert_eq!(cg.framework_entry_unresolved_handlers, 1);
-    }
-
-    // ---- Non-target-language guard -----------------------------------------
-
-    #[test]
-    fn non_target_language_go_file_never_mints() {
-        let mut map = BTreeMap::new();
-        map.insert(
-            "main.go".to_string(),
-            ParsedFile::parse("main.go", "package main\n\nfunc main() {}\n", Go).unwrap(),
-        );
-        let cg = CallGraph::build(&map);
-        assert!(cg.framework_entries.is_empty());
-        assert_eq!(cg.framework_entry_unresolved_handlers, 0);
-    }
-}
+mod framework_entry_tests;

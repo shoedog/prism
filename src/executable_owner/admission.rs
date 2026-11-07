@@ -30,17 +30,17 @@ pub(super) struct Report {
 /// Internal error custody. Text is for humans; MCP receives the original value,
 /// never a JSON substring recovered from a truncated/user-controlled message.
 #[derive(Debug)]
-pub(crate) struct Failure {
+pub struct Failure {
     reason: String,
     report: serde_json::Value,
 }
 
 impl Failure {
-    pub(crate) fn message(&self) -> String {
+    pub fn message(&self) -> String {
         format!("owner acquisition failed: {}", self.reason)
     }
 
-    pub(crate) fn diagnostic(&self) -> serde_json::Value {
+    pub fn diagnostic(&self) -> serde_json::Value {
         self.report.clone()
     }
 }

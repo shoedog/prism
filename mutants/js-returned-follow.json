@@ -1,6 +1,6 @@
 {
  "lane": "slice V: follow a value an in-repo function returned (2026-10-13)",
- "source": "src/ast/js_return_facts.rs; src/ast/js_binding_returned.rs; src/resolution_js_returns.rs; src/js_returns.rs",
+ "source": "src/ast/js_return_facts.rs; src/ast/js_binding_returned.rs; src/resolution/js_ts/returns.rs; src/ast/js_ts/returns.rs",
  "lib_test_prefixes": [
   "ast::"
  ],
@@ -242,7 +242,7 @@
    ]
   ],
   "RV-32-whole-fact-unreadable": [
-   "src/js_returns.rs",
+   "src/ast/js_ts/returns.rs",
    "JsReturnPath::Whole => self.whole.as_ref(),",
    "JsReturnPath::Whole => None,",
    [
@@ -250,7 +250,7 @@
    ]
   ],
   "RV-33-slot-fact-wrong-index": [
-   "src/js_returns.rs",
+   "src/ast/js_ts/returns.rs",
    "JsReturnPath::Slot(i) => self.slots.get(i),",
    "JsReturnPath::Slot(_) => self.slots.get(&0),",
    [
@@ -258,7 +258,7 @@
    ]
   ],
   "RV-34-returned-route-unrouted": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "self.js_ts_returned_route(hook, path, site)",
    "{ let _ = (hook, path); None }",
    [
@@ -266,7 +266,7 @@
    ]
   ],
   "RV-35-unproven-route-claims-a-hit": [
-   "src/resolution_js_returns.rs",
+   "src/resolution/js_ts/returns.rs",
    "let value = self.js_ts_return_facts.get(hook_fn)?.get(path)?;",
    "let Some(value) = self.js_ts_return_facts.get(hook_fn).and_then(|f| f.get(path)) else { return self.functions.values().flatten().next().map(|t| ResolutionOutcome::hit(super::exact([t], super::ResolutionKind::FreeSingle))); };",
    [
@@ -274,7 +274,7 @@
    ]
   ],
   "RV-36-value-seen-from-callers-file": [
-   "src/resolution_js_returns.rs",
+   "src/resolution/js_ts/returns.rs",
    "self.js_ts_terminal_outcome(hook_fn, value, site, site.jsx_element)?",
    "self.js_ts_terminal_outcome(&site.caller, value, site, site.jsx_element)?",
    [
@@ -282,7 +282,7 @@
    ]
   ],
   "RV-37-value-ignores-jsx": [
-   "src/resolution_js_returns.rs",
+   "src/resolution/js_ts/returns.rs",
    "self.js_ts_terminal_outcome(hook_fn, value, site, site.jsx_element)?",
    "self.js_ts_terminal_outcome(hook_fn, value, site, false)?",
    [
@@ -290,7 +290,7 @@
    ]
   ],
   "RV-38-wrapped-hook-allowed": [
-   "src/resolution_js_returns.rs",
+   "src/resolution/js_ts/returns.rs",
    "self.js_ts_terminal_function(&site.caller, hook, site, false)?",
    "self.js_ts_terminal_function(&site.caller, hook, site, site.jsx_element)?",
    [
@@ -298,7 +298,7 @@
    ]
   ],
   "RV-39-wrapped-value-binds-non-jsx": [
-   "src/resolution_js_returns.rs",
+   "src/resolution/js_ts/returns.rs",
    "self.js_ts_terminal_outcome(hook_fn, value, site, site.jsx_element)?",
    "self.js_ts_terminal_outcome(hook_fn, value, site, true)?",
    [
@@ -347,7 +347,7 @@
    ]
   ],
   "RV-45-span-not-required-on-namespace-value": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "let (start, end) = resolved.span?;",
    "let (start, end) = resolved.span.unwrap_or((5, 5));",
    [
@@ -387,7 +387,7 @@
    ]
   ],
   "RV-50-public-outcome-gate-ignores-returned": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "if !site.local_binding.is_followed() {",
    "if !matches!(site.local_binding, crate::call_graph::JsLocalBinding::AliasCallable(_) | crate::call_graph::JsLocalBinding::AliasImport { .. } | crate::call_graph::JsLocalBinding::AliasNamespaceMember { .. }) {",
    [

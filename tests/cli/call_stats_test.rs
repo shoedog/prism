@@ -307,7 +307,7 @@ func f() {}
 
 #[test]
 fn call_stats_reports_js_export_reexport_telemetry() {
-    // P4: a 3-hop re-export chain exceeds js_exports::MAX_REEXPORT_DEPTH (2)
+    // P4: a 3-hop re-export chain exceeds ast::js_ts::exports::MAX_REEXPORT_DEPTH (2)
     // and fails closed -- js_export_chain_unresolved must count it (the chain
     // never emits an import_member edge, so there's no other trace of it).
     let dir = tempfile::tempdir().unwrap();
@@ -417,7 +417,7 @@ fn call_stats_reports_js_export_skipped_exprs() {
 
 #[test]
 fn call_stats_reports_macro_arg_telemetry() {
-    // P8: rust_macro_args -- one allowlisted-macro-minted free call
+    // P8: call_graph::rust::macro_args -- one allowlisted-macro-minted free call
     // (`check(1)` inside `assert!`), one non-allowlisted skipped macro
     // (`stringify!(check(x))`, call-shaped -> counted), and one
     // uppercase-constructor skip (`Foo(1)` inside `assert!`).

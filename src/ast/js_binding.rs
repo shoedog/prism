@@ -13,7 +13,7 @@
 //! classification in `js_binding_values.rs`.
 use super::js_binding_values::{js_ts_has_default, js_ts_holds_no_function};
 use super::{is_js_ts_function_like, ParsedFile};
-use crate::js_exports::{JsExportFacts, JsExportTarget};
+use crate::ast::js_ts::exports::{JsExportFacts, JsExportTarget};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 use tree_sitter::Node;

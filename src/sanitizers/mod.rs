@@ -8,6 +8,7 @@
 //! See `docs/superpowers/specs/2026-04-25-phase1-cwe-go-design.md` §3.4–§3.9.
 
 pub mod js_ts;
+pub(crate) mod matching;
 pub mod path;
 pub mod python;
 pub mod shell;
@@ -41,7 +42,7 @@ pub fn sanitizer_supported(language: Language) -> bool {
 /// as the legacy category-wide `FlowPath.cleansed_for` marker.
 ///
 /// Go `PathTraversal` sink suppression no longer trusts this textual marker by
-/// itself: `taint.rs` performs sink-time AST + CFG validation so inverted guards,
+/// itself: `algorithms/taint/go/sanitizers.rs` performs sink-time AST + CFG validation so inverted guards,
 /// unrelated `HasPrefix` calls, and guard-after-sink shapes do not suppress.
 pub fn paired_check_satisfied(function_body_source: &str, check_name: &str) -> bool {
     function_body_source.contains(check_name)

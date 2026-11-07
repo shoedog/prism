@@ -148,7 +148,7 @@ pub struct ScopeGraph {
     pub scope_extent_index: crate::name_resolution::scope_extent_index::GraphScopeExtentIndex,
     /// Per-crate declaration evidence; derived, never serialized or compared.
     #[serde(skip)]
-    pub declared_owners: crate::rust_external_paths::GraphDeclaredOwners,
+    pub declared_owners: crate::resolution::rust::external_paths::GraphDeclaredOwners,
 }
 
 impl ScopeGraph {

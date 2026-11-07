@@ -21,7 +21,7 @@ pub(super) fn singleton_exact<'a>(
 }
 
 pub(super) fn collect<'a>(
-    resolver: &crate::resolution::go_satisfiers::GoSatisfierMemo<'a>,
+    resolver: &crate::resolution::go::satisfiers::GoSatisfierMemo<'a>,
     files: &BTreeMap<String, ParsedFile>,
     uses: &uses::UseIndex,
 ) -> Vec<CallerFacts<'a>> {

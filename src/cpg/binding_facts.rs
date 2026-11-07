@@ -158,6 +158,9 @@ pub(crate) struct BindingFacts {
     function_scope: ScopeSpan,
     language: Language,
     use_bytes: super::reaching::use_bytes::UseBytes,
+    /// Go type-switch aliases (#694): by header def index, each clause's declaration of
+    /// the alias. The alias's one header def reaches all of them.
+    alias_groups: BTreeMap<usize, Vec<usize>>,
 }
 
 impl BindingFacts {
@@ -240,8 +243,10 @@ impl BindingFacts {
             declaration_for_def[index] = Some(declaration_index);
         }
 
+        let mut alias_groups = BTreeMap::new();
         if parsed.language == Language::Go {
-            (declarations, declaration_for_def) = go_bindings::collect(parsed, *func_node, defs);
+            (declarations, declaration_for_def, alias_groups) =
+                go_bindings::collect(parsed, *func_node, defs);
         }
 
         let mut facts = Self {
@@ -251,6 +256,7 @@ impl BindingFacts {
             function_scope,
             language: parsed.language,
             use_bytes: super::reaching::use_bytes::UseBytes::new(use_edges),
+            alias_groups,
         };
         for (index, def) in defs.iter().enumerate() {
             let binding = declaration_for_def[index]
@@ -295,11 +301,25 @@ impl BindingFacts {
     }
 
     pub(super) fn same_def_binding(&self, left: usize, right: usize) -> bool {
+        let (li, ri) = (left, right);
         let left = &self.def_bindings[left].id;
         let right = &self.def_bindings[right].id;
         left == right
             || matches!(left, BindingId::FlatFallback(_))
             || matches!(right, BindingId::FlatFallback(_))
+            || self.alias_group_related(li, ri)
+    }
+
+    /// One of the two defs is a type-switch alias's header def and the other writes a
+    /// declaration of a member clause: the header def stands for every clause's declaration,
+    /// so each kills the other (fold 1). Ordinary clause writes are never group heads.
+    fn alias_group_related(&self, left: usize, right: usize) -> bool {
+        let declared = |d: usize| match &self.def_bindings[d].id {
+            BindingId::Declaration(x) => Some(*x),
+            _ => None,
+        };
+        declared(right).is_some_and(|r| self.def_reaches_declaration(left, r))
+            || declared(left).is_some_and(|l| self.def_reaches_declaration(right, l))
     }
 
     pub(super) fn lookup_requires_flat_fallback(
@@ -318,8 +338,9 @@ impl BindingFacts {
     }
 
     pub(super) fn proven_same_def_binding(&self, left: usize, right: usize) -> bool {
-        self.def_bindings[left].id == self.def_bindings[right].id
-            && !matches!(self.def_bindings[left].id, BindingId::FlatFallback(_))
+        (self.def_bindings[left].id == self.def_bindings[right].id
+            && !matches!(self.def_bindings[left].id, BindingId::FlatFallback(_)))
+            || self.alias_group_related(left, right)
     }
 
     /// Two defs that both resolve to the same unresolved (package-level or
@@ -385,7 +406,9 @@ impl BindingFacts {
         let use_binding = self
             .visible_declaration(base, use_byte)
             .unwrap_or_else(|| self.implicit_binding(base));
-        if definition.id == use_binding.id {
+        if definition.id == use_binding.id
+            || matches!(&use_binding.id, BindingId::Declaration(u) if self.def_reaches_declaration(def_index, *u))
+        {
             return BindingRelation::Same;
         }
         if !definition.scope.contains(use_byte) {
@@ -400,6 +423,17 @@ impl BindingFacts {
     }
 
     /// The binding the definition at `defs[index]` resolves to.
+    /// The def at `def_index` writes the declaration `other`: its own, or (a Go
+    /// type-switch alias's one header def) any clause's declaration of the alias.
+    /// An ordinary write inside one clause reaches only that clause's declaration.
+    pub(crate) fn def_reaches_declaration(&self, def_index: usize, other: usize) -> bool {
+        matches!(&self.def_bindings[def_index].id, BindingId::Declaration(d) if *d == other)
+            || self
+                .alias_groups
+                .get(&def_index)
+                .is_some_and(|group| group.contains(&other))
+    }
+
     pub(crate) fn binding_of_def(&self, index: usize) -> &BindingId {
         &self.def_bindings[index].id
     }

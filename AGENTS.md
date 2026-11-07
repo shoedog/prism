@@ -1,7 +1,7 @@
 ## Accuracy Harness (Tier-A)
 
 When a change touches call resolution, navigation queries, or CPG construction
-(`src/call_graph.rs`, `src/navigation/`, `src/cpg/`, `src/ast.rs`):
+(`src/call_graph.rs`, `src/call_graph/`, `src/navigation/`, `src/cpg/`, `src/ast.rs`, `src/ast/`):
 
 ```bash
 cargo build --release
@@ -24,8 +24,8 @@ Size is measured in weighted lines: code 1, comment-only 0.5, blank 0, via
 - Over 1,000, split the file along a real responsibility boundary; a PR that leaves a
   file over 1,000 says why.
 - **2,000 is a hard ceiling: no PR may take a file past it.**
-- Files already over 2,000 (e.g. `src/ast.rs`, `src/call_graph.rs`,
-  `src/algorithms/taint.rs`) must not grow in a feature PR: small edits are fine, new
+- Files already over 2,000 (e.g. `src/call_graph.rs`, `src/resolution.rs`,
+  `src/type_providers/go.rs`) must not grow in a feature PR: small edits are fine, new
   code goes in new modules. Split such a file in its own move-only PR (no behaviour
   change, reviewed as a pure move) before the work that needs it, never inside a
   feature PR.

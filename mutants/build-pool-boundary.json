@@ -3,7 +3,7 @@
   "source": "src/build_pool.rs",
   "lib_test_prefixes": [
     "build_pool::",
-    "js_anonymous::stack_tests::",
+    "resolution::js_ts::anonymous::stack_tests::",
     "ast::"
   ],
   "mutations": {
@@ -55,7 +55,7 @@
       "Self::build_skeleton_inner(files)",
       [
         "build_pool::boundary_tests::skeleton_contexts",
-        "js_anonymous::stack_tests::proofs_public_constructor_stack_safety"
+        "resolution::js_ts::anonymous::stack_tests::proofs_public_constructor_stack_safety"
       ]
     ],
     "BP11-config-entry-bypassed": [
@@ -70,7 +70,7 @@
       "{\n            let inputs = ScopeGraphBuildInputs::from_files_convention(files);\n            Self::build_inner(files, &ReceiverRecoveryConfig::default(), Some(&inputs))\n        }",
       [
         "build_pool::boundary_tests::build_contexts",
-        "js_anonymous::stack_tests::facts_public_constructor_stack_safety"
+        "resolution::js_ts::anonymous::stack_tests::facts_public_constructor_stack_safety"
       ]
     ],
     "BP13-scope-entry-bypassed": [
