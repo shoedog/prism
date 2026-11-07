@@ -17,6 +17,7 @@ mod capture_regions;
 mod census_defs;
 mod census_pass;
 mod census_trace;
+mod d2c;
 mod d3;
 mod preflight;
 mod read_index;
@@ -459,16 +460,14 @@ fn reaching_definitions_impl(
             &binding_facts,
             function_start,
         );
-        let label = d3::D3::refine(
-            census.d3.as_ref(),
+        let label = census.refine(
             label,
             parsed,
             edge,
             &candidates,
-            &mut statements,
-            &line_index,
-            function_start,
+            (&mut statements, &line_index, function_start),
             &binding_facts,
+            &capture_facts,
         );
         if label.is_exact()
             && edge.to.line < edge.from.line
@@ -519,16 +518,14 @@ fn reaching_definitions_impl(
             &binding_facts,
             function_start,
         );
-        let label = d3::D3::refine(
-            census.d3.as_ref(),
+        let label = census.refine(
             label,
             parsed,
             edge,
             &candidates,
-            &mut statements,
-            &line_index,
-            function_start,
+            (&mut statements, &line_index, function_start),
             &binding_facts,
+            &capture_facts,
         );
         exact_labels
             .entry(key)
@@ -974,6 +971,9 @@ mod def_bucket_tests;
 
 #[cfg(test)]
 mod census_defs_tests;
+
+#[cfg(test)]
+mod d2c_tests;
 
 #[cfg(test)]
 mod d3_tests;
