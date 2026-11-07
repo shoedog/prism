@@ -1,4 +1,5 @@
-//! JavaScript/TypeScript/TSX parts of `ParsedFile`.
+//! JavaScript/TypeScript/TSX parts of `ParsedFile`, and the JS/TS export and return fact models
+//! (`exports`, `returns`).
 
 mod exact_reads;
 mod export_facts;

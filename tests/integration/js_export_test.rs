@@ -218,7 +218,7 @@ fn named_export_list_rename_resolves_import_member() {
 // (re-export lists, local named lists, or a mix) poisons that name -- it must
 // resolve to NO binding. The extraction layer preserves the duplicate (marks
 // it conflicted) rather than overwriting, since the conflict decision belongs
-// where both facts are visible (whole-program resolution in `js_exports.rs`).
+// where both facts are visible (whole-program resolution in `ast/js_ts/exports.rs`).
 
 #[test]
 fn duplicate_local_named_export_marks_conflicted() {

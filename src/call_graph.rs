@@ -785,9 +785,9 @@ pub struct CallGraph {
     #[serde(default)]
     pub macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts>,
     /// P8 F1 fix (BLOCKER, codex re-review): the repo-wide macro shadow set
-    /// (`rust_macro_args::collect_macro_shadow_set`), narrowed to its
+    /// (`call_graph::rust::macro_args::collect_macro_shadow_set`), narrowed to its
     /// intersection with `TRANSPARENT_ARG_MACROS`
-    /// (`rust_macro_args::transparent_shadow_intersection`) — the only part
+    /// (`call_graph::rust::macro_args::transparent_shadow_intersection`) — the only part
     /// of the shadow set that can change macro-arg call-extraction behavior.
     /// Unlike `macro_arg_facts` above, this is whole-program derived (like
     /// `interface_impls`/`js_ts_resolved_exports`): recomputed from scratch

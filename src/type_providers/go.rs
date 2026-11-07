@@ -706,7 +706,7 @@ impl GoTypeProvider {
     /// providing interface's name to consult `interface_impls`).
     /// Package-scoped (B2 fix, codex impl-review BLOCKER). Production consults
     /// no longer use this lossy compatibility projection; they filter raw
-    /// declaration snapshots in `go_owner_partition`.
+    /// declaration snapshots in `resolution::go::owner_partition`.
     pub fn embedded_interface_method_routes(
         &self,
     ) -> BTreeMap<crate::resolution::GoOwnerIdentity, BTreeMap<String, String>> {
@@ -1090,7 +1090,7 @@ impl GoTypeProvider {
     /// Declared type parameters and a generic receiver (`R[T]`) remain non-dispatchable. An
     /// instantiated parameter/result type (`Box[int]`) is an ordinary, comparable signature
     /// type and must not make the declaration generic.
-    /// `pub(crate)` (P11 S1): reused by `go_receiver_index.rs`'s return-type
+    /// `pub(crate)` (P11 S1): reused by `call_graph/go/receiver_index.rs`'s return-type
     /// extraction so the generic-decl gate never drifts from the dispatch
     /// provider's own signature-scoped definition of "generic".
     pub(crate) fn signature_has_generic_syntax(node: &tree_sitter::Node) -> bool {

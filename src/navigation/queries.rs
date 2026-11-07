@@ -663,7 +663,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "property_access_cached_property_recorded": property_access_cached_property_recorded,
         "framework_entries_recorded": cg.framework_entries.len(),
         "framework_entry_unresolved_handlers": cg.framework_entry_unresolved_handlers,
-        // P8: Rust macro-argument call-extraction telemetry (rust_macro_args)
+        // P8: Rust macro-argument call-extraction telemetry (call_graph::rust::macro_args)
         // -- per-file facts summed on demand, same pattern as
         // `js_export_skipped_exprs` below (`macro_arg_facts` is per-file-
         // derivable, so remove_files/merge keep it exactly correct with no
@@ -684,7 +684,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
             .values()
             .map(|f| f.ctor_skips)
             .sum::<usize>(),
-        // P4: JS/TS export-fact re-export chain/barrel telemetry (js_exports::
+        // P4: JS/TS export-fact re-export chain/barrel telemetry (ast::js_ts::exports::
         // resolve_js_exports, depth-bounded at MAX_REEXPORT_DEPTH). The primary
         // signal is `kinds`/`kind_exact`/`kind_nameonly`'s "import_member" count
         // rising and `unresolved_unknown_name` dropping (no new ResolutionKind/

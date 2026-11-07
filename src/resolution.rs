@@ -1123,7 +1123,7 @@ fn receiver_resolution_kind(recovery: ReceiverRecovery) -> ResolutionKind {
         // bucket. Applies uniformly to both lanes that can produce these two
         // recovery kinds — Lane A's Rust scope-graph receiver typer
         // (`resolution_receiver.rs`) and Lane B's new Go post-merge pass
-        // (`go_receiver_index.rs`) — since both share this one mapping
+        // (`call_graph/go/receiver_index.rs`) — since both share this one mapping
         // function; a pure label refinement, no confidence/target change.
         ReceiverRecovery::FieldTyped => ResolutionKind::FieldTyped,
         ReceiverRecovery::ReturnTyped => ResolutionKind::ReturnTyped,
@@ -2980,7 +2980,7 @@ impl CallGraph {
                                 // method/field, existing struct promotion
                                 // wins, package-scoping) are enforced upstream
                                 // when the declaration snapshots are consulted
-                                // (go_owner_partition.rs, B2 fix) — lookup is
+                                // (`resolution/go/owner_partition.rs`, B2 fix) — lookup is
                                 // keyed by the receiver's OWN
                                 // `GoOwnerIdentity`, resolved the same way
                                 // `func_value_field_or_external_drop`'s S2

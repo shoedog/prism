@@ -17,7 +17,7 @@ impl ParsedFile {
     /// assignments, and re-export chains (`export { x } from './y'`,
     /// `export * from './y'`). Re-export chains are resolved whole-program,
     /// depth-bounded and cycle-safe, in
-    /// `CallGraph::apply_js_export_resolution` (`js_exports::resolve_js_exports`)
+    /// `CallGraph::apply_js_export_resolution` (`ast::js_ts::exports::resolve_js_exports`)
     /// — this method only extracts the raw, per-file, un-resolved facts.
     ///
     /// Out of scope (skipped, counted in `skipped_expr_count` where the

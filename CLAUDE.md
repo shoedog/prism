@@ -772,7 +772,10 @@ re-exports, a few core methods) over `src/ast/{js_ts,go,python}/` and concern fi
 (`imports`, `parameters`, `assignments`, `lvalues`, `rvalues`, `calls`, `control_flow`, ...);
 `src/algorithms/taint.rs` likewise over `taint/`; `src/call_graph/*_tests.rs` hold the former
 inline test modules. Language-specific code stays per layer (`<layer>/<lang>/`), never in a
-per-language crate.
+per-language crate. The former root language modules now live in their layers:
+`resolution/{go,js_ts,rust}/`, `call_graph/{go,js_ts,rust}/`, `type_providers/go/type_alias.rs`,
+`ast/js_ts/{exports,returns}.rs`, `frameworks/js_ts/react_hooks.rs` and `data_flow/terraform.rs`;
+`go_statements` moves to `ast/go/statements.rs` in the last S3 PR (#722).
 
 ### Algorithm Dispatch
 
