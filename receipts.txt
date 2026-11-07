@@ -1,0 +1,171 @@
+go_fold_r2 {'files_changed': 16, 'added': 28, 'removed': 99, 'trans': 4}
+  const_implicit.go stats
+    + v@8 -> v@10
+    - v@12 -> v@10
+    - v@3 -> v@10
+    - v@3 -> v@10
+  group_visibility.go stats
+    + v@7 -> v@8
+    + q@8 -> q@10
+    - v@12 -> v@7
+    - v@12 -> v@8
+    - v@3 -> v@7
+    - v@3 -> v@7
+    - v@3 -> v@8
+    - v@3 -> v@8
+  range_blank.go stats
+    + v@6 -> v@7
+    - v@10 -> v@6
+    - v@10 -> v@7
+    - v@3 -> v@6
+    - v@3 -> v@6
+    - v@3 -> v@7
+    - v@3 -> v@7
+  range_key.go stats
+    + v@6 -> v@7
+    - v@10 -> v@6
+    - v@10 -> v@7
+    - v@3 -> v@6
+    - v@3 -> v@6
+    - v@3 -> v@7
+    - v@3 -> v@7
+  range_pair.go stats
+    + i@6 -> i@8
+    + v@6 -> v@7
+    - v@11 -> v@6
+    - v@11 -> v@7
+    - v@3 -> v@6
+    - v@3 -> v@6
+    - v@3 -> v@7
+    - v@3 -> v@7
+  receive_ok.go stats
+    + v@6 -> v@7
+    - v@9 -> v@7
+    - v@9 -> v@6
+    - v@3 -> v@7
+    - v@3 -> v@7
+    - v@3 -> v@6
+    - v@3 -> v@6
+  receive_one_declare.go stats
+    + v@6 -> v@7
+    - v@9 -> v@6
+    - v@9 -> v@7
+    - v@3 -> v@6
+    - v@3 -> v@6
+    - v@3 -> v@7
+    - v@3 -> v@7
+  receive_two_declare.go stats
+    + v@6 -> v@7
+    + ok@6 -> ok@8
+    - v@10 -> v@6
+    - v@10 -> v@7
+    - v@3 -> v@6
+    - v@3 -> v@6
+    - v@3 -> v@7
+    - v@3 -> v@7
+  type_alias_arm_write.go stats
+    + v@5 -> v@7
+    - v@9 -> v@5
+    - v@9 -> v@7
+    - v@9 -> v@12
+    - v@3 -> v@5
+    - v@3 -> v@5
+    - v@3 -> v@7
+    - v@3 -> v@7
+  type_alias_default.go stats
+    + v@6 -> v@8
+    + v@6 -> v@10
+    - v@13 -> v@6
+    - v@13 -> v@8
+    - v@13 -> v@10
+    - v@3 -> v@6
+    - v@3 -> v@6
+    - v@3 -> v@8
+    - v@3 -> v@8
+    - v@3 -> v@10
+    - v@3 -> v@10
+  type_alias_header.go stats
+    + v@6 -> v@8
+    + v@6 -> v@10
+    - v@13 -> v@6
+    - v@13 -> v@8
+    - v@13 -> v@10
+    - v@3 -> v@6
+    - v@3 -> v@6
+    - v@3 -> v@8
+    - v@3 -> v@8
+    - v@3 -> v@10
+    - v@3 -> v@10
+  type_alias_multi.go stats
+    + v@6 -> v@8
+    + v@6 -> v@10
+    - v@13 -> v@6
+    - v@13 -> v@8
+    - v@13 -> v@10
+    - v@3 -> v@6
+    - v@3 -> v@6
+    - v@3 -> v@8
+    - v@3 -> v@8
+    - v@3 -> v@10
+    - v@3 -> v@10
+  type_alias_no_outer.go stats
+    + v@5 -> v@9
+    - v@7 -> v@5
+    - v@7 -> v@9
+  type_alias_outer.go stats
+    + v@6 -> v@8
+    + v@6 -> v@10
+    - v@13 -> v@6
+    - v@13 -> v@8
+    - v@13 -> v@10
+    - v@3 -> v@6
+    - v@3 -> v@6
+    - v@3 -> v@8
+    - v@3 -> v@8
+    - v@3 -> v@10
+    - v@3 -> v@10
+  type_alias_same_init.go stats
+    + v@6 -> v@8
+    + v@6 -> v@10
+    + v@6 -> v@13
+    + v@6 -> v@16
+    ~ v@6 -> v@8 {'NameOnly': {'Killed': {'kill_line': 6}}} => {'NameOnly': 'SameLine'}
+    ~ v@6 -> v@10 {'NameOnly': {'Killed': {'kill_line': 6}}} => {'NameOnly': 'SameLine'}
+    ~ v@6 -> v@13 {'NameOnly': {'Killed': {'kill_line': 11}}} => {'NameOnly': 'SameLine'}
+    ~ v@6 -> v@16 {'NameOnly': {'Killed': {'kill_line': 11}}} => {'NameOnly': 'SameLine'}
+  var_group.go stats
+    + v@7 -> v@8
+    + v@7 -> v@10
+    + q@8 -> q@11
+    - v@13 -> v@7
+    - v@13 -> v@8
+    - v@13 -> v@10
+    - v@3 -> v@7
+    - v@3 -> v@7
+    - v@3 -> v@8
+    - v@3 -> v@8
+    - v@3 -> v@10
+    - v@3 -> v@10
+go_fold_r1 {'files_changed': 2, 'added': 3, 'removed': 6, 'trans': 0}
+  control_receive.go stats
+    + v@6 -> v@7
+    - v@9 -> v@7
+    - v@9 -> v@6
+    - v@3 -> v@7
+    - v@3 -> v@7
+    - v@3 -> v@6
+    - v@3 -> v@6
+  control_type_alias.go stats
+    + v@4 -> v@6
+    + v@4 -> v@8
+go_branches {'files_changed': 3, 'added': 3, 'removed': 4, 'trans': 0}
+  edge_cases.go stats
+    + v@26 -> v@27
+    - v@27 -> v@26
+    - v@29 -> v@26
+  select_receive_declaration.go stats
+    + t@4 -> t@5
+    - t@5 -> t@4
+  type_alias.go stats
+    + t@3 -> t@5
+    - t@5 -> t@3

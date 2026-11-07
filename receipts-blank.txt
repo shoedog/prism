@@ -1,0 +1,21 @@
+# go_blank/base.json
+
+## const_iota
++ def a@5
++ def b@7
++ edge a@5 -> a@9
++ edge b@7 -> b@9
+## range_map
++ def k@3
++ edge k@3 -> k@4
+## range_value
++ def v@3
++ edge v@3 -> v@4
+## select_declaration
++ def ok@4
++ def ok@6
++ edge ok@4 -> ok@5
++ edge ok@6 -> ok@7
+## var_grouped
++ def a@5
++ edge a@5 -> a@7
