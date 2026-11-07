@@ -211,9 +211,35 @@ fn prune_subset_and_labels_across_fixture_tree() {
                     "exact label changed in {file}: {key:?}"
                 );
             }
-            if language != Language::Go {
-                assert_eq!(before.edges, after.edges, "non-Go changed: {file}");
-                assert_eq!(before.uses, after.uses, "non-Go uses changed: {file}");
+            if language == Language::Python {
+                // Opus F1 invariant: a removed edge into a minted use leaves another
+                // surviving edge from a def of the path into that same use.
+                let minted: std::collections::BTreeSet<_> = after.uses.values().flatten().collect();
+                for edge in before.edges.iter().filter(|e| !after.edges.contains(e)) {
+                    if minted.contains(&edge.to) {
+                        assert!(
+                            after.edges.iter().any(|e| e.to == edge.to
+                                && e.from.path == edge.from.path
+                                && e.from != edge.from)
+                                // A prefix-path write (`self.x = b` after `self.x.y = a`) is
+                                // the dominator of a `self`/`cls` attribute path; it reaches
+                                // the same line's use of the prefix.
+                                || (edge.from.path.fields.len() > 1
+                                    && after.edges.iter().any(|e| e.to.line == edge.to.line
+                                        && e.from.path.base == edge.from.path.base
+                                        && e.from.path.fields.len() < edge.from.path.fields.len()
+                                        && edge.from.path.fields.starts_with(&e.from.path.fields))),
+                            "removed {edge:?} left no dominator edge in {file}"
+                        );
+                    }
+                }
+            }
+            if language != Language::Go && language != Language::Python {
+                assert_eq!(before.edges, after.edges, "non-Go/Python changed: {file}");
+                assert_eq!(
+                    before.uses, after.uses,
+                    "non-Go/Python uses changed: {file}"
+                );
             }
             edges += after.edges.len();
         }
@@ -436,4 +462,76 @@ fn export_go_prune_probe_pairs() {
         count += 1;
     }
     assert_eq!(count, 3, "must select all three Go probes");
+}
+
+#[test]
+fn python_prune_stats_cache_and_incremental_custody() {
+    use crate::cpg::CodePropertyGraph;
+    use crate::cpg_cache::{self, CacheResult};
+    use std::collections::{BTreeMap, BTreeSet};
+    // Each file has a dominated def (D) and a write-only line (U).
+    let mut sources = BTreeMap::from([
+        (
+            "a.py".to_owned(),
+            "def a():\n    x = 1\n    x = 2\n    use(x)\n".to_owned(),
+        ),
+        (
+            "b.py".to_owned(),
+            "def b():\n    y = 3\n    y = 4\n    use(y)\n".to_owned(),
+        ),
+    ]);
+    let parse = |sources: &BTreeMap<String, String>| {
+        sources
+            .iter()
+            .map(|(f, s)| {
+                (
+                    f.clone(),
+                    ParsedFile::parse(f, s, Language::Python).unwrap(),
+                )
+            })
+            .collect()
+    };
+    let files = parse(&sources);
+    let cold = CodePropertyGraph::build(&files);
+    assert!(cold.dfg_label_stats.dfg_pruned_write_only > 0);
+    assert!(cold.dfg_label_stats.dfg_pruned_dominated > 0);
+    assert_eq!(cold.dfg_label_stats.dfg_pruned_order, 0);
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    let dir = tempfile::tempdir().unwrap();
+    cpg_cache::save_cache(&cold, &hashes, false, dir.path()).unwrap();
+    let CacheResult::Hit(hit) = cpg_cache::load_cache(&hashes, false, dir.path()) else {
+        panic!("expected full hit");
+    };
+    assert_eq!(cold.dfg_label_stats, hit.dfg_label_stats);
+    assert_eq!(cold.dfg.rd_function_stats(), hit.dfg.rd_function_stats());
+    sources.insert("a.py".into(), "def a():\n    return 1\n".into());
+    let edited_files = parse(&sources);
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    let CacheResult::PartialHit {
+        cached_call_graph,
+        cached_dfg,
+        changed_files,
+    } = cpg_cache::load_cache(&hashes, false, dir.path())
+    else {
+        panic!("expected partial hit");
+    };
+    assert_eq!(changed_files, BTreeSet::from(["a.py".into()]));
+    let incremental = CodePropertyGraph::build_incremental(
+        cached_call_graph,
+        cached_dfg,
+        &changed_files,
+        &edited_files,
+        None,
+    );
+    let rebuilt = CodePropertyGraph::build(&edited_files);
+    assert_eq!(incremental.dfg_label_stats, rebuilt.dfg_label_stats);
+    assert_eq!(
+        incremental.dfg.rd_function_stats(),
+        rebuilt.dfg.rd_function_stats()
+    );
+    let stats = incremental.dfg.rd_function_stats();
+    assert_eq!(stats["a.py"].dfg_pruned_write_only, 0);
+    assert_eq!(stats["a.py"].dfg_pruned_dominated, 0);
+    assert!(stats["b.py"].dfg_pruned_write_only > 0);
+    assert!(stats["b.py"].dfg_pruned_dominated > 0);
 }

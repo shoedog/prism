@@ -44,9 +44,10 @@ fn labels_have_exactly_one_entry_per_unique_edge() {
 fn labels_carry_reaching_definition_results_for_existing_edges() {
     use prism::cpg::{FlowConfidence, FlowDoubt};
 
+    // Writes in both arms of an `if`/`else`: rule D cannot prove this kill, RD labels it.
     let files = parsed_python_files(&[(
         "a.py",
-        "def f():\n    x = source()\n    x = clean()\n    sink(x)\n",
+        "def f(c):\n    x = source()\n    if c:\n        x = clean()\n    else:\n        x = clean()\n    sink(x)\n",
     )]);
     let dfg = DataFlowGraph::build(&files);
     let label = |from_line, to_line| {
@@ -63,10 +64,10 @@ fn labels_carry_reaching_definition_results_for_existing_edges() {
     };
 
     assert_eq!(
-        label(2, 4),
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 3 })
+        label(2, 7),
+        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
     );
-    assert_eq!(label(3, 4), FlowConfidence::Exact);
+    assert_eq!(label(4, 7), FlowConfidence::Exact);
 }
 
 #[test]

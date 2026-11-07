@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 pub(crate) const SYMLINK_REFUSED: &str = "symlink_refused";
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub(crate) enum ManifestSnapshotEntry {
+pub enum ManifestSnapshotEntry {
     Regular { bytes: Vec<u8>, hash: String },
     SymlinkRefused,
 }
@@ -36,7 +36,7 @@ impl ManifestSnapshot {
         self.entries.get(path)
     }
 
-    pub(crate) fn entries(&self) -> impl Iterator<Item = (&String, &ManifestSnapshotEntry)> {
+    pub fn entries(&self) -> impl Iterator<Item = (&String, &ManifestSnapshotEntry)> {
         self.entries.iter()
     }
 

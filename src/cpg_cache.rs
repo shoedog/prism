@@ -303,8 +303,12 @@ mod stream;
 /// - v155: JS/TS/TSX D3 asks reaching definitions for the node of every position (#696): an `exact` edge on
 ///   a line where a multi-line statement ends and another starts can become `NameOnly(SameLine)`; labels only.
 /// - v156: Go producer defs for range/receive `:=` targets, type-switch aliases and later var/const names; rule S drops their outer pairs (#694 slice A).
-/// - v157: Go producer defs for function-literal formals and named results; rule S keeps only the shapes whose value it cannot see, rule O treats a named result as a local (#694 slice B).
-const CACHE_VERSION: u32 = 157;
+/// - v157: JS/TS/TSX captured-write refusal in reaching definitions (#660 S1c, D2-c): an `exact` or `sameline`
+///   edge whose use lies outside a nested callable or instance field initializer that writes the def's
+///   binding is `NameOnly(CfgIncomplete)`; labels only.
+/// - v158: Python rules U and D (#630 slice 5): write-only lines and dominated defs are dropped, and `self`/`cls` attribute paths join D. The same-line own-span judging is shared with Go: same-line pairs gain edges in both languages and an owner at the survivor cap can cross it.
+/// - v159: Go producer defs for function-literal formals and named results; rule S keeps only the shapes whose value it cannot see, rule O treats a named result as a local (#694 slice B).
+const CACHE_VERSION: u32 = 159;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -837,7 +841,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 157);
+        assert_eq!(super::CACHE_VERSION, 159);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

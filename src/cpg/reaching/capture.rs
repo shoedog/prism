@@ -59,6 +59,13 @@ pub(super) fn capture_facts_with<'p>(
     facts
 }
 
+impl<'p> CaptureFacts<'p> {
+    /// The JS-family regions (parameter lists, bodies, instance field values), when the owner has any.
+    pub(super) fn regions(&self) -> Option<&JsRegions<'p>> {
+        self.js.as_ref()
+    }
+}
+
 /// Whether the owner's source may hold a class body (an over-approximation: any `class` substring).
 fn may_hold_class(parsed: &ParsedFile, node: Node<'_>) -> bool {
     parsed.source[node.start_byte()..node.end_byte()].contains("class")

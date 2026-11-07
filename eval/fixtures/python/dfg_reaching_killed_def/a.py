@@ -1,4 +1,7 @@
-def f():
+def f(c):
     x = source()
-    x = clean()
+    if c:
+        x = clean()
+    else:
+        x = clean()
     sink(x)

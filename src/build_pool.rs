@@ -36,7 +36,9 @@ const STACK_BYTES: usize = 256 * 1024 * 1024;
 
 /// The shared large-stack rayon pool. `install()` the recursive parse/build
 /// work onto it so every nested `par_iter` worker has a generous stack.
-pub(crate) fn build_pool() -> &'static rayon::ThreadPool {
+///
+/// Exposed for its thread count only; run work through `install` / `prism::api::with_build_pool`, since the raw handle skips `install`'s foreign-worker handoff and the Go test-counter inheritance.
+pub fn build_pool() -> &'static rayon::ThreadPool {
     static POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
     POOL.get_or_init(|| {
         rayon::ThreadPoolBuilder::new()

@@ -200,8 +200,8 @@ fn assert_delivery(
 fn flow_source(killed: bool) -> (&'static str, usize) {
     if killed {
         (
-            "def f(request):\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n",
-            4,
+            "def f(request, c):\n    query = request.GET['q']\n    if c:\n        query = clean(query)\n    else:\n        query = clean(query)\n    cursor.execute(query)\n",
+            7,
         )
     } else {
         (
@@ -277,6 +277,35 @@ fn evidence_delivery_taint_reaches_sarif_with_exact_and_nameonly() {
             expected,
         );
     }
+}
+
+#[test]
+fn evidence_delivery_local_clean_flow_still_reaches_sink_when_d_drops_the_shortcut() {
+    // Python rule D proves the straight-line kill and drops the
+    // 2->4 witness (the grade becomes unlabeled); the live flow 2->3->4 must remain.
+    let source = "def f(request):\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n";
+    let output = command_output(
+        &[("p.py", source)],
+        "p.py",
+        4,
+        "provenance",
+        Some("json"),
+        false,
+        &["--resolution", "scoped"],
+    );
+    assert!(output.status.success(), "{output:?}");
+    let doc: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let finding = doc["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| {
+            f["description"]
+                .as_str()
+                .is_some_and(|d| d.contains("variable 'query'"))
+        })
+        .unwrap_or_else(|| panic!("missing query finding: {doc:#}"));
+    assert_eq!(finding["related_lines"], json!([2, 3]), "{doc:#}");
 }
 
 #[test]
