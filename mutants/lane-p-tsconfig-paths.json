@@ -348,13 +348,13 @@
   "I52-relative-only-package-field": [
    "src/resolution/js_ts/paths_first_pass.rs",
    "self.snapshot.input_path(p, s)",
-   "crate::js_paths_syntax::norm(p, s)",
+   "super::paths_syntax::norm(p, s)",
    "js_paths_r2d_test::package_entries_normalize_inside_the_captured_root"
   ],
   "I53-relative-only-version-substitution": [
    "src/resolution/js_ts/paths_first_pass.rs",
    "self.snapshot.input_path(base, &target)",
-   "crate::js_paths_syntax::norm(base, &target)",
+   "super::paths_syntax::norm(base, &target)",
    "js_paths_r2d_test::package_entries_normalize_inside_the_captured_root"
   ],
   "I54-remap-out-of-package-entry": [
