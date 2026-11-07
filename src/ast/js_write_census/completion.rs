@@ -82,13 +82,33 @@ pub(crate) fn completion(
         // `this` inside a class body (static field, static block) or a nested non-arrow callable is
         // another object: not a write of the owner's `this`.
         let rebound = site.path.base == "this" && this_is_rebound(parsed, owner, site);
+        // Declarations are the refusal classes of S1d (hoisting, Annex B, dead formals), not writes
+        // the producer fails to record. Writes in a deferred region or the owner's own parameter list
+        // need the scope rules of S1c (inner bindings: a shadowing parameter is not the owner's
+        // binding) and S1d (dead formals); the producer's own nested-write handling stands until then.
+        let r = site.region;
+        let candidate = !(site.form == Form::Declare
+            || r.nested
+            || r.instance_field
+            || r.own_params
+            || !bases.contains(site.path.base.as_str())
+            || rebound);
+        let path = access_path(&site.path);
+        let covered = candidate
+            && by_start
+                .get(&site.target_start)
+                .is_some_and(|stored| stored.iter().any(|p| **p == path));
+        // The line RD is handed for this write (#696): the E18 statement line of a kill-only def,
+        // the target's own line of a recorded one. D3 keys the write by RD's node for that line.
+        let kill_line = (candidate && !covered).then(|| placed.flatten()).flatten();
         if let Some(node) = placed {
             out.counting.note_target(site);
             if counting::counts(site) && !rebound {
                 match node {
-                    Some(n) => {
+                    Some(_) => {
                         let probe = binding_probe(parsed, site);
-                        out.counting.push(site, access_path(&site.path), n, probe)
+                        let line = kill_line.unwrap_or(site.line);
+                        out.counting.push(site, path.clone(), line, probe)
                     }
                     None => {
                         out.counting.unplaced.insert(site.path.base.clone());
@@ -96,32 +116,10 @@ pub(crate) fn completion(
                 }
             }
         }
-        // Declarations are the refusal classes of S1d (hoisting, Annex B, dead formals), not writes
-        // the producer fails to record. Writes in a deferred region or the owner's own parameter list
-        // need the scope rules of S1c (inner bindings: a shadowing parameter is not the owner's
-        // binding) and S1d (dead formals); the producer's own nested-write handling stands until then.
-        let r = site.region;
-        if site.form == Form::Declare
-            || r.nested
-            || r.instance_field
-            || r.own_params
-            || !bases.contains(site.path.base.as_str())
-        {
+        if !candidate || covered {
             continue;
         }
-        // `this` inside a class body (static field, static block) or a nested non-arrow callable is
-        // another object: the producer's rule for the same question.
-        if rebound {
-            continue;
-        }
-        let path = access_path(&site.path);
-        let covered = by_start
-            .get(&site.target_start)
-            .is_some_and(|stored| stored.iter().any(|p| **p == path));
-        if covered {
-            continue;
-        }
-        match placed.flatten() {
+        match kill_line {
             Some(line) => out.kill_only.push(KillOnly {
                 path,
                 line,
