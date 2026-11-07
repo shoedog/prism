@@ -150,7 +150,7 @@ fn go_jump_labels_and_edge_keys() {
 
 #[test]
 fn go_jump_defer_arguments_are_not_reads_at_function_exit() {
-    use prism::cpg::{FlowConfidence, FlowDoubt};
+    use prism::cpg::FlowConfidence;
     let source = include_str!("../fixtures/go_jumps/defer_exit.go");
     let parsed = ParsedFile::parse("defer_exit.go", source, Language::Go).unwrap();
     let dfg = DataFlowGraph::build(&BTreeMap::from([("defer_exit.go".to_owned(), parsed)]));
@@ -165,12 +165,13 @@ fn go_jump_defer_arguments_are_not_reads_at_function_exit() {
             })
             .expect("required defer-argument edge")
     };
-    // Defer arguments were evaluated before this write. Synthetic exit
-    // dispatch must have the same doubt as return->defer, never a new Exact.
-    assert_eq!(
-        label("exitDefer", 5, 3),
-        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
-    );
+    // Defer arguments were evaluated before this write: the def is textually after
+    // the use with no loop around both, so rule O (#630) drops the pair. Before O it
+    // was a NameOnly(CfgIncomplete) edge; it must never become Exact.
+    assert!(dfg.labels().all(|(e, _)| !(e.from.function == "exitDefer"
+        && e.from.path.base == "x"
+        && e.from.line == 5
+        && e.to.line == 3)));
     // A following defer is reached normally: its argument really reads x=1.
     assert_eq!(label("nextDefer", 11, 14), FlowConfidence::Exact);
 }
