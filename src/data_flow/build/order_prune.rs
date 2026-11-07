@@ -22,6 +22,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use tree_sitter::Node;
 
 type Span = (usize, usize);
+type DefKey = (usize, usize, usize, String);
+type LineKey = (String, usize);
 
 struct Occurrence {
     binding: BindingId,
@@ -47,10 +49,10 @@ pub(super) struct OrderFacts<'a> {
     /// `None` when the owner holds a `goto` or a label: O is off for it.
     built: OnceCell<Option<Built<'a>>>,
     clean: RefCell<HashMap<String, bool>>,
-    def_verdicts: RefCell<HashMap<(usize, usize, usize, String), Option<usize>>>,
+    def_verdicts: RefCell<HashMap<DefKey, Option<usize>>>,
     def_loops: RefCell<HashMap<usize, Option<Span>>>,
     def_nested: RefCell<HashMap<usize, bool>>,
-    lines: RefCell<HashMap<(String, usize), std::rc::Rc<Vec<Occurrence>>>>,
+    lines: RefCell<HashMap<LineKey, std::rc::Rc<Vec<Occurrence>>>>,
 }
 
 impl<'a> OrderFacts<'a> {
