@@ -34,7 +34,7 @@ impl NavigationIndex {
         Self::build_cached_observed(repo).0
     }
 
-    pub(crate) fn build_cached_observed(repo: &LoadedRepo) -> (Self, &'static str) {
+    pub fn build_cached_observed(repo: &LoadedRepo) -> (Self, &'static str) {
         let base = dirs::cache_dir().unwrap_or_else(std::env::temp_dir);
         Self::build_cached_under_observed(repo, &base)
     }
@@ -44,7 +44,7 @@ impl NavigationIndex {
         Self::build_cached_under_observed(repo, base_dir).0
     }
 
-    pub(crate) fn build_cached_under_observed(
+    pub fn build_cached_under_observed(
         repo: &LoadedRepo,
         base_dir: &Path,
     ) -> (Self, &'static str) {
@@ -59,8 +59,7 @@ impl NavigationIndex {
     }
 
     /// Does not force lazy edges or perform any cache I/O.
-    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
-    pub(crate) fn sidecar_outcome(&self) -> &'static str {
+    pub fn sidecar_outcome(&self) -> &'static str {
         self.call_edge_cache_store
             .as_ref()
             .map_or("not_attempted", |s| s.outcome())

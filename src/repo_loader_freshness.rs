@@ -4,7 +4,7 @@ use std::path::Path;
 
 // Membership evidence with the same partial-walk tolerance as `walk`.
 // Root refusal remains distinct from a tolerated unreadable subdirectory.
-pub(crate) fn collect_freshness_source_paths(root: &Path) -> Option<BTreeSet<String>> {
+pub fn collect_freshness_source_paths(root: &Path) -> Option<BTreeSet<String>> {
     fn collect(root: &Path, dir: &Path, out: &mut BTreeSet<String>) -> std::io::Result<()> {
         for entry in std::fs::read_dir(dir)?.flatten() {
             let Ok(kind) = entry.file_type() else {
