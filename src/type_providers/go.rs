@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 mod selector_fields;
 mod signature_inputs;
+pub(crate) mod type_alias;
 use signature_inputs::{FileSignatureImports, ImportScan};
 #[cfg(test)]
 mod extraction_cost_tests;
@@ -24,8 +25,6 @@ mod extraction_cost_tests;
 mod extraction_equivalence_tests;
 #[cfg(test)]
 mod extraction_import_tests;
-
-pub(crate) mod type_alias;
 
 /// Non-dispatchable, fail-closed — mints NO edge (spec §15).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

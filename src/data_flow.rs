@@ -12,6 +12,7 @@ mod build;
 mod compact;
 mod queries;
 mod storage;
+pub mod terraform;
 mod types;
 mod views;
 pub(crate) use compact::assembly::{AssemblyId, AssemblyView};
@@ -24,5 +25,3 @@ pub use views::{BindingKey, Edges, FlowEdgeRef};
 pub mod test_support;
 #[cfg(test)]
 mod tests;
-
-pub mod terraform;

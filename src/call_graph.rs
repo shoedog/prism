@@ -18,11 +18,14 @@ use std::path::PathBuf;
 #[path = "call_graph_anon_prep_tests.rs"]
 mod anon_prep_tests;
 mod boundary;
+pub(crate) mod go;
 #[path = "call_graph_profile_initializers.rs"]
 mod init_profile;
+pub mod js_ts;
 mod js_ts_facts;
 mod level4;
 mod python_import_proofs;
+pub mod rust;
 pub(crate) use python_import_proofs::{
     python_imported_class_proof_keys, python_imported_class_route,
 };
@@ -6449,9 +6452,3 @@ mod python_property_access_tests;
 
 #[cfg(test)]
 mod framework_entry_tests;
-
-pub(crate) mod go;
-
-pub mod js_ts;
-
-pub mod rust;

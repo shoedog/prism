@@ -3,12 +3,11 @@
 
 mod exact_reads;
 mod export_facts;
+pub mod exports;
 mod imports;
 mod local_bindings;
 mod params;
 mod props_types;
 mod receiver_evidence;
 mod receiver_writes;
-
-pub mod exports;
 pub mod returns;
