@@ -54,7 +54,11 @@ impl ParsedFile {
         found
     }
 
-    pub(super) fn collect_identifier_paths<'a>(&self, node: Node<'a>, out: &mut Vec<(AccessPath, usize)>) {
+    pub(super) fn collect_identifier_paths<'a>(
+        &self,
+        node: Node<'a>,
+        out: &mut Vec<(AccessPath, usize)>,
+    ) {
         if !self.language.is_in_erased_type_context(node) {
             self.collect_identifier_paths_in_value_context(node, out);
         }
@@ -556,7 +560,11 @@ impl ParsedFile {
         }
     }
 
-    pub(super) fn collect_all_identifiers<'a>(&self, node: Node<'a>, out: &mut Vec<(String, usize)>) {
+    pub(super) fn collect_all_identifiers<'a>(
+        &self,
+        node: Node<'a>,
+        out: &mut Vec<(String, usize)>,
+    ) {
         if !self.language.is_in_erased_type_context(node) {
             self.collect_identifiers_in_value_context(node, out);
         }

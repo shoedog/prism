@@ -183,7 +183,11 @@ impl ParsedFile {
         }
     }
 
-    pub(super) fn rvalue_is_nested_callable(&self, scope: &RvalueQueryScope, node: Node<'_>) -> bool {
+    pub(super) fn rvalue_is_nested_callable(
+        &self,
+        scope: &RvalueQueryScope,
+        node: Node<'_>,
+    ) -> bool {
         let RvalueQueryScope::CallableBody {
             owner_start_byte,
             owner_end_byte,
