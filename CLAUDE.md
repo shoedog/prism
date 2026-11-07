@@ -14,8 +14,8 @@ cargo test           # Run all tests (unit + integration)
 cargo fmt --check    # Check formatting (must pass before PR)
 cargo run -- --help  # Show CLI usage
 cargo run -- --list-algorithms  # List all 30 algorithms
-cargo build --bin prism-mcp --features mcp  # Build the MCP stdio server
-cargo test --features mcp                   # Run tests with MCP enabled
+cargo build -p prism-mcp --bin prism-mcp    # Build the MCP stdio server
+cargo test --workspace                      # Run tests for the root package and prism-mcp
 ```
 
 ### Mutation gate
@@ -534,10 +534,10 @@ are not fed (known gap).
 > wiring, cache warming, the gotchas, and the bundled agent **skills** in [`skills/`](skills/)
 > (`prism-code-navigation`, `prism-code-slicing`). This section is the architecture notes.
 
-`prism-mcp` is a local stdio MCP server behind the cargo `mcp` feature:
+`prism-mcp` is a local stdio MCP server, the `crates/prism-mcp` workspace member:
 
 ```bash
-cargo run --bin prism-mcp --features mcp -- --repo /path/to/repo
+cargo run -p prism-mcp --bin prism-mcp -- --repo /path/to/repo
 ```
 
 On macOS it re-execs before dispatch with `MallocSpaceEfficient=1` unless the caller already set it or `PRISM_MCP_MALLOC_SPACE_EFFICIENT=0` opts out; see the environment table in `docs/MCP.md`.
@@ -565,8 +565,8 @@ non-destructive local-state-changing tool `refresh_index` (returns a refresh sum
 - `taint_reaches` — forward taint reachability from a seed.
 - `refresh_index` — re-indexes the repo snapshot for this server session.
 
-Build, test, or lint MCP code with `--features mcp`; the default build keeps
-the adapter disabled.
+Build, test, or lint MCP code with `-p prism-mcp` (or `--workspace`); a bare root
+command covers the root package only.
 
 `Evidence` also has an additive optional `reasoning` field. It is omitted when
 absent so existing navigation and diff-review output remains byte-compatible.
@@ -579,7 +579,7 @@ validation; needs no index) and `dispatch_tool_read` / `dispatch_tool_refresh` /
 an explicit `ConnectionSettings` (`src/mcp/settings.rs`), resolved from the environment once per
 server, so an invalid `PRISM_MCP_*` output value warns once, at server start, not once per call.
 `tests/fixtures/mcp/golden/` pins the in-process server's stdout; re-record with
-`PRISM_MCP_BLESS_GOLDEN=1 cargo test --features mcp --test mcp golden_transcript_test` only for a
+`PRISM_MCP_BLESS_GOLDEN=1 cargo test -p prism-mcp --test mcp golden_transcript_test` only for a
 change that is meant to alter tool output, and say why in the commit.
 
 Shared-mode building blocks (`src/mcp/shared/`, Unix only; the daemon and the shim that use them

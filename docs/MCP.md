@@ -13,17 +13,17 @@ surface: the CLI slices a *diff*; the MCP server navigates a *whole repo*.
 
 ## Build
 
-The MCP server lives behind the cargo `mcp` feature (the default build excludes it):
+The MCP server is the `prism-mcp` workspace member (`crates/prism-mcp`); a bare root `cargo build` does not build it:
 
 ```bash
-cargo build --release --bin prism-mcp --features mcp
+cargo build --release -p prism-mcp
 # binary: target/release/prism-mcp
 ```
 
 Verify the MCP smoke tests through the umbrella test target:
 
 ```bash
-cargo test --features mcp --test mcp
+cargo test -p prism-mcp --test mcp
 ```
 
 ## Install as a Claude Code plugin (recommended)
@@ -33,7 +33,7 @@ both skills in one step — no manual `claude mcp add`, no skill symlinks.
 
 ```text
 # 1. Build the server (once, from a prism checkout):
-cargo build --release --bin prism-mcp --features mcp
+cargo build --release -p prism-mcp
 
 # 2. In Claude Code, add this repo as a marketplace and install the plugin:
 /plugin marketplace add shoedog/prism        # or: /plugin marketplace add /abs/path/to/prism
@@ -260,7 +260,7 @@ process environment.
 
 The `macos-footprint` CI job guards the idle-unloaded footprint on macOS using this
 checkout and an allocator opt-out control, and runs the macOS allocator tests. Run the
-footprint guard locally with `cargo test --release --features mcp --test mcp footprint_guard -- --ignored --nocapture --test-threads=1`;
+footprint guard locally with `cargo test --release -p prism-mcp --test mcp footprint_guard -- --ignored --nocapture --test-threads=1`;
 ordinary test runs ignore this measurement.
 
 The `slim` transform only touches `items`; it never reaches graph-carried results —

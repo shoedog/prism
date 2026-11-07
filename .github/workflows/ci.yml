@@ -89,10 +89,10 @@ jobs:
         with:
           shared-key: test-cov
 
-      # One instrumented run of the whole suite, split across 4 shards (mcp is a superset of
-      # default). nextest runs tests in parallel processes; a test failure fails the job.
-      - name: Run tests under coverage (nextest, --features mcp, shard ${{ matrix.shard }}/4)
-        run: cargo llvm-cov nextest --features mcp --no-report --profile ci --partition count:${{ matrix.shard }}/4
+      # One instrumented run of the whole workspace suite (root package and prism-mcp), split across
+      # 4 shards. nextest runs tests in parallel processes; a test failure fails the job.
+      - name: Run tests under coverage (nextest, --workspace, shard ${{ matrix.shard }}/4)
+        run: cargo llvm-cov nextest --workspace --no-report --profile ci --partition count:${{ matrix.shard }}/4
 
       - name: Coverage reports (this shard)
         run: |
@@ -132,10 +132,10 @@ jobs:
           shared-key: macos-footprint
 
       - name: Test macOS allocator policy
-        run: "cargo test --release --features mcp --test mcp malloc_test::"
+        run: "cargo test --release -p prism-mcp --test mcp malloc_test::"
 
       - name: Guard idle-unloaded footprint
-        run: cargo test --release --features mcp --test mcp footprint_guard -- --ignored --nocapture --test-threads=1
+        run: cargo test --release -p prism-mcp --test mcp footprint_guard -- --ignored --nocapture --test-threads=1
 
   build-checks:
     name: Default-feature check + doctests
@@ -153,13 +153,13 @@ jobs:
         with:
           shared-key: build-checks
 
-      # Default-feature configuration must still compile (tests run once, with mcp, in the shards).
+      # Default-feature configuration must still compile (tests run once, for the whole workspace, in the shards).
       - name: Check default features
         run: cargo check --all-targets
 
       # nextest does not run doctests; they are fast and uninstrumented.
       - name: Run doctests
-        run: cargo test --doc --features mcp
+        run: cargo test --doc --workspace
 
       # The soak instrumentation's hermetic tests (Python standard library, a few seconds).
       - name: Soak tool tests (Python)
@@ -195,7 +195,7 @@ jobs:
           shared-key: clippy
 
       - name: Run clippy
-        run: cargo clippy --all-targets --features mcp -- -W clippy::all
+        run: cargo clippy --workspace --all-targets -- -W clippy::all
 
   format:
     name: Format Check

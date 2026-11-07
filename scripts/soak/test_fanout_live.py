@@ -1,5 +1,5 @@
 """fanout.py against a real prism-mcp, on a three-file repository: three shims of one daemon, then
-three standalone servers. Skipped unless PRISM_SOAK_BIN names a binary built with --features mcp:
+three standalone servers. Skipped unless PRISM_SOAK_BIN names a binary built with `cargo build -p prism-mcp`:
 
     PRISM_SOAK_BIN=target/debug/prism-mcp python3 -m unittest discover -s scripts/soak -p 'test_*.py'
 """

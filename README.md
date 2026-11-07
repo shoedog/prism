@@ -115,7 +115,7 @@ MCP-capable coding agents (Claude Code, Codex, Kiro, …) read-only, whole-repo 
 calls a symbol, what it calls, what breaks if you change it, the module dependency graph.
 
 ```bash
-cargo build --release --bin prism-mcp --features mcp          # build (behind the `mcp` feature)
+cargo build --release -p prism-mcp                            # build (the `prism-mcp` workspace member)
 ```
 
 **Claude Code (plugin — recommended):** installs the skills *and* wires the MCP to your current project:
