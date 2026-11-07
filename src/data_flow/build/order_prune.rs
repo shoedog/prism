@@ -271,11 +271,7 @@ impl<'a> OrderFacts<'a> {
         if built
             .def_index
             .get(&(def_start, path.clone()))
-            .is_some_and(|i| {
-                built
-                    .split
-                    .exempts(self.parsed, &built.facts, &path.base, *i, def_start)
-            })
+            .is_some_and(|i| built.split.exempts(&built.facts, &path.base, *i, def_start))
         {
             return true;
         }

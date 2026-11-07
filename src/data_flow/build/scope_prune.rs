@@ -296,7 +296,7 @@ impl<'a> ScopeFacts<'a> {
         };
         if built
             .split
-            .exempts(self.parsed, &built.facts, &path.base, def_index, def_start)
+            .exempts(&built.facts, &path.base, def_index, def_start)
         {
             return true;
         }

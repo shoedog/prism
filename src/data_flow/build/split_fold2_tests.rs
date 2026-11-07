@@ -111,3 +111,11 @@ fn sibling_split_loops_do_not_cross_connect() {
     assert!(!has(&r, "a", 3, 11), "forward cross pair");
     assert!(!has(&r, "a", 8, 6), "backward cross pair");
 }
+
+#[test]
+fn main_emitted_var_def_keeps_its_split_exemption() {
+    // sol r3 #1: `var v = ..` (the first name of a direct spec) had a def on main, so main's
+    // categorical keep applies to it although the block-local `v` is not visible at the header.
+    let src = "package p\nfunc f(xs []int) {\n\tvar w []int\n\t{\n\t\tvar v = append([]int(nil), xs...)\n\t\tw = append(w, v...)\n\t}\n\tfor _, v := range\n\t\tw {\n\t\tprintln(v)\n\t}\n}\n";
+    keeps("legacy-var", src, "v", 5, 10);
+}
