@@ -27,10 +27,10 @@
 //! per-file recovery would create (docs/superpowers/pipeline-lessons.md
 //! doctrine 5).
 
-use crate::ast::ParsedFile;
-use crate::go_receiver_index_visibility::{
+use super::receiver_index_visibility::{
     resolve_go_return_type_call, unique_visible_package_var_type,
 };
+use crate::ast::ParsedFile;
 use crate::languages::Language;
 use crate::resolution::{
     dir_of, owner_key, peel_type, resolve_go_receiver_owner_identity, GoOwnerIdentity,
@@ -948,7 +948,7 @@ fn classify_nested_selector(
         } else {
             crate::resolution::go::owner_partition::GoOwnerReferenceMode::Qualified
         };
-        let selection = crate::go_receiver_index_visibility::resolve_go_struct_field_owner(
+        let selection = super::receiver_index_visibility::resolve_go_struct_field_owner(
             &current_owner,
             ctx.caller_file,
             mode,
