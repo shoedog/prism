@@ -87,8 +87,11 @@ impl ParsedFile {
                     if self.language == crate::languages::Language::Rust
                         && capture.node.kind() == "macro_invocation"
                     {
-                        let (sites, _facts) =
-                            crate::call_graph::rust::macro_args::extract_calls(self, capture.node, macro_shadow);
+                        let (sites, _facts) = crate::call_graph::rust::macro_args::extract_calls(
+                            self,
+                            capture.node,
+                            macro_shadow,
+                        );
                         calls.extend(sites);
                         continue;
                     }
@@ -181,7 +184,10 @@ impl ParsedFile {
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
         macro_shadow: &BTreeSet<String>,
-    ) -> (Vec<CallSiteMeta<'a>>, crate::call_graph::rust::macro_args::MacroArgFacts) {
+    ) -> (
+        Vec<CallSiteMeta<'a>>,
+        crate::call_graph::rust::macro_args::MacroArgFacts,
+    ) {
         use crate::queries::{get_query, QueryKind};
         use tree_sitter::StreamingIterator;
 
@@ -212,7 +218,11 @@ impl ParsedFile {
                         && capture.node.kind() == "macro_invocation"
                     {
                         let (sites, site_facts) =
-                            crate::call_graph::rust::macro_args::extract_calls(self, capture.node, macro_shadow);
+                            crate::call_graph::rust::macro_args::extract_calls(
+                                self,
+                                capture.node,
+                                macro_shadow,
+                            );
                         calls.extend(sites);
                         facts.calls_recorded += site_facts.calls_recorded;
                         facts.skipped_macros += site_facts.skipped_macros;

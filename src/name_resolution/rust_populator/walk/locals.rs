@@ -155,7 +155,10 @@ fn walk_expr(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx:
             });
             let is_transparent = macro_name
                 .map(|name| {
-                    crate::call_graph::rust::macro_args::is_transparent_arg_macro(&name, b.macro_shadow())
+                    crate::call_graph::rust::macro_args::is_transparent_arg_macro(
+                        &name,
+                        b.macro_shadow(),
+                    )
                 })
                 .unwrap_or(false);
             if !is_transparent {

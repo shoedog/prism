@@ -1,6 +1,6 @@
 //! Authoritative Rust call routing and the concrete `Self::` scope proof.
-use crate::resolution::*;
 use crate::name_resolution::types::ScopeKind;
+use crate::resolution::*;
 
 impl CallGraph {
     /// `Self` has no lexical module binding. Let its dedicated rung run.

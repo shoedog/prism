@@ -18,7 +18,6 @@ use std::collections::{BTreeMap, BTreeSet};
 mod free;
 use go::satisfiers::{GoCallerScopedSatisfiers, GoSatisfierMemo};
 
-
 pub mod go;
 
 pub mod js_ts;
