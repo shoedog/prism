@@ -55,12 +55,13 @@ pub struct ExpressRouteCandidate {
 /// Extract every recognized Express route-registration call in `parsed`.
 /// Registration-first (unlike taint.rs's handler-first
 /// `js_ts_is_framework_route_handler`, which is a boolean per-handler check
-/// and never extracts an argument or a FunctionId) — reuses taint.rs's shape
-/// constants/logic (`js_ts_framework_receiver_names`,
-/// `js_ts_framework_route_method`, `js_ts_receiver_expr_is_framework_instance`,
-/// `js_ts_receiver_expr_is_route_builder`, `unwrap_parenthesized`,
-/// `collect_js_ts_call_nodes`) via `pub(crate)` visibility rather than
-/// duplicating or refactoring that code this slice.
+/// and never extracts an argument or a FunctionId) — reuses the shape
+/// constants/logic in `frameworks/js_ts/call_classify.rs`
+/// (`js_ts_framework_receiver_names`, `js_ts_framework_route_method`,
+/// `js_ts_receiver_expr_is_framework_instance`,
+/// `js_ts_receiver_expr_is_route_builder`, `collect_js_ts_call_nodes`) and
+/// `ast/tree_helpers.rs` (`unwrap_parenthesized`) via `pub(crate)` visibility
+/// rather than duplicating or refactoring that code this slice.
 pub fn express_route_candidates(parsed: &ParsedFile) -> Vec<ExpressRouteCandidate> {
     let mut out = Vec::new();
     if !matches!(
