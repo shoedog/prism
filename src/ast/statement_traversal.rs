@@ -136,7 +136,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(4, node.id(), node.child_count());
-        for child in crate::go_statements::children(node, self.language) {
+        for child in crate::ast::go::statements::children(node, self.language) {
             let kind = child.kind();
             let line = child.start_position().row + 1;
 
@@ -184,7 +184,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(5, node.id(), node.child_count());
-        for child in crate::go_statements::children(node, self.language) {
+        for child in crate::ast::go::statements::children(node, self.language) {
             let kind = child.kind();
             if self.is_c_do_condition(&node, &child) {
                 arms.of_line
@@ -243,7 +243,7 @@ impl ParsedFile {
                     Self::open_arm(&child, alloc, arms)
                 };
                 if self.language == crate::languages::Language::Go
-                    && crate::go_statements::is_branch_anchor(kind)
+                    && crate::ast::go::statements::is_branch_anchor(kind)
                 {
                     arms.of_line
                         .entry(child.start_position().row + 1)
@@ -294,7 +294,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(0, node.id(), node.child_count());
-        for child in crate::go_statements::children(node, self.language) {
+        for child in crate::ast::go::statements::children(node, self.language) {
             let kind = child.kind();
             let line = child.start_position().row + 1;
 
@@ -328,7 +328,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(2, node.id(), node.child_count());
-        for child in crate::go_statements::children(node, self.language) {
+        for child in crate::ast::go::statements::children(node, self.language) {
             let kind = child.kind();
             let line = child.start_position().row + 1;
 
@@ -364,7 +364,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(1, node.id(), node.child_count());
-        for child in crate::go_statements::children(node, self.language) {
+        for child in crate::ast::go::statements::children(node, self.language) {
             let kind = child.kind();
             if self.is_c_do_condition(&node, &child) {
                 out.push((child.start_position().row + 1, "do_condition".to_string()));
@@ -384,7 +384,7 @@ impl ParsedFile {
                 || self.language.statement_wrapper_kinds().contains(&kind)
             {
                 if self.language == crate::languages::Language::Go
-                    && crate::go_statements::is_branch_anchor(kind)
+                    && crate::ast::go::statements::is_branch_anchor(kind)
                 {
                     out.push((child.start_position().row + 1, kind.to_string()));
                 }
@@ -415,7 +415,7 @@ impl ParsedFile {
         }
         #[cfg(test)]
         tests::record(3, node.id(), node.child_count());
-        for child in crate::go_statements::children(node, self.language) {
+        for child in crate::ast::go::statements::children(node, self.language) {
             let kind = child.kind();
             if self.is_c_do_condition(&node, &child) {
                 out.push(StatementSpan {
@@ -440,7 +440,7 @@ impl ParsedFile {
                 || self.language.statement_wrapper_kinds().contains(&kind)
             {
                 if self.language == crate::languages::Language::Go
-                    && crate::go_statements::is_branch_anchor(kind)
+                    && crate::ast::go::statements::is_branch_anchor(kind)
                 {
                     out.push(StatementSpan {
                         line: child.start_position().row + 1,

@@ -5,7 +5,7 @@
 //! their named and unnamed forms. Nested callables have separate label scopes.
 use super::{CfgEdge, EdgeOrigin, EdgeSink};
 use crate::ast::ParsedFile;
-use crate::go_statements;
+use crate::ast::go::statements as go_statements;
 use crate::languages::Language;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
