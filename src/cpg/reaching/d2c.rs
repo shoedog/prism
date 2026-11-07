@@ -37,11 +37,12 @@ type EdgeKey = (VarLocation, VarLocation);
 /// What a write outside a unit targets.
 #[derive(PartialEq)]
 enum Target {
-    /// No declaration inside a region scopes it: the binding visible at the unit's start (a flat
-    /// fallback when none is, or it is declared later).
+    /// No declaration inside a region scopes it: the innermost declaration by scope alone (a flat
+    /// fallback when there is none).
     Outer(BindingId),
-    /// A declaration in an enclosing unit scopes it (the scopes it covers): the binding is that
-    /// declaration's, which the facts may not know. A def outside every such scope is another binding.
+    /// A declaration in an enclosing unit scopes it: the binding is that declaration's, which the facts
+    /// may not know. A def binds it exactly when it lies in the declaration's scope, which excludes the
+    /// narrower same-name declarations nested in it (their defs bind those instead).
     Declared(Scope),
 }
 

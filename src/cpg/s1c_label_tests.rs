@@ -276,3 +276,36 @@ pub(super) fn refuse_moved(id: &str, rows: Vec<serde_json::Value>) -> Vec<serde_
         rows
     }
 }
+
+/// Round 2: a row is judged by whether any owner refuses it (`g` and `f` both label an edge inside a
+/// callable body, and the DataFlow row keeps both).
+fn refused_by_some_owner(lang: Language, src: &str, edge: &str) -> bool {
+    let got = labels_of(lang, src, edge);
+    assert!(!got.is_empty(), "{edge} is missing in {src}");
+    got.iter().any(|g| g == CFG)
+}
+
+#[rustfmt::skip]
+const ROUND2: &[(&str, &str, &str, bool)] = &[
+    // sol W1: a switch-local `let` has the switch's scope, not the function's.
+    ("switch_local_let_after_closure", "a@1->a@4", "function f(a) {\n  log();\n  g(() => { a++; });\n  sink(a);\n  switch (tag) {\n    case 0:\n      let a = 2;\n  }\n}", true),
+    ("switch_local_let_nested", "a@4->a@6", "function f() {\n  log();\n  g(() => {\n    let a = 1;\n    h(() => { a++; });\n    sink(a);\n    switch (tag) {\n      case 0:\n        let a = 2;\n    }\n  });\n}", true),
+    ("switch_local_write_refuses_its_own_edge", "a@5->a@8", "function f(a) {\n  log();\n  switch (tag) {\n    case 0:\n      let a = 2;\n      g(() => { a++; });\n      log();\n      sink(a);\n  }\n  sink2(a);\n}", true),
+    ("switch_local_write_leaves_the_outer_edge", "a@1->a@10", "function f(a) {\n  log();\n  switch (tag) {\n    case 0:\n      let a = 2;\n      g(() => { a++; });\n      log();\n      sink(a);\n  }\n  sink2(a);\n}", false),
+    // sol W2 / Opus W1: a def is the written declaration's by identity, not by lying in its scope.
+    ("outer_write_inner_block_edge_untouched", "a@6->a@7", "function f() {\n  log();\n  g(() => {\n    let a = 1;\n    {\n      let a = 2;\n      sink(a);\n    }\n    h(() => { a++; });\n  });\n}", false),
+    ("outer_write_inner_block_after_closure_untouched", "a@7->a@9", "function f() {\n  log();\n  g(() => {\n    let a = 1;\n    h(() => { a++; });\n    {\n      let a = 2;\n      log();\n      sink(a);\n    }\n  });\n}", false),
+    ("outer_write_inner_block_outer_read_refused", "a@4->a@10", "function f() {\n  log();\n  g(() => {\n    let a = 1;\n    {\n      let a = 2;\n      log();\n    }\n    h(() => { a++; });\n    sink(a);\n  });\n}", true),
+    ("outer_param_inner_block_untouched", "a@6->a@8", "function f(a) {\n  log();\n  g((a) => {\n    h(() => { a++; });\n    {\n      let a = 2;\n      log();\n      sink(a);\n    }\n  });\n}", false),
+];
+
+#[test]
+fn round_two_rows() {
+    let mut failures = Vec::new();
+    for (name, edge, src, refused) in ROUND2 {
+        if refused_by_some_owner(JS, src, edge) != *refused {
+            failures.push(format!("{name} {edge}: want refused={refused}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

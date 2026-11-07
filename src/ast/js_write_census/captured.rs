@@ -13,8 +13,12 @@
 //! - `catch`: the clause.
 //!
 //! Every other declaration (`class-inner`, imports, `enum`, `namespace`) and any shape not listed
-//! proves nothing, and the write counts as outer. The scope is a byte range; a write is scoped by every
-//! declaration whose range holds it, and the caller decides which of them lie inside a region.
+//! proves nothing, and the write counts as outer. The scope is a byte range minus holes; the write is
+//! scoped by the innermost declaration whose scope holds it, and the caller decides whether that one lies
+//! inside a region. A declaration's scope excludes the narrower same-name declarations nested in it (their
+//! own scopes are holes), so that a def lies in a `Scope` exactly when it binds that declaration.
+//! `LEXICAL_CONTAINERS` is the one list of nodes that scope a `let`/`const`/`class`: `BindingFacts` uses it
+//! for its own declarations, so the two inventories agree by construction.
 use super::tables::Tables;
 use super::walk::{is_callable, Form, Site};
 use crate::access_path::AccessPath;
@@ -22,12 +26,22 @@ use crate::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
+/// Node kinds whose extent scopes a `let`/`const`/`class` declaration made directly in them (a function's
+/// body is a `statement_block`; a static block's too).
+pub(crate) const LEXICAL_CONTAINERS: [&str; 4] = [
+    "statement_block",
+    "switch_body",
+    "for_statement",
+    "for_in_statement",
+];
+
 /// The bytes a declaration scopes: a range minus holes (a parameter's own decorators, and anything
-/// nested in them, run in the enclosing scope and never see the parameter).
+/// nested in them, run in the enclosing scope and never see the parameter; a narrower same-name
+/// declaration nested in the range is another binding).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Scope {
     pub range: (usize, usize),
-    pub holes: Vec<(usize, usize)>,
+    pub holes: Vec<Scope>,
 }
 
 impl Scope {
@@ -39,9 +53,7 @@ impl Scope {
     }
 
     pub(crate) fn contains(&self, at: usize) -> bool {
-        self.range.0 <= at
-            && at < self.range.1
-            && !self.holes.iter().any(|&(a, b)| a <= at && at < b)
+        self.range.0 <= at && at < self.range.1 && !self.holes.iter().any(|h| h.contains(at))
     }
 
     fn width(&self) -> usize {
@@ -106,14 +118,32 @@ impl Shadows {
         Self { by_base }
     }
 
-    /// The innermost declaration of `base` whose scope holds `at` (scopes nest, so the narrowest).
+    /// The innermost declaration of `base` whose scope holds `at` (scopes nest, so the narrowest), its
+    /// scope minus the narrower declarations of `base` nested in it.
     pub(crate) fn innermost(&self, base: &str, at: usize) -> Option<Shadow> {
-        self.by_base
-            .get(base)?
+        let all = self.by_base.get(base)?;
+        let mut found = all
             .iter()
             .filter(|d| d.scope.contains(at))
             .min_by_key(|d| d.scope.width())
-            .cloned()
+            .cloned()?;
+        let (a, b, width) = (
+            found.scope.range.0,
+            found.scope.range.1,
+            found.scope.width(),
+        );
+        let nested: Vec<Scope> = all
+            .iter()
+            .filter(|o| {
+                o.start != found.start
+                    && a <= o.scope.range.0
+                    && o.scope.range.1 <= b
+                    && o.scope.width() < width
+            })
+            .map(|o| o.scope.clone())
+            .collect();
+        found.scope.holes.extend(nested);
+        Some(found)
     }
 }
 
@@ -159,13 +189,13 @@ fn param_scope(t: &Tables, node: Node<'_>) -> Option<Scope> {
     while let Some(n) = cur {
         if n.kind() == "formal_parameters" {
             let callable = n.parent().filter(|c| is_callable(t, c.kind()))?;
-            let mut holes = Vec::new();
+            let mut holes: Vec<Scope> = Vec::new();
             let mut cursor = n.walk();
             for param in n.children(&mut cursor) {
                 let mut inner = param.walk();
                 for part in param.children(&mut inner) {
                     if part.kind() == "decorator" {
-                        holes.push(range(part));
+                        holes.push(Scope::plain(range(part)));
                     }
                 }
             }
@@ -201,9 +231,7 @@ fn block_scope(decl: Node<'_>) -> Option<(usize, usize)> {
     }
     let parent = at.parent()?;
     match parent.kind() {
-        "statement_block" | "class_static_block" | "for_statement" | "for_in_statement" => {
-            Some(range(parent))
-        }
+        k if LEXICAL_CONTAINERS.contains(&k) => Some(range(parent)),
         "switch_case" | "switch_default" => parent.parent().map(range),
         _ => None,
     }
@@ -244,11 +272,6 @@ fn var_scope(t: &Tables, at: Node<'_>) -> Option<(usize, usize)> {
 }
 
 fn lexical_scope(declaration: Node<'_>) -> Option<(usize, usize)> {
-    let container = ancestor(declaration, |n| {
-        matches!(
-            n.kind(),
-            "statement_block" | "switch_body" | "for_statement" | "for_in_statement"
-        ) || n.kind() == "class_static_block"
-    })?;
+    let container = ancestor(declaration, |n| LEXICAL_CONTAINERS.contains(&n.kind()))?;
     Some(range(container))
 }

@@ -216,3 +216,66 @@ fn a_captured_write_no_region_holds_refuses_its_base() {
     );
     assert_eq!(got, CFG);
 }
+
+/// The declaration-scope table (round 2): for each shape, whether the owner's parameter `a` is the
+/// binding a closure's `a++` writes, as the two inventories answer it together (the census names a
+/// declaration inside a region; otherwise `BindingFacts::binding_by_scope_at` names the innermost one by
+/// scope alone). Both read `LEXICAL_CONTAINERS`; this table pins that they pick the same declaration.
+#[test]
+fn the_census_and_binding_facts_pick_the_same_declaration() {
+    use crate::access_path::AccessPath;
+    use crate::cpg::binding_facts::BindingFacts;
+    use crate::js_write_census::completion::completion;
+    // (shape, the parameter is the written binding)
+    #[rustfmt::skip]
+    let table: &[(&str, bool)] = &[
+        ("{ let a = 1; g(() => { a++; }); sink(a); }", false),
+        ("{ g(() => { a++; }); let a = 1; sink(a); }", false),
+        ("switch (k) { case 0: let a = 1; g(() => { a++; }); sink(a); }", false),
+        ("switch (k) { case 0: g(() => { a++; }); let a = 1; sink(a); }", false),
+        ("g(() => { a++; }); switch (k) { case 0: let a = 1; sink(a); }", true),
+        ("switch (k) { case 0: let a = 1; sink(a); } g(() => { a++; });", true),
+        ("for (let a = 0;;) { g(() => { a++; }); sink(a); }", false),
+        ("for (let a of xs) { g(() => { a++; }); sink(a); }", false),
+        ("for (let a = 0;;) { sink(a); } g(() => { a++; });", true),
+        ("{ let a = 1; sink(a); } g(() => { a++; });", true),
+        ("{ var a = 1; sink(a); } g(() => { a++; });", true),
+        ("g((a) => { h(() => { a++; }); sink(a); });", false),
+        ("g(() => { let a; h(() => { a++; }); sink(a); });", false),
+        ("g(() => { var a; h(() => { a++; }); sink(a); });", false),
+        ("g(() => { switch (k) { case 0: let a; h(() => { a++; }); sink(a); } });", false),
+        ("g(() => { { let a; sink(a); } h(() => { a++; }); });", true),
+        // known gaps, over-refusal only: a `catch` parameter or a `class` declaration outside a region
+        // is no `BindingFacts` declaration (it has no recorded def), so the parameter is named for a
+        // write that targets that binding.
+        ("{ class a {} g(() => { a++; }); sink(a); }", true),
+        ("try { x(); } catch (a) { g(() => { a++; }); sink(a); }", true),
+    ];
+    let mut failures = Vec::new();
+    for (shape, param_is_written) in table {
+        let body = shape.replace("; ", ";\n  ");
+        let src = format!("function f(a) {{\n  log();\n  sink(a);\n  {body}\n}}\n");
+        let parsed = parse(JS, &src);
+        let owner = parsed.all_functions()[0];
+        let (defs, edges) = recorded(&parsed, &owner);
+        let facts = BindingFacts::new(&parsed, &owner, &defs, edges.iter());
+        let Some(param) = defs.iter().position(|d| d.line == 1) else {
+            panic!("no def of the parameter for {shape}");
+        };
+        let write = src.find("a++").unwrap();
+        let path = AccessPath::simple("a");
+        let census = completion(&parsed, owner, &[(&path, 0, false)]);
+        let region_declaration = census
+            .captured
+            .iter()
+            .any(|c| c.start == write && c.shadow.is_some());
+        let got = !region_declaration
+            && facts.binding_by_scope_at("a", write) == *facts.binding_of_def(param);
+        if got != *param_is_written {
+            failures.push(format!(
+                "{shape}: parameter written {got}, want {param_is_written}"
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

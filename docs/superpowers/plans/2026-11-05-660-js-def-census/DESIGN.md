@@ -339,8 +339,13 @@ instance field initializer value of a class in O. For each write site s in R who
    the enclosing callable's `a`). A parameter's scope is its list and the callable's body **minus its parameters' decorators and
    anything nested in them** (they run in the enclosing scope). When that declaration lies inside R (item 1) the write is
    ignored; for a declaration outside R compare it to the candidate def's binding; the census's `DECL:*` scopes name it inside
-   regions (nested parameters are not declarations in `BindingFacts`) and `BindingFacts::binding_by_scope_at` outside them, the
-   two agreeing on "narrowest scope wins". No declaration found, or `FlatFallback` (an undeclared name), refuses every edge of x.
+   regions (nested parameters are not declarations in `BindingFacts`) and `BindingFacts::binding_by_scope_at` outside them.
+   One declaration-scope rule serves both: `captured::LEXICAL_CONTAINERS` (statement block, `switch` body, `for` statement,
+   `for-in` statement) scopes `let`/`const`/`class`, a function scopes `var` and parameters, `binding_scope_rule` reads that same
+   list, and the narrowest scope wins (a table test pins that the two pick the same declaration). A def binds the written
+   declaration exactly when it lies in that declaration's scope minus the narrower same-name declarations nested in it (a def
+   there binds those). Known gaps, over-refusal only: a `catch` parameter or `class` declaration outside a region is no
+   `BindingFacts` declaration (no recorded def). No declaration found, or `FlatFallback` (an undeclared name), refuses every edge of x.
 3. **Refused edges.** Every edge D->U classified in O with U outside R, whose candidate def's binding is B (or is `FlatFallback`
    /unresolved) and with `affects(p, U.path)`. An `exact` or `sameline` edge becomes `NameOnly(CfgIncomplete)`; a `killed` or other
    `NameOnly` label is kept (round 1, accepted). There is no order proof: the read may follow any

@@ -425,11 +425,13 @@ impl BindingFacts {
     /// The binding a name written at `byte` resolves to by scope alone: the innermost declaration whose
     /// scope contains it, declared before or after it (a closure runs later, so its free name binds
     /// the later `let`, `class` or block function of the same scope; #660 S1c), else the implicit one.
+    /// Equal-width scopes of one name are one merged declaration (`var` over a parameter) or illegal code,
+    /// so the narrowest is unique and no tie-break is needed.
     pub(crate) fn binding_by_scope_at(&self, name: &str, byte: usize) -> BindingId {
         self.declarations
             .iter()
             .filter(|d| d.name == name && d.binding.scope.contains(byte))
-            .min_by_key(|d| (d.binding.scope.width(), Reverse(d.visible_from)))
+            .min_by_key(|d| d.binding.scope.width())
             .map_or_else(|| self.implicit_binding(name), |d| d.binding.clone())
             .id
     }
