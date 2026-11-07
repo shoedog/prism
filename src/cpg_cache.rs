@@ -840,7 +840,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 157);
+        assert_eq!(super::CACHE_VERSION, 158);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
