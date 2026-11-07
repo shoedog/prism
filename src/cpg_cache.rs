@@ -307,7 +307,8 @@ mod stream;
 ///   edge whose use lies outside a nested callable or instance field initializer that writes the def's
 ///   binding is `NameOnly(CfgIncomplete)`; labels only.
 /// - v158: Python rules U and D (#630 slice 5): write-only lines and dominated defs are dropped, and `self`/`cls` attribute paths join D. The same-line own-span judging is shared with Go: same-line pairs gain edges in both languages and an owner at the survivor cap can cross it.
-const CACHE_VERSION: u32 = 158;
+/// - v159: recorded defs of JS/TS/TSX owners kill by `affects` (#674 G1/G2): a prefix write or a `[]` write kills the recorded defs below it, so labels move toward `nameonly/killed`. Label-only: edge sets, availability and counters are unchanged.
+const CACHE_VERSION: u32 = 159;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -840,7 +841,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 158);
+        assert_eq!(super::CACHE_VERSION, 159);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

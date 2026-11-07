@@ -17,6 +17,9 @@ pub(super) const CAPTURE_BODY: &str = "capture-body";
 /// The innermost-region belt: the def lies in a different region than the use.
 pub(super) const CAPTURE_REGION: &str = "capture-region";
 
+/// A recorded def's `affects` kill (#674: a prefix write or a `[]` write killing a def of another path).
+pub(super) const KILL_AFFECTS: &str = "kill:affects";
+
 /// Whether the environment asked for the trace (read once per process).
 pub(super) fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();

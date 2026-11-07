@@ -390,7 +390,11 @@ fn reaching_definitions_impl(
             gen[*node].insert(index);
         }
     }
-    let buckets = def_buckets::DefinitionBuckets::with_kill_only(&defs, n_recorded);
+    let buckets = def_buckets::DefinitionBuckets::with_kill_only(
+        &defs,
+        n_recorded,
+        pass.recorded_affects() && parsed.language.is_js_family(),
+    );
     let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts);
 
     let (in_sets, entry_reachable) =
@@ -968,6 +972,9 @@ mod statement_lookup_tests;
 
 #[cfg(test)]
 mod def_bucket_tests;
+
+#[cfg(test)]
+mod affects_tests;
 
 #[cfg(test)]
 mod census_defs_tests;

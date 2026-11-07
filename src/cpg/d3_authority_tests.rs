@@ -233,13 +233,17 @@ fn a_def_and_a_later_write_inside_the_tail_never_reach_the_sink_exact() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
-/// Known WRONG `exact`, owned by #674 (G1/G2, DESIGN 5.4): RD's recorded defs kill only by path equality, so a
-/// recorded prefix write (`o = {}`) never kills `o.x`. c6393854 refused this edge only because E18 put the
-/// prefix write in the def's node; D3 now keys it where RD puts it (the `y();` node), both nodes are clean, and
-/// the label is `exact` although `o = {}` always runs between the def and the sink. The straight-line
-/// `o.x = 1; o = {}; sink(o.x)` is `exact` on main for the same reason. The row flips when #674 lands.
+/// Was the known WRONG `exact` of #674 (G1/G2, DESIGN 5.4): RD's recorded defs killed only by path equality, so a
+/// recorded prefix write (`o = {}`) never killed `o.x`. c6393854 refused this edge only because E18 put the
+/// prefix write in the def's node; D3 keys it where RD puts it (the `y();` node), both nodes are clean, and
+/// `o = {}` always runs between the def and the sink. #674 flipped the row: recorded defs kill by `affects`, so
+/// the label is `nameonly/killed`, and D3 has nothing left to refuse.
 #[test]
-fn prefix_write_in_a_shorter_node_is_the_g1_gap() {
+fn prefix_write_in_a_shorter_node_is_killed_by_g1() {
     let src = "function f(o) {\n  log();\n  g(o.x = 1,\n    o = {}); y();\n  sink(o.x);\n}";
-    assert_eq!(labels_of(JS, src, "o.x@3->o.x@5"), [EXACT], "{src}");
+    assert_eq!(
+        labels_of(JS, src, "o.x@3->o.x@5"),
+        ["nameonly/killed"],
+        "{src}"
+    );
 }
