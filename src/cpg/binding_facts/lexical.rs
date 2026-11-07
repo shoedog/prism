@@ -124,16 +124,16 @@ pub(super) fn binding_scope_rule(language: Language, kind: &str) -> BindingScope
             .then_some(DeclarationKind::PythonAssignment),
         ),
         Language::JavaScript | Language::TypeScript | Language::Tsx => (
-            matches!(
-                kind,
-                "statement_block"
-                    | "class_body"
-                    | "function_declaration"
-                    | "function_expression"
-                    | "arrow_function"
-                    | "for_statement"
-                    | "for_in_statement"
-            ),
+            // `LEXICAL_CONTAINERS` is the census's list too (#660 S1c): a `switch` body scopes the
+            // `let`/`const`/`class` declared in its cases, here and in `captured.rs`.
+            crate::js_write_census::captured::LEXICAL_CONTAINERS.contains(&kind)
+                || matches!(
+                    kind,
+                    "class_body"
+                        | "function_declaration"
+                        | "function_expression"
+                        | "arrow_function"
+                ),
             match kind {
                 "variable_declaration" => Some(DeclarationKind::JavaScriptVar),
                 "lexical_declaration" | "class_declaration" => Some(DeclarationKind::Other),

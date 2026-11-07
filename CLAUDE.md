@@ -471,7 +471,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v156) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v157) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -484,9 +484,9 @@ solver runs it (one walk per owner; the cap preflight is main's, on recorded def
 def cap or any counter: a completed list that would trip the one-node distinct-bases belt or the 2,048 cap runs RD on the
 recorded defs and labels the owner `NameOnly(CfgIncomplete)` (`owner-refuse:one-node|def-cap`). Refused the same way: an owner with an escaped identifier spelling, a parse error
 or a refused target kind (no kill-only defs added); a base whose
-eager site maps to no statement node (class or enum declaration lines, or a statement lost behind another on its line under a compound statement) is refused for its own edges. Writes in a nested callable,
-an instance field initializer or the owner's own parameter list, declarations and `first_hazard` stay with S1c/S1d.
-`PRISM_RD_CENSUS_TRACE=1` names each moved edge (`kill:<form>`, `owner-refuse:..`, `site-unmapped`, `d3-use|def|loop|unknown`) from a census-free control pass.
+eager site maps to no statement node (class or enum declaration lines, or a statement lost behind another on its line under a compound statement) is refused for its own edges. Writes in the owner's own parameter list, declarations and `first_hazard` stay with S1d.
+`PRISM_RD_CENSUS_TRACE=1` names each moved edge (`kill:<form>`, `owner-refuse:..`, `site-unmapped`, `d3-use|def|loop|unknown`, `d2c`) from a census-free control pass.
+Captured writes (D2-c, #660 S1c, `reaching/d2c.rs`, `js_write_census/captured.rs`): a write in a nested callable (parameter list or body) or an instance field initializer that no declaration inside that unit provably scopes (`var`/body function/parameter/named-function-expression name of the callable, `let`/`const`/`class`/catch by block, `for` head, `switch` body or clause, a block function its block only; a body declaration never binds a parameter default) turns every `exact` or `sameline` edge into `NameOnly(CfgIncomplete)` when its candidate def is the written binding (the innermost declaration by scope alone, TDZ aside, so a closure writes the later `let` it names, and a parameter's scope excludes its decorators, a switch-local `let` has the switch's scope, and a def binds the written declaration unless a narrower same-name declaration nested in it does; any binding when unresolved), `affects(write, use)` holds and the use lies outside the unit. No order or creation proof (recovery #667); a killed or already incomplete label is kept.
 Same-node order (D3, #660 S1b-2, `reaching/d3.rs`): an `exact` edge D->U whose use node (or def node) holds another write of
 an `affects`-related path that the S0 `precedes` relation does not prove after U (before D) is `NameOnly(SameLine)`; any
 loop, `unknown` or deferred kind on a chain, an unplaced position or two occurrences that disagree refuses, and only a node's

@@ -80,6 +80,8 @@ mod reaching;
 #[cfg(test)]
 mod required_parameter_tests;
 #[cfg(test)]
+mod s1c_label_tests;
+#[cfg(test)]
 mod statement_calls_tests;
 #[cfg(test)]
 mod tests;
