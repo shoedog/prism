@@ -1,10 +1,10 @@
 //! Attribution-mode lookup of a bare JS/TS specifier against the owning
-//! tsconfig's `paths` and `baseUrl`. The strict `js_paths::Resolver` is a
+//! tsconfig's `paths` and `baseUrl`. The strict `resolution::js_ts::paths::Resolver` is a
 //! proof used by call resolution: it refuses fallback arrays, a missing or
 //! non-node `moduleResolution`, and `baseUrl` without `paths`. Attribution
 //! wants candidates, not a proof, so this lookup accepts every shape TypeScript
 //! accepts and reads only the captured config bytes (no probe is recorded in
-//! the topology). `js_paths::Resolver` itself is unchanged.
+//! the topology). `resolution::js_ts::paths::Resolver` itself is unchanged.
 //!
 //! A config chain this lookup cannot read in full is `Alias::Unavailable`, not
 //! "no alias": a relative `extends` parent the snapshot did not capture (it

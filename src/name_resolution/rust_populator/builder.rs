@@ -60,7 +60,7 @@ pub(crate) struct Builder<'f> {
     /// Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once from
     /// `files` at construction time (the same whole-program `files` the
     /// extractor's `CallGraph::build_*` entry points independently derive
-    /// their own copy from via `rust_macro_args::collect_macro_shadow_set`).
+    /// their own copy from via `call_graph::rust::macro_args::collect_macro_shadow_set`).
     /// Consumed by `walk/locals.rs`'s wildcard-poison exemption via
     /// [`Builder::macro_shadow`].
     macro_shadow: BTreeSet<String>,

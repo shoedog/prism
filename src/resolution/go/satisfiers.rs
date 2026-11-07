@@ -4,13 +4,10 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex, OnceLock};
 
-#[path = "satisfiers/compute.rs"]
 mod compute;
 #[cfg(test)]
-#[path = "satisfiers/reference.rs"]
 mod reference;
 #[cfg(test)]
-#[path = "satisfiers/tests.rs"]
 mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

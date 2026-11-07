@@ -17,7 +17,7 @@
 //! go_short_var_call_rhs has the same B1 fence: a sibling closure's x := newT()
 //! must not become an unrelated later call's qualifying statement. This helper
 //! relocates a FIRST-LHS receiver's single-call RHS and returns raw callee text
-//! (newDemux or pkg.New); go_receiver_index::resolve_go_return_type_call owns
+//! (newDemux or pkg.New); call_graph::go::receiver_index_visibility::resolve_go_return_type_call owns
 //! static return-type resolution. A non-first receiver (_, err := f()),
 //! multi-expression RHS (a, b := f(), g()), or non-call RHS does not qualify.
 //! Callers MUST already prove exactly one unshadowed receiver binding for the

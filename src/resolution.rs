@@ -16,6 +16,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[path = "resolution_free.rs"]
 mod free;
+use go::concrete_receiver::GoConcreteReceiverRoute;
+use go::promoted_snapshot::GoPromotedSnapshotConsult;
 use go::satisfiers::{GoCallerScopedSatisfiers, GoSatisfierMemo};
 
 pub mod go;
@@ -1123,7 +1125,7 @@ fn receiver_resolution_kind(recovery: ReceiverRecovery) -> ResolutionKind {
         // bucket. Applies uniformly to both lanes that can produce these two
         // recovery kinds — Lane A's Rust scope-graph receiver typer
         // (`resolution_receiver.rs`) and Lane B's new Go post-merge pass
-        // (`go_receiver_index.rs`) — since both share this one mapping
+        // (`call_graph/go/receiver_index.rs`) — since both share this one mapping
         // function; a pure label refinement, no confidence/target change.
         ReceiverRecovery::FieldTyped => ResolutionKind::FieldTyped,
         ReceiverRecovery::ReturnTyped => ResolutionKind::ReturnTyped,
@@ -2558,13 +2560,9 @@ impl CallGraph {
                         });
                     if let Some(route) = go_route.as_ref() {
                         match route {
-                            go::concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect {
-                                ..
-                            }
-                            | go::concrete_receiver::GoConcreteReceiverRoute::Unproven => {}
-                            go::concrete_receiver::GoConcreteReceiverRoute::ConcretePromoted {
-                                ..
-                            } => {
+                            GoConcreteReceiverRoute::ConcreteDirect { .. }
+                            | GoConcreteReceiverRoute::Unproven => {}
+                            GoConcreteReceiverRoute::ConcretePromoted { .. } => {
                                 let Some(resolved) = self.owner_lookup(recv_ty, name) else {
                                     return ResolutionOutcome::dropped(
                                         DropReason::ConcreteReceiverPromotedDeferred,
@@ -2574,9 +2572,7 @@ impl CallGraph {
                                 telemetry.go_concrete_receiver_promoted_existing = 1;
                                 return ResolutionOutcome::hit_with_telemetry(resolved, telemetry);
                             }
-                            go::concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {
-                                owner,
-                            } => {
+                            GoConcreteReceiverRoute::ConcretePromotedDeferred { owner } => {
                                 let mut telemetry = ResolutionTelemetry::default();
                                 match go::promoted_snapshot::consult_promoted_snapshot(
                                     self.go_promoted_selector_snapshot(),
@@ -2584,9 +2580,7 @@ impl CallGraph {
                                     owner,
                                     name,
                                 ) {
-                                    go::promoted_snapshot::GoPromotedSnapshotConsult::Hit(
-                                        target,
-                                    ) => {
+                                    GoPromotedSnapshotConsult::Hit(target) => {
                                         telemetry.go_promoted_snapshot_hits = 1;
                                         return ResolutionOutcome::hit_with_telemetry(
                                             exact(
@@ -2596,16 +2590,16 @@ impl CallGraph {
                                             telemetry,
                                         );
                                     }
-                                    go::promoted_snapshot::GoPromotedSnapshotConsult::ConflictDrop => {
+                                    GoPromotedSnapshotConsult::ConflictDrop => {
                                         telemetry.go_promoted_snapshot_conflict_drop = 1;
                                     }
-                                    go::promoted_snapshot::GoPromotedSnapshotConsult::VariantDrop => {
+                                    GoPromotedSnapshotConsult::VariantDrop => {
                                         telemetry.go_promoted_snapshot_variant_drop = 1;
                                     }
-                                    go::promoted_snapshot::GoPromotedSnapshotConsult::InvariantDrop => {
+                                    GoPromotedSnapshotConsult::InvariantDrop => {
                                         telemetry.go_promoted_snapshot_invariant_drop = 1;
                                     }
-                                    go::promoted_snapshot::GoPromotedSnapshotConsult::Miss => {}
+                                    GoPromotedSnapshotConsult::Miss => {}
                                 }
                                 telemetry.go_concrete_receiver_promoted_deferred = 1;
                                 return ResolutionOutcome::dropped_with_telemetry(
@@ -2613,7 +2607,7 @@ impl CallGraph {
                                     telemetry,
                                 );
                             }
-                            go::concrete_receiver::GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                            GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
                                 owner,
                                 interface_name,
                                 evidence,
@@ -2627,9 +2621,7 @@ impl CallGraph {
                                     *evidence,
                                 );
                             }
-                            go::concrete_receiver::GoConcreteReceiverRoute::FuncValueField {
-                                owner,
-                            } => {
+                            GoConcreteReceiverRoute::FuncValueField { owner } => {
                                 return self.func_value_field_or_external_drop(
                                     recv_ty,
                                     Some(owner),
@@ -2637,10 +2629,7 @@ impl CallGraph {
                                     &site.caller.file,
                                 );
                             }
-                            go::concrete_receiver::GoConcreteReceiverRoute::ConcreteNoSelector {
-                                evidence,
-                                ..
-                            } => {
+                            GoConcreteReceiverRoute::ConcreteNoSelector { evidence, .. } => {
                                 let mut telemetry =
                                     ResolutionTelemetry::with_go_owner_partition(*evidence, 0);
                                 telemetry.go_concrete_receiver_no_selector_drop = 1;
@@ -2649,7 +2638,7 @@ impl CallGraph {
                                     telemetry,
                                 );
                             }
-                            go::concrete_receiver::GoConcreteReceiverRoute::InterfaceDispatch {
+                            GoConcreteReceiverRoute::InterfaceDispatch {
                                 owner,
                                 interface_name,
                             } => {
@@ -2662,7 +2651,7 @@ impl CallGraph {
                                     go::owner_partition::GoPartitionEvidence::default(),
                                 );
                             }
-                            go::concrete_receiver::GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
+                            GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
                                 let mut telemetry = ResolutionTelemetry::default();
                                 telemetry.go_r2_on_demand_name_collision_bail = 1;
                                 return ResolutionOutcome::dropped_with_telemetry(
@@ -2670,7 +2659,7 @@ impl CallGraph {
                                     telemetry,
                                 );
                             }
-                            go::concrete_receiver::GoConcreteReceiverRoute::ExternalNewRecoveryDrop => {
+                            GoConcreteReceiverRoute::ExternalNewRecoveryDrop => {
                                 let mut telemetry = ResolutionTelemetry::default();
                                 telemetry.go_external_receiver_new_recovery_drop = 1;
                                 return ResolutionOutcome::dropped_with_telemetry(
@@ -2840,17 +2829,17 @@ impl CallGraph {
                             && !site.receiver_local_type_shadowed
                         {
                             match go_route.as_ref() {
-                                    Some(go::concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect {
-                                        owner,
-                                        selection,
-                                    }) => Some((owner.clone(), selection.clone())),
-                                    _ => self.go_own_method_partition(
-                                        recv_ty,
-                                        site.receiver_owner_identity.as_ref(),
-                                        name,
-                                        &caller.file,
-                                    ),
-                                }
+                                Some(GoConcreteReceiverRoute::ConcreteDirect {
+                                    owner,
+                                    selection,
+                                }) => Some((owner.clone(), selection.clone())),
+                                _ => self.go_own_method_partition(
+                                    recv_ty,
+                                    site.receiver_owner_identity.as_ref(),
+                                    name,
+                                    &caller.file,
+                                ),
+                            }
                         } else {
                             None
                         };
@@ -2886,7 +2875,7 @@ impl CallGraph {
                                 if site.receiver_owner_identity.is_some()
                                     || matches!(
                                         go_route.as_ref(),
-                                        Some(go::concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. })
+                                        Some(GoConcreteReceiverRoute::ConcreteDirect { .. })
                                     ) =>
                             {
                                 let ids = self
@@ -2953,7 +2942,7 @@ impl CallGraph {
                                 }
                                 if matches!(
                                     go_route.as_ref(),
-                                    Some(go::concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. })
+                                    Some(GoConcreteReceiverRoute::ConcreteDirect { .. })
                                 ) {
                                     telemetry.go_concrete_receiver_direct = 1;
                                 }
@@ -2980,7 +2969,7 @@ impl CallGraph {
                                 // method/field, existing struct promotion
                                 // wins, package-scoping) are enforced upstream
                                 // when the declaration snapshots are consulted
-                                // (go_owner_partition.rs, B2 fix) — lookup is
+                                // (`resolution/go/owner_partition.rs`, B2 fix) — lookup is
                                 // keyed by the receiver's OWN
                                 // `GoOwnerIdentity`, resolved the same way
                                 // `func_value_field_or_external_drop`'s S2

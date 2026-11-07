@@ -8,6 +8,7 @@ use crate::ast::ParsedFile;
 use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::rust_populator::{enclosing_scope, populate_rust, RustCrateConfig};
 use crate::name_resolution::types::{ScopeId, ScopeKind};
+use crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute;
 use crate::resolution_identity::{resolve_type_path_to_type_scope, TypeKey};
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -17,11 +18,14 @@ use std::path::PathBuf;
 #[path = "call_graph_anon_prep_tests.rs"]
 mod anon_prep_tests;
 mod boundary;
+pub(crate) mod go;
 #[path = "call_graph_profile_initializers.rs"]
 mod init_profile;
+pub mod js_ts;
 mod js_ts_facts;
 mod level4;
 mod python_import_proofs;
+pub mod rust;
 pub(crate) use python_import_proofs::{
     python_imported_class_proof_keys, python_imported_class_route,
 };
@@ -785,9 +789,9 @@ pub struct CallGraph {
     #[serde(default)]
     pub macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts>,
     /// P8 F1 fix (BLOCKER, codex re-review): the repo-wide macro shadow set
-    /// (`rust_macro_args::collect_macro_shadow_set`), narrowed to its
+    /// (`call_graph::rust::macro_args::collect_macro_shadow_set`), narrowed to its
     /// intersection with `TRANSPARENT_ARG_MACROS`
-    /// (`rust_macro_args::transparent_shadow_intersection`) — the only part
+    /// (`call_graph::rust::macro_args::transparent_shadow_intersection`) — the only part
     /// of the shadow set that can change macro-arg call-extraction behavior.
     /// Unlike `macro_arg_facts` above, this is whole-program derived (like
     /// `interface_impls`/`js_ts_resolved_exports`): recomputed from scratch
@@ -4384,7 +4388,7 @@ impl CallGraph {
                             &site.callee_name,
                             &caller.file,
                         ),
-                        crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. }
+                        GoConcreteReceiverRoute::ConcreteDirect { .. }
                     )
                 });
                 if !direct {
@@ -6448,9 +6452,3 @@ mod python_property_access_tests;
 
 #[cfg(test)]
 mod framework_entry_tests;
-
-pub(crate) mod go;
-
-pub mod js_ts;
-
-pub mod rust;

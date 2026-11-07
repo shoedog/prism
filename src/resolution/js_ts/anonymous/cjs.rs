@@ -3,7 +3,7 @@
 //! The consumer half is evidence recorded with the site (`js_ts_cjs_anonymous_require`: a direct
 //! top-level `const` or `var`, declared once in the resolved program scope, with no write
 //! resolving to that binding, not shadowed between the site and the program scope, one plain
-//! relative literal). The producer half is the proof `resolution_js_cjs.rs` gives named callers
+//! relative literal). The producer half is the proof `resolution/js_ts/cjs.rs` gives named callers
 //! (export-object barrier, terminal proof, no ESM export). The anonymous boundary adds its own
 //! requirement that the producer's file environment is supported (no `with`, `eval`, escaped
 //! identifiers or parse errors, nested `import =`, and the same for the files it re-exports

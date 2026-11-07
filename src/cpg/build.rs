@@ -655,7 +655,7 @@ impl CodePropertyGraph {
                 );
 
             // P8 F1 fix (codex re-review BLOCKER): Rust macro-arg call
-            // extraction (`rust_macro_args::is_transparent_arg_macro`)
+            // extraction (`call_graph::rust::macro_args::is_transparent_arg_macro`)
             // depends on the repo-wide macro shadow set, but this
             // incremental path only re-extracts `changed_files` below —
             // `remove_files` RETAINS every unchanged file's call sites and

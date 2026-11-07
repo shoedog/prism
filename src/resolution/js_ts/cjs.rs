@@ -10,7 +10,7 @@
 //! file has the recorded name and line span. Anything short of that proves nothing (`None`) and
 //! the site continues as it did before this route existed. A caller that is itself an anonymous
 //! or module-level owner is not admitted here: its Exact needs the anonymous certificate, which
-//! `js_anonymous/cjs.rs` issues (#597) after the same producer proof.
+//! `resolution/js_ts/anonymous/cjs.rs` issues (#597) after the same producer proof.
 use crate::call_graph::JsLocalBinding;
 use crate::resolution::{
     exact, CallGraph, CallSite, FunctionId, ResolutionKind, ResolutionOutcome,

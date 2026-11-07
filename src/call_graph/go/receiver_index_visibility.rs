@@ -1,8 +1,10 @@
 //! Exact visibility for Go cross-file receiver facts.
 
 use super::receiver_index::{GoReturnTypes, GoTypedFact};
-use crate::resolution::go::owner_partition::{exact_declaration_visibility, GoOwnerReferenceMode};
-use crate::resolution::resolve_go_receiver_owner_identity;
+use crate::resolution::go::owner_partition::{
+    exact_declaration_visibility, GoOwnerReferenceMode, GoPartitionSelection,
+};
+use crate::resolution::{resolve_go_receiver_owner_identity, GoOwnerIdentity};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Resolve a call-RHS callee reference (`newDemux` or `pkg.New`, as written)
@@ -16,8 +18,7 @@ pub(crate) fn resolve_go_return_type_call(
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
     return_types: &GoReturnTypes,
     go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
-) -> crate::resolution::go::owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity>
-{
+) -> GoPartitionSelection<GoOwnerIdentity> {
     let Some(identity) = resolve_go_receiver_owner_identity(
         callee_text,
         caller_file,
@@ -25,7 +26,7 @@ pub(crate) fn resolve_go_return_type_call(
         package_basenames,
         go_file_profiles,
     ) else {
-        return crate::resolution::go::owner_partition::GoPartitionSelection {
+        return GoPartitionSelection {
             value: None,
             evidence: crate::resolution::go::owner_partition::GoPartitionEvidence {
                 uncertain: true,
@@ -53,13 +54,13 @@ pub(crate) fn resolve_go_return_type_call(
 /// `app.Gadget` by the caller that happens to use the widget.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct GoResolvedStructField {
-    pub owner: crate::resolution::GoOwnerIdentity,
+    pub owner: GoOwnerIdentity,
     pub raw_type: String,
     pub embedded: bool,
 }
 
 pub(crate) fn resolve_go_struct_field_owner(
-    owner: &crate::resolution::GoOwnerIdentity,
+    owner: &GoOwnerIdentity,
     caller_file: &str,
     mode: GoOwnerReferenceMode,
     field_name: &str,
@@ -67,7 +68,7 @@ pub(crate) fn resolve_go_struct_field_owner(
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
     go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
-) -> crate::resolution::go::owner_partition::GoPartitionSelection<GoResolvedStructField> {
+) -> GoPartitionSelection<GoResolvedStructField> {
     let all_values: BTreeSet<Option<String>> = declarations
         .iter()
         .map(|declaration| declaration.fields.get(field_name).cloned())
@@ -90,7 +91,7 @@ pub(crate) fn resolve_go_struct_field_owner(
         evidence.visible_declarations += 1;
         if !exact {
             evidence.uncertain = true;
-            return crate::resolution::go::owner_partition::GoPartitionSelection {
+            return GoPartitionSelection {
                 value: None,
                 evidence,
             };
@@ -108,7 +109,7 @@ pub(crate) fn resolve_go_struct_field_owner(
             go_file_profiles,
         ) else {
             evidence.uncertain = true;
-            return crate::resolution::go::owner_partition::GoPartitionSelection {
+            return GoPartitionSelection {
                 value: None,
                 evidence,
             };
@@ -122,7 +123,7 @@ pub(crate) fn resolve_go_struct_field_owner(
     evidence.distinct_visible_values = visible_values.len().max(resolved_fields.len());
     evidence.conflict = visible_values.len() > 1 || resolved_fields.len() > 1;
     if evidence.conflict {
-        return crate::resolution::go::owner_partition::GoPartitionSelection {
+        return GoPartitionSelection {
             value: None,
             evidence,
         };
@@ -131,22 +132,21 @@ pub(crate) fn resolve_go_struct_field_owner(
         && evidence.filtered_declarations > 0
         && visible_values.len() == 1
         && resolved_fields.len() == 1;
-    crate::resolution::go::owner_partition::GoPartitionSelection {
+    GoPartitionSelection {
         value: resolved_fields.into_iter().next(),
         evidence,
     }
 }
 
 fn unique_visible_return_owner(
-    owner: &crate::resolution::GoOwnerIdentity,
+    owner: &GoOwnerIdentity,
     caller_file: &str,
     mode: GoOwnerReferenceMode,
     facts: &BTreeSet<GoTypedFact>,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
     go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
-) -> crate::resolution::go::owner_partition::GoPartitionSelection<crate::resolution::GoOwnerIdentity>
-{
+) -> GoPartitionSelection<GoOwnerIdentity> {
     let all_values: BTreeSet<_> = facts.iter().map(|fact| fact.ty.clone()).collect();
     let mut evidence = crate::resolution::go::owner_partition::GoPartitionEvidence::default();
     let mut owners = BTreeSet::new();
@@ -166,7 +166,7 @@ fn unique_visible_return_owner(
         evidence.visible_declarations += 1;
         if !exact {
             evidence.uncertain = true;
-            return crate::resolution::go::owner_partition::GoPartitionSelection {
+            return GoPartitionSelection {
                 value: None,
                 evidence,
             };
@@ -179,7 +179,7 @@ fn unique_visible_return_owner(
             go_file_profiles,
         ) else {
             evidence.uncertain = true;
-            return crate::resolution::go::owner_partition::GoPartitionSelection {
+            return GoPartitionSelection {
                 value: None,
                 evidence,
             };
@@ -190,7 +190,7 @@ fn unique_visible_return_owner(
     evidence.distinct_visible_values = visible_types.len().max(owners.len());
     evidence.conflict = visible_types.len() > 1 || owners.len() > 1;
     if evidence.conflict {
-        return crate::resolution::go::owner_partition::GoPartitionSelection {
+        return GoPartitionSelection {
             value: None,
             evidence,
         };
@@ -199,7 +199,7 @@ fn unique_visible_return_owner(
         && evidence.filtered_declarations > 0
         && visible_types.len() == 1
         && owners.len() == 1;
-    crate::resolution::go::owner_partition::GoPartitionSelection {
+    GoPartitionSelection {
         value: owners.into_iter().next(),
         evidence,
     }
@@ -207,7 +207,7 @@ fn unique_visible_return_owner(
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct GoResolvedPackageVarType {
-    pub owner: crate::resolution::GoOwnerIdentity,
+    pub owner: GoOwnerIdentity,
     pub raw_type: String,
 }
 
@@ -217,19 +217,19 @@ pub(crate) fn unique_visible_package_var_type(
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
     go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
-) -> crate::resolution::go::owner_partition::GoPartitionSelection<GoResolvedPackageVarType> {
+) -> GoPartitionSelection<GoResolvedPackageVarType> {
     let all_values: BTreeSet<_> = facts.iter().map(|fact| fact.ty.clone()).collect();
     let mut evidence = crate::resolution::go::owner_partition::GoPartitionEvidence::default();
     let Some(caller_profile) = go_file_profiles.get(caller_file) else {
         evidence.uncertain = true;
-        return crate::resolution::go::owner_partition::GoPartitionSelection {
+        return GoPartitionSelection {
             value: None,
             evidence,
         };
     };
     if !crate::resolution::go::build_profile::profile_allows_exact(Some(caller_profile)) {
         evidence.uncertain = true;
-        return crate::resolution::go::owner_partition::GoPartitionSelection {
+        return GoPartitionSelection {
             value: None,
             evidence,
         };
@@ -242,14 +242,14 @@ pub(crate) fn unique_visible_package_var_type(
         if crate::resolution::dir_of(caller_file) != crate::resolution::dir_of(&fact.defining_file)
         {
             evidence.uncertain = true;
-            return crate::resolution::go::owner_partition::GoPartitionSelection {
+            return GoPartitionSelection {
                 value: None,
                 evidence,
             };
         }
         let Some(defining_profile) = go_file_profiles.get(&fact.defining_file) else {
             evidence.uncertain = true;
-            return crate::resolution::go::owner_partition::GoPartitionSelection {
+            return GoPartitionSelection {
                 value: None,
                 evidence,
             };
@@ -268,7 +268,7 @@ pub(crate) fn unique_visible_package_var_type(
             &visibility,
         ) {
             evidence.uncertain = true;
-            return crate::resolution::go::owner_partition::GoPartitionSelection {
+            return GoPartitionSelection {
                 value: None,
                 evidence,
             };
@@ -281,7 +281,7 @@ pub(crate) fn unique_visible_package_var_type(
             go_file_profiles,
         ) else {
             evidence.uncertain = true;
-            return crate::resolution::go::owner_partition::GoPartitionSelection {
+            return GoPartitionSelection {
                 value: None,
                 evidence,
             };
@@ -296,7 +296,7 @@ pub(crate) fn unique_visible_package_var_type(
     evidence.distinct_visible_values = visible_types.len().max(owners.len());
     evidence.conflict = visible_types.len() > 1 || owners.len() > 1;
     if evidence.conflict {
-        return crate::resolution::go::owner_partition::GoPartitionSelection {
+        return GoPartitionSelection {
             value: None,
             evidence,
         };
@@ -305,7 +305,7 @@ pub(crate) fn unique_visible_package_var_type(
         && evidence.filtered_declarations > 0
         && visible_types.len() == 1
         && owners.len() == 1;
-    crate::resolution::go::owner_partition::GoPartitionSelection {
+    GoPartitionSelection {
         value: resolved.into_iter().next(),
         evidence,
     }
