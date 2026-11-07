@@ -7,13 +7,27 @@
 //!
 //! Exempt test code: any `*_test.rs` / `*_tests.rs` / `tests.rs` file, any path
 //! containing `/tests/`, comment lines (`//`, `///`, `//!`), and each
-//! `#[cfg(test)]`-gated ITEM inside a file. Scanning resumes after the item,
-//! so production code after a test module is checked.
-//! The item is found at any indentation: skip the attribute line(s), then the
-//! item line. If the item line ends with `;` (`mod x;`, `use ..;`) or is a
-//! one-line `{ .. }` item, only that line is exempt. Otherwise the item runs
-//! through the first following line that is exactly `}` or `};` at the SAME
-//! indentation as the attribute (rustfmt guarantees this for items).
+//! recognized `#[cfg(test)]`-gated ITEM inside a file. The rule fails CLOSED:
+//! when the gated construct is not recognized, nothing is exempted.
+//!
+//! After a `#[cfg(test)]` line (any indentation), skip trivia (blank lines,
+//! `//` lines) and further `#[..]` attribute lines to reach the item head. Then:
+//! - head ends with `;` (`mod x;`, `use ..;`): that line only is exempt;
+//! - head is a one-line braced item (contains `{`, ends with `}` or `};`):
+//!   that line only;
+//! - head ends with `{` and starts (after optional `pub`, `pub(crate)`,
+//!   `pub(super)`, `pub(in ..)`) with `mod`, `fn`, `impl`, `struct`, `enum`,
+//!   `union`, `trait`, `const`, `static`, `type`, `macro_rules!`,
+//!   `thread_local!`, an `<ident>! {` macro call, or `unsafe`/`async`/`extern`
+//!   modifiers before `fn`/`impl`/`trait`: exempt through the first later line
+//!   that is exactly `}` or `};` at the attribute's indentation. With no such
+//!   line before EOF nothing is exempt;
+//! - anything else (enum variant, struct field, match arm, expression
+//!   statement, unknown shape): nothing is exempt and scanning resumes right
+//!   after the attribute line.
+//!
+//! Scanning resumes after an exempt item, so production code after a test
+//! module is checked.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -57,23 +71,66 @@ fn indent_of(line: &str) -> usize {
     line.len() - line.trim_start().len()
 }
 
-/// Index just past the `#[cfg(test)]`-gated item whose attribute is at `attr`.
+/// Strip a leading `pub`, `pub(crate)`, `pub(super)` or `pub(in ..)`.
+fn strip_visibility(head: &str) -> &str {
+    if let Some(rest) = head.strip_prefix("pub(") {
+        return rest.split_once(')').map_or(head, |(_, r)| r.trim_start());
+    }
+    head.strip_prefix("pub ").map_or(head, str::trim_start)
+}
+
+/// Is `head` (ending with `{`) the head of a block item we recognize?
+fn is_block_item_head(head: &str) -> bool {
+    let head = strip_visibility(head.trim());
+    let words: Vec<&str> = head
+        .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '!'))
+        .filter(|w| !w.is_empty())
+        .collect();
+    let Some(first) = words.first() else {
+        return false;
+    };
+    match *first {
+        "mod" | "fn" | "impl" | "struct" | "enum" | "union" | "trait" | "const" | "static"
+        | "type" | "macro_rules!" | "thread_local!" => true,
+        "unsafe" | "async" | "extern" => {
+            words.iter().any(|w| matches!(*w, "fn" | "impl" | "trait"))
+        }
+        w => w.ends_with('!') && w.len() > 1 && head.contains("! {"),
+    }
+}
+
+/// Index at which scanning resumes after the `#[cfg(test)]` at `attr`.
+/// Fails closed: an unrecognized construct exempts nothing.
 fn skip_cfg_test_item(lines: &[&str], attr: usize) -> usize {
+    let fail_closed = attr + 1;
     let indent = indent_of(lines[attr]);
     let rest = lines[attr].trim_start()["#[cfg(test)]".len()..].trim();
     let mut item = attr;
     if rest.is_empty() {
         item += 1;
-        while item < lines.len() && lines[item].trim_start().starts_with("#[") {
-            item += 1;
+        while item < lines.len() {
+            let t = lines[item].trim_start();
+            if t.is_empty() || t.starts_with("//") || t.starts_with("#[") {
+                item += 1;
+            } else {
+                break;
+            }
+        }
+        if item >= lines.len() {
+            return fail_closed;
         }
     }
-    if item >= lines.len() {
-        return lines.len();
-    }
-    let head = lines[item].trim_end();
-    if head.ends_with(';') || (head.ends_with('}') && head.contains('{')) {
+    let head = if rest.is_empty() {
+        lines[item].trim()
+    } else {
+        rest
+    };
+    if head.ends_with(';') || (head.contains('{') && (head.ends_with('}') || head.ends_with("};")))
+    {
         return item + 1;
+    }
+    if !(head.ends_with('{') && is_block_item_head(head)) {
+        return fail_closed;
     }
     let pad = " ".repeat(indent);
     let (close, close_semi) = (format!("{pad}}}"), format!("{pad}}};"));
@@ -82,7 +139,7 @@ fn skip_cfg_test_item(lines: &[&str], attr: usize) -> usize {
             return k + 1;
         }
     }
-    lines.len()
+    fail_closed
 }
 
 /// Offending `file:line` entries for one file's text. Each
@@ -201,4 +258,64 @@ fn tests_rs_basename_is_a_test_file() {
     assert!(is_test_file("src/tests.rs"));
     assert!(!is_test_file("src/cpg/attests.rs"));
     assert!(!is_test_file("src/cpg/tests_helper.rs"));
+}
+
+fn count(text: &str) -> usize {
+    offending_lines("src/x.rs", text).len()
+}
+
+#[test]
+fn gated_enum_variant_does_not_exempt_the_rest_of_the_file() {
+    let text = format!("enum E {{\n    #[cfg(test)]\n    Test,\n}}\n{PROD}");
+    assert_eq!(count(&text), 1);
+}
+
+#[test]
+fn gated_struct_field_does_not_exempt_the_rest_of_the_file() {
+    let text = format!("struct S {{\n    #[cfg(test)]\n    seam: u8,\n}}\n{PROD}");
+    assert_eq!(count(&text), 1);
+}
+
+fn assert_only_line(text: &str, line: usize) {
+    let hits = offending_lines("src/x.rs", text);
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert!(
+        hits[0].starts_with(&format!("src/x.rs:{line}:")),
+        "{hits:?}"
+    );
+}
+
+#[test]
+fn comment_between_attribute_and_item_is_trivia() {
+    let one_line =
+        format!("#[cfg(test)]\n// Test support.\nmod t {{ use crate::algorithms::x; }}\n{PROD}");
+    assert_only_line(&one_line, 4);
+    let block = format!(
+        "#[cfg(test)]\n// Test support.\nmod t {{\n    use crate::algorithms::x;\n}}\n{PROD}"
+    );
+    assert_only_line(&block, 6);
+}
+
+#[test]
+fn blank_line_between_attribute_and_item_is_trivia() {
+    let one_line = format!("#[cfg(test)]\n\nmod t {{ use crate::algorithms::x; }}\n{PROD}");
+    assert_only_line(&one_line, 4);
+    let block = format!("#[cfg(test)]\n\nmod t {{\n    use crate::algorithms::x;\n}}\n{PROD}");
+    assert_only_line(&block, 6);
+}
+
+#[test]
+fn unclosed_gated_module_fails_closed() {
+    let text = format!("#[cfg(test)]\nmod t {{\n    fn a() {{}}\n{PROD}");
+    assert_eq!(count(&text), 1);
+}
+
+#[test]
+fn gated_impl_block_is_exempt_and_scanning_resumes() {
+    let text = format!(
+        "#[cfg(test)]\nimpl A {{\n    fn t() {{\n        algorithms::x();\n    }}\n}}\n{PROD}"
+    );
+    let hits = offending_lines("src/x.rs", &text);
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert!(hits[0].starts_with("src/x.rs:7:"), "{hits:?}");
 }
