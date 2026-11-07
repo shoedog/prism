@@ -1,7 +1,8 @@
 //! Python sanitizers for Phase 2 CWE coverage.
 //!
 //! Jinja2 default autoescape, SQL parametrization, URL allowlists, and YAML
-//! SafeLoader are sink-time decisions in `taint.rs`. These recognizers only
+//! SafeLoader are sink-time decisions in `algorithms/taint/python/sinks.rs`
+//! and `algorithms/taint/cleansing.rs`. These recognizers only
 //! cover value-transform sanitizers whose result can be treated as cleansed for
 //! the corresponding category in the existing `FlowPath.cleansed_for` model.
 
