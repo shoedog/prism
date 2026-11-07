@@ -55,7 +55,6 @@ mod executable_owner;
 pub mod finding_confidence;
 pub mod framework_entries;
 pub mod frameworks;
-mod go_statements;
 #[path = "ast/js_write_census.rs"]
 pub(crate) mod js_write_census;
 pub mod languages;

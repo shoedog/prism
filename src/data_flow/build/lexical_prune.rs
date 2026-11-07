@@ -318,7 +318,7 @@ impl<'a> LexicalFacts<'a> {
         }
         let writes = &prefixed;
         let mut child = occurrence;
-        while let Some(region) = crate::go_statements::parent(child) {
+        while let Some(region) = crate::ast::go::statements::parent(child) {
             if self.is_region(region.kind()) {
                 if let Some(write) = writes
                     .iter()
@@ -328,13 +328,13 @@ impl<'a> LexicalFacts<'a> {
                             "range_clause" | "receive_statement" | "type_switch_statement"
                         ) && !write.split_spec
                             && write.statement.end_byte() <= child.start_byte()
-                            && crate::go_statements::parent(write.statement)
+                            && crate::ast::go::statements::parent(write.statement)
                                 .is_some_and(|p| p.id() == region.id())
                     })
                     .max_by_key(|w| w.statement.start_byte())
                 {
                     let broken = self.parsed.language == Language::Go
-                        && crate::go_statements::children(region, Language::Go).any(|n| {
+                        && crate::ast::go::statements::children(region, Language::Go).any(|n| {
                             n.kind() == "labeled_statement"
                                 && write.statement.end_byte() <= n.start_byte()
                                 && n.start_byte() < child.end_byte()

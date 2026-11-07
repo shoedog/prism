@@ -778,8 +778,8 @@ re-exports, a few core methods) over `src/ast/{js_ts,go,python}/` and concern fi
 inline test modules. Language-specific code stays per layer (`<layer>/<lang>/`), never in a
 per-language crate. The former root language modules now live in their layers:
 `resolution/{go,js_ts,rust}/`, `call_graph/{go,js_ts,rust}/`, `type_providers/go/type_alias.rs`,
-`ast/js_ts/{exports,returns}.rs`, `frameworks/js_ts/react_hooks.rs` and `data_flow/terraform.rs`;
-`go_statements` moves to `ast/go/statements.rs` in the last S3 PR (#722).
+`ast/go/statements.rs`, `ast/js_ts/{exports,returns}.rs`, `frameworks/js_ts/react_hooks.rs` and
+`data_flow/terraform.rs`.
 
 ### Algorithm Dispatch
 

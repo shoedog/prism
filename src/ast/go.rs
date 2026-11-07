@@ -3,3 +3,5 @@
 mod imports;
 mod receiver_scope;
 mod registration;
+
+pub(crate) mod statements;
