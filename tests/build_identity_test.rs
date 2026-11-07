@@ -206,6 +206,74 @@ fn gitless_vendor_mutation_restore_add_delete_is_content_bound() {
     assert_restored(&baseline, &identity(root));
 }
 
+const MCP_SRC: &str = "crates/prism-mcp/src/lib.rs";
+const MCP_MANIFEST: &str = "crates/prism-mcp/Cargo.toml";
+const MCP_TEST: &str = "crates/prism-mcp/tests/mcp/main.rs";
+
+fn assert_identity_changed(before: &str, after: &str, what: &str) {
+    assert_ne!(
+        value(before, "PRISM_CACHE_BUILD_IDENTITY"),
+        value(after, "PRISM_CACHE_BUILD_IDENTITY"),
+        "{what} did not change the build identity"
+    );
+}
+
+/// An MCP-only edit must still change the identity (the shared daemon key includes it, #731 S4
+/// design 2.3 option a); the member's tests are not inputs, as `tests/mcp` was not.
+#[test]
+fn gitless_mcp_crate_sources_and_manifest_are_inputs_but_tests_are_not() {
+    let dir = fixture();
+    let root = dir.path();
+    let baseline = identity(root);
+    write(root, MCP_SRC, b"pub fn mcp() {}\n");
+    let with_src = identity(root);
+    assert_identity_changed(&baseline, &with_src, "adding crates/prism-mcp/src");
+    write(root, MCP_SRC, b"pub fn mcp() { /* edit */ }\n");
+    let edited = identity(root);
+    assert_identity_changed(&with_src, &edited, "editing crates/prism-mcp/src");
+    write(root, MCP_MANIFEST, b"[package]\nname=\"prism-mcp\"\n");
+    let with_manifest = identity(root);
+    assert_identity_changed(
+        &edited,
+        &with_manifest,
+        "adding crates/prism-mcp/Cargo.toml",
+    );
+    write(root, MCP_TEST, b"fn t() {}\n");
+    assert_restored(&with_manifest, &identity(root));
+    write(root, MCP_SRC, b"pub fn mcp() {}\n");
+    assert_identity_changed(&edited, &identity(root), "restoring the first source text");
+}
+
+#[test]
+fn tracked_mcp_crate_edit_changes_identity_and_marks_binary_inputs_dirty() {
+    let dir = fixture();
+    let root = dir.path();
+    write(root, MCP_SRC, b"pub fn mcp() {}\n");
+    write(root, MCP_MANIFEST, b"[package]\nname=\"prism-mcp\"\n");
+    write(root, MCP_TEST, b"fn t() {}\n");
+    git(root, &["init", "-q"]);
+    commit(root);
+    let clean = identity(root);
+    assert_eq!(value(&clean, "PRISM_BINARY_INPUT_DIRTY"), "0");
+    write(root, MCP_TEST, b"fn t() { /* edit */ }\n");
+    let test_edit = identity(root);
+    assert_eq!(value(&test_edit, "PRISM_BINARY_INPUT_DIRTY"), "0");
+    assert_restored(&clean, &test_edit);
+    write(root, MCP_SRC, b"pub fn mcp() { /* edit */ }\n");
+    let src_edit = identity(root);
+    assert_eq!(value(&src_edit, "PRISM_BINARY_INPUT_DIRTY"), "1");
+    assert_identity_changed(
+        &clean,
+        &src_edit,
+        "editing a tracked crates/prism-mcp source",
+    );
+    assert!(src_edit.lines().any(|line| line
+        == format!(
+            "cargo:rerun-if-changed={}/crates/prism-mcp/src",
+            root.display()
+        )));
+}
+
 #[test]
 fn vendor_root_is_watched_even_before_creation_and_docs_remain_outside_inputs() {
     let dir = fixture();
