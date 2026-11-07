@@ -8,6 +8,7 @@ use crate::ast::ParsedFile;
 use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::rust_populator::{enclosing_scope, populate_rust, RustCrateConfig};
 use crate::name_resolution::types::{ScopeId, ScopeKind};
+use crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute;
 use crate::resolution_identity::{resolve_type_path_to_type_scope, TypeKey};
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -4384,7 +4385,7 @@ impl CallGraph {
                             &site.callee_name,
                             &caller.file,
                         ),
-                        crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. }
+                        GoConcreteReceiverRoute::ConcreteDirect { .. }
                     )
                 });
                 if !direct {

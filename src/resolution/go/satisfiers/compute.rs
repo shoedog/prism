@@ -1,5 +1,6 @@
 //! Caller-dependent selection, unchanged from the pre-memo implementation.
 use super::*;
+use crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult;
 
 impl CallGraph {
     pub(in crate::resolution) fn go_compute_caller_scoped_satisfiers<'a>(
@@ -125,7 +126,7 @@ impl CallGraph {
                     concrete_owner,
                     name,
                 ) {
-                    crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult::Hit(hit) => {
+                    GoPromotedSnapshotMethodConsult::Hit(hit) => {
                         if hit.declaration.signature.as_ref().is_some_and(|candidate| {
                             crate::type_providers::go::GoTypeProvider::canon_signatures_match(
                                 candidate, signature,
@@ -139,16 +140,16 @@ impl CallGraph {
                             promoted_telemetry.signature_drop += 1;
                         }
                     }
-                    crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult::ConflictDrop => {
+                    GoPromotedSnapshotMethodConsult::ConflictDrop => {
                         promoted_telemetry.conflict_drop += 1;
                     }
-                    crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult::VariantDrop => {
+                    GoPromotedSnapshotMethodConsult::VariantDrop => {
                         promoted_telemetry.variant_drop += 1;
                     }
-                    crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult::InvariantDrop => {
+                    GoPromotedSnapshotMethodConsult::InvariantDrop => {
                         promoted_telemetry.invariant_drop += 1;
                     }
-                    crate::resolution::go::promoted_snapshot::GoPromotedSnapshotMethodConsult::Miss => {}
+                    GoPromotedSnapshotMethodConsult::Miss => {}
                 }
             }
             let value_matches = required
