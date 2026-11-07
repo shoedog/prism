@@ -4,7 +4,6 @@ use std::collections::BTreeMap;
 
 use petgraph::graph::NodeIndex;
 
-use crate::algorithms::taint::cleansed_categories_for_source;
 use crate::cpg::{
     BoundaryKind, CodePropertyGraph, OrderingWarning, Relation, ReturnFlowMode, SameLineOrderView,
     Trace,
@@ -29,6 +28,7 @@ use crate::reasoning::types::{
     Reachability, ReasoningReason, ReasoningSummary, ReasoningWarning, SanitizerSite, SinkResult,
     SinkSourceResult, SourceWarningKey,
 };
+use crate::sanitizers::matching::cleansed_categories_for_source;
 
 #[derive(Clone)]
 struct ConcreteSeed {
