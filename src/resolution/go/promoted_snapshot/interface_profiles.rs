@@ -1,15 +1,15 @@
 use super::{ComparisonKey, GoPromotedEmbeddedField, GoPromotedProfileSnapshot, RawProfile};
-use crate::go_owner_partition::{GoInterfaceDeclarations, GoStructDeclarations};
+use crate::resolution::go::owner_partition::{GoInterfaceDeclarations, GoStructDeclarations};
 use crate::resolution::GoOwnerIdentity;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) fn extend(
     raw: &mut BTreeMap<GoOwnerIdentity, Vec<RawProfile>>,
-    imports: &crate::go_type_alias::SignatureImportMemo<'_>,
+    imports: &crate::type_providers::go::type_alias::SignatureImportMemo<'_>,
     interfaces: &GoInterfaceDeclarations,
     structs: &GoStructDeclarations,
     type_declarations: &BTreeMap<GoOwnerIdentity, BTreeSet<String>>,
-    aliases: &crate::go_type_alias::GoAliasResolver,
+    aliases: &crate::type_providers::go::type_alias::GoAliasResolver,
 ) {
     for (owner, declarations) in interfaces {
         for declaration in declarations {
@@ -67,7 +67,7 @@ pub(super) fn extend(
 
 pub(super) fn local_import_paths(
     package_import_paths: &BTreeMap<String, String>,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
 ) -> BTreeMap<String, String> {
     crate::type_providers::go::GoTypeProvider::local_import_paths(package_import_paths, profiles)
 }
@@ -104,7 +104,7 @@ mod tests {
                 ParsedFile::parse("stable/s.go", "package stable\n", Language::Go).unwrap(),
             ),
         ]);
-        let (profiles, _) = crate::go_build_profile::extract_go_file_profiles(&files);
+        let (profiles, _) = crate::resolution::go::build_profile::extract_go_file_profiles(&files);
         let package_paths = BTreeMap::from([
             ("mixed/a.go".to_string(), "example.test/mixed".to_string()),
             ("mixed/b.go".to_string(), "example.test/mixed".to_string()),

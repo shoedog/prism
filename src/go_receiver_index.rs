@@ -60,7 +60,8 @@ pub fn extract_go_return_types(files: &BTreeMap<String, ParsedFile>) -> GoReturn
         if parsed.language != Language::Go {
             continue;
         }
-        let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+        let (profile, _) =
+            crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
         if profile.package_clause.trim().is_empty() {
             continue;
         }
@@ -266,12 +267,13 @@ fn is_simple_ident_text(s: &str) -> bool {
 pub struct GoReceiverFacts<'a> {
     pub return_types: &'a GoReturnTypes,
     pub package_vars: &'a BTreeMap<(String, String), BTreeSet<GoTypedFact>>,
-    pub field_types: &'a crate::go_owner_partition::GoStructDeclarations,
+    pub field_types: &'a crate::resolution::go::owner_partition::GoStructDeclarations,
     pub field_targets: &'a BTreeMap<(GoOwnerIdentity, String), crate::resolution::GoFieldTarget>,
     pub package_basenames: &'a BTreeMap<String, std::collections::BTreeSet<String>>,
     pub imports: &'a BTreeMap<String, BTreeMap<String, String>>,
-    pub go_file_profiles: &'a BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-    pub declaration_kinds: &'a crate::go_concrete_receiver::GoDeclarationKindIndex,
+    pub go_file_profiles:
+        &'a BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
+    pub declaration_kinds: &'a crate::resolution::go::concrete_receiver::GoDeclarationKindIndex,
     pub dot_import_files: &'a BTreeSet<String>,
 }
 
@@ -308,7 +310,7 @@ fn drop_receiver_prerequisite(
     reason: GoReceiverPrereqDrop,
 ) -> (
     ReceiverClassification,
-    crate::go_owner_partition::GoPartitionEvidence,
+    crate::resolution::go::owner_partition::GoPartitionEvidence,
     Option<GoReceiverPrereqDrop>,
 ) {
     classification.recovered = None;
@@ -319,21 +321,24 @@ fn drop_receiver_prerequisite(
 fn declaration_is_admissible(
     owner: &GoOwnerIdentity,
     caller_file: &str,
-    mode: crate::go_owner_partition::GoOwnerReferenceMode,
+    mode: crate::resolution::go::owner_partition::GoOwnerReferenceMode,
     facts: &GoReceiverFacts<'_>,
-) -> (bool, crate::go_owner_partition::GoPartitionEvidence) {
-    let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+) -> (
+    bool,
+    crate::resolution::go::owner_partition::GoPartitionEvidence,
+) {
+    let mut evidence = crate::resolution::go::owner_partition::GoPartitionEvidence::default();
     let Some(entry) = facts.declaration_kinds.get(owner) else {
         return (false, evidence);
     };
     if matches!(
         &entry.kind,
-        crate::go_concrete_receiver::GoDeclarationKind::AliasCyclicOrUnresolved
-            | crate::go_concrete_receiver::GoDeclarationKind::AmbiguousProfileConflict
+        crate::resolution::go::concrete_receiver::GoDeclarationKind::AliasCyclicOrUnresolved
+            | crate::resolution::go::concrete_receiver::GoDeclarationKind::AmbiguousProfileConflict
     ) {
         evidence.conflict = matches!(
             &entry.kind,
-            crate::go_concrete_receiver::GoDeclarationKind::AmbiguousProfileConflict
+            crate::resolution::go::concrete_receiver::GoDeclarationKind::AmbiguousProfileConflict
         );
         evidence.uncertain = true;
         return (false, evidence);
@@ -342,7 +347,7 @@ fn declaration_is_admissible(
         evidence.uncertain = true;
         return (false, evidence);
     };
-    let (visible, exact) = crate::go_owner_partition::exact_declaration_visibility(
+    let (visible, exact) = crate::resolution::go::owner_partition::exact_declaration_visibility(
         owner,
         caller_file,
         mode,
@@ -365,7 +370,7 @@ pub(crate) fn screen_go_receiver_prerequisites(
     facts: &GoReceiverFacts<'_>,
 ) -> (
     ReceiverClassification,
-    crate::go_owner_partition::GoPartitionEvidence,
+    crate::resolution::go::owner_partition::GoPartitionEvidence,
     Option<GoReceiverPrereqDrop>,
 ) {
     let Some(recovered) = classification.recovered.as_ref() else {
@@ -390,9 +395,9 @@ pub(crate) fn screen_go_receiver_prerequisites(
                     && profile.package_clause == owner.package_clause
             });
         let mode = if same_namespace {
-            crate::go_owner_partition::GoOwnerReferenceMode::Bare
+            crate::resolution::go::owner_partition::GoOwnerReferenceMode::Bare
         } else {
-            crate::go_owner_partition::GoOwnerReferenceMode::Qualified
+            crate::resolution::go::owner_partition::GoOwnerReferenceMode::Qualified
         };
         let (admissible, evidence) = declaration_is_admissible(owner, ctx.caller_file, mode, facts);
         if admissible {
@@ -420,8 +425,10 @@ pub(crate) fn screen_go_receiver_prerequisites(
         );
     }
 
-    let mode = crate::go_owner_partition::GoOwnerReferenceMode::from_type_text(&static_type);
-    let bare_dot_import = mode == crate::go_owner_partition::GoOwnerReferenceMode::Bare
+    let mode =
+        crate::resolution::go::owner_partition::GoOwnerReferenceMode::from_type_text(&static_type);
+    let bare_dot_import = mode
+        == crate::resolution::go::owner_partition::GoOwnerReferenceMode::Bare
         && facts.dot_import_files.contains(ctx.caller_file);
     let Some(owner) = resolve_go_receiver_owner_identity(
         &static_type,
@@ -432,7 +439,7 @@ pub(crate) fn screen_go_receiver_prerequisites(
     ) else {
         let reason = if bare_dot_import {
             GoReceiverPrereqDrop::DotImportBareUnproven
-        } else if mode == crate::go_owner_partition::GoOwnerReferenceMode::Qualified {
+        } else if mode == crate::resolution::go::owner_partition::GoOwnerReferenceMode::Qualified {
             GoReceiverPrereqDrop::StrictImportUnresolved
         } else {
             GoReceiverPrereqDrop::DeclarationUnproven
@@ -512,7 +519,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
     var_local: bool,
 ) -> (
     ReceiverClassification,
-    crate::go_owner_partition::GoPartitionEvidence,
+    crate::resolution::go::owner_partition::GoPartitionEvidence,
     GoReceiverPrereqOrigin,
 ) {
     let rctx = ReceiverCtx {
@@ -616,7 +623,7 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
             );
         }
 
-        let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+        let mut evidence = crate::resolution::go::owner_partition::GoPartitionEvidence::default();
         let recovered = candidate.recovered.as_ref().expect("checked above");
         let original_owner = recovered.owner_identity.clone().or_else(|| {
             resolve_go_receiver_owner_identity(
@@ -761,7 +768,10 @@ pub(crate) fn classify_go_receiver_expanded_with_partition(
                     facts.package_basenames,
                     facts.go_file_profiles,
                 );
-                let crate::go_owner_partition::GoPartitionSelection { value, evidence } = selection;
+                let crate::resolution::go::owner_partition::GoPartitionSelection {
+                    value,
+                    evidence,
+                } = selection;
                 let Some(resolved) = value else {
                     return (
                         ReceiverClassification {
@@ -864,10 +874,10 @@ fn classify_nested_selector(
     var_local: bool,
 ) -> (
     Option<RecoveredReceiver>,
-    crate::go_owner_partition::GoPartitionEvidence,
+    crate::resolution::go::owner_partition::GoPartitionEvidence,
     bool,
 ) {
-    let mut evidence = crate::go_owner_partition::GoPartitionEvidence::default();
+    let mut evidence = crate::resolution::go::owner_partition::GoPartitionEvidence::default();
     let Some((base_node, segments)) = decompose_go_selector_chain(ctx.receiver_expr, ctx.parsed)
     else {
         return (None, evidence, false);
@@ -934,9 +944,9 @@ fn classify_nested_selector(
                     && profile.package_clause == current_owner.package_clause
             });
         let mode = if same_namespace {
-            crate::go_owner_partition::GoOwnerReferenceMode::Bare
+            crate::resolution::go::owner_partition::GoOwnerReferenceMode::Bare
         } else {
-            crate::go_owner_partition::GoOwnerReferenceMode::Qualified
+            crate::resolution::go::owner_partition::GoOwnerReferenceMode::Qualified
         };
         let selection = crate::go_receiver_index_visibility::resolve_go_struct_field_owner(
             &current_owner,

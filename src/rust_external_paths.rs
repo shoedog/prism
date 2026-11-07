@@ -15,7 +15,7 @@ impl CallGraph {
     pub(crate) fn resolve_call_site_candidates_with_go_memo<'a>(
         &'a self,
         site: &CallSite,
-        memo: Option<&crate::resolution::go_satisfiers::GoSatisfierMemo<'a>>,
+        memo: Option<&crate::resolution::go::satisfiers::GoSatisfierMemo<'a>>,
     ) -> ResolutionOutcome<'a> {
         let mut out = self.resolve_call_site_candidates_unfiltered(site, memo);
         let Some((owners, reason)) = external_owners(self, site) else {

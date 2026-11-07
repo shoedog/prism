@@ -1,7 +1,7 @@
 //! Declaration-backed routing for recovered Go receiver types.
 
+use super::owner_partition::{GoPartitionEvidence, GoPartitionSelection};
 use crate::call_graph::CallGraph;
-use crate::go_owner_partition::{GoPartitionEvidence, GoPartitionSelection};
 use crate::resolution::GoOwnerIdentity;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -54,7 +54,7 @@ pub(crate) fn declaration_kind_index(
     declarations: &GoTypeDeclarations,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
-    file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    file_profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoDeclarationKindIndex {
     declarations
         .iter()
@@ -120,7 +120,7 @@ pub(crate) fn declaration_kind_index(
                 (Some(declaration.defining_file.clone()), kind)
             };
             let underlying_func = declaring_file.is_some()
-                && crate::go_func_type::declaration_resolves_to_func(
+                && super::func_type::declaration_resolves_to_func(
                     owner,
                     declarations,
                     imports,
@@ -164,7 +164,7 @@ fn resolve_target_text(
     declarations: &GoTypeDeclarations,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
-    file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    file_profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
     visiting: &mut BTreeSet<GoOwnerIdentity>,
 ) -> Option<ResolvedDeclaration> {
     let trimmed = target.trim();
@@ -215,7 +215,7 @@ fn resolve_declared_owner(
     declarations: &GoTypeDeclarations,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
-    file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    file_profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
     visiting: &mut BTreeSet<GoOwnerIdentity>,
 ) -> Option<ResolvedDeclaration> {
     let candidates = declarations.get(owner)?;
@@ -355,7 +355,7 @@ impl CallGraph {
             return GoConcreteReceiverRoute::Unproven;
         };
         let mode = self.go_owner_reference_mode(&receiver_owner, caller_file);
-        let (visible, exact) = crate::go_owner_partition::exact_declaration_visibility(
+        let (visible, exact) = super::owner_partition::exact_declaration_visibility(
             &receiver_owner,
             caller_file,
             mode,
@@ -492,7 +492,7 @@ impl CallGraph {
             };
         };
         let mode = self.go_owner_reference_mode(&owner, caller_file);
-        let field = crate::go_owner_partition::select_struct_field_with_mode(
+        let field = super::owner_partition::select_struct_field_with_mode(
             &owner,
             caller_file,
             mode,
@@ -525,21 +525,21 @@ impl CallGraph {
             };
         }
         match supply.value {
-            Some(crate::go_selector_supply::GoEmbeddedSelectorSupply::Concrete) => {
+            Some(super::selector_supply::GoEmbeddedSelectorSupply::Concrete) => {
                 if self.go_existing_embedding_promotion_hit(recv_ty, method_name) {
                     GoConcreteReceiverRoute::ConcretePromoted { owner }
                 } else {
                     GoConcreteReceiverRoute::ConcretePromotedDeferred { owner }
                 }
             }
-            Some(crate::go_selector_supply::GoEmbeddedSelectorSupply::Interface(
-                interface_name,
-            )) => GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
-                owner,
-                interface_name,
-                evidence: supply.evidence,
-            },
-            Some(crate::go_selector_supply::GoEmbeddedSelectorSupply::NoSelector) => {
+            Some(super::selector_supply::GoEmbeddedSelectorSupply::Interface(interface_name)) => {
+                GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                    owner,
+                    interface_name,
+                    evidence: supply.evidence,
+                }
+            }
+            Some(super::selector_supply::GoEmbeddedSelectorSupply::NoSelector) => {
                 GoConcreteReceiverRoute::ConcreteNoSelector {
                     owner,
                     evidence: supply.evidence,

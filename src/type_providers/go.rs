@@ -24,6 +24,8 @@ mod extraction_equivalence_tests;
 #[cfg(test)]
 mod extraction_import_tests;
 
+pub(crate) mod type_alias;
+
 /// Non-dispatchable, fail-closed — mints NO edge (spec §15).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GoDispatchGap {
@@ -188,7 +190,7 @@ pub struct GoTypeData {
     type_declaration_files: BTreeMap<crate::resolution::GoOwnerIdentity, BTreeSet<String>>,
     /// P17: provenance-bearing named-type declarations. Alias/defined targets
     /// retain the declaration file so canonicalization uses that file's imports.
-    type_declarations: crate::go_concrete_receiver::GoTypeDeclarations,
+    type_declarations: crate::resolution::go::concrete_receiver::GoTypeDeclarations,
     /// P5 S1: `(owner_identity, field_name)` pairs whose declared type begins
     /// with `func(`. Named-type indirection is resolved later through P17's
     /// declaration-kind graph. Package-scoped so a registration
@@ -198,13 +200,13 @@ pub struct GoTypeData {
     /// Clause-keyed, per-defining-file struct snapshots. Unlike the legacy
     /// positive-only and single-value projections, these preserve field
     /// absence and mutually exclusive declarations for consult-time filtering.
-    struct_declarations: crate::go_owner_partition::GoStructDeclarations,
+    struct_declarations: crate::resolution::go::owner_partition::GoStructDeclarations,
     /// Clause-keyed, per-defining-file interface snapshots used by S4 before
     /// any route is minted. Direct methods and embedded names remain separate
     /// so profile-aware consumers can resolve the visible declaration set.
-    interface_declarations: crate::go_owner_partition::GoInterfaceDeclarations,
+    interface_declarations: crate::resolution::go::owner_partition::GoInterfaceDeclarations,
     /// Clause-keyed method declarations for S4 shadow checks.
-    method_declarations: crate::go_owner_partition::GoMethodDeclarations,
+    method_declarations: crate::resolution::go::owner_partition::GoMethodDeclarations,
     /// P11 S2: `(owner_identity, field_name) -> raw declared field type`
     /// re-projection of every struct's `fields` (including embedded-field
     /// pseudo-entries — `GoStruct::extract_struct_fields` already names those
@@ -536,10 +538,11 @@ impl GoTypeProvider {
             embedded_interface_routes: BTreeMap::new(),
         };
 
-        let (go_file_profiles, _) = crate::go_build_profile::extract_go_file_profiles(files);
+        let (go_file_profiles, _) =
+            crate::resolution::go::build_profile::extract_go_file_profiles(files);
         let local_paths = Self::local_import_paths(package_import_paths, &go_file_profiles);
-        let imports = crate::go_type_alias::SignatureImportMemo::parallel(files, &local_paths);
-        let alias_resolver = crate::go_type_alias::GoAliasResolver::build_with_import_memo(
+        let imports = type_alias::SignatureImportMemo::parallel(files, &local_paths);
+        let alias_resolver = type_alias::GoAliasResolver::build_with_import_memo(
             files,
             package_import_paths,
             &local_paths,
@@ -580,7 +583,7 @@ impl GoTypeProvider {
 
     pub(crate) fn local_import_paths(
         package_import_paths: &BTreeMap<String, String>,
-        profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
     ) -> BTreeMap<String, String> {
         let mut ordinary_clauses = BTreeMap::<String, BTreeSet<String>>::new();
         for (path, profile) in profiles {
@@ -637,15 +640,21 @@ impl GoTypeProvider {
         self.data.field_types.clone()
     }
 
-    pub fn go_struct_declarations(&self) -> crate::go_owner_partition::GoStructDeclarations {
+    pub fn go_struct_declarations(
+        &self,
+    ) -> crate::resolution::go::owner_partition::GoStructDeclarations {
         self.data.struct_declarations.clone()
     }
 
-    pub fn go_interface_declarations(&self) -> crate::go_owner_partition::GoInterfaceDeclarations {
+    pub fn go_interface_declarations(
+        &self,
+    ) -> crate::resolution::go::owner_partition::GoInterfaceDeclarations {
         self.data.interface_declarations.clone()
     }
 
-    pub fn go_method_declarations(&self) -> crate::go_owner_partition::GoMethodDeclarations {
+    pub fn go_method_declarations(
+        &self,
+    ) -> crate::resolution::go::owner_partition::GoMethodDeclarations {
         self.data.method_declarations.clone()
     }
 
@@ -659,9 +668,9 @@ impl GoTypeProvider {
         &self,
         imports: &BTreeMap<String, BTreeMap<String, String>>,
         package_basenames: &BTreeMap<String, BTreeSet<String>>,
-        file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
-    ) -> crate::go_concrete_receiver::GoDeclarationKindIndex {
-        crate::go_concrete_receiver::declaration_kind_index(
+        file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
+    ) -> crate::resolution::go::concrete_receiver::GoDeclarationKindIndex {
+        crate::resolution::go::concrete_receiver::declaration_kind_index(
             &self.data.type_declarations,
             imports,
             package_basenames,
@@ -771,8 +780,8 @@ impl GoTypeProvider {
         t
     }
 
-    pub(crate) fn alias_telemetry(&self) -> crate::go_type_alias::GoAliasTelemetry {
-        crate::go_type_alias::GoAliasTelemetry {
+    pub(crate) fn alias_telemetry(&self) -> type_alias::GoAliasTelemetry {
+        type_alias::GoAliasTelemetry {
             expanded: self.data.alias_expanded,
             unresolved: self.data.alias_unresolved.clone(),
         }
@@ -788,7 +797,7 @@ impl GoTypeProvider {
         path: &str,
         parsed: &ParsedFile,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) {
         let root = parsed.tree.root_node();
         let mut cursor = root.walk();
@@ -827,7 +836,7 @@ impl GoTypeProvider {
         path: &str,
         parsed: &ParsedFile,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -860,7 +869,7 @@ impl GoTypeProvider {
         path: &str,
         parsed: &ParsedFile,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
@@ -876,14 +885,18 @@ impl GoTypeProvider {
         };
         if let Some(owner) = Self::record_type_declaration(data, path, &name, parsed) {
             let form = match type_node.kind() {
-                "struct_type" => crate::go_concrete_receiver::GoTypeDeclarationForm::Struct,
-                "interface_type" => crate::go_concrete_receiver::GoTypeDeclarationForm::Interface,
-                _ => crate::go_concrete_receiver::GoTypeDeclarationForm::Defined {
+                "struct_type" => {
+                    crate::resolution::go::concrete_receiver::GoTypeDeclarationForm::Struct
+                }
+                "interface_type" => {
+                    crate::resolution::go::concrete_receiver::GoTypeDeclarationForm::Interface
+                }
+                _ => crate::resolution::go::concrete_receiver::GoTypeDeclarationForm::Defined {
                     target: parsed.node_text(&type_node).trim().to_string(),
                 },
             };
             data.type_declarations.entry(owner).or_default().insert(
-                crate::go_concrete_receiver::GoTypeDeclaration {
+                crate::resolution::go::concrete_receiver::GoTypeDeclaration {
                     defining_file: path.to_string(),
                     form,
                 },
@@ -898,7 +911,8 @@ impl GoTypeProvider {
                     Self::extract_struct_fields(&type_node, parsed);
                 // P5 S1: package-scoped owner identity, distinct from the bare
                 // `name` key `data.structs` uses (spec-review MAJOR-1).
-                let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+                let (profile, _) =
+                    crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
                 let owner = (!profile.package_clause.trim().is_empty()).then(|| {
                     crate::resolution::GoOwnerIdentity {
                         package_dir: crate::resolution::dir_of(path).to_string(),
@@ -915,20 +929,22 @@ impl GoTypeProvider {
                     data.struct_declarations
                         .entry(owner.clone())
                         .or_default()
-                        .insert(crate::go_owner_partition::GoStructDeclaration {
-                            defining_file: path.to_string(),
-                            fields: fields.iter().cloned().collect(),
-                            embedded_fields: embedded
-                                .iter()
-                                .map(|e| (e.name.clone(), e.raw_type.clone()))
-                                .collect(),
-                            unresolved_embedded_fields: unresolved_embedded,
-                            embedded_types: embedded
-                                .iter()
-                                .filter(|e| !e.is_pointer && e.local_target_name().is_some())
-                                .map(|e| e.name.clone())
-                                .collect(),
-                        });
+                        .insert(
+                            crate::resolution::go::owner_partition::GoStructDeclaration {
+                                defining_file: path.to_string(),
+                                fields: fields.iter().cloned().collect(),
+                                embedded_fields: embedded
+                                    .iter()
+                                    .map(|e| (e.name.clone(), e.raw_type.clone()))
+                                    .collect(),
+                                unresolved_embedded_fields: unresolved_embedded,
+                                embedded_types: embedded
+                                    .iter()
+                                    .filter(|e| !e.is_pointer && e.local_target_name().is_some())
+                                    .map(|e| e.name.clone())
+                                    .collect(),
+                            },
+                        );
                     for (field_name, field_type) in &fields {
                         if field_type.trim_start().starts_with("func(") {
                             data.func_typed_fields
@@ -984,7 +1000,7 @@ impl GoTypeProvider {
         path: &str,
         parsed: &ParsedFile,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
         name: String,
     ) {
         let generic = Self::has_generic_syntax(declaration_node)
@@ -997,7 +1013,8 @@ impl GoTypeProvider {
             alias_resolver,
         );
         data.dispatch_overapprox.extend(overapprox);
-        let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+        let (profile, _) =
+            crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
         if !profile.package_clause.trim().is_empty() {
             let owner = crate::resolution::GoOwnerIdentity {
                 package_dir: crate::resolution::dir_of(path).to_string(),
@@ -1007,22 +1024,24 @@ impl GoTypeProvider {
             data.interface_declarations
                 .entry(owner)
                 .or_default()
-                .insert(crate::go_owner_partition::GoInterfaceDeclaration {
-                    defining_file: path.to_string(),
-                    methods: methods.keys().cloned().collect(),
-                    method_signatures: methods
-                        .iter()
-                        .filter_map(|(method, signature)| {
-                            signature
-                                .as_ref()
-                                .ok()
-                                .map(|signature| (method.clone(), signature.clone()))
-                        })
-                        .collect(),
-                    embedded_types: embedded.iter().cloned().collect(),
-                    generic,
-                    dispatchable: !generic && methods.values().all(Result::is_ok),
-                });
+                .insert(
+                    crate::resolution::go::owner_partition::GoInterfaceDeclaration {
+                        defining_file: path.to_string(),
+                        methods: methods.keys().cloned().collect(),
+                        method_signatures: methods
+                            .iter()
+                            .filter_map(|(method, signature)| {
+                                signature
+                                    .as_ref()
+                                    .ok()
+                                    .map(|signature| (method.clone(), signature.clone()))
+                            })
+                            .collect(),
+                        embedded_types: embedded.iter().cloned().collect(),
+                        generic,
+                        dispatchable: !generic && methods.values().all(Result::is_ok),
+                    },
+                );
         }
         data.interface_name_owners
             .entry(name.clone())
@@ -1046,7 +1065,8 @@ impl GoTypeProvider {
         name: &str,
         parsed: &ParsedFile,
     ) -> Option<crate::resolution::GoOwnerIdentity> {
-        let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+        let (profile, _) =
+            crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
         if profile.package_clause.trim().is_empty() {
             return None;
         }
@@ -1159,7 +1179,7 @@ impl GoTypeProvider {
         path: &str,
         parsed: &ParsedFile,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
@@ -1174,12 +1194,12 @@ impl GoTypeProvider {
         if !name.is_empty() && !target.is_empty() {
             if let Some(owner) = Self::record_type_declaration(data, path, &name, parsed) {
                 data.type_declarations.entry(owner).or_default().insert(
-                    crate::go_concrete_receiver::GoTypeDeclaration {
+                    crate::resolution::go::concrete_receiver::GoTypeDeclaration {
                         defining_file: path.to_string(),
                         form: if type_node.kind() == "interface_type" {
-                            crate::go_concrete_receiver::GoTypeDeclarationForm::Interface
+                            crate::resolution::go::concrete_receiver::GoTypeDeclarationForm::Interface
                         } else {
-                            crate::go_concrete_receiver::GoTypeDeclarationForm::Alias {
+                            crate::resolution::go::concrete_receiver::GoTypeDeclarationForm::Alias {
                                 target: target.clone(),
                             }
                         },
@@ -1301,7 +1321,7 @@ impl GoTypeProvider {
     /// entry is removed.
     fn remove_unproven_pointer_embed_pseudo_fields(
         data: &mut GoTypeData,
-        go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
     ) {
         let mut invalid = Vec::new();
         let mut proven = Vec::new();
@@ -1339,17 +1359,17 @@ impl GoTypeProvider {
 
     fn visible_struct_declaration_file(
         data: &GoTypeData,
-        go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
         embedding_owner: &crate::resolution::GoOwnerIdentity,
         target_owner: &crate::resolution::GoOwnerIdentity,
     ) -> Option<String> {
         let Some(embedding_file) = data.struct_embed_files.get(embedding_owner) else {
             return None;
         };
-        if crate::go_owner_partition::exact_declaration_visibility(
+        if crate::resolution::go::owner_partition::exact_declaration_visibility(
             embedding_owner,
             embedding_file,
-            crate::go_owner_partition::GoOwnerReferenceMode::Bare,
+            crate::resolution::go::owner_partition::GoOwnerReferenceMode::Bare,
             embedding_file,
             go_file_profiles,
         ) != (true, true)
@@ -1370,10 +1390,10 @@ impl GoTypeProvider {
         }
 
         target_files.iter().find_map(|target_file| {
-            (crate::go_owner_partition::exact_declaration_visibility(
+            (crate::resolution::go::owner_partition::exact_declaration_visibility(
                 target_owner,
                 embedding_file,
-                crate::go_owner_partition::GoOwnerReferenceMode::Bare,
+                crate::resolution::go::owner_partition::GoOwnerReferenceMode::Bare,
                 target_file,
                 go_file_profiles,
             ) == (true, true))
@@ -1383,7 +1403,7 @@ impl GoTypeProvider {
 
     fn owner_identity_has_profile_conflict(
         data: &GoTypeData,
-        go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
         owner: &crate::resolution::GoOwnerIdentity,
     ) -> bool {
         let Some(files) = data.type_declaration_files.get(owner) else {
@@ -1415,7 +1435,7 @@ impl GoTypeProvider {
         parsed: &ParsedFile,
         path: &str,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) -> (
         BTreeMap<String, Result<String, GoDispatchGap>>,
         Vec<String>,
@@ -1447,7 +1467,7 @@ impl GoTypeProvider {
         parsed: &ParsedFile,
         path: &str,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
         methods: &mut BTreeMap<String, Result<String, GoDispatchGap>>,
         embedded: &mut Vec<String>,
         overapprox: &mut Vec<GoDispatchOverApprox>,
@@ -1502,7 +1522,7 @@ impl GoTypeProvider {
         parsed: &ParsedFile,
         path: &str,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) -> Result<String, GoDispatchGap> {
         Self::canon_sig(
             node.child_by_field_name("parameters").as_ref(),
@@ -1522,22 +1542,18 @@ impl GoTypeProvider {
         parsed: &ParsedFile,
         path: &str,
         imports: &BTreeMap<String, String>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) -> Result<String, GoDispatchGap> {
         alias_resolver
             .canonicalize(node, parsed, path, imports)
             .map_err(|error| match error {
-                crate::go_type_alias::CanonTypeError::Generic => GoDispatchGap::Generic,
-                crate::go_type_alias::CanonTypeError::AnonymousInterface => {
-                    GoDispatchGap::AnonymousInterface
-                }
-                crate::go_type_alias::CanonTypeError::QualifiedTypeIdentity => {
+                type_alias::CanonTypeError::Generic => GoDispatchGap::Generic,
+                type_alias::CanonTypeError::AnonymousInterface => GoDispatchGap::AnonymousInterface,
+                type_alias::CanonTypeError::QualifiedTypeIdentity => {
                     GoDispatchGap::QualifiedTypeIdentity
                 }
-                crate::go_type_alias::CanonTypeError::UnknownCanonType => {
-                    GoDispatchGap::UnknownCanonType
-                }
-                crate::go_type_alias::CanonTypeError::Alias(_) => GoDispatchGap::AliasUnresolved,
+                type_alias::CanonTypeError::UnknownCanonType => GoDispatchGap::UnknownCanonType,
+                type_alias::CanonTypeError::Alias(_) => GoDispatchGap::AliasUnresolved,
             })
     }
 
@@ -1650,7 +1666,7 @@ impl GoTypeProvider {
         parsed: &ParsedFile,
         path: &str,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) -> Result<String, GoDispatchGap> {
         let imports = signature_imports.get();
         Self::canon_sig_with_imports(params, result, parsed, path, &imports, alias_resolver)
@@ -1662,7 +1678,7 @@ impl GoTypeProvider {
         parsed: &ParsedFile,
         path: &str,
         imports: &BTreeMap<String, String>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) -> Result<String, GoDispatchGap> {
         let ps = Self::canon_param_list(params, parsed, path, imports, alias_resolver)?;
         // result may be a single type node OR a parameter_list (multi/parenthesized).
@@ -1683,7 +1699,7 @@ impl GoTypeProvider {
         parsed: &ParsedFile,
         path: &str,
         imports: &BTreeMap<String, String>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) -> Result<Vec<String>, GoDispatchGap> {
         let mut out = Vec::new();
         let list = match list {
@@ -1753,7 +1769,7 @@ impl GoTypeProvider {
             None
         }
         let node = find(parsed.tree.root_node(), parsed, method).expect("method not found");
-        let alias_resolver = crate::go_type_alias::GoAliasResolver::empty();
+        let alias_resolver = type_alias::GoAliasResolver::empty();
         GoTypeProvider::canon_sig(
             node.child_by_field_name("parameters").as_ref(),
             node.child_by_field_name("result").as_ref(),
@@ -1789,7 +1805,7 @@ impl GoTypeProvider {
         path: &str,
         parsed: &ParsedFile,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) {
         let name_node = match node.child_by_field_name("name") {
             Some(n) => n,
@@ -1809,7 +1825,8 @@ impl GoTypeProvider {
         let end_line = node.end_position().row + 1;
         let (params, variadic) = Self::count_method_params(node);
 
-        let (profile, _) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+        let (profile, _) =
+            crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
         if !profile.package_clause.trim().is_empty() {
             data.method_declarations
                 .entry(crate::resolution::GoOwnerIdentity {
@@ -1818,19 +1835,21 @@ impl GoTypeProvider {
                     name: receiver_type.clone(),
                 })
                 .or_default()
-                .insert(crate::go_owner_partition::GoMethodDeclaration {
-                    defining_file: path.to_string(),
-                    method_name: name.clone(),
-                    signature: sig.clone().ok(),
-                    generic,
-                    is_pointer_receiver: is_pointer,
-                    function_id: FunctionId {
-                        name: name.clone(),
-                        file: path.to_string(),
-                        start_line,
-                        end_line,
+                .insert(
+                    crate::resolution::go::owner_partition::GoMethodDeclaration {
+                        defining_file: path.to_string(),
+                        method_name: name.clone(),
+                        signature: sig.clone().ok(),
+                        generic,
+                        is_pointer_receiver: is_pointer,
+                        function_id: FunctionId {
+                            name: name.clone(),
+                            file: path.to_string(),
+                            start_line,
+                            end_line,
+                        },
                     },
-                });
+                );
         }
 
         data.methods
@@ -1907,7 +1926,7 @@ impl GoTypeProvider {
         parsed: &ParsedFile,
         path: &str,
         signature_imports: &FileSignatureImports<'_>,
-        alias_resolver: &crate::go_type_alias::GoAliasResolver,
+        alias_resolver: &type_alias::GoAliasResolver,
     ) -> Result<String, GoDispatchGap> {
         Self::canon_sig(
             node.child_by_field_name("parameters").as_ref(),

@@ -181,7 +181,7 @@ pub(crate) fn exact_declaration_visibility(
     caller_file: &str,
     mode: GoOwnerReferenceMode,
     defining_file: &str,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> (bool, bool) {
     let (Some(caller), Some(defining)) = (profiles.get(caller_file), profiles.get(defining_file))
     else {
@@ -200,10 +200,10 @@ pub(crate) fn exact_declaration_visibility(
         target_caller.package_clause = owner.package_clause.clone();
     }
     let visibility =
-        crate::go_build_profile::go_same_package_visible_detailed(&target_caller, defining);
+        super::build_profile::go_same_package_visible_detailed(&target_caller, defining);
     let exact = visibility.visible
-        && crate::go_build_profile::profile_allows_exact(Some(caller))
-        && crate::go_build_profile::visibility_allows_exact(Some(defining), &visibility);
+        && super::build_profile::profile_allows_exact(Some(caller))
+        && super::build_profile::visibility_allows_exact(Some(defining), &visibility);
     (visibility.visible, exact)
 }
 
@@ -213,7 +213,7 @@ pub(crate) fn exact_declaration_visibility(
 pub(crate) fn exact_cross_package_visibility(
     caller_file: &str,
     defining_file: &str,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> (bool, bool) {
     visibility::uncached(caller_file, defining_file, profiles)
 }
@@ -224,7 +224,7 @@ pub(crate) fn exact_cross_package_visibility(
 fn exact_registration_visibility(
     caller_file: &str,
     registration_file: &str,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> (bool, bool) {
     visibility::uncached(caller_file, registration_file, profiles)
 }
@@ -238,7 +238,7 @@ pub fn select_profiled_values<'a, T, I>(
     caller_file: &str,
     owner_type_text: &str,
     facts: I,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<BTreeSet<T>>
 where
     T: Clone + Ord,
@@ -253,7 +253,7 @@ pub(crate) fn select_profiled_values_with_mode<'a, T, I>(
     caller_file: &str,
     mode: GoOwnerReferenceMode,
     facts: I,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<BTreeSet<T>>
 where
     T: Clone + Ord,
@@ -275,7 +275,7 @@ where
 pub fn select_registration_values<'a, T, I>(
     caller_file: &str,
     facts: I,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<BTreeSet<T>>
 where
     T: Clone + Ord,
@@ -297,7 +297,7 @@ enum ProfileComparison {
 
 fn select_values_by_visibility<'a, T, I, F>(
     facts: I,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
     comparison: ProfileComparison,
     mut visibility: F,
 ) -> GoPartitionSelection<BTreeSet<T>>
@@ -307,9 +307,9 @@ where
     F: FnMut(&str) -> (bool, bool),
 {
     let mut evidence = GoPartitionEvidence::default();
-    let mut all_groups: BTreeMap<crate::go_build_profile::GoBuildProfile, BTreeSet<T>> =
+    let mut all_groups: BTreeMap<super::build_profile::GoBuildProfile, BTreeSet<T>> =
         BTreeMap::new();
-    let mut visible_groups: BTreeMap<crate::go_build_profile::GoBuildProfile, BTreeSet<T>> =
+    let mut visible_groups: BTreeMap<super::build_profile::GoBuildProfile, BTreeSet<T>> =
         BTreeMap::new();
     for (defining_file, value) in facts {
         let Some(profile) = profiles.get(defining_file) else {
@@ -352,11 +352,8 @@ where
                 right_profile.package_clause.clear();
             }
             let overlap =
-                crate::go_build_profile::go_same_package_visible(&left_profile, &right_profile)
-                    || crate::go_build_profile::go_same_package_visible(
-                        &right_profile,
-                        &left_profile,
-                    );
+                super::build_profile::go_same_package_visible(&left_profile, &right_profile)
+                    || super::build_profile::go_same_package_visible(&right_profile, &left_profile);
             if !overlap && left_values != right_values {
                 evidence.conflict = true;
                 return GoPartitionSelection {
@@ -385,7 +382,7 @@ pub fn select_struct_field(
     owner_type_text: &str,
     field_name: &str,
     declarations: &BTreeSet<GoStructDeclaration>,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<String> {
     select_struct_field_with_mode(
         owner,
@@ -403,7 +400,7 @@ pub fn select_struct_field_with_mode(
     mode: GoOwnerReferenceMode,
     field_name: &str,
     declarations: &BTreeSet<GoStructDeclaration>,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> GoPartitionSelection<String> {
     let all_values: BTreeSet<Option<String>> = declarations
         .iter()
@@ -449,7 +446,7 @@ pub fn select_struct_field_with_mode(
     }
 }
 
-pub use crate::go_owner_partition_s4::{
+pub use super::owner_partition_s4::{
     select_embedded_interface_route, select_embedded_interface_route_with_mode,
     select_interface_presence_with_mode, select_interface_signatures,
     select_interface_signatures_with_mode, select_own_method, select_own_method_with_mode,
@@ -461,7 +458,7 @@ pub use crate::go_owner_partition_s4::{
 pub(crate) fn reference_cross_package_visibility(
     caller_file: &str,
     defining_file: &str,
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, super::build_profile::GoBuildProfile>,
 ) -> (bool, bool) {
     let (Some(caller), Some(defining)) = (profiles.get(caller_file), profiles.get(defining_file))
     else {
@@ -476,9 +473,9 @@ pub(crate) fn reference_cross_package_visibility(
     let mut target_caller = caller.clone();
     target_caller.package_clause = defining.package_clause.clone();
     let visibility =
-        crate::go_build_profile::go_same_package_visible_detailed(&target_caller, defining);
+        super::build_profile::go_same_package_visible_detailed(&target_caller, defining);
     let exact = visibility.visible
-        && crate::go_build_profile::profile_allows_exact(Some(caller))
-        && crate::go_build_profile::visibility_allows_exact(Some(defining), &visibility);
+        && super::build_profile::profile_allows_exact(Some(caller))
+        && super::build_profile::visibility_allows_exact(Some(defining), &visibility);
     (visibility.visible, exact)
 }

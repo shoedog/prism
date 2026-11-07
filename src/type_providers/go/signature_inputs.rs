@@ -1,6 +1,6 @@
 //! Reuse the phase's import scans for both aliases and signatures.
+use super::type_alias::SignatureImportMemo;
 use crate::ast::ParsedFile;
-use crate::go_type_alias::SignatureImportMemo;
 use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::collections::BTreeMap;
@@ -36,7 +36,7 @@ impl<'a> FileSignatureImports<'a> {
     }
 
     fn scan(&self) -> BTreeMap<String, String> {
-        crate::go_type_alias::signature_imports(self.parsed, self.local_import_path)
+        super::type_alias::signature_imports(self.parsed, self.local_import_path)
     }
 
     pub(super) fn get(&self) -> Cow<'_, BTreeMap<String, String>> {
@@ -59,7 +59,7 @@ pub(super) fn extract_file(
     path: &str,
     parsed: &ParsedFile,
     memo: &SignatureImportMemo<'_>,
-    aliases: &crate::go_type_alias::GoAliasResolver,
+    aliases: &super::type_alias::GoAliasResolver,
     mode: ImportScan,
 ) {
     let mut imports = FileSignatureImports::new(parsed, None, mode);
@@ -68,4 +68,4 @@ pub(super) fn extract_file(
 }
 
 #[cfg(test)]
-pub(super) use crate::go_type_alias::import_memo::measured;
+pub(super) use super::type_alias::import_memo::measured;

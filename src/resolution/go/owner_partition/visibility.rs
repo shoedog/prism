@@ -1,5 +1,5 @@
 //! Clone-free caller-to-declaration build/test visibility.
-use crate::go_build_profile::{self, GoBuildProfile};
+use crate::resolution::go::build_profile::{self as go_build_profile, GoBuildProfile};
 use std::collections::BTreeMap;
 
 #[cfg(test)]

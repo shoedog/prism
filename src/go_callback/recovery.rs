@@ -13,10 +13,11 @@ pub(super) struct RecoveryFacts<'a> {
 impl<'a> RecoveryFacts<'a> {
     pub(super) fn new(
         files: &'a BTreeMap<String, ParsedFile>,
-        profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
     ) -> Self {
         #[cfg(test)]
-        if crate::go_type_alias::import_memo::parallel::serial_reference_enabled() {
+        if crate::type_providers::go::type_alias::import_memo::parallel::serial_reference_enabled()
+        {
             return Self {
                 rows: BTreeMap::new(),
                 serial: true,

@@ -1,6 +1,6 @@
 // Frozen c84f3769 declaration loops; only shared unchanged helpers are reused.
 use super::*;
-use crate::go_type_alias::import_memo::reference::signature_imports_reference;
+use crate::type_providers::go::type_alias::import_memo::reference::signature_imports_reference;
 
 pub(super) fn build_reference(
     files: &BTreeMap<String, ParsedFile>,
@@ -18,7 +18,7 @@ pub(super) fn build_reference(
     recover_error_structs(files, profiles, &mut recovered_structs);
     let structs = &recovered_structs;
     let local_import_paths = interface_profiles::local_import_paths(package_import_paths, profiles);
-    let aliases = crate::go_type_alias::GoAliasResolver::build(
+    let aliases = crate::type_providers::go::type_alias::GoAliasResolver::build(
         files,
         package_import_paths,
         &local_import_paths,
@@ -220,7 +220,7 @@ fn extend_interfaces(
     interfaces: &GoInterfaceDeclarations,
     structs: &GoStructDeclarations,
     type_declarations: &BTreeMap<GoOwnerIdentity, BTreeSet<String>>,
-    aliases: &crate::go_type_alias::GoAliasResolver,
+    aliases: &crate::type_providers::go::type_alias::GoAliasResolver,
 ) {
     for (owner, declarations) in interfaces {
         for declaration in declarations {

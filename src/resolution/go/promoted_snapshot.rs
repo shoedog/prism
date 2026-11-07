@@ -3,13 +3,13 @@
 //! Resolution consults this serialized snapshot for concrete promoted selectors
 //! that the existing promotion indexes defer.
 
-use crate::ast::ParsedFile;
-use crate::call_graph::FunctionId;
-use crate::go_build_profile::GoBuildProfile;
-use crate::go_owner_partition::{
+use super::build_profile::GoBuildProfile;
+use super::owner_partition::{
     exact_declaration_visibility, GoInterfaceDeclarations, GoMethodDeclaration,
     GoMethodDeclarations, GoOwnerReferenceMode, GoStructDeclarations,
 };
+use crate::ast::ParsedFile;
+use crate::call_graph::FunctionId;
 use crate::resolution::GoOwnerIdentity;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -225,8 +225,11 @@ pub(crate) fn build(
     recover_error_structs(files, profiles, &mut recovered_structs);
     let structs = &recovered_structs;
     let local_import_paths = interface_profiles::local_import_paths(package_import_paths, profiles);
-    let imports = crate::go_type_alias::SignatureImportMemo::parallel(files, &local_import_paths);
-    let aliases = crate::go_type_alias::GoAliasResolver::build_with_import_memo(
+    let imports = crate::type_providers::go::type_alias::SignatureImportMemo::parallel(
+        files,
+        &local_import_paths,
+    );
+    let aliases = crate::type_providers::go::type_alias::GoAliasResolver::build_with_import_memo(
         files,
         package_import_paths,
         &local_import_paths,
@@ -466,7 +469,7 @@ fn recover_error_structs(
                         continue;
                     }
                     structs.entry(owner).or_default().insert(
-                        crate::go_owner_partition::GoStructDeclaration {
+                        super::owner_partition::GoStructDeclaration {
                             defining_file: path.clone(),
                             fields: BTreeMap::new(),
                             embedded_fields: BTreeMap::new(),

@@ -685,7 +685,7 @@ pub struct CallGraph {
     /// P13: per-Go-file package/build profile facts used only to partition
     /// same-directory same-name candidates at resolution consult sites.
     #[serde(default)]
-    pub go_file_profiles: BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    pub go_file_profiles: BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
     /// P13 telemetry: files whose build expression was unparsed. Stored
     /// per-file so incremental remove/merge preserves exact counts.
     #[serde(default)]
@@ -721,18 +721,20 @@ pub struct CallGraph {
     /// Owner/profile-keyed promoted-selector facts, serialized for cache parity
     /// and consulted by deferred concrete promoted-selector routing.
     #[serde(default)]
-    go_promoted_selector_snapshot: crate::go_promoted_snapshot::GoPromotedSelectorSnapshot,
+    go_promoted_selector_snapshot:
+        crate::resolution::go::promoted_snapshot::GoPromotedSelectorSnapshot,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with
     /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
     #[serde(default)]
-    pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
+    pub go_owner_identity_partition:
+        crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry,
     /// P10 build-time S2 decisions keyed by their source call site. `call-stats`
     /// coalesces this with the same site's runtime S4/P5/direct-method decision
     /// so `affected_sites` is a cardinality, not a count of pipeline stages.
     #[serde(default)]
     pub(crate) go_owner_identity_partition_sites: BTreeMap<
-        crate::go_owner_partition::GoOwnerPartitionSiteKey,
-        crate::go_owner_partition::GoOwnerPartitionTelemetry,
+        crate::resolution::go::owner_partition::GoOwnerPartitionSiteKey,
+        crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry,
     >,
     /// P13 telemetry: `resolve_go_bare_value_ref` saw multiple same-package
     /// value candidates before profile filtering.
@@ -838,11 +840,11 @@ pub struct CallGraph {
     /// presence/absence and raw type remain attached to the defining file so
     /// receiver recovery can filter build profiles before requiring one value.
     #[serde(default)]
-    pub go_field_types: crate::go_owner_partition::GoStructDeclarations,
+    pub go_field_types: crate::resolution::go::owner_partition::GoStructDeclarations,
     /// P17: serialized declaration-kind proof used by the shared recovered-Go
     /// receiver route. Exact CPG hits must retain the same R1/R2/R3 verdict.
     #[serde(default)]
-    pub go_declaration_kind_index: crate::go_concrete_receiver::GoDeclarationKindIndex,
+    pub go_declaration_kind_index: crate::resolution::go::concrete_receiver::GoDeclarationKindIndex,
     /// P17 compatibility snapshot showing a concrete selector is supplied by
     /// embedding. The shared route separately checks the existing owner-index
     /// promotion lane before deferring a newly recovered miss.
@@ -851,9 +853,9 @@ pub struct CallGraph {
     /// P10 S4 interface and method declaration provenance, captured from the
     /// provider alongside `go_field_types` for exact consult-time routing.
     #[serde(default)]
-    pub go_interface_declarations: crate::go_owner_partition::GoInterfaceDeclarations,
+    pub go_interface_declarations: crate::resolution::go::owner_partition::GoInterfaceDeclarations,
     #[serde(default)]
-    pub go_method_declarations: crate::go_owner_partition::GoMethodDeclarations,
+    pub go_method_declarations: crate::resolution::go::owner_partition::GoMethodDeclarations,
     /// P10 S4: RTA admission keys used by snapshot-derived interface dispatch.
     #[serde(default)]
     pub go_interface_live_types: BTreeSet<String>,
@@ -1010,7 +1012,7 @@ impl CallGraph {
     /// Read-only access to the serialized promoted-selector foundation facts.
     pub fn go_promoted_selector_snapshot(
         &self,
-    ) -> &crate::go_promoted_snapshot::GoPromotedSelectorSnapshot {
+    ) -> &crate::resolution::go::promoted_snapshot::GoPromotedSelectorSnapshot {
         &self.go_promoted_selector_snapshot
     }
 
@@ -3709,7 +3711,7 @@ impl CallGraph {
         self.go_method_declarations = provider.go_method_declarations();
         self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
         let go_type_declaration_files = provider.go_type_declaration_files();
-        self.go_promoted_selector_snapshot = crate::go_promoted_snapshot::build(
+        self.go_promoted_selector_snapshot = crate::resolution::go::promoted_snapshot::build(
             files,
             &package_import_paths.paths,
             &self.go_file_profiles,
@@ -3951,7 +3953,7 @@ impl CallGraph {
         let Some(declarations) = self.go_field_types.get(&owner) else {
             return Err(());
         };
-        let selected = crate::go_owner_partition::select_struct_field(
+        let selected = crate::resolution::go::owner_partition::select_struct_field(
             &owner,
             caller_file,
             owner_type_text,
@@ -4175,12 +4177,12 @@ impl CallGraph {
                     .or_default() += 1;
             }
             let mut site_telemetry =
-                crate::go_owner_partition::GoOwnerPartitionTelemetry::default();
+                crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry::default();
             site_telemetry.observe(evidence, 1);
             self.go_owner_identity_partition.merge(site_telemetry);
             if site_telemetry.affected_sites() > 0 {
                 self.go_owner_identity_partition_sites.insert(
-                    crate::go_owner_partition::site_key(&old_site),
+                    crate::resolution::go::owner_partition::site_key(&old_site),
                     site_telemetry,
                 );
             }
@@ -4270,7 +4272,7 @@ impl CallGraph {
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
-        crate::go_owner_partition::GoPartitionEvidence,
+        crate::resolution::go::owner_partition::GoPartitionEvidence,
         Option<crate::go_receiver_index::GoReceiverPrereqDrop>,
     )> {
         use rayon::prelude::*;
@@ -4307,7 +4309,7 @@ impl CallGraph {
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
-        crate::go_owner_partition::GoPartitionEvidence,
+        crate::resolution::go::owner_partition::GoPartitionEvidence,
         Option<crate::go_receiver_index::GoReceiverPrereqDrop>,
     )> {
         let mut out = Vec::new();
@@ -4384,7 +4386,7 @@ impl CallGraph {
                             &site.callee_name,
                             &caller.file,
                         ),
-                        crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. }
+                        crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. }
                     )
                 });
                 if !direct {
@@ -4684,7 +4686,7 @@ impl CallGraph {
     fn extract_go_build_profiles<'a>(
         files: impl Iterator<Item = (&'a str, &'a ParsedFile)>,
     ) -> (
-        BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
         BTreeMap<String, usize>,
     ) {
         let mut profiles = BTreeMap::new();
@@ -4693,7 +4695,8 @@ impl CallGraph {
             if parsed.language != crate::languages::Language::Go {
                 continue;
             }
-            let (profile, count) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+            let (profile, count) =
+                crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
             profiles.insert(path.to_string(), profile);
             if count > 0 {
                 unparsed.insert(path.to_string(), count);

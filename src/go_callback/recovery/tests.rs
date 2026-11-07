@@ -1,5 +1,5 @@
 use super::*;
-use crate::go_type_alias::import_memo::parallel::with_serial_reference;
+use crate::type_providers::go::type_alias::import_memo::parallel::with_serial_reference;
 
 fn fixture() -> BTreeMap<String, ParsedFile> {
     let mut files: BTreeMap<_, _> = [
@@ -31,7 +31,7 @@ fn fixture() -> BTreeMap<String, ParsedFile> {
 #[test]
 fn recovery_facts_match_recursive_reference_and_do_not_rescan() {
     let mut files = fixture();
-    let (profiles, _) = crate::go_build_profile::extract_go_file_profiles(&files);
+    let (profiles, _) = crate::resolution::go::build_profile::extract_go_file_profiles(&files);
     let (facts, scans) = measured(|| RecoveryFacts::new(&files, &profiles));
     assert_eq!(scans, 6);
     assert_eq!(facts.rows.len(), 6);
@@ -111,7 +111,7 @@ fn callback_indices_match_serial_and_scan_once_per_go_file() {
 #[test]
 fn preparation_keeps_both_path_and_profile_admission_routes() {
     let files = fixture();
-    let (mut profiles, _) = crate::go_build_profile::extract_go_file_profiles(&files);
+    let (mut profiles, _) = crate::resolution::go::build_profile::extract_go_file_profiles(&files);
     profiles.get_mut("ok/a.go").unwrap().is_test_file = true;
     profiles.get_mut("ok/a_test.go").unwrap().is_test_file = false;
     let facts = RecoveryFacts::new(&files, &profiles);

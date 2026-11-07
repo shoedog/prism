@@ -340,7 +340,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut go_bare_value_ref_ambiguous = cg.go_bare_value_ref_ambiguous;
     let mut go_build_expr_unparsed: usize = cg.go_build_profile_unparsed.values().sum();
     let mut go_owner_identity_partition =
-        crate::go_owner_partition::GoOwnerPartitionTelemetry::default();
+        crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry::default();
     // Phase-3 stratification (re-measure for slice scoping): split each kind by
     // confidence, and stratify NameOnly demotes by (recovery, method-kind). This
     // isolates the #2-addressable universe — a NameOnly demote from `combine_kind`'s
@@ -483,7 +483,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 out.telemetry.go_unproven_receiver_bare_fallback_edges;
             let receiver_partition = cg
                 .go_owner_identity_partition_sites
-                .get(&crate::go_owner_partition::site_key(site))
+                .get(&crate::resolution::go::owner_partition::site_key(site))
                 .copied()
                 .unwrap_or_default();
             let site_partition =
@@ -1380,31 +1380,31 @@ fn interface_dispatch_manifest_inner(
             let dispatch_route;
             let impls: &[FunctionId];
             match &go_route {
-                crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. } => {
+                crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. } => {
                     dispatch_route = "concrete_direct";
                     impls = &[];
                 }
-                crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromoted { .. } => {
+                crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::ConcretePromoted { .. } => {
                     dispatch_route = "concrete_promoted";
                     impls = &[];
                 }
-                crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {
+                crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {
                     owner,
                 } => {
-                    dispatch_route = match crate::go_promoted_snapshot::consult_promoted_snapshot(
+                    dispatch_route = match crate::resolution::go::promoted_snapshot::consult_promoted_snapshot(
                         cg.go_promoted_selector_snapshot(),
                         &cg.go_method_declarations,
                         owner,
                         &site.callee_name,
                     ) {
-                        crate::go_promoted_snapshot::GoPromotedSnapshotConsult::Hit(_) => {
+                        crate::resolution::go::promoted_snapshot::GoPromotedSnapshotConsult::Hit(_) => {
                             "concrete_promoted_snapshot"
                         }
                         _ => "concrete_promoted_deferred_drop",
                     };
                     impls = &[];
                 }
-                crate::go_concrete_receiver::GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
                     owner,
                     interface_name,
                     ..
@@ -1418,17 +1418,17 @@ fn interface_dispatch_manifest_inner(
                         .map(Vec::as_slice)
                         .unwrap_or(&[]);
                 }
-                crate::go_concrete_receiver::GoConcreteReceiverRoute::FuncValueField { .. } => {
+                crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::FuncValueField { .. } => {
                     dispatch_route = "func_value_field";
                     impls = &[];
                 }
-                crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteNoSelector {
+                crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::ConcreteNoSelector {
                     ..
                 } => {
                     dispatch_route = "concrete_no_selector_drop";
                     impls = &[];
                 }
-                crate::go_concrete_receiver::GoConcreteReceiverRoute::InterfaceDispatch {
+                crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::InterfaceDispatch {
                     owner,
                     interface_name,
                 } => {
@@ -1441,15 +1441,15 @@ fn interface_dispatch_manifest_inner(
                         .map(Vec::as_slice)
                         .unwrap_or(&[]);
                 }
-                crate::go_concrete_receiver::GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
+                crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
                     dispatch_route = "unproven_drop";
                     impls = &[];
                 }
-                crate::go_concrete_receiver::GoConcreteReceiverRoute::ExternalNewRecoveryDrop => {
+                crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::ExternalNewRecoveryDrop => {
                     dispatch_route = "unproven_drop";
                     impls = &[];
                 }
-                crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven => {
+                crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute::Unproven => {
                     // Retain the S4 and carried-interface screens, then route the
                     // surviving owner-bearing R3 seam through the #16 exact-owner consult.
                     let s4_route = cg.go_embedded_interface_route(

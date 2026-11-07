@@ -4,7 +4,7 @@ use rayon::prelude::*;
 
 pub(super) fn collect(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {
     #[cfg(test)]
-    if crate::go_type_alias::import_memo::parallel::serial_reference_enabled() {
+    if crate::type_providers::go::type_alias::import_memo::parallel::serial_reference_enabled() {
         return reference(files);
     }
     let mut live = BTreeSet::new();

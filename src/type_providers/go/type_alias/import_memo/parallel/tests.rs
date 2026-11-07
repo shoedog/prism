@@ -1,7 +1,9 @@
 use super::*;
 use crate::call_graph::{CallGraph, ScopeGraphBuildInputs};
-use crate::go_type_alias::import_memo::{measured, reference::signature_imports_reference};
-use crate::go_type_alias::SignatureImportMemo;
+use crate::type_providers::go::type_alias::import_memo::{
+    measured, reference::signature_imports_reference,
+};
+use crate::type_providers::go::type_alias::SignatureImportMemo;
 use sha2::{Digest, Sha256};
 
 fn fixture() -> BTreeMap<String, ParsedFile> {

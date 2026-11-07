@@ -1,9 +1,9 @@
 use prism::ast::ParsedFile;
-use prism::go_build_profile::{
+use prism::languages::Language;
+use prism::resolution::go::build_profile::{
     extract_go_file_profile, go_same_package_visible, go_same_package_visible_detailed, BuildExpr,
     GoBuildProfile,
 };
-use prism::languages::Language;
 
 fn parsed(path: &str, src: &str) -> GoBuildProfile {
     let pf = ParsedFile::parse(path, src, Language::Go).unwrap();

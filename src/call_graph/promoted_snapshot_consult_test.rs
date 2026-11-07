@@ -1,8 +1,10 @@
 use super::{CallGraph, CallSite, FunctionId};
 use crate::ast::ParsedFile;
-use crate::go_concrete_receiver::GoConcreteReceiverRoute;
-use crate::go_promoted_snapshot::{GoPromotedOwnerSnapshot, GoPromotedSnapshotVerdict};
 use crate::languages::Language;
+use crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute;
+use crate::resolution::go::promoted_snapshot::{
+    GoPromotedOwnerSnapshot, GoPromotedSnapshotVerdict,
+};
 use crate::resolution::{DropReason, ResolutionConfidence, ResolutionKind};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -153,7 +155,7 @@ fn promoted_target(cg: &CallGraph) -> FunctionId {
 
 fn mutate_target_declaration(
     mut cg: CallGraph,
-    mut mutate: impl FnMut(&mut crate::go_owner_partition::GoMethodDeclaration),
+    mut mutate: impl FnMut(&mut crate::resolution::go::owner_partition::GoMethodDeclaration),
 ) -> CallGraph {
     let target = promoted_target(&cg);
     let mut matches = 0;
