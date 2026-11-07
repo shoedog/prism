@@ -303,7 +303,8 @@ mod stream;
 /// - v155: JS/TS/TSX D3 asks reaching definitions for the node of every position (#696): an `exact` edge on
 ///   a line where a multi-line statement ends and another starts can become `NameOnly(SameLine)`; labels only.
 /// - v156: Go producer defs for range/receive `:=` targets, type-switch aliases and later var/const names; rule S drops their outer pairs (#694 slice A).
-const CACHE_VERSION: u32 = 156;
+/// - v157: Go producer defs for function-literal formals and named results; rule S keeps only the shapes whose value it cannot see, rule O treats a named result as a local (#694 slice B).
+const CACHE_VERSION: u32 = 157;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -836,7 +837,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 156);
+        assert_eq!(super::CACHE_VERSION, 157);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
