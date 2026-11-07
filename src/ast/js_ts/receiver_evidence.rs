@@ -444,7 +444,11 @@ impl ParsedFile {
         }
     }
 
-    pub(super) fn js_ts_scope_distance(&self, receiver: &Node<'_>, scope_id: usize) -> Option<usize> {
+    pub(super) fn js_ts_scope_distance(
+        &self,
+        receiver: &Node<'_>,
+        scope_id: usize,
+    ) -> Option<usize> {
         let mut current = Some(*receiver);
         let mut distance = 0usize;
         while let Some(node) = current {

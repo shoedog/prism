@@ -18,7 +18,11 @@ fn js_ts_declaration_at_top(decl: Node<'_>) -> bool {
 }
 
 impl ParsedFile {
-    pub(in crate::ast) fn collect_js_ts_parameter_bindings(&self, func_node: Node<'_>, out: &mut BTreeSet<String>) {
+    pub(in crate::ast) fn collect_js_ts_parameter_bindings(
+        &self,
+        func_node: Node<'_>,
+        out: &mut BTreeSet<String>,
+    ) {
         if let Some(params) = self.find_parameters_node(&func_node) {
             let mut cursor = params.walk();
             for child in params.children(&mut cursor) {
@@ -30,7 +34,11 @@ impl ParsedFile {
         }
     }
 
-    pub(super) fn collect_js_ts_parameter_binding_names(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+    pub(super) fn collect_js_ts_parameter_binding_names(
+        &self,
+        node: Node<'_>,
+        out: &mut BTreeSet<String>,
+    ) {
         if let Some(pattern) = node.child_by_field_name("pattern") {
             self.collect_js_ts_binding_pattern_names(pattern, out);
             return;
@@ -61,7 +69,11 @@ impl ParsedFile {
         }
     }
 
-    pub(in crate::ast) fn collect_js_ts_binding_pattern_names(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+    pub(in crate::ast) fn collect_js_ts_binding_pattern_names(
+        &self,
+        node: Node<'_>,
+        out: &mut BTreeSet<String>,
+    ) {
         match node.kind() {
             "identifier" | "shorthand_property_identifier_pattern" => {
                 let name = self.node_text(&node);
@@ -410,7 +422,11 @@ impl ParsedFile {
         None
     }
 
-    pub(in crate::ast) fn collect_js_ts_catch_binding_names(&self, node: Node<'_>, out: &mut BTreeSet<String>) {
+    pub(in crate::ast) fn collect_js_ts_catch_binding_names(
+        &self,
+        node: Node<'_>,
+        out: &mut BTreeSet<String>,
+    ) {
         if let Some(param) = node.child_by_field_name("parameter") {
             self.collect_js_ts_binding_pattern_names(param, out);
             return;

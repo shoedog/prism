@@ -6,7 +6,11 @@ use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 impl ParsedFile {
-    pub(in crate::ast) fn collect_js_imports(&self, node: Node<'_>, out: &mut BTreeMap<String, String>) {
+    pub(in crate::ast) fn collect_js_imports(
+        &self,
+        node: Node<'_>,
+        out: &mut BTreeMap<String, String>,
+    ) {
         match node.kind() {
             // ES6: `import x from './mod'` or `import { func } from './mod'`
             "import_statement" => {
@@ -486,7 +490,9 @@ impl ParsedFile {
         found
     }
 
-    pub(in crate::ast) fn js_ts_type_only_imports(&self) -> BTreeMap<String, Option<(String, String)>> {
+    pub(in crate::ast) fn js_ts_type_only_imports(
+        &self,
+    ) -> BTreeMap<String, Option<(String, String)>> {
         let mut imports = BTreeMap::new();
         if !matches!(self.language, Language::TypeScript | Language::Tsx)
             || self.tree.root_node().has_error()
