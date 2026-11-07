@@ -25,7 +25,7 @@ use super::{
 };
 use crate::ast::ParsedFile;
 use crate::call_graph::CallSite;
-use crate::go_module_graph::GoModuleGraph;
+use crate::call_graph::go::module_graph::GoModuleGraph;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 

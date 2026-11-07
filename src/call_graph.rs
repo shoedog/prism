@@ -465,15 +465,15 @@ pub struct CallGraph {
     #[serde(default)]
     pub level3_indirect_resolved: usize,
     #[serde(default)]
-    pub(crate) go_level3_b1_telemetry: crate::go_callback::GoLevel3Telemetry,
+    pub(crate) go_level3_b1_telemetry: go::callback::GoLevel3Telemetry,
     /// Strict callable parameter signatures for non-test Go free functions.
     /// Whole-program derived with interface dispatch; direct subsets leave it empty.
     #[serde(default)]
-    pub(crate) go_callback_parameters: crate::go_callback::GoCallbackParameterIndex,
+    pub(crate) go_callback_parameters: go::callback::GoCallbackParameterIndex,
     /// Strict canonical signatures for non-test Go free-function declarations.
     /// Whole-program derived with interface dispatch; direct subsets leave it empty.
     #[serde(default)]
-    pub(crate) go_free_function_signatures: crate::go_callback::GoFreeFunctionSignatureIndex,
+    pub(crate) go_free_function_signatures: go::callback::GoFreeFunctionSignatureIndex,
     /// Exact per-file effective Go import paths retained for Level-3 occurrence proof.
     #[serde(default)]
     pub(crate) go_file_import_paths: BTreeMap<String, String>,
@@ -702,7 +702,7 @@ pub struct CallGraph {
     pub skipped_go_testdata_files: usize,
     /// Effective Go workspace/module/replacement graph summary for call-stats.
     #[serde(default)]
-    pub(crate) go_module_graph: crate::go_module_graph::GoModuleGraphTelemetry,
+    pub(crate) go_module_graph: go::module_graph::GoModuleGraphTelemetry,
     /// Loaded Go files whose effective import path was proven.
     #[serde(default)]
     pub(crate) go_import_path_proven_files: usize,
@@ -826,7 +826,7 @@ pub struct CallGraph {
     /// `apply_go_receiver_indices` in the post-merge rematerialization pass,
     /// never incrementally patched.
     #[serde(default)]
-    pub go_return_types: crate::go_receiver_index::GoReturnTypes,
+    pub go_return_types: go::receiver_index::GoReturnTypes,
     /// Go files containing at least one dot import. Kept separate from
     /// `imports` because `.` is evidence that a bare type may be externally
     /// supplied, not a qualifier that can be resolved by name.
@@ -870,7 +870,7 @@ pub struct CallGraph {
     /// same package); recomputed from scratch by `apply_go_receiver_indices`.
     #[serde(default)]
     pub go_package_vars:
-        BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
+        BTreeMap<(String, String), BTreeSet<go::receiver_index::GoTypedFact>>,
     /// P15a-fix1: the plain (import-path-free) `GoTypeProvider` extracted once
     /// during this build, retained (Arc-backed, cheap clone) so
     /// `CpgContext::build_registry` can reuse it instead of re-extracting.
@@ -2379,7 +2379,7 @@ impl CallGraph {
         stand_down: bool,
     ) -> (
         Vec<(FunctionId, CallSite)>,
-        crate::go_callback::GoLevel3Telemetry,
+        go::callback::GoLevel3Telemetry,
     ) {
         // Resolve indirect call sites (function pointer variables and dispatch
         // tables). Preserve the historical level ordering:
@@ -2508,7 +2508,7 @@ impl CallGraph {
 
         // Level 3: Go bare free-function values passed to proven free-function HOFs.
         // Enumerate only original source sites; synthetic sites never donate evidence.
-        let proof = crate::go_callback::GoCallbackProofContext::new(
+        let proof = go::callback::GoCallbackProofContext::new(
             files,
             &self.functions,
             &self.method_owners,
@@ -2523,7 +2523,7 @@ impl CallGraph {
                 .or_default()
                 .extend(parameters.iter().map(|parameter| parameter.slot));
         }
-        let mut telemetry = crate::go_callback::GoLevel3Telemetry::default();
+        let mut telemetry = go::callback::GoLevel3Telemetry::default();
         let mut accepted_targets = BTreeSet::new();
         let mut level3_sites = BTreeSet::new();
         for (caller, sites) in &self.calls {
@@ -2541,7 +2541,7 @@ impl CallGraph {
                     parsed.call_argument_texts_and_spans_at(site.start_byte, &site.callee_name);
                 for slot in candidate_slots {
                     telemetry.candidates += 1;
-                    let mut record = crate::go_callback::GoLevel3SiteRecord {
+                    let mut record = go::callback::GoLevel3SiteRecord {
                         inbound_caller: caller.clone(),
                         inbound_line: site.line,
                         inbound_start_byte: site.start_byte,
@@ -2558,13 +2558,13 @@ impl CallGraph {
                         accepted: false,
                         drop_reason: None,
                     };
-                    let result: Result<_, crate::go_callback::GoLevel3DropReason> = (|| {
+                    let result: Result<_, go::callback::GoLevel3DropReason> = (|| {
                         if parsed.language != crate::languages::Language::Go {
-                            return Err(crate::go_callback::GoLevel3DropReason::NonGoOrTest);
+                            return Err(go::callback::GoLevel3DropReason::NonGoOrTest);
                         }
                         if site.arg_spread {
                             return Err(
-                                crate::go_callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
+                                go::callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
                             );
                         }
                         let hof = proof.hof_at(caller, site)?;
@@ -2576,7 +2576,7 @@ impl CallGraph {
                             || resolved.resolved[0].target != &hof
                         {
                             return Err(
-                                crate::go_callback::GoLevel3DropReason::HofNotSingletonExact,
+                                go::callback::GoLevel3DropReason::HofNotSingletonExact,
                             );
                         }
                         telemetry.exact_inbound_sites += 1;
@@ -2587,32 +2587,32 @@ impl CallGraph {
                                 parameters.iter().find(|parameter| parameter.slot == *slot)
                             })
                             .ok_or(
-                                crate::go_callback::GoLevel3DropReason::MissingCallbackParameter,
+                                go::callback::GoLevel3DropReason::MissingCallbackParameter,
                             )?;
                         record.callback_parameter = Some(parameter.name.clone());
                         let (argument, span) = arguments.get(*slot).ok_or(
-                            crate::go_callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
+                            go::callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
                         )?;
                         let target =
                             proof.bare_free_function_at(caller, span.clone(), argument.trim())?;
                         record.target = Some(target.clone());
                         let target_signature =
                             self.go_free_function_signatures.get(&target).ok_or(
-                                crate::go_callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
+                                go::callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
                             )?;
-                        if !crate::go_callback::signatures_match_strict(
+                        if !go::callback::signatures_match_strict(
                             &parameter.signature,
                             target_signature,
                         ) {
                             return Err(
-                                crate::go_callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
+                                go::callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
                             );
                         }
                         let invocations =
                             proof.direct_parameter_invocations(&self.calls, &hof, parameter)?;
                         record.invocation_spans = invocations
                             .iter()
-                            .map(|invocation| crate::go_callback::GoLevel3InvocationSpan {
+                            .map(|invocation| go::callback::GoLevel3InvocationSpan {
                                 line: invocation.line,
                                 start_byte: invocation.start_byte,
                                 end_byte: invocation.end_byte,
@@ -3680,7 +3680,7 @@ impl CallGraph {
         self.go_import_path_unproven_reasons = package_import_paths.reasons.clone();
         self.go_file_import_paths = package_import_paths.paths.clone();
         let callback_indices =
-            crate::go_callback::extract_go_callback_indices(files, &package_import_paths.paths);
+            go::callback::extract_go_callback_indices(files, &package_import_paths.paths);
         self.go_callback_parameters = callback_indices.parameters;
         self.go_free_function_signatures = callback_indices.free_functions;
         let provider =
@@ -3742,19 +3742,19 @@ impl CallGraph {
     fn go_package_import_paths(
         files: &BTreeMap<String, ParsedFile>,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
-    ) -> crate::go_module_graph::GoImportPathResolution {
+    ) -> go::module_graph::GoImportPathResolution {
         let Some(scope_inputs) = scope_inputs else {
             let unproven_files = files
                 .values()
                 .filter(|parsed| parsed.language == crate::languages::Language::Go)
                 .count();
-            let mut resolution = crate::go_module_graph::GoImportPathResolution {
+            let mut resolution = go::module_graph::GoImportPathResolution {
                 unproven_files,
                 ..Default::default()
             };
             if resolution.unproven_files > 0 {
                 resolution.reasons.insert(
-                    crate::go_module_graph::GoImportPathReason::NoGoMod
+                    go::module_graph::GoImportPathReason::NoGoMod
                         .as_str()
                         .to_string(),
                     resolution.unproven_files,
@@ -3762,7 +3762,7 @@ impl CallGraph {
             }
             return resolution;
         };
-        let mut graph = crate::go_module_graph::GoModuleGraph::new(
+        let mut graph = go::module_graph::GoModuleGraph::new(
             &scope_inputs.repo_root,
             &scope_inputs.manifest_snapshot,
         );
@@ -4125,8 +4125,8 @@ impl CallGraph {
         {
             return;
         }
-        self.go_return_types = crate::go_receiver_index::extract_go_return_types(files);
-        self.go_package_vars = crate::go_receiver_index::extract_go_package_vars(files);
+        self.go_return_types = go::receiver_index::extract_go_return_types(files);
+        self.go_package_vars = go::receiver_index::extract_go_package_vars(files);
         self.go_dot_import_files = files
             .iter()
             .filter(|(_, parsed)| {
@@ -4156,7 +4156,7 @@ impl CallGraph {
         >,
     ) {
         let updates = {
-            let facts = crate::go_receiver_index::GoReceiverFacts {
+            let facts = go::receiver_index::GoReceiverFacts {
                 return_types: &self.go_return_types,
                 package_vars: &self.go_package_vars,
                 field_types: &self.go_field_types,
@@ -4266,14 +4266,14 @@ impl CallGraph {
     pub(crate) fn compute_go_receiver_updates(
         &self,
         files: &BTreeMap<String, ParsedFile>,
-        facts: &crate::go_receiver_index::GoReceiverFacts<'_>,
+        facts: &go::receiver_index::GoReceiverFacts<'_>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
     ) -> Vec<(
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
         crate::resolution::go::owner_partition::GoPartitionEvidence,
-        Option<crate::go_receiver_index::GoReceiverPrereqDrop>,
+        Option<go::receiver_index::GoReceiverPrereqDrop>,
     )> {
         use rayon::prelude::*;
 
@@ -4303,14 +4303,14 @@ impl CallGraph {
         sites: &BTreeSet<CallSite>,
         files: &BTreeMap<String, ParsedFile>,
         classifier: &dyn crate::resolution::ReceiverClassifier,
-        facts: &crate::go_receiver_index::GoReceiverFacts<'_>,
+        facts: &go::receiver_index::GoReceiverFacts<'_>,
         var_local: bool,
     ) -> Vec<(
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
         crate::resolution::go::owner_partition::GoPartitionEvidence,
-        Option<crate::go_receiver_index::GoReceiverPrereqDrop>,
+        Option<go::receiver_index::GoReceiverPrereqDrop>,
     )> {
         let mut out = Vec::new();
         let Some(parsed) = files.get(&caller.file) else {
@@ -4349,7 +4349,7 @@ impl CallGraph {
             let Some(receiver_expr) = meta.receiver_node else {
                 continue;
             };
-            let ctx = crate::go_receiver_index::GoReceiverCtx {
+            let ctx = go::receiver_index::GoReceiverCtx {
                 parsed,
                 fn_node,
                 qualifier,
@@ -4361,11 +4361,11 @@ impl CallGraph {
                 caller_file: &caller.file,
             };
             let (raw_classification, mut evidence, origin) =
-                crate::go_receiver_index::classify_go_receiver_expanded_with_partition(
+                go::receiver_index::classify_go_receiver_expanded_with_partition(
                     &ctx, classifier, facts, var_local,
                 );
             let (classification, screen_evidence, prereq_drop) =
-                crate::go_receiver_index::screen_go_receiver_prerequisites(
+                go::receiver_index::screen_go_receiver_prerequisites(
                     &ctx,
                     raw_classification,
                     origin,
@@ -6450,3 +6450,5 @@ mod python_property_access_tests;
 
 #[cfg(test)]
 mod framework_entry_tests;
+
+pub(crate) mod go;

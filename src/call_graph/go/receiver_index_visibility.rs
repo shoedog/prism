@@ -1,6 +1,6 @@
 //! Exact visibility for Go cross-file receiver facts.
 
-use crate::go_receiver_index::{GoReturnTypes, GoTypedFact};
+use super::receiver_index::{GoReturnTypes, GoTypedFact};
 use crate::resolution::go::owner_partition::{exact_declaration_visibility, GoOwnerReferenceMode};
 use crate::resolution::resolve_go_receiver_owner_identity;
 use std::collections::{BTreeMap, BTreeSet};

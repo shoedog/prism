@@ -1,4 +1,4 @@
-use crate::go_mod::{tokenize, valid_module_path, PathKind, Token};
+use super::go_mod::{tokenize, valid_module_path, PathKind, Token};
 use crate::manifest_snapshot::{ManifestSnapshot, ManifestSnapshotEntry};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path};
@@ -574,8 +574,8 @@ fn manifest_is_excluded(path: &str) -> bool {
 }
 
 #[cfg(test)]
-#[path = "go_module_graph_fix2_tests.rs"]
+#[path = "module_graph_fix2_tests.rs"]
 mod fix2_tests;
 #[cfg(test)]
-#[path = "go_module_graph_tests.rs"]
+#[path = "module_graph_tests.rs"]
 mod tests;
