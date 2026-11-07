@@ -1,18 +1,21 @@
 //! The writes D3 counts, per CFG node (#660 S1b-2, DESIGN.md 7.1 "Writes that count").
 //!
 //! One entry per census site that executes eagerly in the owner (recorded or kill-only: the walk
-//! lists each target once), for the bases the owner records a def for, with its E18 node (the same
-//! `node_line` placement the kill-only defs use) and its S0 `Position`. A write in a deferred region
+//! lists each target once), for the bases the owner records a def for, with its line and its S0
+//! `Position`. Which CFG node a write is in is RD's answer for its line (#696), never this module's:
+//! E18's `place` only decides whether the write has a position at all, and orders it inside a node. A write in a deferred region
 //! is D2-c's and is not ordered here; a declaration that stores nothing (`var a;`) is not a write.
 use super::order::{operand_exception, Position};
 use super::walk::{Form, Site};
 use crate::access_path::AccessPath;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 /// A write D3 counts in its node.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Counting {
     pub path: AccessPath,
+    /// Line of the write's target: RD maps it to the write's CFG node (#696), the only authority.
+    pub line: usize,
     pub target_start: usize,
     pub form: Form,
     /// The byte at which the write's binding is looked up (`Counts::push`).
@@ -37,10 +40,10 @@ pub(crate) fn counts(site: &Site) -> bool {
         && (site.form != Form::Declare || (site.initialized && site.decl == "declarator"))
 }
 
-/// The counting writes of one owner by node line, and what places their reads.
+/// The counting writes of one owner, and what places their reads.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Counts {
-    pub by_node: HashMap<usize, Vec<Counting>>,
+    pub writes: Vec<Counting>,
     /// The owner's statement spans (the mapping `Position::of_read` uses).
     pub spans: Vec<(usize, usize)>,
     /// Byte ranges of the targets that are no read (plain writes, declarations, `delete`): a read
@@ -53,7 +56,7 @@ pub(crate) struct Counts {
 
 impl Counts {
     pub(crate) fn is_empty(&self) -> bool {
-        self.by_node.is_empty() && self.unplaced.is_empty()
+        self.writes.is_empty() && self.unplaced.is_empty()
     }
 
     pub(crate) fn note_target(&mut self, site: &Site) {
@@ -62,9 +65,10 @@ impl Counts {
         }
     }
 
-    pub(crate) fn push(&mut self, site: &Site, path: AccessPath, node: usize, probe: usize) {
-        self.by_node.entry(node).or_default().push(Counting {
+    pub(crate) fn push(&mut self, site: &Site, path: AccessPath, probe: usize) {
+        self.writes.push(Counting {
             path,
+            line: site.line,
             target_start: site.target_start,
             form: site.form,
             probe,

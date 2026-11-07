@@ -420,7 +420,7 @@ distinct (A10). A write in a deferred region on line N is D2-c's and is not orde
 write-only targets (plain writes, declarators, `delete`) are not reads, and an occurrence of another binding of the name is not
 D's use (`relation_at`). A use anchored only at a write's own target (`value = other`, `var [f] = ..`) has no read to order and
 keeps its label (only when no read of the path exists on the line); a use with no occurrence at all is `d3-unknown`. Reads are placed with
-the write rule (`completion::place`, E18 incl. `on_line`): a read in a later statement of the line has no span of its own, so its
+the write rule for ORDER (`completion::place`, E18 incl. `on_line`): a read in a later statement of the line has no span of its own, so its
 position is unknown and the edge refuses (`a = 2; sink(a);`; `sink(a); a = 2;` is refused too, cost). (2) A counting declaration is a
 `let`/`const` declarator (`let a;` stores `undefined`), a `var` declarator with a value, or a `for` head's: hoisted functions, parameters, imports and class names are placed by scope (S1d). A write whose
 binding is proven distinct from the use's (or D's) is not counted (A10), probed at the declaration's end for a declarator. (3)
@@ -429,6 +429,13 @@ the E18 mapping cannot name makes its base `d3-unknown` for every query, beside 
 provably runs first is accepted). The two sides always both run and the strongest reason wins. Recovery with statement spans kept
 per statement (siblings on one line ordered properly) fits #670. (5) The trace names the mechanism of each refused edge (`d3-use`, `d3-def`
 for a plain byte order, else `d3-loop` or `d3-unknown`; a plain byte order wins over a loop when both occur).
+
+**Node authority (#696).** Which node a position is in is reaching definitions' answer and nobody else's: a counting write
+is in the node `StatementLookup` gives its line (the rule `mapped_defs` uses for a recorded def; a write on a line RD maps
+to no node refuses its base like an unplaced one), a read is in the node of the line the DFG put the use on. E18 (`place`)
+stays for `site-unmapped`, for the kill-only def's line and for the order inside a node (`Position`, `precedes`); it no longer
+keys D3's writes by node. Known limit (RD's, not D3's): a statement that starts on the last line of a shorter multi-line one
+has no node of its own, and its defs and kills sit at the shorter statement's node, before the defs nested in it.
 
 ### 7.3 Expected cost
 Heuristic candidate counts (`corpus/*.analyze_r3.txt`, final rules): use side 68 edges on excalidraw (60 of them refused only

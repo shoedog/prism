@@ -86,9 +86,9 @@ pub(crate) fn completion(
             out.counting.note_target(site);
             if counting::counts(site) && !rebound {
                 match node {
-                    Some(n) => {
+                    Some(_) => {
                         let probe = binding_probe(parsed, site);
-                        out.counting.push(site, access_path(&site.path), n, probe)
+                        out.counting.push(site, access_path(&site.path), probe)
                     }
                     None => {
                         out.counting.unplaced.insert(site.path.base.clone());

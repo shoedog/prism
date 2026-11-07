@@ -75,7 +75,7 @@ fn a_d3_line_names_the_refused_edge() {
     );
 }
 
-/// The counting writes D3 keeps for the owner of `src`: (node line, path) pairs, and the unplaced bases.
+/// The counting writes D3 keeps for the owner of `src`: (line, path) pairs, and the unplaced bases.
 fn counting(language: Language, src: &str) -> (Vec<(usize, String)>, Vec<String>) {
     use super::census_defs_tests::{parse, recorded};
     let parsed = parse(language, src);
@@ -87,9 +87,9 @@ fn counting(language: Language, src: &str) -> (Vec<(usize, String)>, Vec<String>
     };
     let counts = d3.counts();
     let mut by: Vec<(usize, String)> = counts
-        .by_node
+        .writes
         .iter()
-        .flat_map(|(n, ws)| ws.iter().map(move |w| (*n, w.path.to_string())))
+        .map(|w| (w.line, w.path.to_string()))
         .collect();
     by.sort();
     (by, counts.unplaced.iter().cloned().collect())
