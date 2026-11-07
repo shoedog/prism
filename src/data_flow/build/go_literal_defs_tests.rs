@@ -348,3 +348,24 @@ fn an_address_taken_name_keeps_ordinary_pairs_but_not_a_formals() {
         ],
     );
 }
+
+#[test]
+fn a_name_with_an_unclassified_binding_still_drops_formal_pairs_outside_the_literal() {
+    // A struct field named `t` declared in the owner makes `t` unclassified for rule S's proofs
+    // (flat fallback). A formal's scope is lexical, so a use line outside its literal body still
+    // drops; the sibling and the owner reads keep their own pairs only.
+    let src = "package p\nfunc f(t T) {\n\ttype s struct{ t int }\n\treg(func(t T) {\n\t\tuse(t)\n\t})\n\treg(func(t T) {\n\t\tuse(t)\n\t})\n\tuse(t)\n}\n";
+    check(
+        "unclassified",
+        src,
+        &[
+            ("t", 4, 5, true),
+            ("t", 7, 8, true),
+            ("t", 4, 8, false),
+            ("t", 7, 5, false),
+            ("t", 4, 10, false),
+            ("t", 7, 10, false),
+            ("t", 2, 10, true),
+        ],
+    );
+}

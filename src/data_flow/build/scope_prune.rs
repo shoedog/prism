@@ -258,6 +258,36 @@ impl<'a> ScopeFacts<'a> {
         Some((*declaration, index, false))
     }
 
+    /// The def is a function-literal formal or a named result and no occurrence of its name on
+    /// `use_line` lies in the scope of that declaration (#694 slice B).
+    fn outside_declare_only_scope(
+        &self,
+        built: &Built<'a>,
+        path: &AccessPath,
+        def_start: usize,
+        def_end: usize,
+        def_line: usize,
+        use_line: usize,
+    ) -> bool {
+        if !path.fields.is_empty() {
+            return false;
+        }
+        let Some((_, def_index, true)) =
+            self.plain_def_binding(built, path, def_start, def_end, def_line)
+        else {
+            return false;
+        };
+        built
+            .identifiers
+            .get(&(path.base.clone(), use_line))
+            .is_some_and(|ids| {
+                !ids.is_empty()
+                    && ids
+                        .iter()
+                        .all(|n| !built.facts.def_scope_contains(def_index, n.start_byte()))
+            })
+    }
+
     /// The def starts at an identifier that is the written variable itself.
     fn def_is_plain_variable_write(&self, start: usize) -> bool {
         self.parsed
@@ -286,6 +316,13 @@ impl<'a> ScopeFacts<'a> {
             return true;
         }
         let built = self.built.get_or_init(|| self.build());
+        // A formal or named result is visible only in its function's body: a use line whose
+        // every occurrence of the name lies outside it reads another variable. This is lexical
+        // (the declaration's span), so it needs no resolution proof for the name.
+        if self.outside_declare_only_scope(built, path, def_start, def_end, def_line, use_line) {
+            stats.dfg_pruned_scope += 1;
+            return false;
+        }
         if !self.name_is_clean(&built.facts, &path.base) {
             return true;
         }
