@@ -1,9 +1,9 @@
 //! S1 (wrapped-export SPEC §5–§7): declarator counters, source epochs and serde state.
 use super::js_wrapped_export_test::{app_sites, graph, APP, WRAP};
+use prism::ast::js_ts::exports::{JsExportFacts, JsExportTarget};
 use prism::ast::ParsedFile;
 use prism::cpg::CodePropertyGraph;
 use prism::cpg_cache::{self, CacheResult};
-use prism::ast::js_ts::exports::{JsExportFacts, JsExportTarget};
 use prism::languages::Language;
 use std::collections::{BTreeMap, BTreeSet};
 

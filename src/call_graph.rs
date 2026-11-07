@@ -603,8 +603,10 @@ pub struct CallGraph {
     /// Alias-only export tables. Every hop uses P1 occupancy/Node10 proof;
     /// the config path partitions callers by their owning project's options.
     #[serde(default)]
-    pub js_ts_path_exports:
-        BTreeMap<String, BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>>,
+    pub js_ts_path_exports: BTreeMap<
+        String,
+        BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>,
+    >,
     /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
     /// named export lists (incl. renames), exported const-arrow/
     /// function-expression declarations, CommonJS assignments, and re-export
@@ -1960,8 +1962,10 @@ impl CallGraph {
         };
         let resolution =
             crate::ast::js_ts::exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
-        self.js_ts_namespace_exports =
-            crate::ast::js_ts::exports::resolve_js_namespace_exports(&self.js_ts_exports, &resolve_module);
+        self.js_ts_namespace_exports = crate::ast::js_ts::exports::resolve_js_namespace_exports(
+            &self.js_ts_exports,
+            &resolve_module,
+        );
         self.js_ts_resolved_exports = resolution.resolved;
         self.js_export_chain_unresolved = resolution.chain_unresolved;
         self.js_export_barrel_conflicts = resolution.barrel_conflicts;
@@ -2039,7 +2043,8 @@ impl CallGraph {
         if facts.conflicted.contains(member) {
             return None;
         }
-        let crate::ast::js_ts::exports::JsExportTarget::Class(owner) = facts.named.get(member)? else {
+        let crate::ast::js_ts::exports::JsExportTarget::Class(owner) = facts.named.get(member)?
+        else {
             return None;
         };
         let key = (defining_file.clone(), owner.clone());

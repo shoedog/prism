@@ -4,9 +4,9 @@ use super::{
     esm_forwarding_state_test::endpoints,
 };
 use prism::{
+    ast::js_ts::exports::{resolve_js_exports, JsExportFacts, JsExportTarget},
     ast::ParsedFile,
     cpg::CodePropertyGraph,
-    ast::js_ts::exports::{resolve_js_exports, JsExportFacts, JsExportTarget},
     languages::Language,
 };
 use std::collections::{BTreeMap, BTreeSet};

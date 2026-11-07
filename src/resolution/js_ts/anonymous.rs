@@ -475,7 +475,10 @@ fn binding_imports_proven(binding: &JsLocalBinding, imports: &[ImportEvidence]) 
     }
 }
 
-fn export_matches(export: &crate::ast::js_ts::exports::ResolvedJsExport, target: &FunctionId) -> bool {
+fn export_matches(
+    export: &crate::ast::js_ts::exports::ResolvedJsExport,
+    target: &FunctionId,
+) -> bool {
     export.file == target.file
         && export.local_name == target.name
         && export.span == Some((target.start_line, target.end_line))

@@ -61,9 +61,9 @@
 //! barrel (`index.js` re-export) is attributed to the barrel file itself;
 //! `follow_barrel` takes the one extra hop when the caller already holds the
 //! barrel's parse.
+use crate::ast::js_ts::exports::JsExportTarget;
 use crate::ast::ParsedFile;
 use crate::call_graph::{CallSite, ImportBinding};
-use crate::ast::js_ts::exports::JsExportTarget;
 use crate::languages::Language;
 use crate::repo_loader::{ListingError, SourceListing};
 use std::collections::{BTreeMap, BTreeSet};

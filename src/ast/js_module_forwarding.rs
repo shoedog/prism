@@ -1,7 +1,7 @@
 //! Narrow ESM imported-local forwarding; no CJS/alias or receiver authority.
 use super::{is_js_ts_function_like, ParsedFile};
-use crate::call_graph::ImportBindingKind;
 use crate::ast::js_ts::exports::JsExportTarget;
+use crate::call_graph::ImportBindingKind;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 

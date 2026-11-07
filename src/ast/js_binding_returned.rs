@@ -8,8 +8,8 @@
 //! query), so the outcome of every site it does not follow stays what the base gives.
 use super::js_binding::{JsBinding, JsBindingCache};
 use super::ParsedFile;
-use crate::ast::JsFollow;
 use crate::ast::js_ts::returns::JsReturnPath;
+use crate::ast::JsFollow;
 use tree_sitter::Node;
 
 impl ParsedFile {

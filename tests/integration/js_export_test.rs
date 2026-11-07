@@ -9,9 +9,9 @@
 //! Companion to `import_binding_test.rs`, which owns the pre-existing R4c
 //! shadow/eligibility guards (left untouched here).
 
+use prism::ast::js_ts::exports::JsExportTarget;
 use prism::ast::ParsedFile;
 use prism::call_graph::CallGraph;
-use prism::ast::js_ts::exports::JsExportTarget;
 use prism::languages::Language;
 use prism::resolution::{ResolutionConfidence, ResolutionKind};
 use std::collections::BTreeMap;
