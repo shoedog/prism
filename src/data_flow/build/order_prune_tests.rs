@@ -183,3 +183,89 @@ fn named_result_written_after_use_is_kept() {
         &[("r", 4, 3)],
     );
 }
+
+#[test]
+fn guard_rows_that_fail_without_their_guard() {
+    // Outermost loop: the def's innermost loop does not contain the use, but an
+    // enclosing loop contains both (backward flow through the outer loop).
+    let outer = head(
+        "x int",
+        "\tfor {\n\t\tuse(x)\n\t\tfor {\n\t\t\tx = 2\n\t\t\tbreak\n\t\t}\n\t}\n",
+    );
+    kept("outermost-loop", &outer, &[("x", 6, 4)]);
+    // Every occurrence on the use line: one is inside a deferred closure (runs at
+    // exit, after the later write).
+    let mixed = head("x int", "\tdefer func() { use(x) }(); use(x)\n\tx = 2\n");
+    kept("mixed-use-line", &mixed, &[("x", 4, 3)]);
+    // Use-line storage access: a deferred pointer-receiver call reads `b` at exit.
+    let recv = "package p\ntype T struct{ n int }\nfunc (t *T) Close() { println(t.n) }\nfunc f(b T) {\n\tdefer b.Close()\n\tb = T{n: 1}\n}\n";
+    kept("receiver-storage", recv, &[("b", 6, 5)]);
+}
+
+#[test]
+fn order_prune_cache_and_incremental_custody() {
+    use crate::cpg::CodePropertyGraph;
+    use crate::cpg_cache::{self, CacheResult};
+    use std::collections::{BTreeMap, BTreeSet};
+    let active =
+        |n: &str| format!("package p\nfunc {n}(x int) {{\n\tuse(x)\n\tx = 2\n\tuse2()\n}}\n");
+    let mut sources = BTreeMap::from([
+        ("a.go".to_owned(), active("a")),
+        ("b.go".to_owned(), active("b")),
+    ]);
+    let parse = |sources: &BTreeMap<String, String>| {
+        sources
+            .iter()
+            .map(|(f, s)| (f.clone(), ParsedFile::parse(f, s, Language::Go).unwrap()))
+            .collect()
+    };
+    let cold = CodePropertyGraph::build(&parse(&sources));
+    assert!(cold.dfg.rd_function_stats()["a.go"].dfg_pruned_order > 0);
+    assert!(cold.dfg.rd_function_stats()["b.go"].dfg_pruned_order > 0);
+    assert!(cold.dfg_label_stats.dfg_pruned_order > 0);
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    let dir = tempfile::tempdir().unwrap();
+    cpg_cache::save_cache(&cold, &hashes, false, dir.path()).unwrap();
+    let CacheResult::Hit(hit) = cpg_cache::load_cache(&hashes, false, dir.path()) else {
+        panic!("expected full hit");
+    };
+    assert_eq!(cold.dfg_label_stats, hit.dfg_label_stats);
+    assert_eq!(cold.dfg.rd_function_stats(), hit.dfg.rd_function_stats());
+    sources.insert(
+        "a.go".into(),
+        "package p\nfunc a(x int) int {\nreturn x\n}\n".into(),
+    );
+    let edited = parse(&sources);
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    let CacheResult::PartialHit {
+        cached_call_graph,
+        cached_dfg,
+        changed_files,
+    } = cpg_cache::load_cache(&hashes, false, dir.path())
+    else {
+        panic!("expected partial hit");
+    };
+    assert_eq!(changed_files, BTreeSet::from(["a.go".into()]));
+    let incremental = CodePropertyGraph::build_incremental(
+        cached_call_graph,
+        cached_dfg,
+        &changed_files,
+        &edited,
+        None,
+    );
+    let rebuilt = CodePropertyGraph::build(&edited);
+    assert_eq!(incremental.dfg_label_stats, rebuilt.dfg_label_stats);
+    assert_eq!(
+        incremental.dfg.rd_function_stats(),
+        rebuilt.dfg.rd_function_stats()
+    );
+    let stats = incremental.dfg.rd_function_stats();
+    assert_eq!(
+        stats["a.go"].dfg_pruned_order, 0,
+        "edited file's contribution is gone"
+    );
+    assert!(
+        stats["b.go"].dfg_pruned_order > 0,
+        "untouched file keeps its contribution"
+    );
+}
