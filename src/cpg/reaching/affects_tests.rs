@@ -92,7 +92,7 @@ fn bucketed_recorded_affects_matches_the_all_pairs_scan() {
             for (index, def) in defs.iter().enumerate() {
                 gen[if together { 1 } else { def.line }].insert(index);
             }
-            let flagged = affects_writers::affects_writers(&parsed, &defs, None);
+            let flagged = affects_writers::affects_writers(&parsed, owner, &defs, None);
             assert!(
                 flagged.iter().any(|f| !f),
                 "the truncated `o[k].x` writer is unflagged"
@@ -219,4 +219,74 @@ fn the_trace_stays_silent_without_a_recorded_affects_move() {
     // Other languages are main's equal-path kills.
     let py = "def f(o):\n    o.x = 1\n    o = {}\n    sink(o.x, o)\n";
     assert_eq!(mechanisms(Language::Python, py), Vec::<String>::new());
+}
+
+/// The writer flags themselves (the label rows cannot see a flag D3 or D2-c overrides): per source, the flag of
+/// the def at the given (path, line).
+#[test]
+fn writer_flags_by_receiver_and_binding() {
+    let rows: &[(&str, &str, usize, bool)] = &[
+        // Receiver identity: static field values and static blocks rebind `this`; computed keys keep it.
+        (
+            "function f() {\n  const C = class { static y = (this.a = {}); };\n}",
+            "this.a",
+            2,
+            false,
+        ),
+        (
+            "function f() {\n  class C { static { this.a = {}; } }\n}",
+            "this.a",
+            2,
+            false,
+        ),
+        (
+            "function f() {\n  class C { [this.a = {}]() {} }\n}",
+            "this.a",
+            2,
+            true,
+        ),
+        ("function f() {\n  this.a = {};\n}", "this.a", 2, true),
+        // Declaration identity.
+        (
+            "function f(o) {\n  try { g(); } catch (o) { o = {}; }\n}",
+            "o",
+            2,
+            false,
+        ),
+        (
+            "function f(o) {\n  try { g(); } catch (e) { o = {}; }\n}",
+            "o",
+            2,
+            true,
+        ),
+        (
+            "function f(o) {\n  { function o() {} o = 1; }\n}",
+            "o",
+            2,
+            false,
+        ),
+        ("function f(o) {\n  { let p; o = 1; }\n}", "o", 2, true),
+        // Storage identity through wrappers.
+        (
+            "function f(o, k) {\n  (o[k].x).y = 2;\n}",
+            "o[].y",
+            2,
+            false,
+        ),
+        ("function f(o, k) {\n  (o[k]).y = 2;\n}", "o[].y", 2, true),
+        ("function f(o) {\n  (o).a = {};\n}", "o.a", 2, true),
+    ];
+    for (src, path, line, want) in rows {
+        let parsed = ParsedFile::parse("a.ts", src, Language::TypeScript).unwrap();
+        let owner = parsed.all_functions()[0];
+        let defs = owner_defs(&parsed, &owner);
+        let flags = affects_writers::affects_writers(&parsed, owner, &defs, None);
+        let hits: Vec<bool> = defs
+            .iter()
+            .zip(&flags)
+            .filter(|(d, _)| d.line == *line && d.path.to_string() == *path)
+            .map(|(_, f)| *f)
+            .collect();
+        assert_eq!(hits, [*want], "{path} @ {line}: {src}");
+    }
 }

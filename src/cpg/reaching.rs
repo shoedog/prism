@@ -395,7 +395,12 @@ fn reaching_definitions_impl(
     let capture_facts =
         capture::capture_facts_with(parsed, *func_node, pass.census() && census_trace::enabled());
     let writers = (pass.recorded_affects() && parsed.language.is_js_family()).then(|| {
-        affects_writers::affects_writers(parsed, &defs[..n_recorded], capture_facts.regions())
+        affects_writers::affects_writers(
+            parsed,
+            *func_node,
+            &defs[..n_recorded],
+            capture_facts.regions(),
+        )
     });
     let buckets =
         def_buckets::DefinitionBuckets::with_kill_only(&defs, n_recorded, writers.as_deref());

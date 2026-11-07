@@ -180,10 +180,15 @@ fn binding_probe(parsed: &ParsedFile, site: &Site) -> usize {
 /// computed key and every decorator (a method's, a parameter's, a class-body one) run in the
 /// enclosing scope and keep it.
 fn this_is_rebound(parsed: &ParsedFile, owner: Node<'_>, site: &Site) -> bool {
+    this_is_rebound_at(parsed, owner, site.target_start)
+}
+
+/// `this_is_rebound` for a target that starts at `byte` (a recorded def's start byte, #674).
+pub(crate) fn this_is_rebound_at(parsed: &ParsedFile, owner: Node<'_>, byte: usize) -> bool {
     let Some(node) = parsed
         .tree
         .root_node()
-        .descendant_for_byte_range(site.target_start, site.target_start)
+        .descendant_for_byte_range(byte, byte)
     else {
         return false;
     };

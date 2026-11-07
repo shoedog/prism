@@ -129,6 +129,47 @@ const CONTROLS: &[Case] = &[
         source: "function f(o, xs) {\n  o.x = 1;\n  xs.map((y) => { var o = y; return o; });\n  sink(o.x);\n}" },
     Case { name: "nested_function_this_write", lang: JS, edge: "this.a.b@2->this.a.b@4", expected: EXACT,
         source: "function f(xs) {\n  this.a.b = 1;\n  xs.forEach(function () { this.a = {}; });\n  sink(this.a.b);\n}" },
+    // Round 2, (a) storage identity through wrappers: the complete target chain is counted, not only the
+    // part above the first token. `(o[k].x).y` is recorded `o.[].y` but writes `o[k].x.y`.
+    Case { name: "parenthesized_truncated_receiver", lang: JS, edge: "o.a.y@2->o.a.y@4", expected: EXACT,
+        source: "function f(o, k) {\n  o.a.y = 1;\n  (o[k].x).y = 2;\n  sink(o.a.y);\n}" },
+    Case { name: "double_parenthesized_double_subscript", lang: JS, edge: "o.a.y@2->o.a.y@4", expected: EXACT,
+        source: "function f(o, k) {\n  o.a.y = 1;\n  ((o[k]))[0].y = 2;\n  sink(o.a.y);\n}" },
+    Case { name: "parenthesized_base_then_subscript", lang: JS, edge: "o.n@2->o.n@4", expected: EXACT,
+        source: "function f(o, k) {\n  o.n = 1;\n  (o)[k].x = 2;\n  sink(o.n);\n}" },
+    Case { name: "ts_non_null_after_subscript", lang: TS, edge: "o.n@2->o.n@4", expected: EXACT,
+        source: "function f(o: any, k: any) {\n  o.n = 1;\n  o[k]!.x = 2;\n  sink(o.n);\n}" },
+    Case { name: "ts_as_wrapped_truncated", lang: TS, edge: "o.a.y@2->o.a.y@4", expected: EXACT,
+        source: "function f(o: any, k: any) {\n  o.a.y = 1;\n  (o[k].x as any).y = 2;\n  sink(o.a.y);\n}" },
+    Case { name: "parenthesized_prefix_write_still_kills", lang: JS, edge: "o.a.b@2->o.a.b@4", expected: KILLED,
+        source: "function f(o) {\n  o.a.b = 1;\n  (o).a = {};\n  sink(o.a.b);\n}" },
+    // Round 2, (b) receiver identity: a `this` that is not the owner's keeps path equality.
+    Case { name: "class_expression_static_field_this", lang: JS, edge: "this.a.b@2->this.a.b@4", expected: EXACT,
+        source: "function f() {\n  this.a.b = 1;\n  const C = class { static y = (this.a = {}); };\n  sink(this.a.b);\n}" },
+    Case { name: "class_declaration_static_field_this", lang: JS, edge: "this.a.b@2->this.a.b@4", expected: EXACT,
+        source: "function f() {\n  this.a.b = 1;\n  class C { static y = (this.a = {}); }\n  sink(this.a.b);\n}" },
+    Case { name: "static_block_this", lang: JS, edge: "this.a.b@2->this.a.b@4", expected: EXACT,
+        source: "function f() {\n  this.a.b = 1;\n  class C { static { this.a = {}; } }\n  sink(this.a.b);\n}" },
+    // The computed key runs in the owner's scope, so the write stays eligible (`writer_flags_by_receiver_and_binding`);
+    // D3 owns this label because the class statement holds the write (sameline on main and on head).
+    Case { name: "eager_computed_key_writes_the_owners_this", lang: JS, edge: "this.a.b@2->this.a.b@4", expected: SAME,
+        source: "function f() {\n  this.a.b = 1;\n  class C { [this.a = {}]() {} }\n  sink(this.a.b);\n}" },
+    Case { name: "arrow_closure_this", lang: JS, edge: "this.a.b@2->this.a.b@4", expected: "nameonly/cfg_incomplete",
+        source: "function f() {\n  this.a.b = 1;\n  g(() => { this.a = {}; });\n  sink(this.a.b);\n}" },
+    // Round 2, (b) declaration identity: a catch parameter or block-level function has no recorded def, so
+    // `BindingFacts` resolves a write to it as the outer binding; path equality only.
+    Case { name: "catch_parameter_write", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o) {\n  o.x = 1;\n  try { g(); } catch (o) { o = {}; use(o); }\n  sink(o.x);\n}" },
+    Case { name: "catch_destructured_parameter_write", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o) {\n  o.x = 1;\n  try { g(); } catch ({ o }) { o = {}; use(o); }\n  sink(o.x);\n}" },
+    Case { name: "ts_typed_catch_parameter_write", lang: TS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o: any) {\n  o.x = 1;\n  try { g(); } catch (o: any) { o = {}; use(o); }\n  sink(o.x);\n}" },
+    Case { name: "catch_parameter_member_write", lang: JS, edge: "o.a.x@2->o.a.x@4", expected: EXACT,
+        source: "function f(o) {\n  o.a.x = 1;\n  try { g(); } catch (o) { o.a = {}; }\n  sink(o.a.x);\n}" },
+    Case { name: "block_function_declaration_write", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o) {\n  o.x = 1;\n  { function o() {} o = 1; }\n  sink(o.x);\n}" },
+    Case { name: "outer_write_after_try_still_kills", lang: JS, edge: "o.x@2->o.x@5", expected: KILLED,
+        source: "function f(o) {\n  o.x = 1;\n  try { g(); } catch (e) { h(); }\n  o = {};\n  sink(o.x);\n}" },
     // Other languages keep main's equal-path kills.
     Case { name: "python_prefix", lang: Language::Python, edge: "o.x@2->o.x@4", expected: EXACT,
         source: "def f(o):\n    o.x = 1\n    o = {}\n    sink(o.x)\n" },
