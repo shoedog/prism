@@ -1,10 +1,9 @@
 //! Go structured sinks, framework sources and inline source==sink matching.
 
-use crate::algorithms::taint::{
-    call_passes_sink_semantics, line_matches_structured_sink, SinkMatchOutcome, TaintSeed,
-};
-use crate::ast::tree_helpers::call_path_text;
+use crate::algorithms::taint::TaintSeed;
+use crate::algorithms::taint::sink_match::{SinkMatchOutcome, call_passes_sink_semantics, line_matches_structured_sink};
 use crate::ast::ParsedFile;
+use crate::ast::tree_helpers::call_path_text;
 use crate::data_flow::FlowPath;
 use crate::frameworks::{CallSite, SanitizerCategory, SinkPattern};
 use std::collections::BTreeSet;

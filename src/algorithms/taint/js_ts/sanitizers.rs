@@ -1,23 +1,15 @@
 //! JS/TS URL and path sanitizer bindings.
 
-use crate::algorithms::taint::js_ts::guards::{
-    js_ts_allowlist_receiver_is_trusted, js_ts_guard_safely_controls_sink,
-    js_ts_node_is_hostname_for_url_binding, js_ts_path_prefix_arg_is_trusted,
-};
-use crate::algorithms::taint::{
-    assignment_lhs_identifiers, collect_if_statements, path_targets_var_at_line,
-    sink_call_uses_var_in_tainted_arg, GuardControl, JsTsPathSanitizerBinding, UrlSanitizerBinding,
-};
-use crate::ast::tree_helpers::{
-    call_arg_node, call_path_matches, call_path_text, unwrap_parenthesized,
-};
+use crate::algorithms::taint::{JsTsPathSanitizerBinding, UrlSanitizerBinding};
+use crate::algorithms::taint::cleansing::{GuardControl, collect_if_statements};
+use crate::algorithms::taint::js_ts::guards::{js_ts_allowlist_receiver_is_trusted, js_ts_guard_safely_controls_sink, js_ts_node_is_hostname_for_url_binding, js_ts_path_prefix_arg_is_trusted};
+use crate::algorithms::taint::sink_match::{assignment_lhs_identifiers, path_targets_var_at_line, sink_call_uses_var_in_tainted_arg};
 use crate::ast::ParsedFile;
+use crate::ast::tree_helpers::{call_arg_node, call_path_matches, call_path_text, unwrap_parenthesized};
 use crate::cpg::CodePropertyGraph;
 use crate::data_flow::FlowPath;
-use crate::frameworks::js_ts::call_classify::{
-    collect_js_ts_assignment_like_nodes, js_ts_assignment_target_and_value,
-};
 use crate::frameworks::SinkPattern;
+use crate::frameworks::js_ts::call_classify::{collect_js_ts_assignment_like_nodes, js_ts_assignment_target_and_value};
 use tree_sitter::Node;
 
 pub(in crate::algorithms::taint) fn js_ts_ssrf_cleansed_for_sink(

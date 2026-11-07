@@ -1,15 +1,11 @@
 //! Go path-traversal sanitizers and HasPrefix guards.
 
+use crate::algorithms::taint::PathSanitizerBinding;
+use crate::algorithms::taint::cleansing::{GuardControl, block_ends_with_return, cfg_line_reaches, collect_if_statements, first_statement_line, node_contains_line, safe_successor_line};
 use crate::algorithms::taint::go::sinks::{collect_go_calls, go_call_path_text};
-use crate::algorithms::taint::{
-    assignment_lhs_identifiers, assignment_rhs_expressions, block_ends_with_return,
-    call_passes_sink_semantics, cfg_line_reaches, collect_assignments, collect_if_statements,
-    first_statement_line, node_contains_line, path_targets_var_at_line, safe_successor_line,
-    sink_call_has_tainted_arg_in_path, sink_call_uses_var_in_tainted_arg, GuardControl,
-    PathSanitizerBinding,
-};
-use crate::ast::tree_helpers::unwrap_parenthesized;
+use crate::algorithms::taint::sink_match::{assignment_lhs_identifiers, assignment_rhs_expressions, call_passes_sink_semantics, collect_assignments, path_targets_var_at_line, sink_call_has_tainted_arg_in_path, sink_call_uses_var_in_tainted_arg};
 use crate::ast::ParsedFile;
+use crate::ast::tree_helpers::unwrap_parenthesized;
 use crate::cpg::CodePropertyGraph;
 use crate::data_flow::FlowPath;
 use crate::frameworks::SinkPattern;
