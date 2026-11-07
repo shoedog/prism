@@ -40,7 +40,7 @@ const FIXTURE: &[(&str, &str)] = &[
     ),
     (
         "app.py",
-        "def f():\n    user = input()\n    value = user\n    sink(value)\n",
+        "def f():\n    global user; user = input()\n    value = user\n    sink(value)\n",
     ),
 ];
 
