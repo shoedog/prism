@@ -4,10 +4,7 @@ use crate::SessionProvider;
 use prism::navigation::queries::nodes_at;
 #[test]
 fn o_stdio_reasons() {
-    for startup in [
-        crate::StartupMode::Background,
-        crate::StartupMode::Lazy,
-    ] {
+    for startup in [crate::StartupMode::Background, crate::StartupMode::Lazy] {
         let (_dir, mut cfg) = fixture();
         cfg.startup = startup;
         let ((mut rt, send), lines) =

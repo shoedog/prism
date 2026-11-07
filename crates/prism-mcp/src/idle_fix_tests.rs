@@ -200,13 +200,8 @@ fn idle_stdio_production_lease_and_release_clock() {
             writes: writes.clone(),
             bytes: Vec::new(),
         };
-        crate::idle_stdio::serve_events(
-            rt,
-            writer,
-            &registry,
-            &ConnectionSettings::from_env(),
-        )
-        .unwrap();
+        crate::idle_stdio::serve_events(rt, writer, &registry, &ConnectionSettings::from_env())
+            .unwrap();
         let _ = release.send(());
         assert!(admission_observed.get());
         assert_eq!(

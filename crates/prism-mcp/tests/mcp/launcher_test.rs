@@ -32,8 +32,8 @@ fn plugin_root(binary: &Path) -> tempfile::TempDir {
 /// as the binary, `shared` as `PRISM_MCP_SHARED` (`None`: unset) and `args` after the
 /// repository.
 fn launch(shared: Option<&str>, args: &[&str]) -> Output {
-    let stub =
-        Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join("tests/fixtures/mcp/launcher/argv-stub.sh");
+    let stub = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+        .join("tests/fixtures/mcp/launcher/argv-stub.sh");
     let root = plugin_root(&stub);
     let mut command = Command::new("/bin/bash");
     command

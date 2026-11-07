@@ -197,7 +197,10 @@ fn swapping_two_inputs_changes_the_key() {
 fn the_current_build_is_the_three_values_the_spec_names() {
     let build = BuildIdentity::current();
     assert_eq!(build.package_version, env!("CARGO_PKG_VERSION"));
-    assert_eq!(build.grammar_fingerprint, prism::api::build_info().grammar_fingerprint);
+    assert_eq!(
+        build.grammar_fingerprint,
+        prism::api::build_info().grammar_fingerprint
+    );
     assert_eq!(
         build.cache_build_identity,
         prism::api::build_info().build_identity
@@ -306,10 +309,7 @@ fn resolving_reads_the_root_the_cache_base_the_policy_and_this_build() {
     assert_eq!(identity.cache_base(), checkout.real.join("cache"));
     assert_eq!(identity.refresh_policy(), RefreshPolicy::AutoFull);
     assert_eq!(identity.build(), &BuildIdentity::current());
-    assert_eq!(
-        identity.protocol(),
-        crate::shared::SHARED_PROTOCOL_VERSION
-    );
+    assert_eq!(identity.protocol(), crate::shared::SHARED_PROTOCOL_VERSION);
     assert_eq!(
         identity.root_fs(),
         FsIdentity::of(&checkout.real.join("repo")).unwrap()

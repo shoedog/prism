@@ -49,10 +49,7 @@ fn run_provider(
     t.responses().to_vec()
 }
 
-fn assert_warming_result(
-    response: &serde_json::Value,
-    mode: crate::output::StructuredContentMode,
-) {
+fn assert_warming_result(response: &serde_json::Value, mode: crate::output::StructuredContentMode) {
     let result = &response["result"];
     assert_eq!(result["isError"], true);
     assert_eq!(result["_meta"]["prism/index_state"], "warming");
@@ -440,8 +437,7 @@ fn lazy_runtime_reports_build_failure_without_structured_content_on_the_default_
     write_file(dir.path(), "a.py", "def f():\n    return 1\n");
     let mut cfg = crate::ServerConfig::new(dir.path().to_path_buf());
     cfg.cache = crate::CacheMode::NoCache;
-    let builder: crate::lazy::SessionBuilder =
-        Arc::new(|| anyhow::bail!("injected build failure"));
+    let builder: crate::lazy::SessionBuilder = Arc::new(|| anyhow::bail!("injected build failure"));
     let mut provider = crate::lazy::LazySessionProvider::with_builder(
         &cfg,
         std::time::Duration::from_secs(1),

@@ -213,10 +213,7 @@ fn o_event_identity_and_clock() {
             "--nocapture",
         ])
         .env("PRISM_O_STARTUP_CHILD", "1")
-        .env(
-            crate::shared::runtime_dir::RUNTIME_DIR_ENV,
-            base.path(),
-        )
+        .env(crate::shared::runtime_dir::RUNTIME_DIR_ENV, base.path())
         .output()
         .unwrap();
     let stderr = String::from_utf8(output.stderr).unwrap();
@@ -330,10 +327,7 @@ fn o_event_fields_preserve_serving() {
 
 #[test]
 fn o_daemon_publication_facts() {
-    for startup in [
-        crate::StartupMode::Lazy,
-        crate::StartupMode::Background,
-    ] {
+    for startup in [crate::StartupMode::Lazy, crate::StartupMode::Background] {
         let (_dir, mut cfg) = fixture(RefreshPolicy::WarnOnly);
         cfg.cache = CacheMode::Dir(cfg.repo_root.join("cache"));
         let (builder, _) = scripted(&cfg, vec![]);

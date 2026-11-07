@@ -145,10 +145,7 @@ fn o_actual_cache_and_stages() {
 
 #[test]
 fn o_resident_publication_facts() {
-    for startup in [
-        crate::StartupMode::Lazy,
-        crate::StartupMode::Background,
-    ] {
+    for startup in [crate::StartupMode::Lazy, crate::StartupMode::Background] {
         let (_dir, mut cfg) = fixture();
         cfg.startup = startup;
         for expected in ["miss", "hit"] {

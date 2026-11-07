@@ -1,4 +1,3 @@
-
 use assert_cmd::Command;
 use serde_json::{json, Value};
 
@@ -190,7 +189,10 @@ fn location_seed_mcp_usable_anonymous_ego_control() {
         .unwrap()
         .args([
             "--repo",
-            concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/hapi-4552-source/test"),
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../tests/fixtures/hapi-4552-source/test"
+            ),
             "--eager",
             "--no-cache",
         ])

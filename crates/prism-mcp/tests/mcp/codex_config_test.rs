@@ -9,7 +9,8 @@ use std::process::{Command, Output, Stdio};
 const BIN_ENV: &str = "PRISM_MCP_BIN";
 
 fn argv_stub() -> PathBuf {
-    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join("tests/fixtures/mcp/launcher/argv-stub.sh")
+    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+        .join("tests/fixtures/mcp/launcher/argv-stub.sh")
 }
 
 fn server() -> toml::Value {

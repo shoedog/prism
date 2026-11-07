@@ -1,7 +1,7 @@
 //! Actual transport dispatch and response decoding; no fake proof producer.
 use super::*;
-use prism::api::OwnerOptions;
 use crate::owner::OwnerRuntime;
+use prism::api::OwnerOptions;
 
 fn fixture() -> (tempfile::TempDir, OwnerRuntime) {
     let root = tempfile::tempdir().unwrap();

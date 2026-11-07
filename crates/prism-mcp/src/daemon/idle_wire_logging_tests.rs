@@ -149,11 +149,7 @@ fn daemon_idle_relief_after_drop() {
         "Arm A matched no-op"
     );
     #[cfg(not(target_os = "macos"))]
-    assert_eq!(
-        crate::idle::pressure_relief(true),
-        0,
-        "non-macOS is no-op"
-    );
+    assert_eq!(crate::idle::pressure_relief(true), 0, "non-macOS is no-op");
 }
 
 #[test]
