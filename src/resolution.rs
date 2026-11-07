@@ -16,20 +16,15 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[path = "resolution_free.rs"]
 mod free;
-#[path = "resolution_go_satisfiers.rs"]
-pub(crate) mod go_satisfiers;
-use go_satisfiers::{GoCallerScopedSatisfiers, GoSatisfierMemo};
+use go::concrete_receiver::GoConcreteReceiverRoute;
+use go::promoted_snapshot::GoPromotedSnapshotConsult;
+use go::satisfiers::{GoCallerScopedSatisfiers, GoSatisfierMemo};
 
-#[path = "resolution_js_alias.rs"]
-mod js_alias;
-#[path = "resolution_js_cjs.rs"]
-mod js_cjs;
-#[path = "resolution_js_namespace.rs"]
-mod js_namespace;
-#[path = "resolution_js_returns.rs"]
-mod js_returns;
-#[path = "resolution_rust_self.rs"]
-pub(crate) mod rust_self;
+pub mod go;
+
+pub mod js_ts;
+
+pub(crate) mod rust;
 
 pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
 pub use crate::resolution_identity::{
@@ -340,7 +335,7 @@ pub fn resolve_go_owner_identity(
     file: &str,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
-    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    go_file_profiles: &BTreeMap<String, go::build_profile::GoBuildProfile>,
 ) -> Option<GoOwnerIdentity> {
     resolve_go_owner_identity_with_mode(
         type_text,
@@ -363,7 +358,7 @@ pub(crate) fn resolve_go_receiver_owner_identity(
     file: &str,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
-    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    go_file_profiles: &BTreeMap<String, go::build_profile::GoBuildProfile>,
 ) -> Option<GoOwnerIdentity> {
     resolve_go_owner_identity_with_mode(
         type_text,
@@ -380,7 +375,7 @@ fn resolve_go_owner_identity_with_mode(
     file: &str,
     imports: &BTreeMap<String, BTreeMap<String, String>>,
     package_basenames: &BTreeMap<String, BTreeSet<String>>,
-    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    go_file_profiles: &BTreeMap<String, go::build_profile::GoBuildProfile>,
     mode: GoOwnerResolutionMode,
 ) -> Option<GoOwnerIdentity> {
     let t = type_text
@@ -452,7 +447,7 @@ pub use free::resolve_go_bare_value_ref;
 fn go_visible_value_candidates<'a>(
     caller_file: &str,
     candidates: &[&'a FunctionId],
-    profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    profiles: &BTreeMap<String, go::build_profile::GoBuildProfile>,
 ) -> Vec<(&'a FunctionId, bool)> {
     let Some(caller_profile) = profiles.get(caller_file) else {
         return candidates
@@ -460,7 +455,7 @@ fn go_visible_value_candidates<'a>(
             .map(|fid| {
                 (
                     *fid,
-                    crate::go_build_profile::profile_allows_exact(profiles.get(&fid.file)),
+                    go::build_profile::profile_allows_exact(profiles.get(&fid.file)),
                 )
             })
             .collect();
@@ -471,14 +466,14 @@ fn go_visible_value_candidates<'a>(
             let Some(candidate_profile) = profiles.get(&fid.file) else {
                 return Some((*fid, false));
             };
-            let visibility = crate::go_build_profile::go_same_package_visible_detailed(
+            let visibility = go::build_profile::go_same_package_visible_detailed(
                 caller_profile,
                 candidate_profile,
             );
             visibility.visible.then(|| {
                 (
                     *fid,
-                    crate::go_build_profile::visibility_allows_exact(
+                    go::build_profile::visibility_allows_exact(
                         Some(candidate_profile),
                         &visibility,
                     ),
@@ -1023,12 +1018,12 @@ pub struct ResolutionTelemetry {
     pub go_unproven_receiver_bare_fallback_sites: usize,
     pub go_unproven_receiver_bare_fallback_hits: usize,
     pub go_unproven_receiver_bare_fallback_edges: usize,
-    pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
+    pub go_owner_identity_partition: go::owner_partition::GoOwnerPartitionTelemetry,
 }
 
 impl ResolutionTelemetry {
     fn with_go_owner_partition(
-        evidence: crate::go_owner_partition::GoPartitionEvidence,
+        evidence: go::owner_partition::GoPartitionEvidence,
         affected_edges: usize,
     ) -> Self {
         let mut telemetry = Self::default();
@@ -1053,7 +1048,7 @@ pub struct ResolutionOutcome<'a> {
     pub drop: Option<DropReason>,
     pub telemetry: ResolutionTelemetry,
     /// Positive producer evidence, never inferred from a route kind or singleton pool.
-    pub(crate) anonymous_certificate: Option<crate::js_anonymous::Certificate>,
+    pub(crate) anonymous_certificate: Option<js_ts::anonymous::Certificate>,
     /// The candidate came from a followed binding.
     pub via_alias_route: bool,
 }
@@ -1130,7 +1125,7 @@ fn receiver_resolution_kind(recovery: ReceiverRecovery) -> ResolutionKind {
         // bucket. Applies uniformly to both lanes that can produce these two
         // recovery kinds — Lane A's Rust scope-graph receiver typer
         // (`resolution_receiver.rs`) and Lane B's new Go post-merge pass
-        // (`go_receiver_index.rs`) — since both share this one mapping
+        // (`call_graph/go/receiver_index.rs`) — since both share this one mapping
         // function; a pure label refinement, no confidence/target change.
         ReceiverRecovery::FieldTyped => ResolutionKind::FieldTyped,
         ReceiverRecovery::ReturnTyped => ResolutionKind::ReturnTyped,
@@ -1220,7 +1215,7 @@ pub(crate) struct GoProvenPromotedSupplyTelemetry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct GoProvenInterfaceConsult<'a> {
     pub route: GoProvenInterfaceRoute,
-    pub selection: crate::go_owner_partition::GoPartitionSelection<Vec<&'a FunctionId>>,
+    pub selection: go::owner_partition::GoPartitionSelection<Vec<&'a FunctionId>>,
     pub all_satisfiers: usize,
     pub live_satisfiers: usize,
     pub final_satisfiers: usize,
@@ -1433,7 +1428,7 @@ impl CallGraph {
         &self,
         owner: &GoOwnerIdentity,
         caller_file: &str,
-    ) -> crate::go_owner_partition::GoOwnerReferenceMode {
+    ) -> go::owner_partition::GoOwnerReferenceMode {
         let same_namespace = self
             .go_file_profiles
             .get(caller_file)
@@ -1442,9 +1437,9 @@ impl CallGraph {
                     && profile.package_clause == owner.package_clause
             });
         if same_namespace {
-            crate::go_owner_partition::GoOwnerReferenceMode::Bare
+            go::owner_partition::GoOwnerReferenceMode::Bare
         } else {
-            crate::go_owner_partition::GoOwnerReferenceMode::Qualified
+            go::owner_partition::GoOwnerReferenceMode::Qualified
         }
     }
 
@@ -1457,12 +1452,12 @@ impl CallGraph {
         proven_owner: Option<&GoOwnerIdentity>,
         method_name: &str,
         caller_file: &str,
-    ) -> crate::go_owner_partition::GoPartitionSelection<String> {
+    ) -> go::owner_partition::GoPartitionSelection<String> {
         let Some(owner) = self.go_receiver_owner(recv_ty, caller_file, proven_owner) else {
-            return crate::go_owner_partition::GoPartitionSelection::default();
+            return go::owner_partition::GoPartitionSelection::default();
         };
         let mode = self.go_owner_reference_mode(&owner, caller_file);
-        crate::go_owner_partition::select_embedded_interface_route_with_mode(
+        go::owner_partition::select_embedded_interface_route_with_mode(
             &owner,
             caller_file,
             mode,
@@ -1478,9 +1473,9 @@ impl CallGraph {
         &self,
         owner: &GoOwnerIdentity,
         caller_file: &str,
-    ) -> crate::go_owner_partition::GoPartitionSelection<bool> {
+    ) -> go::owner_partition::GoPartitionSelection<bool> {
         let mode = self.go_owner_reference_mode(owner, caller_file);
-        crate::go_owner_partition::select_interface_presence_with_mode(
+        go::owner_partition::select_interface_presence_with_mode(
             owner,
             caller_file,
             mode,
@@ -1498,7 +1493,7 @@ impl CallGraph {
         memo: Option<&GoSatisfierMemo<'a>>,
     ) -> GoCallerScopedSatisfiers<'a> {
         #[cfg(test)]
-        if go_satisfiers::reference_enabled() {
+        if go::satisfiers::reference_enabled() {
             return self.go_reference_caller_scoped_satisfiers(
                 interface_owner,
                 method_name,
@@ -1524,7 +1519,7 @@ impl CallGraph {
         &'a self,
         satisfiers: GoCallerScopedSatisfiers<'a>,
     ) -> (
-        crate::go_owner_partition::GoPartitionSelection<Vec<&'a FunctionId>>,
+        go::owner_partition::GoPartitionSelection<Vec<&'a FunctionId>>,
         usize,
         usize,
         bool,
@@ -1533,7 +1528,7 @@ impl CallGraph {
         let mut evidence = satisfiers.selection.evidence;
         let Some(all_satisfiers) = satisfiers.selection.value else {
             return (
-                crate::go_owner_partition::GoPartitionSelection {
+                go::owner_partition::GoPartitionSelection {
                     value: None,
                     evidence,
                 },
@@ -1560,7 +1555,7 @@ impl CallGraph {
         };
         evidence.distinct_visible_values = chosen.len();
         (
-            crate::go_owner_partition::GoPartitionSelection {
+            go::owner_partition::GoPartitionSelection {
                 value: Some(chosen.into_iter().collect()),
                 evidence,
             },
@@ -1579,7 +1574,7 @@ impl CallGraph {
         method_name: &str,
         caller_file: &str,
         _candidates: Vec<&'a FunctionId>,
-    ) -> crate::go_owner_partition::GoPartitionSelection<Vec<&'a FunctionId>> {
+    ) -> go::owner_partition::GoPartitionSelection<Vec<&'a FunctionId>> {
         self.go_visible_s4_implementers_with_memo(
             recv_ty,
             proven_owner,
@@ -1598,10 +1593,10 @@ impl CallGraph {
         method_name: &str,
         caller_file: &str,
         memo: Option<&GoSatisfierMemo<'a>>,
-    ) -> crate::go_owner_partition::GoPartitionSelection<Vec<&'a FunctionId>> {
+    ) -> go::owner_partition::GoPartitionSelection<Vec<&'a FunctionId>> {
         let Some(receiver_owner) = self.go_receiver_owner(recv_ty, caller_file, proven_owner)
         else {
-            return crate::go_owner_partition::GoPartitionSelection::default();
+            return go::owner_partition::GoPartitionSelection::default();
         };
         let interface_owner = GoOwnerIdentity {
             package_dir: receiver_owner.package_dir,
@@ -1722,7 +1717,7 @@ impl CallGraph {
         interface_name: &str,
         site: &CallSite,
         memo: Option<&GoSatisfierMemo<'a>>,
-        mut evidence: crate::go_owner_partition::GoPartitionEvidence,
+        mut evidence: go::owner_partition::GoPartitionEvidence,
     ) -> ResolutionOutcome<'a> {
         let method_name = site.callee_name.as_str();
         let visible = self.go_visible_s4_implementers_with_memo(
@@ -1774,7 +1769,7 @@ impl CallGraph {
         caller_file: &str,
     ) -> Option<(
         GoOwnerIdentity,
-        crate::go_owner_partition::GoPartitionSelection<bool>,
+        go::owner_partition::GoPartitionSelection<bool>,
     )> {
         let owner = self.go_receiver_owner(recv_ty, caller_file, proven_owner)?;
         if proven_owner.is_none()
@@ -1788,7 +1783,7 @@ impl CallGraph {
             return None;
         }
         let mode = self.go_owner_reference_mode(&owner, caller_file);
-        let selection = crate::go_owner_partition::select_own_method_with_mode(
+        let selection = go::owner_partition::select_own_method_with_mode(
             &owner,
             caller_file,
             mode,
@@ -1819,7 +1814,7 @@ impl CallGraph {
             return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
         };
         if declaring_profile.package_clause != target.owner.package_clause
-            || !crate::go_build_profile::profile_allows_exact(Some(declaring_profile))
+            || !go::build_profile::profile_allows_exact(Some(declaring_profile))
         {
             return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
         }
@@ -1833,10 +1828,10 @@ impl CallGraph {
             .iter()
             .filter(|fid| dir_of(&fid.file) == target.owner.package_dir)
             .filter(|fid| {
-                crate::go_owner_partition::exact_declaration_visibility(
+                go::owner_partition::exact_declaration_visibility(
                     &target.owner,
                     &target.declaring_file,
-                    crate::go_owner_partition::GoOwnerReferenceMode::Bare,
+                    go::owner_partition::GoOwnerReferenceMode::Bare,
                     &fid.file,
                     &self.go_file_profiles,
                 ) == (true, true)
@@ -1888,7 +1883,7 @@ impl CallGraph {
             return ResolutionOutcome::dropped(DropReason::ExternalReceiver);
         };
         let mode = self.go_owner_reference_mode(&owner, caller_file);
-        let field = crate::go_owner_partition::select_struct_field_with_mode(
+        let field = go::owner_partition::select_struct_field_with_mode(
             &owner,
             caller_file,
             mode,
@@ -1908,7 +1903,7 @@ impl CallGraph {
             );
         }
         let field_key = (owner.clone(), name.to_string());
-        let targets = crate::go_owner_partition::select_registration_values(
+        let targets = go::owner_partition::select_registration_values(
             caller_file,
             self.go_registrations
                 .iter()
@@ -2565,13 +2560,9 @@ impl CallGraph {
                         });
                     if let Some(route) = go_route.as_ref() {
                         match route {
-                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect {
-                                ..
-                            }
-                            | crate::go_concrete_receiver::GoConcreteReceiverRoute::Unproven => {}
-                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromoted {
-                                ..
-                            } => {
+                            GoConcreteReceiverRoute::ConcreteDirect { .. }
+                            | GoConcreteReceiverRoute::Unproven => {}
+                            GoConcreteReceiverRoute::ConcretePromoted { .. } => {
                                 let Some(resolved) = self.owner_lookup(recv_ty, name) else {
                                     return ResolutionOutcome::dropped(
                                         DropReason::ConcreteReceiverPromotedDeferred,
@@ -2581,19 +2572,15 @@ impl CallGraph {
                                 telemetry.go_concrete_receiver_promoted_existing = 1;
                                 return ResolutionOutcome::hit_with_telemetry(resolved, telemetry);
                             }
-                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcretePromotedDeferred {
-                                owner,
-                            } => {
+                            GoConcreteReceiverRoute::ConcretePromotedDeferred { owner } => {
                                 let mut telemetry = ResolutionTelemetry::default();
-                                match crate::go_promoted_snapshot::consult_promoted_snapshot(
+                                match go::promoted_snapshot::consult_promoted_snapshot(
                                     self.go_promoted_selector_snapshot(),
                                     &self.go_method_declarations,
                                     owner,
                                     name,
                                 ) {
-                                    crate::go_promoted_snapshot::GoPromotedSnapshotConsult::Hit(
-                                        target,
-                                    ) => {
+                                    GoPromotedSnapshotConsult::Hit(target) => {
                                         telemetry.go_promoted_snapshot_hits = 1;
                                         return ResolutionOutcome::hit_with_telemetry(
                                             exact(
@@ -2603,16 +2590,16 @@ impl CallGraph {
                                             telemetry,
                                         );
                                     }
-                                    crate::go_promoted_snapshot::GoPromotedSnapshotConsult::ConflictDrop => {
+                                    GoPromotedSnapshotConsult::ConflictDrop => {
                                         telemetry.go_promoted_snapshot_conflict_drop = 1;
                                     }
-                                    crate::go_promoted_snapshot::GoPromotedSnapshotConsult::VariantDrop => {
+                                    GoPromotedSnapshotConsult::VariantDrop => {
                                         telemetry.go_promoted_snapshot_variant_drop = 1;
                                     }
-                                    crate::go_promoted_snapshot::GoPromotedSnapshotConsult::InvariantDrop => {
+                                    GoPromotedSnapshotConsult::InvariantDrop => {
                                         telemetry.go_promoted_snapshot_invariant_drop = 1;
                                     }
-                                    crate::go_promoted_snapshot::GoPromotedSnapshotConsult::Miss => {}
+                                    GoPromotedSnapshotConsult::Miss => {}
                                 }
                                 telemetry.go_concrete_receiver_promoted_deferred = 1;
                                 return ResolutionOutcome::dropped_with_telemetry(
@@ -2620,7 +2607,7 @@ impl CallGraph {
                                     telemetry,
                                 );
                             }
-                            crate::go_concrete_receiver::GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
+                            GoConcreteReceiverRoute::EmbeddedInterfaceDispatch {
                                 owner,
                                 interface_name,
                                 evidence,
@@ -2634,9 +2621,7 @@ impl CallGraph {
                                     *evidence,
                                 );
                             }
-                            crate::go_concrete_receiver::GoConcreteReceiverRoute::FuncValueField {
-                                owner,
-                            } => {
+                            GoConcreteReceiverRoute::FuncValueField { owner } => {
                                 return self.func_value_field_or_external_drop(
                                     recv_ty,
                                     Some(owner),
@@ -2644,10 +2629,7 @@ impl CallGraph {
                                     &site.caller.file,
                                 );
                             }
-                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteNoSelector {
-                                evidence,
-                                ..
-                            } => {
+                            GoConcreteReceiverRoute::ConcreteNoSelector { evidence, .. } => {
                                 let mut telemetry =
                                     ResolutionTelemetry::with_go_owner_partition(*evidence, 0);
                                 telemetry.go_concrete_receiver_no_selector_drop = 1;
@@ -2656,7 +2638,7 @@ impl CallGraph {
                                     telemetry,
                                 );
                             }
-                            crate::go_concrete_receiver::GoConcreteReceiverRoute::InterfaceDispatch {
+                            GoConcreteReceiverRoute::InterfaceDispatch {
                                 owner,
                                 interface_name,
                             } => {
@@ -2666,10 +2648,10 @@ impl CallGraph {
                                     interface_name,
                                     site,
                                     memo,
-                                    crate::go_owner_partition::GoPartitionEvidence::default(),
+                                    go::owner_partition::GoPartitionEvidence::default(),
                                 );
                             }
-                            crate::go_concrete_receiver::GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
+                            GoConcreteReceiverRoute::R2OnDemandNameCollisionBail => {
                                 let mut telemetry = ResolutionTelemetry::default();
                                 telemetry.go_r2_on_demand_name_collision_bail = 1;
                                 return ResolutionOutcome::dropped_with_telemetry(
@@ -2677,7 +2659,7 @@ impl CallGraph {
                                     telemetry,
                                 );
                             }
-                            crate::go_concrete_receiver::GoConcreteReceiverRoute::ExternalNewRecoveryDrop => {
+                            GoConcreteReceiverRoute::ExternalNewRecoveryDrop => {
                                 let mut telemetry = ResolutionTelemetry::default();
                                 telemetry.go_external_receiver_new_recovery_drop = 1;
                                 return ResolutionOutcome::dropped_with_telemetry(
@@ -2847,17 +2829,17 @@ impl CallGraph {
                             && !site.receiver_local_type_shadowed
                         {
                             match go_route.as_ref() {
-                                    Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect {
-                                        owner,
-                                        selection,
-                                    }) => Some((owner.clone(), selection.clone())),
-                                    _ => self.go_own_method_partition(
-                                        recv_ty,
-                                        site.receiver_owner_identity.as_ref(),
-                                        name,
-                                        &caller.file,
-                                    ),
-                                }
+                                Some(GoConcreteReceiverRoute::ConcreteDirect {
+                                    owner,
+                                    selection,
+                                }) => Some((owner.clone(), selection.clone())),
+                                _ => self.go_own_method_partition(
+                                    recv_ty,
+                                    site.receiver_owner_identity.as_ref(),
+                                    name,
+                                    &caller.file,
+                                ),
+                            }
                         } else {
                             None
                         };
@@ -2893,7 +2875,7 @@ impl CallGraph {
                                 if site.receiver_owner_identity.is_some()
                                     || matches!(
                                         go_route.as_ref(),
-                                        Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. })
+                                        Some(GoConcreteReceiverRoute::ConcreteDirect { .. })
                                     ) =>
                             {
                                 let ids = self
@@ -2921,13 +2903,14 @@ impl CallGraph {
                                         .flatten()
                                         .filter(|declaration| declaration.method_name == name)
                                         .filter_map(|declaration| {
-                                            let (visible, exact) = crate::go_owner_partition::exact_declaration_visibility(
-                                                owner,
-                                                &caller.file,
-                                                mode,
-                                                &declaration.defining_file,
-                                                &self.go_file_profiles,
-                                            );
+                                            let (visible, exact) =
+                                                go::owner_partition::exact_declaration_visibility(
+                                                    owner,
+                                                    &caller.file,
+                                                    mode,
+                                                    &declaration.defining_file,
+                                                    &self.go_file_profiles,
+                                                );
                                             uncertain |= visible && !exact;
                                             (visible && exact)
                                                 .then_some(declaration.defining_file.as_str())
@@ -2959,7 +2942,7 @@ impl CallGraph {
                                 }
                                 if matches!(
                                     go_route.as_ref(),
-                                    Some(crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. })
+                                    Some(GoConcreteReceiverRoute::ConcreteDirect { .. })
                                 ) {
                                     telemetry.go_concrete_receiver_direct = 1;
                                 }
@@ -2986,7 +2969,7 @@ impl CallGraph {
                                 // method/field, existing struct promotion
                                 // wins, package-scoping) are enforced upstream
                                 // when the declaration snapshots are consulted
-                                // (go_owner_partition.rs, B2 fix) — lookup is
+                                // (`resolution/go/owner_partition.rs`, B2 fix) — lookup is
                                 // keyed by the receiver's OWN
                                 // `GoOwnerIdentity`, resolved the same way
                                 // `func_value_field_or_external_drop`'s S2
@@ -3466,7 +3449,7 @@ impl CallGraph {
         }
     }
 
-    fn go_profile_for(&self, file: &str) -> Option<crate::go_build_profile::GoBuildProfile> {
+    fn go_profile_for(&self, file: &str) -> Option<go::build_profile::GoBuildProfile> {
         self.go_file_profiles.get(file).cloned()
     }
 
@@ -3482,7 +3465,7 @@ impl CallGraph {
     ) {
         let Some(caller_profile) = self.go_profile_for(caller_file) else {
             let exact_allowed = candidates.iter().all(|fid| {
-                crate::go_build_profile::profile_allows_exact(self.go_file_profiles.get(&fid.file))
+                go::build_profile::profile_allows_exact(self.go_file_profiles.get(&fid.file))
             });
             return (
                 candidates.to_vec(),
@@ -3502,14 +3485,13 @@ impl CallGraph {
                 survivors_allow_exact = false;
                 continue;
             };
-            let vis = crate::go_build_profile::go_same_package_visible_detailed(
+            let vis = go::build_profile::go_same_package_visible_detailed(
                 &caller_profile,
                 &candidate_profile,
             );
             telemetry.go_build_expr_unparsed += vis.diagnostics.unparsed;
             if vis.visible {
-                if !crate::go_build_profile::visibility_allows_exact(Some(&candidate_profile), &vis)
-                {
+                if !go::build_profile::visibility_allows_exact(Some(&candidate_profile), &vis) {
                     survivors_allow_exact = false;
                 }
                 survivors.push(*fid);

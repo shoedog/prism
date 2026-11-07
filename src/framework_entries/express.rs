@@ -53,7 +53,7 @@ pub struct ExpressRouteCandidate {
 }
 
 /// Extract every recognized Express route-registration call in `parsed`.
-/// Registration-first (unlike taint.rs's handler-first
+/// Registration-first (unlike taint.rs's (now `taint/js_ts/`) handler-first
 /// `js_ts_is_framework_route_handler`, which is a boolean per-handler check
 /// and never extracts an argument or a FunctionId) — reuses the shape
 /// constants/logic in `frameworks/js_ts/call_classify.rs`

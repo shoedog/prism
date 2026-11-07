@@ -29,7 +29,7 @@ Each `mutants/<lane>.json` has a flat `mutations` map:
   "extra": {
     "ID-slug": [["src/other_file.rs", "<original>", "<mutated>"]]
   },
-  "lib_test_prefixes": ["js_paths_snapshot::", "repo_loader::"]
+  "lib_test_prefixes": ["resolution::js_ts::paths_snapshot::", "repo_loader::"]
 }
 ```
 

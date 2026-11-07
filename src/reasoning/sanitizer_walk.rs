@@ -15,7 +15,7 @@
 //!       value IS a recognizer-matched, non-`paired_check` sanitizer call,
 //!   (b) `node[i+1]`'s byte span is EXACTLY that SAME assignment's target/declared-name span, AND
 //!   (c) `node[i]`'s byte span sits inside the call's FIRST (data) argument specifically — NOT
-//!       merely somewhere in the call expression. `ast.rs::rvalue_identifier_spans_on_lines` records
+//!       merely somewhere in the call expression. `ast/rvalues.rs::rvalue_identifier_spans_on_lines` records
 //!       BOTH the callee/function-name identifier and EVERY call argument as a Use, so (a) alone
 //!       would also accept the callee span or a non-data argument at index > 0 (e.g. `escape(other,
 //!       user)` with `user` untouched at arg[1], or a tainted local shadowing the callee name in
@@ -258,7 +258,7 @@ fn sanitizer_site_for_assignment(
         return None;
     }
     let call = sanitizer_call_site(parsed, &rhs)?;
-    // F1 BLOCKER: `ast.rs::rvalue_identifier_spans_on_lines` records BOTH the callee/function-name
+    // F1 BLOCKER: `ast/rvalues.rs::rvalue_identifier_spans_on_lines` records BOTH the callee/function-name
     // identifier AND every call argument as a Use — so "Use sits inside the call's overall span" is
     // not enough; the sanitizer transform must actually run ON `use_loc`'s value. That means
     // `use_loc` must sit inside the call's data-argument span specifically, never the callee span
@@ -279,7 +279,7 @@ fn sanitizer_site_for_assignment(
     // named child of the argument list is always the positional data argument — unchanged. Python
     // can pass the data value BY NAME instead, e.g. `html.escape(s=user)`, and the argument list's
     // first named child can then be a `keyword_argument` node spanning `name=value` as a whole.
-    // `collect_identifier_path_spans` (ast.rs) recurses into BOTH sides of a `keyword_argument`, so
+    // `collect_identifier_path_spans` (ast/rvalue_identifiers.rs) recurses into BOTH sides of a `keyword_argument`, so
     // a Use can sit in the NAME (label) identifier — which can coincidentally share text with a
     // real tainted variable, see `python_keyword_label_use_is_not_a_sanitizer_transition` — or in a
     // DIFFERENT, non-data keyword argument's value, see

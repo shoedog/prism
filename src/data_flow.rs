@@ -12,6 +12,7 @@ mod build;
 mod compact;
 mod queries;
 mod storage;
+pub mod terraform;
 mod types;
 mod views;
 pub(crate) use compact::assembly::{AssemblyId, AssemblyView};

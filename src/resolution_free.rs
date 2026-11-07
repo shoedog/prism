@@ -43,7 +43,7 @@ pub(super) fn candidates<'a>(
 // self/receiver-variable and recovered-receiver owner lookups, R6) pool owners
 // from `CallGraph::methods`/`functions` without a language key, so they are
 // admitted once, on the public full-resolution result (`admit_and_filter_family`,
-// called by `resolve_call_site_full` in `js_anonymous.rs` and its Go-memo twin): the rung, kind and confidence are
+// called by `resolve_call_site_full` in `resolution/js_ts/anonymous.rs` and its Go-memo twin): the rung, kind and confidence are
 // the unfiltered pool's, foreign-family targets are then removed, and a pool
 // left empty refuses with no later rung consulted (#585).
 impl super::CallGraph {
@@ -87,7 +87,7 @@ use super::{dir_of, go_visible_value_candidates};
 pub fn resolve_go_bare_value_ref(
     functions: &BTreeMap<String, Vec<FunctionId>>,
     method_owners: &BTreeMap<FunctionId, String>,
-    go_file_profiles: &BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    go_file_profiles: &BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
     ambiguous_counter: &mut usize,
     caller_file: &str,
     name: &str,

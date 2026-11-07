@@ -1,6 +1,6 @@
 {
  "lane": "slice L: follow const aliases (2026-10-13)",
- "source": "src/ast/js_binding_alias.rs; src/resolution_js_alias.rs",
+ "source": "src/ast/js_binding_alias.rs; src/resolution/js_ts/alias.rs",
  "lib_test_prefixes": [
   "ast::"
  ],
@@ -143,7 +143,7 @@
    ]
   ],
   "AF-29-zero-candidate-import-falls-through": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "0 => ResolutionOutcome::dropped(DropReason::UnknownName),",
    "0 => ResolutionOutcome::hit(exact(Vec::<&FunctionId>::new(), ResolutionKind::ImportMember)),",
    [
@@ -151,7 +151,7 @@
    ]
   ],
   "AF-30-wrapped-member-at-non-jsx": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "if resolved.wrapped && !site.jsx_element {",
    "if false {",
    [
@@ -159,7 +159,7 @@
    ]
   ],
   "AF-33-export-name-not-required": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    ".and_then(|exports| exports.get(member))",
    ".and_then(|exports| exports.values().next())",
    [
@@ -224,7 +224,7 @@
    ]
   ],
   "AF-23-alias-import-unrouted": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "self.js_ts_alias_import_outcome(caller, local, site)",
    "None",
    [
@@ -232,7 +232,7 @@
    ]
   ],
   "AF-24-alias-member-unrouted": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "} => self.js_ts_alias_member_outcome(module_path, member, site),",
    "} => None,",
    [
@@ -240,7 +240,7 @@
    ]
   ],
   "AF-36-callable-alias-unrouted": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "Some(self.js_ts_local_callable(caller, name, t, site))",
    "{ let _ = t; None }",
    [
@@ -248,7 +248,7 @@
    ]
   ],
   "AF-27-non-relative-module-accepted": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    ".starts_with('.')",
    ".starts_with(|_c: char| true)",
    [
@@ -256,7 +256,7 @@
    ]
   ],
   "AF-28-span-not-required-on-namespace-route": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "let (start, end) = resolved.span?;",
    "let (start, end) = resolved.span.unwrap_or((5, 5));",
    [
@@ -264,7 +264,7 @@
    ]
   ],
   "AF-31-end-line-not-compared": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "&& fid.end_line == end",
    "&& true",
    [
@@ -329,7 +329,7 @@
    ]
   ],
   "AF-50-callable-arm-returns-its-drop": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "(outcome.drop.is_none()",
    "(true || outcome.drop.is_none()",
    [
@@ -371,7 +371,7 @@
    ]
   ],
   "AF-60-predicate-read-from-the-route": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "outcome.via_alias_route.then_some(outcome)",
    "{ let _ = outcome.via_alias_route; self.js_ts_alias_route(&site.caller, &site.callee_name, site) }",
    [
@@ -425,7 +425,7 @@
    ]
   ],
   "AF-66-nav-count-reads-the-route-not-the-resolver": [
-   "src/resolution_js_alias.rs",
+   "src/resolution/js_ts/alias.rs",
    "self.alias_route_public_outcome(site).is_some()",
    "self.js_ts_alias_route(&site.caller, &site.callee_name, site).is_some()",
    [

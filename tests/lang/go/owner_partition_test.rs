@@ -1,13 +1,16 @@
 use prism::ast::ParsedFile;
 use prism::call_graph::CallGraph;
-use prism::go_build_profile::unconstrained_profile;
-use prism::go_owner_partition::select_embedded_interface_route;
 use prism::languages::Language;
+use prism::resolution::go::build_profile::unconstrained_profile;
+use prism::resolution::go::owner_partition::select_embedded_interface_route;
 use prism::resolution::{resolve_go_owner_identity, GoOwnerIdentity, ResolutionConfidence};
 use prism::type_providers::go::GoTypeProvider;
 use std::collections::{BTreeMap, BTreeSet};
 
-fn profile(package_clause: &str, is_test_file: bool) -> prism::go_build_profile::GoBuildProfile {
+fn profile(
+    package_clause: &str,
+    is_test_file: bool,
+) -> prism::resolution::go::build_profile::GoBuildProfile {
     let mut profile = unconstrained_profile();
     profile.package_clause = package_clause.to_string();
     profile.is_test_file = is_test_file;

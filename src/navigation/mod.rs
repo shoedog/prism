@@ -1214,7 +1214,7 @@ mod tests {
 
     /// P8 F1 fix (codex re-review BLOCKER): Rust macro-arg call extraction
     /// depends on the repo-wide macro shadow set
-    /// (`rust_macro_args::collect_macro_shadow_set`), but this incremental
+    /// (`call_graph::rust::macro_args::collect_macro_shadow_set`), but this incremental
     /// path only re-extracts `changed_files` — an unchanged file's call
     /// sites/`macro_arg_facts` are RETAINED as-is (see `remove_files`'s P8
     /// comment). Adding a `macro_rules! vec` definition in a brand-new file

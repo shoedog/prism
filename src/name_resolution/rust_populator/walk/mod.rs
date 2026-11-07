@@ -2,7 +2,7 @@
 //! `impl` → (path-reachable, not-bare-visible) associated items, patterns →
 //! `Target::Local`s, name-introducing macros → `MacroWildcard`s.
 //!
-//! Mirrors the `collect_calls_manual_*` DFS idiom in `ast.rs`: a cursor walk
+//! Mirrors the `collect_calls_manual_*` DFS idiom in `ast/calls.rs`: a cursor walk
 //! dispatching on `node.kind()`. All graph mutation goes through [`Builder`].
 //!
 //! ## Module layout

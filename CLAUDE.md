@@ -61,7 +61,7 @@ targets under default and MCP features. The accepted migration oracle has been r
 ## Accuracy Harness (Tier-A)
 
 When a change touches call resolution, navigation queries, or CPG construction
-(`src/call_graph.rs`, `src/navigation/`, `src/cpg/`, `src/ast.rs`):
+(`src/call_graph.rs`, `src/call_graph/`, `src/navigation/`, `src/cpg/`, `src/ast.rs`, `src/ast/`):
 
 ```bash
 cargo build --release
@@ -171,7 +171,7 @@ copies must be updated or the matrix will under-report coverage. Run
 - `thin_slice.rs` → Data deps only, no control flow
 - `barrier_slice.rs` → Depth-limited interprocedural (uses `call_graph.rs`)
 - `chop.rs` → Source-to-sink paths (uses `data_flow.rs`)
-- `taint.rs` → Forward taint propagation (uses `data_flow.rs`)
+- `taint.rs` → Forward taint propagation (uses `data_flow.rs`); the entry re-exports `slice` from `taint/run.rs`, and the pipeline lives in `taint/{run,report,flat,seeds,sink_match,cleansing}.rs` with per-language code under `taint/{js_ts,python,go}/` (#707)
 - `relevant_slice.rs` → LeftFlow + alternate branch paths
 - `conditioned_slice.rs` → LeftFlow pruned by value predicate
 - `delta_slice.rs` → Two-version data-flow diff
@@ -368,6 +368,8 @@ header, body and back edge share one node proves nothing; `inc_statement` `p.f++
 comparable write between them (or in the same statement) kills; a kill strictly earlier than the source on its node (`p = q; p.f = x`) no longer hides the source.
 A single-statement owner has no CFG edges and so no recall (existing NoCfg rule).
 
+Go producer defs (#694 slice A, `src/ast/go_header_defs.rs`): range and receive `:=` targets, type-switch aliases and every `var`/`const` name get a def at their identifier (the first name of the first direct spec always did); function-literal formals and named results do not yet (slice B). Header targets and aliases mint no alias twin, and rules U and D classify them as plain writes that are never dominating ones, so a header that only declares a name is write-only and a use after the loop or select still sees the outer def.
+
 For Go, the producer omits def→use pairs only when a lexical proof establishes a plain
 write-only use (U) or a dominating unconditional write in a single-entry region (D).
 Go paths whose base is exactly `_` contribute no DataFlow definitions, uses, edges or alias-twin definitions; RHS reads remain, and other languages retain `_` as an ordinary name. Kept edges can change label where a removed blank twin had collapsed a line (`r, _, err := f()` with `_ = err` elsewhere), besides RD availability; where that line is an `if`/`switch` header whose initializer declares the name, the restored label can be a false `exact` (line-granular header RD, #662). Step 5c treats a Go `_` lvalue as a positional hole: no ReturnFlow into it, the other slots keep theirs, and an all-blank site counts in `return_flow_skipped_blank_lhs`.
@@ -382,7 +384,7 @@ through case-value/communication anchors, normal arms exit without sibling fallt
 and else-if false branches enter the nested condition. Blocking selects have no unselected exit.
 The fallback cap counts U/S/D survivors, including duplicates. Per the owner decision, an owner
 formerly capped before pruning can regain its surviving edges when pruning brings it within the cap; this includes a function just over 1,000,000 candidates that falls under it once Go blank candidates are gone and then emits its real edges (the same rule as #634: the cap counts survivors, owner-accepted).
-Go rule S (#630 slice 3, `src/data_flow/build/scope_prune.rs`) drops a (def, use) pair when the def and every read of the name on the use line resolve to different explicit declarations (`BindingFacts::binding_of_def`/`binding_at`, built once per Go owner in the producer from `rd_defs`; RD keeps its own instance because its use-byte table is built from the emitted edges). It runs before D and counts `dfg_pruned_scope`; non-Go languages are untouched. Everything unproven keeps the pair: a `FlatFallback`/non-declaration binding, any unclassified binding construct for the name in the function (`unclassified_binding_lines`), an alias twin, a def with fields, an owner with parse errors. A different declaration is not different storage (#687), so S drops only when the def writes the variable itself (its span is a plain identifier in an `=`/`:=`/`var`/`const`/parameter/range/receive/`++`/`--` position, not an operand of `*`, indexing, slicing or selection), no occurrence of the name on the def's line is such an operand and all coalesced same-line defs of that path bind the same declaration and are each a plain variable write by their own span (so a multi-line `*`/newline/`x` lvalue recorded at the line of the `*` keeps the pair), and no use-line occurrence that resolves elsewhere is itself a storage access (`*x`, `x[i]`, `x.f`, `x.M()`, `(x)`). A name whose address is taken or whose array is sliced anywhere in the owner (`&x`, `&(x)`, `&x.f`, `&x[i]`, `x[:]`, by name, so for both the def's and the use's binding) is never pruned; neither is any name declared by a form the producer emits no def for: range `:=`, receive `:=` and type-switch alias targets, `var`/`const` names other than the first name of the first direct spec (later names, grouped specs), function-literal formals, and named results of any function (a `return` assigns them implicitly). For these the outer def to the body use may be the only value path (`switch v := v.(type)`, `c := (v); switch v := c.(type)`, `var _, v = 0, v`, `func(v int){..}(v)`); producer-emitted defs for them are #694. Because S takes pairs before D, `dfg_pruned_dominated` falls on upgrade for Go owners where S now removes them. Names introduced by `:=`/`var`/`const`/parameters are writes, not reads; a line with no read keeps the pair (U's job). Two occurrences in different scopes keep the pair if either keeps it. Header-line pairs that RD labelled a false `exact` (#662) are dropped when no read of the def's binding exists on the line.
+Go rule S (#630 slice 3, `src/data_flow/build/scope_prune.rs`) drops a (def, use) pair when the def and every read of the name on the use line resolve to different explicit declarations (`BindingFacts::binding_of_def`/`binding_at`, built once per Go owner in the producer from `rd_defs`; RD keeps its own instance because its use-byte table is built from the emitted edges). It runs before D and counts `dfg_pruned_scope`; non-Go languages are untouched. Everything unproven keeps the pair: a `FlatFallback`/non-declaration binding, any unclassified binding construct for the name in the function (`unclassified_binding_lines`), an alias twin, a def with fields, an owner with parse errors. A different declaration is not different storage (#687), so S drops only when the def writes the variable itself (its span is a plain identifier in an `=`/`:=`/`var`/`const`/parameter/range/receive/`++`/`--` position, not an operand of `*`, indexing, slicing or selection), no occurrence of the name on the def's line is such an operand and all coalesced same-line defs of that path bind the same declaration and are each a plain variable write by their own span (so a multi-line `*`/newline/`x` lvalue recorded at the line of the `*` keeps the pair), and no use-line occurrence that resolves elsewhere is itself a storage access (`*x`, `x[i]`, `x.f`, `x.M()`, `(x)`). A name whose address is taken or whose array is sliced anywhere in the owner (`&x`, `&(x)`, `&x.f`, `&x[i]`, `x[:]`, by name, so for both the def's and the use's binding) is never pruned; neither is any name declared by a form the producer still emits no def for: function-literal formals and named results of any function (a `return` assigns them implicitly; the outer def to the body use may be the only value path, `func(v int){..}(v)`; producer-emitted defs for them are #694 slice B). Range `:=` and receive `:=` targets, type-switch aliases and every `var`/`const` name now have producer defs (#694 slice A, `src/ast/go_header_defs.rs`: one def per target at its identifier, the right-hand side's reads on the same line, a multi-value call feeding every name; implicit const repetition gets the def only, a constant expression reads only constants), so the value reaches the body through the new def and S drops the outer pair (`v := c; switch v := v.(type)`, `for _, v := range v`, `var _, v = 0, v`). A type-switch alias is ONE def at the header identifier, attached by `BindingFacts` to the first clause's declaration and grouped with the alias's per-clause declarations (`def_reaches_declaration`): S and RD treat a use resolving to any clause's declaration as reached by it, and a use outside the switch as a different declaration. A split header or spec (any token of its right-hand side on a row other than a declared name's: the range expression, the received channel, the asserted expression, the spec's values; `scope_split.rs`) keeps main's behaviour: rules S and O keep every pair of a name it declares (defs main had; a header target's own new def only where it is the variable the split header shadows), rule D never takes a split `var`/`const` spec as a dominating write, and rule U is unchanged (the declare-only anchor line holds no read, and the kept pair carries the outer value); connecting reads across the statement span is #728. Because S takes pairs before D, `dfg_pruned_dominated` falls on upgrade for Go owners where S now removes them. Names introduced by `:=`/`var`/`const`/parameters are writes, not reads; a line with no read keeps the pair (U's job). Two occurrences in different scopes keep the pair if either keeps it. Header-line pairs that RD labelled a false `exact` (#662) are dropped when no read of the def's binding exists on the line.
 
 Python rules U and D (#630 slice 5, `src/data_flow/build/python_prune.rs`, driven by `lexical_prune.rs`; counted in `dfg_pruned_write_only`/`dfg_pruned_dominated`, Go behaviour unchanged): enabled for a `function_definition` owner without parse errors. A write is a whole `expression_statement` holding one `assignment` (single, tuple/list or starred target, annotated with a value) or `augmented_assignment` whose target is exactly the path (identifier or `a.b` attribute chain; D proves identifier paths only, see below); chained inner targets, walrus, `for`/`with`/`except` targets, imports and `x: int` are no write. U (plain `=` only): a use line whose every occurrence of the name is inside a plain lvalue span and has no real read (`x = x + 1`, `x += 1`, `x[i] = 1`, `x.f = 1` are not write-only for `x`). D: regions are `block` only (single entry, no goto), the dominating write is a direct child before the use's statement, defs between it and that statement's end are kept. Comprehensions and `class` bodies count as nested scopes (defs and uses inside are kept), as do `def`/`lambda`; names declared `global`/`nonlocal` anywhere in the owner are never dropped by D; `del`, loop and `with ... as` targets are never the dominating write. D never applies to an attribute path: every pair whose path has fields keeps (a rebound base, a property setter or a descriptor can intercept the write; U is unchanged; the yield given up is measured in the PR #713 report, and restoring it for never-written parameters such as `self` needs an owner contract). Same-line coalesced defs are judged per raw def span (`LexicalFacts::keep_def` gets each lvalue's own bytes while the emitted location stays the coalesced one), so `x = 1; x = 2` keeps the second def's edge; this is shared with Go and only adds edges there. A decorated function is not enabled (the owner node is `decorated_definition`, not `function_definition`). Per the #634 rule the survivor-based fallback cap lets a formerly capped Python owner regain its surviving edges when pruning brings it under the cap, so removal-only is not strict for such owners.
 
@@ -433,7 +435,7 @@ callable the producer's CommonJS exports prove: `m(..)` for `const|let|var m = r
 `module.exports = { f }`, `{ f: g }`, `module.exports.f = f`, `exports.f = f` (or a function expression member, named `g` with any `f`: #627), `module.exports = function g() {}` and `{ f: function g() {} }` (a named function expression written in place; the target is the indexed callable with the expression's own bytes, never a same-spelled declaration; anonymous, arrow, parenthesized and generator values, a duplicate or mutated export object, and any producer with an ESM export refuse these forms; ESM importers of a CJS producer gain these facts too, as they have for declared exports),
 and `f(..)` for `const|let|var f = require('./x').f`. The proof is `JsExportFacts::cjs_callables`/`cjs_module_callable`
 (`src/ast/js_cjs_terminal.rs`), recorded only behind the export-object barrier and the terminal proof, in a file with no
-ESM export (a file with a program-level `export`, TS `export =` included, is an ES module: its `exports`/`module` writes are no export claim for any consumer form, require, destructured, `.f`, ESM import or namespace, #664; an `export` only inside a namespace does not count); the route is `src/resolution_js_cjs.rs`, the binder `src/ast/js_cjs_module_calls.rs`. The declaration must be
+ESM export (a file with a program-level `export`, TS `export =` included, is an ES module: its `exports`/`module` writes are no export claim for any consumer form, require, destructured, `.f`, ESM import or namespace, #664; an `export` only inside a namespace does not count); the route is `src/resolution/js_ts/cjs.rs`, the binder `src/ast/js_cjs_module_calls.rs`. The declaration must be
 a direct statement of the program, unwritten and unshadowed, with one plain relative string literal and a `require`
 proved unshadowed at its own occurrence (no declaration, no write, no enclosing `with` body); a member site `m.f(..)` is
 also refused when the consumer file writes `m.f`, any `m[..]`, or passes `m` first to `Object.assign`/`defineProperty`/
@@ -445,7 +447,7 @@ exports, `exports.default` (not the module value), ESM producers and `new m()` k
 edge. A proven site replaces earlier NameOnly or indirect records at that site, as slice L does (an R6 single-owner
 method of an unrelated class becomes the Exact export; textual indirect records for the same member stand down for the one
 Source record).
-An anonymous or module-level caller (#597) is admitted by its own route (`src/js_anonymous/cjs.rs`, evidence
+An anonymous or module-level caller (#597) is admitted by its own route (`src/resolution/js_ts/anonymous/cjs.rs`, evidence
 `src/ast/js_cjs_anonymous.rs`, recorded in the proof index) only for a binding that is a direct top-level `const` or
 `var` statement of the program (owner 2026-11-04 admitted `var`; `let` stays out), declared once in the resolved
 program scope (hoisted declarations count: a second declaration of the name at program scope, or a `var` of it in a
@@ -471,7 +473,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v156) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v157) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -761,6 +763,24 @@ Algorithms fall into two categories:
 1. **Simple/AST-only** (use `ctx.files` only; `phantom_slice`/`resonance_slice` also read git history): `original_diff`, `parent_function`, `thin_slice`, `quantum_slice`, `horizontal_slice`, `angle_slice`, `absence_slice`, `symmetry_slice`, `phantom_slice`, `resonance_slice`, `contract_slice`, `peer_consistency_slice`, `callback_dispatcher_slice`, `primitive_slice`
 2. **Graph-based** (require the CPG; source of truth `SlicingAlgorithm::needs_cpg()`, src/slice.rs:210): `left_flow`, `full_flow`, `relevant_slice`, `conditioned_slice`, `barrier_slice`, `chop`, `taint`, `delta_slice`, `spiral_slice`, `circular_slice`, `vertical_slice`, `threed_slice`, `gradient_slice`, `provenance_slice`, `membrane_slice`, `echo_slice`
 
+### Layering and file layout (#701)
+
+Core modules never import the review layer: `tests/integration/layering_test.rs` fails on any
+`crate::algorithms` or `algorithms::` reference in a non-test source file outside `src/algorithms/`, `src/output/`,
+`src/targets/`, `src/api/`, `src/bin/`, `src/cli.rs`, `src/main.rs`, `src/lib.rs`. It exempts files
+by name only (`*_tests.rs`, `*_test.rs`, `tests.rs`, any `/tests/` component) and `//` comment
+lines; there is deliberately no `#[cfg(test)]` exemption, so a core file's inline test module may
+not import `algorithms` (put such a test in a `*_tests.rs` sibling). Large files are split by
+generated move-only PRs with byte-identity checks: `src/ast.rs` is the entry (types, `mod` lines,
+re-exports, a few core methods) over `src/ast/{js_ts,go,python}/` and concern files
+(`imports`, `parameters`, `assignments`, `lvalues`, `rvalues`, `calls`, `control_flow`, ...);
+`src/algorithms/taint.rs` likewise over `taint/`; `src/call_graph/*_tests.rs` hold the former
+inline test modules. Language-specific code stays per layer (`<layer>/<lang>/`), never in a
+per-language crate. The former root language modules now live in their layers:
+`resolution/{go,js_ts,rust}/`, `call_graph/{go,js_ts,rust}/`, `type_providers/go/type_alias.rs`,
+`ast/js_ts/{exports,returns}.rs`, `frameworks/js_ts/react_hooks.rs` and `data_flow/terraform.rs`;
+`go_statements` moves to `ast/go/statements.rs` in the last S3 PR (#722).
+
 ### Algorithm Dispatch
 
 `src/algorithms/mod.rs` contains:
@@ -793,8 +813,8 @@ Algorithms fall into two categories:
    (`--over N` lists only files above N). New files aim for 600 or fewer. Over 1,000 a
    file should be split along a real responsibility boundary, and a PR that leaves a
    file over 1,000 says why. **2,000 is a hard ceiling: no PR may take a file past it.**
-   Files already over 2,000 (13 today, e.g. `src/ast.rs`, `src/call_graph.rs`,
-   `src/algorithms/taint.rs`) must not grow in a feature PR: small edits are fine, new
+   Files already over 2,000 (7 today, e.g. `src/call_graph.rs`, `src/resolution.rs`,
+   `src/type_providers/go.rs`) must not grow in a feature PR: small edits are fine, new
    code goes in new modules. Such a file is split in its own move-only PR (no behaviour
    change, reviewed as a pure move) before the work that needs it, never as a side effect
    of a feature PR. For tests, group by category (e.g., `algo_test.rs`,

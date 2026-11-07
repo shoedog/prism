@@ -1,4 +1,6 @@
-//! Frozen post-R main producer at cc78c2b1; test-only D7 reference.
+//! Frozen post-R main producer at cc78c2b1; test-only D7 reference. The def set (#694 slice A:
+//! header-target spans arrive through the shared lvalue query, and they mint no alias twin) is
+//! mirrored; no S/U/D/O pruning is.
 //! Per-file extraction. Body moved from the baseline Rayon closure.
 use super::{FileRefs, Producer};
 use crate::access_path::AccessPath;
@@ -130,6 +132,7 @@ impl Producer {
                     own
                 });
             }
+            let header_targets = parsed.go_header_target_bytes(func_node);
             let mut alias_targets_by_byte = BTreeMap::new();
             let (alias_map, raw_aliases) = if synthetic {
                 // PR-B D11: a synthetic pass derives its aliases from its own
@@ -262,7 +265,9 @@ impl Producer {
                 // line that establishes the alias, to that line's target;
                 // re-assigning the alias name elsewhere breaks the alias, it does
                 // not write the target (flow-insensitive twins: legacy E11).
-                let twin = if synthetic {
+                let twin = if header_targets.contains(&span.start_byte) {
+                    None
+                } else if synthetic {
                     Self::resolve_on_alias_span(
                         &alias_targets_by_byte,
                         &span.path,
@@ -562,7 +567,9 @@ impl Producer {
                     }
 
                     // Phase 3: Also create edges for the alias-resolved path.
-                    let twin = if synthetic {
+                    let twin = if header_targets.contains(&span.start_byte) {
+                        None
+                    } else if synthetic {
                         Self::resolve_on_alias_span(&alias_targets_by_byte, path, span.start_byte)
                     } else {
                         Self::resolve_path(&alias_map, path)

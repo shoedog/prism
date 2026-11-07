@@ -371,7 +371,7 @@
       "review_context::import_targets_py_tests::comprehension_targets_bind_only_inside_the_comprehension"
     ],
     "IT63-py-comprehension-never-binds-at-site": [
-      "src/ast.rs",
+      "src/ast/value_bindings.rs",
       "|| site.is_none_or(|(start, end)| {\n                        node.parent()\n                            .is_none_or(|c| c.start_byte() <= start && end <= c.end_byte())",
       "|| site.is_none_or(|(start, end)| {\n                        node.parent()\n                            .is_none_or(|c| false && c.start_byte() <= start && end <= c.end_byte())",
       "review_context::import_targets_py_tests::comprehension_targets_bind_only_inside_the_comprehension"

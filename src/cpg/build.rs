@@ -655,7 +655,7 @@ impl CodePropertyGraph {
                 );
 
             // P8 F1 fix (codex re-review BLOCKER): Rust macro-arg call
-            // extraction (`rust_macro_args::is_transparent_arg_macro`)
+            // extraction (`call_graph::rust::macro_args::is_transparent_arg_macro`)
             // depends on the repo-wide macro shadow set, but this
             // incremental path only re-extracts `changed_files` below —
             // `remove_files` RETAINS every unchanged file's call sites and
@@ -678,8 +678,8 @@ impl CodePropertyGraph {
             // rebuild seam (`build_impl_inner`) is directly reachable from
             // here (same `impl` block), so there is no reason to avoid it.
             let fresh_macro_shadow_intersection =
-                crate::rust_macro_args::transparent_shadow_intersection(
-                    &crate::rust_macro_args::collect_macro_shadow_set(files),
+                crate::call_graph::rust::macro_args::transparent_shadow_intersection(
+                    &crate::call_graph::rust::macro_args::collect_macro_shadow_set(files),
                 );
             if fresh_macro_shadow_intersection != cached_cg.macro_shadow_intersection {
                 drop(p);
@@ -1081,7 +1081,7 @@ impl CodePropertyGraph {
         profile.next("cpg.step5");
         // These phases mutate only the CPG. Keep a shared borrow of the fixed
         // CallGraph until all three have finished, then release derived state.
-        let go_satisfiers = crate::resolution::go_satisfiers::GoSatisfierMemo::new(&cg);
+        let go_satisfiers = crate::resolution::go::satisfiers::GoSatisfierMemo::new(&cg);
         // --- Step 5: Call edges ---
         for (from, to, w) in Self::collect_step5_edges_with_memo(&go_satisfiers, &func_index) {
             graph.add_edge(from, to, w);
@@ -1340,13 +1340,13 @@ impl CodePropertyGraph {
         func_index: &BTreeMap<(String, String, usize), NodeIndex>,
     ) -> Vec<PendingEdge> {
         Self::collect_step5_edges_with_memo(
-            &crate::resolution::go_satisfiers::GoSatisfierMemo::new(cg),
+            &crate::resolution::go::satisfiers::GoSatisfierMemo::new(cg),
             func_index,
         )
     }
 
     fn collect_step5_edges_with_memo(
-        go_satisfiers: &crate::resolution::go_satisfiers::GoSatisfierMemo<'_>,
+        go_satisfiers: &crate::resolution::go::satisfiers::GoSatisfierMemo<'_>,
         func_index: &BTreeMap<(String, String, usize), NodeIndex>,
     ) -> Vec<PendingEdge> {
         use rayon::prelude::*;
@@ -1369,7 +1369,7 @@ impl CodePropertyGraph {
     fn step5_edges_for_caller(
         caller_id: &FunctionId,
         sites: &BTreeSet<CallSite>,
-        cg: &impl crate::resolution::go_satisfiers::CpgCallResolver,
+        cg: &impl crate::resolution::go::satisfiers::CpgCallResolver,
         func_index: &BTreeMap<(String, String, usize), NodeIndex>,
     ) -> Vec<PendingEdge> {
         let mut out: Vec<PendingEdge> = Vec::new();
@@ -1448,7 +1448,7 @@ impl CodePropertyGraph {
     ) -> Vec<PendingEdge> {
         let exact_var_index = Self::exact_var_index_from_graph(graph);
         Self::collect_step5b_edges_with_exact(
-            &crate::resolution::go_satisfiers::GoSatisfierMemo::new(cg),
+            &crate::resolution::go::satisfiers::GoSatisfierMemo::new(cg),
             var_index,
             &exact_var_index,
             graph,
@@ -1460,7 +1460,7 @@ impl CodePropertyGraph {
     }
 
     fn collect_step5b_edges_with_exact(
-        go_satisfiers: &crate::resolution::go_satisfiers::GoSatisfierMemo<'_>,
+        go_satisfiers: &crate::resolution::go::satisfiers::GoSatisfierMemo<'_>,
         var_index: &VarIndex,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
@@ -1527,7 +1527,7 @@ impl CodePropertyGraph {
     fn step5b_edges_for_caller_with_exact(
         caller_id: &FunctionId,
         sites: &BTreeSet<CallSite>,
-        cg: &impl crate::resolution::go_satisfiers::CpgCallResolver,
+        cg: &impl crate::resolution::go::satisfiers::CpgCallResolver,
         var_index: &VarIndex,
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,

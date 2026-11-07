@@ -8,6 +8,7 @@ use crate::ast::ParsedFile;
 use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::rust_populator::{enclosing_scope, populate_rust, RustCrateConfig};
 use crate::name_resolution::types::{ScopeId, ScopeKind};
+use crate::resolution::go::concrete_receiver::GoConcreteReceiverRoute;
 use crate::resolution_identity::{resolve_type_path_to_type_scope, TypeKey};
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -17,11 +18,14 @@ use std::path::PathBuf;
 #[path = "call_graph_anon_prep_tests.rs"]
 mod anon_prep_tests;
 mod boundary;
+pub(crate) mod go;
 #[path = "call_graph_profile_initializers.rs"]
 mod init_profile;
+pub mod js_ts;
 mod js_ts_facts;
 mod level4;
 mod python_import_proofs;
+pub mod rust;
 pub(crate) use python_import_proofs::{
     python_imported_class_proof_keys, python_imported_class_route,
 };
@@ -84,7 +88,7 @@ pub enum CallSiteOrigin {
     IndirectResolution,
     /// Minted from a Rust macro argument (transparency-allowlisted, e.g.
     /// `assert!(check(x))`) rather than from the grammar's own call/method
-    /// node. See `crate::rust_macro_args`.
+    /// node. See `crate::call_graph::rust::macro_args`.
     MacroArg,
 }
 
@@ -204,7 +208,7 @@ pub enum JsLocalBinding {
     /// Anonymous admission also checks the hook and return-proof dependency environments.
     Returned {
         hook: crate::ast::JsFollow,
-        path: crate::js_returns::JsReturnPath,
+        path: crate::ast::js_ts::returns::JsReturnPath,
         kept: String,
     },
     /// #598: a callee that names an export of an in-repo module by relative `require`: `member`
@@ -235,9 +239,9 @@ impl JsLocalBinding {
 /// Per-file JS/TS facts extracted together: export facts by file, parameter/local binding names
 /// and slice V's returned-value facts, each by function.
 type JsTsResolutionFacts = (
-    BTreeMap<String, crate::js_exports::JsExportFacts>,
+    BTreeMap<String, crate::ast::js_ts::exports::JsExportFacts>,
     BTreeMap<FunctionId, BTreeSet<String>>,
-    BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
+    BTreeMap<FunctionId, crate::ast::js_ts::returns::JsReturnFacts>,
 );
 
 /// Parameter arity for a method definition (language-agnostic shape).
@@ -336,7 +340,7 @@ pub struct ScopeGraphBuildInputs {
     #[serde(default)]
     pub manifest_snapshot: crate::ManifestSnapshot,
     #[serde(default)]
-    pub js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
+    pub js_paths_snapshot: crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot,
     #[serde(default)]
     pub skipped_go_testdata_files: usize,
     pub cfg: RustCrateConfig,
@@ -465,15 +469,15 @@ pub struct CallGraph {
     #[serde(default)]
     pub level3_indirect_resolved: usize,
     #[serde(default)]
-    pub(crate) go_level3_b1_telemetry: crate::go_callback::GoLevel3Telemetry,
+    pub(crate) go_level3_b1_telemetry: go::callback::GoLevel3Telemetry,
     /// Strict callable parameter signatures for non-test Go free functions.
     /// Whole-program derived with interface dispatch; direct subsets leave it empty.
     #[serde(default)]
-    pub(crate) go_callback_parameters: crate::go_callback::GoCallbackParameterIndex,
+    pub(crate) go_callback_parameters: go::callback::GoCallbackParameterIndex,
     /// Strict canonical signatures for non-test Go free-function declarations.
     /// Whole-program derived with interface dispatch; direct subsets leave it empty.
     #[serde(default)]
-    pub(crate) go_free_function_signatures: crate::go_callback::GoFreeFunctionSignatureIndex,
+    pub(crate) go_free_function_signatures: go::callback::GoFreeFunctionSignatureIndex,
     /// Exact per-file effective Go import paths retained for Level-3 occurrence proof.
     #[serde(default)]
     pub(crate) go_file_import_paths: BTreeMap<String, String>,
@@ -492,7 +496,7 @@ pub struct CallGraph {
     pub method_owners: BTreeMap<FunctionId, String>,
     /// Rust `Self::f` allow-list proofs (impl syntax, self-type headers, trait defaults).
     #[serde(default)]
-    pub(crate) rust_self_proofs: crate::resolution::rust_self::ProofIndex,
+    pub(crate) rust_self_proofs: crate::resolution::rust::self_calls::ProofIndex,
     /// Method FunctionId -> owner class definition node byte span (start, end).
     /// Py/JS/TS only; the self-receiver class identity.
     #[serde(default)]
@@ -520,7 +524,7 @@ pub struct CallGraph {
     pub clean_class_spans: BTreeMap<(String, String), (usize, usize)>,
     /// Complete-snapshot imported alias proofs. Replaced, never unioned, on merge.
     #[serde(default)]
-    pub js_ts_imported_props: crate::js_ts_props::ImportedPropsProofs,
+    pub js_ts_imported_props: js_ts::props::ImportedPropsProofs,
     /// Disabled integration: ephemeral authority, absent from ordinary builds.
     #[serde(skip)]
     pub(crate) executable_owner:
@@ -603,14 +607,16 @@ pub struct CallGraph {
     /// Alias-only export tables. Every hop uses P1 occupancy/Node10 proof;
     /// the config path partitions callers by their owning project's options.
     #[serde(default)]
-    pub js_ts_path_exports:
-        BTreeMap<String, BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>>,
+    pub js_ts_path_exports: BTreeMap<
+        String,
+        BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>,
+    >,
     /// P4: JS/TS raw (per-file, un-resolved) export facts — default exports,
     /// named export lists (incl. renames), exported const-arrow/
     /// function-expression declarations, CommonJS assignments, and re-export
     /// records. Incrementally maintained per file like `import_bindings`.
     #[serde(default)]
-    pub js_ts_exports: BTreeMap<String, crate::js_exports::JsExportFacts>,
+    pub js_ts_exports: BTreeMap<String, crate::ast::js_ts::exports::JsExportFacts>,
     /// P4: whole-program resolved JS/TS export facts — file -> exported name
     /// -> the concrete `(file, local_name)` it refers to after following
     /// re-export chains (depth-bounded, cycle-safe). Derived from
@@ -620,10 +626,10 @@ pub struct CallGraph {
     /// S1b-4 namespace-only export projection (unspanned means keep base).
     #[serde(default)]
     pub js_ts_namespace_exports:
-        BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
+        BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>,
     #[serde(default)]
     pub js_ts_resolved_exports:
-        BTreeMap<String, BTreeMap<String, crate::js_exports::ResolvedJsExport>>,
+        BTreeMap<String, BTreeMap<String, crate::ast::js_ts::exports::ResolvedJsExport>>,
     /// P4 telemetry: re-export chains that exceeded the depth bound or hit a
     /// cycle while resolving `js_ts_resolved_exports`. Whole-program derived,
     /// recomputed alongside `js_ts_resolved_exports`.
@@ -639,9 +645,9 @@ pub struct CallGraph {
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
     /// Source-backed anonymous proof evidence; partial builds refresh it from all current files.
     #[serde(default)]
-    pub(crate) js_anonymous: crate::js_anonymous::ProofIndex,
+    pub(crate) js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex,
     #[serde(default)]
-    pub js_ts_return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
+    pub js_ts_return_facts: BTreeMap<FunctionId, crate::ast::js_ts::returns::JsReturnFacts>,
     /// Go package directory index. Plain keys are legacy directory basenames;
     /// `@go-import:` keys carry effective module import paths proven by the
     /// module graph. Qualified `pkg.T` lookup prefers the exact key and uses a
@@ -685,7 +691,7 @@ pub struct CallGraph {
     /// P13: per-Go-file package/build profile facts used only to partition
     /// same-directory same-name candidates at resolution consult sites.
     #[serde(default)]
-    pub go_file_profiles: BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+    pub go_file_profiles: BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
     /// P13 telemetry: files whose build expression was unparsed. Stored
     /// per-file so incremental remove/merge preserves exact counts.
     #[serde(default)]
@@ -702,7 +708,7 @@ pub struct CallGraph {
     pub skipped_go_testdata_files: usize,
     /// Effective Go workspace/module/replacement graph summary for call-stats.
     #[serde(default)]
-    pub(crate) go_module_graph: crate::go_module_graph::GoModuleGraphTelemetry,
+    pub(crate) go_module_graph: go::module_graph::GoModuleGraphTelemetry,
     /// Loaded Go files whose effective import path was proven.
     #[serde(default)]
     pub(crate) go_import_path_proven_files: usize,
@@ -721,18 +727,20 @@ pub struct CallGraph {
     /// Owner/profile-keyed promoted-selector facts, serialized for cache parity
     /// and consulted by deferred concrete promoted-selector routing.
     #[serde(default)]
-    go_promoted_selector_snapshot: crate::go_promoted_snapshot::GoPromotedSelectorSnapshot,
+    go_promoted_selector_snapshot:
+        crate::resolution::go::promoted_snapshot::GoPromotedSelectorSnapshot,
     /// P10 build-time S2 consult decisions. Whole-program rematerialized with
     /// receiver keys; runtime S4/P5 decisions travel on ResolutionOutcome.
     #[serde(default)]
-    pub go_owner_identity_partition: crate::go_owner_partition::GoOwnerPartitionTelemetry,
+    pub go_owner_identity_partition:
+        crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry,
     /// P10 build-time S2 decisions keyed by their source call site. `call-stats`
     /// coalesces this with the same site's runtime S4/P5/direct-method decision
     /// so `affected_sites` is a cardinality, not a count of pipeline stages.
     #[serde(default)]
     pub(crate) go_owner_identity_partition_sites: BTreeMap<
-        crate::go_owner_partition::GoOwnerPartitionSiteKey,
-        crate::go_owner_partition::GoOwnerPartitionTelemetry,
+        crate::resolution::go::owner_partition::GoOwnerPartitionSiteKey,
+        crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry,
     >,
     /// P13 telemetry: `resolve_go_bare_value_ref` saw multiple same-package
     /// value candidates before profile filtering.
@@ -779,11 +787,11 @@ pub struct CallGraph {
     /// `js_export_skipped_exprs` for the same on-demand-sum pattern). Only
     /// files with at least one non-default fact are present.
     #[serde(default)]
-    pub macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts>,
+    pub macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts>,
     /// P8 F1 fix (BLOCKER, codex re-review): the repo-wide macro shadow set
-    /// (`rust_macro_args::collect_macro_shadow_set`), narrowed to its
+    /// (`call_graph::rust::macro_args::collect_macro_shadow_set`), narrowed to its
     /// intersection with `TRANSPARENT_ARG_MACROS`
-    /// (`rust_macro_args::transparent_shadow_intersection`) — the only part
+    /// (`call_graph::rust::macro_args::transparent_shadow_intersection`) — the only part
     /// of the shadow set that can change macro-arg call-extraction behavior.
     /// Unlike `macro_arg_facts` above, this is whole-program derived (like
     /// `interface_impls`/`js_ts_resolved_exports`): recomputed from scratch
@@ -824,7 +832,7 @@ pub struct CallGraph {
     /// `apply_go_receiver_indices` in the post-merge rematerialization pass,
     /// never incrementally patched.
     #[serde(default)]
-    pub go_return_types: crate::go_receiver_index::GoReturnTypes,
+    pub go_return_types: go::receiver_index::GoReturnTypes,
     /// Go files containing at least one dot import. Kept separate from
     /// `imports` because `.` is evidence that a bare type may be externally
     /// supplied, not a qualifier that can be resolved by name.
@@ -838,11 +846,11 @@ pub struct CallGraph {
     /// presence/absence and raw type remain attached to the defining file so
     /// receiver recovery can filter build profiles before requiring one value.
     #[serde(default)]
-    pub go_field_types: crate::go_owner_partition::GoStructDeclarations,
+    pub go_field_types: crate::resolution::go::owner_partition::GoStructDeclarations,
     /// P17: serialized declaration-kind proof used by the shared recovered-Go
     /// receiver route. Exact CPG hits must retain the same R1/R2/R3 verdict.
     #[serde(default)]
-    pub go_declaration_kind_index: crate::go_concrete_receiver::GoDeclarationKindIndex,
+    pub go_declaration_kind_index: crate::resolution::go::concrete_receiver::GoDeclarationKindIndex,
     /// P17 compatibility snapshot showing a concrete selector is supplied by
     /// embedding. The shared route separately checks the existing owner-index
     /// promotion lane before deferring a newly recovered miss.
@@ -851,9 +859,9 @@ pub struct CallGraph {
     /// P10 S4 interface and method declaration provenance, captured from the
     /// provider alongside `go_field_types` for exact consult-time routing.
     #[serde(default)]
-    pub go_interface_declarations: crate::go_owner_partition::GoInterfaceDeclarations,
+    pub go_interface_declarations: crate::resolution::go::owner_partition::GoInterfaceDeclarations,
     #[serde(default)]
-    pub go_method_declarations: crate::go_owner_partition::GoMethodDeclarations,
+    pub go_method_declarations: crate::resolution::go::owner_partition::GoMethodDeclarations,
     /// P10 S4: RTA admission keys used by snapshot-derived interface dispatch.
     #[serde(default)]
     pub go_interface_live_types: BTreeSet<String>,
@@ -867,8 +875,7 @@ pub struct CallGraph {
     /// derived (a package var can be declared in a different file of the
     /// same package); recomputed from scratch by `apply_go_receiver_indices`.
     #[serde(default)]
-    pub go_package_vars:
-        BTreeMap<(String, String), BTreeSet<crate::go_receiver_index::GoTypedFact>>,
+    pub go_package_vars: BTreeMap<(String, String), BTreeSet<go::receiver_index::GoTypedFact>>,
     /// P15a-fix1: the plain (import-path-free) `GoTypeProvider` extracted once
     /// during this build, retained (Arc-backed, cheap clone) so
     /// `CpgContext::build_registry` can reuse it instead of re-extracting.
@@ -1010,7 +1017,7 @@ impl CallGraph {
     /// Read-only access to the serialized promoted-selector foundation facts.
     pub fn go_promoted_selector_snapshot(
         &self,
-    ) -> &crate::go_promoted_snapshot::GoPromotedSelectorSnapshot {
+    ) -> &crate::resolution::go::promoted_snapshot::GoPromotedSelectorSnapshot {
         &self.go_promoted_selector_snapshot
     }
 
@@ -1037,7 +1044,7 @@ impl CallGraph {
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once
         // from the full `files` map, mirroring the existing per-build
         // whole-program-fact pattern (e.g. `extract_js_ts_resolution_facts`).
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) =
             Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
 
@@ -1249,7 +1256,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
-            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
+            js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex::build(files),
             js_ts_return_facts: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
@@ -1278,7 +1285,7 @@ impl CallGraph {
             property_access_fanout_skips: 0,
             property_access_store_skips: 0,
             macro_arg_facts: BTreeMap::new(),
-            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+            macro_shadow_intersection: rust::macro_args::transparent_shadow_intersection(
                 &macro_shadow,
             ),
             // P9: whole-program framework-entry state — left empty here, same
@@ -1324,7 +1331,7 @@ impl CallGraph {
         let mut receiver_vars: BTreeMap<FunctionId, String> = BTreeMap::new();
         let mut method_facts: BTreeMap<FunctionId, MethodFacts> = BTreeMap::new();
         // P8 F1 BLOCKER: full-files macro shadow set; Sync BTreeSet shared by parallel jobs.
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) =
             Self::extract_go_build_profiles(files.iter().map(|(p, f)| (p.as_str(), f)));
 
@@ -1468,7 +1475,7 @@ impl CallGraph {
         struct FileCallSites {
             file_path: String,
             call_sites: Vec<(FunctionId, CallSite)>,
-            macro_arg_facts: crate::rust_macro_args::MacroArgFacts,
+            macro_arg_facts: rust::macro_args::MacroArgFacts,
         }
 
         profile.next("call_graph.calls");
@@ -1477,7 +1484,7 @@ impl CallGraph {
             .map(|entry| {
                 let (file_path, parsed) = *entry;
                 let mut file_call_sites = Vec::new();
-                let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
+                let mut file_macro_arg_facts = rust::macro_args::MacroArgFacts::default();
                 let file_imports_ref = imports.get(file_path);
                 let proven_imported_receiver_types =
                     proven_python_imported_receiver_types.get(file_path);
@@ -1613,10 +1620,10 @@ impl CallGraph {
             .collect();
 
         profile.next("call_graph.merge");
-        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
+        let mut macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts> =
             BTreeMap::new();
         for file_calls in &per_file_calls {
-            if file_calls.macro_arg_facts != crate::rust_macro_args::MacroArgFacts::default() {
+            if file_calls.macro_arg_facts != rust::macro_args::MacroArgFacts::default() {
                 macro_arg_facts.insert(file_calls.file_path.clone(), file_calls.macro_arg_facts);
             }
         }
@@ -1883,7 +1890,8 @@ impl CallGraph {
         let Some(inputs) = inputs else {
             return;
         };
-        let mut resolver = crate::js_paths::Resolver::new(&inputs.js_paths_snapshot);
+        let mut resolver =
+            crate::resolution::js_ts::paths::Resolver::new(&inputs.js_paths_snapshot);
         for (file, bindings) in &self.import_bindings {
             if !matches!(
                 crate::languages::Language::from_path(file),
@@ -1930,7 +1938,7 @@ impl CallGraph {
                 .values()
                 .filter_map(|(file, owner)| (*owner == project).then_some(file))
                 .collect::<BTreeSet<_>>();
-            let resolution = crate::js_exports::resolve_js_exports_for(
+            let resolution = crate::ast::js_ts::exports::resolve_js_exports_for(
                 &self.js_ts_exports,
                 &resolve_module,
                 roots,
@@ -1957,9 +1965,11 @@ impl CallGraph {
             resolve_js_ts_relative_module(module_path, from, indexed_files)
         };
         let resolution =
-            crate::js_exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
-        self.js_ts_namespace_exports =
-            crate::js_exports::resolve_js_namespace_exports(&self.js_ts_exports, &resolve_module);
+            crate::ast::js_ts::exports::resolve_js_exports(&self.js_ts_exports, &resolve_module);
+        self.js_ts_namespace_exports = crate::ast::js_ts::exports::resolve_js_namespace_exports(
+            &self.js_ts_exports,
+            &resolve_module,
+        );
         self.js_ts_resolved_exports = resolution.resolved;
         self.js_export_chain_unresolved = resolution.chain_unresolved;
         self.js_export_barrel_conflicts = resolution.barrel_conflicts;
@@ -2037,7 +2047,8 @@ impl CallGraph {
         if facts.conflicted.contains(member) {
             return None;
         }
-        let crate::js_exports::JsExportTarget::Class(owner) = facts.named.get(member)? else {
+        let crate::ast::js_ts::exports::JsExportTarget::Class(owner) = facts.named.get(member)?
+        else {
             return None;
         };
         let key = (defining_file.clone(), owner.clone());
@@ -2375,10 +2386,7 @@ impl CallGraph {
         &self,
         files: &BTreeMap<String, ParsedFile>,
         stand_down: bool,
-    ) -> (
-        Vec<(FunctionId, CallSite)>,
-        crate::go_callback::GoLevel3Telemetry,
-    ) {
+    ) -> (Vec<(FunctionId, CallSite)>, go::callback::GoLevel3Telemetry) {
         // Resolve indirect call sites (function pointer variables and dispatch
         // tables). Preserve the historical level ordering:
         // 1/2 local function pointer and array dispatch, 4 struct callbacks,
@@ -2506,7 +2514,7 @@ impl CallGraph {
 
         // Level 3: Go bare free-function values passed to proven free-function HOFs.
         // Enumerate only original source sites; synthetic sites never donate evidence.
-        let proof = crate::go_callback::GoCallbackProofContext::new(
+        let proof = go::callback::GoCallbackProofContext::new(
             files,
             &self.functions,
             &self.method_owners,
@@ -2521,7 +2529,7 @@ impl CallGraph {
                 .or_default()
                 .extend(parameters.iter().map(|parameter| parameter.slot));
         }
-        let mut telemetry = crate::go_callback::GoLevel3Telemetry::default();
+        let mut telemetry = go::callback::GoLevel3Telemetry::default();
         let mut accepted_targets = BTreeSet::new();
         let mut level3_sites = BTreeSet::new();
         for (caller, sites) in &self.calls {
@@ -2539,7 +2547,7 @@ impl CallGraph {
                     parsed.call_argument_texts_and_spans_at(site.start_byte, &site.callee_name);
                 for slot in candidate_slots {
                     telemetry.candidates += 1;
-                    let mut record = crate::go_callback::GoLevel3SiteRecord {
+                    let mut record = go::callback::GoLevel3SiteRecord {
                         inbound_caller: caller.clone(),
                         inbound_line: site.line,
                         inbound_start_byte: site.start_byte,
@@ -2556,13 +2564,13 @@ impl CallGraph {
                         accepted: false,
                         drop_reason: None,
                     };
-                    let result: Result<_, crate::go_callback::GoLevel3DropReason> = (|| {
+                    let result: Result<_, go::callback::GoLevel3DropReason> = (|| {
                         if parsed.language != crate::languages::Language::Go {
-                            return Err(crate::go_callback::GoLevel3DropReason::NonGoOrTest);
+                            return Err(go::callback::GoLevel3DropReason::NonGoOrTest);
                         }
                         if site.arg_spread {
                             return Err(
-                                crate::go_callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
+                                go::callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
                             );
                         }
                         let hof = proof.hof_at(caller, site)?;
@@ -2573,9 +2581,7 @@ impl CallGraph {
                                 != crate::resolution::ResolutionConfidence::Exact
                             || resolved.resolved[0].target != &hof
                         {
-                            return Err(
-                                crate::go_callback::GoLevel3DropReason::HofNotSingletonExact,
-                            );
+                            return Err(go::callback::GoLevel3DropReason::HofNotSingletonExact);
                         }
                         telemetry.exact_inbound_sites += 1;
                         let parameter = self
@@ -2584,33 +2590,31 @@ impl CallGraph {
                             .and_then(|parameters| {
                                 parameters.iter().find(|parameter| parameter.slot == *slot)
                             })
-                            .ok_or(
-                                crate::go_callback::GoLevel3DropReason::MissingCallbackParameter,
-                            )?;
+                            .ok_or(go::callback::GoLevel3DropReason::MissingCallbackParameter)?;
                         record.callback_parameter = Some(parameter.name.clone());
                         let (argument, span) = arguments.get(*slot).ok_or(
-                            crate::go_callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
+                            go::callback::GoLevel3DropReason::MissingSlotOrArgumentIdentity,
                         )?;
                         let target =
                             proof.bare_free_function_at(caller, span.clone(), argument.trim())?;
                         record.target = Some(target.clone());
-                        let target_signature =
-                            self.go_free_function_signatures.get(&target).ok_or(
-                                crate::go_callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
-                            )?;
-                        if !crate::go_callback::signatures_match_strict(
+                        let target_signature = self
+                            .go_free_function_signatures
+                            .get(&target)
+                            .ok_or(go::callback::GoLevel3DropReason::SignatureUnprovenOrMismatch)?;
+                        if !go::callback::signatures_match_strict(
                             &parameter.signature,
                             target_signature,
                         ) {
                             return Err(
-                                crate::go_callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
+                                go::callback::GoLevel3DropReason::SignatureUnprovenOrMismatch,
                             );
                         }
                         let invocations =
                             proof.direct_parameter_invocations(&self.calls, &hof, parameter)?;
                         record.invocation_spans = invocations
                             .iter()
-                            .map(|invocation| crate::go_callback::GoLevel3InvocationSpan {
+                            .map(|invocation| go::callback::GoLevel3InvocationSpan {
                                 line: invocation.line,
                                 start_byte: invocation.start_byte,
                                 end_byte: invocation.end_byte,
@@ -3262,7 +3266,7 @@ impl CallGraph {
     }
 
     fn refresh_rust_receiver_state(&mut self, files: &BTreeMap<String, ParsedFile>) {
-        self.rust_self_proofs = crate::resolution::rust_self::ProofIndex::build(files);
+        self.rust_self_proofs = crate::resolution::rust::self_calls::ProofIndex::build(files);
         self.populate_method_identity_indices(files);
         self.rematerialize_rust_receiver_keys(files);
     }
@@ -3323,7 +3327,7 @@ impl CallGraph {
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — computed once,
         // shared (by reference) across every parallel per-caller task below.
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let ordered: Vec<(&FunctionId, &BTreeSet<CallSite>)> = self.calls.iter().collect();
         crate::build_pool::per_item(&ordered)
             .copied() // (&FunctionId, &BTreeSet) is Copy -> avoid &&-destructuring
@@ -3403,7 +3407,7 @@ impl CallGraph {
     )> {
         let mut updates = Vec::new();
         let typer = crate::resolution_receiver::RustReceiverTyper::new(self);
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         for (caller, sites) in &self.calls {
             let Some(parsed) = files.get(&caller.file) else {
                 continue;
@@ -3678,7 +3682,7 @@ impl CallGraph {
         self.go_import_path_unproven_reasons = package_import_paths.reasons.clone();
         self.go_file_import_paths = package_import_paths.paths.clone();
         let callback_indices =
-            crate::go_callback::extract_go_callback_indices(files, &package_import_paths.paths);
+            go::callback::extract_go_callback_indices(files, &package_import_paths.paths);
         self.go_callback_parameters = callback_indices.parameters;
         self.go_free_function_signatures = callback_indices.free_functions;
         let provider =
@@ -3709,7 +3713,7 @@ impl CallGraph {
         self.go_method_declarations = provider.go_method_declarations();
         self.go_embedded_interface_methods = provider.embedded_interface_method_routes();
         let go_type_declaration_files = provider.go_type_declaration_files();
-        self.go_promoted_selector_snapshot = crate::go_promoted_snapshot::build(
+        self.go_promoted_selector_snapshot = crate::resolution::go::promoted_snapshot::build(
             files,
             &package_import_paths.paths,
             &self.go_file_profiles,
@@ -3740,19 +3744,19 @@ impl CallGraph {
     fn go_package_import_paths(
         files: &BTreeMap<String, ParsedFile>,
         scope_inputs: Option<&ScopeGraphBuildInputs>,
-    ) -> crate::go_module_graph::GoImportPathResolution {
+    ) -> go::module_graph::GoImportPathResolution {
         let Some(scope_inputs) = scope_inputs else {
             let unproven_files = files
                 .values()
                 .filter(|parsed| parsed.language == crate::languages::Language::Go)
                 .count();
-            let mut resolution = crate::go_module_graph::GoImportPathResolution {
+            let mut resolution = go::module_graph::GoImportPathResolution {
                 unproven_files,
                 ..Default::default()
             };
             if resolution.unproven_files > 0 {
                 resolution.reasons.insert(
-                    crate::go_module_graph::GoImportPathReason::NoGoMod
+                    go::module_graph::GoImportPathReason::NoGoMod
                         .as_str()
                         .to_string(),
                     resolution.unproven_files,
@@ -3760,7 +3764,7 @@ impl CallGraph {
             }
             return resolution;
         };
-        let mut graph = crate::go_module_graph::GoModuleGraph::new(
+        let mut graph = go::module_graph::GoModuleGraph::new(
             &scope_inputs.repo_root,
             &scope_inputs.manifest_snapshot,
         );
@@ -3951,7 +3955,7 @@ impl CallGraph {
         let Some(declarations) = self.go_field_types.get(&owner) else {
             return Err(());
         };
-        let selected = crate::go_owner_partition::select_struct_field(
+        let selected = crate::resolution::go::owner_partition::select_struct_field(
             &owner,
             caller_file,
             owner_type_text,
@@ -3984,7 +3988,7 @@ impl CallGraph {
         // cross-package matching), and must not be shadowed by a local
         // binding in the enclosing function (checked with the SAME Go
         // binding machinery `receiver_type_in_fn` uses for receiver recovery,
-        // src/ast.rs — a real local-binding check, not a same-file/package
+        // src/ast/receiver_typing.rs — a real local-binding check, not a same-file/package
         // substitute; spec-review MAJOR).
         let Some(target) = resolve_go_bare_value_ref(
             &self.functions,
@@ -4123,8 +4127,8 @@ impl CallGraph {
         {
             return;
         }
-        self.go_return_types = crate::go_receiver_index::extract_go_return_types(files);
-        self.go_package_vars = crate::go_receiver_index::extract_go_package_vars(files);
+        self.go_return_types = go::receiver_index::extract_go_return_types(files);
+        self.go_package_vars = go::receiver_index::extract_go_package_vars(files);
         self.go_dot_import_files = files
             .iter()
             .filter(|(_, parsed)| {
@@ -4154,7 +4158,7 @@ impl CallGraph {
         >,
     ) {
         let updates = {
-            let facts = crate::go_receiver_index::GoReceiverFacts {
+            let facts = go::receiver_index::GoReceiverFacts {
                 return_types: &self.go_return_types,
                 package_vars: &self.go_package_vars,
                 field_types: &self.go_field_types,
@@ -4175,12 +4179,12 @@ impl CallGraph {
                     .or_default() += 1;
             }
             let mut site_telemetry =
-                crate::go_owner_partition::GoOwnerPartitionTelemetry::default();
+                crate::resolution::go::owner_partition::GoOwnerPartitionTelemetry::default();
             site_telemetry.observe(evidence, 1);
             self.go_owner_identity_partition.merge(site_telemetry);
             if site_telemetry.affected_sites() > 0 {
                 self.go_owner_identity_partition_sites.insert(
-                    crate::go_owner_partition::site_key(&old_site),
+                    crate::resolution::go::owner_partition::site_key(&old_site),
                     site_telemetry,
                 );
             }
@@ -4264,14 +4268,14 @@ impl CallGraph {
     pub(crate) fn compute_go_receiver_updates(
         &self,
         files: &BTreeMap<String, ParsedFile>,
-        facts: &crate::go_receiver_index::GoReceiverFacts<'_>,
+        facts: &go::receiver_index::GoReceiverFacts<'_>,
         receiver_config: &crate::resolution::ReceiverRecoveryConfig,
     ) -> Vec<(
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
-        crate::go_owner_partition::GoPartitionEvidence,
-        Option<crate::go_receiver_index::GoReceiverPrereqDrop>,
+        crate::resolution::go::owner_partition::GoPartitionEvidence,
+        Option<go::receiver_index::GoReceiverPrereqDrop>,
     )> {
         use rayon::prelude::*;
 
@@ -4301,14 +4305,14 @@ impl CallGraph {
         sites: &BTreeSet<CallSite>,
         files: &BTreeMap<String, ParsedFile>,
         classifier: &dyn crate::resolution::ReceiverClassifier,
-        facts: &crate::go_receiver_index::GoReceiverFacts<'_>,
+        facts: &go::receiver_index::GoReceiverFacts<'_>,
         var_local: bool,
     ) -> Vec<(
         FunctionId,
         CallSite,
         crate::resolution::ReceiverClassification,
-        crate::go_owner_partition::GoPartitionEvidence,
-        Option<crate::go_receiver_index::GoReceiverPrereqDrop>,
+        crate::resolution::go::owner_partition::GoPartitionEvidence,
+        Option<go::receiver_index::GoReceiverPrereqDrop>,
     )> {
         let mut out = Vec::new();
         let Some(parsed) = files.get(&caller.file) else {
@@ -4347,7 +4351,7 @@ impl CallGraph {
             let Some(receiver_expr) = meta.receiver_node else {
                 continue;
             };
-            let ctx = crate::go_receiver_index::GoReceiverCtx {
+            let ctx = go::receiver_index::GoReceiverCtx {
                 parsed,
                 fn_node,
                 qualifier,
@@ -4359,11 +4363,11 @@ impl CallGraph {
                 caller_file: &caller.file,
             };
             let (raw_classification, mut evidence, origin) =
-                crate::go_receiver_index::classify_go_receiver_expanded_with_partition(
+                go::receiver_index::classify_go_receiver_expanded_with_partition(
                     &ctx, classifier, facts, var_local,
                 );
             let (classification, screen_evidence, prereq_drop) =
-                crate::go_receiver_index::screen_go_receiver_prerequisites(
+                go::receiver_index::screen_go_receiver_prerequisites(
                     &ctx,
                     raw_classification,
                     origin,
@@ -4384,7 +4388,7 @@ impl CallGraph {
                             &site.callee_name,
                             &caller.file,
                         ),
-                        crate::go_concrete_receiver::GoConcreteReceiverRoute::ConcreteDirect { .. }
+                        GoConcreteReceiverRoute::ConcreteDirect { .. }
                     )
                 });
                 if !direct {
@@ -4684,7 +4688,7 @@ impl CallGraph {
     fn extract_go_build_profiles<'a>(
         files: impl Iterator<Item = (&'a str, &'a ParsedFile)>,
     ) -> (
-        BTreeMap<String, crate::go_build_profile::GoBuildProfile>,
+        BTreeMap<String, crate::resolution::go::build_profile::GoBuildProfile>,
         BTreeMap<String, usize>,
     ) {
         let mut profiles = BTreeMap::new();
@@ -4693,7 +4697,8 @@ impl CallGraph {
             if parsed.language != crate::languages::Language::Go {
                 continue;
             }
-            let (profile, count) = crate::go_build_profile::extract_go_file_profile(path, parsed);
+            let (profile, count) =
+                crate::resolution::go::build_profile::extract_go_file_profile(path, parsed);
             profiles.insert(path.to_string(), profile);
             if count > 0 {
                 unparsed.insert(path.to_string(), count);
@@ -4731,7 +4736,7 @@ impl CallGraph {
         // Repo-wide macro-name shadow set (P8 F1 BLOCKER) — deliberately
         // scanned over the FULL `files` map (not `only_files`): a
         // `macro_rules!` def outside the changed subset must still shadow.
-        let macro_shadow = crate::rust_macro_args::collect_macro_shadow_set(files);
+        let macro_shadow = rust::macro_args::collect_macro_shadow_set(files);
         let (go_file_profiles, go_build_profile_unparsed) = Self::extract_go_build_profiles(
             files
                 .iter()
@@ -4855,13 +4860,13 @@ impl CallGraph {
 
         p.next("call_graph.direct_subset.calls");
         // Phase 2: Find call sites from subset.
-        let mut macro_arg_facts: BTreeMap<String, crate::rust_macro_args::MacroArgFacts> =
+        let mut macro_arg_facts: BTreeMap<String, rust::macro_args::MacroArgFacts> =
             BTreeMap::new();
         for (file_path, parsed) in files {
             if !only_files.contains(file_path) {
                 continue;
             }
-            let mut file_macro_arg_facts = crate::rust_macro_args::MacroArgFacts::default();
+            let mut file_macro_arg_facts = rust::macro_args::MacroArgFacts::default();
             let ambiguous_owner_ids = Self::ambiguous_js_ts_call_owner_ids(parsed);
             let named_claims =
                 crate::anon_owner::named_claims(parsed, crate::anon_owner::EMIT_ANONYMOUS_OWNERS);
@@ -4982,7 +4987,7 @@ impl CallGraph {
                     callers.entry(callee_name).or_default().push(site);
                 }
             }
-            if file_macro_arg_facts != crate::rust_macro_args::MacroArgFacts::default() {
+            if file_macro_arg_facts != rust::macro_args::MacroArgFacts::default() {
                 macro_arg_facts.insert(file_path.clone(), file_macro_arg_facts);
             }
         }
@@ -5014,7 +5019,7 @@ impl CallGraph {
             js_ts_unproven_instance_methods,
             class_bases,
             clean_class_spans,
-            js_ts_imported_props: crate::js_ts_props::collect(files),
+            js_ts_imported_props: js_ts::props::collect(files),
             executable_owner: None,
             owner_ephemeral: false,
             python_inert_initializers,
@@ -5050,7 +5055,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
-            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
+            js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex::build(files),
             js_ts_return_facts,
             // P5: whole-program Go func-value state — left empty here, exactly
             // like `interface_impls`/`interface_dispatch_computed: false`
@@ -5095,7 +5100,7 @@ impl CallGraph {
             // `macro_shadow` above), so this is always the fresh, correct
             // whole-program value. `merge` overwrites the retained graph's
             // field with this one for exactly that reason.
-            macro_shadow_intersection: crate::rust_macro_args::transparent_shadow_intersection(
+            macro_shadow_intersection: rust::macro_args::transparent_shadow_intersection(
                 &macro_shadow,
             ),
             // P9: whole-program framework-entry state — left empty here for

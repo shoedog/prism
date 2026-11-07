@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 
 pub(super) fn names(data: &GoTypeData, owner: &GoOwnerIdentity) -> BTreeSet<String> {
     #[cfg(test)]
-    if crate::go_type_alias::import_memo::parallel::serial_reference_enabled() {
+    if super::type_alias::import_memo::parallel::serial_reference_enabled() {
         return reference(data, owner);
     }
     data.field_types

@@ -933,7 +933,7 @@ fn go_paired_check_recognizer_is_excluded_from_verdict() {
 
 #[test]
 fn second_argument_use_is_not_a_sanitizer_transition() {
-    // `ast.rs::rvalue_identifier_spans_on_lines` records EVERY call argument as a Use, not just
+    // `ast/rvalues.rs::rvalue_identifier_spans_on_lines` records EVERY call argument as a Use, not just
     // the first. `user` sits in the SECOND argument position of `escape(other, user)` — the
     // recognizer's data argument is arg[0] (`other`), so the transform never runs on `user`.
     // Pre-fix, any Use inside the RHS call span (including arg[1]) matched the window, producing
@@ -1081,7 +1081,7 @@ fn go_cross_language_recognizer_name_does_not_produce_cleansed_advisory() {
 
 // --- F3 BLOCKER: Python `keyword_argument` must not be treated as the data-argument span ---------
 //
-// `ast.rs::rvalue_identifier_spans_on_lines` records EVERY identifier under a call's argument list
+// `ast/rvalues.rs::rvalue_identifier_spans_on_lines` records EVERY identifier under a call's argument list
 // as a Use — including BOTH the `name` (label) and `value` sides of a Python `keyword_argument`
 // node. Pre-fix, "first named child of the argument list" accepted the WHOLE `keyword_argument`
 // span, so a Use sitting in the keyword LABEL (which can coincidentally share text with a real

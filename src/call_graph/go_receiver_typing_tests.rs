@@ -453,7 +453,7 @@ fn b1_real_outer_binding_survives_sibling_closure_same_name_binding() {
     // sibling closure's OWN `d := other()` binding as a SECOND binding of
     // `d` in `run`'s scope (on top of the genuine outer `d :=
     // newDemux(...)`), inflating `bindings` from the correct 1 to 2.
-    // `go_receiver_index.rs`'s partition-aware classifier then bails
+    // `call_graph/go/receiver_index.rs`'s partition-aware classifier then bails
     // at its `if bindings > 1 { return baseline; }` gate (~line 389)
     // BEFORE ever attempting the S1 call-RHS retry -- so the outer,
     // wholly unambiguous `d.Init(1)` lost its recovery entirely, not just

@@ -8,7 +8,7 @@
  ],
  "mutations": {
   "MO-01-bare-check-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "        if self.has_bare_references(func_node, var_name) {\n            return ParameterUse::Bare;",
    "        if false && self.has_bare_references(func_node, var_name) {\n            return ParameterUse::Bare;",
    [
@@ -17,7 +17,7 @@
    ]
   ],
   "MO-03-recovery-gate-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "        if recovered(*func_node)\n",
    "        if false && recovered(*func_node)\n",
    [
@@ -25,7 +25,7 @@
    ]
   ],
   "MO-04-missing-token-not-recovery": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "if node.is_error() || node.is_missing() {",
    "if node.is_error() {",
    [
@@ -33,7 +33,7 @@
    ]
   ],
   "MO-05-always-member-only": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "        if self.has_member_read_of(body, var_name) {\n            ParameterUse::MemberOnly",
    "        if true || self.has_member_read_of(body, var_name) {\n            ParameterUse::MemberOnly",
    [
@@ -42,7 +42,7 @@
    ]
   ],
   "MO-06-member-read-any-object": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "if object.kind() == \"identifier\" && self.node_text(&object) == var_name {",
    "if object.kind() == \"identifier\" {",
    [
@@ -50,7 +50,7 @@
    ]
   ],
   "MO-07-member-read-no-recursion": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    ".any(|child| self.has_member_read_of(child, var_name));",
    ".any(|_| false);",
    [
@@ -90,7 +90,7 @@
    ]
   ],
   "MO-19-escape-gate-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "            || self.callable_has_escaped_identifier(*func_node)\n",
    "            || false\n",
    [
@@ -98,7 +98,7 @@
    ]
   ],
   "MO-20-erased-classifier-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "            if self.language.is_in_erased_type_context(node) {\n                // Erased TS positions (`typeof p.x`, interface members) are not reads.\n                return false;",
    "            if false {\n                // Erased TS positions (`typeof p.x`, interface members) are not reads.\n                return false;",
    [
@@ -106,7 +106,7 @@
    ]
   ],
   "MO-21-bare-descend-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    ".is_some_and(|object| self.find_bare_ref(object, var_name))",
    ".is_some_and(|_| false)",
    [
@@ -295,7 +295,7 @@
    ]
   ],
   "MO-64-with-statement-refusal-off": [
-   "src/ast.rs",
+   "src/ast/js_ts/params.rs",
    "\n            || self.callable_has_with_statement(*func_node)",
    "",
    [

@@ -105,7 +105,7 @@ fn indirect_default_class_duplicate_and_write_barriers() {
 
 #[test]
 fn indirect_default_class_facts_do_not_fall_back_to_callable_exports() {
-    use prism::js_exports::JsExportTarget;
+    use prism::ast::js_ts::exports::JsExportTarget;
     for (src, class, poison) in [
         (
             "class Client { m() {} } export default Client;",
