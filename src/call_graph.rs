@@ -336,7 +336,7 @@ pub struct ScopeGraphBuildInputs {
     #[serde(default)]
     pub manifest_snapshot: crate::ManifestSnapshot,
     #[serde(default)]
-    pub js_paths_snapshot: crate::js_paths_snapshot::JsPathsSnapshot,
+    pub js_paths_snapshot: crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot,
     #[serde(default)]
     pub skipped_go_testdata_files: usize,
     pub cfg: RustCrateConfig,
@@ -639,7 +639,7 @@ pub struct CallGraph {
     pub js_ts_function_locals: BTreeMap<FunctionId, BTreeSet<String>>,
     /// Source-backed anonymous proof evidence; partial builds refresh it from all current files.
     #[serde(default)]
-    pub(crate) js_anonymous: crate::js_anonymous::ProofIndex,
+    pub(crate) js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex,
     #[serde(default)]
     pub js_ts_return_facts: BTreeMap<FunctionId, crate::js_returns::JsReturnFacts>,
     /// Go package directory index. Plain keys are legacy directory basenames;
@@ -1250,7 +1250,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals: BTreeMap::new(),
-            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
+            js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex::build(files),
             js_ts_return_facts: BTreeMap::new(),
             go_package_basenames: BTreeMap::new(),
             go_known_struct_identities: BTreeSet::new(),
@@ -1884,7 +1884,7 @@ impl CallGraph {
         let Some(inputs) = inputs else {
             return;
         };
-        let mut resolver = crate::js_paths::Resolver::new(&inputs.js_paths_snapshot);
+        let mut resolver = crate::resolution::js_ts::paths::Resolver::new(&inputs.js_paths_snapshot);
         for (file, bindings) in &self.import_bindings {
             if !matches!(
                 crate::languages::Language::from_path(file),
@@ -5045,7 +5045,7 @@ impl CallGraph {
             js_export_chain_unresolved: 0,
             js_export_barrel_conflicts: 0,
             js_ts_function_locals,
-            js_anonymous: crate::js_anonymous::ProofIndex::build(files),
+            js_anonymous: crate::resolution::js_ts::anonymous::ProofIndex::build(files),
             js_ts_return_facts,
             // P5: whole-program Go func-value state — left empty here, exactly
             // like `interface_impls`/`interface_dispatch_computed: false`

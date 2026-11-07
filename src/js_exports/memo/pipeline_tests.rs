@@ -160,10 +160,10 @@ fn snapshot_dependency_sets_match_without_shared_state() {
     let d = tempfile::TempDir::new().unwrap();
     write(d.path(), "tsconfig.json", &serde_json::json!({"compilerOptions":{"moduleResolution":"node","allowJs":true,"baseUrl":".","paths":{"@leaf":["leaf"]}},"include":["**/*"]}).to_string());
     write(d.path(), "leaf.js", "export function real() {}\n");
-    let old_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(d.path());
-    let new_snapshot = crate::js_paths_snapshot::JsPathsSnapshot::capture(d.path());
-    let mut old_resolver = crate::js_paths::Resolver::new(&old_snapshot);
-    let mut new_resolver = crate::js_paths::Resolver::new(&new_snapshot);
+    let old_snapshot = crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot::capture(d.path());
+    let new_snapshot = crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot::capture(d.path());
+    let mut old_resolver = crate::resolution::js_ts::paths::Resolver::new(&old_snapshot);
+    let mut new_resolver = crate::resolution::js_ts::paths::Resolver::new(&new_snapshot);
     assert_eq!(
         old_resolver.project("app.ts").as_deref(),
         Some("tsconfig.json")

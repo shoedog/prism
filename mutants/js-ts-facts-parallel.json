@@ -3,7 +3,7 @@
   "source": "src/call_graph/js_ts_facts.rs",
   "lib_test_prefixes": [
     "call_graph::js_ts_facts::",
-    "js_anonymous::stack_tests::"
+    "resolution::js_ts::anonymous::stack_tests::"
   ],
   "mutations": {
     "PF01-reversed-merge": [

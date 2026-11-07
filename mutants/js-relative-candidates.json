@@ -1,6 +1,6 @@
 {
  "lane": "I1 relative-specifier candidates (.js suffix, bare dots, redundant segments) (2026-10-14)",
- "source": "src/call_graph.rs js_ts_relative_module_candidates; src/resolution_js_namespace.rs",
+ "source": "src/call_graph.rs js_ts_relative_module_candidates; src/resolution/js_ts/namespace.rs",
  "lib_test_prefixes": [
   "call_graph::"
  ],
@@ -90,13 +90,13 @@
    "call_graph::js_relative_candidates_test::trailing_slash_on_a_js_spelling_does_not_substitute"
   ],
   "I1-15-namespace-newly-found-guard-off": [
-   "src/resolution_js_namespace.rs",
+   "src/resolution/js_ts/namespace.rs",
    "if outcome.is_some() || found_by_literal_lookup {",
    "if true {",
    "js_relative_namespace_test::newly_found_module_without_the_member_stays_name_only"
   ],
   "I1-16-namespace-sibling-uses-normalized": [
-   "src/resolution_js_namespace.rs",
+   "src/resolution/js_ts/namespace.rs",
    "if let Some(file) = js_ts_literal_module_candidates(&replacement, caller, indexed)?",
    "if let Some(file) = crate::call_graph::js_ts_relative_module_candidates(&replacement, caller, indexed)?",
    "js_relative_namespace_test::newly_found_module_without_the_member_stays_name_only"

@@ -7,7 +7,7 @@
 //! textual function-pointer path stands down for the site, and the callers index counts the site
 //! once for that exact target. Where the predicate is false the site behaves exactly as a site
 //! bound `MayCall("alias")` does on main: the same rungs, records, grades and drop reasons.
-use super::{
+use crate::resolution::{
     demoted, exact, CallGraph, CallSite, DropReason, FunctionId, ResolutionKind, ResolutionOutcome,
 };
 use crate::call_graph::ImportBinding;

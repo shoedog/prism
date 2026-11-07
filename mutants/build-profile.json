@@ -226,8 +226,8 @@
     ],
     "PROFILE-late-js_anonymous_proofs": [
       "src/call_graph_profile_initializers.rs",
-      "profile.next(\"call_graph.js_anonymous_proofs\");\n    let proofs = crate::js_anonymous::ProofIndex::build(files);",
-      "let proofs = crate::js_anonymous::ProofIndex::build(files);\n    profile.next(\"call_graph.js_anonymous_proofs\");",
+      "profile.next(\"call_graph.js_anonymous_proofs\");\n    let proofs = crate::resolution::js_ts::anonymous::ProofIndex::build(files);",
+      "let proofs = crate::resolution::js_ts::anonymous::ProofIndex::build(files);\n    profile.next(\"call_graph.js_anonymous_proofs\");",
       "profile::deferred_tests::initializer_stage_boundaries_precede_builders"
     ],
     "PROFILE-late-rust_macro_shadow_intersection": [

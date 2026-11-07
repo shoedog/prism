@@ -41,7 +41,7 @@ pub(super) fn case_insensitive(root: &Path) -> Option<bool> {
     }
 }
 
-#[path = "js_paths_case_fold.rs"]
+#[path = "paths_case_fold.rs"]
 mod case_fold;
 pub(super) fn fold(s: &str) -> String {
     s.chars().map(case_fold::simple).collect()
@@ -216,11 +216,11 @@ impl JsPathsSnapshot {
         for (config, bytes) in &self.configs {
             let Some(value) = bytes
                 .as_ref()
-                .and_then(|b| crate::js_paths_syntax::jsonc(b))
+                .and_then(|b| crate::resolution::js_ts::paths_syntax::jsonc(b))
             else {
                 continue;
             };
-            let base = crate::js_paths_syntax::dir(config);
+            let base = crate::resolution::js_ts::paths_syntax::dir(config);
             for key in ["files", "include"] {
                 for name in value
                     .get(key)
@@ -241,7 +241,7 @@ impl JsPathsSnapshot {
                                     prefix.push_str(part);
                                     explicit_hidden |= part.starts_with('.');
                                     if explicit_hidden
-                                        && crate::js_paths_syntax::exclude_matches(
+                                        && crate::resolution::js_ts::paths_syntax::exclude_matches(
                                             &prefix, excluded,
                                         ) != Some(false)
                                     {
@@ -280,7 +280,7 @@ impl JsPathsSnapshot {
         for (file, references) in &self.references {
             for (kind, name) in references {
                 if kind == "path" || name.starts_with(['.', '/']) {
-                    add(crate::js_paths_syntax::dir(file), name);
+                    add(crate::resolution::js_ts::paths_syntax::dir(file), name);
                 }
             }
         }
@@ -288,9 +288,9 @@ impl JsPathsSnapshot {
             for target in targets.iter().flatten() {
                 let prefix = target.split('*').next().unwrap_or("");
                 add(
-                    crate::js_paths_syntax::dir(file),
+                    crate::resolution::js_ts::paths_syntax::dir(file),
                     if target.contains('*') {
-                        crate::js_paths_syntax::dir(prefix)
+                        crate::resolution::js_ts::paths_syntax::dir(prefix)
                     } else {
                         prefix
                     },

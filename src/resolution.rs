@@ -18,18 +18,12 @@ use std::collections::{BTreeMap, BTreeSet};
 mod free;
 use go::satisfiers::{GoCallerScopedSatisfiers, GoSatisfierMemo};
 
-#[path = "resolution_js_alias.rs"]
-mod js_alias;
-#[path = "resolution_js_cjs.rs"]
-mod js_cjs;
-#[path = "resolution_js_namespace.rs"]
-mod js_namespace;
-#[path = "resolution_js_returns.rs"]
-mod js_returns;
 #[path = "resolution_rust_self.rs"]
 pub(crate) mod rust_self;
 
 pub mod go;
+
+pub mod js_ts;
 
 pub use crate::resolution_disproof::{prune, DisproofCx, DisproofPredicate};
 pub use crate::resolution_identity::{
@@ -1053,7 +1047,7 @@ pub struct ResolutionOutcome<'a> {
     pub drop: Option<DropReason>,
     pub telemetry: ResolutionTelemetry,
     /// Positive producer evidence, never inferred from a route kind or singleton pool.
-    pub(crate) anonymous_certificate: Option<crate::js_anonymous::Certificate>,
+    pub(crate) anonymous_certificate: Option<js_ts::anonymous::Certificate>,
     /// The candidate came from a followed binding.
     pub via_alias_route: bool,
 }

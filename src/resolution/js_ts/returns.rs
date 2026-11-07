@@ -6,14 +6,14 @@
 //! exactly one source-backed target, otherwise the route proves nothing (`None`) and the site
 //! continues as it did before this route existed. The result keeps the kind of the route that
 //! produced it (`LocalDef` or `ImportMember`).
-use super::{CallGraph, CallSite, FunctionId, ResolutionConfidence, ResolutionOutcome};
+use crate::resolution::{CallGraph, CallSite, FunctionId, ResolutionConfidence, ResolutionOutcome};
 use crate::ast::JsFollow;
 use crate::call_graph::JsLocalBinding;
 use crate::js_returns::JsReturnPath;
 
 impl CallGraph {
     /// The returned-value route for `site`, whose binding is `Returned { hook, path, .. }`.
-    pub(super) fn js_ts_returned_route<'a>(
+    pub(in crate::resolution) fn js_ts_returned_route<'a>(
         &'a self,
         hook: &JsFollow,
         path: &JsReturnPath,
