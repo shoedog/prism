@@ -200,6 +200,7 @@ fn assert_delivery(
 fn flow_source(killed: bool) -> (&'static str, usize) {
     if killed {
         (
+            // `global query` depends on Python rule D's global/nonlocal exemption.
             "def f(request):\n    global query\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n",
             5,
         )

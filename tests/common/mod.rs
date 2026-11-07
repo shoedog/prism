@@ -1276,6 +1276,8 @@ pub fn assert_finding_evidence_taint_cases() {
     use prism::finding_confidence::{EvidenceHop, FindingConfidence};
     for (source, sink_line, expected) in [
         ("def f(request):\n    query = request.GET['q']\n    cursor.execute(query)\n", 3, FindingConfidence::Exact),
+        // `global query` depends on Python rule D's global/nonlocal exemption (no RD-killed shape
+        // that D cannot prove is used here); if D ever proves globals, rebuild this witness.
         ("def f(request):\n    global query\n    query = request.GET['q']\n    query = clean(query)\n    cursor.execute(query)\n", 5, FindingConfidence::NameOnly),
     ] {
         let files = evidence_parsed_files(&[("t.py", source)]);
@@ -1302,6 +1304,7 @@ pub fn assert_finding_evidence_taint_cross_file_case(killed: bool) {
     use prism::finding_confidence::{EvidenceHop, FindingConfidence};
     let (source, expected) = if killed {
         (
+            // `global query`: depends on D's global exemption, as above.
             "def entry(request):\n    global query\n    query = request.GET['q']\n    query = clean(query)\n    deliver(query)\n",
             FindingConfidence::NameOnly,
         )
