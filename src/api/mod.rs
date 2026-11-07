@@ -6,6 +6,8 @@ mod owner;
 mod review;
 mod run;
 
+#[doc(hidden)] // prism-mcp owner runtime; outside the api compatibility promise
+pub use crate::executable_owner::admission::Failure as OwnerFailure;
 pub use build_info::{build_info, BuildInfo};
 pub use nav::{callees, callers, nav_session, NavOptions, Seed};
 pub use owner::OwnerOptions;

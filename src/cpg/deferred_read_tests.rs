@@ -294,12 +294,14 @@ row!(
     "exact"
 );
 
+// The capture rule does not fire (the def's region holds the use's); S1c's D2-c does: the write in the
+// inner callable may run after any creation of it, before the read outside it.
 row!(
-    def_in_inner_callable_use_in_enclosing_body_is_not_a_capture,
+    def_in_inner_callable_use_in_enclosing_body_is_refused_by_d2c_not_capture,
     ALL_JS,
     "function f(a) {\n  log();\n  g(() => {\n    h(() => { a = 2; });\n    sink(a);\n  });\n}\n",
     "f:a@4->a@5",
-    "same_line"
+    "cfg_incomplete"
 );
 row!(
     use_in_inner_callable_def_in_enclosing_body_is_a_capture,

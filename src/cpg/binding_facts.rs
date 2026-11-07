@@ -456,6 +456,23 @@ impl BindingFacts {
             .id
     }
 
+    /// The binding a name written at `byte` resolves to by scope alone: the innermost declaration whose
+    /// scope contains it, declared before or after it (a closure runs later, so its free name binds
+    /// the later `let`, `class` or block function of the same scope; #660 S1c), else the implicit one.
+    /// Equal-width scopes of one name do arise: a `var` in a nested callable has the owner's whole
+    /// scope here, so it ties an owner-level `let`/`const`/`class` (and a duplicate sloppy parameter ties
+    /// its twin). `visible_from` breaks the tie toward the later declaration: a nested `var` starts at the
+    /// scope start, so the owner-level declaration wins, which is right because a nested `var` only
+    /// scopes writes inside its own callable and the census names those itself (#660 S1c, #736).
+    pub(crate) fn binding_by_scope_at(&self, name: &str, byte: usize) -> BindingId {
+        self.declarations
+            .iter()
+            .filter(|d| d.name == name && d.binding.scope.contains(byte))
+            .min_by_key(|d| (d.binding.scope.width(), Reverse(d.visible_from)))
+            .map_or_else(|| self.implicit_binding(name), |d| d.binding.clone())
+            .id
+    }
+
     fn visible_declaration(&self, name: &str, byte: usize) -> Option<Binding> {
         self.declarations
             .iter()

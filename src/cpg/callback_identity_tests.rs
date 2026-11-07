@@ -123,6 +123,7 @@ fn r5_named_seam_rows_equal_frozen_main_goldens() {
             let actual =
                 r5_full_binding_rows(&build(language, c["source"].as_str().unwrap()), "h", "f");
             let mut expected = c["main"][ext].as_array().unwrap().clone();
+            expected = super::s1c_label_tests::refuse_moved(c["id"].as_str().unwrap(), expected);
             expected.sort_by_key(ToString::to_string);
             if actual != expected {
                 failures.push(format!(

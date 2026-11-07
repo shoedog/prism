@@ -36,6 +36,8 @@ pub(super) struct CensusFacts {
     unmapped: BTreeSet<String>,
     /// #660 S1b-2: the same-node order refusal; shared by clones.
     pub(super) d3: Option<Rc<super::d3::D3>>,
+    /// #660 S1c: the captured-write refusal; shared by clones.
+    d2c: Option<Rc<super::d2c::D2c>>,
 }
 
 impl CensusFacts {
@@ -47,9 +49,10 @@ impl CensusFacts {
     }
 
     /// The census changes nothing for this owner (no refusal, no kill-only def, no refused base, no
-    /// D3 state to refuse an edge with).
+    /// D3 or D2-c state to refuse an edge with).
     pub(super) fn is_inert(&self) -> bool {
         self.d3.is_none()
+            && self.d2c.is_none()
             && self.unmapped.is_empty()
             && self.forced.is_none()
             && self.completion.as_ref().is_none_or(|c| {
@@ -117,6 +120,45 @@ impl CensusFacts {
         (hit(&edge.from.path.base) || hit(&edge.to.path.base)).then_some(Refused::UnmappedSite)
     }
 
+    /// The edge's finished label, then the census's two label refinements: D2-c (a write in a region
+    /// may reach the use) and D3 (an order inside one node is not proven). Applied by the two
+    /// `classify_edge` call sites, so it covers the production and the frozen-oracle classifier alike.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn refine(
+        &self,
+        label: FlowConfidence,
+        parsed: &ParsedFile,
+        edge: &FlowEdge,
+        candidates: &[usize],
+        (statements, line_index, function_start): (
+            &mut super::statement_lookup::StatementLookup<'_>,
+            &std::collections::BTreeMap<usize, usize>,
+            usize,
+        ),
+        facts: &crate::cpg::binding_facts::BindingFacts,
+        captures: &super::capture::CaptureFacts,
+    ) -> FlowConfidence {
+        let label = super::d2c::D2c::refine(
+            self.d2c.as_ref(),
+            label,
+            edge,
+            candidates,
+            captures.regions(),
+            facts,
+        );
+        super::d3::D3::refine(
+            self.d3.as_ref(),
+            label,
+            parsed,
+            edge,
+            candidates,
+            statements,
+            line_index,
+            function_start,
+            facts,
+        )
+    }
+
     /// The label a refusal gives every edge it covers.
     pub(super) fn refused_label() -> FlowConfidence {
         FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
@@ -129,6 +171,9 @@ impl CensusFacts {
             Some(Refused::Owner(m)) => return m,
             Some(Refused::UnmappedSite) => return "site-unmapped".to_string(),
             None => {}
+        }
+        if self.d2c.as_ref().is_some_and(|d| d.logged(edge)) {
+            return super::d2c::D2C.to_string();
         }
         if label == FlowConfidence::NameOnly(FlowDoubt::SameLine) {
             if let Some(m) = self.d3.as_ref().and_then(|d| d.logged(edge)) {
@@ -201,6 +246,7 @@ pub(super) fn complete_with(
     let mut done = completion(parsed, *owner, &pairs);
     drop(pairs);
     let d3 = super::d3::D3::new(std::mem::take(&mut done.counting), owner, log).map(Rc::new);
+    let d2c = super::d2c::D2c::new(std::mem::take(&mut done.captured), log).map(Rc::new);
     let mut next = recorded.iter().map(|d| d.id.0).max().map_or(0, |m| m + 1);
     for k in &done.kill_only {
         recorded.push(DefSite {
@@ -218,6 +264,7 @@ pub(super) fn complete_with(
         forced: None,
         unmapped: BTreeSet::new(),
         d3,
+        d2c,
     };
     (recorded, facts)
 }

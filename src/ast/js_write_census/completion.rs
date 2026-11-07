@@ -5,6 +5,7 @@
 //! statement node. The result is small (most owners have none of the three), so the two
 //! deduplication seams share it through a per-file memo instead of walking twice.
 
+use super::captured::{self, Captured, Shadows};
 use super::counting::{self, Counts};
 use super::tables::Tables;
 use super::walk::{census_mapped, Census, Form, Mapping, Refusal, Site};
@@ -34,6 +35,9 @@ pub(crate) struct Completion {
     pub refused_bases: BTreeSet<String>,
     /// The writes D3 counts per node (#660 S1b-2).
     pub counting: Counts,
+    /// The writes in nested callables and instance field initializers, for the bases the owner records
+    /// (#660 S1c, D2-c).
+    pub captured: Vec<Captured>,
 }
 
 /// `ident`'s path in the producer's representation (`[]` for a subscript).
@@ -68,6 +72,7 @@ pub(crate) fn completion(
         out.refusal = Some(r.clone());
         return out;
     }
+    let shadows = Shadows::new(parsed, &c.sites, &bases);
     let mut by_start: BTreeMap<usize, Vec<&AccessPath>> = BTreeMap::new();
     for (path, byte, twin) in recorded {
         if !twin {
@@ -83,9 +88,9 @@ pub(crate) fn completion(
         // another object: not a write of the owner's `this`.
         let rebound = site.path.base == "this" && this_is_rebound(parsed, owner, site);
         // Declarations are the refusal classes of S1d (hoisting, Annex B, dead formals), not writes
-        // the producer fails to record. Writes in a deferred region or the owner's own parameter list
-        // need the scope rules of S1c (inner bindings: a shadowing parameter is not the owner's
-        // binding) and S1d (dead formals); the producer's own nested-write handling stands until then.
+        // the producer fails to record. A write in a deferred region is no kill-only def either: its
+        // time is unknown, so D2-c (S1c, `captured`) refuses the edges it may reach instead, and the
+        // producer's own nested-write handling stands. The owner's own parameter list is S1d's (dead formals).
         let r = site.region;
         let candidate = !(site.form == Form::Declare
             || r.nested
@@ -94,6 +99,13 @@ pub(crate) fn completion(
             || !bases.contains(site.path.base.as_str())
             || rebound);
         let path = access_path(&site.path);
+        if captured::is_region_write(site) && !rebound && bases.contains(site.path.base.as_str()) {
+            out.captured.push(Captured {
+                path: path.clone(),
+                start: site.target_start,
+                shadow: shadows.innermost(&site.path.base, site.target_start),
+            });
+        }
         let covered = candidate
             && by_start
                 .get(&site.target_start)

@@ -106,7 +106,7 @@ pub(crate) struct IndexedIncomingCall {
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-pub(crate) struct NavigationCallEdgeIndex {
+pub struct NavigationCallEdgeIndex {
     outgoing_by_caller: BTreeMap<FunctionId, Vec<IndexedOutgoingCallSite>>,
     incoming_by_target: BTreeMap<FunctionId, Vec<IndexedIncomingCall>>,
     multi_owner_collision_sites: BTreeSet<CallSiteKey>,
@@ -149,8 +149,7 @@ impl NavigationIndex {
     ///
     /// This is intentionally separate from `cache::build_cached_at`, whose
     /// partial-hit behavior remains conservative for normal nav cache users.
-    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
-    pub(crate) fn build_incremental_from_previous(
+    pub fn build_incremental_from_previous(
         previous: &NavigationIndex,
         repo: &LoadedRepo,
         changed_files: &BTreeSet<String>,
@@ -262,7 +261,7 @@ impl NavigationIndex {
         self
     }
 
-    pub(crate) fn resolved_call_edges(&self) -> &NavigationCallEdgeIndex {
+    pub fn resolved_call_edges(&self) -> &NavigationCallEdgeIndex {
         self.resolved_call_edges.get_or_init(|| {
             if let Some(store) = &self.call_edge_cache_store {
                 if let Some(index) = store.load_best_effort() {
@@ -282,15 +281,13 @@ impl NavigationIndex {
     /// Whether the resolved call-edge index came from its on-disk sidecar (`Some(true)`) or was
     /// computed (`Some(false)`, including when caching is disabled). `None` until the index is first
     /// forced. Provenance only: it changes nothing about what `resolved_call_edges` returns.
-    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
-    pub(crate) fn call_edges_loaded_from_cache(&self) -> Option<bool> {
+    pub fn call_edges_loaded_from_cache(&self) -> Option<bool> {
         self.call_edges_loaded.get().copied()
     }
 
     /// Whether the CPG was loaded from an exact cache hit (`Some(true)`) or built (`Some(false)`);
     /// `None` when this index has no cache store (caching disabled, or fenced off for an ephemeral owner).
-    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
-    pub(crate) fn cpg_loaded_from_cache(&self) -> Option<bool> {
+    pub fn cpg_loaded_from_cache(&self) -> Option<bool> {
         self.call_edge_cache_store
             .as_ref()
             .map(call_edge_cache::NavigationCallEdgeCacheStore::cpg_cache_hit)
