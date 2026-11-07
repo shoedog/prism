@@ -49,3 +49,4 @@
 {"case":"20_fallthrough","path":"x","def_line":17,"use_line":18,"keep":true,"reason":"dominator"}
 {"case":"21_field_base_reassigned_out_of_model","path":"p.f","def_line":6,"use_line":10,"keep":false,"reason":"fixed_storage_pointer_identity_out_of_model"}
 {"case":"21_field_base_reassigned_out_of_model","path":"p.f","def_line":8,"use_line":10,"keep":true,"reason":"fixed_storage_pointer_identity_out_of_model"}
+{"case":"22_same_line_writes","path":"x","def_line":4,"use_line":5,"keep":true,"reason":"same_line_coalesced"}
