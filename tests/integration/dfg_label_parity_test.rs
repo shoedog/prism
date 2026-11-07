@@ -400,7 +400,8 @@ fn consumer_edge_sets_ignore_payload() {
     );
 }
 
-const MIXED: &str = "def f():\n    x = 1\n    sink(x)\n    x = 2\n    sink(x)\n";
+// `global x` keeps Python rule D from dropping the straight-line killed edge this fixture witnesses.
+const MIXED: &str = "def f():\n    global x\n    x = 1\n    sink(x)\n    x = 2\n    sink(x)\n";
 const PURE: &str = "def g():\n    y = 1\n    sink(y)\n";
 
 fn python_cpg(source: &str) -> CodePropertyGraph {
@@ -444,9 +445,9 @@ fn chop_label_fold(
 fn labeled_walk_forward_carries_the_known_label_per_target() {
     use prism::data_flow::VarAccessKind::{Def, Use};
     let cpg = python_cpg(MIXED);
-    let (_, a) = variable_at(&cpg, 2, "x", Def);
-    let (u1_node, u1) = variable_at(&cpg, 3, "x", Use);
-    let (u2_node, u2) = variable_at(&cpg, 5, "x", Use);
+    let (_, a) = variable_at(&cpg, 3, "x", Def);
+    let (u1_node, u1) = variable_at(&cpg, 4, "x", Use);
+    let (u2_node, u2) = variable_at(&cpg, 6, "x", Use);
     let plain = cpg.dfg_forward_reachable(&a);
     let (set, labels) = cpg.dfg_forward_reachable_labeled(&a);
     assert_eq!(set, plain, "labeled traversal changed reachability");
@@ -455,7 +456,7 @@ fn labeled_walk_forward_carries_the_known_label_per_target() {
     assert_eq!(
         labels.get(&u2_node),
         Some(&FlowConfidence::NameOnly(FlowDoubt::Killed {
-            kill_line: 4
+            kill_line: 5
         }))
     );
     assert_eq!(
@@ -483,9 +484,9 @@ fn labeled_walk_backward_returns_known_incoming_hops() {
     use prism::data_flow::VarAccessKind::{Def, Use};
     use prism::finding_confidence::EvidenceHop;
     let cpg = python_cpg(MIXED);
-    let (_, a) = variable_at(&cpg, 2, "x", Def);
-    let (_, b) = variable_at(&cpg, 4, "x", Def);
-    let (_, u2) = variable_at(&cpg, 5, "x", Use);
+    let (_, a) = variable_at(&cpg, 3, "x", Def);
+    let (_, b) = variable_at(&cpg, 5, "x", Def);
+    let (_, u2) = variable_at(&cpg, 6, "x", Use);
     let (set, hops) = cpg.dfg.backward_reachable_labeled(&u2);
     assert_eq!(set, cpg.dfg.backward_reachable(&u2));
     assert!(set.contains(&a) && set.contains(&b));
@@ -504,11 +505,11 @@ fn labeled_walk_backward_returns_known_incoming_hops() {
         endpoints,
         vec![
             (
-                2,
-                5,
-                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 })
+                3,
+                6,
+                FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 })
             ),
-            (4, 5, FlowConfidence::Exact),
+            (5, 6, FlowConfidence::Exact),
         ]
     );
 }
@@ -532,13 +533,13 @@ fn labeled_walk_backward_is_exact_on_a_pure_chain() {
 #[test]
 fn labeled_walk_chop_fold_uses_interior_edges_only() {
     let cpg = python_cpg(MIXED);
-    let on_path = cpg.dfg_chop("f.py", 2, "f.py", 5);
-    assert!(on_path.contains(&("f.py".into(), 2)) && on_path.contains(&("f.py".into(), 5)));
+    let on_path = cpg.dfg_chop("f.py", 3, "f.py", 6);
+    assert!(on_path.contains(&("f.py".into(), 3)) && on_path.contains(&("f.py".into(), 6)));
     assert_eq!(
         chop_label_fold(&cpg, &on_path),
-        Some(FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 4 }))
+        Some(FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line: 5 }))
     );
-    let narrowed = BTreeSet::from([("f.py".to_string(), 2), ("f.py".to_string(), 3)]);
+    let narrowed = BTreeSet::from([("f.py".to_string(), 3), ("f.py".to_string(), 4)]);
     assert_eq!(
         chop_label_fold(&cpg, &narrowed),
         Some(FlowConfidence::Exact)
