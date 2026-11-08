@@ -64,7 +64,7 @@ fn walk_stmt(b: &mut Builder<'_>, path: &str, nid: NodeId, scope: ScopeId, ctx: 
 }
 
 fn walk_let(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx: &Ctx) {
-    let (names, annotation, init, kind, value_nid) = with_node(b, path, nid, |pf, n| {
+    let (names, annotation, init, kind, value_nid, stmt_end) = with_node(b, path, nid, |pf, n| {
         let mut names = Vec::new();
         let mut simple_pattern = false;
         if let Some(p) = n.child_by_field_name("pattern") {
@@ -82,13 +82,23 @@ fn walk_let(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx: 
         } else {
             BindingKind::Pattern
         };
-        (names, annotation, init, kind, value.map(NodeId::of))
+        (
+            names,
+            annotation,
+            init,
+            kind,
+            value.map(NodeId::of),
+            n.end_byte(),
+        )
     });
     let scope_end = scope_end_byte(b, scope, ctx.file);
-    add_locals(
+    // rustc: the pattern's bindings are in scope only AFTER the whole statement, so the
+    // initializer (and a `let .. else` block) sees the outer name, not the new local.
+    add_locals_visible_from(
         b,
         scope,
         ctx.file,
+        Some(stmt_end),
         scope_end,
         &names,
         LocalFact {
@@ -230,7 +240,7 @@ fn walk_closure(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, c
 }
 
 fn walk_for(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx: &Ctx) {
-    let (names, body_nid, value_nid, lo, hi) = with_node(b, path, nid, |pf, n| {
+    let (names, body_nid, value_nid, lo, hi, value_end) = with_node(b, path, nid, |pf, n| {
         let mut names = Vec::new();
         if let Some(p) = n.child_by_field_name("pattern") {
             pattern_idents(pf, &p, &mut names);
@@ -241,14 +251,16 @@ fn walk_for(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx: 
             n.child_by_field_name("value").map(NodeId::of),
             n.start_byte(),
             n.end_byte(),
+            n.child_by_field_name("value").map(|v| v.end_byte()),
         )
     });
-    // The loop variable scopes over the loop body block.
+    // The loop variable scopes over the loop body block, not the iterator expression.
     let loop_scope = b.add_scope(ScopeKind::Block, Some(scope), ctx.file, lo, hi, None);
-    add_locals(
+    add_locals_visible_from(
         b,
         loop_scope,
         ctx.file,
+        value_end,
         hi,
         &names,
         LocalFact {
@@ -319,9 +331,10 @@ fn walk_if_while(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, 
     // `if let`/`while let`: the `let_condition`'s pattern bindings scope over the
     // consequence/body block. We attach them to a Block scope covering the whole
     // if/while node (a safe over-approximation of the let-binding extent).
-    let (names, blocks, lo, hi) = with_node(b, path, nid, |pf, n| {
+    let (names, blocks, lo, hi, cond_end) = with_node(b, path, nid, |pf, n| {
         let mut names = Vec::new();
         let mut blocks = Vec::new();
+        let mut cond_end = None;
         let mut c = n.walk();
         for ch in n.children(&mut c) {
             match ch.kind() {
@@ -329,18 +342,21 @@ fn walk_if_while(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, 
                     if let Some(p) = ch.child_by_field_name("pattern") {
                         pattern_idents(pf, &p, &mut names);
                     }
+                    cond_end = Some(ch.end_byte());
                 }
                 "block" => blocks.push(NodeId::of(ch)),
                 _ => {}
             }
         }
-        (names, blocks, n.start_byte(), n.end_byte())
+        (names, blocks, n.start_byte(), n.end_byte(), cond_end)
     });
     let cond_scope = b.add_scope(ScopeKind::Block, Some(scope), ctx.file, lo, hi, None);
-    add_locals(
+    // The scrutinee is evaluated before the pattern binds.
+    add_locals_visible_from(
         b,
         cond_scope,
         ctx.file,
+        cond_end,
         hi,
         &names,
         LocalFact {
@@ -394,6 +410,34 @@ pub(in crate::name_resolution::rust_populator::walk) fn add_locals_with_facts(
     names: &[(String, usize)],
     facts: &[LocalFact],
 ) {
+    add_locals_with_facts_from(b, scope, file, None, scope_end, names, facts);
+}
+
+/// As [`add_locals`], with the extent starting at `visible_from` (when it lies after the
+/// pattern identifier) instead of at the identifier: rustc brings a `let`/`for`/`if let`
+/// pattern's names into scope after the initializer or scrutinee, not within it.
+pub(in crate::name_resolution::rust_populator::walk) fn add_locals_visible_from(
+    b: &mut Builder<'_>,
+    scope: ScopeId,
+    file: FileId,
+    visible_from: Option<usize>,
+    scope_end: usize,
+    names: &[(String, usize)],
+    fact: LocalFact,
+) {
+    let facts = vec![fact; names.len()];
+    add_locals_with_facts_from(b, scope, file, visible_from, scope_end, names, &facts);
+}
+
+fn add_locals_with_facts_from(
+    b: &mut Builder<'_>,
+    scope: ScopeId,
+    file: FileId,
+    visible_from: Option<usize>,
+    scope_end: usize,
+    names: &[(String, usize)],
+    facts: &[LocalFact],
+) {
     assert_eq!(names.len(), facts.len());
     for (i, ((name, def_byte), fact)) in names.iter().zip(facts).enumerate() {
         b.add_local_fact(file, *def_byte, fact.clone());
@@ -410,7 +454,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn add_locals_with_facts(
             vec![Span {
                 lo: SourceLoc {
                     file,
-                    byte: *def_byte,
+                    byte: visible_from.unwrap_or(*def_byte).max(*def_byte),
                 },
                 hi: SourceLoc {
                     file,
