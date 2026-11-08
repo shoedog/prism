@@ -24,24 +24,67 @@ fn is_js_family(language: Language) -> bool {
     )
 }
 
+std::thread_local! {
+    /// The trace's control only (#759): main's universe for an arrow whose body is a callable.
+    static MAIN_ARROW_UNIVERSE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Runs `f` with an expression-bodied arrow whose body is a callable keeping main's statement
+/// universe (the callable's own statements). Used only by the `PRISM_RD_CENSUS_TRACE` control pass
+/// that names the owners the #759 rule moved; production never sets it.
+pub(crate) fn with_main_arrow_universe<T>(f: impl FnOnce() -> T) -> T {
+    struct Reset(bool);
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            MAIN_ARROW_UNIVERSE.with(|c| c.set(self.0));
+        }
+    }
+    let _reset = Reset(MAIN_ARROW_UNIVERSE.with(|c| c.replace(true)));
+    f()
+}
+
+/// Whether `func_node` is an expression-bodied arrow whose body expression is itself a callable
+/// (an arrow, a function expression or a generator function expression). `statements_in_function`
+/// walks the children of that body, so it reports the callable's own block statements as the
+/// arrow's: a universe that belongs to the nested owner (#759).
+pub(crate) fn arrow_body_is_callable(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
+    if !is_js_family(parsed.language) || func_node.kind() != "arrow_function" {
+        return false;
+    }
+    func_node.child_by_field_name("body").is_some_and(|body| {
+        parsed
+            .language
+            .callable_boundary_node_types()
+            .contains(&body.kind())
+    })
+}
+
 /// The one statement an expression-bodied arrow function consists of, when
-/// the parser located no more than one statement inside it.
+/// the parser located no more than one statement inside it, or when its body
+/// is a callable.
 ///
 /// `statements_in_function` walks the children of a block body, so an
 /// expression body yields either nothing or an arbitrary nested node (a call
 /// found inside a binary expression covers only part of the body). Both
 /// universes are partial. The whole body expression is the statement, and
-/// every line of the body maps to its first line. An arrow whose body holds
-/// two or more located statements keeps its existing universe.
+/// every line of the body maps to its first line. An arrow whose body is a
+/// callable (`k => () => { a(); b(); }`) also takes the one node whatever
+/// the located count: the statements `statements_in_function` finds there are
+/// the nested callable's, which the census, S1a capture and D2-c see as a
+/// deferred region of this owner (#759). An arrow whose body holds two or more
+/// located statements that are not a callable's (`c(k) ||\n d(k)`) keeps its
+/// existing universe.
 pub(crate) fn expression_body_statement(
     parsed: &ParsedFile,
     func_node: &Node<'_>,
     located_statements: usize,
 ) -> Option<StatementSpan> {
-    if !is_js_family(parsed.language) || located_statements > 1 {
+    if !is_js_family(parsed.language) || func_node.kind() != "arrow_function" {
         return None;
     }
-    if func_node.kind() != "arrow_function" {
+    let callable_body = arrow_body_is_callable(parsed, func_node)
+        && !MAIN_ARROW_UNIVERSE.with(std::cell::Cell::get);
+    if located_statements > 1 && !callable_body {
         return None;
     }
     let body = func_node.child_by_field_name("body")?;
@@ -133,5 +176,67 @@ mod tests {
         assert!(arrow_span("const f = (c) => exec(c);\n", 2).is_none());
         assert!(arrow_span("const f = (c) => { exec(c); };\n", 0).is_none());
         assert!(arrow_span("function f(c) { exec(c); }\n", 0).is_none());
+    }
+
+    #[test]
+    fn a_callable_body_takes_the_node_whatever_the_located_count() {
+        // #759: the located statements of `k => () => { .. }` are the nested callable's.
+        for source in [
+            "const f = (k) =>\n  () => {\n    a();\n    b();\n  };\n",
+            "const f = (k) =>\n  async () => {\n    a();\n    b();\n  };\n",
+            "const f = (k) =>\n  function () {\n    a();\n    b();\n  };\n",
+            "const f = (k) =>\n  function* () {\n    a();\n    b();\n  };\n",
+        ] {
+            let span = arrow_span(source, 2).expect(source);
+            assert_eq!((span.line, span.kind.as_str()), (2, EXPRESSION_BODY_KIND));
+            // The control keeps main's universe, only inside the switch, and restores it.
+            assert!(with_main_arrow_universe(|| arrow_span(source, 2)).is_none());
+            assert!(arrow_span(source, 2).is_some());
+        }
+        // Two located statements that are not a callable's keep the existing universe.
+        assert!(arrow_span("const f = (k) =>\n  a(k) ||\n  b(k);\n", 2).is_none());
+        assert!(arrow_span(
+            "const f = (k) =>\n  wrap(() => {\n    a();\n    b();\n  });\n",
+            2
+        )
+        .is_none());
+        assert!(arrow_span(
+            "const f = (k) => {\n  return () => {\n    a();\n    b();\n  };\n};\n",
+            2
+        )
+        .is_none());
+        assert!(arrow_span(
+            "function f(k) {\n  return () => {\n    a();\n    b();\n  };\n}\n",
+            2
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn callable_body_is_judged_on_the_arrow_alone() {
+        let check = |source: &str, language: Language| {
+            let parsed = ParsedFile::parse("a.ts", source, language).unwrap();
+            let func = parsed.all_functions().into_iter().next().unwrap();
+            arrow_body_is_callable(&parsed, &func)
+        };
+        assert!(check(
+            "const f = (k: number) => (): void => { a(); };",
+            Language::TypeScript
+        ));
+        assert!(!check(
+            "const f = (k: number) => (() => { a(); }) as F;",
+            Language::TypeScript
+        ));
+        assert!(!check(
+            "const f = (k: number) => ({ m() { a(); } });",
+            Language::TypeScript
+        ));
+        assert!(!check(
+            "function f(k) { return () => 1; }",
+            Language::TypeScript
+        ));
+        let py = ParsedFile::parse("a.py", "def f(a):\n    return a\n", Language::Python).unwrap();
+        let func = py.all_functions().into_iter().next().unwrap();
+        assert!(!arrow_body_is_callable(&py, &func));
     }
 }
