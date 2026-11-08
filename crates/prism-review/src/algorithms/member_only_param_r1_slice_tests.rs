@@ -42,6 +42,7 @@ fn slice_lines(
         .map(|(line, _)| *line)
         .collect()
 }
+
 const CARD: &str = "export function Card(props: CardProps) {\n  const title = props.title.trim().toUpperCase();\n  const html = props.rawHtml;\n  return (\n    <div dangerouslySetInnerHTML={{ __html: html }}>\n      {title}\n    </div>\n  );\n}\n";
 #[test]
 fn fullflow_diff_on_a_field_read_never_pulls_in_a_sibling_field() {
@@ -69,6 +70,7 @@ fn fullflow_diff_on_a_field_read_never_pulls_in_a_sibling_field() {
         );
     }
 }
+
 #[test]
 fn fullflow_diff_on_the_parameter_line_still_fans_out() {
     // Accepted cost: a seed on the whole parameter reaches every field read.
@@ -87,6 +89,7 @@ fn fullflow_diff_on_the_parameter_line_still_fans_out() {
         );
     }
 }
+
 #[test]
 fn leftflow_condition_variable_slice_is_pinned() {
     // LeftFlow's condition walk stops at the projection-only base Def and keeps the

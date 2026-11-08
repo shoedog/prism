@@ -1,22 +1,13 @@
-//! Follow-up to PR #390: LeftFlow's condition phase (shared with FullFlow through
-//! `left_flow_core`) walked backward from `Use(p.x)` to a member-only formal's base Def
-//! and then forward through every projection, so a diff on `if (p.x)` pulled in lines
-//! that use a local derived from a sibling field (`const html = p.z; ... sink(html)`).
-//! Pre-#390 the formal had no Def, so the condition variable took the name fallback
-//! (every textual `p` line, nothing derived). The forward leg now seeds only from
-//! locations reached before a projection-only Def, and a condition whose walk reaches
-//! one keeps that name fallback.
+//! PR #404 (follow-up to PR #390): the DFG-level query behind LeftFlow's condition phase.
+//! `dfg_use_reads_projection_only_def` is true only for a `Use` fed by a projection-only base
+//! Def of a member-only formal, which is how the condition walk decides to keep its name
+//! fallback. The slice-level LeftFlow/FullFlow tests of the same follow-up call the review layer
+//! and live in `crates/prism-review/src/algorithms/member_only_param_leftflow_slice_tests.rs`.
 
 use crate::languages::Language;
 use std::collections::BTreeMap;
 
-// 1. Leak shapes: each fails on d293009c (line 6 / 7 present) ------------------------
-
-// 2. Controls: main's output is unchanged ----------------------------------------------
-
-// 3. PR #404 round-1 fold ------------------------------------------------------------
-
-// 4. PR #404 round-2 fold: the cut reproduces pre-#390's fallback decision -------------
+// PR #404 round-2 fold: the cut reproduces pre-#390's fallback decision.
 
 #[test]
 fn projection_read_query_is_true_only_for_a_use_fed_by_a_projection_only_def() {

@@ -41,7 +41,7 @@ The four baseline algorithms from the paper. `originaldiff` and `parentfunction`
 
 **Limitations.** No context whatsoever. A reviewer can't tell from this slice whether the change touches a guard, an assignment, a return, or a comment.
 
-**Source.** `src/algorithms/original_diff.rs`
+**Source.** `crates/prism-review/src/algorithms/original_diff.rs`
 
 ### 2. ParentFunction
 
@@ -59,7 +59,7 @@ The four baseline algorithms from the paper. `originaldiff` and `parentfunction`
 
 **Limitations.** Includes everything in the function, even unrelated code paths. Can be noisy for very large functions.
 
-**Source.** `src/algorithms/parent_function.rs`
+**Source.** `crates/prism-review/src/algorithms/parent_function.rs`
 
 ### 3. LeftFlow (default)
 
@@ -77,7 +77,7 @@ The four baseline algorithms from the paper. `originaldiff` and `parentfunction`
 
 **Limitations.** Intraprocedural by default — only traces within the diff's enclosing function. Branch context is heuristic. Pure name-based fallback can over-include when the same identifier appears in nested scopes.
 
-**Source.** `src/algorithms/left_flow.rs`
+**Source.** `crates/prism-review/src/algorithms/left_flow.rs`
 
 ### 4. FullFlow
 
@@ -95,7 +95,7 @@ The four baseline algorithms from the paper. `originaldiff` and `parentfunction`
 
 **Limitations.** Larger output than LeftFlow. The cross-file R-value heuristic resolves by exact name — it includes any function with the matching name across all parsed files.
 
-**Source.** `src/algorithms/full_flow.rs`
+**Source.** `crates/prism-review/src/algorithms/full_flow.rs`
 
 ---
 
@@ -119,7 +119,7 @@ Standard program-slicing types. Use these when you have a specific question (sec
 
 **Limitations.** Loses context that's often crucial for reasoning (e.g. which branch the value flows through). Not appropriate when the change touches a guard or branch condition.
 
-**Source.** `src/algorithms/thin_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/thin_slice.rs`
 
 ### 6. BarrierSlice
 
@@ -137,7 +137,7 @@ Standard program-slicing types. Use these when you have a specific question (sec
 
 **Limitations.** Emits no findings — only scope. Common scope-noise sources: C/C++ overloads include all same-named definitions; virtual / dynamic-dispatch callees that don't match call-graph indirect-resolution Levels 1–4 are silently missed (false negative); duplicate names in non-C languages include every definition. Mitigate by widening `--barrier-modules` / `--barrier-symbols`.
 
-**Source.** `src/algorithms/barrier_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/barrier_slice.rs`
 
 ### 7. Chop
 
@@ -155,7 +155,7 @@ Standard program-slicing types. Use these when you have a specific question (sec
 
 **Limitations.** Requires explicit `--chop-source` and `--chop-sink`. CFG filter is intraprocedural; cross-function targets bypass the filter and rely on DFG only. Empty result means no path — but absence is conservative (could be a false negative for edges the indirect-call resolver missed).
 
-**Source.** `src/algorithms/chop.rs`
+**Source.** `crates/prism-review/src/algorithms/chop.rs`
 
 ### 8. Taint
 
@@ -163,7 +163,7 @@ Standard program-slicing types. Use these when you have a specific question (sec
 
 **Question.** "Does any tainted value (diff line, IPC accessor, or explicit source) reach a known sink?"
 
-**Mechanism.** **CPG-required.** Forward DFG propagation from taint sources, intersected with CFG reachability to prune dead code. Sources = diff lines (default) + GLib/D-Bus IPC accessors auto-detected in C/C++ files + explicit `--taint-source` locations. Sinks = the structured Go/Python/JS registries plus a flat list. For JS/TS/TSX, Python and Go the flat list is decided from the AST (`src/algorithms/taint_sinks/`; each rule carries a CWE tag) under a hybrid policy: a sink must be in call position (or an assignment target for DOM/location sinks), so a variable named `sanitizedQuery`, `get_user_id()`, a signature or a field read is never a sink; for high-severity names an unknown receiver keeps firing (`cache.Query(x)`, `client.send(x)`), and only proven non-sinks suppress (a regex literal or regex-bound `re.exec(..)`, a logger, a socket/stdout channel, a list/file-object binding, a same-named function declared in the file, a zero-argument call such as `model.eval()`/`u.Query()`, a constant `Sprintf` format, a shadowed binding). Receiver allowlists (response chains such as `res.status(400).send(..)`, database handles, `child_process` bindings, import-path-resolved Go packages) only add positive evidence and the CWE tag. Rust/Lua/Bash/C/C++/HCL/Java keep the whole name-pattern list except these Bash-only command names, which fire only in Bash: `=eval`, `=exec`, `=source`, `=find`, `=awk`, `=sed`, `=su`, `=sudo`, `=wget`, `xargs`, `=ip`, `=ifconfig`, `=iptables`, `=ip6tables`, `=brctl`, `=vconfig`, `=insmod`, `=modprobe`, `=rmmod`, `procd_set_param` (shell or busybox utilities that are plain variables elsewhere); `get_user` fires only as the exact C/C++ kernel name. Library names that are also shell commands (`sqlite3`, `chmod`, `chown`, `curl`, `uci`, `mtd`, `fw_setenv`) keep firing in every language that had them. Dynamically-detected variadic format-string wrappers (1-hop only) are added.
+**Mechanism.** **CPG-required.** Forward DFG propagation from taint sources, intersected with CFG reachability to prune dead code. Sources = diff lines (default) + GLib/D-Bus IPC accessors auto-detected in C/C++ files + explicit `--taint-source` locations. Sinks = the structured Go/Python/JS registries plus a flat list. For JS/TS/TSX, Python and Go the flat list is decided from the AST (`crates/prism-review/src/algorithms/taint_sinks/`; each rule carries a CWE tag) under a hybrid policy: a sink must be in call position (or an assignment target for DOM/location sinks), so a variable named `sanitizedQuery`, `get_user_id()`, a signature or a field read is never a sink; for high-severity names an unknown receiver keeps firing (`cache.Query(x)`, `client.send(x)`), and only proven non-sinks suppress (a regex literal or regex-bound `re.exec(..)`, a logger, a socket/stdout channel, a list/file-object binding, a same-named function declared in the file, a zero-argument call such as `model.eval()`/`u.Query()`, a constant `Sprintf` format, a shadowed binding). Receiver allowlists (response chains such as `res.status(400).send(..)`, database handles, `child_process` bindings, import-path-resolved Go packages) only add positive evidence and the CWE tag. Rust/Lua/Bash/C/C++/HCL/Java keep the whole name-pattern list except these Bash-only command names, which fire only in Bash: `=eval`, `=exec`, `=source`, `=find`, `=awk`, `=sed`, `=su`, `=sudo`, `=wget`, `xargs`, `=ip`, `=ifconfig`, `=iptables`, `=ip6tables`, `=brctl`, `=vconfig`, `=insmod`, `=modprobe`, `=rmmod`, `procd_set_param` (shell or busybox utilities that are plain variables elsewhere); `get_user` fires only as the exact C/C++ kernel name. Library names that are also shell commands (`sqlite3`, `chmod`, `chown`, `curl`, `uci`, `mtd`, `fw_setenv`) keep firing in every language that had them. Dynamically-detected variadic format-string wrappers (1-hop only) are added.
 
 **When to use.** Security review of a diff that touches input handling, network IO, IPC, or anywhere user-controlled data might originate.
 
@@ -174,9 +174,9 @@ Standard program-slicing types. Use these when you have a specific question (sec
   - `category: "taint_sink"`, severity `warning` — tainted value reaches a known sink.
   - `category: "unquoted_expansion"`, severity `warning` — Bash-only: `$VAR` inside a `command` not wrapped in a `string` node.
 
-**Limitations.** Generic name/access-path DFG with no framework-aware modeling. Pydantic / dataclass validators are invisible (treated as opaque calls); decorator chains are not edges, so `@app.route` / `@retry` and similar wrappers do not connect dispatcher → handler; ORM session managers propagate through ordinary alias tracking but session/transaction lifecycles are not modeled; `await` is transparent (taint crosses iff the awaited callee resolves in the call graph); JS/TS Promise `.then(cb)` does not connect the resolved value to `cb`'s parameter. Sink list and source list are flat tables — `src/algorithms/taint.rs:21` and `:232`.
+**Limitations.** Generic name/access-path DFG with no framework-aware modeling. Pydantic / dataclass validators are invisible (treated as opaque calls); decorator chains are not edges, so `@app.route` / `@retry` and similar wrappers do not connect dispatcher → handler; ORM session managers propagate through ordinary alias tracking but session/transaction lifecycles are not modeled; `await` is transparent (taint crosses iff the awaited callee resolves in the call graph); JS/TS Promise `.then(cb)` does not connect the resolved value to `cb`'s parameter. Sink list and source list are flat tables — `crates/prism-review/src/algorithms/taint/flat.rs:15` (`SINK_PATTERNS`) and `:226` (`IPC_SOURCE_PATTERNS`).
 
-**Source.** `src/algorithms/taint.rs`
+**Source.** `crates/prism-review/src/algorithms/taint.rs`
 
 ### 9. RelevantSlice
 
@@ -194,7 +194,7 @@ Standard program-slicing types. Use these when you have a specific question (sec
 
 **Limitations.** Heuristic. Conservative on the AST side (only specific child node kinds are recognized as alternates). The CFG path is more precise but only fires if the CPG has CFG edges built.
 
-**Source.** `src/algorithms/relevant_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/relevant_slice.rs`
 
 ### 10. ConditionedSlice
 
@@ -212,7 +212,7 @@ Standard program-slicing types. Use these when you have a specific question (sec
 
 **Limitations.** Predicate parser handles `==`, `!=`, `>`, `<`, `>=`, `<=`, plus null-aware variants for `null`/`None`/`nil`. Only matches branches whose condition text contains the variable + operator + value substring; complex predicates like `if (a > 0 && b < 10)` are usually not pruned even when the assumption logically resolves them.
 
-**Source.** `src/algorithms/conditioned_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/conditioned_slice.rs`
 
 ### 11. DeltaSlice
 
@@ -230,7 +230,7 @@ Standard program-slicing types. Use these when you have a specific question (sec
 
 **Limitations.** Requires `--old-repo` pointing to a parseable older checkout. Only compares DFG edges (data flow); doesn't surface CFG-only or call-graph-only changes. Edges are compared by (file, from_line, to_line) tuples — equivalent code that happens to produce different line offsets registers as a change.
 
-**Source.** `src/algorithms/delta_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/delta_slice.rs`
 
 ---
 
@@ -254,7 +254,7 @@ Slicing concepts that extend the established taxonomy. Most are heuristic; read 
 
 **Limitations.** Caller resolution is name-keyed across the parsed file set. Cross-file: yes (within parsed set); cross-package: yes if parsed; vendored / external: no (anything not parsed is invisible). Cross-language (FFI, subprocess, cgo, JNI): not modeled. Unresolved indirect dispatch silently terminates the chain — no marker is emitted.
 
-**Source.** `src/algorithms/spiral_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/spiral_slice.rs`
 
 ### 13. CircularSlice
 
@@ -272,7 +272,7 @@ Slicing concepts that extend the established taxonomy. Most are heuristic; read 
 
 **Limitations.** SCCs of size 1 (self-recursion) are not specifically called out; they appear as one-element cycles. Dynamic dispatch through unresolved indirect calls produces neither edges nor cycles, so cycles through (e.g.) virtual methods may be invisible.
 
-**Source.** `src/algorithms/circular_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/circular_slice.rs`
 
 ### 14. QuantumSlice
 
@@ -290,7 +290,7 @@ Slicing concepts that extend the established taxonomy. Most are heuristic; read 
 
 **Limitations.** Pattern matching, not formal model checking — identifies *potential* races, not proven ones. If `--quantum-var` isn't given, every identifier on the diff line is analyzed (high noise). Go-specific handling detects goroutine closure captures but not channels, mutexes, or atomics.
 
-**Source.** `src/algorithms/quantum_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/quantum_slice.rs`
 
 ### 15. HorizontalSlice
 
@@ -308,7 +308,7 @@ Slicing concepts that extend the established taxonomy. Most are heuristic; read 
 
 **Limitations.** `Auto` mode picks the first decorator above the function and uses its base name (before `(`). If no decorator, falls back to "all functions in the same file" — very broad. `ParentClass` only matches when the function's tree-sitter parent is `class_body` or `class_declaration`.
 
-**Source.** `src/algorithms/horizontal_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/horizontal_slice.rs`
 
 ### 16. VerticalSlice
 
@@ -326,7 +326,7 @@ Slicing concepts that extend the established taxonomy. Most are heuristic; read 
 
 **Limitations.** Layer detection is path-keyword heuristics; if your project uses different terminology, pass `--layers` explicitly. Depth 10 is hardcoded — for deep stacks the slice can balloon. Path deduplication is by `(file, function)` so a function called by multiple ancestors shows once.
 
-**Source.** `src/algorithms/vertical_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/vertical_slice.rs`
 
 ### 17. AngleSlice
 
@@ -342,9 +342,9 @@ Slicing concepts that extend the established taxonomy. Most are heuristic; read 
 
 **Output.** One block per file containing concern hits; lines that overlap the diff are marked `is_diff=true`. No findings.
 
-**Limitations.** Substring keyword matching on raw source — comments and string literals can match. Custom concerns split on `,` for keywords. The keyword lists in `src/algorithms/angle_slice.rs:36` are deliberately broad (e.g. logging includes `console.log`, `fmt.Print`, `LOG`, `debug`, `info`, `warn`) so expect false positives in projects that use those words for non-logging purposes.
+**Limitations.** Substring keyword matching on raw source — comments and string literals can match. Custom concerns split on `,` for keywords. The keyword lists in `crates/prism-review/src/algorithms/angle_slice.rs:36` are deliberately broad (e.g. logging includes `console.log`, `fmt.Print`, `LOG`, `debug`, `info`, `warn`) so expect false positives in projects that use those words for non-logging purposes.
 
-**Source.** `src/algorithms/angle_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/angle_slice.rs`
 
 ### 18. ThreeDSlice
 
@@ -362,7 +362,7 @@ Slicing concepts that extend the established taxonomy. Most are heuristic; read 
 
 **Limitations.** Requires `git` to be available and the working directory to be a git repo. Multiplicative scoring means any factor at zero zeros the score — which is intended (a function with no callers/callees and no recent churn isn't risky), but it means the absolute score is not comparable across runs.
 
-**Source.** `src/algorithms/threed_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/threed_slice.rs`
 
 ---
 
@@ -376,7 +376,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Question.** "Does this open / lock / allocate have a matching close / unlock / free in the same function?"
 
-**Mechanism.** A flat ~50-pattern table of `(open_patterns, close_patterns, description)` covering generic, kernel/POSIX, Python, JS/TS, Go, Rust, Lua, Terraform, and Shell idioms — see `src/algorithms/absence_slice.rs:28` for the full list. For each diff line containing an open pattern, scans the enclosing function for a matching close. C/C++ functions with `goto` patterns get path-aware analysis: distinguishes normal-path close from error-path-only close, and detects double-close patterns (close inline + close in goto target).
+**Mechanism.** A flat ~50-pattern table of `(open_patterns, close_patterns, description)` covering generic, kernel/POSIX, Python, JS/TS, Go, Rust, Lua, Terraform, and Shell idioms — see `crates/prism-review/src/algorithms/absence_slice.rs:28` for the full list. For each diff line containing an open pattern, scans the enclosing function for a matching close. C/C++ functions with `goto` patterns get path-aware analysis: distinguishes normal-path close from error-path-only close, and detects double-close patterns (close inline + close in goto target).
 
 **When to use.** Resource-leak review — files, locks, allocations, transactions, event subscriptions, IRQs. Especially valuable for kernel/firmware C code.
 
@@ -390,7 +390,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** Does **not** compare across peer functions (that's `peer`). Pattern table is open-coded — adding new pairs requires a code change. Goto-aware analysis is C/C++ only. RAII detection looks for textual keywords (`std::lock_guard`, `std::unique_ptr`, etc.) on any line in the function — not type-aware, so a comment containing those tokens would suppress the finding.
 
-**Source.** `src/algorithms/absence_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/absence_slice.rs`
 
 ### 20. ResonanceSlice
 
@@ -408,7 +408,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** The per-file commit counter only tracks commits that also touch a diff file — the ratio is conditional, not unconditional, which overstates coupling for shared utility files that change frequently on their own. Default 180-day window is hardcoded in `ResonanceConfig::default()` — change the source to override. Requires `git` + a git repo; throws an error otherwise.
 
-**Source.** `src/algorithms/resonance_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/resonance_slice.rs`
 
 ### 21. SymmetrySlice
 
@@ -416,7 +416,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Question.** "If I changed `serialize`, did I also change `deserialize`?"
 
-**Mechanism.** A table of symmetric pairs (`serialize↔deserialize`, `encode↔decode`, `lock↔unlock`, `subscribe↔unsubscribe`, `to_json↔from_json`, etc. — see `src/algorithms/symmetry_slice.rs:24`). For each diff function whose name contains a left-side pattern, generates candidate counterpart names and searches all files. If the counterpart exists but isn't in the diff, emits a finding.
+**Mechanism.** A table of symmetric pairs (`serialize↔deserialize`, `encode↔decode`, `lock↔unlock`, `subscribe↔unsubscribe`, `to_json↔from_json`, etc. — see `crates/prism-review/src/algorithms/symmetry_slice.rs:24`). For each diff function whose name contains a left-side pattern, generates candidate counterpart names and searches all files. If the counterpart exists but isn't in the diff, emits a finding.
 
 **When to use.** Format/encoding/lifecycle pair review — protocol changes, serialization version bumps, paired resource patterns.
 
@@ -426,7 +426,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** Counterpart name generation is naive substring replacement (e.g. `serializeUser` → `deserializeuser`, lowercased). Names with non-standard casing may not match. Only flags asymmetric changes — symmetric (both sides changed) doesn't produce a finding.
 
-**Source.** `src/algorithms/symmetry_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/symmetry_slice.rs`
 
 ### 22. GradientSlice
 
@@ -444,7 +444,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** DataFlow edges are intraprocedural — gradient crosses function boundaries via `Call` / `Return` edges only. Configuration is hardcoded in `GradientConfig::default()`; no CLI knobs.
 
-**Source.** `src/algorithms/gradient_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/gradient_slice.rs`
 
 ### 23. ProvenanceSlice
 
@@ -467,7 +467,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** Keyword-based classification is conservative — `request` matches anywhere unless suppressed (Python web-framework suppression handles the most common false positives). `~`-prefixed patterns require a word boundary (`~form` doesn't match `transform`). HCL `var.` and `data.` are treated as user input and database respectively, which fits Terraform but may surprise users from other contexts.
 
-**Source.** `src/algorithms/provenance_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/provenance_slice.rs`
 
 ### 24. PhantomSlice
 
@@ -485,7 +485,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** Function-name extraction is heuristic and per-language (`def`, `function`, `func`, Java accessors, C/C++ `[type] name(`). Identifier matching is exact and case-sensitive on tokens longer than 2 characters. A live, currently-existing function with the same name as a previously-deleted one will *also* match — phantom can't distinguish. Default look-back is 50 commits.
 
-**Source.** `src/algorithms/phantom_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/phantom_slice.rs`
 
 ### 25. MembraneSlice
 
@@ -503,7 +503,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** "Cross-file" is the boundary, not "cross-module" in the package sense — files in the same package are still considered separate modules. Error-handling detection is keyword-based across the entire caller body, not just around the call site, so a try/catch elsewhere in the caller suppresses the finding even if the specific call isn't wrapped.
 
-**Source.** `src/algorithms/membrane_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/membrane_slice.rs`
 
 ### 26. EchoSlice
 
@@ -521,7 +521,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** Context window for safe-pattern detection is 3 lines before to 5 lines after the call site — far-away try/catch wrapping the whole function is missed. Pattern list is per-language but flat (no AST scoping).
 
-**Source.** `src/algorithms/echo_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/echo_slice.rs`
 
 ### 27. ContractSlice
 
@@ -546,7 +546,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** Guard clause detection requires the guard to be in the first `max(30%, 5)` lines of the function. Postcondition classification of expressions (variables, function calls) reduces to "expression" — which means most real-world functions get classified as Mixed unless their returns are obvious literals. Phase 3 matches functions by name only — renaming a function looks like (delete, add) rather than rename.
 
-**Source.** `src/algorithms/contract_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/contract_slice.rs`
 
 ### 28. PeerConsistencySlice
 
@@ -565,7 +565,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** C/C++ only. Same file only. Exact identifier-name equality only — `void f(struct vty *vty)` and `void g(struct vty *v)` cluster separately. Cluster thresholds (≥3 size, 80% deref ratio, 0 guards for uniform; ≥3 guards + ≥1 divergent for divergent) are hardcoded.
 
-**Source.** `src/algorithms/peer_consistency_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/peer_consistency_slice.rs`
 
 ### 29. CallbackDispatcherSlice
 
@@ -586,7 +586,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** C/C++ only. Computed registrations (`tab[idx_for(name)] = func`) are silently invisible — no marker. Field-pattern path requires both registration AND at least one invocation, so registered-but-never-dispatched is filtered out (also no marker).
 
-**Source.** `src/algorithms/callback_dispatcher_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/callback_dispatcher_slice.rs`
 
 ### 30. PrimitiveSlice
 
@@ -611,7 +611,7 @@ Diff-aware patterns that don't map cleanly onto the established taxonomy. These 
 
 **Limitations.** Two-pass truncation rule (`HASH_TRUNCATION_VIA_CALL`) is Python-only. Most rules are Python-shaped; cert validation and weak hash identity rules have a few non-Python markers but are still primarily tuned for Python. No cross-procedural data flow — if the literal `12` is computed at runtime, the rule doesn't fire.
 
-**Source.** `src/algorithms/primitive_slice.rs`
+**Source.** `crates/prism-review/src/algorithms/primitive_slice.rs`
 
 ---
 

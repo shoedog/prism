@@ -154,9 +154,10 @@ impl ParseQuality {
         }
     }
 
-    /// From the AUTHORITATIVE per-file map produced by `algorithms::check_parse_quality`
+    /// From the AUTHORITATIVE per-file map produced by `ast::parse_quality::check_parse_quality`
     /// (`ReviewInputs.parse_quality`). That map is SPARSE: `check_parse_quality` inserts a
-    /// file only when its error rate exceeds 1% (`src/algorithms/mod.rs:75-84`), so absence
+    /// file only when its error rate exceeds 1% (the `rate > 0.01` branch in
+    /// `src/ast/parse_quality.rs`), so absence
     /// means "clean" for a file prism parsed and "unknown" for a file it did not. Hence: for
     /// each file — in `map` → its grade; else in `parsed` → Clean; else Unknown. Result = the
     /// worst over `files`; Unknown when `files` is empty. The sparse map itself is never
