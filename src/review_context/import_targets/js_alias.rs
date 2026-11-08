@@ -13,7 +13,7 @@
 //! later parent overrides only the fields it sets). A package `extends`
 //! (`@tsconfig/...`) is outside the repo and ignored.
 use crate::call_graph::js_ts_relative_module_candidates;
-use crate::repo_loader::BUILTIN_SKIP_DIRS;
+use crate::repo_loader::skip_dir;
 use crate::resolution::js_ts::paths_snapshot::JsPathsSnapshot;
 use crate::resolution::js_ts::paths_syntax::{dir, jsonc, norm};
 use std::collections::{BTreeMap, BTreeSet};
@@ -296,9 +296,32 @@ fn winner(path: &str, listing: &BTreeSet<String>) -> Option<String> {
         .next()
 }
 
-/// True when the repo walk never lists `path`: a built-in skipped directory or a
-/// hidden one.
+/// True when the repo walk never lists `path`: a built-in skipped directory (a
+/// root-only name only as the first component) or a hidden one.
 fn in_skipped_dir(path: &str) -> bool {
     path.split('/')
-        .any(|part| BUILTIN_SKIP_DIRS.contains(&part) || (part.starts_with('.') && part.len() > 1))
+        .enumerate()
+        .any(|(i, part)| skip_dir(part, i == 0) || (part.starts_with('.') && part.len() > 1))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::in_skipped_dir;
+
+    #[test]
+    fn root_only_names_skip_only_at_the_first_component() {
+        for p in [
+            "build/x",
+            "dist/x",
+            "node_modules/p/x",
+            "src/node_modules/x",
+            "src/vendor/x",
+            "src/.h/x",
+        ] {
+            assert!(in_skipped_dir(p), "{p}");
+        }
+        for p in ["src/build/x", "pkg/dist/x", "src/data_flow/build/a"] {
+            assert!(!in_skipped_dir(p), "{p}");
+        }
+    }
 }

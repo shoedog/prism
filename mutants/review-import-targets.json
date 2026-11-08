@@ -1,7 +1,8 @@
 {
   "lane": "Import-target attribution for review diff-file call sites (#602)",
   "lib_test_prefixes": [
-    "review_context::"
+    "review_context::",
+    "repo_loader::skip_tests::"
   ],
   "mutations": {
     "IT01-bare-package-not-external": [
@@ -42,9 +43,27 @@
     ],
     "IT07-node-modules-listed": [
       "src/repo_loader.rs",
-      "&[\".git\", \"target\", \"node_modules\", \"vendor\", \"dist\", \"build\"];",
-      "&[\".git\", \"target\", \"vendor\", \"dist\", \"build\"];",
+      "&[\".git\", \"target\", \"node_modules\", \"vendor\"];",
+      "&[\".git\", \"target\", \"vendor\"];",
       "review_context::import_targets_tests::js_skipped_directories_are_never_targets"
+    ],
+    "IT07b-nested-build-skipped-by-rule": [
+      "src/repo_loader.rs",
+      "(parent_is_root && ROOT_ONLY_SKIP_DIRS.contains(&name))",
+      "ROOT_ONLY_SKIP_DIRS.contains(&name)",
+      "repo_loader::skip_tests::skip_dir_rule"
+    ],
+    "IT07c-nested-build-skipped-by-load-walk": [
+      "src/repo_loader.rs",
+      "skip_dir(&name, dir == root) && (file_type.is_dir()",
+      "skip_dir(&name, true) && (file_type.is_dir()",
+      "repo_loader::skip_tests::load_repo_indexes_nested_build_and_dist_and_skips_root_ones"
+    ],
+    "IT07d-nested-build-skipped-by-manifest-walk": [
+      "src/repo_loader.rs",
+      "if skip_dir(&name, dir == root) || name.starts_with('.') {",
+      "if skip_dir(&name, true) || name.starts_with('.') {",
+      "repo_loader::skip_tests::manifest_snapshot_walk_sees_nested_build_manifests_only"
     ],
     "IT08-listing-not-the-inputs-walk": [
       "src/repo_loader.rs",

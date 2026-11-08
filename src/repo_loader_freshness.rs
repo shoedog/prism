@@ -1,4 +1,4 @@
-use super::{rel, Language, BUILTIN_SKIP_DIRS, MAX_FILE_BYTES};
+use super::{rel, skip_dir, Language, MAX_FILE_BYTES};
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -12,7 +12,7 @@ pub fn collect_freshness_source_paths(root: &Path) -> Option<BTreeSet<String>> {
             };
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
-            if (BUILTIN_SKIP_DIRS.contains(&name.as_str()) && (kind.is_dir() || kind.is_symlink()))
+            if (skip_dir(&name, dir == root) && (kind.is_dir() || kind.is_symlink()))
                 || kind.is_symlink()
             {
                 continue;

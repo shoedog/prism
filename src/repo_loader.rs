@@ -12,8 +12,17 @@ use std::path::{Path, PathBuf};
 
 const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
 const SEVERE_PARSE_ERROR_RATE: f64 = 0.3;
-pub(crate) const BUILTIN_SKIP_DIRS: &[&str] =
-    &[".git", "target", "node_modules", "vendor", "dist", "build"];
+/// Directory names no walk enters at any depth.
+pub(crate) const BUILTIN_SKIP_DIRS: &[&str] = &[".git", "target", "node_modules", "vendor"];
+/// Build-output names, skipped only as a direct child of the repository root.
+/// Nested, they are ordinary source packages (`src/data_flow/build/`, Go `pkg/build`).
+pub(crate) const ROOT_ONLY_SKIP_DIRS: &[&str] = &["build", "dist"];
+
+/// The one rule every directory walk applies to a directory entry's name;
+/// `parent_is_root` is whether the directory being listed is the repository root.
+pub(crate) fn skip_dir(name: &str, parent_is_root: bool) -> bool {
+    BUILTIN_SKIP_DIRS.contains(&name) || (parent_is_root && ROOT_ONLY_SKIP_DIRS.contains(&name))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum SkipReason {
@@ -443,7 +452,7 @@ fn collect_manifest_snapshot_inner(root: &Path, dir: &Path, snapshot: &mut Manif
             Err(_) => continue,
         };
         if file_type.is_dir() {
-            if BUILTIN_SKIP_DIRS.contains(&name.as_str()) || name.starts_with('.') {
+            if skip_dir(&name, dir == root) || name.starts_with('.') {
                 continue;
             }
             collect_manifest_snapshot_inner(root, &path, snapshot);
@@ -518,9 +527,7 @@ fn collect_supported_source_paths_inner(
         let name = entry.file_name().to_string_lossy().to_string();
         let file_type = entry.file_type().map_err(fail)?;
 
-        if BUILTIN_SKIP_DIRS.contains(&name.as_str())
-            && (file_type.is_dir() || file_type.is_symlink())
-        {
+        if skip_dir(&name, dir == root) && (file_type.is_dir() || file_type.is_symlink()) {
             continue;
         }
         if file_type.is_symlink() {
@@ -1050,9 +1057,7 @@ fn walk(
             }
         };
 
-        if BUILTIN_SKIP_DIRS.contains(&name.as_str())
-            && (file_type.is_dir() || file_type.is_symlink())
-        {
+        if skip_dir(&name, dir == root) && (file_type.is_dir() || file_type.is_symlink()) {
             items.push(MergeItem::Skip(SkippedFile {
                 path: rel_dir(root, &path),
                 reason: SkipReason::Ignored,
