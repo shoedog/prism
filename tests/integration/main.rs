@@ -60,6 +60,7 @@ mod js_module_owner_test;
 mod js_named_function_scope_test;
 mod js_paths_cap_test;
 mod js_paths_common;
+mod js_paths_nested_skip_test;
 mod js_paths_p2_test;
 mod js_paths_r1_test;
 mod js_paths_r2b_test;

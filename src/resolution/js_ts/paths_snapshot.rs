@@ -160,7 +160,7 @@ impl JsPathsSnapshot {
             };
             let blocked = ft.is_symlink()
                 || name.starts_with('.')
-                || ["target", "node_modules", "vendor", "dist", "build"].contains(&name);
+                || crate::repo_loader::skip_dir(name, dir == root);
             if blocked && (ft.is_dir() || ft.is_symlink()) {
                 self.opaque_directories.insert(rel.to_owned());
             }

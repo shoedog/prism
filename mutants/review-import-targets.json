@@ -53,7 +53,7 @@
       "ROOT_ONLY_SKIP_DIRS.contains(&name)",
       "repo_loader::skip_tests::skip_dir_rule"
     ],
-    "IT07c-nested-build-skipped-by-load-walk": [
+    "IT07c-nested-build-skipped-by-load-walk-and-source-listing": [
       "src/repo_loader.rs",
       "skip_dir(&name, dir == root) && (file_type.is_dir()",
       "skip_dir(&name, true) && (file_type.is_dir()",
