@@ -198,3 +198,28 @@ fn another_literal_with_an_interface_or_named_formal_opens_the_gate() {
         check(label, &src, &[("i", 3, 8, true)]);
     }
 }
+
+// ---- fold 3b: a read in a sibling literal that binds a captured variable ------------------------
+
+#[test]
+fn an_iife_result_read_in_a_sibling_literal_through_a_captured_variable_keeps_main_edges() {
+    // The shape of vitess `server_test.go` TestBackup.
+    let src = "package p\nfunc f(stream S) {\n\trun := func(t T) {\n\t\tresponses, err := func() (responses []R, err error) {\n\t\t\tfor {\n\t\t\t\tresp, err := stream.Recv()\n\t\t\t\tif err != nil {\n\t\t\t\t\treturn responses, err\n\t\t\t\t}\n\t\t\t\tresponses = append(responses, resp)\n\t\t\t}\n\t\t}()\n\t\tfunc() {\n\t\t\tassert(responses, err)\n\t\t}()\n\t}\n\trun(t)\n}\n";
+    check(
+        "sibling-captured",
+        src,
+        &[("err", 6, 14, true), ("responses", 10, 14, true)],
+    );
+}
+
+#[test]
+fn sibling_literals_each_with_their_own_named_result_stay_unconnected() {
+    let src = "package p\nfunc f() {\n\ta := func() (errs []error) {\n\t\terrs = append(errs, x())\n\t\treturn\n\t}\n\tb := func() (errs []error) {\n\t\terrs = append(errs, y())\n\t\treturn\n\t}\n\ta()\n\tb()\n}\n";
+    check("sibling-own-result", src, &[("errs", 4, 8, false)]);
+}
+
+#[test]
+fn a_sibling_literal_redeclaring_the_name_locally_gets_no_edge_from_the_other() {
+    let src = "package p\nfunc f() {\n\terr := func() (err error) {\n\t\terr = do()\n\t\treturn\n\t}()\n\tfunc() {\n\t\terr := other()\n\t\tuse(err)\n\t}()\n\t_ = err\n}\n";
+    check("sibling-redeclare-local", src, &[("err", 4, 9, false)]);
+}
