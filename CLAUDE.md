@@ -262,6 +262,8 @@ Ambiguous impl metadata and macro-token calls without a parsed call expression
 also refuse.
 External, std, derive and macro-generated impls remain outside the existing owner
 index model. Rust std/core/alloc paths, scope-selected imports/aliases and known external crate paths filter each owner/function candidate against declarations in that target's own crate using a graph-cached lookup that excludes generic barriers, only with complete scope facts and external-prefix proof; lexical in-repo roots and receiver annotations take precedence, surviving targets retain main's kind/confidence, and missing facts, poisoned roots, macro-hidden declarations, facade re-exports, chained imports and external globs keep main's behavior; the eight-corpus audit identifies no correct-edge losses among 88 Exact/204 total removals. Accepted cost: a crate that declares a type or trait with the std name loses correct edges to its own impls of or for the std item (for example `std::error::Error::source(e)` in a crate that declares `enum Error` and implements `std::error::Error` loses its correct NameOnly candidates; the `ExitCode` fixture is one instance). The filter also fails open, keeping wrong edges, when the `std` root lookup is Poisoned by an unexpanded glob or macro, or when the target file is attached to no crate because its `mod` is macro-hidden. Mixed-edition workspaces and `extern crate self` supply no external proof.
+A Rust `pub(in path)` item is visible to call sites inside the named ancestor module: after population `rust_populator/restrict.rs` places the path (`crate`/`self`/`super` anchor, each segment naming the next module on the item's own module chain) and sets the binding's restrict; a path it cannot place (not anchored, not an ancestor, through a re-export, `pub(in ..) use`) stays unknown and refuses as before.
+A Rust self import (`use p::{self}`, `use p::{self as m}`) binds the module in the type namespace only (Rust Reference, "self imports"), and `{self as m}` binds `m` to `p` (the trailing `self` marker is not a path segment; a leading `self::` anchor is kept). A `crate`/`self`/`super::super` prefix written before a macro-argument call (`assert!(super::super::f(x))`) is kept in `CallSite::path_anchor` and read only by the authoritative route (`resolution/rust/path_anchor.rs`); `callee_name`, the span and every other consumer see the chain from its first identifier as before. Qualified paths start at the enclosing module and do not see block-scope imports or modules (#768); the newly admitted forms refuse where that matters: a `{self as m}` path with a block-scope `m` between the site and its module, and an alias or anchored macro target in a file under a `#[path]` mount the populator misplaced (#765; fixing #765 removes that guard).
 Import-qualified `pkg.f()` narrows by file
 stem or Go package directory with no permissive fall-through; `Class.m()` binds
 when the qualifier is itself an owner key; unqualified calls prefer a local free
@@ -283,7 +285,7 @@ path that is not indexed finds the same-stem `.ts` then `.tsx`, `.`/`..` find th
 `./`-spelled specifiers and refuses the bare `.`/`..` forms; the tsconfig `paths` lane keeps its own
 rules; a namespace import whose module only this fallback finds and whose proof fails stays NameOnly.
 Language-family admission (`src/languages/family.rs`, `ResolutionOutcome::retain_family` in
-`src/resolution_free.rs`; {C, C++}, {JS, TS, TSX}, every other language its own family) is
+`src/resolution/free.rs`; {C, C++}, {JS, TS, TSX}, every other language its own family) is
 removal-only: the rung, kind and confidence come from the unfiltered pool, then targets in another
 family than the caller are dropped, a pool left empty refuses with no later rung consulted, and a
 filter never promotes (a multi-owner NameOnly pool left with one target stays NameOnly with the
@@ -481,7 +483,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v160) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v163) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -508,6 +510,7 @@ loop, `unknown` or deferred kind on a chain, an unplaced position or two occurre
 single `RW`/`delete` operand read is excused. The DFG keeps one use per path and line, so every read of the path on the line
 counts (found as S1a places a region read; which node a position is in is reaching definitions' answer alone, #696: a write is in the node `StatementLookup` gives its line, a read in the node of the use's line, and the census's span placement only orders two positions inside that node, so a read in a later statement of the line refuses and an unmappable counting write refuses its base). Label-only; a header def with a same-node increment (`for (let i..; i++)`) and a
 repeated context are the accepted cost (recovery #670).
+Refusal classes (#660 S1d-1, `reaching/refusal_classes.rs` over `js_write_census/refusals.rs`): writes not spelled as a target move an `exact` or `sameline` label, never a `NameOnly` one, and add no edge, def or counter. A direct `eval` anywhere in the owner and a sloppy mapped `arguments` (the formals of the owner and of every enclosing non-arrow callable, by name), a block-level function declaration in sloppy code (Annex B, a formal's name excepted), a `var` of a catch parameter's name inside `catch (a)` (G6a), a write to a function expression's or a class's own name from inside it (G6b, no declaration scoping it), a use or def inside a `with` body and an owner defined inside one become `NameOnly(CfgIncomplete)`; a formal replaced at entry by a hoisted function declaration (through labels only) or written by a later default in the own parameter list is `NameOnly(Killed)` from its own def. Which environment a position is in (parameter list, body, or eager: computed key, decorator) is one rule, `js_write_census/position.rs`. Trace names `eval`, `arguments`, `annexb`, `catch-var`, `immutable-name`, `with`, `dead-formal`.
 
 JS/TS/TSX parameter Defs: a formal that is read bare gets a Def at its identifier. A *member-only*
 formal (no bare read, including a bare read inside a member object such as `wrap(p).x`; at least one
@@ -799,8 +802,11 @@ re-exports, a few core methods) over `src/ast/{js_ts,go,python}/` and concern fi
 inline test modules. Language-specific code stays per layer (`<layer>/<lang>/`), never in a
 per-language crate. The former root language modules now live in their layers:
 `resolution/{go,js_ts,rust}/`, `call_graph/{go,js_ts,rust}/`, `type_providers/go/type_alias.rs`,
-`ast/go/statements.rs`, `ast/js_ts/{exports,returns}.rs`, `frameworks/js_ts/react_hooks.rs` and
-`data_flow/terraform.rs`.
+`languages/go/statements.rs` (`ast` imports `languages`, so the Go statement view lives in the lower
+layer), `ast/js_ts/{exports,returns}.rs`, `frameworks/js_ts/react_hooks.rs` and `data_flow/terraform.rs`.
+A layer's own files live in that layer's directory (`src/ast/`, `src/call_graph/`, `src/anon_owner/`,
+`src/repo_loader/`, `src/resolution/`), not as layer-prefixed files in the `src/` root; a test file keeps a
+`*_tests.rs` (or `tests.rs`) name.
 
 ### Algorithm Dispatch
 

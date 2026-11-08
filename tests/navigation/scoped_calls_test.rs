@@ -70,6 +70,7 @@ fn resolved_targets(
                 pre_resolved_target: None,
                 jsx_element: false,
                 local_binding: Default::default(),
+                path_anchor: None,
             }
         });
     resolve_site_nav(cg, &site)

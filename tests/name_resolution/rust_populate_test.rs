@@ -1565,14 +1565,14 @@ fn cross_crate_use_claimed_but_invisible_local_blocks_fallback() {
     //
     // Fixture mechanism (verified against source): an inline `pub(in crate::secret) mod
     // b_crate { ... }` mints a NS_TYPE binding for `b_crate` at the crate root scope with
-    // vis = (VIS_PUB_IN, restrict). The populator's `resolve_restrict` is a Phase-1 stub
-    // that ALWAYS returns `None` (`rust_populator/walk/mod.rs:271-277`), so the binding's
-    // `restrict` is `None`, and `RustPolicy::visible` returns `false` for VIS_PUB_IN with
+    // vis = (VIS_PUB_IN, restrict). The restrict post-pass (`rust_populator/restrict.rs`)
+    // cannot place `crate::secret` (no such module on the item's chain), so the binding's
+    // `restrict` stays `None`, and `RustPolicy::visible` returns `false` for VIS_PUB_IN with
     // no restrict ("pub(in) with no recorded path → fall through", `rust_policy.rs`). The
     // binding still EXISTS, so `scope_member_lookup_probed` reports `rib_present == true`
     // while `resolve_rib` returns `Unresolved` (claimed-but-invisible) — a robust
-    // claimed-but-invisible rib that does not depend on where `from` sits. `secret` need
-    // not exist (the stub ignores the path).
+    // claimed-but-invisible rib that does not depend on where `from` sits. `secret` must
+    // not exist (an unplaceable restrict is what keeps the rib invisible).
     let a_src = concat!(
         "pub(in crate::secret) mod b_crate { pub struct Foo; impl Foo { pub fn m(&self) {} } }\n",
         "pub fn drive() { let _ = 0; }\n",

@@ -107,13 +107,13 @@
       "ast::callback_identity::js_scope_bindings::tests::one_walk_per_body_and_boundaries_with_epoch_isolation"
     ],
     "JSSET-bypass-off": [
-      "src/ast_callback_identity.rs",
+      "src/ast/callback_identity.rs",
       "if binding_verdict_memo::bypassed() {",
       "if false && binding_verdict_memo::bypassed() {",
       "ast::callback_identity::js_scope_bindings::tests::one_walk_per_body_and_boundaries_with_epoch_isolation"
     ],
     "JSSET-prechange-walk": [
-      "src/ast_callback_identity.rs",
+      "src/ast/callback_identity.rs",
       "        binding_verdict_memo::function_scope_binds(self, body, boundaries, name, || {\n            js_scope_bindings::collect(self, body, boundaries)\n        })",
       "        self.js_ts_function_scope_binds_reference(body, boundaries, name)",
       "ast::callback_identity::js_scope_bindings::tests::one_walk_per_body_and_boundaries_with_epoch_isolation"

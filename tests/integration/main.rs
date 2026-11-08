@@ -60,6 +60,7 @@ mod js_module_owner_test;
 mod js_named_function_scope_test;
 mod js_paths_cap_test;
 mod js_paths_common;
+mod js_paths_nested_skip_test;
 mod js_paths_p2_test;
 mod js_paths_r1_test;
 mod js_paths_r2b_test;
@@ -79,6 +80,7 @@ mod js_wrapped_export_refusal_test;
 mod js_wrapped_export_state_test;
 mod js_wrapped_export_test;
 mod layering_test;
+mod loader_skip_dirs_test;
 mod module_binding_audit_test;
 mod module_binding_flow_test;
 mod r6_candidate_test;
@@ -98,3 +100,7 @@ mod umbrella_completeness_test;
 mod rust_self_allowlist_test;
 
 mod rust_self_closed_rule_test;
+
+mod rust_pub_in_resolution_test;
+
+mod rust_module_alias_test;

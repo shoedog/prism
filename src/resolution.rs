@@ -14,7 +14,6 @@ use crate::name_resolution::types::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-#[path = "resolution_free.rs"]
 mod free;
 use go::concrete_receiver::GoConcreteReceiverRoute;
 use go::promoted_snapshot::GoPromotedSnapshotConsult;
@@ -4415,6 +4414,7 @@ mod scope_resolution_predicate_tests {
             pre_resolved_target: None,
             jsx_element: false,
             local_binding: Default::default(),
+            path_anchor: None,
         }
     }
 

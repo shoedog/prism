@@ -108,6 +108,7 @@ impl ParsedFile {
                             arg_spread: false,
                             kind_override: None,
                             origin_override: None,
+                            path_anchor: None,
                         });
                     }
                 }
@@ -263,6 +264,7 @@ impl ParsedFile {
                             arg_spread,
                             kind_override: None,
                             origin_override: None,
+                            path_anchor: None,
                         });
                     }
                 }
@@ -316,6 +318,7 @@ impl ParsedFile {
                     arg_spread: false,
                     kind_override: None,
                     origin_override: None,
+                    path_anchor: None,
                 });
             }
         }
@@ -398,6 +401,7 @@ impl ParsedFile {
                     arg_spread: false,
                     kind_override: None,
                     origin_override: None,
+                    path_anchor: None,
                 });
             }
         }

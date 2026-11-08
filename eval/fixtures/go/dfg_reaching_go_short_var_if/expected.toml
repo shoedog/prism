@@ -12,9 +12,7 @@ confidence = "exact"
 [[expect.edges]]
 from = "main.go:3:v"
 to = "main.go:5:v"
-confidence = "nameonly"
-doubt = "killed"
-kill_line = 4
+present = false
 
 [[expect.edges]]
 from = "main.go:3:v"
@@ -24,6 +22,4 @@ confidence = "exact"
 [[expect.edges]]
 from = "main.go:4:v"
 to = "main.go:7:v"
-confidence = "nameonly"
-doubt = "killed"
-kill_line = 6
+present = false

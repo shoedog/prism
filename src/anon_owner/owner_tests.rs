@@ -298,8 +298,8 @@ fn base_legacy_inventory_also_claims_field_callbacks() {
     assert_eq!(overlaps, 2);
 }
 
-#[path = "anon_enable_tests.rs"]
+#[path = "enable_tests.rs"]
 mod enable_tests;
 
-#[path = "anon_eval_tests.rs"]
+#[path = "eval_tests.rs"]
 mod eval_tests;

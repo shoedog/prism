@@ -424,3 +424,128 @@ fn find_token_tree_child_locates_the_args_token_tree() {
     let tt = find_token_tree_child(macro_node).expect("token_tree child");
     assert_eq!(tt.kind(), "token_tree");
 }
+
+// ---- #724: leading `crate`/`self`/`super` keep the RECORDED name (KEEP) ----
+//
+// The recorded `callee_name`, span and dump text stay base's spelling (the chain
+// from the first identifier); the keyword prefix is stored aside for the
+// authoritative route only (see `path_anchor_*` rows below).
+
+#[test]
+fn leading_keyword_chains_keep_the_recorded_name() {
+    for (src, want) in [
+        ("fn t() { assert!(super::super::f(x)); }", "f"),
+        ("fn t() { assert!(super::a::f(x)); }", "a::f"),
+        ("fn t() { assert!(crate::api::f(x)); }", "api::f"),
+        ("fn t() { assert!(crate::f(x)); }", "f"),
+        ("fn t() { assert!(self::f(x)); }", "f"),
+    ] {
+        let (_pf, sites, facts) = extract(src);
+        assert_eq!(sites, vec![(want.to_string(), None)], "{src}");
+        assert_eq!(facts.calls_recorded, 1, "{src}");
+    }
+}
+
+#[test]
+fn keyword_paths_without_a_call_mint_nothing() {
+    // B11: a path in pattern position and a bare keyword are not calls.
+    for src in [
+        "fn t() { assert!(matches!(x, super::E::A)); }",
+        "fn t() { assert!(super); }",
+        "fn t() { assert!(crate::E::A == x); }",
+    ] {
+        let (_pf, sites, facts) = extract(src);
+        assert!(sites.is_empty(), "{src}: {sites:?}");
+        assert_eq!(facts.calls_recorded, 0, "{src}");
+    }
+}
+
+// ---- #724: the prefix is stored aside as `path_anchor` ----
+
+/// `(callee_name, path_anchor, start_byte)` of every minted site.
+fn extract_anchors(src: &str) -> (ParsedFile, Vec<(String, Option<String>, usize)>) {
+    let pf = parse_one_macro(src);
+    let macro_node = find_macro_invocation(pf.tree.root_node()).expect("macro_invocation");
+    let (sites, _facts) = extract_calls(&pf, macro_node, &BTreeSet::new());
+    let out = sites
+        .iter()
+        .map(|s| (s.callee_name.clone(), s.path_anchor.clone(), s.start_byte))
+        .collect();
+    (pf, out)
+}
+
+#[test]
+fn path_anchor_keeps_the_written_keyword_prefix() {
+    for (src, name, anchor) in [
+        ("fn t() { assert!(super::f(x)); }", "f", "super"),
+        (
+            "fn t() { assert!(super::super::f(x)); }",
+            "f",
+            "super::super",
+        ),
+        (
+            "fn t() { assert!(super::super::super::a::f(x)); }",
+            "a::f",
+            "super::super::super",
+        ),
+        ("fn t() { assert!(crate::api::f(x)); }", "api::f", "crate"),
+        ("fn t() { assert!(crate::f(x)); }", "f", "crate"),
+        ("fn t() { assert!(self::f(x)); }", "f", "self"),
+        ("fn t() { assert!(self::super::g(x)); }", "g", "self::super"),
+        (
+            "fn t() { assert!(self::super::super::a::g(x)); }",
+            "a::g",
+            "self::super::super",
+        ),
+    ] {
+        let (_pf, got) = extract_anchors(src);
+        assert_eq!(got.len(), 1, "{src}");
+        assert_eq!(got[0].0, name, "{src}");
+        assert_eq!(got[0].1.as_deref(), Some(anchor), "{src}");
+    }
+}
+
+#[test]
+fn path_anchor_leaves_the_span_at_the_first_identifier() {
+    let src = "fn t() { assert!(crate::api::f(x)); }";
+    let (_pf, got) = extract_anchors(src);
+    // Base's span: the chain from its first identifier, not from the keyword.
+    assert_eq!(got[0].2, src.find("api").unwrap());
+}
+
+#[test]
+fn unanchored_paths_and_methods_carry_no_anchor() {
+    for src in [
+        "fn t() { assert!(f(x)); }",
+        "fn t() { assert!(a::f(x)); }",
+        "fn t() { assert!(Self::f(x)); }",
+        "fn t() { assert!(x.f(1)); }",
+        "fn t() { assert!(self.f(1)); }",
+        "fn t() { assert!(::std::f(1)); }",
+    ] {
+        let (_pf, got) = extract_anchors(src);
+        assert!(!got.is_empty(), "{src}");
+        assert!(got.iter().all(|g| g.1.is_none()), "{src}: {got:?}");
+    }
+}
+
+#[test]
+fn a_keyword_not_followed_by_a_path_separator_anchors_nothing() {
+    // `self f(x)` is not a path: the keyword neither starts one nor anchors `f`.
+    let (_pf, got) = extract_anchors("fn t() { assert!(self f(x)); }");
+    assert_eq!(got.len(), 1);
+    assert_eq!(got[0].0, "f");
+    assert_eq!(got[0].1, None);
+}
+
+#[test]
+fn a_path_continued_from_the_left_or_mixed_is_not_anchored() {
+    for src in [
+        "fn t() { assert!(a::super::f(x)); }",
+        "fn t() { assert!(super::crate::f(x)); }",
+        "fn t() { assert!(crate::super::f(x)); }",
+    ] {
+        let (_pf, got) = extract_anchors(src);
+        assert!(got.iter().all(|g| g.1.is_none()), "{src}: {got:?}");
+    }
+}

@@ -7,10 +7,10 @@ use crate::ast::ParsedFile;
 use crate::name_resolution::binding_lookup::LocalFact;
 use crate::name_resolution::graph::{MacroWildcard, ScopeGraph};
 use crate::name_resolution::rust_policy::normalize_crate_ident;
-use crate::name_resolution::rust_policy::EK_GLOB;
+use crate::name_resolution::rust_policy::{EK_GLOB, VIS_PUB_IN};
 use crate::name_resolution::types::{
     BindTarget, Binding, CfgCond, Edge, FileId, Ident, NamespaceId, RawPath, Scope, ScopeExtent,
-    ScopeId, ScopeKind, SourceLoc, Span, Target, Vis,
+    ScopeId, ScopeKind, SourceLoc, Span, Target, Vis, VisKindId,
 };
 
 use super::{file_id, RustCrateConfig, PARSE_FAIL_RATE};
@@ -64,6 +64,14 @@ pub(crate) struct Builder<'f> {
     /// Consumed by `walk/locals.rs`'s wildcard-poison exemption via
     /// [`Builder::macro_shadow`].
     macro_shadow: BTreeSet<String>,
+    /// `(binding index, path)` of every `pub(in path)` binding, resolved in
+    /// `finish()` by [`super::restrict::resolve_restricts`] (#710).
+    pending_restricts: Vec<(usize, RawPath)>,
+    /// Module scopes a `#[path]` attribute mounted at a file other than rustc's
+    /// (see [`super::restrict::expected_mount_file`]); no restrict is placed across them.
+    misplaced_mounts: BTreeSet<ScopeId>,
+    /// `(scope, name)` of every `{self as name}` import (#724), handed to the graph.
+    self_import_aliases: BTreeSet<(ScopeId, String)>,
 }
 
 impl<'f> Builder<'f> {
@@ -94,6 +102,29 @@ impl<'f> Builder<'f> {
             lib_root_by_member_dir: BTreeMap::new(),
             roots_by_path: BTreeMap::new(),
             crate_deps_by_root: BTreeMap::new(),
+            pending_restricts: Vec::new(),
+            misplaced_mounts: BTreeSet::new(),
+            self_import_aliases: BTreeSet::new(),
+        }
+    }
+
+    /// Record the `{self as name}` import just walked in `scope` (#724).
+    pub(crate) fn note_self_alias(&mut self, scope: ScopeId, name: &str) {
+        self.self_import_aliases.insert((scope, name.to_string()));
+    }
+
+    /// Record that `module` was mounted by `#[path]` somewhere rustc would not put it.
+    pub(crate) fn note_misplaced_mount(&mut self, module: ScopeId) {
+        self.misplaced_mounts.insert(module);
+    }
+
+    /// Record the `pub(in path)` restrict of the binding just added (a no-op for
+    /// every other visibility). It is resolved in [`Builder::finish`].
+    pub(crate) fn note_restrict(&mut self, kind: VisKindId, path: &Option<RawPath>) {
+        if let (VIS_PUB_IN, Some(path), Some(last)) =
+            (kind, path, self.graph.bindings.len().checked_sub(1))
+        {
+            self.pending_restricts.push((last, path.clone()));
         }
     }
 
@@ -122,6 +153,11 @@ impl<'f> Builder<'f> {
     }
 
     pub(crate) fn finish(mut self) -> ScopeGraph {
+        super::restrict::resolve_restricts(
+            &mut self.graph,
+            &self.pending_restricts,
+            &self.misplaced_mounts,
+        );
         // Build the per-consuming-crate dep map from captured per-member deps +
         // the library-root index. For each consuming member M with a LIBRARY root
         // Rc, and each recorded `(in_source_name -> target_dir)`, map the normalized
@@ -155,6 +191,9 @@ impl<'f> Builder<'f> {
             }
         }
         self.graph.crate_deps_by_root = self.crate_deps_by_root;
+        self.graph.misplaced_mount_files =
+            misplaced_mount_files(&self.graph, &self.misplaced_mounts);
+        self.graph.self_import_aliases = self.self_import_aliases;
         self.graph
     }
 
@@ -924,4 +963,25 @@ mod tests {
         assert_eq!(normalize_crate_ident("my-crate"), "my_crate");
         assert_eq!(normalize_crate_ident("plain"), "plain");
     }
+}
+
+/// Files holding a scope whose module chain crosses a module mounted by `#[path]` where
+/// rustc would not put it (#765). What this graph binds in such a file may be a decoy of
+/// the file rustc loads; the resolution guards of #724 refuse targets there.
+fn misplaced_mount_files(graph: &ScopeGraph, misplaced: &BTreeSet<ScopeId>) -> BTreeSet<FileId> {
+    let mut files = BTreeSet::new();
+    if misplaced.is_empty() {
+        return files;
+    }
+    for scope in graph.scopes.values() {
+        let mut cur = Some(scope.id);
+        while let Some(id) = cur {
+            if misplaced.contains(&id) {
+                files.extend(scope.extents.iter().map(|e| e.file));
+                break;
+            }
+            cur = graph.parent_of(id);
+        }
+    }
+    files
 }

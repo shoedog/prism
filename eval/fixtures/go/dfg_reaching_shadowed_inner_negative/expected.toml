@@ -12,6 +12,9 @@ present = false
 [[expect.edges]]
 from = "main.go:3:x"
 to = "main.go:9:x"
-confidence = "nameonly"
-doubt = "killed"
-kill_line = 8
+present = false
+
+[[expect.edges]]
+from = "main.go:8:x"
+to = "main.go:9:x"
+confidence = "exact"

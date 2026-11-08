@@ -333,7 +333,7 @@ impl<'a> LexicalFacts<'a> {
         }
         let writes = &prefixed;
         let mut child = occurrence;
-        while let Some(region) = crate::ast::go::statements::parent(child) {
+        while let Some(region) = crate::languages::go::statements::parent(child) {
             if self.is_region(region.kind()) {
                 if let Some(write) = writes
                     .iter()
@@ -341,17 +341,19 @@ impl<'a> LexicalFacts<'a> {
                         !is_declaring_kind(write.statement.kind())
                             && !write.split_spec
                             && write.statement.end_byte() <= child.start_byte()
-                            && crate::ast::go::statements::parent(write.statement)
+                            && crate::languages::go::statements::parent(write.statement)
                                 .is_some_and(|p| p.id() == region.id())
                     })
                     .max_by_key(|w| w.statement.start_byte())
                 {
                     let broken = self.parsed.language == Language::Go
-                        && crate::ast::go::statements::children(region, Language::Go).any(|n| {
-                            n.kind() == "labeled_statement"
-                                && write.statement.end_byte() <= n.start_byte()
-                                && n.start_byte() < child.end_byte()
-                        });
+                        && crate::languages::go::statements::children(region, Language::Go).any(
+                            |n| {
+                                n.kind() == "labeled_statement"
+                                    && write.statement.end_byte() <= n.start_byte()
+                                    && n.start_byte() < child.end_byte()
+                            },
+                        );
                     if !broken {
                         return Some(Window {
                             write_start: write.statement.start_byte(),

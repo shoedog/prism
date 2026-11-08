@@ -30,13 +30,13 @@
   ],
   "SR04-js-regex-binding-not-followed": [
    "crates/prism-review/src/algorithms/taint_sinks/js.rs",
-   "Binding::Var { init: Some(i) } => depth < 3 && is_regexish(p, i, depth + 1),",
+   "Binding::Var { init: Some(i) } => {\n                depth < 3 && !is_reassigned(p, n, p.node_text(&n)) && is_regexish(p, i, depth + 1)\n            }",
    "Binding::Var { init: Some(_) } => false,",
    "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
   ],
   "SR05-js-ts-regexp-annotation-ignored": [
    "crates/prism-review/src/algorithms/taint_sinks/js.rs",
-   "} => p.node_text(&a).contains(\"RegExp\"),",
+   "} => p.node_text(&a).contains(\"RegExp\") && !is_reassigned(p, n, p.node_text(&n)),",
    "} => false,",
    "algorithms::taint_sinks::tests::hybrid_policy_unknown_fires_proven_non_sink_suppresses"
   ],
@@ -216,8 +216,8 @@
   ],
   "SR37-go-method-value-alias-ignored": [
    "crates/prism-review/src/algorithms/taint_sinks/go.rs",
-   "(None, GoBind::Var { init: Some(i) }) if i.kind() == \"selector_expression\" =>",
-   "(None, GoBind::Var { init: Some(i) }) if false && i.kind() == \"selector_expression\" =>",
+   "(None, GoBind::Var { init: Some(i), .. }) if i.kind() == \"selector_expression\" =>",
+   "(None, GoBind::Var { init: Some(i), .. }) if false && i.kind() == \"selector_expression\" =>",
    "algorithms::taint_sinks::tests::hybrid_policy_python_and_go"
   ],
   "SR38-legacy-get-user-substring": [

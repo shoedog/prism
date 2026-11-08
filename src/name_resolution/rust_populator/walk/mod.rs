@@ -264,14 +264,3 @@ pub(super) fn bare_type_name(t: &str) -> String {
     let base = t.split('<').next().unwrap_or(t);
     base.rsplit("::").next().unwrap_or(base).trim().to_string()
 }
-
-/// Resolve a `pub(in path)` restrict-path to a `ScopeId`. Phase-1: we do not yet
-/// map arbitrary restrict paths to scopes precisely; returning `None` makes the
-/// policy fall through (recall-safe — never widens visibility).
-pub(super) fn resolve_restrict(
-    _b: &Builder<'_>,
-    _from: ScopeId,
-    _p: &crate::name_resolution::types::RawPath,
-) -> Option<ScopeId> {
-    None
-}

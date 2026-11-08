@@ -126,14 +126,14 @@
     ],
     "OR-ignore-non-seq": [
       "src/ast/js_write_census/order.rs",
-      "if !cx.iter().all(&seq) || !cy.iter().all(&seq) {",
+      "if kinds().any(|k| !matches!(class(k), Some(\"seq\" | \"loop\"))) {",
       "if false {",
       "js_write_census::semantic_tests::unknown_and_loop_rows_prove_nothing"
     ],
     "OR-flip-time": [
       "src/ast/js_write_census/order.rs",
-      "return x.time < y.time;",
-      "return x.time > y.time;",
+      "x.time < y.time",
+      "x.time > y.time",
       "js_write_census::semantic_tests::seq_rows_prove_source_order"
     ],
     "OR-ignore-span": [
@@ -150,13 +150,13 @@
     ],
     "OR-single-any-form": [
       "src/ast/js_write_census/order.rs",
-      "matches!(w.form, Form::ReadWrite | Form::Delete)",
+      "matches!(form, Form::ReadWrite | Form::Delete)",
       "true",
       "js_write_census::semantic_tests::single_site_exception_needs_exactly_one_counting_write"
     ],
     "OR-single-any-operand": [
       "src/ast/js_write_census/order.rs",
-      "&& w.target_start == use_start",
+      "&& target_start == use_start",
       "",
       "js_write_census::semantic_tests::single_site_exception_needs_exactly_one_counting_write"
     ],
@@ -222,8 +222,8 @@
     ],
     "OR-one-sided-chain": [
       "src/ast/js_write_census/order.rs",
-      "!cx.iter().all(&seq) || !cy.iter().all(&seq)",
-      "!cx.iter().all(&seq)",
+      "if kinds().any(|k| !matches!(class(k), Some(\"seq\" | \"loop\"))) {",
+      "if cx.iter().any(|k| !matches!(class(k), Some(\"seq\" | \"loop\"))) {",
       "js_write_census::mapping_tests::an_unknown_kind_on_either_chain_alone_refuses"
     ],
     "SC-missing-metadata-defaulted": [
@@ -243,6 +243,22 @@
       "if self.t.order_class(kind) == Some(\"none\") {",
       "if false {",
       "js_write_census::region_tests::signatures_that_never_run_declare_nothing"
+    ]
+  },
+  "extra": {
+    "OR-ignore-non-seq": [
+      [
+        "src/ast/js_write_census/order.rs",
+        "if kinds().any(|k| class(k) == Some(\"loop\")) {",
+        "if false {"
+      ]
+    ],
+    "OR-one-sided-chain": [
+      [
+        "src/ast/js_write_census/order.rs",
+        "if kinds().any(|k| class(k) == Some(\"loop\")) {",
+        "if cx.iter().any(|k| class(k) == Some(\"loop\")) {"
+      ]
     ]
   }
 }

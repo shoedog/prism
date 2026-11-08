@@ -245,7 +245,7 @@ fn named_owner_outcomes_are_unchanged() {
 fn boundary_dominates_all_route_kinds_and_rejects_wrong_site_or_target() {
     let (graph, site) = fixture("import {f} from './lib'; sink(()=>{/*T*/f();});", LIB);
     let target = &graph.functions["f"][0];
-    let body = include_str!("resolution.rs")
+    let body = include_str!("../resolution.rs")
         .split("pub enum ResolutionKind {")
         .nth(1)
         .unwrap()

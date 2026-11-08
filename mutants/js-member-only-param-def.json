@@ -121,7 +121,7 @@
    ]
   ],
   "MO-23-outermost-includes-inner": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "                        if !inside_chain {\n                            facts.outermost.insert",
    "                        if true {\n                            facts.outermost.insert",
    [
@@ -129,7 +129,7 @@
    ]
   ],
   "MO-24-kill-exact-prefix-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "(0..=path.fields.len()).any(",
    "(0..path.fields.len()).any(",
    [
@@ -137,7 +137,7 @@
    ]
   ],
   "MO-25-ancestor-kill-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "        if self.write_ancestors.contains(path) {",
    "        if false && self.write_ancestors.contains(path) {",
    [
@@ -145,7 +145,7 @@
    ]
   ],
   "MO-26-ancestors-incomplete": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "        for k in 1..path.fields.len() {",
    "        for k in 2..path.fields.len() {",
    [
@@ -153,7 +153,7 @@
    ]
   ],
   "MO-27-write-fence-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "                        if bound {\n                            facts.record_write(path);",
    "                        if true {\n                            facts.record_write(path);",
    [
@@ -161,7 +161,7 @@
    ]
   ],
   "MO-28-update-write-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "\"update_expression\" => return true,",
    "\"update_expression\" => return false,",
    [
@@ -169,7 +169,7 @@
    ]
   ],
   "MO-29-delete-write-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    ".is_some_and(|op| op.kind() == \"delete\")",
    ".is_some_and(|op| op.kind() == \"typeof\")",
    [
@@ -177,7 +177,7 @@
    ]
   ],
   "MO-30-array-pattern-write-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "\"array_pattern\" => return true,",
    "\"array_pattern\" => return false,",
    [
@@ -185,7 +185,7 @@
    ]
   ],
   "MO-31-object-pattern-write-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "\"object_pattern\" => return true,",
    "\"object_pattern\" => return false,",
    [
@@ -193,7 +193,7 @@
    ]
   ],
   "MO-32-for-head-write-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "\"for_in_statement\" => {\n                    return p.child_by_field_name(\"left\").map(|n| n.id()) == Some(child.id());",
    "\"for_in_statement\" => {\n                    return false;",
    [
@@ -201,7 +201,7 @@
    ]
   ],
   "MO-33-rest-pattern-climb-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "                | \"type_assertion\"\n                | \"rest_pattern\" => {}",
    "                | \"type_assertion\" => {}",
    [
@@ -209,7 +209,7 @@
    ]
   ],
   "MO-34-wrapper-climb-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "                \"parenthesized_expression\"\n                | \"non_null_expression\"\n                | \"as_expression\"\n                | \"satisfies_expression\"\n                | \"type_assertion\"",
    "                \"parenthesized_expression\"\n                | \"satisfies_expression\"\n                | \"type_assertion\"",
    [
@@ -217,7 +217,7 @@
    ]
   ],
   "MO-36-pattern-default-is-target": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "if p.child_by_field_name(\"left\").map(|n| n.id()) != Some(child.id()) {",
    "if false {",
    [
@@ -225,7 +225,7 @@
    ]
   ],
   "MO-37-with-body-gate-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "\n                            && !self.js_ts_span_in_with_body(node.start_byte(), node.end_byte())",
    "",
    [
@@ -233,7 +233,7 @@
    ]
   ],
   "MO-39-last-occurrence-wins": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    ".or_insert((node.start_byte(), node.end_byte()));",
    ".and_modify(|v| *v = (node.start_byte(), node.end_byte()))\n                                .or_insert((node.start_byte(), node.end_byte()));",
    [
@@ -269,8 +269,8 @@
   ],
   "MO-43-kill-skip-off": [
    "src/data_flow/build/file.rs",
-   "                    if facts.is_killed(field_path) {\n                        continue;",
-   "                    if false && facts.is_killed(field_path) {\n                        continue;",
+   "                        if facts.is_killed(field_path) {\n                            continue;",
+   "                        if false && facts.is_killed(field_path) {\n                            continue;",
    [
     "cpg::member_only_param_tests::write_to_the_parameter_itself_projects_nothing",
     "cpg::member_only_param_r1_tests::every_member_write_form_suppresses_its_path_but_not_a_sibling"
@@ -278,8 +278,8 @@
   ],
   "MO-44-use-at-line-anchor": [
    "src/data_flow/build/file.rs",
-   "                            start_byte: *start_byte,\n                            end_byte: *end_byte,",
-   "                            start_byte: parsed.line_start_byte(*ref_line),\n                            end_byte: parsed.line_start_byte(*ref_line),",
+   "                                start_byte: *start_byte,\n                                end_byte: *end_byte,",
+   "                                start_byte: parsed.line_start_byte(*ref_line),\n                                end_byte: parsed.line_start_byte(*ref_line),",
    [
     "cpg::member_only_param_r1_tests::named_owner_projection_use_sits_at_the_exact_admitted_span"
    ]
@@ -310,7 +310,7 @@
    ]
   ],
   "MO-65-chain-wrapper-strip-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "while is_transparent_wrapper(node.kind()) {\n        let mut cursor",
    "while false && is_transparent_wrapper(node.kind()) {\n        let mut cursor",
    [
@@ -319,7 +319,7 @@
    ]
   ],
   "MO-66-wrapper-keeps-chain-off": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "let mut in_chain = is_transparent_wrapper(node.kind()) && inside_chain;",
    "let mut in_chain = false;",
    [
@@ -327,7 +327,7 @@
    ]
   ],
   "MO-67-scope-verdict-memo-off": [
-   "src/ast_callback_identity.rs",
+   "src/ast/callback_identity.rs",
    "Some(memo) if cacheable => {",
    "Some(memo) if false && cacheable => {",
    [
@@ -335,7 +335,7 @@
    ]
   ],
   "MO-68-type-assertion-expression-first": [
-   "src/ast_member_projection.rs",
+   "src/ast/member_projection.rs",
    "inner.last()?",
    "inner.next()?",
    [
