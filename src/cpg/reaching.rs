@@ -393,8 +393,11 @@ fn reaching_definitions_impl(
         }
     }
     // The trace's control must not repeat S1a's capture lines (see `capture_facts_with`).
-    let capture_facts =
-        capture::capture_facts_with(parsed, *func_node, pass.census() && census_trace::enabled());
+    let capture_facts = capture::capture_facts_with(
+        parsed,
+        *func_node,
+        pass.traces_capture() && census_trace::enabled(),
+    );
     let writers = (pass.recorded_affects() && parsed.language.is_js_family()).then(|| {
         affects_writers::affects_writers(
             parsed,

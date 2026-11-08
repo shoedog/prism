@@ -27,6 +27,11 @@ pub(super) fn trace(
     head: &RdResult,
     out: &mut impl std::io::Write,
 ) {
+    // An arrow the #759 rule moved to one node was never refused by the old guard: main solved its
+    // callable's statements. `arrow_control` names it.
+    if super::arrow_control::universe_moved(parsed, owner) {
+        return;
+    }
     let defs = deduplicate_definitions(defs);
     let (statements, _) = rd_statements(parsed, owner);
     let lines: BTreeMap<_, _> = statements
