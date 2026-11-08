@@ -124,6 +124,7 @@ fn r5_named_seam_rows_equal_frozen_main_goldens() {
                 r5_full_binding_rows(&build(language, c["source"].as_str().unwrap()), "h", "f");
             let mut expected = c["main"][ext].as_array().unwrap().clone();
             expected = super::s1c_label_tests::refuse_moved(c["id"].as_str().unwrap(), expected);
+            expected = super::s1d_label_tests::refuse_moved(c["id"].as_str().unwrap(), expected);
             expected.sort_by_key(ToString::to_string);
             if actual != expected {
                 failures.push(format!(
@@ -1995,6 +1996,8 @@ fn r10_labelled_callable_body_rows_survive_without_a_seam() {
                 let source = format!("{head}(y){{\n {labels} function y(){{}}\n use(y);\n{tail}");
                 let def = source.find("(y)").unwrap() + 1;
                 let use_byte = source.rfind("y);").unwrap();
+                // S1d-1 (6.1d): the hoisted `function y` replaces the formal at entry, so the formal's
+                // edges are killed at the declaration's line.
                 let mut expected = vec![serde_json::json!([
                     1,
                     def,
@@ -2002,9 +2005,9 @@ fn r10_labelled_callable_body_rows_survive_without_a_seam() {
                     3,
                     use_byte,
                     use_byte + 1,
-                    "exact",
-                    null,
-                    null
+                    "nameonly",
+                    "killed",
+                    2
                 ])];
                 if named {
                     let declaration = source.find('\n').unwrap() + 1;
@@ -2015,9 +2018,9 @@ fn r10_labelled_callable_body_rows_survive_without_a_seam() {
                         2,
                         declaration,
                         declaration,
-                        "exact",
-                        null,
-                        null
+                        "nameonly",
+                        "killed",
+                        2
                     ]));
                 }
                 expected.sort_by_key(ToString::to_string);
@@ -2027,9 +2030,18 @@ fn r10_labelled_callable_body_rows_survive_without_a_seam() {
                     "{language:?}: {source}"
                 );
                 let seam = source.replacen("(y)", "(y,d=0)", 1);
+                // S1d-1: the same dead formal, killed at the declaration's line (line 2).
+                let mut seam_expected = r10_frozen_control_rows(&seam, language);
+                for row in &mut seam_expected {
+                    if row[0] == 1 && row[6] == "exact" {
+                        row[6] = "nameonly".into();
+                        row[7] = "killed".into();
+                        row[8] = 2.into();
+                    }
+                }
                 assert_eq!(
                     r5_full_binding_rows(&build(language, &seam), owner, "y"),
-                    r10_frozen_control_rows(&seam, language),
+                    seam_expected,
                     "{language:?}: seam"
                 );
                 let nested = format!(
@@ -2196,8 +2208,8 @@ fn r10_eval_comments_refuse_formals_and_keep_indirect_rows() {
                     4,
                     use_byte,
                     use_byte + 5,
-                    "exact",
-                    null,
+                    "nameonly",
+                    "cfg_incomplete",
                     null
                 ])]
             );

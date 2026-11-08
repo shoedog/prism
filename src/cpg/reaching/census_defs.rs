@@ -38,6 +38,8 @@ pub(super) struct CensusFacts {
     pub(super) d3: Option<Rc<super::d3::D3>>,
     /// #660 S1c: the captured-write refusal; shared by clones.
     d2c: Option<Rc<super::d2c::D2c>>,
+    /// #660 S1d-1: the refusal classes; shared by clones.
+    classes: Option<Rc<super::refusal_classes::Refusals>>,
 }
 
 impl CensusFacts {
@@ -53,6 +55,7 @@ impl CensusFacts {
     pub(super) fn is_inert(&self) -> bool {
         self.d3.is_none()
             && self.d2c.is_none()
+            && self.classes.is_none()
             && self.unmapped.is_empty()
             && self.forced.is_none()
             && self.completion.as_ref().is_none_or(|c| {
@@ -146,6 +149,8 @@ impl CensusFacts {
         facts: &crate::cpg::binding_facts::BindingFacts,
         captures: &super::capture::CaptureFacts,
     ) -> FlowConfidence {
+        let label =
+            super::refusal_classes::Refusals::refine_early(self.classes.as_ref(), label, edge);
         let label = super::d2c::D2c::refine(
             self.d2c.as_ref(),
             label,
@@ -154,6 +159,8 @@ impl CensusFacts {
             captures.regions(),
             facts,
         );
+        let label =
+            super::refusal_classes::Refusals::refine_late(self.classes.as_ref(), label, edge);
         super::d3::D3::refine(
             self.d3.as_ref(),
             label,
@@ -180,8 +187,14 @@ impl CensusFacts {
             Some(Refused::UnmappedSite) => return "site-unmapped".to_string(),
             None => {}
         }
+        if let Some(m) = self.classes.as_ref().and_then(|c| c.logged_early(edge)) {
+            return m.to_string();
+        }
         if self.d2c.as_ref().is_some_and(|d| d.logged(edge)) {
             return super::d2c::D2C.to_string();
+        }
+        if let Some(m) = self.classes.as_ref().and_then(|c| c.logged_late(edge)) {
+            return m.to_string();
         }
         if label == FlowConfidence::NameOnly(FlowDoubt::SameLine) {
             if let Some(m) = self.d3.as_ref().and_then(|d| d.logged(edge)) {
@@ -255,6 +268,8 @@ pub(super) fn complete_with(
     drop(pairs);
     let d3 = super::d3::D3::new(std::mem::take(&mut done.counting), owner, log).map(Rc::new);
     let d2c = super::d2c::D2c::new(std::mem::take(&mut done.captured), log).map(Rc::new);
+    let classes =
+        super::refusal_classes::Refusals::new(std::mem::take(&mut done.classes), log).map(Rc::new);
     let mut next = recorded.iter().map(|d| d.id.0).max().map_or(0, |m| m + 1);
     for k in &done.kill_only {
         recorded.push(DefSite {
@@ -273,6 +288,7 @@ pub(super) fn complete_with(
         unmapped: BTreeSet::new(),
         d3,
         d2c,
+        classes,
     };
     (recorded, facts)
 }

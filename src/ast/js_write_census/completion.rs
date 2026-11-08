@@ -41,6 +41,8 @@ pub(crate) struct Completion {
     /// (target start byte, path) of every recorded def the census's precise identity for the same site
     /// equals (`covered` below): the recorded paths that are complete storage identities (#674).
     pub covered: BTreeSet<(usize, AccessPath)>,
+    /// The refusal classes of #660 S1d-1 (eval, `arguments`, `with`, dead formals, Annex B, G6a, G6b).
+    pub classes: super::refusals::Classes,
 }
 
 /// `ident`'s path in the producer's representation (`[]` for a subscript).
@@ -75,6 +77,7 @@ pub(crate) fn completion(
         out.refusal = Some(r.clone());
         return out;
     }
+    out.classes = super::refusals::classes(parsed, owner, &c.sites);
     let shadows = Shadows::new(parsed, &c.sites, &bases);
     let mut by_start: BTreeMap<usize, Vec<&AccessPath>> = BTreeMap::new();
     for (path, byte, twin) in recorded {

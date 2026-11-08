@@ -313,6 +313,23 @@ narrows them; the rows keep main's label as `expected`, and an issue is proposed
 | 6.1d dead formals | A formal named like a `function_declaration`/`generator_function_declaration` reachable from the body's statement list through `labeled_statement` only (any depth: `l: function a() {}` is hoisted at entry, Fable F3, fb05), or written in the own parameter list after it is bound. Its edges become `NameOnly(Killed{line})`, strict or sloppy (a15). A kill-only entry def cannot do this (round 1, §6 lesson 2). | 0 / 0 |
 | 6.1e Annex B (sloppy) | Name refusal for a `function_declaration` (generators too, an over-refusal) in any lower position (inside a `statement_block`, a `switch_case`/`switch_default`, an `if`/`else` clause without a block, B.3.4, or a `labeled_statement` inside those), outside nested callables, named like an owner def. Row fb06 is the cost (right label refused). | 0 / 0 |
 | 6.1f deferred reads (B8, S1) | `capture.rs` regions = nested callable nodes (parameter lists included) and instance field initializer values (`field_definition`/`public_field_definition` without `static`). Static initializers, static blocks and computed keys are eager. Reads in a region are `NameOnly(CfgIncomplete)` unless the def is in the same innermost region. | parameter defaults <=1 / 0; field initializers 0 / 0. Rows m32, s11, f01-f03 |
+
+**S1d-1 status (implemented, label-only, cache v160).** Rows 6.1, 6.1b, 6.1c, 6.1d, 6.1e and G6a, G6b are implemented in
+`src/ast/js_write_census/refusals.rs` (one read of the owner) and `src/cpg/reaching/refusal_classes.rs` (applied in
+`CensusFacts::refine`: eval, names, defs and `with` first, then D2-c, then dead formals, then D3). Each class moves only an
+`exact` or `sameline` label, never a `NameOnly` one. Choices the rows left open: (1) Annex B (6.1e) excludes a formal's name
+(B.3.3.1 skips parameter names, so the block function stays block-scoped and the outer binding is untouched; pinned by
+`recorded_kill_tests` rows and `annexb_formal_named_like_it_control`); (2) `with` (6.1c) also refuses an edge whose *def* lies
+in a body (a write that may have gone to the object), besides the kill-only may-write the census already adds and the
+body-use refusal; a use with no bytes is placed by line, so a use on a body's first line is refused too (over-refusal); (3) G6a
+refuses edges whose def is the `var` declarator in `catch (a)` (a plain identifier parameter only: a destructured one with a
+same-named `var` is an early error). On head such edges reach reads inside the clause only (the binding facts give the def the
+catch parameter, so none reaches a read after it), real flow refused by the rule; the one frozen golden that held a wrong-looking
+`exact` is `C1-catchvar`; (4) G6b refuses edges whose def is a write to a named function expression's or class expression's own
+name with no declaration of the name between the write and the expression (its own parameters and body included); its kills stay
+(over-kill is the conservative direction), a class *declaration* name is a control; (5) the sloppy `arguments` rule keeps the
+helper's behaviour for an arrow owner (`js_ts_mapped_arguments_possible` sees an `arguments` read there): an over-refusal,
+pinned by `args_arrow_owner_over_refusal_pin`. G6 is closed by this slice. The one-node rows and `first_hazard` are S1d-2's.
 | 6.2 captured writes (D2-c, option A) | below | 411 / 16 (heuristic; §11) |
 | runtime mutation (getters/setters, Proxy, `globalThis`, `Reflect`) | out of model (CLAUDE.md runtime-mutation rule) | — |
 
