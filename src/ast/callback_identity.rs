@@ -39,7 +39,7 @@ impl ParsedFile {
 
     /// BoundNames of a binding pattern, excluding keys, types and initializer
     /// expressions. Keep duplicates so early-error checks can detect them.
-    fn js_ts_pattern_bound_names(&self, node: Node<'_>, names: &mut Vec<String>) {
+    pub(crate) fn js_ts_pattern_bound_names(&self, node: Node<'_>, names: &mut Vec<String>) {
         self.js_ts_pattern_bound_names_with_decoder(node, names, Self::js_ts_decoded_identifier);
     }
 
@@ -472,7 +472,7 @@ impl ParsedFile {
         }
     }
 
-    fn js_ts_parameters_are_simple(&self, params: Node<'_>) -> bool {
+    pub(crate) fn js_ts_parameters_are_simple(&self, params: Node<'_>) -> bool {
         let mut cursor = params.walk();
         let simple = params
             .named_children(&mut cursor)
@@ -488,7 +488,7 @@ impl ParsedFile {
         simple
     }
 
-    fn js_ts_callable_is_strict(&self, owner: &Node<'_>) -> bool {
+    pub(crate) fn js_ts_callable_is_strict(&self, owner: &Node<'_>) -> bool {
         let mut strict = owner.child_by_field_name("body").is_some_and(|body| {
             let mut c = body.walk();
             let strict = body
@@ -770,7 +770,12 @@ impl ParsedFile {
     /// Whether a nested callable's function scope binds `name`: `var`
     /// declarators anywhere in its body outside further nested callables, and
     /// its body-level lexical/function/class declarations.
-    fn js_ts_function_scope_binds(&self, body: Node<'_>, boundaries: &[&str], name: &str) -> bool {
+    pub(crate) fn js_ts_function_scope_binds(
+        &self,
+        body: Node<'_>,
+        boundaries: &[&str],
+        name: &str,
+    ) -> bool {
         #[cfg(test)]
         if binding_verdict_memo::bypassed() {
             return self.js_ts_function_scope_binds_reference(body, boundaries, name);

@@ -21,6 +21,7 @@ mod d2c;
 mod d3;
 mod preflight;
 mod read_index;
+mod refusal_classes;
 pub(crate) use preflight::unavailable_before_edges;
 mod cfg_edge_index;
 mod compact_wire;
@@ -991,3 +992,6 @@ mod d2c_tests;
 
 #[cfg(test)]
 mod d3_tests;
+
+#[cfg(test)]
+mod refusal_classes_tests;

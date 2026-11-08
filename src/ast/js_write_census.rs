@@ -36,6 +36,10 @@ mod mapping_tests;
 pub(crate) mod matrix_tests;
 #[path = "js_write_census/order.rs"]
 pub(crate) mod order;
+#[path = "js_write_census/position.rs"]
+pub(crate) mod position;
+#[path = "js_write_census/refusals.rs"]
+pub(crate) mod refusals;
 #[cfg(test)]
 #[path = "js_write_census/region_tests.rs"]
 mod region_tests;
