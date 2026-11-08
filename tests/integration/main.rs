@@ -107,3 +107,5 @@ mod rust_let_scope_test;
 mod rust_macro_scope_test;
 mod rust_module_alias_test;
 mod rust_path_attribute_test;
+
+mod rust_cross_crate_bin_test;

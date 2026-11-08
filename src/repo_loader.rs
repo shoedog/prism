@@ -485,6 +485,8 @@ fn has_complete_rust_coverage(
     actual_rust == expected_rust
 }
 
+#[cfg(test)]
+mod bin_deps_tests;
 #[path = "repo_loader/freshness.rs"]
 mod freshness_paths;
 #[cfg(test)]
