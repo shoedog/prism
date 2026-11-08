@@ -802,10 +802,9 @@ per-language crate. The former root language modules now live in their layers:
 `resolution/{go,js_ts,rust}/`, `call_graph/{go,js_ts,rust}/`, `type_providers/go/type_alias.rs`,
 `languages/go/statements.rs` (`ast` imports `languages`, so the Go statement view lives in the lower
 layer), `ast/js_ts/{exports,returns}.rs`, `frameworks/js_ts/react_hooks.rs` and `data_flow/terraform.rs`.
-The layer-prefixed files that used to be `#[path]`-mounted from the `src/` root
-(`ast_*`, `call_graph_*`, `anon_*`, `repo_loader_*`, `resolution_free*`) now sit in their parent's directory
-(`src/ast/`, `src/call_graph/`, `src/anon_owner/`, `src/repo_loader/`, `src/resolution/`); the test files keep
-their `*_tests.rs` names.
+A layer's own files live in that layer's directory (`src/ast/`, `src/call_graph/`, `src/anon_owner/`,
+`src/repo_loader/`, `src/resolution/`), not as layer-prefixed files in the `src/` root; a test file keeps a
+`*_tests.rs` (or `tests.rs`) name.
 
 ### Algorithm Dispatch
 
