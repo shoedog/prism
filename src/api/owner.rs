@@ -53,6 +53,7 @@ impl OwnerOptions {
 /// Experimental source-checkout-bound owner input selection, shared by both CLIs.
 #[derive(clap::Args, Debug, Default)]
 #[doc(hidden)]
+#[non_exhaustive]
 pub struct OwnerArgs {
     /// Explicit pinned TypeScript 5.9.3 typescript.js path; no discovery or install.
     #[arg(long, requires_all = ["owner_config", "no_cache"], conflicts_with = "cache_dir")]
