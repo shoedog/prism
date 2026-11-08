@@ -100,11 +100,9 @@ impl ReturnSinks {
         let Some(callable) = def_callable else {
             return false;
         };
-        let used = facts.binding_at(name, use_start);
+        // The cheap tests first: resolving the read's binding scans every declaration of the owner.
         self.sinks.iter().any(|s| {
-            s.names
-                .get(name)
-                .is_some_and(|d| used == BindingId::Declaration(*d))
+            s.names.contains_key(name)
                 && s.carriers
                     .iter()
                     .any(|(c, returned)| *c == callable && returned.contains(name))
@@ -113,6 +111,9 @@ impl ReturnSinks {
                     || s.loops
                         .iter()
                         .any(|(a, b)| *a <= use_start && use_start < *b))
+                && s.names.get(name).is_some_and(|d| {
+                    facts.binding_at(name, use_start) == BindingId::Declaration(*d)
+                })
         })
     }
 }
