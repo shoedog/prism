@@ -438,6 +438,139 @@ fn e13_two_inline_levels_in_a_non_mod_rs_file() {
     );
 }
 
+// ── Review folds (#765 PR D) ────────────────────────────────────────────────
+
+#[test]
+fn o1_double_loaded_file_binds_through_both_occurrences() {
+    // sol W2, both declaration orders: `crate::b::f()` (plain) and `crate::a::b::f()` (mount).
+    for lib in [
+        "mod a;\nmod b;\npub fn g() {\n    crate::b::f();\n    crate::a::b::f();\n}\n",
+        "mod b;\nmod a;\npub fn g() {\n    crate::b::f();\n    crate::a::b::f();\n}\n",
+    ] {
+        let cg = build(&[
+            ("src/lib.rs", lib),
+            ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+            ("src/b.rs", REAL),
+        ]);
+        for callee in ["crate::b::f", "crate::a::b::f"] {
+            binds(&cg, ("src/lib.rs", "g", callee), ("src/b.rs", "f", REAL_AT));
+        }
+    }
+}
+
+#[test]
+fn o2_each_occurrence_of_a_shared_file_has_its_own_children() {
+    let cg = build(&[
+        (
+            "src/lib.rs",
+            "mod a;\nmod b;\npub fn g() {\n    crate::a::b::child::h();\n    crate::b::child::h();\n}\n",
+        ),
+        ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+        ("src/b.rs", "pub mod child;\n"),
+        ("src/child.rs", "pub fn h() {}\n"),
+        ("src/b/child.rs", "pub fn h() {}\n"),
+    ]);
+    binds(
+        &cg,
+        ("src/lib.rs", "g", "crate::a::b::child::h"),
+        ("src/child.rs", "h", 1),
+    );
+    binds(
+        &cg,
+        ("src/lib.rs", "g", "crate::b::child::h"),
+        ("src/b/child.rs", "h", 1),
+    );
+}
+
+#[test]
+fn o3_a_site_inside_a_double_loaded_file_keeps_only_its_own_file() {
+    // `super::g()` means `crate` in the plain occurrence and `a` in the mounted one: refused.
+    // A call to a fn of the same file does not depend on the occurrence: still binds.
+    let cg = build(&[
+        ("src/lib.rs", "mod a;\nmod b;\npub fn g() {}\n"),
+        ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+        (
+            "src/b.rs",
+            "pub fn own() {}\npub fn f() {\n    super::g();\n    own();\n}\n",
+        ),
+    ]);
+    unbound(&cg, "src/b.rs", "f", "super::g");
+    binds(&cg, ("src/b.rs", "f", "own"), ("src/b.rs", "own", 1));
+}
+
+#[test]
+fn o4_a_path_cycle_builds_without_looping() {
+    let cg = build(&[
+        (
+            "src/lib.rs",
+            "mod a;\npub fn g() {\n    crate::a::b::f();\n}\n",
+        ),
+        ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+        (
+            "src/b.rs",
+            "#[path = \"a.rs\"]\npub mod a;\npub fn f() {}\n",
+        ),
+    ]);
+    binds(
+        &cg,
+        ("src/lib.rs", "g", "crate::a::b::f"),
+        ("src/b.rs", "f", 3),
+    );
+}
+
+#[test]
+fn w1_inline_module_inside_a_fn_body_resolves_from_the_files_own_directory() {
+    // Opus W1: `src/a/b.rs` is non-mod-rs, but inside a block rustc drops the pending
+    // `<stem>/`: `mod i { #[path = "x.rs"] mod m; }` in a fn body is `src/a/i/x.rs`.
+    let cg = build(&[
+        ("src/lib.rs", "mod a;\n"),
+        ("src/a/mod.rs", "mod b;\n"),
+        (
+            "src/a/b.rs",
+            "pub fn caller() {\n    mod i {\n        #[path = \"x.rs\"]\n        pub mod m;\n        pub fn h() {\n            m::f();\n        }\n    }\n    i::h();\n}\n",
+        ),
+        ("src/a/i/x.rs", REAL),
+        ("src/a/b/i/x.rs", DECOY),
+    ]);
+    binds(
+        &cg,
+        ("src/a/b.rs", "h", "m::f"),
+        ("src/a/i/x.rs", "f", REAL_AT),
+    );
+}
+
+#[test]
+fn w1_keep_a_file_level_inline_module_in_a_non_mod_rs_file_keeps_the_stem() {
+    let cg = build(&[
+        ("src/lib.rs", "mod a;\n"),
+        ("src/a/mod.rs", "mod b;\n"),
+        (
+            "src/a/b.rs",
+            "mod i {\n    #[path = \"x.rs\"]\n    pub mod m;\n    pub fn h() {\n        m::f();\n    }\n}\n",
+        ),
+        ("src/a/b/i/x.rs", REAL),
+        ("src/a/i/x.rs", DECOY),
+    ]);
+    binds(
+        &cg,
+        ("src/a/b.rs", "h", "m::f"),
+        ("src/a/b/i/x.rs", "f", REAL_AT),
+    );
+}
+
+#[test]
+fn w3_a_mount_inside_an_unplaceable_inline_module_binds_nothing() {
+    let cg = build(&[
+        (
+            "src/lib.rs",
+            "#[path = \"/nonexistent-dir\"]\npub mod i {\n    #[path = \"../x.rs\"]\n    pub mod m;\n    pub fn h() {\n        m::f();\n    }\n}\n",
+        ),
+        ("x.rs", DECOY),
+        ("src/x.rs", DECOY),
+    ]);
+    unbound(&cg, "src/lib.rs", "h", "m::f");
+}
+
 // ── The decoy routes three review rounds found behind guards (PR A R1, PR B W1, ──
 // ── PR C W2 and the PR C Opus review R1-R3): each binds rustc's file by identity ──
 

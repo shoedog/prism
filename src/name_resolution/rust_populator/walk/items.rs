@@ -371,9 +371,12 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_function(
                 vec![full_scope_span(b, body_scope, ctx.file)],
             );
         }
+        // rustc drops the pending `<stem>/` of a non-mod-rs file for modules declared inside a
+        // block: an inline `mod i { #[path = ".."] mod m; }` in a fn body resolves from the
+        // file's own directory (a plain `mod x;` in a block is a rustc error).
         let body_ctx = Ctx {
             file: ctx.file,
-            dir: ctx.dir.clone(),
+            dir: ctx.path_dir.clone(),
             path_dir: ctx.path_dir.clone(),
             module: ctx.module,
         };

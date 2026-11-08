@@ -65,8 +65,8 @@
     ],
     "PP-07-absolute-path-joined-as-relative-d9b": [
       "src/name_resolution/rust_populator/builder.rs",
-      "    if rel.starts_with('/') {\n        return None;\n    }\n",
-      "",
+      "    if rel.starts_with('/') || base_dir.starts_with('\\u{0}') {\n        return None;\n    }\n",
+      "    if base_dir.starts_with('\\u{0}') {\n        return None;\n    }\n",
       [
         "path_attribute_placement_test::d9b_absolute_and_root_escaping_paths_bind_nothing",
         "rust_path_attribute_test::e9b_absolute_path_binds_nothing"
@@ -105,6 +105,40 @@
       [
         "rust_path_attribute_test::e9_missing_mount_file_binds_nothing",
         "path_attribute_placement_test::d9_mount_of_a_missing_file_binds_nothing"
+      ]
+    ],
+    "PP-12-filename-skip-restored-w2": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "    if !b.begin_occurrence(path) {",
+      "    if b.already_modeled(path) || !b.begin_occurrence(path) {",
+      [
+        "path_attribute_placement_test::o1_a_file_loaded_by_a_mount_and_a_plain_mod_is_two_populated_occurrences",
+        "rust_path_attribute_test::o1_double_loaded_file_binds_through_both_occurrences"
+      ]
+    ],
+    "PP-13-block-modules-keep-the-stem-w1": [
+      "src/name_resolution/rust_populator/walk/items.rs",
+      "            dir: ctx.path_dir.clone(),\n            path_dir: ctx.path_dir.clone(),\n            module: ctx.module,",
+      "            dir: ctx.dir.clone(),\n            path_dir: ctx.path_dir.clone(),\n            module: ctx.module,",
+      [
+        "rust_path_attribute_test::w1_inline_module_inside_a_fn_body_resolves_from_the_files_own_directory"
+      ]
+    ],
+    "PP-14-unplaceable-base-can-be-climbed-w3": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "    if rel.starts_with('/') || base_dir.starts_with('\\u{0}') {",
+      "    if rel.starts_with('/') {",
+      [
+        "path_attribute_placement_test::w3_a_mount_inside_an_unplaceable_inline_module_binds_nothing",
+        "rust_path_attribute_test::w3_a_mount_inside_an_unplaceable_inline_module_binds_nothing"
+      ]
+    ],
+    "PP-15-multi-occurrence-sites-not-refused-w2": [
+      "src/resolution/free.rs",
+      "        if in_multi {\n            super::ResolutionOutcome::dropped(super::DropReason::UnknownName)",
+      "        if in_multi && false {\n            super::ResolutionOutcome::dropped(super::DropReason::UnknownName)",
+      [
+        "rust_path_attribute_test::o3_a_site_inside_a_double_loaded_file_keeps_only_its_own_file"
       ]
     ]
   }

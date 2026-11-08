@@ -134,6 +134,11 @@ pub struct ScopeGraph {
     /// Rust: `(scope, name)` of every `use p::{self as name}` import (#724).
     #[serde(default)]
     pub self_import_aliases: std::collections::BTreeSet<(ScopeId, String)>,
+    /// Rust: files populated as more than one module occurrence (a file loaded by two `mod`
+    /// items, e.g. a plain `mod b;` and `#[path = "b.rs"] mod b;`). A site INSIDE such a
+    /// file cannot be tied to one occurrence, so it keeps only targets in its own file.
+    #[serde(default)]
+    pub multi_occurrence_files: std::collections::BTreeSet<crate::name_resolution::types::FileId>,
     /// Deferred-glob expansion telemetry for resolution walked over **this**
     /// graph (spec §3.5). Scoped here rather than in a process-global so a
     /// measurement (`navigation::queries::call_stats`) that resets and snapshots

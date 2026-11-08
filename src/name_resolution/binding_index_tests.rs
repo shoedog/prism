@@ -231,6 +231,7 @@ fn index_is_absent_from_serialization_and_identity() {
         // Appended by #724 (CPG v162): after the pre-index fields, before the skipped ones.
         // (#765 removed the `misplaced_mount_files` field that sat before it.)
         &graph.self_import_aliases,
+        &graph.multi_occurrence_files,
     ))
     .unwrap();
     let cold_json = serde_json::to_string(&graph).unwrap();

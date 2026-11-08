@@ -376,3 +376,95 @@ fn d13_two_inline_levels_in_a_non_mod_rs_file() {
     ]);
     assert_eq!(bound(&fs, &["a", "i", "j", "q"]), some("src/a/i/j/q.rs"));
 }
+
+// ── Review folds (#765 PR D): occurrences, blocks, unplaceable inline paths ──
+
+/// Every chain, each bound from `src/lib.rs`, with the graph (for field checks).
+fn bound_all(
+    fs: &BTreeMap<String, ParsedFile>,
+    chains: &[&[&str]],
+) -> (ScopeGraph, Vec<Option<String>>) {
+    let g = populate(fs);
+    let out = chains
+        .iter()
+        .map(|c| file_of(&g, module(&g, fs, "src/lib.rs", c)))
+        .collect();
+    (g, out)
+}
+
+#[test]
+fn o1_a_file_loaded_by_a_mount_and_a_plain_mod_is_two_populated_occurrences() {
+    // sol W2: `src/b.rs` is `crate::a::b` (mount) and `crate::b` (plain). Both bind it,
+    // whichever is declared first; the file is recorded as multiply populated.
+    for lib in ["mod a;\nmod b;\n", "mod b;\nmod a;\n"] {
+        let fs = files(&[
+            ("src/lib.rs", lib),
+            ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+            ("src/b.rs", "pub fn f() {}\n"),
+        ]);
+        let (g, got) = bound_all(&fs, &[&["a", "b"], &["b"]]);
+        assert_eq!(got, vec![some("src/b.rs"), some("src/b.rs")], "{lib}");
+        // Each occurrence is POPULATED: `f` is bound in both module scopes.
+        for chain in [&["a", "b"][..], &["b"][..]] {
+            let m = module(&g, &fs, "src/lib.rs", chain);
+            assert!(
+                g.bindings.iter().any(|b| b.scope == m && b.name == "f"),
+                "{lib} {chain:?}"
+            );
+        }
+        let b = file_id(&fs, "src/b.rs").unwrap();
+        assert!(g.multi_occurrence_files.contains(&b), "{lib}");
+    }
+}
+
+#[test]
+fn o2_each_occurrence_searches_its_own_child_directory() {
+    // Mounted: `src/b.rs` is mod-rs-like, `mod child;` is `src/child.rs`. Plain: `src/b/child.rs`.
+    let fs = files(&[
+        ("src/lib.rs", "mod a;\nmod b;\n"),
+        ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+        ("src/b.rs", "pub mod child;\n"),
+        ("src/child.rs", "pub fn h() {}\n"),
+        ("src/b/child.rs", "pub fn h() {}\n"),
+    ]);
+    let (_g, got) = bound_all(&fs, &[&["a", "b", "child"], &["b", "child"]]);
+    assert_eq!(got, vec![some("src/child.rs"), some("src/b/child.rs")]);
+}
+
+#[test]
+fn o3_a_path_cycle_terminates() {
+    // `a.rs` mounts `b.rs`, `b.rs` mounts `a.rs`: the loader's active-stack check.
+    let fs = files(&[
+        ("src/lib.rs", "mod a;\n"),
+        ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+        ("src/b.rs", "#[path = \"a.rs\"]\npub mod a;\n"),
+    ]);
+    let (_g, got) = bound_all(&fs, &[&["a", "b"], &["a", "b", "a"]]);
+    assert_eq!(got[0], some("src/b.rs"));
+}
+
+#[test]
+fn o4_an_unshared_file_is_not_multiply_populated() {
+    let fs = files(&[
+        ("src/lib.rs", "mod a;\n"),
+        ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+        ("src/b.rs", "pub fn f() {}\n"),
+    ]);
+    let g = populate(&fs);
+    assert!(g.multi_occurrence_files.is_empty());
+}
+
+#[test]
+fn w3_a_mount_inside_an_unplaceable_inline_module_binds_nothing() {
+    // `#[path = "/nonexistent-dir"]` is absolute: its children's directory is unplaceable and
+    // `../x.rs` must not climb out of it to a repository file (rustc reads `/x.rs`).
+    let fs = files(&[
+        (
+            "src/lib.rs",
+            "#[path = \"/nonexistent-dir\"]\npub mod i {\n    #[path = \"../x.rs\"]\n    pub mod m;\n}\n",
+        ),
+        ("x.rs", "pub fn f() {}\n"),
+        ("src/x.rs", "pub fn f() {}\n"),
+    ]);
+    assert_eq!(bound(&fs, &["i", "m"]), None);
+}

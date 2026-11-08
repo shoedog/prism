@@ -16,6 +16,10 @@ use crate::name_resolution::types::{
 
 use super::{file_id, RustCrateConfig, PARSE_FAIL_RATE};
 
+/// Upper bound on the module occurrences populated per file (fan-in of one shared file);
+/// further ones are poisoned instead of walked.
+const MAX_OCCURRENCES: usize = 16;
+
 /// How a `mod foo;` declaration resolved to (a) file(s).
 pub(crate) enum ModFile {
     /// Exactly one file (`foo.rs` XOR `foo/mod.rs`); carries its path + the
@@ -39,6 +43,12 @@ pub(crate) struct Builder<'f> {
     /// Files already turned into a module scope (cycle/duplication guard for
     /// pathological `mod` graphs).
     modeled: BTreeSet<String>,
+    /// Files whose population walk is in progress (the module occurrences from the root
+    /// down to the current one): a `#[path]` cycle stops here, as in rustc's loader.
+    active: Vec<String>,
+    /// How many module OCCURRENCES of each file were populated (a file loaded by two
+    /// `mod` items is two occurrences, each with its own parent and child directory).
+    occurrences: BTreeMap<String, usize>,
     /// `(enclosing module scope, type name)` → the type's owned `Type` scope, so
     /// a `struct S` def and a later `impl S` in the SAME module share one scope
     /// (the struct binding's `owns` points at it; the impl fills it with
@@ -95,6 +105,8 @@ impl<'f> Builder<'f> {
             next_scope: 0,
             next_item: 0,
             modeled: BTreeSet::new(),
+            active: Vec::new(),
+            occurrences: BTreeMap::new(),
             type_scopes: BTreeMap::new(),
             crate_roots_by_name: BTreeMap::new(),
             lib_root_by_member_dir: BTreeMap::new(),
@@ -180,6 +192,12 @@ impl<'f> Builder<'f> {
         }
         self.graph.crate_deps_by_root = self.crate_deps_by_root;
         self.graph.self_import_aliases = self.self_import_aliases;
+        self.graph.multi_occurrence_files = self
+            .occurrences
+            .iter()
+            .filter(|(_, n)| **n > 1)
+            .filter_map(|(path, _)| self.graph.file_paths.get(path).copied())
+            .collect();
         self.graph
     }
 
@@ -339,6 +357,27 @@ impl<'f> Builder<'f> {
         self.modeled.insert(path.to_string());
     }
 
+    /// Begin populating one occurrence of `path`. `false` when the file is already being
+    /// populated higher up (a `#[path]` cycle) or has reached [`MAX_OCCURRENCES`]; the
+    /// caller then poisons the scope instead of walking it.
+    pub(crate) fn begin_occurrence(&mut self, path: &str) -> bool {
+        if self.active.iter().any(|a| a == path) {
+            return false;
+        }
+        let n = self.occurrences.entry(path.to_string()).or_insert(0);
+        if *n >= MAX_OCCURRENCES {
+            return false;
+        }
+        *n += 1;
+        self.modeled.insert(path.to_string());
+        self.active.push(path.to_string());
+        true
+    }
+
+    pub(crate) fn end_occurrence(&mut self) {
+        self.active.pop();
+    }
+
     /// Did `path`'s file fail to parse (error rate ≥ floor)?
     pub(crate) fn parse_failed(&self, path: &str) -> bool {
         self.files
@@ -386,7 +425,10 @@ impl<'f> Builder<'f> {
     /// PASS 2: walk a root's items into its (already-minted) `Root` scope.
     pub(crate) fn walk_root(&mut self, root_path: &str, root_scope: ScopeId) {
         let dir = parent_dir(root_path);
-        super::walk::walk_module_file(self, root_path, root_scope, &dir);
+        if self.begin_occurrence(root_path) {
+            super::walk::walk_module_file(self, root_path, root_scope, &dir);
+            self.end_occurrence();
+        }
     }
 
     // ── `mod foo;` file resolution (declaring-directory rule) ──────────────────
@@ -462,7 +504,11 @@ impl<'f> Builder<'f> {
                 let s =
                     self.module_scope_for_target(parent_scope, &path, cond.clone(), vis.clone());
                 if let Some(scope) = s {
-                    vec![(scope, Some(path_then_walk(self, &path, scope, &child_dir)))]
+                    let walked = path_then_walk(self, &path, scope, &child_dir);
+                    if !walked {
+                        self.poison_scope(scope, vis);
+                    }
+                    vec![(scope, Some(path))]
                 } else {
                     // target parse-failed / out-of-scope → Poisoned shell
                     let shell = self.empty_module_shell(parent_scope, decl_file, cond);
@@ -479,7 +525,10 @@ impl<'f> Builder<'f> {
                         self.module_scope_for_target(parent_scope, &p, cond.clone(), vis.clone())
                     {
                         let cd = child_dir_for(&p);
-                        out.push((scope, Some(path_then_walk(self, &p, scope, &cd))));
+                        if !path_then_walk(self, &p, scope, &cd) {
+                            self.poison_scope(scope, vis.clone());
+                        }
+                        out.push((scope, Some(p)));
                     } else {
                         let shell = self.empty_module_shell(parent_scope, decl_file, cond.clone());
                         self.poison_scope(shell, vis.clone());
@@ -597,7 +646,9 @@ pub(crate) fn join(dir: &str, tail: &str) -> String {
 /// the file system collapses them). `None` when `rel` is absolute or climbs above the
 /// repository root: no indexed file can be named. A trailing `/` in `rel` is kept.
 pub(crate) fn resolve_relative(base_dir: &str, rel: &str) -> Option<String> {
-    if rel.starts_with('/') {
+    // An absolute `rel`, or a base that is itself unplaceable (the `\0` directory of an
+    // inline module whose own `#[path]` could not be placed), names no indexed file.
+    if rel.starts_with('/') || base_dir.starts_with('\u{0}') {
         return None;
     }
     let mut parts: Vec<&str> = Vec::new();
@@ -629,15 +680,17 @@ fn child_dir_for(path: &str) -> String {
     }
 }
 
-/// Mark `path` modeled, walk it as a module file into `scope`, and return `path`
-/// (so callers can record the modeled source path). Centralizes the
-/// mark-then-walk so the ambiguous/one cases share it.
-fn path_then_walk(b: &mut Builder<'_>, path: &str, scope: ScopeId, child_dir: &str) -> String {
-    if !b.already_modeled(path) {
-        b.mark_modeled(path);
-        super::walk::walk_module_file(b, path, scope, child_dir);
+/// Populate one module OCCURRENCE of `path` into `scope` (its own parent, visibility and
+/// child-search directory; the parsed syntax is shared). Returns `false` when the walk
+/// was refused: `path` is being populated higher up (a `#[path]` cycle) or reached
+/// [`MAX_OCCURRENCES`]; the caller poisons the scope.
+fn path_then_walk(b: &mut Builder<'_>, path: &str, scope: ScopeId, child_dir: &str) -> bool {
+    if !b.begin_occurrence(path) {
+        return false;
     }
-    path.to_string()
+    super::walk::walk_module_file(b, path, scope, child_dir);
+    b.end_occurrence();
+    true
 }
 
 /// `Target::Scope` convenience.
