@@ -165,3 +165,96 @@ fn k10_item_position_macro_still_poisons_a_glob_name() {
     ]);
     unbound(&cg, "src/m.rs", "c_item", "top");
 }
+
+// ── Review folds (#765 PR D, W1): the spelling must be the std macro ────────
+
+const HELPER_FN: &str = "fn helper(n: u8) -> u8 { n }\n";
+
+/// `src/m.rs` = `uses`, a module-level `helper`, and `g` calling `body` then `helper(1)`.
+fn import_graph(lib: &str, uses: &str, body: &str) -> CallGraph {
+    let m = format!("{uses}{HELPER_FN}pub fn g() {{\n    {body}\n    helper(1);\n}}\n");
+    build(&[("src/lib.rs", lib), ("src/m.rs", &m)])
+}
+
+const PLAIN_LIB: &str = "mod m;\n";
+
+#[test]
+fn w1_a_macro_imported_under_a_std_spelling_still_poisons() {
+    // sol W1: `make!` emits `fn helper()`; `use crate::make as env;` makes `env!()` that
+    // macro, so the later `helper()` is the emitted one, not the module-level fn.
+    let lib = "#[macro_export]\nmacro_rules! make { () => { fn helper() -> u8 { 2 } }; }\nmod m;\n";
+    let cg = import_graph(lib, "use crate::make as env;\n", "env!();");
+    unbound(&cg, "src/m.rs", "g", "helper");
+}
+
+#[test]
+fn w2_an_external_import_of_a_std_spelling_still_poisons() {
+    let cg = import_graph(PLAIN_LIB, "use other::env;\n", "let _ = env!(\"X\");");
+    unbound(&cg, "src/m.rs", "g", "helper");
+}
+
+#[test]
+fn w3_a_block_scope_import_still_poisons() {
+    let cg = import_graph(
+        PLAIN_LIB,
+        "",
+        "use other::{x as y, concat};\n    let _ = concat!(\"a\");",
+    );
+    unbound(&cg, "src/m.rs", "g", "helper");
+}
+
+#[test]
+fn w4_an_alias_of_a_transparent_macro_withholds_its_transparency() {
+    // The pre-existing hole of `is_transparent_arg_macro`: `use crate::make as assert;`.
+    let lib = "#[macro_export]\nmacro_rules! make { () => { fn helper() -> u8 { 2 } }; }\nmod m;\n";
+    let cg = import_graph(lib, "use crate::make as assert;\n", "assert!();");
+    unbound(&cg, "src/m.rs", "g", "helper");
+}
+
+#[test]
+fn w5_an_external_glob_poisons_the_unqualified_spelling() {
+    let cg = import_graph(PLAIN_LIB, "use ext::*;\n", "let _ = env!(\"X\");");
+    unbound(&cg, "src/m.rs", "g", "helper");
+}
+
+#[test]
+fn w6_macro_use_extern_crate_poisons_every_file() {
+    let cg = import_graph(
+        "#[macro_use]\nextern crate ext;\nmod m;\n",
+        "",
+        "let _ = env!(\"X\");",
+    );
+    unbound(&cg, "src/m.rs", "g", "helper");
+}
+
+#[test]
+fn k11_a_std_qualified_spelling_stays_trusted_under_an_external_glob() {
+    let cg = import_graph(PLAIN_LIB, "use ext::*;\n", "let _ = std::env!(\"X\");");
+    binds(&cg, "src/m.rs", "g", "helper", ("src/m.rs", "helper", 2));
+}
+
+#[test]
+fn k12_super_and_crate_globs_and_std_imports_do_not_poison() {
+    for uses in [
+        "use super::*;\n",
+        "use crate::*;\n",
+        "use std::env;\n",
+        "use std::collections::*;\n",
+        "use core::matches;\n",
+    ] {
+        let body = if uses.contains("matches") {
+            "let _ = matches!(1u8, 1);"
+        } else {
+            "let _ = env!(\"X\");"
+        };
+        let cg = import_graph(PLAIN_LIB, uses, body);
+        let lines = uses.matches('\n').count();
+        binds(
+            &cg,
+            "src/m.rs",
+            "g",
+            "helper",
+            ("src/m.rs", "helper", lines + 1),
+        );
+    }
+}

@@ -175,6 +175,7 @@ fn walk_expr(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx:
                     ) || crate::call_graph::rust::macro_args::is_non_binding_expr_macro(
                         &name,
                         b.macro_shadow(),
+                        b.macro_glob_taint(),
                     )
                 })
                 .unwrap_or(false);
@@ -464,8 +465,11 @@ fn add_locals_with_facts_from(
 }
 
 /// The visibility extents of a local. The FIRST extent always starts at the pattern
-/// identifier: receiver typing and the external-path proof read `vis_extents[0].lo` as the
-/// binding's def-byte identity (the key of its [`LocalFact`]). With `visible_from` after the
+/// identifier: receiver typing (`resolution_receiver.rs`, `binding_lookup.rs`) and the
+/// external-path proof (`resolution/rust/external_paths.rs`) read `vis_extents[0].lo` as the
+/// binding's def-byte identity (the key of its [`LocalFact`]); a named definition location
+/// on the binding would replace this coupling (a layout change, not done here). With
+/// `visible_from` after the
 /// identifier the scope itself starts there (rustc: after the statement), and the identifier
 /// keeps a one-byte extent of its own so the identity survives.
 fn local_extents(

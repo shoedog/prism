@@ -38,7 +38,7 @@
     ],
     "MS-05-qualifier-ignored": [
       "src/call_graph/rust/macro_args.rs",
-      "    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {\n        return false;\n    }\n    match macro_name.rsplit_once(\"::\") {\n        None => true,\n        Some((qualifier, _)) => TRANSPARENT_QUALIFIERS.contains(&qualifier),\n    }",
+      "    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {\n        return false;\n    }\n    match macro_name.rsplit_once(\"::\") {\n        None => !glob_tainted,\n        Some((qualifier, _)) => TRANSPARENT_QUALIFIERS.contains(&qualifier),\n    }",
       "    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {\n        return false;\n    }\n    true",
       [
         "rust_macro_scope_test::k8_a_foreign_qualifier_is_not_the_std_macro"
@@ -46,10 +46,51 @@
     ],
     "MS-06-populator-ignores-the-second-list": [
       "src/name_resolution/rust_populator/walk/locals.rs",
-      ") || crate::call_graph::rust::macro_args::is_non_binding_expr_macro(\n                        &name,\n                        b.macro_shadow(),\n                    )\n",
+      ") || crate::call_graph::rust::macro_args::is_non_binding_expr_macro(\n                        &name,\n                        b.macro_shadow(),\n                        b.macro_glob_taint(),\n                    )\n",
       ")\n",
       [
         "rust_macro_scope_test::m1_no_name_expression_macros_do_not_poison_later_calls"
+      ]
+    ],
+    "MS-07-use-census-dropped-w1": [
+      "src/call_graph/rust/macro_args.rs",
+      "        collect_use_bound_names(parsed, parsed.tree.root_node(), &mut shadow);\n",
+      "",
+      [
+        "rust_macro_scope_test::w1_a_macro_imported_under_a_std_spelling_still_poisons",
+        "rust_macro_scope_test::w4_an_alias_of_a_transparent_macro_withholds_its_transparency"
+      ]
+    ],
+    "MS-08-glob-rule-dropped-w1": [
+      "src/call_graph/rust/macro_args.rs",
+      "        None => !glob_tainted,",
+      "        None => true,",
+      [
+        "rust_macro_scope_test::w5_an_external_glob_poisons_the_unqualified_spelling"
+      ]
+    ],
+    "MS-09-macro-use-extern-ignored-w1": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "            || self.macro_glob_census.repo_wide\n",
+      "",
+      [
+        "rust_macro_scope_test::w6_macro_use_extern_crate_poisons_every_file"
+      ]
+    ],
+    "MS-10-std-import-not-trusted-w1": [
+      "src/call_graph/rust/macro_args.rs",
+      "    if is_listed_spelling(bound) && !(STD_ROOTS.contains(&root) && bound == original) {",
+      "    if is_listed_spelling(bound) {",
+      [
+        "rust_macro_scope_test::k12_super_and_crate_globs_and_std_imports_do_not_poison"
+      ]
+    ],
+    "MS-11-super-glob-treated-as-external-w1": [
+      "src/call_graph/rust/macro_args.rs",
+      "            if !(STD_ROOTS.contains(&r.as_str())\n                || matches!(r.as_str(), \"crate\" | \"self\" | \"super\"))\n            {",
+      "            if !STD_ROOTS.contains(&r.as_str()) {",
+      [
+        "rust_macro_scope_test::k12_super_and_crate_globs_and_std_imports_do_not_poison"
       ]
     ]
   }

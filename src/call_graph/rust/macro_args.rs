@@ -90,15 +90,24 @@ pub const NON_BINDING_EXPR_MACROS: &[&str] = &[
 
 /// Does `macro_name` name a std expression macro of [`NON_BINDING_EXPR_MACROS`]? Same
 /// shadow and qualifier rules as [`is_transparent_arg_macro`]: a repo-wide `macro_rules!`
-/// of the same name withholds the exemption, and only an unqualified path or one qualified
-/// by exactly `std`/`core`/`alloc` is the real macro.
-pub fn is_non_binding_expr_macro(macro_name: &str, shadow: &BTreeSet<String>) -> bool {
+/// definition or `use` binding of the same name withholds the exemption
+/// ([`collect_macro_shadow_set`]), and only an unqualified path or one qualified by exactly
+/// `std`/`core`/`alloc` is the real macro. `glob_tainted` (the invocation's file or an
+/// ancestor module file has a `use` glob of an external crate, or a `#[macro_use] extern
+/// crate` exists: [`collect_macro_glob_census`]) withholds the exemption from an unqualified
+/// spelling, since an external crate may export a macro of that name; a `std::`-qualified
+/// invocation stays trusted.
+pub fn is_non_binding_expr_macro(
+    macro_name: &str,
+    shadow: &BTreeSet<String>,
+    glob_tainted: bool,
+) -> bool {
     let last = last_path_segment(macro_name);
     if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {
         return false;
     }
     match macro_name.rsplit_once("::") {
-        None => true,
+        None => !glob_tainted,
         Some((qualifier, _)) => TRANSPARENT_QUALIFIERS.contains(&qualifier),
     }
 }
@@ -180,8 +189,194 @@ pub fn collect_macro_shadow_set(files: &BTreeMap<String, ParsedFile>) -> BTreeSe
             continue;
         }
         collect_macro_defs(parsed, parsed.tree.root_node(), &mut shadow);
+        collect_use_bound_names(parsed, parsed.tree.root_node(), &mut shadow);
     }
     shadow
+}
+
+/// Roots whose `use` of one of the listed macro spellings is the real std macro.
+const STD_ROOTS: &[&str] = &["std", "core", "alloc"];
+
+/// Is `name` one of the spellings the two allowlists trust?
+fn is_listed_spelling(name: &str) -> bool {
+    TRANSPARENT_ARG_MACROS.contains(&name) || NON_BINDING_EXPR_MACROS.contains(&name)
+}
+
+/// One `use` leaf binding `bound` (the leaf, or its `as` alias) from `original` under `root`:
+/// a listed spelling bound by anything but the std item of the same name is a different
+/// macro (`use crate::make as env;`, `use other::env;`) and joins the shadow set.
+fn note_use_binding(bound: &str, original: &str, root: &str, out: &mut BTreeSet<String>) {
+    if is_listed_spelling(bound) && !(STD_ROOTS.contains(&root) && bound == original) {
+        out.insert(bound.to_string());
+    }
+}
+
+fn first_segment(path: &str) -> &str {
+    path.split("::").next().unwrap_or(path).trim()
+}
+
+fn last_segment(path: &str) -> &str {
+    path.rsplit("::").next().unwrap_or(path).trim()
+}
+
+/// Add every listed spelling bound by a `use` item anywhere in `node` (a block-scope or
+/// nested-module `use` included, `pub use`, nested `{..}` lists, `as` aliases) that is not
+/// the std item of that name. Repo-wide and by spelling, like the `macro_rules!` census.
+fn collect_use_bound_names(parsed: &ParsedFile, node: Node, out: &mut BTreeSet<String>) {
+    if node.kind() == "use_declaration" {
+        if let Some(arg) = node.child_by_field_name("argument") {
+            walk_use_tree(parsed, arg, None, out, &mut false);
+        }
+        return;
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_use_bound_names(parsed, child, out);
+    }
+}
+
+/// Walk one use tree. `root` is the first segment of the path above this node (None at the
+/// top). `external_glob` is set when a `*` import has a root other than std/core/alloc and
+/// `crate`/`self`/`super` (which can only re-export what the census already sees).
+fn walk_use_tree(
+    parsed: &ParsedFile,
+    node: Node,
+    root: Option<&str>,
+    out: &mut BTreeSet<String>,
+    external_glob: &mut bool,
+) {
+    let text = |n: &Node| parsed.node_text(n).to_string();
+    match node.kind() {
+        "identifier" => {
+            let name = text(&node);
+            note_use_binding(&name, &name, root.unwrap_or(&name), out);
+        }
+        "scoped_identifier" => {
+            let path = node
+                .child_by_field_name("path")
+                .map(|p| text(&p))
+                .unwrap_or_default();
+            if let Some(name) = node.child_by_field_name("name") {
+                let leaf = text(&name);
+                let r = root
+                    .map(str::to_string)
+                    .unwrap_or_else(|| first_segment(&path).to_string());
+                note_use_binding(&leaf, &leaf, &r, out);
+            }
+        }
+        "use_as_clause" => {
+            let path = node
+                .child_by_field_name("path")
+                .map(|p| text(&p))
+                .unwrap_or_default();
+            if let Some(alias) = node.child_by_field_name("alias") {
+                let r = root
+                    .map(str::to_string)
+                    .unwrap_or_else(|| first_segment(&path).to_string());
+                note_use_binding(&text(&alias), last_segment(&path), &r, out);
+            }
+        }
+        "use_list" => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                walk_use_tree(parsed, child, root, out, external_glob);
+            }
+        }
+        "scoped_use_list" => {
+            let path = node
+                .child_by_field_name("path")
+                .map(|p| text(&p))
+                .unwrap_or_default();
+            let r = root
+                .map(str::to_string)
+                .unwrap_or_else(|| first_segment(&path).to_string());
+            if let Some(list) = node.child_by_field_name("list") {
+                walk_use_tree(parsed, list, Some(&r), out, external_glob);
+            }
+        }
+        "use_wildcard" => {
+            let path = text(&node);
+            let path = path.trim_end_matches('*').trim_end_matches("::");
+            let r = if path.is_empty() {
+                root.unwrap_or("").to_string()
+            } else {
+                root.map(str::to_string)
+                    .unwrap_or_else(|| first_segment(path).to_string())
+            };
+            if !(STD_ROOTS.contains(&r.as_str())
+                || matches!(r.as_str(), "crate" | "self" | "super"))
+            {
+                *external_glob = true;
+            }
+        }
+        _ => {}
+    }
+}
+
+/// What can import a macro under a listed spelling that the per-name census cannot name: a
+/// `use` glob of an external crate, or `#[macro_use] extern crate` (#765 PR D, W1).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MacroGlobCensus {
+    /// Files containing a `use` glob whose root is not std/core/alloc/crate/self/super.
+    pub files: BTreeSet<String>,
+    /// A `#[macro_use] extern crate` of a non-std crate exists: its macros are in scope
+    /// crate-wide, so every file is tainted.
+    pub repo_wide: bool,
+}
+
+/// Census of [`MacroGlobCensus`] over every Rust file in `files`.
+pub fn collect_macro_glob_census(files: &BTreeMap<String, ParsedFile>) -> MacroGlobCensus {
+    let mut census = MacroGlobCensus::default();
+    for (path, parsed) in files {
+        if parsed.language != crate::languages::Language::Rust {
+            continue;
+        }
+        let mut external = false;
+        census_walk(
+            parsed,
+            parsed.tree.root_node(),
+            &mut external,
+            &mut census.repo_wide,
+        );
+        if external {
+            census.files.insert(path.clone());
+        }
+    }
+    census
+}
+
+fn census_walk(parsed: &ParsedFile, node: Node, external_glob: &mut bool, macro_use: &mut bool) {
+    match node.kind() {
+        "use_declaration" => {
+            if let Some(arg) = node.child_by_field_name("argument") {
+                walk_use_tree(parsed, arg, None, &mut BTreeSet::new(), external_glob);
+            }
+            return;
+        }
+        "extern_crate_declaration" => {
+            let name = node
+                .child_by_field_name("name")
+                .map(|n| parsed.node_text(&n).to_string())
+                .unwrap_or_default();
+            let mut prev = node.prev_sibling();
+            while let Some(sib) = prev {
+                if sib.kind() != "attribute_item" {
+                    break;
+                }
+                if parsed.node_text(&sib).contains("macro_use")
+                    && !STD_ROOTS.contains(&name.as_str())
+                {
+                    *macro_use = true;
+                }
+                prev = sib.prev_sibling();
+            }
+        }
+        _ => {}
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        census_walk(parsed, child, external_glob, macro_use);
+    }
 }
 
 /// Narrow a shadow set (as returned by [`collect_macro_shadow_set`]) down to

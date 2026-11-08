@@ -75,6 +75,12 @@ pub(crate) struct Builder<'f> {
     /// Consumed by `walk/locals.rs`'s wildcard-poison exemption via
     /// [`Builder::macro_shadow`].
     macro_shadow: BTreeSet<String>,
+    /// Files with an external-crate `use` glob, and whether a `#[macro_use] extern crate`
+    /// exists (`macro_args::collect_macro_glob_census`): an unqualified std expression macro
+    /// is not trusted in them or in the modules below them (#765 PR D, W1).
+    macro_glob_census: crate::call_graph::rust::macro_args::MacroGlobCensus,
+    /// Parallel to `active`: whether the module occurrence being populated is tainted.
+    taint_stack: Vec<bool>,
     /// `(binding index, path)` of every `pub(in path)` binding, resolved in
     /// `finish()` by [`super::restrict::resolve_restricts`] (#710).
     pending_restricts: Vec<(usize, RawPath)>,
@@ -96,9 +102,13 @@ impl<'f> Builder<'f> {
         let mut graph = ScopeGraph::new();
         graph.file_paths = file_paths;
         let macro_shadow = crate::call_graph::rust::macro_args::collect_macro_shadow_set(files);
+        let macro_glob_census =
+            crate::call_graph::rust::macro_args::collect_macro_glob_census(files);
         Builder {
             graph,
             macro_shadow,
+            macro_glob_census,
+            taint_stack: Vec::new(),
             files,
             config,
             only_files,
@@ -371,11 +381,23 @@ impl<'f> Builder<'f> {
         *n += 1;
         self.modeled.insert(path.to_string());
         self.active.push(path.to_string());
+        let parent = self.taint_stack.last().copied().unwrap_or(false);
+        let tainted = parent
+            || self.macro_glob_census.repo_wide
+            || self.macro_glob_census.files.contains(path);
+        self.taint_stack.push(tainted);
         true
     }
 
     pub(crate) fn end_occurrence(&mut self) {
         self.active.pop();
+        self.taint_stack.pop();
+    }
+
+    /// Is the module occurrence being populated (or an ancestor module file) exposed to a
+    /// macro imported by an external glob? See [`Builder::macro_glob_census`].
+    pub(crate) fn macro_glob_taint(&self) -> bool {
+        self.taint_stack.last().copied().unwrap_or(false)
     }
 
     /// Did `path`'s file fail to parse (error rate ≥ floor)?
