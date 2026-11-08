@@ -196,6 +196,10 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span` 
   any score below `1.0`. A warning like `N same-name receiver call site(s) with unknown receiver
   type across multiple owner types; not attributed as callers` means real callers may be missing:
   treat "no callers" plus that warning as *unknown*, not *none*.
+- **`nav_callers` reports call expressions only.** A function named as a value, such as
+  `.filter(EvidenceHop::is_exact)` or `.map(parse)`, is not a call site, so that use is not a caller
+  edge. A 2026-11 count of Prism's own tree found about 119 such spellings; grep for the symbol when you need every
+  reference rather than every call.
 - **Read-only.** The server never modifies the repo. It also never executes code.
 - **Coordinates are snapshot-relative.** Apply `nav_symbol_spans` offsets only to the indexed snapshot;
   stale-session responses carry the same `StaleIndex` warning and metadata as other navigation tools.
