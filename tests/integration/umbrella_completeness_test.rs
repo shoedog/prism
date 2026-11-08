@@ -30,13 +30,32 @@ fn declares_module(main: &str, stem: &str) -> bool {
         .any(|line| line == needle)
 }
 
+/// The root package's `tests/` plus every workspace member's `crates/<name>/tests`
+/// (each member declares its own umbrella targets in its Cargo.toml; #731).
+fn umbrella_roots(manifest_dir: &Path) -> Vec<PathBuf> {
+    let mut roots = vec![manifest_dir.join("tests")];
+    let mut members: Vec<PathBuf> = fs::read_dir(manifest_dir.join("crates"))
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path().join("tests"))
+        .filter(|path| path.is_dir())
+        .collect();
+    members.sort();
+    roots.extend(members);
+    roots
+}
+
 #[test]
 fn umbrella_main_files_include_all_sibling_tests() {
-    let tests_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
-    let dirs = test_dirs(&tests_root);
+    let dirs: Vec<PathBuf> = umbrella_roots(Path::new(env!("CARGO_MANIFEST_DIR")))
+        .iter()
+        .flat_map(|root| test_dirs(root))
+        .collect();
+    // 25 root umbrellas + tests/mcp of crates/prism-mcp.
     assert!(
-        dirs.len() >= 24,
-        "expected >=24 umbrella targets, found {} — recursive walk regressed?",
+        dirs.len() >= 26,
+        "expected >=26 umbrella targets, found {} — recursive walk regressed?",
         dirs.len()
     );
     for dir in dirs {

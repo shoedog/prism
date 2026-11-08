@@ -637,6 +637,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "prism-mcp"
+version = "3.2.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "bincode",
+ "clap",
+ "dirs",
+ "libc",
+ "predicates",
+ "prism",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "toml",
+ "tree-sitter",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"

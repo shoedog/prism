@@ -2,16 +2,16 @@
   "lane": "S0 changed-refresh manual feature/Python mutations (excluded from shared glob)",
   "mutations": {
     "R2-changed-edit-skipped": [
-      "src/mcp/mem_changed_refresh.rs",
+      "crates/prism-mcp/src/mem_changed_refresh.rs",
       "            std::fs::write(&path, &self.after).context(\"applying changed edit\")?;",
       "            // mutant: skip applying the edit",
-      "mcp::mem_report::changed::tests::failed_refresh_still_restores"
+      "mem_report::changed::tests::failed_refresh_still_restores"
     ],
     "R2-changed-restore-skipped": [
-      "src/mcp/mem_changed_refresh.rs",
+      "crates/prism-mcp/src/mem_changed_refresh.rs",
       "            std::fs::write(&path, &self.before)?;",
       "            // mutant: skip restoring the edit",
-      "mcp::mem_report::changed::tests::failed_refresh_still_restores"
+      "mem_report::changed::tests::failed_refresh_still_restores"
     ],
     "R2-changed-validator-accepts-wrong-hash": [
       "scripts/memreport/memreport_changed.py",
@@ -26,28 +26,28 @@
       "test_memreport_changed_driver.ChangedDriver.test_wrong_starting_manifest_refused_without_child_or_recovery_write"
     ],
     "R2-changed-panic-skips-restore": [
-      "src/mcp/mem_changed_refresh.rs",
+      "crates/prism-mcp/src/mem_changed_refresh.rs",
       "        let restored = (|| -> Result<String> {",
       "        if let Err(payload) = result { std::panic::resume_unwind(payload); }\n        let restored = (|| -> Result<String> {",
-      "mcp::mem_report::changed::tests::panicking_refresh_still_restores"
+      "mem_report::changed::tests::panicking_refresh_still_restores"
     ],
     "R2-changed-pre-edit-check-skipped": [
-      "src/mcp/mem_changed_refresh.rs",
+      "crates/prism-mcp/src/mem_changed_refresh.rs",
       "        let before_sha256 = self.check(root)?;",
       "        let before_sha256 = self.before_sha256.clone();",
-      "mcp::mem_report::changed::tests::dirty_between_load_and_run_refused_without_edit"
+      "mem_report::changed::tests::dirty_between_load_and_run_refused_without_edit"
     ],
     "R2-changed-third-content-unchecked": [
-      "src/mcp/mem_changed_refresh.rs",
+      "crates/prism-mcp/src/mem_changed_refresh.rs",
       "            ensure!(\n                hash(std::fs::read(&path)?) == self.after_sha256,\n                \"edit changed during refresh\"\n            );",
       "            // mutant: no refresh-content check",
-      "mcp::mem_report::changed::tests::third_content_during_refresh_refused_and_restored"
+      "mem_report::changed::tests::third_content_during_refresh_refused_and_restored"
     ],
     "R2-changed-post-restore-clean-skipped": [
-      "src/mcp/mem_changed_refresh.rs",
+      "crates/prism-mcp/src/mem_changed_refresh.rs",
       "            self.clean(root)?;",
       "            // mutant: no post-restore cleanliness check",
-      "mcp::mem_report::changed::tests::untracked_during_refresh_fails_post_restore_clean"
+      "mem_report::changed::tests::untracked_during_refresh_fails_post_restore_clean"
     ],
     "R2-changed-prime-cache-reused": [
       "scripts/memreport/memreport.py",

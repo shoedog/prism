@@ -1,24 +1,28 @@
-[package]
-name = "prism"
+[workspace]
+members = ["crates/prism-mcp"]
+# Vendored grammar crates are path dependencies under the root; without this they become implicit
+# workspace members and their dev-dependencies (tree-sitter ^0.24) enter resolution.
+exclude = ["vendor"]
+
+[workspace.package]
 version = "3.2.0"
 edition = "2021"
-description = "Code slicing algorithms for defect-focused automated code review, based on arXiv:2505.17928"
 license = "Apache-2.0"
 
+[package]
+name = "prism"
+version.workspace = true
+edition.workspace = true
+description = "Code slicing algorithms for defect-focused automated code review, based on arXiv:2505.17928"
+license.workspace = true
+
 [features]
-mcp = []
-memreport-changed-refresh = ["mcp"]
 # Explicit real-compiler tests only; no production consumer or compiler dependency.
 detached-owner-audit = []
 
 [[bin]]
 name = "prism"
 path = "src/main.rs"
-
-[[bin]]
-name = "prism-mcp"
-path = "src/bin/prism-mcp.rs"
-required-features = ["mcp"]
 
 [dependencies]
 tree-sitter = "0.25"
@@ -60,8 +64,6 @@ predicates = "3"
 
 [build-dependencies]
 sha2 = "0.10"
-
-# ── MCP tests ──
 
 # ── Algorithm tests: Paper ──
 
@@ -176,11 +178,6 @@ path = "tests/reasoning/main.rs"
 [[test]]
 name = "output"
 path = "tests/output/main.rs"
-
-[[test]]
-name = "mcp"
-path = "tests/mcp/main.rs"
-required-features = ["mcp"]
 
 [[test]]
 name = "infra"

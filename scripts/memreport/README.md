@@ -6,7 +6,7 @@ stderr (`{"prism_mem_report":3,…}`) and exits without serving. This driver run
 corpus and renders a readout.
 
 ```bash
-cargo build --release --bin prism-mcp --features mcp
+cargo build --release -p prism-mcp
 python3 scripts/memreport/memreport.py gen-workload --bin target/release/prism-mcp --corpus ruff=~/code/bench-repos/ruff --workloads ~/prism-evidence/mcp-memory/c1/workloads
 python3 scripts/memreport/memreport.py run --bin target/release/prism-mcp --corpus ruff=~/code/bench-repos/ruff --workloads ~/prism-evidence/mcp-memory/c1/workloads --out ~/prism-evidence/mcp-memory/c1/run-1
 python3 scripts/memreport/memreport.py render --run ~/prism-evidence/mcp-memory/c1/run-1 --out docs/analysis/readout.md
@@ -72,7 +72,7 @@ that name, is recorded as unavailable, not as 0.
 
 ## Changed refresh (opt-in support seam)
 
-Build with `--features memreport-changed-refresh` and select `--kinds changed-refresh`, supplying
+Build with `-p prism-mcp --features memreport-changed-refresh` and select `--kinds changed-refresh`, supplying
 `--changed-edit NAME=PATH` for each corpus. Use a dedicated private mirror. The manifest contains exactly
 `repo_root` (canonical absolute path), `commit`, `path` (relative regular file without symlinks), `before`,
 `after` (distinct nonempty UTF-8 content), `before_sha256`, and `after_sha256`.

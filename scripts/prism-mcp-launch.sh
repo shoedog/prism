@@ -50,7 +50,7 @@ else
 prism-mcp not found.
 
 Build it once from a prism checkout:
-    cargo build --release --bin prism-mcp --features mcp
+    cargo build --release -p prism-mcp
 
 Then either install the plugin from that built checkout (the launcher finds
 target/release/prism-mcp), or put the binary on your PATH:

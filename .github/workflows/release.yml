@@ -30,7 +30,7 @@ jobs:
       - name: Build
         run: |
           cargo build --release --target ${{ matrix.target }}
-          cargo build --release --target ${{ matrix.target }} --features mcp --bin prism-mcp
+          cargo build --release --target ${{ matrix.target }} -p prism-mcp --bin prism-mcp
 
       - name: Package
         run: |

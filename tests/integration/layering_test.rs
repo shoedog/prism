@@ -4,6 +4,7 @@
 //! `algorithms::` on a non-comment line. The review layer is
 //! `src/algorithms/**`, `src/output/**`, `src/targets/**`, `src/api/**`,
 //! `src/cli.rs`, `src/main.rs`, `src/lib.rs` and `src/bin/**`.
+//! `crates/prism-mcp/src/**` is scanned too, with no review-layer allowlist.
 //!
 //! Exempt: files named `*_tests.rs`, `*_test.rs` or `tests.rs`, any path with a `/tests/`
 //! component, and comment lines (`//`, `///`, `//!`). There is deliberately NO
@@ -57,7 +58,11 @@ fn offending_lines(rel: &str, text: &str) -> Vec<String> {
     text.lines()
         .enumerate()
         .filter(|(_, line)| !line.trim_start().starts_with("//"))
-        .filter(|(_, line)| line.contains("crate::algorithms") || line.contains("algorithms::"))
+        .filter(|(_, line)| {
+            line.contains("crate::algorithms")
+                || line.contains("prism::algorithms")
+                || line.contains("algorithms::")
+        })
         .map(|(i, line)| format!("{rel}:{}: {}", i + 1, line.trim()))
         .collect()
 }
@@ -65,20 +70,25 @@ fn offending_lines(rel: &str, text: &str) -> Vec<String> {
 #[test]
 fn core_modules_do_not_import_algorithms() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut files = Vec::new();
-    collect_rs(&root.join("src"), &mut files);
     let mut offenders = Vec::new();
-    for path in files {
-        let rel = path
-            .strip_prefix(root)
-            .unwrap()
-            .to_string_lossy()
-            .replace('\\', "/");
-        if is_review_layer(&rel) || is_test_file(&rel) {
-            continue;
+    // `src` is the core crate; `crates/prism-mcp/src` is scanned with no review-layer
+    // allowlist (the crate boundary does not stop it importing the `pub` algorithms
+    // module, #731 S4).
+    for scanned in ["src", "crates/prism-mcp/src"] {
+        let mut files = Vec::new();
+        collect_rs(&root.join(scanned), &mut files);
+        for path in files {
+            let rel = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            if is_review_layer(&rel) || is_test_file(&rel) {
+                continue;
+            }
+            let text = fs::read_to_string(&path).unwrap();
+            offenders.extend(offending_lines(&rel, &text));
         }
-        let text = fs::read_to_string(&path).unwrap();
-        offenders.extend(offending_lines(&rel, &text));
     }
     assert!(
         offenders.is_empty(),
@@ -121,6 +131,17 @@ fn gated_test_module_import_is_reported() {
     let hits = offending_lines("src/x.rs", text);
     assert_eq!(hits.len(), 1, "{hits:?}");
     assert!(hits[0].starts_with("src/x.rs:4:"), "{hits:?}");
+}
+
+#[test]
+fn the_crates_own_spelling_prism_algorithms_is_reported_even_when_aliased() {
+    let text = "use prism::algorithms as review;\nfn _x() { let _ = review::taint::slice; }\n";
+    let hits = offending_lines("crates/prism-mcp/src/x.rs", text);
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert!(
+        hits[0].starts_with("crates/prism-mcp/src/x.rs:1:"),
+        "{hits:?}"
+    );
 }
 
 #[test]
