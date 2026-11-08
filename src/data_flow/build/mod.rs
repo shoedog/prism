@@ -42,6 +42,8 @@ mod go_literal_defs_tests;
 #[cfg(test)]
 mod go_literal_fold1_tests;
 #[cfg(test)]
+mod go_literal_fold2_tests;
+#[cfg(test)]
 mod go_nodef_defs_tests;
 #[cfg(test)]
 mod legacy_producer;
