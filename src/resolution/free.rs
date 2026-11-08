@@ -66,7 +66,8 @@ impl super::CallGraph {
     /// A site inside a Rust file that was populated as more than one module occurrence
     /// (`ScopeGraph::multi_occurrence_files`) cannot be tied to one occurrence, so what
     /// depends on the occurrence (`super::`, a child module, a parent import) must not
-    /// bind: it keeps only targets in its own file (#765).
+    /// bind: it keeps only targets in its own file, and only for an unqualified callee (a
+    /// `crate::`/`super::`/module path can mean a different item per occurrence) (#765).
     fn refuse_multi_occurrence<'a>(
         &self,
         site: &super::CallSite,
@@ -76,10 +77,12 @@ impl super::CallGraph {
             return outcome;
         };
         if graph.multi_occurrence_files.is_empty()
-            || outcome
-                .resolved
-                .iter()
-                .all(|r| r.target.file == site.caller.file)
+            || outcome.resolved.is_empty()
+            || (!site.callee_name.contains("::")
+                && outcome
+                    .resolved
+                    .iter()
+                    .all(|r| r.target.file == site.caller.file))
         {
             return outcome;
         }

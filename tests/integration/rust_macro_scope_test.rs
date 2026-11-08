@@ -204,17 +204,13 @@ fn w3_a_block_scope_import_still_poisons() {
 }
 
 #[test]
-fn w4_an_alias_of_a_transparent_macro_withholds_its_transparency() {
-    // The pre-existing hole of `is_transparent_arg_macro`: `use crate::make as assert;`.
-    let lib = "#[macro_export]\nmacro_rules! make { () => { fn helper() -> u8 { 2 } }; }\nmod m;\n";
-    let cg = import_graph(lib, "use crate::make as assert;\n", "assert!();");
-    unbound(&cg, "src/m.rs", "g", "helper");
-}
-
-#[test]
-fn w5_an_external_glob_poisons_the_unqualified_spelling() {
+fn k17_an_external_glob_does_not_poison_the_unqualified_spelling() {
+    // rustc 1.94: a glob-imported macro named like a prelude macro (`env`, `line`, `matches`,
+    // `assert_eq`) is error E0659 "ambiguous" at its use, also through an in-repo `pub use
+    // ext::*;` re-export and in edition 2015; only a NAMED import or `#[macro_use] extern
+    // crate` shadows silently. A compiling crate therefore uses the std macro.
     let cg = import_graph(PLAIN_LIB, "use ext::*;\n", "let _ = env!(\"X\");");
-    unbound(&cg, "src/m.rs", "g", "helper");
+    binds(&cg, "src/m.rs", "g", "helper", ("src/m.rs", "helper", 2));
 }
 
 #[test]
@@ -281,12 +277,6 @@ fn w8_a_chain_of_in_repo_aliases_of_a_macro_taints() {
 }
 
 #[test]
-fn w9_an_external_import_of_write_withholds_the_transparent_macro() {
-    let cg = import_graph(PLAIN_LIB, "use ext::write;\n", "write!(s, \"{}\", 1);");
-    unbound(&cg, "src/m.rs", "g", "helper");
-}
-
-#[test]
 fn k13_an_in_repo_alias_of_a_fn_imports_no_macro() {
     // `use crate::not_a_macro as env;` names a fn: `env!(..)` is still the std macro.
     let lib = "pub fn not_a_macro() {}\nmod m;\n";
@@ -314,4 +304,20 @@ fn k15_write_arguments_are_still_extracted_when_write_is_a_fn_import() {
         ("src/m.rs", m),
     ]);
     binds(&cg, "src/m.rs", "g", "helper", ("src/m.rs", "helper", 2));
+}
+
+#[test]
+fn k16_an_external_named_import_of_a_transparent_spelling_keeps_call_extraction() {
+    // Main's behaviour for `TRANSPARENT_ARG_MACROS`: only `macro_rules!` names shadow it, so
+    // `use pretty_assertions::assert_eq;` in ONE module leaves `assert_eq!(h(), 1)` of
+    // another module extracted and bound (and `assert_eq!` non-poisoning after it).
+    let a = "#[cfg(test)]\nmod t {\n    use pretty_assertions::assert_eq;\n    fn tt() { assert_eq!(1, 1); }\n}\n";
+    let b = "pub fn h() -> u8 { 1 }\npub fn g() {\n    assert_eq!(h(), 1);\n}\npub fn after() {\n    assert_eq!(1, 1);\n    h();\n}\n";
+    let cg = build(&[
+        ("src/lib.rs", "mod a;\nmod b;\n"),
+        ("src/a.rs", a),
+        ("src/b.rs", b),
+    ]);
+    binds(&cg, "src/b.rs", "g", "h", ("src/b.rs", "h", 1));
+    binds(&cg, "src/b.rs", "after", "h", ("src/b.rs", "h", 1));
 }

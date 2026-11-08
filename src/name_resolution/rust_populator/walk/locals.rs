@@ -174,8 +174,8 @@ fn walk_expr(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx:
                         b.macro_shadow(),
                     ) || crate::call_graph::rust::macro_args::is_non_binding_expr_macro(
                         &name,
-                        b.macro_shadow(),
-                        b.macro_glob_taint(),
+                        b.expr_macro_shadow(),
+                        b.macro_use_extern(),
                     )
                 })
                 .unwrap_or(false);

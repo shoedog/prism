@@ -183,7 +183,8 @@ impl RustCrateConfig {
     }
 }
 
-/// Is `path` a conventional Rust crate root? (Keys use forward slashes.)
+/// Is `path` a conventional Rust crate root? (Keys use forward slashes.) `tests/<name>.rs`,
+/// `benches/<name>.rs` and `examples/<name>.rs` count only outside a `src/` directory.
 fn is_convention_root(p: &str) -> bool {
     if !p.ends_with(".rs") {
         return false;
@@ -199,8 +200,15 @@ fn is_convention_root(p: &str) -> bool {
         return rest == "main.rs" || (rest.ends_with("/main.rs")) || !rest.contains('/');
     }
     // benches/<name>.rs, tests/<name>.rs, examples/<name>.rs (single level).
+    // Cargo names these targets only at the package root: a `tests/`, `benches/` or
+    // `examples/` directory below a `src/` segment holds modules, never crate roots
+    // (`src/data_flow/tests/*.rs`).
     for dir in ["benches/", "tests/", "examples/"] {
         if let Some(rest) = segment_after(p, dir) {
+            let prefix = &p[..p.len() - rest.len() - dir.len()];
+            if prefix.split('/').any(|seg| seg == "src") {
+                continue;
+            }
             if !rest.contains('/') && rest.ends_with(".rs") {
                 return true;
             }
@@ -297,10 +305,7 @@ pub fn populate_rust(
             to_walk.push((root.clone(), scope));
         }
     }
-    // Pass 2: walk each root's items (which recursively pulls in `mod` files). Library and
-    // binary roots first: a test-like root that is also one of their modules is then skipped
-    // (see `Builder::walk_root`).
-    to_walk.sort_by_key(|(root, _)| builder::is_secondary_root(root));
+    // Pass 2: walk each root's items (which recursively pulls in `mod` files).
     for (root, scope) in &to_walk {
         b.walk_root(root, *scope);
     }

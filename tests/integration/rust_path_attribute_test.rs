@@ -499,10 +499,9 @@ fn o3_a_site_inside_a_double_loaded_file_keeps_only_its_own_file() {
 }
 
 #[test]
-fn o5_a_conventional_root_that_is_also_a_module_is_not_a_second_occurrence() {
-    // `src/m/tests/t.rs` is a crate root by convention (`tests/<name>.rs`) and the module
-    // `m::tests::t`. The duplicate carries no second parent, so an in-file site keeps its
-    // cross-file target (the guard of `multi_occurrence_files` does not apply).
+fn o5_a_tests_directory_below_src_holds_modules_not_roots() {
+    // `src/m/tests/t.rs` is the module `m::tests::t` only (Cargo names `tests/<name>.rs` of
+    // a package, not of `src/`): one occurrence, so an in-file site keeps its cross-file target.
     let cg = build(&[
         ("src/lib.rs", "mod m;\n"),
         ("src/m.rs", "pub fn g() {}\nmod tests;\n"),
@@ -516,22 +515,58 @@ fn o5_a_conventional_root_that_is_also_a_module_is_not_a_second_occurrence() {
 }
 
 #[test]
-fn o4_a_path_cycle_builds_without_looping() {
+fn o4_a_path_cycle_builds_without_looping_and_its_shell_refuses() {
+    // `a.rs` mounts `b.rs`, `b.rs` mounts `a.rs`: the second `a` is a cyclic shell. A path
+    // through it binds nothing, while the first occurrences bind.
     let cg = build(&[
         (
             "src/lib.rs",
-            "mod a;\npub fn g() {\n    crate::a::b::f();\n}\n",
+            "mod a;\npub fn g() {\n    crate::a::b::f();\n    crate::a::b::a::h();\n    crate::a::h();\n}\n",
         ),
-        ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
         (
-            "src/b.rs",
-            "#[path = \"a.rs\"]\npub mod a;\npub fn f() {}\n",
+            "src/a.rs",
+            "#[path = \"b.rs\"]\npub mod b;\npub fn h() {}\n",
         ),
+        ("src/b.rs", "#[path = \"a.rs\"]\npub mod a;\npub fn f() {}\n"),
     ]);
     binds(
         &cg,
         ("src/lib.rs", "g", "crate::a::b::f"),
         ("src/b.rs", "f", 3),
+    );
+    binds(
+        &cg,
+        ("src/lib.rs", "g", "crate::a::h"),
+        ("src/a.rs", "h", 3),
+    );
+    unbound(&cg, "src/lib.rs", "g", "crate::a::b::a::h");
+}
+
+#[test]
+fn o6_a_file_that_is_a_real_test_root_and_a_mounted_module_is_two_occurrences() {
+    // R2-W2: `tests/probe.rs` is Cargo's integration-test crate AND the library's module
+    // `probe`. `crate::helper()` means `tests/probe.rs:1` in one and `src/lib.rs` in the
+    // other: the in-file site refuses; both externally addressed paths bind by identity.
+    let cg = build(&[
+        (
+            "src/lib.rs",
+            "#[path = \"../tests/probe.rs\"]\npub mod probe;\npub fn helper() -> u8 { 1 }\npub fn g() {\n    crate::probe::probe();\n    crate::probe::helper();\n}\n",
+        ),
+        (
+            "tests/probe.rs",
+            "pub fn helper() -> u8 { 2 }\npub fn probe() -> u8 { crate::helper() }\n",
+        ),
+    ]);
+    unbound(&cg, "tests/probe.rs", "probe", "crate::helper");
+    binds(
+        &cg,
+        ("src/lib.rs", "g", "crate::probe::probe"),
+        ("tests/probe.rs", "probe", 2),
+    );
+    binds(
+        &cg,
+        ("src/lib.rs", "g", "crate::probe::helper"),
+        ("tests/probe.rs", "helper", 1),
     );
 }
 

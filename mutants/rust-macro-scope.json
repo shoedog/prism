@@ -38,7 +38,7 @@
     ],
     "MS-05-qualifier-ignored": [
       "src/call_graph/rust/macro_args.rs",
-      "    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {\n        return false;\n    }\n    match macro_name.rsplit_once(\"::\") {\n        None => !glob_tainted,\n        Some((qualifier, _)) => TRANSPARENT_QUALIFIERS.contains(&qualifier),\n    }",
+      "    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {\n        return false;\n    }\n    match macro_name.rsplit_once(\"::\") {\n        None => !macro_use_extern,\n        Some((qualifier, _)) => TRANSPARENT_QUALIFIERS.contains(&qualifier),\n    }",
       "    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {\n        return false;\n    }\n    true",
       [
         "rust_macro_scope_test::k8_a_foreign_qualifier_is_not_the_std_macro"
@@ -46,7 +46,7 @@
     ],
     "MS-06-populator-ignores-the-second-list": [
       "src/name_resolution/rust_populator/walk/locals.rs",
-      ") || crate::call_graph::rust::macro_args::is_non_binding_expr_macro(\n                        &name,\n                        b.macro_shadow(),\n                        b.macro_glob_taint(),\n                    )\n",
+      ") || crate::call_graph::rust::macro_args::is_non_binding_expr_macro(\n                        &name,\n                        b.expr_macro_shadow(),\n                        b.macro_use_extern(),\n                    )\n",
       ")\n",
       [
         "rust_macro_scope_test::m1_no_name_expression_macros_do_not_poison_later_calls"
@@ -58,21 +58,13 @@
       "",
       [
         "rust_macro_scope_test::w1_a_macro_imported_under_a_std_spelling_still_poisons",
-        "rust_macro_scope_test::w4_an_alias_of_a_transparent_macro_withholds_its_transparency"
-      ]
-    ],
-    "MS-08-glob-rule-dropped-w1": [
-      "src/call_graph/rust/macro_args.rs",
-      "        None => !glob_tainted,",
-      "        None => true,",
-      [
-        "rust_macro_scope_test::w5_an_external_glob_poisons_the_unqualified_spelling"
+        "rust_macro_scope_test::w2_an_external_import_of_a_std_spelling_still_poisons"
       ]
     ],
     "MS-09-macro-use-extern-ignored-w1": [
-      "src/name_resolution/rust_populator/builder.rs",
-      "            || self.macro_glob_census.repo_wide\n",
-      "",
+      "src/call_graph/rust/macro_args.rs",
+      "        None => !macro_use_extern,",
+      "        None => true,",
       [
         "rust_macro_scope_test::w6_macro_use_extern_crate_poisons_every_file"
       ]
@@ -81,14 +73,6 @@
       "src/call_graph/rust/macro_args.rs",
       "            if !(STD_ROOTS.contains(&u.root.as_str()) && !u.aliased && u.bound == u.original) {",
       "            if true {",
-      [
-        "rust_macro_scope_test::k12_super_and_crate_globs_and_std_imports_do_not_poison"
-      ]
-    ],
-    "MS-11-super-glob-treated-as-external-w1": [
-      "src/call_graph/rust/macro_args.rs",
-      "            if !(STD_ROOTS.contains(&r.as_str())\n                || matches!(r.as_str(), \"crate\" | \"self\" | \"super\"))\n            {",
-      "            if !STD_ROOTS.contains(&r.as_str()) {",
       [
         "rust_macro_scope_test::k12_super_and_crate_globs_and_std_imports_do_not_poison"
       ]
@@ -108,7 +92,7 @@
       "        } else if false {",
       [
         "rust_macro_scope_test::w1_a_macro_imported_under_a_std_spelling_still_poisons",
-        "rust_macro_scope_test::w4_an_alias_of_a_transparent_macro_withholds_its_transparency"
+        "rust_macro_scope_test::w8_a_chain_of_in_repo_aliases_of_a_macro_taints"
       ]
     ],
     "MS-14-alias-of-any-in-repo-item-taints-2": [
@@ -134,6 +118,22 @@
       [
         "rust_macro_scope_test::w7_an_alias_of_an_external_item_taints",
         "rust_macro_scope_test::w2_an_external_import_of_a_std_spelling_still_poisons"
+      ]
+    ],
+    "MS-17-transparent-list-uses-the-census-r3": [
+      "src/call_graph/rust/macro_args.rs",
+      "pub fn collect_macro_shadow_set(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {\n",
+      "pub fn collect_macro_shadow_set(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {\n    if true {\n        return collect_expr_macro_shadow_set(files);\n    }\n",
+      [
+        "rust_macro_scope_test::k16_an_external_named_import_of_a_transparent_spelling_keeps_call_extraction"
+      ]
+    ],
+    "MS-18-e2-uses-the-definitions-only-set-r3": [
+      "src/name_resolution/rust_populator/walk/locals.rs",
+      "                        b.expr_macro_shadow(),",
+      "                        b.macro_shadow(),",
+      [
+        "rust_macro_scope_test::w1_a_macro_imported_under_a_std_spelling_still_poisons"
       ]
     ]
   }

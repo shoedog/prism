@@ -75,12 +75,12 @@ pub(crate) struct Builder<'f> {
     /// Consumed by `walk/locals.rs`'s wildcard-poison exemption via
     /// [`Builder::macro_shadow`].
     macro_shadow: BTreeSet<String>,
-    /// Files with an external-crate `use` glob, and whether a `#[macro_use] extern crate`
-    /// exists (`macro_args::collect_macro_glob_census`): an unqualified std expression macro
-    /// is not trusted in them or in the modules below them (#765 PR D, W1).
-    macro_glob_census: crate::call_graph::rust::macro_args::MacroGlobCensus,
-    /// Parallel to `active`: whether the module occurrence being populated is tainted.
-    taint_stack: Vec<bool>,
+    /// The shadow set of the E2 std expression macros (`macro_rules!` names plus the names a
+    /// `use` item can bring a macro under, `macro_args::collect_expr_macro_shadow_set`).
+    expr_macro_shadow: BTreeSet<String>,
+    /// A `#[macro_use] extern crate` of a non-std crate exists: its macros shadow the prelude
+    /// silently, so an unqualified E2 spelling is not trusted anywhere (#765 PR D, W1).
+    macro_use_extern: bool,
     /// `(binding index, path)` of every `pub(in path)` binding, resolved in
     /// `finish()` by [`super::restrict::resolve_restricts`] (#710).
     pending_restricts: Vec<(usize, RawPath)>,
@@ -102,13 +102,15 @@ impl<'f> Builder<'f> {
         let mut graph = ScopeGraph::new();
         graph.file_paths = file_paths;
         let macro_shadow = crate::call_graph::rust::macro_args::collect_macro_shadow_set(files);
-        let macro_glob_census =
-            crate::call_graph::rust::macro_args::collect_macro_glob_census(files);
+        let expr_macro_shadow =
+            crate::call_graph::rust::macro_args::collect_expr_macro_shadow_set(files);
+        let macro_use_extern =
+            crate::call_graph::rust::macro_args::has_macro_use_extern_crate(files);
         Builder {
             graph,
             macro_shadow,
-            macro_glob_census,
-            taint_stack: Vec::new(),
+            expr_macro_shadow,
+            macro_use_extern,
             files,
             config,
             only_files,
@@ -381,23 +383,22 @@ impl<'f> Builder<'f> {
         *n += 1;
         self.modeled.insert(path.to_string());
         self.active.push(path.to_string());
-        let parent = self.taint_stack.last().copied().unwrap_or(false);
-        let tainted = parent
-            || self.macro_glob_census.repo_wide
-            || self.macro_glob_census.files.contains(path);
-        self.taint_stack.push(tainted);
         true
     }
 
     pub(crate) fn end_occurrence(&mut self) {
         self.active.pop();
-        self.taint_stack.pop();
     }
 
-    /// Is the module occurrence being populated (or an ancestor module file) exposed to a
-    /// macro imported by an external glob? See [`Builder::macro_glob_census`].
-    pub(crate) fn macro_glob_taint(&self) -> bool {
-        self.taint_stack.last().copied().unwrap_or(false)
+    /// The shadow set of the E2 std expression macros. See [`Builder::expr_macro_shadow`].
+    pub(crate) fn expr_macro_shadow(&self) -> &BTreeSet<String> {
+        &self.expr_macro_shadow
+    }
+
+    /// Does a `#[macro_use] extern crate` of a non-std crate exist? See
+    /// [`Builder::macro_use_extern`].
+    pub(crate) fn macro_use_extern(&self) -> bool {
+        self.macro_use_extern
     }
 
     /// Did `path`'s file fail to parse (error rate ≥ floor)?
@@ -446,12 +447,6 @@ impl<'f> Builder<'f> {
 
     /// PASS 2: walk a root's items into its (already-minted) `Root` scope.
     pub(crate) fn walk_root(&mut self, root_path: &str, root_scope: ScopeId) {
-        // The loader names `src/**/tests/*.rs` roots by convention although they are also
-        // modules of the crate. Such a secondary root walked after its module occurrence
-        // is only a duplicate with no parent: skip it so the file keeps ONE occurrence.
-        if is_secondary_root(root_path) && self.occurrences.contains_key(root_path) {
-            return;
-        }
         let dir = parent_dir(root_path);
         if self.begin_occurrence(root_path) {
             super::walk::walk_module_file(self, root_path, root_scope, &dir);
@@ -719,13 +714,6 @@ fn path_then_walk(b: &mut Builder<'_>, path: &str, scope: ScopeId, child_dir: &s
     super::walk::walk_module_file(b, path, scope, child_dir);
     b.end_occurrence();
     true
-}
-
-/// A conventional test-like root (`tests/`, `benches/`, `examples/` directory), which the
-/// populator walks after the library and binary roots.
-pub(crate) fn is_secondary_root(path: &str) -> bool {
-    path.split('/')
-        .any(|seg| matches!(seg, "tests" | "benches" | "examples"))
 }
 
 /// `Target::Scope` convenience.

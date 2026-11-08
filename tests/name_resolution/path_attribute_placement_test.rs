@@ -468,3 +468,68 @@ fn w3_a_mount_inside_an_unplaceable_inline_module_binds_nothing() {
     ]);
     assert_eq!(bound(&fs, &["i", "m"]), None);
 }
+
+// ── Round 3 (#765 PR D): convention roots, the occurrence cap ───────────────
+
+#[test]
+fn r1_convention_roots_are_package_level_targets_only() {
+    // Cargo names `tests/*.rs`, `benches/*.rs`, `examples/*.rs` of a package; a `tests/`
+    // directory below `src/` holds modules (`src/data_flow/tests/*.rs`).
+    let fs = files(&[
+        ("src/lib.rs", ""),
+        ("src/m/tests/t.rs", ""),
+        ("src/m/benches/b.rs", ""),
+        ("tests/probe.rs", ""),
+        ("benches/b.rs", ""),
+        ("examples/e.rs", ""),
+        ("crates/x/src/lib.rs", ""),
+        ("crates/x/tests/y.rs", ""),
+        ("crates/x/src/tests/z.rs", ""),
+    ]);
+    let cfg = RustCrateConfig::from_convention(&fs);
+    assert_eq!(
+        cfg.crate_roots,
+        vec![
+            "benches/b.rs",
+            "crates/x/src/lib.rs",
+            "crates/x/tests/y.rs",
+            "examples/e.rs",
+            "src/lib.rs",
+            "tests/probe.rs",
+        ]
+    );
+}
+
+#[test]
+fn r2_an_explicit_root_with_a_tests_segment_is_still_populated_as_a_root() {
+    // The explicit root `src/m/tests/t.rs` is also the module `m::tests::t`: two occurrences.
+    let fs = files(&[
+        ("src/lib.rs", "mod m;\n"),
+        ("src/m.rs", "mod tests;\n"),
+        ("src/m/tests.rs", "mod t;\n"),
+        ("src/m/tests/t.rs", "pub fn f() {}\n"),
+    ]);
+    let mut cfg = RustCrateConfig::from_convention(&fs);
+    cfg.edition = 2021;
+    cfg.crate_roots.push("src/m/tests/t.rs".to_string());
+    let g = populate_rust(&fs, &cfg, None);
+    let t = file_id(&fs, "src/m/tests/t.rs").unwrap();
+    assert!(g.multi_occurrence_files.contains(&t));
+}
+
+#[test]
+fn r3_the_occurrence_cap_is_sixteen() {
+    // 17 mounts of one file: the first 16 are populated, the 17th is a poisoned shell.
+    let mut lib = String::new();
+    for i in 1..=17 {
+        lib.push_str(&format!("#[path = \"shared.rs\"]\npub mod m{i};\n"));
+    }
+    let fs = files(&[("src/lib.rs", &lib), ("src/shared.rs", "pub fn f() {}\n")]);
+    let g = populate(&fs);
+    for i in 1..=17usize {
+        let name = format!("m{i}");
+        let m = module(&g, &fs, "src/lib.rs", &[name.as_str()]);
+        let populated = g.bindings.iter().any(|b| b.scope == m && b.name == "f");
+        assert_eq!(populated, i <= 16, "occurrence {i}");
+    }
+}
