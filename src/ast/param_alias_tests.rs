@@ -173,3 +173,83 @@ fn forms_the_body_does_not_alias_are_not_aliases_in_the_list() {
         );
     }
 }
+
+#[test]
+fn a_pattern_default_with_an_identifier_value_is_the_body_destructuring_alias() {
+    let some = |a: &str, t: &str| (a.to_string(), Some(t.to_string()));
+    // Object patterns alias the field of the target, anonymous owners included (the body's `js_ts_own_alias_target`).
+    assert_eq!(
+        alias_targets(Language::JavaScript, "function f(o, { a: u } = o) {}"),
+        vec![some("u", "o.a")]
+    );
+    assert_eq!(
+        alias_targets(Language::JavaScript, "function f(o, { a } = o) {}"),
+        vec![some("a", "o.a")]
+    );
+    assert_eq!(
+        alias_targets(
+            Language::TypeScript,
+            "function f(o: any, { a: u }: any = o) {}"
+        ),
+        vec![some("u", "o.a")]
+    );
+    // An array pattern has its def, but no anonymous-owner alias (as for `const [u] = o`); the named-owner alias
+    // map gets it from the body's pattern extractor.
+    assert_eq!(
+        alias_targets(Language::JavaScript, "function f(o, [u] = o) {}"),
+        vec![("u".to_string(), None)]
+    );
+    assert_eq!(
+        triples(
+            Language::JavaScript,
+            "function f(o, [u] = o, { a: w } = o) {}"
+        ),
+        vec![
+            ("u".to_string(), "o".to_string(), 1),
+            ("w".to_string(), "o.a".to_string(), 1)
+        ]
+    );
+    // A defaulted entry is no alias (the body's extractor skips it), nor is a TDZ self reference.
+    for source in [
+        "function f(o, { a: u = 1 } = o) {}",
+        "function f(o, { a = 1 } = o) {}",
+        "function f([o] = o) {}",
+        "function f([u] = o, o) {}",
+    ] {
+        assert_eq!(triples(Language::JavaScript, source), vec![], "{source}");
+    }
+}
+
+fn triples(language: Language, source: &str) -> Vec<(String, String, usize)> {
+    let parsed = parse(language, source);
+    let function = parsed.all_functions()[0];
+    let lines = (1..=source.lines().count()).collect();
+    parsed.js_ts_param_default_alias_triples(&function, &lines)
+}
+
+#[test]
+fn every_alias_def_and_triple_sits_on_the_owners_first_line() {
+    // Main puts every formal's def on the first line; a row of the signature that holds no CFG node would make the
+    // twin neither kill nor collapse with the formal's def.
+    for source in [
+        "function f(\n  o,\n  u = o,\n) {}",
+        "function f(a,\n  o,\n  [u] = o,\n  { k: w } = o,\n) {}",
+    ] {
+        let parsed = parse(Language::JavaScript, source);
+        let function = parsed.all_functions()[0];
+        let lines = (1..=source.lines().count()).collect();
+        let mut spans = Vec::new();
+        parsed.js_ts_param_default_alias_spans(&function, &lines, &mut spans);
+        assert!(!spans.is_empty(), "{source}");
+        assert!(spans.iter().all(|s| s.line == 1), "{source}: {spans:?}");
+        // the bytes stay on the identifier
+        for s in &spans {
+            assert_eq!(&source[s.start_byte..s.end_byte], s.path.base, "{source}");
+        }
+        let triples = parsed.js_ts_param_default_alias_triples(&function, &lines);
+        assert!(
+            !triples.is_empty() && triples.iter().all(|t| t.2 == 1),
+            "{triples:?}"
+        );
+    }
+}

@@ -271,7 +271,11 @@ impl ParsedFile {
         }
     }
 
-    fn extract_destructuring_def_spans(&self, pattern: &Node<'_>, out: &mut Vec<PathSpan>) {
+    pub(in crate::ast) fn extract_destructuring_def_spans(
+        &self,
+        pattern: &Node<'_>,
+        out: &mut Vec<PathSpan>,
+    ) {
         let mut cursor = pattern.walk();
         for child in pattern.children(&mut cursor) {
             match child.kind() {
@@ -472,7 +476,7 @@ impl ParsedFile {
     }
 
     /// Recursively extract aliases from a destructuring pattern node.
-    fn extract_pattern_aliases(
+    pub(in crate::ast) fn extract_pattern_aliases(
         &self,
         pattern: &Node<'_>,
         rhs_base: &str,

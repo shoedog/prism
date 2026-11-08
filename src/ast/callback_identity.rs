@@ -1050,7 +1050,12 @@ impl ParsedFile {
                     {
                         holder.child_by_field_name("value")
                     }
-                    _ => None,
+                    // #761: a parameter default `{ a: u } = o` is the declarator `const { a: u } = o`.
+                    _ => {
+                        return self
+                            .js_ts_param_pattern_alias_target(pattern)
+                            .map(|object| format!("{object}.{key}"));
+                    }
                 };
                 plain_rhs(value).map(|object| format!("{object}.{key}"))
             }

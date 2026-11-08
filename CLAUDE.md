@@ -534,13 +534,18 @@ also suppresses `p.x`) all count. `p[k]` counts as a bare read; `this.x`, destru
 `arguments` are not handled. A bare read in a default of the own parameter list (`u = o`, `u = g(o)`,
 `{ k = o } = {}`, a computed pattern key; a nested callable's read counts, as in the body) makes the
 formal mixed, like the same read in the body (#761; `o[k] = v` written in the list is not a read, it
-stays `own-params`' domain). A default that is a plain identifier is the body alias `const u = o`
-placed at the parameter: the alias binding gets its def and the alias twin of `o` is minted by the
-same machinery (named owners: the alias map; anonymous owners: the alias def's own span), so a write
-through `u` is a write of `o.<path>` and `o` is not `exact` across it. A self or forward reference
-(`u = u`, `a = b, b`: a TDZ error) and an alias of a refused formal (seam, eval, `arguments`) are not
-aliases. Forms the body does not alias are not aliased here either (`{ a: u } = { a: o }`, `[u] = [o]`;
-residual, see the known-gaps doc). `PRISM_RD_CENSUS_TRACE=1` names the owners as
+stays `own-params`' domain). A default that is a plain identifier, or a destructuring pattern with an
+identifier value (`[u] = o`, `{ a: u } = o`; the body's pattern extractors, owner kind by owner kind), is
+the body alias `const u = o` placed at the parameter: the alias binding gets its def and the alias twin
+is minted by the same machinery (named owners: the alias map; anonymous owners: the alias def's own
+span), every one of them on the owner's first line with the identifier's bytes (where main puts every
+formal's def). So a write through `u` is a write of `o.<path>` and the formal's edge is not `exact`
+across it, with the body's limits: the alias twin never kills an earlier direct def of the path
+(#783), wrapped aliases, a conditional rebind, a deferred nested-callable write and a literal
+right-hand side are not seen, and an object-pattern alias leaves the formal's own edge `exact` (the
+field twin shares its node). A self or forward reference (`u = u`, `a = b, b`: a TDZ error) and an
+alias of a refused formal (seam, eval, `arguments`) are not aliases. See the known-gaps doc for the
+residual list. `PRISM_RD_CENSUS_TRACE=1` names the owners as
 `rd-census-owner<TAB>param-alias|param-bare<TAB>file<TAB>owner<TAB>first<TAB>last`. See
 `docs/features/language-coverage/js-ts-known-gaps.md` §6.
 

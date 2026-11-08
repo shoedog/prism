@@ -35,12 +35,21 @@ fn default_entry<'a>(param: Node<'a>) -> Option<(Node<'a>, Node<'a>)> {
 }
 
 impl ParsedFile {
-    /// Whether the entry `entry` of `params` is an alias `u = o`: it binds a plain identifier to a plain
-    /// identifier that no formal at or after the entry binds (a self or forward reference is a TDZ error:
-    /// no value flows). Returns the target name.
-    fn param_alias_of_entry(&self, params: Node<'_>, entry: Node<'_>) -> Option<String> {
+    /// Whether the entry `entry` of `params` aliases a plain identifier: it binds a plain identifier or a
+    /// destructuring pattern (`u = o`, `[u] = o`, `{ a: u } = o`) and its default is a plain identifier that no
+    /// formal at or after the entry binds (a self or forward reference is a TDZ error: no value flows).
+    /// Returns the binding and the target name.
+    fn param_alias_of_entry<'a>(
+        &self,
+        params: Node<'_>,
+        entry: Node<'a>,
+    ) -> Option<(Node<'a>, String)> {
         let (binding, value) = default_entry(entry)?;
-        if binding.kind() != "identifier" || value.kind() != "identifier" {
+        if !matches!(
+            binding.kind(),
+            "identifier" | "object_pattern" | "array_pattern"
+        ) || value.kind() != "identifier"
+        {
             return None;
         }
         let target = self.node_text(&value);
@@ -49,11 +58,10 @@ impl ParsedFile {
             .named_children(&mut cursor)
             .filter(|param| param.start_byte() >= entry.start_byte())
             .any(|param| self.js_ts_binding_pattern_may_bind(param, target));
-        (!later_binds).then(|| target.to_string())
+        (!later_binds).then(|| (binding, target.to_string()))
     }
 
-    /// The aliases the own parameter list establishes: `(alias identifier, target name)` for every
-    /// `u = o` entry (see `param_alias_of_entry`), in source order.
+    /// The aliasing entries of the own parameter list, in source order (see `param_alias_of_entry`).
     fn js_ts_param_default_aliases<'a>(&self, func_node: &Node<'a>) -> Vec<(Node<'a>, String)> {
         if !is_js_ts(self.language) {
             return Vec::new();
@@ -64,10 +72,7 @@ impl ParsedFile {
         let mut cursor = params.walk();
         let found = params
             .named_children(&mut cursor)
-            .filter_map(|entry| {
-                let target = self.param_alias_of_entry(params, entry)?;
-                Some((default_entry(entry)?.0, target))
-            })
+            .filter_map(|entry| self.param_alias_of_entry(params, entry))
             .collect();
         found
     }
@@ -83,6 +88,22 @@ impl ParsedFile {
             return None;
         }
         self.param_alias_of_entry(params, entry)
+            .map(|(_, target)| target)
+    }
+
+    /// The target of the aliasing parameter default whose binding is the destructuring pattern `pattern`
+    /// (`[u] = o`, `{ a: u } = o`), if it is one.
+    pub(crate) fn js_ts_param_pattern_alias_target(&self, pattern: Node<'_>) -> Option<String> {
+        if !is_js_ts(self.language) {
+            return None;
+        }
+        let entry = pattern.parent()?;
+        let params = entry.parent()?;
+        if params.kind() != "formal_parameters" || default_entry(entry)?.0.id() != pattern.id() {
+            return None;
+        }
+        self.param_alias_of_entry(params, entry)
+            .map(|(_, target)| target)
     }
 
     /// `js_ts_param_default_alias_target` for the identifier occupying `[start, end)`.
@@ -99,35 +120,52 @@ impl ParsedFile {
         self.js_ts_param_default_alias_target(ident)
     }
 
-    /// Alias triples `(alias, target, line)` for `collect_alias_assignments` (the named-owner alias map).
+    /// Alias triples `(alias, target, line)` for `collect_alias_assignments` (the named-owner alias map),
+    /// from the body's own extractors: an identifier is the declarator `const u = o`, a pattern is
+    /// `const [u] = o` / `const { a: u } = o`. Every def and twin of the list sits on the owner's first line
+    /// with the identifier's bytes, where main puts every formal's def (a signature row other than the first
+    /// maps to no CFG node, so a twin there would neither kill nor collapse with the formal's def).
     pub(crate) fn js_ts_param_default_alias_triples(
         &self,
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
     ) -> Vec<(String, String, usize)> {
-        self.js_ts_param_default_aliases(func_node)
-            .into_iter()
-            .map(|(ident, target)| {
-                (
-                    self.node_text(&ident).to_string(),
-                    target,
-                    ident.start_position().row + 1,
-                )
-            })
-            .filter(|(_, _, line)| lines.contains(line))
-            .collect()
+        let start = self.node_line_range(func_node).0;
+        let mut out = Vec::new();
+        if !lines.contains(&start) {
+            return out;
+        }
+        for (binding, target) in self.js_ts_param_default_aliases(func_node) {
+            if binding.kind() == "identifier" {
+                out.push((self.node_text(&binding).to_string(), target, start));
+            } else {
+                self.extract_pattern_aliases(&binding, &target, start, &mut out);
+            }
+        }
+        out
     }
 
-    /// The def of each alias binding, as the lvalue query reports a body declarator's name.
+    /// The defs of the alias bindings, as the lvalue query reports a body declarator's names, on the owner's
+    /// first line (see `js_ts_param_default_alias_triples`).
     pub(crate) fn js_ts_param_default_alias_spans(
         &self,
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
         out: &mut Vec<PathSpan>,
     ) {
-        for (ident, _) in self.js_ts_param_default_aliases(func_node) {
-            if lines.contains(&(ident.start_position().row + 1)) {
-                self.push_simple_lvalue_span(ident, out);
+        let start = self.node_line_range(func_node).0;
+        if !lines.contains(&start) {
+            return;
+        }
+        for (binding, _) in self.js_ts_param_default_aliases(func_node) {
+            let from = out.len();
+            if binding.kind() == "identifier" {
+                self.push_simple_lvalue_span(binding, out);
+            } else {
+                self.extract_destructuring_def_spans(&binding, out);
+            }
+            for span in &mut out[from..] {
+                span.line = start;
             }
         }
     }
