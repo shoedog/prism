@@ -255,6 +255,10 @@ fn build_info_is_this_binary() {
     let info = build_info();
     assert_eq!(info.package_version, env!("CARGO_PKG_VERSION"));
     assert_eq!(info.build_identity.len(), 64);
+    // prism-mcp's identity test reads these through build_info(); pin them to the compile-time
+    // values here, where the root build.rs variables exist.
+    assert_eq!(info.grammar_fingerprint, env!("GRAMMAR_FINGERPRINT"));
+    assert_eq!(info.build_identity, env!("PRISM_CACHE_BUILD_IDENTITY"));
 }
 
 #[test]

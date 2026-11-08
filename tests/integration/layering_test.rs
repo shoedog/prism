@@ -58,7 +58,11 @@ fn offending_lines(rel: &str, text: &str) -> Vec<String> {
     text.lines()
         .enumerate()
         .filter(|(_, line)| !line.trim_start().starts_with("//"))
-        .filter(|(_, line)| line.contains("crate::algorithms") || line.contains("algorithms::"))
+        .filter(|(_, line)| {
+            line.contains("crate::algorithms")
+                || line.contains("prism::algorithms")
+                || line.contains("algorithms::")
+        })
         .map(|(i, line)| format!("{rel}:{}: {}", i + 1, line.trim()))
         .collect()
 }
@@ -127,6 +131,17 @@ fn gated_test_module_import_is_reported() {
     let hits = offending_lines("src/x.rs", text);
     assert_eq!(hits.len(), 1, "{hits:?}");
     assert!(hits[0].starts_with("src/x.rs:4:"), "{hits:?}");
+}
+
+#[test]
+fn the_crates_own_spelling_prism_algorithms_is_reported_even_when_aliased() {
+    let text = "use prism::algorithms as review;\nfn _x() { let _ = review::taint::slice; }\n";
+    let hits = offending_lines("crates/prism-mcp/src/x.rs", text);
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert!(
+        hits[0].starts_with("crates/prism-mcp/src/x.rs:1:"),
+        "{hits:?}"
+    );
 }
 
 #[test]
