@@ -326,8 +326,8 @@ fn collect_use_leaves(parsed: &ParsedFile, node: Node, out: &mut Vec<UseLeaf>) {
 }
 
 /// Walk one use tree. `root` is the first segment of the path above this node (None at the
-/// top). `external_glob` is set when a `*` import has a root other than std/core/alloc and
-/// `crate`/`self`/`super` (which can only re-export what the census already sees).
+/// top). Glob imports contribute no leaf: a glob-imported macro named like a prelude macro
+/// is rustc E0659, so the census has nothing to withhold for it.
 fn walk_use_tree(parsed: &ParsedFile, node: Node, root: Option<&str>, out: &mut Vec<UseLeaf>) {
     let text = |n: &Node| parsed.node_text(n).to_string();
     match node.kind() {
