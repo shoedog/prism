@@ -12,15 +12,15 @@ mod dfg_views;
 pub use dfg_views::dfg_labels;
 
 pub use prism::access_path::AccessPath;
-pub use prism::algorithms;
+pub use prism_review::algorithms;
 pub use prism::ast::ParsedFile;
 pub use prism::call_graph::CallGraph;
 pub use prism::cpg::{CodePropertyGraph, CpgContext};
 pub use prism::data_flow::DataFlowGraph;
 pub use prism::diff::{DiffInfo, DiffInput, ModifyType};
 pub use prism::languages::Language;
-pub use prism::output;
-pub use prism::output::{to_review_output, MultiReviewOutput};
+pub use prism_review::output;
+pub use prism_review::output::{to_review_output, MultiReviewOutput};
 pub use prism::slice::{
     DiagramWarning, DiagramWarningKind, MultiSliceResult, SliceConfig, SliceFinding, SliceResult,
     SlicingAlgorithm,

@@ -339,12 +339,12 @@ fn consumer_edge_sets_ignore_payload() {
     // over a whole-corpus diff — compared via JSON serialization since
     // `SliceResult` does not derive `PartialEq`.
     let diff = whole_corpus_diff(&repo);
-    let gradient_config = prism::algorithms::gradient_slice::GradientConfig::default();
+    let gradient_config = prism_review::algorithms::gradient_slice::GradientConfig::default();
     let exact_gradient =
-        prism::algorithms::gradient_slice::slice(&exact_ctx, &diff, &gradient_config)
+        prism_review::algorithms::gradient_slice::slice(&exact_ctx, &diff, &gradient_config)
             .expect("gradient_slice::slice failed on the Exact-labeled graph");
     let nameonly_gradient =
-        prism::algorithms::gradient_slice::slice(&nameonly_ctx, &diff, &gradient_config)
+        prism_review::algorithms::gradient_slice::slice(&nameonly_ctx, &diff, &gradient_config)
             .expect("gradient_slice::slice failed on the NameOnly-labeled graph");
     assert_eq!(
         exact_gradient.to_json().unwrap(),
@@ -356,9 +356,9 @@ fn consumer_edge_sets_ignore_payload() {
         "gradient_slice produced no blocks: vacuous check"
     );
 
-    let exact_circular = prism::algorithms::circular_slice::slice(&exact_ctx, &diff)
+    let exact_circular = prism_review::algorithms::circular_slice::slice(&exact_ctx, &diff)
         .expect("circular_slice::slice failed on the Exact-labeled graph");
-    let nameonly_circular = prism::algorithms::circular_slice::slice(&nameonly_ctx, &diff)
+    let nameonly_circular = prism_review::algorithms::circular_slice::slice(&nameonly_ctx, &diff)
         .expect("circular_slice::slice failed on the NameOnly-labeled graph");
     assert_eq!(
         exact_circular.to_json().unwrap(),

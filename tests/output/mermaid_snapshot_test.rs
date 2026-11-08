@@ -1,4 +1,4 @@
-use prism::output::format_mermaid_report;
+use prism_review::output::format_mermaid_report;
 use prism::slice::{
     EdgeStyle, GraphEdge, GraphNode, GraphShape, MultiSliceResult, NodeKind, SliceFinding,
     SliceGraph, SliceResult, SlicingAlgorithm,

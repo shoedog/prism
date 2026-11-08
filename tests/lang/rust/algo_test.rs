@@ -100,13 +100,13 @@ fn level2(z: i32) -> i32 {
             diff_lines: BTreeSet::from([3]),
         }],
     };
-    let barrier_config = prism::algorithms::barrier_slice::BarrierConfig {
+    let barrier_config = prism_review::algorithms::barrier_slice::BarrierConfig {
         max_depth: 2,
         barrier_symbols: BTreeSet::new(),
         barrier_modules: vec![],
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::barrier_slice::slice(
+    let result = prism_review::algorithms::barrier_slice::slice(
         &ctx,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::BarrierSlice),
@@ -177,13 +177,13 @@ fn classify(score: i32) -> &'static str {
             diff_lines: BTreeSet::from([4]),
         }],
     };
-    let condition = prism::algorithms::conditioned_slice::Condition {
+    let condition = prism_review::algorithms::conditioned_slice::Condition {
         var_name: "score".to_string(),
-        op: prism::algorithms::conditioned_slice::ConditionOp::Gt,
+        op: prism_review::algorithms::conditioned_slice::ConditionOp::Gt,
         value: "89".to_string(),
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::conditioned_slice::slice(
+    let result = prism_review::algorithms::conditioned_slice::slice(
         &ctx,
         &diff,
         &SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice),
@@ -227,7 +227,7 @@ fn safe_caller() {
         }],
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::echo_slice::slice(&ctx, &diff).unwrap();
+    let result = prism_review::algorithms::echo_slice::slice(&ctx, &diff).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::EchoSlice);
 }
 
@@ -253,7 +253,7 @@ fn deserialize(s: &str) -> Data {
             diff_lines: BTreeSet::from([3]),
         }],
     };
-    let result = prism::algorithms::symmetry_slice::slice(&files, &diff).unwrap();
+    let result = prism_review::algorithms::symmetry_slice::slice(&files, &diff).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SymmetrySlice);
 }
 
@@ -284,8 +284,8 @@ fn parse_footer(input: &str) -> Result<String, String> {
         }],
     };
     let pattern =
-        prism::algorithms::horizontal_slice::PeerPattern::NamePattern("parse_".to_string());
-    let result = prism::algorithms::horizontal_slice::slice(&files, &diff, &pattern).unwrap();
+        prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern("parse_".to_string());
+    let result = prism_review::algorithms::horizontal_slice::slice(&files, &diff, &pattern).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
 }
 
@@ -320,8 +320,8 @@ fn process_file(path: &str) -> Result<(), io::Error> {
             diff_lines: BTreeSet::from([6]),
         }],
     };
-    let concern = prism::algorithms::angle_slice::Concern::ErrorHandling;
-    let result = prism::algorithms::angle_slice::slice(&files, &diff, &concern).unwrap();
+    let concern = prism_review::algorithms::angle_slice::Concern::ErrorHandling;
+    let result = prism_review::algorithms::angle_slice::slice(&files, &diff, &concern).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::AngleSlice);
 }
 
@@ -348,13 +348,13 @@ fn transform(s: &str) -> String {
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
 
-    let config = prism::algorithms::chop::ChopConfig {
+    let config = prism_review::algorithms::chop::ChopConfig {
         source_file: path.to_string(),
         source_line: 3,
         sink_file: path.to_string(),
         sink_line: 5,
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::chop::slice(&ctx, &config).unwrap();
+    let result = prism_review::algorithms::chop::slice(&ctx, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }

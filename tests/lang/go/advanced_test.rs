@@ -33,13 +33,13 @@ func caller() {
         }],
     };
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
-    let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
+    let spiral_config = prism_review::algorithms::spiral_slice::SpiralConfig {
         max_ring: 4,
         auto_stop_threshold: 0.0,
     };
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
+        prism_review::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
     assert!(
         !result.blocks.is_empty(),
@@ -269,10 +269,10 @@ func Save(data string) Result {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::vertical_slice::slice(
+    let result = prism_review::algorithms::vertical_slice::slice(
         &ctx,
         &diff,
-        &prism::algorithms::vertical_slice::VerticalConfig::default(),
+        &prism_review::algorithms::vertical_slice::VerticalConfig::default(),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
@@ -344,12 +344,12 @@ fn test_threed_slice_go() {
             diff_lines: BTreeSet::from([4, 5]),
         }],
     };
-    let config = prism::algorithms::threed_slice::ThreeDConfig {
+    let config = prism_review::algorithms::threed_slice::ThreeDConfig {
         temporal_days: 365,
         git_dir: tmp.path().to_string_lossy().to_string(),
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
+    let result = prism_review::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
 }
 

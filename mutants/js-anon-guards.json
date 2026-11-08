@@ -131,7 +131,7 @@
    ]
   ],
   "AG-16-mermaid-lt-off": [
-   "src/output/mermaid.rs",
+   "crates/prism-review/src/output/mermaid.rs",
    "            '<' => tokens.push(\"&lt;\".into()),",
    "            '<' => tokens.push(\"<\".into()),",
    [
@@ -139,7 +139,7 @@
    ]
   ],
   "AG-17-mermaid-gt-off": [
-   "src/output/mermaid.rs",
+   "crates/prism-review/src/output/mermaid.rs",
    "            '>' => tokens.push(\"&gt;\".into()),",
    "            '>' => tokens.push(\">\".into()),",
    [
@@ -195,7 +195,7 @@
    ]
   ],
   "AG-25-mermaid-token-truncation-off": [
-   "src/output/mermaid.rs",
+   "crates/prism-review/src/output/mermaid.rs",
    "        if truncated && used + n > MAX - 1 {",
    "        if truncated && used + 1 > MAX - 1 {",
    [

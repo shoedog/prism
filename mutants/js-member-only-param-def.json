@@ -235,7 +235,7 @@
    ]
   ],
   "MO-40-fullflow-projection-guard-off": [
-   "src/algorithms/full_flow.rs",
+   "crates/prism-review/src/algorithms/full_flow.rs",
    "for def_loc in &seeds {",
    "for def_loc in &defs {",
    [

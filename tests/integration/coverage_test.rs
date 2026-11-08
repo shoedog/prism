@@ -869,7 +869,7 @@ def b(y):
 /// algorithm.
 #[test]
 fn diagram_coverage_for_plan1_algorithms() {
-    use prism::algorithms;
+    use prism_review::algorithms;
 
     // (label, config, files, diff)  — one or more fixtures per algorithm
     struct FixtureRun {

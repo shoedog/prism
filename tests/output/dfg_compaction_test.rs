@@ -5,7 +5,7 @@ use common::*;
 #[path = "dfg_compaction/controls.rs"]
 mod controls;
 
-use prism::api::{
+use prism_review::api::{
     load_review_inputs, run_review, AlgorithmParams, ReviewInputs, ReviewOptions, ReviewRun,
 };
 use prism::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult};
@@ -114,7 +114,7 @@ pub(super) fn params(files: &BTreeMap<String, ParsedFile>, old: &Path) -> Algori
     p
 }
 pub(super) fn output_pair(old: &ReviewRun, new: &ReviewRun, inputs: &ReviewInputs, repo: &Path) {
-    use prism::output::{to_review_output, to_sarif, SarifInputs};
+    use prism_review::output::{to_review_output, to_sarif, SarifInputs};
     assert!(old.errors.is_empty(), "baseline errors: {:?}", old.errors);
     assert!(new.errors.is_empty(), "candidate errors: {:?}", new.errors);
     assert_eq!(old.algorithms_run, new.algorithms_run);
@@ -145,11 +145,11 @@ pub(super) fn output_pair(old: &ReviewRun, new: &ReviewRun, inputs: &ReviewInput
         serde_json::to_vec(&sarif(old)).unwrap(),
         serde_json::to_vec(&sarif(new)).unwrap()
     );
-    let mut meta = prism::targets::TargetsMeta::default();
+    let mut meta = prism_review::targets::TargetsMeta::default();
     meta.repo_root = repo.into();
     meta.algorithms_run = new.algorithms_run.clone();
     let targets = |v: &ReviewRun| {
-        serde_json::to_vec(&prism::targets::project(
+        serde_json::to_vec(&prism_review::targets::project(
             &v.findings,
             &v.evidence,
             inputs,

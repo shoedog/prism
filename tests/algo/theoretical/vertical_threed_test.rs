@@ -35,12 +35,12 @@ fn test_threed_slice_python() {
         }],
     };
 
-    let config = prism::algorithms::threed_slice::ThreeDConfig {
+    let config = prism_review::algorithms::threed_slice::ThreeDConfig {
         temporal_days: 365,
         git_dir: tmp.path().to_string_lossy().to_string(),
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
+    let result = prism_review::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
     assert!(
         !result.blocks.is_empty(),
@@ -74,12 +74,12 @@ fn test_threed_slice_go() {
         }],
     };
 
-    let config = prism::algorithms::threed_slice::ThreeDConfig {
+    let config = prism_review::algorithms::threed_slice::ThreeDConfig {
         temporal_days: 365,
         git_dir: tmp.path().to_string_lossy().to_string(),
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
+    let result = prism_review::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
 
     let _ = std::fs::remove_dir_all(&tmp);
@@ -130,10 +130,10 @@ def repo_save(data):
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::vertical_slice::slice(
+    let result = prism_review::algorithms::vertical_slice::slice(
         &ctx,
         &diff,
-        &prism::algorithms::vertical_slice::VerticalConfig::default(),
+        &prism_review::algorithms::vertical_slice::VerticalConfig::default(),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
@@ -171,10 +171,10 @@ func repository(key string) string {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::vertical_slice::slice(
+    let result = prism_review::algorithms::vertical_slice::slice(
         &ctx,
         &diff,
-        &prism::algorithms::vertical_slice::VerticalConfig::default(),
+        &prism_review::algorithms::vertical_slice::VerticalConfig::default(),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
@@ -206,7 +206,7 @@ def repo_save(data):
         }],
     };
 
-    let config = prism::algorithms::vertical_slice::VerticalConfig {
+    let config = prism_review::algorithms::vertical_slice::VerticalConfig {
         layers: vec![
             "Handler".to_string(),
             "Service".to_string(),
@@ -214,7 +214,7 @@ def repo_save(data):
         ],
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::vertical_slice::slice(&ctx, &diff, &config).unwrap();
+    let result = prism_review::algorithms::vertical_slice::slice(&ctx, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
 }
 
@@ -238,12 +238,12 @@ fn test_threed_slice_python_risk_scoring() {
         }],
     };
 
-    let config = prism::algorithms::threed_slice::ThreeDConfig {
+    let config = prism_review::algorithms::threed_slice::ThreeDConfig {
         temporal_days: 365,
         git_dir: tmp.path().to_string_lossy().to_string(),
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
+    let result = prism_review::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
     assert!(
         !result.blocks.is_empty(),
         "ThreeDSlice should produce risk-scored blocks"
@@ -288,10 +288,10 @@ fn test_vertical_slice_python_layer_detection() {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::vertical_slice::slice(
+    let result = prism_review::algorithms::vertical_slice::slice(
         &ctx,
         &diff,
-        &prism::algorithms::vertical_slice::VerticalConfig::default(),
+        &prism_review::algorithms::vertical_slice::VerticalConfig::default(),
     )
     .unwrap();
     // Should produce blocks — at minimum the diff function

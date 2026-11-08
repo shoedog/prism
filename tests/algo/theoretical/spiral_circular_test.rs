@@ -179,13 +179,13 @@ def caller():
     };
 
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
-    let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
+    let spiral_config = prism_review::algorithms::spiral_slice::SpiralConfig {
         max_ring: 4,
         auto_stop_threshold: 0.0,
     };
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
+        prism_review::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
     assert!(!result.blocks.is_empty());
 }
@@ -222,13 +222,13 @@ func main() {
     };
 
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
-    let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
+    let spiral_config = prism_review::algorithms::spiral_slice::SpiralConfig {
         max_ring: 6,
         auto_stop_threshold: 0.0,
     };
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
+        prism_review::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
     assert!(!result.blocks.is_empty());
 }
@@ -237,13 +237,13 @@ func main() {
 fn test_spiral_slice_ring1_only_python() {
     let (files, _, diff) = make_python_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
-    let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
+    let spiral_config = prism_review::algorithms::spiral_slice::SpiralConfig {
         max_ring: 1,
         auto_stop_threshold: 0.0,
     };
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
+        prism_review::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -349,13 +349,13 @@ def test_compute():
     };
 
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
-    let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
+    let spiral_config = prism_review::algorithms::spiral_slice::SpiralConfig {
         max_ring: 6,
         auto_stop_threshold: 0.0,
     };
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
+        prism_review::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
     assert!(!result.blocks.is_empty());
 }
 
@@ -385,22 +385,22 @@ func caller() int { return outer(10) }
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
 
     let ctx = CpgContext::build(&files, None);
-    let ring2 = prism::algorithms::spiral_slice::slice(
+    let ring2 = prism_review::algorithms::spiral_slice::slice(
         &ctx,
         &diff,
         &config,
-        &prism::algorithms::spiral_slice::SpiralConfig {
+        &prism_review::algorithms::spiral_slice::SpiralConfig {
             max_ring: 2,
             auto_stop_threshold: 0.0,
         },
     )
     .unwrap();
 
-    let ring4 = prism::algorithms::spiral_slice::slice(
+    let ring4 = prism_review::algorithms::spiral_slice::slice(
         &ctx,
         &diff,
         &config,
-        &prism::algorithms::spiral_slice::SpiralConfig {
+        &prism_review::algorithms::spiral_slice::SpiralConfig {
             max_ring: 4,
             auto_stop_threshold: 0.0,
         },

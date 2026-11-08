@@ -120,7 +120,7 @@ fn test_relevant_slice_includes_alternates() {
 
 #[test]
 fn test_conditioned_slice_parses_conditions() {
-    use prism::algorithms::conditioned_slice::Condition;
+    use prism_review::algorithms::conditioned_slice::Condition;
 
     let c = Condition::parse("x==5").unwrap();
     assert_eq!(c.var_name, "x");
@@ -279,14 +279,14 @@ print(result)
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
 
-    let config = prism::algorithms::chop::ChopConfig {
+    let config = prism_review::algorithms::chop::ChopConfig {
         source_file: path.to_string(),
         source_line: 2,
         sink_file: path.to_string(),
         sink_line: 5,
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::chop::slice(&ctx, &config).unwrap();
+    let result = prism_review::algorithms::chop::slice(&ctx, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }
 
@@ -310,14 +310,14 @@ func transform(s string) string { return s }
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
 
-    let config = prism::algorithms::chop::ChopConfig {
+    let config = prism_review::algorithms::chop::ChopConfig {
         source_file: path.to_string(),
         source_line: 4,
         sink_file: path.to_string(),
         sink_line: 6,
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::chop::slice(&ctx, &config).unwrap();
+    let result = prism_review::algorithms::chop::slice(&ctx, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }
 
@@ -338,14 +338,14 @@ function process(o) { return o.value; }
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
 
-    let config = prism::algorithms::chop::ChopConfig {
+    let config = prism_review::algorithms::chop::ChopConfig {
         source_file: path.to_string(),
         source_line: 3,
         sink_file: path.to_string(),
         sink_line: 5,
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::chop::slice(&ctx, &config).unwrap();
+    let result = prism_review::algorithms::chop::slice(&ctx, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }
 
@@ -371,7 +371,7 @@ fn test_delta_slice_python() {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
+    let result = prism_review::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
 }
 
@@ -398,7 +398,7 @@ fn test_delta_slice_go() {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
+    let result = prism_review::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
 }
 
@@ -425,11 +425,11 @@ def process(x):
         }],
     };
 
-    let condition = prism::algorithms::conditioned_slice::Condition::parse("x==5").unwrap();
+    let condition = prism_review::algorithms::conditioned_slice::Condition::parse("x==5").unwrap();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
+        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 
@@ -458,11 +458,11 @@ func check(n int) int {
         }],
     };
 
-    let condition = prism::algorithms::conditioned_slice::Condition::parse("n>0").unwrap();
+    let condition = prism_review::algorithms::conditioned_slice::Condition::parse("n>0").unwrap();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
+        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 
@@ -490,21 +490,21 @@ function validate(input) {
         }],
     };
 
-    let condition = prism::algorithms::conditioned_slice::Condition::parse("input!=null").unwrap();
+    let condition = prism_review::algorithms::conditioned_slice::Condition::parse("input!=null").unwrap();
     assert_eq!(
         condition.op,
-        prism::algorithms::conditioned_slice::ConditionOp::IsNotNull
+        prism_review::algorithms::conditioned_slice::ConditionOp::IsNotNull
     );
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
+        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 
 #[test]
 fn test_conditioned_slice_parse_operators() {
-    use prism::algorithms::conditioned_slice::{Condition, ConditionOp};
+    use prism_review::algorithms::conditioned_slice::{Condition, ConditionOp};
 
     let c = Condition::parse("x==5").unwrap();
     assert_eq!(c.op, ConditionOp::Eq);

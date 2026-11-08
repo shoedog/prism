@@ -594,7 +594,7 @@ fn format_callers_lists_a_followed_alias_caller_once() {
         let diff = DiffInput::parse_unified_diff(
             "--- a/m.js\n+++ b/m.js\n@@ -1,3 +1,3 @@\n export function f() {\n-  return 0;\n+  return 1;\n }\n",
         );
-        let out = prism::output::to_callers_output(&ctx, &diff, 1);
+        let out = prism_review::output::to_callers_output(&ctx, &diff, 1);
         let names: Vec<_> = out
             .callers
             .iter()
@@ -681,7 +681,7 @@ fn format_callers(files: &[(&str, &str)], diff: &str) -> Vec<(String, [usize; 2]
         );
     }
     let ctx = CpgContext::build(&parsed, None);
-    let out = prism::output::to_callers_output(&ctx, &DiffInput::parse_unified_diff(diff), 1);
+    let out = prism_review::output::to_callers_output(&ctx, &DiffInput::parse_unified_diff(diff), 1);
     out.callers
         .iter()
         .map(|e| {

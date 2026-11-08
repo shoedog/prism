@@ -1,4 +1,4 @@
-use prism::api::*;
+use prism_review::api::*;
 use prism::slice::{SliceConfig, SlicingAlgorithm};
 use serde_json::Value;
 use std::fs;

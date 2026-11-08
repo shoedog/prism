@@ -1,0 +1,156 @@
+//! Review-taint flat sink matching by call position, with a hybrid receiver policy (#622 S1).
+//!
+//! The flat `SINK_PATTERNS` list in `taint/flat.rs` matched substrings of any
+//! identifier on a line (`Query` in `sanitizedQuery`, `eval` in `revalidate`,
+//! `get_user` in `get_user_id()`). For JS/TS/TSX, Python and Go the decision now
+//! comes from the AST: the identifier must be the callee of a call (or the target
+//! of an assignment for DOM and location sinks). Where the name is ambiguous the
+//! receiver decides under the hybrid policy: an UNKNOWN receiver keeps firing for
+//! the high-severity names, only a PROVEN non-sink suppresses (a regex, a logger,
+//! a message channel, a collection or file object, a same-named function declared
+//! in the file, a zero-argument call, a shadowed binding), and the old receiver
+//! allowlists (response chains, database handles, `child_process` bindings,
+//! import-path-resolved Go packages) are positive evidence only: they choose the
+//! rule and CWE tag. Bindings resolve lexically (`js_scope`, `py_scope`,
+//! `go_scope`). Other languages keep the legacy substring list (`legacy.rs`),
+//! except for shell-only command names (Bash only) and `get_user` (exact, C/C++).
+//!
+//! Structured sinks (`GO_CWE78_SINKS`, `JS_CWE22_SINKS`, ...) are untouched and
+//! consulted independently by the caller.
+
+mod callee;
+mod go;
+mod go_scope;
+mod js;
+mod js_binding;
+mod js_modules;
+mod js_scope;
+mod legacy;
+mod py_modules;
+mod py_scope;
+mod python;
+mod sqla;
+mod sqla_chain;
+mod sqla_helpers;
+mod sqla_tables;
+mod sqla_uses;
+mod sqla_value;
+mod strength;
+mod structured;
+
+pub(crate) use js::exec_call_is_command as js_exec_call_is_command;
+pub(crate) use strength::Strength;
+
+use self::callee::Src;
+use prism::ast::ParsedFile;
+use prism::languages::Language;
+use std::cell::{OnceCell, RefCell};
+use std::collections::BTreeMap;
+use std::rc::Rc;
+use tree_sitter::Node;
+
+/// A matched sink rule and its strength (#636).
+///
+/// The finding structure has no slot for the rule tag (`category` stays `taint_sink`
+/// and the description is pinned by consumers), so the tag lives here for the
+/// unit tests; `strength` drives the finding severity (`strength::line_strength`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SinkHit {
+    /// Rule name (`js-eval`, `go-db-call`, `legacy`, ...).
+    pub rule: &'static str,
+    /// CWE tag, absent for the legacy substring list.
+    pub cwe: Option<&'static str>,
+    /// `Weak` when the rule recognised the call but its argument shape defuses it.
+    pub strength: Strength,
+}
+
+impl SinkHit {
+    const fn new(rule: &'static str, cwe: &'static str) -> Self {
+        Self {
+            rule,
+            cwe: Some(cwe),
+            strength: Strength::Strong,
+        }
+    }
+
+    /// The same hit, graded weak when `weak` holds.
+    fn weak_if(mut self, weak: bool) -> Self {
+        if weak {
+            self.strength = Strength::Weak;
+        }
+        self
+    }
+}
+
+#[derive(Default)]
+struct FileFacts {
+    py: OnceCell<python::Facts>,
+    go: OnceCell<go::Facts>,
+}
+
+/// Per-run classifier: caches the import/const facts each rule reads, per file.
+#[derive(Default)]
+pub(crate) struct SinkClassifier {
+    facts: RefCell<BTreeMap<String, Rc<FileFacts>>>,
+}
+
+impl SinkClassifier {
+    /// Decide whether identifier `id` (text `text`) in `file` is a flat sink.
+    /// `legacy` is the substring list, consulted only for languages without rules.
+    pub(crate) fn classify(
+        &self,
+        file: &str,
+        parsed: &ParsedFile,
+        id: Node<'_>,
+        text: &str,
+        legacy: &[&str],
+    ) -> Option<SinkHit> {
+        let language = parsed.language;
+        if !(language.is_js_family() || matches!(language, Language::Python | Language::Go)) {
+            return legacy::legacy_hit(language, text, legacy);
+        }
+        let facts = {
+            let mut map = self.facts.borrow_mut();
+            match map.get(file) {
+                Some(facts) => facts.clone(),
+                None => map.entry(file.to_string()).or_default().clone(),
+            }
+        };
+        let src = Src::of(parsed);
+        let root = parsed.tree.root_node();
+        match language {
+            Language::Python => {
+                let f = facts.py.get_or_init(|| python::Facts::collect(src, root));
+                python::classify(src, f, id, text)
+            }
+            Language::Go => {
+                let f = facts.go.get_or_init(|| go::Facts::collect(src, root));
+                go::classify(src, f, id, text)
+            }
+            _ => js::classify(src, id, text),
+        }
+    }
+}
+
+impl SinkClassifier {
+    /// A Python call on the line (or enclosing it) puts a non-literal argument into SQL text:
+    /// the line belt of the weak-SQL proof (strength only, never a finding).
+    pub(crate) fn py_line_has_raw(&self, file: &str, parsed: &ParsedFile, id: Node<'_>) -> bool {
+        let facts = {
+            let mut map = self.facts.borrow_mut();
+            map.entry(file.to_string()).or_default().clone()
+        };
+        let f = facts
+            .py
+            .get_or_init(|| python::Facts::collect(Src::of(parsed), parsed.tree.root_node()));
+        sqla::line_has_raw(Src::of(parsed), f, id)
+    }
+}
+
+#[cfg(test)]
+mod tests;
+#[cfg(test)]
+mod tests_js_modules;
+#[cfg(test)]
+mod tests_py_modules;

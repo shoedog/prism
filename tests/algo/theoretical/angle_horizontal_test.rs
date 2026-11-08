@@ -91,8 +91,8 @@ def handle_delete(request):
 #[test]
 fn test_angle_slice_error_handling() {
     let (files, _, diff) = make_error_handling_test();
-    let concern = prism::algorithms::angle_slice::Concern::ErrorHandling;
-    let result = prism::algorithms::angle_slice::slice(&files, &diff, &concern).unwrap();
+    let concern = prism_review::algorithms::angle_slice::Concern::ErrorHandling;
+    let result = prism_review::algorithms::angle_slice::slice(&files, &diff, &concern).unwrap();
 
     assert!(!result.blocks.is_empty());
     let block = &result.blocks[0];
@@ -131,10 +131,10 @@ def process(data):
         }],
     };
 
-    let result = prism::algorithms::angle_slice::slice(
+    let result = prism_review::algorithms::angle_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::angle_slice::Concern::ErrorHandling,
+        &prism_review::algorithms::angle_slice::Concern::ErrorHandling,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::AngleSlice);
@@ -174,10 +174,10 @@ func doWork() (int, error) {
         }],
     };
 
-    let result = prism::algorithms::angle_slice::slice(
+    let result = prism_review::algorithms::angle_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::angle_slice::Concern::ErrorHandling,
+        &prism_review::algorithms::angle_slice::Concern::ErrorHandling,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::AngleSlice);
@@ -211,10 +211,10 @@ function fetchData(url) {
         }],
     };
 
-    let result = prism::algorithms::angle_slice::slice(
+    let result = prism_review::algorithms::angle_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::angle_slice::Concern::Logging,
+        &prism_review::algorithms::angle_slice::Concern::Logging,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::AngleSlice);
@@ -247,10 +247,10 @@ def get_cached(key):
         }],
     };
 
-    let result = prism::algorithms::angle_slice::slice(
+    let result = prism_review::algorithms::angle_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::angle_slice::Concern::Caching,
+        &prism_review::algorithms::angle_slice::Concern::Caching,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -285,10 +285,10 @@ def handle_delete(request):
         }],
     };
 
-    let result = prism::algorithms::horizontal_slice::slice(
+    let result = prism_review::algorithms::horizontal_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::horizontal_slice::PeerPattern::NamePattern("handle_*".to_string()),
+        &prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern("handle_*".to_string()),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
@@ -325,10 +325,10 @@ function handleRegister(req, res) {
         }],
     };
 
-    let result = prism::algorithms::horizontal_slice::slice(
+    let result = prism_review::algorithms::horizontal_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::horizontal_slice::PeerPattern::Auto,
+        &prism_review::algorithms::horizontal_slice::PeerPattern::Auto,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
@@ -361,10 +361,10 @@ func HandlePost(w http.ResponseWriter, r *http.Request) {
         }],
     };
 
-    let result = prism::algorithms::horizontal_slice::slice(
+    let result = prism_review::algorithms::horizontal_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::horizontal_slice::PeerPattern::NamePattern("Handle*".to_string()),
+        &prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern("Handle*".to_string()),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
@@ -401,10 +401,10 @@ def compute():
         }],
     };
 
-    let result = prism::algorithms::angle_slice::slice(
+    let result = prism_review::algorithms::angle_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::angle_slice::Concern::ErrorHandling,
+        &prism_review::algorithms::angle_slice::Concern::ErrorHandling,
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::AngleSlice);
@@ -445,10 +445,10 @@ func authorize(s interface{}) bool {
         }],
     };
 
-    let result = prism::algorithms::angle_slice::slice(
+    let result = prism_review::algorithms::angle_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::angle_slice::Concern::Authentication,
+        &prism_review::algorithms::angle_slice::Concern::Authentication,
     )
     .unwrap();
     assert!(!result.blocks.is_empty());
@@ -480,10 +480,10 @@ def delete_handler(request):
         }],
     };
 
-    let result = prism::algorithms::horizontal_slice::slice(
+    let result = prism_review::algorithms::horizontal_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::horizontal_slice::PeerPattern::NamePattern("*_handler".to_string()),
+        &prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern("*_handler".to_string()),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
@@ -514,10 +514,10 @@ def get_items():
         }],
     };
 
-    let result = prism::algorithms::horizontal_slice::slice(
+    let result = prism_review::algorithms::horizontal_slice::slice(
         &files,
         &diff,
-        &prism::algorithms::horizontal_slice::PeerPattern::Decorator("@app.route".to_string()),
+        &prism_review::algorithms::horizontal_slice::PeerPattern::Decorator("@app.route".to_string()),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);

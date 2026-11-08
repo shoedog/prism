@@ -36,7 +36,6 @@
 #![recursion_limit = "256"]
 
 pub mod access_path;
-pub mod algorithms;
 pub mod anon_owner;
 #[cfg_attr(not(test), allow(dead_code))] // S3a1a: syntax only; S3a1b attaches it.
 pub(crate) mod anonymous;
@@ -45,7 +44,6 @@ pub mod ast;
 pub mod build_pool;
 pub mod call_graph;
 pub mod cfg;
-pub mod cli;
 pub mod cpg;
 pub mod cpg_cache;
 pub mod data_flow;
@@ -68,7 +66,6 @@ mod nested_execution_owner_audit;
 pub use manifest_snapshot::{ManifestSnapshot, ManifestSnapshotEntry};
 pub mod name_resolution;
 pub mod navigation;
-pub mod output;
 mod parameter_slots;
 pub mod queries;
 pub mod reasoning;
@@ -81,7 +78,6 @@ pub mod resolution_receiver;
 mod review_context;
 pub mod sanitizers;
 pub mod slice;
-pub mod targets;
 pub mod type_db;
 pub mod type_provider;
 pub mod type_providers;

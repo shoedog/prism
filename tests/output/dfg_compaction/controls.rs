@@ -1,6 +1,6 @@
 use super::common::*;
 use super::{assert_cache_matches, loaded, output_pair, params, refresh, roundtrip, write_sources};
-use prism::api::{run_review, AlgorithmParams};
+use prism_review::api::{run_review, AlgorithmParams};
 // These controls exercise direct DFG consumers without history queries or Git writes.
 // They are additional local controls, not rows in the committed-repository matrix.
 fn local_modes(
@@ -9,7 +9,7 @@ fn local_modes(
     old_source: Option<(&str, &str)>,
     algorithms: &[SlicingAlgorithm],
     tune: impl Fn(&mut AlgorithmParams),
-    check: impl Fn(SlicingAlgorithm, &prism::api::ReviewRun),
+    check: impl Fn(SlicingAlgorithm, &prism_review::api::ReviewRun),
 ) {
     let repo = TempDir::new().unwrap();
     write_sources(repo.path(), files);

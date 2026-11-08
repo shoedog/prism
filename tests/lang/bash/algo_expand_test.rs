@@ -77,7 +77,7 @@ fn test_delta_slice_bash() {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
+    let result = prism_review::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
 }
 
@@ -89,13 +89,13 @@ fn test_delta_slice_bash() {
 fn test_spiral_slice_bash() {
     let (files, _, diff) = make_bash_test();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::SpiralSlice);
-    let spiral_config = prism::algorithms::spiral_slice::SpiralConfig {
+    let spiral_config = prism_review::algorithms::spiral_slice::SpiralConfig {
         max_ring: 4,
         auto_stop_threshold: 0.0,
     };
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
+        prism_review::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
 }
 
@@ -132,7 +132,7 @@ process_dir() {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::circular_slice::slice(&ctx, &diff).unwrap();
+    let result = prism_review::algorithms::circular_slice::slice(&ctx, &diff).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::CircularSlice);
 }
 
@@ -179,10 +179,10 @@ process_data() {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::vertical_slice::slice(
+    let result = prism_review::algorithms::vertical_slice::slice(
         &ctx,
         &diff,
-        &prism::algorithms::vertical_slice::VerticalConfig::default(),
+        &prism_review::algorithms::vertical_slice::VerticalConfig::default(),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::VerticalSlice);
@@ -210,11 +210,11 @@ fn test_threed_slice_bash() {
         }],
     };
     let ctx = CpgContext::build(&files, None);
-    let config = prism::algorithms::threed_slice::ThreeDConfig {
+    let config = prism_review::algorithms::threed_slice::ThreeDConfig {
         git_dir: tmp.path().to_string_lossy().to_string(),
         temporal_days: 365,
     };
-    let result = prism::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
+    let result = prism_review::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
 }
 
@@ -239,13 +239,13 @@ fn test_resonance_slice_bash() {
             diff_lines: BTreeSet::from([2]),
         }],
     };
-    let config = prism::algorithms::resonance_slice::ResonanceConfig {
+    let config = prism_review::algorithms::resonance_slice::ResonanceConfig {
         git_dir: tmp.path().to_string_lossy().to_string(),
         days: 365,
         min_co_changes: 1,
         min_ratio: 0.0,
     };
-    let result = prism::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism_review::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ResonanceSlice);
 }
 
@@ -328,11 +328,11 @@ fn test_phantom_slice_bash() {
             diff_lines: BTreeSet::from([3]),
         }],
     };
-    let config = prism::algorithms::phantom_slice::PhantomConfig {
+    let config = prism_review::algorithms::phantom_slice::PhantomConfig {
         git_dir: tmp.path().to_string_lossy().to_string(),
         max_commits: 50,
     };
-    let result = prism::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism_review::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::PhantomSlice);
 }
 
@@ -447,13 +447,13 @@ process() {
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
 
-    let config = prism::algorithms::chop::ChopConfig {
+    let config = prism_review::algorithms::chop::ChopConfig {
         source_file: path.to_string(),
         source_line: 4,
         sink_file: path.to_string(),
         sink_line: 7,
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::chop::slice(&ctx, &config).unwrap();
+    let result = prism_review::algorithms::chop::slice(&ctx, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }
