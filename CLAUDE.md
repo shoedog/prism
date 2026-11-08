@@ -804,8 +804,8 @@ per-language crate. The former root language modules now live in their layers:
 layer), `ast/js_ts/{exports,returns}.rs`, `frameworks/js_ts/react_hooks.rs` and `data_flow/terraform.rs`.
 The layer-prefixed files that used to be `#[path]`-mounted from the `src/` root
 (`ast_*`, `call_graph_*`, `anon_*`, `repo_loader_*`, `resolution_free*`) now sit in their parent's directory
-(`src/ast/`, `src/call_graph/`, `src/anon_owner/`, `src/repo_loader/`, `src/resolution/`), and a test
-file keeps a `*_tests.rs` name so the layering test still exempts it.
+(`src/ast/`, `src/call_graph/`, `src/anon_owner/`, `src/repo_loader/`, `src/resolution/`); the test files keep
+their `*_tests.rs` names.
 
 ### Algorithm Dispatch
 
