@@ -1169,11 +1169,13 @@ fn r2_body_function_hoisting_shares_simple_parameters() {
                 rows(&cpg)
             );
             if declaration.starts_with("function") {
-                // Same-name declaration replaces the formal (multi-statement: #660).
+                // Same-name declaration replaces the formal. The use line is the owner's one statement
+                // line, so this is a one-node owner: #660 S1d-2 deleted the guard that refused it
+                // and the dead-formal class (S1d-1) kills the formal's edge at the declaration.
                 if declaration == "function x() {}" {
                     assert_eq!(
                         r1_label(&cpg, "h", "x", 1, 3),
-                        super::FlowConfidence::NameOnly(super::FlowDoubt::CfgIncomplete)
+                        super::FlowConfidence::NameOnly(super::FlowDoubt::Killed { kill_line: 2 })
                     );
                 }
             }

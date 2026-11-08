@@ -85,6 +85,15 @@ pub(super) fn traced(
     let RdOutcome::Available(head) = &outcome else {
         return outcome;
     };
+    guard_control::trace(
+        parsed,
+        func_node,
+        defs,
+        (dfg_edges, exact_edges),
+        file_cfg_edges,
+        head,
+        out,
+    );
     // #674: a JS/TS/TSX edge whose label changes when recorded defs kill by path equality only was moved
     // by a recorded `affects` kill (the control keeps the census, so census moves are not claimed).
     // Edges it names are skipped below: one line per moved edge.
@@ -162,3 +171,10 @@ pub(super) fn traced(
     }
     outcome
 }
+
+#[path = "guard_control.rs"]
+mod guard_control;
+
+#[cfg(test)]
+#[path = "guard_deleted_tests.rs"]
+mod guard_deleted_tests;

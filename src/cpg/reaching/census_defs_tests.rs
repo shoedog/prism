@@ -39,7 +39,7 @@ pub(super) fn recorded(parsed: &ParsedFile, owner: &Node<'_>) -> (Vec<DefSite>, 
     (defs, edges)
 }
 
-fn availability(
+pub(super) fn availability(
     parsed: &ParsedFile,
     owner: &Node<'_>,
     defs: &[DefSite],
