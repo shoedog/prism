@@ -108,8 +108,8 @@
     ],
     "BRD-13-block-shadow-refuses-local-targets-c16": [
       "src/resolution/rust/bin_dep_guard.rs",
-      "            .is_some_and(|target_root| deps.contains(&target_root))",
-      "            .is_some()",
+      "                .any(|target_root| deps.contains(target_root))",
+      "                .any(|_| true)",
       [
         "rust_cross_crate_bin_test::c16_block_local_type_shadow_binds_the_local_associated_fn"
       ]
@@ -120,6 +120,14 @@
       "                if graph.binding_indices(id, name, NS_TYPE).next().is_some() || true =>",
       [
         "rust_cross_crate_bin_test::c18d_block_binding_of_another_name_does_not_refuse"
+      ]
+    ],
+    "BRD-15-first-occurrence-of-the-target-file-only-c18e": [
+      "src/resolution/rust/bin_dep_guard.rs",
+      "                .any(|target_root| deps.contains(target_root))",
+      "                .take(1)\n                .any(|target_root| deps.contains(target_root))",
+      [
+        "rust_cross_crate_bin_test::c18e_shadow_refuses_when_another_crate_mounts_the_target_file_first"
       ]
     ]
   }

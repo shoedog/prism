@@ -1,0 +1,2241 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 6c89f4e9..26a72b1b 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -291,7 +291,7 @@ family than the caller are dropped, a pool left empty refuses with no later rung
+ filter never promotes (a multi-owner NameOnly pool left with one target stays NameOnly with the
+ same kind). Free-function pools filter inside their rungs; method rungs (R1, R3b, R4b, self and
+ receiver-variable owner lookups, recovered receivers, R6) share one admission on the public full
+-resolution (`resolve_call_site_full`). `resolve_call_site_candidates` is the unfiltered view.
++resolution (`resolve_call_site_full`). `resolve_call_site_candidates` is the unfiltered view. Every binary root of a workspace member with in-repo `[dependencies]` (explicit `[[bin]]` paths, else `src/main.rs`, `src/bin/*.rs`, `src/bin/*/main.rs`; bin-only members included) is keyed with those dependencies under their in-source names (`Builder::finish`, `RustCrateConfig::member_bin_roots`, enumeration shared with `binary_library_deps` in `repo_loader/bin_roots.rs`), so `prism::m::f()` in `crates/prism-review/src/main.rs` resolves like the same path in a library file; a dependency named like the member's own library is keyed for neither, `build.rs`/`tests/`/`examples`/`benches` roots stay unkeyed (they also see unparsed build/dev dependencies), `autobins = false`, a `[[bin]]` with its own `edition` and the 2018+/uniform-edition gate still exclude, and a result in such a dependency refuses when a block or callable scope binds the path's first segment in the type namespace (`resolution/rust/bin_dep_guard.rs`; #768). The misplaced-`#[path]` hazard of these entries is not closed here (see #765 for the pending placement fix). The `T::m` owner-pool fail-open in `rust_authoritative_nonself` is inherited and unchanged.
+ 
+ Navigation maps confidence to `score` (Exact 1.0 / NameOnly 0.6) with a
+ `Reason::Resolution` and a `Collision` warning when same-name receiver sites are
+@@ -483,7 +483,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
+ findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
+ the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
+ 
+-CPG cache (currently v162) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
++CPG cache (currently v163) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+ partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
+ `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
+ 
+diff --git a/docs/MCP.md b/docs/MCP.md
+index 8f810c77..a4c91796 100644
+--- a/docs/MCP.md
++++ b/docs/MCP.md
+@@ -196,6 +196,10 @@ while `name_span` and `body_span` point to the inner grammar nodes. `body_span`
+   any score below `1.0`. A warning like `N same-name receiver call site(s) with unknown receiver
+   type across multiple owner types; not attributed as callers` means real callers may be missing:
+   treat "no callers" plus that warning as *unknown*, not *none*.
++- **`nav_callers` reports call expressions only.** A function named as a value, such as
++  `.filter(EvidenceHop::is_exact)` or `.map(parse)`, is not a call site, so that use is not a caller
++  edge. A 2026-11 count of Prism's own tree found about 119 such spellings; grep for the symbol when you need every
++  reference rather than every call.
+ - **Read-only.** The server never modifies the repo. It also never executes code.
+ - **Coordinates are snapshot-relative.** Apply `nav_symbol_spans` offsets only to the indexed snapshot;
+   stale-session responses carry the same `StaleIndex` warning and metadata as other navigation tools.
+diff --git a/mutants/rust-bin-root-deps.json b/mutants/rust-bin-root-deps.json
+new file mode 100644
+index 00000000..eab8e5e1
+--- /dev/null
++++ b/mutants/rust-bin-root-deps.json
+@@ -0,0 +1,143 @@
++{
++  "lane": "Rust binary roots of a workspace member get the package's in-repo dependencies (#749)",
++  "source": "src/name_resolution/rust_populator/builder.rs",
++  "lib_test_prefixes": [
++    "repo_loader::bin_deps_tests::"
++  ],
++  "test_targets": [
++    {
++      "prefix": "bin_root_deps_test::",
++      "package": "prism",
++      "target": "name_resolution"
++    }
++  ],
++  "mutations": {
++    "BRD-01-key-library-roots-only-c1": [
++      "src/name_resolution/rust_populator/builder.rs",
++      "            let Some(bins) = self.config.member_bin_roots.get(member_dir) else {\n                continue;\n            };\n            for bin in &bins.roots {",
++      "            let Some(bins) = self.config.member_bin_roots.get(member_dir).filter(|_| false) else {\n                continue;\n            };\n            for bin in &bins.roots {",
++      [
++        "bin_root_deps_test::d1_every_bin_shape_is_keyed_with_the_dependency",
++        "rust_cross_crate_bin_test::c1_every_bin_shape_resolves_dependency_paths"
++      ]
++    ],
++    "BRD-02-skip-the-conflict-check-c7": [
++      "src/name_resolution/rust_populator/builder.rs",
++      "                    if bins.own_lib_name.as_deref() == Some(name.as_str()) {\n                        continue;\n                    }",
++      "                    if bins.own_lib_name.is_none() && false {\n                        continue;\n                    }",
++      [
++        "bin_root_deps_test::d11_dependency_named_like_the_own_library_is_dropped_alone",
++        "rust_cross_crate_bin_test::c7_dependency_named_like_the_own_library_is_not_keyed",
++        "rust_cross_crate_bin_test::c7b_only_the_conflicting_dependency_is_dropped"
++      ]
++    ],
++    "BRD-03-key-every-root-of-the-member-c4": [
++      "src/name_resolution/rust_populator/builder.rs",
++      "            for bin in &bins.roots {\n                let Some(&consumer) = self.roots_by_path.get(bin) else {",
++      "            for bin in self.roots_by_path.keys().filter(|p| p.starts_with(member_dir.as_str())) {\n                let Some(&consumer) = self.roots_by_path.get(bin) else {",
++      [
++        "bin_root_deps_test::d4c_tests_examples_and_benches_roots_are_not_keyed",
++        "rust_cross_crate_bin_test::c4_build_script_and_other_target_roots_get_no_dependency_entry"
++      ]
++    ],
++    "BRD-04-skip-bin-only-members-c6": [
++      "src/name_resolution/rust_populator/builder.rs",
++      "            let Some(bins) = self.config.member_bin_roots.get(member_dir) else {\n                continue;\n            };\n            for bin in &bins.roots {",
++      "            let Some(bins) = self.config.member_bin_roots.get(member_dir) else {\n                continue;\n            };\n            if !self.lib_root_by_member_dir.contains_key(member_dir) {\n                continue;\n            }\n            for bin in &bins.roots {",
++      [
++        "bin_root_deps_test::d6_bin_only_member_is_keyed",
++        "rust_cross_crate_bin_test::c6_bin_only_package_resolves_dependency_paths"
++      ]
++    ],
++    "BRD-05-ignore-autobins-c11": [
++      "src/repo_loader/bin_roots.rs",
++      "    if explicit_bins.is_none() && package.get(\"autobins\").and_then(|v| v.as_bool()) != Some(false) {",
++      "    if explicit_bins.is_none() {",
++      [
++        "bin_root_deps_test::d8_autobins_false_keys_no_auto_bin",
++        "rust_cross_crate_bin_test::c11_autobins_false_keys_no_auto_bin",
++        "repo_loader::bin_deps_tests::own_library_lane_keeps_explicit_bins_autobins_and_edition_rules"
++      ]
++    ],
++    "BRD-06-ignore-a-target-edition-c12": [
++      "src/repo_loader/bin_roots.rs",
++      "            if bin.get(\"edition\").is_some() {\n                continue;\n            }",
++      "            if bin.get(\"edition\").is_some() && false {\n                continue;\n            }",
++      [
++        "bin_root_deps_test::d10_bin_with_its_own_edition_is_skipped_per_target",
++        "rust_cross_crate_bin_test::c12_bin_with_its_own_edition_is_not_keyed",
++        "repo_loader::bin_deps_tests::own_library_lane_keeps_explicit_bins_autobins_and_edition_rules"
++      ]
++    ],
++    "BRD-07-skip-src-bin-dir-main-c1": [
++      "src/repo_loader/bin_roots.rs",
++      "                        .is_some_and(|name| !name.is_empty() && !name.contains('/'))",
++      "                        .is_some_and(|_| false)",
++      [
++        "bin_root_deps_test::d1_every_bin_shape_is_keyed_with_the_dependency",
++        "repo_loader::bin_deps_tests::own_library_lane_enumerates_every_auto_bin_shape",
++        "repo_loader::bin_deps_tests::dependency_lane_uses_the_same_enumeration_as_the_own_library_lane"
++      ]
++    ],
++    "BRD-08-explicit-bins-do-not-replace-auto-discovery-c9": [
++      "src/repo_loader/bin_roots.rs",
++      "    if explicit_bins.is_none() && package.get(\"autobins\")",
++      "    if package.get(\"autobins\")",
++      [
++        "bin_root_deps_test::d9_explicit_bin_path_is_keyed_and_replaces_auto_discovery",
++        "rust_cross_crate_bin_test::c9_explicit_bin_path_resolves_and_replaces_auto_discovery",
++        "repo_loader::bin_deps_tests::own_library_lane_keeps_explicit_bins_autobins_and_edition_rules"
++      ]
++    ],
++    "BRD-09-key-without-name-normalization-c5": [
++      "src/name_resolution/rust_populator/builder.rs",
++      "                    let name = normalize_crate_ident(in_source_name);\n                    if bins.own_lib_name",
++      "                    let name = in_source_name.clone();\n                    if bins.own_lib_name",
++      [
++        "bin_root_deps_test::d5_hyphenated_dependency_name_is_normalized"
++      ]
++    ],
++    "BRD-10-placement-guard-removed-c17": [
++      "src/resolution/rust/bin_dep_guard.rs",
++      "        (shadowed || misplaced) && in_dep(&r.target.file)",
++      "        (shadowed || misplaced && false) && in_dep(&r.target.file)",
++      [
++        "rust_cross_crate_bin_test::c17_bin_dependency_path_refuses_a_misplaced_mount",
++        "rust_cross_crate_bin_test::c17b_bin_dependency_path_via_use_refuses_a_misplaced_mount"
++      ]
++    ],
++    "BRD-11-guard-covers-library-root-consumers-c17d": [
++      "src/resolution/rust/bin_dep_guard.rs",
++      "    let deps: Vec<ScopeId> = graph\n        .bin_dep_entries\n        .range((root, ScopeId(0))..=(root, ScopeId(u32::MAX)))\n        .map(|&(_, target)| target)\n        .collect();",
++      "    let deps: Vec<ScopeId> = graph\n        .crate_deps_by_root\n        .get(&root)\n        .map(|m| m.values().copied().collect())\n        .unwrap_or_default();",
++      [
++        "rust_cross_crate_bin_test::c17d_library_root_consumer_keeps_its_inherited_outcome"
++      ]
++    ],
++    "BRD-12-block-shadow-check-dropped-c18": [
++      "src/resolution/rust/bin_dep_guard.rs",
++      "        (shadowed || misplaced) && in_dep(&r.target.file)",
++      "        (shadowed && false || misplaced) && in_dep(&r.target.file)",
++      [
++        "rust_cross_crate_bin_test::c18_block_import_shadows_a_module_level_import_of_the_dependency",
++        "rust_cross_crate_bin_test::c18b_block_module_shadows_a_module_level_import_of_the_dependency"
++      ]
++    ],
++    "BRD-13-block-shadow-refuses-local-targets-c16": [
++      "src/resolution/rust/bin_dep_guard.rs",
++      "        (shadowed || misplaced) && in_dep(&r.target.file)",
++      "        shadowed || misplaced && in_dep(&r.target.file)",
++      [
++        "rust_cross_crate_bin_test::c16_block_local_type_shadow_binds_the_local_associated_fn"
++      ]
++    ],
++    "BRD-14-shadow-judged-by-any-binding-name-c18d": [
++      "src/resolution/rust/bin_dep_guard.rs",
++      "        .any(|&s| graph.binding_indices(s, name, NS_TYPE).next().is_some())",
++      "        .any(|&s| graph.binding_indices(s, name, NS_TYPE).next().is_some() || !local.is_empty())",
++      [
++        "rust_cross_crate_bin_test::c18d_block_binding_of_another_name_does_not_refuse"
++      ]
++    ]
++  }
++}
+diff --git a/src/cpg_cache.rs b/src/cpg_cache.rs
+index 9186cb5f..d102e496 100644
+--- a/src/cpg_cache.rs
++++ b/src/cpg_cache.rs
+@@ -311,7 +311,8 @@ mod stream;
+ /// - v160: JS/TS/TSX refusal classes (#660 S1d-1): direct `eval`, sloppy mapped `arguments`, `with` bodies, dead formals, Annex B block functions, the Annex B.3.5 catch `var` and immutable inner names move labels toward `nameonly/cfg_incomplete` or `nameonly/killed`. Label-only: edge sets, availability and counters are unchanged.
+ /// - v161: Rust `pub(in path)` restricts are resolved after population (#710): a call site inside the named ancestor module binds to the item, and glob members outside it become hidden instead of poisoning the lookup, so Rust call edges and their kinds change.
+ /// - v162: Rust `use p::{self as m}` binds `m` to the module `p` and a self import binds the type namespace only (#724), and macro-argument `crate`/`self`/`super` prefixes reach the authoritative route as a `CallSite::path_anchor`, so Rust call edges, their kinds, the `CallSite` layout and the `ScopeGraph` layout (misplaced `#[path]` mount files, self-import aliases) change.
+-const CACHE_VERSION: u32 = 162;
++/// - v163: Rust binary roots of a workspace member resolve the package's in-repo `[dependencies]` (#749), so Rust call edges and their kinds change, and `RustCrateConfig::member_bin_roots` and `ScopeGraph::bin_dep_entries` join the serialized inputs and graph.
++const CACHE_VERSION: u32 = 163;
+ 
+ pub const SKIP_POLICY_VERSION: u32 = 2;
+ 
+@@ -844,7 +845,7 @@ mod tests {
+ 
+     #[test]
+     fn cache_versions_are_pinned_for_cpg_semantics() {
+-        assert_eq!(super::CACHE_VERSION, 162);
++        assert_eq!(super::CACHE_VERSION, 163);
+         assert_eq!(super::SKIP_POLICY_VERSION, 2);
+     }
+ 
+diff --git a/src/cpg_cache/dfg_codec_tests.rs b/src/cpg_cache/dfg_codec_tests.rs
+index ea19da8f..d70213cf 100644
+--- a/src/cpg_cache/dfg_codec_tests.rs
++++ b/src/cpg_cache/dfg_codec_tests.rs
+@@ -5,12 +5,12 @@ fn compact_codec_rejects_bad_bounds_groups_and_order() {
+ }
+ #[test]
+ fn production_cache_version_activates_compact_codec() {
+-    assert_eq!(super::CACHE_VERSION, 162);
++    assert_eq!(super::CACHE_VERSION, 163);
+ }
+ 
+ #[test]
+ fn production_cache_version_includes_module_owners() {
+-    assert_eq!(super::CACHE_VERSION, 162);
++    assert_eq!(super::CACHE_VERSION, 163);
+ }
+ 
+ #[test]
+@@ -35,7 +35,7 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
+     let path = cache_bin_path(dir.path());
+     let bytes = fs::read(&path).unwrap();
+     let mut owned: CpgCache = bincode::deserialize(&bytes).unwrap();
+-    assert_eq!(owned.version, 162);
++    assert_eq!(owned.version, 163);
+     assert_eq!(bytes, bincode::serialize(&owned).unwrap());
+     assert!(matches!(
+         load_cache(&hashes, false, dir.path()),
+diff --git a/src/name_resolution/binding_index_tests.rs b/src/name_resolution/binding_index_tests.rs
+index 09ef7015..269977c6 100644
+--- a/src/name_resolution/binding_index_tests.rs
++++ b/src/name_resolution/binding_index_tests.rs
+@@ -228,9 +228,10 @@ fn index_is_absent_from_serialization_and_identity() {
+         &graph.local_facts,
+         &graph.edges,
+         &graph.macro_wildcards,
+-        // Appended by #724 (CPG v162): after the pre-index fields, before the skipped ones.
++        // Appended by #724 and #749: after the pre-index fields, before the skipped ones.
+         &graph.misplaced_mount_files,
+         &graph.self_import_aliases,
++        &graph.bin_dep_entries,
+     ))
+     .unwrap();
+     let cold_json = serde_json::to_string(&graph).unwrap();
+diff --git a/src/name_resolution/graph.rs b/src/name_resolution/graph.rs
+index 3cca4a11..e1d6cb27 100644
+--- a/src/name_resolution/graph.rs
++++ b/src/name_resolution/graph.rs
+@@ -139,6 +139,11 @@ pub struct ScopeGraph {
+     /// Rust: `(scope, name)` of every `use p::{self as name}` import (#724).
+     #[serde(default)]
+     pub self_import_aliases: std::collections::BTreeSet<(ScopeId, String)>,
++    /// Rust: `(binary root, dependency library root)` of every `crate_deps_by_root` entry
++    /// keyed for a package's binary roots (#749). The resolution guard refuses targets of
++    /// these entries in files under a misplaced `#[path]` mount (#765).
++    #[serde(default)]
++    pub bin_dep_entries: std::collections::BTreeSet<(ScopeId, ScopeId)>,
+     /// Deferred-glob expansion telemetry for resolution walked over **this**
+     /// graph (spec §3.5). Scoped here rather than in a process-global so a
+     /// measurement (`navigation::queries::call_stats`) that resets and snapshots
+diff --git a/src/name_resolution/rust_populator/builder.rs b/src/name_resolution/rust_populator/builder.rs
+index 2f80d849..b62b9432 100644
+--- a/src/name_resolution/rust_populator/builder.rs
++++ b/src/name_resolution/rust_populator/builder.rs
+@@ -70,6 +70,9 @@ pub(crate) struct Builder<'f> {
+     /// Module scopes a `#[path]` attribute mounted at a file other than rustc's
+     /// (see [`super::restrict::expected_mount_file`]); no restrict is placed across them.
+     misplaced_mounts: BTreeSet<ScopeId>,
++    /// `(bin root, dependency library root)` of every entry keyed from `member_bin_roots`
++    /// (#749); moved onto the graph for the placement guard.
++    bin_dep_entries: BTreeSet<(ScopeId, ScopeId)>,
+     /// `(scope, name)` of every `{self as name}` import (#724), handed to the graph.
+     self_import_aliases: BTreeSet<(ScopeId, String)>,
+ }
+@@ -104,6 +107,7 @@ impl<'f> Builder<'f> {
+             crate_deps_by_root: BTreeMap::new(),
+             pending_restricts: Vec::new(),
+             misplaced_mounts: BTreeSet::new(),
++            bin_dep_entries: BTreeSet::new(),
+             self_import_aliases: BTreeSet::new(),
+         }
+     }
+@@ -177,6 +181,37 @@ impl<'f> Builder<'f> {
+                 }
+             }
+         }
++        // Binary roots of a member get the member's in-repo `[dependencies]` too (#749):
++        // Cargo gives every bin target of a package its dependencies under their in-source
++        // names. A dependency named like the member's own library is a second claimant for
++        // that name: neither is keyed (the no-winner rule of `binary_library_deps`). A member
++        // with no library root is keyed as well; a target with no library root is skipped.
++        for (member_dir, deps) in &self.config.member_in_repo_deps {
++            let Some(bins) = self.config.member_bin_roots.get(member_dir) else {
++                continue;
++            };
++            for bin in &bins.roots {
++                let Some(&consumer) = self.roots_by_path.get(bin) else {
++                    continue;
++                };
++                for (in_source_name, target_dir) in deps {
++                    let name = normalize_crate_ident(in_source_name);
++                    if bins.own_lib_name.as_deref() == Some(name.as_str()) {
++                        continue;
++                    }
++                    let Some(&target) = self.lib_root_by_member_dir.get(target_dir) else {
++                        continue;
++                    };
++                    if consumer != target {
++                        self.crate_deps_by_root
++                            .entry(consumer)
++                            .or_default()
++                            .insert(name, target);
++                        self.bin_dep_entries.insert((consumer, target));
++                    }
++                }
++            }
++        }
+         for (binary, (name, library)) in &self.config.binary_library_deps {
+             if let (Some(&consumer), Some(&target)) = (
+                 self.roots_by_path.get(binary),
+@@ -191,6 +226,7 @@ impl<'f> Builder<'f> {
+             }
+         }
+         self.graph.crate_deps_by_root = self.crate_deps_by_root;
++        self.graph.bin_dep_entries = self.bin_dep_entries;
+         self.graph.misplaced_mount_files =
+             misplaced_mount_files(&self.graph, &self.misplaced_mounts);
+         self.graph.self_import_aliases = self.self_import_aliases;
+diff --git a/src/name_resolution/rust_populator/mod.rs b/src/name_resolution/rust_populator/mod.rs
+index 42dae65a..0fd977c6 100644
+--- a/src/name_resolution/rust_populator/mod.rs
++++ b/src/name_resolution/rust_populator/mod.rs
+@@ -109,6 +109,23 @@ pub struct RustCrateConfig {
+     /// This contributes only to the existing 2018+ extern-prelude lane.
+     #[serde(default)]
+     pub binary_library_deps: BTreeMap<String, (String, String)>,
++    /// Rust: per workspace-member directory that has in-repo `[dependencies]`, its binary
++    /// target roots (explicit `[[bin]]` paths, else Cargo's auto-bins) and own library's
++    /// extern name (#749). The Builder keys each root with the member's in-repo dependencies
++    /// at `finish()`, as `member_in_repo_deps` does for the library root. Empty under the
++    /// same 2018+/uniform-edition gate as `binary_library_deps`.
++    #[serde(default)]
++    pub member_bin_roots: BTreeMap<String, MemberBins>,
++}
++
++/// One member's binary roots for the dependency lane (`RustCrateConfig::member_bin_roots`).
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
++pub struct MemberBins {
++    /// The member's nameable own-library extern name (hyphen-normalized), if it has one: a
++    /// dependency named alike is a second claimant for that name and is not keyed.
++    pub own_lib_name: Option<String>,
++    /// Repo-relative binary root paths of the member (never its library root).
++    pub roots: Vec<String>,
+ }
+ 
+ impl Default for RustCrateConfig {
+@@ -123,6 +140,7 @@ impl Default for RustCrateConfig {
+             edition_uniform: true,
+             member_in_repo_deps: BTreeMap::new(),
+             binary_library_deps: BTreeMap::new(),
++            member_bin_roots: BTreeMap::new(),
+         }
+     }
+ }
+@@ -166,6 +184,7 @@ impl RustCrateConfig {
+             edition_uniform: true,
+             member_in_repo_deps: BTreeMap::new(),
+             binary_library_deps: BTreeMap::new(),
++            member_bin_roots: BTreeMap::new(),
+         }
+     }
+ 
+diff --git a/src/navigation/call_edge_cache.rs b/src/navigation/call_edge_cache.rs
+index cbbec4fe..616a8724 100644
+--- a/src/navigation/call_edge_cache.rs
++++ b/src/navigation/call_edge_cache.rs
+@@ -123,7 +123,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
+ // v79: CommonJS module-as-function and member calls bind to proven exports (#598, CPG v137).
+ // v80: Rust `pub(in path)` restricts are resolved after population (#710, CPG v161).
+ // v81: Rust self-import module aliases and macro-argument path anchors (#724, CPG v162).
+-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 81;
++// v82: Rust binary roots resolve their package's in-repo dependencies (#749, CPG v163).
++const NAV_CALL_EDGE_CACHE_VERSION: u32 = 82;
+ const CACHE_BIN: &str = "resolved-call-edge-index.bin";
+ const CACHE_META: &str = "resolved-call-edge-index-meta.json";
+ pub const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
+@@ -761,7 +762,7 @@ mod tests {
+ 
+     #[test]
+     fn sidecar_version_is_pinned_for_receiver_authority() {
+-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 81);
++        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 82);
+     }
+ 
+     #[test]
+diff --git a/src/repo_loader.rs b/src/repo_loader.rs
+index 237e1f3d..6331ff7a 100644
+--- a/src/repo_loader.rs
++++ b/src/repo_loader.rs
+@@ -485,10 +485,14 @@ fn has_complete_rust_coverage(
+     actual_rust == expected_rust
+ }
+ 
++#[cfg(test)]
++mod bin_deps_tests;
++mod bin_roots;
+ #[path = "repo_loader/freshness.rs"]
+ mod freshness_paths;
+ #[cfg(test)]
+ mod skip_tests;
++use bin_roots::{collect_binary_library_deps, collect_member_bin_roots};
+ pub use freshness_paths::collect_freshness_source_paths;
+ 
+ /// Why the repo's source listing could not be built: the directory the walk
+@@ -743,6 +747,9 @@ fn parse_rust_crate_config(
+             member_in_repo_deps.insert(manifest_dir.to_string(), member_deps);
+         }
+         collect_binary_library_deps(value, manifest_dir, files, &mut cfg.binary_library_deps);
++        if member_in_repo_deps.contains_key(manifest_dir) {
++            collect_member_bin_roots(value, manifest_dir, files, &mut cfg.member_bin_roots);
++        }
+     }
+ 
+     if !parsed_any {
+@@ -752,6 +759,7 @@ fn parse_rust_crate_config(
+         anchoring_class_uniform(&editions_seen) && anchoring_class_uniform(&workspace_editions);
+     if !cfg.edition_uniform || cfg.edition < 2018 {
+         cfg.binary_library_deps.clear();
++        cfg.member_bin_roots.clear();
+     }
+     crate_roots.extend(cfg.crate_roots);
+     cfg.crate_roots = crate_roots.into_iter().collect();
+@@ -761,108 +769,6 @@ fn parse_rust_crate_config(
+     Some(cfg)
+ }
+ 
+-/// Cargo binaries can reference their own package library, without a dependency
+-/// table entry. Keep that authority path-addressed and separate from directory-
+-/// guessed crate names and the legacy single `lib_path` field.
+-fn collect_binary_library_deps(
+-    manifest: &toml::Value,
+-    dir: &str,
+-    files: &BTreeMap<String, ParsedFile>,
+-    out: &mut BTreeMap<String, (String, String)>,
+-) {
+-    let Some(package) = manifest.get("package") else {
+-        return;
+-    };
+-    let lib = manifest.get("lib");
+-    if lib.is_some_and(|l| l.get("edition").is_some()) {
+-        return;
+-    }
+-    if (lib.is_none() && package.get("autolib").and_then(|v| v.as_bool()) == Some(false))
+-        || lib
+-            .and_then(|l| l.get("proc-macro"))
+-            .and_then(|v| v.as_bool())
+-            == Some(true)
+-        || lib
+-            .and_then(|l| l.get("crate-type"))
+-            .and_then(|v| v.as_array())
+-            .is_some_and(|types| {
+-                !types
+-                    .iter()
+-                    .any(|t| matches!(t.as_str(), Some("lib" | "rlib" | "dylib")))
+-            })
+-    {
+-        return;
+-    }
+-    let Some(name) = lib
+-        .and_then(|l| l.get("name"))
+-        .or_else(|| package.get("name"))
+-        .and_then(|v| v.as_str())
+-    else {
+-        return;
+-    };
+-    let name = name.replace('-', "_");
+-    if manifest
+-        .get("dependencies")
+-        .and_then(|v| v.as_table())
+-        .is_some_and(|deps| deps.keys().any(|k| k.replace('-', "_") == name))
+-    {
+-        return; // Do not choose a winner for conflicting extern names.
+-    }
+-    let lib_rel = lib
+-        .and_then(|l| l.get("path"))
+-        .and_then(|v| v.as_str())
+-        .unwrap_or("src/lib.rs");
+-    let Some(library) = normalize_repo_rel(&join_manifest_rel(dir, lib_rel)) else {
+-        return;
+-    };
+-    if !files.contains_key(&library) {
+-        return;
+-    }
+-
+-    let mut binaries = BTreeSet::new();
+-    let explicit_bins = manifest.get("bin").and_then(|v| v.as_array());
+-    // With explicit targets, retain only explicit paths. Inferring Cargo's
+-    // name-based auto-target overrides belongs to a broader target model.
+-    if explicit_bins.is_none() && package.get("autobins").and_then(|v| v.as_bool()) != Some(false) {
+-        let main = join_manifest_rel(dir, "src/main.rs");
+-        if files.contains_key(&main) {
+-            binaries.insert(main);
+-        }
+-        let prefix = join_manifest_rel(dir, "src/bin/");
+-        for file in files.keys() {
+-            if let Some(rest) = file.strip_prefix(&prefix) {
+-                if (!rest.contains('/') && rest.ends_with(".rs"))
+-                    || rest
+-                        .strip_suffix("/main.rs")
+-                        .is_some_and(|name| !name.is_empty() && !name.contains('/'))
+-                {
+-                    binaries.insert(file.clone());
+-                }
+-            }
+-        }
+-    }
+-    if let Some(bins) = explicit_bins {
+-        for bin in bins {
+-            // Target-specific edition is outside the uniform-edition graph model.
+-            if bin.get("edition").is_some() {
+-                continue;
+-            }
+-            if let Some(path) = bin.get("path").and_then(|v| v.as_str()) {
+-                if let Some(path) = normalize_repo_rel(&join_manifest_rel(dir, path)) {
+-                    if files.contains_key(&path) {
+-                        binaries.insert(path);
+-                    }
+-                }
+-            }
+-        }
+-    }
+-    for binary in binaries {
+-        if binary != library {
+-            out.insert(binary, (name.clone(), library.clone()));
+-        }
+-    }
+-}
+-
+ fn parse_edition(raw: &str) -> Option<u16> {
+     match raw {
+         "2015" => Some(2015),
+diff --git a/src/repo_loader/bin_deps_tests.rs b/src/repo_loader/bin_deps_tests.rs
+new file mode 100644
+index 00000000..88ee6a96
+--- /dev/null
++++ b/src/repo_loader/bin_deps_tests.rs
+@@ -0,0 +1,194 @@
++//! #749: the bin-root enumeration is one helper shared by the own-library lane
++//! (`binary_library_deps`) and the dependency lane (`member_bin_roots`). Each row loads a
++//! manifest fixture and checks both maps, so the two cannot drift.
++use super::*;
++
++fn load(files: &[(&str, &str)]) -> RustCrateConfig {
++    let dir = tempfile::tempdir().unwrap();
++    for (path, src) in files {
++        let abs = dir.path().join(path);
++        std::fs::create_dir_all(abs.parent().unwrap()).unwrap();
++        std::fs::write(abs, src).unwrap();
++    }
++    load_repo(dir.path())
++        .unwrap()
++        .scope_graph_inputs
++        .expect("scope graph inputs")
++        .cfg
++}
++
++const MAIN: &str = "fn main() {}\n";
++const LIB: &str = "pub fn l() {}\n";
++
++fn own_lib_bins(cfg: &RustCrateConfig) -> Vec<&str> {
++    cfg.binary_library_deps.keys().map(String::as_str).collect()
++}
++
++#[test]
++fn own_library_lane_enumerates_every_auto_bin_shape() {
++    let cfg = load(&[
++        (
++            "Cargo.toml",
++            "[package]\nname = \"d\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
++        ),
++        ("src/lib.rs", LIB),
++        ("src/main.rs", MAIN),
++        ("src/bin/tool.rs", MAIN),
++        ("src/bin/multi/main.rs", MAIN),
++        ("src/bin/multi/helper.rs", LIB),
++        ("src/bin/multi/deep/main.rs", MAIN),
++        ("src/other.rs", LIB),
++    ]);
++    assert_eq!(
++        own_lib_bins(&cfg),
++        ["src/bin/multi/main.rs", "src/bin/tool.rs", "src/main.rs"]
++    );
++}
++
++#[test]
++fn own_library_lane_keeps_explicit_bins_autobins_and_edition_rules() {
++    // Explicit `[[bin]]` paths replace auto-discovery; a bin with its own edition is skipped.
++    let cfg = load(&[
++        (
++            "Cargo.toml",
++            "[package]\nname = \"d\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++             [[bin]]\nname = \"x\"\npath = \"tools/x.rs\"\n\
++             [[bin]]\nname = \"y\"\npath = \"tools/y.rs\"\nedition = \"2018\"\n",
++        ),
++        ("src/lib.rs", LIB),
++        ("src/main.rs", MAIN),
++        ("tools/x.rs", MAIN),
++        ("tools/y.rs", MAIN),
++    ]);
++    assert_eq!(own_lib_bins(&cfg), ["tools/x.rs"]);
++    let off = load(&[
++        (
++            "Cargo.toml",
++            "[package]\nname = \"d\"\nversion = \"0.1.0\"\nedition = \"2021\"\nautobins = false\n",
++        ),
++        ("src/lib.rs", LIB),
++        ("src/main.rs", MAIN),
++        ("src/bin/tool.rs", MAIN),
++    ]);
++    assert!(
++        off.binary_library_deps.is_empty(),
++        "{:?}",
++        off.binary_library_deps
++    );
++}
++
++#[test]
++fn own_library_lane_refuses_a_conflicting_dependency_name() {
++    let cfg = load(&[
++        (
++            "Cargo.toml",
++            "[package]\nname = \"d\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++             [dependencies]\nd = \"1\"\n",
++        ),
++        ("src/lib.rs", LIB),
++        ("src/main.rs", MAIN),
++    ]);
++    assert!(
++        cfg.binary_library_deps.is_empty(),
++        "{:?}",
++        cfg.binary_library_deps
++    );
++}
++
++const WS: &str = "[workspace]\nmembers = [\"a\", \"d\"]\n";
++const A_TOML: &str = "[package]\nname = \"a\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
++const D_HEAD: &str = "[package]\nname = \"d-pkg\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
++const D_DEPS: &str = "[dependencies]\na = { path = \"../a\" }\n";
++
++fn member_roots(cfg: &RustCrateConfig) -> (Option<&str>, Vec<&str>) {
++    let bins = &cfg.member_bin_roots["d"];
++    (
++        bins.own_lib_name.as_deref(),
++        bins.roots.iter().map(String::as_str).collect(),
++    )
++}
++
++#[test]
++fn dependency_lane_uses_the_same_enumeration_as_the_own_library_lane() {
++    let cfg = load(&[
++        ("Cargo.toml", WS),
++        ("a/Cargo.toml", A_TOML),
++        ("a/src/lib.rs", LIB),
++        ("d/Cargo.toml", &format!("{D_HEAD}{D_DEPS}")),
++        ("d/src/lib.rs", LIB),
++        ("d/src/main.rs", MAIN),
++        ("d/src/bin/tool.rs", MAIN),
++        ("d/src/bin/multi/main.rs", MAIN),
++        ("d/src/bin/multi/helper.rs", LIB),
++    ]);
++    let (name, roots) = member_roots(&cfg);
++    assert_eq!(name, Some("d_pkg"));
++    assert_eq!(
++        roots,
++        [
++            "d/src/bin/multi/main.rs",
++            "d/src/bin/tool.rs",
++            "d/src/main.rs"
++        ]
++    );
++    // The own-library lane lists exactly the same roots.
++    let own: Vec<&str> = cfg
++        .binary_library_deps
++        .keys()
++        .filter(|k| k.starts_with("d/"))
++        .map(String::as_str)
++        .collect();
++    assert_eq!(own, roots);
++}
++
++#[test]
++fn dependency_lane_covers_a_bin_only_member_and_a_conflicting_name() {
++    let bin_only = load(&[
++        ("Cargo.toml", WS),
++        ("a/Cargo.toml", A_TOML),
++        ("a/src/lib.rs", LIB),
++        ("d/Cargo.toml", &format!("{D_HEAD}{D_DEPS}")),
++        ("d/src/main.rs", MAIN),
++    ]);
++    assert_eq!(member_roots(&bin_only), (None, vec!["d/src/main.rs"]));
++    assert!(bin_only.binary_library_deps.is_empty());
++
++    // A dependency named like the own library: the own-library lane refuses the whole
++    // package, the dependency lane keeps the roots and the name for the Builder's rule.
++    let conflict = load(&[
++        ("Cargo.toml", WS),
++        ("a/Cargo.toml", A_TOML),
++        ("a/src/lib.rs", LIB),
++        (
++            "d/Cargo.toml",
++            &format!("{D_HEAD}[lib]\nname = \"x\"\n[dependencies]\nx = {{ package = \"a\", path = \"../a\" }}\n"),
++        ),
++        ("d/src/lib.rs", LIB),
++        ("d/src/main.rs", MAIN),
++    ]);
++    assert_eq!(member_roots(&conflict), (Some("x"), vec!["d/src/main.rs"]));
++    assert!(conflict.binary_library_deps.is_empty());
++}
++
++#[test]
++fn dependency_lane_skips_members_without_in_repo_dependencies_and_old_editions() {
++    let none = load(&[
++        ("Cargo.toml", WS),
++        ("a/Cargo.toml", A_TOML),
++        ("a/src/lib.rs", LIB),
++        ("d/Cargo.toml", D_HEAD),
++        ("d/src/main.rs", MAIN),
++    ]);
++    assert!(none.member_bin_roots.is_empty());
++    let old = load(&[
++        ("Cargo.toml", WS),
++        ("a/Cargo.toml", "[package]\nname = \"a\"\nedition = \"2015\"\n"),
++        ("a/src/lib.rs", LIB),
++        (
++            "d/Cargo.toml",
++            "[package]\nname = \"d\"\nedition = \"2015\"\n[dependencies]\na = { path = \"../a\" }\n",
++        ),
++        ("d/src/main.rs", MAIN),
++    ]);
++    assert!(old.member_bin_roots.is_empty());
++}
+diff --git a/src/repo_loader/bin_roots.rs b/src/repo_loader/bin_roots.rs
+new file mode 100644
+index 00000000..649f9975
+--- /dev/null
++++ b/src/repo_loader/bin_roots.rs
+@@ -0,0 +1,160 @@
++//! Binary target roots of a Cargo package, for the two lanes that consume them (#749): the own
++//! library (`binary_library_deps`) and the package's in-repo dependencies
++//! (`member_bin_roots`). One enumeration, so the lanes cannot drift.
++use super::{join_manifest_rel, normalize_repo_rel};
++use crate::ast::ParsedFile;
++use crate::name_resolution::rust_populator::MemberBins;
++use std::collections::{BTreeMap, BTreeSet};
++
++/// A package's own library target as an `extern` name, with the checks that make it
++/// nameable from its binaries (no `[lib] edition`, not `autolib = false`, not a proc-macro or
++/// non-rlib crate type, an existing root file). The dependency-name conflict is the
++/// callers' rule.
++struct OwnLibrary {
++    name: String,
++    root: String,
++}
++
++fn own_library(
++    manifest: &toml::Value,
++    dir: &str,
++    files: &BTreeMap<String, ParsedFile>,
++) -> Option<OwnLibrary> {
++    let package = manifest.get("package")?;
++    let lib = manifest.get("lib");
++    if lib.is_some_and(|l| l.get("edition").is_some()) {
++        return None;
++    }
++    if (lib.is_none() && package.get("autolib").and_then(|v| v.as_bool()) == Some(false))
++        || lib
++            .and_then(|l| l.get("proc-macro"))
++            .and_then(|v| v.as_bool())
++            == Some(true)
++        || lib
++            .and_then(|l| l.get("crate-type"))
++            .and_then(|v| v.as_array())
++            .is_some_and(|types| {
++                !types
++                    .iter()
++                    .any(|t| matches!(t.as_str(), Some("lib" | "rlib" | "dylib")))
++            })
++    {
++        return None;
++    }
++    let name = lib
++        .and_then(|l| l.get("name"))
++        .or_else(|| package.get("name"))
++        .and_then(|v| v.as_str())?
++        .replace('-', "_");
++    let lib_rel = lib
++        .and_then(|l| l.get("path"))
++        .and_then(|v| v.as_str())
++        .unwrap_or("src/lib.rs");
++    let root = normalize_repo_rel(&join_manifest_rel(dir, lib_rel))?;
++    files
++        .contains_key(&root)
++        .then_some(OwnLibrary { name, root })
++}
++
++/// The binary target roots Cargo gives a package, as far as prism models them: without
++/// `autobins = false` and without an explicit `[[bin]]` list, `src/main.rs`, `src/bin/*.rs`
++/// and `src/bin/*/main.rs`; explicit `[[bin]]` paths replace auto-discovery (inferring
++/// Cargo's name-based overrides belongs to a broader target model); a target with its own
++/// edition is outside the uniform-edition graph model. The ONE enumeration for the
++/// own-library lane and the dependency lane (#749), so the two cannot drift.
++fn package_bin_roots(
++    manifest: &toml::Value,
++    dir: &str,
++    files: &BTreeMap<String, ParsedFile>,
++) -> BTreeSet<String> {
++    let mut binaries = BTreeSet::new();
++    let Some(package) = manifest.get("package") else {
++        return binaries;
++    };
++    let explicit_bins = manifest.get("bin").and_then(|v| v.as_array());
++    if explicit_bins.is_none() && package.get("autobins").and_then(|v| v.as_bool()) != Some(false) {
++        let main = join_manifest_rel(dir, "src/main.rs");
++        if files.contains_key(&main) {
++            binaries.insert(main);
++        }
++        let prefix = join_manifest_rel(dir, "src/bin/");
++        for file in files.keys() {
++            if let Some(rest) = file.strip_prefix(&prefix) {
++                if (!rest.contains('/') && rest.ends_with(".rs"))
++                    || rest
++                        .strip_suffix("/main.rs")
++                        .is_some_and(|name| !name.is_empty() && !name.contains('/'))
++                {
++                    binaries.insert(file.clone());
++                }
++            }
++        }
++    }
++    if let Some(bins) = explicit_bins {
++        for bin in bins {
++            // Target-specific edition is outside the uniform-edition graph model.
++            if bin.get("edition").is_some() {
++                continue;
++            }
++            if let Some(path) = bin.get("path").and_then(|v| v.as_str()) {
++                if let Some(path) = normalize_repo_rel(&join_manifest_rel(dir, path)) {
++                    if files.contains_key(&path) {
++                        binaries.insert(path);
++                    }
++                }
++            }
++        }
++    }
++    binaries
++}
++
++/// Cargo binaries can reference their own package library, without a dependency
++/// table entry. Keep that authority path-addressed and separate from directory-
++/// guessed crate names and the legacy single `lib_path` field.
++pub(super) fn collect_binary_library_deps(
++    manifest: &toml::Value,
++    dir: &str,
++    files: &BTreeMap<String, ParsedFile>,
++    out: &mut BTreeMap<String, (String, String)>,
++) {
++    let Some(library) = own_library(manifest, dir, files) else {
++        return;
++    };
++    if manifest
++        .get("dependencies")
++        .and_then(|v| v.as_table())
++        .is_some_and(|deps| deps.keys().any(|k| k.replace('-', "_") == library.name))
++    {
++        return; // Do not choose a winner for conflicting extern names.
++    }
++    for binary in package_bin_roots(manifest, dir, files) {
++        if binary != library.root {
++            out.insert(binary, (library.name.clone(), library.root.clone()));
++        }
++    }
++}
++
++/// A member's binary roots and its own library's extern name (when it has a nameable one),
++/// for the dependency lane (#749): the Builder keys each root with the member's in-repo
++/// `[dependencies]` except one named like the own library (no winner for a name).
++pub(super) fn collect_member_bin_roots(
++    manifest: &toml::Value,
++    dir: &str,
++    files: &BTreeMap<String, ParsedFile>,
++    out: &mut BTreeMap<String, MemberBins>,
++) {
++    let library = own_library(manifest, dir, files);
++    let roots: Vec<String> = package_bin_roots(manifest, dir, files)
++        .into_iter()
++        .filter(|b| library.as_ref().is_none_or(|l| *b != l.root))
++        .collect();
++    if !roots.is_empty() {
++        out.insert(
++            dir.to_string(),
++            MemberBins {
++                own_lib_name: library.map(|l| l.name),
++                roots,
++            },
++        );
++    }
++}
+diff --git a/src/resolution/rust.rs b/src/resolution/rust.rs
+index e602bbd7..ee73246a 100644
+--- a/src/resolution/rust.rs
++++ b/src/resolution/rust.rs
+@@ -1,5 +1,7 @@
+-//! Rust resolution routes: external-prefix proof, Self:: calls, macro-argument path anchors.
++//! Rust resolution routes: external-prefix proof, Self:: calls, macro-argument path anchors,
++//! binary-root dependency placement.
+ 
++pub(crate) mod bin_dep_guard;
+ pub(crate) mod external_paths;
+ pub(crate) mod path_anchor;
+ pub(crate) mod self_calls;
+diff --git a/src/resolution/rust/bin_dep_guard.rs b/src/resolution/rust/bin_dep_guard.rs
+new file mode 100644
+index 00000000..32f473ac
+--- /dev/null
++++ b/src/resolution/rust/bin_dep_guard.rs
+@@ -0,0 +1,86 @@
++//! #749: the refusals for what a package's binary roots newly reach.
++//!
++//! A binary root keyed with its package's in-repo `[dependencies]` resolves `a::p::q::f()`
++//! through the dependency's module tree. Two hazards of the qualified-path lookup, each
++//! inherited and each newly reachable through these entries, are refused for a result that
++//! lands in a crate the caller's root reaches through a binary-root entry:
++//! - a block or callable scope between the site and its module binds the path's first
++//!   segment in the type namespace: qualified paths start at the enclosing module, chase a
++//!   module-level import and hand the import's scope to the extern fallback, so the block
++//!   binding is never seen (#768; rustc binds the block's);
++//! - the target lies in a file under a `#[path]` mount the populator misplaced (#765: a
++//!   decoy of the file rustc loads). Only the terminal function's file of a direct
++//!   dependency on the authoritative call route is checked; #765's fix removes this part.
++//!
++//! Library roots and own-library edges are untouched.
++use crate::call_graph::CallSite;
++use crate::name_resolution::graph::ScopeGraph;
++use crate::name_resolution::rust_policy::{crate_root_of, NS_TYPE};
++use crate::name_resolution::types::{FileId, ScopeId};
++use crate::resolution::{DropReason, ResolutionOutcome};
++
++/// `out`, or a dropped `UnknownName` when a resolved target lies in a crate reached through
++/// a binary-root dependency entry of `from`'s crate root and either hazard above applies.
++pub(crate) fn guard<'a>(
++    graph: &ScopeGraph,
++    site: &CallSite,
++    from: ScopeId,
++    out: ResolutionOutcome<'a>,
++) -> ResolutionOutcome<'a> {
++    if graph.bin_dep_entries.is_empty() || out.resolved.is_empty() {
++        return out;
++    }
++    let Some(root) = crate_root_of(graph, from) else {
++        return out;
++    };
++    let deps: Vec<ScopeId> = graph
++        .bin_dep_entries
++        .range((root, ScopeId(0))..=(root, ScopeId(u32::MAX)))
++        .map(|&(_, target)| target)
++        .collect();
++    if deps.is_empty() {
++        return out;
++    }
++    let in_dep = |file: &str| {
++        graph
++            .file_paths
++            .get(file)
++            .and_then(|&id| file_crate_root(graph, id))
++            .is_some_and(|target_root| deps.contains(&target_root))
++    };
++    let shadowed = site
++        .callee_name
++        .split_once("::")
++        .is_some_and(|(first, _)| block_binds_type(graph, from, first));
++    let refused = out.resolved.iter().any(|r| {
++        let misplaced = graph
++            .file_paths
++            .get(&r.target.file)
++            .is_some_and(|id| graph.misplaced_mount_files.contains(id));
++        (shadowed || misplaced) && in_dep(&r.target.file)
++    });
++    if refused {
++        ResolutionOutcome::dropped(DropReason::UnknownName)
++    } else {
++        out
++    }
++}
++
++/// A block or callable scope between `from` and its enclosing module binds `name` in the type
++/// namespace (the lexical-prefix check of #724's self-alias refusal).
++fn block_binds_type(graph: &ScopeGraph, from: ScopeId, name: &str) -> bool {
++    let (local, _) = super::path_anchor::local_scopes_and_module(graph, from);
++    local
++        .iter()
++        .any(|&s| graph.binding_indices(s, name, NS_TYPE).next().is_some())
++}
++
++/// The crate root of the crate whose module tree holds `file` (any scope with an extent in
++/// the file names it: a file belongs to one module).
++fn file_crate_root(graph: &ScopeGraph, file: FileId) -> Option<ScopeId> {
++    graph
++        .scopes
++        .values()
++        .find(|s| s.extents.iter().any(|e| e.file == file))
++        .and_then(|s| crate_root_of(graph, s.id))
++}
+diff --git a/src/resolution/rust/path_anchor.rs b/src/resolution/rust/path_anchor.rs
+index 2f87b844..ce7b0f12 100644
+--- a/src/resolution/rust/path_anchor.rs
++++ b/src/resolution/rust/path_anchor.rs
+@@ -65,9 +65,12 @@ pub(crate) fn guard<'a>(
+     out
+ }
+ 
+-/// A block/callable scope between `from` and its enclosing module binds `name` in the
+-/// type namespace while a module on that module's chain holds `{self as name}`.
+-fn block_shadows_module_alias(graph: &ScopeGraph, from: ScopeId, name: &str) -> bool {
++/// The block and callable scopes between `from` and its enclosing module (nearest first),
++/// and that module.
++pub(crate) fn local_scopes_and_module(
++    graph: &ScopeGraph,
++    from: ScopeId,
++) -> (Vec<ScopeId>, Option<ScopeId>) {
+     let mut local = Vec::new();
+     let mut cur = Some(from);
+     let mut module = None;
+@@ -82,6 +85,13 @@ fn block_shadows_module_alias(graph: &ScopeGraph, from: ScopeId, name: &str) ->
+         }
+         cur = scope.parent;
+     }
++    (local, module)
++}
++
++/// A block/callable scope between `from` and its enclosing module binds `name` in the type
++/// namespace while a module on that module's chain holds `{self as name}`.
++fn block_shadows_module_alias(graph: &ScopeGraph, from: ScopeId, name: &str) -> bool {
++    let (local, module) = local_scopes_and_module(graph, from);
+     let mut chain = module;
+     let mut alias_in_chain = false;
+     while let Some(id) = chain {
+diff --git a/src/resolution/rust/self_calls.rs b/src/resolution/rust/self_calls.rs
+index 3d275c57..e73a1172 100644
+--- a/src/resolution/rust/self_calls.rs
++++ b/src/resolution/rust/self_calls.rs
+@@ -25,13 +25,9 @@ impl CallGraph {
+         let was_anchored = anchored.is_some();
+         let site = anchored.as_ref().unwrap_or(site);
+         let out = self.rust_authoritative_nonself(graph, site, file, from);
+-        Some(super::path_anchor::guard(
+-            graph,
+-            site,
+-            was_anchored,
+-            from,
+-            out,
+-        ))
++        let out = super::path_anchor::guard(graph, site, was_anchored, from, out);
++        // Entries keyed for a package's binary roots refuse misplaced `#[path]` mounts (#749).
++        Some(super::bin_dep_guard::guard(graph, site, from, out))
+     }
+ 
+     fn rust_authoritative_nonself(
+diff --git a/tests/integration/main.rs b/tests/integration/main.rs
+index a756d80b..7cc9dd04 100644
+--- a/tests/integration/main.rs
++++ b/tests/integration/main.rs
+@@ -104,3 +104,5 @@ mod rust_self_closed_rule_test;
+ mod rust_pub_in_resolution_test;
+ 
+ mod rust_module_alias_test;
++
++mod rust_cross_crate_bin_test;
+diff --git a/tests/integration/rust_cross_crate_bin_test.rs b/tests/integration/rust_cross_crate_bin_test.rs
+new file mode 100644
+index 00000000..c15e4248
+--- /dev/null
++++ b/tests/integration/rust_cross_crate_bin_test.rs
+@@ -0,0 +1,786 @@
++//! #749: a binary root of a workspace member sees the package's in-repo
++//! `[dependencies]` under their in-source names, so `a::m::f()` from
++//! `b/src/main.rs` resolves like the same path from `b/src/lib.rs`.
++//!
++//! Manifest-parsed fixtures through `load_repo` and the navigation index (the
++//! production route), asserting the full `resolve_call_site_full` outcome. RED rows
++//! (C1 C1b C5 C6 C7b C9 C12 C17c) fail while `Builder::finish` keys library roots only; KEEP
++//! rows pin what must not change (a row whose outcome is inherited is pinned on
++//! base and head alike, and says so). Each row kills a mutant of
++//! `mutants/rust-bin-root-deps.json`.
++use prism::{
++    call_graph::{CallGraph, CallSite},
++    repo_loader::load_repo,
++    resolution::{DropReason, ResolutionConfidence, ResolutionKind},
++};
++use std::collections::BTreeMap;
++use tempfile::TempDir;
++
++const WS: &str = "[workspace]\nmembers = [\"a\", \"b\"]\n";
++const A_TOML: &str = "[package]\nname = \"a\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
++const A_LIB: &str =
++    "pub mod m;\npub fn to_string() {}\npub struct T;\nimpl T {\n    pub fn run() {}\n}\n";
++const A_M: &str = "pub fn f() {}\n";
++const B_DEP: &str = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++                     [dependencies]\na = { path = \"../a\" }\n";
++const B_LIB: &str = "pub fn lib_fn() {}\n";
++/// A call through the dependency, and the same function through a `use`.
++const CALLS_A: &str = "use a::m::f;\nfn main() {\n    a::m::f();\n}\nfn via_use() {\n    f();\n}\n";
++
++/// The default workspace (`a` library; `b` with a library and `b_toml`), with
++/// `extra` replacing or adding files.
++fn fixture(b_toml: &str, extra: &[(&str, &str)]) -> CallGraph {
++    build(b_toml, extra, &[])
++}
++
++/// As [`fixture`], with the default files named in `remove` left out.
++fn build(b_toml: &str, extra: &[(&str, &str)], remove: &[&str]) -> CallGraph {
++    let mut files: BTreeMap<String, String> = [
++        ("Cargo.toml", WS),
++        ("a/Cargo.toml", A_TOML),
++        ("a/src/lib.rs", A_LIB),
++        ("a/src/m.rs", A_M),
++        ("b/src/lib.rs", B_LIB),
++    ]
++    .iter()
++    .map(|(p, s)| ((*p).to_string(), (*s).to_string()))
++    .collect();
++    files.insert("b/Cargo.toml".into(), b_toml.into());
++    for (p, s) in extra {
++        files.insert((*p).into(), (*s).into());
++    }
++    for p in remove {
++        files.remove(*p);
++    }
++    let dir = TempDir::new().unwrap();
++    for (path, src) in &files {
++        let abs = dir.path().join(path);
++        std::fs::create_dir_all(abs.parent().unwrap()).unwrap();
++        std::fs::write(abs, src).unwrap();
++    }
++    let repo = load_repo(dir.path()).unwrap();
++    let cg =
++        CallGraph::build_with_scope_graph_inputs(&repo.files, repo.scope_graph_inputs.as_ref());
++    assert!(cg.scope_graph.as_ref().unwrap().complete);
++    cg
++}
++
++fn site<'a>(cg: &'a CallGraph, file: &str, caller: &str, callee: &str) -> &'a CallSite {
++    let sites = cg
++        .calls
++        .values()
++        .flatten()
++        .filter(|s| s.caller.file == file && s.caller.name == caller && s.callee_name == callee)
++        .collect::<Vec<_>>();
++    assert_eq!(sites.len(), 1, "{file}:{caller} {callee}: {sites:?}");
++    sites[0]
++}
++
++/// Target file, function name, start line, confidence and kind of every resolved target.
++type Targets = Vec<(String, String, usize, ResolutionConfidence, ResolutionKind)>;
++
++fn outcome(
++    cg: &CallGraph,
++    file: &str,
++    caller: &str,
++    callee: &str,
++) -> (Targets, Option<DropReason>) {
++    let o = cg.resolve_call_site_full(site(cg, file, caller, callee));
++    let targets = o
++        .resolved
++        .iter()
++        .map(|r| {
++            (
++                r.target.file.clone(),
++                r.target.name.clone(),
++                r.target.start_line,
++                r.confidence,
++                r.kind,
++            )
++        })
++        .collect();
++    (targets, o.drop)
++}
++
++/// The complete outcome of an Exact bind: `target` is `file::function@start_line`.
++fn exact_t(target: &str, kind: ResolutionKind) -> (Targets, Option<DropReason>) {
++    let (file, rest) = target.split_once("::").expect("file::name@line");
++    let (name, line) = rest.split_once('@').expect("file::name@line");
++    (
++        vec![(
++            file.to_string(),
++            name.to_string(),
++            line.parse().unwrap(),
++            ResolutionConfidence::Exact,
++            kind,
++        )],
++        None,
++    )
++}
++
++fn dropped() -> (Targets, Option<DropReason>) {
++    (Vec::new(), Some(DropReason::UnknownName))
++}
++
++/// The call is bound: exactly one Exact target, `file::function@line`, with `kind`.
++fn exact(
++    cg: &CallGraph,
++    file: &str,
++    caller: &str,
++    callee: &str,
++    target: &str,
++    kind: ResolutionKind,
++) {
++    assert_eq!(
++        outcome(cg, file, caller, callee),
++        exact_t(target, kind),
++        "{file}:{caller} {callee}"
++    );
++}
++
++/// The call is refused: no target, dropped `UnknownName`.
++fn refused(cg: &CallGraph, file: &str, caller: &str, callee: &str) {
++    assert_eq!(
++        outcome(cg, file, caller, callee),
++        dropped(),
++        "{file}:{caller} {callee}"
++    );
++}
++
++const QO: ResolutionKind = ResolutionKind::QualifiedOwner;
++const FS: ResolutionKind = ResolutionKind::FreeSingle;
++
++// ── RED: bin roots get the package's dependencies ───────────────────────────
++
++#[test]
++fn c1_every_bin_shape_resolves_dependency_paths() {
++    let cg = fixture(
++        B_DEP,
++        &[
++            ("b/src/main.rs", CALLS_A),
++            ("b/src/bin/tool.rs", CALLS_A),
++            ("b/src/bin/multi/main.rs", CALLS_A),
++        ],
++    );
++    for bin in [
++        "b/src/main.rs",
++        "b/src/bin/tool.rs",
++        "b/src/bin/multi/main.rs",
++    ] {
++        exact(&cg, bin, "main", "a::m::f", "a/src/m.rs::f@1", QO);
++        exact(&cg, bin, "via_use", "f", "a/src/m.rs::f@1", FS);
++    }
++}
++
++#[test]
++fn c1b_the_bins_own_library_still_resolves_beside_the_dependency() {
++    // KEEP: the package's own library entry (`binary_library_deps`) is untouched.
++    let cg = fixture(
++        B_DEP,
++        &[(
++            "b/src/main.rs",
++            "fn main() {\n    b::lib_fn();\n    a::m::f();\n}\n",
++        )],
++    );
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "b::lib_fn",
++        "b/src/lib.rs::lib_fn@1",
++        QO,
++    );
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "a::m::f",
++        "a/src/m.rs::f@1",
++        QO,
++    );
++}
++
++#[test]
++fn c5_renamed_dependency_resolves_under_its_in_source_name() {
++    let toml = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++                [dependencies]\nalpha = { package = \"a\", path = \"../a\" }\n";
++    let cg = fixture(
++        toml,
++        &[
++            ("b/src/main.rs", "fn main() {\n    alpha::m::f();\n}\n"),
++            // KEEP: the package name is not an in-source name.
++            ("b/src/bin/old.rs", "fn main() {\n    a::m::f();\n}\n"),
++        ],
++    );
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "alpha::m::f",
++        "a/src/m.rs::f@1",
++        QO,
++    );
++    refused(&cg, "b/src/bin/old.rs", "main", "a::m::f");
++}
++
++#[test]
++fn c6_bin_only_package_resolves_dependency_paths() {
++    // No library root in `b`: a bin-only package can still name its dependencies.
++    let cg = build(
++        B_DEP,
++        &[("b/src/main.rs", "fn main() {\n    a::m::f();\n}\n")],
++        &["b/src/lib.rs"],
++    );
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "a::m::f",
++        "a/src/m.rs::f@1",
++        QO,
++    );
++}
++
++#[test]
++fn c9_explicit_bin_path_resolves_and_replaces_auto_discovery() {
++    let toml = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++                [[bin]]\nname = \"x\"\npath = \"tools/x.rs\"\n\
++                [dependencies]\na = { path = \"../a\" }\n";
++    let cg = fixture(
++        toml,
++        &[
++            ("b/tools/x.rs", "fn main() {\n    a::m::f();\n}\n"),
++            // Retained exclusion: an explicit `[[bin]]` list replaces auto-discovery.
++            ("b/src/main.rs", "fn main() {\n    a::m::f();\n}\n"),
++        ],
++    );
++    exact(
++        &cg,
++        "b/tools/x.rs",
++        "main",
++        "a::m::f",
++        "a/src/m.rs::f@1",
++        QO,
++    );
++    refused(&cg, "b/src/main.rs", "main", "a::m::f");
++}
++
++// ── KEEP: what must not be keyed ────────────────────────────────────────────
++
++#[test]
++fn c2_no_dependency_entry_drops() {
++    let toml = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
++    let cg = fixture(
++        toml,
++        &[("b/src/main.rs", "fn main() {\n    a::m::f();\n}\n")],
++    );
++    refused(&cg, "b/src/main.rs", "main", "a::m::f");
++}
++
++#[test]
++fn c3_dev_dependency_only_drops() {
++    let toml = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++                [dev-dependencies]\na = { path = \"../a\" }\n";
++    let cg = fixture(
++        toml,
++        &[("b/src/main.rs", "fn main() {\n    a::m::f();\n}\n")],
++    );
++    refused(&cg, "b/src/main.rs", "main", "a::m::f");
++}
++
++#[test]
++fn c4_build_script_and_other_target_roots_get_no_dependency_entry() {
++    let call = "fn main() {\n    a::m::f();\n}\n";
++    let cg = fixture(
++        B_DEP,
++        &[
++            ("b/build.rs", call),
++            ("b/src/main.rs", "fn main() {}\n"),
++            ("b/tests/it.rs", call),
++            ("b/examples/ex.rs", call),
++            ("b/benches/bn.rs", call),
++        ],
++    );
++    // Inherited on base and head, never the graph's QualifiedOwner: build.rs is no modeled
++    // root (it sees `[build-dependencies]`, not parsed) and falls to the legacy stem route;
++    // tests, examples and benches are roots that also see dev-dependencies (not parsed), so
++    // the graph refuses them.
++    exact(
++        &cg,
++        "b/build.rs",
++        "main",
++        "a::m::f",
++        "a/src/m.rs::f@1",
++        ResolutionKind::StemSingle,
++    );
++    for file in ["b/tests/it.rs", "b/examples/ex.rs", "b/benches/bn.rs"] {
++        refused(&cg, file, "main", "a::m::f");
++    }
++}
++
++#[test]
++fn c8_external_dependency_has_no_in_repo_edge() {
++    let toml = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++                [dependencies]\nserde_json = \"1\"\na = { path = \"../a\" }\n";
++    let cg = fixture(
++        toml,
++        &[(
++            "b/src/main.rs",
++            "fn main() {\n    serde_json::to_string();\n}\n",
++        )],
++    );
++    // `a` exports an in-repo `to_string`; the external crate must not bind it.
++    refused(&cg, "b/src/main.rs", "main", "serde_json::to_string");
++}
++
++#[test]
++fn c10_edition_2015_package_drops() {
++    let a = "[package]\nname = \"a\"\nversion = \"0.1.0\"\nedition = \"2015\"\n";
++    let b = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2015\"\n\
++             [dependencies]\na = { path = \"../a\" }\n";
++    let cg = fixture(
++        b,
++        &[
++            ("a/Cargo.toml", a),
++            ("b/src/main.rs", "fn main() {\n    a::m::f();\n}\n"),
++        ],
++    );
++    refused(&cg, "b/src/main.rs", "main", "a::m::f");
++}
++
++#[test]
++fn c11_autobins_false_keys_no_auto_bin() {
++    let toml =
++        "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\nautobins = false\n\
++                [dependencies]\na = { path = \"../a\" }\n";
++    let cg = fixture(
++        toml,
++        &[
++            ("b/src/main.rs", "fn main() {\n    a::m::f();\n}\n"),
++            ("b/src/bin/tool.rs", "fn main() {\n    a::m::f();\n}\n"),
++        ],
++    );
++    refused(&cg, "b/src/bin/tool.rs", "main", "a::m::f");
++    refused(&cg, "b/src/main.rs", "main", "a::m::f");
++}
++
++#[test]
++fn c12_bin_with_its_own_edition_is_not_keyed() {
++    let toml = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++                [[bin]]\nname = \"tool\"\npath = \"src/bin/tool.rs\"\nedition = \"2018\"\n\
++                [[bin]]\nname = \"plain\"\npath = \"src/bin/plain.rs\"\n\
++                [dependencies]\na = { path = \"../a\" }\n";
++    let cg = fixture(
++        toml,
++        &[
++            ("b/src/bin/tool.rs", "fn main() {\n    a::m::f();\n}\n"),
++            ("b/src/bin/plain.rs", "fn main() {\n    a::m::f();\n}\n"),
++        ],
++    );
++    refused(&cg, "b/src/bin/tool.rs", "main", "a::m::f");
++    // The sibling without an edition override is keyed (the skip is per target).
++    exact(
++        &cg,
++        "b/src/bin/plain.rs",
++        "main",
++        "a::m::f",
++        "a/src/m.rs::f@1",
++        QO,
++    );
++}
++
++// ── shadows ─────────────────────────────────────────────────────────────────
++
++#[test]
++fn c13_bin_local_module_shadows_the_dependency() {
++    let cg = fixture(
++        B_DEP,
++        &[(
++            "b/src/main.rs",
++            "mod a {\n    pub mod m {\n        pub fn f() {}\n    }\n}\nfn main() {\n    a::m::f();\n}\n",
++        )],
++    );
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "a::m::f",
++        "b/src/main.rs::f@3",
++        QO,
++    );
++}
++
++#[test]
++fn c14_block_local_binding_of_the_dependency_name_declines() {
++    // A block-local import (and a block-local module) named `a`: the extern fallback
++    // declines instead of binding the dependency (`rust_policy::extern_crate_root`).
++    let cg = fixture(
++        B_DEP,
++        &[(
++            "b/src/main.rs",
++            "mod other {\n    pub mod m {\n        pub fn f() {}\n    }\n}\n\
++             fn imported() {\n    use other as a;\n    a::m::f();\n}\n\
++             fn modular() {\n    mod a {\n        pub mod m {\n            pub fn f() {}\n        }\n    }\n    a::m::f();\n}\n",
++        )],
++    );
++    refused(&cg, "b/src/main.rs", "imported", "a::m::f");
++    refused(&cg, "b/src/main.rs", "modular", "a::m::f");
++}
++
++#[test]
++fn c16_block_local_type_shadow_binds_the_local_associated_fn() {
++    let cg = fixture(
++        B_DEP,
++        &[
++            ("a/src/lib.rs", "pub fn m() {}\n"),
++            (
++                "b/src/main.rs",
++                "fn main() {\n    struct a;\n    impl a {\n        fn m() {}\n    }\n    a::m();\n}\n",
++            ),
++        ],
++    );
++    // Same on base (where `a` has no entry) and head: the `NS_TYPE` guard declines the
++    // dependency and the local associated `a::m` binds.
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "a::m",
++        "b/src/main.rs::m@4",
++        QO,
++    );
++}
++
++// ── conflict rule and owner-pool fallback ───────────────────────────────────
++
++const B_CONFLICT: &str = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++                          [lib]\nname = \"x\"\n\
++                          [dependencies]\nx = { package = \"a\", path = \"../a\" }\n";
++
++#[test]
++fn c7_dependency_named_like_the_own_library_is_not_keyed() {
++    let cg = fixture(
++        B_CONFLICT,
++        &[(
++            "b/src/main.rs",
++            "fn main() {\n    x::m::f();\n    x::T::run();\n}\n",
++        )],
++    );
++    // Free-function path: the graph rung refuses (no winner for the name `x`).
++    refused(&cg, "b/src/main.rs", "main", "x::m::f");
++    // Associated path with a singleton `(T, run)` owner pool: the owner-pool fallback of
++    // `rust_authoritative_nonself` is INHERITED (identical on base and head), not a
++    // refusal this rule adds or removes.
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "x::T::run",
++        "a/src/lib.rs::run@5",
++        QO,
++    );
++}
++
++#[test]
++fn c7b_only_the_conflicting_dependency_is_dropped() {
++    let toml = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++                [lib]\nname = \"x\"\n\
++                [dependencies]\na = { path = \"../a\" }\nx = { package = \"a\", path = \"../a\" }\n";
++    let cg = fixture(
++        toml,
++        &[(
++            "b/src/main.rs",
++            "fn main() {\n    a::m::f();\n    x::m::f();\n}\n",
++        )],
++    );
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "a::m::f",
++        "a/src/m.rs::f@1",
++        QO,
++    );
++    refused(&cg, "b/src/main.rs", "main", "x::m::f");
++}
++
++#[test]
++fn c15_bin_local_owner_with_the_dependencys_owner_name() {
++    let cg = fixture(
++        B_DEP,
++        &[
++            ("a/src/lib.rs", "pub mod m;\npub struct T;\nimpl T {\n    pub fn run() {}\n}\n"),
++            (
++                "b/src/main.rs",
++                "struct T;\nimpl T {\n    fn run() {}\n}\nfn main() {\n    a::T::run();\n    T::run();\n}\n",
++            ),
++        ],
++    );
++    // The bare name `T::run` is a two-owner pool here; the local type binds the local fn.
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "T::run",
++        "b/src/main.rs::run@3",
++        QO,
++    );
++    // Pinned as inherited (identical on base and head): the dependency's `T::run` through the
++    // owner pool, not the local type's.
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "a::T::run",
++        "a/src/lib.rs::run@4",
++        QO,
++    );
++}
++
++// ── #[path] placement (the #765 discipline for what this rule newly admits) ──
++//
++// `#[path = "q.rs"] pub mod q;` in `a/src/p.rs`: rustc loads `a/src/q.rs`, the populator
++// binds the retained decoy `a/src/p/q.rs`. A bin root's dependency path must not bind it.
++
++fn mount_files(call: &'static str) -> Vec<(&'static str, &'static str)> {
++    vec![
++        ("a/src/lib.rs", "pub mod p;\n"),
++        ("a/src/p.rs", "#[path = \"q.rs\"]\npub mod q;\n"),
++        ("a/src/q.rs", "pub fn f() -> bool { true }\n"), // what rustc loads
++        ("a/src/p/q.rs", "pub fn f() -> bool { false }\n"), // the decoy the populator binds
++        ("b/src/main.rs", call),
++    ]
++}
++
++const MOUNT_CALL: &str = "fn main() {\n    a::p::q::f();\n}\n";
++
++#[test]
++fn c17_bin_dependency_path_refuses_a_misplaced_mount() {
++    let cg = fixture(B_DEP, &mount_files(MOUNT_CALL));
++    refused(&cg, "b/src/main.rs", "main", "a::p::q::f");
++}
++
++#[test]
++fn c17b_bin_dependency_path_via_use_refuses_a_misplaced_mount() {
++    let cg = fixture(
++        B_DEP,
++        &mount_files("use a::p::q::f;\nfn main() {\n    f();\n}\n"),
++    );
++    refused(&cg, "b/src/main.rs", "main", "f");
++}
++
++#[test]
++fn c17c_bin_dependency_path_binds_a_correctly_placed_mount() {
++    let cg = fixture(
++        B_DEP,
++        &[
++            ("a/src/lib.rs", "pub mod p;\n"),
++            // Directly in a mod-rs file both calculations give `a/src/p/q.rs`.
++            ("a/src/p/mod.rs", "#[path = \"q.rs\"]\npub mod q;\n"),
++            ("a/src/p/q.rs", "pub fn f() -> bool { true }\n"),
++            ("b/src/main.rs", MOUNT_CALL),
++        ],
++    );
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "a::p::q::f",
++        "a/src/p/q.rs::f@1",
++        QO,
++    );
++}
++
++#[test]
++fn c17d_library_root_consumer_keeps_its_inherited_outcome() {
++    // KEEP, pinned as inherited (#765): the library-root route into a misplaced mount is
++    // unchanged by this rule (it only guards what it newly admits).
++    let mut files = mount_files(MOUNT_CALL);
++    files.push(("b/src/lib.rs", "pub fn lib_fn() {\n    a::p::q::f();\n}\n"));
++    let cg = fixture(B_DEP, &files);
++    let got = outcome(&cg, "b/src/lib.rs", "lib_fn", "a::p::q::f");
++    assert_eq!(got, exact_t("a/src/p/q.rs::f@1", QO), "{got:?}");
++}
++
++// ── block-scope shadows through a module-level import (review fold, #768) ────
++//
++// A qualified path starts its lookup at the enclosing MODULE, chases a module-level
++// import and hands the import's own scope to the extern fallback, so a block-scope
++// binding of the first segment is never seen. rustc binds the block's.
++
++const MODULE_IMPORT: &str = "use a::m as alias;\nmod local {\n    pub fn f() {}\n}\n";
++
++#[test]
++fn c18_block_import_shadows_a_module_level_import_of_the_dependency() {
++    // rustc binds `local::f`; head must not bind the dependency's `a::m::f`.
++    let main = format!(
++        "{MODULE_IMPORT}fn main() {{\n    use crate::local as alias;\n    alias::f();\n}}\n"
++    );
++    let cg = fixture(B_DEP, &[("b/src/main.rs", main.as_str())]);
++    refused(&cg, "b/src/main.rs", "main", "alias::f");
++}
++
++#[test]
++fn c18b_block_module_shadows_a_module_level_import_of_the_dependency() {
++    let main = format!(
++        "{MODULE_IMPORT}fn main() {{\n    mod alias {{\n        pub fn f() {{}}\n    }}\n    alias::f();\n}}\n"
++    );
++    let cg = fixture(B_DEP, &[("b/src/main.rs", main.as_str())]);
++    refused(&cg, "b/src/main.rs", "main", "alias::f");
++}
++
++#[test]
++fn c18c_unshadowed_module_level_import_of_the_dependency_binds() {
++    // Control: no block binding, the import chases to the dependency.
++    let main = format!("{MODULE_IMPORT}fn main() {{\n    alias::f();\n}}\n");
++    let cg = fixture(B_DEP, &[("b/src/main.rs", main.as_str())]);
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "alias::f",
++        "a/src/m.rs::f@1",
++        QO,
++    );
++}
++
++#[test]
++fn c18d_block_binding_of_another_name_does_not_refuse() {
++    // Control: a block binding of a different name is not a shadow of `alias`.
++    let main = format!(
++        "{MODULE_IMPORT}fn main() {{\n    use crate::local as other;\n    other::f();\n    alias::f();\n}}\n"
++    );
++    let cg = fixture(B_DEP, &[("b/src/main.rs", main.as_str())]);
++    exact(
++        &cg,
++        "b/src/main.rs",
++        "main",
++        "alias::f",
++        "a/src/m.rs::f@1",
++        QO,
++    );
++}
++
++// ── routes past the placement guard until #765 lands (PR D) ─────────────────
++//
++// `bin_dep_guard` checks only the terminal function's file of a direct dependency on the
++// authoritative call route. Each row below binds the decoy `.../p/q.rs` today and asserts
++// the file rustc loads; #765's fix (correct `#[path]` placement) makes them green and
++// removes the guard.
++
++/// Resolved targets as `file::function@line`, all Exact.
++fn exact_targets(cg: &CallGraph, file: &str, caller: &str, callee: &str) -> Vec<String> {
++    let (targets, drop) = outcome(cg, file, caller, callee);
++    assert!(
++        targets.iter().all(|t| t.3 == ResolutionConfidence::Exact),
++        "{targets:?} {drop:?}"
++    );
++    targets
++        .iter()
++        .map(|t| format!("{}::{}@{}", t.0, t.1, t.2))
++        .collect()
++}
++
++const WS3: &str = "[workspace]\nmembers = [\"a\", \"b\", \"c\"]\n";
++const C_TOML: &str = "[package]\nname = \"c\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
++const A_WITH_C: &str = "[package]\nname = \"a\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
++                        [dependencies]\nc = { path = \"../c\" }\n";
++const OWNER_Q: &str =
++    "pub struct S;\nimpl S {\n    pub fn run(&self) {}\n}\npub fn make() -> S {\n    S\n}\n";
++
++/// Dependency `a` whose `p.rs` mounts `q.rs` by `#[path]` (rustc loads `a/src/q.rs`;
++/// the populator binds the decoy `a/src/p/q.rs`), with `q`, `decoy` as file bodies.
++fn a_mount<'a>(q: &'a str, decoy: &'a str, lib: &'a str) -> Vec<(&'a str, &'a str)> {
++    vec![
++        ("a/src/lib.rs", lib),
++        ("a/src/p.rs", "#[path = \"q.rs\"]\npub mod q;\n"),
++        ("a/src/q.rs", q),
++        ("a/src/p/q.rs", decoy),
++    ]
++}
++
++#[test]
++#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
++fn w2a_reexport_in_a_misplaced_mount_binds_rustcs_target() {
++    let mut files = a_mount(
++        "pub use crate::right as f;\n",
++        "pub use crate::wrong as f;\n",
++        "pub mod p;\npub fn right() {}\npub fn wrong() {}\n",
++    );
++    files.push(("b/src/main.rs", "fn main() {\n    a::p::q::f();\n}\n"));
++    let cg = fixture(B_DEP, &files);
++    assert_eq!(
++        exact_targets(&cg, "b/src/main.rs", "main", "a::p::q::f"),
++        ["a/src/lib.rs::right@2"]
++    );
++}
++
++/// Crate `c` holds the misplaced mount (`c/src/q.rs` is rustc's file, `c/src/p/q.rs` the decoy);
++/// `a` depends on `c` and re-exports it; `b` depends on `a` only.
++fn c_mount(a_lib: &'static str, call: &'static str) -> CallGraph {
++    build(
++        B_DEP,
++        &[
++            ("Cargo.toml", WS3),
++            ("a/Cargo.toml", A_WITH_C),
++            ("a/src/lib.rs", a_lib),
++            ("c/Cargo.toml", C_TOML),
++            ("c/src/lib.rs", "pub mod p;\n"),
++            ("c/src/p.rs", "#[path = \"q.rs\"]\npub mod q;\n"),
++            ("c/src/q.rs", "pub fn f() -> bool {\n    true\n}\n"),
++            ("c/src/p/q.rs", "pub fn f() -> bool {\n    false\n}\n"),
++            ("b/src/main.rs", call),
++        ],
++        &["a/src/m.rs"],
++    )
++}
++
++#[test]
++#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
++fn w2b_item_reexport_of_a_third_crates_misplaced_module_binds_rustcs_target() {
++    let cg = c_mount("pub use c::p::q::f;\n", "fn main() {\n    a::f();\n}\n");
++    assert_eq!(
++        exact_targets(&cg, "b/src/main.rs", "main", "a::f"),
++        ["c/src/q.rs::f@1"]
++    );
++}
++
++#[test]
++#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
++fn r3_transitive_module_reexport_binds_rustcs_target() {
++    let cg = c_mount("pub use c::p;\n", "fn main() {\n    a::p::q::f();\n}\n");
++    assert_eq!(
++        exact_targets(&cg, "b/src/main.rs", "main", "a::p::q::f"),
++        ["c/src/q.rs::f@1"]
++    );
++}
++
++#[test]
++#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
++fn r1_typed_parameter_receiver_binds_rustcs_target() {
++    let mut files = a_mount(OWNER_Q, OWNER_Q, "pub mod p;\n");
++    files.push((
++        "b/src/main.rs",
++        "fn go(s: a::p::q::S) {\n    s.run();\n}\nfn main() {}\n",
++    ));
++    let cg = fixture(B_DEP, &files);
++    assert_eq!(
++        exact_targets(&cg, "b/src/main.rs", "go", "run"),
++        ["a/src/q.rs::run@3"]
++    );
++}
++
++#[test]
++#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
++fn r2_return_typed_receiver_binds_rustcs_target() {
++    let mut files = a_mount(OWNER_Q, OWNER_Q, "pub mod p;\n");
++    files.push((
++        "b/src/main.rs",
++        "fn go() {\n    let s = a::p::q::make();\n    s.run();\n}\nfn main() {}\n",
++    ));
++    let cg = fixture(B_DEP, &files);
++    assert_eq!(
++        exact_targets(&cg, "b/src/main.rs", "go", "run"),
++        ["a/src/q.rs::run@3"]
++    );
++}
+diff --git a/tests/name_resolution/bin_root_deps_test.rs b/tests/name_resolution/bin_root_deps_test.rs
+new file mode 100644
+index 00000000..06413c5d
+--- /dev/null
++++ b/tests/name_resolution/bin_root_deps_test.rs
+@@ -0,0 +1,310 @@
++//! #749: `crate_deps_by_root` for binary roots.
++//!
++//! Manifest-parsed fixtures through `load_repo` and `populate_rust`. Each row asserts
++//! the complete dependency map keyed by root FILE (library roots, own-library entries
++//! and the dependency entries of bin roots), so a mutant that keys one root too many or
++//! too few fails. RED rows (D1 D2 D5 D6 D9) fail while `Builder::finish` keys library
++//! roots only; KEEP rows pin the retained exclusions. Each row kills a mutant of
++//! `mutants/rust-bin-root-deps.json`.
++use std::collections::BTreeMap;
++
++use prism::name_resolution::rust_populator::populate_rust;
++use prism::repo_loader::load_repo;
++use tempfile::TempDir;
++
++type Keyed = BTreeMap<String, BTreeMap<String, String>>;
++
++const WS: &str = "[workspace]\nmembers = [\"a\", \"b\"]\n";
++const A_TOML: &str = "[package]\nname = \"a\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
++const B_HEAD: &str = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
++const B_DEP: &str = "[dependencies]\na = { path = \"../a\" }\n";
++const MAIN: &str = "fn main() {}\n";
++
++fn pairs(rows: &[(&str, &[(&str, &str)])]) -> Keyed {
++    rows.iter()
++        .map(|(root, deps)| {
++            (
++                (*root).to_string(),
++                deps.iter()
++                    .map(|(n, t)| ((*n).to_string(), (*t).to_string()))
++                    .collect(),
++            )
++        })
++        .collect()
++}
++
++/// Workspace `a` (library) + `b` (manifest `b_toml`, files `b_files`): every root's
++/// dependency map, by file path.
++fn keyed(a_toml: &str, b_toml: &str, b_files: &[(&str, &str)]) -> Keyed {
++    let dir = TempDir::new().unwrap();
++    let mut all = vec![
++        ("Cargo.toml", WS),
++        ("a/Cargo.toml", a_toml),
++        ("a/src/lib.rs", "pub fn f() {}\n"),
++        ("b/Cargo.toml", b_toml),
++    ];
++    all.extend_from_slice(b_files);
++    for (path, src) in all {
++        let abs = dir.path().join(path);
++        std::fs::create_dir_all(abs.parent().unwrap()).unwrap();
++        std::fs::write(abs, src).unwrap();
++    }
++    let repo = load_repo(dir.path()).unwrap();
++    let cfg = &repo.scope_graph_inputs.as_ref().unwrap().cfg;
++    let graph = populate_rust(&repo.files, cfg, None);
++    let path_of = |scope| {
++        let file = graph.scope(scope).unwrap().extents[0].file;
++        graph
++            .file_paths
++            .iter()
++            .find(|(_, id)| **id == file)
++            .map(|(p, _)| p.clone())
++            .unwrap()
++    };
++    graph
++        .crate_deps_by_root
++        .iter()
++        .map(|(root, deps)| {
++            (
++                path_of(*root),
++                deps.iter().map(|(n, t)| (n.clone(), path_of(*t))).collect(),
++            )
++        })
++        .collect()
++}
++
++fn b_toml(extra_head: &str, deps: &str) -> String {
++    format!("{B_HEAD}{extra_head}{deps}")
++}
++
++const LIB: (&str, &str) = ("b/src/lib.rs", "pub fn lib_fn() {}\n");
++
++#[test]
++fn d1_every_bin_shape_is_keyed_with_the_dependency() {
++    let got = keyed(
++        A_TOML,
++        &b_toml("", B_DEP),
++        &[
++            LIB,
++            ("b/src/main.rs", MAIN),
++            ("b/src/bin/tool.rs", MAIN),
++            ("b/src/bin/multi/main.rs", MAIN),
++            // Not auto-bins: nested files below `src/bin/<name>/` other than main.rs.
++            ("b/src/bin/multi/helper.rs", "pub fn h() {}\n"),
++        ],
++    );
++    let bin = [("a", "a/src/lib.rs"), ("b", "b/src/lib.rs")];
++    assert_eq!(
++        got,
++        pairs(&[
++            ("b/src/lib.rs", &[("a", "a/src/lib.rs")]),
++            ("b/src/main.rs", &bin),
++            ("b/src/bin/tool.rs", &bin),
++            ("b/src/bin/multi/main.rs", &bin),
++        ])
++    );
++}
++
++#[test]
++fn d2_renamed_dependency_is_keyed_under_its_in_source_name() {
++    let got = keyed(
++        A_TOML,
++        &b_toml(
++            "",
++            "[dependencies]\nalpha = { package = \"a\", path = \"../a\" }\n",
++        ),
++        &[LIB, ("b/src/main.rs", MAIN)],
++    );
++    assert_eq!(
++        got,
++        pairs(&[
++            ("b/src/lib.rs", &[("alpha", "a/src/lib.rs")]),
++            (
++                "b/src/main.rs",
++                &[("alpha", "a/src/lib.rs"), ("b", "b/src/lib.rs")]
++            ),
++        ])
++    );
++}
++
++#[test]
++fn d5_hyphenated_dependency_name_is_normalized() {
++    let a = "[package]\nname = \"a-core\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
++    let got = keyed(
++        a,
++        &b_toml("", "[dependencies]\na-core = { path = \"../a\" }\n"),
++        &[LIB, ("b/src/main.rs", MAIN)],
++    );
++    assert_eq!(
++        got["b/src/main.rs"],
++        pairs(&[("x", &[("a_core", "a/src/lib.rs"), ("b", "b/src/lib.rs")])])["x"]
++    );
++}
++
++#[test]
++fn d6_bin_only_member_is_keyed() {
++    let got = keyed(A_TOML, &b_toml("", B_DEP), &[("b/src/main.rs", MAIN)]);
++    assert_eq!(got, pairs(&[("b/src/main.rs", &[("a", "a/src/lib.rs")])]));
++}
++
++#[test]
++fn d9_explicit_bin_path_is_keyed_and_replaces_auto_discovery() {
++    let got = keyed(
++        A_TOML,
++        &b_toml("[[bin]]\nname = \"x\"\npath = \"tools/x.rs\"\n", B_DEP),
++        &[
++            LIB,
++            ("b/tools/x.rs", MAIN),
++            ("b/src/main.rs", MAIN),
++            ("b/src/bin/tool.rs", MAIN),
++        ],
++    );
++    assert_eq!(
++        got,
++        pairs(&[
++            ("b/src/lib.rs", &[("a", "a/src/lib.rs")]),
++            (
++                "b/tools/x.rs",
++                &[("a", "a/src/lib.rs"), ("b", "b/src/lib.rs")]
++            ),
++        ])
++    );
++}
++
++// ── KEEP ────────────────────────────────────────────────────────────────────
++
++#[test]
++fn d3_no_dependency_entry_keys_only_the_own_library() {
++    let got = keyed(A_TOML, &b_toml("", ""), &[LIB, ("b/src/main.rs", MAIN)]);
++    assert_eq!(got, pairs(&[("b/src/main.rs", &[("b", "b/src/lib.rs")])]));
++}
++
++#[test]
++fn d4_dev_dependency_and_build_script_are_never_keyed() {
++    let got = keyed(
++        A_TOML,
++        &b_toml("", "[dev-dependencies]\na = { path = \"../a\" }\n[build-dependencies]\na = { path = \"../a\" }\n"),
++        &[LIB, ("b/src/main.rs", MAIN), ("b/build.rs", MAIN)],
++    );
++    assert_eq!(got, pairs(&[("b/src/main.rs", &[("b", "b/src/lib.rs")])]));
++}
++
++#[test]
++fn d4b_build_script_is_not_keyed_even_with_a_normal_dependency() {
++    let got = keyed(
++        A_TOML,
++        &b_toml("", B_DEP),
++        &[LIB, ("b/src/main.rs", MAIN), ("b/build.rs", MAIN)],
++    );
++    assert!(!got.contains_key("b/build.rs"), "{got:?}");
++    assert!(got.contains_key("b/src/main.rs"), "{got:?}");
++}
++
++#[test]
++fn d4c_tests_examples_and_benches_roots_are_not_keyed() {
++    let got = keyed(
++        A_TOML,
++        &b_toml("", B_DEP),
++        &[
++            LIB,
++            ("b/src/main.rs", MAIN),
++            ("b/tests/it.rs", MAIN),
++            ("b/examples/ex.rs", MAIN),
++            ("b/benches/bn.rs", MAIN),
++        ],
++    );
++    let mut roots: Vec<&str> = got.keys().map(String::as_str).collect();
++    roots.sort_unstable();
++    assert_eq!(roots, ["b/src/lib.rs", "b/src/main.rs"], "{got:?}");
++}
++
++#[test]
++fn d7_edition_2015_package_keys_nothing_for_bins() {
++    let a = "[package]\nname = \"a\"\nversion = \"0.1.0\"\nedition = \"2015\"\n";
++    let b = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2015\"\n[dependencies]\na = { path = \"../a\" }\n";
++    let got = keyed(a, b, &[LIB, ("b/src/main.rs", MAIN)]);
++    assert!(!got.contains_key("b/src/main.rs"), "{got:?}");
++}
++
++#[test]
++fn d8_autobins_false_keys_no_auto_bin() {
++    let got = keyed(
++        A_TOML,
++        &b_toml("autobins = false\n", B_DEP),
++        &[LIB, ("b/src/main.rs", MAIN), ("b/src/bin/tool.rs", MAIN)],
++    );
++    assert_eq!(got, pairs(&[("b/src/lib.rs", &[("a", "a/src/lib.rs")])]));
++}
++
++#[test]
++fn d10_bin_with_its_own_edition_is_skipped_per_target() {
++    let got = keyed(
++        A_TOML,
++        &b_toml(
++            "[[bin]]\nname = \"tool\"\npath = \"src/bin/tool.rs\"\nedition = \"2018\"\n\
++             [[bin]]\nname = \"plain\"\npath = \"src/bin/plain.rs\"\n",
++            B_DEP,
++        ),
++        &[
++            LIB,
++            ("b/src/bin/tool.rs", MAIN),
++            ("b/src/bin/plain.rs", MAIN),
++        ],
++    );
++    assert!(!got.contains_key("b/src/bin/tool.rs"), "{got:?}");
++    assert_eq!(
++        got["b/src/bin/plain.rs"],
++        pairs(&[("x", &[("a", "a/src/lib.rs"), ("b", "b/src/lib.rs")])])["x"]
++    );
++}
++
++#[test]
++fn d11_dependency_named_like_the_own_library_is_dropped_alone() {
++    // The own library is `x`; the dependency `x` (package a) would be a second `x`:
++    // neither is inserted. The sibling dependency `a` still is.
++    let got = keyed(
++        A_TOML,
++        &b_toml(
++            "[lib]\nname = \"x\"\n",
++            "[dependencies]\na = { path = \"../a\" }\nx = { package = \"a\", path = \"../a\" }\n",
++        ),
++        &[LIB, ("b/src/main.rs", MAIN)],
++    );
++    assert_eq!(
++        got["b/src/main.rs"],
++        pairs(&[("k", &[("a", "a/src/lib.rs")])])["k"]
++    );
++    assert!(
++        got["b/src/lib.rs"].contains_key("x"),
++        "the library root keeps its own keying (unchanged v1 rule): {got:?}"
++    );
++}
++
++#[test]
++fn d12_a_target_without_a_library_root_is_not_a_dependency_entry() {
++    // `b` depends on `c`, a bin-only package: not `use`-nameable, so no entry.
++    let c = "[package]\nname = \"c\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
++    let dir = TempDir::new().unwrap();
++    for (path, src) in [
++        ("Cargo.toml", "[workspace]\nmembers = [\"b\", \"c\"]\n"),
++        ("c/Cargo.toml", c),
++        ("c/src/main.rs", MAIN),
++        ("b/Cargo.toml", "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n[dependencies]\nc = { path = \"../c\" }\n"),
++        ("b/src/main.rs", MAIN),
++    ] {
++        let abs = dir.path().join(path);
++        std::fs::create_dir_all(abs.parent().unwrap()).unwrap();
++        std::fs::write(abs, src).unwrap();
++    }
++    let repo = load_repo(dir.path()).unwrap();
++    let graph = populate_rust(
++        &repo.files,
++        &repo.scope_graph_inputs.as_ref().unwrap().cfg,
++        None,
++    );
++    assert!(
++        graph.crate_deps_by_root.values().all(|m| m.is_empty()),
++        "{:?}",
++        graph.crate_deps_by_root
++    );
++}
+diff --git a/tests/name_resolution/main.rs b/tests/name_resolution/main.rs
+index ade38ac9..d3c5de91 100644
+--- a/tests/name_resolution/main.rs
++++ b/tests/name_resolution/main.rs
+@@ -1,5 +1,6 @@
+ mod anchor_glob_precision_test;
+ mod anchor_glob_test;
++mod bin_root_deps_test;
+ mod build_wiring_test;
+ mod consumer_test;
+ mod glob_expand_test;
+diff --git a/tests/name_resolution/rust_populate_test.rs b/tests/name_resolution/rust_populate_test.rs
+index a3b222db..e2dfd796 100644
+--- a/tests/name_resolution/rust_populate_test.rs
++++ b/tests/name_resolution/rust_populate_test.rs
+@@ -755,6 +755,7 @@ fn test_extern_crate_alias_binds_in_root() {
+         edition_uniform: true,
+         member_in_repo_deps: BTreeMap::new(),
+         binary_library_deps: BTreeMap::new(),
++        member_bin_roots: BTreeMap::new(),
+     };
+     let g = populate_rust(&fs, &cfg, None);
+     // `bar` is a Type binding at a/src/lib.rs's root scope.
+@@ -797,6 +798,7 @@ fn test_workspace_two_members_distinct_roots() {
+         edition_uniform: true,
+         member_in_repo_deps: BTreeMap::new(),
+         binary_library_deps: BTreeMap::new(),
++        member_bin_roots: BTreeMap::new(),
+     };
+     let g = populate_rust(&fs, &cfg, None);
+     // `helper()` in crate_a must NOT resolve to crate_b's helper (separate crate).
+@@ -833,6 +835,7 @@ fn test_explicit_lib_and_bin_roots() {
+         edition_uniform: true,
+         member_in_repo_deps: BTreeMap::new(),
+         binary_library_deps: BTreeMap::new(),
++        member_bin_roots: BTreeMap::new(),
+     };
+     let g = populate_rust(&fs, &cfg, None);
+     // Each root file is its own crate Root scope (enclosing_scope at byte 0 is a Root).
+@@ -1312,6 +1315,7 @@ fn test_parse_failed_containing_file_is_unmodeled() {
+         edition_uniform: true,
+         member_in_repo_deps: BTreeMap::new(),
+         binary_library_deps: BTreeMap::new(),
++        member_bin_roots: BTreeMap::new(),
+     };
+     let g = populate_rust(&fs, &cfg, None);
+ 

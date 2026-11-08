@@ -14,6 +14,7 @@ use crate::name_resolution::graph::ScopeGraph;
 use crate::name_resolution::rust_policy::{crate_root_of, NS_TYPE};
 use crate::name_resolution::types::{FileId, ScopeId, ScopeKind};
 use crate::resolution::{DropReason, ResolutionOutcome};
+use std::collections::BTreeSet;
 
 /// `out`, or a dropped `UnknownName` when a resolved target lies in a crate reached through
 /// a binary-root dependency entry of `from`'s crate root and a block or callable scope
@@ -42,11 +43,11 @@ pub(crate) fn guard<'a>(
         return out;
     }
     let refused = out.resolved.iter().any(|r| {
-        graph
-            .file_paths
-            .get(&r.target.file)
-            .and_then(|&id| file_crate_root(graph, id))
-            .is_some_and(|target_root| deps.contains(&target_root))
+        graph.file_paths.get(&r.target.file).is_some_and(|&id| {
+            file_crate_roots(graph, id)
+                .iter()
+                .any(|target_root| deps.contains(target_root))
+        })
     });
     if refused {
         ResolutionOutcome::dropped(DropReason::UnknownName)
@@ -77,12 +78,16 @@ fn block_binds_type(graph: &ScopeGraph, from: ScopeId, name: &str) -> bool {
     false
 }
 
-/// The crate root of the crate whose module tree holds `file` (any scope with an extent in
-/// the file names it: a file belongs to one module).
-fn file_crate_root(graph: &ScopeGraph, file: FileId) -> Option<ScopeId> {
+/// The crate roots of every module occurrence of `file`. Since #765 a file mounted by two
+/// crates (`#[path]`, or a plain `mod` in both) has scopes under each root, so the first scope
+/// found does not name its crate; the guard reads them all and refuses on any. Once a block
+/// binding shadows the path, rustc binds the block's whatever the target's crate, so widening
+/// to every occurrence only adds refusals of outcomes that are wrong anyway.
+fn file_crate_roots(graph: &ScopeGraph, file: FileId) -> BTreeSet<ScopeId> {
     graph
         .scopes
         .values()
-        .find(|s| s.extents.iter().any(|e| e.file == file))
-        .and_then(|s| crate_root_of(graph, s.id))
+        .filter(|s| s.extents.iter().any(|e| e.file == file))
+        .filter_map(|s| crate_root_of(graph, s.id))
+        .collect()
 }

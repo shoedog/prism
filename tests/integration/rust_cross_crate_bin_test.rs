@@ -783,3 +783,87 @@ fn r2_return_typed_receiver_binds_rustcs_target() {
         ["a/src/q.rs::run@3"]
     );
 }
+
+// ── a target file mounted by two crates (review fold, #765 per-occurrence population) ──
+//
+// `z/src/m.rs` is a module of `z` and, through `#[path]`, of the mounting crate too, so its
+// scopes sit under two crate roots. The block-shadow guard must read every occurrence, not
+// the first it finds.
+
+const WS_AZ: &str = "[workspace]\nmembers = [\"a\", \"b\", \"z\"]\n";
+const Z_TOML: &str = "[package]\nname = \"z\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
+const B_DEP_Z: &str = "[package]\nname = \"b\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
+                       [dependencies]\nz = { path = \"../z\" }\n";
+const SHADOWED: &str = "use z::m as alias;\nmod local {\n    pub fn f() {}\n}\n\
+                        fn main() {\n    use crate::local as alias;\n    alias::f();\n}\n";
+const UNSHADOWED: &str = "use z::m as alias;\nfn main() {\n    alias::f();\n}\n";
+const OTHER_NAME: &str = "use z::m as alias;\nmod local {\n    pub fn f() {}\n}\n\
+                          fn main() {\n    use crate::local as other;\n    other::f();\n    alias::f();\n}\n";
+
+/// `mounter` (a crate directory) mounts `z/src/m.rs` by `#[path]`; `b` depends on `z` only.
+fn two_mounts(mounter: &'static str, main: &'static str) -> CallGraph {
+    let ws: &'static str = if mounter == "a" {
+        WS_AZ
+    } else {
+        "[workspace]\nmembers = [\"zz\", \"b\", \"z\"]\n"
+    };
+    let (toml, lib): (String, &'static str) = (
+        "[package]\nname = \"MOUNTER\"\nversion = \"0.1.0\"\nedition = \"2021\"\n"
+            .replace("MOUNTER", mounter),
+        "#[path = \"../../z/src/m.rs\"]\npub mod shared;\n",
+    );
+    let (toml_path, lib_path) = (
+        format!("{mounter}/Cargo.toml"),
+        format!("{mounter}/src/lib.rs"),
+    );
+    let mut extra: Vec<(&str, &str)> = vec![
+        ("Cargo.toml", ws),
+        ("z/Cargo.toml", Z_TOML),
+        ("z/src/lib.rs", "pub mod m;\n"),
+        ("z/src/m.rs", "pub fn f() {}\n"),
+        ("b/src/main.rs", main),
+    ];
+    extra.push((toml_path.as_str(), toml.as_str()));
+    extra.push((lib_path.as_str(), lib));
+    build(B_DEP_Z, &extra, &["a/src/m.rs"])
+}
+
+#[test]
+fn c18e_shadow_refuses_when_another_crate_mounts_the_target_file_first() {
+    // The mounting crate `a` walks before `z`; rustc binds `local::f`.
+    let cg = two_mounts("a", SHADOWED);
+    refused(&cg, "b/src/main.rs", "main", "alias::f");
+}
+
+#[test]
+fn c18f_shadow_refuses_when_the_mounting_crate_walks_after_the_dependency() {
+    // `zz` sorts after `z`, so the first occurrence found is `z`'s own.
+    let cg = two_mounts("zz", SHADOWED);
+    refused(&cg, "b/src/main.rs", "main", "alias::f");
+}
+
+#[test]
+fn c18g_unshadowed_import_binds_a_multiply_mounted_target() {
+    let cg = two_mounts("a", UNSHADOWED);
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "alias::f",
+        "z/src/m.rs::f@1",
+        QO,
+    );
+}
+
+#[test]
+fn c18h_block_alias_of_another_name_binds_a_multiply_mounted_target() {
+    let cg = two_mounts("a", OTHER_NAME);
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "alias::f",
+        "z/src/m.rs::f@1",
+        QO,
+    );
+}
