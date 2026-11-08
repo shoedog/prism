@@ -6,8 +6,8 @@
 //! Line: `rd-census-owner\t<mechanism>\t<file>\t<owner>\t<first line>\t<last line>`: the shape of
 //! `guard-deleted:<hazard>` plus the owner's last line (the edge dump carries no owner, so a measurement
 //! attributes an edge to the owner whose line range holds both of its endpoints).
-//! - `param-alias`: the own parameter list holds an alias default `u = o` (the owner mints the alias
-//!   binding's def, and the alias twin of `o`).
+//! - `param-alias`: the own parameter list holds an aliasing default (`u = o`, `[u] = o`, `{ a: u } = o`): the
+//!   owner mints the alias binding's def (and, where the body's extractor yields one, the alias twin of `o`).
 //! - `param-bare`: a formal is read bare only in a default of the own parameter list, so it is mixed
 //!   where it used to be member-only (or unused).
 use crate::ast::ParsedFile;
@@ -37,10 +37,11 @@ pub(super) fn trace<'a>(
             parsed.path
         );
     };
-    if !parsed
-        .js_ts_param_default_alias_triples(func_node, lines)
-        .is_empty()
-    {
+    // Keyed on the minted alias binding defs, not on alias triples: an entry that mints a def but no
+    // triple (`{ a: u = 1 } = o`, `{ [k]: u } = o`) still moves edges.
+    let mut spans = Vec::new();
+    parsed.js_ts_param_default_alias_spans(func_node, lines, &mut spans);
+    if !spans.is_empty() {
         emit("param-alias");
     }
     let mut formals: Vec<&str> = formals.collect();

@@ -253,3 +253,40 @@ fn every_alias_def_and_triple_sits_on_the_owners_first_line() {
         );
     }
 }
+
+#[test]
+fn entries_that_mint_a_def_but_no_triple_are_still_alias_entries() {
+    // The census trace keys `param-alias` on the minted defs, so these owners get a line (#782 round 2).
+    for source in [
+        "function f(o, { a: u = 1 } = o) {}",
+        "function f(o, { [k]: u } = o) {}",
+        "function f(o, { 'a': u } = o) {}",
+    ] {
+        let parsed = parse(Language::JavaScript, source);
+        let function = parsed.all_functions()[0];
+        let lines = (1..=source.lines().count()).collect();
+        let mut spans = Vec::new();
+        parsed.js_ts_param_default_alias_spans(&function, &lines, &mut spans);
+        assert_eq!(spans.len(), 1, "{source}");
+        assert!(
+            parsed
+                .js_ts_param_default_alias_triples(&function, &lines)
+                .is_empty(),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn only_the_binding_of_an_alias_entry_is_a_param_alias_binding() {
+    let source = "function f(o, u = o, { a: w } = o, p = 1, q = g(u)) { return u + w; }";
+    let parsed = parse(Language::JavaScript, source);
+    let at = |anchor: &str, offset: usize| {
+        let start = source.find(anchor).unwrap() + offset;
+        parsed.js_ts_is_param_alias_binding_at(start, start + 1)
+    };
+    // `u` of `u = o`, `w` of `{ a: w } = o`; not the read `o`, a non-alias default's name, or reads of `u`.
+    assert!(at("u = o", 0) && at("w }", 0));
+    assert!(!at("= o,", 2) && !at("p = 1", 0));
+    assert!(!at("g(u)", 2) && !at("u + w", 0));
+}

@@ -120,6 +120,40 @@ impl ParsedFile {
         self.js_ts_param_default_alias_target(ident)
     }
 
+    /// Whether `[start, end)` is a name bound by an aliasing entry of the own parameter list (`u` of `u = o`,
+    /// `u` of `{ a: u } = o`): a def this module mints, whose binding identifier is not a read of itself.
+    pub(crate) fn js_ts_is_param_alias_binding_at(
+        &self,
+        start_byte: usize,
+        end_byte: usize,
+    ) -> bool {
+        if !is_js_ts(self.language) {
+            return false;
+        }
+        let Some(mut node) = self
+            .tree
+            .root_node()
+            .descendant_for_byte_range(start_byte, end_byte)
+        else {
+            return false;
+        };
+        let params = loop {
+            let Some(parent) = node.parent() else {
+                return false;
+            };
+            if parent.kind() == "formal_parameters" {
+                break parent;
+            }
+            node = parent;
+        };
+        let entry = node;
+        default_entry(entry).is_some_and(|(binding, _)| {
+            binding.start_byte() <= start_byte
+                && end_byte <= binding.end_byte()
+                && self.param_alias_of_entry(params, entry).is_some()
+        })
+    }
+
     /// Alias triples `(alias, target, line)` for `collect_alias_assignments` (the named-owner alias map),
     /// from the body's own extractors: an identifier is the declarator `const u = o`, a pattern is
     /// `const [u] = o` / `const { a: u } = o`. Every def and twin of the list sits on the owner's first line

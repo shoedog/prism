@@ -187,6 +187,34 @@ const CASES: &[Case] = &[
     Case { name: "object_pattern_value_default_is_not_aliased", lang: JS,
         source: "function f(o, { a: u = 1 } = o) {\n  log();\n  u.x = 1;\n  return sink(o.a.x);\n}",
         present: &[("o@1->o@4", EXACT)], absent: &["o.a@1->o.a@4"] },
+    // The binding identifier of an alias is not a read of it (#782 round 2): with the def on the owner's first line, the
+    // binding on a later signature row used to be admitted as a use and got `u@1->u@3 exact`, an edge `u` never has.
+    Case { name: "binding_row_is_not_a_use", lang: JS,
+        source: "function f(\n  o,\n  u = o) { log();\n  return 0;\n}",
+        present: &[], absent: &["u@1->u@3", "u@1->u@4"] },
+    Case { name: "binding_row_is_not_a_use_object_pattern", lang: JS,
+        source: "function f(\n  o,\n  { a: u } = o) { log();\n  return 0;\n}",
+        present: &[], absent: &["u@1->u@3", "u@1->u@4"] },
+    Case { name: "binding_row_is_not_a_use_array_pattern", lang: JS,
+        source: "function f(\n  o,\n  [u] = o) { log();\n  return 0;\n}",
+        present: &[], absent: &["u@1->u@3", "u@1->u@4"] },
+    Case { name: "binding_row_is_not_a_use_ts", lang: TS,
+        source: "function f(\n  o: any,\n  u: any = o) { log();\n  return 0;\n}",
+        present: &[], absent: &["u@1->u@3", "u@1->u@4"] },
+    Case { name: "binding_row_is_not_a_use_anonymous", lang: JS,
+        source: "g(function (\n  o,\n  u = o) { log();\n  return 0;\n});",
+        present: &[], absent: &["u@1->u@3", "u@1->u@4"] },
+    // Genuine reads that share the binding's row keep their edges: a later default, and a body statement on that row.
+    Case { name: "binding_row_keeps_a_later_default_read", lang: JS,
+        source: "function f(\n  o,\n  u = o, v = u.k) { log();\n  return 0;\n}",
+        present: &[("u@1->u@3", EXACT)], absent: &[] },
+    Case { name: "binding_row_keeps_a_body_read", lang: JS,
+        source: "function f(\n  o,\n  u = o) { return sink(u);\n}",
+        present: &[("u@1->u@3", CFG)], absent: &[] },
+    // The single-line twin: the binding shares the def's line, as before.
+    Case { name: "single_line_binding_is_not_a_use", lang: JS,
+        source: "function f(o, u = o) { log();\n  return 0;\n}",
+        present: &[], absent: &["u@1->u@1", "u@1->u@2"] },
     // Negative controls: a literal right-hand side (the documented residual) and a TDZ forward reference mint no alias
     // and no alias binding def.
     Case { name: "ctl_object_pattern_literal_rhs", lang: JS,
