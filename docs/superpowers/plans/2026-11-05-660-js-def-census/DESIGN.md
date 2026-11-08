@@ -274,10 +274,10 @@ label (`Killed`), with an ordinary-member control (`o.x = 2`: covered, no additi
 These are not missed writes: the write is recorded, with an identity the extractor chose. The census neither widens nor
 narrows them; the rows keep main's label as `expected`, and an issue is proposed for each.
 
-- **G1 prefix writes.** `o.x = 1; o = {}; sink(o.x)` keeps `o.x@2->o.x@4` `exact` on main (o29): `kill_paths` is keyed by full
+- **G1 prefix writes (CLOSED by #674: recorded defs kill by `affects`).** `o.x = 1; o = {}; sink(o.x)` keeps `o.x@2->o.x@4` `exact` on main (o29): `kill_paths` is keyed by full
   path, so the recorded `o` def does not kill `o.x`. The census's kill-only writes use `affects` (o30: `o++` kills `o.x`); the
   recorded side is a separate label-only change (proposed issue: prefix kills for recorded defs).
-- **G2 subscript versus dot.** `o.x = 1; o["x"] = 2; sink(o.x)` keeps `exact` (o27): the recorded subscript write has identity
+- **G2 subscript versus dot (CLOSED by #674, same change).** `o.x = 1; o["x"] = 2; sink(o.x)` keeps `exact` (o27): the recorded subscript write has identity
   `o.[]`. Kill-only subscript writes treat `[]` as a wildcard (o28); the recorded side is the same proposed issue.
 - **G3 wrapper spelling in recorded paths.** `o!.x = 2` is recorded with another spelling and does not kill `o.x` (o23).
   Closed for the census by A7: the site is not covered, a kill-only `o.x` is added.
@@ -456,11 +456,11 @@ recorded defs and kills sit at the shorter statement's node, before the defs nes
 against c6393854 (E18 keying over-refused them): in `g(a = 1,\n a = 2); x(); sink(a)`, edge `a@3->a@4`, for example the use is anchored at
 a plain write's own target (nothing to order), is the operand read of the node's one counting write (`a += 2`, E2), or is a
 read the node's write provably follows (`g(a = 1,\n a = a + 1)`, the read is ordered before the write): each correct. A third
-class is KNOWN WRONG and owned by #674 (G1/G2, §5.4, §17): a def-side edge on a field path whose intervening write is a
+class was KNOWN WRONG and owned by #674 (G1/G2, §5.4, §17; closed by #674): a def-side edge on a field path whose intervening write is a
 recorded prefix or subscript write (`g(o.x = 1,\n o = {}); y(); sink(o.x)`, `o.x@3->o.x@5`; also `o += 2`, a declarator tail,
 `o[k] = 2`). c6393854 refused it only because E18 put the prefix write in the def's node; keyed where RD puts it, D3 sees both
 nodes clean and RD's path-equal kill never kills `o.x`, so the label is `exact` although `o = {}` always runs between them
-(the straight-line `o.x = 1; o = {}; sink(o.x)` is already `exact` on main). Pinned by `prefix_write_in_a_shorter_node_is_the_g1_gap`.
+(the straight-line `o.x = 1; o = {}; sink(o.x)` is already `exact` on main). Pinned by `prefix_write_in_a_shorter_node_is_killed_by_g1` (was `..._is_the_g1_gap`, `exact`; #674 flipped it to `nameonly/killed`).
 
 ### 7.3 Expected cost
 Heuristic candidate counts (`corpus/*.analyze_r3.txt`, final rules): use side 68 edges on excalidraw (60 of them refused only

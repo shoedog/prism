@@ -146,12 +146,12 @@ fn test_algorithm_language_matrix() {
         "tests/ast/java_type_provider_test.rs",
         "tests/ast/rust_type_provider_test.rs",
         "tests/ast/comment_string_test.rs",
-        "tests/cli/algo_test.rs",
-        "tests/cli/validation_test.rs",
-        "tests/cli/output_test.rs",
+        "crates/prism-review/tests/cli/algo_test.rs",
+        "crates/prism-review/tests/cli/validation_test.rs",
+        "crates/prism-review/tests/cli/output_test.rs",
         "tests/integration/call_graph_test.rs",
         "tests/integration/core_test.rs",
-        "tests/integration/build_profile_test.rs",
+        "crates/prism-review/tests/cli/build_profile_test.rs",
         "tests/integration/js_binding_namespace_test.rs",
         "tests/integration/coverage_test.rs",
         "tests/integration/cwe_phase1_suppression_test.rs",
@@ -383,12 +383,12 @@ fn test_language_coverage_minimum() {
         "tests/ast/java_type_provider_test.rs",
         "tests/ast/rust_type_provider_test.rs",
         "tests/ast/comment_string_test.rs",
-        "tests/cli/algo_test.rs",
-        "tests/cli/validation_test.rs",
-        "tests/cli/output_test.rs",
+        "crates/prism-review/tests/cli/algo_test.rs",
+        "crates/prism-review/tests/cli/validation_test.rs",
+        "crates/prism-review/tests/cli/output_test.rs",
         "tests/integration/call_graph_test.rs",
         "tests/integration/core_test.rs",
-        "tests/integration/build_profile_test.rs",
+        "crates/prism-review/tests/cli/build_profile_test.rs",
         "tests/integration/js_binding_namespace_test.rs",
         "tests/integration/coverage_test.rs",
         "tests/integration/cwe_phase1_suppression_test.rs",
@@ -548,12 +548,12 @@ fn test_coverage_matrix_validation() {
         "tests/ast/java_type_provider_test.rs",
         "tests/ast/rust_type_provider_test.rs",
         "tests/ast/comment_string_test.rs",
-        "tests/cli/algo_test.rs",
-        "tests/cli/validation_test.rs",
-        "tests/cli/output_test.rs",
+        "crates/prism-review/tests/cli/algo_test.rs",
+        "crates/prism-review/tests/cli/validation_test.rs",
+        "crates/prism-review/tests/cli/output_test.rs",
         "tests/integration/call_graph_test.rs",
         "tests/integration/core_test.rs",
-        "tests/integration/build_profile_test.rs",
+        "crates/prism-review/tests/cli/build_profile_test.rs",
         "tests/integration/js_binding_namespace_test.rs",
         "tests/integration/coverage_test.rs",
         "tests/integration/cwe_phase1_suppression_test.rs",
@@ -869,7 +869,7 @@ def b(y):
 /// algorithm.
 #[test]
 fn diagram_coverage_for_plan1_algorithms() {
-    use prism::algorithms;
+    use prism_review::algorithms;
 
     // (label, config, files, diff)  — one or more fixtures per algorithm
     struct FixtureRun {

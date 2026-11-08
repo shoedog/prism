@@ -24,7 +24,7 @@ use tree_sitter::Node;
 ///
 /// The walk is intraprocedural (cleanser must live in same function as `line`);
 /// cross-function cleansing is a Phase 1.5+ concern.
-pub(crate) fn function_body_cleansed_for(
+pub fn function_body_cleansed_for(
     parsed: &ParsedFile,
     line: usize,
     category: SanitizerCategory,

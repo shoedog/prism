@@ -7,9 +7,10 @@ use super::ParsedFile;
 use crate::languages::Language;
 use tree_sitter::Node;
 
-/// `pub(crate)` (P9): reused by `framework_entries` for the same
-/// parenthesized-expression unwrapping `algorithms/taint.rs` also does.
-pub(crate) fn unwrap_parenthesized(mut node: Node<'_>) -> Node<'_> {
+/// `pub` since #734 PR 1a (was `pub(crate)`, P9): used by `framework_entries` and by
+/// prism-review's taint (`algorithms/taint/`) for the same parenthesized-expression
+/// unwrapping.
+pub fn unwrap_parenthesized(mut node: Node<'_>) -> Node<'_> {
     loop {
         if node.kind() != "parenthesized_expression" {
             return node;
@@ -21,7 +22,7 @@ pub(crate) fn unwrap_parenthesized(mut node: Node<'_>) -> Node<'_> {
     }
 }
 
-pub(crate) fn call_arg_node<'a>(call: &Node<'a>, arg_idx: usize) -> Option<Node<'a>> {
+pub fn call_arg_node<'a>(call: &Node<'a>, arg_idx: usize) -> Option<Node<'a>> {
     let arguments = call.child_by_field_name("arguments").or_else(|| {
         let mut cursor = call.walk();
         let found = call
@@ -37,12 +38,12 @@ pub(crate) fn call_arg_node<'a>(call: &Node<'a>, arg_idx: usize) -> Option<Node<
 /// Compute the textual call path for a call expression. For `r.URL.Query()`,
 /// returns `Some("r.URL.Query")`; for Python `request.args.get()`, returns
 /// `Some("request.args.get")`.
-pub(crate) fn call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
+pub fn call_path_text(parsed: &ParsedFile, call_node: &Node<'_>) -> Option<String> {
     let func = parsed.call_function_node(call_node)?;
     Some(parsed.node_text(&func).to_string())
 }
 
-pub(crate) fn call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool {
+pub fn call_path_matches(parsed: &ParsedFile, actual: &str, expected: &str) -> bool {
     actual == expected
         || (parsed.language == Language::Python
             && !expected.contains('.')
@@ -58,7 +59,7 @@ pub(crate) fn call_path_matches(parsed: &ParsedFile, actual: &str, expected: &st
                 .is_some_and(|tail| tail == expected))
 }
 
-pub(crate) fn is_js_ts_language(language: Language) -> bool {
+pub fn is_js_ts_language(language: Language) -> bool {
     matches!(
         language,
         Language::JavaScript | Language::TypeScript | Language::Tsx
@@ -66,7 +67,7 @@ pub(crate) fn is_js_ts_language(language: Language) -> bool {
 }
 
 /// Walk `root` collecting every call node for the file's language.
-pub(crate) fn collect_calls<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Vec<Node<'a>>) {
+pub fn collect_calls<'a>(parsed: &ParsedFile, node: Node<'a>, out: &mut Vec<Node<'a>>) {
     if parsed.language.is_call_node(node.kind()) {
         out.push(node);
     }

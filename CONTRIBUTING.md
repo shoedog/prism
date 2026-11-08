@@ -23,17 +23,17 @@ cargo test
 cargo test test_taint_forward
 
 # Check formatting
-cargo fmt -- --check
+cargo fmt --all -- --check
 
 # Run clippy
-cargo clippy -- -D warnings
+cargo clippy --workspace -- -D warnings
 ```
 
 ## Adding a New Algorithm
 
-1. Create `src/algorithms/my_algorithm.rs`
+1. Create `crates/prism-review/src/algorithms/my_algorithm.rs`
 1. Implement the `SlicingAlgorithm` trait
-1. Register in `src/algorithms/mod.rs`
+1. Register in `crates/prism-review/src/algorithms/mod.rs`
 1. Add tests covering at least Python, JavaScript, and C
 1. Document in the algorithm table in README.md
 

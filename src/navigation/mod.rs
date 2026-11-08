@@ -11,6 +11,7 @@ pub mod onboarding;
 mod owner_cache_tests;
 mod partition_site_dump;
 pub mod queries;
+pub mod render;
 pub mod seed;
 pub mod types;
 

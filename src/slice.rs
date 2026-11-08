@@ -335,7 +335,7 @@ impl SliceResult {
 
     /// Restore the finding/evidence invariant at algorithm boundaries. AST-only
     /// findings have a valid empty witness; missing CPG evidence stays `None`.
-    pub(crate) fn align_evidence(&mut self) {
+    pub fn align_evidence(&mut self) {
         if self.findings.len() == self.evidence.len() {
             return;
         }

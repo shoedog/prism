@@ -424,7 +424,7 @@ fn verify_snapshot(
 
 // `NavigationSession` holds `Arc<LoadedRepo>`/`Arc<NavigationIndex>` (the nav layer's shape).
 // `SessionProvider` is `Send + Sync`; the shared daemon queries one provider from many
-// connection threads and asserts that at compile time in `src/mcp/daemon/mod.rs`. The lint
+// connection threads and asserts that at compile time in `crates/prism-mcp/src/daemon/mod.rs`. The lint
 // allowance below is older than that fact and is kept so that this change alters no lint outcome.
 #[allow(clippy::arc_with_non_send_sync)]
 fn build_state(

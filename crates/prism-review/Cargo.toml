@@ -1,0 +1,44 @@
+[package]
+name = "prism-review"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Diff-driven review over the prism core: slicing algorithms, output formats, targets and the `prism` CLI"
+publish = false
+
+[[bin]]
+name = "prism"
+path = "src/main.rs"
+# The core library is also named `prism`; documenting this bin would collide with its docs (measured on a toy).
+doc = false
+
+[dependencies]
+prism = { path = "../.." }
+tree-sitter = "0.25"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+petgraph = "0.7"
+sha2 = "0.10"
+rayon = "1"
+
+# Global allocator for the `prism` CLI only (src/main.rs); see #437.
+[target.'cfg(target_os = "linux")'.dependencies]
+tikv-jemallocator = "0.7"
+
+[features]
+# Forwards prism's explicit real-compiler audit tests (tests/cli/owner_activation_test.rs).
+detached-owner-audit = ["prism/detached-owner-audit"]
+
+[dev-dependencies]
+tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
+libc = "0.2"
+tree-sitter-rust = "0.24"
+
+[[test]]
+name = "cli"
+path = "tests/cli/main.rs"

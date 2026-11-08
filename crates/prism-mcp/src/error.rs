@@ -132,7 +132,7 @@ pub fn query_error_result(error: QueryError) -> McpToolResult {
     // Candidate count is capped and every candidate string is clamped (round-7 MAJOR). The actionable
     // sentence is a fixed, trusted string and stays full.
     let error = bound_query_error(error);
-    let mut content_text = prism::output::navigation::render_err(&error, "json").0;
+    let mut content_text = prism::navigation::render::render_err(&error, "json").0;
     content_text.push('\n');
     content_text.push_str(actionable_sentence(&error));
     if let Some(total) = ambiguous_total {

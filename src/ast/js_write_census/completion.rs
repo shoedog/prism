@@ -38,6 +38,9 @@ pub(crate) struct Completion {
     /// The writes in nested callables and instance field initializers, for the bases the owner records
     /// (#660 S1c, D2-c).
     pub captured: Vec<Captured>,
+    /// (target start byte, path) of every recorded def the census's precise identity for the same site
+    /// equals (`covered` below): the recorded paths that are complete storage identities (#674).
+    pub covered: BTreeSet<(usize, AccessPath)>,
 }
 
 /// `ident`'s path in the producer's representation (`[]` for a subscript).
@@ -110,6 +113,21 @@ pub(crate) fn completion(
             && by_start
                 .get(&site.target_start)
                 .is_some_and(|stored| stored.iter().any(|p| **p == path));
+        // #674: a declaration of a bare name (`let`/`const`/`var`, a destructured name) is complete by
+        // construction: it cannot be truncated, and `this` cannot be declared. Formals (`own_params`) and
+        // destructured or loop-head names stay out: `BindingFacts` does not tell a block-scoped pattern name
+        // from the outer binding, so a shadowing `{ const { o } = src() }` would kill the outer `o.x`.
+        let declared_bare = site.form == Form::Declare
+            && !(r.nested || r.instance_field || r.own_params || rebound)
+            && bases.contains(site.path.base.as_str())
+            && path.fields.is_empty()
+            && is_plain_declarator(parsed, site.target_start)
+            && by_start
+                .get(&site.target_start)
+                .is_some_and(|stored| stored.iter().any(|p| **p == path));
+        if covered || declared_bare {
+            out.covered.insert((site.target_start, path.clone()));
+        }
         // The line RD is handed for this write (#696): the E18 statement line of a kill-only def,
         // the target's own line of a recorded one. D3 keys the write by RD's node for that line.
         let kill_line = (candidate && !covered).then(|| placed.flatten()).flatten();
@@ -180,10 +198,15 @@ fn binding_probe(parsed: &ParsedFile, site: &Site) -> usize {
 /// computed key and every decorator (a method's, a parameter's, a class-body one) run in the
 /// enclosing scope and keep it.
 fn this_is_rebound(parsed: &ParsedFile, owner: Node<'_>, site: &Site) -> bool {
+    this_is_rebound_at(parsed, owner, site.target_start)
+}
+
+/// `this_is_rebound` for a target that starts at `byte` (a recorded def's start byte, #674).
+pub(crate) fn this_is_rebound_at(parsed: &ParsedFile, owner: Node<'_>, byte: usize) -> bool {
     let Some(node) = parsed
         .tree
         .root_node()
-        .descendant_for_byte_range(site.target_start, site.target_start)
+        .descendant_for_byte_range(byte, byte)
     else {
         return false;
     };
@@ -370,4 +393,18 @@ fn in_pattern(node: Node<'_>) -> bool {
         cur = n.parent();
     }
     false
+}
+
+/// Whether the identifier at `byte` is the whole name of a `variable_declarator` (`let o = ..`, `var o`).
+fn is_plain_declarator(parsed: &ParsedFile, byte: usize) -> bool {
+    parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(byte, byte)
+        .and_then(|n| n.parent().map(|p| (n, p)))
+        .is_some_and(|(n, p)| {
+            p.kind() == "variable_declarator"
+                && p.child_by_field_name("name")
+                    .is_some_and(|name| name.id() == n.id())
+        })
 }

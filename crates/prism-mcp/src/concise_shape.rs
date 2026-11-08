@@ -10,7 +10,7 @@
 //! `EvidenceItem` structs) because those output types intentionally have no `Deserialize` impl
 //! (never persisted, no cache round-trip). Working on the generic JSON tree also keeps this an
 //! MCP-only post-processing step, entirely separate from the shared `Evidence` serde derive that
-//! the CLI's byte-identical goldens (`tests/cli/nav_compat_test.rs`) depend on — no shared type is
+//! the CLI's byte-identical goldens (`crates/prism-review/tests/cli/nav_compat_test.rs`) depend on — no shared type is
 //! touched.
 
 use super::output::{McpToolResult, Verbosity};

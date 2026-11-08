@@ -1,6 +1,5 @@
-use assert_cmd::Command;
-use prism::api::*;
 use prism::slice::{SliceConfig, SlicingAlgorithm};
+use prism_review::api::*;
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -207,32 +206,6 @@ fn results_are_the_successful_subsequence() {
 }
 
 #[test]
-fn defaults_are_shared_with_clap() {
-    let params = AlgorithmParams::default();
-    assert_eq!(params.barrier_depth, DEFAULT_BARRIER_DEPTH);
-    assert_eq!(params.spiral_max_ring, DEFAULT_SPIRAL_MAX_RING);
-    assert_eq!(params.temporal_days, DEFAULT_TEMPORAL_DAYS);
-
-    let output = Command::cargo_bin("prism")
-        .unwrap()
-        .arg("--help")
-        .output()
-        .unwrap();
-    assert!(output.status.success());
-    let help = String::from_utf8(output.stdout).unwrap();
-    let start = help.find("--barrier-depth").unwrap();
-    let end = help[start..]
-        .find("--barrier-symbols")
-        .map(|offset| start + offset)
-        .unwrap_or(help.len());
-    assert!(
-        help[start..end].contains(&format!("[default: {}]", DEFAULT_BARRIER_DEPTH)),
-        "barrier-depth help block did not contain the shared default: {}",
-        &help[start..end]
-    );
-}
-
-#[test]
 fn chop_without_params_errors_like_the_cli() {
     let (_tmp, repo, diff_text) = absence_fixture(false);
     let opts = ReviewOptions::new(&repo);
@@ -289,22 +262,23 @@ fn nav_session_and_callers_work_without_outer_pool() {
 /// The scan covers all four locations the §2.3.1 promise names — `src/api/`,
 /// `finding_confidence.rs`, `targets` and `output::sarif` — not just `src/api/`
 /// (final review, Opus Important 2): `SarifInputs`, `TargetsMeta`,
-/// `TargetsDocument` and its nested DTOs are re-exported from `prism::api` and
-/// were drifting outside the gate. `src/output/sarif_model.rs` is deliberately
+/// `TargetsDocument` and its nested DTOs are re-exported from `prism_review::api` and
+/// were drifting outside the gate. `crates/prism-review/src/output/sarif_model.rs` is deliberately
 /// NOT scanned: `mod sarif_model` is private, so none of its types is
 /// reachable through the facade.
 #[test]
 fn api_types_are_non_exhaustive() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut paths: Vec<PathBuf> = fs::read_dir(root.join("src/api"))
-        .unwrap()
+    let mut paths: Vec<PathBuf> = ["src/api", "crates/prism-review/src/api"]
+        .iter()
+        .flat_map(|dir| fs::read_dir(root.join(dir)).unwrap())
         .map(|entry| entry.unwrap().path())
         .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("rs"))
         .collect();
     paths.push(root.join("src/finding_confidence.rs"));
-    paths.push(root.join("src/targets/model.rs"));
-    paths.push(root.join("src/targets/mod.rs"));
-    paths.push(root.join("src/output/sarif.rs"));
+    paths.push(root.join("crates/prism-review/src/targets/model.rs"));
+    paths.push(root.join("crates/prism-review/src/targets/mod.rs"));
+    paths.push(root.join("crates/prism-review/src/output/sarif.rs"));
 
     let mut checked = 0usize;
     for path in paths {

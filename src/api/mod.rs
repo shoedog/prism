@@ -1,60 +1,44 @@
-//! Within a major version, every item of `prism::api` keeps its name and signature; a removal or signature change is preceded by a `#[deprecated]` release. Every struct and enum reachable through `prism::api` — defined in `api`, `finding_confidence`, `targets`, or `output::sarif` — is `#[non_exhaustive]`: construct with `new`/`Default`/builders and assign public fields, never with a struct literal or exhaustive `match` (`SarifInputs` has a builder; `TargetsMeta` is `Default` + field assignment; `TargetsDocument` and its nested types are produced by `project` and read/deserialized by consumers). Types from other modules that appear in `prism::api` signatures (`ParsedFile`, `TypeDatabase`, `CpgContext`, `SliceConfig`, `SlicingAlgorithm`, `SliceResult`, `SliceFinding`, `NavigationSession`, `Evidence`, `QueryError`, `DiffInput`, `Language`, `LanguageVersion`) are **stable as handles**: you may obtain them from `prism::api`, pass them back into `prism::api`, and read the fields the `prism::api` docs name; their other fields and methods are internal and may change. Everything else in the crate is internal. Output formats are versioned by their own fields: multi-run `json`/`review` carry `version: "1.0"`; single-run `json`/`review` shapes are unversioned and pinned by tests; SARIF carries `properties.mapping_version`; targets carries `schema_version`.
+//! `prism::api` is the core facade of the `prism` library: build identity (`build_info`), navigation
+//! (`nav_session`, `callers`, `callees`), the owner options, the review inputs and graph context
+//! (`load_review_inputs`, `build_context`, `ReviewOptions`), the finding-confidence classification,
+//! and `with_build_pool`. The review runner (`review`, `run_review`, `run_algorithm`), SARIF
+//! (`to_sarif`, `SarifInputs`) and targets (`project`, `TargetsDocument`, `TargetsMeta`) live in the
+//! `prism-review` crate's `prism_review::api`, which re-exports everything in this module.
+//!
+//! Within a major version, every item of `prism::api` and `prism_review::api` keeps its name and
+//! signature; a removal or signature change is preceded by a `#[deprecated]` release. 4.0 moved the
+//! review runner, SARIF and targets items to `prism_review::api`.
+//!
+//! Every struct and enum reachable through `prism::api` defined in `api` or `finding_confidence`, and
+//! every one reachable through `prism_review::api` defined in its own `api` module, `targets` or
+//! `output::sarif`, is
+//! `#[non_exhaustive]`: construct with `new`/`Default`/builders and assign public fields, never with a
+//! struct literal or exhaustive `match` (`SarifInputs` has a builder; `TargetsMeta` is `Default` +
+//! field assignment; `TargetsDocument` and its nested types are produced by `project` and
+//! read/deserialized by consumers). Types from other modules that appear in these signatures
+//! (`ParsedFile`, `TypeDatabase`, `CpgContext`, `SliceConfig`, `SlicingAlgorithm`, `SliceResult`,
+//! `SliceFinding`, `NavigationSession`, `Evidence`, `QueryError`, `DiffInput`, `Language`,
+//! `LanguageVersion`) are **stable as handles**: you may obtain them from the facades, pass them back
+//! into the facades, and read the fields the facade docs name; their other fields and methods are
+//! internal and may change. Everything else in the crates is internal. Output formats are versioned by
+//! their own fields: multi-run `json`/`review` carry `version: "1.0"`; single-run `json`/`review`
+//! shapes are unversioned and pinned by tests; SARIF carries `properties.mapping_version`; targets
+//! carries `schema_version`.
 
 mod build_info;
 mod nav;
 mod owner;
 mod review;
-mod run;
 
 #[doc(hidden)] // prism-mcp owner runtime; outside the api compatibility promise
 pub use crate::executable_owner::admission::Failure as OwnerFailure;
 pub use build_info::{build_info, BuildInfo};
 pub use nav::{callees, callers, nav_session, NavOptions, Seed};
+#[doc(hidden)]
+// clap args shared by the prism and prism-mcp CLIs; outside the api compatibility promise
+pub use owner::OwnerArgs;
 pub use owner::OwnerOptions;
 pub use review::{build_context, load_review_inputs, BuiltContext, ReviewInputs, ReviewOptions};
-pub use run::{
-    annotate_finding_parse_quality, filter_result_findings, parse_algorithms, run_algorithm,
-    run_review, AlgorithmParams, ReviewOutcome, ReviewRun, DEFAULT_BARRIER_DEPTH,
-    DEFAULT_SPIRAL_MAX_RING, DEFAULT_TEMPORAL_DAYS,
-};
-
-/// Run a complete diff-driven review through the stable facade: load inputs, build the CPG,
-/// run the requested algorithms, and return both the inputs and the annotated findings.
-///
-/// This example is also the README "Library use" snippet (spec §2.5 item 6) — it is a running
-/// doc-test, not `no_run`, so the sample the README shows is verified on every `cargo test`.
-///
-/// ```
-/// use prism::api::{review, AlgorithmParams, ReviewOptions};
-/// use prism::slice::{SliceConfig, SlicingAlgorithm};
-/// use std::fs;
-/// use tempfile::TempDir;
-///
-/// // `TempDir` removes its directory on drop — including on an assertion panic below — so
-/// // nothing leaks even if this doc-test fails.
-/// let repo = TempDir::new()?;
-/// fs::write(repo.path().join("a.py"), "def read():\n    f = open(\"x\")\n    return f\n")?;
-///
-/// let diff_json = r#"{"files":[{"file_path":"a.py","modify_type":"Modified","diff_lines":[2]}]}"#;
-/// let outcome = review(
-///     &ReviewOptions::new(repo.path()),
-///     diff_json,
-///     &[SlicingAlgorithm::AbsenceSlice],
-///     &SliceConfig::default(),
-///     &AlgorithmParams::default(),
-/// )?;
-///
-/// for f in &outcome.run.findings {
-///     println!("{}:{} {} {}", f.file, f.line, f.algorithm, f.description);
-/// }
-/// assert!(!outcome.run.findings.is_empty());
-/// assert_eq!(
-///     outcome.run.findings[0].category.as_deref(),
-///     Some("missing_counterpart")
-/// );
-/// # Ok::<(), anyhow::Error>(())
-/// ```
-pub use run::review;
 
 /// Runs `op` on prism's large-stack worker pool and returns its result.
 ///
@@ -75,5 +59,3 @@ pub use crate::finding_confidence::{
     EvidencePath, FindingConfidence, FindingTier, MinConfidence, ParseQuality, ResolutionMode,
     DEFAULT_MIN_CONFIDENCE, DEFAULT_RESOLUTION,
 };
-pub use crate::output::sarif::{to_sarif, SarifInputs};
-pub use crate::targets::{project, TargetsDocument, TargetsMeta};

@@ -1,5 +1,6 @@
 //! Ordered definition indexes, scoped to one admitted RD invocation.
 use super::{AccessPath, BitSet, DefSite, FlowEdge, Line};
+use crate::access_path::ARRAY_FIELD;
 use std::collections::BTreeMap;
 
 pub(super) struct DefinitionBuckets<'a> {
@@ -12,6 +13,11 @@ pub(super) struct DefinitionBuckets<'a> {
     by_base: BTreeMap<&'a str, Vec<usize>>,
     // AccessPath derives Eq and Ord from the same complete base/fields value.
     kill_paths: BTreeMap<&'a AccessPath, Vec<usize>>,
+    /// #674 (JS/TS/TSX owners only): recorded, non-alias defs by base, as a trie over their fields.
+    tries: BTreeMap<&'a str, Trie<'a>>,
+    /// JS/TS/TSX owners (#674): per recorded def, whether it kills by `affects` (`affects_writers.rs`);
+    /// the others, and every def of other languages (`None`), keep main's path equality.
+    affects_writers: Option<&'a [bool]>,
     exact: BTreeMap<(&'a AccessPath, Line, usize), Vec<usize>>,
     fallback: BTreeMap<(&'a AccessPath, Line), Vec<usize>>,
 }
@@ -19,16 +25,22 @@ pub(super) struct DefinitionBuckets<'a> {
 impl<'a> DefinitionBuckets<'a> {
     #[cfg(test)]
     pub(super) fn new(defs: &'a [DefSite]) -> Self {
-        Self::with_kill_only(defs, defs.len())
+        Self::with_kill_only(defs, defs.len(), None)
     }
 
-    pub(super) fn with_kill_only(defs: &'a [DefSite], n_recorded: usize) -> Self {
+    pub(super) fn with_kill_only(
+        defs: &'a [DefSite],
+        n_recorded: usize,
+        affects_writers: Option<&'a [bool]>,
+    ) -> Self {
         let mut buckets = Self {
             #[cfg(test)]
             defs,
             n_recorded,
             by_base: BTreeMap::new(),
             kill_paths: BTreeMap::new(),
+            tries: BTreeMap::new(),
+            affects_writers,
             exact: BTreeMap::new(),
             fallback: BTreeMap::new(),
         };
@@ -43,6 +55,13 @@ impl<'a> DefinitionBuckets<'a> {
             }
             if !def.alias_derived {
                 buckets.kill_paths.entry(&def.path).or_default().push(index);
+                if affects_writers.is_some() {
+                    buckets
+                        .tries
+                        .entry(def.path.base.as_str())
+                        .or_default()
+                        .insert(&def.path.fields, index);
+                }
             }
             buckets
                 .exact
@@ -93,7 +112,13 @@ impl<'a> DefinitionBuckets<'a> {
     ) -> (Vec<BitSet>, Vec<BitSet>) {
         #[cfg(test)]
         if super::def_bucket_tests::legacy_enabled() {
-            return legacy_kill_sets_with(defs, gen, binding_facts, self.n_recorded);
+            return legacy_kill_sets_with(
+                defs,
+                gen,
+                binding_facts,
+                self.n_recorded,
+                self.affects_writers,
+            );
         }
         let mut kill = vec![BitSet::new(defs.len()); gen.len()];
         let mut flat_kill = vec![BitSet::new(defs.len()); gen.len()];
@@ -104,6 +129,18 @@ impl<'a> DefinitionBuckets<'a> {
                 }
                 if new_def >= self.n_recorded {
                     self.kill_only_kills(
+                        defs,
+                        gen,
+                        binding_facts,
+                        node,
+                        new_def,
+                        &mut kill,
+                        &mut flat_kill,
+                    );
+                    continue;
+                }
+                if self.affects_writers.is_some_and(|w| w[new_def]) {
+                    self.recorded_affects_kills(
                         defs,
                         gen,
                         binding_facts,
@@ -130,6 +167,43 @@ impl<'a> DefinitionBuckets<'a> {
             }
         }
         (kill, flat_kill)
+    }
+
+    /// #674: a recorded write `w` kills every recorded def of its base that it `affects` (DESIGN 4.4),
+    /// in a JS/TS/TSX owner. Path equality is the special case, so main's kills are a subset.
+    ///
+    /// Cost: the base's defs sit in a trie over their fields, and `w` walks only the branches it can
+    /// match (its own component and `[]`, or every child under a `[]` of its own), then takes everything
+    /// below. Work is the number of affected defs plus the trie nodes on the way, never a scan of the
+    /// base's other defs (a `this` base holds hundreds).
+    #[allow(clippy::too_many_arguments)]
+    fn recorded_affects_kills(
+        &self,
+        defs: &[DefSite],
+        gen: &[BitSet],
+        binding_facts: &crate::cpg::binding_facts::BindingFacts,
+        node: usize,
+        new_def: usize,
+        kill: &mut [BitSet],
+        flat_kill: &mut [BitSet],
+    ) {
+        let w = &defs[new_def].path;
+        let Some(trie) = self.tries.get(w.base.as_str()) else {
+            return;
+        };
+        trie.affected(&w.fields, &mut |old_def| {
+            #[cfg(test)]
+            super::work_tests::bump(|counts| {
+                counts.definition_pair_comparisons += 1;
+                counts.projected_definition_pair_comparisons += 1;
+            });
+            if !gen[node].contains(old_def) {
+                flat_kill[node].insert(old_def);
+                if binding_facts.same_def_binding(new_def, old_def) {
+                    kill[node].insert(old_def);
+                }
+            }
+        });
     }
 
     /// A census write kills every recorded def of its base that it `affects` (A2): the recorded paths
@@ -159,6 +233,52 @@ impl<'a> DefinitionBuckets<'a> {
     }
 }
 
+/// Defs of one base by field path (#674). `affected(w)` yields exactly the defs `q` with `affects(w, q)`.
+#[derive(Default)]
+pub(super) struct Trie<'a> {
+    defs: Vec<usize>,
+    children: BTreeMap<&'a str, Trie<'a>>,
+}
+
+impl<'a> Trie<'a> {
+    pub(super) fn insert(&mut self, fields: &'a [String], def: usize) {
+        match fields.split_first() {
+            None => self.defs.push(def),
+            Some((field, rest)) => self
+                .children
+                .entry(field.as_str())
+                .or_default()
+                .insert(rest, def),
+        }
+    }
+
+    /// The defs at or below `fields`, a `[]` component on either side matching any component.
+    pub(super) fn affected(&self, fields: &[String], visit: &mut dyn FnMut(usize)) {
+        match fields.split_first() {
+            None => self.all(visit),
+            Some((field, rest)) if field == ARRAY_FIELD => {
+                for child in self.children.values() {
+                    child.affected(rest, visit);
+                }
+            }
+            Some((field, rest)) => {
+                for key in [field.as_str(), ARRAY_FIELD] {
+                    if let Some(child) = self.children.get(key) {
+                        child.affected(rest, visit);
+                    }
+                }
+            }
+        }
+    }
+
+    fn all(&self, visit: &mut dyn FnMut(usize)) {
+        self.defs.iter().for_each(|&def| visit(def));
+        for child in self.children.values() {
+            child.all(visit);
+        }
+    }
+}
+
 /// `w` affects `q`: same base and `w`'s fields are a prefix of `q`'s, `[]` matching any field on
 /// either side (DESIGN.md 4.4).
 pub(super) fn affects(w: &AccessPath, q: &AccessPath) -> bool {
@@ -176,17 +296,19 @@ pub(super) fn legacy_kill_sets(
     gen: &[BitSet],
     binding_facts: &crate::cpg::binding_facts::BindingFacts,
 ) -> (Vec<BitSet>, Vec<BitSet>) {
-    legacy_kill_sets_with(defs, gen, binding_facts, defs.len())
+    legacy_kill_sets_with(defs, gen, binding_facts, defs.len(), None)
 }
 
 /// The all-pairs scan with census kill-only defs (`n_recorded..`): equal-path kills among recorded
-/// defs as on main, `affects` kills from kill-only defs, kill-only defs never killed.
+/// defs as on main (`affects` kills for the `affects_writers` flagged, #674), `affects` kills from kill-only
+/// defs, kill-only defs never killed.
 #[cfg(test)]
 pub(super) fn legacy_kill_sets_with(
     defs: &[DefSite],
     gen: &[BitSet],
     binding_facts: &crate::cpg::binding_facts::BindingFacts,
     n_recorded: usize,
+    affects_writers: Option<&[bool]>,
 ) -> (Vec<BitSet>, Vec<BitSet>) {
     let mut kill = vec![BitSet::new(defs.len()); gen.len()];
     let mut flat_kill = vec![BitSet::new(defs.len()); gen.len()];
@@ -199,11 +321,12 @@ pub(super) fn legacy_kill_sets_with(
             for old_def in 0..n_recorded {
                 #[cfg(test)]
                 super::work_tests::bump(|counts| counts.definition_pair_comparisons += 1);
-                let related = if new_def >= n_recorded {
-                    affects(&defs[new_def].path, &defs[old_def].path)
-                } else {
-                    defs[old_def].path == defs[new_def].path
-                };
+                let related =
+                    if new_def >= n_recorded || affects_writers.is_some_and(|w| w[new_def]) {
+                        affects(&defs[new_def].path, &defs[old_def].path)
+                    } else {
+                        defs[old_def].path == defs[new_def].path
+                    };
                 #[cfg(test)]
                 if !defs[old_def].alias_derived && related {
                     super::work_tests::bump(|counts| {

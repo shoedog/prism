@@ -89,14 +89,14 @@ std::string transform(const std::string& input) {
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
 
-    let config = prism::algorithms::chop::ChopConfig {
+    let config = prism_review::algorithms::chop::ChopConfig {
         source_file: path.to_string(),
         source_line: 4,
         sink_file: path.to_string(),
         sink_line: 6,
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::chop::slice(&ctx, &config).unwrap();
+    let result = prism_review::algorithms::chop::slice(&ctx, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }
 
@@ -170,7 +170,7 @@ fn test_delta_slice_cpp() {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
+    let result = prism_review::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
 }
 
@@ -593,11 +593,11 @@ fn test_threed_slice_cpp() {
         }],
     };
     let ctx = CpgContext::build(&files, None);
-    let config = prism::algorithms::threed_slice::ThreeDConfig {
+    let config = prism_review::algorithms::threed_slice::ThreeDConfig {
         git_dir: tmp.path().to_string_lossy().to_string(),
         temporal_days: 365,
     };
-    let result = prism::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
+    let result = prism_review::algorithms::threed_slice::slice(&ctx, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ThreeDSlice);
 }
 
@@ -622,13 +622,13 @@ fn test_resonance_slice_cpp() {
             diff_lines: BTreeSet::from([3]),
         }],
     };
-    let config = prism::algorithms::resonance_slice::ResonanceConfig {
+    let config = prism_review::algorithms::resonance_slice::ResonanceConfig {
         git_dir: tmp.path().to_string_lossy().to_string(),
         days: 365,
         min_co_changes: 1,
         min_ratio: 0.0,
     };
-    let result = prism::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism_review::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ResonanceSlice);
 }
 
@@ -653,10 +653,10 @@ fn test_phantom_slice_cpp() {
             diff_lines: BTreeSet::from([2]),
         }],
     };
-    let config = prism::algorithms::phantom_slice::PhantomConfig {
+    let config = prism_review::algorithms::phantom_slice::PhantomConfig {
         git_dir: tmp.path().to_string_lossy().to_string(),
         max_commits: 50,
     };
-    let result = prism::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism_review::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::PhantomSlice);
 }

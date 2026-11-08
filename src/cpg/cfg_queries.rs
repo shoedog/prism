@@ -202,7 +202,7 @@ impl CodePropertyGraph {
         self.taint_forward_cfg_labeled(taint_sources).0
     }
 
-    pub(crate) fn taint_forward_cfg_labeled(
+    pub fn taint_forward_cfg_labeled(
         &self,
         taint_sources: &[(String, usize)],
     ) -> (

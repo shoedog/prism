@@ -1,15 +1,15 @@
 //! PR #390 round-1 fold: write census, escaped identifiers, exact-span Uses, `with`
 //! bodies, erased type positions, declaration-line reads, Bare classification of reads
-//! inside a member object, deeper-write prefix kills, and the FullFlow composition leak.
+//! inside a member object, and deeper-write prefix kills. The slice-level FullFlow/LeftFlow
+//! tests of the same round call the review layer and live in
+//! `crates/prism-review/src/algorithms/member_only_param_r1_slice_tests.rs`.
 
 use super::member_only_param_tests::{
     base_defs, edge, field_edges, for_each_language, graph, parse, render, JS_TS,
 };
 use crate::ast::ParameterUse;
 use crate::data_flow::DataFlowGraph;
-use crate::diff::{DiffInfo, DiffInput, ModifyType};
 use crate::languages::Language;
-use crate::slice::{SliceConfig, SlicingAlgorithm};
 use std::collections::{BTreeMap, BTreeSet};
 
 fn has_edge_to(g: &DataFlowGraph, path: &str, line: usize) -> bool {
@@ -18,110 +18,7 @@ fn has_edge_to(g: &DataFlowGraph, path: &str, line: usize) -> bool {
         .any(|e| e.0 == "p" && e.2 == path && e.3 == line)
 }
 
-fn slice_lines(
-    language: Language,
-    source: &str,
-    file: &str,
-    diff_lines: &[usize],
-    algorithm: SlicingAlgorithm,
-) -> BTreeSet<usize> {
-    let files = BTreeMap::from([(
-        file.to_string(),
-        crate::ast::ParsedFile::parse(file, source, language).unwrap(),
-    )]);
-    let diff = DiffInput {
-        files: vec![DiffInfo {
-            file_path: file.into(),
-            modify_type: ModifyType::Modified,
-            diff_lines: diff_lines.iter().copied().collect(),
-        }],
-    };
-    let result = crate::algorithms::run_slicing_compat(
-        &files,
-        &diff,
-        &SliceConfig::default().with_algorithm(algorithm),
-        None,
-    )
-    .unwrap();
-    result
-        .blocks
-        .iter()
-        .flat_map(|b| b.file_line_map.get(file).into_iter().flatten())
-        .map(|(line, _)| *line)
-        .collect()
-}
-
-// 1. FullFlow sibling leak -------------------------------------------------------------
-
-const CARD: &str = "export function Card(props: CardProps) {\n  const title = props.title.trim().toUpperCase();\n  const html = props.rawHtml;\n  return (\n    <div dangerouslySetInnerHTML={{ __html: html }}>\n      {title}\n    </div>\n  );\n}\n";
-
-#[test]
-fn fullflow_diff_on_a_field_read_never_pulls_in_a_sibling_field() {
-    // Main (no parameter Def at all) gives exactly [1,2,4,6,9] for a diff on line 2.
-    let lines = slice_lines(
-        Language::Tsx,
-        CARD,
-        "c.tsx",
-        &[2],
-        SlicingAlgorithm::FullFlow,
-    );
-    assert_eq!(lines, BTreeSet::from([1, 2, 4, 6, 9]), "{lines:?}");
-
-    for language in JS_TS {
-        let src = render(
-            language,
-            "function h({P}) {\n  const a = p.x;\n  sinkB(p.y);\n  const html = p.z;\n  sinkC(html);\n}\n",
-            "p",
-        );
-        let file = super::member_only_param_tests::file_name(language);
-        let lines = slice_lines(language, &src, file, &[2], SlicingAlgorithm::FullFlow);
-        assert!(
-            !lines.contains(&3) && !lines.contains(&4) && !lines.contains(&5),
-            "{language:?}: sibling fields leaked into {lines:?}"
-        );
-    }
-}
-
-#[test]
-fn fullflow_diff_on_the_parameter_line_still_fans_out() {
-    // Accepted cost: a seed on the whole parameter reaches every field read.
-    for language in JS_TS {
-        let src = render(
-            language,
-            "function h({P}) {\n  a(p.x);\n  b(p.y);\n}\n",
-            "p",
-        );
-        let file = super::member_only_param_tests::file_name(language);
-        let lines = slice_lines(language, &src, file, &[1], SlicingAlgorithm::FullFlow);
-        let left = slice_lines(language, &src, file, &[1], SlicingAlgorithm::LeftFlow);
-        assert!(
-            (lines.contains(&2) && lines.contains(&3)) || (left.contains(&2) && left.contains(&3)),
-            "{language:?}: full {lines:?} left {left:?}"
-        );
-    }
-}
-
-#[test]
-fn leftflow_condition_variable_slice_is_pinned() {
-    // LeftFlow's condition walk stops at the projection-only base Def and keeps the
-    // pre-#390 name fallback (every `p` line); pin that it does not shrink or grow.
-    // Sibling-derived locals: member_only_param_leftflow_tests.
-    for language in JS_TS {
-        let src = render(
-            language,
-            "function h({P}) {\n  if (p.x) {\n    a();\n  }\n  b(p.y);\n}\n",
-            "p",
-        );
-        let file = super::member_only_param_tests::file_name(language);
-        let lines = slice_lines(language, &src, file, &[2], SlicingAlgorithm::LeftFlow);
-        assert!(
-            lines.contains(&2) && lines.contains(&5),
-            "{language:?}: {lines:?}"
-        );
-    }
-}
-
-// 2. Write census ----------------------------------------------------------------------
+// 1. Write census ----------------------------------------------------------------------
 
 #[test]
 fn every_member_write_form_suppresses_its_path_but_not_a_sibling() {
@@ -184,7 +81,7 @@ fn writes_to_another_base_or_a_longer_sibling_do_not_suppress() {
     }
 }
 
-// 3. Escaped identifiers fail closed ---------------------------------------------------
+// 2. Escaped identifiers fail closed ---------------------------------------------------
 
 #[test]
 fn a_callable_with_an_escaped_identifier_gets_no_member_only_def() {
@@ -222,7 +119,7 @@ fn a_callable_with_an_escaped_identifier_gets_no_member_only_def() {
     }
 }
 
-// 4. Exact-span Uses -------------------------------------------------------------------
+// 3. Exact-span Uses -------------------------------------------------------------------
 
 #[test]
 fn named_owner_projection_use_sits_at_the_exact_admitted_span() {
@@ -244,7 +141,7 @@ fn named_owner_projection_use_sits_at_the_exact_admitted_span() {
     }
 }
 
-// 5. `with` bodies ----------------------------------------------------------------------
+// 4. `with` bodies ----------------------------------------------------------------------
 
 #[test]
 fn with_body_reads_are_never_projected_for_named_owners() {
@@ -263,7 +160,7 @@ fn with_body_reads_are_never_projected_for_named_owners() {
     }
 }
 
-// 6. Erased type positions -------------------------------------------------------------
+// 5. Erased type positions -------------------------------------------------------------
 
 #[test]
 fn erased_member_type_queries_are_not_reads() {
@@ -306,7 +203,7 @@ fn erased_member_type_queries_are_not_reads() {
     assert!(has_edge_to(&g, "p.x", 2));
 }
 
-// 7. First-line and default reads ------------------------------------------------------
+// 6. First-line and default reads ------------------------------------------------------
 
 #[test]
 fn declaration_line_body_reads_are_projected_and_defaults_are_not() {
@@ -366,7 +263,7 @@ fn declaration_line_body_reads_are_projected_and_defaults_are_not() {
     );
 }
 
-// 8. Bare read inside a member object --------------------------------------------------
+// 7. Bare read inside a member object --------------------------------------------------
 
 #[test]
 fn a_bare_read_inside_a_member_object_makes_the_formal_bare() {
@@ -412,7 +309,7 @@ fn a_bare_read_inside_a_member_object_makes_the_formal_bare() {
     }
 }
 
-// 9. Prefix read after a deeper write --------------------------------------------------
+// 8. Prefix read after a deeper write --------------------------------------------------
 
 #[test]
 fn a_deeper_write_also_suppresses_the_prefix_path() {

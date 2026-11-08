@@ -1,8 +1,5 @@
 mod api_test;
 mod arrow_field_receiver_test;
-mod build_profile_fold_test;
-mod build_profile_round2_test;
-mod build_profile_test;
 mod call_graph_test;
 mod callable_authority_audit_test;
 mod cjs_export_barrier_test;
@@ -84,7 +81,6 @@ mod js_wrapped_export_test;
 mod layering_test;
 mod module_binding_audit_test;
 mod module_binding_flow_test;
-mod owner_activation_test;
 mod r6_candidate_test;
 mod receiver_self_binding_test;
 mod resolution_family_cpg_test;

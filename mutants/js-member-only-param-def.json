@@ -6,6 +6,13 @@
   "cpg_cache::",
   "reasoning::"
  ],
+ "test_targets": [
+  {
+   "prefix": "algorithms::member_only_param_r2_slice_tests::",
+   "package": "prism-review",
+   "target": "lib"
+  }
+ ],
  "mutations": {
   "MO-01-bare-check-off": [
    "src/ast/js_ts/params.rs",
@@ -234,12 +241,12 @@
    ]
   ],
   "MO-40-fullflow-projection-guard-off": [
-   "src/algorithms/full_flow.rs",
+   "crates/prism-review/src/algorithms/full_flow.rs",
    "for def_loc in &seeds {",
    "for def_loc in &defs {",
    [
-    "cpg::member_only_param_r2_tests::fullflow_through_an_upstream_argument_never_reaches_sibling_fields",
-    "cpg::member_only_param_r2_tests::fullflow_through_a_same_file_caller_never_reaches_sibling_fields"
+    "algorithms::member_only_param_r2_slice_tests::fullflow_through_an_upstream_argument_never_reaches_sibling_fields",
+    "algorithms::member_only_param_r2_slice_tests::fullflow_through_a_same_file_caller_never_reaches_sibling_fields"
    ]
   ],
   "MO-41-predicate-never-true": [
@@ -283,7 +290,7 @@
    "if false && self.node_is_projection_only_def(node) {",
    [
     "cpg::member_only_param_r2_tests::bounded_backward_walk_stops_at_a_projection_only_def_and_keeps_context",
-    "cpg::member_only_param_r2_tests::fullflow_through_an_upstream_argument_never_reaches_sibling_fields"
+    "algorithms::member_only_param_r2_slice_tests::fullflow_through_an_upstream_argument_never_reaches_sibling_fields"
    ]
   ],
   "MO-63-seeds-include-projection-def": [

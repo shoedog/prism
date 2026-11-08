@@ -18,13 +18,13 @@ fn test_resonance_slice_python() {
         }],
     };
 
-    let config = prism::algorithms::resonance_slice::ResonanceConfig {
+    let config = prism_review::algorithms::resonance_slice::ResonanceConfig {
         git_dir: tmp.path().to_string_lossy().to_string(),
         days: 365,
         min_co_changes: 1,
         min_ratio: 0.0,
     };
-    let result = prism::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism_review::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ResonanceSlice);
 
     let _ = std::fs::remove_dir_all(&tmp);
@@ -54,13 +54,13 @@ fn test_resonance_slice_go() {
         }],
     };
 
-    let config = prism::algorithms::resonance_slice::ResonanceConfig {
+    let config = prism_review::algorithms::resonance_slice::ResonanceConfig {
         git_dir: tmp.path().to_string_lossy().to_string(),
         days: 365,
         min_co_changes: 1,
         min_ratio: 0.0,
     };
-    let result = prism::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism_review::algorithms::resonance_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ResonanceSlice);
 
     let _ = std::fs::remove_dir_all(&tmp);
@@ -113,11 +113,11 @@ fn test_phantom_slice_python() {
             diff_lines: BTreeSet::from([2]),
         }],
     };
-    let config = prism::algorithms::phantom_slice::PhantomConfig {
+    let config = prism_review::algorithms::phantom_slice::PhantomConfig {
         git_dir: tmp.path().to_string_lossy().to_string(),
         max_commits: 50,
     };
-    let result = prism::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism_review::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::PhantomSlice);
     let _ = std::fs::remove_dir_all(&tmp);
 }
@@ -140,11 +140,11 @@ fn test_phantom_slice_go() {
             diff_lines: BTreeSet::from([4]),
         }],
     };
-    let config = prism::algorithms::phantom_slice::PhantomConfig {
+    let config = prism_review::algorithms::phantom_slice::PhantomConfig {
         git_dir: tmp.path().to_string_lossy().to_string(),
         max_commits: 50,
     };
-    let result = prism::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
+    let result = prism_review::algorithms::phantom_slice::slice(&files, &diff, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::PhantomSlice);
     let _ = std::fs::remove_dir_all(&tmp);
 }

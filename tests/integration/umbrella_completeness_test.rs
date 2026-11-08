@@ -52,7 +52,7 @@ fn umbrella_main_files_include_all_sibling_tests() {
         .iter()
         .flat_map(|root| test_dirs(root))
         .collect();
-    // 25 root umbrellas + tests/mcp of crates/prism-mcp.
+    // 24 root umbrellas + tests/mcp of crates/prism-mcp + tests/cli of crates/prism-review.
     assert!(
         dirs.len() >= 26,
         "expected >=26 umbrella targets, found {} — recursive walk regressed?",

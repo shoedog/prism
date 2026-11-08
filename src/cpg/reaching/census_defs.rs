@@ -60,6 +60,14 @@ impl CensusFacts {
             })
     }
 
+    /// #674: the recorded def's path equals the census's precise identity for the write at its start byte.
+    /// No completion (inert owner, non-JS), a refusal or a site the census does not cover: `false`.
+    pub(super) fn covers(&self, def: &DefSite) -> bool {
+        self.completion.as_ref().is_some_and(|c| {
+            c.refusal.is_none() && c.covered.contains(&(def.start_byte, def.path.clone()))
+        })
+    }
+
     /// The def cap on the recorded list only: a completed list that overflows it is cut back to the
     /// recorded defs and the owner refused by label (`owner-refuse:def-cap`).
     pub(super) fn cap_defs(&mut self, defs: &mut Vec<DefSite>, cap: usize) {
