@@ -74,7 +74,7 @@ fn main() {
     println!("cargo:rustc-env=GRAMMAR_FINGERPRINT={h:016x}");
 
     // Build identity (Tier-A spec §2.3). IDENTITY GRAMMAR — single owner is this
-    // comment; consumers MUST cite it: tests/cli/version_test.rs and the eval
+    // comment; consumers MUST cite it: crates/prism-review/tests/cli/version_test.rs and the eval
     // harness's parse_version (eval/tier_a/sut.py):
     //     version line = "slicing <semver> (<identity>)"
     //     identity     = <sha:[0-9a-f]{12,40}>["-dirty"]  |  "unknown"
