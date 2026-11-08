@@ -42,6 +42,11 @@ pub(super) struct Ctx {
     /// The directory a child `mod foo;` of THIS module searches (declaring-dir
     /// rule). For `src/foo.rs`/`src/foo/mod.rs` this is `src/foo/`.
     pub dir: String,
+    /// The directory a `#[path = ".."]` child of THIS module is joined to (Rust
+    /// Reference, "Modules"): the declaring file's own directory (`src/` for
+    /// `src/foo.rs`, `src/foo/` for `src/foo/mod.rs`), and for a module inside an
+    /// inline block that inline module's directory (equal to `dir`).
+    pub path_dir: String,
     /// The enclosing **module/root** scope — where free items bind and where a
     /// method body is re-parented (so associated items are not bare-visible).
     pub module: ScopeId,
@@ -62,6 +67,7 @@ pub(crate) fn walk_module_file(b: &mut Builder<'_>, path: &str, module_scope: Sc
     let ctx = Ctx {
         file: fid,
         dir: dir.to_string(),
+        path_dir: super::builder::parent_dir(path),
         module: module_scope,
     };
     // `named_children` returns owned `NodeId`s; the `&root` borrow (which borrows

@@ -11,15 +11,12 @@
 //! ancestor), and refuses (`restrict = None`, the unchanged "unknown
 //! visibility" outcome) whenever it cannot place the path: a first segment other
 //! than `crate`/`self`/`super`, a path longer than the chain, a segment that
-//! does not name the next chain module through a module binding, a re-export
-//! (a `use` binding is `Pending`, never a module target), and any module on the chain
-//! that a `#[path]` attribute mounted at a file other than rustc's.
+//! does not name the next chain module through a module binding, and a re-export
+//! (a `use` binding is `Pending`, never a module target).
 //!
-//! The populator resolves a non-inline `#[path]` relative to the declaring file's
-//! `<stem>/` directory, rustc relative to the declaring file's directory (#765), so
-//! the modeled tree can bind a decoy file whose synthetic chain still names the
-//! restrict's modules. Such a mount is recorded as misplaced
-//! ([`expected_mount_file`]) and no restrict is placed across it.
+//! A `#[path]`-mounted module sits on the chain like any other: the populator
+//! places a mount where rustc loads it (#765, `builder.rs` `resolve_mod_file`), so
+//! the chain is rustc's and needs no placement check here.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -29,18 +26,14 @@ use crate::name_resolution::types::{BindTarget, RawPath, ScopeId, ScopeKind, Tar
 
 /// Set `vis.restrict` of every pending `pub(in ..)` binding. A path that cannot
 /// be placed stays `None`.
-pub(super) fn resolve_restricts(
-    graph: &mut ScopeGraph,
-    pending: &[(usize, RawPath)],
-    misplaced: &BTreeSet<ScopeId>,
-) {
+pub(super) fn resolve_restricts(graph: &mut ScopeGraph, pending: &[(usize, RawPath)]) {
     if pending.is_empty() {
         return;
     }
     let modules = module_bindings(graph);
     let resolved: Vec<Option<ScopeId>> = pending
         .iter()
-        .map(|(idx, path)| place(graph, &modules, misplaced, graph.bindings[*idx].scope, path))
+        .map(|(idx, path)| place(graph, &modules, graph.bindings[*idx].scope, path))
         .collect();
     for ((idx, _), restrict) in pending.iter().zip(resolved) {
         graph.bindings[*idx].vis.restrict = restrict;
@@ -94,16 +87,10 @@ fn module_chain(graph: &ScopeGraph, scope: ScopeId) -> Option<Vec<ScopeId>> {
 fn place(
     graph: &ScopeGraph,
     modules: &ModuleBindings,
-    misplaced: &BTreeSet<ScopeId>,
     scope: ScopeId,
     path: &RawPath,
 ) -> Option<ScopeId> {
     let chain = module_chain(graph, scope)?;
-    // A module on the chain mounted at the wrong file: the modeled ancestry is not
-    // rustc's, so the path cannot be checked against it.
-    if chain.iter().any(|m| misplaced.contains(m)) {
-        return None;
-    }
     let segs = &path.0;
     // The anchor, as an index into `chain` (0 = the item's own module D).
     let (anchor, rest) = match segs.first()?.as_str() {
@@ -135,29 +122,4 @@ fn place(
         at = next;
     }
     Some(chain[at])
-}
-
-/// The file rustc loads for `#[path = rel]` on a non-inline `mod` declared in
-/// `decl_file`, whose populator child directory is `ctx_dir`.
-///
-/// The path is relative to the declaring file's directory. In a non-mod-rs file
-/// (not `mod.rs`, not a crate root, not itself `#[path]`-mounted) the populator's
-/// child directory is `<stem>/`, so that case steps back to the file's directory;
-/// everywhere else (root files, `mod.rs`, mounted files, inside inline `mod`
-/// blocks, where both rules add the same components) the two directories agree.
-pub(super) fn expected_mount_file(decl_file: &str, ctx_dir: &str, rel: &str) -> String {
-    let own_child_dir = decl_file
-        .strip_suffix(".rs")
-        .map(|stem| format!("{stem}/"))
-        .unwrap_or_default();
-    let is_mod_rs = decl_file == "mod.rs" || decl_file.ends_with("/mod.rs");
-    let dir = if !is_mod_rs && ctx_dir == own_child_dir {
-        match decl_file.rfind('/') {
-            Some(i) => &decl_file[..=i],
-            None => "",
-        }
-    } else {
-        ctx_dir
-    };
-    format!("{dir}{rel}")
 }

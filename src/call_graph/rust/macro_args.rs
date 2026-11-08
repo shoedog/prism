@@ -64,6 +64,53 @@ pub const TRANSPARENT_ARG_MACROS: &[&str] = &[
     "dbg",
 ];
 
+/// Std macros that expand to a single EXPRESSION and can introduce no item and no binding
+/// into the enclosing block (#765 PR D, E2). They are not argument-transparent for call
+/// extraction (their arguments are not call arguments), so they are a SECOND list beside
+/// [`TRANSPARENT_ARG_MACROS`], consulted only by the scope-graph populator to skip the
+/// wildcard poison of an unexpanded name-introducing macro. `thread_local!`,
+/// `macro_rules!`, `include!`, `concat_idents!` and every user macro can introduce names
+/// and stay off this list; so does every item-position invocation (the populator never
+/// consults this list there).
+pub const NON_BINDING_EXPR_MACROS: &[&str] = &[
+    "env",
+    "option_env",
+    "concat",
+    "include_str",
+    "include_bytes",
+    "cfg",
+    "line",
+    "column",
+    "file",
+    "module_path",
+    "stringify",
+    "matches",
+    "compile_error",
+];
+
+/// Does `macro_name` name a std expression macro of [`NON_BINDING_EXPR_MACROS`]? Same
+/// qualifier rule as [`is_transparent_arg_macro`] (only an unqualified path or one qualified
+/// by exactly `std`/`core`/`alloc` is the real macro) with the E2 shadow set
+/// ([`collect_expr_macro_shadow_set`]: `macro_rules!` names plus the names a `use` item can
+/// bring a macro under). `macro_use_extern` (a `#[macro_use] extern crate` of a non-std crate
+/// exists, [`has_macro_use_extern_crate`]) withholds the exemption from an unqualified
+/// spelling: such a crate's macros shadow the prelude silently, while a glob import of one is
+/// rustc error E0659 (ambiguous with the prelude) and cannot occur in a compiling crate.
+pub fn is_non_binding_expr_macro(
+    macro_name: &str,
+    shadow: &BTreeSet<String>,
+    macro_use_extern: bool,
+) -> bool {
+    let last = last_path_segment(macro_name);
+    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {
+        return false;
+    }
+    match macro_name.rsplit_once("::") {
+        None => !macro_use_extern,
+        Some((qualifier, _)) => TRANSPARENT_QUALIFIERS.contains(&qualifier),
+    }
+}
+
 /// Rust keywords (and contextual tokens) that must never be minted as a call
 /// name, even when they parse as a plain `identifier` inside macro token soup
 /// (`move`, `dyn`, `ref`, `in`, `else`, `Self` all lex as generic
@@ -135,14 +182,253 @@ pub fn is_transparent_arg_macro(macro_name: &str, shadow: &BTreeSet<String>) -> 
 /// existing per-build whole-program-fact pattern, e.g.
 /// `CallGraph::extract_js_ts_resolution_facts`).
 pub fn collect_macro_shadow_set(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {
-    let mut shadow = BTreeSet::new();
+    let mut defs = BTreeSet::new();
     for parsed in files.values() {
         if parsed.language != crate::languages::Language::Rust {
             continue;
         }
-        collect_macro_defs(parsed, parsed.tree.root_node(), &mut shadow);
+        collect_macro_defs(parsed, parsed.tree.root_node(), &mut defs);
+    }
+    defs
+}
+
+/// The shadow set of the E2 list ([`NON_BINDING_EXPR_MACROS`]) only: [`collect_macro_shadow_set`]
+/// plus every listed spelling that a `use` item can bring a macro under (#765 PR D, W1).
+/// `TRANSPARENT_ARG_MACROS` keeps the `macro_rules!`-names-only set, so argument-call
+/// extraction does not move when a repo imports a listed spelling from outside
+/// (`use pretty_assertions::assert_eq;`). A `use` item can bring a macro under a spelling
+/// only (1) from a path rooted outside the repo, except the std item of the same name,
+/// (2) as an in-repo `as <spelling>` alias of an in-repo macro (chains followed), while (3)
+/// an unaliased in-repo `use` can only import an in-repo macro of that name, already in the
+/// `macro_rules!` census, and an in-repo alias of a fn or type imports no macro.
+pub fn collect_expr_macro_shadow_set(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {
+    let mut defs = BTreeSet::new();
+    let mut mods = BTreeSet::new();
+    let mut leaves = Vec::new();
+    for parsed in files.values() {
+        if parsed.language != crate::languages::Language::Rust {
+            continue;
+        }
+        collect_macro_defs(parsed, parsed.tree.root_node(), &mut defs);
+        collect_mod_names(parsed, parsed.tree.root_node(), &mut mods);
+        collect_use_leaves(parsed, parsed.tree.root_node(), &mut leaves);
+    }
+    let crates = in_repo_crate_names(files);
+    let in_repo = |u: &UseLeaf| {
+        matches!(u.root.as_str(), "crate" | "self" | "super")
+            || mods.contains(&u.root)
+            || crates.contains(&u.root)
+    };
+    // Names that can denote an in-repo macro: every `macro_rules!` name, and every in-repo
+    // `as` alias of one (`use crate::make as mk; use crate::mk as env;`), to a fixpoint.
+    let mut macro_like = defs.clone();
+    loop {
+        let before = macro_like.len();
+        for u in &leaves {
+            if in_repo(u) && u.aliased && macro_like.contains(&u.original) {
+                macro_like.insert(u.bound.clone());
+            }
+        }
+        if macro_like.len() == before {
+            break;
+        }
+    }
+    let mut shadow = defs;
+    for u in &leaves {
+        if !is_listed_spelling(&u.bound) {
+            continue;
+        }
+        if !in_repo(u) {
+            // (1) rooted outside the repo (an unresolvable first segment counts): the macro
+            // may be any macro of that crate; only the std item of the same name is trusted.
+            if !(STD_ROOTS.contains(&u.root.as_str()) && !u.aliased && u.bound == u.original) {
+                shadow.insert(u.bound.clone());
+            }
+        } else if u.aliased && macro_like.contains(&u.original) {
+            // (2) an in-repo alias of an in-repo macro: `use crate::make as env;`.
+            shadow.insert(u.bound.clone());
+        }
+        // (3) in-repo and unaliased: it can only import an in-repo macro of that very name,
+        // whose `macro_rules!` is already in the set; an in-repo alias of a fn/type/mod
+        // (`use crate::helper as env;`) imports no macro.
     }
     shadow
+}
+
+/// Roots whose `use` of one of the listed macro spellings is the real std macro.
+const STD_ROOTS: &[&str] = &["std", "core", "alloc"];
+
+/// Is `name` one of the spellings the two allowlists trust?
+fn is_listed_spelling(name: &str) -> bool {
+    TRANSPARENT_ARG_MACROS.contains(&name) || NON_BINDING_EXPR_MACROS.contains(&name)
+}
+
+/// One `use` leaf: `bound` is the leaf or its `as` alias, `original` the last path segment,
+/// `root` the first segment of the whole path.
+struct UseLeaf {
+    bound: String,
+    original: String,
+    root: String,
+    aliased: bool,
+}
+
+/// Names of in-repo workspace crates, from `crates/<name>/` directories (hyphens become
+/// underscores). The root package's own name is not known from the files, so a
+/// `use <root crate>::..` counts as rooted outside the repo (fail-closed).
+fn in_repo_crate_names(files: &BTreeMap<String, ParsedFile>) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    for path in files.keys() {
+        let mut parts = path.split('/');
+        while let Some(seg) = parts.next() {
+            if seg == "crates" {
+                if let Some(name) = parts.next() {
+                    out.insert(name.replace('-', "_"));
+                }
+                break;
+            }
+        }
+    }
+    out
+}
+
+fn collect_mod_names(parsed: &ParsedFile, node: Node, out: &mut BTreeSet<String>) {
+    if node.kind() == "mod_item" {
+        if let Some(name) = node.child_by_field_name("name") {
+            out.insert(parsed.node_text(&name).to_string());
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_mod_names(parsed, child, out);
+    }
+}
+
+fn first_segment(path: &str) -> &str {
+    path.split("::").next().unwrap_or(path).trim()
+}
+
+fn last_segment(path: &str) -> &str {
+    path.rsplit("::").next().unwrap_or(path).trim()
+}
+
+/// Every `use` leaf anywhere in `node` (block scope, nested lists, `pub use`, `as` aliases).
+fn collect_use_leaves(parsed: &ParsedFile, node: Node, out: &mut Vec<UseLeaf>) {
+    if node.kind() == "use_declaration" {
+        if let Some(arg) = node.child_by_field_name("argument") {
+            walk_use_tree(parsed, arg, None, out);
+        }
+        return;
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_use_leaves(parsed, child, out);
+    }
+}
+
+/// Walk one use tree. `root` is the first segment of the path above this node (None at the
+/// top). Glob imports contribute no leaf: a glob-imported macro named like a prelude macro
+/// is rustc E0659, so the census has nothing to withhold for it.
+fn walk_use_tree(parsed: &ParsedFile, node: Node, root: Option<&str>, out: &mut Vec<UseLeaf>) {
+    let text = |n: &Node| parsed.node_text(n).to_string();
+    match node.kind() {
+        "identifier" => {
+            let name = text(&node);
+            out.push(UseLeaf {
+                bound: name.clone(),
+                original: name.clone(),
+                root: root.unwrap_or(&name).to_string(),
+                aliased: false,
+            });
+        }
+        "scoped_identifier" => {
+            let path = node
+                .child_by_field_name("path")
+                .map(|p| text(&p))
+                .unwrap_or_default();
+            if let Some(name) = node.child_by_field_name("name") {
+                let leaf = text(&name);
+                let r = root
+                    .map(str::to_string)
+                    .unwrap_or_else(|| first_segment(&path).to_string());
+                out.push(UseLeaf {
+                    bound: leaf.clone(),
+                    original: leaf,
+                    root: r,
+                    aliased: false,
+                });
+            }
+        }
+        "use_as_clause" => {
+            let path = node
+                .child_by_field_name("path")
+                .map(|p| text(&p))
+                .unwrap_or_default();
+            if let Some(alias) = node.child_by_field_name("alias") {
+                let r = root
+                    .map(str::to_string)
+                    .unwrap_or_else(|| first_segment(&path).to_string());
+                out.push(UseLeaf {
+                    bound: text(&alias),
+                    original: last_segment(&path).to_string(),
+                    root: r,
+                    aliased: true,
+                });
+            }
+        }
+        "use_list" => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                walk_use_tree(parsed, child, root, out);
+            }
+        }
+        "scoped_use_list" => {
+            let path = node
+                .child_by_field_name("path")
+                .map(|p| text(&p))
+                .unwrap_or_default();
+            let r = root
+                .map(str::to_string)
+                .unwrap_or_else(|| first_segment(&path).to_string());
+            if let Some(list) = node.child_by_field_name("list") {
+                walk_use_tree(parsed, list, Some(&r), out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Does a `#[macro_use] extern crate` of a non-std crate exist in `files`? Its macros are in
+/// scope crate-wide and shadow the prelude silently (#765 PR D, W1).
+pub fn has_macro_use_extern_crate(files: &BTreeMap<String, ParsedFile>) -> bool {
+    files
+        .values()
+        .filter(|p| p.language == crate::languages::Language::Rust)
+        .any(|p| macro_use_extern_in(p, p.tree.root_node()))
+}
+
+fn macro_use_extern_in(parsed: &ParsedFile, node: Node) -> bool {
+    if node.kind() == "extern_crate_declaration" {
+        let name = node
+            .child_by_field_name("name")
+            .map(|n| parsed.node_text(&n).to_string())
+            .unwrap_or_default();
+        let mut prev = node.prev_sibling();
+        while let Some(sib) = prev {
+            if sib.kind() != "attribute_item" {
+                break;
+            }
+            if parsed.node_text(&sib).contains("macro_use") && !STD_ROOTS.contains(&name.as_str()) {
+                return true;
+            }
+            prev = sib.prev_sibling();
+        }
+    }
+    let mut cursor = node.walk();
+    let mut children = Vec::new();
+    for child in node.children(&mut cursor) {
+        children.push(child);
+    }
+    children.into_iter().any(|c| macro_use_extern_in(parsed, c))
 }
 
 /// Narrow a shadow set (as returned by [`collect_macro_shadow_set`]) down to

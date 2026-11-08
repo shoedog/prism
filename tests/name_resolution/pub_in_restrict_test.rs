@@ -456,9 +456,10 @@ fn n9_super_above_the_crate_root_is_none() {
 }
 
 #[test]
-fn n10_misplaced_path_mount_leaves_the_restrict_none() {
-    // rustc loads `src/b.rs` for `#[path = "b.rs"]` in `src/a.rs`; the populator binds the
-    // decoy `src/a/b.rs` (it resolves relative to `src/a/`), so the chain cannot be trusted.
+fn n10_non_mod_rs_mount_places_the_restrict_in_rustcs_file() {
+    // rustc loads `src/b.rs` for `#[path = "b.rs"]` in `src/a.rs` (#765); `src/a/b.rs` is a
+    // decoy that is not a module of this crate. The restrict is placed through the
+    // module chain `b -> a -> crate` of rustc's file.
     let fs = files(&[
         ("src/lib.rs", "mod a;\n"),
         ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
@@ -466,7 +467,7 @@ fn n10_misplaced_path_mount_leaves_the_restrict_none() {
         ("src/a/b.rs", "pub(in crate::a) fn f() {}\n"),
     ]);
     let g = populate(&fs);
-    assert_eq!(restricts(&g, "f"), vec![None]);
+    assert_eq!(restricts(&g, "f"), vec![Some(module(&g, &fs, &["a"]))]);
 }
 
 #[test]
