@@ -131,6 +131,14 @@ pub struct ScopeGraph {
     /// invalidate_lookup_indexes before lookup. add_macro_wildcard invalidates the lazy
     /// index; direct appends select its length-guarded scan fallback.
     pub macro_wildcards: Vec<MacroWildcard>,
+    /// Rust: files holding a scope under a module a `#[path]` attribute mounted where rustc
+    /// would not (#765). The populator may bind a decoy there; the #724 guards refuse
+    /// alias and anchored-macro targets in these files. Removed with #765's fix.
+    #[serde(default)]
+    pub misplaced_mount_files: std::collections::BTreeSet<crate::name_resolution::types::FileId>,
+    /// Rust: `(scope, name)` of every `use p::{self as name}` import (#724).
+    #[serde(default)]
+    pub self_import_aliases: std::collections::BTreeSet<(ScopeId, String)>,
     /// Deferred-glob expansion telemetry for resolution walked over **this**
     /// graph (spec §3.5). Scoped here rather than in a process-global so a
     /// measurement (`navigation::queries::call_stats`) that resets and snapshots

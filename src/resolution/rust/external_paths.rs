@@ -154,6 +154,12 @@ fn external_owners(cg: &CallGraph, site: &CallSite) -> Option<(Vec<String>, Drop
     {
         return None;
     }
+    // An anchored macro-argument site (#724) is written `crate::`/`self::`/`super::`...; its
+    // recorded name omits the prefix, so judging that spelling would test the wrong path.
+    // `external_path` refuses these first segments, so there is nothing to remove.
+    if site.path_anchor.is_some() {
+        return None;
+    }
     // Leading `::` and `use` anchoring depend on the edition; a mixed-edition
     // graph keeps one value that is not authoritative for every crate.
     let graph = cg

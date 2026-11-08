@@ -168,6 +168,10 @@ pub struct CallSiteMeta<'a> {
     pub arg_spread: bool,
     pub kind_override: Option<crate::call_graph::CallKind>,
     pub origin_override: Option<crate::call_graph::CallSiteOrigin>,
+    /// Rust macro-argument calls only (#724): the `crate`/`self`/`super::super`
+    /// prefix written before `callee_name`'s first identifier, which the token
+    /// soup does not keep in the name. Read only by the authoritative route.
+    pub path_anchor: Option<String>,
 }
 
 /// Information about a single return statement within a function.

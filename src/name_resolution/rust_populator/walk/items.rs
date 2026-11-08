@@ -13,7 +13,7 @@ use super::super::builder::{join, parent_dir, scope_target, Builder};
 use super::super::restrict::expected_mount_file;
 use super::super::scopes::{
     child_of_kind, name_text, parse_cfg_for_item, parse_use, parse_vis, pattern_idents, vis,
-    UseItem,
+    UseItem, UseNs,
 };
 use super::locals::{add_locals_with_facts, walk_block_body};
 use super::{full_file_span, full_scope_span, node_range, vis_extent_from, with_node, Ctx, NodeId};
@@ -221,18 +221,26 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_use(
                 name,
                 path: p,
                 anchor,
+                ns,
             } => {
-                b.add_binding(
-                    scope,
-                    name.clone(),
-                    NS_VALUE,
-                    BindTarget::Pending(p.clone(), anchor),
-                    v.clone(),
-                    cond.clone(),
-                    vec![extent.clone()],
-                );
-                // A `use` may bring the name in Type ns too (module/type imports,
-                // `use a::{self}`); add a Type-ns Pending so those paths resolve.
+                // A self import (`use a::{self}`, `{self as m}`) binds the module
+                // in the type namespace only (Rust Reference, "self imports").
+                if ns.binds_value() {
+                    b.add_binding(
+                        scope,
+                        name.clone(),
+                        NS_VALUE,
+                        BindTarget::Pending(p.clone(), anchor),
+                        v.clone(),
+                        cond.clone(),
+                        vec![extent.clone()],
+                    );
+                }
+                // A `use` may bring the name in Type ns too (module/type imports);
+                // add a Type-ns Pending so those paths resolve.
+                if ns == UseNs::SelfAlias {
+                    b.note_self_alias(scope, &name);
+                }
                 b.add_binding(
                     scope,
                     name,
