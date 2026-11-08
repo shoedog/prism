@@ -398,6 +398,7 @@ fn reaching_definitions_impl(
         affects_writers::affects_writers(
             parsed,
             *func_node,
+            &census,
             &defs[..n_recorded],
             capture_facts.regions(),
         )

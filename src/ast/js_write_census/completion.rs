@@ -38,6 +38,9 @@ pub(crate) struct Completion {
     /// The writes in nested callables and instance field initializers, for the bases the owner records
     /// (#660 S1c, D2-c).
     pub captured: Vec<Captured>,
+    /// (target start byte, path) of every recorded def the census's precise identity for the same site
+    /// equals (`covered` below): the recorded paths that are complete storage identities (#674).
+    pub covered: BTreeSet<(usize, AccessPath)>,
 }
 
 /// `ident`'s path in the producer's representation (`[]` for a subscript).
@@ -110,6 +113,9 @@ pub(crate) fn completion(
             && by_start
                 .get(&site.target_start)
                 .is_some_and(|stored| stored.iter().any(|p| **p == path));
+        if covered {
+            out.covered.insert((site.target_start, path.clone()));
+        }
         // The line RD is handed for this write (#696): the E18 statement line of a kill-only def,
         // the target's own line of a recorded one. D3 keys the write by RD's node for that line.
         let kill_line = (candidate && !covered).then(|| placed.flatten()).flatten();

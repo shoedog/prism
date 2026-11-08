@@ -1,25 +1,27 @@
-//! #674: which recorded defs of a JS/TS/TSX owner may kill by `affects`. One rule: a recorded write kills
-//! by `affects` only when (a) its recorded path is the COMPLETE storage identity of its target, and (b) its
-//! receiver or base is the owner's own binding of that name. Otherwise it keeps main's path equality.
+//! #674: which recorded defs of a JS/TS/TSX owner may kill by `affects`. The rule, stated once: a recorded
+//! write kills by `affects` only when ALL hold; otherwise it keeps main's path equality (fail closed).
 //!
-//! (a) Storage identity. `AccessPath::from_expr` cuts an lvalue at its first `[`, so `o[k].x = 2` is
-//! recorded as `o.[]`, `o[k][0] = 2` as `o.[]`, `o.a[k].b = 1` as `o.a.[]`, and `(o[k].x).y = 2` as
-//! `o.[].y`. Treated as the storage it names, such a writer would kill every `o.<f>` def though the real
-//! target can never replace one. The census already adds the precise kill-only def for these sites, so the
-//! recorded one keeps path equality. Decision: count the target's complete access chain (member and
-//! subscript steps, descending through parentheses, TS `as`/`satisfies`/`<T>`/`!` at every level) and
-//! require no more steps than the recorded path has fields. (A truncated def stays a valid kill TARGET: a
-//! shorter writer covering its recorded prefix covers the longer storage.)
+//! 1. **Identity equality.** The census computes a precise identity for the same write site (the identity
+//!    `completion.rs` compares with recorded coverage, keyed by the target's start byte) and the recorded
+//!    def's `AccessPath` equals it exactly, base and every field. `AccessPath::from_expr` cuts an lvalue at its
+//!    first `[` (`o[k].x` is recorded `o.[]`, the census says `o.[].x`), splits text on dots (a key
+//!    `"a.b.c"`), and spells wrapped receivers oddly (`(this as any).a` has base `this as any`; the census
+//!    says `this`): every such def differs from its census identity and so keeps path equality. No census
+//!    site (a declaration, a parameter, a refused owner or target kind, an escaped spelling, a parse error)
+//!    is the same. The census's own precise kill-only defs carry the `affects` kills of the sites it covers
+//!    differently.
+//! 2. **Receiver.** If the base is `this`, it is not rebound relative to the owner (`this_is_rebound_at`:
+//!    class static field values, static blocks, non-arrow callables; computed keys keep the owner's).
+//! 3. **Declarations.** The base is not bound, between the write and the owner, by a catch parameter or by a
+//!    function or class declared directly in an enclosing block or `switch` body: no recorded def, so
+//!    `BindingFacts` would resolve the write to the outer binding. Matched by spelling (over-approximates).
+//! 4. **Not deferred.** Not inside a nested callable or an instance field initializer (a capture region):
+//!    D2-c labels the outer edges those writes reach.
 //!
-//! (b) Receiver and base identity. Not the owner's own binding, so path equality:
-//! * code that runs later: a nested callable or an instance field initializer (a capture region; D2-c
-//!   labels the outer edges);
-//! * a `this` the census already treats as rebound (`this_is_rebound_at`: class static field values, static
-//!   blocks, parameters and bodies of non-arrow callables; computed keys and decorators keep the owner's);
-//! * a base bound by a declaration `BindingFacts` does not model because it has no recorded def: a catch
-//!   clause parameter (plain, destructured, typed), or a function/class declared in an enclosing block.
-//!   Both over-approximate by name. Remaining kinds are not chased (S1d owns the binding model).
+//! Recorded writes with no census identity (the cost): declarations and parameters (`let o`, `o` as a
+//! formal), `for` head targets and other forms the census does not mark a candidate, everything above.
 use super::capture_regions::JsRegions;
+use super::census_defs::CensusFacts;
 use super::DefSite;
 use crate::ast::ParsedFile;
 use crate::js_write_census::completion::this_is_rebound_at;
@@ -29,66 +31,25 @@ use tree_sitter::Node;
 pub(super) fn affects_writers(
     parsed: &ParsedFile,
     owner: Node<'_>,
+    census: &CensusFacts,
     defs: &[DefSite],
     regions: Option<&JsRegions<'_>>,
 ) -> Vec<bool> {
     let root = parsed.tree.root_node();
     defs.iter()
         .map(|def| {
-            if regions.is_some_and(|r| r.innermost(def.start_byte).is_some()) {
+            if regions.is_some_and(|r| r.innermost(def.start_byte).is_some()) || !census.covers(def)
+            {
                 return false;
             }
             let Some(start) = root.descendant_for_byte_range(def.start_byte, def.start_byte + 1)
             else {
                 return false;
             };
-            if def.path.base == "this" && this_is_rebound_at(parsed, owner, def.start_byte) {
-                return false;
-            }
-            complete_chain(start) <= def.path.fields.len()
+            !(def.path.base == "this" && this_is_rebound_at(parsed, owner, def.start_byte))
                 && !bound_without_def(parsed, owner, start, &def.path.base)
         })
         .collect()
-}
-
-/// Member and subscript steps of the complete access chain whose first token is at `start`: climb to the
-/// chain's top (wrappers included), then count downward through the object of every step and wrapper.
-fn complete_chain(start: Node<'_>) -> usize {
-    let mut top = start;
-    while let Some(parent) = top.parent() {
-        let is_step = matches!(parent.kind(), "member_expression" | "subscript_expression")
-            && parent.child_by_field_name("object").map(|o| o.id()) == Some(top.id());
-        if !is_step && !is_wrapper(parent.kind()) {
-            break;
-        }
-        top = parent;
-    }
-    depth(top)
-}
-
-fn is_wrapper(kind: &str) -> bool {
-    matches!(
-        kind,
-        "parenthesized_expression"
-            | "non_null_expression"
-            | "as_expression"
-            | "satisfies_expression"
-            | "type_assertion"
-    )
-}
-
-fn depth(node: Node<'_>) -> usize {
-    match node.kind() {
-        "member_expression" | "subscript_expression" => {
-            1 + node.child_by_field_name("object").map_or(0, depth)
-        }
-        // `<T>x` puts the expression last; the other wrappers put it first (a type may follow).
-        "type_assertion" => node
-            .named_child(node.named_child_count().saturating_sub(1))
-            .map_or(0, depth),
-        k if is_wrapper(k) => node.named_child(0).map_or(0, depth),
-        _ => 0,
-    }
 }
 
 /// Whether `base` is bound, between `start` and the owner, by a catch parameter or a block-level function
@@ -114,17 +75,16 @@ fn bound_without_def(parsed: &ParsedFile, owner: Node<'_>, start: Node<'_>, base
                 }
             }
             "statement_block" if Some(n.id()) != owner_body => {
+                if declares(n, base, &text) {
+                    return true;
+                }
+            }
+            // A function declared in a case is scoped to the whole switch body, sibling cases included.
+            "switch_body" => {
                 let mut cursor = n.walk();
-                let declared = n.named_children(&mut cursor).any(|c| {
-                    matches!(
-                        c.kind(),
-                        "function_declaration"
-                            | "generator_function_declaration"
-                            | "class_declaration"
-                    ) && c
-                        .child_by_field_name("name")
-                        .is_some_and(|id| text(id) == base)
-                });
+                let declared = n
+                    .named_children(&mut cursor)
+                    .any(|case| declares(case, base, &text));
                 if declared {
                     return true;
                 }
@@ -135,6 +95,20 @@ fn bound_without_def(parsed: &ParsedFile, owner: Node<'_>, start: Node<'_>, base
         cur = n.parent();
     }
     false
+}
+
+/// Whether a direct child of `block` declares a function or class named `base`.
+fn declares<'a>(block: Node<'_>, base: &str, text: &impl Fn(Node<'_>) -> &'a str) -> bool {
+    let mut cursor = block.walk();
+    let found = block.named_children(&mut cursor).any(|c| {
+        matches!(
+            c.kind(),
+            "function_declaration" | "generator_function_declaration" | "class_declaration"
+        ) && c
+            .child_by_field_name("name")
+            .is_some_and(|id| text(id) == base)
+    });
+    found
 }
 
 /// Whether the pattern `p` names `base` (any identifier inside it, a destructuring included).

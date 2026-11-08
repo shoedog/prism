@@ -92,7 +92,8 @@ fn bucketed_recorded_affects_matches_the_all_pairs_scan() {
             for (index, def) in defs.iter().enumerate() {
                 gen[if together { 1 } else { def.line }].insert(index);
             }
-            let flagged = affects_writers::affects_writers(&parsed, owner, &defs, None);
+            let (_, census) = census_defs::complete(&parsed, &owner, defs.clone());
+            let flagged = affects_writers::affects_writers(&parsed, owner, &census, &defs, None);
             assert!(
                 flagged.iter().any(|f| !f),
                 "the truncated `o[k].x` writer is unflagged"
@@ -154,17 +155,21 @@ fn sibling_fields_do_no_cross_field_scan() {
         let (work, projected) = pair_work(&format!("function f(o) {{\n{body}return 0;\n}}"));
         assert_eq!(
             work,
-            2 * n + 1,
-            "n={n}: n own visits, the parameter `o` visits itself and the n fields"
+            n + 1,
+            "n={n}: n own visits and the parameter `o` (a declaration keeps path equality: itself only)"
         );
         assert_eq!(work, projected);
         let (work, projected) =
             pair_work(&format!("function f(o) {{\n{body}o = {{}};\nreturn 0;\n}}"));
-        assert_eq!(work, 3 * n + 4, "n={n}: the parameter `o` and the closing `o = {{}}` each visit both `o` defs and the n fields");
+        assert_eq!(
+            work,
+            2 * n + 4,
+            "n={n}: linear: n own visits, the parameter, and the closing `o = {{}}` over the n fields and the `o` defs"
+        );
         assert_eq!(work, projected, "every visit is an affected def");
         works.push(work);
     }
-    assert_eq!(works, [28, 100, 388]);
+    assert_eq!(works, [20, 68, 260]);
 }
 
 /// `[]` on either side is followed without scanning the base: `o.b<i>` visits itself and the `o[]` def it
@@ -177,8 +182,8 @@ fn wildcard_writers_and_defs_visit_only_affected_defs() {
         "function f(o, k) {{\n{siblings}o.a[k] = 1;\no[k] = 2;\nreturn 0;\n}}"
     ));
     // `o` (n + 3: itself, `o[]`, `o.a[]` and the n siblings), `k` (1), the n sibling writers (2 each), `o.a[k]` (1:
-    // `o[]` is shorter than it), `o[k]` (n + 2).
-    assert_eq!(work, (n + 3) + 1 + 2 * n + 1 + (n + 2), "{work}");
+    // `o[]` is shorter than it), `o[k]` (n + 2). The parameters `o` and `k` are declarations: themselves only (1 each).
+    assert_eq!(work, 1 + 1 + 2 * n + 1 + (n + 2), "{work}");
     assert_eq!(work, projected, "every visit is an affected def");
 }
 
@@ -280,7 +285,8 @@ fn writer_flags_by_receiver_and_binding() {
         let parsed = ParsedFile::parse("a.ts", src, Language::TypeScript).unwrap();
         let owner = parsed.all_functions()[0];
         let defs = owner_defs(&parsed, &owner);
-        let flags = affects_writers::affects_writers(&parsed, owner, &defs, None);
+        let (_, census) = census_defs::complete(&parsed, &owner, defs.clone());
+        let flags = affects_writers::affects_writers(&parsed, owner, &census, &defs, None);
         let hits: Vec<bool> = defs
             .iter()
             .zip(&flags)
@@ -288,5 +294,32 @@ fn writer_flags_by_receiver_and_binding() {
             .map(|(_, f)| *f)
             .collect();
         assert_eq!(hits, [*want], "{path} @ {line}: {src}");
+    }
+}
+
+/// A recorded def that differs from the census's identity for its site is never eligible (round 3): a
+/// text-split key, a call in the chain, an asserted `this` receiver, a declaration.
+#[test]
+fn identity_mismatch_and_uncovered_sites_are_ineligible() {
+    for src in [
+        "function f(o, k) {\n  (o[k].x).y[\"a.b.c\"].z = 2;\n}",
+        "function f(o, k) {\n  o[k]().x = 2;\n}",
+        "function f(o, k) {\n  o[k].x = 2;\n}",
+        "function f() {\n  (this as any).a = {};\n}",
+        "function f(o) {\n  let p = o;\n}",
+        "function f(o) {\n  switch (o) { case 0: function o() {} o = {}; }\n}",
+    ] {
+        let parsed = ParsedFile::parse("a.ts", src, Language::TypeScript).unwrap();
+        let owner = parsed.all_functions()[0];
+        let defs = owner_defs(&parsed, &owner);
+        let (_, census) = census_defs::complete(&parsed, &owner, defs.clone());
+        let flags = affects_writers::affects_writers(&parsed, owner, &census, &defs, None);
+        let eligible: Vec<_> = defs
+            .iter()
+            .zip(&flags)
+            .filter(|(d, f)| d.line == 2 && **f)
+            .map(|(d, _)| d.path.to_string())
+            .collect();
+        assert!(eligible.is_empty(), "{eligible:?}: {src}");
     }
 }
