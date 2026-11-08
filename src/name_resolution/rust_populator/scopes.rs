@@ -163,6 +163,16 @@ fn parse_cfg_tokens(pf: &ParsedFile, tt: &Node) -> Option<crate::name_resolution
 
 // ── `use` path parsing ────────────────────────────────────────────────────────
 
+/// The namespaces a named import binds.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum UseNs {
+    /// An ordinary import: the value and the type namespace.
+    All,
+    /// A self import (`{self}`, `{self as m}`): the module only, so the type
+    /// namespace (Rust Reference, "self imports").
+    TypeOnly,
+}
+
 /// One thing a `use` declaration brings into scope.
 pub(crate) enum UseItem {
     /// A named import/re-export: bind `name` to `Pending(path, anchor)`.
@@ -170,6 +180,7 @@ pub(crate) enum UseItem {
         name: Ident,
         path: RawPath,
         anchor: Anchor,
+        ns: UseNs,
     },
     /// A glob (`use a::*`): a deferred-glob poison edge (no member expansion).
     Glob { path: RawPath, anchor: Anchor },
@@ -202,19 +213,19 @@ fn flatten_use_tree(
                 // `use a::{self}` / `use a::self` → bind the LAST prefix segment
                 // (the module `a` itself).
                 if let Some(last) = prefix.last() {
-                    emit_named(last.clone(), prefix, edition, out);
+                    emit_named(last.clone(), prefix, edition, UseNs::TypeOnly, out);
                 }
             } else {
                 let mut segs = prefix.to_vec();
                 segs.push(seg.clone());
-                emit_named(seg, &segs, edition, out);
+                emit_named(seg, &segs, edition, UseNs::All, out);
             }
         }
         "scoped_identifier" => {
             // path::name — collect the full segment list.
             let segs = scoped_segments(pf, node, prefix);
             if let Some(name) = segs.last().cloned() {
-                emit_named(name, &segs, edition, out);
+                emit_named(name, &segs, edition, UseNs::All, out);
             }
         }
         "use_as_clause" => {
@@ -224,8 +235,17 @@ fn flatten_use_tree(
                 .map(|a| pf.node_text(&a).to_string());
             let path_node = node.child_by_field_name("path");
             if let (Some(alias), Some(pn)) = (alias, path_node) {
-                let segs = scoped_segments(pf, &pn, prefix);
-                emit_named(alias, &segs, edition, out);
+                let mut segs = scoped_segments(pf, &pn, prefix);
+                // `{self as m}`: the trailing `self` is the self-import marker, not
+                // a path segment; `m` names the prefix module (type namespace only).
+                // A leading `self` (the `self::` anchor) is kept for `anchor_of_segments`.
+                let ns = if segs.len() > 1 && segs.last().is_some_and(|l| l == "self") {
+                    segs.pop();
+                    UseNs::TypeOnly
+                } else {
+                    UseNs::All
+                };
+                emit_named(alias, &segs, edition, ns, out);
             }
         }
         "scoped_use_list" => {
@@ -271,12 +291,13 @@ fn flatten_use_tree(
 
 /// Emit a `Named` use-item, mapping the leading segment to an [`Anchor`] and
 /// stripping anchor keywords (`crate`/`self`/`super`) from the resolved path.
-fn emit_named(name: String, segs: &[String], edition: u16, out: &mut Vec<UseItem>) {
+fn emit_named(name: String, segs: &[String], edition: u16, ns: UseNs, out: &mut Vec<UseItem>) {
     let (anchor, path_segs) = anchor_of_segments(segs, edition);
     out.push(UseItem::Named {
         name,
         path: RawPath(path_segs),
         anchor,
+        ns,
     });
 }
 

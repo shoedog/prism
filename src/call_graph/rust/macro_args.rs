@@ -383,7 +383,8 @@ fn scan_token_tree<'a>(
                 }
                 if let Some(Tok::TokenTree(args)) = seq.get(j) {
                     if parsed.node_text(args).starts_with('(') {
-                        handle_call_candidate(parsed, &chain, *args, out, facts);
+                        let anchor = leading_path_anchor(&seq, i);
+                        handle_call_candidate(parsed, &chain, anchor, *args, out, facts);
                         scan_token_tree(parsed, *args, shadow, out, facts);
                         i = j + 1;
                         continue;
@@ -458,9 +459,56 @@ fn scan_token_tree<'a>(
     }
 }
 
+/// The `crate` / `self` / `super(::super)*` prefix written directly before the
+/// chain that starts at `seq[i]` (`super::super::f(..)` gives `"super::super"`).
+///
+/// The extractor keeps `callee_name` and the span as the chain from its first
+/// identifier (the keywords are not `identifier` nodes); the prefix is stored
+/// aside in `CallSiteMeta::path_anchor` and read only by the authoritative Rust
+/// route (`crate::resolution::rust::path_anchor`). A keyword must be followed by
+/// `::` to count, `crate`/`self` must be the leftmost token of the path (not
+/// preceded by `::`), and `super` repeats only through `super ::`.
+fn leading_path_anchor(seq: &[Tok<'_>], i: usize) -> Option<String> {
+    let mut parts: Vec<&str> = Vec::new();
+    let mut at = i;
+    loop {
+        let Some(Tok::Other("::")) = at.checked_sub(1).and_then(|p| seq.get(p)) else {
+            break;
+        };
+        let Some(Tok::Other(kw @ ("crate" | "self" | "super"))) =
+            at.checked_sub(2).and_then(|p| seq.get(p))
+        else {
+            break;
+        };
+        parts.push(kw);
+        at -= 2;
+        if *kw != "super" {
+            break;
+        }
+    }
+    // A path continued from the left (`a::super::f`, `::crate::f`) is not a
+    // plain keyword-anchored one.
+    if matches!(
+        at.checked_sub(1).and_then(|p| seq.get(p)),
+        Some(Tok::Other("::"))
+    ) {
+        return None;
+    }
+    if parts.is_empty() {
+        return None;
+    }
+    parts.reverse();
+    // `crate`/`self` only ever stand alone; anything else mixed is not a path.
+    if parts.iter().any(|p| *p != "super") && parts.len() > 1 {
+        return None;
+    }
+    Some(parts.join("::"))
+}
+
 fn handle_call_candidate<'a>(
     parsed: &'a ParsedFile,
     chain: &[Node<'a>],
+    path_anchor: Option<String>,
     args: Node<'a>,
     out: &mut Vec<CallSiteMeta<'a>>,
     facts: &mut MacroArgFacts,
@@ -491,6 +539,7 @@ fn handle_call_candidate<'a>(
         arg_spread: false,
         kind_override: Some(CallKind::Call),
         origin_override: Some(CallSiteOrigin::MacroArg),
+        path_anchor,
     });
     facts.calls_recorded += 1;
 }
@@ -524,6 +573,7 @@ fn handle_method_call_candidate<'a>(
         arg_spread: false,
         kind_override: Some(CallKind::Call),
         origin_override: Some(CallSiteOrigin::MacroArg),
+        path_anchor: None,
     });
     facts.calls_recorded += 1;
 }
