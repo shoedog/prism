@@ -143,14 +143,14 @@ function save(x) return x end
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
 
-    let config = prism::algorithms::chop::ChopConfig {
+    let config = prism_review::algorithms::chop::ChopConfig {
         source_file: path.to_string(),
         source_line: 3,
         sink_file: path.to_string(),
         sink_line: 6,
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::chop::slice(&ctx, &config).unwrap();
+    let result = prism_review::algorithms::chop::slice(&ctx, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }
 

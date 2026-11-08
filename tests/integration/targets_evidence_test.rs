@@ -1,12 +1,12 @@
 use prism::access_path::AccessPath;
-use prism::api::{
-    load_review_inputs, to_sarif, EvidenceHop, EvidencePath, FindingConfidence, FindingTier,
-    ResolutionMode, ReviewInputs, ReviewOptions, SarifInputs,
-};
 use prism::cpg::FlowConfidence;
 use prism::data_flow::{VarAccessKind, VarLocation};
 use prism::slice::SliceFinding;
-use prism::targets::{project, TargetsMeta};
+use prism_review::api::{
+    load_review_inputs, to_sarif, EvidenceHop, EvidencePath, FindingConfidence, FindingTier,
+    ResolutionMode, ReviewInputs, ReviewOptions, SarifInputs,
+};
+use prism_review::targets::{project, TargetsMeta};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;

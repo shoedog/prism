@@ -105,7 +105,7 @@ fn format_callers_lists_a_returned_value_caller_once() {
         let diff = DiffInput::parse_unified_diff(
             "--- a/hooks.ts\n+++ b/hooks.ts\n@@ -3,1 +3,1 @@\n-    return 0;\n+    return 1;\n",
         );
-        let out = prism::output::to_callers_output(&ctx, &diff, 1);
+        let out = prism_review::output::to_callers_output(&ctx, &diff, 1);
         let names: Vec<_> = out
             .callers
             .iter()
@@ -195,7 +195,7 @@ fn format_callers_credits_the_exact_returned_function_not_a_same_named_one() {
         let diff = DiffInput::parse_unified_diff(&format!(
             "--- a/{file}\n+++ b/{file}\n@@ -{body_line},1 +{body_line},1 @@\n-  return 0;\n+  return 1;\n"
         ));
-        let out = prism::output::to_callers_output(&ctx, &diff, 1);
+        let out = prism_review::output::to_callers_output(&ctx, &diff, 1);
         out.callers
             .iter()
             .flat_map(|e| e.callers.iter().map(|c| c.name.clone()))

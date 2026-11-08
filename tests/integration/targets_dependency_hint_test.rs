@@ -14,7 +14,7 @@
 
 use prism::api::{load_review_inputs, ReviewInputs, ReviewOptions};
 use prism::slice::SliceFinding;
-use prism::targets::{project, TargetsMeta};
+use prism_review::targets::{project, TargetsMeta};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -79,7 +79,7 @@ fn meta(root: PathBuf) -> TargetsMeta {
     let mut meta = TargetsMeta::default();
     meta.algorithms_run = vec!["Test".to_string()];
     meta.repo_root = root;
-    meta.min_severity_rank = prism::output::severity_rank("info");
+    meta.min_severity_rank = prism_review::output::severity_rank("info");
     meta
 }
 

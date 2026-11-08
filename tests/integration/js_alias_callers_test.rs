@@ -114,7 +114,8 @@ fn format_callers_at(files: &[(&str, &str)], diff: &str, depth: usize) -> Vec<Ca
         );
     }
     let ctx = CpgContext::build(&parsed, None);
-    let out = prism::output::to_callers_output(&ctx, &DiffInput::parse_unified_diff(diff), depth);
+    let out =
+        prism_review::output::to_callers_output(&ctx, &DiffInput::parse_unified_diff(diff), depth);
     out.callers
         .iter()
         .map(|e| {

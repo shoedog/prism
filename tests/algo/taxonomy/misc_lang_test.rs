@@ -270,7 +270,7 @@ def log_result(result):
         }],
     };
 
-    let barrier_config = prism::algorithms::barrier_slice::BarrierConfig {
+    let barrier_config = prism_review::algorithms::barrier_slice::BarrierConfig {
         max_depth: 2,
         barrier_symbols: BTreeSet::from(["log_result".to_string()]),
         barrier_modules: vec!["log.py".to_string()],
@@ -278,7 +278,8 @@ def log_result(result):
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::BarrierSlice);
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism::algorithms::barrier_slice::slice(&ctx, &diff, &config, &barrier_config).unwrap();
+        prism_review::algorithms::barrier_slice::slice(&ctx, &diff, &config, &barrier_config)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::BarrierSlice);
 }
 
@@ -303,7 +304,7 @@ fn test_delta_slice_missing_old_file_python() {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
+    let result = prism_review::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
     // Should succeed but with empty old files — no edge differences
 }
@@ -317,14 +318,14 @@ fn test_chop_python_verifies_path_lines() {
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
 
-    let config = prism::algorithms::chop::ChopConfig {
+    let config = prism_review::algorithms::chop::ChopConfig {
         source_file: path.to_string(),
         source_line: 1,
         sink_file: path.to_string(),
         sink_line: 4,
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::chop::slice(&ctx, &config).unwrap();
+    let result = prism_review::algorithms::chop::slice(&ctx, &config).unwrap();
     // If data flow exists, blocks should contain lines between source and sink
     if !result.blocks.is_empty() {
         let block = &result.blocks[0];
@@ -364,11 +365,12 @@ def process(x):
     };
 
     // With condition x==5, the if-body (x != 5) should be unreachable
-    let condition = prism::algorithms::conditioned_slice::Condition::parse("x==5").unwrap();
+    let condition = prism_review::algorithms::conditioned_slice::Condition::parse("x==5").unwrap();
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
     let ctx = CpgContext::build(&files, None);
     let conditioned_result =
-        prism::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
+        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition)
+            .unwrap();
 
     // Also get unconditioned (LeftFlow) for comparison
     let left_result = algorithms::run_slicing_compat(

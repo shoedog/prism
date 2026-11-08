@@ -1,0 +1,698 @@
+//! Provenance Slice — trace each variable back to its ultimate origin.
+//!
+//! **Question answered:** "Where did this data originally come from, and does that origin require special handling?"
+//!
+//! For each variable on a diff line, traces backward through assignments to
+//! classify its ultimate source: user input, config value, database result,
+//! hardcoded constant, environment variable, or function parameter. Different
+//! origins require different levels of scrutiny — a variable from request.body
+//! needs validation, one from a constant doesn't.
+//!
+//! This is backward taint analysis with origin classification.
+
+use anyhow::Result;
+use prism::cpg::CpgContext;
+use prism::diff::{DiffBlock, DiffInput, ModifyType};
+use prism::finding_confidence::{EvidenceHop, EvidencePath};
+use prism::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
+use std::collections::{BTreeMap, BTreeSet};
+
+pub use prism::frameworks::Origin;
+
+/// Heuristic patterns for origin classification.
+const USER_INPUT_PATTERNS: &[&str] = &[
+    // === Cross-language / generic ===
+    // '~' prefix = word-boundary match (prevents "transform" matching "form")
+    "request",
+    "req.",
+    "~body", // word-boundary to avoid "bodyParser", but still match "req.body"
+    "~params",
+    "~query", // word-boundary to avoid "querySelector" in non-DB contexts
+    "~form",  // word-boundary to avoid "transform", "platform", "formatter"
+    "~input",
+    "~stdin",
+    "~args",
+    "argv",
+    // === Python ===
+    "request.form",  // Flask form data
+    "request.json",  // Flask JSON body
+    "request.data",  // Flask raw body / DRF request data
+    "request.GET",   // Django query params
+    "request.POST",  // Django form data
+    "request.FILES", // Django file uploads
+    "sys.stdin",     // Standard input
+    "raw_input(",    // Python 2 user input
+    "input(",        // Python 3 user input (also generic)
+    // === JavaScript / TypeScript ===
+    "getParameter",
+    "event.target",
+    "prompt(",
+    "readline",
+    "document.cookie", // Client-side cookie access
+    "window.location", // URL manipulation
+    "location.hash",   // URL hash (often unsanitized)
+    "location.search", // URL query string
+    "URLSearchParams", // Parsed query parameters
+    "req.cookies",     // Express cookie access
+    "req.headers",     // Express/Node request headers
+    "req.socket",      // Raw socket data
+    // === Go ===
+    "ReadBody",
+    "FormValue",
+    "PostForm",
+    "r.Body",
+    "r.URL.Query",      // net/http query params
+    "r.Header",         // net/http request headers
+    "r.FormFile",       // net/http file upload
+    "r.MultipartForm",  // net/http multipart form
+    "bufio.NewReader",  // Often wraps os.Stdin
+    "bufio.NewScanner", // Often wraps os.Stdin
+    // === Rust ===
+    "std::io::stdin", // stdin().read_line()
+    "BufReader",      // Often wraps stdin or network streams
+    "TcpStream",      // Network input
+    "UdpSocket",      // Network input
+    "hyper::body",    // HTTP request body (hyper)
+    "axum::extract",  // Axum web framework extractors
+    "actix_web::web", // Actix-web extractors
+    "rocket::form",   // Rocket form data
+    // === Lua ===
+    "io.read",        // io.read() — stdin / file input
+    "io.stdin",       // io.stdin:read()
+    "socket.receive", // LuaSocket network input
+    "ngx.req",        // OpenResty/nginx-lua request data
+    "ngx.var",        // OpenResty/nginx variables (often user-controlled)
+    // === C/C++ network and file input ===
+    "recv(",
+    "recvfrom(",
+    "recvmsg(",
+    "read(",
+    "fgets(",
+    "fread(",
+    "scanf(",
+    "fscanf(",
+    "sscanf(",
+    "gets(",
+    "getline(",
+    "getchar(",
+    "fgetc(",
+    "accept(",
+    // Network byte-order conversion (indicates received network data)
+    "ntohs(",
+    "ntohl(",
+    "ntohll(",
+    // Linux kernel user-space data ingress
+    "copy_from_user(",
+    "__copy_from_user(",
+    "get_user(",
+    "__get_user(",
+    "copy_from_iter(",
+    // === C/C++ strongSwan / libstrongswan config API ===
+    // settings_t values come from NetworkManager connection profiles (user-controlled).
+    "->get_str(",  // settings_t->get_str(settings, "key", default)
+    "->get_int(",  // settings_t->get_int(settings, "key", default)
+    "->get_bool(", // settings_t->get_bool(settings, "key", default)
+    // === Terraform / HCL ===
+    "var.",      // Terraform variable inputs (user-supplied via tfvars/CLI)
+    "variable ", // variable block definitions
+    // === Shell / Bash ===
+    "$1",       // Positional parameter — direct user input
+    "$2",       // Positional parameter
+    "$@",       // All positional parameters
+    "$*",       // All positional parameters (word-split)
+    "read ",    // read VAR — stdin/pipe input
+    "read -",   // read with flags (-r, -p, etc.)
+    "$(curl ",  // Network fetch output — untrusted
+    "$(curl -", // curl with flags
+    "$(wget ",  // Network fetch output — untrusted
+    "$(wget -", // wget with flags
+    "`curl ",   // Backtick variant
+    "`wget ",   // Backtick variant
+];
+
+const DATABASE_PATTERNS: &[&str] = &[
+    // === Cross-language / generic ===
+    // '~' prefix = word-boundary match (prevents "prefetch" matching "fetch")
+    ".query", // method call form to avoid standalone "query" matching comments
+    "~execute",
+    "~fetch", // word-boundary to avoid "prefetch"
+    "~cursor",
+    "find(",
+    "findOne",
+    "~select", // word-boundary to avoid "selectedItem"
+    "SELECT",
+    "db.",
+    "DB.",
+    "repository",
+    "dao",
+    "store.get",
+    // === Python ===
+    "session.query",   // SQLAlchemy
+    "objects.filter",  // Django ORM QuerySet
+    "objects.get",     // Django ORM single object
+    "objects.all",     // Django ORM all objects
+    "cursor.execute",  // DB-API 2.0 (sqlite3, psycopg2, etc.)
+    "cursor.fetchone", // DB-API 2.0 result
+    "cursor.fetchall", // DB-API 2.0 results
+    "Model.select",    // Peewee ORM
+    // === JavaScript / TypeScript ===
+    "Model.find",           // Mongoose/Sequelize
+    "Model.findOne",        // Mongoose/Sequelize
+    "prisma.",              // Prisma ORM
+    "knex(",                // Knex query builder
+    "connection.query",     // mysql2 / node-mysql
+    "collection.find",      // MongoDB native driver
+    "collection.aggregate", // MongoDB aggregation
+    // === Go ===
+    "sql.Query",    // database/sql
+    "sql.QueryRow", // database/sql single row
+    "db.Query",     // database/sql via db handle
+    "db.QueryRow",  // database/sql via db handle
+    "rows.Scan",    // database/sql row scanning
+    "tx.Query",     // database/sql transaction
+    "gorm.Find",    // GORM ORM
+    "gorm.First",   // GORM ORM
+    // === Rust ===
+    "diesel::",         // Diesel ORM queries
+    "sqlx::query",      // sqlx query builder
+    "sea_orm::",        // SeaORM queries
+    "rusqlite::",       // rusqlite SQLite bindings
+    ".fetch_one(",      // sqlx result fetching
+    ".fetch_all(",      // sqlx result fetching
+    ".fetch_optional(", // sqlx result fetching
+    // === Lua ===
+    "conn:execute",  // LuaSQL database execution
+    "cursor:fetch",  // LuaSQL cursor fetching
+    "redis:get",     // Redis Lua client
+    "redis:hgetall", // Redis hash retrieval
+    // === C/C++ database APIs ===
+    "mysql_query(",        // MySQL C API
+    "mysql_real_query(",   // MySQL C API (binary-safe)
+    "mysql_store_result(", // MySQL C API result
+    "mysql_fetch_row(",    // MySQL C API row fetch
+    "sqlite3_exec(",       // SQLite C API
+    "sqlite3_step(",       // SQLite C API (prepared statement)
+    "PQexec(",             // PostgreSQL libpq
+    "PQexecParams(",       // PostgreSQL libpq (parameterized)
+    // === Terraform / HCL ===
+    "data.",   // Terraform data sources — infrastructure queries
+    "data \"", // data block definitions
+];
+
+const CONFIG_PATTERNS: &[&str] = &[
+    // === Cross-language / generic ===
+    "config",
+    "Config",
+    "settings",
+    "Settings",
+    "getConfig",
+    "get_config",
+    "cfg.",
+    "conf.",
+    "properties",
+    "yaml",
+    "toml",
+    // === Python ===
+    "configparser",   // configparser module
+    "json.load",      // Often used for config files
+    "yaml.safe_load", // YAML config loading
+    "toml.load",      // TOML config loading
+    "django.conf",    // Django settings
+    // === JavaScript / TypeScript ===
+    "require('config')", // node-config
+    "JSON.parse",        // Often config/data parsing
+    "yaml.parse",        // YAML config parsing
+    "fs.readFileSync",   // Often reads config files
+    // === Go ===
+    "viper.",         // Viper config library
+    "flag.",          // Go flag package (CLI args as config)
+    "toml.Decode",    // BurntSushi/toml
+    "yaml.Unmarshal", // go-yaml
+    "json.Unmarshal", // encoding/json (often config)
+    // === Rust ===
+    "serde_json::from", // serde_json::from_str / from_reader (config parsing)
+    "serde_yaml::from", // serde_yaml config parsing
+    "toml::from_str",   // TOML config parsing
+    "config::Config",   // config-rs crate
+    "Figment",          // Rocket's Figment config
+    // === Lua ===
+    "dofile(", // Lua config file loading
+    // === C/C++ command-line option and config file parsing ===
+    "getopt(",
+    "fopen(",
+    // === Shell / Bash ===
+    "source ", // source /path/to/config — sourced config file
+    ". /",     // . /path/to/config — POSIX source shorthand
+    // === Terraform / HCL ===
+    "local.",  // Terraform locals — computed/derived values
+    "locals ", // locals block definitions
+    "module.", // Terraform module outputs — computed from submodules
+];
+
+const ENV_PATTERNS: &[&str] = &[
+    // === Python ===
+    "os.environ", // os.environ['KEY'] / os.environ.get('KEY')
+    "os.getenv",  // os.getenv('KEY')
+    // === JavaScript / TypeScript ===
+    "process.env", // process.env.KEY
+    "dotenv",      // dotenv package
+    // === Go ===
+    "os.Getenv",    // os.Getenv("KEY")
+    "os.LookupEnv", // os.LookupEnv("KEY")
+    // === Java ===
+    "System.getenv", // System.getenv("KEY")
+    // === Cross-language / generic ===
+    "env.",
+    "ENV[",
+    // === Rust ===
+    "std::env::var",  // std::env::var("KEY")
+    "std::env::args", // Command-line arguments
+    "dotenvy::",      // dotenvy crate (.env loading)
+    // === Lua ===
+    "os.getenv", // os.getenv("KEY")
+    // === C/C++ ===
+    "getenv(", // stdlib getenv()
+    "argv[",   // Command-line arguments
+    "argv ",
+];
+
+/// C/C++ hardware / device I/O patterns (embedded and kernel).
+const HARDWARE_PATTERNS: &[&str] = &[
+    "ioctl(",
+    "mmap(",
+    "inb(",
+    "outb(",
+    "readl(",
+    "writel(",
+    "readb(",
+    "writeb(",
+    "readw(",
+    "writew(",
+    "ioread32(",
+    "iowrite32(",
+    "of_property_read", // Device Tree property reads (of_property_read_u32, etc.)
+    "platform_get_irq(",
+    "platform_get_resource(",
+    "devm_ioremap(",
+    "regmap_read(",
+    "regmap_write(",
+];
+
+/// Web-framework modules whose imported aliases legitimately match provenance
+/// patterns (e.g. `from flask import request` → `request` IS user input).
+const WEB_FRAMEWORK_MODULES: &[&str] = &[
+    "flask",
+    "django",
+    "fastapi",
+    "starlette",
+    "aiohttp",
+    "requests",
+    "bottle",
+    "tornado",
+    "sanic",
+    "quart",
+    "litestar",
+    "werkzeug",
+    "httpx",
+];
+
+/// Local-name keywords that overlap with provenance patterns and are therefore
+/// candidates for suppression when imported from non-web modules.
+const PROVENANCE_OVERLAP_KEYWORDS: &[&str] = &[
+    "request", "req", "form", "query", "body", "params", "args", "input", "stdin", "data",
+];
+
+/// Build a per-file suppression set: local import aliases that shadow provenance
+/// keywords but come from non-web-framework modules.
+///
+/// Example: `from mylib import request` → `request` is suppressed because
+/// `mylib` is not Flask/Django/etc. Without suppression, any line containing
+/// the word `request` would be classified as UserInput.
+fn build_import_suppression(
+    imports: &std::collections::BTreeMap<String, String>,
+) -> BTreeSet<String> {
+    let mut suppressed = BTreeSet::new();
+    for (alias, module_path) in imports {
+        let module_lower = module_path.to_lowercase();
+        let is_web = WEB_FRAMEWORK_MODULES
+            .iter()
+            .any(|fw| module_lower.contains(fw));
+        if !is_web {
+            let alias_lower = alias.to_lowercase();
+            if PROVENANCE_OVERLAP_KEYWORDS
+                .iter()
+                .any(|kw| &alias_lower == kw)
+            {
+                suppressed.insert(alias.clone());
+            }
+        }
+    }
+    suppressed
+}
+
+/// Replace whole-word occurrences of each suppressed token with `__suppressed__`
+/// so that provenance patterns cannot match them.
+fn sanitize_line<'a>(line: &'a str, suppressed: &BTreeSet<String>) -> std::borrow::Cow<'a, str> {
+    if suppressed.is_empty() {
+        return std::borrow::Cow::Borrowed(line);
+    }
+    let mut sanitized = line.to_string();
+    for token in suppressed {
+        if !sanitized.contains(token.as_str()) {
+            continue;
+        }
+        let mut result = String::with_capacity(sanitized.len());
+        let mut rest = sanitized.as_str();
+        while let Some(pos) = rest.find(token.as_str()) {
+            let left_ok = pos == 0 || {
+                let c = rest.as_bytes()[pos - 1];
+                !c.is_ascii_alphanumeric() && c != b'_'
+            };
+            let right_ok = pos + token.len() >= rest.len() || {
+                let c = rest.as_bytes()[pos + token.len()];
+                !c.is_ascii_alphanumeric() && c != b'_'
+            };
+            result.push_str(&rest[..pos]);
+            if left_ok && right_ok {
+                result.push_str("__suppressed__");
+            } else {
+                result.push_str(token);
+            }
+            rest = &rest[pos + token.len()..];
+        }
+        result.push_str(rest);
+        sanitized = result;
+    }
+    std::borrow::Cow::Owned(sanitized)
+}
+
+/// Check whether a line matches a provenance pattern.
+///
+/// Patterns prefixed with '~' require a word boundary: the character before
+/// the match must be non-alphanumeric (or start of string). This prevents
+/// "form" from matching "transform" or "platform".
+fn matches_provenance(line: &str, pattern: &str) -> bool {
+    if let Some(word) = pattern.strip_prefix('~') {
+        if let Some(pos) = line.find(word) {
+            // Check word boundary: char before match must not be alphanumeric/_
+            if pos > 0 {
+                let prev = line.as_bytes()[pos - 1];
+                if prev.is_ascii_alphanumeric() || prev == b'_' {
+                    return false;
+                }
+            }
+            true
+        } else {
+            false
+        }
+    } else {
+        line.contains(pattern)
+    }
+}
+
+fn classify_line(line_text: &str) -> Origin {
+    // Check for literal/constant assignment
+    let trimmed = line_text.trim();
+    if trimmed.contains("= \"")
+        || trimmed.contains("= '")
+        || trimmed.contains("= 0")
+        || trimmed.contains("= 1")
+        || trimmed.contains("= true")
+        || trimmed.contains("= false")
+        || trimmed.contains("= nil")
+        || trimmed.contains("= null")
+        || trimmed.contains("= None")
+        || trimmed.contains("= []")
+        || trimmed.contains("= {}")
+        || trimmed.contains("= ()")
+    {
+        return Origin::Constant;
+    }
+
+    if USER_INPUT_PATTERNS
+        .iter()
+        .any(|p| matches_provenance(line_text, p))
+    {
+        return Origin::UserInput;
+    }
+    if DATABASE_PATTERNS
+        .iter()
+        .any(|p| matches_provenance(line_text, p))
+    {
+        return Origin::Database;
+    }
+    if HARDWARE_PATTERNS
+        .iter()
+        .any(|p| matches_provenance(line_text, p))
+    {
+        return Origin::Hardware;
+    }
+    if CONFIG_PATTERNS
+        .iter()
+        .any(|p| matches_provenance(line_text, p))
+    {
+        return Origin::Config;
+    }
+    if ENV_PATTERNS
+        .iter()
+        .any(|p| matches_provenance(line_text, p))
+    {
+        return Origin::EnvVar;
+    }
+
+    Origin::Unknown
+}
+
+/// A provenance finding for a variable.
+#[derive(Debug, Clone)]
+pub struct ProvenanceFinding {
+    pub var_name: String,
+    pub use_file: String,
+    pub use_line: usize,
+    pub origin: Origin,
+    pub origin_file: String,
+    pub origin_line: usize,
+    pub path: Vec<(String, usize)>,
+}
+
+fn selected_origin_evidence(
+    ctx: &CpgContext,
+    use_file: &str,
+    use_line: usize,
+    var_name: &str,
+    origin_file: &str,
+    origin_line: usize,
+) -> EvidencePath {
+    let mut anchors: Vec<_> = ctx
+        .cpg
+        .nodes_at(use_file, use_line)
+        .into_iter()
+        .filter_map(|node| ctx.cpg.to_var_location(node))
+        .collect();
+    anchors.retain(|loc| {
+        loc.kind == prism::data_flow::VarAccessKind::Use && loc.path.base == var_name
+    });
+    anchors.sort();
+    for anchor in anchors {
+        let (_, hops) = ctx.cpg.dfg.backward_reachable_labeled(&anchor);
+        if let Some(hop) = hops.into_iter().find(|hop| {
+            matches!(hop,
+                EvidenceHop::DataFlow { from, to, .. }
+                    if from.file == origin_file
+                        && from.line == origin_line
+                        && from.path.base == var_name
+                        && to == &anchor)
+        }) {
+            return EvidencePath::from_hops(vec![hop]);
+        }
+    }
+    EvidencePath::unlabeled_for("provenance")
+}
+
+pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
+    let mut result = SliceResult::new(SlicingAlgorithm::ProvenanceSlice);
+    let mut block_id = 0;
+
+    // Build per-file import suppression maps to reduce Python FPs.
+    // Aliases imported from non-web-framework modules (e.g. `from mylib import request`)
+    // shadow provenance keywords but are unrelated to web input.
+    let empty_suppressed: BTreeSet<String> = BTreeSet::new();
+    let suppression_map: BTreeMap<String, BTreeSet<String>> = ctx
+        .cpg
+        .call_graph
+        .imports
+        .iter()
+        .map(|(file, imports)| (file.clone(), build_import_suppression(imports)))
+        .collect();
+
+    for diff_info in &diff.files {
+        let parsed = match ctx.files.get(&diff_info.file_path) {
+            Some(f) => f,
+            None => continue,
+        };
+
+        let source_lines: Vec<&str> = parsed.source.lines().collect();
+
+        for &line in &diff_info.diff_lines {
+            // Get all variables referenced on this line
+            let identifiers = parsed.identifiers_on_line(line);
+            let mut seen_vars: BTreeSet<String> = BTreeSet::new();
+
+            for id_node in &identifiers {
+                let var_name = parsed.node_text(id_node).to_string();
+                if seen_vars.contains(&var_name) || var_name.len() <= 1 {
+                    continue;
+                }
+                seen_vars.insert(var_name.clone());
+
+                // Trace backward through data flow to find the origin
+                let locs = ctx.cpg.all_defs_of(&diff_info.file_path, &var_name);
+                let mut origin = Origin::Unknown;
+                let mut origin_line = line;
+                let mut origin_file = diff_info.file_path.clone();
+
+                let file_suppressed = suppression_map
+                    .get(&diff_info.file_path)
+                    .unwrap_or(&empty_suppressed);
+
+                // Check each definition site
+                for loc in &locs {
+                    if loc.line > 0 && loc.line <= source_lines.len() {
+                        let lt = source_lines[loc.line - 1];
+                        let sanitized = sanitize_line(lt, file_suppressed);
+                        let classified = classify_line(&sanitized);
+                        if classified != Origin::Unknown {
+                            origin = classified;
+                            origin_line = loc.line;
+                            origin_file = loc.file.clone();
+                            break;
+                        }
+                    }
+
+                    // Also trace backward from this def
+                    let reachable = ctx.cpg.dfg.backward_reachable(loc);
+                    for r in &reachable {
+                        if let Some(rparsed) = ctx.files.get(&r.file) {
+                            let rlines: Vec<&str> = rparsed.source.lines().collect();
+                            if r.line > 0 && r.line <= rlines.len() {
+                                let lt = rlines[r.line - 1];
+                                let r_suppressed =
+                                    suppression_map.get(&r.file).unwrap_or(&empty_suppressed);
+                                let sanitized = sanitize_line(lt, r_suppressed);
+                                let classified = classify_line(&sanitized);
+                                if classified != Origin::Unknown {
+                                    origin = classified;
+                                    origin_line = r.line;
+                                    origin_file = r.file.clone();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if origin != Origin::Unknown {
+                        break;
+                    }
+                }
+
+                // If still unknown, classify the diff line itself.
+                // This catches patterns like shell `read` commands or positional
+                // parameters where the DFG doesn't model the implicit assignment.
+                if origin == Origin::Unknown && line > 0 && line <= source_lines.len() {
+                    let lt = source_lines[line - 1];
+                    let sanitized = sanitize_line(lt, file_suppressed);
+                    let classified = classify_line(&sanitized);
+                    if classified != Origin::Unknown {
+                        origin = classified;
+                        origin_line = line;
+                    }
+                }
+
+                // If still unknown, check if it's a function parameter
+                if origin == Origin::Unknown {
+                    if let Some(func_node) = parsed.enclosing_function(line) {
+                        let func_text = parsed.node_text(&func_node);
+                        if func_text.contains(&var_name) {
+                            // Rough heuristic: if the var appears in the function signature
+                            let (start, _) = parsed.node_line_range(&func_node);
+                            if start > 0 && start <= source_lines.len() {
+                                let sig = source_lines[start - 1];
+                                if sig.contains(&var_name) {
+                                    origin = Origin::FunctionParam;
+                                    origin_line = start;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Emit a finding for untrusted-origin variables
+                let severity = match &origin {
+                    Origin::UserInput | Origin::Hardware => Some("concern"),
+                    Origin::Database | Origin::ExternalCall => Some("warning"),
+                    Origin::FunctionParam | Origin::EnvVar | Origin::Config => Some("info"),
+                    Origin::Constant | Origin::Unknown => None,
+                };
+                if let Some(sev) = severity {
+                    let evidence = selected_origin_evidence(
+                        ctx,
+                        &diff_info.file_path,
+                        line,
+                        &var_name,
+                        &origin_file,
+                        origin_line,
+                    );
+                    result.findings.push(SliceFinding {
+                        algorithm: "provenance".to_string(),
+                        file: diff_info.file_path.clone(),
+                        line,
+                        severity: sev.to_string(),
+                        description: format!(
+                            "variable '{}' has {} origin: {}",
+                            var_name,
+                            origin.name(),
+                            origin.risk_level()
+                        ),
+                        function_name: None,
+                        related_lines: locs.iter().map(|l| l.line).collect(),
+                        related_files: if origin_file != diff_info.file_path {
+                            vec![origin_file.clone()]
+                        } else {
+                            vec![]
+                        },
+                        category: Some("untrusted_origin".to_string()),
+                        parse_quality: None,
+                        diagrams: vec![],
+                    });
+                    result.evidence.push(Some(evidence));
+                }
+
+                // Build a block showing the provenance chain
+                let mut block =
+                    DiffBlock::new(block_id, diff_info.file_path.clone(), ModifyType::Modified);
+
+                // The use site (diff line)
+                block.add_line(&diff_info.file_path, line, true);
+
+                // The origin site
+                if origin_file == diff_info.file_path {
+                    block.add_line(&origin_file, origin_line, false);
+                } else {
+                    block.add_line(&origin_file, origin_line, false);
+                }
+
+                // Include intermediate def sites
+                for loc in &locs {
+                    if loc.line != line && loc.line != origin_line {
+                        block.add_line(&loc.file, loc.line, false);
+                    }
+                }
+
+                result.blocks.push(block);
+                block_id += 1;
+            }
+        }
+    }
+
+    Ok(result)
+}

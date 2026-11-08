@@ -2,13 +2,23 @@
  "lane": "js LeftFlow condition walk bounded at projection-only Defs (PR #404, r2 fold 2026-10-14)",
  "source": "PR #404 report + round-1/round-2 review folds (controller-saved)",
  "lib_test_prefixes": [
-  "cpg::",
-  "algorithms::member_only_param_leftflow_slice_tests::",
-  "algorithms::member_only_param_r1_slice_tests::"
+  "cpg::"
+ ],
+ "test_targets": [
+  {
+   "prefix": "algorithms::member_only_param_leftflow_slice_tests::",
+   "package": "prism-review",
+   "target": "lib"
+  },
+  {
+   "prefix": "algorithms::member_only_param_r1_slice_tests::",
+   "package": "prism-review",
+   "target": "lib"
+  }
  ],
  "mutations": {
   "LF-01-forward-from-all-defs": [
-   "src/algorithms/left_flow.rs",
+   "crates/prism-review/src/algorithms/left_flow.rs",
    "for def_loc in &seeds {",
    "for def_loc in &defs {",
    [
@@ -18,7 +28,7 @@
    ]
   ],
   "LF-02-projection-cut-never-recorded": [
-   "src/algorithms/left_flow.rs",
+   "crates/prism-review/src/algorithms/left_flow.rs",
    "if ctx.cpg.dfg_use_reads_projection_only_def(&var_loc) {",
    "if false && ctx.cpg.dfg_use_reads_projection_only_def(&var_loc) {",
    [
@@ -29,7 +39,7 @@
    ]
   ],
   "LF-03-fallback-ignores-projection-cut": [
-   "src/algorithms/left_flow.rs",
+   "crates/prism-review/src/algorithms/left_flow.rs",
    "if dfg_covered_conds.contains(var_name) && !projection_cut {",
    "if dfg_covered_conds.contains(var_name) {",
    [
@@ -39,7 +49,7 @@
    ]
   ],
   "LF-04-no-forward-leg": [
-   "src/algorithms/left_flow.rs",
+   "crates/prism-review/src/algorithms/left_flow.rs",
    "for def_loc in &seeds {",
    "for def_loc in seeds.iter().take(0) {",
    [
@@ -47,7 +57,7 @@
    ]
   ],
   "LF-05-cut-on-any-def": [
-   "src/algorithms/left_flow.rs",
+   "crates/prism-review/src/algorithms/left_flow.rs",
    "if ctx.cpg.dfg_use_reads_projection_only_def(&var_loc) {",
    "if !defs.is_empty() {",
    [
@@ -55,7 +65,7 @@
    ]
   ],
   "LF-06-cut-on-any-upstream-projection-def": [
-   "src/algorithms/left_flow.rs",
+   "crates/prism-review/src/algorithms/left_flow.rs",
    "if ctx.cpg.dfg_use_reads_projection_only_def(&var_loc) {",
    "if defs.iter().any(|d| ctx.cpg.dfg_is_projection_only_def(d)) {",
    [
@@ -72,7 +82,7 @@
    ]
   ],
   "LF-08-cut-on-any-projection-read-not-every": [
-   "src/algorithms/left_flow.rs",
+   "crates/prism-review/src/algorithms/left_flow.rs",
    "projection_read_conds.contains(var_name) && !plain_read_conds.contains(var_name);",
    "projection_read_conds.contains(var_name);",
    [
@@ -80,7 +90,7 @@
    ]
   ],
   "LF-09-plain-reads-never-recorded": [
-   "src/algorithms/left_flow.rs",
+   "crates/prism-review/src/algorithms/left_flow.rs",
    "                            plain_read_conds.insert(var_name.clone());\n",
    "",
    [

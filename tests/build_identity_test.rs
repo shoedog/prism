@@ -274,6 +274,64 @@ fn tracked_mcp_crate_edit_changes_identity_and_marks_binary_inputs_dirty() {
         )));
 }
 
+const REVIEW_SRC: &str = "crates/prism-review/src/lib.rs";
+const REVIEW_MANIFEST: &str = "crates/prism-review/Cargo.toml";
+const REVIEW_TEST: &str = "crates/prism-review/tests/cli/main.rs";
+
+/// The review layer compiled into the `prism` binary is an identity input too (#701 S5): its
+/// sources and manifest change the identity, its tests do not (`tests/cli` was never an input).
+#[test]
+fn gitless_review_crate_sources_and_manifest_are_inputs_but_tests_are_not() {
+    let dir = fixture();
+    let root = dir.path();
+    let baseline = identity(root);
+    write(root, REVIEW_SRC, b"pub fn review() {}\n");
+    let with_src = identity(root);
+    assert_identity_changed(&baseline, &with_src, "adding crates/prism-review/src");
+    write(root, REVIEW_SRC, b"pub fn review() { /* edit */ }\n");
+    let edited = identity(root);
+    assert_identity_changed(&with_src, &edited, "editing crates/prism-review/src");
+    write(root, REVIEW_MANIFEST, b"[package]\nname=\"prism-review\"\n");
+    let with_manifest = identity(root);
+    assert_identity_changed(
+        &edited,
+        &with_manifest,
+        "adding crates/prism-review/Cargo.toml",
+    );
+    write(root, REVIEW_TEST, b"fn t() {}\n");
+    assert_restored(&with_manifest, &identity(root));
+}
+
+#[test]
+fn tracked_review_crate_edit_changes_identity_and_marks_binary_inputs_dirty() {
+    let dir = fixture();
+    let root = dir.path();
+    write(root, REVIEW_SRC, b"pub fn review() {}\n");
+    write(root, REVIEW_MANIFEST, b"[package]\nname=\"prism-review\"\n");
+    write(root, REVIEW_TEST, b"fn t() {}\n");
+    git(root, &["init", "-q"]);
+    commit(root);
+    let clean = identity(root);
+    assert_eq!(value(&clean, "PRISM_BINARY_INPUT_DIRTY"), "0");
+    write(root, REVIEW_TEST, b"fn t() { /* edit */ }\n");
+    let test_edit = identity(root);
+    assert_eq!(value(&test_edit, "PRISM_BINARY_INPUT_DIRTY"), "0");
+    assert_restored(&clean, &test_edit);
+    write(root, REVIEW_SRC, b"pub fn review() { /* edit */ }\n");
+    let src_edit = identity(root);
+    assert_eq!(value(&src_edit, "PRISM_BINARY_INPUT_DIRTY"), "1");
+    assert_identity_changed(
+        &clean,
+        &src_edit,
+        "editing a tracked crates/prism-review source",
+    );
+    assert!(src_edit.lines().any(|line| line
+        == format!(
+            "cargo:rerun-if-changed={}/crates/prism-review/src",
+            root.display()
+        )));
+}
+
 #[test]
 fn vendor_root_is_watched_even_before_creation_and_docs_remain_outside_inputs() {
     let dir = fixture();

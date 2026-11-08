@@ -275,14 +275,14 @@ func save(s string) (string, error) { return s, nil }
     let mut files = BTreeMap::new();
     files.insert(path.to_string(), parsed);
 
-    let config = prism::algorithms::chop::ChopConfig {
+    let config = prism_review::algorithms::chop::ChopConfig {
         source_file: path.to_string(),
         source_line: 5,
         sink_file: path.to_string(),
         sink_line: 13,
     };
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::chop::slice(&ctx, &config).unwrap();
+    let result = prism_review::algorithms::chop::slice(&ctx, &config).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::Chop);
 }
 
@@ -346,7 +346,7 @@ fn test_delta_slice_go() {
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
+    let result = prism_review::algorithms::delta_slice::slice(&ctx, &diff, tmp.path()).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::DeltaSlice);
 }
 

@@ -313,7 +313,7 @@
    ]
   ],
   "AF-44-format-callers-ignores-alias-sites": [
-   "src/output/review.rs",
+   "crates/prism-review/src/output/review.rs",
    "if identity.as_ref().is_some_and(|id| targets.contains(id)) {",
    "if false && identity.as_ref().is_some_and(|id| targets.contains(id)) {",
    [
@@ -363,7 +363,7 @@
    ]
   ],
   "AF-54-format-callers-credits-by-name": [
-   "src/output/review.rs",
+   "crates/prism-review/src/output/review.rs",
    "identity.as_ref().is_some_and(|id| targets.contains(id))",
    "identity.as_ref().is_some_and(|id| targets.iter().any(|t| t.name == id.name))",
    [
@@ -399,7 +399,7 @@
    ]
   ],
   "AF-64-bucket-keeps-followed-sites": [
-   "src/output/review.rs",
+   "crates/prism-review/src/output/review.rs",
    "!proven_keys.contains(",
    "true || !proven_keys.contains(",
    [

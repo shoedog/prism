@@ -31,7 +31,8 @@ async function fetchUser(id) {
 #[test]
 fn test_quantum_slice_async_js() {
     let (files, diff) = make_async_test();
-    let result = prism::algorithms::quantum_slice::slice(&files, &diff, Some("user")).unwrap();
+    let result =
+        prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("user")).unwrap();
 
     // May or may not find async patterns depending on tree-sitter parsing
     // Just verify it doesn't crash
@@ -110,7 +111,7 @@ void register_handlers(int signum) {
         }],
     };
 
-    let result = prism::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
+    let result = prism_review::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
 
     assert!(
         !result.blocks.is_empty(),
@@ -145,7 +146,8 @@ int main() {
         }],
     };
 
-    let result = prism::algorithms::quantum_slice::slice(&files, &diff, Some("flag")).unwrap();
+    let result =
+        prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("flag")).unwrap();
 
     assert!(
         !result.blocks.is_empty(),
@@ -177,7 +179,8 @@ void rx_interrupt_handler(int irq) {
         }],
     };
 
-    let result = prism::algorithms::quantum_slice::slice(&files, &diff, Some("status")).unwrap();
+    let result =
+        prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("status")).unwrap();
 
     assert!(
         !result.blocks.is_empty(),
@@ -562,7 +565,7 @@ def main():
             diff_lines: BTreeSet::from([5]),
         }],
     };
-    let result = prism::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
+    let result = prism_review::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
 }
 
@@ -595,7 +598,7 @@ func compute() int { return 42 }
             diff_lines: BTreeSet::from([4]),
         }],
     };
-    let result = prism::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
+    let result = prism_review::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
 }
 
@@ -619,7 +622,7 @@ async function fetchAll(urls) {
             diff_lines: BTreeSet::from([4]),
         }],
     };
-    let result = prism::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
+    let result = prism_review::algorithms::quantum_slice::slice(&files, &diff, None).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
 }
 
@@ -647,6 +650,7 @@ async def fetch(url):
         }],
     };
 
-    let result = prism::algorithms::quantum_slice::slice(&files, &diff, Some("data")).unwrap();
+    let result =
+        prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("data")).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
 }

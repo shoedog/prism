@@ -494,10 +494,10 @@ def handler(request):
     };
 
     let ctx = CpgContext::build(&files, None);
-    let result = prism::algorithms::taint::slice(
+    let result = prism_review::algorithms::taint::slice(
         &ctx,
         &diff,
-        &prism::algorithms::taint::TaintConfig::default(),
+        &prism_review::algorithms::taint::TaintConfig::default(),
     )
     .unwrap();
     assert!(!result.blocks.is_empty(), "Taint should find tainted flow");
@@ -538,17 +538,17 @@ func run() {\n\
         }],
     };
     let ctx = CpgContext::build(&files, None);
-    let base = prism::algorithms::taint::TaintConfig {
+    let base = prism_review::algorithms::taint::TaintConfig {
         sources: vec![(path.into(), 3)],
         taint_from_diff: false,
         ..Default::default()
     };
     assert!(!base.return_flow, "Tier-1 return flow must default off");
-    let off = prism::algorithms::taint::slice(&ctx, &diff, &base).unwrap();
-    let on = prism::algorithms::taint::slice(
+    let off = prism_review::algorithms::taint::slice(&ctx, &diff, &base).unwrap();
+    let on = prism_review::algorithms::taint::slice(
         &ctx,
         &diff,
-        &prism::algorithms::taint::TaintConfig {
+        &prism_review::algorithms::taint::TaintConfig {
             return_flow: true,
             ..base
         },

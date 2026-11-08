@@ -379,7 +379,7 @@
    ]
   ],
   "RV-49-callers-credit-by-name": [
-   "src/output/review.rs",
+   "crates/prism-review/src/output/review.rs",
    "identity.as_ref().is_some_and(|id| targets.contains(id))",
    "identity.as_ref().is_some_and(|id| targets.iter().any(|t| t.name == id.name))",
    [

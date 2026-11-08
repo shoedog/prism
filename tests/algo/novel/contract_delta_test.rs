@@ -32,7 +32,7 @@ fn run_contract_delta(
         }],
     };
 
-    prism::algorithms::contract_slice::slice_delta(&files, &diff, tmp.path()).unwrap()
+    prism_review::algorithms::contract_slice::slice_delta(&files, &diff, tmp.path()).unwrap()
 }
 
 // ==========================================================================
