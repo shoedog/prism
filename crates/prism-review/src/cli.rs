@@ -31,10 +31,23 @@ pub fn parse_diagram_cap(s: &str) -> Result<usize, String> {
     Ok(n)
 }
 
+/// `<version> (<git sha>)`, the `--version` text (identity grammar: `build.rs`). The sha is the core
+/// build script's, which `build.rs` makes rerun for edits under `crates/` too (#701 S5).
+fn version_line() -> &'static str {
+    static LINE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    LINE.get_or_init(|| {
+        format!(
+            "{} ({})",
+            env!("CARGO_PKG_VERSION"),
+            prism::api::build_info().git_sha
+        )
+    })
+}
+
 #[derive(Parser, Debug)]
 #[command(
     name = "slicing",
-    version = concat!(env!("CARGO_PKG_VERSION"), " (", env!("GIT_SHA"), ")"),
+    version = version_line(),
     about = "Code slicing for defect-focused automated code review (arXiv:2505.17928)",
     args_conflicts_with_subcommands = true,
     subcommand_negates_reqs = true,

@@ -299,7 +299,7 @@ pub fn to_sarif(inputs: &SarifInputs) -> serde_json::Value {
                 resolution_mode: inputs.resolution.as_str(),
                 errors: inputs.errors.to_vec(),
                 prism_build_identity: prism::cpg_cache::current_cache_build_identity(),
-                prism_git_sha: env!("GIT_SHA"),
+                prism_git_sha: prism::api::build_info().git_sha,
                 binary_input_dirty: prism::cpg_cache::binary_input_dirty(),
             },
         }],
