@@ -50,6 +50,32 @@ impl OwnerOptions {
     }
 }
 
+/// Experimental source-checkout-bound owner input selection, shared by both CLIs.
+#[derive(clap::Args, Debug, Default)]
+#[doc(hidden)]
+pub struct OwnerArgs {
+    /// Explicit pinned TypeScript 5.9.3 typescript.js path; no discovery or install.
+    #[arg(long, requires_all = ["owner_config", "no_cache"], conflicts_with = "cache_dir")]
+    pub owner_compiler: Option<PathBuf>,
+    /// Repository-relative tsconfig path for experimental owner proofs.
+    #[arg(long, requires = "owner_compiler")]
+    pub owner_config: Option<String>,
+}
+
+impl OwnerArgs {
+    pub fn options(&self) -> anyhow::Result<Option<OwnerOptions>> {
+        match (&self.owner_compiler, &self.owner_config) {
+            (None, None) => Ok(None),
+            (Some(compiler), Some(config)) => {
+                let options = OwnerOptions::new(compiler.clone(), config.clone());
+                options.validate()?;
+                Ok(Some(options))
+            }
+            _ => anyhow::bail!("owner compiler and config must be supplied together"),
+        }
+    }
+}
+
 #[cfg(all(test, feature = "detached-owner-audit"))]
 mod tests {
     use super::*;

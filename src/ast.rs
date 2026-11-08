@@ -63,6 +63,7 @@ mod control_flow;
 mod fptr_text;
 pub(crate) mod go;
 mod imports;
+pub mod parse_quality;
 pub mod js_ts;
 mod lvalues;
 mod parameters;

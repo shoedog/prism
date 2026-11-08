@@ -5,7 +5,7 @@ mod malloc;
 #[derive(clap::Parser)]
 struct Cli {
     #[command(flatten)]
-    owner: prism::cli::OwnerArgs,
+    owner: prism::api::OwnerArgs,
     #[arg(long)]
     repo: std::path::PathBuf,
     #[arg(long, conflicts_with = "cache_dir")]
