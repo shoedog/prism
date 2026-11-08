@@ -1,4 +1,8 @@
 mod algo_test;
+mod api_defaults_test;
+mod build_profile_fold_test;
+mod build_profile_round2_test;
+mod build_profile_test;
 mod call_stats_jsx_intrinsic_test;
 mod call_stats_local_export_test;
 mod call_stats_test;
@@ -10,7 +14,9 @@ mod member_only_param_test;
 mod min_confidence_admission_test;
 mod min_confidence_test;
 mod nav_compat_test;
+mod nav_sidecar_cache_parity_test;
 mod output_test;
+mod owner_activation_test;
 mod readme_test;
 mod review_compact_test;
 mod review_no_diagrams_test;
