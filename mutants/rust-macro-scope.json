@@ -1,0 +1,56 @@
+{
+  "lane": "Rust std expression macros do not poison name lookup (#765 PR D, E2)",
+  "source": "src/call_graph/rust/macro_args.rs",
+  "lib_test_prefixes": [],
+  "mutations": {
+    "MS-01-list-emptied": [
+      "src/call_graph/rust/macro_args.rs",
+      "pub const NON_BINDING_EXPR_MACROS: &[&str] = &[\n    \"env\",\n",
+      "pub const NON_BINDING_EXPR_MACROS: &[&str] = &[];\nconst _UNUSED_LIST: &[&str] = &[\n    \"env\",\n",
+      [
+        "rust_macro_scope_test::m1_no_name_expression_macros_do_not_poison_later_calls",
+        "rust_macro_scope_test::m2_a_macro_before_the_call_in_an_enclosing_block_no_longer_poisons_a_glob_name"
+      ]
+    ],
+    "MS-02-thread-local-on-the-list": [
+      "src/call_graph/rust/macro_args.rs",
+      "    \"env\",\n    \"option_env\",\n",
+      "    \"env\",\n    \"thread_local\",\n    \"option_env\",\n",
+      [
+        "rust_macro_scope_test::k6_thread_local_still_poisons"
+      ]
+    ],
+    "MS-03-include-on-the-list": [
+      "src/call_graph/rust/macro_args.rs",
+      "    \"compile_error\",\n];",
+      "    \"compile_error\",\n    \"include\",\n];",
+      [
+        "rust_macro_scope_test::k7_include_still_poisons"
+      ]
+    ],
+    "MS-04-shadow-set-ignored": [
+      "src/call_graph/rust/macro_args.rs",
+      "    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {",
+      "    if !NON_BINDING_EXPR_MACROS.contains(&last) {",
+      [
+        "rust_macro_scope_test::k9_a_user_macro_named_like_a_std_macro_withholds_the_exemption"
+      ]
+    ],
+    "MS-05-qualifier-ignored": [
+      "src/call_graph/rust/macro_args.rs",
+      "    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {\n        return false;\n    }\n    match macro_name.rsplit_once(\"::\") {\n        None => true,\n        Some((qualifier, _)) => TRANSPARENT_QUALIFIERS.contains(&qualifier),\n    }",
+      "    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {\n        return false;\n    }\n    true",
+      [
+        "rust_macro_scope_test::k8_a_foreign_qualifier_is_not_the_std_macro"
+      ]
+    ],
+    "MS-06-populator-ignores-the-second-list": [
+      "src/name_resolution/rust_populator/walk/locals.rs",
+      ") || crate::call_graph::rust::macro_args::is_non_binding_expr_macro(\n                        &name,\n                        b.macro_shadow(),\n                    )\n",
+      ")\n",
+      [
+        "rust_macro_scope_test::m1_no_name_expression_macros_do_not_poison_later_calls"
+      ]
+    ]
+  }
+}

@@ -123,7 +123,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v79: CommonJS module-as-function and member calls bind to proven exports (#598, CPG v137).
 // v80: Rust `pub(in path)` restricts are resolved after population (#710, CPG v161).
 // v81: Rust self-import module aliases and macro-argument path anchors (#724, CPG v162).
-// v82: Rust `#[path]` modules resolve where rustc loads them (#765, CPG v163).
+// v82: Rust `#[path]` modules resolve where rustc loads them; let-binding and std-macro scoping (#765, CPG v163).
 const NAV_CALL_EDGE_CACHE_VERSION: u32 = 82;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";

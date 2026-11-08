@@ -64,6 +64,45 @@ pub const TRANSPARENT_ARG_MACROS: &[&str] = &[
     "dbg",
 ];
 
+/// Std macros that expand to a single EXPRESSION and can introduce no item and no binding
+/// into the enclosing block (#765 PR D, E2). They are not argument-transparent for call
+/// extraction (their arguments are not call arguments), so they are a SECOND list beside
+/// [`TRANSPARENT_ARG_MACROS`], consulted only by the scope-graph populator to skip the
+/// wildcard poison of an unexpanded name-introducing macro. `thread_local!`,
+/// `macro_rules!`, `include!`, `concat_idents!` and every user macro can introduce names
+/// and stay off this list; so does every item-position invocation (the populator never
+/// consults this list there).
+pub const NON_BINDING_EXPR_MACROS: &[&str] = &[
+    "env",
+    "option_env",
+    "concat",
+    "include_str",
+    "include_bytes",
+    "cfg",
+    "line",
+    "column",
+    "file",
+    "module_path",
+    "stringify",
+    "matches",
+    "compile_error",
+];
+
+/// Does `macro_name` name a std expression macro of [`NON_BINDING_EXPR_MACROS`]? Same
+/// shadow and qualifier rules as [`is_transparent_arg_macro`]: a repo-wide `macro_rules!`
+/// of the same name withholds the exemption, and only an unqualified path or one qualified
+/// by exactly `std`/`core`/`alloc` is the real macro.
+pub fn is_non_binding_expr_macro(macro_name: &str, shadow: &BTreeSet<String>) -> bool {
+    let last = last_path_segment(macro_name);
+    if !NON_BINDING_EXPR_MACROS.contains(&last) || shadow.contains(last) {
+        return false;
+    }
+    match macro_name.rsplit_once("::") {
+        None => true,
+        Some((qualifier, _)) => TRANSPARENT_QUALIFIERS.contains(&qualifier),
+    }
+}
+
 /// Rust keywords (and contextual tokens) that must never be minted as a call
 /// name, even when they parse as a plain `identifier` inside macro token soup
 /// (`move`, `dyn`, `ref`, `in`, `else`, `Self` all lex as generic

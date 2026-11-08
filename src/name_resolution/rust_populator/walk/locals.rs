@@ -163,9 +163,16 @@ fn walk_expr(b: &mut Builder<'_>, path: &str, nid: &NodeId, scope: ScopeId, ctx:
                 n.child_by_field_name("macro")
                     .map(|m| pf.node_text(&m).to_string())
             });
+            // #765 PR D (E2): a std EXPRESSION macro (`env!`, `matches!`, `concat!`, ...) can
+            // introduce no item or binding either, but its arguments are not call arguments,
+            // so it sits on a second list (`NON_BINDING_EXPR_MACROS`) that only skips the
+            // poison; item-position invocations never reach this arm and keep it.
             let is_transparent = macro_name
                 .map(|name| {
                     crate::call_graph::rust::macro_args::is_transparent_arg_macro(
+                        &name,
+                        b.macro_shadow(),
+                    ) || crate::call_graph::rust::macro_args::is_non_binding_expr_macro(
                         &name,
                         b.macro_shadow(),
                     )
