@@ -105,7 +105,6 @@ pub use build::{CodePropertyGraph, DfgLabelStats, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
 pub use reaching::RdFileStats;
-pub(crate) use reaching::{bound_literal_calls, peel, GoLiteralIdents};
 pub(crate) use reaching::{ReceiverEdge, ReceiverKey};
 mod recall_telemetry;
 #[cfg(test)]

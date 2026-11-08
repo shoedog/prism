@@ -1,5 +1,7 @@
 //! #694 slice B fold 2: rows for the round-2 review findings (a coalesced store through the same
 //! declaration, direct callbacks that escape, ReturnSink soundness and its bound-name form).
+//! Fold 3 cut ReturnSink: rows marked `follow-up` record ordinary-name return flow that is not
+//! modelled (main's result) and are the future slice's targets.
 //! Each row asserts that one def -> use edge is emitted (or not): a direct edge, so a chain through
 //! a same-line def/use cannot satisfy it. Fixtures are static Go text; nothing is executed.
 //! Lines are 1-indexed in the fixture.
@@ -120,10 +122,11 @@ fn a_read_before_the_statement_outside_a_loop_is_not_fed() {
     check("read-before", src, &[("err", 6, 4, false)]);
 }
 
+// follow-up: ordinary-name return flow (fold 3 cut ReturnSink: main's result, no edge)
 #[test]
-fn a_read_before_the_statement_inside_a_loop_is_kept() {
+fn a_read_before_the_statement_inside_a_loop_is_not_fed() {
     let src = "package p\nfunc f() {\n\tvar err error\n\tfor i := 0; i < 3; i++ {\n\t\tuse(err)\n\t\terr = func() error {\n\t\t\terr := do()\n\t\t\treturn err\n\t\t}()\n\t}\n}\n";
-    check("read-in-loop", src, &[("err", 7, 5, true)]);
+    check("read-in-loop", src, &[("err", 7, 5, false)]);
 }
 
 #[test]
@@ -132,10 +135,11 @@ fn a_parenthesized_literal_keeps_the_carrier() {
     check("ret-paren", src, &[("err", 4, 7, true)]);
 }
 
+// follow-up: ordinary-name return flow (fold 3 cut ReturnSink: main's result, no edge)
 #[test]
-fn a_nested_in_place_literal_returned_by_the_sink_keeps_the_carrier() {
+fn a_nested_in_place_literal_returned_by_the_sink_is_not_carried() {
     let src = "package p\nfunc f() error {\n\tvar err error\n\terr = func() error {\n\t\treturn func() error {\n\t\t\terr := do()\n\t\t\treturn err\n\t\t}()\n\t}()\n\tuse(err)\n\treturn err\n}\n";
-    check("ret-nested", src, &[("err", 6, 10, true)]);
+    check("ret-nested", src, &[("err", 6, 10, false)]);
 }
 
 // ---- item 4: a literal bound once and only called --------------------------------------------
@@ -146,18 +150,12 @@ fn bound_literal_result_appended_into_the_same_name_keeps_the_carrier() {
     check("bound", src, &[("errs", 4, 7, true), ("errs", 4, 8, true)]);
 }
 
-#[test]
-fn a_bound_literal_that_escapes_gives_no_carrier() {
-    let src = "package p\nfunc f() (errs []error) {\n\tfn := func(x int) (errs []error) {\n\t\terrs = append(errs, check(x))\n\t\treturn\n\t}\n\treg(fn)\n\terrs = append(errs, fn(1)...)\n\treturn errs\n}\n";
-    check(
-        "bound-escapes",
-        src,
-        &[("errs", 4, 8, false), ("errs", 4, 9, false)],
-    );
-}
+// (the fold-2 negative row `a_bound_literal_that_escapes_gives_no_carrier` is flipped to a
+// positive row in `go_literal_fold3_tests`: main kept `errs 4->8` and `4->9`.)
 
 // ---- item 3 round 3: the read must resolve to the variable the sink statement writes ---------
 
+// follow-up: ordinary-name return flow (fold 3 cut ReturnSink: main's result, no edge)
 #[test]
 fn a_later_if_init_shadow_read_is_not_fed() {
     let src = "package p\nfunc f() error {\n\tpreparation := func() error {\n\t\terr := do()\n\t\treturn err\n\t}\n\tif err := preparation(); err != nil {\n\t\treturn err\n\t}\n\tif err := wait(); err != nil {\n\t\treturn err\n\t}\n\treturn nil\n}\n";
@@ -166,29 +164,31 @@ fn a_later_if_init_shadow_read_is_not_fed() {
         src,
         &[
             ("err", 4, 11, false),
-            ("err", 4, 7, true),
-            ("err", 4, 8, true),
+            ("err", 4, 7, false),
+            ("err", 4, 8, false),
         ],
     );
 }
 
+// follow-up: ordinary-name return flow (fold 3 cut ReturnSink: main's result, no edge)
 #[test]
 fn a_sibling_block_redeclaring_the_name_is_not_fed() {
     let src = "package p\nfunc f() {\n\terr := func() error {\n\t\terr := do()\n\t\treturn err\n\t}()\n\tuse(err)\n\t{\n\t\terr := other()\n\t\tuse(err)\n\t}\n}\n";
     check(
         "sibling-redeclare",
         src,
-        &[("err", 4, 10, false), ("err", 4, 7, true)],
+        &[("err", 4, 10, false), ("err", 4, 7, false)],
     );
 }
 
+// follow-up: ordinary-name return flow (fold 3 cut ReturnSink: main's result, no edge)
 #[test]
-fn a_define_sink_keeps_a_read_in_the_same_scope() {
+fn a_define_sink_does_not_feed_a_read_in_the_same_scope() {
     let src = "package p\nfunc f() {\n\terr := func() error {\n\t\terr := do()\n\t\treturn err\n\t}()\n\tif err != nil {\n\t\tuse(err)\n\t}\n}\n";
     check(
         "define-same-scope",
         src,
-        &[("err", 4, 7, true), ("err", 4, 8, true)],
+        &[("err", 4, 7, false), ("err", 4, 8, false)],
     );
 }
 
@@ -200,8 +200,9 @@ fn a_def_the_literal_never_returns_is_not_fed() {
     check("not-returned", src, &[("err", 5, 10, false)]);
 }
 
+// follow-up: ordinary-name return flow (fold 3 cut ReturnSink: main's result, no edge)
 #[test]
-fn a_def_returned_in_a_tuple_keeps_the_carrier() {
+fn a_def_returned_in_a_tuple_is_not_carried_out_of_the_literal() {
     let src = "package p\nfunc f() {\n\tn, err := func() (int, error) {\n\t\tif err := g(); err != nil {\n\t\t\treturn 1, err\n\t\t}\n\t\treturn 0, nil\n\t}()\n\tuse(n, err)\n}\n";
-    check("tuple-return", src, &[("err", 4, 9, true)]);
+    check("tuple-return", src, &[("err", 4, 9, false)]);
 }

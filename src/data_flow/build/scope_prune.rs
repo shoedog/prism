@@ -464,13 +464,13 @@ impl<'a> ScopeFacts<'a> {
                                 *other,
                                 o.start,
                             )
-                            && !built.params.returned_out(
-                                self.parsed,
-                                &built.facts,
-                                &path.base,
-                                def_start,
-                                o.start,
-                            ))
+                            && !(!declare_only
+                                && self.slice_b.names().contains(path.base.as_str())
+                                && built.params.nested_in_use_callable(
+                                    self.parsed,
+                                    def_start,
+                                    o.start,
+                                )))
                 });
         if drop {
             stats.dfg_pruned_scope += 1;

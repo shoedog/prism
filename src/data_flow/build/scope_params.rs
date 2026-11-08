@@ -21,8 +21,11 @@
 //! * a named result read inside a callable nested in the one that declares it: `return e` assigns
 //!   the result, and a deferred literal reads it afterwards, so the def of `e` reaches the read by
 //!   name only. A read in the declaring callable's own body is reached by the writes S sees.
-//! * a def that leaves a literal through its call result (`return_sink.rs`).
-use super::return_sink::ReturnSinks;
+//! * a def in a callable nested strictly inside the callable of the read, for a name that a
+//!   formal or named result of the owner declares (`nested_in_use_callable`): main kept every such
+//!   pair, so this adds no edge main lacks. It covers a value that leaves a literal by its call
+//!   result, a deferred literal that sets the carrier's result and a literal bound inside another
+//!   literal. Ordinary-name return flow out of a literal is not modelled (as on main).
 use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingId};
 use std::cell::RefCell;
@@ -35,6 +38,8 @@ enum Form {
         literal: usize,
         /// The literal is passed directly as a call argument (and so is not called in place).
         direct: bool,
+        /// A discarded callback whose creation-scope drop the owner gate lifted (`function_acceptors`).
+        gated: bool,
     },
     Result {
         /// Start byte of the function or literal that declares the result.
@@ -45,7 +50,6 @@ enum Form {
 /// Per owner: the forms of its formal and result declarations, by declaration index.
 pub(super) struct ParamFacts {
     by_declaration: BTreeMap<usize, Form>,
-    sinks: ReturnSinks,
     callables: RefCell<HashMap<usize, Option<usize>>>,
 }
 
@@ -114,11 +118,16 @@ impl SliceBDefs {
 impl ParamFacts {
     pub(super) fn new(parsed: &ParsedFile, owner: Node<'_>, facts: &BindingFacts) -> Self {
         let mut by_declaration = BTreeMap::new();
+        let acceptors = function_acceptors(parsed, owner);
         let mut stack = vec![owner];
         while let Some(node) = stack.pop() {
             if CALLABLES.contains(&node.kind()) {
                 let literal = node.kind() == "func_literal";
-                let direct = literal && discarded_callback(parsed, facts, node);
+                // Only another owner literal with a formal that can take a function value can hold
+                // the callback and call it with a def the creation scope does not contain.
+                let discarded = literal && discarded_callback(parsed, facts, node);
+                let gated = discarded && acceptors.iter().any(|a| *a != node.start_byte());
+                let direct = discarded && !gated;
                 // A signature name is declared in the body's scope, which starts at the body.
                 let Some(body_start) = node.child_by_field_name("body").map(|b| b.start_byte())
                 else {
@@ -141,6 +150,7 @@ impl ParamFacts {
                                     Form::Formal {
                                         literal: node.start_byte(),
                                         direct,
+                                        gated,
                                     }
                                 } else {
                                     Form::Result {
@@ -162,7 +172,6 @@ impl ParamFacts {
         }
         Self {
             by_declaration,
-            sinks: ReturnSinks::new(parsed, owner, facts),
             callables: RefCell::new(HashMap::new()),
         }
     }
@@ -184,32 +193,61 @@ impl ParamFacts {
             Some(Form::Result { callable }) => self
                 .enclosing_callable(parsed, use_start)
                 .is_some_and(|c| c != *callable),
-            Some(Form::Formal { literal, direct }) => {
+            Some(Form::Formal {
+                literal,
+                direct,
+                gated,
+            }) => {
                 if *direct {
                     facts.def_scope_contains(def_index, *literal)
                 } else {
-                    !declare_only
+                    // A gated callback may be called by another owner literal: a def whose
+                    // scope holds the creation point still passes (the direct rule's keep).
+                    !declare_only || (*gated && facts.def_scope_contains(def_index, *literal))
                 }
             }
         }
     }
 
-    /// The def at `def_start` leaves a literal through its call result into a variable `name`
-    /// that the read at `use_start` can see (`return_sink.rs`).
-    pub(super) fn returned_out(
+    /// The def at `def_start` sits in a callable nested strictly inside the callable that holds
+    /// the read at `use_start` (the owner counts as a callable). With a name a formal or named
+    /// result declares, main blanket-kept this pair (`address_taken_names`), so keeping it adds
+    /// no edge main lacks (the caller excludes a declare-only def, which main never had).
+    pub(super) fn nested_in_use_callable(
         &self,
         parsed: &ParsedFile,
-        facts: &BindingFacts,
-        name: &str,
         def_start: usize,
         use_start: usize,
     ) -> bool {
-        self.sinks.carries(
-            facts,
-            name,
-            self.enclosing_callable(parsed, def_start),
-            use_start,
-        )
+        let Some(def) = self.enclosing_callable(parsed, def_start) else {
+            return false;
+        };
+        let Some(use_callable) = self.enclosing_callable(parsed, use_start) else {
+            // The read is outside every callable of the owner: any callable encloses nothing of it.
+            return true;
+        };
+        if def == use_callable {
+            return false;
+        }
+        // The use's callable is a proper ancestor of the def's callable.
+        let mut node = parsed
+            .tree
+            .root_node()
+            .descendant_for_byte_range(def, def)
+            .and_then(|n| {
+                let mut n = n;
+                while !(CALLABLES.contains(&n.kind()) && n.start_byte() == def) {
+                    n = n.parent()?;
+                }
+                n.parent()
+            });
+        while let Some(n) = node {
+            if CALLABLES.contains(&n.kind()) && n.start_byte() == use_callable {
+                return true;
+            }
+            node = n.parent();
+        }
+        false
     }
 
     /// Start byte of the innermost function or literal around `byte` (memoized).
@@ -273,5 +311,67 @@ fn discarded_callback(parsed: &ParsedFile, facts: &BindingFacts, literal: Node<'
             BindingId::Declaration(_)
         ),
         _ => true,
+    }
+}
+
+/// Start bytes of the owner's literals with a formal able to accept a function value: a function,
+/// interface (`any` included) or named type, a variadic of these. Pointer, slice, map, array, chan,
+/// struct and predeclared basic types cannot take a literal.
+fn function_acceptors(parsed: &ParsedFile, owner: Node<'_>) -> Vec<usize> {
+    let mut out = Vec::new();
+    let mut stack = vec![owner];
+    while let Some(node) = stack.pop() {
+        if node.kind() == "func_literal" {
+            let accepts = node.child_by_field_name("parameters").is_some_and(|list| {
+                let mut cursor = list.walk();
+                let any = list.named_children(&mut cursor).any(|p| {
+                    p.child_by_field_name("type")
+                        .is_some_and(|t| accepts_function(parsed, t))
+                });
+                any
+            });
+            if accepts {
+                out.push(node.start_byte());
+            }
+        }
+        let mut cursor = node.walk();
+        stack.extend(node.named_children(&mut cursor));
+    }
+    out
+}
+
+fn accepts_function(parsed: &ParsedFile, mut ty: Node<'_>) -> bool {
+    while ty.kind() == "parenthesized_type" {
+        match ty.named_child(0) {
+            Some(inner) => ty = inner,
+            None => return true,
+        }
+    }
+    match ty.kind() {
+        "function_type" | "interface_type" | "qualified_type" | "generic_type" => true,
+        // `error` and `any` are interfaces; every other predeclared name is a basic type.
+        "type_identifier" => !matches!(
+            parsed.node_text(&ty),
+            "int"
+                | "int8"
+                | "int16"
+                | "int32"
+                | "int64"
+                | "uint"
+                | "uint8"
+                | "uint16"
+                | "uint32"
+                | "uint64"
+                | "uintptr"
+                | "float32"
+                | "float64"
+                | "complex64"
+                | "complex128"
+                | "string"
+                | "bool"
+                | "byte"
+                | "rune"
+        ),
+        _ => false,
     }
 }
