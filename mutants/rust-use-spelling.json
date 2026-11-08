@@ -1,0 +1,139 @@
+{
+  "lane": "Rust use-path spelling: self-import aliases, namespaces and macro-argument anchors (#724)",
+  "source": "src/name_resolution/rust_populator/scopes.rs",
+  "lib_test_prefixes": [
+    "call_graph::rust::macro_args::"
+  ],
+  "test_targets": [
+    {
+      "prefix": "use_self_alias_test::",
+      "package": "prism",
+      "target": "name_resolution"
+    }
+  ],
+  "mutations": {
+    "RUS-01-strip-every-self-b7": [
+      "src/name_resolution/rust_populator/scopes.rs",
+      "                    segs.pop();\n                    UseNs::TypeOnly",
+      "                    segs.retain(|s| s != \"self\");\n                    UseNs::TypeOnly",
+      [
+        "use_self_alias_test::b7_leading_self_is_kept_in_an_edition_2015_crate",
+        "rust_module_alias_test::b7_edition_2015_leading_self_is_kept"
+      ]
+    ],
+    "RUS-02-drop-the-self-strip-b1": [
+      "src/name_resolution/rust_populator/scopes.rs",
+      "                    segs.pop();\n                    UseNs::TypeOnly",
+      "                    let _ = segs.len();\n                    UseNs::TypeOnly",
+      [
+        "use_self_alias_test::b1_alias_binds_the_prefix_module_in_the_type_namespace_only",
+        "rust_module_alias_test::b1_crate_path_self_alias_binds_and_named_sibling_is_unchanged"
+      ]
+    ],
+    "RUS-03-aliased-self-import-binds-both-namespaces-b12": [
+      "src/name_resolution/rust_populator/scopes.rs",
+      "                    segs.pop();\n                    UseNs::TypeOnly",
+      "                    segs.pop();\n                    UseNs::All",
+      [
+        "use_self_alias_test::b12_aliased_self_import_is_invisible_to_the_value_namespace",
+        "rust_module_alias_test::b12_self_import_binds_the_type_namespace_only"
+      ]
+    ],
+    "RUS-04-unaliased-self-import-binds-both-namespaces-b13": [
+      "src/name_resolution/rust_populator/scopes.rs",
+      "emit_named(last.clone(), prefix, edition, UseNs::TypeOnly, out);",
+      "emit_named(last.clone(), prefix, edition, UseNs::All, out);",
+      [
+        "use_self_alias_test::b13_unaliased_self_import_is_invisible_to_the_value_namespace",
+        "rust_module_alias_test::b13_unaliased_self_import_does_not_conflict_with_a_local_fn"
+      ]
+    ],
+    "RUS-05-walk-use-emits-value-for-every-import-b12": [
+      "src/name_resolution/rust_populator/walk/items.rs",
+      "                if ns == UseNs::All {",
+      "                if true {",
+      [
+        "use_self_alias_test::b12_aliased_self_import_is_invisible_to_the_value_namespace",
+        "rust_module_alias_test::b12_self_import_binds_the_type_namespace_only"
+      ]
+    ],
+    "RUS-06-group-leaf-import-is-type-only-b14": [
+      "src/name_resolution/rust_populator/scopes.rs",
+      "emit_named(seg, &segs, edition, UseNs::All, out);",
+      "emit_named(seg, &segs, edition, UseNs::TypeOnly, out);",
+      [
+        "rust_module_alias_test::b1_crate_path_self_alias_binds_and_named_sibling_is_unchanged"
+      ]
+    ],
+    "RUS-07-scoped-import-is-type-only-b14": [
+      "src/name_resolution/rust_populator/scopes.rs",
+      "emit_named(name, &segs, edition, UseNs::All, out);",
+      "emit_named(name, &segs, edition, UseNs::TypeOnly, out);",
+      [
+        "use_self_alias_test::b14_ordinary_import_binds_both_namespaces",
+        "rust_module_alias_test::b14_ordinary_named_import_still_binds_the_value"
+      ]
+    ],
+    "RUS-08-accept-only-one-super-b9": [
+      "src/call_graph/rust/macro_args.rs",
+      "        if *kw != \"super\" {\n            break;\n        }\n",
+      "        break;\n",
+      [
+        "rust_module_alias_test::b9_super_super_in_a_macro_binds_through_the_anchored_path",
+        "call_graph::rust::macro_args::tests::path_anchor_keeps_the_written_keyword_prefix"
+      ]
+    ],
+    "RUS-09-discard-the-prefix-b10": [
+      "src/call_graph/rust/macro_args.rs",
+      "        origin_override: Some(CallSiteOrigin::MacroArg),\n        path_anchor,\n",
+      "        origin_override: Some(CallSiteOrigin::MacroArg),\n        path_anchor: None,\n",
+      [
+        "rust_module_alias_test::b10_super_prefix_binds_the_parent_item_not_a_same_named_child",
+        "call_graph::rust::macro_args::tests::path_anchor_keeps_the_written_keyword_prefix"
+      ]
+    ],
+    "RUS-10-write-the-prefix-into-callee-name-b15": [
+      "src/call_graph/rust/macro_args.rs",
+      "        .join(\"::\");\n    let start = chain[0];",
+      "        .join(\"::\");\n    let callee_name = match &path_anchor {\n        Some(a) => format!(\"{a}::{callee_name}\"),\n        None => callee_name,\n    };\n    let start = chain[0];",
+      [
+        "rust_module_alias_test::b15b_orphan_self_prefix_keeps_the_legacy_outcome",
+        "call_graph::rust::macro_args::tests::leading_keyword_chains_keep_the_recorded_name"
+      ]
+    ],
+    "RUS-11-accept-a-keyword-without-a-separator-b11": [
+      "src/call_graph/rust/macro_args.rs",
+      "        let Some(Tok::Other(\"::\")) = at.checked_sub(1).and_then(|p| seq.get(p)) else {\n            break;\n        };\n        let Some(Tok::Other(kw @ (\"crate\" | \"self\" | \"super\"))) =\n            at.checked_sub(2).and_then(|p| seq.get(p))\n        else {\n            break;\n        };\n        parts.push(kw);\n        at -= 2;",
+      "        let Some(Tok::Other(kw @ (\"crate\" | \"self\" | \"super\"))) =\n            at.checked_sub(1).and_then(|p| seq.get(p))\n        else {\n            break;\n        };\n        parts.push(kw);\n        at -= 1;",
+      [
+        "call_graph::rust::macro_args::tests::a_keyword_not_followed_by_a_path_separator_anchors_nothing"
+      ]
+    ],
+    "RUS-12-anchor-a-path-continued-from-the-left": [
+      "src/call_graph/rust/macro_args.rs",
+      "    if matches!(\n        at.checked_sub(1).and_then(|p| seq.get(p)),\n        Some(Tok::Other(\"::\"))\n    ) {\n        return None;\n    }\n",
+      "",
+      [
+        "call_graph::rust::macro_args::tests::a_path_continued_from_the_left_or_mixed_is_not_anchored"
+      ]
+    ],
+    "RUS-13-accessor-ignores-the-anchor": [
+      "src/resolution/rust/path_anchor.rs",
+      "    let anchor = site.path_anchor.as_deref()?;",
+      "    let anchor = site.path_anchor.as_deref().filter(|_| false)?;",
+      [
+        "rust_module_alias_test::b9_crate_path_in_a_macro_binds_through_the_anchored_path",
+        "rust_module_alias_test::b10_super_prefix_binds_the_parent_item_not_a_same_named_child"
+      ]
+    ],
+    "RUS-14-authoritative-route-reads-the-recorded-spelling": [
+      "src/resolution/rust/self_calls.rs",
+      "        let site = anchored.as_ref().unwrap_or(site);\n",
+      "        let _ = &anchored;\n",
+      [
+        "rust_module_alias_test::b9_self_path_in_a_macro_binds_through_the_anchored_path",
+        "rust_module_alias_test::b15a_modeled_self_prefix_is_anchored"
+      ]
+    ]
+  }
+}
