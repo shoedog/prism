@@ -1,6 +1,8 @@
 use tree_sitter::Node;
 mod family;
 pub(crate) mod js_inferred_name;
+
+pub mod go;
 pub use family::same_language_family;
 
 /// Supported programming languages for slicing analysis.
@@ -946,7 +948,7 @@ impl Language {
     /// return/break/continue, gotos, labels — anything that represents an
     /// executable step within a function body.
     pub fn is_statement_node(&self, kind: &str) -> bool {
-        (*self == Self::Go && crate::ast::go::statements::is_branch_anchor(kind))
+        (*self == Self::Go && go::statements::is_branch_anchor(kind))
             || self.is_assignment_node(kind)
             || self.is_declaration_node(kind)
             || self.is_control_flow_node(kind)

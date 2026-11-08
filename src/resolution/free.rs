@@ -6,11 +6,11 @@ use crate::{
 use std::collections::BTreeMap;
 
 #[cfg(test)]
-#[path = "resolution_free_tests.rs"]
+#[path = "free_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "resolution_family_tests.rs"]
+#[path = "family_tests.rs"]
 mod family_tests;
 
 pub(super) fn same_family(caller_file: &str, candidate: &FunctionId) -> bool {

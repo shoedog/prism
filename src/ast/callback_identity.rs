@@ -8,16 +8,16 @@
 
 use super::*;
 
-#[path = "ast/js_block_scope_bindings.rs"]
+#[path = "js_block_scope_bindings.rs"]
 mod js_block_scope_bindings;
 #[cfg(test)]
-#[path = "ast/js_block_scope_reference.rs"]
+#[path = "js_block_scope_reference.rs"]
 mod js_block_scope_reference;
-#[path = "ast/js_scope_bindings.rs"]
+#[path = "js_scope_bindings.rs"]
 mod js_scope_bindings;
 
 #[cfg(test)]
-#[path = "ast/js_block_scope_bindings_tests.rs"]
+#[path = "js_block_scope_bindings_tests.rs"]
 mod js_block_scope_bindings_tests;
 
 impl ParsedFile {

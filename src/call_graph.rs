@@ -15,11 +15,10 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::PathBuf;
 
 #[cfg(test)]
-#[path = "call_graph_anon_prep_tests.rs"]
 mod anon_prep_tests;
 mod boundary;
 pub(crate) mod go;
-#[path = "call_graph_profile_initializers.rs"]
+#[path = "call_graph/profile_initializers.rs"]
 mod init_profile;
 pub mod js_ts;
 mod js_ts_facts;

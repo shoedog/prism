@@ -5,7 +5,7 @@
 //! Jumps and normal completion use the same structural successor lookup.
 use super::go_jumps::{entry, successor, Successor};
 use super::{CfgEdge, EdgeSink};
-use crate::{ast::go::statements as go_statements, ast::ParsedFile, languages::Language};
+use crate::{languages::go::statements as go_statements, ast::ParsedFile, languages::Language};
 use tree_sitter::Node;
 
 pub(super) fn build(owner: Node<'_>, parsed: &ParsedFile, lines: &[usize], edges: &mut EdgeSink) {

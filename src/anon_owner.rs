@@ -280,7 +280,7 @@ pub(crate) fn d12_source_spans(parsed: &ParsedFile, function: &Node<'_>) -> Vec<
 }
 
 #[cfg(test)]
-#[path = "anon_owner_tests.rs"]
+#[path = "anon_owner/owner_tests.rs"]
 mod node_tests;
 
 /// Whether an owner name denotes an anonymous callable identity.
