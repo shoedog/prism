@@ -30,6 +30,19 @@ pub mod thin_slice;
 pub mod threed_slice;
 pub mod vertical_slice;
 
+#[cfg(test)]
+mod delta_slice_output_tests;
+#[cfg(test)]
+mod member_only_param_leftflow_slice_tests;
+#[cfg(test)]
+mod member_only_param_r1_slice_tests;
+#[cfg(test)]
+mod member_only_param_r2_slice_tests;
+#[cfg(test)]
+mod member_only_param_test_support;
+#[cfg(test)]
+mod nested_execution_owner_slice_tests;
+
 /// Re-exported from core (`prism::ast::parse_quality`) so existing `algorithms::` callers keep working.
 pub use crate::ast::parse_quality::{check_parse_quality, check_parse_warnings};
 use crate::ast::ParsedFile;

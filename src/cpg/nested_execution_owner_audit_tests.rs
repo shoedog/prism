@@ -1,12 +1,7 @@
 use super::*;
-use crate::algorithms::full_flow;
-use crate::cpg::CpgContext;
 use crate::data_flow::test_support::label_snapshot;
-use crate::data_flow::DataFlowGraph;
-use crate::diff::{DiffInfo, DiffInput, ModifyType};
 use crate::languages::Language;
 use crate::nested_execution_owner_audit::{source_sha256, GraphObservation};
-use crate::slice::{SliceConfig, SlicingAlgorithm};
 
 fn parsed_files(app: &str) -> BTreeMap<String, ParsedFile> {
     [
@@ -616,47 +611,6 @@ fn nested_execution_owner_capture_and_refusal_controls() {
     )
     .expect("the positional signature remains observable");
     assert_eq!(unsupported_params, vec![None]);
-}
-
-fn normalized_slice(result: &crate::slice::SliceResult) -> Vec<String> {
-    let mut rows = Vec::new();
-    for block in &result.blocks {
-        for (file, lines) in &block.file_line_map {
-            for (line, is_diff) in lines {
-                rows.push(format!("{file}:{line}:{is_diff}"));
-            }
-        }
-    }
-    rows.sort();
-    rows
-}
-
-#[test]
-fn nested_execution_owner_full_flow_controls() {
-    let source = "function outer(seed) {\n  let before=seed;\n  register(eager, function inner(p) {\n    sink(nestedRead);\n  });\n  return before;\n}\n";
-    let files = BTreeMap::from([(
-        "app.js".to_string(),
-        ParsedFile::parse("app.js", source, Language::JavaScript).unwrap(),
-    )]);
-    let diff = DiffInput {
-        files: vec![DiffInfo {
-            file_path: "app.js".to_string(),
-            modify_type: ModifyType::Modified,
-            diff_lines: BTreeSet::from([3]),
-        }],
-    };
-    let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::FullFlow);
-    let with = CpgContext::build(&files, None);
-    let with_rows = normalized_slice(&full_flow::slice(&with, &diff, &config).unwrap());
-    let mut without = CpgContext::build(&files, None);
-    without.cpg.dfg = DataFlowGraph::empty();
-    let without_rows = normalized_slice(&full_flow::slice(&without, &diff, &config).unwrap());
-    println!("OWNER_FULL_FLOW with={with_rows:?} without={without_rows:?}");
-    assert_eq!(with_rows, without_rows);
-    assert_eq!(
-        with_rows,
-        vec!["app.js:3:true".to_string(), "app.js:5:false".to_string()]
-    );
 }
 
 fn call_names_for(cg: &crate::call_graph::CallGraph, caller: &str) -> Vec<String> {
