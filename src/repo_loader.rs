@@ -485,10 +485,9 @@ fn has_complete_rust_coverage(
     actual_rust == expected_rust
 }
 
-#[path = "repo_loader_freshness.rs"]
+#[path = "repo_loader/freshness.rs"]
 mod freshness_paths;
 #[cfg(test)]
-#[path = "repo_loader_skip_tests.rs"]
 mod skip_tests;
 pub use freshness_paths::collect_freshness_source_paths;
 

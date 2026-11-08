@@ -11,7 +11,7 @@
       "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
     ],
     "JSBLOCK-drop-self": [
-      "src/ast_callback_identity.rs",
+      "src/ast/callback_identity.rs",
       "if matches!(scope.kind(), \"function_expression\" | \"generator_function\")",
       "if false",
       "ast::callback_identity::js_block_scope_bindings_tests::every_scope_name_and_byte_js_ts_tsx"
@@ -119,7 +119,7 @@
       "ast::callback_identity::js_block_scope_bindings_tests::every_scanning_branch_collects_once"
     ],
     "JSBLOCK-drop-bypass": [
-      "src/ast_callback_identity.rs",
+      "src/ast/callback_identity.rs",
       "return self.js_ts_scope_binds_reference(scope, boundaries, name, byte);",
       "/* bypass omitted */",
       "ast::callback_identity::js_block_scope_bindings_tests::scope_cache_keys_lifetime_and_bypass"

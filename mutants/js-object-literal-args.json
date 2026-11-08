@@ -138,7 +138,7 @@
       "cpg::object_literal_arg_r1_tests::overwritten_field_with_a_bare_read_before_the_write_is_the_issue_example"
     ],
     "OL21-write-on-the-leaf-path-not-an-overwrite": [
-      "src/ast_member_projection.rs",
+      "src/ast/member_projection.rs",
       "        (1..=fields.len()).any(|k| {",
       "        (1..fields.len()).any(|k| {",
       "cpg::object_literal_arg_r1_tests::overwritten_field_with_a_bare_read_before_the_write_is_the_issue_example"
@@ -162,7 +162,7 @@
       "cpg::build::object_literal_args::parity_tests::literal_bearing_graph_is_identical_across_every_route"
     ],
     "OL22-pair-pattern-target-not-a-write": [
-      "src/ast_member_projection.rs",
+      "src/ast/member_projection.rs",
       "                \"pair_pattern\" => {}\n",
       "",
       [
@@ -171,7 +171,7 @@
       ]
     ],
     "OL26-rest-pattern-target-not-a-write": [
-      "src/ast_member_projection.rs",
+      "src/ast/member_projection.rs",
       "                | \"type_assertion\"\n                | \"rest_pattern\" => {}",
       "                | \"type_assertion\" => {}",
       [
@@ -179,7 +179,7 @@
       ]
     ],
     "OL27-write-classifier-off": [
-      "src/ast_member_projection.rs",
+      "src/ast/member_projection.rs",
       "fn member_is_write_target(&self, node: Node<'_>) -> bool {\n",
       "fn member_is_write_target(&self, node: Node<'_>) -> bool {\n        if node.id() != usize::MAX {\n            return false;\n        }\n",
       [
@@ -196,7 +196,7 @@
       ]
     ],
     "OL29-subscript-arm-dropped": [
-      "src/ast_member_projection.rs",
+      "src/ast/member_projection.rs",
       "        if node.kind() == \"subscript_expression\"\n",
       "        if node.kind() == \"subscript_expression_off\"\n",
       [
@@ -204,7 +204,7 @@
       ]
     ],
     "OL30-computed-write-wrapper-not-stripped": [
-      "src/ast_member_projection.rs",
+      "src/ast/member_projection.rs",
       "        let Some(object) = strip_transparent_wrappers(object) else {\n            return false;\n        };\n",
       "",
       [
@@ -212,7 +212,7 @@
       ]
     ],
     "OL31-computed-read-counts-as-write": [
-      "src/ast_member_projection.rs",
+      "src/ast/member_projection.rs",
       "            && self.member_is_write_target(node)\n            && !self.js_ts_reference_fenced_memo(",
       "            && !self.js_ts_reference_fenced_memo(",
       [
@@ -220,7 +220,7 @@
       ]
     ],
     "OL32-computed-write-binder-fence-dropped": [
-      "src/ast_member_projection.rs",
+      "src/ast/member_projection.rs",
       "            && !self.js_ts_reference_fenced_memo(\n                &node,\n                walk.name,\n                walk.def_scope,\n                walk.seam_open,\n                &walk.memo,\n            )\n    }",
       "    }",
       [

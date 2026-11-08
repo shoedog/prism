@@ -61,7 +61,7 @@ mod call_args;
 mod calls;
 mod control_flow;
 mod fptr_text;
-pub mod go;
+pub(crate) mod go;
 mod imports;
 pub mod js_ts;
 mod lvalues;
@@ -619,53 +619,41 @@ fn collect_error_lines_recursive(node: Node<'_>, lines: &mut BTreeSet<usize>, ma
 }
 
 #[cfg(test)]
-#[path = "ast_erased_rvalue_tests.rs"]
 mod erased_rvalue_tests;
 
-#[path = "ast_asserted_member.rs"]
 mod asserted_member;
 
-#[path = "ast_callback_identity.rs"]
 mod callback_identity;
-#[path = "ast_member_projection.rs"]
 mod member_projection;
 pub use crate::anon_owner::is_anonymous_owner_name as is_synthetic_owner;
 pub(crate) use member_projection::FormalMemberFacts;
 
 #[cfg(test)]
-#[path = "ast_asserted_member_tests.rs"]
 mod asserted_member_tests;
 
 #[cfg(test)]
-#[path = "ast_required_parameter_tests.rs"]
 mod required_parameter_tests;
 
 #[cfg(test)]
-#[path = "ast_js_param_defs_tests.rs"]
 mod js_param_defs_tests;
 
 #[cfg(test)]
-#[path = "ast_inert_default_parameter_tests.rs"]
 mod inert_default_parameter_tests;
 
 #[cfg(test)]
-#[path = "ast_loop_header_tests.rs"]
 mod loop_header_tests;
 
 #[cfg(test)]
-#[path = "ast_contained_rvalue_tests.rs"]
 mod contained_rvalue_tests;
 
 #[cfg(test)]
-#[path = "ast_nested_execution_owner_tests.rs"]
 mod nested_execution_owner_tests;
 
 #[cfg(test)]
-#[path = "ast_call_execution_owner_tests.rs"]
 mod call_execution_owner_tests;
 
 #[cfg(test)]
-#[path = "ast_identifiers_on_line_tests.rs"]
+#[path = "ast/identifiers_on_line_tests.rs"]
 mod identifier_row_tests;
 
 #[cfg(test)]
