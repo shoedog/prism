@@ -491,6 +491,12 @@ fn path_anchor_keeps_the_written_keyword_prefix() {
         ("fn t() { assert!(crate::api::f(x)); }", "api::f", "crate"),
         ("fn t() { assert!(crate::f(x)); }", "f", "crate"),
         ("fn t() { assert!(self::f(x)); }", "f", "self"),
+        ("fn t() { assert!(self::super::g(x)); }", "g", "self::super"),
+        (
+            "fn t() { assert!(self::super::super::a::g(x)); }",
+            "a::g",
+            "self::super::super",
+        ),
     ] {
         let (_pf, got) = extract_anchors(src);
         assert_eq!(got.len(), 1, "{src}");
@@ -536,8 +542,8 @@ fn a_keyword_not_followed_by_a_path_separator_anchors_nothing() {
 fn a_path_continued_from_the_left_or_mixed_is_not_anchored() {
     for src in [
         "fn t() { assert!(a::super::f(x)); }",
-        "fn t() { assert!(self::super::f(x)); }",
         "fn t() { assert!(super::crate::f(x)); }",
+        "fn t() { assert!(crate::super::f(x)); }",
     ] {
         let (_pf, got) = extract_anchors(src);
         assert!(got.iter().all(|g| g.1.is_none()), "{src}: {got:?}");

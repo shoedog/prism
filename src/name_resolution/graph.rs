@@ -120,6 +120,14 @@ pub struct ScopeGraph {
     /// invalidate the lazy index; direct appends are detected by its length
     /// guard and use the original scan. Policy fields are read by callers.
     pub bindings: Vec<Binding>,
+    /// Rust: files holding a scope under a module a `#[path]` attribute mounted where rustc
+    /// would not (#765). The populator may bind a decoy there; the #724 guards refuse
+    /// alias and anchored-macro targets in these files. Removed with #765's fix.
+    #[serde(default)]
+    pub misplaced_mount_files: std::collections::BTreeSet<crate::name_resolution::types::FileId>,
+    /// Rust: `(scope, name)` of every `use p::{self as name}` import (#724).
+    #[serde(default)]
+    pub self_import_aliases: std::collections::BTreeSet<(ScopeId, String)>,
     /// Rust local-binding facts keyed by `(file, def_byte)`.
     #[serde(default)]
     pub local_facts: BTreeMap<(FileId, usize), LocalFact>,

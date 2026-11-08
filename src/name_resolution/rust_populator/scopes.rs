@@ -168,9 +168,19 @@ fn parse_cfg_tokens(pf: &ParsedFile, tt: &Node) -> Option<crate::name_resolution
 pub(crate) enum UseNs {
     /// An ordinary import: the value and the type namespace.
     All,
-    /// A self import (`{self}`, `{self as m}`): the module only, so the type
+    /// An unaliased self import (`{self}`): the module only, so the type
     /// namespace (Rust Reference, "self imports").
     TypeOnly,
+    /// An aliased self import (`{self as m}`): type namespace only, and recorded in
+    /// `ScopeGraph::self_import_aliases` for the resolution guards (#724).
+    SelfAlias,
+}
+
+impl UseNs {
+    /// Whether the import also binds the value namespace.
+    pub(crate) fn binds_value(self) -> bool {
+        self == UseNs::All
+    }
 }
 
 /// One thing a `use` declaration brings into scope.
@@ -241,7 +251,7 @@ fn flatten_use_tree(
                 // A leading `self` (the `self::` anchor) is kept for `anchor_of_segments`.
                 let ns = if segs.len() > 1 && segs.last().is_some_and(|l| l == "self") {
                     segs.pop();
-                    UseNs::TypeOnly
+                    UseNs::SelfAlias
                 } else {
                     UseNs::All
                 };

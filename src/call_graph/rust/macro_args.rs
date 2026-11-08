@@ -467,7 +467,8 @@ fn scan_token_tree<'a>(
 /// aside in `CallSiteMeta::path_anchor` and read only by the authoritative Rust
 /// route (`crate::resolution::rust::path_anchor`). A keyword must be followed by
 /// `::` to count, `crate`/`self` must be the leftmost token of the path (not
-/// preceded by `::`), and `super` repeats only through `super ::`.
+/// preceded by `::`), `super` repeats only through `super ::`, and `self` may lead
+/// `super` hops (`self::super::g`).
 fn leading_path_anchor(seq: &[Tok<'_>], i: usize) -> Option<String> {
     let mut parts: Vec<&str> = Vec::new();
     let mut at = i;
@@ -498,8 +499,10 @@ fn leading_path_anchor(seq: &[Tok<'_>], i: usize) -> Option<String> {
         return None;
     }
     parts.reverse();
-    // `crate`/`self` only ever stand alone; anything else mixed is not a path.
-    if parts.iter().any(|p| *p != "super") && parts.len() > 1 {
+    // `crate` stands alone; `self` may lead `super` hops (`self::super::g`); a
+    // `super` hop never follows `crate` (the loop only continues past `super`, so
+    // everything after the leftmost keyword is `super`).
+    if parts[0] == "crate" && parts.len() > 1 {
         return None;
     }
     Some(parts.join("::"))

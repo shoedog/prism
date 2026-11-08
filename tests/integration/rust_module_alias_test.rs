@@ -193,39 +193,83 @@ fn b3_child_tests_module_reaches_the_alias_through_super_glob() {
     );
 }
 
+// B4: a qualified path starts its lookup at the enclosing MODULE (`RustPolicy::anchor`,
+// `AnchorKind::Bare`), so it never sees a block-scope import or module (#768). That is
+// inherited for plain aliases (pinned below as wrong); the `{self as m}` form this PR
+// admits refuses instead of binding the module-level alias past a block-scope shadow.
+fn shadow_fixture(d: &str) -> CallGraph {
+    build(&[
+        ("src/lib.rs", "mod a;\nmod c;\nmod d;\n"),
+        ("src/a.rs", "pub mod b;\n"),
+        ("src/a/b.rs", "pub fn f() {}\n"),
+        ("src/c.rs", "pub fn f() {}\n"),
+        ("src/d.rs", d),
+    ])
+}
+
 #[test]
-fn b4_block_local_import_resolves_like_an_ordinary_alias() {
-    // Design row B4 expected a block-local `use crate::c::{self as m}` to shadow the
-    // module-level alias. It cannot: a qualified path (`m::f`) starts its lookup at the
-    // enclosing MODULE (`RustPolicy::anchor`, `AnchorKind::Bare`), so a block-scope import
-    // of the first segment is never seen. That is pre-existing for ordinary aliases
-    // (control `use crate::c as m` below, identical on base); this row pins that the
-    // `{self as m}` form resolves exactly like the ordinary `as m` form.
-    let tail = "pub fn caller() {\n    use crate::c::{self as m};\n    m::f();\n}\n";
-    let tail_plain = "pub fn caller() {\n    use crate::c as m;\n    m::f();\n}\n";
-    let shared = |d: &str| {
-        build(&[
-            ("src/lib.rs", "mod a;\nmod c;\nmod d;\n"),
-            ("src/a.rs", "pub mod b;\n"),
-            ("src/a/b.rs", "pub fn f() {}\n"),
-            ("src/c.rs", "pub fn f() {}\n"),
-            ("src/d.rs", d),
-        ])
-    };
-    let outcome = |cg: &CallGraph| {
-        let o = cg.resolve_call_site_full(site(cg, "src/d.rs", "caller", "m::f"));
-        (
-            o.resolved
-                .iter()
-                .map(|r| (r.target.file.clone(), r.confidence, r.kind))
-                .collect::<Vec<_>>(),
-            o.drop,
-        )
-    };
-    let alias_self = shared(&format!("use crate::a::b::{{self as m}};\n{tail}"));
-    let alias_plain = shared(&format!("use crate::a::b as m;\n{tail_plain}"));
-    assert_eq!(outcome(&alias_self), outcome(&alias_plain));
-    assert_eq!(outcome(&alias_self).0.len(), 1);
+fn b4_shadowed_self_alias_refuses() {
+    // rustc binds `c::f` (the block `use` shadows). Base dropped the site (the alias was
+    // unresolvable); head must not bind the module-level alias's `a/b.rs::f`.
+    let cg = shadow_fixture(
+        "use crate::a::b::{self as m};\n\
+         pub fn caller() {\n    use crate::c::{self as m};\n    m::f();\n}\n",
+    );
+    refused(&cg, "src/d.rs", "caller", "m::f");
+}
+
+#[test]
+fn b4_shadow_by_a_block_local_module_refuses() {
+    let cg = shadow_fixture(
+        "use crate::a::b::{self as m};\n\
+         pub fn caller() {\n    mod m {\n        pub fn f() {}\n    }\n    m::f();\n}\n",
+    );
+    refused(&cg, "src/d.rs", "caller", "m::f");
+}
+
+#[test]
+fn b4_unshadowed_sibling_still_binds_the_module_alias() {
+    // The refusal is per site: another function of the same module has no shadow.
+    let cg = shadow_fixture(
+        "use crate::a::b::{self as m};\n\
+         pub fn caller() {\n    use crate::c::{self as m};\n    m::f();\n}\n\
+         pub fn plain() {\n    m::f();\n}\n",
+    );
+    exact(
+        &cg,
+        "src/d.rs",
+        "plain",
+        "m::f",
+        "src/a/b.rs",
+        ResolutionKind::QualifiedOwner,
+    );
+}
+
+#[test]
+fn b4c_a_block_local_self_alias_alone_is_not_seen_by_a_qualified_path() {
+    // Control: the block-local alias is the only `m`. The qualified path starts at the
+    // module and does not see it, so the engine cannot resolve it and the site refuses
+    // (base and head alike; rustc would bind `c::f`).
+    let cg = shadow_fixture("pub fn caller() {\n    use crate::c::{self as m};\n    m::f();\n}\n");
+    refused(&cg, "src/d.rs", "caller", "m::f");
+}
+
+#[test]
+fn inherited_wrong_plain_alias_block_shadow_768() {
+    // Inherited, not introduced here (#768): with ORDINARY aliases the module-level one wins
+    // on base and head alike (rustc binds `c::f`). Pinned so a fix of #768 flips it knowingly.
+    let cg = shadow_fixture(
+        "use crate::a::b as m;\n\
+         pub fn caller() {\n    use crate::c as m;\n    m::f();\n}\n",
+    );
+    exact(
+        &cg,
+        "src/d.rs",
+        "caller",
+        "m::f",
+        "src/a/b.rs",
+        ResolutionKind::QualifiedOwner,
+    );
 }
 
 #[test]
@@ -484,5 +528,119 @@ fn b15b_orphan_self_prefix_keeps_the_legacy_outcome() {
         "unique_fn",
         "src/m.rs",
         ResolutionKind::FreeSingle,
+    );
+}
+
+// ── #[path] placement (review fold, #765) ───────────────────────────────────
+//
+// The populator resolves a non-inline `#[path]` mount relative to the declaring
+// file's `<stem>/` directory, rustc relative to the declaring file's directory
+// (#765). In `src/a.rs`, `#[path = "b.rs"] mod b;` rustc loads `src/b.rs`; the
+// populator binds the retained decoy `src/a/b.rs`. What this PR newly admits
+// (anchored macro-argument paths, `{self as m}` aliases) must not bind the decoy.
+
+fn mount_files(call_file: &str) -> Vec<(&str, &str)> {
+    vec![
+        ("src/lib.rs", "mod a;\nmod c;\n"),
+        ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+        ("src/b.rs", "pub fn f() -> bool { true }\n"), // what rustc loads
+        ("src/a/b.rs", "pub fn f() -> bool { false }\n"), // the decoy the populator binds
+        ("src/c.rs", call_file),
+    ]
+}
+
+fn mod_rs_mount_files(call_file: &str) -> Vec<(&str, &str)> {
+    vec![
+        ("src/lib.rs", "mod a;\nmod c;\n"),
+        // Directly in a mod-rs file both calculations give `src/a/b.rs`.
+        ("src/a/mod.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+        ("src/a/b.rs", "pub fn f() -> bool { true }\n"),
+        ("src/c.rs", call_file),
+    ]
+}
+
+const MACRO_CALL: &str = "pub fn caller() {\n    assert!(crate::a::b::f());\n}\n";
+const ALIAS_CALL: &str = "use crate::a::b::{self as m};\npub fn caller() {\n    m::f();\n}\n";
+
+#[test]
+fn b16_anchored_macro_path_refuses_a_misplaced_mount() {
+    let cg = build(&mount_files(MACRO_CALL));
+    refused(&cg, "src/c.rs", "caller", "a::b::f");
+}
+
+#[test]
+fn b17_alias_refuses_a_misplaced_mount() {
+    let cg = build(&mount_files(ALIAS_CALL));
+    refused(&cg, "src/c.rs", "caller", "m::f");
+}
+
+#[test]
+fn b16c_anchored_macro_path_binds_a_correctly_placed_mount() {
+    let cg = build(&mod_rs_mount_files(MACRO_CALL));
+    exact(
+        &cg,
+        "src/c.rs",
+        "caller",
+        "a::b::f",
+        "src/a/b.rs",
+        ResolutionKind::QualifiedOwner,
+    );
+}
+
+#[test]
+fn b17c_alias_binds_a_correctly_placed_mount() {
+    let cg = build(&mod_rs_mount_files(ALIAS_CALL));
+    exact(
+        &cg,
+        "src/c.rs",
+        "caller",
+        "m::f",
+        "src/a/b.rs",
+        ResolutionKind::QualifiedOwner,
+    );
+}
+
+// ── W2 / S1 ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn b18_self_super_prefix_is_anchored_and_refuses_like_a_source_site() {
+    // `self::super::g()` names the parent's `g`; the recorded `g` alone would bind the
+    // caller's own `g`. The authoritative route reads the whole prefix, and a Source-spelled
+    // `self::super::g()` refuses (its `super` is read as a name), so the macro site does too.
+    let cg = build(&[
+        ("src/lib.rs", "mod a;\n"),
+        ("src/a.rs", "pub fn g() {}\nmod c;\n"),
+        (
+            "src/a/c.rs",
+            "pub fn g() {}\npub fn macro_site() {\n    assert!(self::super::g());\n}\n\
+             pub fn source_site() {\n    self::super::g();\n}\n",
+        ),
+    ]);
+    refused(&cg, "src/a/c.rs", "source_site", "self::super::g");
+    refused(&cg, "src/a/c.rs", "macro_site", "g");
+}
+
+#[test]
+fn s1_anchored_site_is_not_judged_by_its_unanchored_spelling_for_externals() {
+    // `extern crate log;` makes the bare spelling `log::L::new` an external path; the
+    // written path is `crate::log::L::new`, the in-repo module, and keeps its edge.
+    let cg = build(&[
+        ("src/lib.rs", "mod log;\nmod z;\n"),
+        (
+            "src/log.rs",
+            "pub struct L;\nimpl L {\n    pub fn new() {}\n}\n",
+        ),
+        (
+            "src/z.rs",
+            "extern crate log;\npub fn caller() {\n    assert!(crate::log::L::new());\n}\n",
+        ),
+    ]);
+    exact(
+        &cg,
+        "src/z.rs",
+        "caller",
+        "log::L::new",
+        "src/log.rs",
+        ResolutionKind::QualifiedOwner,
     );
 }

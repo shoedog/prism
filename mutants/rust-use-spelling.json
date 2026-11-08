@@ -14,7 +14,7 @@
   "mutations": {
     "RUS-01-strip-every-self-b7": [
       "src/name_resolution/rust_populator/scopes.rs",
-      "                    segs.pop();\n                    UseNs::TypeOnly",
+      "                    segs.pop();\n                    UseNs::SelfAlias",
       "                    segs.retain(|s| s != \"self\");\n                    UseNs::TypeOnly",
       [
         "use_self_alias_test::b7_leading_self_is_kept_in_an_edition_2015_crate",
@@ -23,8 +23,8 @@
     ],
     "RUS-02-drop-the-self-strip-b1": [
       "src/name_resolution/rust_populator/scopes.rs",
-      "                    segs.pop();\n                    UseNs::TypeOnly",
-      "                    let _ = segs.len();\n                    UseNs::TypeOnly",
+      "                    segs.pop();\n                    UseNs::SelfAlias",
+      "                    let _ = segs.len();\n                    UseNs::SelfAlias",
       [
         "use_self_alias_test::b1_alias_binds_the_prefix_module_in_the_type_namespace_only",
         "rust_module_alias_test::b1_crate_path_self_alias_binds_and_named_sibling_is_unchanged"
@@ -32,7 +32,7 @@
     ],
     "RUS-03-aliased-self-import-binds-both-namespaces-b12": [
       "src/name_resolution/rust_populator/scopes.rs",
-      "                    segs.pop();\n                    UseNs::TypeOnly",
+      "                    segs.pop();\n                    UseNs::SelfAlias",
       "                    segs.pop();\n                    UseNs::All",
       [
         "use_self_alias_test::b12_aliased_self_import_is_invisible_to_the_value_namespace",
@@ -50,7 +50,7 @@
     ],
     "RUS-05-walk-use-emits-value-for-every-import-b12": [
       "src/name_resolution/rust_populator/walk/items.rs",
-      "                if ns == UseNs::All {",
+      "                if ns.binds_value() {",
       "                if true {",
       [
         "use_self_alias_test::b12_aliased_self_import_is_invisible_to_the_value_namespace",
@@ -133,6 +133,48 @@
       [
         "rust_module_alias_test::b9_self_path_in_a_macro_binds_through_the_anchored_path",
         "rust_module_alias_test::b15a_modeled_self_prefix_is_anchored"
+      ]
+    ],
+    "RUS-15-drop-the-block-shadow-refusal-b4": [
+      "src/resolution/rust/path_anchor.rs",
+      "    if alias_routed && first.is_some_and(|f| block_shadows_module_alias(graph, from, f)) {",
+      "    if false && first.is_some_and(|f| block_shadows_module_alias(graph, from, f)) {",
+      [
+        "rust_module_alias_test::b4_shadowed_self_alias_refuses",
+        "rust_module_alias_test::b4_shadow_by_a_block_local_module_refuses"
+      ]
+    ],
+    "RUS-16-mount-guard-skips-anchored-sites-b16": [
+      "src/resolution/rust/path_anchor.rs",
+      "    if out.resolved.iter().any(|r| in_misplaced(&r.target.file)) {",
+      "    if alias_routed && out.resolved.iter().any(|r| in_misplaced(&r.target.file)) {",
+      [
+        "rust_module_alias_test::b16_anchored_macro_path_refuses_a_misplaced_mount"
+      ]
+    ],
+    "RUS-17-mount-guard-skips-alias-sites-b17": [
+      "src/resolution/rust/path_anchor.rs",
+      "    if out.resolved.iter().any(|r| in_misplaced(&r.target.file)) {",
+      "    if was_anchored && out.resolved.iter().any(|r| in_misplaced(&r.target.file)) {",
+      [
+        "rust_module_alias_test::b17_alias_refuses_a_misplaced_mount"
+      ]
+    ],
+    "RUS-18-self-may-not-lead-super-hops-w2": [
+      "src/call_graph/rust/macro_args.rs",
+      "    if parts[0] == \"crate\" && parts.len() > 1 {",
+      "    if parts[0] != \"super\" && parts.len() > 1 {",
+      [
+        "rust_module_alias_test::b18_self_super_prefix_is_anchored_and_refuses_like_a_source_site",
+        "call_graph::rust::macro_args::tests::path_anchor_keeps_the_written_keyword_prefix"
+      ]
+    ],
+    "RUS-19-external-filter-judges-the-unanchored-spelling-s1": [
+      "src/resolution/rust/external_paths.rs",
+      "    if site.path_anchor.is_some() {\n        return None;\n    }",
+      "    if false {\n        return None;\n    }",
+      [
+        "rust_module_alias_test::s1_anchored_site_is_not_judged_by_its_unanchored_spelling_for_externals"
       ]
     ]
   }

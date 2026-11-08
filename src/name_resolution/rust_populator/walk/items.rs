@@ -225,7 +225,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_use(
             } => {
                 // A self import (`use a::{self}`, `{self as m}`) binds the module
                 // in the type namespace only (Rust Reference, "self imports").
-                if ns == UseNs::All {
+                if ns.binds_value() {
                     b.add_binding(
                         scope,
                         name.clone(),
@@ -238,6 +238,9 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_use(
                 }
                 // A `use` may bring the name in Type ns too (module/type imports);
                 // add a Type-ns Pending so those paths resolve.
+                if ns == UseNs::SelfAlias {
+                    b.note_self_alias(scope, &name);
+                }
                 b.add_binding(
                     scope,
                     name,

@@ -70,6 +70,8 @@ pub(crate) struct Builder<'f> {
     /// Module scopes a `#[path]` attribute mounted at a file other than rustc's
     /// (see [`super::restrict::expected_mount_file`]); no restrict is placed across them.
     misplaced_mounts: BTreeSet<ScopeId>,
+    /// `(scope, name)` of every `{self as name}` import (#724), handed to the graph.
+    self_import_aliases: BTreeSet<(ScopeId, String)>,
 }
 
 impl<'f> Builder<'f> {
@@ -102,7 +104,13 @@ impl<'f> Builder<'f> {
             crate_deps_by_root: BTreeMap::new(),
             pending_restricts: Vec::new(),
             misplaced_mounts: BTreeSet::new(),
+            self_import_aliases: BTreeSet::new(),
         }
+    }
+
+    /// Record the `{self as name}` import just walked in `scope` (#724).
+    pub(crate) fn note_self_alias(&mut self, scope: ScopeId, name: &str) {
+        self.self_import_aliases.insert((scope, name.to_string()));
     }
 
     /// Record that `module` was mounted by `#[path]` somewhere rustc would not put it.
@@ -183,6 +191,9 @@ impl<'f> Builder<'f> {
             }
         }
         self.graph.crate_deps_by_root = self.crate_deps_by_root;
+        self.graph.misplaced_mount_files =
+            misplaced_mount_files(&self.graph, &self.misplaced_mounts);
+        self.graph.self_import_aliases = self.self_import_aliases;
         self.graph
     }
 
@@ -952,4 +963,25 @@ mod tests {
         assert_eq!(normalize_crate_ident("my-crate"), "my_crate");
         assert_eq!(normalize_crate_ident("plain"), "plain");
     }
+}
+
+/// Files holding a scope whose module chain crosses a module mounted by `#[path]` where
+/// rustc would not put it (#765). What this graph binds in such a file may be a decoy of
+/// the file rustc loads; the resolution guards of #724 refuse targets there.
+fn misplaced_mount_files(graph: &ScopeGraph, misplaced: &BTreeSet<ScopeId>) -> BTreeSet<FileId> {
+    let mut files = BTreeSet::new();
+    if misplaced.is_empty() {
+        return files;
+    }
+    for scope in graph.scopes.values() {
+        let mut cur = Some(scope.id);
+        while let Some(id) = cur {
+            if misplaced.contains(&id) {
+                files.extend(scope.extents.iter().map(|e| e.file));
+                break;
+            }
+            cur = graph.parent_of(id);
+        }
+    }
+    files
 }
