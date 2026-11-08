@@ -269,15 +269,16 @@ fn nav_session_and_callers_work_without_outer_pool() {
 #[test]
 fn api_types_are_non_exhaustive() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut paths: Vec<PathBuf> = fs::read_dir(root.join("src/api"))
-        .unwrap()
+    let mut paths: Vec<PathBuf> = ["src/api", "crates/prism-review/src/api"]
+        .iter()
+        .flat_map(|dir| fs::read_dir(root.join(dir)).unwrap())
         .map(|entry| entry.unwrap().path())
         .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("rs"))
         .collect();
     paths.push(root.join("src/finding_confidence.rs"));
-    paths.push(root.join("src/targets/model.rs"));
-    paths.push(root.join("src/targets/mod.rs"));
-    paths.push(root.join("src/output/sarif.rs"));
+    paths.push(root.join("crates/prism-review/src/targets/model.rs"));
+    paths.push(root.join("crates/prism-review/src/targets/mod.rs"));
+    paths.push(root.join("crates/prism-review/src/output/sarif.rs"));
 
     let mut checked = 0usize;
     for path in paths {
