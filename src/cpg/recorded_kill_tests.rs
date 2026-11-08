@@ -10,6 +10,7 @@ const MATRIX: &str = include_str!("../../tests/fixtures/js_write_census/variant-
 
 const EXACT: &str = "exact";
 const KILLED: &str = "nameonly/killed";
+const CFG: &str = "nameonly/cfg_incomplete";
 const SAME: &str = "nameonly/sameline";
 const JS: Language = Language::JavaScript;
 const TS: Language = Language::TypeScript;
@@ -197,6 +198,22 @@ const CONTROLS: &[Case] = &[
         source: "function f(o: any) {\n  o.a.b = 1;\n  (<any>o).a = {};\n  sink(o.a.b);\n}" },
     Case { name: "switch_case_function_declaration_write", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
         source: "function f(t, o) {\n  o.x = 1;\n  switch (t) { case 0: function o() {} o = {}; }\n  sink(o.x);\n}" },
+    // A plain declarator (`let`/`const`/`var o = ..`) is eligible (round 3 amendment); formals, destructured and
+    // loop-head names are not: a block-scoped pattern name is not told from the outer binding.
+    Case { name: "loop_const_redeclaration_resize_shape_killed", lang: JS, edge: "update.b@5->update.b@8", expected: KILLED,
+        source: "function f(es, c) {\n  for (const e of es) {\n    const update = {};\n    if (c) {\n      update.b = 1;\n    } else {\n      update.b = 2;\n      use(update.b);\n    }\n    push(update);\n  }\n}" },
+    Case { name: "loop_const_redeclaration_resize_shape_unflagged_route", lang: JS, edge: "update.b@5->update.b@7", expected: CFG,
+        source: "function f(es, c) {\n  for (const e of es) {\n    const update = {};\n    if (c) {\n      update.b = 1;\n    } else {\n      update.b = 2;\n      use(update.b);\n    }\n    push(update);\n  }\n}" },
+    Case { name: "let_redeclared_in_loop_body_kills_previous_iteration", lang: JS, edge: "o.b@5->o.b@8", expected: KILLED,
+        source: "function f(es, c) {\n  for (const e of es) {\n    let o = {};\n    if (c) {\n      o.b = 1;\n    } else {\n      o.b = 2;\n      use(o.b);\n    }\n    push(o);\n  }\n}" },
+    Case { name: "var_destructuring_redeclaration_keeps_main", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o, src) {\n  o.x = 1;\n  var { o } = src();\n  sink(o.x, o);\n}" },
+    Case { name: "block_destructured_shadow_does_not_kill_outer", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o, src) {\n  o.x = 1;\n  { const { o } = src(); use(o); }\n  sink(o.x);\n}" },
+    Case { name: "inner_block_let_shadow_does_not_kill_outer_decl", lang: JS, edge: "o.x@2->o.x@4", expected: EXACT,
+        source: "function f(o) {\n  o.x = 1;\n  { let o = {}; use(o); }\n  sink(o.x);\n}" },
+    Case { name: "var_redeclaration_kills", lang: JS, edge: "o.x@2->o.x@4", expected: KILLED,
+        source: "function f(o) {\n  o.x = 1;\n  var o = {};\n  sink(o.x);\n}" },
     // Other languages keep main's equal-path kills.
     Case { name: "python_prefix", lang: Language::Python, edge: "o.x@2->o.x@4", expected: EXACT,
         source: "def f(o):\n    o.x = 1\n    o = {}\n    sink(o.x)\n" },

@@ -306,7 +306,8 @@ fn identity_mismatch_and_uncovered_sites_are_ineligible() {
         "function f(o, k) {\n  o[k]().x = 2;\n}",
         "function f(o, k) {\n  o[k].x = 2;\n}",
         "function f() {\n  (this as any).a = {};\n}",
-        "function f(o) {\n  let p = o;\n}",
+        "function f(o) {\n  const { p } = o;\n}",
+        "function f(o) {\n  for (const p of o) {}\n}",
         "function f(o) {\n  switch (o) { case 0: function o() {} o = {}; }\n}",
     ] {
         let parsed = ParsedFile::parse("a.ts", src, Language::TypeScript).unwrap();

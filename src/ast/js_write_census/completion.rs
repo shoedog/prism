@@ -113,7 +113,19 @@ pub(crate) fn completion(
             && by_start
                 .get(&site.target_start)
                 .is_some_and(|stored| stored.iter().any(|p| **p == path));
-        if covered {
+        // #674: a declaration of a bare name (`let`/`const`/`var`, a destructured name) is complete by
+        // construction: it cannot be truncated, and `this` cannot be declared. Formals (`own_params`) and
+        // destructured or loop-head names stay out: `BindingFacts` does not tell a block-scoped pattern name
+        // from the outer binding, so a shadowing `{ const { o } = src() }` would kill the outer `o.x`.
+        let declared_bare = site.form == Form::Declare
+            && !(r.nested || r.instance_field || r.own_params || rebound)
+            && bases.contains(site.path.base.as_str())
+            && path.fields.is_empty()
+            && is_plain_declarator(parsed, site.target_start)
+            && by_start
+                .get(&site.target_start)
+                .is_some_and(|stored| stored.iter().any(|p| **p == path));
+        if covered || declared_bare {
             out.covered.insert((site.target_start, path.clone()));
         }
         // The line RD is handed for this write (#696): the E18 statement line of a kill-only def,
@@ -381,4 +393,18 @@ fn in_pattern(node: Node<'_>) -> bool {
         cur = n.parent();
     }
     false
+}
+
+/// Whether the identifier at `byte` is the whole name of a `variable_declarator` (`let o = ..`, `var o`).
+fn is_plain_declarator(parsed: &ParsedFile, byte: usize) -> bool {
+    parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(byte, byte)
+        .and_then(|n| n.parent().map(|p| (n, p)))
+        .is_some_and(|(n, p)| {
+            p.kind() == "variable_declarator"
+                && p.child_by_field_name("name")
+                    .is_some_and(|name| name.id() == n.id())
+        })
 }

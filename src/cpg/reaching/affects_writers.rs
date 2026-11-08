@@ -18,8 +18,10 @@
 //! 4. **Not deferred.** Not inside a nested callable or an instance field initializer (a capture region):
 //!    D2-c labels the outer edges those writes reach.
 //!
-//! Recorded writes with no census identity (the cost): declarations and parameters (`let o`, `o` as a
-//! formal), `for` head targets and other forms the census does not mark a candidate, everything above.
+//! A plain declarator (`let`/`const`/`var o = ..`) has the bare declared name as its identity and is eligible
+//! (`Completion::covered`). Recorded writes with no eligible census identity (the cost): formals,
+//! destructured and loop-head names (a block-scoped pattern name is not told from the outer binding),
+//! other forms the census does not mark a candidate, and everything above.
 use super::capture_regions::JsRegions;
 use super::census_defs::CensusFacts;
 use super::DefSite;
