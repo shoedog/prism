@@ -121,6 +121,20 @@ pub fn k3() {
     let c = |report| report(1);
     let _ = c;
 }
+struct S;
+impl S {
+    fn new() -> S { S }
+    fn run(&self) {}
+}
+fn make() -> S { S }
+pub fn k5() {
+    let s = make();
+    s.run();
+}
+pub fn k6() {
+    let s = S::new();
+    s.run();
+}
 pub fn l7() {
     let x = 1u8;
     let report = report(x);
@@ -239,5 +253,28 @@ fn l7_chained_shadowing_binds_the_first_initializer_to_the_fn() {
         "l7",
         "report",
         ("src/m.rs", "report", 1),
+    );
+}
+
+#[test]
+fn k5_return_typed_receiver_of_a_let_still_binds() {
+    // The let's def-byte identity (its LocalFact key) must survive the later extent.
+    binds(
+        &let_graph(),
+        "src/m.rs",
+        "k5",
+        "run",
+        ("src/m.rs", "run", 57),
+    );
+}
+
+#[test]
+fn k6_constructor_receiver_of_a_let_still_binds() {
+    binds(
+        &let_graph(),
+        "src/m.rs",
+        "k6",
+        "run",
+        ("src/m.rs", "run", 57),
     );
 }

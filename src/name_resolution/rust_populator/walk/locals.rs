@@ -458,17 +458,32 @@ fn add_locals_with_facts_from(
             })),
             vis(VIS_PUB, None),
             None,
-            vec![Span {
-                lo: SourceLoc {
-                    file,
-                    byte: visible_from.unwrap_or(*def_byte).max(*def_byte),
-                },
-                hi: SourceLoc {
-                    file,
-                    byte: scope_end.max(def_byte + 1),
-                },
-            }],
+            local_extents(file, *def_byte, visible_from, scope_end),
         );
+    }
+}
+
+/// The visibility extents of a local. The FIRST extent always starts at the pattern
+/// identifier: receiver typing and the external-path proof read `vis_extents[0].lo` as the
+/// binding's def-byte identity (the key of its [`LocalFact`]). With `visible_from` after the
+/// identifier the scope itself starts there (rustc: after the statement), and the identifier
+/// keeps a one-byte extent of its own so the identity survives.
+fn local_extents(
+    file: FileId,
+    def_byte: usize,
+    visible_from: Option<usize>,
+    scope_end: usize,
+) -> Vec<Span> {
+    let span = |lo: usize, hi: usize| Span {
+        lo: SourceLoc { file, byte: lo },
+        hi: SourceLoc { file, byte: hi },
+    };
+    match visible_from.filter(|from| *from > def_byte) {
+        Some(from) => vec![
+            span(def_byte, def_byte + 1),
+            span(from, scope_end.max(from + 1)),
+        ],
+        None => vec![span(def_byte, scope_end.max(def_byte + 1))],
     }
 }
 

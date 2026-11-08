@@ -5,8 +5,8 @@
   "mutations": {
     "LS-01-extent-starts-at-the-identifier": [
       "src/name_resolution/rust_populator/walk/locals.rs",
-      "                    byte: visible_from.unwrap_or(*def_byte).max(*def_byte),",
-      "                    byte: *def_byte,",
+      "    match visible_from.filter(|from| *from > def_byte) {",
+      "    match None::<usize> {",
       [
         "rust_let_scope_test::l1_let_initializer_calls_the_fn_not_the_new_local",
         "rust_let_scope_test::l2_tuple_pattern_binds_after_the_initializer"
@@ -44,6 +44,15 @@
       "        body_scope,\n        ctx.file,\n        lo,\n",
       [
         "rust_let_scope_test::k3_closure_parameter_shadows_the_fn_in_its_body"
+      ]
+    ],
+    "LS-06-def-byte-identity-extent-dropped": [
+      "src/name_resolution/rust_populator/walk/locals.rs",
+      "            span(def_byte, def_byte + 1),\n            span(from, scope_end.max(from + 1)),",
+      "            span(from, scope_end.max(from + 1)),",
+      [
+        "rust_let_scope_test::k5_return_typed_receiver_of_a_let_still_binds",
+        "rust_let_scope_test::k6_constructor_receiver_of_a_let_still_binds"
       ]
     ]
   }
