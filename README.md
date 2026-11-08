@@ -600,18 +600,35 @@ are `candidate`.
 
 ---
 
-## Library use (`prism::api`)
+## Library use (`prism::api` and `prism_review::api`)
 
-Beyond the CLI, `prism::api` is a stable Rust facade for embedding prism in another tool (an
-analyzer, a CI check, a runtime harness) without depending on prism's internal module graph.
+Beyond the CLI, prism has two stable Rust facades for embedding it in another tool (an analyzer, a
+CI check, a runtime harness) without depending on prism's internal module graph. The workspace has
+two library crates, and you depend on the one whose facade covers what you need:
 
-> Within a major version, every item of `prism::api` keeps its name and signature; a removal or signature change is preceded by a `#[deprecated]` release. Every struct and enum reachable through `prism::api` — defined in `api`, `finding_confidence`, `targets`, or `output::sarif` — is `#[non_exhaustive]`: construct with `new`/`Default`/builders and assign public fields, never with a struct literal or exhaustive `match` (`SarifInputs` has a builder; `TargetsMeta` is `Default` + field assignment; `TargetsDocument` and its nested types are produced by `project` and read/deserialized by consumers). Types from other modules that appear in `prism::api` signatures (`ParsedFile`, `TypeDatabase`, `CpgContext`, `SliceConfig`, `SlicingAlgorithm`, `SliceResult`, `SliceFinding`, `NavigationSession`, `Evidence`, `QueryError`, `DiffInput`, `Language`, `LanguageVersion`) are **stable as handles**: you may obtain them from `prism::api`, pass them back into `prism::api`, and read the fields the `prism::api` docs name; their other fields and methods are internal and may change. Everything else in the crate is internal. Output formats are versioned by their own fields: multi-run `json`/`review` carry `version: "1.0"`; single-run `json`/`review` shapes are unversioned and pinned by tests; SARIF carries `properties.mapping_version`; targets carries `schema_version`.
+- **`prism` (core), facade `prism::api`**: build identity (`build_info`), whole-repo navigation
+  (`nav_session`, `callers`, `callees`), the owner options, the review inputs and graph context
+  (`load_review_inputs`, `build_context`, `ReviewOptions`) and the finding-confidence classification.
+- **`prism-review`, facade `prism_review::api`**: everything in `prism::api` (it re-exports it) plus
+  the review runner (`review`, `run_review`, `run_algorithm`), SARIF (`to_sarif`) and the targets
+  projection (`project`). The `prism` CLI binary is built from this crate.
 
-This example is also a running doc-test on `prism::api::review` (`cargo test --doc api`) — the
-sample below is verified on every test run, not just written prose:
+```toml
+# Embed navigation, build info and the review inputs only:
+prism = { path = "path/to/prism" }
+# Embed the whole review pipeline (this also pulls in `prism`; `prism_review::api` re-exports `prism::api`):
+prism-review = { path = "path/to/prism/crates/prism-review" }
+```
+
+> Within a major version, every item of `prism::api` and `prism_review::api` keeps its name and signature; a removal or signature change is preceded by a `#[deprecated]` release. 4.0 moved the review runner, SARIF and targets items to `prism_review::api`. Every struct and enum reachable through `prism::api` defined in `api` or `finding_confidence`, and every one reachable through `prism_review::api` defined in `targets` or `output::sarif`, is `#[non_exhaustive]`: construct with `new`/`Default`/builders and assign public fields, never with a struct literal or exhaustive `match` (`SarifInputs` has a builder; `TargetsMeta` is `Default` + field assignment; `TargetsDocument` and its nested types are produced by `project` and read/deserialized by consumers). Types from other modules that appear in these signatures (`ParsedFile`, `TypeDatabase`, `CpgContext`, `SliceConfig`, `SlicingAlgorithm`, `SliceResult`, `SliceFinding`, `NavigationSession`, `Evidence`, `QueryError`, `DiffInput`, `Language`, `LanguageVersion`) are **stable as handles**: you may obtain them from the facades, pass them back into the facades, and read the fields the facade docs name; their other fields and methods are internal and may change. Everything else in the crates is internal. Output formats are versioned by their own fields: multi-run `json`/`review` carry `version: "1.0"`; single-run `json`/`review` shapes are unversioned and pinned by tests; SARIF carries `properties.mapping_version`; targets carries `schema_version`.
+
+**Changelog.** 4.0.0: the review runner, SARIF and targets facade moved to `prism_review::api` (#701 S5); `prism::api` keeps the core items. There is no deprecation release for the move.
+
+This example is also a running doc-test on `prism_review::api::review` (`cargo test --doc -p prism-review`)
+— the sample below is verified on every test run, not just written prose:
 
 ```rust
-use prism::api::{review, AlgorithmParams, ReviewOptions};
+use prism_review::api::{review, AlgorithmParams, ReviewOptions};
 use prism::slice::{SliceConfig, SlicingAlgorithm};
 use std::fs;
 use tempfile::TempDir;
@@ -642,8 +659,10 @@ assert_eq!(
 
 `review()` is the one-shot entry point; `load_review_inputs`/`build_context`/`run_review`/
 `run_algorithm` expose the same pipeline in two phases for callers that want to build once and
-run many algorithms. `nav_session`/`callers`/`callees` expose whole-repo navigation the same way
-`prism nav` does. See the [`prism::api` module docs](src/api/mod.rs) for the full surface.
+run many algorithms. `nav_session`/`callers`/`callees` (in `prism::api`) expose whole-repo
+navigation the same way `prism nav` does. See the module docs of
+[`prism::api`](src/api/mod.rs) and [`prism_review::api`](crates/prism-review/src/api/mod.rs) for the
+full surface.
 
 ---
 
