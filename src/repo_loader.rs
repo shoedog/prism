@@ -487,6 +487,9 @@ fn has_complete_rust_coverage(
 
 #[path = "repo_loader_freshness.rs"]
 mod freshness_paths;
+#[cfg(test)]
+#[path = "repo_loader_skip_tests.rs"]
+mod skip_tests;
 pub use freshness_paths::collect_freshness_source_paths;
 
 /// Why the repo's source listing could not be built: the directory the walk

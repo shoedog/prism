@@ -79,6 +79,7 @@ mod js_wrapped_export_refusal_test;
 mod js_wrapped_export_state_test;
 mod js_wrapped_export_test;
 mod layering_test;
+mod loader_skip_dirs_test;
 mod module_binding_audit_test;
 mod module_binding_flow_test;
 mod r6_candidate_test;
