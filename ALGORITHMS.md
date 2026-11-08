@@ -174,7 +174,7 @@ Standard program-slicing types. Use these when you have a specific question (sec
   - `category: "taint_sink"`, severity `warning` — tainted value reaches a known sink.
   - `category: "unquoted_expansion"`, severity `warning` — Bash-only: `$VAR` inside a `command` not wrapped in a `string` node.
 
-**Limitations.** Generic name/access-path DFG with no framework-aware modeling. Pydantic / dataclass validators are invisible (treated as opaque calls); decorator chains are not edges, so `@app.route` / `@retry` and similar wrappers do not connect dispatcher → handler; ORM session managers propagate through ordinary alias tracking but session/transaction lifecycles are not modeled; `await` is transparent (taint crosses iff the awaited callee resolves in the call graph); JS/TS Promise `.then(cb)` does not connect the resolved value to `cb`'s parameter. Sink list and source list are flat tables — `crates/prism-review/src/algorithms/taint.rs:21` and `:232`.
+**Limitations.** Generic name/access-path DFG with no framework-aware modeling. Pydantic / dataclass validators are invisible (treated as opaque calls); decorator chains are not edges, so `@app.route` / `@retry` and similar wrappers do not connect dispatcher → handler; ORM session managers propagate through ordinary alias tracking but session/transaction lifecycles are not modeled; `await` is transparent (taint crosses iff the awaited callee resolves in the call graph); JS/TS Promise `.then(cb)` does not connect the resolved value to `cb`'s parameter. Sink list and source list are flat tables — `crates/prism-review/src/algorithms/taint/flat.rs:15` (`SINK_PATTERNS`) and `:226` (`IPC_SOURCE_PATTERNS`).
 
 **Source.** `crates/prism-review/src/algorithms/taint.rs`
 

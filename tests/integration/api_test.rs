@@ -262,8 +262,8 @@ fn nav_session_and_callers_work_without_outer_pool() {
 /// The scan covers all four locations the §2.3.1 promise names — `src/api/`,
 /// `finding_confidence.rs`, `targets` and `output::sarif` — not just `src/api/`
 /// (final review, Opus Important 2): `SarifInputs`, `TargetsMeta`,
-/// `TargetsDocument` and its nested DTOs are re-exported from `prism::api` and
-/// were drifting outside the gate. `src/output/sarif_model.rs` is deliberately
+/// `TargetsDocument` and its nested DTOs are re-exported from `prism_review::api` and
+/// were drifting outside the gate. `crates/prism-review/src/output/sarif_model.rs` is deliberately
 /// NOT scanned: `mod sarif_model` is private, so none of its types is
 /// reachable through the facade.
 #[test]

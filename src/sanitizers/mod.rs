@@ -42,7 +42,7 @@ pub fn sanitizer_supported(language: Language) -> bool {
 /// as the legacy category-wide `FlowPath.cleansed_for` marker.
 ///
 /// Go `PathTraversal` sink suppression no longer trusts this textual marker by
-/// itself: `algorithms/taint/go/sanitizers.rs` performs sink-time AST + CFG validation so inverted guards,
+/// itself: `crates/prism-review/src/algorithms/taint/go/sanitizers.rs` performs sink-time AST + CFG validation so inverted guards,
 /// unrelated `HasPrefix` calls, and guard-after-sink shapes do not suppress.
 pub fn paired_check_satisfied(function_body_source: &str, check_name: &str) -> bool {
     function_body_source.contains(check_name)

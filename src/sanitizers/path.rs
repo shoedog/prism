@@ -3,7 +3,7 @@
 //! See spec §3.8. These recognizers still record the transform half of the
 //! cleanser pair (`filepath.Clean` / `filepath.Rel`) and the paired-check token.
 //! Go `PathTraversal` suppression is refined at sink evaluation time by
-//! `algorithms/taint/go/sanitizers.rs`: the sink-specific helper couples the sanitized result variable
+//! `crates/prism-review/src/algorithms/taint/go/sanitizers.rs`: the sink-specific helper couples the sanitized result variable
 //! to the sink argument and validates `strings.HasPrefix` guard direction with
 //! AST + CFG reachability.
 

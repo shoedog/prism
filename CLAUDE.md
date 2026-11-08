@@ -783,10 +783,11 @@ Algorithms fall into two categories:
 The workspace is three crates: `prism` (the core library, root `src/`), `crates/prism-review` (the review
 layer, library `prism_review` plus the `prism` binary) and `crates/prism-mcp`; `default-members` are the root
 and `prism-review` (`prism-mcp` is opt-in with `-p prism-mcp` or `--workspace`). The layering boundary is
-Cargo: the core cannot name `prism_review` (no dependency) or `algorithms` (the module is not there).
-`tests/integration/layering_test.rs` backs this up where Cargo cannot: it fails on any non-comment line
-under `src/` that contains `prism_review`, test modules and `*_tests.rs` files included (the root's
-dev-dependency on `prism-review` is for integration tests only and must not leak into core source), and it
+Cargo: the `prism` library cannot name `prism_review` (no dependency) or `algorithms` (the module is not there);
+its `#[cfg(test)]` code could name `prism_review` through the root's dev-dependency, which is what
+`tests/integration/layering_test.rs` closes: it fails on any non-comment line
+under `src/` that contains `prism_review`, test modules and `*_tests.rs` files included (the dev-dependency is
+for integration tests only and must not leak into core source), and it
 scans `crates/prism-mcp/src/` for `crate::algorithms`, `algorithms::`, `prism::algorithms` and
 `prism_review`, exempting only its test files by name (`*_tests.rs`, `*_test.rs`, `tests.rs`, any
 `/tests/` component); `//` comment lines are skipped, and there is deliberately no `#[cfg(test)]`

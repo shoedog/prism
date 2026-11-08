@@ -14,6 +14,8 @@ python3 scripts/memreport/memreport.py compare --experiment m2 --baseline <run-a
 python3 -m unittest discover -s scripts/memreport -p 'test_*.py'
 ```
 
+`workloads/*.jsonl` are pinned to the corpus commit in `MANIFEST.json`; their paths and line numbers are the pinned commit's, not main's. Never hand-edit them after a file move; re-pin with `gen-workload` (which rewrites MANIFEST.json) when a new corpus commit is wanted.
+
 The tests are split across several `test_memreport*.py` files to keep each under 600 lines; `discover`
 runs all of them. One file alone: `python3 -m unittest scripts/memreport/test_memreport_rule.py`.
 
