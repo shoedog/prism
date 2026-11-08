@@ -10,9 +10,10 @@ mod run;
 pub use crate::executable_owner::admission::Failure as OwnerFailure;
 pub use build_info::{build_info, BuildInfo};
 pub use nav::{callees, callers, nav_session, NavOptions, Seed};
-pub use owner::OwnerOptions;
-#[doc(hidden)] // clap args shared by the prism and prism-mcp CLIs; outside the api compatibility promise
+#[doc(hidden)]
+// clap args shared by the prism and prism-mcp CLIs; outside the api compatibility promise
 pub use owner::OwnerArgs;
+pub use owner::OwnerOptions;
 pub use review::{build_context, load_review_inputs, BuiltContext, ReviewInputs, ReviewOptions};
 pub use run::{
     annotate_finding_parse_quality, filter_result_findings, parse_algorithms, run_algorithm,

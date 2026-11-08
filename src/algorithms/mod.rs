@@ -30,6 +30,8 @@ pub mod thin_slice;
 pub mod threed_slice;
 pub mod vertical_slice;
 
+/// Re-exported from core (`prism::ast::parse_quality`) so existing `algorithms::` callers keep working.
+pub use crate::ast::parse_quality::{check_parse_quality, check_parse_warnings};
 use crate::ast::ParsedFile;
 use crate::cpg::CpgContext;
 use crate::diff::DiffInput;
@@ -39,8 +41,6 @@ use crate::slice::{
     SlicingAlgorithm,
 };
 use crate::type_db::TypeDatabase;
-/// Re-exported from core (`prism::ast::parse_quality`) so existing `algorithms::` callers keep working.
-pub use crate::ast::parse_quality::{check_parse_quality, check_parse_warnings};
 use anyhow::Result;
 use std::collections::BTreeMap;
 use std::panic;

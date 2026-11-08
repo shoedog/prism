@@ -12,10 +12,7 @@ use tree_sitter::Node;
 /// `pub(crate)` (P9): reused as-is by `framework_entries::express_route_candidates`
 /// to compute the express receiver set for registration-first extraction —
 /// no logic change, just visibility.
-pub fn js_ts_framework_receiver_names(
-    parsed: &ParsedFile,
-    framework: &str,
-) -> BTreeSet<String> {
+pub fn js_ts_framework_receiver_names(parsed: &ParsedFile, framework: &str) -> BTreeSet<String> {
     let imports = parsed.extract_imports();
     let mut receivers = BTreeSet::new();
     let mut assignments = Vec::new();
@@ -38,11 +35,7 @@ pub fn js_ts_framework_receiver_names(
 /// `pub(crate)` (P9): reused by `framework_entries::express_route_candidates`
 /// to collect every call node in a file before filtering to route
 /// registrations.
-pub fn collect_js_ts_call_nodes<'a>(
-    node: Node<'a>,
-    parsed: &ParsedFile,
-    out: &mut Vec<Node<'a>>,
-) {
+pub fn collect_js_ts_call_nodes<'a>(node: Node<'a>, parsed: &ParsedFile, out: &mut Vec<Node<'a>>) {
     if parsed.language.is_call_node(node.kind()) {
         out.push(node);
     }
@@ -270,10 +263,7 @@ pub fn js_ts_assignment_target_and_value<'a>(
     ))
 }
 
-pub fn js_ts_assignment_target<'a>(
-    parsed: &ParsedFile,
-    node: &Node<'a>,
-) -> Option<Node<'a>> {
+pub fn js_ts_assignment_target<'a>(parsed: &ParsedFile, node: &Node<'a>) -> Option<Node<'a>> {
     if node.kind() == "variable_declarator" {
         return node.child_by_field_name("name");
     }
