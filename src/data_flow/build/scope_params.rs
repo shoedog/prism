@@ -6,28 +6,32 @@
 //! the name coincidence is the only edge that carries it (owner precedent from #709: keep main's
 //! behaviour where the replacement path is not connected; the shapes are listed in CLAUDE.md):
 //!
-//! * a formal of a literal that is not called in place (passed to a callee, assigned, returned):
-//!   the callee or a later call supplies the value, and no argument is bound to the formal. Kept
-//!   only for defs whose variable is in scope where the literal is created: a sibling literal's
-//!   formal or any other out-of-scope def cannot be an argument of it.
-//! * a formal of a literal called in place (`func(v T){..}(args)`, `go`/`defer` included) whose
-//!   argument list reads the name: `func(v int){..}(v)` carries the outer value into the formal.
-//!   An argument list that never mentions the name cannot carry the outer variable, so the pair
-//!   drops.
+//! * a formal of a literal that is not a direct call argument (called in place, `go`/`defer`
+//!   included, or assigned, stored, returned, spread): the call's arguments, however indirect
+//!   (`arg := v + 1; func(v int){..}(arg)`), or a later call from any scope supply the value, and
+//!   no argument is bound to the formal. Every def of the spelling that main carried stays; a def
+//!   that is itself a formal or result of another declaration is a new def and drops.
+//! * a formal of a literal passed directly as a call argument (`sort.Slice`, `t.Run`): only the
+//!   callee calls it, so only a def whose variable is in scope where the literal is created can be
+//!   the value it passes.
 //! * a named result read inside a callable nested in the one that declares it: `return e` assigns
 //!   the result, and a deferred literal reads it afterwards, so the def of `e` reaches the read by
 //!   name only. A read in the declaring callable's own body is reached by the writes S sees.
+//! * a def inside a literal called in place whose call is on the right of an assignment or
+//!   declaration naming the same variable (`err := func() error { err := do(); return err }()`):
+//!   the value comes out through the call result, which no edge connects.
 use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingId};
-use std::collections::{BTreeMap, BTreeSet};
+use std::cell::RefCell;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use tree_sitter::Node;
 
 enum Form {
     Formal {
         /// Start byte of the literal that declares the formal.
         literal: usize,
-        /// Identifier spellings in the argument list when the literal is called in place.
-        in_place_args: Option<BTreeSet<String>>,
+        /// The literal is passed directly as a call argument (and so is not called in place).
+        direct: bool,
     },
     Result {
         /// Start byte of the function or literal that declares the result.
@@ -35,21 +39,98 @@ enum Form {
     },
 }
 
+/// A literal called in place whose call is on the right of a statement that names variables.
+struct ReturnSink {
+    start: usize,
+    end: usize,
+    names: BTreeSet<String>,
+}
+
 /// Per owner: the forms of its formal and result declarations, by declaration index.
 pub(super) struct ParamFacts {
     by_declaration: BTreeMap<usize, Form>,
+    sinks: Vec<ReturnSink>,
+    callables: RefCell<HashMap<usize, Option<usize>>>,
 }
 
 const CALLABLES: [&str; 3] = ["func_literal", "function_declaration", "method_declaration"];
 
+/// The formals and named results of one owner that slice B gives producer defs: the start byte of
+/// each name's identifier, with the body span of the callable that declares it (its scope).
+pub(super) struct SliceBDefs {
+    scope: HashMap<usize, (usize, usize)>,
+    names: BTreeSet<String>,
+}
+
+impl SliceBDefs {
+    pub(super) fn new(parsed: &ParsedFile, owner: Node<'_>) -> Self {
+        let mut out = Self {
+            scope: HashMap::new(),
+            names: BTreeSet::new(),
+        };
+        let mut stack = vec![owner];
+        while let Some(node) = stack.pop() {
+            if CALLABLES.contains(&node.kind()) {
+                if let Some(body) = node.child_by_field_name("body") {
+                    let span = (body.start_byte(), body.end_byte());
+                    let mut lists = vec![node.child_by_field_name("result")];
+                    if node.kind() == "func_literal" {
+                        lists.push(node.child_by_field_name("parameters"));
+                    }
+                    for list in lists.into_iter().flatten() {
+                        if list.kind() != "parameter_list" {
+                            continue;
+                        }
+                        let mut cursor = list.walk();
+                        for param in list.named_children(&mut cursor) {
+                            let mut names = param.walk();
+                            for name in param.children_by_field_name("name", &mut names) {
+                                out.scope.insert(name.start_byte(), span);
+                                out.names.insert(parsed.node_text(&name).to_owned());
+                            }
+                        }
+                    }
+                }
+            }
+            let mut cursor = node.walk();
+            stack.extend(node.named_children(&mut cursor));
+        }
+        out
+    }
+
+    /// The scope (body span) of the formal or result declared at identifier byte `start`.
+    pub(super) fn scope_of(&self, start: usize) -> Option<(usize, usize)> {
+        self.scope.get(&start).copied()
+    }
+
+    pub(super) fn empty() -> Self {
+        Self {
+            scope: HashMap::new(),
+            names: BTreeSet::new(),
+        }
+    }
+
+    pub(super) fn names(&self) -> &BTreeSet<String> {
+        &self.names
+    }
+}
+
 impl ParamFacts {
     pub(super) fn new(parsed: &ParsedFile, owner: Node<'_>, facts: &BindingFacts) -> Self {
         let mut by_declaration = BTreeMap::new();
+        let mut sinks = Vec::new();
         let mut stack = vec![owner];
         while let Some(node) = stack.pop() {
             if CALLABLES.contains(&node.kind()) {
                 let literal = node.kind() == "func_literal";
-                let in_place_args = literal.then(|| in_place_arguments(parsed, node)).flatten();
+                let direct = literal && node.parent().is_some_and(|p| p.kind() == "argument_list");
+                if let Some(names) = literal.then(|| return_sink(parsed, node)).flatten() {
+                    sinks.push(ReturnSink {
+                        start: node.start_byte(),
+                        end: node.end_byte(),
+                        names,
+                    });
+                }
                 // A signature name is declared in the body's scope, which starts at the body.
                 let Some(body_start) = node.child_by_field_name("body").map(|b| b.start_byte())
                 else {
@@ -71,7 +152,7 @@ impl ParamFacts {
                                 let form = if formal {
                                     Form::Formal {
                                         literal: node.start_byte(),
-                                        in_place_args: in_place_args.clone(),
+                                        direct,
                                     }
                                 } else {
                                     Form::Result {
@@ -91,35 +172,58 @@ impl ParamFacts {
             let mut cursor = node.walk();
             stack.extend(node.named_children(&mut cursor));
         }
-        Self { by_declaration }
+        Self {
+            by_declaration,
+            sinks,
+            callables: RefCell::new(HashMap::new()),
+        }
     }
 
     /// The pair (def `def_index` of `name`, a read at `use_start` that resolves to declaration
-    /// `other`) is kept although the two are different declarations.
+    /// `other`) is kept although the two are different declarations. `declare_only`: the def is
+    /// itself a formal or named result (a new def, never one main carried).
     pub(super) fn keeps(
         &self,
         parsed: &ParsedFile,
         facts: &BindingFacts,
-        name: &str,
         def_index: usize,
+        declare_only: bool,
         other: usize,
         use_start: usize,
     ) -> bool {
         match self.by_declaration.get(&other) {
             None => false,
-            Some(Form::Result { callable }) => {
-                enclosing_callable(parsed, use_start).is_some_and(|c| c != *callable)
-            }
-            Some(Form::Formal {
-                literal,
-                in_place_args,
-            }) => {
-                facts.def_scope_contains(def_index, *literal)
-                    && in_place_args
-                        .as_ref()
-                        .is_none_or(|args| args.contains(name))
+            Some(Form::Result { callable }) => self
+                .enclosing_callable(parsed, use_start)
+                .is_some_and(|c| c != *callable),
+            Some(Form::Formal { literal, direct }) => {
+                if *direct {
+                    facts.def_scope_contains(def_index, *literal)
+                } else {
+                    !declare_only
+                }
             }
         }
+    }
+
+    /// The def at `def_start` lies inside a literal called in place whose call is on the right of
+    /// an assignment or declaration that names `name`, and the read at `use_start` lies outside it.
+    pub(super) fn returned_out(&self, name: &str, def_start: usize, use_start: usize) -> bool {
+        self.sinks.iter().any(|s| {
+            s.start <= def_start
+                && def_start < s.end
+                && !(s.start <= use_start && use_start < s.end)
+                && s.names.contains(name)
+        })
+    }
+
+    /// Start byte of the innermost function or literal around `byte` (memoized).
+    fn enclosing_callable(&self, parsed: &ParsedFile, byte: usize) -> Option<usize> {
+        *self
+            .callables
+            .borrow_mut()
+            .entry(byte)
+            .or_insert_with(|| enclosing_callable(parsed, byte))
     }
 }
 
@@ -138,22 +242,46 @@ fn enclosing_callable(parsed: &ParsedFile, byte: usize) -> Option<usize> {
     None
 }
 
-/// The identifier spellings of the argument list when `literal` is the callee of a call
-/// (`func(..){..}(args)`, also under `go`/`defer`); `None` when it is not called in place.
-fn in_place_arguments(parsed: &ParsedFile, literal: Node<'_>) -> Option<BTreeSet<String>> {
+/// The variables named on the left of the assignment or declaration whose right side holds the
+/// call of `literal`, when `literal` is the callee of that call (`func(..){..}(args)`, also as
+/// an operand of a larger expression or the init of an `if`/`switch`).
+fn return_sink(parsed: &ParsedFile, literal: Node<'_>) -> Option<BTreeSet<String>> {
     let call = literal.parent().filter(|p| p.kind() == "call_expression")?;
     if call.child_by_field_name("function")?.id() != literal.id() {
         return None;
     }
-    let args = call.child_by_field_name("arguments")?;
-    let mut out = BTreeSet::new();
-    let mut stack = vec![args];
-    while let Some(node) = stack.pop() {
-        if node.kind() == "identifier" {
-            out.insert(parsed.node_text(&node).to_owned());
+    let mut child = call;
+    while let Some(node) = child.parent() {
+        let (left, right) = match node.kind() {
+            "short_var_declaration" | "assignment_statement" => ("left", "right"),
+            "var_spec" => ("name", "value"),
+            k if k == "block"
+                || k == "func_literal"
+                || k.ends_with("_statement")
+                || k.ends_with("_declaration") =>
+            {
+                return None;
+            }
+            _ => {
+                child = node;
+                continue;
+            }
+        };
+        let side = node.child_by_field_name(right)?;
+        if !(side.start_byte() <= child.start_byte() && child.end_byte() <= side.end_byte()) {
+            return None;
         }
+        let mut names = BTreeSet::new();
         let mut cursor = node.walk();
-        stack.extend(node.named_children(&mut cursor));
+        let mut stack: Vec<Node<'_>> = node.children_by_field_name(left, &mut cursor).collect();
+        while let Some(n) = stack.pop() {
+            if n.kind() == "identifier" {
+                names.insert(parsed.node_text(&n).to_owned());
+            }
+            let mut inner = n.walk();
+            stack.extend(n.named_children(&mut inner));
+        }
+        return Some(names);
     }
-    Some(out)
+    None
 }

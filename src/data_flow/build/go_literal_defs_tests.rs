@@ -92,16 +92,16 @@ fn formal_defs_mint_no_alias_twin() {
 // ---- immediately invoked literals ------------------------------------------------------
 
 #[test]
-fn iife_with_unrelated_argument_drops_the_outer_pair() {
+fn iife_with_unrelated_argument_keeps_the_outer_pair() {
     let src =
         "package p\nfunc f(x int, y int) {\n\tv := x\n\tfunc(v int) {\n\t\tuse(v)\n\t}(y)\n}\n";
     check(
         "iife-diff",
         src,
         &[
-            ("v", 3, 5, false), // outer v cannot reach the body: the formal comes from y
-            ("v", 4, 5, true),  // the formal's own def reaches the body
-            ("y", 2, 6, true),  // argument read, as on main
+            ("v", 3, 5, true), // kept: an argument can carry v indirectly (fold 1, as main)
+            ("v", 4, 5, true), // the formal's own def reaches the body
+            ("y", 2, 6, true), // argument read, as on main
         ],
     );
 }
@@ -120,7 +120,7 @@ fn iife_reading_the_name_in_its_argument_keeps_the_real_path() {
 fn go_and_defer_literals() {
     let go =
         "package p\nfunc f(x int, c int) {\n\tv := x\n\tgo func(v int) {\n\t\tuse(v)\n\t}(c)\n}\n";
-    check("go-diff", go, &[("v", 3, 5, false), ("v", 4, 5, true)]);
+    check("go-diff", go, &[("v", 3, 5, true), ("v", 4, 5, true)]);
     let go_same =
         "package p\nfunc f(x int) {\n\tv := x\n\tgo func(v int) {\n\t\tuse(v)\n\t}(v)\n}\n";
     check("go-same", go_same, &[("v", 3, 5, true), ("v", 4, 5, true)]);

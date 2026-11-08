@@ -39,8 +39,14 @@ pub(super) struct ScopeFacts<'a> {
     enabled: bool,
     /// Go, no parse error, at least one def: the lexical proofs that need no `multi` gate.
     lexical_ok: bool,
-    /// Per name, the start bytes of its identifier nodes by line (built on first use).
-    idents: RefCell<HashMap<String, Rc<HashMap<usize, Vec<usize>>>>>,
+    /// The owner's formals and named results with their scopes, built once (#694 slice B).
+    slice_b: super::scope_params::SliceBDefs,
+    /// Per slice-B name, the start bytes of its identifier nodes by line (one walk, on first use).
+    idents: OnceCell<HashMap<String, HashMap<usize, Vec<usize>>>>,
+    /// Genuine defs by line, for same-line peers of a slice-B def (built on first use).
+    defs_by_line: OnceCell<HashMap<usize, Vec<usize>>>,
+    /// Per slice-B def start, its scope when it has no same-line peer of its path.
+    lone_scope: RefCell<HashMap<usize, Option<(usize, usize)>>>,
     /// Names with two or more declaration sites in the owner. A pair can only
     /// be dropped for such a name, so nothing else is ever built for others.
     multi: BTreeSet<&'a str>,
@@ -87,7 +93,14 @@ impl<'a> ScopeFacts<'a> {
             owner,
             enabled: enabled && !multi.is_empty(),
             lexical_ok: enabled,
-            idents: RefCell::new(HashMap::new()),
+            slice_b: if enabled {
+                super::scope_params::SliceBDefs::new(parsed, owner)
+            } else {
+                super::scope_params::SliceBDefs::empty()
+            },
+            idents: OnceCell::new(),
+            defs_by_line: OnceCell::new(),
+            lone_scope: RefCell::new(HashMap::new()),
             multi,
             address_taken,
             built: OnceCell::new(),
@@ -218,11 +231,6 @@ impl<'a> ScopeFacts<'a> {
         {
             return None;
         }
-        // A formal or named result declares a fresh variable: it writes no storage, so neither
-        // the def's line nor the use's can make it a write through a pointer (#694 slice B).
-        if node.parent().is_some_and(is_slice_b_declaration) {
-            return Some((*declaration, index, true));
-        }
         // Same-line defs of one path are coalesced to the first span: each must
         // bind this declaration, and no occurrence on the line may be a storage
         // access (`x, *x = x, 7`, `x = new(int); *x = 7`).
@@ -231,6 +239,11 @@ impl<'a> ScopeFacts<'a> {
             self.defs[*i].path == *path && facts.binding_of_def(*i) != facts.binding_of_def(index)
         }) {
             return None;
+        }
+        // A formal or named result declares a fresh variable: it writes no storage, so neither
+        // the def's line nor the use's can make it a write through a pointer (#694 slice B).
+        if node.parent().is_some_and(is_slice_b_declaration) {
+            return Some((*declaration, index, true));
         }
         // Every lvalue of the path attributed to this line is classified by its
         // own span, wherever its identifier sits: `*` and the name may be on
@@ -262,72 +275,90 @@ impl<'a> ScopeFacts<'a> {
     /// The def is a function-literal formal or a named result and no occurrence of its name on
     /// `use_line` lies in its function's body, the scope of that declaration (#694 slice B). The
     /// scope is lexical, so no binding-resolution proof for the name is needed (and the name may
-    /// have a single declaration site in the owner).
+    /// have a single declaration site in the owner). A def coalesced with another def of the path
+    /// on its line stands for several raw spans and is never judged here.
     fn outside_declare_only_scope(
         &self,
         path: &AccessPath,
         def_start: usize,
-        def_end: usize,
+        def_line: usize,
         use_line: usize,
     ) -> bool {
         if !self.lexical_ok || !path.fields.is_empty() {
             return false;
         }
-        let Some((body_start, body_end)) = self.declare_only_scope(def_start, def_end) else {
+        let Some((body_start, body_end)) = self.lone_declare_only_scope(path, def_start, def_line)
+        else {
             return false;
         };
         // No variable read of the name inside the scope on this line (a use the collector
         // records at a keyed-literal field name has no identifier node in it at all).
-        let idents = self.identifiers_named(&path.base);
-        idents
-            .get(&use_line)
+        self.identifiers_named(&path.base)
+            .and_then(|by_line| by_line.get(&use_line))
             .is_none_or(|bytes| bytes.iter().all(|b| !(body_start <= *b && *b < body_end)))
     }
 
-    /// The body span of the callable that declares the formal or named result whose def is the
-    /// identifier at `start..end`.
-    fn declare_only_scope(&self, start: usize, end: usize) -> Option<(usize, usize)> {
-        let node = self
-            .parsed
-            .tree
-            .root_node()
-            .descendant_for_byte_range(start, end)?;
-        if node.kind() != "identifier" || node.start_byte() != start || node.end_byte() != end {
-            return None;
+    /// The scope of the formal or named result whose def starts at `def_start`, when no other
+    /// genuine def of the path is on its line (memoized by def).
+    fn lone_declare_only_scope(
+        &self,
+        path: &AccessPath,
+        def_start: usize,
+        def_line: usize,
+    ) -> Option<(usize, usize)> {
+        let scope = self.slice_b.scope_of(def_start)?;
+        if let Some(known) = self.lone_scope.borrow().get(&def_start) {
+            return *known;
         }
-        let declaration = node.parent().filter(|p| is_slice_b_declaration(*p))?;
-        if !is_parameter_name(declaration, node) {
-            return None;
-        }
-        let body = declaration
-            .parent()?
-            .parent()?
-            .child_by_field_name("body")?;
-        Some((body.start_byte(), body.end_byte()))
+        let by_line = self.defs_by_line.get_or_init(|| {
+            let mut map: HashMap<usize, Vec<usize>> = HashMap::new();
+            for (i, d) in self
+                .defs
+                .iter()
+                .enumerate()
+                .filter(|(_, d)| !d.alias_derived)
+            {
+                map.entry(d.line).or_default().push(i);
+            }
+            map
+        });
+        let lone = by_line.get(&def_line).is_none_or(|peers| {
+            peers.iter().all(|i| {
+                let d = &self.defs[*i];
+                d.path != *path || d.start_byte == def_start
+            })
+        });
+        let found = lone.then_some(scope);
+        self.lone_scope.borrow_mut().insert(def_start, found);
+        found
     }
 
-    /// Start bytes of the identifier nodes spelled `name`, by line.
-    fn identifiers_named(&self, name: &str) -> Rc<HashMap<usize, Vec<usize>>> {
-        if let Some(found) = self.idents.borrow().get(name) {
-            return found.clone();
-        }
-        let mut by_line: HashMap<usize, Vec<usize>> = HashMap::new();
-        let mut stack = vec![self.owner];
-        while let Some(node) = stack.pop() {
-            if node.kind() == "identifier" && self.parsed.node_text(&node) == name {
-                by_line
-                    .entry(node.start_position().row + 1)
-                    .or_default()
-                    .push(node.start_byte());
+    /// Start bytes of the identifier nodes spelled `name`, by line, for the owner's slice-B
+    /// names (all of them in one walk).
+    fn identifiers_named(&self, name: &str) -> Option<&HashMap<usize, Vec<usize>>> {
+        let all = self.idents.get_or_init(|| {
+            let mut all: HashMap<String, HashMap<usize, Vec<usize>>> = self
+                .slice_b
+                .names()
+                .iter()
+                .map(|n| (n.clone(), HashMap::new()))
+                .collect();
+            let mut stack = vec![self.owner];
+            while let Some(node) = stack.pop() {
+                if node.kind() == "identifier" {
+                    if let Some(by_line) = all.get_mut(self.parsed.node_text(&node)) {
+                        by_line
+                            .entry(node.start_position().row + 1)
+                            .or_default()
+                            .push(node.start_byte());
+                    }
+                }
+                let mut cursor = node.walk();
+                stack.extend(node.named_children(&mut cursor));
             }
-            let mut cursor = node.walk();
-            stack.extend(node.named_children(&mut cursor));
-        }
-        let found = Rc::new(by_line);
-        self.idents
-            .borrow_mut()
-            .insert(name.to_owned(), found.clone());
-        found
+            all
+        });
+        all.get(name)
     }
 
     /// The def starts at an identifier that is the written variable itself.
@@ -356,7 +387,7 @@ impl<'a> ScopeFacts<'a> {
     ) -> bool {
         // A formal or named result is visible only in its function's body: a use line whose
         // every occurrence of the name lies outside it reads another variable.
-        if self.outside_declare_only_scope(path, def_start, def_end, use_line) {
+        if self.outside_declare_only_scope(path, def_start, def_line, use_line) {
             stats.dfg_pruned_scope += 1;
             return false;
         }
@@ -421,11 +452,12 @@ impl<'a> ScopeFacts<'a> {
                             && !built.params.keeps(
                                 self.parsed,
                                 &built.facts,
-                                &path.base,
                                 def_index,
+                                declare_only,
                                 *other,
                                 o.start,
-                            ))
+                            )
+                            && !built.params.returned_out(&path.base, def_start, o.start))
                 });
         if drop {
             stats.dfg_pruned_scope += 1;

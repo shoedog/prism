@@ -114,7 +114,7 @@ fn literal_named_result_assigned_into_the_same_name_keeps_the_carrier() {
 
 #[test]
 fn literal_formal_updated_and_returned_into_the_same_name_keeps_the_carrier() {
-    let src = "package p\nfunc f(v int) {\n\tv = func(v int) int {\n\t\tv++\n\t\treturn v\n\t}(v)\n\tuse(v)\n}\n";
+    let src = "package p\nfunc f(v int) {\n\tv = func(v int) int {\n\t\tv *= 2\n\t\treturn v\n\t}(v)\n\tuse(v)\n}\n";
     check("ret-formal", src, &[("v", 4, 7, true)]);
 }
 
