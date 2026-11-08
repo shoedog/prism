@@ -1,0 +1,111 @@
+{
+  "lane": "Rust #[path] module placement per the Reference (#765)",
+  "source": "src/name_resolution/rust_populator/builder.rs",
+  "lib_test_prefixes": [],
+  "test_targets": [
+    {
+      "prefix": "path_attribute_placement_test::",
+      "package": "prism",
+      "target": "name_resolution"
+    }
+  ],
+  "mutations": {
+    "PP-01-mount-joined-to-the-stem-directory-d1": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "            let Some(p) = resolve_relative(path_dir, rel) else {",
+      "            let Some(p) = resolve_relative(dir, rel) else {",
+      [
+        "path_attribute_placement_test::d1_non_mod_rs_declaring_file_mounts_beside_itself",
+        "rust_path_attribute_test::e1_non_mod_rs_declaring_file_binds_the_file_beside_it"
+      ]
+    ],
+    "PP-02-inline-module-directory-ignores-the-stem-d5": [
+      "src/name_resolution/rust_populator/walk/items.rs",
+      "            None => join(&ctx.dir, &format!(\"{name}/\")),\n        };\n        let body_nid",
+      "            None => join(&ctx.path_dir, &format!(\"{name}/\")),\n        };\n        let body_nid",
+      [
+        "path_attribute_placement_test::d5_inline_module_in_a_non_mod_rs_file_uses_the_stem_directory",
+        "rust_path_attribute_test::e5_inline_module_in_a_non_mod_rs_file"
+      ]
+    ],
+    "PP-03-mounted-file-children-search-its-stem-directory-d7": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "                    child_dir: parent_dir(&p),",
+      "                    child_dir: format!(\"{}/\", p.trim_end_matches(\".rs\")),",
+      [
+        "path_attribute_placement_test::d7_children_of_a_mounted_file_are_its_siblings",
+        "rust_path_attribute_test::e7_children_of_a_mounted_file_are_its_siblings"
+      ]
+    ],
+    "PP-04-inline-path-directory-joined-to-the-stem-d12": [
+      "src/name_resolution/rust_populator/walk/items.rs",
+      "            Some(rel) => resolve_relative(&ctx.path_dir, &format!(\"{rel}/\"))",
+      "            Some(rel) => resolve_relative(&ctx.dir, &format!(\"{rel}/\"))",
+      [
+        "path_attribute_placement_test::d12_inline_module_with_its_own_path_attribute",
+        "rust_path_attribute_test::e12_inline_module_with_its_own_path_attribute"
+      ]
+    ],
+    "PP-05-parent-segments-not-normalized-d8": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "            \"..\" => {\n                parts.pop()?;\n            }",
+      "            \"..\" => parts.push(\"..\"),",
+      [
+        "path_attribute_placement_test::d8_parent_directory_path",
+        "rust_path_attribute_test::e8_parent_directory_path_binds_the_shared_file"
+      ]
+    ],
+    "PP-06-dot-segments-not-normalized-d8b": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "            \"\" | \".\" => {}",
+      "            \"\" => {}",
+      [
+        "path_attribute_placement_test::d8b_dot_segment_path"
+      ]
+    ],
+    "PP-07-absolute-path-joined-as-relative-d9b": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "    if rel.starts_with('/') {\n        return None;\n    }\n",
+      "",
+      [
+        "path_attribute_placement_test::d9b_absolute_and_root_escaping_paths_bind_nothing",
+        "rust_path_attribute_test::e9b_absolute_path_binds_nothing"
+      ]
+    ],
+    "PP-08-climbing-above-the-root-is-clamped-d9b": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "                parts.pop()?;",
+      "                parts.pop();",
+      [
+        "path_attribute_placement_test::d9b_absolute_and_root_escaping_paths_bind_nothing"
+      ]
+    ],
+    "PP-09-file-path-directory-is-the-stem-directory-d7b": [
+      "src/name_resolution/rust_populator/walk/mod.rs",
+      "        path_dir: super::builder::parent_dir(path),",
+      "        path_dir: dir.to_string(),",
+      [
+        "path_attribute_placement_test::d7b_mount_in_a_nested_non_mod_rs_file",
+        "rust_path_attribute_test::e7b_mount_in_a_nested_non_mod_rs_file"
+      ]
+    ],
+    "PP-10-nested-inline-directory-not-extended-d13": [
+      "src/name_resolution/rust_populator/walk/items.rs",
+      "                path_dir: child_dir.clone(),",
+      "                path_dir: ctx.path_dir.clone(),",
+      [
+        "path_attribute_placement_test::d13_two_inline_levels_in_a_non_mod_rs_file",
+        "rust_path_attribute_test::e13_two_inline_levels_in_a_non_mod_rs_file"
+      ]
+    ],
+    "PP-11-missing-mount-falls-back-to-the-default-file-d9": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "                return ModFile::Missing;\n            };\n            if self.files.contains_key(&p) {",
+      "                return ModFile::Missing;\n            };\n            let p = if self.files.contains_key(&p) { p } else { join(dir, &format!(\"{name}.rs\")) };\n            if self.files.contains_key(&p) {",
+      [
+        "rust_path_attribute_test::e9_missing_mount_file_binds_nothing",
+        "path_attribute_placement_test::d9_mount_of_a_missing_file_binds_nothing"
+      ]
+    ]
+  }
+}
