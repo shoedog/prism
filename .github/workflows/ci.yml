@@ -96,8 +96,8 @@ jobs:
 
       - name: Coverage reports (this shard)
         run: |
-          cargo llvm-cov report -p prism -p prism-mcp --text --output-path coverage-summary.txt
-          cargo llvm-cov report -p prism -p prism-mcp --lcov --output-path lcov.info
+          cargo llvm-cov report -p prism -p prism-mcp -p prism-review --text --output-path coverage-summary.txt
+          cargo llvm-cov report -p prism -p prism-mcp -p prism-review --lcov --output-path lcov.info
 
       # Codecov merges the four shard uploads for the commit.
       - name: Upload to Codecov
