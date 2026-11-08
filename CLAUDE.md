@@ -534,7 +534,9 @@ are not fed (known gap).
 > wiring, cache warming, the gotchas, and the bundled agent **skills** in [`skills/`](skills/)
 > (`prism-code-navigation`, `prism-code-slicing`). This section is the architecture notes.
 
-`prism-mcp` is a local stdio MCP server, the `crates/prism-mcp` workspace member:
+`prism-mcp` is a local stdio MCP server, the `crates/prism-mcp` workspace member (library `prism_mcp`,
+binary `prism-mcp`, integration tests `crates/prism-mcp/tests/mcp`). It depends on `prism` as a library,
+and the `mcp` cargo feature no longer exists (#731):
 
 ```bash
 cargo run -p prism-mcp --bin prism-mcp -- --repo /path/to/repo
@@ -571,18 +573,18 @@ command covers the root package only.
 `Evidence` also has an additive optional `reasoning` field. It is omitted when
 absent so existing navigation and diff-review output remains byte-compatible.
 
-Transport layout: `src/mcp/framing.rs` holds the newline-delimited JSON framing as one generic
+Transport layout: `crates/prism-mcp/src/framing.rs` holds the newline-delimited JSON framing as one generic
 `LineTransport<R, W>`; stdio and the Unix-socket `UnixStreamTransport` are instantiations of it.
-`src/mcp/transport.rs` splits a message into `handle_control` (lifecycle, `tools/list`, call
+`crates/prism-mcp/src/transport.rs` splits a message into `handle_control` (lifecycle, `tools/list`, call
 validation; needs no index) and `dispatch_tool_read` / `dispatch_tool_refresh` /
 `dispatch_tool_auto_refresh` (shared versus exclusive access to the provider). Output settings are
-an explicit `ConnectionSettings` (`src/mcp/settings.rs`), resolved from the environment once per
+an explicit `ConnectionSettings` (`crates/prism-mcp/src/settings.rs`), resolved from the environment once per
 server, so an invalid `PRISM_MCP_*` output value warns once, at server start, not once per call.
 `tests/fixtures/mcp/golden/` pins the in-process server's stdout; re-record with
 `PRISM_MCP_BLESS_GOLDEN=1 cargo test -p prism-mcp --test mcp golden_transcript_test` only for a
 change that is meant to alter tool output, and say why in the commit.
 
-Shared-mode building blocks (`src/mcp/shared/`, Unix only; the daemon and the shim that use them
+Shared-mode building blocks (`crates/prism-mcp/src/shared/`, Unix only; the daemon and the shim that use them
 are later slices): `identity.rs` computes the daemon identity key, a SHA-256 over the canonical
 repo root, its device and inode, the build identity, the shim–daemon protocol version, the
 canonical cache base and the refresh policy; `cache_base.rs` gives `CacheMode::Default` and an
@@ -595,11 +597,11 @@ guarantee between users is the peer-uid check the daemon and the shim make); `pa
 the 103-byte socket path limit; `preamble.rs` and `preamble_reader.rs` encode, decode and read the
 one-line `HELLO` / `READY` / `RETIRING` / `BUSY` / `MISMATCH` exchange (4 KiB bound, one accepted
 spelling per message). Settings a client sends in the preamble are a `ClientSettings`
-(`src/mcp/settings.rs`), whose constructor refuses a result cap below the floor and a first-call
+(`crates/prism-mcp/src/settings.rs`), whose constructor refuses a result cap below the floor and a first-call
 wait above 600 s. A change to what goes into the key or to the preamble's wire text bumps
 `SHARED_PROTOCOL_VERSION`.
 
-Shared daemon (`src/mcp/daemon/`, Unix only; `prism-mcp daemon --repo X [--cache-dir D]
+Shared daemon (`crates/prism-mcp/src/daemon/`, Unix only; `prism-mcp daemon --repo X [--cache-dir D]
 [--refresh-policy P] [--warm-at-startup] [--idle-ttl S] [--max-clients N] [--key HEX]
 [--index-idle-secs S] [--index-idle-pressure-relief]`, internal,
 started by `prism-mcp --shared`): READY/STATUS expose effective `index_idle_timeout_secs`, `index_idle_pressure_relief` and the distinct `unloaded` build state under protocol/control version 2.
@@ -691,7 +693,7 @@ instance makes the daemon drain once nothing is admitted or pending, whatever th
 running build (`StopReason::Shutdown`); until then it goes on admitting new clients, and it never
 disconnects one.
 
-Shim (`src/mcp/shim/`, Unix only; `prism-mcp --repo X --shared [--daemon-start-timeout S]
+Shim (`crates/prism-mcp/src/shim/`, Unix only; `prism-mcp --repo X --shared [--daemon-start-timeout S]
 [--idle-ttl S] [--max-clients N]`; `--shared` with `--no-cache`, `--eager` or `--owner-*` is a CLI
 error, and `--standalone`, the default, changes nothing): `connect.rs` makes one attempt to
 reach a daemon: connect without blocking (`socket.rs`; a full listen backlog fails at once), check
@@ -725,7 +727,7 @@ T, generation G) at <socket>; index STATE; index_idle_timeout_secs=S; index_idle
 to stderr. A differing applicable request adds one mismatch line naming effective/requested
 seconds (and relief when it differs), keeping first-spawner policy; inapplicable relief gets the unused note.
 
-The operator's commands (`src/mcp/shim/`, clients of the same sockets and files; spec §4.7):
+The operator's commands (`crates/prism-mcp/src/shim/`, clients of the same sockets and files; spec §4.7):
 `prism-mcp daemon-status [--repo X [--cache-dir D] [--refresh-policy P]] [--runtime-dir BASE]
 [--timeout S]` (`status.rs`) lists every key in the runtime directory: a daemon that answers the
 control exchange (`control.rs`) with its status; one that does not (its connect error or why it
@@ -745,7 +747,7 @@ base, as `PRISM_MCP_RUNTIME_DIR` gives it.
 Opting in and the soak: user documentation of shared mode is `docs/MCP.md` ("Shared daemon"). The
 plugin's launcher (`scripts/prism-mcp-launch.sh`) adds `--shared` when `PRISM_MCP_SHARED=1` (unset,
 empty or `0`: nothing; any other value: exit 2; an explicit `--shared`/`--standalone` wins); its tests
-are `tests/mcp/launcher_test.rs`. The soak instrumentation is `scripts/soak/` (Python 3.9, standard
+are `crates/prism-mcp/tests/mcp/launcher_test.rs`. The soak instrumentation is `scripts/soak/` (Python 3.9, standard
 library; CI runs its hermetic tests in the build-checks job): `fanout.py` (N clients of one corpus
 in shared or standalone mode, per-call latency, a pressure observer that stops the run at a
 critical level, one required `refresh_index` and its overlap with other clients' calls, `compare`
@@ -767,10 +769,10 @@ Algorithms fall into two categories:
 
 Core modules never import the review layer: `tests/integration/layering_test.rs` fails on any
 `crate::algorithms` or `algorithms::` reference in a non-test source file outside `src/algorithms/`, `src/output/`,
-`src/targets/`, `src/api/`, `src/bin/`, `src/cli.rs`, `src/main.rs`, `src/lib.rs`. It exempts files
+`src/targets/`, `src/api/`, `src/cli.rs`, `src/main.rs`, `src/lib.rs`. It exempts files
 by name only (`*_tests.rs`, `*_test.rs`, `tests.rs`, any `/tests/` component) and `//` comment
 lines; there is deliberately no `#[cfg(test)]` exemption, so a core file's inline test module may
-not import `algorithms` (put such a test in a `*_tests.rs` sibling). Large files are split by
+not import `algorithms` (put such a test in a `*_tests.rs` sibling). The test scans `src/` and `crates/prism-mcp/src/` (the latter with no review-layer allowlist) and matches `crate::algorithms`, `algorithms::` and `prism::algorithms`. Large files are split by
 generated move-only PRs with byte-identity checks: `src/ast.rs` is the entry (types, `mod` lines,
 re-exports, a few core methods) over `src/ast/{js_ts,go,python}/` and concern files
 (`imports`, `parameters`, `assignments`, `lvalues`, `rvalues`, `calls`, `control_flow`, ...);
