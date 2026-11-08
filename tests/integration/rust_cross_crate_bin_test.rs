@@ -129,17 +129,6 @@ fn refused(cg: &CallGraph, file: &str, caller: &str, callee: &str) {
     );
 }
 
-/// No Exact edge into `forbidden` (whatever else the site resolves to).
-fn never_binds(cg: &CallGraph, file: &str, caller: &str, callee: &str, forbidden: &str) {
-    let (targets, drop) = outcome(cg, file, caller, callee);
-    assert!(
-        targets
-            .iter()
-            .all(|(f, c, _)| !(f == forbidden && *c == ResolutionConfidence::Exact)),
-        "{file}:{caller} {callee}: {targets:?} {drop:?}"
-    );
-}
-
 const QO: ResolutionKind = ResolutionKind::QualifiedOwner;
 
 // ── RED: bin roots get the package's dependencies ───────────────────────────
@@ -307,13 +296,7 @@ fn c8_external_dependency_has_no_in_repo_edge() {
         )],
     );
     // `a` exports an in-repo `to_string`; the external crate must not bind it.
-    never_binds(
-        &cg,
-        "b/src/main.rs",
-        "main",
-        "serde_json::to_string",
-        "a/src/lib.rs",
-    );
+    refused(&cg, "b/src/main.rs", "main", "serde_json::to_string");
 }
 
 #[test]
@@ -399,8 +382,8 @@ fn c14_block_local_binding_of_the_dependency_name_declines() {
              fn modular() {\n    mod a {\n        pub mod m {\n            pub fn f() {}\n        }\n    }\n    a::m::f();\n}\n",
         )],
     );
-    never_binds(&cg, "b/src/main.rs", "imported", "a::m::f", "a/src/m.rs");
-    never_binds(&cg, "b/src/main.rs", "modular", "a::m::f", "a/src/m.rs");
+    refused(&cg, "b/src/main.rs", "imported", "a::m::f");
+    refused(&cg, "b/src/main.rs", "modular", "a::m::f");
 }
 
 #[test]
@@ -415,7 +398,9 @@ fn c16_block_local_type_shadow_binds_the_local_associated_fn() {
             ),
         ],
     );
-    never_binds(&cg, "b/src/main.rs", "main", "a::m", "a/src/lib.rs");
+    // Same on base (where `a` has no entry) and head: the `NS_TYPE` guard declines the
+    // dependency and the local associated `a::m` binds.
+    exact(&cg, "b/src/main.rs", "main", "a::m", "b/src/main.rs", QO);
 }
 
 // ── conflict rule and owner-pool fallback ───────────────────────────────────
@@ -478,10 +463,16 @@ fn c15_bin_local_owner_with_the_dependencys_owner_name() {
     );
     // The bare name `T::run` is a two-owner pool here; the local type binds the local fn.
     exact(&cg, "b/src/main.rs", "main", "T::run", "b/src/main.rs", QO);
-    let qualified = outcome(&cg, "b/src/main.rs", "main", "a::T::run");
-    // Pinned (see the observed outcomes in the PR): whatever it is, it is never the local fn.
-    never_binds(&cg, "b/src/main.rs", "main", "a::T::run", "b/src/main.rs");
-    assert!(qualified.0.len() <= 1, "{qualified:?}");
+    // Pinned as inherited (identical on base and head): the dependency's `T::run` through the
+    // owner pool, not the local type's.
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "a::T::run",
+        "a/src/lib.rs",
+        QO,
+    );
 }
 
 // ── #[path] placement (the #765 discipline for what this rule newly admits) ──
@@ -513,7 +504,7 @@ fn c17b_bin_dependency_path_via_use_refuses_a_misplaced_mount() {
         B_DEP,
         &mount_files("use a::p::q::f;\nfn main() {\n    f();\n}\n"),
     );
-    never_binds(&cg, "b/src/main.rs", "main", "f", "a/src/p/q.rs");
+    refused(&cg, "b/src/main.rs", "main", "f");
 }
 
 #[test]
