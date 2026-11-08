@@ -372,3 +372,68 @@ fn restrict_longer_than_the_chain_is_none() {
     let g = populate(&fs);
     assert_eq!(restricts(&g, "f"), vec![None]);
 }
+
+#[test]
+fn p5b_inline_mod_binding_gets_its_restrict() {
+    let fs = files(&[
+        ("src/lib.rs", "mod a;\n"),
+        (
+            "src/a.rs",
+            "pub(in crate::a) mod m {\n    pub fn g() {}\n}\n",
+        ),
+    ]);
+    let g = populate(&fs);
+    let m = g
+        .bindings
+        .iter()
+        .find(|b| b.name == "m" && b.ns == NS_TYPE)
+        .expect("binding m");
+    assert_eq!(m.vis.restrict, Some(module(&g, &fs, &["a"])));
+}
+
+#[test]
+fn p11_every_item_kind_records_its_restrict() {
+    let fs = files(&[
+        ("src/lib.rs", "mod a;\n"),
+        (
+            "src/a.rs",
+            concat!(
+                "pub mod b;\n",
+                "pub(in crate::a) struct S;\n",
+                "pub(in crate::a) enum E { V }\n",
+                "pub(in crate::a) trait T {}\n",
+                "pub(in crate::a) type A = u8;\n",
+                "pub(in crate::a) const C: u8 = 0;\n",
+                "pub(in crate::a) static ST: u8 = 0;\n",
+            ),
+        ),
+    ]);
+    let g = populate(&fs);
+    let a = Some(module(&g, &fs, &["a"]));
+    for name in ["S", "E", "T", "A", "C", "ST", "V"] {
+        assert!(
+            g.bindings
+                .iter()
+                .any(|b| b.name == name && b.vis.kind == VIS_PUB_IN),
+            "{name}"
+        );
+        assert!(
+            g.bindings
+                .iter()
+                .filter(|b| b.name == name && b.vis.kind == VIS_PUB_IN)
+                .all(|b| b.vis.restrict == a),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn n9_super_above_the_crate_root_is_none() {
+    // The item's module chain is [a, crate root]: two hops would leave the crate.
+    let fs = files(&[
+        ("src/lib.rs", "mod a;\n"),
+        ("src/a.rs", "pub(in super::super) fn f() {}\n"),
+    ]);
+    let g = populate(&fs);
+    assert_eq!(restricts(&g, "f"), vec![None]);
+}

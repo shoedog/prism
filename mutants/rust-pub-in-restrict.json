@@ -1,0 +1,135 @@
+{
+  "lane": "Rust pub(in path) restrict resolution (#710)",
+  "source": "src/name_resolution/rust_populator/restrict.rs",
+  "lib_test_prefixes": [],
+  "test_targets": [
+    {
+      "prefix": "pub_in_restrict_test::",
+      "package": "prism",
+      "target": "name_resolution"
+    }
+  ],
+  "mutations": {
+    "PIR-01-skip-segment-name-check-n7": [
+      "src/name_resolution/rust_populator/restrict.rs",
+      "        if !named.contains(&chain[next]) {\n            return None;\n        }\n",
+      "        if false && !named.contains(&chain[next]) {\n            return None;\n        }\n",
+      [
+        "pub_in_restrict_test::n7_same_named_module_on_another_branch_is_none",
+        "rust_pub_in_resolution_test::n7_same_named_module_on_another_branch_is_not_the_restrict"
+      ]
+    ],
+    "PIR-02-accept-unanchored-first-segment-n4": [
+      "src/name_resolution/rust_populator/restrict.rs",
+      "        _ => return None,\n    };",
+      "        _ => (chain.len() - 1, &segs[..]),\n    };",
+      [
+        "pub_in_restrict_test::n4_unanchored_restrict_is_none",
+        "rust_pub_in_resolution_test::n4_unanchored_restrict_is_refused"
+      ]
+    ],
+    "PIR-03-super-hop-off-by-one-p4": [
+      "src/name_resolution/rust_populator/restrict.rs",
+      "            (hops, &segs[hops..])",
+      "            (hops - 1, &segs[hops..])",
+      [
+        "pub_in_restrict_test::p4_super_super_is_the_grandparent",
+        "rust_pub_in_resolution_test::p4_super_super_restrict_binds_from_a_cousin"
+      ]
+    ],
+    "PIR-04-stop-at-first-chain-module-n1": [
+      "src/name_resolution/rust_populator/restrict.rs",
+      "    for seg in rest {\n        let next = at - 1;",
+      "    for seg in rest.iter().take(1) {\n        let next = at - 1;",
+      [
+        "pub_in_restrict_test::p9_chain_stops_at_the_named_module_not_the_first",
+        "rust_pub_in_resolution_test::n1_parent_of_the_restrict_is_refused"
+      ]
+    ],
+    "PIR-05-crate-anchors-at-self-p3": [
+      "src/name_resolution/rust_populator/restrict.rs",
+      "        \"crate\" => (chain.len() - 1, &segs[1..]),",
+      "        \"crate\" => (0, &segs[1..]),",
+      [
+        "pub_in_restrict_test::p1_restrict_resolves_to_the_named_ancestor",
+        "rust_pub_in_resolution_test::p3_full_path_inside_restrict_binds"
+      ]
+    ],
+    "PIR-06-accept-reexport-as-module-n8": [
+      "src/name_resolution/rust_populator/restrict.rs",
+      "            if let BindTarget::Resolved(Target::Scope(s)) = &b.target {\n                out.entry((b.scope, b.name.clone())).or_default().insert(*s);\n            }",
+      "            if matches!(&b.target, BindTarget::Pending(..)) {\n                out.entry((b.scope, b.name.clone()))\n                    .or_default()\n                    .extend(graph.scopes.keys().copied());\n            } else if let BindTarget::Resolved(Target::Scope(s)) = &b.target {\n                out.entry((b.scope, b.name.clone())).or_default().insert(*s);\n            }",
+      [
+        "pub_in_restrict_test::n8_reexport_is_not_a_restrict_target",
+        "rust_pub_in_resolution_test::n8_restrict_through_a_reexport_is_refused"
+      ]
+    ],
+    "PIR-07-no-path-longer-than-chain-guard": [
+      "src/name_resolution/rust_populator/restrict.rs",
+      "    if rest.len() > anchor {\n        return None;\n    }",
+      "    if false {\n        return None;\n    }",
+      [
+        "pub_in_restrict_test::restrict_longer_than_the_chain_is_none"
+      ]
+    ],
+    "PIR-08-super-above-root": [
+      "src/name_resolution/rust_populator/restrict.rs",
+      "            if hops >= chain.len() {\n                return None;\n            }",
+      "            if hops > chain.len() {\n                return None;\n            }",
+      [
+        "pub_in_restrict_test::n9_super_above_the_crate_root_is_none"
+      ]
+    ],
+    "PIR-09-skip-postpass": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "        super::restrict::resolve_restricts(&mut self.graph, &self.pending_restricts);\n",
+      "",
+      [
+        "pub_in_restrict_test::p1_restrict_resolves_to_the_named_ancestor",
+        "rust_pub_in_resolution_test::p1_file_module_restrict_binds"
+      ]
+    ],
+    "PIR-10-drop-out-of-line-mod-restrict-p5": [
+      "src/name_resolution/rust_populator/walk/items.rs",
+      "vec![full_file_span(ctx.file)],\n            );\n            b.note_restrict(vis_kind, &vin);",
+      "vec![full_file_span(ctx.file)],\n            );",
+      [
+        "pub_in_restrict_test::p5_restricted_mod_binding_gets_its_restrict",
+        "rust_pub_in_resolution_test::p5_restricted_mod_item_binds_inside_restrict"
+      ]
+    ],
+    "PIR-11-drop-inline-mod-restrict-p5": [
+      "src/name_resolution/rust_populator/walk/items.rs",
+      "vec![vis_extent_from(b, scope, ctx.file, lo)],\n        );\n        b.note_restrict(vis_kind, &vin);",
+      "vec![vis_extent_from(b, scope, ctx.file, lo)],\n        );",
+      [
+        "pub_in_restrict_test::p5b_inline_mod_binding_gets_its_restrict"
+      ]
+    ],
+    "PIR-12-drop-assoc-item-restrict-p6": [
+      "src/name_resolution/rust_populator/walk/types.rs",
+      "                        vec![full_scope_span(b, type_scope, ctx.file)],\n                    );\n                    b.note_restrict(vis_kind, &vin);",
+      "                        vec![full_scope_span(b, type_scope, ctx.file)],\n                    );",
+      [
+        "pub_in_restrict_test::p6_assoc_fn_gets_its_restrict"
+      ]
+    ],
+    "PIR-13-drop-struct-restrict": [
+      "src/name_resolution/rust_populator/walk/types.rs",
+      "        v.clone(),\n        cond.clone(),\n        vec![full_scope_span(b, scope, ctx.file)],\n    );\n    b.note_restrict(vis_kind, &vin);\n    // unit/tuple struct",
+      "        v.clone(),\n        cond.clone(),\n        vec![full_scope_span(b, scope, ctx.file)],\n    );\n    // unit/tuple struct",
+      [
+        "pub_in_restrict_test::p11_every_item_kind_records_its_restrict"
+      ]
+    ],
+    "PIR-14-drop-free-fn-restrict-p1": [
+      "src/name_resolution/rust_populator/walk/items.rs",
+      "            vec![full_scope_span(b, scope, ctx.file)],\n        );\n        b.note_restrict(vis_kind, &vin);\n    }\n    // The body Callable scope.",
+      "            vec![full_scope_span(b, scope, ctx.file)],\n        );\n    }\n    // The body Callable scope.",
+      [
+        "pub_in_restrict_test::p1_restrict_resolves_to_the_named_ancestor",
+        "rust_pub_in_resolution_test::p2_bare_call_in_defining_module_binds"
+      ]
+    ]
+  }
+}
