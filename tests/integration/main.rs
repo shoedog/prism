@@ -104,3 +104,4 @@ mod rust_self_closed_rule_test;
 mod rust_pub_in_resolution_test;
 
 mod rust_module_alias_test;
+mod rust_path_attribute_test;

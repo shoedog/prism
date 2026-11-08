@@ -531,20 +531,19 @@ fn b15b_orphan_self_prefix_keeps_the_legacy_outcome() {
     );
 }
 
-// ── #[path] placement (review fold, #765) ───────────────────────────────────
+// ── #[path] placement (review fold, #765; fixed at the root) ────────────────
 //
-// The populator resolves a non-inline `#[path]` mount relative to the declaring
-// file's `<stem>/` directory, rustc relative to the declaring file's directory
-// (#765). In `src/a.rs`, `#[path = "b.rs"] mod b;` rustc loads `src/b.rs`; the
-// populator binds the retained decoy `src/a/b.rs`. What this PR newly admits
-// (anchored macro-argument paths, `{self as m}` aliases) must not bind the decoy.
+// In `src/a.rs`, `#[path = "b.rs"] mod b;` rustc loads `src/b.rs`. The pre-fix populator
+// bound the retained decoy `src/a/b.rs` (it resolved relative to `src/a/`), and this PR's
+// guards refused such targets; the placement now follows rustc, so the anchored
+// macro-argument path and the `{self as m}` alias bind rustc's file.
 
 fn mount_files(call_file: &str) -> Vec<(&str, &str)> {
     vec![
         ("src/lib.rs", "mod a;\nmod c;\n"),
         ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
         ("src/b.rs", "pub fn f() -> bool { true }\n"), // what rustc loads
-        ("src/a/b.rs", "pub fn f() -> bool { false }\n"), // the decoy the populator binds
+        ("src/a/b.rs", "pub fn f() -> bool { false }\n"), // the decoy
         ("src/c.rs", call_file),
     ]
 }
@@ -563,15 +562,29 @@ const MACRO_CALL: &str = "pub fn caller() {\n    assert!(crate::a::b::f());\n}\n
 const ALIAS_CALL: &str = "use crate::a::b::{self as m};\npub fn caller() {\n    m::f();\n}\n";
 
 #[test]
-fn b16_anchored_macro_path_refuses_a_misplaced_mount() {
+fn b16_anchored_macro_path_binds_rustcs_file_for_a_non_mod_rs_mount() {
     let cg = build(&mount_files(MACRO_CALL));
-    refused(&cg, "src/c.rs", "caller", "a::b::f");
+    exact(
+        &cg,
+        "src/c.rs",
+        "caller",
+        "a::b::f",
+        "src/b.rs",
+        ResolutionKind::QualifiedOwner,
+    );
 }
 
 #[test]
-fn b17_alias_refuses_a_misplaced_mount() {
+fn b17_alias_binds_rustcs_file_for_a_non_mod_rs_mount() {
     let cg = build(&mount_files(ALIAS_CALL));
-    refused(&cg, "src/c.rs", "caller", "m::f");
+    exact(
+        &cg,
+        "src/c.rs",
+        "caller",
+        "m::f",
+        "src/b.rs",
+        ResolutionKind::QualifiedOwner,
+    );
 }
 
 #[test]
