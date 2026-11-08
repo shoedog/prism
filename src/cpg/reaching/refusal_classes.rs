@@ -62,6 +62,9 @@ impl Refusals {
         if c.eval {
             return Some(refusals::EVAL);
         }
+        if c.within_with {
+            return Some(refusals::WITH);
+        }
         let (from, to) = (&edge.from, &edge.to);
         for base in [&from.path.base, &to.path.base] {
             if let Some(m) = c.names.get(base) {

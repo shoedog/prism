@@ -317,19 +317,23 @@ narrows them; the rows keep main's label as `expected`, and an issue is proposed
 **S1d-1 status (implemented, label-only, cache v160).** Rows 6.1, 6.1b, 6.1c, 6.1d, 6.1e and G6a, G6b are implemented in
 `src/ast/js_write_census/refusals.rs` (one read of the owner) and `src/cpg/reaching/refusal_classes.rs` (applied in
 `CensusFacts::refine`: eval, names, defs and `with` first, then D2-c, then dead formals, then D3). Each class moves only an
-`exact` or `sameline` label, never a `NameOnly` one. Choices the rows left open: (1) Annex B (6.1e) excludes a formal's name
-(B.3.3.1 skips parameter names, so the block function stays block-scoped and the outer binding is untouched; pinned by
-`recorded_kill_tests` rows and `annexb_formal_named_like_it_control`); (2) `with` (6.1c) also refuses an edge whose *def* lies
-in a body (a write that may have gone to the object), besides the kill-only may-write the census already adds and the
-body-use refusal; a use with no bytes is placed by line, so a use on a body's first line is refused too (over-refusal); (3) G6a
-refuses edges whose def is the `var` declarator in `catch (a)` (a plain identifier parameter only: a destructured one with a
-same-named `var` is an early error). On head such edges reach reads inside the clause only (the binding facts give the def the
-catch parameter, so none reaches a read after it), real flow refused by the rule; the one frozen golden that held a wrong-looking
-`exact` is `C1-catchvar`; (4) G6b refuses edges whose def is a write to a named function expression's or class expression's own
-name with no declaration of the name between the write and the expression (its own parameters and body included); its kills stay
-(over-kill is the conservative direction), a class *declaration* name is a control; (5) the sloppy `arguments` rule keeps the
-helper's behaviour for an arrow owner (`js_ts_mapped_arguments_possible` sees an `arguments` read there): an over-refusal,
-pinned by `args_arrow_owner_over_refusal_pin`. G6 is closed by this slice. The one-node rows and `first_hazard` are S1d-2's.
+`exact` or `sameline` label, never a `NameOnly` one, so unlike the census owner refusal (`refuses()`, step 1 of section 8, which
+overrides every label) a proven `Killed` edge keeps its label under eval and name refusals (ambiguity 1; both are NameOnly).
+Choices the rows left open: (1) Annex B (6.1e) excludes a formal's name (B.3.3.1 skips parameter names, so the block function
+stays block-scoped and the outer binding is untouched; pinned by `recorded_kill_tests` rows and
+`annexb_formal_named_like_it_control`); (2) `with` (6.1c) also refuses an edge whose *def* lies in a body (a write that may have
+gone to the object), besides the kill-only may-write the census already adds and the body-use refusal; a use with no bytes is
+placed by line, so a use on a body's first line is refused too (over-refusal); an owner defined inside a `with` body is refused
+as a whole (owner-wide: its free names may resolve through the object); (3) G6a refuses edges whose def is the `var`
+declarator in `catch (a)` (a plain identifier parameter only: a destructured one with a same-named `var` is an early error).
+On head such edges reach reads inside the clause only (the binding facts give the def the catch parameter), real flow refused by
+the rule; the frozen golden that held an `exact` is `C1-catchvar`; (4) G6b refuses edges whose def is a write to a named
+function expression's, class expression's or class declaration's own name from inside it (a class body binds its name
+immutably), with no declaration of the name scoping the write: a body declaration does not scope a write in a parameter default
+or a closure created there. Its kills stay (over-kill is the conservative direction); a write to the class name outside the
+body is an ordinary write; (5) sloppy mapped `arguments` refuses the formals of the owner and of every enclosing non-arrow
+callable whose arguments object is mapped (a nested owner reads them as captured names, directly or by alias); an arrow owner's
+own formals are never mapped. G6 is closed by this slice. The one-node rows and `first_hazard` are S1d-2's.
 | 6.2 captured writes (D2-c, option A) | below | 411 / 16 (heuristic; §11) |
 | runtime mutation (getters/setters, Proxy, `globalThis`, `Reflect`) | out of model (CLAUDE.md runtime-mutation rule) | — |
 

@@ -77,7 +77,7 @@ pub(crate) fn completion(
         out.refusal = Some(r.clone());
         return out;
     }
-    out.classes = super::refusals::classes(parsed, owner, &c.sites);
+    out.classes = super::refusals::classes(parsed, owner, &c.sites, &bases);
     let shadows = Shadows::new(parsed, &c.sites, &bases);
     let mut by_start: BTreeMap<usize, Vec<&AccessPath>> = BTreeMap::new();
     for (path, byte, twin) in recorded {

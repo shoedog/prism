@@ -52,6 +52,9 @@ pub(crate) struct Classes {
     pub defs: BTreeMap<usize, &'static str>,
     pub with_bodies: Vec<WithBody>,
     pub dead: Vec<Dead>,
+    /// The owner is defined inside a `with` body: its free names may resolve through the object, so
+    /// the owner is refused as a whole (owner-wide, the simpler conservative choice).
+    pub within_with: bool,
 }
 
 impl Classes {
@@ -61,6 +64,7 @@ impl Classes {
             && self.defs.is_empty()
             && self.with_bodies.is_empty()
             && self.dead.is_empty()
+            && !self.within_with
     }
 }
 
@@ -75,7 +79,12 @@ struct Found {
     annexb: BTreeSet<String>,
 }
 
-pub(crate) fn classes(parsed: &ParsedFile, owner: Node<'_>, sites: &[Site]) -> Classes {
+pub(crate) fn classes(
+    parsed: &ParsedFile,
+    owner: Node<'_>,
+    sites: &[Site],
+    bases: &BTreeSet<&str>,
+) -> Classes {
     let t = Tables::shared();
     let mut out = Classes {
         eval: parsed.js_ts_direct_eval_anywhere(&owner),
@@ -86,11 +95,8 @@ pub(crate) fn classes(parsed: &ParsedFile, owner: Node<'_>, sites: &[Site]) -> C
     if let Some(p) = params {
         parsed.js_ts_pattern_bound_names(p, &mut formals);
     }
-    if parsed.js_ts_mapped_arguments_possible(&owner) {
-        for n in &formals {
-            out.names.entry(n.clone()).or_insert(ARGUMENTS);
-        }
-    }
+    mapped_arguments(parsed, t, owner, bases, &mut out);
+    out.within_with = inside_with_body(owner);
     let sloppy = !parsed.js_ts_callable_is_strict(&owner);
     let found = walk(parsed, t, owner, &mut out);
     if sloppy {
@@ -119,6 +125,54 @@ pub(crate) fn classes(parsed: &ParsedFile, owner: Node<'_>, sites: &[Site]) -> C
         }
     }
     out
+}
+
+/// 6.1: the formals of the owner and of every enclosing non-arrow callable whose `arguments` object is
+/// mapped (sloppy, simple parameters, `arguments` reached directly or through nested arrows). A nested
+/// owner reads those formals as captured names, and a write through the enclosing function's `arguments`
+/// (directly, or by an alias of it) changes them. An arrow has no `arguments` of its own, so an arrow
+/// owner's own formals are never mapped. Only callables with a formal the owner defines are asked.
+fn mapped_arguments(
+    parsed: &ParsedFile,
+    t: &Tables,
+    owner: Node<'_>,
+    bases: &BTreeSet<&str>,
+    out: &mut Classes,
+) {
+    let mut at = Some(owner);
+    while let Some(f) = at {
+        at = f.parent();
+        if !is_callable(t, f.kind()) || f.kind() == "arrow_function" {
+            continue;
+        }
+        let mut names = Vec::new();
+        if let Some(p) = parsed.parameter_binding_region(&f) {
+            parsed.js_ts_pattern_bound_names(p, &mut names);
+        }
+        if names.iter().any(|n| bases.contains(n.as_str()))
+            && parsed.js_ts_mapped_arguments_possible(&f)
+        {
+            for n in names {
+                out.names.entry(n).or_insert(ARGUMENTS);
+            }
+        }
+    }
+}
+
+/// The owner lies in the body of a `with` statement (of any enclosing callable).
+fn inside_with_body(owner: Node<'_>) -> bool {
+    let at = owner.start_byte();
+    let mut up = owner.parent();
+    while let Some(n) = up {
+        if n.kind() == "with_statement"
+            && n.child_by_field_name("body")
+                .is_some_and(|b| b.start_byte() <= at && at < b.end_byte())
+        {
+            return true;
+        }
+        up = n.parent();
+    }
+    false
 }
 
 /// Whether a node of the owner's subtree is in a lower position than the body statement list.
@@ -182,7 +236,8 @@ fn walk(parsed: &ParsedFile, t: &Tables, owner: Node<'_>, out: &mut Classes) -> 
     found
 }
 
-/// A named function expression or class expression: its name is bound inside it only.
+/// A named function expression or a class (expression or declaration): its name is an immutable binding
+/// inside it (a function declaration's name is not: it is a mutable binding of the enclosing scope).
 fn note_inner_name(parsed: &ParsedFile, node: Node<'_>, names: &mut BTreeSet<String>) {
     if is_named_expression(node) {
         if let Some(n) = node.child_by_field_name("name") {
@@ -194,7 +249,12 @@ fn note_inner_name(parsed: &ParsedFile, node: Node<'_>, names: &mut BTreeSet<Str
 fn is_named_expression(node: Node<'_>) -> bool {
     matches!(
         node.kind(),
-        "function_expression" | "function" | "generator_function" | "class"
+        "function_expression"
+            | "function"
+            | "generator_function"
+            | "class"
+            | "class_declaration"
+            | "abstract_class_declaration"
     ) && node.child_by_field_name("name").is_some()
 }
 
@@ -302,12 +362,14 @@ fn writes_inner_name(parsed: &ParsedFile, t: &Tables, node: Node<'_>, name: &str
     while let Some(p) = cur.parent() {
         match p.kind() {
             "function_expression" | "function" | "generator_function" if named(p) => {
-                return !callable_declares(parsed, p, name);
+                return !callable_declares(parsed, p, name, cur);
             }
-            "class" if named(p) => return true,
+            "class" | "class_declaration" | "abstract_class_declaration" if named(p) => {
+                return true
+            }
             _ => {
                 if is_callable(t, p.kind()) {
-                    if callable_declares(parsed, p, name) {
+                    if callable_declares(parsed, p, name, cur) {
                         return false;
                     }
                 } else if block_declares(parsed, p, name) {
@@ -321,8 +383,10 @@ fn writes_inner_name(parsed: &ParsedFile, t: &Tables, node: Node<'_>, name: &str
 }
 
 /// The callable's parameters bind `name`, or its function scope does (`var` anywhere outside nested
-/// callables, body-level lexical, function and class declarations).
-fn callable_declares(parsed: &ParsedFile, callable: Node<'_>, name: &str) -> bool {
+/// callables, body-level lexical, function and class declarations) and the write is in the body: a
+/// write in a parameter default, or in a closure created there, sees the parameter environment, which
+/// the body's declarations do not enter. `at` is the child of `callable` the write lies under.
+fn callable_declares(parsed: &ParsedFile, callable: Node<'_>, name: &str, at: Node<'_>) -> bool {
     let mut names = Vec::new();
     if let Some(p) = parsed.parameter_binding_region(&callable) {
         parsed.js_ts_pattern_bound_names(p, &mut names);
@@ -330,7 +394,7 @@ fn callable_declares(parsed: &ParsedFile, callable: Node<'_>, name: &str) -> boo
     names.iter().any(|n| n == name)
         || callable
             .child_by_field_name("body")
-            .filter(|b| b.kind() == "statement_block")
+            .filter(|b| b.kind() == "statement_block" && b.id() == at.id())
             .is_some_and(|b| {
                 parsed.js_ts_function_scope_binds(
                     b,

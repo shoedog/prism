@@ -101,7 +101,7 @@ const CASES: &[Case] = &[
         source: "function f(a, b) {\n  log();\n  arguments[0] = src();\n  sink(b);\n}" },
     Case { name: "args_strict_function_prologue_control", lang: JS, edge: "a@1->a@5", expected: EXACT,
         source: "function f(a) {\n  'use strict';\n  log();\n  arguments[0] = src();\n  sink(a);\n}" },
-    Case { name: "args_arrow_owner_over_refusal_pin", lang: JS, edge: "a@1->a@3", expected: CFG,
+    Case { name: "args_arrow_owner_has_no_own_arguments_control", lang: JS, edge: "a@1->a@3", expected: EXACT,
         source: "const f = (a) => {\n  log();\n  sink(a, arguments);\n};" },
     Case { name: "args_ts", lang: TS, edge: "a@1->a@4", expected: CFG,
         source: "function f(a: number) {\n  log();\n  arguments[0] = src();\n  sink(a);\n}" },
@@ -236,7 +236,7 @@ const CASES: &[Case] = &[
         source: "const C = class K {\n  m() {\n    K = 2;\n    sink(K);\n  }\n};" },
     Case { name: "inner_name_class_expression_method_shadowed_control", lang: JS, edge: "K@4->K@5", expected: EXACT,
         source: "const C = class K {\n  m() {\n    var K;\n    K = 2;\n    sink(K);\n  }\n};" },
-    Case { name: "inner_name_class_declaration_control", lang: JS, edge: "K@3->K@4", expected: EXACT,
+    Case { name: "inner_name_class_declaration", lang: JS, edge: "K@3->K@4", expected: CFG,
         source: "class K {\n  m() {\n    K = 2;\n    sink(K);\n  }\n}" },
     Case { name: "inner_name_function_declaration_control", lang: JS, edge: "g@2->g@3", expected: EXACT,
         source: "function g() {\n  g = 2;\n  sink(g);\n}" },
@@ -244,6 +244,51 @@ const CASES: &[Case] = &[
         source: "(function g(a: number) {\n  log();\n  g = 2;\n  sink(g);\n})();" },
     Case { name: "inner_name_tsx_class_expression", lang: TSX, edge: "K@3->K@4", expected: CFG,
         source: "const C = class K {\n  m() {\n    K = 2;\n    sink(K);\n  }\n};" },
+    // Round 1 fold. SOL-W1: a body declaration does not scope a write made in a parameter default.
+    Case { name: "inner_name_param_default_closure_body_var_does_not_scope", lang: JS, edge: "g@2->g@3", expected: CFG,
+        source: "(function g(h = () => {\n  g = 2;\n  sink(g);\n}) {\n  var g;\n  log();\n  h();\n})();" },
+    Case { name: "inner_name_enclosing_param_default_closure_body_var_does_not_scope", lang: JS, edge: "g@3->g@4", expected: CFG,
+        source: "(function g() {\n  const h = (z = () => {\n    g = 2;\n    sink(g);\n  }) => {\n    var g;\n    z();\n  };\n  h();\n})();" },
+    // Opus W1: an owner nested in a sloppy function with mapped `arguments` (directly or by alias).
+    Case { name: "args_enclosing_arrow_owner", lang: JS, edge: "a@3->a@5", expected: CFG,
+        source: "function f(a) {\n  const g = () => {\n    a = 1;\n    arguments[0] = 2;\n    sink(a);\n  };\n  g();\n}" },
+    Case { name: "args_enclosing_alias_nested_function_owner", lang: JS, edge: "a@4->a@6", expected: CFG,
+        source: "function f(a) {\n  var args = arguments;\n  function g() {\n    a = 1;\n    args[0] = 2;\n    sink(a);\n  }\n  g();\n}" },
+    Case { name: "args_enclosing_strict_control", lang: JS, edge: "a@4->a@6", expected: NOT_CFG,
+        source: "'use strict';\nfunction f(a) {\n  const g = () => {\n    a = 1;\n    arguments[0] = 2;\n    sink(a);\n  };\n  g();\n}" },
+    Case { name: "args_enclosing_non_simple_parameters_control", lang: JS, edge: "a@3->a@5", expected: NOT_CFG,
+        source: "function f(a, b = 1) {\n  const g = () => {\n    a = 1;\n    arguments[0] = 2;\n    sink(a);\n  };\n  g();\n}" },
+    // Opus W2: an owner defined inside a `with` body.
+    Case { name: "with_owner_defined_inside_a_body", lang: JS, edge: "a@4->a@6", expected: CFG,
+        source: "function outer(obj) {\n  with (obj) {\n    var g = function () {\n      a = 1;\n      obj.a = 5;\n      sink(a);\n    };\n  }\n  return g;\n}" },
+    Case { name: "with_in_a_sibling_control", lang: JS, edge: "a@6->a@8", expected: NOT_CFG,
+        source: "function outer(obj) {\n  with (obj) {\n    log();\n  }\n  var g = function () {\n    a = 1;\n    obj.a = 5;\n    sink(a);\n  };\n  return g;\n}" },
+    // Opus W3: a class declaration's own name inside its body.
+    Case { name: "inner_name_class_declaration_try", lang: JS, edge: "K@3->K@4", expected: CFG,
+        source: "class K {\n  m() {\n    try { K = 1; } catch (e) {}\n    sink(K);\n  }\n}" },
+    Case { name: "inner_name_class_declaration_outside_control", lang: JS, edge: "K@3->K@4", expected: EXACT,
+        source: "function f() {\n  class K {}\n  K = 2;\n  sink(K);\n}" },
+    Case { name: "inner_name_class_declaration_shadowed_control", lang: JS, edge: "K@4->K@5", expected: NOT_CFG,
+        source: "class K {\n  m() {\n    var K;\n    K = 2;\n    sink(K);\n  }\n}" },
+    Case { name: "inner_name_class_declaration_ts", lang: TS, edge: "K@3->K@4", expected: CFG,
+        source: "class K {\n  m(): void {\n    K = 2;\n    sink(K);\n  }\n}" },
+    // Untested arms: catch `var` loop heads and destructuring, and the shadow arms of an immutable name.
+    Case { name: "catch_var_for_in_head", lang: JS, edge: "a@3->a@4", expected: CFG,
+        source: "function f(o) {\n  try { g(); } catch (a) {\n    for (var a in o) {\n      sink(a);\n    }\n  }\n}" },
+    Case { name: "catch_var_destructured_declarator", lang: JS, edge: "a@3->a@4", expected: CFG,
+        source: "function f() {\n  try { g(); } catch (a) {\n    var { a } = src();\n    sink(a);\n  }\n}" },
+    Case { name: "inner_name_for_let_shadow_control", lang: JS, edge: "g@3->g@4", expected: NOT_CFG,
+        source: "(function g(a) {\n  for (let g = 0; g < 2; g++) {\n    g = 5;\n    sink(g);\n  }\n})();" },
+    Case { name: "inner_name_for_of_let_shadow_control", lang: JS, edge: "g@3->g@4", expected: NOT_CFG,
+        source: "(function g(xs) {\n  for (let g of xs) {\n    g = 5;\n    sink(g);\n  }\n})();" },
+    Case { name: "inner_name_switch_let_shadow_control", lang: JS, edge: "g@5->g@6", expected: NOT_CFG,
+        source: "(function g(k) {\n  switch (k) {\n    case 1:\n      let g = 1;\n      g = 2;\n      sink(g);\n  }\n})();" },
+    Case { name: "inner_name_catch_shadow_control", lang: JS, edge: "g@3->g@4", expected: NOT_CFG,
+        source: "(function g() {\n  try { h(); } catch (g) {\n    g = 2;\n    sink(g);\n  }\n})();" },
+    Case { name: "inner_name_block_function_shadow_control", lang: JS, edge: "g@5->g@6", expected: NOT_CFG,
+        source: "(function g(a) {\n  'use strict';\n  {\n    function g() {}\n    g = 2;\n    sink(g);\n  }\n})();" },
+    Case { name: "inner_name_labelled_block_class_shadow_control", lang: JS, edge: "g@4->g@5", expected: NOT_CFG,
+        source: "(function g(a) {\n  {\n    class g {}\n    g = 2;\n    sink(g);\n  }\n})();" },
 ];
 
 #[test]
@@ -295,6 +340,7 @@ pub(super) fn sources() -> Vec<(Language, String)> {
 /// `arguments` and the `eval` in a default (6.1, 6.1b: every edge of the owner), and `R5b-body-2`
 /// (a hoisted `function f` replaces the formal `f`: the formal's edges are killed at its line).
 pub(super) fn refuse_moved(id: &str, rows: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+    let rows = super::s1c_label_tests::refuse_moved(id, rows);
     rows.into_iter()
         .map(|row| {
             let mut row = row.as_array().unwrap().clone();
@@ -317,4 +363,17 @@ pub(super) fn refuse_moved(id: &str, rows: Vec<serde_json::Value>) -> Vec<serde_
             row.into()
         })
         .collect()
+}
+
+/// Frozen rows of a labelled hoisted `function y` with a seam: the formal's `exact` rows (from line 1)
+/// are killed at the declaration's line 2 (6.1d).
+pub(super) fn kill_formal(mut rows: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+    for row in &mut rows {
+        if row[0] == 1 && row[6] == "exact" {
+            row[6] = "nameonly".into();
+            row[7] = "killed".into();
+            row[8] = 2.into();
+        }
+    }
+    rows
 }
