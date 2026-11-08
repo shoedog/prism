@@ -191,3 +191,17 @@ fn a_define_sink_keeps_a_read_in_the_same_scope() {
         &[("err", 4, 7, true), ("err", 4, 8, true)],
     );
 }
+
+// ---- item 3 round 4: the def's name must be read by a return of its carrier -------------------
+
+#[test]
+fn a_def_the_literal_never_returns_is_not_fed() {
+    let src = "package p\nfunc f() error {\n\trun := func() (int, error) {\n\t\tctx := 1\n\t\ttablet, err := get()\n\t\tcheck(err)\n\t\treturn exec(ctx, tablet)\n\t}\n\t_, err := run()\n\tuse(err)\n\treturn nil\n}\n";
+    check("not-returned", src, &[("err", 5, 10, false)]);
+}
+
+#[test]
+fn a_def_returned_in_a_tuple_keeps_the_carrier() {
+    let src = "package p\nfunc f() {\n\tn, err := func() (int, error) {\n\t\tif err := g(); err != nil {\n\t\t\treturn 1, err\n\t\t}\n\t\treturn 0, nil\n\t}()\n\tuse(n, err)\n}\n";
+    check("tuple-return", src, &[("err", 4, 9, true)]);
+}
