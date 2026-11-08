@@ -7,12 +7,26 @@ use std::process::Command;
 // including generated artifacts and provenance. Keep bootstrap scratch outside it.
 const VENDORED_GRAMMARS: &[&str] = &["vendor/tree-sitter-typescript", "vendor/tree-sitter-go"];
 
-// The `prism-mcp` member crate is compiled into the `prism-mcp` binary but is not part of this
-// package. Its sources and manifest stay identity inputs (the shared daemon's key includes
-// PRISM_CACHE_BUILD_IDENTITY, so an MCP-only edit must still start a new daemon, #731 S4 §2.3).
-// Its tests are not inputs, as `tests/mcp` was not when it lived under this package.
-const MCP_CRATE_SRC: &str = "crates/prism-mcp/src";
-const MCP_CRATE_MANIFEST: &str = "crates/prism-mcp/Cargo.toml";
+// The `prism-mcp` and `prism-review` member crates are compiled into the `prism-mcp` and `prism`
+// binaries but are not part of this package. Their sources and manifests stay identity inputs (the
+// shared daemon's key includes PRISM_CACHE_BUILD_IDENTITY, so an MCP-only edit must still start a
+// new daemon, #731 S4 §2.3; the `prism` binary's `--version` sha and the CPG cache identity cover
+// the review layer it now compiles, #701 S5). Their tests are not inputs, as `tests/mcp` and
+// `tests/cli` were not when they lived under this package.
+const MEMBER_CRATE_SRCS: &[&str] = &["crates/prism-mcp/src", "crates/prism-review/src"];
+const MEMBER_CRATE_MANIFESTS: &[&str] = &[
+    "crates/prism-mcp/Cargo.toml",
+    "crates/prism-review/Cargo.toml",
+];
+
+/// Pathspec of every identity input outside the vendored grammars, in a stable order.
+fn input_pathspec() -> Vec<&'static str> {
+    let mut spec = vec!["src"];
+    spec.extend(MEMBER_CRATE_SRCS);
+    spec.extend(MEMBER_CRATE_MANIFESTS);
+    spec.extend(["build.rs", "Cargo.toml", "Cargo.lock"]);
+    spec
+}
 
 fn main() {
     println!("cargo:rerun-if-changed=Cargo.lock");
@@ -72,8 +86,9 @@ fn main() {
     // repo's HEAD and dirtiness directly at run time — the embedded identity is the
     // binary's claim about what it was built from, not the sole source of truth.
     println!("cargo:rerun-if-changed={manifest}/src");
-    println!("cargo:rerun-if-changed={manifest}/{MCP_CRATE_SRC}");
-    println!("cargo:rerun-if-changed={manifest}/{MCP_CRATE_MANIFEST}");
+    for member in MEMBER_CRATE_SRCS.iter().chain(MEMBER_CRATE_MANIFESTS) {
+        println!("cargo:rerun-if-changed={manifest}/{member}");
+    }
     println!("cargo:rerun-if-changed={manifest}/build.rs");
     println!("cargo:rerun-if-changed={manifest}/Cargo.toml");
     // Cargo recursively watches directories, including additions and removals.
@@ -132,22 +147,15 @@ fn main() {
 
 fn binary_input_paths(manifest: &Path) -> Vec<String> {
     let mut paths = BTreeSet::new();
-    if let Some(listed) = git(
-        &manifest.to_string_lossy(),
-        &[
-            "ls-files",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-            "--",
-            "src",
-            MCP_CRATE_SRC,
-            MCP_CRATE_MANIFEST,
-            "build.rs",
-            "Cargo.toml",
-            "Cargo.lock",
-        ],
-    ) {
+    let mut ls_files = vec![
+        "ls-files",
+        "--cached",
+        "--others",
+        "--exclude-standard",
+        "--",
+    ];
+    ls_files.extend(input_pathspec());
+    if let Some(listed) = git(&manifest.to_string_lossy(), &ls_files) {
         for line in listed.lines() {
             let path = line.trim();
             if !path.is_empty() {
@@ -167,12 +175,15 @@ fn binary_input_paths(manifest: &Path) -> Vec<String> {
 }
 
 fn collect_fallback_inputs(root: &Path, paths: &mut BTreeSet<String>) {
-    for name in ["build.rs", "Cargo.toml", "Cargo.lock", MCP_CRATE_MANIFEST] {
+    let files = ["build.rs", "Cargo.toml", "Cargo.lock"]
+        .iter()
+        .chain(MEMBER_CRATE_MANIFESTS);
+    for name in files {
         if root.join(name).is_file() {
             paths.insert(name.to_string());
         }
     }
-    for tree in ["src", MCP_CRATE_SRC] {
+    for tree in std::iter::once(&"src").chain(MEMBER_CRATE_SRCS) {
         let dir = root.join(tree);
         if dir.exists() {
             collect_src_tree(root, &dir, paths);
@@ -201,22 +212,9 @@ fn insert_relative(root: &Path, path: &Path, paths: &mut BTreeSet<String>) {
 }
 
 fn git_binary_input_dirty(manifest: &str) -> Option<bool> {
-    let source_dirty = git(
-        manifest,
-        &[
-            "status",
-            "--porcelain",
-            "--untracked-files=all",
-            "--",
-            "src",
-            MCP_CRATE_SRC,
-            MCP_CRATE_MANIFEST,
-            "build.rs",
-            "Cargo.toml",
-            "Cargo.lock",
-        ],
-    )
-    .map(|s| !s.is_empty())?;
+    let mut status = vec!["status", "--porcelain", "--untracked-files=all", "--"];
+    status.extend(input_pathspec());
+    let source_dirty = git(manifest, &status).map(|s| !s.is_empty())?;
     Some(source_dirty || git_vendor_input_dirty(manifest)?)
 }
 
