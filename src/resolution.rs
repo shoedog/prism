@@ -14,7 +14,6 @@ use crate::name_resolution::types::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-#[path = "resolution_free.rs"]
 mod free;
 use go::concrete_receiver::GoConcreteReceiverRoute;
 use go::promoted_snapshot::GoPromotedSnapshotConsult;

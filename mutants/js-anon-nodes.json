@@ -85,7 +85,7 @@
       "call_graph::anon_prep_tests::anonymous_source_is_exact_and_legacy_indirect_declines"
     ],
     "ANON-PREP-15-binder-authority-off": [
-      "src/resolution_free.rs",
+      "src/resolution/free.rs",
       "self.admit_anonymous_exact(site, outcome)",
       "outcome",
       "call_graph::anon_prep_tests::barrier_tests::census_w1_through_w6_and_disclosed_receiver_recall"
@@ -157,7 +157,7 @@
       "call_graph::anon_prep_tests::barrier_tests::namespace_export_proof_never_admits_stem_fallback"
     ],
     "ANON-BARRIER-27-boundary-bypass-owner-route": [
-      "src/resolution_free.rs",
+      "src/resolution/free.rs",
       "self.admit_anonymous_exact(site, outcome)",
       "(if outcome.resolved.iter().any(|r| r.kind == crate::resolution::ResolutionKind::QualifierOwner) { outcome } else { self.admit_anonymous_exact(site, outcome) })",
       "call_graph::anon_prep_tests::barrier_tests::census_w1_through_w6_and_disclosed_receiver_recall"
@@ -199,7 +199,7 @@
       "anon_owner::node_tests::nested_field_callbacks_are_strict_but_class_methods_keep_a1"
     ],
     "ANON-ENABLE-34-generator-dfg-off": [
-      "src/ast_callback_identity.rs",
+      "src/ast/callback_identity.rs",
       "\"arrow_function\" | \"function_expression\" | \"generator_function\"",
       "\"arrow_function\" | \"function_expression\"",
       "anon_owner::node_tests::generator_dfg_owns_formals_but_refuses_early_errors"
@@ -235,7 +235,7 @@
       "anon_owner::node_tests::enable_tests::generator_inventory_preserves_named_claims_and_legacy_enclosing_seeds"
     ],
     "ANON-ENABLE-40-generator-formal-refusal-off": [
-      "src/ast_callback_identity.rs",
+      "src/ast/callback_identity.rs",
       "            || self.js_ts_generator_formals_refused(func_node)\n",
       "",
       "anon_owner::node_tests::enable_tests::generator_formals_refuse_suspension_and_reserved_names_but_keep_nested_values"

@@ -470,8 +470,8 @@ fn anonymous_source_is_exact_and_legacy_indirect_declines() {
     assert!(permits_legacy_indirect(&outer));
 }
 
-#[path = "call_graph_anon_authority_tests.rs"]
+#[path = "anon_authority_tests.rs"]
 mod authority_tests;
 
-#[path = "call_graph_anon_barrier_tests.rs"]
+#[path = "anon_barrier_tests.rs"]
 mod barrier_tests;
