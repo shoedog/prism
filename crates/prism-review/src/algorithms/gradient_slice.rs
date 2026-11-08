@@ -10,10 +10,10 @@
 //! Uses the Code Property Graph for unified traversal of data flow and call edges.
 //! All other slices produce binary output. This produces a ranked, scored slice.
 
+use anyhow::Result;
 use prism::cpg::{CpgContext, CpgEdge, CpgNode};
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// Configuration for gradient slicing.

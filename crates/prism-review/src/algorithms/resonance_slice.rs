@@ -9,10 +9,10 @@
 //!
 //! Different from 3D slice which scores risk — this detects *absent* changes.
 
+use anyhow::{anyhow, Result};
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::{anyhow, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
 

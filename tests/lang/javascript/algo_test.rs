@@ -182,7 +182,8 @@ function caller() {
     };
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism_review::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
+        prism_review::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
     assert!(
         !result.blocks.is_empty(),

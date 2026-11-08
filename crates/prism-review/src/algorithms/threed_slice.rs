@@ -9,11 +9,11 @@
 //! - Y: Structural depth (caller/callee via call graph)
 //! - Z: Temporal (git history)
 
+use anyhow::{anyhow, Result};
 use prism::cpg::query::ConfidenceFilter;
 use prism::cpg::CpgContext;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::{anyhow, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
 

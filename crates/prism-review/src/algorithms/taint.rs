@@ -23,10 +23,10 @@ pub use python::sink_tables::{PY_CWE502_SINKS, PY_CWE79_SINKS, PY_CWE89_SINKS, P
 pub use run::slice;
 pub(crate) use sink_match::{line_matches_structured_sink, SinkMatchOutcome};
 
+use go::sanitizers::PathSanitizerKind;
 use prism::access_path::AccessPath;
 use prism::ast::ParsedFile;
 use prism::data_flow::VarLocation;
-use go::sanitizers::PathSanitizerKind;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
@@ -254,9 +254,9 @@ struct SafeFormatHtmlBinding {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use prism::access_path::AccessPath;
     use crate::algorithms::taint::go::sinks::go_sink_outcome;
     use crate::algorithms::taint::report::build_taint_chain_diagram;
+    use prism::access_path::AccessPath;
     use prism::data_flow::FlowPath;
     use prism::data_flow::{FlowEdge, VarAccessKind, VarLocation};
     use prism::frameworks::SanitizerCategory;

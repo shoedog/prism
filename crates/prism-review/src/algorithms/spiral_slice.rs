@@ -10,12 +10,12 @@
 //!
 //! Each line in the output is annotated with its ring level.
 
+use anyhow::Result;
 use prism::call_graph::FunctionId;
 use prism::cpg::query::ConfidenceFilter;
 use prism::cpg::CpgContext;
 use prism::diff::{DiffBlock, DiffInput};
 use prism::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Configuration for spiral slicing.

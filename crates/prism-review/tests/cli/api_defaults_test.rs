@@ -11,11 +11,7 @@ fn defaults_are_shared_with_clap() {
     assert_eq!(params.spiral_max_ring, DEFAULT_SPIRAL_MAX_RING);
     assert_eq!(params.temporal_days, DEFAULT_TEMPORAL_DAYS);
 
-    let output = crate::prism_bin()
-        .unwrap()
-        .arg("--help")
-        .output()
-        .unwrap();
+    let output = crate::prism_bin().unwrap().arg("--help").output().unwrap();
     assert!(output.status.success());
     let help = String::from_utf8(output.stdout).unwrap();
     let start = help.find("--barrier-depth").unwrap();

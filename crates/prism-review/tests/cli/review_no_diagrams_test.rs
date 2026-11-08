@@ -23,7 +23,11 @@ const REPO: &str = "tests/fixtures/review_no_diagrams";
 const DIFF: &str = "tests/fixtures/review_no_diagrams/test.patch";
 
 fn golden(name: &str) -> String {
-    std::fs::read_to_string(format!("{}/tests/fixtures/review_no_diagrams/golden/{name}", concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))).unwrap()
+    std::fs::read_to_string(format!(
+        "{}/tests/fixtures/review_no_diagrams/golden/{name}",
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../..")
+    ))
+    .unwrap()
 }
 
 /// Recursively check whether `value` (or anything nested inside it) has an

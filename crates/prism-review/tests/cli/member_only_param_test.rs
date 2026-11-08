@@ -2,7 +2,6 @@
 //! seed reaches every field read (accepted cost); `--algorithm taint` never links one request
 //! field's source line to another field's sink line.
 
-
 const HANDLER: &str = "function handler(req) {\n  sinkBody(req.body);\n  sinkHeaders(req.headers);\n  sinkQuery(req.query);\n}\n";
 
 fn nav_reach(dir: &std::path::Path, source: &str, sink: &str) -> serde_json::Value {

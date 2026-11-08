@@ -1,4 +1,3 @@
-
 /// Trivial same-function source->sink: `user` (line 2) flows into `value` and
 /// reaches `sink(value)` (line 4) within one function, so `reasoning.reachability`
 /// must be `"Reached"` in `--format json` output. Mirrors the library-level

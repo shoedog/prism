@@ -12,11 +12,11 @@
 //! DFG edge traversal for automatic field-sensitivity. Falls back to name-based
 //! AST matching when DFG edges are absent for a variable.
 
+use anyhow::Result;
 use prism::cpg::{CpgContext, CpgNode, VarAccess};
 use prism::diff::{DiffBlock, DiffInput};
 use prism::finding_confidence::EvidencePath;
 use prism::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Shared left-flow tracing logic used by both LeftFlow (Algorithm 8) and

@@ -288,7 +288,9 @@ def handle_delete(request):
     let result = prism_review::algorithms::horizontal_slice::slice(
         &files,
         &diff,
-        &prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern("handle_*".to_string()),
+        &prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern(
+            "handle_*".to_string(),
+        ),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
@@ -364,7 +366,9 @@ func HandlePost(w http.ResponseWriter, r *http.Request) {
     let result = prism_review::algorithms::horizontal_slice::slice(
         &files,
         &diff,
-        &prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern("Handle*".to_string()),
+        &prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern(
+            "Handle*".to_string(),
+        ),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
@@ -483,7 +487,9 @@ def delete_handler(request):
     let result = prism_review::algorithms::horizontal_slice::slice(
         &files,
         &diff,
-        &prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern("*_handler".to_string()),
+        &prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern(
+            "*_handler".to_string(),
+        ),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
@@ -517,7 +523,9 @@ def get_items():
     let result = prism_review::algorithms::horizontal_slice::slice(
         &files,
         &diff,
-        &prism_review::algorithms::horizontal_slice::PeerPattern::Decorator("@app.route".to_string()),
+        &prism_review::algorithms::horizontal_slice::PeerPattern::Decorator(
+            "@app.route".to_string(),
+        ),
     )
     .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);

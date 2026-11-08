@@ -9,15 +9,15 @@
 //! Uses the Code Property Graph's `tarjan_scc` (via petgraph) for cycle detection
 //! instead of hand-rolled DFS.
 
+use crate::output::mermaid::safe_node_id;
+use anyhow::Result;
+use petgraph::visit::EdgeRef;
 use prism::cpg::{CpgContext, CpgEdge, CpgNode};
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::output::mermaid::safe_node_id;
 use prism::slice::{
     EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceGraph, SliceResult,
     SlicingAlgorithm,
 };
-use anyhow::Result;
-use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Emit a cycle diagram using pre-computed nodes and actual graph edges.

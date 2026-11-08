@@ -285,7 +285,8 @@ fn parse_footer(input: &str) -> Result<String, String> {
     };
     let pattern =
         prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern("parse_".to_string());
-    let result = prism_review::algorithms::horizontal_slice::slice(&files, &diff, &pattern).unwrap();
+    let result =
+        prism_review::algorithms::horizontal_slice::slice(&files, &diff, &pattern).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
 }
 

@@ -6,10 +6,10 @@
 //!
 //! Uses the Code Property Graph for data flow chopping.
 
+use anyhow::Result;
 use prism::cpg::CpgContext;
 use prism::diff::{DiffBlock, ModifyType};
 use prism::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::BTreeMap;
 
 /// Configuration for a chop operation.

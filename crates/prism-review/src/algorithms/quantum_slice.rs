@@ -6,11 +6,11 @@
 //! Identifies async patterns (await, goroutines, promises, threads) and models
 //! which assignments could race with the diff point.
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::languages::Language;
 use prism::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 

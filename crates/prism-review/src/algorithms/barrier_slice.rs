@@ -4,12 +4,12 @@
 //! stopping at barrier functions or modules. This solves the "how deep should
 //! I trace?" problem by making the boundary explicit.
 
+use anyhow::Result;
 use prism::cpg::query::ConfidenceFilter;
 use prism::cpg::CpgContext;
 use prism::diff::{DiffBlock, DiffInput};
 use prism::resolution::ResolutionConfidence;
 use prism::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Configuration specific to barrier slicing.

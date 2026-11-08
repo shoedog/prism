@@ -1,6 +1,5 @@
 //! JS/TS request-data alias definitions, kills and scopes.
 
-use prism::access_path::AccessPath;
 use crate::algorithms::taint::js_ts::bindings::js_ts_assignment_target_byte_scope;
 use crate::algorithms::taint::js_ts::request_targets::{
     collect_js_ts_request_alias_source_uses, collect_js_ts_request_assignment_targets,
@@ -9,6 +8,7 @@ use crate::algorithms::taint::js_ts::source_ranges::js_ts_ranges_are_in_sibling_
 use crate::algorithms::taint::{
     JsTsAliasDef, JsTsAliasDefs, JsTsAliasKill, JsTsRequestDataSource, TaintSeed,
 };
+use prism::access_path::AccessPath;
 use prism::ast::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;

@@ -33,7 +33,8 @@ fn readme_text() -> String {
 
 fn skill_text() -> String {
     fs::read_to_string(
-        Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join("skills/prism-code-slicing/SKILL.md"),
+        Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+            .join("skills/prism-code-slicing/SKILL.md"),
     )
     .expect("skills/prism-code-slicing/SKILL.md must be readable")
 }

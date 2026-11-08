@@ -26,6 +26,7 @@ use crate::algorithms::taint::seeds::{detect_framework_sources, synthesize_targe
 use crate::algorithms::taint::sink_match::{structured_sink_outcome, SinkMatchOutcome};
 use crate::algorithms::taint::{matches_sink, TaintConfig, TaintSeed};
 use crate::algorithms::taint_sinks;
+use anyhow::Result;
 use prism::ast::tree_helpers::is_js_ts_language;
 use prism::cpg::CpgContext;
 use prism::data_flow::FlowPath;
@@ -33,7 +34,6 @@ use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::finding_confidence::EvidencePath;
 use prism::languages::Language;
 use prism::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub fn slice(

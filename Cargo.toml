@@ -1,11 +1,14 @@
 [workspace]
-members = ["crates/prism-mcp"]
+members = ["crates/prism-mcp", "crates/prism-review"]
+# `cargo build`/`run`/`test` at the root keep building the `prism` CLI and running its tests;
+# prism-mcp stays opt-in (`-p prism-mcp` / `--workspace`), as S4 decided.
+default-members = [".", "crates/prism-review"]
 # Vendored grammar crates are path dependencies under the root; without this they become implicit
 # workspace members and their dev-dependencies (tree-sitter ^0.24) enter resolution.
 exclude = ["vendor"]
 
 [workspace.package]
-version = "3.2.0"
+version = "4.0.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -19,10 +22,6 @@ license.workspace = true
 [features]
 # Explicit real-compiler tests only; no production consumer or compiler dependency.
 detached-owner-audit = []
-
-[[bin]]
-name = "prism"
-path = "src/main.rs"
 
 [dependencies]
 tree-sitter = "0.25"
@@ -53,11 +52,10 @@ rayon = "1"
 dirs = "6.0.0"
 libc = "0.2"
 
-# Global allocator for the `prism` CLI only (src/main.rs); see #437.
-[target.'cfg(target_os = "linux")'.dependencies]
-tikv-jemallocator = "0.7"
-
 [dev-dependencies]
+# Root integration tests exercise the review layer too (S5 test placement T3); a dev-only edge,
+# so the `prism` library itself never depends on prism-review.
+prism-review = { path = "crates/prism-review" }
 tempfile = "3"
 assert_cmd = "2"
 predicates = "3"
@@ -166,10 +164,6 @@ path = "tests/integration/main.rs"
 [[test]]
 name = "frameworks"
 path = "tests/frameworks/main.rs"
-
-[[test]]
-name = "cli"
-path = "tests/cli/main.rs"
 
 [[test]]
 name = "reasoning"

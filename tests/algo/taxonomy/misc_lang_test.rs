@@ -278,7 +278,8 @@ def log_result(result):
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::BarrierSlice);
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism_review::algorithms::barrier_slice::slice(&ctx, &diff, &config, &barrier_config).unwrap();
+        prism_review::algorithms::barrier_slice::slice(&ctx, &diff, &config, &barrier_config)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::BarrierSlice);
 }
 
@@ -368,7 +369,8 @@ def process(x):
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
     let ctx = CpgContext::build(&files, None);
     let conditioned_result =
-        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
+        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition)
+            .unwrap();
 
     // Also get unconditioned (LeftFlow) for comparison
     let left_result = algorithms::run_slicing_compat(

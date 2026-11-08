@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use clap::Parser;
+use prism::slice::{MultiSliceResult, SliceConfig};
 use prism_review::cli::{Cli, Command, NavArgs, NavQuery, ReviewArgs, TargetsArgs};
 use prism_review::output;
-use prism::slice::{MultiSliceResult, SliceConfig};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
@@ -100,7 +100,8 @@ fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                     Ok(())
                 }
                 Err(error) => {
-                    let (rendered, code) = prism_review::output::navigation::render_err(&error, format);
+                    let (rendered, code) =
+                        prism_review::output::navigation::render_err(&error, format);
                     println!("{rendered}");
                     prism::profile::exit(code);
                 }

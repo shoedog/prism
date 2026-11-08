@@ -12,7 +12,11 @@ const CG: &str = "tests/fixtures/nav_callgraph";
 const RUST_SCOPED: &str = "tests/fixtures/nav_scoped_rust";
 
 fn golden(name: &str) -> String {
-    std::fs::read_to_string(format!("{}/tests/fixtures/nav_compat/golden/{name}", concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))).unwrap()
+    std::fs::read_to_string(format!(
+        "{}/tests/fixtures/nav_compat/golden/{name}",
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../..")
+    ))
+    .unwrap()
 }
 
 // The `review` preset aggregates all 26 algorithms; at least one (Taint, on this

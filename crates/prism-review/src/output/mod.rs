@@ -11,9 +11,9 @@ pub mod sarif;
 mod sarif_model;
 mod sarif_rules;
 
+pub use mermaid::{format_mermaid_report, render};
 /// Nav evidence rendering moved to core (`navigation::render`, #701 S5); old path kept.
 pub use prism::navigation::render as navigation;
-pub use mermaid::{format_mermaid_report, render};
 pub use sarif::{to_sarif, SarifInputs};
 
 // Re-export the previous flat-file public API so existing imports keep working.

@@ -429,7 +429,8 @@ def process(x):
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
+        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 
@@ -462,7 +463,8 @@ func check(n int) int {
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
+        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 
@@ -490,7 +492,8 @@ function validate(input) {
         }],
     };
 
-    let condition = prism_review::algorithms::conditioned_slice::Condition::parse("input!=null").unwrap();
+    let condition =
+        prism_review::algorithms::conditioned_slice::Condition::parse("input!=null").unwrap();
     assert_eq!(
         condition.op,
         prism_review::algorithms::conditioned_slice::ConditionOp::IsNotNull
@@ -498,7 +501,8 @@ function validate(input) {
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
+        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 

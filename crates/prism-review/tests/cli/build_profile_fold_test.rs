@@ -290,7 +290,10 @@ fn tiny_owner_rd_excludes_cfg_in_either_order() {
             concat!(env!("CARGO_MANIFEST_DIR"), "/../.."),
             "/src/data_flow/build/file.rs"
         )),
-        include_str!(concat!(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."), "/src/profile/owner.rs")),
+        include_str!(concat!(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../.."),
+            "/src/profile/owner.rs"
+        )),
     );
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("profile.jsonl");

@@ -7,10 +7,10 @@
 //! "ghost" context. Catches the case where someone deletes a utility and the
 //! current diff unknowingly depends on its absence being correct.
 
+use anyhow::{anyhow, Result};
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::{anyhow, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
 

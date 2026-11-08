@@ -5,10 +5,10 @@
 //! a concern pattern, finds all other locations where the same concern
 //! appears across all files.
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::BTreeMap;
 
 /// Built-in concern definitions.

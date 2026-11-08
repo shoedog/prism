@@ -15,8 +15,8 @@
 //! `--format json` keeps using `to_review_output`/`ReviewOutput` from
 //! `review.rs`, untouched.
 
-use prism::diff::DiffBlock;
 use crate::output::review::{render_review_block, taint_line_annotations, ReviewBlock};
+use prism::diff::DiffBlock;
 use prism::slice::{AlgorithmError, DiagramWarning, FileParseQuality, SliceFinding, SliceResult};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};

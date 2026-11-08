@@ -8,11 +8,11 @@
 //! the unreachable set: lines only reachable through the pruned branch are
 //! also removed. Falls back to AST-range-based pruning when no CFG is present.
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::cpg::{CpgContext, CpgEdge};
 use prism::diff::DiffInput;
 use prism::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::BTreeSet;
 
 /// A condition predicate for conditioned slicing.

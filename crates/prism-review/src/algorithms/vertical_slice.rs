@@ -4,16 +4,16 @@
 //! feature being modified. Shows every architectural layer a request touches:
 //! handler → service → model → database.
 
+use crate::output::mermaid::safe_node_id;
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::cpg::query::ConfidenceFilter;
 use prism::cpg::CpgContext;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
-use crate::output::mermaid::safe_node_id;
 use prism::slice::{
     EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeCluster, NodeKind, SliceGraph, SliceResult,
     SlicingAlgorithm,
 };
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Heuristic layer patterns for directory-based layer detection.

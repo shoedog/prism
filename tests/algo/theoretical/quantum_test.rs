@@ -31,7 +31,8 @@ async function fetchUser(id) {
 #[test]
 fn test_quantum_slice_async_js() {
     let (files, diff) = make_async_test();
-    let result = prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("user")).unwrap();
+    let result =
+        prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("user")).unwrap();
 
     // May or may not find async patterns depending on tree-sitter parsing
     // Just verify it doesn't crash
@@ -145,7 +146,8 @@ int main() {
         }],
     };
 
-    let result = prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("flag")).unwrap();
+    let result =
+        prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("flag")).unwrap();
 
     assert!(
         !result.blocks.is_empty(),
@@ -177,7 +179,8 @@ void rx_interrupt_handler(int irq) {
         }],
     };
 
-    let result = prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("status")).unwrap();
+    let result =
+        prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("status")).unwrap();
 
     assert!(
         !result.blocks.is_empty(),
@@ -647,6 +650,7 @@ async def fetch(url):
         }],
     };
 
-    let result = prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("data")).unwrap();
+    let result =
+        prism_review::algorithms::quantum_slice::slice(&files, &diff, Some("data")).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::QuantumSlice);
 }

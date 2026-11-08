@@ -1,6 +1,5 @@
 //! JS/TS request-data assignment and destructuring targets.
 
-use prism::access_path::AccessPath;
 use crate::algorithms::taint::js_ts::alias_edges::{
     js_ts_rhs_is_bare_alias, js_ts_rhs_is_koa_request_object_alias, js_ts_simple_lhs_identifier,
 };
@@ -18,6 +17,7 @@ use crate::algorithms::taint::js_ts::source_access::{
 };
 use crate::algorithms::taint::js_ts::source_ranges::js_ts_source_access_ranges_for_alias_from_defs;
 use crate::algorithms::taint::{JsTsAliasDef, JsTsAliasDefs, JsTsRequestDataSource};
+use prism::access_path::AccessPath;
 use prism::ast::ParsedFile;
 use std::collections::BTreeSet;
 use tree_sitter::Node;

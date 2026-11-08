@@ -9,15 +9,15 @@ pub use model::{
     DependencyHint, Diff, Expected, Producer, Related, Repo, Site, Target, TargetsDocument,
 };
 
+use crate::output::{sarif::path_escapes_repo, severity_rank};
+use mapping::{language_tag, map_finding};
 use prism::api::{build_info, ReviewInputs};
 use prism::finding_confidence::{
     admit_finding_for_resolution, parse_quality_for_selected_evidence, EvidencePath, FindingTier,
     MinConfidence, ResolutionMode,
 };
 use prism::languages::Language;
-use crate::output::{sarif::path_escapes_repo, severity_rank};
 use prism::slice::{AlgorithmError, SliceFinding};
-use mapping::{language_tag, map_finding};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::path::PathBuf;

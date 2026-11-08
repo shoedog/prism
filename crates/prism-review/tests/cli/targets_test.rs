@@ -168,8 +168,14 @@ fn check_against_schema(doc: &Value, schema: &Value) {
 }
 
 fn contract_schema() -> Value {
-    serde_json::from_str(&fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/contracts/targets.schema.json")).unwrap())
-        .unwrap()
+    serde_json::from_str(
+        &fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/contracts/targets.schema.json"
+        ))
+        .unwrap(),
+    )
+    .unwrap()
 }
 
 #[test]

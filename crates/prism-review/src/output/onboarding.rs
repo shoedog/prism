@@ -1,5 +1,5 @@
-use prism::navigation::onboarding::ProjectOverview;
 use anyhow::{bail, Result};
+use prism::navigation::onboarding::ProjectOverview;
 use std::fmt::Write;
 
 pub fn render(report: &ProjectOverview, format: &str) -> Result<String> {

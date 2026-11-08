@@ -8,10 +8,10 @@
 //! edge traversal for automatic field-sensitivity. Falls back to name-based
 //! AST matching when DFG edges are absent.
 
+use anyhow::Result;
 use prism::cpg::{CpgContext, CpgNode, VarAccess};
 use prism::diff::{DiffBlock, DiffInput};
 use prism::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::left_flow;

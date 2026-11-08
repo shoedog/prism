@@ -8,8 +8,8 @@
 //! byte-identical before and after this move (`scripts/phase0-byte-control.sh`
 //! plus a direct `--help`/`--version` `cmp`).
 
-use prism::finding_confidence::{MinConfidence, ResolutionMode};
 use clap::Parser;
+use prism::finding_confidence::{MinConfidence, ResolutionMode};
 use std::path::PathBuf;
 
 /// Validate `--diagram-node-cap`: must be >= 4.

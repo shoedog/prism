@@ -1,6 +1,5 @@
 //! JS/TS assignment-alias flow-edge synthesis.
 
-use prism::access_path::AccessPath;
 use crate::algorithms::taint::js_ts::bindings::{
     js_ts_assignment_effective_byte_scope, js_ts_assignment_effective_line_scope,
     js_ts_enclosing_function_id,
@@ -23,6 +22,7 @@ use crate::algorithms::taint::js_ts::source_ranges::js_ts_request_source_access_
 use crate::algorithms::taint::seeds::reference_line_cfg_reachable;
 use crate::algorithms::taint::sink_match::{assignment_lhs_identifiers, node_contains_identifier};
 use crate::algorithms::taint::{JsTsAliasDefs, TargetSeedSynthesisContext};
+use prism::access_path::AccessPath;
 use prism::ast::tree_helpers::{is_js_ts_language, unwrap_parenthesized};
 use prism::ast::ParsedFile;
 use prism::data_flow::{FlowEdge, VarAccessKind, VarLocation};

@@ -5,10 +5,10 @@ use common::*;
 #[path = "dfg_compaction/controls.rs"]
 mod controls;
 
+use prism::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult};
 use prism_review::api::{
     load_review_inputs, run_review, AlgorithmParams, ReviewInputs, ReviewOptions, ReviewRun,
 };
-use prism::cpg_cache::{compute_file_hashes, load_cache, save_cache, CacheResult};
 use std::process::Command;
 
 fn git(repo: &Path, args: &[&str]) -> String {

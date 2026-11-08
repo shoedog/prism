@@ -4,12 +4,12 @@
 //! Identifies statements that participate in changed data flow paths —
 //! new edges, removed edges, and modified assignments.
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::cpg::{CodePropertyGraph, CpgContext};
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::languages::Language;
 use prism::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;

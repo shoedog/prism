@@ -29,11 +29,11 @@
 //! *registration → invocation* chain anchored on an exact field name: no chain,
 //! no finding.
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::languages::Language;
 use prism::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 struct Registration {

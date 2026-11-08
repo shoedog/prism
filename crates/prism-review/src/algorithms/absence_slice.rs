@@ -10,10 +10,10 @@
 //!
 //! Unlike all other slices which show what IS in the code, this shows what ISN'T.
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A paired operation pattern.

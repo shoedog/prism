@@ -10,11 +10,11 @@
 //!
 //! This is backward taint analysis with origin classification.
 
+use anyhow::Result;
 use prism::cpg::CpgContext;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::finding_confidence::{EvidenceHop, EvidencePath};
 use prism::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub use prism::frameworks::Origin;

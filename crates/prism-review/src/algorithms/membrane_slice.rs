@@ -10,6 +10,7 @@
 //! Catches breaking changes, missing error handling at call sites, and
 //! parameter mismatches.
 
+use anyhow::Result;
 use prism::call_graph::FunctionId;
 use prism::cpg::query::ConfidenceFilter;
 use prism::cpg::CpgContext;
@@ -17,7 +18,6 @@ use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::finding_confidence::{EvidenceHop, EvidencePath};
 use prism::resolution::{ResolutionKind, ResolvedCallEdge};
 use prism::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::BTreeMap;
 
 pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {

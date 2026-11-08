@@ -43,17 +43,17 @@ mod member_only_param_test_support;
 #[cfg(test)]
 mod nested_execution_owner_slice_tests;
 
+use crate::output::mermaid;
+use anyhow::Result;
 /// Re-exported from core (`prism::ast::parse_quality`) so existing `algorithms::` callers keep working.
 pub use prism::ast::parse_quality::{check_parse_quality, check_parse_warnings};
 use prism::ast::ParsedFile;
 use prism::cpg::CpgContext;
 use prism::diff::DiffInput;
-use crate::output::mermaid;
 use prism::slice::{
     DiagramWarning, DiagramWarningKind, SliceConfig, SliceResult, SlicingAlgorithm,
 };
 use prism::type_db::TypeDatabase;
-use anyhow::Result;
 use std::collections::BTreeMap;
 use std::panic;
 

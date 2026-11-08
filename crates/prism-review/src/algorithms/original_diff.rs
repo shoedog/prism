@@ -3,10 +3,10 @@
 //! The simplest slicing strategy — includes only the raw diff lines.
 //! This is the baseline that provides minimal context.
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput};
 use prism::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::BTreeMap;
 
 pub fn slice(_files: &BTreeMap<String, ParsedFile>, diff: &DiffInput) -> Result<SliceResult> {

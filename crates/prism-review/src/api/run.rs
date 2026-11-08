@@ -1,5 +1,6 @@
-use prism::api::{build_context, load_review_inputs, ReviewInputs, ReviewOptions};
 use crate::algorithms;
+use anyhow::{Context, Result};
+use prism::api::{build_context, load_review_inputs, ReviewInputs, ReviewOptions};
 use prism::ast::ParsedFile;
 use prism::cpg::CpgContext;
 use prism::finding_confidence::{
@@ -7,7 +8,6 @@ use prism::finding_confidence::{
     ResolutionMode,
 };
 use prism::slice::{AlgorithmError, SliceConfig, SliceFinding, SliceResult, SlicingAlgorithm};
-use anyhow::{Context, Result};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 

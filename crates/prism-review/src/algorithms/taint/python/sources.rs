@@ -1,9 +1,9 @@
 //! Python framework request sources (Flask, Django, FastAPI, pydantic).
 
-use prism::access_path::AccessPath;
 use crate::algorithms::taint::{
     PythonDjangoRequestDataSources, PythonFlaskRequestDataSources, PythonParam, TaintSeed,
 };
+use prism::access_path::AccessPath;
 use prism::ast::tree_helpers::call_path_text;
 use prism::ast::ParsedFile;
 use prism::languages::Language;

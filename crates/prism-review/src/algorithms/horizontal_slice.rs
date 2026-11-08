@@ -4,10 +4,10 @@
 //! abstraction level that should follow the same patterns. Enables omission
 //! detection: "this handler has validation; these three don't."
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput};
 use prism::slice::{SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 

@@ -1,9 +1,9 @@
 //! Pure projection/mapping acceptance tests for design §7.4.8.
 
-use prism_review::algorithms::absence_slice::default_pairs;
 use prism::api::{load_review_inputs, FindingTier, ReviewInputs, ReviewOptions};
 use prism::languages::Language;
 use prism::slice::{AlgorithmError, SliceFinding};
+use prism_review::algorithms::absence_slice::default_pairs;
 use prism_review::targets::mapping::{language_tag, map_finding, ABSENCE_PAIRS};
 use prism_review::targets::{project, target_id, TargetsMeta};
 use serde_json::Value;
@@ -66,7 +66,10 @@ fn targets_meta_default_filters_nothing() {
     let meta = TargetsMeta::default();
     assert_eq!(meta.min_severity_rank, 0);
     assert_eq!(meta.min_tier, FindingTier::Candidate);
-    assert_eq!(meta.min_severity_rank, prism_review::output::severity_rank("info"));
+    assert_eq!(
+        meta.min_severity_rank,
+        prism_review::output::severity_rank("info")
+    );
     assert!(meta.algorithms_run.is_empty());
     assert!(meta.errors.is_empty());
     assert!(meta.run_warnings.is_empty());

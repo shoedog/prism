@@ -27,11 +27,11 @@
 //!      - ≥ 3 siblings guard the first parameter and ≥ 1 dereferences without guarding
 //!        (divergent gap — flag the divergent ones)
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::languages::Language;
 use prism::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 struct PeerInfo {

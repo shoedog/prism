@@ -40,11 +40,11 @@
 //! feeding a cache key vs local checksum, subprocess taking user input vs
 //! static args, etc.).
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInfo, DiffInput, ModifyType};
 use prism::languages::Language;
 use prism::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// One function that truncates a digest via a parameter, recorded during

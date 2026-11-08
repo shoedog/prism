@@ -7,10 +7,10 @@
 //! If a change modifies one side without touching the other, the symmetry may
 //! be broken. This slice surfaces both sides for comparison.
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A symmetric function pair pattern.

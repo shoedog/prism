@@ -1,4 +1,3 @@
-
 #[test]
 fn call_stats_reports_kind_counts_and_drops() {
     let dir = tempfile::tempdir().unwrap();

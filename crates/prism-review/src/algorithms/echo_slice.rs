@@ -9,18 +9,18 @@
 //! Catches: missing null checks after a return type change, unhandled new error
 //! cases, callers that depend on side effects that were removed.
 
+use crate::output::mermaid::safe_node_id;
+use anyhow::Result;
 use prism::call_graph::FunctionId;
 use prism::cpg::query::ConfidenceFilter;
 use prism::cpg::CpgContext;
 use prism::diff::{DiffBlock, DiffInput, ModifyType};
 use prism::finding_confidence::{EvidenceHop, EvidencePath};
-use crate::output::mermaid::safe_node_id;
 use prism::resolution::ResolutionKind;
 use prism::slice::{
     EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceFinding, SliceGraph, SliceResult,
     SlicingAlgorithm,
 };
-use anyhow::Result;
 use std::collections::BTreeSet;
 
 /// Patterns that suggest a caller handles the return value safely.

@@ -5,11 +5,11 @@
 //! break them. Emits `SliceFinding`s with `category: "contract"` for summaries and
 //! `category: "contract_violation"` for modified guard clauses.
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::diff::{DiffBlock, DiffInput};
 use prism::languages::Language;
 use prism::slice::{SliceFinding, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;

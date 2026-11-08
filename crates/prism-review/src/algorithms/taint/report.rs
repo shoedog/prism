@@ -1,7 +1,7 @@
 //! Finding evidence ranking and the taint-chain diagram.
 
-use prism::finding_confidence::{EvidenceHop, EvidencePath};
 use crate::output::mermaid::safe_node_id;
+use prism::finding_confidence::{EvidenceHop, EvidencePath};
 use prism::slice::{EdgeStyle, GraphEdge, GraphNode, GraphShape, NodeKind, SliceGraph};
 use std::collections::BTreeMap;
 

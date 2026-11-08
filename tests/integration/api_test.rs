@@ -1,5 +1,5 @@
-use prism_review::api::*;
 use prism::slice::{SliceConfig, SlicingAlgorithm};
+use prism_review::api::*;
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -208,7 +208,8 @@ int classify(int score) {
     let config = SliceConfig::default().with_algorithm(SlicingAlgorithm::ConditionedSlice);
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition).unwrap();
+        prism_review::algorithms::conditioned_slice::slice(&ctx, &diff, &config, &condition)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::ConditionedSlice);
 }
 
@@ -256,7 +257,8 @@ fn test_spiral_slice_c() {
     };
     let ctx = CpgContext::build(&files, None);
     let result =
-        prism_review::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config).unwrap();
+        prism_review::algorithms::spiral_slice::slice(&ctx, &diff, &config, &spiral_config)
+            .unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::SpiralSlice);
     assert!(
         !result.blocks.is_empty(),
@@ -333,7 +335,8 @@ int handle_delete(int req) {
 
     let peer_pattern =
         prism_review::algorithms::horizontal_slice::PeerPattern::NamePattern("handle_".to_string());
-    let result = prism_review::algorithms::horizontal_slice::slice(&files, &diff, &peer_pattern).unwrap();
+    let result =
+        prism_review::algorithms::horizontal_slice::slice(&files, &diff, &peer_pattern).unwrap();
     assert_eq!(result.algorithm, SlicingAlgorithm::HorizontalSlice);
 }
 

@@ -9,11 +9,11 @@
 //! find alternate paths more precisely than AST pattern matching. Falls back
 //! to AST-based detection when no CFG edges exist.
 
+use anyhow::Result;
 use prism::ast::ParsedFile;
 use prism::cpg::{CpgContext, CpgNode, StmtKind};
 use prism::diff::DiffInput;
 use prism::slice::{SliceConfig, SliceResult, SlicingAlgorithm};
-use anyhow::Result;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use tree_sitter::Node;
 

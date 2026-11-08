@@ -350,8 +350,8 @@ fn skipped_unsupported_file_becomes_a_notification() {
 /// are unit-tested in `src/output/sarif_rules.rs`.)
 mod document {
     use prism::finding_confidence::EvidencePath;
-    use prism_review::output::{to_sarif, SarifInputs};
     use prism::slice::SliceFinding;
+    use prism_review::output::{to_sarif, SarifInputs};
     use serde_json::Value;
     use std::collections::BTreeMap;
 
