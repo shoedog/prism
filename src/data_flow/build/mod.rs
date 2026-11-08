@@ -7,6 +7,8 @@ use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 mod aliases;
 #[cfg(test)]
+mod arrow_body_cap_tests;
+#[cfg(test)]
 mod census_cap_tests;
 mod exact_reads;
 mod fallback_cap;
