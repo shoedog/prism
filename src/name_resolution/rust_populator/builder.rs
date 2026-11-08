@@ -7,10 +7,10 @@ use crate::ast::ParsedFile;
 use crate::name_resolution::binding_lookup::LocalFact;
 use crate::name_resolution::graph::{MacroWildcard, ScopeGraph};
 use crate::name_resolution::rust_policy::normalize_crate_ident;
-use crate::name_resolution::rust_policy::EK_GLOB;
+use crate::name_resolution::rust_policy::{EK_GLOB, VIS_PUB_IN};
 use crate::name_resolution::types::{
     BindTarget, Binding, CfgCond, Edge, FileId, Ident, NamespaceId, RawPath, Scope, ScopeExtent,
-    ScopeId, ScopeKind, SourceLoc, Span, Target, Vis,
+    ScopeId, ScopeKind, SourceLoc, Span, Target, Vis, VisKindId,
 };
 
 use super::{file_id, RustCrateConfig, PARSE_FAIL_RATE};
@@ -64,6 +64,9 @@ pub(crate) struct Builder<'f> {
     /// Consumed by `walk/locals.rs`'s wildcard-poison exemption via
     /// [`Builder::macro_shadow`].
     macro_shadow: BTreeSet<String>,
+    /// `(binding index, path)` of every `pub(in path)` binding, resolved in
+    /// `finish()` by [`super::restrict::resolve_restricts`] (#710).
+    pending_restricts: Vec<(usize, RawPath)>,
 }
 
 impl<'f> Builder<'f> {
@@ -94,6 +97,17 @@ impl<'f> Builder<'f> {
             lib_root_by_member_dir: BTreeMap::new(),
             roots_by_path: BTreeMap::new(),
             crate_deps_by_root: BTreeMap::new(),
+            pending_restricts: Vec::new(),
+        }
+    }
+
+    /// Record the `pub(in path)` restrict of the binding just added (a no-op for
+    /// every other visibility). It is resolved in [`Builder::finish`].
+    pub(crate) fn note_restrict(&mut self, kind: VisKindId, path: &Option<RawPath>) {
+        if let (VIS_PUB_IN, Some(path), Some(last)) =
+            (kind, path, self.graph.bindings.len().checked_sub(1))
+        {
+            self.pending_restricts.push((last, path.clone()));
         }
     }
 
@@ -122,6 +136,7 @@ impl<'f> Builder<'f> {
     }
 
     pub(crate) fn finish(mut self) -> ScopeGraph {
+        super::restrict::resolve_restricts(&mut self.graph, &self.pending_restricts);
         // Build the per-consuming-crate dep map from captured per-member deps +
         // the library-root index. For each consuming member M with a LIBRARY root
         // Rc, and each recorded `(in_source_name -> target_dir)`, map the normalized

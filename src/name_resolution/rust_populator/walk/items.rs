@@ -15,10 +15,7 @@ use super::super::scopes::{
     UseItem,
 };
 use super::locals::{add_locals_with_facts, walk_block_body};
-use super::{
-    full_file_span, full_scope_span, node_range, resolve_restrict, vis_extent_from, with_node, Ctx,
-    NodeId,
-};
+use super::{full_file_span, full_scope_span, node_range, vis_extent_from, with_node, Ctx, NodeId};
 
 // ── modules ───────────────────────────────────────────────────────────────────
 
@@ -49,8 +46,8 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_mod_item(
     if name.is_empty() {
         return;
     }
-    let restrict = vin.and_then(|p| resolve_restrict(b, scope, &p));
-    let v = vis(vis_kind, restrict);
+    // A `pub(in path)` restrict is resolved after population (`restrict.rs`).
+    let v = vis(vis_kind, None);
 
     if has_body {
         // Inline module: a Module scope spanning the body, parented lexically at
@@ -73,6 +70,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_mod_item(
             cond.clone(),
             vec![vis_extent_from(b, scope, ctx.file, lo)],
         );
+        b.note_restrict(vis_kind, &vin);
         let child_dir = match &path_attr {
             Some(rel) => parent_dir(&join(&ctx.dir, rel)),
             None => join(&ctx.dir, &format!("{name}/")),
@@ -109,6 +107,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_mod_item(
                 cond.clone(),
                 vec![full_file_span(ctx.file)],
             );
+            b.note_restrict(vis_kind, &vin);
         }
     }
 }
@@ -264,12 +263,12 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_function(
     ctx: &Ctx,
     assoc: bool,
 ) {
-    let (name, params_nid, body_nid, vis_kind, cond) = with_node(b, path, nid, |pf, n| {
+    let (name, params_nid, body_nid, (vis_kind, vin), cond) = with_node(b, path, nid, |pf, n| {
         (
             name_text(pf, n).unwrap_or_default(),
             n.child_by_field_name("parameters").map(NodeId::of),
             n.child_by_field_name("body").map(NodeId::of),
-            parse_vis(pf, n).0,
+            parse_vis(pf, n),
             parse_cfg_for_item(pf, n),
         )
     });
@@ -293,6 +292,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_function(
             cond.clone(),
             vec![full_scope_span(b, scope, ctx.file)],
         );
+        b.note_restrict(vis_kind, &vin);
     }
     // The body Callable scope. For a free fn its lexical parent IS the module
     // (`scope == ctx.module` at module level). For an associated fn we FORCE the
