@@ -1,7 +1,7 @@
 //! JS/TS/TSX inert-default-identifier parameter occurrences used by Step 5b.
 //!
 //! Newly-admitted default occurrences are purely additive over the existing
-//! required/optional-without-default contracts (see `src/ast_inert_default_parameter_tests.rs`
+//! required/optional-without-default contracts (see `src/ast/inert_default_parameter_tests.rs`
 //! for the occurrence-level allowlist and whole-signature guard). This file
 //! covers the Def/DFG/CPG consequences: entry-Def creation, Step-5b argument
 //! binding, body-overwrite isolation, and label/parity behavior.

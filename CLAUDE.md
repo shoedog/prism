@@ -283,7 +283,7 @@ path that is not indexed finds the same-stem `.ts` then `.tsx`, `.`/`..` find th
 `./`-spelled specifiers and refuses the bare `.`/`..` forms; the tsconfig `paths` lane keeps its own
 rules; a namespace import whose module only this fallback finds and whose proof fails stays NameOnly.
 Language-family admission (`src/languages/family.rs`, `ResolutionOutcome::retain_family` in
-`src/resolution_free.rs`; {C, C++}, {JS, TS, TSX}, every other language its own family) is
+`src/resolution/free.rs`; {C, C++}, {JS, TS, TSX}, every other language its own family) is
 removal-only: the rung, kind and confidence come from the unfiltered pool, then targets in another
 family than the caller are dropped, a pool left empty refuses with no later rung consulted, and a
 filter never promotes (a multi-owner NameOnly pool left with one target stays NameOnly with the
@@ -799,8 +799,12 @@ re-exports, a few core methods) over `src/ast/{js_ts,go,python}/` and concern fi
 inline test modules. Language-specific code stays per layer (`<layer>/<lang>/`), never in a
 per-language crate. The former root language modules now live in their layers:
 `resolution/{go,js_ts,rust}/`, `call_graph/{go,js_ts,rust}/`, `type_providers/go/type_alias.rs`,
-`ast/go/statements.rs`, `ast/js_ts/{exports,returns}.rs`, `frameworks/js_ts/react_hooks.rs` and
-`data_flow/terraform.rs`.
+`languages/go/statements.rs` (`ast` imports `languages`, so the Go statement view lives in the lower
+layer), `ast/js_ts/{exports,returns}.rs`, `frameworks/js_ts/react_hooks.rs` and `data_flow/terraform.rs`.
+The layer-prefixed files that used to be `#[path]`-mounted from the `src/` root
+(`ast_*`, `call_graph_*`, `anon_*`, `repo_loader_*`, `resolution_free*`) now sit in their parent's directory
+(`src/ast/`, `src/call_graph/`, `src/anon_owner/`, `src/repo_loader/`, `src/resolution/`), and a test
+file keeps a `*_tests.rs` name so the layering test still exempts it.
 
 ### Algorithm Dispatch
 
