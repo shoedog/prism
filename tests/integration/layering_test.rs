@@ -17,12 +17,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const REVIEW_LAYER: &[&str] = &[
-    "src/algorithms/",
-    "src/output/",
-    "src/targets/",
-    "src/api/",
-];
+const REVIEW_LAYER: &[&str] = &["src/algorithms/", "src/output/", "src/targets/", "src/api/"];
 const REVIEW_LAYER_FILES: &[&str] = &["src/cli.rs", "src/main.rs", "src/lib.rs"];
 
 fn collect_rs(dir: &Path, out: &mut Vec<PathBuf>) {
