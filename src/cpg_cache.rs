@@ -310,7 +310,8 @@ mod stream;
 /// - v159: recorded defs of JS/TS/TSX owners kill by `affects` (#674 G1/G2): a prefix write or a `[]` write kills the recorded defs below it, so labels move toward `nameonly/killed`. Label-only: edge sets, availability and counters are unchanged.
 /// - v160: JS/TS/TSX refusal classes (#660 S1d-1): direct `eval`, sloppy mapped `arguments`, `with` bodies, dead formals, Annex B block functions, the Annex B.3.5 catch `var` and immutable inner names move labels toward `nameonly/cfg_incomplete` or `nameonly/killed`. Label-only: edge sets, availability and counters are unchanged.
 /// - v161: Rust `pub(in path)` restricts are resolved after population (#710): a call site inside the named ancestor module binds to the item, and glob members outside it become hidden instead of poisoning the lookup, so Rust call edges and their kinds change.
-const CACHE_VERSION: u32 = 161;
+/// - v162: Rust `use p::{self as m}` binds `m` to the module `p` and a self import binds the type namespace only (#724), and macro-argument `crate`/`self`/`super` prefixes reach the authoritative route as a `CallSite::path_anchor`, so Rust call edges, their kinds and the `CallSite` layout change.
+const CACHE_VERSION: u32 = 162;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -843,7 +844,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 161);
+        assert_eq!(super::CACHE_VERSION, 162);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
