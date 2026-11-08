@@ -82,7 +82,7 @@
     ],
     "PIR-09-skip-postpass": [
       "src/name_resolution/rust_populator/builder.rs",
-      "        super::restrict::resolve_restricts(&mut self.graph, &self.pending_restricts);\n",
+      "        super::restrict::resolve_restricts(\n            &mut self.graph,\n            &self.pending_restricts,\n            &self.misplaced_mounts,\n        );\n",
       "",
       [
         "pub_in_restrict_test::p1_restrict_resolves_to_the_named_ancestor",
@@ -108,8 +108,8 @@
     ],
     "PIR-12-drop-assoc-item-restrict-p6": [
       "src/name_resolution/rust_populator/walk/types.rs",
-      "                        vec![full_scope_span(b, type_scope, ctx.file)],\n                    );\n                    b.note_restrict(vis_kind, &vin);",
-      "                        vec![full_scope_span(b, type_scope, ctx.file)],\n                    );",
+      "                            callable: true,\n                        }),\n                        vis(vis_kind, None),\n                        cond,\n                        vec![full_scope_span(b, type_scope, ctx.file)],\n                    );\n                    b.note_restrict(vis_kind, &vin);",
+      "                            callable: true,\n                        }),\n                        vis(vis_kind, None),\n                        cond,\n                        vec![full_scope_span(b, type_scope, ctx.file)],\n                    );",
       [
         "pub_in_restrict_test::p6_assoc_fn_gets_its_restrict"
       ]
@@ -165,6 +165,14 @@
       [
         "pub_in_restrict_test::p12_inline_relative_path_mount_keeps_its_restrict",
         "rust_pub_in_resolution_test::p12_inline_module_relative_path_mount_binds"
+      ]
+    ],
+    "PIR-12b-drop-assoc-const-restrict": [
+      "src/name_resolution/rust_populator/walk/types.rs",
+      "                            callable: false,\n                        }),\n                        vis(vis_kind, None),\n                        cond,\n                        vec![full_scope_span(b, type_scope, ctx.file)],\n                    );\n                    b.note_restrict(vis_kind, &vin);",
+      "                            callable: false,\n                        }),\n                        vis(vis_kind, None),\n                        cond,\n                        vec![full_scope_span(b, type_scope, ctx.file)],\n                    );",
+      [
+        "pub_in_restrict_test::p11_every_item_kind_records_its_restrict"
       ]
     ]
   }

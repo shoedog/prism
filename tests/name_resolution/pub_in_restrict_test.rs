@@ -242,12 +242,25 @@ fn p7_glob_member_outside_restrict_is_skipped() {
     let g = populate(&fs);
     let r = bare_from(&g, &fs, "src/z.rs", "f");
     assert_item(&r);
+    // The winner is `q::f` (b's `f` is Hidden outside its restrict): same item id as the
+    // binding of `f` in module `q`, not the one in `a::b`.
     let q = module(&g, &fs, &["q"]);
-    let Target::Item { .. } = r.candidates[0].target else {
-        unreachable!()
+    let q_f = g
+        .bindings
+        .iter()
+        .find(|b| b.scope == q && b.name == "f" && b.ns == NS_VALUE)
+        .expect("q::f binding");
+    let BindTarget::Resolved(q_target) = &q_f.target else {
+        panic!("q::f is not resolved: {q_f:?}")
     };
-    // The winner is `q::f` (b's `f` is Hidden outside its restrict).
-    assert!(g.bindings.iter().any(|b| b.scope == q && b.name == "f"));
+    assert_eq!(&r.candidates[0].target, q_target, "{r:?}");
+    let b = module(&g, &fs, &["a", "b"]);
+    let b_f = g
+        .bindings
+        .iter()
+        .find(|x| x.scope == b && x.name == "f")
+        .expect("b::f binding");
+    assert_ne!(&b_f.target, &BindTarget::Resolved(q_target.clone()));
 }
 
 #[test]
@@ -405,12 +418,16 @@ fn p11_every_item_kind_records_its_restrict() {
                 "pub(in crate::a) type A = u8;\n",
                 "pub(in crate::a) const C: u8 = 0;\n",
                 "pub(in crate::a) static ST: u8 = 0;\n",
+                "impl S {\n",
+                "    pub(in crate::a) const K: u8 = 0;\n",
+                "    pub(in crate::a) fn m() {}\n",
+                "}\n",
             ),
         ),
     ]);
     let g = populate(&fs);
     let a = Some(module(&g, &fs, &["a"]));
-    for name in ["S", "E", "T", "A", "C", "ST", "V"] {
+    for name in ["S", "E", "T", "A", "C", "ST", "V", "K", "m"] {
         assert!(
             g.bindings
                 .iter()
