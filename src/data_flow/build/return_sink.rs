@@ -9,6 +9,9 @@
 //!   (an identifier under an index, selector or `*` on the left is a read, not a written variable);
 //!   a call among another call's arguments counts, as prism's line model feeds the arguments of a
 //!   right-hand side call into the left-hand side (`x := g(y)` gives `y` flow into `x`);
+//! * the read resolves to the declaration the statement leaves the written variable bound to (a
+//!   later `if err := ..` or block-local redeclaration of the name is another variable; a name
+//!   that is not an explicit declaration gives no sink);
 //! * the def's nearest enclosing callable is the sink literal, or an in-place literal nested in it
 //!   whose call is itself in a `return` of the sink (recursively), never a `go`/`defer` or other
 //!   nested literal;
@@ -16,8 +19,9 @@
 //!   statement of the owner contains both (the statement is one node in the line model, so a read
 //!   inside it counts).
 use crate::ast::ParsedFile;
+use crate::cpg::binding_facts::{BindingFacts, BindingId};
 use crate::cpg::{bound_literal_calls, peel, GoLiteralIdents};
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 struct Sink {
@@ -29,7 +33,8 @@ struct Sink {
     statement: (usize, usize),
     /// The `for` statements that contain the statement.
     loops: Vec<(usize, usize)>,
-    names: BTreeSet<String>,
+    /// Each written variable and the declaration the statement leaves it bound to.
+    names: BTreeMap<String, usize>,
 }
 
 #[derive(Default)]
@@ -38,7 +43,7 @@ pub(super) struct ReturnSinks {
 }
 
 impl ReturnSinks {
-    pub(super) fn new(parsed: &ParsedFile, owner: Node<'_>) -> Self {
+    pub(super) fn new(parsed: &ParsedFile, owner: Node<'_>, facts: &BindingFacts) -> Self {
         let mut out = Self::default();
         let body = owner.child_by_field_name("body").unwrap_or(owner);
         let mut idents: Option<GoLiteralIdents> = None;
@@ -64,7 +69,7 @@ impl ReturnSinks {
                     calls.extend(callee);
                 }
                 for call in calls {
-                    if let Some((names, statement)) = statement_of(parsed, call) {
+                    if let Some((names, statement)) = statement_of(parsed, facts, call) {
                         out.sinks.push(Sink {
                             literal: (node.start_byte(), node.end_byte()),
                             carriers: carriers(node),
@@ -85,6 +90,7 @@ impl ReturnSinks {
     /// returns its value into a variable `name`, and the read at `use_start` can see it.
     pub(super) fn carries(
         &self,
+        facts: &BindingFacts,
         name: &str,
         def_callable: Option<usize>,
         use_start: usize,
@@ -92,8 +98,11 @@ impl ReturnSinks {
         let Some(callable) = def_callable else {
             return false;
         };
+        let used = facts.binding_at(name, use_start);
         self.sinks.iter().any(|s| {
-            s.names.contains(name)
+            s.names
+                .get(name)
+                .is_some_and(|d| used == BindingId::Declaration(*d))
                 && s.carriers.contains(&callable)
                 && !(s.literal.0 <= use_start && use_start < s.literal.1)
                 && (use_start >= s.statement.0
@@ -172,7 +181,11 @@ fn loops_around(statement: Node<'_>) -> Vec<(usize, usize)> {
 
 /// The statement node and the plain variables written on the left of the assignment or declaration
 /// whose right side holds `call`.
-fn statement_of<'t>(parsed: &ParsedFile, call: Node<'t>) -> Option<(BTreeSet<String>, Node<'t>)> {
+fn statement_of<'t>(
+    parsed: &ParsedFile,
+    facts: &BindingFacts,
+    call: Node<'t>,
+) -> Option<(BTreeMap<String, usize>, Node<'t>)> {
     let mut child = call;
     while let Some(node) = child.parent() {
         let (left, right) = match node.kind() {
@@ -204,12 +217,18 @@ fn statement_of<'t>(parsed: &ParsedFile, call: Node<'t>) -> Option<(BTreeSet<Str
                 targets.push(field);
             }
         }
-        let names = targets
-            .into_iter()
-            .filter(|t| t.kind() == "identifier")
-            .map(|t| parsed.node_text(&t).to_owned())
-            .filter(|t| t != "_")
-            .collect();
+        // The declaration the name is bound to once the statement has run (`:=` declares or reuses,
+        // `=` writes the existing one). Anything not an explicit declaration gives no sink.
+        let mut names = BTreeMap::new();
+        for target in targets.into_iter().filter(|t| t.kind() == "identifier") {
+            let name = parsed.node_text(&target);
+            if name == "_" {
+                continue;
+            }
+            if let BindingId::Declaration(d) = facts.binding_at(name, node.end_byte()) {
+                names.insert(name.to_owned(), d);
+            }
+        }
         return Some((names, node));
     }
     None

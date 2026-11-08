@@ -164,7 +164,11 @@ fn a_later_if_init_shadow_read_is_not_fed() {
     check(
         "shadow-if",
         src,
-        &[("err", 4, 11, false), ("err", 4, 7, true), ("err", 4, 8, true)],
+        &[
+            ("err", 4, 11, false),
+            ("err", 4, 7, true),
+            ("err", 4, 8, true),
+        ],
     );
 }
 
@@ -181,5 +185,9 @@ fn a_sibling_block_redeclaring_the_name_is_not_fed() {
 #[test]
 fn a_define_sink_keeps_a_read_in_the_same_scope() {
     let src = "package p\nfunc f() {\n\terr := func() error {\n\t\terr := do()\n\t\treturn err\n\t}()\n\tif err != nil {\n\t\tuse(err)\n\t}\n}\n";
-    check("define-same-scope", src, &[("err", 4, 7, true), ("err", 4, 8, true)]);
+    check(
+        "define-same-scope",
+        src,
+        &[("err", 4, 7, true), ("err", 4, 8, true)],
+    );
 }

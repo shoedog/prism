@@ -466,6 +466,7 @@ impl<'a> ScopeFacts<'a> {
                             )
                             && !built.params.returned_out(
                                 self.parsed,
+                                &built.facts,
                                 &path.base,
                                 def_start,
                                 o.start,

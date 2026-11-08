@@ -162,7 +162,7 @@ impl ParamFacts {
         }
         Self {
             by_declaration,
-            sinks: ReturnSinks::new(parsed, owner),
+            sinks: ReturnSinks::new(parsed, owner, facts),
             callables: RefCell::new(HashMap::new()),
         }
     }
@@ -199,12 +199,17 @@ impl ParamFacts {
     pub(super) fn returned_out(
         &self,
         parsed: &ParsedFile,
+        facts: &BindingFacts,
         name: &str,
         def_start: usize,
         use_start: usize,
     ) -> bool {
-        self.sinks
-            .carries(name, self.enclosing_callable(parsed, def_start), use_start)
+        self.sinks.carries(
+            facts,
+            name,
+            self.enclosing_callable(parsed, def_start),
+            use_start,
+        )
     }
 
     /// Start byte of the innermost function or literal around `byte` (memoized).
