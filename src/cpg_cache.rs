@@ -314,8 +314,9 @@ mod stream;
 /// - v163: JS/TS/TSX one-node `first_hazard` guard deleted (#660 S1d-2): a one-node owner the guard refused is now admitted to reaching definitions, so availability counters (`functions_without_cfg`) and labels move (promotions toward `exact`/`killed` only where the hazard is harmless or a refusal class kills it); edge sets are unchanged. Own-parameter member writes refuse the projections they affect (`own-params`).
 /// - v164: Rust `#[path]` modules resolve relative to the declaring file's directory as rustc does (inline module blocks per the Reference), so mounted files are modeled where they were not (or bound as a decoy at the `<stem>/` directory), Rust call edges and their kinds change, and `ScopeGraph::misplaced_mount_files` leaves the layout; a let/for/if-let binding is in scope only after its statement and std expression macros (`env!`, `matches!`, ...) no longer poison name lookup (#765).
 /// - v165: Rust binary roots of a workspace member resolve the package's in-repo `[dependencies]` (#749), so Rust call edges and their kinds change, and the serialized layout changes: `RustCrateConfig::member_bin_roots` joins the cached inputs and `ScopeGraph::bin_dep_entries` joins the graph (the reason the version must move).
-/// - v166: a JS/TS/TSX parameter-list default `u = o` is the alias `const u = o` (#761): it reads `o` bare, so `o` stops being a member-only formal (its projection edges become mixed-formal edges), and it mints the alias twin def and the alias binding's own def (a destructuring default with an identifier value likewise), all on the owner's first line, so DataFlow edges and labels change.
-const CACHE_VERSION: u32 = 166;
+/// - v166: an expression-bodied JS/TS/TSX arrow whose body is a callable or a ternary keeps one synthetic node instead of the located statements (#759), so the DataFlow labels of the edges that owner carries change (label-only; edge sets are unchanged below the fallback edge cap, which now also applies to an owner the one-node belt refuses).
+/// - v167: a JS/TS/TSX parameter-list default `u = o` is the alias `const u = o` (#761): it reads `o` bare, so `o` stops being a member-only formal (its projection edges become mixed-formal edges), and it mints the alias twin def and the alias binding's own def (a destructuring default with an identifier value likewise), all on the owner's first line, so DataFlow edges and labels change.
+const CACHE_VERSION: u32 = 167;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -848,7 +849,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 166);
+        assert_eq!(super::CACHE_VERSION, 167);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 

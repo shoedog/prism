@@ -24,24 +24,104 @@ fn is_js_family(language: Language) -> bool {
     )
 }
 
+std::thread_local! {
+    /// The trace's control only (#759): main's universe for an arrow whose body is a callable or a ternary.
+    static MAIN_ARROW_UNIVERSE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Runs `f` with an expression-bodied arrow whose body is a callable or a ternary keeping main's
+/// statement universe (the located statements). Used only by the `PRISM_RD_CENSUS_TRACE` control pass
+/// that names the owners the #759 rule moved; production never sets it.
+pub(crate) fn with_main_arrow_universe<T>(f: impl FnOnce() -> T) -> T {
+    struct Reset(bool);
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            MAIN_ARROW_UNIVERSE.with(|c| c.set(self.0));
+        }
+    }
+    let _reset = Reset(MAIN_ARROW_UNIVERSE.with(|c| c.replace(true)));
+    f()
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BodyShape {
+    /// An arrow, a function expression or a generator function expression: the located statements are
+    /// the nested callable's own block statements (#759).
+    Callable,
+    /// A ternary: the located statements are calls of mutually exclusive arms (#759).
+    Ternary,
+}
+
+fn body_shape(parsed: &ParsedFile, func_node: &Node<'_>) -> Option<BodyShape> {
+    if !is_js_family(parsed.language) || func_node.kind() != "arrow_function" {
+        return None;
+    }
+    match func_node.child_by_field_name("body")?.kind() {
+        "arrow_function" | "function_expression" | "generator_function" => {
+            Some(BodyShape::Callable)
+        }
+        "ternary_expression" => Some(BodyShape::Ternary),
+        _ => None,
+    }
+}
+
+/// Whether `func_node` is an expression-bodied arrow whose body expression is itself a callable.
+/// `statements_in_function` walks the children of that body, so it reports the callable's own block
+/// statements as the arrow's: a universe that belongs to the nested owner (#759).
+#[cfg(test)]
+pub(crate) fn arrow_body_is_callable(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
+    body_shape(parsed, func_node) == Some(BodyShape::Callable)
+}
+
+/// Whether `func_node` is an expression-bodied arrow whose body is a ternary: its arms are direct
+/// children of the body, so `statements_in_function` lists the calls of mutually exclusive arms as
+/// sequential statements (#759).
+#[cfg(test)]
+pub(crate) fn arrow_body_is_ternary(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
+    body_shape(parsed, func_node) == Some(BodyShape::Ternary)
+}
+
+/// Whether the arrow's located statements are not a sound universe: its body is a callable or a ternary.
+pub(crate) fn arrow_body_takes_one_node(parsed: &ParsedFile, func_node: &Node<'_>) -> bool {
+    body_shape(parsed, func_node).is_some()
+}
+
 /// The one statement an expression-bodied arrow function consists of, when
-/// the parser located no more than one statement inside it.
+/// the parser located no more than one statement inside it, or when its body
+/// is a callable or a ternary.
 ///
 /// `statements_in_function` walks the children of a block body, so an
 /// expression body yields either nothing or an arbitrary nested node (a call
 /// found inside a binary expression covers only part of the body). Both
 /// universes are partial. The whole body expression is the statement, and
-/// every line of the body maps to its first line. An arrow whose body holds
-/// two or more located statements keeps its existing universe.
+/// every line of the body maps to its first line. Two body shapes take the
+/// one node whatever the located count (#759). A callable body
+/// (`k => () => { a(); b(); }`): the statements found there are the nested
+/// callable's, which the census, S1a capture and D2-c see as a deferred
+/// region of this owner. A ternary body (`c(k) ? f(k = 1) : sink(k)`): its
+/// arms are direct children, so they were listed as sequential statements
+/// although only one arm runs, and a def of one arm reached a use of the
+/// other as `exact`. No other direct child puts located statements in
+/// mutually exclusive positions: `||`, `&&` and `??` evaluate left to right,
+/// so source order is evaluation order and a conditionally skipped def can
+/// only over-kill (`killed`, never a wrong `exact`). Every other wrapper
+/// (parentheses, `as`/`satisfies`/`!`, a sequence, an object, a call's
+/// arguments) is not descended, but an array puts its direct call elements
+/// in the located list: with one located statement the arrow is one node
+/// already, with two or more it keeps its existing universe (`c(k) ||\n d(k)`; an array body
+/// holding a nested callable keeps a wrong outer `exact`, pinned in the
+/// matrix, design issue #784).
 pub(crate) fn expression_body_statement(
     parsed: &ParsedFile,
     func_node: &Node<'_>,
     located_statements: usize,
 ) -> Option<StatementSpan> {
-    if !is_js_family(parsed.language) || located_statements > 1 {
+    if !is_js_family(parsed.language) || func_node.kind() != "arrow_function" {
         return None;
     }
-    if func_node.kind() != "arrow_function" {
+    let one_node_body = arrow_body_takes_one_node(parsed, func_node)
+        && !MAIN_ARROW_UNIVERSE.with(std::cell::Cell::get);
+    if located_statements > 1 && !one_node_body {
         return None;
     }
     let body = func_node.child_by_field_name("body")?;
@@ -133,5 +213,102 @@ mod tests {
         assert!(arrow_span("const f = (c) => exec(c);\n", 2).is_none());
         assert!(arrow_span("const f = (c) => { exec(c); };\n", 0).is_none());
         assert!(arrow_span("function f(c) { exec(c); }\n", 0).is_none());
+    }
+
+    #[test]
+    fn a_callable_body_takes_the_node_whatever_the_located_count() {
+        // #759: the located statements of `k => () => { .. }` are the nested callable's.
+        for source in [
+            "const f = (k) =>\n  () => {\n    a();\n    b();\n  };\n",
+            "const f = (k) =>\n  async () => {\n    a();\n    b();\n  };\n",
+            "const f = (k) =>\n  function () {\n    a();\n    b();\n  };\n",
+            "const f = (k) =>\n  function* () {\n    a();\n    b();\n  };\n",
+        ] {
+            let span = arrow_span(source, 2).expect(source);
+            assert_eq!((span.line, span.kind.as_str()), (2, EXPRESSION_BODY_KIND));
+            // The control keeps main's universe, only inside the switch, and restores it.
+            assert!(with_main_arrow_universe(|| arrow_span(source, 2)).is_none());
+            assert!(arrow_span(source, 2).is_some());
+        }
+        // Two located statements that are not a callable's keep the existing universe.
+        assert!(arrow_span("const f = (k) =>\n  a(k) ||\n  b(k);\n", 2).is_none());
+        assert!(arrow_span(
+            "const f = (k) =>\n  wrap(() => {\n    a();\n    b();\n  });\n",
+            2
+        )
+        .is_none());
+        assert!(arrow_span(
+            "const f = (k) => {\n  return () => {\n    a();\n    b();\n  };\n};\n",
+            2
+        )
+        .is_none());
+        assert!(arrow_span(
+            "function f(k) {\n  return () => {\n    a();\n    b();\n  };\n}\n",
+            2
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn callable_body_is_judged_on_the_arrow_alone() {
+        let check = |source: &str, language: Language| {
+            let parsed = ParsedFile::parse("a.ts", source, language).unwrap();
+            let func = parsed.all_functions().into_iter().next().unwrap();
+            arrow_body_is_callable(&parsed, &func)
+        };
+        assert!(check(
+            "const f = (k: number) => (): void => { a(); };",
+            Language::TypeScript
+        ));
+        assert!(!check(
+            "const f = (k: number) => (() => { a(); }) as F;",
+            Language::TypeScript
+        ));
+        assert!(!check(
+            "const f = (k: number) => ({ m() { a(); } });",
+            Language::TypeScript
+        ));
+        assert!(!check(
+            "function f(k) { return () => 1; }",
+            Language::TypeScript
+        ));
+        let py = ParsedFile::parse("a.py", "def f(a):\n    return a\n", Language::Python).unwrap();
+        let func = py.all_functions().into_iter().next().unwrap();
+        assert!(!arrow_body_is_callable(&py, &func));
+    }
+
+    #[test]
+    fn a_ternary_body_takes_the_node_and_other_operators_do_not() {
+        // #759: the arms of a ternary body are exclusive; `||`, `&&` and `??` run left to right.
+        let ternary = "const f = (k) =>\n  c(k)\n    ? g(k = 1)\n    : sink(k);\n";
+        let span = arrow_span(ternary, 3).expect(ternary);
+        assert_eq!((span.line, span.kind.as_str()), (2, EXPRESSION_BODY_KIND));
+        assert!(with_main_arrow_universe(|| arrow_span(ternary, 3)).is_none());
+        for source in [
+            "const f = (k) =>\n  c(k) ||\n  sink(k);\n",
+            "const f = (k) =>\n  c(k) &&\n  sink(k);\n",
+            "const f = (k) =>\n  c(k) ??\n  sink(k);\n",
+        ] {
+            assert!(arrow_span(source, 2).is_none(), "{source}");
+        }
+        let check = |source: &str| {
+            let parsed = ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+            let func = parsed.all_functions().into_iter().next().unwrap();
+            (
+                arrow_body_is_ternary(&parsed, &func),
+                arrow_body_is_callable(&parsed, &func),
+                arrow_body_takes_one_node(&parsed, &func),
+            )
+        };
+        assert_eq!(check(ternary), (true, false, true));
+        assert_eq!(check("const f = (k) => () => k;"), (false, true, true));
+        assert_eq!(
+            check("const f = (k) => (k ? a : b);"),
+            (false, false, false)
+        );
+        assert_eq!(
+            check("const f = (k) => { return k ? a : b; };"),
+            (false, false, false)
+        );
     }
 }

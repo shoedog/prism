@@ -12,6 +12,9 @@ pub(super) enum Pass {
     NoCensus,
     /// The trace's second control (#674): production, but recorded defs kill by path equality as on main.
     CensusEqualKills,
+    /// The #759 trace's control: production, solved under main's universe for an arrow whose body is a
+    /// callable. It repeats none of the capture lines the production pass already wrote.
+    ArrowControl,
 }
 
 impl Pass {
@@ -22,7 +25,12 @@ impl Pass {
 
     /// Whether a recorded def of a JS/TS/TSX owner kills by `affects` (#674).
     pub(super) fn recorded_affects(self) -> bool {
-        matches!(self, Pass::Census | Pass::CensusLogged)
+        matches!(self, Pass::Census | Pass::CensusLogged | Pass::ArrowControl)
+    }
+
+    /// Whether S1a writes its capture lines when the trace is on.
+    pub(super) fn traces_capture(self) -> bool {
+        self.census() && self != Pass::ArrowControl
     }
 }
 
@@ -82,6 +90,17 @@ pub(super) fn traced(
         Pass::CensusLogged,
         &mut facts,
     );
+    // #759: the owners whose universe the arrow-body rule moved name their own moved edges, ahead of
+    // every other mechanism (and whether or not the head is available).
+    let arrow = arrow_control::trace(
+        parsed,
+        func_node,
+        defs,
+        (dfg_edges, exact_edges),
+        file_cfg_edges,
+        &outcome,
+        out,
+    );
     let RdOutcome::Available(head) = &outcome else {
         return outcome;
     };
@@ -116,13 +135,13 @@ pub(super) fn traced(
             RdOutcome::Available(equal) => Some(equal),
             _ => None,
         });
-    let mut named = BTreeSet::new();
-    let mut named_exact = BTreeSet::new();
+    let mut named = arrow.labels;
+    let mut named_exact = arrow.exact;
     if let Some(equal) = &by_affects {
         for edge in dfg_edges {
             let key = (edge.from.clone(), edge.to.clone());
             if let (Some(new), old) = (head.labels.get(&key), equal.labels.get(&key)) {
-                if old != Some(new) {
+                if old != Some(new) && !named.contains(&key) {
                     census_trace::emit(out, census_trace::KILL_AFFECTS, edge);
                     named.insert(key);
                 }
@@ -131,7 +150,7 @@ pub(super) fn traced(
         for edge in exact_edges {
             let key = ExactFlowEdge::from_legacy(edge);
             if let (Some(new), old) = (head.exact_labels.get(&key), equal.exact_labels.get(&key)) {
-                if old != Some(new) {
+                if old != Some(new) && !named_exact.contains(&key) {
                     census_trace::emit(out, census_trace::KILL_AFFECTS, edge);
                     named_exact.insert(key);
                 }
@@ -172,12 +191,18 @@ pub(super) fn traced(
     outcome
 }
 
+#[path = "arrow_control.rs"]
+mod arrow_control;
 #[path = "guard_control.rs"]
 mod guard_control;
 
 #[cfg(test)]
 #[path = "guard_deleted_tests.rs"]
 mod guard_deleted_tests;
+
+#[cfg(test)]
+#[path = "arrow_body_tests.rs"]
+mod arrow_body_tests;
 
 #[cfg(test)]
 #[path = "param_alias_tests.rs"]
