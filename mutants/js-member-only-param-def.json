@@ -269,8 +269,8 @@
   ],
   "MO-43-kill-skip-off": [
    "src/data_flow/build/file.rs",
-   "                    if facts.is_killed(field_path) {\n                        continue;",
-   "                    if false && facts.is_killed(field_path) {\n                        continue;",
+   "                        if facts.is_killed(field_path) {\n                            continue;",
+   "                        if false && facts.is_killed(field_path) {\n                            continue;",
    [
     "cpg::member_only_param_tests::write_to_the_parameter_itself_projects_nothing",
     "cpg::member_only_param_r1_tests::every_member_write_form_suppresses_its_path_but_not_a_sibling"
@@ -278,8 +278,8 @@
   ],
   "MO-44-use-at-line-anchor": [
    "src/data_flow/build/file.rs",
-   "                            start_byte: *start_byte,\n                            end_byte: *end_byte,",
-   "                            start_byte: parsed.line_start_byte(*ref_line),\n                            end_byte: parsed.line_start_byte(*ref_line),",
+   "                                start_byte: *start_byte,\n                                end_byte: *end_byte,",
+   "                                start_byte: parsed.line_start_byte(*ref_line),\n                                end_byte: parsed.line_start_byte(*ref_line),",
    [
     "cpg::member_only_param_r1_tests::named_owner_projection_use_sits_at_the_exact_admitted_span"
    ]

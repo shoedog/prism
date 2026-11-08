@@ -11,7 +11,7 @@
   ],
   "CJS02-member-reads-module-value": [
    "src/resolution/js_ts/cjs.rs",
-   "Some(member) => (member.as_str(), facts.cjs_callables.get(member)?),",
+   "Some(member) => (member, facts.cjs_callables.get(member)?),",
    "Some(member) => (\"default\", facts.cjs_module_callable.as_ref()?),",
    "js_cjs_module_calls_refusal_test::producer_refusals_keep_main"
   ],
@@ -22,15 +22,15 @@
    "js_cjs_module_calls_refusal_test::consumer_refusals_keep_main"
   ],
   "CJS04-no-export-object-barrier": [
-   "src/ast.rs",
-   "if cjs.conflicted.is_empty() && cjs_safe {",
-   "if cjs.conflicted.is_empty() {",
+   "src/ast/js_ts/export_facts.rs",
+   "let cjs_trusted = cjs.conflicted.is_empty() && cjs_safe;",
+   "let cjs_trusted = cjs.conflicted.is_empty();",
    "js_cjs_module_calls_refusal_test::producer_refusals_keep_main"
   ],
   "CJS05-esm-beside-cjs-admitted": [
-   "src/ast.rs",
-   "if !has_esm_exports {\n                facts.cjs_callables = cjs.cjs_callables;",
-   "if true {\n                facts.cjs_callables = cjs.cjs_callables;",
+   "src/ast/js_ts/export_facts.rs",
+   "if cjs_trusted && !has_esm_exports {",
+   "if cjs_trusted {",
    "js_cjs_module_calls_refusal_test::producer_refusals_keep_main"
   ],
   "CJS06-declaration-not-a-top-level-statement": [
@@ -147,6 +147,13 @@
    "None => {}",
    "js_cjs_module_calls_fold_test::consumer_member_writes_refuse_the_member_site"
   ]
+ },
+ "intent_revisions": {
+  "CJS05-esm-beside-cjs-admitted": {
+   "disposition": "rebound",
+   "reason": "#664 (7e601d26) moved the ESM-beside-CJS refusal from the cjs_callables assignment to the whole CJS admission branch, and #701 moved the code to src/ast/js_ts/export_facts.rs. The mutant now admits a trusted CJS set beside an ESM export (names and callables), the same obligation the fixture pins; killing fixture unchanged.",
+   "killing_fixture": "js_cjs_module_calls_refusal_test::producer_refusals_keep_main"
+  }
  },
  "extra": {
   "CJS07-function-scope-declaration": [

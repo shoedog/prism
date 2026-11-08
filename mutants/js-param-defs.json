@@ -584,8 +584,8 @@
   ],
   "PD-72-r2-use-occurrence-off": [
    "src/data_flow/build/file.rs",
-   "if synthetic {\n                        if refused_occurrence",
-   "if false && synthetic {\n                        if refused_occurrence",
+   "if synthetic {\n                            if refused_occurrence",
+   "if false && synthetic {\n                            if refused_occurrence",
    "cpg::callback_identity_tests::r2_use_endpoints_keep_binding_valid_occurrence_bytes"
   ],
   "PD-73-r2-with-body-refusal-off": [

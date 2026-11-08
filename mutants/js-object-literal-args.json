@@ -180,8 +180,8 @@
     ],
     "OL27-write-classifier-off": [
       "src/ast_member_projection.rs",
-      "    fn member_is_write_target(&self, node: Node<'_>) -> bool {\n",
-      "    fn member_is_write_target(&self, node: Node<'_>) -> bool {\n        if node.id() != usize::MAX {\n            return false;\n        }\n",
+      "fn member_is_write_target(&self, node: Node<'_>) -> bool {\n",
+      "fn member_is_write_target(&self, node: Node<'_>) -> bool {\n        if node.id() != usize::MAX {\n            return false;\n        }\n",
       [
         "cpg::object_literal_arg_r1_tests::expression_position_write_targets_are_not_reads"
       ]
