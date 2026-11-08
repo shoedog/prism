@@ -2388,9 +2388,13 @@
    "capability": "dfg_reaching_cfg_go_defer_negative",
    "expected": [
     {
-     "confidence": "nameonly",
-     "doubt": "cfg_incomplete",
+     "confidence": "exact",
+     "from": "main.go:3:x",
+     "to": "main.go:4:x"
+    },
+    {
      "from": "main.go:5:x",
+     "present": false,
      "to": "main.go:4:x"
     }
    ],
@@ -2408,7 +2412,7 @@
    "got_kinds": {},
    "id": "/Users/wesleyjinks/code/prism-717/eval/fixtures/go/dfg_reaching_cfg_go_defer_negative",
    "language": "go",
-   "outcome": "regression",
+   "outcome": "ok",
    "probe": "dfg"
   },
   {
@@ -2480,10 +2484,8 @@
      "to": "main.go:5:v"
     },
     {
-     "confidence": "nameonly",
-     "doubt": "killed",
      "from": "main.go:3:v",
-     "kill_line": 4,
+     "present": false,
      "to": "main.go:5:v"
     },
     {
@@ -2492,10 +2494,8 @@
      "to": "main.go:7:v"
     },
     {
-     "confidence": "nameonly",
-     "doubt": "killed",
      "from": "main.go:4:v",
-     "kill_line": 6,
+     "present": false,
      "to": "main.go:7:v"
     }
    ],
@@ -2520,7 +2520,7 @@
    "got_kinds": {},
    "id": "/Users/wesleyjinks/code/prism-717/eval/fixtures/go/dfg_reaching_go_short_var_if",
    "language": "go",
-   "outcome": "regression",
+   "outcome": "ok",
    "probe": "dfg"
   },
   {
@@ -2593,10 +2593,8 @@
    "capability": "dfg_reaching_killed_def",
    "expected": [
     {
-     "confidence": "nameonly",
-     "doubt": "killed",
      "from": "main.go:3:x",
-     "kill_line": 4,
+     "present": false,
      "to": "main.go:5:x"
     },
     {
@@ -2619,7 +2617,7 @@
    "got_kinds": {},
    "id": "/Users/wesleyjinks/code/prism-717/eval/fixtures/go/dfg_reaching_killed_def",
    "language": "go",
-   "outcome": "regression",
+   "outcome": "ok",
    "probe": "dfg"
   },
   {
@@ -2736,10 +2734,13 @@
      "to": "main.go:6:x"
     },
     {
-     "confidence": "nameonly",
-     "doubt": "killed",
      "from": "main.go:3:x",
-     "kill_line": 8,
+     "present": false,
+     "to": "main.go:9:x"
+    },
+    {
+     "confidence": "exact",
+     "from": "main.go:8:x",
      "to": "main.go:9:x"
     }
    ],
@@ -2764,7 +2765,7 @@
    "got_kinds": {},
    "id": "/Users/wesleyjinks/code/prism-717/eval/fixtures/go/dfg_reaching_shadowed_inner_negative",
    "language": "go",
-   "outcome": "regression",
+   "outcome": "ok",
    "probe": "dfg"
   },
   {
@@ -5842,19 +5843,19 @@
   "corpus_identity": {
    "component": "tier_a_lock",
    "drift": [],
-   "expected": "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1",
+   "expected": "9a798fd9cfb35982ff14dc45a5d7acd6d55306bf",
    "manifest_sha256": null,
-   "observed": "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1"
+   "observed": "9a798fd9cfb35982ff14dc45a5d7acd6d55306bf"
   },
-  "corpus_sha": "2b0e26270574",
-  "corpus_sha_full": "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1",
+  "corpus_sha": "9a798fd9cfb3",
+  "corpus_sha_full": "9a798fd9cfb35982ff14dc45a5d7acd6d55306bf",
   "data": {
    "adjudications": {
     "digest": "sha256:d58c21ff834352d3bdd098564ce46c7298d5dfeb93ee77cc74a1f805a7371f45",
     "path": "eval/adjudications.jsonl",
     "records": 2324
    },
-   "fixtures": "sha256:6b54665e752c135af2639a8b564952a060f6ad3e09bcbec4b47e3f46695e0129",
+   "fixtures": "sha256:d76d12ff518a98ac8755f864e64abb7f7a69f00b50ff000a999f8369c0337e19",
    "pinned_probes": "sha256:05d762f00bc641dcceaf38233d9bddd79c5fd14afb933b318f9709c329c9838e"
   },
   "date": "2026-11-07",
@@ -5873,7 +5874,7 @@
    "PATH": "/Users/wesleyjinks/code/prism-717/eval/.venv/bin:/Users/wesleyjinks/.local/share/mise/installs/node/lts/bin:/Users/wesleyjinks/.local/share/mise/installs/go/1.26.2/bin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/wesleyjinks/.local/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/bin:/Users/wesleyjinks/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin:/opt/local/bin:/Users/wesleyjinks/.cargo/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin",
    "TMPDIR": "/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/"
   },
-  "harness_sha": "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1",
+  "harness_sha": "9a798fd9cfb35982ff14dc45a5d7acd6d55306bf",
   "invalid_reasons": [],
   "language": "rust",
   "launch": {
@@ -7335,7 +7336,7 @@
     "eval/fixtures/typescript/wrong_directory_same_stem/elsewhere/util.ts",
     "eval/fixtures/typescript/wrong_directory_same_stem/expected.toml",
     "eval/fixtures/typescript/wrong_directory_same_stem/src/app.ts",
-    "eval/snapshots/prism-2b0e26270574.json",
+    "eval/snapshots/prism-9a798fd9cfb3.json",
     "eval/tier_a/pinned.py"
    ]
   },
@@ -7377,11 +7378,11 @@
   "policy_digest": "sha256:afda887f9d874f092814acfc937297cd7d9cc5ed693a868cfe758341ac547982",
   "population_digest": "sha256:b1cfdce6c7529c87a93bd89b7c351a902ab262ac36ce1c22b4aac6b2a30c9a0c",
   "prism_dirty": false,
-  "prism_sha": "2b0e26270574",
+  "prism_sha": "9a798fd9cfb3",
   "provenance": {
    "superseded_anchor": {
-    "sut_digest": "sha256:089518a77144ad823a851a919cc393dd7e5d9c00bf326a9556ced47ac3130585",
-    "sut_sha": "db066ef3762eb3b94a8c6d7b84ebb83b4fe694b2"
+    "sut_digest": "sha256:40af684f1917a9079bfc67dd00e98cf40de1f81bceb246cacd5771c4670d1d24",
+    "sut_sha": "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1"
    }
   },
   "runtime": {
@@ -7400,11 +7401,11 @@
   "sample_per_stratum": 8,
   "seed": 42,
   "sha_aliases": [
-   "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1"
+   "9a798fd9cfb35982ff14dc45a5d7acd6d55306bf"
   ],
   "snapshot_digest": "sha256:16f8d51dfceb7110fa975dbf5f60e6c61c47525faa33e57e2743b6fde242e267",
   "stale_adjudications": 0,
-  "sut_digest": "sha256:40af684f1917a9079bfc67dd00e98cf40de1f81bceb246cacd5771c4670d1d24",
+  "sut_digest": "sha256:20ceeb84494afe01ffe80eacffdb822977d1f75a64747058173ea4250b37a9c5",
   "sut_error_rate": 0.0,
   "sut_input_provenance": {
    "archived_generated": [
@@ -8384,7 +8385,7 @@
     "vendor/tree-sitter-typescript/typescript/src/tree_sitter/parser.h"
    ]
   },
-  "sut_sha_full": "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1",
+  "sut_sha_full": "9a798fd9cfb35982ff14dc45a5d7acd6d55306bf",
   "timeouts": {
    "oracle_budget_s": 3600.0,
    "query_timeout_s": 30.0,
@@ -8392,13 +8393,13 @@
   },
   "untracked_sources": [],
   "wall_s": {
-   "m1_oracle_inventory": 43.883,
-   "m2": 136.663,
-   "m3": 0.049,
-   "matrix": 8.658,
-   "oracle_start": 50.246,
-   "pinned": 11.122,
-   "total": 268.474
+   "m1_oracle_inventory": 45.124,
+   "m2": 139.853,
+   "m3": 0.038,
+   "matrix": 8.038,
+   "oracle_start": 31.307,
+   "pinned": 10.237,
+   "total": 250.462
   }
  },
  "oracle_filtered": [],
@@ -9840,11 +9841,6 @@
    ],
    "oracle_sites": [
     [
-     "crates/prism-review/src/main.rs",
-     202,
-     202
-    ],
-    [
      "tests/name_resolution/build_wiring_test.rs",
      642,
      642
@@ -9856,8 +9852,8 @@
     ],
     [
      "tests/navigation/module_graph_test.rs",
-     152,
-     152
+     93,
+     93
     ],
     [
      "tests/navigation/module_graph_test.rs",
@@ -9865,29 +9861,9 @@
      142
     ],
     [
-     "tests/navigation/cache_test.rs",
-     331,
-     331
-    ],
-    [
-     "tests/navigation/cache_test.rs",
-     345,
-     345
-    ],
-    [
-     "tests/navigation/scoped_calls_test.rs",
-     225,
-     225
-    ],
-    [
-     "crates/prism-mcp/src/tools.rs",
-     230,
-     230
-    ],
-    [
      "tests/navigation/module_graph_test.rs",
-     93,
-     93
+     152,
+     152
     ],
     [
      "tests/navigation/module_graph_test.rs",
@@ -9933,6 +9909,31 @@
      "tests/navigation/module_graph_test.rs",
      455,
      455
+    ],
+    [
+     "tests/navigation/cache_test.rs",
+     331,
+     331
+    ],
+    [
+     "tests/navigation/cache_test.rs",
+     345,
+     345
+    ],
+    [
+     "crates/prism-review/src/main.rs",
+     202,
+     202
+    ],
+    [
+     "crates/prism-mcp/src/tools.rs",
+     230,
+     230
+    ],
+    [
+     "tests/navigation/scoped_calls_test.rs",
+     225,
+     225
     ]
    ],
    "outcome": "missing",
@@ -10059,19 +10060,264 @@
    ],
    "oracle_sites": [
     [
-     "tests/integration/rust_self_closed_rule_test.rs",
-     503,
-     503
+     "tests/reasoning/member_only_param_test.rs",
+     23,
+     23
     ],
     [
-     "tests/integration/rust_self_closed_rule_test.rs",
-     536,
-     536
+     "src/call_graph/tests.rs",
+     539,
+     539
     ],
     [
-     "tests/navigation/func_value_test.rs",
+     "src/call_graph/tests.rs",
+     552,
+     552
+    ],
+    [
+     "tests/infra/parallel_equality_test.rs",
+     18,
+     18
+    ],
+    [
+     "tests/infra/parallel_equality_test.rs",
+     22,
+     22
+    ],
+    [
+     "tests/integration/js_paths_r2d_test.rs",
+     28,
+     28
+    ],
+    [
+     "src/api/nav.rs",
+     26,
+     26
+    ],
+    [
+     "src/executable_owner/acquisition.rs",
+     127,
+     127
+    ],
+    [
+     "src/navigation/anon_guard_tests.rs",
      19,
      19
+    ],
+    [
+     "tests/navigation/property_access_test.rs",
+     19,
+     19
+    ],
+    [
+     "crates/prism-mcp/src/shared/cache_base_tests.rs",
+     276,
+     276
+    ],
+    [
+     "src/name_resolution/lookup_invalidation_tests.rs",
+     165,
+     165
+    ],
+    [
+     "tests/navigation/index_test.rs",
+     13,
+     13
+    ],
+    [
+     "tests/navigation/index_test.rs",
+     31,
+     31
+    ],
+    [
+     "tests/reasoning/taint_reaches_test.rs",
+     25,
+     25
+    ],
+    [
+     "src/navigation/cache_lifetime_tests.rs",
+     96,
+     96
+    ],
+    [
+     "src/navigation/cache_lifetime_tests.rs",
+     124,
+     124
+    ],
+    [
+     "tests/integration/js_paths_test.rs",
+     58,
+     58
+    ],
+    [
+     "tests/integration/js_paths_test.rs",
+     268,
+     268
+    ],
+    [
+     "tests/integration/js_paths_test.rs",
+     297,
+     297
+    ],
+    [
+     "tests/integration/js_paths_test.rs",
+     320,
+     320
+    ],
+    [
+     "tests/integration/js_paths_test.rs",
+     336,
+     336
+    ],
+    [
+     "tests/integration/js_paths_test.rs",
+     350,
+     350
+    ],
+    [
+     "tests/integration/js_paths_test.rs",
+     396,
+     396
+    ],
+    [
+     "tests/integration/js_paths_test.rs",
+     442,
+     442
+    ],
+    [
+     "tests/integration/js_paths_test.rs",
+     465,
+     465
+    ],
+    [
+     "tests/integration/js_paths_test.rs",
+     490,
+     490
+    ],
+    [
+     "tests/integration/dfg_label_parity_test.rs",
+     30,
+     30
+    ],
+    [
+     "src/executable_owner/integration/tests.rs",
+     22,
+     22
+    ],
+    [
+     "src/executable_owner/integration/tests.rs",
+     79,
+     79
+    ],
+    [
+     "tests/integration/js_paths_nested_skip_test.rs",
+     60,
+     60
+    ],
+    [
+     "tests/navigation/symbol_spans_test.rs",
+     21,
+     21
+    ],
+    [
+     "examples/parameter_site_census.rs",
+     219,
+     219
+    ],
+    [
+     "examples/dfg_census.rs",
+     359,
+     359
+    ],
+    [
+     "tests/navigation/location_seed_test.rs",
+     14,
+     14
+    ],
+    [
+     "tests/integration/js_alias_callers_test.rs",
+     23,
+     23
+    ],
+    [
+     "src/repo_loader_skip_tests.rs",
+     74,
+     74
+    ],
+    [
+     "src/repo_loader_skip_tests.rs",
+     129,
+     129
+    ],
+    [
+     "tests/ast/cpg_cache_test.rs",
+     559,
+     559
+    ],
+    [
+     "tests/navigation/ego_test.rs",
+     9,
+     9
+    ],
+    [
+     "tests/integration/js_paths_r2b_test.rs",
+     29,
+     29
+    ],
+    [
+     "tests/navigation/callees_test.rs",
+     11,
+     11
+    ],
+    [
+     "src/cpg_cache.rs",
+     858,
+     858
+    ],
+    [
+     "tests/navigation/nodes_at_test.rs",
+     17,
+     17
+    ],
+    [
+     "tests/integration/js_paths_cap_test.rs",
+     431,
+     431
+    ],
+    [
+     "tests/integration/js_paths_cap_test.rs",
+     444,
+     444
+    ],
+    [
+     "tests/integration/js_paths_cap_test.rs",
+     446,
+     446
+    ],
+    [
+     "tests/integration/js_paths_cap_test.rs",
+     414,
+     414
+    ],
+    [
+     "tests/integration/js_paths_cap_test.rs",
+     416,
+     416
+    ],
+    [
+     "tests/integration/js_paths_cap_test.rs",
+     423,
+     423
+    ],
+    [
+     "tests/integration/js_paths_cap_test.rs",
+     442,
+     442
+    ],
+    [
+     "tests/navigation/glob_stats_scope_test.rs",
+     46,
+     46
     ],
     [
      "src/navigation/mod.rs",
@@ -10094,24 +10340,9 @@
      720
     ],
     [
-     "tests/integration/js_paths_p2_test.rs",
-     28,
-     28
-    ],
-    [
-     "tests/integration/js_paths_p2_test.rs",
-     818,
-     818
-    ],
-    [
-     "tests/reasoning/taint_reaches_test.rs",
-     25,
-     25
-    ],
-    [
-     "crates/prism-mcp/src/shared/cache_base_tests.rs",
-     276,
-     276
+     "tests/integration/js_paths_r3_test.rs",
+     32,
+     32
     ],
     [
      "src/executable_owner/admission.rs",
@@ -10119,9 +10350,34 @@
      120
     ],
     [
-     "tests/integration/loader_skip_dirs_test.rs",
-     31,
-     31
+     "crates/prism-review/tests/cli/nav_compat_test.rs",
+     333,
+     333
+    ],
+    [
+     "crates/prism-review/tests/cli/nav_compat_test.rs",
+     823,
+     823
+    ],
+    [
+     "tests/integration/js_paths_cap_test.rs",
+     14,
+     14
+    ],
+    [
+     "tests/integration/js_paths_cap_test.rs",
+     204,
+     204
+    ],
+    [
+     "tests/navigation/scoped_calls_test.rs",
+     20,
+     20
+    ],
+    [
+     "tests/integration/js_alias_rule_test.rs",
+     249,
+     249
     ],
     [
      "src/cpg/tests.rs",
@@ -10129,19 +10385,59 @@
      2542
     ],
     [
-     "tests/navigation/property_access_test.rs",
-     19,
-     19
+     "tests/name_resolution/build_wiring_test.rs",
+     72,
+     72
     ],
     [
-     "tests/navigation/index_test.rs",
-     13,
-     13
+     "tests/name_resolution/build_wiring_test.rs",
+     127,
+     127
     ],
     [
-     "tests/navigation/index_test.rs",
-     31,
-     31
+     "tests/name_resolution/build_wiring_test.rs",
+     169,
+     169
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     198,
+     198
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     233,
+     233
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     323,
+     323
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     469,
+     469
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     528,
+     528
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     576,
+     576
+    ],
+    [
+     "tests/name_resolution/build_wiring_test.rs",
+     628,
+     628
+    ],
+    [
+     "crates/prism-mcp/src/freshness.rs",
+     429,
+     429
     ],
     [
      "src/repo_loader.rs",
@@ -10229,14 +10525,19 @@
      1784
     ],
     [
+     "tests/integration/rust_self_closed_rule_test.rs",
+     503,
+     503
+    ],
+    [
+     "tests/integration/rust_self_closed_rule_test.rs",
+     536,
+     536
+    ],
+    [
      "src/navigation/call_edge_cache.rs",
      782,
      782
-    ],
-    [
-     "tests/integration/js_paths_r2c_test.rs",
-     43,
-     43
     ],
     [
      "tests/lang/go/test_support.rs",
@@ -10259,14 +10560,24 @@
      333
     ],
     [
-     "tests/navigation/symbol_spans_test.rs",
-     21,
-     21
+     "tests/integration/js_paths_p2_test.rs",
+     28,
+     28
     ],
     [
-     "tests/navigation/location_seed_test.rs",
-     14,
-     14
+     "tests/integration/js_paths_p2_test.rs",
+     818,
+     818
+    ],
+    [
+     "examples/project_membership_census.rs",
+     63,
+     63
+    ],
+    [
+     "tests/integration/loader_skip_dirs_test.rs",
+     31,
+     31
     ],
     [
      "src/navigation/inventory.rs",
@@ -10274,49 +10585,9 @@
      16
     ],
     [
-     "tests/integration/js_paths_repair_test.rs",
-     7,
-     7
-    ],
-    [
-     "tests/integration/js_paths_repair_test.rs",
-     24,
-     24
-    ],
-    [
-     "tests/integration/js_paths_repair_test.rs",
-     37,
-     37
-    ],
-    [
-     "tests/integration/js_paths_repair_test.rs",
-     139,
-     139
-    ],
-    [
-     "tests/integration/js_paths_repair_test.rs",
-     350,
-     350
-    ],
-    [
-     "tests/integration/js_paths_repair_test.rs",
-     356,
-     356
-    ],
-    [
-     "tests/integration/js_paths_repair_test.rs",
-     363,
-     363
-    ],
-    [
-     "tests/integration/js_paths_repair_test.rs",
-     365,
-     365
-    ],
-    [
-     "tests/navigation/ego_test.rs",
-     9,
-     9
+     "tests/navigation/framework_entry_test.rs",
+     20,
+     20
     ],
     [
      "src/reasoning/seeds.rs",
@@ -10324,49 +10595,29 @@
      475
     ],
     [
-     "examples/parameter_site_census.rs",
-     219,
-     219
+     "tests/integration/js_paths_r2c_test.rs",
+     43,
+     43
     ],
     [
-     "tests/integration/resolution_test.rs",
-     5295,
-     5295
-    ],
-    [
-     "tests/integration/resolution_test.rs",
-     5338,
-     5338
-    ],
-    [
-     "tests/integration/resolution_test.rs",
-     5364,
-     5364
-    ],
-    [
-     "tests/integration/resolution_test.rs",
-     5424,
-     5424
-    ],
-    [
-     "tests/ast/cpg_cache_test.rs",
-     559,
-     559
-    ],
-    [
-     "tests/integration/js_paths_common.rs",
+     "tests/navigation/callers_test.rs",
      11,
      11
+    ],
+    [
+     "tests/navigation/callers_test.rs",
+     134,
+     134
+    ],
+    [
+     "tests/navigation/callers_test.rs",
+     166,
+     166
     ],
     [
      "tests/lang/go/receiver_origin_prereq_test.rs",
      36,
      36
-    ],
-    [
-     "tests/navigation/callees_test.rs",
-     11,
-     11
     ],
     [
      "src/cpg/fallback_lifetime_tests.rs",
@@ -10439,6 +10690,11 @@
      369
     ],
     [
+     "tests/navigation/onboarding_test.rs",
+     7,
+     7
+    ],
+    [
      "tests/lang/go/loader_hygiene_test.rs",
      143,
      143
@@ -10504,69 +10760,74 @@
      372
     ],
     [
-     "tests/navigation/nodes_at_test.rs",
-     17,
-     17
+     "tests/navigation/go_concrete_cache_test.rs",
+     90,
+     90
     ],
     [
-     "tests/navigation/glob_stats_scope_test.rs",
-     46,
-     46
+     "tests/navigation/go_concrete_cache_test.rs",
+     188,
+     188
     ],
     [
-     "tests/infra/parallel_equality_test.rs",
-     18,
-     18
+     "tests/navigation/go_concrete_cache_test.rs",
+     387,
+     387
     ],
     [
-     "tests/infra/parallel_equality_test.rs",
-     22,
-     22
+     "crates/prism-mcp/src/session.rs",
+     415,
+     415
     ],
     [
-     "tests/integration/js_paths_r1_test.rs",
-     18,
-     18
+     "crates/prism-mcp/src/session.rs",
+     435,
+     435
     ],
     [
-     "tests/integration/js_paths_r1_test.rs",
-     40,
-     40
+     "crates/prism-mcp/src/session.rs",
+     472,
+     472
     ],
     [
-     "tests/integration/js_paths_r1_test.rs",
-     61,
-     61
+     "tests/integration/js_paths_repair_test.rs",
+     7,
+     7
     ],
     [
-     "tests/integration/js_paths_r1_test.rs",
-     110,
-     110
+     "tests/integration/js_paths_repair_test.rs",
+     24,
+     24
     ],
     [
-     "tests/integration/js_paths_r1_test.rs",
-     160,
-     160
+     "tests/integration/js_paths_repair_test.rs",
+     37,
+     37
     ],
     [
-     "tests/integration/js_paths_r1_test.rs",
-     162,
-     162
+     "tests/integration/js_paths_repair_test.rs",
+     139,
+     139
     ],
     [
-     "tests/integration/js_paths_r1_test.rs",
-     169,
-     169
+     "tests/integration/js_paths_repair_test.rs",
+     350,
+     350
     ],
     [
-     "tests/integration/js_paths_r1_test.rs",
-     181,
-     181
+     "tests/integration/js_paths_repair_test.rs",
+     356,
+     356
     ],
     [
-     "tests/integration/js_paths_r1_test.rs",
-     215,
-     215
+     "tests/integration/js_paths_repair_test.rs",
+     363,
+     363
+    ],
+    [
+     "tests/integration/js_paths_repair_test.rs",
+     365,
+     365
     ],
     [
      "src/ast/js_ts/exports/memo/pipeline_tests.rs",
@@ -10589,399 +10850,34 @@
      156
     ],
     [
-     "tests/navigation/scoped_calls_test.rs",
-     20,
-     20
+     "tests/integration/resolution_test.rs",
+     5295,
+     5295
     ],
     [
-     "crates/prism-mcp/src/freshness.rs",
-     429,
-     429
+     "tests/integration/resolution_test.rs",
+     5338,
+     5338
     ],
     [
-     "tests/integration/js_returned_callers_test.rs",
-     21,
-     21
+     "tests/integration/resolution_test.rs",
+     5364,
+     5364
     ],
     [
-     "examples/dfg_census.rs",
-     359,
-     359
+     "tests/integration/resolution_test.rs",
+     5424,
+     5424
     ],
     [
-     "tests/integration/js_paths_r2d_test.rs",
-     28,
-     28
-    ],
-    [
-     "src/build_pool/boundary_tests.rs",
-     275,
-     275
-    ],
-    [
-     "tests/integration/js_paths_test.rs",
-     58,
-     58
-    ],
-    [
-     "tests/integration/js_paths_test.rs",
-     268,
-     268
-    ],
-    [
-     "tests/integration/js_paths_test.rs",
-     297,
-     297
-    ],
-    [
-     "tests/integration/js_paths_test.rs",
-     320,
-     320
-    ],
-    [
-     "tests/integration/js_paths_test.rs",
-     336,
-     336
-    ],
-    [
-     "tests/integration/js_paths_test.rs",
-     350,
-     350
-    ],
-    [
-     "tests/integration/js_paths_test.rs",
-     396,
-     396
-    ],
-    [
-     "tests/integration/js_paths_test.rs",
-     442,
-     442
-    ],
-    [
-     "tests/integration/js_paths_test.rs",
-     465,
-     465
-    ],
-    [
-     "tests/integration/js_paths_test.rs",
-     490,
-     490
-    ],
-    [
-     "src/cpg/callback_identity_tests.rs",
-     777,
-     777
-    ],
-    [
-     "tests/integration/dfg_label_parity_test.rs",
-     30,
-     30
-    ],
-    [
-     "tests/navigation/framework_entry_test.rs",
-     20,
-     20
-    ],
-    [
-     "src/call_graph/tests.rs",
-     539,
-     539
-    ],
-    [
-     "src/call_graph/tests.rs",
-     552,
-     552
-    ],
-    [
-     "tests/integration/js_paths_nested_skip_test.rs",
-     60,
-     60
-    ],
-    [
-     "src/api/nav.rs",
-     26,
-     26
-    ],
-    [
-     "tests/navigation/callers_test.rs",
+     "tests/integration/js_paths_common.rs",
      11,
      11
-    ],
-    [
-     "tests/navigation/callers_test.rs",
-     134,
-     134
-    ],
-    [
-     "tests/navigation/callers_test.rs",
-     166,
-     166
-    ],
-    [
-     "src/executable_owner/acquisition.rs",
-     127,
-     127
-    ],
-    [
-     "src/navigation/anon_guard_tests.rs",
-     19,
-     19
-    ],
-    [
-     "tests/integration/js_paths_cap_test.rs",
-     431,
-     431
-    ],
-    [
-     "tests/integration/js_paths_cap_test.rs",
-     444,
-     444
-    ],
-    [
-     "tests/integration/js_paths_cap_test.rs",
-     446,
-     446
-    ],
-    [
-     "tests/integration/js_paths_cap_test.rs",
-     414,
-     414
-    ],
-    [
-     "tests/integration/js_paths_cap_test.rs",
-     416,
-     416
-    ],
-    [
-     "tests/integration/js_paths_cap_test.rs",
-     423,
-     423
-    ],
-    [
-     "tests/integration/js_paths_cap_test.rs",
-     442,
-     442
-    ],
-    [
-     "crates/prism-mcp/src/session.rs",
-     415,
-     415
-    ],
-    [
-     "crates/prism-mcp/src/session.rs",
-     435,
-     435
-    ],
-    [
-     "crates/prism-mcp/src/session.rs",
-     472,
-     472
-    ],
-    [
-     "tests/integration/js_alias_callers_test.rs",
-     23,
-     23
-    ],
-    [
-     "tests/navigation/onboarding_test.rs",
-     7,
-     7
-    ],
-    [
-     "crates/prism-review/tests/cli/nav_compat_test.rs",
-     333,
-     333
-    ],
-    [
-     "crates/prism-review/tests/cli/nav_compat_test.rs",
-     823,
-     823
-    ],
-    [
-     "examples/project_membership_census.rs",
-     63,
-     63
-    ],
-    [
-     "src/name_resolution/lookup_invalidation_tests.rs",
-     165,
-     165
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     72,
-     72
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     127,
-     127
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     169,
-     169
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     198,
-     198
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     233,
-     233
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     323,
-     323
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     469,
-     469
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     528,
-     528
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     576,
-     576
-    ],
-    [
-     "tests/name_resolution/build_wiring_test.rs",
-     628,
-     628
-    ],
-    [
-     "tests/navigation/go_concrete_cache_test.rs",
-     90,
-     90
-    ],
-    [
-     "tests/navigation/go_concrete_cache_test.rs",
-     188,
-     188
-    ],
-    [
-     "tests/navigation/go_concrete_cache_test.rs",
-     387,
-     387
-    ],
-    [
-     "src/navigation/cache_lifetime_tests.rs",
-     96,
-     96
-    ],
-    [
-     "src/navigation/cache_lifetime_tests.rs",
-     124,
-     124
-    ],
-    [
-     "tests/integration/js_paths_r2b_test.rs",
-     29,
-     29
-    ],
-    [
-     "src/executable_owner/integration/tests.rs",
-     22,
-     22
-    ],
-    [
-     "src/executable_owner/integration/tests.rs",
-     79,
-     79
-    ],
-    [
-     "crates/prism-mcp/src/freshness_policy_tests.rs",
-     394,
-     394
     ],
     [
      "tests/navigation/seed_test.rs",
      11,
      11
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     46,
-     46
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     60,
-     60
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     75,
-     75
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     102,
-     102
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     119,
-     119
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     122,
-     122
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     146,
-     146
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     159,
-     159
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     181,
-     181
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     185,
-     185
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     205,
-     205
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     233,
-     233
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     253,
-     253
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     268,
-     268
-    ],
-    [
-     "crates/prism-mcp/src/freshness_capture_tests.rs",
-     301,
-     301
     ],
     [
      "tests/navigation/loader_test.rs",
@@ -11064,44 +10960,129 @@
      181
     ],
     [
-     "src/repo_loader_skip_tests.rs",
-     74,
-     74
+     "crates/prism-mcp/src/freshness_policy_tests.rs",
+     394,
+     394
     ],
     [
-     "src/repo_loader_skip_tests.rs",
-     129,
-     129
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     46,
+     46
     ],
     [
-     "tests/integration/js_paths_r3_test.rs",
-     32,
-     32
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     60,
+     60
     ],
     [
-     "tests/integration/js_paths_cap_test.rs",
-     14,
-     14
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     75,
+     75
     ],
     [
-     "tests/integration/js_paths_cap_test.rs",
-     204,
-     204
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     102,
+     102
     ],
     [
-     "tests/reasoning/member_only_param_test.rs",
-     23,
-     23
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     119,
+     119
     ],
     [
-     "src/cpg_cache.rs",
-     858,
-     858
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     122,
+     122
     ],
     [
-     "tests/integration/js_alias_rule_test.rs",
-     249,
-     249
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     146,
+     146
+    ],
+    [
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     159,
+     159
+    ],
+    [
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     181,
+     181
+    ],
+    [
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     185,
+     185
+    ],
+    [
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     205,
+     205
+    ],
+    [
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     233,
+     233
+    ],
+    [
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     253,
+     253
+    ],
+    [
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     268,
+     268
+    ],
+    [
+     "crates/prism-mcp/src/freshness_capture_tests.rs",
+     301,
+     301
+    ],
+    [
+     "tests/integration/js_paths_r1_test.rs",
+     18,
+     18
+    ],
+    [
+     "tests/integration/js_paths_r1_test.rs",
+     40,
+     40
+    ],
+    [
+     "tests/integration/js_paths_r1_test.rs",
+     61,
+     61
+    ],
+    [
+     "tests/integration/js_paths_r1_test.rs",
+     110,
+     110
+    ],
+    [
+     "tests/integration/js_paths_r1_test.rs",
+     160,
+     160
+    ],
+    [
+     "tests/integration/js_paths_r1_test.rs",
+     162,
+     162
+    ],
+    [
+     "tests/integration/js_paths_r1_test.rs",
+     169,
+     169
+    ],
+    [
+     "tests/integration/js_paths_r1_test.rs",
+     181,
+     181
+    ],
+    [
+     "tests/integration/js_paths_r1_test.rs",
+     215,
+     215
     ],
     [
      "tests/navigation/cache_test.rs",
@@ -11184,9 +11165,29 @@
      592
     ],
     [
+     "src/build_pool/boundary_tests.rs",
+     275,
+     275
+    ],
+    [
      "tests/navigation/module_graph_test.rs",
      17,
      17
+    ],
+    [
+     "tests/integration/js_returned_callers_test.rs",
+     21,
+     21
+    ],
+    [
+     "tests/navigation/func_value_test.rs",
+     19,
+     19
+    ],
+    [
+     "src/cpg/callback_identity_tests.rs",
+     777,
+     777
     ]
    ],
    "outcome": "missing",
@@ -14852,51 +14853,6 @@
    ],
    "oracle_sites": [
     [
-     "crates/prism-mcp/src/daemon/coordinator_order_tests.rs",
-     52,
-     52
-    ],
-    [
-     "crates/prism-mcp/src/daemon/coordinator_order_tests.rs",
-     162,
-     162
-    ],
-    [
-     "crates/prism-mcp/src/daemon/coordinator_order_tests.rs",
-     203,
-     203
-    ],
-    [
-     "crates/prism-mcp/src/daemon/coordinator_order_tests.rs",
-     346,
-     346
-    ],
-    [
-     "crates/prism-mcp/src/daemon/idle_wire_logging_tests.rs",
-     133,
-     133
-    ],
-    [
-     "crates/prism-mcp/src/daemon/idle_off_drain_tests.rs",
-     41,
-     41
-    ],
-    [
-     "crates/prism-mcp/src/daemon/idle_off_drain_tests.rs",
-     58,
-     58
-    ],
-    [
-     "crates/prism-mcp/src/daemon/connection_tests.rs",
-     363,
-     363
-    ],
-    [
-     "crates/prism-mcp/src/daemon/connection_tests.rs",
-     384,
-     384
-    ],
-    [
      "crates/prism-mcp/src/daemon/coordinator_tests.rs",
      41,
      41
@@ -14905,6 +14861,11 @@
      "crates/prism-mcp/src/daemon/coordinator_tests.rs",
      69,
      69
+    ],
+    [
+     "crates/prism-mcp/src/daemon/coordinator_edge_tests.rs",
+     174,
+     174
     ],
     [
      "crates/prism-mcp/src/daemon/idle_tests.rs",
@@ -14947,11 +14908,6 @@
      323
     ],
     [
-     "crates/prism-mcp/src/daemon/coordinator_edge_tests.rs",
-     174,
-     174
-    ],
-    [
      "crates/prism-mcp/src/daemon/idle_event_tests.rs",
      104,
      104
@@ -14970,16 +14926,6 @@
      "crates/prism-mcp/src/daemon/serving_event_tests.rs",
      281,
      281
-    ],
-    [
-     "crates/prism-mcp/src/daemon/coordinator_failure_tests.rs",
-     112,
-     112
-    ],
-    [
-     "crates/prism-mcp/src/daemon/coordinator_failure_tests.rs",
-     169,
-     169
     ],
     [
      "crates/prism-mcp/src/daemon/idle_reload_tests.rs",
@@ -15015,6 +14961,16 @@
      "crates/prism-mcp/src/daemon/connection_parity_tests.rs",
      268,
      268
+    ],
+    [
+     "crates/prism-mcp/src/daemon/coordinator_failure_tests.rs",
+     112,
+     112
+    ],
+    [
+     "crates/prism-mcp/src/daemon/coordinator_failure_tests.rs",
+     169,
+     169
     ],
     [
      "crates/prism-mcp/src/daemon/idle_sink_tests.rs",
@@ -15058,6 +15014,26 @@
     ],
     [
      "crates/prism-mcp/src/daemon/coordinator_order_tests.rs",
+     52,
+     52
+    ],
+    [
+     "crates/prism-mcp/src/daemon/coordinator_order_tests.rs",
+     162,
+     162
+    ],
+    [
+     "crates/prism-mcp/src/daemon/coordinator_order_tests.rs",
+     203,
+     203
+    ],
+    [
+     "crates/prism-mcp/src/daemon/coordinator_order_tests.rs",
+     346,
+     346
+    ],
+    [
+     "crates/prism-mcp/src/daemon/coordinator_order_tests.rs",
      420,
      420
     ],
@@ -15065,6 +15041,31 @@
      "crates/prism-mcp/src/daemon/idle_server_tests.rs",
      99,
      99
+    ],
+    [
+     "crates/prism-mcp/src/daemon/idle_wire_logging_tests.rs",
+     133,
+     133
+    ],
+    [
+     "crates/prism-mcp/src/daemon/idle_off_drain_tests.rs",
+     41,
+     41
+    ],
+    [
+     "crates/prism-mcp/src/daemon/idle_off_drain_tests.rs",
+     58,
+     58
+    ],
+    [
+     "crates/prism-mcp/src/daemon/connection_tests.rs",
+     363,
+     363
+    ],
+    [
+     "crates/prism-mcp/src/daemon/connection_tests.rs",
+     384,
+     384
     ]
    ],
    "outcome": "ok",
@@ -15947,14 +15948,54 @@
    ],
    "oracle_sites": [
     [
+     "src/resolution_receiver/tests.rs",
+     50,
+     50
+    ],
+    [
+     "src/resolution_receiver/tests.rs",
+     148,
+     148
+    ],
+    [
+     "src/call_graph_anon_barrier_tests.rs",
+     7,
+     7
+    ],
+    [
+     "src/ast/call_membership_tests.rs",
+     39,
+     39
+    ],
+    [
+     "tests/lang/typescript/type_only_call_test.rs",
+     122,
+     122
+    ],
+    [
+     "tests/lang/typescript/type_only_call_test.rs",
+     238,
+     238
+    ],
+    [
+     "tests/lang/typescript/type_only_call_test.rs",
+     280,
+     280
+    ],
+    [
+     "src/call_graph_anon_authority_tests.rs",
+     124,
+     124
+    ],
+    [
+     "src/anon_owner_tests.rs",
+     279,
+     279
+    ],
+    [
      "src/ast_call_execution_owner_tests.rs",
      78,
      78
-    ],
-    [
-     "tests/integration/js_alias_matrix_test.rs",
-     190,
-     190
     ],
     [
      "src/call_graph_anon_prep_tests.rs",
@@ -15977,19 +16018,9 @@
      369
     ],
     [
-     "tests/lang/typescript/type_only_call_test.rs",
-     122,
-     122
-    ],
-    [
-     "tests/lang/typescript/type_only_call_test.rs",
-     238,
-     238
-    ],
-    [
-     "tests/lang/typescript/type_only_call_test.rs",
-     280,
-     280
+     "tests/integration/js_alias_matrix_test.rs",
+     190,
+     190
     ],
     [
      "src/anon_owner.rs",
@@ -16020,36 +16051,6 @@
      "src/call_graph.rs",
      4890,
      4890
-    ],
-    [
-     "src/resolution_receiver/tests.rs",
-     50,
-     50
-    ],
-    [
-     "src/resolution_receiver/tests.rs",
-     148,
-     148
-    ],
-    [
-     "src/call_graph_anon_barrier_tests.rs",
-     7,
-     7
-    ],
-    [
-     "src/ast/call_membership_tests.rs",
-     39,
-     39
-    ],
-    [
-     "src/call_graph_anon_authority_tests.rs",
-     124,
-     124
-    ],
-    [
-     "src/anon_owner_tests.rs",
-     279,
-     279
     ]
    ],
    "outcome": "ok",
@@ -16808,14 +16809,14 @@
    ],
    "oracle_sites": [
     [
-     "tests/integration/dfg_label_parity_test.rs",
-     63,
-     63
-    ],
-    [
      "src/cpg_cache.rs",
      820,
      820
+    ],
+    [
+     "tests/common/dfg_roundtrip.rs",
+     36,
+     36
     ],
     [
      "src/ast/call_membership_tests.rs",
@@ -16828,24 +16829,14 @@
      175
     ],
     [
-     "tests/integration/core_test.rs",
-     36,
-     36
+     "src/cpg/tests.rs",
+     2554,
+     2554
     ],
     [
-     "src/cpg_cache.rs",
-     1506,
-     1506
-    ],
-    [
-     "src/cpg_cache.rs",
-     1724,
-     1724
-    ],
-    [
-     "tests/common/dfg_roundtrip.rs",
-     36,
-     36
+     "src/navigation/mod.rs",
+     207,
+     207
     ],
     [
      "src/anon_owner_tests.rs",
@@ -16858,34 +16849,19 @@
      179
     ],
     [
-     "tests/integration/js_module_owner_test.rs",
-     79,
-     79
-    ],
-    [
      "src/cpg/anon_guard_tests.rs",
      53,
      53
     ],
     [
-     "src/anon_enable_tests.rs",
-     148,
-     148
-    ],
-    [
-     "tests/infra/parallel_equality_test.rs",
-     39,
-     39
-    ],
-    [
-     "tests/infra/parallel_equality_test.rs",
-     90,
-     90
-    ],
-    [
      "src/reasoning/order.rs",
      121,
      121
+    ],
+    [
+     "tests/common/mod.rs",
+     94,
+     94
     ],
     [
      "src/anon_owner_tests.rs",
@@ -16898,19 +16874,34 @@
      235
     ],
     [
-     "src/navigation/mod.rs",
-     207,
-     207
+     "tests/infra/parallel_equality_test.rs",
+     39,
+     39
     ],
     [
-     "tests/common/mod.rs",
-     94,
-     94
+     "tests/infra/parallel_equality_test.rs",
+     90,
+     90
     ],
     [
-     "src/cpg/tests.rs",
-     2554,
-     2554
+     "tests/integration/dfg_label_parity_test.rs",
+     63,
+     63
+    ],
+    [
+     "src/anon_enable_tests.rs",
+     148,
+     148
+    ],
+    [
+     "src/anon_enable_tests.rs",
+     174,
+     174
+    ],
+    [
+     "src/anon_enable_tests.rs",
+     292,
+     292
     ],
     [
      "tests/ast/cpg_test.rs",
@@ -16928,19 +16919,29 @@
      780
     ],
     [
-     "src/anon_enable_tests.rs",
-     174,
-     174
-    ],
-    [
-     "src/anon_enable_tests.rs",
-     292,
-     292
-    ],
-    [
      "crates/prism-mcp/src/mem_attribution.rs",
      54,
      54
+    ],
+    [
+     "tests/integration/core_test.rs",
+     36,
+     36
+    ],
+    [
+     "src/cpg_cache.rs",
+     1506,
+     1506
+    ],
+    [
+     "src/cpg_cache.rs",
+     1724,
+     1724
+    ],
+    [
+     "tests/integration/js_module_owner_test.rs",
+     79,
+     79
     ]
    ],
    "outcome": "ok",
@@ -17854,26 +17855,6 @@
    ],
    "oracle_sites": [
     [
-     "src/cpg/nested_execution_owner_audit_tests.rs",
-     65,
-     65
-    ],
-    [
-     "src/data_flow/tests/queries.rs",
-     44,
-     44
-    ],
-    [
-     "src/data_flow/tests/queries.rs",
-     68,
-     68
-    ],
-    [
-     "src/data_flow/queries.rs",
-     71,
-     71
-    ],
-    [
      "src/cpg/exact_caller_read_tests.rs",
      547,
      547
@@ -17894,16 +17875,6 @@
      55
     ],
     [
-     "src/cpg/step4_reference.rs",
-     37,
-     37
-    ],
-    [
-     "src/cpg/step4_reference.rs",
-     87,
-     87
-    ],
-    [
      "src/cpg/same_line_occurrence_tests.rs",
      316,
      316
@@ -17917,6 +17888,36 @@
      "src/cpg/same_line_occurrence_tests.rs",
      967,
      967
+    ],
+    [
+     "src/cpg/step4_reference.rs",
+     37,
+     37
+    ],
+    [
+     "src/cpg/step4_reference.rs",
+     87,
+     87
+    ],
+    [
+     "src/cpg/nested_execution_owner_audit_tests.rs",
+     65,
+     65
+    ],
+    [
+     "src/data_flow/tests/queries.rs",
+     44,
+     44
+    ],
+    [
+     "src/data_flow/tests/queries.rs",
+     68,
+     68
+    ],
+    [
+     "src/data_flow/queries.rs",
+     71,
+     71
     ]
    ],
    "outcome": "ok",
