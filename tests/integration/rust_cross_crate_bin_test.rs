@@ -537,17 +537,17 @@ fn c15_bin_local_owner_with_the_dependencys_owner_name() {
     );
 }
 
-// ── #[path] placement (the #765 discipline for what this rule newly admits) ──
+// ── #[path] placement (rustc's since #765; no guard here) ───────────────────
 //
-// `#[path = "q.rs"] pub mod q;` in `a/src/p.rs`: rustc loads `a/src/q.rs`, the populator
-// binds the retained decoy `a/src/p/q.rs`. A bin root's dependency path must not bind it.
+// `#[path = "q.rs"] pub mod q;` in `a/src/p.rs`: rustc loads `a/src/q.rs`; the retained decoy
+// `a/src/p/q.rs` must not be bound by a bin root's dependency path.
 
 fn mount_files(call: &'static str) -> Vec<(&'static str, &'static str)> {
     vec![
         ("a/src/lib.rs", "pub mod p;\n"),
         ("a/src/p.rs", "#[path = \"q.rs\"]\npub mod q;\n"),
         ("a/src/q.rs", "pub fn f() -> bool { true }\n"), // what rustc loads
-        ("a/src/p/q.rs", "pub fn f() -> bool { false }\n"), // the decoy the populator binds
+        ("a/src/p/q.rs", "pub fn f() -> bool { false }\n"), // the decoy
         ("b/src/main.rs", call),
     ]
 }
@@ -555,18 +555,25 @@ fn mount_files(call: &'static str) -> Vec<(&'static str, &'static str)> {
 const MOUNT_CALL: &str = "fn main() {\n    a::p::q::f();\n}\n";
 
 #[test]
-fn c17_bin_dependency_path_refuses_a_misplaced_mount() {
+fn c17_bin_dependency_path_binds_the_file_rustc_loads_for_a_path_mount() {
     let cg = fixture(B_DEP, &mount_files(MOUNT_CALL));
-    refused(&cg, "b/src/main.rs", "main", "a::p::q::f");
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "a::p::q::f",
+        "a/src/q.rs::f@1",
+        QO,
+    );
 }
 
 #[test]
-fn c17b_bin_dependency_path_via_use_refuses_a_misplaced_mount() {
+fn c17b_bin_dependency_path_via_use_binds_the_file_rustc_loads_for_a_path_mount() {
     let cg = fixture(
         B_DEP,
         &mount_files("use a::p::q::f;\nfn main() {\n    f();\n}\n"),
     );
-    refused(&cg, "b/src/main.rs", "main", "f");
+    exact(&cg, "b/src/main.rs", "main", "f", "a/src/q.rs::f@1", FS);
 }
 
 #[test]
@@ -592,14 +599,13 @@ fn c17c_bin_dependency_path_binds_a_correctly_placed_mount() {
 }
 
 #[test]
-fn c17d_library_root_consumer_keeps_its_inherited_outcome() {
-    // KEEP, pinned as inherited (#765): the library-root route into a misplaced mount is
-    // unchanged by this rule (it only guards what it newly admits).
+fn c17d_library_root_consumer_binds_the_file_rustc_loads_for_a_path_mount() {
+    // The library-root route agrees with the bin-root route (#765).
     let mut files = mount_files(MOUNT_CALL);
     files.push(("b/src/lib.rs", "pub fn lib_fn() {\n    a::p::q::f();\n}\n"));
     let cg = fixture(B_DEP, &files);
     let got = outcome(&cg, "b/src/lib.rs", "lib_fn", "a::p::q::f");
-    assert_eq!(got, exact_t("a/src/p/q.rs::f@1", QO), "{got:?}");
+    assert_eq!(got, exact_t("a/src/q.rs::f@1", QO), "{got:?}");
 }
 
 // ── block-scope shadows through a module-level import (review fold, #768) ────
@@ -661,12 +667,10 @@ fn c18d_block_binding_of_another_name_does_not_refuse() {
     );
 }
 
-// ── routes past the placement guard until #765 lands (PR D) ─────────────────
+// ── re-export and receiver routes through a `#[path]` mount (#765) ──────────
 //
-// `bin_dep_guard` checks only the terminal function's file of a direct dependency on the
-// authoritative call route. Each row below binds the decoy `.../p/q.rs` today and asserts
-// the file rustc loads; #765's fix (correct `#[path]` placement) makes them green and
-// removes the guard.
+// Each row below asserts the file rustc loads (never the decoy `.../p/q.rs`): they bound the
+// decoy past the placement stopgap this PR carried until #765's fix landed.
 
 /// Resolved targets as `file::function@line`, all Exact.
 fn exact_targets(cg: &CallGraph, file: &str, caller: &str, callee: &str) -> Vec<String> {
@@ -689,7 +693,7 @@ const OWNER_Q: &str =
     "pub struct S;\nimpl S {\n    pub fn run(&self) {}\n}\npub fn make() -> S {\n    S\n}\n";
 
 /// Dependency `a` whose `p.rs` mounts `q.rs` by `#[path]` (rustc loads `a/src/q.rs`;
-/// the populator binds the decoy `a/src/p/q.rs`), with `q`, `decoy` as file bodies.
+/// `a/src/p/q.rs` is the decoy), with `q`, `decoy` as file bodies.
 fn a_mount<'a>(q: &'a str, decoy: &'a str, lib: &'a str) -> Vec<(&'a str, &'a str)> {
     vec![
         ("a/src/lib.rs", lib),
@@ -700,7 +704,6 @@ fn a_mount<'a>(q: &'a str, decoy: &'a str, lib: &'a str) -> Vec<(&'a str, &'a st
 }
 
 #[test]
-#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
 fn w2a_reexport_in_a_misplaced_mount_binds_rustcs_target() {
     let mut files = a_mount(
         "pub use crate::right as f;\n",
@@ -715,7 +718,7 @@ fn w2a_reexport_in_a_misplaced_mount_binds_rustcs_target() {
     );
 }
 
-/// Crate `c` holds the misplaced mount (`c/src/q.rs` is rustc's file, `c/src/p/q.rs` the decoy);
+/// Crate `c` holds the `#[path]` mount (`c/src/q.rs` is rustc's file, `c/src/p/q.rs` the decoy);
 /// `a` depends on `c` and re-exports it; `b` depends on `a` only.
 fn c_mount(a_lib: &'static str, call: &'static str) -> CallGraph {
     build(
@@ -736,7 +739,6 @@ fn c_mount(a_lib: &'static str, call: &'static str) -> CallGraph {
 }
 
 #[test]
-#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
 fn w2b_item_reexport_of_a_third_crates_misplaced_module_binds_rustcs_target() {
     let cg = c_mount("pub use c::p::q::f;\n", "fn main() {\n    a::f();\n}\n");
     assert_eq!(
@@ -746,7 +748,6 @@ fn w2b_item_reexport_of_a_third_crates_misplaced_module_binds_rustcs_target() {
 }
 
 #[test]
-#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
 fn r3_transitive_module_reexport_binds_rustcs_target() {
     let cg = c_mount("pub use c::p;\n", "fn main() {\n    a::p::q::f();\n}\n");
     assert_eq!(
@@ -756,7 +757,6 @@ fn r3_transitive_module_reexport_binds_rustcs_target() {
 }
 
 #[test]
-#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
 fn r1_typed_parameter_receiver_binds_rustcs_target() {
     let mut files = a_mount(OWNER_Q, OWNER_Q, "pub mod p;\n");
     files.push((
@@ -771,7 +771,6 @@ fn r1_typed_parameter_receiver_binds_rustcs_target() {
 }
 
 #[test]
-#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
 fn r2_return_typed_receiver_binds_rustcs_target() {
     let mut files = a_mount(OWNER_Q, OWNER_Q, "pub mod p;\n");
     files.push((

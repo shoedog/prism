@@ -86,6 +86,9 @@ pub(crate) struct Builder<'f> {
     pending_restricts: Vec<(usize, RawPath)>,
     /// `(scope, name)` of every `{self as name}` import (#724), handed to the graph.
     self_import_aliases: BTreeSet<(ScopeId, String)>,
+    /// `(bin root, dependency library root)` of every entry keyed from `member_bin_roots`
+    /// (#749); moved onto the graph for the block-shadow guard.
+    bin_dep_entries: BTreeSet<(ScopeId, ScopeId)>,
 }
 
 impl<'f> Builder<'f> {
@@ -126,6 +129,7 @@ impl<'f> Builder<'f> {
             crate_deps_by_root: BTreeMap::new(),
             pending_restricts: Vec::new(),
             self_import_aliases: BTreeSet::new(),
+            bin_dep_entries: BTreeSet::new(),
         }
     }
 
@@ -215,6 +219,7 @@ impl<'f> Builder<'f> {
                             .entry(consumer)
                             .or_default()
                             .insert(name, target);
+                        self.bin_dep_entries.insert((consumer, target));
                     }
                 }
             }
@@ -234,6 +239,7 @@ impl<'f> Builder<'f> {
         }
         self.graph.crate_deps_by_root = self.crate_deps_by_root;
         self.graph.self_import_aliases = self.self_import_aliases;
+        self.graph.bin_dep_entries = self.bin_dep_entries;
         self.graph.multi_occurrence_files = self
             .occurrences
             .iter()

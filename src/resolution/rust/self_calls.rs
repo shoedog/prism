@@ -24,7 +24,9 @@ impl CallGraph {
         let anchored = super::path_anchor::anchored_site(site);
         let site = anchored.as_ref().unwrap_or(site);
         let out = self.rust_authoritative_nonself(graph, site, file, from);
-        Some(super::path_anchor::guard(graph, site, from, out))
+        let out = super::path_anchor::guard(graph, site, from, out);
+        // Entries keyed for a package's binary roots refuse block-scope shadows (#749).
+        Some(super::bin_dep_guard::guard(graph, site, from, out))
     }
 
     fn rust_authoritative_nonself(
