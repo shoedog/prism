@@ -234,6 +234,25 @@ const CASES: &[Case] = &[
     // on recorded bases) leaves the owner unavailable; multi-node, the recorded def kills the projection.
     Case { name: "own_recorded_member_write", lang: JS, edge: "o@1->o.x@2", label: CFG, mechs: &[],
         source: "function h(o, u = (o.x = 1)) {\n  return sink(o.x);\n}" },
+    // SOL-757-01 residual (round 2): the region rule. A def in the own parameter list is refused whatever its
+    // byte order (the RHS def `o.x = 99` runs before the pattern default `[o.x = 1]` that textually precedes it).
+    Case { name: "own_rhs_def_before_pattern_default", lang: JS, edge: "o.x@2->o.x@3", label: CFG, mechs: &["own-params"],
+        source: "const o = { x: 0 };\nfunction f(unused = ([o.x = 1] = [(o.x = 99, void 0)])) {\n  return sink(o.x);\n}" },
+    Case { name: "own_rhs_def_before_pattern_default_multi", lang: JS, edge: "o.x@2->o.x@4", label: CFG, mechs: &["own-params"],
+        source: "const o = { x: 0 };\nfunction f(unused = ([o.x = 1] = [(o.x = 99, void 0)])) {\n  log();\n  return sink(o.x);\n}" },
+    // Accepted cost: a list def that runs after the write is refused too (here the formal `o` is bound after
+    // the default that writes `o.x`; the region rule does not order the list).
+    Case { name: "own_later_list_def_is_over_refused", lang: JS, edge: "o@1->o.x@3", label: CFG, mechs: &["own-params"],
+        source: "function f(u = ([o.x = 1] = []), o) {\n  log();\n  return sink(o.x);\n}" },
+    // A body def runs after every list write: not refused.
+    Case { name: "own_body_def_after_list_write_stays_exact", lang: JS, edge: "o.x@2->o.x@3", label: EXACT, mechs: &[],
+        source: "function f(o, u = o.x++) {\n  o.x = 2;\n  return sink(o.x);\n}" },
+    // #761 (pre-existing aliasing gap, pinned so a fix flips it deliberately): a parameter-list alias `u = o`
+    // does not suppress `o`'s projection paths, so a write through `u` leaves `o.x` `exact` (wrong).
+    Case { name: "own_alias_write_is_761_wrong_exact", lang: JS, edge: "o@1->o.x@2", label: EXACT, mechs: &["guard-deleted:a"],
+        source: "function f(o, u = o, v = u.x++) {\n  return sink(o.x);\n}" },
+    Case { name: "own_alias_write_is_761_wrong_exact_multi", lang: JS, edge: "o@1->o.x@3", label: EXACT, mechs: &[],
+        source: "function f(o, u = o, v = u.x++) {\n  log();\n  return sink(o.x);\n}" },
 ];
 
 #[test]

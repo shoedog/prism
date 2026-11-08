@@ -10,8 +10,9 @@
 //! - defs (G6a, G6b): an edge whose from def starts at a refused byte is `CfgIncomplete`.
 //! - `with` (6.1c): an edge whose use or def lies in a `with` body is `CfgIncomplete`. A write in a body
 //!   is also a kill-only may-write, which the census already adds.
-//! - own-parameter member writes (S1d-2): an edge from a def before the write to a use the write `affects`
-//!   is `CfgIncomplete` (`own-params`); a bare formal's edge is untouched.
+//! - own-parameter member writes (S1d-2): an edge from a parameter-list def to a use a list write `affects`
+//!   is `CfgIncomplete` (`own-params`); the def must lie in the parameter list (a body def runs after the
+//!   writes); a bare formal's edge is untouched.
 //! - dead formals (6.1d): an edge from the dead formal's def is `Killed { kill_line }`.
 use super::{FlowConfidence, FlowDoubt};
 use crate::data_flow::{FlowEdge, VarLocation};
@@ -76,11 +77,14 @@ impl Refusals {
         if let Some(m) = c.defs.get(&from.start_byte) {
             return Some(m);
         }
-        // A member write in the owner's own parameter list runs before the body: it overwrites the
-        // fields a def made before it (the formal's) carries into the use.
-        if c.own_writes
-            .iter()
-            .any(|(w, at)| from.start_byte < *at && super::def_buckets::affects(w, &to.path))
+        // A member write in the owner's own parameter list runs before the body: it may overwrite the
+        // fields a def made in that list (the formal's, or an earlier default's) carries into the use.
+        // Region rule, not byte order: the order of evaluation inside the list is not proven.
+        if c.own_params
+            .is_some_and(|(lo, hi)| lo <= from.start_byte && from.start_byte < hi)
+            && c.own_writes
+                .iter()
+                .any(|w| super::def_buckets::affects(w, &to.path))
         {
             return Some(refusals::OWN_PARAMS);
         }

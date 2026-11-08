@@ -56,9 +56,13 @@ pub(crate) struct Classes {
     pub defs: BTreeMap<usize, &'static str>,
     pub with_bodies: Vec<WithBody>,
     pub dead: Vec<Dead>,
-    /// Member writes in the owner's own parameter list: the path and the byte the write starts at. An
-    /// edge whose def starts before the write and whose use path the write `affects` is refused.
-    pub own_writes: Vec<(crate::access_path::AccessPath, usize)>,
+    /// Member writes in the owner's own parameter list (their paths) and the byte range of that list. An
+    /// edge whose def lies IN the list (a formal's entry def or a recorded parameter-list write, in any
+    /// byte order: evaluation order inside the list is not proven) and whose use path a write `affects` is
+    /// refused; a def in the body runs after every parameter-list write and is not. Accepted cost: a
+    /// parameter-list def that really runs after the write is refused too.
+    pub own_writes: Vec<crate::access_path::AccessPath>,
+    pub own_params: Option<(usize, usize)>,
     /// The owner is defined inside a `with` body: its free names may resolve through the object, so
     /// the owner is refused as a whole (owner-wide, the simpler conservative choice).
     pub within_with: bool,
@@ -123,8 +127,8 @@ pub(crate) fn classes(
             && s.form != Form::Declare
             && !s.path.comps.is_empty()
     }) {
-        out.own_writes
-            .push((super::completion::access_path(&w.path), w.target_start));
+        out.own_writes.push(super::completion::access_path(&w.path));
+        out.own_params = params.map(|p| (p.start_byte(), p.end_byte()));
     }
     if !found.inner_names.is_empty() {
         for site in sites {
