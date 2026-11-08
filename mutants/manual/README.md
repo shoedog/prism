@@ -11,7 +11,7 @@ For each entry, on the final candidate:
 
 1. Read the file, require exactly one original anchor, save its current bytes and SHA-256 externally.
 2. Replace only that anchor with the mutant text. Never reset source to a parent revision.
-3. For Rust, run `nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features memreport-changed-refresh --lib <selector> -- --exact`.
+3. For Rust, run `nice -n 19 env CARGO_BUILD_JOBS=4 cargo test -p prism-mcp --features memreport-changed-refresh --lib <selector> -- --exact`.
    For Python, from `scripts/memreport`, run `python3 -m unittest <selector>`.
 4. Require exactly one executed test and a behavioral failure exposing the intended missing behavior.
    Compile errors, missing anchors, zero tests and sandbox refusal are INADMISSIBLE, not kills.
@@ -25,18 +25,18 @@ README steps are the authority for re-running the population. An import-time err
 The authoritative full shared gate is a separate controller gate; these lane receipts certify only this
 manual population. A shared `--plan-only` run confirms catalog exclusion, not mutant kills.
 
-## `idle-unload-i0a.json` (I0a idle unload, `--features mcp`)
+## `idle-unload-i0a.json` (I0a idle unload, `-p prism-mcp`)
 
 Records are `{old, new}` edit lists with one exact selector each. Follow the same steps with
-`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`, applying every listed
+`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test -p prism-mcp --lib SELECTOR -- --exact`, applying every listed
 edit once. The first four records are the plan's required mutants; later records add negative witnesses. These
 are fault injections, not claims that the parent supported the new lifecycle API. I0a receipts are kept in the
 lane's private evidence.
 
-## `i0-freshness.json` (F source-bound freshness, `--features mcp`)
+## `i0-freshness.json` (F source-bound freshness, `-p prism-mcp`)
 
 Apply each record's exact edits to the current candidate and run its single selector with
-`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`.
+`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test -p prism-mcp --lib SELECTOR -- --exact`.
 Use steps 1–6 above: require one behavioral failure, restore saved bytes in `finally`,
 verify SHA-256, then require one restored GREEN. Compiler errors and zero selections are
 inadmissible. The eight mutants cover late stamping, lost divergence, wrong comparison,
@@ -44,10 +44,10 @@ loader input replay, final service recheck, repeated uncertifiable auto refresh 
 permission-only recovery of suppressed auto refresh, and lost suppression after a Diverged commit.
 Save receipts outside the checkout; the full shared-catalog gate remains separate.
 
-## `i0b-1.json` (daemon idle lifecycle, `--features mcp`)
+## `i0b-1.json` (daemon idle lifecycle, `-p prism-mcp`)
 
 Apply each record to the current candidate using steps 1–6 above and its one exact selector:
-`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test --features mcp --lib SELECTOR -- --exact`.
+`nice -n 19 env CARGO_BUILD_JOBS=4 cargo test -p prism-mcp --lib SELECTOR -- --exact`.
 The 16 distinct selectors cover serving admission, both response boundaries, whole-session and
 uncollected-outcome release, re-arm, worker destruction, publication time, history, failure
 supersession, fatal disposal/poison, a mutant-only retained-provider reload that skips bootstrap,
@@ -56,11 +56,11 @@ spawn-failure backoff.
 Keep before/mutant/restored SHA-256 receipts and behavioral RED/restored GREEN outside the repo.
 Do not count compiler failures, zero selections, aborts without a test verdict, or host refusals as kills.
 
-## `i0b-2.json` (daemon options, wire and readout, `--features mcp`)
+## `i0b-2.json` (daemon options, wire and readout, `-p prism-mcp`)
 
 The eleven mutants use one exact selector each. Apply all edits in a record using steps 1–6
 above. A record with `target: "prism-mcp"` uses `--bin prism-mcp` in place of `--lib`;
-otherwise run `cargo test --features mcp --lib SELECTOR -- --exact`.
+otherwise run `cargo test -p prism-mcp --lib SELECTOR -- --exact`.
 They cover absent-option activation, unloaded-state misreporting, discarded daemon options,
 relief before provider drop, a missing terminal lifecycle event, logging under serving locks,
 diverged equal-snapshot reasons, emission-time substitution, per-call release volume,
@@ -70,11 +70,11 @@ Keep receipts outside the repo. Use `nice -n 19 env CARGO_BUILD_JOBS=4` as above
 `nice` is refused, drop only `nice`. This catalog adds **11 mutants**; I0b-1 + I0b-2 total **27**.
 The authoritative ordinary shared-catalog gate remains separate and unchanged.
 
-## `o.json` (O-lite lifecycle facts, `--features mcp`)
+## `o.json` (O-lite lifecycle facts, `-p prism-mcp`)
 
 The **23 mutants** use fully qualified library selectors; follow steps 1–6 above on the final candidate.
 Run the primary selector and each `supplemental_selectors` entry separately with
-`env CARGO_BUILD_JOBS=4 cargo test --offline --features mcp --lib SELECTOR -- --exact`
+`env CARGO_BUILD_JOBS=4 cargo test --offline -p prism-mcp --lib SELECTOR -- --exact`
 (prepend `nice -n 19` when permitted). At least one executed test must fail behaviorally per record.
 `O-drop-late-sidecar-export` must fail **both** its stdio and daemon selectors; publication alone cannot kill it.
 They cover actual CPG branches/stages, accepted publication facts in both modes and both startup policies, stale facts, unforced and late sidecars, disposal/publication,
@@ -84,10 +84,10 @@ generation, failed-reload generation and initial-retry publication reasons. Hash
 Keep all raw receipts outside the checkout. I0b-1 + I0b-2 + O-lite total **50 mutants**; the ordinary
 shared-catalog gate and Tier-A remain separate controller gates.
 
-## `i0c-1.json` (Rust shim/operator, `--features mcp`)
+## `i0c-1.json` (Rust shim/operator, `-p prism-mcp`)
 
 The **13 mutants** use exact selectors and edit lists in the I0b-2 format. Follow steps 1–6;
-run `env CARGO_BUILD_JOBS=4 cargo test --offline --features mcp --lib SELECTOR -- --exact`.
+run `env CARGO_BUILD_JOBS=4 cargo test --offline -p prism-mcp --lib SELECTOR -- --exact`.
 For `target: "prism-mcp"`, replace `--lib` with `--bin prism-mcp`. No `nice` in this sandbox.
 For `target: "mcp", target_kind: "test"`, use `--test mcp` instead of `--lib`.
 Require exactly one executed behavioral failure, restore saved candidate bytes in `finally`,

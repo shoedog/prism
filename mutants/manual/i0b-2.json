@@ -1,8 +1,5 @@
 {
   "manual_only": true,
-  "features": [
-    "mcp"
-  ],
   "mutants": [
     {
       "id": "I0b-default-off",
@@ -11,19 +8,19 @@
       "description": "Disable idle unload for an absent daemon flag; READY must still report the 600-second default.",
       "edits": [
         {
-          "file": "src/bin/prism-mcp.rs",
-          "old": "prism::mcp::idle::IdlePolicy::resolve(c.index_idle_secs.as_deref(), None, &config, false)?",
-          "new": "prism::mcp::idle::IdlePolicy::resolve(c.index_idle_secs.as_deref().or(Some(\"0\")), None, &config, false)?"
+          "file": "crates/prism-mcp/src/bin/prism-mcp.rs",
+          "old": "prism_mcp::idle::IdlePolicy::resolve(c.index_idle_secs.as_deref(), None, &config, false)?",
+          "new": "prism_mcp::idle::IdlePolicy::resolve(c.index_idle_secs.as_deref().or(Some(\"0\")), None, &config, false)?"
         }
       ]
     },
     {
       "id": "I0b-wire-lies",
-      "selector": "mcp::daemon::idle_wire_logging_tests::daemon_idle_logging_and_relief",
+      "selector": "daemon::idle_wire_logging_tests::daemon_idle_logging_and_relief",
       "description": "Collapse unloaded into initial idle on the wire; the post-detach state assertion must fail.",
       "edits": [
         {
-          "file": "src/mcp/daemon/control.rs",
+          "file": "crates/prism-mcp/src/daemon/control.rs",
           "old": "            Self::Unloaded { .. } => BuildState::Unloaded,",
           "new": "            Self::Unloaded { .. } => BuildState::Idle,"
         }
@@ -36,7 +33,7 @@
       "description": "Drop the parsed nonzero idle policy on the real daemon construction path; effective READY must report one second.",
       "edits": [
         {
-          "file": "src/mcp/daemon/run.rs",
+          "file": "crates/prism-mcp/src/daemon/run.rs",
           "old": "    parts.idle_timeout = options.idle_policy.timeout;",
           "new": "    parts.idle_timeout = None;"
         }
@@ -44,16 +41,16 @@
     },
     {
       "id": "I0b-relief-before-drop",
-      "selector": "mcp::daemon::idle_wire_logging_tests::daemon_idle_relief_after_drop",
+      "selector": "daemon::idle_wire_logging_tests::daemon_idle_relief_after_drop",
       "description": "Move the relief call and event before provider destruction; the actual event observer must see the old repository still alive.",
       "edits": [
         {
-          "file": "src/mcp/daemon/idle.rs",
+          "file": "crates/prism-mcp/src/daemon/idle.rs",
           "old": "            drop(provider);",
           "new": "            state.relieve(disposal_event.clone());\n            drop(provider);"
         },
         {
-          "file": "src/mcp/daemon/idle.rs",
+          "file": "crates/prism-mcp/src/daemon/idle.rs",
           "old": "            state.relieve(end);",
           "new": "            // mutant: relief already ran before drop"
         }
@@ -61,11 +58,11 @@
     },
     {
       "id": "I0b-omit-lifecycle-event",
-      "selector": "mcp::daemon::idle_wire_logging_tests::daemon_idle_build_failure_event",
+      "selector": "daemon::idle_wire_logging_tests::daemon_idle_build_failure_event",
       "description": "Omit the terminal build event; scripted build failure must leave a log line.",
       "edits": [
         {
-          "file": "src/mcp/daemon/coordinator.rs",
+          "file": "crates/prism-mcp/src/daemon/coordinator.rs",
           "old": "                event = Some(self.log_build(&control, &ended));",
           "new": "                // mutant: terminal build event omitted"
         }
@@ -73,11 +70,11 @@
     },
     {
       "id": "I0b-log-under-lock",
-      "selector": "mcp::daemon::idle_sink_tests::daemon_idle_sink_initial_build",
+      "selector": "daemon::idle_sink_tests::daemon_idle_sink_initial_build",
       "description": "Emit the captured build event inside settle under slot/control guards; independent control and read dispatch must proceed through a held sink.",
       "edits": [
         {
-          "file": "src/mcp/daemon/coordinator.rs",
+          "file": "crates/prism-mcp/src/daemon/coordinator.rs",
           "old": "                event = Some(self.log_build(&control, &ended));",
           "new": "                self.lifecycle_event(self.log_build(&control, &ended));"
         }
@@ -85,11 +82,11 @@
     },
     {
       "id": "I0b-diverged-same-snapshot",
-      "selector": "mcp::daemon::idle_event_tests::daemon_idle_diverged_same_snapshot_reason",
+      "selector": "daemon::idle_event_tests::daemon_idle_diverged_same_snapshot_reason",
       "description": "Ignore prior divergence when G is unchanged; the clearing reload must be changed_snapshot.",
       "edits": [
         {
-          "file": "src/mcp/daemon/log.rs",
+          "file": "crates/prism-mcp/src/daemon/log.rs",
           "old": "                if p.diverged || p.generation != control.generation {",
           "new": "                if p.generation != control.generation {"
         }
@@ -97,11 +94,11 @@
     },
     {
       "id": "I0b-timestamp-at-emission",
-      "selector": "mcp::daemon::idle_event_tests::daemon_idle_producer_timestamps",
+      "selector": "daemon::idle_event_tests::daemon_idle_producer_timestamps",
       "description": "Replace captured wall with emission wall without age correlation; delayed release must retain producer wall.",
       "edits": [
         {
-          "file": "src/mcp/daemon/log.rs",
+          "file": "crates/prism-mcp/src/daemon/log.rs",
           "old": "        let timestamp = e\n            .wall\n            .duration_since(UNIX_EPOCH)\n            .ok()",
           "new": "        let timestamp = self.wall_now()\n            .duration_since(UNIX_EPOCH)\n            .ok()"
         }
@@ -109,11 +106,11 @@
     },
     {
       "id": "I0b-release-per-call",
-      "selector": "mcp::daemon::idle_event_tests::daemon_idle_release_volume",
+      "selector": "daemon::idle_event_tests::daemon_idle_release_volume",
       "description": "Emit the bounded release event on every tool release, even with idle off.",
       "edits": [
         {
-          "file": "src/mcp/daemon/activity.rs",
+          "file": "crates/prism-mcp/src/daemon/activity.rs",
           "old": "        self.state.wake_idle_loop();",
           "new": "        if let Ok(mut control) = self.state.control_plane() {\n            let event = self.state.take_last_release(&mut control);\n            drop(control);\n            if let Some(event) = event { self.state.lifecycle_event(event); }\n        }\n        self.state.wake_idle_loop();"
         }
@@ -121,11 +118,11 @@
     },
     {
       "id": "I0b-wall-at-emission",
-      "selector": "mcp::daemon::idle_event_tests::daemon_idle_producer_wall_jump_forward",
+      "selector": "daemon::idle_event_tests::daemon_idle_producer_wall_jump_forward",
       "description": "Restore emission-wall minus daemon-age correlation; a post-release wall jump must not move the historical release.",
       "edits": [
         {
-          "file": "src/mcp/daemon/log.rs",
+          "file": "crates/prism-mcp/src/daemon/log.rs",
           "old": "        let timestamp = e\n            .wall\n            .duration_since(UNIX_EPOCH)\n            .ok()",
           "new": "        let timestamp = self.wall_now()\n            .checked_sub(self.now().saturating_duration_since(e.at))\n            .and_then(|at| at.duration_since(UNIX_EPOCH).ok())"
         }
@@ -133,15 +130,16 @@
     },
     {
       "id": "I0b-rejected-provider-held",
-      "selector": "mcp::daemon::idle_sink_tests::daemon_idle_sink_rejected_publication",
+      "selector": "daemon::idle_sink_tests::daemon_idle_sink_rejected_publication",
       "description": "Keep rejected provider in publish across terminal settlement output; Weak must die while the terminal sink is held.",
       "edits": [
         {
-          "file": "src/mcp/daemon/coordinator.rs",
+          "file": "crates/prism-mcp/src/daemon/coordinator.rs",
           "old": "                Some(provider),\n            );\n            return;",
           "new": "                None,\n            );\n            drop(provider);\n            return;"
         }
       ]
     }
-  ]
+  ],
+  "package": "prism-mcp"
 }

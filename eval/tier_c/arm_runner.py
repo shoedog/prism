@@ -257,7 +257,7 @@ def resolve_matched_binaries(build_dir: str | None = None) -> dict:
             raise PreflightError(
                 f"matched-binary preflight FAILED: {label} binary not found at {path!r} "
                 f"(resolved build_dir={resolved_build_dir!r}). Build both from the SAME "
-                f"tree with `cargo build --release --bin prism --bin prism-mcp --features mcp` "
+                f"tree with `cargo build --release --workspace --bins` "
                 f"before running a live Part-C cell."
             )
 

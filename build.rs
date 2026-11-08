@@ -7,6 +7,13 @@ use std::process::Command;
 // including generated artifacts and provenance. Keep bootstrap scratch outside it.
 const VENDORED_GRAMMARS: &[&str] = &["vendor/tree-sitter-typescript", "vendor/tree-sitter-go"];
 
+// The `prism-mcp` member crate is compiled into the `prism-mcp` binary but is not part of this
+// package. Its sources and manifest stay identity inputs (the shared daemon's key includes
+// PRISM_CACHE_BUILD_IDENTITY, so an MCP-only edit must still start a new daemon, #731 S4 §2.3).
+// Its tests are not inputs, as `tests/mcp` was not when it lived under this package.
+const MCP_CRATE_SRC: &str = "crates/prism-mcp/src";
+const MCP_CRATE_MANIFEST: &str = "crates/prism-mcp/Cargo.toml";
+
 fn main() {
     println!("cargo:rerun-if-changed=Cargo.lock");
     let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
@@ -65,6 +72,8 @@ fn main() {
     // repo's HEAD and dirtiness directly at run time — the embedded identity is the
     // binary's claim about what it was built from, not the sole source of truth.
     println!("cargo:rerun-if-changed={manifest}/src");
+    println!("cargo:rerun-if-changed={manifest}/{MCP_CRATE_SRC}");
+    println!("cargo:rerun-if-changed={manifest}/{MCP_CRATE_MANIFEST}");
     println!("cargo:rerun-if-changed={manifest}/build.rs");
     println!("cargo:rerun-if-changed={manifest}/Cargo.toml");
     // Cargo recursively watches directories, including additions and removals.
@@ -132,6 +141,8 @@ fn binary_input_paths(manifest: &Path) -> Vec<String> {
             "--exclude-standard",
             "--",
             "src",
+            MCP_CRATE_SRC,
+            MCP_CRATE_MANIFEST,
             "build.rs",
             "Cargo.toml",
             "Cargo.lock",
@@ -156,16 +167,17 @@ fn binary_input_paths(manifest: &Path) -> Vec<String> {
 }
 
 fn collect_fallback_inputs(root: &Path, paths: &mut BTreeSet<String>) {
-    for name in ["build.rs", "Cargo.toml", "Cargo.lock"] {
+    for name in ["build.rs", "Cargo.toml", "Cargo.lock", MCP_CRATE_MANIFEST] {
         if root.join(name).is_file() {
             paths.insert(name.to_string());
         }
     }
-    let src = root.join("src");
-    if !src.exists() {
-        return;
+    for tree in ["src", MCP_CRATE_SRC] {
+        let dir = root.join(tree);
+        if dir.exists() {
+            collect_src_tree(root, &dir, paths);
+        }
     }
-    collect_src_tree(root, &src, paths);
 }
 
 fn collect_src_tree(root: &Path, dir: &Path, paths: &mut BTreeSet<String>) {
@@ -197,6 +209,8 @@ fn git_binary_input_dirty(manifest: &str) -> Option<bool> {
             "--untracked-files=all",
             "--",
             "src",
+            MCP_CRATE_SRC,
+            MCP_CRATE_MANIFEST,
             "build.rs",
             "Cargo.toml",
             "Cargo.lock",

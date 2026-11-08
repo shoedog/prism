@@ -55,7 +55,6 @@ mod executable_owner;
 pub mod finding_confidence;
 pub mod framework_entries;
 pub mod frameworks;
-mod go_statements;
 #[path = "ast/js_write_census.rs"]
 pub(crate) mod js_write_census;
 pub mod languages;
@@ -67,8 +66,6 @@ mod manifest_snapshot;
 #[cfg(test)]
 mod nested_execution_owner_audit;
 pub use manifest_snapshot::{ManifestSnapshot, ManifestSnapshotEntry};
-#[cfg(feature = "mcp")]
-pub mod mcp;
 pub mod name_resolution;
 pub mod navigation;
 pub mod output;
