@@ -228,6 +228,9 @@ fn index_is_absent_from_serialization_and_identity() {
         &graph.local_facts,
         &graph.edges,
         &graph.macro_wildcards,
+        // Appended by #724 (CPG v162): after the pre-index fields, before the skipped ones.
+        &graph.misplaced_mount_files,
+        &graph.self_import_aliases,
     ))
     .unwrap();
     let cold_json = serde_json::to_string(&graph).unwrap();
