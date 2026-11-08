@@ -3,7 +3,7 @@
 //! target (sloppy mapped `arguments`, direct `eval`, `with`, a hoisted function declaration that replaces
 //! a formal at entry, Annex B block functions); a wrong `exact` is worse than an honest `NameOnly`.
 //! Label-only: no edge moves. FIX rows are `exact` on base 8197b4f1 and move to the expected label;
-//! controls hold on both. The one-node rows (`S1d (guard deleted)`) are S1d-2's.
+//! controls hold on both. The one-node rows (`S1d (guard deleted)`) are S1d-2's (`reaching/guard_deleted_tests.rs`).
 use super::census_label_tests::labels_of;
 use crate::js_write_census::matrix_tests::lang_of;
 use crate::languages::Language;
@@ -367,6 +367,14 @@ pub(super) fn refuse_moved(id: &str, rows: Vec<serde_json::Value>) -> Vec<serde_
         .map(|row| {
             let mut row = row.as_array().unwrap().clone();
             let (from, exact) = (row[0].as_u64().unwrap(), row[6] == "exact");
+            // #660 S1d-2: `R5b-body-3` is a one-node owner (the declaration line is no statement), so the
+            // guard that refused it is gone; the dead-formal class kills the formal's edge into the use.
+            if id == "R5b-body-3" && from == 1 && row[3] == 3 {
+                row[6] = "nameonly".into();
+                row[7] = "killed".into();
+                row[8] = 2.into();
+                return row.into();
+            }
             let moved = exact
                 && match id {
                     "C1-catchvar" => from == 6,

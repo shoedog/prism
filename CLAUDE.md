@@ -481,7 +481,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v160) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v161) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -494,7 +494,7 @@ solver runs it (one walk per owner; the cap preflight is main's, on recorded def
 def cap or any counter: a completed list that would trip the one-node distinct-bases belt or the 2,048 cap runs RD on the
 recorded defs and labels the owner `NameOnly(CfgIncomplete)` (`owner-refuse:one-node|def-cap`). Refused the same way: an owner with an escaped identifier spelling, a parse error
 or a refused target kind (no kill-only defs added); a base whose
-eager site maps to no statement node (class or enum declaration lines, or a statement lost behind another on its line under a compound statement) is refused for its own edges. Writes in the owner's own parameter list, declarations and `first_hazard` stay with S1d.
+eager site maps to no statement node (class or enum declaration lines, or a statement lost behind another on its line under a compound statement) is refused for its own edges. The one-node `first_hazard` guard is deleted (#660 S1d-2): `single_node_cfg_is_complete` is JS family, one statement line and distinct recorded bases, and its six hazards (update, pattern default, hoisted declaration, `arguments`, eval, nested-callable default) are labelled by the census, D3, the S1d-1 refusal classes and the S1a/D2-c capture rules, so an owner the guard over-refused is now `Exact` when the hazard is harmless (strict or non-simple `arguments`, an update or pattern default of another name). Availability counters move (`dfg_rd_functions_without_cfg` falls by the flipped owners); edge sets are unchanged. The trace names those owners (`guard-deleted:<a-f>`, from the old predicate kept as the trace's control in `reaching/guard_control.rs`).
 `PRISM_RD_CENSUS_TRACE=1` names each moved edge (`kill:<form>`, `owner-refuse:..`, `site-unmapped`, `d3-use|def|loop|unknown`, `d2c`) from a census-free control pass.
 Recorded defs kill by `affects` too in JS/TS/TSX owners (#674 G1/G2, `def_buckets.rs`, flags in `affects_writers.rs`): a recorded
 write kills every recorded def of its base at or below its own path, `[]` matching any component either way (`o = {}` kills `o.x`;

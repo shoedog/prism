@@ -49,11 +49,11 @@ c12_var_noinit_over_record	a@3->a@4	exact	exact	exact	#668	var a; is recorded as
 s01_update	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node a++: refused by census+distinct bases	function f(a) {\n  return (a++, sink(a));\n}
 s02_arr_default	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node [a = 1] =	function f(a) {\n  return ([a = 1] = src(), sink(a));\n}
 s03_obj_default	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node ({a = 1} =)	function f(a) {\n  return ({ a = 1 } = src(), sink(a));\n}
-s04_hoisted	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node hoisted (dead formal; killed acceptable)	function f(a) {\n  return sink(a); function a() {}\n}
+s04_hoisted	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/killed	S1d (guard deleted)	one-node hoisted (killed: dead formal)	function f(a) {\n  return sink(a); function a() {}\n}
 s05_arguments_sloppy	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node mapped arguments	function f(a) {\n  return (arguments[0] = src(), sink(a));\n}
 s06_arguments_strict	a@2->a@3	nameonly/cfg_incomplete	nameonly/cfg_incomplete	exact	S1d (guard deleted)	GAIN: strict arguments no longer refused	'use strict';\nfunction f(a) {\n  return (arguments[0] = src(), sink(a));\n}
 s07_eval_paren	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node (eval)(..)	function f(a) {\n  return ((eval)("a = 1"), sink(a));\n}
-s09_own_default_update	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node b = a++ (killed acceptable)	function f(a, b = a++) {\n  return sink(a);\n}
+s09_own_default_update	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/killed	S1d (guard deleted)	one-node b = a++ (killed: dead formal)	function f(a, b = a++) {\n  return sink(a);\n}
 s10_own_default_eval	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	one-node eval in own default	function f(a, b = eval("a = 1")) {\n  return sink(a);\n}
 s11_nested_default_read	y@1->y@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1a + S1d	one-node nested default read	function h(y) {\n  return g(function (z = y) { return z; });\n}
 s12_arrow_expr_update	a@1->a@2	nameonly/cfg_incomplete	nameonly/cfg_incomplete	nameonly/cfg_incomplete	S1d (guard deleted)	expression arrow a++	const f = (a) =>\n  (a++, sink(a));
