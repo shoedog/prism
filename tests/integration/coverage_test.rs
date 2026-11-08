@@ -217,13 +217,13 @@ fn test_algorithm_language_matrix() {
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
     for tf in all_test_files {
-        if let Ok(src) = std::fs::read_to_string(tf) {
-            for line in src.lines() {
-                let t = line.trim();
-                if t.starts_with("fn test_") {
-                    if let Some(n) = t.trim_start_matches("fn ").split('(').next() {
-                        test_names_buf.push(n.to_string());
-                    }
+        let src = std::fs::read_to_string(tf)
+            .unwrap_or_else(|e| panic!("listed test file {} cannot be read: {}", tf, e));
+        for line in src.lines() {
+            let t = line.trim();
+            if t.starts_with("fn test_") {
+                if let Some(n) = t.trim_start_matches("fn ").split('(').next() {
+                    test_names_buf.push(n.to_string());
                 }
             }
         }
@@ -454,13 +454,13 @@ fn test_language_coverage_minimum() {
     ];
     let mut test_names_buf: Vec<String> = Vec::new();
     for tf in all_test_files {
-        if let Ok(src) = std::fs::read_to_string(tf) {
-            for line in src.lines() {
-                let t = line.trim();
-                if t.starts_with("fn test_") {
-                    if let Some(n) = t.trim_start_matches("fn ").split('(').next() {
-                        test_names_buf.push(n.to_string());
-                    }
+        let src = std::fs::read_to_string(tf)
+            .unwrap_or_else(|e| panic!("listed test file {} cannot be read: {}", tf, e));
+        for line in src.lines() {
+            let t = line.trim();
+            if t.starts_with("fn test_") {
+                if let Some(n) = t.trim_start_matches("fn ").split('(').next() {
+                    test_names_buf.push(n.to_string());
                 }
             }
         }
@@ -626,14 +626,14 @@ fn test_coverage_matrix_validation() {
     ];
     let mut test_names: Vec<String> = Vec::new();
     for path in test_files {
-        if let Ok(source) = fs::read_to_string(path) {
-            for line in source.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with("fn test_") {
-                    if let Some(name) = trimmed.trim_start_matches("fn ").split('(').next() {
-                        if !name.is_empty() {
-                            test_names.push(name.to_string());
-                        }
+        let source = fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("listed test file {} cannot be read: {}", path, e));
+        for line in source.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("fn test_") {
+                if let Some(name) = trimmed.trim_start_matches("fn ").split('(').next() {
+                    if !name.is_empty() {
+                        test_names.push(name.to_string());
                     }
                 }
             }
