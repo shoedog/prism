@@ -480,3 +480,54 @@ fn n8_restrict_through_a_reexport_is_refused() {
     refused(&cg, "src/a/b.rs", "inside", "f");
     refused(&cg, "src/a/x.rs", "sibling", "crate::a::b::f");
 }
+
+/// N10 (review fold): the populator resolves a non-inline `#[path]` relative to
+/// `<declaring file stem>/`, rustc relative to the declaring file's directory. Here
+/// rustc loads `src/b.rs`; the populator picks the retained decoy `src/a/b.rs`, whose
+/// synthetic chain is still `crate -> a -> b`. The restrict must not be placed across
+/// a mount the populator put at the wrong file.
+fn n10_files() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("src/lib.rs", "mod a;\n"),
+        (
+            "src/a.rs",
+            "#[path = \"b.rs\"]\npub mod b;\npub fn caller() -> u8 {\n    b::f()\n}\n",
+        ),
+        ("src/b.rs", "pub(in crate::a) fn f() -> u8 {\n    1\n}\n"),
+        ("src/a/b.rs", "pub(in crate::a) fn f() -> u8 {\n    2\n}\n"),
+    ]
+}
+
+#[test]
+fn n10_decoy_mount_is_not_an_exact_edge() {
+    let cg = build(&n10_files());
+    let o = cg.resolve_call_site_full(site(&cg, "src/a.rs", "caller", "b::f"));
+    assert_eq!(
+        o.resolved
+            .iter()
+            .map(|r| (&r.target.file, r.confidence))
+            .collect::<Vec<_>>(),
+        vec![],
+        "{o:?}"
+    );
+}
+
+#[test]
+fn p12_inline_module_relative_path_mount_binds() {
+    // rustc: `src/a.rs` is non-mod-rs, so a mount inside inline `inl` is
+    // `src/a/inl/m.rs`; the populator computes the same file.
+    let cg = build(&[
+        ("src/lib.rs", "mod a;\n"),
+        (
+            "src/a.rs",
+            "pub mod inl {\n    #[path = \"m.rs\"]\n    pub mod m;\n}\npub fn caller() -> u8 {\n    inl::m::f()\n}\n",
+        ),
+        ("src/a/inl/m.rs", "pub(in crate::a) fn f() -> u8 {\n    1\n}\n"),
+    ]);
+    let o = cg.resolve_call_site_full(site(&cg, "src/a.rs", "caller", "inl::m::f"));
+    assert_eq!(o.resolved.len(), 1, "{o:?}");
+    assert_eq!(
+        (o.resolved[0].target.file.as_str(), o.resolved[0].confidence),
+        ("src/a/inl/m.rs", ResolutionConfidence::Exact)
+    );
+}

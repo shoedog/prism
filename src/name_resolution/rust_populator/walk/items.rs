@@ -10,6 +10,7 @@ use crate::name_resolution::rust_policy::{NS_TYPE, NS_VALUE, VIS_PRIV, VIS_PUB};
 use crate::name_resolution::types::{BindTarget, ExternRef, FileId, ScopeId, ScopeKind, Target};
 
 use super::super::builder::{join, parent_dir, scope_target, Builder};
+use super::super::restrict::expected_mount_file;
 use super::super::scopes::{
     child_of_kind, name_text, parse_cfg_for_item, parse_use, parse_vis, pattern_idents, vis,
     UseItem,
@@ -71,6 +72,10 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_mod_item(
             vec![vis_extent_from(b, scope, ctx.file, lo)],
         );
         b.note_restrict(vis_kind, &vin);
+        if path_attr.is_some() {
+            // An inline `#[path]` module redirects its children's directory; not modeled.
+            b.note_misplaced_mount(inline);
+        }
         let child_dir = match &path_attr {
             Some(rel) => parent_dir(&join(&ctx.dir, rel)),
             None => join(&ctx.dir, &format!("{name}/")),
@@ -97,7 +102,12 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_mod_item(
             v.clone(),
             cond.clone(),
         );
-        for (mod_scope, _src) in pairs {
+        for (mod_scope, src) in pairs {
+            if let (Some(rel), Some(src)) = (path_attr.as_deref(), src.as_deref()) {
+                if src != expected_mount_file(path, &ctx.dir, rel) {
+                    b.note_misplaced_mount(mod_scope);
+                }
+            }
             b.add_binding(
                 scope,
                 name.clone(),

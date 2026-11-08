@@ -437,3 +437,31 @@ fn n9_super_above_the_crate_root_is_none() {
     let g = populate(&fs);
     assert_eq!(restricts(&g, "f"), vec![None]);
 }
+
+#[test]
+fn n10_misplaced_path_mount_leaves_the_restrict_none() {
+    // rustc loads `src/b.rs` for `#[path = "b.rs"]` in `src/a.rs`; the populator binds the
+    // decoy `src/a/b.rs` (it resolves relative to `src/a/`), so the chain cannot be trusted.
+    let fs = files(&[
+        ("src/lib.rs", "mod a;\n"),
+        ("src/a.rs", "#[path = \"b.rs\"]\npub mod b;\n"),
+        ("src/b.rs", "pub(in crate::a) fn f() {}\n"),
+        ("src/a/b.rs", "pub(in crate::a) fn f() {}\n"),
+    ]);
+    let g = populate(&fs);
+    assert_eq!(restricts(&g, "f"), vec![None]);
+}
+
+#[test]
+fn p12_inline_relative_path_mount_keeps_its_restrict() {
+    let fs = files(&[
+        ("src/lib.rs", "mod a;\n"),
+        (
+            "src/a.rs",
+            "pub mod inl {\n    #[path = \"m.rs\"]\n    pub mod m;\n}\n",
+        ),
+        ("src/a/inl/m.rs", "pub(in crate::a) fn f() {}\n"),
+    ]);
+    let g = populate(&fs);
+    assert_eq!(restricts(&g, "f"), vec![Some(module(&g, &fs, &["a"]))]);
+}
