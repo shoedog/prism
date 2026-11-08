@@ -76,7 +76,8 @@ fn site<'a>(cg: &'a CallGraph, file: &str, caller: &str, callee: &str) -> &'a Ca
     sites[0]
 }
 
-type Targets = Vec<(String, ResolutionConfidence, ResolutionKind)>;
+/// Target file, function name, start line, confidence and kind of every resolved target.
+type Targets = Vec<(String, String, usize, ResolutionConfidence, ResolutionKind)>;
 
 fn outcome(
     cg: &CallGraph,
@@ -88,14 +89,31 @@ fn outcome(
     let targets = o
         .resolved
         .iter()
-        .map(|r| (r.target.file.clone(), r.confidence, r.kind))
+        .map(|r| {
+            (
+                r.target.file.clone(),
+                r.target.name.clone(),
+                r.target.start_line,
+                r.confidence,
+                r.kind,
+            )
+        })
         .collect();
     (targets, o.drop)
 }
 
-fn exact_t(file: &str, kind: ResolutionKind) -> (Targets, Option<DropReason>) {
+/// The complete outcome of an Exact bind: `target` is `file::function@start_line`.
+fn exact_t(target: &str, kind: ResolutionKind) -> (Targets, Option<DropReason>) {
+    let (file, rest) = target.split_once("::").expect("file::name@line");
+    let (name, line) = rest.split_once('@').expect("file::name@line");
     (
-        vec![(file.to_string(), ResolutionConfidence::Exact, kind)],
+        vec![(
+            file.to_string(),
+            name.to_string(),
+            line.parse().unwrap(),
+            ResolutionConfidence::Exact,
+            kind,
+        )],
         None,
     )
 }
@@ -104,7 +122,7 @@ fn dropped() -> (Targets, Option<DropReason>) {
     (Vec::new(), Some(DropReason::UnknownName))
 }
 
-/// The call is bound: exactly one Exact target in `target_file` with `kind`.
+/// The call is bound: exactly one Exact target, `file::function@line`, with `kind`.
 fn exact(
     cg: &CallGraph,
     file: &str,
@@ -130,6 +148,7 @@ fn refused(cg: &CallGraph, file: &str, caller: &str, callee: &str) {
 }
 
 const QO: ResolutionKind = ResolutionKind::QualifiedOwner;
+const FS: ResolutionKind = ResolutionKind::FreeSingle;
 
 // ── RED: bin roots get the package's dependencies ───────────────────────────
 
@@ -148,14 +167,8 @@ fn c1_every_bin_shape_resolves_dependency_paths() {
         "b/src/bin/tool.rs",
         "b/src/bin/multi/main.rs",
     ] {
-        exact(&cg, bin, "main", "a::m::f", "a/src/m.rs", QO);
-        let via_use = outcome(&cg, bin, "via_use", "f");
-        assert_eq!(via_use.0.len(), 1, "{bin}: {via_use:?}");
-        assert_eq!(
-            (via_use.0[0].0.as_str(), via_use.0[0].1, via_use.1),
-            ("a/src/m.rs", ResolutionConfidence::Exact, None),
-            "{bin}"
-        );
+        exact(&cg, bin, "main", "a::m::f", "a/src/m.rs::f@1", QO);
+        exact(&cg, bin, "via_use", "f", "a/src/m.rs::f@1", FS);
     }
 }
 
@@ -174,10 +187,17 @@ fn c1b_the_bins_own_library_still_resolves_beside_the_dependency() {
         "b/src/main.rs",
         "main",
         "b::lib_fn",
-        "b/src/lib.rs",
+        "b/src/lib.rs::lib_fn@1",
         QO,
     );
-    exact(&cg, "b/src/main.rs", "main", "a::m::f", "a/src/m.rs", QO);
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "a::m::f",
+        "a/src/m.rs::f@1",
+        QO,
+    );
 }
 
 #[test]
@@ -197,7 +217,7 @@ fn c5_renamed_dependency_resolves_under_its_in_source_name() {
         "b/src/main.rs",
         "main",
         "alpha::m::f",
-        "a/src/m.rs",
+        "a/src/m.rs::f@1",
         QO,
     );
     refused(&cg, "b/src/bin/old.rs", "main", "a::m::f");
@@ -211,7 +231,14 @@ fn c6_bin_only_package_resolves_dependency_paths() {
         &[("b/src/main.rs", "fn main() {\n    a::m::f();\n}\n")],
         &["b/src/lib.rs"],
     );
-    exact(&cg, "b/src/main.rs", "main", "a::m::f", "a/src/m.rs", QO);
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "a::m::f",
+        "a/src/m.rs::f@1",
+        QO,
+    );
 }
 
 #[test]
@@ -227,7 +254,14 @@ fn c9_explicit_bin_path_resolves_and_replaces_auto_discovery() {
             ("b/src/main.rs", "fn main() {\n    a::m::f();\n}\n"),
         ],
     );
-    exact(&cg, "b/tools/x.rs", "main", "a::m::f", "a/src/m.rs", QO);
+    exact(
+        &cg,
+        "b/tools/x.rs",
+        "main",
+        "a::m::f",
+        "a/src/m.rs::f@1",
+        QO,
+    );
     refused(&cg, "b/src/main.rs", "main", "a::m::f");
 }
 
@@ -276,7 +310,7 @@ fn c4_build_script_and_other_target_roots_get_no_dependency_entry() {
         "b/build.rs",
         "main",
         "a::m::f",
-        "a/src/m.rs",
+        "a/src/m.rs::f@1",
         ResolutionKind::StemSingle,
     );
     for file in ["b/tests/it.rs", "b/examples/ex.rs", "b/benches/bn.rs"] {
@@ -350,7 +384,7 @@ fn c12_bin_with_its_own_edition_is_not_keyed() {
         "b/src/bin/plain.rs",
         "main",
         "a::m::f",
-        "a/src/m.rs",
+        "a/src/m.rs::f@1",
         QO,
     );
 }
@@ -366,7 +400,14 @@ fn c13_bin_local_module_shadows_the_dependency() {
             "mod a {\n    pub mod m {\n        pub fn f() {}\n    }\n}\nfn main() {\n    a::m::f();\n}\n",
         )],
     );
-    exact(&cg, "b/src/main.rs", "main", "a::m::f", "b/src/main.rs", QO);
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "a::m::f",
+        "b/src/main.rs::f@3",
+        QO,
+    );
 }
 
 #[test]
@@ -400,7 +441,14 @@ fn c16_block_local_type_shadow_binds_the_local_associated_fn() {
     );
     // Same on base (where `a` has no entry) and head: the `NS_TYPE` guard declines the
     // dependency and the local associated `a::m` binds.
-    exact(&cg, "b/src/main.rs", "main", "a::m", "b/src/main.rs", QO);
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "a::m",
+        "b/src/main.rs::m@4",
+        QO,
+    );
 }
 
 // ── conflict rule and owner-pool fallback ───────────────────────────────────
@@ -428,7 +476,7 @@ fn c7_dependency_named_like_the_own_library_is_not_keyed() {
         "b/src/main.rs",
         "main",
         "x::T::run",
-        "a/src/lib.rs",
+        "a/src/lib.rs::run@5",
         QO,
     );
 }
@@ -445,7 +493,14 @@ fn c7b_only_the_conflicting_dependency_is_dropped() {
             "fn main() {\n    a::m::f();\n    x::m::f();\n}\n",
         )],
     );
-    exact(&cg, "b/src/main.rs", "main", "a::m::f", "a/src/m.rs", QO);
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "a::m::f",
+        "a/src/m.rs::f@1",
+        QO,
+    );
     refused(&cg, "b/src/main.rs", "main", "x::m::f");
 }
 
@@ -462,7 +517,14 @@ fn c15_bin_local_owner_with_the_dependencys_owner_name() {
         ],
     );
     // The bare name `T::run` is a two-owner pool here; the local type binds the local fn.
-    exact(&cg, "b/src/main.rs", "main", "T::run", "b/src/main.rs", QO);
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "T::run",
+        "b/src/main.rs::run@3",
+        QO,
+    );
     // Pinned as inherited (identical on base and head): the dependency's `T::run` through the
     // owner pool, not the local type's.
     exact(
@@ -470,7 +532,7 @@ fn c15_bin_local_owner_with_the_dependencys_owner_name() {
         "b/src/main.rs",
         "main",
         "a::T::run",
-        "a/src/lib.rs",
+        "a/src/lib.rs::run@4",
         QO,
     );
 }
@@ -524,7 +586,7 @@ fn c17c_bin_dependency_path_binds_a_correctly_placed_mount() {
         "b/src/main.rs",
         "main",
         "a::p::q::f",
-        "a/src/p/q.rs",
+        "a/src/p/q.rs::f@1",
         QO,
     );
 }
@@ -537,5 +599,188 @@ fn c17d_library_root_consumer_keeps_its_inherited_outcome() {
     files.push(("b/src/lib.rs", "pub fn lib_fn() {\n    a::p::q::f();\n}\n"));
     let cg = fixture(B_DEP, &files);
     let got = outcome(&cg, "b/src/lib.rs", "lib_fn", "a::p::q::f");
-    assert_eq!(got, exact_t("a/src/p/q.rs", QO), "{got:?}");
+    assert_eq!(got, exact_t("a/src/p/q.rs::f@1", QO), "{got:?}");
+}
+
+// ── block-scope shadows through a module-level import (review fold, #768) ────
+//
+// A qualified path starts its lookup at the enclosing MODULE, chases a module-level
+// import and hands the import's own scope to the extern fallback, so a block-scope
+// binding of the first segment is never seen. rustc binds the block's.
+
+const MODULE_IMPORT: &str = "use a::m as alias;\nmod local {\n    pub fn f() {}\n}\n";
+
+#[test]
+fn c18_block_import_shadows_a_module_level_import_of_the_dependency() {
+    // rustc binds `local::f`; head must not bind the dependency's `a::m::f`.
+    let main = format!(
+        "{MODULE_IMPORT}fn main() {{\n    use crate::local as alias;\n    alias::f();\n}}\n"
+    );
+    let cg = fixture(B_DEP, &[("b/src/main.rs", main.as_str())]);
+    refused(&cg, "b/src/main.rs", "main", "alias::f");
+}
+
+#[test]
+fn c18b_block_module_shadows_a_module_level_import_of_the_dependency() {
+    let main = format!(
+        "{MODULE_IMPORT}fn main() {{\n    mod alias {{\n        pub fn f() {{}}\n    }}\n    alias::f();\n}}\n"
+    );
+    let cg = fixture(B_DEP, &[("b/src/main.rs", main.as_str())]);
+    refused(&cg, "b/src/main.rs", "main", "alias::f");
+}
+
+#[test]
+fn c18c_unshadowed_module_level_import_of_the_dependency_binds() {
+    // Control: no block binding, the import chases to the dependency.
+    let main = format!("{MODULE_IMPORT}fn main() {{\n    alias::f();\n}}\n");
+    let cg = fixture(B_DEP, &[("b/src/main.rs", main.as_str())]);
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "alias::f",
+        "a/src/m.rs::f@1",
+        QO,
+    );
+}
+
+#[test]
+fn c18d_block_binding_of_another_name_does_not_refuse() {
+    // Control: a block binding of a different name is not a shadow of `alias`.
+    let main = format!(
+        "{MODULE_IMPORT}fn main() {{\n    use crate::local as other;\n    other::f();\n    alias::f();\n}}\n"
+    );
+    let cg = fixture(B_DEP, &[("b/src/main.rs", main.as_str())]);
+    exact(
+        &cg,
+        "b/src/main.rs",
+        "main",
+        "alias::f",
+        "a/src/m.rs::f@1",
+        QO,
+    );
+}
+
+// ── routes past the placement guard until #765 lands (PR D) ─────────────────
+//
+// `bin_dep_guard` checks only the terminal function's file of a direct dependency on the
+// authoritative call route. Each row below binds the decoy `.../p/q.rs` today and asserts
+// the file rustc loads; #765's fix (correct `#[path]` placement) makes them green and
+// removes the guard.
+
+/// Resolved targets as `file::function@line`, all Exact.
+fn exact_targets(cg: &CallGraph, file: &str, caller: &str, callee: &str) -> Vec<String> {
+    let (targets, drop) = outcome(cg, file, caller, callee);
+    assert!(
+        targets.iter().all(|t| t.3 == ResolutionConfidence::Exact),
+        "{targets:?} {drop:?}"
+    );
+    targets
+        .iter()
+        .map(|t| format!("{}::{}@{}", t.0, t.1, t.2))
+        .collect()
+}
+
+const WS3: &str = "[workspace]\nmembers = [\"a\", \"b\", \"c\"]\n";
+const C_TOML: &str = "[package]\nname = \"c\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
+const A_WITH_C: &str = "[package]\nname = \"a\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\
+                        [dependencies]\nc = { path = \"../c\" }\n";
+const OWNER_Q: &str =
+    "pub struct S;\nimpl S {\n    pub fn run(&self) {}\n}\npub fn make() -> S {\n    S\n}\n";
+
+/// Dependency `a` whose `p.rs` mounts `q.rs` by `#[path]` (rustc loads `a/src/q.rs`;
+/// the populator binds the decoy `a/src/p/q.rs`), with `q`, `decoy` as file bodies.
+fn a_mount<'a>(q: &'a str, decoy: &'a str, lib: &'a str) -> Vec<(&'a str, &'a str)> {
+    vec![
+        ("a/src/lib.rs", lib),
+        ("a/src/p.rs", "#[path = \"q.rs\"]\npub mod q;\n"),
+        ("a/src/q.rs", q),
+        ("a/src/p/q.rs", decoy),
+    ]
+}
+
+#[test]
+#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
+fn w2a_reexport_in_a_misplaced_mount_binds_rustcs_target() {
+    let mut files = a_mount(
+        "pub use crate::right as f;\n",
+        "pub use crate::wrong as f;\n",
+        "pub mod p;\npub fn right() {}\npub fn wrong() {}\n",
+    );
+    files.push(("b/src/main.rs", "fn main() {\n    a::p::q::f();\n}\n"));
+    let cg = fixture(B_DEP, &files);
+    assert_eq!(
+        exact_targets(&cg, "b/src/main.rs", "main", "a::p::q::f"),
+        ["a/src/lib.rs::right@2"]
+    );
+}
+
+/// Crate `c` holds the misplaced mount (`c/src/q.rs` is rustc's file, `c/src/p/q.rs` the decoy);
+/// `a` depends on `c` and re-exports it; `b` depends on `a` only.
+fn c_mount(a_lib: &'static str, call: &'static str) -> CallGraph {
+    build(
+        B_DEP,
+        &[
+            ("Cargo.toml", WS3),
+            ("a/Cargo.toml", A_WITH_C),
+            ("a/src/lib.rs", a_lib),
+            ("c/Cargo.toml", C_TOML),
+            ("c/src/lib.rs", "pub mod p;\n"),
+            ("c/src/p.rs", "#[path = \"q.rs\"]\npub mod q;\n"),
+            ("c/src/q.rs", "pub fn f() -> bool {\n    true\n}\n"),
+            ("c/src/p/q.rs", "pub fn f() -> bool {\n    false\n}\n"),
+            ("b/src/main.rs", call),
+        ],
+        &["a/src/m.rs"],
+    )
+}
+
+#[test]
+#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
+fn w2b_item_reexport_of_a_third_crates_misplaced_module_binds_rustcs_target() {
+    let cg = c_mount("pub use c::p::q::f;\n", "fn main() {\n    a::f();\n}\n");
+    assert_eq!(
+        exact_targets(&cg, "b/src/main.rs", "main", "a::f"),
+        ["c/src/q.rs::f@1"]
+    );
+}
+
+#[test]
+#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
+fn r3_transitive_module_reexport_binds_rustcs_target() {
+    let cg = c_mount("pub use c::p;\n", "fn main() {\n    a::p::q::f();\n}\n");
+    assert_eq!(
+        exact_targets(&cg, "b/src/main.rs", "main", "a::p::q::f"),
+        ["c/src/q.rs::f@1"]
+    );
+}
+
+#[test]
+#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
+fn r1_typed_parameter_receiver_binds_rustcs_target() {
+    let mut files = a_mount(OWNER_Q, OWNER_Q, "pub mod p;\n");
+    files.push((
+        "b/src/main.rs",
+        "fn go(s: a::p::q::S) {\n    s.run();\n}\nfn main() {}\n",
+    ));
+    let cg = fixture(B_DEP, &files);
+    assert_eq!(
+        exact_targets(&cg, "b/src/main.rs", "go", "run"),
+        ["a/src/q.rs::run@3"]
+    );
+}
+
+#[test]
+#[ignore = "binds the decoy until #765 lands (PR D); un-ignore in the rebase"]
+fn r2_return_typed_receiver_binds_rustcs_target() {
+    let mut files = a_mount(OWNER_Q, OWNER_Q, "pub mod p;\n");
+    files.push((
+        "b/src/main.rs",
+        "fn go() {\n    let s = a::p::q::make();\n    s.run();\n}\nfn main() {}\n",
+    ));
+    let cg = fixture(B_DEP, &files);
+    assert_eq!(
+        exact_targets(&cg, "b/src/main.rs", "go", "run"),
+        ["a/src/q.rs::run@3"]
+    );
 }

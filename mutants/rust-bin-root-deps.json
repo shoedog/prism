@@ -99,8 +99,8 @@
     ],
     "BRD-10-placement-guard-removed-c17": [
       "src/resolution/rust/bin_dep_guard.rs",
-      "    if refused {\n        ResolutionOutcome::dropped(DropReason::UnknownName)",
-      "    if refused && false {\n        ResolutionOutcome::dropped(DropReason::UnknownName)",
+      "        (shadowed || misplaced) && in_dep(&r.target.file)",
+      "        (shadowed || misplaced && false) && in_dep(&r.target.file)",
       [
         "rust_cross_crate_bin_test::c17_bin_dependency_path_refuses_a_misplaced_mount",
         "rust_cross_crate_bin_test::c17b_bin_dependency_path_via_use_refuses_a_misplaced_mount"
@@ -108,10 +108,35 @@
     ],
     "BRD-11-guard-covers-library-root-consumers-c17d": [
       "src/resolution/rust/bin_dep_guard.rs",
-      "    let Some(root) = crate_root_of(graph, from) else {\n        return out;\n    };\n    let deps: Vec<ScopeId> = graph\n        .bin_dep_entries\n        .range((root, ScopeId(0))..=(root, ScopeId(u32::MAX)))\n        .map(|&(_, target)| target)\n        .collect();",
-      "    let Some(root) = crate_root_of(graph, from) else {\n        return out;\n    };\n    let deps: Vec<ScopeId> = graph\n        .crate_deps_by_root\n        .get(&root)\n        .map(|m| m.values().copied().collect())\n        .unwrap_or_default();",
+      "    let deps: Vec<ScopeId> = graph\n        .bin_dep_entries\n        .range((root, ScopeId(0))..=(root, ScopeId(u32::MAX)))\n        .map(|&(_, target)| target)\n        .collect();",
+      "    let deps: Vec<ScopeId> = graph\n        .crate_deps_by_root\n        .get(&root)\n        .map(|m| m.values().copied().collect())\n        .unwrap_or_default();",
       [
         "rust_cross_crate_bin_test::c17d_library_root_consumer_keeps_its_inherited_outcome"
+      ]
+    ],
+    "BRD-12-block-shadow-check-dropped-c18": [
+      "src/resolution/rust/bin_dep_guard.rs",
+      "        (shadowed || misplaced) && in_dep(&r.target.file)",
+      "        (shadowed && false || misplaced) && in_dep(&r.target.file)",
+      [
+        "rust_cross_crate_bin_test::c18_block_import_shadows_a_module_level_import_of_the_dependency",
+        "rust_cross_crate_bin_test::c18b_block_module_shadows_a_module_level_import_of_the_dependency"
+      ]
+    ],
+    "BRD-13-block-shadow-refuses-local-targets-c16": [
+      "src/resolution/rust/bin_dep_guard.rs",
+      "        (shadowed || misplaced) && in_dep(&r.target.file)",
+      "        shadowed || misplaced && in_dep(&r.target.file)",
+      [
+        "rust_cross_crate_bin_test::c16_block_local_type_shadow_binds_the_local_associated_fn"
+      ]
+    ],
+    "BRD-14-shadow-judged-by-any-binding-name-c18d": [
+      "src/resolution/rust/bin_dep_guard.rs",
+      "        .any(|&s| graph.binding_indices(s, name, NS_TYPE).next().is_some())",
+      "        .any(|&s| graph.binding_indices(s, name, NS_TYPE).next().is_some() || !local.is_empty())",
+      [
+        "rust_cross_crate_bin_test::c18d_block_binding_of_another_name_does_not_refuse"
       ]
     ]
   }
