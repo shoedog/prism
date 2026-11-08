@@ -4,8 +4,14 @@
  "lib_test_prefixes": [
   "data_flow::tests::",
   "cpg_cache::dfg_codec_tests::",
-  "cpg::dfg_missing_label_tests::",
-  "algorithms::delta_slice_output_tests::"
+  "cpg::dfg_missing_label_tests::"
+ ],
+ "test_targets": [
+  {
+   "prefix": "algorithms::delta_slice_output_tests::",
+   "package": "prism-review",
+   "target": "lib"
+  }
  ],
  "mutations": {
   "DFG-A-delta-candidate-edges-removed": [

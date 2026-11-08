@@ -2,9 +2,19 @@
  "lane": "js LeftFlow condition walk bounded at projection-only Defs (PR #404, r2 fold 2026-10-14)",
  "source": "PR #404 report + round-1/round-2 review folds (controller-saved)",
  "lib_test_prefixes": [
-  "cpg::",
-  "algorithms::member_only_param_leftflow_slice_tests::",
-  "algorithms::member_only_param_r1_slice_tests::"
+  "cpg::"
+ ],
+ "test_targets": [
+  {
+   "prefix": "algorithms::member_only_param_leftflow_slice_tests::",
+   "package": "prism-review",
+   "target": "lib"
+  },
+  {
+   "prefix": "algorithms::member_only_param_r1_slice_tests::",
+   "package": "prism-review",
+   "target": "lib"
+  }
  ],
  "mutations": {
   "LF-01-forward-from-all-defs": [

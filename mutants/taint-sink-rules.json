@@ -1,8 +1,13 @@
 {
  "lane": "Review taint sink rules: call position first, hybrid receivers (#622 S1)",
  "source": "src/algorithms/taint_sinks/mod.rs",
- "lib_test_prefixes": [
-  "algorithms::taint_sinks::"
+ "lib_test_prefixes": [],
+ "test_targets": [
+  {
+   "prefix": "algorithms::taint_sinks::",
+   "package": "prism-review",
+   "target": "lib"
+  }
  ],
  "mutations": {
   "SR01-js-eval-logger-receiver-fires": [

@@ -268,17 +268,17 @@
  "test_targets": [
   {
    "prefix": "build_profile_test::",
-   "package": "prism",
+   "package": "prism-review",
    "target": "cli"
   },
   {
    "prefix": "build_profile_fold_test::",
-   "package": "prism",
+   "package": "prism-review",
    "target": "cli"
   },
   {
    "prefix": "build_profile_round2_test::",
-   "package": "prism",
+   "package": "prism-review",
    "target": "cli"
   }
  ],
