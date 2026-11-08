@@ -617,10 +617,9 @@ mod tests {
         };
         assert!(nav.owner.options().unwrap().is_some());
         assert!(OwnerArgs::default().options().unwrap().is_none());
-        let incomplete = OwnerArgs {
-            owner_config: Some("tsconfig.json".into()),
-            ..Default::default()
-        };
+        // `OwnerArgs` is `#[non_exhaustive]` across the crate boundary: no struct-update syntax.
+        let mut incomplete = OwnerArgs::default();
+        incomplete.owner_config = Some("tsconfig.json".into());
         assert!(incomplete.options().is_err());
     }
 }
