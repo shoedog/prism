@@ -441,6 +441,11 @@ impl BindingFacts {
             if self.declarations[*d].binding.scope.contains(byte))
     }
 
+    /// The scope of explicit declaration `declaration` contains `byte`.
+    pub(crate) fn declaration_scope_contains(&self, declaration: usize, byte: usize) -> bool {
+        self.declarations[declaration].binding.scope.contains(byte)
+    }
+
     pub(crate) fn binding_of_def(&self, index: usize) -> &BindingId {
         &self.def_bindings[index].id
     }

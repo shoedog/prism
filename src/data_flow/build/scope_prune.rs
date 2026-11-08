@@ -466,8 +466,10 @@ impl<'a> ScopeFacts<'a> {
                             )
                             && !(!declare_only
                                 && self.slice_b.names().contains(path.base.as_str())
-                                && built.params.nested_in_use_callable(
+                                && built.params.parity_keep(
                                     self.parsed,
+                                    &built.facts,
+                                    path.base.as_str(),
                                     def_start,
                                     o.start,
                                 )))

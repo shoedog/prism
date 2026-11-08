@@ -21,11 +21,12 @@
 //! * a named result read inside a callable nested in the one that declares it: `return e` assigns
 //!   the result, and a deferred literal reads it afterwards, so the def of `e` reaches the read by
 //!   name only. A read in the declaring callable's own body is reached by the writes S sees.
-//! * a def in a callable nested strictly inside the callable of the read, for a name that a
-//!   formal or named result of the owner declares (`nested_in_use_callable`): main kept every such
-//!   pair, so this adds no edge main lacks. It covers a value that leaves a literal by its call
-//!   result, a deferred literal that sets the carrier's result and a literal bound inside another
-//!   literal. Ordinary-name return flow out of a literal is not modelled (as on main).
+//! * a def in another callable than the read's, for a name that a formal or named result of the
+//!   owner declares (`parity_keep`), when the read's callable encloses the def's or the read's
+//!   variable is captured from outside the read's own callable: main kept every such pair, so this
+//!   adds no edge main lacks. It covers a value that leaves a literal by its call result, a
+//!   deferred literal that sets the carrier's result, a literal bound inside another literal and
+//!   a read in a sibling literal of a variable the enclosing callable declares. Ordinary-name return flow out of a literal is not modelled (as on main).
 use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingId};
 use std::cell::RefCell;
@@ -209,13 +210,16 @@ impl ParamFacts {
         }
     }
 
-    /// The def at `def_start` sits in a callable nested strictly inside the callable that holds
-    /// the read at `use_start` (the owner counts as a callable). With a name a formal or named
-    /// result declares, main blanket-kept this pair (`address_taken_names`), so keeping it adds
-    /// no edge main lacks (the caller excludes a declare-only def, which main never had).
-    pub(super) fn nested_in_use_callable(
+    /// Main blanket-kept this pair (the caller checks the name and excludes a declare-only def),
+    /// so keeping it adds no edge main lacks. The def's innermost callable differs from the
+    /// read's, the read is not inside the def's callable, and either the read's callable strictly
+    /// encloses the def's, or the read's variable is declared outside the read's own callable (a
+    /// captured variable; a binding that is not an explicit declaration counts as captured).
+    pub(super) fn parity_keep(
         &self,
         parsed: &ParsedFile,
+        facts: &BindingFacts,
+        name: &str,
         def_start: usize,
         use_start: usize,
     ) -> bool {
@@ -223,31 +227,38 @@ impl ParamFacts {
             return false;
         };
         let Some(use_callable) = self.enclosing_callable(parsed, use_start) else {
-            // The read is outside every callable of the owner: any callable encloses nothing of it.
+            // The read is outside every callable of the owner: it encloses the def's.
             return true;
         };
         if def == use_callable {
             return false;
         }
-        // The use's callable is a proper ancestor of the def's callable.
-        let mut node = parsed
-            .tree
-            .root_node()
+        let root = parsed.tree.root_node();
+        let Some(def_node) = root
             .descendant_for_byte_range(def, def)
-            .and_then(|n| {
-                let mut n = n;
-                while !(CALLABLES.contains(&n.kind()) && n.start_byte() == def) {
-                    n = n.parent()?;
+            .and_then(|mut n| loop {
+                if CALLABLES.contains(&n.kind()) && n.start_byte() == def {
+                    break Some(n);
                 }
-                n.parent()
-            });
+                n = n.parent()?;
+            })
+        else {
+            return false;
+        };
+        if def_node.start_byte() <= use_start && use_start < def_node.end_byte() {
+            return false;
+        }
+        let mut node = def_node.parent();
         while let Some(n) = node {
             if CALLABLES.contains(&n.kind()) && n.start_byte() == use_callable {
                 return true;
             }
             node = n.parent();
         }
-        false
+        match facts.binding_at(name, use_start) {
+            BindingId::Declaration(d) => facts.declaration_scope_contains(d, use_callable),
+            _ => true,
+        }
     }
 
     /// Start byte of the innermost function or literal around `byte` (memoized).
