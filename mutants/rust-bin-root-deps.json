@@ -108,8 +108,8 @@
     ],
     "BRD-13-block-shadow-refuses-local-targets-c16": [
       "src/resolution/rust/bin_dep_guard.rs",
-      "                .any(|target_root| deps.contains(target_root))",
-      "                .any(|_| true)",
+      "roots.iter().any(|target_root| deps.contains(target_root))",
+      "roots.iter().any(|_| true)",
       [
         "rust_cross_crate_bin_test::c16_block_local_type_shadow_binds_the_local_associated_fn"
       ]
@@ -124,10 +124,11 @@
     ],
     "BRD-15-first-occurrence-of-the-target-file-only-c18e": [
       "src/resolution/rust/bin_dep_guard.rs",
-      "                .any(|target_root| deps.contains(target_root))",
-      "                .take(1)\n                .any(|target_root| deps.contains(target_root))",
+      "roots.iter().any(|target_root| deps.contains(target_root))",
+      "roots.iter().take(1).any(|target_root| deps.contains(target_root))",
       [
-        "rust_cross_crate_bin_test::c18e_shadow_refuses_when_another_crate_mounts_the_target_file_first"
+        "rust_cross_crate_bin_test::c18e_shadow_refuses_when_another_crate_mounts_the_target_file_first",
+        "rust_cross_crate_bin_test::c18i_shadow_refuses_when_the_dependencys_own_bin_mounts_the_target_file"
       ]
     ]
   }

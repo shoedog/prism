@@ -867,3 +867,24 @@ fn c18h_block_alias_of_another_name_binds_a_multiply_mounted_target() {
         QO,
     );
 }
+
+#[test]
+fn c18i_shadow_refuses_when_the_dependencys_own_bin_mounts_the_target_file() {
+    // `a/src/bin/tool.rs` mounts `a/src/m.rs` beside itself; its root walks before `a`'s
+    // library, so the first scope found for the file is not in a keyed dependency's library
+    // root. rustc binds `crate::local::f`.
+    let main = format!(
+        "{MODULE_IMPORT}fn main() {{\n    use crate::local as alias;\n    alias::f();\n}}\n"
+    );
+    let cg = fixture(
+        B_DEP,
+        &[
+            (
+                "a/src/bin/tool.rs",
+                "#[path = \"../m.rs\"]\nmod m;\nfn main() {}\n",
+            ),
+            ("b/src/main.rs", main.as_str()),
+        ],
+    );
+    refused(&cg, "b/src/main.rs", "main", "alias::f");
+}

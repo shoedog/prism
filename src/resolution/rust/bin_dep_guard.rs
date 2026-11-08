@@ -43,10 +43,10 @@ pub(crate) fn guard<'a>(
         return out;
     }
     let refused = out.resolved.iter().any(|r| {
-        graph.file_paths.get(&r.target.file).is_some_and(|&id| {
-            file_crate_roots(graph, id)
-                .iter()
-                .any(|target_root| deps.contains(target_root))
+        // A target file attached to no crate cannot be vouched for: refuse (fail closed).
+        graph.file_paths.get(&r.target.file).is_none_or(|&id| {
+            let roots = file_crate_roots(graph, id);
+            roots.is_empty() || roots.iter().any(|target_root| deps.contains(target_root))
         })
     });
     if refused {
@@ -78,9 +78,11 @@ fn block_binds_type(graph: &ScopeGraph, from: ScopeId, name: &str) -> bool {
     false
 }
 
-/// The crate roots of every module occurrence of `file`. Since #765 a file mounted by two
-/// crates (`#[path]`, or a plain `mod` in both) has scopes under each root, so the first scope
-/// found does not name its crate; the guard reads them all and refuses on any. Once a block
+/// The crate roots of every module occurrence of `file`. A file may belong to several
+/// occurrences since #765: mounted by two crates (`#[path]`, or a plain `mod` in both) or by a
+/// package's own bin target beside its library (`a/src/bin/tool.rs` with `#[path = "../m.rs"]`),
+/// so it has scopes under each root and the first scope found does not name its crate; the
+/// guard reads them all and refuses on any (and on none). Once a block
 /// binding shadows the path, rustc binds the block's whatever the target's crate, so widening
 /// to every occurrence only adds refusals of outcomes that are wrong anyway.
 fn file_crate_roots(graph: &ScopeGraph, file: FileId) -> BTreeSet<ScopeId> {
