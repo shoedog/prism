@@ -294,7 +294,26 @@ pub enum EvidenceHop {
     },
 }
 
+impl EvidenceHop {
+    /// Whether this hop carries an Exact label (data flow `Exact`, or an Exact call resolution).
+    pub fn is_exact(&self) -> bool {
+        match self {
+            EvidenceHop::DataFlow { confidence, .. } => confidence.is_exact(),
+            EvidenceHop::Call { confidence, .. } => *confidence == ResolutionConfidence::Exact,
+        }
+    }
+}
+
 impl EvidencePath {
+    /// A path made of `hops` that crossed no unlabeled edge (the constructor other crates use:
+    /// the struct is `#[non_exhaustive]`).
+    pub fn from_hops(hops: Vec<EvidenceHop>) -> Self {
+        Self {
+            hops,
+            crossed_unlabeled: false,
+        }
+    }
+
     /// The evidence-free artifact represented by [`classify`]. AST-only
     /// algorithms have a valid empty path; CPG and unknown algorithms do not.
     pub fn unlabeled_for(algorithm: &str) -> Self {

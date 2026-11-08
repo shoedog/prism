@@ -235,8 +235,8 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
 
                 if !missing_checks.is_empty() {
                     let first_call = call_lines.first().copied().unwrap_or(0);
-                    let evidence = EvidencePath {
-                        hops: caller_edges
+                    let evidence = EvidencePath::from_hops(
+                        caller_edges
                             .iter()
                             .filter(|edge| edge.caller == *caller_id)
                             .cloned()
@@ -245,8 +245,7 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                                 edge,
                             })
                             .collect(),
-                        crossed_unlabeled: false,
-                    };
+                    );
                     result.findings.push(SliceFinding {
                         algorithm: "echo".to_string(),
                         file: caller_id.file.clone(),

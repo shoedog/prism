@@ -503,10 +503,7 @@ fn selected_origin_evidence(
                         && from.path.base == var_name
                         && to == &anchor)
         }) {
-            return EvidencePath {
-                hops: vec![hop],
-                crossed_unlabeled: false,
-            };
+            return EvidencePath::from_hops(vec![hop]);
         }
     }
     EvidencePath::unlabeled_for("provenance")

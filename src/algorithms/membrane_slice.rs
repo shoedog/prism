@@ -249,13 +249,12 @@ pub fn slice(ctx: &CpgContext, diff: &DiffInput) -> Result<SliceResult> {
                                         parse_quality: None,
                                         diagrams: vec![],
                                     });
-                                    result.evidence.push(Some(EvidencePath {
-                                        hops: vec![EvidenceHop::Call {
+                                    result.evidence.push(Some(EvidencePath::from_hops(vec![
+                                        EvidenceHop::Call {
                                             edge: edge.clone(),
                                             confidence: edge.confidence,
-                                        }],
-                                        crossed_unlabeled: false,
-                                    }));
+                                        },
+                                    ])));
                                 }
                             }
                         }
