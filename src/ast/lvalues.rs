@@ -308,7 +308,8 @@ impl ParsedFile {
         func_node: &Node<'_>,
         lines: &BTreeSet<usize>,
     ) -> Vec<(String, String, usize)> {
-        let mut aliases = Vec::new();
+        // #761: a parameter-list `u = o` is the alias the body statement `const u = o` would be.
+        let mut aliases = self.js_ts_param_default_alias_triples(func_node, lines);
         self.collect_aliases_inner(*func_node, lines, &mut aliases);
         aliases.sort_by_key(|(_a, _t, line)| *line);
         aliases

@@ -178,3 +178,7 @@ mod guard_control;
 #[cfg(test)]
 #[path = "guard_deleted_tests.rs"]
 mod guard_deleted_tests;
+
+#[cfg(test)]
+#[path = "param_alias_tests.rs"]
+mod param_alias_tests;

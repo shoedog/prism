@@ -73,6 +73,13 @@ impl Producer {
                 .is_some_and(|count| *count == 1);
             let all_lines: BTreeSet<usize> = (start..=end).collect();
             let param_occurrences = parsed.function_parameter_occurrences(&func_node);
+            super::param_alias_trace::trace(
+                parsed,
+                &func_node,
+                &func_name,
+                &all_lines,
+                param_occurrences.iter().map(|(name, _, _)| name.as_str()),
+            );
             let refused_formals: BTreeSet<_> = parsed
                 .js_ts_parameter_refusals(&func_node)
                 .into_iter()
@@ -96,6 +103,10 @@ impl Producer {
                     // Defs, and cannot contribute even kill-only input.
                     if parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)
                         || refused_occurrence(&span.path, span.start_byte)
+                        // #761: an alias of a refused formal (`d = f`, `f` a seam binding) reads it.
+                        || parsed
+                            .js_ts_param_default_alias_target_at(span.start_byte, span.end_byte)
+                            .is_some_and(|target| refused_formals.contains(target.as_str()))
                         || span.path.base == "this"
                             && parsed.js_ts_span_this_rebound_between(
                                 span.start_byte,

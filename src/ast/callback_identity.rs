@@ -1006,6 +1006,9 @@ impl ParsedFile {
                         "identifier" | "shorthand_property_identifier_pattern"
                     )
             })?;
+        if let Some(target) = self.js_ts_param_default_alias_target(ident) {
+            return Some(target);
+        }
         let parent = ident.parent()?;
         let plain_rhs = |value: Option<Node<'_>>| {
             value

@@ -645,6 +645,9 @@ mod js_param_defs_tests;
 mod inert_default_parameter_tests;
 
 #[cfg(test)]
+mod param_alias_tests;
+
+#[cfg(test)]
 mod loop_header_tests;
 
 #[cfg(test)]

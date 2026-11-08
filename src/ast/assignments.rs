@@ -165,6 +165,7 @@ impl ParsedFile {
             }
             self.collect_assignment_span_gaps(*func_node, lines, &mut spans);
             self.collect_go_header_def_spans(*func_node, lines, &mut spans);
+            self.js_ts_param_default_alias_spans(func_node, lines, &mut spans);
             spans.sort_by_key(|span| (span.line, span.start_byte, span.end_byte));
             return spans;
         }
