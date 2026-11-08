@@ -4,7 +4,8 @@
   "lib_test_prefixes": [
     "data_flow::tests::",
     "cpg_cache::dfg_codec_tests::",
-    "cpg::dfg_missing_label_tests::"
+    "cpg::dfg_missing_label_tests::",
+    "algorithms::delta_slice_output_tests::"
   ],
   "mutations": {
     "DFG-A-delta-candidate-edges-removed": [
@@ -12,7 +13,7 @@
       "    let added: BTreeSet<_> = new_edges.difference(&old_edges).collect();",
       "    let added: BTreeSet<_> = new_edges.difference(&old_edges).filter(|_| false).collect();",
       [
-        "data_flow::tests::outputs::delta_candidate_edges_contribute"
+        "algorithms::delta_slice_output_tests::delta_candidate_edges_contribute"
       ]
     ],
     "DFG-C-interner-collapses-byte-spans": [

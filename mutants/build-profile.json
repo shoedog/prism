@@ -265,6 +265,23 @@
     "profile::",
     "profile::deferred_tests::"
   ],
+  "test_targets": [
+    {
+      "prefix": "build_profile_test::",
+      "package": "prism",
+      "target": "cli"
+    },
+    {
+      "prefix": "build_profile_fold_test::",
+      "package": "prism",
+      "target": "cli"
+    },
+    {
+      "prefix": "build_profile_round2_test::",
+      "package": "prism",
+      "target": "cli"
+    }
+  ],
   "extra": {
     "PROFILE-scope-measured-on-skip": [
       [
