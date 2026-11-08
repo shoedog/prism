@@ -4,6 +4,9 @@ Status: ready to implement after A2A review
 Date: 2026-07-01
 Source design: `resolved-call-edge-index-design-2026-07-01.md`
 
+> Historical note (2026-11-07): `src/mcp/**` and `tests/mcp/**` are now `crates/prism-mcp/src/**` and
+> `crates/prism-mcp/tests/mcp/**`, and `--features mcp` commands are now `-p prism-mcp` (#731, #740).
+
 ## Goal
 
 Speed repeated navigation queries by lazily building resolved call-edge indexes inside `NavigationIndex`, with

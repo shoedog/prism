@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Per-directory test consolidation (WP2, spec §3.1). Usage:
    python3 scripts/consolidate_tests.py tests/ast ast
-   python3 scripts/consolidate_tests.py tests/mcp mcp --required-features mcp
+   python3 scripts/consolidate_tests.py tests/lang lang
 Idempotence guard: refuses to run if <dir>/main.rs already exists.
 """
 import re, sys, pathlib

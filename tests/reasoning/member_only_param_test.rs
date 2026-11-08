@@ -4,7 +4,7 @@
 //!
 //! `nav taint-reaches` and MCP `taint_reaches` both call `reasoning::taint_reaches`, so these
 //! cases cover both entry points; the binary entry points have their own tests in tests/cli and
-//! tests/mcp.
+//! crates/prism-mcp/tests/mcp.
 
 use prism::navigation::types::Reachability;
 use prism::navigation::{NavigationIndex, NavigationSession};

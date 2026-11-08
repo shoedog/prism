@@ -14,3 +14,11 @@ Older backlog notes moved to `docs/archive/plans/prism-query-layer/`.
 Legacy query-layer analyses moved to
 `docs/archive/analysis/prism-query-layer/`. Review iterations and provenance
 records remain in `docs/archive/review-artifacts/prism-query-layer/`.
+
+## Historical note (2026-11-07)
+
+Paths `src/mcp/**` and `tests/mcp/**` in these documents are now
+`crates/prism-mcp/src/**` and `crates/prism-mcp/tests/mcp/**`, and the
+`--features mcp` / `--bin prism-mcp --features mcp` commands are now `-p prism-mcp`
+(#731, #740). Current commands live in `docs/MCP.md`. The dated documents keep their
+original spelling as history.

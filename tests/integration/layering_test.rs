@@ -3,7 +3,7 @@
 //! No source file outside the review layer may mention `crate::algorithms` or
 //! `algorithms::` on a non-comment line. The review layer is
 //! `src/algorithms/**`, `src/output/**`, `src/targets/**`, `src/api/**`,
-//! `src/cli.rs`, `src/main.rs`, `src/lib.rs` and `src/bin/**`.
+//! `src/cli.rs`, `src/main.rs` and `src/lib.rs`.
 //! `crates/prism-mcp/src/**` is scanned too, with no review-layer allowlist.
 //!
 //! Exempt: files named `*_tests.rs`, `*_test.rs` or `tests.rs`, any path with a `/tests/`
@@ -17,13 +17,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const REVIEW_LAYER: &[&str] = &[
-    "src/algorithms/",
-    "src/output/",
-    "src/targets/",
-    "src/api/",
-    "src/bin/",
-];
+const REVIEW_LAYER: &[&str] = &["src/algorithms/", "src/output/", "src/targets/", "src/api/"];
 const REVIEW_LAYER_FILES: &[&str] = &["src/cli.rs", "src/main.rs", "src/lib.rs"];
 
 fn collect_rs(dir: &Path, out: &mut Vec<PathBuf>) {
