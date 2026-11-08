@@ -8,6 +8,8 @@
 //! - `with_bodies` (6.1c): the byte and line ranges of `with` bodies;
 //! - `dead` (6.1d): formals a hoisted function declaration, or a write in the owner's own parameter
 //!   list, replaces before the first statement.
+//! - `own_writes` (#660 S1d-2): member and computed-member writes in the owner's own parameter list
+//!   (they rebind no formal, so they are no dead formal); each refuses the edges it affects.
 //!
 //! Nothing here changes an edge set, availability or a counter: every class only moves a label toward
 //! `NameOnly`. Detection reuses the existing strictness, eval and arguments helpers and the binding
@@ -27,6 +29,7 @@ pub(crate) const CATCH_VAR: &str = "catch-var";
 pub(crate) const IMMUTABLE_NAME: &str = "immutable-name";
 pub(crate) const WITH: &str = "with";
 pub(crate) const DEAD_FORMAL: &str = "dead-formal";
+pub(crate) const OWN_PARAMS: &str = "own-params";
 
 /// A formal that never reaches the first statement: the defs of `name` that start inside `range` are
 /// killed at `line` (the declaration, or the default that writes the formal).
@@ -53,6 +56,9 @@ pub(crate) struct Classes {
     pub defs: BTreeMap<usize, &'static str>,
     pub with_bodies: Vec<WithBody>,
     pub dead: Vec<Dead>,
+    /// Member writes in the owner's own parameter list: the path and the byte the write starts at. An
+    /// edge whose def starts before the write and whose use path the write `affects` is refused.
+    pub own_writes: Vec<(crate::access_path::AccessPath, usize)>,
     /// The owner is defined inside a `with` body: its free names may resolve through the object, so
     /// the owner is refused as a whole (owner-wide, the simpler conservative choice).
     pub within_with: bool,
@@ -65,6 +71,7 @@ impl Classes {
             && self.defs.is_empty()
             && self.with_bodies.is_empty()
             && self.dead.is_empty()
+            && self.own_writes.is_empty()
             && !self.within_with
     }
 }
@@ -109,6 +116,16 @@ pub(crate) fn classes(
         }
     }
     dead_formals(&found.hoisted, params, sites, &mut out);
+    for w in sites.iter().filter(|s| {
+        s.region.own_params
+            && !s.region.nested
+            && !s.region.instance_field
+            && s.form != Form::Declare
+            && !s.path.comps.is_empty()
+    }) {
+        out.own_writes
+            .push((super::completion::access_path(&w.path), w.target_start));
+    }
     if !found.inner_names.is_empty() {
         for site in sites {
             if site.form != Form::Declare

@@ -22,14 +22,16 @@ const JS: Language = Language::JavaScript;
 const TS: Language = Language::TypeScript;
 const TSX: Language = Language::Tsx;
 
-/// Distinct mechanism names the trace gives the file: census lines (`traced`) and S1a capture lines.
-fn mechanisms(language: Language, src: &str) -> Vec<String> {
-    // Edge lines only: the per-owner `rd-census-owner` lines are checked by their own test.
-    let mut all: Vec<String> = trace_lines(language, src)
-        .iter()
-        .filter(|l| l.starts_with("rd-census\t"))
-        .map(|l| l.split('\t').nth(1).unwrap().to_string())
-        .collect();
+/// Mechanism names the trace gives the tested edge (`path@line->path@line`): census lines (`traced`)
+/// and S1a capture lines, only those whose endpoints are that edge.
+fn mechanisms(language: Language, src: &str, edge: &str) -> Vec<String> {
+    let (from, to) = edge.split_once("->").unwrap();
+    let (from, to) = (format!("{from}:"), format!("{to}:"));
+    let on_edge = |l: &str| {
+        let f: Vec<&str> = l.split('\t').collect();
+        f.len() == 6 && f[0] == "rd-census" && f[4].starts_with(&from) && f[5].starts_with(&to)
+    };
+    let mut lines = trace_lines(language, src);
     let file = parse(language, src);
     let cpg = CodePropertyGraph::build(&BTreeMap::from([(file.path.clone(), file.clone())]));
     let mut out = Vec::new();
@@ -39,12 +41,12 @@ fn mechanisms(language: Language, src: &str) -> Vec<String> {
             is_capture_to(&FlowEdge { from, to }, &facts, &mut out);
         }
     }
-    all.extend(
-        String::from_utf8(out)
-            .unwrap()
-            .lines()
-            .map(|l| l.split('\t').nth(1).unwrap().to_string()),
-    );
+    lines.extend(String::from_utf8(out).unwrap().lines().map(String::from));
+    let mut all: Vec<String> = lines
+        .iter()
+        .filter(|l| on_edge(l))
+        .map(|l| l.split('\t').nth(1).unwrap().to_string())
+        .collect();
     all.sort();
     all.dedup();
     all
@@ -181,12 +183,57 @@ const CASES: &[Case] = &[
         source: "function f(a) {\n  return () => (arguments[0] = 2, sink(a));\n}" },
     Case { name: "eager_class_update", lang: JS, edge: "a@1->a@2", label: CFG, mechs: &["capture-field"],
         source: "function f(a) {\n  return (class { x = a++; }, sink(a));\n}" },
-    Case { name: "static_block_site_is_unmapped", lang: JS, edge: "a@1->a@2", label: CFG, mechs: &["site-unmapped"],
+    Case { name: "static_block_site_is_unmapped", lang: JS, edge: "a@1->a@3", label: CFG, mechs: &["site-unmapped"],
         source: "function f(a) {\n  class C { static { a++; } }\n  return sink(a);\n}" },
     Case { name: "two_recorded_defs_keep_main_belt", lang: JS, edge: "a@1->a@2", label: CFG, mechs: &[],
         source: "function f(a) {\n  a = 1; a = 2; return sink(a);\n}" },
     Case { name: "for_head_one_line_is_d3_loop", lang: JS, edge: "a@1->a@2", label: SAME, mechs: &["d3-loop"],
         source: "function f(a, xs) {\n  for (a of xs) sink(a);\n}" },
+    // SOL-757-01: a write in the owner's own parameter list (defaults, patterns) that the producer does not
+    // record refuses the field projections it affects (`own-params`); a member write does not rebind the
+    // bare formal. Each FIX row has a multi-node twin (main has the same gap there).
+    Case { name: "own_member_pattern_default", lang: JS, edge: "o@1->o.x@2", label: CFG, mechs: &["own-params"],
+        source: "function f(o, unused = ([o.x = 1] = [])) {\n  return sink(o.x);\n}" },
+    Case { name: "own_member_pattern_default_multi", lang: JS, edge: "o@1->o.x@3", label: CFG, mechs: &["own-params"],
+        source: "function f(o, unused = ([o.x = 1] = [])) {\n  log();\n  return sink(o.x);\n}" },
+    Case { name: "own_member_update", lang: JS, edge: "o@1->o.x@2", label: CFG, mechs: &["own-params"],
+        source: "function h(o, u = o.x++) {\n  return sink(o.x);\n}" },
+    Case { name: "own_member_update_multi", lang: JS, edge: "o@1->o.x@3", label: CFG, mechs: &["own-params"],
+        source: "function h(o, u = o.x++) {\n  log();\n  return sink(o.x);\n}" },
+    // Recorded by the producer (shares the formal's base): the one-node belt refuses it, not `own-params`.
+    Case { name: "own_member_compound", lang: JS, edge: "o@1->o.x@2", label: CFG, mechs: &[],
+        source: "function h(o, u = (o.x += 1)) {\n  return sink(o.x);\n}" },
+    Case { name: "own_member_compound_multi", lang: JS, edge: "o@1->o.x@3", label: CFG, mechs: &["own-params"],
+        source: "function h(o, u = (o.x += 1)) {\n  log();\n  return sink(o.x);\n}" },
+    Case { name: "own_member_delete", lang: JS, edge: "o@1->o.x@2", label: CFG, mechs: &["own-params"],
+        source: "function h(o, u = delete o.x) {\n  return sink(o.x);\n}" },
+    Case { name: "own_member_delete_multi", lang: JS, edge: "o@1->o.x@3", label: CFG, mechs: &["own-params"],
+        source: "function h(o, u = delete o.x) {\n  log();\n  return sink(o.x);\n}" },
+    Case { name: "own_computed_member", lang: JS, edge: "o@1->o.x@2", label: CFG, mechs: &["own-params"],
+        source: "function h(o, k, u = (o[k] = 1)) {\n  return sink(o.x);\n}" },
+    Case { name: "own_computed_member_multi", lang: JS, edge: "o@1->o.x@3", label: CFG, mechs: &["own-params"],
+        source: "function h(o, k, u = (o[k] = 1)) {\n  log();\n  return sink(o.x);\n}" },
+    // Recorded by the producer (shares the formal's base): the one-node belt refuses it, not `own-params`.
+    Case { name: "own_object_pattern_target", lang: JS, edge: "o@1->o.x@2", label: CFG, mechs: &[],
+        source: "function h(o, u = ({ x: o.x } = src())) {\n  return sink(o.x);\n}" },
+    Case { name: "own_object_pattern_target_multi", lang: JS, edge: "o@1->o.x@3", label: CFG, mechs: &["own-params"],
+        source: "function h(o, u = ({ x: o.x } = src())) {\n  log();\n  return sink(o.x);\n}" },
+    Case { name: "own_member_pattern_default_ts", lang: TS, edge: "o@1->o.x@2", label: CFG, mechs: &["own-params"],
+        source: "function f(o: any, unused = ([o.x = 1] = [])) {\n  return sink(o.x);\n}" },
+    Case { name: "own_member_update_tsx", lang: TSX, edge: "o@1->o.x@2", label: CFG, mechs: &["own-params"],
+        source: "function h(o: any, u = o.x++) {\n  return sink(o.x);\n}" },
+    Case { name: "own_member_write_other_field_control", lang: JS, edge: "o@1->o.y@2", label: EXACT, mechs: &["guard-deleted:a"],
+        source: "function h(o, u = o.x++) {\n  return sink(o.y);\n}" },
+    Case { name: "own_member_write_other_field_control_multi", lang: JS, edge: "o@1->o.y@3", label: EXACT, mechs: &[],
+        source: "function h(o, u = o.x++) {\n  log();\n  return sink(o.y);\n}" },
+    Case { name: "own_member_write_bare_formal_control", lang: JS, edge: "o@1->o@2", label: EXACT, mechs: &["guard-deleted:a"],
+        source: "function h(o, u = o.x++) {\n  return sink(o);\n}" },
+    Case { name: "own_member_write_bare_formal_control_multi", lang: JS, edge: "o@1->o@3", label: EXACT, mechs: &[],
+        source: "function h(o, u = o.x++) {\n  log();\n  return sink(o);\n}" },
+    // A recorded write: the formal `o` and the recorded `o.x` share the base, so the one-node belt (main's,
+    // on recorded bases) leaves the owner unavailable; multi-node, the recorded def kills the projection.
+    Case { name: "own_recorded_member_write", lang: JS, edge: "o@1->o.x@2", label: CFG, mechs: &[],
+        source: "function h(o, u = (o.x = 1)) {\n  return sink(o.x);\n}" },
 ];
 
 #[test]
@@ -194,7 +241,7 @@ fn one_node_rows_have_the_label_and_the_mechanism() {
     let mut failures = Vec::new();
     for c in CASES {
         let got = labels_of(c.lang, c.source, c.edge);
-        let mut mechs = mechanisms(c.lang, c.source);
+        let mut mechs = mechanisms(c.lang, c.source, c.edge);
         // The sameline refinement and nothing else is traced for the control `for` row.
         mechs.retain(|m| c.name == "for_head_one_line_is_d3_loop" || !m.starts_with("d3-"));
         let mut want: Vec<&str> = c.mechs.to_vec();
@@ -246,7 +293,7 @@ fn matrix_rows_have_the_expected_label_and_mechanism() {
             .unwrap_or_else(|| panic!("no matrix row {fixture}"));
         let source = row[7].replace("\\n", "\n");
         let got = labels_of(lang_of(fixture), &source, row[1]);
-        let mut found = mechanisms(lang_of(fixture), &source);
+        let mut found = mechanisms(lang_of(fixture), &source, row[1]);
         found.retain(|m| !m.starts_with("d3-"));
         let mut want: Vec<&str> = mechs.to_vec();
         want.sort();

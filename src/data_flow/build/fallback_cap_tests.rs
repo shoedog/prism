@@ -437,3 +437,35 @@ fn fallback_cap_never_applies_to_one_node_owners_that_run_reaching_definitions()
         assert_eq!(bytes(capped), bytes(old), "{source}");
     }
 }
+
+/// #660 S1d-2 (SOL-757-02, accepted): an owner the deleted one-node guard used to refuse is now an RD
+/// owner, and an RD owner is exempt from the fallback edge cap like every other (the cap gates only
+/// owners RD cannot run on). The guard's predicate is not kept as a cap gate: that would re-add it.
+#[test]
+fn a_formerly_guarded_one_node_owner_is_exempt_from_the_fallback_cap() {
+    let source = "function f(a) {\n  return (n++, sink(a, a, a));\n}\n";
+    let parsed = ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+    let old = Producer::file_refs_with_cap(&parsed.path, &parsed, None);
+    assert!(!old.edges.is_empty());
+    let new = Producer::file_refs_with_cap(&parsed.path, &parsed, Some(0));
+    // Emitted whole, with RD labels, and counted by no cap counter.
+    assert_eq!(new.edges, old.edges);
+    assert_eq!(new.labels, old.labels);
+    assert!(new.labels.values().any(|l| *l == FlowConfidence::Exact));
+    assert_eq!(new.rd_function_stats.functions_without_cfg, 0);
+    assert_eq!(new.rd_function_stats.functions_over_cap, 0);
+    assert_eq!(new.rd_function_stats.fallback_functions_capped, 0);
+}
+
+/// The control: a one-node owner RD still refuses (two recorded defs of one base) stays under the cap.
+#[test]
+fn a_one_node_owner_the_belt_refuses_is_still_fallback_capped() {
+    let source = "function f(a) {\n  a = 1; a = 2; return sink(a);\n}\n";
+    let parsed = ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
+    let old = Producer::file_refs_with_cap(&parsed.path, &parsed, None);
+    assert!(!old.edges.is_empty());
+    let new = Producer::file_refs_with_cap(&parsed.path, &parsed, Some(0));
+    assert!(new.edges.is_empty());
+    assert_eq!(new.rd_function_stats.functions_without_cfg, 1);
+    assert_eq!(new.rd_function_stats.fallback_functions_capped, 1);
+}
