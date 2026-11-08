@@ -189,7 +189,7 @@ fn test_threed_slice_cli() {
     let diff_json = tmp.path().join("diff.json");
     fs::write(
         &diff_json,
-        r#"{"files": [{"file_path": "src/main.rs", "modify_type": "Modified", "diff_lines": [1, 2]}]}"#,
+        r#"{"files": [{"file_path": "crates/prism-review/src/main.rs", "modify_type": "Modified", "diff_lines": [1, 2]}]}"#,
     ).unwrap();
 
     prism_cmd()
@@ -213,7 +213,7 @@ fn test_resonance_slice_cli() {
     let diff_json = tmp.path().join("diff.json");
     fs::write(
         &diff_json,
-        r#"{"files": [{"file_path": "src/main.rs", "modify_type": "Modified", "diff_lines": [1, 2]}]}"#,
+        r#"{"files": [{"file_path": "crates/prism-review/src/main.rs", "modify_type": "Modified", "diff_lines": [1, 2]}]}"#,
     ).unwrap();
 
     prism_cmd()
@@ -237,7 +237,7 @@ fn test_phantom_slice_cli() {
     let diff_json = tmp.path().join("diff.json");
     fs::write(
         &diff_json,
-        r#"{"files": [{"file_path": "src/main.rs", "modify_type": "Modified", "diff_lines": [1, 2]}]}"#,
+        r#"{"files": [{"file_path": "crates/prism-review/src/main.rs", "modify_type": "Modified", "diff_lines": [1, 2]}]}"#,
     ).unwrap();
 
     prism_cmd()
