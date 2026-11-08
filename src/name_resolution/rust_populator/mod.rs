@@ -297,7 +297,10 @@ pub fn populate_rust(
             to_walk.push((root.clone(), scope));
         }
     }
-    // Pass 2: walk each root's items (which recursively pulls in `mod` files).
+    // Pass 2: walk each root's items (which recursively pulls in `mod` files). Library and
+    // binary roots first: a test-like root that is also one of their modules is then skipped
+    // (see `Builder::walk_root`).
+    to_walk.sort_by_key(|(root, _)| builder::is_secondary_root(root));
     for (root, scope) in &to_walk {
         b.walk_root(root, *scope);
     }

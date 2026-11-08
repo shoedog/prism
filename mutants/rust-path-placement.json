@@ -140,6 +140,14 @@
       [
         "rust_path_attribute_test::o3_a_site_inside_a_double_loaded_file_keeps_only_its_own_file"
       ]
+    ],
+    "PP-16-secondary-root-duplicate-not-skipped": [
+      "src/name_resolution/rust_populator/builder.rs",
+      "        if is_secondary_root(root_path) && self.occurrences.contains_key(root_path) {",
+      "        if false && is_secondary_root(root_path) && self.occurrences.contains_key(root_path) {",
+      [
+        "rust_path_attribute_test::o5_a_conventional_root_that_is_also_a_module_is_not_a_second_occurrence"
+      ]
     ]
   }
 }

@@ -446,6 +446,12 @@ impl<'f> Builder<'f> {
 
     /// PASS 2: walk a root's items into its (already-minted) `Root` scope.
     pub(crate) fn walk_root(&mut self, root_path: &str, root_scope: ScopeId) {
+        // The loader names `src/**/tests/*.rs` roots by convention although they are also
+        // modules of the crate. Such a secondary root walked after its module occurrence
+        // is only a duplicate with no parent: skip it so the file keeps ONE occurrence.
+        if is_secondary_root(root_path) && self.occurrences.contains_key(root_path) {
+            return;
+        }
         let dir = parent_dir(root_path);
         if self.begin_occurrence(root_path) {
             super::walk::walk_module_file(self, root_path, root_scope, &dir);
@@ -713,6 +719,13 @@ fn path_then_walk(b: &mut Builder<'_>, path: &str, scope: ScopeId, child_dir: &s
     super::walk::walk_module_file(b, path, scope, child_dir);
     b.end_occurrence();
     true
+}
+
+/// A conventional test-like root (`tests/`, `benches/`, `examples/` directory), which the
+/// populator walks after the library and binary roots.
+pub(crate) fn is_secondary_root(path: &str) -> bool {
+    path.split('/')
+        .any(|seg| matches!(seg, "tests" | "benches" | "examples"))
 }
 
 /// `Target::Scope` convenience.

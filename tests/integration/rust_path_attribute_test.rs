@@ -499,6 +499,23 @@ fn o3_a_site_inside_a_double_loaded_file_keeps_only_its_own_file() {
 }
 
 #[test]
+fn o5_a_conventional_root_that_is_also_a_module_is_not_a_second_occurrence() {
+    // `src/m/tests/t.rs` is a crate root by convention (`tests/<name>.rs`) and the module
+    // `m::tests::t`. The duplicate carries no second parent, so an in-file site keeps its
+    // cross-file target (the guard of `multi_occurrence_files` does not apply).
+    let cg = build(&[
+        ("src/lib.rs", "mod m;\n"),
+        ("src/m.rs", "pub fn g() {}\nmod tests;\n"),
+        ("src/m/tests/mod.rs", "mod t;\n"),
+        (
+            "src/m/tests/t.rs",
+            "use super::super::*;\npub fn run() {\n    g();\n}\n",
+        ),
+    ]);
+    binds(&cg, ("src/m/tests/t.rs", "run", "g"), ("src/m.rs", "g", 1));
+}
+
+#[test]
 fn o4_a_path_cycle_builds_without_looping() {
     let cg = build(&[
         (
