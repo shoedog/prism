@@ -1006,6 +1006,9 @@ impl ParsedFile {
                         "identifier" | "shorthand_property_identifier_pattern"
                     )
             })?;
+        if let Some(target) = self.js_ts_param_default_alias_target(ident) {
+            return Some(target);
+        }
         let parent = ident.parent()?;
         let plain_rhs = |value: Option<Node<'_>>| {
             value
@@ -1047,7 +1050,12 @@ impl ParsedFile {
                     {
                         holder.child_by_field_name("value")
                     }
-                    _ => None,
+                    // #761: a parameter default `{ a: u } = o` is the declarator `const { a: u } = o`.
+                    _ => {
+                        return self
+                            .js_ts_param_pattern_alias_target(pattern)
+                            .map(|object| format!("{object}.{key}"));
+                    }
                 };
                 plain_rhs(value).map(|object| format!("{object}.{key}"))
             }

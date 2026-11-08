@@ -203,3 +203,7 @@ mod guard_deleted_tests;
 #[cfg(test)]
 #[path = "arrow_body_tests.rs"]
 mod arrow_body_tests;
+
+#[cfg(test)]
+#[path = "param_alias_tests.rs"]
+mod param_alias_tests;
