@@ -334,11 +334,13 @@ impl<'a> LexicalFacts<'a> {
                     .max_by_key(|w| w.statement.start_byte())
                 {
                     let broken = self.parsed.language == Language::Go
-                        && crate::languages::go::statements::children(region, Language::Go).any(|n| {
-                            n.kind() == "labeled_statement"
-                                && write.statement.end_byte() <= n.start_byte()
-                                && n.start_byte() < child.end_byte()
-                        });
+                        && crate::languages::go::statements::children(region, Language::Go).any(
+                            |n| {
+                                n.kind() == "labeled_statement"
+                                    && write.statement.end_byte() <= n.start_byte()
+                                    && n.start_byte() < child.end_byte()
+                            },
+                        );
                     if !broken {
                         return Some(Window {
                             write_start: write.statement.start_byte(),

@@ -61,7 +61,7 @@ mod call_args;
 mod calls;
 mod control_flow;
 mod fptr_text;
-pub mod go;
+pub(crate) mod go;
 mod imports;
 pub mod js_ts;
 mod lvalues;
