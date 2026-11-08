@@ -127,8 +127,8 @@
       "edits": [
         {
           "file": "src/navigation/cache.rs",
-          "old": "    pub(crate) fn sidecar_outcome(&self) -> &'static str {",
-          "new": "    pub(crate) fn sidecar_outcome(&self) -> &'static str {\n        let _ = self.resolved_call_edges();"
+          "old": "    pub fn sidecar_outcome(&self) -> &'static str {",
+          "new": "    pub fn sidecar_outcome(&self) -> &'static str {\n        let _ = self.resolved_call_edges();"
         }
       ],
       "supplemental_selectors": [

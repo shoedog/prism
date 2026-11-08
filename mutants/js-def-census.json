@@ -244,5 +244,21 @@
       "if false {",
       "js_write_census::region_tests::signatures_that_never_run_declare_nothing"
     ]
+  },
+  "extra": {
+    "OR-ignore-non-seq": [
+      [
+        "src/ast/js_write_census/order.rs",
+        "if kinds().any(|k| class(k) == Some(\"loop\")) {",
+        "if false {"
+      ]
+    ],
+    "OR-one-sided-chain": [
+      [
+        "src/ast/js_write_census/order.rs",
+        "if kinds().any(|k| class(k) == Some(\"loop\")) {",
+        "if cx.iter().any(|k| class(k) == Some(\"loop\")) {"
+      ]
+    ]
   }
 }
