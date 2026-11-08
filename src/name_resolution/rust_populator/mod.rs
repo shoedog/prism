@@ -109,6 +109,23 @@ pub struct RustCrateConfig {
     /// This contributes only to the existing 2018+ extern-prelude lane.
     #[serde(default)]
     pub binary_library_deps: BTreeMap<String, (String, String)>,
+    /// Rust: per workspace-member directory that has in-repo `[dependencies]`, its binary
+    /// target roots (explicit `[[bin]]` paths, else Cargo's auto-bins) and own library's
+    /// extern name (#749). The Builder keys each root with the member's in-repo dependencies
+    /// at `finish()`, as `member_in_repo_deps` does for the library root. Empty under the
+    /// same 2018+/uniform-edition gate as `binary_library_deps`.
+    #[serde(default)]
+    pub member_bin_roots: BTreeMap<String, MemberBins>,
+}
+
+/// One member's binary roots for the dependency lane (`RustCrateConfig::member_bin_roots`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MemberBins {
+    /// The member's nameable own-library extern name (hyphen-normalized), if it has one: a
+    /// dependency named alike is a second claimant for that name and is not keyed.
+    pub own_lib_name: Option<String>,
+    /// Repo-relative binary root paths of the member (never its library root).
+    pub roots: Vec<String>,
 }
 
 impl Default for RustCrateConfig {
@@ -123,6 +140,7 @@ impl Default for RustCrateConfig {
             edition_uniform: true,
             member_in_repo_deps: BTreeMap::new(),
             binary_library_deps: BTreeMap::new(),
+            member_bin_roots: BTreeMap::new(),
         }
     }
 }
@@ -166,6 +184,7 @@ impl RustCrateConfig {
             edition_uniform: true,
             member_in_repo_deps: BTreeMap::new(),
             binary_library_deps: BTreeMap::new(),
+            member_bin_roots: BTreeMap::new(),
         }
     }
 

@@ -1,5 +1,6 @@
 mod anchor_glob_precision_test;
 mod anchor_glob_test;
+mod bin_root_deps_test;
 mod build_wiring_test;
 mod consumer_test;
 mod glob_expand_test;

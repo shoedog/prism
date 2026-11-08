@@ -139,6 +139,11 @@ pub struct ScopeGraph {
     /// file cannot be tied to one occurrence, so it keeps only targets in its own file.
     #[serde(default)]
     pub multi_occurrence_files: std::collections::BTreeSet<crate::name_resolution::types::FileId>,
+    /// Rust: `(binary root, dependency library root)` of every `crate_deps_by_root` entry
+    /// keyed for a package's binary roots (#749). The resolution guard refuses a target of
+    /// these entries when a block scope shadows the path's first segment (#768).
+    #[serde(default)]
+    pub bin_dep_entries: std::collections::BTreeSet<(ScopeId, ScopeId)>,
     /// Deferred-glob expansion telemetry for resolution walked over **this**
     /// graph (spec §3.5). Scoped here rather than in a process-global so a
     /// measurement (`navigation::queries::call_stats`) that resets and snapshots

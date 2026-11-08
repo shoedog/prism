@@ -86,6 +86,9 @@ pub(crate) struct Builder<'f> {
     pending_restricts: Vec<(usize, RawPath)>,
     /// `(scope, name)` of every `{self as name}` import (#724), handed to the graph.
     self_import_aliases: BTreeSet<(ScopeId, String)>,
+    /// `(bin root, dependency library root)` of every entry keyed from `member_bin_roots`
+    /// (#749); moved onto the graph for the block-shadow guard.
+    bin_dep_entries: BTreeSet<(ScopeId, ScopeId)>,
 }
 
 impl<'f> Builder<'f> {
@@ -126,6 +129,7 @@ impl<'f> Builder<'f> {
             crate_deps_by_root: BTreeMap::new(),
             pending_restricts: Vec::new(),
             self_import_aliases: BTreeSet::new(),
+            bin_dep_entries: BTreeSet::new(),
         }
     }
 
@@ -189,6 +193,37 @@ impl<'f> Builder<'f> {
                 }
             }
         }
+        // Binary roots of a member get the member's in-repo `[dependencies]` too (#749):
+        // Cargo gives every bin target of a package its dependencies under their in-source
+        // names. A dependency named like the member's own library is a second claimant for
+        // that name: neither is keyed (the no-winner rule of `binary_library_deps`). A member
+        // with no library root is keyed as well; a target with no library root is skipped.
+        for (member_dir, deps) in &self.config.member_in_repo_deps {
+            let Some(bins) = self.config.member_bin_roots.get(member_dir) else {
+                continue;
+            };
+            for bin in &bins.roots {
+                let Some(&consumer) = self.roots_by_path.get(bin) else {
+                    continue;
+                };
+                for (in_source_name, target_dir) in deps {
+                    let name = normalize_crate_ident(in_source_name);
+                    if bins.own_lib_name.as_deref() == Some(name.as_str()) {
+                        continue;
+                    }
+                    let Some(&target) = self.lib_root_by_member_dir.get(target_dir) else {
+                        continue;
+                    };
+                    if consumer != target {
+                        self.crate_deps_by_root
+                            .entry(consumer)
+                            .or_default()
+                            .insert(name, target);
+                        self.bin_dep_entries.insert((consumer, target));
+                    }
+                }
+            }
+        }
         for (binary, (name, library)) in &self.config.binary_library_deps {
             if let (Some(&consumer), Some(&target)) = (
                 self.roots_by_path.get(binary),
@@ -204,6 +239,7 @@ impl<'f> Builder<'f> {
         }
         self.graph.crate_deps_by_root = self.crate_deps_by_root;
         self.graph.self_import_aliases = self.self_import_aliases;
+        self.graph.bin_dep_entries = self.bin_dep_entries;
         self.graph.multi_occurrence_files = self
             .occurrences
             .iter()

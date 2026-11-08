@@ -232,6 +232,8 @@ fn index_is_absent_from_serialization_and_identity() {
         // (#765 removed the `misplaced_mount_files` field that sat before it.)
         &graph.self_import_aliases,
         &graph.multi_occurrence_files,
+        // Appended by #749.
+        &graph.bin_dep_entries,
     ))
     .unwrap();
     let cold_json = serde_json::to_string(&graph).unwrap();

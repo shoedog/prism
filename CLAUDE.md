@@ -295,7 +295,7 @@ family than the caller are dropped, a pool left empty refuses with no later rung
 filter never promotes (a multi-owner NameOnly pool left with one target stays NameOnly with the
 same kind). Free-function pools filter inside their rungs; method rungs (R1, R3b, R4b, self and
 receiver-variable owner lookups, recovered receivers, R6) share one admission on the public full
-resolution (`resolve_call_site_full`). `resolve_call_site_candidates` is the unfiltered view.
+resolution (`resolve_call_site_full`). `resolve_call_site_candidates` is the unfiltered view. Every binary root of a workspace member with in-repo `[dependencies]` (explicit `[[bin]]` paths, else `src/main.rs`, `src/bin/*.rs`, `src/bin/*/main.rs`; bin-only members included) is keyed with those dependencies under their in-source names (`Builder::finish`, `RustCrateConfig::member_bin_roots`, enumeration shared with `binary_library_deps` in `repo_loader/bin_roots.rs`), so `prism::m::f()` in `crates/prism-review/src/main.rs` resolves like the same path in a library file; a dependency named like the member's own library is keyed for neither, `build.rs`/`tests/`/`examples`/`benches` roots stay unkeyed (they also see unparsed build/dev dependencies), `autobins = false`, a `[[bin]]` with its own `edition` and the 2018+/uniform-edition gate still exclude, and a result in such a dependency refuses when a block or callable scope binds the path's first segment in the type namespace (`resolution/rust/bin_dep_guard.rs`; #768). `#[path]` placement for these entries is rustc's (#765), with no guard of their own. The `T::m` owner-pool fail-open in `rust_authoritative_nonself` is inherited and unchanged.
 
 Navigation maps confidence to `score` (Exact 1.0 / NameOnly 0.6) with a
 `Reason::Resolution` and a `Collision` warning when same-name receiver sites are
@@ -487,7 +487,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v164) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v165) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
