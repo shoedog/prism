@@ -104,10 +104,13 @@ pub(crate) fn arrow_body_takes_one_node(parsed: &ParsedFile, func_node: &Node<'_
 /// other as `exact`. No other direct child puts located statements in
 /// mutually exclusive positions: `||`, `&&` and `??` evaluate left to right,
 /// so source order is evaluation order and a conditionally skipped def can
-/// only over-kill (`killed`, never a wrong `exact`); every other wrapper
-/// (parentheses, `as`/`satisfies`/`!`, a call, an array, an object, a
-/// sequence) is not descended. An arrow body holding two or more located
-/// statements of another shape (`c(k) ||\n d(k)`) keeps its existing universe.
+/// only over-kill (`killed`, never a wrong `exact`). Every other wrapper
+/// (parentheses, `as`/`satisfies`/`!`, a sequence, an object, a call's
+/// arguments) is not descended, but an array puts its direct call elements
+/// in the located list: with one located statement the arrow is one node
+/// already, with two or more it keeps its existing universe (`c(k) ||\n d(k)`; an array body
+/// holding a nested callable keeps a wrong outer `exact`, pinned in the
+/// matrix, design issue #784).
 pub(crate) fn expression_body_statement(
     parsed: &ParsedFile,
     func_node: &Node<'_>,

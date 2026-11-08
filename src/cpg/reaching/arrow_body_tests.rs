@@ -52,6 +52,7 @@ const BELT_ROWS: &[&str] = &[
     "f05_nested_ternary",
     "f11_ts_ternary",
     "f12_tsx_ternary",
+    "h02_ternary_condition_def_cost",
 ];
 
 fn sorted_labels(r: &Row) -> String {
@@ -63,7 +64,7 @@ fn sorted_labels(r: &Row) -> String {
 #[test]
 fn rows_have_the_expected_labels() {
     let all = rows();
-    assert_eq!(all.len(), 51, "matrix rows");
+    assert_eq!(all.len(), 54, "matrix rows");
     let failures: Vec<String> = all
         .iter()
         .filter_map(|r| {
@@ -119,7 +120,7 @@ fn moved_rows_are_one_node_body_owners() {
         moved += usize::from(r.main != r.expected);
         universe += usize::from(flagged);
     }
-    assert_eq!((moved, universe), (20, 28));
+    assert_eq!((moved, universe), (22, 30));
 }
 
 /// The solver and the cap preflight use one universe, so they agree on every row's owners.
