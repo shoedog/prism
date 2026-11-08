@@ -78,6 +78,8 @@ mod parameter_slots_parity_tests;
 pub mod query;
 mod reaching;
 #[cfg(test)]
+mod recorded_kill_tests;
+#[cfg(test)]
 mod required_parameter_tests;
 #[cfg(test)]
 mod s1c_label_tests;

@@ -10,12 +10,19 @@ pub(super) enum Pass {
     CensusLogged,
     /// The trace's control: main's rules plus S1a, no census.
     NoCensus,
+    /// The trace's second control (#674): production, but recorded defs kill by path equality as on main.
+    CensusEqualKills,
 }
 
 impl Pass {
     /// Whether the census mechanisms apply (every pass but the control).
     pub(super) fn census(self) -> bool {
         self != Pass::NoCensus
+    }
+
+    /// Whether a recorded def of a JS/TS/TSX owner kills by `affects` (#674).
+    pub(super) fn recorded_affects(self) -> bool {
+        matches!(self, Pass::Census | Pass::CensusLogged)
     }
 }
 
@@ -75,10 +82,54 @@ pub(super) fn traced(
         Pass::CensusLogged,
         &mut facts,
     );
-    let Some(census) = facts.filter(|c| !c.is_inert()) else {
+    let RdOutcome::Available(head) = &outcome else {
         return outcome;
     };
-    let RdOutcome::Available(head) = &outcome else {
+    // #674: a JS/TS/TSX edge whose label changes when recorded defs kill by path equality only was moved
+    // by a recorded `affects` kill (the control keeps the census, so census moves are not claimed).
+    // Edges it names are skipped below: one line per moved edge.
+    let by_affects = parsed
+        .language
+        .is_js_family()
+        .then(|| {
+            reaching_definitions_impl(
+                parsed,
+                func_node,
+                defs,
+                dfg_edges,
+                exact_edges,
+                file_cfg_edges,
+                Pass::CensusEqualKills,
+                &mut None,
+            )
+        })
+        .and_then(|outcome| match outcome {
+            RdOutcome::Available(equal) => Some(equal),
+            _ => None,
+        });
+    let mut named = BTreeSet::new();
+    let mut named_exact = BTreeSet::new();
+    if let Some(equal) = &by_affects {
+        for edge in dfg_edges {
+            let key = (edge.from.clone(), edge.to.clone());
+            if let (Some(new), old) = (head.labels.get(&key), equal.labels.get(&key)) {
+                if old != Some(new) {
+                    census_trace::emit(out, census_trace::KILL_AFFECTS, edge);
+                    named.insert(key);
+                }
+            }
+        }
+        for edge in exact_edges {
+            let key = ExactFlowEdge::from_legacy(edge);
+            if let (Some(new), old) = (head.exact_labels.get(&key), equal.exact_labels.get(&key)) {
+                if old != Some(new) {
+                    census_trace::emit(out, census_trace::KILL_AFFECTS, edge);
+                    named_exact.insert(key);
+                }
+            }
+        }
+    }
+    let Some(census) = facts.filter(|c| !c.is_inert()) else {
         return outcome;
     };
     let RdOutcome::Available(base) = reaching_definitions_impl(
@@ -96,7 +147,7 @@ pub(super) fn traced(
     for edge in dfg_edges {
         let key = (edge.from.clone(), edge.to.clone());
         if let (Some(new), old) = (head.labels.get(&key), base.labels.get(&key)) {
-            if old != Some(new) {
+            if old != Some(new) && !named.contains(&key) {
                 census_trace::emit(out, &census.mechanism(edge, *new), edge);
             }
         }
@@ -104,7 +155,7 @@ pub(super) fn traced(
     for edge in exact_edges {
         let key = ExactFlowEdge::from_legacy(edge);
         if let (Some(new), old) = (head.exact_labels.get(&key), base.exact_labels.get(&key)) {
-            if old != Some(new) {
+            if old != Some(new) && !named_exact.contains(&key) {
                 census_trace::emit(out, &census.mechanism(edge, *new), edge);
             }
         }

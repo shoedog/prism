@@ -227,7 +227,13 @@ fn differential_external_fixtures() {
     eprintln!("external definition differential: {owners} RD invocations per mode");
 }
 
-fn site(id: u32, path: AccessPath, line: usize, start_byte: usize, alias_derived: bool) -> DefSite {
+pub(super) fn site(
+    id: u32,
+    path: AccessPath,
+    line: usize,
+    start_byte: usize,
+    alias_derived: bool,
+) -> DefSite {
     DefSite {
         id: DefId(id),
         path,
