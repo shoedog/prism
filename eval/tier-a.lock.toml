@@ -1,24 +1,24 @@
 [prism]
 sha_aliases = [
-    "db066ef3762eb3b94a8c6d7b84ebb83b4fe694b2",
+    "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1",
 ]
-harness_sha = "db066ef3762eb3b94a8c6d7b84ebb83b4fe694b2"
+harness_sha = "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1"
 
 [prism.closure]
-digest = "sha256:bc43b0907c3b9a7f982fcf1449760ec35ff84382eaf1449ed306c0dc2860e2c3"
-manifest = "eval/closure/prism-corpus-bc43b0907c3b.tsv"
+digest = "sha256:8c44cbe491295dd24e33ef70f89ae6b029fdfa4346ad3af0c1f7afb628f999bf"
+manifest = "eval/closure/prism-corpus-8c44cbe49129.tsv"
 
 [prism.policy]
-digest = "sha256:402d23439353842a958958953d3817612a70b52642c376cd6c261b3977a2a572"
-manifest = "eval/closure/policy-402d23439353.json"
+digest = "sha256:afda887f9d874f092814acfc937297cd7d9cc5ed693a868cfe758341ac547982"
+manifest = "eval/closure/policy-afda887f9d87.json"
 
 [prism.population]
-digest = "sha256:8853ee89bc1148378750546b916b33f3499a0bfef33c1e8ec5e09fed2f6a64dd"
-manifest = "eval/closure/prism-population-8853ee89bc11.json"
+digest = "sha256:b1cfdce6c7529c87a93bd89b7c351a902ab262ac36ce1c22b4aac6b2a30c9a0c"
+manifest = "eval/closure/prism-population-b1cfdce6c752.json"
 
 [prism.snapshot]
-path = "eval/snapshots/prism-db066ef3762e.json"
-digest = "sha256:4002324b536b6456d83c9eb0333e2ae36a50f6d7b3bc0405e04a94cbe6c86403"
+path = "eval/snapshots/prism-2b0e26270574.json"
+digest = "sha256:16f8d51dfceb7110fa975dbf5f60e6c61c47525faa33e57e2743b6fde242e267"
 
 [prism.sample]
 schema = 1
@@ -39,10 +39,10 @@ version = "rust-analyzer 1.94.0 (4a4ef493 2026-03-02)"
 features = "all"
 
 [prism.sut]
-sha = "db066ef3762eb3b94a8c6d7b84ebb83b4fe694b2"
-digest = "sha256:089518a77144ad823a851a919cc393dd7e5d9c00bf326a9556ced47ac3130585"
-inputs = "eval/closure/sut-inputs-2720aed4eae3.tsv"
-archive = "/Users/wesleyjinks/Library/Caches/prism/tier-a/sut/089518a77144ad823a851a919cc393dd7e5d9c00bf326a9556ced47ac3130585/prism"
+sha = "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1"
+digest = "sha256:40af684f1917a9079bfc67dd00e98cf40de1f81bceb246cacd5771c4670d1d24"
+inputs = "eval/closure/sut-inputs-91613c837f46.tsv"
+archive = "/Users/wesleyjinks/Library/Caches/prism/tier-a/sut/40af684f1917a9079bfc67dd00e98cf40de1f81bceb246cacd5771c4670d1d24/prism"
 
 [prism.runtime]
 python = "3.12.13"
@@ -54,8 +54,8 @@ rust_toolchain = "absent"
 cargo_config = "absent"
 
 [prism.data]
-fixtures = "sha256:f8bfdb4c93bd5a52986125edd15b1692586cd0e64ddac6eda6098be569597e8e"
-pinned_probes = "sha256:7bf76644bd62a7e5dfdf92fee0a0696943bc6a790c91dba83150486d9ff24437"
+fixtures = "sha256:6b54665e752c135af2639a8b564952a060f6ad3e09bcbec4b47e3f46695e0129"
+pinned_probes = "sha256:05d762f00bc641dcceaf38233d9bddd79c5fd14afb933b318f9709c329c9838e"
 
 [prism.data.adjudications]
 path = "eval/adjudications.jsonl"
@@ -75,16 +75,16 @@ allow = [
 forbid_read_outside_allow = true
 
 [prism.env.values]
-PATH = "/Users/wesleyjinks/code/slicing-tiera/eval/.venv/bin:/Users/wesleyjinks/.local/share/mise/installs/node/lts/bin:/Users/wesleyjinks/.local/share/mise/installs/go/1.26.2/bin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/Users/wesleyjinks/.cargo/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin"
+PATH = "/Users/wesleyjinks/code/prism-717/eval/.venv/bin:/Users/wesleyjinks/.local/share/mise/installs/node/lts/bin:/Users/wesleyjinks/.local/share/mise/installs/go/1.26.2/bin:/Users/wesleyjinks/.bun/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/wesleyjinks/.local/bin:/Users/wesleyjinks/bin:/Users/wesleyjinks/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/bin:/Users/wesleyjinks/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin:/opt/local/bin:/Users/wesleyjinks/.cargo/bin:/Users/wesleyjinks/Library/Application Support/JetBrains/Toolbox/scripts:/Users/wesleyjinks/.orbstack/bin"
 HOME = "/Users/wesleyjinks"
 TMPDIR = "/var/folders/mq/jvvlwk513zq0v6xsh8bjm7280000gn/T/"
 LANG = "C.UTF-8"
 
 [prism.baseline_report]
-path = "docs/eval/tier-a/2026-10-30-prism-db066ef3762eb3b94a8c6d7b84ebb83b4fe694b2-db066ef3762eb3b94a8c6d7b84ebb83b4fe694b2.json"
-digest = "sha256:0ff8a3c880e30766aa2623077f9f00d5a190c58617ee757d8b1bb799f944a5d4"
+path = "docs/eval/tier-a/2026-11-07-prism-2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1-2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1.json"
+digest = "sha256:524d4ec98251313a71fb904cad91a18e3b96952e75c28f8fe998a47246a54326"
 
 [prism.blessed]
 by = "bootstrap"
-at = "2026-10-30"
-sut_sha = "db066ef3762eb3b94a8c6d7b84ebb83b4fe694b2"
+at = "2026-11-07"
+sut_sha = "2b0e2627057415dbb6a667e2e3a5f3f66a6acfe1"
