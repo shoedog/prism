@@ -47,6 +47,7 @@ fn lines_of(
         .map(|(line, _)| *line)
         .collect()
 }
+
 fn both(
     language: Language,
     template: &str,
@@ -57,9 +58,11 @@ fn both(
     [SlicingAlgorithm::LeftFlow, SlicingAlgorithm::FullFlow]
         .map(|algorithm| (algorithm, lines_of(language, &src, file, diff, algorithm)))
 }
+
 fn set(lines: &[usize]) -> BTreeSet<usize> {
     lines.iter().copied().collect()
 }
+
 #[test]
 fn a_field_condition_never_reaches_a_local_derived_from_a_sibling_field() {
     for template in [
@@ -93,6 +96,7 @@ fn a_field_condition_never_reaches_a_local_derived_from_a_sibling_field() {
         }
     }
 }
+
 #[test]
 fn a_field_condition_in_a_called_or_nested_callee_never_reaches_a_sibling_local() {
     // Same-file caller passes a whole object; the diff is on the callee's field condition.
@@ -118,6 +122,7 @@ fn a_field_condition_in_a_called_or_nested_callee_never_reaches_a_sibling_local(
         }
     }
 }
+
 #[test]
 fn a_tsx_component_prop_condition_never_reaches_a_local_derived_from_a_sibling_prop() {
     let src = "export function Card(props: CardProps) {\n  const html = props.rawHtml;\n  if (props.title) {\n    track();\n  }\n  sink(html);\n  return <div />;\n}\n";
@@ -136,6 +141,7 @@ fn a_tsx_component_prop_condition_never_reaches_a_local_derived_from_a_sibling_p
         set(&[1, 2, 3, 7, 8])
     );
 }
+
 #[test]
 fn controls_whole_parameter_bare_formal_and_same_field_reads_are_unchanged() {
     let derived =
@@ -202,6 +208,7 @@ fn controls_whole_parameter_bare_formal_and_same_field_reads_are_unchanged() {
         );
     }
 }
+
 #[test]
 fn controls_other_languages_field_conditions_are_unchanged() {
     let c = "void h(struct s *p) {\n  int v = p->z;\n  if (p->x) {\n    a();\n  }\n  sink(v);\n}\n";
@@ -221,6 +228,7 @@ fn controls_other_languages_field_conditions_are_unchanged() {
         set(&[1, 2, 3, 5])
     );
 }
+
 /// LeftFlow, FullFlow and ConditionedSlice (`condition`) line sets for one fixture.
 fn three(
     language: Language,
@@ -266,6 +274,7 @@ fn three(
     out.push(("ConditionedSlice".into(), conditioned));
     out
 }
+
 #[test]
 fn a_condition_on_a_formal_fed_by_a_field_argument_keeps_its_dfg_answer() {
     // sol r1 (WRONG): `q` receives `p.x` from a member-only caller. Its backward walk
@@ -284,6 +293,7 @@ fn a_condition_on_a_formal_fed_by_a_field_argument_keeps_its_dfg_answer() {
         }
     }
 }
+
 #[test]
 fn a_field_condition_of_the_own_formal_still_takes_the_textual_fallback() {
     // Positive side of the narrowed cut: `if (p.x)` on the callable's own member-only
@@ -300,6 +310,7 @@ fn a_field_condition_of_the_own_formal_still_takes_the_textual_fallback() {
         }
     }
 }
+
 #[test]
 fn disclosed_residual_a_local_derived_from_the_conditions_own_field_is_not_reached() {
     // Opus r1 S1: pinned at the pre-#390 output. #390's unbounded walk reached `sink(k)`
@@ -311,6 +322,7 @@ fn disclosed_residual_a_local_derived_from_the_conditions_own_field_is_not_reach
         }
     }
 }
+
 #[test]
 fn a_field_read_inside_a_call_argument_or_assignment_keeps_the_dfg_answer() {
     // Opus r2 W1 (WRONG): pre-#390 already had Use nodes for a field read inside a call
@@ -349,6 +361,7 @@ fn a_field_read_inside_a_call_argument_or_assignment_keeps_the_dfg_answer() {
         }
     }
 }
+
 #[test]
 fn positive_call_shaped_conditions_keep_their_dfg_answer() {
     // Opus r2 S1: a plain local inside a call condition keeps its DFG use (line 6), and

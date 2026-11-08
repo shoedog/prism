@@ -1,6 +1,8 @@
 //! PR #390 round-1 fold: write census, escaped identifiers, exact-span Uses, `with`
 //! bodies, erased type positions, declaration-line reads, Bare classification of reads
-//! inside a member object, deeper-write prefix kills, and the FullFlow composition leak.
+//! inside a member object, and deeper-write prefix kills. The slice-level FullFlow/LeftFlow
+//! tests of the same round call the review layer and live in
+//! `crates/prism-review/src/algorithms/member_only_param_r1_slice_tests.rs`.
 
 use super::member_only_param_tests::{
     base_defs, edge, field_edges, for_each_language, graph, parse, render, JS_TS,
@@ -16,9 +18,7 @@ fn has_edge_to(g: &DataFlowGraph, path: &str, line: usize) -> bool {
         .any(|e| e.0 == "p" && e.2 == path && e.3 == line)
 }
 
-// 1. FullFlow sibling leak -------------------------------------------------------------
-
-// 2. Write census ----------------------------------------------------------------------
+// 1. Write census ----------------------------------------------------------------------
 
 #[test]
 fn every_member_write_form_suppresses_its_path_but_not_a_sibling() {
@@ -81,7 +81,7 @@ fn writes_to_another_base_or_a_longer_sibling_do_not_suppress() {
     }
 }
 
-// 3. Escaped identifiers fail closed ---------------------------------------------------
+// 2. Escaped identifiers fail closed ---------------------------------------------------
 
 #[test]
 fn a_callable_with_an_escaped_identifier_gets_no_member_only_def() {
@@ -119,7 +119,7 @@ fn a_callable_with_an_escaped_identifier_gets_no_member_only_def() {
     }
 }
 
-// 4. Exact-span Uses -------------------------------------------------------------------
+// 3. Exact-span Uses -------------------------------------------------------------------
 
 #[test]
 fn named_owner_projection_use_sits_at_the_exact_admitted_span() {
@@ -141,7 +141,7 @@ fn named_owner_projection_use_sits_at_the_exact_admitted_span() {
     }
 }
 
-// 5. `with` bodies ----------------------------------------------------------------------
+// 4. `with` bodies ----------------------------------------------------------------------
 
 #[test]
 fn with_body_reads_are_never_projected_for_named_owners() {
@@ -160,7 +160,7 @@ fn with_body_reads_are_never_projected_for_named_owners() {
     }
 }
 
-// 6. Erased type positions -------------------------------------------------------------
+// 5. Erased type positions -------------------------------------------------------------
 
 #[test]
 fn erased_member_type_queries_are_not_reads() {
@@ -203,7 +203,7 @@ fn erased_member_type_queries_are_not_reads() {
     assert!(has_edge_to(&g, "p.x", 2));
 }
 
-// 7. First-line and default reads ------------------------------------------------------
+// 6. First-line and default reads ------------------------------------------------------
 
 #[test]
 fn declaration_line_body_reads_are_projected_and_defaults_are_not() {
@@ -263,7 +263,7 @@ fn declaration_line_body_reads_are_projected_and_defaults_are_not() {
     );
 }
 
-// 8. Bare read inside a member object --------------------------------------------------
+// 7. Bare read inside a member object --------------------------------------------------
 
 #[test]
 fn a_bare_read_inside_a_member_object_makes_the_formal_bare() {
@@ -309,7 +309,7 @@ fn a_bare_read_inside_a_member_object_makes_the_formal_bare() {
     }
 }
 
-// 9. Prefix read after a deeper write --------------------------------------------------
+// 8. Prefix read after a deeper write --------------------------------------------------
 
 #[test]
 fn a_deeper_write_also_suppresses_the_prefix_path() {

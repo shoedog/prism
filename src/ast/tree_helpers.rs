@@ -7,8 +7,9 @@ use super::ParsedFile;
 use crate::languages::Language;
 use tree_sitter::Node;
 
-/// `pub(crate)` (P9): reused by `framework_entries` for the same
-/// parenthesized-expression unwrapping `algorithms/taint.rs` also does.
+/// `pub` since #734 PR 1a (was `pub(crate)`, P9): used by `framework_entries` and by
+/// prism-review's taint (`algorithms/taint/`) for the same parenthesized-expression
+/// unwrapping.
 pub fn unwrap_parenthesized(mut node: Node<'_>) -> Node<'_> {
     loop {
         if node.kind() != "parenthesized_expression" {

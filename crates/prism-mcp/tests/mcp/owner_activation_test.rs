@@ -1,5 +1,6 @@
 //! The prism-mcp binary half of the owner-admission coverage (moved from
-//! tests/integration/owner_activation_test.rs; the prism CLI half stays there).
+//! tests/integration/owner_activation_test.rs; the prism CLI half lives in
+//! `crates/prism-review/tests/cli/owner_activation_test.rs`).
 use assert_cmd::Command;
 
 fn admission(error: &str) -> serde_json::Value {

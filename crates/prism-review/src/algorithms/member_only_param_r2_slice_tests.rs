@@ -41,6 +41,7 @@ fn lines_of(
         .map(|(line, _)| *line)
         .collect()
 }
+
 fn full_flow(language: Language, template: &str, diff: &[usize]) -> BTreeSet<usize> {
     let src = render(language, template, "p");
     lines_of(
@@ -51,6 +52,7 @@ fn full_flow(language: Language, template: &str, diff: &[usize]) -> BTreeSet<usi
         SlicingAlgorithm::FullFlow,
     )
 }
+
 #[test]
 fn fullflow_through_an_upstream_argument_never_reaches_sibling_fields() {
     // sol W1: `run(q) { h(q) }` feeds the formal; main gives exactly [4,5,6,9].
@@ -72,6 +74,7 @@ fn fullflow_through_an_upstream_argument_never_reaches_sibling_fields() {
         );
     }
 }
+
 #[test]
 fn fullflow_through_a_same_file_caller_never_reaches_sibling_fields() {
     // Opus ff1: `inner(o)` passes a variable; main gives [1,2,4,5].
@@ -95,6 +98,7 @@ fn fullflow_through_a_same_file_caller_never_reaches_sibling_fields() {
         );
     }
 }
+
 #[test]
 fn fullflow_tsx_component_called_directly_never_reaches_a_sibling_prop() {
     let card = "export function Card(props: any) {\n  const title = props.title.trim();\n  const html = props.rawHtml;\n  return <div dangerouslySetInnerHTML={{ __html: html }}>{title}</div>;\n}\n";
@@ -118,6 +122,7 @@ fn fullflow_tsx_component_called_directly_never_reaches_a_sibling_prop() {
     assert_eq!(called, alone, "a direct caller must not change the slice");
     assert!(!called.contains(&3), "{called:?}");
 }
+
 #[test]
 fn fullflow_controls_no_caller_and_whole_parameter_seeds_are_unchanged() {
     // No caller: direct field diff.

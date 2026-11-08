@@ -141,7 +141,7 @@ fn every_readme_prism_invocation_parses() {
     }
     assert!(
         failures.is_empty(),
-        "README examples that fail to parse against prism::cli::Cli (parse-only, never executed):\n{}",
+        "README examples that fail to parse against prism_review::cli::Cli (parse-only, never executed):\n{}",
         failures.join("\n")
     );
 }
