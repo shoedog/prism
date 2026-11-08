@@ -123,7 +123,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v79: CommonJS module-as-function and member calls bind to proven exports (#598, CPG v137).
 // v80: Rust `pub(in path)` restricts are resolved after population (#710, CPG v161).
 // v81: Rust self-import module aliases and macro-argument path anchors (#724, CPG v162).
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 81;
+// v82: Rust `#[path]` modules resolve where rustc loads them (#765, CPG v163).
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 82;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 pub const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -761,7 +762,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 81);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 82);
     }
 
     #[test]
