@@ -39,6 +39,7 @@
 //! items are not. See [`scopes::ModuleCtx`] re-parenting in the walk.
 
 mod builder;
+mod restrict;
 mod scopes;
 mod walk;
 
