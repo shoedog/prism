@@ -12,6 +12,8 @@
 //! * the read resolves to the declaration the statement leaves the written variable bound to (a
 //!   later `if err := ..` or block-local redeclaration of the name is another variable; a name
 //!   that is not an explicit declaration gives no sink);
+//! * the def's name is read by a `return` of its carrier or is a named result of it (a local the
+//!   literal never returns feeds nothing);
 //! * the def's nearest enclosing callable is the sink literal, or an in-place literal nested in it
 //!   whose call is itself in a `return` of the sink (recursively), never a `go`/`defer` or other
 //!   nested literal;
@@ -21,7 +23,7 @@
 use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingId};
 use crate::cpg::{bound_literal_calls, peel, GoLiteralIdents};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
 struct Sink {
@@ -29,7 +31,7 @@ struct Sink {
     literal: (usize, usize),
     /// Start bytes of the callables a def may sit in: the literal and the in-place literals it
     /// returns out of (recursively).
-    carriers: Vec<usize>,
+    carriers: Vec<(usize, BTreeSet<String>)>,
     statement: (usize, usize),
     /// The `for` statements that contain the statement.
     loops: Vec<(usize, usize)>,
@@ -72,7 +74,7 @@ impl ReturnSinks {
                     if let Some((names, statement)) = statement_of(parsed, facts, call) {
                         out.sinks.push(Sink {
                             literal: (node.start_byte(), node.end_byte()),
-                            carriers: carriers(node),
+                            carriers: carriers(parsed, node),
                             statement: (statement.start_byte(), statement.end_byte()),
                             loops: loops_around(statement),
                             names,
@@ -103,7 +105,9 @@ impl ReturnSinks {
             s.names
                 .get(name)
                 .is_some_and(|d| used == BindingId::Declaration(*d))
-                && s.carriers.contains(&callable)
+                && s.carriers
+                    .iter()
+                    .any(|(c, returned)| *c == callable && returned.contains(name))
                 && !(s.literal.0 <= use_start && use_start < s.literal.1)
                 && (use_start >= s.statement.0
                     || s.loops
@@ -123,46 +127,69 @@ fn unparen(mut node: Node<'_>) -> Node<'_> {
     node
 }
 
-/// `literal` and the in-place literals returned, directly or through further returns, out of it.
-fn carriers(literal: Node<'_>) -> Vec<usize> {
-    let mut out = vec![literal.start_byte()];
+/// `literal` and the in-place literals returned, directly or through further returns, out of it,
+/// each with the names its `return` statements read (not crossing nested literals) and its named
+/// results (a bare `return` returns them).
+fn carriers(parsed: &ParsedFile, literal: Node<'_>) -> Vec<(usize, BTreeSet<String>)> {
+    let mut out = Vec::new();
     let mut todo = vec![literal];
     while let Some(callable) = todo.pop() {
-        let Some(body) = callable.child_by_field_name("body") else {
-            continue;
-        };
-        let mut stack = vec![body];
-        while let Some(node) = stack.pop() {
-            if node.kind() == "func_literal" {
-                continue;
-            }
-            if node.kind() == "return_statement" {
-                let mut values = Vec::new();
-                let mut cursor = node.walk();
-                for child in node.named_children(&mut cursor) {
-                    if child.kind() == "expression_list" {
-                        let mut inner = child.walk();
-                        values.extend(child.named_children(&mut inner));
-                    } else {
-                        values.push(child);
-                    }
+        let mut returned = BTreeSet::new();
+        if let Some(results) = callable
+            .child_by_field_name("result")
+            .filter(|r| r.kind() == "parameter_list")
+        {
+            let mut cursor = results.walk();
+            for param in results.named_children(&mut cursor) {
+                let mut names = param.walk();
+                for name in param.children_by_field_name("name", &mut names) {
+                    returned.insert(parsed.node_text(&name).to_owned());
                 }
-                for value in values {
-                    let value = unparen(value);
-                    let callee = (value.kind() == "call_expression")
-                        .then(|| value.child_by_field_name("function").map(unparen))
-                        .flatten()
-                        .filter(|f| f.kind() == "func_literal");
-                    if let Some(inner) = callee {
-                        out.push(inner.start_byte());
-                        todo.push(inner);
-                    }
-                }
-                continue;
             }
-            let mut cursor = node.walk();
-            stack.extend(node.named_children(&mut cursor));
         }
+        if let Some(body) = callable.child_by_field_name("body") {
+            let mut stack = vec![body];
+            while let Some(node) = stack.pop() {
+                if node.kind() == "func_literal" {
+                    continue;
+                }
+                if node.kind() == "return_statement" {
+                    let mut inner = vec![node];
+                    while let Some(n) = inner.pop() {
+                        if n.kind() == "func_literal" {
+                            continue;
+                        }
+                        if n.kind() == "identifier" {
+                            returned.insert(parsed.node_text(&n).to_owned());
+                        }
+                        let mut cursor = n.walk();
+                        inner.extend(n.named_children(&mut cursor));
+                    }
+                    let mut cursor = node.walk();
+                    for child in node.named_children(&mut cursor) {
+                        let mut values = vec![child];
+                        if child.kind() == "expression_list" {
+                            let mut inner = child.walk();
+                            values = child.named_children(&mut inner).collect();
+                        }
+                        for value in values {
+                            let value = unparen(value);
+                            let callee = (value.kind() == "call_expression")
+                                .then(|| value.child_by_field_name("function").map(unparen))
+                                .flatten()
+                                .filter(|f| f.kind() == "func_literal");
+                            if let Some(inner) = callee {
+                                todo.push(inner);
+                            }
+                        }
+                    }
+                    continue;
+                }
+                let mut cursor = node.walk();
+                stack.extend(node.named_children(&mut cursor));
+            }
+        }
+        out.push((callable.start_byte(), returned));
     }
     out
 }
