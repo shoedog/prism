@@ -10,7 +10,8 @@
 //! review runner, SARIF and targets items to `prism_review::api`.
 //!
 //! Every struct and enum reachable through `prism::api` defined in `api` or `finding_confidence`, and
-//! every one reachable through `prism_review::api` defined in `targets` or `output::sarif`, is
+//! every one reachable through `prism_review::api` defined in its own `api` module, `targets` or
+//! `output::sarif`, is
 //! `#[non_exhaustive]`: construct with `new`/`Default`/builders and assign public fields, never with a
 //! struct literal or exhaustive `match` (`SarifInputs` has a builder; `TargetsMeta` is `Default` +
 //! field assignment; `TargetsDocument` and its nested types are produced by `project` and

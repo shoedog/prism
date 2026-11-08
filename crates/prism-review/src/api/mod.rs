@@ -13,6 +13,7 @@ pub use run::{
 
 pub use crate::output::sarif::{to_sarif, SarifInputs};
 pub use crate::targets::{project, TargetsDocument, TargetsMeta};
+
 /// Run a complete diff-driven review through the stable facade: load inputs, build the CPG,
 /// run the requested algorithms, and return both the inputs and the annotated findings.
 ///
