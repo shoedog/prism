@@ -15,10 +15,10 @@ use tree_sitter::Node;
 /// Per identifier name: for each occurrence, its start byte and whether it is
 /// a plain callee of a call outside any literal and outside `go`/`defer`.
 #[derive(Default)]
-pub(super) struct Idents(BTreeMap<String, Vec<(usize, bool)>>);
+pub(crate) struct Idents(BTreeMap<String, Vec<(usize, bool)>>);
 
 impl Idents {
-    pub(super) fn new(parsed: &ParsedFile, body: Node<'_>) -> Self {
+    pub(crate) fn new(parsed: &ParsedFile, body: Node<'_>) -> Self {
         let mut out = Self::default();
         out.scan(parsed, body, false);
         out
@@ -45,6 +45,17 @@ impl Idents {
         }
     }
 
+    /// Start bytes of the callee identifiers of the plain calls of `name`, bound at `decl`.
+    fn call_starts(&self, name: &str, decl: usize) -> Vec<usize> {
+        self.0.get(name).map_or_else(Vec::new, |occurrences| {
+            occurrences
+                .iter()
+                .filter(|&&(at, _)| at != decl)
+                .map(|&(at, _)| at)
+                .collect()
+        })
+    }
+
     /// `name` is bound at `decl` and every other occurrence is a later plain
     /// callee call.
     fn only_called(&self, name: &str, decl: usize, literal_end: usize) -> bool {
@@ -62,7 +73,7 @@ fn under_go_or_defer(call: Node<'_>) -> bool {
 }
 
 /// Outer parentheses do not change what a literal is.
-fn peel(mut node: Node<'_>) -> Node<'_> {
+pub(crate) fn peel(mut node: Node<'_>) -> Node<'_> {
     while let Some(p) = node
         .parent()
         .filter(|p| p.kind() == "parenthesized_expression")
@@ -95,6 +106,40 @@ fn bound_name<'t>(parsed: &ParsedFile, literal: Node<'t>) -> Option<Node<'t>> {
         _ => return None,
     };
     (name.kind() == "identifier" && parsed.node_text(&name) != "_").then_some(name)
+}
+
+/// The name `node` (a literal, parentheses peeled) is bound to by a single `:=` / `var`, when that
+/// name is only ever called afterwards (`f(..)`, outside any literal and `go`/`defer`). `body` is
+/// the owner's body, the scope the occurrences are counted over.
+fn only_called_name<'t>(
+    parsed: &ParsedFile,
+    node: Node<'t>,
+    literal_end: usize,
+    body: Node<'_>,
+    idents: &mut Option<Idents>,
+) -> Option<Node<'t>> {
+    let name = bound_name(parsed, node)?;
+    let idents = idents.get_or_insert_with(|| Idents::new(parsed, body));
+    idents
+        .only_called(parsed.node_text(&name), name.start_byte(), literal_end)
+        .then_some(name)
+}
+
+/// The start bytes of the callee identifiers of every call of a literal bound once and only
+/// called (the `AtCalls` shape of `mode`); empty for any other literal.
+pub(crate) fn bound_literal_calls(
+    parsed: &ParsedFile,
+    literal: Node<'_>,
+    body: Node<'_>,
+    idents: &mut Option<Idents>,
+) -> Vec<usize> {
+    let Some(name) = only_called_name(parsed, peel(literal), literal.end_byte(), body, idents)
+    else {
+        return Vec::new();
+    };
+    idents.as_ref().map_or_else(Vec::new, |i| {
+        i.call_starts(parsed.node_text(&name), name.start_byte())
+    })
 }
 
 /// Mode of an outermost literal, and the name it is bound to (`AtCalls`).
@@ -131,9 +176,6 @@ pub(super) fn mode(
             (at, None)
         }
         "expression_list" => {
-            let Some(name) = bound_name(parsed, node) else {
-                return (Mode::Escaping, None);
-            };
             let Some(body) = body_id else {
                 return (Mode::Escaping, None);
             };
@@ -144,12 +186,9 @@ pub(super) fn mode(
                     None => return (Mode::Escaping, None),
                 }
             }
-            let text = parsed.node_text(&name).to_owned();
-            let idents = idents.get_or_insert_with(|| Idents::new(parsed, root));
-            if idents.only_called(&text, name.start_byte(), literal.end_byte()) {
-                (Mode::AtCalls, Some(text))
-            } else {
-                (Mode::Escaping, None)
+            match only_called_name(parsed, node, literal.end_byte(), root, idents) {
+                Some(name) => (Mode::AtCalls, Some(parsed.node_text(&name).to_owned())),
+                None => (Mode::Escaping, None),
             }
         }
         _ => (Mode::Escaping, None),

@@ -242,7 +242,14 @@ impl<'a> ScopeFacts<'a> {
         }
         // A formal or named result declares a fresh variable: it writes no storage, so neither
         // the def's line nor the use's can make it a write through a pointer (#694 slice B).
-        if node.parent().is_some_and(is_slice_b_declaration) {
+        // Another span of the path coalesced onto this line that is not a plain write (`*v = 1`
+        // beside the formal `v`) is a store the formal does not own: it takes the ordinary checks.
+        if node.parent().is_some_and(is_slice_b_declaration)
+            && coalesced
+                .iter()
+                .filter(|i| self.defs[**i].path == *path)
+                .all(|i| self.def_is_plain_variable_write(self.defs[*i].start_byte))
+        {
             return Some((*declaration, index, true));
         }
         // Every lvalue of the path attributed to this line is classified by its
@@ -457,7 +464,12 @@ impl<'a> ScopeFacts<'a> {
                                 *other,
                                 o.start,
                             )
-                            && !built.params.returned_out(&path.base, def_start, o.start))
+                            && !built.params.returned_out(
+                                self.parsed,
+                                &path.base,
+                                def_start,
+                                o.start,
+                            ))
                 });
         if drop {
             stats.dfg_pruned_scope += 1;

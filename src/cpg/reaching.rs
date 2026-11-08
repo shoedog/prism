@@ -28,6 +28,7 @@ mod contribution;
 mod go_aggregate;
 mod go_header_writes;
 mod go_literal_mode;
+pub(crate) use go_literal_mode::{bound_literal_calls, peel, Idents as GoLiteralIdents};
 mod go_recall_scope;
 mod recall_stats;
 mod route;

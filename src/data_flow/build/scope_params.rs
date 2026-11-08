@@ -11,15 +11,18 @@
 //!   (`arg := v + 1; func(v int){..}(arg)`), or a later call from any scope supply the value, and
 //!   no argument is bound to the formal. Every def of the spelling that main carried stays; a def
 //!   that is itself a formal or result of another declaration is a new def and drops.
-//! * a formal of a literal passed directly as a call argument (`sort.Slice`, `t.Run`): only the
-//!   callee calls it, so only a def whose variable is in scope where the literal is created can be
-//!   the value it passes.
+//! * a formal of a literal passed directly as an argument whose callee only calls it during the
+//!   call (`sort.Slice`, `t.Run`, `filepath.Walk`, `x.Visit` as statements): only a def whose
+//!   variable is in scope where the literal is created can be the value it passes. Any other
+//!   argument-list literal keeps every ordinary def: a conversion (`http.HandlerFunc(func..)`),
+//!   `append(fs, func..)` or a wrapper whose result is used hands the literal back to the owner,
+//!   and a callee that is a literal or a name bound in the owner may call it with its own values.
+//!   A callee that stores the literal (`s.register(func..)`, then `s.cb(v)`) is a disclosed limit.
 //! * a named result read inside a callable nested in the one that declares it: `return e` assigns
 //!   the result, and a deferred literal reads it afterwards, so the def of `e` reaches the read by
 //!   name only. A read in the declaring callable's own body is reached by the writes S sees.
-//! * a def inside a literal called in place whose call is on the right of an assignment or
-//!   declaration naming the same variable (`err := func() error { err := do(); return err }()`):
-//!   the value comes out through the call result, which no edge connects.
+//! * a def that leaves a literal through its call result (`return_sink.rs`).
+use super::return_sink::ReturnSinks;
 use crate::ast::ParsedFile;
 use crate::cpg::binding_facts::{BindingFacts, BindingId};
 use std::cell::RefCell;
@@ -39,17 +42,10 @@ enum Form {
     },
 }
 
-/// A literal called in place whose call is on the right of a statement that names variables.
-struct ReturnSink {
-    start: usize,
-    end: usize,
-    names: BTreeSet<String>,
-}
-
 /// Per owner: the forms of its formal and result declarations, by declaration index.
 pub(super) struct ParamFacts {
     by_declaration: BTreeMap<usize, Form>,
-    sinks: Vec<ReturnSink>,
+    sinks: ReturnSinks,
     callables: RefCell<HashMap<usize, Option<usize>>>,
 }
 
@@ -118,19 +114,11 @@ impl SliceBDefs {
 impl ParamFacts {
     pub(super) fn new(parsed: &ParsedFile, owner: Node<'_>, facts: &BindingFacts) -> Self {
         let mut by_declaration = BTreeMap::new();
-        let mut sinks = Vec::new();
         let mut stack = vec![owner];
         while let Some(node) = stack.pop() {
             if CALLABLES.contains(&node.kind()) {
                 let literal = node.kind() == "func_literal";
-                let direct = literal && node.parent().is_some_and(|p| p.kind() == "argument_list");
-                if let Some(names) = literal.then(|| return_sink(parsed, node)).flatten() {
-                    sinks.push(ReturnSink {
-                        start: node.start_byte(),
-                        end: node.end_byte(),
-                        names,
-                    });
-                }
+                let direct = literal && discarded_callback(parsed, facts, node);
                 // A signature name is declared in the body's scope, which starts at the body.
                 let Some(body_start) = node.child_by_field_name("body").map(|b| b.start_byte())
                 else {
@@ -174,7 +162,7 @@ impl ParamFacts {
         }
         Self {
             by_declaration,
-            sinks,
+            sinks: ReturnSinks::new(parsed, owner),
             callables: RefCell::new(HashMap::new()),
         }
     }
@@ -206,15 +194,17 @@ impl ParamFacts {
         }
     }
 
-    /// The def at `def_start` lies inside a literal called in place whose call is on the right of
-    /// an assignment or declaration that names `name`, and the read at `use_start` lies outside it.
-    pub(super) fn returned_out(&self, name: &str, def_start: usize, use_start: usize) -> bool {
-        self.sinks.iter().any(|s| {
-            s.start <= def_start
-                && def_start < s.end
-                && !(s.start <= use_start && use_start < s.end)
-                && s.names.contains(name)
-        })
+    /// The def at `def_start` leaves a literal through its call result into a variable `name`
+    /// that the read at `use_start` can see (`return_sink.rs`).
+    pub(super) fn returned_out(
+        &self,
+        parsed: &ParsedFile,
+        name: &str,
+        def_start: usize,
+        use_start: usize,
+    ) -> bool {
+        self.sinks
+            .carries(name, self.enclosing_callable(parsed, def_start), use_start)
     }
 
     /// Start byte of the innermost function or literal around `byte` (memoized).
@@ -242,46 +232,41 @@ fn enclosing_callable(parsed: &ParsedFile, byte: usize) -> Option<usize> {
     None
 }
 
-/// The variables named on the left of the assignment or declaration whose right side holds the
-/// call of `literal`, when `literal` is the callee of that call (`func(..){..}(args)`, also as
-/// an operand of a larger expression or the init of an `if`/`switch`).
-fn return_sink(parsed: &ParsedFile, literal: Node<'_>) -> Option<BTreeSet<String>> {
-    let call = literal.parent().filter(|p| p.kind() == "call_expression")?;
-    if call.child_by_field_name("function")?.id() != literal.id() {
-        return None;
+/// `literal` is an argument of a call whose result is discarded (a whole statement, or under
+/// `go`/`defer`) and whose callee is neither a literal nor a name bound in the owner: the callee
+/// only calls it during the call. Anything else may hand it back or call it with its own values.
+fn discarded_callback(parsed: &ParsedFile, facts: &BindingFacts, literal: Node<'_>) -> bool {
+    let Some(call) = literal
+        .parent()
+        .filter(|p| p.kind() == "argument_list")
+        .and_then(|list| list.parent())
+        .filter(|c| c.kind() == "call_expression")
+    else {
+        return false;
+    };
+    if !call.parent().is_some_and(|p| {
+        matches!(
+            p.kind(),
+            "expression_statement" | "go_statement" | "defer_statement"
+        )
+    }) {
+        return false;
     }
-    let mut child = call;
-    while let Some(node) = child.parent() {
-        let (left, right) = match node.kind() {
-            "short_var_declaration" | "assignment_statement" => ("left", "right"),
-            "var_spec" => ("name", "value"),
-            k if k == "block"
-                || k == "func_literal"
-                || k.ends_with("_statement")
-                || k.ends_with("_declaration") =>
-            {
-                return None;
-            }
-            _ => {
-                child = node;
-                continue;
-            }
+    let Some(mut callee) = call.child_by_field_name("function") else {
+        return false;
+    };
+    while callee.kind() == "parenthesized_expression" {
+        let Some(inner) = callee.named_child(0) else {
+            return false;
         };
-        let side = node.child_by_field_name(right)?;
-        if !(side.start_byte() <= child.start_byte() && child.end_byte() <= side.end_byte()) {
-            return None;
-        }
-        let mut names = BTreeSet::new();
-        let mut cursor = node.walk();
-        let mut stack: Vec<Node<'_>> = node.children_by_field_name(left, &mut cursor).collect();
-        while let Some(n) = stack.pop() {
-            if n.kind() == "identifier" {
-                names.insert(parsed.node_text(&n).to_owned());
-            }
-            let mut inner = n.walk();
-            stack.extend(n.named_children(&mut inner));
-        }
-        return Some(names);
+        callee = inner;
     }
-    None
+    match callee.kind() {
+        "func_literal" => false,
+        "identifier" => !matches!(
+            facts.binding_at(parsed.node_text(&callee), call.start_byte()),
+            BindingId::Declaration(_)
+        ),
+        _ => true,
+    }
 }
