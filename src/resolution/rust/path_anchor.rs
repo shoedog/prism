@@ -26,40 +26,26 @@ pub(crate) fn anchored_site(site: &CallSite) -> Option<CallSite> {
 }
 
 /// Refuse what #724 newly admits when the graph cannot vouch for it. Applies to a site
-/// that was anchored (`was_anchored`) or whose path starts with a `{self as m}` alias
-/// name; any other site is returned untouched (ordinary qualified paths are #765's and
-/// #768's pre-existing behaviour, not changed here). Two refusals, each removed by the
-/// fix of its inherited cause:
-/// - a resolved target in a file under a `#[path]` mount the populator misplaced (#765):
-///   it may be a decoy of the file rustc loads;
-/// - a qualified path whose first segment is a module-level `{self as m}` alias while a
-///   block or callable scope between the site and its module also binds `m` in the type
-///   namespace: qualified paths start at the enclosing module and never see that
-///   block-scope binding (#768), so the module-level alias would win where rustc binds
-///   the block's.
+/// whose path starts with a `{self as m}` alias name; any other site is returned
+/// untouched (ordinary qualified paths are #768's pre-existing behaviour, not changed
+/// here). One refusal, removed by the fix of its inherited cause: a qualified path whose
+/// first segment is a module-level `{self as m}` alias while a block or callable scope
+/// between the site and its module also binds `m` in the type namespace: qualified paths
+/// start at the enclosing module and never see that block-scope binding (#768), so the
+/// module-level alias would win where rustc binds the block's.
 pub(crate) fn guard<'a>(
     graph: &ScopeGraph,
     site: &CallSite,
-    was_anchored: bool,
     from: ScopeId,
     out: ResolutionOutcome<'a>,
 ) -> ResolutionOutcome<'a> {
     let name = site.callee_name.as_str();
     let first = name.split_once("::").map(|(first, _)| first);
     let alias_routed = first.is_some_and(|f| graph.self_import_aliases.iter().any(|(_, n)| n == f));
-    if !(was_anchored || alias_routed) || out.resolved.is_empty() {
+    if !alias_routed || out.resolved.is_empty() {
         return out;
     }
-    if alias_routed && first.is_some_and(|f| block_shadows_module_alias(graph, from, f)) {
-        return ResolutionOutcome::dropped(DropReason::UnknownName);
-    }
-    let in_misplaced = |file: &str| {
-        graph
-            .file_paths
-            .get(file)
-            .is_some_and(|id| graph.misplaced_mount_files.contains(id))
-    };
-    if out.resolved.iter().any(|r| in_misplaced(&r.target.file)) {
+    if first.is_some_and(|f| block_shadows_module_alias(graph, from, f)) {
         return ResolutionOutcome::dropped(DropReason::UnknownName);
     }
     out

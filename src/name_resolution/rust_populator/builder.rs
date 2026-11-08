@@ -1,5 +1,6 @@
 //! The populator's mutable build state + scope/binding/edge minting + the
-//! `mod foo;` file-resolution (declaring-directory rule, ambiguity, fail-open).
+//! `mod foo;` file-resolution (declaring-directory rule, `#[path]` placement per
+//! the Rust Reference, ambiguity, fail-open).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -67,9 +68,6 @@ pub(crate) struct Builder<'f> {
     /// `(binding index, path)` of every `pub(in path)` binding, resolved in
     /// `finish()` by [`super::restrict::resolve_restricts`] (#710).
     pending_restricts: Vec<(usize, RawPath)>,
-    /// Module scopes a `#[path]` attribute mounted at a file other than rustc's
-    /// (see [`super::restrict::expected_mount_file`]); no restrict is placed across them.
-    misplaced_mounts: BTreeSet<ScopeId>,
     /// `(scope, name)` of every `{self as name}` import (#724), handed to the graph.
     self_import_aliases: BTreeSet<(ScopeId, String)>,
 }
@@ -103,7 +101,6 @@ impl<'f> Builder<'f> {
             roots_by_path: BTreeMap::new(),
             crate_deps_by_root: BTreeMap::new(),
             pending_restricts: Vec::new(),
-            misplaced_mounts: BTreeSet::new(),
             self_import_aliases: BTreeSet::new(),
         }
     }
@@ -111,11 +108,6 @@ impl<'f> Builder<'f> {
     /// Record the `{self as name}` import just walked in `scope` (#724).
     pub(crate) fn note_self_alias(&mut self, scope: ScopeId, name: &str) {
         self.self_import_aliases.insert((scope, name.to_string()));
-    }
-
-    /// Record that `module` was mounted by `#[path]` somewhere rustc would not put it.
-    pub(crate) fn note_misplaced_mount(&mut self, module: ScopeId) {
-        self.misplaced_mounts.insert(module);
     }
 
     /// Record the `pub(in path)` restrict of the binding just added (a no-op for
@@ -153,11 +145,7 @@ impl<'f> Builder<'f> {
     }
 
     pub(crate) fn finish(mut self) -> ScopeGraph {
-        super::restrict::resolve_restricts(
-            &mut self.graph,
-            &self.pending_restricts,
-            &self.misplaced_mounts,
-        );
+        super::restrict::resolve_restricts(&mut self.graph, &self.pending_restricts);
         // Build the per-consuming-crate dep map from captured per-member deps +
         // the library-root index. For each consuming member M with a LIBRARY root
         // Rc, and each recorded `(in_source_name -> target_dir)`, map the normalized
@@ -191,8 +179,6 @@ impl<'f> Builder<'f> {
             }
         }
         self.graph.crate_deps_by_root = self.crate_deps_by_root;
-        self.graph.misplaced_mount_files =
-            misplaced_mount_files(&self.graph, &self.misplaced_mounts);
         self.graph.self_import_aliases = self.self_import_aliases;
         self.graph
     }
@@ -405,20 +391,28 @@ impl<'f> Builder<'f> {
 
     // ── `mod foo;` file resolution (declaring-directory rule) ──────────────────
 
-    /// Resolve a `mod name;` declared in a module whose directory is `dir`, with
-    /// an optional `#[path]` override. Applies the declaring-DIR rule and the
-    /// `foo.rs`+`foo/mod.rs` ambiguity.
+    /// Resolve a `mod name;` declared in a module with the two directories rustc
+    /// tracks (Rust Reference, "Modules"): `dir` is where a plain `mod name;` is
+    /// searched (`foo/` for the non-mod-rs `foo.rs`), `path_dir` where a
+    /// `#[path = "rel"]` is joined (the declaring file's own directory, `foo/` for
+    /// `foo/mod.rs`; an inline module's directory inside an inline block). Applies
+    /// the `foo.rs`+`foo/mod.rs` ambiguity.
     pub(crate) fn resolve_mod_file(
         &self,
         dir: &str,
+        path_dir: &str,
         name: &str,
         path_attr: Option<&str>,
     ) -> ModFile {
         if let Some(rel) = path_attr {
-            // `#[path = "rel"]` is relative to the declaring module's directory.
-            let p = join(dir, rel);
+            // `#[path = "rel"]` is relative to the declaring file's directory; a path
+            // that normalizes outside the repository (or is absolute) names no indexed file.
+            let Some(p) = resolve_relative(path_dir, rel) else {
+                return ModFile::Missing;
+            };
             if self.files.contains_key(&p) {
-                // A `#[path]` file's children search its own parent dir.
+                // rustc treats a `#[path]`-loaded file like a mod-rs file: its children
+                // (mounted or not) are siblings of it.
                 return ModFile::One {
                     child_dir: parent_dir(&p),
                     path: p,
@@ -456,13 +450,14 @@ impl<'f> Builder<'f> {
         decl_file: FileId,
         name: &str,
         dir: &str,
+        path_dir: &str,
         path_attr: Option<&str>,
         vis: Vis,
         cond: Option<CfgCond>,
     ) -> Vec<(ScopeId, Option<String>)> {
         // Returns (module_scope, source_path_if_modeled) pairs — 2 entries only
         // for the ambiguous case (each candidate file → its own binding).
-        match self.resolve_mod_file(dir, name, path_attr) {
+        match self.resolve_mod_file(dir, path_dir, name, path_attr) {
             ModFile::One { path, child_dir } => {
                 let s =
                     self.module_scope_for_target(parent_scope, &path, cond.clone(), vis.clone());
@@ -595,6 +590,31 @@ pub(crate) fn join(dir: &str, tail: &str) -> String {
     } else {
         format!("{dir}/{tail}")
     }
+}
+
+/// `base_dir` (a directory, trailing `/` or empty) joined with `rel` as a path relative
+/// to it, with `.` and `..` segments resolved lexically (rustc joins them as written and
+/// the file system collapses them). `None` when `rel` is absolute or climbs above the
+/// repository root: no indexed file can be named. A trailing `/` in `rel` is kept.
+pub(crate) fn resolve_relative(base_dir: &str, rel: &str) -> Option<String> {
+    if rel.starts_with('/') {
+        return None;
+    }
+    let mut parts: Vec<&str> = Vec::new();
+    for seg in base_dir.split('/').chain(rel.split('/')) {
+        match seg {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            other => parts.push(other),
+        }
+    }
+    let mut out = parts.join("/");
+    if !out.is_empty() && rel.ends_with('/') {
+        out.push('/');
+    }
+    Some(out)
 }
 
 /// For a child-module search: the directory children of `path` search.
@@ -963,25 +983,4 @@ mod tests {
         assert_eq!(normalize_crate_ident("my-crate"), "my_crate");
         assert_eq!(normalize_crate_ident("plain"), "plain");
     }
-}
-
-/// Files holding a scope whose module chain crosses a module mounted by `#[path]` where
-/// rustc would not put it (#765). What this graph binds in such a file may be a decoy of
-/// the file rustc loads; the resolution guards of #724 refuse targets there.
-fn misplaced_mount_files(graph: &ScopeGraph, misplaced: &BTreeSet<ScopeId>) -> BTreeSet<FileId> {
-    let mut files = BTreeSet::new();
-    if misplaced.is_empty() {
-        return files;
-    }
-    for scope in graph.scopes.values() {
-        let mut cur = Some(scope.id);
-        while let Some(id) = cur {
-            if misplaced.contains(&id) {
-                files.extend(scope.extents.iter().map(|e| e.file));
-                break;
-            }
-            cur = graph.parent_of(id);
-        }
-    }
-    files
 }

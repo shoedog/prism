@@ -9,8 +9,7 @@ use crate::name_resolution::binding_lookup::{BindingKind, LocalFact};
 use crate::name_resolution::rust_policy::{NS_TYPE, NS_VALUE, VIS_PRIV, VIS_PUB};
 use crate::name_resolution::types::{BindTarget, ExternRef, FileId, ScopeId, ScopeKind, Target};
 
-use super::super::builder::{join, parent_dir, scope_target, Builder};
-use super::super::restrict::expected_mount_file;
+use super::super::builder::{join, resolve_relative, scope_target, Builder};
 use super::super::scopes::{
     child_of_kind, name_text, parse_cfg_for_item, parse_use, parse_vis, pattern_idents, vis,
     UseItem, UseNs,
@@ -52,7 +51,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_mod_item(
 
     if has_body {
         // Inline module: a Module scope spanning the body, parented lexically at
-        // `scope`. Its child-search dir is `<ctx.dir>/<name>/` (or `#[path]`).
+        // `scope`. Its child-search dir is `<ctx.dir>/<name>/` (or its `#[path]`).
         let (lo, hi) = body_range.unwrap();
         let inline = b.add_scope(
             ScopeKind::Module,
@@ -72,12 +71,14 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_mod_item(
             vec![vis_extent_from(b, scope, ctx.file, lo)],
         );
         b.note_restrict(vis_kind, &vin);
-        if path_attr.is_some() {
-            // An inline `#[path]` module redirects its children's directory; not modeled.
-            b.note_misplaced_mount(inline);
-        }
+        // Children's directories (rustc, Reference "Modules"): an inline module `m` adds
+        // `m/` to the directory its children search, for plain and `#[path]` children
+        // alike; its own `#[path = "p"]` replaces that with `p/` joined to the declaring
+        // file's directory (not its `<stem>/`). An unplaceable path (absolute, above the
+        // repository) leaves children no indexed file to find.
         let child_dir = match &path_attr {
-            Some(rel) => parent_dir(&join(&ctx.dir, rel)),
+            Some(rel) => resolve_relative(&ctx.path_dir, &format!("{rel}/"))
+                .unwrap_or_else(|| "\u{0}/".to_string()),
             None => join(&ctx.dir, &format!("{name}/")),
         };
         let body_nid = with_node(b, path, nid, |_pf, n| {
@@ -86,6 +87,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_mod_item(
         if let Some(body_nid) = body_nid {
             let inner_ctx = Ctx {
                 file: ctx.file,
+                path_dir: child_dir.clone(),
                 dir: child_dir,
                 module: inline,
             };
@@ -98,16 +100,12 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_mod_item(
             ctx.file,
             &name,
             &ctx.dir,
+            &ctx.path_dir,
             path_attr.as_deref(),
             v.clone(),
             cond.clone(),
         );
-        for (mod_scope, src) in pairs {
-            if let (Some(rel), Some(src)) = (path_attr.as_deref(), src.as_deref()) {
-                if src != expected_mount_file(path, &ctx.dir, rel) {
-                    b.note_misplaced_mount(mod_scope);
-                }
-            }
+        for (mod_scope, _src) in pairs {
             b.add_binding(
                 scope,
                 name.clone(),
@@ -376,6 +374,7 @@ pub(in crate::name_resolution::rust_populator::walk) fn walk_function(
         let body_ctx = Ctx {
             file: ctx.file,
             dir: ctx.dir.clone(),
+            path_dir: ctx.path_dir.clone(),
             module: ctx.module,
         };
         walk_block_body(b, path, &body_nid, body_scope, &body_ctx);
