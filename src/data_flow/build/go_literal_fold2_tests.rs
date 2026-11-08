@@ -155,3 +155,31 @@ fn a_bound_literal_that_escapes_gives_no_carrier() {
         &[("errs", 4, 8, false), ("errs", 4, 9, false)],
     );
 }
+
+// ---- item 3 round 3: the read must resolve to the variable the sink statement writes ---------
+
+#[test]
+fn a_later_if_init_shadow_read_is_not_fed() {
+    let src = "package p\nfunc f() error {\n\tpreparation := func() error {\n\t\terr := do()\n\t\treturn err\n\t}\n\tif err := preparation(); err != nil {\n\t\treturn err\n\t}\n\tif err := wait(); err != nil {\n\t\treturn err\n\t}\n\treturn nil\n}\n";
+    check(
+        "shadow-if",
+        src,
+        &[("err", 4, 11, false), ("err", 4, 7, true), ("err", 4, 8, true)],
+    );
+}
+
+#[test]
+fn a_sibling_block_redeclaring_the_name_is_not_fed() {
+    let src = "package p\nfunc f() {\n\terr := func() error {\n\t\terr := do()\n\t\treturn err\n\t}()\n\tuse(err)\n\t{\n\t\terr := other()\n\t\tuse(err)\n\t}\n}\n";
+    check(
+        "sibling-redeclare",
+        src,
+        &[("err", 4, 10, false), ("err", 4, 7, true)],
+    );
+}
+
+#[test]
+fn a_define_sink_keeps_a_read_in_the_same_scope() {
+    let src = "package p\nfunc f() {\n\terr := func() error {\n\t\terr := do()\n\t\treturn err\n\t}()\n\tif err != nil {\n\t\tuse(err)\n\t}\n}\n";
+    check("define-same-scope", src, &[("err", 4, 7, true), ("err", 4, 8, true)]);
+}
